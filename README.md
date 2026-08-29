@@ -4,7 +4,7 @@ MissionaryTube is a mobile-first static web app hosted from Azure Storage.
 
 - Live site: https://missionarytube.z13.web.core.windows.net/
 - Source of truth: the `main` branch in this repository
-- Current state: project scaffold; replace the placeholder `index.html` with the existing site when ready
+- Current state: the existing single-file Astra site is imported and ready for GitHub-managed development
 - Deployment state: prepared but disabled until the one-time Azure OIDC setup is complete
 
 ## Commands
