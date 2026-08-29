@@ -12,11 +12,28 @@ MissionaryTube is a mobile-first static web app hosted from Azure Storage.
 No local computer is required for normal development. Claude and ChatGPT/Codex can work through GitHub branches and pull requests.
 
 ```bash
-npm test
-npm run build
+npm test        # static validation plus the unit test suite
+npm run build   # copy deployable files into dist/
+npm run pin:check  # verify pinned player-library hashes (needs network)
 ```
 
-The project has no runtime or development dependencies. The build copies deployable files into `dist/`.
+The project has no installed dependencies. `npm test` runs `scripts/check.mjs` and then the
+Node test runner over `tests/`. The build copies deployable files into `dist/`.
+
+### Runtime dependencies
+
+The two player libraries are the only code loaded from a third party at runtime. Both are
+pinned to an exact version and protected by a subresource integrity hash, so a CDN or upstream
+release cannot change what the deployed site executes:
+
+| Library | Version | Loaded for |
+| --- | --- | --- |
+| [dash.js](https://github.com/Dash-Industry-Forum/dash.js) | 5.2.0 | MPEG-DASH streams |
+| [hls.js](https://github.com/video-dev/hls.js) | 1.6.13 | HLS streams without native support |
+
+`npm test` fails the build if any remote script uses a mutable channel such as `/latest/` or
+is missing an integrity hash. To bump a version, edit `scripts/pin-player-libs.mjs`, run
+`node scripts/pin-player-libs.mjs`, and commit the regenerated `index.html`.
 
 ## Repository map
 
@@ -24,7 +41,8 @@ The project has no runtime or development dependencies. The build copies deploya
 | --- | --- |
 | `index.html` | Static app entry point |
 | `assets/` | CSS, JavaScript, images, icons, and other browser assets |
-| `scripts/` | Dependency-free validation and build scripts |
+| `scripts/` | Dependency-free validation, build, and dependency-pinning scripts |
+| `tests/` | Node test-runner suite for progress storage and dependency pinning |
 | `docs/WORKFLOW.md` | Phone-first GitHub development workflow |
 | `docs/AI-COLLABORATION.md` | Claude implementation and Codex review protocol |
 | `docs/EVALUATION.md` | Blind Claude-vs-Codex competition rules |

@@ -1,10 +1,12 @@
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
 
 const failures = [];
 const requiredFiles = [
   "index.html",
   "assets/css/app.css",
   "assets/js/app.js",
+  "assets/js/progress-store.js",
   "AGENTS.md",
   "CLAUDE.md",
   "docs/WORKFLOW.md",
@@ -43,6 +45,53 @@ for (const asset of html.matchAll(/(?:src|href)=["'](assets\/[^"'?#]+)/g)) {
   }
 }
 
+// Remote runtime dependencies must be reproducible: an exact version and a
+// subresource integrity hash, never a mutable channel such as /latest/.
+const MUTABLE_CHANNEL = /(?:\/|@)(?:latest|next|canary|edge|beta|dev|main|master)(?:\/|$)/i;
+const PINNED_VERSION = /(?:@|\/v?)\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?(?:\/|$)/;
+const SRI = "sha(?:256|384|512)-[A-Za-z0-9+/=_-]+";
+
+async function collectSourceFiles(directory) {
+  const found = [];
+  let entries;
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch {
+    return found;
+  }
+  for (const entry of entries) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) found.push(...(await collectSourceFiles(path)));
+    else if (/\.(?:js|mjs|html)$/.test(entry.name)) found.push(path);
+  }
+  return found;
+}
+
+const sourceFiles = ["index.html", ...(await collectSourceFiles("assets"))];
+let remoteDependencies = 0;
+
+for (const path of sourceFiles) {
+  const source = await readFile(path, "utf8");
+  const protectedUrls = new Set([
+    ...[...source.matchAll(new RegExp(`src:\\s*'(https://[^']+)'\\s*,\\s*integrity:\\s*'${SRI}'`, "g"))].map((m) => m[1]),
+    ...[...source.matchAll(new RegExp(`src:\\s*"(https://[^"]+)"\\s*,\\s*integrity:\\s*"${SRI}"`, "g"))].map((m) => m[1]),
+    ...[...source.matchAll(new RegExp(`<script[^>]+src=["'](https://[^"']+)["'][^>]*integrity=["']${SRI}["']`, "g"))].map((m) => m[1])
+  ]);
+
+  for (const match of source.matchAll(/https:\/\/[^\s'"`<>)]+\.m?js\b/g)) {
+    const url = match[0];
+    remoteDependencies += 1;
+    if (MUTABLE_CHANNEL.test(url)) {
+      failures.push(`${path} loads a mutable dependency channel, pin an exact version: ${url}`);
+    } else if (!PINNED_VERSION.test(url)) {
+      failures.push(`${path} loads a remote script without a pinned version: ${url}`);
+    }
+    if (!protectedUrls.has(url)) {
+      failures.push(`${path} loads a remote script without a subresource integrity hash: ${url}`);
+    }
+  }
+}
+
 const scoreboard = JSON.parse(await readFile("evals/results/scoreboard.json", "utf8"));
 if (scoreboard.schemaVersion !== 1 || !Array.isArray(scoreboard.results)) {
   failures.push("evals/results/scoreboard.json must use schemaVersion 1 and contain a results array");
@@ -53,4 +102,7 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Validation passed (${requiredFiles.length} required files, ${checks.length} HTML checks).`);
+console.log(
+  `Validation passed (${requiredFiles.length} required files, ${checks.length} HTML checks, ` +
+    `${remoteDependencies} pinned remote dependenc${remoteDependencies === 1 ? "y" : "ies"}).`
+);
