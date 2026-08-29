@@ -1,0 +1,74 @@
+name: Claude vs Codex arena task
+description: Freeze one fair, independently scored implementation or review task.
+title: "[Arena] "
+body:
+  - type: input
+    id: task_id
+    attributes:
+      label: Task ID
+      placeholder: player-startup-001
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - new feature implementation
+        - UI/UX
+        - debugging
+        - refactoring
+        - performance
+        - architecture
+        - code review
+        - robustness
+    validations:
+      required: true
+  - type: input
+    id: base_commit
+    attributes:
+      label: Exact base commit
+      description: Full 40-character commit SHA used by both models.
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: Define the outcome without prescribing one contestant's implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Observable acceptance criteria
+      description: Include deterministic tests and expected behavior where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: edge_cases
+    attributes:
+      label: Fixtures, edge cases, and critical failures
+      description: Freeze these before either model begins.
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Identical test commands
+      value: |
+        npm test
+        npm run build
+    validations:
+      required: true
+  - type: checkboxes
+    id: freeze
+    attributes:
+      label: Fairness lock
+      options:
+        - label: The specification and scoring weights are frozen before either model starts.
+          required: true
+        - label: Both branches will start from the exact commit above.
+          required: true
+        - label: Neither model may inspect the competing submission before both are frozen.
+          required: true
