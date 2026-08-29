@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MissionaryTube arena result",
+  "type": "object",
+  "required": ["schemaVersion", "results"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "taskId",
+          "category",
+          "baseCommit",
+          "submissions",
+          "contaminated",
+          "winner",
+          "rationale"
+        ],
+        "properties": {
+          "taskId": { "type": "string", "minLength": 1 },
+          "category": {
+            "enum": [
+              "new feature implementation",
+              "UI/UX",
+              "debugging",
+              "refactoring",
+              "performance",
+              "architecture",
+              "code review",
+              "robustness"
+            ]
+          },
+          "baseCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+          "submissions": {
+            "type": "object",
+            "required": ["claude", "codex"],
+            "properties": {
+              "claude": { "$ref": "#/$defs/submission" },
+              "codex": { "$ref": "#/$defs/submission" }
+            },
+            "additionalProperties": false
+          },
+          "contaminated": { "type": "boolean" },
+          "winner": { "enum": ["claude", "codex", "tie", "ineligible"] },
+          "rationale": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "$defs": {
+    "submission": {
+      "type": "object",
+      "required": ["model", "branch", "commit", "score", "evidence"],
+      "properties": {
+        "model": { "type": "string", "minLength": 1 },
+        "branch": { "type": "string", "minLength": 1 },
+        "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "evidence": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
