@@ -294,6 +294,87 @@ test("compactMeta keeps only poster-card fields", () => {
   assert.equal(AstraProgress.compactMeta({ type: "movie" }), null);
 });
 
+test("a media id longer than the display limit round-trips through storage", () => {
+  // An add-on may return an id far longer than the display-field cap. The
+  // compact record's id is what cardHTML/openMedia rebuild the media key from,
+  // so a truncated copy would resolve to nothing after a reload.
+  const { store, storage } = makeStore();
+  const longId = `tt${"9".repeat(240)}`;
+  const meta = {
+    id: longId,
+    type: "series",
+    name: "Long Identifier Show",
+    poster: "https://images.example.test/long.jpg"
+  };
+  const video = { id: `${longId}:1:1`, season: 1, episode: 1 };
+  const originalKey = AstraProgress.mediaKeyOf(meta);
+
+  store.record(meta, video, { time: 600, duration: 2700 });
+  store.flush();
+
+  const reloaded = AstraProgress.createProgressStore({ storage, storageKey: KEY }).load();
+  const card = reloaded.continueList()[0];
+
+  assert.ok(card, "the long-id title appears in Continue Watching");
+  assert.equal(card.id, longId, "the id is preserved exactly, not truncated");
+  assert.equal(card.type, "series");
+  assert.equal(
+    AstraProgress.mediaKeyOf(card),
+    originalKey,
+    "the key rebuilt from the card matches the key the entry is stored under"
+  );
+  assert.equal(reloaded.meta(originalKey).name, "Long Identifier Show", "openMedia can resolve it");
+  assert.equal(reloaded.get(originalKey, video.id).time, 600, "and the resume position is found");
+});
+
+test("video ids sharing a long prefix stay distinct", () => {
+  const { store, storage } = makeStore();
+  const longId = `tt${"7".repeat(240)}`;
+  const meta = { id: longId, type: "series", name: "Long Identifier Show" };
+  const first = { id: `${longId}:1:1` };
+  const second = { id: `${longId}:1:2` };
+
+  store.record(meta, first, { time: 100, duration: 2700 });
+  store.record(meta, second, { time: 800, duration: 2700 });
+  store.flush();
+
+  const reloaded = AstraProgress.createProgressStore({ storage, storageKey: KEY }).load();
+  const mediaKey = AstraProgress.mediaKeyOf(meta);
+
+  assert.equal(reloaded.entriesFor(mediaKey).length, 2, "two episodes, two entries");
+  assert.equal(reloaded.get(mediaKey, first.id).time, 100);
+  assert.equal(reloaded.get(mediaKey, second.id).time, 800);
+  assert.equal(reloaded.latest(mediaKey).videoId, second.id, "resumeVideo matches on the full id");
+});
+
+test("legacy records with a long id migrate without losing their identity", () => {
+  const longId = `tt${"5".repeat(240)}`;
+  const meta = { id: longId, type: "series", name: "Long Identifier Show", poster: "https://images.example.test/l.jpg" };
+  const mediaKey = `series:${longId}`;
+  const videoId = `${longId}:2:3`;
+  const storage = createStorage();
+  storage.setItem(
+    KEY,
+    JSON.stringify({
+      [`${mediaKey}|${videoId}`]: {
+        key: `${mediaKey}|${videoId}`,
+        mediaKey,
+        videoId,
+        time: 450,
+        duration: 2700,
+        completed: false,
+        updated: 1_700_000_000_000,
+        meta
+      }
+    })
+  );
+
+  const store = AstraProgress.createProgressStore({ storage, storageKey: KEY }).load();
+
+  assert.equal(AstraProgress.mediaKeyOf(store.continueList()[0]), mediaKey);
+  assert.equal(store.get(mediaKey, videoId).time, 450);
+});
+
 test("oversized add-on strings cannot inflate stored metadata", () => {
   const compact = AstraProgress.compactMeta({
     id: "tt1",
@@ -304,6 +385,14 @@ test("oversized add-on strings cannot inflate stored metadata", () => {
 
   assert.equal(compact.name.length, 200);
   assert.equal(compact.poster.length, 512);
+});
+
+test("the display-field cap does not apply to identity fields", () => {
+  const longId = "x".repeat(1000);
+  const compact = AstraProgress.compactMeta({ id: longId, type: "series", name: "n" });
+
+  assert.equal(compact.id, longId);
+  assert.equal(compact.type, "series");
 });
 
 test("invalid progress updates are ignored", () => {

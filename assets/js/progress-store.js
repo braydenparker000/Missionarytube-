@@ -34,6 +34,15 @@
     return String(value).slice(0, limit || MAX_TEXT);
   }
 
+  /**
+   * Identity values (media id, media type, video id) are never truncated: they
+   * are what `mediaKeyOf` and the entry keys are built from, and a shortened
+   * copy would no longer resolve back to the record it names.
+   */
+  function identity(value) {
+    return value == null ? "" : String(value);
+  }
+
   function finite(value) {
     var n = Number(value);
     return Number.isFinite(n) ? n : 0;
@@ -64,8 +73,8 @@
   function compactMeta(meta) {
     if (!meta || meta.id == null) return null;
     var compact = {
-      id: text(meta.id, MAX_TEXT),
-      type: text(meta.type || "movie", 32),
+      id: identity(meta.id),
+      type: identity(meta.type || "movie"),
       name: text(meta.name || meta.title, MAX_TEXT)
     };
     var poster = text(meta.poster, MAX_URL);
@@ -119,8 +128,8 @@
     Object.keys(source).forEach(function (key) {
       var record = source[key];
       if (!record || typeof record !== "object") return;
-      var mediaKey = text(record.mediaKey || mediaKeyOf(record.meta), MAX_TEXT);
-      var videoId = text(record.videoId, MAX_TEXT);
+      var mediaKey = identity(record.mediaKey || mediaKeyOf(record.meta));
+      var videoId = identity(record.videoId);
       if (!mediaKey || !videoId) return;
       var duration = finite(record.duration);
       if (duration <= 0) return;
@@ -272,7 +281,7 @@
      */
     function record(meta, video, progress) {
       var mediaKey = mediaKeyOf(meta);
-      var videoId = text(video && video.id != null ? video.id : meta && meta.id, MAX_TEXT);
+      var videoId = identity(video && video.id != null ? video.id : meta && meta.id);
       var duration = finite(progress && progress.duration);
       if (!mediaKey || !videoId || duration <= 0) return null;
 
@@ -298,7 +307,7 @@
     }
 
     function get(mediaKey, videoId) {
-      return entries[entryKeyOf(mediaKey, text(videoId, MAX_TEXT))] || null;
+      return entries[entryKeyOf(mediaKey, identity(videoId))] || null;
     }
 
     function entriesFor(mediaKey) {
