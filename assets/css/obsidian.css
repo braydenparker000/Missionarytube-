@@ -625,6 +625,7 @@ main {
   overflow: hidden;
 }
 .card-meta {
+  display: block;
   margin-top: 2px;
   font-size: var(--t-micro);
   color: var(--silver-dim);
@@ -637,13 +638,16 @@ main {
 .resume-rail { grid-auto-columns: 232px; }
 .resume-card { display: grid; grid-template-columns: 64px 1fr; gap: var(--s3); align-items: start; text-align: left; }
 .resume-card .art { aspect-ratio: 2 / 3; }
-.resume-body { min-width: 0; padding-top: 2px; }
+.resume-body { display: block; min-width: 0; padding-top: 2px; }
 .resume-title {
   font-size: var(--t-small); font-weight: 650; line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.resume-context { margin-top: var(--s1); font-size: var(--t-micro); color: var(--silver); }
-.resume-bar { margin-top: var(--s2); height: 2px; background: var(--slate-700); }
+/* These are <span>, so they need an explicit block box. Without one the
+   resume bar has no height at all and never draws; the others get their line
+   break from the block above them by luck rather than by design. */
+.resume-context { display: block; margin-top: var(--s1); font-size: var(--t-micro); color: var(--silver); }
+.resume-bar { display: block; margin-top: var(--s2); height: 2px; background: var(--slate-700); }
 .resume-bar i { display: block; height: 100%; background: var(--signal); }
 
 /* A release card keeps the full source name legible enough to judge. */
@@ -694,7 +698,7 @@ main {
 .hub-row:hover { background: var(--slate-900); }
 .hub-row .numeral { font-size: var(--t-body); }
 .hub-name { min-width: 0; }
-.hub-label { font-size: var(--t-body); font-weight: 700; letter-spacing: var(--track-tight); }
+.hub-label { display: block; font-size: var(--t-body); font-weight: 700; letter-spacing: var(--track-tight); }
 .hub-detail { margin-top: 2px; font-size: var(--t-tiny); color: var(--silver); }
 
 /* An unavailable sector stays visible and explains itself. It is never
@@ -874,7 +878,7 @@ main {
   line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.video-sub { margin-top: 3px; font-size: var(--t-tiny); color: var(--silver-dim); }
+.video-sub { display: block; margin-top: 3px; font-size: var(--t-tiny); color: var(--silver-dim); }
 .video-row.watched .video-title { color: var(--silver); }
 .video-row.active { background: var(--slate-800); box-shadow: inset 2px 0 0 var(--signal); }
 .video-flag { flex: 0 0 auto; align-self: center; }
@@ -1010,6 +1014,7 @@ main {
 .tag.state-unsafe, .chip-sm.state-unsafe { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); background: var(--bad-wash); }
 
 .stream-why {
+  display: block;
   margin-top: var(--s2);
   font-size: var(--t-tiny);
   color: var(--silver);
@@ -1495,6 +1500,7 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
 .skeleton-art { aspect-ratio: 2 / 3; }
 
 .spinner {
+  display: block;
   width: 20px; height: 20px; flex: 0 0 auto;
   border: 2px solid var(--slate-600);
   border-top-color: var(--signal);
@@ -1804,7 +1810,7 @@ main::before {
   color: var(--silver);
 }
 .feature-kicker .label { color: var(--signal-bright); }
-.feature-rule { width: 40px; height: 1px; background: var(--rule-strong); }
+.feature-rule { display: block; width: 40px; height: 1px; background: var(--rule-strong); }
 .feature-title {
   max-width: 11ch;
   font-size: clamp(46px, 13vw, 78px);
@@ -1913,6 +1919,11 @@ main::before {
 /* Dossiers borrow from classified folders: image field, hard crop, numbered
    record cells. Real artwork remains the focus instead of becoming wallpaper. */
 .dossier-art {
+  /* An explicit height plus the base rule's aspect-ratio would let the ratio
+     drive the *width* instead (16/10 of 384px is 615px), pushing the band past
+     a 412px viewport and giving the sheet a horizontal scrollbar. */
+  aspect-ratio: auto;
+  width: 100%;
   min-height: 280px;
   height: 42svh;
   max-height: 420px;
@@ -1922,6 +1933,10 @@ main::before {
 }
 .dossier-art img { filter: saturate(0.8) contrast(1.08); }
 .dossier-head { position: relative; }
+/* The eyebrow sits over artwork, where the scrim can only darken so far. At
+   --silver-dim it measured 3.31:1 against a high-key backdrop — below AA for
+   text this size. --silver takes the same position to 5.53:1. */
+.dossier-head > .label { color: var(--silver); }
 .dossier-head::before {
   content: "DOSSIER";
   position: absolute;

@@ -271,3 +271,47 @@ test("the stylesheet is the only place raw colours are defined", async () => {
   const files = await readdir("assets/css");
   assert.deepEqual(files.sort(), ["obsidian.css"], "the superseded stylesheet is gone, not left orphaned");
 });
+
+test("a span used as a line is given the block box its styling assumes", () => {
+  // Regression: `.resume-bar` carried `height: 2px` while still inline, so the
+  // Continue Watching progress bar measured 0px and never drew. The sibling
+  // cases were only saved by the block element above them.
+  const spanClasses = new Set();
+  for (const m of html.matchAll(/<span class="([^"$]*)"/g)) {
+    for (const c of m[1].split(/\s+/)) if (c) spanClasses.add(c);
+  }
+  const offenders = [];
+  for (const cls of [...spanClasses].sort()) {
+    // Take the last declaration, since a later section may override an earlier one.
+    const rules = [...css.matchAll(new RegExp(`\\n\\.${cls.replace(/-/g, "\\-")} \\{([^}]*)\\}`, "g"))];
+    if (!rules.length) continue;
+    const all = rules.map((r) => r[1]).join(";");
+    const needsBlock = /(margin-top|margin-bottom|padding-top|padding-bottom|(?<!line-)height:|-webkit-line-clamp)/.test(all);
+    if (!needsBlock) continue;
+    const isBlock = /display:\s*(block|grid|flex|-webkit-box|inline-block|inline-flex)/.test(all);
+    const isPositioned = /position:\s*absolute/.test(all);
+    if (!isBlock && !isPositioned) offenders.push(cls);
+  }
+  assert.deepEqual(offenders, [], `these spans style a box they do not have: ${offenders.join(", ")}`);
+});
+
+test("the Continue Watching progress bar has a height to draw into", () => {
+  const bar = css.match(/\n\.resume-bar \{([^}]*)\}/);
+  assert.ok(bar, ".resume-bar exists");
+  assert.match(bar[1], /display: block/, "an inline bar measures 0px tall");
+  assert.match(bar[1], /height: 2px/);
+  assert.match(css, /\.resume-bar i \{ display: block; height: 100%/);
+});
+
+test("a list operation always goes through the all-elements selector", () => {
+  // Regression: `$('[data-season]',root).forEach(...)` shipped on this branch.
+  // `$` is querySelector, which returns one Element with no `.forEach`, so
+  // clicking a season tab threw and the episode list never updated. The two
+  // helpers differ by one character, which is exactly why this needs a test.
+  const single = [...html.matchAll(/(?<![$\w])\$\((['"][^'"]*['"][^)]*)\)\s*\.\s*(forEach|map|filter|slice|some|every)\b/g)];
+  assert.deepEqual(single.map((m) => m[0]), [],
+    "these call an array method on querySelector's single element");
+  // And the spread form has the same trap.
+  const spread = [...html.matchAll(/\[\s*\.\.\.\s*(?<![$\w])\$\(/g)];
+  assert.deepEqual(spread.map((m) => m[0]), [], "spreading a single element is not a list");
+});
