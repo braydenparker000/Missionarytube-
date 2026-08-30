@@ -209,6 +209,90 @@
     return /\blive\b|\b24\/7\b/i.test(text);
   }
 
+  function detectAudioLanguages(text) {
+    var value = str(text);
+    var known = [
+      ["English", /\b(?:english|eng)\b/i], ["Japanese", /\b(?:japanese|jpn)\b/i],
+      ["Spanish", /\b(?:spanish|spa)\b/i], ["French", /\b(?:french|fre|fra)\b/i],
+      ["German", /\b(?:german|ger|deu)\b/i], ["Portuguese", /\b(?:portuguese|por)\b/i],
+      ["Italian", /\b(?:italian|ita)\b/i], ["Korean", /\b(?:korean|kor)\b/i],
+      ["Chinese", /\b(?:chinese|chi|zho)\b/i]
+    ].filter(function (entry) { return entry[1].test(value); }).map(function (entry) { return entry[0]; });
+    if (!known.length && /\b(?:dual|multi)[ ._-]*(?:audio|dub)\b/i.test(value)) known.push("Multiple");
+    return known;
+  }
+
+  function fileIndexOf(raw) {
+    if (!raw || raw.fileIdx == null || raw.fileIdx === "") return null;
+    var value = Number(raw && raw.fileIdx);
+    return Number.isInteger(value) && value >= 0 ? value : null;
+  }
+
+  function detectPack(text) {
+    return /\b(?:complete|batch|season[ ._-]*pack|series[ ._-]*pack|collection)\b/i.test(text) ||
+      /\bS\d{1,3}\s*[-–]\s*S?\d{1,3}\b/i.test(text) ||
+      /\bE\d{1,4}\s*[-–]\s*E?\d{1,4}\b/i.test(text) ||
+      /\bepisodes?\s*\d{1,4}\s*[-–]\s*\d{1,4}\b/i.test(text);
+  }
+
+  /** Conservatively parse only explicit episode markers, never bare numbers. */
+  function episodeReference(text) {
+    var value = str(text);
+    var match = value.match(/\bS(\d{1,3})[ ._-]*E(\d{1,4})(?:v\d+)?\b/i) ||
+      value.match(/\b(\d{1,3})x(\d{1,4})(?:v\d+)?\b/i);
+    if (match) return { season: Number(match[1]), episode: Number(match[2]) };
+    match = value.match(/\b(?:EP?|Episode)[ ._:-]*(\d{1,4})(?:v\d+)?\b/i);
+    if (!match) match = value.match(/(?:^|\s)-\s*(\d{1,4})(?:v\d+)?(?=\s|[.\[_-]|$)/i);
+    return match ? { season: null, episode: Number(match[1]) } : null;
+  }
+
+  function selectedEpisode(options) {
+    var video = options && options.video;
+    if (!video || typeof video !== "object") return null;
+    var season = Number(video.season);
+    var episode = Number(video.episode);
+    if (!Number.isFinite(episode) || episode <= 0) return null;
+    return { season: Number.isFinite(season) ? season : null, episode: episode };
+  }
+
+  function seriesIdentity(raw, hints, text, options) {
+    var selected = selectedEpisode(options);
+    var reference = episodeReference(text);
+    var pack = detectPack(text);
+    var fileIdx = fileIndexOf(raw);
+    var status = "unknown";
+
+    if (selected && reference) {
+      var seasonMatches = reference.season === null || selected.season === null || reference.season === selected.season;
+      status = seasonMatches && reference.episode === selected.episode ? "match" : "mismatch";
+    } else if (selected && pack && raw.infoHash && fileIdx === null) {
+      status = "ambiguous-pack";
+    } else if (selected && pack && fileIdx !== null) {
+      status = "pack-file";
+    }
+
+    return {
+      fileIdx: fileIdx,
+      filename: str(hints.filename),
+      bingeGroup: str(hints.bingeGroup),
+      pack: pack,
+      episodeReference: reference,
+      episodeStatus: status
+    };
+  }
+
+  function autoEligible(stream) {
+    var status = stream && stream.facts && stream.facts.episodeStatus;
+    return status !== "mismatch" && status !== "ambiguous-pack";
+  }
+
+  function identityKey(stream) {
+    if (!stream) return "";
+    var locator = stream.url || stream.ytId || stream.externalUrl || stream.infoHash || "";
+    var filePart = stream.fileIdx === null || stream.fileIdx === undefined ? "" : ":file=" + stream.fileIdx;
+    return "s" + stream.index + ":" + locator + filePart;
+  }
+
   /**
    * Turn one raw add-on stream into a structured record. Every field access is
    * defensive: a malformed object yields an `unknown`/`unsafe` stream rather
@@ -222,9 +306,13 @@
     var parsed = raw.url ? parseUrl(raw.url, pageUrl) : null;
     var externalParsed = raw.externalUrl ? parseUrl(raw.externalUrl, pageUrl) : null;
 
-    var title = str(raw.name || raw.title).trim();
-    var description = str(raw.description || raw.title).trim();
+    // A provider's `name` is often just a debrid service label. The release title or
+    // filename is the identity a viewer needs in order to choose a source.
+    var title = str(raw.title || hints.filename || raw.name).trim();
+    var sourceName = str(raw.name).trim();
+    var description = str(raw.description).trim();
     var text = [raw.name, raw.title, raw.description, hints.filename].map(str).join(" ");
+    var identity = seriesIdentity(raw, hints, text, options);
 
     var kind = detectKind(raw, parsed);
     var container = detectContainer(parsed, raw);
@@ -247,8 +335,11 @@
       externalUrl: externalParsed ? externalParsed.href : str(raw.externalUrl),
       externalSafe: raw.externalUrl ? isSafeUrl(externalParsed) : false,
       infoHash: str(raw.infoHash),
+      fileIdx: identity.fileIdx,
+      bingeGroup: identity.bingeGroup,
       title: title || (kind === KIND.UNKNOWN ? "Unknown source" : kind.toUpperCase() + " stream"),
-      description: description === title ? "" : description,
+      sourceName: sourceName,
+      description: description,
       subtitles: Array.isArray(raw.subtitles) ? raw.subtitles : [],
       behaviorHints: hints,
       facts: {
@@ -259,12 +350,16 @@
         hdr: detectHdr(text),
         audioCodec: detectAudioCodec(text),
         audioChannels: detectChannels(text),
+        audioLanguages: detectAudioLanguages(text),
         sizeBytes: sizeBytes,
         sizeText: formatSize(sizeBytes),
         cached: detectCached(text),
         live: detectLive(raw, text),
         audioOnly: AUDIO_CONTAINERS.indexOf(container) !== -1,
-        filename: str(hints.filename),
+        filename: identity.filename,
+        pack: identity.pack,
+        episodeReference: identity.episodeReference,
+        episodeStatus: identity.episodeStatus,
         notWebReady: hints.notWebReady === true,
         proxyHeaders: !!hints.proxyHeaders
       }
@@ -279,7 +374,9 @@
         index: index,
         pageUrl: options.pageUrl,
         addonName: options.addonName,
-        addonOrder: options.addonOrder
+        addonOrder: options.addonOrder,
+        video: options.video,
+        metaType: options.metaType
       });
     });
   }
@@ -686,6 +783,15 @@
     if (facts.sizeBytes > 2.5e10) add(-90, "Very large file");
     else if (facts.sizeBytes && facts.sizeBytes < 6e9) add(20, "Reasonable size");
 
+    if (facts.episodeStatus === "mismatch") add(-5000, "Does not match the selected episode");
+    else if (facts.episodeStatus === "ambiguous-pack") add(-4000, "Pack has no exact file selected");
+    else if (facts.episodeStatus === "match") add(140, "Matches the selected episode");
+    else if (facts.episodeStatus === "pack-file") add(40, "Exact file selected from a pack");
+
+    if (entry.preferredBingeGroup && evaluation.playable && autoEligible(entry.stream) && entry.stream.bingeGroup === entry.preferredBingeGroup) {
+      add(180, "Same release group as the previous episode");
+    }
+
     return { total: total, factors: factors, aboveCeiling: aboveCeiling };
   }
 
@@ -715,6 +821,7 @@
 
     entries.forEach(function (entry) {
       entry.settings = owner;
+      entry.preferredBingeGroup = str(config.preferredBingeGroup);
       rescore(entry);
     });
 
@@ -727,6 +834,7 @@
     entry.score = scored.total;
     entry.factors = scored.factors;
     entry.aboveCeiling = scored.aboveCeiling;
+    entry.autoEligible = autoEligible(entry.stream) && !entry.aboveCeiling && entry.evaluation.playable;
     entry.why = explain(entry);
     return entry;
   }
@@ -771,7 +879,7 @@
    */
   function bestCandidate(ranked) {
     for (var i = 0; i < ranked.length; i += 1) {
-      if (ranked[i].evaluation.playable && !ranked[i].aboveCeiling) return ranked[i];
+      if (ranked[i].autoEligible !== false && ranked[i].evaluation.playable && !ranked[i].aboveCeiling && autoEligible(ranked[i].stream)) return ranked[i];
     }
     return null;
   }
@@ -802,6 +910,10 @@
     explain: explain,
     rescore: rescore,
     bestCandidate: bestCandidate,
+    autoEligible: autoEligible,
+    identityKey: identityKey,
+    episodeReference: episodeReference,
+    detectPack: detectPack,
     tagsFor: tagsFor,
     formatSize: formatSize
   };

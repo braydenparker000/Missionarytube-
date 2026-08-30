@@ -46,6 +46,77 @@ test("structured facts are extracted from add-on titles", () => {
   assert.equal(normalize(fixtures.audioStream).facts.audioOnly, true);
 });
 
+test("the full release name stays visible instead of a generic provider label", () => {
+  const release = "Example.Show.S02E03.1080p.WEB-DL.Dual-Audio.x264-GROUP";
+  const stream = normalize({
+    name: "Cached provider",
+    title: release,
+    url: "https://cdn.example.test/show-s02e03.mp4"
+  });
+  assert.equal(stream.title, release);
+  assert.equal(stream.sourceName, "Cached provider");
+});
+
+test("anime-style episode numbers are matched conservatively", () => {
+  const context = { pageUrl: fixtures.PAGE_URL, video: { id: "anime:12", episode: 12 } };
+  const match = S.normalize({ title: "Example Anime - 12 [1080p] Japanese", url: "https://cdn.example.test/e12.mp4" }, context);
+  const mismatch = S.normalize({ title: "Example Anime - 13 [1080p] English", url: "https://cdn.example.test/e13.mp4" }, context);
+  assert.equal(match.facts.episodeStatus, "match");
+  assert.equal(mismatch.facts.episodeStatus, "mismatch");
+  assert.deepEqual(Array.from(match.facts.audioLanguages), ["Japanese"]);
+});
+
+test("series identity preserves exact filenames and distinguishes pack files", () => {
+  const filename = "Example.Show.S02.COMPLETE/" + "very-long-release-segment-".repeat(10) + "S02E03.mkv";
+  const raw = {
+    name: "Cached provider",
+    title: "Example Show S02 complete pack",
+    infoHash: "0000000000000000000000000000000000000000",
+    fileIdx: 7,
+    behaviorHints: { filename }
+  };
+  const context = { pageUrl: fixtures.PAGE_URL, video: { id: "show:2:3", season: 2, episode: 3 } };
+  const first = S.normalize(raw, context);
+  const second = S.normalize({ ...raw, fileIdx: 8 }, context);
+
+  assert.equal(first.facts.filename, filename, "the filename is never truncated");
+  assert.equal(first.fileIdx, 7);
+  assert.equal(first.facts.episodeStatus, "match");
+  assert.notEqual(S.identityKey(first), S.identityKey(second), "two files in the same torrent remain distinct");
+});
+
+test("automatic selection rejects mismatched and ambiguous series packs", () => {
+  const video = { id: "show:2:3", season: 2, episode: 3 };
+  const normalized = S.normalizeAll([
+    { title: "Example Show S02E04 1080p", url: "https://cdn.example.test/wrong.mp4" },
+    { title: "Example Show Season 2 complete pack", infoHash: "0000000000000000000000000000000000000000" },
+    { title: "Example Show S02E03 720p", url: "https://cdn.example.test/right.mp4" }
+  ], { pageUrl: fixtures.PAGE_URL, video });
+  const ranked = S.rank(normalized, { settings: SETTINGS.DEFAULTS, capabilities: caps });
+  const wrong = ranked.find((entry) => entry.stream.url?.endsWith("wrong.mp4"));
+  const pack = ranked.find((entry) => entry.stream.infoHash);
+
+  assert.equal(wrong.stream.facts.episodeStatus, "mismatch");
+  assert.equal(pack.stream.facts.episodeStatus, "ambiguous-pack");
+  assert.equal(wrong.autoEligible, false);
+  assert.equal(pack.autoEligible, false);
+  assert.equal(S.bestCandidate(ranked).stream.url, "https://cdn.example.test/right.mp4");
+});
+
+test("a compatible next-episode result from the same binge group is preferred only when explicit", () => {
+  const video = { id: "show:2:4", season: 2, episode: 4 };
+  const streams = S.normalizeAll([
+    { title: "Example Show S02E04 1080p", url: "https://cdn.example.test/other.mp4", behaviorHints: { bingeGroup: "other-release" } },
+    { title: "Example Show S02E04 1080p", url: "https://cdn.example.test/same.mp4", behaviorHints: { bingeGroup: "stable-release" } },
+    { title: "Example Show S02E04 1080p", url: "https://cdn.example.test/unstated.mp4" }
+  ], { pageUrl: fixtures.PAGE_URL, video });
+  const ranked = S.rank(streams, { settings: SETTINGS.DEFAULTS, capabilities: caps, preferredBingeGroup: "stable-release" });
+  assert.equal(ranked[0].stream.url, "https://cdn.example.test/same.mp4");
+  assert.match(ranked[0].why, /Same release group/);
+  assert.equal(ranked.find((entry) => entry.stream.url.endsWith("unstated.mp4")).preferredBingeGroup, "stable-release");
+  assert.equal(ranked.find((entry) => entry.stream.url.endsWith("unstated.mp4")).factors.some((factor) => /Same release group/.test(factor.label)), false);
+});
+
 test("the original stream object is preserved untouched", () => {
   const normalized = normalize(fixtures.cached1080);
   assert.equal(normalized.raw, fixtures.cached1080);
@@ -385,7 +456,7 @@ test("a decodingInfo downgrade updates the score, explanation and order", async 
     ),
     { settings: SETTINGS.DEFAULTS, capabilities: caps }
   );
-  assert.equal(ranked[0].stream.title, "H264 direct");
+  assert.equal(ranked[0].stream.title, "Example 1080p x264 4 GB");
   const scoreBefore = ranked[0].score;
   assert.match(ranked[0].why, /H\.264/);
 
@@ -394,7 +465,7 @@ test("a decodingInfo downgrade updates the score, explanation and order", async 
     decodingInfo: async () => ({ supported: false, smooth: false })
   });
 
-  const downgraded = refined.find((entry) => entry.stream.title === "H264 direct");
+  const downgraded = refined.find((entry) => entry.stream.title === "Example 1080p x264 4 GB");
   assert.equal(downgraded.evaluation.state, S.STATE.UNSUPPORTED);
   assert.ok(downgraded.score < scoreBefore, "the score reflects the new verdict");
   assert.equal(
@@ -402,7 +473,7 @@ test("a decodingInfo downgrade updates the score, explanation and order", async 
     "The device reports it cannot decode this source.",
     "the explanation no longer praises a source that cannot play"
   );
-  assert.equal(refined[0].stream.title, "HLS", "and the playable source is ordered first");
+  assert.equal(refined[0].stream.title, "Example 720p adaptive", "and the playable source is ordered first");
 });
 
 test("an uppercase DV tag is recognised as Dolby Vision", () => {

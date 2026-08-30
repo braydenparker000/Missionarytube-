@@ -167,7 +167,8 @@ test("the mobile overlay respects safe areas and reduced motion", () => {
 });
 
 test("episode ordering is used everywhere videos are listed", () => {
-  assert.match(html, /AstraPlayback\.episodes\.orderVideos\(videos\)/, "the episode list is ordered");
+  assert.match(html, /AstraPlayback\.episodes\.canonicalEpisodes\(videos\)/, "the main episode list uses only canonical episodes");
+  assert.match(html, /AstraPlayback\.episodes\.groupVideos\(videos\)/, "specials and extras remain visible in separate groups");
   assert.match(html, /AstraPlayback\.episodes\.resumeTarget\(m,id=>videoProgress\(m,id\)\)/, "continue uses the resume target");
   assert.match(html, /PB\.episodes\.isEpisodic\(player\.meta\)/, "episode controls are gated on real series");
   assert.match(html, /const PB=AstraPlayback;/, "PB is the in-app alias for the module namespace");
@@ -228,6 +229,32 @@ test("the subtitle menu selects one specific track, not a language", () => {
   assert.match(html, /state\.settings\.subtitleLanguage=chosen\.lang/);
 });
 
+test("adaptive audio tracks stay selectable and remember a language preference", () => {
+  assert.match(html, /onAudioTracksChanged:tracks=>\{if\(live\(\)&&!scope\.disposed\)refreshAudioTracks\(tracks\)\}/);
+  assert.match(html, /data-audio-track/);
+  assert.match(html, /state\.settings\.audioLanguage=chosen\.lang\|\|'original'/);
+  assert.match(html, /state\.settings\.audioLanguage=\$\('#audioLanguage'\)\?\.value\|\|'original'/);
+  assert.match(html, /Direct files depend on Android Chrome/, "the unsupported native-file limitation is honest");
+});
+
+test("stream rows keep the full release and exact series file details inspectable", () => {
+  assert.match(html, /<details class="stream-details">/);
+  assert.match(html, /Full source details/);
+  assert.match(html, /\['Release',s\.title\]/);
+  assert.match(html, /File index/);
+  assert.match(html, /Pack status/);
+  assert.match(html, /f\.audioLanguages/);
+  assert.match(html, /\['Cached',f\.cached\?'Yes':''\]/);
+  assert.match(html, /Does not match selected episode/);
+});
+
+test("episode transitions carry an explicit binge group into only the fresh response", () => {
+  assert.match(html, /const preferredBingeGroup=previous\?\.stream\.bingeGroup\|\|null/);
+  assert.match(html, /player\.preferredBingeGroup=preferredBingeGroup/);
+  assert.match(html, /preferredBingeGroup:player\.preferredBingeGroup/);
+  assert.match(html, /if\(!autoPlay\)player\.preferredBingeGroup=null/, "manual lookups cannot inherit a stale group");
+});
+
 test("automatic playback goes through the ceiling-aware selector", () => {
   // bestCandidate() is the only automatic entry point, and it now enforces
   // maxResolution, so autoplay cannot exceed the owner's limit.
@@ -241,8 +268,8 @@ test("automatic failover cannot exceed the resolution ceiling either", () => {
   // engine must be filtered too, or failover walks straight past the limit.
   assert.match(
     html,
-    /candidates:ordered\.map\(\(e,i\)=>\(\{id:candidateKey\(e\),stream:e\.stream,evaluation:e\.evaluation,entry:e,autoEligible:i===0\|\|!e\.aboveCeiling\}\)\)/,
-    "above-ceiling alternatives are marked auto-ineligible"
+    /candidates:ordered\.map\(\(e,i\)=>\(\{id:candidateKey\(e\),stream:e\.stream,evaluation:e\.evaluation,entry:e,autoEligible:i===0\|\|\(!e\.aboveCeiling&&e\.autoEligible===true\)\}\)\)/,
+    "above-ceiling and episode-unsafe alternatives are marked auto-ineligible"
   );
   assert.match(html, /const ordered=\[entry,\.\.\.player\.ranked\.filter/, "the tapped source stays first");
 });

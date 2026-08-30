@@ -24,6 +24,7 @@
     preferCached: true,
     hdrPreference: "neutral",
     autoFailover: true,
+    audioLanguage: "original",
     subtitleLanguage: "en",
     subtitlesDefault: false
   };
@@ -46,6 +47,11 @@
     return trimmed;
   }
 
+  function audioLanguage(value) {
+    if (typeof value === "string" && value.trim().toLowerCase() === "original") return "original";
+    return language(value);
+  }
+
   var SCHEMA = {
     maxResolution: oneOf(RESOLUTIONS),
     autoplayNext: bool,
@@ -53,6 +59,7 @@
     preferCached: bool,
     hdrPreference: oneOf(HDR_PREFERENCES),
     autoFailover: bool,
+    audioLanguage: audioLanguage,
     subtitleLanguage: language,
     subtitlesDefault: bool
   };
