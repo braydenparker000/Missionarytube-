@@ -49,7 +49,14 @@
 
   function audioLanguage(value) {
     if (typeof value === "string" && value.trim().toLowerCase() === "original") return "original";
-    return language(value);
+    var normalized = language(value);
+    var aliases = { eng: "en", jpn: "ja", spa: "es", fra: "fr", fre: "fr", deu: "de", ger: "de", por: "pt", ita: "it", kor: "ko", zho: "zh", chi: "zh" };
+    var parts = normalized && normalized.split("-");
+    if (parts && aliases[parts[0]]) {
+      parts[0] = aliases[parts[0]];
+      return parts.join("-");
+    }
+    return normalized;
   }
 
   var SCHEMA = {

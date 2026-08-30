@@ -77,6 +77,9 @@ test("a valid value next to an invalid one still survives", () => {
 test("language subtags are normalized and validated", () => {
   assert.equal(S.migrate({ audioLanguage: "original" }).audioLanguage, "original");
   assert.equal(S.migrate({ audioLanguage: "JA" }).audioLanguage, "ja");
+  assert.equal(S.migrate({ audioLanguage: "jpn" }).audioLanguage, "ja");
+  assert.equal(S.migrate({ audioLanguage: "eng-US" }).audioLanguage, "en-us");
+  assert.equal(S.migrate({ audioLanguage: "ca" }).audioLanguage, "ca", "arbitrary valid languages survive");
   assert.equal(S.migrate({ subtitleLanguage: "EN" }).subtitleLanguage, "en");
   assert.equal(S.migrate({ subtitleLanguage: " pt-BR " }).subtitleLanguage, "pt-br");
   assert.equal(S.migrate({ subtitleLanguage: "eng" }).subtitleLanguage, "eng");

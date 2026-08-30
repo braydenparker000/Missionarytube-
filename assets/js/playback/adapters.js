@@ -237,7 +237,11 @@
   }
 
   function trackLanguage(track) {
-    return String((track && (track.lang || track.language || (track.attrs && track.attrs.LANGUAGE))) || "");
+    var value = String((track && (track.lang || track.language || (track.attrs && track.attrs.LANGUAGE))) || "").toLowerCase();
+    var aliases = { eng: "en", jpn: "ja", spa: "es", fra: "fr", fre: "fr", deu: "de", ger: "de", por: "pt", ita: "it", kor: "ko", zho: "zh", chi: "zh" };
+    var parts = value.split("-");
+    if (aliases[parts[0]]) parts[0] = aliases[parts[0]];
+    return parts.join("-");
   }
 
   function trackLabel(track, index) {

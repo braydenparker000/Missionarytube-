@@ -234,6 +234,7 @@ test("adaptive audio tracks stay selectable and remember a language preference",
   assert.match(html, /data-audio-track/);
   assert.match(html, /state\.settings\.audioLanguage=chosen\.lang\|\|'original'/);
   assert.match(html, /state\.settings\.audioLanguage=\$\('#audioLanguage'\)\?\.value\|\|'original'/);
+  assert.match(html, /if\(value&&!choices\.some\(\(\[id\]\)=>id===value\)\)choices\.push\(\[value,value\.toUpperCase\(\)\]\)/, "a learned arbitrary language remains saveable");
   assert.match(html, /Direct files depend on Android Chrome/, "the unsupported native-file limitation is honest");
 });
 

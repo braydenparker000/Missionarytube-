@@ -220,6 +220,8 @@ test("audio tracks are exposed where the library provides them", async () => {
   assert.equal(hlsAdapter.selectAudioTrack(1), true);
   assert.equal(Hls.created[0].audioTrack, 1);
   assert.equal(hlsAdapter.selectAudioTrack(9), false, "an out-of-range track is refused");
+  Hls.created[0].audioTracks[1].lang = "jpn";
+  assert.equal(plain(hlsAdapter.getAudioTracks())[1].lang, "ja", "three-letter adaptive track codes normalize for preferences");
 
   const dashAdapter = A.createAdapter("dash", {
     media: createMediaElement(),
