@@ -128,13 +128,26 @@
         index: index,
         entry: candidate,
         stream: candidate && candidate.stream ? candidate.stream : candidate,
-        evaluation: (candidate && candidate.evaluation) || null
+        evaluation: (candidate && candidate.evaluation) || null,
+        // The first candidate is the viewer's explicit choice, so it is always
+        // startable; later ones may opt out of automatic selection.
+        autoEligible: index === 0 ? true : !(candidate && candidate.autoEligible === false)
       };
     });
 
+    /**
+     * Eligible for the engine to start on its own.
+     *
+     * `autoEligible: false` marks a candidate the viewer may still choose by
+     * hand but that must never be reached automatically — a source above the
+     * owner's resolution ceiling, for instance. The first attempt is passed in
+     * explicitly by the caller, so a deliberate tap on such a source is
+     * unaffected; only the failover alternatives are filtered.
+     */
     function isEligible(candidate) {
       if (!candidate) return false;
       if (triedIds.indexOf(candidate.id) !== -1) return false;
+      if (candidate.autoEligible === false) return false;
       return !candidate.evaluation || candidate.evaluation.playable === true;
     }
 

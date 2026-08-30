@@ -264,3 +264,41 @@ test("an attempt that rejects asynchronously is reported as a failure", async ()
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(instance.snapshot().candidate.id, "b");
 });
+
+test("a source marked auto-ineligible is never reached by failover", () => {
+  // The resolution ceiling uses this: an above-limit source stays tappable but
+  // must not be started automatically when the first choice fails.
+  const overLimit = { ...candidate("over"), autoEligible: false };
+  const { instance } = session([candidate("chosen"), overLimit, candidate("ok")]);
+
+  instance.start();
+  assert.equal(instance.snapshot().candidate.id, "chosen");
+
+  instance.report(instance.snapshot().attemptId, "error", { type: "network" });
+  assert.equal(instance.snapshot().candidate.id, "ok", "failover skipped the auto-ineligible source");
+  assert.deepEqual(plain(instance.snapshot().triedIds), ["chosen", "ok"]);
+});
+
+test("an explicitly chosen source plays even when it is auto-ineligible", () => {
+  // The viewer tapped an above-ceiling source: their choice is the first
+  // attempt regardless, and only the alternatives are filtered.
+  const { instance } = session([{ ...candidate("over"), autoEligible: false }, candidate("other")]);
+  instance.start();
+  assert.equal(instance.snapshot().candidate.id, "over", "the deliberate tap is honoured");
+  assert.equal(instance.snapshot().state, E.STATE.STARTING);
+});
+
+test("failover stops when every alternative is auto-ineligible", () => {
+  const { instance } = session([
+    candidate("chosen"),
+    { ...candidate("over1"), autoEligible: false },
+    { ...candidate("over2"), autoEligible: false }
+  ]);
+  instance.start();
+  instance.report(instance.snapshot().attemptId, "error", { type: "network" });
+
+  const snapshot = instance.snapshot();
+  assert.equal(snapshot.candidate, null, "nothing above the limit is started");
+  assert.equal(snapshot.state, E.STATE.EXHAUSTED);
+  assert.equal(snapshot.canTryNext, false);
+});

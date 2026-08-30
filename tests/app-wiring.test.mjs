@@ -205,7 +205,8 @@ test("a stream response is scoped to the lookup that asked for it", () => {
 
   // Every continuation is guarded, including the delayed autoplay.
   assert.match(load[0], /if\(stale\(\)\)return\[\];/, "the response is dropped when stale");
-  assert.match(load[0], /\.then\(\(\)=>\{if\(!stale\(\)\)renderStreams\(\)\}\)/, "so is the decoding-info re-render");
+  assert.match(load[0], /\.then\(refined=>\{if\(stale\(\)\)return;player\.ranked=refined;renderStreams\(\)\}\)/,
+    "so is the decoding-info re-render, which also keeps the re-sorted array");
   assert.match(
     load[0],
     /player\.autoPlayTimer=setTimeout\(\(\)=>\{player\.autoPlayTimer=null;if\(stale\(\)\)return;openPlayer\(best\)\}/,
@@ -216,7 +217,7 @@ test("a stream response is scoped to the lookup that asked for it", () => {
 
 test("switching or dismissing a title cancels the in-flight lookup", () => {
   assert.match(html, /function cancelStreamLookup\(\)\{[\s\S]*?player\.lookup=null;[\s\S]*?clearTimeout\(player\.autoPlayTimer\)/);
-  assert.match(html, /async function openMedia\(key\)\{cancelStreamLookup\(\);/, "opening another title invalidates it");
+  assert.match(html, /async function openMedia\(key\)\{\s*\n\s*cancelStreamLookup\(\);/, "opening another title invalidates it");
   assert.match(html, /data-dismiss\]',root\)\.forEach\(x=>x\.onclick=e=>\{if\(e\.target===x\)\{cancelStreamLookup\(\)/, "so does dismissing the modal");
 });
 
@@ -236,4 +237,60 @@ test("automatic playback goes through the ceiling-aware selector", () => {
   const automatic = [...html.matchAll(/bestCandidate\(player\.ranked\)/g)];
   assert.ok(automatic.length >= 2, "auto play best and the autoplay path both use it");
   assert.equal(html.includes("player.ranked[0]"), false, "nothing autoplays the raw top of the list");
+});
+
+test("automatic failover cannot exceed the resolution ceiling either", () => {
+  // bestCandidate() only governs the first pick; the alternatives handed to the
+  // engine must be filtered too, or failover walks straight past the limit.
+  assert.match(
+    html,
+    /candidates:ordered\.map\(\(e,i\)=>\(\{id:candidateKey\(e\),stream:e\.stream,evaluation:e\.evaluation,entry:e,autoEligible:i===0\|\|!e\.aboveCeiling\}\)\)/,
+    "above-ceiling alternatives are marked auto-ineligible"
+  );
+  assert.match(html, /const ordered=\[entry,\.\.\.player\.ranked\.filter/, "the tapped source stays first");
+});
+
+test("the re-sorted array from the decoding probe is kept", () => {
+  // refineWithDecodingInfo returns a newly sorted copy; discarding it leaves the
+  // picker rendering the stale order with mutated scores.
+  assert.match(
+    html,
+    /\.then\(refined=>\{if\(stale\(\)\)return;player\.ranked=refined;renderStreams\(\)\}\)/
+  );
+  assert.equal(html.includes(".then(()=>{if(!stale())renderStreams()})"), false, "the discarding callback is gone");
+});
+
+test("a deferred metadata response cannot replace another title", () => {
+  const openMedia = html.match(/async function openMedia\(key\)\{[\s\S]*?\n {4}\}/);
+  assert.ok(openMedia, "openMedia exists");
+  assert.match(openMedia[0], /const request=\{key\};player\.metaRequest=request;/, "the request is stamped");
+  assert.match(openMedia[0], /const full=await fullMeta\(item\);\s*\n\s*if\(player\.metaRequest!==request\)return;/,
+    "both post-await mutations are guarded");
+  assert.equal(
+    openMedia[0].includes("item=await fullMeta(item);state.currentMeta=item;showDetail(item,false)"),
+    false,
+    "the unguarded assignment is gone"
+  );
+  assert.match(html, /function cancelStreamLookup\(\)\{\s*\n?\s*player\.lookup=null;player\.metaRequest=null;/,
+    "dismissing or switching invalidates a pending metadata request");
+});
+
+test("the failover notice stays on screen long enough to read", () => {
+  // The engine clears lastFailure the moment something plays, which is exactly
+  // when the viewer needs to see what just happened, so the view layer holds
+  // its own copy for a readable minimum.
+  assert.match(html, /const NOTICE_DWELL_MS=\d{4}/);
+  assert.match(html, /player\.notice=\{failed:[^;]*until:Date\.now\(\)\+NOTICE_DWELL_MS\}/);
+  assert.match(html, /if\(snap\.state==='playing'\)\{showSettledNotice\(status\)/, "playing does not wipe it immediately");
+
+  const settled = html.match(/function showSettledNotice\(status\)\{[\s\S]*?\n {4}\}/);
+  assert.ok(settled, "showSettledNotice exists");
+  assert.match(settled[0], /const remaining=notice\.until-Date\.now\(\)/, "the remaining dwell is honoured");
+  assert.match(settled[0], /player\.noticeTimer=setTimeout/, "and it clears itself afterwards");
+
+  // The dwell timer must not outlive the player or leak into the error card.
+  const close = html.match(/function closePlayer\(silent\)\{[\s\S]*?\n {4}\}/);
+  assert.match(close[0], /clearTimeout\(player\.noticeTimer\)/);
+  const error = html.match(/function renderPlayerError\(snap\)\{[\s\S]*?\n {4}\}/);
+  assert.match(error[0], /clearTimeout\(player\.noticeTimer\)/);
 });

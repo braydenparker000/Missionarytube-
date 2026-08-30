@@ -198,7 +198,19 @@
     async function search(q){q=q.trim();const token=++state.searchToken;if(!q){nav('home');return}state.currentPage='search';$$('.page').forEach(x=>x.classList.toggle('active',x.id==='page-search'));$$('[data-nav]').forEach(x=>x.classList.remove('active'));const root=$('#searchRoot');root.innerHTML=`<h1 class="page-title">Search</h1><p class="page-lede">Results for “${esc(q)}” across enabled add-ons.</p><div class="loading-line"><span class="spinner"></span>Searching…</div>`;
       const searchable=allCatalogs().filter(x=>(x.cat.extra||[]).some(e=>e.name==='search'));const remote=await Promise.allSettled(searchable.map(x=>getCatalog(x.s,x.cat,catalogExtras(x.cat,{search:q}))));if(token!==state.searchToken)return;const local=[...state.metaCache.values(),...state.homeItems].filter((m,i,a)=>a.findIndex(n=>mediaKey(n)===mediaKey(m))===i).filter(m=>(m.name||m.title||'').toLowerCase().includes(q.toLowerCase()));const results=[...remote.filter(x=>x.status==='fulfilled').flatMap(x=>x.value),...local].filter((m,i,a)=>a.findIndex(n=>mediaKey(n)===mediaKey(m))===i);root.innerHTML=`<h1 class="page-title">Search</h1><p class="page-lede">${results.length} result${results.length===1?'':'s'} for “${esc(q)}”.</p>${results.length?`<div class="grid">${results.slice(0,120).map(cardHTML).join('')}</div>`:emptyHTML('No matches','Try another title or install an add-on with search support.')}`;bindDynamic(root)}
     async function fullMeta(item){if(item._fullMeta)return item;const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){try{const d=await fetchJSON(endpoint(s.addon,'meta',item.type,item.id));if(d.meta)return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
-    async function openMedia(key){cancelStreamLookup();let item=state.metaCache.get(key)||state.library[key]?.meta||state.homeItems.find(x=>mediaKey(x)===key)||progress.meta(key);if(!item)return toast('That item is no longer available.','bad');state.currentVideo=null;state.currentStreams=[];state.currentMeta=item;showDetail(item,true);item=await fullMeta(item);state.currentMeta=item;showDetail(item,false)}
+    async function openMedia(key){
+      cancelStreamLookup();
+      let item=state.metaCache.get(key)||state.library[key]?.meta||state.homeItems.find(x=>mediaKey(x)===key)||progress.meta(key);
+      if(!item)return toast('That item is no longer available.','bad');
+      // Stamp the request: a slow full-metadata response for one title must not
+      // replace whatever the viewer has open by the time it lands.
+      const request={key};player.metaRequest=request;
+      state.currentVideo=null;state.currentStreams=[];player.ranked=[];
+      state.currentMeta=item;showDetail(item,true);
+      const full=await fullMeta(item);
+      if(player.metaRequest!==request)return;
+      state.currentMeta=full;showDetail(full,false);
+    }
     function resumeVideo(m){const videos=m.videos||[];if(!videos.length)return{id:m.id,title:m.name};return AstraPlayback.episodes.resumeTarget(m,id=>videoProgress(m,id)).video||videos[0]}
     function episodeCode(v){return AstraPlayback.episodes.episodeCode(v)}
     function showDetail(m,loading=false){const root=$('#modalRoot'),isSaved=!!state.library[mediaKey(m)],videos=m.videos||[],seasons=[...new Set(videos.map(v=>v.season).filter(x=>x!=null))],resume=resumeVideo(m),resumeProg=videoProgress(m,resume.id),defaultSeason=resume.season??seasons[0];root.innerHTML=`<div class="modal-shell" data-dismiss><section class="modal detail" role="dialog" aria-modal="true"><div class="detail-hero"><div class="detail-backdrop" style="background-image:${backdrop(m)?`url('${esc(backdrop(m).replace(/'/g,'%27'))}')`:'none'}"></div><button class="icon-btn detail-close" data-close>${icon('close')}</button><div class="detail-content">${poster(m)?`<img class="detail-poster" src="${esc(poster(m))}" alt="">`:''}<div class="detail-copy"><div class="eyebrow">${esc(m.type||'media')}</div><h1>${esc(m.name||m.title||'Untitled')}</h1><div class="facts">${[yearOf(m),m.runtime,m.imdbRating?`★ ${m.imdbRating}`:'',...(m.genres||[]).slice(0,3)].filter(Boolean).map(x=>`<span class="fact">${esc(x)}</span>`).join('')}</div><div class="actions"><button class="btn btn-primary" data-get-streams="${esc(resume.id)}">${icon('play')} ${videos.length&&resumeProg&&!resumeProg.completed?`Continue ${esc(episodeCode(resume))}`:videos.length?`Play ${esc(episodeCode(resume))}`:'Find streams'}</button><button class="btn btn-ghost" data-library="${esc(mediaKey(m))}">${icon(isSaved?'check':'plus')} ${isSaved?'In library':'My library'}</button></div></div></div></div><div class="detail-body">${loading?'<div class="loading-line"><span class="spinner"></span>Loading full details…</div>':`<p class="description">${esc(m.description||m.overview||'No description was provided by the add-on.')}</p>${m.cast?.length?`<p class="muted"><b>Cast:</b> ${esc(m.cast.slice(0,8).join(', '))}</p>`:''}${videos.length?`<h3>Episodes</h3>${seasons.length?`<div class="season-row">${seasons.map(s=>`<button class="chip ${String(s)===String(defaultSeason)?'active':''}" data-season="${esc(s)}">Season ${esc(s)}</button>`).join('')}</div>`:''}<div class="episodes" id="episodeList">${episodeHTML(videos,defaultSeason)}</div>`:''}<div id="streamRoot"></div>`}</div></section></div>`;bindDynamic(root)}
@@ -207,7 +219,7 @@
        All decision logic lives in assets/js/playback/*. This layer only binds
        it to the DOM: it renders snapshots and feeds media events back in. */
     const PB=AstraPlayback;
-    const player={session:null,scope:null,adapter:null,countdown:null,ranked:[],meta:null,video:null,menu:null,idleTimer:null,subtitleTracks:[],subtitleAttached:[],activeSubtitle:null,lookup:null,autoPlayTimer:null};
+    const player={session:null,scope:null,adapter:null,countdown:null,ranked:[],meta:null,video:null,menu:null,idleTimer:null,subtitleTracks:[],subtitleAttached:[],activeSubtitle:null,lookup:null,metaRequest:null,autoPlayTimer:null,notice:null,noticeTimer:null};
     function capsNow(){return PB.streams.browserCapabilities(window)}
     function rankStreams(list){return PB.streams.rank(PB.streams.normalizeAll(list,{pageUrl:location.href}),{settings:state.settings,capabilities:capsNow()})}
     function entryById(id){return player.ranked.find(e=>candidateKey(e)===id)||null}
@@ -237,13 +249,13 @@
       state.streamFilter='all';state.streamSort='recommended';
       renderStreams();$('#streamRoot')?.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'});
       // Advisory device probe; re-render if it changes any verdict.
-      PB.streams.refineWithDecodingInfo(player.ranked,capsNow(),{limit:6,settings:state.settings}).then(()=>{if(!stale())renderStreams()}).catch(()=>{});
+      PB.streams.refineWithDecodingInfo(player.ranked,capsNow(),{limit:6,settings:state.settings}).then(refined=>{if(stale())return;player.ranked=refined;renderStreams()}).catch(()=>{});
       if(autoPlay){const best=PB.streams.bestCandidate(player.ranked);if(best)player.autoPlayTimer=setTimeout(()=>{player.autoPlayTimer=null;if(stale())return;openPlayer(best)},250)}
       return state.currentStreams;
     }
     /** Invalidate any in-flight lookup, so its response cannot land later. */
     function cancelStreamLookup(){
-      player.lookup=null;
+      player.lookup=null;player.metaRequest=null;
       if(player.autoPlayTimer){clearTimeout(player.autoPlayTimer);player.autoPlayTimer=null}
     }
 
@@ -300,9 +312,11 @@
       const saved=videoProgress(m,v.id);
       const resumeTime=saved&&!saved.completed&&saved.duration&&saved.time<saved.duration*.93?saved.time:0;
       renderPlayerShell();
+      // The tapped source always plays, even above the ceiling. Automatic
+      // alternatives are filtered so failover cannot exceed it either.
       const ordered=[entry,...player.ranked.filter(e=>candidateKey(e)!==candidateKey(entry))];
       player.session=PB.engine.createSession({
-        candidates:ordered.map(e=>({id:candidateKey(e),stream:e.stream,evaluation:e.evaluation,entry:e})),
+        candidates:ordered.map((e,i)=>({id:candidateKey(e),stream:e.stream,evaluation:e.evaluation,entry:e,autoEligible:i===0||!e.aboveCeiling})),
         settings:state.settings,resumeTime,
         onAttempt:startAttempt,onChange:renderPlayerState
       });
@@ -395,17 +409,36 @@
 
       if(snap.state==='starting'){
         stage.innerHTML=`<div class="player-loading"><span class="spinner"></span><b>Starting ${esc(s?s.title:'source')}</b><span>${esc(s&&s.addonName?s.addonName+' · ':'')}Attempt ${snap.attemptCount} of ${snap.maxAttempts}</span></div>`;
-        status.innerHTML=snap.lastFailure?failoverNoticeHTML(snap):'';
+        if(snap.lastFailure){
+          const failed=snap.lastFailure.candidate&&snap.lastFailure.candidate.stream;
+          player.notice={failed:failed?failed.title:'The last source',text:snap.lastFailure.text,until:Date.now()+NOTICE_DWELL_MS};
+          status.innerHTML=failoverNoticeHTML(player.notice,false);
+        }else status.innerHTML='';
         renderTools(snap);return;
       }
-      if(snap.state==='playing'){status.innerHTML='';renderTools(snap);return}
+      if(snap.state==='playing'){showSettledNotice(status);renderTools(snap);return}
       // Terminal: release the media element, library instance and listeners now
       // rather than waiting for a retry, a switch, or the viewer closing up.
       if(snap.state==='failed'||snap.state==='exhausted'){teardownAttempt();renderPlayerError(snap);renderTools(snap);return}
     }
-    function failoverNoticeHTML(snap){
-      const failed=snap.lastFailure.candidate&&snap.lastFailure.candidate.stream;
-      return `<div class="status-card"><span class="spinner"></span><div><b>Trying another source</b><span>${esc(failed?failed.title:'The last source')} failed: ${esc(snap.lastFailure.text)}</span></div></div>`;
+    // A recovery that flashes past is not a recovery the viewer can understand,
+    // so the notice outlives the switch by a readable minimum.
+    const NOTICE_DWELL_MS=4000;
+    function failoverNoticeHTML(notice,settled){
+      return `<div class="status-card">${settled?icon('check'):'<span class="spinner"></span>'}<div><b>${settled?'Switched source':'Trying another source'}</b><span>${esc(notice.failed)} failed: ${esc(notice.text)}</span></div></div>`;
+    }
+    /** Hold the recovery message on screen briefly once playback starts. */
+    function showSettledNotice(status){
+      clearTimeout(player.noticeTimer);player.noticeTimer=null;
+      const notice=player.notice;
+      if(!notice){status.innerHTML='';return}
+      const remaining=notice.until-Date.now();
+      if(remaining<=0){player.notice=null;status.innerHTML='';return}
+      status.innerHTML=failoverNoticeHTML(notice,true);
+      player.noticeTimer=setTimeout(()=>{
+        player.noticeTimer=null;player.notice=null;
+        const el=$('#playerStatus');if(el)el.innerHTML='';
+      },remaining);
     }
     function renderPlayerError(snap){
       const stage=$('#playerStage'),status=$('#playerStatus');
@@ -421,6 +454,7 @@
           <button class="btn btn-ghost" data-player-action="choose">Choose source</button>
           <button class="btn btn-ghost" data-close-player>Close</button>
         </div></div>`;
+      clearTimeout(player.noticeTimer);player.noticeTimer=null;player.notice=null;
       if(status)status.innerHTML='';
     }
     function renderTools(snap){
@@ -450,6 +484,7 @@
     }
     function closePlayer(silent){
       clearTimeout(player.idleTimer);
+      clearTimeout(player.noticeTimer);player.noticeTimer=null;player.notice=null;
       if(player.countdown){player.countdown.cancel();player.countdown=null}
       $('#countdownCard')?.remove();$('#trackMenu')?.remove();
       if(player.session){player.session.cancel();player.session=null}
