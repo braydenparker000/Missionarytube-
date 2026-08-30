@@ -1,0 +1,1673 @@
+/*
+ * ASTRA OBSIDIAN
+ * ==============
+ * A cinematic brutalist system for a mobile-first add-on client.
+ *
+ * Principles this encodes, so future edits stay coherent:
+ *   Structure is visible.  Hairline seams and a hard grid, never soft cards
+ *                          floating on gradients.
+ *   Type carries the design. Editorial sans for names, monospace for the
+ *                          technical truth a release name contains.
+ *   Colour is rationed.    One signal hue, used only where something is live,
+ *                          selected, or wrong. Everything else is obsidian,
+ *                          bone and cold silver.
+ *   Depth is earned.       Elevation comes from seams and shadow, not blur
+ *                          stacked on blur.
+ *
+ * Everything below is a token or a component built from tokens. No component
+ * should introduce a raw colour or a magic pixel value.
+ */
+
+/* ------------------------------------------------------------------ *
+ * 1. Tokens
+ * ------------------------------------------------------------------ */
+
+:root {
+  color-scheme: dark;
+
+  /* Obsidian field. Each step is a real surface level, not decoration. */
+  --void: #04050a;
+  --obsidian: #080a11;
+  --slate-900: #0d1018;
+  --slate-800: #12151f;
+  --slate-700: #191d29;
+  --slate-600: #232837;
+
+  /* Bone type ramp. AA-checked against --obsidian in the tests. */
+  --bone: #f4f1ea;
+  --bone-dim: #cfcbc3;
+  --silver: #a7adba;
+  --silver-dim: #7d8492;
+
+  /* Cold silver rules. Seams, not borders. */
+  --rule: rgba(167, 173, 186, 0.18);
+  --rule-strong: rgba(167, 173, 186, 0.34);
+  --rule-faint: rgba(167, 173, 186, 0.09);
+
+  /* The single rationed signal: ember. Live, selected, destructive. */
+  --signal: #c9402f;
+  --signal-bright: #e2604d;
+  /* The signal darkened just far enough to carry bone type at AA. Used
+     wherever the signal is a background behind words, never as a seam. */
+  --signal-ink: #b8351f;
+  --signal-deep: #6d1d17;
+  --signal-wash: rgba(201, 64, 47, 0.14);
+
+  /* Status. Kept desaturated so the signal stays the loudest thing here. */
+  --ok: #6fae86;
+  --ok-wash: rgba(111, 174, 134, 0.13);
+  --warn: #c9a227;
+  --warn-wash: rgba(201, 162, 39, 0.13);
+  --bad: #cf5c52;
+  --bad-wash: rgba(207, 92, 82, 0.13);
+  --info: #6f8fae;
+  --info-wash: rgba(111, 143, 174, 0.13);
+
+  /* Space: a 4px base with editorial jumps at the top end. */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 28px;
+  --s7: 40px;
+  --s8: 56px;
+  --s9: 80px;
+
+  /* Radii. Brutalism means mostly square; curves are for touch affordances. */
+  --r0: 0px;
+  --r1: 2px;
+  --r2: 4px;
+  --r3: 8px;
+  --r4: 14px;
+  --r-pill: 999px;
+
+  /* Type. One display stack, one dossier stack. */
+  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --t-micro: 10px;
+  --t-tiny: 11px;
+  --t-small: 12px;
+  --t-body: 14px;
+  --t-lead: 16px;
+  --t-title: 20px;
+  --t-display: 28px;
+  --t-hero: 38px;
+
+  --track-label: 0.16em; /* wide tracking for uppercase micro-labels */
+  --track-tight: -0.02em;
+  --track-hero: -0.035em;
+
+  /* Elevation: seam + shadow, never blur alone. */
+  --lift-1: 0 1px 0 var(--rule-faint);
+  --lift-2: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --lift-3: 0 24px 64px rgba(0, 0, 0, 0.66);
+
+  /* Motion: quiet and short. Transform and opacity only. */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+
+  /* Safe areas, resolved once so components never repeat the env() dance. */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+
+  /* Focus: one ring everywhere. */
+  --focus: 2px solid var(--signal-bright);
+  --focus-offset: 2px;
+
+  /* Layout */
+  --rail: 0px;             /* desktop nav rail width, 0 on mobile */
+  --dock: 64px;            /* mobile bottom dock height */
+  --gutter: 16px;
+  --tap: 44px;             /* minimum touch target */
+  --measure: 68ch;
+}
+
+@media (min-width: 900px) {
+  :root {
+    --rail: 84px;
+    --gutter: 32px;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * 2. Base
+ * ------------------------------------------------------------------ */
+
+* { box-sizing: border-box; }
+
+html {
+  background: var(--void);
+  -webkit-text-size-adjust: 100%; /* keep text scaling usable */
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgba(201, 64, 47, 0.06), transparent 60%),
+    var(--obsidian);
+  color: var(--bone);
+  font-family: var(--font-display);
+  font-size: var(--t-body);
+  line-height: 1.45;
+  overflow-x: hidden; /* no horizontal document overflow, 320-430 */
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: pointer; }
+img { max-width: 100%; display: block; }
+
+:focus-visible {
+  outline: var(--focus);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--r1);
+}
+
+::selection { background: var(--signal-deep); color: var(--bone); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.hidden { display: none !important; }
+
+/* A skip link that never becomes visible is not a skip link. It stays out of
+   the layout until it takes focus, then lands above everything. */
+.skip-link {
+  position: fixed; z-index: 200;
+  top: calc(var(--safe-t) + var(--s2)); left: var(--s2);
+  padding: var(--s3) var(--s4);
+  min-height: var(--tap);
+  display: inline-flex; align-items: center;
+  background: var(--bone); color: var(--void);
+  font-size: var(--t-small); font-weight: 700;
+  transform: translateY(-200%);
+}
+.skip-link:focus-visible, .skip-link:focus { transform: none; }
+
+/* Scrollbars: hairline, never chunky. */
+::-webkit-scrollbar { width: 8px; height: 6px; }
+::-webkit-scrollbar-thumb { background: var(--slate-600); border-radius: var(--r-pill); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ------------------------------------------------------------------ *
+ * 3. Typography
+ * ------------------------------------------------------------------ */
+
+/* The uppercase micro-label that titles every sector and field. */
+.label {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--silver-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.display {
+  font-size: var(--t-display);
+  font-weight: 800;
+  letter-spacing: var(--track-hero);
+  line-height: 1.02;
+  margin: 0;
+}
+
+.title {
+  font-size: var(--t-title);
+  font-weight: 750;
+  letter-spacing: var(--track-tight);
+  line-height: 1.15;
+  margin: 0;
+}
+
+/* Technical truth: release names, codecs, file identity. Monospace so a
+   viewer can actually compare two releases character by character. */
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+  letter-spacing: 0;
+}
+
+.muted { color: var(--silver); }
+.dim { color: var(--silver-dim); }
+
+/* Oversized editorial index numerals: sector counts, episode numbers. */
+.numeral {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--silver-dim);
+}
+
+/* ------------------------------------------------------------------ *
+ * 4. Shell: rail, top bar, dock
+ * ------------------------------------------------------------------ */
+
+.shell { display: flow-root; }
+
+main {
+  margin-left: var(--rail);
+  min-height: 100svh;
+  padding-bottom: calc(var(--dock) + var(--safe-b) + var(--s6));
+}
+
+@media (min-width: 900px) {
+  main { padding-bottom: var(--s8); }
+}
+
+/* Desktop rail. Hidden on mobile where the dock takes over. */
+.rail {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: var(--rail);
+  z-index: 30;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s5) var(--s2);
+  background: var(--void);
+  border-right: 1px solid var(--rule);
+}
+
+@media (min-width: 900px) { .rail { display: flex; } }
+
+.mark {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border: 1px solid var(--rule-strong);
+  background: var(--slate-800);
+  color: var(--bone);
+  margin-bottom: var(--s4);
+}
+.mark svg { width: 20px; height: 20px; }
+
+/* Top bar: a hairline-separated band, not a floating blur. */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 56px;
+  padding:
+    calc(var(--safe-t) + var(--s3))
+    max(var(--gutter), var(--safe-r))
+    var(--s3)
+    max(var(--gutter), var(--safe-l));
+  background: color-mix(in srgb, var(--obsidian) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--rule-faint);
+}
+
+.wordmark {
+  font-weight: 800;
+  font-size: var(--t-lead);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bone);
+  white-space: nowrap;
+}
+.wordmark b { color: var(--signal); font-weight: 800; }
+
+.topbar-spacer { flex: 1; }
+
+.icon-btn {
+  width: var(--tap); height: var(--tap);
+  display: inline-grid; place-items: center;
+  color: var(--bone-dim);
+  border: 1px solid transparent;
+  border-radius: var(--r2);
+  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.icon-btn:hover { color: var(--bone); border-color: var(--rule); }
+.icon-btn svg { width: 20px; height: 20px; }
+
+/* Search: a seam that opens, not a pill. */
+.search-wrap { position: relative; flex: 1; min-width: 0; max-width: 520px; }
+.search-wrap > [data-icon] {
+  position: absolute; left: var(--s3); top: 50%; transform: translateY(-50%);
+  color: var(--silver-dim); pointer-events: none;
+}
+.search-wrap svg { width: 18px; height: 18px; }
+.search {
+  width: 100%;
+  height: var(--tap);
+  padding: 0 var(--s7) 0 calc(var(--s3) + 26px);
+  background: var(--slate-800);
+  border: 1px solid var(--rule);
+  border-radius: var(--r2);
+  color: var(--bone);
+  font-size: var(--t-body);
+}
+.search::placeholder { color: var(--silver-dim); }
+.search:focus { outline: var(--focus); outline-offset: 0; border-color: var(--signal); }
+.search-clear {
+  position: absolute; right: var(--s1); top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px; display: grid; place-items: center;
+  color: var(--silver); font-size: 18px; border-radius: var(--r2);
+}
+
+/* Mobile dock. Five destinations, one-handed, hairline top seam. */
+.dock {
+  position: fixed;
+  z-index: 40;
+  inset: auto 0 0 0;
+  display: flex;
+  height: calc(var(--dock) + var(--safe-b));
+  padding: 0 max(var(--s1), var(--safe-r)) var(--safe-b) max(var(--s1), var(--safe-l));
+  background: color-mix(in srgb, var(--void) 94%, transparent);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--rule);
+}
+@media (min-width: 900px) { .dock { display: none; } }
+
+.dock-btn {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: var(--s1) 2px;
+  color: var(--silver-dim);
+  position: relative;
+  transition: color var(--dur-1) var(--ease);
+}
+.dock-btn svg { width: 21px; height: 21px; }
+.dock-btn span:last-child {
+  font-size: var(--t-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.dock-btn.active { color: var(--bone); }
+/* The active marker is a hard 2px rule, not a glow. */
+.dock-btn.active::before {
+  content: "";
+  position: absolute; top: 0; left: 22%; right: 22%;
+  height: 2px; background: var(--signal);
+}
+
+.rail-btn {
+  width: 56px; height: 56px;
+  display: grid; place-items: center; gap: 2px;
+  color: var(--silver-dim);
+  border-radius: var(--r2);
+}
+.rail-btn.active { color: var(--bone); background: var(--slate-800); box-shadow: inset 2px 0 0 var(--signal); }
+.rail-btn svg { width: 21px; height: 21px; }
+
+/* ------------------------------------------------------------------ *
+ * 5. Page frame
+ * ------------------------------------------------------------------ */
+
+.page { display: none; }
+.page.active { display: block; }
+
+.content {
+  padding: var(--s5) max(var(--gutter), var(--safe-r)) var(--s7) max(var(--gutter), var(--safe-l));
+}
+
+.page-head { margin-bottom: var(--s5); }
+.page-title {
+  font-size: var(--t-display);
+  font-weight: 800;
+  letter-spacing: var(--track-hero);
+  margin: var(--s2) 0 var(--s1);
+}
+.page-lede { color: var(--silver); margin: 0; max-width: var(--measure); font-size: var(--t-small); }
+
+/* A sector: the repeating editorial unit of the home page. */
+.sector { margin: 0 0 var(--s7); }
+.sector-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  padding-bottom: var(--s2);
+  margin-bottom: var(--s4);
+  border-bottom: 1px solid var(--rule);
+}
+.sector-index { font-size: var(--t-tiny); }
+.sector-title {
+  font-size: var(--t-lead);
+  font-weight: 750;
+  letter-spacing: var(--track-tight);
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+.sector-note { font-size: var(--t-tiny); color: var(--silver-dim); white-space: nowrap; }
+.sector-more {
+  font-size: var(--t-tiny);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--silver);
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--s1);
+}
+.sector-more:hover { color: var(--bone); }
+
+/* ------------------------------------------------------------------ *
+ * 6. Feature composition (home)
+ * ------------------------------------------------------------------ */
+
+/* Asymmetric, crop-aware, and readable over any artwork because the scrim
+   is a hard gradient rather than a translucent panel. */
+.feature {
+  position: relative;
+  margin: 0 0 var(--s7);
+  border-bottom: 1px solid var(--rule);
+  isolation: isolate;
+}
+.feature-art {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  max-height: 62svh;
+  overflow: hidden;
+  background: var(--slate-900);
+}
+@media (min-width: 560px) { .feature-art { aspect-ratio: 16 / 9; } }
+/* With no artwork there is nothing to crop for, so the band stops reserving
+   most of the viewport for an empty rectangle. An image that fails to load
+   removes itself, so this covers a broken URL as well as a missing one. */
+.feature-art:empty { aspect-ratio: 21 / 9; max-height: 26svh; }
+.dossier-art:empty { aspect-ratio: 21 / 9; }
+.feature-art img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: 50% 22%;
+}
+.feature-art::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(8, 10, 17, 0.15) 0%, rgba(8, 10, 17, 0.05) 34%, rgba(8, 10, 17, 0.86) 78%, var(--obsidian) 100%),
+    linear-gradient(90deg, rgba(8, 10, 17, 0.72) 0%, transparent 62%);
+}
+.feature-body {
+  position: relative;
+  z-index: 1;
+  margin-top: -28%;
+  padding: 0 max(var(--gutter), var(--safe-r)) var(--s6) max(var(--gutter), var(--safe-l));
+}
+@media (min-width: 560px) { .feature-body { margin-top: -14%; } }
+.feature-kicker { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s2); }
+.feature-title {
+  font-size: var(--t-hero);
+  font-weight: 800;
+  letter-spacing: var(--track-hero);
+  line-height: 1.0;
+  margin: 0 0 var(--s3);
+  max-width: 16ch;
+  text-wrap: balance;
+}
+.feature-facts {
+  display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3);
+  margin-bottom: var(--s4);
+  font-size: var(--t-tiny);
+  color: var(--silver);
+}
+.feature-facts span { display: inline-flex; align-items: center; gap: var(--s2); }
+.feature-facts span + span::before {
+  content: ""; width: 3px; height: 3px; background: var(--silver-dim);
+}
+.feature-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
+
+/* ------------------------------------------------------------------ *
+ * 7. Rails and cards
+ * ------------------------------------------------------------------ */
+
+.rail-scroll {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 132px;
+  gap: var(--s3);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline proximity;
+  padding-bottom: var(--s3);
+  /* Bleed to the screen edge so the rail reads as a filmstrip. */
+  margin-inline: calc(-1 * max(var(--gutter), var(--safe-l))) calc(-1 * max(var(--gutter), var(--safe-r)));
+  padding-inline: max(var(--gutter), var(--safe-l)) max(var(--gutter), var(--safe-r));
+  scrollbar-width: none;
+}
+.rail-scroll::-webkit-scrollbar { display: none; }
+@media (min-width: 430px) { .rail-scroll { grid-auto-columns: 148px; } }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: var(--s4) var(--s3);
+}
+
+.card {
+  scroll-snap-align: start;
+  text-align: left;
+  min-width: 0;
+  display: block;
+}
+.card:focus-visible { outline: var(--focus); outline-offset: 3px; }
+
+.art {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  background: var(--slate-800);
+  border: 1px solid var(--rule-faint);
+  overflow: hidden;
+}
+/* Artwork covers the fallback mark rather than sitting under it: the fallback
+   is absolutely positioned, so a static <img> would paint beneath it. An image
+   that fails to load removes itself and the mark shows through. */
+.art img { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.art-fallback {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  color: var(--slate-600);
+  background: repeating-linear-gradient(45deg, var(--slate-800) 0 6px, var(--slate-900) 6px 12px);
+}
+.art-fallback svg { width: 28px; height: 28px; }
+.card:hover .art { border-color: var(--rule-strong); }
+
+/* Provider attribution rides on the artwork so a viewer always knows the
+   source of a result. */
+.art-source {
+  position: absolute; z-index: 2; top: 0; left: 0;
+  max-width: 88%;
+  padding: 3px var(--s2);
+  background: color-mix(in srgb, var(--void) 84%, transparent);
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--t-micro);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--bone-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.art-watched {
+  position: absolute; z-index: 2; top: var(--s2); right: var(--s2);
+  width: 22px; height: 22px; display: grid; place-items: center;
+  background: var(--ok-wash); border: 1px solid var(--ok); color: var(--ok);
+}
+.art-watched svg { width: 13px; height: 13px; }
+
+/* Progress is a hard bar on the artwork's bottom seam. */
+.art-progress { position: absolute; z-index: 2; inset: auto 0 0 0; height: 3px; background: rgba(4, 5, 10, 0.7); }
+.art-progress i { display: block; height: 100%; background: var(--signal); }
+
+/* Two readable lines of title, always. Never one ellipsized line. */
+.card-title {
+  margin-top: var(--s2);
+  font-size: var(--t-small);
+  font-weight: 650;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-meta {
+  margin-top: 2px;
+  font-size: var(--t-micro);
+  color: var(--silver-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Continue Watching reads wider so resume context fits. */
+.resume-rail { grid-auto-columns: 232px; }
+.resume-card { display: grid; grid-template-columns: 64px 1fr; gap: var(--s3); align-items: start; text-align: left; }
+.resume-card .art { aspect-ratio: 2 / 3; }
+.resume-body { min-width: 0; padding-top: 2px; }
+.resume-title {
+  font-size: var(--t-small); font-weight: 650; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.resume-context { margin-top: var(--s1); font-size: var(--t-micro); color: var(--silver); }
+.resume-bar { margin-top: var(--s2); height: 2px; background: var(--slate-700); }
+.resume-bar i { display: block; height: 100%; background: var(--signal); }
+
+/* A release card keeps the full source name legible enough to judge. */
+.release-rail { grid-auto-columns: 260px; }
+.release-card {
+  display: block; text-align: left;
+  border: 1px solid var(--rule);
+  background: var(--slate-900);
+  padding: var(--s3);
+  min-height: 100%;
+}
+.release-card:hover { border-color: var(--rule-strong); background: var(--slate-800); }
+.release-card .card-title { margin-top: 0; font-size: var(--t-body); }
+.release-name {
+  margin-top: var(--s2);
+  font-family: var(--font-mono);
+  font-size: var(--t-tiny);
+  line-height: 1.4;
+  color: var(--bone-dim);
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------ *
+ * 8. Media hub
+ * ------------------------------------------------------------------ */
+
+/* The hub is a directory, not a card grid: each sector is a hard row with
+   an index numeral, a name, and an honest availability state. */
+.hub-list { border-top: 1px solid var(--rule); }
+
+.hub-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-height: calc(var(--tap) + var(--s5));
+  padding: var(--s3) var(--s1);
+  text-align: left;
+  border-bottom: 1px solid var(--rule);
+  color: var(--bone);
+  transition: background var(--dur-1) var(--ease);
+}
+.hub-row:hover { background: var(--slate-900); }
+.hub-row .numeral { font-size: var(--t-body); }
+.hub-name { min-width: 0; }
+.hub-label { font-size: var(--t-body); font-weight: 700; letter-spacing: var(--track-tight); }
+.hub-detail { margin-top: 2px; font-size: var(--t-tiny); color: var(--silver); }
+
+/* An unavailable sector stays visible and explains itself. It is never
+   hidden, and never dressed up as if content were waiting behind it. */
+.hub-row.empty { color: var(--silver-dim); }
+.hub-row.empty .hub-label { color: var(--silver); font-weight: 650; }
+.hub-row.empty .numeral { color: var(--slate-600); }
+
+.hub-state {
+  font-size: var(--t-micro);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 3px var(--s2);
+  border: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.hub-state.live { color: var(--ok); border-color: var(--ok); background: var(--ok-wash); }
+.hub-state.none { color: var(--silver-dim); }
+
+/* A custom type an add-on invented. Kept reachable rather than discarded. */
+.hub-row.custom .hub-label::after {
+  content: "CUSTOM";
+  margin-left: var(--s2);
+  font-size: var(--t-micro);
+  letter-spacing: var(--track-label);
+  color: var(--info);
+  vertical-align: 2px;
+}
+
+/* ------------------------------------------------------------------ *
+ * 9. Dossier (detail sheet)
+ * ------------------------------------------------------------------ */
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(4, 5, 10, 0.72);
+}
+@media (min-width: 900px) { .sheet { align-items: center; padding: var(--s6); } }
+
+.sheet-panel {
+  position: relative;
+  width: 100%;
+  max-height: 94svh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--obsidian);
+  border-top: 1px solid var(--rule-strong);
+  box-shadow: var(--lift-3);
+  animation: sheet-in var(--dur-3) var(--ease-out);
+}
+@media (min-width: 900px) {
+  .sheet-panel { max-width: 860px; border: 1px solid var(--rule-strong); }
+}
+@keyframes sheet-in { from { transform: translateY(3%); opacity: 0; } }
+
+.sheet-close {
+  position: absolute; z-index: 4;
+  top: calc(var(--safe-t) + var(--s2)); right: var(--s2);
+  width: var(--tap); height: var(--tap);
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--void) 78%, transparent);
+  border: 1px solid var(--rule);
+  color: var(--bone);
+}
+
+/* Dossier header: artwork band, then a hard seam, then the record. */
+.dossier-art {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--slate-900);
+}
+.dossier-art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 25%; }
+.dossier-art::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 30%, rgba(8, 10, 17, 0.9) 88%, var(--obsidian) 100%);
+}
+
+.dossier-head {
+  position: relative;
+  margin-top: -18%;
+  z-index: 1;
+  padding: 0 var(--gutter) var(--s4);
+}
+.dossier-title {
+  font-size: var(--t-display);
+  font-weight: 800;
+  letter-spacing: var(--track-hero);
+  line-height: 1.05;
+  margin: var(--s2) 0 var(--s3);
+  text-wrap: balance;
+}
+
+/* The record strip: label/value pairs in mono, the intelligence look. */
+.record {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 1px;
+  background: var(--rule-faint);
+  border-block: 1px solid var(--rule);
+  margin: var(--s4) 0;
+}
+.record-cell { background: var(--obsidian); padding: var(--s2) var(--s3); min-width: 0; }
+.record-cell dt { font-size: var(--t-micro); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--silver-dim); font-weight: 700; }
+.record-cell dd {
+  margin: 3px 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+  color: var(--bone-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.dossier-body { padding: 0 var(--gutter) calc(var(--s7) + var(--safe-b)); }
+.synopsis {
+  color: var(--bone-dim);
+  font-size: var(--t-body);
+  line-height: 1.55;
+  max-width: var(--measure);
+  margin: 0 0 var(--s4);
+}
+
+/* ------------------------------------------------------------------ *
+ * 10. Series browser
+ * ------------------------------------------------------------------ */
+
+/* Season selector: a scrollable band of hard tabs, never a native select. */
+.season-band {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: var(--s1) 0 var(--s3);
+  margin-inline: calc(-1 * var(--gutter));
+  padding-inline: var(--gutter);
+}
+.season-band::-webkit-scrollbar { display: none; }
+.season-tab {
+  flex: 0 0 auto;
+  min-height: var(--tap);
+  padding: 0 var(--s4);
+  border: 1px solid var(--rule);
+  color: var(--silver);
+  font-size: var(--t-small);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.season-tab.active { color: var(--bone); border-color: var(--bone-dim); background: var(--slate-800); }
+
+/* Episode rows: numeral gutter, two-line title, no horizontal trap at 320. */
+.video-list { border-top: 1px solid var(--rule); }
+.video-row {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  gap: var(--s3);
+  align-items: start;
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--s3) var(--s1);
+  text-align: left;
+  border-bottom: 1px solid var(--rule);
+  color: var(--bone);
+}
+.video-row:hover { background: var(--slate-900); }
+.video-row .numeral { font-size: var(--t-body); padding-top: 1px; }
+.video-main { min-width: 0; }
+.video-title {
+  font-size: var(--t-body);
+  font-weight: 650;
+  line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.video-sub { margin-top: 3px; font-size: var(--t-tiny); color: var(--silver-dim); }
+.video-row.watched .video-title { color: var(--silver); }
+.video-row.active { background: var(--slate-800); box-shadow: inset 2px 0 0 var(--signal); }
+.video-flag { flex: 0 0 auto; align-self: center; }
+
+/* Non-episode groups are labelled, never blended into the episode run. */
+.group-head {
+  display: flex; align-items: baseline; gap: var(--s2);
+  padding: var(--s5) 0 var(--s2);
+}
+.group-head h4 { margin: 0; font-size: var(--t-small); font-weight: 750; letter-spacing: var(--track-tight); }
+.group-note { font-size: var(--t-micro); color: var(--silver-dim); }
+
+/* ------------------------------------------------------------------ *
+ * 11. Source picker — a release browser
+ * ------------------------------------------------------------------ */
+
+.picker-bar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  gap: var(--s2);
+  align-items: center;
+  padding: var(--s3) 0;
+  background: var(--obsidian);
+  border-bottom: 1px solid var(--rule);
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-inline: calc(-1 * var(--gutter));
+  padding-inline: var(--gutter);
+}
+.picker-bar::-webkit-scrollbar { display: none; }
+
+.chip {
+  flex: 0 0 auto;
+  min-height: var(--tap);
+  display: inline-flex; align-items: center; gap: var(--s2);
+  padding: 0 var(--s4);
+  border: 1px solid var(--rule);
+  color: var(--silver);
+  font-size: var(--t-small);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.chip:hover { color: var(--bone); border-color: var(--rule-strong); }
+.chip.active { color: var(--void); background: var(--bone); border-color: var(--bone); }
+.chip svg { width: 15px; height: 15px; }
+
+.picker-sort {
+  flex: 0 0 auto;
+  min-height: var(--tap);
+  padding: 0 var(--s2);
+  background: var(--slate-800);
+  border: 1px solid var(--rule);
+  color: var(--bone);
+  font-size: var(--t-small);
+}
+
+/* A stream row leads with the release name in mono, at full length. */
+.stream-list { border-top: 1px solid var(--rule); }
+
+/* One release = one item: the choose button, then a native disclosure holding
+   the full record. The disclosure sits outside the button so it is never a
+   nested interactive control. */
+.stream-item { border-bottom: 1px solid var(--rule); padding-bottom: var(--s2); }
+
+.stream-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--s3) var(--s1);
+  color: var(--bone);
+  position: relative;
+  transition: background var(--dur-1) var(--ease);
+}
+.stream-row:hover { background: var(--slate-900); }
+.stream-row.recommended { background: linear-gradient(90deg, var(--signal-wash), transparent 60%); box-shadow: inset 2px 0 0 var(--signal); }
+.stream-row.blocked { opacity: 0.72; }
+
+.stream-lead { display: flex; align-items: baseline; gap: var(--s2); margin-bottom: var(--s2); }
+.stream-rank { font-size: var(--t-micro); }
+.stream-flag {
+  font-size: var(--t-micro); letter-spacing: var(--track-label); text-transform: uppercase;
+  font-weight: 800; color: var(--signal-bright);
+}
+
+/* The full release name. Wraps to as many lines as it needs — this is the
+   thing a viewer is actually choosing between. */
+.stream-name {
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+  line-height: 1.45;
+  color: var(--bone);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.stream-item[open] .stream-name,
+.stream-details[open] .stream-name { -webkit-line-clamp: unset; display: block; }
+
+.stream-tags { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s2); }
+
+/* Facet tags: quality, codec, HDR, audio, size, provider, pack state. */
+.tag,
+.chip-sm {
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px var(--s2);
+  border: 1px solid var(--rule);
+  color: var(--bone-dim);
+  background: var(--slate-800);
+  white-space: nowrap;
+}
+.tag.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); background: var(--ok-wash); }
+.tag.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: var(--warn-wash); }
+.tag.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); background: var(--bad-wash); }
+.tag.info { color: var(--info); border-color: color-mix(in srgb, var(--info) 45%, transparent); background: var(--info-wash); }
+.tag.signal { color: var(--signal-bright); border-color: color-mix(in srgb, var(--signal) 50%, transparent); background: var(--signal-wash); }
+
+/* Compatibility is stated on the row, never used to hide a source. Each
+   state gets its own tag colour so the meaning survives a glance. */
+.tag.state-ready, .chip-sm.state-ready { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); background: var(--ok-wash); }
+.tag.state-probably-ready, .chip-sm.state-probably-ready { color: var(--info); border-color: color-mix(in srgb, var(--info) 45%, transparent); background: var(--info-wash); }
+.tag.state-requires-external, .chip-sm.state-requires-external { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: var(--warn-wash); }
+.tag.state-unsupported, .chip-sm.state-unsupported,
+.tag.state-unsafe, .chip-sm.state-unsafe { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); background: var(--bad-wash); }
+
+.stream-why {
+  margin-top: var(--s2);
+  font-size: var(--t-tiny);
+  color: var(--silver);
+  line-height: 1.4;
+}
+
+.stream-details { padding: 0 var(--s1); }
+.stream-details summary::-webkit-details-marker { display: none; }
+.stream-details summary::marker { content: ""; }
+
+/* A quiet secondary control. The row itself is the decision; this is the
+   footnote, and it must not compete with the release name above it. */
+.stream-expand {
+  cursor: pointer;
+  list-style: none;
+  min-height: var(--tap);
+  display: flex; align-items: center; gap: var(--s2);
+  font-size: var(--t-micro);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--silver-dim);
+}
+.stream-expand::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--rule-faint);
+}
+.stream-expand::before {
+  content: "+";
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+  line-height: 1;
+}
+.stream-details[open] .stream-expand { color: var(--bone-dim); }
+.stream-details[open] .stream-expand::before { content: "\2212"; }
+.stream-expand:hover { color: var(--bone); }
+
+/* The expanded dossier for one release: every field, nothing clipped. */
+.stream-detail {
+  margin-top: var(--s3);
+  border: 1px solid var(--rule);
+  background: var(--slate-900);
+}
+.stream-detail dl {
+  display: grid;
+  grid-template-columns: minmax(88px, auto) 1fr;
+  gap: 1px;
+  margin: 0;
+  background: var(--rule-faint);
+}
+.stream-detail dt,
+.stream-detail dd { background: var(--slate-900); padding: var(--s2) var(--s3); margin: 0; }
+.stream-detail dt {
+  font-size: var(--t-micro); letter-spacing: var(--track-label); text-transform: uppercase;
+  color: var(--silver-dim); font-weight: 700;
+}
+.stream-detail dd {
+  font-family: var(--font-mono); font-size: var(--t-tiny); color: var(--bone-dim);
+  word-break: break-word; overflow-wrap: anywhere; min-width: 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * 12. Player chrome
+ * ------------------------------------------------------------------ */
+
+/* The stage sits below every control layer. Without an explicit z-index it
+   swallows taps meant for the chrome above it. */
+.player-shell { position: fixed; inset: 0; z-index: 110; background: #000; }
+.player-modal { position: absolute; inset: 0; display: flex; flex-direction: column; background: #000; }
+.player-stage { position: absolute; z-index: 1; inset: 0; background: #000; display: grid; place-items: center; }
+.player-stage video,
+.player-stage iframe { width: 100%; height: 100%; border: 0; background: #000; }
+
+.player-top {
+  position: absolute; z-index: 4; inset: 0 0 auto 0;
+  display: flex; align-items: flex-start; gap: var(--s3);
+  padding:
+    max(14px, calc(var(--safe-t) + var(--s2)))
+    max(14px, var(--safe-r))
+    var(--s4)
+    max(14px, var(--safe-l));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.82), transparent);
+}
+/* Title and tools fade when idle; the close control never does, because an
+   iframe stage swallows the taps that would bring the chrome back and the
+   viewer would have no way out. */
+.player-title, .player-tools { transition: opacity var(--dur-2) var(--ease); }
+.player-shell.idle .player-title, .player-shell.idle .player-tools { opacity: 0; pointer-events: none; }
+.player-top [data-close-player] { opacity: 1; pointer-events: auto; }
+
+.player-title { min-width: 0; flex: 1; }
+.player-title b {
+  display: block; font-size: var(--t-body); font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.player-title span {
+  display: block; font-size: var(--t-tiny); color: var(--silver);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.player-quality { display: flex; gap: var(--s1); margin-top: var(--s2); flex-wrap: wrap; }
+
+/* The tool rail sits above the stage but clear of the native controls. */
+.player-tools {
+  position: absolute; z-index: 4;
+  top: calc(max(14px, var(--safe-t)) + 58px);
+  right: max(12px, var(--safe-r));
+  display: flex; flex-direction: column; gap: var(--s2);
+}
+.tool-btn {
+  min-width: var(--tap); min-height: var(--tap);
+  padding: 0 var(--s3);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  background: color-mix(in srgb, var(--void) 74%, transparent);
+  border: 1px solid var(--rule-strong);
+  color: var(--bone);
+  font-size: var(--t-tiny); font-weight: 700; letter-spacing: 0.06em;
+}
+.tool-btn svg { width: 18px; height: 18px; }
+.tool-btn.on { background: var(--signal-ink); border-color: var(--signal-ink); color: var(--bone); }
+.tool-btn:disabled { opacity: 0.4; }
+
+/* Status sits above the native control strip, never on top of it. */
+.player-status {
+  position: absolute; z-index: 5; inset: auto 0 0 0;
+  display: flex; justify-content: center;
+  padding: 0 var(--gutter) calc(96px + var(--safe-b));
+  pointer-events: none;
+}
+.status-card {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: var(--s3);
+  max-width: min(520px, 92vw);
+  padding: var(--s3) var(--s4);
+  background: color-mix(in srgb, var(--obsidian) 94%, transparent);
+  border: 1px solid var(--rule-strong);
+  box-shadow: var(--lift-2);
+  font-size: var(--t-small);
+}
+.status-card b { display: block; font-size: var(--t-small); margin-bottom: 2px; }
+.status-card span { color: var(--silver); font-size: var(--t-tiny); }
+
+.player-loading {
+  display: flex; flex-direction: column; align-items: center; gap: var(--s4);
+  text-align: center; padding: var(--s6); color: var(--bone-dim);
+}
+.player-loading b { font-size: var(--t-lead); font-weight: 700; }
+.player-loading span { font-size: var(--t-small); color: var(--silver); }
+
+.player-error { padding: var(--s7) max(var(--s6), var(--safe-l)); text-align: center; max-width: 600px; }
+.error-kind {
+  font-size: var(--t-micro); font-weight: 800; letter-spacing: var(--track-label);
+  text-transform: uppercase; color: var(--signal-bright); margin-bottom: var(--s2);
+}
+.player-error h2 { margin: 0 0 var(--s2); font-size: var(--t-title); letter-spacing: var(--track-tight); }
+.player-error p { color: var(--silver); margin: 0 0 var(--s2); font-size: var(--t-body); }
+.failed-source {
+  font-family: var(--font-mono); font-size: var(--t-tiny); color: var(--silver-dim);
+  margin-bottom: var(--s5); word-break: break-word;
+}
+.error-actions { display: flex; flex-wrap: wrap; gap: var(--s2); justify-content: center; }
+
+/* Autoplay countdown, clear of the native controls. */
+.countdown-card {
+  position: absolute; z-index: 6;
+  left: 50%; transform: translateX(-50%);
+  top: calc(max(14px, var(--safe-t)) + 66px);
+  width: min(430px, 92vw);
+  padding: var(--s4);
+  background: color-mix(in srgb, var(--obsidian) 96%, transparent);
+  border: 1px solid var(--rule-strong);
+  box-shadow: var(--lift-2);
+}
+.countdown-card b { display: block; font-size: var(--t-body); margin: var(--s1) 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.countdown-meter { height: 2px; background: var(--slate-700); margin: var(--s3) 0; overflow: hidden; }
+.countdown-meter i { display: block; height: 100%; background: var(--signal); transition: width 1s linear; }
+.countdown-actions { display: flex; gap: var(--s2); }
+.countdown-actions .btn { flex: 1; }
+
+/* Track menu: subtitles and audio, each a labelled list. */
+.track-menu {
+  position: absolute; z-index: 7;
+  top: calc(max(14px, var(--safe-t)) + 58px);
+  right: max(12px, var(--safe-r));
+  width: min(310px, 88vw);
+  max-height: min(56svh, 420px);
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--obsidian) 97%, transparent);
+  border: 1px solid var(--rule-strong);
+  box-shadow: var(--lift-3);
+}
+.track-menu h4 {
+  margin: 0; padding: var(--s3) var(--s3) var(--s2);
+  font-size: var(--t-micro); letter-spacing: var(--track-label); text-transform: uppercase;
+  color: var(--silver-dim); border-bottom: 1px solid var(--rule);
+}
+.track-option {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  width: 100%; min-height: var(--tap);
+  padding: var(--s2) var(--s3);
+  text-align: left; color: var(--bone-dim);
+  border-bottom: 1px solid var(--rule-faint);
+  font-size: var(--t-small);
+}
+.track-option:hover { background: var(--slate-800); }
+.track-option.active { color: var(--bone); background: var(--slate-800); box-shadow: inset 2px 0 0 var(--signal); font-weight: 700; }
+.track-option svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--signal); }
+.track-line { min-width: 0; }
+/* Two tracks can share a language; the sub-line is what tells them apart. */
+.track-sub {
+  display: block; margin-top: 2px;
+  font-family: var(--font-mono); font-size: var(--t-micro); color: var(--silver-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ------------------------------------------------------------------ *
+ * 13. Audio player (compact and expanded)
+ * ------------------------------------------------------------------ */
+
+/* Compact bar docks above the mobile navigation and stays out of its way. */
+.audio-bar {
+  position: fixed;
+  z-index: 45;
+  inset: auto 0 calc(var(--dock) + var(--safe-b)) 0;
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) max(var(--gutter), var(--safe-r)) var(--s2) max(var(--gutter), var(--safe-l));
+  background: color-mix(in srgb, var(--slate-900) 96%, transparent);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--rule-strong);
+}
+@media (min-width: 900px) { .audio-bar { inset: auto 0 0 0; padding-left: calc(var(--rail) + var(--gutter)); } }
+
+.audio-bar-art { width: 44px; height: 44px; background: var(--slate-800); border: 1px solid var(--rule); object-fit: cover; }
+.audio-bar-body { min-width: 0; text-align: left; }
+.audio-bar-title { font-size: var(--t-small); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.audio-bar-sub { font-size: var(--t-micro); color: var(--silver-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.audio-bar-actions { display: flex; gap: var(--s1); }
+
+/* A real 2px progress seam driven by timeupdate, not decoration. */
+.audio-bar-progress { position: absolute; inset: 0 0 auto 0; height: 2px; background: var(--slate-700); }
+.audio-bar-progress i { display: block; height: 100%; background: var(--signal); }
+
+.audio-full { position: fixed; inset: 0; z-index: 105; background: var(--obsidian); display: flex; flex-direction: column; }
+.audio-full-head {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: calc(var(--safe-t) + var(--s3)) max(var(--gutter), var(--safe-r)) var(--s3) max(var(--gutter), var(--safe-l));
+  border-bottom: 1px solid var(--rule);
+}
+.audio-full-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--s5);
+  padding: var(--s6) max(var(--gutter), var(--safe-r)) calc(var(--s7) + var(--safe-b)) max(var(--gutter), var(--safe-l));
+  text-align: center;
+}
+/* The mark sits underneath; artwork covers it when the add-on has any and it
+   actually loads. A broken image never shows as a broken image. */
+.audio-cover {
+  position: relative;
+  width: min(280px, 62vw); aspect-ratio: 1;
+  background: var(--slate-800); border: 1px solid var(--rule-strong);
+  box-shadow: var(--lift-3);
+  display: grid; place-items: center;
+  color: var(--slate-600);
+}
+.audio-cover > svg { width: 44px; height: 44px; }
+.audio-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.audio-meta { max-width: 100%; }
+.audio-meta h2 { margin: 0 0 var(--s1); font-size: var(--t-title); letter-spacing: var(--track-tight); text-wrap: balance; }
+.audio-meta p { margin: 0; color: var(--silver); font-size: var(--t-small); }
+
+.audio-scrub { width: min(440px, 100%); position: relative; }
+/* Buffered range shows behind the played range. Both come from the element. */
+.audio-track {
+  position: absolute; inset: calc((var(--tap) - 4px) / 2) 0 auto 0;
+  height: 4px; background: var(--slate-700);
+}
+.audio-buffer { position: absolute; inset: 0 auto 0 0; background: var(--slate-600); }
+.audio-played { position: absolute; inset: 0 auto 0 0; background: var(--signal); }
+.audio-times {
+  display: flex; justify-content: space-between; margin-top: var(--s1);
+  font-family: var(--font-mono); font-size: var(--t-tiny); color: var(--silver);
+  font-variant-numeric: tabular-nums;
+}
+.audio-controls { display: flex; align-items: center; justify-content: center; gap: var(--s4); }
+.audio-play {
+  width: 64px; height: 64px; border-radius: var(--r-pill);
+  display: grid; place-items: center;
+  background: var(--bone); color: var(--void);
+}
+.audio-play svg { width: 26px; height: 26px; }
+
+/* --- The audio surface, expanded and docked ------------------------- *
+ * Collapsing only changes layout. The <audio> element, its adapter and its
+ * listeners stay exactly where they are, so nothing re-buffers. */
+
+.player-shell.audio-mode { z-index: 105; background: var(--obsidian); }
+.audio-mode .player-modal {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--obsidian);
+}
+.audio-mode .player-top {
+  position: relative; z-index: 4; inset: auto;
+  align-items: center;
+  background: none;
+  padding: calc(var(--safe-t) + var(--s3)) max(var(--gutter), var(--safe-r)) var(--s3) max(var(--gutter), var(--safe-l));
+}
+.audio-mode .player-stage {
+  position: relative; inset: auto;
+  flex: 1; min-height: 0;
+  background: var(--obsidian);
+  align-content: stretch;
+  grid-template-rows: 1fr;
+}
+.audio-mode .player-tools {
+  top: auto; bottom: calc(var(--safe-b) + var(--s5));
+  right: max(12px, var(--safe-r));
+}
+.audio-mode .player-status { bottom: calc(var(--safe-b) + var(--s3)); }
+.audio-mode #mediaEl { width: min(440px, 100%); height: 40px; }
+.audio-mode .audio-bar-progress,
+.audio-mode .audio-dock-actions { display: none; }
+
+/* Docked: the same tree, laid out as a bar above the mobile navigation. */
+.player-shell.audio-mode.docked {
+  position: fixed; z-index: 45;
+  inset: auto 0 calc(var(--dock) + var(--safe-b)) 0;
+}
+@media (min-width: 900px) { .player-shell.audio-mode.docked { inset: auto 0 0 0; } }
+.audio-mode.docked .player-modal {
+  position: relative;
+  display: block;
+  background: color-mix(in srgb, var(--slate-900) 97%, transparent);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--rule-strong);
+}
+.audio-mode.docked .audio-bar-progress { display: block; }
+.audio-mode.docked .player-top,
+.audio-mode.docked .player-tools,
+.audio-mode.docked .player-status { display: none; }
+.audio-mode.docked .player-stage { flex: none; min-height: 0; display: block; }
+.audio-mode.docked .audio-full-body {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) max(var(--gutter), var(--safe-r)) var(--s2) max(var(--gutter), var(--safe-l));
+  text-align: left;
+}
+.audio-mode.docked .audio-cover { width: 44px; aspect-ratio: 1; box-shadow: none; }
+.audio-mode.docked .audio-meta { min-width: 0; }
+.audio-mode.docked .audio-meta h2 {
+  margin: 0; font-size: var(--t-small); font-weight: 650; letter-spacing: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.audio-mode.docked .audio-meta p {
+  font-size: var(--t-micro); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.audio-mode.docked .audio-scrub { display: none; }
+.audio-mode.docked #mediaEl { display: none; }
+
+/* The docked transport is its own element, not a re-purposed header, so the
+   expanded head can be hidden outright rather than hidden-but-present. */
+.audio-mode.docked .audio-dock-actions {
+  position: absolute; z-index: 2;
+  right: max(var(--gutter), var(--safe-r));
+  top: 50%; transform: translateY(-50%);
+  display: flex; gap: var(--s1);
+}
+.audio-mode.docked .audio-full-body { padding-right: 148px; }
+
+/* The page keeps clear of whichever audio surface is showing. */
+body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 76px); }
+
+/* A range input styled as a hairline scrubber, still a real range for a11y. */
+.scrub-input {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: var(--tap); background: transparent; margin: 0; display: block;
+}
+.scrub-input::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; border-radius: var(--r-pill);
+  background: var(--bone); border: 0; margin-top: -5px;
+}
+.scrub-input::-moz-range-thumb { width: 14px; height: 14px; border-radius: var(--r-pill); background: var(--bone); border: 0; }
+.scrub-input::-webkit-slider-runnable-track { height: 4px; background: transparent; }
+.scrub-input::-moz-range-track { height: 4px; background: transparent; }
+
+/* ------------------------------------------------------------------ *
+ * 14. Controls
+ * ------------------------------------------------------------------ */
+
+.btn {
+  min-height: var(--tap);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  padding: 0 var(--s5);
+  border: 1px solid var(--rule-strong);
+  color: var(--bone);
+  font-size: var(--t-small);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.btn svg { width: 17px; height: 17px; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--bone); color: var(--void); border-color: var(--bone); }
+.btn-primary:hover { background: #fff; }
+.btn-signal { background: var(--signal-ink); border-color: var(--signal-ink); color: var(--bone); }
+.btn-ghost { background: transparent; }
+.btn-ghost:hover { background: var(--slate-800); border-color: var(--bone-dim); }
+.btn-danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, transparent); }
+.btn-sm { min-height: 36px; padding: 0 var(--s3); font-size: var(--t-micro); }
+
+.switch {
+  width: 48px; height: 28px; flex: 0 0 auto;
+  border: 1px solid var(--rule-strong);
+  background: var(--slate-800);
+  position: relative;
+  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.switch i {
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; background: var(--silver);
+  transition: transform var(--dur-2) var(--ease), background var(--dur-2) var(--ease);
+}
+.switch.on { background: var(--signal-wash); border-color: var(--signal); }
+.switch.on i { transform: translateX(20px); background: var(--signal-bright); }
+
+.field { margin-bottom: var(--s4); }
+.field label { display: block; margin-bottom: var(--s2); }
+.select, .text-input {
+  width: 100%; min-height: var(--tap);
+  padding: 0 var(--s3);
+  background: var(--slate-800);
+  border: 1px solid var(--rule);
+  color: var(--bone);
+  font-size: var(--t-body);
+}
+.field small { display: block; margin-top: var(--s2); font-size: var(--t-tiny); color: var(--silver-dim); }
+.switch-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s4);
+  padding: var(--s3) 0; border-bottom: 1px solid var(--rule-faint);
+}
+.switch-row b { display: block; font-size: var(--t-body); font-weight: 650; }
+.switch-row span { display: block; font-size: var(--t-tiny); color: var(--silver-dim); margin-top: 2px; }
+
+.notice {
+  padding: var(--s3);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--info);
+  background: var(--slate-900);
+  font-size: var(--t-small);
+  color: var(--bone-dim);
+}
+.notice.warn { border-left-color: var(--warn); }
+.notice.danger { border-left-color: var(--signal); }
+
+.actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.input-action { display: flex; gap: var(--s2); }
+.input-action .text-input { flex: 1; min-width: 0; }
+
+/* ------------------------------------------------------------------ *
+ * 15. States
+ * ------------------------------------------------------------------ */
+
+/* Skeletons mirror the real layout so first paint has no shift. */
+.skeleton { background: var(--slate-800); position: relative; overflow: hidden; }
+.skeleton::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(167, 173, 186, 0.07), transparent);
+  transform: translateX(-100%);
+  animation: sweep 1.4s infinite;
+}
+@keyframes sweep { to { transform: translateX(100%); } }
+.skeleton-line { height: 10px; margin-top: var(--s2); }
+.skeleton-art { aspect-ratio: 2 / 3; }
+
+.spinner {
+  width: 20px; height: 20px; flex: 0 0 auto;
+  border: 2px solid var(--slate-600);
+  border-top-color: var(--signal);
+  border-radius: var(--r-pill);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-line {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s5) 0; color: var(--silver); font-size: var(--t-small);
+}
+
+/* Empty and error states share one frame: a rule, a reason, a way forward. */
+.state {
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--rule-strong);
+  background: var(--slate-900);
+  padding: var(--s6) var(--s5);
+  text-align: left;
+}
+.state-icon { color: var(--slate-600); margin-bottom: var(--s3); }
+.state-icon svg { width: 32px; height: 32px; }
+.state h3 { margin: 0 0 var(--s2); font-size: var(--t-lead); letter-spacing: var(--track-tight); }
+.state p { margin: 0 0 var(--s4); color: var(--silver); font-size: var(--t-small); max-width: 46ch; }
+.state.error { border-left-color: var(--signal); }
+.state.error .state-icon { color: var(--signal-bright); }
+.state.offline { border-left-color: var(--warn); }
+.state.offline .state-icon { color: var(--warn); }
+
+.toast-wrap {
+  position: fixed; z-index: 200;
+  inset: auto max(var(--gutter), var(--safe-r)) calc(var(--dock) + var(--safe-b) + var(--s4)) max(var(--gutter), var(--safe-l));
+  display: grid; gap: var(--s2); justify-items: end;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  width: min(370px, 100%);
+  display: flex; gap: var(--s3); align-items: flex-start;
+  padding: var(--s3) var(--s4);
+  background: color-mix(in srgb, var(--slate-800) 96%, transparent);
+  border: 1px solid var(--rule-strong);
+  border-left: 2px solid var(--silver);
+  box-shadow: var(--lift-2);
+  font-size: var(--t-small);
+  animation: toast-in var(--dur-2) var(--ease-out);
+}
+.toast.good { border-left-color: var(--ok); }
+.toast.bad { border-left-color: var(--signal); }
+@keyframes toast-in { from { transform: translateY(6px); opacity: 0; } }
+
+/* Filter band: real selects, scrolled horizontally rather than wrapped into
+   a wall of controls on a 320px screen. */
+.filter-row {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: var(--s4);
+  margin-inline: calc(-1 * var(--gutter));
+  padding-inline: var(--gutter);
+}
+.filter-row::-webkit-scrollbar { display: none; }
+.filter-row .select { flex: 0 0 auto; max-width: 62vw; }
+
+.load-more { display: flex; justify-content: center; padding: var(--s6) 0 var(--s2); }
+
+/* A provider is on or off; the dot states it without relying on colour alone,
+   because the row also carries the word. */
+.status-dot {
+  display: inline-block; width: 8px; height: 8px; margin-right: var(--s2);
+  background: var(--ok); vertical-align: 1px;
+}
+.status-dot.off { background: var(--slate-600); }
+
+/* ------------------------------------------------------------------ *
+ * 16. Add-ons
+ * ------------------------------------------------------------------ */
+
+.addon-list { border-top: 1px solid var(--rule); }
+.addon-row {
+  display: grid; grid-template-columns: 40px 1fr auto; gap: var(--s3);
+  align-items: center; padding: var(--s4) var(--s1);
+  border-bottom: 1px solid var(--rule);
+}
+.addon-logo { width: 40px; height: 40px; object-fit: contain; background: var(--slate-800); border: 1px solid var(--rule); }
+.addon-body { min-width: 0; }
+.addon-name { font-size: var(--t-body); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.addon-meta { font-size: var(--t-micro); color: var(--silver-dim); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
+.addon-desc {
+  font-size: var(--t-tiny); color: var(--silver); margin-top: var(--s1);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.addon-actions { display: flex; gap: var(--s1); align-items: center; }
+
+/* ------------------------------------------------------------------ *
+ * 17. Modal frame (settings, install, torrent)
+ * ------------------------------------------------------------------ */
+
+.modal-shell {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(4, 5, 10, 0.72);
+}
+@media (min-width: 900px) { .modal-shell { align-items: center; padding: var(--s6); } }
+.modal {
+  width: 100%; max-height: 92svh; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--obsidian);
+  border-top: 1px solid var(--rule-strong);
+  box-shadow: var(--lift-3);
+  animation: sheet-in var(--dur-3) var(--ease-out);
+}
+@media (min-width: 900px) { .modal { max-width: 640px; border: 1px solid var(--rule-strong); } }
+.modal-head {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
+  padding: calc(var(--safe-t) + var(--s4)) var(--gutter) var(--s3);
+  background: var(--obsidian);
+  border-bottom: 1px solid var(--rule);
+}
+.modal-head h2 { margin: 0; font-size: var(--t-title); letter-spacing: var(--track-tight); }
+.modal-body { padding: var(--s5) var(--gutter) calc(var(--s7) + var(--safe-b)); }
+
+/* ------------------------------------------------------------------ *
+ * 18. Motion and reduced motion
+ * ------------------------------------------------------------------ */
+
+/* Everything animated above uses transform or opacity only. Nothing here
+   animates a property that forces layout, and nothing runs continuously
+   except a spinner that is present only while work is genuinely pending. */
+@media (prefers-reduced-motion: reduce) {
+  .stream-row,
+  .chip,
+  .btn,
+  .switch,
+  .switch i,
+  .player-title,
+  .player-tools,
+  .icon-btn,
+  .dock-btn,
+  .hub-row,
+  .countdown-meter i {
+    transition: none !important;
+  }
+  .sheet-panel,
+  .modal,
+  .toast { animation: none !important; }
+  .skeleton::after { animation: none; }
+  .spinner { animation-duration: 2.4s; }
+  html { scroll-behavior: auto; }
+}
+
+/* ------------------------------------------------------------------ *
+ * 19. Narrow-width hardening (320-430)
+ * ------------------------------------------------------------------ */
+
+@media (max-width: 380px) {
+  :root { --gutter: 12px; --t-hero: 32px; --t-display: 24px; }
+  .rail-scroll { grid-auto-columns: 118px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+  .resume-rail { grid-auto-columns: 210px; }
+  .release-rail { grid-auto-columns: 232px; }
+  .record { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dock-btn span:last-child { font-size: 9px; letter-spacing: 0.02em; }
+  .stream-detail dl { grid-template-columns: 1fr; }
+  .stream-detail dt { padding-bottom: 0; }
+}
+
+/* At the very narrowest the record collapses to a single readable column
+   rather than squeezing values into unreadable slivers. */
+@media (max-width: 330px) {
+  .record { grid-template-columns: minmax(0, 1fr); }
+  .feature-title { font-size: 28px; }
+  .video-row { grid-template-columns: 26px 1fr auto; gap: var(--s2); }
+}

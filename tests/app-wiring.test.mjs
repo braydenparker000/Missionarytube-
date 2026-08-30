@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const html = await readFile("index.html", "utf8");
+// The design system moved out of the inline <style> into a reviewable, cacheable
+// stylesheet. The guarantees the player chrome depends on are asserted against
+// that file now; they are the same guarantees, in the same terms.
+const css = await readFile("assets/css/obsidian.css", "utf8");
 
 test("the app loads the progress store before its own script", () => {
   const module = html.indexOf('<script src="assets/js/progress-store.js"></script>');
@@ -150,20 +154,26 @@ test("the picker surfaces compatibility instead of hiding sources", () => {
 test("the close control can never be faded out or made unclickable", () => {
   // A YouTube iframe swallows pointer events, so if the whole top bar faded the
   // viewer would have no way to bring it back: they would be trapped.
-  assert.match(html, /\.player-shell\.idle \.player-title,\.player-shell\.idle \.player-tools\{opacity:0;pointer-events:none\}/);
-  assert.equal(html.includes(".player-shell.idle .player-top{"), false, "the top bar itself must not fade");
-  assert.match(html, /\.player-top \[data-close-player\]\{opacity:1;pointer-events:auto\}/);
+  assert.match(css, /\.player-shell\.idle \.player-title, \.player-shell\.idle \.player-tools \{ opacity: 0; pointer-events: none; \}/);
+  assert.equal(/\.player-shell\.idle \.player-top\s*\{/.test(css), false, "the top bar itself must not fade");
+  assert.match(css, /\.player-top \[data-close-player\] \{ opacity: 1; pointer-events: auto; \}/);
+  // The audio surface has its own close control, and it is never in the fading set.
+  assert.match(html, /<div class="audio-dock-actions">[\s\S]*?data-close-player/, "the docked audio bar keeps a close control");
 });
 
 test("the mobile overlay respects safe areas and reduced motion", () => {
-  assert.match(html, /\.player-top\{padding:max\(14px,env\(safe-area-inset-top\)\)/);
-  assert.match(html, /@media\(prefers-reduced-motion:reduce\)\{\s*\.stream-row/);
+  // The top bar clears the notch on every edge, with a floor so a device that
+  // reports no inset still gets a real touch margin.
+  assert.match(css, /\.player-top \{[\s\S]*?padding:\s*max\(14px, calc\(var\(--safe-t\) \+ var\(--s2\)\)\)/);
+  assert.match(css, /--safe-t:\s*env\(safe-area-inset-top/, "the safe-area token reads the real inset");
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,400}\.stream-row/);
   assert.match(html, /function motionOk\(\)\{return !window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\}/);
   // Native controls must stay reachable: the tool rail sits above them.
-  assert.match(html, /\.player-tools\{position:absolute;z-index:4/);
+  assert.match(css, /\.player-tools \{\s*position: absolute; z-index: 4;/);
   // The stage must sit below the chrome or it swallows every control tap.
-  assert.match(html, /\.player-stage\{position:absolute;z-index:1/);
+  assert.match(css, /\.player-stage \{ position: absolute; z-index: 1;/);
   assert.match(html, /controls autoplay playsinline/, "native controls are kept");
+  assert.match(html, /<audio id="mediaEl" controls autoplay><\/audio>/, "the audio surface keeps native controls too");
 });
 
 test("episode ordering is used everywhere videos are listed", () => {
@@ -335,7 +345,9 @@ test("every modal dismissal invalidates pending work", () => {
   const NON_MODAL_TARGETS = new Set([
     "sections", // the home page rail container
     "status", // the player status area
-    "el" // the status element inside the notice timer
+    "el", // the status element inside the notice timer
+    "home", // #homeRoot, dropped when the add-on set changes under it
+    "$('#audioRoot')" // the audio surface, a sibling of the modal and never it
   ]);
   const blanking = [...html.matchAll(/([\w$.'#()]+)\.innerHTML=''/g)].map((m) => m[1]);
   const modalClears = blanking.filter((target) => !NON_MODAL_TARGETS.has(target.replace(/^if\(\w+\)/, "")));

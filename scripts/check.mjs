@@ -4,7 +4,7 @@ import { join } from "node:path";
 const failures = [];
 const requiredFiles = [
   "index.html",
-  "assets/css/app.css",
+  "assets/css/obsidian.css",
   "assets/js/app.js",
   "assets/js/progress-store.js",
   "assets/js/playback/settings.js",
