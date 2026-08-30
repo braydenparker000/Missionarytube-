@@ -90,6 +90,7 @@
       seenLabels[labelKey] = true;
 
       out.push({
+        id: "sub" + out.length,
         url: url,
         lang: lang,
         label: label,
@@ -227,25 +228,57 @@
     });
   }
 
+  function setMode(track, mode) {
+    try {
+      track.mode = mode;
+    } catch (error) {
+      /* some browsers reject mode changes on unloaded tracks */
+    }
+  }
+
+  function disableAll(media) {
+    for (var i = 0; i < media.textTracks.length; i += 1) setMode(media.textTracks[i], "disabled");
+  }
+
   /**
-   * Enable one text track by language, or turn all of them off. Uses the
-   * element's own textTracks so native and generated tracks behave alike.
+   * Enable the first track of a language, or turn all of them off.
+   *
+   * Only the first match is shown: two providers can supply the same language,
+   * and enabling both renders overlapping captions.
    */
   function selectTextTrack(media, lang) {
     if (!media || !media.textTracks) return false;
+    disableAll(media);
     var wanted = normalizeLang(lang);
-    var matched = false;
+    if (!wanted) return false;
     for (var i = 0; i < media.textTracks.length; i += 1) {
-      var track = media.textTracks[i];
-      var isMatch = !!wanted && normalizeLang(track.language) === wanted;
-      try {
-        track.mode = isMatch ? "showing" : "disabled";
-      } catch (error) {
-        /* some browsers reject mode changes on unloaded tracks */
+      if (normalizeLang(media.textTracks[i].language) === wanted) {
+        setMode(media.textTracks[i], "showing");
+        return true;
       }
-      if (isMatch) matched = true;
     }
-    return matched;
+    return false;
+  }
+
+  /**
+   * Enable exactly one attached track by its stable id, so two same-language
+   * providers stay individually selectable. Passing no id turns everything off.
+   */
+  function selectAttachedTrack(media, attached, id) {
+    if (!media || !media.textTracks) return false;
+    disableAll(media);
+    if (id == null || id === "") return false;
+    var wanted = String(id);
+    var list = attached || [];
+    for (var i = 0; i < list.length; i += 1) {
+      var entry = list[i];
+      if (!entry || !entry.track || String(entry.track.id) !== wanted) continue;
+      var textTrack = entry.element && entry.element.track;
+      if (!textTrack) return false;
+      setMode(textTrack, "showing");
+      return true;
+    }
+    return false;
   }
 
   global.AstraPlayback = global.AstraPlayback || {};
@@ -257,6 +290,7 @@
     srtToVtt: srtToVtt,
     pickDefault: pickDefault,
     attachTracks: attachTracks,
-    selectTextTrack: selectTextTrack
+    selectTextTrack: selectTextTrack,
+    selectAttachedTrack: selectAttachedTrack
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

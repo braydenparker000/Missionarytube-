@@ -148,7 +148,7 @@
   }
 
   function detectHdr(text) {
-    if (/\b(?:dolby\s*vision|dovi)\b/i.test(text) || /\bdv\b/.test(text)) return "Dolby Vision";
+    if (/\b(?:dolby\s*vision|dovi)\b/i.test(text) || /\bdv\b/i.test(text)) return "Dolby Vision";
     if (/\bhdr10\+/i.test(text)) return "HDR10+";
     if (/\bhdr10\b/i.test(text)) return "HDR10";
     if (/\bhdr\b/i.test(text)) return "HDR";
@@ -519,10 +519,11 @@
    * reliable content type are probed, and only the first `limit` of them, so
    * this never becomes a broad scan. Failure leaves the sync verdict intact.
    */
-  function refineWithDecodingInfo(evaluated, caps, limit) {
+  function refineWithDecodingInfo(evaluated, caps, options) {
     var probe = capabilities(caps);
     if (!probe.decodingInfo) return Promise.resolve(evaluated);
-    var budget = Number.isFinite(limit) ? limit : 5;
+    var config = typeof options === "number" ? { limit: options } : options || {};
+    var budget = Number.isFinite(config.limit) ? config.limit : 5;
 
     // Only probe a content type that actually names a codec. MediaCapabilities
     // cannot answer for a bare container type and reports it as unsupported,
@@ -534,6 +535,8 @@
         entry.evaluation.contentType.indexOf("codecs=") !== -1
       );
     });
+
+    var changed = false;
 
     return Promise.all(
       pending.map(function (entry) {
@@ -551,13 +554,15 @@
               entry.evaluation.label = STATE_LABEL[STATE.UNSUPPORTED];
               entry.evaluation.playable = false;
               entry.evaluation.confidence = 0;
-              entry.evaluation.reasons.push(reason("decoding-info", "The device reports it cannot decode this source."));
+              entry.evaluation.reasons.unshift(reason("decoding-info", "The device reports it cannot decode this source."));
+              changed = true;
             } else if (info.supported === true && info.smooth === true) {
               entry.evaluation.state = STATE.READY;
               entry.evaluation.label = STATE_LABEL[STATE.READY];
               entry.evaluation.playable = true;
               entry.evaluation.confidence = Math.max(entry.evaluation.confidence, 0.97);
               entry.evaluation.reasons.push(reason("decoding-info", "The device reports smooth decoding."));
+              changed = true;
             }
           })
           .catch(function () {
@@ -565,7 +570,10 @@
           });
       })
     ).then(function () {
-      return evaluated;
+      if (!changed) return evaluated;
+      // A changed verdict changes the score, the explanation and the order.
+      evaluated.forEach(rescore);
+      return evaluated.slice().sort(compare);
     });
   }
 
@@ -613,8 +621,9 @@
     add(Math.round(evaluation.confidence * 120), "Compatibility confidence", false);
 
     var ceiling = resolutionCeiling(settings);
+    var aboveCeiling = facts.resolutionRank > ceiling;
     if (facts.resolutionRank) {
-      if (facts.resolutionRank > ceiling) {
+      if (aboveCeiling) {
         add(-260, "Above your " + settings.maxResolution + " limit");
       } else {
         add(facts.resolutionRank * 45, facts.resolution);
@@ -643,7 +652,7 @@
     if (facts.sizeBytes > 2.5e10) add(-90, "Very large file");
     else if (facts.sizeBytes && facts.sizeBytes < 6e9) add(20, "Reasonable size");
 
-    return { total: total, factors: factors };
+    return { total: total, factors: factors, aboveCeiling: aboveCeiling };
   }
 
   function compare(a, b) {
@@ -671,13 +680,21 @@
     });
 
     entries.forEach(function (entry) {
-      var scored = score(entry, owner);
-      entry.score = scored.total;
-      entry.factors = scored.factors;
-      entry.why = explain(entry);
+      entry.settings = owner;
+      rescore(entry);
     });
 
     return entries.slice().sort(compare);
+  }
+
+  /** Recompute the derived ranking fields from the entry's current evaluation. */
+  function rescore(entry) {
+    var scored = score(entry, entry.settings || (global.AstraPlayback.settings || {}).DEFAULTS || {});
+    entry.score = scored.total;
+    entry.factors = scored.factors;
+    entry.aboveCeiling = scored.aboveCeiling;
+    entry.why = explain(entry);
+    return entry;
   }
 
   /**
@@ -709,10 +726,18 @@
     return positives.join(" · ");
   }
 
-  /** The best candidate Astra should start with, or null if none can play. */
+  /**
+   * The best candidate Astra may start on its own.
+   *
+   * `maxResolution` is a hard ceiling here, not just a scoring penalty: a
+   * cached 4K source can otherwise out-score every 1080p one and autoplay
+   * past the owner's limit. Above-ceiling sources stay listed and remain
+   * playable by an explicit tap; they are only excluded from automatic
+   * selection.
+   */
   function bestCandidate(ranked) {
     for (var i = 0; i < ranked.length; i += 1) {
-      if (ranked[i].evaluation.playable) return ranked[i];
+      if (ranked[i].evaluation.playable && !ranked[i].aboveCeiling) return ranked[i];
     }
     return null;
   }
@@ -740,6 +765,7 @@
     rank: rank,
     score: score,
     explain: explain,
+    rescore: rescore,
     bestCandidate: bestCandidate,
     tagsFor: tagsFor,
     formatSize: formatSize

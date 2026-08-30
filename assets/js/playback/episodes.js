@@ -59,6 +59,18 @@
     });
   }
 
+  /**
+   * A numbered episode belongs to the main run. Season 0 (specials) and videos
+   * with no season/episode metadata form the tail that sorts after it.
+   */
+  function isNumbered(video) {
+    if (!video) return false;
+    var season = num(video.season);
+    var episode = num(video.episode);
+    if (season !== null) return season !== 0;
+    return episode !== null;
+  }
+
   function indexOfVideo(ordered, videoId) {
     var wanted = String(videoId);
     for (var i = 0; i < ordered.length; i += 1) {
@@ -67,11 +79,21 @@
     return -1;
   }
 
+  /**
+   * The next episode in the main run.
+   *
+   * A finale never advances into the specials/extras tail: autoplaying a
+   * holiday special after a season finale is not what "next episode" means.
+   * Navigating within the tail itself still works.
+   */
   function nextEpisode(videos, videoId) {
     var ordered = orderVideos(videos);
     var at = indexOfVideo(ordered, videoId);
     if (at === -1) return null;
-    return ordered[at + 1] || null;
+    var next = ordered[at + 1] || null;
+    if (!next) return null;
+    if (isNumbered(ordered[at]) && !isNumbered(next)) return null;
+    return next;
   }
 
   function previousEpisode(videos, videoId) {
@@ -215,6 +237,7 @@
   global.AstraPlayback.episodes = {
     EPISODIC_TYPES: EPISODIC_TYPES,
     orderVideos: orderVideos,
+    isNumbered: isNumbered,
     nextEpisode: nextEpisode,
     previousEpisode: previousEpisode,
     isEpisodic: isEpisodic,

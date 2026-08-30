@@ -203,3 +203,68 @@ test("track lists are capped so a flood of providers cannot bloat the menu", () 
   }));
   assert.equal(plain(SUB.normalizeTracks(flood, { pageUrl: PAGE_URL })).length, SUB.MAX_TRACKS);
 });
+
+test("two same-language providers stay individually selectable", async () => {
+  const clock = createClock();
+  const { scope } = scopeWith(clock);
+  const media = createMediaElement();
+
+  const tracks = plain(
+    SUB.normalizeTracks(
+      [
+        { url: "https://subs.example.test/en-alpha.vtt", lang: "eng", label: "Alpha" },
+        { url: "https://subs.example.test/en-beta.vtt", lang: "eng", label: "Beta" }
+      ],
+      { pageUrl: PAGE_URL }
+    )
+  );
+  assert.equal(tracks.length, 2, "differently labelled same-language tracks both survive");
+  assert.notEqual(tracks[0].id, tracks[1].id, "each carries a stable id");
+
+  const attached = plain(
+    await SUB.attachTracks({
+      media,
+      scope,
+      tracks,
+      settings: {},
+      createObjectURL: () => "blob:unused",
+      Blob: globalThis.Blob
+    })
+  );
+  // Wire the doubles up the way a browser does: each <track> exposes a TextTrack.
+  attached.forEach((entry, index) => {
+    entry.element.track = { language: entry.track.lang, mode: "disabled", label: entry.track.label };
+    media.textTracks[index] = entry.element.track;
+  });
+  media.textTracks.length = attached.length;
+
+  assert.equal(SUB.selectAttachedTrack(media, attached, tracks[1].id), true);
+  assert.deepEqual(
+    media.textTracks.map((track) => track.mode),
+    ["disabled", "showing"],
+    "exactly the chosen provider is enabled"
+  );
+
+  assert.equal(SUB.selectAttachedTrack(media, attached, tracks[0].id), true);
+  assert.deepEqual(media.textTracks.map((track) => track.mode), ["showing", "disabled"]);
+
+  assert.equal(SUB.selectAttachedTrack(media, attached, null), false, "no id turns everything off");
+  assert.deepEqual(media.textTracks.map((track) => track.mode), ["disabled", "disabled"]);
+
+  assert.equal(SUB.selectAttachedTrack(media, attached, "missing"), false);
+});
+
+test("language selection enables only the first matching track", () => {
+  const media = createMediaElement();
+  media.textTracks = [
+    { language: "en", mode: "disabled" },
+    { language: "en", mode: "disabled" },
+    { language: "es", mode: "disabled" }
+  ];
+  assert.equal(SUB.selectTextTrack(media, "en"), true);
+  assert.deepEqual(
+    media.textTracks.map((track) => track.mode),
+    ["showing", "disabled", "disabled"],
+    "two English providers must not both render"
+  );
+});

@@ -192,3 +192,43 @@ test("Play now starts the next episode immediately and only once", () => {
   clock.advance(60000);
   assert.equal(done, 1);
 });
+
+test("a finale never advances into specials or unannotated extras", () => {
+  const { videos } = seriesMeta();
+  const ordered = plain(EP.orderVideos(videos));
+  const lastNumbered = ordered[ordered.length - 3];
+  assert.equal(lastNumbered.id, "tt0000001:2:1", "the last numbered episode");
+
+  // Sorting specials last is not enough on its own: without a boundary the
+  // countdown would autoplay the holiday special after the finale.
+  assert.equal(EP.nextEpisode(videos, "tt0000001:2:1"), null);
+  assert.equal(EP.nextEpisode(videos, "tt0000001:1:10").id, "tt0000001:2:1", "within the run it still advances");
+});
+
+test("resume never proposes a special after a completed finale", () => {
+  const meta = seriesMeta();
+  const history = { "tt0000001:2:1": { completed: true, updated: 700 } };
+  const target = EP.resumeTarget(meta, (id) => history[id] || null);
+  assert.equal(target.reason, "finished", "the run is over, not continued into a special");
+  assert.equal(target.video.id, "tt0000001:2:1");
+});
+
+test("navigation inside the specials tail still works", () => {
+  const videos = [
+    { id: "s:1:1", season: 1, episode: 1 },
+    { id: "s:0:1", season: 0, episode: 1 },
+    { id: "s:0:2", season: 0, episode: 2 }
+  ];
+  assert.equal(EP.nextEpisode(videos, "s:1:1"), null, "the run does not spill into specials");
+  assert.equal(EP.nextEpisode(videos, "s:0:1").id, "s:0:2", "but specials chain among themselves");
+  assert.equal(EP.previousEpisode(videos, "s:0:1").id, "s:1:1", "and going back is unrestricted");
+});
+
+test("numbered and tail videos are classified explicitly", () => {
+  assert.equal(EP.isNumbered({ season: 1, episode: 1 }), true);
+  assert.equal(EP.isNumbered({ season: 3 }), true);
+  assert.equal(EP.isNumbered({ episode: 4 }), true, "an episode with no season still belongs to the run");
+  assert.equal(EP.isNumbered({ season: 0, episode: 1 }), false, "season 0 is the specials bucket");
+  assert.equal(EP.isNumbered({ id: "extra" }), false);
+  assert.equal(EP.isNumbered(null), false);
+});

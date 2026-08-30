@@ -179,3 +179,61 @@ test("the autoplay countdown is cancellable and tied to the player", () => {
   assert.match(html, /if\(player\.countdown\)\{player\.countdown\.cancel\(\);player\.countdown=null\}/);
   assert.match(html, /if\(!state\.settings\.autoplayNext\)return/, "autoplay honours the setting");
 });
+
+test("a terminal failure releases the attempt before the error card renders", () => {
+  // Otherwise the detached media element and library instance stay referenced
+  // behind the error UI until the viewer happens to retry, switch or close.
+  assert.match(
+    html,
+    /if\(snap\.state==='failed'\|\|snap\.state==='exhausted'\)\{teardownAttempt\(\);renderPlayerError\(snap\)/,
+    "teardownAttempt must run when the session goes terminal"
+  );
+});
+
+test("a stream response is scoped to the lookup that asked for it", () => {
+  const load = html.match(/async function loadStreams\(videoId,autoPlay=false\)\{[\s\S]*?\n {4}\}/);
+  assert.ok(load, "loadStreams exists");
+
+  // The search counter alone does not change when the viewer closes one detail
+  // modal and opens another, so the lookup carries its own identity.
+  assert.match(load[0], /const lookup=\{mediaKey:mediaKey\(m\),videoId:String\(videoId\),token:\+\+state\.searchToken\}/);
+  assert.match(load[0], /player\.lookup=lookup/);
+  assert.match(load[0], /const stale=\(\)=>player\.lookup!==lookup/);
+  assert.match(load[0], /mediaKey\(state\.currentMeta\)!==lookup\.mediaKey/, "the current media is re-checked");
+  assert.match(load[0], /String\(state\.currentVideo\?\.id\)!==lookup\.videoId/, "so is the current video");
+  assert.match(load[0], /!\$\('#streamRoot'\)/, "and the root must still exist");
+
+  // Every continuation is guarded, including the delayed autoplay.
+  assert.match(load[0], /if\(stale\(\)\)return\[\];/, "the response is dropped when stale");
+  assert.match(load[0], /\.then\(\(\)=>\{if\(!stale\(\)\)renderStreams\(\)\}\)/, "so is the decoding-info re-render");
+  assert.match(
+    load[0],
+    /player\.autoPlayTimer=setTimeout\(\(\)=>\{player\.autoPlayTimer=null;if\(stale\(\)\)return;openPlayer\(best\)\}/,
+    "the delayed autoplay is guarded and cancellable"
+  );
+  assert.equal(load[0].includes("if(token!==state.searchToken)return[]"), false, "the counter-only guard is gone");
+});
+
+test("switching or dismissing a title cancels the in-flight lookup", () => {
+  assert.match(html, /function cancelStreamLookup\(\)\{[\s\S]*?player\.lookup=null;[\s\S]*?clearTimeout\(player\.autoPlayTimer\)/);
+  assert.match(html, /async function openMedia\(key\)\{cancelStreamLookup\(\);/, "opening another title invalidates it");
+  assert.match(html, /data-dismiss\]',root\)\.forEach\(x=>x\.onclick=e=>\{if\(e\.target===x\)\{cancelStreamLookup\(\)/, "so does dismissing the modal");
+});
+
+test("the subtitle menu selects one specific track, not a language", () => {
+  assert.match(html, /player\.subtitleAttached=attached/);
+  assert.match(html, /player\.subtitleTracks\.map\(t=>\(\{id:t\.id,label:t\.label,active:player\.activeSubtitle===t\.id\}\)\)/,
+    "options are keyed by the track id");
+  assert.match(html, /PB\.subtitles\.selectAttachedTrack\(el,player\.subtitleAttached,chosen\?chosen\.id:null\)/);
+  assert.equal(html.includes("selectSubtitle(lang)"), false, "the language-keyed handler is gone");
+  // The persisted preference is still a language, since ids are per-session.
+  assert.match(html, /state\.settings\.subtitleLanguage=chosen\.lang/);
+});
+
+test("automatic playback goes through the ceiling-aware selector", () => {
+  // bestCandidate() is the only automatic entry point, and it now enforces
+  // maxResolution, so autoplay cannot exceed the owner's limit.
+  const automatic = [...html.matchAll(/bestCandidate\(player\.ranked\)/g)];
+  assert.ok(automatic.length >= 2, "auto play best and the autoplay path both use it");
+  assert.equal(html.includes("player.ranked[0]"), false, "nothing autoplays the raw top of the list");
+});

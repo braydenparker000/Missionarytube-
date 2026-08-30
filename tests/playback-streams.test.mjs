@@ -334,3 +334,87 @@ test("MediaCapabilities is never asked about a bare container type", async () =>
   });
   assert.deepEqual(asked, ['video/mp4; codecs="avc1.640029"']);
 });
+
+test("maxResolution is a hard ceiling on automatic selection, not just a penalty", () => {
+  // The exact mixed-factor case from review: a cached 4K direct source can
+  // out-score a large uncached 1080p one, so a scoring penalty alone lets
+  // autoplay exceed the owner's stated maximum.
+  const entries = S.normalizeAll(
+    [
+      { name: "4K cached", title: "Example 2160p x264 5 GB [RD+]", url: "https://cdn.example.test/uhd.mp4" },
+      { name: "1080p uncertain", title: "Example 1080p 30 GB", url: "https://cdn.example.test/fhd.mp4" }
+    ],
+    { pageUrl: fixtures.PAGE_URL }
+  );
+  const ranked = S.rank(entries, { settings: { ...SETTINGS.DEFAULTS, maxResolution: "1080p" }, capabilities: caps });
+
+  const uhd = ranked.find((entry) => entry.stream.facts.resolution === "2160p");
+  assert.equal(uhd.aboveCeiling, true);
+  assert.ok(
+    uhd.score > ranked.find((entry) => entry.stream.facts.resolution === "1080p").score,
+    "the 4K source still out-scores on raw points, so a penalty alone would not hold"
+  );
+
+  const best = S.bestCandidate(ranked);
+  assert.equal(best.stream.facts.resolution, "1080p", "autoplay respects the ceiling anyway");
+
+  // Above-ceiling sources are excluded from autoplay, never hidden.
+  assert.equal(ranked.length, 2);
+  assert.equal(uhd.evaluation.playable, true, "it stays tappable in the picker");
+});
+
+test("nothing is auto-selected when every playable source exceeds the ceiling", () => {
+  const ranked = S.rank(
+    S.normalizeAll([{ name: "Only 4K", title: "Example 2160p x264", url: "https://cdn.example.test/uhd.mp4" }], {
+      pageUrl: fixtures.PAGE_URL
+    }),
+    { settings: { ...SETTINGS.DEFAULTS, maxResolution: "720p" }, capabilities: caps }
+  );
+  assert.equal(S.bestCandidate(ranked), null, "the viewer chooses explicitly rather than blowing the limit");
+  assert.equal(ranked[0].evaluation.playable, true);
+});
+
+test("a decodingInfo downgrade updates the score, explanation and order", async () => {
+  const ranked = S.rank(
+    S.normalizeAll(
+      [
+        { name: "H264 direct", title: "Example 1080p x264 4 GB", url: "https://cdn.example.test/a.mp4" },
+        { name: "HLS", title: "Example 720p adaptive", url: "https://cdn.example.test/b.m3u8" }
+      ],
+      { pageUrl: fixtures.PAGE_URL }
+    ),
+    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+  );
+  assert.equal(ranked[0].stream.title, "H264 direct");
+  const scoreBefore = ranked[0].score;
+  assert.match(ranked[0].why, /H\.264/);
+
+  const refined = await S.refineWithDecodingInfo(ranked, {
+    ...fixtures.androidChromeCapabilities(),
+    decodingInfo: async () => ({ supported: false, smooth: false })
+  });
+
+  const downgraded = refined.find((entry) => entry.stream.title === "H264 direct");
+  assert.equal(downgraded.evaluation.state, S.STATE.UNSUPPORTED);
+  assert.ok(downgraded.score < scoreBefore, "the score reflects the new verdict");
+  assert.equal(
+    downgraded.why,
+    "The device reports it cannot decode this source.",
+    "the explanation no longer praises a source that cannot play"
+  );
+  assert.equal(refined[0].stream.title, "HLS", "and the playable source is ordered first");
+});
+
+test("an uppercase DV tag is recognised as Dolby Vision", () => {
+  // "Movie 2160p DV HEVC" is a common add-on title shape.
+  assert.equal(normalize({ title: "Example 2160p DV HEVC", url: "https://cdn.example.test/a.mp4" }).facts.hdr, "Dolby Vision");
+  assert.equal(normalize({ title: "example 2160p dv hevc", url: "https://cdn.example.test/a.mp4" }).facts.hdr, "Dolby Vision");
+  assert.equal(normalize({ title: "Example 2160p Dolby Vision", url: "https://cdn.example.test/a.mp4" }).facts.hdr, "Dolby Vision");
+  // A word merely containing "dv" is not a Dolby Vision tag.
+  assert.equal(normalize({ title: "Example Advent 1080p", url: "https://cdn.example.test/a.mp4" }).facts.hdr, "");
+
+  // The HDR preference therefore reaches it.
+  const avoid = S.rank(S.normalizeAll([{ title: "Example 2160p DV HEVC", url: "https://cdn.example.test/a.mp4" }], { pageUrl: fixtures.PAGE_URL }),
+    { settings: { ...SETTINGS.DEFAULTS, hdrPreference: "avoid" }, capabilities: caps });
+  assert.match(avoid[0].factors.map((f) => f.label).join(" "), /Dolby Vision avoided/);
+});
