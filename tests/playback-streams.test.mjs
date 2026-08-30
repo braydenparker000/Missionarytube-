@@ -1,0 +1,503 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { loadPlayback } from "./helpers/playback.mjs";
+import * as fixtures from "./fixtures/streams.mjs";
+
+const { streams: S, settings: SETTINGS } = await loadPlayback();
+const caps = S.capabilities(fixtures.androidChromeCapabilities());
+
+function normalize(raw) {
+  return S.normalize(raw, { pageUrl: fixtures.PAGE_URL });
+}
+
+function classify(raw) {
+  return S.evaluate(normalize(raw), caps);
+}
+
+test("every supported stream shape normalizes to the right kind", () => {
+  const kinds = fixtures.everyShape.map((raw) => normalize(raw).kind);
+  assert.deepEqual(kinds, [
+    "direct", "direct", "hls", "dash", "youtube", "external", "torrent",
+    // A javascript: URL is still a URL-bearing stream; it is the evaluation,
+    // not the normalization, that rejects it.
+    "direct", "direct", "direct", "direct", "direct", "direct"
+  ]);
+});
+
+test("structured facts are extracted from add-on titles", () => {
+  const uhd = normalize(fixtures.uncached4kHevc).facts;
+  assert.equal(uhd.resolution, "2160p");
+  assert.equal(uhd.codec, "HEVC");
+  assert.equal(uhd.hdr, "HDR10");
+  assert.equal(uhd.audioCodec, "Atmos");
+  assert.equal(uhd.audioChannels, "7.1");
+  assert.equal(uhd.container, "MP4");
+  assert.equal(uhd.sizeBytes, 62000000000);
+  assert.equal(uhd.sizeText, "62.0 GB");
+  assert.equal(uhd.cached, false);
+
+  const cached = normalize(fixtures.cached1080).facts;
+  assert.equal(cached.resolution, "1080p");
+  assert.equal(cached.codec, "H.264");
+  assert.equal(cached.audioChannels, "5.1");
+  assert.equal(cached.cached, true, "[RD+] marks a debrid cache hit");
+
+  assert.equal(normalize(fixtures.hlsStream).facts.live, true);
+  assert.equal(normalize(fixtures.audioStream).facts.audioOnly, true);
+});
+
+test("the original stream object is preserved untouched", () => {
+  const normalized = normalize(fixtures.cached1080);
+  assert.equal(normalized.raw, fixtures.cached1080);
+  assert.equal(normalized.raw.behaviorHints.filename, "example.1080p.web-dl.x264.mp4");
+});
+
+test("malformed stream objects never throw and never look playable", () => {
+  for (const raw of fixtures.malformed) {
+    let normalized;
+    let evaluation;
+    assert.doesNotThrow(() => {
+      normalized = normalize(raw);
+      evaluation = S.evaluate(normalized, caps);
+    }, `threw on ${JSON.stringify(raw)}`);
+    assert.ok(typeof normalized.kind === "string");
+    assert.ok(typeof evaluation.state === "string");
+    assert.ok(Array.isArray(evaluation.reasons));
+    assert.ok(evaluation.reasons.length > 0 || evaluation.playable);
+  }
+});
+
+test("malformed input still ranks without throwing", () => {
+  const ranked = S.rank(S.normalizeAll(fixtures.malformed, { pageUrl: fixtures.PAGE_URL }), {
+    settings: SETTINGS.DEFAULTS,
+    capabilities: caps
+  });
+  assert.equal(ranked.length, fixtures.malformed.length);
+  ranked.forEach((entry) => assert.equal(typeof entry.score, "number"));
+});
+
+test("unsafe and mixed-content sources are classified, not hidden", () => {
+  const mixed = classify(fixtures.mixedContentStream);
+  assert.equal(mixed.state, S.STATE.UNSAFE);
+  assert.equal(mixed.reasons[0].code, "mixed-content");
+  assert.equal(mixed.playable, false);
+
+  const scheme = classify(fixtures.unsafeSchemeStream);
+  assert.equal(scheme.state, S.STATE.UNSAFE);
+  assert.equal(scheme.reasons[0].code, "unsafe-url");
+  assert.equal(scheme.playable, false);
+
+  // Explaining beats disappearing: the picker still has something to show.
+  assert.ok(mixed.reasons[0].text.length > 0);
+});
+
+test("http media on an http page is not treated as mixed content", () => {
+  const httpCaps = S.capabilities(fixtures.androidChromeCapabilities({ pageProtocol: "http:" }));
+  const evaluation = S.evaluate(
+    S.normalize(fixtures.mixedContentStream, { pageUrl: "http://astra.example.test/" }),
+    httpCaps
+  );
+  assert.notEqual(evaluation.state, S.STATE.UNSAFE);
+});
+
+test("sources needing another app or service are marked, not called unsupported", () => {
+  assert.equal(classify(fixtures.torrentStream).state, S.STATE.EXTERNAL);
+  assert.equal(classify(fixtures.externalStream).state, S.STATE.EXTERNAL);
+  assert.equal(classify(fixtures.proxyHeadersStream).state, S.STATE.UNSUPPORTED);
+  assert.equal(classify(fixtures.proxyHeadersStream).reasons[0].code, "proxy-headers");
+  assert.equal(classify(fixtures.notWebReadyStream).reasons[0].code, "not-web-ready");
+  assert.equal(classify(fixtures.mkvStream).reasons[0].code, "container");
+});
+
+test("adaptive sources depend on their runtime being available", () => {
+  assert.equal(classify(fixtures.hlsStream).state, S.STATE.READY);
+  assert.equal(classify(fixtures.dashStream).state, S.STATE.READY);
+
+  const noLibraries = S.capabilities(
+    fixtures.androidChromeCapabilities({ hlsSupported: false, dashSupported: false, nativeHls: false })
+  );
+  assert.equal(S.evaluate(normalize(fixtures.hlsStream), noLibraries).reasons[0].code, "no-hls");
+  assert.equal(S.evaluate(normalize(fixtures.dashStream), noLibraries).reasons[0].code, "no-dash");
+});
+
+test("content types are only built when they are reliable", () => {
+  assert.equal(S.contentTypeFor(normalize(fixtures.cached1080)), 'video/mp4; codecs="avc1.640029"');
+  // No container detected means no speculative probe.
+  assert.equal(S.contentTypeFor(normalize(fixtures.youtubeStream)), "");
+  assert.equal(S.contentTypeFor(normalize({ url: "https://cdn.example.test/x" })), "");
+});
+
+test("a cached compatible 1080p source beats an uncertain uncached 4K source", () => {
+  const ranked = S.rank(
+    S.normalizeAll([fixtures.uncached4kHevc, fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }),
+    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+  );
+  assert.equal(ranked[0].stream.facts.resolution, "1080p");
+  assert.equal(ranked[0].stream.facts.cached, true);
+  assert.ok(ranked[0].score > ranked[1].score);
+  assert.match(ranked[0].why, /Cached/);
+});
+
+test("ranking is deterministic across repeated runs and input order", () => {
+  const shuffled = [...fixtures.everyShape].reverse();
+  const first = S.rank(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), {
+    settings: SETTINGS.DEFAULTS,
+    capabilities: caps
+  }).map((entry) => entry.stream.url || entry.stream.ytId || entry.stream.infoHash);
+  const second = S.rank(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), {
+    settings: SETTINGS.DEFAULTS,
+    capabilities: caps
+  }).map((entry) => entry.stream.url || entry.stream.ytId || entry.stream.infoHash);
+  assert.deepEqual(first, second, "same input ranks identically every time");
+
+  const reversed = S.rank(S.normalizeAll(shuffled, { pageUrl: fixtures.PAGE_URL }), {
+    settings: SETTINGS.DEFAULTS,
+    capabilities: caps
+  });
+  assert.equal(reversed[0].stream.url, fixtures.cached1080.url, "the winner does not depend on input order");
+});
+
+test("ranking follows the owner's settings", () => {
+  const list = S.normalizeAll([fixtures.uncached4kHevc, fixtures.cached1080], { pageUrl: fixtures.PAGE_URL });
+
+  const noCachePreference = S.rank(list, {
+    settings: { ...SETTINGS.DEFAULTS, preferCached: false },
+    capabilities: caps
+  });
+  assert.ok(
+    noCachePreference.find((entry) => entry.stream.facts.cached).score <
+      S.rank(list, { settings: SETTINGS.DEFAULTS, capabilities: caps }).find((entry) => entry.stream.facts.cached).score,
+    "turning off the cached preference lowers a cached source's score"
+  );
+
+  const capped = S.rank(list, {
+    settings: { ...SETTINGS.DEFAULTS, maxResolution: "1080p" },
+    capabilities: caps
+  });
+  assert.match(
+    capped.find((entry) => entry.stream.facts.resolution === "2160p").factors.map((f) => f.label).join(" "),
+    /Above your 1080p limit/
+  );
+
+  const avoidHdr = S.rank(list, {
+    settings: { ...SETTINGS.DEFAULTS, hdrPreference: "avoid" },
+    capabilities: caps
+  });
+  const preferHdr = S.rank(list, {
+    settings: { ...SETTINGS.DEFAULTS, hdrPreference: "prefer" },
+    capabilities: caps
+  });
+  const hdrScore = (ranked) => ranked.find((entry) => entry.stream.facts.hdr).score;
+  assert.ok(hdrScore(preferHdr) > hdrScore(avoidHdr), "HDR preference moves the HDR source");
+});
+
+test("the highest resolution does not automatically win", () => {
+  const ranked = S.rank(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), {
+    settings: SETTINGS.DEFAULTS,
+    capabilities: caps
+  });
+  assert.notEqual(ranked[0].stream.facts.resolution, "2160p");
+  assert.equal(S.bestCandidate(ranked).evaluation.playable, true);
+});
+
+test("every source carries a short explanation", () => {
+  const ranked = S.rank(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), {
+    settings: SETTINGS.DEFAULTS,
+    capabilities: caps
+  });
+  ranked.forEach((entry) => {
+    assert.ok(entry.why.length > 0, `${entry.stream.title} has no explanation`);
+    if (!entry.evaluation.playable) {
+      assert.equal(entry.why, entry.evaluation.reasons[0].text, "a blocked source explains what is blocking it");
+    }
+  });
+});
+
+test("MediaCapabilities refinement upgrades and downgrades without throwing", async () => {
+  const entries = S.rank(S.normalizeAll([fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }), {
+    settings: SETTINGS.DEFAULTS,
+    capabilities: caps
+  });
+  const refined = await S.refineWithDecodingInfo(entries, {
+    ...fixtures.androidChromeCapabilities(),
+    decodingInfo: async () => ({ supported: false, smooth: false })
+  });
+  assert.equal(refined[0].evaluation.state, S.STATE.UNSUPPORTED);
+  assert.equal(refined[0].evaluation.playable, false);
+
+  const rejecting = S.rank(S.normalizeAll([fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }), {
+    settings: SETTINGS.DEFAULTS,
+    capabilities: caps
+  });
+  const survived = await S.refineWithDecodingInfo(rejecting, {
+    ...fixtures.androidChromeCapabilities(),
+    decodingInfo: async () => {
+      throw new Error("not implemented");
+    }
+  });
+  assert.equal(survived[0].evaluation.state, S.STATE.READY, "a failing probe keeps the synchronous verdict");
+});
+
+test("evaluation never performs network requests", async () => {
+  // A canary: if any code path started probing, this fetch would be called.
+  let called = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => {
+    called += 1;
+    return Promise.reject(new Error("no network in evaluation"));
+  };
+  try {
+    S.rank(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), {
+      settings: SETTINGS.DEFAULTS,
+      capabilities: caps
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.equal(called, 0);
+});
+
+test("a codec that cannot live in the container is not asserted", () => {
+  // Add-on titles are free text: "x264" beside a .webm URL is a mislabel.
+  const mislabelled = normalize({
+    name: "Mislabelled",
+    title: "Example Movie 720p x264 AAC",
+    url: "https://cdn.example.test/media/example.webm"
+  });
+  assert.equal(mislabelled.facts.container, "WebM");
+  assert.equal(mislabelled.facts.codec, "H.264");
+  assert.equal(
+    S.contentTypeFor(mislabelled),
+    "video/webm",
+    "the impossible codec is dropped rather than asserted"
+  );
+
+  // A real pairing still carries its codec through.
+  assert.equal(
+    S.contentTypeFor(normalize({ title: "Example 1080p VP9", url: "https://cdn.example.test/a.webm" })),
+    'video/webm; codecs="vp09.00.10.08"'
+  );
+  assert.equal(
+    S.contentTypeFor(normalize({ title: "Example 1080p HEVC", url: "https://cdn.example.test/a.mp4" })),
+    'video/mp4; codecs="hvc1.1.6.L93.B0"'
+  );
+});
+
+test("a mislabelled but playable source is not declared unsupported", () => {
+  const webmCaps = S.capabilities(
+    fixtures.androidChromeCapabilities({
+      canPlayType: (type) => (type === "video/webm" ? "probably" : /avc1/.test(type) ? "probably" : "")
+    })
+  );
+  const evaluation = S.evaluate(
+    normalize({ title: "Example 720p x264", url: "https://cdn.example.test/media/example.webm" }),
+    webmCaps
+  );
+  assert.equal(evaluation.playable, true);
+  assert.equal(evaluation.state, S.STATE.READY);
+});
+
+test("MediaCapabilities is never asked about a bare container type", async () => {
+  // Chromium answers "unsupported" for a codec-less content type, which would
+  // wrongly hide a playable source.
+  const asked = [];
+  const bareContainer = S.rank(
+    S.normalizeAll([{ name: "No codec named", title: "Example 720p", url: "https://cdn.example.test/a.webm" }], {
+      pageUrl: fixtures.PAGE_URL
+    }),
+    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+  );
+  assert.equal(bareContainer[0].evaluation.contentType, "video/webm", "the type has no codecs parameter");
+
+  const refined = await S.refineWithDecodingInfo(bareContainer, {
+    ...fixtures.androidChromeCapabilities(),
+    decodingInfo: async (config) => {
+      asked.push(config.video.contentType);
+      return { supported: false, smooth: false };
+    }
+  });
+
+  assert.deepEqual(asked, [], "no probe was made");
+  assert.equal(refined[0].evaluation.playable, true, "the source is still offered");
+
+  // A codec-bearing type is still probed.
+  const withCodec = S.rank(S.normalizeAll([fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }), {
+    settings: SETTINGS.DEFAULTS,
+    capabilities: caps
+  });
+  await S.refineWithDecodingInfo(withCodec, {
+    ...fixtures.androidChromeCapabilities(),
+    decodingInfo: async (config) => {
+      asked.push(config.video.contentType);
+      return { supported: true, smooth: true };
+    }
+  });
+  assert.deepEqual(asked, ['video/mp4; codecs="avc1.640029"']);
+});
+
+test("maxResolution is a hard ceiling on automatic selection, not just a penalty", () => {
+  // The exact mixed-factor case from review: a cached 4K direct source can
+  // out-score a large uncached 1080p one, so a scoring penalty alone lets
+  // autoplay exceed the owner's stated maximum.
+  const entries = S.normalizeAll(
+    [
+      { name: "4K cached", title: "Example 2160p x264 5 GB [RD+]", url: "https://cdn.example.test/uhd.mp4" },
+      { name: "1080p uncertain", title: "Example 1080p 30 GB", url: "https://cdn.example.test/fhd.mp4" }
+    ],
+    { pageUrl: fixtures.PAGE_URL }
+  );
+  const ranked = S.rank(entries, { settings: { ...SETTINGS.DEFAULTS, maxResolution: "1080p" }, capabilities: caps });
+
+  const uhd = ranked.find((entry) => entry.stream.facts.resolution === "2160p");
+  assert.equal(uhd.aboveCeiling, true);
+  assert.ok(
+    uhd.score > ranked.find((entry) => entry.stream.facts.resolution === "1080p").score,
+    "the 4K source still out-scores on raw points, so a penalty alone would not hold"
+  );
+
+  const best = S.bestCandidate(ranked);
+  assert.equal(best.stream.facts.resolution, "1080p", "autoplay respects the ceiling anyway");
+
+  // Above-ceiling sources are excluded from autoplay, never hidden.
+  assert.equal(ranked.length, 2);
+  assert.equal(uhd.evaluation.playable, true, "it stays tappable in the picker");
+});
+
+test("nothing is auto-selected when every playable source exceeds the ceiling", () => {
+  const ranked = S.rank(
+    S.normalizeAll([{ name: "Only 4K", title: "Example 2160p x264", url: "https://cdn.example.test/uhd.mp4" }], {
+      pageUrl: fixtures.PAGE_URL
+    }),
+    { settings: { ...SETTINGS.DEFAULTS, maxResolution: "720p" }, capabilities: caps }
+  );
+  assert.equal(S.bestCandidate(ranked), null, "the viewer chooses explicitly rather than blowing the limit");
+  assert.equal(ranked[0].evaluation.playable, true);
+});
+
+test("a decodingInfo downgrade updates the score, explanation and order", async () => {
+  const ranked = S.rank(
+    S.normalizeAll(
+      [
+        { name: "H264 direct", title: "Example 1080p x264 4 GB", url: "https://cdn.example.test/a.mp4" },
+        { name: "HLS", title: "Example 720p adaptive", url: "https://cdn.example.test/b.m3u8" }
+      ],
+      { pageUrl: fixtures.PAGE_URL }
+    ),
+    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+  );
+  assert.equal(ranked[0].stream.title, "H264 direct");
+  const scoreBefore = ranked[0].score;
+  assert.match(ranked[0].why, /H\.264/);
+
+  const refined = await S.refineWithDecodingInfo(ranked, {
+    ...fixtures.androidChromeCapabilities(),
+    decodingInfo: async () => ({ supported: false, smooth: false })
+  });
+
+  const downgraded = refined.find((entry) => entry.stream.title === "H264 direct");
+  assert.equal(downgraded.evaluation.state, S.STATE.UNSUPPORTED);
+  assert.ok(downgraded.score < scoreBefore, "the score reflects the new verdict");
+  assert.equal(
+    downgraded.why,
+    "The device reports it cannot decode this source.",
+    "the explanation no longer praises a source that cannot play"
+  );
+  assert.equal(refined[0].stream.title, "HLS", "and the playable source is ordered first");
+});
+
+test("an uppercase DV tag is recognised as Dolby Vision", () => {
+  // "Movie 2160p DV HEVC" is a common add-on title shape.
+  assert.equal(normalize({ title: "Example 2160p DV HEVC", url: "https://cdn.example.test/a.mp4" }).facts.hdr, "Dolby Vision");
+  assert.equal(normalize({ title: "example 2160p dv hevc", url: "https://cdn.example.test/a.mp4" }).facts.hdr, "Dolby Vision");
+  assert.equal(normalize({ title: "Example 2160p Dolby Vision", url: "https://cdn.example.test/a.mp4" }).facts.hdr, "Dolby Vision");
+  // A word merely containing "dv" is not a Dolby Vision tag.
+  assert.equal(normalize({ title: "Example Advent 1080p", url: "https://cdn.example.test/a.mp4" }).facts.hdr, "");
+
+  // The HDR preference therefore reaches it.
+  const avoid = S.rank(S.normalizeAll([{ title: "Example 2160p DV HEVC", url: "https://cdn.example.test/a.mp4" }], { pageUrl: fixtures.PAGE_URL }),
+    { settings: { ...SETTINGS.DEFAULTS, hdrPreference: "avoid" }, capabilities: caps });
+  assert.match(avoid[0].factors.map((f) => f.label).join(" "), /Dolby Vision avoided/);
+});
+
+test("the device probe describes the source's real workload", async () => {
+  // Asking about 1080p for a 2160p source invites a "smooth" answer the device
+  // could not honour at 3840x2160, which would then upgrade the 4K entry.
+  const asked = [];
+  const capture = async (config) => {
+    asked.push({
+      contentType: config.video.contentType,
+      width: config.video.width,
+      height: config.video.height,
+      bitrate: config.video.bitrate
+    });
+    // Reject unless the request matches the entry's actual resolution.
+    const ok =
+      (/2160/.test(config.video.contentType) && false) ||
+      (config.video.width === 3840 && config.video.height === 2160) ||
+      (config.video.width === 1280 && config.video.height === 720);
+    return { supported: ok, smooth: ok };
+  };
+
+  const uhd = S.rank(
+    S.normalizeAll([{ name: "UHD", title: "Example 2160p VP9", url: "https://cdn.example.test/uhd.webm" }], {
+      pageUrl: fixtures.PAGE_URL
+    }),
+    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+  );
+  await S.refineWithDecodingInfo(uhd, { ...fixtures.androidChromeCapabilities(), decodingInfo: capture });
+
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].width, 3840, "a 2160p source is probed at 3840x2160");
+  assert.equal(asked[0].height, 2160);
+  assert.ok(asked[0].bitrate >= 20000000, `a 4K bitrate estimate, got ${asked[0].bitrate}`);
+
+  // 720p must not collapse back to the 1080p default.
+  asked.length = 0;
+  const hd = S.rank(
+    S.normalizeAll([{ name: "HD", title: "Example 720p VP9", url: "https://cdn.example.test/hd.webm" }], {
+      pageUrl: fixtures.PAGE_URL
+    }),
+    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+  );
+  await S.refineWithDecodingInfo(hd, { ...fixtures.androidChromeCapabilities(), decodingInfo: capture });
+
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].width, 1280, "a 720p source is probed at 1280x720");
+  assert.equal(asked[0].height, 720);
+  assert.ok(asked[0].bitrate < 8000000, "and with a lower bitrate estimate than 1080p");
+});
+
+test("workloads are resolution specific and monotonic", () => {
+  const uhd = S.workloadFor({ facts: { resolution: "2160p" } });
+  const fhd = S.workloadFor({ facts: { resolution: "1080p" } });
+  const hd = S.workloadFor({ facts: { resolution: "720p" } });
+
+  assert.deepEqual([uhd.width, uhd.height], [3840, 2160]);
+  assert.deepEqual([fhd.width, fhd.height], [1920, 1080]);
+  assert.deepEqual([hd.width, hd.height], [1280, 720]);
+  assert.ok(uhd.bitrate > fhd.bitrate && fhd.bitrate > hd.bitrate, "bitrate estimates rise with resolution");
+  assert.equal(S.workloadFor({ facts: { resolution: "" } }), null);
+});
+
+test("a source with no known resolution is not probed at all", async () => {
+  // The workload cannot be described honestly, so no question is asked.
+  let asked = 0;
+  const noResolution = S.rank(
+    S.normalizeAll([{ name: "Unlabelled", title: "Example VP9 movie", url: "https://cdn.example.test/x.webm" }], {
+      pageUrl: fixtures.PAGE_URL
+    }),
+    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+  );
+  assert.equal(noResolution[0].stream.facts.resolution, "");
+  assert.ok(noResolution[0].evaluation.contentType.includes("codecs="), "it would otherwise qualify");
+
+  await S.refineWithDecodingInfo(noResolution, {
+    ...fixtures.androidChromeCapabilities(),
+    decodingInfo: async () => {
+      asked += 1;
+      return { supported: false, smooth: false };
+    }
+  });
+  assert.equal(asked, 0);
+  assert.equal(noResolution[0].evaluation.playable, true, "and its synchronous verdict stands");
+});
