@@ -220,6 +220,8 @@ test("audio tracks are exposed where the library provides them", async () => {
   assert.equal(hlsAdapter.selectAudioTrack(1), true);
   assert.equal(Hls.created[0].audioTrack, 1);
   assert.equal(hlsAdapter.selectAudioTrack(9), false, "an out-of-range track is refused");
+  Hls.created[0].audioTracks[1].lang = "jpn";
+  assert.equal(plain(hlsAdapter.getAudioTracks())[1].lang, "ja", "three-letter adaptive track codes normalize for preferences");
 
   const dashAdapter = A.createAdapter("dash", {
     media: createMediaElement(),
@@ -240,6 +242,43 @@ test("audio tracks are exposed where the library provides them", async () => {
   });
   assert.deepEqual(plain(nativeAdapter.getAudioTracks()), []);
   assert.equal(nativeAdapter.selectAudioTrack(0), false);
+});
+
+test("adaptive audio menus refresh on manifest changes and stop after destroy", async () => {
+  const clock = createClock();
+  const Hls = createHlsDouble();
+  const hlsUpdates = [];
+  const hlsAdapter = A.createAdapter("hls", {
+    media: createMediaElement(),
+    scope: scopeWith(clock).scope,
+    url: "https://cdn.example.test/live.m3u8",
+    Hls,
+    onAudioTracksChanged: (tracks) => hlsUpdates.push(plain(tracks))
+  });
+  await hlsAdapter.attach();
+  assert.equal(hlsUpdates.at(-1).length, 2, "tracks are available as soon as the adapter attaches");
+  Hls.created[0].audioTracks.push({ name: "Commentary", lang: "en" });
+  Hls.created[0].emit("audioTracksUpdated");
+  assert.equal(hlsUpdates.at(-1).length, 3, "a late manifest update refreshes the menu");
+  hlsAdapter.destroy();
+  const afterDestroy = hlsUpdates.length;
+  Hls.created[0].emit("audioTracksUpdated");
+  assert.equal(hlsUpdates.length, afterDestroy, "destroyed adapters cannot mutate the current menu");
+
+  const dashjs = createDashDouble();
+  const dashUpdates = [];
+  const dashAdapter = A.createAdapter("dash", {
+    media: createMediaElement(),
+    scope: scopeWith(clock).scope,
+    url: "https://cdn.example.test/manifest.mpd",
+    dashjs,
+    onAudioTracksChanged: (tracks) => dashUpdates.push(plain(tracks))
+  });
+  await dashAdapter.attach();
+  assert.equal(dashUpdates.at(-1).length, 2);
+  dashjs.created[0].emit("trackChangeRendered");
+  assert.ok(dashUpdates.length >= 2, "dash track changes refresh the menu");
+  dashAdapter.destroy();
 });
 
 test("repeated open and close cycles accumulate nothing", async () => {

@@ -213,22 +213,35 @@ test("resume never proposes a special after a completed finale", () => {
   assert.equal(target.video.id, "tt0000001:2:1");
 });
 
-test("navigation inside the specials tail still works", () => {
+test("specials are never part of previous or next episode navigation", () => {
   const videos = [
     { id: "s:1:1", season: 1, episode: 1 },
     { id: "s:0:1", season: 0, episode: 1 },
     { id: "s:0:2", season: 0, episode: 2 }
   ];
   assert.equal(EP.nextEpisode(videos, "s:1:1"), null, "the run does not spill into specials");
-  assert.equal(EP.nextEpisode(videos, "s:0:1").id, "s:0:2", "but specials chain among themselves");
-  assert.equal(EP.previousEpisode(videos, "s:0:1").id, "s:1:1", "and going back is unrestricted");
+  assert.equal(EP.nextEpisode(videos, "s:0:1"), null, "specials never enter autoplay navigation");
+  assert.equal(EP.previousEpisode(videos, "s:0:1"), null, "specials never borrow the episode controls");
 });
 
-test("numbered and tail videos are classified explicitly", () => {
+test("canonical episodes require an episode number", () => {
   assert.equal(EP.isNumbered({ season: 1, episode: 1 }), true);
-  assert.equal(EP.isNumbered({ season: 3 }), true);
+  assert.equal(EP.isNumbered({ season: 3 }), false, "season menus and malformed packs are not episodes");
   assert.equal(EP.isNumbered({ episode: 4 }), true, "an episode with no season still belongs to the run");
   assert.equal(EP.isNumbered({ season: 0, episode: 1 }), false, "season 0 is the specials bucket");
   assert.equal(EP.isNumbered({ id: "extra" }), false);
   assert.equal(EP.isNumbered(null), false);
+});
+
+test("series videos are separated without hiding specials and extras", () => {
+  const groups = EP.groupVideos([
+    { id: "episode", season: 1, episode: 1, title: "Pilot" },
+    { id: "holiday", season: 0, episode: 1, title: "Holiday Special" },
+    { id: "trailer", title: "Official Trailer" },
+    { id: "menu", season: 1, title: "Season one" }
+  ]);
+  assert.deepEqual(Array.from(groups.episodes, (v) => v.id), ["episode"]);
+  assert.deepEqual(Array.from(groups.specials, (v) => v.id), ["holiday"]);
+  assert.deepEqual(Array.from(groups.extras, (v) => v.id), ["trailer"]);
+  assert.deepEqual(Array.from(groups.unknown, (v) => v.id), ["menu"]);
 });

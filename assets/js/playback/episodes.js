@@ -22,6 +22,53 @@
     return video && video.id != null ? String(video.id) : "";
   }
 
+  function textOf(video) {
+    if (!video || typeof video !== "object") return "";
+    return [video.title, video.name, video.overview, video.description, video.id]
+      .filter(function (value) { return value != null; })
+      .join(" ")
+      .toLowerCase();
+  }
+
+  /**
+   * Classify a series video without throwing information away. A positive
+   * episode number is the only strong enough signal for the canonical run;
+   * season-only records are commonly packs, menus or malformed extras.
+   */
+  function classifyVideo(video) {
+    if (!video || typeof video !== "object") return "unknown";
+    var season = num(video.season);
+    var episode = num(video.episode);
+    var text = textOf(video);
+
+    if (season === 0) return "special";
+    if (episode !== null && episode > 0 && (season === null || season > 0)) return "episode";
+    if (/\b(?:trailer|teaser|preview|clip|featurette|behind[ ._-]*the[ ._-]*scenes|interview|opening|ending|creditless)\b/.test(text)) {
+      return "extra";
+    }
+    if (/\b(?:special|ova|oad|omake|bonus)\b/.test(text)) return "special";
+    return "unknown";
+  }
+
+  function groupVideos(videos) {
+    var groups = { episodes: [], specials: [], extras: [], unknown: [] };
+    (Array.isArray(videos) ? videos : []).forEach(function (video) {
+      if (!video || typeof video !== "object") return;
+      var kind = classifyVideo(video);
+      if (kind === "episode") groups.episodes.push(video);
+      else if (kind === "special") groups.specials.push(video);
+      else if (kind === "extra") groups.extras.push(video);
+      else groups.unknown.push(video);
+    });
+    groups.episodes = orderVideos(groups.episodes);
+    groups.specials = orderVideos(groups.specials);
+    return groups;
+  }
+
+  function canonicalEpisodes(videos) {
+    return groupVideos(videos).episodes;
+  }
+
   /**
    * Chronological order: season, then episode, then the add-on's own order as a
    * stable tiebreaker. Specials (season 0) sort after the numbered seasons, so
@@ -64,11 +111,7 @@
    * with no season/episode metadata form the tail that sorts after it.
    */
   function isNumbered(video) {
-    if (!video) return false;
-    var season = num(video.season);
-    var episode = num(video.episode);
-    if (season !== null) return season !== 0;
-    return episode !== null;
+    return classifyVideo(video) === "episode";
   }
 
   function indexOfVideo(ordered, videoId) {
@@ -84,20 +127,18 @@
    *
    * A finale never advances into the specials/extras tail: autoplaying a
    * holiday special after a season finale is not what "next episode" means.
-   * Navigating within the tail itself still works.
+   * Specials and extras are selected explicitly from their own sections and
+   * never inherit previous/next controls.
    */
   function nextEpisode(videos, videoId) {
-    var ordered = orderVideos(videos);
+    var ordered = canonicalEpisodes(videos);
     var at = indexOfVideo(ordered, videoId);
     if (at === -1) return null;
-    var next = ordered[at + 1] || null;
-    if (!next) return null;
-    if (isNumbered(ordered[at]) && !isNumbered(next)) return null;
-    return next;
+    return ordered[at + 1] || null;
   }
 
   function previousEpisode(videos, videoId) {
-    var ordered = orderVideos(videos);
+    var ordered = canonicalEpisodes(videos);
     var at = indexOfVideo(ordered, videoId);
     if (at <= 0) return null;
     return ordered[at - 1] || null;
@@ -106,7 +147,7 @@
   /** Does this media have real episodes worth navigating? */
   function isEpisodic(meta) {
     if (!meta || typeof meta !== "object") return false;
-    if (!Array.isArray(meta.videos) || meta.videos.length < 2) return false;
+    if (canonicalEpisodes(meta.videos).length < 2) return false;
     return EPISODIC_TYPES.indexOf(String(meta.type || "").toLowerCase()) !== -1;
   }
 
@@ -143,7 +184,10 @@
       if (!newest || updated > newest.updated) newest = { video: video, record: record, updated: updated };
     });
 
-    if (!newest) return { video: ordered[0], reason: "first" };
+    if (!newest) {
+      var canonical = canonicalEpisodes(ordered);
+      return { video: canonical[0] || ordered[0], reason: "first" };
+    }
 
     if (!newest.record.completed) return { video: newest.video, reason: "resume", progress: newest.record };
 
@@ -236,6 +280,9 @@
   global.AstraPlayback = global.AstraPlayback || {};
   global.AstraPlayback.episodes = {
     EPISODIC_TYPES: EPISODIC_TYPES,
+    classifyVideo: classifyVideo,
+    groupVideos: groupVideos,
+    canonicalEpisodes: canonicalEpisodes,
     orderVideos: orderVideos,
     isNumbered: isNumbered,
     nextEpisode: nextEpisode,

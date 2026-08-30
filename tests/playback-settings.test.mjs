@@ -12,6 +12,7 @@ test("defaults are safe and complete", () => {
   assert.equal(settings.autoFailover, true);
   assert.equal(settings.preferCached, true);
   assert.equal(settings.hdrPreference, "neutral");
+  assert.equal(settings.audioLanguage, "original");
   assert.equal(settings.subtitlesDefault, false, "subtitles stay off until asked for");
   assert.equal(settings.subtitleLanguage, "en");
 });
@@ -28,6 +29,7 @@ test("migration keeps every existing value", () => {
   assert.equal(settings.preferCached, true);
   assert.equal(settings.hdrPreference, "neutral");
   assert.equal(settings.autoFailover, true);
+  assert.equal(settings.audioLanguage, "original");
 });
 
 test("invalid values are rejected and reported, not stored", () => {
@@ -36,6 +38,7 @@ test("invalid values are rejected and reported, not stored", () => {
     autoplayNext: "yes",
     hdrPreference: "always",
     preferCached: 1,
+    audioLanguage: "dubbed!",
     subtitleLanguage: "english!",
     subtitlesDefault: null,
     autoFailover: "on"
@@ -45,13 +48,14 @@ test("invalid values are rejected and reported, not stored", () => {
   assert.equal(result.settings.autoplayNext, true);
   assert.equal(result.settings.hdrPreference, "neutral");
   assert.equal(result.settings.preferCached, true);
+  assert.equal(result.settings.audioLanguage, "original");
   assert.equal(result.settings.subtitleLanguage, "en");
   assert.equal(result.settings.subtitlesDefault, false);
   assert.equal(result.settings.autoFailover, true);
 
   assert.deepEqual(
     plain(result.rejected).sort(),
-    ["autoFailover", "autoplayNext", "hdrPreference", "maxResolution", "preferCached", "subtitleLanguage", "subtitlesDefault"]
+    ["audioLanguage", "autoFailover", "autoplayNext", "hdrPreference", "maxResolution", "preferCached", "subtitleLanguage", "subtitlesDefault"]
   );
 });
 
@@ -71,6 +75,11 @@ test("a valid value next to an invalid one still survives", () => {
 });
 
 test("language subtags are normalized and validated", () => {
+  assert.equal(S.migrate({ audioLanguage: "original" }).audioLanguage, "original");
+  assert.equal(S.migrate({ audioLanguage: "JA" }).audioLanguage, "ja");
+  assert.equal(S.migrate({ audioLanguage: "jpn" }).audioLanguage, "ja");
+  assert.equal(S.migrate({ audioLanguage: "eng-US" }).audioLanguage, "en-us");
+  assert.equal(S.migrate({ audioLanguage: "ca" }).audioLanguage, "ca", "arbitrary valid languages survive");
   assert.equal(S.migrate({ subtitleLanguage: "EN" }).subtitleLanguage, "en");
   assert.equal(S.migrate({ subtitleLanguage: " pt-BR " }).subtitleLanguage, "pt-br");
   assert.equal(S.migrate({ subtitleLanguage: "eng" }).subtitleLanguage, "eng");

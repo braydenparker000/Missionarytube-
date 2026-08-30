@@ -153,6 +153,11 @@
       if (typeof events.onReady === "function") events.onReady();
     }
 
+    function emitAudioTracksChanged(tracks) {
+      if (destroyed) return;
+      if (typeof events.onAudioTracksChanged === "function") events.onAudioTracksChanged(tracks || []);
+    }
+
     // Media element errors are shared by every adapter.
     scope.listen(media, "error", function () {
       var code = media.error && media.error.code;
@@ -168,6 +173,7 @@
       scope: scope,
       emitError: emitError,
       emitReady: emitReady,
+      emitAudioTracksChanged: emitAudioTracksChanged,
       get destroyed() {
         return destroyed;
       },
@@ -230,14 +236,56 @@
     };
   }
 
+  function trackLanguage(track) {
+    var value = String((track && (track.lang || track.language || (track.attrs && track.attrs.LANGUAGE))) || "").toLowerCase();
+    var aliases = { eng: "en", jpn: "ja", spa: "es", fra: "fr", fre: "fr", deu: "de", ger: "de", por: "pt", ita: "it", kor: "ko", zho: "zh", chi: "zh" };
+    var parts = value.split("-");
+    if (aliases[parts[0]]) parts[0] = aliases[parts[0]];
+    return parts.join("-");
+  }
+
+  function trackLabel(track, index) {
+    var language = trackLanguage(track);
+    var named = track && (track.name || (track.labels && track.labels[0] && track.labels[0].text));
+    var languageNames = { en: "english", es: "spanish", fr: "french", de: "german", pt: "portuguese", it: "italian", ja: "japanese", ko: "korean", zh: "chinese" };
+    var details = [];
+    var codec = track && (track.codec || track.audioCodec);
+    var channels = track && (track.channels || track.audioChannelConfiguration);
+    if (Array.isArray(channels)) channels = channels[0] && (channels[0].value || channels[0]);
+    if (named) details.push(String(named));
+    var languageKey = language.toLowerCase().split("-")[0];
+    var namedLanguage = named && String(named).toLowerCase();
+    if (language && (!named || (namedLanguage !== language.toLowerCase() && namedLanguage !== languageNames[languageKey]))) details.push(language.toUpperCase());
+    if (codec) details.push(String(codec));
+    if (channels) details.push(String(channels));
+    return details.join(" · ") || "Audio " + (index + 1);
+  }
+
   function createHlsAdapter(config) {
     var media = config.media;
     var scope = config.scope || createResourceScope();
     var base = baseAdapter("hls", media, scope, config);
     var Hls = config.Hls;
     var instance = null;
+    var api;
 
-    return {
+    function audioTracks() {
+      if (!instance || !Array.isArray(instance.audioTracks)) return [];
+      return instance.audioTracks.map(function (track, index) {
+        return {
+          id: index,
+          label: trackLabel(track, index),
+          lang: trackLanguage(track),
+          active: instance.audioTrack === index
+        };
+      });
+    }
+
+    function announceTracks() {
+      base.emitAudioTracksChanged(audioTracks());
+    }
+
+    api = {
       kind: base.kind,
       scope: scope,
       attach: function () {
@@ -253,26 +301,25 @@
             if (!data || !data.fatal) return;
             base.emitError(FATAL_HLS_TYPES[data.type] || "unknown", data.details || "");
           });
+          var events = (Hls && Hls.Events) || {};
+          var trackEvents = [events.MANIFEST_PARSED || "manifestParsed", events.AUDIO_TRACKS_UPDATED || "audioTracksUpdated", events.AUDIO_TRACK_SWITCHED || "audioTrackSwitched"];
+          trackEvents.filter(function (event, index) { return event && trackEvents.indexOf(event) === index; }).forEach(function (event) {
+            instance.on(event, announceTracks);
+          });
           instance.loadSource(config.url);
           instance.attachMedia(media);
+          announceTracks();
         });
       },
       getAudioTracks: function () {
-        if (!instance || !Array.isArray(instance.audioTracks)) return [];
-        return instance.audioTracks.map(function (track, index) {
-          return {
-            id: index,
-            label: track.name || track.lang || "Audio " + (index + 1),
-            lang: track.lang || "",
-            active: instance.audioTrack === index
-          };
-        });
+        return audioTracks();
       },
       selectAudioTrack: function (id) {
         if (!instance || !Array.isArray(instance.audioTracks)) return false;
         var index = Number(id);
         if (!Number.isInteger(index) || index < 0 || index >= instance.audioTracks.length) return false;
         instance.audioTrack = index;
+        announceTracks();
         return true;
       },
       destroy: function () {
@@ -290,6 +337,7 @@
         detachMedia(media);
       }
     };
+    return api;
   }
 
   function createDashAdapter(config) {
@@ -299,8 +347,39 @@
     var dashjs = config.dashjs;
     var player = null;
     var errorHandler = null;
+    var trackHandlers = [];
+    var api;
 
-    return {
+    function audioTracks() {
+      if (!player || typeof player.getTracksFor !== "function") return [];
+      var tracks;
+      try {
+        tracks = player.getTracksFor("audio") || [];
+      } catch (error) {
+        return [];
+      }
+      var current = null;
+      try {
+        current = typeof player.getCurrentTrackFor === "function" ? player.getCurrentTrackFor("audio") : null;
+      } catch (error) {
+        current = null;
+      }
+      return tracks.map(function (track, index) {
+        return {
+          id: index,
+          label: trackLabel(track, index),
+          lang: trackLanguage(track),
+          active: !!current && (current === track || current.index === track.index),
+          track: track
+        };
+      });
+    }
+
+    function announceTracks() {
+      base.emitAudioTracksChanged(audioTracks());
+    }
+
+    api = {
       kind: base.kind,
       scope: scope,
       attach: function () {
@@ -317,32 +396,18 @@
             base.emitError(type, String(detail));
           };
           if (typeof player.on === "function") player.on("error", errorHandler);
+          var events = (dashjs.MediaPlayer && dashjs.MediaPlayer.events) || dashjs.events || {};
+          var names = [events.STREAM_INITIALIZED || "streamInitialized", events.TRACK_CHANGE_RENDERED || "trackChangeRendered", events.CURRENT_TRACK_CHANGED || "currentTrackChanged"];
+          names.filter(function (event, index) { return event && names.indexOf(event) === index; }).forEach(function (event) {
+            player.on(event, announceTracks);
+            trackHandlers.push({ event: event, handler: announceTracks });
+          });
           player.initialize(media, config.url, true);
+          announceTracks();
         });
       },
       getAudioTracks: function () {
-        if (!player || typeof player.getTracksFor !== "function") return [];
-        var tracks;
-        try {
-          tracks = player.getTracksFor("audio") || [];
-        } catch (error) {
-          return [];
-        }
-        var current = null;
-        try {
-          current = typeof player.getCurrentTrackFor === "function" ? player.getCurrentTrackFor("audio") : null;
-        } catch (error) {
-          current = null;
-        }
-        return tracks.map(function (track, index) {
-          return {
-            id: index,
-            label: track.labels && track.labels[0] ? track.labels[0].text : track.lang || "Audio " + (index + 1),
-            lang: track.lang || "",
-            active: !!current && current.index === track.index,
-            track: track
-          };
-        });
+        return audioTracks();
       },
       selectAudioTrack: function (id) {
         if (!player || typeof player.setCurrentTrack !== "function") return false;
@@ -351,6 +416,7 @@
         if (!chosen || !chosen.track) return false;
         try {
           player.setCurrentTrack(chosen.track);
+          announceTracks();
           return true;
         } catch (error) {
           return false;
@@ -362,6 +428,7 @@
         if (player) {
           try {
             if (errorHandler && typeof player.off === "function") player.off("error", errorHandler);
+            if (typeof player.off === "function") trackHandlers.forEach(function (entry) { player.off(entry.event, entry.handler); });
             if (typeof player.reset === "function") player.reset();
             if (typeof player.destroy === "function") player.destroy();
           } catch (error) {
@@ -369,10 +436,12 @@
           }
           player = null;
           errorHandler = null;
+          trackHandlers = [];
         }
         detachMedia(media);
       }
     };
+    return api;
   }
 
   var FACTORIES = { native: createNativeAdapter, hls: createHlsAdapter, dash: createDashAdapter };
