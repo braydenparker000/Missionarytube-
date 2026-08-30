@@ -418,3 +418,86 @@ test("an uppercase DV tag is recognised as Dolby Vision", () => {
     { settings: { ...SETTINGS.DEFAULTS, hdrPreference: "avoid" }, capabilities: caps });
   assert.match(avoid[0].factors.map((f) => f.label).join(" "), /Dolby Vision avoided/);
 });
+
+test("the device probe describes the source's real workload", async () => {
+  // Asking about 1080p for a 2160p source invites a "smooth" answer the device
+  // could not honour at 3840x2160, which would then upgrade the 4K entry.
+  const asked = [];
+  const capture = async (config) => {
+    asked.push({
+      contentType: config.video.contentType,
+      width: config.video.width,
+      height: config.video.height,
+      bitrate: config.video.bitrate
+    });
+    // Reject unless the request matches the entry's actual resolution.
+    const ok =
+      (/2160/.test(config.video.contentType) && false) ||
+      (config.video.width === 3840 && config.video.height === 2160) ||
+      (config.video.width === 1280 && config.video.height === 720);
+    return { supported: ok, smooth: ok };
+  };
+
+  const uhd = S.rank(
+    S.normalizeAll([{ name: "UHD", title: "Example 2160p VP9", url: "https://cdn.example.test/uhd.webm" }], {
+      pageUrl: fixtures.PAGE_URL
+    }),
+    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+  );
+  await S.refineWithDecodingInfo(uhd, { ...fixtures.androidChromeCapabilities(), decodingInfo: capture });
+
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].width, 3840, "a 2160p source is probed at 3840x2160");
+  assert.equal(asked[0].height, 2160);
+  assert.ok(asked[0].bitrate >= 20000000, `a 4K bitrate estimate, got ${asked[0].bitrate}`);
+
+  // 720p must not collapse back to the 1080p default.
+  asked.length = 0;
+  const hd = S.rank(
+    S.normalizeAll([{ name: "HD", title: "Example 720p VP9", url: "https://cdn.example.test/hd.webm" }], {
+      pageUrl: fixtures.PAGE_URL
+    }),
+    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+  );
+  await S.refineWithDecodingInfo(hd, { ...fixtures.androidChromeCapabilities(), decodingInfo: capture });
+
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].width, 1280, "a 720p source is probed at 1280x720");
+  assert.equal(asked[0].height, 720);
+  assert.ok(asked[0].bitrate < 8000000, "and with a lower bitrate estimate than 1080p");
+});
+
+test("workloads are resolution specific and monotonic", () => {
+  const uhd = S.workloadFor({ facts: { resolution: "2160p" } });
+  const fhd = S.workloadFor({ facts: { resolution: "1080p" } });
+  const hd = S.workloadFor({ facts: { resolution: "720p" } });
+
+  assert.deepEqual([uhd.width, uhd.height], [3840, 2160]);
+  assert.deepEqual([fhd.width, fhd.height], [1920, 1080]);
+  assert.deepEqual([hd.width, hd.height], [1280, 720]);
+  assert.ok(uhd.bitrate > fhd.bitrate && fhd.bitrate > hd.bitrate, "bitrate estimates rise with resolution");
+  assert.equal(S.workloadFor({ facts: { resolution: "" } }), null);
+});
+
+test("a source with no known resolution is not probed at all", async () => {
+  // The workload cannot be described honestly, so no question is asked.
+  let asked = 0;
+  const noResolution = S.rank(
+    S.normalizeAll([{ name: "Unlabelled", title: "Example VP9 movie", url: "https://cdn.example.test/x.webm" }], {
+      pageUrl: fixtures.PAGE_URL
+    }),
+    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+  );
+  assert.equal(noResolution[0].stream.facts.resolution, "");
+  assert.ok(noResolution[0].evaluation.contentType.includes("codecs="), "it would otherwise qualify");
+
+  await S.refineWithDecodingInfo(noResolution, {
+    ...fixtures.androidChromeCapabilities(),
+    decodingInfo: async () => {
+      asked += 1;
+      return { supported: false, smooth: false };
+    }
+  });
+  assert.equal(asked, 0);
+  assert.equal(noResolution[0].evaluation.playable, true, "and its synchronous verdict stands");
+});

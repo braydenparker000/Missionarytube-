@@ -515,9 +515,33 @@
   }
 
   /**
+   * The workload a source actually represents. Probing every entry as 1080p
+   * would ask the device the wrong question: a phone can report 1080p VP9
+   * smooth while being unable to sustain 3840x2160, and the answer would then
+   * be used to upgrade the 4K entry.
+   *
+   * Bitrates are conservative per-resolution estimates. An add-on gives a file
+   * size but no duration, so a real bitrate cannot be derived; guessing low
+   * would make the probe answer "smooth" too easily, which is the failure
+   * this is guarding against.
+   */
+  var WORKLOAD = {
+    "2160p": { width: 3840, height: 2160, bitrate: 25000000 },
+    "1080p": { width: 1920, height: 1080, bitrate: 8000000 },
+    "720p": { width: 1280, height: 720, bitrate: 4000000 },
+    "480p": { width: 854, height: 480, bitrate: 2000000 },
+    "360p": { width: 640, height: 360, bitrate: 1000000 }
+  };
+
+  function workloadFor(stream) {
+    return WORKLOAD[stream.facts.resolution] || null;
+  }
+
+  /**
    * Optional async refinement using MediaCapabilities. Only candidates with a
-   * reliable content type are probed, and only the first `limit` of them, so
-   * this never becomes a broad scan. Failure leaves the sync verdict intact.
+   * reliable content type *and* a known resolution are probed, and only the
+   * first `limit` of them, so this never becomes a broad scan. Failure leaves
+   * the sync verdict intact.
    */
   function refineWithDecodingInfo(evaluated, caps, options) {
     var probe = capabilities(caps);
@@ -532,7 +556,10 @@
       return (
         entry.stream.kind === KIND.DIRECT &&
         entry.evaluation.contentType &&
-        entry.evaluation.contentType.indexOf("codecs=") !== -1
+        entry.evaluation.contentType.indexOf("codecs=") !== -1 &&
+        // No known resolution means no describable workload, and a probe we
+        // cannot frame honestly is one we should not make.
+        workloadFor(entry.stream) !== null
       );
     });
 
@@ -542,9 +569,16 @@
       pending.map(function (entry) {
         return Promise.resolve()
           .then(function () {
+            var workload = workloadFor(entry.stream);
             return probe.decodingInfo({
               type: "file",
-              video: { contentType: entry.evaluation.contentType, width: 1920, height: 1080, bitrate: 4000000, framerate: 24 }
+              video: {
+                contentType: entry.evaluation.contentType,
+                width: workload.width,
+                height: workload.height,
+                bitrate: workload.bitrate,
+                framerate: 24
+              }
             });
           })
           .then(function (info) {
@@ -760,6 +794,7 @@
     capabilities: capabilities,
     browserCapabilities: browserCapabilities,
     contentTypeFor: contentTypeFor,
+    workloadFor: workloadFor,
     evaluate: evaluate,
     refineWithDecodingInfo: refineWithDecodingInfo,
     rank: rank,
