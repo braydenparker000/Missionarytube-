@@ -175,6 +175,21 @@ test("the media hub reaches every content type, including future ones", () => {
   assert.match(html, /data-hub-open\]',root\)\.forEach\(x=>x\.onclick=\(\)=>openHubSector\(x\.dataset\.hubOpen\)\)/);
 });
 
+test("hub rows keep their label and catalog detail on separate lines", () => {
+  assert.match(html, /<span class="hub-name"><span class="hub-label">/);
+  assert.match(html, /<span class="hub-detail">/);
+  assert.match(css, /\.hub-name \{ display: grid; gap: 2px;/);
+  assert.match(css, /\.hub-detail \{ display: block;/);
+});
+
+test("opening a hub sector preserves its complete type mapping", () => {
+  const open = html.match(/function openHubSector\(id\)\{[\s\S]*?\n {4}\}/);
+  assert.ok(open);
+  assert.match(open[0], /sector:sector\.id/);
+  assert.equal(/sector\.types\[0\]/.test(open[0]), false);
+  assert.match(html, /AstraHub\.catalogMatchesSector\(sector,x\.cat\.type\)/);
+});
+
 test("the dossier states only fields the add-on actually returned", () => {
   const record = html.match(/function dossierRecord\(m\)\{[\s\S]*?\n {4}\}/);
   assert.ok(record, "dossierRecord exists");
@@ -189,6 +204,26 @@ test("the series browser keeps specials and extras out of the episode run", () =
   assert.match(html, /group\('Extras & clips','%n listed',groups\.extras,'extra'\)/);
   assert.match(html, /group\('Other videos','%n the add-on did not classify',groups\.unknown,'item'\)/);
   assert.match(html, /<div class="season-band" role="tablist" aria-label="Seasons">/);
+  assert.match(html, /tabindex="\$\{String\(s\)===String\(defaultSeason\)\?0:-1\}"/);
+  assert.match(html, /c\.setAttribute\('aria-selected',String\(selected\)\)/);
+  assert.match(html, /c\.tabIndex=selected\?0:-1/);
+});
+
+test("modal icon buttons and switches expose names and live state", () => {
+  for (const label of ["Close settings", "Close torrent details", "Close add-on installer"]) {
+    assert.match(html, new RegExp(`aria-label="${label}"`));
+  }
+  for (const setting of ["autoplayNext", "preferCached", "autoFailover", "subtitlesDefault", "showAdult"]) {
+    assert.match(html, new RegExp(`data-setting="${setting}"[^>]+aria-label="[^"]+"[^>]+aria-pressed="\\$\\{s\\.${setting}\\}"`));
+  }
+  assert.match(html, /x\.setAttribute\('aria-pressed',String\(state\.settings\[k\]\)\)/);
+});
+
+test("the title sequence has an artwork-independent signal composition", () => {
+  assert.match(html, /class="feature-orbit" aria-hidden="true"/);
+  assert.match(html, /class="feature-coordinate mono"/);
+  assert.match(css, /\.feature-orbit \{/);
+  assert.match(css, /\.feature-art::after \{/);
 });
 
 test("the source picker leads with the full release name and never truncates the record", () => {

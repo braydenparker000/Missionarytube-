@@ -25,6 +25,16 @@ test("real-world type spellings map onto the same sector", () => {
   assert.equal(hub.sectorIdForType("audiobook"), null);
 });
 
+test("a sector filter keeps every catalog alias it claims", () => {
+  const movies = hub.buildHub([
+    source("mixed-movies", [cat("movie", "main", "Movies"), cat("film", "arthouse", "Films")])
+  ]).find((sector) => sector.id === "movie");
+  assert.equal(hub.catalogMatchesSector(movies, "movie"), true);
+  assert.equal(hub.catalogMatchesSector(movies, "Film"), true);
+  assert.equal(hub.catalogMatchesSector(movies, "series"), false);
+  assert.equal(hub.catalogMatchesSector(null, "movie"), false);
+});
+
 test("a sector is never available unless an add-on actually exposes it", () => {
   const sectors = hub.buildHub([source("only-movies", [cat("movie", "top", "Top movies")])]);
   const byId = Object.fromEntries(sectors.map((s) => [s.id, s]));

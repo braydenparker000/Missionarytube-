@@ -1620,7 +1620,389 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
 .modal-body { padding: var(--s5) var(--gutter) calc(var(--s7) + var(--safe-b)); }
 
 /* ------------------------------------------------------------------ *
- * 18. Motion and reduced motion
+ * 18. Obsidian / Signal visual direction
+ * ------------------------------------------------------------------ */
+
+/*
+ * The first pass established the component system. This layer gives it a
+ * recognisable identity: editorial cinema, orbital drafting geometry and the
+ * hard precision of an intelligence dossier. It deliberately avoids the
+ * familiar "AI dark app" vocabulary of neon blobs and floating glass cards.
+ */
+
+body {
+  background:
+    radial-gradient(90% 48% at 78% -8%, rgba(201, 64, 47, 0.12), transparent 62%),
+    linear-gradient(rgba(167, 173, 186, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(167, 173, 186, 0.025) 1px, transparent 1px),
+    var(--obsidian);
+  background-size: auto, 80px 80px, 80px 80px, auto;
+}
+
+/* A single vertical datum line makes every screen feel like part of one
+   drafted system. It fades before reaching the reading area. */
+main::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0 auto 0 max(var(--gutter), var(--safe-l));
+  width: 1px;
+  background: linear-gradient(transparent, var(--rule-faint) 18%, var(--rule-faint) 82%, transparent);
+  pointer-events: none;
+}
+
+.topbar {
+  min-height: 64px;
+  background: color-mix(in srgb, var(--void) 91%, transparent);
+  border-bottom-color: var(--rule);
+}
+.topbar::after {
+  content: "";
+  position: absolute;
+  left: max(var(--gutter), var(--safe-l));
+  bottom: -1px;
+  width: 42px;
+  height: 2px;
+  background: var(--signal);
+}
+.wordmark {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 0.28em;
+}
+.search {
+  background: color-mix(in srgb, var(--slate-800) 82%, transparent);
+  border-color: var(--rule-strong);
+}
+
+.page.active { animation: page-arrival var(--dur-3) var(--ease-out); }
+@keyframes page-arrival {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+.page-head {
+  position: relative;
+  padding: var(--s4) 0 var(--s5);
+  border-bottom: 1px solid var(--rule);
+}
+.page-head::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: var(--s4);
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 8px var(--obsidian), inset 0 0 0 9px var(--signal);
+  opacity: 0.72;
+}
+.page-title {
+  max-width: 12ch;
+  margin: var(--s2) 44px var(--s2) 0;
+  font-size: clamp(34px, 10vw, 64px);
+  font-weight: 900;
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+.page-lede { font-size: var(--t-body); max-width: 50ch; }
+
+/* The feature is composed like a title sequence rather than a conventional
+   app hero. Artwork is the field; typography and orbital drafting sit inside
+   it, not in a rounded card below it. */
+.feature {
+  min-height: min(760px, calc(100svh - var(--dock) - var(--safe-b)));
+  overflow: hidden;
+  background: var(--void);
+  border-bottom-color: var(--rule-strong);
+}
+.feature::before {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: linear-gradient(transparent 8%, var(--signal) 26%, var(--signal) 72%, transparent 94%);
+  opacity: 0.9;
+}
+.feature-art {
+  min-height: 530px;
+  max-height: 72svh;
+  aspect-ratio: 3 / 4;
+  background:
+    radial-gradient(circle at 72% 30%, var(--signal-wash), transparent 5%),
+    radial-gradient(circle at 72% 30%, transparent 0 25%, var(--rule) 25.2% 25.5%, transparent 25.7% 39%, var(--rule-faint) 39.2% 39.5%, transparent 39.7%),
+    linear-gradient(125deg, var(--slate-800), var(--void) 66%);
+}
+.feature-art:empty { min-height: 420px; max-height: 58svh; aspect-ratio: 3 / 4; }
+.feature-art img {
+  filter: saturate(0.82) contrast(1.07) brightness(0.9);
+  transform: scale(1.025);
+  animation: feature-reveal 900ms var(--ease-out) both;
+}
+@keyframes feature-reveal {
+  from { opacity: 0; transform: scale(1.065); }
+}
+.feature-art::after {
+  background:
+    linear-gradient(180deg, rgba(4, 5, 10, 0.08) 0%, rgba(4, 5, 10, 0.05) 34%, rgba(4, 5, 10, 0.88) 78%, var(--void) 100%),
+    linear-gradient(90deg, rgba(4, 5, 10, 0.78) 0%, rgba(4, 5, 10, 0.18) 68%, transparent 100%);
+}
+.feature-orbit {
+  position: absolute;
+  z-index: 2;
+  top: 13%;
+  right: -33%;
+  width: 92vw;
+  max-width: 520px;
+  aspect-ratio: 1;
+  border: 1px solid var(--rule-strong);
+  border-radius: 50%;
+  transform: rotate(-18deg) scaleY(0.42);
+  mix-blend-mode: screen;
+  opacity: 0.72;
+  pointer-events: none;
+}
+.feature-orbit::before,
+.feature-orbit::after {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+}
+.feature-orbit::after { inset: 38%; border-color: var(--signal); }
+.feature-orbit i {
+  position: absolute;
+  left: 11%;
+  top: 48%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--signal-bright);
+  box-shadow: 0 0 0 5px var(--signal-wash);
+}
+.feature-coordinate {
+  position: absolute;
+  z-index: 2;
+  top: var(--s4);
+  right: max(var(--gutter), var(--safe-r));
+  color: var(--bone-dim);
+  font-size: var(--t-micro);
+  letter-spacing: 0.12em;
+  writing-mode: vertical-rl;
+}
+.feature-body {
+  margin-top: -48%;
+  padding-bottom: var(--s8);
+}
+.feature-kicker {
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.12em;
+  color: var(--silver);
+}
+.feature-kicker .label { color: var(--signal-bright); }
+.feature-rule { width: 40px; height: 1px; background: var(--rule-strong); }
+.feature-title {
+  max-width: 11ch;
+  font-size: clamp(46px, 13vw, 78px);
+  font-weight: 900;
+  line-height: 0.86;
+  letter-spacing: -0.065em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  text-shadow: 0 14px 48px var(--void);
+}
+.feature-facts {
+  max-width: 38ch;
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.feature-actions .btn { min-width: 118px; }
+
+@media (min-width: 560px) {
+  .feature-art { aspect-ratio: 16 / 9; min-height: 520px; }
+  .feature-body { margin-top: -21%; }
+}
+
+/* Editorial sections use exaggerated hierarchy and a measured seam. */
+.sector { counter-reset: astra-card; }
+.sector-head {
+  align-items: flex-end;
+  padding: var(--s3) 0 var(--s3);
+  margin-bottom: var(--s5);
+}
+.sector-index {
+  align-self: flex-start;
+  color: var(--signal-bright);
+  font-family: var(--font-mono);
+}
+.sector-title {
+  font-size: clamp(20px, 5.8vw, 31px);
+  font-weight: 850;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+.sector-note { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; }
+.rail-scroll { grid-auto-columns: 146px; gap: var(--s4); }
+.card { counter-increment: astra-card; position: relative; }
+.card::before {
+  content: counter(astra-card, decimal-leading-zero);
+  position: absolute;
+  z-index: 3;
+  top: 5px;
+  right: 5px;
+  padding: 2px 4px;
+  background: color-mix(in srgb, var(--void) 84%, transparent);
+  border: 1px solid var(--rule);
+  color: var(--bone-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+.art {
+  border-color: var(--rule);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.38);
+  transition: transform var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease);
+}
+.art::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 58%, rgba(4, 5, 10, 0.72));
+  pointer-events: none;
+}
+.card:active .art { transform: scale(0.975); border-color: var(--signal); }
+.card-title { font-size: 13px; font-weight: 750; letter-spacing: -0.015em; }
+.resume-card::before,
+.release-card::before { display: none; }
+.release-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, var(--signal-wash), transparent 45%),
+    var(--slate-900);
+  border-left: 2px solid var(--signal);
+}
+
+/* Fix the first-pass collision visible in the evidence (`Movies1 catalog`). */
+.hub-name { display: grid; gap: 2px; min-width: 0; }
+.hub-detail { display: block; margin-top: 0; }
+.hub-row {
+  position: relative;
+  padding-block: var(--s4);
+  transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.hub-row::before {
+  content: "";
+  position: absolute;
+  inset: 12px auto 12px -1px;
+  width: 2px;
+  background: var(--signal);
+  transform: scaleY(0);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+.hub-row:hover::before,
+.hub-row:focus-visible::before { transform: scaleY(1); }
+.hub-label { font-size: 16px; letter-spacing: -0.03em; }
+.hub-state { background: var(--void); }
+
+/* Dossiers borrow from classified folders: image field, hard crop, numbered
+   record cells. Real artwork remains the focus instead of becoming wallpaper. */
+.dossier-art {
+  min-height: 280px;
+  height: 42svh;
+  max-height: 420px;
+  background:
+    radial-gradient(circle at 78% 18%, var(--signal-wash), transparent 28%),
+    linear-gradient(145deg, var(--slate-800), var(--void));
+}
+.dossier-art img { filter: saturate(0.8) contrast(1.08); }
+.dossier-head { position: relative; }
+.dossier-head::before {
+  content: "DOSSIER";
+  position: absolute;
+  right: var(--gutter);
+  top: var(--s4);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--signal-bright);
+  writing-mode: vertical-rl;
+}
+.dossier-title {
+  max-width: 12ch;
+  font-size: clamp(36px, 10vw, 68px);
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+.record { border-color: var(--rule-strong); }
+.record-cell { position: relative; background: color-mix(in srgb, var(--slate-900) 58%, transparent); }
+
+/* The source browser reads like technical evidence while the selected result
+   earns one dramatic ember edge. */
+.picker { border-top: 1px solid var(--rule-strong); padding-top: var(--s3); }
+.picker-bar {
+  background: color-mix(in srgb, var(--void) 94%, transparent);
+  backdrop-filter: blur(14px);
+}
+.stream-item { background: color-mix(in srgb, var(--slate-900) 44%, transparent); }
+.stream-row.recommended {
+  background:
+    linear-gradient(90deg, rgba(201, 64, 47, 0.19), transparent 68%),
+    var(--void);
+}
+.stream-name { font-size: 12px; line-height: 1.55; }
+
+/* Audio becomes the quietest room in the product: one object, one orbit, one
+   real progress seam. The orbit is static and therefore cheap on mobile. */
+.audio-full-body {
+  position: relative;
+  background:
+    radial-gradient(circle at 50% 42%, var(--signal-wash), transparent 20%),
+    radial-gradient(circle at 50% 42%, transparent 0 26%, var(--rule-faint) 26.2% 26.5%, transparent 26.7% 41%, var(--rule-faint) 41.2% 41.5%, transparent 41.7%);
+}
+.audio-cover {
+  width: min(300px, 66vw);
+  border-color: var(--rule-strong);
+  box-shadow: 0 34px 80px rgba(0, 0, 0, 0.68), 0 0 0 1px var(--rule-faint);
+  transform: rotate(-1.2deg);
+}
+.audio-cover::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -10%;
+  border: 1px solid var(--rule-strong);
+  transform: rotate(5deg);
+}
+.audio-meta h2 {
+  font-size: clamp(25px, 8vw, 42px);
+  font-weight: 850;
+  letter-spacing: -0.045em;
+}
+
+.state { position: relative; overflow: hidden; min-height: 210px; }
+.state::after {
+  content: "";
+  position: absolute;
+  right: -52px;
+  bottom: -68px;
+  width: 150px;
+  height: 150px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 28px var(--slate-900), inset 0 0 0 29px var(--rule-faint);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ *
+ * 19. Motion and reduced motion
  * ------------------------------------------------------------------ */
 
 /* Everything animated above uses transform or opacity only. Nothing here
@@ -1642,14 +2024,16 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
   }
   .sheet-panel,
   .modal,
-  .toast { animation: none !important; }
+  .toast,
+  .page.active,
+  .feature-art img { animation: none !important; }
   .skeleton::after { animation: none; }
   .spinner { animation-duration: 2.4s; }
   html { scroll-behavior: auto; }
 }
 
 /* ------------------------------------------------------------------ *
- * 19. Narrow-width hardening (320-430)
+ * 20. Narrow-width hardening (320-430)
  * ------------------------------------------------------------------ */
 
 @media (max-width: 380px) {

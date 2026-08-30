@@ -260,6 +260,12 @@
     return sector ? sector.singular : customLabel(type);
   }
 
+  /** Whether a raw catalog type belongs to an already-built hub sector. */
+  function catalogMatchesSector(sector, type) {
+    if (!sector || !Array.isArray(sector.types)) return false;
+    return sector.types.indexOf(normalizeType(type)) !== -1;
+  }
+
   /**
    * A one-line explanation of a sector's state, used verbatim in the UI so the
    * copy cannot drift from the logic that produced it.
@@ -313,6 +319,7 @@
     isAudio: isAudio,
     customLabel: customLabel,
     typeLabel: typeLabel,
+    catalogMatchesSector: catalogMatchesSector,
     collectCatalogs: collectCatalogs,
     buildHub: buildHub,
     describe: describe,
