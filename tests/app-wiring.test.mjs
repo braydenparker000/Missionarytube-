@@ -301,9 +301,37 @@ test("every modal dismissal invalidates pending work", () => {
   assert.match(html, /data-close\]',root\)\.forEach\(x=>x\.onclick=\(\)=>closeModal\(\)\)/, "the close button cancels");
   assert.match(html, /if\(\$\('#mediaEl'\)\|\|\$\('#playerStage iframe'\)\)closePlayer\(\);else closeModal\(\)/, "Escape cancels");
 
-  // Nothing clears the modal directly any more except the helper itself.
-  const rawClears = [...html.matchAll(/\$\('#modalRoot'\)\.innerHTML=''/g)];
-  assert.equal(rawClears.length, 1, "only closeModal() clears the modal directly");
+  // Counting one literal selector is not enough: `root` and other aliases point
+  // at the same container. Check every blanking assignment in the file and
+  // allow only targets that are demonstrably not the modal.
+  const NON_MODAL_TARGETS = new Set([
+    "sections", // the home page rail container
+    "status", // the player status area
+    "el" // the status element inside the notice timer
+  ]);
+  const blanking = [...html.matchAll(/([\w$.'#()]+)\.innerHTML=''/g)].map((m) => m[1]);
+  const modalClears = blanking.filter((target) => !NON_MODAL_TARGETS.has(target.replace(/^if\(\w+\)/, "")));
+  assert.deepEqual(modalClears, ["$('#modalRoot')"], `an alias clears the modal: ${modalClears.join(", ")}`);
+});
+
+test("an async modal action cannot erase a modal it no longer owns", () => {
+  // `root` in installModal aliases #modalRoot, so a held manifest response
+  // could blank whatever modal the viewer opened while it was pending.
+  assert.match(html, /function currentModal\(\)\{return \$\('#modalRoot'\)\?\.firstElementChild\|\|null\}/);
+
+  const install = html.match(/\$\('#installForm'\)\.onsubmit=async e=>\{.*?\};/);
+  assert.ok(install, "the install handler exists");
+  assert.match(install[0], /owned=currentModal\(\)/, "ownership is captured before the await");
+  assert.match(install[0], /await installAddon\(input\.value\);if\(currentModal\(\)!==owned\)return;closeModal\(\)/,
+    "success only closes the modal it still owns");
+  assert.match(install[0], /catch\(err\)\{if\(currentModal\(\)!==owned\)return;/,
+    "and the failure path is guarded too, so a stale toast cannot re-enable a gone form");
+  assert.equal(install[0].includes("root.innerHTML=''"), false, "the aliased clear is gone");
+
+  // importData reads a file across an await and had the same shape.
+  const importer = html.match(/async function importData\(file\)\{.*?\n/);
+  assert.match(importer[0], /const owned=currentModal\(\)/);
+  assert.match(importer[0], /if\(currentModal\(\)===owned\)closeModal\(\)/);
 });
 
 test("autoplay picks the winner as it stands when the timer fires", () => {
