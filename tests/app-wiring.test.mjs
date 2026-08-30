@@ -207,18 +207,15 @@ test("a stream response is scoped to the lookup that asked for it", () => {
   assert.match(load[0], /if\(stale\(\)\)return\[\];/, "the response is dropped when stale");
   assert.match(load[0], /\.then\(refined=>\{if\(stale\(\)\)return;player\.ranked=refined;renderStreams\(\)\}\)/,
     "so is the decoding-info re-render, which also keeps the re-sorted array");
-  assert.match(
-    load[0],
-    /player\.autoPlayTimer=setTimeout\(\(\)=>\{player\.autoPlayTimer=null;if\(stale\(\)\)return;openPlayer\(best\)\}/,
-    "the delayed autoplay is guarded and cancellable"
-  );
+  assert.match(load[0], /player\.autoPlayTimer=setTimeout\(/, "the delayed autoplay is cancellable");
+  assert.match(load[0], /player\.autoPlayTimer=null;if\(stale\(\)\)return;/, "and guarded");
   assert.equal(load[0].includes("if(token!==state.searchToken)return[]"), false, "the counter-only guard is gone");
 });
 
 test("switching or dismissing a title cancels the in-flight lookup", () => {
   assert.match(html, /function cancelStreamLookup\(\)\{[\s\S]*?player\.lookup=null;[\s\S]*?clearTimeout\(player\.autoPlayTimer\)/);
   assert.match(html, /async function openMedia\(key\)\{\s*\n\s*cancelStreamLookup\(\);/, "opening another title invalidates it");
-  assert.match(html, /data-dismiss\]',root\)\.forEach\(x=>x\.onclick=e=>\{if\(e\.target===x\)\{cancelStreamLookup\(\)/, "so does dismissing the modal");
+  assert.match(html, /data-dismiss\]',root\)\.forEach\(x=>x\.onclick=e=>\{if\(e\.target===x\)closeModal\(\)\}\)/, "so does dismissing the modal");
 });
 
 test("the subtitle menu selects one specific track, not a language", () => {
@@ -293,4 +290,33 @@ test("the failover notice stays on screen long enough to read", () => {
   assert.match(close[0], /clearTimeout\(player\.noticeTimer\)/);
   const error = html.match(/function renderPlayerError\(snap\)\{[\s\S]*?\n {4}\}/);
   assert.match(error[0], /clearTimeout\(player\.noticeTimer\)/);
+});
+
+test("every modal dismissal invalidates pending work", () => {
+  // A deferred metadata response must not reopen a detail the viewer closed,
+  // so every path that clears the modal goes through one cancelling helper.
+  assert.match(html, /function closeModal\(\)\{cancelStreamLookup\(\);\$\('#modalRoot'\)\.innerHTML=''\}/);
+
+  // The X button and the Escape key are the paths that previously slipped past.
+  assert.match(html, /data-close\]',root\)\.forEach\(x=>x\.onclick=\(\)=>closeModal\(\)\)/, "the close button cancels");
+  assert.match(html, /if\(\$\('#mediaEl'\)\|\|\$\('#playerStage iframe'\)\)closePlayer\(\);else closeModal\(\)/, "Escape cancels");
+
+  // Nothing clears the modal directly any more except the helper itself.
+  const rawClears = [...html.matchAll(/\$\('#modalRoot'\)\.innerHTML=''/g)];
+  assert.equal(rawClears.length, 1, "only closeModal() clears the modal directly");
+});
+
+test("autoplay picks the winner as it stands when the timer fires", () => {
+  // The decoding probe can re-rank during the 250ms wait, and stale() cannot
+  // see a re-ranking, so the candidate must be recomputed inside the timer.
+  const load = html.match(/async function loadStreams\(videoId,autoPlay=false\)\{[\s\S]*?\n {4}\}/);
+  const timer = load[0].match(/player\.autoPlayTimer=setTimeout\(\(\)=>\{[\s\S]*?\},250\);/);
+  assert.ok(timer, "the autoplay timer exists");
+  assert.match(timer[0], /const best=PB\.streams\.bestCandidate\(player\.ranked\);/, "recomputed inside the timer");
+  assert.match(timer[0], /if\(best&&best\.evaluation\.playable\)openPlayer\(best\)/, "and re-checked before playing");
+  assert.equal(
+    /const best=PB\.streams\.bestCandidate\(player\.ranked\);if\(best\)player\.autoPlayTimer/.test(load[0]),
+    false,
+    "the candidate captured before the wait is gone"
+  );
 });
