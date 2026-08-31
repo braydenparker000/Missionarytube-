@@ -505,7 +505,7 @@
     }
     async function fullMeta(item){if(item._fullMeta)return item;const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){try{const d=await fetchJSON(endpoint(s.addon,'meta',item.type,item.id));if(d.meta)return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
     async function openMedia(key){
-      closeStreamPicker();cancelStreamLookup();
+      cancelStreamLookup();
       let item=state.metaCache.get(key)||state.library[key]?.meta||state.homeItems.find(x=>mediaKey(x)===key)||progress.meta(key)||Object.values(state.library).find(x=>mediaRef(x.meta)===key)?.meta||state.homeItems.find(x=>mediaRef(x)===key);
       if(!item)return toast('That item is no longer available.','bad');
       // Stamp the request: a slow full-metadata response for one title must not
@@ -600,11 +600,14 @@
         <button class="source-drawer-close" data-close-streams aria-label="Close sources">${icon('close')}</button></header>
         <div class="source-drawer-body">${content}</div></section></div>`;
     }
+    function hideStreamDrawer(){
+      const root=$('#streamOverlayRoot');if(root)root.replaceChildren();
+      document.body.classList.remove('source-picker-open');
+    }
     function closeStreamPicker(){
       player.lookup=null;
       if(player.autoPlayTimer){clearTimeout(player.autoPlayTimer);player.autoPlayTimer=null}
-      const root=$('#streamOverlayRoot');if(root)root.innerHTML='';
-      document.body.classList.remove('source-picker-open');
+      hideStreamDrawer();
     }
     async function loadStreams(videoId,autoPlay=false){
       const m=state.currentMeta;if(!m)return[];
@@ -640,7 +643,7 @@
      * Close whatever modal is open. Every dismissal routes through here so a
      * deferred metadata or stream response cannot reopen what was just closed.
      */
-    function closeModal(){closeStreamPicker();cancelStreamLookup();$('#modalRoot').innerHTML=''}
+    function closeModal(){cancelStreamLookup();$('#modalRoot').innerHTML=''}
     /**
      * The element currently occupying the modal, used as an ownership token.
      * Every opener replaces the container's content, so a node that is no
@@ -652,6 +655,7 @@
     function cancelStreamLookup(){
       player.lookup=null;player.metaRequest=null;
       if(player.autoPlayTimer){clearTimeout(player.autoPlayTimer);player.autoPlayTimer=null}
+      hideStreamDrawer();
     }
 
     function motionOk(){return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches}

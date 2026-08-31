@@ -213,7 +213,7 @@ test("a stream response is scoped to the lookup that asked for it", () => {
   assert.match(load[0], /const stale=\(\)=>player\.lookup!==lookup/);
   assert.match(load[0], /mediaKey\(state\.currentMeta\)!==lookup\.mediaKey/, "the current media is re-checked");
   assert.match(load[0], /String\(state\.currentVideo\?\.id\)!==lookup\.videoId/, "so is the current video");
-  assert.match(load[0], /!\$\('#streamRoot'\)/, "and the root must still exist");
+  assert.match(load[0], /!root\.isConnected\|\|!root\.children\.length/, "and the independent drawer root must still exist");
 
   // Every continuation is guarded, including the delayed autoplay.
   assert.match(load[0], /if\(stale\(\)\)return\[\];/, "the response is dropped when stale");
