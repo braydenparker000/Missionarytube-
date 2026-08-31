@@ -393,3 +393,28 @@ test("a list operation always goes through the all-elements selector", () => {
   const spread = [...html.matchAll(/\[\s*\.\.\.\s*(?<![$\w])\$\(/g)];
   assert.deepEqual(spread.map((m) => m[0]), [], "spreading a single element is not a list");
 });
+
+
+test("mobile navigation is a floating capsule with safe-area clearance", () => {
+  const dock = css.match(/\n\.dock \{[^}]*\}/)?.[0] || "";
+  assert.match(dock, /inset: auto/, "the dock must float away from the viewport edges");
+  assert.match(dock, /border-radius: 24px/);
+  assert.match(dock, /backdrop-filter: blur\(26px\)/);
+  assert.match(dock, /box-shadow:/);
+  assert.equal(/border-top:/.test(dock), false, "a floating dock is not a full-width bottom rule");
+  assert.match(css, /\.dock-btn\.active \{[^}]*background:/, "the whole active destination is a pill");
+  assert.match(css, /\.content \{[\s\S]*?padding:[^;]*var\(--dock\)/, "content clears the floating dock");
+});
+
+test("episode and movie source selection opens an immediate independent drawer", () => {
+  assert.match(html, /<div id="streamOverlayRoot"><\/div>/);
+  assert.match(html, /const root=\$\('#streamOverlayRoot'\);if\(!root\)return\[\];/);
+  assert.match(html, /root\.innerHTML=streamDrawerHTML\('<div class="source-loading">/, "loading feedback opens immediately");
+  assert.match(html, /function closeStreamPicker\(\)/);
+  assert.match(html, /data-dismiss-streams/);
+  const load = html.match(/async function loadStreams[\s\S]*?return state\.currentStreams;/)?.[0] || "";
+  assert.equal(load.includes("scrollIntoView"), false, "episode selection must not jump below the episode list");
+  assert.match(css, /\.source-drawer-backdrop \{[\s\S]*?position: fixed/);
+  assert.match(css, /\.source-drawer \{[\s\S]*?max-height: 91svh/);
+  assert.match(css, /\.source-drawer-body \{[\s\S]*?overflow-y: auto/);
+});

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#05070c">
+  <meta name="theme-color" content="#030207">
   <meta name="description" content="Astra — a private, add-on powered streaming client for movies, shows, anime and music.">
   <meta name="color-scheme" content="dark">
   <title>Astra</title>
@@ -11,8 +11,8 @@
   <style>
     /* Critical shell only: everything else lives in the design system so the
        first paint is never a flash of unstyled bone on white. */
-    html{background:#05070c}
-    body{margin:0;background:#080b12;color:#f6f4f0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+    html{background:#030207}
+    body{margin:0;background:#080611;color:#fbf6eb;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   </style>
 </head>
 <body>
@@ -50,6 +50,7 @@
   </main>
 
   <nav class="dock" id="mobileNav" aria-label="Primary"></nav>
+  <div id="streamOverlayRoot"></div>
   <div id="audioRoot"></div>
   <div id="modalRoot"></div>
   <div class="toast-wrap" id="toastRoot" role="status" aria-live="polite"></div>
@@ -66,7 +67,7 @@
   <script src="assets/js/playback/subtitles.js"></script>
   <script>
   (()=>{'use strict';
-    const APP_VERSION='0.11.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
+    const APP_VERSION='0.12.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
     const DEFAULT_ADDONS=[{url:'https://v3-cinemeta.strem.io/manifest.json',enabled:true,official:true}];
     const KEY='astra.v1.';
     const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
@@ -504,7 +505,7 @@
     }
     async function fullMeta(item){if(item._fullMeta)return item;const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){try{const d=await fetchJSON(endpoint(s.addon,'meta',item.type,item.id));if(d.meta)return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
     async function openMedia(key){
-      cancelStreamLookup();
+      closeStreamPicker();cancelStreamLookup();
       let item=state.metaCache.get(key)||state.library[key]?.meta||state.homeItems.find(x=>mediaKey(x)===key)||progress.meta(key)||Object.values(state.library).find(x=>mediaRef(x.meta)===key)?.meta||state.homeItems.find(x=>mediaRef(x)===key);
       if(!item)return toast('That item is no longer available.','bad');
       // Stamp the request: a slow full-metadata response for one title must not
@@ -569,8 +570,7 @@
           ?'<div class="loading-line"><span class="spinner"></span>Loading full details…</div>'
           :`<p class="synopsis">${esc(m.description||m.overview||'No description was provided by the add-on.')}</p>
              ${m.cast?.length?`<p class="dossier-cast">Cast · ${esc(m.cast.slice(0,8).join(' · '))}</p>`:''}
-             ${videos.length?seriesSectionsHTML(videos,defaultSeason):''}
-             <div id="streamRoot"></div>`}</div>
+             ${videos.length?seriesSectionsHTML(videos,defaultSeason):''}`}</div>
       </section></div>`;
       bindDynamic(root);
     }
@@ -591,23 +591,40 @@
      * search counter alone does not change when the viewer simply closes one
      * detail modal and opens another.
      */
+    function streamDrawerHTML(content){
+      const m=state.currentMeta||{},v=state.currentVideo||m,code=episodeCode(v),
+        item=[code,v.title||v.name].filter(Boolean).join(' · ')||m.name||m.title||'Choose a source',
+        context=code?(m.name||m.title||typeLabel(m.type)):typeLabel(m.type);
+      return `<div class="source-drawer-backdrop" data-dismiss-streams><section class="source-drawer" role="dialog" aria-modal="true" aria-labelledby="sourceDrawerTitle">
+        <header class="source-drawer-head"><div class="source-drawer-copy"><span class="source-drawer-kicker">${esc(context||'Sources')}</span><h2 class="source-drawer-title" id="sourceDrawerTitle">${esc(item)}</h2></div>
+        <button class="source-drawer-close" data-close-streams aria-label="Close sources">${icon('close')}</button></header>
+        <div class="source-drawer-body">${content}</div></section></div>`;
+    }
+    function closeStreamPicker(){
+      player.lookup=null;
+      if(player.autoPlayTimer){clearTimeout(player.autoPlayTimer);player.autoPlayTimer=null}
+      const root=$('#streamOverlayRoot');if(root)root.innerHTML='';
+      document.body.classList.remove('source-picker-open');
+    }
     async function loadStreams(videoId,autoPlay=false){
       const m=state.currentMeta;if(!m)return[];
       if(!autoPlay)player.preferredBingeGroup=null;
       state.currentVideo=(m.videos||[]).find(v=>String(v.id)===String(videoId))||{id:videoId,title:m.name};
-      const root=$('#streamRoot');if(!root)return[];
+      const root=$('#streamOverlayRoot');if(!root)return[];
       const lookup={mediaKey:mediaKey(m),videoId:String(videoId),token:++state.searchToken};
       player.lookup=lookup;
       const stale=()=>player.lookup!==lookup||lookup.token!==state.searchToken||!state.currentMeta
-        ||mediaKey(state.currentMeta)!==lookup.mediaKey||String(state.currentVideo?.id)!==lookup.videoId||!$('#streamRoot');
-      root.innerHTML='<div class="picker-head"><h3>Sources</h3></div><div class="loading-line"><span class="spinner"></span>Asking your add-ons…</div>';
+        ||mediaKey(state.currentMeta)!==lookup.mediaKey||String(state.currentVideo?.id)!==lookup.videoId||!root.isConnected||!root.children.length;
+      document.body.classList.add('source-picker-open');
+      root.innerHTML=streamDrawerHTML('<div class="source-loading"><span class="spinner"></span><span>Asking your add-ons…</span></div>');
+      bindDynamic(root);
       const sources=manifests().filter(s=>hasResource(s.manifest,'stream',m.type,videoId));
       const rs=await Promise.allSettled(sources.map(async (s,order)=>({order,s,streams:(await fetchJSON(endpoint(s.addon,'stream',m.type,videoId))).streams||[]})));
       if(stale())return[];
       state.currentStreams=rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.streams.map(v=>({...v,_addonName:x.value.s.manifest.name,_addonOrder:x.value.order})));
       player.ranked=rankStreams(state.currentStreams);
       state.streamFilter='all';state.streamSort='recommended';
-      renderStreams();$('#streamRoot')?.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'});
+      renderStreams();
       // Advisory device probe; re-render if it changes any verdict.
       PB.streams.refineWithDecodingInfo(player.ranked,capsNow(),{limit:6,settings:state.settings}).then(refined=>{if(stale())return;player.ranked=refined;renderStreams()}).catch(()=>{});
       // Recomputed inside the timer: the decoding probe can change the winner
@@ -623,7 +640,7 @@
      * Close whatever modal is open. Every dismissal routes through here so a
      * deferred metadata or stream response cannot reopen what was just closed.
      */
-    function closeModal(){cancelStreamLookup();$('#modalRoot').innerHTML=''}
+    function closeModal(){closeStreamPicker();cancelStreamLookup();$('#modalRoot').innerHTML=''}
     /**
      * The element currently occupying the modal, used as an ownership token.
      * Every opener replaces the container's content, so a node that is no
@@ -656,15 +673,17 @@
        name leads each row, the compatibility verdict is stated rather than used
        to hide anything, and every field the add-on returned stays inspectable. */
     function renderStreams(){
-      const root=$('#streamRoot');if(!root)return;
+      const root=$('#streamOverlayRoot');if(!root)return;
       const total=player.ranked.length,list=sortedStreams(),best=PB.streams.bestCandidate(player.ranked);
       const filters=STREAM_FILTERS.filter(([id])=>id==='all'||player.ranked.some(e=>streamMatches(e,id)));
-      root.innerHTML=total?`<section class="picker">${groupHead('Sources',`${list.length} of ${total}`)}
+      const content=total?`<section class="picker">${groupHead('Sources',`${list.length} of ${total}`)}
         <div class="picker-bar">${filters.map(([id,label])=>`<button class="chip ${state.streamFilter===id?'active':''}" data-stream-filter="${id}" aria-pressed="${state.streamFilter===id}">${esc(label)}</button>`).join('')}
         <select class="picker-sort" data-stream-sort aria-label="Sort sources">${[['recommended','Recommended'],['quality','Quality'],['size','Size']].map(([id,label])=>`<option value="${id}" ${state.streamSort===id?'selected':''}>${label}</option>`).join('')}</select>
         ${best?`<button class="chip active" data-play-best>${icon('play')} Play best</button>`:''}</div>
         <div class="stream-list">${list.map((e,i)=>streamRowHTML(e,best,i)).join('')}</div></section>`
         :stateHTML('No sources found','Your add-ons did not return a stream for this title or episode.','','error');
+      root.innerHTML=streamDrawerHTML(content);
+      document.body.classList.add('source-picker-open');
       bindDynamic(root);
     }
     function streamRowHTML(entry,best,index=0){
@@ -692,8 +711,9 @@
 
     /* ---- player shell --------------------------------------------------- */
     function openPlayer(entry){
-      const m=state.currentMeta,v=state.currentVideo||m;
       if(!entry)return;
+      closeStreamPicker();
+      const m=state.currentMeta,v=state.currentVideo||m;
       const s=entry.stream;
       if(s.kind==='external'){const u=s.externalUrl;if(!u||!entry.evaluation||entry.evaluation.state==='unsafe')return toast('That external link is not safe to open.','bad');window.open(u,'_blank','noopener');return}
       if(s.kind==='torrent'){showTorrent(s);return}
@@ -1289,8 +1309,8 @@
     const SETTINGS_ROUTES={root:renderSettingsRoot,addons:renderAddons,catalogs:renderCatalogSettings,coverage:renderHub,playback:renderPlaybackSettings,audio:renderAudioSettings,data:renderDataSettings};
     function exportData(){const data={app:'Astra',version:APP_VERSION,exported:new Date().toISOString(),addons:state.addons,library:state.library,progress:progress.snapshot(),settings:state.settings,homeLayout:state.homeLayout};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='astra-backup.json';a.click();URL.revokeObjectURL(a.href)}
     async function importData(file){const owned=currentModal();try{const d=JSON.parse(await file.text());if(d.app!=='Astra'||!Array.isArray(d.addons))throw Error('Not an Astra backup');state.addons=d.addons;state.library=d.library||{};progress.replace(d.progress||{});state.settings=AstraPlayback.settings.migrate({...state.settings,...d.settings});state.homeLayout=d.homeLayout&&typeof d.homeLayout==='object'?d.homeLayout:AstraCatalogs.defaults();for(const k of ['addons','library','settings','homeLayout'])store.set(k,state[k]);state.manifests.clear();state.catalogCache.clear();await loadManifests(true);toast('Backup imported','good');if(currentModal()===owned)closeModal();invalidateCatalogs();renderHome()}catch(e){toast(`Import failed: ${e.message}`,'bad')}}
-    function bindDynamic(root=document){hydrateIcons(root);$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>loadStreams(x.dataset.getStreams));$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-play-best]',root).forEach(x=>x.onclick=()=>{const best=AstraPlayback.streams.bestCandidate(player.ranked);if(best)openPlayer(best)});$$('[data-stream-filter]',root).forEach(x=>x.onclick=()=>{state.streamFilter=x.dataset.streamFilter;renderStreams()});$$('[data-stream-sort]',root).forEach(x=>x.onchange=()=>{state.streamSort=x.value;renderStreams()});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{if(x.dataset.countdown==='cancel')cancelCountdown();else if(player.countdown)player.countdown.finishNow()});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0])}
-    function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('#mediaEl')||$('#playerStage iframe'))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
+    function bindDynamic(root=document){hydrateIcons(root);$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>loadStreams(x.dataset.getStreams));$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-play-best]',root).forEach(x=>x.onclick=()=>{const best=AstraPlayback.streams.bestCandidate(player.ranked);if(best)openPlayer(best)});$$('[data-stream-filter]',root).forEach(x=>x.onclick=()=>{state.streamFilter=x.dataset.streamFilter;renderStreams()});$$('[data-stream-sort]',root).forEach(x=>x.onchange=()=>{state.streamSort=x.value;renderStreams()});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{if(x.dataset.countdown==='cancel')cancelCountdown();else if(player.countdown)player.countdown.finishNow()});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0])}
+    function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#streamOverlayRoot')?.children.length){closeStreamPicker();return}if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('#mediaEl')||$('#playerStage iframe'))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
     async function init(){buildNav();hydrateIcons();bindDynamic();globalEvents();await renderHome()}
     init().catch(e=>{console.error(e);toast('Astra could not start: '+e.message,'bad')});
   })();

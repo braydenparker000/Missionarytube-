@@ -24,18 +24,18 @@
   color-scheme: dark;
 
   /* Surface ramp. Each step is a real elevation level, not decoration. */
-  --void: #05070c;        /* app floor: chrome, dock, scrims */
-  --obsidian: #080b12;    /* page ground */
-  --slate-900: #0e1219;   /* raised panel, settings group */
-  --slate-800: #141922;   /* control fill, artwork bed */
-  --slate-700: #1b212c;   /* hover, thumb, inset track */
-  --slate-600: #272e3b;   /* disabled ink, panel divider */
+  --void: #030207;        /* app floor: chrome, dock, scrims */
+  --obsidian: #080611;    /* page ground */
+  --slate-900: #120f1c;   /* raised panel, settings group */
+  --slate-800: #1a1628;   /* control fill, artwork bed */
+  --slate-700: #252037;   /* hover, thumb, inset track */
+  --slate-600: #363047;   /* disabled ink, panel divider */
 
   /* Type ramp. AA-checked against the surfaces it is used on, in the tests. */
-  --bone: #f6f4f0;
-  --bone-dim: #cdd2da;
-  --silver: #a3abb9;
-  --silver-dim: #7c8493;
+  --bone: #fbf6eb;
+  --bone-dim: #ded4c5;
+  --silver: #afaabd;
+  --silver-dim: #858094;
 
   /* Hairlines. Seams, not borders. */
   --rule: rgba(163, 171, 185, 0.16);
@@ -43,13 +43,13 @@
   --rule-faint: rgba(163, 171, 185, 0.08);
 
   /* The single rationed accent: arc. Live, selected, in progress. */
-  --signal: #4d8dff;
-  --signal-bright: #86b2ff;
+  --signal: #d7b36a;
+  --signal-bright: #f0cf8a;
   /* The accent darkened far enough to carry bone type at AA. Used wherever
      the accent is a background behind words, never as a hairline. */
-  --signal-ink: #1c3f87;
-  --signal-deep: #12274f;
-  --signal-wash: rgba(77, 141, 255, 0.14);
+  --signal-ink: #63470f;
+  --signal-deep: #2d210c;
+  --signal-wash: rgba(215, 179, 106, 0.14);
 
   /* Status. Desaturated so the accent stays the loudest thing on screen. */
   --ok: #6fbf8f;
@@ -152,7 +152,7 @@ body {
   margin: 0;
   min-height: 100svh;
   background:
-    radial-gradient(120% 55% at 50% -8%, rgba(77, 141, 255, 0.05), transparent 62%),
+    radial-gradient(120% 55% at 50% -8%, rgba(215, 179, 106, 0.05), transparent 62%),
     var(--obsidian);
   color: var(--bone);
   font-family: var(--font-display);
@@ -341,16 +341,18 @@ main {
    a pill behind the glyph rather than by colour alone. */
 .dock {
   position: fixed;
-  z-index: 40;
-  inset: auto 0 0 0;
+  z-index: 80;
+  inset: auto max(14px, var(--safe-r)) max(12px, var(--safe-b)) max(14px, var(--safe-l));
   display: flex;
   align-items: stretch;
-  height: calc(var(--dock) + var(--safe-b));
-  padding: 0 max(var(--s2), var(--safe-r)) var(--safe-b) max(var(--s2), var(--safe-l));
-  background: color-mix(in srgb, var(--void) 84%, transparent);
-  backdrop-filter: blur(22px) saturate(1.3);
-  -webkit-backdrop-filter: blur(22px) saturate(1.3);
-  border-top: 1px solid var(--rule-faint);
+  height: var(--dock);
+  padding: 5px 6px;
+  border: 1px solid color-mix(in srgb, var(--bone) 13%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--slate-900) 84%, transparent);
+  backdrop-filter: blur(26px) saturate(1.35);
+  -webkit-backdrop-filter: blur(26px) saturate(1.35);
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.60), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 @media (min-width: 900px) { .dock { display: none; } }
 
@@ -363,10 +365,12 @@ main {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: var(--s2) 2px;
+  margin: 0 2px;
+  padding: var(--s1) 2px;
+  border-radius: 19px;
   color: var(--silver-dim);
   position: relative;
-  transition: color var(--dur-1) var(--ease);
+  transition: color var(--dur-1) var(--ease), background var(--dur-2) var(--ease), transform var(--dur-1) var(--ease);
 }
 .dock-icon {
   position: relative;
@@ -390,19 +394,10 @@ main {
   text-overflow: ellipsis;
   max-width: 100%;
 }
-.dock-btn.active { color: var(--bone); }
-/* One indicator, not two: the pill is the active state. */
-.dock-btn.active::before {
-  content: "";
-  position: absolute;
-  top: var(--s2);
-  left: 50%;
-  width: 54px;
-  height: 28px;
-  border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--bone) 13%, transparent);
-  transform: translateX(-50%);
-}
+.dock-btn:active { transform: scale(0.96); }
+.dock-btn.active { color: var(--bone); background: color-mix(in srgb, var(--bone) 13%, transparent); }
+/* The selected destination is one soft capsule inside the floating dock. */
+.dock-btn.active::before { display: none; }
 
 .rail-btn {
   width: 56px; height: 56px;
@@ -423,7 +418,7 @@ main {
 .page.active { display: block; }
 
 .content {
-  padding: var(--s5) max(var(--gutter), var(--safe-r)) var(--s7) max(var(--gutter), var(--safe-l));
+  padding: var(--s5) max(var(--gutter), var(--safe-r)) calc(var(--dock) + var(--s8) + var(--safe-b)) max(var(--gutter), var(--safe-l));
 }
 
 .page-head { margin-bottom: var(--s5); }
@@ -697,7 +692,7 @@ main {
   gap: var(--s3);
   padding: var(--s9) max(var(--gutter), var(--safe-r)) var(--s8) max(var(--gutter), var(--safe-l));
   background:
-    radial-gradient(120% 70% at 50% 118%, rgba(77, 141, 255, 0.18), transparent 62%),
+    radial-gradient(120% 70% at 50% 118%, rgba(215, 179, 106, 0.18), transparent 62%),
     linear-gradient(180deg, var(--void), var(--obsidian));
 }
 .feature-empty .feature-body { position: static; padding: 0; }
@@ -1145,6 +1140,103 @@ main {
  * 11. Source picker — a release browser
  * ------------------------------------------------------------------ */
 
+body.source-picker-open { overflow: hidden; }
+.source-drawer-backdrop {
+  position: fixed;
+  z-index: 108;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: color-mix(in srgb, var(--void) 78%, transparent);
+  backdrop-filter: blur(12px) saturate(0.9);
+  -webkit-backdrop-filter: blur(12px) saturate(0.9);
+}
+.source-drawer {
+  width: 100%;
+  max-height: 91svh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--bone) 12%, transparent);
+  border-bottom: 0;
+  border-radius: 28px 28px 0 0;
+  background: var(--obsidian);
+  box-shadow: 0 -28px 80px rgba(0, 0, 0, 0.64);
+  animation: source-drawer-in var(--dur-3) var(--ease-out);
+}
+@keyframes source-drawer-in { from { transform: translateY(8%); opacity: 0; } }
+.source-drawer-head {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--tap);
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4) max(var(--gutter), var(--safe-r)) var(--s3) max(var(--gutter), var(--safe-l));
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--slate-900) 88%, transparent);
+}
+.source-drawer-copy { min-width: 0; }
+.source-drawer-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--signal-bright);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+.source-drawer-title {
+  margin: 0;
+  overflow: hidden;
+  color: var(--bone);
+  font-size: var(--t-title);
+  font-weight: 800;
+  letter-spacing: var(--track-tight);
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.source-drawer-close {
+  width: var(--tap);
+  height: var(--tap);
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--slate-800);
+  color: var(--bone);
+}
+.source-drawer-close svg { width: 20px; height: 20px; }
+.source-drawer-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 max(var(--gutter), var(--safe-r)) calc(var(--s5) + var(--safe-b)) max(var(--gutter), var(--safe-l));
+}
+.source-loading {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--s3);
+  color: var(--silver);
+}
+.source-loading .spinner { width: 28px; height: 28px; }
+.source-drawer .picker { margin-top: 0; }
+.source-drawer .picker > .group-head { padding-top: var(--s4); }
+.source-drawer .picker-bar {
+  margin-inline: calc(-1 * max(var(--gutter), var(--safe-l)));
+  padding-inline: max(var(--gutter), var(--safe-l));
+  background: color-mix(in srgb, var(--obsidian) 94%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+@media (min-width: 700px) {
+  .source-drawer-backdrop { align-items: center; padding: var(--s6); }
+  .source-drawer { max-width: 720px; max-height: 86svh; border-bottom: 1px solid var(--rule); border-radius: var(--r4); }
+}
+
 .picker { margin-top: var(--s5); }
 
 .picker-bar {
@@ -1198,17 +1290,24 @@ main {
 
 /* A stream row leads with the release name in mono, at full length. */
 .stream-list {
-  border-radius: var(--r3);
-  background: var(--slate-900);
-  box-shadow: inset 0 0 0 1px var(--rule-faint);
-  overflow: hidden;
+  display: grid;
+  gap: var(--s2);
+  background: transparent;
+  overflow: visible;
 }
 
 /* One release = one item: the choose button, then a native disclosure holding
    the full record. The disclosure sits outside the button so it is never a
    nested interactive control. */
-.stream-item { padding: 0 var(--s4) var(--s2); }
-.stream-item + .stream-item { box-shadow: inset 0 1px 0 var(--rule-faint); }
+.stream-item {
+  padding: 0 var(--s3) var(--s2);
+  border: 1px solid var(--rule-faint);
+  border-radius: var(--r3);
+  background: var(--slate-900);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.20);
+  overflow: hidden;
+}
+.stream-item + .stream-item { box-shadow: 0 10px 28px rgba(0, 0, 0, 0.20); }
 
 .stream-row {
   display: block;
@@ -1220,7 +1319,7 @@ main {
   transition: background var(--dur-1) var(--ease);
 }
 .stream-row:hover { background: var(--slate-800); }
-.stream-row.recommended { background: linear-gradient(90deg, var(--signal-wash), transparent 62%); }
+.stream-row.recommended { background: linear-gradient(90deg, var(--signal-wash), transparent 72%); box-shadow: inset 3px 0 0 var(--signal); }
 .stream-row.blocked { opacity: 0.72; }
 
 .stream-lead { display: flex; align-items: baseline; gap: var(--s2); margin-bottom: var(--s2); }
@@ -2118,6 +2217,7 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
     transition: none !important;
   }
   .sheet-panel,
+  .source-drawer,
   .sheet,
   .modal,
   .toast,
@@ -2148,7 +2248,7 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
   .release-card { grid-template-columns: 88px minmax(0, 1fr); gap: var(--s3); }
   .release-art { width: 88px; min-height: 132px; }
   .record { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dock-icon, .dock-btn.active::before { width: 48px; }
+  .dock-icon { width: 48px; }
   .dock-label { font-size: 9px; letter-spacing: 0.02em; }
   .layout-catalog { grid-template-columns: minmax(0, 1fr) var(--tap) 46px 56px; padding-inline: var(--s3); }
   .stream-detail dl { grid-template-columns: 1fr; }
