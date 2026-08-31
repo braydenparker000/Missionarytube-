@@ -103,4 +103,5 @@ test("Home layout is reachable and exposes mobile-accessible controls", async ()
   assert.match(html, /data-layout-move/);
   assert.match(html, /data-layout-reset/);
   assert.match(html, /aria-pressed=/);
+  assert.match(html, /data-layout-option="showHero" aria-label="Show hero"/);
 });
