@@ -42,7 +42,10 @@ is missing an integrity hash. To bump a version, edit `scripts/pin-player-libs.m
 | `index.html` | Static app entry point |
 | `assets/` | CSS, JavaScript, images, icons, and other browser assets |
 | `scripts/` | Dependency-free validation, build, and dependency-pinning scripts |
-| `tests/` | Node test-runner suite for progress storage and dependency pinning |
+| `assets/css/obsidian.css` | The Astra Obsidian design system: tokens first, then components built from them |
+| `assets/js/hub.js` | Media-hub taxonomy — which content types exist and which an installed add-on actually exposes |
+| `assets/js/audio-player.js` | Audio player state read from the media element |
+| `tests/` | Node test-runner suite for the design system, media hub, audio state, progress storage, playback, and dependency pinning |
 | `docs/WORKFLOW.md` | Phone-first GitHub development workflow |
 | `docs/AI-COLLABORATION.md` | Claude implementation and Codex review protocol |
 | `docs/EVALUATION.md` | Blind Claude-vs-Codex competition rules |
@@ -51,6 +54,25 @@ is missing an integrity hash. To bump a version, edit `scripts/pin-player-libs.m
 | `AGENTS.md` | Instructions for ChatGPT/Codex |
 | `CLAUDE.md` | Instructions for Claude |
 | `.github/workflows/` | Validation and gated Azure deployment automation |
+
+## Design system
+
+The interface is **Astra Obsidian**: a near-black cinematic field, bone type, cold silver
+seams, and one rationed signal colour. It lives in [`assets/css/obsidian.css`](assets/css/obsidian.css),
+which defines every colour, space, type size, motion duration and safe-area inset as a token
+before any component uses one. Components never introduce a raw colour or a magic pixel value.
+
+Two rules the tests enforce rather than merely document:
+
+- **44px is a token, not a per-component guess.** Every interactive control builds its height
+  on `--tap`.
+- **Nothing is shown that was not measured.** Availability, catalog counts, stream facts and
+  playback position all come from an add-on response or from the media element. There is no
+  synthesised waveform, no invented ranking, and no content category that reads as populated
+  without an installed provider behind it.
+
+`npm test` checks the type ramp against WCAG AA, the tap-target token, focus visibility, the
+reduced-motion block, and the absence of any remote or unpinned runtime dependency.
 
 ## Normal change workflow
 

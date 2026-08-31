@@ -3,131 +3,57 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#080b12">
+  <meta name="theme-color" content="#04050a">
+  <meta name="description" content="Astra — a personal, add-on powered streaming client.">
   <meta name="color-scheme" content="dark">
-  <title>Astra — Add-on powered streaming</title>
+  <title>Astra — Obsidian</title>
+  <link rel="stylesheet" href="assets/css/obsidian.css">
   <style>
-    :root{--bg:#080b12;--panel:#0e131e;--panel2:#141b29;--line:#242d3d;--text:#f4f7fb;--muted:#97a2b6;--accent:#8b5cf6;--accent2:#22d3ee;--good:#34d399;--warn:#fbbf24;--bad:#fb7185;--side:88px;--radius:18px;--shadow:0 20px 70px rgba(0,0,0,.48)}
-    *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth}body{margin:0;min-height:100vh;background:radial-gradient(900px 600px at 85% -10%,rgba(139,92,246,.14),transparent 58%),var(--bg);color:var(--text);font:15px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden}button,input,select{font:inherit}button{color:inherit}.hidden{display:none!important}.muted{color:var(--muted)}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-    ::-webkit-scrollbar{width:10px;height:8px}::-webkit-scrollbar-thumb{background:#30394b;border-radius:99px}::-webkit-scrollbar-track{background:transparent}
-    .sidebar{position:fixed;inset:0 auto 0 0;width:var(--side);z-index:30;border-right:1px solid rgba(255,255,255,.065);background:rgba(8,11,18,.88);backdrop-filter:blur(22px);display:flex;flex-direction:column;align-items:center;padding:18px 10px}
-    .brand{width:52px;height:52px;border:0;border-radius:16px;background:linear-gradient(145deg,var(--accent),#5b21b6 60%,#22d3ee);box-shadow:0 10px 30px rgba(139,92,246,.3);display:grid;place-items:center;cursor:pointer;margin-bottom:26px}.brand svg{width:28px;height:28px}.nav{display:flex;flex-direction:column;gap:8px;width:100%}.nav-btn{border:0;background:transparent;color:#778298;height:58px;border-radius:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;transition:.2s}.nav-btn svg{width:22px;height:22px}.nav-btn span{font-size:10px;font-weight:650}.nav-btn:hover,.nav-btn.active{color:#fff;background:rgba(255,255,255,.07)}.nav-btn.active{box-shadow:inset 3px 0 var(--accent2)}.side-foot{margin-top:auto}
-    main{margin-left:var(--side);min-height:100vh;padding-bottom:70px}.topbar{height:82px;padding:16px clamp(18px,4vw,54px);display:flex;align-items:center;gap:18px;position:sticky;top:0;z-index:20;background:linear-gradient(180deg,rgba(8,11,18,.96),rgba(8,11,18,.78),transparent);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.025)}
-    .search-wrap{max-width:660px;flex:1;position:relative}.search-wrap svg{position:absolute;left:16px;top:14px;width:20px;color:#7c879b}.search{width:100%;height:48px;border-radius:16px;border:1px solid var(--line);background:rgba(18,24,36,.9);color:#fff;outline:0;padding:0 46px;transition:.2s}.search:focus{border-color:rgba(139,92,246,.75);box-shadow:0 0 0 4px rgba(139,92,246,.12)}.search-clear{position:absolute;right:9px;top:8px;width:32px;height:32px;border:0;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer}.avatar{margin-left:auto;width:44px;height:44px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(145deg,#20283a,#111725);cursor:pointer;display:grid;place-items:center;font-weight:800;color:#d8c9ff}
-    .page{display:none;animation:fade .25s ease}.page.active{display:block}@keyframes fade{from{opacity:.2;transform:translateY(5px)}to{opacity:1;transform:none}}.content{padding:10px clamp(18px,4vw,54px) 40px}.section{margin:28px 0 42px}.section-head{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:15px}.section-title{font-size:21px;letter-spacing:-.02em;margin:0}.section-note{font-size:12px;color:var(--muted)}
-    .hero{height:min(56vh,570px);min-height:390px;margin:-82px 0 0;position:relative;overflow:hidden;background:#101522}.hero-bg{position:absolute;inset:0;background-position:center 28%;background-size:cover;filter:saturate(.85)}.hero-bg:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,11,18,.97) 3%,rgba(8,11,18,.62) 44%,rgba(8,11,18,.1) 75%),linear-gradient(0deg,var(--bg),transparent 55%)}.hero-copy{position:absolute;z-index:2;left:clamp(18px,4vw,54px);bottom:62px;width:min(620px,75vw)}.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:#c4b5fd;font-weight:800}.hero h1{font-size:clamp(38px,6vw,76px);letter-spacing:-.055em;line-height:.94;margin:13px 0 16px;text-shadow:0 4px 32px #000}.hero p{color:#c1c9d7;font-size:16px;max-width:590px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}.btn{min-height:43px;border:1px solid transparent;border-radius:13px;padding:0 17px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;font-weight:750;transition:.18s}.btn:hover{transform:translateY(-1px);filter:brightness(1.08)}.btn:active{transform:none}.btn-primary{background:linear-gradient(135deg,var(--accent),#6d28d9);box-shadow:0 10px 24px rgba(109,40,217,.25)}.btn-ghost{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.12);backdrop-filter:blur(12px)}.btn-danger{background:rgba(251,113,133,.12);color:#fecdd3;border-color:rgba(251,113,133,.2)}.btn-sm{min-height:36px;padding:0 12px;font-size:13px}.btn svg{width:18px;height:18px}
-    .rail{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(138px,14vw,196px);gap:14px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:inline proximity;padding:4px 2px 12px}.card{min-width:0;scroll-snap-align:start;cursor:pointer;transition:.22s;position:relative}.card:hover{transform:translateY(-5px)}.poster{aspect-ratio:2/3;border-radius:15px;background:linear-gradient(145deg,#20283a,#0f1521);overflow:hidden;position:relative;box-shadow:0 14px 35px rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.055)}.poster img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block;transition:.35s}.card:hover .poster img{transform:scale(1.035)}.poster:after{content:"";position:absolute;z-index:1;inset:auto 0 0;height:34%;background:linear-gradient(transparent,rgba(0,0,0,.78));pointer-events:none}.poster-fallback{position:absolute;inset:0;display:grid;place-items:center;color:#778299;background:radial-gradient(circle at 70% 15%,rgba(139,92,246,.2),transparent 45%),#111827}.poster-fallback svg{width:38px}.card-title{font-weight:700;font-size:13px;line-height:1.25;margin-top:9px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em}.card-sub{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.progress{height:3px;position:absolute;z-index:2;bottom:0;left:0;right:0;background:rgba(255,255,255,.16)}.progress i{display:block;height:100%;background:var(--accent2)}.source-pill{position:absolute;z-index:2;top:8px;left:8px;background:rgba(4,7,12,.8);backdrop-filter:blur(8px);padding:3px 7px;border-radius:8px;font-size:9px;color:#d6dbe5;max-width:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .empty{border:1px dashed #2b3547;border-radius:20px;padding:42px 24px;text-align:center;color:var(--muted);background:rgba(16,22,33,.45)}.empty svg{width:44px;color:#68758c;margin-bottom:12px}.empty h3{color:#dce2ec;margin:0 0 7px}.empty p{max-width:520px;margin:0 auto 18px}.skeleton{background:linear-gradient(90deg,#111827 20%,#1c2433 45%,#111827 70%);background-size:300% 100%;animation:shimmer 1.4s infinite}@keyframes shimmer{to{background-position:-150% 0}}
-    .page-title{font-size:34px;letter-spacing:-.04em;margin:10px 0 5px}.page-lede{color:var(--muted);margin:0 0 28px}.filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}.select,.text-input{height:44px;border:1px solid var(--line);border-radius:13px;background:#111725;color:#e9edf5;padding:0 13px;outline:0}.select:focus,.text-input:focus{border-color:var(--accent)}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:24px 15px}.library-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:26px 16px}
-    .addon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}.addon-card{background:linear-gradient(145deg,rgba(20,27,41,.95),rgba(13,18,29,.96));border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;gap:14px;min-width:0}.addon-logo{width:56px;height:56px;flex:0 0 auto;border-radius:14px;background:#20283a;object-fit:cover;display:grid;place-items:center;overflow:hidden}.addon-logo img{width:100%;height:100%;object-fit:cover}.addon-logo svg{width:27px;color:#a78bfa}.addon-body{min-width:0;flex:1}.addon-name{font-size:17px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.addon-desc{font-size:12px;color:var(--muted);margin:4px 0 12px;height:35px;overflow:hidden}.addon-meta{display:flex;flex-wrap:wrap;gap:6px}.tag{padding:3px 7px;border-radius:7px;background:#20283a;color:#aab4c7;font-size:10px}.addon-actions{display:flex;gap:7px;margin-top:13px}.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--good);box-shadow:0 0 12px var(--good);margin-right:6px}.status-dot.off{background:#64748b;box-shadow:none}
-    .modal-shell{position:fixed;z-index:100;inset:0;background:rgba(1,3,7,.78);backdrop-filter:blur(14px);display:flex;align-items:center;justify-content:center;padding:20px;animation:fade .2s}.modal{width:min(680px,100%);max-height:min(850px,92vh);overflow:auto;border:1px solid #2a3344;border-radius:24px;background:#0f1521;box-shadow:var(--shadow);position:relative}.modal-head{position:sticky;top:0;z-index:2;padding:19px 22px;display:flex;align-items:center;justify-content:space-between;background:rgba(15,21,33,.93);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}.modal-head h2{font-size:20px;margin:0}.icon-btn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:#171e2c;color:#b7c0d0;display:grid;place-items:center;cursor:pointer}.icon-btn:hover{color:#fff;background:#20293a}.icon-btn svg{width:20px}.modal-body{padding:22px}.field{margin:0 0 19px}.field label{display:block;font-size:12px;font-weight:750;color:#c4cbd8;margin-bottom:7px}.field small{display:block;color:var(--muted);margin-top:7px}.field .text-input{width:100%}.input-action{display:flex;gap:9px}.input-action .text-input{flex:1}.notice{padding:13px 14px;border-radius:13px;background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.18);font-size:12px;color:#b8eaf2;margin-bottom:19px}.notice.warn{background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.18);color:#fde3a7}.switch-row{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:13px 0;border-bottom:1px solid rgba(255,255,255,.055)}.switch-row b{display:block}.switch-row span{font-size:12px;color:var(--muted)}.switch{width:48px;height:27px;border:0;border-radius:99px;background:#30394a;padding:3px;cursor:pointer}.switch i{display:block;width:21px;height:21px;background:#fff;border-radius:50%;transition:.2s}.switch.on{background:var(--accent)}.switch.on i{transform:translateX(21px)}
-    .detail{width:min(1100px,100%);height:min(800px,94vh);max-height:94vh;overflow:auto}.detail-hero{height:370px;position:relative;background:#151b28}.detail-backdrop{position:absolute;inset:0;background:center/cover}.detail-backdrop:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#0f1521 0%,rgba(15,21,33,.58) 55%,rgba(15,21,33,.15)),linear-gradient(0deg,#0f1521 0%,transparent 72%)}.detail-close{position:absolute;z-index:3;right:18px;top:18px}.detail-content{position:absolute;z-index:2;left:30px;right:30px;bottom:25px;display:flex;align-items:end;gap:22px}.detail-poster{width:145px;aspect-ratio:2/3;border-radius:15px;object-fit:cover;background:#1d2635;box-shadow:0 16px 35px rgba(0,0,0,.5)}.detail-copy{min-width:0}.detail h1{font-size:clamp(29px,5vw,50px);line-height:1;letter-spacing:-.045em;margin:0 0 12px}.facts{display:flex;gap:8px;flex-wrap:wrap;color:#c2cad8;font-size:12px}.fact{padding:4px 8px;background:rgba(255,255,255,.09);border-radius:8px}.detail-body{padding:4px 30px 30px}.description{max-width:820px;color:#bdc6d6;margin:15px 0 22px}.episodes{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}.episode{border:1px solid var(--line);background:#141b29;border-radius:14px;padding:13px;text-align:left;cursor:pointer}.episode:hover,.episode.active{border-color:#7056be;background:#1b2232}.episode b{display:block;margin-bottom:4px}.episode span{font-size:11px;color:var(--muted)}.season-row{display:flex;gap:7px;overflow:auto;padding-bottom:11px}.chip{border:1px solid var(--line);background:#141a27;border-radius:99px;padding:7px 12px;color:#aab4c7;white-space:nowrap;cursor:pointer}.chip.active{background:#5b3aa3;border-color:#8b5cf6;color:#fff}.stream:hover{border-color:#46516a}.stream-icon svg{width:21px}.stream-badge.torrent{background:rgba(251,191,36,.1);color:#fde68a}.stream-badge.external{background:rgba(34,211,238,.1);color:#a5f3fc}
-    .player-shell{padding:0;background:#000}.player-modal{width:min(1400px,100%);height:min(900px,95vh);max-height:95vh;background:#030407;border-color:#1a2130;overflow:hidden}.player-stage{position:absolute;z-index:1;inset:0;background:#000;display:grid;place-items:center}.player-stage video,.player-stage iframe{width:100%;height:100%;border:0;background:#000}.audio-stage{position:absolute;inset:0;background:center/cover;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:26px}.audio-stage:before{content:"";position:absolute;inset:0;background:rgba(3,5,9,.7);backdrop-filter:blur(28px)}.audio-stage img{position:relative;width:min(310px,55vw);aspect-ratio:1;border-radius:24px;object-fit:cover;box-shadow:0 25px 80px #000}.audio-stage audio{position:relative;width:min(560px,80vw)}.player-top{position:absolute;z-index:4;left:0;right:0;top:0;padding:16px;display:flex;align-items:center;gap:12px;background:linear-gradient(#000b,transparent)}.player-title{min-width:0;flex:1}.player-title b,.player-title span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.player-title span{font-size:11px;color:#b5becd}
-    .card{border:0;background:transparent;color:inherit;text-align:left;padding:0}.card:focus-visible{outline:2px solid var(--accent2);outline-offset:5px;border-radius:15px}.watched-mark{position:absolute;z-index:3;right:8px;bottom:8px;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:rgba(52,211,153,.92);color:#052e25;box-shadow:0 4px 15px #0008}.watched-mark svg{width:15px}.episode{position:relative}.episode.watched{border-color:rgba(52,211,153,.28)}.episode b{padding-right:30px}.episode-state{position:absolute;right:11px;top:11px;color:#6ee7b7;font-weight:900}.stream-tag.warn{background:rgba(251,191,36,.11);color:#fde68a}.stream-badge.warn{background:rgba(251,191,36,.1);color:#fde68a}.load-more{display:flex;justify-content:center;margin:28px 0}.catalog-link{border:0;background:transparent;color:#a78bfa;cursor:pointer;font-size:12px;font-weight:750}.catalog-link:hover{color:#c4b5fd}
-    .toast-wrap{position:fixed;z-index:300;right:20px;bottom:20px;display:grid;gap:8px}.toast{width:min(370px,calc(100vw - 40px));padding:13px 15px;border:1px solid #303a4c;border-radius:14px;background:#151c2a;box-shadow:0 15px 45px #0008;animation:toastin .25s;display:flex;gap:10px}.toast.good{border-color:rgba(52,211,153,.35)}.toast.bad{border-color:rgba(251,113,133,.4)}@keyframes toastin{from{transform:translateX(25px);opacity:0}}.spinner{width:22px;height:22px;border-radius:50%;border:2px solid #3b4558;border-top-color:#a78bfa;animation:spin .7s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.loading-line{display:flex;align-items:center;gap:10px;color:var(--muted);padding:18px 0}.error-card{padding:12px;border:1px solid rgba(251,113,133,.2);background:rgba(251,113,133,.06);border-radius:12px;color:#fecdd3;font-size:12px}
-    .mobile-title{display:none}.bottom-nav{display:none}
-    @media(max-width:760px){:root{--side:0px}.sidebar{display:none}main{margin:0;padding-bottom:88px}.topbar{height:70px;padding:11px 14px;background:rgba(8,11,18,.9)}.mobile-title{display:block;font-size:19px;font-weight:900;letter-spacing:-.04em}.search-wrap{position:absolute;left:13px;right:64px;top:10px}.topbar:not(.searching) .search-wrap{left:120px}.search{height:46px}.avatar{width:43px;height:43px}.bottom-nav{display:flex;position:fixed;z-index:40;bottom:0;left:0;right:0;height:72px;padding:5px max(7px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom));background:rgba(9,12,19,.94);backdrop-filter:blur(22px);border-top:1px solid rgba(255,255,255,.08);justify-content:space-around}.bottom-nav .nav-btn{height:56px;flex:1;max-width:90px}.bottom-nav .nav-btn.active{box-shadow:inset 0 2px var(--accent2)}.hero{margin:-70px 0 0;height:57vh;min-height:460px}.hero-bg{background-position:65% center}.hero-bg:after{background:linear-gradient(90deg,rgba(8,11,18,.82),rgba(8,11,18,.12)),linear-gradient(0deg,var(--bg) 2%,rgba(8,11,18,.18) 70%)}.hero-copy{bottom:38px;width:calc(100vw - 36px)}.hero h1{font-size:43px}.hero p{font-size:13px;-webkit-line-clamp:2}.content{padding:5px 15px 35px}.section{margin:25px 0 33px}.rail{grid-auto-columns:132px;gap:11px}.section-title{font-size:18px}.grid,.library-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:20px 10px}.card-title{font-size:12px}.addon-grid{grid-template-columns:1fr}.page-title{font-size:28px}.modal-shell{padding:0;align-items:flex-end}.modal{border-radius:24px 24px 0 0;max-height:92vh;width:100%}.detail{height:96vh;max-height:96vh}.detail-hero{height:430px}.detail-content{left:18px;right:18px;bottom:22px;display:block}.detail-poster{width:92px;margin-bottom:12px}.detail h1{font-size:31px}.detail-body{padding:2px 18px 28px}.detail-copy .actions{margin-top:13px}.episodes{grid-template-columns:1fr}.player-modal{height:100vh;max-height:100vh;border-radius:0}.player-top{padding-top:max(13px,env(safe-area-inset-top))}.toast-wrap{bottom:84px;left:13px;right:13px}.toast{width:100%}}
-    @media(max-width:410px){.grid,.library-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.topbar:not(.searching) .search-wrap{left:98px}.mobile-title{font-size:16px}.rail{grid-auto-columns:125px}}
-    /* Playback Engine v2: stream picker */
-    .picker-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:26px 0 12px}.picker-head h3{margin:0}.picker-count{font-size:12px;color:var(--muted)}
-    .picker-bar{position:sticky;top:78px;z-index:6;display:flex;gap:8px;align-items:center;padding:9px 0;margin-bottom:10px;background:linear-gradient(var(--bg) 72%,transparent);overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:none}.picker-bar::-webkit-scrollbar{display:none}
-    .picker-chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 15px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:12.5px;font-weight:700;cursor:pointer;transition:.18s}
-    .picker-chip svg{width:16px;height:16px;flex:0 0 auto}.picker-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}.picker-chip:focus-visible{outline:2px solid var(--accent2);outline-offset:3px}
-    .picker-sort{flex:0 0 auto;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--text);padding:0 10px;font-size:12.5px}
-    .stream-list{display:flex;flex-direction:column;gap:9px}.stream-card{min-width:0}
-    .stream-row{position:relative;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;width:100%;min-height:76px;padding:13px 14px;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:inherit;text-align:left;cursor:pointer;transition:.18s}
-    .stream-row:hover{border-color:#33405a;background:var(--panel2)}.stream-row:focus-visible{outline:2px solid var(--accent2);outline-offset:3px}
-    .stream-row.recommended{border-color:rgba(139,92,246,.65);background:linear-gradient(180deg,rgba(139,92,246,.13),var(--panel))}
-    .stream-row.blocked{opacity:.62}.stream-row.blocked .stream-title{color:#c3cad8}
-    .stream-state{width:9px;height:9px;border-radius:99px;flex:0 0 auto;background:var(--muted)}
-    .stream-state.ready{background:var(--good);box-shadow:0 0 0 4px rgba(52,211,153,.16)}.stream-state.probably-ready{background:var(--warn);box-shadow:0 0 0 4px rgba(251,191,36,.14)}.stream-state.requires-external{background:var(--accent2)}.stream-state.unsupported,.stream-state.unsafe{background:var(--bad)}
-    .stream-main{min-width:0;display:block}
-    .stream-title{display:-webkit-box;font-weight:750;font-size:13.5px;line-height:1.35;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
-    .stream-why{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:11.5px;line-height:1.35;color:var(--muted);margin-top:3px;overflow:hidden}
-    .stream-badge{font-size:9px;font-weight:800;letter-spacing:.05em;padding:3px 7px;border-radius:7px;background:#1b2434;color:#9aa5b8;border:1px solid #2a3547;white-space:nowrap}
-    .stream-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
-    .chip-sm{font-size:10px;font-weight:800;letter-spacing:.03em;padding:3px 7px;border-radius:7px;background:#1b2434;color:#c3cbd9;border:1px solid #2a3547}
-    .chip-sm.cached{background:rgba(52,211,153,.14);color:#6ee7b7;border-color:rgba(52,211,153,.32)}
-    .chip-sm.hdr{background:rgba(251,191,36,.13);color:#fcd34d;border-color:rgba(251,191,36,.3)}
-    .chip-sm.state-ready{background:rgba(52,211,153,.13);color:#6ee7b7;border-color:rgba(52,211,153,.3)}
-    .chip-sm.state-probably-ready{background:rgba(251,191,36,.13);color:#fcd34d;border-color:rgba(251,191,36,.3)}
-    .chip-sm.state-requires-external{background:rgba(34,211,238,.12);color:#67e8f9;border-color:rgba(34,211,238,.3)}
-    .chip-sm.state-unsupported,.chip-sm.state-unsafe{background:rgba(251,113,133,.12);color:#fda4af;border-color:rgba(251,113,133,.3)}
-    .stream-side{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:0 0 auto;max-width:96px;text-align:right}
-    .stream-side .chip-sm{white-space:nowrap}
-    .stream-source{font-size:10px;color:#7f8b9f;max-width:92px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .best-flag{position:absolute;top:-8px;left:13px;font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;padding:2px 8px;border-radius:99px;background:var(--accent);color:#fff}
-    .stream-details{margin:-2px 9px 0;border:1px solid #263145;border-top:0;border-radius:0 0 14px 14px;background:#0d131f;color:#aeb8c9}.stream-details summary{cursor:pointer;min-height:40px;display:flex;align-items:center;padding:7px 12px;font-size:11px;font-weight:800;color:#c4b5fd;list-style:none}.stream-details summary::-webkit-details-marker{display:none}.stream-details-grid{padding:2px 12px 13px;display:grid;grid-template-columns:auto 1fr;gap:6px 11px;font-size:11px;overflow-wrap:anywhere}.stream-details-grid dt{color:#748198}.stream-details-grid dd{margin:0;color:#d6dce7}.chip-sm.mismatch{background:rgba(251,113,133,.12);color:#fda4af;border-color:rgba(251,113,133,.3)}.chip-sm.pack{background:rgba(34,211,238,.1);color:#67e8f9;border-color:rgba(34,211,238,.28)}
-    /* Playback Engine v2: player overlay */
-    .player-modal{display:flex;flex-direction:column}
-    .player-top{padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) 14px max(14px,env(safe-area-inset-left))}
-    .player-title,.player-tools{transition:opacity .25s}
-    .player-shell.idle .player-title,.player-shell.idle .player-tools{opacity:0;pointer-events:none}
-    /* The close control never fades: an iframe stage swallows the taps that
-       would otherwise bring the chrome back, which would trap the viewer. */
-    .player-top [data-close-player]{opacity:1;pointer-events:auto}
-    .player-quality{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap}
-    .player-tools{position:absolute;z-index:4;top:calc(max(14px,env(safe-area-inset-top)) + 54px);right:max(12px,env(safe-area-inset-right));display:flex;flex-direction:column;gap:8px;transition:opacity .25s}
-    .tool-btn{min-width:44px;min-height:44px;padding:0 11px;border-radius:13px;border:1px solid rgba(255,255,255,.14);background:rgba(6,9,15,.78);backdrop-filter:blur(10px);color:#e6ebf3;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
-    .tool-btn svg{width:19px}.tool-btn:disabled{opacity:.38;cursor:default}.tool-btn:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
-    .tool-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
-    .player-status{position:absolute;z-index:5;inset:auto 0 0;padding:0 max(14px,env(safe-area-inset-left)) calc(94px + env(safe-area-inset-bottom));display:flex;justify-content:center;pointer-events:none}
-    .status-card{pointer-events:auto;max-width:min(520px,92vw);display:flex;align-items:center;gap:11px;padding:11px 15px;border-radius:15px;background:rgba(8,11,18,.93);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.12);font-size:12.5px;box-shadow:var(--shadow)}
-    .status-card b{display:block;font-size:13px;margin-bottom:2px}.status-card span{color:var(--muted);font-size:11.5px}
-    .player-loading{display:flex;flex-direction:column;align-items:center;gap:15px;text-align:center;padding:30px;color:#c9d2df}
-    .player-loading b{font-size:15px}.player-loading span{font-size:12px;color:var(--muted)}
-    .player-error{padding:32px max(24px,env(safe-area-inset-left));text-align:center;max-width:600px}
-    .player-error .error-kind{font-size:10px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:var(--bad);margin-bottom:9px}
-    .player-error h2{margin:0 0 9px;font-size:20px}.player-error p{color:var(--muted);margin:0 0 6px;font-size:13px}
-    .player-error .failed-source{font-size:11.5px;color:#7f8b9f;margin-bottom:20px;word-break:break-word}
-    .error-actions{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}
-    .error-actions .btn{min-height:46px}
-    .countdown-card{position:absolute;z-index:6;left:50%;transform:translateX(-50%);top:calc(max(14px,env(safe-area-inset-top)) + 62px);width:min(430px,92vw);padding:15px 17px;border-radius:17px;background:rgba(8,11,18,.95);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.13);box-shadow:var(--shadow)}
-    .countdown-card .eyebrow{margin-bottom:4px}.countdown-card b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .countdown-meter{height:3px;border-radius:99px;background:rgba(255,255,255,.15);margin:11px 0 12px;overflow:hidden}.countdown-meter i{display:block;height:100%;background:var(--accent2);transition:width 1s linear}
-    .countdown-actions{display:flex;gap:9px}.countdown-actions .btn{flex:1;min-height:44px}
-    .track-menu{position:absolute;z-index:7;top:calc(max(14px,env(safe-area-inset-top)) + 54px);right:max(12px,env(safe-area-inset-right));width:min(280px,86vw);max-height:min(340px,52vh);overflow-y:auto;padding:7px;border-radius:15px;background:rgba(8,11,18,.96);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.13);box-shadow:var(--shadow)}
-    .track-menu h4{margin:6px 9px 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-    .track-option{display:flex;align-items:center;justify-content:space-between;gap:9px;width:100%;min-height:44px;padding:0 11px;border:0;border-radius:11px;background:transparent;color:#dce2ec;font-size:13px;text-align:left;cursor:pointer}
-    .track-option:hover{background:rgba(255,255,255,.06)}.track-option.active{background:rgba(139,92,246,.2);color:#fff;font-weight:700}
-    .track-option svg{width:17px;flex:0 0 auto}
-    @media(max-width:760px){
-      .picker-bar{top:0}
-      .stream-row{min-height:82px;padding:12px}
-      .stream-side{max-width:84px}
-      .player-modal{width:100%;height:100dvh;max-height:100dvh;border-radius:0}
-      .player-tools{top:auto;bottom:calc(96px + env(safe-area-inset-bottom));flex-direction:row;left:max(12px,env(safe-area-inset-left));justify-content:flex-end}
-      .player-status{padding-bottom:calc(150px + env(safe-area-inset-bottom))}
-      .countdown-card{top:auto;bottom:calc(96px + env(safe-area-inset-bottom))}
-      .track-menu{top:auto;bottom:calc(150px + env(safe-area-inset-bottom))}
-    }
-    @media(prefers-reduced-motion:reduce){
-      .stream-row,.picker-chip,.player-title,.player-tools,.countdown-meter i{transition:none}
-    }
+    /* Critical shell only: everything else lives in the design system so the
+       first paint is never a flash of unstyled bone on white. */
+    html{background:#04050a}
+    body{margin:0;background:#080a11;color:#f4f1ea;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   </style>
 </head>
 <body>
-  <aside class="sidebar">
-    <button class="brand" data-nav="home" aria-label="Astra home"><span data-icon="spark"></span></button>
-    <nav class="nav" id="desktopNav"></nav>
-    <div class="side-foot"><button class="nav-btn" data-action="settings"><span data-icon="settings"></span><span>Settings</span></button></div>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- Desktop rail. The mobile dock below is the primary one-handed nav. -->
+  <aside class="rail" aria-label="Primary">
+    <button class="mark" data-nav="home" aria-label="Astra home"><span data-icon="spark"></span></button>
+    <nav class="rail-nav" id="desktopNav" aria-label="Sections"></nav>
+    <div class="topbar-spacer"></div>
+    <button class="rail-btn" data-action="settings" aria-label="Settings"><span data-icon="settings"></span></button>
   </aside>
-  <main>
-    <header class="topbar" id="topbar">
-      <div class="mobile-title">ASTRA</div>
-      <div class="search-wrap"><span data-icon="search"></span><label class="sr-only" for="globalSearch">Search</label><input class="search" id="globalSearch" autocomplete="off" placeholder="Search across your add-ons"><button class="search-clear hidden" id="searchClear" aria-label="Clear">×</button></div>
-      <button class="avatar" data-action="settings" aria-label="Settings">A</button>
+
+  <main id="main">
+    <header class="topbar">
+      <div class="wordmark">AST<b>R</b>A</div>
+      <div class="search-wrap">
+        <span data-icon="search"></span>
+        <label class="sr-only" for="globalSearch">Search your add-ons</label>
+        <input class="search" id="globalSearch" type="search" autocomplete="off" placeholder="Search">
+        <button class="search-clear hidden" id="searchClear" aria-label="Clear search">×</button>
+      </div>
+      <button class="icon-btn" data-action="settings" aria-label="Settings"><span data-icon="settings"></span></button>
     </header>
-    <section class="page active" id="page-home"><div id="homeRoot"></div></section>
-    <section class="page" id="page-discover"><div class="content" id="discoverRoot"></div></section>
-    <section class="page" id="page-search"><div class="content" id="searchRoot"></div></section>
-    <section class="page" id="page-library"><div class="content" id="libraryRoot"></div></section>
-    <section class="page" id="page-addons"><div class="content" id="addonsRoot"></div></section>
+
+    <section class="page active" id="page-home" aria-label="Home"><div id="homeRoot"></div></section>
+    <section class="page" id="page-hub" aria-label="Media hub"><div class="content" id="hubRoot"></div></section>
+    <section class="page" id="page-discover" aria-label="Discover"><div class="content" id="discoverRoot"></div></section>
+    <section class="page" id="page-search" aria-label="Search results"><div class="content" id="searchRoot"></div></section>
+    <section class="page" id="page-library" aria-label="Library"><div class="content" id="libraryRoot"></div></section>
+    <section class="page" id="page-addons" aria-label="Add-ons"><div class="content" id="addonsRoot"></div></section>
   </main>
-  <nav class="bottom-nav" id="mobileNav"></nav>
-  <div id="modalRoot"></div><div class="toast-wrap" id="toastRoot"></div>
+
+  <nav class="dock" id="mobileNav" aria-label="Primary"></nav>
+  <div id="audioRoot"></div>
+  <div id="modalRoot"></div>
+  <div class="toast-wrap" id="toastRoot" role="status" aria-live="polite"></div>
 
   <script src="assets/js/progress-store.js"></script>
+  <script src="assets/js/hub.js"></script>
+  <script src="assets/js/audio-player.js"></script>
   <script src="assets/js/playback/settings.js"></script>
   <script src="assets/js/playback/streams.js"></script>
   <script src="assets/js/playback/adapters.js"></script>
@@ -148,23 +74,39 @@
     const store={get(k,d){try{return JSON.parse(storageArea?.getItem(KEY+k))??d}catch{return d}},set(k,v){if(!storageArea)return false;try{storageArea.setItem(KEY+k,JSON.stringify(v));return true}catch{storageFailed();return false}}};
     const progress=AstraProgress.createProgressStore({storage:storageArea,storageKey:KEY+'progress',onError:storageFailed}).load();
     const DEFAULT_SETTINGS=AstraPlayback.settings.DEFAULTS;
-    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],streamFilter:'all',streamSort:'recommended',homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),discover:{type:'all',addon:'all',catalog:'all',genre:'all'},searchToken:0};
+    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],streamFilter:'all',streamSort:'recommended',homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},searchToken:0};
 
-    const icons={home:'<path d="M3 11.5 12 4l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',discover:'<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',library:'<path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-8-4-8 4z"/>',addons:'<path d="M8 3v4H4v4H2v4h2v4h4v2h4v-5h3v-4h5V8h-5V3h-4v5H8V3z"/>',search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 3.6 15a1.7 1.7 0 0 0-1.6-1H2v-4h.1A1.7 1.7 0 0 0 3.6 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8 3.6a1.7 1.7 0 0 0 1.6-1.6V2h4v.1A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 20.4 8a1.7 1.7 0 0 0 1.6 1.6h.1v4H22a1.7 1.7 0 0 0-1.6 1.4z"/>',spark:'<path d="m12 2 2.2 6.1L20 10l-5.8 2L12 18l-2.2-6L4 10l5.8-1.9z"/><path d="m19 17 .8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z"/>',play:'<path d="m8 5 11 7-11 7z"/>',plus:'<path d="M12 5v14M5 12h14"/>',check:'<path d="m5 12 4 4L19 6"/>',film:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9h4M17 9h4M3 15h4M17 15h4"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',link:'<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/>',radio:'<circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/>',external:'<path d="M14 3h7v7M10 14 21 3"/><path d="M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/>',trash:'<path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/>',download:'<path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/>',upload:'<path d="M12 16V4m0 0 5 5m-5-5L7 9M4 21h16"/>',globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>'};
+    const icons={home:'<path d="M3 11.5 12 4l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',discover:'<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',library:'<path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-8-4-8 4z"/>',addons:'<path d="M8 3v4H4v4H2v4h2v4h4v2h4v-5h3v-4h5V8h-5V3h-4v5H8V3z"/>',search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 3.6 15a1.7 1.7 0 0 0-1.6-1H2v-4h.1A1.7 1.7 0 0 0 3.6 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8 3.6a1.7 1.7 0 0 0 1.6-1.6V2h4v.1A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 20.4 8a1.7 1.7 0 0 0 1.6 1.6h.1v4H22a1.7 1.7 0 0 0-1.6 1.4z"/>',spark:'<path d="m12 2 2.2 6.1L20 10l-5.8 2L12 18l-2.2-6L4 10l5.8-1.9z"/><path d="m19 17 .8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z"/>',play:'<path d="m8 5 11 7-11 7z"/>',plus:'<path d="M12 5v14M5 12h14"/>',check:'<path d="m5 12 4 4L19 6"/>',film:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9h4M17 9h4M3 15h4M17 15h4"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',link:'<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/>',radio:'<circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/>',external:'<path d="M14 3h7v7M10 14 21 3"/><path d="M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/>',trash:'<path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/>',download:'<path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/>',upload:'<path d="M12 16V4m0 0 5 5m-5-5L7 9M4 21h16"/>',globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',hub:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',alert:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5v.01"/>',pause:'<path d="M9 5v14M15 5v14"/>',minimize:'<path d="m6 9 6 6 6-6"/>',expand:'<path d="m6 15 6-6 6 6"/>',music:'<circle cx="7" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M10 18V6l11-2v12"/>',tv:'<rect x="2" y="7" width="20" height="13" rx="2"/><path d="m8 3 4 4 4-4"/>',mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',youtube:'<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>'};
     function icon(name){return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]||icons.film}</svg>`}
     function hydrateIcons(root=document){$$('[data-icon]',root).forEach(e=>e.innerHTML=icon(e.dataset.icon))}
-    const navs=[['home','home','Home'],['discover','discover','Discover'],['library','library','Library'],['addons','addons','Add-ons']];
-    function buildNav(){const html=navs.map(([id,ic,label])=>`<button class="nav-btn ${id==='home'?'active':''}" data-nav="${id}">${icon(ic)}<span>${label}</span></button>`).join('');$('#desktopNav').innerHTML=html;$('#mobileNav').innerHTML=html}
-    function toast(msg,type=''){const n=document.createElement('div');n.className='toast '+type;n.innerHTML=`<span>${type==='bad'?'⚠':'✦'}</span><div>${esc(msg)}</div>`;$('#toastRoot').append(n);setTimeout(()=>n.remove(),4200)}
+    const navs=[['home','home','Home'],['hub','hub','Hub'],['discover','discover','Discover'],['library','library','Library'],['addons','addons','Add-ons']];
+    function buildNav(){
+      const dock=navs.map(([id,ic,label])=>`<button class="dock-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span data-icon="${ic}"></span><span>${label}</span></button>`).join('');
+      const rail=navs.map(([id,ic,label])=>`<button class="rail-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span data-icon="${ic}"></span></button>`).join('');
+      $('#desktopNav').innerHTML=rail;$('#mobileNav').innerHTML=dock;
+    }
+    function toast(msg,type=''){const n=document.createElement('div');n.className='toast '+type;n.innerHTML=`<span data-icon="${type==='bad'?'alert':'spark'}"></span><div>${esc(msg)}</div>`;hydrateIcons(n);const host=$('#toastRoot');host.replaceChildren(n);setTimeout(()=>n.remove(),4600)}
     function normalizeManifestUrl(raw){let s=String(raw||'').trim();if(!s)throw Error('Paste an add-on manifest URL.');if(s.startsWith('stremio://'))s='https://'+s.slice(10);if(!/^https?:\/\//i.test(s))s='https://'+s;const u=new URL(s);if(u.protocol!=='https:'&&u.hostname!=='127.0.0.1'&&u.hostname!=='localhost')throw Error('Remote add-ons must use HTTPS.');if(!u.pathname.endsWith('manifest.json'))u.pathname=u.pathname.replace(/\/$/,'')+'/manifest.json';return u.href}
     function addonBase(url){return url.replace(/\/manifest\.json(?:\?.*)?$/,'')}
     async function fetchJSON(url,timeout=14000){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);try{const r=await fetch(url,{mode:'cors',signal:ctrl.signal,headers:{Accept:'application/json'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return await r.json()}catch(e){if(e.name==='AbortError')throw Error('Request timed out');throw e}finally{clearTimeout(timer)}}
     function hasResource(m,name,type,id){return (m.resources||[]).some(r=>{if(typeof r==='string')return r===name;if(r.name!==name)return false;if(r.types?.length&&type&&!r.types.includes(type))return false;if(r.idPrefixes?.length&&id&&!r.idPrefixes.some(p=>String(id).startsWith(p)))return false;return true})}
     function endpoint(addon,resource,type,id,extra){const base=addonBase(addon.url),parts=[resource,encodeURIComponent(type),encodeURIComponent(id)];if(extra&&Object.keys(extra).length){const x=Object.entries(extra).filter(([,v])=>v!==''&&v!=null).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');if(x)parts.push(x)}return `${base}/${parts.join('/')}.json`}
     function addonByUrl(url){return state.addons.find(a=>a.url===url)}
+    /* The home page, discover results and hub are all derived from the add-on
+       set. When that set changes they are stale by definition, so they are
+       dropped and rebuilt rather than left describing the previous world. */
+    function invalidateCatalogs(){
+      state.catalogCache.clear();
+      state.homeItems=[];state.discoverItems=[];state.discoverVisible=DISCOVER_BATCH;
+      state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'};
+      const home=$('#homeRoot');if(home)home.innerHTML='';
+      if(state.currentPage==='home')renderHome();
+      if(state.currentPage==='hub')renderHub();
+      if(state.currentPage==='discover')renderDiscover();
+    }
     async function loadManifests(force=false){const active=state.addons.filter(a=>a.enabled!==false);await Promise.allSettled(active.map(async a=>{if(!force&&state.manifests.has(a.url))return;try{const m=await fetchJSON(a.url);if(!m.id||!m.name)throw Error('Invalid manifest');state.manifests.set(a.url,m);a.error='';a.name=m.name;a.logo=m.logo||''}catch(e){a.error=e.message;state.manifests.delete(a.url)}}));store.set('addons',state.addons)}
     function manifests(){return state.addons.filter(a=>a.enabled!==false&&state.manifests.has(a.url)).map(a=>({addon:a,manifest:state.manifests.get(a.url)}))}
-    async function installAddon(raw){const url=normalizeManifestUrl(raw);if(addonByUrl(url))throw Error('That add-on is already installed.');const m=await fetchJSON(url);if(!m.id||!m.name||!Array.isArray(m.resources))throw Error('The URL did not return a valid Stremio manifest.');state.addons.push({url,enabled:true,name:m.name,logo:m.logo||'',official:false});state.manifests.set(url,m);store.set('addons',state.addons);toast(`${m.name} installed`,'good');renderAddons();return m}
+    async function installAddon(raw){const url=normalizeManifestUrl(raw);if(addonByUrl(url))throw Error('That add-on is already installed.');const m=await fetchJSON(url);if(!m.id||!m.name||!Array.isArray(m.resources))throw Error('The URL did not return a valid Stremio manifest.');state.addons.push({url,enabled:true,name:m.name,logo:m.logo||'',official:false});state.manifests.set(url,m);store.set('addons',state.addons);toast(`${m.name} installed`,'good');invalidateCatalogs();renderAddons();return m}
     function mediaKey(m){return `${m.type||'movie'}:${m.id}`}
     function recordMeta(m,source){const item={...m,_addonUrl:source?.addon?.url||m._addonUrl,_addonName:source?.manifest?.name||m._addonName};state.metaCache.set(mediaKey(item),item);return item}
     async function getCatalog(source,cat,extra={}){const key=source.addon.url+'|'+cat.type+'|'+cat.id+'|'+JSON.stringify(extra);if(state.catalogCache.has(key))return state.catalogCache.get(key);const p=fetchJSON(endpoint(source.addon,'catalog',cat.type,cat.id,extra)).then(d=>(d.metas||[]).map(x=>recordMeta({...x,type:x.type||cat.type},source))).catch(e=>{state.catalogCache.delete(key);throw e});state.catalogCache.set(key,p);return p}
@@ -173,32 +115,235 @@
     function audioLanguageChoices(current){const choices=[['original','Original / source default'],['ja','Japanese'],['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['it','Italian'],['ko','Korean'],['zh','Chinese']],value=String(current||'original').toLowerCase();if(value&&!choices.some(([id])=>id===value))choices.push([value,value.toUpperCase()]);return choices}
     function poster(m){return safeUrl(m.poster||m.background||m.logo||'')}
     function backdrop(m){return safeUrl(m.background||m.poster||'')}
+    /* Artwork keeps its measured box while it loads, then crossfades in. The
+       fallback remains underneath, so a slow or broken provider never leaves
+       a blank card or causes the rail to jump. */
+    function mediaImage(url,options={}){
+      if(!url)return '';
+      const priority=options.priority?'fetchpriority="high"':'loading="lazy"';
+      return `<span class="art-loader" aria-hidden="true"></span><img class="media-image" ${priority} decoding="async" src="${esc(url)}" alt="" onload="this.parentElement.classList.add('image-ready')" onerror="this.parentElement.classList.add('image-error');this.remove()">`;
+    }
     function progressEntries(m){return progress.entriesFor(mediaKey(m))}
     function latestProgress(m){return progress.latest(mediaKey(m))}
     function videoProgress(m,videoId){return progress.get(mediaKey(m),videoId)}
-    function cardHTML(m){const p=poster(m),prog=latestProgress(m),source=m._addonName||'',watched=m.type!=='series'&&prog?.completed;return `<button class="card" data-open="${esc(mediaKey(m))}" aria-label="Open ${esc(m.name||m.title||'title')}"><div class="poster">${p?`<img loading="lazy" src="${esc(p)}" alt="" onerror="this.style.display='none'">`:''}<div class="poster-fallback">${icon(m.type==='channel'?'radio':'film')}</div>${source?`<span class="source-pill">${esc(source)}</span>`:''}${watched?`<span class="watched-mark">${icon('check')}</span>`:''}${prog?.duration&&!prog.completed?`<span class="progress"><i style="width:${Math.min(100,prog.time/prog.duration*100)}%"></i></span>`:''}</div><div class="card-title">${esc(m.name||m.title||'Untitled')}</div><div class="card-sub">${esc([yearOf(m),m.type,prog&&!prog.completed?`${Math.round(prog.time/prog.duration*100)}%`:watched?'Watched':''].filter(Boolean).join(' · '))}</div></button>`}
-    function emptyHTML(title,text,action=''){return `<div class="empty">${icon('film')}<h3>${esc(title)}</h3><p>${esc(text)}</p>${action}</div>`}
-    function skeletonRail(){return `<div class="rail">${Array.from({length:7},()=>'<div><div class="poster skeleton"></div><div class="skeleton" style="height:12px;margin-top:9px;border-radius:5px"></div></div>').join('')}</div>`}
-    function nav(page){state.currentPage=page;$$('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${page}`));$$('[data-nav]').forEach(x=>x.classList.toggle('active',x.dataset.nav===page));if(page==='discover')renderDiscover();if(page==='library')renderLibrary();if(page==='addons')renderAddons();if(page==='home'&&!$('#homeRoot').children.length)renderHome();window.scrollTo({top:0,behavior:'smooth'})}
-    async function renderHome(){const root=$('#homeRoot');root.innerHTML=`<div class="hero"><div class="hero-bg"></div><div class="hero-copy"><div class="eyebrow">Add-on powered</div><h1>Your universe<br>of stories.</h1><p>Install a Stremio add-on to bring its films, series, music, radio, and channels into one beautiful place.</p><div class="actions"><button class="btn btn-primary" data-nav="addons">${icon('plus')} Add an add-on</button><button class="btn btn-ghost" data-nav="discover">${icon('discover')} Explore</button></div></div></div><div class="content" id="homeSections"><section class="section"><div class="section-head"><h2 class="section-title">Loading your universe</h2></div>${skeletonRail()}</section></div>`;
-      const sections=$('#homeSections');await loadManifests();const sources=manifests(),jobs=[];sources.forEach(s=>(s.manifest.catalogs||[]).slice(0,8).forEach(cat=>jobs.push({s,cat})));if(!jobs.length){sections.innerHTML=emptyHTML('No catalogs yet','Install or enable an add-on to populate your home screen.',`<button class="btn btn-primary" data-nav="addons">${icon('plus')} Add an add-on</button>`);return}
-      const results=await Promise.allSettled(jobs.slice(0,18).map(async j=>({...j,items:await getCatalog(j.s,j.cat,catalogExtras(j.cat))})));const good=results.filter(x=>x.status==='fulfilled'&&x.value.items.length).map(x=>x.value);state.homeItems=good.flatMap(x=>x.items);if(!good.length){sections.innerHTML=emptyHTML('Catalogs could not load','Check your connection and add-on status. Some add-ons require a configured manifest URL.',`<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>`);return}
-      const featured=good.flatMap(x=>x.items).find(x=>backdrop(x))||good[0].items[0];setHero(featured);sections.innerHTML='';const cont=continueItems();if(cont.length)sections.insertAdjacentHTML('beforeend',railSection('Continue watching',cont,'Saved on this device'));
-      good.forEach(({s,cat,items})=>sections.insertAdjacentHTML('beforeend',railSection(cat.name||`${cat.type} · ${s.manifest.name}`,items,`${s.manifest.name} · ${cat.type}`,`${s.addon.url}|${cat.type}|${cat.id}`)));bindDynamic()}
-    function setHero(m){if(!m)return;const h=$('.hero'),bg=$('.hero-bg',h),copy=$('.hero-copy',h),b=backdrop(m);bg.style.backgroundImage=b?`url("${b.replace(/"/g,'%22')}")`:'';copy.innerHTML=`<div class="eyebrow">Featured · ${esc(m.type||'media')}</div><h1>${esc(m.name||m.title)}</h1><p>${esc(m.description||m.overview||'Open the details to discover available streams from your installed add-ons.')}</p><div class="actions"><button class="btn btn-primary" data-open="${esc(mediaKey(m))}">${icon('play')} View streams</button><button class="btn btn-ghost" data-library="${esc(mediaKey(m))}">${icon(state.library[mediaKey(m)]?'check':'plus')} ${state.library[mediaKey(m)]?'In library':'My library'}</button></div>`;bindDynamic(copy)}
-    function railSection(title,items,note='',catalogKey=''){const shown=items.slice(0,HOME_LIMIT);return `<section class="section"><div class="section-head"><div><h2 class="section-title">${esc(title)}</h2><div class="section-note">${esc(note)}</div></div>${catalogKey&&items.length>HOME_LIMIT?`<button class="catalog-link" data-browse-catalog="${esc(catalogKey)}">See all</button>`:''}</div><div class="rail">${shown.map(cardHTML).join('')}</div></section>`}
+    function cardHTML(m,index=0){
+      const p=poster(m),prog=latestProgress(m),source=m._addonName||'',watched=m.type!=='series'&&prog?.completed;
+      const pct=prog?.duration?Math.min(100,prog.time/prog.duration*100):0;
+      const meta=[yearOf(m),typeLabel(m.type)].filter(Boolean).join(' · ');
+      return `<button class="card" style="--card-index:${Math.min(Number(index)||0,10)}" data-open="${esc(mediaKey(m))}" aria-label="Open ${esc(m.name||m.title||'title')}">
+        <span class="art ${p?'image-loading':'image-error'}">${mediaImage(p)}
+          <span class="art-fallback">${icon(m.type==='channel'||m.type==='radio'?'radio':'film')}</span>
+          ${source?`<span class="art-source">${esc(source)}</span>`:''}
+          ${watched?`<span class="art-watched">${icon('check')}</span>`:''}
+          ${pct>0&&!watched?`<span class="art-progress"><i style="width:${pct}%"></i></span>`:''}
+        </span>
+        <span class="card-title">${esc(m.name||m.title||'Untitled')}</span>
+        <span class="card-meta">${esc(meta||'\u00a0')}</span></button>`;
+    }
+    /* A human label for a raw add-on type, so "tv_channel" never reaches the UI. */
+    function typeLabel(type){return AstraHub.typeLabel(type)}
+    /* One state frame for empty, error and offline, so every dead end in the
+       app explains itself and offers the same shape of way forward. */
+    function stateHTML(title,text,action='',kind=''){
+      const glyph=kind==='error'?'alert':kind==='offline'?'globe':'film';
+      return `<div class="state ${kind}"><div class="state-icon">${icon(glyph)}</div><h3>${esc(title)}</h3><p>${esc(text)}</p>${action}</div>`;
+    }
+    function emptyHTML(title,text,action=''){return stateHTML(title,text,action)}
+    function skeletonRail(){return `<div class="rail-scroll" aria-hidden="true">${Array.from({length:6},()=>'<div><div class="skeleton skeleton-art"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line" style="width:60%"></div></div>').join('')}</div>`}
+    function skeletonSector(title){return `<section class="sector"><div class="sector-head"><span class="numeral sector-index">--</span><h2 class="sector-title">${esc(title)}</h2></div>${skeletonRail()}</section>`}
+    function nav(page){
+      state.currentPage=page;
+      $$('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${page}`));
+      $$('[data-nav]').forEach(x=>x.classList.toggle('active',x.dataset.nav===page));
+      if(page==='hub')renderHub();
+      if(page==='discover')renderDiscover();
+      if(page==='library')renderLibrary();
+      if(page==='addons')renderAddons();
+      if(page==='home'&&!$('#homeRoot').children.length)renderHome();
+      window.scrollTo({top:0,behavior:motionOk()?'smooth':'auto'});
+    }
+    /* The editorial home: one commanding feature, then sectors generated from
+       whatever the installed add-ons actually expose. Skeletons occupy the
+       final layout so nothing shifts when the real data lands. */
+    async function renderHome(){
+      const root=$('#homeRoot');
+      root.innerHTML=`<div id="featureMount"></div><div class="content" id="homeSections">${skeletonSector('Loading')}${skeletonSector('Loading')}</div>`;
+      const sections=$('#homeSections');
+      await loadManifests();
+      const sources=manifests(),jobs=[];
+      sources.forEach(s=>(s.manifest.catalogs||[]).slice(0,8).forEach(cat=>jobs.push({s,cat})));
+      if(!jobs.length){
+        $('#featureMount').innerHTML=welcomeFeatureHTML();
+        sections.innerHTML=stateHTML('No catalogs yet','Astra shows only what your installed add-ons expose. Install one to populate the home screen.',`<button class="btn btn-primary" data-nav="addons">${icon('plus')} Add an add-on</button>`);
+        bindDynamic(root);return;
+      }
+      const results=await Promise.allSettled(jobs.slice(0,18).map(async j=>({...j,items:await getCatalog(j.s,j.cat,catalogExtras(j.cat))})));
+      const good=results.filter(x=>x.status==='fulfilled'&&x.value.items.length).map(x=>x.value);
+      state.homeItems=good.flatMap(x=>x.items);
+      if(!good.length){
+        $('#featureMount').innerHTML=welcomeFeatureHTML();
+        sections.innerHTML=stateHTML('Catalogs could not load','No installed add-on returned a catalog. Check your connection, or that each add-on still has a valid configured manifest URL.',`<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>`,'error');
+        bindDynamic(root);return;
+      }
+      const featured=good.flatMap(x=>x.items).find(x=>backdrop(x))||good[0].items[0];
+      $('#featureMount').innerHTML=featureHTML(featured);
+      sections.innerHTML='';
+      let index=0;
+      const cont=continueItems();
+      if(cont.length)sections.insertAdjacentHTML('beforeend',resumeSectionHTML(++index,cont));
+      /* New releases lead with the catalog's own naming so the release/source
+         name stays legible enough to judge quality before opening anything. */
+      const fresh=good.find(x=>/new|latest|recent|release/i.test(x.cat.name||x.cat.id||''));
+      if(fresh)sections.insertAdjacentHTML('beforeend',releaseSectionHTML(++index,fresh));
+      good.filter(x=>x!==fresh).forEach(({s,cat,items})=>{
+        sections.insertAdjacentHTML('beforeend',railSection(cat.name||`${typeLabel(cat.type)} · ${s.manifest.name}`,items,`${s.manifest.name} · ${typeLabel(cat.type)}`,`${s.addon.url}|${cat.type}|${cat.id}`,++index));
+      });
+      bindDynamic(root);
+    }
+    function featureHTML(m){
+      if(!m)return welcomeFeatureHTML();
+      const b=backdrop(m),saved=!!state.library[mediaKey(m)];
+      const facts=[yearOf(m),typeLabel(m.type),m.runtime,m.imdbRating?`★ ${m.imdbRating}`:'',m._addonName].filter(Boolean);
+      return `<section class="feature" aria-label="Featured">
+        <div class="feature-art ${b?'image-loading':'image-error'}">${mediaImage(b,{priority:true})}
+          <span class="feature-orbit" aria-hidden="true"><i></i></span>
+          <span class="feature-coordinate mono" aria-hidden="true">ASTRA // ${esc(String(m.type||'media').toUpperCase())}</span>
+        </div>
+        <div class="feature-body">
+          <div class="feature-kicker"><span class="label">Featured transmission</span><span class="feature-rule" aria-hidden="true"></span><span class="mono">FILE 01</span></div>
+          <h1 class="feature-title">${esc(m.name||m.title||'Untitled')}</h1>
+          <div class="feature-facts">${facts.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
+          <div class="feature-actions">
+            <button class="btn btn-primary" data-open="${esc(mediaKey(m))}">${icon('play')} Open</button>
+            <button class="btn btn-ghost" data-library="${esc(mediaKey(m))}">${icon(saved?'check':'plus')} ${saved?'Saved':'Save'}</button>
+          </div>
+        </div></section>`;
+    }
+    /* Shown before any provider exists. It promises nothing about content. */
+    function welcomeFeatureHTML(){
+      return `<section class="feature" aria-label="Welcome"><div class="feature-art"><span class="feature-orbit" aria-hidden="true"><i></i></span><span class="feature-coordinate mono" aria-hidden="true">ASTRA // NO SIGNAL</span></div><div class="feature-body">
+        <div class="feature-kicker"><span class="label">Astra</span><span class="feature-rule" aria-hidden="true"></span><span class="mono">STANDBY</span></div>
+        <h1 class="feature-title">Nothing is installed yet.</h1>
+        <div class="feature-facts"><span>Astra only shows what your add-ons expose</span></div>
+        <div class="feature-actions"><button class="btn btn-primary" data-nav="addons">${icon('plus')} Add an add-on</button>
+        <button class="btn btn-ghost" data-nav="hub">${icon('hub')} See content types</button></div>
+      </div></section>`;
+    }
+    function sectorHead(index,title,note,more=''){
+      return `<div class="sector-head"><span class="numeral sector-index">${String(index).padStart(2,'0')}</span>
+        <h2 class="sector-title">${esc(title)}</h2>
+        ${note?`<span class="sector-note">${esc(note)}</span>`:''}${more}</div>`;
+    }
+    function railSection(title,items,note='',catalogKey='',index=1){
+      const shown=items.slice(0,HOME_LIMIT);
+      const more=catalogKey&&items.length>HOME_LIMIT?`<button class="sector-more" data-browse-catalog="${esc(catalogKey)}">All ${items.length}</button>`:'';
+      return `<section class="sector">${sectorHead(index,title,note,more)}<div class="rail-scroll">${shown.map(cardHTML).join('')}</div></section>`;
+    }
+    /* Continue Watching shows where you actually stopped, not just a poster. */
+    function resumeSectionHTML(index,items){
+      const cards=items.map((m,index)=>{
+        const entry=latestProgress(m),pct=entry?.duration?Math.min(100,entry.time/entry.duration*100):0;
+        const left=entry?.duration?Math.max(0,entry.duration-entry.time):0;
+        const video=(m.videos||[]).find(v=>String(v.id)===String(entry?.videoId));
+        const context=[video?(AstraPlayback.episodes.episodeCode(video)||video.title||video.name):'',left?`${AstraAudio.formatTime(left)} left`:''].filter(Boolean).join(' · ');
+        const p=poster(m);
+        return `<button class="card resume-card" style="--card-index:${Math.min(index,10)}" data-open="${esc(mediaKey(m))}" aria-label="Resume ${esc(m.name||m.title||'title')}">
+          <span class="art ${p?'image-loading':'image-error'}">${mediaImage(p)}<span class="art-fallback">${icon('film')}</span></span>
+          <span class="resume-body"><span class="resume-title">${esc(m.name||m.title||'Untitled')}</span>
+          <span class="resume-context">${esc(context||'Resume')}</span>
+          <span class="resume-bar"><i style="width:${pct}%"></i></span></span></button>`;
+      }).join('');
+      return `<section class="sector">${sectorHead(index,'Continue watching','On this device')}<div class="rail-scroll resume-rail">${cards}</div></section>`;
+    }
+    /* New releases keep the catalog's full item name visible across three
+       lines, because the release naming is how quality gets judged. */
+    function releaseSectionHTML(index,group){
+      const cards=group.items.slice(0,HOME_LIMIT).map((m,index)=>{
+        const meta=[yearOf(m),typeLabel(m.type),m._addonName].filter(Boolean).join(' · ');
+        const full=m.name||m.title||'Untitled',p=poster(m);
+        return `<button class="card release-card" style="--card-index:${Math.min(index,10)}" data-open="${esc(mediaKey(m))}" aria-label="Open ${esc(full)}">
+          <span class="release-art art ${p?'image-loading':'image-error'}">${mediaImage(p)}<span class="art-fallback">${icon('film')}</span></span>
+          <span class="release-copy"><span class="release-kicker">New transmission</span>
+          <span class="card-title">${esc(full)}</span>
+          <span class="card-meta">${esc(meta)}</span>
+          ${m.description?`<span class="release-name">${esc(m.description)}</span>`:''}</span></button>`;
+      }).join('');
+      return `<section class="sector">${sectorHead(index,group.cat.name||'New releases',`${group.s.manifest.name} · ${typeLabel(group.cat.type)}`)}<div class="rail-scroll release-rail">${cards}</div></section>`;
+    }
+    /* ---- media hub -------------------------------------------------------
+       Every sector is listed whether or not a provider exists. An unavailable
+       sector says what is missing and routes to Add-ons rather than vanishing
+       or pretending to hold content. */
+    function renderHub(){
+      const root=$('#hubRoot');if(!root)return;
+      const sectors=AstraHub.buildHub(manifests());
+      const live=sectors.filter(s=>s.available).length;
+      root.innerHTML=`<div class="page-head">
+          <span class="label">Media hub</span>
+          <h1 class="page-title">Everything your add-ons expose</h1>
+          <p class="page-lede">${live} of ${sectors.length} sectors have an installed provider. Sectors without one stay listed so you know what to install.</p>
+        </div>
+        <div class="hub-list">${sectors.map((sector,i)=>hubRowHTML(sector,i+1)).join('')}</div>
+        <div class="actions" style="margin-top:var(--s6)"><button class="btn btn-ghost" data-nav="addons">${icon('addons')} Manage add-ons</button></div>`;
+      bindDynamic(root);
+    }
+    function hubRowHTML(sector,index){
+      const detail=sector.available?AstraHub.describe(sector):AstraHub.missingReason(sector);
+      const attrs=sector.available
+        ?`data-hub-open="${esc(sector.id)}"`
+        :`data-nav="addons"`;
+      return `<button class="hub-row ${sector.available?'':'empty'} ${sector.custom?'custom':''}" ${attrs}
+        aria-label="${esc(sector.label)}. ${esc(detail)}">
+        <span class="numeral">${String(index).padStart(2,'0')}</span>
+        <span class="hub-name"><span class="hub-label">${esc(sector.label)}</span><span class="hub-detail">${esc(detail)}</span></span>
+        <span class="hub-state ${sector.available?'live':'none'}">${sector.available?'Available':'Not installed'}</span></button>`;
+    }
+    /* Opening a sector hands Discover a type filter rather than inventing a
+       parallel browsing surface. */
+    function openHubSector(id){
+      const sectors=AstraHub.buildHub(manifests());
+      const sector=sectors.find(s=>s.id===id);
+      if(!sector||!sector.available)return nav('addons');
+      state.discover={type:'all',sector:sector.id,sectorLabel:sector.label,addon:'all',catalog:'all',genre:'all'};
+      state.discoverVisible=DISCOVER_BATCH;
+      nav('discover');
+    }
     function allCatalogs(){return manifests().flatMap(s=>(s.manifest.catalogs||[]).filter(cat=>state.settings.showAdult||!(cat.adult||s.manifest.behaviorHints?.adult)).map(cat=>({s,cat})))}
-    async function renderDiscover(){const root=$('#discoverRoot'),cats=allCatalogs(),types=[...new Set(cats.map(x=>x.cat.type))],genres=[...new Set(cats.flatMap(x=>(x.cat.extra||[]).filter(e=>e.name==='genre').flatMap(e=>e.options||[])))];root.innerHTML=`<h1 class="page-title">Discover</h1><p class="page-lede">Browse every catalog exposed by your enabled add-ons.</p><div class="filter-row"><select class="select" id="discoverType"><option value="all">All types</option>${types.map(x=>`<option ${state.discover.type===x?'selected':''}>${esc(x)}</option>`).join('')}</select><select class="select" id="discoverAddon"><option value="all">All add-ons</option>${manifests().map(x=>`<option value="${esc(x.addon.url)}" ${state.discover.addon===x.addon.url?'selected':''}>${esc(x.manifest.name)}</option>`).join('')}</select><select class="select" id="discoverCatalog"><option value="all">All catalogs</option>${cats.map(x=>{const v=x.s.addon.url+'|'+x.cat.type+'|'+x.cat.id;return `<option value="${esc(v)}" ${state.discover.catalog===v?'selected':''}>${esc(x.cat.name)}</option>`}).join('')}</select>${genres.length?`<select class="select" id="discoverGenre"><option value="all">All genres</option>${genres.map(x=>`<option ${state.discover.genre===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:''}</div><div id="discoverResults">${skeletonRail()}</div>`;
-      const refresh=()=>{state.discoverVisible=DISCOVER_BATCH;renderDiscoverResults()};$('#discoverType').onchange=e=>{state.discover.type=e.target.value;refresh()};$('#discoverAddon').onchange=e=>{state.discover.addon=e.target.value;refresh()};$('#discoverCatalog').onchange=e=>{state.discover.catalog=e.target.value;refresh()};if($('#discoverGenre'))$('#discoverGenre').onchange=e=>{state.discover.genre=e.target.value;refresh()};await renderDiscoverResults()}
-    async function renderDiscoverResults(){let cats=allCatalogs();if(state.discover.catalog!=='all')cats=cats.filter(x=>`${x.s.addon.url}|${x.cat.type}|${x.cat.id}`===state.discover.catalog);else{if(state.discover.type!=='all')cats=cats.filter(x=>x.cat.type===state.discover.type);if(state.discover.addon!=='all')cats=cats.filter(x=>x.s.addon.url===state.discover.addon)}const out=$('#discoverResults');if(!out)return;out.innerHTML='<div class="loading-line"><span class="spinner"></span>Loading catalogs…</div>';const rs=await Promise.allSettled(cats.slice(0,20).map(async x=>{const supportsGenre=(x.cat.extra||[]).some(e=>e.name==='genre');const extra=catalogExtras(x.cat,supportsGenre&&state.discover.genre!=='all'?{genre:state.discover.genre}:{});return {...x,items:await getCatalog(x.s,x.cat,extra)}}));state.discoverItems=rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.items).filter((m,i,a)=>a.findIndex(n=>mediaKey(n)===mediaKey(m))===i);renderDiscoverPage()}
-    function renderDiscoverPage(){const out=$('#discoverResults');if(!out)return;const items=state.discoverItems,shown=items.slice(0,state.discoverVisible);out.innerHTML=items.length?`<div class="grid">${shown.map(cardHTML).join('')}</div>${shown.length<items.length?`<div class="load-more"><button class="btn btn-ghost" data-load-more>Load ${Math.min(DISCOVER_BATCH,items.length-shown.length)} more <span class="muted">· ${shown.length} of ${items.length}</span></button></div>`:''}`:emptyHTML('Nothing found','No items were returned by the selected catalogs.');bindDynamic(out)}
+    async function renderDiscover(){const root=$('#discoverRoot'),cats=allCatalogs(),types=[...new Set(cats.map(x=>x.cat.type))],genres=[...new Set(cats.flatMap(x=>(x.cat.extra||[]).filter(e=>e.name==='genre').flatMap(e=>e.options||[])))],sectorOption=state.discover.sector?`<option value="__sector" selected>${esc(state.discover.sectorLabel||'Selected sector')}</option>`:'';root.innerHTML=`<div class="page-head"><span class="label">Browse</span><h1 class="page-title">Discover</h1><p class="page-lede">Every catalog your enabled add-ons expose. Nothing here is generated by Astra.</p></div>${cats.length?'':stateHTML('No catalogs available','None of your enabled add-ons exposes a browsable catalog. Install one that does.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}<div class="filter-row"><select class="select" id="discoverType"><option value="all" ${!state.discover.sector&&state.discover.type==='all'?'selected':''}>All types</option>${sectorOption}${types.map(x=>`<option ${!state.discover.sector&&state.discover.type===x?'selected':''}>${esc(x)}</option>`).join('')}</select><select class="select" id="discoverAddon"><option value="all">All add-ons</option>${manifests().map(x=>`<option value="${esc(x.addon.url)}" ${state.discover.addon===x.addon.url?'selected':''}>${esc(x.manifest.name)}</option>`).join('')}</select><select class="select" id="discoverCatalog"><option value="all">All catalogs</option>${cats.map(x=>{const v=x.s.addon.url+'|'+x.cat.type+'|'+x.cat.id;return `<option value="${esc(v)}" ${state.discover.catalog===v?'selected':''}>${esc(x.cat.name)}</option>`}).join('')}</select>${genres.length?`<select class="select" id="discoverGenre"><option value="all">All genres</option>${genres.map(x=>`<option ${state.discover.genre===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:''}</div><div id="discoverResults">${skeletonRail()}</div>`;
+      const refresh=()=>{state.discoverVisible=DISCOVER_BATCH;renderDiscoverResults()};$('#discoverType').onchange=e=>{state.discover.sector=null;state.discover.sectorLabel='';state.discover.type=e.target.value==='__sector'?'all':e.target.value;refresh()};$('#discoverAddon').onchange=e=>{state.discover.addon=e.target.value;refresh()};$('#discoverCatalog').onchange=e=>{state.discover.catalog=e.target.value;refresh()};if($('#discoverGenre'))$('#discoverGenre').onchange=e=>{state.discover.genre=e.target.value;refresh()};await renderDiscoverResults()}
+    async function renderDiscoverResults(){let cats=allCatalogs();if(state.discover.catalog!=='all')cats=cats.filter(x=>`${x.s.addon.url}|${x.cat.type}|${x.cat.id}`===state.discover.catalog);else{if(state.discover.sector){const sector=AstraHub.buildHub(manifests()).find(x=>x.id===state.discover.sector);cats=cats.filter(x=>AstraHub.catalogMatchesSector(sector,x.cat.type))}else if(state.discover.type!=='all')cats=cats.filter(x=>x.cat.type===state.discover.type);if(state.discover.addon!=='all')cats=cats.filter(x=>x.s.addon.url===state.discover.addon)}const out=$('#discoverResults');if(!out)return;out.innerHTML='<div class="loading-line"><span class="spinner"></span>Loading catalogs…</div>';const rs=await Promise.allSettled(cats.slice(0,20).map(async x=>{const supportsGenre=(x.cat.extra||[]).some(e=>e.name==='genre');const extra=catalogExtras(x.cat,supportsGenre&&state.discover.genre!=='all'?{genre:state.discover.genre}:{});return {...x,items:await getCatalog(x.s,x.cat,extra)}}));state.discoverItems=rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.items).filter((m,i,a)=>a.findIndex(n=>mediaKey(n)===mediaKey(m))===i);renderDiscoverPage()}
+    function renderDiscoverPage(){const out=$('#discoverResults');if(!out)return;const items=state.discoverItems,shown=items.slice(0,state.discoverVisible);out.innerHTML=items.length?`<div class="grid">${shown.map(cardHTML).join('')}</div>${shown.length<items.length?`<div class="load-more"><button class="btn btn-ghost" data-load-more>Load ${Math.min(DISCOVER_BATCH,items.length-shown.length)} more <span class="muted">· ${shown.length} of ${items.length}</span></button></div>`:''}`:stateHTML('Nothing found','No items were returned by the selected catalogs.','<button class="btn btn-ghost" data-nav="hub">See what is installed</button>');bindDynamic(out)}
     function continueItems(){return progress.continueList()}
-    function renderLibrary(){const root=$('#libraryRoot'),items=Object.values(state.library).sort((a,b)=>b.added-a.added).map(x=>x.meta);root.innerHTML=`<h1 class="page-title">My library</h1><p class="page-lede">Saved locally in this browser.</p>${items.length?`<div class="library-grid">${items.map(cardHTML).join('')}</div>`:emptyHTML('Your library is empty','Save something you want to watch or listen to later.',`<button class="btn btn-primary" data-nav="discover">Discover something</button>`)} `;bindDynamic(root)}
-    function addonCard(a){const m=state.manifests.get(a.url),name=m?.name||a.name||new URL(a.url).hostname,desc=m?.description||(a.error?`Could not connect: ${a.error}`:'Manifest will load when enabled.'),resources=(m?.resources||[]).map(r=>typeof r==='string'?r:r.name);return `<article class="addon-card"><div class="addon-logo">${safeUrl(m?.logo||a.logo)?`<img src="${esc(safeUrl(m?.logo||a.logo))}" alt="">`:icon('addons')}</div><div class="addon-body"><div class="addon-name"><span class="status-dot ${a.enabled===false?'off':''}"></span>${esc(name)}</div><div class="addon-desc">${esc(desc)}</div><div class="addon-meta">${[...new Set(resources)].slice(0,6).map(x=>`<span class="tag">${esc(x)}</span>`).join('')}${m?.version?`<span class="tag">v${esc(m.version)}</span>`:''}</div><div class="addon-actions"><button class="btn btn-sm btn-ghost" data-toggle-addon="${esc(a.url)}">${a.enabled===false?'Enable':'Disable'}</button>${m?.configure?`<button class="btn btn-sm btn-ghost" data-configure="${esc(m.configure)}">Configure</button>`:''}${a.official?'':`<button class="btn btn-sm btn-danger" data-remove-addon="${esc(a.url)}">${icon('trash')} Remove</button>`}</div></div></article>`}
-    async function renderAddons(){const root=$('#addonsRoot');root.innerHTML=`<div class="section-head"><div><h1 class="page-title">Add-ons</h1><p class="page-lede">Paste any compatible configured Stremio manifest URL.</p></div><button class="btn btn-primary" data-action="install">${icon('plus')} Install</button></div><div class="notice">For Comet and similar providers, finish configuration on the add-on's website and paste the resulting <b>manifest.json</b> URL here. Astra stores it only in this browser.</div><div class="addon-grid">${state.addons.map(addonCard).join('')}</div>`;bindDynamic(root)}
+    function renderLibrary(){const root=$('#libraryRoot'),items=Object.values(state.library).sort((a,b)=>b.added-a.added).map(x=>x.meta);root.innerHTML=`<div class="page-head"><span class="label">Saved</span><h1 class="page-title">My library</h1><p class="page-lede">${items.length?`${items.length} saved on this device.`:'Saved locally in this browser and never uploaded.'}</p></div>${items.length?`<div class="grid">${items.map(cardHTML).join('')}</div>`:stateHTML('Your library is empty','Save something you want to watch or listen to later. Nothing leaves this browser.',`<button class="btn btn-primary" data-nav="discover">Discover something</button>`)}`;bindDynamic(root)}
+    /* An add-on row states what this provider actually exposes — the content
+   types from its own manifest — so the hub's availability copy and this page
+   can never disagree. */
+    function addonCard(a){
+      const m=state.manifests.get(a.url),name=m?.name||a.name||new URL(a.url).hostname,
+        desc=m?.description||(a.error?`Could not connect: ${a.error}`:'Manifest will load when enabled.'),
+        types=[...new Set((m?.catalogs||[]).map(c=>c.type).filter(Boolean))],
+        meta=[a.enabled===false?'Disabled':'Enabled',m?.version?'v'+m.version:'',types.length?types.map(typeLabel).join(' · '):'No catalogs'].filter(Boolean).join(' · ');
+      return `<article class="addon-row">
+        <div class="addon-logo">${safeUrl(m?.logo||a.logo)?`<img src="${esc(safeUrl(m?.logo||a.logo))}" alt="">`:icon('addons')}</div>
+        <div class="addon-body">
+          <div class="addon-name"><span class="status-dot ${a.enabled===false?'off':''}"></span>${esc(name)}</div>
+          <div class="addon-meta">${esc(meta)}</div>
+          <div class="addon-desc">${esc(desc)}</div>
+          <div class="addon-actions"><button class="btn btn-sm btn-ghost" data-toggle-addon="${esc(a.url)}">${a.enabled===false?'Enable':'Disable'}</button>${m?.configure?`<button class="btn btn-sm btn-ghost" data-configure="${esc(m.configure)}">Configure</button>`:''}${a.official?'':`<button class="btn btn-sm btn-danger" data-remove-addon="${esc(a.url)}">${icon('trash')} Remove</button>`}</div>
+        </div></article>`;
+    }
+    async function renderAddons(){
+      const root=$('#addonsRoot');
+      root.innerHTML=`<div class="page-head"><span class="label">Providers</span><h1 class="page-title">Add-ons</h1>
+        <p class="page-lede">Astra shows only what these expose. Paste any compatible configured Stremio manifest URL.</p></div>
+        <div class="actions" style="margin-bottom:var(--s5)"><button class="btn btn-primary" data-action="install">${icon('plus')} Install add-on</button><button class="btn btn-ghost" data-nav="hub">${icon('hub')} Coverage</button></div>
+        <div class="notice">For Comet and similar providers, finish configuration on the add-on's website and paste the resulting <b>manifest.json</b> URL here. Astra stores it only in this browser.</div>
+        ${state.addons.length?`<div class="addon-list">${state.addons.map(addonCard).join('')}</div>`:stateHTML('No add-ons installed','Install one to give Astra something to show.','<button class="btn btn-primary" data-action="install">Install add-on</button>')}`;
+      bindDynamic(root);
+    }
     let searchTimer;
-    async function search(q){q=q.trim();const token=++state.searchToken;if(!q){nav('home');return}state.currentPage='search';$$('.page').forEach(x=>x.classList.toggle('active',x.id==='page-search'));$$('[data-nav]').forEach(x=>x.classList.remove('active'));const root=$('#searchRoot');root.innerHTML=`<h1 class="page-title">Search</h1><p class="page-lede">Results for “${esc(q)}” across enabled add-ons.</p><div class="loading-line"><span class="spinner"></span>Searching…</div>`;
-      const searchable=allCatalogs().filter(x=>(x.cat.extra||[]).some(e=>e.name==='search'));const remote=await Promise.allSettled(searchable.map(x=>getCatalog(x.s,x.cat,catalogExtras(x.cat,{search:q}))));if(token!==state.searchToken)return;const local=[...state.metaCache.values(),...state.homeItems].filter((m,i,a)=>a.findIndex(n=>mediaKey(n)===mediaKey(m))===i).filter(m=>(m.name||m.title||'').toLowerCase().includes(q.toLowerCase()));const results=[...remote.filter(x=>x.status==='fulfilled').flatMap(x=>x.value),...local].filter((m,i,a)=>a.findIndex(n=>mediaKey(n)===mediaKey(m))===i);root.innerHTML=`<h1 class="page-title">Search</h1><p class="page-lede">${results.length} result${results.length===1?'':'s'} for “${esc(q)}”.</p>${results.length?`<div class="grid">${results.slice(0,120).map(cardHTML).join('')}</div>`:emptyHTML('No matches','Try another title or install an add-on with search support.')}`;bindDynamic(root)}
+    async function search(q){q=q.trim();const token=++state.searchToken;if(!q){nav('home');return}state.currentPage='search';$$('.page').forEach(x=>x.classList.toggle('active',x.id==='page-search'));$$('[data-nav]').forEach(x=>x.classList.remove('active'));const root=$('#searchRoot');root.innerHTML=`<div class="page-head"><span class="label">Search</span><h1 class="page-title">“${esc(q)}”</h1><p class="page-lede">Searching every enabled add-on that supports it.</p></div><div class="loading-line"><span class="spinner"></span>Searching…</div>`;
+      const searchable=allCatalogs().filter(x=>(x.cat.extra||[]).some(e=>e.name==='search'));const remote=await Promise.allSettled(searchable.map(x=>getCatalog(x.s,x.cat,catalogExtras(x.cat,{search:q}))));if(token!==state.searchToken)return;const local=[...state.metaCache.values(),...state.homeItems].filter((m,i,a)=>a.findIndex(n=>mediaKey(n)===mediaKey(m))===i).filter(m=>(m.name||m.title||'').toLowerCase().includes(q.toLowerCase()));const results=[...remote.filter(x=>x.status==='fulfilled').flatMap(x=>x.value),...local].filter((m,i,a)=>a.findIndex(n=>mediaKey(n)===mediaKey(m))===i);root.innerHTML=`<div class="page-head"><span class="label">Search</span><h1 class="page-title">“${esc(q)}”</h1><p class="page-lede">${results.length} result${results.length===1?'':'s'} across ${searchable.length} searchable catalog${searchable.length===1?'':'s'}.</p></div>${results.length?`<div class="grid">${results.slice(0,120).map(cardHTML).join('')}</div>`:stateHTML('No matches','Try another title, or install an add-on whose catalog supports search.','<button class="btn btn-ghost" data-nav="addons">Manage add-ons</button>')}`;bindDynamic(root)}
     async function fullMeta(item){if(item._fullMeta)return item;const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){try{const d=await fetchJSON(endpoint(s.addon,'meta',item.type,item.id));if(d.meta)return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
     async function openMedia(key){
       cancelStreamLookup();
@@ -215,15 +360,67 @@
     }
     function resumeVideo(m){const videos=m.videos||[];if(!videos.length)return{id:m.id,title:m.name};return AstraPlayback.episodes.resumeTarget(m,id=>videoProgress(m,id)).video||videos[0]}
     function episodeCode(v){return AstraPlayback.episodes.episodeCode(v)}
-    function videoListHTML(videos,kind='episode'){const m=state.currentMeta;return videos.map(v=>{const p=videoProgress(m,v.id),pct=p?.duration?Math.round(p.time/p.duration*100):0,watched=!!p?.completed,active=String(state.currentVideo?.id)===String(v.id),code=kind==='episode'&&v.episode?`${esc(v.episode)}. `:'';return `<button class="episode ${watched?'watched':''} ${active?'active':''}" data-get-streams="${esc(v.id)}"><b>${code}${esc(v.title||v.name||(kind==='episode'?'Episode':'Untitled item'))}</b>${watched?'<span class="episode-state">✓</span>':''}<span>${esc(watched?'Watched':pct>0?`${pct}% watched`:v.released?String(v.released).slice(0,10):v.overview||`Select to find ${kind==='episode'?'episode':'item'} streams`)}</span></button>`}).join('')}
+    /* One episode row. The numeral gutter carries the episode number so the
+       title starts at the same x on every row; state is a tag, never a colour
+       change alone. */
+    function videoListHTML(videos,kind='episode'){const m=state.currentMeta;return videos.map(v=>{const p=videoProgress(m,v.id),pct=p?.duration?Math.round(p.time/p.duration*100):0,watched=!!p?.completed,active=String(state.currentVideo?.id)===String(v.id),code=kind==='episode'&&v.episode!=null?String(v.episode).padStart(2,'0'):'',name=v.title||v.name||(kind==='episode'?'Episode':'Untitled item'),sub=watched?'Watched':pct>0?`${pct}% watched`:v.released?String(v.released).slice(0,10):v.overview||`Select to find ${kind==='episode'?'episode':'item'} sources`,flag=watched?'<span class="tag ok">Watched</span>':pct>0?`<span class="tag signal">${pct}%</span>`:'';return `<button class="video-row ${watched?'watched':''} ${active?'active':''}" data-get-streams="${esc(v.id)}" aria-label="${esc([code&&kind==='episode'?'Episode '+code:'',name,sub].filter(Boolean).join('. '))}"><span class="numeral" aria-hidden="true">${esc(code||'·')}</span><span class="video-main"><span class="video-title">${esc(name)}</span><span class="video-sub">${esc(sub)}</span></span><span class="video-flag">${flag}</span></button>`}).join('')}
     function episodeHTML(videos,season){const ordered=AstraPlayback.episodes.canonicalEpisodes(videos),list=season==null?ordered:ordered.filter(v=>String(v.season)===String(season));return videoListHTML(list,'episode')}
-    function seriesSectionsHTML(videos,defaultSeason){const groups=AstraPlayback.episodes.groupVideos(videos),seasons=[...new Set(groups.episodes.map(v=>v.season).filter(x=>x!=null))],section=(title,list,kind)=>list.length?`<section class="video-group"><h3>${title}</h3><div class="episodes">${videoListHTML(list,kind)}</div></section>`:'';return `${groups.episodes.length?`<section class="video-group"><h3>Episodes</h3>${seasons.length?`<div class="season-row">${seasons.map(s=>`<button class="chip ${String(s)===String(defaultSeason)?'active':''}" data-season="${esc(s)}">Season ${esc(s)}</button>`).join('')}</div>`:''}<div class="episodes" id="episodeList">${episodeHTML(groups.episodes,defaultSeason)}</div></section>`:''}${section('Specials',groups.specials,'special')}${section('Extras & clips',groups.extras,'extra')}${section('Other videos',groups.unknown,'item')}`}
-    function showDetail(m,loading=false){const root=$('#modalRoot'),isSaved=!!state.library[mediaKey(m)],videos=m.videos||[],groups=AstraPlayback.episodes.groupVideos(videos),seasons=[...new Set(groups.episodes.map(v=>v.season).filter(x=>x!=null))],resume=resumeVideo(m),resumeProg=videoProgress(m,resume.id),defaultSeason=resume.season??seasons[0];root.innerHTML=`<div class="modal-shell" data-dismiss><section class="modal detail" role="dialog" aria-modal="true"><div class="detail-hero"><div class="detail-backdrop" style="background-image:${backdrop(m)?`url('${esc(backdrop(m).replace(/'/g,'%27'))}')`:'none'}"></div><button class="icon-btn detail-close" data-close>${icon('close')}</button><div class="detail-content">${poster(m)?`<img class="detail-poster" src="${esc(poster(m))}" alt="">`:''}<div class="detail-copy"><div class="eyebrow">${esc(m.type||'media')}</div><h1>${esc(m.name||m.title||'Untitled')}</h1><div class="facts">${[yearOf(m),m.runtime,m.imdbRating?`★ ${m.imdbRating}`:'',...(m.genres||[]).slice(0,3)].filter(Boolean).map(x=>`<span class="fact">${esc(x)}</span>`).join('')}</div><div class="actions"><button class="btn btn-primary" data-get-streams="${esc(resume.id)}">${icon('play')} ${videos.length&&resumeProg&&!resumeProg.completed?`Continue ${esc(episodeCode(resume)||resume.title||resume.name||'item')}`:videos.length?`Play ${esc(episodeCode(resume)||resume.title||resume.name||'item')}`:'Find streams'}</button><button class="btn btn-ghost" data-library="${esc(mediaKey(m))}">${icon(isSaved?'check':'plus')} ${isSaved?'In library':'My library'}</button></div></div></div></div><div class="detail-body">${loading?'<div class="loading-line"><span class="spinner"></span>Loading full details…</div>':`<p class="description">${esc(m.description||m.overview||'No description was provided by the add-on.')}</p>${m.cast?.length?`<p class="muted"><b>Cast:</b> ${esc(m.cast.slice(0,8).join(', '))}</p>`:''}${videos.length?seriesSectionsHTML(videos,defaultSeason):''}<div id="streamRoot"></div>`}</div></section></div>`;bindDynamic(root)}
+    /* The series browser. Canonical episodes get the season band; specials,
+       extras and anything the add-on left unclassified keep their own labelled
+       group so nothing is silently folded into the episode run. */
+    function seriesSectionsHTML(videos,defaultSeason){
+      const groups=AstraPlayback.episodes.groupVideos(videos),
+        seasons=[...new Set(groups.episodes.map(v=>v.season).filter(x=>x!=null))],
+        group=(title,note,list,kind)=>list.length?`<section class="video-group">${groupHead(title,note.replace('%n',list.length))}<div class="video-list">${videoListHTML(list,kind)}</div></section>`:'';
+      return `${groups.episodes.length?`<section class="video-group">${groupHead('Episodes',`${groups.episodes.length} listed`)}${seasons.length?`<div class="season-band" role="tablist" aria-label="Seasons">${seasons.map(s=>`<button class="season-tab ${String(s)===String(defaultSeason)?'active':''}" role="tab" aria-selected="${String(s)===String(defaultSeason)}" tabindex="${String(s)===String(defaultSeason)?0:-1}" data-season="${esc(s)}">Season ${esc(s)}</button>`).join('')}</div>`:''}<div class="video-list" id="episodeList">${episodeHTML(groups.episodes,defaultSeason)}</div></section>`:''}${group('Specials','%n listed',groups.specials,'special')}${group('Extras & clips','%n listed',groups.extras,'extra')}${group('Other videos','%n the add-on did not classify',groups.unknown,'item')}`;
+    }
+    function groupHead(title,note){return `<div class="group-head"><h4>${esc(title)}</h4><span class="group-note mono">${esc(note)}</span></div>`}
+    /* Record cells are built only from fields the add-on actually returned, so
+       an empty catalogue reads as empty instead of inventing facts. */
+    function dossierRecord(m){
+      const groups=AstraPlayback.episodes.groupVideos(m.videos||[]),
+        seasons=[...new Set(groups.episodes.map(v=>v.season).filter(x=>x!=null))],
+        cells=[['Type',typeLabel(m.type)],['Year',yearOf(m)],['Runtime',m.runtime],['Rating',m.imdbRating?`${m.imdbRating}/10`:''],
+          ['Seasons',seasons.length?String(seasons.length):''],['Episodes',groups.episodes.length?String(groups.episodes.length):''],
+          ['Genre',(m.genres||[])[0]],['Source',m._addonName]].filter(([,v])=>v);
+      return cells.length?`<dl class="record">${cells.map(([k,v])=>`<div class="record-cell"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`:'';
+    }
+    /* The dossier sheet. Artwork band, hard seam, then the record: the same
+       structure whether the title is a film, an album or a radio station. */
+    function showDetail(m,loading=false){
+      const root=$('#modalRoot'),isSaved=!!state.library[mediaKey(m)],videos=m.videos||[],
+        groups=AstraPlayback.episodes.groupVideos(videos),
+        seasons=[...new Set(groups.episodes.map(v=>v.season).filter(x=>x!=null))],
+        resume=resumeVideo(m),resumeProg=videoProgress(m,resume.id),defaultSeason=resume.season??seasons[0],
+        art=backdrop(m),name=m.name||m.title||'Untitled',
+        target=episodeCode(resume)||resume.title||resume.name||'',
+        cta=videos.length?`${resumeProg&&!resumeProg.completed?'Continue':'Play'} ${target||'first item'}`:'Find sources';
+      root.innerHTML=`<div class="sheet" data-dismiss><section class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="dossierTitle">
+        <button class="sheet-close" data-close aria-label="Close">${icon('close')}</button>
+        <div class="dossier-art ${art?'image-loading':'image-error'}">${mediaImage(art)}</div>
+        <header class="dossier-head">
+          <div class="label">${esc(typeLabel(m.type))}</div>
+          <h1 class="dossier-title" id="dossierTitle">${esc(name)}</h1>
+          ${dossierRecord(m)}
+          <div class="actions">
+            <button class="btn btn-primary" data-get-streams="${esc(resume.id)}">${icon('play')} ${esc(cta)}</button>
+            <button class="btn btn-ghost" data-library="${esc(mediaKey(m))}">${icon(isSaved?'check':'plus')} ${isSaved?'In library':'My library'}</button>
+          </div>
+        </header>
+        <div class="dossier-body">${loading
+          ?'<div class="loading-line"><span class="spinner"></span>Loading full details…</div>'
+          :`<p class="synopsis">${esc(m.description||m.overview||'No description was provided by the add-on.')}</p>
+             ${m.cast?.length?`<p class="muted mono" style="font-size:var(--t-tiny)">Cast · ${esc(m.cast.slice(0,8).join(' · '))}</p>`:''}
+             ${videos.length?seriesSectionsHTML(videos,defaultSeason):''}
+             <div id="streamRoot"></div>`}</div>
+      </section></div>`;
+      bindDynamic(root);
+    }
     /* ---- Playback Engine v2 integration ---------------------------------
        All decision logic lives in assets/js/playback/*. This layer only binds
        it to the DOM: it renders snapshots and feeds media events back in. */
     const PB=AstraPlayback;
-    const player={session:null,scope:null,adapter:null,countdown:null,ranked:[],meta:null,video:null,menu:null,idleTimer:null,subtitleTracks:[],subtitleAttached:[],activeSubtitle:null,audioPreferenceApplied:false,preferredBingeGroup:null,lookup:null,metaRequest:null,autoPlayTimer:null,notice:null,noticeTimer:null};
+    const player={session:null,scope:null,adapter:null,countdown:null,ranked:[],meta:null,video:null,menu:null,idleTimer:null,audioMode:false,audioDocked:false,audioScope:null,subtitleTracks:[],subtitleAttached:[],activeSubtitle:null,audioPreferenceApplied:false,preferredBingeGroup:null,lookup:null,metaRequest:null,autoPlayTimer:null,notice:null,noticeTimer:null};
     function capsNow(){return PB.streams.browserCapabilities(window)}
     function rankStreams(list){return PB.streams.rank(PB.streams.normalizeAll(list,{pageUrl:location.href,video:state.currentVideo,metaType:state.currentMeta?.type}),{settings:state.settings,capabilities:capsNow(),preferredBingeGroup:player.preferredBingeGroup})}
     function entryById(id){return player.ranked.find(e=>candidateKey(e)===id)||null}
@@ -297,35 +494,42 @@
       if(state.streamSort==='size')return list.slice().sort((a,b)=>b.stream.facts.sizeBytes-a.stream.facts.sizeBytes||b.score-a.score);
       return list;
     }
+    /* The source picker is a release browser, not a menu: the full release
+       name leads each row, the compatibility verdict is stated rather than used
+       to hide anything, and every field the add-on returned stays inspectable. */
     function renderStreams(){
       const root=$('#streamRoot');if(!root)return;
       const total=player.ranked.length,list=sortedStreams(),best=PB.streams.bestCandidate(player.ranked);
       const filters=STREAM_FILTERS.filter(([id])=>id==='all'||player.ranked.some(e=>streamMatches(e,id)));
-      root.innerHTML=total?`<div class="picker-head"><h3>Sources</h3><span class="picker-count">${list.length} of ${total}</span></div>
-        <div class="picker-bar">${filters.map(([id,label])=>`<button class="picker-chip ${state.streamFilter===id?'active':''}" data-stream-filter="${id}">${esc(label)}</button>`).join('')}
+      root.innerHTML=total?`<section class="picker">${groupHead('Sources',`${list.length} of ${total}`)}
+        <div class="picker-bar">${filters.map(([id,label])=>`<button class="chip ${state.streamFilter===id?'active':''}" data-stream-filter="${id}" aria-pressed="${state.streamFilter===id}">${esc(label)}</button>`).join('')}
         <select class="picker-sort" data-stream-sort aria-label="Sort sources">${[['recommended','Recommended'],['quality','Quality'],['size','Size']].map(([id,label])=>`<option value="${id}" ${state.streamSort===id?'selected':''}>${label}</option>`).join('')}</select>
-        ${best?`<button class="picker-chip active" data-play-best>${icon('play')} Play best</button>`:''}</div>
-        <div class="stream-list">${list.map(e=>streamRowHTML(e,best)).join('')}</div>`
-        :emptyHTML('No sources found','Your add-ons did not return a stream for this title or episode.');
+        ${best?`<button class="chip active" data-play-best>${icon('play')} Play best</button>`:''}</div>
+        <div class="stream-list">${list.map((e,i)=>streamRowHTML(e,best,i)).join('')}</div></section>`
+        :stateHTML('No sources found','Your add-ons did not return a stream for this title or episode.','','error');
       bindDynamic(root);
     }
-    function streamRowHTML(entry,best){
+    function streamRowHTML(entry,best,index=0){
       const s=entry.stream,f=s.facts,ev=entry.evaluation,isBest=best&&candidateKey(best)===candidateKey(entry);
-      const chips=[f.resolution&&`<span class="chip-sm">${esc(f.resolution)}</span>`,f.codec&&`<span class="chip-sm">${esc(f.codec)}</span>`,
-        f.hdr&&`<span class="chip-sm hdr">${esc(f.hdr)}</span>`,f.audioCodec&&`<span class="chip-sm">${esc(f.audioCodec)}${f.audioChannels?' '+esc(f.audioChannels):''}</span>`,
-        f.sizeText&&`<span class="chip-sm">${esc(f.sizeText)}</span>`,f.cached&&'<span class="chip-sm cached">Cached</span>',
-        f.live&&'<span class="chip-sm">Live</span>',f.pack&&'<span class="chip-sm pack">Pack</span>',
-        f.episodeStatus==='mismatch'&&'<span class="chip-sm mismatch">Wrong episode</span>',
-        f.episodeStatus==='ambiguous-pack'&&'<span class="chip-sm mismatch">File unclear</span>',
-        f.episodeStatus==='match'&&'<span class="chip-sm cached">Episode match</span>'].filter(Boolean).join('');
+      const tag=(text,tone='')=>`<span class="tag ${tone}">${esc(text)}</span>`;
+      const tags=[f.resolution&&tag(f.resolution),f.codec&&tag(f.codec),
+        f.hdr&&tag(f.hdr,'signal'),f.audioCodec&&tag(f.audioCodec+(f.audioChannels?' '+f.audioChannels:'')),
+        (f.audioLanguages||[]).length>1&&tag(`${f.audioLanguages.length} audio`,'info'),
+        f.sizeText&&tag(f.sizeText),f.cached&&tag('Cached','ok'),
+        f.live&&tag('Live','info'),f.pack&&tag('Pack'),
+        f.episodeStatus==='mismatch'&&tag('Wrong episode','bad'),
+        f.episodeStatus==='ambiguous-pack'&&tag('File unclear','warn'),
+        f.episodeStatus==='match'&&tag('Episode match','ok'),
+        f.episodeStatus==='pack-file'&&tag('File selected','ok'),
+        s.addonName&&tag(s.addonName)].filter(Boolean).join('');
       const label=[isBest?'Recommended.':'',s.title,ev.label+'.',entry.why,s.addonName?'From '+s.addonName:''].filter(Boolean).join(' ');
       const details=[['Release',s.title],['Filename',f.filename],['Provider',s.addonName||s.sourceName],['Compatibility',ev.label],['Why',entry.why],['Quality',[f.resolution,f.codec,f.hdr].filter(Boolean).join(' · ')],['Audio',[...(f.audioLanguages||[]),f.audioCodec,f.audioChannels].filter(Boolean).join(' · ')],['Size',f.sizeText],['Delivery',s.kind.toUpperCase()],['Cached',f.cached?'Yes':''],['File index',s.fileIdx==null?'':String(s.fileIdx)],['Pack status',f.episodeStatus==='ambiguous-pack'?'Pack has no exact file selected':f.episodeStatus==='mismatch'?'Does not match selected episode':f.episodeStatus==='pack-file'?'Exact file selected from pack':f.pack?'Pack':''],['Binge group',s.bingeGroup]].filter(([,v])=>v);
-      return `<article class="stream-card"><button class="stream-row ${isBest?'recommended':''} ${ev.playable?'':'blocked'}" data-play-source="${esc(candidateKey(entry))}" aria-label="${esc(label)}">
-        ${isBest?'<span class="best-flag">Recommended</span>':''}
-        <span class="stream-state ${ev.state}" aria-hidden="true"></span>
-        <span class="stream-main"><span class="stream-title">${esc(s.title)}</span><span class="stream-why">${esc(entry.why)}</span><span class="stream-chips">${chips}</span></span>
-        <span class="stream-side"><span class="chip-sm state-${ev.state}" title="${esc(ev.label)}">${esc(PB.streams.STATE_SHORT[ev.state]||ev.label)}</span><span class="stream-badge">${esc(s.kind.toUpperCase())}</span>${s.addonName?`<span class="stream-source">${esc(s.addonName)}</span>`:''}</span></button>
-        <details class="stream-details"><summary>Full source details</summary><dl class="stream-details-grid">${details.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></details></article>`;
+      return `<article class="stream-item"><button class="stream-row ${isBest?'recommended':''} ${ev.playable?'':'blocked'}" data-play-source="${esc(candidateKey(entry))}" aria-label="${esc(label)}">
+        <span class="stream-lead"><span class="numeral stream-rank" aria-hidden="true">${String(index+1).padStart(2,'0')}</span>${isBest?'<span class="stream-flag">Recommended</span>':''}<span class="tag chip-sm state-${ev.state}">${esc(PB.streams.STATE_SHORT[ev.state]||ev.label)}</span></span>
+        <span class="stream-name">${esc(s.title)}</span>
+        <span class="stream-tags">${tags}</span>
+        <span class="stream-why">${esc(entry.why)}</span></button>
+        <details class="stream-details"><summary class="stream-expand">Full source details</summary><div class="stream-detail"><dl>${details.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div></details></article>`;
     }
 
     /* ---- player shell --------------------------------------------------- */
@@ -337,6 +541,11 @@
       if(s.kind==='torrent'){showTorrent(s);return}
       closePlayer(true);
       player.meta=m;player.video=v;
+      // Music, radio and podcasts get the audio surface, not a black video
+      // stage. The decision is made once here so the shell and the attempt
+      // cannot disagree about which element they are building.
+      player.audioMode=AstraHub.isAudio(m.type)||!!s.facts.audioOnly;
+      player.audioDocked=false;
       const saved=videoProgress(m,v.id);
       const resumeTime=saved&&!saved.completed&&saved.duration&&saved.time<saved.duration*.93?saved.time:0;
       renderPlayerShell();
@@ -350,17 +559,50 @@
       });
       player.session.start();
     }
+    /* Two surfaces share one set of hooks. Video mounts over everything in
+       #modalRoot; audio mounts in #audioRoot so it survives browsing and can
+       collapse to a bar without the media element ever moving in the DOM. */
     function renderPlayerShell(){
-      const m=player.meta,v=player.video;
-      $('#modalRoot').innerHTML=`<div class="modal-shell player-shell" id="playerShell"><section class="modal player-modal" role="dialog" aria-modal="true" aria-label="Player">
-        <div class="player-top"><button class="icon-btn" data-close-player aria-label="Close player">${icon('close')}</button>
-          <div class="player-title"><b id="playerHeading">${esc(v.title||v.name||m.name||'Playing')}</b><span id="playerSubheading"></span>
-          <span class="player-quality" id="playerQuality"></span></div></div>
-        <div class="player-tools" id="playerTools"></div>
+      const m=player.meta,v=player.video,heading=v.title||v.name||m.name||'Playing';
+      const chrome=`<div class="player-tools" id="playerTools"></div>
         <div class="player-stage" id="playerStage"><span class="spinner"></span></div>
-        <div class="player-status" id="playerStatus"></div></section></div>`;
+        <div class="player-status" id="playerStatus"></div>`;
+      if(player.audioMode){
+        // The dossier stays mounted behind the audio surface, so minimising the
+        // player reveals the title it came from instead of an empty page.
+        $('#audioRoot').innerHTML=`<div class="player-shell audio-mode" id="playerShell"><section class="player-modal audio-full" role="dialog" aria-label="Audio player">
+          <div class="audio-bar-progress" id="audioSeam"><i style="width:0%"></i></div>
+          <div class="player-top audio-full-head">
+            <button class="icon-btn" data-player-action="minimize" aria-label="Minimize player">${icon('minimize')}</button>
+            <div class="player-title"><b id="playerHeading">${esc(heading)}</b><span id="playerSubheading"></span>
+            <span class="player-quality" id="playerQuality"></span></div>
+            <button class="icon-btn" data-close-player aria-label="Close player">${icon('close')}</button>
+          </div>
+          <div class="audio-dock-actions">
+            <button class="icon-btn" id="audioTransport" data-player-action="playpause" aria-label="Play">${icon('play')}</button>
+            <button class="icon-btn" data-player-action="expand" aria-label="Expand player">${icon('expand')}</button>
+            <button class="icon-btn" data-close-player aria-label="Close player">${icon('close')}</button>
+          </div>${chrome}</section></div>`;
+        bindDynamic($('#audioRoot'));
+        document.body.classList.add('has-audio');
+        return;
+      }
+      $('#audioRoot').innerHTML='';
+      document.body.classList.remove('has-audio');
+      $('#modalRoot').innerHTML=`<div class="player-shell" id="playerShell"><section class="player-modal" role="dialog" aria-modal="true" aria-label="Player">
+        <div class="player-top"><button class="icon-btn" data-close-player aria-label="Close player">${icon('close')}</button>
+          <div class="player-title"><b id="playerHeading">${esc(heading)}</b><span id="playerSubheading"></span>
+          <span class="player-quality" id="playerQuality"></span></div></div>${chrome}</section></div>`;
       bindDynamic($('#modalRoot'));
       armIdleHide();
+    }
+    /* Collapse and expand only toggle a class: the media element, its adapter
+       and its listeners are never touched, so audio does not stutter. */
+    function setAudioDocked(docked){
+      player.audioDocked=!!docked;
+      const shell=$('#playerShell');if(!shell)return;
+      shell.classList.toggle('docked',player.audioDocked);
+      document.body.classList.toggle('audio-docked',player.audioDocked);
     }
     function armIdleHide(){
       const shell=$('#playerShell');if(!shell)return;
@@ -383,11 +625,10 @@
         stage.innerHTML=`<iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen title="${esc(v.title||m.name||'Video')}" src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(s.ytId)}?autoplay=1"></iframe>`;
         report('ready');return;
       }
-      const audioOnly=s.facts.audioOnly||['music','radio'].includes(m.type);
-      stage.innerHTML=audioOnly
-        ?`<div class="audio-stage" style="background-image:url('${esc((backdrop(m)||'').replace(/'/g,'%27'))}')">${poster(m)?`<img src="${esc(poster(m))}" alt="">`:''}<audio id="mediaEl" controls autoplay></audio></div>`
-        :'<video id="mediaEl" controls autoplay playsinline></video>';
+      const audioOnly=player.audioMode;
+      stage.innerHTML=audioOnly?audioStageHTML(m,v,s):'<video id="mediaEl" controls autoplay playsinline></video>';
       const el=$('#mediaEl');
+      if(audioOnly)bindAudioSurface(el,scope);
       const caps=capsNow();
       const adapterKind=PB.adapters.adapterKindFor(s.kind,caps);
 
@@ -420,6 +661,54 @@
           return player.adapter.attach();
         })
         .then(()=>{if(live()&&!scope.disposed)attachSubtitles(el,s,m,v,scope,live)});
+    }
+    /* The expanded audio view. Native controls stay — they are the reliable
+       path on Android Chrome — and the scrubber above them reports only what
+       the element reports: elapsed, duration, and the real buffered edge. */
+    function audioStageHTML(m,v,s){
+      const cover=poster(m),name=v.title||v.name||m.name||'Playing',sub=AstraAudio.describeTrack(m,s);
+      return `<div class="audio-full-body">
+        <div class="audio-cover ${cover?'image-loading':'image-error'}" aria-hidden="true">${icon('music')}${mediaImage(cover)}</div>
+        <div class="audio-meta"><h2>${esc(name)}</h2><p>${esc(sub||typeLabel(m.type))}</p></div>
+        <div class="audio-scrub">
+          <div class="audio-track"><i class="audio-buffer" id="audioBuffer" style="width:0%"></i><i class="audio-played" id="audioPlayed" style="width:0%"></i></div>
+          <input class="scrub-input" id="audioScrub" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek">
+          <div class="audio-times"><span id="audioElapsed">--:--</span><span id="audioDuration">--:--</span></div>
+        </div>
+        <audio id="mediaEl" controls autoplay></audio>
+      </div>`;
+    }
+    function bindAudioSurface(el,scope){
+      const paint=()=>{
+        const snap=AstraAudio.snapshot(el);
+        const played=$('#audioPlayed'),buffer=$('#audioBuffer'),scrub=$('#audioScrub'),
+          elapsed=$('#audioElapsed'),duration=$('#audioDuration'),seam=$('#audioSeam i');
+        if(played)played.style.width=(snap.playedRatio*100).toFixed(2)+'%';
+        if(buffer)buffer.style.width=(snap.bufferedRatio*100).toFixed(2)+'%';
+        if(seam)seam.style.width=(snap.playedRatio*100).toFixed(2)+'%';
+        if(elapsed)elapsed.textContent=snap.elapsedText;
+        if(duration)duration.textContent=snap.durationText;
+        // A live stream has nothing to scrub within, so the control is disabled
+        // rather than pretending to a position it does not have.
+        if(scrub&&document.activeElement!==scrub){scrub.disabled=snap.live;scrub.value=String(Math.round(snap.playedRatio*1000))}
+      };
+      scope.listen(el,'timeupdate',paint);
+      scope.listen(el,'progress',paint);
+      scope.listen(el,'durationchange',paint);
+      scope.listen(el,'loadedmetadata',paint);
+      scope.listen(el,'play',()=>{paint();syncAudioPlayState(el)});
+      scope.listen(el,'pause',()=>{paint();syncAudioPlayState(el)});
+      const scrub=$('#audioScrub');
+      if(scrub)scope.listen(scrub,'change',()=>{const t=AstraAudio.seekTarget(el,Number(scrub.value)/1000);if(Number.isFinite(t))try{el.currentTime=t}catch{}});
+      paint();syncAudioPlayState(el);
+    }
+    function syncAudioPlayState(el){
+      const paused=el.paused!==false;
+      $('#playerShell')?.classList.toggle('paused',paused);
+      for(const btn of $$('[data-player-action="playpause"]')){
+        btn.innerHTML=icon(paused?'play':'pause');
+        btn.setAttribute('aria-label',paused?'Play':'Pause');
+      }
     }
     function teardownAttempt(){
       if(player.adapter){try{player.adapter.destroy()}catch{}player.adapter=null}
@@ -497,14 +786,19 @@
         player.subtitleTracks.length?`<button class="tool-btn ${player.activeSubtitle?'on':''}" data-track-menu="text" aria-label="Subtitles">CC</button>`:'',
         audioTracks.length>1?`<button class="tool-btn" data-track-menu="audio" aria-label="Audio track">AUD</button>`:'',
         `<button class="tool-btn" data-player-action="choose" aria-label="Choose source">${icon('link')}</button>`,
-        document.fullscreenEnabled?`<button class="tool-btn" data-player-action="fullscreen" aria-label="Fullscreen">⛶</button>`:''
+        player.audioMode?`<button class="tool-btn" data-player-action="playpause" aria-label="Play or pause">${icon('play')}</button>`:'',
+        !player.audioMode&&document.fullscreenEnabled?`<button class="tool-btn" data-player-action="fullscreen" aria-label="Fullscreen">⛶</button>`:''
       ].filter(Boolean).join('');
       bindDynamic(tools);
+      if(player.audioMode){const el=$('#mediaEl');if(el)syncAudioPlayState(el)}
     }
 
     function playerAction(action){
       const session=player.session;
       if(action==='fullscreen'){const modal=$('.player-modal');if(!document.fullscreenElement)modal?.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.();return}
+      if(action==='minimize'){setAudioDocked(true);return}
+      if(action==='expand'){setAudioDocked(false);return}
+      if(action==='playpause'){const el=$('#mediaEl');if(el){if(el.paused)el.play?.().catch(()=>{});else el.pause?.()}return}
       if(action==='choose'){closePlayer();const root=$('#streamRoot');if(root){renderStreams();root.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'})}return}
       if(!session)return;
       if(action==='retry')session.retry();
@@ -519,6 +813,8 @@
       teardownAttempt();
       progress.flush();
       player.meta=null;player.video=null;
+      if(player.audioMode){$('#audioRoot').innerHTML='';document.body.classList.remove('has-audio','audio-docked')}
+      player.audioMode=false;player.audioDocked=false;
       if(silent===true)return;
       if(!state.currentMeta){closeModal();return}
       showDetail(state.currentMeta,false);
@@ -633,17 +929,17 @@
       if(changed&&chosen){state.settings.audioLanguage=chosen.lang||'original';state.settings=PB.settings.migrate(state.settings);store.set('settings',state.settings)}
       closeTrackMenu();renderTools(player.session?player.session.snapshot():{});
     }
-    function showTorrent(s){const raw=s.raw||s,sources=raw.sources||[],fileIdx=s.fileIdx??s.facts?.fileIdx,filename=s.facts?.filename||raw.behaviorHints?.filename||'';const magnet=`magnet:?xt=urn:btih:${encodeURIComponent(s.infoHash)}${sources.filter(x=>x.startsWith('tracker:')).map(x=>'&tr='+encodeURIComponent(x.slice(8))).join('')}`;$('#modalRoot').innerHTML=`<div class="modal-shell" data-dismiss><section class="modal"><div class="modal-head"><h2>Torrent stream</h2><button class="icon-btn" data-close>${icon('close')}</button></div><div class="modal-body"><div class="notice warn">Chrome cannot stream a BitTorrent info hash by itself. Configure Comet with a debrid provider so it returns an HTTPS stream, or open this result in an installed torrent-capable app.</div><div class="field"><label>Info hash</label><input class="text-input" readonly value="${esc(s.infoHash)}"></div>${fileIdx!==null&&fileIdx!==undefined?`<div class="field"><label>Selected file index</label><input class="text-input" readonly value="${esc(fileIdx)}">${filename?`<small>${esc(filename)}</small>`:''}</div>`:''}<div class="actions"><a class="btn btn-primary" href="${esc(magnet)}">${icon('external')} Open magnet</a><button class="btn btn-ghost" data-copy="${esc(magnet)}">Copy magnet link</button></div></div></section></div>`;bindDynamic($('#modalRoot'))}
+    function showTorrent(s){const raw=s.raw||s,sources=raw.sources||[],fileIdx=s.fileIdx??s.facts?.fileIdx,filename=s.facts?.filename||raw.behaviorHints?.filename||'';const magnet=`magnet:?xt=urn:btih:${encodeURIComponent(s.infoHash)}${sources.filter(x=>x.startsWith('tracker:')).map(x=>'&tr='+encodeURIComponent(x.slice(8))).join('')}`;$('#modalRoot').innerHTML=`<div class="modal-shell" data-dismiss><section class="modal" role="dialog" aria-modal="true" aria-labelledby="torrentTitle"><div class="modal-head"><h2 id="torrentTitle">Torrent stream</h2><button class="icon-btn" data-close aria-label="Close torrent details">${icon('close')}</button></div><div class="modal-body"><div class="notice warn">Chrome cannot stream a BitTorrent info hash by itself. Configure Comet with a debrid provider so it returns an HTTPS stream, or open this result in an installed torrent-capable app.</div><div class="field"><label>Info hash</label><input class="text-input" readonly value="${esc(s.infoHash)}"></div>${fileIdx!==null&&fileIdx!==undefined?`<div class="field"><label>Selected file index</label><input class="text-input" readonly value="${esc(fileIdx)}">${filename?`<small>${esc(filename)}</small>`:''}</div>`:''}<div class="actions"><a class="btn btn-primary" href="${esc(magnet)}">${icon('external')} Open magnet</a><button class="btn btn-ghost" data-copy="${esc(magnet)}">Copy magnet link</button></div></div></section></div>`;bindDynamic($('#modalRoot'))}
     const PLAYER_LIBS={hls:{src:'https://cdn.jsdelivr.net/npm/hls.js@1.6.13/dist/hls.min.js',integrity:'sha384-z+tuLqMWl1/cPv7O+39RO0EURSNvorimpcCaMgeNwU+qFBx+AlUIl7jaAwg0cYil',label:'HLS'},dash:{src:'https://cdn.jsdelivr.net/npm/dashjs@5.2.0/dist/modern/umd/dash.all.min.js',integrity:'sha384-DUqWPzOl/i7/DGF7SBoe4NrlZOMxxomlJsg3X0daS5SBeFxco3dmwWQPFr2oauXn',label:'DASH'}};
     function loadPlayerLib(name){const lib=PLAYER_LIBS[name];return new Promise((res,rej)=>{const x=document.createElement('script');x.src=lib.src;x.integrity=lib.integrity;x.crossOrigin='anonymous';x.referrerPolicy='no-referrer';x.onload=res;x.onerror=()=>rej(Error(`Could not load the pinned ${lib.label} playback library. The download failed or its integrity hash did not match.`));document.head.append(x)})}
     function loadHls(){return window.Hls?Promise.resolve():loadPlayerLib('hls')}
     function loadDash(){return window.dashjs?Promise.resolve():loadPlayerLib('dash')}
     function toggleLibrary(key){const m=state.metaCache.get(key)||state.currentMeta;if(!m)return;if(state.library[key]){delete state.library[key];toast('Removed from library')}else{state.library[key]={meta:m,added:Date.now()};toast('Added to library','good')}store.set('library',state.library);if(state.currentMeta&&mediaKey(state.currentMeta)===key)showDetail(state.currentMeta,false);else if(state.currentPage==='library')renderLibrary()}
-    function installModal(){const root=$('#modalRoot');root.innerHTML=`<div class="modal-shell" data-dismiss><section class="modal" role="dialog" aria-modal="true"><div class="modal-head"><h2>Install a Stremio add-on</h2><button class="icon-btn" data-close>${icon('close')}</button></div><div class="modal-body"><div class="notice">Paste an add-on's configured <b>manifest.json</b> URL or a <b>stremio://</b> install link. Comet configuration tokens remain within your browser storage.</div><form id="installForm"><div class="field"><label for="manifestInput">Manifest URL</label><div class="input-action"><input class="text-input" id="manifestInput" placeholder="https://…/manifest.json" required><button class="btn btn-primary" type="submit">Install</button></div><small>Remote manifests must use HTTPS and permit browser CORS requests.</small></div></form><div class="notice warn">Only install add-ons you trust. An add-on controls the metadata and stream URLs returned to this browser.</div></div></section></div>`;bindDynamic(root);$('#installForm').onsubmit=async e=>{e.preventDefault();const btn=e.submitter,input=$('#manifestInput'),owned=currentModal();btn.disabled=true;btn.textContent='Checking…';try{await installAddon(input.value);if(currentModal()!==owned)return;closeModal()}catch(err){if(currentModal()!==owned)return;toast(err.message,'bad');btn.disabled=false;btn.textContent='Install'}};setTimeout(()=>$('#manifestInput')?.focus(),100)}
-    function settingsModal(){const s=state.settings;$('#modalRoot').innerHTML=`<div class="modal-shell" data-dismiss><section class="modal"><div class="modal-head"><h2>Settings</h2><button class="icon-btn" data-close>${icon('close')}</button></div><div class="modal-body"><div class="field"><label for="maxResolution">Maximum auto-play quality</label><select class="select" id="maxResolution" style="width:100%">${['2160p','1080p','720p','480p'].map(x=>`<option ${s.maxResolution===x?'selected':''} value="${x}">${x==='2160p'?'4K':x}</option>`).join('')}</select><small>Auto Play Best respects AIOStreams order and skips higher resolutions.</small></div><div class="switch-row"><div><b>Autoplay next episode</b><span>Open the next episode and choose its best compatible source.</span></div><button class="switch ${s.autoplayNext?'on':''}" data-setting="autoplayNext"><i></i></button></div><div class="switch-row"><div><b>Prefer cached sources</b><span>Rank instantly available debrid results above uncached ones.</span></div><button class="switch ${s.preferCached?'on':''}" data-setting="preferCached"><i></i></button></div><div class="field"><label for="hdrPreference">HDR and Dolby Vision</label><select class="select" id="hdrPreference" style="width:100%">${[['prefer','Prefer HDR'],['neutral','No preference'],['avoid','Avoid HDR']].map(([v,l])=>`<option ${s.hdrPreference===v?'selected':''} value="${v}">${l}</option>`).join('')}</select><small>Choose Avoid if HDR content looks washed out on this screen.</small></div><div class="switch-row"><div><b>Automatic failover</b><span>If a source fails to start, try the next ranked source automatically.</span></div><button class="switch ${s.autoFailover?'on':''}" data-setting="autoFailover"><i></i></button></div><div class="field"><label for="audioLanguage">Preferred audio</label><select class="select" id="audioLanguage" style="width:100%">${audioLanguageChoices(s.audioLanguage).map(([v,l])=>`<option ${s.audioLanguage===v?'selected':''} value="${v}">${l}</option>`).join('')}</select><small>Applied when HLS or DASH exposes selectable tracks. Direct files depend on Android Chrome.</small></div><div class="field"><label for="subtitleLanguage">Preferred subtitle language</label><select class="select" id="subtitleLanguage" style="width:100%">${[['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['it','Italian'],['nl','Dutch'],['sv','Swedish'],['pl','Polish'],['ru','Russian'],['ja','Japanese'],['ko','Korean'],['zh','Chinese'],['ar','Arabic'],['hi','Hindi']].map(([v,l])=>`<option ${s.subtitleLanguage===v?'selected':''} value="${v}">${l}</option>`).join('')}</select></div><div class="switch-row"><div><b>Subtitles on by default</b><span>Turn on your preferred language whenever a matching track exists.</span></div><button class="switch ${s.subtitlesDefault?'on':''}" data-setting="subtitlesDefault"><i></i></button></div><div class="switch-row"><div><b>Show adult catalogs</b><span>Show add-ons or catalogs that explicitly mark themselves as adult.</span></div><button class="switch ${s.showAdult?'on':''}" data-setting="showAdult"><i></i></button></div><div class="notice warn" style="margin-top:20px">Exports include configured add-on URLs, which may contain private service tokens. Keep backup files private.</div><div class="actions" style="margin-top:22px"><button class="btn btn-primary" data-save-settings>Save settings</button><button class="btn btn-ghost" data-export>${icon('download')} Private backup</button><label class="btn btn-ghost">${icon('upload')} Import backup<input class="hidden" id="importFile" type="file" accept="application/json"></label></div><p class="muted" style="font-size:11px;margin-top:24px">Astra ${APP_VERSION} · Your add-ons, library, settings, and progress are stored locally in Chrome.</p></div></section></div>`;bindDynamic($('#modalRoot'))}
+    function installModal(){const root=$('#modalRoot');root.innerHTML=`<div class="modal-shell" data-dismiss><section class="modal" role="dialog" aria-modal="true" aria-labelledby="installTitle"><div class="modal-head"><h2 id="installTitle">Install a Stremio add-on</h2><button class="icon-btn" data-close aria-label="Close add-on installer">${icon('close')}</button></div><div class="modal-body"><div class="notice">Paste an add-on's configured <b>manifest.json</b> URL or a <b>stremio://</b> install link. Comet configuration tokens remain within your browser storage.</div><form id="installForm"><div class="field"><label for="manifestInput">Manifest URL</label><div class="input-action"><input class="text-input" id="manifestInput" placeholder="https://…/manifest.json" required><button class="btn btn-primary" type="submit">Install</button></div><small>Remote manifests must use HTTPS and permit browser CORS requests.</small></div></form><div class="notice warn">Only install add-ons you trust. An add-on controls the metadata and stream URLs returned to this browser.</div></div></section></div>`;bindDynamic(root);$('#installForm').onsubmit=async e=>{e.preventDefault();const btn=e.submitter,input=$('#manifestInput'),owned=currentModal();btn.disabled=true;btn.textContent='Checking…';try{await installAddon(input.value);if(currentModal()!==owned)return;closeModal()}catch(err){if(currentModal()!==owned)return;toast(err.message,'bad');btn.disabled=false;btn.textContent='Install'}};setTimeout(()=>$('#manifestInput')?.focus(),100)}
+    function settingsModal(){const s=state.settings;$('#modalRoot').innerHTML=`<div class="modal-shell" data-dismiss><section class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="modal-head"><h2 id="settingsTitle">Settings</h2><button class="icon-btn" data-close aria-label="Close settings">${icon('close')}</button></div><div class="modal-body"><div class="field"><label for="maxResolution">Maximum auto-play quality</label><select class="select" id="maxResolution" style="width:100%">${['2160p','1080p','720p','480p'].map(x=>`<option ${s.maxResolution===x?'selected':''} value="${x}">${x==='2160p'?'4K':x}</option>`).join('')}</select><small>Auto Play Best respects AIOStreams order and skips higher resolutions.</small></div><div class="switch-row"><div><b>Autoplay next episode</b><span>Open the next episode and choose its best compatible source.</span></div><button class="switch ${s.autoplayNext?'on':''}" data-setting="autoplayNext" aria-label="Autoplay next episode" aria-pressed="${s.autoplayNext}"><i></i></button></div><div class="switch-row"><div><b>Prefer cached sources</b><span>Rank instantly available debrid results above uncached ones.</span></div><button class="switch ${s.preferCached?'on':''}" data-setting="preferCached" aria-label="Prefer cached sources" aria-pressed="${s.preferCached}"><i></i></button></div><div class="field"><label for="hdrPreference">HDR and Dolby Vision</label><select class="select" id="hdrPreference" style="width:100%">${[['prefer','Prefer HDR'],['neutral','No preference'],['avoid','Avoid HDR']].map(([v,l])=>`<option ${s.hdrPreference===v?'selected':''} value="${v}">${l}</option>`).join('')}</select><small>Choose Avoid if HDR content looks washed out on this screen.</small></div><div class="switch-row"><div><b>Automatic failover</b><span>If a source fails to start, try the next ranked source automatically.</span></div><button class="switch ${s.autoFailover?'on':''}" data-setting="autoFailover" aria-label="Automatic failover" aria-pressed="${s.autoFailover}"><i></i></button></div><div class="field"><label for="audioLanguage">Preferred audio</label><select class="select" id="audioLanguage" style="width:100%">${audioLanguageChoices(s.audioLanguage).map(([v,l])=>`<option ${s.audioLanguage===v?'selected':''} value="${v}">${l}</option>`).join('')}</select><small>Applied when HLS or DASH exposes selectable tracks. Direct files depend on Android Chrome.</small></div><div class="field"><label for="subtitleLanguage">Preferred subtitle language</label><select class="select" id="subtitleLanguage" style="width:100%">${[['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['it','Italian'],['nl','Dutch'],['sv','Swedish'],['pl','Polish'],['ru','Russian'],['ja','Japanese'],['ko','Korean'],['zh','Chinese'],['ar','Arabic'],['hi','Hindi']].map(([v,l])=>`<option ${s.subtitleLanguage===v?'selected':''} value="${v}">${l}</option>`).join('')}</select></div><div class="switch-row"><div><b>Subtitles on by default</b><span>Turn on your preferred language whenever a matching track exists.</span></div><button class="switch ${s.subtitlesDefault?'on':''}" data-setting="subtitlesDefault" aria-label="Subtitles on by default" aria-pressed="${s.subtitlesDefault}"><i></i></button></div><div class="switch-row"><div><b>Show adult catalogs</b><span>Show add-ons or catalogs that explicitly mark themselves as adult.</span></div><button class="switch ${s.showAdult?'on':''}" data-setting="showAdult" aria-label="Show adult catalogs" aria-pressed="${s.showAdult}"><i></i></button></div><div class="notice warn" style="margin-top:20px">Exports include configured add-on URLs, which may contain private service tokens. Keep backup files private.</div><div class="actions" style="margin-top:22px"><button class="btn btn-primary" data-save-settings>Save settings</button><button class="btn btn-ghost" data-export>${icon('download')} Private backup</button><label class="btn btn-ghost">${icon('upload')} Import backup<input class="hidden" id="importFile" type="file" accept="application/json"></label></div><p class="muted" style="font-size:11px;margin-top:24px">Astra ${APP_VERSION} · Your add-ons, library, settings, and progress are stored locally in Chrome.</p></div></section></div>`;bindDynamic($('#modalRoot'))}
     function exportData(){const data={app:'Astra',version:APP_VERSION,exported:new Date().toISOString(),addons:state.addons,library:state.library,progress:progress.snapshot(),settings:state.settings};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='astra-backup.json';a.click();URL.revokeObjectURL(a.href)}
-    async function importData(file){const owned=currentModal();try{const d=JSON.parse(await file.text());if(d.app!=='Astra'||!Array.isArray(d.addons))throw Error('Not an Astra backup');state.addons=d.addons;state.library=d.library||{};progress.replace(d.progress||{});state.settings=AstraPlayback.settings.migrate({...state.settings,...d.settings});for(const k of ['addons','library','settings'])store.set(k,state[k]);state.manifests.clear();state.catalogCache.clear();await loadManifests(true);toast('Backup imported','good');if(currentModal()===owned)closeModal();renderHome()}catch(e){toast(`Import failed: ${e.message}`,'bad')}}
-    function bindDynamic(root=document){hydrateIcons(root);$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>loadStreams(x.dataset.getStreams));$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-play-best]',root).forEach(x=>x.onclick=()=>{const best=AstraPlayback.streams.bestCandidate(player.ranked);if(best)openPlayer(best)});$$('[data-stream-filter]',root).forEach(x=>x.onclick=()=>{state.streamFilter=x.dataset.streamFilter;renderStreams()});$$('[data-stream-sort]',root).forEach(x=>x.onchange=()=>{state.streamSort=x.value;renderStreams()});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{if(x.dataset.countdown==='cancel')cancelCountdown();else if(player.countdown)player.countdown.finishNow()});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{state.discover.catalog=x.dataset.browseCatalog;state.discoverVisible=DISCOVER_BATCH;nav('discover')});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>c.classList.toggle('active',c===x));$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-action="settings"]',root).forEach(x=>x.onclick=settingsModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);state.catalogCache.clear();await loadManifests();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);state.catalogCache.clear();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k])});$$('[data-save-settings]',root).forEach(x=>x.onclick=()=>{state.settings.maxResolution=$('#maxResolution')?.value||'2160p';state.settings.hdrPreference=$('#hdrPreference')?.value||'neutral';state.settings.audioLanguage=$('#audioLanguage')?.value||'original';state.settings.subtitleLanguage=$('#subtitleLanguage')?.value||'en';state.settings=AstraPlayback.settings.migrate(state.settings);store.set('settings',state.settings);toast('Settings saved','good');closeModal()});$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0])}
+    async function importData(file){const owned=currentModal();try{const d=JSON.parse(await file.text());if(d.app!=='Astra'||!Array.isArray(d.addons))throw Error('Not an Astra backup');state.addons=d.addons;state.library=d.library||{};progress.replace(d.progress||{});state.settings=AstraPlayback.settings.migrate({...state.settings,...d.settings});for(const k of ['addons','library','settings'])store.set(k,state[k]);state.manifests.clear();state.catalogCache.clear();await loadManifests(true);toast('Backup imported','good');if(currentModal()===owned)closeModal();invalidateCatalogs();renderHome()}catch(e){toast(`Import failed: ${e.message}`,'bad')}}
+    function bindDynamic(root=document){hydrateIcons(root);$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>loadStreams(x.dataset.getStreams));$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-play-best]',root).forEach(x=>x.onclick=()=>{const best=AstraPlayback.streams.bestCandidate(player.ranked);if(best)openPlayer(best)});$$('[data-stream-filter]',root).forEach(x=>x.onclick=()=>{state.streamFilter=x.dataset.streamFilter;renderStreams()});$$('[data-stream-sort]',root).forEach(x=>x.onchange=()=>{state.streamSort=x.value;renderStreams()});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{if(x.dataset.countdown==='cancel')cancelCountdown();else if(player.countdown)player.countdown.finishNow()});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{state.discover.catalog=x.dataset.browseCatalog;state.discoverVisible=DISCOVER_BATCH;nav('discover')});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-action="settings"]',root).forEach(x=>x.onclick=settingsModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]))});$$('[data-save-settings]',root).forEach(x=>x.onclick=()=>{state.settings.maxResolution=$('#maxResolution')?.value||'2160p';state.settings.hdrPreference=$('#hdrPreference')?.value||'neutral';state.settings.audioLanguage=$('#audioLanguage')?.value||'original';state.settings.subtitleLanguage=$('#subtitleLanguage')?.value||'en';state.settings=AstraPlayback.settings.migrate(state.settings);store.set('settings',state.settings);toast('Settings saved','good');closeModal()});$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0])}
     function globalEvents(){document.addEventListener('click',e=>{const a=e.target.closest('[data-action="settings"]');if(a)settingsModal()});$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{$('#globalSearch').value='';$('#searchClear').classList.add('hidden');nav('home')};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('#mediaEl')||$('#playerStage iframe'))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
     async function init(){buildNav();hydrateIcons();bindDynamic();globalEvents();await renderHome()}
     init().catch(e=>{console.error(e);toast('Astra could not start: '+e.message,'bad')});
