@@ -1664,6 +1664,73 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
 .modal-head h2 { margin: 0; font-size: var(--t-title); letter-spacing: var(--track-tight); }
 .modal-body { padding: var(--s5) var(--gutter) calc(var(--s7) + var(--safe-b)); }
 
+/* Settings use destination rows instead of making every control compete on
+   one endless sheet. Home layout is the first focused sub-screen. */
+.settings-route {
+  display: grid;
+  grid-template-columns: var(--tap) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-height: calc(var(--tap) + var(--s4));
+  margin-bottom: var(--s5);
+  padding: var(--s3);
+  text-align: left;
+  background: var(--slate-900);
+  border: 1px solid var(--rule);
+  color: var(--bone);
+}
+.settings-route:hover { background: var(--slate-800); border-color: var(--rule-strong); }
+.settings-route-icon { width: var(--tap); height: var(--tap); display: grid; place-items: center; background: var(--slate-700); }
+.settings-route-icon svg { width: 21px; height: 21px; }
+.settings-route b, .settings-route small { display: block; }
+.settings-route b { font-size: var(--t-lead); }
+.settings-route small { margin-top: 3px; color: var(--silver); font-size: var(--t-tiny); line-height: 1.45; }
+.settings-route > span:last-child { color: var(--silver); font-size: var(--t-title); }
+.settings-divider { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s4); }
+.settings-divider::after { content: ""; height: 1px; flex: 1; background: var(--rule); }
+.settings-divider span { color: var(--silver); font-family: var(--font-mono); font-size: var(--t-micro); font-weight: 700; letter-spacing: var(--track-label); text-transform: uppercase; }
+
+.layout-modal { max-width: 720px; }
+.layout-modal .modal-head { justify-content: initial; }
+.layout-modal .modal-head > .icon-btn:last-child { margin-left: auto; }
+.layout-modal .modal-head .label { display: block; margin-bottom: 2px; }
+.layout-summary {
+  margin-bottom: var(--s5);
+  padding: var(--s4);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--signal);
+  background: var(--slate-900);
+}
+.layout-summary b { display: block; font-size: var(--t-lead); }
+.layout-summary span { display: block; margin-top: var(--s1); color: var(--bone-dim); font-size: var(--t-small); }
+.layout-summary p { margin: var(--s3) 0 0; color: var(--silver); font-size: var(--t-tiny); line-height: 1.55; }
+.settings-group { margin-bottom: var(--s6); padding: 0 var(--s4); border: 1px solid var(--rule); background: var(--slate-900); }
+.layout-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s2); }
+.layout-section-head button { min-height: var(--tap); padding: 0 var(--s2); color: var(--bone-dim); font-size: var(--t-small); }
+.layout-catalog {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--tap) 48px 62px;
+  align-items: center;
+  gap: var(--s2);
+  min-height: calc(var(--tap) + var(--s5));
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--rule);
+  transition: opacity var(--dur-2) var(--ease), background var(--dur-1) var(--ease);
+}
+.layout-catalog.is-hidden { opacity: 0.56; }
+.layout-catalog-copy { min-width: 0; }
+.layout-catalog-copy b, .layout-catalog-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layout-catalog-copy b { font-size: var(--t-body); }
+.layout-catalog-copy span { margin-top: 3px; color: var(--silver); font-size: var(--t-tiny); }
+.hero-pick { width: var(--tap); height: var(--tap); display: grid; place-items: center; color: var(--silver-dim); border: 1px solid transparent; }
+.hero-pick svg { width: 19px; height: 19px; }
+.hero-pick.active { color: var(--signal-bright); border-color: var(--signal); background: var(--signal-wash); }
+.layout-order { display: grid; grid-template-columns: repeat(2, 1fr); border: 1px solid var(--rule); }
+.layout-order button { min-width: 0; min-height: var(--tap); color: var(--bone-dim); }
+.layout-order button + button { border-left: 1px solid var(--rule); }
+.layout-order button:disabled { color: var(--slate-600); }
+
 /* ------------------------------------------------------------------ *
  * 18. Obsidian / Signal visual direction
  * ------------------------------------------------------------------ */

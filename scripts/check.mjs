@@ -7,6 +7,7 @@ const requiredFiles = [
   "assets/css/obsidian.css",
   "assets/js/app.js",
   "assets/js/progress-store.js",
+  "assets/js/catalog-registry.js",
   "assets/js/playback/settings.js",
   "assets/js/playback/streams.js",
   "assets/js/playback/adapters.js",

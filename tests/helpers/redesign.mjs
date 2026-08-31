@@ -20,6 +20,10 @@ export function loadAudio() {
   return loadGlobal("assets/js/audio-player.js", "AstraAudio");
 }
 
+export function loadCatalogs() {
+  return loadGlobal("assets/js/catalog-registry.js", "AstraCatalogs");
+}
+
 /** A minimal add-on source in the shape `manifests()` returns. */
 export function source(name, catalogs, resources = ["catalog", "meta", "stream"]) {
   return {
