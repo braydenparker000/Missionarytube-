@@ -43,8 +43,8 @@
 
   function catalogKey(source, catalog) {
     return "c1:" + providerKey(source) + ":" + hash(
-      text(catalog && catalog.type, 120) + "\n" +
-      text(catalog && catalog.id, 240)
+      String(catalog && catalog.type || "") + "\n" +
+      String(catalog && catalog.id || "")
     );
   }
 
@@ -110,7 +110,6 @@
   }
 
   function reconcile(entries, raw) {
-    var base = defaults();
     var input = raw && typeof raw === "object" ? raw : {};
     var byKey = new Map((Array.isArray(entries) ? entries : []).map(function (entry) {
       return [entry.key, entry];

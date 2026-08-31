@@ -27,6 +27,17 @@ test("opaque preference keys never expose a configured add-on URL", () => {
   assert.doesNotMatch(entry.key + entry.providerKey, /private-token|manifest\.json|https:/);
 });
 
+test("catalog identity does not truncate ids that share a long prefix", () => {
+  const prefix = "catalog-" + "x".repeat(320);
+  const provider = source("provider", [
+    { id: prefix + "-one", type: "movie", name: "One" },
+    { id: prefix + "-two", type: "movie", name: "Two" }
+  ]);
+  const entries = [...Catalogs.build([provider])];
+
+  assert.notEqual(entries[0].key, entries[1].key);
+});
+
 test("saved order, visibility and hero choices reconcile with current manifests", () => {
   const provider = source("provider", [
     { id: "one", type: "movie", name: "One" },
