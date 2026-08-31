@@ -353,3 +353,42 @@ test("a list operation always goes through the all-elements selector", () => {
   const spread = [...html.matchAll(/\[\s*\.\.\.\s*(?<![$\w])\$\(/g)];
   assert.deepEqual(spread.map((m) => m[0]), [], "spreading a single element is not a list");
 });
+
+test("reduced motion covers every transition, not only the keyframes", () => {
+  // Regression: the artwork crossfade kept a 420ms opacity and a 900ms scale
+  // under `prefers-reduced-motion: reduce`, because the block listed the
+  // animations but not the transitions. Enforce the whole set rather than
+  // patching each one as it is noticed.
+  const block = css.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/);
+  assert.ok(block, "a reduced-motion block must exist");
+
+  // Every individual selector named anywhere inside the block. Split on the
+  // rule boundary rather than regex-matching: a selector list spans lines, and
+  // a lazy match would capture only its last line.
+  const covered = new Set();
+  // Strip comments first: one containing a comma would otherwise survive the
+  // split and glue itself onto the selector that follows it.
+  const inner = block[0].replace(/\/\*[\s\S]*?\*\//g, "").slice(block[0].replace(/\/\*[\s\S]*?\*\//g, "").indexOf("{") + 1);
+  for (const chunk of inner.split("}")) {
+    const head = chunk.slice(0, chunk.indexOf("{"));
+    if (chunk.indexOf("{") === -1) continue;
+    for (const sel of head.split(",")) {
+      const trimmed = sel.trim();
+      if (trimmed) covered.add(trimmed);
+    }
+  }
+
+  // Every rule outside the block that starts a transition.
+  const outside = css.replace(block[0], "");
+  const uncovered = [];
+  for (const rule of outside.matchAll(/\n([^@{}\n][^{}\n]*)\{([^}]*)\}/g)) {
+    const [, selector, body] = rule;
+    if (!/transition:/.test(body) || /transition:\s*none/.test(body)) continue;
+    for (const sel of selector.split(",")) {
+      const trimmed = sel.trim();
+      if (trimmed && !covered.has(trimmed)) uncovered.push(trimmed);
+    }
+  }
+  assert.deepEqual([...new Set(uncovered)], [],
+    `these transitions still run under reduced motion: ${[...new Set(uncovered)].join(", ")}`);
+});
