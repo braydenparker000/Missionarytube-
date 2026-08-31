@@ -233,6 +233,11 @@ test("every catalog card, including new releases, has resilient artwork", () => 
   assert.match(html, /onload="this\.parentElement\.classList\.add\('image-ready'\)"/);
   assert.match(html, /onerror="this\.parentElement\.classList\.add\('image-error'\);this\.remove\(\)"/);
   assert.match(css, /\.image-ready > \.media-image \{ opacity: 1; transform: scale\(1\); \}/);
+  assert.match(css, /\.art \{\s*display: block;/, "span artwork needs a box or loaded posters collapse");
+  assert.match(css, /\.rail-scroll\.release-rail \{ grid-auto-columns: min\(84vw, 330px\); \}/,
+    "the generic rail width must not crush poster-led release cards");
+  assert.match(css, /\.rail-scroll\.resume-rail \{ grid-auto-columns: 232px; \}/,
+    "the generic rail width must not crush Continue Watching cards");
 });
 
 test("motion is staged, tactile, and removed when the viewer requests it", () => {

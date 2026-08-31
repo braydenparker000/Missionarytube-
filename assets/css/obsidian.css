@@ -568,6 +568,7 @@ main {
 .card:focus-visible { outline: var(--focus); outline-offset: 3px; }
 
 .art {
+  display: block;
   position: relative;
   aspect-ratio: 2 / 3;
   background: var(--slate-800);
@@ -657,7 +658,7 @@ main {
 }
 
 /* Continue Watching reads wider so resume context fits. */
-.resume-rail { grid-auto-columns: 232px; }
+.rail-scroll.resume-rail { grid-auto-columns: 232px; }
 .resume-card { display: grid; grid-template-columns: 64px 1fr; gap: var(--s3); align-items: start; text-align: left; }
 .resume-card .art { aspect-ratio: 2 / 3; }
 .resume-body { display: block; min-width: 0; padding-top: 2px; }
@@ -673,7 +674,7 @@ main {
 .resume-bar i { display: block; height: 100%; background: var(--signal); }
 
 /* A release card keeps the full source name legible enough to judge. */
-.release-rail { grid-auto-columns: min(84vw, 330px); }
+.rail-scroll.release-rail { grid-auto-columns: min(84vw, 330px); }
 .release-card {
   display: grid;
   grid-template-columns: 104px minmax(0, 1fr);
@@ -2166,8 +2167,8 @@ main::before {
   :root { --gutter: 12px; --t-hero: 32px; --t-display: 24px; }
   .rail-scroll { grid-auto-columns: 118px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
-  .resume-rail { grid-auto-columns: 210px; }
-  .release-rail { grid-auto-columns: min(88vw, 292px); }
+  .rail-scroll.resume-rail { grid-auto-columns: 210px; }
+  .rail-scroll.release-rail { grid-auto-columns: min(88vw, 292px); }
   .release-card { grid-template-columns: 92px minmax(0, 1fr); }
   .release-art { width: 92px; min-height: 138px; }
   .record { grid-template-columns: repeat(2, minmax(0, 1fr)); }
