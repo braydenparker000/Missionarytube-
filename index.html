@@ -58,6 +58,7 @@
   <script src="assets/js/progress-store.js"></script>
   <script src="assets/js/hub.js"></script>
   <script src="assets/js/catalog-registry.js"></script>
+  <script src="assets/js/discovery-health.js"></script>
   <script src="assets/js/audio-player.js"></script>
   <script src="assets/js/playback/settings.js"></script>
   <script src="assets/js/playback/streams.js"></script>
@@ -67,7 +68,7 @@
   <script src="assets/js/playback/subtitles.js"></script>
   <script>
   (()=>{'use strict';
-    const APP_VERSION='0.13.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
+    const APP_VERSION='0.14.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
     const DEFAULT_ADDONS=[{url:'https://v3-cinemeta.strem.io/manifest.json',enabled:true,official:true}];
     const KEY='astra.v1.';
     const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
@@ -79,7 +80,7 @@
     const store={get(k,d){try{return JSON.parse(storageArea?.getItem(KEY+k))??d}catch{return d}},set(k,v){if(!storageArea)return false;try{storageArea.setItem(KEY+k,JSON.stringify(v));return true}catch{storageFailed();return false}}};
     const progress=AstraProgress.createProgressStore({storage:storageArea,storageKey:KEY+'progress',onError:storageFailed}).load();
     const DEFAULT_SETTINGS=AstraPlayback.settings.DEFAULTS;
-    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0};
+    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),addonHealth:AstraDiscovery.normalizeHealth(store.get('addonHealth',null)),healthChecking:new Set(),healthRun:0,briefing:{type:'all',genre:'all',mode:'one',items:[],seen:new Set(),loading:false,error:'',request:0},discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0};
 
     /* One geometric icon set: 24px grid, 1.75 stroke, round joins. Nothing
        here is decorative — every glyph names a destination or an action. */
@@ -99,6 +100,23 @@
     function normalizeManifestUrl(raw){let s=String(raw||'').trim();if(!s)throw Error('Paste an add-on manifest URL.');if(s.startsWith('stremio://'))s='https://'+s.slice(10);if(!/^https?:\/\//i.test(s))s='https://'+s;const u=new URL(s);if(u.protocol!=='https:'&&u.hostname!=='127.0.0.1'&&u.hostname!=='localhost')throw Error('Remote add-ons must use HTTPS.');if(!u.pathname.endsWith('manifest.json'))u.pathname=u.pathname.replace(/\/$/,'')+'/manifest.json';return u.href}
     function addonBase(url){return url.replace(/\/manifest\.json(?:\?.*)?$/,'')}
     async function fetchJSON(url,timeout=14000){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);try{const r=await fetch(url,{mode:'cors',signal:ctrl.signal,headers:{Accept:'application/json'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return await r.json()}catch(e){if(e.name==='AbortError')throw Error('Request timed out');throw e}finally{clearTimeout(timer)}}
+    let healthPersistTimer;
+    function addonHealthKey(addon){return AstraDiscovery.providerKey(addon)}
+    function addonHealthName(addon){
+      if(addon?.name)return String(addon.name).slice(0,80);
+      try{return new URL(addon?.url||'').hostname.slice(0,80)||'Add-on'}catch{return 'Add-on'}
+    }
+    function saveAddonHealth(){clearTimeout(healthPersistTimer);healthPersistTimer=setTimeout(()=>store.set('addonHealth',state.addonHealth),240)}
+    function recordAddonHealth(addon,kind,ok,started,error){
+      state.addonHealth=AstraDiscovery.recordHealth(state.addonHealth,{key:addonHealthKey(addon),name:addonHealthName(addon),kind,ok,latencyMs:Date.now()-started,error});
+      saveAddonHealth();
+    }
+    async function fetchAddonJSON(addon,kind,url,timeout=14000,validate){
+      if(typeof timeout==='function'){validate=timeout;timeout=14000}
+      const started=Date.now();
+      try{const data=await fetchJSON(url,timeout);if(validate&&!validate(data))throw Error(`Invalid ${kind} response`);recordAddonHealth(addon,kind,true,started);return data}
+      catch(error){recordAddonHealth(addon,kind,false,started,error);throw error}
+    }
     function hasResource(m,name,type,id){return (m.resources||[]).some(r=>{if(typeof r==='string')return r===name;if(r.name!==name)return false;if(r.types?.length&&type&&!r.types.includes(type))return false;if(r.idPrefixes?.length&&id&&!r.idPrefixes.some(p=>String(id).startsWith(p)))return false;return true})}
     function endpoint(addon,resource,type,id,extra){const base=addonBase(addon.url),parts=[resource,encodeURIComponent(type),encodeURIComponent(id)];if(extra&&Object.keys(extra).length){const x=Object.entries(extra).filter(([,v])=>v!==''&&v!=null).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');if(x)parts.push(x)}return `${base}/${parts.join('/')}.json`}
     function addonByUrl(url){return state.addons.find(a=>a.url===url)}
@@ -114,15 +132,15 @@
       if(state.currentPage==='search')renderSearchSurface();
       if(state.currentPage==='settings')renderSettings();
     }
-    async function loadManifests(force=false){const active=state.addons.filter(a=>a.enabled!==false);await Promise.allSettled(active.map(async a=>{if(!force&&state.manifests.has(a.url))return;try{const m=await fetchJSON(a.url);if(!m.id||!m.name)throw Error('Invalid manifest');state.manifests.set(a.url,m);a.error='';a.name=m.name;a.logo=m.logo||''}catch(e){a.error=e.message;state.manifests.delete(a.url)}}));store.set('addons',state.addons)}
+    async function loadManifests(force=false){const active=state.addons.filter(a=>a.enabled!==false);await Promise.allSettled(active.map(async a=>{if(!force&&state.manifests.has(a.url))return;try{const m=await fetchAddonJSON(a,'manifest',a.url,data=>!!(data&&data.id&&data.name));state.manifests.set(a.url,m);a.error='';a.name=m.name;a.logo=m.logo||''}catch(e){a.error=e.message;state.manifests.delete(a.url)}}));store.set('addons',state.addons)}
     function manifests(){return state.addons.filter(a=>a.enabled!==false&&state.manifests.has(a.url)).map(a=>({addon:a,manifest:state.manifests.get(a.url)}))}
-    async function installAddon(raw){const url=normalizeManifestUrl(raw);if(addonByUrl(url))throw Error('That add-on is already installed.');const m=await fetchJSON(url);if(!m.id||!m.name||!Array.isArray(m.resources))throw Error('The URL did not return a valid Stremio manifest.');state.addons.push({url,enabled:true,name:m.name,logo:m.logo||'',official:false});state.manifests.set(url,m);store.set('addons',state.addons);toast(`${m.name} installed`,'good');invalidateCatalogs();renderAddons();return m}
+    async function installAddon(raw){const url=normalizeManifestUrl(raw);if(addonByUrl(url))throw Error('That add-on is already installed.');const pending={url,enabled:true,name:'New add-on'};const m=await fetchAddonJSON(pending,'manifest',url,data=>!!(data&&data.id&&data.name&&Array.isArray(data.resources)));state.addons.push({url,enabled:true,name:m.name,logo:m.logo||'',official:false});state.manifests.set(url,m);store.set('addons',state.addons);toast(`${m.name} installed`,'good');invalidateCatalogs();renderAddons();return m}
     function mediaKey(m){return AstraCatalogs.contentKey(m)}
     function mediaRef(m){return AstraCatalogs.mediaRef(m)}
     function refreshCatalogRegistry(){state.catalogRegistry=AstraCatalogs.build(manifests(),{includeAdult:state.settings.showAdult,excludeType:AstraHub.isOutOfScope});state.homeLayout=AstraCatalogs.reconcile(state.catalogRegistry,state.homeLayout);store.set('homeLayout',state.homeLayout);return state.catalogRegistry}
     function catalogEntries(visibleOnly=false){const entries=refreshCatalogRegistry();return AstraCatalogs.ordered(entries,state.homeLayout,visibleOnly)}
     function recordMeta(m,source,cat){const item={...m,_addonUrl:source?.addon?.url||m._addonUrl,_addonName:source?.manifest?.name||m._addonName,_providerKey:source?AstraCatalogs.providerKey(source):m._providerKey,_catalogKey:source&&cat?AstraCatalogs.catalogKey(source,cat):m._catalogKey};const ref=mediaRef(item),key=mediaKey(item);if(ref)state.metaCache.set(ref,item);if(key&&!state.metaCache.has(key))state.metaCache.set(key,item);return item}
-    async function getCatalog(source,cat,extra={}){const key=source.addon.url+'|'+cat.type+'|'+cat.id+'|'+JSON.stringify(extra);if(state.catalogCache.has(key))return state.catalogCache.get(key);const p=fetchJSON(endpoint(source.addon,'catalog',cat.type,cat.id,extra)).then(d=>(d.metas||[]).map(x=>recordMeta({...x,type:x.type||cat.type},source,cat))).catch(e=>{state.catalogCache.delete(key);throw e});state.catalogCache.set(key,p);return p}
+    async function getCatalog(source,cat,extra={}){const key=source.addon.url+'|'+cat.type+'|'+cat.id+'|'+JSON.stringify(extra);if(state.catalogCache.has(key))return state.catalogCache.get(key);const p=fetchAddonJSON(source.addon,'catalog',endpoint(source.addon,'catalog',cat.type,cat.id,extra),data=>!!(data&&Array.isArray(data.metas))).then(d=>d.metas.map(x=>recordMeta({...x,type:x.type||cat.type},source,cat))).catch(e=>{state.catalogCache.delete(key);throw e});state.catalogCache.set(key,p);return p}
     function catalogExtras(cat,overrides={}){const out={};for(const e of cat.extra||[]){if(e.isRequired&&e.name!=='search'&&e.name!=='skip'&&e.options?.length)out[e.name]=e.options[0]}return {...out,...overrides}}
     function yearOf(m){return m.releaseInfo||m.year||(m.released?String(m.released).slice(0,4):'')}
     function audioLanguageChoices(current){const choices=[['original','Original / source default'],['ja','Japanese'],['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['it','Italian'],['ko','Korean'],['zh','Chinese']],value=String(current||'original').toLowerCase();if(value&&!choices.some(([id])=>id===value))choices.push([value,value.toUpperCase()]);return choices}
@@ -386,6 +404,107 @@
     }
     function allCatalogs(){return catalogEntries(false).map(entry=>({s:entry.source,cat:entry.catalog,entry}))}
 
+    /* ---- The Briefing ---------------------------------------------------
+       A small decision tool, not a second catalog browser. It asks a balanced
+       sample of installed movie, series and anime catalogs, removes provider
+       duplicates and future releases, then gives one answer or three options.
+       Slow add-ons keep finishing into the normal cache and health record, but
+       cannot hold this sheet open indefinitely. */
+    function briefingSector(type){return AstraHub.sectorIdForType(type)||AstraHub.normalizeType(type)}
+    function briefingCatalogs(){
+      const allowed=new Set(['movie','series','anime']);
+      return allCatalogs().filter(x=>allowed.has(briefingSector(x.cat.type)))
+        .filter(x=>state.briefing.type==='all'||briefingSector(x.cat.type)===state.briefing.type);
+    }
+    function briefingGenres(){
+      const found=new Map();
+      briefingCatalogs().forEach(x=>(x.cat.extra||[]).filter(e=>e.name==='genre').forEach(e=>(e.options||[]).forEach(value=>{
+        const label=String(value||'').trim();if(label&&!found.has(label.toLowerCase()))found.set(label.toLowerCase(),label)
+      })));
+      return [...found.values()].sort((a,b)=>a.localeCompare(b));
+    }
+    function briefingLaunchHTML(cats){
+      const primary=cats.filter(x=>['movie','series','anime'].includes(briefingSector(x.cat.type))).length;
+      return `<section class="briefing-launch" aria-label="Surprise Me">
+        <span class="briefing-orbit" aria-hidden="true"></span>
+        <div class="briefing-launch-copy"><span class="eyebrow">Decision protocol</span><h2>The Briefing</h2>
+          <p>One sharp recommendation from the movies, shows and anime your add-ons actually provide.</p>
+          <span class="briefing-fact">${primary} eligible catalog${primary===1?'':'s'} · private to this device</span></div>
+        <button class="briefing-trigger" data-briefing-open ${primary?'':'disabled'}>${icon('spark')}<span>${primary?'Surprise me':'No catalogs yet'}</span></button>
+      </section>`;
+    }
+    function collectBriefingJobs(jobs,budget=4500){
+      return new Promise(resolve=>{
+        if(!jobs.length){resolve([]);return}
+        const values=[];let settled=0,finished=false,timer;
+        const finish=()=>{if(finished)return;finished=true;clearTimeout(timer);resolve(values.slice())};
+        timer=setTimeout(finish,budget);
+        jobs.forEach(job=>Promise.resolve(job).then(value=>{if(value)values.push(value)}).catch(()=>{}).finally(()=>{settled+=1;if(settled===jobs.length)finish()}));
+      });
+    }
+    function briefingCardHTML(m,index){
+      const art=backdrop(m)||poster(m),facts=[typeLabel(m.type),yearOf(m),m.imdbRating?`${m.imdbRating}/10`:''].filter(Boolean);
+      return `<button class="briefing-pick ${state.briefing.mode==='one'?'lead':''}" style="--briefing-index:${index}" data-open="${esc(mediaRef(m))}" aria-label="Open ${esc(m.name||m.title||'recommendation')}">
+        <span class="briefing-pick-art ${art?'image-loading':'image-error'}">${mediaImage(art,{priority:index===0})}<span class="art-fallback">${icon('film')}</span></span>
+        <span class="briefing-pick-shade" aria-hidden="true"></span>
+        <span class="briefing-pick-copy"><span class="briefing-pick-kicker">${providerChip(m._addonName)}<span>${esc(facts.join(' · '))}</span></span>
+          <b>${esc(m.name||m.title||'Untitled')}</b><span class="briefing-pick-summary">${esc(m.description||m.overview||'Open the dossier for details.')}</span>
+          <span class="briefing-pick-action">Open dossier ${icon('chevron')}</span></span>
+      </button>`;
+    }
+    function renderBriefing(){
+      const root=$('#modalRoot'),b=state.briefing,genres=briefingGenres();if(!root)return;
+      if(b.genre!=='all'&&!genres.some(x=>x===b.genre))b.genre='all';
+      const types=[['all','Everything'],['movie','Movies'],['series','Shows'],['anime','Anime']];
+      const result=b.loading
+        ?`<div class="briefing-loading"><span class="briefing-scan" aria-hidden="true"></span><span class="spinner"></span><b>Consulting your catalogs</b><span>Fast add-ons answer first. Slow ones cannot hold the decision.</span></div>`
+        :b.items.length
+          ?`<div class="briefing-results ${b.mode==='three'?'three':''}">${b.items.map(briefingCardHTML).join('')}</div>`
+          :b.error
+            ?stateHTML('No briefing available',b.error,`<button class="btn btn-ghost" data-briefing-run>Try again</button>`,'error')
+            :stateHTML('Ready when you are','Astra will draw only from installed movie, show and anime catalogs.');
+      root.innerHTML=`<div class="briefing-shell" data-dismiss><section class="briefing-panel" role="dialog" aria-modal="true" aria-labelledby="briefingTitle">
+        <header class="briefing-head"><div><span class="eyebrow">Astra decision protocol</span><h1 id="briefingTitle">The Briefing</h1></div><button class="icon-btn" data-close aria-label="Close The Briefing">${icon('close')}</button></header>
+        <div class="briefing-controls"><div class="briefing-segments" aria-label="Content type">${types.map(([id,label])=>`<button class="${b.type===id?'active':''}" data-briefing-type="${id}" aria-pressed="${b.type===id}">${label}</button>`).join('')}</div>
+          <div class="briefing-control-row"><label><span>Genre</span><select class="select" id="briefingGenre"><option value="all">Any genre</option>${genres.map(g=>`<option ${b.genre===g?'selected':''}>${esc(g)}</option>`).join('')}</select></label>
+          <div class="briefing-count" aria-label="Number of recommendations"><button class="${b.mode==='one'?'active':''}" data-briefing-mode="one" aria-pressed="${b.mode==='one'}">One pick</button><button class="${b.mode==='three'?'active':''}" data-briefing-mode="three" aria-pressed="${b.mode==='three'}">Three options</button></div></div></div>
+        <div class="briefing-body">${result}</div>
+        <footer class="briefing-footer"><span>Installed catalogs only · no profile or tracking</span><button class="btn btn-primary" data-briefing-run ${b.loading?'disabled':''}>${icon('spark')} ${b.items.length?'Another mission':'Run briefing'}</button></footer>
+      </section></div>`;
+      bindDynamic(root);
+    }
+    async function runBriefing(){
+      const b=state.briefing,request=++b.request,count=b.mode==='three'?3:1;
+      b.loading=true;b.error='';b.items=[];renderBriefing();
+      const catalogs=briefingCatalogs();
+      if(!catalogs.length){if(request!==b.request)return;b.loading=false;b.error='Install or enable a movie, show or anime catalog first.';renderBriefing();return}
+      const selected=AstraDiscovery.balancedSources(catalogs,12);
+      const jobs=selected.map(x=>{
+        const genreExtra=(x.cat.extra||[]).find(e=>e.name==='genre');
+        const option=b.genre==='all'?'':(genreExtra?.options||[]).find(value=>String(value).toLowerCase()===String(b.genre).toLowerCase())||'';
+        return getCatalog(x.s,x.cat,catalogExtras(x.cat,option?{genre:option}:{})).then(items=>({x,items}));
+      });
+      const answered=await collectBriefingJobs(jobs);
+      if(request!==b.request||!$('.briefing-panel'))return;
+      let pool=answered.flatMap(result=>result.items).filter(item=>{
+        const sector=briefingSector(item.type);
+        return ['movie','series','anime'].includes(sector)&&(b.type==='all'||sector===b.type)&&AstraHub.canStream(manifests(),item.type);
+      });
+      const pick=()=>AstraDiscovery.pick(pool,count,{seen:[...b.seen],genre:b.genre});
+      let choices=pick();
+      if(!choices.length&&pool.length){b.seen.clear();choices=pick()}
+      choices.forEach(item=>b.seen.add(AstraDiscovery.contentKey(item)));
+      b.loading=false;b.items=choices;
+      if(!choices.length)b.error=answered.length
+        ?'The catalogs that answered had no released, stream-capable match for these filters.'
+        :'No catalog answered within a few seconds. Add-on Health can show which provider is slow or unavailable.';
+      renderBriefing();
+    }
+    function openBriefing(){
+      state.briefing.items=[];state.briefing.error='';state.briefing.loading=false;
+      renderBriefing();runBriefing();
+    }
+
     /* ---- search and browse ------------------------------------------------
        One destination. An empty field browses every installed catalog; a
        query searches every catalog that declares search support. Either way
@@ -409,7 +528,7 @@
       const types=[...new Set(cats.map(x=>x.cat.type))];
       const genres=[...new Set(cats.flatMap(x=>(x.cat.extra||[]).filter(e=>e.name==='genre').flatMap(e=>e.options||[])))];
       const sectorOption=state.discover.sector?`<option value="__sector" selected>${esc(state.discover.sectorLabel||'Selected type')}</option>`:'';
-      root.innerHTML=`<div class="browse-head"><h2>Browse</h2></div>
+      root.innerHTML=`${briefingLaunchHTML(cats)}<div class="browse-head"><h2>Browse</h2></div>
         ${cats.length?'':stateHTML('No catalogs available','None of your enabled add-ons exposes a browsable catalog. Install one that does.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}
         <div class="filter-row">
           <select class="select" id="discoverType" aria-label="Content type"><option value="all" ${!state.discover.sector&&state.discover.type==='all'?'selected':''}>All types</option>${sectorOption}${types.map(x=>`<option ${!state.discover.sector&&state.discover.type===x?'selected':''}>${esc(typeLabel(x))}</option>`).join('')}</select>
@@ -481,6 +600,30 @@
         ${items.length?`<div class="grid">${cardsHTML(items,{showSource:true})}</div>`:stateHTML('Your library is empty','Save something you want to watch or listen to later. Nothing leaves this browser.',`<button class="btn btn-primary" data-nav="search">Browse catalogs</button>`)}`;
       bindDynamic(root);
     }
+    const HEALTH_COPY={ready:['Ready','ready'],slow:['Slow','slow'],trouble:['Trouble','trouble'],offline:['Unavailable','offline'],unknown:['Not checked','unknown'],disabled:['Disabled','disabled'],checking:['Checking','checking']};
+    function healthRecord(addon){return state.addonHealth.providers[addonHealthKey(addon)]||null}
+    function healthState(addon){
+      if(addon.enabled===false)return 'disabled';
+      if(state.healthChecking.has(addonHealthKey(addon)))return 'checking';
+      return AstraDiscovery.statusOf(healthRecord(addon));
+    }
+    function healthPill(addon){const status=healthState(addon),copy=HEALTH_COPY[status]||HEALTH_COPY.unknown;return `<span class="health-pill ${copy[1]}"><i></i>${copy[0]}</span>`}
+    function ageText(value){
+      if(!value)return 'Never checked';
+      const seconds=Math.max(0,Math.round((Date.now()-value)/1000));
+      if(seconds<15)return 'Just now';if(seconds<60)return `${seconds}s ago`;
+      const minutes=Math.round(seconds/60);if(minutes<60)return `${minutes}m ago`;
+      const hours=Math.round(minutes/60);if(hours<48)return `${hours}h ago`;
+      return `${Math.round(hours/24)}d ago`;
+    }
+    function latencyText(value){if(!value)return '—';return value<1000?`${value} ms`:`${(value/1000).toFixed(value<10000?1:0)} s`}
+    function healthSummaryText(){
+      const summary=AstraDiscovery.healthSummary(state.addonHealth,state.addons),active=state.addons.length-summary.disabled;
+      if(!active)return 'No enabled add-ons';
+      const attention=summary.slow+summary.trouble+summary.offline;
+      if(summary.unknown===active)return 'Run a private connection check';
+      return `${summary.ready} ready${attention?` · ${attention} need attention`:''}${summary.unknown?` · ${summary.unknown} unchecked`:''}`;
+    }
     /* An add-on row states what this provider actually exposes — the content
    types from its own manifest — so the coverage copy and this screen can
    never disagree. */
@@ -492,7 +635,7 @@
       return `<article class="addon-row">
         <div class="addon-logo">${safeUrl(m?.logo||a.logo)?`<img src="${esc(safeUrl(m?.logo||a.logo))}" alt="">`:icon('addons')}</div>
         <div class="addon-body">
-          <div class="addon-name"><span class="status-dot ${a.enabled===false?'off':''}"></span>${esc(name)}</div>
+          <div class="addon-name"><span class="status-dot ${a.enabled===false?'off':''}"></span><span>${esc(name)}</span>${healthPill(a)}</div>
           <div class="addon-meta">${esc(meta)}</div>
           <div class="addon-desc">${esc(desc)}</div>
           <div class="addon-actions"><button class="btn btn-sm btn-ghost" data-toggle-addon="${esc(a.url)}">${a.enabled===false?'Enable':'Disable'}</button>${m?.configure?`<button class="btn btn-sm btn-ghost" data-configure="${esc(m.configure)}">Configure</button>`:''}${a.official?'':`<button class="btn btn-sm btn-danger" data-remove-addon="${esc(a.url)}">${icon('trash')} Remove</button>`}</div>
@@ -502,12 +645,12 @@
       const root=$('#settingsRoot');if(!root)return;
       root.innerHTML=`${screenHead('Add-ons')}
         <p class="screen-lede">Astra shows only what these expose. Paste any compatible configured Stremio manifest URL.</p>
-        <div class="actions" style="margin-bottom:var(--s5)"><button class="btn btn-primary" data-action="install">${icon('plus')} Install add-on</button><button class="btn btn-ghost" data-nav="hub">${icon('hub')} Coverage</button></div>
+        <div class="actions" style="margin-bottom:var(--s5)"><button class="btn btn-primary" data-action="install">${icon('plus')} Install add-on</button><button class="btn btn-ghost" data-settings-route="health">${icon('globe')} Health</button><button class="btn btn-ghost" data-nav="hub">${icon('hub')} Coverage</button></div>
         <div class="notice">For Comet and similar providers, finish configuration on the add-on's website and paste the resulting <b>manifest.json</b> URL here. Astra stores it only in this browser.</div>
         ${state.addons.length?`<div class="addon-list" style="margin-top:var(--s5)">${state.addons.map(addonCard).join('')}</div>`:stateHTML('No add-ons installed','Install one to give Astra something to show.','<button class="btn btn-primary" data-action="install">Install add-on</button>')}`;
       bindDynamic(root);
     }
-    async function fullMeta(item){if(item._fullMeta)return item;const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){try{const d=await fetchJSON(endpoint(s.addon,'meta',item.type,item.id));if(d.meta)return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
+    async function fullMeta(item){if(item._fullMeta)return item;const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){try{const d=await fetchAddonJSON(s.addon,'meta',endpoint(s.addon,'meta',item.type,item.id),data=>!!data?.meta);return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
     async function openMedia(key){
       cancelStreamLookup();
       let item=state.metaCache.get(key)||state.library[key]?.meta||state.homeItems.find(x=>mediaKey(x)===key)||progress.meta(key)||Object.values(state.library).find(x=>mediaRef(x.meta)===key)?.meta||state.homeItems.find(x=>mediaRef(x)===key);
@@ -650,7 +793,7 @@
       root.innerHTML=streamDrawerHTML('<div class="source-loading"><span class="spinner"></span><span>Asking your add-ons…</span></div>');
       bindDynamic(root);
       const sources=manifests().filter(s=>hasResource(s.manifest,'stream',m.type,videoId));
-      const rs=await Promise.allSettled(sources.map(async (s,order)=>({order,s,streams:(await fetchJSON(endpoint(s.addon,'stream',m.type,videoId))).streams||[]})));
+      const rs=await Promise.allSettled(sources.map(async (s,order)=>({order,s,streams:(await fetchAddonJSON(s.addon,'stream',endpoint(s.addon,'stream',m.type,videoId),data=>!!(data&&Array.isArray(data.streams)))).streams})));
       if(stale())return[];
       state.currentStreams=rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.streams.map(v=>({...v,_addonName:x.value.s.manifest.name,_addonOrder:x.value.order})));
       player.sources=prepareStreams(state.currentStreams);
@@ -1120,7 +1263,7 @@
     async function attachSubtitles(el,s,m,v,scope,live){
       try{
         const sources=manifests().filter(x=>hasResource(x.manifest,'subtitles',m.type,v.id));
-        const rs=await Promise.allSettled(sources.map(x=>fetchJSON(endpoint(x.addon,'subtitles',m.type,v.id,{videoHash:s.behaviorHints?.videoHash,videoSize:s.behaviorHints?.videoSize}))));
+        const rs=await Promise.allSettled(sources.map(x=>fetchAddonJSON(x.addon,'subtitles',endpoint(x.addon,'subtitles',m.type,v.id,{videoHash:s.behaviorHints?.videoHash,videoSize:s.behaviorHints?.videoSize}),data=>!!(data&&Array.isArray(data.subtitles)))));
         if(!live()||scope.disposed)return;
         const raw=[...(s.subtitles||[]),...rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.subtitles||[])];
         const tracks=PB.subtitles.normalizeTracks(raw,{pageUrl:location.href});
@@ -1239,6 +1382,7 @@
       root.innerHTML=`<div class="page-head"><h1 class="page-title">Settings</h1><p class="page-lede">Everything Astra knows is stored in this browser and never uploaded.</p></div>
         <div class="settings-section"><span class="label">Content</span><div class="settings-group flush">
           ${settingsRouteHTML('addons','addons','Add-ons',`${providers} enabled · the only source of catalogs and streams`)}
+          ${settingsRouteHTML('health','globe','Add-on health',healthSummaryText())}
           ${settingsRouteHTML('catalogs','hub','Home layout',`${catalogs} catalog${catalogs===1?'':'s'} · order, visibility, hero sources, provider labels`)}
           ${settingsRouteHTML('coverage','film','Content coverage','Which content types your installed add-ons actually provide')}
         </div></div>
@@ -1274,6 +1418,79 @@
         <div class="notice warn" style="margin-top:var(--s5)">Exports include configured add-on URLs, which may contain private service tokens. Keep backup files private.</div>
         <div class="actions" style="margin-top:var(--s5)"><button class="btn btn-ghost" data-export>${icon('download')} Private backup</button><label class="btn btn-ghost">${icon('upload')} Import backup<input class="hidden" id="importFile" type="file" accept="application/json"></label></div>
         <p class="settings-note">Astra ${APP_VERSION} · No analytics, no tracking, and no server of its own.</p>`;
+      bindDynamic(root);
+    }
+    function healthChannelHTML(kind,channel){
+      const labels={manifest:'Manifest',catalog:'Catalogs',meta:'Details',stream:'Sources',subtitles:'Subtitles'},label=labels[kind]||typeLabel(kind);
+      if(!channel)return `<div class="health-channel unknown"><span>${esc(label)}</span><b>Not observed</b><small>—</small></div>`;
+      return `<div class="health-channel ${channel.ok?'ready':'offline'}"><span>${esc(label)}</span><b>${channel.ok?'Reached':'Failed'}</b><small>${latencyText(channel.latencyMs)} · ${ageText(channel.checkedAt)}</small></div>`;
+    }
+    function healthCardHTML(addon){
+      const record=healthRecord(addon),status=healthState(addon),copy=HEALTH_COPY[status]||HEALTH_COPY.unknown;
+      const channels=['manifest','catalog','meta','stream','subtitles'];
+      const error=record?.error||((addon.enabled!==false&&addon.error)?AstraDiscovery.sanitizeError(addon.error):'');
+      const successRate=record?.requests?Math.round(record.successes/record.requests*100):null;
+      return `<article class="health-card ${copy[1]}">
+        <div class="health-card-head"><div><span class="health-provider">${esc(addonHealthName(addon))}</span>${healthPill(addon)}</div>
+          <button class="btn btn-sm btn-ghost" data-health-addon="${addonHealthKey(addon)}" ${addon.enabled===false||status==='checking'?'disabled':''}>${status==='checking'?'Checking…':'Check now'}</button></div>
+        <div class="health-vitals"><span><b>${latencyText(record?.latencyMs)}</b>Typical response</span><span><b>${successRate==null?'—':`${successRate}%`}</b>Recent success</span><span><b>${ageText(record?.lastCheck)}</b>Last signal</span></div>
+        <div class="health-channels">${channels.map(kind=>healthChannelHTML(kind,record?.channels?.[kind])).join('')}</div>
+        ${error?`<p class="health-error">${icon('alert')}<span>${esc(error)}</span></p>`:''}
+      </article>`;
+    }
+    async function probeAddonJSON(addon,kind,url,validate){
+      const started=Date.now();
+      try{
+        const data=await fetchJSON(url,8000);
+        if(validate&&!validate(data))throw Error(`Invalid ${kind} response`);
+        recordAddonHealth(addon,kind,true,started);return data;
+      }catch(error){recordAddonHealth(addon,kind,false,started,error);throw error}
+    }
+    async function checkAddonHealth(addon,options={}){
+      if(!addon||addon.enabled===false)return false;
+      const key=addonHealthKey(addon);if(state.healthChecking.has(key))return false;
+      state.healthChecking.add(key);
+      if(options.render!==false&&state.settingsRoute==='health')renderHealthSettings();
+      let ok=false;
+      try{
+        const manifest=await probeAddonJSON(addon,'manifest',addon.url,data=>!!(data&&data.id&&data.name&&Array.isArray(data.resources)));
+        state.manifests.set(addon.url,manifest);addon.name=manifest.name;addon.logo=manifest.logo||'';addon.error='';
+        const catalog=(manifest.catalogs||[]).find(cat=>!AstraHub.isOutOfScope(cat.type)&&!(cat.extra||[]).some(extra=>extra.isRequired&&extra.name==='search'));
+        if(catalog){
+          const url=endpoint(addon,'catalog',catalog.type,catalog.id,catalogExtras(catalog));
+          await probeAddonJSON(addon,'catalog',url,data=>!!(data&&Array.isArray(data.metas)));
+        }
+        ok=true;
+      }catch(error){addon.error=AstraDiscovery.sanitizeError(error)||'Connection check failed'}
+      finally{
+        state.healthChecking.delete(key);store.set('addons',state.addons);
+        if(options.render!==false&&state.settingsRoute==='health')renderHealthSettings();
+        if(options.toast!==false)toast(ok?`${addonHealthName(addon)} is responding`:`${addonHealthName(addon)} needs attention`,ok?'good':'bad');
+      }
+      return ok;
+    }
+    async function testAllAddonHealth(){
+      const active=state.addons.filter(addon=>addon.enabled!==false);if(!active.length)return toast('Enable an add-on before running a check.','bad');
+      if(state.healthChecking.size)return;
+      const run=++state.healthRun;
+      const checks=active.map(addon=>checkAddonHealth(addon,{render:false,toast:false}));
+      renderHealthSettings();
+      const results=await Promise.all(checks);
+      if(run!==state.healthRun)return;
+      if(state.settingsRoute==='health')renderHealthSettings();
+      const ready=results.filter(Boolean).length;
+      toast(`${ready} of ${active.length} add-on${active.length===1?'':'s'} responded`,ready===active.length?'good':'bad');
+    }
+    function renderHealthSettings(){
+      const root=$('#settingsRoot');if(!root)return;
+      const summary=AstraDiscovery.healthSummary(state.addonHealth,state.addons),active=state.addons.length-summary.disabled,attention=summary.slow+summary.trouble+summary.offline,checking=state.healthChecking.size>0;
+      root.innerHTML=`${screenHead('Add-on health')}
+        <section class="health-overview"><div><span class="eyebrow">Private diagnostics</span><h2>${active?`${summary.ready} of ${active} ready`:'No enabled add-ons'}</h2><p>Astra records only response timing and status on this device. Configured addresses and private tokens never appear in diagnostics.</p></div>
+          <button class="btn btn-primary" data-health-test ${checking||!active?'disabled':''}>${checking?'<span class="spinner"></span> Checking…':`${icon('globe')} Check all`}</button></section>
+        <div class="health-totals" aria-label="Add-on health summary"><span><b>${summary.ready}</b>Ready</span><span><b>${attention}</b>Attention</span><span><b>${summary.unknown}</b>Unchecked</span></div>
+        <div class="notice" style="margin-bottom:var(--s5)">A manual check verifies the manifest and one lightweight catalog. Details, sources and subtitles are observed naturally when you use them—Astra never requests a playable link just to test it.</div>
+        ${state.addons.length?`<div class="health-list">${state.addons.map(healthCardHTML).join('')}</div>`:stateHTML('Nothing to diagnose','Install an add-on, then return here to test its connection.','<button class="btn btn-primary" data-nav="addons">Install add-on</button>')}
+        <p class="settings-note">A green check means the endpoint answered correctly. It cannot guarantee that every title has a working stream.</p>`;
       bindDynamic(root);
     }
     /* Changing a control is the save. The schema migration runs on every
@@ -1321,10 +1538,10 @@
       $$('[data-layout-option]',root).forEach(button=>button.onclick=()=>{const next={...state.homeLayout,[button.dataset.layoutOption]:!state.homeLayout[button.dataset.layoutOption]};applyHomeLayout(next);renderCatalogSettings()});
       $$('[data-layout-reset]',root).forEach(button=>button.onclick=()=>{applyHomeLayout(AstraCatalogs.reconcile(entries,AstraCatalogs.defaults()),'Home layout reset');renderCatalogSettings()});
     }
-    const SETTINGS_ROUTES={root:renderSettingsRoot,addons:renderAddons,catalogs:renderCatalogSettings,coverage:renderHub,audio:renderAudioSettings,data:renderDataSettings};
+    const SETTINGS_ROUTES={root:renderSettingsRoot,addons:renderAddons,health:renderHealthSettings,catalogs:renderCatalogSettings,coverage:renderHub,audio:renderAudioSettings,data:renderDataSettings};
     function exportData(){const data={app:'Astra',version:APP_VERSION,exported:new Date().toISOString(),addons:state.addons,library:state.library,progress:progress.snapshot(),settings:state.settings,homeLayout:state.homeLayout};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='astra-backup.json';a.click();URL.revokeObjectURL(a.href)}
     async function importData(file){const owned=currentModal();try{const d=JSON.parse(await file.text());if(d.app!=='Astra'||!Array.isArray(d.addons))throw Error('Not an Astra backup');state.addons=d.addons;state.library=d.library||{};progress.replace(d.progress||{});state.settings=AstraPlayback.settings.migrate({...state.settings,...d.settings});state.homeLayout=d.homeLayout&&typeof d.homeLayout==='object'?d.homeLayout:AstraCatalogs.defaults();for(const k of ['addons','library','settings','homeLayout'])store.set(k,state[k]);state.manifests.clear();state.catalogCache.clear();await loadManifests(true);toast('Backup imported','good');if(currentModal()===owned)closeModal();invalidateCatalogs();renderHome()}catch(e){toast(`Import failed: ${e.message}`,'bad')}}
-    function bindDynamic(root=document){hydrateIcons(root);$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-switch-source]',root).forEach(x=>x.onclick=()=>{const entry=entryById(x.dataset.switchSource);closeTrackMenu();if(entry)openPlayer(entry)});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{const next=player.nextEpisode;cancelCountdown();if(x.dataset.countdown!=='cancel'&&next)goToEpisode(next)});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0])}
+    function bindDynamic(root=document){hydrateIcons(root);$$('[data-briefing-open]',root).forEach(x=>x.onclick=()=>openBriefing());$$('[data-briefing-run]',root).forEach(x=>x.onclick=()=>runBriefing());$$('[data-briefing-type]',root).forEach(x=>x.onclick=()=>{state.briefing.type=x.dataset.briefingType;state.briefing.genre='all';runBriefing()});$$('[data-briefing-mode]',root).forEach(x=>x.onclick=()=>{state.briefing.mode=x.dataset.briefingMode;runBriefing()});const briefingGenre=$('#briefingGenre',root);if(briefingGenre)briefingGenre.onchange=()=>{state.briefing.genre=briefingGenre.value;runBriefing()};$$('[data-health-test]',root).forEach(x=>x.onclick=()=>testAllAddonHealth());$$('[data-health-addon]',root).forEach(x=>x.onclick=()=>{const addon=state.addons.find(item=>addonHealthKey(item)===x.dataset.healthAddon);if(addon)checkAddonHealth(addon)});$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-switch-source]',root).forEach(x=>x.onclick=()=>{const entry=entryById(x.dataset.switchSource);closeTrackMenu();if(entry)openPlayer(entry)});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{const next=player.nextEpisode;cancelCountdown();if(x.dataset.countdown!=='cancel'&&next)goToEpisode(next)});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0])}
     function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#streamOverlayRoot')?.children.length){closeStreamPicker();return}if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('#mediaEl')||$('#playerStage iframe'))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
     async function init(){buildNav();hydrateIcons();bindDynamic();globalEvents();await renderHome()}
     init().catch(e=>{console.error(e);toast('Astra could not start: '+e.message,'bad')});
