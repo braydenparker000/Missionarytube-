@@ -1225,13 +1225,6 @@ body.source-picker-open { overflow: hidden; }
 .source-loading .spinner { width: 28px; height: 28px; }
 .source-drawer .picker { margin-top: 0; }
 .source-drawer .picker > .group-head { padding-top: var(--s4); }
-.source-drawer .picker-bar {
-  margin-inline: calc(-1 * max(var(--gutter), var(--safe-l)));
-  padding-inline: max(var(--gutter), var(--safe-l));
-  background: color-mix(in srgb, var(--obsidian) 94%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
 @media (min-width: 700px) {
   .source-drawer-backdrop { align-items: center; padding: var(--s6); }
   .source-drawer { max-width: 720px; max-height: 86svh; border-bottom: 1px solid var(--rule); border-radius: var(--r4); }
@@ -1239,22 +1232,6 @@ body.source-picker-open { overflow: hidden; }
 
 .picker { margin-top: var(--s5); }
 
-.picker-bar {
-  position: sticky;
-  top: 0;
-  z-index: 6;
-  display: flex;
-  gap: var(--s2);
-  align-items: center;
-  padding: var(--s3) 0;
-  background: var(--obsidian);
-  box-shadow: inset 0 -1px 0 var(--rule-faint);
-  overflow-x: auto;
-  scrollbar-width: none;
-  margin-inline: calc(-1 * var(--gutter));
-  padding-inline: var(--gutter);
-}
-.picker-bar::-webkit-scrollbar { display: none; }
 
 .chip {
   flex: 0 0 auto;
@@ -1275,18 +1252,6 @@ body.source-picker-open { overflow: hidden; }
 .chip.active { color: var(--void); background: var(--bone); box-shadow: none; }
 .chip svg { width: 15px; height: 15px; }
 
-.picker-sort {
-  flex: 0 0 auto;
-  min-height: var(--tap);
-  padding: 0 var(--s3);
-  border-radius: var(--r-pill);
-  background: var(--slate-800);
-  box-shadow: inset 0 0 0 1px var(--rule-faint);
-  border: 0;
-  color: var(--bone);
-  font-size: var(--t-small);
-  font-weight: 650;
-}
 
 /* A stream row leads with the release name in mono, at full length. */
 .stream-list {
@@ -1319,15 +1284,10 @@ body.source-picker-open { overflow: hidden; }
   transition: background var(--dur-1) var(--ease);
 }
 .stream-row:hover { background: var(--slate-800); }
-.stream-row.recommended { background: linear-gradient(90deg, var(--signal-wash), transparent 72%); box-shadow: inset 3px 0 0 var(--signal); }
 .stream-row.blocked { opacity: 0.72; }
 
 .stream-lead { display: flex; align-items: baseline; gap: var(--s2); margin-bottom: var(--s2); }
 .stream-rank { font-size: var(--t-micro); }
-.stream-flag {
-  font-size: var(--t-micro); letter-spacing: var(--track-label); text-transform: uppercase;
-  font-weight: 800; color: var(--signal-bright);
-}
 
 /* The full release name. Wraps to as many lines as it needs — this is the
    thing a viewer is actually choosing between. */
@@ -1476,7 +1436,10 @@ body.source-picker-open { overflow: hidden; }
   display: block; font-size: var(--t-body); font-weight: 700;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.player-title span {
+/* The subheading only. Without the exclusion this also matched the quality
+   chips inside .player-quality and stacked each one on its own full-width
+   line, because a class+element selector outranks the .player-quality rule. */
+.player-title > span:not(.player-quality) {
   display: block; font-size: var(--t-tiny); color: var(--silver);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -1555,8 +1518,6 @@ body.source-picker-open { overflow: hidden; }
   box-shadow: inset 0 0 0 1px var(--rule), var(--lift-2);
 }
 .countdown-card b { display: block; font-size: var(--t-body); margin: var(--s1) 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.countdown-meter { height: 2px; background: var(--slate-700); margin: var(--s3) 0; overflow: hidden; }
-.countdown-meter i { display: block; height: 100%; background: var(--signal); transition: width 1s linear; }
 .countdown-actions { display: flex; gap: var(--s2); }
 .countdown-actions .btn { flex: 1; }
 
@@ -2212,10 +2173,7 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
   .dock-btn,
   .hub-row,
   .card,
-  .feature-dots i,
-  .countdown-meter i {
-    transition: none !important;
-  }
+  .feature-dots i { transition: none !important; }
   .sheet-panel,
   .source-drawer,
   .sheet,
@@ -2991,7 +2949,7 @@ main:has(#page-home.active) .topbar {
 }
 
 .filter-row { gap: 8px; }
-.select, .chip, .picker-sort { border-radius: var(--r-pill); }
+.select, .chip { border-radius: var(--r-pill); }
 
 .grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3382,16 +3340,8 @@ main:has(#page-home.active) .topbar {
 
 .source-drawer .picker > .group-head { padding: 22px 4px 12px; }
 
-.source-drawer .picker-bar {
-  top: 0;
-  gap: 7px;
-  margin-inline: -16px;
-  padding: 10px 16px 13px;
-  background: rgba(8,8,7,0.90);
-  border-bottom: 1px solid var(--rule-faint);
-}
 
-.source-drawer .chip, .source-drawer .picker-sort {
+.source-drawer .chip {
   min-height: 38px;
   padding-inline: 13px;
   background: var(--slate-800);
@@ -3410,15 +3360,7 @@ main:has(#page-home.active) .topbar {
 
 .stream-row { padding: 13px 2px 9px; }
 
-.stream-row.recommended {
-  background: transparent;
-  box-shadow: none;
-}
 
-.stream-item:has(.stream-row.recommended) {
-  border-color: rgba(255,95,58,0.46);
-  background: linear-gradient(135deg, rgba(255,95,58,0.12), var(--slate-900) 54%);
-}
 
 .stream-lead {
   display: flex;
@@ -3449,15 +3391,6 @@ main:has(#page-home.active) .topbar {
   white-space: nowrap;
 }
 
-.stream-flag {
-  display: inline-flex;
-  padding: 3px 7px;
-  border-radius: var(--r-pill);
-  background: var(--signal);
-  color: white;
-  font-size: 8px;
-  letter-spacing: 0.08em;
-}
 
 .stream-lead .chip-sm { margin-left: auto; }
 

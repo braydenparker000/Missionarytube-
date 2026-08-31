@@ -333,10 +333,20 @@ test("repeated open and close cycles accumulate nothing", async () => {
   );
 });
 
-test("the adapter kind follows the stream kind and native support", () => {
+test("HLS goes through hls.js so audio tracks exist at all", () => {
+  // Chromium has never implemented HTMLMediaElement.audioTracks, so a stream
+  // played by the browser's own pipeline can expose no track list whatever the
+  // container carries. Android Chrome reports native HLS support, which used
+  // to send every HLS stream down exactly that path. hls.js switches audio
+  // renditions through MSE, so it is the only way a dub is reachable here.
+  assert.equal(A.adapterKindFor("hls", { hlsSupported: true, nativeHls: true }), "hls",
+    "claimed native HLS support must not cost the viewer their audio tracks");
+  assert.equal(A.adapterKindFor("hls", { hlsSupported: true, nativeHls: false }), "hls");
+  // Without MSE hls.js cannot run, and the native path is all there is. A
+  // browser in that position (Safari) does implement audioTracks natively.
+  assert.equal(A.adapterKindFor("hls", { hlsSupported: false, nativeHls: true }), "native");
+
   assert.equal(A.adapterKindFor("dash", {}), "dash");
-  assert.equal(A.adapterKindFor("hls", { nativeHls: false }), "hls");
-  assert.equal(A.adapterKindFor("hls", { nativeHls: true }), "native", "native HLS skips hls.js");
   assert.equal(A.adapterKindFor("direct", {}), "native");
   assert.throws(() => A.createAdapter("nope", {}), /Unknown adapter kind/);
 });

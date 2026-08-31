@@ -281,11 +281,6 @@
     };
   }
 
-  function autoEligible(stream) {
-    var status = stream && stream.facts && stream.facts.episodeStatus;
-    return status !== "mismatch" && status !== "ambiguous-pack";
-  }
-
   function identityKey(stream) {
     if (!stream) return "";
     var locator = stream.url || stream.ytId || stream.externalUrl || stream.infoHash || "";
@@ -397,6 +392,7 @@
       hlsSupported: given.hlsSupported === true,
       dashSupported: given.dashSupported === true,
       nativeHls: given.nativeHls === true,
+      mse: given.mse === true,
       decodingInfo: typeof given.decodingInfo === "function" ? given.decodingInfo : null
     };
   }
@@ -419,11 +415,15 @@
     // unless the caller says otherwise (used by tests and by the engine after a
     // library load has actually failed).
     var options = (win && win.__astraLibraries) || {};
+    // hls.js needs Media Source Extensions. Without them the only HLS path is
+    // the browser's own, which is why `hlsSupported` folds both together.
+    var mse = typeof w.MediaSource === "function" || typeof w.ManagedMediaSource === "function";
     return capabilities({
       pageProtocol: (w.location && w.location.protocol) || "https:",
       canPlayType: canPlayType,
       nativeHls: nativeHls,
-      hlsSupported: options.hls === false ? nativeHls : true,
+      mse: mse,
+      hlsSupported: options.hls === false || !mse ? nativeHls : true,
       dashSupported: options.dash !== false,
       decodingInfo:
         mediaCapabilities && typeof mediaCapabilities.decodingInfo === "function"
@@ -702,186 +702,51 @@
       })
     ).then(function () {
       if (!changed) return evaluated;
-      // A changed verdict changes the score, the explanation and the order.
-      evaluated.forEach(rescore);
-      return evaluated.slice().sort(compare);
+      // A changed verdict changes the explanation, never the order: the list
+      // the viewer is reading must not rearrange itself under their thumb.
+      evaluated.forEach(refresh);
+      return evaluated;
     });
   }
 
   /* ---------------------------------------------------------------- *
-   * Deterministic ranking
+   * Presentation
    * ---------------------------------------------------------------- */
 
-  var STATE_TIER = {
-    "ready": 3,
-    "probably-ready": 2,
-    "requires-external": 1,
-    "unsupported": 0,
-    "unsafe": 0
-  };
-
   /**
-   * The owner's ceiling expressed on the same scale as `facts.resolutionRank`,
-   * so the two are directly comparable.
+   * Prepare every candidate for display, in the order the add-on returned it.
+   *
+   * Astra deliberately does not rank, reorder or filter add-on results. An
+   * add-on's configuration is where the owner expresses what they want back
+   * and in what order; re-sorting it here would silently override that. What
+   * this does add is a compatibility evaluation per source, because whether
+   * this device can actually decode a source is something the add-on cannot
+   * know and the viewer cannot see from a release name.
    */
-  function resolutionCeiling(settings) {
-    var index = RESOLUTIONS.indexOf(normalizeResolution(settings && settings.maxResolution));
-    return index === -1 ? RESOLUTIONS.length : RESOLUTIONS.length - index;
-  }
-
-  /**
-   * Score one candidate. Factors are additive and each contributes a labelled
-   * entry so the UI can show "Why this source" and tests can assert on the
-   * reasoning rather than just the final order.
-   */
-  function score(entry, settings) {
-    var facts = entry.stream.facts;
-    var evaluation = entry.evaluation;
-    var factors = [];
-    var total = 0;
-
-    // `display:false` marks a factor that moves the score but says nothing a
-    // viewer would act on, so it stays out of the "Why this source" line.
-    function add(points, label, display) {
-      if (!points) return;
-      total += points;
-      factors.push({ points: points, label: label, display: display !== false });
-    }
-
-    add(STATE_TIER[evaluation.state] * 1000, evaluation.label, false);
-    add(Math.round(evaluation.confidence * 120), "Compatibility confidence", false);
-
-    var ceiling = resolutionCeiling(settings);
-    var aboveCeiling = facts.resolutionRank > ceiling;
-    if (facts.resolutionRank) {
-      if (aboveCeiling) {
-        add(-260, "Above your " + settings.maxResolution + " limit");
-      } else {
-        add(facts.resolutionRank * 45, facts.resolution);
-      }
-    }
-
-    if (facts.cached) {
-      add(settings.preferCached ? 320 : 60, "Cached by your debrid service");
-    }
-
-    if (facts.hdr) {
-      if (settings.hdrPreference === "prefer") add(90, facts.hdr + " preferred");
-      else if (settings.hdrPreference === "avoid") add(-140, facts.hdr + " avoided");
-    }
-
-    if (entry.stream.kind === KIND.DIRECT) add(40, "Direct file, no extra runtime");
-    else if (entry.stream.kind === KIND.HLS) add(25, "Adaptive HLS");
-    else if (entry.stream.kind === KIND.DASH) add(15, "Adaptive DASH");
-
-    if (facts.codec === "H.264") add(60, "H.264 plays almost everywhere");
-    else if (facts.codec === "VP9") add(30, "VP9 is well supported in Chrome");
-    else if (facts.codec === "HEVC") add(-45, "HEVC depends on device support");
-    else if (facts.codec === "AV1") add(-20, "AV1 depends on device support");
-
-    // Very large files are a poor default over mobile data.
-    if (facts.sizeBytes > 2.5e10) add(-90, "Very large file");
-    else if (facts.sizeBytes && facts.sizeBytes < 6e9) add(20, "Reasonable size");
-
-    if (facts.episodeStatus === "mismatch") add(-5000, "Does not match the selected episode");
-    else if (facts.episodeStatus === "ambiguous-pack") add(-4000, "Pack has no exact file selected");
-    else if (facts.episodeStatus === "match") add(140, "Matches the selected episode");
-    else if (facts.episodeStatus === "pack-file") add(40, "Exact file selected from a pack");
-
-    if (entry.preferredBingeGroup && evaluation.playable && autoEligible(entry.stream) && entry.stream.bingeGroup === entry.preferredBingeGroup) {
-      add(180, "Same release group as the previous episode");
-    }
-
-    return { total: total, factors: factors, aboveCeiling: aboveCeiling };
-  }
-
-  function compare(a, b) {
-    if (b.score !== a.score) return b.score - a.score;
-    // Stable, explainable tiebreakers: configured add-on order, then the order
-    // the add-on itself returned.
-    if (a.stream.addonOrder !== b.stream.addonOrder) return a.stream.addonOrder - b.stream.addonOrder;
-    if (a.stream.index !== b.stream.index) return a.stream.index - b.stream.index;
-    return 0;
-  }
-
-  /**
-   * Evaluate and order every candidate. Returns entries carrying the stream,
-   * its evaluation, its score and a short human explanation.
-   */
-  function rank(streams, options) {
+  function prepare(streams, options) {
     var config = options || {};
-    var settingsModule = global.AstraPlayback && global.AstraPlayback.settings;
-    var owner = config.settings || (settingsModule ? settingsModule.DEFAULTS : {});
     var caps = config.capabilities;
 
-    var entries = (Array.isArray(streams) ? streams : []).map(function (stream, index) {
+    return (Array.isArray(streams) ? streams : []).map(function (stream, index) {
       var normalized = stream && stream.facts ? stream : normalize(stream, { index: index, pageUrl: config.pageUrl });
-      return { stream: normalized, evaluation: evaluate(normalized, caps) };
+      return refresh({ stream: normalized, evaluation: evaluate(normalized, caps) });
     });
-
-    entries.forEach(function (entry) {
-      entry.settings = owner;
-      entry.preferredBingeGroup = str(config.preferredBingeGroup);
-      rescore(entry);
-    });
-
-    return entries.slice().sort(compare);
   }
 
-  /** Recompute the derived ranking fields from the entry's current evaluation. */
-  function rescore(entry) {
-    var scored = score(entry, entry.settings || (global.AstraPlayback.settings || {}).DEFAULTS || {});
-    entry.score = scored.total;
-    entry.factors = scored.factors;
-    entry.aboveCeiling = scored.aboveCeiling;
-    entry.autoEligible = autoEligible(entry.stream) && !entry.aboveCeiling && entry.evaluation.playable;
+  /** Recompute the derived fields from the entry's current evaluation. */
+  function refresh(entry) {
     entry.why = explain(entry);
     return entry;
   }
 
   /**
-   * One short line for the UI. A playable source explains why it was chosen;
-   * an unplayable one explains what is blocking it, which is the only thing
-   * worth reading on a source you cannot start.
+   * One short line for the UI. An unplayable source explains what is blocking
+   * it; a playable one states how it will be delivered. Neither is a ranking
+   * claim: nothing here says one source is better than another.
    */
   function explain(entry) {
-    if (!entry.evaluation.playable) {
-      var blocking = entry.evaluation.reasons[0];
-      return blocking ? blocking.text : entry.evaluation.label;
-    }
-    var positives = entry.factors
-      .filter(function (factor) {
-        return factor.points > 0 && factor.display;
-      })
-      .sort(function (a, b) {
-        return b.points - a.points;
-      })
-      .slice(0, 3)
-      .map(function (factor) {
-        return factor.label;
-      });
-    // A source with nothing distinguishing still needs to say something.
-    if (!positives.length) {
-      var first = entry.evaluation.reasons[0];
-      return first ? first.text : entry.evaluation.label;
-    }
-    return positives.join(" · ");
-  }
-
-  /**
-   * The best candidate Astra may start on its own.
-   *
-   * `maxResolution` is a hard ceiling here, not just a scoring penalty: a
-   * cached 4K source can otherwise out-score every 1080p one and autoplay
-   * past the owner's limit. Above-ceiling sources stay listed and remain
-   * playable by an explicit tap; they are only excluded from automatic
-   * selection.
-   */
-  function bestCandidate(ranked) {
-    for (var i = 0; i < ranked.length; i += 1) {
-      if (ranked[i].autoEligible !== false && ranked[i].evaluation.playable && !ranked[i].aboveCeiling && autoEligible(ranked[i].stream)) return ranked[i];
-    }
-    return null;
+    var first = entry.evaluation.reasons[0];
+    return first ? first.text : entry.evaluation.label;
   }
 
   /** Short chip labels for the picker UI. */
@@ -905,12 +770,9 @@
     workloadFor: workloadFor,
     evaluate: evaluate,
     refineWithDecodingInfo: refineWithDecodingInfo,
-    rank: rank,
-    score: score,
+    prepare: prepare,
     explain: explain,
-    rescore: rescore,
-    bestCandidate: bestCandidate,
-    autoEligible: autoEligible,
+    refresh: refresh,
     identityKey: identityKey,
     episodeReference: episodeReference,
     detectPack: detectPack,

@@ -79,7 +79,7 @@
     const store={get(k,d){try{return JSON.parse(storageArea?.getItem(KEY+k))??d}catch{return d}},set(k,v){if(!storageArea)return false;try{storageArea.setItem(KEY+k,JSON.stringify(v));return true}catch{storageFailed();return false}}};
     const progress=AstraProgress.createProgressStore({storage:storageArea,storageKey:KEY+'progress',onError:storageFailed}).load();
     const DEFAULT_SETTINGS=AstraPlayback.settings.DEFAULTS;
-    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],streamFilter:'all',streamSort:'recommended',homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0};
+    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0};
 
     /* One geometric icon set: 24px grid, 1.75 stroke, round joins. Nothing
        here is decorative — every glyph names a destination or an action. */
@@ -515,7 +515,7 @@
       // Stamp the request: a slow full-metadata response for one title must not
       // replace whatever the viewer has open by the time it lands.
       const request={key};player.metaRequest=request;
-      state.currentVideo=null;state.currentStreams=[];player.ranked=[];
+      state.currentVideo=null;state.currentStreams=[];player.sources=[];
       state.currentMeta=item;showDetail(item,true);
       const full=await fullMeta(item);
       if(player.metaRequest!==request)return;
@@ -604,10 +604,13 @@
        All decision logic lives in assets/js/playback/*. This layer only binds
        it to the DOM: it renders snapshots and feeds media events back in. */
     const PB=AstraPlayback;
-    const player={session:null,scope:null,adapter:null,countdown:null,ranked:[],meta:null,video:null,menu:null,idleTimer:null,audioMode:false,audioDocked:false,audioScope:null,subtitleTracks:[],subtitleAttached:[],activeSubtitle:null,audioPreferenceApplied:false,preferredBingeGroup:null,lookup:null,metaRequest:null,autoPlayTimer:null,notice:null,noticeTimer:null,fitMode:'contain',locked:false};
+    const player={session:null,scope:null,adapter:null,nextEpisode:null,sources:[],meta:null,video:null,menu:null,idleTimer:null,audioMode:false,audioDocked:false,audioScope:null,subtitleTracks:[],subtitleAttached:[],activeSubtitle:null,audioPreferenceApplied:false,lookup:null,metaRequest:null,notice:null,noticeTimer:null,fitMode:'contain',locked:false};
     function capsNow(){return PB.streams.browserCapabilities(window)}
-    function rankStreams(list){return PB.streams.rank(PB.streams.normalizeAll(list,{pageUrl:location.href,video:state.currentVideo,metaType:state.currentMeta?.type}),{settings:state.settings,capabilities:capsNow(),preferredBingeGroup:player.preferredBingeGroup})}
-    function entryById(id){return player.ranked.find(e=>candidateKey(e)===id)||null}
+    /* Add-on order is the order. Astra evaluates compatibility per source
+       because the add-on cannot know what this device decodes, but it never
+       reorders, hides or scores what the add-on chose to return. */
+    function prepareStreams(list){return PB.streams.prepare(PB.streams.normalizeAll(list,{pageUrl:location.href,video:state.currentVideo,metaType:state.currentMeta?.type}),{pageUrl:location.href,capabilities:capsNow()})}
+    function entryById(id){return player.sources.find(e=>candidateKey(e)===id)||null}
     function candidateKey(entry){return PB.streams.identityKey(entry.stream)}
 
     /**
@@ -633,12 +636,10 @@
     }
     function closeStreamPicker(){
       player.lookup=null;
-      if(player.autoPlayTimer){clearTimeout(player.autoPlayTimer);player.autoPlayTimer=null}
       hideStreamDrawer();
     }
-    async function loadStreams(videoId,autoPlay=false){
+    async function loadStreams(videoId){
       const m=state.currentMeta;if(!m)return[];
-      if(!autoPlay)player.preferredBingeGroup=null;
       state.currentVideo=(m.videos||[]).find(v=>String(v.id)===String(videoId))||{id:videoId,title:m.name};
       const root=$('#streamOverlayRoot');if(!root)return[];
       const lookup={mediaKey:mediaKey(m),videoId:String(videoId),token:++state.searchToken};
@@ -652,18 +653,11 @@
       const rs=await Promise.allSettled(sources.map(async (s,order)=>({order,s,streams:(await fetchJSON(endpoint(s.addon,'stream',m.type,videoId))).streams||[]})));
       if(stale())return[];
       state.currentStreams=rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.streams.map(v=>({...v,_addonName:x.value.s.manifest.name,_addonOrder:x.value.order})));
-      player.ranked=rankStreams(state.currentStreams);
-      state.streamFilter='all';state.streamSort='recommended';
+      player.sources=prepareStreams(state.currentStreams);
       renderStreams();
-      // Advisory device probe; re-render if it changes any verdict.
-      PB.streams.refineWithDecodingInfo(player.ranked,capsNow(),{limit:6,settings:state.settings}).then(refined=>{if(stale())return;player.ranked=refined;renderStreams()}).catch(()=>{});
-      // Recomputed inside the timer: the decoding probe can change the winner
-      // while we wait, and stale() cannot see a re-ranking.
-      if(autoPlay&&PB.streams.bestCandidate(player.ranked))player.autoPlayTimer=setTimeout(()=>{
-        player.autoPlayTimer=null;if(stale())return;
-        const best=PB.streams.bestCandidate(player.ranked);
-        if(best&&best.evaluation.playable)openPlayer(best);
-      },250);
+      // Advisory device probe. It can change a compatibility verdict and the
+      // line that explains it; it never changes the order.
+      PB.streams.refineWithDecodingInfo(player.sources,capsNow(),{limit:6}).then(refined=>{if(stale())return;player.sources=refined;renderStreams()}).catch(()=>{});
       return state.currentStreams;
     }
     /**
@@ -681,38 +675,23 @@
     /** Invalidate any in-flight lookup, so its response cannot land later. */
     function cancelStreamLookup(){
       player.lookup=null;player.metaRequest=null;
-      if(player.autoPlayTimer){clearTimeout(player.autoPlayTimer);player.autoPlayTimer=null}
       hideStreamDrawer();
     }
 
     function motionOk(){return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches}
-    const STREAM_FILTERS=[['all','All'],['ready','Ready'],['cached','Cached'],['2160p','4K'],['1080p','1080p']];
-    function streamMatches(entry,filter){
-      const f=entry.stream.facts;
-      if(filter==='all')return true;
-      if(filter==='ready')return entry.evaluation.playable;
-      if(filter==='cached')return f.cached;
-      return f.resolution===filter;
-    }
-    function sortedStreams(){
-      const list=player.ranked.filter(e=>streamMatches(e,state.streamFilter));
-      if(state.streamSort==='quality')return list.slice().sort((a,b)=>b.stream.facts.resolutionRank-a.stream.facts.resolutionRank||b.score-a.score);
-      if(state.streamSort==='size')return list.slice().sort((a,b)=>b.stream.facts.sizeBytes-a.stream.facts.sizeBytes||b.score-a.score);
-      return list;
-    }
-    /* The source picker is a release browser, not a menu: the full release
-       name leads each row, the compatibility verdict is stated rather than used
-       to hide anything, and every field the add-on returned stays inspectable. */
+    /* The source picker is a release browser, not a menu. It shows exactly
+       what the add-ons returned, in the order they returned it: an add-on's
+       configuration is where the owner says what they want and in what order,
+       and re-sorting or filtering it here would quietly override that. The
+       one thing Astra adds is a compatibility verdict, because whether this
+       device can decode a release is something the add-on cannot know. */
     function renderStreams(){
       const root=$('#streamOverlayRoot');if(!root)return;
-      const total=player.ranked.length,list=sortedStreams(),best=PB.streams.bestCandidate(player.ranked);
-      const filters=STREAM_FILTERS.filter(([id])=>id==='all'||player.ranked.some(e=>streamMatches(e,id)));
+      const list=player.sources,total=list.length;
+      const providerNames=[...new Set(list.map(e=>e.stream.addonName).filter(Boolean))];
       const streamProviders=state.currentMeta&&state.currentVideo?manifests().filter(s=>hasResource(s.manifest,'stream',state.currentMeta.type,state.currentVideo.id)).length:0;
-      const content=total?`<section class="picker">${groupHead('Sources',`${list.length} of ${total}`)}
-        <div class="picker-bar">${filters.map(([id,label])=>`<button class="chip ${state.streamFilter===id?'active':''}" data-stream-filter="${id}" aria-pressed="${state.streamFilter===id}">${esc(label)}</button>`).join('')}
-        <select class="picker-sort" data-stream-sort aria-label="Sort sources">${[['recommended','Recommended'],['quality','Quality'],['size','Size']].map(([id,label])=>`<option value="${id}" ${state.streamSort===id?'selected':''}>${label}</option>`).join('')}</select>
-        ${best?`<button class="chip active" data-play-best>${icon('play')} Play best</button>`:''}</div>
-        <div class="stream-list">${list.map((e,i)=>streamRowHTML(e,best,i)).join('')}</div></section>`
+      const content=total?`<section class="picker">${groupHead('Sources',`${total} from ${providerNames.length||1} add-on${providerNames.length===1?'':'s'}`)}
+        <div class="stream-list">${list.map((e,i)=>streamRowHTML(e,i)).join('')}</div></section>`
         :streamProviders
           ?stateHTML('No sources found','Your streaming add-ons answered, but none returned a playable result for this title or episode.','','error')
           :stateHTML('Catalog only','The title and episodes came from a catalog add-on, but this browser has no streaming add-on connected for them.',`<button class="btn btn-primary" data-nav="addons">Connect a streaming add-on</button>`,'offline');
@@ -720,8 +699,8 @@
       document.body.classList.add('source-picker-open');
       bindDynamic(root);
     }
-    function streamRowHTML(entry,best,index=0){
-      const s=entry.stream,f=s.facts,ev=entry.evaluation,isBest=best&&candidateKey(best)===candidateKey(entry);
+    function streamRowHTML(entry,index=0){
+      const s=entry.stream,f=s.facts,ev=entry.evaluation;
       const tag=(text,tone='')=>`<span class="tag ${tone}">${esc(text)}</span>`;
       const tags=[f.resolution&&tag(f.resolution),f.codec&&tag(f.codec),
         f.hdr&&tag(f.hdr,'signal'),f.audioCodec&&tag(f.audioCodec+(f.audioChannels?' '+f.audioChannels:'')),
@@ -733,10 +712,10 @@
         f.episodeStatus==='match'&&tag('Episode match','ok'),
         f.episodeStatus==='pack-file'&&tag('File selected','ok'),
         s.addonName&&tag(s.addonName)].filter(Boolean).join('');
-      const label=[isBest?'Recommended.':'',s.title,ev.label+'.',entry.why,s.addonName?'From '+s.addonName:''].filter(Boolean).join(' ');
+      const label=[s.title,ev.label+'.',entry.why,s.addonName?'From '+s.addonName:''].filter(Boolean).join(' ');
       const details=[['Release',s.title],['Filename',f.filename],['Provider',s.addonName||s.sourceName],['Compatibility',ev.label],['Why',entry.why],['Quality',[f.resolution,f.codec,f.hdr].filter(Boolean).join(' · ')],['Audio',[...(f.audioLanguages||[]),f.audioCodec,f.audioChannels].filter(Boolean).join(' · ')],['Size',f.sizeText],['Delivery',s.kind.toUpperCase()],['Cached',f.cached?'Yes':''],['File index',s.fileIdx==null?'':String(s.fileIdx)],['Pack status',f.episodeStatus==='ambiguous-pack'?'Pack has no exact file selected':f.episodeStatus==='mismatch'?'Does not match selected episode':f.episodeStatus==='pack-file'?'Exact file selected from pack':f.pack?'Pack':''],['Binge group',s.bingeGroup]].filter(([,v])=>v);
-      return `<article class="stream-item"><button class="stream-row ${isBest?'recommended':''} ${ev.playable?'':'blocked'}" data-play-source="${esc(candidateKey(entry))}" aria-label="${esc(label)}">
-        <span class="stream-lead"><span class="stream-quality">${esc(f.resolution||s.kind.toUpperCase())}</span><span class="stream-provider">${esc(s.addonName||s.sourceName||'Source')}</span>${isBest?'<span class="stream-flag">Best match</span>':''}<span class="tag chip-sm state-${ev.state}">${esc(PB.streams.STATE_SHORT[ev.state]||ev.label)}</span></span>
+      return `<article class="stream-item"><button class="stream-row ${ev.playable?'':'blocked'}" data-play-source="${esc(candidateKey(entry))}" aria-label="${esc(label)}">
+        <span class="stream-lead"><span class="stream-quality">${esc(f.resolution||s.kind.toUpperCase())}</span><span class="stream-provider">${esc(s.addonName||s.sourceName||'Source')}</span><span class="tag chip-sm state-${ev.state}">${esc(PB.streams.STATE_SHORT[ev.state]||ev.label)}</span></span>
         <span class="stream-name">${esc(s.title)}</span>
         <span class="stream-tags">${tags}</span>
         <span class="stream-footer"><span class="stream-why">${esc(entry.why)}</span><span class="stream-play-hint">Play ${icon('play')}</span></span></button>
@@ -762,10 +741,12 @@
       renderPlayerShell();
       // The tapped source always plays, even above the ceiling. Automatic
       // alternatives are filtered so failover cannot exceed it either.
-      const ordered=[entry,...player.ranked.filter(e=>candidateKey(e)!==candidateKey(entry))];
+      // The session carries exactly the source that was tapped. Astra does not
+      // fall through to another one on its own; a failure shows what happened
+      // and hands the viewer back to the list.
       player.session=PB.engine.createSession({
-        candidates:ordered.map((e,i)=>({id:candidateKey(e),stream:e.stream,evaluation:e.evaluation,entry:e,autoEligible:i===0||(!e.aboveCeiling&&e.autoEligible===true)})),
-        settings:state.settings,resumeTime,
+        candidates:[{id:candidateKey(entry),stream:entry.stream,evaluation:entry.evaluation,entry}],
+        resumeTime,
         onAttempt:startAttempt,onChange:renderPlayerState
       });
       player.session.start();
@@ -1024,7 +1005,7 @@
       const failure=snap.lastFailure,failed=failure&&failure.candidate&&failure.candidate.stream;
       stage.innerHTML=`<div class="player-error">
         <div class="error-kind">${esc(failure?failure.kind:'playback')} error</div>
-        <h2>${esc(snap.state==='exhausted'?'No source would play':'This source stopped')}</h2>
+        <h2>${esc(snap.state!=='exhausted'?'This source stopped':snap.attemptCount>1?'No source would play':'This source would not play')}</h2>
         <p>${esc(failure?failure.text:'Playback could not continue.')}</p>
         ${failed?`<div class="failed-source">Failed: ${esc(failed.title)}${failed.addonName?' · '+esc(failed.addonName):''}</div>`:''}
         <div class="error-actions">
@@ -1082,7 +1063,7 @@
     function closePlayer(silent){
       clearTimeout(player.idleTimer);
       clearTimeout(player.noticeTimer);player.noticeTimer=null;player.notice=null;
-      if(player.countdown){player.countdown.cancel();player.countdown=null}
+      player.nextEpisode=null;
       $('#countdownCard')?.remove();$('#trackMenu')?.remove();
       if(player.session){player.session.cancel();player.session=null}
       teardownAttempt();
@@ -1094,52 +1075,45 @@
       if(!state.currentMeta){closeModal();return}
       showDetail(state.currentMeta,false);
       // Closing the player returns to the sources already loaded for this video.
-      if(player.ranked.length)renderStreams();
+      if(player.sources.length)renderStreams();
     }
 
-    /* ---- series continuity ---------------------------------------------- */
+    /* ---- series continuity ----------------------------------------------
+       The end of an episode offers the next one; it never starts it. Astra
+       plays nothing the viewer did not choose, so this opens the next
+       episode's own source list on a tap and otherwise does nothing. */
     function onEpisodeEnded(){
       const m=player.meta,v=player.video;
       if(!PB.episodes.isEpisodic(m))return;
       const next=PB.episodes.nextEpisode(m.videos,v.id);
       if(!next){toast('You reached the end.','good');return}
-      if(!state.settings.autoplayNext)return;
-      startCountdown(next);
+      offerNextEpisode(next);
     }
-    function startCountdown(next){
-      const stage=$('#playerStage');if(!stage)return;
+    function offerNextEpisode(next){
       const modal=$('.player-modal');if(!modal)return;
+      $('#countdownCard')?.remove();
       const card=document.createElement('div');
       card.className='countdown-card';card.id='countdownCard';
-      const seconds=10;
       card.innerHTML=`<div class="eyebrow">Up next</div><b>${esc(PB.episodes.episodeLabel(next))}</b>
-        <div class="countdown-meter"><i id="countdownMeter" style="width:100%"></i></div>
-        <div class="countdown-actions"><button class="btn btn-primary" data-countdown="now">Play now</button><button class="btn btn-ghost" data-countdown="cancel">Cancel</button></div>`;
+        <div class="countdown-actions"><button class="btn btn-primary" data-countdown="now">Choose a source</button><button class="btn btn-ghost" data-countdown="cancel">Dismiss</button></div>`;
       modal.appendChild(card);
       bindDynamic(card);
-      player.countdown=PB.episodes.createCountdown({
-        seconds,
-        onTick:remaining=>{const meter=$('#countdownMeter');if(meter)meter.style.width=(remaining/seconds*100)+'%'},
-        onDone:()=>{player.countdown=null;card.remove();goToEpisode(next)}
-      }).start();
+      player.nextEpisode=next;
     }
     function cancelCountdown(){
-      if(player.countdown){player.countdown.cancel();player.countdown=null}
+      player.nextEpisode=null;
       $('#countdownCard')?.remove();
     }
+    /* Moving to another episode opens its own source list. Nothing starts on
+       its own, so the sources for the previous episode are never carried over
+       and never silently reused for a different file. */
     async function goToEpisode(video){
       const m=player.meta||state.currentMeta;
       if(!m||!video)return;
-      const activeId=player.session?.snapshot().activeId,previous=player.ranked.find(e=>candidateKey(e)===activeId);
-      const preferredBingeGroup=previous?.stream.bingeGroup||null;
-      cancelCountdown();
       closePlayer(true);
-      player.preferredBingeGroup=preferredBingeGroup;
       state.currentMeta=m;showDetail(m,false);
-      // A fresh lookup: streams from the previous episode are never reused.
-      state.currentStreams=[];player.ranked=[];
-      toast(`Up next: ${PB.episodes.episodeLabel(video)}`,'good');
-      await loadStreams(video.id,true);
+      state.currentStreams=[];player.sources=[];
+      await loadStreams(video.id);
     }
 
     /* ---- subtitles and audio -------------------------------------------- */
@@ -1158,6 +1132,23 @@
         if(preferred){player.activeSubtitle=preferred.id;PB.subtitles.selectAttachedTrack(el,attached,preferred.id)}
         renderTools(player.session?player.session.snapshot():{});
       }catch{/* subtitles are best effort and never fail playback */}
+    }
+    /* Other sources for this same episode that name an audio language the one
+       playing does not. Only what the add-on actually advertised is listed:
+       nothing here guesses at a file's contents. */
+    function audioAlternateSources(){
+      const active=player.session?.snapshot().candidate?.id;
+      const current=player.sources.find(e=>candidateKey(e)===active);
+      const spoken=new Set((current?.stream.facts.audioLanguages||[]).map(l=>String(l).toLowerCase()));
+      const seen=new Set();
+      return player.sources.filter(entry=>{
+        if(candidateKey(entry)===active||!entry.evaluation.playable)return false;
+        const langs=(entry.stream.facts.audioLanguages||[]).map(l=>String(l).toLowerCase());
+        if(!langs.length||langs.every(l=>spoken.has(l)))return false;
+        const key=langs.slice().sort().join(',');
+        if(seen.has(key))return false;
+        seen.add(key);return true;
+      }).slice(0,6);
     }
     function refreshAudioTracks(tracks){
       const list=Array.isArray(tracks)?tracks:[];
@@ -1182,9 +1173,19 @@
           <div class="track-options">${options.map((o,index)=>`<button class="track-option ${o.active?'active':''}" data-text-track="${esc(o.id)}"><span class="track-line"><b>${esc(o.label)}</b>${index?`<span class="track-sub">${esc(player.subtitleTracks[index-1]?.lang?.toUpperCase()||'External track')}</span>`:''}</span>${o.active?icon('check'):''}</button>`).join('')}</div>`;
       }else{
         const tracks=player.adapter&&player.adapter.getAudioTracks?player.adapter.getAudioTracks():[];
-        const limitation=!tracks.length?`<p class="track-empty"><b>No switchable tracks exposed.</b> Android Chrome does not expose embedded audio tracks for every direct file. Try another source—HLS and DASH expose language tracks when the stream provides them.</p>`:'';
+        const alternates=tracks.length?[]:audioAlternateSources();
+        // Chromium has never implemented HTMLMediaElement.audioTracks, so a
+        // file played through the browser's own pipeline has no track list to
+        // offer whatever the container holds. Rather than an empty menu, the
+        // other sources this add-on returned for the same episode are listed
+        // by the audio language they advertise: switching source is the only
+        // way to change language for a direct file here, so make it one tap.
+        const limitation=tracks.length?'':`<p class="track-empty"><b>This source exposes no switchable audio.</b> Chrome cannot select an embedded track inside a direct file — only adaptive HLS and DASH streams expose them.${alternates.length?' These sources advertise other languages:':' No other source for this episode advertises a different language.'}</p>`;
+        const options=tracks.length
+          ?tracks.map((t,index)=>`<button class="track-option ${t.active?'active':''}" data-audio-track="${esc(t.id)}"><span class="track-line"><b>${esc(t.label||`Audio ${index+1}`)}</b><span class="track-sub">${esc([t.lang&&t.lang.toUpperCase(),player.adapter?.kind?.toUpperCase()].filter(Boolean).join(' · ')||'Stream audio')}</span></span>${t.active?icon('check'):''}</button>`).join('')
+          :alternates.map(entry=>`<button class="track-option" data-switch-source="${esc(candidateKey(entry))}"><span class="track-line"><b>${esc(entry.stream.facts.audioLanguages.map(l=>l.toUpperCase()).join(' · '))}</b><span class="track-sub">${esc([entry.stream.facts.resolution,entry.stream.facts.audioCodec,entry.stream.addonName].filter(Boolean).join(' · ')||entry.stream.title)}</span></span></button>`).join('');
         menu.innerHTML=`<div class="track-sheet-head"><div><span class="eyebrow">Playback</span><h4>Audio tracks</h4></div><button class="icon-btn" data-track-menu="audio" aria-label="Close audio tracks">${icon('close')}</button></div>
-          ${limitation}<div class="track-options">${tracks.map((t,index)=>`<button class="track-option ${t.active?'active':''}" data-audio-track="${esc(t.id)}"><span class="track-line"><b>${esc(t.label||`Audio ${index+1}`)}</b><span class="track-sub">${esc([t.lang&&t.lang.toUpperCase(),player.adapter?.kind?.toUpperCase()].filter(Boolean).join(' · ')||'Stream audio')}</span></span>${t.active?icon('check'):''}</button>`).join('')}</div>`;
+          ${limitation}<div class="track-options">${options}</div>`;
       }
       modal.appendChild(menu);bindDynamic(menu);player.menu=kind;
       $('#playerShell')?.classList.remove('idle');clearTimeout(player.idleTimer);
@@ -1242,30 +1243,12 @@
           ${settingsRouteHTML('coverage','film','Content coverage','Which content types your installed add-ons actually provide')}
         </div></div>
         <div class="settings-section"><span class="label">Playback</span><div class="settings-group flush">
-          ${settingsRouteHTML('playback','sliders','Playback','Resolution ceiling, cached sources, HDR, failover and autoplay')}
           ${settingsRouteHTML('audio','captions','Audio and subtitles','Preferred languages, dubs and default subtitle behaviour')}
         </div></div>
         <div class="settings-section"><span class="label">Privacy and data</span><div class="settings-group flush">
           ${settingsRouteHTML('data','shield','Data and backup','Adult catalogs, private export and import')}
         </div></div>
         <p class="settings-note">Astra ${APP_VERSION} · Add-ons, library, settings and playback progress are stored locally in Chrome.</p>`;
-      bindDynamic(root);
-    }
-    function renderPlaybackSettings(){
-      const s=state.settings,root=$('#settingsRoot');if(!root)return;
-      root.innerHTML=`${screenHead('Playback')}
-        <div class="settings-group">
-          <div class="field"><label for="maxResolution">Maximum auto-play quality</label>
-            <select class="select" id="maxResolution" data-select-setting>${['2160p','1080p','720p','480p'].map(x=>`<option ${s.maxResolution===x?'selected':''} value="${x}">${x==='2160p'?'4K':x}</option>`).join('')}</select>
-            <small>Auto Play Best respects the add-on's own ordering and skips higher resolutions. A source you tap yourself always plays.</small></div>
-          <div class="switch-row"><div><b>Prefer cached sources</b><span>Rank instantly available debrid results above uncached ones.</span></div><button class="switch ${s.preferCached?'on':''}" data-setting="preferCached" aria-label="Prefer cached sources" aria-pressed="${s.preferCached}"><i></i></button></div>
-          <div class="field"><label for="hdrPreference">HDR and Dolby Vision</label>
-            <select class="select" id="hdrPreference" data-select-setting>${[['prefer','Prefer HDR'],['neutral','No preference'],['avoid','Avoid HDR']].map(([v,l])=>`<option ${s.hdrPreference===v?'selected':''} value="${v}">${l}</option>`).join('')}</select>
-            <small>Choose Avoid if HDR content looks washed out on this screen.</small></div>
-          <div class="switch-row"><div><b>Automatic failover</b><span>If a source fails to start, try the next ranked source automatically.</span></div><button class="switch ${s.autoFailover?'on':''}" data-setting="autoFailover" aria-label="Automatic failover" aria-pressed="${s.autoFailover}"><i></i></button></div>
-          <div class="switch-row"><div><b>Autoplay next episode</b><span>Open the next episode and choose its best compatible source.</span></div><button class="switch ${s.autoplayNext?'on':''}" data-setting="autoplayNext" aria-label="Autoplay next episode" aria-pressed="${s.autoplayNext}"><i></i></button></div>
-        </div>
-        <p class="settings-note">Player v3 keeps its own on-screen controls. These preferences only decide which source it is handed first.</p>`;
       bindDynamic(root);
     }
     function renderAudioSettings(){
@@ -1296,8 +1279,6 @@
     /* Changing a control is the save. The schema migration runs on every
        write, so an out-of-range value can never reach the ranking. */
     function saveSettings(){
-      if($('#maxResolution'))state.settings.maxResolution=$('#maxResolution')?.value||'2160p';
-      if($('#hdrPreference'))state.settings.hdrPreference=$('#hdrPreference')?.value||'neutral';
       if($('#audioLanguage'))state.settings.audioLanguage=$('#audioLanguage')?.value||'original';
       if($('#subtitleLanguage'))state.settings.subtitleLanguage=$('#subtitleLanguage')?.value||'en';
       state.settings=AstraPlayback.settings.migrate(state.settings);
@@ -1340,10 +1321,10 @@
       $$('[data-layout-option]',root).forEach(button=>button.onclick=()=>{const next={...state.homeLayout,[button.dataset.layoutOption]:!state.homeLayout[button.dataset.layoutOption]};applyHomeLayout(next);renderCatalogSettings()});
       $$('[data-layout-reset]',root).forEach(button=>button.onclick=()=>{applyHomeLayout(AstraCatalogs.reconcile(entries,AstraCatalogs.defaults()),'Home layout reset');renderCatalogSettings()});
     }
-    const SETTINGS_ROUTES={root:renderSettingsRoot,addons:renderAddons,catalogs:renderCatalogSettings,coverage:renderHub,playback:renderPlaybackSettings,audio:renderAudioSettings,data:renderDataSettings};
+    const SETTINGS_ROUTES={root:renderSettingsRoot,addons:renderAddons,catalogs:renderCatalogSettings,coverage:renderHub,audio:renderAudioSettings,data:renderDataSettings};
     function exportData(){const data={app:'Astra',version:APP_VERSION,exported:new Date().toISOString(),addons:state.addons,library:state.library,progress:progress.snapshot(),settings:state.settings,homeLayout:state.homeLayout};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='astra-backup.json';a.click();URL.revokeObjectURL(a.href)}
     async function importData(file){const owned=currentModal();try{const d=JSON.parse(await file.text());if(d.app!=='Astra'||!Array.isArray(d.addons))throw Error('Not an Astra backup');state.addons=d.addons;state.library=d.library||{};progress.replace(d.progress||{});state.settings=AstraPlayback.settings.migrate({...state.settings,...d.settings});state.homeLayout=d.homeLayout&&typeof d.homeLayout==='object'?d.homeLayout:AstraCatalogs.defaults();for(const k of ['addons','library','settings','homeLayout'])store.set(k,state[k]);state.manifests.clear();state.catalogCache.clear();await loadManifests(true);toast('Backup imported','good');if(currentModal()===owned)closeModal();invalidateCatalogs();renderHome()}catch(e){toast(`Import failed: ${e.message}`,'bad')}}
-    function bindDynamic(root=document){hydrateIcons(root);$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-play-best]',root).forEach(x=>x.onclick=()=>{const best=AstraPlayback.streams.bestCandidate(player.ranked);if(best)openPlayer(best)});$$('[data-stream-filter]',root).forEach(x=>x.onclick=()=>{state.streamFilter=x.dataset.streamFilter;renderStreams()});$$('[data-stream-sort]',root).forEach(x=>x.onchange=()=>{state.streamSort=x.value;renderStreams()});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{if(x.dataset.countdown==='cancel')cancelCountdown();else if(player.countdown)player.countdown.finishNow()});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0])}
+    function bindDynamic(root=document){hydrateIcons(root);$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-switch-source]',root).forEach(x=>x.onclick=()=>{const entry=entryById(x.dataset.switchSource);closeTrackMenu();if(entry)openPlayer(entry)});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{const next=player.nextEpisode;cancelCountdown();if(x.dataset.countdown!=='cancel'&&next)goToEpisode(next)});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0])}
     function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#streamOverlayRoot')?.children.length){closeStreamPicker();return}if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('#mediaEl')||$('#playerStage iframe'))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
     async function init(){buildNav();hydrateIcons();bindDynamic();globalEvents();await renderHome()}
     init().catch(e=>{console.error(e);toast('Astra could not start: '+e.message,'bad')});

@@ -91,7 +91,10 @@
   function createSession(config) {
     var options = config || {};
     var candidates = Array.isArray(options.candidates) ? options.candidates.slice() : [];
-    var settings = options.settings || {};
+    // Astra never starts a source the viewer did not choose, so automatic
+    // failover is off unless a caller explicitly opts in. `tryNext()` stays:
+    // it is a button on the error card, not something the engine decides.
+    var autoFailover = options.autoFailover === true;
     var maxAttempts = Number.isFinite(options.maxAttempts) ? options.maxAttempts : DEFAULT_MAX_ATTEMPTS;
     var startupTimeoutMs = Number.isFinite(options.startupTimeoutMs)
       ? options.startupTimeoutMs
@@ -128,26 +131,14 @@
         index: index,
         entry: candidate,
         stream: candidate && candidate.stream ? candidate.stream : candidate,
-        evaluation: (candidate && candidate.evaluation) || null,
-        // The first candidate is the viewer's explicit choice, so it is always
-        // startable; later ones may opt out of automatic selection.
-        autoEligible: index === 0 ? true : !(candidate && candidate.autoEligible === false)
+        evaluation: (candidate && candidate.evaluation) || null
       };
     });
 
-    /**
-     * Eligible for the engine to start on its own.
-     *
-     * `autoEligible: false` marks a candidate the viewer may still choose by
-     * hand but that must never be reached automatically — a source above the
-     * owner's resolution ceiling, for instance. The first attempt is passed in
-     * explicitly by the caller, so a deliberate tap on such a source is
-     * unaffected; only the failover alternatives are filtered.
-     */
+    /** A candidate this session has not tried yet and could still start. */
     function isEligible(candidate) {
       if (!candidate) return false;
       if (triedIds.indexOf(candidate.id) !== -1) return false;
-      if (candidate.autoEligible === false) return false;
       return !candidate.evaluation || candidate.evaluation.playable === true;
     }
 
@@ -249,9 +240,9 @@
         afterPlayback: hasMeaningfulPlayback
       };
 
-      // Never auto-switch once real playback happened: that is a user decision.
-      var mayFailover =
-        !hasMeaningfulPlayback && settings.autoFailover !== false && triedIds.length < maxAttempts;
+      // Off by default, and never once real playback happened: switching
+      // sources is the viewer's decision, not the player's.
+      var mayFailover = autoFailover && !hasMeaningfulPlayback && triedIds.length < maxAttempts;
       var next = mayFailover ? nextEligible() : null;
 
       if (next) {

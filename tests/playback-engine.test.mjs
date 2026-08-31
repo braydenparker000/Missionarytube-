@@ -13,7 +13,9 @@ function session(candidates, options = {}) {
   const changes = [];
   const instance = E.createSession({
     candidates,
-    settings: { autoFailover: true, ...options.settings },
+    // The engine never fails over unless a caller asks it to. Astra itself
+    // never does; these tests opt in to exercise the machine.
+    autoFailover: options.autoFailover !== false,
     maxAttempts: options.maxAttempts ?? 3,
     startupTimeoutMs: options.startupTimeoutMs ?? 1000,
     setTimeout: clock.setTimeout,
@@ -55,8 +57,32 @@ test("automatic failover is capped and can never loop", () => {
   assert.equal(snapshot.state, E.STATE.FAILED);
 });
 
+test("a session started the way Astra starts one never advances by itself", () => {
+  // Astra hands the engine exactly the source the viewer tapped, and does not
+  // opt into failover. A failure therefore settles rather than reaching for
+  // something the viewer did not choose.
+  const { instance } = session([candidate("chosen")], { autoFailover: false });
+  instance.start();
+  assert.equal(instance.snapshot().candidate.id, "chosen");
+  instance.report(instance.snapshot().attemptId, "error", { type: "network" });
+
+  const snapshot = instance.snapshot();
+  assert.equal(snapshot.candidate, null, "nothing else is started");
+  assert.equal(snapshot.state, E.STATE.EXHAUSTED);
+  assert.equal(snapshot.canTryNext, false, "and there is nothing to move on to");
+  assert.equal(snapshot.lastFailure.candidate.id, "chosen", "the error card knows what failed");
+});
+
+test("failover is off unless a caller explicitly opts in", () => {
+  const withoutOptIn = E.createSession({ candidates: [candidate("a"), candidate("b")] });
+  withoutOptIn.start();
+  withoutOptIn.report(withoutOptIn.snapshot().attemptId, "error", { type: "network" });
+  assert.equal(withoutOptIn.snapshot().candidate, null, "the default does not auto-switch");
+  assert.deepEqual(plain(withoutOptIn.snapshot().triedIds), ["a"]);
+});
+
 test("failover can be turned off", () => {
-  const { instance } = session([candidate("a"), candidate("b")], { settings: { autoFailover: false } });
+  const { instance } = session([candidate("a"), candidate("b")], { autoFailover: false });
   instance.start();
   instance.report(instance.snapshot().attemptId, "error", { type: "network" });
   assert.equal(instance.snapshot().attemptCount, 1, "stays on the failed source");
@@ -161,7 +187,7 @@ test("an explicit retry re-runs the source in flight", () => {
 test("retry from the error card re-runs the source that failed", () => {
   // With failover off the session settles on the failure, which is the state
   // the error card's Retry button acts on.
-  const { instance } = session([candidate("a"), candidate("b")], { settings: { autoFailover: false } });
+  const { instance } = session([candidate("a"), candidate("b")], { autoFailover: false });
   instance.start();
   instance.report(instance.snapshot().attemptId, "error", { type: "network" });
   assert.equal(instance.snapshot().candidate, null, "no attempt is in flight");
@@ -265,20 +291,6 @@ test("an attempt that rejects asynchronously is reported as a failure", async ()
   assert.equal(instance.snapshot().candidate.id, "b");
 });
 
-test("a source marked auto-ineligible is never reached by failover", () => {
-  // The resolution ceiling uses this: an above-limit source stays tappable but
-  // must not be started automatically when the first choice fails.
-  const overLimit = { ...candidate("over"), autoEligible: false };
-  const { instance } = session([candidate("chosen"), overLimit, candidate("ok")]);
-
-  instance.start();
-  assert.equal(instance.snapshot().candidate.id, "chosen");
-
-  instance.report(instance.snapshot().attemptId, "error", { type: "network" });
-  assert.equal(instance.snapshot().candidate.id, "ok", "failover skipped the auto-ineligible source");
-  assert.deepEqual(plain(instance.snapshot().triedIds), ["chosen", "ok"]);
-});
-
 test("an explicitly chosen source plays even when it is auto-ineligible", () => {
   // The viewer tapped an above-ceiling source: their choice is the first
   // attempt regardless, and only the alternatives are filtered.
@@ -288,17 +300,3 @@ test("an explicitly chosen source plays even when it is auto-ineligible", () => 
   assert.equal(instance.snapshot().state, E.STATE.STARTING);
 });
 
-test("failover stops when every alternative is auto-ineligible", () => {
-  const { instance } = session([
-    candidate("chosen"),
-    { ...candidate("over1"), autoEligible: false },
-    { ...candidate("over2"), autoEligible: false }
-  ]);
-  instance.start();
-  instance.report(instance.snapshot().attemptId, "error", { type: "network" });
-
-  const snapshot = instance.snapshot();
-  assert.equal(snapshot.candidate, null, "nothing above the limit is started");
-  assert.equal(snapshot.state, E.STATE.EXHAUSTED);
-  assert.equal(snapshot.canTryNext, false);
-});
