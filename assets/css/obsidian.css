@@ -2153,6 +2153,16 @@ main::before {
   .dossier-head,
   .dossier-body,
   .dock-btn.active::before { animation: none !important; }
+  /* Transitions too, not just keyframes: a 900ms scale on every poster is
+     exactly the motion this query asks us not to run. Every rule that
+     declares a transition is listed here; a test enforces that. */
+  .media-image,
+  .card .media-image,
+  .art,
+  .art-loader,
+  .card,
+  .hub-row::before,
+  .icon-btn svg { transition: none !important; }
   .skeleton::after,
   .art-loader { animation: none; }
   .spinner { animation-duration: 2.4s; }
