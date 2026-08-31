@@ -456,7 +456,9 @@ main {
 .screen-back svg { width: 22px; height: 22px; }
 .screen-title {
   margin: 0;
-  font-size: var(--t-display);
+  /* A two-word screen name has to survive 360px without wrapping under the
+     back arrow, so the display size gives way to the viewport. */
+  font-size: min(var(--t-display), 7.6vw);
   font-weight: 800;
   letter-spacing: var(--track-hero);
   line-height: 1.05;
@@ -660,7 +662,7 @@ main {
 .feature-facts span + span::before {
   content: ""; width: 3px; height: 3px; border-radius: var(--r-pill); background: var(--silver-dim);
 }
-.feature-actions { display: flex; align-items: center; gap: var(--s2); }
+.feature-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--s2); }
 .feature-actions .btn-primary { padding: 0 var(--s6); }
 .feature-save {
   background: color-mix(in srgb, var(--void) 62%, transparent);
@@ -695,9 +697,8 @@ main {
   gap: var(--s3);
   padding: var(--s9) max(var(--gutter), var(--safe-r)) var(--s8) max(var(--gutter), var(--safe-l));
   background:
-    radial-gradient(120% 70% at 50% 118%, rgba(77, 141, 255, 0.20), transparent 62%),
+    radial-gradient(120% 70% at 50% 118%, rgba(77, 141, 255, 0.18), transparent 62%),
     linear-gradient(180deg, var(--void), var(--obsidian));
-  border-bottom: 1px solid var(--rule-faint);
 }
 .feature-empty .feature-body { position: static; padding: 0; }
 .feature-empty .feature-title { font-size: var(--t-display); max-width: 18ch; }
@@ -790,8 +791,7 @@ main {
   margin-top: 3px;
   font-size: var(--t-micro);
   font-weight: 650;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--silver-dim);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -1690,6 +1690,7 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
   font-size: var(--t-body);
   font-weight: 700;
   letter-spacing: -0.01em;
+  white-space: nowrap;
   transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
 }
 .btn svg { width: 18px; height: 18px; }
@@ -1938,7 +1939,7 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
   border-radius: var(--r4);
   background: var(--slate-900);
   box-shadow: inset 0 0 0 1px var(--rule-faint);
-  padding: 0 var(--s4);
+  padding: var(--s2) var(--s4);
   overflow: hidden;
 }
 .settings-group.flush { padding: 0; }

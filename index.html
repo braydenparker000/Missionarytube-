@@ -206,7 +206,7 @@
       const jobs=catalogEntries(true).map(entry=>({s:entry.source,cat:entry.catalog,entry}));
       if(!jobs.length){
         $('#featureMount').innerHTML=welcomeFeatureHTML();
-        sections.innerHTML=stateHTML('No catalogs yet','Astra shows only what your installed add-ons expose. Install one to populate the home screen.',`<button class="btn btn-primary" data-nav="addons">${icon('plus')} Add an add-on</button>`);
+        sections.innerHTML=stateHTML('No catalogs yet','Astra shows only what your installed add-ons expose. Add one above, or open Content coverage to see which content types an add-on would have to provide.');
         bindDynamic(root);return;
       }
       const results=await Promise.allSettled(jobs.slice(0,24).map(async j=>({...j,items:await getCatalog(j.s,j.cat,catalogExtras(j.cat))})));
@@ -1188,8 +1188,8 @@
           ${settingsRouteHTML('coverage','film','Content coverage','Which content types your installed add-ons actually provide')}
         </div></div>
         <div class="settings-section"><span class="label">Playback</span><div class="settings-group flush">
-          ${settingsRouteHTML('playback','sliders','Playback and quality','Resolution ceiling, cached sources, HDR, failover and autoplay')}
-          ${settingsRouteHTML('audio','captions','Audio and subtitles','Preferred languages and default subtitle behaviour')}
+          ${settingsRouteHTML('playback','sliders','Playback','Resolution ceiling, cached sources, HDR, failover and autoplay')}
+          ${settingsRouteHTML('audio','captions','Audio and subtitles','Preferred languages, dubs and default subtitle behaviour')}
         </div></div>
         <div class="settings-section"><span class="label">Privacy and data</span><div class="settings-group flush">
           ${settingsRouteHTML('data','shield','Data and backup','Adult catalogs, private export and import')}
@@ -1199,7 +1199,7 @@
     }
     function renderPlaybackSettings(){
       const s=state.settings,root=$('#settingsRoot');if(!root)return;
-      root.innerHTML=`${screenHead('Playback and quality')}
+      root.innerHTML=`${screenHead('Playback')}
         <div class="settings-group">
           <div class="field"><label for="maxResolution">Maximum auto-play quality</label>
             <select class="select" id="maxResolution" data-select-setting>${['2160p','1080p','720p','480p'].map(x=>`<option ${s.maxResolution===x?'selected':''} value="${x}">${x==='2160p'?'4K':x}</option>`).join('')}</select>
