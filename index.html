@@ -63,7 +63,7 @@
   <script src="assets/js/playback/subtitles.js"></script>
   <script>
   (()=>{'use strict';
-    const APP_VERSION='0.10.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
+    const APP_VERSION='0.11.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
     const DEFAULT_ADDONS=[{url:'https://v3-cinemeta.strem.io/manifest.json',enabled:true,official:true}];
     const KEY='astra.v1.';
     const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
@@ -77,7 +77,7 @@
     const DEFAULT_SETTINGS=AstraPlayback.settings.DEFAULTS;
     const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],streamFilter:'all',streamSort:'recommended',homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},searchToken:0};
 
-    const icons={home:'<path d="M3 11.5 12 4l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',discover:'<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',library:'<path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-8-4-8 4z"/>',addons:'<path d="M8 3v4H4v4H2v4h2v4h4v2h4v-5h3v-4h5V8h-5V3h-4v5H8V3z"/>',search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 3.6 15a1.7 1.7 0 0 0-1.6-1H2v-4h.1A1.7 1.7 0 0 0 3.6 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8 3.6a1.7 1.7 0 0 0 1.6-1.6V2h4v.1A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 20.4 8a1.7 1.7 0 0 0 1.6 1.6h.1v4H22a1.7 1.7 0 0 0-1.6 1.4z"/>',spark:'<path d="m12 2 2.2 6.1L20 10l-5.8 2L12 18l-2.2-6L4 10l5.8-1.9z"/><path d="m19 17 .8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z"/>',play:'<path d="m8 5 11 7-11 7z"/>',plus:'<path d="M12 5v14M5 12h14"/>',check:'<path d="m5 12 4 4L19 6"/>',film:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9h4M17 9h4M3 15h4M17 15h4"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',link:'<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/>',radio:'<circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/>',external:'<path d="M14 3h7v7M10 14 21 3"/><path d="M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/>',trash:'<path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/>',download:'<path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/>',upload:'<path d="M12 16V4m0 0 5 5m-5-5L7 9M4 21h16"/>',globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',hub:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',alert:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5v.01"/>',pause:'<path d="M9 5v14M15 5v14"/>',minimize:'<path d="m6 9 6 6 6-6"/>',expand:'<path d="m6 15 6-6 6 6"/>',music:'<circle cx="7" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M10 18V6l11-2v12"/>',tv:'<rect x="2" y="7" width="20" height="13" rx="2"/><path d="m8 3 4 4 4-4"/>',mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',youtube:'<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>'};
+    const icons={home:'<path d="M3 11.5 12 4l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',discover:'<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',library:'<path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-8-4-8 4z"/>',addons:'<path d="M8 3v4H4v4H2v4h2v4h4v2h4v-5h3v-4h5V8h-5V3h-4v5H8V3z"/>',search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 3.6 15a1.7 1.7 0 0 0-1.6-1H2v-4h.1A1.7 1.7 0 0 0 3.6 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8 3.6a1.7 1.7 0 0 0 1.6-1.6V2h4v.1A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 20.4 8a1.7 1.7 0 0 0 1.6 1.6h.1v4H22a1.7 1.7 0 0 0-1.6 1.4z"/>',spark:'<path d="m12 2 2.2 6.1L20 10l-5.8 2L12 18l-2.2-6L4 10l5.8-1.9z"/><path d="m19 17 .8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z"/>',play:'<path d="m8 5 11 7-11 7z"/>',plus:'<path d="M12 5v14M5 12h14"/>',check:'<path d="m5 12 4 4L19 6"/>',film:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9h4M17 9h4M3 15h4M17 15h4"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',link:'<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/>',radio:'<circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/>',external:'<path d="M14 3h7v7M10 14 21 3"/><path d="M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/>',trash:'<path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/>',download:'<path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/>',upload:'<path d="M12 16V4m0 0 5 5m-5-5L7 9M4 21h16"/>',globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',hub:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',alert:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5v.01"/>',pause:'<path d="M9 5v14M15 5v14"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',minimize:'<path d="m6 9 6 6 6-6"/>',expand:'<path d="m6 15 6-6 6 6"/>',music:'<circle cx="7" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M10 18V6l11-2v12"/>',tv:'<rect x="2" y="7" width="20" height="13" rx="2"/><path d="m8 3 4 4 4-4"/>',mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',youtube:'<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>'};
     function icon(name){return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]||icons.film}</svg>`}
     function hydrateIcons(root=document){$$('[data-icon]',root).forEach(e=>e.innerHTML=icon(e.dataset.icon))}
     const navs=[['home','home','Home'],['hub','hub','Hub'],['discover','discover','Discover'],['library','library','Library'],['addons','addons','Add-ons']];
@@ -422,11 +422,11 @@
       </section></div>`;
       bindDynamic(root);
     }
-    /* ---- Playback Engine v2 integration ---------------------------------
+    /* ---- Playback Engine v2 + Player v3 integration ---------------------
        All decision logic lives in assets/js/playback/*. This layer only binds
        it to the DOM: it renders snapshots and feeds media events back in. */
     const PB=AstraPlayback;
-    const player={session:null,scope:null,adapter:null,countdown:null,ranked:[],meta:null,video:null,menu:null,idleTimer:null,audioMode:false,audioDocked:false,audioScope:null,subtitleTracks:[],subtitleAttached:[],activeSubtitle:null,audioPreferenceApplied:false,preferredBingeGroup:null,lookup:null,metaRequest:null,autoPlayTimer:null,notice:null,noticeTimer:null};
+    const player={session:null,scope:null,adapter:null,countdown:null,ranked:[],meta:null,video:null,menu:null,idleTimer:null,audioMode:false,audioDocked:false,audioScope:null,subtitleTracks:[],subtitleAttached:[],activeSubtitle:null,audioPreferenceApplied:false,preferredBingeGroup:null,lookup:null,metaRequest:null,autoPlayTimer:null,notice:null,noticeTimer:null,fitMode:'contain',locked:false};
     function capsNow(){return PB.streams.browserCapabilities(window)}
     function rankStreams(list){return PB.streams.rank(PB.streams.normalizeAll(list,{pageUrl:location.href,video:state.currentVideo,metaType:state.currentMeta?.type}),{settings:state.settings,capabilities:capsNow(),preferredBingeGroup:player.preferredBingeGroup})}
     function entryById(id){return player.ranked.find(e=>candidateKey(e)===id)||null}
@@ -547,9 +547,8 @@
       if(s.kind==='torrent'){showTorrent(s);return}
       closePlayer(true);
       player.meta=m;player.video=v;
-      // Music, radio and podcasts get the audio surface, not a black video
-      // stage. The decision is made once here so the shell and the attempt
-      // cannot disagree about which element they are building.
+      // Music and genuinely audio-only streams use the persistent audio
+      // surface. Movies, series and anime always use Player v3.
       player.audioMode=AstraHub.isAudio(m.type)||!!s.facts.audioOnly;
       player.audioDocked=false;
       const saved=videoProgress(m,v.id);
@@ -595,10 +594,28 @@
       }
       $('#audioRoot').innerHTML='';
       document.body.classList.remove('has-audio');
-      $('#modalRoot').innerHTML=`<div class="player-shell" id="playerShell"><section class="player-modal" role="dialog" aria-modal="true" aria-label="Player">
+      player.fitMode='contain';player.locked=false;
+      $('#modalRoot').innerHTML=`<div class="player-shell player-v3" id="playerShell"><section class="player-modal" role="dialog" aria-modal="true" aria-label="Player">
         <div class="player-top"><button class="icon-btn" data-close-player aria-label="Close player">${icon('close')}</button>
           <div class="player-title"><b id="playerHeading">${esc(heading)}</b><span id="playerSubheading"></span>
-          <span class="player-quality" id="playerQuality"></span></div></div>${chrome}</section></div>`;
+          <span class="player-quality" id="playerQuality"></span></div>
+          <button class="icon-btn player-lock" data-player-action="lock" aria-label="Lock controls">${icon('lock')}</button></div>
+          ${chrome}
+          <div class="player-center" id="playerCenter">
+            <button class="player-skip" data-player-action="seek-back" aria-label="Rewind 10 seconds"><span>−10</span></button>
+            <button class="player-transport" id="videoTransport" data-player-action="playpause" aria-label="Pause">${icon('pause')}</button>
+            <button class="player-skip" data-player-action="seek-forward" aria-label="Forward 10 seconds"><span>+10</span></button>
+          </div>
+          <div class="player-console" id="playerConsole">
+            <div class="player-timeline">
+              <div class="player-track"><i class="player-buffer" id="videoBuffer" style="width:0%"></i><i class="player-played" id="videoPlayed" style="width:0%"></i></div>
+              <input class="player-scrub" id="videoScrub" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through video">
+            </div>
+            <div class="player-clock"><span id="videoElapsed">00:00</span><span id="videoRemaining">−00:00</span></div>
+          </div>
+          <button class="player-unlock" data-player-action="lock" aria-label="Unlock controls">${icon('lock')}<span>Controls locked</span></button>
+          <div class="seek-feedback" id="seekFeedback" aria-live="polite"></div>
+        </section></div>`;
       bindDynamic($('#modalRoot'));
       armIdleHide();
     }
@@ -613,8 +630,8 @@
     function armIdleHide(){
       const shell=$('#playerShell');if(!shell)return;
       clearTimeout(player.idleTimer);shell.classList.remove('idle');
-      player.idleTimer=setTimeout(()=>shell.classList.add('idle'),3600);
-      shell.onpointerdown=()=>{clearTimeout(player.idleTimer);shell.classList.remove('idle');player.idleTimer=setTimeout(()=>shell.classList.add('idle'),3600)};
+      if(player.locked)return;
+      player.idleTimer=setTimeout(()=>{const el=$('#mediaEl');if(el&&!el.paused&&!player.menu)shell.classList.add('idle')},3200);
     }
 
     /* One playback attempt: build the media element, adapter and listeners.
@@ -632,9 +649,9 @@
         report('ready');return;
       }
       const audioOnly=player.audioMode;
-      stage.innerHTML=audioOnly?audioStageHTML(m,v,s):'<video id="mediaEl" controls autoplay playsinline></video>';
+      stage.innerHTML=audioOnly?audioStageHTML(m,v,s):'<video id="mediaEl" autoplay playsinline preload="metadata"></video>';
       const el=$('#mediaEl');
-      if(audioOnly)bindAudioSurface(el,scope);
+      if(audioOnly)bindAudioSurface(el,scope);else bindVideoSurface(el,scope);
       const caps=capsNow();
       const adapterKind=PB.adapters.adapterKindFor(s.kind,caps);
 
@@ -707,6 +724,39 @@
       const scrub=$('#audioScrub');
       if(scrub)scope.listen(scrub,'change',()=>{const t=AstraAudio.seekTarget(el,Number(scrub.value)/1000);if(Number.isFinite(t))try{el.currentTime=t}catch{}});
       paint();syncAudioPlayState(el);
+    }
+    function bindVideoSurface(el,scope){
+      const paint=()=>{
+        const snap=AstraAudio.snapshot(el),played=$('#videoPlayed'),buffer=$('#videoBuffer'),scrub=$('#videoScrub'),elapsed=$('#videoElapsed'),remaining=$('#videoRemaining');
+        if(played)played.style.width=(snap.playedRatio*100).toFixed(2)+'%';
+        if(buffer)buffer.style.width=(snap.bufferedRatio*100).toFixed(2)+'%';
+        if(elapsed)elapsed.textContent=snap.elapsedText;
+        if(remaining)remaining.textContent=snap.live?'LIVE':snap.remainingText;
+        if(scrub&&document.activeElement!==scrub){scrub.disabled=snap.live;scrub.value=String(Math.round(snap.playedRatio*1000))}
+      };
+      ['timeupdate','progress','durationchange','loadedmetadata'].forEach(event=>scope.listen(el,event,paint));
+      scope.listen(el,'play',()=>{paint();syncVideoPlayState(el);armIdleHide()});
+      scope.listen(el,'pause',()=>{paint();syncVideoPlayState(el)});
+      scope.listen(el,'click',()=>{if(player.locked)return;const shell=$('#playerShell');if(!shell)return;if(shell.classList.contains('idle')){shell.classList.remove('idle');armIdleHide()}else{clearTimeout(player.idleTimer);shell.classList.add('idle')}});
+      scope.listen(el,'dblclick',event=>{if(player.locked)return;event.preventDefault();const side=event.clientX<innerWidth/2?-10:10;seekVideo(side)});
+      const scrub=$('#videoScrub');
+      if(scrub){
+        scope.listen(scrub,'pointerdown',()=>clearTimeout(player.idleTimer));
+        scope.listen(scrub,'change',()=>{const t=AstraAudio.seekTarget(el,Number(scrub.value)/1000);if(Number.isFinite(t))try{el.currentTime=t}catch{}paint();armIdleHide()});
+      }
+      paint();syncVideoPlayState(el);
+    }
+    function syncVideoPlayState(el){
+      const paused=el.paused!==false,shell=$('#playerShell'),btn=$('#videoTransport');
+      shell?.classList.toggle('paused',paused);
+      if(btn){btn.innerHTML=icon(paused?'play':'pause');btn.setAttribute('aria-label',paused?'Play':'Pause')}
+      if(paused){clearTimeout(player.idleTimer);shell?.classList.remove('idle')}
+    }
+    function seekVideo(delta){
+      const el=$('#mediaEl');if(!el||!Number.isFinite(el.duration))return;
+      try{el.currentTime=Math.max(0,Math.min(el.duration,(Number(el.currentTime)||0)+delta))}catch{return}
+      const feedback=$('#seekFeedback');if(feedback){feedback.textContent=delta<0?'10 seconds back':'10 seconds forward';feedback.className='seek-feedback show '+(delta<0?'back':'forward');setTimeout(()=>{if(feedback)feedback.className='seek-feedback'},650)}
+      armIdleHide();
     }
     function syncAudioPlayState(el){
       const paused=el.paused!==false;
@@ -786,15 +836,24 @@
       const prev=episodic?PB.episodes.previousEpisode(player.meta.videos,player.video.id):null;
       const next=episodic?PB.episodes.nextEpisode(player.meta.videos,player.video.id):null;
       const audioTracks=player.adapter&&player.adapter.getAudioTracks?player.adapter.getAudioTracks():[];
-      tools.innerHTML=[
-        episodic?`<button class="tool-btn" data-episode-nav="prev" ${prev?'':'disabled'} aria-label="Previous episode">‹</button>`:'',
-        episodic?`<button class="tool-btn" data-episode-nav="next" ${next?'':'disabled'} aria-label="Next episode">›</button>`:'',
-        player.subtitleTracks.length?`<button class="tool-btn ${player.activeSubtitle?'on':''}" data-track-menu="text" aria-label="Subtitles">CC</button>`:'',
-        audioTracks.length>1?`<button class="tool-btn" data-track-menu="audio" aria-label="Audio track">AUD</button>`:'',
-        `<button class="tool-btn" data-player-action="choose" aria-label="Choose source">${icon('link')}</button>`,
-        player.audioMode?`<button class="tool-btn" data-player-action="playpause" aria-label="Play or pause">${icon('play')}</button>`:'',
-        !player.audioMode&&document.fullscreenEnabled?`<button class="tool-btn" data-player-action="fullscreen" aria-label="Fullscreen">⛶</button>`:''
-      ].filter(Boolean).join('');
+      if(player.audioMode){
+        tools.innerHTML=[
+          audioTracks.length?`<button class="tool-btn" data-track-menu="audio" aria-label="Audio track">Audio</button>`:'',
+          `<button class="tool-btn" data-player-action="choose" aria-label="Choose source">${icon('link')}</button>`,
+          `<button class="tool-btn" data-player-action="playpause" aria-label="Play or pause">${icon('play')}</button>`
+        ].filter(Boolean).join('');
+      }else{
+        const activeAudio=audioTracks.find(t=>t.active),activeText=player.subtitleTracks.find(t=>t.id===player.activeSubtitle);
+        tools.innerHTML=[
+          episodic?`<button class="tool-btn episode-tool" data-episode-nav="prev" ${prev?'':'disabled'} aria-label="Previous episode"><b>‹</b><span>Previous</span></button>`:'',
+          episodic?`<button class="tool-btn episode-tool" data-episode-nav="next" ${next?'':'disabled'} aria-label="Next episode"><b>›</b><span>Next</span></button>`:'',
+          `<button class="tool-btn ${activeAudio?'on':''}" data-track-menu="audio" aria-label="Choose audio track"><b>AUD</b><span>${esc(activeAudio?.label||'Audio')}</span></button>`,
+          `<button class="tool-btn ${player.activeSubtitle?'on':''}" data-track-menu="text" aria-label="Choose subtitles"><b>CC</b><span>${esc(activeText?.label||'Subtitles')}</span></button>`,
+          `<button class="tool-btn" data-player-action="choose" aria-label="Choose source">${icon('link')}<span>Source</span></button>`,
+          `<button class="tool-btn" data-player-action="fit" aria-label="Change video fit"><b>${player.fitMode==='cover'?'Fill':'Fit'}</b><span>Frame</span></button>`,
+          document.fullscreenEnabled?`<button class="tool-btn" data-player-action="fullscreen" aria-label="Fullscreen"><b>⛶</b><span>Full</span></button>`:''
+        ].filter(Boolean).join('');
+      }
       bindDynamic(tools);
       if(player.audioMode){const el=$('#mediaEl');if(el)syncAudioPlayState(el)}
     }
@@ -804,7 +863,11 @@
       if(action==='fullscreen'){const modal=$('.player-modal');if(!document.fullscreenElement)modal?.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.();return}
       if(action==='minimize'){setAudioDocked(true);return}
       if(action==='expand'){setAudioDocked(false);return}
-      if(action==='playpause'){const el=$('#mediaEl');if(el){if(el.paused)el.play?.().catch(()=>{});else el.pause?.()}return}
+      if(action==='playpause'){const el=$('#mediaEl');if(el){if(el.paused)el.play?.().catch(()=>{});else el.pause?.()}armIdleHide();return}
+      if(action==='seek-back'){seekVideo(-10);return}
+      if(action==='seek-forward'){seekVideo(10);return}
+      if(action==='fit'){player.fitMode=player.fitMode==='contain'?'cover':'contain';$('#playerShell')?.classList.toggle('fill',player.fitMode==='cover');renderTools(session?session.snapshot():{});armIdleHide();return}
+      if(action==='lock'){player.locked=!player.locked;const shell=$('#playerShell');shell?.classList.toggle('locked',player.locked);shell?.classList.remove('idle');closeTrackMenu();if(player.locked)clearTimeout(player.idleTimer);else armIdleHide();return}
       if(action==='choose'){closePlayer();const root=$('#streamRoot');if(root){renderStreams();root.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'})}return}
       if(!session)return;
       if(action==='retry')session.retry();
@@ -905,17 +968,22 @@
     function openTrackMenu(kind){
       closeTrackMenu();
       const modal=$('.player-modal');if(!modal)return;
-      const menu=document.createElement('div');menu.className='track-menu';menu.id='trackMenu';
+      const menu=document.createElement('div');menu.className='track-menu track-sheet';menu.id='trackMenu';
       if(kind==='text'){
         const options=[{id:'',label:'Off',active:!player.activeSubtitle},...player.subtitleTracks.map(t=>({id:t.id,label:t.label,active:player.activeSubtitle===t.id}))];
-        menu.innerHTML=`<h4>Subtitles</h4>${options.map(o=>`<button class="track-option ${o.active?'active':''}" data-text-track="${esc(o.id)}">${esc(o.label)}${o.active?icon('check'):''}</button>`).join('')}`;
+        menu.innerHTML=`<div class="track-sheet-head"><div><span class="eyebrow">Playback</span><h4>Subtitles</h4></div><button class="icon-btn" data-track-menu="text" aria-label="Close subtitles">${icon('close')}</button></div>
+          ${player.subtitleTracks.length?'':`<p class="track-empty">No subtitle tracks were returned for this source.</p>`}
+          <div class="track-options">${options.map((o,index)=>`<button class="track-option ${o.active?'active':''}" data-text-track="${esc(o.id)}"><span class="track-line"><b>${esc(o.label)}</b>${index?`<span class="track-sub">${esc(player.subtitleTracks[index-1]?.lang?.toUpperCase()||'External track')}</span>`:''}</span>${o.active?icon('check'):''}</button>`).join('')}</div>`;
       }else{
         const tracks=player.adapter&&player.adapter.getAudioTracks?player.adapter.getAudioTracks():[];
-        menu.innerHTML=`<h4>Audio</h4>${tracks.map(t=>`<button class="track-option ${t.active?'active':''}" data-audio-track="${esc(t.id)}">${esc(t.label)}${t.active?icon('check'):''}</button>`).join('')}`;
+        const limitation=!tracks.length?`<p class="track-empty"><b>No switchable tracks exposed.</b> Android Chrome does not expose embedded audio tracks for every direct file. Try another source—HLS and DASH expose language tracks when the stream provides them.</p>`:'';
+        menu.innerHTML=`<div class="track-sheet-head"><div><span class="eyebrow">Playback</span><h4>Audio tracks</h4></div><button class="icon-btn" data-track-menu="audio" aria-label="Close audio tracks">${icon('close')}</button></div>
+          ${limitation}<div class="track-options">${tracks.map((t,index)=>`<button class="track-option ${t.active?'active':''}" data-audio-track="${esc(t.id)}"><span class="track-line"><b>${esc(t.label||`Audio ${index+1}`)}</b><span class="track-sub">${esc([t.lang&&t.lang.toUpperCase(),player.adapter?.kind?.toUpperCase()].filter(Boolean).join(' · ')||'Stream audio')}</span></span>${t.active?icon('check'):''}</button>`).join('')}</div>`;
       }
       modal.appendChild(menu);bindDynamic(menu);player.menu=kind;
+      $('#playerShell')?.classList.remove('idle');clearTimeout(player.idleTimer);
     }
-    function closeTrackMenu(){$('#trackMenu')?.remove();player.menu=null}
+    function closeTrackMenu(){$('#trackMenu')?.remove();player.menu=null;if($('#playerShell')&&!player.locked)armIdleHide()}
     function selectSubtitle(id){
       const el=$('#mediaEl');
       const chosen=player.subtitleTracks.find(t=>t.id===id)||null;

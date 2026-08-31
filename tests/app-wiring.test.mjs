@@ -168,11 +168,12 @@ test("the mobile overlay respects safe areas and reduced motion", () => {
   assert.match(css, /--safe-t:\s*env\(safe-area-inset-top/, "the safe-area token reads the real inset");
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,400}\.stream-row/);
   assert.match(html, /function motionOk\(\)\{return !window\.matchMedia\?\.\('\(prefers-reduced-motion: reduce\)'\)\.matches\}/);
-  // Native controls must stay reachable: the tool rail sits above them.
-  assert.match(css, /\.player-tools \{\s*position: absolute; z-index: 4;/);
+  // Player v3 owns the video controls and keeps every layer above the stage.
+  assert.match(css, /\.player-v3 \.player-tools \{[\s\S]*?z-index: 5;/);
   // The stage must sit below the chrome or it swallows every control tap.
   assert.match(css, /\.player-stage \{ position: absolute; z-index: 1;/);
-  assert.match(html, /controls autoplay playsinline/, "native controls are kept");
+  assert.match(html, /<video id="mediaEl" autoplay playsinline preload="metadata"><\/video>/, "video uses the custom mobile controls");
+  assert.match(html, /id="videoScrub"[\s\S]*?data-player-action="seek-back"|data-player-action="seek-back"[\s\S]*?id="videoScrub"/, "seek and timeline controls ship together");
   assert.match(html, /<audio id="mediaEl" controls autoplay><\/audio>/, "the audio surface keeps native controls too");
 });
 

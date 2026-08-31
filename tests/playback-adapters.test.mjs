@@ -118,6 +118,28 @@ test("the native adapter attaches, reports and cleans up", async () => {
   assert.equal(ready, 1);
 });
 
+test("the native adapter uses real AudioTrackList entries when Chrome exposes them", async () => {
+  const media = createMediaElement();
+  media.audioTracks = [
+    { label: "Japanese", language: "ja", enabled: true },
+    { label: "English dub", language: "en", enabled: false }
+  ];
+  const adapter = A.createNativeAdapter({
+    media,
+    scope: scopeWith(createClock()).scope,
+    url: URL_UNDER_TEST
+  });
+
+  await adapter.attach();
+  assert.deepEqual(plain(adapter.getAudioTracks()).map(({ label, lang, active }) => ({ label, lang, active })), [
+    { label: "Japanese", lang: "ja", active: true },
+    { label: "English dub · EN", lang: "en", active: false }
+  ]);
+  assert.equal(adapter.selectAudioTrack("1"), true);
+  assert.equal(media.audioTracks[0].enabled, false);
+  assert.equal(media.audioTracks[1].enabled, true);
+});
+
 test("adapter destroy is idempotent for every kind", async () => {
   const clock = createClock();
   const Hls = createHlsDouble();
