@@ -299,25 +299,38 @@ test("the stylesheet is the only place raw colours are defined", async () => {
 
 test("a span used as a line is given the block box its styling assumes", () => {
   // Regression: `.resume-bar` carried `height: 2px` while still inline, so the
-  // Continue Watching progress bar measured 0px and never drew. The sibling
-  // cases were only saved by the block element above them.
-  const spanClasses = new Set();
-  for (const m of html.matchAll(/<span class="([^"$]*)"/g)) {
-    for (const c of m[1].split(/\s+/)) if (c) spanClasses.add(c);
+  // Continue Watching progress bar measured 0px and never drew; `.art` later
+  // collapsed the same way on `aspect-ratio`. Check the element, not the class:
+  // a span often carries several classes and only one of them supplies the box.
+  const spanClassLists = [];
+  for (const m of html.matchAll(/<span class="([^"]*)"/g)) {
+    // Strip template expressions, keep the literal class names.
+    const literal = m[1].replace(/\$\{[^}]*\}/g, " ").trim();
+    const names = literal.split(/\s+/).filter(Boolean);
+    if (names.length) spanClassLists.push(names);
   }
-  const offenders = [];
-  for (const cls of [...spanClasses].sort()) {
-    // Take the last declaration, since a later section may override an earlier one.
-    const rules = [...css.matchAll(new RegExp(`\\n\\.${cls.replace(/-/g, "\\-")} \\{([^}]*)\\}`, "g"))];
-    if (!rules.length) continue;
-    const all = rules.map((r) => r[1]).join(";");
-    const needsBlock = /(margin-top|margin-bottom|padding-top|padding-bottom|(?<!line-)height:|-webkit-line-clamp)/.test(all);
-    if (!needsBlock) continue;
-    const isBlock = /display:\s*(block|grid|flex|-webkit-box|inline-block|inline-flex)/.test(all);
-    const isPositioned = /position:\s*absolute/.test(all);
-    if (!isBlock && !isPositioned) offenders.push(cls);
+  assert.ok(spanClassLists.length > 10, "the templates use spans");
+
+  /** Every declaration that applies to a bare `.name` selector. */
+  const declarationsFor = (name) =>
+    [...css.matchAll(new RegExp(`\\n\\.${name.replace(/-/g, "\\-")} \\{([^}]*)\\}`, "g"))]
+      .map((r) => r[1])
+      .join(";");
+
+  const NEEDS_BOX = /(margin-top|margin-bottom|padding-top|padding-bottom|(?<!line-)height:|aspect-ratio|overflow:|-webkit-line-clamp)/;
+  const HAS_BOX = /display:\s*(block|grid|flex|-webkit-box|inline-block|inline-flex)/;
+  const POSITIONED = /position:\s*absolute/;
+
+  const offenders = new Set();
+  for (const names of spanClassLists) {
+    const union = names.map(declarationsFor).join(";");
+    if (!union) continue;
+    if (!NEEDS_BOX.test(union)) continue;
+    if (HAS_BOX.test(union) || POSITIONED.test(union)) continue;
+    offenders.add(names.join("."));
   }
-  assert.deepEqual(offenders, [], `these spans style a box they do not have: ${offenders.join(", ")}`);
+  assert.deepEqual([...offenders], [],
+    `these spans style a box they do not have: ${[...offenders].join(", ")}`);
 });
 
 test("the Continue Watching progress bar has a height to draw into", () => {
