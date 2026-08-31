@@ -226,6 +226,26 @@ test("the title sequence has an artwork-independent signal composition", () => {
   assert.match(css, /\.feature-art::after \{/);
 });
 
+test("every catalog card, including new releases, has resilient artwork", () => {
+  assert.match(html, /function mediaImage\(url,options=\{\}\)/);
+  assert.match(html, /class="art-loader" aria-hidden="true"/);
+  assert.match(html, /class="release-art art \$\{p\?'image-loading':'image-error'\}"/);
+  assert.match(html, /onload="this\.parentElement\.classList\.add\('image-ready'\)"/);
+  assert.match(html, /onerror="this\.parentElement\.classList\.add\('image-error'\);this\.remove\(\)"/);
+  assert.match(css, /\.image-ready > \.media-image \{ opacity: 1; transform: scale\(1\); \}/);
+});
+
+test("motion is staged, tactile, and removed when the viewer requests it", () => {
+  for (const name of ["feature-copy-in", "sector-arrive", "card-arrive", "dossier-copy-in", "nav-seam-in"]) {
+    assert.match(css, new RegExp(`@keyframes ${name}`));
+  }
+  const reduced = css.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/);
+  assert.ok(reduced);
+  for (const selector of [".feature-body > *", ".sector", ".card", ".dossier-head", ".dossier-body"]) {
+    assert.ok(reduced[0].includes(selector), `${selector} motion must be disabled`);
+  }
+});
+
 test("the source picker leads with the full release name and never truncates the record", () => {
   assert.match(html, /<span class="stream-name">\$\{esc\(s\.title\)\}<\/span>/);
   assert.match(css, /\.stream-name \{[\s\S]*?font-family: var\(--font-mono\)/, "release names are set in mono");

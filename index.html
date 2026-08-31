@@ -115,15 +115,23 @@
     function audioLanguageChoices(current){const choices=[['original','Original / source default'],['ja','Japanese'],['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['it','Italian'],['ko','Korean'],['zh','Chinese']],value=String(current||'original').toLowerCase();if(value&&!choices.some(([id])=>id===value))choices.push([value,value.toUpperCase()]);return choices}
     function poster(m){return safeUrl(m.poster||m.background||m.logo||'')}
     function backdrop(m){return safeUrl(m.background||m.poster||'')}
+    /* Artwork keeps its measured box while it loads, then crossfades in. The
+       fallback remains underneath, so a slow or broken provider never leaves
+       a blank card or causes the rail to jump. */
+    function mediaImage(url,options={}){
+      if(!url)return '';
+      const priority=options.priority?'fetchpriority="high"':'loading="lazy"';
+      return `<span class="art-loader" aria-hidden="true"></span><img class="media-image" ${priority} decoding="async" src="${esc(url)}" alt="" onload="this.parentElement.classList.add('image-ready')" onerror="this.parentElement.classList.add('image-error');this.remove()">`;
+    }
     function progressEntries(m){return progress.entriesFor(mediaKey(m))}
     function latestProgress(m){return progress.latest(mediaKey(m))}
     function videoProgress(m,videoId){return progress.get(mediaKey(m),videoId)}
-    function cardHTML(m){
+    function cardHTML(m,index=0){
       const p=poster(m),prog=latestProgress(m),source=m._addonName||'',watched=m.type!=='series'&&prog?.completed;
       const pct=prog?.duration?Math.min(100,prog.time/prog.duration*100):0;
       const meta=[yearOf(m),typeLabel(m.type)].filter(Boolean).join(' · ');
-      return `<button class="card" data-open="${esc(mediaKey(m))}" aria-label="Open ${esc(m.name||m.title||'title')}">
-        <span class="art">${p?`<img loading="lazy" decoding="async" src="${esc(p)}" alt="" onerror="this.remove()">`:''}
+      return `<button class="card" style="--card-index:${Math.min(Number(index)||0,10)}" data-open="${esc(mediaKey(m))}" aria-label="Open ${esc(m.name||m.title||'title')}">
+        <span class="art ${p?'image-loading':'image-error'}">${mediaImage(p)}
           <span class="art-fallback">${icon(m.type==='channel'||m.type==='radio'?'radio':'film')}</span>
           ${source?`<span class="art-source">${esc(source)}</span>`:''}
           ${watched?`<span class="art-watched">${icon('check')}</span>`:''}
@@ -197,7 +205,7 @@
       const b=backdrop(m),saved=!!state.library[mediaKey(m)];
       const facts=[yearOf(m),typeLabel(m.type),m.runtime,m.imdbRating?`★ ${m.imdbRating}`:'',m._addonName].filter(Boolean);
       return `<section class="feature" aria-label="Featured">
-        <div class="feature-art">${b?`<img src="${esc(b)}" alt="" fetchpriority="high" decoding="async" onerror="this.remove()">`:''}
+        <div class="feature-art ${b?'image-loading':'image-error'}">${mediaImage(b,{priority:true})}
           <span class="feature-orbit" aria-hidden="true"><i></i></span>
           <span class="feature-coordinate mono" aria-hidden="true">ASTRA // ${esc(String(m.type||'media').toUpperCase())}</span>
         </div>
@@ -233,14 +241,14 @@
     }
     /* Continue Watching shows where you actually stopped, not just a poster. */
     function resumeSectionHTML(index,items){
-      const cards=items.map(m=>{
+      const cards=items.map((m,index)=>{
         const entry=latestProgress(m),pct=entry?.duration?Math.min(100,entry.time/entry.duration*100):0;
         const left=entry?.duration?Math.max(0,entry.duration-entry.time):0;
         const video=(m.videos||[]).find(v=>String(v.id)===String(entry?.videoId));
         const context=[video?(AstraPlayback.episodes.episodeCode(video)||video.title||video.name):'',left?`${AstraAudio.formatTime(left)} left`:''].filter(Boolean).join(' · ');
         const p=poster(m);
-        return `<button class="card resume-card" data-open="${esc(mediaKey(m))}" aria-label="Resume ${esc(m.name||m.title||'title')}">
-          <span class="art">${p?`<img loading="lazy" decoding="async" src="${esc(p)}" alt="">`:'<span class="art-fallback">'+icon('film')+'</span>'}</span>
+        return `<button class="card resume-card" style="--card-index:${Math.min(index,10)}" data-open="${esc(mediaKey(m))}" aria-label="Resume ${esc(m.name||m.title||'title')}">
+          <span class="art ${p?'image-loading':'image-error'}">${mediaImage(p)}<span class="art-fallback">${icon('film')}</span></span>
           <span class="resume-body"><span class="resume-title">${esc(m.name||m.title||'Untitled')}</span>
           <span class="resume-context">${esc(context||'Resume')}</span>
           <span class="resume-bar"><i style="width:${pct}%"></i></span></span></button>`;
@@ -250,13 +258,15 @@
     /* New releases keep the catalog's full item name visible across three
        lines, because the release naming is how quality gets judged. */
     function releaseSectionHTML(index,group){
-      const cards=group.items.slice(0,HOME_LIMIT).map(m=>{
+      const cards=group.items.slice(0,HOME_LIMIT).map((m,index)=>{
         const meta=[yearOf(m),typeLabel(m.type),m._addonName].filter(Boolean).join(' · ');
-        const full=m.name||m.title||'Untitled';
-        return `<button class="card release-card" data-open="${esc(mediaKey(m))}" aria-label="Open ${esc(full)}">
+        const full=m.name||m.title||'Untitled',p=poster(m);
+        return `<button class="card release-card" style="--card-index:${Math.min(index,10)}" data-open="${esc(mediaKey(m))}" aria-label="Open ${esc(full)}">
+          <span class="release-art art ${p?'image-loading':'image-error'}">${mediaImage(p)}<span class="art-fallback">${icon('film')}</span></span>
+          <span class="release-copy"><span class="release-kicker">New transmission</span>
           <span class="card-title">${esc(full)}</span>
           <span class="card-meta">${esc(meta)}</span>
-          ${m.description?`<span class="release-name">${esc(m.description)}</span>`:''}</button>`;
+          ${m.description?`<span class="release-name">${esc(m.description)}</span>`:''}</span></button>`;
       }).join('');
       return `<section class="sector">${sectorHead(index,group.cat.name||'New releases',`${group.s.manifest.name} · ${typeLabel(group.cat.type)}`)}<div class="rail-scroll release-rail">${cards}</div></section>`;
     }
@@ -387,7 +397,7 @@
         cta=videos.length?`${resumeProg&&!resumeProg.completed?'Continue':'Play'} ${target||'first item'}`:'Find sources';
       root.innerHTML=`<div class="sheet" data-dismiss><section class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="dossierTitle">
         <button class="sheet-close" data-close aria-label="Close">${icon('close')}</button>
-        <div class="dossier-art">${art?`<img src="${esc(art)}" alt="" loading="lazy" onerror="this.remove()">`:''}</div>
+        <div class="dossier-art ${art?'image-loading':'image-error'}">${mediaImage(art)}</div>
         <header class="dossier-head">
           <div class="label">${esc(typeLabel(m.type))}</div>
           <h1 class="dossier-title" id="dossierTitle">${esc(name)}</h1>
@@ -658,7 +668,7 @@
     function audioStageHTML(m,v,s){
       const cover=poster(m),name=v.title||v.name||m.name||'Playing',sub=AstraAudio.describeTrack(m,s);
       return `<div class="audio-full-body">
-        <div class="audio-cover" aria-hidden="true">${icon('music')}${cover?`<img src="${esc(cover)}" alt="" onerror="this.remove()">`:''}</div>
+        <div class="audio-cover ${cover?'image-loading':'image-error'}" aria-hidden="true">${icon('music')}${mediaImage(cover)}</div>
         <div class="audio-meta"><h2>${esc(name)}</h2><p>${esc(sub||typeLabel(m.type))}</p></div>
         <div class="audio-scrub">
           <div class="audio-track"><i class="audio-buffer" id="audioBuffer" style="width:0%"></i><i class="audio-played" id="audioPlayed" style="width:0%"></i></div>

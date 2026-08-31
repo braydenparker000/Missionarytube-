@@ -578,6 +578,28 @@ main {
    is absolutely positioned, so a static <img> would paint beneath it. An image
    that fails to load removes itself and the mark shows through. */
 .art img { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.media-image {
+  opacity: 0;
+  transform: scale(1.035);
+  transition: opacity 420ms var(--ease), transform 900ms var(--ease-out);
+}
+.image-ready > .media-image { opacity: 1; transform: scale(1); }
+.art-loader {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(105deg, transparent 32%, rgba(244, 241, 234, 0.08) 46%, transparent 60%),
+    linear-gradient(135deg, var(--slate-800), var(--slate-900));
+  background-size: 230% 100%, 100% 100%;
+  animation: artwork-scan 1.35s var(--ease) infinite;
+  transition: opacity 280ms var(--ease);
+  pointer-events: none;
+}
+.image-ready > .art-loader,
+.image-error > .art-loader { opacity: 0; animation: none; }
+@keyframes artwork-scan { to { background-position: -180% 0, 0 0; } }
 .art-fallback {
   position: absolute; inset: 0;
   display: grid; place-items: center;
@@ -651,16 +673,32 @@ main {
 .resume-bar i { display: block; height: 100%; background: var(--signal); }
 
 /* A release card keeps the full source name legible enough to judge. */
-.release-rail { grid-auto-columns: 260px; }
+.release-rail { grid-auto-columns: min(84vw, 330px); }
 .release-card {
-  display: block; text-align: left;
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: var(--s4);
+  align-items: stretch;
+  text-align: left;
   border: 1px solid var(--rule);
   background: var(--slate-900);
-  padding: var(--s3);
+  padding: 0;
   min-height: 100%;
 }
 .release-card:hover { border-color: var(--rule-strong); background: var(--slate-800); }
-.release-card .card-title { margin-top: 0; font-size: var(--t-body); }
+.release-art { width: 104px; min-height: 156px; aspect-ratio: 2 / 3; border: 0; border-right: 1px solid var(--rule); }
+.release-copy { min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: var(--s3) var(--s3) var(--s3) 0; }
+.release-kicker {
+  display: block;
+  margin-bottom: var(--s2);
+  color: var(--signal-bright);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.release-card .card-title { margin-top: 0; font-size: var(--t-body); -webkit-line-clamp: 3; }
 .release-name {
   margin-top: var(--s2);
   font-family: var(--font-mono);
@@ -669,7 +707,7 @@ main {
   color: var(--bone-dim);
   word-break: break-word;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -2017,7 +2055,72 @@ main::before {
 }
 
 /* ------------------------------------------------------------------ *
- * 19. Motion and reduced motion
+ * 19. Product motion and tactile depth
+ * ------------------------------------------------------------------ */
+
+/* Content arrives as a sequence, not as one fading HTML document. The delays
+   are capped by the renderer, and every animation is transform/opacity only. */
+.feature-body > * {
+  animation: feature-copy-in 620ms var(--ease-out) both;
+}
+.feature-body > :nth-child(1) { animation-delay: 90ms; }
+.feature-body > :nth-child(2) { animation-delay: 150ms; }
+.feature-body > :nth-child(3) { animation-delay: 220ms; }
+.feature-body > :nth-child(4) { animation-delay: 290ms; }
+@keyframes feature-copy-in {
+  from { opacity: 0; transform: translateY(18px); }
+}
+
+.sector { animation: sector-arrive 520ms var(--ease-out) both; }
+.sector:nth-child(2) { animation-delay: 55ms; }
+.sector:nth-child(3) { animation-delay: 105ms; }
+.sector:nth-child(4) { animation-delay: 155ms; }
+@keyframes sector-arrive {
+  from { opacity: 0; transform: translateY(14px); }
+}
+
+.card {
+  animation: card-arrive 480ms var(--ease-out) both;
+  animation-delay: calc(var(--card-index, 0) * 38ms);
+  transition: transform var(--dur-2) var(--ease-out), color var(--dur-1) var(--ease);
+}
+@keyframes card-arrive {
+  from { opacity: 0; transform: translateX(12px) scale(0.985); }
+}
+.card .media-image { transition: opacity 420ms var(--ease), transform 700ms var(--ease-out); }
+.card:active { transform: scale(0.975); }
+.card:active .media-image { transform: scale(1.035); }
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover { transform: translateY(-5px); color: var(--bone); }
+  .card:hover .media-image { transform: scale(1.045); }
+  .card:hover .card-title { color: var(--bone); }
+  .release-card:hover { box-shadow: 0 20px 46px rgba(0, 0, 0, 0.34); }
+}
+
+.sheet { animation: veil-in 240ms var(--ease) both; }
+.sheet-panel { animation: sheet-in 460ms var(--ease-out); }
+.dossier-head,
+.dossier-body { animation: dossier-copy-in 560ms var(--ease-out) both; }
+.dossier-head { animation-delay: 120ms; }
+.dossier-body { animation-delay: 190ms; }
+@keyframes veil-in { from { opacity: 0; } }
+@keyframes dossier-copy-in {
+  from { opacity: 0; transform: translateY(12px); }
+}
+
+.dock-btn svg,
+.rail-btn svg,
+.btn svg,
+.icon-btn svg { transition: transform var(--dur-2) var(--ease-out); }
+.dock-btn.active svg { transform: translateY(-2px); }
+.btn:active svg,
+.icon-btn:active svg { transform: scale(0.88); }
+.dock-btn.active::before { animation: nav-seam-in 280ms var(--ease-out) both; }
+@keyframes nav-seam-in { from { transform: scaleX(0); } }
+
+/* ------------------------------------------------------------------ *
+ * 20. Motion and reduced motion
  * ------------------------------------------------------------------ */
 
 /* Everything animated above uses transform or opacity only. Nothing here
@@ -2038,17 +2141,25 @@ main::before {
     transition: none !important;
   }
   .sheet-panel,
+  .sheet,
   .modal,
   .toast,
   .page.active,
-  .feature-art img { animation: none !important; }
-  .skeleton::after { animation: none; }
+  .feature-art img,
+  .feature-body > *,
+  .sector,
+  .card,
+  .dossier-head,
+  .dossier-body,
+  .dock-btn.active::before { animation: none !important; }
+  .skeleton::after,
+  .art-loader { animation: none; }
   .spinner { animation-duration: 2.4s; }
   html { scroll-behavior: auto; }
 }
 
 /* ------------------------------------------------------------------ *
- * 20. Narrow-width hardening (320-430)
+ * 21. Narrow-width hardening (320-430)
  * ------------------------------------------------------------------ */
 
 @media (max-width: 380px) {
@@ -2056,7 +2167,9 @@ main::before {
   .rail-scroll { grid-auto-columns: 118px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
   .resume-rail { grid-auto-columns: 210px; }
-  .release-rail { grid-auto-columns: 232px; }
+  .release-rail { grid-auto-columns: min(88vw, 292px); }
+  .release-card { grid-template-columns: 92px minmax(0, 1fr); }
+  .release-art { width: 92px; min-height: 138px; }
   .record { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dock-btn span:last-child { font-size: 9px; letter-spacing: 0.02em; }
   .stream-detail dl { grid-template-columns: 1fr; }
