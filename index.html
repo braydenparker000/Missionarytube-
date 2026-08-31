@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#04050a">
-  <meta name="description" content="Astra — a personal, add-on powered streaming client.">
+  <meta name="theme-color" content="#060606">
+  <meta name="description" content="Astra — a private, add-on powered streaming client for movies, shows, anime and music.">
   <meta name="color-scheme" content="dark">
-  <title>Astra — Obsidian</title>
+  <title>Astra</title>
   <link rel="stylesheet" href="assets/css/obsidian.css">
   <style>
     /* Critical shell only: everything else lives in the design system so the
        first paint is never a flash of unstyled bone on white. */
-    html{background:#04050a}
-    body{margin:0;background:#080a11;color:#f4f1ea;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+    html{background:#060606}
+    body{margin:0;background:#060606;color:#f8f2e8;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   </style>
 </head>
 <body>
@@ -20,33 +20,37 @@
 
   <!-- Desktop rail. The mobile dock below is the primary one-handed nav. -->
   <aside class="rail" aria-label="Primary">
-    <button class="mark" data-nav="home" aria-label="Astra home"><span data-icon="spark"></span></button>
+    <button class="mark" data-nav="home" aria-label="Astra home">A</button>
     <nav class="rail-nav" id="desktopNav" aria-label="Sections"></nav>
     <div class="topbar-spacer"></div>
-    <button class="rail-btn" data-action="settings" aria-label="Settings"><span data-icon="settings"></span></button>
   </aside>
 
   <main id="main">
     <header class="topbar">
-      <div class="wordmark">AST<b>R</b>A</div>
-      <div class="search-wrap">
-        <span data-icon="search"></span>
-        <label class="sr-only" for="globalSearch">Search your add-ons</label>
-        <input class="search" id="globalSearch" type="search" autocomplete="off" placeholder="Search">
-        <button class="search-clear hidden" id="searchClear" aria-label="Clear search">×</button>
-      </div>
-      <button class="icon-btn" data-action="settings" aria-label="Settings"><span data-icon="settings"></span></button>
+      <div class="wordmark">ASTRA</div>
+      <div class="topbar-spacer"></div>
+      <button class="icon-btn" data-nav="settings" aria-label="Settings"><span data-icon="settings"></span></button>
     </header>
 
     <section class="page active" id="page-home" aria-label="Home"><div id="homeRoot"></div></section>
-    <section class="page" id="page-hub" aria-label="Media hub"><div class="content" id="hubRoot"></div></section>
-    <section class="page" id="page-discover" aria-label="Discover"><div class="content" id="discoverRoot"></div></section>
-    <section class="page" id="page-search" aria-label="Search results"><div class="content" id="searchRoot"></div></section>
+    <section class="page" id="page-search" aria-label="Search and browse">
+      <div class="content">
+        <div class="page-head"><h1 class="page-title">Search</h1></div>
+        <div class="search-wrap">
+          <span data-icon="search"></span>
+          <label class="sr-only" for="globalSearch">Search your add-ons</label>
+          <input class="search" id="globalSearch" type="search" autocomplete="off" placeholder="Movies, shows, anime">
+          <button class="search-clear hidden" id="searchClear" aria-label="Clear search">&times;</button>
+        </div>
+        <div id="searchRoot"></div>
+      </div>
+    </section>
     <section class="page" id="page-library" aria-label="Library"><div class="content" id="libraryRoot"></div></section>
-    <section class="page" id="page-addons" aria-label="Add-ons"><div class="content" id="addonsRoot"></div></section>
+    <section class="page" id="page-settings" aria-label="Settings"><div class="content" id="settingsRoot"></div></section>
   </main>
 
   <nav class="dock" id="mobileNav" aria-label="Primary"></nav>
+  <div id="streamOverlayRoot"></div>
   <div id="audioRoot"></div>
   <div id="modalRoot"></div>
   <div class="toast-wrap" id="toastRoot" role="status" aria-live="polite"></div>
@@ -63,26 +67,31 @@
   <script src="assets/js/playback/subtitles.js"></script>
   <script>
   (()=>{'use strict';
-    const APP_VERSION='0.11.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
+    const APP_VERSION='0.13.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
     const DEFAULT_ADDONS=[{url:'https://v3-cinemeta.strem.io/manifest.json',enabled:true,official:true}];
     const KEY='astra.v1.';
     const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
     const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-    const safeUrl=(url)=>{try{const u=new URL(url,location.href);return ['http:','https:','blob:','data:'].includes(u.protocol)?u.href:''}catch{return ''}};
+    const safeUrl=(url)=>{const raw=String(url??'').trim();if(!raw)return '';try{const u=new URL(raw,location.href);return ['http:','https:','blob:','data:'].includes(u.protocol)?u.href:''}catch{return ''}};
     const storageArea=(()=>{try{const s=globalThis.localStorage;s.getItem(KEY+'probe');return s}catch{return null}})();
     let storageWarned=false;
     function storageFailed(){if(storageWarned)return;storageWarned=true;toast('Device storage is full, so new progress is only kept until this tab closes.','bad')}
     const store={get(k,d){try{return JSON.parse(storageArea?.getItem(KEY+k))??d}catch{return d}},set(k,v){if(!storageArea)return false;try{storageArea.setItem(KEY+k,JSON.stringify(v));return true}catch{storageFailed();return false}}};
     const progress=AstraProgress.createProgressStore({storage:storageArea,storageKey:KEY+'progress',onError:storageFailed}).load();
     const DEFAULT_SETTINGS=AstraPlayback.settings.DEFAULTS;
-    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],streamFilter:'all',streamSort:'recommended',homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},searchToken:0};
+    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],streamFilter:'all',streamSort:'recommended',homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0};
 
-    const icons={home:'<path d="M3 11.5 12 4l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',discover:'<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',library:'<path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-8-4-8 4z"/>',addons:'<path d="M8 3v4H4v4H2v4h2v4h4v2h4v-5h3v-4h5V8h-5V3h-4v5H8V3z"/>',search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 3.6 15a1.7 1.7 0 0 0-1.6-1H2v-4h.1A1.7 1.7 0 0 0 3.6 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8 3.6a1.7 1.7 0 0 0 1.6-1.6V2h4v.1A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 20.4 8a1.7 1.7 0 0 0 1.6 1.6h.1v4H22a1.7 1.7 0 0 0-1.6 1.4z"/>',spark:'<path d="m12 2 2.2 6.1L20 10l-5.8 2L12 18l-2.2-6L4 10l5.8-1.9z"/><path d="m19 17 .8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z"/>',play:'<path d="m8 5 11 7-11 7z"/>',plus:'<path d="M12 5v14M5 12h14"/>',check:'<path d="m5 12 4 4L19 6"/>',film:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9h4M17 9h4M3 15h4M17 15h4"/>',close:'<path d="m6 6 12 12M18 6 6 18"/>',link:'<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/>',radio:'<circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/>',external:'<path d="M14 3h7v7M10 14 21 3"/><path d="M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6"/>',trash:'<path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/>',download:'<path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/>',upload:'<path d="M12 16V4m0 0 5 5m-5-5L7 9M4 21h16"/>',globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',hub:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',alert:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5v.01"/>',pause:'<path d="M9 5v14M15 5v14"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',minimize:'<path d="m6 9 6 6 6-6"/>',expand:'<path d="m6 15 6-6 6 6"/>',music:'<circle cx="7" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M10 18V6l11-2v12"/>',tv:'<rect x="2" y="7" width="20" height="13" rx="2"/><path d="m8 3 4 4 4-4"/>',mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',youtube:'<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>'};
+    /* One geometric icon set: 24px grid, 1.75 stroke, round joins. Nothing
+       here is decorative — every glyph names a destination or an action. */
+    const icons={home:'<path d="M4 10.6 12 4l8 6.6V19a1.4 1.4 0 0 1-1.4 1.4h-4V15h-5.2v5.4h-4A1.4 1.4 0 0 1 4 19z"/>',search:'<circle cx="11" cy="11" r="6.6"/><path d="m20 20-4.2-4.2"/>',library:'<path d="M5.5 4h13a1 1 0 0 1 1 1v14.4a.6.6 0 0 1-.9.5L12 16.4l-6.6 3.5a.6.6 0 0 1-.9-.5V5a1 1 0 0 1 1-1z"/>',settings:'<circle cx="12" cy="12" r="3"/><path d="M19.1 13.6a7.6 7.6 0 0 0 0-3.2l1.9-1.4-1.9-3.3-2.2.9a7.6 7.6 0 0 0-2.8-1.6L13.7 2.6h-3.4l-.4 2.4a7.6 7.6 0 0 0-2.8 1.6l-2.2-.9L3 9l1.9 1.4a7.6 7.6 0 0 0 0 3.2L3 15l1.9 3.3 2.2-.9a7.6 7.6 0 0 0 2.8 1.6l.4 2.4h3.4l.4-2.4a7.6 7.6 0 0 0 2.8-1.6l2.2.9L21 15z"/>',addons:'<path d="M8 3.5h3.2v2.2a1.9 1.9 0 0 0 3.8 0V3.5H18a1 1 0 0 1 1 1v3.3h-2a1.9 1.9 0 0 0 0 3.8h2V15a1 1 0 0 1-1 1h-3.3v2a1.9 1.9 0 0 1-3.8 0v-2H7a1 1 0 0 1-1-1v-3.4H4a1.9 1.9 0 0 1 0-3.8h2V4.5a1 1 0 0 1 1-1z"/>',hub:'<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/>',sliders:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/>',captions:'<rect x="3" y="5" width="18" height="14" rx="2.4"/><path d="M10 10.4a2.6 2.6 0 1 0 0 3.2M17 10.4a2.6 2.6 0 1 0 0 3.2"/>',shield:'<path d="M12 3.2 5 6v5.4c0 4 2.9 7.5 7 9.4 4.1-1.9 7-5.4 7-9.4V6z"/>',chevron:'<path d="m9.5 5 7 7-7 7"/>',back:'<path d="M20 12H4M10.5 5.5 4 12l6.5 6.5"/>',spark:'<path d="m12 3 2.1 5.6L20 10.6l-5.9 2L12 18.2l-2.1-5.6L4 10.6l5.9-2z"/>',play:'<path d="M8 5.2 19 12 8 18.8z"/>',pause:'<path d="M9.5 5v14M14.5 5v14"/>',plus:'<path d="M12 5v14M5 12h14"/>',check:'<path d="m5 12.5 4.5 4.5L19 7"/>',film:'<rect x="3" y="5" width="18" height="14" rx="2.4"/><path d="M7.5 5v14M16.5 5v14M3 9.5h4.5M16.5 9.5H21M3 14.5h4.5M16.5 14.5H21"/>',close:'<path d="m6.5 6.5 11 11M17.5 6.5l-11 11"/>',link:'<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/>',radio:'<circle cx="12" cy="12" r="2.2"/><path d="M8.4 8.4a5 5 0 0 0 0 7.2M15.6 8.4a5 5 0 0 1 0 7.2M5.2 5.2a9.6 9.6 0 0 0 0 13.6M18.8 5.2a9.6 9.6 0 0 1 0 13.6"/>',external:'<path d="M14 3.5h6.5V10M10.5 13.5 20.5 3.5"/><path d="M20.5 14.5v5a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1h5"/>',trash:'<path d="M4.5 7h15M9.5 7V4.2h5V7M7 7l1 13.8h8L17 7M10.5 11v6M13.5 11v6"/>',download:'<path d="M12 3.5v12m0 0 4.5-4.5M12 15.5 7.5 11M4.5 20.5h15"/>',upload:'<path d="M12 16.5v-13m0 0L16.5 8M12 3.5 7.5 8M4.5 20.5h15"/>',globe:'<circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4a13.4 13.4 0 0 1 0 17.2M12 3.4a13.4 13.4 0 0 0 0 17.2"/>',alert:'<path d="M12 3.6 2.6 20.4h18.8z"/><path d="M12 10v4.2M12 17.6v.01"/>',lock:'<rect x="5" y="10" width="14" height="10.5" rx="2.2"/><path d="M8.2 10V7.2a3.8 3.8 0 0 1 7.6 0V10"/>',minimize:'<path d="m6.5 9.5 5.5 5.5 5.5-5.5"/>',expand:'<path d="m6.5 14.5 5.5-5.5 5.5 5.5"/>',music:'<circle cx="7" cy="17.6" r="2.9"/><circle cx="17.6" cy="15.8" r="2.9"/><path d="M9.9 17.6V6.2l10.6-1.9v11.5"/>',tv:'<rect x="2.6" y="7" width="18.8" height="13" rx="2.4"/><path d="m8 3 4 4 4-4"/>'};
     function icon(name){return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]||icons.film}</svg>`}
     function hydrateIcons(root=document){$$('[data-icon]',root).forEach(e=>e.innerHTML=icon(e.dataset.icon))}
-    const navs=[['home','home','Home'],['hub','hub','Hub'],['discover','discover','Discover'],['library','library','Library'],['addons','addons','Add-ons']];
+    /* Four destinations. Providers, coverage and Home layout are settings
+       sub-screens rather than tabs, so the dock stays reachable one-handed. */
+    const navs=[['home','home','Home'],['search','search','Search'],['library','library','Library'],['settings','settings','Settings']];
+    const NAV_ALIASES={addons:['settings','addons'],hub:['settings','coverage'],catalogs:['settings','catalogs'],discover:['search','']};
     function buildNav(){
-      const dock=navs.map(([id,ic,label])=>`<button class="dock-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span data-icon="${ic}"></span><span>${label}</span></button>`).join('');
+      const dock=navs.map(([id,ic,label])=>`<button class="dock-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span class="dock-icon" data-icon="${ic}"></span><span class="dock-label">${label}</span></button>`).join('');
       const rail=navs.map(([id,ic,label])=>`<button class="rail-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span data-icon="${ic}"></span></button>`).join('');
       $('#desktopNav').innerHTML=rail;$('#mobileNav').innerHTML=dock;
     }
@@ -102,15 +111,15 @@
       state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'};
       const home=$('#homeRoot');if(home)home.innerHTML='';
       if(state.currentPage==='home')renderHome();
-      if(state.currentPage==='hub')renderHub();
-      if(state.currentPage==='discover')renderDiscover();
+      if(state.currentPage==='search')renderSearchSurface();
+      if(state.currentPage==='settings')renderSettings();
     }
     async function loadManifests(force=false){const active=state.addons.filter(a=>a.enabled!==false);await Promise.allSettled(active.map(async a=>{if(!force&&state.manifests.has(a.url))return;try{const m=await fetchJSON(a.url);if(!m.id||!m.name)throw Error('Invalid manifest');state.manifests.set(a.url,m);a.error='';a.name=m.name;a.logo=m.logo||''}catch(e){a.error=e.message;state.manifests.delete(a.url)}}));store.set('addons',state.addons)}
     function manifests(){return state.addons.filter(a=>a.enabled!==false&&state.manifests.has(a.url)).map(a=>({addon:a,manifest:state.manifests.get(a.url)}))}
     async function installAddon(raw){const url=normalizeManifestUrl(raw);if(addonByUrl(url))throw Error('That add-on is already installed.');const m=await fetchJSON(url);if(!m.id||!m.name||!Array.isArray(m.resources))throw Error('The URL did not return a valid Stremio manifest.');state.addons.push({url,enabled:true,name:m.name,logo:m.logo||'',official:false});state.manifests.set(url,m);store.set('addons',state.addons);toast(`${m.name} installed`,'good');invalidateCatalogs();renderAddons();return m}
     function mediaKey(m){return AstraCatalogs.contentKey(m)}
     function mediaRef(m){return AstraCatalogs.mediaRef(m)}
-    function refreshCatalogRegistry(){state.catalogRegistry=AstraCatalogs.build(manifests(),{includeAdult:state.settings.showAdult});state.homeLayout=AstraCatalogs.reconcile(state.catalogRegistry,state.homeLayout);store.set('homeLayout',state.homeLayout);return state.catalogRegistry}
+    function refreshCatalogRegistry(){state.catalogRegistry=AstraCatalogs.build(manifests(),{includeAdult:state.settings.showAdult,excludeType:AstraHub.isOutOfScope});state.homeLayout=AstraCatalogs.reconcile(state.catalogRegistry,state.homeLayout);store.set('homeLayout',state.homeLayout);return state.catalogRegistry}
     function catalogEntries(visibleOnly=false){const entries=refreshCatalogRegistry();return AstraCatalogs.ordered(entries,state.homeLayout,visibleOnly)}
     function recordMeta(m,source,cat){const item={...m,_addonUrl:source?.addon?.url||m._addonUrl,_addonName:source?.manifest?.name||m._addonName,_providerKey:source?AstraCatalogs.providerKey(source):m._providerKey,_catalogKey:source&&cat?AstraCatalogs.catalogKey(source,cat):m._catalogKey};const ref=mediaRef(item),key=mediaKey(item);if(ref)state.metaCache.set(ref,item);if(key&&!state.metaCache.has(key))state.metaCache.set(key,item);return item}
     async function getCatalog(source,cat,extra={}){const key=source.addon.url+'|'+cat.type+'|'+cat.id+'|'+JSON.stringify(extra);if(state.catalogCache.has(key))return state.catalogCache.get(key);const p=fetchJSON(endpoint(source.addon,'catalog',cat.type,cat.id,extra)).then(d=>(d.metas||[]).map(x=>recordMeta({...x,type:x.type||cat.type},source,cat))).catch(e=>{state.catalogCache.delete(key);throw e});state.catalogCache.set(key,p);return p}
@@ -130,20 +139,39 @@
     function progressEntries(m){return progress.entriesFor(mediaKey(m))}
     function latestProgress(m){return progress.latest(mediaKey(m))}
     function videoProgress(m,videoId){return progress.get(mediaKey(m),videoId)}
-    function cardHTML(m,index=0){
+    /* Provider identity. Two add-ons may publish a catalog called "Popular";
+       this is how the interface keeps them apart wherever they meet. */
+    function providerChip(name,extra=''){
+      const label=String(name||'').trim();
+      if(!label)return '';
+      return `<span class="provider-chip ${extra}"><i aria-hidden="true">${esc(label.slice(0,1).toUpperCase())}</i><b>${esc(label)}</b></span>`;
+    }
+    /* The line under a rail title: which add-on published this catalog, and
+       what kind of thing is in it. Both are viewer preferences. */
+    function catalogNote(entry,type){
+      const parts=[];
+      if(state.homeLayout.showProvider&&entry?.providerName)parts.push(providerChip(entry.providerName));
+      if(state.homeLayout.showType&&type)parts.push(`<span>${esc(typeLabel(type))}</span>`);
+      return parts.join('');
+    }
+    function cardHTML(m,index=0,options={}){
       const p=poster(m),prog=latestProgress(m),source=m._addonName||'',watched=m.type!=='series'&&prog?.completed;
       const pct=prog?.duration?Math.min(100,prog.time/prog.duration*100):0;
       const meta=[yearOf(m),typeLabel(m.type)].filter(Boolean).join(' · ');
       return `<button class="card" style="--card-index:${Math.min(Number(index)||0,10)}" data-open="${esc(mediaRef(m))}" aria-label="Open ${esc(m.name||m.title||'title')} from ${esc(source||'this provider')}">
         <span class="art ${p?'image-loading':'image-error'}">${mediaImage(p)}
           <span class="art-fallback">${icon(m.type==='channel'||m.type==='radio'?'radio':'film')}</span>
-          ${source?`<span class="art-source">${esc(source)}</span>`:''}
           ${watched?`<span class="art-watched">${icon('check')}</span>`:''}
           ${pct>0&&!watched?`<span class="art-progress"><i style="width:${pct}%"></i></span>`:''}
         </span>
         <span class="card-title">${esc(m.name||m.title||'Untitled')}</span>
-        <span class="card-meta">${esc(meta||'\u00a0')}</span></button>`;
+        <span class="card-meta">${esc(meta||'\u00a0')}</span>
+        ${options.showSource&&source?`<span class="card-source">${esc(source)}</span>`:''}</button>`;
     }
+    /* A rail names its provider once, in the section head. A grid can mix
+       add-ons, so there each result carries the name itself — as a line under
+       the title, where it stays readable at three posters across. */
+    function cardsHTML(list,options={}){return list.map((m,i)=>cardHTML(m,i,options)).join('')}
     /* A human label for a raw add-on type, so "tv_channel" never reaches the UI. */
     function typeLabel(type){return AstraHub.typeLabel(type)}
     /* One state frame for empty, error and offline, so every dead end in the
@@ -154,15 +182,17 @@
     }
     function emptyHTML(title,text,action=''){return stateHTML(title,text,action)}
     function skeletonRail(){return `<div class="rail-scroll" aria-hidden="true">${Array.from({length:6},()=>'<div><div class="skeleton skeleton-art"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line" style="width:60%"></div></div>').join('')}</div>`}
-    function skeletonSector(title){return `<section class="sector"><div class="sector-head"><span class="numeral sector-index">--</span><h2 class="sector-title">${esc(title)}</h2></div>${skeletonRail()}</section>`}
-    function nav(page){
+    function skeletonSector(title){return `<section class="sector"><div class="sector-head"><div class="sector-heading"><h2 class="sector-title">${esc(title)}</h2></div></div>${skeletonRail()}</section>`}
+    function nav(page,route){
+      const alias=NAV_ALIASES[page];
+      if(alias){route=route||alias[1];page=alias[0]}
+      if(page==='settings')state.settingsRoute=route||'root';
       state.currentPage=page;
       $$('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${page}`));
       $$('[data-nav]').forEach(x=>x.classList.toggle('active',x.dataset.nav===page));
-      if(page==='hub')renderHub();
-      if(page==='discover')renderDiscover();
+      if(page==='search')renderSearchSurface();
       if(page==='library')renderLibrary();
-      if(page==='addons')renderAddons();
+      if(page==='settings')renderSettings();
       if(page==='home'&&!$('#homeRoot').children.length)renderHome();
       window.scrollTo({top:0,behavior:motionOk()?'smooth':'auto'});
     }
@@ -177,7 +207,7 @@
       const jobs=catalogEntries(true).map(entry=>({s:entry.source,cat:entry.catalog,entry}));
       if(!jobs.length){
         $('#featureMount').innerHTML=welcomeFeatureHTML();
-        sections.innerHTML=stateHTML('No catalogs yet','Astra shows only what your installed add-ons expose. Install one to populate the home screen.',`<button class="btn btn-primary" data-nav="addons">${icon('plus')} Add an add-on</button>`);
+        sections.innerHTML=stateHTML('No catalogs yet','Astra shows only what your installed add-ons expose. Add one above, or open Content coverage to see which content types an add-on would have to provide.');
         bindDynamic(root);return;
       }
       const results=await Promise.allSettled(jobs.slice(0,24).map(async j=>({...j,items:await getCatalog(j.s,j.cat,catalogExtras(j.cat))})));
@@ -188,146 +218,276 @@
         sections.innerHTML=stateHTML('Catalogs could not load','No installed add-on returned a catalog. Check your connection, or that each add-on still has a valid configured manifest URL.',`<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>`,'error');
         bindDynamic(root);return;
       }
-      const heroGroups=good.filter(x=>x.entry.hero),featured=(heroGroups.length?heroGroups:good).flatMap(x=>x.items).find(x=>backdrop(x))||good[0].items[0];
-      $('#featureMount').innerHTML=state.homeLayout.showHero?featureHTML(featured):'';
+      /* The lead deck is drawn from the catalogs the viewer nominated as hero
+         sources, and only from titles that actually have artwork to lead with. */
+      const heroGroups=good.filter(x=>x.entry.hero);
+      const pool=(heroGroups.length?heroGroups:good).flatMap(x=>x.items)
+        .filter(x=>backdrop(x))
+        .filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i);
+      $('#featureMount').innerHTML=state.homeLayout.showHero?featureHTML(pool.length?pool:good[0].items):'';
       sections.innerHTML='';
-      let index=0;
       const cont=continueItems();
-      if(cont.length)sections.insertAdjacentHTML('beforeend',resumeSectionHTML(++index,cont));
+      if(cont.length)sections.insertAdjacentHTML('beforeend',resumeSectionHTML(cont));
       /* New releases lead with the catalog's own naming so the release/source
          name stays legible enough to judge quality before opening anything. */
       const fresh=good.find(x=>/new|latest|recent|release/i.test(x.cat.name||x.cat.id||''));
-      if(fresh)sections.insertAdjacentHTML('beforeend',releaseSectionHTML(++index,fresh));
-      good.filter(x=>x!==fresh).forEach(({s,cat,entry,items})=>{
-        const note=[state.homeLayout.showProvider?s.manifest.name:'',state.homeLayout.showType?typeLabel(cat.type):''].filter(Boolean).join(' · ');
-        sections.insertAdjacentHTML('beforeend',railSection(entry.displayName,items,note,entry.key,++index));
+      if(fresh)sections.insertAdjacentHTML('beforeend',releaseSectionHTML(fresh));
+      good.filter(x=>x!==fresh).forEach(({cat,entry,items})=>{
+        sections.insertAdjacentHTML('beforeend',railSection(entry.displayName,items,catalogNote(entry,cat.type),entry.key));
       });
       bindDynamic(root);
+      bindHeroDeck();
     }
-    function featureHTML(m){
-      if(!m)return welcomeFeatureHTML();
-      const b=backdrop(m),saved=!!state.library[mediaKey(m)];
-      const facts=[yearOf(m),typeLabel(m.type),m.runtime,m.imdbRating?`★ ${m.imdbRating}`:'',m._addonName].filter(Boolean);
-      return `<section class="feature" aria-label="Featured">
-        <div class="feature-art ${b?'image-loading':'image-error'}">${mediaImage(b,{priority:true})}
-          <span class="feature-orbit" aria-hidden="true"><i></i></span>
-          <span class="feature-coordinate mono" aria-hidden="true">ASTRA // ${esc(String(m.type||'media').toUpperCase())}</span>
-        </div>
-        <div class="feature-body">
-          <div class="feature-kicker"><span class="label">Featured transmission</span><span class="feature-rule" aria-hidden="true"></span><span class="mono">FILE 01</span></div>
-          <h1 class="feature-title">${esc(m.name||m.title||'Untitled')}</h1>
-          <div class="feature-facts">${facts.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
-          <div class="feature-actions">
-            <button class="btn btn-primary" data-open="${esc(mediaRef(m))}">${icon('play')} Open</button>
-            <button class="btn btn-ghost" data-library="${esc(mediaKey(m))}">${icon(saved?'check':'plus')} ${saved?'Saved':'Save'}</button>
+    const HERO_LIMIT=6;
+    /* The lead: a swipeable deck of real titles. There is no auto-advance, so
+       nothing moves under the viewer's thumb, and the first rail stays in
+       view underneath it rather than being pushed off a tall empty banner. */
+    function featureHTML(items){
+      const list=(items||[]).filter(Boolean).slice(0,HERO_LIMIT);
+      if(!list.length)return welcomeFeatureHTML();
+      const slides=list.map((m,i)=>{
+        const b=backdrop(m),saved=!!state.library[mediaKey(m)];
+        const facts=[typeLabel(m.type),yearOf(m),m.imdbRating?`${m.imdbRating} IMDb`:''].filter(Boolean),
+          summary=m.description||m.overview||'';
+        return `<article class="feature-slide">
+          <div class="feature-art ${b?'image-loading':'image-error'}">${mediaImage(b,{priority:i===0})}</div>
+          <div class="feature-body">
+            <div class="feature-kicker">${providerChip(m._addonName)}<span>Featured selection</span></div>
+            <h2 class="feature-title">${esc(m.name||m.title||'Untitled')}</h2>
+            <div class="feature-facts">${facts.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
+            ${summary?`<p class="feature-summary">${esc(summary)}</p>`:''}
+            <div class="feature-actions">
+              <button class="btn btn-primary" data-open="${esc(mediaRef(m))}">${icon('play')} View details</button>
+              <button class="icon-btn feature-save" data-library="${esc(mediaKey(m))}" aria-pressed="${saved}" aria-label="${saved?'Remove from library':'Save to library'}">${icon(saved?'check':'plus')}</button>
+            </div>
           </div>
-        </div></section>`;
+        </article>`;
+      }).join('');
+      const dots=list.length>1?`<div class="feature-dots" id="heroDots" aria-hidden="true">${list.map((_,i)=>`<i class="${i===0?'on':''}"></i>`).join('')}</div>`:'';
+      return `<section class="feature" aria-label="Featured"><div class="feature-deck" id="heroDeck">${slides}</div>${dots}</section>`;
     }
-    /* Shown before any provider exists. It promises nothing about content. */
+    /* The deck position is read from the scroller itself, so the dots can
+       never disagree with what is on screen. */
+    function bindHeroDeck(){
+      const deck=$('#heroDeck'),dots=$('#heroDots');
+      if(!deck||!dots)return;
+      const marks=$$('i',dots);
+      deck.addEventListener('scroll',()=>{
+        const index=Math.round(deck.scrollLeft/Math.max(1,deck.clientWidth));
+        marks.forEach((mark,i)=>mark.classList.toggle('on',i===index));
+      },{passive:true});
+    }
+    /* Shown before any provider exists. It promises nothing about content:
+       the composition is the surface itself, not a stand-in for artwork. */
     function welcomeFeatureHTML(){
-      return `<section class="feature" aria-label="Welcome"><div class="feature-art"><span class="feature-orbit" aria-hidden="true"><i></i></span><span class="feature-coordinate mono" aria-hidden="true">ASTRA // NO SIGNAL</span></div><div class="feature-body">
-        <div class="feature-kicker"><span class="label">Astra</span><span class="feature-rule" aria-hidden="true"></span><span class="mono">STANDBY</span></div>
-        <h1 class="feature-title">Nothing is installed yet.</h1>
-        <div class="feature-facts"><span>Astra only shows what your add-ons expose</span></div>
+      return `<section class="feature" aria-label="Welcome"><div class="feature-empty"><div class="feature-body">
+        <div class="feature-kicker"><span>Your private cinema</span></div>
+        <h2 class="feature-title">Bring your universe into focus.</h2>
+        <div class="feature-facts"><span>Astra shows only what your add-ons expose</span></div>
         <div class="feature-actions"><button class="btn btn-primary" data-nav="addons">${icon('plus')} Add an add-on</button>
-        <button class="btn btn-ghost" data-nav="hub">${icon('hub')} See content types</button></div>
-      </div></section>`;
+        <button class="btn btn-ghost" data-nav="hub">Content coverage</button></div>
+      </div></div></section>`;
     }
-    function sectorHead(index,title,note,more=''){
-      return `<div class="sector-head"><span class="numeral sector-index">${String(index).padStart(2,'0')}</span>
-        <h2 class="sector-title">${esc(title)}</h2>
-        ${note?`<span class="sector-note">${esc(note)}</span>`:''}${more}</div>`;
+    function sectorHead(title,note='',more=''){
+      return `<div class="sector-head"><div class="sector-heading"><h2 class="sector-title">${esc(title)}</h2>${note?`<span class="sector-note">${note}</span>`:''}</div>${more}</div>`;
     }
-    function railSection(title,items,note='',catalogKey='',index=1){
+    function railSection(title,items,note='',catalogKey=''){
       const shown=items.slice(0,HOME_LIMIT);
-      const more=catalogKey&&items.length>HOME_LIMIT?`<button class="sector-more" data-browse-catalog="${esc(catalogKey)}">All ${items.length}</button>`:'';
-      return `<section class="sector">${sectorHead(index,title,note,more)}<div class="rail-scroll">${shown.map(cardHTML).join('')}</div></section>`;
+      const more=catalogKey&&items.length>HOME_LIMIT?`<button class="sector-more" data-browse-catalog="${esc(catalogKey)}">All ${items.length}${icon('chevron')}</button>`:'';
+      return `<section class="sector">${sectorHead(title,note,more)}<div class="rail-scroll">${cardsHTML(shown)}</div></section>`;
     }
-    /* Continue Watching shows where you actually stopped, not just a poster. */
-    function resumeSectionHTML(index,items){
+    /* After a reload the stored record carries the video id but no episode
+       object. The id an add-on issues for an episode ends in season:episode,
+       so the code is read back off it rather than invented. */
+    function resumeContext(m,entry){
+      const video=(m.videos||[]).find(v=>String(v.id)===String(entry?.videoId));
+      if(video)return [AstraPlayback.episodes.episodeCode(video),video.title||video.name||''].filter(Boolean).join(' · ');
+      const parts=String(entry?.videoId||'').split(':');
+      if(parts.length<3)return '';
+      const season=Number(parts[parts.length-2]),episode=Number(parts[parts.length-1]);
+      return Number.isFinite(season)&&Number.isFinite(episode)?`S${season} E${episode}`:'';
+    }
+    /* Continue Watching is landscape, because what you resume is an episode:
+       the still frame, where you are in it, and how much is left. */
+    function resumeSectionHTML(items){
       const cards=items.map((m,index)=>{
         const entry=latestProgress(m),pct=entry?.duration?Math.min(100,entry.time/entry.duration*100):0;
         const left=entry?.duration?Math.max(0,entry.duration-entry.time):0;
         const video=(m.videos||[]).find(v=>String(v.id)===String(entry?.videoId));
-        const context=[video?(AstraPlayback.episodes.episodeCode(video)||video.title||video.name):'',left?`${AstraAudio.formatTime(left)} left`:''].filter(Boolean).join(' · ');
-        const p=poster(m);
+        const context=resumeContext(m,entry);
+        const art=safeUrl(video?.thumbnail)||backdrop(m);
         return `<button class="card resume-card" style="--card-index:${Math.min(index,10)}" data-open="${esc(mediaRef(m))}" aria-label="Resume ${esc(m.name||m.title||'title')}">
-          <span class="art ${p?'image-loading':'image-error'}">${mediaImage(p)}<span class="art-fallback">${icon('film')}</span></span>
+          <span class="art resume-art ${art?'image-loading':'image-error'}">${mediaImage(art)}<span class="art-fallback">${icon('film')}</span>
+          ${left?`<span class="resume-left">${esc(AstraAudio.formatTime(left))} left</span>`:''}
+          <span class="art-progress"><i style="width:${pct}%"></i></span></span>
           <span class="resume-body"><span class="resume-title">${esc(m.name||m.title||'Untitled')}</span>
           <span class="resume-context">${esc(context||'Resume')}</span>
           <span class="resume-bar"><i style="width:${pct}%"></i></span></span></button>`;
       }).join('');
-      return `<section class="sector">${sectorHead(index,'Continue watching','On this device')}<div class="rail-scroll resume-rail">${cards}</div></section>`;
+      return `<section class="sector">${sectorHead('Continue watching','<span>On this device</span>')}<div class="rail-scroll resume-rail">${cards}</div></section>`;
     }
     /* New releases keep the catalog's full item name visible across three
        lines, because the release naming is how quality gets judged. */
-    function releaseSectionHTML(index,group){
+    function releaseSectionHTML(group){
       const cards=group.items.slice(0,HOME_LIMIT).map((m,index)=>{
-        const meta=[yearOf(m),typeLabel(m.type),m._addonName].filter(Boolean).join(' · ');
+        const meta=[yearOf(m),typeLabel(m.type)].filter(Boolean).join(' · ');
         const full=m.name||m.title||'Untitled',p=poster(m);
         return `<button class="card release-card" style="--card-index:${Math.min(index,10)}" data-open="${esc(mediaRef(m))}" aria-label="Open ${esc(full)} from ${esc(m._addonName||'this provider')}">
           <span class="release-art art ${p?'image-loading':'image-error'}">${mediaImage(p)}<span class="art-fallback">${icon('film')}</span></span>
-          <span class="release-copy"><span class="release-kicker">New transmission</span>
+          <span class="release-copy"><span class="release-kicker">${providerChip(m._addonName||group.entry.providerName)}</span>
           <span class="card-title">${esc(full)}</span>
           <span class="card-meta">${esc(meta)}</span>
           ${m.description?`<span class="release-name">${esc(m.description)}</span>`:''}</span></button>`;
       }).join('');
-      const note=[state.homeLayout.showProvider?group.s.manifest.name:'',state.homeLayout.showType?typeLabel(group.cat.type):''].filter(Boolean).join(' · ');
-      return `<section class="sector">${sectorHead(index,group.entry.displayName||group.cat.name||'New releases',note)}<div class="rail-scroll release-rail">${cards}</div></section>`;
+      return `<section class="sector">${sectorHead(group.entry.displayName||group.cat.name||'New releases',catalogNote(group.entry,group.cat.type))}<div class="rail-scroll release-rail">${cards}</div></section>`;
     }
-    /* ---- media hub -------------------------------------------------------
-       Every sector is listed whether or not a provider exists. An unavailable
-       sector says what is missing and routes to Add-ons rather than vanishing
-       or pretending to hold content. */
+    /* ---- content coverage ------------------------------------------------
+       Every content type Astra carries is listed whether or not a provider
+       exists. A type without one says what is missing and routes to Add-ons
+       rather than vanishing or pretending to hold content. */
+    function screenHead(title){
+      return `<div class="screen-head"><button class="screen-back" data-settings-route="root" aria-label="Back to settings">${icon('back')}</button><h1 class="screen-title">${esc(title)}</h1></div>`;
+    }
     function renderHub(){
-      const root=$('#hubRoot');if(!root)return;
+      const root=$('#settingsRoot');if(!root)return;
       const sectors=AstraHub.buildHub(manifests());
       const live=sectors.filter(s=>s.available).length;
-      root.innerHTML=`<div class="page-head">
-          <span class="label">Media hub</span>
-          <h1 class="page-title">Everything your add-ons expose</h1>
-          <p class="page-lede">${live} of ${sectors.length} sectors have an installed provider. Sectors without one stay listed so you know what to install.</p>
-        </div>
-        <div class="hub-list">${sectors.map((sector,i)=>hubRowHTML(sector,i+1)).join('')}</div>
-        <div class="actions" style="margin-top:var(--s6)"><button class="btn btn-ghost" data-nav="addons">${icon('addons')} Manage add-ons</button></div>`;
+      root.innerHTML=`${screenHead('Content coverage')}
+        <p class="screen-lede">${live} of ${sectors.length} content types have an installed provider. A type without one stays listed so you know what to install.</p>
+        <div class="hub-list">${sectors.map(hubRowHTML).join('')}</div>
+        <div class="actions" style="margin-top:var(--s5)"><button class="btn btn-ghost" data-nav="addons">${icon('addons')} Manage add-ons</button></div>`;
       bindDynamic(root);
     }
-    function hubRowHTML(sector,index){
+    function hubRowHTML(sector){
       const detail=sector.available?AstraHub.describe(sector):AstraHub.missingReason(sector);
       const attrs=sector.available
         ?`data-hub-open="${esc(sector.id)}"`
         :`data-nav="addons"`;
       return `<button class="hub-row ${sector.available?'':'empty'} ${sector.custom?'custom':''}" ${attrs}
         aria-label="${esc(sector.label)}. ${esc(detail)}">
-        <span class="numeral">${String(index).padStart(2,'0')}</span>
         <span class="hub-name"><span class="hub-label">${esc(sector.label)}</span><span class="hub-detail">${esc(detail)}</span></span>
         <span class="hub-state ${sector.available?'live':'none'}">${sector.available?'Available':'Not installed'}</span></button>`;
     }
-    /* Opening a sector hands Discover a type filter rather than inventing a
+    /* Opening a content type hands Browse a filter rather than inventing a
        parallel browsing surface. */
     function openHubSector(id){
       const sectors=AstraHub.buildHub(manifests());
       const sector=sectors.find(s=>s.id===id);
       if(!sector||!sector.available)return nav('addons');
+      clearQuery();
       state.discover={type:'all',sector:sector.id,sectorLabel:sector.label,addon:'all',catalog:'all',genre:'all'};
       state.discoverVisible=DISCOVER_BATCH;
-      nav('discover');
+      nav('search');
+    }
+    function clearQuery(){
+      state.query='';
+      const input=$('#globalSearch');if(input)input.value='';
+      $('#searchClear')?.classList.add('hidden');
     }
     function allCatalogs(){return catalogEntries(false).map(entry=>({s:entry.source,cat:entry.catalog,entry}))}
-    async function renderDiscover(){const root=$('#discoverRoot'),cats=allCatalogs(),types=[...new Set(cats.map(x=>x.cat.type))],genres=[...new Set(cats.flatMap(x=>(x.cat.extra||[]).filter(e=>e.name==='genre').flatMap(e=>e.options||[])))],sectorOption=state.discover.sector?`<option value="__sector" selected>${esc(state.discover.sectorLabel||'Selected sector')}</option>`:'';root.innerHTML=`<div class="page-head"><span class="label">Browse</span><h1 class="page-title">Discover</h1><p class="page-lede">Every catalog stays attached to the add-on that published it, even when names or media IDs overlap.</p></div>${cats.length?'':stateHTML('No catalogs available','None of your enabled add-ons exposes a browsable catalog. Install one that does.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}<div class="filter-row"><select class="select" id="discoverType"><option value="all" ${!state.discover.sector&&state.discover.type==='all'?'selected':''}>All types</option>${sectorOption}${types.map(x=>`<option ${!state.discover.sector&&state.discover.type===x?'selected':''}>${esc(typeLabel(x))}</option>`).join('')}</select><select class="select" id="discoverAddon"><option value="all">All add-ons</option>${[...new Map(cats.map(x=>[x.entry.providerKey,x.entry.providerName])).entries()].map(([key,name])=>`<option value="${esc(key)}" ${state.discover.addon===key?'selected':''}>${esc(name)}</option>`).join('')}</select><select class="select" id="discoverCatalog"><option value="all">All catalogs</option>${cats.map(x=>`<option value="${esc(x.entry.key)}" ${state.discover.catalog===x.entry.key?'selected':''}>${esc(x.entry.displayName)} · ${esc(x.entry.providerName)}</option>`).join('')}</select>${genres.length?`<select class="select" id="discoverGenre"><option value="all">All genres</option>${genres.map(x=>`<option ${state.discover.genre===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:''}</div><div id="discoverResults">${skeletonRail()}</div>`;
+
+    /* ---- search and browse ------------------------------------------------
+       One destination. An empty field browses every installed catalog; a
+       query searches every catalog that declares search support. Either way
+       the add-on behind each result stays named. */
+    function renderSearchSurface(){
+      const input=$('#globalSearch');
+      if(input&&input.value!==state.query)input.value=state.query;
+      $('#searchClear')?.classList.toggle('hidden',!state.query);
+      return state.query?search(state.query):renderDiscover();
+    }
+    function browseSourceLine(list){
+      if(!list.length)return '';
+      const providers=[...new Map(list.map(x=>[x.entry.providerKey,x.entry.providerName])).values()];
+      const chips=providers.slice(0,3).map(name=>providerChip(name)).join('');
+      const extra=providers.length>3?`<span>+${providers.length-3} more</span>`:'';
+      const scope=list.length===1?esc(list[0].entry.displayName):`${list.length} catalogs`;
+      return `<div class="source-line">${chips}${extra}<span>${scope}</span></div>`;
+    }
+    async function renderDiscover(){
+      const root=$('#searchRoot'),cats=allCatalogs();
+      const types=[...new Set(cats.map(x=>x.cat.type))];
+      const genres=[...new Set(cats.flatMap(x=>(x.cat.extra||[]).filter(e=>e.name==='genre').flatMap(e=>e.options||[])))];
+      const sectorOption=state.discover.sector?`<option value="__sector" selected>${esc(state.discover.sectorLabel||'Selected type')}</option>`:'';
+      root.innerHTML=`<div class="browse-head"><h2>Browse</h2></div>
+        ${cats.length?'':stateHTML('No catalogs available','None of your enabled add-ons exposes a browsable catalog. Install one that does.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}
+        <div class="filter-row">
+          <select class="select" id="discoverType" aria-label="Content type"><option value="all" ${!state.discover.sector&&state.discover.type==='all'?'selected':''}>All types</option>${sectorOption}${types.map(x=>`<option ${!state.discover.sector&&state.discover.type===x?'selected':''}>${esc(typeLabel(x))}</option>`).join('')}</select>
+          <select class="select" id="discoverAddon" aria-label="Add-on"><option value="all">All add-ons</option>${[...new Map(cats.map(x=>[x.entry.providerKey,x.entry.providerName])).entries()].map(([key,name])=>`<option value="${esc(key)}" ${state.discover.addon===key?'selected':''}>${esc(name)}</option>`).join('')}</select>
+          <select class="select" id="discoverCatalog" aria-label="Catalog"><option value="all">All catalogs</option>${cats.map(x=>`<option value="${esc(x.entry.key)}" ${state.discover.catalog===x.entry.key?'selected':''}>${esc(x.entry.displayName)} · ${esc(x.entry.providerName)}</option>`).join('')}</select>
+          ${genres.length?`<select class="select" id="discoverGenre" aria-label="Genre"><option value="all">All genres</option>${genres.map(x=>`<option ${state.discover.genre===x?'selected':''}>${esc(x)}</option>`).join('')}</select>`:''}
+        </div>
+        <div id="discoverResults">${skeletonRail()}</div>`;
       types.forEach(type=>{const option=Array.from($('#discoverType').options).find(x=>x.textContent===typeLabel(type));if(option)option.value=type});
-      const refresh=()=>{state.discoverVisible=DISCOVER_BATCH;renderDiscoverResults()};$('#discoverType').onchange=e=>{state.discover.sector=null;state.discover.sectorLabel='';state.discover.type=e.target.value==='__sector'?'all':e.target.value;refresh()};$('#discoverAddon').onchange=e=>{state.discover.addon=e.target.value;refresh()};$('#discoverCatalog').onchange=e=>{state.discover.catalog=e.target.value;refresh()};if($('#discoverGenre'))$('#discoverGenre').onchange=e=>{state.discover.genre=e.target.value;refresh()};await renderDiscoverResults()}
-    async function renderDiscoverResults(){let cats=allCatalogs();if(state.discover.catalog!=='all')cats=cats.filter(x=>x.entry.key===state.discover.catalog);else{if(state.discover.sector){const sector=AstraHub.buildHub(manifests()).find(x=>x.id===state.discover.sector);cats=cats.filter(x=>AstraHub.catalogMatchesSector(sector,x.cat.type))}else if(state.discover.type!=='all')cats=cats.filter(x=>x.cat.type===state.discover.type);if(state.discover.addon!=='all')cats=cats.filter(x=>x.entry.providerKey===state.discover.addon)}const out=$('#discoverResults');if(!out)return;out.innerHTML='<div class="loading-line"><span class="spinner"></span>Loading catalogs…</div>';const rs=await Promise.allSettled(cats.slice(0,24).map(async x=>{const supportsGenre=(x.cat.extra||[]).some(e=>e.name==='genre');const extra=catalogExtras(x.cat,supportsGenre&&state.discover.genre!=='all'?{genre:state.discover.genre}:{});return {...x,items:await getCatalog(x.s,x.cat,extra)}}));state.discoverItems=rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.items).filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i);renderDiscoverPage()}
-    function renderDiscoverPage(){const out=$('#discoverResults');if(!out)return;const items=state.discoverItems,shown=items.slice(0,state.discoverVisible);out.innerHTML=items.length?`<div class="grid">${shown.map(cardHTML).join('')}</div>${shown.length<items.length?`<div class="load-more"><button class="btn btn-ghost" data-load-more>Load ${Math.min(DISCOVER_BATCH,items.length-shown.length)} more <span class="muted">· ${shown.length} of ${items.length}</span></button></div>`:''}`:stateHTML('Nothing found','No items were returned by the selected catalogs.','<button class="btn btn-ghost" data-nav="hub">See what is installed</button>');bindDynamic(out)}
+      const refresh=()=>{state.discoverVisible=DISCOVER_BATCH;renderDiscoverResults()};
+      $('#discoverType').onchange=e=>{state.discover.sector=null;state.discover.sectorLabel='';state.discover.type=e.target.value==='__sector'?'all':e.target.value;refresh()};
+      $('#discoverAddon').onchange=e=>{state.discover.addon=e.target.value;refresh()};
+      $('#discoverCatalog').onchange=e=>{state.discover.catalog=e.target.value;refresh()};
+      if($('#discoverGenre'))$('#discoverGenre').onchange=e=>{state.discover.genre=e.target.value;refresh()};
+      await renderDiscoverResults();
+    }
+    async function renderDiscoverResults(){
+      let cats=allCatalogs();
+      if(state.discover.catalog!=='all')cats=cats.filter(x=>x.entry.key===state.discover.catalog);
+      else{
+        if(state.discover.sector){const sector=AstraHub.buildHub(manifests()).find(x=>x.id===state.discover.sector);cats=cats.filter(x=>AstraHub.catalogMatchesSector(sector,x.cat.type))}
+        else if(state.discover.type!=='all')cats=cats.filter(x=>x.cat.type===state.discover.type);
+        if(state.discover.addon!=='all')cats=cats.filter(x=>x.entry.providerKey===state.discover.addon);
+      }
+      const out=$('#discoverResults');if(!out)return;
+      out.innerHTML='<div class="loading-line"><span class="spinner"></span>Loading catalogs…</div>';
+      const rs=await Promise.allSettled(cats.slice(0,24).map(async x=>{
+        const supportsGenre=(x.cat.extra||[]).some(e=>e.name==='genre');
+        const extra=catalogExtras(x.cat,supportsGenre&&state.discover.genre!=='all'?{genre:state.discover.genre}:{});
+        return {...x,items:await getCatalog(x.s,x.cat,extra)};
+      }));
+      state.discoverItems=rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.items).filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i);
+      state.discoverSources=cats;
+      renderDiscoverPage();
+    }
+    function renderDiscoverPage(){
+      const out=$('#discoverResults');if(!out)return;
+      const items=state.discoverItems,shown=items.slice(0,state.discoverVisible);
+      out.innerHTML=items.length
+        ?`${browseSourceLine(state.discoverSources||[])}<div class="grid">${cardsHTML(shown,{showSource:true})}</div>${shown.length<items.length?`<div class="load-more"><button class="btn btn-ghost" data-load-more>Load ${Math.min(DISCOVER_BATCH,items.length-shown.length)} more</button></div>`:''}`
+        :stateHTML('Nothing found','No items were returned by the selected catalogs.','<button class="btn btn-ghost" data-nav="hub">See what is installed</button>');
+      bindDynamic(out);
+    }
+    let searchTimer;
+    async function search(q){
+      q=String(q||'').trim();
+      state.query=q;
+      const token=++state.searchToken;
+      const root=$('#searchRoot');if(!root)return;
+      if(!q)return renderDiscover();
+      root.innerHTML=`<div class="loading-line"><span class="spinner"></span>Searching every add-on that supports it…</div>`;
+      const searchable=allCatalogs().filter(x=>(x.cat.extra||[]).some(e=>e.name==='search'));
+      const remote=await Promise.allSettled(searchable.map(x=>getCatalog(x.s,x.cat,catalogExtras(x.cat,{search:q}))));
+      if(token!==state.searchToken)return;
+      const local=[...state.metaCache.values(),...state.homeItems]
+        .filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i)
+        .filter(m=>(m.name||m.title||'').toLowerCase().includes(q.toLowerCase()));
+      const results=[...remote.filter(x=>x.status==='fulfilled').flatMap(x=>x.value),...local]
+        .filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i);
+      root.innerHTML=`<div class="browse-head"><h2>${esc(q)}</h2><span class="label">${results.length} result${results.length===1?'':'s'}</span></div>
+        <div class="source-line"><span>${searchable.length} searchable catalog${searchable.length===1?'':'s'}</span></div>
+        ${results.length?`<div class="grid">${cardsHTML(results.slice(0,120),{showSource:true})}</div>`:stateHTML('No matches','Try another title, or install an add-on whose catalog supports search.','<button class="btn btn-ghost" data-nav="addons">Manage add-ons</button>')}`;
+      bindDynamic(root);
+    }
     function continueItems(){return progress.continueList()}
-    function renderLibrary(){const root=$('#libraryRoot'),items=Object.values(state.library).sort((a,b)=>b.added-a.added).map(x=>x.meta);root.innerHTML=`<div class="page-head"><span class="label">Saved</span><h1 class="page-title">My library</h1><p class="page-lede">${items.length?`${items.length} saved on this device.`:'Saved locally in this browser and never uploaded.'}</p></div>${items.length?`<div class="grid">${items.map(cardHTML).join('')}</div>`:stateHTML('Your library is empty','Save something you want to watch or listen to later. Nothing leaves this browser.',`<button class="btn btn-primary" data-nav="discover">Discover something</button>`)}`;bindDynamic(root)}
+    function renderLibrary(){
+      const root=$('#libraryRoot'),items=Object.values(state.library).sort((a,b)=>b.added-a.added).map(x=>x.meta);
+      root.innerHTML=`<div class="page-head"><h1 class="page-title">Library</h1><p class="page-lede">${items.length?`${items.length} title${items.length===1?'':'s'} saved on this device.`:'Saved locally in this browser and never uploaded.'}</p></div>
+        ${items.length?`<div class="grid">${cardsHTML(items,{showSource:true})}</div>`:stateHTML('Your library is empty','Save something you want to watch or listen to later. Nothing leaves this browser.',`<button class="btn btn-primary" data-nav="search">Browse catalogs</button>`)}`;
+      bindDynamic(root);
+    }
     /* An add-on row states what this provider actually exposes — the content
-   types from its own manifest — so the hub's availability copy and this page
-   can never disagree. */
+   types from its own manifest — so the coverage copy and this screen can
+   never disagree. */
     function addonCard(a){
       const m=state.manifests.get(a.url),name=m?.name||a.name||new URL(a.url).hostname,
         desc=m?.description||(a.error?`Could not connect: ${a.error}`:'Manifest will load when enabled.'),
-        types=[...new Set((m?.catalogs||[]).map(c=>c.type).filter(Boolean))],
+        types=[...new Set((m?.catalogs||[]).map(c=>c.type).filter(Boolean).filter(t=>!AstraHub.isOutOfScope(t)))],
         meta=[a.enabled===false?'Disabled':'Enabled',m?.version?'v'+m.version:'',types.length?types.map(typeLabel).join(' · '):'No catalogs'].filter(Boolean).join(' · ');
       return `<article class="addon-row">
         <div class="addon-logo">${safeUrl(m?.logo||a.logo)?`<img src="${esc(safeUrl(m?.logo||a.logo))}" alt="">`:icon('addons')}</div>
@@ -339,17 +499,14 @@
         </div></article>`;
     }
     async function renderAddons(){
-      const root=$('#addonsRoot');
-      root.innerHTML=`<div class="page-head"><span class="label">Providers</span><h1 class="page-title">Add-ons</h1>
-        <p class="page-lede">Astra shows only what these expose. Paste any compatible configured Stremio manifest URL.</p></div>
+      const root=$('#settingsRoot');if(!root)return;
+      root.innerHTML=`${screenHead('Add-ons')}
+        <p class="screen-lede">Astra shows only what these expose. Paste any compatible configured Stremio manifest URL.</p>
         <div class="actions" style="margin-bottom:var(--s5)"><button class="btn btn-primary" data-action="install">${icon('plus')} Install add-on</button><button class="btn btn-ghost" data-nav="hub">${icon('hub')} Coverage</button></div>
         <div class="notice">For Comet and similar providers, finish configuration on the add-on's website and paste the resulting <b>manifest.json</b> URL here. Astra stores it only in this browser.</div>
-        ${state.addons.length?`<div class="addon-list">${state.addons.map(addonCard).join('')}</div>`:stateHTML('No add-ons installed','Install one to give Astra something to show.','<button class="btn btn-primary" data-action="install">Install add-on</button>')}`;
+        ${state.addons.length?`<div class="addon-list" style="margin-top:var(--s5)">${state.addons.map(addonCard).join('')}</div>`:stateHTML('No add-ons installed','Install one to give Astra something to show.','<button class="btn btn-primary" data-action="install">Install add-on</button>')}`;
       bindDynamic(root);
     }
-    let searchTimer;
-    async function search(q){q=q.trim();const token=++state.searchToken;if(!q){nav('home');return}state.currentPage='search';$$('.page').forEach(x=>x.classList.toggle('active',x.id==='page-search'));$$('[data-nav]').forEach(x=>x.classList.remove('active'));const root=$('#searchRoot');root.innerHTML=`<div class="page-head"><span class="label">Search</span><h1 class="page-title">“${esc(q)}”</h1><p class="page-lede">Searching every enabled add-on that supports it.</p></div><div class="loading-line"><span class="spinner"></span>Searching…</div>`;
-      const searchable=allCatalogs().filter(x=>(x.cat.extra||[]).some(e=>e.name==='search'));const remote=await Promise.allSettled(searchable.map(x=>getCatalog(x.s,x.cat,catalogExtras(x.cat,{search:q}))));if(token!==state.searchToken)return;const local=[...state.metaCache.values(),...state.homeItems].filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i).filter(m=>(m.name||m.title||'').toLowerCase().includes(q.toLowerCase()));const results=[...remote.filter(x=>x.status==='fulfilled').flatMap(x=>x.value),...local].filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i);root.innerHTML=`<div class="page-head"><span class="label">Search</span><h1 class="page-title">“${esc(q)}”</h1><p class="page-lede">${results.length} provider-specific result${results.length===1?'':'s'} across ${searchable.length} searchable catalog${searchable.length===1?'':'s'}.</p></div>${results.length?`<div class="grid">${results.slice(0,120).map(cardHTML).join('')}</div>`:stateHTML('No matches','Try another title, or install an add-on whose catalog supports search.','<button class="btn btn-ghost" data-nav="addons">Manage add-ons</button>')}`;bindDynamic(root)}
     async function fullMeta(item){if(item._fullMeta)return item;const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){try{const d=await fetchJSON(endpoint(s.addon,'meta',item.type,item.id));if(d.meta)return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
     async function openMedia(key){
       cancelStreamLookup();
@@ -369,7 +526,24 @@
     /* One episode row. The numeral gutter carries the episode number so the
        title starts at the same x on every row; state is a tag, never a colour
        change alone. */
-    function videoListHTML(videos,kind='episode'){const m=state.currentMeta;return videos.map(v=>{const p=videoProgress(m,v.id),pct=p?.duration?Math.round(p.time/p.duration*100):0,watched=!!p?.completed,active=String(state.currentVideo?.id)===String(v.id),code=kind==='episode'&&v.episode!=null?String(v.episode).padStart(2,'0'):'',name=v.title||v.name||(kind==='episode'?'Episode':'Untitled item'),sub=watched?'Watched':pct>0?`${pct}% watched`:v.released?String(v.released).slice(0,10):v.overview||`Select to find ${kind==='episode'?'episode':'item'} sources`,flag=watched?'<span class="tag ok">Watched</span>':pct>0?`<span class="tag signal">${pct}%</span>`:'';return `<button class="video-row ${watched?'watched':''} ${active?'active':''}" data-get-streams="${esc(v.id)}" aria-label="${esc([code&&kind==='episode'?'Episode '+code:'',name,sub].filter(Boolean).join('. '))}"><span class="numeral" aria-hidden="true">${esc(code||'·')}</span><span class="video-main"><span class="video-title">${esc(name)}</span><span class="video-sub">${esc(sub)}</span></span><span class="video-flag">${flag}</span></button>`}).join('')}
+    function videoListHTML(videos,kind='episode'){
+      const m=state.currentMeta;
+      return videos.map(v=>{
+        const p=videoProgress(m,v.id),pct=p?.duration?Math.round(p.time/p.duration*100):0,
+          watched=!!p?.completed,active=String(state.currentVideo?.id)===String(v.id),
+          number=kind==='episode'&&v.episode!=null?String(v.episode).padStart(2,'0'):'',
+          code=kind==='episode'?episodeCode(v):'',name=v.title||v.name||(kind==='episode'?'Episode':'Untitled item'),
+          released=v.released?String(v.released).slice(0,10):'',still=safeUrl(v.thumbnail||v.background||v.poster||''),
+          stateText=watched?'Watched':pct>0?`${pct}% watched`:'',
+          sub=stateText||released||v.overview||`Tap to find ${kind==='episode'?'episode':'item'} sources`,
+          eyebrow=[code||typeLabel(kind),released&&stateText?released:''].filter(Boolean).join(' · ');
+        return `<button type="button" class="video-row ${watched?'watched':''} ${active?'active':''}" data-get-streams="${esc(v.id)}" aria-label="${esc([code,name,sub].filter(Boolean).join('. '))}">
+          <span class="video-art ${still?'image-loading':'image-error'}">${mediaImage(still)}<span class="video-art-fallback" aria-hidden="true">${esc(number||'•')}</span>${pct>0?`<span class="video-art-progress"><i style="width:${pct}%"></i></span>`:''}</span>
+          <span class="video-main"><span class="video-eyebrow">${esc(eyebrow||kind)}</span><span class="video-title">${esc(name)}</span><span class="video-sub">${esc(sub)}</span></span>
+          <span class="video-row-action" aria-hidden="true">${watched?icon('check'):icon('play')}</span>
+        </button>`;
+      }).join('');
+    }
     function episodeHTML(videos,season){const ordered=AstraPlayback.episodes.canonicalEpisodes(videos),list=season==null?ordered:ordered.filter(v=>String(v.season)===String(season));return videoListHTML(list,'episode')}
     /* The series browser. Canonical episodes get the season band; specials,
        extras and anything the add-on left unclassified keep their own labelled
@@ -398,27 +572,31 @@
         groups=AstraPlayback.episodes.groupVideos(videos),
         seasons=[...new Set(groups.episodes.map(v=>v.season).filter(x=>x!=null))],
         resume=resumeVideo(m),resumeProg=videoProgress(m,resume.id),defaultSeason=resume.season??seasons[0],
-        art=backdrop(m),name=m.name||m.title||'Untitled',
+        art=backdrop(m),posterArt=poster(m),name=m.name||m.title||'Untitled',
         target=episodeCode(resume)||resume.title||resume.name||'',
-        cta=videos.length?`${resumeProg&&!resumeProg.completed?'Continue':'Play'} ${target||'first item'}`:'Find sources';
-      root.innerHTML=`<div class="sheet" data-dismiss><section class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="dossierTitle">
+        cta=videos.length?`${resumeProg&&!resumeProg.completed?'Continue':'Play'} ${target||'first item'}`:'Find sources',
+        headlineFacts=[yearOf(m),typeLabel(m.type),m.runtime,m.imdbRating?`${m.imdbRating}/10`:''].filter(Boolean);
+      root.innerHTML=`<div class="sheet" data-dismiss><section class="sheet-panel cinema-detail" role="dialog" aria-modal="true" aria-labelledby="dossierTitle">
         <button class="sheet-close" data-close aria-label="Close">${icon('close')}</button>
-        <div class="dossier-art ${art?'image-loading':'image-error'}">${mediaImage(art)}</div>
+        <div class="dossier-art ${art?'image-loading':'image-error'}">${mediaImage(art)}<span class="dossier-art-shade" aria-hidden="true"></span></div>
         <header class="dossier-head">
-          <div class="label">${esc(typeLabel(m.type))}</div>
-          <h1 class="dossier-title" id="dossierTitle">${esc(name)}</h1>
-          ${dossierRecord(m)}
-          <div class="actions">
-            <button class="btn btn-primary" data-get-streams="${esc(resume.id)}">${icon('play')} ${esc(cta)}</button>
-            <button class="btn btn-ghost" data-library="${esc(mediaKey(m))}">${icon(isSaved?'check':'plus')} ${isSaved?'In library':'My library'}</button>
+          <div class="dossier-poster ${posterArt?'image-loading':'image-error'}">${mediaImage(posterArt)}<span class="art-fallback">${icon('film')}</span></div>
+          <div class="dossier-copy">
+            <div class="dossier-tags">${providerChip(m._addonName)}<span class="tag">${esc(typeLabel(m.type))}</span></div>
+            <h1 class="dossier-title" id="dossierTitle">${esc(name)}</h1>
+            <div class="dossier-meta">${headlineFacts.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
+          </div>
+          <div class="actions dossier-actions">
+            <button type="button" class="btn btn-primary" data-get-streams="${esc(resume.id)}">${icon('play')} ${esc(cta)}</button>
+            <button type="button" class="icon-btn dossier-save" data-library="${esc(mediaKey(m))}" aria-pressed="${isSaved}" aria-label="${isSaved?'Remove from library':'Save to library'}">${icon(isSaved?'check':'plus')}</button>
           </div>
         </header>
         <div class="dossier-body">${loading
           ?'<div class="loading-line"><span class="spinner"></span>Loading full details…</div>'
-          :`<p class="synopsis">${esc(m.description||m.overview||'No description was provided by the add-on.')}</p>
-             ${m.cast?.length?`<p class="muted mono" style="font-size:var(--t-tiny)">Cast · ${esc(m.cast.slice(0,8).join(' · '))}</p>`:''}
-             ${videos.length?seriesSectionsHTML(videos,defaultSeason):''}
-             <div id="streamRoot"></div>`}</div>
+          :`<section class="dossier-overview"><span class="dossier-section-label">The story</span><p class="synopsis">${esc(m.description||m.overview||'No description was provided by the add-on.')}</p></section>
+             ${dossierRecord(m)}
+             ${m.cast?.length?`<p class="dossier-cast">Cast · ${esc(m.cast.slice(0,8).join(' · '))}</p>`:''}
+             ${videos.length?seriesSectionsHTML(videos,defaultSeason):''}`}</div>
       </section></div>`;
       bindDynamic(root);
     }
@@ -439,23 +617,44 @@
      * search counter alone does not change when the viewer simply closes one
      * detail modal and opens another.
      */
+    function streamDrawerHTML(content){
+      const m=state.currentMeta||{},v=state.currentVideo||m,code=episodeCode(v),
+        item=[code,v.title||v.name].filter(Boolean).join(' · ')||m.name||m.title||'Choose a source',
+        context=code?(m.name||m.title||typeLabel(m.type)):typeLabel(m.type);
+      return `<div class="source-drawer-backdrop" data-dismiss-streams><section class="source-drawer" role="dialog" aria-modal="true" aria-labelledby="sourceDrawerTitle">
+        <span class="source-drawer-grip" aria-hidden="true"></span>
+        <header class="source-drawer-head"><div class="source-drawer-copy"><span class="source-drawer-kicker">${esc(context||'Sources')}</span><h2 class="source-drawer-title" id="sourceDrawerTitle">${esc(item)}</h2><span class="source-drawer-subtitle">Choose a release, then Astra hands it to Player V3.</span></div>
+        <button class="source-drawer-close" data-close-streams aria-label="Close sources">${icon('close')}</button></header>
+        <div class="source-drawer-body">${content}</div></section></div>`;
+    }
+    function hideStreamDrawer(){
+      const root=$('#streamOverlayRoot');if(root)root.replaceChildren();
+      document.body.classList.remove('source-picker-open');
+    }
+    function closeStreamPicker(){
+      player.lookup=null;
+      if(player.autoPlayTimer){clearTimeout(player.autoPlayTimer);player.autoPlayTimer=null}
+      hideStreamDrawer();
+    }
     async function loadStreams(videoId,autoPlay=false){
       const m=state.currentMeta;if(!m)return[];
       if(!autoPlay)player.preferredBingeGroup=null;
       state.currentVideo=(m.videos||[]).find(v=>String(v.id)===String(videoId))||{id:videoId,title:m.name};
-      const root=$('#streamRoot');if(!root)return[];
+      const root=$('#streamOverlayRoot');if(!root)return[];
       const lookup={mediaKey:mediaKey(m),videoId:String(videoId),token:++state.searchToken};
       player.lookup=lookup;
       const stale=()=>player.lookup!==lookup||lookup.token!==state.searchToken||!state.currentMeta
-        ||mediaKey(state.currentMeta)!==lookup.mediaKey||String(state.currentVideo?.id)!==lookup.videoId||!$('#streamRoot');
-      root.innerHTML='<div class="picker-head"><h3>Sources</h3></div><div class="loading-line"><span class="spinner"></span>Asking your add-ons…</div>';
+        ||mediaKey(state.currentMeta)!==lookup.mediaKey||String(state.currentVideo?.id)!==lookup.videoId||!root.isConnected||!root.children.length;
+      document.body.classList.add('source-picker-open');
+      root.innerHTML=streamDrawerHTML('<div class="source-loading"><span class="spinner"></span><span>Asking your add-ons…</span></div>');
+      bindDynamic(root);
       const sources=manifests().filter(s=>hasResource(s.manifest,'stream',m.type,videoId));
       const rs=await Promise.allSettled(sources.map(async (s,order)=>({order,s,streams:(await fetchJSON(endpoint(s.addon,'stream',m.type,videoId))).streams||[]})));
       if(stale())return[];
       state.currentStreams=rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.streams.map(v=>({...v,_addonName:x.value.s.manifest.name,_addonOrder:x.value.order})));
       player.ranked=rankStreams(state.currentStreams);
       state.streamFilter='all';state.streamSort='recommended';
-      renderStreams();$('#streamRoot')?.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'});
+      renderStreams();
       // Advisory device probe; re-render if it changes any verdict.
       PB.streams.refineWithDecodingInfo(player.ranked,capsNow(),{limit:6,settings:state.settings}).then(refined=>{if(stale())return;player.ranked=refined;renderStreams()}).catch(()=>{});
       // Recomputed inside the timer: the decoding probe can change the winner
@@ -483,6 +682,7 @@
     function cancelStreamLookup(){
       player.lookup=null;player.metaRequest=null;
       if(player.autoPlayTimer){clearTimeout(player.autoPlayTimer);player.autoPlayTimer=null}
+      hideStreamDrawer();
     }
 
     function motionOk(){return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches}
@@ -504,15 +704,20 @@
        name leads each row, the compatibility verdict is stated rather than used
        to hide anything, and every field the add-on returned stays inspectable. */
     function renderStreams(){
-      const root=$('#streamRoot');if(!root)return;
+      const root=$('#streamOverlayRoot');if(!root)return;
       const total=player.ranked.length,list=sortedStreams(),best=PB.streams.bestCandidate(player.ranked);
       const filters=STREAM_FILTERS.filter(([id])=>id==='all'||player.ranked.some(e=>streamMatches(e,id)));
-      root.innerHTML=total?`<section class="picker">${groupHead('Sources',`${list.length} of ${total}`)}
+      const streamProviders=state.currentMeta&&state.currentVideo?manifests().filter(s=>hasResource(s.manifest,'stream',state.currentMeta.type,state.currentVideo.id)).length:0;
+      const content=total?`<section class="picker">${groupHead('Sources',`${list.length} of ${total}`)}
         <div class="picker-bar">${filters.map(([id,label])=>`<button class="chip ${state.streamFilter===id?'active':''}" data-stream-filter="${id}" aria-pressed="${state.streamFilter===id}">${esc(label)}</button>`).join('')}
         <select class="picker-sort" data-stream-sort aria-label="Sort sources">${[['recommended','Recommended'],['quality','Quality'],['size','Size']].map(([id,label])=>`<option value="${id}" ${state.streamSort===id?'selected':''}>${label}</option>`).join('')}</select>
         ${best?`<button class="chip active" data-play-best>${icon('play')} Play best</button>`:''}</div>
         <div class="stream-list">${list.map((e,i)=>streamRowHTML(e,best,i)).join('')}</div></section>`
-        :stateHTML('No sources found','Your add-ons did not return a stream for this title or episode.','','error');
+        :streamProviders
+          ?stateHTML('No sources found','Your streaming add-ons answered, but none returned a playable result for this title or episode.','','error')
+          :stateHTML('Catalog only','The title and episodes came from a catalog add-on, but this browser has no streaming add-on connected for them.',`<button class="btn btn-primary" data-nav="addons">Connect a streaming add-on</button>`,'offline');
+      root.innerHTML=streamDrawerHTML(content);
+      document.body.classList.add('source-picker-open');
       bindDynamic(root);
     }
     function streamRowHTML(entry,best,index=0){
@@ -531,17 +736,18 @@
       const label=[isBest?'Recommended.':'',s.title,ev.label+'.',entry.why,s.addonName?'From '+s.addonName:''].filter(Boolean).join(' ');
       const details=[['Release',s.title],['Filename',f.filename],['Provider',s.addonName||s.sourceName],['Compatibility',ev.label],['Why',entry.why],['Quality',[f.resolution,f.codec,f.hdr].filter(Boolean).join(' · ')],['Audio',[...(f.audioLanguages||[]),f.audioCodec,f.audioChannels].filter(Boolean).join(' · ')],['Size',f.sizeText],['Delivery',s.kind.toUpperCase()],['Cached',f.cached?'Yes':''],['File index',s.fileIdx==null?'':String(s.fileIdx)],['Pack status',f.episodeStatus==='ambiguous-pack'?'Pack has no exact file selected':f.episodeStatus==='mismatch'?'Does not match selected episode':f.episodeStatus==='pack-file'?'Exact file selected from pack':f.pack?'Pack':''],['Binge group',s.bingeGroup]].filter(([,v])=>v);
       return `<article class="stream-item"><button class="stream-row ${isBest?'recommended':''} ${ev.playable?'':'blocked'}" data-play-source="${esc(candidateKey(entry))}" aria-label="${esc(label)}">
-        <span class="stream-lead"><span class="numeral stream-rank" aria-hidden="true">${String(index+1).padStart(2,'0')}</span>${isBest?'<span class="stream-flag">Recommended</span>':''}<span class="tag chip-sm state-${ev.state}">${esc(PB.streams.STATE_SHORT[ev.state]||ev.label)}</span></span>
+        <span class="stream-lead"><span class="stream-quality">${esc(f.resolution||s.kind.toUpperCase())}</span><span class="stream-provider">${esc(s.addonName||s.sourceName||'Source')}</span>${isBest?'<span class="stream-flag">Best match</span>':''}<span class="tag chip-sm state-${ev.state}">${esc(PB.streams.STATE_SHORT[ev.state]||ev.label)}</span></span>
         <span class="stream-name">${esc(s.title)}</span>
         <span class="stream-tags">${tags}</span>
-        <span class="stream-why">${esc(entry.why)}</span></button>
+        <span class="stream-footer"><span class="stream-why">${esc(entry.why)}</span><span class="stream-play-hint">Play ${icon('play')}</span></span></button>
         <details class="stream-details"><summary class="stream-expand">Full source details</summary><div class="stream-detail"><dl>${details.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div></details></article>`;
     }
 
     /* ---- player shell --------------------------------------------------- */
     function openPlayer(entry){
-      const m=state.currentMeta,v=state.currentVideo||m;
       if(!entry)return;
+      closeStreamPicker();
+      const m=state.currentMeta,v=state.currentVideo||m;
       const s=entry.stream;
       if(s.kind==='external'){const u=s.externalUrl;if(!u||!entry.evaluation||entry.evaluation.state==='unsafe')return toast('That external link is not safe to open.','bad');window.open(u,'_blank','noopener');return}
       if(s.kind==='torrent'){showTorrent(s);return}
@@ -1010,36 +1216,136 @@
     function loadDash(){return window.dashjs?Promise.resolve():loadPlayerLib('dash')}
     function toggleLibrary(key){const m=state.metaCache.get(key)||state.currentMeta;if(!m)return;const content=mediaKey(m)||key;if(state.library[content]){delete state.library[content];toast('Removed from library')}else{state.library[content]={meta:m,added:Date.now()};toast('Added to library','good')}store.set('library',state.library);if(state.currentMeta&&mediaKey(state.currentMeta)===content)showDetail(state.currentMeta,false);else if(state.currentPage==='library')renderLibrary()}
     function installModal(){const root=$('#modalRoot');root.innerHTML=`<div class="modal-shell" data-dismiss><section class="modal" role="dialog" aria-modal="true" aria-labelledby="installTitle"><div class="modal-head"><h2 id="installTitle">Install a Stremio add-on</h2><button class="icon-btn" data-close aria-label="Close add-on installer">${icon('close')}</button></div><div class="modal-body"><div class="notice">Paste an add-on's configured <b>manifest.json</b> URL or a <b>stremio://</b> install link. Comet configuration tokens remain within your browser storage.</div><form id="installForm"><div class="field"><label for="manifestInput">Manifest URL</label><div class="input-action"><input class="text-input" id="manifestInput" placeholder="https://…/manifest.json" required><button class="btn btn-primary" type="submit">Install</button></div><small>Remote manifests must use HTTPS and permit browser CORS requests.</small></div></form><div class="notice warn">Only install add-ons you trust. An add-on controls the metadata and stream URLs returned to this browser.</div></div></section></div>`;bindDynamic(root);$('#installForm').onsubmit=async e=>{e.preventDefault();const btn=e.submitter,input=$('#manifestInput'),owned=currentModal();btn.disabled=true;btn.textContent='Checking…';try{await installAddon(input.value);if(currentModal()!==owned)return;closeModal()}catch(err){if(currentModal()!==owned)return;toast(err.message,'bad');btn.disabled=false;btn.textContent='Install'}};setTimeout(()=>$('#manifestInput')?.focus(),100)}
-    function settingsModal(){const s=state.settings;$('#modalRoot').innerHTML=`<div class="modal-shell" data-dismiss><section class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle"><div class="modal-head"><h2 id="settingsTitle">Settings</h2><button class="icon-btn" data-close aria-label="Close settings">${icon('close')}</button></div><div class="modal-body"><div class="field"><label for="maxResolution">Maximum auto-play quality</label><select class="select" id="maxResolution" style="width:100%">${['2160p','1080p','720p','480p'].map(x=>`<option ${s.maxResolution===x?'selected':''} value="${x}">${x==='2160p'?'4K':x}</option>`).join('')}</select><small>Auto Play Best respects AIOStreams order and skips higher resolutions.</small></div><div class="switch-row"><div><b>Autoplay next episode</b><span>Open the next episode and choose its best compatible source.</span></div><button class="switch ${s.autoplayNext?'on':''}" data-setting="autoplayNext" aria-label="Autoplay next episode" aria-pressed="${s.autoplayNext}"><i></i></button></div><div class="switch-row"><div><b>Prefer cached sources</b><span>Rank instantly available debrid results above uncached ones.</span></div><button class="switch ${s.preferCached?'on':''}" data-setting="preferCached" aria-label="Prefer cached sources" aria-pressed="${s.preferCached}"><i></i></button></div><div class="field"><label for="hdrPreference">HDR and Dolby Vision</label><select class="select" id="hdrPreference" style="width:100%">${[['prefer','Prefer HDR'],['neutral','No preference'],['avoid','Avoid HDR']].map(([v,l])=>`<option ${s.hdrPreference===v?'selected':''} value="${v}">${l}</option>`).join('')}</select><small>Choose Avoid if HDR content looks washed out on this screen.</small></div><div class="switch-row"><div><b>Automatic failover</b><span>If a source fails to start, try the next ranked source automatically.</span></div><button class="switch ${s.autoFailover?'on':''}" data-setting="autoFailover" aria-label="Automatic failover" aria-pressed="${s.autoFailover}"><i></i></button></div><div class="field"><label for="audioLanguage">Preferred audio</label><select class="select" id="audioLanguage" style="width:100%">${audioLanguageChoices(s.audioLanguage).map(([v,l])=>`<option ${s.audioLanguage===v?'selected':''} value="${v}">${l}</option>`).join('')}</select><small>Applied when HLS or DASH exposes selectable tracks. Direct files depend on Android Chrome.</small></div><div class="field"><label for="subtitleLanguage">Preferred subtitle language</label><select class="select" id="subtitleLanguage" style="width:100%">${[['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['it','Italian'],['nl','Dutch'],['sv','Swedish'],['pl','Polish'],['ru','Russian'],['ja','Japanese'],['ko','Korean'],['zh','Chinese'],['ar','Arabic'],['hi','Hindi']].map(([v,l])=>`<option ${s.subtitleLanguage===v?'selected':''} value="${v}">${l}</option>`).join('')}</select></div><div class="switch-row"><div><b>Subtitles on by default</b><span>Turn on your preferred language whenever a matching track exists.</span></div><button class="switch ${s.subtitlesDefault?'on':''}" data-setting="subtitlesDefault" aria-label="Subtitles on by default" aria-pressed="${s.subtitlesDefault}"><i></i></button></div><div class="switch-row"><div><b>Show adult catalogs</b><span>Show add-ons or catalogs that explicitly mark themselves as adult.</span></div><button class="switch ${s.showAdult?'on':''}" data-setting="showAdult" aria-label="Show adult catalogs" aria-pressed="${s.showAdult}"><i></i></button></div><div class="notice warn" style="margin-top:20px">Exports include configured add-on URLs, which may contain private service tokens. Keep backup files private.</div><div class="actions" style="margin-top:22px"><button class="btn btn-primary" data-save-settings>Save settings</button><button class="btn btn-ghost" data-export>${icon('download')} Private backup</button><label class="btn btn-ghost">${icon('upload')} Import backup<input class="hidden" id="importFile" type="file" accept="application/json"></label></div><p class="muted" style="font-size:11px;margin-top:24px">Astra ${APP_VERSION} · Your add-ons, library, settings, and progress are stored locally in Chrome.</p></div></section></div>`;bindDynamic($('#modalRoot'))}
-    function exportData(){const data={app:'Astra',version:APP_VERSION,exported:new Date().toISOString(),addons:state.addons,library:state.library,progress:progress.snapshot(),settings:state.settings,homeLayout:state.homeLayout};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='astra-backup.json';a.click();URL.revokeObjectURL(a.href)}
-    async function importData(file){const owned=currentModal();try{const d=JSON.parse(await file.text());if(d.app!=='Astra'||!Array.isArray(d.addons))throw Error('Not an Astra backup');state.addons=d.addons;state.library=d.library||{};progress.replace(d.progress||{});state.settings=AstraPlayback.settings.migrate({...state.settings,...d.settings});state.homeLayout=d.homeLayout&&typeof d.homeLayout==='object'?d.homeLayout:AstraCatalogs.defaults();for(const k of ['addons','library','settings','homeLayout'])store.set(k,state[k]);state.manifests.clear();state.catalogCache.clear();await loadManifests(true);toast('Backup imported','good');if(currentModal()===owned)closeModal();invalidateCatalogs();renderHome()}catch(e){toast(`Import failed: ${e.message}`,'bad')}}
-    function bindDynamic(root=document){hydrateIcons(root);$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>loadStreams(x.dataset.getStreams));$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-play-best]',root).forEach(x=>x.onclick=()=>{const best=AstraPlayback.streams.bestCandidate(player.ranked);if(best)openPlayer(best)});$$('[data-stream-filter]',root).forEach(x=>x.onclick=()=>{state.streamFilter=x.dataset.streamFilter;renderStreams()});$$('[data-stream-sort]',root).forEach(x=>x.onchange=()=>{state.streamSort=x.value;renderStreams()});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{if(x.dataset.countdown==='cancel')cancelCountdown();else if(player.countdown)player.countdown.finishNow()});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{state.discover.catalog=x.dataset.browseCatalog;state.discoverVisible=DISCOVER_BATCH;nav('discover')});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-action="settings"]',root).forEach(x=>x.onclick=settingsModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]))});$$('[data-save-settings]',root).forEach(x=>x.onclick=()=>{state.settings.maxResolution=$('#maxResolution')?.value||'2160p';state.settings.hdrPreference=$('#hdrPreference')?.value||'neutral';state.settings.audioLanguage=$('#audioLanguage')?.value||'original';state.settings.subtitleLanguage=$('#subtitleLanguage')?.value||'en';state.settings=AstraPlayback.settings.migrate(state.settings);store.set('settings',state.settings);toast('Settings saved','good');closeModal()});$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0])}
-    function globalEvents(){document.addEventListener('click',e=>{const a=e.target.closest('[data-action="settings"]');if(a)settingsModal()});$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{$('#globalSearch').value='';$('#searchClear').classList.add('hidden');nav('home')};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('#mediaEl')||$('#playerStage iframe'))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
-    function applyHomeLayout(next,message){state.homeLayout=AstraCatalogs.reconcile(state.catalogRegistry,next);store.set('homeLayout',state.homeLayout);const home=$('#homeRoot');if(home)home.innerHTML='';if(state.currentPage==='home')renderHome();if(message)toast(message,'good')}
-    async function homeLayoutModal(){
+    /* ---- settings ---------------------------------------------------------
+       One destination with named groups, each opening a focused sub-screen.
+       Every control writes through the same validated schema the player and
+       the ranking already read, so a preference cannot drift from the code
+       that acts on it. */
+    function settingsRouteHTML(route,glyph,title,detail){
+      return `<button class="settings-route" data-settings-route="${route}">
+        <span class="settings-route-icon">${icon(glyph)}</span>
+        <span class="settings-route-copy"><b>${esc(title)}</b><small>${esc(detail)}</small></span>
+        ${icon('chevron')}</button>`;
+    }
+    function renderSettings(){
+      const render=SETTINGS_ROUTES[state.settingsRoute]||renderSettingsRoot;
+      render();
+    }
+    function renderSettingsRoot(){
+      const root=$('#settingsRoot');if(!root)return;
+      const providers=state.addons.filter(a=>a.enabled!==false).length;
+      const catalogs=catalogEntries(false).length;
+      root.innerHTML=`<div class="page-head"><h1 class="page-title">Settings</h1><p class="page-lede">Everything Astra knows is stored in this browser and never uploaded.</p></div>
+        <div class="settings-section"><span class="label">Content</span><div class="settings-group flush">
+          ${settingsRouteHTML('addons','addons','Add-ons',`${providers} enabled · the only source of catalogs and streams`)}
+          ${settingsRouteHTML('catalogs','hub','Home layout',`${catalogs} catalog${catalogs===1?'':'s'} · order, visibility, hero sources, provider labels`)}
+          ${settingsRouteHTML('coverage','film','Content coverage','Which content types your installed add-ons actually provide')}
+        </div></div>
+        <div class="settings-section"><span class="label">Playback</span><div class="settings-group flush">
+          ${settingsRouteHTML('playback','sliders','Playback','Resolution ceiling, cached sources, HDR, failover and autoplay')}
+          ${settingsRouteHTML('audio','captions','Audio and subtitles','Preferred languages, dubs and default subtitle behaviour')}
+        </div></div>
+        <div class="settings-section"><span class="label">Privacy and data</span><div class="settings-group flush">
+          ${settingsRouteHTML('data','shield','Data and backup','Adult catalogs, private export and import')}
+        </div></div>
+        <p class="settings-note">Astra ${APP_VERSION} · Add-ons, library, settings and playback progress are stored locally in Chrome.</p>`;
+      bindDynamic(root);
+    }
+    function renderPlaybackSettings(){
+      const s=state.settings,root=$('#settingsRoot');if(!root)return;
+      root.innerHTML=`${screenHead('Playback')}
+        <div class="settings-group">
+          <div class="field"><label for="maxResolution">Maximum auto-play quality</label>
+            <select class="select" id="maxResolution" data-select-setting>${['2160p','1080p','720p','480p'].map(x=>`<option ${s.maxResolution===x?'selected':''} value="${x}">${x==='2160p'?'4K':x}</option>`).join('')}</select>
+            <small>Auto Play Best respects the add-on's own ordering and skips higher resolutions. A source you tap yourself always plays.</small></div>
+          <div class="switch-row"><div><b>Prefer cached sources</b><span>Rank instantly available debrid results above uncached ones.</span></div><button class="switch ${s.preferCached?'on':''}" data-setting="preferCached" aria-label="Prefer cached sources" aria-pressed="${s.preferCached}"><i></i></button></div>
+          <div class="field"><label for="hdrPreference">HDR and Dolby Vision</label>
+            <select class="select" id="hdrPreference" data-select-setting>${[['prefer','Prefer HDR'],['neutral','No preference'],['avoid','Avoid HDR']].map(([v,l])=>`<option ${s.hdrPreference===v?'selected':''} value="${v}">${l}</option>`).join('')}</select>
+            <small>Choose Avoid if HDR content looks washed out on this screen.</small></div>
+          <div class="switch-row"><div><b>Automatic failover</b><span>If a source fails to start, try the next ranked source automatically.</span></div><button class="switch ${s.autoFailover?'on':''}" data-setting="autoFailover" aria-label="Automatic failover" aria-pressed="${s.autoFailover}"><i></i></button></div>
+          <div class="switch-row"><div><b>Autoplay next episode</b><span>Open the next episode and choose its best compatible source.</span></div><button class="switch ${s.autoplayNext?'on':''}" data-setting="autoplayNext" aria-label="Autoplay next episode" aria-pressed="${s.autoplayNext}"><i></i></button></div>
+        </div>
+        <p class="settings-note">Player v3 keeps its own on-screen controls. These preferences only decide which source it is handed first.</p>`;
+      bindDynamic(root);
+    }
+    function renderAudioSettings(){
+      const s=state.settings,root=$('#settingsRoot');if(!root)return;
+      root.innerHTML=`${screenHead('Audio and subtitles')}
+        <div class="settings-group">
+          <div class="field"><label for="audioLanguage">Preferred audio</label>
+            <select class="select" id="audioLanguage" data-select-setting>${audioLanguageChoices(s.audioLanguage).map(([v,l])=>`<option ${s.audioLanguage===v?'selected':''} value="${v}">${l}</option>`).join('')}</select>
+            <small>Applied when HLS or DASH exposes selectable tracks, which is how dubbed anime is normally delivered. Direct files depend on Android Chrome.</small></div>
+          <div class="field"><label for="subtitleLanguage">Preferred subtitle language</label>
+            <select class="select" id="subtitleLanguage" data-select-setting>${[['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['it','Italian'],['nl','Dutch'],['sv','Swedish'],['pl','Polish'],['ru','Russian'],['ja','Japanese'],['ko','Korean'],['zh','Chinese'],['ar','Arabic'],['hi','Hindi']].map(([v,l])=>`<option ${s.subtitleLanguage===v?'selected':''} value="${v}">${l}</option>`).join('')}</select></div>
+          <div class="switch-row"><div><b>Subtitles on by default</b><span>Turn on your preferred language whenever a matching track exists.</span></div><button class="switch ${s.subtitlesDefault?'on':''}" data-setting="subtitlesDefault" aria-label="Subtitles on by default" aria-pressed="${s.subtitlesDefault}"><i></i></button></div>
+        </div>
+        <p class="settings-note">The player's own audio and subtitle menus stay available during playback, and always list the tracks the current stream really exposes.</p>`;
+      bindDynamic(root);
+    }
+    function renderDataSettings(){
+      const s=state.settings,root=$('#settingsRoot');if(!root)return;
+      root.innerHTML=`${screenHead('Data and backup')}
+        <div class="settings-group">
+          <div class="switch-row"><div><b>Show adult catalogs</b><span>Show add-ons or catalogs that explicitly mark themselves as adult.</span></div><button class="switch ${s.showAdult?'on':''}" data-setting="showAdult" aria-label="Show adult catalogs" aria-pressed="${s.showAdult}"><i></i></button></div>
+        </div>
+        <div class="notice warn" style="margin-top:var(--s5)">Exports include configured add-on URLs, which may contain private service tokens. Keep backup files private.</div>
+        <div class="actions" style="margin-top:var(--s5)"><button class="btn btn-ghost" data-export>${icon('download')} Private backup</button><label class="btn btn-ghost">${icon('upload')} Import backup<input class="hidden" id="importFile" type="file" accept="application/json"></label></div>
+        <p class="settings-note">Astra ${APP_VERSION} · No analytics, no tracking, and no server of its own.</p>`;
+      bindDynamic(root);
+    }
+    /* Changing a control is the save. The schema migration runs on every
+       write, so an out-of-range value can never reach the ranking. */
+    function saveSettings(){
+      if($('#maxResolution'))state.settings.maxResolution=$('#maxResolution')?.value||'2160p';
+      if($('#hdrPreference'))state.settings.hdrPreference=$('#hdrPreference')?.value||'neutral';
+      if($('#audioLanguage'))state.settings.audioLanguage=$('#audioLanguage')?.value||'original';
+      if($('#subtitleLanguage'))state.settings.subtitleLanguage=$('#subtitleLanguage')?.value||'en';
+      state.settings=AstraPlayback.settings.migrate(state.settings);
+      store.set('settings',state.settings);
+    }
+    function applyHomeLayout(next,message){
+      state.homeLayout=AstraCatalogs.reconcile(state.catalogRegistry,next);
+      store.set('homeLayout',state.homeLayout);
+      const home=$('#homeRoot');if(home)home.innerHTML='';
+      if(state.currentPage==='home')renderHome();
+      if(message)toast(message,'good');
+    }
+    /* Home layout: one row per catalog, each keeping its provider name, so
+       two identically named catalogs are never mistaken for one another. */
+    async function renderCatalogSettings(){
+      const root=$('#settingsRoot');if(!root)return;
       await loadManifests();
-      const entries=catalogEntries(false),ordered=AstraCatalogs.ordered(entries,state.homeLayout,false),visible=ordered.filter(x=>x.visible).length,heroes=ordered.filter(x=>x.hero).length;
+      if(state.settingsRoute!=='catalogs')return;
+      const entries=refreshCatalogRegistry();
+      const ordered=AstraCatalogs.ordered(entries,state.homeLayout,false),visible=ordered.filter(x=>x.visible).length,heroes=ordered.filter(x=>x.hero).length;
       const rows=ordered.map((entry,index)=>`<article class="layout-catalog ${entry.visible?'':'is-hidden'}">
         <div class="layout-catalog-copy"><b>${esc(entry.displayName)}</b><span>${esc(entry.providerName)} · ${esc(typeLabel(entry.type))}</span></div>
         <button class="hero-pick ${entry.hero?'active':''}" data-layout-hero="${esc(entry.key)}" aria-pressed="${entry.hero}" aria-label="${entry.hero?'Remove from':'Add to'} hero rotation">${icon('spark')}</button>
         <button class="switch ${entry.visible?'on':''}" data-layout-visible="${esc(entry.key)}" aria-pressed="${entry.visible}" aria-label="${entry.visible?'Hide':'Show'} ${esc(entry.displayName)}"><i></i></button>
-        <div class="layout-order" aria-label="Reorder ${esc(entry.displayName)}"><button data-layout-move="${esc(entry.key)}" data-delta="-1" ${index===0?'disabled':''} aria-label="Move up">↑</button><button data-layout-move="${esc(entry.key)}" data-delta="1" ${index===ordered.length-1?'disabled':''} aria-label="Move down">↓</button></div>
+        <div class="layout-order" aria-label="Reorder ${esc(entry.displayName)}"><button data-layout-move="${esc(entry.key)}" data-delta="-1" ${index===0?'disabled':''} aria-label="Move up">${icon('expand')}</button><button data-layout-move="${esc(entry.key)}" data-delta="1" ${index===ordered.length-1?'disabled':''} aria-label="Move down">${icon('minimize')}</button></div>
       </article>`).join('');
-      $('#modalRoot').innerHTML=`<div class="modal-shell" data-dismiss><section class="modal layout-modal" role="dialog" aria-modal="true" aria-labelledby="layoutTitle"><div class="modal-head"><button class="icon-btn" data-layout-back aria-label="Back to settings">←</button><div><span class="label">Personalize</span><h2 id="layoutTitle">Home layout</h2></div><button class="icon-btn" data-close aria-label="Close settings">${icon('close')}</button></div><div class="modal-body">
-        <div class="layout-summary"><b>Keep Home focused.</b><span>${visible} of ${ordered.length} catalogs visible · ${heroes} hero source${heroes===1?'':'s'}</span><p>Every row keeps its provider identity. Reorder or hide catalogs without changing the add-ons themselves.</p></div>
-        <div class="settings-group"><div class="switch-row"><div><b>Show hero</b><span>Use selected catalogs for the cinematic lead story.</span></div><button class="switch ${state.homeLayout.showHero?'on':''}" data-layout-option="showHero" aria-label="Show hero" aria-pressed="${state.homeLayout.showHero}"><i></i></button></div><div class="switch-row"><div><b>Show provider names</b><span>Keep overlapping add-on catalogs easy to identify.</span></div><button class="switch ${state.homeLayout.showProvider?'on':''}" data-layout-option="showProvider" aria-label="Show provider names" aria-pressed="${state.homeLayout.showProvider}"><i></i></button></div><div class="switch-row"><div><b>Show media type</b><span>Label Movie, Series, TV, Radio, and custom rows.</span></div><button class="switch ${state.homeLayout.showType?'on':''}" data-layout-option="showType" aria-label="Show media type" aria-pressed="${state.homeLayout.showType}"><i></i></button></div></div>
-        <div class="layout-section-head"><span class="label">Catalogs</span><button data-layout-reset>Reset</button></div>${rows||stateHTML('No catalogs available','Install or enable an add-on to configure Home.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}
-      </div></section></div>`;
-      bindDynamic($('#modalRoot'));
-      $$('[data-layout-visible]').forEach(button=>button.onclick=()=>{const key=button.dataset.layoutVisible,current=state.homeLayout.catalogs[key];applyHomeLayout(AstraCatalogs.setCatalog(state.homeLayout,key,{visible:current.visible===false}));homeLayoutModal()});
-      $$('[data-layout-hero]').forEach(button=>button.onclick=()=>{const key=button.dataset.layoutHero,current=state.homeLayout.catalogs[key];applyHomeLayout(AstraCatalogs.setCatalog(state.homeLayout,key,{hero:!current.hero}));homeLayoutModal()});
-      $$('[data-layout-move]').forEach(button=>button.onclick=()=>{applyHomeLayout(AstraCatalogs.move(state.homeLayout,button.dataset.layoutMove,Number(button.dataset.delta)));homeLayoutModal()});
-      $$('[data-layout-option]').forEach(button=>button.onclick=()=>{const next={...state.homeLayout,[button.dataset.layoutOption]:!state.homeLayout[button.dataset.layoutOption]};applyHomeLayout(next);homeLayoutModal()});
-      $('[data-layout-reset]')?.addEventListener('click',()=>{applyHomeLayout(AstraCatalogs.reconcile(entries,AstraCatalogs.defaults()),'Home layout reset');homeLayoutModal()});
-      $('[data-layout-back]')?.addEventListener('click',()=>settingsModal());
+      root.innerHTML=`${screenHead('Home layout')}
+        <div class="layout-summary"><b>Keep Home focused</b><span>${visible} of ${ordered.length} catalogs visible · ${heroes} hero source${heroes===1?'':'s'}</span><p>Every catalog stays attached to the add-on that published it, even when names or media ids overlap. Reorder or hide catalogs without changing the add-ons themselves.</p></div>
+        <div class="settings-group">
+          <div class="switch-row"><div><b>Show the lead deck</b><span>Use the selected catalogs for the featured titles at the top of Home.</span></div><button class="switch ${state.homeLayout.showHero?'on':''}" data-layout-option="showHero" aria-label="Show the lead deck" aria-pressed="${state.homeLayout.showHero}"><i></i></button></div>
+          <div class="switch-row"><div><b>Show provider names</b><span>Keep overlapping add-on catalogs easy to tell apart.</span></div><button class="switch ${state.homeLayout.showProvider?'on':''}" data-layout-option="showProvider" aria-label="Show provider names" aria-pressed="${state.homeLayout.showProvider}"><i></i></button></div>
+          <div class="switch-row"><div><b>Show media type</b><span>Label Movie, Series, Anime, Music and custom rows.</span></div><button class="switch ${state.homeLayout.showType?'on':''}" data-layout-option="showType" aria-label="Show media type" aria-pressed="${state.homeLayout.showType}"><i></i></button></div>
+        </div>
+        <div class="layout-section-head" style="margin-top:var(--s6)"><span class="label">Catalogs</span><button data-layout-reset>Reset to default</button></div>
+        ${rows?`<div class="settings-group flush">${rows}</div>`:stateHTML('No catalogs available','Install or enable an add-on to configure Home.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}`;
+      bindDynamic(root);
+      $$('[data-layout-visible]',root).forEach(button=>button.onclick=()=>{const key=button.dataset.layoutVisible,current=state.homeLayout.catalogs[key];applyHomeLayout(AstraCatalogs.setCatalog(state.homeLayout,key,{visible:current.visible===false}));renderCatalogSettings()});
+      $$('[data-layout-hero]',root).forEach(button=>button.onclick=()=>{const key=button.dataset.layoutHero,current=state.homeLayout.catalogs[key];applyHomeLayout(AstraCatalogs.setCatalog(state.homeLayout,key,{hero:!current.hero}));renderCatalogSettings()});
+      $$('[data-layout-move]',root).forEach(button=>button.onclick=()=>{applyHomeLayout(AstraCatalogs.move(state.homeLayout,button.dataset.layoutMove,Number(button.dataset.delta)));renderCatalogSettings()});
+      $$('[data-layout-option]',root).forEach(button=>button.onclick=()=>{const next={...state.homeLayout,[button.dataset.layoutOption]:!state.homeLayout[button.dataset.layoutOption]};applyHomeLayout(next);renderCatalogSettings()});
+      $$('[data-layout-reset]',root).forEach(button=>button.onclick=()=>{applyHomeLayout(AstraCatalogs.reconcile(entries,AstraCatalogs.defaults()),'Home layout reset');renderCatalogSettings()});
     }
-    function enhanceSettings(){const playbackSettings=settingsModal;settingsModal=()=>{playbackSettings();const body=$('.modal-body',$('#modalRoot'));if(!body)return;body.insertAdjacentHTML('afterbegin',`<button class="settings-route" data-home-layout><span class="settings-route-icon">${icon('home')}</span><span><b>Home layout</b><small>Catalog order, visibility, hero sources, and provider labels</small></span><span aria-hidden="true">›</span></button><div class="settings-divider"><span>Playback</span></div>`);$('[data-home-layout]',body).onclick=homeLayoutModal;hydrateIcons(body)}}
-    async function init(){enhanceSettings();buildNav();hydrateIcons();bindDynamic();globalEvents();await renderHome()}
+    const SETTINGS_ROUTES={root:renderSettingsRoot,addons:renderAddons,catalogs:renderCatalogSettings,coverage:renderHub,playback:renderPlaybackSettings,audio:renderAudioSettings,data:renderDataSettings};
+    function exportData(){const data={app:'Astra',version:APP_VERSION,exported:new Date().toISOString(),addons:state.addons,library:state.library,progress:progress.snapshot(),settings:state.settings,homeLayout:state.homeLayout};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='astra-backup.json';a.click();URL.revokeObjectURL(a.href)}
+    async function importData(file){const owned=currentModal();try{const d=JSON.parse(await file.text());if(d.app!=='Astra'||!Array.isArray(d.addons))throw Error('Not an Astra backup');state.addons=d.addons;state.library=d.library||{};progress.replace(d.progress||{});state.settings=AstraPlayback.settings.migrate({...state.settings,...d.settings});state.homeLayout=d.homeLayout&&typeof d.homeLayout==='object'?d.homeLayout:AstraCatalogs.defaults();for(const k of ['addons','library','settings','homeLayout'])store.set(k,state[k]);state.manifests.clear();state.catalogCache.clear();await loadManifests(true);toast('Backup imported','good');if(currentModal()===owned)closeModal();invalidateCatalogs();renderHome()}catch(e){toast(`Import failed: ${e.message}`,'bad')}}
+    function bindDynamic(root=document){hydrateIcons(root);$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-play-best]',root).forEach(x=>x.onclick=()=>{const best=AstraPlayback.streams.bestCandidate(player.ranked);if(best)openPlayer(best)});$$('[data-stream-filter]',root).forEach(x=>x.onclick=()=>{state.streamFilter=x.dataset.streamFilter;renderStreams()});$$('[data-stream-sort]',root).forEach(x=>x.onchange=()=>{state.streamSort=x.value;renderStreams()});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{if(x.dataset.countdown==='cancel')cancelCountdown();else if(player.countdown)player.countdown.finishNow()});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0])}
+    function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#streamOverlayRoot')?.children.length){closeStreamPicker();return}if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('#mediaEl')||$('#playerStage iframe'))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
+    async function init(){buildNav();hydrateIcons();bindDynamic();globalEvents();await renderHome()}
     init().catch(e=>{console.error(e);toast('Astra could not start: '+e.message,'bad')});
   })();
   </script>

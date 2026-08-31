@@ -69,12 +69,17 @@
 
   function build(sources, options) {
     var includeAdult = !!(options && options.includeAdult);
+    // The taxonomy owns what is in product scope; the registry only asks.
+    var excluded = options && typeof options.excludeType === "function"
+      ? options.excludeType
+      : function () { return false; };
     var entries = [];
     (Array.isArray(sources) ? sources : []).forEach(function (source) {
       var catalogs = source && source.manifest && source.manifest.catalogs;
       (Array.isArray(catalogs) ? catalogs : []).forEach(function (catalog) {
         if (entries.length >= MAX_CATALOGS) return;
         if (!includeAdult && isAdult(source, catalog)) return;
+        if (excluded(catalog && catalog.type)) return;
         entries.push({
           key: catalogKey(source, catalog),
           providerKey: providerKey(source),
