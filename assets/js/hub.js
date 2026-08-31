@@ -9,7 +9,9 @@
  *   empty       nothing installed exposes it, and we say what is missing
  *
  * A type nobody anticipated is never discarded: it becomes a custom sector at
- * the end of the list so the content stays reachable.
+ * the end of the list so the content stays reachable. The one exception is the
+ * out-of-scope list below — YouTube, podcasts and radio are not part of the
+ * product, so their catalogs are dropped instead of being made reachable.
  *
  * Dependency free: a classic script in the browser, evaluated in `node:vm` by
  * the tests.
@@ -32,7 +34,7 @@
     },
     {
       id: "series",
-      label: "Series",
+      label: "Shows",
       singular: "Series",
       match: ["series", "tv", "show", "shows"],
       needs: "an add-on with series catalogs"
@@ -45,13 +47,6 @@
       needs: "an anime add-on such as a Kitsu or AniList catalog"
     },
     {
-      id: "channel",
-      label: "Live TV",
-      singular: "Live channel",
-      match: ["channel", "channels", "tv_channel", "iptv", "live"],
-      needs: "an add-on with live channel catalogs"
-    },
-    {
       id: "music",
       label: "Music",
       singular: "Music",
@@ -59,25 +54,11 @@
       needs: "an add-on with music catalogs"
     },
     {
-      id: "radio",
-      label: "Radio",
-      singular: "Radio station",
-      match: ["radio", "station", "stations"],
-      needs: "an add-on with radio station catalogs"
-    },
-    {
-      id: "podcast",
-      label: "Podcasts",
-      singular: "Podcast",
-      match: ["podcast", "podcasts"],
-      needs: "an add-on with podcast catalogs"
-    },
-    {
-      id: "youtube",
-      label: "YouTube",
-      singular: "YouTube",
-      match: ["youtube", "yt"],
-      needs: "an add-on that returns YouTube video ids"
+      id: "channel",
+      label: "Live TV",
+      singular: "Live channel",
+      match: ["channel", "channels", "tv_channel", "iptv", "live"],
+      needs: "an add-on with live channel catalogs"
     },
     {
       id: "other",
@@ -88,10 +69,23 @@
     }
   ];
 
+  /**
+   * Types Astra deliberately does not carry. YouTube, podcasts and radio are
+   * out of product scope, so a catalog of one of these types is dropped here
+   * rather than surfaced as a custom sector. Playback keeps its adapters, so
+   * an add-on that returns one of these as a *stream* still works; what is
+   * removed is the browsing destination, not the protocol support.
+   */
+  var OUT_OF_SCOPE = [
+    "youtube", "yt",
+    "podcast", "podcasts",
+    "radio", "station", "stations"
+  ];
+
   // Types that carry episodes and therefore use the series browser.
   var EPISODIC = ["series", "anime"];
   // Types that play as audio rather than video.
-  var AUDIO_SECTORS = ["music", "radio", "podcast"];
+  var AUDIO_SECTORS = ["music"];
 
   function str(value) {
     return value == null ? "" : String(value);
@@ -99,6 +93,11 @@
 
   function normalizeType(type) {
     return str(type).trim().toLowerCase();
+  }
+
+  /** Whether a raw catalog type is outside Astra's product scope. */
+  function isOutOfScope(type) {
+    return OUT_OF_SCOPE.indexOf(normalizeType(type)) !== -1;
   }
 
   /** Which curated sector a raw catalog type belongs to, or null if custom. */
@@ -149,7 +148,7 @@
       catalogs.forEach(function (catalog) {
         if (!catalog || typeof catalog !== "object") return;
         var type = normalizeType(catalog.type);
-        if (!type) return;
+        if (!type || isOutOfScope(type)) return;
         out.push({
           type: type,
           id: str(catalog.id),
@@ -310,10 +309,12 @@
 
   global.AstraHub = {
     SECTORS: SECTORS,
+    OUT_OF_SCOPE: OUT_OF_SCOPE,
     EPISODIC: EPISODIC,
     AUDIO_SECTORS: AUDIO_SECTORS,
     normalizeType: normalizeType,
     sectorIdForType: sectorIdForType,
+    isOutOfScope: isOutOfScope,
     sectorById: sectorById,
     isEpisodic: isEpisodic,
     isAudio: isAudio,

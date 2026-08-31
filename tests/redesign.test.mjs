@@ -4,6 +4,7 @@ import { readFile, readdir } from "node:fs/promises";
 
 const html = await readFile("index.html", "utf8");
 const css = await readFile("assets/css/obsidian.css", "utf8");
+const hubSource = await readFile("assets/js/hub.js", "utf8");
 
 /* ---- design system ---------------------------------------------------- */
 
@@ -131,7 +132,25 @@ test("a sector is only shown as populated when an add-on exposes it", () => {
     "and opening one anyway cannot land on an empty browse surface");
 });
 
-test("YouTube plays only a real add-on id, through the no-cookie host", () => {
+test("YouTube, podcasts and radio are gone from navigation and product scope", () => {
+  // The taxonomy owns the decision; the app asks it rather than re-listing it.
+  assert.match(hubSource, /var OUT_OF_SCOPE = \[/);
+  for (const type of ["youtube", "podcast", "radio"]) {
+    assert.match(hubSource, new RegExp(`"${type}"`), `${type} must be named as out of scope`);
+  }
+  assert.equal(/id: "(?:youtube|podcast|radio)"/.test(hubSource), false, "no sector may remain");
+  assert.match(html, /excludeType:AstraHub\.isOutOfScope/, "the registry drops them too");
+  assert.match(html, /AstraHub\.isOutOfScope\(t\)/, "and so does the add-on row's own type list");
+  // The four destinations are Home, Search, Library and Settings.
+  assert.match(html, /const navs=\[\['home','home','Home'\],\['search','search','Search'\],\['library','library','Library'\],\['settings','settings','Settings'\]\]/);
+  for (const gone of ["'Podcasts'", "'Radio'", "'YouTube'"]) {
+    assert.equal(html.includes(gone), false, `${gone} must not be a label in the app`);
+  }
+});
+
+test("playback keeps its YouTube adapter, through the no-cookie host", () => {
+  // Removing YouTube as a destination must not rewrite a playback contract: a
+  // stream an add-on returns as a YouTube id still plays.
   assert.match(html, /https:\/\/www\.youtube-nocookie\.com\/embed\/\$\{encodeURIComponent\(s\.ytId\)\}/);
   assert.equal(/youtube\.com\/(?!.*nocookie)/.test(html.replace(/youtube-nocookie\.com/g, "")), false);
   // No API key, and no scraped feed standing in for a catalog.
@@ -167,12 +186,38 @@ test("no runtime framework and no unpinned remote script was introduced", async 
 
 /* ---- the redesigned surfaces ------------------------------------------ */
 
-test("the media hub reaches every content type, including future ones", () => {
-  assert.match(html, /<section class="page" id="page-hub"/);
-  assert.match(html, /\['hub','hub','Hub'\]/, "the hub is a first-class destination in the navigation");
+test("content coverage reaches every content type, including future ones", () => {
+  assert.match(html, /<section class="page" id="page-settings"/);
+  assert.match(html, /settingsRouteHTML\('coverage'/, "coverage is a named settings destination");
+  assert.match(html, /coverage:renderHub/, "and it renders the same honest list");
   assert.match(html, /function renderHub\(\)/);
   assert.match(html, /function openHubSector\(id\)/);
   assert.match(html, /data-hub-open\]',root\)\.forEach\(x=>x\.onclick=\(\)=>openHubSector\(x\.dataset\.hubOpen\)\)/);
+});
+
+test("settings is an information architecture, not one endless sheet", () => {
+  // Every group is a destination with the same header, and the dock keeps
+  // four one-handed tabs instead of growing one per surface.
+  for (const route of ["addons", "catalogs", "coverage", "playback", "audio", "data"]) {
+    assert.match(html, new RegExp(`settingsRouteHTML\\('${route}'`), `${route} must be a settings route`);
+    assert.match(html, new RegExp(`${route}:render`), `${route} must resolve to a renderer`);
+  }
+  assert.match(html, /function screenHead\(title\)/, "one sub-screen header, used by all of them");
+  assert.match(html, /data-settings-route="root" aria-label="Back to settings"/);
+  // Changing a control is the save, and the schema migration runs on the way.
+  assert.match(html, /data-select-setting\]',root\)\.forEach\(x=>x\.onchange=\(\)=>saveSettings\(\)\)/);
+  assert.match(html, /state\.settings=AstraPlayback\.settings\.migrate\(state\.settings\);\s*store\.set\('settings'/);
+});
+
+test("every catalog names the add-on that published it", () => {
+  assert.match(html, /function providerChip\(name,extra=''\)/);
+  // A rail says it once, in the section head; a mixed grid says it per result.
+  assert.match(html, /function catalogNote\(entry,type\)/);
+  assert.match(html, /parts\.push\(providerChip\(entry\.providerName\)\)/);
+  assert.match(html, /options\.showSource&&source\?`<span class="card-source">\$\{esc\(source\)\}<\/span>`:''/);
+  assert.match(html, /cardsHTML\(results\.slice\(0,120\),\{showSource:true\}\)/);
+  assert.match(html, /function browseSourceLine\(list\)/, "browse states which add-ons produced the grid");
+  assert.match(css, /\.provider-chip \{/);
 });
 
 test("hub rows keep their label and catalog detail on separate lines", () => {
@@ -210,7 +255,7 @@ test("the series browser keeps specials and extras out of the episode run", () =
 });
 
 test("modal icon buttons and switches expose names and live state", () => {
-  for (const label of ["Close settings", "Close torrent details", "Close add-on installer"]) {
+  for (const label of ["Close torrent details", "Close add-on installer"]) {
     assert.match(html, new RegExp(`aria-label="${label}"`));
   }
   for (const setting of ["autoplayNext", "preferCached", "autoFailover", "subtitlesDefault", "showAdult"]) {
@@ -219,11 +264,19 @@ test("modal icon buttons and switches expose names and live state", () => {
   assert.match(html, /x\.setAttribute\('aria-pressed',String\(state\.settings\[k\]\)\)/);
 });
 
-test("the title sequence has an artwork-independent signal composition", () => {
-  assert.match(html, /class="feature-orbit" aria-hidden="true"/);
-  assert.match(html, /class="feature-coordinate mono"/);
-  assert.match(css, /\.feature-orbit \{/);
-  assert.match(css, /\.feature-art::after \{/);
+test("the lead deck holds real titles and never auto-advances", () => {
+  // The deck is a scroller of catalog items, so nothing moves under a thumb.
+  assert.match(html, /<div class="feature-deck" id="heroDeck">/);
+  assert.match(html, /function bindHeroDeck\(\)/);
+  assert.match(html, /deck\.scrollLeft\/Math\.max\(1,deck\.clientWidth\)/, "position is read, not tracked");
+  assert.equal(/setInterval|autoplay.*hero|heroTimer/i.test(html), false, "no auto-advance timer");
+  assert.match(css, /\.feature-deck \{[\s\S]*?scroll-snap-type: inline mandatory;/);
+  // With no provider, the standby composition is the surface itself: it never
+  // stands in for artwork that does not exist.
+  assert.match(html, /function welcomeFeatureHTML\(\)/);
+  assert.match(html, /<div class="feature-empty">/);
+  assert.match(css, /\.feature-empty \{/);
+  assert.match(css, /\.feature-art::after \{/, "one hard scrim keeps copy readable over any artwork");
 });
 
 test("every catalog card, including new releases, has resilient artwork", () => {

@@ -1,21 +1,19 @@
 /*
- * ASTRA OBSIDIAN
- * ==============
- * A cinematic brutalist system for a mobile-first add-on client.
+ * ASTRA
+ * =====
+ * The design foundation for a private, mobile-first streaming product.
  *
- * Principles this encodes, so future edits stay coherent:
- *   Structure is visible.  Hairline seams and a hard grid, never soft cards
- *                          floating on gradients.
- *   Type carries the design. Editorial sans for names, monospace for the
- *                          technical truth a release name contains.
- *   Colour is rationed.    One signal hue, used only where something is live,
- *                          selected, or wrong. Everything else is obsidian,
- *                          bone and cold silver.
- *   Depth is earned.       Elevation comes from seams and shadow, not blur
- *                          stacked on blur.
+ * The brief this encodes, so future edits stay coherent:
+ *   Restraint.      Near-monochrome. The primary action is bone on black; one
+ *                   cold accent is reserved for live, selected and in-progress.
+ *   Deep space.     Surfaces are a cool near-black ramp. Depth comes from real
+ *                   surface levels and hairlines, not from stacked blur.
+ *   Discipline.     One type ramp, one spacing scale, one radius ladder. A
+ *                   component never invents a colour or a magic pixel value.
+ *   Purpose.        Nothing decorative. Every mark on screen is a control, a
+ *                   state, or a fact an add-on actually returned.
  *
- * Everything below is a token or a component built from tokens. No component
- * should introduce a raw colour or a magic pixel value.
+ * Everything below is a token or a component built from tokens.
  */
 
 /* ------------------------------------------------------------------ *
@@ -25,43 +23,43 @@
 :root {
   color-scheme: dark;
 
-  /* Obsidian field. Each step is a real surface level, not decoration. */
-  --void: #04050a;
-  --obsidian: #080a11;
-  --slate-900: #0d1018;
-  --slate-800: #12151f;
-  --slate-700: #191d29;
-  --slate-600: #232837;
+  /* Surface ramp. Each step is a real elevation level, not decoration. */
+  --void: #05070c;        /* app floor: chrome, dock, scrims */
+  --obsidian: #080b12;    /* page ground */
+  --slate-900: #0e1219;   /* raised panel, settings group */
+  --slate-800: #141922;   /* control fill, artwork bed */
+  --slate-700: #1b212c;   /* hover, thumb, inset track */
+  --slate-600: #272e3b;   /* disabled ink, panel divider */
 
-  /* Bone type ramp. AA-checked against --obsidian in the tests. */
-  --bone: #f4f1ea;
-  --bone-dim: #cfcbc3;
-  --silver: #a7adba;
-  --silver-dim: #7d8492;
+  /* Type ramp. AA-checked against the surfaces it is used on, in the tests. */
+  --bone: #f6f4f0;
+  --bone-dim: #cdd2da;
+  --silver: #a3abb9;
+  --silver-dim: #7c8493;
 
-  /* Cold silver rules. Seams, not borders. */
-  --rule: rgba(167, 173, 186, 0.18);
-  --rule-strong: rgba(167, 173, 186, 0.34);
-  --rule-faint: rgba(167, 173, 186, 0.09);
+  /* Hairlines. Seams, not borders. */
+  --rule: rgba(163, 171, 185, 0.16);
+  --rule-strong: rgba(163, 171, 185, 0.30);
+  --rule-faint: rgba(163, 171, 185, 0.08);
 
-  /* The single rationed signal: ember. Live, selected, destructive. */
-  --signal: #c9402f;
-  --signal-bright: #e2604d;
-  /* The signal darkened just far enough to carry bone type at AA. Used
-     wherever the signal is a background behind words, never as a seam. */
-  --signal-ink: #b8351f;
-  --signal-deep: #6d1d17;
-  --signal-wash: rgba(201, 64, 47, 0.14);
+  /* The single rationed accent: arc. Live, selected, in progress. */
+  --signal: #4d8dff;
+  --signal-bright: #86b2ff;
+  /* The accent darkened far enough to carry bone type at AA. Used wherever
+     the accent is a background behind words, never as a hairline. */
+  --signal-ink: #1c3f87;
+  --signal-deep: #12274f;
+  --signal-wash: rgba(77, 141, 255, 0.14);
 
-  /* Status. Kept desaturated so the signal stays the loudest thing here. */
-  --ok: #6fae86;
-  --ok-wash: rgba(111, 174, 134, 0.13);
-  --warn: #c9a227;
-  --warn-wash: rgba(201, 162, 39, 0.13);
-  --bad: #cf5c52;
-  --bad-wash: rgba(207, 92, 82, 0.13);
-  --info: #6f8fae;
-  --info-wash: rgba(111, 143, 174, 0.13);
+  /* Status. Desaturated so the accent stays the loudest thing on screen. */
+  --ok: #6fbf8f;
+  --ok-wash: rgba(111, 191, 143, 0.13);
+  --warn: #d8a33a;
+  --warn-wash: rgba(216, 163, 58, 0.13);
+  --bad: #e2685c;
+  --bad-wash: rgba(226, 104, 92, 0.13);
+  --info: #8ea6c4;
+  --info-wash: rgba(142, 166, 196, 0.13);
 
   /* Space: a 4px base with editorial jumps at the top end. */
   --s1: 4px;
@@ -74,15 +72,16 @@
   --s8: 56px;
   --s9: 80px;
 
-  /* Radii. Brutalism means mostly square; curves are for touch affordances. */
+  /* Radii. One ladder, four steps, applied by role and never by feel:
+     r1 tags · r2 controls · r3 media and rows · r4 panels and sheets. */
   --r0: 0px;
-  --r1: 2px;
-  --r2: 4px;
-  --r3: 8px;
-  --r4: 14px;
+  --r1: 4px;
+  --r2: 8px;
+  --r3: 12px;
+  --r4: 18px;
   --r-pill: 999px;
 
-  /* Type. One display stack, one dossier stack. */
+  /* Type. One display stack for names, one mono stack for technical truth. */
   --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
@@ -91,25 +90,26 @@
   --t-small: 12px;
   --t-body: 14px;
   --t-lead: 16px;
-  --t-title: 20px;
-  --t-display: 28px;
-  --t-hero: 38px;
+  --t-title: 21px;
+  --t-display: 30px;
+  --t-hero: 40px;
 
-  --track-label: 0.16em; /* wide tracking for uppercase micro-labels */
+  --track-label: 0.14em;  /* wide tracking for uppercase micro-labels */
   --track-tight: -0.02em;
   --track-hero: -0.035em;
 
-  /* Elevation: seam + shadow, never blur alone. */
+  /* Elevation: a surface step plus one shadow, never blur on blur. */
   --lift-1: 0 1px 0 var(--rule-faint);
-  --lift-2: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --lift-3: 0 24px 64px rgba(0, 0, 0, 0.66);
+  --lift-2: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --lift-3: 0 28px 70px rgba(0, 0, 0, 0.62);
 
-  /* Motion: quiet and short. Transform and opacity only. */
+  /* Motion: short, and transform/opacity only. */
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-1: 120ms;
   --dur-2: 200ms;
   --dur-3: 320ms;
+  --dur-4: 480ms;
 
   /* Safe areas, resolved once so components never repeat the env() dance. */
   --safe-t: env(safe-area-inset-top, 0px);
@@ -123,15 +123,16 @@
 
   /* Layout */
   --rail: 0px;             /* desktop nav rail width, 0 on mobile */
-  --dock: 64px;            /* mobile bottom dock height */
-  --gutter: 16px;
+  --dock: 66px;            /* mobile bottom dock height */
+  --gutter: 18px;
   --tap: 44px;             /* minimum touch target */
-  --measure: 68ch;
+  --measure: 66ch;
+  --topbar: 54px;
 }
 
 @media (min-width: 900px) {
   :root {
-    --rail: 84px;
+    --rail: 88px;
     --gutter: 32px;
   }
 }
@@ -151,7 +152,7 @@ body {
   margin: 0;
   min-height: 100svh;
   background:
-    radial-gradient(120% 60% at 50% -10%, rgba(201, 64, 47, 0.06), transparent 60%),
+    radial-gradient(120% 55% at 50% -8%, rgba(77, 141, 255, 0.05), transparent 62%),
     var(--obsidian);
   color: var(--bone);
   font-family: var(--font-display);
@@ -275,22 +276,25 @@ main {
   gap: var(--s2);
   padding: var(--s5) var(--s2);
   background: var(--void);
-  border-right: 1px solid var(--rule);
+  border-right: 1px solid var(--rule-faint);
 }
 
 @media (min-width: 900px) { .rail { display: flex; } }
 
 .mark {
-  width: 44px; height: 44px;
+  width: var(--tap); height: var(--tap);
   display: grid; place-items: center;
-  border: 1px solid var(--rule-strong);
-  background: var(--slate-800);
-  color: var(--bone);
+  border-radius: var(--r2);
+  background: var(--bone);
+  color: var(--void);
+  font-weight: 900;
+  font-size: var(--t-lead);
+  letter-spacing: -0.04em;
   margin-bottom: var(--s4);
 }
-.mark svg { width: 20px; height: 20px; }
 
-/* Top bar: a hairline-separated band, not a floating blur. */
+/* Top bar: a thin brand band that sits over the artwork rather than
+   competing with it. One blurred layer, never a stack of them. */
 .topbar {
   position: sticky;
   top: 0;
@@ -298,24 +302,26 @@ main {
   display: flex;
   align-items: center;
   gap: var(--s3);
-  min-height: 56px;
+  min-height: calc(var(--topbar) + var(--safe-t));
   padding:
-    calc(var(--safe-t) + var(--s3))
+    var(--safe-t)
     max(var(--gutter), var(--safe-r))
-    var(--s3)
+    0
     max(var(--gutter), var(--safe-l));
-  background: color-mix(in srgb, var(--obsidian) 92%, transparent);
-  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--void) 78%, transparent);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
   border-bottom: 1px solid var(--rule-faint);
 }
 
 .wordmark {
   font-weight: 800;
-  font-size: var(--t-lead);
-  letter-spacing: 0.22em;
+  font-size: var(--t-body);
+  letter-spacing: 0.34em;
   text-transform: uppercase;
   color: var(--bone);
   white-space: nowrap;
+  padding-left: 2px;
 }
 .wordmark b { color: var(--signal); font-weight: 800; }
 
@@ -325,49 +331,26 @@ main {
   width: var(--tap); height: var(--tap);
   display: inline-grid; place-items: center;
   color: var(--bone-dim);
-  border: 1px solid transparent;
-  border-radius: var(--r2);
-  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+  border-radius: var(--r-pill);
+  transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
 }
-.icon-btn:hover { color: var(--bone); border-color: var(--rule); }
-.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn:hover { color: var(--bone); background: var(--slate-800); }
+.icon-btn svg { width: 21px; height: 21px; }
 
-/* Search: a seam that opens, not a pill. */
-.search-wrap { position: relative; flex: 1; min-width: 0; max-width: 520px; }
-.search-wrap > [data-icon] {
-  position: absolute; left: var(--s3); top: 50%; transform: translateY(-50%);
-  color: var(--silver-dim); pointer-events: none;
-}
-.search-wrap svg { width: 18px; height: 18px; }
-.search {
-  width: 100%;
-  height: var(--tap);
-  padding: 0 var(--s7) 0 calc(var(--s3) + 26px);
-  background: var(--slate-800);
-  border: 1px solid var(--rule);
-  border-radius: var(--r2);
-  color: var(--bone);
-  font-size: var(--t-body);
-}
-.search::placeholder { color: var(--silver-dim); }
-.search:focus { outline: var(--focus); outline-offset: 0; border-color: var(--signal); }
-.search-clear {
-  position: absolute; right: var(--s1); top: 50%; transform: translateY(-50%);
-  width: 36px; height: 36px; display: grid; place-items: center;
-  color: var(--silver); font-size: 18px; border-radius: var(--r2);
-}
-
-/* Mobile dock. Five destinations, one-handed, hairline top seam. */
+/* Mobile dock. Four destinations, one-handed, with the active tab carried by
+   a pill behind the glyph rather than by colour alone. */
 .dock {
   position: fixed;
   z-index: 40;
   inset: auto 0 0 0;
   display: flex;
+  align-items: stretch;
   height: calc(var(--dock) + var(--safe-b));
-  padding: 0 max(var(--s1), var(--safe-r)) var(--safe-b) max(var(--s1), var(--safe-l));
-  background: color-mix(in srgb, var(--void) 94%, transparent);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid var(--rule);
+  padding: 0 max(var(--s2), var(--safe-r)) var(--safe-b) max(var(--s2), var(--safe-l));
+  background: color-mix(in srgb, var(--void) 84%, transparent);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  border-top: 1px solid var(--rule-faint);
 }
 @media (min-width: 900px) { .dock { display: none; } }
 
@@ -379,39 +362,58 @@ main {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: var(--s1) 2px;
+  gap: 2px;
+  padding: var(--s2) 2px;
   color: var(--silver-dim);
   position: relative;
   transition: color var(--dur-1) var(--ease);
 }
-.dock-btn svg { width: 21px; height: 21px; }
-.dock-btn span:last-child {
+.dock-icon {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 28px;
+}
+.dock-btn svg { width: 22px; height: 22px; }
+.dock-label {
+  position: relative;
+  z-index: 1;
+  display: block;
   font-size: var(--t-micro);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  font-weight: 650;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
 }
 .dock-btn.active { color: var(--bone); }
-/* The active marker is a hard 2px rule, not a glow. */
+/* One indicator, not two: the pill is the active state. */
 .dock-btn.active::before {
   content: "";
-  position: absolute; top: 0; left: 22%; right: 22%;
-  height: 2px; background: var(--signal);
+  position: absolute;
+  top: var(--s2);
+  left: 50%;
+  width: 54px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--bone) 13%, transparent);
+  transform: translateX(-50%);
 }
 
 .rail-btn {
   width: 56px; height: 56px;
   display: grid; place-items: center; gap: 2px;
   color: var(--silver-dim);
-  border-radius: var(--r2);
+  border-radius: var(--r3);
+  transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
 }
-.rail-btn.active { color: var(--bone); background: var(--slate-800); box-shadow: inset 2px 0 0 var(--signal); }
-.rail-btn svg { width: 21px; height: 21px; }
+.rail-btn:hover { color: var(--bone-dim); }
+.rail-btn.active { color: var(--void); background: var(--bone); }
+.rail-btn svg { width: 22px; height: 22px; }
 
 /* ------------------------------------------------------------------ *
  * 5. Page frame
@@ -429,108 +431,276 @@ main {
   font-size: var(--t-display);
   font-weight: 800;
   letter-spacing: var(--track-hero);
-  margin: var(--s2) 0 var(--s1);
+  line-height: 1.05;
+  margin: 0 0 var(--s2);
 }
-.page-lede { color: var(--silver); margin: 0; max-width: var(--measure); font-size: var(--t-small); }
+.page-lede { color: var(--silver); margin: 0; max-width: var(--measure); font-size: var(--t-small); line-height: 1.5; }
 
-/* A sector: the repeating editorial unit of the home page. */
-.sector { margin: 0 0 var(--s7); }
+/* A sub-screen: back affordance, then the title it returned from. Used by
+   every settings destination so going one level deep always looks the same. */
+.screen-head {
+  display: grid;
+  grid-template-columns: var(--tap) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s2);
+  margin: 0 0 var(--s5);
+}
+.screen-back {
+  width: var(--tap); height: var(--tap);
+  display: grid; place-items: center;
+  margin-left: calc(var(--s3) * -1);
+  border-radius: var(--r-pill);
+  color: var(--bone);
+}
+.screen-back:hover { background: var(--slate-800); }
+.screen-back svg { width: 22px; height: 22px; }
+.screen-title {
+  margin: 0;
+  font-size: var(--t-display);
+  font-weight: 800;
+  letter-spacing: var(--track-hero);
+  line-height: 1.05;
+  min-width: 0;
+}
+.screen-lede { margin: var(--s2) 0 var(--s5); color: var(--silver); font-size: var(--t-small); line-height: 1.5; max-width: var(--measure); }
+
+/* A sector: the repeating unit of Home. The heading names the catalog; the
+   line under it names the add-on that published it, always. */
+.sector { margin: 0 0 var(--s6); }
 .sector-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--s3);
-  padding-bottom: var(--s2);
-  margin-bottom: var(--s4);
-  border-bottom: 1px solid var(--rule);
+  margin-bottom: var(--s3);
 }
-.sector-index { font-size: var(--t-tiny); }
+.sector-heading { min-width: 0; flex: 1; }
 .sector-title {
   font-size: var(--t-lead);
   font-weight: 750;
   letter-spacing: var(--track-tight);
   margin: 0;
-  flex: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.sector-note { font-size: var(--t-tiny); color: var(--silver-dim); white-space: nowrap; }
+.sector-note {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: 5px;
+  min-width: 0;
+  font-size: var(--t-tiny);
+  color: var(--silver-dim);
+}
 .sector-more {
+  flex: 0 0 auto;
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 0 var(--s2);
+  border-radius: var(--r2);
   font-size: var(--t-tiny);
   letter-spacing: var(--track-label);
   text-transform: uppercase;
   font-weight: 700;
   color: var(--silver);
-  min-height: var(--tap);
+}
+.sector-more:hover { color: var(--bone); background: var(--slate-800); }
+.sector-more svg { width: 14px; height: 14px; }
+
+/* Provider identity, used anywhere a catalog, a row or a result needs to say
+   which add-on it came from. Two catalogs called "Popular" are never merged
+   into one anonymous rail. */
+.provider-chip {
   display: inline-flex;
   align-items: center;
-  padding: 0 var(--s1);
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 3px var(--s2) 3px 3px;
+  border-radius: var(--r-pill);
+  background: var(--slate-800);
+  border: 1px solid var(--rule-faint);
+  color: var(--bone-dim);
+  font-size: var(--t-micro);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
 }
-.sector-more:hover { color: var(--bone); }
+.provider-chip i {
+  flex: 0 0 auto;
+  width: 16px; height: 16px;
+  display: grid; place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--slate-600);
+  color: var(--bone);
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.provider-chip b { font-weight: 650; overflow: hidden; text-overflow: ellipsis; }
+.provider-chip.on-art {
+  background: color-mix(in srgb, var(--void) 76%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-color: transparent;
+}
+
+/* Search: one field that belongs to the Search screen, not a chrome
+   affordance squeezed into the top bar on a 360px phone. */
+.search-wrap { position: relative; margin-bottom: var(--s5); }
+.search-wrap > [data-icon] {
+  position: absolute; left: var(--s4); top: 50%; transform: translateY(-50%);
+  display: grid; color: var(--silver-dim); pointer-events: none;
+}
+.search-wrap svg { width: 19px; height: 19px; }
+.search {
+  width: 100%; height: 52px;
+  padding: 0 var(--s8) 0 calc(var(--s4) + 28px);
+  border: 0;
+  border-radius: var(--r3);
+  background: var(--slate-800);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
+  color: var(--bone);
+  font-size: var(--t-lead);
+}
+.search::placeholder { color: var(--silver-dim); }
+.search:focus { outline: var(--focus); outline-offset: 0; }
+.search::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.search-clear {
+  position: absolute; right: var(--s2); top: 50%; transform: translateY(-50%);
+  width: var(--tap); height: var(--tap);
+  display: grid; place-items: center;
+  border-radius: var(--r-pill);
+  color: var(--silver); font-size: 20px; line-height: 1;
+}
+.search-clear:hover { color: var(--bone); background: var(--slate-700); }
 
 /* ------------------------------------------------------------------ *
- * 6. Feature composition (home)
+ * 6. Feature deck (home)
  * ------------------------------------------------------------------ */
 
-/* Asymmetric, crop-aware, and readable over any artwork because the scrim
-   is a hard gradient rather than a translucent panel. */
-.feature {
-  position: relative;
-  margin: 0 0 var(--s7);
-  border-bottom: 1px solid var(--rule);
-  isolation: isolate;
+/* The lead is a swipeable deck of real catalog titles, sized so the first
+   rail is always in view underneath it. It is never an empty banner: with no
+   provider installed the deck is replaced by the standby composition below. */
+.feature { position: relative; margin: 0 0 var(--s6); isolation: isolate; }
+
+.feature-deck {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline mandatory;
+  scrollbar-width: none;
 }
+.feature-deck::-webkit-scrollbar { display: none; }
+
+.feature-slide { position: relative; scroll-snap-align: start; min-width: 0; }
+
 .feature-art {
   position: relative;
-  aspect-ratio: 3 / 4;
-  max-height: 62svh;
+  /* The width has to stay definite, or max-height makes the aspect ratio
+     shrink the artwork away from the screen edge instead of cropping it. */
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  max-height: 52svh;
   overflow: hidden;
   background: var(--slate-900);
 }
-@media (min-width: 560px) { .feature-art { aspect-ratio: 16 / 9; } }
-/* With no artwork there is nothing to crop for, so the band stops reserving
-   most of the viewport for an empty rectangle. An image that fails to load
-   removes itself, so this covers a broken URL as well as a missing one. */
-.feature-art:empty { aspect-ratio: 21 / 9; max-height: 26svh; }
-.dossier-art:empty { aspect-ratio: 21 / 9; }
+@media (min-width: 560px) { .feature-art { aspect-ratio: 16 / 9; max-height: 62svh; } }
 .feature-art img {
   width: 100%; height: 100%;
   object-fit: cover;
   object-position: 50% 22%;
 }
+/* One hard scrim so the copy is readable over any artwork, bright or dark. */
 .feature-art::after {
   content: "";
   position: absolute; inset: 0;
-  background:
-    linear-gradient(180deg, rgba(8, 10, 17, 0.15) 0%, rgba(8, 10, 17, 0.05) 34%, rgba(8, 10, 17, 0.86) 78%, var(--obsidian) 100%),
-    linear-gradient(90deg, rgba(8, 10, 17, 0.72) 0%, transparent 62%);
+  background: linear-gradient(
+    180deg,
+    rgba(5, 7, 12, 0.55) 0%,
+    rgba(5, 7, 12, 0.05) 34%,
+    rgba(8, 11, 18, 0.82) 74%,
+    var(--obsidian) 100%);
 }
+
 .feature-body {
-  position: relative;
+  position: absolute;
+  inset: auto 0 0 0;
   z-index: 1;
-  margin-top: -28%;
+  display: grid;
+  justify-items: center;
+  text-align: center;
   padding: 0 max(var(--gutter), var(--safe-r)) var(--s6) max(var(--gutter), var(--safe-l));
 }
-@media (min-width: 560px) { .feature-body { margin-top: -14%; } }
-.feature-kicker { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s2); }
 .feature-title {
   font-size: var(--t-hero);
   font-weight: 800;
   letter-spacing: var(--track-hero);
-  line-height: 1.0;
+  line-height: 1.02;
   margin: 0 0 var(--s3);
-  max-width: 16ch;
+  max-width: 15ch;
   text-wrap: balance;
 }
 .feature-facts {
-  display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3);
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: var(--s1) var(--s3);
   margin-bottom: var(--s4);
-  font-size: var(--t-tiny);
-  color: var(--silver);
+  font-size: var(--t-small);
+  color: var(--bone-dim);
 }
-.feature-facts span { display: inline-flex; align-items: center; gap: var(--s2); }
+.feature-facts span { display: inline-flex; align-items: center; gap: var(--s3); }
 .feature-facts span + span::before {
-  content: ""; width: 3px; height: 3px; background: var(--silver-dim);
+  content: ""; width: 3px; height: 3px; border-radius: var(--r-pill); background: var(--silver-dim);
 }
-.feature-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
+.feature-actions { display: flex; align-items: center; gap: var(--s2); }
+.feature-actions .btn-primary { padding: 0 var(--s6); }
+.feature-save {
+  background: color-mix(in srgb, var(--void) 62%, transparent);
+  border: 1px solid var(--rule-strong);
+  color: var(--bone);
+}
+
+/* Deck position. Dots are the only indicator; there is no auto-advance, so
+   nothing moves under the viewer's thumb. */
+.feature-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--s3) 0 var(--s1);
+}
+.feature-dots i {
+  display: block;
+  width: 6px; height: 6px;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--bone) 26%, transparent);
+  transition: width var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease);
+}
+.feature-dots i.on { width: 20px; background: var(--bone); }
+
+/* Standby: shown only when no add-on is installed. The composition is the
+   surface itself — a lit horizon — so nothing pretends to be artwork. */
+.feature-empty {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--s3);
+  padding: var(--s9) max(var(--gutter), var(--safe-r)) var(--s8) max(var(--gutter), var(--safe-l));
+  background:
+    radial-gradient(120% 70% at 50% 118%, rgba(77, 141, 255, 0.20), transparent 62%),
+    linear-gradient(180deg, var(--void), var(--obsidian));
+  border-bottom: 1px solid var(--rule-faint);
+}
+.feature-empty .feature-body { position: static; padding: 0; }
+.feature-empty .feature-title { font-size: var(--t-display); max-width: 18ch; }
 
 /* ------------------------------------------------------------------ *
  * 7. Rails and cards
@@ -539,24 +709,25 @@ main {
 .rail-scroll {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 132px;
+  grid-auto-columns: 136px;
   gap: var(--s3);
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scroll-snap-type: inline proximity;
-  padding-bottom: var(--s3);
-  /* Bleed to the screen edge so the rail reads as a filmstrip. */
+  scroll-padding-inline: max(var(--gutter), var(--safe-l)) max(var(--gutter), var(--safe-r));
+  padding-bottom: var(--s2);
+  /* Bleed to the screen edge so a rail reads as continuing off-screen. */
   margin-inline: calc(-1 * max(var(--gutter), var(--safe-l))) calc(-1 * max(var(--gutter), var(--safe-r)));
   padding-inline: max(var(--gutter), var(--safe-l)) max(var(--gutter), var(--safe-r));
   scrollbar-width: none;
 }
 .rail-scroll::-webkit-scrollbar { display: none; }
-@media (min-width: 430px) { .rail-scroll { grid-auto-columns: 148px; } }
+@media (min-width: 430px) { .rail-scroll { grid-auto-columns: 150px; } }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-  gap: var(--s4) var(--s3);
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: var(--s5) var(--s3);
 }
 
 .card {
@@ -571,8 +742,9 @@ main {
   display: block;
   position: relative;
   aspect-ratio: 2 / 3;
+  border-radius: var(--r3);
   background: var(--slate-800);
-  border: 1px solid var(--rule-faint);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
   overflow: hidden;
 }
 /* Artwork covers the fallback mark rather than sitting under it: the fallback
@@ -581,7 +753,7 @@ main {
 .art img { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .media-image {
   opacity: 0;
-  transform: scale(1.035);
+  transform: scale(1.03);
   transition: opacity 420ms var(--ease), transform 900ms var(--ease-out);
 }
 .image-ready > .media-image { opacity: 1; transform: scale(1); }
@@ -591,7 +763,7 @@ main {
   inset: 0;
   overflow: hidden;
   background:
-    linear-gradient(105deg, transparent 32%, rgba(244, 241, 234, 0.08) 46%, transparent 60%),
+    linear-gradient(105deg, transparent 32%, rgba(246, 244, 240, 0.06) 46%, transparent 60%),
     linear-gradient(135deg, var(--slate-800), var(--slate-900));
   background-size: 230% 100%, 100% 100%;
   animation: artwork-scan 1.35s var(--ease) infinite;
@@ -605,43 +777,44 @@ main {
   position: absolute; inset: 0;
   display: grid; place-items: center;
   color: var(--slate-600);
-  background: repeating-linear-gradient(45deg, var(--slate-800) 0 6px, var(--slate-900) 6px 12px);
+  background: linear-gradient(150deg, var(--slate-800), var(--slate-900));
 }
 .art-fallback svg { width: 28px; height: 28px; }
-.card:hover .art { border-color: var(--rule-strong); }
 
-/* Provider attribution rides on the artwork so a viewer always knows the
-   source of a result. */
-.art-source {
-  position: absolute; z-index: 2; top: 0; left: 0;
-  max-width: 88%;
-  padding: 3px var(--s2);
-  background: color-mix(in srgb, var(--void) 84%, transparent);
-  border-right: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
+/* Provider attribution on a result, used where one grid mixes add-ons. Home
+   rails carry it in the section head instead, so it is never said twice. It
+   sits under the title rather than on the artwork: at three posters across,
+   a badge on the image is either unreadable or covers the poster. */
+.card-source {
+  display: block;
+  margin-top: 3px;
   font-size: var(--t-micro);
+  font-weight: 650;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--bone-dim);
+  color: var(--silver-dim);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .art-watched {
   position: absolute; z-index: 2; top: var(--s2); right: var(--s2);
-  width: 22px; height: 22px; display: grid; place-items: center;
-  background: var(--ok-wash); border: 1px solid var(--ok); color: var(--ok);
+  width: 24px; height: 24px; display: grid; place-items: center;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--void) 76%, transparent);
+  color: var(--ok);
 }
-.art-watched svg { width: 13px; height: 13px; }
+.art-watched svg { width: 14px; height: 14px; }
 
-/* Progress is a hard bar on the artwork's bottom seam. */
-.art-progress { position: absolute; z-index: 2; inset: auto 0 0 0; height: 3px; background: rgba(4, 5, 10, 0.7); }
+/* Progress is a hard bar on the artwork's bottom edge. */
+.art-progress { position: absolute; z-index: 3; inset: auto 0 0 0; height: 3px; background: rgba(5, 7, 12, 0.72); }
 .art-progress i { display: block; height: 100%; background: var(--signal); }
 
 /* Two readable lines of title, always. Never one ellipsized line. */
 .card-title {
-  margin-top: var(--s2);
-  font-size: var(--t-small);
+  margin-top: var(--s3);
+  font-size: 13px;
   font-weight: 650;
   line-height: 1.3;
+  letter-spacing: -0.01em;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -649,31 +822,46 @@ main {
 }
 .card-meta {
   display: block;
-  margin-top: 2px;
-  font-size: var(--t-micro);
+  margin-top: 3px;
+  font-size: var(--t-tiny);
   color: var(--silver-dim);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* Continue Watching reads wider so resume context fits. */
+/* Continue Watching is landscape, because what you resume is an episode, and
+   the still frame plus the time left is the useful information. */
 .rail-scroll.resume-rail { grid-auto-columns: 232px; }
-.resume-card { display: grid; grid-template-columns: 64px 1fr; gap: var(--s3); align-items: start; text-align: left; }
-.resume-card .art { aspect-ratio: 2 / 3; }
-.resume-body { display: block; min-width: 0; padding-top: 2px; }
+.resume-card { display: block; text-align: left; }
+.resume-art { aspect-ratio: 16 / 9; }
+.resume-left {
+  position: absolute; z-index: 2; top: var(--s2); right: var(--s2);
+  display: inline-flex; align-items: center;
+  padding: 3px var(--s2);
+  border-radius: var(--r1);
+  background: color-mix(in srgb, var(--void) 78%, transparent);
+  color: var(--bone);
+  font-size: var(--t-micro);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.resume-body { display: block; min-width: 0; padding-top: var(--s3); }
 .resume-title {
-  font-size: var(--t-small); font-weight: 650; line-height: 1.3;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  display: block;
+  font-size: 13px; font-weight: 650; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* These are <span>, so they need an explicit block box. Without one the
-   resume bar has no height at all and never draws; the others get their line
-   break from the block above them by luck rather than by design. */
-.resume-context { display: block; margin-top: var(--s1); font-size: var(--t-micro); color: var(--silver); }
-.resume-bar { display: block; margin-top: var(--s2); height: 2px; background: var(--slate-700); }
+   resume bar has no height at all and never draws. */
+.resume-context {
+  display: block; margin-top: 3px;
+  font-size: var(--t-tiny); color: var(--silver-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.resume-bar { display: block; margin-top: var(--s2); height: 2px; border-radius: var(--r-pill); background: var(--slate-700); overflow: hidden; }
 .resume-bar i { display: block; height: 100%; background: var(--signal); }
 
-/* A release card keeps the full source name legible enough to judge. */
+/* A release card keeps the add-on's own item naming legible, because that
+   naming is how a viewer judges a source before opening anything. */
 .rail-scroll.release-rail { grid-auto-columns: min(84vw, 330px); }
 .release-card {
   display: grid;
@@ -681,82 +869,78 @@ main {
   gap: var(--s4);
   align-items: stretch;
   text-align: left;
-  border: 1px solid var(--rule);
+  border-radius: var(--r3);
   background: var(--slate-900);
-  padding: 0;
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
+  padding: var(--s3);
   min-height: 100%;
 }
-.release-card:hover { border-color: var(--rule-strong); background: var(--slate-800); }
-.release-art { width: 104px; min-height: 156px; aspect-ratio: 2 / 3; border: 0; border-right: 1px solid var(--rule); }
-.release-copy { min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: var(--s3) var(--s3) var(--s3) 0; }
-.release-kicker {
-  display: block;
-  margin-bottom: var(--s2);
-  color: var(--signal-bright);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 750;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
+.release-card:hover { background: var(--slate-800); }
+.release-art { width: 104px; min-height: 156px; aspect-ratio: 2 / 3; }
+.release-copy { min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.release-kicker { display: block; margin-bottom: var(--s2); }
 .release-card .card-title { margin-top: 0; font-size: var(--t-body); -webkit-line-clamp: 3; }
 .release-name {
   margin-top: var(--s2);
   font-family: var(--font-mono);
   font-size: var(--t-tiny);
-  line-height: 1.4;
-  color: var(--bone-dim);
+  line-height: 1.45;
+  color: var(--silver);
   word-break: break-word;
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 /* ------------------------------------------------------------------ *
- * 8. Media hub
+ * 8. Coverage list (what the installed add-ons expose)
  * ------------------------------------------------------------------ */
 
-/* The hub is a directory, not a card grid: each sector is a hard row with
-   an index numeral, a name, and an honest availability state. */
-.hub-list { border-top: 1px solid var(--rule); }
+/* A directory, not a card grid: one row per content type, with an honest
+   availability state. A type with no provider is listed, not hidden. */
+.hub-list {
+  border-radius: var(--r4);
+  background: var(--slate-900);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
+  overflow: hidden;
+}
 
 .hub-row {
   display: grid;
-  grid-template-columns: 34px 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--s3);
   width: 100%;
-  min-height: calc(var(--tap) + var(--s5));
-  padding: var(--s3) var(--s1);
+  min-height: calc(var(--tap) + var(--s4));
+  padding: var(--s3) var(--s4);
   text-align: left;
-  border-bottom: 1px solid var(--rule);
   color: var(--bone);
   transition: background var(--dur-1) var(--ease);
 }
-.hub-row:hover { background: var(--slate-900); }
-.hub-row .numeral { font-size: var(--t-body); }
-.hub-name { min-width: 0; }
-.hub-label { display: block; font-size: var(--t-body); font-weight: 700; letter-spacing: var(--track-tight); }
-.hub-detail { margin-top: 2px; font-size: var(--t-tiny); color: var(--silver); }
+.hub-row + .hub-row { box-shadow: inset 0 1px 0 var(--rule-faint); }
+.hub-row:hover { background: var(--slate-800); }
+.hub-name { display: grid; gap: 2px; min-width: 0; }
+.hub-label { display: block; font-size: var(--t-lead); font-weight: 700; letter-spacing: var(--track-tight); }
+.hub-detail { display: block; font-size: var(--t-tiny); color: var(--silver); }
 
 /* An unavailable sector stays visible and explains itself. It is never
    hidden, and never dressed up as if content were waiting behind it. */
 .hub-row.empty { color: var(--silver-dim); }
 .hub-row.empty .hub-label { color: var(--silver); font-weight: 650; }
-.hub-row.empty .numeral { color: var(--slate-600); }
 
 .hub-state {
   font-size: var(--t-micro);
   letter-spacing: var(--track-label);
   text-transform: uppercase;
   font-weight: 700;
-  padding: 3px var(--s2);
-  border: 1px solid var(--rule);
+  padding: 4px var(--s2);
+  border-radius: var(--r-pill);
+  background: var(--slate-800);
+  color: var(--silver-dim);
   white-space: nowrap;
 }
-.hub-state.live { color: var(--ok); border-color: var(--ok); background: var(--ok-wash); }
-.hub-state.none { color: var(--silver-dim); }
+.hub-state.live { color: var(--ok); background: var(--ok-wash); }
 
 /* A custom type an add-on invented. Kept reachable rather than discarded. */
 .hub-row.custom .hub-label::after {
@@ -769,7 +953,7 @@ main {
 }
 
 /* ------------------------------------------------------------------ *
- * 9. Dossier (detail sheet)
+ * 9. Detail sheet
  * ------------------------------------------------------------------ */
 
 .sheet {
@@ -779,7 +963,7 @@ main {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(4, 5, 10, 0.72);
+  background: rgba(3, 4, 8, 0.86);
 }
 @media (min-width: 900px) { .sheet { align-items: center; padding: var(--s6); } }
 
@@ -790,70 +974,85 @@ main {
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--obsidian);
-  border-top: 1px solid var(--rule-strong);
+  border-radius: var(--r4) var(--r4) 0 0;
   box-shadow: var(--lift-3);
   animation: sheet-in var(--dur-3) var(--ease-out);
 }
 @media (min-width: 900px) {
-  .sheet-panel { max-width: 860px; border: 1px solid var(--rule-strong); }
+  .sheet-panel { max-width: 860px; border-radius: var(--r4); }
 }
 @keyframes sheet-in { from { transform: translateY(3%); opacity: 0; } }
 
 .sheet-close {
   position: absolute; z-index: 4;
-  top: calc(var(--safe-t) + var(--s2)); right: var(--s2);
+  top: var(--s3); right: var(--s3);
   width: var(--tap); height: var(--tap);
   display: grid; place-items: center;
-  background: color-mix(in srgb, var(--void) 78%, transparent);
-  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--void) 72%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: var(--bone);
 }
+.sheet-close svg { width: 20px; height: 20px; }
 
-/* Dossier header: artwork band, then a hard seam, then the record. */
+/* Artwork band, then the title block riding up over its scrim. */
 .dossier-art {
   position: relative;
   aspect-ratio: 16 / 10;
   overflow: hidden;
+  border-radius: var(--r4) var(--r4) 0 0;
   background: var(--slate-900);
 }
+.dossier-art:empty { aspect-ratio: 21 / 9; }
 .dossier-art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 25%; }
 .dossier-art::after {
   content: "";
   position: absolute; inset: 0;
-  background: linear-gradient(180deg, transparent 30%, rgba(8, 10, 17, 0.9) 88%, var(--obsidian) 100%);
+  background: linear-gradient(180deg, rgba(8, 11, 18, 0.1) 22%, rgba(8, 11, 18, 0.86) 82%, var(--obsidian) 100%);
 }
 
 .dossier-head {
   position: relative;
-  margin-top: -18%;
+  margin-top: -20%;
   z-index: 1;
   padding: 0 var(--gutter) var(--s4);
 }
+.dossier-head > .label { display: block; margin-bottom: var(--s2); }
 .dossier-title {
   font-size: var(--t-display);
   font-weight: 800;
   letter-spacing: var(--track-hero);
   line-height: 1.05;
-  margin: var(--s2) 0 var(--s3);
+  margin: 0 0 var(--s3);
   text-wrap: balance;
 }
+.dossier-tags { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-bottom: var(--s3); }
+.dossier-head .actions { margin: var(--s4) 0; flex-wrap: nowrap; }
+.dossier-head .actions .btn-primary { flex: 1; min-width: 0; }
+.dossier-head .actions .btn-primary span { min-width: 0; }
+.dossier-save { flex: 0 0 auto; background: var(--slate-800); box-shadow: inset 0 0 0 1px var(--rule); }
+.dossier-save[aria-pressed="true"] { color: var(--ok); }
+.dossier-cast { margin: 0 0 var(--s5); font-family: var(--font-mono); font-size: var(--t-tiny); line-height: 1.6; color: var(--silver-dim); }
 
-/* The record strip: label/value pairs in mono, the intelligence look. */
+/* The record: only fields the add-on actually returned, in a quiet panel. */
 .record {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 1px;
-  background: var(--rule-faint);
-  border-block: 1px solid var(--rule);
-  margin: var(--s4) 0;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: var(--s3) var(--s4);
+  margin: 0;
+  padding: var(--s4);
+  border-radius: var(--r3);
+  background: var(--slate-900);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
 }
-.record-cell { background: var(--obsidian); padding: var(--s2) var(--s3); min-width: 0; }
+.record-cell { min-width: 0; }
 .record-cell dt { font-size: var(--t-micro); letter-spacing: var(--track-label); text-transform: uppercase; color: var(--silver-dim); font-weight: 700; }
 .record-cell dd {
-  margin: 3px 0 0;
-  font-family: var(--font-mono);
+  margin: 4px 0 0;
   font-size: var(--t-small);
-  color: var(--bone-dim);
+  font-weight: 650;
+  color: var(--bone);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -861,16 +1060,16 @@ main {
 .synopsis {
   color: var(--bone-dim);
   font-size: var(--t-body);
-  line-height: 1.55;
+  line-height: 1.6;
   max-width: var(--measure);
-  margin: 0 0 var(--s4);
+  margin: 0 0 var(--s5);
 }
 
 /* ------------------------------------------------------------------ *
  * 10. Series browser
  * ------------------------------------------------------------------ */
 
-/* Season selector: a scrollable band of hard tabs, never a native select. */
+/* Season selector: a scrollable band of pills, never a native select. */
 .season-band {
   display: flex;
   gap: var(--s2);
@@ -885,30 +1084,38 @@ main {
   flex: 0 0 auto;
   min-height: var(--tap);
   padding: 0 var(--s4);
-  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  background: var(--slate-800);
   color: var(--silver);
   font-size: var(--t-small);
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   white-space: nowrap;
 }
-.season-tab.active { color: var(--bone); border-color: var(--bone-dim); background: var(--slate-800); }
+.season-tab.active { color: var(--void); background: var(--bone); }
 
-/* Episode rows: numeral gutter, two-line title, no horizontal trap at 320. */
-.video-list { border-top: 1px solid var(--rule); }
+/* Episode rows: a numeral gutter so every title starts at the same x, and a
+   state that is a word, never a colour change alone. */
+.video-group { margin-bottom: var(--s5); }
+.video-list {
+  border-radius: var(--r3);
+  background: var(--slate-900);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
+  overflow: hidden;
+}
 .video-row {
   display: grid;
-  grid-template-columns: 30px 1fr auto;
+  grid-template-columns: 32px 1fr auto;
   gap: var(--s3);
   align-items: start;
   width: 100%;
   min-height: var(--tap);
-  padding: var(--s3) var(--s1);
+  padding: var(--s3) var(--s4);
   text-align: left;
-  border-bottom: 1px solid var(--rule);
   color: var(--bone);
 }
-.video-row:hover { background: var(--slate-900); }
+.video-row + .video-row { box-shadow: inset 0 1px 0 var(--rule-faint); }
+.video-row:hover { background: var(--slate-800); }
 .video-row .numeral { font-size: var(--t-body); padding-top: 1px; }
 .video-main { min-width: 0; }
 .video-title {
@@ -919,20 +1126,26 @@ main {
 }
 .video-sub { display: block; margin-top: 3px; font-size: var(--t-tiny); color: var(--silver-dim); }
 .video-row.watched .video-title { color: var(--silver); }
-.video-row.active { background: var(--slate-800); box-shadow: inset 2px 0 0 var(--signal); }
+.video-row.active { background: var(--slate-800); }
+.video-row.active .numeral { color: var(--signal-bright); }
 .video-flag { flex: 0 0 auto; align-self: center; }
 
 /* Non-episode groups are labelled, never blended into the episode run. */
 .group-head {
-  display: flex; align-items: baseline; gap: var(--s2);
-  padding: var(--s5) 0 var(--s2);
+  display: flex; align-items: center; gap: var(--s3);
+  padding: var(--s5) 0 var(--s3);
 }
-.group-head h4 { margin: 0; font-size: var(--t-small); font-weight: 750; letter-spacing: var(--track-tight); }
-.group-note { font-size: var(--t-micro); color: var(--silver-dim); }
+.group-head h4 { margin: 0; font-size: var(--t-lead); font-weight: 750; letter-spacing: var(--track-tight); }
+.group-note {
+  font-size: var(--t-micro); color: var(--silver-dim);
+  letter-spacing: var(--track-label); text-transform: uppercase;
+}
 
 /* ------------------------------------------------------------------ *
  * 11. Source picker — a release browser
  * ------------------------------------------------------------------ */
+
+.picker { margin-top: var(--s5); }
 
 .picker-bar {
   position: sticky;
@@ -943,7 +1156,7 @@ main {
   align-items: center;
   padding: var(--s3) 0;
   background: var(--obsidian);
-  border-bottom: 1px solid var(--rule);
+  box-shadow: inset 0 -1px 0 var(--rule-faint);
   overflow-x: auto;
   scrollbar-width: none;
   margin-inline: calc(-1 * var(--gutter));
@@ -956,35 +1169,46 @@ main {
   min-height: var(--tap);
   display: inline-flex; align-items: center; gap: var(--s2);
   padding: 0 var(--s4);
-  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  background: var(--slate-800);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
   color: var(--silver);
   font-size: var(--t-small);
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   white-space: nowrap;
-  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+  transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
 }
-.chip:hover { color: var(--bone); border-color: var(--rule-strong); }
-.chip.active { color: var(--void); background: var(--bone); border-color: var(--bone); }
+.chip:hover { color: var(--bone); }
+.chip.active { color: var(--void); background: var(--bone); box-shadow: none; }
 .chip svg { width: 15px; height: 15px; }
 
 .picker-sort {
   flex: 0 0 auto;
   min-height: var(--tap);
-  padding: 0 var(--s2);
+  padding: 0 var(--s3);
+  border-radius: var(--r-pill);
   background: var(--slate-800);
-  border: 1px solid var(--rule);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
+  border: 0;
   color: var(--bone);
   font-size: var(--t-small);
+  font-weight: 650;
 }
 
 /* A stream row leads with the release name in mono, at full length. */
-.stream-list { border-top: 1px solid var(--rule); }
+.stream-list {
+  border-radius: var(--r3);
+  background: var(--slate-900);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
+  overflow: hidden;
+}
 
 /* One release = one item: the choose button, then a native disclosure holding
    the full record. The disclosure sits outside the button so it is never a
    nested interactive control. */
-.stream-item { border-bottom: 1px solid var(--rule); padding-bottom: var(--s2); }
+.stream-item { padding: 0 var(--s4) var(--s2); }
+.stream-item + .stream-item { box-shadow: inset 0 1px 0 var(--rule-faint); }
 
 .stream-row {
   display: block;
@@ -995,8 +1219,8 @@ main {
   position: relative;
   transition: background var(--dur-1) var(--ease);
 }
-.stream-row:hover { background: var(--slate-900); }
-.stream-row.recommended { background: linear-gradient(90deg, var(--signal-wash), transparent 60%); box-shadow: inset 2px 0 0 var(--signal); }
+.stream-row:hover { background: var(--slate-800); }
+.stream-row.recommended { background: linear-gradient(90deg, var(--signal-wash), transparent 62%); }
 .stream-row.blocked { opacity: 0.72; }
 
 .stream-lead { display: flex; align-items: baseline; gap: var(--s2); margin-bottom: var(--s2); }
@@ -1033,7 +1257,8 @@ main {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 3px var(--s2);
-  border: 1px solid var(--rule);
+  border-radius: var(--r1);
+  border: 1px solid var(--rule-faint);
   color: var(--bone-dim);
   background: var(--slate-800);
   white-space: nowrap;
@@ -1096,8 +1321,9 @@ main {
 /* The expanded dossier for one release: every field, nothing clipped. */
 .stream-detail {
   margin-top: var(--s3);
-  border: 1px solid var(--rule);
-  background: var(--slate-900);
+  border-radius: var(--r2);
+  background: var(--slate-800);
+  overflow: hidden;
 }
 .stream-detail dl {
   display: grid;
@@ -1107,7 +1333,7 @@ main {
   background: var(--rule-faint);
 }
 .stream-detail dt,
-.stream-detail dd { background: var(--slate-900); padding: var(--s2) var(--s3); margin: 0; }
+.stream-detail dd { background: var(--slate-800); padding: var(--s2) var(--s3); margin: 0; }
 .stream-detail dt {
   font-size: var(--t-micro); letter-spacing: var(--track-label); text-transform: uppercase;
   color: var(--silver-dim); font-weight: 700;
@@ -1168,13 +1394,14 @@ main {
   min-width: var(--tap); min-height: var(--tap);
   padding: 0 var(--s3);
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--void) 74%, transparent);
-  border: 1px solid var(--rule-strong);
+  box-shadow: inset 0 0 0 1px var(--rule);
   color: var(--bone);
-  font-size: var(--t-tiny); font-weight: 700; letter-spacing: 0.06em;
+  font-size: var(--t-tiny); font-weight: 700; letter-spacing: 0.04em;
 }
 .tool-btn svg { width: 18px; height: 18px; }
-.tool-btn.on { background: var(--signal-ink); border-color: var(--signal-ink); color: var(--bone); }
+.tool-btn.on { background: var(--bone); color: var(--void); box-shadow: none; }
 .tool-btn:disabled { opacity: 0.4; }
 
 /* Status sits above the native control strip, never on top of it. */
@@ -1190,8 +1417,8 @@ main {
   max-width: min(520px, 92vw);
   padding: var(--s3) var(--s4);
   background: color-mix(in srgb, var(--obsidian) 94%, transparent);
-  border: 1px solid var(--rule-strong);
-  box-shadow: var(--lift-2);
+  border-radius: var(--r3);
+  box-shadow: inset 0 0 0 1px var(--rule), var(--lift-2);
   font-size: var(--t-small);
 }
 .status-card b { display: block; font-size: var(--t-small); margin-bottom: 2px; }
@@ -1224,9 +1451,9 @@ main {
   top: calc(max(14px, var(--safe-t)) + 66px);
   width: min(430px, 92vw);
   padding: var(--s4);
+  border-radius: var(--r3);
   background: color-mix(in srgb, var(--obsidian) 96%, transparent);
-  border: 1px solid var(--rule-strong);
-  box-shadow: var(--lift-2);
+  box-shadow: inset 0 0 0 1px var(--rule), var(--lift-2);
 }
 .countdown-card b { display: block; font-size: var(--t-body); margin: var(--s1) 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .countdown-meter { height: 2px; background: var(--slate-700); margin: var(--s3) 0; overflow: hidden; }
@@ -1243,8 +1470,8 @@ main {
   max-height: min(56svh, 420px);
   overflow-y: auto;
   background: color-mix(in srgb, var(--obsidian) 97%, transparent);
-  border: 1px solid var(--rule-strong);
-  box-shadow: var(--lift-3);
+  border-radius: var(--r3);
+  box-shadow: inset 0 0 0 1px var(--rule), var(--lift-3);
 }
 .track-menu h4 {
   margin: 0; padding: var(--s3) var(--s3) var(--s2);
@@ -1290,7 +1517,7 @@ main {
 }
 @media (min-width: 900px) { .audio-bar { inset: auto 0 0 0; padding-left: calc(var(--rail) + var(--gutter)); } }
 
-.audio-bar-art { width: 44px; height: 44px; background: var(--slate-800); border: 1px solid var(--rule); object-fit: cover; }
+.audio-bar-art { width: 44px; height: 44px; background: var(--slate-800); box-shadow: inset 0 0 0 1px var(--rule-faint); object-fit: cover; }
 .audio-bar-body { min-width: 0; text-align: left; }
 .audio-bar-title { font-size: var(--t-small); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .audio-bar-sub { font-size: var(--t-micro); color: var(--silver-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1318,8 +1545,9 @@ main {
 .audio-cover {
   position: relative;
   width: min(280px, 62vw); aspect-ratio: 1;
-  background: var(--slate-800); border: 1px solid var(--rule-strong);
-  box-shadow: var(--lift-3);
+  border-radius: var(--r4);
+  background: var(--slate-800);
+  box-shadow: inset 0 0 0 1px var(--rule), var(--lift-3);
   display: grid; place-items: center;
   color: var(--slate-600);
 }
@@ -1455,67 +1683,84 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
   min-height: var(--tap);
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
   padding: 0 var(--s5);
-  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-pill);
+  background: var(--slate-800);
+  box-shadow: inset 0 0 0 1px var(--rule);
   color: var(--bone);
-  font-size: var(--t-small);
+  font-size: var(--t-body);
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+  letter-spacing: -0.01em;
+  transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
 }
-.btn svg { width: 17px; height: 17px; }
-.btn:active { transform: translateY(1px); }
-.btn-primary { background: var(--bone); color: var(--void); border-color: var(--bone); }
+.btn svg { width: 18px; height: 18px; }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--bone); color: var(--void); box-shadow: none; }
 .btn-primary:hover { background: #fff; }
-.btn-signal { background: var(--signal-ink); border-color: var(--signal-ink); color: var(--bone); }
+.btn-signal { background: var(--signal-ink); box-shadow: none; color: var(--bone); }
 .btn-ghost { background: transparent; }
-.btn-ghost:hover { background: var(--slate-800); border-color: var(--bone-dim); }
-.btn-danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, transparent); }
-.btn-sm { min-height: 36px; padding: 0 var(--s3); font-size: var(--t-micro); }
+.btn-ghost:hover { background: var(--slate-800); }
+.btn-danger { color: var(--bad); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 42%, transparent); background: transparent; }
+.btn-sm { min-height: 36px; padding: 0 var(--s4); font-size: var(--t-small); }
 
 .switch {
-  width: 48px; height: 28px; flex: 0 0 auto;
-  border: 1px solid var(--rule-strong);
-  background: var(--slate-800);
+  width: 50px; height: 30px; flex: 0 0 auto;
+  border-radius: var(--r-pill);
+  background: var(--slate-700);
+  box-shadow: inset 0 0 0 1px var(--rule);
   position: relative;
-  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+  transition: background var(--dur-2) var(--ease);
 }
 .switch i {
   position: absolute; top: 3px; left: 3px;
-  width: 20px; height: 20px; background: var(--silver);
-  transition: transform var(--dur-2) var(--ease), background var(--dur-2) var(--ease);
+  width: 24px; height: 24px;
+  border-radius: var(--r-pill);
+  background: var(--silver);
+  transition: transform var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease);
 }
-.switch.on { background: var(--signal-wash); border-color: var(--signal); }
-.switch.on i { transform: translateX(20px); background: var(--signal-bright); }
+.switch.on { background: var(--bone); box-shadow: none; }
+.switch.on i { transform: translateX(20px); background: var(--void); }
 
 .field { margin-bottom: var(--s4); }
-.field label { display: block; margin-bottom: var(--s2); }
+.field label { display: block; margin-bottom: var(--s2); font-size: var(--t-small); font-weight: 650; color: var(--bone-dim); }
 .select, .text-input {
   width: 100%; min-height: var(--tap);
-  padding: 0 var(--s3);
+  padding: 0 var(--s4);
+  border-radius: var(--r2);
   background: var(--slate-800);
-  border: 1px solid var(--rule);
+  box-shadow: inset 0 0 0 1px var(--rule);
+  border: 0;
   color: var(--bone);
   font-size: var(--t-body);
 }
-.field small { display: block; margin-top: var(--s2); font-size: var(--t-tiny); color: var(--silver-dim); }
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--s7);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3abb9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--s3) center;
+  background-size: 16px 16px;
+}
+.field small { display: block; margin-top: var(--s2); font-size: var(--t-tiny); color: var(--silver-dim); line-height: 1.5; }
 .switch-row {
   display: flex; align-items: center; justify-content: space-between; gap: var(--s4);
-  padding: var(--s3) 0; border-bottom: 1px solid var(--rule-faint);
+  padding: var(--s4) 0;
 }
+.switch-row + .switch-row, .switch-row + .field, .field + .switch-row { box-shadow: inset 0 1px 0 var(--rule-faint); }
 .switch-row b { display: block; font-size: var(--t-body); font-weight: 650; }
-.switch-row span { display: block; font-size: var(--t-tiny); color: var(--silver-dim); margin-top: 2px; }
+.switch-row span { display: block; font-size: var(--t-tiny); color: var(--silver-dim); margin-top: 3px; line-height: 1.5; }
 
 .notice {
-  padding: var(--s3);
-  border: 1px solid var(--rule);
-  border-left: 2px solid var(--info);
+  padding: var(--s4);
+  border-radius: var(--r3);
   background: var(--slate-900);
+  box-shadow: inset 0 0 0 1px var(--rule-faint), inset 2px 0 0 var(--info);
   font-size: var(--t-small);
+  line-height: 1.55;
   color: var(--bone-dim);
 }
-.notice.warn { border-left-color: var(--warn); }
-.notice.danger { border-left-color: var(--signal); }
+.notice.warn { box-shadow: inset 0 0 0 1px var(--rule-faint), inset 2px 0 0 var(--warn); }
+.notice.danger { box-shadow: inset 0 0 0 1px var(--rule-faint), inset 2px 0 0 var(--bad); }
 
 .actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .input-action { display: flex; gap: var(--s2); }
@@ -1526,23 +1771,23 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
  * ------------------------------------------------------------------ */
 
 /* Skeletons mirror the real layout so first paint has no shift. */
-.skeleton { background: var(--slate-800); position: relative; overflow: hidden; }
+.skeleton { background: var(--slate-800); border-radius: var(--r1); position: relative; overflow: hidden; }
 .skeleton::after {
   content: "";
   position: absolute; inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(167, 173, 186, 0.07), transparent);
+  background: linear-gradient(90deg, transparent, rgba(163, 171, 185, 0.07), transparent);
   transform: translateX(-100%);
   animation: sweep 1.4s infinite;
 }
 @keyframes sweep { to { transform: translateX(100%); } }
 .skeleton-line { height: 10px; margin-top: var(--s2); }
-.skeleton-art { aspect-ratio: 2 / 3; }
+.skeleton-art { aspect-ratio: 2 / 3; border-radius: var(--r3); }
 
 .spinner {
   display: block;
   width: 20px; height: 20px; flex: 0 0 auto;
   border: 2px solid var(--slate-600);
-  border-top-color: var(--signal);
+  border-top-color: var(--bone);
   border-radius: var(--r-pill);
   animation: spin 0.8s linear infinite;
 }
@@ -1553,22 +1798,27 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
   padding: var(--s5) 0; color: var(--silver); font-size: var(--t-small);
 }
 
-/* Empty and error states share one frame: a rule, a reason, a way forward. */
+/* Empty and error states share one frame: a reason, and a way forward. */
 .state {
-  border: 1px solid var(--rule);
-  border-left: 2px solid var(--rule-strong);
+  border-radius: var(--r4);
   background: var(--slate-900);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
   padding: var(--s6) var(--s5);
   text-align: left;
 }
-.state-icon { color: var(--slate-600); margin-bottom: var(--s3); }
-.state-icon svg { width: 32px; height: 32px; }
-.state h3 { margin: 0 0 var(--s2); font-size: var(--t-lead); letter-spacing: var(--track-tight); }
-.state p { margin: 0 0 var(--s4); color: var(--silver); font-size: var(--t-small); max-width: 46ch; }
-.state.error { border-left-color: var(--signal); }
-.state.error .state-icon { color: var(--signal-bright); }
-.state.offline { border-left-color: var(--warn); }
-.state.offline .state-icon { color: var(--warn); }
+.state-icon {
+  width: 48px; height: 48px;
+  display: grid; place-items: center;
+  border-radius: var(--r3);
+  background: var(--slate-800);
+  color: var(--silver);
+  margin-bottom: var(--s4);
+}
+.state-icon svg { width: 24px; height: 24px; }
+.state h3 { margin: 0 0 var(--s2); font-size: var(--t-title); font-weight: 750; letter-spacing: var(--track-tight); }
+.state p { margin: 0 0 var(--s4); color: var(--silver); font-size: var(--t-small); line-height: 1.55; max-width: 46ch; }
+.state.error .state-icon { color: var(--bad); background: var(--bad-wash); }
+.state.offline .state-icon { color: var(--warn); background: var(--warn-wash); }
 
 .toast-wrap {
   position: fixed; z-index: 200;
@@ -1581,15 +1831,16 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
   width: min(370px, 100%);
   display: flex; gap: var(--s3); align-items: flex-start;
   padding: var(--s3) var(--s4);
-  background: color-mix(in srgb, var(--slate-800) 96%, transparent);
-  border: 1px solid var(--rule-strong);
-  border-left: 2px solid var(--silver);
-  box-shadow: var(--lift-2);
+  border-radius: var(--r3);
+  background: var(--slate-800);
+  box-shadow: inset 0 0 0 1px var(--rule), var(--lift-2);
   font-size: var(--t-small);
+  line-height: 1.5;
   animation: toast-in var(--dur-2) var(--ease-out);
 }
-.toast.good { border-left-color: var(--ok); }
-.toast.bad { border-left-color: var(--signal); }
+.toast svg { width: 18px; height: 18px; flex: 0 0 auto; color: var(--silver); }
+.toast.good svg { color: var(--ok); }
+.toast.bad svg { color: var(--bad); }
 @keyframes toast-in { from { transform: translateY(6px); opacity: 0; } }
 
 /* Filter band: real selects, scrolled horizontally rather than wrapped into
@@ -1600,11 +1851,38 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
   overflow-x: auto;
   scrollbar-width: none;
   padding-bottom: var(--s4);
-  margin-inline: calc(-1 * var(--gutter));
-  padding-inline: var(--gutter);
+  margin-inline: calc(-1 * max(var(--gutter), var(--safe-l))) calc(-1 * max(var(--gutter), var(--safe-r)));
+  padding-inline: max(var(--gutter), var(--safe-l)) max(var(--gutter), var(--safe-r));
 }
 .filter-row::-webkit-scrollbar { display: none; }
-.filter-row .select { flex: 0 0 auto; max-width: 62vw; }
+.filter-row .select {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 62vw;
+  border-radius: var(--r-pill);
+  font-size: var(--t-small);
+  font-weight: 650;
+}
+
+/* The line that names exactly which add-on and type the results below came
+   from. It sits directly above the results it describes. */
+.browse-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3);
+  margin: var(--s2) 0 var(--s4);
+}
+.browse-head h2 {
+  margin: 0; min-width: 0;
+  font-size: var(--t-title); font-weight: 800; letter-spacing: var(--track-tight);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.browse-head .label { flex: 0 0 auto; }
+
+.source-line {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2);
+  margin-bottom: var(--s4);
+  font-size: var(--t-tiny);
+  color: var(--silver-dim);
+}
 
 .load-more { display: flex; justify-content: center; padding: var(--s6) 0 var(--s2); }
 
@@ -1612,6 +1890,7 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
    because the row also carries the word. */
 .status-dot {
   display: inline-block; width: 8px; height: 8px; margin-right: var(--s2);
+  border-radius: var(--r-pill);
   background: var(--ok); vertical-align: 1px;
 }
 .status-dot.off { background: var(--slate-600); }
@@ -1620,575 +1899,202 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
  * 16. Add-ons
  * ------------------------------------------------------------------ */
 
-.addon-list { border-top: 1px solid var(--rule); }
-.addon-row {
-  display: grid; grid-template-columns: 40px 1fr auto; gap: var(--s3);
-  align-items: center; padding: var(--s4) var(--s1);
-  border-bottom: 1px solid var(--rule);
+.addon-list {
+  border-radius: var(--r4);
+  background: var(--slate-900);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
+  overflow: hidden;
 }
-.addon-logo { width: 40px; height: 40px; object-fit: contain; background: var(--slate-800); border: 1px solid var(--rule); }
+.addon-row {
+  display: grid; grid-template-columns: 44px 1fr; gap: var(--s3);
+  align-items: start; padding: var(--s4);
+}
+.addon-row + .addon-row { box-shadow: inset 0 1px 0 var(--rule-faint); }
+.addon-logo {
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border-radius: var(--r2); overflow: hidden;
+  background: var(--slate-800); color: var(--silver);
+}
+.addon-logo img { width: 100%; height: 100%; object-fit: contain; }
+.addon-logo svg { width: 20px; height: 20px; }
 .addon-body { min-width: 0; }
 .addon-name { font-size: var(--t-body); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.addon-meta { font-size: var(--t-micro); color: var(--silver-dim); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
+.addon-meta { font-size: var(--t-micro); color: var(--silver-dim); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 3px; }
 .addon-desc {
-  font-size: var(--t-tiny); color: var(--silver); margin-top: var(--s1);
+  font-size: var(--t-tiny); color: var(--silver); margin-top: var(--s2); line-height: 1.5;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.addon-actions { display: flex; gap: var(--s1); align-items: center; }
+.addon-actions { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; margin-top: var(--s3); }
 
 /* ------------------------------------------------------------------ *
- * 17. Modal frame (settings, install, torrent)
+ * 17. Settings information architecture, and the two remaining modals
  * ------------------------------------------------------------------ */
 
+/* Settings is a destination, not one endless sheet: a short list of named
+   groups, each opening a focused sub-screen with the same header. */
+.settings-section { margin-bottom: var(--s6); }
+.settings-section > .label { display: block; margin-bottom: var(--s2); padding-left: var(--s1); }
+.settings-group {
+  border-radius: var(--r4);
+  background: var(--slate-900);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
+  padding: 0 var(--s4);
+  overflow: hidden;
+}
+.settings-group.flush { padding: 0; }
+
+.settings-route {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-height: calc(var(--tap) + var(--s3));
+  padding: var(--s3) var(--s4);
+  text-align: left;
+  color: var(--bone);
+  transition: background var(--dur-1) var(--ease);
+}
+.settings-route + .settings-route { box-shadow: inset 0 1px 0 var(--rule-faint); }
+.settings-route:hover { background: var(--slate-800); }
+.settings-route-icon {
+  width: 38px; height: 38px; display: grid; place-items: center;
+  border-radius: var(--r2);
+  background: var(--slate-800);
+  color: var(--bone-dim);
+}
+.settings-route-icon svg { width: 19px; height: 19px; }
+.settings-route-copy { min-width: 0; }
+.settings-route b, .settings-route small { display: block; }
+.settings-route b { font-size: var(--t-body); font-weight: 650; }
+.settings-route small { margin-top: 3px; color: var(--silver-dim); font-size: var(--t-tiny); line-height: 1.45; }
+.settings-route > svg { width: 18px; height: 18px; color: var(--silver-dim); }
+
+.settings-note {
+  margin: var(--s3) var(--s1) 0;
+  font-size: var(--t-tiny);
+  color: var(--silver-dim);
+  line-height: 1.55;
+}
+
+/* Home layout: the summary states the current shape, then one row per
+   catalog. Every row keeps its provider name, so two identically named
+   catalogs from different add-ons are never confused for each other. */
+.layout-summary {
+  margin-bottom: var(--s5);
+  padding: var(--s4);
+  border-radius: var(--r4);
+  background: var(--slate-900);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
+}
+.layout-summary b { display: block; font-size: var(--t-lead); font-weight: 750; }
+.layout-summary span { display: block; margin-top: var(--s2); color: var(--bone-dim); font-size: var(--t-small); }
+.layout-summary p { margin: var(--s2) 0 0; color: var(--silver-dim); font-size: var(--t-tiny); line-height: 1.55; }
+.layout-section-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin: 0 0 var(--s2); padding-left: var(--s1); }
+.layout-section-head button { min-height: var(--tap); padding: 0 var(--s2); color: var(--silver); font-size: var(--t-small); font-weight: 650; }
+.layout-section-head button:hover { color: var(--bone); }
+.layout-catalog {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--tap) 50px 60px;
+  align-items: center;
+  gap: var(--s2);
+  min-height: calc(var(--tap) + var(--s4));
+  padding: var(--s3) var(--s4);
+  transition: opacity var(--dur-2) var(--ease);
+}
+.layout-catalog + .layout-catalog { box-shadow: inset 0 1px 0 var(--rule-faint); }
+.layout-catalog.is-hidden { opacity: 0.5; }
+.layout-catalog-copy { min-width: 0; }
+.layout-catalog-copy b, .layout-catalog-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layout-catalog-copy b { font-size: var(--t-body); font-weight: 650; }
+.layout-catalog-copy span { margin-top: 3px; color: var(--silver-dim); font-size: var(--t-tiny); }
+.hero-pick {
+  width: var(--tap); height: var(--tap); display: grid; place-items: center;
+  border-radius: var(--r-pill); color: var(--silver-dim);
+}
+.hero-pick svg { width: 19px; height: 19px; }
+.hero-pick.active { color: var(--signal-bright); background: var(--signal-wash); }
+.layout-order { display: grid; grid-template-columns: repeat(2, 1fr); border-radius: var(--r2); overflow: hidden; background: var(--slate-800); }
+.layout-order button { min-width: 0; min-height: var(--tap); color: var(--bone-dim); font-size: var(--t-body); }
+.layout-order button + button { box-shadow: inset 1px 0 0 var(--rule-faint); }
+.layout-order button:disabled { color: var(--slate-600); }
+
+/* Two modals remain: installing an add-on, and explaining a torrent result.
+   Everything that used to be a modal is a settings destination now. */
 .modal-shell {
   position: fixed; inset: 0; z-index: 100;
   display: flex; align-items: flex-end; justify-content: center;
-  background: rgba(4, 5, 10, 0.72);
+  background: rgba(3, 4, 8, 0.86);
 }
 @media (min-width: 900px) { .modal-shell { align-items: center; padding: var(--s6); } }
 .modal {
   width: 100%; max-height: 92svh; overflow-y: auto; overscroll-behavior: contain;
   background: var(--obsidian);
-  border-top: 1px solid var(--rule-strong);
+  border-radius: var(--r4) var(--r4) 0 0;
   box-shadow: var(--lift-3);
   animation: sheet-in var(--dur-3) var(--ease-out);
 }
-@media (min-width: 900px) { .modal { max-width: 640px; border: 1px solid var(--rule-strong); } }
+@media (min-width: 900px) { .modal { max-width: 640px; border-radius: var(--r4); } }
 .modal-head {
   position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; justify-content: space-between; gap: var(--s3);
-  padding: calc(var(--safe-t) + var(--s4)) var(--gutter) var(--s3);
+  padding: var(--s4) var(--gutter) var(--s3);
   background: var(--obsidian);
-  border-bottom: 1px solid var(--rule);
+  box-shadow: inset 0 -1px 0 var(--rule-faint);
 }
-.modal-head h2 { margin: 0; font-size: var(--t-title); letter-spacing: var(--track-tight); }
+.modal-head h2 { margin: 0; font-size: var(--t-title); font-weight: 750; letter-spacing: var(--track-tight); }
 .modal-body { padding: var(--s5) var(--gutter) calc(var(--s7) + var(--safe-b)); }
 
-/* Settings use destination rows instead of making every control compete on
-   one endless sheet. Home layout is the first focused sub-screen. */
-.settings-route {
-  display: grid;
-  grid-template-columns: var(--tap) minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--s3);
-  width: 100%;
-  min-height: calc(var(--tap) + var(--s4));
-  margin-bottom: var(--s5);
-  padding: var(--s3);
-  text-align: left;
-  background: var(--slate-900);
-  border: 1px solid var(--rule);
-  color: var(--bone);
-}
-.settings-route:hover { background: var(--slate-800); border-color: var(--rule-strong); }
-.settings-route-icon { width: var(--tap); height: var(--tap); display: grid; place-items: center; background: var(--slate-700); }
-.settings-route-icon svg { width: 21px; height: 21px; }
-.settings-route b, .settings-route small { display: block; }
-.settings-route b { font-size: var(--t-lead); }
-.settings-route small { margin-top: 3px; color: var(--silver); font-size: var(--t-tiny); line-height: 1.45; }
-.settings-route > span:last-child { color: var(--silver); font-size: var(--t-title); }
-.settings-divider { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s4); }
-.settings-divider::after { content: ""; height: 1px; flex: 1; background: var(--rule); }
-.settings-divider span { color: var(--silver); font-family: var(--font-mono); font-size: var(--t-micro); font-weight: 700; letter-spacing: var(--track-label); text-transform: uppercase; }
-
-.layout-modal { max-width: 720px; }
-.layout-modal .modal-head { justify-content: initial; }
-.layout-modal .modal-head > .icon-btn:last-child { margin-left: auto; }
-.layout-modal .modal-head .label { display: block; margin-bottom: 2px; }
-.layout-summary {
-  margin-bottom: var(--s5);
-  padding: var(--s4);
-  border: 1px solid var(--rule);
-  border-left: 2px solid var(--signal);
-  background: var(--slate-900);
-}
-.layout-summary b { display: block; font-size: var(--t-lead); }
-.layout-summary span { display: block; margin-top: var(--s1); color: var(--bone-dim); font-size: var(--t-small); }
-.layout-summary p { margin: var(--s3) 0 0; color: var(--silver); font-size: var(--t-tiny); line-height: 1.55; }
-.settings-group { margin-bottom: var(--s6); padding: 0 var(--s4); border: 1px solid var(--rule); background: var(--slate-900); }
-.layout-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s2); }
-.layout-section-head button { min-height: var(--tap); padding: 0 var(--s2); color: var(--bone-dim); font-size: var(--t-small); }
-.layout-catalog {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--tap) 48px 62px;
-  align-items: center;
-  gap: var(--s2);
-  min-height: calc(var(--tap) + var(--s5));
-  padding: var(--s3) 0;
-  border-top: 1px solid var(--rule);
-  transition: opacity var(--dur-2) var(--ease), background var(--dur-1) var(--ease);
-}
-.layout-catalog.is-hidden { opacity: 0.56; }
-.layout-catalog-copy { min-width: 0; }
-.layout-catalog-copy b, .layout-catalog-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.layout-catalog-copy b { font-size: var(--t-body); }
-.layout-catalog-copy span { margin-top: 3px; color: var(--silver); font-size: var(--t-tiny); }
-.hero-pick { width: var(--tap); height: var(--tap); display: grid; place-items: center; color: var(--silver-dim); border: 1px solid transparent; }
-.hero-pick svg { width: 19px; height: 19px; }
-.hero-pick.active { color: var(--signal-bright); border-color: var(--signal); background: var(--signal-wash); }
-.layout-order { display: grid; grid-template-columns: repeat(2, 1fr); border: 1px solid var(--rule); }
-.layout-order button { min-width: 0; min-height: var(--tap); color: var(--bone-dim); }
-.layout-order button + button { border-left: 1px solid var(--rule); }
-.layout-order button:disabled { color: var(--slate-600); }
-
 /* ------------------------------------------------------------------ *
- * 18. Obsidian / Signal visual direction
+ * 18. Motion
  * ------------------------------------------------------------------ */
 
-/*
- * The first pass established the component system. This layer gives it a
- * recognisable identity: editorial cinema, orbital drafting geometry and the
- * hard precision of an intelligence dossier. It deliberately avoids the
- * familiar "AI dark app" vocabulary of neon blobs and floating glass cards.
- */
-
-body {
-  background:
-    radial-gradient(90% 48% at 78% -8%, rgba(201, 64, 47, 0.12), transparent 62%),
-    linear-gradient(rgba(167, 173, 186, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(167, 173, 186, 0.025) 1px, transparent 1px),
-    var(--obsidian);
-  background-size: auto, 80px 80px, 80px 80px, auto;
-}
-
-/* A single vertical datum line makes every screen feel like part of one
-   drafted system. It fades before reaching the reading area. */
-main::before {
-  content: "";
-  position: fixed;
-  z-index: -1;
-  inset: 0 auto 0 max(var(--gutter), var(--safe-l));
-  width: 1px;
-  background: linear-gradient(transparent, var(--rule-faint) 18%, var(--rule-faint) 82%, transparent);
-  pointer-events: none;
-}
-
-.topbar {
-  min-height: 64px;
-  background: color-mix(in srgb, var(--void) 91%, transparent);
-  border-bottom-color: var(--rule);
-}
-.topbar::after {
-  content: "";
-  position: absolute;
-  left: max(var(--gutter), var(--safe-l));
-  bottom: -1px;
-  width: 42px;
-  height: 2px;
-  background: var(--signal);
-}
-.wordmark {
-  font-size: 17px;
-  font-weight: 900;
-  letter-spacing: 0.28em;
-}
-.search {
-  background: color-mix(in srgb, var(--slate-800) 82%, transparent);
-  border-color: var(--rule-strong);
-}
-
+/* Content arrives as a short sequence, not as one fading document. Delays are
+   capped by the renderer, and every animation is transform/opacity only. */
 .page.active { animation: page-arrival var(--dur-3) var(--ease-out); }
-@keyframes page-arrival {
-  from { opacity: 0; transform: translateY(8px); }
-}
+@keyframes page-arrival { from { opacity: 0; transform: translateY(6px); } }
 
-.page-head {
-  position: relative;
-  padding: var(--s4) 0 var(--s5);
-  border-bottom: 1px solid var(--rule);
-}
-.page-head::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: var(--s4);
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--rule-strong);
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 8px var(--obsidian), inset 0 0 0 9px var(--signal);
-  opacity: 0.72;
-}
-.page-title {
-  max-width: 12ch;
-  margin: var(--s2) 44px var(--s2) 0;
-  font-size: clamp(34px, 10vw, 64px);
-  font-weight: 900;
-  line-height: 0.94;
-  letter-spacing: -0.055em;
-  text-wrap: balance;
-}
-.page-lede { font-size: var(--t-body); max-width: 50ch; }
+.feature-body > * { animation: feature-copy-in var(--dur-4) var(--ease-out) both; }
+.feature-body > :nth-child(1) { animation-delay: 60ms; }
+.feature-body > :nth-child(2) { animation-delay: 120ms; }
+.feature-body > :nth-child(3) { animation-delay: 180ms; }
+@keyframes feature-copy-in { from { opacity: 0; transform: translateY(14px); } }
 
-/* The feature is composed like a title sequence rather than a conventional
-   app hero. Artwork is the field; typography and orbital drafting sit inside
-   it, not in a rounded card below it. */
-.feature {
-  min-height: min(760px, calc(100svh - var(--dock) - var(--safe-b)));
-  overflow: hidden;
-  background: var(--void);
-  border-bottom-color: var(--rule-strong);
-}
-.feature::before {
-  content: "";
-  position: absolute;
-  z-index: 3;
-  inset: 0 auto 0 0;
-  width: 2px;
-  background: linear-gradient(transparent 8%, var(--signal) 26%, var(--signal) 72%, transparent 94%);
-  opacity: 0.9;
-}
-.feature-art {
-  min-height: 530px;
-  max-height: 72svh;
-  aspect-ratio: 3 / 4;
-  background:
-    radial-gradient(circle at 72% 30%, var(--signal-wash), transparent 5%),
-    radial-gradient(circle at 72% 30%, transparent 0 25%, var(--rule) 25.2% 25.5%, transparent 25.7% 39%, var(--rule-faint) 39.2% 39.5%, transparent 39.7%),
-    linear-gradient(125deg, var(--slate-800), var(--void) 66%);
-}
-.feature-art:empty { min-height: 420px; max-height: 58svh; aspect-ratio: 3 / 4; }
-.feature-art img {
-  filter: saturate(0.82) contrast(1.07) brightness(0.9);
-  transform: scale(1.025);
-  animation: feature-reveal 900ms var(--ease-out) both;
-}
-@keyframes feature-reveal {
-  from { opacity: 0; transform: scale(1.065); }
-}
-.feature-art::after {
-  background:
-    linear-gradient(180deg, rgba(4, 5, 10, 0.08) 0%, rgba(4, 5, 10, 0.05) 34%, rgba(4, 5, 10, 0.88) 78%, var(--void) 100%),
-    linear-gradient(90deg, rgba(4, 5, 10, 0.78) 0%, rgba(4, 5, 10, 0.18) 68%, transparent 100%);
-}
-.feature-orbit {
-  position: absolute;
-  z-index: 2;
-  top: 13%;
-  right: -33%;
-  width: 92vw;
-  max-width: 520px;
-  aspect-ratio: 1;
-  border: 1px solid var(--rule-strong);
-  border-radius: 50%;
-  transform: rotate(-18deg) scaleY(0.42);
-  mix-blend-mode: screen;
-  opacity: 0.72;
-  pointer-events: none;
-}
-.feature-orbit::before,
-.feature-orbit::after {
-  content: "";
-  position: absolute;
-  inset: 16%;
-  border: 1px solid var(--rule);
-  border-radius: 50%;
-}
-.feature-orbit::after { inset: 38%; border-color: var(--signal); }
-.feature-orbit i {
-  position: absolute;
-  left: 11%;
-  top: 48%;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--signal-bright);
-  box-shadow: 0 0 0 5px var(--signal-wash);
-}
-.feature-coordinate {
-  position: absolute;
-  z-index: 2;
-  top: var(--s4);
-  right: max(var(--gutter), var(--safe-r));
-  color: var(--bone-dim);
-  font-size: var(--t-micro);
-  letter-spacing: 0.12em;
-  writing-mode: vertical-rl;
-}
-.feature-body {
-  margin-top: -48%;
-  padding-bottom: var(--s8);
-}
-.feature-kicker {
-  font-family: var(--font-mono);
-  font-size: var(--t-micro);
-  letter-spacing: 0.12em;
-  color: var(--silver);
-}
-.feature-kicker .label { color: var(--signal-bright); }
-.feature-rule { display: block; width: 40px; height: 1px; background: var(--rule-strong); }
-.feature-title {
-  max-width: 11ch;
-  font-size: clamp(46px, 13vw, 78px);
-  font-weight: 900;
-  line-height: 0.86;
-  letter-spacing: -0.065em;
-  text-transform: uppercase;
-  text-wrap: balance;
-  text-shadow: 0 14px 48px var(--void);
-}
-.feature-facts {
-  max-width: 38ch;
-  font-family: var(--font-mono);
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-.feature-actions .btn { min-width: 118px; }
-
-@media (min-width: 560px) {
-  .feature-art { aspect-ratio: 16 / 9; min-height: 520px; }
-  .feature-body { margin-top: -21%; }
-}
-
-/* Editorial sections use exaggerated hierarchy and a measured seam. */
-.sector { counter-reset: astra-card; }
-.sector-head {
-  align-items: flex-end;
-  padding: var(--s3) 0 var(--s3);
-  margin-bottom: var(--s5);
-}
-.sector-index {
-  align-self: flex-start;
-  color: var(--signal-bright);
-  font-family: var(--font-mono);
-}
-.sector-title {
-  font-size: clamp(20px, 5.8vw, 31px);
-  font-weight: 850;
-  line-height: 0.98;
-  letter-spacing: -0.045em;
-}
-.sector-note { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; }
-.rail-scroll { grid-auto-columns: 146px; gap: var(--s4); }
-.card { counter-increment: astra-card; position: relative; }
-.card::before {
-  content: counter(astra-card, decimal-leading-zero);
-  position: absolute;
-  z-index: 3;
-  top: 5px;
-  right: 5px;
-  padding: 2px 4px;
-  background: color-mix(in srgb, var(--void) 84%, transparent);
-  border: 1px solid var(--rule);
-  color: var(--bone-dim);
-  font-family: var(--font-mono);
-  font-size: 9px;
-}
-.art {
-  border-color: var(--rule);
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.38);
-  transition: transform var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease);
-}
-.art::after {
-  content: "";
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  background: linear-gradient(180deg, transparent 58%, rgba(4, 5, 10, 0.72));
-  pointer-events: none;
-}
-.card:active .art { transform: scale(0.975); border-color: var(--signal); }
-.card-title { font-size: 13px; font-weight: 750; letter-spacing: -0.015em; }
-.resume-card::before,
-.release-card::before { display: none; }
-.release-card {
-  position: relative;
-  overflow: hidden;
-  background:
-    linear-gradient(135deg, var(--signal-wash), transparent 45%),
-    var(--slate-900);
-  border-left: 2px solid var(--signal);
-}
-
-/* Fix the first-pass collision visible in the evidence (`Movies1 catalog`). */
-.hub-name { display: grid; gap: 2px; min-width: 0; }
-.hub-detail { display: block; margin-top: 0; }
-.hub-row {
-  position: relative;
-  padding-block: var(--s4);
-  transition: color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
-}
-.hub-row::before {
-  content: "";
-  position: absolute;
-  inset: 12px auto 12px -1px;
-  width: 2px;
-  background: var(--signal);
-  transform: scaleY(0);
-  transition: transform var(--dur-2) var(--ease-out);
-}
-.hub-row:hover::before,
-.hub-row:focus-visible::before { transform: scaleY(1); }
-.hub-label { font-size: 16px; letter-spacing: -0.03em; }
-.hub-state { background: var(--void); }
-
-/* Dossiers borrow from classified folders: image field, hard crop, numbered
-   record cells. Real artwork remains the focus instead of becoming wallpaper. */
-.dossier-art {
-  /* An explicit height plus the base rule's aspect-ratio would let the ratio
-     drive the *width* instead (16/10 of 384px is 615px), pushing the band past
-     a 412px viewport and giving the sheet a horizontal scrollbar. */
-  aspect-ratio: auto;
-  width: 100%;
-  min-height: 280px;
-  height: 42svh;
-  max-height: 420px;
-  background:
-    radial-gradient(circle at 78% 18%, var(--signal-wash), transparent 28%),
-    linear-gradient(145deg, var(--slate-800), var(--void));
-}
-.dossier-art img { filter: saturate(0.8) contrast(1.08); }
-.dossier-head { position: relative; }
-/* The eyebrow sits over artwork, where the scrim can only darken so far. At
-   --silver-dim it measured 3.31:1 against a high-key backdrop — below AA for
-   text this size. --silver takes the same position to 5.53:1. */
-.dossier-head > .label { color: var(--silver); }
-.dossier-head::before {
-  content: "DOSSIER";
-  position: absolute;
-  right: var(--gutter);
-  top: var(--s4);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  color: var(--signal-bright);
-  writing-mode: vertical-rl;
-}
-.dossier-title {
-  max-width: 12ch;
-  font-size: clamp(36px, 10vw, 68px);
-  font-weight: 900;
-  line-height: 0.92;
-  letter-spacing: -0.055em;
-  text-wrap: balance;
-}
-.record { border-color: var(--rule-strong); }
-.record-cell { position: relative; background: color-mix(in srgb, var(--slate-900) 58%, transparent); }
-
-/* The source browser reads like technical evidence while the selected result
-   earns one dramatic ember edge. */
-.picker { border-top: 1px solid var(--rule-strong); padding-top: var(--s3); }
-.picker-bar {
-  background: color-mix(in srgb, var(--void) 94%, transparent);
-  backdrop-filter: blur(14px);
-}
-.stream-item { background: color-mix(in srgb, var(--slate-900) 44%, transparent); }
-.stream-row.recommended {
-  background:
-    linear-gradient(90deg, rgba(201, 64, 47, 0.19), transparent 68%),
-    var(--void);
-}
-.stream-name { font-size: 12px; line-height: 1.55; }
-
-/* Audio becomes the quietest room in the product: one object, one orbit, one
-   real progress seam. The orbit is static and therefore cheap on mobile. */
-.audio-full-body {
-  position: relative;
-  background:
-    radial-gradient(circle at 50% 42%, var(--signal-wash), transparent 20%),
-    radial-gradient(circle at 50% 42%, transparent 0 26%, var(--rule-faint) 26.2% 26.5%, transparent 26.7% 41%, var(--rule-faint) 41.2% 41.5%, transparent 41.7%);
-}
-.audio-cover {
-  width: min(300px, 66vw);
-  border-color: var(--rule-strong);
-  box-shadow: 0 34px 80px rgba(0, 0, 0, 0.68), 0 0 0 1px var(--rule-faint);
-  transform: rotate(-1.2deg);
-}
-.audio-cover::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: -10%;
-  border: 1px solid var(--rule-strong);
-  transform: rotate(5deg);
-}
-.audio-meta h2 {
-  font-size: clamp(25px, 8vw, 42px);
-  font-weight: 850;
-  letter-spacing: -0.045em;
-}
-
-.state { position: relative; overflow: hidden; min-height: 210px; }
-.state::after {
-  content: "";
-  position: absolute;
-  right: -52px;
-  bottom: -68px;
-  width: 150px;
-  height: 150px;
-  border: 1px solid var(--rule);
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 28px var(--slate-900), inset 0 0 0 29px var(--rule-faint);
-  pointer-events: none;
-}
-
-/* ------------------------------------------------------------------ *
- * 19. Product motion and tactile depth
- * ------------------------------------------------------------------ */
-
-/* Content arrives as a sequence, not as one fading HTML document. The delays
-   are capped by the renderer, and every animation is transform/opacity only. */
-.feature-body > * {
-  animation: feature-copy-in 620ms var(--ease-out) both;
-}
-.feature-body > :nth-child(1) { animation-delay: 90ms; }
-.feature-body > :nth-child(2) { animation-delay: 150ms; }
-.feature-body > :nth-child(3) { animation-delay: 220ms; }
-.feature-body > :nth-child(4) { animation-delay: 290ms; }
-@keyframes feature-copy-in {
-  from { opacity: 0; transform: translateY(18px); }
-}
-
-.sector { animation: sector-arrive 520ms var(--ease-out) both; }
-.sector:nth-child(2) { animation-delay: 55ms; }
-.sector:nth-child(3) { animation-delay: 105ms; }
-.sector:nth-child(4) { animation-delay: 155ms; }
-@keyframes sector-arrive {
-  from { opacity: 0; transform: translateY(14px); }
-}
+.sector { animation: sector-arrive var(--dur-4) var(--ease-out) both; }
+.sector:nth-child(2) { animation-delay: 45ms; }
+.sector:nth-child(3) { animation-delay: 90ms; }
+.sector:nth-child(4) { animation-delay: 135ms; }
+@keyframes sector-arrive { from { opacity: 0; transform: translateY(12px); } }
 
 .card {
-  animation: card-arrive 480ms var(--ease-out) both;
-  animation-delay: calc(var(--card-index, 0) * 38ms);
-  transition: transform var(--dur-2) var(--ease-out), color var(--dur-1) var(--ease);
+  animation: card-arrive 420ms var(--ease-out) both;
+  animation-delay: calc(var(--card-index, 0) * 32ms);
+  transition: transform var(--dur-2) var(--ease-out);
 }
-@keyframes card-arrive {
-  from { opacity: 0; transform: translateX(12px) scale(0.985); }
-}
-.card .media-image { transition: opacity 420ms var(--ease), transform 700ms var(--ease-out); }
-.card:active { transform: scale(0.975); }
-.card:active .media-image { transform: scale(1.035); }
+@keyframes card-arrive { from { opacity: 0; transform: translateY(10px); } }
+.card:active { transform: scale(0.972); }
 
 @media (hover: hover) and (pointer: fine) {
-  .card:hover { transform: translateY(-5px); color: var(--bone); }
-  .card:hover .media-image { transform: scale(1.045); }
-  .card:hover .card-title { color: var(--bone); }
-  .release-card:hover { box-shadow: 0 20px 46px rgba(0, 0, 0, 0.34); }
+  .card:hover { transform: translateY(-4px); }
+  .card:hover .media-image { transform: scale(1.04); }
 }
 
-.sheet { animation: veil-in 240ms var(--ease) both; }
-.sheet-panel { animation: sheet-in 460ms var(--ease-out); }
+.sheet { animation: veil-in var(--dur-2) var(--ease) both; }
 .dossier-head,
-.dossier-body { animation: dossier-copy-in 560ms var(--ease-out) both; }
-.dossier-head { animation-delay: 120ms; }
-.dossier-body { animation-delay: 190ms; }
+.dossier-body { animation: dossier-copy-in var(--dur-4) var(--ease-out) both; }
+.dossier-head { animation-delay: 90ms; }
+.dossier-body { animation-delay: 150ms; }
 @keyframes veil-in { from { opacity: 0; } }
-@keyframes dossier-copy-in {
-  from { opacity: 0; transform: translateY(12px); }
-}
+@keyframes dossier-copy-in { from { opacity: 0; transform: translateY(10px); } }
 
-.dock-btn svg,
-.rail-btn svg,
-.btn svg,
-.icon-btn svg { transition: transform var(--dur-2) var(--ease-out); }
-.dock-btn.active svg { transform: translateY(-2px); }
+.dock-btn.active::before { animation: nav-seam-in var(--dur-2) var(--ease-out) both; }
+@keyframes nav-seam-in { from { opacity: 0; transform: translateX(-50%) scale(0.72); } }
 .btn:active svg,
-.icon-btn:active svg { transform: scale(0.88); }
-.dock-btn.active::before { animation: nav-seam-in 280ms var(--ease-out) both; }
-@keyframes nav-seam-in { from { transform: scaleX(0); } }
+.icon-btn:active svg { transform: scale(0.9); }
+.btn svg, .icon-btn svg { transition: transform var(--dur-2) var(--ease-out); }
 
 /* ------------------------------------------------------------------ *
- * 20. Motion and reduced motion
+ * 19. Reduced motion
  * ------------------------------------------------------------------ */
 
 /* Everything animated above uses transform or opacity only. Nothing here
@@ -2205,6 +2111,8 @@ main::before {
   .icon-btn,
   .dock-btn,
   .hub-row,
+  .card,
+  .feature-dots i,
   .countdown-meter i {
     transition: none !important;
   }
@@ -2213,7 +2121,6 @@ main::before {
   .modal,
   .toast,
   .page.active,
-  .feature-art img,
   .feature-body > *,
   .sector,
   .card,
@@ -2223,23 +2130,26 @@ main::before {
   .skeleton::after,
   .art-loader { animation: none; }
   .spinner { animation-duration: 2.4s; }
+  .feature-deck, .rail-scroll, .filter-row, .season-band { scroll-behavior: auto; }
   html { scroll-behavior: auto; }
 }
 
 /* ------------------------------------------------------------------ *
- * 21. Narrow-width hardening (320-430)
+ * 20. Narrow-width hardening (320-430)
  * ------------------------------------------------------------------ */
 
 @media (max-width: 380px) {
-  :root { --gutter: 12px; --t-hero: 32px; --t-display: 24px; }
-  .rail-scroll { grid-auto-columns: 118px; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+  :root { --gutter: 14px; --t-hero: 33px; --t-display: 26px; }
+  .rail-scroll { grid-auto-columns: 120px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
   .rail-scroll.resume-rail { grid-auto-columns: 210px; }
   .rail-scroll.release-rail { grid-auto-columns: min(88vw, 292px); }
-  .release-card { grid-template-columns: 92px minmax(0, 1fr); }
-  .release-art { width: 92px; min-height: 138px; }
+  .release-card { grid-template-columns: 88px minmax(0, 1fr); gap: var(--s3); }
+  .release-art { width: 88px; min-height: 132px; }
   .record { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dock-btn span:last-child { font-size: 9px; letter-spacing: 0.02em; }
+  .dock-icon, .dock-btn.active::before { width: 48px; }
+  .dock-label { font-size: 9px; letter-spacing: 0.02em; }
+  .layout-catalog { grid-template-columns: minmax(0, 1fr) var(--tap) 46px 56px; padding-inline: var(--s3); }
   .stream-detail dl { grid-template-columns: 1fr; }
   .stream-detail dt { padding-bottom: 0; }
 }
@@ -2248,12 +2158,13 @@ main::before {
    rather than squeezing values into unreadable slivers. */
 @media (max-width: 330px) {
   .record { grid-template-columns: minmax(0, 1fr); }
-  .feature-title { font-size: 28px; }
+  .feature-title { font-size: 29px; }
   .video-row { grid-template-columns: 26px 1fr auto; gap: var(--s2); }
+  .dock-label { display: none; }
 }
 
 /* ------------------------------------------------------------------ *
- * 22. Player v3 — cinematic mobile controls
+ * 21. Player v3 — cinematic mobile controls
  * ------------------------------------------------------------------ */
 
 .player-v3 {

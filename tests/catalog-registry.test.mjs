@@ -93,7 +93,7 @@ test("media references preserve exact identity while separating providers", () =
   assert.ok(Catalogs.mediaRef(first).length > 200);
 });
 
-test("the app wires provider-safe refs through catalog, Discover and search", async () => {
+test("the app wires provider-safe refs through catalog, browse and search", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 
   assert.match(html, /assets\/js\/catalog-registry\.js/);
@@ -103,16 +103,21 @@ test("the app wires provider-safe refs through catalog, Discover and search", as
   assert.match(html, /findIndex\(n=>mediaRef\(n\)===mediaRef\(m\)\)/);
   assert.match(html, /Every catalog stays attached to the add-on that published it/);
   assert.doesNotMatch(html, /data-browse-catalog="\$\{esc\(s\.addon\.url/);
+  // The registry is asked to drop out-of-scope types rather than duplicating
+  // the taxonomy's own list at the call site.
+  assert.match(html, /excludeType:AstraHub\.isOutOfScope/);
 });
 
 test("Home layout is reachable and exposes mobile-accessible controls", async () => {
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 
-  assert.match(html, /function homeLayoutModal\(\)/);
+  // Home layout is a settings destination now, not a modal stacked on a modal.
+  assert.match(html, /async function renderCatalogSettings\(\)/);
+  assert.match(html, /settingsRouteHTML\('catalogs'/);
   assert.match(html, /data-layout-visible/);
   assert.match(html, /data-layout-hero/);
   assert.match(html, /data-layout-move/);
   assert.match(html, /data-layout-reset/);
   assert.match(html, /aria-pressed=/);
-  assert.match(html, /data-layout-option="showHero" aria-label="Show hero"/);
+  assert.match(html, /data-layout-option="showHero" aria-label="[^"]+" aria-pressed=/);
 });

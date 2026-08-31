@@ -6,11 +6,35 @@ const hub = await loadHub();
 
 const cat = (type, id, name) => ({ type, id, name });
 
-test("every content type issue #9 names has a sector", () => {
+test("every content type Astra carries has a sector", () => {
   const ids = hub.SECTORS.map((s) => s.id);
-  for (const id of ["movie", "series", "anime", "channel", "music", "radio", "podcast", "youtube"]) {
+  for (const id of ["movie", "series", "anime", "music", "channel", "other"]) {
     assert.ok(ids.includes(id), `${id} must be reachable from the hub`);
   }
+  // Movies, shows and anime lead; music is the secondary experience.
+  assert.equal(ids.slice(0, 4).join(","), "movie,series,anime,music");
+});
+
+test("YouTube, podcasts and radio are out of product scope everywhere", () => {
+  const ids = hub.SECTORS.map((s) => s.id);
+  for (const id of ["youtube", "podcast", "radio"]) {
+    assert.equal(ids.includes(id), false, `${id} must not be a destination`);
+  }
+  for (const type of ["youtube", "yt", "podcast", "podcasts", "radio", "station", "stations"]) {
+    assert.equal(hub.isOutOfScope(type), true, `${type} must be out of scope`);
+    assert.equal(hub.sectorIdForType(type), null);
+  }
+  // An out-of-scope catalog is dropped, not demoted to a custom sector, so it
+  // cannot reappear at the end of the coverage list.
+  const sources = [source("mixed", [
+    cat("movie", "1", "Popular"),
+    cat("podcast", "2", "Shows"),
+    cat("radio", "3", "Stations"),
+    cat("youtube", "4", "Channels")
+  ])];
+  assert.equal(hub.collectCatalogs(sources).map((entry) => entry.type).join(","), "movie");
+  assert.equal(hub.buildHub(sources).filter((sector) => sector.custom).length, 0);
+  assert.equal(hub.buildHub(sources, { availableOnly: true }).length, 1);
 });
 
 test("real-world type spellings map onto the same sector", () => {
@@ -19,8 +43,8 @@ test("real-world type spellings map onto the same sector", () => {
   assert.equal(hub.sectorIdForType("tv"), "series");
   assert.equal(hub.sectorIdForType("iptv"), "channel");
   assert.equal(hub.sectorIdForType("live"), "channel");
-  assert.equal(hub.sectorIdForType("stations"), "radio");
-  assert.equal(hub.sectorIdForType("yt"), "youtube");
+  assert.equal(hub.sectorIdForType("animes"), "anime");
+  assert.equal(hub.sectorIdForType("albums"), "music");
   // An unknown type is not forced into a sector it does not belong to.
   assert.equal(hub.sectorIdForType("audiobook"), null);
 });
@@ -39,7 +63,7 @@ test("a sector is never available unless an add-on actually exposes it", () => {
   const sectors = hub.buildHub([source("only-movies", [cat("movie", "top", "Top movies")])]);
   const byId = Object.fromEntries(sectors.map((s) => [s.id, s]));
   assert.equal(byId.movie.available, true);
-  for (const id of ["series", "anime", "channel", "music", "radio", "podcast", "youtube"]) {
+  for (const id of ["series", "anime", "channel", "music", "other"]) {
     assert.equal(byId[id].available, false, `${id} has no provider and must not read as populated`);
     assert.equal(byId[id].catalogs.length, 0);
   }
@@ -85,8 +109,6 @@ test("episodic and audio sectors are classified, not guessed at the call site", 
   assert.equal(hub.isEpisodic("anime"), true);
   assert.equal(hub.isEpisodic("movie"), false);
   assert.equal(hub.isAudio("music"), true);
-  assert.equal(hub.isAudio("radio"), true);
-  assert.equal(hub.isAudio("podcast"), true);
   assert.equal(hub.isAudio("channel"), false, "live TV is video, not audio");
   assert.equal(hub.isAudio("movie"), false);
 });
@@ -130,10 +152,8 @@ test("each sector names one of its items without a plural rule", () => {
   assert.equal(hub.typeLabel("series"), "Series");
   assert.equal(hub.typeLabel("tv"), "Series");
   assert.equal(hub.typeLabel("movies"), "Movie");
-  assert.equal(hub.typeLabel("podcast"), "Podcast");
-  assert.equal(hub.typeLabel("radio"), "Radio station");
+  assert.equal(hub.typeLabel("anime"), "Anime");
   assert.equal(hub.typeLabel("channel"), "Live channel");
-  assert.equal(hub.typeLabel("youtube"), "YouTube");
   // An unknown type is titled from the raw string rather than mislabelled.
   assert.equal(hub.typeLabel("audiobook"), "Audiobook");
   for (const sector of hub.SECTORS) assert.ok(sector.singular, `${sector.id} must name one item`);
