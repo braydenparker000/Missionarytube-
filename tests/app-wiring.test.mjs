@@ -102,7 +102,7 @@ test("the player is driven by engine snapshots, not ad-hoc state", () => {
 test("closing the player cancels the session, adapter, scope and countdown", () => {
   const close = html.match(/function closePlayer\(silent\)\{[\s\S]*?\n {4}\}/);
   assert.ok(close, "closePlayer exists");
-  for (const required of ["player.countdown.cancel()", "player.session.cancel()", "teardownAttempt()", "progress.flush()", "$('#countdownCard')"]) {
+  for (const required of ["player.session.cancel()", "teardownAttempt()", "progress.flush()", "$('#countdownCard')"]) {
     assert.ok(close[0].includes(required), `closePlayer must call ${required}`);
   }
   const teardown = html.match(/function teardownAttempt\(\)\{[\s\S]*?\n {4}\}/);
@@ -121,9 +121,10 @@ test("the close binding cannot silence the player teardown", () => {
 test("a next episode always starts from a fresh stream lookup", () => {
   const goTo = html.match(/async function goToEpisode\(video\)\{[\s\S]*?\n {4}\}/);
   assert.ok(goTo, "goToEpisode exists");
-  assert.ok(goTo[0].includes("state.currentStreams=[];player.ranked=[]"), "previous streams are discarded");
+  assert.ok(goTo[0].includes("state.currentStreams=[];player.sources=[]"), "previous streams are discarded");
   assert.ok(goTo[0].includes("closePlayer(true)"), "the previous player is torn down first");
-  assert.ok(goTo[0].includes("loadStreams(video.id,true)"), "streams are re-fetched for the new episode");
+  assert.ok(goTo[0].includes("loadStreams(video.id)"), "the next episode opens its own source list");
+  assert.equal(/openPlayer/.test(goTo[0]), false, "and nothing starts playing on its own");
 });
 
 test("the player offers every required recovery action", () => {
@@ -144,11 +145,15 @@ test("fullscreen is user-initiated and feature-detected", () => {
 });
 
 test("the picker surfaces compatibility instead of hiding sources", () => {
-  assert.match(html, /class="stream-row \$\{isBest\?'recommended':''\} \$\{ev\.playable\?'':'blocked'\}/);
+  assert.match(html, /class="stream-row \$\{ev\.playable\?'':'blocked'\}/);
   assert.match(html, /class="stream-why">\$\{esc\(entry\.why\)\}/, "each row explains itself");
   assert.match(html, /chip-sm state-\$\{ev\.state\}/, "the compatibility state is labelled");
-  // Filters must never remove a source permanently; "All" is always offered.
-  assert.match(html, /STREAM_FILTERS=\[\['all','All'\]/);
+  // Nothing filters, sorts or ranks: the add-on's order is what is shown.
+  for (const gone of ["STREAM_FILTERS", "data-stream-filter", "data-stream-sort", "data-play-best", "sortedStreams", "bestCandidate"]) {
+    assert.equal(html.includes(gone), false, `${gone} would edit the add-on's own result list`);
+  }
+  assert.match(html, /player\.sources=prepareStreams\(state\.currentStreams\)/);
+  assert.match(html, /const list=player\.sources,total=list\.length/, "the picker renders the prepared list as-is");
 });
 
 test("the close control can never be faded out or made unclickable", () => {
@@ -185,11 +190,14 @@ test("episode ordering is used everywhere videos are listed", () => {
   assert.match(html, /const PB=AstraPlayback;/, "PB is the in-app alias for the module namespace");
 });
 
-test("the autoplay countdown is cancellable and tied to the player", () => {
+test("the end of an episode offers the next one and never starts it", () => {
+  assert.match(html, /function offerNextEpisode\(next\)/);
   assert.match(html, /data-countdown="cancel"/);
   assert.match(html, /data-countdown="now"/);
-  assert.match(html, /if\(player\.countdown\)\{player\.countdown\.cancel\(\);player\.countdown=null\}/);
-  assert.match(html, /if\(!state\.settings\.autoplayNext\)return/, "autoplay honours the setting");
+  // The offer opens the next episode's own source list on a tap.
+  assert.match(html, /const next=player\.nextEpisode;cancelCountdown\(\);if\(x\.dataset\.countdown!=='cancel'&&next\)goToEpisode\(next\)/);
+  assert.equal(/createCountdown/.test(html), false, "no timer starts anything by itself");
+  assert.match(html, /function cancelCountdown\(\)\{\s*player\.nextEpisode=null;/);
 });
 
 test("a terminal failure releases the attempt before the error card renders", () => {
@@ -203,7 +211,7 @@ test("a terminal failure releases the attempt before the error card renders", ()
 });
 
 test("a stream response is scoped to the lookup that asked for it", () => {
-  const load = html.match(/async function loadStreams\(videoId,autoPlay=false\)\{[\s\S]*?\n {4}\}/);
+  const load = html.match(/async function loadStreams\(videoId\)\{[\s\S]*?\n {4}\}/);
   assert.ok(load, "loadStreams exists");
 
   // The search counter alone does not change when the viewer closes one detail
@@ -217,15 +225,14 @@ test("a stream response is scoped to the lookup that asked for it", () => {
 
   // Every continuation is guarded, including the delayed autoplay.
   assert.match(load[0], /if\(stale\(\)\)return\[\];/, "the response is dropped when stale");
-  assert.match(load[0], /\.then\(refined=>\{if\(stale\(\)\)return;player\.ranked=refined;renderStreams\(\)\}\)/,
-    "so is the decoding-info re-render, which also keeps the re-sorted array");
-  assert.match(load[0], /player\.autoPlayTimer=setTimeout\(/, "the delayed autoplay is cancellable");
-  assert.match(load[0], /player\.autoPlayTimer=null;if\(stale\(\)\)return;/, "and guarded");
+  assert.match(load[0], /\.then\(refined=>\{if\(stale\(\)\)return;player\.sources=refined;renderStreams\(\)\}\)/,
+    "so is the decoding-info re-render, which keeps the refreshed entries");
+  assert.equal(/autoPlayTimer|openPlayer\(/.test(load[0]), false, "a lookup only lists sources; it never starts one");
   assert.equal(load[0].includes("if(token!==state.searchToken)return[]"), false, "the counter-only guard is gone");
 });
 
 test("switching or dismissing a title cancels the in-flight lookup", () => {
-  assert.match(html, /function cancelStreamLookup\(\)\{[\s\S]*?player\.lookup=null;[\s\S]*?clearTimeout\(player\.autoPlayTimer\)/);
+  assert.match(html, /function cancelStreamLookup\(\)\{\s*player\.lookup=null;player\.metaRequest=null;/);
   assert.match(html, /async function openMedia\(key\)\{\s*\n\s*cancelStreamLookup\(\);/, "opening another title invalidates it");
   assert.match(html, /data-dismiss\]',root\)\.forEach\(x=>x\.onclick=e=>\{if\(e\.target===x\)closeModal\(\)\}\)/, "so does dismissing the modal");
 });
@@ -238,6 +245,24 @@ test("the subtitle menu selects one specific track, not a language", () => {
   assert.equal(html.includes("selectSubtitle(lang)"), false, "the language-keyed handler is gone");
   // The persisted preference is still a language, since ids are per-session.
   assert.match(html, /state\.settings\.subtitleLanguage=chosen\.lang/);
+});
+
+test("the audio menu offers what it can, and says plainly when it cannot", () => {
+  // Chromium implements no audioTracks API, so a direct file exposes nothing
+  // to switch. Rather than an empty menu, the menu lists the other sources for
+  // this same episode that advertise a language the current one does not.
+  assert.match(html, /function audioAlternateSources\(\)/);
+  assert.match(html, /const alternates=tracks\.length\?\[\]:audioAlternateSources\(\)/);
+  assert.match(html, /data-switch-source="\$\{esc\(candidateKey\(entry\)\)\}"/);
+  assert.match(html, /data-switch-source\]',root\)\.forEach\(x=>x\.onclick=\(\)=>\{const entry=entryById\(x\.dataset\.switchSource\);closeTrackMenu\(\);if\(entry\)openPlayer\(entry\)\}\)/);
+  assert.match(html, /only adaptive HLS and DASH streams expose them/, "the limitation is stated, not hidden");
+
+  // Only languages an add-on actually advertised are listed; nothing guesses
+  // at what is inside a file.
+  const alternates = html.match(/function audioAlternateSources\(\)\{[\s\S]*?\n {4}\}/);
+  assert.ok(alternates, "audioAlternateSources exists");
+  assert.match(alternates[0], /entry\.stream\.facts\.audioLanguages/);
+  assert.match(alternates[0], /!entry\.evaluation\.playable/, "an unplayable alternative is not offered");
 });
 
 test("adaptive audio tracks stay selectable and remember a language preference", () => {
@@ -260,38 +285,10 @@ test("stream rows keep the full release and exact series file details inspectabl
   assert.match(html, /Does not match selected episode/);
 });
 
-test("episode transitions carry an explicit binge group into only the fresh response", () => {
-  assert.match(html, /const preferredBingeGroup=previous\?\.stream\.bingeGroup\|\|null/);
-  assert.match(html, /player\.preferredBingeGroup=preferredBingeGroup/);
-  assert.match(html, /preferredBingeGroup:player\.preferredBingeGroup/);
-  assert.match(html, /if\(!autoPlay\)player\.preferredBingeGroup=null/, "manual lookups cannot inherit a stale group");
-});
-
-test("automatic playback goes through the ceiling-aware selector", () => {
-  // bestCandidate() is the only automatic entry point, and it now enforces
-  // maxResolution, so autoplay cannot exceed the owner's limit.
-  const automatic = [...html.matchAll(/bestCandidate\(player\.ranked\)/g)];
-  assert.ok(automatic.length >= 2, "auto play best and the autoplay path both use it");
-  assert.equal(html.includes("player.ranked[0]"), false, "nothing autoplays the raw top of the list");
-});
-
-test("automatic failover cannot exceed the resolution ceiling either", () => {
-  // bestCandidate() only governs the first pick; the alternatives handed to the
-  // engine must be filtered too, or failover walks straight past the limit.
+test("the decoding probe refreshes verdicts without reordering the list", () => {
   assert.match(
     html,
-    /candidates:ordered\.map\(\(e,i\)=>\(\{id:candidateKey\(e\),stream:e\.stream,evaluation:e\.evaluation,entry:e,autoEligible:i===0\|\|\(!e\.aboveCeiling&&e\.autoEligible===true\)\}\)\)/,
-    "above-ceiling and episode-unsafe alternatives are marked auto-ineligible"
-  );
-  assert.match(html, /const ordered=\[entry,\.\.\.player\.ranked\.filter/, "the tapped source stays first");
-});
-
-test("the re-sorted array from the decoding probe is kept", () => {
-  // refineWithDecodingInfo returns a newly sorted copy; discarding it leaves the
-  // picker rendering the stale order with mutated scores.
-  assert.match(
-    html,
-    /\.then\(refined=>\{if\(stale\(\)\)return;player\.ranked=refined;renderStreams\(\)\}\)/
+    /\.then\(refined=>\{if\(stale\(\)\)return;player\.sources=refined;renderStreams\(\)\}\)/
   );
   assert.equal(html.includes(".then(()=>{if(!stale())renderStreams()})"), false, "the discarding callback is gone");
 });
@@ -375,17 +372,3 @@ test("an async modal action cannot erase a modal it no longer owns", () => {
   assert.match(importer[0], /if\(currentModal\(\)===owned\)closeModal\(\)/);
 });
 
-test("autoplay picks the winner as it stands when the timer fires", () => {
-  // The decoding probe can re-rank during the 250ms wait, and stale() cannot
-  // see a re-ranking, so the candidate must be recomputed inside the timer.
-  const load = html.match(/async function loadStreams\(videoId,autoPlay=false\)\{[\s\S]*?\n {4}\}/);
-  const timer = load[0].match(/player\.autoPlayTimer=setTimeout\(\(\)=>\{[\s\S]*?\},250\);/);
-  assert.ok(timer, "the autoplay timer exists");
-  assert.match(timer[0], /const best=PB\.streams\.bestCandidate\(player\.ranked\);/, "recomputed inside the timer");
-  assert.match(timer[0], /if\(best&&best\.evaluation\.playable\)openPlayer\(best\)/, "and re-checked before playing");
-  assert.equal(
-    /const best=PB\.streams\.bestCandidate\(player\.ranked\);if\(best\)player\.autoPlayTimer/.test(load[0]),
-    false,
-    "the candidate captured before the wait is gone"
-  );
-});

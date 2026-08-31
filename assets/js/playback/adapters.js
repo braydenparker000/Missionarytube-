@@ -497,12 +497,21 @@
   var FACTORIES = { native: createNativeAdapter, hls: createHlsAdapter, dash: createDashAdapter };
 
   /**
-   * Pick the adapter for a stream kind. HLS with native support stays on the
-   * native adapter so Chrome's own pipeline is used instead of hls.js.
+   * Pick the adapter for a stream kind.
+   *
+   * HLS goes to hls.js whenever Media Source Extensions are available, even on
+   * a browser that claims native HLS support. This is not a preference, it is
+   * the only way to reach an audio track on the primary client: Chromium has
+   * never implemented `HTMLMediaElement.audioTracks` — the property does not
+   * exist on the prototype — so a natively played stream has no track list to
+   * offer, whatever the container carries. hls.js parses the master playlist
+   * itself and switches renditions through MSE, so a dubbed release becomes
+   * selectable. Native HLS stays the fallback for a browser without MSE
+   * (Safari), where the native path does expose `audioTracks` anyway.
    */
   function adapterKindFor(streamKind, caps) {
     if (streamKind === "dash") return "dash";
-    if (streamKind === "hls") return caps && caps.nativeHls ? "native" : "hls";
+    if (streamKind === "hls") return caps && caps.hlsSupported === false ? "native" : "hls";
     return "native";
   }
 

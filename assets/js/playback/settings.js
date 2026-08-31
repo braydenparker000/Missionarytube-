@@ -12,28 +12,20 @@
 (function (global) {
   "use strict";
 
-  var RESOLUTIONS = ["2160p", "1080p", "720p", "480p"];
-  var HDR_PREFERENCES = ["prefer", "neutral", "avoid"];
-
+  /*
+   * Astra chooses no source for the viewer, so it holds no preference about
+   * which one it would have chosen. The resolution ceiling, the cached-source
+   * preference, the HDR preference, automatic failover and next-episode
+   * autoplay all existed only to rank or to start a source automatically;
+   * with that behaviour gone they are removed rather than left as controls
+   * that change nothing. `migrate` drops them out of an older stored object.
+   */
   var DEFAULTS = {
-    // Existing preferences, unchanged in meaning.
-    maxResolution: "2160p",
-    autoplayNext: true,
     showAdult: false,
-    // Playback Engine v2 preferences.
-    preferCached: true,
-    hdrPreference: "neutral",
-    autoFailover: true,
     audioLanguage: "original",
     subtitleLanguage: "en",
     subtitlesDefault: false
   };
-
-  function oneOf(allowed) {
-    return function (value) {
-      return allowed.indexOf(value) === -1 ? undefined : value;
-    };
-  }
 
   function bool(value) {
     return typeof value === "boolean" ? value : undefined;
@@ -60,12 +52,7 @@
   }
 
   var SCHEMA = {
-    maxResolution: oneOf(RESOLUTIONS),
-    autoplayNext: bool,
     showAdult: bool,
-    preferCached: bool,
-    hdrPreference: oneOf(HDR_PREFERENCES),
-    autoFailover: bool,
     audioLanguage: audioLanguage,
     subtitleLanguage: language,
     subtitlesDefault: bool
@@ -112,20 +99,11 @@
     return normalizeSettings(stored).settings;
   }
 
-  /** Resolution ordering shared with ranking: higher number is more pixels. */
-  function resolutionRank(resolution) {
-    var index = RESOLUTIONS.indexOf(resolution);
-    return index === -1 ? 0 : RESOLUTIONS.length - index;
-  }
-
   global.AstraPlayback = global.AstraPlayback || {};
   global.AstraPlayback.settings = {
     DEFAULTS: DEFAULTS,
-    RESOLUTIONS: RESOLUTIONS,
-    HDR_PREFERENCES: HDR_PREFERENCES,
     KEYS: KEYS,
     normalizeSettings: normalizeSettings,
-    migrate: migrate,
-    resolutionRank: resolutionRank
+    migrate: migrate
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

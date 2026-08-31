@@ -198,7 +198,7 @@ test("content coverage reaches every content type, including future ones", () =>
 test("settings is an information architecture, not one endless sheet", () => {
   // Every group is a destination with the same header, and the dock keeps
   // four one-handed tabs instead of growing one per surface.
-  for (const route of ["addons", "catalogs", "coverage", "playback", "audio", "data"]) {
+  for (const route of ["addons", "catalogs", "coverage", "audio", "data"]) {
     assert.match(html, new RegExp(`settingsRouteHTML\\('${route}'`), `${route} must be a settings route`);
     assert.match(html, new RegExp(`${route}:render`), `${route} must resolve to a renderer`);
   }
@@ -258,8 +258,12 @@ test("modal icon buttons and switches expose names and live state", () => {
   for (const label of ["Close torrent details", "Close add-on installer"]) {
     assert.match(html, new RegExp(`aria-label="${label}"`));
   }
-  for (const setting of ["autoplayNext", "preferCached", "autoFailover", "subtitlesDefault", "showAdult"]) {
+  for (const setting of ["subtitlesDefault", "showAdult"]) {
     assert.match(html, new RegExp(`data-setting="${setting}"[^>]+aria-label="[^"]+"[^>]+aria-pressed="\\$\\{s\\.${setting}\\}"`));
+  }
+  // A control that no longer changes anything is removed, not left switchable.
+  for (const gone of ["autoplayNext", "preferCached", "autoFailover", "hdrPreference", "maxResolution"]) {
+    assert.equal(html.includes(gone), false, `${gone} no longer decides anything`);
   }
   assert.match(html, /x\.setAttribute\('aria-pressed',String\(state\.settings\[k\]\)\)/);
 });

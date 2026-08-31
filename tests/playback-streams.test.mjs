@@ -85,36 +85,60 @@ test("series identity preserves exact filenames and distinguishes pack files", (
   assert.notEqual(S.identityKey(first), S.identityKey(second), "two files in the same torrent remain distinct");
 });
 
-test("automatic selection rejects mismatched and ambiguous series packs", () => {
+test("the add-on's order is the order, exactly", () => {
+  // Astra does not rank, reorder or drop what an add-on returned: the add-on's
+  // own configuration is where the owner expressed what they want back.
+  const raw = [fixtures.uncached4kHevc, fixtures.cached1080, fixtures.hlsStream, fixtures.dashStream];
+  const prepared = S.prepare(S.normalizeAll(raw, { pageUrl: fixtures.PAGE_URL }), { capabilities: caps });
+  assert.equal(prepared.length, raw.length, "nothing is filtered out");
+  assert.deepEqual(
+    prepared.map((entry) => entry.stream.title),
+    raw.map((stream) => stream.title),
+    "and nothing is moved"
+  );
+
+  // Including when the first result is one this device cannot play: a source
+  // is labelled unplayable, never demoted or hidden.
+  const reversed = S.prepare(S.normalizeAll([...raw].reverse(), { pageUrl: fixtures.PAGE_URL }), { capabilities: caps });
+  assert.deepEqual(
+    reversed.map((entry) => entry.stream.title),
+    [...raw].reverse().map((stream) => stream.title),
+    "order follows the input, not a score"
+  );
+});
+
+test("no ranking surface is exported any more", () => {
+  for (const gone of ["rank", "score", "rescore", "bestCandidate", "autoEligible"]) {
+    assert.equal(S[gone], undefined, `${gone} would let something reorder or auto-pick`);
+  }
+  const prepared = S.prepare(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), { capabilities: caps });
+  for (const entry of prepared) {
+    assert.equal("score" in entry, false, "an entry carries no score");
+    assert.equal("aboveCeiling" in entry, false, "and no ceiling verdict");
+    assert.equal("autoEligible" in entry, false, "and nothing marking it auto-selectable");
+  }
+});
+
+test("malformed input still prepares without throwing", () => {
+  const prepared = S.prepare(S.normalizeAll(fixtures.malformed, { pageUrl: fixtures.PAGE_URL }), { capabilities: caps });
+  assert.equal(prepared.length, fixtures.malformed.length);
+  prepared.forEach((entry) => assert.equal(typeof entry.why, "string"));
+});
+
+test("a series pack mismatch is labelled, never hidden or moved", () => {
   const video = { id: "show:2:3", season: 2, episode: 3 };
-  const normalized = S.normalizeAll([
+  const prepared = S.prepare(S.normalizeAll([
     { title: "Example Show S02E04 1080p", url: "https://cdn.example.test/wrong.mp4" },
     { title: "Example Show Season 2 complete pack", infoHash: "0000000000000000000000000000000000000000" },
     { title: "Example Show S02E03 720p", url: "https://cdn.example.test/right.mp4" }
-  ], { pageUrl: fixtures.PAGE_URL, video });
-  const ranked = S.rank(normalized, { settings: SETTINGS.DEFAULTS, capabilities: caps });
-  const wrong = ranked.find((entry) => entry.stream.url?.endsWith("wrong.mp4"));
-  const pack = ranked.find((entry) => entry.stream.infoHash);
+  ], { pageUrl: fixtures.PAGE_URL, video }), { capabilities: caps });
 
-  assert.equal(wrong.stream.facts.episodeStatus, "mismatch");
-  assert.equal(pack.stream.facts.episodeStatus, "ambiguous-pack");
-  assert.equal(wrong.autoEligible, false);
-  assert.equal(pack.autoEligible, false);
-  assert.equal(S.bestCandidate(ranked).stream.url, "https://cdn.example.test/right.mp4");
-});
-
-test("a compatible next-episode result from the same binge group is preferred only when explicit", () => {
-  const video = { id: "show:2:4", season: 2, episode: 4 };
-  const streams = S.normalizeAll([
-    { title: "Example Show S02E04 1080p", url: "https://cdn.example.test/other.mp4", behaviorHints: { bingeGroup: "other-release" } },
-    { title: "Example Show S02E04 1080p", url: "https://cdn.example.test/same.mp4", behaviorHints: { bingeGroup: "stable-release" } },
-    { title: "Example Show S02E04 1080p", url: "https://cdn.example.test/unstated.mp4" }
-  ], { pageUrl: fixtures.PAGE_URL, video });
-  const ranked = S.rank(streams, { settings: SETTINGS.DEFAULTS, capabilities: caps, preferredBingeGroup: "stable-release" });
-  assert.equal(ranked[0].stream.url, "https://cdn.example.test/same.mp4");
-  assert.match(ranked[0].why, /Same release group/);
-  assert.equal(ranked.find((entry) => entry.stream.url.endsWith("unstated.mp4")).preferredBingeGroup, "stable-release");
-  assert.equal(ranked.find((entry) => entry.stream.url.endsWith("unstated.mp4")).factors.some((factor) => /Same release group/.test(factor.label)), false);
+  assert.equal(prepared[0].stream.facts.episodeStatus, "mismatch");
+  assert.equal(prepared[1].stream.facts.episodeStatus, "ambiguous-pack");
+  assert.equal(prepared[2].stream.facts.episodeStatus, "match");
+  // The wrong episode stays first because the add-on returned it first. The
+  // viewer is told what it is and decides; nothing decides for them.
+  assert.equal(prepared[0].stream.url, "https://cdn.example.test/wrong.mp4");
 });
 
 test("the original stream object is preserved untouched", () => {
@@ -136,15 +160,6 @@ test("malformed stream objects never throw and never look playable", () => {
     assert.ok(Array.isArray(evaluation.reasons));
     assert.ok(evaluation.reasons.length > 0 || evaluation.playable);
   }
-});
-
-test("malformed input still ranks without throwing", () => {
-  const ranked = S.rank(S.normalizeAll(fixtures.malformed, { pageUrl: fixtures.PAGE_URL }), {
-    settings: SETTINGS.DEFAULTS,
-    capabilities: caps
-  });
-  assert.equal(ranked.length, fixtures.malformed.length);
-  ranked.forEach((entry) => assert.equal(typeof entry.score, "number"));
 });
 
 test("unsafe and mixed-content sources are classified, not hidden", () => {
@@ -198,84 +213,8 @@ test("content types are only built when they are reliable", () => {
   assert.equal(S.contentTypeFor(normalize({ url: "https://cdn.example.test/x" })), "");
 });
 
-test("a cached compatible 1080p source beats an uncertain uncached 4K source", () => {
-  const ranked = S.rank(
-    S.normalizeAll([fixtures.uncached4kHevc, fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }),
-    { settings: SETTINGS.DEFAULTS, capabilities: caps }
-  );
-  assert.equal(ranked[0].stream.facts.resolution, "1080p");
-  assert.equal(ranked[0].stream.facts.cached, true);
-  assert.ok(ranked[0].score > ranked[1].score);
-  assert.match(ranked[0].why, /Cached/);
-});
-
-test("ranking is deterministic across repeated runs and input order", () => {
-  const shuffled = [...fixtures.everyShape].reverse();
-  const first = S.rank(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), {
-    settings: SETTINGS.DEFAULTS,
-    capabilities: caps
-  }).map((entry) => entry.stream.url || entry.stream.ytId || entry.stream.infoHash);
-  const second = S.rank(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), {
-    settings: SETTINGS.DEFAULTS,
-    capabilities: caps
-  }).map((entry) => entry.stream.url || entry.stream.ytId || entry.stream.infoHash);
-  assert.deepEqual(first, second, "same input ranks identically every time");
-
-  const reversed = S.rank(S.normalizeAll(shuffled, { pageUrl: fixtures.PAGE_URL }), {
-    settings: SETTINGS.DEFAULTS,
-    capabilities: caps
-  });
-  assert.equal(reversed[0].stream.url, fixtures.cached1080.url, "the winner does not depend on input order");
-});
-
-test("ranking follows the owner's settings", () => {
-  const list = S.normalizeAll([fixtures.uncached4kHevc, fixtures.cached1080], { pageUrl: fixtures.PAGE_URL });
-
-  const noCachePreference = S.rank(list, {
-    settings: { ...SETTINGS.DEFAULTS, preferCached: false },
-    capabilities: caps
-  });
-  assert.ok(
-    noCachePreference.find((entry) => entry.stream.facts.cached).score <
-      S.rank(list, { settings: SETTINGS.DEFAULTS, capabilities: caps }).find((entry) => entry.stream.facts.cached).score,
-    "turning off the cached preference lowers a cached source's score"
-  );
-
-  const capped = S.rank(list, {
-    settings: { ...SETTINGS.DEFAULTS, maxResolution: "1080p" },
-    capabilities: caps
-  });
-  assert.match(
-    capped.find((entry) => entry.stream.facts.resolution === "2160p").factors.map((f) => f.label).join(" "),
-    /Above your 1080p limit/
-  );
-
-  const avoidHdr = S.rank(list, {
-    settings: { ...SETTINGS.DEFAULTS, hdrPreference: "avoid" },
-    capabilities: caps
-  });
-  const preferHdr = S.rank(list, {
-    settings: { ...SETTINGS.DEFAULTS, hdrPreference: "prefer" },
-    capabilities: caps
-  });
-  const hdrScore = (ranked) => ranked.find((entry) => entry.stream.facts.hdr).score;
-  assert.ok(hdrScore(preferHdr) > hdrScore(avoidHdr), "HDR preference moves the HDR source");
-});
-
-test("the highest resolution does not automatically win", () => {
-  const ranked = S.rank(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), {
-    settings: SETTINGS.DEFAULTS,
-    capabilities: caps
-  });
-  assert.notEqual(ranked[0].stream.facts.resolution, "2160p");
-  assert.equal(S.bestCandidate(ranked).evaluation.playable, true);
-});
-
 test("every source carries a short explanation", () => {
-  const ranked = S.rank(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), {
-    settings: SETTINGS.DEFAULTS,
-    capabilities: caps
-  });
+  const ranked = S.prepare(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), { capabilities: caps });
   ranked.forEach((entry) => {
     assert.ok(entry.why.length > 0, `${entry.stream.title} has no explanation`);
     if (!entry.evaluation.playable) {
@@ -285,10 +224,7 @@ test("every source carries a short explanation", () => {
 });
 
 test("MediaCapabilities refinement upgrades and downgrades without throwing", async () => {
-  const entries = S.rank(S.normalizeAll([fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }), {
-    settings: SETTINGS.DEFAULTS,
-    capabilities: caps
-  });
+  const entries = S.prepare(S.normalizeAll([fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }), { capabilities: caps });
   const refined = await S.refineWithDecodingInfo(entries, {
     ...fixtures.androidChromeCapabilities(),
     decodingInfo: async () => ({ supported: false, smooth: false })
@@ -296,10 +232,7 @@ test("MediaCapabilities refinement upgrades and downgrades without throwing", as
   assert.equal(refined[0].evaluation.state, S.STATE.UNSUPPORTED);
   assert.equal(refined[0].evaluation.playable, false);
 
-  const rejecting = S.rank(S.normalizeAll([fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }), {
-    settings: SETTINGS.DEFAULTS,
-    capabilities: caps
-  });
+  const rejecting = S.prepare(S.normalizeAll([fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }), { capabilities: caps });
   const survived = await S.refineWithDecodingInfo(rejecting, {
     ...fixtures.androidChromeCapabilities(),
     decodingInfo: async () => {
@@ -318,10 +251,7 @@ test("evaluation never performs network requests", async () => {
     return Promise.reject(new Error("no network in evaluation"));
   };
   try {
-    S.rank(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), {
-      settings: SETTINGS.DEFAULTS,
-      capabilities: caps
-    });
+    S.prepare(S.normalizeAll(fixtures.everyShape, { pageUrl: fixtures.PAGE_URL }), { capabilities: caps });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -372,11 +302,11 @@ test("MediaCapabilities is never asked about a bare container type", async () =>
   // Chromium answers "unsupported" for a codec-less content type, which would
   // wrongly hide a playable source.
   const asked = [];
-  const bareContainer = S.rank(
+  const bareContainer = S.prepare(
     S.normalizeAll([{ name: "No codec named", title: "Example 720p", url: "https://cdn.example.test/a.webm" }], {
       pageUrl: fixtures.PAGE_URL
     }),
-    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+    { capabilities: caps }
   );
   assert.equal(bareContainer[0].evaluation.contentType, "video/webm", "the type has no codecs parameter");
 
@@ -392,10 +322,7 @@ test("MediaCapabilities is never asked about a bare container type", async () =>
   assert.equal(refined[0].evaluation.playable, true, "the source is still offered");
 
   // A codec-bearing type is still probed.
-  const withCodec = S.rank(S.normalizeAll([fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }), {
-    settings: SETTINGS.DEFAULTS,
-    capabilities: caps
-  });
+  const withCodec = S.prepare(S.normalizeAll([fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }), { capabilities: caps });
   await S.refineWithDecodingInfo(withCodec, {
     ...fixtures.androidChromeCapabilities(),
     decodingInfo: async (config) => {
@@ -406,47 +333,8 @@ test("MediaCapabilities is never asked about a bare container type", async () =>
   assert.deepEqual(asked, ['video/mp4; codecs="avc1.640029"']);
 });
 
-test("maxResolution is a hard ceiling on automatic selection, not just a penalty", () => {
-  // The exact mixed-factor case from review: a cached 4K direct source can
-  // out-score a large uncached 1080p one, so a scoring penalty alone lets
-  // autoplay exceed the owner's stated maximum.
-  const entries = S.normalizeAll(
-    [
-      { name: "4K cached", title: "Example 2160p x264 5 GB [RD+]", url: "https://cdn.example.test/uhd.mp4" },
-      { name: "1080p uncertain", title: "Example 1080p 30 GB", url: "https://cdn.example.test/fhd.mp4" }
-    ],
-    { pageUrl: fixtures.PAGE_URL }
-  );
-  const ranked = S.rank(entries, { settings: { ...SETTINGS.DEFAULTS, maxResolution: "1080p" }, capabilities: caps });
-
-  const uhd = ranked.find((entry) => entry.stream.facts.resolution === "2160p");
-  assert.equal(uhd.aboveCeiling, true);
-  assert.ok(
-    uhd.score > ranked.find((entry) => entry.stream.facts.resolution === "1080p").score,
-    "the 4K source still out-scores on raw points, so a penalty alone would not hold"
-  );
-
-  const best = S.bestCandidate(ranked);
-  assert.equal(best.stream.facts.resolution, "1080p", "autoplay respects the ceiling anyway");
-
-  // Above-ceiling sources are excluded from autoplay, never hidden.
-  assert.equal(ranked.length, 2);
-  assert.equal(uhd.evaluation.playable, true, "it stays tappable in the picker");
-});
-
-test("nothing is auto-selected when every playable source exceeds the ceiling", () => {
-  const ranked = S.rank(
-    S.normalizeAll([{ name: "Only 4K", title: "Example 2160p x264", url: "https://cdn.example.test/uhd.mp4" }], {
-      pageUrl: fixtures.PAGE_URL
-    }),
-    { settings: { ...SETTINGS.DEFAULTS, maxResolution: "720p" }, capabilities: caps }
-  );
-  assert.equal(S.bestCandidate(ranked), null, "the viewer chooses explicitly rather than blowing the limit");
-  assert.equal(ranked[0].evaluation.playable, true);
-});
-
-test("a decodingInfo downgrade updates the score, explanation and order", async () => {
-  const ranked = S.rank(
+test("a decodingInfo downgrade updates the verdict and its explanation, not the order", async () => {
+  const ranked = S.prepare(
     S.normalizeAll(
       [
         { name: "H264 direct", title: "Example 1080p x264 4 GB", url: "https://cdn.example.test/a.mp4" },
@@ -454,11 +342,9 @@ test("a decodingInfo downgrade updates the score, explanation and order", async 
       ],
       { pageUrl: fixtures.PAGE_URL }
     ),
-    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+    { capabilities: caps }
   );
   assert.equal(ranked[0].stream.title, "Example 1080p x264 4 GB");
-  const scoreBefore = ranked[0].score;
-  assert.match(ranked[0].why, /H\.264/);
 
   const refined = await S.refineWithDecodingInfo(ranked, {
     ...fixtures.androidChromeCapabilities(),
@@ -467,13 +353,17 @@ test("a decodingInfo downgrade updates the score, explanation and order", async 
 
   const downgraded = refined.find((entry) => entry.stream.title === "Example 1080p x264 4 GB");
   assert.equal(downgraded.evaluation.state, S.STATE.UNSUPPORTED);
-  assert.ok(downgraded.score < scoreBefore, "the score reflects the new verdict");
   assert.equal(
     downgraded.why,
     "The device reports it cannot decode this source.",
-    "the explanation no longer praises a source that cannot play"
+    "the explanation states what the device just reported"
   );
-  assert.equal(refined[0].stream.title, "Example 720p adaptive", "and the playable source is ordered first");
+  // The list the viewer is reading must not rearrange itself under their thumb.
+  assert.deepEqual(
+    refined.map((entry) => entry.stream.title),
+    ["Example 1080p x264 4 GB", "Example 720p adaptive"],
+    "a changed verdict never reorders the list"
+  );
 });
 
 test("an uppercase DV tag is recognised as Dolby Vision", () => {
@@ -484,10 +374,10 @@ test("an uppercase DV tag is recognised as Dolby Vision", () => {
   // A word merely containing "dv" is not a Dolby Vision tag.
   assert.equal(normalize({ title: "Example Advent 1080p", url: "https://cdn.example.test/a.mp4" }).facts.hdr, "");
 
-  // The HDR preference therefore reaches it.
-  const avoid = S.rank(S.normalizeAll([{ title: "Example 2160p DV HEVC", url: "https://cdn.example.test/a.mp4" }], { pageUrl: fixtures.PAGE_URL }),
-    { settings: { ...SETTINGS.DEFAULTS, hdrPreference: "avoid" }, capabilities: caps });
-  assert.match(avoid[0].factors.map((f) => f.label).join(" "), /Dolby Vision avoided/);
+  // And it reaches the picker as a stated fact, not as a ranking input.
+  const prepared = S.prepare(S.normalizeAll([{ title: "Example 2160p DV HEVC", url: "https://cdn.example.test/a.mp4" }], { pageUrl: fixtures.PAGE_URL }),
+    { capabilities: caps });
+  assert.equal(prepared[0].stream.facts.hdr, "Dolby Vision");
 });
 
 test("the device probe describes the source's real workload", async () => {
@@ -509,11 +399,11 @@ test("the device probe describes the source's real workload", async () => {
     return { supported: ok, smooth: ok };
   };
 
-  const uhd = S.rank(
+  const uhd = S.prepare(
     S.normalizeAll([{ name: "UHD", title: "Example 2160p VP9", url: "https://cdn.example.test/uhd.webm" }], {
       pageUrl: fixtures.PAGE_URL
     }),
-    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+    { capabilities: caps }
   );
   await S.refineWithDecodingInfo(uhd, { ...fixtures.androidChromeCapabilities(), decodingInfo: capture });
 
@@ -524,11 +414,11 @@ test("the device probe describes the source's real workload", async () => {
 
   // 720p must not collapse back to the 1080p default.
   asked.length = 0;
-  const hd = S.rank(
+  const hd = S.prepare(
     S.normalizeAll([{ name: "HD", title: "Example 720p VP9", url: "https://cdn.example.test/hd.webm" }], {
       pageUrl: fixtures.PAGE_URL
     }),
-    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+    { capabilities: caps }
   );
   await S.refineWithDecodingInfo(hd, { ...fixtures.androidChromeCapabilities(), decodingInfo: capture });
 
@@ -553,11 +443,11 @@ test("workloads are resolution specific and monotonic", () => {
 test("a source with no known resolution is not probed at all", async () => {
   // The workload cannot be described honestly, so no question is asked.
   let asked = 0;
-  const noResolution = S.rank(
+  const noResolution = S.prepare(
     S.normalizeAll([{ name: "Unlabelled", title: "Example VP9 movie", url: "https://cdn.example.test/x.webm" }], {
       pageUrl: fixtures.PAGE_URL
     }),
-    { settings: SETTINGS.DEFAULTS, capabilities: caps }
+    { capabilities: caps }
   );
   assert.equal(noResolution[0].stream.facts.resolution, "");
   assert.ok(noResolution[0].evaluation.contentType.includes("codecs="), "it would otherwise qualify");
