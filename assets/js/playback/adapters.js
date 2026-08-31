@@ -205,6 +205,41 @@
     var media = config.media;
     var scope = config.scope || createResourceScope();
     var base = baseAdapter("native", media, scope, config);
+    var trackEventsBound = false;
+
+    // Chrome does not expose AudioTrackList for every direct container. When it
+    // does, use the real browser tracks; when it does not, return an empty list
+    // so the UI can explain the limitation instead of inventing a selector.
+    function audioTracks() {
+      var nativeTracks = media && media.audioTracks;
+      if (!nativeTracks || typeof nativeTracks.length !== "number") return [];
+      var list = [];
+      for (var index = 0; index < nativeTracks.length; index += 1) {
+        var track = nativeTracks[index];
+        list.push({
+          id: String(index),
+          label: trackLabel(track, index),
+          lang: trackLanguage(track),
+          active: track && track.enabled === true,
+          native: true
+        });
+      }
+      return list;
+    }
+
+    function announceTracks() {
+      base.emitAudioTracksChanged(audioTracks());
+    }
+
+    function bindTrackEvents() {
+      if (trackEventsBound) return;
+      var nativeTracks = media && media.audioTracks;
+      if (!nativeTracks || typeof nativeTracks.addEventListener !== "function") return;
+      trackEventsBound = true;
+      ["addtrack", "removetrack", "change"].forEach(function (event) {
+        scope.listen(nativeTracks, event, announceTracks);
+      });
+    }
 
     return {
       kind: base.kind,
@@ -212,6 +247,11 @@
       attach: function () {
         return Promise.resolve().then(function () {
           media.src = config.url;
+          bindTrackEvents();
+          scope.listen(media, "loadedmetadata", function () {
+            bindTrackEvents();
+            announceTracks();
+          });
           if (typeof media.play === "function") {
             var started = media.play();
             if (started && typeof started.catch === "function") {
@@ -220,13 +260,23 @@
               started.catch(function () {});
             }
           }
+          announceTracks();
         });
       },
       getAudioTracks: function () {
-        return [];
+        return audioTracks();
       },
-      selectAudioTrack: function () {
-        return false;
+      selectAudioTrack: function (id) {
+        var nativeTracks = media && media.audioTracks;
+        var index = Number(id);
+        if (!nativeTracks || !Number.isInteger(index) || index < 0 || index >= nativeTracks.length) return false;
+        try {
+          for (var cursor = 0; cursor < nativeTracks.length; cursor += 1) nativeTracks[cursor].enabled = cursor === index;
+          announceTracks();
+          return nativeTracks[index].enabled === true;
+        } catch (error) {
+          return false;
+        }
       },
       destroy: function () {
         if (!base.markDestroyed()) return;
@@ -246,7 +296,7 @@
 
   function trackLabel(track, index) {
     var language = trackLanguage(track);
-    var named = track && (track.name || (track.labels && track.labels[0] && track.labels[0].text));
+    var named = track && (track.name || track.label || (track.labels && track.labels[0] && track.labels[0].text));
     var languageNames = { en: "english", es: "spanish", fr: "french", de: "german", pt: "portuguese", it: "italian", ja: "japanese", ko: "korean", zh: "chinese" };
     var details = [];
     var codec = track && (track.codec || track.audioCodec);
