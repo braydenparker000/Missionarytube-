@@ -1,6 +1,5 @@
 import { cp, mkdir, readdir, rm } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { build } from "esbuild";
 
 const root = new URL("../", import.meta.url);
 const output = new URL("../dist/", import.meta.url);
@@ -25,19 +24,6 @@ for (const directory of assetDirectories) {
     if (error?.code !== "ENOENT") throw error;
   }
 }
-
-// The interaction layer is compiled locally from exact npm pins. The browser
-// never reaches a mutable CDN, and the rest of Astra stays framework-free.
-await build({
-  entryPoints: [new URL("../src/astra-motion.js", import.meta.url).pathname],
-  outfile: new URL("../dist/assets/js/astra-motion.js", import.meta.url).pathname,
-  bundle: true,
-  minify: true,
-  format: "iife",
-  target: ["chrome120"],
-  legalComments: "inline",
-  banner: { js: "/*! Astra Motion · GSAP 3.15.0 · https://gsap.com/licensing/ */" }
-});
 
 const builtFiles = await readdir(output);
 if (!builtFiles.includes("index.html")) {

@@ -39,7 +39,6 @@ const ALLOWED_HOSTS = [
   "avatars.githubusercontent.com",
   "fonts.googleapis.com",
   "fonts.gstatic.com",
-  "gsap.com", // license notices embedded in the pinned self-hosted motion bundle
   "schema.org",
   "json-schema.org",
   "www.w3.org",
