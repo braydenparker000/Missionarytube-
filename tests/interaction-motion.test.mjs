@@ -11,6 +11,7 @@ import {
 const html = await readFile("index.html", "utf8");
 const css = await readFile("assets/css/obsidian.css", "utf8");
 const bundle = await readFile("assets/js/astra-motion.js", "utf8");
+const source = await readFile("src/astra-motion.js", "utf8");
 const pkg = JSON.parse(await readFile("package.json", "utf8"));
 
 test("gesture thresholds distinguish a tap, a cancelled drag and a committed dismissal", () => {
@@ -54,8 +55,19 @@ test("site-wide content choreography is shared, viewport-aware and bounded", () 
   assert.match(bundle, /\.search-provider-result/);
   assert.match(bundle, /\.video-row/);
   assert.match(bundle, /\.stream-item/);
-  assert.match(bundle, /Math\.min\(\.045,\.3\//);
+  assert.match(source, /const budget = lean \? 8 : 14/);
+  assert.match(source, /const deferred = elements\.slice\(budget\)/);
+  assert.match(source, /deferred\.forEach\(finishReveal\)/);
   assert.match(css, /GSAP also owns content arrival/);
+});
+
+test("mobile motion avoids offscreen GPU layers and costly document snapshots", () => {
+  const refreshSource = source.slice(source.indexOf("function refresh("), source.indexOf("function handleReducedMotionChange"));
+  assert.equal(refreshSource.includes("opacity: 0"), false, "offscreen elements are observed without layer promotion");
+  assert.match(source, /navigator\.deviceMemory/);
+  assert.match(source, /navigator\.hardwareConcurrency/);
+  assert.match(source, /!constrainedMotion\(\).*document\.startViewTransition/);
+  assert.match(source, /reduced\(\) \|\| constrainedMotion\(\)/);
 });
 
 test("every mobile overlay can be dismissed physically without touching Player V3", () => {
