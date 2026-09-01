@@ -59,6 +59,7 @@
   <script src="assets/js/hub.js"></script>
   <script src="assets/js/catalog-registry.js"></script>
   <script src="assets/js/discovery-health.js"></script>
+  <script src="assets/js/federated-search.js"></script>
   <script src="assets/js/audio-player.js"></script>
   <script src="assets/js/playback/settings.js"></script>
   <script src="assets/js/playback/streams.js"></script>
@@ -68,7 +69,7 @@
   <script src="assets/js/playback/subtitles.js"></script>
   <script>
   (()=>{'use strict';
-    const APP_VERSION='0.14.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
+    const APP_VERSION='0.15.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
     const DEFAULT_ADDONS=[{url:'https://v3-cinemeta.strem.io/manifest.json',enabled:true,official:true}];
     const KEY='astra.v1.';
     const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
@@ -80,7 +81,7 @@
     const store={get(k,d){try{return JSON.parse(storageArea?.getItem(KEY+k))??d}catch{return d}},set(k,v){if(!storageArea)return false;try{storageArea.setItem(KEY+k,JSON.stringify(v));return true}catch{storageFailed();return false}}};
     const progress=AstraProgress.createProgressStore({storage:storageArea,storageKey:KEY+'progress',onError:storageFailed}).load();
     const DEFAULT_SETTINGS=AstraPlayback.settings.DEFAULTS;
-    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),addonHealth:AstraDiscovery.normalizeHealth(store.get('addonHealth',null)),healthChecking:new Set(),healthRun:0,briefing:{type:'all',genre:'all',mode:'one',items:[],seen:new Set(),loading:false,error:'',request:0},discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0};
+    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),addonHealth:AstraDiscovery.normalizeHealth(store.get('addonHealth',null)),healthChecking:new Set(),healthRun:0,briefing:{type:'all',genre:'all',mode:'one',items:[],seen:new Set(),loading:false,error:'',request:0},discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0,searchSequence:0,searchRun:null};
 
     /* One geometric icon set: 24px grid, 1.75 stroke, round joins. Nothing
        here is decorative — every glyph names a destination or an action. */
@@ -398,7 +399,7 @@
       nav('search');
     }
     function clearQuery(){
-      state.query='';
+      state.query='';state.searchRun=null;state.searchSequence++;
       const input=$('#globalSearch');if(input)input.value='';
       $('#searchClear')?.classList.add('hidden');
     }
@@ -573,25 +574,105 @@
       bindDynamic(out);
     }
     let searchTimer;
-    async function search(q){
+    function searchItems(run,group){return AstraSearch.filterType(group.items,run.type).slice(0,48)}
+    function searchResultCount(run){return run.groups.reduce((total,group)=>total+searchItems(run,group).length,0)}
+    function searchTypes(run){return AstraSearch.types(run.groups.flatMap(group=>group.items))}
+    function searchGroupState(group){
+      if(group.pending){
+        const found=group.items.length?`${group.items.length} found · `:'';
+        return {label:`${found}${group.pending} searching`,className:'loading'};
+      }
+      if(group.status==='cached')return {label:`${group.items.length} cached`,className:'cached'};
+      if(group.failed&&!group.succeeded)return {label:'Unavailable',className:'error'};
+      if(group.failed)return {label:`${group.items.length} found · partial`,className:'partial'};
+      return {label:group.items.length?`${group.items.length} found`:'No matches',className:group.items.length?'ready':'empty'};
+    }
+    function searchSummaryHTML(run){
+      const count=searchResultCount(run),done=run.total-run.pending;
+      return `<div class="search-report">
+        <span class="label">Federated search</span>
+        <div class="search-report-line"><h2>${esc(run.query)}</h2><span>${count} result${count===1?'':'s'}</span></div>
+        <p>${run.pending?`${done} of ${run.total} catalog${run.total===1?'':'s'} answered`:`${run.total} catalog${run.total===1?'':'s'} checked across ${run.groups.length} provider${run.groups.length===1?'':'s'}`}. Results remain separated by source.</p>
+        ${run.pending?`<i class="search-progress" style="--search-progress:${run.total?Math.round(done/run.total*100):100}%"></i>`:''}
+      </div>`;
+    }
+    function searchFiltersHTML(run){
+      const available=searchTypes(run);
+      if(run.type!=='all'&&!available.includes(run.type))run.type='all';
+      if(!available.length)return '';
+      return `<div class="search-type-row" aria-label="Filter search results"><button class="chip ${run.type==='all'?'active':''}" data-search-type="all">All</button>${available.map(type=>`<button class="chip ${run.type===type?'active':''}" data-search-type="${esc(type)}">${esc(typeLabel(type))}</button>`).join('')}</div>`;
+    }
+    function searchProviderStripHTML(run){
+      if(!run.groups.length)return '';
+      return `<div class="search-provider-strip" aria-label="Search provider status">${run.groups.map(group=>{const status=searchGroupState(group);return `<button class="search-provider-pill ${status.className}" data-search-jump="${esc(group.key)}"><i aria-hidden="true"></i><span>${esc(group.name)}</span><b>${esc(status.label)}</b></button>`}).join('')}</div>`;
+    }
+    function searchProviderHTML(group,run){
+      const items=searchItems(run,group),status=searchGroupState(group),catalogs=group.catalogs.length;
+      let body='';
+      if(items.length)body=`<div class="rail-scroll search-result-rail">${cardsHTML(items)}</div>`;
+      else if(group.pending&&!group.items.length)body=`<div class="search-provider-wait"><span class="spinner"></span><span>Asking ${esc(group.name)}…</span></div>`;
+      else if(group.failed&&!group.succeeded)body=`<div class="search-provider-empty error"><span>${icon('alert')}</span><p>This provider did not answer. Its other results remain unaffected.</p></div>`;
+      else body=`<div class="search-provider-empty"><span>${icon('search')}</span><p>${run.type==='all'?'No title match from this provider.':`No ${esc(typeLabel(run.type).toLowerCase())} match from this provider.`}</p></div>`;
+      return `<section class="search-provider-result" data-search-provider="${esc(group.key)}">
+        <div class="search-provider-head"><div>${providerChip(group.name)}<span>${catalogs?`${catalogs} searchable catalog${catalogs===1?'':'s'}`:'From this device'}</span></div><b class="search-provider-state ${status.className}">${esc(status.label)}</b></div>
+        ${body}</section>`;
+    }
+    function bindSearchDynamic(root){
+      $$('[data-search-type]',root).forEach(button=>button.onclick=()=>{const run=state.searchRun;if(!run)return;run.type=button.dataset.searchType;renderSearchRun(run)});
+      $$('[data-search-jump]',root).forEach(button=>button.onclick=()=>{const target=$$('[data-search-provider]',root).find(node=>node.dataset.searchProvider===button.dataset.searchJump);target?.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'})});
+    }
+    function renderSearchRun(run){
+      if(state.searchRun!==run)return;
+      const root=$('#searchRoot');if(!root)return;
+      root.innerHTML=`<div id="searchSummary">${searchSummaryHTML(run)}</div><div id="searchFilters">${searchFiltersHTML(run)}</div><div id="searchProviderStrip">${searchProviderStripHTML(run)}</div>
+        <div class="search-provider-list">${run.groups.length?run.groups.map(group=>searchProviderHTML(group,run)).join(''):stateHTML('No searchable providers','None of your enabled add-ons exposes search. Install one that does, or browse its catalogs instead.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}</div>`;
+      bindDynamic(root);bindSearchDynamic(root);
+    }
+    function refreshSearchRun(run,group){
+      if(state.searchRun!==run)return;
+      const root=$('#searchRoot');if(!root)return;
+      const summary=$('#searchSummary',root),filters=$('#searchFilters',root),strip=$('#searchProviderStrip',root);
+      if(summary)summary.innerHTML=searchSummaryHTML(run);
+      if(filters)filters.innerHTML=searchFiltersHTML(run);
+      if(strip)strip.innerHTML=searchProviderStripHTML(run);
+      const section=$$('[data-search-provider]',root).find(node=>node.dataset.searchProvider===group.key);
+      if(section)section.outerHTML=searchProviderHTML(group,run);
+      else renderSearchRun(run);
+      bindDynamic(root);bindSearchDynamic(root);
+    }
+    function search(q){
       q=String(q||'').trim();
       state.query=q;
-      const token=++state.searchToken;
-      const root=$('#searchRoot');if(!root)return;
-      if(!q)return renderDiscover();
-      root.innerHTML=`<div class="loading-line"><span class="spinner"></span>Searching every add-on that supports it…</div>`;
+      const token=++state.searchSequence;
+      if(!q){state.searchRun=null;return renderDiscover()}
       const searchable=allCatalogs().filter(x=>(x.cat.extra||[]).some(e=>e.name==='search'));
-      const remote=await Promise.allSettled(searchable.map(x=>getCatalog(x.s,x.cat,catalogExtras(x.cat,{search:q}))));
-      if(token!==state.searchToken)return;
-      const local=[...state.metaCache.values(),...state.homeItems]
-        .filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i)
-        .filter(m=>(m.name||m.title||'').toLowerCase().includes(q.toLowerCase()));
-      const results=[...remote.filter(x=>x.status==='fulfilled').flatMap(x=>x.value),...local]
-        .filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i);
-      root.innerHTML=`<div class="browse-head"><h2>${esc(q)}</h2><span class="label">${results.length} result${results.length===1?'':'s'}</span></div>
-        <div class="source-line"><span>${searchable.length} searchable catalog${searchable.length===1?'':'s'}</span></div>
-        ${results.length?`<div class="grid">${cardsHTML(results.slice(0,120),{showSource:true})}</div>`:stateHTML('No matches','Try another title, or install an add-on whose catalog supports search.','<button class="btn btn-ghost" data-nav="addons">Manage add-ons</button>')}`;
-      bindDynamic(root);
+      const groups=AstraSearch.groupSources(searchable).map(group=>({...group,items:[],pending:group.catalogs.length,succeeded:0,failed:0,status:'loading'}));
+      const byProvider=new Map(groups.map(group=>[group.key,group]));
+      const local=[...new Set([...state.metaCache.values(),...state.homeItems,...Object.values(state.library).map(entry=>entry.meta).filter(Boolean)])];
+      local.forEach(item=>{
+        if(AstraSearch.matchRank(item,q)>=9)return;
+        const key=item._providerKey||'device';
+        let group=byProvider.get(key);
+        if(!group){group={key,name:item._addonName||'On this device',addon:null,catalogs:[],items:[],pending:0,succeeded:0,failed:0,status:'cached'};groups.push(group);byProvider.set(key,group)}
+        group.items=AstraSearch.merge(group.items,[item],q);
+      });
+      const run={token,query:q,type:'all',groups,total:searchable.length,pending:searchable.length};
+      state.searchRun=run;
+      renderSearchRun(run);
+      groups.filter(group=>group.catalogs.length).forEach(group=>group.catalogs.forEach(source=>{
+        getCatalog(source.s,source.cat,catalogExtras(source.cat,{search:q})).then(items=>{
+          if(state.searchRun!==run||run.token!==state.searchSequence)return;
+          group.items=AstraSearch.merge(group.items,items,q);group.succeeded++;
+        }).catch(()=>{
+          if(state.searchRun!==run||run.token!==state.searchSequence)return;
+          group.failed++;
+        }).finally(()=>{
+          if(state.searchRun!==run||run.token!==state.searchSequence)return;
+          group.pending=Math.max(0,group.pending-1);run.pending=Math.max(0,run.pending-1);
+          group.status=group.pending?'loading':group.failed&&!group.succeeded?'error':'ready';
+          refreshSearchRun(run,group);
+        });
+      }));
     }
     function continueItems(){return progress.continueList()}
     function renderLibrary(){

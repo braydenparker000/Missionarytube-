@@ -9,6 +9,7 @@ const requiredFiles = [
   "assets/js/progress-store.js",
   "assets/js/catalog-registry.js",
   "assets/js/discovery-health.js",
+  "assets/js/federated-search.js",
   "assets/js/playback/settings.js",
   "assets/js/playback/streams.js",
   "assets/js/playback/adapters.js",
