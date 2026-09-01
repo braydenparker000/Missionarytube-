@@ -32,7 +32,7 @@ test("navigation direction follows the dock and accepts an explicit back route",
 test("the motion runtime is exact, local and loaded before app wiring", () => {
   assert.equal(pkg.dependencies.gsap, "3.15.0");
   assert.equal(pkg.devDependencies.esbuild, "0.28.2");
-  const runtime = html.indexOf('<script src="assets/js/astra-motion.js"></script>');
+  const runtime = html.indexOf('<script src="assets/js/astra-motion.js?v=0.18.1"></script>');
   const app = html.indexOf("<script>\n  (()=>{'use strict';");
   assert.ok(runtime > -1 && runtime < app);
   assert.match(bundle, /AstraMotion/);
