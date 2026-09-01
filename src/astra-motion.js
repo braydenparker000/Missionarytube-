@@ -12,6 +12,8 @@ import {
 gsap.registerPlugin(Draggable, InertiaPlugin);
 
 const reduceQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+const coarseQuery = window.matchMedia?.("(pointer: coarse)");
+const compactQuery = window.matchMedia?.("(max-width: 820px)");
 const surfaceBindings = new WeakMap();
 const elementBindings = new WeakMap();
 const heroBindings = new WeakMap();
@@ -77,6 +79,13 @@ function reduced() {
   return Boolean(reduceQuery?.matches);
 }
 
+function constrainedMotion() {
+  if (!coarseQuery?.matches || !compactQuery?.matches) return false;
+  const memory = Number(navigator.deviceMemory) || Infinity;
+  const cores = Number(navigator.hardwareConcurrency) || Infinity;
+  return memory <= 4 || cores <= 4;
+}
+
 function clearTransitionState() {
   delete document.documentElement.dataset.astraNav;
   delete document.documentElement.dataset.astraTransition;
@@ -84,7 +93,7 @@ function clearTransitionState() {
 }
 
 function transitionAvailable() {
-  return !reduced() && typeof document.startViewTransition === "function" && !sharedTransition;
+  return !reduced() && !constrainedMotion() && typeof document.startViewTransition === "function" && !sharedTransition;
 }
 
 function artWithin(source) {
@@ -132,17 +141,31 @@ function flushRevealQueue() {
     const br = b.getBoundingClientRect();
     return Math.abs(ar.top - br.top) > 8 ? ar.top - br.top : ar.left - br.left;
   });
-  elements.forEach((element) => { element.dataset.astraReveal = "running"; });
-  const stagger = elements.length > 1 ? Math.min(0.045, 0.3 / (elements.length - 1)) : 0;
-  gsap.to(elements, {
+  const lean = constrainedMotion();
+  const budget = lean ? 8 : 14;
+  const animated = elements.slice(0, budget);
+  const deferred = elements.slice(budget);
+  deferred.forEach(finishReveal);
+  animated.forEach((element) => {
+    element.dataset.astraReveal = "running";
+    gsap.set(element, {
+      y: lean ? 12 : 18,
+      scale: lean ? 1 : 0.992,
+      opacity: 0,
+      willChange: "transform,opacity"
+    });
+  });
+  const staggerWindow = lean ? 0.12 : 0.24;
+  const stagger = animated.length > 1 ? Math.min(lean ? 0.025 : 0.04, staggerWindow / (animated.length - 1)) : 0;
+  gsap.to(animated, {
     y: 0,
     scale: 1,
     opacity: 1,
-    duration: 0.58,
+    duration: lean ? 0.4 : 0.54,
     stagger,
     ease: "power3.out",
     overwrite: "auto",
-    onComplete: () => elements.forEach(finishReveal)
+    onComplete: () => animated.forEach(finishReveal)
   });
 }
 
@@ -179,7 +202,6 @@ function refresh(root = document) {
   fresh.forEach((element) => {
     element.dataset.astraReveal = "queued";
     revealPending.add(element);
-    gsap.set(element, { y: 18, scale: 0.992, opacity: 0, willChange: "transform,opacity" });
     if (!revealObserver || revealVisible(element)) queueReveal(element);
     else revealObserver.observe(element);
   });
@@ -568,7 +590,14 @@ function navigate({ from, to, direction = "auto", update } = {}) {
     commit();
     if (!reduced()) {
       const page = document.querySelector(".page.active");
-      if (page) gsap.fromTo(page, { x: travel === "back" ? -18 : 22, opacity: 0.45 }, { x: 0, opacity: 1, duration: 0.38, ease: "power4.out", clearProps: "transform,opacity" });
+      if (page) {
+        const lean = constrainedMotion();
+        gsap.fromTo(
+          page,
+          { x: travel === "back" ? (lean ? -10 : -18) : (lean ? 12 : 22), opacity: lean ? 0.72 : 0.45 },
+          { x: 0, opacity: 1, duration: lean ? 0.28 : 0.38, ease: "power4.out", clearProps: "transform,opacity" }
+        );
+      }
     }
     return false;
   }
@@ -617,7 +646,7 @@ function bindHero(deck, dots) {
     const position = deck.scrollLeft / width;
     const index = clamp(Math.round(position), 0, Math.max(0, slides.length - 1));
     marks.forEach((mark, i) => mark.classList.toggle("on", i === index));
-    if (reduced()) return;
+    if (reduced() || constrainedMotion()) return;
     slides.forEach((slide, i) => {
       const offset = clamp(i - position, -1.25, 1.25);
       const image = slide.querySelector(".feature-art img");
@@ -687,6 +716,7 @@ function init({ onPageBack } = {}) {
   if (initialized) return;
   initialized = true;
   document.documentElement.classList.add("motion-ready");
+  document.documentElement.classList.toggle("motion-lean", constrainedMotion());
   installRevealObserver();
   reduceQuery?.addEventListener?.("change", handleReducedMotionChange);
   installPressFeedback();
