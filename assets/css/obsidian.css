@@ -3878,6 +3878,82 @@ main:has(#page-home.active) .topbar {
 .health-error { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; padding: var(--s3) var(--s4); border-top: 1px solid var(--rule-faint); background: var(--bad-wash); color: var(--bone-dim); font-size: 10px; line-height: 1.45; }
 .health-error svg { flex: 0 0 auto; width: 15px; height: 15px; color: var(--bad); }
 
+/* Federated search is a live provider report. Each add-on owns one horizontal
+   result lane, so overlapping catalogs remain legible and a slow source never
+   freezes results that have already arrived. */
+.search-report {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  margin-bottom: var(--s4);
+  padding: var(--s5);
+  overflow: hidden;
+  border-radius: 22px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--signal) 8%, var(--slate-800)), var(--slate-900));
+  box-shadow: inset 0 0 0 1px var(--rule), 0 16px 42px rgba(0,0,0,0.2);
+}
+
+.search-report-line { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s3); }
+.search-report h2 { min-width: 0; margin: 0; overflow: hidden; font-family: var(--font-cinema); font-size: clamp(32px, 10vw, 48px); font-weight: 500; letter-spacing: -0.05em; line-height: 0.98; text-overflow: ellipsis; white-space: nowrap; }
+.search-report-line > span { flex: 0 0 auto; color: var(--signal-bright); font-family: var(--font-mono); font-size: 9px; font-weight: 750; text-transform: uppercase; }
+.search-report p { max-width: 54ch; margin: 0; color: var(--silver); font-size: 11px; line-height: 1.45; }
+.search-progress { position: absolute; inset: auto 0 0; height: 2px; background: linear-gradient(90deg, var(--signal) var(--search-progress), var(--rule) var(--search-progress)); transition: background 260ms var(--ease); }
+
+.search-type-row,
+.search-provider-strip {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  margin-inline: calc(-1 * max(var(--gutter), var(--safe-l))) calc(-1 * max(var(--gutter), var(--safe-r)));
+  padding: 0 max(var(--gutter), var(--safe-r)) var(--s3) max(var(--gutter), var(--safe-l));
+  scrollbar-width: none;
+}
+.search-type-row::-webkit-scrollbar,
+.search-provider-strip::-webkit-scrollbar { display: none; }
+.search-type-row .chip { flex: 0 0 auto; }
+
+.search-provider-pill {
+  display: grid;
+  grid-template-columns: 7px auto;
+  gap: 1px 7px;
+  flex: 0 0 auto;
+  min-width: 128px;
+  padding: 9px 12px;
+  border-radius: var(--r3);
+  background: var(--slate-900);
+  box-shadow: inset 0 0 0 1px var(--rule-faint);
+  text-align: left;
+}
+.search-provider-pill i { grid-row: 1 / span 2; align-self: center; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.search-provider-pill span { max-width: 17ch; overflow: hidden; color: var(--bone-dim); font-size: 10px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.search-provider-pill b { color: var(--silver-dim); font-family: var(--font-mono); font-size: 7px; font-weight: 650; text-transform: uppercase; }
+.search-provider-pill.loading i { background: var(--info); animation: search-pulse 1.2s var(--ease) infinite; }
+.search-provider-pill.partial i { background: var(--warn); }
+.search-provider-pill.error i { background: var(--bad); }
+.search-provider-pill.empty i,
+.search-provider-pill.cached i { background: var(--silver-dim); }
+@keyframes search-pulse { 50% { opacity: 0.32; transform: scale(0.72); } }
+
+.search-provider-list { display: grid; gap: var(--s7); margin-top: var(--s3); }
+.search-provider-result { min-width: 0; scroll-margin-top: calc(var(--topbar) + var(--s3)); }
+.search-provider-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-bottom: var(--s3); }
+.search-provider-head > div { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.search-provider-head > div > span:last-child { color: var(--silver-dim); font-family: var(--font-mono); font-size: 8px; }
+.search-provider-state { flex: 0 0 auto; color: var(--silver); font-family: var(--font-mono); font-size: 8px; font-weight: 750; text-transform: uppercase; }
+.search-provider-state.loading { color: var(--info); }
+.search-provider-state.partial { color: var(--warn); }
+.search-provider-state.error { color: var(--bad); }
+.search-result-rail { grid-auto-columns: 126px; }
+
+.search-provider-wait,
+.search-provider-empty { display: flex; align-items: center; gap: var(--s3); min-height: 70px; padding: var(--s4); border-radius: var(--r3); background: var(--slate-900); box-shadow: inset 0 0 0 1px var(--rule-faint); color: var(--silver); }
+.search-provider-wait { font-size: 11px; }
+.search-provider-empty span { display: grid; place-items: center; flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; background: var(--slate-800); color: var(--silver-dim); }
+.search-provider-empty svg { width: 15px; height: 15px; }
+.search-provider-empty p { margin: 0; font-size: 10px; line-height: 1.45; }
+.search-provider-empty.error { background: var(--bad-wash); }
+.search-provider-empty.error span { color: var(--bad); }
+
 @media (min-width: 700px) {
   .briefing-shell { align-items: center; padding: var(--s6); }
   .briefing-panel { width: min(980px, 100%); height: min(820px, 92svh); margin: auto; border-radius: 24px; }
@@ -3904,5 +3980,6 @@ main:has(#page-home.active) .topbar {
 @media (prefers-reduced-motion: reduce) {
   .briefing-panel,
   .briefing-scan,
-  .briefing-trigger { animation: none; transition: none; }
+  .briefing-trigger,
+  .search-provider-pill.loading i { animation: none; transition: none; }
 }

@@ -211,11 +211,14 @@ test("settings is an information architecture, not one endless sheet", () => {
 
 test("every catalog names the add-on that published it", () => {
   assert.match(html, /function providerChip\(name,extra=''\)/);
-  // A rail says it once, in the section head; a mixed grid says it per result.
+  // A rail says it once in the section head; a genuinely mixed browse grid
+  // says it per result. Search V2 keeps providers in separate result lanes.
   assert.match(html, /function catalogNote\(entry,type\)/);
   assert.match(html, /parts\.push\(providerChip\(entry\.providerName\)\)/);
   assert.match(html, /options\.showSource&&source\?`<span class="card-source">\$\{esc\(source\)\}<\/span>`:''/);
-  assert.match(html, /cardsHTML\(results\.slice\(0,120\),\{showSource:true\}\)/);
+  assert.match(html, /function searchProviderHTML\(group,run\)/);
+  assert.match(html, /<div class="rail-scroll search-result-rail">\$\{cardsHTML\(items\)\}<\/div>/);
+  assert.match(html, /Results remain separated by source/);
   assert.match(html, /function browseSourceLine\(list\)/, "browse states which add-ons produced the grid");
   assert.match(css, /\.provider-chip \{/);
 });
