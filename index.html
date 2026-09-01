@@ -67,9 +67,10 @@
   <script src="assets/js/playback/engine.js"></script>
   <script src="assets/js/playback/episodes.js"></script>
   <script src="assets/js/playback/subtitles.js"></script>
+  <script src="assets/js/astra-motion.js"></script>
   <script>
   (()=>{'use strict';
-    const APP_VERSION='0.16.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
+    const APP_VERSION='0.18.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
     const DEFAULT_ADDONS=[{url:'https://v3-cinemeta.strem.io/manifest.json',enabled:true,official:true}];
     const KEY='astra.v1.';
     const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
@@ -82,6 +83,12 @@
     const progress=AstraProgress.createProgressStore({storage:storageArea,storageKey:KEY+'progress',onError:storageFailed}).load();
     const DEFAULT_SETTINGS=AstraPlayback.settings.DEFAULTS;
     const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),addonHealth:AstraDiscovery.normalizeHealth(store.get('addonHealth',null)),healthChecking:new Set(),healthRun:0,briefing:{type:'all',genre:'all',mode:'one',items:[],seen:new Set(),loading:false,error:'',request:0},discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0,searchSequence:0,searchRun:null,detailBrowser:null};
+    const pageScroll=new Map();
+    /* If the optional motion bundle ever fails to load, every control keeps
+       working through this deliberately boring synchronous implementation. */
+    const Motion=globalThis.AstraMotion||Object.freeze({
+      init(){},reduced:()=>true,navigate({update}){update?.()},syncDock(){},syncPageBack(){},bindHero(){},refresh(){},mountSurface(){return false},dismissSurface(){return false},releaseSurface(){},mountTrackSheet(){return false},dismissElement(){return false},releaseElement(){},sharedOpen({update}){update?.();return false},sharedClose(){return false}
+    });
 
     /* One geometric icon set: 24px grid, 1.75 stroke, round joins. Nothing
        here is decorative — every glyph names a destination or an action. */
@@ -93,7 +100,7 @@
     const navs=[['home','home','Home'],['search','search','Search'],['library','library','Library'],['settings','settings','Settings']];
     const NAV_ALIASES={addons:['settings','addons'],hub:['settings','coverage'],catalogs:['settings','catalogs'],discover:['search','']};
     function buildNav(){
-      const dock=navs.map(([id,ic,label])=>`<button class="dock-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span class="dock-icon" data-icon="${ic}"></span><span class="dock-label">${label}</span></button>`).join('');
+      const dock=`<span class="dock-indicator" aria-hidden="true"></span>`+navs.map(([id,ic,label])=>`<button class="dock-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span class="dock-icon" data-icon="${ic}"></span><span class="dock-label">${label}</span></button>`).join('');
       const rail=navs.map(([id,ic,label])=>`<button class="rail-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span data-icon="${ic}"></span></button>`).join('');
       $('#desktopNav').innerHTML=rail;$('#mobileNav').innerHTML=dock;
     }
@@ -202,18 +209,28 @@
     function emptyHTML(title,text,action=''){return stateHTML(title,text,action)}
     function skeletonRail(){return `<div class="rail-scroll" aria-hidden="true">${Array.from({length:6},()=>'<div><div class="skeleton skeleton-art"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line" style="width:60%"></div></div>').join('')}</div>`}
     function skeletonSector(title){return `<section class="sector"><div class="sector-head"><div class="sector-heading"><h2 class="sector-title">${esc(title)}</h2></div></div>${skeletonRail()}</section>`}
-    function nav(page,route){
+    function pageStateKey(page,route){return page==='settings'?`${page}:${route||'root'}`:page}
+    function nav(page,route,travel='auto'){
       const alias=NAV_ALIASES[page];
       if(alias){route=route||alias[1];page=alias[0]}
-      if(page==='settings')state.settingsRoute=route||'root';
-      state.currentPage=page;
-      $$('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${page}`));
-      $$('[data-nav]').forEach(x=>x.classList.toggle('active',x.dataset.nav===page));
-      if(page==='search')renderSearchSurface();
-      if(page==='library')renderLibrary();
-      if(page==='settings')renderSettings();
-      if(page==='home'&&!$('#homeRoot').children.length)renderHome();
-      window.scrollTo({top:0,behavior:motionOk()?'smooth':'auto'});
+      const nextRoute=page==='settings'?(route||'root'):'',fromPage=state.currentPage,fromRoute=state.settingsRoute,
+        fromKey=pageStateKey(fromPage,fromRoute),toKey=pageStateKey(page,nextRoute),changed=fromKey!==toKey;
+      if(changed)pageScroll.set(fromKey,window.scrollY);
+      const direction=travel!=='auto'?travel:(fromPage===page&&page==='settings'&&nextRoute==='root'?'back':'auto');
+      const update=()=>{
+        if(page==='settings')state.settingsRoute=nextRoute;
+        state.currentPage=page;
+        $$('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${page}`));
+        $$('[data-nav]').forEach(x=>x.classList.toggle('active',x.dataset.nav===page));
+        if(page==='search')renderSearchSurface();
+        if(page==='library')renderLibrary();
+        if(page==='settings')renderSettings();
+        if(page==='home'&&!$('#homeRoot').children.length)renderHome();
+        window.scrollTo({top:pageScroll.get(toKey)||0,behavior:'auto'});
+        Motion.syncDock($('#mobileNav'),page);
+        Motion.syncPageBack(page!=='home'||(page==='settings'&&state.settingsRoute!=='root'));
+      };
+      if(changed)Motion.navigate({from:fromPage,to:page,direction,update});else update();
     }
     /* The editorial home: one commanding feature, then sectors generated from
        whatever the installed add-ons actually expose. Skeletons occupy the
@@ -289,12 +306,10 @@
        never disagree with what is on screen. */
     function bindHeroDeck(){
       const deck=$('#heroDeck'),dots=$('#heroDots');
-      if(!deck||!dots)return;
-      const marks=$$('i',dots);
-      deck.addEventListener('scroll',()=>{
-        const index=Math.round(deck.scrollLeft/Math.max(1,deck.clientWidth));
-        marks.forEach((mark,i)=>mark.classList.toggle('on',i===index));
-      },{passive:true});
+      if(!deck)return;
+      if(globalThis.AstraMotion){Motion.bindHero(deck,dots);return}
+      if(!dots)return;
+      const marks=$$('i',dots);deck.addEventListener('scroll',()=>{const index=Math.round(deck.scrollLeft/Math.max(1,deck.clientWidth));marks.forEach((mark,i)=>mark.classList.toggle('on',i===index))},{passive:true});
     }
     /* Shown before any provider exists. It promises nothing about content:
        the composition is the surface itself, not a stand-in for artwork. */
@@ -732,15 +747,17 @@
       bindDynamic(root);
     }
     async function fullMeta(item){if(item._fullMeta)return item;const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){try{const d=await fetchAddonJSON(s.addon,'meta',endpoint(s.addon,'meta',item.type,item.id),data=>!!data?.meta);return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
-    async function openMedia(key){
+    async function openMedia(key,opener){
       cancelStreamLookup();
       let item=state.metaCache.get(key)||state.library[key]?.meta||state.homeItems.find(x=>mediaKey(x)===key)||progress.meta(key)||Object.values(state.library).find(x=>mediaRef(x.meta)===key)?.meta||state.homeItems.find(x=>mediaRef(x)===key);
       if(!item)return toast('That item is no longer available.','bad');
       // Stamp the request: a slow full-metadata response for one title must not
       // replace whatever the viewer has open by the time it lands.
       const request={key};player.metaRequest=request;
-      state.currentVideo=null;state.currentStreams=[];state.detailBrowser=null;player.sources=[];
-      state.currentMeta=item;showDetail(item,true);
+      await Motion.sharedOpen({source:opener,targetSelector:'.dossier-poster',update:()=>{
+        state.currentVideo=null;state.currentStreams=[];state.detailBrowser=null;player.sources=[];
+        state.currentMeta=item;showDetail(item,true);
+      }});
       const full=await fullMeta(item);
       if(player.metaRequest!==request)return;
       state.currentMeta=full;showDetail(full,false);
@@ -915,12 +932,14 @@
         <div class="source-drawer-body">${content}</div></section></div>`;
     }
     function hideStreamDrawer(){
-      const root=$('#streamOverlayRoot');if(root)root.replaceChildren();
+      const root=$('#streamOverlayRoot');if(root){Motion.releaseSurface(root);root.replaceChildren()}
       document.body.classList.remove('source-picker-open');
     }
     function closeStreamPicker(){
       player.lookup=null;
-      hideStreamDrawer();
+      const root=$('#streamOverlayRoot');
+      if(!root||!root.children.length)return hideStreamDrawer();
+      if(!Motion.dismissSurface(root,hideStreamDrawer))hideStreamDrawer();
     }
     async function loadStreams(videoId){
       const m=state.currentMeta;if(!m)return[];
@@ -948,7 +967,14 @@
      * Close whatever modal is open. Every dismissal routes through here so a
      * deferred metadata or stream response cannot reopen what was just closed.
      */
-    function closeModal(){cancelStreamLookup();$('#modalRoot').innerHTML=''}
+    function clearModalSurface(){const root=$('#modalRoot');Motion.releaseSurface(root);root.innerHTML=''}
+    function closeModal(){
+      cancelStreamLookup();
+      const root=$('#modalRoot'),done=()=>clearModalSurface();
+      if(!root?.children.length)return;
+      if($('.cinema-detail',root)&&Motion.sharedClose({target:$('.dossier-poster',root),update:done}))return;
+      if(!Motion.dismissSurface(root,done))done();
+    }
     /**
      * The element currently occupying the modal, used as an ownership token.
      * Every opener replaces the container's content, so a node that is no
@@ -1018,7 +1044,7 @@
     /* ---- player shell --------------------------------------------------- */
     function openPlayer(entry){
       if(!entry)return;
-      closeStreamPicker();
+      player.lookup=null;hideStreamDrawer();
       const m=state.currentMeta,v=state.currentVideo||m;
       const s=entry.stream;
       if(s.kind==='external'){const u=s.externalUrl;if(!u||!entry.evaluation||entry.evaluation.state==='unsafe')return toast('That external link is not safe to open.','bad');window.open(u,'_blank','noopener');return}
@@ -1075,6 +1101,7 @@
       $('#audioRoot').innerHTML='';
       document.body.classList.remove('has-audio');
       player.fitMode='contain';player.locked=false;
+      Motion.releaseSurface($('#modalRoot'));
       $('#modalRoot').innerHTML=`<div class="player-shell player-v3" id="playerShell"><section class="player-modal" role="dialog" aria-modal="true" aria-label="Player">
         <div class="player-top"><button class="icon-btn" data-close-player aria-label="Close player">${icon('close')}</button>
           <div class="player-title"><b id="playerHeading">${esc(heading)}</b><span id="playerSubheading"></span>
@@ -1357,7 +1384,7 @@
       clearTimeout(player.idleTimer);
       clearTimeout(player.noticeTimer);player.noticeTimer=null;player.notice=null;
       player.nextEpisode=null;
-      $('#countdownCard')?.remove();$('#trackMenu')?.remove();
+      $('#countdownCard')?.remove();const trackMenu=$('#trackMenu');if(trackMenu){Motion.releaseElement(trackMenu);trackMenu.remove()}
       if(player.session){player.session.cancel();player.session=null}
       teardownAttempt();
       progress.flush();
@@ -1456,7 +1483,7 @@
       renderTools(player.session?player.session.snapshot():{});
     }
     function openTrackMenu(kind){
-      closeTrackMenu();
+      closeTrackMenu(true);
       const modal=$('.player-modal');if(!modal)return;
       const menu=document.createElement('div');menu.className='track-menu track-sheet';menu.id='trackMenu';
       if(kind==='text'){
@@ -1481,9 +1508,11 @@
           ${limitation}<div class="track-options">${options}</div>`;
       }
       modal.appendChild(menu);bindDynamic(menu);player.menu=kind;
+      Motion.mountTrackSheet(menu,()=>clearTrackMenu(menu));
       $('#playerShell')?.classList.remove('idle');clearTimeout(player.idleTimer);
     }
-    function closeTrackMenu(){$('#trackMenu')?.remove();player.menu=null;if($('#playerShell')&&!player.locked)armIdleHide()}
+    function clearTrackMenu(menu=$('#trackMenu')){if(menu){Motion.releaseElement(menu);menu.remove()}player.menu=null;if($('#playerShell')&&!player.locked)armIdleHide()}
+    function closeTrackMenu(immediate=false){const menu=$('#trackMenu');if(!menu)return clearTrackMenu();if(!immediate&&Motion.dismissElement(menu,()=>clearTrackMenu(menu)))return;clearTrackMenu(menu)}
     function selectSubtitle(id){
       const el=$('#mediaEl');
       const chosen=player.subtitleTracks.find(t=>t.id===id)||null;
@@ -1691,9 +1720,19 @@
     const SETTINGS_ROUTES={root:renderSettingsRoot,addons:renderAddons,health:renderHealthSettings,catalogs:renderCatalogSettings,coverage:renderHub,audio:renderAudioSettings,data:renderDataSettings};
     function exportData(){const data={app:'Astra',version:APP_VERSION,exported:new Date().toISOString(),addons:state.addons,library:state.library,progress:progress.snapshot(),settings:state.settings,homeLayout:state.homeLayout};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='astra-backup.json';a.click();URL.revokeObjectURL(a.href)}
     async function importData(file){const owned=currentModal();try{const d=JSON.parse(await file.text());if(d.app!=='Astra'||!Array.isArray(d.addons))throw Error('Not an Astra backup');state.addons=d.addons;state.library=d.library||{};progress.replace(d.progress||{});state.settings=AstraPlayback.settings.migrate({...state.settings,...d.settings});state.homeLayout=d.homeLayout&&typeof d.homeLayout==='object'?d.homeLayout:AstraCatalogs.defaults();for(const k of ['addons','library','settings','homeLayout'])store.set(k,state[k]);state.manifests.clear();state.catalogCache.clear();await loadManifests(true);toast('Backup imported','good');if(currentModal()===owned)closeModal();invalidateCatalogs();renderHome()}catch(e){toast(`Import failed: ${e.message}`,'bad')}}
-    function bindDynamic(root=document){hydrateIcons(root);$$('[data-briefing-open]',root).forEach(x=>x.onclick=()=>openBriefing());$$('[data-briefing-run]',root).forEach(x=>x.onclick=()=>runBriefing());$$('[data-briefing-type]',root).forEach(x=>x.onclick=()=>{state.briefing.type=x.dataset.briefingType;state.briefing.genre='all';runBriefing()});$$('[data-briefing-mode]',root).forEach(x=>x.onclick=()=>{state.briefing.mode=x.dataset.briefingMode;runBriefing()});const briefingGenre=$('#briefingGenre',root);if(briefingGenre)briefingGenre.onchange=()=>{state.briefing.genre=briefingGenre.value;runBriefing()};$$('[data-health-test]',root).forEach(x=>x.onclick=()=>testAllAddonHealth());$$('[data-health-addon]',root).forEach(x=>x.onclick=()=>{const addon=state.addons.find(item=>addonHealthKey(item)===x.dataset.healthAddon);if(addon)checkAddonHealth(addon)});$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-switch-source]',root).forEach(x=>x.onclick=()=>{const entry=entryById(x.dataset.switchSource);closeTrackMenu();if(entry)openPlayer(entry)});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{const next=player.nextEpisode;cancelCountdown();if(x.dataset.countdown!=='cancel'&&next)goToEpisode(next)});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0])}
+    function bindMotionSurface(root){
+      if(root?.id==='streamOverlayRoot'&&$('.source-drawer',root)){
+        Motion.mountSurface({root,key:'sources',panelSelector:'.source-drawer',edge:true,down:true,onDismiss:()=>{player.lookup=null;hideStreamDrawer()}});return;
+      }
+      if(root?.id!=='modalRoot'||!root.children.length||$('.player-shell',root))return;
+      const detail=$('.cinema-detail',root),briefing=$('.briefing-panel',root),modal=$('.modal',root),panelSelector=detail?'.cinema-detail':briefing?'.briefing-panel':modal?'.modal':'';
+      if(!panelSelector)return;
+      Motion.mountSurface({root,key:detail?'detail':briefing?'briefing':'utility',panelSelector,edge:!!(detail||briefing),down:true,onDismiss:()=>{if(briefing)state.briefing.request++;cancelStreamLookup();clearModalSurface()}});
+    }
+    function bindDynamic(root=document){hydrateIcons(root);$$('[data-briefing-open]',root).forEach(x=>x.onclick=()=>openBriefing());$$('[data-briefing-run]',root).forEach(x=>x.onclick=()=>runBriefing());$$('[data-briefing-type]',root).forEach(x=>x.onclick=()=>{state.briefing.type=x.dataset.briefingType;state.briefing.genre='all';runBriefing()});$$('[data-briefing-mode]',root).forEach(x=>x.onclick=()=>{state.briefing.mode=x.dataset.briefingMode;runBriefing()});const briefingGenre=$('#briefingGenre',root);if(briefingGenre)briefingGenre.onchange=()=>{state.briefing.genre=briefingGenre.value;runBriefing()};$$('[data-health-test]',root).forEach(x=>x.onclick=()=>testAllAddonHealth());$$('[data-health-addon]',root).forEach(x=>x.onclick=()=>{const addon=state.addons.find(item=>addonHealthKey(item)===x.dataset.healthAddon);if(addon)checkAddonHealth(addon)});$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open,x));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-switch-source]',root).forEach(x=>x.onclick=()=>{const entry=entryById(x.dataset.switchSource);closeTrackMenu();if(entry)openPlayer(entry)});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{const next=player.nextEpisode;cancelCountdown();if(x.dataset.countdown!=='cancel'&&next)goToEpisode(next)});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0]);bindMotionSurface(root);Motion.refresh(root)}
     function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#streamOverlayRoot')?.children.length){closeStreamPicker();return}if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('#mediaEl')||$('#playerStage iframe'))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
-    async function init(){buildNav();hydrateIcons();bindDynamic();globalEvents();await renderHome()}
+    function motionBack(){if(state.currentPage==='settings'&&state.settingsRoute!=='root'){nav('settings','root','back');return}if(state.currentPage!=='home')nav('home','root','back')}
+    async function init(){buildNav();hydrateIcons();Motion.init({onPageBack:motionBack});Motion.syncDock($('#mobileNav'),'home');Motion.syncPageBack(false);bindDynamic();globalEvents();await renderHome()}
     init().catch(e=>{console.error(e);toast('Astra could not start: '+e.message,'bad')});
   })();
   </script>
