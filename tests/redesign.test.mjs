@@ -248,13 +248,25 @@ test("the dossier states only fields the add-on actually returned", () => {
 
 test("the series browser keeps specials and extras out of the episode run", () => {
   assert.match(html, /function seriesSectionsHTML\(videos,defaultSeason\)/);
-  assert.match(html, /group\('Specials','%n listed',groups\.specials,'special'\)/);
-  assert.match(html, /group\('Extras & clips','%n listed',groups\.extras,'extra'\)/);
-  assert.match(html, /group\('Other videos','%n the add-on did not classify',groups\.unknown,'item'\)/);
+  assert.match(html, /const DETAIL_KINDS=\[\['episodes','Episodes','episode'\],\['specials','Specials','special'\],\['extras','Extras','extra'\],\['unknown','Other','item'\]\]/);
+  assert.match(html, /data-detail-kind="\$\{id\}"/, "video groups are switched explicitly rather than concatenated");
+  assert.match(html, /function detailKindVideos\(groups,browser\)/);
   assert.match(html, /<div class="season-band" role="tablist" aria-label="Seasons">/);
-  assert.match(html, /tabindex="\$\{String\(s\)===String\(defaultSeason\)\?0:-1\}"/);
-  assert.match(html, /c\.setAttribute\('aria-selected',String\(selected\)\)/);
-  assert.match(html, /c\.tabIndex=selected\?0:-1/);
+  assert.match(html, /tabindex="\$\{String\(season\)===String\(browser\.season\)\?0:-1\}"/);
+  assert.match(html, /data-episode-search/);
+  assert.match(html, /data-episode-load-more/);
+  assert.match(html, /hasVideoBrowser\?seriesSectionsHTML\(videos,defaultSeason\):''/, "the browser renders before story metadata");
+  assert.match(css, /\.episode-nav-sticky \{[\s\S]*?position: sticky;/);
+  assert.match(css, /\.episode-focus \{/);
+});
+
+test("source selection exposes reported audio and subtitle capabilities before playback", () => {
+  assert.match(html, /function sourceCapabilitiesHTML\(list\)/);
+  assert.match(html, /Dual audio/);
+  assert.match(html, /data=>!!\(data&&Array\.isArray\(data\.subtitles\)\)/, "subtitle add-ons still load after choosing a source");
+  assert.match(html, /\.slice\(0,3\)\.map\(language=>tag\(String\(language\)\.toUpperCase\(\),'info'\)\)/);
+  assert.match(html, /s\.subtitles\?\.length&&tag/);
+  assert.match(css, /\.source-intel \{/);
 });
 
 test("modal icon buttons and switches expose names and live state", () => {

@@ -69,7 +69,7 @@
   <script src="assets/js/playback/subtitles.js"></script>
   <script>
   (()=>{'use strict';
-    const APP_VERSION='0.15.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
+    const APP_VERSION='0.16.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
     const DEFAULT_ADDONS=[{url:'https://v3-cinemeta.strem.io/manifest.json',enabled:true,official:true}];
     const KEY='astra.v1.';
     const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
@@ -81,7 +81,7 @@
     const store={get(k,d){try{return JSON.parse(storageArea?.getItem(KEY+k))??d}catch{return d}},set(k,v){if(!storageArea)return false;try{storageArea.setItem(KEY+k,JSON.stringify(v));return true}catch{storageFailed();return false}}};
     const progress=AstraProgress.createProgressStore({storage:storageArea,storageKey:KEY+'progress',onError:storageFailed}).load();
     const DEFAULT_SETTINGS=AstraPlayback.settings.DEFAULTS;
-    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),addonHealth:AstraDiscovery.normalizeHealth(store.get('addonHealth',null)),healthChecking:new Set(),healthRun:0,briefing:{type:'all',genre:'all',mode:'one',items:[],seen:new Set(),loading:false,error:'',request:0},discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0,searchSequence:0,searchRun:null};
+    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),addonHealth:AstraDiscovery.normalizeHealth(store.get('addonHealth',null)),healthChecking:new Set(),healthRun:0,briefing:{type:'all',genre:'all',mode:'one',items:[],seen:new Set(),loading:false,error:'',request:0},discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0,searchSequence:0,searchRun:null,detailBrowser:null};
 
     /* One geometric icon set: 24px grid, 1.75 stroke, round joins. Nothing
        here is decorative — every glyph names a destination or an action. */
@@ -739,7 +739,7 @@
       // Stamp the request: a slow full-metadata response for one title must not
       // replace whatever the viewer has open by the time it lands.
       const request={key};player.metaRequest=request;
-      state.currentVideo=null;state.currentStreams=[];player.sources=[];
+      state.currentVideo=null;state.currentStreams=[];state.detailBrowser=null;player.sources=[];
       state.currentMeta=item;showDetail(item,true);
       const full=await fullMeta(item);
       if(player.metaRequest!==request)return;
@@ -754,7 +754,7 @@
       const m=state.currentMeta;
       return videos.map(v=>{
         const p=videoProgress(m,v.id),pct=p?.duration?Math.round(p.time/p.duration*100):0,
-          watched=!!p?.completed,active=String(state.currentVideo?.id)===String(v.id),
+          watched=!!p?.completed,active=String(state.detailBrowser?.videoId||state.currentVideo?.id)===String(v.id),
           number=kind==='episode'&&v.episode!=null?String(v.episode).padStart(2,'0'):'',
           code=kind==='episode'?episodeCode(v):'',name=v.title||v.name||(kind==='episode'?'Episode':'Untitled item'),
           released=v.released?String(v.released).slice(0,10):'',still=safeUrl(v.thumbnail||v.background||v.poster||''),
@@ -769,14 +769,74 @@
       }).join('');
     }
     function episodeHTML(videos,season){const ordered=AstraPlayback.episodes.canonicalEpisodes(videos),list=season==null?ordered:ordered.filter(v=>String(v.season)===String(season));return videoListHTML(list,'episode')}
-    /* The series browser. Canonical episodes get the season band; specials,
-       extras and anything the add-on left unclassified keep their own labelled
-       group so nothing is silently folded into the episode run. */
+    const DETAIL_KINDS=[['episodes','Episodes','episode'],['specials','Specials','special'],['extras','Extras','extra'],['unknown','Other','item']];
+    function detailKindForVideo(video){const kind=AstraPlayback.episodes.classifyVideo(video);return kind==='episode'?'episodes':kind==='special'?'specials':kind==='extra'?'extras':'unknown'}
+    function detailBrowserState(m,defaultSeason){
+      const key=mediaRef(m),groups=AstraPlayback.episodes.groupVideos(m.videos||[]);
+      if(!state.detailBrowser||state.detailBrowser.key!==key){
+        const target=resumeVideo(m),kind=detailKindForVideo(target),fallback=DETAIL_KINDS.find(([id])=>groups[id].length)?.[0]||'episodes';
+        state.detailBrowser={key,kind:groups[kind]?.length?kind:fallback,season:target.season??defaultSeason??groups.episodes[0]?.season??null,query:'',limit:24,videoId:String(target.id)};
+      }
+      if(!groups[state.detailBrowser.kind]?.length)state.detailBrowser.kind=DETAIL_KINDS.find(([id])=>groups[id].length)?.[0]||'episodes';
+      return {browser:state.detailBrowser,groups};
+    }
+    function detailKindVideos(groups,browser){
+      let list=(groups[browser.kind]||[]).slice();
+      if(browser.kind==='episodes'&&browser.season!=null&&!browser.query)list=list.filter(video=>String(video.season)===String(browser.season));
+      return list;
+    }
+    function episodeFocusHTML(video,kind){
+      if(!video)return '';
+      const m=state.currentMeta,p=videoProgress(m,video.id),pct=p?.duration?Math.round(p.time/p.duration*100):0,
+        still=safeUrl(video.thumbnail||video.background||video.poster||m.background||''),code=kind==='episodes'?episodeCode(video):(DETAIL_KINDS.find(([id])=>id===kind)?.[1]||'Selected'),
+        title=video.title||video.name||(kind==='episodes'?'Episode':'Untitled item'),summary=video.overview||video.description||(p?.completed?'Watched':pct?`${pct}% watched`:'Ready to open'),
+        action=p&&!p.completed&&pct?'Continue':'Find sources';
+      return `<article class="episode-focus">
+        <div class="episode-focus-art ${still?'image-loading':'image-error'}">${mediaImage(still)}<span class="video-art-fallback" aria-hidden="true">${esc(video.episode!=null?String(video.episode).padStart(2,'0'):'•')}</span><span class="episode-focus-shade" aria-hidden="true"></span></div>
+        <div class="episode-focus-copy"><span class="episode-focus-kicker">${esc(code||'Selected')} ${p?.completed?'· Watched':pct?`· ${pct}% watched`:''}</span><h3>${esc(title)}</h3><p>${esc(summary)}</p>
+          <button type="button" class="btn btn-primary" data-get-streams="${esc(video.id)}">${icon('play')} ${esc(action)}</button></div>
+      </article>`;
+    }
+    function episodeResultsHTML(m,browser,groups){
+      const base=detailKindVideos(groups,browser),matches=AstraPlayback.episodes.searchVideos(base,browser.query),shown=matches.slice(0,browser.limit),definition=DETAIL_KINDS.find(([id])=>id===browser.kind),kind=definition?.[2]||'item',noun=kind==='item'?'item':kind;
+      return `<div class="episode-result-head"><span>${matches.length} ${noun}${matches.length===1?'':'s'}</span>${browser.query?`<b>Matching “${esc(browser.query)}”</b>`:''}</div>
+        ${shown.length?`<div class="video-list">${videoListHTML(shown,kind)}</div>${shown.length<matches.length?`<button class="episode-more" data-episode-load-more>Show ${Math.min(24,matches.length-shown.length)} more</button>`:''}`:`<div class="episode-no-match">${icon('search')}<span><b>No matching item</b><small>Try a title, episode number, or code like S2E5.</small></span></div>`}`;
+    }
+    function renderEpisodeBrowser(){
+      const m=state.currentMeta,mount=$('#episodeBrowser');if(!m||!mount)return;
+      const seasons=[...new Set(AstraPlayback.episodes.canonicalEpisodes(m.videos||[]).map(video=>video.season).filter(value=>value!=null))];
+      mount.outerHTML=seriesSectionsHTML(m.videos||[],state.detailBrowser?.season??seasons[0]);
+      const next=$('#episodeBrowser');bindDynamic(next);bindDetailDynamic(next);
+    }
+    function refreshEpisodeResults(){
+      const m=state.currentMeta,mount=$('#episodeResults');if(!m||!mount||!state.detailBrowser)return;
+      const groups=AstraPlayback.episodes.groupVideos(m.videos||[]);mount.innerHTML=episodeResultsHTML(m,state.detailBrowser,groups);bindDynamic(mount);bindDetailDynamic(mount);
+    }
+    function bindDetailDynamic(root){
+      if(!root)return;
+      $$('[data-detail-kind]',root).forEach(button=>button.onclick=()=>{const m=state.currentMeta;if(!m)return;const groups=AstraPlayback.episodes.groupVideos(m.videos||[]),kind=button.dataset.detailKind,list=groups[kind]||[];state.detailBrowser.kind=kind;state.detailBrowser.query='';state.detailBrowser.limit=24;state.detailBrowser.videoId=String(list[0]?.id||'');if(kind==='episodes')state.detailBrowser.season=list[0]?.season??state.detailBrowser.season;renderEpisodeBrowser()});
+      $$('[data-season]',root).forEach(button=>button.onclick=()=>{state.detailBrowser.season=button.dataset.season;state.detailBrowser.query='';state.detailBrowser.limit=24;const groups=AstraPlayback.episodes.groupVideos(state.currentMeta?.videos||[]),first=groups.episodes.find(video=>String(video.season)===String(state.detailBrowser.season));if(first)state.detailBrowser.videoId=String(first.id);renderEpisodeBrowser()});
+      $$('[data-get-streams]',root).forEach(button=>button.onclick=()=>{if(state.detailBrowser)state.detailBrowser.videoId=String(button.dataset.getStreams);$$('[data-get-streams]',root).forEach(row=>row.classList.toggle('active',row===button||row.dataset.getStreams===button.dataset.getStreams));loadStreams(button.dataset.getStreams)});
+      const search=$('[data-episode-search]',root);if(search)search.oninput=()=>{state.detailBrowser.query=search.value;state.detailBrowser.limit=24;refreshEpisodeResults()};
+      $$('[data-episode-clear]',root).forEach(button=>button.onclick=()=>{state.detailBrowser.query='';state.detailBrowser.limit=24;renderEpisodeBrowser();$('#episodeSearch')?.focus()});
+      $$('[data-episode-load-more]',root).forEach(button=>button.onclick=()=>{state.detailBrowser.limit+=24;refreshEpisodeResults()});
+    }
+    /* The V3 series console keeps one chosen group in view. Episodes,
+       specials, extras and unclassified files remain distinct, but switching
+       between them no longer means scrolling through every preceding group. */
     function seriesSectionsHTML(videos,defaultSeason){
-      const groups=AstraPlayback.episodes.groupVideos(videos),
-        seasons=[...new Set(groups.episodes.map(v=>v.season).filter(x=>x!=null))],
-        group=(title,note,list,kind)=>list.length?`<section class="video-group">${groupHead(title,note.replace('%n',list.length))}<div class="video-list">${videoListHTML(list,kind)}</div></section>`:'';
-      return `${groups.episodes.length?`<section class="video-group">${groupHead('Episodes',`${groups.episodes.length} listed`)}${seasons.length?`<div class="season-band" role="tablist" aria-label="Seasons">${seasons.map(s=>`<button class="season-tab ${String(s)===String(defaultSeason)?'active':''}" role="tab" aria-selected="${String(s)===String(defaultSeason)}" tabindex="${String(s)===String(defaultSeason)?0:-1}" data-season="${esc(s)}">Season ${esc(s)}</button>`).join('')}</div>`:''}<div class="video-list" id="episodeList">${episodeHTML(groups.episodes,defaultSeason)}</div></section>`:''}${group('Specials','%n listed',groups.specials,'special')}${group('Extras & clips','%n listed',groups.extras,'extra')}${group('Other videos','%n the add-on did not classify',groups.unknown,'item')}`;
+      const m=state.currentMeta,{browser,groups}=detailBrowserState(m,defaultSeason),seasons=[...new Set(groups.episodes.map(video=>video.season).filter(value=>value!=null))],
+        base=detailKindVideos(groups,browser),selected=base.find(video=>String(video.id)===String(browser.videoId)),focus=selected||base[0],searchableCount=(groups[browser.kind]||[]).length,
+        tabs=DETAIL_KINDS.filter(([id])=>groups[id].length).map(([id,label])=>`<button class="episode-kind-tab ${browser.kind===id?'active':''}" role="tab" aria-selected="${browser.kind===id}" tabindex="${browser.kind===id?0:-1}" data-detail-kind="${id}"><span>${label}</span><b>${groups[id].length}</b></button>`).join('');
+      if(focus&&!selected)browser.videoId=String(focus.id);
+      return `<section class="episode-console" id="episodeBrowser" aria-label="Episode and video browser">
+        <div class="episode-console-head"><div><span class="dossier-section-label">Choose what plays</span><h2>${browser.kind==='episodes'?'Episode control':'More from this title'}</h2></div><span>${groups.episodes.length} episodes${seasons.length?` · ${seasons.length} seasons`:''}</span></div>
+        ${episodeFocusHTML(focus,browser.kind)}
+        <div class="episode-nav-sticky"><div class="episode-kind-tabs" role="tablist" aria-label="Video groups">${tabs}</div>
+          ${browser.kind==='episodes'&&seasons.length?`<div class="season-band" role="tablist" aria-label="Seasons">${seasons.map(season=>`<button class="season-tab ${String(season)===String(browser.season)?'active':''}" role="tab" aria-selected="${String(season)===String(browser.season)}" tabindex="${String(season)===String(browser.season)?0:-1}" data-season="${esc(season)}">Season ${esc(season)}</button>`).join('')}</div>`:''}
+          ${searchableCount>8?`<div class="episode-search">${icon('search')}<input id="episodeSearch" data-episode-search type="search" inputmode="search" autocomplete="off" value="${esc(browser.query)}" placeholder="Find title, number, or S2E5" aria-label="Find an episode">${browser.query?`<button type="button" data-episode-clear aria-label="Clear episode search">${icon('close')}</button>`:''}</div>`:''}</div>
+        <div id="episodeResults">${episodeResultsHTML(m,browser,groups)}</div>
+      </section>`;
     }
     function groupHead(title,note){return `<div class="group-head"><h4>${esc(title)}</h4><span class="group-note mono">${esc(note)}</span></div>`}
     /* Record cells are built only from fields the add-on actually returned, so
@@ -793,7 +853,7 @@
        structure whether the title is a film, an album or a radio station. */
     function showDetail(m,loading=false){
       const root=$('#modalRoot'),isSaved=!!state.library[mediaKey(m)],videos=m.videos||[],
-        groups=AstraPlayback.episodes.groupVideos(videos),
+        groups=AstraPlayback.episodes.groupVideos(videos),hasVideoBrowser=groups.episodes.length>0||videos.length>1,
         seasons=[...new Set(groups.episodes.map(v=>v.season).filter(x=>x!=null))],
         resume=resumeVideo(m),resumeProg=videoProgress(m,resume.id),defaultSeason=resume.season??seasons[0],
         art=backdrop(m),posterArt=poster(m),name=m.name||m.title||'Untitled',
@@ -817,12 +877,12 @@
         </header>
         <div class="dossier-body">${loading
           ?'<div class="loading-line"><span class="spinner"></span>Loading full details…</div>'
-          :`<section class="dossier-overview"><span class="dossier-section-label">The story</span><p class="synopsis">${esc(m.description||m.overview||'No description was provided by the add-on.')}</p></section>
-             ${dossierRecord(m)}
-             ${m.cast?.length?`<p class="dossier-cast">Cast · ${esc(m.cast.slice(0,8).join(' · '))}</p>`:''}
-             ${videos.length?seriesSectionsHTML(videos,defaultSeason):''}`}</div>
+          :`${hasVideoBrowser?seriesSectionsHTML(videos,defaultSeason):''}
+             <section class="dossier-overview detail-information"><span class="dossier-section-label">The story</span><p class="synopsis">${esc(m.description||m.overview||'No description was provided by the add-on.')}</p>
+               ${dossierRecord(m)}
+               ${m.cast?.length?`<p class="dossier-cast">Cast · ${esc(m.cast.slice(0,8).join(' · '))}</p>`:''}</section>`}</div>
       </section></div>`;
-      bindDynamic(root);
+      bindDynamic(root);bindDetailDynamic(root);
     }
     /* ---- Playback Engine v2 + Player v3 integration ---------------------
        All decision logic lives in assets/js/playback/*. This layer only binds
@@ -909,12 +969,20 @@
        and re-sorting or filtering it here would quietly override that. The
        one thing Astra adds is a compatibility verdict, because whether this
        device can decode a release is something the add-on cannot know. */
+    function sourceCapabilitiesHTML(list){
+      const audio=[...new Set(list.flatMap(entry=>entry.stream.facts.audioLanguages||[]).map(lang=>String(lang).toUpperCase()))],
+        directSubtitles=Math.max(0,...list.map(entry=>entry.stream.subtitles?.length||0)),m=state.currentMeta,v=state.currentVideo,
+        subtitleProviders=m&&v?manifests().filter(source=>hasResource(source.manifest,'subtitles',m.type,v.id)).length:0,
+        dual=list.some(entry=>(entry.stream.facts.audioLanguages||[]).length>1),audioText=dual?`Dual audio · ${audio.join(' · ')}`:audio.length?audio.join(' · '):'Source default',
+        subtitleText=directSubtitles?`${directSubtitles} listed on a source`:subtitleProviders?`${subtitleProviders} add-on${subtitleProviders===1?'':'s'} checked on play`:'None reported';
+      return `<div class="source-intel" aria-label="Source capabilities"><span><b>Audio</b><small>${esc(audioText)}</small></span><span><b>Subtitles</b><small>${esc(subtitleText)}</small></span></div>`;
+    }
     function renderStreams(){
       const root=$('#streamOverlayRoot');if(!root)return;
       const list=player.sources,total=list.length;
       const providerNames=[...new Set(list.map(e=>e.stream.addonName).filter(Boolean))];
       const streamProviders=state.currentMeta&&state.currentVideo?manifests().filter(s=>hasResource(s.manifest,'stream',state.currentMeta.type,state.currentVideo.id)).length:0;
-      const content=total?`<section class="picker">${groupHead('Sources',`${total} from ${providerNames.length||1} add-on${providerNames.length===1?'':'s'}`)}
+      const content=total?`<section class="picker">${groupHead('Sources',`${total} from ${providerNames.length||1} add-on${providerNames.length===1?'':'s'}`)}${sourceCapabilitiesHTML(list)}
         <div class="stream-list">${list.map((e,i)=>streamRowHTML(e,i)).join('')}</div></section>`
         :streamProviders
           ?stateHTML('No sources found','Your streaming add-ons answered, but none returned a playable result for this title or episode.','','error')
@@ -928,7 +996,8 @@
       const tag=(text,tone='')=>`<span class="tag ${tone}">${esc(text)}</span>`;
       const tags=[f.resolution&&tag(f.resolution),f.codec&&tag(f.codec),
         f.hdr&&tag(f.hdr,'signal'),f.audioCodec&&tag(f.audioCodec+(f.audioChannels?' '+f.audioChannels:'')),
-        (f.audioLanguages||[]).length>1&&tag(`${f.audioLanguages.length} audio`,'info'),
+        ...(f.audioLanguages||[]).slice(0,3).map(language=>tag(String(language).toUpperCase(),'info')),
+        s.subtitles?.length&&tag(`${s.subtitles.length} subtitle${s.subtitles.length===1?'':'s'}`,'info'),
         f.sizeText&&tag(f.sizeText),f.cached&&tag('Cached','ok'),
         f.live&&tag('Live','info'),f.pack&&tag('Pack'),
         f.episodeStatus==='mismatch'&&tag('Wrong episode','bad'),
