@@ -233,7 +233,7 @@ test("a stream response is scoped to the lookup that asked for it", () => {
 
 test("switching or dismissing a title cancels the in-flight lookup", () => {
   assert.match(html, /function cancelStreamLookup\(\)\{\s*player\.lookup=null;player\.metaRequest=null;/);
-  assert.match(html, /async function openMedia\(key\)\{\s*\n\s*cancelStreamLookup\(\);/, "opening another title invalidates it");
+  assert.match(html, /async function openMedia\(key,opener\)\{\s*\n\s*cancelStreamLookup\(\);/, "opening another title invalidates it");
   assert.match(html, /data-dismiss\]',root\)\.forEach\(x=>x\.onclick=e=>\{if\(e\.target===x\)closeModal\(\)\}\)/, "so does dismissing the modal");
 });
 
@@ -294,7 +294,7 @@ test("the decoding probe refreshes verdicts without reordering the list", () => 
 });
 
 test("a deferred metadata response cannot replace another title", () => {
-  const openMedia = html.match(/async function openMedia\(key\)\{[\s\S]*?\n {4}\}/);
+  const openMedia = html.match(/async function openMedia\(key,opener\)\{[\s\S]*?\n {4}\}/);
   assert.ok(openMedia, "openMedia exists");
   assert.match(openMedia[0], /const request=\{key\};player\.metaRequest=request;/, "the request is stamped");
   assert.match(openMedia[0], /const full=await fullMeta\(item\);\s*\n\s*if\(player\.metaRequest!==request\)return;/,
@@ -331,7 +331,12 @@ test("the failover notice stays on screen long enough to read", () => {
 test("every modal dismissal invalidates pending work", () => {
   // A deferred metadata response must not reopen a detail the viewer closed,
   // so every path that clears the modal goes through one cancelling helper.
-  assert.match(html, /function closeModal\(\)\{cancelStreamLookup\(\);\$\('#modalRoot'\)\.innerHTML=''\}/);
+  const close = html.match(/function closeModal\(\)\{[\s\S]*?\n {4}\}/);
+  assert.ok(close, "closeModal exists");
+  assert.match(close[0], /cancelStreamLookup\(\)/, "closing invalidates async lookup ownership before animating");
+  assert.match(close[0], /Motion\.(?:sharedClose|dismissSurface)/, "the visible surface owns its exit animation");
+  assert.match(html, /function clearModalSurface\(\)\{const root=\$\('#modalRoot'\);Motion\.releaseSurface\(root\);root\.innerHTML=''\}/,
+    "the final clear releases gesture resources first");
 
   // The X button and the Escape key are the paths that previously slipped past.
   assert.match(html, /data-close\]',root\)\.forEach\(x=>x\.onclick=\(\)=>closeModal\(\)\)/, "the close button cancels");
@@ -349,7 +354,7 @@ test("every modal dismissal invalidates pending work", () => {
   ]);
   const blanking = [...html.matchAll(/([\w$.'#()]+)\.innerHTML=''/g)].map((m) => m[1]);
   const modalClears = blanking.filter((target) => !NON_MODAL_TARGETS.has(target.replace(/^if\(\w+\)/, "")));
-  assert.deepEqual(modalClears, ["$('#modalRoot')"], `an alias clears the modal: ${modalClears.join(", ")}`);
+  assert.deepEqual(modalClears, ["root"], `an unexpected alias clears the modal: ${modalClears.join(", ")}`);
 });
 
 test("an async modal action cannot erase a modal it no longer owns", () => {
@@ -371,4 +376,3 @@ test("an async modal action cannot erase a modal it no longer owns", () => {
   assert.match(importer[0], /const owned=currentModal\(\)/);
   assert.match(importer[0], /if\(currentModal\(\)===owned\)closeModal\(\)/);
 });
-
