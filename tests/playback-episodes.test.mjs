@@ -101,6 +101,26 @@ test("episode labels read correctly with partial metadata", () => {
   assert.equal(EP.episodeLabel(null), "");
 });
 
+test("long series can be searched by title, episode number, or compact code", () => {
+  const videos = [
+    { id: "one", season: 1, episode: 1, title: "Arrival" },
+    { id: "two", season: 2, episode: 5, title: "The Long Goodbye" },
+    { id: "three", season: 2, episode: 10, title: "Home" }
+  ];
+
+  assert.deepEqual(Array.from(EP.searchVideos(videos, "goodbye"), (v) => v.id), ["two"]);
+  assert.deepEqual(Array.from(EP.searchVideos(videos, "episode 10"), (v) => v.id), ["three"]);
+  assert.deepEqual(Array.from(EP.searchVideos(videos, "s2e5"), (v) => v.id), ["two"]);
+  assert.deepEqual(Array.from(EP.searchVideos(videos, "S2 E5"), (v) => v.id), ["two"]);
+});
+
+test("episode search preserves canonical input order and tolerates empty data", () => {
+  const videos = [{ id: "b", title: "Moon" }, { id: "a", title: "Moonrise" }];
+  assert.deepEqual(Array.from(EP.searchVideos(videos, "moon"), (v) => v.id), ["b", "a"]);
+  assert.deepEqual(Array.from(EP.searchVideos(videos, ""), (v) => v.id), ["b", "a"]);
+  assert.deepEqual(Array.from(EP.searchVideos(null, "moon")), []);
+});
+
 test("the autoplay countdown ticks down and then fires once", () => {
   const clock = createClock();
   const ticks = [];

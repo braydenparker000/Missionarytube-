@@ -167,6 +167,35 @@
   }
 
   /**
+   * Search the current episode group without changing its canonical order.
+   * Season/episode codes and plain episode numbers are searchable alongside
+   * titles and summaries, which makes long-running anime usable on a phone.
+   */
+  function searchVideos(videos, rawQuery) {
+    var query = String(rawQuery == null ? "" : rawQuery).trim().toLowerCase();
+    var input = Array.isArray(videos) ? videos.slice() : [];
+    if (!query) return input;
+    var compact = query.replace(/\s+/g, "");
+    return input.filter(function (video) {
+      if (!video || typeof video !== "object") return false;
+      var code = episodeCode(video).toLowerCase();
+      var episode = num(video.episode);
+      var season = num(video.season);
+      var fields = [
+        code,
+        code.replace(/s(\d+)e(\d+)/, "season $1 episode $2"),
+        episode === null ? "" : "episode " + episode,
+        season === null ? "" : "season " + season,
+        video.title,
+        video.name,
+        video.overview,
+        video.description
+      ].filter(function (value) { return value != null; }).join(" ").toLowerCase();
+      return fields.indexOf(query) !== -1 || fields.replace(/\s+/g, "").indexOf(compact) !== -1;
+    });
+  }
+
+  /**
    * Where "Continue" should go: the most recently watched incomplete episode,
    * or the one after the most recently completed. Falls back to the first
    * episode when there is no history.
@@ -290,6 +319,7 @@
     isEpisodic: isEpisodic,
     episodeCode: episodeCode,
     episodeLabel: episodeLabel,
+    searchVideos: searchVideos,
     resumeTarget: resumeTarget,
     createCountdown: createCountdown
   };

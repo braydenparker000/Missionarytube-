@@ -3954,6 +3954,82 @@ main:has(#page-home.active) .topbar {
 .search-provider-empty.error { background: var(--bad-wash); }
 .search-provider-empty.error span { color: var(--bad); }
 
+/* Detail V3 ------------------------------------------------------------
+   A series opens as a playback control room. The long-form dossier remains
+   below it, but episodes, specials and extras own the first interaction. */
+.episode-console { margin: 0 0 var(--s8); }
+.episode-console-head { display: flex; align-items: end; justify-content: space-between; gap: var(--s3); margin-bottom: var(--s4); }
+.episode-console-head h2 { margin: 0; font-family: var(--font-cinema); font-size: clamp(30px, 9vw, 42px); font-weight: 500; letter-spacing: -0.05em; line-height: 0.95; }
+.episode-console-head > span { flex: 0 0 auto; color: var(--silver-dim); font-family: var(--font-mono); font-size: 8px; text-transform: uppercase; }
+
+.episode-focus {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  min-height: 250px;
+  margin-bottom: var(--s4);
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--slate-900);
+  box-shadow: inset 0 0 0 1px var(--rule), 0 18px 44px rgba(0,0,0,0.28);
+}
+.episode-focus-art { position: absolute; inset: 0; overflow: hidden; background: var(--slate-800); }
+.episode-focus-art img { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.episode-focus-art .video-art-fallback { z-index: 1; font-size: 42px; }
+.episode-focus-shade { position: absolute; z-index: 3; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.04) 18%, rgba(0,0,0,0.24) 46%, rgba(0,0,0,0.94) 100%); }
+.episode-focus-copy { position: relative; z-index: 4; align-self: end; display: grid; gap: 6px; padding: 76px var(--s4) var(--s4); }
+.episode-focus-kicker { color: var(--signal-bright); font-family: var(--font-mono); font-size: 8px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.episode-focus h3 { margin: 0; font-family: var(--font-cinema); font-size: 30px; font-weight: 500; letter-spacing: -0.04em; line-height: 1; }
+.episode-focus p { max-width: 48ch; margin: 0; overflow: hidden; color: var(--bone-dim); font-size: 10px; line-height: 1.45; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.episode-focus .btn { justify-self: start; min-height: 42px; margin-top: 4px; padding-inline: 17px; }
+
+.episode-nav-sticky {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+  display: grid;
+  gap: 9px;
+  margin: 0 -20px var(--s3);
+  padding: 10px 20px 12px;
+  border-block: 1px solid var(--rule-faint);
+  background: color-mix(in srgb, var(--obsidian) 90%, transparent);
+  backdrop-filter: blur(18px) saturate(0.9);
+  -webkit-backdrop-filter: blur(18px) saturate(0.9);
+}
+.episode-kind-tabs { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; }
+.episode-kind-tabs::-webkit-scrollbar { display: none; }
+.episode-kind-tab { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; min-height: 38px; padding: 0 13px; border: 1px solid var(--rule); border-radius: var(--r-pill); color: var(--silver); font-size: 10px; font-weight: 750; }
+.episode-kind-tab b { min-width: 17px; padding: 2px 5px; border-radius: var(--r-pill); background: var(--slate-800); color: var(--silver-dim); font-family: var(--font-mono); font-size: 7px; text-align: center; }
+.episode-kind-tab.active { border-color: var(--bone); background: var(--bone); color: var(--void); }
+.episode-kind-tab.active b { background: var(--void); color: var(--bone); }
+.episode-nav-sticky .season-band { margin: 0; padding: 0; }
+
+.episode-search { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 44px; padding: 0 9px 0 13px; border-radius: 14px; background: var(--slate-800); box-shadow: inset 0 0 0 1px var(--rule-faint); color: var(--silver-dim); }
+.episode-search > svg { width: 17px; height: 17px; }
+.episode-search input { min-width: 0; height: 42px; border: 0; background: transparent; color: var(--bone); font-size: 13px; }
+.episode-search input::placeholder { color: var(--silver-dim); }
+.episode-search button { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--silver); }
+.episode-search button svg { width: 15px; height: 15px; }
+
+.episode-result-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 34px; color: var(--silver-dim); font-family: var(--font-mono); font-size: 8px; text-transform: uppercase; }
+.episode-result-head b { overflow: hidden; color: var(--signal-bright); font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.episode-console .video-row { grid-template-columns: 96px minmax(0, 1fr) 32px; min-height: 76px; }
+.episode-console .video-art { width: 96px; }
+.episode-more { width: 100%; min-height: 46px; margin-top: var(--s3); border: 1px solid var(--rule); border-radius: var(--r-pill); color: var(--bone-dim); font-size: 10px; font-weight: 750; }
+.episode-no-match { display: flex; align-items: center; gap: var(--s3); min-height: 92px; padding: var(--s4); border: 1px solid var(--rule-faint); border-radius: var(--r3); color: var(--silver-dim); }
+.episode-no-match > svg { width: 24px; height: 24px; }
+.episode-no-match span { display: grid; gap: 3px; }
+.episode-no-match b { color: var(--bone-dim); font-size: 12px; }
+.episode-no-match small { font-size: 9px; line-height: 1.4; }
+.detail-information { padding-top: var(--s2); border-top: 1px solid var(--rule-faint); }
+
+/* Capabilities reported by source add-ons are visible before playback. The
+   subtitle line is explicit when Astra still needs to query subtitle add-ons. */
+.source-intel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 0 0 var(--s4); overflow: hidden; border: 1px solid var(--rule-faint); border-radius: 14px; background: var(--rule-faint); }
+.source-intel span { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 11px; background: var(--slate-900); }
+.source-intel b { color: var(--signal-bright); font-family: var(--font-mono); font-size: 7px; letter-spacing: 0.1em; text-transform: uppercase; }
+.source-intel small { overflow: hidden; color: var(--bone-dim); font-size: 9px; line-height: 1.35; text-overflow: ellipsis; }
+
 @media (min-width: 700px) {
   .briefing-shell { align-items: center; padding: var(--s6); }
   .briefing-panel { width: min(980px, 100%); height: min(820px, 92svh); margin: auto; border-radius: 24px; }
@@ -3961,6 +4037,8 @@ main:has(#page-home.active) .topbar {
   .briefing-results.three .briefing-pick { min-height: 100%; }
   .briefing-pick-copy > b { font-size: 36px; }
   .health-overview { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .episode-focus { min-height: 330px; }
+  .episode-focus-copy { padding: 110px var(--s6) var(--s5); }
 }
 
 @media (max-width: 380px) {
@@ -3975,11 +4053,15 @@ main:has(#page-home.active) .topbar {
   .health-card-head { align-items: flex-start; }
   .health-card-head > div { display: grid; gap: 6px; }
   .health-channel { grid-template-columns: minmax(70px, 1fr) 62px minmax(0, 1.2fr); }
+  .episode-console .video-row { grid-template-columns: 84px minmax(0, 1fr) 30px; gap: 9px; padding: 7px; }
+  .episode-console .video-art { width: 84px; }
+  .episode-console-head > span { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .briefing-panel,
   .briefing-scan,
   .briefing-trigger,
-  .search-provider-pill.loading i { animation: none; transition: none; }
+  .search-provider-pill.loading i,
+  .episode-console .video-row { animation: none; transition: none; }
 }
