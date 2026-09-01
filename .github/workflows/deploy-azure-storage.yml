@@ -8,10 +8,8 @@ on:
     paths:
       - "*.html"
       - "assets/**"
-      - "src/**"
       - "scripts/build.mjs"
       - "package.json"
-      - "package-lock.json"
       - ".github/workflows/deploy-azure-storage.yml"
 
 permissions:
@@ -34,10 +32,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install pinned dependencies
-        run: npm ci
       - name: Validate source
         run: npm test
       - name: Build deployment artifact

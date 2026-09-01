@@ -25,9 +25,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install pinned dependencies
-        run: npm ci
+          cache-dependency-path: package.json
       - name: Validate source
         run: npm test
       - name: Build deployment artifact
