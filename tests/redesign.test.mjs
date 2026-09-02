@@ -28,22 +28,31 @@ function contrast(a, b) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-const gallery = css.slice(css.indexOf("ASTRA GALLERY 0.19"));
+const gallery = css.slice(css.indexOf("ASTRA GALLERY 0.20"));
 
-test("Gallery 0.19 follows the supplied photography-first design system", () => {
+test("Gallery 0.20 follows the supplied photography-first dark design system", () => {
   assert.ok(gallery.length > 1000, "the Gallery design layer must exist");
   for (const [name, value] of [
-    ["gallery-blue", "#0066cc"],
-    ["gallery-blue-focus", "#0071e3"],
+    ["gallery-blue", "#2997ff"],
+    ["gallery-blue-fill", "#0066cc"],
+    ["gallery-blue-focus", "#2997ff"],
     ["gallery-blue-dark", "#2997ff"],
-    ["gallery-ink", "#1d1d1f"],
+    ["gallery-ink", "#f5f5f7"],
     ["gallery-white", "#ffffff"],
-    ["gallery-parchment", "#f5f5f7"],
-    ["gallery-dark", "#272729"]
-  ]) assert.equal(token(name), value, `${name} must match the design brief`);
+    ["gallery-canvas", "#000000"],
+    ["gallery-surface", "#141416"],
+    ["gallery-parchment", "#08080a"],
+    ["gallery-dark", "#000000"]
+  ]) assert.equal(token(name), value, `${name} must match the dark adaptation of the design brief`);
+  assert.match(gallery, /color-scheme: dark;/);
   assert.match(gallery, /body \{[\s\S]*?font-size: var\(--t-body\);[\s\S]*?line-height: 1\.47;/);
   assert.match(gallery, /--t-body: 17px;/);
   assert.match(gallery, /--t-hero: 56px;/);
+  assert.equal(/background:\s*var\(--gallery-white\)/.test(gallery), false,
+    "white is reserved for foreground text, never a dark-mode surface");
+  assert.ok(contrast(token("gallery-ink"), token("gallery-canvas")) >= 4.5);
+  assert.ok(contrast(token("gallery-muted"), token("gallery-surface")) >= 4.5);
+  assert.ok(contrast(token("gallery-white"), token("gallery-blue-fill")) >= 4.5);
   assert.equal(/gradient\(/.test(gallery), false, "Gallery uses photography and surface changes, not decorative gradients");
 });
 
@@ -52,7 +61,7 @@ test("Gallery chrome recedes while every action uses the single blue accent", ()
   const settings = gallery.match(/\n\.settings-group \{[\s\S]*?\n\}/)?.[0] || "";
   assert.match(dock, /box-shadow: none;/);
   assert.match(settings, /box-shadow: none;/);
-  assert.match(gallery, /\.btn-primary,[\s\S]*?background: var\(--gallery-blue\);[\s\S]*?color: var\(--gallery-white\);/);
+  assert.match(gallery, /\.btn-primary,[\s\S]*?background: var\(--gallery-blue-fill\);[\s\S]*?color: var\(--gallery-white\);/);
   assert.match(gallery, /\.btn-ghost,[\s\S]*?border: 1px solid var\(--gallery-blue\);/);
   assert.match(gallery, /#homeSections > \.sector:nth-of-type\(even\)/);
   assert.match(html, /class="rail-label">\$\{label\}<\/span>/);
