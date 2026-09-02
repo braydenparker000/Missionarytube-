@@ -532,26 +532,38 @@ function sharedOpen({ source, update, targetSelector = ".dossier-poster" } = {})
   }
   const name = "astra-art";
   let target = null;
+  let committed = false;
+  let fallback;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    clearTimeout(fallback);
+    openingSource.style.viewTransitionName = "";
+    update?.();
+    target = document.querySelector(targetSelector);
+    if (target) target.style.viewTransitionName = name;
+  };
   document.documentElement.dataset.astraTransition = "detail-open";
   openingSource.style.viewTransitionName = name;
+  fallback = setTimeout(commit, 100);
   try {
-    sharedTransition = document.startViewTransition(() => {
-      openingSource.style.viewTransitionName = "";
-      update?.();
-      target = document.querySelector(targetSelector);
-      if (target) target.style.viewTransitionName = name;
-    });
-    const updated = sharedTransition.updateCallbackDone.then(() => true).catch(() => false);
+    sharedTransition = document.startViewTransition(commit);
+    const updated = Promise.race([
+      sharedTransition.updateCallbackDone.then(() => true).catch(() => false),
+      new Promise((resolve) => setTimeout(() => resolve(false), 140))
+    ]);
     sharedTransition.finished.catch(() => {}).finally(() => {
+      clearTimeout(fallback);
       if (target) target.style.viewTransitionName = "";
       openingSource.style.viewTransitionName = "";
       clearTransitionState();
     });
     return updated;
   } catch {
+    clearTimeout(fallback);
     openingSource.style.viewTransitionName = "";
     clearTransitionState();
-    update?.();
+    commit();
     return Promise.resolve(false);
   }
 }
@@ -560,20 +572,29 @@ function sharedClose({ target, update } = {}) {
   const closingSource = sharedSource;
   if (!transitionAvailable() || !visible(target) || !visible(closingSource)) return false;
   const name = "astra-art";
+  let committed = false;
+  let fallback;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    clearTimeout(fallback);
+    target.style.viewTransitionName = "";
+    update?.();
+    if (closingSource.isConnected) closingSource.style.viewTransitionName = name;
+  };
   document.documentElement.dataset.astraTransition = "detail-close";
   target.style.viewTransitionName = name;
+  fallback = setTimeout(commit, 100);
   try {
-    sharedTransition = document.startViewTransition(() => {
-      target.style.viewTransitionName = "";
-      update?.();
-      if (closingSource.isConnected) closingSource.style.viewTransitionName = name;
-    });
+    sharedTransition = document.startViewTransition(commit);
     sharedTransition.finished.catch(() => {}).finally(() => {
+      clearTimeout(fallback);
       closingSource.style.viewTransitionName = "";
       clearTransitionState();
     });
     return true;
   } catch {
+    clearTimeout(fallback);
     target.style.viewTransitionName = "";
     clearTransitionState();
     return false;
@@ -582,7 +603,10 @@ function sharedClose({ target, update } = {}) {
 
 function navigate({ from, to, direction = "auto", update } = {}) {
   const travel = navigationDirection(from, to, direction);
+  let committed = false;
   const commit = () => {
+    if (committed) return;
+    committed = true;
     navigationUpdating = true;
     try { update?.(); } finally { navigationUpdating = false; }
   };
@@ -602,13 +626,15 @@ function navigate({ from, to, direction = "auto", update } = {}) {
     return false;
   }
   document.documentElement.dataset.astraNav = travel;
+  const fallback = setTimeout(commit, 100);
   try {
     sharedTransition = document.startViewTransition(commit);
-    sharedTransition.finished.catch(() => {}).finally(clearTransitionState);
+    sharedTransition.finished.catch(() => {}).finally(() => { clearTimeout(fallback); clearTransitionState(); });
     return true;
   } catch {
+    clearTimeout(fallback);
     clearTransitionState();
-    update?.();
+    commit();
     return false;
   }
 }

@@ -82,6 +82,18 @@ test("direct interaction motion never exceeds the 360ms release budget", () => {
   assert.match(css, /\.seek-feedback\.show \{ animation: player-seek-pop 360ms/);
 });
 
+test("View Transition callbacks cannot reorder or stall visible state", () => {
+  const open = source.slice(source.indexOf("function sharedOpen"), source.indexOf("function sharedClose"));
+  const close = source.slice(source.indexOf("function sharedClose"), source.indexOf("function navigate"));
+  const navigation = source.slice(source.indexOf("function navigate"), source.indexOf("function syncDock"));
+  assert.match(open, /fallback = setTimeout\(commit, 100\)/);
+  assert.match(open, /Promise\.race/);
+  assert.match(close, /fallback = setTimeout\(commit, 100\)/);
+  assert.match(navigation, /let committed = false/);
+  assert.match(navigation, /const fallback = setTimeout\(commit, 100\)/);
+  assert.match(navigation, /if \(committed\) return/);
+});
+
 test("every mobile overlay can be dismissed physically without touching Player V3", () => {
   assert.match(html, /Motion\.mountSurface\(\{root,key:'sources'/);
   assert.match(html, /detail\?'detail':briefing\?'briefing':'utility'/);
