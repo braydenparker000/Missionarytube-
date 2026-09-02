@@ -67,14 +67,14 @@
   <script src="assets/js/playback/engine.js"></script>
   <script src="assets/js/playback/episodes.js"></script>
   <script src="assets/js/playback/subtitles.js"></script>
-  <script src="assets/js/youtube/config.js?v=0.20.0"></script>
+  <script src="assets/js/youtube/config.js?v=0.20.1"></script>
   <script src="assets/js/youtube/instances.js"></script>
-  <script src="assets/js/youtube/api.js"></script>
+  <script src="assets/js/youtube/api.js?v=0.20.1"></script>
   <script src="assets/js/youtube/playback.js"></script>
   <script src="assets/js/astra-motion.js?v=0.19.0"></script>
   <script>
   (()=>{'use strict';
-    const APP_VERSION='0.20.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
+    const APP_VERSION='0.20.1',HOME_LIMIT=24,DISCOVER_BATCH=60;
     const DEFAULT_ADDONS=[{url:'https://v3-cinemeta.strem.io/manifest.json',enabled:true,official:true}];
     const KEY='astra.v1.';
     const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
@@ -968,8 +968,11 @@
        the DOM and to the app's own state. */
     const YT=globalThis.AstraYouTube;
     const YOUTUBE_DEFAULTS=YT.config.storable({});
-    const youtube={config:null,manager:null,client:null,browse:null,browseToken:0,searchAbort:null,browseAbort:null,testing:false};
-    function youtubeStored(){const stored=store.get('youtube',null);return {...YOUTUBE_DEFAULTS,...(stored&&typeof stored==='object'?stored:{})}}
+    const youtube={config:null,manager:null,playbackManager:null,client:null,browse:null,browseToken:0,searchAbort:null,browseAbort:null,testing:false};
+    function youtubeStored(){
+      const stored=store.get('youtube',null),raw=stored&&typeof stored==='object'?stored:{};
+      return YT.config.storable(YT.config.resolve({enabled:raw.enabled,privateInstanceUrl:raw.privateInstanceUrl,privateInstanceApi:raw.privateInstanceApi,preferAdaptive:raw.preferAdaptive,maxHeight:raw.maxHeight}));
+    }
     function youtubeEnabled(){return youtubeStored().enabled!==false}
     /* The provider is built on first use and thrown away whenever the owner
        changes a setting, so instance health never outlives the configuration
@@ -978,8 +981,10 @@
       if(!youtube.client){
         const config=YT.config.resolve(youtubeStored());
         const manager=YT.instances.createManager({config,instances:YT.config.instanceList(config),fetch:(url,init)=>fetch(url,init)});
-        youtube.config=config;youtube.manager=manager;
-        youtube.client=YT.api.createClient({manager,config});
+        const playbackConfig={...config,requestTimeout:25000,maxAttempts:1};
+        const playbackManager=YT.instances.createManager({config:playbackConfig,instances:config.publicFallbackInstances.slice(0,1).map(entry=>({...entry,kind:'private'})),fetch:(url,init)=>fetch(url,init)});
+        youtube.config=config;youtube.manager=manager;youtube.playbackManager=playbackManager;
+        youtube.client=YT.api.createClient({manager,playbackManager,config});
         // No startup sweep. The pool is other people's servers, and the health
         // machinery learns what it needs from the requests the viewer actually
         // makes. A full probe only runs when Settings asks for one.
@@ -990,7 +995,7 @@
     function youtubeApply(patch){
       const next=YT.config.storable(YT.config.resolve({...youtubeStored(),...patch}));
       store.set('youtube',next);
-      youtube.client=null;youtube.manager=null;youtube.config=null;youtube.browse=null;
+      youtube.client=null;youtube.manager=null;youtube.playbackManager=null;youtube.config=null;youtube.browse=null;
       youtube.searchAbort?.abort();youtube.browseAbort?.abort();
       youtube.searchAbort=null;youtube.browseAbort=null;
       return next;
