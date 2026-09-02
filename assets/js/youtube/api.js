@@ -259,6 +259,11 @@
     } catch (error) {
       return "";
     }
+    // This is YouTube's JSON control API, never an audio or video file. Some
+    // failing public Piped servers have mislabeled it as a playable stream.
+    if (/(^|\.)youtubei\.googleapis\.com$/i.test(parsed.hostname) || /\/youtubei\/v1\//i.test(parsed.pathname)) {
+      return "";
+    }
     return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : "";
   }
 
@@ -606,6 +611,7 @@
   function createClient(options) {
     var settings = options || {};
     var manager = settings.manager;
+    var playbackManager = settings.playbackManager || manager;
     var config = settings.config;
     var now = typeof settings.now === "function" ? settings.now : function () { return Date.now(); };
     var Controller = settings.AbortController || global.AbortController;
@@ -620,7 +626,7 @@
      * request when the last caller lets go, so a cancelled keystroke cannot
      * kill a request another part of the UI is still waiting for.
      */
-    function run(key, describe, signal) {
+    function run(key, describe, signal, requestManager) {
       var cached = cache.get(key);
       if (cached !== undefined) return Promise.resolve({ cached: true, value: cached });
 
@@ -628,7 +634,7 @@
       if (!entry) {
         var controller = Controller ? new Controller() : null;
         entry = { controller: controller, refs: 0, promise: null };
-        entry.promise = manager
+        entry.promise = (requestManager || manager)
           .request(describe, {
             signal: controller ? controller.signal : undefined
           })
@@ -814,7 +820,8 @@
           }
           return { path: "/api/v1/videos/" + id, params: null, validate: isVideoBody };
         },
-        request.signal
+        request.signal,
+        playbackManager
       ).then(function (outcome) {
         if (outcome.cached) return outcome.value;
         var result = outcome.value;
