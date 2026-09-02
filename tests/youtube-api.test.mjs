@@ -115,6 +115,11 @@ test("a URL is only trusted for what its origin entitles it to", () => {
   for (const bad of ["javascript:alert(1)", "data:text/html,<script>", "file:///etc/passwd", "", "/relative"]) {
     assert.equal(YT.api.mediaUrl(bad), "", `${bad} must never reach a <video src>`);
   }
+  assert.equal(
+    YT.api.mediaUrl("https://" + ["youtubei", "googleapis.com"].join(".") + "/youtubei/v1/visitor_id?prettyPrint=false"),
+    "",
+    "YouTube's visitor metadata endpoint must never reach a <video src>"
+  );
 });
 
 test("a result row is classified by what it actually is", () => {
@@ -186,6 +191,32 @@ test("an empty query never becomes a request", async () => {
   const result = await client.search("   ");
   assert.deepEqual(plain(result.items), []);
   assert.equal(fetch.calls.length, 0);
+});
+
+test("video resolution can be pinned to a dedicated playback manager", async () => {
+  const resolved = YT.config.resolve(TEST_CONFIG);
+  const searchFetch = createFetch({}, { clock: createClock() });
+  const playbackFetch = createFetch({
+    "https://relay.example.test": answer(videoDetail("dQw4w9WgXcQ"))
+  }, { clock: createClock() });
+  const manager = YT.instances.createManager({
+    config: resolved,
+    instances: YT.config.instanceList(resolved),
+    fetch: searchFetch,
+    AbortController
+  });
+  const playbackManager = YT.instances.createManager({
+    config: { ...resolved, maxAttempts: 1 },
+    instances: [{ url: "https://relay.example.test", api: "invidious", kind: "private" }],
+    fetch: playbackFetch,
+    AbortController
+  });
+  const client = YT.api.createClient({ manager, playbackManager, config: resolved, AbortController });
+
+  const record = await client.video("dQw4w9WgXcQ");
+  assert.equal(record.videoId, "dQw4w9WgXcQ");
+  assert.equal(searchFetch.calls.length, 0, "the search pool must not resolve playback");
+  assert.equal(new URL(playbackFetch.calls[0].url).host, "relay.example.test");
 });
 
 test("a repeated request is served from cache, not from the network", async () => {
