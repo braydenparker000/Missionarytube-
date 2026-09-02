@@ -1356,9 +1356,14 @@
     function finishModalClose(){const target=modalReturnFocus;modalReturnFocus=null;clearModalSurface();focusBack(target)}
     function closeModal(){
       cancelStreamLookup();
-      const root=$('#modalRoot'),done=finishModalClose;
+      const root=$('#modalRoot');let closed=false;
+      const done=()=>{if(closed)return;closed=true;finishModalClose()};
       if(!root?.children.length)return;
-      if($('.cinema-detail',root)&&Motion.sharedClose({target:$('.dossier-poster',root),update:done}))return;
+      if($('.cinema-detail',root)){
+        const fallback=setTimeout(done,180);
+        if(Motion.sharedClose({target:$('.dossier-poster',root),update:()=>{clearTimeout(fallback);done()}}))return;
+        clearTimeout(fallback);
+      }
       if(!Motion.dismissSurface(root,done))done();
     }
     /**
