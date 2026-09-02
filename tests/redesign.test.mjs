@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 
-const html = await readFile("index.html", "utf8");
+const shell = await readFile("index.html", "utf8");
+const appSource = await readFile("assets/js/app.js", "utf8");
+const html = `${shell}\n${appSource}`;
 const css = await readFile("assets/css/obsidian.css", "utf8");
 const hubSource = await readFile("assets/js/hub.js", "utf8");
 
@@ -54,10 +56,31 @@ test("global search copy names every supported content family", () => {
 });
 
 test("the Gallery stylesheet cache key matches the visible app version", () => {
-  const version = html.match(/const APP_VERSION='([^']+)'/)?.[1];
-  const stylesheetVersion = html.match(/obsidian\.css\?v=([^"']+)/)?.[1];
-  assert.ok(version, "APP_VERSION must be present");
-  assert.equal(stylesheetVersion, version, "a Gallery release must not reuse the previous CSS cache key");
+  const version = shell.match(/<meta name="astra-release" content="([^"]+)">/)?.[1];
+  const stylesheetVersion = shell.match(/obsidian\.css\?v=([^"']+)/)?.[1];
+  assert.match(version || "", /^\d+\.\d+\.\d+$/, "the release meta value must be semantic");
+  assert.equal(stylesheetVersion, "__ASTRA_VERSION__", "the build must own the stylesheet cache key");
+  assert.match(appSource, /const APP_VERSION=document\.querySelector\('meta\[name="astra-release"\]'\)\?\.content\|\|'dev'/);
+});
+
+test("one release placeholder owns every local shell asset cache key", () => {
+  const localAssets = [...shell.matchAll(/(?:src|href)="(assets\/[^"]+)"/g)].map((match) => match[1]);
+  assert.ok(localAssets.length >= 19, "the complete local shell asset set must be inspected");
+  assert.deepEqual(
+    localAssets.filter((asset) => !asset.endsWith("?v=__ASTRA_VERSION__")),
+    [],
+    "no local shell asset may carry a stale independent cache version"
+  );
+  assert.equal((shell.match(/<meta name="astra-release"/g) || []).length, 1);
+});
+
+test("the early bootstrap and application are external reviewable files", () => {
+  const bootstrap = shell.indexOf('src="assets/js/bootstrap.js?v=__ASTRA_VERSION__"');
+  const stylesheet = shell.indexOf('href="assets/css/obsidian.css?v=__ASTRA_VERSION__"');
+  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
+  assert.ok(bootstrap > -1 && bootstrap < stylesheet, "the js class is set before first paint");
+  assert.ok(app > stylesheet, "the application loads after the document shell and dependencies");
+  assert.equal(/<script>\s*\(\(\)=>/.test(shell), false, "the application must not be embedded in HTML");
 });
 
 test("Gallery 0.20 follows the supplied photography-first dark design system", () => {
@@ -203,7 +226,7 @@ test("nothing in the UI invents content, availability or telemetry", () => {
     /youtube/i.test(html.slice(Math.max(0, i - 400), i + 400)) ? "" : m)), false,
     "no trending label exists outside the YouTube provider");
   // The audio module says in its own source why there is no waveform.
-  assert.match(html, /<script src="assets\/js\/audio-player\.js"><\/script>/);
+  assert.match(shell, /<script src="assets\/js\/audio-player\.js\?v=__ASTRA_VERSION__"><\/script>/);
 });
 
 test("a sector is only shown as populated when a provider exposes it", () => {

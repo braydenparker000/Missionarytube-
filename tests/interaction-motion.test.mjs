@@ -8,7 +8,9 @@ import {
   shouldDismiss
 } from "../src/interaction-logic.js";
 
-const html = await readFile("index.html", "utf8");
+const shell = await readFile("index.html", "utf8");
+const appSource = await readFile("assets/js/app.js", "utf8");
+const html = `${shell}\n${appSource}`;
 const css = await readFile("assets/css/obsidian.css", "utf8");
 const bundle = await readFile("assets/js/astra-motion.js", "utf8");
 const source = await readFile("src/astra-motion.js", "utf8");
@@ -32,8 +34,8 @@ test("navigation direction follows the dock and accepts an explicit back route",
 test("the motion runtime is exact, local and loaded before app wiring", () => {
   assert.equal(pkg.dependencies.gsap, "3.15.0");
   assert.equal(pkg.devDependencies.esbuild, "0.28.2");
-  const runtime = html.indexOf('<script src="assets/js/astra-motion.js?v=0.19.0"></script>');
-  const app = html.indexOf("<script>\n  (()=>{'use strict';");
+  const runtime = shell.indexOf('src="assets/js/astra-motion.js?v=__ASTRA_VERSION__"');
+  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
   assert.ok(runtime > -1 && runtime < app);
   assert.match(bundle, /AstraMotion/);
   assert.equal(/<script[^>]+src="https?:/.test(html), false, "motion never loads from a CDN");

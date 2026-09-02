@@ -94,7 +94,9 @@ test("media references preserve exact identity while separating providers", () =
 });
 
 test("the app wires provider-safe refs through catalog, browse and search", async () => {
-  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const shell = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const app = await readFile(new URL("../assets/js/app.js", import.meta.url), "utf8");
+  const html = `${shell}\n${app}`;
 
   assert.match(html, /assets\/js\/catalog-registry\.js/);
   assert.match(html, /state\.metaCache\.set\(ref,item\)/);
@@ -109,7 +111,9 @@ test("the app wires provider-safe refs through catalog, browse and search", asyn
 });
 
 test("Home layout is reachable and exposes mobile-accessible controls", async () => {
-  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const shell = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const app = await readFile(new URL("../assets/js/app.js", import.meta.url), "utf8");
+  const html = `${shell}\n${app}`;
 
   // Home layout is a settings destination now, not a modal stacked on a modal.
   assert.match(html, /async function renderCatalogSettings\(\)/);

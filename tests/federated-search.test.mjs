@@ -4,7 +4,9 @@ import test from "node:test";
 import vm from "node:vm";
 
 const source = await readFile("assets/js/federated-search.js", "utf8");
-const html = await readFile("index.html", "utf8");
+const shell = await readFile("index.html", "utf8");
+const appSource = await readFile("assets/js/app.js", "utf8");
+const html = `${shell}\n${appSource}`;
 const css = await readFile("assets/css/obsidian.css", "utf8");
 const context = {};
 vm.runInNewContext(source, context, { filename: "federated-search.js" });

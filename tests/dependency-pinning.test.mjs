@@ -7,7 +7,9 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 
 const run = promisify(execFile);
-const html = await readFile("index.html", "utf8");
+const shell = await readFile("index.html", "utf8");
+const appSource = await readFile("assets/js/app.js", "utf8");
+const html = `${shell}\n${appSource}`;
 
 const MUTABLE = /(?:\/|@)(?:latest|next|canary|edge|beta|dev|main|master)(?:\/|$)/i;
 
@@ -72,7 +74,7 @@ test("validation passes on an unmodified checkout", async () => {
 
 test("validation rejects a mutable /latest/ dependency URL", async () => {
   const result = await checkFixture(async (directory) => {
-    const path = join(directory, "index.html");
+    const path = join(directory, "assets/js/app.js");
     const source = await readFile(path, "utf8");
     await writeFile(
       path,
@@ -89,7 +91,7 @@ test("validation rejects a mutable /latest/ dependency URL", async () => {
 
 test("validation rejects a remote script without an integrity hash", async () => {
   const result = await checkFixture(async (directory) => {
-    const path = join(directory, "index.html");
+    const path = join(directory, "assets/js/app.js");
     const source = await readFile(path, "utf8");
     await writeFile(path, source.replace(/,integrity:'sha384-[^']+'/, ""));
   });
