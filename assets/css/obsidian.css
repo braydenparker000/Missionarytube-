@@ -81,22 +81,9 @@
   --r4: 18px;
   --r-pill: 999px;
 
-  /* Type. One display stack for names, one mono stack for technical truth. */
-  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  /* Technical truth keeps one mono stack. The active Gallery layer owns the
+     display face and type ramp so they have one source of truth. */
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-
-  --t-micro: 10px;
-  --t-tiny: 11px;
-  --t-small: 12px;
-  --t-body: 14px;
-  --t-lead: 16px;
-  --t-title: 21px;
-  --t-display: 30px;
-  --t-hero: 40px;
-
-  --track-label: 0.14em;  /* wide tracking for uppercase micro-labels */
-  --track-tight: -0.02em;
-  --track-hero: -0.035em;
 
   /* Elevation: a surface step plus one shadow, never blur on blur. */
   --lift-1: 0 1px 0 var(--rule-faint);
@@ -117,24 +104,9 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
 
-  /* Focus: one ring everywhere. */
-  --focus: 2px solid var(--signal-bright);
-  --focus-offset: 2px;
-
-  /* Layout */
-  --rail: 0px;             /* desktop nav rail width, 0 on mobile */
+  /* Structural layout values shared by every presentation layer. */
   --dock: 66px;            /* mobile bottom dock height */
-  --gutter: 18px;
   --tap: 44px;             /* minimum touch target */
-  --measure: 66ch;
-  --topbar: 54px;
-}
-
-@media (min-width: 900px) {
-  :root {
-    --rail: 88px;
-    --gutter: 32px;
-  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -144,20 +116,12 @@
 * { box-sizing: border-box; }
 
 html {
-  background: var(--void);
   -webkit-text-size-adjust: 100%; /* keep text scaling usable */
 }
 
 body {
   margin: 0;
   min-height: 100svh;
-  background:
-    radial-gradient(120% 55% at 50% -8%, rgba(215, 179, 106, 0.05), transparent 62%),
-    var(--obsidian);
-  color: var(--bone);
-  font-family: var(--font-display);
-  font-size: var(--t-body);
-  line-height: 1.45;
   overflow-x: hidden; /* no horizontal document overflow, 320-430 */
 }
 
@@ -2198,7 +2162,6 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
  * ------------------------------------------------------------------ */
 
 @media (max-width: 380px) {
-  :root { --gutter: 14px; --t-hero: 33px; --t-display: 26px; }
   .rail-scroll { grid-auto-columns: 120px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
   .rail-scroll.resume-rail { grid-auto-columns: 210px; }
@@ -2548,33 +2511,8 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
   --signal-ink: #6e1e0c;
   --signal-deep: #351108;
   --signal-wash: rgba(255, 95, 58, 0.14);
-  --font-cinema: Georgia, "Times New Roman", serif;
-  --track-hero: -0.05em;
   --lift-2: 0 18px 46px rgba(0, 0, 0, 0.52);
   --lift-3: 0 34px 100px rgba(0, 0, 0, 0.76);
-}
-
-html { background: var(--void); }
-
-body {
-  background:
-    radial-gradient(80% 42% at 100% 0%, rgba(255, 95, 58, 0.08), transparent 72%),
-    linear-gradient(180deg, #070706 0%, var(--obsidian) 38%, var(--void) 100%);
-  color: var(--bone);
-}
-
-/* Hairline film grain without an image request or permanent animation. */
-body::before {
-  content: "";
-  position: fixed;
-  z-index: 200;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.16;
-  background-image:
-    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,0.012) 3px 4px),
-    repeating-linear-gradient(90deg, transparent 0 5px, rgba(255,255,255,0.009) 5px 6px);
-  mix-blend-mode: soft-light;
 }
 
 /* App chrome ------------------------------------------------------- */
@@ -4337,7 +4275,6 @@ html[data-astra-nav="back"]::view-transition-new(astra-page) {
   --gallery-chip-solid: #3a3a3c;
   --gallery-scroll: #545458;
   --gallery-hairline: rgba(255, 255, 255, 0.12);
-  --gallery-hairline-dark: rgba(255, 255, 255, 0.14);
   --gallery-product-shadow: 3px 5px 30px rgba(0, 0, 0, 0.22);
 
   --font-display: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
@@ -4372,7 +4309,6 @@ body {
   letter-spacing: -0.01em;
 }
 
-body::before { display: none; }
 ::selection { background: var(--gallery-blue-fill); color: var(--gallery-white); }
 ::-webkit-scrollbar-thumb { background: var(--gallery-scroll); }
 

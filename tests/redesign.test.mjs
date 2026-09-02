@@ -29,6 +29,36 @@ function contrast(a, b) {
 }
 
 const gallery = css.slice(css.indexOf("ASTRA GALLERY 0.20"));
+const beforeGallery = css.slice(0, css.indexOf("ASTRA GALLERY 0.20"));
+
+test("the active visual tokens are defined once in the Gallery layer", () => {
+  const activeTokens = [
+    "font-display", "font-cinema",
+    "t-micro", "t-tiny", "t-small", "t-body", "t-lead", "t-title", "t-display", "t-hero",
+    "track-label", "track-tight", "track-hero",
+    "focus", "focus-offset", "rail", "topbar", "gutter", "measure"
+  ];
+  for (const name of activeTokens) {
+    assert.equal(new RegExp(`--${name}:`).test(beforeGallery), false,
+      `--${name} must not retain an overridden legacy definition`);
+    assert.equal([...gallery.matchAll(new RegExp(`--${name}:`, "g"))].length, 1,
+      `--${name} must have one active definition`);
+  }
+  assert.equal(css.includes("--gallery-hairline-dark"), false,
+    "unused Gallery tokens should not remain as false sources of truth");
+});
+
+test("global search copy names every supported content family", () => {
+  assert.match(html, /<label class="sr-only" for="globalSearch">Search movies, shows, anime, music, and YouTube<\/label>/);
+  assert.match(html, /id="globalSearch"[^>]+placeholder="Movies, shows, anime, music, YouTube"/);
+});
+
+test("the Gallery stylesheet cache key matches the visible app version", () => {
+  const version = html.match(/const APP_VERSION='([^']+)'/)?.[1];
+  const stylesheetVersion = html.match(/obsidian\.css\?v=([^"']+)/)?.[1];
+  assert.ok(version, "APP_VERSION must be present");
+  assert.equal(stylesheetVersion, version, "a Gallery release must not reuse the previous CSS cache key");
+});
 
 test("Gallery 0.20 follows the supplied photography-first dark design system", () => {
   assert.ok(gallery.length > 1000, "the Gallery design layer must exist");
