@@ -97,6 +97,7 @@ test("dismissed detail and source surfaces return keyboard focus", () => {
   assert.match(appSource, /function finishModalClose\(\).*focusBack\(target\)/);
   assert.match(appSource, /function finishStreamClose\(\).*focusBack\(target\)/);
   assert.match(appSource, /loadStreams\(x\.dataset\.getStreams,x\)/);
+  assert.match(appSource, /const fallback=setTimeout\(done,180\)/, "a delayed View Transition cannot hold the modal open");
 });
 
 test("reduced motion removes autonomous choreography and gesture zones", () => {
