@@ -286,9 +286,9 @@ The remaining manual gate is the feel-check on the physical Galaxy A15: cold loa
 
 The direction combines platform guidance and proven product patterns rather than copying one competitor:
 
-- [Apple Human Interface Guidelines — Tab bars](https://developer.apple.com/design/human-interface-guidelines/tab-bars) for persistent, predictable primary navigation;
-- [Material Design 3 — Motion](https://m3.material.io/styles/motion/overview/how-it-works) and [carousels](https://m3.material.io/components/carousel/overview) for continuity and bounded horizontal browsing;
-- [web.dev — Interaction to Next Paint](https://web.dev/articles/inp), [animation performance](https://web.dev/articles/animations-guide), and [`content-visibility`](https://web.dev/articles/content-visibility) for the measurable response, motion, and DOM budgets;
-- [Chrome for Developers — View Transitions](https://developer.chrome.com/docs/web-platform/view-transitions/) for scoped artwork continuity, tempered by Astra's production finding that full-page snapshots should not own route state;
-- [Ink & Switch — Local-first software](https://www.inkandswitch.com/essay/local-first/) for device-owned Library and progress data;
-- [Netflix — the new TV experience](https://about.netflix.com/en/news/our-tv-experience-is-getting-a-new-look) as evidence for simpler, more legible decision surfaces on constrained viewing devices.
+- Apple Human Interface Guidelines on tab bars for persistent, predictable primary navigation;
+- Material Design 3 motion and carousel guidance for continuity and bounded horizontal browsing;
+- Chrome web-performance guidance on Interaction to Next Paint, animation, and content visibility for the measurable response, motion, and DOM budgets;
+- Chrome View Transition guidance for scoped artwork continuity, tempered by Astra's production finding that full-page snapshots should not own route state;
+- Ink & Switch's local-first software principles for device-owned Library and progress data;
+- Netflix's TV-experience redesign as evidence for simpler, more legible decision surfaces on constrained viewing devices.
