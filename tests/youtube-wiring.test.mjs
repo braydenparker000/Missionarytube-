@@ -45,8 +45,10 @@ test("configuration lives in one module and is stored per browser", () => {
   // Changing a setting throws the provider away, so measured instance health
   // never outlives the configuration it was measured against.
   const apply = region(/function youtubeApply\(patch\)\{[\s\S]*?\n {4}\}/);
-  assert.match(apply, /youtube\.client=null;youtube\.manager=null;youtube\.config=null;youtube\.browse=null/);
+  assert.match(apply, /youtube\.client=null;youtube\.manager=null;youtube\.playbackManager=null;youtube\.config=null;youtube\.browse=null/);
   assert.match(apply, /youtube\.searchAbort\?\.abort\(\)/);
+  const stored = region(/function youtubeStored\(\)\{[\s\S]*?\n {4}\}/);
+  assert.doesNotMatch(stored, /publicFallbackInstances/, "stale stored server pools are discarded");
 });
 
 test("nothing YouTube-shaped runs during the app's first paint", () => {
@@ -57,6 +59,9 @@ test("nothing YouTube-shaped runs during the app's first paint", () => {
   const provider = region(/function youtubeProvider\(\)\{[\s\S]*?\n {4}\}/);
   assert.match(provider, /if\(!youtube\.client\)\{/);
   assert.equal(/probe\(/.test(provider), false, "nothing sweeps the pool unasked");
+  assert.match(provider, /requestTimeout:25000,maxAttempts:1/);
+  assert.match(provider, /publicFallbackInstances\.slice\(0,1\)/,
+    "playback is pinned to Astra's relay instead of a volunteer fallback");
   assert.match(html, /function testYouTubeInstances\(\)[\s\S]*?manager\.reset\(\)/,
     "a sweep is a deliberate action on the settings screen");
   assert.match(html, /\/\/ Deliberately not awaited: the add-on catalogs must not wait on YouTube\.\s*\n\s*renderYouTubeBrowse\(\)/);
