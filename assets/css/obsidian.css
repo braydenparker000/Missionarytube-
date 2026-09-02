@@ -5390,3 +5390,14 @@ main:has(#page-home.active) .topbar {
 .source-intel span { background: var(--gallery-surface); }
 .source-intel b { color: var(--gallery-blue); }
 .source-intel small { color: var(--gallery-ink-soft); font-size: 12px; }
+
+/* Catalog content below the viewport keeps its accessible DOM but does not
+   spend layout and paint time until Chrome approaches it. The intrinsic size
+   prevents the page from collapsing while that work is skipped. */
+@supports (content-visibility: auto) {
+  .page.active .sector,
+  .page.active .search-provider-result {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 420px;
+  }
+}

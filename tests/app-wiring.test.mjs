@@ -19,6 +19,28 @@ test("the external app loads after the progress store", () => {
   assert.match(appSource, /const progress=AstraProgress\.createProgressStore\(/);
 });
 
+test("route ownership loads before the app and releases inactive catalog DOM", () => {
+  const runtime = shell.indexOf('src="assets/js/route-runtime.js?v=__ASTRA_VERSION__"');
+  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
+  assert.ok(runtime > -1 && runtime < app, "route-runtime.js must load before the application");
+  assert.match(appSource, /const Routes=AstraRoutes\.createRouteRuntime\(\)/);
+  assert.match(appSource, /if\(changed\)releasePage\(fromPage\)/);
+  assert.match(appSource, /if\(root\)root\.replaceChildren\(\)/);
+  assert.match(appSource, /if\(!run\.current\(\)\|\|state\.currentPage!=='home'\)return/);
+  assert.match(appSource, /run\.route\?\.current\(\)/);
+});
+
+test("Home mounts a bounded first catalog batch and progressively reveals the rest", () => {
+  assert.match(appSource, /HOME_LIMIT=18,CONTINUE_LIMIT=12,HOME_INITIAL_SECTORS=3,HOME_SECTOR_BATCH=2/);
+  assert.match(appSource, /groups\.slice\(0,HOME_INITIAL_SECTORS\)/);
+  assert.match(appSource, /groups\.slice\(visible,visible\+HOME_SECTOR_BATCH\)/);
+  assert.match(appSource, /new IntersectionObserver\(/);
+  assert.match(appSource, /data-home-more>Show more catalogs/);
+  assert.match(appSource, /run\.onDispose\(\(\)=>observer\?\.disconnect\(\)\)/);
+  assert.match(css, /content-visibility: auto/);
+  assert.match(css, /contain-intrinsic-size: auto 420px/);
+});
+
 test("no progress write embeds add-on metadata any more", () => {
   assert.equal(html.includes("meta:m}"), false, "progress records must not carry a meta object");
   assert.equal(html.includes("store.set('progress'"), false, "progress is owned by the store module");
