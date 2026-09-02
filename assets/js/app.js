@@ -1,5 +1,5 @@
   (()=>{'use strict';
-    const APP_VERSION=document.querySelector('meta[name="astra-release"]')?.content||'dev',HOME_LIMIT=18,CONTINUE_LIMIT=12,HOME_INITIAL_SECTORS=3,HOME_SECTOR_BATCH=2,DISCOVER_BATCH=60;
+    const APP_VERSION=document.querySelector('meta[name="astra-release"]')?.content||'dev',HOME_LIMIT=18,CONTINUE_LIMIT=12,HOME_INITIAL_SECTORS=3,HOME_SECTOR_BATCH=2,DISCOVER_BATCH=60,LIBRARY_BATCH=24;
     const DEFAULT_ADDONS=[{url:'https://v3-cinemeta.strem.io/manifest.json',enabled:true,official:true}];
     const KEY='astra.v1.';
     const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
@@ -11,7 +11,7 @@
     const store={get(k,d){try{return JSON.parse(storageArea?.getItem(KEY+k))??d}catch{return d}},set(k,v){if(!storageArea)return false;try{storageArea.setItem(KEY+k,JSON.stringify(v));return true}catch{storageFailed();return false}}};
     const progress=AstraProgress.createProgressStore({storage:storageArea,storageKey:KEY+'progress',onError:storageFailed}).load();
     const DEFAULT_SETTINGS=AstraPlayback.settings.DEFAULTS;
-    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),addonHealth:AstraDiscovery.normalizeHealth(store.get('addonHealth',null)),healthChecking:new Set(),healthRun:0,briefing:{type:'all',genre:'all',mode:'one',items:[],seen:new Set(),loading:false,error:'',request:0},discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0,searchSequence:0,searchRun:null,detailBrowser:null};
+    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,libraryVisible:LIBRARY_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),addonHealth:AstraDiscovery.normalizeHealth(store.get('addonHealth',null)),healthChecking:new Set(),healthRun:0,briefing:{type:'all',genre:'all',mode:'one',items:[],seen:new Set(),loading:false,error:'',request:0},discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0,searchSequence:0,searchRun:null,detailBrowser:null};
     const pageScroll=new Map();
     const Routes=AstraRoutes.createRouteRuntime();
     const PAGE_ROOTS={home:'homeRoot',search:'searchRoot',library:'libraryRoot',settings:'settingsRoot'};
@@ -730,11 +730,30 @@
       });
     }
     function continueItems(){return progress.continueList()}
+    /* Library is the durable continuity view. It is derived entirely from the
+       bounded local progress store and saved records; no remote account or
+       recommendation claim is implied. A title appears once per activity
+       shelf even when several episodes have history. */
+    function libraryActivity(){
+      const snapshot=progress.snapshot(),entries=Object.values(snapshot.entries||{}).sort((a,b)=>(b.updated||0)-(a.updated||0)),recent=[],finished=[],seenRecent=new Set(),seenFinished=new Set();
+      const metaFor=key=>state.library[key]?.meta||state.metaCache.get(key)||snapshot.metas?.[key];
+      for(const entry of entries){
+        const meta=metaFor(entry.mediaKey);if(!meta)continue;
+        if(!seenRecent.has(entry.mediaKey)){seenRecent.add(entry.mediaKey);recent.push(meta)}
+        if(entry.completed&&!seenFinished.has(entry.mediaKey)){seenFinished.add(entry.mediaKey);finished.push(meta)}
+      }
+      return {recent:recent.slice(0,HOME_LIMIT),finished:finished.slice(0,HOME_LIMIT)};
+    }
+    function librarySavedHTML(items){
+      const shown=items.slice(0,state.libraryVisible),remaining=Math.max(0,items.length-shown.length);
+      return `<section class="sector library-saved">${sectorHead('Saved',`<span>${items.length} on this device</span>`)}<div class="grid">${cardsHTML(shown,{showSource:true})}</div>${remaining?`<div class="load-more"><button class="btn btn-ghost" data-library-load-more>Show ${Math.min(LIBRARY_BATCH,remaining)} more</button></div>`:''}</section>`;
+    }
     function renderLibrary(){
-      const root=$('#libraryRoot'),items=Object.values(state.library).sort((a,b)=>b.added-a.added).map(x=>x.meta);
-      root.innerHTML=`<div class="page-head"><h1 class="page-title">Library</h1><p class="page-lede">${items.length?`${items.length} title${items.length===1?'':'s'} saved on this device.`:'Saved locally in this browser and never uploaded.'}</p></div>
-        ${items.length?`<div class="grid">${cardsHTML(items,{showSource:true})}</div>`:stateHTML('Your library is empty','Save something you want to watch or listen to later. Nothing leaves this browser.',`<button class="btn btn-primary" data-nav="search">Browse catalogs</button>`)}`;
+      const root=$('#libraryRoot'),saved=Object.values(state.library).sort((a,b)=>b.added-a.added).map(x=>x.meta),activity=libraryActivity(),continuing=continueItems().slice(0,CONTINUE_LIMIT),hasAnything=saved.length||activity.recent.length;
+      root.innerHTML=`<div class="page-head library-head"><span class="page-eyebrow">Only on this device</span><h1 class="page-title">Library</h1><p class="page-lede">${hasAnything?'Your saved titles and playback history, kept together.':'Saved titles and playback history stay in this browser and are never uploaded.'}</p></div>
+        ${hasAnything?`<div class="library-stack">${continuing.length?resumeSectionHTML(continuing):''}${saved.length?librarySavedHTML(saved):''}${activity.recent.length?railSection('Recently played',activity.recent,'<span>Newest first</span>'):''}${activity.finished.length?railSection('Finished recently',activity.finished,'<span>Playback completed</span>'):''}</div>`:stateHTML('Nothing here yet','Save a title or begin playing something. Astra will keep your place on this device.',`<button class="btn btn-primary" data-nav="search">Browse catalogs</button>`)}`;
       bindDynamic(root);
+      const more=$('[data-library-load-more]',root);if(more)more.onclick=()=>{state.libraryVisible+=LIBRARY_BATCH;renderLibrary()};
     }
     const HEALTH_COPY={ready:['Ready','ready'],slow:['Slow','slow'],trouble:['Trouble','trouble'],offline:['Unavailable','offline'],unknown:['Not checked','unknown'],disabled:['Disabled','disabled'],checking:['Checking','checking']};
     function healthRecord(addon){return state.addonHealth.providers[addonHealthKey(addon)]||null}
@@ -912,6 +931,17 @@
           ['Genre',(m.genres||[])[0]],['Source',m._addonName]].filter(([,v])=>v);
       return cells.length?`<dl class="record">${cells.map(([k,v])=>`<div class="record-cell"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`:'';
     }
+    function dossierActivityHTML(m){
+      const entry=latestProgress(m),saved=!!state.library[mediaKey(m)];if(!entry&&!saved)return '';
+      const facts=[];
+      if(saved)facts.push(`<span>${icon('library')}<b>Saved</b><small>On this device</small></span>`);
+      if(entry){
+        const complete=!!entry.completed,pct=entry.duration?Math.min(100,Math.round(entry.time/entry.duration*100)):0,left=entry.duration?Math.max(0,entry.duration-entry.time):0;
+        facts.push(`<span>${icon(complete?'check':'play')}<b>${complete?'Finished':`Resume at ${AstraAudio.formatTime(entry.time)}`}</b><small>${complete?'Playback completed':left?`${AstraAudio.formatTime(left)} left · ${pct}% watched`:`${pct}% watched`}</small></span>`);
+        if(entry.updated)facts.push(`<span>${icon('radio')}<b>Last played</b><small>${esc(ageText(entry.updated))}</small></span>`);
+      }
+      return `<section class="dossier-activity" aria-label="Your activity"><span class="dossier-section-label">Your activity</span><div>${facts.join('')}</div></section>`;
+    }
     /* The dossier sheet. Artwork band, hard seam, then the record: the same
        structure whether the title is a film, an album or a radio station. */
     function showDetail(m,loading=false){
@@ -942,7 +972,7 @@
         </header>
         <div class="dossier-body">${loading
           ?'<div class="loading-line"><span class="spinner"></span>Loading full details…</div>'
-          :`${hasVideoBrowser?seriesSectionsHTML(videos,defaultSeason):''}
+          :`${dossierActivityHTML(m)}${hasVideoBrowser?seriesSectionsHTML(videos,defaultSeason):''}
              <section class="dossier-overview detail-information"><span class="dossier-section-label">The story</span><p class="synopsis">${esc(m.description||m.overview||'No description was provided by the add-on.')}</p>
                ${dossierRecord(m)}
                ${m.cast?.length?`<p class="dossier-cast">Cast · ${esc(m.cast.slice(0,8).join(' · '))}</p>`:''}</section>`}</div>
@@ -1275,7 +1305,7 @@
         context=code?(m.name||m.title||typeLabel(m.type)):typeLabel(m.type);
       return `<div class="source-drawer-backdrop" data-dismiss-streams><section class="source-drawer" role="dialog" aria-modal="true" aria-labelledby="sourceDrawerTitle">
         <span class="source-drawer-grip" aria-hidden="true"></span>
-        <header class="source-drawer-head"><div class="source-drawer-copy"><span class="source-drawer-kicker">${esc(context||'Sources')}</span><h2 class="source-drawer-title" id="sourceDrawerTitle">${esc(item)}</h2><span class="source-drawer-subtitle">${player.youtube?'Every one of these is the same video, delivered differently.':'Choose a release, then Astra hands it to Player V3.'}</span></div>
+        <header class="source-drawer-head"><div class="source-drawer-copy"><span class="source-drawer-kicker">${esc(context||'Sources')}</span><h2 class="source-drawer-title" id="sourceDrawerTitle">${esc(item)}</h2><span class="source-drawer-subtitle">${player.youtube?'Every one of these is the same video, delivered differently.':'Choose a release. Switching later keeps your place.'}</span></div>
         <button class="source-drawer-close" data-close-streams aria-label="Close sources">${icon('close')}</button></header>
         <div class="source-drawer-body">${content}</div></section></div>`;
     }

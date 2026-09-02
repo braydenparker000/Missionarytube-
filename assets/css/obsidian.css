@@ -4902,6 +4902,49 @@ main:has(#page-home.active) .topbar {
 
 .notice { border-radius: 11px; box-shadow: none; }
 
+/* Library is a local activity ledger, not just a saved-poster bin. */
+.library-head { margin-bottom: 28px; }
+.page-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--gallery-blue);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.library-stack { display: grid; gap: 0; }
+.library-stack > .sector {
+  min-height: 0;
+  padding-block: 30px 40px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 410px;
+}
+.library-stack > .sector + .sector { border-top: 1px solid var(--gallery-hairline); }
+.library-saved .grid { margin-top: 4px; }
+
+.dossier-activity { margin: 0 0 34px; }
+.dossier-activity > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--gallery-hairline);
+  border-radius: 18px;
+  background: var(--gallery-surface);
+}
+.dossier-activity > div > span {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  padding: 16px;
+}
+.dossier-activity > div > span + span { border-left: 1px solid var(--gallery-hairline); }
+.dossier-activity svg { grid-row: 1 / 3; width: 22px; color: var(--gallery-blue); }
+.dossier-activity b { overflow: hidden; color: var(--gallery-ink); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.dossier-activity small { overflow: hidden; color: var(--gallery-muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Product dossier ------------------------------------------------- */
 
 .sheet { background: rgba(0, 0, 0, 0.78); }
@@ -5114,6 +5157,8 @@ main:has(#page-home.active) .topbar {
   .sector-title { font-size: 28px; }
   .rail-scroll, .rail-scroll.release-rail { grid-auto-columns: 142px; gap: 14px; }
   .card-title, .release-card .card-title { font-size: 15px; }
+  .dossier-activity > div { grid-template-columns: 1fr; }
+  .dossier-activity > div > span + span { border-top: 1px solid var(--gallery-hairline); border-left: 0; }
 }
 
 @media (min-width: 641px) {
