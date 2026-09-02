@@ -35,6 +35,7 @@ const ALLOWED_HOSTS = [
   // infrastructure run by volunteers, with no token anywhere in the URL.
   // Piped leads because its API is CORS-enabled by design, which is what a
   // browser-only static site needs.
+  "astra-youtube-relay.braydenparker999.chatgpt.site", // Astra's controlled search and media relay
   "api.piped.private.coffee",
   "pipedapi.ducks.party",
   "api.piped.yt",

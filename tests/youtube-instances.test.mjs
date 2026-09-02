@@ -71,6 +71,9 @@ test("the private instance always leads the candidate list", () => {
 test("the shipped pool leads with Piped, because that is what answers", () => {
   const list = plain(YT.config.instanceList(YT.config.resolve({})));
   assert.equal(list[0].api, "piped", "a browser-only static site needs the CORS-enabled API first");
+  assert.equal(list[0].url, "https://astra-youtube-relay.braydenparker999.chatgpt.site/api/youtube",
+    "Astra's verified relay must be tried before volunteer infrastructure");
+  assert.equal(YT.config.resolve({}).requestTimeout, 15000, "cold edge deciphering gets enough time on mobile");
   assert.ok(list.filter((entry) => entry.api === "piped").length >= 6);
   assert.ok(list.some((entry) => entry.api === "invidious"), "Invidious stays as a last resort");
   // A bare string is still accepted, and is assumed to be the primary protocol.
