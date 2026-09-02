@@ -231,7 +231,7 @@ function installPressFeedback() {
   };
 
   document.addEventListener("pointerdown", (event) => {
-    if (reduced() || !event.isPrimary || event.button > 0) return;
+    if (reduced() || event.pointerType === "mouse" || !event.isPrimary || event.button > 0) return;
     const target = event.target.closest?.(PRESS_SELECTOR);
     if (!target || target.matches(":disabled") || target.closest("[data-motion-static]")) return;
     press = { target, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
