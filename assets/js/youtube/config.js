@@ -43,15 +43,15 @@
     privateInstanceApi: "piped",
 
     /**
-     * The public pool. Piped leads: its API is CORS-enabled by design and it
-     * proxies its own stream URLs, which is the combination a browser-only
-     * static site actually needs. Invidious trails as a last resort.
+     * Astra's edge relay leads because it is the only shipped backend whose
+     * search and muxed playback path we control end to end. Public Piped and
+     * Invidious instances remain bounded fallbacks for availability.
      *
-     * Every one of these is public infrastructure run by a volunteer. The app
-     * asks them for a few kilobytes of JSON per search and nothing else, and
-     * rests any that fail rather than retrying at them.
+     * The entries after Astra's relay are volunteer infrastructure. The app
+     * asks them for only a few kilobytes of JSON and rests any that fail.
      */
     publicFallbackInstances: [
+      { url: "https://astra-youtube-relay.braydenparker999.chatgpt.site/api/youtube", api: "piped" },
       { url: "https://api.piped.private.coffee", api: "piped" },
       { url: "https://pipedapi.ducks.party", api: "piped" },
       { url: "https://api.piped.yt", api: "piped" },
@@ -66,8 +66,8 @@
       { url: "https://invidious.nerdvpn.de", api: "invidious" }
     ],
 
-    /** How long any single Invidious request may take before it is abandoned. */
-    requestTimeout: 9000,
+    /** How long any single backend request may take before it is abandoned. */
+    requestTimeout: 15000,
 
     /** How long a failing instance is left alone before it is tried again. */
     instanceCooldown: 120000,
