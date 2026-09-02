@@ -25,6 +25,12 @@ test("gesture thresholds distinguish a tap, a cancelled drag and a committed dis
   assert.equal(dragProgress(900, 400), 1);
 });
 
+test("custom press physics owns touch and pen, not mouse clicks", () => {
+  assert.match(source, /event\.pointerType === "mouse"/);
+  assert.match(source, /document\.addEventListener\("pointerdown"/);
+  assert.match(source, /document\.addEventListener\("pointercancel"/);
+});
+
 test("navigation direction follows the dock and accepts an explicit back route", () => {
   assert.equal(navigationDirection("home", "library"), "forward");
   assert.equal(navigationDirection("settings", "search"), "back");
