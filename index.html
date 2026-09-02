@@ -7,7 +7,7 @@
   <meta name="description" content="Astra — a private, add-on powered streaming client for movies, shows, anime and music.">
   <meta name="color-scheme" content="dark">
   <title>Astra</title>
-  <link rel="stylesheet" href="assets/css/obsidian.css">
+  <link rel="stylesheet" href="assets/css/obsidian.css?v=0.19.0">
   <style>
     /* Critical shell only: everything else lives in the design system so the
        first paint is never a flash of unstyled bone on white. */
@@ -27,7 +27,7 @@
 
   <main id="main">
     <header class="topbar">
-      <div class="wordmark">ASTRA</div>
+      <div class="wordmark">Astra</div>
       <div class="topbar-spacer"></div>
       <button class="icon-btn" data-nav="settings" aria-label="Settings"><span data-icon="settings"></span></button>
     </header>
@@ -71,10 +71,10 @@
   <script src="assets/js/youtube/instances.js"></script>
   <script src="assets/js/youtube/api.js"></script>
   <script src="assets/js/youtube/playback.js"></script>
-  <script src="assets/js/astra-motion.js?v=0.18.1"></script>
+  <script src="assets/js/astra-motion.js?v=0.19.0"></script>
   <script>
   (()=>{'use strict';
-    const APP_VERSION='0.18.1',HOME_LIMIT=24,DISCOVER_BATCH=60;
+    const APP_VERSION='0.19.0',HOME_LIMIT=24,DISCOVER_BATCH=60;
     const DEFAULT_ADDONS=[{url:'https://v3-cinemeta.strem.io/manifest.json',enabled:true,official:true}];
     const KEY='astra.v1.';
     const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
@@ -105,7 +105,7 @@
     const NAV_ALIASES={addons:['settings','addons'],hub:['settings','coverage'],catalogs:['settings','catalogs'],youtube:['settings','youtube'],discover:['search','']};
     function buildNav(){
       const dock=`<span class="dock-indicator" aria-hidden="true"></span>`+navs.map(([id,ic,label])=>`<button class="dock-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span class="dock-icon" data-icon="${ic}"></span><span class="dock-label">${label}</span></button>`).join('');
-      const rail=navs.map(([id,ic,label])=>`<button class="rail-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span data-icon="${ic}"></span></button>`).join('');
+      const rail=navs.map(([id,ic,label])=>`<button class="rail-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span data-icon="${ic}"></span><span class="rail-label">${label}</span></button>`).join('');
       $('#desktopNav').innerHTML=rail;$('#mobileNav').innerHTML=dock;
     }
     function toast(msg,type=''){const n=document.createElement('div');n.className='toast '+type;n.innerHTML=`<span data-icon="${type==='bad'?'alert':'spark'}"></span><div>${esc(msg)}</div>`;hydrateIcons(n);const host=$('#toastRoot');host.replaceChildren(n);setTimeout(()=>n.remove(),4600)}

@@ -28,6 +28,44 @@ function contrast(a, b) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+const gallery = css.slice(css.indexOf("ASTRA GALLERY 0.19"));
+
+test("Gallery 0.19 follows the supplied photography-first design system", () => {
+  assert.ok(gallery.length > 1000, "the Gallery design layer must exist");
+  for (const [name, value] of [
+    ["gallery-blue", "#0066cc"],
+    ["gallery-blue-focus", "#0071e3"],
+    ["gallery-blue-dark", "#2997ff"],
+    ["gallery-ink", "#1d1d1f"],
+    ["gallery-white", "#ffffff"],
+    ["gallery-parchment", "#f5f5f7"],
+    ["gallery-dark", "#272729"]
+  ]) assert.equal(token(name), value, `${name} must match the design brief`);
+  assert.match(gallery, /body \{[\s\S]*?font-size: var\(--t-body\);[\s\S]*?line-height: 1\.47;/);
+  assert.match(gallery, /--t-body: 17px;/);
+  assert.match(gallery, /--t-hero: 56px;/);
+  assert.equal(/gradient\(/.test(gallery), false, "Gallery uses photography and surface changes, not decorative gradients");
+});
+
+test("Gallery chrome recedes while every action uses the single blue accent", () => {
+  const dock = gallery.match(/\n\.dock \{[\s\S]*?\n\}/)?.[0] || "";
+  const settings = gallery.match(/\n\.settings-group \{[\s\S]*?\n\}/)?.[0] || "";
+  assert.match(dock, /box-shadow: none;/);
+  assert.match(settings, /box-shadow: none;/);
+  assert.match(gallery, /\.btn-primary,[\s\S]*?background: var\(--gallery-blue\);[\s\S]*?color: var\(--gallery-white\);/);
+  assert.match(gallery, /\.btn-ghost,[\s\S]*?border: 1px solid var\(--gallery-blue\);/);
+  assert.match(gallery, /#homeSections > \.sector:nth-of-type\(even\)/);
+  assert.match(html, /class="rail-label">\$\{label\}<\/span>/);
+});
+
+test("Gallery keeps the supplied mobile-first breakpoint rhythm", () => {
+  for (const width of [419, 641, 834, 1069]) {
+    assert.match(gallery, new RegExp(`@media \\(min-width: ${width}px\\\)|@media \\(max-width: ${width}px\\\)`));
+  }
+  assert.match(gallery, /\.grid \{ grid-template-columns: repeat\(5,/);
+  assert.match(gallery, /#page-home \.feature-title,[\s\S]*?font-size: 28px;/);
+});
+
 test("the type ramp meets WCAG AA against the surfaces it is used on", () => {
   const obsidian = token("obsidian");
   const slate = token("slate-900");
