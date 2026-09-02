@@ -11,6 +11,7 @@ const requiredFiles = [
   "assets/js/catalog-registry.js",
   "assets/js/discovery-health.js",
   "assets/js/federated-search.js",
+  "assets/js/search-intent.js",
   "assets/js/route-runtime.js",
   "assets/js/playback/settings.js",
   "assets/js/playback/streams.js",

@@ -4836,6 +4836,19 @@ main:has(#page-home.active) .topbar {
 .search-provider-state,
 .search-provider-head > div > span:last-child { color: var(--gallery-muted); }
 
+.search-intent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -18px 0 18px;
+}
+
+.search-intent > span { margin-right: 2px; color: var(--gallery-muted); font-size: 12px; }
+.search-intent .chip { display: inline-flex; align-items: center; gap: 7px; padding-inline: 14px; }
+.search-intent .chip svg { width: 14px; }
+.search-provider-empty.error .btn { flex: 0 0 auto; margin-left: auto; }
+
 .search-progress { background: var(--gallery-hairline); }
 
 .search-progress::after {
@@ -5466,4 +5479,6 @@ main:has(#page-home.active) .topbar {
 @media (max-width: 640px) {
   .orbit-grid { grid-template-columns: 1fr; }
   #page-home .feature-tonight .feature-slide { min-height: min(660px, 70svh); }
+  .search-provider-empty.error { align-items: flex-start; flex-wrap: wrap; }
+  .search-provider-empty.error .btn { width: 100%; margin-left: 0; }
 }
