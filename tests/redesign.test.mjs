@@ -383,7 +383,9 @@ test("the series browser keeps specials and extras out of the episode run", () =
   assert.match(html, /tabindex="\$\{String\(season\)===String\(browser\.season\)\?0:-1\}"/);
   assert.match(html, /data-episode-search/);
   assert.match(html, /data-episode-load-more/);
-  assert.match(html, /hasVideoBrowser\?seriesSectionsHTML\(videos,defaultSeason\):''/, "the browser renders before story metadata");
+  const story = html.indexOf('<section class="dossier-overview detail-information">');
+  const episodes = html.indexOf("${hasVideoBrowser?seriesSectionsHTML(videos,defaultSeason):''}", story);
+  assert.ok(story > -1 && episodes > story, "story metadata precedes the episode control room");
   assert.match(css, /\.episode-nav-sticky \{[\s\S]*?position: sticky;/);
   assert.match(css, /\.episode-focus \{/);
 });

@@ -96,7 +96,7 @@
   --dur-1: 120ms;
   --dur-2: 200ms;
   --dur-3: 320ms;
-  --dur-4: 480ms;
+  --dur-4: 340ms;
 
   /* Safe areas, resolved once so components never repeat the env() dance. */
   --safe-t: env(safe-area-inset-top, 0px);
@@ -714,7 +714,7 @@ main {
 .media-image {
   opacity: 0;
   transform: scale(1.03);
-  transition: opacity 420ms var(--ease), transform 900ms var(--ease-out);
+  transition: opacity 240ms var(--ease), transform 340ms var(--ease-out);
 }
 .image-ready > .media-image { opacity: 1; transform: scale(1); }
 .art-loader {
@@ -2092,7 +2092,7 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
 @keyframes sector-arrive { from { opacity: 0; transform: translateY(12px); } }
 
 .card {
-  animation: card-arrive 420ms var(--ease-out) both;
+  animation: card-arrive 340ms var(--ease-out) both;
   animation-delay: calc(var(--card-index, 0) * 32ms);
   transition: transform var(--dur-2) var(--ease-out);
 }
@@ -2414,7 +2414,7 @@ body.audio-docked .content { padding-bottom: calc(var(--dock) + var(--safe-b) + 
 }
 .seek-feedback.back { left: 13%; }
 .seek-feedback.forward { right: 13%; }
-.seek-feedback.show { animation: player-seek-pop 650ms var(--ease-out); }
+.seek-feedback.show { animation: player-seek-pop 360ms var(--ease-out); }
 @keyframes player-seek-pop {
   0% { opacity: 0; transform: translateY(-50%) scale(.88); }
   22%,72% { opacity: 1; transform: translateY(-50%) scale(1); }
@@ -4039,21 +4039,21 @@ main:has(#page-home.active) .topbar {
 }
 
 ::view-transition-group(astra-page) {
-  animation-duration: 360ms;
+  animation-duration: 280ms;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 html[data-astra-nav="forward"]::view-transition-old(astra-page) {
-  animation: astra-page-old-forward 300ms cubic-bezier(0.2, 0, 0, 1) both;
+  animation: astra-page-old-forward 220ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 html[data-astra-nav="forward"]::view-transition-new(astra-page) {
-  animation: astra-page-new-forward 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: astra-page-new-forward 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 html[data-astra-nav="back"]::view-transition-old(astra-page) {
-  animation: astra-page-old-back 300ms cubic-bezier(0.2, 0, 0, 1) both;
+  animation: astra-page-old-back 220ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 html[data-astra-nav="back"]::view-transition-new(astra-page) {
-  animation: astra-page-new-back 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: astra-page-new-back 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes astra-page-old-forward { to { opacity: 0; transform: translateX(-18px) scale(0.992); } }
@@ -4065,7 +4065,7 @@ html[data-astra-nav="back"]::view-transition-new(astra-page) {
   z-index: 210;
   overflow: clip;
   border-radius: 14px;
-  animation-duration: 520ms;
+  animation-duration: 340ms;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 ::view-transition-image-pair(astra-art) { isolation: isolate; }
@@ -4418,6 +4418,16 @@ main:has(#page-home.active) .topbar {
   letter-spacing: -0.01em;
   text-transform: none;
 }
+
+/* Compact coarse-pointer devices get the same hierarchy with a cheaper paint
+   path: one restrained chrome blur and no artwork layer promotion. */
+.motion-lean .topbar,
+.motion-lean .dock {
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+}
+.motion-lean .media-image { transform: none; transition: opacity 220ms var(--ease); }
+.motion-lean .art-loader { animation: none; }
 
 .dock-indicator {
   height: 4px;
@@ -5159,6 +5169,15 @@ main:has(#page-home.active) .topbar {
   .card-title, .release-card .card-title { font-size: 15px; }
   .dossier-activity > div { grid-template-columns: 1fr; }
   .dossier-activity > div > span + span { border-top: 1px solid var(--gallery-hairline); border-left: 0; }
+  .topbar, .dock {
+    backdrop-filter: saturate(140%) blur(10px);
+    -webkit-backdrop-filter: saturate(140%) blur(10px);
+  }
+  .episode-nav-sticky {
+    background: var(--gallery-parchment);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 @media (min-width: 641px) {

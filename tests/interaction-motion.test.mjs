@@ -69,6 +69,17 @@ test("mobile motion avoids offscreen GPU layers and costly document snapshots", 
   assert.match(source, /navigator\.hardwareConcurrency/);
   assert.match(source, /!constrainedMotion\(\).*document\.startViewTransition/);
   assert.match(source, /reduced\(\) \|\| constrainedMotion\(\)/);
+  assert.match(css, /\.motion-lean \.media-image \{ transform: none; transition: opacity 220ms/);
+  assert.match(css, /@media \(max-width: 419px\)[\s\S]*\.episode-nav-sticky \{[\s\S]*?backdrop-filter: none;/);
+});
+
+test("direct interaction motion never exceeds the 360ms release budget", () => {
+  const seconds = [...source.matchAll(/duration:\s*(?:[^\n]*?\?\s*)?(0?\.\d+)/g)].map((match) => Number(match[1]));
+  assert.ok(seconds.length >= 9, "the runtime duration set is covered");
+  assert.ok(Math.max(...seconds) <= 0.36, `runtime motion reached ${Math.max(...seconds)}s`);
+  assert.match(css, /::view-transition-group\(astra-page\) \{[\s\S]*?animation-duration: 280ms;/);
+  assert.match(css, /::view-transition-group\(astra-art\) \{[\s\S]*?animation-duration: 340ms;/);
+  assert.match(css, /\.seek-feedback\.show \{ animation: player-seek-pop 360ms/);
 });
 
 test("every mobile overlay can be dismissed physically without touching Player V3", () => {
@@ -78,6 +89,14 @@ test("every mobile overlay can be dismissed physically without touching Player V
   assert.match(css, /\.motion-surface-edge,/);
   assert.match(css, /\.motion-drag-grip \{/);
   assert.equal(bundle.includes("player.session"), false, "the motion layer has no playback-engine ownership");
+});
+
+test("dismissed detail and source surfaces return keyboard focus", () => {
+  assert.match(appSource, /function focusBack\(target\)/);
+  assert.match(appSource, /modalReturnFocus=opener instanceof HTMLElement\?opener:rememberFocus\(\)/);
+  assert.match(appSource, /function finishModalClose\(\).*focusBack\(target\)/);
+  assert.match(appSource, /function finishStreamClose\(\).*focusBack\(target\)/);
+  assert.match(appSource, /loadStreams\(x\.dataset\.getStreams,x\)/);
 });
 
 test("reduced motion removes autonomous choreography and gesture zones", () => {
