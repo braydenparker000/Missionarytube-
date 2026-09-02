@@ -4511,7 +4511,6 @@ main:has(#page-home.active) .topbar {
   color: var(--gallery-white);
 }
 
-#page-home .feature-deck,
 #page-home .feature-slide { min-height: min(760px, 78svh); }
 
 #page-home .feature-art {
@@ -4611,16 +4610,6 @@ main:has(#page-home.active) .topbar {
   background: var(--gallery-chip);
   color: var(--gallery-ink);
 }
-
-#page-home .feature-dots {
-  left: 50%;
-  bottom: 28px;
-  justify-content: center;
-  transform: translateX(-50%);
-}
-
-#page-home .feature-dots i { background: rgba(255, 255, 255, 0.44); }
-#page-home .feature-dots i.on { width: 24px; background: var(--gallery-blue-dark); }
 
 #page-home .feature-empty {
   min-height: min(720px, 74svh);
@@ -5185,11 +5174,8 @@ main:has(#page-home.active) .topbar {
   .topbar .icon-btn { color: var(--gallery-ink); background: transparent; }
   .dock { display: none; }
 
-  #page-home .feature-deck,
   #page-home .feature-slide { min-height: min(820px, 78svh); }
   #page-home .feature-body { padding-bottom: 92px; }
-  #page-home .feature-dots { left: 50%; bottom: 34px; }
-
   #homeSections > .sector { padding-block: 80px; }
   .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
@@ -5400,4 +5386,84 @@ main:has(#page-home.active) .topbar {
     content-visibility: auto;
     contain-intrinsic-size: auto 420px;
   }
+}
+
+/* Private Observatory home --------------------------------------- */
+
+.home-priority {
+  padding: 28px max(var(--gutter), var(--safe-r)) 36px max(var(--gutter), var(--safe-l));
+  background: var(--gallery-canvas);
+}
+
+.home-priority:empty { display: none; }
+.home-priority .sector { max-width: 1440px; margin: 0 auto; }
+.home-priority .sector-head { margin-bottom: 18px; }
+.home-priority .sector-title { font-size: clamp(24px, 6vw, 34px); }
+
+#page-home .feature-tonight .feature-slide { min-height: min(700px, 72svh); }
+
+#page-home .feature-pending .feature-slide {
+  min-height: min(520px, 58svh);
+  background: var(--gallery-dark-2);
+}
+
+#page-home .feature-pending .feature-body {
+  position: absolute;
+  align-content: center;
+  padding-block: 80px;
+}
+
+.feature-reason {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 10px;
+  max-width: 48ch;
+  margin: 0 0 14px;
+  color: var(--gallery-muted-dark);
+  font-size: 14px;
+}
+
+.feature-reason b { color: var(--gallery-blue-dark); font-weight: 600; }
+
+#homeSections > .orbit-sector {
+  min-height: auto;
+  padding-block: 48px;
+  background: var(--gallery-dark-2);
+}
+
+.orbit-grid {
+  width: min(1440px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.orbit-card {
+  min-width: 0;
+  min-height: 84px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--gallery-hairline);
+  border-radius: 18px;
+  background: var(--gallery-surface);
+  color: var(--gallery-ink);
+  text-align: left;
+}
+
+.orbit-card > svg { width: 18px; color: var(--gallery-muted); }
+.orbit-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: var(--gallery-pearl); color: var(--gallery-blue); }
+.orbit-icon svg { width: 20px; }
+.orbit-card span:nth-child(2) { min-width: 0; }
+.orbit-card small, .orbit-card b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.orbit-card small { margin-bottom: 3px; color: var(--gallery-muted); font-size: 12px; }
+.orbit-card b { color: var(--gallery-ink); font-size: 15px; font-weight: 600; }
+
+@media (max-width: 640px) {
+  .orbit-grid { grid-template-columns: 1fr; }
+  #page-home .feature-tonight .feature-slide { min-height: min(660px, 70svh); }
 }

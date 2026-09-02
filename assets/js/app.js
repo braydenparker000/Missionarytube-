@@ -181,14 +181,16 @@
     async function renderHome(){
       const run=Routes.begin('home');
       const root=$('#homeRoot');
-      root.innerHTML=`<div id="featureMount"></div><div class="content" id="homeSections">${skeletonSector('Loading')}${skeletonSector('Loading')}</div>`;
+      const cont=continueItems();
+      root.innerHTML=`<div class="home-priority" id="homePriority">${cont.length?resumeSectionHTML(cont.slice(0,CONTINUE_LIMIT)):''}</div>
+        <div id="featureMount">${tonightLoadingHTML()}</div><div class="content" id="homeSections">${skeletonSector('Loading')}${skeletonSector('Loading')}</div>`;
       const sections=$('#homeSections');
       await loadManifests();
       if(!run.current()||state.currentPage!=='home')return;
       const jobs=catalogEntries(true).map(entry=>({s:entry.source,cat:entry.catalog,entry}));
       if(!jobs.length){
         $('#featureMount',root).innerHTML=welcomeFeatureHTML();
-        sections.innerHTML=stateHTML('No catalogs yet','Astra shows only what your installed add-ons expose. Add one above, or open Content coverage to see which content types an add-on would have to provide.');
+        sections.innerHTML=`${orbitSectionHTML()}${stateHTML('No catalogs yet','Astra shows only what your installed add-ons expose. Add one above, or open Content coverage to see which content types an add-on would have to provide.')}`;
         bindDynamic(root);return;
       }
       const results=await Promise.allSettled(jobs.slice(0,24).map(async j=>({...j,items:await getCatalog(j.s,j.cat,catalogExtras(j.cat))})));
@@ -197,26 +199,18 @@
       state.homeItems=good.flatMap(x=>x.items);
       if(!good.length){
         $('#featureMount',root).innerHTML=welcomeFeatureHTML();
-        sections.innerHTML=stateHTML('Catalogs could not load','No installed add-on returned a catalog. Check your connection, or that each add-on still has a valid configured manifest URL.',`<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>`,'error');
+        sections.innerHTML=`${orbitSectionHTML()}${stateHTML('Catalogs could not load','No installed add-on returned a catalog. Check your connection, or that each add-on still has a valid configured manifest URL.',`<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>`,'error')}`;
         bindDynamic(root);return;
       }
-      /* The lead deck is drawn from the catalogs the viewer nominated as hero
-         sources, and only from titles that actually have artwork to lead with. */
-      const heroGroups=good.filter(x=>x.entry.hero);
-      const pool=(heroGroups.length?heroGroups:good).flatMap(x=>x.items)
-        .filter(x=>backdrop(x))
-        .filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i);
-      $('#featureMount',root).innerHTML=state.homeLayout.showHero?featureHTML(pool.length?pool:good[0].items):'';
-      sections.innerHTML='';
-      const cont=continueItems();
-      if(cont.length)sections.insertAdjacentHTML('beforeend',resumeSectionHTML(cont.slice(0,CONTINUE_LIMIT)));
+      const choice=tonightChoice(good);
+      $('#featureMount',root).innerHTML=state.homeLayout.showHero&&choice?featureHTML(choice):'';
+      sections.innerHTML=orbitSectionHTML();
       /* New releases lead with the catalog's own naming so the release/source
          name stays legible enough to judge quality before opening anything. */
       const fresh=good.find(x=>/new|latest|recent|release/i.test(x.cat.name||x.cat.id||''));
       const groups=[...(fresh?[{...fresh,release:true}]:[]),...good.filter(x=>x!==fresh)];
       groups.slice(0,HOME_INITIAL_SECTORS).forEach(group=>sections.insertAdjacentHTML('beforeend',homeGroupHTML(group)));
       bindDynamic(root);
-      bindHeroDeck();
       installHomeSectorPager(root,sections,groups,HOME_INITIAL_SECTORS,run);
     }
     function homeGroupHTML({cat,entry,items,release}){
@@ -243,53 +237,60 @@
         run.onDispose(()=>observer?.disconnect());
       }
     }
-    const HERO_LIMIT=6;
-    /* The lead: a swipeable deck of real titles. There is no auto-advance, so
-       nothing moves under the viewer's thumb, and the first rail stays in
-       view underneath it rather than being pushed off a tall empty banner. */
-    function featureHTML(items){
-      const list=(items||[]).filter(Boolean).slice(0,HERO_LIMIT);
-      if(!list.length)return welcomeFeatureHTML();
-      const slides=list.map((m,i)=>{
-        const b=backdrop(m),saved=!!state.library[mediaKey(m)];
-        const facts=[typeLabel(m.type),yearOf(m),m.imdbRating?`${m.imdbRating} IMDb`:''].filter(Boolean),
-          summary=m.description||m.overview||'';
-        return `<article class="feature-slide">
-          <div class="feature-art ${b?'image-loading':'image-error'}">${mediaImage(b,{priority:i===0})}</div>
-          <div class="feature-body">
-            <div class="feature-kicker">${providerChip(m._addonName)}<span>Featured selection</span></div>
-            <h2 class="feature-title">${esc(m.name||m.title||'Untitled')}</h2>
-            <div class="feature-facts">${facts.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
-            ${summary?`<p class="feature-summary">${esc(summary)}</p>`:''}
-            <div class="feature-actions">
-              <button class="btn btn-primary" data-open="${esc(mediaRef(m))}">${icon('play')} View details</button>
-              <button class="icon-btn feature-save" data-library="${esc(mediaKey(m))}" aria-pressed="${saved}" aria-label="${saved?'Remove from library':'Save to library'}">${icon(saved?'check':'plus')}</button>
-            </div>
+    /* Tonight is one explainable decision, not a rotating wall of candidates.
+       The viewer's selected hero catalogs lead; otherwise provider order does. */
+    function tonightChoice(groups){
+      const preferred=groups.filter(group=>group.entry.hero),ordered=preferred.length?preferred:groups;
+      for(const group of ordered){
+        const item=group.items.find(entry=>backdrop(entry))||group.items[0];
+        if(!item)continue;
+        const saved=!!state.library[mediaKey(item)];
+        return {item,reason:saved?'Saved on this device':`From ${group.entry.displayName} · ${group.entry.providerName}`};
+      }
+      return null;
+    }
+    function featureHTML(choice){
+      const m=choice?.item;if(!m)return welcomeFeatureHTML();
+      const b=backdrop(m),saved=!!state.library[mediaKey(m)],facts=[typeLabel(m.type),yearOf(m),m.imdbRating?`${m.imdbRating} IMDb`:''].filter(Boolean),summary=m.description||m.overview||'';
+      return `<section class="feature feature-tonight" aria-label="Tonight"><article class="feature-slide">
+        <div class="feature-art ${b?'image-loading':'image-error'}">${mediaImage(b,{priority:true})}</div>
+        <div class="feature-body">
+          <div class="feature-kicker"><span>Tonight</span>${providerChip(m._addonName)}</div>
+          <h2 class="feature-title">${esc(m.name||m.title||'Untitled')}</h2>
+          <div class="feature-facts">${facts.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
+          <p class="feature-reason"><b>Why this title</b><span>${esc(choice.reason)}</span></p>
+          ${summary?`<p class="feature-summary">${esc(summary)}</p>`:''}
+          <div class="feature-actions">
+            <button class="btn btn-primary" data-open="${esc(mediaRef(m))}">${icon('play')} Open dossier</button>
+            <button class="icon-btn feature-save" data-library="${esc(mediaKey(m))}" aria-pressed="${saved}" aria-label="${saved?'Remove from library':'Save to library'}">${icon(saved?'check':'plus')}</button>
           </div>
-        </article>`;
-      }).join('');
-      const dots=list.length>1?`<div class="feature-dots" id="heroDots" aria-hidden="true">${list.map((_,i)=>`<i class="${i===0?'on':''}"></i>`).join('')}</div>`:'';
-      return `<section class="feature" aria-label="Featured"><div class="feature-deck" id="heroDeck">${slides}</div>${dots}</section>`;
+        </div>
+      </article></section>`;
     }
-    /* The deck position is read from the scroller itself, so the dots can
-       never disagree with what is on screen. */
-    function bindHeroDeck(){
-      const deck=$('#heroDeck'),dots=$('#heroDots');
-      if(!deck)return;
-      if(globalThis.AstraMotion){Motion.bindHero(deck,dots);return}
-      if(!dots)return;
-      const marks=$$('i',dots);deck.addEventListener('scroll',()=>{const index=Math.round(deck.scrollLeft/Math.max(1,deck.clientWidth));marks.forEach((mark,i)=>mark.classList.toggle('on',i===index))},{passive:true});
-    }
+    function tonightLoadingHTML(){return `<section class="feature feature-tonight feature-pending" aria-label="Preparing Tonight" aria-busy="true"><article class="feature-slide"><div class="feature-body"><div class="feature-kicker"><span>Tonight</span></div><h2 class="feature-title">Bringing your catalogs into focus.</h2></div></article></section>`}
     /* Shown before any provider exists. It promises nothing about content:
        the composition is the surface itself, not a stand-in for artwork. */
     function welcomeFeatureHTML(){
       return `<section class="feature" aria-label="Welcome"><div class="feature-empty"><div class="feature-body">
-        <div class="feature-kicker"><span>Your private cinema</span></div>
+        <div class="feature-kicker"><span>Your private observatory</span></div>
         <h2 class="feature-title">Bring your universe into focus.</h2>
         <div class="feature-facts"><span>Astra shows only what your add-ons expose</span></div>
         <div class="feature-actions"><button class="btn btn-primary" data-nav="addons">${icon('plus')} Add an add-on</button>
         <button class="btn btn-ghost" data-nav="hub">Content coverage</button></div>
       </div></div></section>`;
+    }
+    function orbitProgress(){
+      const snapshot=progress.snapshot(),seen=new Set();
+      return Object.values(snapshot.entries||{}).sort((a,b)=>(b.updated||0)-(a.updated||0)).map(entry=>({entry,meta:snapshot.metas?.[entry.mediaKey]})).filter(item=>{
+        if(!item.meta||seen.has(item.entry.mediaKey))return false;seen.add(item.entry.mediaKey);return true;
+      });
+    }
+    function orbitSectionHTML(){
+      const played=orbitProgress(),recent=played[0],finished=played.find(item=>item.entry.completed),saved=Object.keys(state.library).length,cards=[];
+      if(saved)cards.push(`<button class="orbit-card" data-nav="library"><span class="orbit-icon">${icon('library')}</span><span><small>Saved</small><b>${saved} title${saved===1?'':'s'}</b></span>${icon('chevron')}</button>`);
+      if(recent)cards.push(`<button class="orbit-card" data-open="${esc(recent.entry.mediaKey)}"><span class="orbit-icon">${icon('radio')}</span><span><small>Last played</small><b>${esc(recent.meta.name||'Untitled')}</b></span>${icon('chevron')}</button>`);
+      if(finished)cards.push(`<button class="orbit-card" data-open="${esc(finished.entry.mediaKey)}"><span class="orbit-icon">${icon('check')}</span><span><small>Last finished</small><b>${esc(finished.meta.name||'Untitled')}</b></span>${icon('chevron')}</button>`);
+      return cards.length?`<section class="sector orbit-sector" aria-label="Your Orbit">${sectorHead('Your Orbit','<span>Only on this device</span>')}<div class="orbit-grid">${cards.join('')}</div></section>`:'';
     }
     function sectorHead(title,note='',more=''){
       return `<div class="sector-head"><div class="sector-heading"><h2 class="sector-title">${esc(title)}</h2>${note?`<span class="sector-note">${note}</span>`:''}</div>${more}</div>`;
