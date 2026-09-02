@@ -67,6 +67,10 @@
   <script src="assets/js/playback/engine.js"></script>
   <script src="assets/js/playback/episodes.js"></script>
   <script src="assets/js/playback/subtitles.js"></script>
+  <script src="assets/js/youtube/config.js"></script>
+  <script src="assets/js/youtube/instances.js"></script>
+  <script src="assets/js/youtube/api.js"></script>
+  <script src="assets/js/youtube/playback.js"></script>
   <script src="assets/js/astra-motion.js?v=0.18.1"></script>
   <script>
   (()=>{'use strict';
@@ -98,7 +102,7 @@
     /* Four destinations. Providers, coverage and Home layout are settings
        sub-screens rather than tabs, so the dock stays reachable one-handed. */
     const navs=[['home','home','Home'],['search','search','Search'],['library','library','Library'],['settings','settings','Settings']];
-    const NAV_ALIASES={addons:['settings','addons'],hub:['settings','coverage'],catalogs:['settings','catalogs'],discover:['search','']};
+    const NAV_ALIASES={addons:['settings','addons'],hub:['settings','coverage'],catalogs:['settings','catalogs'],youtube:['settings','youtube'],discover:['search','']};
     function buildNav(){
       const dock=`<span class="dock-indicator" aria-hidden="true"></span>`+navs.map(([id,ic,label])=>`<button class="dock-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span class="dock-icon" data-icon="${ic}"></span><span class="dock-label">${label}</span></button>`).join('');
       const rail=navs.map(([id,ic,label])=>`<button class="rail-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span data-icon="${ic}"></span></button>`).join('');
@@ -382,9 +386,12 @@
     function screenHead(title){
       return `<div class="screen-head"><button class="screen-back" data-settings-route="root" aria-label="Back to settings">${icon('back')}</button><h1 class="screen-title">${esc(title)}</h1></div>`;
     }
+    /* YouTube is provided by Astra itself rather than by an add-on, so the
+       coverage screen is told which sectors are built in. */
+    function hubSectors(){return AstraHub.buildHub(manifests(),{builtIn:youtubeEnabled()?['youtube']:[]})}
     function renderHub(){
       const root=$('#settingsRoot');if(!root)return;
-      const sectors=AstraHub.buildHub(manifests());
+      const sectors=hubSectors();
       const live=sectors.filter(s=>s.available).length;
       root.innerHTML=`${screenHead('Content coverage')}
         <p class="screen-lede">${live} of ${sectors.length} content types have an installed provider. A type without one stays listed so you know what to install.</p>
@@ -394,7 +401,7 @@
     }
     function hubRowHTML(sector){
       const detail=sector.available?AstraHub.describe(sector):AstraHub.missingReason(sector);
-      const attrs=sector.available
+      const attrs=sector.available||sector.builtIn
         ?`data-hub-open="${esc(sector.id)}"`
         :`data-nav="addons"`;
       return `<button class="hub-row ${sector.available?'':'empty'} ${sector.custom?'custom':''}" ${attrs}
@@ -405,9 +412,17 @@
     /* Opening a content type hands Browse a filter rather than inventing a
        parallel browsing surface. */
     function openHubSector(id){
-      const sectors=AstraHub.buildHub(manifests());
-      const sector=sectors.find(s=>s.id===id);
-      if(!sector||!sector.available)return nav('addons');
+      const sector=hubSectors().find(s=>s.id===id);
+      if(!sector)return nav('addons');
+      // A built-in sector is configured, not installed, so an unavailable one
+      // routes to its own settings rather than to Add-ons.
+      if(!sector.available)return sector.builtIn?nav('settings','youtube'):nav('addons');
+      if(sector.builtIn&&!sector.catalogs.length){
+        clearQuery();
+        state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'};
+        state.discoverVisible=DISCOVER_BATCH;
+        return nav('search');
+      }
       clearQuery();
       state.discover={type:'all',sector:sector.id,sectorLabel:sector.label,addon:'all',catalog:'all',genre:'all'};
       state.discoverVisible=DISCOVER_BATCH;
@@ -545,6 +560,7 @@
       const genres=[...new Set(cats.flatMap(x=>(x.cat.extra||[]).filter(e=>e.name==='genre').flatMap(e=>e.options||[])))];
       const sectorOption=state.discover.sector?`<option value="__sector" selected>${esc(state.discover.sectorLabel||'Selected type')}</option>`:'';
       root.innerHTML=`${briefingLaunchHTML(cats)}<div class="browse-head"><h2>Browse</h2></div>
+        <div id="youtubeBrowse"></div>
         ${cats.length?'':stateHTML('No catalogs available','None of your enabled add-ons exposes a browsable catalog. Install one that does.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}
         <div class="filter-row">
           <select class="select" id="discoverType" aria-label="Content type"><option value="all" ${!state.discover.sector&&state.discover.type==='all'?'selected':''}>All types</option>${sectorOption}${types.map(x=>`<option ${!state.discover.sector&&state.discover.type===x?'selected':''}>${esc(typeLabel(x))}</option>`).join('')}</select>
@@ -559,13 +575,15 @@
       $('#discoverAddon').onchange=e=>{state.discover.addon=e.target.value;refresh()};
       $('#discoverCatalog').onchange=e=>{state.discover.catalog=e.target.value;refresh()};
       if($('#discoverGenre'))$('#discoverGenre').onchange=e=>{state.discover.genre=e.target.value;refresh()};
+      // Deliberately not awaited: the add-on catalogs must not wait on YouTube.
+      renderYouTubeBrowse();
       await renderDiscoverResults();
     }
     async function renderDiscoverResults(){
       let cats=allCatalogs();
       if(state.discover.catalog!=='all')cats=cats.filter(x=>x.entry.key===state.discover.catalog);
       else{
-        if(state.discover.sector){const sector=AstraHub.buildHub(manifests()).find(x=>x.id===state.discover.sector);cats=cats.filter(x=>AstraHub.catalogMatchesSector(sector,x.cat.type))}
+        if(state.discover.sector){const sector=hubSectors().find(x=>x.id===state.discover.sector);cats=cats.filter(x=>AstraHub.catalogMatchesSector(sector,x.cat.type))}
         else if(state.discover.type!=='all')cats=cats.filter(x=>x.cat.type===state.discover.type);
         if(state.discover.addon!=='all')cats=cats.filter(x=>x.entry.providerKey===state.discover.addon);
       }
@@ -624,12 +642,12 @@
     function searchProviderHTML(group,run){
       const items=searchItems(run,group),status=searchGroupState(group),catalogs=group.catalogs.length;
       let body='';
-      if(items.length)body=`<div class="rail-scroll search-result-rail">${cardsHTML(items)}</div>`;
+      if(items.length)body=`<div class="rail-scroll ${group.youtube?'yt-rail':'search-result-rail'}">${group.youtube?youtubeCardsHTML(items):cardsHTML(items)}</div>`;
       else if(group.pending&&!group.items.length)body=`<div class="search-provider-wait"><span class="spinner"></span><span>Asking ${esc(group.name)}…</span></div>`;
-      else if(group.failed&&!group.succeeded)body=`<div class="search-provider-empty error"><span>${icon('alert')}</span><p>This provider did not answer. Its other results remain unaffected.</p></div>`;
+      else if(group.failed&&!group.succeeded)body=`<div class="search-provider-empty error"><span>${icon('alert')}</span><p>${esc(group.error||'This provider did not answer. Its other results remain unaffected.')}</p></div>`;
       else body=`<div class="search-provider-empty"><span>${icon('search')}</span><p>${run.type==='all'?'No title match from this provider.':`No ${esc(typeLabel(run.type).toLowerCase())} match from this provider.`}</p></div>`;
       return `<section class="search-provider-result" data-search-provider="${esc(group.key)}">
-        <div class="search-provider-head"><div>${providerChip(group.name)}<span>${catalogs?`${catalogs} searchable catalog${catalogs===1?'':'s'}`:'From this device'}</span></div><b class="search-provider-state ${status.className}">${esc(status.label)}</b></div>
+        <div class="search-provider-head"><div>${providerChip(group.name)}<span>${catalogs?`${catalogs} searchable catalog${catalogs===1?'':'s'}`:group.youtube?'Resolved through Invidious':'From this device'}</span></div><b class="search-provider-state ${status.className}">${esc(status.label)}</b></div>
         ${body}</section>`;
     }
     function bindSearchDynamic(root){
@@ -671,9 +689,13 @@
         if(!group){group={key,name:item._addonName||'On this device',addon:null,catalogs:[],items:[],pending:0,succeeded:0,failed:0,status:'cached'};groups.push(group);byProvider.set(key,group)}
         group.items=AstraSearch.merge(group.items,[item],q);
       });
-      const run={token,query:q,type:'all',groups,total:searchable.length,pending:searchable.length};
+      const youtubeGroup=youtubeEnabled()?{key:'youtube',name:'YouTube',addon:null,catalogs:[],items:[],pending:1,succeeded:0,failed:0,status:'loading',youtube:true}:null;
+      if(youtubeGroup)groups.unshift(youtubeGroup);
+      const extra=youtubeGroup?1:0;
+      const run={token,query:q,type:'all',groups,total:searchable.length+extra,pending:searchable.length+extra};
       state.searchRun=run;
       renderSearchRun(run);
+      if(youtubeGroup)searchYouTube(run,youtubeGroup,q);
       groups.filter(group=>group.catalogs.length).forEach(group=>group.catalogs.forEach(source=>{
         getCatalog(source.s,source.cat,catalogExtras(source.cat,{search:q})).then(items=>{
           if(state.searchRun!==run||run.token!==state.searchSequence)return;
@@ -688,6 +710,33 @@
           refreshSearchRun(run,group);
         });
       }));
+    }
+    /* YouTube answers beside the add-ons on the same progressive surface: one
+       section, one status line, and the in-flight request cancelled the moment
+       a newer query starts. A pasted link resolves to that one video rather
+       than being searched for. */
+    function searchYouTube(run,group,q){
+      youtube.searchAbort?.abort();
+      const controller=new AbortController();youtube.searchAbort=controller;
+      const live=()=>state.searchRun===run&&run.token===state.searchSequence;
+      const direct=YT.api.videoIdFromInput(q);
+      const client=youtubeProvider().client;
+      const request=direct
+        ?client.video(direct,{signal:controller.signal}).then(record=>({items:[record],instance:record.instance}))
+        :client.search(q,{signal:controller.signal});
+      request.then(result=>{
+        if(!live())return;
+        group.items=(result.items||[]).filter(item=>item&&item.kind==='video').map(youtubeMeta).filter(Boolean);
+        group.succeeded=1;group.instance=result.instance;
+      }).catch(error=>{
+        if(!live()||youtubeAborted(error))return;
+        group.failed=1;group.error=youtubeErrorText(error);
+      }).finally(()=>{
+        if(!live())return;
+        group.pending=0;run.pending=Math.max(0,run.pending-1);
+        group.status=group.failed&&!group.succeeded?'error':'ready';
+        refreshSearchRun(run,group);
+      });
     }
     function continueItems(){return progress.continueList()}
     function renderLibrary(){
@@ -746,9 +795,13 @@
         ${state.addons.length?`<div class="addon-list" style="margin-top:var(--s5)">${state.addons.map(addonCard).join('')}</div>`:stateHTML('No add-ons installed','Install one to give Astra something to show.','<button class="btn btn-primary" data-action="install">Install add-on</button>')}`;
       bindDynamic(root);
     }
-    async function fullMeta(item){if(item._fullMeta)return item;const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){try{const d=await fetchAddonJSON(s.addon,'meta',endpoint(s.addon,'meta',item.type,item.id),data=>!!data?.meta);return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
+    async function fullMeta(item){if(item._fullMeta)return item;
+      // YouTube's own record is the full metadata; no add-on can supply it.
+      if(isYouTubeMeta(item)){try{const record=await youtubeProvider().client.video(item._youtube.videoId);return youtubeMeta(record)||item}catch{return item}}
+      const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){try{const d=await fetchAddonJSON(s.addon,'meta',endpoint(s.addon,'meta',item.type,item.id),data=>!!data?.meta);return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
     async function openMedia(key,opener){
       cancelStreamLookup();
+      player.youtube=null;
       let item=state.metaCache.get(key)||state.library[key]?.meta||state.homeItems.find(x=>mediaKey(x)===key)||progress.meta(key)||Object.values(state.library).find(x=>mediaRef(x.meta)===key)?.meta||state.homeItems.find(x=>mediaRef(x)===key);
       if(!item)return toast('That item is no longer available.','bad');
       // Stamp the request: a slow full-metadata response for one title must not
@@ -861,8 +914,10 @@
     function dossierRecord(m){
       const groups=AstraPlayback.episodes.groupVideos(m.videos||[]),
         seasons=[...new Set(groups.episodes.map(v=>v.season).filter(x=>x!=null))],
+        yt=m._youtube||{},
         cells=[['Type',typeLabel(m.type)],['Year',yearOf(m)],['Runtime',m.runtime],['Rating',m.imdbRating?`${m.imdbRating}/10`:''],
           ['Seasons',seasons.length?String(seasons.length):''],['Episodes',groups.episodes.length?String(groups.episodes.length):''],
+          ['Channel',yt.author],['Views',yt.views?youtubeCount(yt.views)+' views':''],['Published',yt.published],
           ['Genre',(m.genres||[])[0]],['Source',m._addonName]].filter(([,v])=>v);
       return cells.length?`<dl class="record">${cells.map(([k,v])=>`<div class="record-cell"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`:'';
     }
@@ -875,8 +930,10 @@
         resume=resumeVideo(m),resumeProg=videoProgress(m,resume.id),defaultSeason=resume.season??seasons[0],
         art=backdrop(m),posterArt=poster(m),name=m.name||m.title||'Untitled',
         target=episodeCode(resume)||resume.title||resume.name||'',
-        cta=videos.length?`${resumeProg&&!resumeProg.completed?'Continue':'Play'} ${target||'first item'}`:'Find sources',
-        headlineFacts=[yearOf(m),typeLabel(m.type),m.runtime,m.imdbRating?`${m.imdbRating}/10`:''].filter(Boolean);
+        cta=m.type==='youtube'
+          ?`${resumeProg&&!resumeProg.completed?'Continue':'Play'} this video`
+          :videos.length?`${resumeProg&&!resumeProg.completed?'Continue':'Play'} ${target||'first item'}`:'Find sources',
+        headlineFacts=[m._youtube?.author,yearOf(m),typeLabel(m.type),m.runtime,m.imdbRating?`${m.imdbRating}/10`:''].filter(Boolean);
       root.innerHTML=`<div class="sheet" data-dismiss><section class="sheet-panel cinema-detail" role="dialog" aria-modal="true" aria-labelledby="dossierTitle">
         <button class="sheet-close" data-close aria-label="Close">${icon('close')}</button>
         <div class="dossier-art ${art?'image-loading':'image-error'}">${mediaImage(art)}<span class="dossier-art-shade" aria-hidden="true"></span></div>
@@ -901,17 +958,312 @@
       </section></div>`;
       bindDynamic(root);bindDetailDynamic(root);
     }
+    /* ---- YouTube through Invidious ---------------------------------------
+       Astra resolves YouTube itself. There is no embed and no iframe: the
+       Invidious API returns real format URLs, this layer turns them into
+       ordinary Astra streams, and Player V3 plays them through the same
+       adapters every other source uses.
+
+       All decision logic lives in assets/js/youtube/*. This layer binds it to
+       the DOM and to the app's own state. */
+    const YT=globalThis.AstraYouTube;
+    const YOUTUBE_DEFAULTS=YT.config.storable({});
+    const youtube={config:null,manager:null,client:null,browse:null,browseToken:0,searchAbort:null,browseAbort:null,testing:false};
+    function youtubeStored(){const stored=store.get('youtube',null);return {...YOUTUBE_DEFAULTS,...(stored&&typeof stored==='object'?stored:{})}}
+    function youtubeEnabled(){return youtubeStored().enabled!==false}
+    /* The provider is built on first use and thrown away whenever the owner
+       changes a setting, so instance health never outlives the configuration
+       it was measured against. */
+    function youtubeProvider(){
+      if(!youtube.client){
+        const config=YT.config.resolve(youtubeStored());
+        const manager=YT.instances.createManager({config,instances:YT.config.instanceList(config),fetch:(url,init)=>fetch(url,init)});
+        youtube.config=config;youtube.manager=manager;
+        youtube.client=YT.api.createClient({manager,config});
+        // Fill in health for the servers we have not used yet, beside the work
+        // rather than in front of it: nothing here is awaited.
+        manager.probe().catch(()=>{});
+      }
+      return youtube;
+    }
+    function youtubeConfig(){return youtubeProvider().config}
+    function youtubeApply(patch){
+      const next=YT.config.storable(YT.config.resolve({...youtubeStored(),...patch}));
+      store.set('youtube',next);
+      youtube.client=null;youtube.manager=null;youtube.config=null;youtube.browse=null;
+      youtube.searchAbort?.abort();youtube.browseAbort?.abort();
+      youtube.searchAbort=null;youtube.browseAbort=null;
+      return next;
+    }
+    /* One sentence a viewer can act on, for every failure the provider has. */
+    function youtubeErrorText(error){
+      if(!error)return 'YouTube playback is temporarily unavailable.';
+      if(error.kind==='content')return error.message||'YouTube would not return this video.';
+      if(error.kind==='no-instance')return 'No Invidious server is available right now. They are all resting after a failure.';
+      if(error.kind)return YT.instances.describeFailure(error.kind);
+      return 'YouTube playback is temporarily unavailable.';
+    }
+    function youtubeAborted(error){return !!error&&(error.kind==='aborted'||YT.instances.isAbortError(error))}
+    function youtubeCount(value){
+      const n=Number(value)||0;
+      if(n>=1e9)return (n/1e9).toFixed(1).replace(/\.0$/,'')+'B';
+      if(n>=1e6)return (n/1e6).toFixed(1).replace(/\.0$/,'')+'M';
+      if(n>=1e3)return (n/1e3).toFixed(1).replace(/\.0$/,'')+'K';
+      return String(n);
+    }
+    /* A YouTube video, expressed as the meta object the rest of Astra already
+       understands. `type` is `youtube` and `id` is the eleven-character video
+       id, so the content key is exactly `youtube:VIDEO_ID` and cannot collide
+       with an add-on's own ids. */
+    function youtubeMeta(video){
+      if(!video||!video.videoId)return null;
+      const published=video.published?new Date(video.published*1000):null;
+      return recordMeta({
+        id:video.videoId,
+        type:'youtube',
+        name:video.title,
+        poster:video.thumbnail,
+        background:video.poster||video.thumbnail,
+        description:video.description,
+        releaseInfo:published&&!Number.isNaN(published.getTime())?String(published.getUTCFullYear()):'',
+        runtime:video.live?'Live':video.lengthSeconds?AstraAudio.formatTime(video.lengthSeconds):'',
+        genres:video.genre?[video.genre]:[],
+        _addonName:'YouTube',
+        _providerKey:'youtube',
+        _fullMeta:Array.isArray(video.formatStreams),
+        _youtube:{
+          videoId:video.videoId,author:video.author,authorId:video.authorId,
+          views:video.viewCount,published:video.publishedText,live:video.live,
+          upcoming:video.upcoming,length:video.lengthSeconds,instance:video.instance||''
+        }
+      });
+    }
+    function isYouTubeMeta(m){return !!m&&m.type==='youtube'&&!!m._youtube&&YT.api.isVideoId(m._youtube.videoId)}
+    /* YouTube results are 16:9, so they get a still rather than a poster box.
+       Cropping a thumbnail into a 2:3 card is how a native source starts
+       looking like a foreign one. */
+    function youtubeCardHTML(m,index=0){
+      const info=m._youtube||{},art=safeUrl(m.poster||m.background||''),prog=latestProgress(m);
+      const pct=prog?.duration?Math.min(100,prog.time/prog.duration*100):0;
+      const facts=[info.author,info.views?youtubeCount(info.views)+' views':'',info.published].filter(Boolean).join(' · ');
+      const duration=info.live?'LIVE':info.length?AstraAudio.formatTime(info.length):'';
+      return `<button class="card yt-card" style="--card-index:${Math.min(Number(index)||0,10)}" data-open="${esc(mediaRef(m))}" aria-label="Open ${esc(m.name||'video')}${info.author?' by '+esc(info.author):''} on YouTube">
+        <span class="art yt-art ${art?'image-loading':'image-error'}">${mediaImage(art)}<span class="art-fallback">${icon('film')}</span>
+        ${duration?`<span class="yt-duration ${info.live?'live':''}">${esc(duration)}</span>`:''}
+        ${pct>0?`<span class="art-progress"><i style="width:${pct}%"></i></span>`:''}</span>
+        <span class="yt-body"><span class="yt-title">${esc(m.name||'Untitled')}</span>
+        <span class="yt-facts">${esc(facts||'YouTube')}</span></span></button>`;
+    }
+    function youtubeCardsHTML(list){return list.map((m,i)=>youtubeCardHTML(m,i)).join('')}
+    /* ---- YouTube browse -------------------------------------------------
+       Trending is what the Browse surface shows before anyone types, so the
+       provider is reachable without knowing what to search for. It is fetched
+       when Browse is opened, never during the app's first paint. */
+    async function renderYouTubeBrowse(){
+      const mount=$('#youtubeBrowse');if(!mount)return;
+      if(!youtubeEnabled()){mount.innerHTML='';return}
+      const token=++youtube.browseToken;
+      const paint=body=>{const node=$('#youtubeBrowse');if(node&&youtube.browseToken===token){node.innerHTML=body;bindDynamic(node)}};
+      if(youtube.browse){paint(youtubeBrowseHTML(youtube.browse));return}
+      paint(`<section class="sector">${sectorHead('YouTube','<span>Trending</span>')}${skeletonRail()}</section>`);
+      youtube.browseAbort?.abort();
+      const controller=new AbortController();youtube.browseAbort=controller;
+      try{
+        const result=await youtubeProvider().client.trending({signal:controller.signal});
+        if(youtube.browseToken!==token)return;
+        youtube.browse={items:result.items.map(youtubeMeta).filter(Boolean),instance:result.instance};
+        paint(youtubeBrowseHTML(youtube.browse));
+      }catch(error){
+        if(youtube.browseToken!==token||youtubeAborted(error))return;
+        paint(`<section class="sector">${sectorHead('YouTube','<span>Unavailable</span>')}
+          ${stateHTML('YouTube is temporarily unavailable',youtubeErrorText(error),'<button class="btn btn-ghost" data-youtube-browse>Try again</button><button class="btn btn-ghost" data-settings-route="youtube">YouTube settings</button>','error')}</section>`);
+      }
+    }
+    function youtubeBrowseHTML(browse){
+      if(!browse.items.length)return `<section class="sector">${sectorHead('YouTube','<span>Trending</span>')}${emptyHTML('Nothing trending','The Invidious server returned no trending videos right now.','<button class="btn btn-ghost" data-youtube-browse>Refresh</button>')}</section>`;
+      const host=browse.instance?new URL(browse.instance).host:'';
+      return `<section class="sector">${sectorHead('YouTube',`<span>Trending${host?' · '+esc(host):''}</span>`)}
+        <div class="rail-scroll yt-rail">${youtubeCardsHTML(browse.items.slice(0,HOME_LIMIT))}</div></section>`;
+    }
+    /* ---- YouTube sources ------------------------------------------------
+       The picker is the same picker. A YouTube video resolves into ordinary
+       Astra streams — one per practical delivery — so the compatibility
+       verdict, the player and Continue Watching all work unchanged. */
+    async function loadYouTubeSources(m,videoId,options={}){
+      const root=$('#streamOverlayRoot');if(!root)return[];
+      const lookup={mediaKey:mediaKey(m),videoId:String(videoId),token:++state.searchToken};
+      player.lookup=lookup;
+      state.currentVideo={id:String(videoId),title:m.name};
+      const stale=()=>player.lookup!==lookup||lookup.token!==state.searchToken||!state.currentMeta
+        ||mediaKey(state.currentMeta)!==lookup.mediaKey||!root.isConnected||!root.children.length;
+      document.body.classList.add('source-picker-open');
+      root.innerHTML=streamDrawerHTML('<div class="source-loading"><span class="spinner"></span><span>Resolving through Invidious…</span></div>');
+      bindDynamic(root);
+      const fail=(title,text,retry=true)=>{
+        if(stale())return[];
+        root.innerHTML=streamDrawerHTML(stateHTML(title,text,
+          `${retry?`<button class="btn btn-primary" data-youtube-reload="${esc(videoId)}">Try again</button>`:''}<button class="btn btn-ghost" data-settings-route="youtube">YouTube settings</button>`,'error'));
+        bindDynamic(root);
+        return[];
+      };
+      if(!youtubeEnabled())return fail('YouTube is turned off','Turn YouTube on in Settings to resolve and play videos.',false);
+      try{
+        if(options.fresh)youtubeProvider().client.forget(videoId);
+        const record=await youtubeProvider().client.video(videoId);
+        if(stale())return[];
+        const plan=YT.playback.buildPlan(record,{
+          config:youtubeConfig(),instance:record.instance,
+          capabilities:YT.playback.browserCapabilities(window)
+        });
+        if(!plan.variants.length){
+          return fail('YouTube playback is temporarily unavailable',
+            plan.problems.includes('upcoming')
+              ?'This video has not premiered yet, so YouTube offers no stream for it.'
+              :plan.problems.includes('no-mse')
+                ?'Only separate audio and video streams are offered, and this browser cannot combine them.'
+                :'The Invidious server returned no stream this browser can play.',true);
+        }
+        const raw=YT.playback.toStreams(plan,record);
+        state.currentStreams=raw;
+        player.sources=prepareStreams(raw);
+        player.youtube={
+          videoId:record.videoId,record,plan,refreshed:!!options.fresh,
+          byVariant:new Map(player.sources.map(entry=>[entry.stream.raw?._youtube?.variantId,candidateKey(entry)]).filter(([key])=>!!key))
+        };
+        // Keep the dossier's own record in step with what the API just said.
+        const meta=youtubeMeta(record);
+        if(meta&&state.currentMeta&&mediaKey(state.currentMeta)===mediaKey(meta)){state.currentMeta={...state.currentMeta,...meta}}
+        renderStreams();
+        return raw;
+      }catch(error){
+        if(stale()||youtubeAborted(error))return[];
+        return fail('YouTube playback is temporarily unavailable',youtubeErrorText(error),error.kind!=='content');
+      }
+    }
+    /* An add-on may still return a bare YouTube id as a stream. That used to
+       mean an embed; now it resolves through the same provider, so there is
+       one YouTube playback path in the app and no iframe anywhere. */
+    async function openAddonYouTube(entry){
+      const videoId=String(entry.stream.ytId||'');
+      if(!YT.api.isVideoId(videoId))return toast('That add-on returned an unusable YouTube id.','bad');
+      if(!youtubeEnabled())return toast('Turn YouTube on in Settings to play this source.','bad');
+      const m=state.currentMeta,v=state.currentVideo||m;
+      toast('Resolving through Invidious…');
+      try{
+        const record=await youtubeProvider().client.video(videoId);
+        const plan=YT.playback.buildPlan(record,{config:youtubeConfig(),instance:record.instance,capabilities:YT.playback.browserCapabilities(window)});
+        if(!plan.variants.length)return toast('YouTube playback is temporarily unavailable.','bad');
+        if(state.currentMeta!==m)return;
+        const raw=YT.playback.toStreams(plan,record);
+        state.currentStreams=raw;
+        player.sources=prepareStreams(raw);
+        player.youtube={
+          videoId:record.videoId,record,plan,refreshed:false,
+          byVariant:new Map(player.sources.map(x=>[x.stream.raw?._youtube?.variantId,candidateKey(x)]).filter(([key])=>!!key))
+        };
+        state.currentVideo=v;
+        openPlayer(player.sources[0]);
+      }catch(error){
+        if(youtubeAborted(error))return;
+        toast(youtubeErrorText(error),'bad');
+      }
+    }
+    /* A signed Google URL lapses. When one does, the cached record is dropped
+       and the video is resolved again — once, so a genuinely dead video
+       cannot become a loop. */
+    function youtubeMaybeRefresh(){
+      const yt=player.youtube;
+      if(!yt||yt.refreshed||!YT.playback.planExpired(yt.plan))return false;
+      yt.refreshed=true;
+      const m=state.currentMeta;
+      if(!m||!isYouTubeMeta(m))return false;
+      closePlayer(true);
+      showDetail(m,false);
+      loadYouTubeSources(m,yt.videoId,{fresh:true});
+      toast('The playback links had expired, so Astra asked for new ones.');
+      return true;
+    }
+    /* ---- YouTube quality ------------------------------------------------
+       Only what will actually play is listed. An adaptive rung switches the
+       representation in place, so the position and the buffer survive; a
+       progressive rung has to reload, so the position is carried over
+       explicitly. */
+    function currentYouTubeVariant(){
+      const snap=player.session&&player.session.snapshot();
+      const stream=snap&&snap.candidate&&snap.candidate.stream;
+      return stream&&stream.raw&&stream.raw._youtube?stream.raw._youtube.variantId:'';
+    }
+    function qualityOptions(){
+      const adapterList=player.adapter&&player.adapter.getVideoQualities?player.adapter.getVideoQualities():[];
+      const plan=player.youtube&&player.youtube.plan;
+      if(!plan){
+        return adapterList.map(q=>({
+          id:q.id,label:q.label,
+          detail:q.auto?'Adapts to the connection':q.bitrate?Math.round(q.bitrate/1000)+' kbps':'Stream rendition',
+          active:q.active,adapter:true
+        }));
+      }
+      const variantId=currentYouTubeVariant();
+      const auto=adapterList.find(q=>q.auto),pinned=adapterList.find(q=>q.active&&!q.auto);
+      return plan.qualities.map(entry=>{
+        let active=false;
+        if(entry.variantId===variantId){
+          if(entry.representation!==null)active=!!pinned&&pinned.height===entry.representation;
+          else if(entry.id==='auto')active=!adapterList.length||(!!auto&&auto.active);
+          else active=true;
+        }
+        return {id:entry.id,label:entry.label,detail:entry.detail,active,entry};
+      });
+    }
+    function selectQuality(id){
+      const chosen=qualityOptions().find(option=>String(option.id)===String(id));
+      closeTrackMenu();
+      if(!chosen)return;
+      if(chosen.adapter){
+        if(!player.adapter?.selectVideoQuality(chosen.id))toast('This stream would not switch quality.','bad');
+        renderTools(player.session?player.session.snapshot():{});
+        return;
+      }
+      const entry=chosen.entry,el=$('#mediaEl');
+      if(entry.variantId===currentYouTubeVariant()&&entry.inPlace){
+        const list=player.adapter&&player.adapter.getVideoQualities?player.adapter.getVideoQualities():[];
+        const target=entry.representation===null
+          ?list.find(q=>q.auto)
+          :list.find(q=>!q.auto&&q.height===entry.representation);
+        if(target&&player.adapter.selectVideoQuality(target.id)){
+          renderTools(player.session?player.session.snapshot():{});
+          return;
+        }
+      }
+      const candidateId=player.youtube?.byVariant.get(entry.variantId);
+      if(!candidateId||!player.session)return toast('That quality is not available for this video.','bad');
+      // A reload starts from zero unless the position is carried across.
+      const at=Number(el&&el.currentTime);
+      player.pendingSeek=Number.isFinite(at)&&at>1?at:null;
+      if(!player.session.play(candidateId)){player.pendingSeek=null;toast('That quality could not be started.','bad')}
+    }
+    function qualityMenuHTML(){
+      const options=qualityOptions();
+      const plan=player.youtube&&player.youtube.plan;
+      const note=plan
+        ?`<p class="track-empty">Only qualities this device can decode are listed. ${plan.variants.some(v=>v.adaptive)?'Adaptive qualities switch without losing your place.':'Each quality is a separate file, so switching reloads from the same position.'}</p>`
+        :'';
+      return `<div class="track-sheet-head"><div><span class="eyebrow">Playback</span><h4>Quality</h4></div><button class="icon-btn" data-track-menu="quality" aria-label="Close quality">${icon('close')}</button></div>
+        ${options.length?note:'<p class="track-empty">This source offers a single quality.</p>'}
+        <div class="track-options">${options.map(option=>`<button class="track-option ${option.active?'active':''}" data-quality="${esc(option.id)}"><span class="track-line"><b>${esc(option.label)}</b><span class="track-sub">${esc(option.detail||'')}</span></span>${option.active?icon('check'):''}</button>`).join('')}</div>`;
+    }
     /* ---- Playback Engine v2 + Player v3 integration ---------------------
        All decision logic lives in assets/js/playback/*. This layer only binds
        it to the DOM: it renders snapshots and feeds media events back in. */
     const PB=AstraPlayback;
-    const player={session:null,scope:null,adapter:null,nextEpisode:null,sources:[],meta:null,video:null,menu:null,idleTimer:null,audioMode:false,audioDocked:false,audioScope:null,subtitleTracks:[],subtitleAttached:[],activeSubtitle:null,audioPreferenceApplied:false,lookup:null,metaRequest:null,notice:null,noticeTimer:null,fitMode:'contain',locked:false};
+    const player={session:null,scope:null,adapter:null,youtube:null,pendingSeek:null,nextEpisode:null,sources:[],meta:null,video:null,menu:null,idleTimer:null,audioMode:false,audioDocked:false,audioScope:null,subtitleTracks:[],subtitleAttached:[],activeSubtitle:null,audioPreferenceApplied:false,lookup:null,metaRequest:null,notice:null,noticeTimer:null,fitMode:'contain',locked:false};
     function capsNow(){return PB.streams.browserCapabilities(window)}
     /* Add-on order is the order. Astra evaluates compatibility per source
        because the add-on cannot know what this device decodes, but it never
        reorders, hides or scores what the add-on chose to return. */
     function prepareStreams(list){return PB.streams.prepare(PB.streams.normalizeAll(list,{pageUrl:location.href,video:state.currentVideo,metaType:state.currentMeta?.type}),{pageUrl:location.href,capabilities:capsNow()})}
     function entryById(id){return player.sources.find(e=>candidateKey(e)===id)||null}
+    function isYouTubeEntry(entry){return !!entry&&!!entry.stream&&!!entry.stream.raw&&!!entry.stream.raw._youtube}
     function candidateKey(entry){return PB.streams.identityKey(entry.stream)}
 
     /**
@@ -927,7 +1279,7 @@
         context=code?(m.name||m.title||typeLabel(m.type)):typeLabel(m.type);
       return `<div class="source-drawer-backdrop" data-dismiss-streams><section class="source-drawer" role="dialog" aria-modal="true" aria-labelledby="sourceDrawerTitle">
         <span class="source-drawer-grip" aria-hidden="true"></span>
-        <header class="source-drawer-head"><div class="source-drawer-copy"><span class="source-drawer-kicker">${esc(context||'Sources')}</span><h2 class="source-drawer-title" id="sourceDrawerTitle">${esc(item)}</h2><span class="source-drawer-subtitle">Choose a release, then Astra hands it to Player V3.</span></div>
+        <header class="source-drawer-head"><div class="source-drawer-copy"><span class="source-drawer-kicker">${esc(context||'Sources')}</span><h2 class="source-drawer-title" id="sourceDrawerTitle">${esc(item)}</h2><span class="source-drawer-subtitle">${player.youtube?'Every one of these is the same video, delivered differently.':'Choose a release, then Astra hands it to Player V3.'}</span></div>
         <button class="source-drawer-close" data-close-streams aria-label="Close sources">${icon('close')}</button></header>
         <div class="source-drawer-body">${content}</div></section></div>`;
     }
@@ -943,6 +1295,7 @@
     }
     async function loadStreams(videoId){
       const m=state.currentMeta;if(!m)return[];
+      if(isYouTubeMeta(m))return loadYouTubeSources(m,m._youtube.videoId);
       state.currentVideo=(m.videos||[]).find(v=>String(v.id)===String(videoId))||{id:videoId,title:m.name};
       const root=$('#streamOverlayRoot');if(!root)return[];
       const lookup={mediaKey:mediaKey(m),videoId:String(videoId),token:++state.searchToken};
@@ -1000,7 +1353,9 @@
         directSubtitles=Math.max(0,...list.map(entry=>entry.stream.subtitles?.length||0)),m=state.currentMeta,v=state.currentVideo,
         subtitleProviders=m&&v?manifests().filter(source=>hasResource(source.manifest,'subtitles',m.type,v.id)).length:0,
         dual=list.some(entry=>(entry.stream.facts.audioLanguages||[]).length>1),audioText=dual?`Dual audio · ${audio.join(' · ')}`:audio.length?audio.join(' · '):'Source default',
-        subtitleText=directSubtitles?`${directSubtitles} listed on a source`:subtitleProviders?`${subtitleProviders} add-on${subtitleProviders===1?'':'s'} checked on play`:'None reported';
+        youtubeCaptionCount=player.youtube?player.youtube.plan.captions.length:0,
+        subtitleText=youtubeCaptionCount?`${youtubeCaptionCount} caption track${youtubeCaptionCount===1?'':'s'} from YouTube`
+          :directSubtitles?`${directSubtitles} listed on a source`:subtitleProviders?`${subtitleProviders} add-on${subtitleProviders===1?'':'s'} checked on play`:'None reported';
       return `<div class="source-intel" aria-label="Source capabilities"><span><b>Audio</b><small>${esc(audioText)}</small></span><span><b>Subtitles</b><small>${esc(subtitleText)}</small></span></div>`;
     }
     function renderStreams(){
@@ -1008,7 +1363,7 @@
       const list=player.sources,total=list.length;
       const providerNames=[...new Set(list.map(e=>e.stream.addonName).filter(Boolean))];
       const streamProviders=state.currentMeta&&state.currentVideo?manifests().filter(s=>hasResource(s.manifest,'stream',state.currentMeta.type,state.currentVideo.id)).length:0;
-      const content=total?`<section class="picker">${groupHead('Sources',`${total} from ${providerNames.length||1} add-on${providerNames.length===1?'':'s'}`)}${sourceCapabilitiesHTML(list)}
+      const content=total?`<section class="picker">${groupHead('Sources',player.youtube?`${total} deliver${total===1?'y':'ies'} from YouTube`:`${total} from ${providerNames.length||1} add-on${providerNames.length===1?'':'s'}`)}${sourceCapabilitiesHTML(list)}
         <div class="stream-list">${list.map((e,i)=>streamRowHTML(e,i)).join('')}</div></section>`
         :streamProviders
           ?stateHTML('No sources found','Your streaming add-ons answered, but none returned a playable result for this title or episode.','','error')
@@ -1047,6 +1402,7 @@
       player.lookup=null;hideStreamDrawer();
       const m=state.currentMeta,v=state.currentVideo||m;
       const s=entry.stream;
+      if(s.kind==='youtube'){openAddonYouTube(entry);return}
       if(s.kind==='external'){const u=s.externalUrl;if(!u||!entry.evaluation||entry.evaluation.state==='unsafe')return toast('That external link is not safe to open.','bad');window.open(u,'_blank','noopener');return}
       if(s.kind==='torrent'){showTorrent(s);return}
       closePlayer(true);
@@ -1058,17 +1414,25 @@
       const saved=videoProgress(m,v.id);
       const resumeTime=saved&&!saved.completed&&saved.duration&&saved.time<saved.duration*.93?saved.time:0;
       renderPlayerShell();
-      // The tapped source always plays, even above the ceiling. Automatic
-      // alternatives are filtered so failover cannot exceed it either.
       // The session carries exactly the source that was tapped. Astra does not
       // fall through to another one on its own; a failure shows what happened
       // and hands the viewer back to the list.
+      //
+      // YouTube is the one exception, and it is not a change of principle: its
+      // entries are not competing releases, they are the same video in the
+      // deliveries this browser can accept. Falling from the adaptive stream
+      // to a progressive file is the correct response to a delivery failing,
+      // so that ladder is handed to the session whole.
+      const ladder=isYouTubeEntry(entry)?player.sources.filter(isYouTubeEntry):null;
       player.session=PB.engine.createSession({
-        candidates:[{id:candidateKey(entry),stream:entry.stream,evaluation:entry.evaluation,entry}],
+        candidates:(ladder||[entry]).map(item=>({id:candidateKey(item),stream:item.stream,evaluation:item.evaluation,entry:item})),
         resumeTime,
+        autoFailover:!!ladder,
+        maxAttempts:ladder?ladder.length:PB.engine.DEFAULT_MAX_ATTEMPTS,
         onAttempt:startAttempt,onChange:renderPlayerState
       });
-      player.session.start();
+      if(ladder)player.session.play(candidateKey(entry));
+      else player.session.start();
     }
     /* Two surfaces share one set of hooks. Video mounts over everything in
        #modalRoot; audio mounts in #audioRoot so it survives browsing and can
@@ -1152,8 +1516,13 @@
       const report=(event,detail)=>{if(player.session&&live())player.session.report(attemptId,event,detail)};
 
       if(s.kind==='youtube'){
-        stage.innerHTML=`<iframe allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen title="${esc(v.title||m.name||'Video')}" src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(s.ytId)}?autoplay=1"></iframe>`;
-        report('ready');return;
+        // openPlayer resolves a bare YouTube id into real streams before any
+        // session exists, so reaching here means that resolution was skipped.
+        // Astra has no embed to fall back on, and inventing one here is
+        // exactly what this feature replaced.
+        const unresolved=new Error('This YouTube source was not resolved through Invidious.');
+        unresolved.playbackType='unsupported';
+        throw unresolved;
       }
       const audioOnly=player.audioMode;
       stage.innerHTML=audioOnly?audioStageHTML(m,v,s):'<video id="mediaEl" autoplay playsinline preload="metadata"></video>';
@@ -1162,9 +1531,20 @@
       const caps=capsNow();
       const adapterKind=PB.adapters.adapterKindFor(s.kind,caps);
 
+      // Two different reasons to seek on start. Resuming from history stops
+      // short of the end, because restarting something already finished is
+      // what the viewer wants; a quality switch must land exactly where the
+      // playhead was, including in the last few seconds.
+      const switching=Number.isFinite(player.pendingSeek)&&player.pendingSeek>0;
+      const seekTarget=switching?player.pendingSeek:resumeTime>0?resumeTime:0;
+      player.pendingSeek=null;
+
       scope.listen(el,'playing',()=>report('ready'));
       scope.listen(el,'loadedmetadata',()=>{
-        if(resumeTime>0&&Number.isFinite(el.duration)&&resumeTime<el.duration*.93){try{el.currentTime=resumeTime}catch{}}
+        if(seekTarget>0&&Number.isFinite(el.duration)){
+          const limit=switching?el.duration-1:el.duration*.93;
+          if(seekTarget<limit){try{el.currentTime=seekTarget}catch{}}
+        }
         report('ready');
       });
       let lastWrite=0;
@@ -1187,7 +1567,7 @@
         .catch(e=>{const err=new Error(e&&e.message||'The playback library could not be loaded');err.playbackType='library';throw err})
         .then(()=>{
           if(!live()||scope.disposed)return;
-          player.adapter=PB.adapters.createAdapter(adapterKind,{media:el,scope,url:s.url,Hls:window.Hls,dashjs:window.dashjs,onError:e=>report('error',e),onAudioTracksChanged:tracks=>{if(live()&&!scope.disposed)refreshAudioTracks(tracks)}});
+          player.adapter=PB.adapters.createAdapter(adapterKind,{media:el,scope,url:s.url,Hls:window.Hls,dashjs:window.dashjs,onError:e=>report('error',e),onAudioTracksChanged:tracks=>{if(live()&&!scope.disposed)refreshAudioTracks(tracks)},onVideoQualitiesChanged:()=>{if(live()&&!scope.disposed&&player.session)renderTools(player.session.snapshot())}});
           return player.adapter.attach();
         })
         .then(()=>{if(live()&&!scope.disposed)attachSubtitles(el,s,m,v,scope,live)});
@@ -1299,7 +1679,11 @@
       if(snap.state==='playing'){showSettledNotice(status);renderTools(snap);return}
       // Terminal: release the media element, library instance and listeners now
       // rather than waiting for a retry, a switch, or the viewer closing up.
-      if(snap.state==='failed'||snap.state==='exhausted'){teardownAttempt();renderPlayerError(snap);renderTools(snap);return}
+      if(snap.state==='failed'||snap.state==='exhausted'){
+        teardownAttempt();
+        if(snap.state==='exhausted'&&youtubeMaybeRefresh())return;
+        renderPlayerError(snap);renderTools(snap);return;
+      }
     }
     // A recovery that flashes past is not a recovery the viewer can understand,
     // so the notice outlives the switch by a readable minimum.
@@ -1351,11 +1735,13 @@
         ].filter(Boolean).join('');
       }else{
         const activeAudio=audioTracks.find(t=>t.active),activeText=player.subtitleTracks.find(t=>t.id===player.activeSubtitle);
+        const qualities=qualityOptions(),activeQuality=qualities.find(option=>option.active);
         tools.innerHTML=[
           episodic?`<button class="tool-btn episode-tool" data-episode-nav="prev" ${prev?'':'disabled'} aria-label="Previous episode"><b>‹</b><span>Previous</span></button>`:'',
           episodic?`<button class="tool-btn episode-tool" data-episode-nav="next" ${next?'':'disabled'} aria-label="Next episode"><b>›</b><span>Next</span></button>`:'',
           `<button class="tool-btn ${activeAudio?'on':''}" data-track-menu="audio" aria-label="Choose audio track"><b>AUD</b><span>${esc(activeAudio?.label||'Audio')}</span></button>`,
           `<button class="tool-btn ${player.activeSubtitle?'on':''}" data-track-menu="text" aria-label="Choose subtitles"><b>CC</b><span>${esc(activeText?.label||'Subtitles')}</span></button>`,
+          qualities.length>1?`<button class="tool-btn ${activeQuality&&activeQuality.id!=='auto'?'on':''}" data-track-menu="quality" aria-label="Choose quality"><b>HD</b><span>${esc(activeQuality?.label||'Quality')}</span></button>`:'',
           `<button class="tool-btn" data-player-action="choose" aria-label="Choose source">${icon('link')}<span>Source</span></button>`,
           `<button class="tool-btn" data-player-action="fit" aria-label="Change video fit"><b>${player.fitMode==='cover'?'Fill':'Fit'}</b><span>Frame</span></button>`,
           document.fullscreenEnabled?`<button class="tool-btn" data-player-action="fullscreen" aria-label="Fullscreen"><b>⛶</b><span>Full</span></button>`:''
@@ -1383,7 +1769,7 @@
     function closePlayer(silent){
       clearTimeout(player.idleTimer);
       clearTimeout(player.noticeTimer);player.noticeTimer=null;player.notice=null;
-      player.nextEpisode=null;
+      player.nextEpisode=null;player.pendingSeek=null;
       $('#countdownCard')?.remove();const trackMenu=$('#trackMenu');if(trackMenu){Motion.releaseElement(trackMenu);trackMenu.remove()}
       if(player.session){player.session.cancel();player.session=null}
       teardownAttempt();
@@ -1442,7 +1828,8 @@
         const sources=manifests().filter(x=>hasResource(x.manifest,'subtitles',m.type,v.id));
         const rs=await Promise.allSettled(sources.map(x=>fetchAddonJSON(x.addon,'subtitles',endpoint(x.addon,'subtitles',m.type,v.id,{videoHash:s.behaviorHints?.videoHash,videoSize:s.behaviorHints?.videoSize}),data=>!!(data&&Array.isArray(data.subtitles)))));
         if(!live()||scope.disposed)return;
-        const raw=[...(s.subtitles||[]),...rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.subtitles||[])];
+        const captions=player.youtube?YT.playback.toSubtitles(player.youtube.plan):[];
+        const raw=[...(s.subtitles||[]),...captions,...rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.subtitles||[])];
         const tracks=PB.subtitles.normalizeTracks(raw,{pageUrl:location.href});
         const attached=await PB.subtitles.attachTracks({media:el,scope,tracks,settings:state.settings,isCancelled:()=>!live()});
         if(!live()||scope.disposed)return;
@@ -1486,7 +1873,9 @@
       closeTrackMenu(true);
       const modal=$('.player-modal');if(!modal)return;
       const menu=document.createElement('div');menu.className='track-menu track-sheet';menu.id='trackMenu';
-      if(kind==='text'){
+      if(kind==='quality'){
+        menu.innerHTML=qualityMenuHTML();
+      }else if(kind==='text'){
         const options=[{id:'',label:'Off',active:!player.activeSubtitle},...player.subtitleTracks.map(t=>({id:t.id,label:t.label,active:player.activeSubtitle===t.id}))];
         menu.innerHTML=`<div class="track-sheet-head"><div><span class="eyebrow">Playback</span><h4>Subtitles</h4></div><button class="icon-btn" data-track-menu="text" aria-label="Close subtitles">${icon('close')}</button></div>
           ${player.subtitleTracks.length?'':`<p class="track-empty">No subtitle tracks were returned for this source.</p>`}
@@ -1563,7 +1952,8 @@
           ${settingsRouteHTML('addons','addons','Add-ons',`${providers} enabled · the only source of catalogs and streams`)}
           ${settingsRouteHTML('health','globe','Add-on health',healthSummaryText())}
           ${settingsRouteHTML('catalogs','hub','Home layout',`${catalogs} catalog${catalogs===1?'':'s'} · order, visibility, hero sources, provider labels`)}
-          ${settingsRouteHTML('coverage','film','Content coverage','Which content types your installed add-ons actually provide')}
+          ${settingsRouteHTML('youtube','film','YouTube',youtubeSettingsSummary())}
+          ${settingsRouteHTML('coverage','film','Content coverage','Which content types you can actually reach')}
         </div></div>
         <div class="settings-section"><span class="label">Playback</span><div class="settings-group flush">
           ${settingsRouteHTML('audio','captions','Audio and subtitles','Preferred languages, dubs and default subtitle behaviour')}
@@ -1573,6 +1963,88 @@
         </div></div>
         <p class="settings-note">Astra ${APP_VERSION} · Add-ons, library, settings and playback progress are stored locally in Chrome.</p>`;
       bindDynamic(root);
+    }
+    /* ---- YouTube settings -------------------------------------------------
+       One screen owns the whole provider: whether it is on, which server
+       answers, and whether adaptive playback may use that server's bandwidth.
+       The private address is stored in this browser only and is never part of
+       the repository. */
+    const YOUTUBE_HEIGHTS=[[360,'360p'],[480,'480p'],[720,'720p'],[1080,'1080p (recommended)'],[1440,'1440p'],[2160,'2160p']];
+    function youtubeSettingsSummary(){
+      const stored=youtubeStored();
+      if(stored.enabled===false)return 'Turned off';
+      const config=YT.config.resolve(stored);
+      return `${config.privateInvidiousUrl?'Your Invidious server':`${config.publicFallbackInstances.length} public fallbacks`} · ${config.preferAdaptive?`adaptive to ${config.maxHeight}p`:'progressive only'}`;
+    }
+    const YOUTUBE_STATE_COPY={healthy:['Ready','ready'],unknown:['Not checked','unknown'],unhealthy:['Resting','offline']};
+    function youtubeInstanceRowHTML(entry){
+      const copy=YOUTUBE_STATE_COPY[entry.state]||YOUTUBE_STATE_COPY.unknown;
+      const host=(()=>{try{return new URL(entry.url).host}catch{return entry.url}})();
+      const facts=[
+        entry.kind==='private'?'Your server':'Public fallback',
+        entry.state==='healthy'&&entry.latency?latencyText(entry.latency):'',
+        entry.state==='unhealthy'&&entry.cooldownMs?`rests for ${Math.ceil(entry.cooldownMs/1000)}s`:'',
+        entry.state==='unhealthy'&&entry.lastError?YT.instances.describeFailure(entry.lastError):''
+      ].filter(Boolean).join(' · ');
+      return `<div class="yt-server"><span class="health-pill ${copy[1]}"><i></i>${copy[0]}</span>
+        <span class="yt-server-copy"><span class="yt-server-host">${esc(host)}</span><span class="yt-server-note">${esc(facts)}</span></span></div>`;
+    }
+    function renderYouTubeSettings(){
+      const root=$('#settingsRoot');if(!root)return;
+      const stored=youtubeStored();
+      const config=YT.config.resolve(stored);
+      const snapshot=stored.enabled!==false?youtubeProvider().manager.snapshot():{instances:YT.config.instanceList(config).map(x=>({...x,state:'unknown',latency:0,cooldownMs:0,lastError:''})),preferred:''};
+      const usingPrivate=!!config.privateInvidiousUrl;
+      root.innerHTML=`${screenHead('YouTube')}
+        <p class="screen-lede">Astra plays YouTube through Invidious. There is no YouTube embed: the API returns real stream URLs and Player V3 plays them like any other source.</p>
+        <div class="settings-group">
+          <div class="switch-row"><div><b>YouTube provider</b><span>Search, browse and play YouTube inside Astra.</span></div>
+            <button class="switch ${stored.enabled!==false?'on':''}" data-youtube-toggle="enabled" aria-label="YouTube provider" aria-pressed="${stored.enabled!==false}"><i></i></button></div>
+        </div>
+        <div class="settings-group">
+          <form class="field" id="youtubeInstanceForm">
+            <label for="youtubeInstance">Your Invidious server</label>
+            <div class="input-action">
+              <input class="text-input" id="youtubeInstance" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+                placeholder="https://invidious.example.org" value="${esc(config.privateInvidiousUrl)}">
+              <button class="btn btn-primary" type="submit">Save</button>
+            </div>
+            <small>Stored in this browser only. Leave it empty to use the public fallbacks. See <code>deploy/invidious</code> for the server this expects.</small>
+          </form>
+          <div class="switch-row"><div><b>Adaptive quality</b><span>Use DASH for 720p and above. Adaptive streams have to be fetched through your server, so this is off unless one is set.</span></div>
+            <button class="switch ${config.preferAdaptive?'on':''}" data-youtube-toggle="preferAdaptive" aria-label="Adaptive quality" aria-pressed="${config.preferAdaptive}" ${usingPrivate?'':'disabled'}><i></i></button></div>
+          <div class="field"><label for="youtubeMaxHeight">Highest quality offered</label>
+            <select class="select" id="youtubeMaxHeight" data-youtube-select="maxHeight">${YOUTUBE_HEIGHTS.map(([value,label])=>`<option value="${value}" ${config.maxHeight===value?'selected':''}>${esc(label)}</option>`).join('')}</select>
+            <small>A quality is only ever offered when this device reports it can decode both its video and its audio.</small></div>
+        </div>
+        <div class="settings-section"><span class="label">Servers</span>
+          <div class="settings-group">
+            <div class="yt-servers">${snapshot.instances.map(youtubeInstanceRowHTML).join('')}</div>
+            <div class="actions" style="margin-top:var(--s4)"><button class="btn btn-ghost" data-youtube-test ${youtube.testing?'disabled':''}>${icon('globe')} ${youtube.testing?'Testing…':'Test servers'}</button></div>
+          </div>
+        </div>
+        <p class="settings-note">A failing server is rested for ${Math.round(config.instanceCooldown/1000)}s and the request moves to another one, up to ${config.maxAttempts} servers per request. Requests time out after ${Math.round(config.requestTimeout/1000)}s.</p>`;
+      bindDynamic(root);
+      const form=$('#youtubeInstanceForm',root);
+      if(form)form.onsubmit=event=>{
+        event.preventDefault();
+        const input=$('#youtubeInstance',root),value=input.value.trim();
+        const problem=value?YT.config.describeInstanceProblem(value):'';
+        if(problem)return toast(problem,'bad');
+        const next=youtubeApply({privateInvidiousUrl:value,preferAdaptive:value?true:false});
+        toast(next.privateInvidiousUrl?'Saved. Astra will use your server first.':'Cleared. Astra will use the public fallbacks.','good');
+        renderYouTubeSettings();
+      };
+    }
+    async function testYouTubeInstances(){
+      if(youtube.testing)return;
+      youtube.testing=true;renderYouTubeSettings();
+      try{await youtubeProvider().manager.reset()}catch{}
+      youtube.testing=false;
+      if(state.currentPage==='settings'&&state.settingsRoute==='youtube')renderYouTubeSettings();
+      const snapshot=youtubeProvider().manager.snapshot();
+      const ready=snapshot.instances.filter(x=>x.state==='healthy').length;
+      toast(ready?`${ready} of ${snapshot.instances.length} server${snapshot.instances.length===1?'':'s'} answered.`:'No Invidious server answered.',ready?'good':'bad');
     }
     function renderAudioSettings(){
       const s=state.settings,root=$('#settingsRoot');if(!root)return;
@@ -1717,7 +2189,7 @@
       $$('[data-layout-option]',root).forEach(button=>button.onclick=()=>{const next={...state.homeLayout,[button.dataset.layoutOption]:!state.homeLayout[button.dataset.layoutOption]};applyHomeLayout(next);renderCatalogSettings()});
       $$('[data-layout-reset]',root).forEach(button=>button.onclick=()=>{applyHomeLayout(AstraCatalogs.reconcile(entries,AstraCatalogs.defaults()),'Home layout reset');renderCatalogSettings()});
     }
-    const SETTINGS_ROUTES={root:renderSettingsRoot,addons:renderAddons,health:renderHealthSettings,catalogs:renderCatalogSettings,coverage:renderHub,audio:renderAudioSettings,data:renderDataSettings};
+    const SETTINGS_ROUTES={root:renderSettingsRoot,addons:renderAddons,health:renderHealthSettings,catalogs:renderCatalogSettings,coverage:renderHub,youtube:renderYouTubeSettings,audio:renderAudioSettings,data:renderDataSettings};
     function exportData(){const data={app:'Astra',version:APP_VERSION,exported:new Date().toISOString(),addons:state.addons,library:state.library,progress:progress.snapshot(),settings:state.settings,homeLayout:state.homeLayout};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='astra-backup.json';a.click();URL.revokeObjectURL(a.href)}
     async function importData(file){const owned=currentModal();try{const d=JSON.parse(await file.text());if(d.app!=='Astra'||!Array.isArray(d.addons))throw Error('Not an Astra backup');state.addons=d.addons;state.library=d.library||{};progress.replace(d.progress||{});state.settings=AstraPlayback.settings.migrate({...state.settings,...d.settings});state.homeLayout=d.homeLayout&&typeof d.homeLayout==='object'?d.homeLayout:AstraCatalogs.defaults();for(const k of ['addons','library','settings','homeLayout'])store.set(k,state[k]);state.manifests.clear();state.catalogCache.clear();await loadManifests(true);toast('Backup imported','good');if(currentModal()===owned)closeModal();invalidateCatalogs();renderHome()}catch(e){toast(`Import failed: ${e.message}`,'bad')}}
     function bindMotionSurface(root){
@@ -1729,8 +2201,8 @@
       if(!panelSelector)return;
       Motion.mountSurface({root,key:detail?'detail':briefing?'briefing':'utility',panelSelector,edge:!!(detail||briefing),down:true,onDismiss:()=>{if(briefing)state.briefing.request++;cancelStreamLookup();clearModalSurface()}});
     }
-    function bindDynamic(root=document){hydrateIcons(root);$$('[data-briefing-open]',root).forEach(x=>x.onclick=()=>openBriefing());$$('[data-briefing-run]',root).forEach(x=>x.onclick=()=>runBriefing());$$('[data-briefing-type]',root).forEach(x=>x.onclick=()=>{state.briefing.type=x.dataset.briefingType;state.briefing.genre='all';runBriefing()});$$('[data-briefing-mode]',root).forEach(x=>x.onclick=()=>{state.briefing.mode=x.dataset.briefingMode;runBriefing()});const briefingGenre=$('#briefingGenre',root);if(briefingGenre)briefingGenre.onchange=()=>{state.briefing.genre=briefingGenre.value;runBriefing()};$$('[data-health-test]',root).forEach(x=>x.onclick=()=>testAllAddonHealth());$$('[data-health-addon]',root).forEach(x=>x.onclick=()=>{const addon=state.addons.find(item=>addonHealthKey(item)===x.dataset.healthAddon);if(addon)checkAddonHealth(addon)});$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open,x));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-switch-source]',root).forEach(x=>x.onclick=()=>{const entry=entryById(x.dataset.switchSource);closeTrackMenu();if(entry)openPlayer(entry)});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{const next=player.nextEpisode;cancelCountdown();if(x.dataset.countdown!=='cancel'&&next)goToEpisode(next)});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0]);bindMotionSurface(root);Motion.refresh(root)}
-    function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#streamOverlayRoot')?.children.length){closeStreamPicker();return}if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('#mediaEl')||$('#playerStage iframe'))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
+    function bindDynamic(root=document){hydrateIcons(root);$$('[data-briefing-open]',root).forEach(x=>x.onclick=()=>openBriefing());$$('[data-briefing-run]',root).forEach(x=>x.onclick=()=>runBriefing());$$('[data-briefing-type]',root).forEach(x=>x.onclick=()=>{state.briefing.type=x.dataset.briefingType;state.briefing.genre='all';runBriefing()});$$('[data-briefing-mode]',root).forEach(x=>x.onclick=()=>{state.briefing.mode=x.dataset.briefingMode;runBriefing()});const briefingGenre=$('#briefingGenre',root);if(briefingGenre)briefingGenre.onchange=()=>{state.briefing.genre=briefingGenre.value;runBriefing()};$$('[data-health-test]',root).forEach(x=>x.onclick=()=>testAllAddonHealth());$$('[data-health-addon]',root).forEach(x=>x.onclick=()=>{const addon=state.addons.find(item=>addonHealthKey(item)===x.dataset.healthAddon);if(addon)checkAddonHealth(addon)});$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open,x));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-switch-source]',root).forEach(x=>x.onclick=()=>{const entry=entryById(x.dataset.switchSource);closeTrackMenu();if(entry)openPlayer(entry)});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{const next=player.nextEpisode;cancelCountdown();if(x.dataset.countdown!=='cancel'&&next)goToEpisode(next)});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-quality]',root).forEach(x=>x.onclick=()=>selectQuality(x.dataset.quality));$$('[data-youtube-browse]',root).forEach(x=>x.onclick=()=>{youtube.browse=null;renderYouTubeBrowse()});$$('[data-youtube-reload]',root).forEach(x=>x.onclick=()=>{const m=state.currentMeta;if(m)loadYouTubeSources(m,x.dataset.youtubeReload,{fresh:true})});$$('[data-youtube-test]',root).forEach(x=>x.onclick=()=>testYouTubeInstances());$$('[data-youtube-toggle]',root).forEach(x=>x.onclick=()=>{const key=x.dataset.youtubeToggle;youtubeApply({[key]:!youtubeStored()[key]});renderYouTubeSettings()});$$('[data-youtube-select]',root).forEach(x=>x.onchange=()=>{youtubeApply({[x.dataset.youtubeSelect]:Number(x.value)});renderYouTubeSettings()});$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0]);bindMotionSurface(root);Motion.refresh(root)}
+    function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#streamOverlayRoot')?.children.length){closeStreamPicker();return}if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('.player-shell',$('#modalRoot')))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
     function motionBack(){if(state.currentPage==='settings'&&state.settingsRoute!=='root'){nav('settings','root','back');return}if(state.currentPage!=='home')nav('home','root','back')}
     async function init(){buildNav();hydrateIcons();Motion.init({onPageBack:motionBack});Motion.syncDock($('#mobileNav'),'home');Motion.syncPageBack(false);bindDynamic();globalEvents();await renderHome()}
     init().catch(e=>{console.error(e);toast('Astra could not start: '+e.message,'bad')});

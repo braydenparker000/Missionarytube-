@@ -31,7 +31,18 @@ const ALLOWED_HOSTS = [
   "v3-cinemeta.strem.io", // the public default add-on, no configuration or token
   "cdn.jsdelivr.net", // pinned, integrity-checked player runtimes
   "registry.npmjs.org", // used by the dependency pinning script
-  "www.youtube-nocookie.com", // privacy-preserving YouTube embed
+  // The public Invidious fallbacks, used only when no private instance is
+  // configured. They are public infrastructure with no token in the URL.
+  "yewtu.be",
+  "inv.nadeko.net",
+  "invidious.nerdvpn.de",
+  // The link shapes the search box accepts when one is pasted in. They are
+  // parsed to recover a video id; nothing is ever requested from them.
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "music.youtube.com",
+  "youtu.be",
   "github.com",
   "claude.ai",
   "code.claude.com",

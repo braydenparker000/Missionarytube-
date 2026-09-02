@@ -4241,3 +4241,67 @@ html[data-astra-nav="back"]::view-transition-new(astra-page) {
   ::view-transition-group(astra-page),
   ::view-transition-group(astra-art) { animation-duration: 1ms !important; }
 }
+
+/* ------------------------------------------------------------------ *
+ * YouTube
+ *
+ * A YouTube result is a 16:9 still with a channel line under it, not a
+ * poster. Cropping a thumbnail into a 2:3 card is how a built-in source
+ * starts looking like a foreign one, so the card keeps the shape the
+ * artwork actually has and reuses every existing token for the rest.
+ * ------------------------------------------------------------------ */
+.rail-scroll.yt-rail { grid-auto-columns: min(74vw, 248px); }
+.yt-card { display: block; text-align: left; }
+.yt-art { aspect-ratio: 16 / 9; }
+.yt-duration {
+  position: absolute; z-index: 2; right: var(--s2); bottom: var(--s2);
+  padding: 2px var(--s2);
+  border-radius: var(--r1);
+  background: color-mix(in srgb, var(--void) 82%, transparent);
+  color: var(--bone);
+  font-size: var(--t-micro);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.yt-duration.live { background: var(--signal); color: var(--void); }
+/* These are <span>, so each needs an explicit block box to lay out at all. */
+.yt-body { display: block; min-width: 0; padding-top: var(--s3); }
+.yt-title {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 13px; font-weight: 650; line-height: 1.32;
+}
+.yt-facts {
+  display: block; margin-top: 3px;
+  font-size: var(--t-tiny); color: var(--silver-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+@media (max-width: 380px) {
+  .rail-scroll.yt-rail { grid-auto-columns: min(80vw, 224px); }
+}
+
+/* One row per Invidious server: state, address, and what was measured. The
+   add-on health rows next door are a three-column grid built for fixed-width
+   channel names, which an address is not. */
+.yt-servers { padding: var(--s2) var(--s4); }
+.yt-server {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s3);
+  min-height: 46px;
+}
+.yt-server + .yt-server { border-top: 1px solid var(--rule-faint); }
+/* These are <span>, so each needs an explicit block box to lay out at all. */
+.yt-server-copy { display: block; min-width: 0; }
+.yt-server-host {
+  display: block;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 650;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.yt-server-note {
+  display: block; margin-top: 2px;
+  color: var(--silver-dim); font-size: var(--t-tiny); line-height: 1.35;
+}
