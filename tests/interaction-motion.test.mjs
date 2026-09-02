@@ -52,7 +52,6 @@ test("navigation, dock and title detail continuity are all wired", () => {
   assert.match(html, /Motion\.navigate\(\{from:fromPage,to:page,direction,update\}\)/);
   assert.match(html, /Motion\.syncDock\(\$\('#mobileNav'\),page\)/);
   assert.match(html, /Motion\.sharedOpen\(\{source:opener,targetSelector:'\.dossier-poster'/);
-  assert.match(css, /view-transition-name: astra-page/);
   assert.match(css, /::view-transition-group\(astra-art\)/);
 });
 
@@ -83,7 +82,6 @@ test("direct interaction motion never exceeds the 360ms release budget", () => {
   const seconds = [...source.matchAll(/duration:\s*(?:[^\n]*?\?\s*)?(0?\.\d+)/g)].map((match) => Number(match[1]));
   assert.ok(seconds.length >= 9, "the runtime duration set is covered");
   assert.ok(Math.max(...seconds) <= 0.36, `runtime motion reached ${Math.max(...seconds)}s`);
-  assert.match(css, /::view-transition-group\(astra-page\) \{[\s\S]*?animation-duration: 240ms;/);
   assert.match(css, /::view-transition-group\(astra-art\) \{[\s\S]*?animation-duration: 340ms;/);
   assert.match(css, /\.seek-feedback\.show \{ animation: player-seek-pop 360ms/);
 });
@@ -95,9 +93,9 @@ test("View Transition callbacks cannot reorder or stall visible state", () => {
   assert.match(open, /fallback = setTimeout\(commit, 100\)/);
   assert.match(open, /Promise\.race/);
   assert.match(close, /fallback = setTimeout\(commit, 100\)/);
-  assert.match(navigation, /let committed = false/);
-  assert.match(navigation, /const fallback = setTimeout\(commit, 100\)/);
-  assert.match(navigation, /if \(committed\) return/);
+  assert.equal(navigation.includes("document.startViewTransition"), false, "routes never wait on a snapshot callback");
+  assert.match(navigation, /commit\(\);/);
+  assert.match(navigation, /duration: lean \? 0\.22 : 0\.28/);
   assert.match(css, /::view-transition \{ pointer-events: none; \}/, "a visual snapshot cannot swallow the next action");
 });
 

@@ -4033,37 +4033,11 @@ main:has(#page-home.active) .topbar {
 /* The document itself does not crossfade: only the active content page and
    explicitly named artwork participate in a native View Transition. */
 .motion-ready { view-transition-name: none; }
-.motion-ready .page.active {
-  view-transition-name: astra-page;
-  animation: none;
-}
+.motion-ready .page.active { animation: none; }
 
 /* Snapshots are visual only. The newly committed controls remain hittable
    while Chrome finishes compositing the old and new page images. */
 ::view-transition { pointer-events: none; }
-
-::view-transition-group(astra-page) {
-  animation-duration: 240ms;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-html[data-astra-nav="forward"]::view-transition-old(astra-page) {
-  animation: astra-page-old-forward 180ms cubic-bezier(0.2, 0, 0, 1) both;
-}
-html[data-astra-nav="forward"]::view-transition-new(astra-page) {
-  animation: astra-page-new-forward 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-html[data-astra-nav="back"]::view-transition-old(astra-page) {
-  animation: astra-page-old-back 180ms cubic-bezier(0.2, 0, 0, 1) both;
-}
-html[data-astra-nav="back"]::view-transition-new(astra-page) {
-  animation: astra-page-new-back 240ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes astra-page-old-forward { to { opacity: 0; transform: translateX(-18px) scale(0.992); } }
-@keyframes astra-page-new-forward { from { opacity: 0; transform: translateX(24px) scale(0.992); } }
-@keyframes astra-page-old-back { to { opacity: 0; transform: translateX(18px) scale(0.992); } }
-@keyframes astra-page-new-back { from { opacity: 0; transform: translateX(-24px) scale(0.992); } }
 
 ::view-transition-group(astra-art) {
   z-index: 210;
