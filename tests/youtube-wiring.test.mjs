@@ -8,7 +8,9 @@ import { readFile } from "node:fs/promises";
  * same player, the same progress. These check the seams, in the shipped file.
  */
 
-const html = await readFile("index.html", "utf8");
+const shell = await readFile("index.html", "utf8");
+const appSource = await readFile("assets/js/app.js", "utf8");
+const html = `${shell}\n${appSource}`;
 const css = await readFile("assets/css/obsidian.css", "utf8");
 
 const region = (pattern) => {
@@ -19,11 +21,11 @@ const region = (pattern) => {
 
 test("the provider modules ship and load before the app that uses them", () => {
   const order = ["config", "instances", "api", "playback"].map(
-    (name) => html.indexOf(`assets/js/youtube/${name}.js`)
+    (name) => shell.indexOf(`assets/js/youtube/${name}.js`)
   );
   assert.equal(order.every((at) => at > 0), true, "every module is loaded");
   assert.deepEqual(order.slice().sort((a, b) => a - b), order, "in dependency order");
-  assert.ok(order[0] > html.indexOf("assets/js/playback/streams.js"),
+  assert.ok(order[0] > shell.indexOf("assets/js/playback/streams.js"),
     "the planner asks the shared stream module for the browser's capabilities");
 });
 

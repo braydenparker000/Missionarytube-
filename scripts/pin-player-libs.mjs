@@ -1,10 +1,10 @@
 /**
- * Recompute the pinned player-library integrity hashes in index.html.
+ * Recompute the pinned player-library integrity hashes in assets/js/app.js.
  *
  * The DASH and HLS runtimes are loaded from jsDelivr, which serves npm package
  * files byte for byte, so the subresource integrity hash can be derived from
  * the registry tarball. Run this (it needs network access) when bumping a
- * version, then commit the updated index.html:
+ * version, then commit the updated application source:
  *
  *   node scripts/pin-player-libs.mjs
  *   node scripts/pin-player-libs.mjs --check   # verify without writing
@@ -43,7 +43,7 @@ async function tarballEntry(pkg, version, file) {
   return Buffer.concat(chunks);
 }
 
-let html = await readFile("index.html", "utf8");
+let app = await readFile("assets/js/app.js", "utf8");
 let changed = 0;
 
 for (const lib of LIBS) {
@@ -51,16 +51,16 @@ for (const lib of LIBS) {
   const integrity = `sha384-${createHash("sha384").update(bytes).digest("base64")}`;
   const src = `https://cdn.jsdelivr.net/npm/${lib.package}@${lib.version}/${lib.file}`;
   const pattern = new RegExp(`src:'${src.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}',integrity:'(sha384-[^']+)'`);
-  const match = html.match(pattern);
+  const match = app.match(pattern);
 
-  if (!match) throw new Error(`index.html does not pin ${src}`);
+  if (!match) throw new Error(`assets/js/app.js does not pin ${src}`);
   if (match[1] === integrity) {
     console.log(`ok    ${lib.package}@${lib.version} (${bytes.length} bytes) ${integrity}`);
     continue;
   }
   console.log(`stale ${lib.package}@${lib.version} expected ${integrity}, found ${match[1]}`);
   changed += 1;
-  html = html.replace(pattern, `src:'${src}',integrity:'${integrity}'`);
+  app = app.replace(pattern, `src:'${src}',integrity:'${integrity}'`);
 }
 
 if (!changed) process.exit(0);
@@ -68,5 +68,5 @@ if (checkOnly) {
   console.error(`${changed} integrity hash(es) are out of date.`);
   process.exit(1);
 }
-await writeFile("index.html", html);
-console.log(`Updated ${changed} integrity hash(es) in index.html.`);
+await writeFile("assets/js/app.js", app);
+console.log(`Updated ${changed} integrity hash(es) in assets/js/app.js.`);

@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, rm } from "node:fs/promises";
+import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { build } from "esbuild";
 
@@ -38,6 +38,21 @@ await build({
   legalComments: "inline",
   banner: { js: "/*! Astra Motion · GSAP 3.15.0 · https://gsap.com/licensing/ */" }
 });
+
+// The release meta value is Astra's single version source. Source files keep a
+// readable placeholder; the production build gives every local asset the same
+// cache key and refuses to ship an unresolved or malformed release.
+const htmlPath = new URL("../dist/index.html", import.meta.url);
+const sourceHtml = await readFile(htmlPath, "utf8");
+const release = sourceHtml.match(/<meta name="astra-release" content="([^"]+)">/)?.[1];
+if (!release || !/^\d+\.\d+\.\d+$/.test(release)) {
+  throw new Error("Build failed: astra-release must be a semantic version.");
+}
+const builtHtml = sourceHtml.replaceAll("__ASTRA_VERSION__", release);
+if (builtHtml.includes("__ASTRA_VERSION__")) {
+  throw new Error("Build failed: an Astra release placeholder was not resolved.");
+}
+await writeFile(htmlPath, builtHtml);
 
 const builtFiles = await readdir(output);
 if (!builtFiles.includes("index.html")) {

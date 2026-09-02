@@ -6,6 +6,7 @@ const requiredFiles = [
   "index.html",
   "assets/css/obsidian.css",
   "assets/js/app.js",
+  "assets/js/bootstrap.js",
   "assets/js/progress-store.js",
   "assets/js/catalog-registry.js",
   "assets/js/discovery-health.js",

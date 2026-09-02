@@ -2,18 +2,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const html = await readFile("index.html", "utf8");
+const shell = await readFile("index.html", "utf8");
+const appSource = await readFile("assets/js/app.js", "utf8");
+const html = `${shell}\n${appSource}`;
 // The design system moved out of the inline <style> into a reviewable, cacheable
 // stylesheet. The guarantees the player chrome depends on are asserted against
 // that file now; they are the same guarantees, in the same terms.
 const css = await readFile("assets/css/obsidian.css", "utf8");
 
-test("the app loads the progress store before its own script", () => {
-  const module = html.indexOf('<script src="assets/js/progress-store.js"></script>');
-  const app = html.indexOf("<script>\n  (()=>{'use strict';");
+test("the external app loads after the progress store", () => {
+  const module = shell.indexOf('src="assets/js/progress-store.js?v=__ASTRA_VERSION__"');
+  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
   assert.ok(module > -1, "progress-store.js must be loaded");
   assert.ok(app > module, "the app script must run after the store is defined");
-  assert.match(html, /const progress=AstraProgress\.createProgressStore\(/);
+  assert.equal(/<script>\s*\(\(\)=>\{'use strict';/.test(shell), false, "application code must not remain inline");
+  assert.match(appSource, /const progress=AstraProgress\.createProgressStore\(/);
 });
 
 test("no progress write embeds add-on metadata any more", () => {
@@ -65,15 +68,15 @@ test("backups round-trip the normalized progress shape", () => {
 /* ---- Playback Engine v2 wiring ---------------------------------------- */
 
 test("every playback module is loaded before the app script", () => {
-  const app = html.indexOf("<script>\n  (()=>{'use strict';");
+  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
   for (const name of ["settings", "streams", "adapters", "engine", "episodes", "subtitles"]) {
-    const at = html.indexOf(`<script src="assets/js/playback/${name}.js"></script>`);
+    const at = shell.indexOf(`src="assets/js/playback/${name}.js?v=__ASTRA_VERSION__"`);
     assert.ok(at > -1, `${name}.js is not loaded`);
     assert.ok(at < app, `${name}.js must load before the app script`);
   }
   // settings.js is read by streams.js for the resolution ceiling.
   assert.ok(
-    html.indexOf('playback/settings.js') < html.indexOf('playback/streams.js'),
+    shell.indexOf('playback/settings.js') < shell.indexOf('playback/streams.js'),
     "settings must load before streams"
   );
 });

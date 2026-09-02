@@ -4,7 +4,9 @@ import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 
 const source = await readFile("assets/js/discovery-health.js", "utf8");
-const html = await readFile("index.html", "utf8");
+const shell = await readFile("index.html", "utf8");
+const appSource = await readFile("assets/js/app.js", "utf8");
+const html = `${shell}\n${appSource}`;
 const css = await readFile("assets/css/obsidian.css", "utf8");
 const context = { console };
 vm.runInNewContext(source, context, { filename: "discovery-health.js" });
@@ -127,7 +129,7 @@ test("Surprise Me deduplicates identity, respects filters, and excludes future r
 });
 
 test("the app exposes both features as focused mobile surfaces", () => {
-  assert.match(html, /<script src="assets\/js\/discovery-health\.js"><\/script>/);
+  assert.match(shell, /<script src="assets\/js\/discovery-health\.js\?v=__ASTRA_VERSION__"><\/script>/);
   assert.match(html, /<h2>The Briefing<\/h2>/);
   assert.match(html, /data-briefing-mode="one"/);
   assert.match(html, /data-briefing-mode="three"/);
