@@ -1,6 +1,6 @@
 # Astra product direction and execution plan
 
-Status: approved direction, implementation in progress  
+Status: shipped through Astra 0.25.5; physical Galaxy A15 feel-check pending
 Product thesis: **Astra is a private media observatory** — a quiet, artwork-led place to decide what to watch or hear, understand why it is available, and begin playback without surrendering personal data or control.
 
 ## 1. Quality bar
@@ -253,3 +253,42 @@ Production acceptance:
 ## 6. Release decision rule
 
 A stage merges only when it is more capable or smoother in the tested journey without becoming less truthful, less private, or harder to recover. New visual ambition does not excuse a missed interaction, accessibility, or lifecycle budget.
+
+## 7. Execution record
+
+The program shipped as focused, squash-merged pull requests from fresh `main`:
+
+- #29 — application entry and release ownership;
+- #30 — bounded route and catalog rendering;
+- #31 — Private Observatory Home;
+- #32 — evidence-based universal Search;
+- #33 — Library and playback continuity;
+- #34 — interaction and accessibility budgets;
+- #35–#39 — production-acceptance fixes for delayed snapshot commits, input ownership, hit testing, and synchronous route ownership.
+
+Final automated acceptance: 385 tests, production build, dependency-integrity checks, JavaScript syntax checks, and diff checks passed. Azure deployed Astra 0.25.5 successfully.
+
+Production-browser observations:
+
+| Gate | Result |
+| --- | --- |
+| Initial Home | 54 media cards; 829 elements on a fresh profile |
+| Seeded continuity profile | 54 media cards; 846 total elements |
+| Search intent | Movie, Drama, and Under 2 hr chips visible and independently removable |
+| Search footprint | 217 total elements during the tested query; settled horizontal overflow 0 px |
+| Route ownership | Five immediate route actions ended on the final requested Home route; Search and Library roots were empty |
+| Focus return | Closing a keyboard-opened dossier returned focus to the exact Library card |
+| Dossier truth | Saved activity appeared only for a genuinely saved title; story preceded episode controls |
+
+The remaining manual gate is the feel-check on the physical Galaxy A15: cold load, rapid navigation, rail scrolling, typing, source-sheet handling, and Player V3 close/recovery. A synthetic browser cannot certify thermal behavior, touch latency, or decoder behavior on that hardware.
+
+## 8. Research basis
+
+The direction combines platform guidance and proven product patterns rather than copying one competitor:
+
+- Apple Human Interface Guidelines on tab bars for persistent, predictable primary navigation;
+- Material Design 3 motion and carousel guidance for continuity and bounded horizontal browsing;
+- Chrome web-performance guidance on Interaction to Next Paint, animation, and content visibility for the measurable response, motion, and DOM budgets;
+- Chrome View Transition guidance for scoped artwork continuity, tempered by Astra's production finding that full-page snapshots should not own route state;
+- Ink & Switch's local-first software principles for device-owned Library and progress data;
+- Netflix's TV-experience redesign as evidence for simpler, more legible decision surfaces on constrained viewing devices.
