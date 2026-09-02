@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { buildMedia, ffmpegAvailable } from "./media.mjs";
-import { startInvidious, startGoogle, startAddon, startApp, stopAll } from "./servers.mjs";
+import { startInvidious, startPiped, startGoogle, startAddon, startApp, stopAll } from "./servers.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
@@ -183,10 +183,12 @@ async function main() {
   // a public fallback. Failover is proved by breaking the first.
   const primary = await startInvidious({ media, googleOrigin: google.origin, name: "primary" });
   const fallback = await startInvidious({ media, googleOrigin: google.origin, name: "fallback" });
+  // The pool the app actually ships on is Piped-first, so it gets its own leg.
+  const piped = await startPiped({ media, name: "piped" });
   const addon = await startAddon({ media });
   const libRoot = process.env.PLAYER_LIB_ROOT || join(workDir, "libs");
   const app = await startApp({ root, libs: {} });
-  const servers = [google, primary, fallback, addon, app];
+  const servers = [google, primary, fallback, piped, addon, app];
 
   const browser = await playwright.chromium.launch({
     executablePath,
@@ -227,7 +229,13 @@ async function main() {
         if (!localStorage.getItem("astra.v1.youtube")) {
           localStorage.setItem(
             "astra.v1.youtube",
-            JSON.stringify({ enabled: true, privateInvidiousUrl: primaryOrigin, preferAdaptive: true, maxHeight: 1080 })
+            JSON.stringify({
+              enabled: true,
+              privateInstanceUrl: primaryOrigin,
+              privateInstanceApi: "invidious",
+              preferAdaptive: true,
+              maxHeight: 1080
+            })
           );
         }
       },
@@ -255,12 +263,16 @@ async function main() {
       { timeout: 15000 }
     );
     const art = await page.$$eval("#youtubeBrowse .yt-art img", (nodes) =>
-      nodes.map((img) => ({ w: img.naturalWidth, h: img.naturalHeight }))
+      nodes.map((img) => ({ w: img.naturalWidth, h: img.naturalHeight, failed: img.complete && img.naturalWidth === 0 }))
     );
+    const decoded = art.filter((entry) => entry.w > 0 && entry.h > 0);
     check(
       "4. thumbnails render",
-      art.length > 0 && art.every((entry) => entry.w > 0 && entry.h > 0),
-      `${art.length} images decoded, first ${art[0]?.w}x${art[0]?.h}`
+      // Cards off the bottom of the phone are lazy-loaded and correctly have
+      // no bitmap yet, so what is checked is that the visible ones decoded and
+      // that none of them failed outright.
+      decoded.length > 0 && art.every((entry) => !entry.failed),
+      `${decoded.length} of ${art.length} decoded (rest are lazy), first ${decoded[0]?.w}x${decoded[0]?.h}`
     );
 
     /* 3 — search returns results */
@@ -501,33 +513,96 @@ async function main() {
     );
     await closePlayer(page);
 
+    /* The Piped path: the protocol the shipped default pool is made of. */
+    step("piped");
+    async function usePool(entries, extra = {}) {
+      await page.evaluate(
+        ([pool, settings]) => {
+          localStorage.setItem("astra.v1.youtube", JSON.stringify({
+            enabled: true, privateInstanceUrl: "", preferAdaptive: false, maxHeight: 1080, ...settings
+          }));
+          window.__benchPool = pool;
+        },
+        [entries, extra]
+      );
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForSelector("#mobileNav .dock-btn", { timeout: 15000 });
+      // The pool is code rather than storage, so it is injected the only way a
+      // browser check can: by rewriting the defaults the provider resolves from.
+      await page.evaluate((pool) => {
+        window.AstraYouTube.config.DEFAULTS.publicFallbackInstances = pool;
+      }, entries);
+    }
+
+    await usePool([{ url: piped.origin, api: "piped" }]);
+    const pipedBefore = piped.requests.length;
+    const pipedState = await playByTitle(page, "Short Clip", {
+      screenshot: join(workDir, "evidence", "08-piped-playing.png")
+    });
+    await page.waitForTimeout(1200);
+    const pipedAudio = await page.evaluate(MEDIA_STATE);
+    const pipedPaths = piped.requests.slice(pipedBefore).map((entry) => entry.path);
+    check(
+      "Piped resolves and plays, with audio",
+      pipedState.currentTime > 0.4 && !pipedState.paused &&
+        Number(pipedAudio.webkitAudioDecodedByteCount) > 0 &&
+        pipedPaths.some((path) => path.startsWith("/search")) &&
+        pipedPaths.some((path) => path.startsWith("/streams/")),
+      `${pipedAudio.webkitAudioDecodedByteCount} audio bytes at ${pipedState.currentTime.toFixed(2)}s, ` +
+        `via ${[...new Set(pipedPaths.map((p) => p.split("/")[1]))].join(", ")}`
+    );
+    check(
+      "a Piped stream is served by the instance, so it carries CORS",
+      pipedState.src.startsWith(piped.origin),
+      pipedState.src.slice(0, 60)
+    );
+    await closePlayer(page);
+
+    /* A mixed pool is the shipped arrangement: Piped leads, Invidious trails.
+       One logical request has to be able to cross that boundary. */
+    step("mixed pool");
+    piped.state.mode = "down";
+    await usePool([
+      { url: piped.origin, api: "piped" },
+      { url: primary.origin, api: "invidious" }
+    ]);
+    const crossed = await playByTitle(page, "Music Video", {
+      screenshot: join(workDir, "evidence", "09-mixed-pool.png")
+    });
+    check(
+      "a dead Piped instance is answered by an Invidious one",
+      crossed.currentTime > 0.4 && !crossed.paused,
+      `playing at ${crossed.currentTime.toFixed(2)}s after crossing protocols`
+    );
+    piped.state.mode = "ok";
+    await closePlayer(page);
+
     /* 12 and 13 — failover, with the configured instance genuinely dead */
     step("failover");
     primary.state.mode = "down";
     await page.evaluate(
-      ([primaryOrigin, fallbackOrigin]) => {
+      (primaryOrigin) => {
         localStorage.setItem(
           "astra.v1.youtube",
           JSON.stringify({
             enabled: true,
-            privateInvidiousUrl: primaryOrigin,
+            privateInstanceUrl: primaryOrigin,
+            privateInstanceApi: "invidious",
             preferAdaptive: true,
             maxHeight: 1080
           })
         );
-        // The public fallback list is code, not storage, so it is injected the
-        // only way a browser check can: by re-resolving the provider against a
-        // configuration that names it.
-        window.__benchFallback = fallbackOrigin;
       },
-      [primary.origin, fallback.origin]
+      primary.origin
     );
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector("#mobileNav .dock-btn", { timeout: 15000 });
     await page.evaluate((fallbackOrigin) => {
-      // Point the fallback list at the second mock instance for this check.
-      const YT = window.AstraYouTube;
-      YT.config.DEFAULTS.publicFallbackInstances = [fallbackOrigin];
+      // The fallback list is code, not storage, so it is injected the only way
+      // a browser check can: by rewriting the defaults the provider resolves.
+      window.AstraYouTube.config.DEFAULTS.publicFallbackInstances = [
+        { url: fallbackOrigin, api: "invidious" }
+      ];
     }, fallback.origin);
 
     const before = { primary: primary.requests.length, fallback: fallback.requests.length };
@@ -551,6 +626,12 @@ async function main() {
     /* a signed URL that will not play falls through to the proxied route */
     step("recovery");
     google.state.mode = "forbidden";
+    await page.evaluate((primaryOrigin) => {
+      localStorage.setItem("astra.v1.youtube", JSON.stringify({
+        enabled: true, privateInstanceUrl: primaryOrigin, privateInstanceApi: "invidious",
+        preferAdaptive: false, maxHeight: 1080
+      }));
+    }, primary.origin);
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector("#mobileNav .dock-btn", { timeout: 15000 });
     const recovered = await playByTitle(page, "Music Video", {

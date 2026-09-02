@@ -980,9 +980,9 @@
         const manager=YT.instances.createManager({config,instances:YT.config.instanceList(config),fetch:(url,init)=>fetch(url,init)});
         youtube.config=config;youtube.manager=manager;
         youtube.client=YT.api.createClient({manager,config});
-        // Fill in health for the servers we have not used yet, beside the work
-        // rather than in front of it: nothing here is awaited.
-        manager.probe().catch(()=>{});
+        // No startup sweep. The pool is other people's servers, and the health
+        // machinery learns what it needs from the requests the viewer actually
+        // makes. A full probe only runs when Settings asks for one.
       }
       return youtube;
     }
@@ -1097,7 +1097,7 @@
       const stale=()=>player.lookup!==lookup||lookup.token!==state.searchToken||!state.currentMeta
         ||mediaKey(state.currentMeta)!==lookup.mediaKey||!root.isConnected||!root.children.length;
       document.body.classList.add('source-picker-open');
-      root.innerHTML=streamDrawerHTML('<div class="source-loading"><span class="spinner"></span><span>Resolving through Invidious…</span></div>');
+      root.innerHTML=streamDrawerHTML('<div class="source-loading"><span class="spinner"></span><span>Resolving the stream…</span></div>');
       bindDynamic(root);
       const fail=(title,text,retry=true)=>{
         if(stale())return[];
@@ -1148,7 +1148,7 @@
       if(!YT.api.isVideoId(videoId))return toast('That add-on returned an unusable YouTube id.','bad');
       if(!youtubeEnabled())return toast('Turn YouTube on in Settings to play this source.','bad');
       const m=state.currentMeta,v=state.currentVideo||m;
-      toast('Resolving through Invidious…');
+      toast('Resolving the stream…');
       try{
         const record=await youtubeProvider().client.video(videoId);
         const plan=YT.playback.buildPlan(record,{config:youtubeConfig(),instance:record.instance,capabilities:YT.playback.browserCapabilities(window)});
@@ -1974,14 +1974,14 @@
       const stored=youtubeStored();
       if(stored.enabled===false)return 'Turned off';
       const config=YT.config.resolve(stored);
-      return `${config.privateInvidiousUrl?'Your Invidious server':`${config.publicFallbackInstances.length} public fallbacks`} · ${config.preferAdaptive?`adaptive to ${config.maxHeight}p`:'progressive only'}`;
+      return `${config.privateInstanceUrl?'Your own server':`${config.publicFallbackInstances.length} public servers`} · ${config.preferAdaptive?`adaptive to ${config.maxHeight}p`:'progressive only'}`;
     }
     const YOUTUBE_STATE_COPY={healthy:['Ready','ready'],unknown:['Not checked','unknown'],unhealthy:['Resting','offline']};
     function youtubeInstanceRowHTML(entry){
       const copy=YOUTUBE_STATE_COPY[entry.state]||YOUTUBE_STATE_COPY.unknown;
       const host=(()=>{try{return new URL(entry.url).host}catch{return entry.url}})();
       const facts=[
-        entry.kind==='private'?'Your server':'Public fallback',
+        (entry.api==='piped'?'Piped':'Invidious')+(entry.kind==='private'?' · your server':''),
         entry.state==='healthy'&&entry.latency?latencyText(entry.latency):'',
         entry.state==='unhealthy'&&entry.cooldownMs?`rests for ${Math.ceil(entry.cooldownMs/1000)}s`:'',
         entry.state==='unhealthy'&&entry.lastError?YT.instances.describeFailure(entry.lastError):''
@@ -1996,20 +1996,21 @@
       const snapshot=stored.enabled!==false?youtubeProvider().manager.snapshot():{instances:YT.config.instanceList(config).map(x=>({...x,state:'unknown',latency:0,cooldownMs:0,lastError:''})),preferred:''};
       const usingPrivate=!!config.privateInvidiousUrl;
       root.innerHTML=`${screenHead('YouTube')}
-        <p class="screen-lede">Astra plays YouTube through Invidious. There is no YouTube embed: the API returns real stream URLs and Player V3 plays them like any other source.</p>
+        <p class="screen-lede">Astra plays YouTube through Piped and Invidious servers. There is no YouTube embed: the API returns real stream URLs and Player V3 plays them like any other source.</p>
         <div class="settings-group">
           <div class="switch-row"><div><b>YouTube provider</b><span>Search, browse and play YouTube inside Astra.</span></div>
             <button class="switch ${stored.enabled!==false?'on':''}" data-youtube-toggle="enabled" aria-label="YouTube provider" aria-pressed="${stored.enabled!==false}"><i></i></button></div>
         </div>
         <div class="settings-group">
           <form class="field" id="youtubeInstanceForm">
-            <label for="youtubeInstance">Your Invidious server</label>
+            <label for="youtubeInstance">Your own server</label>
             <div class="input-action">
               <input class="text-input" id="youtubeInstance" type="url" inputmode="url" autocomplete="off" spellcheck="false"
-                placeholder="https://invidious.example.org" value="${esc(config.privateInvidiousUrl)}">
+                placeholder="https://piped.example.org" value="${esc(config.privateInstanceUrl)}">
+              <select class="select" id="youtubeInstanceApi" aria-label="Server type">${YT.config.PROTOCOLS.map(name=>`<option value="${name}" ${config.privateInstanceApi===name?'selected':''}>${name==='piped'?'Piped':'Invidious'}</option>`).join('')}</select>
               <button class="btn btn-primary" type="submit">Save</button>
             </div>
-            <small>Stored in this browser only. Leave it empty to use the public fallbacks. See <code>deploy/invidious</code> for the server this expects.</small>
+            <small>Stored in this browser only. Leave it empty to use the public pool below, which is what Astra runs on today.</small>
           </form>
           <div class="switch-row"><div><b>Adaptive quality</b><span>Use DASH for 720p and above. Adaptive streams have to be fetched through your server, so this is off unless one is set.</span></div>
             <button class="switch ${config.preferAdaptive?'on':''}" data-youtube-toggle="preferAdaptive" aria-label="Adaptive quality" aria-pressed="${config.preferAdaptive}" ${usingPrivate?'':'disabled'}><i></i></button></div>
@@ -2029,10 +2030,11 @@
       if(form)form.onsubmit=event=>{
         event.preventDefault();
         const input=$('#youtubeInstance',root),value=input.value.trim();
+        const api=$('#youtubeInstanceApi',root)?.value||'piped';
         const problem=value?YT.config.describeInstanceProblem(value):'';
         if(problem)return toast(problem,'bad');
-        const next=youtubeApply({privateInvidiousUrl:value,preferAdaptive:value?true:false});
-        toast(next.privateInvidiousUrl?'Saved. Astra will use your server first.':'Cleared. Astra will use the public fallbacks.','good');
+        const next=youtubeApply({privateInstanceUrl:value,privateInstanceApi:api,preferAdaptive:value?true:false});
+        toast(next.privateInstanceUrl?'Saved. Astra will use your server first.':'Cleared. Astra will use the public pool.','good');
         renderYouTubeSettings();
       };
     }

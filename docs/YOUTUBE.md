@@ -59,18 +59,49 @@ video codec *and* an audio format exists that it can decode too — advertising
 - A progressive height is a different file, so it reloads — and the playhead is
   carried across explicitly rather than restarting.
 
+## Two backends, because availability is the whole game
+
+The provider speaks two protocols:
+
+- **Piped** leads. Its own frontend is a separate-origin static app, so its API
+  is CORS-enabled by design — which is exactly what a static site on Azure
+  Storage needs. Its stream URLs come back already proxied by the instance, so
+  they carry CORS and are not bound to the address that resolved them.
+- **Invidious** trails, as a last resort.
+
+This is not a preference. It is what measurably answers: of eleven public
+instances probed from the target device in September 2026, exactly one played
+a video, and it was a Piped one. The pool is Piped-first for that reason.
+
+A Piped response is normalized into the *same* internal record as an Invidious
+one, so nothing downstream — the playback plan, the quality ladder, the picker,
+the player, progress — knows there are two backends. One logical request can
+even cross the boundary: a dead Piped instance is answered by an Invidious one
+without the caller noticing.
+
+The shape differences are all load-bearing and all handled: Piped names a video
+by a watch path rather than an id, reports upload time in milliseconds, returns
+the description as HTML, and splits a format's MIME type and codec into two
+fields.
+
 ## Instances
 
 Configuration lives in one file, [`assets/js/youtube/config.js`](../assets/js/youtube/config.js):
 
 | Value | Meaning |
 | --- | --- |
-| `privateInvidiousUrl` | Our own server. Ships empty; set in Settings → YouTube. |
-| `publicFallbackInstances` | Three public instances, used only as fallbacks. |
+| `privateInstanceUrl` | Our own server, if there ever is one. Ships empty; set in Settings → YouTube. |
+| `privateInstanceApi` | Which protocol that server speaks. |
+| `publicFallbackInstances` | The public pool: nine Piped instances, then three Invidious. |
 | `requestTimeout` | How long any one request may take. Default 9s. |
 | `instanceCooldown` | How long a failing instance is rested. Default 120s. |
 
 No instance host appears anywhere else in the codebase.
+
+**These are volunteers' servers.** The app asks them for a few kilobytes of
+JSON per search and nothing else, rests any that fail rather than retrying at
+them, and never sweeps the pool on startup — a full probe only runs when
+Settings → YouTube → Test servers asks for one.
 
 The instance manager treats "which server answers" as its own problem:
 
@@ -83,12 +114,25 @@ The instance manager treats "which server answers" as its own problem:
   not re-raced on every keystroke;
 - the private instance takes the work back as soon as it is healthy again,
   because the public ones are fallbacks and nothing else;
-- availability probing runs *beside* the first real request, never in front of
-  it, so nothing in the UI waits on a sweep.
+- an instance whose protocol cannot serve a request is skipped rather than
+  counted against the attempt budget;
+- nothing is probed unasked, so the pool is not swept on every cold start.
 
 A video that is genuinely unavailable — removed, private, age restricted — is
 recognised as the video's problem, not the server's, so it is reported rather
 than retried across every instance in the list.
+
+## If a public instance is not enough
+
+Everything above runs on servers we do not control, and they come and go. The
+honest ceiling of the free arrangement is: it works while at least one instance
+in the pool works. Settings → YouTube shows which ones do, and **Test servers**
+re-checks them all.
+
+When one stops working the app does not break — it rests that instance, moves
+to the next, and if every one fails it says
+*"YouTube playback is temporarily unavailable"* rather than showing a dead
+player. Adding a new instance is one line in `config.js`.
 
 ## Setting up your own instance
 
@@ -123,7 +167,8 @@ differences are the point:
 
 | Server | Stands in for | Sends CORS headers? |
 | --- | --- | --- |
-| invidious | the API and the compatibility proxy | yes |
+| piped | a Piped instance, proxying its own streams | yes |
+| invidious | an Invidious instance and its compatibility proxy | yes |
 | google | the direct progressive host | **no** |
 | addon | a Stremio add-on | yes |
 | app | the site itself | n/a |
@@ -132,8 +177,10 @@ The CORS-less media host is not an oversight: it is how the check proves that
 direct progressive playback works with nothing in between, and that adaptive
 playback genuinely needs the proxy.
 
-Twenty-one checks run, including instance failover with the configured server
-genuinely refusing every request, and a signed URL genuinely returning 403.
+Twenty-four checks run, including the Piped path end to end, a mixed pool where
+a dead Piped instance is answered by an Invidious one, instance failover with
+the configured server genuinely refusing every request, and a signed URL
+genuinely returning 403.
 
 Two honest caveats:
 

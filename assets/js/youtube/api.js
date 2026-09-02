@@ -338,6 +338,227 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Piped
+   *
+   * A second protocol, normalized into exactly the records above. Piped is
+   * what a browser-only static site can actually use: its own frontend is a
+   * separate-origin static app, so the API is CORS-enabled by design, and the
+   * stream URLs it returns are already proxied by the instance - which means
+   * they carry CORS headers and are not bound to the address that resolved
+   * them.
+   *
+   * Because the output shape is identical, everything downstream - the
+   * playback plan, the quality ladder, the picker, the player - is untouched
+   * by the existence of a second backend.
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Piped returns a video description as HTML. Astra draws descriptions as
+   * text, so the markup is removed rather than escaped: a viewer should see
+   * the paragraph, not the tags that were around it.
+   */
+  function stripHtml(value) {
+    var text = str(value, 20000)
+      .replace(/<br\s*\/?>/gi, "\n")
+      // Both ends of a paragraph are a break, or two paragraphs run together.
+      .replace(/<\/?p[^>]*>/gi, "\n\n")
+      .replace(/<[^>]*>/g, "");
+    var entities = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", "#39": "'", nbsp: " " };
+    return plain(
+      text
+        .replace(/&(#?[a-z0-9]+);/gi, function (match, name) {
+          var key = String(name).toLowerCase();
+          if (entities[key] !== undefined) return entities[key];
+          var code = /^#(\d+)$/.exec(key);
+          return code ? String.fromCharCode(Number(code[1])) : match;
+        })
+        .replace(/\n{3,}/g, "\n\n"),
+      5000
+    );
+  }
+
+  /** Piped names a video by its watch path rather than by a bare id. */
+  function videoIdFromPipedUrl(value) {
+    var raw = str(value, 300);
+    var match = /[?&]v=([A-Za-z0-9_-]{11})\b/.exec(raw) || /^\/?([A-Za-z0-9_-]{11})$/.exec(raw);
+    return match && isVideoId(match[1]) ? match[1] : "";
+  }
+
+  function pipedChannelId(value) {
+    var match = /\/channel\/([A-Za-z0-9_-]{2,64})/.exec(str(value, 200));
+    return match ? match[1] : "";
+  }
+
+  function normalizePipedVideo(raw, instance) {
+    if (!raw || typeof raw !== "object") return null;
+    var videoId = videoIdFromPipedUrl(raw.url) || str(raw.videoId, 20);
+    if (!isVideoId(videoId)) return null;
+    var thumbnail = imageUrl(raw.thumbnail || raw.thumbnailUrl, instance) || thumbnailFallback(videoId, instance);
+    // Piped reports upload time in milliseconds; the record keeps seconds.
+    var uploaded = count(raw.uploaded);
+    return {
+      kind: "video",
+      videoId: videoId,
+      key: contentKey(videoId),
+      title: plain(raw.title || raw.name, 300) || "Untitled video",
+      author: plain(raw.uploaderName || raw.uploader, 120),
+      authorId: pipedChannelId(raw.uploaderUrl),
+      description: stripHtml(raw.shortDescription || raw.description),
+      lengthSeconds: seconds(raw.duration),
+      viewCount: count(raw.views),
+      published: uploaded > 1e11 ? Math.floor(uploaded / 1000) : uploaded,
+      publishedText: plain(raw.uploadedDate || raw.uploadDate, 60),
+      live: raw.livestream === true || seconds(raw.duration) === 0,
+      upcoming: raw.isUpcoming === true,
+      thumbnail: thumbnail,
+      poster: thumbnail
+    };
+  }
+
+  function normalizePipedChannel(raw, instance) {
+    if (!raw || typeof raw !== "object") return null;
+    var authorId = pipedChannelId(raw.url) || str(raw.id, 64);
+    if (!CHANNEL_ID.test(authorId)) return null;
+    return {
+      kind: "channel",
+      authorId: authorId,
+      key: "youtube-channel:" + authorId,
+      title: plain(raw.name || raw.uploaderName, 120) || "Channel",
+      description: stripHtml(raw.description),
+      subscribers: count(raw.subscribers),
+      videoCount: count(raw.videos),
+      thumbnail: imageUrl(raw.thumbnail || raw.avatarUrl, instance)
+    };
+  }
+
+  function normalizePipedPlaylist(raw, instance) {
+    if (!raw || typeof raw !== "object") return null;
+    var match = /[?&]list=([A-Za-z0-9_-]{2,64})/.exec(str(raw.url, 200));
+    var playlistId = match ? match[1] : str(raw.id, 64);
+    if (!PLAYLIST_ID.test(playlistId)) return null;
+    return {
+      kind: "playlist",
+      playlistId: playlistId,
+      key: "youtube-playlist:" + playlistId,
+      title: plain(raw.name || raw.title, 300) || "Playlist",
+      author: plain(raw.uploaderName, 120),
+      videoCount: count(raw.videos),
+      thumbnail: imageUrl(raw.thumbnail, instance),
+      videos: []
+    };
+  }
+
+  function normalizePipedResult(raw, instance) {
+    if (!raw || typeof raw !== "object") return null;
+    var type = str(raw.type, 20);
+    if (type === "channel") return normalizePipedChannel(raw, instance);
+    if (type === "playlist") return normalizePipedPlaylist(raw, instance);
+    return normalizePipedVideo(raw, instance);
+  }
+
+  /**
+   * Piped splits what Invidious puts in one `type` string: a MIME type in
+   * `mimeType` and a codec in `codec`. The codec is only appended when it is
+   * actually present, because a bare container type is what makes Chrome
+   * answer "maybe" instead of refusing outright.
+   */
+  function normalizePipedFormat(raw, adaptive) {
+    if (!raw || typeof raw !== "object") return null;
+    var url = mediaUrl(raw.url);
+    if (!url) return null;
+    var mime = plain(raw.mimeType, 60).split(";")[0].trim().toLowerCase();
+    if (!/^(?:video|audio)\//.test(mime)) return null;
+    var codecs = plain(raw.codec, 120);
+    var quality = plain(raw.quality, 20);
+    var heightMatch = /(\d{3,4})p/.exec(quality);
+    var height = count(raw.height) || (heightMatch ? Number(heightMatch[1]) : 0);
+    var audioOnly = mime.indexOf("audio/") === 0;
+    return {
+      itag: str(raw.itag, 10),
+      url: url,
+      mime: mime,
+      codecs: codecs,
+      contentType: codecs ? mime + '; codecs="' + codecs + '"' : mime,
+      container: plain(raw.format, 20).toLowerCase().indexOf("webm") !== -1 ? "webm" : mime.split("/")[1] || "",
+      quality: quality,
+      height: audioOnly ? 0 : height,
+      fps: count(raw.fps),
+      bitrate: count(raw.bitrate),
+      clen: count(raw.contentLength),
+      audioQuality: plain(raw.audioTrackName, 40),
+      audioChannels: 0,
+      adaptive: !!adaptive,
+      audioOnly: audioOnly,
+      videoOnly: !!adaptive && !audioOnly
+    };
+  }
+
+  function normalizePipedCaptions(list, instance) {
+    return (Array.isArray(list) ? list : [])
+      .map(function (item) {
+        if (!item || typeof item !== "object") return null;
+        var url = instanceUrl(item.url, instance);
+        if (!url) return null;
+        var lang = plain(item.code, 20);
+        return {
+          url: url,
+          lang: lang,
+          label: plain(item.name, 120) || lang || "Captions"
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 24);
+  }
+
+  /**
+   * The full Piped video record. `/streams` does not echo the id back, so the
+   * caller's id is what identifies it.
+   */
+  function normalizePipedDetail(raw, instance, videoId) {
+    if (!raw || typeof raw !== "object" || !isVideoId(videoId)) return null;
+    var base = normalizePipedVideo({ url: "?v=" + videoId, videoId: videoId }, instance);
+    if (!base) return null;
+
+    var video = Array.isArray(raw.videoStreams) ? raw.videoStreams : [];
+    var audio = Array.isArray(raw.audioStreams) ? raw.audioStreams : [];
+
+    base.title = plain(raw.title, 300) || "Untitled video";
+    base.author = plain(raw.uploader, 120);
+    base.authorId = pipedChannelId(raw.uploaderUrl);
+    base.description = stripHtml(raw.description);
+    base.lengthSeconds = seconds(raw.duration);
+    base.viewCount = count(raw.views);
+    base.publishedText = plain(raw.uploadDate, 60);
+    base.live = raw.livestream === true;
+    base.thumbnail = imageUrl(raw.thumbnailUrl, instance) || base.thumbnail;
+    base.poster = base.thumbnail;
+    base.instance = instance;
+    base.likeCount = count(raw.likes);
+    base.subCountText = "";
+    base.genre = plain(raw.category, 60);
+    base.dashUrl = instanceUrl(raw.dash, instance);
+    base.hlsUrl = instanceUrl(raw.hls, instance);
+    // A muxed entry is the one thing a plain <video src> can play on its own.
+    base.formatStreams = video
+      .filter(function (item) { return item && item.videoOnly === false; })
+      .map(function (item) { return normalizePipedFormat(item, false); })
+      .filter(Boolean);
+    base.adaptiveFormats = video
+      .filter(function (item) { return item && item.videoOnly === true; })
+      .map(function (item) { return normalizePipedFormat(item, true); })
+      .filter(Boolean)
+      .concat(
+        audio.map(function (item) { return normalizePipedFormat(item, true); }).filter(Boolean)
+      );
+    base.captions = normalizePipedCaptions(raw.subtitles, instance);
+    base.recommended = (Array.isArray(raw.relatedStreams) ? raw.relatedStreams : [])
+      .map(function (item) { return normalizePipedVideo(item, instance); })
+      .filter(Boolean)
+      .slice(0, 12);
+    return base;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Client
    * ------------------------------------------------------------------ */
 
@@ -399,7 +620,7 @@
      * request when the last caller lets go, so a cancelled keystroke cannot
      * kill a request another part of the UI is still waiting for.
      */
-    function run(key, path, params, validate, signal) {
+    function run(key, describe, signal) {
       var cached = cache.get(key);
       if (cached !== undefined) return Promise.resolve({ cached: true, value: cached });
 
@@ -408,9 +629,7 @@
         var controller = Controller ? new Controller() : null;
         entry = { controller: controller, refs: 0, promise: null };
         entry.promise = manager
-          .request(path, {
-            params: params,
-            validate: validate,
+          .request(describe, {
             signal: controller ? controller.signal : undefined
           })
           .then(
@@ -477,6 +696,22 @@
       return !!body && typeof body === "object" && isVideoId(body.videoId);
     }
 
+    function isPipedSearchBody(body) {
+      return !!body && typeof body === "object" && Array.isArray(body.items);
+    }
+
+    /**
+     * A Piped `/streams` body proves itself by carrying streams. An instance
+     * that answers with a title and nothing playable has not resolved the
+     * video, and treating that as success would hand the player an empty plan.
+     */
+    function isPipedStreamsBody(body) {
+      if (!body || typeof body !== "object") return false;
+      return Array.isArray(body.videoStreams) && (body.videoStreams.length > 0 || Array.isArray(body.audioStreams));
+    }
+
+    var PIPED_FILTER = { video: "videos", channel: "channels", playlist: "playlists", all: "all" };
+
     /**
      * Search YouTube. The caller picks the result type, because the browse
      * surface and the search surface want different things.
@@ -491,19 +726,35 @@
 
       return run(
         key,
-        "/api/v1/search",
-        { q: wanted, type: type, page: page, sort_by: "relevance" },
-        isArrayBody,
+        function (record) {
+          if (record.api === "piped") {
+            return {
+              path: "/search",
+              params: { q: wanted, filter: PIPED_FILTER[type] || "videos" },
+              validate: isPipedSearchBody
+            };
+          }
+          return {
+            path: "/api/v1/search",
+            params: { q: wanted, type: type, page: page, sort_by: "relevance" },
+            validate: isArrayBody
+          };
+        },
         request.signal
       ).then(function (outcome) {
         if (outcome.cached) return outcome.value;
         var result = outcome.value;
+        var piped = result.api === "piped";
+        var rows = piped ? result.data.items : result.data;
         var payload = {
-          items: result.data
-            .map(function (item) { return normalizeResult(item, result.instance); })
+          items: rows
+            .map(function (item) {
+              return piped ? normalizePipedResult(item, result.instance) : normalizeResult(item, result.instance);
+            })
             .filter(Boolean)
             .slice(0, MAX_RESULTS),
           instance: result.instance,
+          api: result.api,
           query: wanted,
           latency: result.latency
         };
@@ -517,15 +768,29 @@
       var request = options || {};
       var region = /^[A-Z]{2}$/.test(str(request.region, 4)) ? request.region : "US";
       var key = "trending|" + region;
-      return run(key, "/api/v1/trending", { region: region }, isArrayBody, request.signal).then(function (outcome) {
+      return run(
+        key,
+        function (record) {
+          return {
+            path: record.api === "piped" ? "/trending" : "/api/v1/trending",
+            params: { region: region },
+            validate: isArrayBody
+          };
+        },
+        request.signal
+      ).then(function (outcome) {
         if (outcome.cached) return outcome.value;
         var result = outcome.value;
+        var piped = result.api === "piped";
         var payload = {
           items: result.data
-            .map(function (item) { return normalizeVideo(item, result.instance); })
+            .map(function (item) {
+              return piped ? normalizePipedVideo(item, result.instance) : normalizeVideo(item, result.instance);
+            })
             .filter(Boolean)
             .slice(0, MAX_RESULTS),
           instance: result.instance,
+          api: result.api,
           latency: result.latency
         };
         cache.set(key, payload);
@@ -541,10 +806,21 @@
         return Promise.reject(errorFor("content", "That is not a YouTube video id."));
       }
       var key = "video|" + id;
-      return run(key, "/api/v1/videos/" + id, null, isVideoBody, request.signal).then(function (outcome) {
+      return run(
+        key,
+        function (instance) {
+          if (instance.api === "piped") {
+            return { path: "/streams/" + id, params: null, validate: isPipedStreamsBody };
+          }
+          return { path: "/api/v1/videos/" + id, params: null, validate: isVideoBody };
+        },
+        request.signal
+      ).then(function (outcome) {
         if (outcome.cached) return outcome.value;
         var result = outcome.value;
-        var record = normalizeVideoDetail(result.data, result.instance);
+        var record = result.api === "piped"
+          ? normalizePipedDetail(result.data, result.instance, id)
+          : normalizeVideoDetail(result.data, result.instance);
         if (!record) throw errorFor("malformed", "", { instance: result.instance });
         cache.set(key, record);
         return record;
@@ -560,9 +836,16 @@
       var key = "channel|" + id;
       return run(
         key,
-        "/api/v1/channels/" + id,
-        null,
-        function (body) { return !!body && typeof body === "object"; },
+        function (record) {
+          // Not wired for Piped: nothing in the UI opens a channel yet, and a
+          // request with no path skips that instance rather than failing it.
+          if (record.api === "piped") return {};
+          return {
+            path: "/api/v1/channels/" + id,
+            params: null,
+            validate: function (body) { return !!body && typeof body === "object"; }
+          };
+        },
         request.signal
       ).then(function (outcome) {
         if (outcome.cached) return outcome.value;
@@ -589,9 +872,14 @@
       var key = "playlist|" + id;
       return run(
         key,
-        "/api/v1/playlists/" + id,
-        null,
-        function (body) { return !!body && typeof body === "object"; },
+        function (record) {
+          if (record.api === "piped") return {};
+          return {
+            path: "/api/v1/playlists/" + id,
+            params: null,
+            validate: function (body) { return !!body && typeof body === "object"; }
+          };
+        },
         request.signal
       ).then(function (outcome) {
         if (outcome.cached) return outcome.value;
@@ -647,6 +935,13 @@
     normalizeFormat: normalizeFormat,
     normalizeCaptions: normalizeCaptions,
     normalizeVideoDetail: normalizeVideoDetail,
+    stripHtml: stripHtml,
+    videoIdFromPipedUrl: videoIdFromPipedUrl,
+    normalizePipedVideo: normalizePipedVideo,
+    normalizePipedChannel: normalizePipedChannel,
+    normalizePipedResult: normalizePipedResult,
+    normalizePipedFormat: normalizePipedFormat,
+    normalizePipedDetail: normalizePipedDetail,
     createCache: createCache,
     createClient: createClient
   };

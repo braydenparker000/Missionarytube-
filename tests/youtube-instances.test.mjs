@@ -11,8 +11,8 @@ const down = (status) => ({ status, body: { message: "no" } });
 /* ---- configuration ---------------------------------------------------- */
 
 test("the private instance is empty in the repository and validated when set", () => {
-  assert.equal(YT.config.DEFAULTS.privateInvidiousUrl, "", "a private address must never be committed");
-  assert.equal(YT.config.DEFAULTS.publicFallbackInstances.length, 3);
+  assert.equal(YT.config.DEFAULTS.privateInstanceUrl, "", "a private address must never be committed");
+  assert.ok(YT.config.DEFAULTS.publicFallbackInstances.length >= 6, "the public pool is deep enough to survive losses");
 
   assert.equal(YT.config.normalizeInstance("https://invidious.example.test/"), "https://invidious.example.test");
   assert.equal(YT.config.normalizeInstance("invidious.example.test"), "https://invidious.example.test");
@@ -28,7 +28,7 @@ test("the private instance is empty in the repository and validated when set", (
 
 test("configuration is clamped, deduplicated and frozen", () => {
   const config = YT.config.resolve({
-    privateInvidiousUrl: "https://mine.example.test",
+    privateInstanceUrl: "https://mine.example.test",
     publicFallbackInstances: ["https://a.example.test", "https://a.example.test/", "https://mine.example.test"],
     requestTimeout: 1,
     instanceCooldown: 99_999_999,
@@ -39,7 +39,7 @@ test("configuration is clamped, deduplicated and frozen", () => {
   assert.equal(config.instanceCooldown, 3_600_000);
   assert.equal(config.maxAttempts, 5);
   assert.equal(config.maxHeight, 360);
-  assert.deepEqual(Array.from(config.publicFallbackInstances), ["https://a.example.test"],
+  assert.deepEqual(Array.from(config.publicFallbackInstances).map((entry) => entry.url), ["https://a.example.test"],
     "duplicates and the private instance are not repeated as fallbacks");
   assert.throws(() => {
     config.requestTimeout = 5;
@@ -50,11 +50,11 @@ test("adaptive playback is on for our own server and off for a stranger's", () =
   // Adaptive needs the instance proxy, which is our bandwidth to spend and not
   // a volunteer's.
   assert.equal(YT.config.resolve({}).preferAdaptive, false);
-  assert.equal(YT.config.resolve({ privateInvidiousUrl: PRIVATE_INSTANCE }).preferAdaptive, true);
+  assert.equal(YT.config.resolve({ privateInstanceUrl: PRIVATE_INSTANCE }).preferAdaptive, true);
   // An explicit choice still wins in both directions.
   assert.equal(YT.config.resolve({ preferAdaptive: true }).preferAdaptive, true);
   assert.equal(
-    YT.config.resolve({ privateInvidiousUrl: PRIVATE_INSTANCE, preferAdaptive: false }).preferAdaptive,
+    YT.config.resolve({ privateInstanceUrl: PRIVATE_INSTANCE, preferAdaptive: false }).preferAdaptive,
     false
   );
 });
@@ -64,12 +64,27 @@ test("the private instance always leads the candidate list", () => {
   assert.deepEqual(plain(list).map((entry) => entry.url), [PRIVATE_INSTANCE, PUBLIC_A, PUBLIC_B, PUBLIC_C]);
   assert.equal(list[0].kind, "private");
   assert.equal(list[1].kind, "public");
+  // Every entry names the protocol it speaks, because one pool holds both.
+  assert.equal(plain(list).every((entry) => entry.api === "invidious"), true);
+});
+
+test("the shipped pool leads with Piped, because that is what answers", () => {
+  const list = plain(YT.config.instanceList(YT.config.resolve({})));
+  assert.equal(list[0].api, "piped", "a browser-only static site needs the CORS-enabled API first");
+  assert.ok(list.filter((entry) => entry.api === "piped").length >= 6);
+  assert.ok(list.some((entry) => entry.api === "invidious"), "Invidious stays as a last resort");
+  // A bare string is still accepted, and is assumed to be the primary protocol.
+  const bare = plain(YT.config.uniqueInstances(["https://x.example.test"]));
+  assert.equal(bare.length, 1);
+  assert.equal(bare[0].url, "https://x.example.test");
+  assert.equal(bare[0].api, "piped");
 });
 
 test("only the owner's own choices are persisted", () => {
   const stored = YT.config.storable(YT.config.resolve(TEST_CONFIG));
-  assert.deepEqual(Object.keys(stored).sort(), ["enabled", "maxHeight", "preferAdaptive", "privateInvidiousUrl"]);
-  assert.equal(stored.privateInvidiousUrl, PRIVATE_INSTANCE);
+  assert.deepEqual(Object.keys(stored).sort(),
+    ["enabled", "maxHeight", "preferAdaptive", "privateInstanceApi", "privateInstanceUrl"]);
+  assert.equal(stored.privateInstanceUrl, PRIVATE_INSTANCE);
 });
 
 /* ---- selection and failover ------------------------------------------- */

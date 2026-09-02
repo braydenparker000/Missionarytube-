@@ -52,11 +52,13 @@ test("configuration lives in one module and is stored per browser", () => {
 test("nothing YouTube-shaped runs during the app's first paint", () => {
   const init = region(/async function init\(\)\{.*?\n/);
   assert.equal(/youtube/i.test(init), false, "the provider is not built on startup");
-  // It is built on first use, and the availability sweep is never awaited.
+  // It is built on first use, and no sweep runs on its own. The pool is other
+  // people's servers, so a full probe only happens when Settings asks for one.
   const provider = region(/function youtubeProvider\(\)\{[\s\S]*?\n {4}\}/);
   assert.match(provider, /if\(!youtube\.client\)\{/);
-  assert.match(provider, /manager\.probe\(\)\.catch\(\(\)=>\{\}\)/);
-  assert.equal(/await manager\.probe/.test(provider), false, "the UI never waits on a full sweep");
+  assert.equal(/probe\(/.test(provider), false, "nothing sweeps the pool unasked");
+  assert.match(html, /function testYouTubeInstances\(\)[\s\S]*?manager\.reset\(\)/,
+    "a sweep is a deliberate action on the settings screen");
   assert.match(html, /\/\/ Deliberately not awaited: the add-on catalogs must not wait on YouTube\.\s*\n\s*renderYouTubeBrowse\(\)/);
 });
 
@@ -180,6 +182,7 @@ test("the settings screen owns the whole provider and stores no address in the r
   assert.match(settings, /data-youtube-select="maxHeight"/);
   assert.match(settings, /data-youtube-test/);
   assert.match(settings, /YT\.config\.describeInstanceProblem\(value\)/, "a bad address is explained, not silently dropped");
-  assert.match(settings, /placeholder="https:\/\/invidious\.example\.org"/, "the only address in the file is a placeholder");
+  assert.match(settings, /placeholder="https:\/\/piped\.example\.org"/, "the only address in the file is a placeholder");
+  assert.match(settings, /id="youtubeInstanceApi"/, "and it says which protocol that server speaks");
   assert.match(settings, /Stored in this browser only/);
 });

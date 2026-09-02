@@ -57,6 +57,29 @@
     aborted: "The request was cancelled."
   };
 
+  /**
+   * How each protocol is asked "are you alive". Piped has no universally
+   * present status endpoint, so trending stands in: it is a real call that
+   * proves the instance can both answer and reach YouTube, which a static
+   * health page would not.
+   */
+  var PROBE = {
+    invidious: {
+      path: "/api/v1/stats",
+      params: null,
+      validate: function (body) {
+        return !!body && typeof body === "object" && !!(body.software || body.version || body.usage);
+      }
+    },
+    piped: {
+      path: "/trending",
+      params: { region: "US" },
+      validate: function (body) {
+        return Array.isArray(body);
+      }
+    }
+  };
+
   // A rate limit is a request to back off, so it earns a longer rest than a
   // one-off error does.
   var COOLDOWN_MULTIPLIER = { "rate-limited": 4, forbidden: 2 };
@@ -136,6 +159,7 @@
       health[entry.url] = {
         url: entry.url,
         kind: entry.kind,
+        api: entry.api || "invidious",
         order: index,
         state: STATE.UNKNOWN,
         latency: 0,
@@ -215,7 +239,7 @@
      * in declared order. Resting instances are excluded entirely, which is the
      * whole point of a cooldown.
      */
-    function order() {
+    function orderedRecords() {
       recoverExpired();
       var available = Object.keys(health)
         .map(function (url) { return health[url]; })
@@ -235,7 +259,14 @@
           if (aHealthy && bHealthy && a.latency !== b.latency) return a.latency - b.latency;
           return a.order - b.order;
         })
-        .map(function (entry) { return entry.url; });
+        .map(function (entry) {
+          return { url: entry.url, api: entry.api, kind: entry.kind };
+        });
+    }
+
+    /** The same order, as bare URLs, for callers that only need the address. */
+    function order() {
+      return orderedRecords().map(function (entry) { return entry.url; });
     }
 
     /** The instance media URLs should be built against right now. */
@@ -368,10 +399,16 @@
      * Run one logical request, moving to another instance when an instance
      * fails. The attempt budget is what keeps this bounded: there is no
      * scenario in which this retries forever.
+     *
+     * `describe` is either a path, or a function called with the instance
+     * record for each attempt. The function form is what lets one logical
+     * request cross protocols: the same "fetch this video" asks a Piped
+     * instance for `/streams/ID` and an Invidious one for `/api/v1/videos/ID`,
+     * and the caller finds out which answered from `api` on the result.
      */
-    function request(path, options) {
+    function request(describe, options) {
       var settings = options || {};
-      var candidates = order();
+      var candidates = orderedRecords();
       if (!candidates.length) {
         return Promise.reject(providerError(FAILURE.NO_INSTANCE, "", { attempts: 0 }));
       }
@@ -380,6 +417,18 @@
       var attempts = 0;
       var lastError = null;
 
+      function specFor(record) {
+        if (typeof describe !== "function") {
+          return { path: describe, params: settings.params, validate: settings.validate };
+        }
+        var spec = describe(record) || {};
+        return {
+          path: spec.path,
+          params: spec.params === undefined ? settings.params : spec.params,
+          validate: spec.validate === undefined ? settings.validate : spec.validate
+        };
+      }
+
       function next() {
         if (settings.signal && settings.signal.aborted) {
           return Promise.reject(providerError(FAILURE.ABORTED, "The request was cancelled."));
@@ -387,15 +436,24 @@
         if (index >= candidates.length || attempts >= budget) {
           throw lastError || providerError(FAILURE.NO_INSTANCE, "", { attempts: attempts });
         }
-        var instance = candidates[index];
+        var record = candidates[index];
         index += 1;
+        var spec = specFor(record);
+        // An instance whose protocol cannot serve this request is skipped
+        // rather than counted against the budget.
+        if (!spec.path) return next();
         attempts += 1;
-        return attempt(instance, path, settings.params, settings).then(
+        return attempt(record.url, spec.path, spec.params, {
+          timeout: settings.timeout,
+          signal: settings.signal,
+          validate: spec.validate
+        }).then(
           function (result) {
-            markHealthy(instance, result.latency, true);
+            markHealthy(record.url, result.latency, true);
             return {
               data: result.body,
-              instance: instance,
+              instance: record.url,
+              api: record.api,
               latency: result.latency,
               attempts: attempts
             };
@@ -404,7 +462,7 @@
             // Cancellation and a genuinely unavailable video both end the
             // request here: another server would answer exactly the same.
             if (error.kind === FAILURE.ABORTED || error.kind === FAILURE.CONTENT) throw error;
-            markUnhealthy(instance, error.kind);
+            markUnhealthy(record.url, error.kind);
             error.attempts = attempts;
             lastError = error;
             return next();
@@ -435,11 +493,10 @@
 
       probing = Promise.all(
         targets.map(function (url) {
-          return attempt(url, "/api/v1/stats", null, {
+          var spec = PROBE[health[url].api] || PROBE.invidious;
+          return attempt(url, spec.path, spec.params, {
             timeout: config.probeTimeout,
-            validate: function (body) {
-              return !!body && typeof body === "object" && !!(body.software || body.version || body.usage);
-            }
+            validate: spec.validate
           }).then(
             function (result) {
               markHealthy(url, result.latency);
@@ -483,6 +540,7 @@
             return {
               url: entry.url,
               kind: entry.kind,
+              api: entry.api,
               state: entry.cooldownUntil > moment ? STATE.UNHEALTHY : entry.state,
               latency: entry.latency,
               failures: entry.failures,
@@ -503,6 +561,7 @@
       probe: probe,
       reset: reset,
       order: order,
+      orderedRecords: orderedRecords,
       preferred: preferred,
       buildUrl: buildUrl,
       snapshot: snapshot,

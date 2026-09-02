@@ -12,9 +12,15 @@ export const PUBLIC_A = "https://public-a.example.test";
 export const PUBLIC_B = "https://public-b.example.test";
 export const PUBLIC_C = "https://public-c.example.test";
 
+/** An Invidious-speaking pool, which is what this fixture file describes. */
 export const TEST_CONFIG = {
-  privateInvidiousUrl: PRIVATE_INSTANCE,
-  publicFallbackInstances: [PUBLIC_A, PUBLIC_B, PUBLIC_C]
+  privateInstanceUrl: PRIVATE_INSTANCE,
+  privateInstanceApi: "invidious",
+  publicFallbackInstances: [
+    { url: PUBLIC_A, api: "invidious" },
+    { url: PUBLIC_B, api: "invidious" },
+    { url: PUBLIC_C, api: "invidious" }
+  ]
 };
 
 const GOOGLE = "https://r1---sn-example.googlevideo.test/videoplayback";

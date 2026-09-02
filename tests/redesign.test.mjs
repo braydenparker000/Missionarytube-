@@ -177,7 +177,7 @@ test("YouTube plays natively, and no iframe or embed survives anywhere", () => {
   const hosts = [...html.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1].toLowerCase());
   assert.deepEqual(
     hosts.filter(
-      (host) => !/^(?:cdn\.jsdelivr\.net|v3-cinemeta\.strem\.io|invidious\.example\.org)$/.test(host)
+      (host) => !/^(?:cdn\.jsdelivr\.net|v3-cinemeta\.strem\.io|piped\.example\.org)$/.test(host)
     ),
     [],
     "an instance host must not be hard-coded in index.html"

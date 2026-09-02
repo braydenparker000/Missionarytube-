@@ -1,15 +1,26 @@
 /**
- * The one place Invidious is configured.
+ * The one place the YouTube backends are configured.
  *
- * Every instance URL, timeout and cooldown the YouTube provider uses is
- * declared here. Nothing else in the codebase may hard-code an instance host,
- * so moving to a different private server is a single-value change.
+ * Every instance URL, timeout and cooldown the provider uses is declared here.
+ * Nothing else in the codebase may hard-code an instance host, so changing
+ * where YouTube is resolved from is a single-list change.
  *
- * The private instance is deliberately empty in the repository. It is the
+ * Two protocols are spoken, because in practice availability is the whole
+ * game and no single instance stays up:
+ *
+ *   piped       Piped's API. Its own frontend is a separate-origin static
+ *               app, so the API is CORS-enabled by design - which is exactly
+ *               what a static site on Azure Storage needs. Stream URLs come
+ *               back already proxied by the instance, so they carry CORS and
+ *               are not bound to the address that resolved them.
+ *   invidious   Invidious' API, kept as a last resort.
+ *
+ * The list is Piped-first because that is what measurably answers. Order here
+ * is only a starting hint: measured health decides afterwards.
+ *
+ * A private instance is deliberately empty in the repository. It is the
  * owner's own server, it is set at runtime from Settings, and committing it
- * would publish a private address. When it is unset the provider still works
- * through the public fallbacks, with adaptive playback disabled by default
- * because most public instances refuse to proxy video data.
+ * would publish a private address.
  *
  * Loaded as a classic browser script and through node:vm in the tests.
  */
@@ -22,20 +33,37 @@
 
   var DEFAULTS = {
     /**
-     * Our own Invidious deployment, e.g. "https://invidious.example.org".
+     * Our own deployment, if there ever is one, e.g. "https://piped.example.org".
      * Set it in Settings → YouTube, or hard-code it here for a private fork.
-     * See deploy/invidious/ for the server this expects.
+     * See deploy/invidious/ for one server this can be.
      */
-    privateInvidiousUrl: "",
+    privateInstanceUrl: "",
+
+    /** Which protocol the private instance speaks. */
+    privateInstanceApi: "piped",
 
     /**
-     * Public instances, used only when the private one is unset, unhealthy or
-     * slow. Order is a starting hint; measured latency decides afterwards.
+     * The public pool. Piped leads: its API is CORS-enabled by design and it
+     * proxies its own stream URLs, which is the combination a browser-only
+     * static site actually needs. Invidious trails as a last resort.
+     *
+     * Every one of these is public infrastructure run by a volunteer. The app
+     * asks them for a few kilobytes of JSON per search and nothing else, and
+     * rests any that fail rather than retrying at them.
      */
     publicFallbackInstances: [
-      "https://yewtu.be",
-      "https://inv.nadeko.net",
-      "https://invidious.nerdvpn.de"
+      { url: "https://api.piped.private.coffee", api: "piped" },
+      { url: "https://pipedapi.ducks.party", api: "piped" },
+      { url: "https://api.piped.yt", api: "piped" },
+      { url: "https://api.piped.privacydev.net", api: "piped" },
+      { url: "https://pipedapi.reallyaweso.me", api: "piped" },
+      { url: "https://pipedapi.kavin.rocks", api: "piped" },
+      { url: "https://pipedapi.adminforge.de", api: "piped" },
+      { url: "https://pipedapi.leptons.xyz", api: "piped" },
+      { url: "https://pipedapi.nosebs.ru", api: "piped" },
+      { url: "https://yewtu.be", api: "invidious" },
+      { url: "https://inv.nadeko.net", api: "invidious" },
+      { url: "https://invidious.nerdvpn.de", api: "invidious" }
     ],
 
     /** How long any single Invidious request may take before it is abandoned. */
@@ -69,7 +97,13 @@
     maxHeight: 1080
   };
 
-  var MAX_INSTANCES = 8;
+  var MAX_INSTANCES = 16;
+  var PROTOCOLS = ["piped", "invidious"];
+
+  function protocol(value) {
+    var wanted = str(value).trim().toLowerCase();
+    return PROTOCOLS.indexOf(wanted) === -1 ? "piped" : wanted;
+  }
 
   function str(value) {
     return value == null ? "" : String(value);
@@ -115,14 +149,27 @@
     return "That is not a valid https server address.";
   }
 
+  /**
+   * Accept either a bare URL string or a `{ url, api }` pair, and always
+   * return the pair. A bare string is assumed to be Piped, because that is
+   * what the pool is made of and what a person pasting an address today is
+   * most likely to have.
+   */
+  function normalizeEntry(value) {
+    var raw = value && typeof value === "object" ? value : { url: value };
+    var url = normalizeInstance(raw.url);
+    if (!url) return null;
+    return { url: url, api: protocol(raw.api) };
+  }
+
   function uniqueInstances(list) {
     var seen = {};
     var out = [];
     (Array.isArray(list) ? list : []).forEach(function (value) {
-      var normalized = normalizeInstance(value);
-      if (!normalized || seen[normalized] || out.length >= MAX_INSTANCES) return;
-      seen[normalized] = true;
-      out.push(normalized);
+      var entry = normalizeEntry(value);
+      if (!entry || seen[entry.url] || out.length >= MAX_INSTANCES) return;
+      seen[entry.url] = true;
+      out.push(entry);
     });
     return out;
   }
@@ -134,14 +181,15 @@
   function resolve(overrides) {
     var given = overrides && typeof overrides === "object" ? overrides : {};
     var privateUrl = normalizeInstance(
-      given.privateInvidiousUrl == null ? DEFAULTS.privateInvidiousUrl : given.privateInvidiousUrl
+      given.privateInstanceUrl == null ? DEFAULTS.privateInstanceUrl : given.privateInstanceUrl
     );
+    var privateApi = protocol(given.privateInstanceApi == null ? DEFAULTS.privateInstanceApi : given.privateInstanceApi);
     var fallbacks = uniqueInstances(
       Array.isArray(given.publicFallbackInstances) && given.publicFallbackInstances.length
         ? given.publicFallbackInstances
         : DEFAULTS.publicFallbackInstances
-    ).filter(function (url) {
-      return url !== privateUrl;
+    ).filter(function (entry) {
+      return entry.url !== privateUrl;
     });
 
     var preferAdaptive = given.preferAdaptive;
@@ -149,7 +197,8 @@
 
     return Object.freeze({
       enabled: given.enabled !== false,
-      privateInvidiousUrl: privateUrl,
+      privateInstanceUrl: privateUrl,
+      privateInstanceApi: privateApi,
       publicFallbackInstances: Object.freeze(fallbacks),
       requestTimeout: clampNumber(given.requestTimeout, DEFAULTS.requestTimeout, 2000, 30000),
       instanceCooldown: clampNumber(given.instanceCooldown, DEFAULTS.instanceCooldown, 5000, 3600000),
@@ -169,11 +218,11 @@
   function instanceList(config) {
     var resolved = config && config.publicFallbackInstances ? config : resolve(config);
     var list = [];
-    if (resolved.privateInvidiousUrl) {
-      list.push({ url: resolved.privateInvidiousUrl, kind: "private" });
+    if (resolved.privateInstanceUrl) {
+      list.push({ url: resolved.privateInstanceUrl, api: resolved.privateInstanceApi, kind: "private" });
     }
-    resolved.publicFallbackInstances.forEach(function (url) {
-      list.push({ url: url, kind: "public" });
+    resolved.publicFallbackInstances.forEach(function (entry) {
+      list.push({ url: entry.url, api: entry.api, kind: "public" });
     });
     return list;
   }
@@ -183,7 +232,8 @@
     var resolved = config && config.publicFallbackInstances ? config : resolve(config);
     return {
       enabled: resolved.enabled,
-      privateInvidiousUrl: resolved.privateInvidiousUrl,
+      privateInstanceUrl: resolved.privateInstanceUrl,
+      privateInstanceApi: resolved.privateInstanceApi,
       preferAdaptive: resolved.preferAdaptive,
       maxHeight: resolved.maxHeight
     };
@@ -193,7 +243,10 @@
   global.AstraYouTube.config = {
     DEFAULTS: DEFAULTS,
     MAX_INSTANCES: MAX_INSTANCES,
+    PROTOCOLS: PROTOCOLS,
+    protocol: protocol,
     normalizeInstance: normalizeInstance,
+    normalizeEntry: normalizeEntry,
     describeInstanceProblem: describeInstanceProblem,
     uniqueInstances: uniqueInstances,
     resolve: resolve,

@@ -37,7 +37,7 @@ function noMse() {
 
 function plan(record, config = {}, capabilities = chrome()) {
   return YT.playback.buildPlan(record, {
-    config: YT.config.resolve({ privateInvidiousUrl: PRIVATE_INSTANCE, ...config }),
+    config: YT.config.resolve({ privateInstanceUrl: PRIVATE_INSTANCE, ...config }),
     instance: record.instance || PRIVATE_INSTANCE,
     capabilities
   });
