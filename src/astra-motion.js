@@ -161,7 +161,7 @@ function flushRevealQueue() {
     y: 0,
     scale: 1,
     opacity: 1,
-    duration: lean ? 0.4 : 0.54,
+    duration: lean ? 0.24 : 0.32,
     stagger,
     ease: "power3.out",
     overwrite: "auto",
@@ -455,7 +455,7 @@ function mountSurface({ root, key, panelSelector, onDismiss, edge = true, down =
     }
     if (!previousKey && !sharedTransition) {
       progressSurface(backdrop, 1);
-      gsap.fromTo(panel, { y: 34, opacity: 0.72 }, { y: 0, opacity: 1, duration: 0.48, ease: "power4.out", clearProps: "transform,opacity" });
+      gsap.fromTo(panel, { y: 34, opacity: 0.72 }, { y: 0, opacity: 1, duration: 0.34, ease: "power4.out", clearProps: "transform,opacity" });
       gsap.to(backdrop, { "--motion-dismiss": 0, duration: 0.34, ease: "power2.out" });
     }
   }
@@ -504,7 +504,7 @@ function mountTrackSheet(element, onDismiss) {
   elementBindings.set(element, binding);
   if (!reduced()) {
     drag = makeAxisDrag({ target: element, trigger: grip, axis: "y", size, onProgress: progress, onDismiss: finish });
-    gsap.fromTo(element, { y: 34, opacity: 0.78 }, { y: 0, opacity: 1, duration: 0.4, ease: "power4.out", clearProps: "transform,opacity" });
+    gsap.fromTo(element, { y: 34, opacity: 0.78 }, { y: 0, opacity: 1, duration: 0.32, ease: "power4.out", clearProps: "transform,opacity" });
   }
   return true;
 }
@@ -595,7 +595,7 @@ function navigate({ from, to, direction = "auto", update } = {}) {
         gsap.fromTo(
           page,
           { x: travel === "back" ? (lean ? -10 : -18) : (lean ? 12 : 22), opacity: lean ? 0.72 : 0.45 },
-          { x: 0, opacity: 1, duration: lean ? 0.28 : 0.38, ease: "power4.out", clearProps: "transform,opacity" }
+          { x: 0, opacity: 1, duration: lean ? 0.22 : 0.28, ease: "power4.out", clearProps: "transform,opacity" }
         );
       }
     }
@@ -622,11 +622,11 @@ function syncDock(root, activeId) {
     const values = { x: active.offsetLeft, width: active.offsetWidth };
     gsap.killTweensOf(indicator);
     if (reduced() || !animate) gsap.set(indicator, values);
-    else gsap.to(indicator, { ...values, duration: 0.46, ease: "power4.out" });
+    else gsap.to(indicator, { ...values, duration: 0.28, ease: "power4.out" });
   };
   place(indicator.dataset.ready === "true");
   indicator.dataset.ready = "true";
-  if (!reduced()) gsap.fromTo(active.querySelector(".dock-icon"), { y: 4, scale: 0.86 }, { y: 0, scale: 1, duration: 0.42, ease: "back.out(2.6)", clearProps: "transform" });
+  if (!reduced()) gsap.fromTo(active.querySelector(".dock-icon"), { y: 4, scale: 0.86 }, { y: 0, scale: 1, duration: 0.26, ease: "back.out(2.6)", clearProps: "transform" });
   dockResize?.disconnect?.();
   if (typeof ResizeObserver === "function") {
     dockResize = new ResizeObserver(() => place(false));

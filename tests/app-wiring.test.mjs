@@ -242,7 +242,7 @@ test("a terminal failure releases the attempt before the error card renders", ()
 });
 
 test("a stream response is scoped to the lookup that asked for it", () => {
-  const load = html.match(/async function loadStreams\(videoId\)\{[\s\S]*?\n {4}\}/);
+  const load = html.match(/async function loadStreams\(videoId,opener\)\{[\s\S]*?\n {4}\}/);
   assert.ok(load, "loadStreams exists");
 
   // The search counter alone does not change when the viewer closes one detail
