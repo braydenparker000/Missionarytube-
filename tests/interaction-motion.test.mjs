@@ -83,7 +83,7 @@ test("direct interaction motion never exceeds the 360ms release budget", () => {
   const seconds = [...source.matchAll(/duration:\s*(?:[^\n]*?\?\s*)?(0?\.\d+)/g)].map((match) => Number(match[1]));
   assert.ok(seconds.length >= 9, "the runtime duration set is covered");
   assert.ok(Math.max(...seconds) <= 0.36, `runtime motion reached ${Math.max(...seconds)}s`);
-  assert.match(css, /::view-transition-group\(astra-page\) \{[\s\S]*?animation-duration: 280ms;/);
+  assert.match(css, /::view-transition-group\(astra-page\) \{[\s\S]*?animation-duration: 240ms;/);
   assert.match(css, /::view-transition-group\(astra-art\) \{[\s\S]*?animation-duration: 340ms;/);
   assert.match(css, /\.seek-feedback\.show \{ animation: player-seek-pop 360ms/);
 });
@@ -98,6 +98,7 @@ test("View Transition callbacks cannot reorder or stall visible state", () => {
   assert.match(navigation, /let committed = false/);
   assert.match(navigation, /const fallback = setTimeout\(commit, 100\)/);
   assert.match(navigation, /if \(committed\) return/);
+  assert.match(css, /::view-transition \{ pointer-events: none; \}/, "a visual snapshot cannot swallow the next action");
 });
 
 test("every mobile overlay can be dismissed physically without touching Player V3", () => {
