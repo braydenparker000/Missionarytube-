@@ -1,5 +1,6 @@
 dist/
 node_modules/
+.browser-check/
 .env
 .env.*
 !.env.example

@@ -1,0 +1,103 @@
+# MissionaryTube's private Invidious instance.
+#
+# This is an API and playback resolver first: MissionaryTube calls it for
+# search and metadata, and asks it to serve video data only for the cases a
+# browser cannot handle directly (see README.md). Sized for an Oracle Cloud
+# Always Free ARM VM (Ampere A1, 4 OCPU / 24 GB) but it runs comfortably on
+# much less.
+#
+#   docker compose up -d      start
+#   docker compose down       stop
+#   docker compose pull && docker compose up -d      update
+#
+# Everything configurable lives in .env. Copy .env.example to .env first.
+
+services:
+  invidious:
+    image: quay.io/invidious/invidious:2.20250107.0
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      # Bound to localhost: TLS is terminated by the reverse proxy in front of
+      # this, never by Invidious itself. A browser on an https page cannot load
+      # media from a plain-http origin, so a certificate is not optional.
+      - "127.0.0.1:3000:3000"
+    environment:
+      # Invidious reads one YAML document from this variable.
+      INVIDIOUS_CONFIG: |
+        db:
+          user: ${POSTGRES_USER:-invidious}
+          password: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+          host: postgres
+          port: 5432
+          dbname: ${POSTGRES_DB:-invidious}
+        check_tables: true
+
+        # The public address, used to build the manifest and caption URLs the
+        # frontend receives. It must match what the browser actually reaches.
+        domain: ${INVIDIOUS_DOMAIN:?set INVIDIOUS_DOMAIN in .env}
+        https_only: true
+        external_port: 443
+
+        # This instance exists for one browser app, so the browser-facing API
+        # is what is enabled and the human-facing site is what is not.
+        enable_cors: true
+        popular_enabled: true
+        registration_enabled: false
+        login_enabled: false
+        statistics_enabled: true
+
+        # Serving video data through this server is the compatibility path for
+        # adaptive playback, which is fetched by JavaScript and therefore needs
+        # CORS headers Google's hosts do not send. Progressive playback goes
+        # direct and never touches this.
+        local: false
+        disable_proxy: false
+
+        # Keep a modest pool: this instance answers one app, not a public site.
+        pool_size: 100
+        force_resolve: ipv4
+        hsts: true
+        use_pubsub_feeds: false
+        feed_threads: 1
+        channel_threads: 1
+        full_refresh: false
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/v1/stats >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: docker.io/library/postgres:15-alpine
+    restart: unless-stopped
+    volumes:
+      # Named volume, so `docker compose down` keeps the database and only
+      # `down -v` destroys it.
+      - invidious-db:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d/:ro
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-invidious}
+      POSTGRES_USER: ${POSTGRES_USER:-invidious}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-invidious} -d $${POSTGRES_DB:-invidious}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  invidious-db:

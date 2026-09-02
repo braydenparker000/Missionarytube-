@@ -3,7 +3,13 @@
  *
  * One contract covers native media, HLS and DASH:
  *
- *   { kind, attach(): Promise<void>, destroy(): void, getAudioTracks(), selectAudioTrack(id) }
+ *   { kind, attach(): Promise<void>, destroy(): void,
+ *     getAudioTracks(), selectAudioTrack(id),
+ *     getVideoQualities(), selectVideoQuality(id) }
+ *
+ * A quality list is empty when the delivery has nothing to switch between:
+ * a progressive file is one rendition by definition, and only the adaptive
+ * adapters can move between representations without reloading.
  *
  * Every adapter owns a ResourceScope. Cleanup is idempotent and releases
  * listeners, timers, object URLs and the underlying library instance, so
@@ -158,6 +164,11 @@
       if (typeof events.onAudioTracksChanged === "function") events.onAudioTracksChanged(tracks || []);
     }
 
+    function emitVideoQualitiesChanged(qualities) {
+      if (destroyed) return;
+      if (typeof events.onVideoQualitiesChanged === "function") events.onVideoQualitiesChanged(qualities || []);
+    }
+
     // Media element errors are shared by every adapter.
     scope.listen(media, "error", function () {
       var code = media.error && media.error.code;
@@ -174,6 +185,7 @@
       emitError: emitError,
       emitReady: emitReady,
       emitAudioTracksChanged: emitAudioTracksChanged,
+      emitVideoQualitiesChanged: emitVideoQualitiesChanged,
       get destroyed() {
         return destroyed;
       },
@@ -278,6 +290,15 @@
           return false;
         }
       },
+      // A progressive file is one quality by definition. Changing it means
+      // loading a different file, which is the caller's decision, not the
+      // adapter's, so this reports nothing rather than pretending to switch.
+      getVideoQualities: function () {
+        return [];
+      },
+      selectVideoQuality: function () {
+        return false;
+      },
       destroy: function () {
         if (!base.markDestroyed()) return;
         scope.dispose();
@@ -288,10 +309,36 @@
 
   function trackLanguage(track) {
     var value = String((track && (track.lang || track.language || (track.attrs && track.attrs.LANGUAGE))) || "").toLowerCase();
+    // "und" is the container saying it does not know, which is not a language
+    // and must not be drawn as one.
+    if (!value || value === "und" || value === "undefined" || value === "mul") return "";
     var aliases = { eng: "en", jpn: "ja", spa: "es", fra: "fr", fre: "fr", deu: "de", ger: "de", por: "pt", ita: "it", kor: "ko", zho: "zh", chi: "zh" };
     var parts = value.split("-");
     if (aliases[parts[0]]) parts[0] = aliases[parts[0]];
     return parts.join("-");
+  }
+
+  var CODEC_WORDS = [
+    [/opus/i, "Opus"], [/vorbis/i, "Vorbis"], [/flac/i, "FLAC"],
+    [/ec-3|eac3/i, "EAC3"], [/ac-3|\bac3\b/i, "AC3"], [/mp4a|\baac\b/i, "AAC"],
+    [/mp3|mpeg/i, "MP3"], [/alac/i, "ALAC"]
+  ];
+
+  /**
+   * A codec name a person can read. hls.js reports a bare codec string, but
+   * dash.js reports a full MIME type - and `audio/webm;codecs="opus"` drawn on
+   * a 44px button is the library's internal detail leaking into the UI.
+   */
+  function codecLabel(value) {
+    var raw = String(value == null ? "" : value).trim();
+    if (!raw) return "";
+    for (var i = 0; i < CODEC_WORDS.length; i += 1) {
+      if (CODEC_WORDS[i][0].test(raw)) return CODEC_WORDS[i][1];
+    }
+    // Not a codec we have a word for: keep it only if it is short enough to be
+    // a codec rather than a MIME type.
+    if (raw.indexOf("/") !== -1 || raw.length > 12) return "";
+    return raw.toUpperCase();
   }
 
   function trackLabel(track, index) {
@@ -299,7 +346,7 @@
     var named = track && (track.name || track.label || (track.labels && track.labels[0] && track.labels[0].text));
     var languageNames = { en: "english", es: "spanish", fr: "french", de: "german", pt: "portuguese", it: "italian", ja: "japanese", ko: "korean", zh: "chinese" };
     var details = [];
-    var codec = track && (track.codec || track.audioCodec);
+    var codec = codecLabel(track && (track.codec || track.audioCodec));
     var channels = track && (track.channels || track.audioChannelConfiguration);
     if (Array.isArray(channels)) channels = channels[0] && (channels[0].value || channels[0]);
     if (named) details.push(String(named));
@@ -335,6 +382,28 @@
       base.emitAudioTracksChanged(audioTracks());
     }
 
+    /** hls.js renditions, with -1 as its own "auto" level. */
+    function videoQualities() {
+      if (!instance || !Array.isArray(instance.levels) || instance.levels.length < 2) return [];
+      var current = Number(instance.currentLevel);
+      var list = [{ id: "auto", label: "Auto", height: 0, bitrate: 0, auto: true, active: current === -1 }];
+      instance.levels.forEach(function (level, index) {
+        list.push({
+          id: String(index),
+          label: level && level.height ? level.height + "p" : "Level " + (index + 1),
+          height: Number(level && level.height) || 0,
+          bitrate: Number(level && level.bitrate) || 0,
+          auto: false,
+          active: current === index
+        });
+      });
+      return list;
+    }
+
+    function announceQualities() {
+      base.emitVideoQualitiesChanged(videoQualities());
+    }
+
     api = {
       kind: base.kind,
       scope: scope,
@@ -356,9 +425,14 @@
           trackEvents.filter(function (event, index) { return event && trackEvents.indexOf(event) === index; }).forEach(function (event) {
             instance.on(event, announceTracks);
           });
+          var levelEvents = [events.MANIFEST_PARSED || "manifestParsed", events.LEVEL_SWITCHED || "levelSwitched"];
+          levelEvents.filter(function (event, index) { return event && levelEvents.indexOf(event) === index; }).forEach(function (event) {
+            instance.on(event, announceQualities);
+          });
           instance.loadSource(config.url);
           instance.attachMedia(media);
           announceTracks();
+          announceQualities();
         });
       },
       getAudioTracks: function () {
@@ -370,6 +444,23 @@
         if (!Number.isInteger(index) || index < 0 || index >= instance.audioTracks.length) return false;
         instance.audioTrack = index;
         announceTracks();
+        return true;
+      },
+      getVideoQualities: function () {
+        return videoQualities();
+      },
+      selectVideoQuality: function (id) {
+        if (!instance || !Array.isArray(instance.levels)) return false;
+        if (String(id) === "auto") {
+          instance.currentLevel = -1;
+          announceQualities();
+          return true;
+        }
+        var index = Number(id);
+        if (!Number.isInteger(index) || index < 0 || index >= instance.levels.length) return false;
+        // hls.js keeps the playhead across a level switch on its own.
+        instance.currentLevel = index;
+        announceQualities();
         return true;
       },
       destroy: function () {
@@ -429,6 +520,108 @@
       base.emitAudioTracksChanged(audioTracks());
     }
 
+    /**
+     * The video representations dash.js is offering.
+     *
+     * dash.js renamed this API between major versions and Astra pins one
+     * build, but the pin moves; asking for whichever shape the loaded library
+     * actually has is cheaper than a version check that silently stops being
+     * true after an upgrade.
+     */
+    function representations() {
+      if (!player) return [];
+      try {
+        if (typeof player.getRepresentationsByType === "function") {
+          return (player.getRepresentationsByType("video") || []).map(function (entry, index) {
+            return {
+              index: Number.isFinite(entry && entry.index) ? entry.index : index,
+              id: entry && entry.id != null ? String(entry.id) : String(index),
+              height: Number(entry && entry.height) || 0,
+              bitrate: Number(entry && (entry.bandwidth || entry.bitrate)) || 0
+            };
+          });
+        }
+        if (typeof player.getBitrateInfoListFor === "function") {
+          return (player.getBitrateInfoListFor("video") || []).map(function (entry, index) {
+            return {
+              index: Number.isFinite(entry && entry.qualityIndex) ? entry.qualityIndex : index,
+              id: String(Number.isFinite(entry && entry.qualityIndex) ? entry.qualityIndex : index),
+              height: Number(entry && entry.height) || 0,
+              bitrate: Number(entry && entry.bitrate) || 0
+            };
+          });
+        }
+      } catch (error) {
+        return [];
+      }
+      return [];
+    }
+
+    function abrEnabled() {
+      if (!player || typeof player.getSettings !== "function") return true;
+      try {
+        var settings = player.getSettings() || {};
+        var abr = settings.streaming && settings.streaming.abr;
+        var auto = abr && abr.autoSwitchBitrate;
+        return !auto || auto.video !== false;
+      } catch (error) {
+        return true;
+      }
+    }
+
+    function currentRepresentationIndex() {
+      if (!player) return -1;
+      try {
+        if (typeof player.getCurrentRepresentationForType === "function") {
+          var current = player.getCurrentRepresentationForType("video");
+          if (current && Number.isFinite(current.index)) return current.index;
+        }
+        if (typeof player.getQualityFor === "function") {
+          var quality = player.getQualityFor("video");
+          if (Number.isFinite(quality)) return quality;
+        }
+      } catch (error) {
+        return -1;
+      }
+      return -1;
+    }
+
+    function videoQualities() {
+      var list = representations();
+      if (list.length < 2) return [];
+      var auto = abrEnabled();
+      var active = currentRepresentationIndex();
+      var out = [{ id: "auto", label: "Auto", height: 0, bitrate: 0, auto: true, active: auto }];
+      list
+        .slice()
+        .sort(function (a, b) { return b.height - a.height || b.bitrate - a.bitrate; })
+        .forEach(function (entry) {
+          out.push({
+            id: String(entry.index),
+            label: entry.height ? entry.height + "p" : Math.round(entry.bitrate / 1000) + " kbps",
+            height: entry.height,
+            bitrate: entry.bitrate,
+            auto: false,
+            active: !auto && entry.index === active
+          });
+        });
+      return out;
+    }
+
+    function announceQualities() {
+      base.emitVideoQualitiesChanged(videoQualities());
+    }
+
+    function setAbr(enabled) {
+      if (!player || typeof player.updateSettings !== "function") return false;
+      try {
+        player.updateSettings({ streaming: { abr: { autoSwitchBitrate: { video: !!enabled } } } });
+        return true;
+      } catch (error) {
+        return false;
+      }
+    }
+
     api = {
       kind: base.kind,
       scope: scope,
@@ -452,8 +645,18 @@
             player.on(event, announceTracks);
             trackHandlers.push({ event: event, handler: announceTracks });
           });
+          var qualityEvents = [
+            events.STREAM_INITIALIZED || "streamInitialized",
+            events.QUALITY_CHANGE_RENDERED || "qualityChangeRendered",
+            events.REPRESENTATION_SWITCH || "representationSwitch"
+          ];
+          qualityEvents.filter(function (event, index) { return event && qualityEvents.indexOf(event) === index; }).forEach(function (event) {
+            player.on(event, announceQualities);
+            trackHandlers.push({ event: event, handler: announceQualities });
+          });
           player.initialize(media, config.url, true);
           announceTracks();
+          announceQualities();
         });
       },
       getAudioTracks: function () {
@@ -471,6 +674,49 @@
         } catch (error) {
           return false;
         }
+      },
+      getVideoQualities: function () {
+        return videoQualities();
+      },
+      /**
+       * Pin one representation, or hand control back to the adaptive
+       * algorithm. Both are in-place: dash.js swaps the buffered
+       * representation underneath the element, so the playhead does not move
+       * and nothing is re-downloaded from the start.
+       */
+      selectVideoQuality: function (id) {
+        if (!player) return false;
+        if (String(id) === "auto") {
+          if (!setAbr(true)) return false;
+          announceQualities();
+          return true;
+        }
+        var wanted = Number(id);
+        var list = representations();
+        var chosen = null;
+        for (var i = 0; i < list.length; i += 1) {
+          if (list[i].index === wanted) chosen = list[i];
+        }
+        if (!chosen) return false;
+        // ABR would immediately override a pinned representation.
+        setAbr(false);
+        try {
+          if (typeof player.setRepresentationForTypeById === "function") {
+            player.setRepresentationForTypeById("video", chosen.id, true);
+          } else if (typeof player.setRepresentationForTypeByIndex === "function") {
+            player.setRepresentationForTypeByIndex("video", chosen.index, true);
+          } else if (typeof player.setQualityFor === "function") {
+            player.setQualityFor("video", chosen.index, true);
+          } else {
+            setAbr(true);
+            return false;
+          }
+        } catch (error) {
+          setAbr(true);
+          return false;
+        }
+        announceQualities();
+        return true;
       },
       destroy: function () {
         if (!base.markDestroyed()) return;
@@ -524,6 +770,7 @@
   global.AstraPlayback = global.AstraPlayback || {};
   global.AstraPlayback.adapters = {
     createResourceScope: createResourceScope,
+    codecLabel: codecLabel,
     createAdapter: createAdapter,
     createNativeAdapter: createNativeAdapter,
     createHlsAdapter: createHlsAdapter,

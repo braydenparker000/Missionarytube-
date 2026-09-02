@@ -10,8 +10,12 @@
  *
  * A type nobody anticipated is never discarded: it becomes a custom sector at
  * the end of the list so the content stays reachable. The one exception is the
- * out-of-scope list below — YouTube, podcasts and radio are not part of the
- * product, so their catalogs are dropped instead of being made reachable.
+ * out-of-scope list below — podcasts and radio are not part of the product, so
+ * their catalogs are dropped instead of being made reachable.
+ *
+ * A sector can also be `builtIn`: provided by Astra itself rather than by an
+ * installed add-on. YouTube is the only one, and it is available whenever the
+ * caller says the provider is switched on.
  *
  * Dependency free: a classic script in the browser, evaluated in `node:vm` by
  * the tests.
@@ -54,6 +58,15 @@
       needs: "an add-on with music catalogs"
     },
     {
+      id: "youtube",
+      label: "YouTube",
+      singular: "Video",
+      match: ["youtube", "yt"],
+      // Not an add-on: Astra resolves YouTube itself, through Invidious.
+      builtIn: true,
+      needs: "YouTube turned on in Settings"
+    },
+    {
       id: "channel",
       label: "Live TV",
       singular: "Live channel",
@@ -70,14 +83,17 @@
   ];
 
   /**
-   * Types Astra deliberately does not carry. YouTube, podcasts and radio are
-   * out of product scope, so a catalog of one of these types is dropped here
-   * rather than surfaced as a custom sector. Playback keeps its adapters, so
-   * an add-on that returns one of these as a *stream* still works; what is
+   * Types Astra deliberately does not carry. Podcasts and radio are out of
+   * product scope, so a catalog of one of these types is dropped here rather
+   * than surfaced as a custom sector. Playback keeps its adapters, so an
+   * add-on that returns one of these as a *stream* still works; what is
    * removed is the browsing destination, not the protocol support.
+   *
+   * YouTube used to be on this list. It is not any more: Astra now resolves
+   * and plays YouTube itself through Invidious, so it is a sector like any
+   * other - the difference being that the app, not an add-on, provides it.
    */
   var OUT_OF_SCOPE = [
-    "youtube", "yt",
     "podcast", "podcasts",
     "radio", "station", "stations"
   ];
@@ -170,9 +186,15 @@
    * sector the viewer cannot use still needs to explain what is missing and
    * point at Add-ons. Custom types discovered in the manifests are appended so
    * nothing an add-on exposes becomes unreachable.
+   *
+   * `options.builtIn` names the sectors the app provides by itself. Those are
+   * available without any add-on behind them, which is the honest answer for
+   * YouTube: the coverage screen is about what the viewer can actually reach,
+   * and a built-in provider is reachable.
    */
   function buildHub(sources, options) {
     var config = options || {};
+    var builtIn = Array.isArray(config.builtIn) ? config.builtIn : [];
     var catalogs = collectCatalogs(sources);
     var byType = {};
 
@@ -189,17 +211,22 @@
         claimed[type] = true;
         matched = matched.concat(byType[type]);
       });
+      var provided = builtIn.indexOf(definition.id) !== -1;
+      var providers = providerNames(matched);
+      if (provided) providers = ["Built in"].concat(providers);
       return {
         id: definition.id,
         label: definition.label,
         singular: definition.singular,
         custom: false,
+        builtIn: definition.builtIn === true,
+        provided: provided,
         types: definition.match.filter(function (type) {
           return !!byType[type];
         }),
         catalogs: matched,
-        available: matched.length > 0,
-        providers: providerNames(matched),
+        available: matched.length > 0 || provided,
+        providers: providers,
         needs: definition.needs,
         episodic: EPISODIC.indexOf(definition.id) !== -1,
         audio: AUDIO_SECTORS.indexOf(definition.id) !== -1
@@ -271,7 +298,11 @@
    */
   function describe(sector) {
     if (!sector) return "";
-    if (!sector.available) return "No installed add-on provides " + sector.label.toLowerCase() + ".";
+    if (!sector.available) {
+      if (sector.builtIn) return missingReason(sector);
+      return "No installed add-on provides " + sector.label.toLowerCase() + ".";
+    }
+    if (sector.provided && !sector.catalogs.length) return "Provided by Astra itself";
     var count = sector.catalogs.length;
     var catalogWord = count === 1 ? "catalog" : "catalogs";
     var providers = sector.providers.length;
@@ -283,6 +314,8 @@
   /** What the viewer would have to install, for the empty state. */
   function missingReason(sector) {
     if (!sector || sector.available) return "";
+    // A built-in sector is switched on, not installed.
+    if (sector.builtIn) return sector.needs ? "Needs " + sector.needs + "." : "Turn this on in Settings.";
     return sector.needs ? "Install " + sector.needs + " to use this sector." : "Install an add-on that provides this content.";
   }
 

@@ -31,7 +31,29 @@ const ALLOWED_HOSTS = [
   "v3-cinemeta.strem.io", // the public default add-on, no configuration or token
   "cdn.jsdelivr.net", // pinned, integrity-checked player runtimes
   "registry.npmjs.org", // used by the dependency pinning script
-  "www.youtube-nocookie.com", // privacy-preserving YouTube embed
+  // The public pool the provider resolves through. All are public
+  // infrastructure run by volunteers, with no token anywhere in the URL.
+  // Piped leads because its API is CORS-enabled by design, which is what a
+  // browser-only static site needs.
+  "api.piped.private.coffee",
+  "pipedapi.ducks.party",
+  "api.piped.yt",
+  "api.piped.privacydev.net",
+  "pipedapi.reallyaweso.me",
+  "pipedapi.kavin.rocks",
+  "pipedapi.adminforge.de",
+  "pipedapi.leptons.xyz",
+  "pipedapi.nosebs.ru",
+  "yewtu.be",
+  "inv.nadeko.net",
+  "invidious.nerdvpn.de",
+  // The link shapes the search box accepts when one is pasted in. They are
+  // parsed to recover a video id; nothing is ever requested from them.
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "music.youtube.com",
+  "youtu.be",
   "github.com",
   "claude.ai",
   "code.claude.com",

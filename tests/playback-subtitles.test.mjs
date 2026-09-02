@@ -268,3 +268,73 @@ test("language selection enables only the first matching track", () => {
     "two English providers must not both render"
   );
 });
+
+test("a cross-origin caption is fetched and attached as a blob, even as WebVTT", async () => {
+  // A `<track src>` load is a CORS request, and the media element cannot be
+  // put in CORS mode without breaking the direct progressive video loads that
+  // have to stay outside it. So an instance's captions are fetched by hand.
+  const clock = createClock();
+  const { scope, revoked } = scopeWith(clock);
+  const media = createMediaElement();
+  const requested = [];
+
+  const tracks = plain(
+    SUB.normalizeTracks(
+      [
+        { url: "https://invidious.example.test/api/v1/captions/x?label=English", lang: "en", label: "English", inline: true },
+        { url: "https://cdn.example.test/subs/plain.vtt", lang: "de", label: "German" }
+      ],
+      { pageUrl: PAGE_URL }
+    )
+  );
+  assert.equal(tracks[0].inline, true);
+  assert.equal(tracks[1].inline, false, "an ordinary add-on track keeps the direct path");
+
+  const attached = await SUB.attachTracks({
+    media,
+    scope,
+    tracks,
+    settings: {},
+    fetch: async (url) => {
+      requested.push(url);
+      return { ok: true, text: async () => "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nHallo\n" };
+    },
+    createObjectURL: fakeBlobUrl(),
+    Blob: globalThis.Blob
+  });
+
+  assert.deepEqual(requested, ["https://invidious.example.test/api/v1/captions/x?label=English"],
+    "only the inline track is fetched");
+  assert.equal(plain(attached).length, 2);
+  assert.match(plain(attached)[0].element.src, /^blob:/, "the caption is attached as a same-origin blob");
+  assert.equal(plain(attached)[1].element.src, "https://cdn.example.test/subs/plain.vtt");
+  assert.equal(plain(scope.trackedUrls()).length, 1, "exactly one URL was generated");
+
+  scope.dispose();
+  assert.equal(revoked.length, 1);
+});
+
+test("a caption the instance will not return loses captions, never the video", async () => {
+  const clock = createClock();
+  const { scope } = scopeWith(clock);
+  const media = createMediaElement();
+  const tracks = plain(
+    SUB.normalizeTracks(
+      [{ url: "https://invidious.example.test/api/v1/captions/x", lang: "en", label: "English", inline: true }],
+      { pageUrl: PAGE_URL }
+    )
+  );
+
+  const attached = await SUB.attachTracks({
+    media,
+    scope,
+    tracks,
+    settings: {},
+    fetch: async () => ({ ok: false, status: 502, text: async () => "" }),
+    createObjectURL: fakeBlobUrl(),
+    Blob: globalThis.Blob
+  });
+
+  assert.deepEqual(plain(attached), []);
+  assert.equal(media.children.length, 0);
+});

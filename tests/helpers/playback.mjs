@@ -145,6 +145,11 @@ export function createHlsDouble({ supported = true } = {}) {
         { name: "Japanese", lang: "ja" }
       ],
       audioTrack: 0,
+      levels: [
+        { height: 360, bitrate: 800000 },
+        { height: 720, bitrate: 2200000 }
+      ],
+      currentLevel: -1,
       on(event, handler) {
         if (!this.handlers.has(event)) this.handlers.set(event, []);
         this.handlers.get(event).push(handler);
@@ -170,20 +175,62 @@ export function createHlsDouble({ supported = true } = {}) {
     return instance;
   }
   Hls.isSupported = () => supported;
-  Hls.Events = { ERROR: "hlsError" };
+  Hls.Events = { ERROR: "hlsError", MANIFEST_PARSED: "manifestParsed", LEVEL_SWITCHED: "levelSwitched" };
   Hls.created = created;
   return Hls;
 }
 
-/** A dash.js double covering the surface the adapter uses. */
-export function createDashDouble() {
+/**
+ * A dash.js double covering the surface the adapter uses.
+ *
+ * `api` selects which generation of the quality API the double exposes.
+ * dash.js renamed it between major versions and Astra's pin moves, so the
+ * adapter feature-detects; this is how both branches get exercised.
+ */
+export function createDashDouble({ api = "v5" } = {}) {
   const created = [];
+  const representations = [
+    { id: "r0", index: 0, height: 360, bandwidth: 800000, bitrate: 800000, qualityIndex: 0 },
+    { id: "r1", index: 1, height: 720, bandwidth: 2200000, bitrate: 2200000, qualityIndex: 1 },
+    { id: "r2", index: 2, height: 1080, bandwidth: 4400000, bitrate: 4400000, qualityIndex: 2 }
+  ];
   return {
     created,
+    representations,
     MediaPlayer() {
       return {
         create() {
+          const quality = api === "v5"
+            ? {
+                getRepresentationsByType: () => representations,
+                setRepresentationForTypeById(type, id, force) {
+                  this.switched = { type, id, force };
+                  this.pinned = representations.findIndex((entry) => entry.id === id);
+                },
+                getCurrentRepresentationForType() {
+                  return this.pinned == null ? null : representations[this.pinned];
+                }
+              }
+            : {
+                getBitrateInfoListFor: () => representations,
+                setQualityFor(type, index, force) {
+                  this.switched = { type, index, force };
+                  this.pinned = index;
+                },
+                getQualityFor() {
+                  return this.pinned == null ? -1 : this.pinned;
+                }
+              };
           const player = {
+            ...quality,
+            settings: { streaming: { abr: { autoSwitchBitrate: { video: true } } } },
+            getSettings() {
+              return this.settings;
+            },
+            updateSettings(patch) {
+              const video = patch?.streaming?.abr?.autoSwitchBitrate?.video;
+              if (video !== undefined) this.settings.streaming.abr.autoSwitchBitrate.video = video;
+            },
             handlers: new Map(),
             initialized: null,
             resets: 0,

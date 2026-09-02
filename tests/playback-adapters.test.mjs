@@ -350,3 +350,136 @@ test("HLS goes through hls.js so audio tracks exist at all", () => {
   assert.equal(A.adapterKindFor("direct", {}), "native");
   assert.throws(() => A.createAdapter("nope", {}), /Unknown adapter kind/);
 });
+
+/* ---- video quality ------------------------------------------------------
+   Switching quality without losing the position is only possible where the
+   delivery has renditions to move between. That is exactly the adaptive
+   adapters, and the contract has to say so honestly for the two that do and
+   the one that does not. */
+
+test("a progressive file reports no qualities, because it has none", async () => {
+  const clock = createClock();
+  const media = createMediaElement();
+  const { scope } = scopeWith(clock);
+  const adapter = A.createNativeAdapter({ media, scope, url: URL_UNDER_TEST });
+  await adapter.attach();
+
+  assert.deepEqual(plain(adapter.getVideoQualities()), [], "one file is one rendition");
+  assert.equal(adapter.selectVideoQuality("720"), false, "and it cannot pretend to switch");
+  adapter.destroy();
+});
+
+test("dash.js renditions are listed, pinned and handed back to Auto", async () => {
+  const clock = createClock();
+  const media = createMediaElement();
+  const { scope } = scopeWith(clock);
+  const announced = [];
+  const dashjs = createDashDouble();
+  const adapter = A.createDashAdapter({
+    media,
+    scope,
+    url: "https://invidious.example.test/api/manifest/dash/id/x?local=true",
+    dashjs,
+    onVideoQualitiesChanged: (list) => announced.push(plain(list))
+  });
+  await adapter.attach();
+  const player = dashjs.created[0];
+
+  const qualities = plain(adapter.getVideoQualities());
+  assert.deepEqual(qualities.map((entry) => entry.label), ["Auto", "1080p", "720p", "360p"]);
+  assert.equal(qualities[0].active, true, "adaptive starts automatic");
+
+  assert.equal(adapter.selectVideoQuality("1"), true);
+  assert.equal(player.settings.streaming.abr.autoSwitchBitrate.video, false,
+    "ABR would immediately override a pinned rendition");
+  assert.equal(player.switched.force, true, "the switch replaces the buffer, so the playhead does not move");
+  const pinned = plain(adapter.getVideoQualities());
+  assert.equal(pinned.find((entry) => entry.label === "720p").active, true);
+  assert.equal(pinned[0].active, false, "Auto is no longer what is happening");
+
+  assert.equal(adapter.selectVideoQuality("auto"), true);
+  assert.equal(player.settings.streaming.abr.autoSwitchBitrate.video, true);
+  assert.equal(plain(adapter.getVideoQualities())[0].active, true);
+
+  assert.ok(announced.length >= 1, "the tools row is told when the rendition changes");
+  adapter.destroy();
+});
+
+test("the older dash.js quality API is driven just as correctly", async () => {
+  const clock = createClock();
+  const media = createMediaElement();
+  const { scope } = scopeWith(clock);
+  const dashjs = createDashDouble({ api: "v4" });
+  const adapter = A.createDashAdapter({ media, scope, url: "https://invidious.example.test/m.mpd", dashjs });
+  await adapter.attach();
+  const player = dashjs.created[0];
+
+  assert.deepEqual(plain(adapter.getVideoQualities()).map((entry) => entry.label), ["Auto", "1080p", "720p", "360p"]);
+  assert.equal(adapter.selectVideoQuality("2"), true);
+  assert.deepEqual(player.switched, { type: "video", index: 2, force: true });
+  adapter.destroy();
+});
+
+test("a rendition that does not exist is refused, and Auto is left alone", async () => {
+  const clock = createClock();
+  const media = createMediaElement();
+  const { scope } = scopeWith(clock);
+  const dashjs = createDashDouble();
+  const adapter = A.createDashAdapter({ media, scope, url: "https://invidious.example.test/m.mpd", dashjs });
+  await adapter.attach();
+
+  assert.equal(adapter.selectVideoQuality("99"), false);
+  assert.equal(dashjs.created[0].settings.streaming.abr.autoSwitchBitrate.video, true,
+    "a refused switch must not leave ABR turned off");
+  adapter.destroy();
+});
+
+test("hls.js levels are switchable, and -1 is its own Auto", async () => {
+  const clock = createClock();
+  const media = createMediaElement();
+  const { scope } = scopeWith(clock);
+  const Hls = createHlsDouble();
+  const adapter = A.createHlsAdapter({ media, scope, url: "https://invidious.example.test/live.m3u8", Hls });
+  await adapter.attach();
+  const instance = Hls.created[0];
+
+  const levels = plain(adapter.getVideoQualities());
+  assert.deepEqual(levels.map((entry) => entry.label), ["Auto", "360p", "720p"]);
+  assert.equal(levels[0].active, true);
+
+  assert.equal(adapter.selectVideoQuality("1"), true);
+  assert.equal(instance.currentLevel, 1);
+  assert.equal(plain(adapter.getVideoQualities()).find((entry) => entry.label === "720p").active, true);
+
+  assert.equal(adapter.selectVideoQuality("auto"), true);
+  assert.equal(instance.currentLevel, -1);
+  assert.equal(adapter.selectVideoQuality("9"), false);
+  adapter.destroy();
+});
+
+test("a single-rendition stream offers no choice rather than a menu of one", async () => {
+  const clock = createClock();
+  const media = createMediaElement();
+  const { scope } = scopeWith(clock);
+  const Hls = createHlsDouble();
+  const adapter = A.createHlsAdapter({ media, scope, url: "https://invidious.example.test/live.m3u8", Hls });
+  await adapter.attach();
+  Hls.created[0].levels = [{ height: 720, bitrate: 2200000 }];
+  assert.deepEqual(plain(adapter.getVideoQualities()), []);
+  adapter.destroy();
+});
+
+test("a track label names a codec, never a MIME type", () => {
+  // dash.js reports `audio/webm;codecs="opus"` as a track's codec. Drawn on a
+  // 44px button that is the library's internal detail leaking into the UI.
+  assert.equal(A.codecLabel('audio/webm;codecs="opus"'), "Opus");
+  assert.equal(A.codecLabel('audio/mp4; codecs="mp4a.40.2"'), "AAC");
+  assert.equal(A.codecLabel("ec-3"), "EAC3");
+  assert.equal(A.codecLabel("mp4a.40.2"), "AAC");
+  assert.equal(A.codecLabel("flac"), "FLAC");
+  // An unrecognised value is kept only if it is short enough to be a codec.
+  assert.equal(A.codecLabel("xyz"), "XYZ");
+  assert.equal(A.codecLabel("application/some-very-long-type"), "");
+  assert.equal(A.codecLabel(""), "");
+  assert.equal(A.codecLabel(null), "");
+});

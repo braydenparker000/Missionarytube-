@@ -6,6 +6,12 @@
  * de-duplicates them, converts SRT to VTT robustly, and hands every generated
  * object URL to a resource scope so cleanup revokes it.
  *
+ * A track marked `inline` is fetched and re-attached as a blob even when it is
+ * already WebVTT. That is not a conversion: it is the only way to attach a
+ * cross-origin caption file, because a `<track>` load is a CORS request and
+ * the media element cannot be put in CORS mode without breaking the direct
+ * progressive video loads that must stay outside it.
+ *
  * A subtitle failure is never allowed to fail video playback: every step is
  * individually guarded and simply yields fewer tracks.
  */
@@ -96,7 +102,12 @@
         label: label,
         language: name,
         source: str(item._addonName || config.addonName),
-        isSrt: /\.srt(?:$|[?#])/i.test(url) || str(item.format).toLowerCase() === "srt"
+        isSrt: /\.srt(?:$|[?#])/i.test(url) || str(item.format).toLowerCase() === "srt",
+        // A `<track src>` is fetched in CORS mode. The media element carries no
+        // `crossorigin` attribute, because setting one would break the direct
+        // progressive video loads that need to stay non-CORS, so a cross-origin
+        // caption file has to be fetched by hand and attached as a blob.
+        inline: item.inline === true
       });
     });
 
@@ -183,7 +194,7 @@
 
     return Promise.all(
       tracks.map(function (track) {
-        if (!track.isSrt) return Promise.resolve({ track: track, src: track.url });
+        if (!track.isSrt && !track.inline) return Promise.resolve({ track: track, src: track.url });
         if (!fetchImpl) return Promise.resolve(null);
         return Promise.resolve()
           .then(function () {

@@ -205,8 +205,14 @@ test("a terminal failure releases the attempt before the error card renders", ()
   // behind the error UI until the viewer happens to retry, switch or close.
   assert.match(
     html,
-    /if\(snap\.state==='failed'\|\|snap\.state==='exhausted'\)\{teardownAttempt\(\);renderPlayerError\(snap\)/,
+    /if\(snap\.state==='failed'\|\|snap\.state==='exhausted'\)\{\s*teardownAttempt\(\);/,
     "teardownAttempt must run when the session goes terminal"
+  );
+  // The one thing allowed to run between the release and the error card is the
+  // YouTube link refresh, which replaces the sources rather than rendering.
+  assert.match(
+    html,
+    /teardownAttempt\(\);\s*if\(snap\.state==='exhausted'&&youtubeMaybeRefresh\(\)\)return;\s*renderPlayerError\(snap\)/
   );
 });
 
@@ -340,7 +346,10 @@ test("every modal dismissal invalidates pending work", () => {
 
   // The X button and the Escape key are the paths that previously slipped past.
   assert.match(html, /data-close\]',root\)\.forEach\(x=>x\.onclick=\(\)=>closeModal\(\)\)/, "the close button cancels");
-  assert.match(html, /if\(\$\('#mediaEl'\)\|\|\$\('#playerStage iframe'\)\)closePlayer\(\);else closeModal\(\)/, "Escape cancels");
+  // The player shell is the thing being closed, so that is what is looked for.
+  // It used to test for an iframe as well, back when a YouTube stream meant an
+  // embed; there is no iframe in the app any more.
+  assert.match(html, /if\(\$\('\.player-shell',\$\('#modalRoot'\)\)\)closePlayer\(\);else closeModal\(\)/, "Escape cancels");
 
   // Counting one literal selector is not enough: `root` and other aliases point
   // at the same container. Check every blanking assignment in the file and
@@ -350,6 +359,7 @@ test("every modal dismissal invalidates pending work", () => {
     "status", // the player status area
     "el", // the status element inside the notice timer
     "home", // #homeRoot, dropped when the add-on set changes under it
+    "mount", // #youtubeBrowse, a section of the Browse page
     "$('#audioRoot')" // the audio surface, a sibling of the modal and never it
   ]);
   const blanking = [...html.matchAll(/([\w$.'#()]+)\.innerHTML=''/g)].map((m) => m[1]);

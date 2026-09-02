@@ -11,16 +11,18 @@ test("every content type Astra carries has a sector", () => {
   for (const id of ["movie", "series", "anime", "music", "channel", "other"]) {
     assert.ok(ids.includes(id), `${id} must be reachable from the hub`);
   }
-  // Movies, shows and anime lead; music is the secondary experience.
-  assert.equal(ids.slice(0, 4).join(","), "movie,series,anime,music");
+  assert.ok(ids.includes("youtube"), "youtube must be reachable from the hub");
+  // Movies, shows and anime lead; music is the secondary experience, and
+  // YouTube sits after them because it is a different kind of source.
+  assert.equal(ids.slice(0, 5).join(","), "movie,series,anime,music,youtube");
 });
 
-test("YouTube, podcasts and radio are out of product scope everywhere", () => {
+test("podcasts and radio are out of product scope everywhere", () => {
   const ids = hub.SECTORS.map((s) => s.id);
-  for (const id of ["youtube", "podcast", "radio"]) {
+  for (const id of ["podcast", "radio"]) {
     assert.equal(ids.includes(id), false, `${id} must not be a destination`);
   }
-  for (const type of ["youtube", "yt", "podcast", "podcasts", "radio", "station", "stations"]) {
+  for (const type of ["podcast", "podcasts", "radio", "station", "stations"]) {
     assert.equal(hub.isOutOfScope(type), true, `${type} must be out of scope`);
     assert.equal(hub.sectorIdForType(type), null);
   }
@@ -29,12 +31,47 @@ test("YouTube, podcasts and radio are out of product scope everywhere", () => {
   const sources = [source("mixed", [
     cat("movie", "1", "Popular"),
     cat("podcast", "2", "Shows"),
-    cat("radio", "3", "Stations"),
-    cat("youtube", "4", "Channels")
+    cat("radio", "3", "Stations")
   ])];
   assert.equal(hub.collectCatalogs(sources).map((entry) => entry.type).join(","), "movie");
   assert.equal(hub.buildHub(sources).filter((sector) => sector.custom).length, 0);
   assert.equal(hub.buildHub(sources, { availableOnly: true }).length, 1);
+});
+
+test("YouTube is a sector Astra provides itself", () => {
+  // It used to be out of scope. Astra now resolves and plays YouTube through
+  // Invidious, so it is in scope and it is not an add-on's to provide.
+  assert.equal(hub.isOutOfScope("youtube"), false);
+  assert.equal(hub.isOutOfScope("yt"), false);
+  assert.equal(hub.sectorIdForType("youtube"), "youtube");
+  assert.equal(hub.sectorIdForType("yt"), "youtube");
+  assert.equal(hub.typeLabel("youtube"), "Video");
+  // Neither episodic nor audio: a YouTube video is one video.
+  assert.equal(hub.isEpisodic("youtube"), false);
+  assert.equal(hub.isAudio("youtube"), false);
+
+  // With nothing installed and the provider off, the sector explains itself
+  // rather than claiming an add-on is missing.
+  const off = hub.buildHub([]).find((sector) => sector.id === "youtube");
+  assert.equal(off.available, false);
+  assert.equal(off.builtIn, true);
+  assert.match(hub.missingReason(off), /^Needs YouTube turned on in Settings\.$/);
+
+  // Switched on, it is available with no add-on behind it at all.
+  const on = hub.buildHub([], { builtIn: ["youtube"] }).find((sector) => sector.id === "youtube");
+  assert.equal(on.available, true);
+  assert.deepEqual(Array.from(on.providers), ["Built in"]);
+  assert.equal(hub.describe(on), "Provided by Astra itself");
+  assert.equal(hub.missingReason(on), "");
+
+  // An add-on that also publishes YouTube catalogs is now carried rather than
+  // dropped, and is named alongside the built-in provider.
+  const withAddon = hub
+    .buildHub([source("yt-addon", [cat("youtube", "1", "Channels")])], { builtIn: ["youtube"] })
+    .find((sector) => sector.id === "youtube");
+  assert.equal(withAddon.catalogs.length, 1);
+  assert.deepEqual(Array.from(withAddon.providers), ["Built in", "yt-addon"]);
+  assert.equal(withAddon.custom, false, "it is a curated sector, not an invented one");
 });
 
 test("real-world type spellings map onto the same sector", () => {

@@ -7,13 +7,15 @@
   "scripts": {
     "test": "node scripts/check.mjs && node --test",
     "build": "node scripts/build.mjs",
-    "pin:check": "node scripts/pin-player-libs.mjs --check"
+    "pin:check": "node scripts/pin-player-libs.mjs --check",
+    "test:browser": "node tests/browser/youtube-flow.mjs"
   },
   "dependencies": {
     "gsap": "3.15.0"
   },
   "devDependencies": {
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "playwright-core": "1.56.1"
   },
   "engines": {
     "node": ">=20"
