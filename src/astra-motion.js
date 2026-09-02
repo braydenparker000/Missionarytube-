@@ -603,40 +603,27 @@ function sharedClose({ target, update } = {}) {
 
 function navigate({ from, to, direction = "auto", update } = {}) {
   const travel = navigationDirection(from, to, direction);
-  let committed = false;
   const commit = () => {
-    if (committed) return;
-    committed = true;
     navigationUpdating = true;
     try { update?.(); } finally { navigationUpdating = false; }
   };
-  if (!transitionAvailable()) {
-    commit();
-    if (!reduced()) {
-      const page = document.querySelector(".page.active");
-      if (page) {
-        const lean = constrainedMotion();
-        gsap.fromTo(
-          page,
-          { x: travel === "back" ? (lean ? -10 : -18) : (lean ? 12 : 22), opacity: lean ? 0.72 : 0.45 },
-          { x: 0, opacity: 1, duration: lean ? 0.22 : 0.28, ease: "power4.out", clearProps: "transform,opacity" }
-        );
-      }
+  // Route ownership changes synchronously. Full-page View Transition
+  // snapshots can intercept a follow-up tap and can deliver their update
+  // callback after a newer route action. The lighter GSAP transform preserves
+  // direction without putting a visual snapshot above the live controls.
+  commit();
+  if (!reduced()) {
+    const page = document.querySelector(".page.active");
+    if (page) {
+      const lean = constrainedMotion();
+      gsap.fromTo(
+        page,
+        { x: travel === "back" ? (lean ? -10 : -18) : (lean ? 12 : 22), opacity: lean ? 0.72 : 0.45 },
+        { x: 0, opacity: 1, duration: lean ? 0.22 : 0.28, ease: "power4.out", clearProps: "transform,opacity" }
+      );
     }
-    return false;
   }
-  document.documentElement.dataset.astraNav = travel;
-  const fallback = setTimeout(commit, 100);
-  try {
-    sharedTransition = document.startViewTransition(commit);
-    sharedTransition.finished.catch(() => {}).finally(() => { clearTimeout(fallback); clearTransitionState(); });
-    return true;
-  } catch {
-    clearTimeout(fallback);
-    clearTransitionState();
-    commit();
-    return false;
-  }
+  return false;
 }
 
 function syncDock(root, activeId) {
