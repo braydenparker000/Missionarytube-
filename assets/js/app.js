@@ -1,5 +1,5 @@
   (()=>{'use strict';
-    const APP_VERSION=document.querySelector('meta[name="astra-release"]')?.content||'dev',HOME_LIMIT=24,DISCOVER_BATCH=60;
+    const APP_VERSION=document.querySelector('meta[name="astra-release"]')?.content||'dev',HOME_LIMIT=18,CONTINUE_LIMIT=12,HOME_INITIAL_SECTORS=3,HOME_SECTOR_BATCH=2,DISCOVER_BATCH=60;
     const DEFAULT_ADDONS=[{url:'https://v3-cinemeta.strem.io/manifest.json',enabled:true,official:true}];
     const KEY='astra.v1.';
     const $=(q,r=document)=>r.querySelector(q), $$=(q,r=document)=>[...r.querySelectorAll(q)];
@@ -13,6 +13,8 @@
     const DEFAULT_SETTINGS=AstraPlayback.settings.DEFAULTS;
     const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),addonHealth:AstraDiscovery.normalizeHealth(store.get('addonHealth',null)),healthChecking:new Set(),healthRun:0,briefing:{type:'all',genre:'all',mode:'one',items:[],seen:new Set(),loading:false,error:'',request:0},discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0,searchSequence:0,searchRun:null,detailBrowser:null};
     const pageScroll=new Map();
+    const Routes=AstraRoutes.createRouteRuntime();
+    const PAGE_ROOTS={home:'homeRoot',search:'searchRoot',library:'libraryRoot',settings:'settingsRoot'};
     /* If the optional motion bundle ever fails to load, every control keeps
        working through this deliberately boring synchronous implementation. */
     const Motion=globalThis.AstraMotion||Object.freeze({
@@ -139,6 +141,15 @@
     function skeletonRail(){return `<div class="rail-scroll" aria-hidden="true">${Array.from({length:6},()=>'<div><div class="skeleton skeleton-art"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line" style="width:60%"></div></div>').join('')}</div>`}
     function skeletonSector(title){return `<section class="sector"><div class="sector-head"><div class="sector-heading"><h2 class="sector-title">${esc(title)}</h2></div></div>${skeletonRail()}</section>`}
     function pageStateKey(page,route){return page==='settings'?`${page}:${route||'root'}`:page}
+    function releasePage(page){
+      Routes.release(page);
+      if(page==='search'){
+        youtube.searchAbort?.abort();youtube.browseAbort?.abort();youtube.browseToken++;
+        if(state.searchRun?.pending){state.searchSequence++;state.searchRun=null}
+      }
+      const root=document.getElementById(PAGE_ROOTS[page]);
+      if(root)root.replaceChildren();
+    }
     function nav(page,route,travel='auto'){
       const alias=NAV_ALIASES[page];
       if(alias){route=route||alias[1];page=alias[0]}
@@ -147,6 +158,8 @@
       if(changed)pageScroll.set(fromKey,window.scrollY);
       const direction=travel!=='auto'?travel:(fromPage===page&&page==='settings'&&nextRoute==='root'?'back':'auto');
       const update=()=>{
+        const previousRoot=document.getElementById(PAGE_ROOTS[fromPage]),restoreFocus=previousRoot?.contains(document.activeElement);
+        if(changed)releasePage(fromPage);
         if(page==='settings')state.settingsRoute=nextRoute;
         state.currentPage=page;
         $$('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${page}`));
@@ -158,6 +171,7 @@
         window.scrollTo({top:pageScroll.get(toKey)||0,behavior:'auto'});
         Motion.syncDock($('#mobileNav'),page);
         Motion.syncPageBack(page!=='home'||(page==='settings'&&state.settingsRoute!=='root'));
+        if(restoreFocus)$$(`[data-nav="${page}"]`).at(-1)?.focus({preventScroll:true});
       };
       if(changed)Motion.navigate({from:fromPage,to:page,direction,update});else update();
     }
@@ -165,21 +179,24 @@
        whatever the installed add-ons actually expose. Skeletons occupy the
        final layout so nothing shifts when the real data lands. */
     async function renderHome(){
+      const run=Routes.begin('home');
       const root=$('#homeRoot');
       root.innerHTML=`<div id="featureMount"></div><div class="content" id="homeSections">${skeletonSector('Loading')}${skeletonSector('Loading')}</div>`;
       const sections=$('#homeSections');
       await loadManifests();
+      if(!run.current()||state.currentPage!=='home')return;
       const jobs=catalogEntries(true).map(entry=>({s:entry.source,cat:entry.catalog,entry}));
       if(!jobs.length){
-        $('#featureMount').innerHTML=welcomeFeatureHTML();
+        $('#featureMount',root).innerHTML=welcomeFeatureHTML();
         sections.innerHTML=stateHTML('No catalogs yet','Astra shows only what your installed add-ons expose. Add one above, or open Content coverage to see which content types an add-on would have to provide.');
         bindDynamic(root);return;
       }
       const results=await Promise.allSettled(jobs.slice(0,24).map(async j=>({...j,items:await getCatalog(j.s,j.cat,catalogExtras(j.cat))})));
+      if(!run.current()||state.currentPage!=='home')return;
       const good=results.filter(x=>x.status==='fulfilled'&&x.value.items.length).map(x=>x.value);
       state.homeItems=good.flatMap(x=>x.items);
       if(!good.length){
-        $('#featureMount').innerHTML=welcomeFeatureHTML();
+        $('#featureMount',root).innerHTML=welcomeFeatureHTML();
         sections.innerHTML=stateHTML('Catalogs could not load','No installed add-on returned a catalog. Check your connection, or that each add-on still has a valid configured manifest URL.',`<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>`,'error');
         bindDynamic(root);return;
       }
@@ -189,19 +206,42 @@
       const pool=(heroGroups.length?heroGroups:good).flatMap(x=>x.items)
         .filter(x=>backdrop(x))
         .filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i);
-      $('#featureMount').innerHTML=state.homeLayout.showHero?featureHTML(pool.length?pool:good[0].items):'';
+      $('#featureMount',root).innerHTML=state.homeLayout.showHero?featureHTML(pool.length?pool:good[0].items):'';
       sections.innerHTML='';
       const cont=continueItems();
-      if(cont.length)sections.insertAdjacentHTML('beforeend',resumeSectionHTML(cont));
+      if(cont.length)sections.insertAdjacentHTML('beforeend',resumeSectionHTML(cont.slice(0,CONTINUE_LIMIT)));
       /* New releases lead with the catalog's own naming so the release/source
          name stays legible enough to judge quality before opening anything. */
       const fresh=good.find(x=>/new|latest|recent|release/i.test(x.cat.name||x.cat.id||''));
-      if(fresh)sections.insertAdjacentHTML('beforeend',releaseSectionHTML(fresh));
-      good.filter(x=>x!==fresh).forEach(({cat,entry,items})=>{
-        sections.insertAdjacentHTML('beforeend',railSection(entry.displayName,items,catalogNote(entry,cat.type),entry.key));
-      });
+      const groups=[...(fresh?[{...fresh,release:true}]:[]),...good.filter(x=>x!==fresh)];
+      groups.slice(0,HOME_INITIAL_SECTORS).forEach(group=>sections.insertAdjacentHTML('beforeend',homeGroupHTML(group)));
       bindDynamic(root);
       bindHeroDeck();
+      installHomeSectorPager(root,sections,groups,HOME_INITIAL_SECTORS,run);
+    }
+    function homeGroupHTML({cat,entry,items,release}){
+      return release?releaseSectionHTML({cat,entry,items}):railSection(entry.displayName,items,catalogNote(entry,cat.type),entry.key);
+    }
+    function installHomeSectorPager(root,sections,groups,start,run){
+      let visible=Math.min(start,groups.length),observer=null;
+      if(visible>=groups.length)return;
+      sections.insertAdjacentHTML('beforeend',`<div class="load-more home-sector-more"><button class="btn btn-ghost" data-home-more>Show more catalogs</button></div>`);
+      const append=()=>{
+        if(!run.current()||state.currentPage!=='home')return;
+        const sentinel=$('.home-sector-more',sections);if(!sentinel)return;
+        const next=groups.slice(visible,visible+HOME_SECTOR_BATCH);
+        sentinel.insertAdjacentHTML('beforebegin',next.map(homeGroupHTML).join(''));
+        visible+=next.length;
+        bindDynamic(sections);
+        if(visible>=groups.length){observer?.disconnect();sentinel.remove();return}
+        $('[data-home-more]',sentinel).onclick=append;
+      };
+      const button=$('[data-home-more]',sections);if(button)button.onclick=append;
+      if(typeof IntersectionObserver==='function'){
+        observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))append()},{rootMargin:'0px 0px 600px 0px'});
+        observer.observe($('.home-sector-more',sections));
+        run.onDispose(()=>observer?.disconnect());
+      }
     }
     const HERO_LIMIT=6;
     /* The lead: a swipeable deck of real titles. There is no auto-advance, so
@@ -466,10 +506,14 @@
        query searches every catalog that declares search support. Either way
        the add-on behind each result stays named. */
     function renderSearchSurface(){
+      const route=Routes.begin('search');
       const input=$('#globalSearch');
       if(input&&input.value!==state.query)input.value=state.query;
       $('#searchClear')?.classList.toggle('hidden',!state.query);
-      return state.query?search(state.query):renderDiscover();
+      if(state.query&&state.searchRun&&state.searchRun.query===state.query&&!state.searchRun.pending){
+        state.searchRun.route=route;return renderSearchRun(state.searchRun);
+      }
+      return state.query?search(state.query,route):renderDiscover(route);
     }
     function browseSourceLine(list){
       if(!list.length)return '';
@@ -479,7 +523,8 @@
       const scope=list.length===1?esc(list[0].entry.displayName):`${list.length} catalogs`;
       return `<div class="source-line">${chips}${extra}<span>${scope}</span></div>`;
     }
-    async function renderDiscover(){
+    async function renderDiscover(route=Routes.begin('search')){
+      if(!route.current()||state.currentPage!=='search')return;
       const root=$('#searchRoot'),cats=allCatalogs();
       const types=[...new Set(cats.map(x=>x.cat.type))];
       const genres=[...new Set(cats.flatMap(x=>(x.cat.extra||[]).filter(e=>e.name==='genre').flatMap(e=>e.options||[])))];
@@ -495,16 +540,17 @@
         </div>
         <div id="discoverResults">${skeletonRail()}</div>`;
       types.forEach(type=>{const option=Array.from($('#discoverType').options).find(x=>x.textContent===typeLabel(type));if(option)option.value=type});
-      const refresh=()=>{state.discoverVisible=DISCOVER_BATCH;renderDiscoverResults()};
+      const refresh=()=>{state.discoverVisible=DISCOVER_BATCH;renderDiscoverResults(Routes.begin('search'))};
       $('#discoverType').onchange=e=>{state.discover.sector=null;state.discover.sectorLabel='';state.discover.type=e.target.value==='__sector'?'all':e.target.value;refresh()};
       $('#discoverAddon').onchange=e=>{state.discover.addon=e.target.value;refresh()};
       $('#discoverCatalog').onchange=e=>{state.discover.catalog=e.target.value;refresh()};
       if($('#discoverGenre'))$('#discoverGenre').onchange=e=>{state.discover.genre=e.target.value;refresh()};
       // Deliberately not awaited: the add-on catalogs must not wait on YouTube.
       renderYouTubeBrowse();
-      await renderDiscoverResults();
+      await renderDiscoverResults(route);
     }
-    async function renderDiscoverResults(){
+    async function renderDiscoverResults(route=Routes.begin('search')){
+      if(!route.current()||state.currentPage!=='search')return;
       let cats=allCatalogs();
       if(state.discover.catalog!=='all')cats=cats.filter(x=>x.entry.key===state.discover.catalog);
       else{
@@ -519,6 +565,7 @@
         const extra=catalogExtras(x.cat,supportsGenre&&state.discover.genre!=='all'?{genre:state.discover.genre}:{});
         return {...x,items:await getCatalog(x.s,x.cat,extra)};
       }));
+      if(!route.current()||state.currentPage!=='search')return;
       state.discoverItems=rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.items).filter((m,i,a)=>a.findIndex(n=>mediaRef(n)===mediaRef(m))===i);
       state.discoverSources=cats;
       renderDiscoverPage();
@@ -580,14 +627,14 @@
       $$('[data-search-jump]',root).forEach(button=>button.onclick=()=>{const target=$$('[data-search-provider]',root).find(node=>node.dataset.searchProvider===button.dataset.searchJump);target?.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'})});
     }
     function renderSearchRun(run){
-      if(state.searchRun!==run)return;
+      if(state.searchRun!==run||!run.route?.current()||state.currentPage!=='search')return;
       const root=$('#searchRoot');if(!root)return;
       root.innerHTML=`<div id="searchSummary">${searchSummaryHTML(run)}</div><div id="searchFilters">${searchFiltersHTML(run)}</div><div id="searchProviderStrip">${searchProviderStripHTML(run)}</div>
         <div class="search-provider-list">${run.groups.length?run.groups.map(group=>searchProviderHTML(group,run)).join(''):stateHTML('No searchable providers','None of your enabled add-ons exposes search. Install one that does, or browse its catalogs instead.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}</div>`;
       bindDynamic(root);bindSearchDynamic(root);
     }
     function refreshSearchRun(run,group){
-      if(state.searchRun!==run)return;
+      if(state.searchRun!==run||!run.route?.current()||state.currentPage!=='search')return;
       const root=$('#searchRoot');if(!root)return;
       const summary=$('#searchSummary',root),filters=$('#searchFilters',root),strip=$('#searchProviderStrip',root);
       if(summary)summary.innerHTML=searchSummaryHTML(run);
@@ -598,11 +645,11 @@
       else renderSearchRun(run);
       bindDynamic(root);bindSearchDynamic(root);
     }
-    function search(q){
+    function search(q,route=Routes.begin('search')){
       q=String(q||'').trim();
       state.query=q;
       const token=++state.searchSequence;
-      if(!q){state.searchRun=null;return renderDiscover()}
+      if(!q){state.searchRun=null;return renderDiscover(route)}
       const searchable=allCatalogs().filter(x=>(x.cat.extra||[]).some(e=>e.name==='search'));
       const groups=AstraSearch.groupSources(searchable).map(group=>({...group,items:[],pending:group.catalogs.length,succeeded:0,failed:0,status:'loading'}));
       const byProvider=new Map(groups.map(group=>[group.key,group]));
@@ -617,19 +664,19 @@
       const youtubeGroup=youtubeEnabled()?{key:'youtube',name:'YouTube',addon:null,catalogs:[],items:[],pending:1,succeeded:0,failed:0,status:'loading',youtube:true}:null;
       if(youtubeGroup)groups.unshift(youtubeGroup);
       const extra=youtubeGroup?1:0;
-      const run={token,query:q,type:'all',groups,total:searchable.length+extra,pending:searchable.length+extra};
+      const run={token,query:q,type:'all',groups,total:searchable.length+extra,pending:searchable.length+extra,route};
       state.searchRun=run;
       renderSearchRun(run);
       if(youtubeGroup)searchYouTube(run,youtubeGroup,q);
       groups.filter(group=>group.catalogs.length).forEach(group=>group.catalogs.forEach(source=>{
         getCatalog(source.s,source.cat,catalogExtras(source.cat,{search:q})).then(items=>{
-          if(state.searchRun!==run||run.token!==state.searchSequence)return;
+          if(state.searchRun!==run||run.token!==state.searchSequence||!run.route.current())return;
           group.items=AstraSearch.merge(group.items,items,q);group.succeeded++;
         }).catch(()=>{
-          if(state.searchRun!==run||run.token!==state.searchSequence)return;
+          if(state.searchRun!==run||run.token!==state.searchSequence||!run.route.current())return;
           group.failed++;
         }).finally(()=>{
-          if(state.searchRun!==run||run.token!==state.searchSequence)return;
+          if(state.searchRun!==run||run.token!==state.searchSequence||!run.route.current())return;
           group.pending=Math.max(0,group.pending-1);run.pending=Math.max(0,run.pending-1);
           group.status=group.pending?'loading':group.failed&&!group.succeeded?'error':'ready';
           refreshSearchRun(run,group);
@@ -643,7 +690,7 @@
     function searchYouTube(run,group,q){
       youtube.searchAbort?.abort();
       const controller=new AbortController();youtube.searchAbort=controller;
-      const live=()=>state.searchRun===run&&run.token===state.searchSequence;
+      const live=()=>state.searchRun===run&&run.token===state.searchSequence&&run.route?.current();
       const direct=YT.api.videoIdFromInput(q);
       const client=youtubeProvider().client;
       const request=direct
