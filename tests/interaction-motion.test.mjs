@@ -41,11 +41,10 @@ test("the motion runtime is exact, local and loaded before app wiring", () => {
   assert.equal(/<script[^>]+src="https?:/.test(html), false, "motion never loads from a CDN");
 });
 
-test("navigation, dock, hero and detail continuity are all wired", () => {
+test("navigation, dock and title detail continuity are all wired", () => {
   assert.match(html, /const pageScroll=new Map\(\)/);
   assert.match(html, /Motion\.navigate\(\{from:fromPage,to:page,direction,update\}\)/);
   assert.match(html, /Motion\.syncDock\(\$\('#mobileNav'\),page\)/);
-  assert.match(html, /Motion\.bindHero\(deck,dots\)/);
   assert.match(html, /Motion\.sharedOpen\(\{source:opener,targetSelector:'\.dossier-poster'/);
   assert.match(css, /view-transition-name: astra-page/);
   assert.match(css, /::view-transition-group\(astra-art\)/);

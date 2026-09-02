@@ -418,19 +418,31 @@ test("modal icon buttons and switches expose names and live state", () => {
   assert.match(html, /x\.setAttribute\('aria-pressed',String\(state\.settings\[k\]\)\)/);
 });
 
-test("the lead deck holds real titles and never auto-advances", () => {
-  // The deck is a scroller of catalog items, so nothing moves under a thumb.
-  assert.match(html, /<div class="feature-deck" id="heroDeck">/);
-  assert.match(html, /function bindHeroDeck\(\)/);
-  assert.match(html, /deck\.scrollLeft\/Math\.max\(1,deck\.clientWidth\)/, "position is read, not tracked");
-  assert.equal(/setInterval|autoplay.*hero|heroTimer/i.test(html), false, "no auto-advance timer");
-  assert.match(css, /\.feature-deck \{[\s\S]*?scroll-snap-type: inline mandatory;/);
+test("Tonight is one real, explainable title rather than a rotating billboard", () => {
+  assert.match(html, /function tonightChoice\(groups\)/);
+  assert.match(html, /<section class="feature feature-tonight" aria-label="Tonight">/);
+  assert.match(html, /<b>Why this title<\/b><span>\$\{esc\(choice\.reason\)\}<\/span>/);
+  assert.match(html, /saved\?'Saved on this device':`From \$\{group\.entry\.displayName\} · \$\{group\.entry\.providerName\}`/);
+  assert.equal(html.includes('id="heroDeck"'), false, "Home has one decision, not a hidden carousel");
+  assert.equal(/setInterval|autoplay.*hero|heroTimer/i.test(html), false, "Tonight never auto-advances");
+  assert.match(css, /#page-home \.feature-tonight \.feature-slide/);
   // With no provider, the standby composition is the surface itself: it never
   // stands in for artwork that does not exist.
   assert.match(html, /function welcomeFeatureHTML\(\)/);
   assert.match(html, /<div class="feature-empty">/);
   assert.match(css, /\.feature-empty \{/);
   assert.match(css, /\.feature-art::after \{/, "one hard scrim keeps copy readable over any artwork");
+});
+
+test("Home orders Continue, Tonight, Your Orbit, then provider sectors", () => {
+  assert.match(html, /<div class="home-priority" id="homePriority">\$\{cont\.length\?resumeSectionHTML/);
+  assert.match(html, /<div id="featureMount">\$\{tonightLoadingHTML\(\)\}<\/div>/);
+  assert.match(html, /sections\.innerHTML=orbitSectionHTML\(\)/);
+  assert.match(html, /<section class="sector orbit-sector" aria-label="Your Orbit">/);
+  assert.match(html, /<small>Saved<\/small>/);
+  assert.match(html, /<small>Last played<\/small>/);
+  assert.match(html, /<small>Last finished<\/small>/);
+  assert.match(css, /\.orbit-grid \{/);
 });
 
 test("every catalog card, including new releases, has resilient artwork", () => {
