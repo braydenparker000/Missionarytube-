@@ -580,7 +580,7 @@
       bindDynamic(out);
     }
     let searchTimer;
-    function searchItems(run,group){return AstraSearch.filterType(group.items,run.type).slice(0,48)}
+    function searchItems(run,group){return AstraSearch.filterType(group.items.filter(item=>AstraSearchIntent.matches(item,run.intent)),run.type).slice(0,48)}
     function searchResultCount(run){return run.groups.reduce((total,group)=>total+searchItems(run,group).length,0)}
     function searchTypes(run){return AstraSearch.types(run.groups.flatMap(group=>group.items))}
     function searchGroupState(group){
@@ -608,6 +608,10 @@
       if(!available.length)return '';
       return `<div class="search-type-row" aria-label="Filter search results"><button class="chip ${run.type==='all'?'active':''}" data-search-type="all">All</button>${available.map(type=>`<button class="chip ${run.type===type?'active':''}" data-search-type="${esc(type)}">${esc(typeLabel(type))}</button>`).join('')}</div>`;
     }
+    function searchIntentHTML(run){
+      if(!run.intent?.filters?.length)return '';
+      return `<div class="search-intent" aria-label="Interpreted search filters"><span>Interpreted as</span>${run.intent.filters.map(filter=>`<button class="chip active" data-search-intent-remove="${esc(filter.key)}" aria-label="Remove ${esc(filter.label)} filter">${esc(filter.label)} ${icon('close')}</button>`).join('')}</div>`;
+    }
     function searchProviderStripHTML(run){
       if(!run.groups.length)return '';
       return `<div class="search-provider-strip" aria-label="Search provider status">${run.groups.map(group=>{const status=searchGroupState(group);return `<button class="search-provider-pill ${status.className}" data-search-jump="${esc(group.key)}"><i aria-hidden="true"></i><span>${esc(group.name)}</span><b>${esc(status.label)}</b></button>`}).join('')}</div>`;
@@ -617,7 +621,7 @@
       let body='';
       if(items.length)body=`<div class="rail-scroll ${group.youtube?'yt-rail':'search-result-rail'}">${group.youtube?youtubeCardsHTML(items):cardsHTML(items)}</div>`;
       else if(group.pending&&!group.items.length)body=`<div class="search-provider-wait"><span class="spinner"></span><span>Asking ${esc(group.name)}…</span></div>`;
-      else if(group.failed&&!group.succeeded)body=`<div class="search-provider-empty error"><span>${icon('alert')}</span><p>${esc(group.error||'This provider did not answer. Its other results remain unaffected.')}</p></div>`;
+      else if(group.failed&&!group.succeeded)body=`<div class="search-provider-empty error"><span>${icon('alert')}</span><p>${esc(group.error||'This provider did not answer. Its other results remain unaffected.')}</p><button class="btn btn-sm btn-ghost" data-search-retry="${esc(group.key)}">Try again</button></div>`;
       else body=`<div class="search-provider-empty"><span>${icon('search')}</span><p>${run.type==='all'?'No title match from this provider.':`No ${esc(typeLabel(run.type).toLowerCase())} match from this provider.`}</p></div>`;
       return `<section class="search-provider-result" data-search-provider="${esc(group.key)}">
         <div class="search-provider-head"><div>${providerChip(group.name)}<span>${catalogs?`${catalogs} searchable catalog${catalogs===1?'':'s'}`:group.youtube?'Resolved through Invidious':'From this device'}</span></div><b class="search-provider-state ${status.className}">${esc(status.label)}</b></div>
@@ -626,19 +630,22 @@
     function bindSearchDynamic(root){
       $$('[data-search-type]',root).forEach(button=>button.onclick=()=>{const run=state.searchRun;if(!run)return;run.type=button.dataset.searchType;renderSearchRun(run)});
       $$('[data-search-jump]',root).forEach(button=>button.onclick=()=>{const target=$$('[data-search-provider]',root).find(node=>node.dataset.searchProvider===button.dataset.searchJump);target?.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'})});
+      $$('[data-search-intent-remove]',root).forEach(button=>button.onclick=()=>{const next=AstraSearchIntent.remove(state.query,button.dataset.searchIntentRemove),input=$('#globalSearch');if(input)input.value=next;$('#searchClear')?.classList.toggle('hidden',!next);search(next)});
+      $$('[data-search-retry]',root).forEach(button=>button.onclick=()=>retrySearchGroup(state.searchRun,button.dataset.searchRetry));
     }
     function renderSearchRun(run){
       if(state.searchRun!==run||!run.route?.current()||state.currentPage!=='search')return;
       const root=$('#searchRoot');if(!root)return;
-      root.innerHTML=`<div id="searchSummary">${searchSummaryHTML(run)}</div><div id="searchFilters">${searchFiltersHTML(run)}</div><div id="searchProviderStrip">${searchProviderStripHTML(run)}</div>
+      root.innerHTML=`<div id="searchSummary">${searchSummaryHTML(run)}</div><div id="searchIntent">${searchIntentHTML(run)}</div><div id="searchFilters">${searchFiltersHTML(run)}</div><div id="searchProviderStrip">${searchProviderStripHTML(run)}</div>
         <div class="search-provider-list">${run.groups.length?run.groups.map(group=>searchProviderHTML(group,run)).join(''):stateHTML('No searchable providers','None of your enabled add-ons exposes search. Install one that does, or browse its catalogs instead.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}</div>`;
       bindDynamic(root);bindSearchDynamic(root);
     }
     function refreshSearchRun(run,group){
       if(state.searchRun!==run||!run.route?.current()||state.currentPage!=='search')return;
       const root=$('#searchRoot');if(!root)return;
-      const summary=$('#searchSummary',root),filters=$('#searchFilters',root),strip=$('#searchProviderStrip',root);
+      const summary=$('#searchSummary',root),intent=$('#searchIntent',root),filters=$('#searchFilters',root),strip=$('#searchProviderStrip',root);
       if(summary)summary.innerHTML=searchSummaryHTML(run);
+      if(intent)intent.innerHTML=searchIntentHTML(run);
       if(filters)filters.innerHTML=searchFiltersHTML(run);
       if(strip)strip.innerHTML=searchProviderStripHTML(run);
       const section=$$('[data-search-provider]',root).find(node=>node.dataset.searchProvider===group.key);
@@ -651,28 +658,32 @@
       state.query=q;
       const token=++state.searchSequence;
       if(!q){state.searchRun=null;return renderDiscover(route)}
+      const intent=AstraSearchIntent.parse(q),providerQuery=intent.text||q;
       const searchable=allCatalogs().filter(x=>(x.cat.extra||[]).some(e=>e.name==='search'));
       const groups=AstraSearch.groupSources(searchable).map(group=>({...group,items:[],pending:group.catalogs.length,succeeded:0,failed:0,status:'loading'}));
       const byProvider=new Map(groups.map(group=>[group.key,group]));
       const local=[...new Set([...state.metaCache.values(),...state.homeItems,...Object.values(state.library).map(entry=>entry.meta).filter(Boolean)])];
       local.forEach(item=>{
-        if(AstraSearch.matchRank(item,q)>=9)return;
+        if(AstraSearch.matchRank(item,providerQuery)>=9||!AstraSearchIntent.matches(item,intent))return;
         const key=item._providerKey||'device';
         let group=byProvider.get(key);
         if(!group){group={key,name:item._addonName||'On this device',addon:null,catalogs:[],items:[],pending:0,succeeded:0,failed:0,status:'cached'};groups.push(group);byProvider.set(key,group)}
-        group.items=AstraSearch.merge(group.items,[item],q);
+        group.items=AstraSearch.merge(group.items,[item],providerQuery);
       });
       const youtubeGroup=youtubeEnabled()?{key:'youtube',name:'YouTube',addon:null,catalogs:[],items:[],pending:1,succeeded:0,failed:0,status:'loading',youtube:true}:null;
       if(youtubeGroup)groups.unshift(youtubeGroup);
       const extra=youtubeGroup?1:0;
-      const run={token,query:q,type:'all',groups,total:searchable.length+extra,pending:searchable.length+extra,route};
+      const run={token,query:q,providerQuery,intent,type:'all',groups,total:searchable.length+extra,pending:searchable.length+extra,route};
       state.searchRun=run;
       renderSearchRun(run);
-      if(youtubeGroup)searchYouTube(run,youtubeGroup,q);
-      groups.filter(group=>group.catalogs.length).forEach(group=>group.catalogs.forEach(source=>{
-        getCatalog(source.s,source.cat,catalogExtras(source.cat,{search:q})).then(items=>{
+      if(youtubeGroup)searchYouTube(run,youtubeGroup,providerQuery);
+      groups.filter(group=>group.catalogs.length).forEach(group=>searchProviderGroup(run,group));
+    }
+    function searchProviderGroup(run,group){
+      group.catalogs.forEach(source=>{
+        getCatalog(source.s,source.cat,catalogExtras(source.cat,{search:run.providerQuery})).then(items=>{
           if(state.searchRun!==run||run.token!==state.searchSequence||!run.route.current())return;
-          group.items=AstraSearch.merge(group.items,items,q);group.succeeded++;
+          group.items=AstraSearch.merge(group.items,items,run.providerQuery);group.succeeded++;
         }).catch(()=>{
           if(state.searchRun!==run||run.token!==state.searchSequence||!run.route.current())return;
           group.failed++;
@@ -682,7 +693,14 @@
           group.status=group.pending?'loading':group.failed&&!group.succeeded?'error':'ready';
           refreshSearchRun(run,group);
         });
-      }));
+      });
+    }
+    function retrySearchGroup(run,key){
+      if(!run||state.searchRun!==run||!run.route?.current())return;
+      const group=run.groups.find(item=>item.key===key);if(!group||group.pending)return;
+      group.items=[];group.failed=0;group.succeeded=0;group.error='';group.status='loading';group.pending=group.youtube?1:group.catalogs.length;
+      run.pending+=group.pending;refreshSearchRun(run,group);
+      if(group.youtube)searchYouTube(run,group,run.providerQuery);else searchProviderGroup(run,group);
     }
     /* YouTube answers beside the add-ons on the same progressive surface: one
        section, one status line, and the in-flight request cancelled the moment

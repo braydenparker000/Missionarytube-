@@ -75,6 +75,24 @@ test("the app renders and updates each provider independently", () => {
   assert.match(css, /\.search-provider-strip/);
 });
 
+test("natural-language constraints stay visible, removable, and evidence based", () => {
+  assert.match(shell, /assets\/js\/search-intent\.js\?v=__ASTRA_VERSION__/);
+  assert.match(html, /const intent=AstraSearchIntent\.parse\(q\),providerQuery=intent\.text\|\|q/);
+  assert.match(html, /group\.items\.filter\(item=>AstraSearchIntent\.matches\(item,run\.intent\)\)/);
+  assert.match(html, /aria-label="Interpreted search filters"/);
+  assert.match(html, /data-search-intent-remove=/);
+  assert.match(html, /AstraSearchIntent\.remove\(state\.query,button\.dataset\.searchIntentRemove\)/);
+  assert.match(css, /\.search-intent \{/);
+});
+
+test("a failed provider can retry without replacing successful lanes", () => {
+  assert.match(html, /data-search-retry=/);
+  assert.match(html, /function retrySearchGroup\(run,key\)/);
+  assert.match(html, /if\(!run\|\|state\.searchRun!==run\|\|!run\.route\?\.current\(\)\)return/);
+  assert.match(html, /if\(group\.youtube\)searchYouTube\(run,group,run\.providerQuery\);else searchProviderGroup\(run,group\)/);
+  assert.match(html, /groups\.filter\(group=>group\.catalogs\.length\)\.forEach\(group=>searchProviderGroup\(run,group\)\)/);
+});
+
 test("clearing search invalidates late provider responses without touching playback lookup", () => {
   assert.match(html, /state\.query='';state\.searchRun=null;state\.searchSequence\+\+/);
   assert.match(html, /token:\+\+state\.searchToken/, "detail lookup retains its independent lifecycle token");
