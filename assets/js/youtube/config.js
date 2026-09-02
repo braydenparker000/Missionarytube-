@@ -67,7 +67,7 @@
     ],
 
     /** How long any single backend request may take before it is abandoned. */
-    requestTimeout: 15000,
+    requestTimeout: 25000,
 
     /** How long a failing instance is left alone before it is tried again. */
     instanceCooldown: 120000,
