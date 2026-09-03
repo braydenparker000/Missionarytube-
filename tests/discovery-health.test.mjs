@@ -128,11 +128,11 @@ test("Surprise Me deduplicates identity, respects filters, and excludes future r
   assert.deepEqual(Array.from(unseen, (item) => item.id), ["series-2"]);
 });
 
-test("the app exposes both features as focused mobile surfaces", () => {
+test("the app exposes direct Surprise Me and focused health controls", () => {
   assert.match(shell, /<script src="assets\/js\/discovery-health\.js\?v=__ASTRA_VERSION__"><\/script>/);
-  assert.match(html, /<h2>The Briefing<\/h2>/);
-  assert.match(html, /data-briefing-mode="one"/);
-  assert.match(html, /data-briefing-mode="three"/);
+  assert.match(html, /class="surprise-trigger" data-surprise-me/);
+  assert.match(html, /async function surpriseMe\(button\)/);
+  assert.doesNotMatch(html, /<h2>The Briefing<\/h2>/);
   assert.match(html, /settingsRouteHTML\('health','globe','Add-on health'/);
   assert.match(html, /health:renderHealthSettings/);
   assert.match(html, /\['manifest','catalog','meta','stream','subtitles'\]/);

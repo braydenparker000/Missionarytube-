@@ -320,6 +320,19 @@
       return entriesFor(mediaKey)[0] || null;
     }
 
+    /** Remove every playback record for one title from local history. */
+    function remove(mediaKey) {
+      var removed = 0;
+      Object.keys(entries).forEach(function (key) {
+        if (entries[key].mediaKey !== mediaKey) return;
+        delete entries[key];
+        removed += 1;
+      });
+      delete metas[mediaKey];
+      if (removed) flush();
+      return removed;
+    }
+
     function meta(mediaKey) {
       return metas[mediaKey] || null;
     }
@@ -374,6 +387,7 @@
       get: get,
       entriesFor: entriesFor,
       latest: latest,
+      remove: remove,
       meta: meta,
       continueList: continueList,
       flush: flush,

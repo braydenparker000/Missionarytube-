@@ -83,18 +83,18 @@ test("the early bootstrap and application are external reviewable files", () => 
   assert.equal(/<script>\s*\(\(\)=>/.test(shell), false, "the application must not be embedded in HTML");
 });
 
-test("Gallery 0.20 follows the supplied photography-first dark design system", () => {
+test("Pure Cinema keeps a dark photography-first system with a restrained glass accent", () => {
   assert.ok(gallery.length > 1000, "the Gallery design layer must exist");
   for (const [name, value] of [
-    ["gallery-blue", "#2997ff"],
-    ["gallery-blue-fill", "#0066cc"],
-    ["gallery-blue-focus", "#2997ff"],
-    ["gallery-blue-dark", "#2997ff"],
+    ["gallery-blue", "#9dc3ff"],
+    ["gallery-blue-fill", "#276ef1"],
+    ["gallery-blue-focus", "#9dc3ff"],
+    ["gallery-blue-dark", "#b8d4ff"],
     ["gallery-ink", "#f5f5f7"],
     ["gallery-white", "#ffffff"],
     ["gallery-canvas", "#000000"],
-    ["gallery-surface", "#141416"],
-    ["gallery-parchment", "#08080a"],
+    ["gallery-surface", "#121318"],
+    ["gallery-parchment", "#08090c"],
     ["gallery-dark", "#000000"]
   ]) assert.equal(token(name), value, `${name} must match the dark adaptation of the design brief`);
   assert.match(gallery, /color-scheme: dark;/);
@@ -106,17 +106,20 @@ test("Gallery 0.20 follows the supplied photography-first dark design system", (
   assert.ok(contrast(token("gallery-ink"), token("gallery-canvas")) >= 4.5);
   assert.ok(contrast(token("gallery-muted"), token("gallery-surface")) >= 4.5);
   assert.ok(contrast(token("gallery-white"), token("gallery-blue-fill")) >= 4.5);
-  assert.equal(/gradient\(/.test(gallery), false, "Gallery uses photography and surface changes, not decorative gradients");
+  assert.match(gallery, /backdrop-filter: saturate\(150%\) blur\(24px\)/,
+    "glass is concentrated in navigation rather than replacing the artwork");
 });
 
-test("Gallery chrome recedes while every action uses the single blue accent", () => {
+test("Pure Cinema chrome is compact, icon-only, and visually distinct without labels", () => {
   const dock = gallery.match(/\n\.dock \{[\s\S]*?\n\}/)?.[0] || "";
   const settings = gallery.match(/\n\.settings-group \{[\s\S]*?\n\}/)?.[0] || "";
-  assert.match(dock, /box-shadow: none;/);
+  assert.match(dock, /width: min\(244px,/);
+  assert.match(dock, /border-radius: 29px;/);
   assert.match(settings, /box-shadow: none;/);
   assert.match(gallery, /\.btn-primary,[\s\S]*?background: var\(--gallery-blue-fill\);[\s\S]*?color: var\(--gallery-white\);/);
   assert.match(gallery, /\.btn-ghost,[\s\S]*?border: 1px solid var\(--gallery-blue\);/);
   assert.match(gallery, /#homeSections > \.sector:nth-of-type\(even\)/);
+  assert.doesNotMatch(html, /class="dock-label">\$\{label\}<\/span>/);
   assert.match(html, /class="rail-label">\$\{label\}<\/span>/);
 });
 
@@ -125,7 +128,7 @@ test("Gallery keeps the supplied mobile-first breakpoint rhythm", () => {
     assert.match(gallery, new RegExp(`@media \\(min-width: ${width}px\\\)|@media \\(max-width: ${width}px\\\)`));
   }
   assert.match(gallery, /\.grid \{ grid-template-columns: repeat\(5,/);
-  assert.match(gallery, /#page-home \.feature-title,[\s\S]*?font-size: 28px;/);
+  assert.match(gallery, /#page-home \.feature-title \{ font-size: clamp\(36px, 10\.5vw, 44px\); \}/);
 });
 
 test("the type ramp meets WCAG AA against the surfaces it is used on", () => {
@@ -423,7 +426,7 @@ test("modal icon buttons and switches expose names and live state", () => {
 test("Tonight is one real, explainable title rather than a rotating billboard", () => {
   assert.match(html, /function tonightChoice\(groups\)/);
   assert.match(html, /<section class="feature feature-tonight" aria-label="Tonight">/);
-  assert.match(html, /<b>Why this title<\/b><span>\$\{esc\(choice\.reason\)\}<\/span>/);
+  assert.match(html, /<p class="feature-reason">\$\{esc\(choice\.reason\)\}<\/p>/);
   assert.match(html, /saved\?'Saved on this device':`From \$\{group\.entry\.displayName\} · \$\{group\.entry\.providerName\}`/);
   assert.equal(html.includes('id="heroDeck"'), false, "Home has one decision, not a hidden carousel");
   assert.equal(/setInterval|autoplay.*hero|heroTimer/i.test(html), false, "Tonight never auto-advances");
@@ -436,9 +439,9 @@ test("Tonight is one real, explainable title rather than a rotating billboard", 
   assert.match(css, /\.feature-art::after \{/, "one hard scrim keeps copy readable over any artwork");
 });
 
-test("Home orders Continue, Tonight, Your Orbit, then provider sectors", () => {
-  assert.match(html, /<div class="home-priority" id="homePriority">\$\{cont\.length\?resumeSectionHTML/);
-  assert.match(html, /<div id="featureMount">\$\{tonightLoadingHTML\(\)\}<\/div>/);
+test("Home orders Tonight before Continue Watching, then personal and provider sectors", () => {
+  assert.match(html, /<div id="featureMount">\$\{tonightLoadingHTML\(\)\}<\/div>\s*<div class="home-priority" id="homePriority">\$\{cont\.length\?resumeSectionHTML/);
+  assert.match(html, /data-remove-progress="\$\{esc\(mediaKey\(m\)\)\}"/);
   assert.match(html, /sections\.innerHTML=orbitSectionHTML\(\)/);
   assert.match(html, /<section class="sector orbit-sector" aria-label="Your Orbit">/);
   assert.match(html, /<small>Saved<\/small>/);

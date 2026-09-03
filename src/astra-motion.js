@@ -21,7 +21,7 @@ const ART_SELECTOR = ".art, .release-art, .resume-art, .feature-art, .briefing-p
 const REVEAL_SELECTOR = [
   ".feature",
   ".sector",
-  ".briefing-launch",
+  ".surprise-bar",
   ".page-head",
   ".screen-head",
   ".screen-lede",
@@ -50,7 +50,7 @@ const PRESS_SELECTOR = [
   ".card",
   ".resume-card",
   ".briefing-pick",
-  ".briefing-trigger",
+  ".surprise-trigger",
   ".video-row",
   ".stream-row",
   ".settings-route",

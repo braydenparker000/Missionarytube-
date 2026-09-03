@@ -34,7 +34,7 @@
     const navs=[['home','home','Home'],['search','search','Search'],['library','library','Library'],['settings','settings','Settings']];
     const NAV_ALIASES={addons:['settings','addons'],hub:['settings','coverage'],catalogs:['settings','catalogs'],youtube:['settings','youtube'],discover:['search','']};
     function buildNav(){
-      const dock=`<span class="dock-indicator" aria-hidden="true"></span>`+navs.map(([id,ic,label])=>`<button class="dock-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span class="dock-icon" data-icon="${ic}"></span><span class="dock-label">${label}</span></button>`).join('');
+      const dock=`<span class="dock-indicator" aria-hidden="true"></span>`+navs.map(([id,ic,label])=>`<button class="dock-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}" title="${label}"><span class="dock-icon" data-icon="${ic}"></span></button>`).join('');
       const rail=navs.map(([id,ic,label])=>`<button class="rail-btn ${id==='home'?'active':''}" data-nav="${id}" aria-label="${label}"><span data-icon="${ic}"></span><span class="rail-label">${label}</span></button>`).join('');
       $('#desktopNav').innerHTML=rail;$('#mobileNav').innerHTML=dock;
     }
@@ -185,8 +185,9 @@
       const run=Routes.begin('home');
       const root=$('#homeRoot');
       const cont=continueItems();
-      root.innerHTML=`<div class="home-priority" id="homePriority">${cont.length?resumeSectionHTML(cont.slice(0,CONTINUE_LIMIT)):''}</div>
-        <div id="featureMount">${tonightLoadingHTML()}</div><div class="content" id="homeSections">${skeletonSector('Loading')}${skeletonSector('Loading')}</div>`;
+      root.innerHTML=`<div id="featureMount">${tonightLoadingHTML()}</div>
+        <div class="home-priority" id="homePriority">${cont.length?resumeSectionHTML(cont.slice(0,CONTINUE_LIMIT)):''}</div>
+        <div class="content" id="homeSections">${skeletonSector('Loading')}${skeletonSector('Loading')}</div>`;
       const sections=$('#homeSections');
       await loadManifests();
       if(!run.current()||state.currentPage!=='home')return;
@@ -261,10 +262,10 @@
           <div class="feature-kicker"><span>Tonight</span>${providerChip(m._addonName)}</div>
           <h2 class="feature-title">${esc(m.name||m.title||'Untitled')}</h2>
           <div class="feature-facts">${facts.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
-          <p class="feature-reason"><b>Why this title</b><span>${esc(choice.reason)}</span></p>
+          <p class="feature-reason">${esc(choice.reason)}</p>
           ${summary?`<p class="feature-summary">${esc(summary)}</p>`:''}
           <div class="feature-actions">
-            <button class="btn btn-primary" data-open="${esc(mediaRef(m))}">${icon('play')} Open dossier</button>
+            <button class="btn btn-primary" data-open="${esc(mediaRef(m))}">${icon('play')} View details</button>
             <button class="icon-btn feature-save" data-library="${esc(mediaKey(m))}" aria-pressed="${saved}" aria-label="${saved?'Remove from library':'Save to library'}">${icon(saved?'check':'plus')}</button>
           </div>
         </div>
@@ -323,13 +324,16 @@
         const video=(m.videos||[]).find(v=>String(v.id)===String(entry?.videoId));
         const context=resumeContext(m,entry);
         const art=safeUrl(video?.thumbnail)||backdrop(m);
-        return `<button class="card resume-card" style="--card-index:${Math.min(index,10)}" data-open="${esc(mediaRef(m))}" aria-label="Resume ${esc(m.name||m.title||'title')}">
+        return `<article class="card resume-card" style="--card-index:${Math.min(index,10)}">
+          <button class="resume-open" data-open="${esc(mediaRef(m))}" aria-label="Resume ${esc(m.name||m.title||'title')}">
           <span class="art resume-art ${art?'image-loading':'image-error'}">${mediaImage(art)}<span class="art-fallback">${icon('film')}</span>
           ${left?`<span class="resume-left">${esc(AstraAudio.formatTime(left))} left</span>`:''}
           <span class="art-progress"><i style="width:${pct}%"></i></span></span>
           <span class="resume-body"><span class="resume-title">${esc(m.name||m.title||'Untitled')}</span>
           <span class="resume-context">${esc(context||'Resume')}</span>
-          <span class="resume-bar"><i style="width:${pct}%"></i></span></span></button>`;
+          <span class="resume-bar"><i style="width:${pct}%"></i></span></span></button>
+          <button class="resume-remove" data-remove-progress="${esc(mediaKey(m))}" aria-label="Remove ${esc(m.name||m.title||'title')} from Continue Watching">${icon('close')}</button>
+        </article>`;
       }).join('');
       return `<section class="sector">${sectorHead('Continue watching','<span>On this device</span>')}<div class="rail-scroll resume-rail">${cards}</div></section>`;
     }
@@ -425,13 +429,33 @@
     }
     function briefingLaunchHTML(cats){
       const primary=cats.filter(x=>['movie','series','anime'].includes(briefingSector(x.cat.type))).length;
-      return `<section class="briefing-launch" aria-label="Surprise Me">
-        <span class="briefing-orbit" aria-hidden="true"></span>
-        <div class="briefing-launch-copy"><span class="eyebrow">Decision protocol</span><h2>The Briefing</h2>
-          <p>One sharp recommendation from the movies, shows and anime your add-ons actually provide.</p>
-          <span class="briefing-fact">${primary} eligible catalog${primary===1?'':'s'} · private to this device</span></div>
-        <button class="briefing-trigger" data-briefing-open ${primary?'':'disabled'}>${icon('spark')}<span>${primary?'Surprise me':'No catalogs yet'}</span></button>
+      return `<section class="surprise-bar" aria-label="Surprise me">
+        <div class="surprise-copy"><b>Can’t decide?</b><span>Pick something from your available catalogs.</span></div>
+        <button class="surprise-trigger" data-surprise-me ${primary?'':'disabled'}>${icon('spark')}<span>${primary?'Surprise me':'No catalogs yet'}</span></button>
       </section>`;
+    }
+
+    async function surpriseMe(button){
+      const original=button.innerHTML;
+      button.disabled=true;button.innerHTML=`<span class="spinner"></span><span>Choosing</span>`;
+      try{
+        let pool=[...state.discoverItems,...state.homeItems];
+        if(!pool.length){
+          const selected=AstraDiscovery.balancedSources(briefingCatalogs(),8);
+          const answered=await collectBriefingJobs(selected.map(x=>getCatalog(x.s,x.cat,catalogExtras(x.cat)).catch(()=>[])),3500);
+          pool=answered.flat();
+        }
+        pool=pool.filter((item,index,all)=>item&&AstraHub.canStream(manifests(),item.type)&&all.findIndex(other=>mediaRef(other)===mediaRef(item))===index);
+        let choices=AstraDiscovery.pick(pool,1,{seen:[...state.briefing.seen]});
+        if(!choices.length&&pool.length){state.briefing.seen.clear();choices=AstraDiscovery.pick(pool,1)}
+        const choice=choices[0];
+        if(!choice){toast('No playable recommendation is available right now.','bad');return}
+        state.briefing.seen.add(AstraDiscovery.contentKey(choice));
+        state.metaCache.set(mediaRef(choice),choice);
+        openMedia(mediaRef(choice),button);
+      }finally{
+        if(button.isConnected){button.disabled=false;button.innerHTML=original}
+      }
     }
     function collectBriefingJobs(jobs,budget=4500){
       return new Promise(resolve=>{
@@ -734,6 +758,12 @@
       });
     }
     function continueItems(){return progress.continueList()}
+    function removeContinue(mediaKey){
+      if(!progress.remove(mediaKey))return;
+      toast('Removed from Continue Watching','good');
+      if(state.currentPage==='library')renderLibrary();
+      else if(state.currentPage==='home')renderHome();
+    }
     /* Library is the durable continuity view. It is derived entirely from the
        bounded local progress store and saved records; no remote account or
        recommendation claim is implied. A title appears once per activity
@@ -2012,29 +2042,22 @@
       const stored=youtubeStored();
       if(stored.enabled===false)return 'Turned off';
       const config=YT.config.resolve(stored);
-      return `${config.privateInstanceUrl?'Your own server':`${config.publicFallbackInstances.length} public servers`} · ${config.preferAdaptive?`adaptive to ${config.maxHeight}p`:'progressive only'}`;
-    }
-    const YOUTUBE_STATE_COPY={healthy:['Ready','ready'],unknown:['Not checked','unknown'],unhealthy:['Resting','offline']};
-    function youtubeInstanceRowHTML(entry){
-      const copy=YOUTUBE_STATE_COPY[entry.state]||YOUTUBE_STATE_COPY.unknown;
-      const host=(()=>{try{return new URL(entry.url).host}catch{return entry.url}})();
-      const facts=[
-        (entry.api==='piped'?'Piped':'Invidious')+(entry.kind==='private'?' · your server':''),
-        entry.state==='healthy'&&entry.latency?latencyText(entry.latency):'',
-        entry.state==='unhealthy'&&entry.cooldownMs?`rests for ${Math.ceil(entry.cooldownMs/1000)}s`:'',
-        entry.state==='unhealthy'&&entry.lastError?YT.instances.describeFailure(entry.lastError):''
-      ].filter(Boolean).join(' · ');
-      return `<div class="yt-server"><span class="health-pill ${copy[1]}"><i></i>${copy[0]}</span>
-        <span class="yt-server-copy"><span class="yt-server-host">${esc(host)}</span><span class="yt-server-note">${esc(facts)}</span></span></div>`;
+      return `${config.privateInstanceUrl?'Private server':'Automatic connection'} · ${config.preferAdaptive?`adaptive to ${config.maxHeight}p`:'standard quality'}`;
     }
     function renderYouTubeSettings(){
       const root=$('#settingsRoot');if(!root)return;
       const stored=youtubeStored();
       const config=YT.config.resolve(stored);
       const snapshot=stored.enabled!==false?youtubeProvider().manager.snapshot():{instances:YT.config.instanceList(config).map(x=>({...x,state:'unknown',latency:0,cooldownMs:0,lastError:''})),preferred:''};
-      const usingPrivate=!!config.privateInvidiousUrl;
+      const usingPrivate=!!config.privateInstanceUrl;
+      const readyServers=snapshot.instances.filter(entry=>entry.state==='healthy');
+      const serverState=stored.enabled===false
+        ?['YouTube is off','Turn it on above to make YouTube available in Search.']
+        :readyServers.length
+          ?['Connection ready',`${readyServers.length} available route${readyServers.length===1?'':'s'} · Astra selects the fastest automatically.`]
+          :['Connection not checked','Astra rotates between available routes automatically when playback is requested.'];
       root.innerHTML=`${screenHead('YouTube')}
-        <p class="screen-lede">Astra plays YouTube through Piped and Invidious servers. There is no YouTube embed: the API returns real stream URLs and Player V3 plays them like any other source.</p>
+        <p class="screen-lede">Astra connects to YouTube through privacy-friendly relays and chooses an available route automatically.</p>
         <div class="settings-group">
           <div class="switch-row"><div><b>YouTube provider</b><span>Search, browse and play YouTube inside Astra.</span></div>
             <button class="switch ${stored.enabled!==false?'on':''}" data-youtube-toggle="enabled" aria-label="YouTube provider" aria-pressed="${stored.enabled!==false}"><i></i></button></div>
@@ -2056,13 +2079,14 @@
             <select class="select" id="youtubeMaxHeight" data-youtube-select="maxHeight">${YOUTUBE_HEIGHTS.map(([value,label])=>`<option value="${value}" ${config.maxHeight===value?'selected':''}>${esc(label)}</option>`).join('')}</select>
             <small>A quality is only ever offered when this device reports it can decode both its video and its audio.</small></div>
         </div>
-        <div class="settings-section"><span class="label">Servers</span>
-          <div class="settings-group">
-            <div class="yt-servers">${snapshot.instances.map(youtubeInstanceRowHTML).join('')}</div>
-            <div class="actions" style="margin-top:var(--s4)"><button class="btn btn-ghost" data-youtube-test ${youtube.testing?'disabled':''}>${icon('globe')} ${youtube.testing?'Testing…':'Test servers'}</button></div>
+        <div class="settings-section"><span class="label">Connection</span>
+          <div class="settings-group youtube-connection">
+            <span class="settings-route-icon">${icon(readyServers.length?'check':'globe')}</span>
+            <span class="youtube-connection-copy"><b>${serverState[0]}</b><small>${serverState[1]}</small></span>
+            <button class="btn btn-ghost btn-sm" data-youtube-test ${youtube.testing||stored.enabled===false?'disabled':''}>${youtube.testing?'Checking…':'Check'}</button>
           </div>
         </div>
-        <p class="settings-note">A failing server is rested for ${Math.round(config.instanceCooldown/1000)}s and the request moves to another one, up to ${config.maxAttempts} servers per request. Requests time out after ${Math.round(config.requestTimeout/1000)}s.</p>`;
+        <p class="settings-note">Public routes can occasionally fail. Astra handles selection, cooldowns and failover without exposing server internals here.</p>`;
       bindDynamic(root);
       const form=$('#youtubeInstanceForm',root);
       if(form)form.onsubmit=event=>{
@@ -2244,7 +2268,15 @@
     }
     function bindDynamic(root=document){hydrateIcons(root);$$('[data-briefing-open]',root).forEach(x=>x.onclick=()=>openBriefing());$$('[data-briefing-run]',root).forEach(x=>x.onclick=()=>runBriefing());$$('[data-briefing-type]',root).forEach(x=>x.onclick=()=>{state.briefing.type=x.dataset.briefingType;state.briefing.genre='all';runBriefing()});$$('[data-briefing-mode]',root).forEach(x=>x.onclick=()=>{state.briefing.mode=x.dataset.briefingMode;runBriefing()});const briefingGenre=$('#briefingGenre',root);if(briefingGenre)briefingGenre.onchange=()=>{state.briefing.genre=briefingGenre.value;runBriefing()};$$('[data-health-test]',root).forEach(x=>x.onclick=()=>testAllAddonHealth());$$('[data-health-addon]',root).forEach(x=>x.onclick=()=>{const addon=state.addons.find(item=>addonHealthKey(item)===x.dataset.healthAddon);if(addon)checkAddonHealth(addon)});$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open,x));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams,x)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-switch-source]',root).forEach(x=>x.onclick=()=>{const entry=entryById(x.dataset.switchSource);closeTrackMenu();if(entry)openPlayer(entry)});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{const next=player.nextEpisode;cancelCountdown();if(x.dataset.countdown!=='cancel'&&next)goToEpisode(next)});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-quality]',root).forEach(x=>x.onclick=()=>selectQuality(x.dataset.quality));$$('[data-youtube-browse]',root).forEach(x=>x.onclick=()=>{youtube.browse=null;renderYouTubeBrowse()});$$('[data-youtube-reload]',root).forEach(x=>x.onclick=()=>{const m=state.currentMeta;if(m)loadYouTubeSources(m,x.dataset.youtubeReload,{fresh:true})});$$('[data-youtube-test]',root).forEach(x=>x.onclick=()=>testYouTubeInstances());$$('[data-youtube-toggle]',root).forEach(x=>x.onclick=()=>{const key=x.dataset.youtubeToggle;youtubeApply({[key]:!youtubeStored()[key]});renderYouTubeSettings()});$$('[data-youtube-select]',root).forEach(x=>x.onchange=()=>{youtubeApply({[x.dataset.youtubeSelect]:Number(x.value)});renderYouTubeSettings()});$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0]);bindMotionSurface(root);Motion.refresh(root)}
     function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#streamOverlayRoot')?.children.length){closeStreamPicker();return}if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('.player-shell',$('#modalRoot')))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
+    function productEvents(){
+      document.addEventListener('click',event=>{
+        const remove=event.target.closest?.('[data-remove-progress]');
+        if(remove){removeContinue(remove.dataset.removeProgress);return}
+        const surprise=event.target.closest?.('[data-surprise-me]');
+        if(surprise&&!surprise.disabled)surpriseMe(surprise);
+      });
+    }
     function motionBack(){if(state.currentPage==='settings'&&state.settingsRoute!=='root'){nav('settings','root','back');return}if(state.currentPage!=='home')nav('home','root','back')}
-    async function init(){buildNav();hydrateIcons();Motion.init({onPageBack:motionBack});Motion.syncDock($('#mobileNav'),'home');Motion.syncPageBack(false);bindDynamic();globalEvents();await renderHome()}
+    async function init(){buildNav();hydrateIcons();Motion.init({onPageBack:motionBack});Motion.syncDock($('#mobileNav'),'home');Motion.syncPageBack(false);bindDynamic();globalEvents();productEvents();await renderHome()}
     init().catch(e=>{console.error(e);toast('Astra could not start: '+e.message,'bad')});
   })();
