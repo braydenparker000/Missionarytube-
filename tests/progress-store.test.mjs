@@ -147,6 +147,24 @@ test("continue watching survives a reload and keeps ordering", () => {
   assert.equal(reloaded.meta("movie:tt1375666").name, "Inception");
 });
 
+test("a title can be removed from Continue Watching without clearing other history", () => {
+  const { store, storage, clock } = makeStore();
+  const breakingBad = seriesMeta(20);
+  const movie = { id: "tt1375666", type: "movie", name: "Inception" };
+
+  watch(store, breakingBad, 2, { time: 600, duration: 2700 });
+  clock.advance(1000);
+  store.record(movie, movie, { time: 900, duration: 7200 });
+
+  assert.equal(store.remove("series:tt0903747"), 1);
+  assert.deepEqual(names(store.continueList()), ["Inception"]);
+  assert.equal(store.entriesFor("series:tt0903747").length, 0);
+  assert.equal(store.meta("series:tt0903747"), null);
+
+  const reloaded = AstraProgress.createProgressStore({ storage, storageKey: KEY }).load();
+  assert.deepEqual(names(reloaded.continueList()), ["Inception"]);
+});
+
 test("finished, barely started and nearly finished items are excluded from continue watching", () => {
   const { store } = makeStore();
   const meta = seriesMeta(20);

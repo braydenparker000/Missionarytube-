@@ -188,6 +188,10 @@ test("the settings screen owns the whole provider and stores no address in the r
   assert.match(settings, /id="youtubeInstance"/);
   assert.match(settings, /data-youtube-select="maxHeight"/);
   assert.match(settings, /data-youtube-test/);
+  assert.match(settings, /const usingPrivate=!!config\.privateInstanceUrl/,
+    "a configured private relay unlocks adaptive playback");
+  assert.doesNotMatch(settings, /snapshot\.instances\.map\(youtubeInstanceRowHTML\)/,
+    "raw relay rows stay out of the customer-facing settings screen");
   assert.match(settings, /YT\.config\.describeInstanceProblem\(value\)/, "a bad address is explained, not silently dropped");
   assert.match(settings, /placeholder="https:\/\/piped\.example\.org"/, "the only address in the file is a placeholder");
   assert.match(settings, /id="youtubeInstanceApi"/, "and it says which protocol that server speaks");
