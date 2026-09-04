@@ -37,7 +37,7 @@ button, a, input, select, summary { -webkit-tap-highlight-color:transparent; }
 .dock { width:min(280px,calc(100vw - 48px - var(--safe-l) - var(--safe-r))); height:64px; bottom:calc(16px + var(--safe-b)); padding:6px; border:1px solid rgba(255,255,255,.16); border-radius:32px; background:var(--glass-fill); box-shadow:0 8px 28px #0008, inset 0 1px 0 #ffffff0c; backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur)); }
 .dock-btn { min-height:50px; height:50px; border-radius:26px; color:#969da9; }
 .dock-btn svg { width:22px; height:22px; }
-.dock-btn.active { color:var(--accent); background:transparent; }
+.dock-btn.active, .motion-ready .dock-btn.active { color:var(--accent); background:transparent; box-shadow:none; }
 .dock-indicator { border:1px solid #ffffff0d; background:var(--accent-soft); border-radius:26px; box-shadow:inset 0 1px 0 #ffffff0a; }
 .page:not(#page-home) { background:var(--cinema-floor); }
 .content { padding-top:26px; padding-inline:max(22px,var(--safe-l)) max(22px,var(--safe-r)); padding-bottom:calc(112px + var(--safe-b)); }
