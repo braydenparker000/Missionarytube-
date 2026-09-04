@@ -423,10 +423,10 @@ test("modal icon buttons and switches expose names and live state", () => {
   assert.match(html, /x\.setAttribute\('aria-pressed',String\(state\.settings\[k\]\)\)/);
 });
 
-test("Tonight is one real, explainable title rather than a rotating billboard", () => {
+test("Tonight is one real catalog title rather than a rotating billboard", () => {
   assert.match(html, /function tonightChoice\(groups\)/);
   assert.match(html, /<section class="feature feature-tonight" aria-label="Tonight">/);
-  assert.match(html, /<p class="feature-reason">\$\{esc\(choice\.reason\)\}<\/p>/);
+  assert.match(html, /class="feature-label">Tonight’s feature/);
   assert.match(html, /saved\?'Saved on this device':`From \$\{group\.entry\.displayName\} · \$\{group\.entry\.providerName\}`/);
   assert.equal(html.includes('id="heroDeck"'), false, "Home has one decision, not a hidden carousel");
   assert.equal(/setInterval|autoplay.*hero|heroTimer/i.test(html), false, "Tonight never auto-advances");
@@ -439,10 +439,11 @@ test("Tonight is one real, explainable title rather than a rotating billboard", 
   assert.match(css, /\.feature-art::after \{/, "one hard scrim keeps copy readable over any artwork");
 });
 
-test("Home orders Tonight before Continue Watching, then personal and provider sectors", () => {
+test("Home orders Tonight before Continue Watching, then functional browse and provider shelves", () => {
   assert.match(html, /<div id="featureMount">\$\{tonightLoadingHTML\(\)\}<\/div>\s*<div class="home-priority" id="homePriority">\$\{cont\.length\?resumeSectionHTML/);
   assert.match(html, /data-remove-progress="\$\{esc\(mediaKey\(m\)\)\}"/);
-  assert.match(html, /sections\.innerHTML=orbitSectionHTML\(\)/);
+  assert.match(html, /sections\.innerHTML=homeBrowseHTML\(\)/);
+  assert.match(html, /data-home-type=/);
   assert.match(html, /<section class="sector orbit-sector" aria-label="Your Orbit">/);
   assert.match(html, /<small>Saved<\/small>/);
   assert.match(html, /<small>Last played<\/small>/);
@@ -518,7 +519,8 @@ test("the stylesheet is the only place raw colours are defined", async () => {
   const hexes = [...inline.matchAll(/#[0-9a-f]{3,8}\b/gi)].map((m) => m[0]);
   assert.ok(hexes.length <= 3, `the critical block defines ${hexes.length} colours`);
   const files = await readdir("assets/css");
-  assert.deepEqual(files.sort(), ["obsidian.css"], "the superseded stylesheet is gone, not left orphaned");
+  assert.deepEqual(files.sort(), ["cinema.css", "obsidian.css"]);
+  for (const file of files) assert.ok(shell.includes(`assets/css/${file}?v=`), `${file} is loaded and cache-versioned`);
 });
 
 test("a span used as a line is given the block box its styling assumes", () => {

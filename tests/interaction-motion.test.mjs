@@ -101,7 +101,7 @@ test("View Transition callbacks cannot reorder or stall visible state", () => {
 
 test("every mobile overlay can be dismissed physically without touching Player V3", () => {
   assert.match(html, /Motion\.mountSurface\(\{root,key:'sources'/);
-  assert.match(html, /detail\?'detail':briefing\?'briefing':'utility'/);
+  assert.match(html, /detail\?'detail':'utility'/);
   assert.match(html, /Motion\.mountTrackSheet\(menu,\(\)=>clearTrackMenu\(menu\)\)/);
   assert.match(css, /\.motion-surface-edge,/);
   assert.match(css, /\.motion-drag-grip \{/);

@@ -11,7 +11,7 @@
     const store={get(k,d){try{return JSON.parse(storageArea?.getItem(KEY+k))??d}catch{return d}},set(k,v){if(!storageArea)return false;try{storageArea.setItem(KEY+k,JSON.stringify(v));return true}catch{storageFailed();return false}}};
     const progress=AstraProgress.createProgressStore({storage:storageArea,storageKey:KEY+'progress',onError:storageFailed}).load();
     const DEFAULT_SETTINGS=AstraPlayback.settings.DEFAULTS;
-    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,libraryVisible:LIBRARY_BATCH,library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),addonHealth:AstraDiscovery.normalizeHealth(store.get('addonHealth',null)),healthChecking:new Set(),healthRun:0,briefing:{type:'all',genre:'all',mode:'one',items:[],seen:new Set(),loading:false,error:'',request:0},discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0,searchSequence:0,searchRun:null,detailBrowser:null};
+    const state={addons:store.get('addons',DEFAULT_ADDONS),manifests:new Map(),catalogCache:new Map(),metaCache:new Map(),catalogRegistry:[],homeLayout:store.get('homeLayout',AstraCatalogs.defaults()),currentPage:'home',currentMeta:null,currentVideo:null,currentStreams:[],homeItems:[],discoverItems:[],discoverVisible:DISCOVER_BATCH,libraryVisible:LIBRARY_BATCH,libraryView:'all',library:store.get('library',{}),settings:AstraPlayback.settings.migrate(store.get('settings',{})),addonHealth:AstraDiscovery.normalizeHealth(store.get('addonHealth',null)),healthChecking:new Set(),healthRun:0,briefing:{seen:new Set()},discover:{type:'all',sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'},discoverSources:[],query:'',settingsRoute:'root',searchToken:0,searchSequence:0,searchRun:null,detailBrowser:null};
     const pageScroll=new Map();
     let modalReturnFocus=null,streamReturnFocus=null;
     function rememberFocus(){return document.activeElement instanceof HTMLElement?document.activeElement:null}
@@ -166,7 +166,7 @@
         if(page==='settings')state.settingsRoute=nextRoute;
         state.currentPage=page;
         $$('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${page}`));
-        $$('[data-nav]').forEach(x=>x.classList.toggle('active',x.dataset.nav===page));
+        $$('[data-nav]').forEach(x=>{x.classList.toggle('active',x.dataset.nav===page);if(x.closest('nav')){if(x.dataset.nav===page)x.setAttribute('aria-current','page');else x.removeAttribute('aria-current')}});
         if(page==='search')renderSearchSurface();
         if(page==='library')renderLibrary();
         if(page==='settings')renderSettings();
@@ -208,7 +208,7 @@
       }
       const choice=tonightChoice(good);
       $('#featureMount',root).innerHTML=state.homeLayout.showHero&&choice?featureHTML(choice):'';
-      sections.innerHTML=orbitSectionHTML();
+      sections.innerHTML=homeBrowseHTML();
       /* New releases lead with the catalog's own naming so the release/source
          name stays legible enough to judge quality before opening anything. */
       const fresh=good.find(x=>/new|latest|recent|release/i.test(x.cat.name||x.cat.id||''));
@@ -219,6 +219,10 @@
     }
     function homeGroupHTML({cat,entry,items,release}){
       return release?releaseSectionHTML({cat,entry,items}):railSection(entry.displayName,items,catalogNote(entry,cat.type),entry.key);
+    }
+    function homeBrowseHTML(){
+      const types=[...new Set(allCatalogs().map(x=>x.cat.type))];
+      return `<div class="home-browse" aria-label="Browse by type"><span>Find your next story</span><div>${types.slice(0,6).map(type=>`<button class="browse-chip" data-home-type="${esc(type)}">${icon(type==='series'?'tv':type==='music'?'music':'film')}${esc(typeLabel(type))}</button>`).join('')}<button class="browse-chip" data-nav="search">${icon('search')}Explore all</button></div></div>`;
     }
     function installHomeSectorPager(root,sections,groups,start,run){
       let visible=Math.min(start,groups.length),observer=null;
@@ -259,13 +263,13 @@
       return `<section class="feature feature-tonight" aria-label="Tonight"><article class="feature-slide">
         <div class="feature-art ${b?'image-loading':'image-error'}">${mediaImage(b,{priority:true})}</div>
         <div class="feature-body">
-          <div class="feature-kicker"><span>Tonight</span>${providerChip(m._addonName)}</div>
+          <div class="feature-kicker"><span class="feature-label">Tonight’s feature</span></div>
           <h2 class="feature-title">${esc(m.name||m.title||'Untitled')}</h2>
           <div class="feature-facts">${facts.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
-          <p class="feature-reason">${esc(choice.reason)}</p>
+
           ${summary?`<p class="feature-summary">${esc(summary)}</p>`:''}
           <div class="feature-actions">
-            <button class="btn btn-primary" data-open="${esc(mediaRef(m))}">${icon('play')} View details</button>
+            <button class="btn btn-primary" data-open="${esc(mediaRef(m))}">${icon('play')} Explore title</button>
             <button class="icon-btn feature-save" data-library="${esc(mediaKey(m))}" aria-pressed="${saved}" aria-label="${saved?'Remove from library':'Save to library'}">${icon(saved?'check':'plus')}</button>
           </div>
         </div>
@@ -276,8 +280,8 @@
        the composition is the surface itself, not a stand-in for artwork. */
     function welcomeFeatureHTML(){
       return `<section class="feature" aria-label="Welcome"><div class="feature-empty"><div class="feature-body">
-        <div class="feature-kicker"><span>Your private observatory</span></div>
-        <h2 class="feature-title">Bring your universe into focus.</h2>
+        <div class="feature-kicker"><span>Your cinema starts here</span></div>
+        <h2 class="feature-title">Make room for a good story.</h2>
         <div class="feature-facts"><span>Astra shows only what your add-ons expose</span></div>
         <div class="feature-actions"><button class="btn btn-primary" data-nav="addons">${icon('plus')} Add an add-on</button>
         <button class="btn btn-ghost" data-nav="hub">Content coverage</button></div>
@@ -402,6 +406,7 @@
       nav('search');
     }
     function clearQuery(){
+      clearTimeout(searchTimer);
       state.query='';state.searchRun=null;state.searchSequence++;
       const input=$('#globalSearch');if(input)input.value='';
       $('#searchClear')?.classList.add('hidden');
@@ -417,21 +422,14 @@
     function briefingSector(type){return AstraHub.sectorIdForType(type)||AstraHub.normalizeType(type)}
     function briefingCatalogs(){
       const allowed=new Set(['movie','series','anime']);
-      return allCatalogs().filter(x=>allowed.has(briefingSector(x.cat.type)))
-        .filter(x=>state.briefing.type==='all'||briefingSector(x.cat.type)===state.briefing.type);
-    }
-    function briefingGenres(){
-      const found=new Map();
-      briefingCatalogs().forEach(x=>(x.cat.extra||[]).filter(e=>e.name==='genre').forEach(e=>(e.options||[]).forEach(value=>{
-        const label=String(value||'').trim();if(label&&!found.has(label.toLowerCase()))found.set(label.toLowerCase(),label)
-      })));
-      return [...found.values()].sort((a,b)=>a.localeCompare(b));
+      return allCatalogs().filter(x=>allowed.has(briefingSector(x.cat.type)));
     }
     function briefingLaunchHTML(cats){
-      const primary=cats.filter(x=>['movie','series','anime'].includes(briefingSector(x.cat.type))).length;
+      const primary=cats.filter(x=>['movie','series','anime'].includes(briefingSector(x.cat.type))&&AstraHub.canStream(manifests(),x.cat.type)).length;
+      if(!primary)return '';
       return `<section class="surprise-bar" aria-label="Surprise me">
         <div class="surprise-copy"><b>Can’t decide?</b><span>Pick something from your available catalogs.</span></div>
-        <button class="surprise-trigger" data-surprise-me ${primary?'':'disabled'}>${icon('spark')}<span>${primary?'Surprise me':'No catalogs yet'}</span></button>
+        <button class="surprise-trigger" data-surprise-me>${icon('spark')}<span>Surprise me</span></button>
       </section>`;
     }
 
@@ -466,70 +464,6 @@
         jobs.forEach(job=>Promise.resolve(job).then(value=>{if(value)values.push(value)}).catch(()=>{}).finally(()=>{settled+=1;if(settled===jobs.length)finish()}));
       });
     }
-    function briefingCardHTML(m,index){
-      const art=backdrop(m)||poster(m),facts=[typeLabel(m.type),yearOf(m),m.imdbRating?`${m.imdbRating}/10`:''].filter(Boolean);
-      return `<button class="briefing-pick ${state.briefing.mode==='one'?'lead':''}" style="--briefing-index:${index}" data-open="${esc(mediaRef(m))}" aria-label="Open ${esc(m.name||m.title||'recommendation')}">
-        <span class="briefing-pick-art ${art?'image-loading':'image-error'}">${mediaImage(art,{priority:index===0})}<span class="art-fallback">${icon('film')}</span></span>
-        <span class="briefing-pick-shade" aria-hidden="true"></span>
-        <span class="briefing-pick-copy"><span class="briefing-pick-kicker">${providerChip(m._addonName)}<span>${esc(facts.join(' · '))}</span></span>
-          <b>${esc(m.name||m.title||'Untitled')}</b><span class="briefing-pick-summary">${esc(m.description||m.overview||'Open the dossier for details.')}</span>
-          <span class="briefing-pick-action">Open dossier ${icon('chevron')}</span></span>
-      </button>`;
-    }
-    function renderBriefing(){
-      const root=$('#modalRoot'),b=state.briefing,genres=briefingGenres();if(!root)return;
-      if(b.genre!=='all'&&!genres.some(x=>x===b.genre))b.genre='all';
-      const types=[['all','Everything'],['movie','Movies'],['series','Shows'],['anime','Anime']];
-      const result=b.loading
-        ?`<div class="briefing-loading"><span class="briefing-scan" aria-hidden="true"></span><span class="spinner"></span><b>Consulting your catalogs</b><span>Fast add-ons answer first. Slow ones cannot hold the decision.</span></div>`
-        :b.items.length
-          ?`<div class="briefing-results ${b.mode==='three'?'three':''}">${b.items.map(briefingCardHTML).join('')}</div>`
-          :b.error
-            ?stateHTML('No briefing available',b.error,`<button class="btn btn-ghost" data-briefing-run>Try again</button>`,'error')
-            :stateHTML('Ready when you are','Astra will draw only from installed movie, show and anime catalogs.');
-      root.innerHTML=`<div class="briefing-shell" data-dismiss><section class="briefing-panel" role="dialog" aria-modal="true" aria-labelledby="briefingTitle">
-        <header class="briefing-head"><div><span class="eyebrow">Astra decision protocol</span><h1 id="briefingTitle">The Briefing</h1></div><button class="icon-btn" data-close aria-label="Close The Briefing">${icon('close')}</button></header>
-        <div class="briefing-controls"><div class="briefing-segments" aria-label="Content type">${types.map(([id,label])=>`<button class="${b.type===id?'active':''}" data-briefing-type="${id}" aria-pressed="${b.type===id}">${label}</button>`).join('')}</div>
-          <div class="briefing-control-row"><label><span>Genre</span><select class="select" id="briefingGenre"><option value="all">Any genre</option>${genres.map(g=>`<option ${b.genre===g?'selected':''}>${esc(g)}</option>`).join('')}</select></label>
-          <div class="briefing-count" aria-label="Number of recommendations"><button class="${b.mode==='one'?'active':''}" data-briefing-mode="one" aria-pressed="${b.mode==='one'}">One pick</button><button class="${b.mode==='three'?'active':''}" data-briefing-mode="three" aria-pressed="${b.mode==='three'}">Three options</button></div></div></div>
-        <div class="briefing-body">${result}</div>
-        <footer class="briefing-footer"><span>Installed catalogs only · no profile or tracking</span><button class="btn btn-primary" data-briefing-run ${b.loading?'disabled':''}>${icon('spark')} ${b.items.length?'Another mission':'Run briefing'}</button></footer>
-      </section></div>`;
-      bindDynamic(root);
-    }
-    async function runBriefing(){
-      const b=state.briefing,request=++b.request,count=b.mode==='three'?3:1;
-      b.loading=true;b.error='';b.items=[];renderBriefing();
-      const catalogs=briefingCatalogs();
-      if(!catalogs.length){if(request!==b.request)return;b.loading=false;b.error='Install or enable a movie, show or anime catalog first.';renderBriefing();return}
-      const selected=AstraDiscovery.balancedSources(catalogs,12);
-      const jobs=selected.map(x=>{
-        const genreExtra=(x.cat.extra||[]).find(e=>e.name==='genre');
-        const option=b.genre==='all'?'':(genreExtra?.options||[]).find(value=>String(value).toLowerCase()===String(b.genre).toLowerCase())||'';
-        return getCatalog(x.s,x.cat,catalogExtras(x.cat,option?{genre:option}:{})).then(items=>({x,items}));
-      });
-      const answered=await collectBriefingJobs(jobs);
-      if(request!==b.request||!$('.briefing-panel'))return;
-      let pool=answered.flatMap(result=>result.items).filter(item=>{
-        const sector=briefingSector(item.type);
-        return ['movie','series','anime'].includes(sector)&&(b.type==='all'||sector===b.type)&&AstraHub.canStream(manifests(),item.type);
-      });
-      const pick=()=>AstraDiscovery.pick(pool,count,{seen:[...b.seen],genre:b.genre});
-      let choices=pick();
-      if(!choices.length&&pool.length){b.seen.clear();choices=pick()}
-      choices.forEach(item=>b.seen.add(AstraDiscovery.contentKey(item)));
-      b.loading=false;b.items=choices;
-      if(!choices.length)b.error=answered.length
-        ?'The catalogs that answered had no released, stream-capable match for these filters.'
-        :'No catalog answered within a few seconds. Add-on Health can show which provider is slow or unavailable.';
-      renderBriefing();
-    }
-    function openBriefing(){
-      modalReturnFocus=rememberFocus();
-      state.briefing.items=[];state.briefing.error='';state.briefing.loading=false;
-      renderBriefing();runBriefing();
-    }
-
     /* ---- search and browse ------------------------------------------------
        One destination. An empty field browses every installed catalog; a
        query searches every catalog that declares search support. Either way
@@ -652,7 +586,7 @@
       else if(group.failed&&!group.succeeded)body=`<div class="search-provider-empty error"><span>${icon('alert')}</span><p>${esc(group.error||'This provider did not answer. Its other results remain unaffected.')}</p><button class="btn btn-sm btn-ghost" data-search-retry="${esc(group.key)}">Try again</button></div>`;
       else body=`<div class="search-provider-empty"><span>${icon('search')}</span><p>${run.type==='all'?'No title match from this provider.':`No ${esc(typeLabel(run.type).toLowerCase())} match from this provider.`}</p></div>`;
       return `<section class="search-provider-result" data-search-provider="${esc(group.key)}">
-        <div class="search-provider-head"><div>${providerChip(group.name)}<span>${catalogs?`${catalogs} searchable catalog${catalogs===1?'':'s'}`:group.youtube?'Resolved through Invidious':'From this device'}</span></div><b class="search-provider-state ${status.className}">${esc(status.label)}</b></div>
+        <div class="search-provider-head"><div>${providerChip(group.name)}<span>${catalogs?`${catalogs} searchable catalog${catalogs===1?'':'s'}`:group.youtube?'Video results':'From this device'}</span></div><b class="search-provider-state ${status.className}">${esc(status.label)}</b></div>
         ${body}</section>`;
     }
     function bindSearchDynamic(root){
@@ -785,7 +719,7 @@
     function renderLibrary(){
       const root=$('#libraryRoot'),saved=Object.values(state.library).sort((a,b)=>b.added-a.added).map(x=>x.meta),activity=libraryActivity(),continuing=continueItems().slice(0,CONTINUE_LIMIT),hasAnything=saved.length||activity.recent.length;
       root.innerHTML=`<div class="page-head library-head"><span class="page-eyebrow">Only on this device</span><h1 class="page-title">Library</h1><p class="page-lede">${hasAnything?'Your saved titles and playback history, kept together.':'Saved titles and playback history stay in this browser and are never uploaded.'}</p></div>
-        ${hasAnything?`<div class="library-stack">${continuing.length?resumeSectionHTML(continuing):''}${saved.length?librarySavedHTML(saved):''}${activity.recent.length?railSection('Recently played',activity.recent,'<span>Newest first</span>'):''}${activity.finished.length?railSection('Finished recently',activity.finished,'<span>Playback completed</span>'):''}</div>`:stateHTML('Nothing here yet','Save a title or begin playing something. Astra will keep your place on this device.',`<button class="btn btn-primary" data-nav="search">Browse catalogs</button>`)}`;
+        ${hasAnything?`<div class="library-tabs" aria-label="Library view">${[['all','All'],['saved','Saved'],['history','History']].map(([value,label])=>`<button data-library-view="${value}" aria-pressed="${state.libraryView===value}">${label}${value==='saved'?`<span>${saved.length}</span>`:''}</button>`).join('')}</div><div class="library-stack">${state.libraryView==='all'&&continuing.length?resumeSectionHTML(continuing):''}${state.libraryView!=='history'&&saved.length?librarySavedHTML(saved):''}${state.libraryView!=='saved'&&activity.recent.length?railSection('Recently played',activity.recent,'<span>Newest first</span>'):''}${state.libraryView==='history'&&activity.finished.length?railSection('Finished recently',activity.finished,'<span>Playback completed</span>'):''}${state.libraryView==='saved'&&!saved.length?emptyHTML('Your watchlist starts here','Save a title with the + button.'):''}${state.libraryView==='history'&&!activity.recent.length?emptyHTML('A fresh start','Your played titles will appear here.'):''}</div>`:stateHTML('Nothing here yet','Save a title or begin playing something. Astra will keep your place on this device.',`<button class="btn btn-primary" data-nav="search">Browse catalogs</button>`)}`;
       bindDynamic(root);
       const more=$('[data-library-load-more]',root);if(more)more.onclick=()=>{state.libraryVisible+=LIBRARY_BATCH;renderLibrary()};
     }
@@ -1140,9 +1074,9 @@
       }
     }
     function youtubeBrowseHTML(browse){
-      if(!browse.items.length)return `<section class="sector">${sectorHead('YouTube','<span>Trending</span>')}${emptyHTML('Nothing trending','The Invidious server returned no trending videos right now.','<button class="btn btn-ghost" data-youtube-browse>Refresh</button>')}</section>`;
-      const host=browse.instance?new URL(browse.instance).host:'';
-      return `<section class="sector">${sectorHead('YouTube',`<span>Trending${host?' · '+esc(host):''}</span>`)}
+      if(!browse.items.length)return `<section class="youtube-search-entry" aria-label="YouTube"><span class="youtube-entry-icon">${icon('play')}</span><div><b>YouTube, right here.</b><span>Find a video with the search above.</span></div><button class="icon-btn" data-focus-search aria-label="Search YouTube">${icon('search')}</button></section>`;
+
+      return `<section class="sector">${sectorHead('YouTube',`<span>Trending</span>`)}
         <div class="rail-scroll yt-rail">${youtubeCardsHTML(browse.items.slice(0,HOME_LIMIT))}</div></section>`;
     }
     /* ---- YouTube sources ------------------------------------------------
@@ -1339,7 +1273,7 @@
         context=code?(m.name||m.title||typeLabel(m.type)):typeLabel(m.type);
       return `<div class="source-drawer-backdrop" data-dismiss-streams><section class="source-drawer" role="dialog" aria-modal="true" aria-labelledby="sourceDrawerTitle">
         <span class="source-drawer-grip" aria-hidden="true"></span>
-        <header class="source-drawer-head"><div class="source-drawer-copy"><span class="source-drawer-kicker">${esc(context||'Sources')}</span><h2 class="source-drawer-title" id="sourceDrawerTitle">${esc(item)}</h2><span class="source-drawer-subtitle">${player.youtube?'Every one of these is the same video, delivered differently.':'Choose a release. Switching later keeps your place.'}</span></div>
+        <header class="source-drawer-head"><div class="source-drawer-copy"><span class="source-drawer-kicker">${esc(context||'Sources')}</span><h2 class="source-drawer-title" id="sourceDrawerTitle">${esc(item)}</h2><span class="source-drawer-subtitle">${player.youtube?'YouTube · ready to watch':'Choose a source to start watching.'}</span></div>
         <button class="source-drawer-close" data-close-streams aria-label="Close sources">${icon('close')}</button></header>
         <div class="source-drawer-body">${content}</div></section></div>`;
     }
@@ -1431,7 +1365,7 @@
       const list=player.sources,total=list.length;
       const providerNames=[...new Set(list.map(e=>e.stream.addonName).filter(Boolean))];
       const streamProviders=state.currentMeta&&state.currentVideo?manifests().filter(s=>hasResource(s.manifest,'stream',state.currentMeta.type,state.currentVideo.id)).length:0;
-      const content=total?`<section class="picker">${groupHead('Sources',player.youtube?`${total} deliver${total===1?'y':'ies'} from YouTube`:`${total} from ${providerNames.length||1} add-on${providerNames.length===1?'':'s'}`)}${sourceCapabilitiesHTML(list)}
+      const content=total?`<section class="picker">${groupHead('Sources',player.youtube?`${total} deliver${total===1?'y':'ies'} from YouTube`:`${total} from ${providerNames.length||1} add-on${providerNames.length===1?'':'s'}`)}${player.youtube?'':sourceCapabilitiesHTML(list)}
         <div class="stream-list">${list.map((e,i)=>streamRowHTML(e,i)).join('')}</div></section>`
         :streamProviders
           ?stateHTML('No sources found','Your streaming add-ons answered, but none returned a playable result for this title or episode.','','error')
@@ -1443,7 +1377,7 @@
     function streamRowHTML(entry,index=0){
       const s=entry.stream,f=s.facts,ev=entry.evaluation;
       const tag=(text,tone='')=>`<span class="tag ${tone}">${esc(text)}</span>`;
-      const tags=[f.resolution&&tag(f.resolution),f.codec&&tag(f.codec),
+      const tags=[f.codec&&tag(f.codec),
         f.hdr&&tag(f.hdr,'signal'),f.audioCodec&&tag(f.audioCodec+(f.audioChannels?' '+f.audioChannels:'')),
         ...(f.audioLanguages||[]).slice(0,3).map(language=>tag(String(language).toUpperCase(),'info')),
         s.subtitles?.length&&tag(`${s.subtitles.length} subtitle${s.subtitles.length===1?'':'s'}`,'info'),
@@ -1452,15 +1386,14 @@
         f.episodeStatus==='mismatch'&&tag('Wrong episode','bad'),
         f.episodeStatus==='ambiguous-pack'&&tag('File unclear','warn'),
         f.episodeStatus==='match'&&tag('Episode match','ok'),
-        f.episodeStatus==='pack-file'&&tag('File selected','ok'),
-        s.addonName&&tag(s.addonName)].filter(Boolean).join('');
+        f.episodeStatus==='pack-file'&&tag('File selected','ok')].filter(Boolean).join('');
       const label=[s.title,ev.label+'.',entry.why,s.addonName?'From '+s.addonName:''].filter(Boolean).join(' ');
       const details=[['Release',s.title],['Filename',f.filename],['Provider',s.addonName||s.sourceName],['Compatibility',ev.label],['Why',entry.why],['Quality',[f.resolution,f.codec,f.hdr].filter(Boolean).join(' · ')],['Audio',[...(f.audioLanguages||[]),f.audioCodec,f.audioChannels].filter(Boolean).join(' · ')],['Size',f.sizeText],['Delivery',s.kind.toUpperCase()],['Cached',f.cached?'Yes':''],['File index',s.fileIdx==null?'':String(s.fileIdx)],['Pack status',f.episodeStatus==='ambiguous-pack'?'Pack has no exact file selected':f.episodeStatus==='mismatch'?'Does not match selected episode':f.episodeStatus==='pack-file'?'Exact file selected from pack':f.pack?'Pack':''],['Binge group',s.bingeGroup]].filter(([,v])=>v);
       return `<article class="stream-item"><button class="stream-row ${ev.playable?'':'blocked'}" data-play-source="${esc(candidateKey(entry))}" aria-label="${esc(label)}">
         <span class="stream-lead"><span class="stream-quality">${esc(f.resolution||s.kind.toUpperCase())}</span><span class="stream-provider">${esc(s.addonName||s.sourceName||'Source')}</span><span class="tag chip-sm state-${ev.state}">${esc(PB.streams.STATE_SHORT[ev.state]||ev.label)}</span></span>
-        <span class="stream-name">${esc(s.title)}</span>
+        ${s.raw?._youtube?'':`<span class="stream-name">${esc(s.title)}</span>`}
         <span class="stream-tags">${tags}</span>
-        <span class="stream-footer"><span class="stream-why">${esc(entry.why)}</span><span class="stream-play-hint">Play ${icon('play')}</span></span></button>
+        <span class="stream-footer"><span class="stream-why">${ev.playable?'':esc(entry.why)}</span><span class="stream-play-hint">${ev.playable?`Play ${icon('play')}`:'Unavailable'}</span></span></button>
         <details class="stream-details"><summary class="stream-expand">Full source details</summary><div class="stream-detail"><dl>${details.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div></details></article>`;
     }
 
@@ -1994,7 +1927,7 @@
     function loadPlayerLib(name){const lib=PLAYER_LIBS[name];return new Promise((res,rej)=>{const x=document.createElement('script');x.src=lib.src;x.integrity=lib.integrity;x.crossOrigin='anonymous';x.referrerPolicy='no-referrer';x.onload=res;x.onerror=()=>rej(Error(`Could not load the pinned ${lib.label} playback library. The download failed or its integrity hash did not match.`));document.head.append(x)})}
     function loadHls(){return window.Hls?Promise.resolve():loadPlayerLib('hls')}
     function loadDash(){return window.dashjs?Promise.resolve():loadPlayerLib('dash')}
-    function toggleLibrary(key){const m=state.metaCache.get(key)||state.currentMeta;if(!m)return;const content=mediaKey(m)||key;if(state.library[content]){delete state.library[content];toast('Removed from library')}else{state.library[content]={meta:m,added:Date.now()};toast('Added to library','good')}store.set('library',state.library);if(state.currentMeta&&mediaKey(state.currentMeta)===content)showDetail(state.currentMeta,false);else if(state.currentPage==='library')renderLibrary()}
+    function toggleLibrary(key){const m=state.metaCache.get(key)||state.currentMeta;if(!m)return;const content=mediaKey(m)||key;if(state.library[content]){delete state.library[content];toast('Removed from library')}else{state.library[content]={meta:m,added:Date.now()};toast('Added to library','good')}store.set('library',state.library);$$('#featureMount [data-library]').filter(button=>button.dataset.library===content).forEach(button=>{const saved=!!state.library[content];button.setAttribute('aria-pressed',String(saved));button.setAttribute('aria-label',saved?'Remove from library':'Save to library');button.innerHTML=icon(saved?'check':'plus');hydrateIcons(button)});if(state.currentMeta&&mediaKey(state.currentMeta)===content)showDetail(state.currentMeta,false);else if(state.currentPage==='library')renderLibrary()}
     function installModal(){modalReturnFocus=rememberFocus();const root=$('#modalRoot');root.innerHTML=`<div class="modal-shell" data-dismiss><section class="modal" role="dialog" aria-modal="true" aria-labelledby="installTitle"><div class="modal-head"><h2 id="installTitle">Install a Stremio add-on</h2><button class="icon-btn" data-close aria-label="Close add-on installer">${icon('close')}</button></div><div class="modal-body"><div class="notice">Paste an add-on's configured <b>manifest.json</b> URL or a <b>stremio://</b> install link. Comet configuration tokens remain within your browser storage.</div><form id="installForm"><div class="field"><label for="manifestInput">Manifest URL</label><div class="input-action"><input class="text-input" id="manifestInput" placeholder="https://…/manifest.json" required><button class="btn btn-primary" type="submit">Install</button></div><small>Remote manifests must use HTTPS and permit browser CORS requests.</small></div></form><div class="notice warn">Only install add-ons you trust. An add-on controls the metadata and stream URLs returned to this browser.</div></div></section></div>`;bindDynamic(root);$('#installForm').onsubmit=async e=>{e.preventDefault();const btn=e.submitter,input=$('#manifestInput'),owned=currentModal();btn.disabled=true;btn.textContent='Checking…';try{await installAddon(input.value);if(currentModal()!==owned)return;closeModal()}catch(err){if(currentModal()!==owned)return;toast(err.message,'bad');btn.disabled=false;btn.textContent='Install'}};setTimeout(()=>$('#manifestInput')?.focus(),100)}
     /* ---- settings ---------------------------------------------------------
        One destination with named groups, each opening a focused sub-screen.
@@ -2011,23 +1944,38 @@
       const render=SETTINGS_ROUTES[state.settingsRoute]||renderSettingsRoot;
       render();
     }
+    function renderAppearanceSettings(){
+      const root=$('#settingsRoot'),a=AstraAppearance.get();
+      const options=(key,items)=>`<div class="appearance-options ${key==='accent'?'accent-options':''}" role="group" aria-label="${key}">${items.map(([value,label,note])=>`<button class="appearance-option" data-appearance-key="${key}" data-appearance-value="${value}" aria-pressed="${a[key]===value}">${key==='accent'?`<i class="accent-swatch" data-swatch="${value}" aria-hidden="true"></i>`:''}<b>${label}</b>${note?`<span>${note}</span>`:''}</button>`).join('')}</div>`;
+      root.innerHTML=`${screenHead('Appearance')}<p class="screen-lede">Set the mood. Changes apply instantly.</p>
+        <div class="appearance-preview" aria-hidden="true"><div class="preview-caption">YOUR CINEMA</div><strong>A little more you.</strong><div class="preview-posters"><i></i><i></i><i></i></div><div class="preview-dock"><i></i><i></i><i></i><i></i></div></div>
+        <section class="appearance-section"><h2>Accent</h2>${options('accent',[['ice','Ice'],['pearl','Pearl'],['violet','Violet'],['amber','Amber']])}</section>
+        <section class="appearance-section"><h2>Background</h2>${options('surface',[['black','True black','Deep, cinema black'],['charcoal','Charcoal','A softer dark surface']])}</section>
+        <section class="appearance-section"><h2>Card size</h2>${options('density',[['comfortable','Comfortable','Give the artwork room'],['compact','Compact','See more in every row']])}</section>
+        <section class="appearance-section"><h2>Navigation</h2>${options('glass',[['glass','Glass','Subtle translucency'],['solid','Solid','Opaque, lighter to render']])}</section>
+        <section class="appearance-section"><h2>Motion</h2>${options('motion',[['full','Full','Expressive and fluid'],['gentle','Gentle','Shorter, lighter movement'],['off','Off','Instant transitions']])}<p class="settings-note">Your device’s Reduce motion setting always takes priority.</p></section>`;
+      bindDynamic(root);
+    }
     function renderSettingsRoot(){
       const root=$('#settingsRoot');if(!root)return;
       const providers=state.addons.filter(a=>a.enabled!==false).length;
       const catalogs=catalogEntries(false).length;
-      root.innerHTML=`<div class="page-head"><h1 class="page-title">Settings</h1><p class="page-lede">Everything Astra knows is stored in this browser and never uploaded.</p></div>
+      root.innerHTML=`<div class="page-head"><h1 class="page-title">Settings</h1><p class="page-lede">Make Astra yours.</p></div>
+        <div class="settings-section"><span class="label">Your experience</span><div class="settings-group flush">
+          ${settingsRouteHTML('appearance','sliders','Appearance','Color, layout and motion')}
+        </div></div>
         <div class="settings-section"><span class="label">Content</span><div class="settings-group flush">
-          ${settingsRouteHTML('addons','addons','Add-ons',`${providers} enabled · the only source of catalogs and streams`)}
+          ${settingsRouteHTML('addons','addons','Add-ons',`${providers} enabled`)}
           ${settingsRouteHTML('health','globe','Add-on health',healthSummaryText())}
-          ${settingsRouteHTML('catalogs','hub','Home layout',`${catalogs} catalog${catalogs===1?'':'s'} · order, visibility, hero sources, provider labels`)}
+          ${settingsRouteHTML('catalogs','hub','Home layout',`${catalogs} catalogs · arrange your home screen`)}
           ${settingsRouteHTML('youtube','film','YouTube',youtubeSettingsSummary())}
           ${settingsRouteHTML('coverage','film','Content coverage','Which content types you can actually reach')}
         </div></div>
         <div class="settings-section"><span class="label">Playback</span><div class="settings-group flush">
-          ${settingsRouteHTML('audio','captions','Audio and subtitles','Preferred languages, dubs and default subtitle behaviour')}
+          ${settingsRouteHTML('audio','captions','Audio and subtitles','Languages and subtitle defaults')}
         </div></div>
         <div class="settings-section"><span class="label">Privacy and data</span><div class="settings-group flush">
-          ${settingsRouteHTML('data','shield','Data and backup','Adult catalogs, private export and import')}
+          ${settingsRouteHTML('data','shield','Data and backup','Content preferences and private backups')}
         </div></div>
         <p class="settings-note">Astra ${APP_VERSION} · Add-ons, library, settings and playback progress are stored locally in Chrome.</p>`;
       bindDynamic(root);
@@ -2057,12 +2005,12 @@
           ?['Connection ready',`${readyServers.length} available route${readyServers.length===1?'':'s'} · Astra selects the fastest automatically.`]
           :['Connection not checked','Astra rotates between available routes automatically when playback is requested.'];
       root.innerHTML=`${screenHead('YouTube')}
-        <p class="screen-lede">Astra connects to YouTube through privacy-friendly relays and chooses an available route automatically.</p>
+        <p class="screen-lede">Search and watch without leaving Astra.</p>
         <div class="settings-group">
           <div class="switch-row"><div><b>YouTube provider</b><span>Search, browse and play YouTube inside Astra.</span></div>
             <button class="switch ${stored.enabled!==false?'on':''}" data-youtube-toggle="enabled" aria-label="YouTube provider" aria-pressed="${stored.enabled!==false}"><i></i></button></div>
         </div>
-        <div class="settings-group">
+        <details class="settings-advanced"><summary>Advanced connection settings</summary><div class="settings-group">
           <form class="field" id="youtubeInstanceForm">
             <label for="youtubeInstance">Your own server</label>
             <div class="input-action">
@@ -2071,7 +2019,7 @@
               <select class="select" id="youtubeInstanceApi" aria-label="Server type">${YT.config.PROTOCOLS.map(name=>`<option value="${name}" ${config.privateInstanceApi===name?'selected':''}>${name==='piped'?'Piped':'Invidious'}</option>`).join('')}</select>
               <button class="btn btn-primary" type="submit">Save</button>
             </div>
-            <small>Stored in this browser only. Leave it empty to use the public pool below, which is what Astra runs on today.</small>
+            <small>Stored in this browser only. Leave empty to use Astra’s automatic connection.</small>
           </form>
           <div class="switch-row"><div><b>Adaptive quality</b><span>Use DASH for 720p and above. Adaptive streams have to be fetched through your server, so this is off unless one is set.</span></div>
             <button class="switch ${config.preferAdaptive?'on':''}" data-youtube-toggle="preferAdaptive" aria-label="Adaptive quality" aria-pressed="${config.preferAdaptive}" ${usingPrivate?'':'disabled'}><i></i></button></div>
@@ -2079,14 +2027,14 @@
             <select class="select" id="youtubeMaxHeight" data-youtube-select="maxHeight">${YOUTUBE_HEIGHTS.map(([value,label])=>`<option value="${value}" ${config.maxHeight===value?'selected':''}>${esc(label)}</option>`).join('')}</select>
             <small>A quality is only ever offered when this device reports it can decode both its video and its audio.</small></div>
         </div>
-        <div class="settings-section"><span class="label">Connection</span>
+        </details><div class="settings-section"><span class="label">Connection</span>
           <div class="settings-group youtube-connection">
             <span class="settings-route-icon">${icon(readyServers.length?'check':'globe')}</span>
             <span class="youtube-connection-copy"><b>${serverState[0]}</b><small>${serverState[1]}</small></span>
             <button class="btn btn-ghost btn-sm" data-youtube-test ${youtube.testing||stored.enabled===false?'disabled':''}>${youtube.testing?'Checking…':'Check'}</button>
           </div>
         </div>
-        <p class="settings-note">Public routes can occasionally fail. Astra handles selection, cooldowns and failover without exposing server internals here.</p>`;
+        <p class="settings-note">Quality depends on the video and the connection available. Astra’s standard route currently offers up to 360p.</p>`;
       bindDynamic(root);
       const form=$('#youtubeInstanceForm',root);
       if(form)form.onsubmit=event=>{
@@ -2132,7 +2080,7 @@
         </div>
         <div class="notice warn" style="margin-top:var(--s5)">Exports include configured add-on URLs, which may contain private service tokens. Keep backup files private.</div>
         <div class="actions" style="margin-top:var(--s5)"><button class="btn btn-ghost" data-export>${icon('download')} Private backup</button><label class="btn btn-ghost">${icon('upload')} Import backup<input class="hidden" id="importFile" type="file" accept="application/json"></label></div>
-        <p class="settings-note">Astra ${APP_VERSION} · No analytics, no tracking, and no server of its own.</p>`;
+        <p class="settings-note">Astra ${APP_VERSION} · Your preferences and history stay in this browser.</p>`;
       bindDynamic(root);
     }
     function healthChannelHTML(kind,channel){
@@ -2253,23 +2201,30 @@
       $$('[data-layout-option]',root).forEach(button=>button.onclick=()=>{const next={...state.homeLayout,[button.dataset.layoutOption]:!state.homeLayout[button.dataset.layoutOption]};applyHomeLayout(next);renderCatalogSettings()});
       $$('[data-layout-reset]',root).forEach(button=>button.onclick=()=>{applyHomeLayout(AstraCatalogs.reconcile(entries,AstraCatalogs.defaults()),'Home layout reset');renderCatalogSettings()});
     }
-    const SETTINGS_ROUTES={root:renderSettingsRoot,addons:renderAddons,health:renderHealthSettings,catalogs:renderCatalogSettings,coverage:renderHub,youtube:renderYouTubeSettings,audio:renderAudioSettings,data:renderDataSettings};
-    function exportData(){const data={app:'Astra',version:APP_VERSION,exported:new Date().toISOString(),addons:state.addons,library:state.library,progress:progress.snapshot(),settings:state.settings,homeLayout:state.homeLayout};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='astra-backup.json';a.click();URL.revokeObjectURL(a.href)}
-    async function importData(file){const owned=currentModal();try{const d=JSON.parse(await file.text());if(d.app!=='Astra'||!Array.isArray(d.addons))throw Error('Not an Astra backup');state.addons=d.addons;state.library=d.library||{};progress.replace(d.progress||{});state.settings=AstraPlayback.settings.migrate({...state.settings,...d.settings});state.homeLayout=d.homeLayout&&typeof d.homeLayout==='object'?d.homeLayout:AstraCatalogs.defaults();for(const k of ['addons','library','settings','homeLayout'])store.set(k,state[k]);state.manifests.clear();state.catalogCache.clear();await loadManifests(true);toast('Backup imported','good');if(currentModal()===owned)closeModal();invalidateCatalogs();renderHome()}catch(e){toast(`Import failed: ${e.message}`,'bad')}}
+    const SETTINGS_ROUTES={root:renderSettingsRoot,appearance:renderAppearanceSettings,addons:renderAddons,health:renderHealthSettings,catalogs:renderCatalogSettings,coverage:renderHub,youtube:renderYouTubeSettings,audio:renderAudioSettings,data:renderDataSettings};
+    function exportData(){const data={app:'Astra',version:APP_VERSION,exported:new Date().toISOString(),addons:state.addons,library:state.library,progress:progress.snapshot(),settings:state.settings,homeLayout:state.homeLayout,appearance:AstraAppearance.get()};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download='astra-backup.json';a.click();URL.revokeObjectURL(a.href)}
+    async function importData(file){const owned=currentModal();try{const d=JSON.parse(await file.text());if(d.app!=='Astra'||!Array.isArray(d.addons))throw Error('Not an Astra backup');if(d.appearance)AstraAppearance.update(AstraAppearance.normalize(d.appearance));state.addons=d.addons;state.library=d.library||{};progress.replace(d.progress||{});state.settings=AstraPlayback.settings.migrate({...state.settings,...d.settings});state.homeLayout=d.homeLayout&&typeof d.homeLayout==='object'?d.homeLayout:AstraCatalogs.defaults();for(const k of ['addons','library','settings','homeLayout'])store.set(k,state[k]);state.manifests.clear();state.catalogCache.clear();await loadManifests(true);toast('Backup imported','good');if(currentModal()===owned)closeModal();invalidateCatalogs();renderHome()}catch(e){toast(`Import failed: ${e.message}`,'bad')}}
     function bindMotionSurface(root){
       if(root?.id==='streamOverlayRoot'&&$('.source-drawer',root)){
         Motion.mountSurface({root,key:'sources',panelSelector:'.source-drawer',edge:true,down:true,onDismiss:finishStreamClose});return;
       }
       if(root?.id!=='modalRoot'||!root.children.length||$('.player-shell',root))return;
-      const detail=$('.cinema-detail',root),briefing=$('.briefing-panel',root),modal=$('.modal',root),panelSelector=detail?'.cinema-detail':briefing?'.briefing-panel':modal?'.modal':'';
+      const detail=$('.cinema-detail',root),modal=$('.modal',root),panelSelector=detail?'.cinema-detail':modal?'.modal':'';
       if(!panelSelector)return;
       if(!modalReturnFocus)modalReturnFocus=rememberFocus();
-      Motion.mountSurface({root,key:detail?'detail':briefing?'briefing':'utility',panelSelector,edge:!!(detail||briefing),down:true,onDismiss:()=>{if(briefing)state.briefing.request++;cancelStreamLookup();finishModalClose()}});
+      Motion.mountSurface({root,key:detail?'detail':'utility',panelSelector,edge:!!detail,down:true,onDismiss:()=>{cancelStreamLookup();finishModalClose()}});
     }
-    function bindDynamic(root=document){hydrateIcons(root);$$('[data-briefing-open]',root).forEach(x=>x.onclick=()=>openBriefing());$$('[data-briefing-run]',root).forEach(x=>x.onclick=()=>runBriefing());$$('[data-briefing-type]',root).forEach(x=>x.onclick=()=>{state.briefing.type=x.dataset.briefingType;state.briefing.genre='all';runBriefing()});$$('[data-briefing-mode]',root).forEach(x=>x.onclick=()=>{state.briefing.mode=x.dataset.briefingMode;runBriefing()});const briefingGenre=$('#briefingGenre',root);if(briefingGenre)briefingGenre.onchange=()=>{state.briefing.genre=briefingGenre.value;runBriefing()};$$('[data-health-test]',root).forEach(x=>x.onclick=()=>testAllAddonHealth());$$('[data-health-addon]',root).forEach(x=>x.onclick=()=>{const addon=state.addons.find(item=>addonHealthKey(item)===x.dataset.healthAddon);if(addon)checkAddonHealth(addon)});$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open,x));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams,x)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-switch-source]',root).forEach(x=>x.onclick=()=>{const entry=entryById(x.dataset.switchSource);closeTrackMenu();if(entry)openPlayer(entry)});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{const next=player.nextEpisode;cancelCountdown();if(x.dataset.countdown!=='cancel'&&next)goToEpisode(next)});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-quality]',root).forEach(x=>x.onclick=()=>selectQuality(x.dataset.quality));$$('[data-youtube-browse]',root).forEach(x=>x.onclick=()=>{youtube.browse=null;renderYouTubeBrowse()});$$('[data-youtube-reload]',root).forEach(x=>x.onclick=()=>{const m=state.currentMeta;if(m)loadYouTubeSources(m,x.dataset.youtubeReload,{fresh:true})});$$('[data-youtube-test]',root).forEach(x=>x.onclick=()=>testYouTubeInstances());$$('[data-youtube-toggle]',root).forEach(x=>x.onclick=()=>{const key=x.dataset.youtubeToggle;youtubeApply({[key]:!youtubeStored()[key]});renderYouTubeSettings()});$$('[data-youtube-select]',root).forEach(x=>x.onchange=()=>{youtubeApply({[x.dataset.youtubeSelect]:Number(x.value)});renderYouTubeSettings()});$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0]);bindMotionSurface(root);Motion.refresh(root)}
+    function bindDynamic(root=document){hydrateIcons(root);$$('[data-health-test]',root).forEach(x=>x.onclick=()=>testAllAddonHealth());$$('[data-health-addon]',root).forEach(x=>x.onclick=()=>{const addon=state.addons.find(item=>addonHealthKey(item)===x.dataset.healthAddon);if(addon)checkAddonHealth(addon)});$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open,x));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams,x)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-switch-source]',root).forEach(x=>x.onclick=()=>{const entry=entryById(x.dataset.switchSource);closeTrackMenu();if(entry)openPlayer(entry)});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{const next=player.nextEpisode;cancelCountdown();if(x.dataset.countdown!=='cancel'&&next)goToEpisode(next)});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-quality]',root).forEach(x=>x.onclick=()=>selectQuality(x.dataset.quality));$$('[data-youtube-browse]',root).forEach(x=>x.onclick=()=>{youtube.browse=null;renderYouTubeBrowse()});$$('[data-youtube-reload]',root).forEach(x=>x.onclick=()=>{const m=state.currentMeta;if(m)loadYouTubeSources(m,x.dataset.youtubeReload,{fresh:true})});$$('[data-youtube-test]',root).forEach(x=>x.onclick=()=>testYouTubeInstances());$$('[data-youtube-toggle]',root).forEach(x=>x.onclick=()=>{const key=x.dataset.youtubeToggle;youtubeApply({[key]:!youtubeStored()[key]});renderYouTubeSettings()});$$('[data-youtube-select]',root).forEach(x=>x.onchange=()=>{youtubeApply({[x.dataset.youtubeSelect]:Number(x.value)});renderYouTubeSettings()});$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0]);bindMotionSurface(root);Motion.refresh(root)}
     function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(q),450)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#streamOverlayRoot')?.children.length){closeStreamPicker();return}if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('.player-shell',$('#modalRoot')))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
     function productEvents(){
       document.addEventListener('click',event=>{
+        const look=event.target.closest?.('[data-appearance-key]');
+        if(look){const key=look.dataset.appearanceKey,value=look.dataset.appearanceValue,saved=AstraAppearance.update({[key]:value});$$(`[data-appearance-key="${key}"]`).forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.appearanceValue===value)));if(!saved)toast('Appearance changed for this session. Browser storage is unavailable.','bad');return}
+        const view=event.target.closest?.('[data-library-view]');
+        if(view){state.libraryView=view.dataset.libraryView;renderLibrary();$(`[data-library-view="${state.libraryView}"]`)?.focus({preventScroll:true});return}
+        if(event.target.closest?.('[data-focus-search]')){$('#globalSearch')?.focus();return}
+        const browse=event.target.closest?.('[data-home-type]');
+        if(browse){clearQuery();state.discover={type:browse.dataset.homeType,sector:null,sectorLabel:'',addon:'all',catalog:'all',genre:'all'};nav('search');return}
         const remove=event.target.closest?.('[data-remove-progress]');
         if(remove){removeContinue(remove.dataset.removeProgress);return}
         const surprise=event.target.closest?.('[data-surprise-me]');
