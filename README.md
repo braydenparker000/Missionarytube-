@@ -5,7 +5,7 @@ MissionaryTube is a mobile-first static web app hosted from Azure Storage.
 - Live site: https://missionarytube.z13.web.core.windows.net/
 - Source of truth: the `main` branch in this repository
 - Current state: the existing single-file Astra site is imported and ready for GitHub-managed development
-- Deployment state: prepared but disabled until the one-time Azure OIDC setup is complete
+- Deployment state: live. Merging to `main` deploys automatically.
 
 ## Commands
 
@@ -60,6 +60,7 @@ is missing an integrity hash. To bump a version, edit `scripts/pin-player-libs.m
 | `deploy/invidious/` | Docker Compose for a private Invidious instance |
 | `assets/js/audio-player.js` | Audio player state read from the media element |
 | `tests/` | Node test-runner suite for the design system, media hub, audio state, progress storage, playback, and dependency pinning |
+| `docs/HANDOFF.md` | Open problems and research directions for YouTube playback |
 | `docs/YOUTUBE.md` | How YouTube playback works, and how to point it at your own instance |
 | `docs/WORKFLOW.md` | Phone-first GitHub development workflow |
 | `docs/AI-COLLABORATION.md` | Claude implementation and Codex review protocol |

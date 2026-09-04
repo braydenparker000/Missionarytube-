@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MissionaryTube · instance probe</title>
+<style>
+  :root{color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;padding:16px 14px 48px;background:#060606;color:#f8f2e8;
+       font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  h1{margin:0 0 4px;font-size:19px;letter-spacing:-.01em}
+  p.lede{margin:0 0 18px;color:#9c968c;font-size:13px}
+  button{min-height:44px;padding:0 18px;border:0;border-radius:999px;
+         background:#f8f2e8;color:#060606;font-size:14px;font-weight:700}
+  button.ghost{background:#1a1a1a;color:#f8f2e8;box-shadow:inset 0 0 0 1px #2c2c2c}
+  button[disabled]{opacity:.45}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .card{margin:0 0 10px;padding:12px 14px;border-radius:14px;background:#111;
+        box-shadow:inset 0 0 0 1px #262626}
+  .head{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .host{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+        font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+  .kind{flex:0 0 auto;padding:2px 8px;border-radius:999px;background:#1e1e1e;
+        color:#9c968c;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+  .step{padding:6px 4px;border-radius:8px;background:#171717;text-align:center;font-size:10px}
+  .step b{display:block;margin-bottom:2px;color:#7d7870;font-size:9px;
+          font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+  .ok{background:#0f2417;color:#7ee2a8}
+  .bad{background:#2a1113;color:#f08a8a}
+  .wait{background:#1c1a10;color:#e0c877}
+  .note{margin-top:9px;color:#9c968c;font-size:11.5px;word-break:break-word}
+  .verdict{margin:18px 0;padding:14px;border-radius:14px;font-size:14px;font-weight:650}
+  .verdict.good{background:#0f2417;color:#7ee2a8}
+  .verdict.bad{background:#2a1113;color:#f08a8a}
+  video{width:100%;max-width:420px;margin-top:10px;border-radius:10px;background:#000}
+  .hidden{display:none}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+</style>
+</head>
+<body>
+<h1>Instance probe</h1>
+<p class="lede">Tests whether any free public instance can search, resolve and actually
+<em>play</em> a YouTube video — from this page's origin, on this phone.</p>
+
+<div class="row">
+  <button id="run">Run the probe</button>
+  <button id="copy" class="ghost" disabled>Copy results</button>
+</div>
+
+<div id="verdict"></div>
+<div id="out"></div>
+
+<script>
+(() => {
+"use strict";
+
+/* Two well-known, long-lived videos. Two, so one being region-locked or
+   embed-restricted cannot make a working instance look broken. */
+const VIDEOS = ["dQw4w9WgXcQ", "jNQXAC9IVRw"];
+const TIMEOUT = 9000;
+
+/* Keep this list in step with publicFallbackInstances in
+   assets/js/youtube/config.js. The relay leads there, so it leads here. */
+const INSTANCES = [
+  { kind: "piped",     base: "https://astra-youtube-relay.braydenparker999.chatgpt.site/api/youtube" },
+  { kind: "piped",     base: "https://api.piped.private.coffee" },
+  { kind: "piped",     base: "https://pipedapi.ducks.party" },
+  { kind: "piped",     base: "https://api.piped.yt" },
+  { kind: "piped",     base: "https://api.piped.privacydev.net" },
+  { kind: "piped",     base: "https://pipedapi.reallyaweso.me" },
+  { kind: "piped",     base: "https://pipedapi.kavin.rocks" },
+  { kind: "piped",     base: "https://pipedapi.adminforge.de" },
+  { kind: "piped",     base: "https://pipedapi.leptons.xyz" },
+  { kind: "piped",     base: "https://pipedapi.nosebs.ru" },
+  { kind: "invidious", base: "https://yewtu.be" },
+  { kind: "invidious", base: "https://inv.nadeko.net" },
+  { kind: "invidious", base: "https://invidious.nerdvpn.de" }
+];
+
+const $ = (s) => document.querySelector(s);
+const out = $("#out");
+const lines = [];
+
+function host(url) { try { return new URL(url).host; } catch { return url; } }
+
+/* Distinguish the failure modes that matter. A TypeError from fetch is the
+   browser refusing the response: unreachable, DNS, TLS, or — the one we care
+   about — no CORS header, which means the instance is useless to a static
+   site however healthy it looks in a browser tab. */
+async function getJson(url) {
+  const control = new AbortController();
+  const timer = setTimeout(() => control.abort(), TIMEOUT);
+  try {
+    const response = await fetch(url, { signal: control.signal, mode: "cors", credentials: "omit" });
+    const text = await response.text();
+    let body = null;
+    try { body = JSON.parse(text); } catch { throw new Error("not JSON (HTTP " + response.status + ")"); }
+    if (body && typeof body === "object" && typeof body.error === "string" && body.error) {
+      throw new Error(body.error.slice(0, 120));
+    }
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    return body;
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("timed out after " + (TIMEOUT / 1000) + "s");
+    if (error instanceof TypeError) throw new Error("blocked or unreachable (no CORS / DNS / TLS)");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/* The muxed stream: one file with video and audio, which is the only thing a
+   plain <video src> can play without Media Source Extensions. */
+function progressiveFrom(kind, data) {
+  if (kind === "invidious") {
+    const list = Array.isArray(data.formatStreams) ? data.formatStreams : [];
+    const best = list
+      .filter((f) => f && typeof f.url === "string")
+      .sort((a, b) => (parseInt(b.qualityLabel) || 0) - (parseInt(a.qualityLabel) || 0))[0];
+    return best ? { url: best.url, label: best.qualityLabel || best.quality || "?" } : null;
+  }
+  const list = Array.isArray(data.videoStreams) ? data.videoStreams : [];
+  const best = list
+    .filter((f) => f && typeof f.url === "string" && f.videoOnly === false)
+    .sort((a, b) => (parseInt(b.quality) || 0) - (parseInt(a.quality) || 0))[0];
+  return best ? { url: best.url, label: best.quality || "?" } : null;
+}
+
+/* Does it decode? Muted, because muted autoplay needs no gesture; a sound
+   check is one tap on the button this leaves behind. */
+function canPlay(url) {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    let settled = false;
+    const finish = (ok, why) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearInterval(poll);
+      try { video.pause(); video.removeAttribute("src"); video.load(); } catch {}
+      resolve({ ok, why });
+    };
+    const timer = setTimeout(() => finish(false, "no frames within 12s"), 12000);
+    const poll = setInterval(() => {
+      if (video.currentTime > 0.15 && video.videoWidth > 0) {
+        finish(true, video.videoWidth + "x" + video.videoHeight);
+      }
+    }, 250);
+    video.addEventListener("error", () => {
+      const code = video.error && video.error.code;
+      finish(false, code === 4 ? "format refused" : code === 2 ? "network error" : "media error " + code);
+    });
+    video.src = url;
+    video.play().catch(() => {});
+  });
+}
+
+function card(instance) {
+  const node = document.createElement("div");
+  node.className = "card";
+  node.innerHTML =
+    '<div class="head"><span class="host">' + host(instance.base) + "</span>" +
+    '<span class="kind">' + instance.kind + "</span></div>" +
+    '<div class="steps">' +
+    ["Reachable", "Search", "Resolve", "Plays"]
+      .map((name) => '<div class="step wait" data-step="' + name + '"><b>' + name + "</b>…</div>")
+      .join("") +
+    '</div><div class="note"></div>';
+  out.appendChild(node);
+  return {
+    set(name, state, text) {
+      const step = node.querySelector('[data-step="' + name + '"]');
+      step.className = "step " + state;
+      step.innerHTML = "<b>" + name + "</b>" + text;
+    },
+    note(text) { node.querySelector(".note").textContent = text; },
+    node
+  };
+}
+
+async function probe(instance) {
+  const ui = card(instance);
+  const record = { host: host(instance.base), kind: instance.kind, reachable: false, search: false, resolve: false, plays: false, why: "" };
+
+  // 1 — reachable, and willing to talk to a browser on another origin
+  try {
+    await getJson(instance.base + (instance.kind === "invidious" ? "/api/v1/stats" : "/healthcheck"))
+      .catch(async (error) => {
+        // Some Piped builds have no /healthcheck; a trending call proves the same thing.
+        if (instance.kind === "piped") return getJson(instance.base + "/trending?region=US");
+        throw error;
+      });
+    record.reachable = true;
+    ui.set("Reachable", "ok", "yes");
+  } catch (error) {
+    ui.set("Reachable", "bad", "no");
+    ["Search", "Resolve", "Plays"].forEach((s) => ui.set(s, "bad", "—"));
+    record.why = error.message;
+    ui.note(error.message);
+    return record;
+  }
+
+  // 2 — search
+  try {
+    const url = instance.kind === "invidious"
+      ? instance.base + "/api/v1/search?q=lofi&type=video"
+      : instance.base + "/search?q=lofi&filter=videos";
+    const data = await getJson(url);
+    const items = Array.isArray(data) ? data : (data.items || []);
+    if (!items.length) throw new Error("returned no results");
+    record.search = true;
+    ui.set("Search", "ok", items.length + " hits");
+  } catch (error) {
+    ui.set("Search", "bad", "no");
+    record.why = "search: " + error.message;
+  }
+
+  // 3 — resolve a stream URL, trying both test videos
+  let stream = null;
+  let lastError = "";
+  for (const id of VIDEOS) {
+    try {
+      const url = instance.kind === "invidious"
+        ? instance.base + "/api/v1/videos/" + id
+        : instance.base + "/streams/" + id;
+      const data = await getJson(url);
+      const found = progressiveFrom(instance.kind, data);
+      if (!found) { lastError = "no muxed stream offered"; continue; }
+      stream = found;
+      break;
+    } catch (error) {
+      lastError = error.message;
+    }
+  }
+  if (!stream) {
+    ui.set("Resolve", "bad", "no");
+    ui.set("Plays", "bad", "—");
+    record.why = record.why || "resolve: " + lastError;
+    ui.note(ui.node.querySelector(".note").textContent || ("resolve: " + lastError));
+    return record;
+  }
+  record.resolve = true;
+  ui.set("Resolve", "ok", stream.label);
+
+  // 4 — the only question that actually matters
+  const played = await canPlay(stream.url);
+  record.plays = played.ok;
+  ui.set("Plays", played.ok ? "ok" : "bad", played.ok ? "yes" : "no");
+  if (!played.ok) {
+    record.why = "play: " + played.why;
+    ui.note("play: " + played.why);
+  } else {
+    ui.note(played.why + " · tap below to confirm sound");
+    const button = document.createElement("button");
+    button.className = "ghost";
+    button.textContent = "Play with sound";
+    button.onclick = () => {
+      button.remove();
+      const video = document.createElement("video");
+      video.src = stream.url;
+      video.controls = true;
+      video.playsInline = true;
+      ui.node.appendChild(video);
+      video.play().catch(() => {});
+    };
+    ui.node.appendChild(button);
+  }
+  return record;
+}
+
+$("#run").onclick = async () => {
+  $("#run").disabled = true;
+  $("#copy").disabled = true;
+  out.innerHTML = "";
+  $("#verdict").innerHTML = "";
+  lines.length = 0;
+
+  const results = [];
+  for (const instance of INSTANCES) {
+    results.push(await probe(instance));
+  }
+
+  const winners = results.filter((r) => r.plays);
+  const searchers = results.filter((r) => r.search);
+  const verdict = $("#verdict");
+  if (winners.length) {
+    verdict.className = "verdict good";
+    verdict.textContent = winners.length + " of " + results.length +
+      " instances actually played a video: " + winners.map((r) => r.host).join(", ");
+  } else {
+    verdict.className = "verdict bad";
+    verdict.textContent = "None of the " + results.length + " instances could play a video. " +
+      searchers.length + " could still search.";
+  }
+
+  results.forEach((r) => {
+    lines.push([r.host, r.kind, r.reachable ? "reach" : "-", r.search ? "search" : "-",
+      r.resolve ? "resolve" : "-", r.plays ? "PLAYS" : "-", r.why].join(" | "));
+  });
+  $("#copy").disabled = false;
+  $("#copy").onclick = async () => {
+    const text = verdict.textContent + "\n\n" + lines.join("\n");
+    try { await navigator.clipboard.writeText(text); $("#copy").textContent = "Copied"; }
+    catch { alert(text); }
+  };
+  $("#run").disabled = false;
+};
+})();
+</script>
+</body>
+</html>
