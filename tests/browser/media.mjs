@@ -25,7 +25,7 @@ const run = promisify(execFile);
 export const VIDEOS = [
   { id: "short000001", title: "Short Clip", seconds: 8, tone: 440, heights: [360, 720], author: "Bench Channel" },
   { id: "long0000002", title: "Long Feature", seconds: 45, tone: 330, heights: [360, 720], author: "Bench Channel" },
-  { id: "music000003", title: "Music Video", seconds: 15, tone: 523, heights: [360, 720], author: "Bench Records" },
+  { id: "music000003", title: "Rhythm Clip", seconds: 15, tone: 523, heights: [360, 720], author: "Bench Records" },
   { id: "hd108000004", title: "A 1080p Capable Video", seconds: 10, tone: 660, heights: [360, 720, 1080], author: "Bench Studio" }
 ];
 

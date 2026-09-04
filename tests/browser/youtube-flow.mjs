@@ -128,10 +128,10 @@ async function playByTitle(page, title, { screenshot } = {}) {
   step(`search for ${title}`);
   await page.click('#mobileNav [data-nav="search"]');
   await page.fill("#globalSearch", title);
-  await page.waitForSelector('[data-search-provider="youtube"] .yt-card', { timeout: 20000 });
+  await page.press("#globalSearch", "Enter");
 
   const card = page.locator(`[data-search-provider="youtube"] .yt-card`, { hasText: title }).first();
-  await card.waitFor({ timeout: 10000 });
+  await card.waitFor({ timeout: 20000 });
   await card.click();
 
   step(`open ${title}`);
@@ -450,7 +450,7 @@ async function main() {
     /* several videos, not one hand-picked one */
     step("the rest of the videos");
     const played = [];
-    for (const title of ["Music Video"]) {
+    for (const title of ["Rhythm Clip"]) {
       const state = await playByTitle(page, title);
       played.push({ title, seconds: state.duration, at: state.currentTime, size: `${state.videoWidth}x${state.videoHeight}` });
       await closePlayer(page);
@@ -568,7 +568,7 @@ async function main() {
       { url: piped.origin, api: "piped" },
       { url: primary.origin, api: "invidious" }
     ]);
-    const crossed = await playByTitle(page, "Music Video", {
+    const crossed = await playByTitle(page, "Rhythm Clip", {
       screenshot: join(workDir, "evidence", "09-mixed-pool.png")
     });
     check(
@@ -636,7 +636,7 @@ async function main() {
     }, primary.origin);
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector("#mobileNav .dock-btn", { timeout: 15000 });
-    const recovered = await playByTitle(page, "Music Video", {
+    const recovered = await playByTitle(page, "Rhythm Clip", {
       screenshot: join(workDir, "evidence", "05-recovered.png")
     });
     const recoveredSrc = recovered.src;
