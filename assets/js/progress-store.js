@@ -87,6 +87,11 @@
     if (releaseInfo) compact.releaseInfo = releaseInfo;
     if (addonName) compact._addonName = addonName;
     if (addonUrl) compact._addonUrl = addonUrl;
+    // Provider routing must survive compaction and older saved records.
+    // Keep only the public identity; never persist expiring delivery URLs.
+    if (compact.type === "youtube" && /^[A-Za-z0-9_-]{11}$/.test(compact.id)) {
+      compact._youtube = { videoId: compact.id };
+    }
     return compact;
   }
 
