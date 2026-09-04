@@ -171,7 +171,7 @@ test("fullscreen is user-initiated and feature-detected", () => {
 
 test("the picker surfaces compatibility instead of hiding sources", () => {
   assert.match(html, /class="stream-row \$\{ev\.playable\?'':'blocked'\}/);
-  assert.match(html, /class="stream-why">\$\{esc\(entry\.why\)\}/, "each row explains itself");
+  assert.match(html, /class="stream-why">\$\{ev\.playable\?'':esc\(entry\.why\)\}/, "blocked sources explain why playback is unavailable");
   assert.match(html, /chip-sm state-\$\{ev\.state\}/, "the compatibility state is labelled");
   // Nothing filters, sorts or ranks: the add-on's order is what is shown.
   for (const gone of ["STREAM_FILTERS", "data-stream-filter", "data-stream-sort", "data-play-best", "sortedStreams", "bestCandidate"]) {

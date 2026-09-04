@@ -17,7 +17,7 @@ const compactQuery = window.matchMedia?.("(max-width: 820px)");
 const surfaceBindings = new WeakMap();
 const elementBindings = new WeakMap();
 const heroBindings = new WeakMap();
-const ART_SELECTOR = ".art, .release-art, .resume-art, .feature-art, .briefing-pick-art";
+const ART_SELECTOR = ".art, .release-art, .resume-art, .feature-art";
 const REVEAL_SELECTOR = [
   ".feature",
   ".sector",
@@ -44,12 +44,16 @@ const REVEAL_SELECTOR = [
   ".video-row",
   ".source-intel",
   ".stream-item",
-  ".briefing-pick"
+  ".appearance-section",
+  ".appearance-preview",
+  ".home-browse"
 ].join(",");
 const PRESS_SELECTOR = [
   ".card",
   ".resume-card",
-  ".briefing-pick",
+  ".appearance-option",
+  ".browse-chip",
+  ".library-tabs button",
   ".surprise-trigger",
   ".video-row",
   ".stream-row",
@@ -66,6 +70,7 @@ let sharedTransition = null;
 let pageEdge = null;
 let pageDrag = null;
 let pageBack = null;
+let pageBackEnabled = false;
 let press = null;
 let suppressed = null;
 let dockResize = null;
@@ -76,10 +81,11 @@ const revealQueue = new Set();
 const revealPending = new Set();
 
 function reduced() {
-  return Boolean(reduceQuery?.matches);
+  return Boolean(reduceQuery?.matches) || document.documentElement.dataset.motion === 'off';
 }
 
 function constrainedMotion() {
+  if (document.documentElement.dataset.motion === 'gentle') return true;
   if (!coarseQuery?.matches || !compactQuery?.matches) return false;
   const memory = Number(navigator.deviceMemory) || Infinity;
   const cores = Number(navigator.hardwareConcurrency) || Infinity;
@@ -209,6 +215,7 @@ function refresh(root = document) {
 }
 
 function handleReducedMotionChange() {
+  syncPageBack(pageBackEnabled);
   if (!reduced()) return;
   cancelAnimationFrame(revealFrame);
   revealFrame = 0;
@@ -688,6 +695,7 @@ function bindHero(deck, dots) {
 }
 
 function syncPageBack(enabled) {
+  pageBackEnabled = enabled;
   if (!pageEdge || !pageDrag) return;
   pageEdge.classList.toggle("is-disabled", !enabled || reduced());
   if (enabled && !reduced()) pageDrag.enable();
@@ -732,6 +740,11 @@ function init({ onPageBack } = {}) {
   document.documentElement.classList.toggle("motion-lean", constrainedMotion());
   installRevealObserver();
   reduceQuery?.addEventListener?.("change", handleReducedMotionChange);
+  window.addEventListener('astra:appearance', () => {
+    document.documentElement.classList.toggle('motion-lean', constrainedMotion());
+    handleReducedMotionChange();
+    syncDock(document.querySelector('#mobileNav'), document.querySelector('.page.active')?.id.replace('page-', ''));
+  });
   installPressFeedback();
   installPageEdge();
 }

@@ -6,15 +6,17 @@
   <meta name="theme-color" content="#060606">
   <meta name="description" content="Astra — a private, add-on powered streaming client for movies, shows, anime and music.">
   <meta name="color-scheme" content="dark">
-  <meta name="astra-release" content="0.26.1">
+  <meta name="astra-release" content="0.27.0">
   <title>Astra</title>
   <script src="assets/js/bootstrap.js?v=__ASTRA_VERSION__"></script>
+  <script src="assets/js/appearance.js?v=__ASTRA_VERSION__"></script>
   <link rel="stylesheet" href="assets/css/obsidian.css?v=__ASTRA_VERSION__">
+  <link rel="stylesheet" href="assets/css/cinema.css?v=__ASTRA_VERSION__">
   <style>
     /* Critical shell only: everything else lives in the design system so the
        first paint is never a flash of unstyled bone on white. */
-    html{background:#060606}
-    body{margin:0;background:#060606;color:#f8f2e8;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+    html{background:var(--cinema-floor,#060606)}
+    body{margin:0;background:var(--cinema-floor,#060606);color:#f8f2e8;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   </style>
 </head>
 <body>
@@ -29,7 +31,7 @@
 
   <main id="main">
     <header class="topbar">
-      <div class="wordmark">Astra</div>
+      <div class="wordmark"><span class="brand-orbit" aria-hidden="true">A</span>Astra<span class="brand-edition">CINEMA</span></div>
       <div class="topbar-spacer"></div>
     </header>
 
