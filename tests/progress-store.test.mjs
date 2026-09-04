@@ -312,6 +312,30 @@ test("compactMeta keeps only poster-card fields", () => {
   assert.equal(AstraProgress.compactMeta({ type: "movie" }), null);
 });
 
+test("YouTube routing survives a restart without storing delivery data", () => {
+  const {store, storage} = makeStore();
+  const meta = {id: 'aqz-KE-bpKQ', type: 'youtube', name: 'Big Buck Bunny',
+    _youtube: {videoId: 'aqz-KE-bpKQ', instance: 'https://private.example.test', streams: ['expiring-url']}};
+  store.record(meta, {id: meta.id}, {time: 90, duration: 635, immediate: true});
+  const restarted = makeStore({storage}).store;
+  const restored = restarted.meta('youtube:aqz-KE-bpKQ');
+  assert.equal(restored._youtube.videoId, meta.id);
+  assert.deepEqual(Object.keys(restored._youtube), ['videoId']);
+  assert.equal(restarted.latest('youtube:aqz-KE-bpKQ').time, 90);
+  assert.equal(storage.map.get(KEY).includes('private.example.test'), false);
+  assert.equal(storage.map.get(KEY).includes('expiring-url'), false);
+});
+
+test("older compact YouTube history regains provider identity when loaded", () => {
+  const raw = {v: 2, entries: {}, metas: {'youtube:aqz-KE-bpKQ': {
+    type: 'youtube', id: 'aqz-KE-bpKQ', name: 'Big Buck Bunny'
+  }}};
+  const restored = AstraProgress.normalize(JSON.stringify(raw));
+  assert.equal(restored.metas['youtube:aqz-KE-bpKQ']._youtube.videoId, 'aqz-KE-bpKQ');
+  assert.equal(AstraProgress.compactMeta({type: 'movie', id: 'aqz-KE-bpKQ'})._youtube, undefined);
+  assert.equal(AstraProgress.compactMeta({type: 'youtube', id: 'invalid'})._youtube, undefined);
+});
+
 test("a media id longer than the display limit round-trips through storage", () => {
   // An add-on may return an id far longer than the display-field cap. The
   // compact record's id is what cardHTML/openMedia rebuild the media key from,
