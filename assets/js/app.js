@@ -1036,8 +1036,8 @@
       if(!youtube.client){
         const config=YT.config.resolve(youtubeStored());
         const manager=YT.instances.createManager({config,instances:YT.config.instanceList(config),fetch:(url,init)=>fetch(url,init)});
-        const playbackConfig={...config,requestTimeout:25000,maxAttempts:1};
-        const playbackManager=YT.instances.createManager({config:playbackConfig,instances:config.publicFallbackInstances.slice(0,1).map(entry=>({...entry,kind:'private'})),fetch:(url,init)=>fetch(url,init)});
+        const playbackConfig={...config,requestTimeout:25000,maxAttempts:2,instanceCooldown:15000};
+        const playbackManager=YT.instances.createManager({config:playbackConfig,instances:YT.config.instanceList(config),fetch:(url,init)=>fetch(url,init)});
         youtube.config=config;youtube.manager=manager;youtube.playbackManager=playbackManager;
         youtube.client=YT.api.createClient({manager,playbackManager,config});
         // No startup sweep. The pool is other people's servers, and the health
@@ -2103,7 +2103,7 @@
     async function testYouTubeInstances(){
       if(youtube.testing)return;
       youtube.testing=true;renderYouTubeSettings();
-      try{await youtubeProvider().manager.reset()}catch{}
+      try{await Promise.all([youtubeProvider().manager.reset(),youtubeProvider().playbackManager.reset()])}catch{}
       youtube.testing=false;
       if(state.currentPage==='settings'&&state.settingsRoute==='youtube')renderYouTubeSettings();
       const snapshot=youtubeProvider().manager.snapshot();

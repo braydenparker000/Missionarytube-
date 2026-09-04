@@ -136,6 +136,7 @@ async function playByTitle(page, title, { screenshot } = {}) {
 
   step(`open ${title}`);
   await page.waitForSelector(".cinema-detail", { timeout: 15000 });
+  await page.waitForSelector(".cinema-detail .record-cell", { timeout: 15000 });
   await page.click("[data-get-streams]");
   await page.waitForSelector(".source-drawer [data-play-source]", { timeout: 20000 });
   await page.click(".source-drawer [data-play-source]");
@@ -288,6 +289,7 @@ async function main() {
     step("open the result");
     await page.locator('[data-search-provider="youtube"] .yt-card', { hasText: "Short Clip" }).first().click();
     await page.waitForSelector(".cinema-detail", { timeout: 15000 });
+    await page.waitForSelector(".cinema-detail .record-cell", { timeout: 15000 });
     const meta = await page.evaluate(() => ({
       title: document.querySelector("#dossierTitle")?.textContent || "",
       facts: [...document.querySelectorAll(".dossier-meta span")].map((n) => n.textContent),

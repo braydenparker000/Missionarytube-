@@ -61,11 +61,11 @@ test("nothing YouTube-shaped runs during the app's first paint", () => {
   const provider = region(/function youtubeProvider\(\)\{[\s\S]*?\n {4}\}/);
   assert.match(provider, /if\(!youtube\.client\)\{/);
   assert.equal(/probe\(/.test(provider), false, "nothing sweeps the pool unasked");
-  assert.match(provider, /requestTimeout:25000,maxAttempts:1/);
-  assert.match(provider, /publicFallbackInstances\.slice\(0,1\)/,
-    "playback is pinned to Astra's relay instead of a volunteer fallback");
-  assert.match(html, /function testYouTubeInstances\(\)[\s\S]*?manager\.reset\(\)/,
-    "a sweep is a deliberate action on the settings screen");
+  assert.match(provider, /requestTimeout:25000,maxAttempts:2,instanceCooldown:15000/);
+  assert.match(provider, /instances:YT\.config\.instanceList\(config\)/,
+    "playback falls back through the full pool, relay first");
+  assert.match(html, /function testYouTubeInstances\(\)[\s\S]*?playbackManager\.reset\(\)/,
+    "a sweep resets both the search and playback managers");
   assert.match(html, /\/\/ Deliberately not awaited: the add-on catalogs must not wait on YouTube\.\s*\n\s*renderYouTubeBrowse\(\)/);
 });
 
