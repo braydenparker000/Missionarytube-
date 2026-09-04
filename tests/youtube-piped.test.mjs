@@ -152,7 +152,8 @@ test("a Piped record produces a playable plan with no code path of its own", () 
   });
 
   const variants = plain(built.variants);
-  assert.ok(variants.length >= 2);
+  assert.equal(variants.length, 2, "only the two real Piped deliveries are offered");
+  assert.ok(variants.every((variant) => !variant.url.includes('/latest_version')));
   assert.equal(variants[0].kind, "progressive", "no DASH manifest, so the muxed file leads");
   assert.equal(variants[0].height, 720);
   assert.equal(variants[0].proxied, false, "the URL Piped returned is used as given");

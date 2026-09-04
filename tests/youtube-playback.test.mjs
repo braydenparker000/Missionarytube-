@@ -231,6 +231,21 @@ test("a plan is only called expired when a direct URL is genuinely near lapsing"
   assert.equal(YT.playback.planExpired(plan(YT.api.normalizeVideoDetail(liveDetail(), PRIVATE_INSTANCE))), false);
 });
 
+test("Astra relay leases expire even though they do not use Google's query key", () => {
+  const expires = 1_800_000_000;
+  const record = YT.api.normalizePipedDetail({
+    title: "Lease test", duration: 1200,
+    videoStreams: [{ videoOnly: false, itag: "18", quality: "360p",
+      mimeType: "video/mp4", codec: "avc1.42001E, mp4a.40.2",
+      url: `https://relay.example.test/api/youtube/media/dQw4w9WgXcQ?expires=${expires}&sig=test` }]
+  }, "https://relay.example.test/api/youtube", "dQw4w9WgXcQ");
+  const built = plan(record);
+  assert.equal(built.variants.length, 1, "the relay has no Invidious latest_version endpoint");
+  assert.equal(built.variants[0].expiresAt, expires * 1000);
+  assert.equal(YT.playback.planExpired(built, (expires - 180) * 1000), false);
+  assert.equal(YT.playback.planExpired(built, (expires + 1) * 1000), true);
+});
+
 /* ---- the seam with the rest of Astra -------------------------------------- */
 
 test("a variant becomes an ordinary Astra stream the existing pipeline understands", () => {

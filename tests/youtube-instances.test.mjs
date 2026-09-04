@@ -282,6 +282,22 @@ test("an unplayable video is the video's problem, so no instance is blamed", asy
   assert.equal(manager.snapshot().instances[0].state, "unknown", "and the instance keeps its health");
 });
 
+test("resolver failures with JSON error bodies still try a healthy fallback", async () => {
+  for (const status of [200, 502]) {
+    const { manager, fetch } = createManager(YT, {
+      config: TEST_CONFIG,
+      routes: {
+        [PRIVATE_INSTANCE]: { status, body: { error: "YouTube did not return a playable audio+video stream. WEB: extraction failed" } },
+        [PUBLIC_A]: ok({ videoId: "aaaaaaaaaaa" })
+      }
+    });
+    const result = await manager.request("/streams/aaaaaaaaaaa");
+    assert.equal(result.instance, PUBLIC_A);
+    assert.equal(fetch.calls.length, 2);
+    assert.equal(manager.snapshot().instances[0].lastError, "server");
+  }
+});
+
 test("a caller's cancellation is not an instance failure", async () => {
   const controller = new AbortController();
   const { manager, fetch } = createManager(YT, {
