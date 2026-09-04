@@ -94,8 +94,8 @@
 
   /**
    * When a signed playback URL stops being valid. Google puts `expire` in the
-   * query as epoch seconds; anything else is treated as non-expiring rather
-   * than guessed at.
+   * query as epoch seconds; Astra's relay uses `expires` for its signed lease.
+   * URLs without either field have no known expiry.
    */
   function expiresAt(url) {
     var raw = str(url);
@@ -106,7 +106,7 @@
     } catch (error) {
       return 0;
     }
-    var value = parsed.searchParams.get("expire");
+    var value = parsed.searchParams.get("expire") || parsed.searchParams.get("expires");
     if (!value) {
       var embedded = /[/&?]expire[/=](\d{9,12})/.exec(raw);
       value = embedded ? embedded[1] : "";
@@ -313,7 +313,7 @@
     // The recovery path. A signed Google URL can be bound to the address that
     // requested it, in which case the browser gets a 403 and nothing plays;
     // re-resolving the same itag through the instance is what fixes that.
-    if (instance && !live) {
+    if (instance && !live && video.api !== "piped") {
       progressive.forEach(function (format) {
         var url = proxiedProgressiveUrl(instance, video.videoId, format.itag);
         if (!url) return;

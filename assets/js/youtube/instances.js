@@ -132,6 +132,9 @@
     if (!body || typeof body !== "object") return "";
     var message = body.error || body.errorMessage;
     if (typeof message !== "string" || !message.trim()) return "";
+    // Resolver exceptions are not evidence that a video itself is restricted.
+    // Preserve failover for outages, extraction errors and timeouts.
+    if (!/^(?:this video is unavailable[.!]?|video unavailable[.!]?)$|(?:video (?:has been|was) (?:removed|deleted)|private video|video is private|age[- ]restricted|not available in your country|copyright claim)/i.test(message.trim())) return "";
     return message.trim().slice(0, 200);
   }
 
@@ -370,6 +373,10 @@
                 instance: instance,
                 status: response.status
               });
+            }
+            // Some backends encode server failures in an HTTP 200 response.
+            if (parsed && body && (body.error || body.errorMessage)) {
+              throw providerError(FAILURE.SERVER, "", { instance: instance });
             }
             if (!parsed || body == null) {
               throw providerError(FAILURE.MALFORMED, "", { instance: instance });

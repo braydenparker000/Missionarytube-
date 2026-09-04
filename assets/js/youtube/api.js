@@ -523,6 +523,7 @@
     if (!raw || typeof raw !== "object" || !isVideoId(videoId)) return null;
     var base = normalizePipedVideo({ url: "?v=" + videoId, videoId: videoId }, instance);
     if (!base) return null;
+    base.api = "piped";
 
     var video = Array.isArray(raw.videoStreams) ? raw.videoStreams : [];
     var audio = Array.isArray(raw.audioStreams) ? raw.audioStreams : [];
