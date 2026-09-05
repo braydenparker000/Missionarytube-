@@ -440,7 +440,7 @@ test("Tonight is one real catalog title rather than a rotating billboard", () =>
 });
 
 test("Home orders Tonight before Continue Watching, then functional browse and provider shelves", () => {
-  assert.match(html, /<div id="featureMount">\$\{tonightLoadingHTML\(\)\}<\/div>\s*<div class="home-priority" id="homePriority">\$\{cont\.length\?resumeSectionHTML/);
+  assert.match(html, /<div id="featureMount">\$\{state.homeLayout.showHero\?tonightLoadingHTML\(\):''\}<\/div>\s*<div class="home-priority" id="homePriority">\$\{cont\.length\?resumeSectionHTML/);
   assert.match(html, /data-remove-progress="\$\{esc\(mediaKey\(m\)\)\}"/);
   assert.match(html, /sections\.innerHTML=homeBrowseHTML\(\)/);
   assert.match(html, /data-home-type=/);
@@ -508,7 +508,7 @@ test("every dead end offers the same explained way forward", () => {
   const uses = [...html.matchAll(/stateHTML\(/g)];
   assert.ok(uses.length >= 8, `only ${uses.length} states go through the frame`);
   assert.match(html, /stateHTML\('No sources found'/);
-  assert.match(html, /stateHTML\('Catalogs could not load'[\s\S]{0,220}'error'\)/);
+  assert.match(html, /data-retry-catalog=/);
   assert.match(html, /stateHTML\('No catalogs available'/);
 });
 
@@ -519,7 +519,7 @@ test("the stylesheet is the only place raw colours are defined", async () => {
   const hexes = [...inline.matchAll(/#[0-9a-f]{3,8}\b/gi)].map((m) => m[0]);
   assert.ok(hexes.length <= 3, `the critical block defines ${hexes.length} colours`);
   const files = await readdir("assets/css");
-  assert.deepEqual(files.sort(), ["cinema.css", "obsidian.css"]);
+  assert.deepEqual(files.sort(), ["cinema.css", "collection.css", "obsidian.css"]);
   for (const file of files) assert.ok(shell.includes(`assets/css/${file}?v=`), `${file} is loaded and cache-versioned`);
 });
 

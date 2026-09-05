@@ -6,12 +6,13 @@
   <meta name="theme-color" content="#060606">
   <meta name="description" content="Astra — a private, add-on powered streaming client for movies, shows, anime and music.">
   <meta name="color-scheme" content="dark">
-  <meta name="astra-release" content="0.32.4">
+  <meta name="astra-release" content="0.33.0">
   <title>Astra</title>
   <script src="assets/js/bootstrap.js?v=__ASTRA_VERSION__"></script>
   <script src="assets/js/appearance.js?v=__ASTRA_VERSION__"></script>
   <link rel="stylesheet" href="assets/css/obsidian.css?v=__ASTRA_VERSION__">
   <link rel="stylesheet" href="assets/css/cinema.css?v=__ASTRA_VERSION__">
+  <link rel="stylesheet" href="assets/css/collection.css?v=__ASTRA_VERSION__">
   <style>
     /* Critical shell only: everything else lives in the design system so the
        first paint is never a flash of unstyled bone on white. */
@@ -35,6 +36,7 @@
       <div class="topbar-spacer"></div>
     </header>
 
+    <div class="connection-status" id="connectionStatus" role="status" hidden>You’re offline. Your saved library is still here; catalogs and streams need a connection.</div>
     <section class="page active" id="page-home" aria-label="Home"><div id="homeRoot"></div></section>
     <section class="page" id="page-search" aria-label="Search and browse">
       <div class="content">
@@ -64,6 +66,7 @@
   <script src="assets/js/discovery-health.js?v=__ASTRA_VERSION__"></script>
   <script src="assets/js/federated-search.js?v=__ASTRA_VERSION__"></script>
   <script src="assets/js/search-intent.js?v=__ASTRA_VERSION__"></script>
+  <script src="assets/js/collection-tools.js?v=__ASTRA_VERSION__"></script>
   <script src="assets/js/route-runtime.js?v=__ASTRA_VERSION__"></script>
   <script src="assets/js/audio-player.js?v=__ASTRA_VERSION__"></script>
   <script src="assets/js/playback/delivery.js?v=__ASTRA_VERSION__"></script>

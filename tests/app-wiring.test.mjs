@@ -83,7 +83,7 @@ test("a continue watching card still opens after a reload", () => {
 
 test("backups round-trip the normalized progress shape", () => {
   assert.match(html, /progress:progress\.snapshot\(\)/);
-  assert.match(html, /progress\.replace\(d\.progress\|\|\{\}\)/);
+  assert.match(html, /AstraProgress\.normalize\(data\.progress\|\|\{\}\)/);
   assert.equal(html.includes("['addons','library','progress','settings']"), false);
 });
 
@@ -114,7 +114,7 @@ test("settings are migrated through the schema on load, save and import", () => 
   assert.match(html, /const DEFAULT_SETTINGS=AstraPlayback\.settings\.DEFAULTS/);
   assert.match(html, /settings:AstraPlayback\.settings\.migrate\(store\.get\('settings',\{\}\)\)/);
   assert.match(html, /state\.settings=AstraPlayback\.settings\.migrate\(state\.settings\)/, "save validates");
-  assert.match(html, /state\.settings=AstraPlayback\.settings\.migrate\(\{\.\.\.state\.settings,\.\.\.d\.settings\}\)/, "import validates");
+  assert.match(html, /settings:AstraPlayback\.settings\.migrate\(data\.settings\|\|\{\}\)/, "import validates");
 });
 
 test("the player is driven by engine snapshots, not ad-hoc state", () => {
@@ -303,7 +303,7 @@ test("adaptive audio tracks stay selectable and remember a language preference",
   assert.match(html, /state\.settings\.audioLanguage=chosen\.lang\|\|'original'/);
   assert.match(html, /state\.settings\.audioLanguage=\$\('#audioLanguage'\)\?\.value\|\|'original'/);
   assert.match(html, /if\(value&&!choices\.some\(\(\[id\]\)=>id===value\)\)choices\.push\(\[value,value\.toUpperCase\(\)\]\)/, "a learned arbitrary language remains saveable");
-  assert.match(html, /Direct files depend on Android Chrome/, "the unsupported native-file limitation is honest");
+  assert.match(html, /including supported direct files/, "the unsupported native-file limitation is honest");
 });
 
 test("stream rows keep the full release and exact series file details inspectable", () => {
@@ -410,7 +410,7 @@ test("an async modal action cannot erase a modal it no longer owns", () => {
   assert.equal(install[0].includes("root.innerHTML=''"), false, "the aliased clear is gone");
 
   // importData reads a file across an await and had the same shape.
-  const importer = html.match(/async function importData\(file\)\{.*?\n/);
+  const importer = html.match(/async function importData\(file\)\{[\s\S]*?(?=    function bindMotionSurface)/);
   assert.match(importer[0], /const owned=currentModal\(\)/);
   assert.match(importer[0], /if\(currentModal\(\)===owned\)closeModal\(\)/);
 });

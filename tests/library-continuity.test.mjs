@@ -7,10 +7,10 @@ const css = await readFile(new URL("../assets/css/obsidian.css", import.meta.url
 
 test("Library joins saved titles and bounded local playback shelves", () => {
   assert.match(app, /function libraryActivity\(\)/);
-  assert.match(app, /recent:recent\.slice\(0,HOME_LIMIT\),finished:finished\.slice\(0,HOME_LIMIT\)/);
+  assert.match(app, /return \{recent,finished\}/);
   assert.match(app, /continuing=continueItems\(\)\.slice\(0,CONTINUE_LIMIT\)/);
-  assert.match(app, /railSection\('Recently played'/);
-  assert.match(app, /railSection\('Finished recently'/);
+  assert.match(app, /'Watch history'/);
+  assert.match(app, /state.libraryView==='history'\?activity.recent/);
 });
 
 test("large saved collections reveal another finite batch", () => {

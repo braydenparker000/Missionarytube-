@@ -76,8 +76,8 @@ test("search is debounced, cancelled and answered as its own provider lane", () 
   assert.match(search, /signal:controller\.signal/);
   assert.match(search, /const live=\(\)=>state\.searchRun===run&&run\.token===state\.searchSequence/);
   assert.match(search, /YT\.api\.videoIdFromInput\(q\)/, "a pasted link resolves to that video");
-  // The existing 450ms debounce still owns when a search starts.
-  assert.match(html, /searchTimer=setTimeout\(\(\)=>search\(q\),450\)/);
+  // The debounce only starts searches while the search page still owns them.
+  assert.match(html, /searchTimer=setTimeout\(\(\)=>\{if\(state.currentPage==='search'\)search\(q\)\},350\)/);
   // The group joins the same progressive run the add-ons report into.
   assert.match(html, /const youtubeGroup=youtubeEnabled\(\)\?\{key:'youtube',name:'YouTube'/);
   assert.match(html, /total:searchable\.length\+extra,pending:searchable\.length\+extra/,
