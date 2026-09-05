@@ -177,7 +177,7 @@ test("the picker surfaces compatibility instead of hiding sources", () => {
   for (const gone of ["STREAM_FILTERS", "data-stream-filter", "data-stream-sort", "data-play-best", "sortedStreams", "bestCandidate"]) {
     assert.equal(html.includes(gone), false, `${gone} would edit the add-on's own result list`);
   }
-  assert.match(html, /player\.sources=prepareStreams\(state\.currentStreams\)/);
+  assert.match(html, /player\.sources=prepareStreams\(result\.streams\)/);
   assert.match(html, /AstraStreamView\.select\(all,sourceView\)/, "only explicit view controls filter or sort the displayed list");
 });
 
@@ -247,7 +247,7 @@ test("a stream response is scoped to the lookup that asked for it", () => {
 
   // The search counter alone does not change when the viewer closes one detail
   // modal and opens another, so the lookup carries its own identity.
-  assert.match(load[0], /const lookup=\{mediaKey:mediaKey\(m\),videoId:String\(videoId\),token:\+\+state\.searchToken\}/);
+  assert.match(load[0], /const lookup=\{mediaKey:mediaKey\(m\),videoId:String\(videoId\),token:\+\+state\.searchToken,pending:0,failed:0\}/);
   assert.match(load[0], /player\.lookup=lookup/);
   assert.match(load[0], /const stale=\(\)=>player\.lookup!==lookup/);
   assert.match(load[0], /mediaKey\(state\.currentMeta\)!==lookup\.mediaKey/, "the current media is re-checked");
@@ -256,14 +256,14 @@ test("a stream response is scoped to the lookup that asked for it", () => {
 
   // Every continuation is guarded, including the delayed autoplay.
   assert.match(load[0], /if\(stale\(\)\)return\[\];/, "the response is dropped when stale");
-  assert.match(load[0], /\.then\(refined=>\{if\(stale\(\)\)return;player\.sources=refined;renderStreams\(\)\}\)/,
+  assert.match(load[0], /\.then\(refined=>\{if\(stale\(\)\|\|player\.sources!==selected\)return;player\.sources=refined;renderStreams\(\)\}\)/,
     "so is the decoding-info re-render, which keeps the refreshed entries");
   assert.equal(/autoPlayTimer|openPlayer\(/.test(load[0]), false, "a lookup only lists sources; it never starts one");
   assert.equal(load[0].includes("if(token!==state.searchToken)return[]"), false, "the counter-only guard is gone");
 });
 
 test("switching or dismissing a title cancels the in-flight lookup", () => {
-  assert.match(html, /function cancelStreamLookup\(\)\{\s*player\.lookup=null;player\.metaRequest=null;/);
+  assert.match(html, /function cancelStreamLookup\(\)\{\s*player\.lookup\?\.loader\?\.cancel\(\);player\.lookup=null;player\.metaRequest=null;/);
   assert.match(html, /async function openMedia\(key,opener\)\{\s*\n\s*cancelStreamLookup\(\);/, "opening another title invalidates it");
   assert.match(html, /data-dismiss\]',root\)\.forEach\(x=>x\.onclick=e=>\{if\(e\.target===x\)closeModal\(\)\}\)/, "so does dismissing the modal");
 });
@@ -307,7 +307,7 @@ test("adaptive audio tracks stay selectable and remember a language preference",
 });
 
 test("stream rows keep the full release and exact series file details inspectable", () => {
-  assert.match(html, /<details class="stream-details">/);
+  assert.match(html, /<details class="stream-details" data-source-detail=/);
   assert.match(html, /Full source details/);
   assert.match(html, /\['Release',s\.title\]/);
   assert.match(html, /File index/);
@@ -320,7 +320,7 @@ test("stream rows keep the full release and exact series file details inspectabl
 test("the decoding probe refreshes verdicts without reordering the list", () => {
   assert.match(
     html,
-    /\.then\(refined=>\{if\(stale\(\)\)return;player\.sources=refined;renderStreams\(\)\}\)/
+    /\.then\(refined=>\{if\(stale\(\)\|\|player\.sources!==selected\)return;player\.sources=refined;renderStreams\(\)\}\)/
   );
   assert.equal(html.includes(".then(()=>{if(!stale())renderStreams()})"), false, "the discarding callback is gone");
 });
@@ -336,7 +336,7 @@ test("a deferred metadata response cannot replace another title", () => {
     false,
     "the unguarded assignment is gone"
   );
-  assert.match(html, /function cancelStreamLookup\(\)\{\s*\n?\s*player\.lookup=null;player\.metaRequest=null;/,
+  assert.match(html, /function cancelStreamLookup\(\)\{\s*\n?\s*player\.lookup\?\.loader\?\.cancel\(\);player\.lookup=null;player\.metaRequest=null;/,
     "dismissing or switching invalidates a pending metadata request");
 });
 

@@ -41,7 +41,13 @@
     function toast(msg,type=''){const n=document.createElement('div');n.className='toast '+type;n.innerHTML=`<span data-icon="${type==='bad'?'alert':'spark'}"></span><div>${esc(msg)}</div>`;hydrateIcons(n);const host=$('#toastRoot');host.replaceChildren(n);setTimeout(()=>n.remove(),4600)}
     function normalizeManifestUrl(raw){let s=String(raw||'').trim();if(!s)throw Error('Paste an add-on manifest URL.');if(s.startsWith('stremio://'))s='https://'+s.slice(10);if(!/^https?:\/\//i.test(s))s='https://'+s;const u=new URL(s);if(u.protocol!=='https:'&&u.hostname!=='127.0.0.1'&&u.hostname!=='localhost')throw Error('Remote add-ons must use HTTPS.');if(!u.pathname.endsWith('manifest.json'))u.pathname=u.pathname.replace(/\/$/,'')+'/manifest.json';return u.href}
     function addonBase(url){return url.replace(/\/manifest\.json(?:\?.*)?$/,'')}
-    async function fetchJSON(url,timeout=14000,options={}){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);try{const r=await fetch(url,{...options,mode:'cors',signal:ctrl.signal,headers:{Accept:'application/json'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return await r.json()}catch(e){if(e.name==='AbortError')throw Error('Request timed out');throw e}finally{clearTimeout(timer)}}
+    async function fetchJSON(url,timeout=14000,options={}){
+      const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout),cancel=()=>ctrl.abort();
+      options.signal?.addEventListener('abort',cancel,{once:true});if(options.signal?.aborted)cancel();
+      try{const r=await fetch(url,{...options,mode:'cors',signal:ctrl.signal,headers:{Accept:'application/json'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return await r.json()}
+      catch(e){if(e.name==='AbortError'&&!options.signal?.aborted)throw Error('Request timed out');throw e}
+      finally{clearTimeout(timer);options.signal?.removeEventListener('abort',cancel)}
+    }
     let healthPersistTimer;
     function addonHealthKey(addon){return AstraDiscovery.providerKey(addon)}
     function addonHealthName(addon){
@@ -53,11 +59,11 @@
       state.addonHealth=AstraDiscovery.recordHealth(state.addonHealth,{key:addonHealthKey(addon),name:addonHealthName(addon),kind,ok,latencyMs:Date.now()-started,error});
       saveAddonHealth();
     }
-    async function fetchAddonJSON(addon,kind,url,timeout=14000,validate){
+    async function fetchAddonJSON(addon,kind,url,timeout=14000,validate,signal){
       if(typeof timeout==='function'){validate=timeout;timeout=14000}
       const started=Date.now();
-      try{const data=await fetchJSON(url,timeout,kind==='stream'?{cache:'no-cache'}:{});if(validate&&!validate(data))throw Error(`Invalid ${kind} response`);recordAddonHealth(addon,kind,true,started);return data}
-      catch(error){recordAddonHealth(addon,kind,false,started,error);throw error}
+      try{const data=await fetchJSON(url,timeout,{...(kind==='stream'?{cache:'no-cache'}:{}),signal});if(validate&&!validate(data))throw Error(`Invalid ${kind} response`);recordAddonHealth(addon,kind,true,started);return data}
+      catch(error){if(!signal?.aborted)recordAddonHealth(addon,kind,false,started,error);throw error}
     }
     function hasResource(m,name,type,id){return (m.resources||[]).some(r=>{if(typeof r==='string')return r===name;if(r.name!==name)return false;if(r.types?.length&&type&&!r.types.includes(type))return false;if(r.idPrefixes?.length&&id&&!r.idPrefixes.some(p=>String(id).startsWith(p)))return false;return true})}
     function endpoint(addon,resource,type,id,extra){const base=addonBase(addon.url),parts=[resource,encodeURIComponent(type),encodeURIComponent(id)];if(extra&&Object.keys(extra).length){const x=Object.entries(extra).filter(([,v])=>v!==''&&v!=null).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');if(x)parts.push(x)}return `${base}/${parts.join('/')}.json`}
@@ -1086,6 +1092,7 @@
        verdict, the player and Continue Watching all work unchanged. */
     async function loadYouTubeSources(m,videoId,options={}){
       const root=$('#streamOverlayRoot');if(!root)return[];
+      player.lookup?.loader?.cancel();
       const lookup={mediaKey:mediaKey(m),videoId:String(videoId),token:++state.searchToken};
       player.lookup=lookup;
       state.currentVideo={id:String(videoId),title:m.name};
@@ -1282,9 +1289,9 @@
       const root=$('#streamOverlayRoot');if(root){Motion.releaseSurface(root);root.replaceChildren()}
       document.body.classList.remove('source-picker-open');
     }
-    function finishStreamClose(){const target=streamReturnFocus;streamReturnFocus=null;player.lookup=null;hideStreamDrawer();focusBack(target)}
+    function finishStreamClose(){const target=streamReturnFocus;streamReturnFocus=null;player.lookup?.loader?.cancel();player.lookup=null;hideStreamDrawer();focusBack(target)}
     function closeStreamPicker(){
-      player.lookup=null;
+      player.lookup?.loader?.cancel();player.lookup=null;
       const root=$('#streamOverlayRoot');
       if(!root||!root.children.length)return finishStreamClose();
       let finished=false;const done=()=>{if(finished)return;finished=true;clearTimeout(timer);finishStreamClose()};const timer=setTimeout(done,450);if(!Motion.dismissSurface(root,done))done();
@@ -1295,7 +1302,8 @@
       if(isYouTubeMeta(m))return loadYouTubeSources(m,m._youtube.videoId);
       state.currentVideo=(m.videos||[]).find(v=>String(v.id)===String(videoId))||{id:videoId,title:m.name};
       const root=$('#streamOverlayRoot');if(!root)return[];
-      const lookup={mediaKey:mediaKey(m),videoId:String(videoId),token:++state.searchToken};
+      player.lookup?.loader?.cancel();
+      const lookup={mediaKey:mediaKey(m),videoId:String(videoId),token:++state.searchToken,pending:0,failed:0};
       player.lookup=lookup;
       const stale=()=>player.lookup!==lookup||lookup.token!==state.searchToken||!state.currentMeta
         ||mediaKey(state.currentMeta)!==lookup.mediaKey||String(state.currentVideo?.id)!==lookup.videoId||!root.isConnected||!root.children.length;
@@ -1303,14 +1311,24 @@
       root.innerHTML=streamDrawerHTML('<div class="source-loading"><span class="spinner"></span><span>Asking your add-ons…</span></div>');
       bindDynamic(root);
       const sources=manifests().filter(s=>hasResource(s.manifest,'stream',m.type,videoId));
-      const rs=await Promise.allSettled(sources.map(async (s,order)=>({order,s,streams:(await fetchAddonJSON(s.addon,'stream',endpoint(s.addon,'stream',m.type,videoId),data=>!!(data&&Array.isArray(data.streams)))).streams})));
+      state.currentStreams=[];player.sources=[];lookup.pending=sources.length;
+      lookup.loader=PB.sourceLoader.create({providers:sources,
+        load:async(s,order,signal)=>{
+          const data=await fetchAddonJSON(s.addon,'stream',endpoint(s.addon,'stream',m.type,videoId),14000,data=>!!(data&&Array.isArray(data.streams)),signal);
+          return data.streams.map(v=>({...v,_addonName:s.manifest.name,_addonOrder:order}));
+        },
+        onUpdate:result=>{
+          if(stale())return;
+          lookup.pending=result.pending;lookup.failed=result.failed;
+          state.currentStreams=result.streams;player.sources=prepareStreams(result.streams);
+          renderStreams();
+        }
+      });
+      await lookup.loader.done;
       if(stale())return[];
-      state.currentStreams=rs.filter(x=>x.status==='fulfilled').flatMap(x=>x.value.streams.map(v=>({...v,_addonName:x.value.s.manifest.name,_addonOrder:x.value.order})));
-      player.sources=prepareStreams(state.currentStreams);
-      renderStreams();
-      // Advisory device probe. It can change a compatibility verdict and the
-      // line that explains it; it never changes the order.
-      PB.streams.refineWithDecodingInfo(player.sources,capsNow(),{limit:6}).then(refined=>{if(stale())return;player.sources=refined;renderStreams()}).catch(()=>{});
+      if(!sources.length)renderStreams();
+      const selected=player.sources;
+      PB.streams.refineWithDecodingInfo(selected,capsNow(),{limit:6}).then(refined=>{if(stale()||player.sources!==selected)return;player.sources=refined;renderStreams()}).catch(()=>{});
       return state.currentStreams;
     }
     /**
@@ -1340,7 +1358,7 @@
     function currentModal(){return $('#modalRoot')?.firstElementChild||null}
     /** Invalidate any in-flight lookup, so its response cannot land later. */
     function cancelStreamLookup(){
-      player.lookup=null;player.metaRequest=null;
+      player.lookup?.loader?.cancel();player.lookup=null;player.metaRequest=null;
       hideStreamDrawer();
     }
 
@@ -1372,19 +1390,32 @@
     }
     function renderStreams(){
       const root=$('#streamOverlayRoot');if(!root)return;
+      const body=$('.source-drawer-body',root),scroll=body?.scrollTop||0,focus=document.activeElement;
+      const focusedSource=focus?.dataset?.playSource,focusedOption=focus?.dataset?.sourceOption,focusedAddon=focus?.dataset?.sourceAddon;
+      const anchor=scroll>0?$$('[data-play-source]',root).find(el=>el.getBoundingClientRect().bottom>body.getBoundingClientRect().top):null;
+      const anchorKey=anchor?.dataset.playSource,anchorTop=anchor?anchor.getBoundingClientRect().top-body.getBoundingClientRect().top:0;
+      const expanded=new Set($$('details[data-source-detail][open]',root).map(el=>el.dataset.sourceDetail));
+      const pending=player.lookup?.pending||0,failed=player.lookup?.failed||0;
+      const notice=pending?`<p class="source-result-count" role="status">${pending} add-on${pending===1?'':'s'} still loading…</p>`:failed?`<p class="source-result-count" role="status">${failed} add-on${failed===1?' did':'s did'} not respond. Available sources are shown.</p>`:'';
       const all=player.sources,key=mediaKey(state.currentMeta)+'|'+state.currentVideo?.id;
       if(key!==sourceViewKey){sourceViewKey=key;sourceView=AstraStreamView.defaults()}
       const list=player.youtube?all:AstraStreamView.select(all,sourceView),total=all.length;
       const providerNames=[...new Set(all.map(e=>e.stream.addonName).filter(Boolean))];
       const streamProviders=state.currentMeta&&state.currentVideo?manifests().filter(s=>hasResource(s.manifest,'stream',state.currentMeta.type,state.currentVideo.id)).length:0;
-      const content=total?`<section class="picker">${groupHead('Sources',player.youtube?`${total} deliver${total===1?'y':'ies'} from YouTube`:`${total} from ${providerNames.length||1} add-on${providerNames.length===1?'':'s'}`)}${player.youtube?'':sourceControlsHTML(all)}${player.youtube?'':sourceCapabilitiesHTML(list)}
+      const content=total?`<section class="picker">${notice}${groupHead('Sources',player.youtube?`${total} deliver${total===1?'y':'ies'} from YouTube`:`${total} from ${providerNames.length||1} add-on${providerNames.length===1?'':'s'}`)}${player.youtube?'':sourceControlsHTML(all)}${player.youtube?'':sourceCapabilitiesHTML(list)}
         ${!player.youtube?`<p class="source-result-count">${list.length} of ${total} sources · ${sourceView.sort==='addon'?'Original add-on order':'Your selected sort'}</p>`:''}<div class="stream-list">${list.length?list.map((e,i)=>streamRowHTML(e,i)).join(''):emptyHTML('No matching sources','Change a filter or reset to see all sources.')}</div></section>`
+        :pending?`<div class="source-loading"><span class="spinner"></span><span>Asking your add-ons…</span></div>`:failed?stateHTML('Sources could not load','Your add-ons did not return sources. Close this sheet and try again.','','error')
         :streamProviders
           ?stateHTML('No sources found','Your streaming add-ons answered, but none returned a playable result for this title or episode.','','error')
           :stateHTML('Catalog only','The title and episodes came from a catalog add-on, but this browser has no streaming add-on connected for them.',`<button class="btn btn-primary" data-nav="addons">Connect a streaming add-on</button>`,'offline');
       root.innerHTML=streamDrawerHTML(content);
       document.body.classList.add('source-picker-open');
       bindDynamic(root);bindSourceControls(root);
+      for(const detail of $$('details[data-source-detail]',root))if(expanded.has(detail.dataset.sourceDetail))detail.open=true;
+      const nextFocus=focusedSource?$$('[data-play-source]',root).find(el=>el.dataset.playSource===focusedSource):focusedOption?$$('[data-source-option]',root).find(el=>el.dataset.sourceOption===focusedOption):focusedAddon?$$('[data-source-addon]',root).find(el=>el.dataset.sourceAddon===focusedAddon):null;
+      nextFocus?.focus({preventScroll:true});const nextBody=$('.source-drawer-body',root);if(nextBody)nextBody.scrollTop=scroll;
+      const nextAnchor=anchorKey?$$('[data-play-source]',root).find(el=>el.dataset.playSource===anchorKey):null;
+      if(nextAnchor&&nextBody)nextBody.scrollTop+=nextAnchor.getBoundingClientRect().top-nextBody.getBoundingClientRect().top-anchorTop;
     }
     function streamRowHTML(entry,index=0){
       const s=entry.stream,f=s.facts,ev=entry.evaluation;
@@ -1406,14 +1437,14 @@
         ${s.raw?._youtube?'':`<span class="stream-name">${esc(s.title)}</span>`}
         <span class="stream-tags">${tags}</span>
         <span class="stream-footer"><span class="stream-why">${ev.playable?'':esc(entry.why)}</span><span class="stream-play-hint">${ev.playable?`Play ${icon('play')}`:'Unavailable'}</span></span></button>
-        <details class="stream-details"><summary class="stream-expand">Full source details</summary><div class="stream-detail"><dl>${details.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div></details></article>`;
+        <details class="stream-details" data-source-detail="${esc(candidateKey(entry))}"><summary class="stream-expand">Full source details</summary><div class="stream-detail"><dl>${details.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div></details></article>`;
     }
 
     /* ---- player shell --------------------------------------------------- */
     function openPlayer(entry,options={}){
       if(!entry)return;
       if(player.youtube&&YT.playback.planExpired(player.youtube.plan)&&youtubeMaybeRefresh())return;
-      player.lookup=null;hideStreamDrawer();
+      player.lookup?.loader?.cancel();player.lookup=null;hideStreamDrawer();
       const m=state.currentMeta,v=state.currentVideo||m;
       const s=entry.stream;
       if(s.kind==='youtube'){openAddonYouTube(entry);return}
@@ -1559,11 +1590,11 @@
       if(audioOnly)bindAudioSurface(el,scope);else bindVideoSurface(el,scope);
       const caps=capsNow();
       const adapterKind=player.compatibility?'compatibility':PB.adapters.adapterKindFor(s.kind,caps,s.requestPolicy);
-      player.diagnostics?.record('start',{engine:adapterKind,currentTime:resumeTime});
+      player.diagnostics?.record('start',{engine:player.adapter?.kind||adapterKind,currentTime:resumeTime});
       const picture=PB.videoHealth.create({onMissing:metrics=>{
         if(!live()||scope.disposed)return;
         player.pictureMissing=true;
-        player.diagnostics?.record('picture-missing',{engine:adapterKind,currentTime:metrics.position});
+        player.diagnostics?.record('picture-missing',{engine:player.adapter?.kind||adapterKind,currentTime:metrics.position});
         if(!player.menu)openTrackMenu('picture');
         else toast('No video picture detected. Open player options for help.');
       }});
@@ -1584,13 +1615,13 @@
       player.pendingSeek=null;
 
       const playbackPosition=()=>({currentTime:el.currentTime,paused:el.paused,seeking:el.seeking});
-      scope.listen(el,'playing',()=>{report('ready',playbackPosition());player.diagnostics?.record('playing',{engine:adapterKind,currentTime:el.currentTime})});
+      scope.listen(el,'playing',()=>{report('ready',playbackPosition());player.diagnostics?.record('playing',{engine:player.adapter?.kind||adapterKind,currentTime:el.currentTime})});
       // Metadata is not playback. Keep the startup deadline until frames can
       // actually be presented; canplay also allows a user to resume autoplay.
       scope.listen(el,'canplay',()=>report('ready',playbackPosition()));
       for(const event of ['play','pause','waiting','seeking','seeked','ended'])scope.listen(el,event,()=>{
         report(event,playbackPosition());
-        if(event!=='play')player.diagnostics?.record(event==='waiting'?'buffering':event==='pause'?'paused':event,{engine:adapterKind,currentTime:el.currentTime});
+        if(event!=='play')player.diagnostics?.record(event==='waiting'?'buffering':event==='pause'?'paused':event,{engine:player.adapter?.kind||adapterKind,currentTime:el.currentTime});
       });
       scope.listen(el,'loadedmetadata',()=>{
         if(adapterKind!=='compatibility')restorePlaybackPosition(el,seekTarget,switching);
@@ -1618,7 +1649,7 @@
         .then(()=>{
           if(!live()||scope.disposed)return;
           const create=adapterKind==='compatibility'?(_kind,config)=>AstraCompatibility.createAdapter(config):PB.adapters.createAdapter;
-          player.adapter=create(adapterKind,{media:el,scope,url:s.url,requestPolicy:s.requestPolicy,startTime:seekTarget,prepared,autoplay,Hls:window.Hls,dashjs:window.dashjs,onError:e=>report('error',e),onAudioTracksChanged:tracks=>{if(live()&&!scope.disposed)refreshAudioTracks(tracks)},onVideoQualitiesChanged:()=>{if(live()&&!scope.disposed&&player.session)renderTools(player.session.snapshot())}});
+          player.adapter=create(adapterKind,{media:el,scope,url:s.url,requestPolicy:s.requestPolicy,startTime:seekTarget,prepared,autoplay,audioLanguage:state.settings.audioLanguage,Hls:window.Hls,dashjs:window.dashjs,onError:e=>report('error',e),onAudioTracksChanged:tracks=>{if(live()&&!scope.disposed)refreshAudioTracks(tracks)},onVideoQualitiesChanged:()=>{if(live()&&!scope.disposed&&player.session)renderTools(player.session.snapshot())}});
           return player.adapter.attach();
         })
         .then(()=>{if(live()&&!scope.disposed)attachSubtitles(el,s,m,v,scope,live)});
@@ -2038,8 +2069,8 @@
       }else if(kind==='repair'){
         const pending=!!player.repairPending;
         const code=PB.diagnostics.failureCode(player.repairFailure||{});
-        const message=['NETWORK_OR_BROWSER_ACCESS','ACCESS'].includes(code)?'The video can play directly, but Astra could not read this file to repair its audio. The provider may block browser access.':code==='TIMEOUT'?'The audio repair check took too long. You can retry it or choose another source.':PB.diagnostics.describe(player.repairFailure||{});
-        menu.innerHTML=`<div class="track-sheet-head"><h4>${pending?'Checking audio repair…':'Audio repair unavailable'}</h4><button class="icon-btn" data-player-action="cancel-repair" aria-label="Close audio repair">${icon('close')}</button></div><p class="track-empty" role="status">${pending?'Checking this file while the original video stays available.':esc(message)+' Your original playback is still available.'}</p><div class="track-options">${pending?'<button class="track-option" data-player-action="cancel-repair">Cancel repair</button>':'<button class="track-option" data-player-action="choose">Choose source</button><button class="track-option" data-player-action="external-player">Open in VLC</button><button class="track-option" data-player-action="compatibility">Retry audio repair</button><button class="track-option" data-player-action="diagnostics">Copy playback report</button>'}</div>`;
+        const message=['NETWORK_OR_BROWSER_ACCESS','ACCESS'].includes(code)?'The video can play directly, but Astra could not read this file for picture or sound repair. The provider may block browser access.':code==='TIMEOUT'?'The playback repair check took too long. You can retry it or choose another source.':PB.diagnostics.describe(player.repairFailure||{});
+        menu.innerHTML=`<div class="track-sheet-head"><h4>${pending?'Checking playback…':'Repair unavailable'}</h4><button class="icon-btn" data-player-action="cancel-repair" aria-label="Close playback repair">${icon('close')}</button></div><p class="track-empty" role="status">${pending?'Checking this file while the original video stays available.':esc(message)+' Your original playback is still available.'}</p><div class="track-options">${pending?'<button class="track-option" data-player-action="cancel-repair">Cancel repair</button>':'<button class="track-option" data-player-action="choose">Choose source</button><button class="track-option" data-player-action="external-player">Open in VLC</button><button class="track-option" data-player-action="compatibility">Retry repair</button><button class="track-option" data-player-action="diagnostics">Copy playback report</button>'}</div>`;
       }else if(kind==='diagnostics'){
         menu.innerHTML=`<div class="track-sheet-head"><h4>Playback details</h4><button class="icon-btn" data-track-menu="diagnostics" aria-label="Close playback details">${icon('close')}</button></div><p class="track-empty">This report contains playback events and media formats. Stream links, titles, and credentials are excluded.</p><pre class="playback-report" tabindex="0">${esc(playbackReport())}</pre><button class="track-option" data-player-action="diagnostics">Copy playback report</button>`;
       }else if(kind==='options'){

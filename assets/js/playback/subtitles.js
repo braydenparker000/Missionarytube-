@@ -277,6 +277,7 @@
    */
   function selectAttachedTrack(media, attached, id) {
     if (!media || !media.textTracks) return false;
+    if (media.astraCaptionClock) {media.astraCaptionTrack = null;media.astraCaptionUpdate?.();}
     disableAll(media);
     if (id == null || id === "") return false;
     var wanted = String(id);
@@ -286,7 +287,9 @@
       if (!entry || !entry.track || String(entry.track.id) !== wanted) continue;
       var textTrack = entry.element && entry.element.track;
       if (!textTrack) return false;
-      setMode(textTrack, "showing");
+      if (media.astraCaptionClock) media.astraCaptionTrack = textTrack;
+      setMode(textTrack, media.astraCaptionClock ? "hidden" : "showing");
+      media.astraCaptionUpdate?.();
       return true;
     }
     return false;

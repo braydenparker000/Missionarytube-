@@ -483,7 +483,7 @@ test("the source picker leads with the full release name and never truncates the
   assert.match(css, /\.stream-detail dd \{[\s\S]*?word-break: break-word/, "the expanded record wraps too");
   // The row is a button and the disclosure is a sibling: never a nested control.
   assert.match(html, /<article class="stream-item"><button class="stream-row/);
-  assert.match(html, /<\/button>\s*<details class="stream-details">/);
+  assert.match(html, /<\/button>\s*<details class="stream-details" data-source-detail=/);
 });
 
 test("the audio surface is a real surface, not a video player with the picture off", () => {

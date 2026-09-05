@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
-const MODULES = ["settings", "request-policy", "video-health", "diagnostics", "streams", "adapters", "engine", "episodes", "subtitles"];
+const MODULES = ["delivery", "source-loader", "settings", "request-policy", "video-health", "diagnostics", "streams", "adapters", "engine", "episodes", "subtitles"];
 
 /**
  * Evaluate the shipped playback modules in one isolated context, in the same
@@ -14,6 +14,8 @@ export async function loadPlayback() {
     clearTimeout,
     console,
     URL,
+    URLSearchParams,
+    DOMException,
     Headers,
     Request,
     AbortController,
