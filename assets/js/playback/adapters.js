@@ -265,7 +265,7 @@
             bindTrackEvents();
             announceTracks();
           });
-          if (typeof media.play === "function") {
+          if (config.autoplay !== false && typeof media.play === "function") {
             var started = media.play();
             if (started && typeof started.catch === "function") {
               // Autoplay rejection is not a playback failure: the controls stay

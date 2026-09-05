@@ -7,6 +7,39 @@ registerDtsDecoder();
 const cancelled = () => new DOMException('Playback cancelled', 'AbortError');
 const check = signal => { if(signal?.aborted)throw cancelled(); };
 const failureType = error => error?.playbackType || (/fetch|network|http|load failed|connection/i.test(error?.message||'')?'network':/codec|decod|encod/i.test(error?.message||'')?'decode':'unsupported');
+const tagFailure = error => {if(error&&typeof error==='object'&&error.name!=='AbortError'&&!error.playbackType)error.playbackType=failureType(error);return error;};
+
+function createInput(config) {
+  // Mediabunny numbers failed requests from one. Body interruptions also use
+  // one, so a shared budget bounds retries across both reads and HLS children.
+  let retries=1;
+  return new Input({formats:ALL_FORMATS,source:new UrlSource(config.url,{maxCacheSize:16*1024*1024,parallelism:2,
+    getRetryDelay:(_attempt,error)=>{
+      if(!retries||error?.name==='AbortError'||error?.playbackType==='access'||(failureType(error)!=='network'&&error?.name!=='TypeError'))return null;
+      retries--;return .25;
+    },requestInit:{credentials:'omit'},fetchFn:(url,init)=>{
+      const requests=globalThis.AstraPlayback?.requests;
+      if(config.requestPolicy&&!requests)throw new Error('Stream request support did not load. Retry playback.');
+      return fetch(url,requests?requests.fetchInit(config.requestPolicy,url,init):init);
+    }})});
+}
+
+// Probe and plan conversion without touching the playing media element. The
+// handle owns its input until take() transfers it once to the new adapter.
+export async function prepareRepair(config) {
+  check(config.signal);
+  let input=createInput(config),plan=null;
+  const dispose=()=>{config.signal?.removeEventListener('abort',dispose);if(input){input.dispose();input=null;}};
+  config.signal?.addEventListener('abort',dispose,{once:true});
+  try {
+    plan=await preparePipeline(input,{startTime:config.startTime||0,audioId:config.audioId||'',supports:type=>globalThis.MediaSource?.isTypeSupported(type)||false});
+    check(config.signal);
+    return {
+      take(){check(config.signal);if(!input)throw cancelled();const ready={input,plan};input=null;config.signal?.removeEventListener('abort',dispose);return ready;},
+      dispose
+    };
+  }catch(error){dispose();if(config.signal?.aborted)throw cancelled();throw tagFailure(error);}
+}
 
 // Shared by the browser adapter and real-file regression tests. Only audio
 // requiring conversion is decoded; video packets retain their original bytes.
@@ -128,7 +161,7 @@ export async function pumpPipeline(plan,{target,signal,pace=async()=>{},onOutput
 
 export function createAdapter(config) {
   const media=config.media;
-  let destroyed=false,current=null,audioId='',tracks=[],duration=0;
+  let destroyed=false,current=null,audioId='',tracks=[],duration=0,prepared=config.prepared||null;
   const fail=error=>{if(!destroyed&&error?.name!=='AbortError')config.onError?.({type:failureType(error),detail:error?.message||'Compatibility playback failed.'});};
   function disposeRun(){
     const run=current;current=null;if(!run)return;
@@ -145,14 +178,11 @@ export function createAdapter(config) {
   }
   async function start(time=0,autoplay=true){
     disposeRun();if(destroyed)return;
-    const run={controller:new AbortController(),input:new Input({formats:ALL_FORMATS,source:new UrlSource(config.url,{maxCacheSize:16*1024*1024,parallelism:2,getRetryDelay:n=>n<1?1:null,requestInit:{credentials:'omit'},fetchFn:(url,init)=>{
-      const requests=globalThis.AstraPlayback?.requests;
-      if(config.requestPolicy&&!requests)throw new Error('Stream request support did not load. Retry playback.');
-      return fetch(url,requests?requests.fetchInit(config.requestPolicy,url,init):init);
-    }})})};current=run;
+    const ready=prepared?.take();prepared=null;
+    const run={controller:new AbortController(),input:ready?.input||createInput(config)};current=run;
     const signal=run.controller.signal;
     try {
-    const plan=await preparePipeline(run.input,{startTime:time,audioId,supports:type=>MediaSource.isTypeSupported(type)});check(signal);
+    const plan=ready?.plan||await preparePipeline(run.input,{startTime:time,audioId,supports:type=>MediaSource.isTypeSupported(type)});check(signal);
     duration=plan.duration||0;
     tracks=await Promise.all(plan.audioTracks.map(async(t,i)=>({id:String(t.id),label:(await t.getName())||(await t.getLanguageCode())||`Audio ${i+1}`,lang:await t.getLanguageCode(),active:t===plan.audio})));
     audioId=plan.audio?String(plan.audio.id):'';config.onAudioTracksChanged?.(tracks);check(signal);
@@ -182,16 +212,15 @@ export function createAdapter(config) {
       const stale=current!==run||signal.aborted;
       if(current===run)disposeRun();
       if(stale)throw cancelled();
-      if(error&&typeof error==='object'&&!error.playbackType)error.playbackType=failureType(error);
-      throw error;
+      throw tagFailure(error);
     }
   }
   config.scope?.listen?.(media,'error',()=>fail(new Error('Chrome could not decode the converted stream. This video may need server conversion.')));
-  const api={kind:'compatibility',attach:()=>start(config.startTime||0),destroy(){destroyed=true;disposeRun();},getAudioTracks:()=>tracks,
+  const api={kind:'compatibility',attach:()=>start(config.startTime||0,config.autoplay!==false),destroy(){destroyed=true;prepared?.dispose();prepared=null;disposeRun();},getAudioTracks:()=>tracks,
     selectAudioTrack(id){if(!tracks.some(t=>t.id===String(id)))return false;if(audioId===String(id))return true;audioId=String(id);start(media.currentTime,!media.paused).catch(fail);return true;},
     seekTo(time){const target=Math.max(0,Math.min(duration||Infinity,time));for(let i=0;i<media.buffered.length;i++)if(target>=media.buffered.start(i)&&target<media.buffered.end(i)){media.currentTime=target;return;}start(target,!media.paused).catch(fail);},
     getVideoQualities:()=>[],selectVideoQuality:()=>false};
   config.scope?.onDispose?.(()=>api.destroy());return api;
 }
 
-globalThis.AstraCompatibility={createAdapter};
+globalThis.AstraCompatibility={createAdapter,prepareRepair};

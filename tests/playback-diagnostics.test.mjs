@@ -17,6 +17,14 @@ test('network reports do not pretend to distinguish CORS from connection failure
   assert.match(describe({kind:'network'}),/does not always reveal which/);
   assert.match(describe({detail:'HTTP 410'}),/expired/);assert.match(describe({detail:'HTTP status 429'}),/limiting requests/);
 });
+test('range-read failures are distinguishable without exposing the provider address',()=>{
+  const failure={kind:'network',detail:'HTTP server did not honor the range request https://private.example.test?token=SECRET'};
+  assert.equal(failureCode(failure),'RANGE_UNSUPPORTED');
+  assert.match(describe(failure),/file reads/);
+  const log=create();log.record('repair-unavailable',{engine:'compatibility',failure});
+  const report=log.report();assert.equal(report.includes('SECRET'),false);
+  assert.equal(JSON.parse(report).events[0].failure,'RANGE_UNSUPPORTED');
+});
 test('diagnostics bound repeated buffering events and expose real playback quality',()=>{
   let clock=0;const log=create({now:()=>clock});
   for(let i=0;i<100;i++){clock+=20;log.record('buffering')}

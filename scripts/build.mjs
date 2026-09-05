@@ -76,6 +76,7 @@ for(const name of ['avc-aac','avc-ac3','avc-eac3','avc-dts','vp8-vorbis']) {
   const encoded=await readFile(new URL(`../tests/fixtures/media/${name}.mkv.base64`,import.meta.url),'utf8');
   await writeFile(new URL(`${name}.mkv`,checksDir),Buffer.from(encoded,'base64'));
 }
+await writeFile(new URL('avc-ac3.mp4',checksDir),Buffer.from(await readFile(new URL('../tests/fixtures/media/avc-ac3.mp4.base64',import.meta.url),'utf8'),'base64'));
 // A tiny diagnostic add-on exercises the same picker and Player V3 as real
 // providers. It is never installed automatically and contains generated clips.
 const checkAddon=new URL('addon/',checksDir);
@@ -99,6 +100,12 @@ await writeFile(new URL(`stream/video/${recoveryId}.json`,checkAddon),JSON.strin
   {name:'Working check',title:'Working AAC test clip',url:'https://missionarytube.z13.web.core.windows.net/assets/playback-check/avc-aac.mkv'}
 ]}));
 const checkCatalog=new URL('catalog/video/',checkAddon);await mkdir(checkCatalog,{recursive:true});
+// Deliberately omit audio codec hints so this starts natively; the viewer can
+// exercise manual repair of real AC3 audio inside an MP4, matching field reports.
+const manualId='astra-check-manual-audio',manualMeta={id:manualId,type:'video',name:'Manual audio repair',description:'Generated MP4 with AC3 audio. Rewind, then use Options → Fix picture or sound.'};
+checkItems.push(manualMeta);
+await writeFile(new URL(`meta/video/${manualId}.json`,checkAddon),JSON.stringify({meta:manualMeta}));
+await writeFile(new URL(`stream/video/${manualId}.json`,checkAddon),JSON.stringify({streams:[{name:'Manual repair check',title:'Generated MP4 test clip',url:'https://missionarytube.z13.web.core.windows.net/assets/playback-check/avc-ac3.mp4',behaviorHints:{filename:'repair-check.mp4'}}]}));
 for(const check of [
   {id:'astra-check-webm',name:'Playback WebM',file:'vp8-vorbis',title:'Generated VP8 + Vorbis',headers:true,description:'Forty-second generated clip. Tests WebM repair and seeking.'},
   {id:'astra-check-headers',name:'Playback request headers',file:'avc-aac',title:'Generated AVC + AAC with request headers',headers:true,description:'Generated clip fetched with a harmless test request header.'}

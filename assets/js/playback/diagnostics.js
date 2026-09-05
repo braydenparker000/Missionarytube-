@@ -6,6 +6,7 @@
   const number=value=>Number.isFinite(Number(value))?Math.max(0,Math.round(Number(value)*10)/10):0;
   function failureCode(failure={}){
     const message=String(failure.detail||failure.message||'');
+    if(/server did not honor the range request/i.test(message))return 'RANGE_UNSUPPORTED';
     const status=message.match(/(?:HTTP(?: error| status)?|status(?: code)?|response)[:\s]+(4\d\d|5\d\d)\b/i)?.[1];
     if(status)return 'HTTP_'+status;
     const kind=member(failure.kind||failure.type||failure.playbackType,['access','network','manifest','decode','unsupported','library','timeout']);
@@ -18,6 +19,7 @@
     if(code==='HTTP_429')return 'The provider is limiting requests. Wait before retrying.';
     if(code.startsWith('HTTP_5'))return 'The provider returned a server error. Try another source.';
     if(code==='NETWORK_OR_BROWSER_ACCESS')return 'Chrome could not read the stream. This can be a connection problem or a provider restriction; the browser does not always reveal which.';
+    if(code==='RANGE_UNSUPPORTED')return 'The provider does not support the file reads needed to repair or seek this stream. Choose another source or an external player.';
     if(code==='ACCESS')return 'The stream requires access settings that Chrome cannot apply. Use another source or a configured media server.';
     if(code==='TIMEOUT')return 'Playback stopped making progress. Retry this stream or choose another source.';
     if(code==='DECODE'||code==='UNSUPPORTED')return 'This playback method could not decode the media. Another source or an external player may work.';
@@ -32,7 +34,7 @@
       source={delivery:member(stream.kind,['direct','hls','dash','youtube','torrent','external']),container:member(f.container,['MP4','MKV','WebM','MOV','TS','AVI','MP3','M4A','AAC','FLAC','OGG','Opus','WAV']),video:member(f.codec,['H.264','H.265','HEVC','AV1','VP8','VP9','MPEG-2','MPEG-4']),audio:member(f.audioCodec,['AAC','AC3','AC-3','EAC3','E-AC-3','DTS','DTS-HD','TrueHD','FLAC','MP3','Opus','Vorbis','PCM']),requestHeaders:!!stream.requestPolicy?.required};
     }
     function record(event,details={}){
-      const entry={event:member(event,['start','playing','buffering','seeking','seeked','paused','ended','failure','retry','repair']),seconds:number((now()-began)/1000)};
+      const entry={event:member(event,['start','playing','buffering','seeking','seeked','paused','ended','failure','retry','repair','repair-check','repair-unavailable','repair-cancelled']),seconds:number((now()-began)/1000)};
       if(details.engine)entry.engine=member(details.engine,['native','hls','dash','compatibility']);
       if(details.currentTime!=null)entry.position=number(details.currentTime);
       if(details.failure)entry.failure=failureCode(details.failure);

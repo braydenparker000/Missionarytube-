@@ -225,6 +225,22 @@ test("the native adapter attaches, reports and cleans up", async () => {
   assert.equal(ready, 1);
 });
 
+test("native restoration honors paused playback while keeping manual Play available", async () => {
+  const media = createMediaElement();
+  const adapter = A.createNativeAdapter({ media, url: URL_UNDER_TEST, autoplay: false });
+  try {
+    await adapter.attach();
+    media.emit("loadedmetadata");
+    media.emit("canplay");
+    assert.equal(media.src, URL_UNDER_TEST);
+    assert.equal(media.played, 0, "repair fallback cannot override the user's pause");
+    await media.play();
+    assert.equal(media.played, 1, "the user can resume normally");
+  } finally {
+    adapter.destroy();
+  }
+});
+
 test("the native adapter uses real AudioTrackList entries when Chrome exposes them", async () => {
   const media = createMediaElement();
   media.audioTracks = [
