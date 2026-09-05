@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {AppendOnlyStreamTarget,AudioSample,Input,BufferSource,BufferTarget,AudioSampleSink,EncodedPacketSink,ALL_FORMATS} from 'mediabunny';
 import {preparePipeline,pumpPipeline,stereoSample,alignAudioSample,createAdapter} from '../src/compatibility-player.js';
+import '../assets/js/playback/request-policy.js';
 const inputFor=async name=>new Input({source:new BufferSource(Buffer.from(await readFile(new URL(`./fixtures/media/${name}.mkv.base64`,import.meta.url),'utf8'),'base64')),formats:ALL_FORMATS});
 
 test('real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact',async()=>{
@@ -97,4 +98,113 @@ test('replacing an in-flight startup reports the old read as cancelled, not a ne
   requests[1].resolve(new Response('not a media file',{status:206,headers:{'Content-Range':'bytes 0-15/16'}}));
   await Promise.all([firstFailure,secondFailure]);
  }finally{adapter.destroy();}
+});
+
+
+test('real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks',async()=>{
+ const input=await inputFor('vp8-vorbis');
+ const plan=await preparePipeline(input,{supports:type=>type.startsWith('video/webm;')});
+ assert.equal(plan.container,'webm');assert.equal(plan.copyAudio,true);assert.equal(plan.audioCodec,'vorbis');
+ const chunks=[];
+ await pumpPipeline(plan,{target:new AppendOnlyStreamTarget(new WritableStream({write:bytes=>chunks.push(Buffer.from(bytes))}))});
+ const output=new Input({source:new BufferSource(Buffer.concat(chunks)),formats:ALL_FORMATS});
+ try {
+  assert.match(await output.getMimeType(),/video\/webm/);
+  assert.equal(await (await output.getPrimaryVideoTrack()).getCodec(),'vp8');
+  assert.equal(await (await output.getPrimaryAudioTrack()).getCodec(),'vorbis');
+  assert.ok(await output.computeDuration()>39.8);
+  for(const [before,after] of [[plan.video,await output.getPrimaryVideoTrack()],[plan.audio,await output.getPrimaryAudioTrack()]]){
+   const first=before===plan.audio?plan.firstAudio:plan.first;
+   const copied=await new EncodedPacketSink(after).getFirstPacket();
+   assert.deepEqual(copied.data,first.data);
+  }
+ }finally{input.dispose();output.dispose();}
+});
+
+test('audio conversion selects AAC when MP4 cannot accept Opus',async()=>{
+ const input=await inputFor('avc-ac3');
+ try {
+  const encoders=[];
+  const plan=await preparePipeline(input,{supports:type=>type.startsWith('video/mp4;')&&!/opus|ac-3/.test(type),encodeAudio:async codec=>{encoders.push(codec);return codec==='aac';}});
+  assert.equal(plan.copyAudio,false);assert.equal(plan.audioCodec,'aac');assert.match(plan.mime,/mp4a\.40\.2/);
+  assert.deepEqual(encoders,['aac']);
+ }finally{input.dispose();}
+});
+
+test('a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window',async()=>{
+ const input=await inputFor('vp8-vorbis');
+ try {
+  const plan=await preparePipeline(input,{startTime:34.5,supports:type=>type.startsWith('video/webm;')});
+  assert.ok(plan.base>=32&&plan.base<=34.5);
+  const chunks=[];
+  await pumpPipeline(plan,{target:new AppendOnlyStreamTarget(new WritableStream({write:bytes=>chunks.push(Buffer.from(bytes))}))});
+  const output=new Input({source:new BufferSource(Buffer.concat(chunks)),formats:ALL_FORMATS});
+  try {assert.ok(await output.computeDuration()>5);assert.ok(await output.computeDuration()<8);}
+  finally{output.dispose();}
+ }finally{input.dispose();}
+});
+
+
+test('copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer',async()=>{
+ const input=await inputFor('avc-aac');
+ try {
+  const plan=await preparePipeline(input,{startTime:2.5});
+  assert.ok(plan.firstAudio.timestamp<plan.first.timestamp);
+  assert.equal(plan.base,plan.firstAudio.timestamp);
+  const chunks=[];
+  await pumpPipeline(plan,{target:new AppendOnlyStreamTarget(new WritableStream({write:bytes=>chunks.push(Buffer.from(bytes))}))});
+  const output=new Input({source:new BufferSource(Buffer.concat(chunks)),formats:ALL_FORMATS});
+  try {
+   const v=await new EncodedPacketSink(await output.getPrimaryVideoTrack()).getFirstPacket();
+   const a=await new EncodedPacketSink(await output.getPrimaryAudioTrack()).getFirstPacket();
+   assert.ok(Math.abs(v.timestamp+plan.base-plan.first.timestamp)<.002);
+   assert.ok(Math.abs(a.timestamp+plan.base-plan.firstAudio.timestamp)<.002);
+   assert.deepEqual(a.data,plan.firstAudio.data);
+  }finally{output.dispose();}
+ }finally{input.dispose();}
+});
+
+
+test('compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges',async t=>{
+ const calls=[];
+ t.mock.method(globalThis,'fetch',async(url,init)=>{calls.push({url,init});return new Response('invalid media input',{headers:{'Content-Length':'19'}});});
+ const url='https://media.example.test/movie.mkv';
+ const requestPolicy=globalThis.AstraPlayback.requests.analyze(url,{request:{Authorization:'Bearer synthetic',Range:'bytes=500-600'}});
+ const adapter=createAdapter({media:{},url,requestPolicy});
+ try {await assert.rejects(adapter.attach());assert.ok(calls.length);
+  for(const {init} of calls){assert.equal(init.headers.get('authorization'),'Bearer synthetic');assert.match(init.headers.get('range'),/^bytes=0-/);assert.equal(init.redirect,'error');assert.equal(init.credentials,'omit');}
+ }finally{adapter.destroy();}
+});
+
+test('compatibility HLS children on another origin never receive addon credentials',async t=>{
+ const calls=[];
+ const playlist='#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4.0,\nhttps://cdn.example.test/segment.ts\n#EXT-X-ENDLIST\n';
+ t.mock.method(globalThis,'fetch',async(url,init)=>{
+  calls.push({url:String(url),init});
+  const body=String(url).endsWith('m3u8')?playlist:'invalid segment';
+  return new Response(body,{headers:{'Content-Length':String(body.length)}});
+ });
+ const url='https://media.example.test/movie.m3u8';
+ const requestPolicy=globalThis.AstraPlayback.requests.analyze(url,{request:{Authorization:'Bearer synthetic','X-Playback-Key':'synthetic'}});
+ const adapter=createAdapter({media:{},url,requestPolicy});
+ try {await assert.rejects(adapter.attach());
+  const child=calls.find(call=>call.url.startsWith('https://cdn.example.test/'));
+  assert.ok(child,'the real demuxer requested the cross-origin HLS segment');
+  assert.equal(child.init.headers.get('authorization'),null);assert.equal(child.init.headers.get('x-playback-key'),null);
+  assert.equal(calls[0].init.headers.get('authorization'),'Bearer synthetic');
+ }finally{adapter.destroy();}
+});
+
+
+test('compatibility startup distinguishes blocked access and connection failures',async t=>{
+ const url='https://media.example.test/movie.mkv';
+ let attempts=0;
+ t.mock.method(globalThis,'fetch',async()=>{attempts++;throw new TypeError('Failed to fetch');});
+ const requestPolicy=globalThis.AstraPlayback.requests.analyze(url,{request:{Cookie:'synthetic'}});
+ const blocked=createAdapter({media:{},url,requestPolicy});
+ try {await assert.rejects(blocked.attach(),error=>error.playbackType==='access');assert.equal(attempts,0);}
+ finally{blocked.destroy();}
+ const disconnected=createAdapter({media:{},url});
+ try {await assert.rejects(disconnected.attach(),error=>error.playbackType==='network');assert.ok(attempts>0);}
+ finally{disconnected.destroy();}
 });

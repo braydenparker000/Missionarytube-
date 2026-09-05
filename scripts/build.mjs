@@ -72,7 +72,7 @@ console.log(`Built ${join("dist")} with ${builtFiles.length} top-level entr${bui
 // Small generated fixtures make device playback checks reproducible.
 const checksDir=new URL('../dist/assets/playback-check/',import.meta.url);
 await mkdir(checksDir,{recursive:true});
-for(const name of ['avc-aac','avc-ac3','avc-eac3','avc-dts']) {
+for(const name of ['avc-aac','avc-ac3','avc-eac3','avc-dts','vp8-vorbis']) {
   const encoded=await readFile(new URL(`../tests/fixtures/media/${name}.mkv.base64`,import.meta.url),'utf8');
   await writeFile(new URL(`${name}.mkv`,checksDir),Buffer.from(encoded,'base64'));
 }
@@ -99,4 +99,12 @@ await writeFile(new URL(`stream/video/${recoveryId}.json`,checkAddon),JSON.strin
   {name:'Working check',title:'Working AAC test clip',url:'https://missionarytube.z13.web.core.windows.net/assets/playback-check/avc-aac.mkv'}
 ]}));
 const checkCatalog=new URL('catalog/video/',checkAddon);await mkdir(checkCatalog,{recursive:true});
+for(const check of [
+  {id:'astra-check-webm',name:'Playback WebM',file:'vp8-vorbis',title:'Generated VP8 + Vorbis',headers:true,description:'Forty-second generated clip. Tests WebM repair and seeking.'},
+  {id:'astra-check-headers',name:'Playback request headers',file:'avc-aac',title:'Generated AVC + AAC with request headers',headers:true,description:'Generated clip fetched with a harmless test request header.'}
+]){
+  const meta={id:check.id,type:'video',name:check.name,description:check.description};checkItems.push(meta);
+  await writeFile(new URL(`meta/video/${check.id}.json`,checkAddon),JSON.stringify({meta}));
+  await writeFile(new URL(`stream/video/${check.id}.json`,checkAddon),JSON.stringify({streams:[{name:check.name,title:check.title,url:`https://missionarytube.z13.web.core.windows.net/assets/playback-check/${check.file}.mkv`,behaviorHints:{filename:check.file+'.mkv',proxyHeaders:check.headers?{request:{'X-Astra-Playback-Check':'enabled'}}:undefined}}]}));
+}
 await writeFile(new URL('checks.json',checkCatalog),JSON.stringify({metas:checkItems}));

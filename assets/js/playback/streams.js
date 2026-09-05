@@ -90,9 +90,12 @@
     if (raw.ytId) return KIND.YOUTUBE;
     if (raw.url) {
       var path = pathOf(parsed, raw.url).toLowerCase();
-      var hint = str(raw.behaviorHints && raw.behaviorHints.streamType).toLowerCase();
-      if (/\.m3u8?$/.test(path) || hint === "hls") return KIND.HLS;
-      if (/\.mpd$/.test(path) || hint === "dash") return KIND.DASH;
+      var hints = raw.behaviorHints || {};
+      var hint = str(hints.streamType).toLowerCase();
+      var mime = str(raw.mimeType || hints.mimeType).toLowerCase().split(";")[0].trim();
+      var filename = str(hints.filename).toLowerCase();
+      if (/\.m3u8?$/.test(path) || /\.m3u8?$/.test(filename) || hint === "hls" || /^(?:application\/(?:vnd\.apple\.mpegurl|x-mpegurl)|audio\/mpegurl)$/.test(mime)) return KIND.HLS;
+      if (/\.mpd$/.test(path) || /\.mpd$/.test(filename) || hint === "dash" || mime === "application/dash+xml") return KIND.DASH;
       return KIND.DIRECT;
     }
     if (raw.infoHash) return KIND.TORRENT;
@@ -316,6 +319,7 @@
       normalizeResolution(raw.resolution);
 
     var sizeBytes = detectSize(raw, text);
+    var requestPolicy = global.AstraPlayback.requests.analyze(parsed ? parsed.href : str(raw.url), hints.proxyHeaders);
 
     return {
       raw: input,
@@ -337,6 +341,7 @@
       description: description,
       subtitles: Array.isArray(raw.subtitles) ? raw.subtitles : [],
       behaviorHints: hints,
+      requestPolicy: requestPolicy,
       facts: {
         resolution: resolution,
         resolutionRank: resolution ? RESOLUTIONS.length - RESOLUTIONS.indexOf(resolution) : 0,
@@ -356,7 +361,8 @@
         episodeReference: identity.episodeReference,
         episodeStatus: identity.episodeStatus,
         notWebReady: hints.notWebReady === true,
-        proxyHeaders: !!hints.proxyHeaders
+        proxyHeaders: requestPolicy.required,
+        requestHeaders: requestPolicy.required && requestPolicy.supported
       }
     };
   }
@@ -544,23 +550,28 @@
       return result(STATE.UNSAFE, 0);
     }
 
-    if (facts.proxyHeaders) {
-      reasons.push(reason("proxy-headers", "This source needs custom request headers a browser cannot send."));
+    if (facts.proxyHeaders && (!stream.requestPolicy || !stream.requestPolicy.supported)) {
+      reasons.push(reason("proxy-headers", "This source requires a media server to apply its access requirements."));
+      return result(STATE.UNSUPPORTED, 0);
+    }
+    if (facts.requestHeaders) reasons.push(reason("request-headers", "Plays if the provider allows browser requests with its required headers."));
+    if (facts.requestHeaders && ((stream.kind === KIND.DIRECT && facts.audioOnly) || !probe.mse)) {
+      reasons.push(reason("header-engine-unavailable", "This source needs a media server or another app to apply its required headers on this device."));
       return result(STATE.UNSUPPORTED, 0);
     }
 
     if (stream.kind === KIND.HLS) {
-      if (!probe.nativeHls && !probe.hlsSupported) {
+      if ((!probe.nativeHls || facts.requestHeaders) && !probe.hlsSupported) {
         reasons.push(reason("no-hls", "HLS playback needs hls.js, which is unavailable."));
         return result(STATE.UNSUPPORTED, 0);
       }
       reasons.push(
-        probe.nativeHls
+        probe.nativeHls && !facts.requestHeaders
           ? reason("hls-native", "HLS is supported natively by this browser.")
           : reason("hls-js", "Plays through the pinned hls.js runtime.")
       );
       if (facts.live) reasons.push(reason("live", "Live stream."));
-      return result(STATE.READY, probe.nativeHls ? 0.9 : 0.8);
+      return result(facts.requestHeaders ? STATE.PROBABLY_READY : STATE.READY, facts.requestHeaders ? 0.5 : probe.nativeHls ? 0.9 : 0.8);
     }
 
     if (stream.kind === KIND.DASH) {
@@ -570,10 +581,11 @@
       }
       reasons.push(reason("dash-js", "Plays through the pinned dash.js runtime."));
       if (facts.live) reasons.push(reason("live", "Live stream."));
-      return result(STATE.READY, 0.78);
+      return result(facts.requestHeaders ? STATE.PROBABLY_READY : STATE.READY, facts.requestHeaders ? 0.5 : 0.78);
     }
 
     // Direct progressive delivery.
+    if (facts.requestHeaders) return result(STATE.PROBABLY_READY, 0.4);
     if (facts.notWebReady) {
       reasons.push(reason("not-web-ready", "The add-on marked this file as not browser ready."));
       return result(STATE.PROBABLY_READY, 0.2);

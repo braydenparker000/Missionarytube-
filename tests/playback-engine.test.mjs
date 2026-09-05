@@ -18,10 +18,13 @@ function session(candidates, options = {}) {
     autoFailover: options.autoFailover !== false,
     maxAttempts: options.maxAttempts ?? 3,
     startupTimeoutMs: options.startupTimeoutMs ?? 1000,
+    stallTimeoutMs: options.stallTimeoutMs ?? 30000,
+    seekTimeoutMs: options.seekTimeoutMs ?? 45000,
     setTimeout: clock.setTimeout,
     clearTimeout: clock.clearTimeout,
     onChange: (snapshot) => changes.push(snapshot),
-    onAttempt: options.onAttempt
+    onAttempt: options.onAttempt,
+    readPlaybackState: options.readPlaybackState
   });
   return { instance, clock, changes };
 }
@@ -123,11 +126,11 @@ test("a startup timeout fails the attempt and moves on", () => {
   assert.equal(instance.snapshot().lastFailure.candidate.id, "a");
 });
 
-test("the startup timer is cleared once playback is ready", () => {
+test("ready replaces the startup deadline with a bounded playback deadline", () => {
   const { instance, clock } = session([candidate("a"), candidate("b")], { startupTimeoutMs: 1000 });
   instance.start();
   instance.report(instance.snapshot().attemptId, "ready");
-  assert.equal(clock.pending, 0, "no timer is left armed");
+  assert.equal(clock.pending, 1, "one playback watchdog is armed");
   clock.advance(10000);
   assert.equal(instance.snapshot().state, E.STATE.PLAYING);
   assert.equal(instance.snapshot().candidate.id, "a");
@@ -300,3 +303,226 @@ test("an explicitly chosen source plays even when it is auto-ineligible", () => 
   assert.equal(instance.snapshot().state, E.STATE.STARTING);
 });
 
+
+test("repeated ready and buffering events cannot hide a frozen source", () => {
+  const { instance, clock } = session([candidate("selected"), candidate("other")], {
+    autoFailover: false, stallTimeoutMs: 5000
+  });
+  instance.start();
+  const attempt = instance.snapshot().attemptId;
+  instance.report(attempt, "ready", { currentTime: 0, paused: false });
+  for (let i = 0; i < 4; i += 1) {
+    clock.advance(1000);
+    instance.report(attempt, "waiting");
+    instance.report(attempt, "ready", { paused: false });
+    instance.report(attempt, "playing", { paused: false });
+    instance.report(attempt, "progress", { currentTime: 0, paused: false });
+  }
+  clock.advance(1001);
+  assert.equal(instance.snapshot().state, E.STATE.FAILED);
+  assert.equal(instance.snapshot().lastFailure.kind, E.FAILURE.TIMEOUT);
+  assert.match(instance.snapshot().lastFailure.detail, /stopped making progress/);
+  assert.equal(instance.snapshot().lastFailure.candidate.id, "selected");
+  assert.equal(clock.pending, 0);
+  assert.equal(instance.retry(), true, "the recovery action still retries the same source");
+  assert.equal(instance.snapshot().candidate.id, "selected");
+});
+
+test("only actual playback advancement renews the stall budget", () => {
+  const { instance, clock } = session([candidate("selected"), candidate("other")], {
+    stallTimeoutMs: 5000
+  });
+  instance.start();
+  const attempt = instance.snapshot().attemptId;
+  instance.report(attempt, "playing");
+  for (let seconds = 1; seconds <= 10; seconds += 1) {
+    clock.advance(4000);
+    instance.report(attempt, "progress", { currentTime: seconds, paused: false, seeking: false });
+  }
+  assert.equal(instance.snapshot().state, E.STATE.PLAYING, "advancing playback may continue indefinitely");
+  clock.advance(5001);
+  assert.equal(instance.snapshot().state, E.STATE.FAILED);
+  assert.equal(instance.snapshot().lastFailure.afterPlayback, true);
+  assert.deepEqual(plain(instance.snapshot().triedIds), ["selected"], "a mid-film freeze never swaps the source");
+  assert.equal(instance.snapshot().resumeTime, 10);
+});
+
+test("pausing suspends the watchdog and resuming starts a fresh budget", () => {
+  const { instance, clock } = session([candidate("a")], { stallTimeoutMs: 5000 });
+  instance.start();
+  const attempt = instance.snapshot().attemptId;
+  instance.report(attempt, "playing");
+  instance.report(attempt, "progress", { currentTime: 7 });
+  clock.advance(4500);
+  instance.report(attempt, "pause", { currentTime: 7, paused: true });
+  instance.report(attempt, "waiting", { paused: true });
+  assert.equal(clock.pending, 0);
+  clock.advance(60000);
+  assert.equal(instance.snapshot().state, E.STATE.PLAYING);
+  instance.report(attempt, "play", { paused: false });
+  clock.advance(4999);
+  assert.equal(instance.snapshot().candidate.id, "a");
+  clock.advance(2);
+  assert.equal(instance.snapshot().state, E.STATE.EXHAUSTED);
+});
+
+test("an autoplay-blocked but ready video does not get a false timeout", () => {
+  const { instance, clock } = session([candidate("a")], { stallTimeoutMs: 5000 });
+  instance.start();
+  const attempt = instance.snapshot().attemptId;
+  instance.report(attempt, "ready", { currentTime: 0, paused: true });
+  assert.equal(clock.pending, 0);
+  clock.advance(60000);
+  assert.equal(instance.snapshot().candidate.id, "a");
+  instance.report(attempt, "play", { paused: false });
+  instance.report(attempt, "playing", { paused: false });
+  instance.report(attempt, "progress", { currentTime: 1, paused: false });
+  clock.advance(5001);
+  assert.equal(instance.snapshot().state, E.STATE.EXHAUSTED, "a later real play request is bounded");
+});
+
+test("a seek gets a separate deadline and seek progress cannot reset it", () => {
+  const { instance, clock } = session([candidate("a")], { stallTimeoutMs: 5000, seekTimeoutMs: 12000 });
+  instance.start();
+  const attempt = instance.snapshot().attemptId;
+  instance.report(attempt, "playing");
+  instance.report(attempt, "progress", { currentTime: 7 });
+  clock.advance(4000);
+  instance.report(attempt, "seeking", { currentTime: 500, paused: false });
+  clock.advance(6000);
+  instance.report(attempt, "ready", { currentTime: 500, paused: false, seeking: true });
+  instance.report(attempt, "progress", { currentTime: 500, paused: false, seeking: true });
+  instance.report(attempt, "seeking", { currentTime: 500, paused: false });
+  clock.advance(5999);
+  assert.equal(instance.snapshot().candidate.id, "a");
+  clock.advance(2);
+  assert.equal(instance.snapshot().state, E.STATE.EXHAUSTED);
+  assert.match(instance.snapshot().lastFailure.detail, /selected position/);
+  assert.equal(instance.snapshot().resumeTime, 500);
+});
+
+test("a completed seek returns to the normal watchdog without a stale deadline", () => {
+  const { instance, clock } = session([candidate("a")], { stallTimeoutMs: 5000, seekTimeoutMs: 12000 });
+  instance.start();
+  const attempt = instance.snapshot().attemptId;
+  instance.report(attempt, "playing");
+  instance.report(attempt, "seeking", { currentTime: 500, paused: false });
+  clock.advance(11000);
+  instance.report(attempt, "seeked", { currentTime: 500, paused: false });
+  clock.advance(4999);
+  assert.equal(instance.snapshot().candidate.id, "a");
+  instance.report(attempt, "progress", { currentTime: 501, paused: false });
+  clock.advance(4999);
+  assert.equal(instance.snapshot().candidate.id, "a");
+  clock.advance(2);
+  assert.equal(instance.snapshot().state, E.STATE.EXHAUSTED);
+  assert.match(instance.snapshot().lastFailure.detail, /stopped making progress/);
+});
+
+test("seeking a paused video waits for the viewer to resume", () => {
+  const { instance, clock } = session([candidate("a")], { stallTimeoutMs: 5000, seekTimeoutMs: 12000 });
+  instance.start();
+  const attempt = instance.snapshot().attemptId;
+  instance.report(attempt, "ready", { paused: true });
+  instance.report(attempt, "seeking", { currentTime: 100, paused: true });
+  clock.advance(60000);
+  assert.equal(clock.pending, 0);
+  instance.report(attempt, "play", { paused: false });
+  clock.advance(11999);
+  assert.equal(instance.snapshot().candidate.id, "a");
+  clock.advance(2);
+  assert.equal(instance.snapshot().state, E.STATE.EXHAUSTED);
+});
+
+test("ended and cancelled playback release the watchdog", () => {
+  const { instance, clock } = session([candidate("a")], { stallTimeoutMs: 5000 });
+  instance.start();
+  const attempt = instance.snapshot().attemptId;
+  instance.report(attempt, "playing");
+  instance.report(attempt, "ended", { currentTime: 4, paused: true });
+  clock.advance(60000);
+  assert.equal(clock.pending, 0);
+  assert.equal(instance.snapshot().candidate.id, "a", "completion is not a failure");
+  instance.report(attempt, "play", { paused: false });
+  assert.equal(clock.pending, 1, "replaying arms a new watchdog");
+  instance.cancel();
+  assert.equal(clock.pending, 0);
+  assert.equal(instance.report(attempt, "playing"), false);
+  clock.advance(60000);
+  assert.equal(instance.snapshot().state, E.STATE.CANCELLED);
+});
+
+test("superseded playback timers and media events cannot fail a replacement", () => {
+  const { instance, clock } = session([candidate("a"), candidate("b")], { stallTimeoutMs: 5000 });
+  instance.start();
+  const first = instance.snapshot().attemptId;
+  instance.report(first, "playing");
+  clock.advance(4500);
+  instance.play("b");
+  const second = instance.snapshot().attemptId;
+  instance.report(second, "playing");
+  assert.equal(instance.report(first, "pause"), false);
+  assert.equal(instance.report(first, "seeking", { currentTime: 90 }), false);
+  clock.advance(4999);
+  assert.equal(instance.snapshot().candidate.id, "b");
+  assert.equal(clock.pending, 1);
+  instance.cancel();
+});
+
+test("starting an active session again does not silently pick a different source", () => {
+  const { instance } = session([candidate("a"), candidate("b")]);
+  instance.start();
+  const first = instance.snapshot().attemptId;
+  instance.start();
+  assert.equal(instance.snapshot().attemptId, first);
+  assert.deepEqual(plain(instance.snapshot().triedIds), ["a"]);
+});
+
+
+test("delayed timeupdate events do not fail media that continued playing in the background", () => {
+  const media = { currentTime: 0, paused: false, seeking: false, ended: false };
+  const { instance, clock } = session([candidate("a")], {
+    stallTimeoutMs: 5000, readPlaybackState: () => ({ ...media })
+  });
+  instance.start();
+  const attempt = instance.snapshot().attemptId;
+  instance.report(attempt, "playing", media);
+  media.currentTime = 4;
+  clock.advance(5001);
+  assert.equal(instance.snapshot().candidate.id, "a", "the live playhead supersedes delayed events");
+  assert.equal(instance.snapshot().resumeTime, 4);
+  media.currentTime = 9;
+  clock.advance(5000);
+  assert.equal(instance.snapshot().candidate.id, "a");
+  clock.advance(5000);
+  assert.equal(instance.snapshot().state, E.STATE.EXHAUSTED, "a truly frozen playhead still fails");
+});
+
+test("a delayed pause or ended event is reconciled before a timeout", () => {
+  for (const ended of [false, true]) {
+    const media = { currentTime: 0, paused: false, seeking: false, ended: false };
+    const { instance, clock } = session([candidate("a")], {
+      stallTimeoutMs: 5000, readPlaybackState: () => ({ ...media })
+    });
+    instance.start();
+    instance.report(instance.snapshot().attemptId, "playing", media);
+    media.paused = true;
+    media.ended = ended;
+    clock.advance(60000);
+    assert.equal(instance.snapshot().candidate.id, "a");
+    assert.equal(clock.pending, 0);
+  }
+});
+
+
+test("paused metadata events during attachment cannot cancel the startup deadline", () => {
+  const { instance, clock } = session([candidate("a")], { startupTimeoutMs: 1000 });
+  instance.start();
+  const attempt = instance.snapshot().attemptId;
+  instance.report(attempt, "progress", { currentTime: 0, paused: true });
+  instance.report(attempt, "waiting", { paused: true });
+  instance.report(attempt, "seeking", { currentTime: 100, paused: true });
+  assert.equal(clock.pending, 1, "the adapter still has to make this source ready");
+  clock.advance(1001);
+  assert.equal(instance.snapshot().state, E.STATE.EXHAUSTED);
+});

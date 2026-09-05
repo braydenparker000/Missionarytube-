@@ -137,6 +137,22 @@ test("the rendered failure card retries the same source after the engine has set
   assert.deepEqual(restarted, [f.entry], "one click restarts exactly the release that failed");
 });
 
+test('expired stream recovery can request a fresh source list for the same episode',()=>{
+  const f=fixture();f.player.video={id:'episode-7'};const fetched=[];
+  f.context.showDetail=()=>{};f.context.loadStreams=id=>fetched.push(id);
+  f.render();f.button('refresh').click();
+  assert.deepEqual(fetched,['episode-7']);assert.equal(f.calls.closed,1);
+});
+
+test('stream lookups revalidate HTTP cache while catalogs keep normal caching',async()=>{
+  const calls=[];
+  const context=vm.createContext({AbortController,setTimeout,clearTimeout,fetch:async(url,options)=>{calls.push(options);return {ok:true,json:async()=>({streams:[]})}},recordAddonHealth(){}});
+  vm.runInContext(appFunction('fetchJSON')+'\n'+appFunction('fetchAddonJSON'),context);
+  await context.fetchAddonJSON({},'stream','https://media.example.test/streams.json');
+  await context.fetchAddonJSON({},'catalog','https://media.example.test/catalog.json');
+  assert.equal(calls[0].cache,'no-cache');assert.equal(calls[1].cache,undefined);
+});
+
 test("the rendered failure card can return to the source picker", () => {
   const f = fixture();
   f.render();

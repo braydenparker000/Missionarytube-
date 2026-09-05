@@ -9,9 +9,116 @@ import {
   plain
 } from "./helpers/playback.mjs";
 
-const { adapters: A } = await loadPlayback();
+const { adapters: A, requests: R } = await loadPlayback();
 
 const URL_UNDER_TEST = "https://cdn.example.test/media/example.mp4";
+
+test('native media never silently drops required addon headers',async()=>{
+  const media=createMediaElement();
+  const policy=R.analyze(URL_UNDER_TEST,{request:{Authorization:'Bearer synthetic'}});
+  const adapter=A.createNativeAdapter({media,url:URL_UNDER_TEST,requestPolicy:policy});
+  await assert.rejects(adapter.attach(),/media server/);
+  assert.equal(media.src,'');
+  adapter.destroy();
+});
+
+test('HLS sends scoped headers through its redirect-safe FetchLoader',async()=>{
+  const Hls=createHlsDouble();
+  const url='https://cdn.example.test/master.m3u8';
+  const policy=R.analyze(url,{request:{Authorization:'Bearer synthetic','X-Playback-Key':'synthetic'}});
+  const adapter=A.createHlsAdapter({media:createMediaElement(),url,Hls,requestPolicy:policy});
+  await adapter.attach();
+  const config=Hls.created[0].config;
+  assert.equal(config.progressive,true);
+  const playlist=config.fetchSetup({url},{headers:{Range:'bytes=0-999'}});
+  assert.equal(playlist.headers.get('authorization'),'Bearer synthetic');
+  assert.equal(playlist.headers.get('range'),'bytes=0-999');
+  assert.equal(playlist.redirect,'error');
+  const other=config.fetchSetup({url:'https://second.example.test/segment.ts'},{});
+  assert.equal(other.headers.get('authorization'),null);
+  assert.equal(other.headers.get('x-playback-key'),null);
+  assert.throws(()=>config.xhrSetup(),/media server/);
+  assert.equal(A.adapterKindFor('hls',{hlsSupported:false},policy),'hls');
+  adapter.destroy();
+});
+
+test('DASH header fetch extension preserves ranges, response bytes and origin boundaries',async()=>{
+  const dashjs=createDashDouble();
+  const url='https://cdn.example.test/master.mpd';
+  const policy=R.analyze(url,{request:{Authorization:'Bearer synthetic','X-Playback-Key':'synthetic'}});
+  const calls=[];
+  const adapter=A.createDashAdapter({media:createMediaElement(),url,dashjs,requestPolicy:policy,fetch:async(url,init)=>{
+    calls.push({url,init});
+    return new Response(new Uint8Array([1,2,3]),{status:206,headers:{'content-length':'3'}});
+  }});
+  await adapter.attach();
+  const player=dashjs.created[0];
+  assert.deepEqual([...player.extensions.keys()],['XHRLoader','FetchLoader']);
+  for(const [name,entry] of player.extensions) {
+    assert.equal(entry.override,false);
+    const loader=entry.factory();
+    for(const target of [url,'https://second.example.test/segment.m4s']) {
+      let progress=0;
+      const response={};
+      await new Promise(resolve=>loader.load({url:target,responseType:'arraybuffer',method:'GET',headers:{Range:'bytes=200-202'},customData:{onloadend:resolve,onprogress:event=>{progress=event.loaded;}}},response));
+      const call=calls.at(-1);
+      assert.equal(call.init.headers.get('authorization'),target===url?'Bearer synthetic':null,name);
+      assert.equal(call.init.headers.get('x-playback-key'),target===url?'synthetic':null,name);
+      assert.equal(call.init.headers.get('range'),'bytes=200-202');
+      assert.equal(call.init.credentials,'omit');
+      assert.equal(call.init.redirect,target===url?'error':'follow');
+      assert.equal(response.status,206);
+      assert.deepEqual([...new Uint8Array(response.data)],[1,2,3]);
+      assert.equal(progress,3);
+    }
+    loader.reset();
+  }
+  adapter.destroy();
+});
+
+test('DASH cancellation prevents pending fetch and late completion callbacks',async()=>{
+  const policy=R.analyze(URL_UNDER_TEST,{request:{Authorization:'Bearer synthetic'}});
+  let fetched=0,ended=0,aborted=0;
+  const loader=A.createDashFetchLoader(policy,async()=>{fetched++;return new Response('unused');});
+  const request={url:URL_UNDER_TEST,customData:{onloadend:()=>ended++,onabort:()=>aborted++}};
+  loader.load(request,{});
+  loader.abort(request);
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(fetched,0);
+  assert.equal(ended,0);
+  assert.equal(aborted,1);
+  loader.reset();
+  assert.equal(aborted,1);
+});
+
+test('DASH request failures complete once with an error status for normal engine recovery',async()=>{
+  const policy=R.analyze(URL_UNDER_TEST,{request:{Authorization:'Bearer synthetic'}});
+  const loader=A.createDashFetchLoader(policy,async()=>{throw new TypeError('Fetch failed');});
+  const response={};
+  await new Promise(resolve=>loader.load({url:URL_UNDER_TEST,customData:{onloadend:resolve}},response));
+  assert.equal(response.status,0);
+  loader.reset();
+});
+
+test('DASH low-latency fetch forwards completed fragments before EOF',async()=>{
+  const policy=R.analyze(URL_UNDER_TEST,{request:{Authorization:'Bearer synthetic'}});
+  let finishBody;
+  const body=new ReadableStream({start(controller){controller.enqueue(new Uint8Array([1,2]));controller.enqueue(new Uint8Array([3,4]));finishBody=()=>controller.close();}});
+  const loader=A.createDashFetchLoader(policy,async()=>new Response(body));
+  loader.setConfig({boxParser:{findLastTopIsoBoxCompleted(_types,bytes){return {found:bytes.length>=3,startOffsetOfLastFoundTargetBox:0,sizeOfLastFoundTargetBox:3};}}});
+  const response={};
+  let gotFragment;
+  const fragment=new Promise(resolve=>gotFragment=resolve);
+  const ended=new Promise(resolve=>loader.load({url:URL_UNDER_TEST,responseType:'arraybuffer',customData:{request:{availabilityTimeComplete:false},onprogress:event=>{if(event.data)gotFragment(event);},onloadend:resolve}},response));
+  const event=await fragment;
+  assert.deepEqual([...new Uint8Array(event.data)],[1,2,3]);
+  assert.equal(event.noTrace,true);
+  assert.equal(response.data,undefined,'fragment arrives while response is still downloading');
+  finishBody();
+  await ended;
+  assert.deepEqual([...new Uint8Array(response.data)],[4],'only the unconsumed tail is returned at EOF');
+  loader.reset();
+});
 
 function scopeWith(clock) {
   const revoked = [];

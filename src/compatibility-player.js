@@ -1,4 +1,4 @@
-import {Input, UrlSource, ALL_FORMATS, EncodedPacketSink, EncodedVideoPacketSource, EncodedAudioPacketSource, AudioSampleSink, AudioSampleSource, AudioSample, Output, Mp4OutputFormat, AppendOnlyStreamTarget, canEncodeAudio} from 'mediabunny';
+import {Input, UrlSource, ALL_FORMATS, EncodedPacketSink, EncodedVideoPacketSource, EncodedAudioPacketSource, AudioSampleSink, AudioSampleSource, AudioSample, Output, Mp4OutputFormat, WebMOutputFormat, AppendOnlyStreamTarget, canEncodeAudio} from 'mediabunny';
 import {registerAc3Decoder} from '@mediabunny/ac3';
 import {registerDtsDecoder} from '@mediabunny/dts';
 registerAc3Decoder();
@@ -6,6 +6,7 @@ registerDtsDecoder();
 
 const cancelled = () => new DOMException('Playback cancelled', 'AbortError');
 const check = signal => { if(signal?.aborted)throw cancelled(); };
+const failureType = error => error?.playbackType || (/fetch|network|http|load failed|connection/i.test(error?.message||'')?'network':/codec|decod|encod/i.test(error?.message||'')?'decode':'unsupported');
 
 // Shared by the browser adapter and real-file regression tests. Only audio
 // requiring conversion is decoded; video packets retain their original bytes.
@@ -13,29 +14,52 @@ export async function preparePipeline(input, {startTime=0,audioId='',supports=()
   const video=await input.getPrimaryVideoTrack();
   if(!video)throw new Error('This file has no supported video track.');
   const videoCodec=await video.getCodecParameterString();
-  if(!videoCodec||!supports(`video/mp4; codecs="${videoCodec}"`))throw new Error('This device cannot decode the video codec. A transcoding server or an external player is required.');
+  const formats=[
+    {container:'mp4',format:new Mp4OutputFormat({fastStart:'fragmented',minimumFragmentDuration:2})},
+    {container:'webm',format:new WebMOutputFormat({appendOnly:true,minimumClusterDuration:2})}
+  ].filter(({format})=>videoCodec&&format.getSupportedVideoCodecs().includes(video.codec)&&supports(`${format.mimeType}; codecs="${videoCodec}"`));
+  if(!formats.length)throw new Error('This device cannot decode the video codec. A transcoding server or an external player is required.');
   const audioTracks=await input.getAudioTracks();
   const requestedAudio=audioTracks.find(t=>String(t.id)===String(audioId));
   const primaryAudio=requestedAudio||await input.getPrimaryAudioTrack();
-  let audio=null,copyAudio=false,mime=`video/mp4; codecs="${videoCodec}"`;
-  // A default TrueHD/unsupported track must not prevent playback when the same
-  // file also contains usable audio. Explicit user selections remain explicit.
+  let audio=null,copyAudio=false,audioCodec=null,selected=formats[0];
+  let mime=`${selected.format.mimeType}; codecs="${videoCodec}"`;
+  const encoders=new Map();
+  const canEncode=codec=>{if(!encoders.has(codec))encoders.set(codec,encodeAudio(codec));return encoders.get(codec);};
+  // Preserve a usable selected/default track, trying both browser containers
+  // before decoding its audio. A bad default track can fall back within this file.
   const choices=requestedAudio?[requestedAudio]:[primaryAudio,...audioTracks.filter(t=>t!==primaryAudio)].filter(Boolean);
   for(const track of choices){
     const codec=await track.getCodecParameterString();
-    const copy=!!codec&&!['ac3','eac3','dts'].includes(await track.getCodec())&&supports(`audio/mp4; codecs="${codec}"`);
-    if(!copy&&(!(await track.canDecode())||!(await encodeAudio('opus'))))continue;
-    const combined=`video/mp4; codecs="${videoCodec},${copy?codec:'opus'}"`;
-    if(!supports(combined))continue;
-    audio=track;copyAudio=copy;mime=combined;break;
+    const type=codec?await track.getCodec():null;
+    const combined=(format,aCodec)=>`${format.mimeType}; codecs="${videoCodec},${aCodec}"`;
+    const copy=codec&&!['ac3','eac3','dts'].includes(type)&&formats.find(({format})=>format.getSupportedAudioCodecs().includes(type)&&supports(combined(format,codec)));
+    if(copy){audio=track;copyAudio=true;audioCodec=type;selected=copy;mime=combined(copy.format,codec);break;}
+    if(!(await track.canDecode()))continue;
+    // Some browsers accept Opus only in WebM, while others expose AAC encoding.
+    // Check the full output codec combination instead of assuming MP4 + Opus.
+    for(const candidate of formats){
+      for(const encoded of ['opus','aac']){
+        const parameter=encoded==='aac'?'mp4a.40.2':encoded;
+        if(!candidate.format.getSupportedAudioCodecs().includes(encoded)||!supports(combined(candidate.format,parameter))||!(await canEncode(encoded)))continue;
+        audio=track;audioCodec=encoded;selected=candidate;mime=combined(candidate.format,parameter);break;
+      }
+      if(audio)break;
+    }
+    if(audio)break;
   }
   if(choices.length&&!audio)throw new Error('No playable audio track is available on this device. Try another source or an external player.');
   const sink=new EncodedPacketSink(video);
   const first=await sink.getKeyPacket(startTime)||await sink.getFirstKeyPacket();
   if(!first)throw new Error('No usable video keyframe was found.');
-  const base=Math.max(0,first.timestamp);
+  // Audio packets commonly overlap the chosen video keyframe. Give both
+  // copied tracks one shared origin instead of creating negative mux timestamps
+  // or dropping/re-timing the overlapping audio packet during a seek.
+  const audioSink=audio&&copyAudio?new EncodedPacketSink(audio):null;
+  const firstAudio=audioSink?(startTime===0?await audioSink.getFirstPacket():await audioSink.getPacket(first.timestamp)||await audioSink.getFirstPacket()):null;
+  const base=firstAudio?Math.min(first.timestamp,firstAudio.timestamp):Math.max(0,first.timestamp);
   if(!supports(mime))throw new Error('Chrome cannot combine these tracks. Use an external player or server conversion.');
-  return {video,audio,audioTracks,copyAudio,sink,first,base,mime,duration:await input.getDurationFromMetadata()};
+  return {video,audio,audioTracks,copyAudio,audioCodec,format:selected.format,container:selected.container,sink,first,audioSink,firstAudio,base,mime,duration:await input.getDurationFromMetadata()};
 }
 
 export function stereoSample(sample) {
@@ -61,11 +85,13 @@ export function alignAudioSample(sample, base) {
 
 export async function pumpPipeline(plan,{target,signal,pace=async()=>{},onOutput=()=>{}}) {
   const {video,audio,copyAudio,sink,first,base}=plan;
-  const output=new Output({format:new Mp4OutputFormat({fastStart:'fragmented',minimumFragmentDuration:2}),target});
+  const output=new Output({format:plan.format,target});
   onOutput(output);
   const vSource=new EncodedVideoPacketSource(video.codec);
   output.addVideoTrack(vSource);
-  const aSource=audio?(copyAudio?new EncodedAudioPacketSource(audio.codec):new AudioSampleSource({codec:'opus',bitrate:160000})):null;
+  // Match the 48 kHz stereo configuration checked by canEncodeAudio. Source
+  // files may contain 96/192 kHz audio that the browser encoder cannot accept.
+  const aSource=audio?(copyAudio?new EncodedAudioPacketSource(audio.codec):new AudioSampleSource({codec:plan.audioCodec,bitrate:160000,transform:{sampleRate:48000,numberOfChannels:2}})):null;
   if(aSource)output.addAudioTrack(aSource);
   await output.start();
   const vConfig=await video.getDecoderConfig();
@@ -79,11 +105,11 @@ export async function pumpPipeline(plan,{target,signal,pace=async()=>{},onOutput
     if(!audio)return;
     try {
       if(copyAudio){
-        const aSink=new EncodedPacketSink(audio),config=await audio.getDecoderConfig();
-        const aFirst=await aSink.getPacket(base)||await aSink.getFirstPacket();
+        const aSink=plan.audioSink,config=await audio.getDecoderConfig();
+        const aFirst=plan.firstAudio;
         if(aFirst)for await(const packet of aSink.packets(aFirst)) {
           check(signal);await pace(packet.timestamp);check(signal);
-          if(packet.timestamp+packet.duration<=base)continue;
+          if(packet.timestamp<base&&packet.timestamp+packet.duration<=base)continue;
           await aSource.add(packet.clone({timestamp:packet.timestamp-base}),{decoderConfig:config});
         }
       }else{
@@ -103,7 +129,7 @@ export async function pumpPipeline(plan,{target,signal,pace=async()=>{},onOutput
 export function createAdapter(config) {
   const media=config.media;
   let destroyed=false,current=null,audioId='',tracks=[],duration=0;
-  const fail=error=>{if(!destroyed&&error?.name!=='AbortError')config.onError?.({type:'unsupported',detail:error?.message||'Compatibility playback failed.'});};
+  const fail=error=>{if(!destroyed&&error?.name!=='AbortError')config.onError?.({type:failureType(error),detail:error?.message||'Compatibility playback failed.'});};
   function disposeRun(){
     const run=current;current=null;if(!run)return;
     run.controller.abort();run.input.dispose();run.output?.cancel().catch(()=>{});
@@ -119,7 +145,11 @@ export function createAdapter(config) {
   }
   async function start(time=0,autoplay=true){
     disposeRun();if(destroyed)return;
-    const run={controller:new AbortController(),input:new Input({formats:ALL_FORMATS,source:new UrlSource(config.url,{maxCacheSize:16*1024*1024,parallelism:2,getRetryDelay:n=>n<1?1:null,requestInit:{credentials:'omit'}})})};current=run;
+    const run={controller:new AbortController(),input:new Input({formats:ALL_FORMATS,source:new UrlSource(config.url,{maxCacheSize:16*1024*1024,parallelism:2,getRetryDelay:n=>n<1?1:null,requestInit:{credentials:'omit'},fetchFn:(url,init)=>{
+      const requests=globalThis.AstraPlayback?.requests;
+      if(config.requestPolicy&&!requests)throw new Error('Stream request support did not load. Retry playback.');
+      return fetch(url,requests?requests.fetchInit(config.requestPolicy,url,init):init);
+    }})})};current=run;
     const signal=run.controller.signal;
     try {
     const plan=await preparePipeline(run.input,{startTime:time,audioId,supports:type=>MediaSource.isTypeSupported(type)});check(signal);
@@ -151,7 +181,9 @@ export function createAdapter(config) {
       // of AbortError. Do not let that stale attempt fail a newer seek/retry.
       const stale=current!==run||signal.aborted;
       if(current===run)disposeRun();
-      throw stale?cancelled():error;
+      if(stale)throw cancelled();
+      if(error&&typeof error==='object'&&!error.playbackType)error.playbackType=failureType(error);
+      throw error;
     }
   }
   config.scope?.listen?.(media,'error',()=>fail(new Error('Chrome could not decode the converted stream. This video may need server conversion.')));

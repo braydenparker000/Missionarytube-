@@ -41,7 +41,7 @@
     function toast(msg,type=''){const n=document.createElement('div');n.className='toast '+type;n.innerHTML=`<span data-icon="${type==='bad'?'alert':'spark'}"></span><div>${esc(msg)}</div>`;hydrateIcons(n);const host=$('#toastRoot');host.replaceChildren(n);setTimeout(()=>n.remove(),4600)}
     function normalizeManifestUrl(raw){let s=String(raw||'').trim();if(!s)throw Error('Paste an add-on manifest URL.');if(s.startsWith('stremio://'))s='https://'+s.slice(10);if(!/^https?:\/\//i.test(s))s='https://'+s;const u=new URL(s);if(u.protocol!=='https:'&&u.hostname!=='127.0.0.1'&&u.hostname!=='localhost')throw Error('Remote add-ons must use HTTPS.');if(!u.pathname.endsWith('manifest.json'))u.pathname=u.pathname.replace(/\/$/,'')+'/manifest.json';return u.href}
     function addonBase(url){return url.replace(/\/manifest\.json(?:\?.*)?$/,'')}
-    async function fetchJSON(url,timeout=14000){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);try{const r=await fetch(url,{mode:'cors',signal:ctrl.signal,headers:{Accept:'application/json'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return await r.json()}catch(e){if(e.name==='AbortError')throw Error('Request timed out');throw e}finally{clearTimeout(timer)}}
+    async function fetchJSON(url,timeout=14000,options={}){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);try{const r=await fetch(url,{...options,mode:'cors',signal:ctrl.signal,headers:{Accept:'application/json'}});if(!r.ok)throw Error(`HTTP ${r.status}`);return await r.json()}catch(e){if(e.name==='AbortError')throw Error('Request timed out');throw e}finally{clearTimeout(timer)}}
     let healthPersistTimer;
     function addonHealthKey(addon){return AstraDiscovery.providerKey(addon)}
     function addonHealthName(addon){
@@ -56,7 +56,7 @@
     async function fetchAddonJSON(addon,kind,url,timeout=14000,validate){
       if(typeof timeout==='function'){validate=timeout;timeout=14000}
       const started=Date.now();
-      try{const data=await fetchJSON(url,timeout);if(validate&&!validate(data))throw Error(`Invalid ${kind} response`);recordAddonHealth(addon,kind,true,started);return data}
+      try{const data=await fetchJSON(url,timeout,kind==='stream'?{cache:'no-cache'}:{});if(validate&&!validate(data))throw Error(`Invalid ${kind} response`);recordAddonHealth(addon,kind,true,started);return data}
       catch(error){recordAddonHealth(addon,kind,false,started,error);throw error}
     }
     function hasResource(m,name,type,id){return (m.resources||[]).some(r=>{if(typeof r==='string')return r===name;if(r.name!==name)return false;if(r.types?.length&&type&&!r.types.includes(type))return false;if(r.idPrefixes?.length&&id&&!r.idPrefixes.some(p=>String(id).startsWith(p)))return false;return true})}
@@ -1423,8 +1423,10 @@
       player.meta=m;player.video=v;
       // One Play flow. Repair known problem audio up front; retain a bounded
       // native fallback for hosts that allow <video> but reject fetch/CORS.
-      player.compatibility=options.compatibility??(canRepairPlayback(s)&&/^(E-?AC-?3|AC-?3|DTS)/i.test(s.facts.audioCodec||''));
+      player.compatibility=options.compatibility??(canRepairPlayback(s)&&(s.requestPolicy?.required||/^(E-?AC-?3|AC-?3|DTS)/i.test(s.facts.audioCodec||'')));
       player.triedModes=[...(options.triedModes||[]),player.compatibility?'compatibility':'native'];
+      player.diagnostics=options.diagnostics||PB.diagnostics.create();
+      player.diagnostics.select(s);
       // Music and genuinely audio-only streams use the persistent audio
       // surface. Movies, series and anime always use Player v3.
       player.audioMode=AstraHub.isAudio(m.type)||!!s.facts.audioOnly;
@@ -1446,6 +1448,7 @@
         candidates:(ladder||[entry]).map(item=>({id:candidateKey(item),stream:item.stream,evaluation:item.evaluation,entry:item})),
         resumeTime,
         startupTimeoutMs:player.compatibility?45000:undefined,
+        readPlaybackState:attemptId=>{const el=$('#mediaEl');return el&&player.session?.snapshot().attemptId===attemptId?{currentTime:el.currentTime,paused:el.paused,seeking:el.seeking,ended:el.ended}:null},
         autoFailover:!!ladder,
         maxAttempts:ladder?ladder.length:PB.engine.DEFAULT_MAX_ATTEMPTS,
         onAttempt:startAttempt,onChange:renderPlayerState
@@ -1548,7 +1551,8 @@
       const el=$('#mediaEl');el.playbackRate=playbackRate;
       if(audioOnly)bindAudioSurface(el,scope);else bindVideoSurface(el,scope);
       const caps=capsNow();
-      const adapterKind=player.compatibility?'compatibility':PB.adapters.adapterKindFor(s.kind,caps);
+      const adapterKind=player.compatibility?'compatibility':PB.adapters.adapterKindFor(s.kind,caps,s.requestPolicy);
+      player.diagnostics?.record('start',{engine:adapterKind,currentTime:resumeTime});
 
       // Two different reasons to seek on start. Resuming from history stops
       // short of the end, because restarting something already finished is
@@ -1558,10 +1562,15 @@
       const seekTarget=switching?player.pendingSeek:resumeTime>0?resumeTime:0;
       player.pendingSeek=null;
 
-      scope.listen(el,'playing',()=>report('ready'));
+      const playbackPosition=()=>({currentTime:el.currentTime,paused:el.paused,seeking:el.seeking});
+      scope.listen(el,'playing',()=>{report('ready',playbackPosition());player.diagnostics?.record('playing',{engine:adapterKind,currentTime:el.currentTime})});
       // Metadata is not playback. Keep the startup deadline until frames can
       // actually be presented; canplay also allows a user to resume autoplay.
-      scope.listen(el,'canplay',()=>report('ready'));
+      scope.listen(el,'canplay',()=>report('ready',playbackPosition()));
+      for(const event of ['play','pause','waiting','seeking','seeked','ended'])scope.listen(el,event,()=>{
+        report(event,playbackPosition());
+        if(event!=='play')player.diagnostics?.record(event==='waiting'?'buffering':event==='pause'?'paused':event,{engine:adapterKind,currentTime:el.currentTime});
+      });
       scope.listen(el,'loadedmetadata',()=>{
         if(adapterKind!=='compatibility'&&seekTarget>0&&Number.isFinite(el.duration)){
           const limit=switching?el.duration-1:el.duration*.93;
@@ -1570,7 +1579,7 @@
       });
       let lastWrite=0;
       scope.listen(el,'timeupdate',()=>{
-        report('progress',{currentTime:el.currentTime});
+        report('progress',playbackPosition());
         if(Date.now()-lastWrite<4000||!Number.isFinite(el.duration))return;
         lastWrite=Date.now();progress.record(m,v,{time:el.currentTime,duration:el.duration});
       });
@@ -1589,7 +1598,7 @@
         .then(()=>{
           if(!live()||scope.disposed)return;
           const create=adapterKind==='compatibility'?(_kind,config)=>AstraCompatibility.createAdapter(config):PB.adapters.createAdapter;
-          player.adapter=create(adapterKind,{media:el,scope,url:s.url,startTime:seekTarget,Hls:window.Hls,dashjs:window.dashjs,onError:e=>report('error',e),onAudioTracksChanged:tracks=>{if(live()&&!scope.disposed)refreshAudioTracks(tracks)},onVideoQualitiesChanged:()=>{if(live()&&!scope.disposed&&player.session)renderTools(player.session.snapshot())}});
+          player.adapter=create(adapterKind,{media:el,scope,url:s.url,requestPolicy:s.requestPolicy,startTime:seekTarget,Hls:window.Hls,dashjs:window.dashjs,onError:e=>report('error',e),onAudioTracksChanged:tracks=>{if(live()&&!scope.disposed)refreshAudioTracks(tracks)},onVideoQualitiesChanged:()=>{if(live()&&!scope.disposed&&player.session)renderTools(player.session.snapshot())}});
           return player.adapter.attach();
         })
         .then(()=>{if(live()&&!scope.disposed)attachSubtitles(el,s,m,v,scope,live)});
@@ -1684,11 +1693,16 @@
     }
 
     function activePlayerCandidate(snap){return snap?.candidate||snap?.lastFailure?.candidate||null}
+    function playbackReport(){return player.diagnostics?.report({release:APP_VERSION,media:$('#mediaEl'),capabilities:{mediaSource:!!window.MediaSource,webCodecs:!!window.VideoDecoder}})||'No playback attempt recorded.'}
+    async function copyPlaybackReport(){
+      try{await navigator.clipboard.writeText(playbackReport());toast('Playback report copied. Stream links and credentials are excluded.','good')}
+      catch{openTrackMenu('diagnostics');toast('Chrome blocked copying. You can select the report below.')}
+    }
     function canRepairPlayback(s){return !!(s?.kind==='direct'&&s.urlSafe&&!s.facts?.audioOnly&&!player.youtube&&window.MediaSource)}
     function recoveryMode(snap){
       const s=activePlayerCandidate(snap)?.stream,tried=player.triedModes||[player.compatibility?'compatibility':'native'];
       if(!canRepairPlayback(s))return null;
-      if(player.compatibility)return tried.includes('native')?null:'native';
+      if(player.compatibility)return s.requestPolicy?.required||tried.includes('native')?null:'native';
       return !tried.includes('compatibility')&&['decode','unsupported','timeout'].includes(snap.lastFailure?.kind)?'compatibility':null;
     }
     function renderPlayerState(snap){
@@ -1714,12 +1728,14 @@
       // Terminal: release the media element, library instance and listeners now
       // rather than waiting for a retry, a switch, or the viewer closing up.
       if(snap.state==='failed'||snap.state==='exhausted'){
+        player.diagnostics?.record('failure',{engine:player.adapter?.kind||(player.compatibility?'compatibility':'native'),currentTime:snap.resumeTime,failure:snap.lastFailure});
         teardownAttempt();
         if(snap.state==='exhausted'&&youtubeMaybeRefresh())return;
         const mode=recoveryMode(snap),entry=activePlayerCandidate(snap)?.entry?.entry,session=player.session;
         if(mode&&entry){
           status.innerHTML='<div class="status-card" role="status"><span class="spinner"></span><div><b>Adjusting playback…</b><span>Trying another way to play this same source.</span></div></div>';
-          queueMicrotask(()=>{if(player.session===session)openPlayer(entry,{compatibility:mode==='compatibility',triedModes:player.triedModes,resumeAt:snap.resumeTime})});return;
+          player.diagnostics?.record('repair',{engine:mode});
+          queueMicrotask(()=>{if(player.session===session)openPlayer(entry,{compatibility:mode==='compatibility',triedModes:player.triedModes,resumeAt:snap.resumeTime,diagnostics:player.diagnostics})});return;
         }
         renderPlayerError(snap);renderTools(snap);return;
       }
@@ -1753,7 +1769,7 @@
       stage.innerHTML=`<div class="player-error">
         <div class="error-kind">Playback paused</div>
         <h2>This stream couldn’t play</h2>
-        <p>${esc(failure?.kind==='network'?'The source is not responding. Retry it or choose another source.':failure?.kind==='timeout'?'The source took too long to start. Retry it or choose another source.':(player.triedModes||[]).includes('compatibility')?'Automatic repair could not make this stream playable in Chrome.':'Chrome could not play this stream. Try it again or choose another source.')}</p>
+        <p>${esc(failure?.kind==='network'?'Chrome could not read this stream. Retry it or choose another source.':failure?.kind==='timeout'?'Playback stopped making progress. Retry it or choose another source.':(player.triedModes||[]).includes('compatibility')?'Automatic repair could not make this stream playable in Chrome.':'Chrome could not play this stream. Try it again or choose another source.')}</p>
         ${failed?`<div class="failed-source">${esc(failed.addonName||failed.sourceName||'Selected source')}</div>`:''}
         <div class="error-actions">
           <button class="btn btn-primary" data-player-action="retry">${icon('play')} Retry</button>
@@ -1762,7 +1778,7 @@
         </div><div class="error-actions error-secondary">
           ${failed?.kind==='direct'&&failed.urlSafe&&!player.audioMode&&!player.youtube?'<button class="btn btn-ghost" data-player-action="external-player">Open in VLC</button>':''}
           <button class="btn btn-ghost" data-close-player>Close</button>
-        </div>${failure?`<details class="playback-details"><summary>What happened?</summary><p>${esc(failure.detail||failure.text)}</p></details>`:''}</div>`;
+        </div>${failure?`<details class="playback-details"><summary>What happened?</summary><p>${esc(PB.diagnostics.describe(failure))}</p><button class="btn btn-ghost" data-player-action="refresh">Refresh sources</button><button class="btn btn-ghost" data-player-action="diagnostics">Copy playback report</button></details>`:''}</div>`;
       bindDynamic(stage);
       clearTimeout(player.noticeTimer);player.noticeTimer=null;player.notice=null;
       if(status)status.innerHTML='';
@@ -1809,7 +1825,9 @@
     }
     function playerAction(action){
       const session=player.session;
-      if(action==='compatibility'){const snap=session?.snapshot(),entry=activePlayerCandidate(snap)?.entry?.entry;if(entry){const time=$('#mediaEl')?.currentTime??snap.resumeTime;openPlayer(entry,{compatibility:true,triedModes:player.triedModes,resumeAt:time})}return}
+      if(action==='diagnostics'){copyPlaybackReport();return}
+      if(action==='refresh'){const videoId=player.video?.id||state.currentVideo?.id,yt=player.youtube,m=state.currentMeta;closePlayer(true);if(m)showDetail(m,false);if(yt&&m)loadYouTubeSources(m,yt.videoId,{fresh:true});else if(videoId)loadStreams(videoId);return}
+      if(action==='compatibility'){const snap=session?.snapshot(),entry=activePlayerCandidate(snap)?.entry?.entry;if(entry){const time=$('#mediaEl')?.currentTime??snap.resumeTime;player.diagnostics?.record('repair',{engine:'compatibility',currentTime:time});openPlayer(entry,{compatibility:true,triedModes:player.triedModes,resumeAt:time,diagnostics:player.diagnostics})}return}
       if(action==='external-player'){const s=activePlayerCandidate(session?.snapshot())?.stream;if(s?.urlSafe&&s.kind==='direct'){const url=new URL(s.url);url.hash='';if(/Android/i.test(navigator.userAgent))location.href='intent:'+url.href.slice(url.protocol.length)+'#Intent;scheme='+url.protocol.slice(0,-1)+';package=org.videolan.vlc;type=video/*;end';else window.open(url.href,'_blank','noopener,noreferrer')}return}
       if(player.menu&&['fit','pip','mini-video','mute','fullscreen'].includes(action))closeTrackMenu(true);
       if(action==='pip'){pictureInPicture();return}
@@ -1826,7 +1844,7 @@
       if(action==='lock'){player.locked=!player.locked;const shell=$('#playerShell');shell?.classList.toggle('locked',player.locked);shell?.classList.remove('idle');closeTrackMenu();if(player.locked)clearTimeout(player.idleTimer);else armIdleHide();return}
       if(action==='choose'){closePlayer();const root=$('#streamRoot');if(root){renderStreams();root.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'})}return}
       if(!session)return;
-      if(action==='retry'){if(player.youtube){const yt=player.youtube,m=state.currentMeta;closePlayer(true);showDetail(m,false);loadYouTubeSources(m,yt.videoId,{fresh:true})}else{player.triedModes=[player.compatibility?'compatibility':'native'];session.retry();}}
+      if(action==='retry'){player.diagnostics?.record('retry');if(player.youtube){const yt=player.youtube,m=state.currentMeta;closePlayer(true);showDetail(m,false);loadYouTubeSources(m,yt.videoId,{fresh:true})}else{player.triedModes=[player.compatibility?'compatibility':'native'];session.retry();}}
       if(action==='next')session.tryNext();
     }
     function closePlayer(silent){
@@ -1936,13 +1954,16 @@
       closeTrackMenu(true);
       const modal=$('.player-modal');if(!modal)return;
       const menu=document.createElement('div');menu.className='track-menu track-sheet';menu.id='trackMenu';
-      if(kind==='options'){
+      if(kind==='diagnostics'){
+        menu.innerHTML=`<div class="track-sheet-head"><h4>Playback details</h4><button class="icon-btn" data-track-menu="diagnostics" aria-label="Close playback details">${icon('close')}</button></div><p class="track-empty">This report contains playback events and media formats. Stream links, titles, and credentials are excluded.</p><pre class="playback-report" tabindex="0">${esc(playbackReport())}</pre><button class="track-option" data-player-action="diagnostics">Copy playback report</button>`;
+      }else if(kind==='options'){
         const snap=player.session?.snapshot(),s=activePlayerCandidate(snap)?.stream;
         const qualities=qualityOptions(),tracks=player.adapter?.getAudioTracks?.()||[];
         const episodic=PB.episodes.isEpisodic(player.meta);
         const prev=episodic&&PB.episodes.previousEpisode(player.meta.videos,player.video.id),next=episodic&&PB.episodes.nextEpisode(player.meta.videos,player.video.id);
         menu.innerHTML=`<div class="track-sheet-head"><h4>Player options</h4><button class="icon-btn" data-track-menu="options" aria-label="Close player options">${icon('close')}</button></div><div class="track-options">
           <button class="track-option" data-player-action="choose">Choose source ${icon('link')}</button>
+          <button class="track-option" data-player-action="refresh">Refresh sources</button>
           ${tracks.length||canRepairPlayback(s)||audioAlternateSources().length?'<button class="track-option" data-track-menu="audio">Audio tracks</button>':''}
           ${qualities.length>1?'<button class="track-option" data-track-menu="quality">Video quality</button>':''}
           <button class="track-option" data-track-menu="speed">Playback speed <b>${playbackRate}×</b></button>
@@ -1952,6 +1973,7 @@
           ${canRepairPlayback(s)&&!player.compatibility?'<button class="track-option" data-player-action="compatibility">Fix picture or sound</button>':''}
           ${prev?'<button class="track-option" data-episode-nav="prev">Previous episode</button>':''}
           ${next?'<button class="track-option" data-episode-nav="next">Next episode</button>':''}
+          <button class="track-option" data-track-menu="diagnostics">Playback details</button>
         </div>`;
       }else if(kind==='speed'){
         menu.innerHTML=`<div class="track-sheet-head"><h4>Playback speed</h4><button class="icon-btn" data-track-menu="speed" aria-label="Close playback speed">${icon('close')}</button></div><div class="track-options">${[.5,.75,1,1.25,1.5,1.75,2].map(rate=>`<button class="track-option ${rate===playbackRate?'active':''}" data-speed="${rate}">${rate}× ${rate===1?'Normal':''}${rate===playbackRate?icon('check'):''}</button>`).join('')}</div>`;

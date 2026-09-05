@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
-const MODULES = ["settings", "streams", "adapters", "engine", "episodes", "subtitles"];
+const MODULES = ["settings", "request-policy", "diagnostics", "streams", "adapters", "engine", "episodes", "subtitles"];
 
 /**
  * Evaluate the shipped playback modules in one isolated context, in the same
@@ -14,6 +14,10 @@ export async function loadPlayback() {
     clearTimeout,
     console,
     URL,
+    Headers,
+    Request,
+    AbortController,
+    TextDecoder,
     Blob,
     Promise,
     fetch: undefined
@@ -232,6 +236,10 @@ export function createDashDouble({ api = "v5" } = {}) {
               if (video !== undefined) this.settings.streaming.abr.autoSwitchBitrate.video = video;
             },
             handlers: new Map(),
+            extensions: new Map(),
+            extend(name, factory, override) {
+              this.extensions.set(name, {factory, override});
+            },
             initialized: null,
             resets: 0,
             destroys: 0,
