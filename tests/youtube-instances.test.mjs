@@ -389,3 +389,29 @@ test("instance validation rejects accidentally nested URLs and retains local dev
  assert.equal(YT.config.normalizeInstance("https://https://relay.example.test"), "");
  assert.equal(YT.config.normalizeInstance("http://localhost:3000/api/youtube"), "http://localhost:3000/api/youtube");
 });
+
+
+test("explicit retry tests a cooled server once, while normal requests and rapid retries stay bounded",async()=>{
+ const clock=createClock();let healthy=false;
+ const {manager,fetch}=createManager(YT,{config:{...TEST_CONFIG,privateInstanceUrl:PRIVATE_INSTANCE,publicFallbackInstances:[PRIVATE_INSTANCE]},clock,routes:{[PRIVATE_INSTANCE]:()=>healthy?ok(STATS):down(502)}});
+ await assert.rejects(manager.request('/api/v1/stats'));
+ const count=fetch.calls.length;
+ await assert.rejects(manager.request('/api/v1/stats'));
+ assert.equal(fetch.calls.length,count);
+ await assert.rejects(manager.request('/api/v1/stats',{retry:true}));
+ assert.equal(fetch.calls.length,count+1);
+ await assert.rejects(manager.request('/api/v1/stats',{retry:true}));
+ assert.equal(fetch.calls.length,count+1);
+ clock.advance(5000);healthy=true;
+ await manager.request('/api/v1/stats',{retry:true});
+ assert.equal(fetch.calls.length,count+2);
+});
+
+
+test("explicit retries respect a server rate limit",async()=>{
+ const {manager,fetch}=createManager(YT,{config:{...TEST_CONFIG,privateInstanceUrl:PRIVATE_INSTANCE,publicFallbackInstances:[PRIVATE_INSTANCE]},routes:{[PRIVATE_INSTANCE]:()=>down(429)}});
+ await assert.rejects(manager.request('/api/v1/stats'));
+ const count=fetch.calls.length;
+ await assert.rejects(manager.request('/api/v1/stats',{retry:true}));
+ assert.equal(fetch.calls.length,count);
+});

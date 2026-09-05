@@ -11,7 +11,10 @@
     "test:browser": "node tests/browser/youtube-flow.mjs"
   },
   "dependencies": {
-    "gsap": "3.15.0"
+    "@mediabunny/ac3": "1.55.7",
+    "@mediabunny/dts": "1.55.7",
+    "gsap": "3.15.0",
+    "mediabunny": "1.55.7"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

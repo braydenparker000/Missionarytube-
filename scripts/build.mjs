@@ -39,6 +39,14 @@ await build({
   banner: { js: "/*! Astra Motion · GSAP 3.15.0 · https://gsap.com/licensing/ */" }
 });
 
+// Load the container/audio compatibility stack only when playback needs it.
+await build({
+  entryPoints: [new URL("../src/compatibility-player.js", import.meta.url).pathname],
+  outfile: new URL("../dist/assets/js/playback/compatibility.js", import.meta.url).pathname,
+  bundle: true, minify: true, format: "iife", target: ["chrome120"], legalComments: "inline",
+  banner: {js: "/*! Mediabunny + AC3/DTS 1.55.7 · MPL-2.0 · See assets/licenses/mediabunny.txt */"}
+});
+
 // The release meta value is Astra's single version source. Source files keep a
 // readable placeholder; the production build gives every local asset the same
 // cache key and refuses to ship an unresolved or malformed release.
@@ -60,3 +68,26 @@ if (!builtFiles.includes("index.html")) {
 }
 
 console.log(`Built ${join("dist")} with ${builtFiles.length} top-level entr${builtFiles.length === 1 ? "y" : "ies"}.`);
+
+// Small generated fixtures make device playback checks reproducible.
+const checksDir=new URL('../dist/assets/playback-check/',import.meta.url);
+await mkdir(checksDir,{recursive:true});
+for(const name of ['avc-aac','avc-ac3','avc-eac3','avc-dts']) {
+  const encoded=await readFile(new URL(`../tests/fixtures/media/${name}.mkv.base64`,import.meta.url),'utf8');
+  await writeFile(new URL(`${name}.mkv`,checksDir),Buffer.from(encoded,'base64'));
+}
+// A tiny diagnostic add-on exercises the same picker and Player V3 as real
+// providers. It is never installed automatically and contains generated clips.
+const checkAddon=new URL('addon/',checksDir);
+await mkdir(checkAddon,{recursive:true});
+await writeFile(new URL('manifest.json',checkAddon),JSON.stringify({id:'org.astra.playback-check',version:'1.0.0',name:'Astra Playback Checks',description:'Generated four-second clips for browser compatibility checks.',types:['video'],resources:['catalog','meta','stream'],idPrefixes:['astra-check-'],catalogs:[{type:'video',id:'checks',name:'Playback Checks'}]}));
+const checkItems=[];
+for(const codec of ['aac','ac3','eac3','dts']) {
+  const id='astra-check-'+codec,meta={id,type:'video',name:'Playback '+codec.toUpperCase(),description:'Generated test pattern and audio tone. Four seconds.'};checkItems.push(meta);
+  for(const resource of ['meta','stream']) {
+    const dir=new URL(`${resource}/video/`,checkAddon);await mkdir(dir,{recursive:true});
+    await writeFile(new URL(id+'.json',dir),JSON.stringify(resource==='meta'?{meta}:{streams:[{name:'MKV '+codec.toUpperCase(),title:'Generated AVC + '+codec.toUpperCase(),url:'https://missionarytube.z13.web.core.windows.net/assets/playback-check/avc-'+codec+'.mkv',behaviorHints:{filename:codec+'.mkv'}}]}));
+  }
+}
+const checkCatalog=new URL('catalog/video/',checkAddon);await mkdir(checkCatalog,{recursive:true});
+await writeFile(new URL('checks.json',checkCatalog),JSON.stringify({metas:checkItems}));

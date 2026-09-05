@@ -113,7 +113,7 @@ test("a YouTube video resolves into ordinary Astra streams, in the same picker",
 });
 
 test("the ladder is one session, so a failed delivery falls to the next", () => {
-  const open = region(/function openPlayer\(entry\)\{[\s\S]*?\n {4}\}/);
+  const open = region(/function openPlayer\(entry,options=\{\}\)\{[\s\S]*?\n {4}\}/);
   assert.match(open, /const ladder=isYouTubeEntry\(entry\)\?player\.sources\.filter\(isYouTubeEntry\):null/);
   assert.match(open, /autoFailover:!!ladder/);
   assert.match(open, /maxAttempts:ladder\?ladder\.length:PB\.engine\.DEFAULT_MAX_ATTEMPTS/,

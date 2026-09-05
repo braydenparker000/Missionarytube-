@@ -627,7 +627,7 @@
      * request when the last caller lets go, so a cancelled keystroke cannot
      * kill a request another part of the UI is still waiting for.
      */
-    function run(key, describe, signal, requestManager) {
+    function run(key, describe, signal, requestManager, retry) {
       var cached = cache.get(key);
       if (cached !== undefined) return Promise.resolve({ cached: true, value: cached });
 
@@ -637,7 +637,8 @@
         entry = { controller: controller, refs: 0, promise: null };
         entry.promise = (requestManager || manager)
           .request(describe, {
-            signal: controller ? controller.signal : undefined
+            signal: controller ? controller.signal : undefined,
+            retry: retry === true
           })
           .then(
             function (result) {
@@ -813,6 +814,7 @@
         return Promise.reject(errorFor("content", "That is not a YouTube video id."));
       }
       var key = "video|" + id;
+      if (request.retry) cache.drop(key);
       return run(
         key,
         function (instance) {
@@ -822,7 +824,8 @@
           return { path: "/api/v1/videos/" + id, params: null, validate: isVideoBody };
         },
         request.signal,
-        playbackManager
+        playbackManager,
+        request.retry
       ).then(function (outcome) {
         if (outcome.cached) return outcome.value;
         var result = outcome.value;
