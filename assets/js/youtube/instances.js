@@ -45,15 +45,15 @@
   };
 
   var FAILURE_TEXT = {
-    timeout: "The Invidious server did not answer in time.",
-    network: "The Invidious server could not be reached.",
-    forbidden: "The Invidious server refused the request.",
-    "rate-limited": "The Invidious server is rate limiting requests.",
-    server: "The Invidious server reported an internal error.",
-    malformed: "The Invidious server returned an unusable response.",
-    "not-found": "The Invidious server does not offer that endpoint.",
+    timeout: "The YouTube server did not answer in time.",
+    network: "The YouTube server could not be reached.",
+    forbidden: "The YouTube server refused the request.",
+    "rate-limited": "The YouTube server is rate limiting requests.",
+    server: "The YouTube server reported an internal error.",
+    malformed: "The YouTube server returned an unusable response.",
+    "not-found": "The YouTube server does not offer that endpoint.",
     content: "YouTube would not return this video.",
-    "no-instance": "No Invidious server is currently available.",
+    "no-instance": "No YouTube server is currently available.",
     aborted: "The request was cancelled."
   };
 
@@ -413,9 +413,23 @@
      * instance for `/streams/ID` and an Invidious one for `/api/v1/videos/ID`,
      * and the caller finds out which answered from `api` on the result.
      */
+    var lastRecoveryAttempt = -Infinity;
     function request(describe, options) {
       var settings = options || {};
       var candidates = orderedRecords();
+      // An explicit retry may test one cooled server, without resetting the
+      // whole pool or defeating a rate-limit response. Rapid taps stay bounded.
+      if (settings.retry === true && now() - lastRecoveryAttempt >= 5000) {
+        var retryable = Object.values(health).filter(function(entry) {
+          return cooling(entry) && entry.lastError !== FAILURE.RATE_LIMITED;
+        }).sort(function(a,b) {
+          return (b.kind === "private") - (a.kind === "private") || a.cooldownUntil - b.cooldownUntil;
+        })[0];
+        if (retryable) {
+          lastRecoveryAttempt = now();
+          candidates.unshift({url:retryable.url,api:retryable.api,kind:retryable.kind});
+        }
+      }
       if (!candidates.length) {
         return Promise.reject(providerError(FAILURE.NO_INSTANCE, "", { attempts: 0 }));
       }

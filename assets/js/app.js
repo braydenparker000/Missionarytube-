@@ -994,7 +994,7 @@
     function youtubeErrorText(error){
       if(!error)return 'YouTube playback is temporarily unavailable.';
       if(error.kind==='content')return error.message||'YouTube would not return this video.';
-      if(error.kind==='no-instance')return 'No Invidious server is available right now. They are all resting after a failure.';
+      if(error.kind==='no-instance')return 'The YouTube servers recently failed. Tap Try again to test a fresh connection.';
       if(error.kind)return YT.instances.describeFailure(error.kind);
       return 'YouTube playback is temporarily unavailable.';
     }
@@ -1104,7 +1104,7 @@
       if(!youtubeEnabled())return fail('YouTube is turned off','Turn YouTube on in Settings to resolve and play videos.',false);
       try{
         if(options.fresh)youtubeProvider().client.forget(videoId);
-        const record=await youtubeProvider().client.video(videoId);
+        const record=await youtubeProvider().client.video(videoId,{retry:!!options.fresh});
         if(stale())return[];
         const plan=YT.playback.buildPlan(record,{
           config:youtubeConfig(),instance:record.instance,
@@ -1116,7 +1116,7 @@
               ?'This video has not premiered yet, so YouTube offers no stream for it.'
               :plan.problems.includes('no-mse')
                 ?'Only separate audio and video streams are offered, and this browser cannot combine them.'
-                :'The Invidious server returned no stream this browser can play.',true);
+                :'The YouTube server returned no usable playback link.',true);
         }
         const raw=YT.playback.toStreams(plan,record);
         state.currentStreams=raw;
@@ -1410,7 +1410,7 @@
     }
 
     /* ---- player shell --------------------------------------------------- */
-    function openPlayer(entry){
+    function openPlayer(entry,options={}){
       if(!entry)return;
       if(player.youtube&&YT.playback.planExpired(player.youtube.plan)&&youtubeMaybeRefresh())return;
       player.lookup=null;hideStreamDrawer();
@@ -1420,13 +1420,13 @@
       if(s.kind==='external'){const u=s.externalUrl;if(!u||!entry.evaluation||entry.evaluation.state==='unsafe')return toast('That external link is not safe to open.','bad');window.open(u,'_blank','noopener');return}
       if(s.kind==='torrent'){showTorrent(s);return}
       closePlayer(true);
-      player.meta=m;player.video=v;
+      player.meta=m;player.video=v;player.compatibility=!!options.compatibility;
       // Music and genuinely audio-only streams use the persistent audio
       // surface. Movies, series and anime always use Player v3.
       player.audioMode=AstraHub.isAudio(m.type)||!!s.facts.audioOnly;
       player.audioDocked=false;
       const saved=videoProgress(m,v.id);
-      const resumeTime=saved&&!saved.completed&&saved.duration&&saved.time<saved.duration*.93?saved.time:0;
+      const resumeTime=Number.isFinite(options.resumeAt)?options.resumeAt:saved&&!saved.completed&&saved.duration&&saved.time<saved.duration*.93?saved.time:0;
       renderPlayerShell();
       // The session carries exactly the source that was tapped. Astra does not
       // fall through to another one on its own; a failure shows what happened
@@ -1441,6 +1441,7 @@
       player.session=PB.engine.createSession({
         candidates:(ladder||[entry]).map(item=>({id:candidateKey(item),stream:item.stream,evaluation:item.evaluation,entry:item})),
         resumeTime,
+        startupTimeoutMs:player.compatibility?45000:undefined,
         autoFailover:!!ladder,
         maxAttempts:ladder?ladder.length:PB.engine.DEFAULT_MAX_ATTEMPTS,
         onAttempt:startAttempt,onChange:renderPlayerState
@@ -1543,7 +1544,7 @@
       const el=$('#mediaEl');el.playbackRate=playbackRate;
       if(audioOnly)bindAudioSurface(el,scope);else bindVideoSurface(el,scope);
       const caps=capsNow();
-      const adapterKind=PB.adapters.adapterKindFor(s.kind,caps);
+      const adapterKind=player.compatibility?'compatibility':PB.adapters.adapterKindFor(s.kind,caps);
 
       // Two different reasons to seek on start. Resuming from history stops
       // short of the end, because restarting something already finished is
@@ -1555,7 +1556,7 @@
 
       scope.listen(el,'playing',()=>report('ready'));
       scope.listen(el,'loadedmetadata',()=>{
-        if(seekTarget>0&&Number.isFinite(el.duration)){
+        if(adapterKind!=='compatibility'&&seekTarget>0&&Number.isFinite(el.duration)){
           const limit=switching?el.duration-1:el.duration*.93;
           if(seekTarget<limit){try{el.currentTime=seekTarget}catch{}}
         }
@@ -1576,12 +1577,13 @@
       });
 
       // Load the pinned runtime first, then build the adapter exactly once.
-      const needsLibrary=adapterKind==='hls'?loadHls():adapterKind==='dash'?loadDash():Promise.resolve();
+      const needsLibrary=adapterKind==='hls'?loadHls():adapterKind==='dash'?loadDash():adapterKind==='compatibility'?loadCompatibility():Promise.resolve();
       return needsLibrary
         .catch(e=>{const err=new Error(e&&e.message||'The playback library could not be loaded');err.playbackType='library';throw err})
         .then(()=>{
           if(!live()||scope.disposed)return;
-          player.adapter=PB.adapters.createAdapter(adapterKind,{media:el,scope,url:s.url,Hls:window.Hls,dashjs:window.dashjs,onError:e=>report('error',e),onAudioTracksChanged:tracks=>{if(live()&&!scope.disposed)refreshAudioTracks(tracks)},onVideoQualitiesChanged:()=>{if(live()&&!scope.disposed&&player.session)renderTools(player.session.snapshot())}});
+          const create=adapterKind==='compatibility'?(_kind,config)=>AstraCompatibility.createAdapter(config):PB.adapters.createAdapter;
+          player.adapter=create(adapterKind,{media:el,scope,url:s.url,startTime:seekTarget,Hls:window.Hls,dashjs:window.dashjs,onError:e=>report('error',e),onAudioTracksChanged:tracks=>{if(live()&&!scope.disposed)refreshAudioTracks(tracks)},onVideoQualitiesChanged:()=>{if(live()&&!scope.disposed&&player.session)renderTools(player.session.snapshot())}});
           return player.adapter.attach();
         })
         .then(()=>{if(live()&&!scope.disposed)attachSubtitles(el,s,m,v,scope,live)});
@@ -1643,7 +1645,7 @@
       const scrub=$('#videoScrub');
       if(scrub){
         scope.listen(scrub,'pointerdown',()=>clearTimeout(player.idleTimer));
-        scope.listen(scrub,'change',()=>{const t=AstraAudio.seekTarget(el,Number(scrub.value)/1000);if(Number.isFinite(t))try{el.currentTime=t}catch{}paint();armIdleHide()});
+        scope.listen(scrub,'change',()=>{const t=AstraAudio.seekTarget(el,Number(scrub.value)/1000);if(Number.isFinite(t))try{if(player.adapter?.seekTo)player.adapter.seekTo(t);else el.currentTime=t}catch{}paint();armIdleHide()});
       }
       paint();syncVideoPlayState(el);
     }
@@ -1656,8 +1658,8 @@
     }
     function hasSeekRange(el){try{return Array.from({length:el.seekable.length},(_,i)=>el.seekable.end(i)-el.seekable.start(i)).some(span=>span>0)}catch{return false}}
     function seekVideo(delta){
-      const el=$('#mediaEl');if(!el||!Number.isFinite(el.duration))return;if(!hasSeekRange(el)){toast('This source does not support seeking yet.');return;}
-      try{el.currentTime=Math.max(0,Math.min(el.duration,(Number(el.currentTime)||0)+delta))}catch{return}
+      const el=$('#mediaEl');if(!el||!Number.isFinite(el.duration))return;if(!player.adapter?.seekTo&&!hasSeekRange(el)){toast('This source does not support seeking yet.');return;}
+      try{const target=Math.max(0,Math.min(el.duration,(Number(el.currentTime)||0)+delta));if(player.adapter?.seekTo)player.adapter.seekTo(target);else el.currentTime=target}catch{return}
       const feedback=$('#seekFeedback');if(feedback){feedback.textContent=delta<0?'10 seconds back':'10 seconds forward';feedback.className='seek-feedback show '+(delta<0?'back':'forward');setTimeout(()=>{if(feedback)feedback.className='seek-feedback'},650)}
       armIdleHide();
     }
@@ -1698,6 +1700,7 @@
       if(snap.state==='failed'||snap.state==='exhausted'){
         teardownAttempt();
         if(snap.state==='exhausted'&&youtubeMaybeRefresh())return;
+        if(!player.compatibility&&!player.youtube&&s?.kind==='direct'&&!s.facts.audioOnly&&['decode','unsupported'].includes(snap.lastFailure?.kind)&&window.MediaSource){const entry=snap.candidate?.entry?.entry,session=player.session;if(entry){queueMicrotask(()=>{if(player.session===session)openPlayer(entry,{compatibility:true})});return}}
         renderPlayerError(snap);renderTools(snap);return;
       }
     }
@@ -1727,10 +1730,11 @@
       stage.innerHTML=`<div class="player-error">
         <div class="error-kind">${esc(failure?failure.kind:'playback')} error</div>
         <h2>${esc(snap.state!=='exhausted'?'This source stopped':snap.attemptCount>1?'No source would play':'This source would not play')}</h2>
-        <p>${esc(failure?failure.text:'Playback could not continue.')}</p>
+        <p>${esc(player.compatibility&&failure?.detail?failure.detail:failure?failure.text:'Playback could not continue.')}</p>
         ${failed?`<div class="failed-source">Failed: ${esc(failed.title)}${failed.addonName?' · '+esc(failed.addonName):''}</div>`:''}
         <div class="error-actions">
           <button class="btn btn-primary" data-player-action="retry">${icon('play')} Retry</button>
+          ${failed?.kind==='direct'&&!player.audioMode&&!player.youtube?`<button class="btn btn-ghost" data-player-action="compatibility">${player.compatibility?'Try direct playback':'Try compatibility mode'}</button><button class="btn btn-ghost" data-player-action="external-player">Open in VLC</button>`:''}
           ${snap.canTryNext?'<button class="btn btn-ghost" data-player-action="next">Try next source</button>':''}
           <button class="btn btn-ghost" data-player-action="choose">Choose source</button>
           <button class="btn btn-ghost" data-close-player>Close</button>
@@ -1759,6 +1763,7 @@
           `<button class="tool-btn ${activeAudio?'on':''}" data-track-menu="audio" aria-label="Choose audio track"><b>AUD</b><span>${esc(activeAudio?.label||'Audio')}</span></button>`,
           `<button class="tool-btn ${player.activeSubtitle?'on':''}" data-track-menu="text" aria-label="Choose subtitles"><b>CC</b><span>${esc(activeText?.label||'Subtitles')}</span></button>`,
           qualities.length>1?`<button class="tool-btn ${activeQuality&&activeQuality.id!=='auto'?'on':''}" data-track-menu="quality" aria-label="Choose quality"><b>HD</b><span>${esc(activeQuality?.label||'Quality')}</span></button>`:'',
+          snap.candidate?.stream?.kind==='direct'&&!player.youtube?`<button class="tool-btn" data-player-action="compatibility" aria-label="${player.compatibility?'Use direct playback':'Use compatibility playback'}"><b>${player.compatibility?'ON':'+'}</b><span>Compatibility</span></button>`:'',
           `<button class="tool-btn" data-player-action="choose" aria-label="Choose source">${icon('link')}<span>Source</span></button>`,
           `<button class="tool-btn" data-player-action="fit" aria-label="Change video fit"><b>${player.fitMode==='cover'?'Fill':'Fit'}</b><span>Frame</span></button>`,
           `<button class="tool-btn" data-track-menu="speed" aria-label="Playback speed"><b>${playbackRate}×</b><span>Speed</span></button>`,
@@ -1791,6 +1796,8 @@
     }
     function playerAction(action){
       const session=player.session;
+      if(action==='compatibility'){const entry=session?.snapshot().candidate?.entry?.entry;if(entry){const time=$('#mediaEl')?.currentTime;if(time>0)player.pendingSeek=time;openPlayer(entry,{compatibility:!player.compatibility,resumeAt:time})}return}
+      if(action==='external-player'){const s=session?.snapshot().candidate?.stream;if(s?.urlSafe&&s.kind==='direct'){const url=new URL(s.url);url.hash='';if(/Android/i.test(navigator.userAgent))location.href='intent:'+url.href.slice(url.protocol.length)+'#Intent;scheme='+url.protocol.slice(0,-1)+';package=org.videolan.vlc;type=video/*;end';else window.open(url.href,'_blank','noopener,noreferrer')}return}
       if(action==='pip'){pictureInPicture();return}
       if(action==='mini-video'){miniPlayer(true);return}
       if(action==='restore-video'){miniPlayer(false);return}
@@ -1968,6 +1975,12 @@
     function showTorrent(s){const raw=s.raw||s,sources=raw.sources||[],fileIdx=s.fileIdx??s.facts?.fileIdx,filename=s.facts?.filename||raw.behaviorHints?.filename||'';const magnet=`magnet:?xt=urn:btih:${encodeURIComponent(s.infoHash)}${sources.filter(x=>x.startsWith('tracker:')).map(x=>'&tr='+encodeURIComponent(x.slice(8))).join('')}`;$('#modalRoot').innerHTML=`<div class="modal-shell" data-dismiss><section class="modal" role="dialog" aria-modal="true" aria-labelledby="torrentTitle"><div class="modal-head"><h2 id="torrentTitle">Torrent stream</h2><button class="icon-btn" data-close aria-label="Close torrent details">${icon('close')}</button></div><div class="modal-body"><div class="notice warn">Chrome cannot stream a BitTorrent info hash by itself. Configure Comet with a debrid provider so it returns an HTTPS stream, or open this result in an installed torrent-capable app.</div><div class="field"><label>Info hash</label><input class="text-input" readonly value="${esc(s.infoHash)}"></div>${fileIdx!==null&&fileIdx!==undefined?`<div class="field"><label>Selected file index</label><input class="text-input" readonly value="${esc(fileIdx)}">${filename?`<small>${esc(filename)}</small>`:''}</div>`:''}<div class="actions"><a class="btn btn-primary" href="${esc(magnet)}">${icon('external')} Open magnet</a><button class="btn btn-ghost" data-copy="${esc(magnet)}">Copy magnet link</button></div></div></section></div>`;bindDynamic($('#modalRoot'))}
     const PLAYER_LIBS={hls:{src:'https://cdn.jsdelivr.net/npm/hls.js@1.6.13/dist/hls.min.js',integrity:'sha384-z+tuLqMWl1/cPv7O+39RO0EURSNvorimpcCaMgeNwU+qFBx+AlUIl7jaAwg0cYil',label:'HLS'},dash:{src:'https://cdn.jsdelivr.net/npm/dashjs@5.2.0/dist/modern/umd/dash.all.min.js',integrity:'sha384-DUqWPzOl/i7/DGF7SBoe4NrlZOMxxomlJsg3X0daS5SBeFxco3dmwWQPFr2oauXn',label:'DASH'}};
     function loadPlayerLib(name){const lib=PLAYER_LIBS[name];return new Promise((res,rej)=>{const x=document.createElement('script');x.src=lib.src;x.integrity=lib.integrity;x.crossOrigin='anonymous';x.referrerPolicy='no-referrer';x.onload=res;x.onerror=()=>rej(Error(`Could not load the pinned ${lib.label} playback library. The download failed or its integrity hash did not match.`));document.head.append(x)})}
+    let compatibilityLoad=null;
+    function loadCompatibility(){
+      if(window.AstraCompatibility)return Promise.resolve();
+      if(!compatibilityLoad)compatibilityLoad=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='assets/js/playback/compatibility.js?v='+APP_VERSION;script.onload=resolve;script.onerror=()=>{compatibilityLoad=null;script.remove();reject(new Error('The compatibility player could not load.'))};document.head.append(script)});
+      return compatibilityLoad;
+    }
     function loadHls(){return window.Hls?Promise.resolve():loadPlayerLib('hls')}
     function loadDash(){return window.dashjs?Promise.resolve():loadPlayerLib('dash')}
     function toggleLibrary(key){const m=state.metaCache.get(key)||state.currentMeta;if(!m)return;const content=mediaKey(m)||key;if(state.library[content]){delete state.library[content];toast('Removed from library')}else{state.library[content]={meta:m,added:Date.now()};toast('Added to library','good')}store.set('library',state.library);$$('#featureMount [data-library]').filter(button=>button.dataset.library===content).forEach(button=>{const saved=!!state.library[content];button.setAttribute('aria-pressed',String(saved));button.setAttribute('aria-label',saved?'Remove from library':'Save to library');button.innerHTML=icon(saved?'check':'plus');hydrateIcons(button)});if(state.currentMeta&&mediaKey(state.currentMeta)===content)showDetail(state.currentMeta,false);else if(state.currentPage==='library')renderLibrary()}
@@ -2015,7 +2028,7 @@
           ${settingsRouteHTML('coverage','film','Content coverage','Which content types you can actually reach')}
         </div></div>
         <div class="settings-section"><span class="label">Playback</span><div class="settings-group flush">
-          ${settingsRouteHTML('audio','captions','Audio and subtitles','Languages and subtitle defaults')}
+          ${settingsRouteHTML('audio','captions','Audio and subtitles','Languages and subtitle defaults')}<a class="settings-route" href="playback-check.html"><span class="settings-route-icon">${icon('play')}</span><span class="settings-route-copy"><b>Playback check</b><small>Test MKV and audio compatibility on this device</small></span>${icon('chevron')}</a>
         </div></div>
         <div class="settings-section"><span class="label">Privacy and data</span><div class="settings-group flush">
           ${settingsRouteHTML('data','shield','Data and backup','Content preferences and private backups')}

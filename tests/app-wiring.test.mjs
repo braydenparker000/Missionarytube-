@@ -237,7 +237,7 @@ test("a terminal failure releases the attempt before the error card renders", ()
   // YouTube link refresh, which replaces the sources rather than rendering.
   assert.match(
     html,
-    /teardownAttempt\(\);\s*if\(snap\.state==='exhausted'&&youtubeMaybeRefresh\(\)\)return;\s*renderPlayerError\(snap\)/
+    /teardownAttempt\(\);\s*if\(snap\.state==='exhausted'&&youtubeMaybeRefresh\(\)\)return;[\s\S]*?renderPlayerError\(snap\)/
   );
 });
 

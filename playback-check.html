@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Astra · Playback check</title>
+<style>body{margin:0;background:#090b10;color:#f4f6ff;font:16px system-ui}main{max-width:720px;margin:auto;padding:24px}a{color:#a9c9ff}h1{font-size:32px;letter-spacing:-1px}p{color:#a9b3c5;line-height:1.6}video{width:100%;background:#000;border-radius:18px;aspect-ratio:16/9}section{padding:20px 0;border-bottom:1px solid #293141}.buttons{display:flex;gap:10px;flex-wrap:wrap}button,select{font:inherit;border:1px solid #354157;border-radius:12px;padding:13px;color:inherit;background:#192234;min-height:48px}button:disabled{opacity:.4}button:focus-visible{outline:3px solid #85aaff}#status{min-height:48px;padding:16px;border:1px solid #354157;border-radius:12px;margin:16px 0}#clock{font-variant-numeric:tabular-nums}small{color:#a9b3c5}</style></head>
+<body><main><a href="index.html">← Back to Astra</a><h1>Playback check</h1><p>These short test clips help separate device compatibility from a failing stream provider. Each clip shows a moving pattern and plays a tone.</p>
+<video id="video" controls playsinline></video><div id="status" role="status">Choose a clip below.</div><p id="clock">Not started</p>
+<section><h2>MKV video</h2><div class="buttons"><button data-test="aac" data-mode="native">AAC · Direct</button><button data-test="aac">AAC · Compatibility</button></div></section>
+<section><h2>Audio compatibility</h2><div class="buttons"><button data-test="ac3">AC-3</button><button data-test="eac3">E-AC-3</button><button data-test="dts">DTS</button></div></section>
+<section><h2>Player controls</h2><div class="buttons"><button id="seek">Seek to 2 seconds</button><button id="stop">Stop</button></div></section>
+<p>Compatibility mode repackages video and converts unsupported audio. It cannot unlock video codecs your device does not support or repair a provider that blocks browser access.</p><small id="result"></small>
+<script src="assets/js/playback/compatibility.js?v=0.29.0"></script><script>
+const media=document.querySelector('video'),status=document.querySelector('#status');let adapter=null;
+function stop(){adapter?.destroy();adapter=null;media.pause();media.removeAttribute('src');media.load();}
+for(const button of document.querySelectorAll('[data-test]'))button.onclick=async()=>{
+ stop();const codec=button.dataset.test,url=new URL('assets/playback-check/avc-'+codec+'.mkv',location.href).href;
+ status.textContent='Starting '+button.textContent+'…';document.querySelector('#result').textContent='';
+ try{if(button.dataset.mode==='native'){media.src=url;await media.play();}else{adapter=AstraCompatibility.createAdapter({media,url,onError:error=>status.textContent=error.detail});await adapter.attach();}}
+ catch(error){status.textContent='Could not play: '+error.message;}
+};
+media.onplaying=()=>{status.textContent='Playing. You should see motion and hear a tone.';document.querySelector('#result').textContent='Playback started successfully';};
+media.onerror=()=>status.textContent='Direct playback failed. Try compatibility mode.';
+media.ontimeupdate=()=>document.querySelector('#clock').textContent=media.currentTime.toFixed(2)+' seconds / '+(Number.isFinite(media.duration)?media.duration.toFixed(2):'…');
+media.onended=()=>status.textContent='Clip completed successfully.';
+document.querySelector('#seek').onclick=()=>{if(adapter)adapter.seekTo(2);else media.currentTime=2;};
+document.querySelector('#stop').onclick=()=>{stop();status.textContent='Stopped.';};
+window.addEventListener('pagehide',stop);
+</script></main></body></html>
