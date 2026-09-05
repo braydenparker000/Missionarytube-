@@ -1430,6 +1430,7 @@
       player.repairFailure=options.repairFailure||null;
       player.repairFallback=options.repairFallback||null;
       player.repairNotified=false;
+      player.pictureMissing=false;
       player.pendingSeek=Number.isFinite(options.resumeAt)?options.resumeAt:null;
       // Music and genuinely audio-only streams use the persistent audio
       // surface. Movies, series and anime always use Player v3.
@@ -1559,6 +1560,20 @@
       const caps=capsNow();
       const adapterKind=player.compatibility?'compatibility':PB.adapters.adapterKindFor(s.kind,caps,s.requestPolicy);
       player.diagnostics?.record('start',{engine:adapterKind,currentTime:resumeTime});
+      const picture=PB.videoHealth.create({onMissing:metrics=>{
+        if(!live()||scope.disposed)return;
+        player.pictureMissing=true;
+        player.diagnostics?.record('picture-missing',{engine:adapterKind,currentTime:metrics.position});
+        if(!player.menu)openTrackMenu('picture');
+        else toast('No video picture detected. Open player options for help.');
+      }});
+      const observePicture=()=>{
+        const bounds=el.getBoundingClientRect();
+        const health=picture.observe(el,{audioOnly:audioOnly||!!player.youtube,visible:document.visibilityState==='visible'&&!document.pictureInPictureElement&&el.getClientRects().length>0&&bounds.bottom>0&&bounds.top<window.innerHeight&&bounds.right>0&&bounds.left<window.innerWidth});
+        if(player.pictureMissing&&health.observedVideo){player.pictureMissing=false;if(player.menu==='picture')closeTrackMenu(true)}
+      };
+      for(const event of ['pause','seeking','waiting','ended'])scope.listen(el,event,()=>picture.reset());
+      scope.listen(document,'visibilitychange',()=>picture.reset());
 
       // Two different reasons to seek on start. Resuming from history stops
       // short of the end, because restarting something already finished is
@@ -1582,6 +1597,7 @@
       });
       let lastWrite=0;
       scope.listen(el,'timeupdate',()=>{
+        observePicture();
         if(player.compatibility&&!el.paused&&el.currentTime>seekTarget+.1)player.repairFallback=null;
         report('progress',playbackPosition());
         if(Date.now()-lastWrite<4000||!Number.isFinite(el.duration))return;
@@ -1832,6 +1848,7 @@
         ${failed?`<div class="failed-source">${esc(failed.addonName||failed.sourceName||'Selected source')}</div>`:''}
         <div class="error-actions">
           <button class="btn btn-primary" data-player-action="retry">${icon('play')} Retry</button>
+          ${failure?.kind==='timeout'&&snap.resumeTime>0?'<button class="btn btn-ghost" data-player-action="restart">Start from beginning</button>':''}
           ${snap.canTryNext?'<button class="btn btn-ghost" data-player-action="next">Try next source</button>':''}
           <button class="btn btn-ghost" data-player-action="choose">Choose source</button>
         </div><div class="error-actions error-secondary">
@@ -1885,6 +1902,7 @@
     function playerAction(action){
       const session=player.session;
       if(action==='diagnostics'){copyPlaybackReport();return}
+      if(action==='restart'){const entry=activePlayerCandidate(session?.snapshot())?.entry?.entry;if(entry){player.diagnostics?.record('restart',{engine:player.compatibility?'compatibility':'native',currentTime:0});openPlayer(entry,{compatibility:player.compatibility,triedModes:player.triedModes,resumeAt:0,diagnostics:player.diagnostics})}return}
       if(action==='refresh'){const videoId=player.video?.id||state.currentVideo?.id,yt=player.youtube,m=state.currentMeta;closePlayer(true);if(m)showDetail(m,false);if(yt&&m)loadYouTubeSources(m,yt.videoId,{fresh:true});else if(videoId)loadStreams(videoId);return}
       if(action==='compatibility')return repairPlayback();
       if(action==='cancel-repair'){cancelPlaybackRepair();closeTrackMenu(true);return}
@@ -2014,7 +2032,10 @@
       closeTrackMenu(true);
       const modal=$('.player-modal');if(!modal)return;
       const menu=document.createElement('div');menu.className='track-menu track-sheet';menu.id='trackMenu';
-      if(kind==='repair'){
+      if(kind==='picture'){
+        const s=activePlayerCandidate(player.session?.snapshot())?.stream;
+        menu.innerHTML=`<div class="track-sheet-head"><h4>Picture unavailable</h4><button class="icon-btn" data-track-menu="picture" aria-label="Close picture help">${icon('close')}</button></div><p class="track-empty">Playback is advancing, but Chrome has not reported a video picture. You can try repair or another source. Playback will keep running.</p><div class="track-options">${canRepairPlayback(s)&&!player.compatibility?'<button class="track-option" data-player-action="compatibility">Fix picture or sound</button>':''}<button class="track-option" data-player-action="choose">Choose source</button>${s?.kind==='direct'&&s.urlSafe?'<button class="track-option" data-player-action="external-player">Open in VLC</button>':''}<button class="track-option" data-track-menu="picture">Keep playing</button></div>`;
+      }else if(kind==='repair'){
         const pending=!!player.repairPending;
         const code=PB.diagnostics.failureCode(player.repairFailure||{});
         const message=['NETWORK_OR_BROWSER_ACCESS','ACCESS'].includes(code)?'The video can play directly, but Astra could not read this file to repair its audio. The provider may block browser access.':code==='TIMEOUT'?'The audio repair check took too long. You can retry it or choose another source.':PB.diagnostics.describe(player.repairFailure||{});
@@ -2029,6 +2050,7 @@
         menu.innerHTML=`<div class="track-sheet-head"><h4>Player options</h4><button class="icon-btn" data-track-menu="options" aria-label="Close player options">${icon('close')}</button></div><div class="track-options">
           <button class="track-option" data-player-action="choose">Choose source ${icon('link')}</button>
           <button class="track-option" data-player-action="refresh">Refresh sources</button>
+          ${player.pictureMissing?'<button class="track-option" data-track-menu="picture">Picture unavailable</button>':''}
           ${tracks.length||canRepairPlayback(s)||audioAlternateSources().length?'<button class="track-option" data-track-menu="audio">Audio tracks</button>':''}
           ${qualities.length>1?'<button class="track-option" data-track-menu="quality">Video quality</button>':''}
           <button class="track-option" data-track-menu="speed">Playback speed <b>${playbackRate}×</b></button>

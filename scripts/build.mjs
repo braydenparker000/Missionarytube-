@@ -72,11 +72,12 @@ console.log(`Built ${join("dist")} with ${builtFiles.length} top-level entr${bui
 // Small generated fixtures make device playback checks reproducible.
 const checksDir=new URL('../dist/assets/playback-check/',import.meta.url);
 await mkdir(checksDir,{recursive:true});
-for(const name of ['avc-aac','avc-ac3','avc-eac3','avc-dts','vp8-vorbis']) {
+for(const name of ['avc-aac','avc-ac3','avc-eac3','avc-dts','vp8-vorbis','hevc-aac']) {
   const encoded=await readFile(new URL(`../tests/fixtures/media/${name}.mkv.base64`,import.meta.url),'utf8');
   await writeFile(new URL(`${name}.mkv`,checksDir),Buffer.from(encoded,'base64'));
 }
 await writeFile(new URL('avc-ac3.mp4',checksDir),Buffer.from(await readFile(new URL('../tests/fixtures/media/avc-ac3.mp4.base64',import.meta.url),'utf8'),'base64'));
+await writeFile(new URL('missing-picture.mp4',checksDir),Buffer.from(await readFile(new URL('../tests/fixtures/media/missing-picture.mp4.base64',import.meta.url),'utf8'),'base64'));
 // A tiny diagnostic add-on exercises the same picker and Player V3 as real
 // providers. It is never installed automatically and contains generated clips.
 const checkAddon=new URL('addon/',checksDir);
@@ -106,8 +107,13 @@ const manualId='astra-check-manual-audio',manualMeta={id:manualId,type:'video',n
 checkItems.push(manualMeta);
 await writeFile(new URL(`meta/video/${manualId}.json`,checkAddon),JSON.stringify({meta:manualMeta}));
 await writeFile(new URL(`stream/video/${manualId}.json`,checkAddon),JSON.stringify({streams:[{name:'Manual repair check',title:'Generated MP4 test clip',url:'https://missionarytube.z13.web.core.windows.net/assets/playback-check/avc-ac3.mp4',behaviorHints:{filename:'repair-check.mp4'}}]}));
+const missingId='astra-check-missing-picture',missingMeta={id:missingId,type:'video',name:'Playback missing picture',description:'Intentionally contains a tone without a video track. Keep the player visible to test the picture warning.'};
+checkItems.push(missingMeta);
+await writeFile(new URL(`meta/video/${missingId}.json`,checkAddon),JSON.stringify({meta:missingMeta}));
+await writeFile(new URL(`stream/video/${missingId}.json`,checkAddon),JSON.stringify({streams:[{name:'Picture check',title:'Generated missing-picture check',url:'https://missionarytube.z13.web.core.windows.net/assets/playback-check/missing-picture.mp4',behaviorHints:{filename:'picture-check.mp4'}}]}));
 for(const check of [
   {id:'astra-check-webm',name:'Playback WebM',file:'vp8-vorbis',title:'Generated VP8 + Vorbis',headers:true,description:'Forty-second generated clip. Tests WebM repair and seeking.'},
+  {id:'astra-check-hevc',name:'Playback HEVC',file:'hevc-aac',title:'Generated HEVC + AAC',headers:true,description:'Eight-second generated HEVC clip with open GOPs. Tests browser codec support and conversion.'},
   {id:'astra-check-headers',name:'Playback request headers',file:'avc-aac',title:'Generated AVC + AAC with request headers',headers:true,description:'Generated clip fetched with a harmless test request header.'}
 ]){
   const meta={id:check.id,type:'video',name:check.name,description:check.description};checkItems.push(meta);

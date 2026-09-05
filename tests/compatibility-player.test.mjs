@@ -32,6 +32,45 @@ test('real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact',
   assert.ok(bytes.includes(Buffer.from('moof')));
  }finally{input.dispose();output.dispose();}
 });
+
+test('HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it',async()=>{
+ const input=await inputFor('hevc-aac');
+ try {
+  const tested=[];
+  const plan=await preparePipeline(input,{supports:mime=>{tested.push(mime);return mime.startsWith('video/mp4;')&&mime.includes('hvc1.');}});
+  assert.match(await plan.video.getCodecParameterString(),/^hev1\./,'the fixture reproduces the demuxer/output tag difference');
+  assert.match(plan.mime,/codecs="hvc1\./);assert.ok(tested.every(mime=>!mime.includes('hev1.')));
+  const chunks=[];
+  await pumpPipeline(plan,{target:new AppendOnlyStreamTarget(new WritableStream({write:bytes=>chunks.push(Buffer.from(bytes))}))});
+  const bytes=Buffer.concat(chunks);
+  assert.ok(bytes.includes(Buffer.from('hvc1')));assert.ok(!bytes.includes(Buffer.from('hev1')));
+  await assert.rejects(preparePipeline(input,{supports:()=>false}),error=>error.playbackCode==='VIDEO_CODEC_UNSUPPORTED'&&error.playbackStage==='video-support'&&error.playbackType==='unsupported'&&/^hvc1\./.test(error.playbackCodec));
+ }finally{input.dispose();}
+});
+
+test('HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes',async()=>{
+ const input=await inputFor('hevc-aac');
+ try {
+  const plan=await preparePipeline(input,{startTime:6.5});
+  assert.equal(plan.first.timestamp,6);
+  const original=[];for await(const packet of plan.sink.packets(plan.first))original.push(packet);
+  const leading=original.filter(packet=>packet.timestamp<plan.first.timestamp);
+  assert.ok(leading.length>0,'the real fixture contains leading B pictures after its CRA keyframe');
+  assert.ok(leading.some(packet=>packet.timestamp<plan.base),'the old code produced a negative mux timestamp');
+  const chunks=[];
+  await pumpPipeline(plan,{target:new AppendOnlyStreamTarget(new WritableStream({write:bytes=>chunks.push(Buffer.from(bytes))}))});
+  const output=new Input({source:new BufferSource(Buffer.concat(chunks)),formats:ALL_FORMATS});
+  try {
+   const copied=[];for await(const packet of new EncodedPacketSink(await output.getPrimaryVideoTrack()).packets())copied.push(packet);
+   const retained=original.filter(packet=>packet.timestamp>=plan.first.timestamp);
+   assert.equal(copied.length,retained.length);assert.ok(copied.length>=16);
+   copied.forEach((packet,index)=>{assert.ok(packet.timestamp>=0);assert.deepEqual(packet.data,retained[index].data);assert.ok(Math.abs(packet.timestamp-(retained[index].timestamp-plan.base))<.001);});
+   assert.equal(copied[0].type,'key');
+   const audio=await new EncodedPacketSink(await output.getPrimaryAudioTrack()).getFirstPacket();
+   assert.deepEqual(audio.data,plan.firstAudio.data);assert.ok(audio.timestamp>=0);
+  }finally{output.dispose();}
+ }finally{input.dispose();}
+});
 for(const codec of ['ac3','eac3','dts'])test(`real ${codec} audio decodes to samples using the bundled decoder`,async()=>{
  const input=await inputFor('avc-'+codec);
  try {
@@ -83,7 +122,7 @@ test('an unsupported default audio track falls back to usable audio in the same 
   const output=new Input({source:new BufferSource(Buffer.concat(chunks)),formats:ALL_FORMATS});
   try{assert.equal(await (await output.getPrimaryAudioTrack()).getCodec(),'aac');assert.ok(await output.computeDuration()>3.8);}
   finally{output.dispose();}
-  await assert.rejects(preparePipeline(source,{audioId:'truehd'}),/No playable audio track/);
+  await assert.rejects(preparePipeline(source,{audioId:'truehd'}),error=>/No playable audio track/.test(error.message)&&error.playbackCode==='AUDIO_CODEC_UNSUPPORTED'&&error.playbackStage==='audio-support');
  }finally{input.dispose();}
 });
 
@@ -212,10 +251,10 @@ test('compatibility startup distinguishes blocked access and connection failures
  t.mock.method(globalThis,'fetch',async()=>{attempts++;throw new TypeError('Failed to fetch');});
  const requestPolicy=globalThis.AstraPlayback.requests.analyze(url,{request:{Cookie:'synthetic'}});
  const blocked=createAdapter({media:{},url,requestPolicy});
- try {await assert.rejects(blocked.attach(),error=>error.playbackType==='access');assert.equal(attempts,0);}
+ try {await assert.rejects(blocked.attach(),error=>error.playbackType==='access'&&error.playbackStage==='metadata');assert.equal(attempts,0);}
  finally{blocked.destroy();}
  const disconnected=createAdapter({media:{},url});
- try {await assert.rejects(disconnected.attach(),error=>error.playbackType==='network');assert.ok(attempts>0);}
+ try {await assert.rejects(disconnected.attach(),error=>error.playbackType==='network'&&error.playbackStage==='metadata');assert.ok(attempts>0);}
  finally{disconnected.destroy();}
 });
 
