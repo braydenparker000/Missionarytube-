@@ -1420,7 +1420,11 @@
       if(s.kind==='external'){const u=s.externalUrl;if(!u||!entry.evaluation||entry.evaluation.state==='unsafe')return toast('That external link is not safe to open.','bad');window.open(u,'_blank','noopener');return}
       if(s.kind==='torrent'){showTorrent(s);return}
       closePlayer(true);
-      player.meta=m;player.video=v;player.compatibility=!!options.compatibility;
+      player.meta=m;player.video=v;
+      // One Play flow. Repair known problem audio up front; retain a bounded
+      // native fallback for hosts that allow <video> but reject fetch/CORS.
+      player.compatibility=options.compatibility??(canRepairPlayback(s)&&/^(E-?AC-?3|AC-?3|DTS)/i.test(s.facts.audioCodec||''));
+      player.triedModes=[...(options.triedModes||[]),player.compatibility?'compatibility':'native'];
       // Music and genuinely audio-only streams use the persistent audio
       // surface. Movies, series and anime always use Player v3.
       player.audioMode=AstraHub.isAudio(m.type)||!!s.facts.audioOnly;
@@ -1516,7 +1520,7 @@
     function armIdleHide(){
       const shell=$('#playerShell');if(!shell)return;
       clearTimeout(player.idleTimer);shell.classList.remove('idle');
-      if(player.locked)return;
+      if(player.locked||['failed','exhausted','starting'].includes(shell.dataset.playbackState))return;
       player.idleTimer=setTimeout(()=>{const el=$('#mediaEl');if(el&&!el.paused&&!player.menu)shell.classList.add('idle')},3200);
     }
 
@@ -1555,12 +1559,14 @@
       player.pendingSeek=null;
 
       scope.listen(el,'playing',()=>report('ready'));
+      // Metadata is not playback. Keep the startup deadline until frames can
+      // actually be presented; canplay also allows a user to resume autoplay.
+      scope.listen(el,'canplay',()=>report('ready'));
       scope.listen(el,'loadedmetadata',()=>{
         if(adapterKind!=='compatibility'&&seekTarget>0&&Number.isFinite(el.duration)){
           const limit=switching?el.duration-1:el.duration*.93;
           if(seekTarget<limit){try{el.currentTime=seekTarget}catch{}}
         }
-        report('ready');
       });
       let lastWrite=0;
       scope.listen(el,'timeupdate',()=>{
@@ -1677,21 +1683,31 @@
       player.subtitleTracks=[];player.subtitleAttached=[];player.activeSubtitle=null;player.audioPreferenceApplied=false;player.menu=null;
     }
 
+    function activePlayerCandidate(snap){return snap?.candidate||snap?.lastFailure?.candidate||null}
+    function canRepairPlayback(s){return !!(s?.kind==='direct'&&s.urlSafe&&!s.facts?.audioOnly&&!player.youtube&&window.MediaSource)}
+    function recoveryMode(snap){
+      const s=activePlayerCandidate(snap)?.stream,tried=player.triedModes||[player.compatibility?'compatibility':'native'];
+      if(!canRepairPlayback(s))return null;
+      if(player.compatibility)return tried.includes('native')?null:'native';
+      return !tried.includes('compatibility')&&['decode','unsupported','timeout'].includes(snap.lastFailure?.kind)?'compatibility':null;
+    }
     function renderPlayerState(snap){
       const status=$('#playerStatus'),stage=$('#playerStage');
       if(!status||!stage)return;
+      const shell=$('#playerShell');if(shell)shell.dataset.playbackState=snap.state;
       const sub=$('#playerSubheading'),quality=$('#playerQuality');
-      const s=snap.candidate&&snap.candidate.stream;
+      const s=activePlayerCandidate(snap)?.stream;
       if(sub)sub.textContent=s?[s.addonName,PB.episodes.episodeCode(player.video)].filter(Boolean).join(' · '):'';
       if(quality)quality.innerHTML=s?[s.facts.resolution,s.facts.codec,s.facts.hdr,s.facts.cached?'Cached':''].filter(Boolean).map(t=>`<span class="chip-sm">${esc(t)}</span>`).join(''):'';
 
       if(snap.state==='starting'){
-        stage.innerHTML=`<div class="player-loading"><span class="spinner"></span><b>Starting ${esc(s?s.title:'source')}</b><span>${esc(s&&s.addonName?s.addonName+' · ':'')}Attempt ${snap.attemptCount} of ${snap.maxAttempts}</span></div>`;
-        if(snap.lastFailure){
+        clearTimeout(player.idleTimer);shell?.classList.remove('idle');
+        stage.innerHTML='';
+        if(snap.lastFailure&&snap.lastFailure.candidate?.id!==snap.candidate?.id){
           const failed=snap.lastFailure.candidate&&snap.lastFailure.candidate.stream;
           player.notice={failed:failed?failed.title:'The last source',text:snap.lastFailure.text,until:Date.now()+NOTICE_DWELL_MS};
           status.innerHTML=failoverNoticeHTML(player.notice,false);
-        }else status.innerHTML='';
+        }else status.innerHTML=`<div class="status-card" role="status"><span class="spinner"></span><div><b>${player.compatibility?'Preparing playback…':'Opening stream…'}</b><span>${player.compatibility?'Adapting this file for your device.':'Connecting to the selected source.'}</span></div></div>`;
         renderTools(snap);return;
       }
       if(snap.state==='playing'){showSettledNotice(status);renderTools(snap);return}
@@ -1700,7 +1716,11 @@
       if(snap.state==='failed'||snap.state==='exhausted'){
         teardownAttempt();
         if(snap.state==='exhausted'&&youtubeMaybeRefresh())return;
-        if(!player.compatibility&&!player.youtube&&s?.kind==='direct'&&!s.facts.audioOnly&&['decode','unsupported'].includes(snap.lastFailure?.kind)&&window.MediaSource){const entry=snap.candidate?.entry?.entry,session=player.session;if(entry){queueMicrotask(()=>{if(player.session===session)openPlayer(entry,{compatibility:true})});return}}
+        const mode=recoveryMode(snap),entry=activePlayerCandidate(snap)?.entry?.entry,session=player.session;
+        if(mode&&entry){
+          status.innerHTML='<div class="status-card" role="status"><span class="spinner"></span><div><b>Adjusting playback…</b><span>Trying another way to play this same source.</span></div></div>';
+          queueMicrotask(()=>{if(player.session===session)openPlayer(entry,{compatibility:mode==='compatibility',triedModes:player.triedModes,resumeAt:snap.resumeTime})});return;
+        }
         renderPlayerError(snap);renderTools(snap);return;
       }
     }
@@ -1725,28 +1745,31 @@
     }
     function renderPlayerError(snap){
       if($('#playerShell')?.classList.contains('mini'))miniPlayer(false);
+      if(player.audioMode&&player.audioDocked)setAudioDocked(false);
+      closeTrackMenu(true);clearTimeout(player.idleTimer);player.locked=false;
+      const shell=$('#playerShell');shell?.classList.remove('idle','locked');if(shell)shell.dataset.playbackState=snap.state;
       const stage=$('#playerStage'),status=$('#playerStatus');
       const failure=snap.lastFailure,failed=failure&&failure.candidate&&failure.candidate.stream;
       stage.innerHTML=`<div class="player-error">
-        <div class="error-kind">${esc(failure?failure.kind:'playback')} error</div>
-        <h2>${esc(snap.state!=='exhausted'?'This source stopped':snap.attemptCount>1?'No source would play':'This source would not play')}</h2>
-        <p>${esc(player.compatibility&&failure?.detail?failure.detail:failure?failure.text:'Playback could not continue.')}</p>
-        ${failed?`<div class="failed-source">Failed: ${esc(failed.title)}${failed.addonName?' · '+esc(failed.addonName):''}</div>`:''}
+        <div class="error-kind">Playback paused</div>
+        <h2>This stream couldn’t play</h2>
+        <p>${esc(failure?.kind==='network'?'The source is not responding. Retry it or choose another source.':failure?.kind==='timeout'?'The source took too long to start. Retry it or choose another source.':(player.triedModes||[]).includes('compatibility')?'Automatic repair could not make this stream playable in Chrome.':'Chrome could not play this stream. Try it again or choose another source.')}</p>
+        ${failed?`<div class="failed-source">${esc(failed.addonName||failed.sourceName||'Selected source')}</div>`:''}
         <div class="error-actions">
           <button class="btn btn-primary" data-player-action="retry">${icon('play')} Retry</button>
-          ${failed?.kind==='direct'&&!player.audioMode&&!player.youtube?`<button class="btn btn-ghost" data-player-action="compatibility">${player.compatibility?'Try direct playback':'Try compatibility mode'}</button><button class="btn btn-ghost" data-player-action="external-player">Open in VLC</button>`:''}
           ${snap.canTryNext?'<button class="btn btn-ghost" data-player-action="next">Try next source</button>':''}
           <button class="btn btn-ghost" data-player-action="choose">Choose source</button>
+        </div><div class="error-actions error-secondary">
+          ${failed?.kind==='direct'&&failed.urlSafe&&!player.audioMode&&!player.youtube?'<button class="btn btn-ghost" data-player-action="external-player">Open in VLC</button>':''}
           <button class="btn btn-ghost" data-close-player>Close</button>
-        </div></div>`;
+        </div>${failure?`<details class="playback-details"><summary>What happened?</summary><p>${esc(failure.detail||failure.text)}</p></details>`:''}</div>`;
+      bindDynamic(stage);
       clearTimeout(player.noticeTimer);player.noticeTimer=null;player.notice=null;
       if(status)status.innerHTML='';
     }
     function renderTools(snap){
       const tools=$('#playerTools');if(!tools)return;
-      const episodic=PB.episodes.isEpisodic(player.meta);
-      const prev=episodic?PB.episodes.previousEpisode(player.meta.videos,player.video.id):null;
-      const next=episodic?PB.episodes.nextEpisode(player.meta.videos,player.video.id):null;
+      if(['failed','exhausted'].includes(snap.state)){tools.innerHTML='';return}
       const audioTracks=player.adapter&&player.adapter.getAudioTracks?player.adapter.getAudioTracks():[];
       if(player.audioMode){
         tools.innerHTML=[
@@ -1755,21 +1778,11 @@
           `<button class="tool-btn" data-player-action="playpause" aria-label="Play or pause">${icon('play')}</button>`
         ].filter(Boolean).join('');
       }else{
-        const activeAudio=audioTracks.find(t=>t.active),activeText=player.subtitleTracks.find(t=>t.id===player.activeSubtitle);
-        const qualities=qualityOptions(),activeQuality=qualities.find(option=>option.active);
+        const activeText=player.subtitleTracks.find(t=>t.id===player.activeSubtitle);
         tools.innerHTML=[
-          episodic?`<button class="tool-btn episode-tool" data-episode-nav="prev" ${prev?'':'disabled'} aria-label="Previous episode"><b>‹</b><span>Previous</span></button>`:'',
-          episodic?`<button class="tool-btn episode-tool" data-episode-nav="next" ${next?'':'disabled'} aria-label="Next episode"><b>›</b><span>Next</span></button>`:'',
-          `<button class="tool-btn ${activeAudio?'on':''}" data-track-menu="audio" aria-label="Choose audio track"><b>AUD</b><span>${esc(activeAudio?.label||'Audio')}</span></button>`,
           `<button class="tool-btn ${player.activeSubtitle?'on':''}" data-track-menu="text" aria-label="Choose subtitles"><b>CC</b><span>${esc(activeText?.label||'Subtitles')}</span></button>`,
-          qualities.length>1?`<button class="tool-btn ${activeQuality&&activeQuality.id!=='auto'?'on':''}" data-track-menu="quality" aria-label="Choose quality"><b>HD</b><span>${esc(activeQuality?.label||'Quality')}</span></button>`:'',
-          snap.candidate?.stream?.kind==='direct'&&!player.youtube?`<button class="tool-btn" data-player-action="compatibility" aria-label="${player.compatibility?'Use direct playback':'Use compatibility playback'}"><b>${player.compatibility?'ON':'+'}</b><span>Compatibility</span></button>`:'',
-          `<button class="tool-btn" data-player-action="choose" aria-label="Choose source">${icon('link')}<span>Source</span></button>`,
-          `<button class="tool-btn" data-player-action="fit" aria-label="Change video fit"><b>${player.fitMode==='cover'?'Fill':'Fit'}</b><span>Frame</span></button>`,
-          `<button class="tool-btn" data-track-menu="speed" aria-label="Playback speed"><b>${playbackRate}×</b><span>Speed</span></button>`,
+          `<button class="tool-btn" data-track-menu="options" aria-label="Player options"><b>•••</b><span>Options</span></button>`,
           `<button class="tool-btn" data-player-action="pip" aria-label="Picture in picture"><b>PiP</b><span>Pop out</span></button>`,
-          `<button class="tool-btn" data-player-action="mini-video" aria-label="Minimize video">${icon('chevron')}<span>Minimize</span></button>`,
-          `<button class="tool-btn" data-player-action="mute" aria-label="${$('#mediaEl')?.muted?'Unmute':'Mute'}"><b>${$('#mediaEl')?.muted?'Off':'On'}</b><span>Sound</span></button>`,
           document.fullscreenEnabled?`<button class="tool-btn" data-player-action="fullscreen" aria-label="Fullscreen"><b>⛶</b><span>Full</span></button>`:''
         ].filter(Boolean).join('');
       }
@@ -1796,8 +1809,9 @@
     }
     function playerAction(action){
       const session=player.session;
-      if(action==='compatibility'){const entry=session?.snapshot().candidate?.entry?.entry;if(entry){const time=$('#mediaEl')?.currentTime;if(time>0)player.pendingSeek=time;openPlayer(entry,{compatibility:!player.compatibility,resumeAt:time})}return}
-      if(action==='external-player'){const s=session?.snapshot().candidate?.stream;if(s?.urlSafe&&s.kind==='direct'){const url=new URL(s.url);url.hash='';if(/Android/i.test(navigator.userAgent))location.href='intent:'+url.href.slice(url.protocol.length)+'#Intent;scheme='+url.protocol.slice(0,-1)+';package=org.videolan.vlc;type=video/*;end';else window.open(url.href,'_blank','noopener,noreferrer')}return}
+      if(action==='compatibility'){const snap=session?.snapshot(),entry=activePlayerCandidate(snap)?.entry?.entry;if(entry){const time=$('#mediaEl')?.currentTime??snap.resumeTime;openPlayer(entry,{compatibility:true,triedModes:player.triedModes,resumeAt:time})}return}
+      if(action==='external-player'){const s=activePlayerCandidate(session?.snapshot())?.stream;if(s?.urlSafe&&s.kind==='direct'){const url=new URL(s.url);url.hash='';if(/Android/i.test(navigator.userAgent))location.href='intent:'+url.href.slice(url.protocol.length)+'#Intent;scheme='+url.protocol.slice(0,-1)+';package=org.videolan.vlc;type=video/*;end';else window.open(url.href,'_blank','noopener,noreferrer')}return}
+      if(player.menu&&['fit','pip','mini-video','mute','fullscreen'].includes(action))closeTrackMenu(true);
       if(action==='pip'){pictureInPicture();return}
       if(action==='mini-video'){miniPlayer(true);return}
       if(action==='restore-video'){miniPlayer(false);return}
@@ -1812,7 +1826,7 @@
       if(action==='lock'){player.locked=!player.locked;const shell=$('#playerShell');shell?.classList.toggle('locked',player.locked);shell?.classList.remove('idle');closeTrackMenu();if(player.locked)clearTimeout(player.idleTimer);else armIdleHide();return}
       if(action==='choose'){closePlayer();const root=$('#streamRoot');if(root){renderStreams();root.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'})}return}
       if(!session)return;
-      if(action==='retry'){if(player.youtube){const yt=player.youtube,m=state.currentMeta;closePlayer(true);showDetail(m,false);loadYouTubeSources(m,yt.videoId,{fresh:true})}else session.retry();}
+      if(action==='retry'){if(player.youtube){const yt=player.youtube,m=state.currentMeta;closePlayer(true);showDetail(m,false);loadYouTubeSources(m,yt.videoId,{fresh:true})}else{player.triedModes=[player.compatibility?'compatibility':'native'];session.retry();}}
       if(action==='next')session.tryNext();
     }
     function closePlayer(silent){
@@ -1922,7 +1936,24 @@
       closeTrackMenu(true);
       const modal=$('.player-modal');if(!modal)return;
       const menu=document.createElement('div');menu.className='track-menu track-sheet';menu.id='trackMenu';
-      if(kind==='speed'){
+      if(kind==='options'){
+        const snap=player.session?.snapshot(),s=activePlayerCandidate(snap)?.stream;
+        const qualities=qualityOptions(),tracks=player.adapter?.getAudioTracks?.()||[];
+        const episodic=PB.episodes.isEpisodic(player.meta);
+        const prev=episodic&&PB.episodes.previousEpisode(player.meta.videos,player.video.id),next=episodic&&PB.episodes.nextEpisode(player.meta.videos,player.video.id);
+        menu.innerHTML=`<div class="track-sheet-head"><h4>Player options</h4><button class="icon-btn" data-track-menu="options" aria-label="Close player options">${icon('close')}</button></div><div class="track-options">
+          <button class="track-option" data-player-action="choose">Choose source ${icon('link')}</button>
+          ${tracks.length||canRepairPlayback(s)||audioAlternateSources().length?'<button class="track-option" data-track-menu="audio">Audio tracks</button>':''}
+          ${qualities.length>1?'<button class="track-option" data-track-menu="quality">Video quality</button>':''}
+          <button class="track-option" data-track-menu="speed">Playback speed <b>${playbackRate}×</b></button>
+          <button class="track-option" data-player-action="fit">${player.fitMode==='cover'?'Fit video to screen':'Fill screen'}</button>
+          <button class="track-option" data-player-action="mute">${$('#mediaEl')?.muted?'Unmute':'Mute'}</button>
+          <button class="track-option" data-player-action="mini-video">Minimize player ${icon('minimize')}</button>
+          ${canRepairPlayback(s)&&!player.compatibility?'<button class="track-option" data-player-action="compatibility">Fix picture or sound</button>':''}
+          ${prev?'<button class="track-option" data-episode-nav="prev">Previous episode</button>':''}
+          ${next?'<button class="track-option" data-episode-nav="next">Next episode</button>':''}
+        </div>`;
+      }else if(kind==='speed'){
         menu.innerHTML=`<div class="track-sheet-head"><h4>Playback speed</h4><button class="icon-btn" data-track-menu="speed" aria-label="Close playback speed">${icon('close')}</button></div><div class="track-options">${[.5,.75,1,1.25,1.5,1.75,2].map(rate=>`<button class="track-option ${rate===playbackRate?'active':''}" data-speed="${rate}">${rate}× ${rate===1?'Normal':''}${rate===playbackRate?icon('check'):''}</button>`).join('')}</div>`;
       }else if(kind==='quality'){
         menu.innerHTML=qualityMenuHTML();
@@ -1940,7 +1971,8 @@
         // other sources this add-on returned for the same episode are listed
         // by the audio language they advertise: switching source is the only
         // way to change language for a direct file here, so make it one tap.
-        const limitation=tracks.length?'':`<p class="track-empty"><b>This source exposes no switchable audio.</b> Chrome cannot select an embedded track inside a direct file — only adaptive HLS and DASH streams expose them.${alternates.length?' These sources advertise other languages:':' No other source for this episode advertises a different language.'}</p>`;
+        const repairable=!player.compatibility&&canRepairPlayback(activePlayerCandidate(player.session?.snapshot())?.stream);
+        const limitation=tracks.length?'':`<p class="track-empty">${repairable?'Astra can try opening the audio tracks inside this file.':'This source has no available audio tracks to switch.'}${alternates.length?' Other sources offer these languages:':''}</p>${repairable?'<button class="track-option" data-player-action="compatibility">Find audio tracks</button>':''}`;
         const options=tracks.length
           ?tracks.map((t,index)=>`<button class="track-option ${t.active?'active':''}" data-audio-track="${esc(t.id)}"><span class="track-line"><b>${esc(t.label||`Audio ${index+1}`)}</b><span class="track-sub">${esc([t.lang&&t.lang.toUpperCase(),player.adapter?.kind?.toUpperCase()].filter(Boolean).join(' · ')||'Stream audio')}</span></span>${t.active?icon('check'):''}</button>`).join('')
           :alternates.map(entry=>`<button class="track-option" data-switch-source="${esc(candidateKey(entry))}"><span class="track-line"><b>${esc(entry.stream.facts.audioLanguages.map(l=>l.toUpperCase()).join(' · '))}</b><span class="track-sub">${esc([entry.stream.facts.resolution,entry.stream.facts.audioCodec,entry.stream.addonName].filter(Boolean).join(' · ')||entry.stream.title)}</span></span></button>`).join('');

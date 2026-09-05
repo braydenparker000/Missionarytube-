@@ -133,7 +133,7 @@ test("changing quality keeps the position, in place where it can and by seek whe
 
   // And the attempt honours a switch seek exactly, unlike a history resume
   // which deliberately stops short of the end.
-  const attempt = region(/const switching=Number\.isFinite\(player\.pendingSeek\)[\s\S]*?report\('ready'\);\n {6}\}\);/);
+  const attempt = region(/const switching=Number\.isFinite\(player\.pendingSeek\)[\s\S]*?scope\.listen\(el,'loadedmetadata',[\s\S]*?\n {6}\}\);/);
   assert.match(attempt, /const limit=switching\?el\.duration-1:el\.duration\*\.93/);
   assert.match(attempt, /player\.pendingSeek=null/);
 });
@@ -143,7 +143,7 @@ test("only qualities that will play are offered, and the active one is marked", 
   assert.match(options, /const plan=player\.youtube&&player\.youtube\.plan/);
   assert.match(options, /plan\.qualities\.map/, "the ladder is the plan's, which already filtered by capability");
   assert.match(options, /player\.adapter\.getVideoQualities\(\)/, "and a non-YouTube adaptive stream still gets its own list");
-  assert.match(html, /qualities\.length>1\?`<button class="tool-btn/, "no control appears when there is no choice");
+  assert.match(html, /qualities\.length>1\?'<button class="track-option" data-track-menu="quality"/, "quality lives in Options and only appears when there is a choice");
   assert.match(html, /data-quality\]',root\)\.forEach\(x=>x\.onclick=\(\)=>selectQuality\(x\.dataset\.quality\)\)/);
 });
 

@@ -286,7 +286,8 @@ test("the audio menu offers what it can, and says plainly when it cannot", () =>
   assert.match(html, /const alternates=tracks\.length\?\[\]:audioAlternateSources\(\)/);
   assert.match(html, /data-switch-source="\$\{esc\(candidateKey\(entry\)\)\}"/);
   assert.match(html, /data-switch-source\]',root\)\.forEach\(x=>x\.onclick=\(\)=>\{const entry=entryById\(x\.dataset\.switchSource\);closeTrackMenu\(\);if\(entry\)openPlayer\(entry\)\}\)/);
-  assert.match(html, /only adaptive HLS and DASH streams expose them/, "the limitation is stated, not hidden");
+  assert.match(html, /This source has no available audio tracks to switch/, "the limitation is stated when repair cannot help");
+  assert.match(html, /data-player-action="compatibility">Find audio tracks/, "direct files can open their tracks through the repair engine");
 
   // Only languages an add-on actually advertised are listed; nothing guesses
   // at what is inside a file.
@@ -382,6 +383,8 @@ test("every modal dismissal invalidates pending work", () => {
   const NON_MODAL_TARGETS = new Set([
     "sections", // the home page rail container
     "status", // the player status area
+    "stage", // #playerStage, cleared for a new playback attempt
+    "tools", // #playerTools, hidden on terminal playback failure
     "el", // the status element inside the notice timer
     "home", // #homeRoot, dropped when the add-on set changes under it
     "mount", // #youtubeBrowse, a section of the Browse page

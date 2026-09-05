@@ -7,7 +7,7 @@
 <section><h2>Audio compatibility</h2><div class="buttons"><button data-test="ac3">AC-3</button><button data-test="eac3">E-AC-3</button><button data-test="dts">DTS</button></div></section>
 <section><h2>Player controls</h2><div class="buttons"><button id="seek">Seek to 2 seconds</button><button id="stop">Stop</button></div></section>
 <p>Compatibility mode repackages video and converts unsupported audio. It cannot unlock video codecs your device does not support or repair a provider that blocks browser access.</p><small id="result"></small>
-<script src="assets/js/playback/compatibility.js?v=0.29.1"></script><script>
+<script src="assets/js/playback/compatibility.js?v=0.30.0"></script><script>
 const media=document.querySelector('video'),status=document.querySelector('#status');let adapter=null;
 function stop(){adapter?.destroy();adapter=null;media.pause();media.removeAttribute('src');media.load();}
 for(const button of document.querySelectorAll('[data-test]'))button.onclick=async()=>{

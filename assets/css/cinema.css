@@ -325,6 +325,29 @@ html[data-glass="solid"] .dock, html[data-glass="solid"] .toast { backdrop-filte
 .player-v3.mini .player-top, .player-v3.mini .player-console, .player-v3.mini .player-center, .player-v3.mini .player-unlock, .player-v3.mini .player-tools, .player-v3.mini .player-status, .player-v3.mini .player-lock, .player-v3.mini .player-stage::after { display:none; }
 .mini-controls { display:none; }
 .player-v3.mini .mini-controls { display:flex; position:absolute; bottom:0; left:0; right:0; height:48px; gap:8px; padding:2px 6px; background:#171a20; z-index:10; }
+
+/* A failed stream is a recovery screen, with no invisible transport controls
+   intercepting taps. The stage can scroll on short landscape displays. */
+.player-shell:is([data-playback-state="failed"],[data-playback-state="exhausted"]) :is(.player-center,.player-console,.player-tools,.player-lock,.player-unlock,.audio-dock-actions) { display:none; }
+.player-shell:is([data-playback-state="failed"],[data-playback-state="exhausted"]) .audio-full-head [data-player-action="minimize"] { display:none; }
+.player-shell:is([data-playback-state="failed"],[data-playback-state="exhausted"]) .player-stage { overflow:auto; display:block; padding:max(112px,calc(var(--safe-t) + 96px)) 16px max(24px,var(--safe-b)); }
+.player-shell:is([data-playback-state="failed"],[data-playback-state="exhausted"]) .player-stage::after { display:none; }
+.player-shell:is([data-playback-state="failed"],[data-playback-state="exhausted"]) .player-top { padding-bottom:12px; }
+.player-error { margin:auto; width:100%; max-width:500px; padding:32px 20px; border:1px solid #ffffff18; border-radius:24px; background:linear-gradient(145deg,#191b21,#0b0c10); box-shadow:0 20px 80px #0006; }
+.player-error h2 { font-size:clamp(24px,6vw,32px); }
+.player-error .error-kind { color:#c6cedc; margin-bottom:14px; }
+.player-error .failed-source { font-family:inherit; margin:20px 0; }
+.player-error .error-actions > .btn { flex:1; min-height:48px; }
+.player-error .error-secondary { margin-top:10px; }
+.player-error .error-secondary .btn { background:transparent; font-size:13px; }
+.playback-details { margin-top:20px; text-align:left; color:var(--silver); font-size:13px; overflow-wrap:anywhere; }
+.playback-details summary { padding:10px; cursor:pointer; }
+.playback-details p { padding:10px; font-size:12px; }
+.player-v3[data-playback-state="starting"] :is(.player-center,.player-console) { display:none; }
+.player-v3[data-playback-state="starting"] .player-status { top:40%; bottom:auto; padding:0 20px; }
+.player-v3 .player-tools { justify-content:center; }
+.player-v3 .player-tools .tool-btn { flex:1; max-width:110px; }
+.player-v3 .player-tools .tool-btn span { font-size:10px; }
 .mini-controls button { min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center; gap:8px; font-size:13px; }
 .mini-controls button:first-child { margin-right:auto; }
 .mini-controls svg { width:18px; height:18px; }
