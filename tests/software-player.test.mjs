@@ -5,6 +5,8 @@ import {readFile} from 'node:fs/promises';
 import {loadPlayback} from './helpers/playback.mjs';
 const source=await readFile(new URL('../assets/js/playback/software-player.js',import.meta.url),'utf8');
 const PB=await loadPlayback();
+const ioDeclaration=await readFile(new URL('../node_modules/@libmedia/common/src/io/error.ts',import.meta.url),'utf8');
+const IO_END=Function('return '+ioDeclaration.match(/END = ([^,]+)/)[1])();
 function fixture(fetchImpl){
   const engines=[];
   class FakePlayer {
@@ -60,13 +62,20 @@ test('range loader supports exact seeks without rereading or mixing bytes',async
   const io=f.api.source(f.FakePlayer,{url:'https://example.test/movie.mkv'});await io.open();
   const first=new Uint8Array(3);assert.equal(await io.read(first),3);assert.deepEqual([...first],[1,2,3]);
   await io.seek(1n);const second=new Uint8Array(3);await io.read(second);assert.deepEqual([...second],[2,3,4]);assert.equal(calls,1);
-  await io.seek(6n);assert.equal(await io.read(first),-7);assert.equal(await io.size(),6n);await io.stop();
+  await io.seek(6n);assert.equal(await io.read(first),IO_END);assert.equal(await io.size(),6n);await io.stop();
   await io.open();await io.read(first);assert.deepEqual([...first],[1,2,3]);await io.stop();
 });
 test('range loader rejects a server returning the wrong bytes',async()=>{
   const f=fixture(async()=>new Response(new Uint8Array([1,2]),{status:206,headers:{'Content-Range':'bytes 3-4/6'}}));
   const io=f.api.source(f.FakePlayer,{url:'https://example.test/movie.mkv'});
   await assert.rejects(io.open(),{playbackCode:'RANGE_UNSUPPORTED'});await io.stop();
+});
+test('a partial response without exposed size does not become a false EOF',async()=>{
+  const ranges=[];
+  const f=fixture(async(_url,init)=>{ranges.push(new Headers(init.headers).get('range'));return ranges.length<3?new Response(new Uint8Array([1,2]),{status:206}):new Response(null,{status:416});});
+  const io=f.api.source(f.FakePlayer,{url:'https://example.test/movie.mkv'}),bytes=new Uint8Array(8);
+  await io.open();assert.equal(await io.read(bytes),2);assert.equal(await io.read(bytes),2);assert.equal(await io.read(bytes),IO_END);
+  assert.deepEqual(ranges,['bytes=0-2097151','bytes=2-2097153','bytes=4-2097155']);await io.stop();
 });
 test('custom headers stay scoped to their original origin and cannot follow redirects',async()=>{
   const url='https://example.test/movie.mkv',policy=PB.requests.analyze(url,{request:{'X-Test-Playback':'sample'}});
