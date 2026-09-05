@@ -17,7 +17,7 @@ export async function preparePipeline(input, {startTime=0,audioId='',supports=()
   const audioTracks=await input.getAudioTracks();
   const audio=audioTracks.find(t=>String(t.id)===String(audioId))||await input.getPrimaryAudioTrack();
   const audioCodec=audio&&await audio.getCodecParameterString();
-  const copyAudio=!!audioCodec&&supports(`audio/mp4; codecs="${audioCodec}"`);
+  const copyAudio=!!audioCodec&&!['ac3','eac3','dts'].includes(await audio.getCodec())&&supports(`audio/mp4; codecs="${audioCodec}"`);
   if(audio&&!copyAudio&&(!(await audio.canDecode())||!(await encodeAudio('opus'))))throw new Error('The selected audio track cannot be converted on this device. Try another audio track or an external player.');
   const sink=new EncodedPacketSink(video);
   const first=await sink.getKeyPacket(startTime)||await sink.getFirstKeyPacket();
@@ -41,6 +41,12 @@ export function stereoSample(sample) {
     data[i]=left/weight;data[count+i]=right/weight;
   }
   return new AudioSample({data,format:'f32-planar',sampleRate:sample.sampleRate,numberOfChannels:2,timestamp:sample.timestamp});
+}
+
+export function alignAudioSample(sample, base) {
+  const skip=Math.max(0,Math.ceil((base-sample.timestamp)*sample.sampleRate));
+  if(skip>=sample.numberOfFrames)return null;
+  return skip?sample.trim(skip):sample;
 }
 
 export async function pumpPipeline(plan,{target,signal,pace=async()=>{},onOutput=()=>{}}) {
@@ -72,7 +78,10 @@ export async function pumpPipeline(plan,{target,signal,pace=async()=>{},onOutput
         }
       }else{
         for await(const sample of new AudioSampleSink(audio).samples(base)) {
-          try {check(signal);await pace(sample.timestamp);check(signal);const stereo=stereoSample(sample);try{stereo.setTimestamp(sample.timestamp-base);await aSource.add(stereo);}finally{if(stereo!==sample)stereo.close();}}finally{sample.close();}
+          let aligned=sample;
+          try {check(signal);await pace(sample.timestamp);check(signal);aligned=alignAudioSample(sample,base);if(!aligned)continue;
+            const stereo=stereoSample(aligned);try{stereo.setTimestamp(Math.max(0,aligned.timestamp-base));await aSource.add(stereo);}finally{if(stereo!==aligned)stereo.close();}
+          }finally{if(aligned&&aligned!==sample)aligned.close();sample.close();}
         }
       }
     }finally{aSource.close();}

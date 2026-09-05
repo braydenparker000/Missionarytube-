@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {AppendOnlyStreamTarget,AudioSample,Input,BufferSource,BufferTarget,AudioSampleSink,EncodedPacketSink,ALL_FORMATS} from 'mediabunny';
-import {preparePipeline,pumpPipeline,stereoSample} from '../src/compatibility-player.js';
+import {preparePipeline,pumpPipeline,stereoSample,alignAudioSample} from '../src/compatibility-player.js';
 const inputFor=async name=>new Input({source:new BufferSource(Buffer.from(await readFile(new URL(`./fixtures/media/${name}.mkv.base64`,import.meta.url),'utf8'),'base64')),formats:ALL_FORMATS});
 
 test('real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact',async()=>{
@@ -48,4 +48,12 @@ test('surround audio is downmixed to bounded stereo samples',()=>{
  try {assert.equal(stereo.numberOfChannels,2);assert.equal(stereo.timestamp,7);assert.equal(stereo.numberOfFrames,100);
   const plane=new Float32Array(100);stereo.copyTo(plane,{planeIndex:0,format:'f32-planar'});assert.ok(plane.every(x=>x>0&&x<=.5));
  }finally{stereo.close();sample.close();}
+});
+
+
+test('audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps',()=>{
+ const sample=new AudioSample({data:new Float32Array(2048),format:'f32-planar',sampleRate:48000,numberOfChannels:1,timestamp:.145});
+ const aligned=alignAudioSample(sample,.166);
+ try{assert.ok(aligned.timestamp>=.166);assert.ok(aligned.numberOfFrames<sample.numberOfFrames);assert.equal(alignAudioSample(sample,1),null);}
+ finally{aligned.close();sample.close();}
 });
