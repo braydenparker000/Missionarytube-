@@ -134,7 +134,7 @@ test("changing quality keeps the position, in place where it can and by seek whe
   // And the attempt honours a switch seek exactly, unlike a history resume
   // which deliberately stops short of the end.
   const attempt = region(/const switching=Number\.isFinite\(player\.pendingSeek\)[\s\S]*?scope\.listen\(el,'loadedmetadata',[\s\S]*?\n {6}\}\);/);
-  assert.match(attempt, /const limit=switching\?el\.duration-1:el\.duration\*\.93/);
+  assert.match(attempt, /restorePlaybackPosition\(el,seekTarget,switching\)/);
   assert.match(attempt, /player\.pendingSeek=null/);
 });
 

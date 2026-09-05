@@ -2,9 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {AppendOnlyStreamTarget,AudioSample,Input,BufferSource,BufferTarget,AudioSampleSink,EncodedPacketSink,ALL_FORMATS} from 'mediabunny';
-import {preparePipeline,pumpPipeline,stereoSample,alignAudioSample,createAdapter} from '../src/compatibility-player.js';
+import {preparePipeline,pumpPipeline,stereoSample,alignAudioSample,createAdapter,prepareRepair} from '../src/compatibility-player.js';
 import '../assets/js/playback/request-policy.js';
 const inputFor=async name=>new Input({source:new BufferSource(Buffer.from(await readFile(new URL(`./fixtures/media/${name}.mkv.base64`,import.meta.url),'utf8'),'base64')),formats:ALL_FORMATS});
+
+test('the reported MP4 H264/AC3 combination has readable video and decodable audio',async()=>{
+ const input=new Input({source:new BufferSource(Buffer.from(await readFile(new URL('./fixtures/media/avc-ac3.mp4.base64',import.meta.url),'utf8'),'base64')),formats:ALL_FORMATS});
+ try{
+  assert.equal(await (await input.getPrimaryVideoTrack()).getCodec(),'avc');
+  const audio=await input.getPrimaryAudioTrack();assert.equal(await audio.getCodec(),'ac3');
+  let frames=0;for await(const sample of new AudioSampleSink(audio).samples(0,.15)){frames+=sample.numberOfFrames;sample.close();}
+  assert.ok(frames>1000);
+ }finally{input.dispose();}
+});
 
 test('real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact',async()=>{
  const input=await inputFor('avc-aac');const plan=await preparePipeline(input);const chunks=[];const target=new AppendOnlyStreamTarget(new WritableStream({write:bytes=>{chunks.push(Buffer.from(bytes));}}));
@@ -207,4 +217,111 @@ test('compatibility startup distinguishes blocked access and connection failures
  const disconnected=createAdapter({media:{},url});
  try {await assert.rejects(disconnected.attach(),error=>error.playbackType==='network');assert.ok(attempts>0);}
  finally{disconnected.destroy();}
+});
+
+const fixtureResponse=(fixture,init)=>{
+ const start=Number(/^bytes=(\d+)-/.exec(new Headers(init.headers).get('range'))?.[1]||0);
+ return new Response(fixture.subarray(start),{status:206,headers:{'Content-Range':`bytes ${start}-${fixture.length-1}/${fixture.length}`,'Content-Length':String(fixture.length-start)}});
+};
+
+function mockMediaSource(t) {
+ const previous=globalThis.MediaSource;
+ let finish;
+ const completed=new Promise(resolve=>{finish=resolve;});
+ class Buffer extends EventTarget {
+  buffered={length:0,start:()=>0,end:()=>4};
+  appendBuffer(){this.buffered.length=1;queueMicrotask(()=>this.dispatchEvent(new Event('updateend')));}
+  remove(){queueMicrotask(()=>this.dispatchEvent(new Event('updateend')));}
+ }
+ globalThis.MediaSource=class extends EventTarget {
+  static isTypeSupported(type){return type.startsWith('video/mp4;');}
+  readyState='closed';
+  addSourceBuffer(){return new Buffer();}
+  endOfStream(){this.readyState='ended';finish();}
+ };
+ t.after(()=>{if(previous===undefined)delete globalThis.MediaSource;else globalThis.MediaSource=previous;});
+ t.mock.method(URL,'createObjectURL',source=>{queueMicrotask(()=>{source.readyState='open';source.dispatchEvent(new Event('sourceopen'));});return 'blob:synthetic-playback';});
+ t.mock.method(URL,'revokeObjectURL',()=>{});
+ return completed;
+}
+
+test('audio repair retries a transient request and transfers the real prepared input without rereading',async t=>{
+ const fixture=Buffer.from(await readFile(new URL('./fixtures/media/avc-aac.mkv.base64',import.meta.url),'utf8'),'base64');
+ const completed=mockMediaSource(t);
+ let requests=0,plays=0,mediaWrites=0;
+ t.mock.method(globalThis,'fetch',async(_url,init)=>{if(++requests===1)throw new TypeError('Failed to fetch');return fixtureResponse(fixture,init);});
+ const media={currentTime:2.5,paused:true,buffered:{length:0},set src(_value){mediaWrites++;},play(){plays++;this.paused=false;return Promise.resolve();}};
+ const prepared=await prepareRepair({url:'https://media.example.test/movie.mkv',startTime:2.5});
+ assert.equal(mediaWrites,0,'probing never replaced the existing video');
+ assert.equal(requests,2,'the transient failure used exactly one retry');
+ const originalTake=prepared.take;let taken;
+ prepared.take=()=>{taken=originalTake();t.mock.method(taken.input,'dispose');return taken;};
+ const adapter=createAdapter({media,url:'https://media.example.test/movie.mkv',startTime:2.5,prepared,autoplay:false});
+ try {
+  await adapter.attach();await completed;
+  assert.equal(taken.plan.audio.codec,'aac');assert.equal(taken.plan.video.codec,'avc');
+  assert.equal(requests,2,'the adapter reused the parsed and cached input');
+  assert.equal(mediaWrites,1);assert.equal(plays,0,'paused repairs stay paused');
+  assert.ok(media.currentTime>=2.5);
+  assert.throws(()=>prepared.take(),{name:'AbortError'});
+ }finally{adapter.destroy();}
+ assert.equal(taken.input.dispose.mock.callCount(),1,'the adapter released the transferred input');
+});
+
+for(const phase of ['fetch','body'])test(`audio repair bounds persistent ${phase} failures to one shared retry`,{timeout:2000},async t=>{
+ let requests=0;
+ t.mock.method(globalThis,'fetch',async()=>{
+  requests++;
+  if(phase==='fetch')throw new TypeError('Failed to fetch');
+  return new Response(new ReadableStream({start(controller){controller.error(new TypeError('network interrupted'));}}),{status:206,headers:{'Content-Range':'bytes 0-999/1000'}});
+ });
+ await assert.rejects(prepareRepair({url:'https://media.example.test/movie.mkv'}),error=>error.playbackType==='network');
+ assert.equal(requests,2);
+});
+
+test('cancelling repair during its retry delay stops it without another request',{timeout:2000},async t=>{
+ let requests=0;
+ t.mock.method(globalThis,'fetch',async()=>{requests++;throw new TypeError('Failed to fetch');});
+ const controller=new AbortController();
+ const preparation=prepareRepair({url:'https://media.example.test/movie.mkv',signal:controller.signal});
+ const rejected=assert.rejects(preparation,{name:'AbortError'});
+ await new Promise(resolve=>setTimeout(resolve,10));controller.abort();await rejected;
+ await new Promise(resolve=>setTimeout(resolve,300));
+ assert.equal(requests,1);
+});
+
+test('repair cancellation promptly rejects a pending metadata fetch',{timeout:1000},async t=>{
+ let resolveRequest;
+ t.mock.method(globalThis,'fetch',()=>new Promise(resolve=>{resolveRequest=resolve;}));
+ const controller=new AbortController();
+ const preparation=prepareRepair({url:'https://media.example.test/movie.mkv',signal:controller.signal});
+ const rejected=assert.rejects(preparation,{name:'AbortError'});
+ controller.abort();await rejected;
+ resolveRequest(new Response('cancelled input',{headers:{'Content-Length':'15'}}));
+});
+
+test('prepared repair is disposed when abandoned or its adapter is destroyed before attach',async t=>{
+ const fixture=Buffer.from(await readFile(new URL('./fixtures/media/avc-aac.mkv.base64',import.meta.url),'utf8'),'base64');
+ mockMediaSource(t);
+ t.mock.method(globalThis,'fetch',async(_url,init)=>fixtureResponse(fixture,init));
+ const abandoned=await prepareRepair({url:'https://media.example.test/movie.mkv'});
+ abandoned.dispose();assert.throws(()=>abandoned.take(),{name:'AbortError'});
+ const prepared=await prepareRepair({url:'https://media.example.test/movie.mkv'});
+ const adapter=createAdapter({media:{},url:'https://media.example.test/movie.mkv',prepared});
+ adapter.destroy();assert.throws(()=>prepared.take(),{name:'AbortError'});
+ await adapter.attach();
+});
+
+test('aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter',async t=>{
+ const fixture=Buffer.from(await readFile(new URL('./fixtures/media/avc-aac.mkv.base64',import.meta.url),'utf8'),'base64');
+ mockMediaSource(t);
+ t.mock.method(globalThis,'fetch',async(_url,init)=>fixtureResponse(fixture,init));
+ const controller=new AbortController();
+ const prepared=await prepareRepair({url:'https://media.example.test/movie.mkv',signal:controller.signal});
+ controller.abort();assert.throws(()=>prepared.take(),{name:'AbortError'});
+ const transferredController=new AbortController();
+ const transferred=await prepareRepair({url:'https://media.example.test/movie.mkv',signal:transferredController.signal});
+ const ready=transferred.take();transferredController.abort();transferred.dispose();
+ try{assert.equal((await ready.input.getPrimaryAudioTrack()).codec,'aac');}
+ finally{ready.input.dispose();}
 });

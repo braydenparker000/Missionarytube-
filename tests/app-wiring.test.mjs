@@ -119,7 +119,7 @@ test("settings are migrated through the schema on load, save and import", () => 
 
 test("the player is driven by engine snapshots, not ad-hoc state", () => {
   assert.match(html, /PB\.engine\.createSession\(\{/);
-  assert.match(html, /onAttempt:startAttempt,onChange:renderPlayerState/);
+  assert.match(html, /onAttempt:attempt=>\{[^\n]*return startAttempt\([^\n]*\)\},onChange:renderPlayerState/);
   assert.match(html, /player\.session\.report\(attemptId,event,detail\)/, "events are scoped to their attempt");
   assert.match(html, /snapshot\(\)\.attemptId===attemptId/, "stale attempts are filtered at the DOM boundary");
 });
@@ -346,7 +346,7 @@ test("the failover notice stays on screen long enough to read", () => {
   // its own copy for a readable minimum.
   assert.match(html, /const NOTICE_DWELL_MS=\d{4}/);
   assert.match(html, /player\.notice=\{failed:[^;]*until:Date\.now\(\)\+NOTICE_DWELL_MS\}/);
-  assert.match(html, /if\(snap\.state==='playing'\)\{showSettledNotice\(status\)/, "playing does not wipe it immediately");
+  assert.match(html, /if\(snap\.state==='playing'\)\{\s*showSettledNotice\(status\)/, "playing does not wipe it immediately");
 
   const settled = html.match(/function showSettledNotice\(status\)\{[\s\S]*?\n {4}\}/);
   assert.ok(settled, "showSettledNotice exists");

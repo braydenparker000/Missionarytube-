@@ -67,7 +67,7 @@ function fixture({ failure = "network", youtube = false, compatibility = false }
   const clock = createClock();
   const stage = node(), shell = node(), status = node(), streamRoot = node();
   const nodes = new Map([["#playerStage", stage], ["#playerShell", shell], ["#playerStatus", status], ["#streamRoot", streamRoot]]);
-  const calls = { attempts: [], opened: [], external: [], closed: 0, sources: 0, tornDown: 0 };
+  const calls = { attempts: [], opened: [], external: [], menus: [], closed: 0, sources: 0, tornDown: 0 };
   const entry = {
     stream: { kind: "direct", url: "https://media.example.test/chosen.mkv", urlSafe: true,
       title: "Chosen release", addonName: "Provider", facts: { audioOnly: false, container: "mkv", audioCodec: "AC3" } },
@@ -85,7 +85,7 @@ function fixture({ failure = "network", youtube = false, compatibility = false }
   };
   const queued = [];
   const context = vm.createContext({
-    player, state, PB, AstraPlayback: PB, document, URL,
+    player, state, PB, AstraPlayback: PB, document, URL, AbortController, DOMException,
     navigator: { userAgent: "Chrome test" }, location: {},
     window: { MediaSource: function MediaSource() {}, open: (...args) => calls.external.push(args) },
     $: (selector, root) => nodes.get(selector) || (root ? queryAll(selector, root)[0] : null),
@@ -95,6 +95,7 @@ function fixture({ failure = "network", youtube = false, compatibility = false }
     clearTimeout: clock.clearTimeout, setTimeout: clock.setTimeout,
     queueMicrotask: (callback) => queued.push(callback),
     closeTrackMenu() {}, miniPlayer() {}, renderTools() {}, youtubeMaybeRefresh: () => false,
+    openTrackMenu: kind => calls.menus.push(kind), loadCompatibility: async () => {},
     teardownAttempt: () => { calls.tornDown += 1; },
     closePlayer: () => { calls.closed += 1; },
     renderStreams: () => { calls.sources += 1; },
@@ -103,7 +104,7 @@ function fixture({ failure = "network", youtube = false, compatibility = false }
     capsNow: () => ({ mse: true }),
     playbackRate: 1
   });
-  for (const name of ["activePlayerCandidate", "canRepairPlayback", "recoveryMode"]) {
+  for (const name of ["activePlayerCandidate", "canRepairPlayback", "cancelPlaybackRepair", "repairPlayback", "recoveryMode"]) {
     vm.runInContext(appFunction(name, false), context);
   }
   for (const name of ["bindDynamic", "setAudioDocked", "renderPlayerError", "playerAction", "renderPlayerState"]) {
@@ -119,7 +120,7 @@ function fixture({ failure = "network", youtube = false, compatibility = false }
   const snapshot = player.session.snapshot();
   assert.equal(snapshot.candidate, null, "a terminal engine snapshot has no current candidate");
   return {
-    context, stage, shell, player, snapshot, calls, entry,
+    context, stage, shell, player, snapshot, calls, entry, nodes, clock,
     render: () => context.renderPlayerError(snapshot),
     button: (action) => stage.children.find((button) => button.dataset.playerAction === action),
     flush: () => { while (queued.length) queued.shift()(); }
@@ -198,6 +199,96 @@ test("a failed compatibility attempt does not repeatedly reopen itself", () => {
   f.flush();
   assert.equal(f.calls.opened.length, 0, "compatibility recovery is bounded");
   assert.ok(f.button("retry"), "a failed repair leaves an actionable recovery card");
+});
+
+function repairFixture(prepare) {
+  const f=fixture();
+  const media=Object.assign(new EventTarget(),{currentTime:490.4,paused:false});
+  f.nodes.set('#mediaEl',media);
+  f.player.diagnostics=PB.diagnostics.create();
+  f.player.diagnostics.select(f.entry.stream);
+  f.context.AstraCompatibility={prepareRepair:prepare};
+  return {...f,media};
+}
+
+test('failed audio preparation leaves the original video, playhead, and play state intact',async()=>{
+  const f=repairFixture(async()=>{throw Object.assign(new TypeError('Failed to fetch'),{playbackType:'network'})});
+  await f.context.playerAction('compatibility');
+  assert.equal(f.nodes.get('#mediaEl'),f.media);
+  assert.equal(f.media.currentTime,490.4);assert.equal(f.media.paused,false);
+  assert.equal(f.calls.opened.length,0);assert.equal(f.calls.tornDown,0);
+  assert.equal(f.player.repairPending,null);
+  assert.deepEqual(f.calls.menus,['repair','repair']);
+  const report=JSON.parse(f.player.diagnostics.report({media:f.media}));
+  assert.equal(report.events.at(-1).event,'repair-unavailable');
+  assert.equal(report.events.at(-1).failure,'NETWORK_OR_BROWSER_ACCESS');
+  assert.equal(report.playback.position,490.4);
+});
+
+test('successful audio preparation transfers its input once at the current playhead',async()=>{
+  let finish,calls=0,disposals=0;
+  const prepared={dispose:()=>disposals++};
+  const f=repairFixture(()=>{calls++;return new Promise(resolve=>finish=resolve)});
+  const first=f.context.playerAction('compatibility');
+  await Promise.resolve();await Promise.resolve();
+  await f.context.playerAction('compatibility');
+  assert.equal(calls,1);assert.equal(f.calls.opened.length,0);
+  f.media.currentTime=494;f.media.paused=true;
+  finish(prepared);await first;
+  assert.equal(f.calls.opened.length,1);
+  const opened=f.calls.opened[0];
+  assert.equal(opened.entry,f.entry);assert.equal(opened.options.prepared,prepared);
+  assert.equal(opened.options.resumeAt,494);assert.equal(opened.options.paused,true);
+  assert.equal(disposals,0,'the new adapter owns the prepared input');
+});
+
+test('seeking cancels pending audio repair and prevents an obsolete switch',async()=>{
+  let signal,started;
+  const ready=new Promise(resolve=>started=resolve);
+  const f=repairFixture(config=>{signal=config.signal;started();return new Promise(()=>{})});
+  const attempt=f.context.playerAction('compatibility');
+  await ready;
+  f.media.currentTime=900;f.media.dispatchEvent(new Event('seeking'));
+  await attempt;
+  assert.equal(signal.aborted,true);assert.equal(f.calls.opened.length,0);
+  assert.equal(f.media.currentTime,900);assert.equal(f.player.repairPending,null);
+});
+
+test('audio preparation times out without interrupting native playback or trapping the controls',async()=>{
+  const f=repairFixture(()=>new Promise(()=>{}));
+  const attempt=f.context.playerAction('compatibility');
+  f.clock.advance(15000);await attempt;
+  assert.equal(f.player.repairFailure.type,'timeout');
+  assert.equal(f.player.repairPending,null);assert.equal(f.calls.opened.length,0);
+  assert.equal(f.media.paused,false);assert.equal(f.media.currentTime,490.4);
+});
+
+test('a manual repair that fails after switching restores the same native source once',()=>{
+  const f=fixture({failure:'network',compatibility:true});
+  f.player.repairFallback={paused:true};
+  f.context.renderPlayerState(f.snapshot);f.flush();
+  assert.equal(f.calls.opened.length,1);
+  assert.equal(f.calls.opened[0].entry,f.entry);
+  assert.equal(f.calls.opened[0].options.compatibility,false);
+  assert.equal(f.calls.opened[0].options.paused,true);
+  assert.equal(f.calls.opened[0].options.repairFailure,f.snapshot.lastFailure);
+  assert.equal(f.calls.opened[0].options.repairFallback,undefined,'restoration cannot loop');
+});
+
+test('readiness without playback does not discard manual repair restoration',()=>{
+  const f=fixture({compatibility:true});
+  const fallback={paused:true};f.player.repairFallback=fallback;
+  f.context.showSettledNotice=()=>{};
+  f.context.renderPlayerState({...f.snapshot,state:'playing'});
+  assert.equal(f.player.repairFallback,fallback);
+});
+
+test('explicit repair restoration preserves positions near the end while saved history can restart',()=>{
+  const context=vm.createContext({});vm.runInContext(appFunction('restorePlaybackPosition'),context);
+  const media={duration:1000,currentTime:0};
+  context.restorePlaybackPosition(media,990,true);assert.equal(media.currentTime,990);
+  media.currentTime=0;context.restorePlaybackPosition(media,990,false);assert.equal(media.currentTime,0);
+  context.restorePlaybackPosition(media,1000,true);assert.ok(media.currentTime>999&&media.currentTime<1000);
 });
 
 test("closing before a queued repair prevents the old source from reopening", () => {

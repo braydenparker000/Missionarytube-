@@ -1427,6 +1427,10 @@
       player.triedModes=[...(options.triedModes||[]),player.compatibility?'compatibility':'native'];
       player.diagnostics=options.diagnostics||PB.diagnostics.create();
       player.diagnostics.select(s);
+      player.repairFailure=options.repairFailure||null;
+      player.repairFallback=options.repairFallback||null;
+      player.repairNotified=false;
+      player.pendingSeek=Number.isFinite(options.resumeAt)?options.resumeAt:null;
       // Music and genuinely audio-only streams use the persistent audio
       // surface. Movies, series and anime always use Player v3.
       player.audioMode=AstraHub.isAudio(m.type)||!!s.facts.audioOnly;
@@ -1444,6 +1448,7 @@
       // to a progressive file is the correct response to a delivery failing,
       // so that ladder is handed to the session whole.
       const ladder=isYouTubeEntry(entry)?player.sources.filter(isYouTubeEntry):null;
+      let prepared=options.prepared||null,autoplay=options.paused!==true;
       player.session=PB.engine.createSession({
         candidates:(ladder||[entry]).map(item=>({id:candidateKey(item),stream:item.stream,evaluation:item.evaluation,entry:item})),
         resumeTime,
@@ -1451,7 +1456,7 @@
         readPlaybackState:attemptId=>{const el=$('#mediaEl');return el&&player.session?.snapshot().attemptId===attemptId?{currentTime:el.currentTime,paused:el.paused,seeking:el.seeking,ended:el.ended}:null},
         autoFailover:!!ladder,
         maxAttempts:ladder?ladder.length:PB.engine.DEFAULT_MAX_ATTEMPTS,
-        onAttempt:startAttempt,onChange:renderPlayerState
+        onAttempt:attempt=>{const ready=prepared,play=autoplay;prepared=null;autoplay=true;return startAttempt({...attempt,prepared:ready,autoplay:play})},onChange:renderPlayerState
       });
       if(ladder)player.session.play(candidateKey(entry));
       else player.session.start();
@@ -1529,11 +1534,12 @@
 
     /* One playback attempt: build the media element, adapter and listeners.
        Everything allocated here belongs to this attempt's scope. */
-    function startAttempt({attemptId,candidate,resumeTime}){
+    function startAttempt({attemptId,candidate,resumeTime,prepared=null,autoplay=true}){
       teardownAttempt();
       const s=candidate.stream,m=player.meta,v=player.video,stage=$('#playerStage');
-      if(!stage)return;
+      if(!stage){prepared?.dispose();return}
       const scope=PB.adapters.createResourceScope();player.scope=scope;
+      scope.onDispose(()=>prepared?.dispose());
       const live=()=>player.session&&!player.session.cancelled&&player.session.snapshot().attemptId===attemptId;
       const report=(event,detail)=>{if(player.session&&live())player.session.report(attemptId,event,detail)};
 
@@ -1548,7 +1554,7 @@
       }
       const audioOnly=player.audioMode;
       stage.innerHTML=audioOnly?audioStageHTML(m,v,s):'<video id="mediaEl" autoplay playsinline preload="metadata"></video>';
-      const el=$('#mediaEl');el.playbackRate=playbackRate;
+      const el=$('#mediaEl');el.playbackRate=playbackRate;el.autoplay=autoplay;
       if(audioOnly)bindAudioSurface(el,scope);else bindVideoSurface(el,scope);
       const caps=capsNow();
       const adapterKind=player.compatibility?'compatibility':PB.adapters.adapterKindFor(s.kind,caps,s.requestPolicy);
@@ -1558,7 +1564,7 @@
       // short of the end, because restarting something already finished is
       // what the viewer wants; a quality switch must land exactly where the
       // playhead was, including in the last few seconds.
-      const switching=Number.isFinite(player.pendingSeek)&&player.pendingSeek>0;
+      const switching=Number.isFinite(player.pendingSeek)&&player.pendingSeek>=0;
       const seekTarget=switching?player.pendingSeek:resumeTime>0?resumeTime:0;
       player.pendingSeek=null;
 
@@ -1572,13 +1578,11 @@
         if(event!=='play')player.diagnostics?.record(event==='waiting'?'buffering':event==='pause'?'paused':event,{engine:adapterKind,currentTime:el.currentTime});
       });
       scope.listen(el,'loadedmetadata',()=>{
-        if(adapterKind!=='compatibility'&&seekTarget>0&&Number.isFinite(el.duration)){
-          const limit=switching?el.duration-1:el.duration*.93;
-          if(seekTarget<limit){try{el.currentTime=seekTarget}catch{}}
-        }
+        if(adapterKind!=='compatibility')restorePlaybackPosition(el,seekTarget,switching);
       });
       let lastWrite=0;
       scope.listen(el,'timeupdate',()=>{
+        if(player.compatibility&&!el.paused&&el.currentTime>seekTarget+.1)player.repairFallback=null;
         report('progress',playbackPosition());
         if(Date.now()-lastWrite<4000||!Number.isFinite(el.duration))return;
         lastWrite=Date.now();progress.record(m,v,{time:el.currentTime,duration:el.duration});
@@ -1598,7 +1602,7 @@
         .then(()=>{
           if(!live()||scope.disposed)return;
           const create=adapterKind==='compatibility'?(_kind,config)=>AstraCompatibility.createAdapter(config):PB.adapters.createAdapter;
-          player.adapter=create(adapterKind,{media:el,scope,url:s.url,requestPolicy:s.requestPolicy,startTime:seekTarget,Hls:window.Hls,dashjs:window.dashjs,onError:e=>report('error',e),onAudioTracksChanged:tracks=>{if(live()&&!scope.disposed)refreshAudioTracks(tracks)},onVideoQualitiesChanged:()=>{if(live()&&!scope.disposed&&player.session)renderTools(player.session.snapshot())}});
+          player.adapter=create(adapterKind,{media:el,scope,url:s.url,requestPolicy:s.requestPolicy,startTime:seekTarget,prepared,autoplay,Hls:window.Hls,dashjs:window.dashjs,onError:e=>report('error',e),onAudioTracksChanged:tracks=>{if(live()&&!scope.disposed)refreshAudioTracks(tracks)},onVideoQualitiesChanged:()=>{if(live()&&!scope.disposed&&player.session)renderTools(player.session.snapshot())}});
           return player.adapter.attach();
         })
         .then(()=>{if(live()&&!scope.disposed)attachSubtitles(el,s,m,v,scope,live)});
@@ -1687,11 +1691,16 @@
       }
     }
     function teardownAttempt(){
+      cancelPlaybackRepair();
       if(player.adapter){try{player.adapter.destroy()}catch{}player.adapter=null}
       if(player.scope){try{player.scope.dispose()}catch{}player.scope=null}
       player.subtitleTracks=[];player.subtitleAttached=[];player.activeSubtitle=null;player.audioPreferenceApplied=false;player.menu=null;
     }
 
+    function restorePlaybackPosition(el,time,explicit){
+      if(!(time>0)||!Number.isFinite(el.duration)||!explicit&&time>=el.duration*.93)return;
+      try{el.currentTime=Math.min(time,Math.max(0,el.duration-.05))}catch{}
+    }
     function activePlayerCandidate(snap){return snap?.candidate||snap?.lastFailure?.candidate||null}
     function playbackReport(){return player.diagnostics?.report({release:APP_VERSION,media:$('#mediaEl'),capabilities:{mediaSource:!!window.MediaSource,webCodecs:!!window.VideoDecoder}})||'No playback attempt recorded.'}
     async function copyPlaybackReport(){
@@ -1699,6 +1708,51 @@
       catch{openTrackMenu('diagnostics');toast('Chrome blocked copying. You can select the report below.')}
     }
     function canRepairPlayback(s){return !!(s?.kind==='direct'&&s.urlSafe&&!s.facts?.audioOnly&&!player.youtube&&window.MediaSource)}
+    function cancelPlaybackRepair(){
+      const pending=player.repairPending;player.repairPending=null;
+      if(pending){pending.controller.abort();player.diagnostics?.record('repair-cancelled',{engine:'compatibility'})}
+    }
+    async function repairPlayback(){
+      const session=player.session,snap=session?.snapshot(),entry=activePlayerCandidate(snap)?.entry?.entry,el=$('#mediaEl');
+      if(!entry||!el||player.compatibility||!canRepairPlayback(entry.stream))return;
+      if(player.repairPending){openTrackMenu('repair');return}
+      const controller=new AbortController(),pending={controller,timedOut:false};
+      player.repairPending=pending;player.repairFailure=null;
+      const live=()=>player.session===session&&$('#mediaEl')===el&&player.repairPending===pending;
+      const onSeek=()=>{if(live()){cancelPlaybackRepair();if(player.menu==='repair')closeTrackMenu(true)}};
+      el.addEventListener('seeking',onSeek);el.addEventListener('ended',onSeek);
+      const timer=setTimeout(()=>{pending.timedOut=true;controller.abort()},15000);
+      const aborted=new Promise((resolve,reject)=>controller.signal.addEventListener('abort',()=>reject(new DOMException('Repair cancelled','AbortError')),{once:true}));
+      player.diagnostics?.record('repair-check',{engine:'compatibility',currentTime:el.currentTime});
+      openTrackMenu('repair');
+      let prepared;
+      try{
+        prepared=await Promise.race([aborted,(async()=>{
+          await loadCompatibility().catch(error=>{error.playbackType='library';throw error});
+          if(controller.signal.aborted)throw new DOMException('Repair cancelled','AbortError');
+          return AstraCompatibility.prepareRepair({url:entry.stream.url,requestPolicy:entry.stream.requestPolicy,startTime:el.currentTime,signal:controller.signal});
+        })()]);
+        if(!live()||controller.signal.aborted)return;
+        // Preparation reads metadata and the chosen keyframe while the original
+        // video remains usable. Transfer those reads instead of fetching twice.
+        const time=el.currentTime,paused=el.paused;
+        player.repairPending=null;
+        player.diagnostics?.record('repair',{engine:'compatibility',currentTime:time});
+        openPlayer(entry,{compatibility:true,triedModes:player.triedModes,resumeAt:time,paused,prepared,repairFallback:{paused},diagnostics:player.diagnostics});
+        prepared=null;
+      }catch(error){
+        if(!live()||controller.signal.aborted&&!pending.timedOut)return;
+        player.repairPending=null;
+        player.repairFailure=pending.timedOut?{type:'timeout'}:error;
+        player.repairNotified=true;
+        player.diagnostics?.record('repair-unavailable',{engine:'compatibility',currentTime:el.currentTime,failure:player.repairFailure});
+        openTrackMenu('repair');
+      }finally{
+        clearTimeout(timer);el.removeEventListener('seeking',onSeek);el.removeEventListener('ended',onSeek);
+        if(player.repairPending===pending)player.repairPending=null;
+        prepared?.dispose();
+      }
+    }
     function recoveryMode(snap){
       const s=activePlayerCandidate(snap)?.stream,tried=player.triedModes||[player.compatibility?'compatibility':'native'];
       if(!canRepairPlayback(s))return null;
@@ -1724,18 +1778,23 @@
         }else status.innerHTML=`<div class="status-card" role="status"><span class="spinner"></span><div><b>${player.compatibility?'Preparing playback…':'Opening stream…'}</b><span>${player.compatibility?'Adapting this file for your device.':'Connecting to the selected source.'}</span></div></div>`;
         renderTools(snap);return;
       }
-      if(snap.state==='playing'){showSettledNotice(status);renderTools(snap);return}
+      if(snap.state==='playing'){
+        showSettledNotice(status);renderTools(snap);
+        if(player.repairFailure&&!player.repairNotified){player.repairNotified=true;openTrackMenu('repair')}
+        return;
+      }
       // Terminal: release the media element, library instance and listeners now
       // rather than waiting for a retry, a switch, or the viewer closing up.
       if(snap.state==='failed'||snap.state==='exhausted'){
         player.diagnostics?.record('failure',{engine:player.adapter?.kind||(player.compatibility?'compatibility':'native'),currentTime:snap.resumeTime,failure:snap.lastFailure});
         teardownAttempt();
         if(snap.state==='exhausted'&&youtubeMaybeRefresh())return;
-        const mode=recoveryMode(snap),entry=activePlayerCandidate(snap)?.entry?.entry,session=player.session;
+        const fallback=player.compatibility&&!s?.requestPolicy?.required&&player.repairFallback;
+        const mode=fallback?'native':recoveryMode(snap),entry=activePlayerCandidate(snap)?.entry?.entry,session=player.session;
         if(mode&&entry){
           status.innerHTML='<div class="status-card" role="status"><span class="spinner"></span><div><b>Adjusting playback…</b><span>Trying another way to play this same source.</span></div></div>';
           player.diagnostics?.record('repair',{engine:mode});
-          queueMicrotask(()=>{if(player.session===session)openPlayer(entry,{compatibility:mode==='compatibility',triedModes:player.triedModes,resumeAt:snap.resumeTime,diagnostics:player.diagnostics})});return;
+          queueMicrotask(()=>{if(player.session===session)openPlayer(entry,{compatibility:mode==='compatibility',triedModes:player.triedModes,resumeAt:snap.resumeTime,paused:fallback?.paused,repairFailure:fallback?snap.lastFailure:null,diagnostics:player.diagnostics})});return;
         }
         renderPlayerError(snap);renderTools(snap);return;
       }
@@ -1827,7 +1886,8 @@
       const session=player.session;
       if(action==='diagnostics'){copyPlaybackReport();return}
       if(action==='refresh'){const videoId=player.video?.id||state.currentVideo?.id,yt=player.youtube,m=state.currentMeta;closePlayer(true);if(m)showDetail(m,false);if(yt&&m)loadYouTubeSources(m,yt.videoId,{fresh:true});else if(videoId)loadStreams(videoId);return}
-      if(action==='compatibility'){const snap=session?.snapshot(),entry=activePlayerCandidate(snap)?.entry?.entry;if(entry){const time=$('#mediaEl')?.currentTime??snap.resumeTime;player.diagnostics?.record('repair',{engine:'compatibility',currentTime:time});openPlayer(entry,{compatibility:true,triedModes:player.triedModes,resumeAt:time,diagnostics:player.diagnostics})}return}
+      if(action==='compatibility')return repairPlayback();
+      if(action==='cancel-repair'){cancelPlaybackRepair();closeTrackMenu(true);return}
       if(action==='external-player'){const s=activePlayerCandidate(session?.snapshot())?.stream;if(s?.urlSafe&&s.kind==='direct'){const url=new URL(s.url);url.hash='';if(/Android/i.test(navigator.userAgent))location.href='intent:'+url.href.slice(url.protocol.length)+'#Intent;scheme='+url.protocol.slice(0,-1)+';package=org.videolan.vlc;type=video/*;end';else window.open(url.href,'_blank','noopener,noreferrer')}return}
       if(player.menu&&['fit','pip','mini-video','mute','fullscreen'].includes(action))closeTrackMenu(true);
       if(action==='pip'){pictureInPicture();return}
@@ -1954,7 +2014,12 @@
       closeTrackMenu(true);
       const modal=$('.player-modal');if(!modal)return;
       const menu=document.createElement('div');menu.className='track-menu track-sheet';menu.id='trackMenu';
-      if(kind==='diagnostics'){
+      if(kind==='repair'){
+        const pending=!!player.repairPending;
+        const code=PB.diagnostics.failureCode(player.repairFailure||{});
+        const message=['NETWORK_OR_BROWSER_ACCESS','ACCESS'].includes(code)?'The video can play directly, but Astra could not read this file to repair its audio. The provider may block browser access.':code==='TIMEOUT'?'The audio repair check took too long. You can retry it or choose another source.':PB.diagnostics.describe(player.repairFailure||{});
+        menu.innerHTML=`<div class="track-sheet-head"><h4>${pending?'Checking audio repair…':'Audio repair unavailable'}</h4><button class="icon-btn" data-player-action="cancel-repair" aria-label="Close audio repair">${icon('close')}</button></div><p class="track-empty" role="status">${pending?'Checking this file while the original video stays available.':esc(message)+' Your original playback is still available.'}</p><div class="track-options">${pending?'<button class="track-option" data-player-action="cancel-repair">Cancel repair</button>':'<button class="track-option" data-player-action="choose">Choose source</button><button class="track-option" data-player-action="external-player">Open in VLC</button><button class="track-option" data-player-action="compatibility">Retry audio repair</button><button class="track-option" data-player-action="diagnostics">Copy playback report</button>'}</div>`;
+      }else if(kind==='diagnostics'){
         menu.innerHTML=`<div class="track-sheet-head"><h4>Playback details</h4><button class="icon-btn" data-track-menu="diagnostics" aria-label="Close playback details">${icon('close')}</button></div><p class="track-empty">This report contains playback events and media formats. Stream links, titles, and credentials are excluded.</p><pre class="playback-report" tabindex="0">${esc(playbackReport())}</pre><button class="track-option" data-player-action="diagnostics">Copy playback report</button>`;
       }else if(kind==='options'){
         const snap=player.session?.snapshot(),s=activePlayerCandidate(snap)?.stream;
