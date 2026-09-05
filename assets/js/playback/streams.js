@@ -38,7 +38,7 @@
   // accessible label; the chip only has room for a word.
   var STATE_SHORT = {
     "ready": "Ready",
-    "probably-ready": "Likely",
+    "probably-ready": "Try playback",
     "requires-external": "External",
     "unsupported": "Blocked",
     "unsafe": "Unsafe"
@@ -46,7 +46,7 @@
 
   var STATE_LABEL = {
     "ready": "Browser ready",
-    "probably-ready": "Probably ready",
+    "probably-ready": "Playback unconfirmed",
     "requires-external": "Needs another app",
     "unsupported": "Not playable here",
     "unsafe": "Unsafe source"
@@ -321,7 +321,7 @@
       raw: input,
       index: Number.isFinite(options.index) ? options.index : 0,
       addonName: str(raw._addonName || options.addonName),
-      addonOrder: Number.isFinite(options.addonOrder) ? options.addonOrder : 0,
+      addonOrder: Number.isFinite(raw._addonOrder) ? raw._addonOrder : Number.isFinite(options.addonOrder) ? options.addonOrder : 0,
       kind: kind,
       url: parsed && isSafeUrl(parsed) ? parsed.href : str(raw.url),
       urlSafe: raw.url ? isSafeUrl(parsed) : true,
@@ -576,12 +576,12 @@
     // Direct progressive delivery.
     if (facts.notWebReady) {
       reasons.push(reason("not-web-ready", "The add-on marked this file as not browser ready."));
-      return result(STATE.UNSUPPORTED, 0);
+      return result(STATE.PROBABLY_READY, 0.2);
     }
 
     if (facts.container === "MKV" || facts.container === "AVI") {
-      reasons.push(reason("container", facts.container + " rarely plays in Chrome without transcoding."));
-      return result(STATE.UNSUPPORTED, 0);
+      reasons.push(reason("container", facts.container + " playback depends on its codecs and this device. You can try it."));
+      return result(STATE.PROBABLY_READY, 0.2);
     }
 
     contentType = contentTypeFor(stream);
@@ -598,8 +598,8 @@
     }
 
     if (contentType && verdict === "") {
-      reasons.push(reason("cannot-play", "Chrome reports it cannot decode " + (facts.codec || facts.container) + "."));
-      return result(STATE.UNSUPPORTED, 0);
+      reasons.push(reason("cannot-play", "The browser predicts limited support for " + (facts.codec || facts.container) + ". You can still try it."));
+      return result(STATE.PROBABLY_READY, 0.2);
     }
 
     if (facts.codec === "HEVC" || facts.hdr === "Dolby Vision") {
@@ -681,9 +681,9 @@
           .then(function (info) {
             if (!info || typeof info !== "object") return;
             if (info.supported === false) {
-              entry.evaluation.state = STATE.UNSUPPORTED;
-              entry.evaluation.label = STATE_LABEL[STATE.UNSUPPORTED];
-              entry.evaluation.playable = false;
+              entry.evaluation.state = STATE.PROBABLY_READY;
+              entry.evaluation.label = "Try playback";
+              entry.evaluation.playable = true;
               entry.evaluation.confidence = 0;
               entry.evaluation.reasons.unshift(reason("decoding-info", "The device reports it cannot decode this source."));
               changed = true;

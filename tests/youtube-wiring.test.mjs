@@ -161,9 +161,9 @@ test("progress, Continue Watching and the library work on a YouTube item unchang
   assert.match(detail, /data-get-streams="\$\{esc\(resume\.id\)\}"/);
 });
 
-test("a lapsed playback link is re-resolved once, never in a loop", () => {
+test("a failed playback link is re-resolved once, never in a loop", () => {
   const refresh = region(/function youtubeMaybeRefresh\(\)\{[\s\S]*?\n {4}\}/);
-  assert.match(refresh, /if\(!yt\|\|yt\.refreshed\|\|!YT\.playback\.planExpired\(yt\.plan\)\)return false/);
+  assert.match(refresh, /if\(!yt\|\|yt\.refreshed\)return false/);
   assert.match(refresh, /yt\.refreshed=true/, "one refresh per resolution, so a dead video cannot loop");
   assert.match(refresh, /\{fresh:true\}/);
   assert.match(html, /if\(options\.fresh\)youtubeProvider\(\)\.client\.forget\(videoId\)/);
