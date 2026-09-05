@@ -1,0 +1,16 @@
+Astra modification to libmedia AVPlayer 1.3.1, 2026-09-05
+
+The MediaStream path can write VideoFrames through WritableStreamRender without
+a WebGL context. Upstream checkUseMSE rejected this path before consulting the
+output mode. Astra permits that path when MediaStream mode, track generation,
+basic WebAssembly support, fetch and AudioContext are all available. Other
+output modes retain the upstream check.
+
+The exact reproducible patch is in scripts/build-libmedia.mjs, function
+patchMediaStreamGuard, in Astra's source repository. The build refuses to patch
+a changed upstream expression. All other runtime chunks and decoder binaries
+are unmodified. Original source: libmedia commit
+152f629d3021fd8013efa464fcb7b55f9fbe7753.
+
+Upstream copyright and LGPLv3 terms continue to apply. This modification is
+provided under those same terms; see the accompanying license texts.
