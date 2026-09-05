@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
-const MODULES = ["settings", "request-policy", "diagnostics", "streams", "adapters", "engine", "episodes", "subtitles"];
+const MODULES = ["settings", "request-policy", "video-health", "diagnostics", "streams", "adapters", "engine", "episodes", "subtitles"];
 
 /**
  * Evaluate the shipped playback modules in one isolated context, in the same

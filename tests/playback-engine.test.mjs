@@ -29,6 +29,13 @@ function session(candidates, options = {}) {
   return { instance, clock, changes };
 }
 
+test('codec and stage evidence survives a terminal engine failure for the playback report',()=>{
+  const {instance}=session([candidate('hevc')],{autoFailover:false});instance.start();
+  instance.report(instance.snapshot().attemptId,'error',{playbackType:'unsupported',playbackCode:'VIDEO_CODEC_UNSUPPORTED',playbackStage:'video-support',playbackCodec:'hvc1.2.4.L153.B0',message:'Unsupported output video'});
+  const failure=instance.snapshot().lastFailure;
+  assert.equal(failure.playbackCode,'VIDEO_CODEC_UNSUPPORTED');assert.equal(failure.playbackStage,'video-support');assert.equal(failure.playbackCodec,'hvc1.2.4.L153.B0');
+});
+
 test("failover advances once per failure and skips ineligible sources", () => {
   const { instance } = session([
     candidate("a"),

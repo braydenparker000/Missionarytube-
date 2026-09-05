@@ -296,7 +296,7 @@
       clearStallTimer();
     }
 
-    function failCurrent(failureKind, detail) {
+    function failCurrent(failureKind, detail, evidence) {
       var attempt = currentAttempt;
       var failedCandidate = attempt ? attempt.candidate : null;
       finishAttempt(attempt);
@@ -306,6 +306,9 @@
           ? (attempt.seeking ? "The source could not reach that position." : "Playback stopped responding.")
           : describeFailure(failureKind),
         detail: detail || "",
+        playbackCode: evidence && evidence.playbackCode,
+        playbackStage: evidence && evidence.playbackStage,
+        playbackCodec: evidence && evidence.playbackCodec,
         candidate: failedCandidate,
         afterPlayback: hasMeaningfulPlayback
       };
@@ -430,7 +433,7 @@
       }
 
       if (event === "error") {
-        failCurrent(classifyFailure(detail), (detail && (detail.detail || detail.message)) || "");
+        failCurrent(classifyFailure(detail), (detail && (detail.detail || detail.message)) || "", detail);
         return true;
       }
 

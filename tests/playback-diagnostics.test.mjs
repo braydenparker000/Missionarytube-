@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
-const context=vm.createContext({});vm.runInContext(await readFile('assets/js/playback/diagnostics.js','utf8'),context);
+const context=vm.createContext({});
+for(const name of ['video-health','diagnostics'])vm.runInContext(await readFile(`assets/js/playback/${name}.js`,'utf8'),context);
 const {create,failureCode,describe}=context.AstraPlayback.diagnostics;
 test('playback report cannot include source credentials or arbitrary metadata',()=>{
   const log=create();
@@ -16,6 +17,21 @@ test('network reports do not pretend to distinguish CORS from connection failure
   assert.equal(failureCode({kind:'network',detail:'Failed to fetch'}),'NETWORK_OR_BROWSER_ACCESS');
   assert.match(describe({kind:'network'}),/does not always reveal which/);
   assert.match(describe({detail:'HTTP 410'}),/expired/);assert.match(describe({detail:'HTTP status 429'}),/limiting requests/);
+});
+test('reports retain exact known codec failures and stages without accepting arbitrary error metadata',()=>{
+  const log=create();
+  log.record('failure',{engine:'compatibility',failure:{kind:'unsupported',playbackCode:'VIDEO_CODEC_UNSUPPORTED',playbackStage:'video-support',playbackCodec:'hvc1.2.4.L153.B0'}});
+  log.record('repair-unavailable',{engine:'compatibility',failure:{kind:'network',playbackCode:'SECRET',playbackStage:'SECRET',playbackCodec:'hvc1.SECRET',detail:'Failed to fetch private.example.test?token=SECRET'}});
+  const report=log.report(),events=JSON.parse(report).events;
+  assert.equal(events[0].failure,'VIDEO_CODEC_UNSUPPORTED');assert.equal(events[0].stage,'video-support');assert.equal(events[0].codec,'hvc1.2.4.L153.B0');
+  assert.equal(report.includes('SECRET'),false);assert.equal(events[1].failure,'NETWORK_OR_BROWSER_ACCESS');
+  assert.equal(events[1].stage,undefined);assert.equal(events[1].codec,undefined);
+});
+test('a missing frame counter is reported as unavailable, distinct from confirmed zero',()=>{
+  const log=create();const unknown=JSON.parse(log.report()).playback;
+  assert.equal(unknown.totalFrames,null);assert.equal(unknown.frameMetricsAvailable,false);
+  const known=JSON.parse(log.report({media:{videoWidth:0,videoHeight:0,getVideoPlaybackQuality:()=>({totalVideoFrames:0,droppedVideoFrames:0})}})).playback;
+  assert.equal(known.totalFrames,0);assert.equal(known.frameMetricsAvailable,true);assert.equal(known.videoWidth,0);
 });
 test('range-read failures are distinguishable without exposing the provider address',()=>{
   const failure={kind:'network',detail:'HTTP server did not honor the range request https://private.example.test?token=SECRET'};

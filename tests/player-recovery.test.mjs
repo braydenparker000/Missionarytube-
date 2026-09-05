@@ -138,6 +138,13 @@ test("the rendered failure card retries the same source after the engine has set
   assert.deepEqual(restarted, [f.entry], "one click restarts exactly the release that failed");
 });
 
+test('a timed-out seek offers restarting from zero without repeating the stuck position',()=>{
+  const f=fixture({failure:'timeout'});f.snapshot.resumeTime=487.2;
+  f.render();f.button('restart').click();
+  assert.equal(f.calls.opened.length,1);assert.equal(f.calls.opened[0].entry,f.entry);
+  assert.equal(f.calls.opened[0].options.resumeAt,0);
+});
+
 test('expired stream recovery can request a fresh source list for the same episode',()=>{
   const f=fixture();f.player.video={id:'episode-7'};const fetched=[];
   f.context.showDetail=()=>{};f.context.loadStreams=id=>fetched.push(id);
