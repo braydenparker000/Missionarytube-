@@ -13,9 +13,9 @@
 .collection-search input::placeholder { color:var(--cinema-muted); font-size:14px; }
 .collection-filters { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.4fr); gap:10px; margin-top:10px; }
 .collection-filters .select { width:100%; min-width:0; min-height:46px; font-size:12px; }
-.collection-card { position:relative; min-width:0; }
+.collection-card { position:relative; min-width:0; isolation:isolate; }
 .collection-card > .card { width:100%; }
-.collection-remove { position:absolute; top:7px; right:7px; display:grid; place-items:center; width:44px; height:44px; border:1px solid #ffffff24; border-radius:50%; background:#080a10d9; color:#fff; cursor:pointer; }
+.collection-remove { position:absolute; z-index:3; top:7px; right:7px; display:grid; place-items:center; width:44px; height:44px; border:1px solid #ffffff24; border-radius:50%; background:#080a10d9; color:#fff; cursor:pointer; }
 .collection-remove svg { width:18px; height:18px; }
 .collection-card .art { width:100%; }
 .device-note { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-block:16px; border-top:1px solid var(--cinema-line); }
