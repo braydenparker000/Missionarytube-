@@ -14,7 +14,7 @@ function fixture(fetchImpl){
     static setLogLevel(){}
     constructor(options){this.options=options;this.currentTime=0n;this.handlers={};this.audio=9;this.seeks=[];engines.push(this);}
     on(name,fn){(this.handlers[name]??=[]).push(fn);}
-    emit(name){for(const fn of this.handlers[name]||[])fn();}
+    emit(name){if(name==='ended')this.ended=true;for(const fn of this.handlers[name]||[])fn();}
     async load(io){this.io=io;}
     getStreams(){return [{id:1,mediaType:'Video'},{id:9,mediaType:'Audio',metadata:{language:'en'}},{id:12,mediaType:'Audio',metadata:{language:'ja'}}];}
     getDuration(){return 120000n;}
@@ -23,7 +23,7 @@ function fixture(fetchImpl){
     async play(){this.running=true;}
     async pause(){this.running=false;}
     async resume(){}
-    async seek(time){this.emit('seeking');this.currentTime=time;this.seeks.push(time);this.emit('seeked');}
+    async seek(time){if(this.ended){this.running=true;this.ended=false;}this.emit('seeking');this.currentTime=time;this.seeks.push(time);this.emit('seeked');}
     setPlaybackRate(rate){this.rate=rate;}
     async destroy(){this.destroyed=true;await this.io.stop();}
   }
@@ -39,12 +39,14 @@ test('software playback uses the decoder timeline, preserves pause and restores 
   const f=fixture(),m=media(),adapter=f.api.createAdapter({media:m,url:'https://example.test/movie.mkv',startTime:48.7,autoplay:false});
   await adapter.attach();const engine=f.engines[0];
   assert.equal(m.currentTime,48.7);assert.equal(m.duration,120);assert.equal(m.paused,true);assert.equal(engine.running,false);
+  assert.equal(m.seekable.length,1);assert.equal(m.seekable.start(0),0);assert.equal(m.seekable.end(0),120);assert.throws(()=>m.seekable.end(1),{name:'IndexSizeError'});
   await m.play();await tick();assert.equal(engine.running,true);
   m.pause();await tick();assert.equal(engine.running,false);
   adapter.seekTo(99);await tick();assert.equal(m.currentTime,99);assert.equal(m.seeking,false);
+  engine.emit('ended');adapter.seekTo(2);await tick();assert.equal(m.paused,true);assert.equal(engine.running,false);assert.equal(m.ended,false);
   assert.equal(adapter.getAudioTracks()[1].lang,'ja');assert.equal(adapter.selectAudioTrack('12'),true);await tick();assert.equal(engine.audio,12);
   m.playbackRate=1.5;assert.equal(engine.rate,1.5);
-  adapter.destroy();assert.equal(engine.destroyed,true);assert.equal(m.currentTime,0);assert.equal(m.srcObject,null);assert.equal(m.astraCaptionClock,undefined);
+  adapter.destroy();assert.equal(engine.destroyed,true);assert.equal(m.currentTime,0);assert.equal(m.srcObject,null);assert.equal(m.astraCaptionClock,undefined);assert.equal(m.seekable,undefined);
 });
 test('software preparation can be disposed before it ever replaces native playback',async()=>{
   const f=fixture(),controller=new AbortController();

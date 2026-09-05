@@ -109,7 +109,7 @@
       if(dead){prepared.dispose();return;}
       ready=prepared.take();prepared=null;ready.failed.catch(fail);
       const engine=ready.engine;duration=Number(engine.getDuration())/1000;
-      define('currentTime',{get:()=>Math.max(0,Number(engine.currentTime)/1000),set:value=>api.seekTo(value)});
+      define('currentTime',{get:()=>ended&&duration>0?duration:Math.max(0,Number(engine.currentTime)/1000),set:value=>api.seekTo(value)});
       define('astraCaptionClock',{value:true});define('astraCaptionTrack',{writable:true,value:null});
       const captions=document.createElement('div');captions.className='software-captions';media.parentNode?.append(captions);
       const paintCaptions=()=>{
@@ -121,13 +121,17 @@
       config.scope?.onDispose?.(()=>captions.remove());
       listeners.push(['astra-destroy-captions',()=>captions.remove()]);
       define('duration',{get:()=>duration});define('seeking',{get:()=>seeking});define('ended',{get:()=>ended});
+      // The MediaStream is a live output transport; the underlying file is
+      // seekable. Expose its range to the same scrubber as native files.
+      const range={get length(){return duration>0?1:0;},start(index){if(index!==0||duration<=0)throw new DOMException('No seek range','IndexSizeError');return 0;},end(index){if(index!==0||duration<=0)throw new DOMException('No seek range','IndexSizeError');return duration;}};
+      define('seekable',{get:()=>range});
       define('playbackRate',{get:()=>rate,set:value=>{rate=value;engine.setPlaybackRate(rate);}});
-      define('play',{value:()=>{const native=nativePlay();serial(async()=>{await engine.resume();await engine.play({audio:true,video:true,subtitle:false});});return native;}});
+      define('play',{value:()=>{ended=false;const native=nativePlay();serial(async()=>{await engine.resume();await engine.play({audio:true,video:true,subtitle:false});});return native;}});
       define('pause',{value:()=>{nativePause();serial(()=>engine.pause());}});
       // PiP's controls invoke native methods; route those events too.
       const listen=(name,fn)=>{media.addEventListener(name,fn);listeners.push([name,fn]);};
       listen('pause',()=>{if(!ended)serial(()=>engine.pause());});
-      listen('play',()=>serial(async()=>{await engine.resume();await engine.play({audio:true,video:true,subtitle:false});}));
+      listen('play',()=>{ended=false;serial(async()=>{await engine.resume();await engine.play({audio:true,video:true,subtitle:false});});});
       listen('timeupdate',paintCaptions);
       engine.on('seeking',()=>{seeking=true;emit('seeking');emit('waiting');});
       engine.on('seeked',()=>{seeking=false;ended=false;emit('seeked');emit('timeupdate');if(!media.paused)emit('playing');});
@@ -150,7 +154,7 @@
       listeners.forEach(([name,fn])=>{if(name==='astra-destroy-captions')fn();else media.removeEventListener(name,fn);});nativePause();media.srcObject=null;
       for(const [key,descriptor] of original){if(descriptor)Object.defineProperty(media,key,descriptor);else delete media[key];}
     },getAudioTracks:tracks,selectAudioTrack(id){if(!tracks().some(t=>t.id===String(id)))return false;serial(()=>ready.engine.selectAudio(Number(id)));return true;},
-    seekTo(value){if(!ready||!Number.isFinite(value))return;pendingSeek=Math.max(0,Math.min(duration||Infinity,value));serial(async()=>{if(pendingSeek===null)return;const time=pendingSeek;pendingSeek=null;await ready.engine.seek(BigInt(Math.round(time*1000)));});},getVideoQualities:()=>[],selectVideoQuality:()=>false};
+    seekTo(value){if(!ready||!Number.isFinite(value))return;pendingSeek=Math.max(0,Math.min(duration||Infinity,value));serial(async()=>{if(pendingSeek===null)return;const time=pendingSeek,paused=media.paused;pendingSeek=null;await ready.engine.seek(BigInt(Math.round(time*1000)));if(paused)await ready.engine.pause();});},getVideoQualities:()=>[],selectVideoQuality:()=>false};
     config.scope?.onDispose?.(()=>api.destroy());return api;
   }
   global.AstraSoftware={prepare,createAdapter,source};
