@@ -25,6 +25,7 @@
   };
 
   var FAILURE = {
+    ACCESS: "access",
     NETWORK: "network",
     MANIFEST: "manifest",
     DECODE: "decode",
@@ -35,6 +36,7 @@
   };
 
   var FAILURE_TEXT = {
+    access: "The source requires access settings this browser cannot apply.",
     network: "The source stopped responding.",
     manifest: "The stream manifest could not be read.",
     decode: "This device could not decode the stream.",
@@ -46,6 +48,8 @@
 
   var DEFAULT_STARTUP_TIMEOUT_MS = 25000;
   var DEFAULT_MAX_ATTEMPTS = 3;
+  var DEFAULT_STALL_TIMEOUT_MS = 30000;
+  var DEFAULT_SEEK_TIMEOUT_MS = 45000;
   // Playback is "meaningful" once this much has actually been watched. Past it,
   // an error is reported rather than silently swapping the source underneath.
   var MEANINGFUL_PLAYBACK_SECONDS = 5;
@@ -99,10 +103,13 @@
     var startupTimeoutMs = Number.isFinite(options.startupTimeoutMs)
       ? options.startupTimeoutMs
       : DEFAULT_STARTUP_TIMEOUT_MS;
+    var stallTimeoutMs = Number.isFinite(options.stallTimeoutMs) ? options.stallTimeoutMs : DEFAULT_STALL_TIMEOUT_MS;
+    var seekTimeoutMs = Number.isFinite(options.seekTimeoutMs) ? options.seekTimeoutMs : DEFAULT_SEEK_TIMEOUT_MS;
     var schedule = options.setTimeout || function (fn, ms) { return setTimeout(fn, ms); };
     var cancelTimer = options.clearTimeout || function (handle) { clearTimeout(handle); };
     var onChange = typeof options.onChange === "function" ? options.onChange : function () {};
     var startAttempt = typeof options.onAttempt === "function" ? options.onAttempt : null;
+    var readPlaybackState = typeof options.readPlaybackState === "function" ? options.readPlaybackState : null;
 
     sessionCounter += 1;
     var sessionId = "s" + sessionCounter;
@@ -116,6 +123,7 @@
     var hasMeaningfulPlayback = false;
     var cancelled = false;
     var timeoutHandle = null;
+    var stallHandle = null;
 
     function candidateId(candidate, index) {
       if (!candidate) return "c" + index;
@@ -176,6 +184,61 @@
       timeoutHandle = null;
     }
 
+    function clearStallTimer() {
+      if (stallHandle === null) return;
+      cancelTimer(stallHandle);
+      stallHandle = null;
+    }
+
+    function armStartupTimer(attempt) {
+      if (timeoutHandle !== null || attempt.paused || attempt.ended) return;
+      timeoutHandle = schedule(function () {
+        timeoutHandle = null;
+        report(attempt.id, "error", { type: FAILURE.TIMEOUT });
+      }, startupTimeoutMs);
+    }
+
+    // canplay/playing can repeat while a source has stopped delivering frames.
+    // Only movement of the playhead renews this deadline, not buffering events.
+    function armStallTimer(attempt, reset) {
+      if (attempt.paused || attempt.ended) return;
+      if (reset) clearStallTimer();
+      if (stallHandle !== null) return;
+      stallHandle = schedule(function () {
+        stallHandle = null;
+        if (!isCurrent(attempt.id)) return;
+        // Background tabs can delay timeupdate while the media keeps playing.
+        // Inspect the element at expiry before declaring that playback froze.
+        var media = null;
+        try { if (readPlaybackState) media = readPlaybackState(attempt.id); } catch (_) {}
+        if (media) {
+          if (media.ended || media.paused) {
+            report(attempt.id, media.ended ? "ended" : "pause", media);
+            return;
+          }
+          if (media.seeking === true && !attempt.seeking) {
+            report(attempt.id, "seeking", media);
+            return;
+          }
+          if (media.seeking === false && attempt.seeking) {
+            report(attempt.id, "seeked", media);
+            return;
+          }
+          if (!attempt.seeking && Number.isFinite(media.currentTime) &&
+              (attempt.lastMediaTime === null ? media.currentTime > 0 : media.currentTime > attempt.lastMediaTime + 0.01)) {
+            report(attempt.id, "progress", media);
+            return;
+          }
+        }
+        report(attempt.id, "error", {
+          type: FAILURE.TIMEOUT,
+          detail: attempt.seeking
+            ? "This source could not reach the selected position. Retry or choose another source."
+            : "Playback stopped making progress. Retry or choose another source."
+        });
+      }, attempt.seeking ? seekTimeoutMs : stallTimeoutMs);
+    }
+
     /** An event is live only if it belongs to the current, uncancelled attempt. */
     function isCurrent(attemptId) {
       return !cancelled && !!currentAttempt && currentAttempt.id === attemptId && !currentAttempt.settled;
@@ -187,7 +250,13 @@
         id: sessionId + "-a" + attemptCounter,
         candidate: candidate,
         settled: false,
-        startedAt: attemptCounter
+        startedAt: attemptCounter,
+        ready: false,
+        paused: false,
+        seeking: false,
+        seekPosition: null,
+        ended: false,
+        lastMediaTime: null
       };
       currentAttempt = attempt;
       triedIds.push(candidate.id);
@@ -197,10 +266,8 @@
       // cleared once something actually plays.
 
       clearStartupTimer();
-      timeoutHandle = schedule(function () {
-        timeoutHandle = null;
-        report(attempt.id, "error", { type: FAILURE.TIMEOUT });
-      }, startupTimeoutMs);
+      clearStallTimer();
+      armStartupTimer(attempt);
 
       emit();
 
@@ -226,6 +293,7 @@
     function finishAttempt(attempt) {
       attempt.settled = true;
       clearStartupTimer();
+      clearStallTimer();
     }
 
     function failCurrent(failureKind, detail) {
@@ -234,7 +302,9 @@
       finishAttempt(attempt);
       lastFailure = {
         kind: failureKind,
-        text: describeFailure(failureKind),
+        text: failureKind === FAILURE.TIMEOUT && attempt && (attempt.ready || attempt.seeking)
+          ? (attempt.seeking ? "The source could not reach that position." : "Playback stopped responding.")
+          : describeFailure(failureKind),
         detail: detail || "",
         candidate: failedCandidate,
         afterPlayback: hasMeaningfulPlayback
@@ -263,21 +333,97 @@
     function report(attemptId, event, detail) {
       if (!isCurrent(attemptId)) return false;
 
-      if (event === "ready") {
+      var attempt = currentAttempt;
+      var seconds = Number(detail && detail.currentTime);
+      var hasPosition = !!detail && detail.currentTime != null && Number.isFinite(seconds) && seconds >= 0;
+      if (detail && typeof detail.paused === "boolean") {
+        attempt.paused = detail.paused;
+        if (attempt.paused) {
+          // Before readiness, a newly attached element is often still paused
+          // while its adapter fetches metadata. That is not a user pause.
+          if (attempt.ready) clearStartupTimer();
+          clearStallTimer();
+        }
+      }
+
+      if (event === "ready" || event === "playing") {
+        var firstReady = !attempt.ready;
+        attempt.ready = true;
+        if (firstReady && hasPosition) attempt.lastMediaTime = seconds;
+        if (event === "playing") {
+          attempt.paused = false;
+          attempt.ended = false;
+        }
+        if (detail && detail.seeking === true) attempt.seeking = true;
         clearStartupTimer();
+        armStallTimer(attempt, false);
         state = STATE.PLAYING;
         lastFailure = null;
-        emit();
+        if (firstReady) emit();
+        return true;
+      }
+
+      if (event === "play") {
+        attempt.paused = false;
+        attempt.ended = false;
+        if (attempt.ready || attempt.seeking) armStallTimer(attempt, false);
+        else armStartupTimer(attempt);
+        return true;
+      }
+
+      if (event === "pause" || event === "ended") {
+        attempt.paused = true;
+        attempt.ended = event === "ended";
+        clearStartupTimer();
+        clearStallTimer();
+        return true;
+      }
+
+      if (event === "seeking") {
+        var newSeek = !attempt.seeking || (hasPosition && seconds !== attempt.seekPosition);
+        attempt.seeking = true;
+        attempt.seekPosition = hasPosition ? seconds : null;
+        if (hasPosition) {
+          attempt.lastMediaTime = seconds;
+          resumeTime = seconds;
+        }
+        if (attempt.ready || !attempt.paused) clearStartupTimer();
+        armStallTimer(attempt, newSeek);
+        return true;
+      }
+
+      if (event === "seeked") {
+        var wasSeeking = attempt.seeking;
+        attempt.seeking = false;
+        attempt.seekPosition = null;
+        if (hasPosition) {
+          attempt.lastMediaTime = seconds;
+          resumeTime = seconds;
+        }
+        armStallTimer(attempt, wasSeeking);
+        return true;
+      }
+
+      if (event === "waiting" || event === "stalled") {
+        // Before canplay, the original startup deadline remains in force.
+        if (attempt.ready || attempt.seeking) armStallTimer(attempt, false);
         return true;
       }
 
       if (event === "progress") {
-        var seconds = Number(detail && detail.currentTime);
-        if (Number.isFinite(seconds)) {
+        if (hasPosition) {
+          var advancing = attempt.lastMediaTime === null ? seconds > 0 : seconds > attempt.lastMediaTime + 0.01;
+          attempt.lastMediaTime = seconds;
           resumeTime = seconds;
-          if (seconds >= MEANINGFUL_PLAYBACK_SECONDS && !hasMeaningfulPlayback) {
-            hasMeaningfulPlayback = true;
-            emit();
+          if (!attempt.paused && !attempt.ended && !attempt.seeking && !(detail && detail.seeking)) {
+            if (advancing) {
+              clearStartupTimer();
+              armStallTimer(attempt, true);
+            }
+            if (seconds >= MEANINGFUL_PLAYBACK_SECONDS && !hasMeaningfulPlayback) {
+              hasMeaningfulPlayback = true;
+              emit();
+            }
           }
         }
         return true;
@@ -292,7 +438,7 @@
     }
 
     function start() {
-      if (cancelled) return snapshot();
+      if (cancelled || currentAttempt) return snapshot();
       var first = nextEligible();
       if (!first) {
         state = STATE.EXHAUSTED;
@@ -356,6 +502,7 @@
       cancelled = true;
       if (currentAttempt) finishAttempt(currentAttempt);
       clearStartupTimer();
+      clearStallTimer();
       currentAttempt = null;
       state = STATE.CANCELLED;
       emit();
@@ -388,6 +535,8 @@
     MEANINGFUL_PLAYBACK_SECONDS: MEANINGFUL_PLAYBACK_SECONDS,
     DEFAULT_STARTUP_TIMEOUT_MS: DEFAULT_STARTUP_TIMEOUT_MS,
     DEFAULT_MAX_ATTEMPTS: DEFAULT_MAX_ATTEMPTS,
+    DEFAULT_STALL_TIMEOUT_MS: DEFAULT_STALL_TIMEOUT_MS,
+    DEFAULT_SEEK_TIMEOUT_MS: DEFAULT_SEEK_TIMEOUT_MS,
     classifyFailure: classifyFailure,
     describeFailure: describeFailure,
     createSession: createSession

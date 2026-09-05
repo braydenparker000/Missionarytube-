@@ -230,7 +230,7 @@ test("a terminal failure releases the attempt before the error card renders", ()
   // behind the error UI until the viewer happens to retry, switch or close.
   assert.match(
     html,
-    /if\(snap\.state==='failed'\|\|snap\.state==='exhausted'\)\{\s*teardownAttempt\(\);/,
+    /if\(snap\.state==='failed'\|\|snap\.state==='exhausted'\)\{\s*(?:player\.diagnostics\?\.record\([^\n]*\);\s*)?teardownAttempt\(\);/,
     "teardownAttempt must run when the session goes terminal"
   );
   // The one thing allowed to run between the release and the error card is the

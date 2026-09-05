@@ -258,6 +258,7 @@
       scope: scope,
       attach: function () {
         return Promise.resolve().then(function () {
+          if (config.requestPolicy && config.requestPolicy.required) throw global.AstraPlayback.requests.error();
           media.src = config.url;
           bindTrackEvents();
           scope.listen(media, "loadedmetadata", function () {
@@ -414,7 +415,19 @@
             error.playbackType = "library";
             throw error;
           }
-          instance = new Hls({ enableWorker: true, lowLatencyMode: true });
+          var hlsConfig = { enableWorker: true, lowLatencyMode: true };
+          if (config.requestPolicy && config.requestPolicy.required) {
+            if (!config.requestPolicy.supported) throw global.AstraPlayback.requests.error();
+            // In the pinned hls.js release progressive:true selects FetchLoader.
+            // XHR cannot prevent credential-bearing redirects, so fail closed
+            // if an older browser cannot activate the fetch loader.
+            hlsConfig.progressive = true;
+            hlsConfig.fetchSetup = function (context, init) {
+              return new Request(context.url, global.AstraPlayback.requests.fetchInit(config.requestPolicy, context.url, init));
+            };
+            hlsConfig.xhrSetup = function () { throw global.AstraPlayback.requests.error(); };
+          }
+          instance = new Hls(hlsConfig);
           var errorEvent = (Hls.Events && Hls.Events.ERROR) || "hlsError";
           instance.on(errorEvent, function (_event, data) {
             if (!data || !data.fatal) return;
@@ -479,6 +492,94 @@
       }
     };
     return api;
+  }
+
+  /**
+   * dash.js 5.2's default XHR loader follows redirects; its fetch loader also
+   * omits Request.redirect. Replace both only for header-bearing sources,
+   * retaining dash.js's range requests, retries, progress and cancellation.
+   */
+  function createDashFetchLoader(policy, fetcher) {
+    var active = new Set();
+    var boxParser = null;
+    function stop(run, notify) {
+      if (!active.delete(run)) return;
+      run.controller.abort();
+      clearTimeout(run.timer);
+      if (notify && run.request.customData.onabort) run.request.customData.onabort();
+    }
+    function abort(request) {
+      Array.from(active).forEach(function (run) { if (!request || request === run.request) stop(run, true); });
+    }
+    return {
+      setConfig: function (options) { boxParser = options && options.boxParser; },
+      getXhr: function () { return null; },
+      abort: abort,
+      reset: function () { abort(); },
+      resetInitialSettings: function () { abort(); },
+      load: function (request, response) {
+        var run = { request: request, controller: new AbortController(), timer: null };
+        request.customData = request.customData || {};
+        request.customData.abort = function () { stop(run, true); };
+        active.add(run);
+        var finished = function () {
+          if (!active.delete(run)) return;
+          clearTimeout(run.timer);
+          if (request.customData.onloadend) request.customData.onloadend();
+        };
+        if (request.timeout > 0) run.timer = setTimeout(function () {
+          run.controller.abort();
+          response.status = 0;
+          if (request.customData.ontimeout) request.customData.ontimeout({ lengthComputable: false });
+          finished();
+        }, request.timeout);
+        Promise.resolve().then(function () {
+          if (!active.has(run)) return null;
+          var init = global.AstraPlayback.requests.fetchInit(policy, request.url, {
+            method: request.method || "GET", body: request.body || undefined,
+            headers: request.headers || {}, signal: run.controller.signal
+          });
+          return (fetcher || global.fetch)(request.url, init);
+        }).then(async function (result) {
+          if (!active.has(run)) return;
+          response.url = result.url || request.url;
+          response.status = result.status;
+          response.statusText = result.statusText;
+          response.headers = {};
+          result.headers.forEach(function (value, name) { response.headers[name] = value; });
+          var length = Number(result.headers.get("content-length")) || 0;
+          var chunks = [], loaded = 0;
+          var progressive = boxParser && request.responseType === "arraybuffer" && request.customData.request && request.customData.request.availabilityTimeComplete === false;
+          var pending = new Uint8Array(0);
+          if (result.body) {
+            var reader = result.body.getReader();
+            for (;;) {
+              var part = await reader.read();
+              if (!active.has(run)) { await reader.cancel(); return; }
+              if (part.done) break;
+              loaded += part.value.byteLength;
+              if (progressive && request.customData.onprogress) {
+                var joined = new Uint8Array(pending.byteLength + part.value.byteLength);
+                joined.set(pending); joined.set(part.value, pending.byteLength); pending = joined;
+                var box = boxParser.findLastTopIsoBoxCompleted(["moov", "mdat"], pending, 0);
+                if (box.found) {
+                  var end = box.startOffsetOfLastFoundTargetBox + box.sizeOfLastFoundTargetBox;
+                  request.customData.onprogress({ data: pending.slice(0, end).buffer, noTrace: true, lengthComputable: false });
+                  pending = pending.slice(end);
+                }
+              } else chunks.push(part.value);
+              if (!active.has(run)) { await reader.cancel(); return; }
+              if (request.customData.onprogress) request.customData.onprogress({ loaded: loaded, total: length || loaded, lengthComputable: length > 0 });
+            }
+          }
+          var bytes = progressive && request.customData.onprogress ? pending : new Uint8Array(loaded), offset = 0;
+          chunks.forEach(function (chunk) { bytes.set(chunk, offset); offset += chunk.byteLength; });
+          response.data = request.responseType === "arraybuffer" ? bytes.buffer : new TextDecoder().decode(bytes);
+          finished();
+        }).catch(function () { response.status = 0; finished(); });
+        return true;
+      }
+    };
   }
 
   function createDashAdapter(config) {
@@ -633,6 +734,12 @@
             throw error;
           }
           player = dashjs.MediaPlayer().create();
+          if (config.requestPolicy && config.requestPolicy.required) {
+            if (!config.requestPolicy.supported || typeof player.extend !== "function") throw global.AstraPlayback.requests.error();
+            ["XHRLoader", "FetchLoader"].forEach(function (name) {
+              player.extend(name, function () { return createDashFetchLoader(config.requestPolicy, config.fetch); }, false);
+            });
+          }
           errorHandler = function (event) {
             var detail = (event && (event.error && (event.error.message || event.error.code))) || "";
             var type = String(detail).toLowerCase().indexOf("manifest") !== -1 ? "manifest" : "decode";
@@ -755,9 +862,9 @@
    * selectable. Native HLS stays the fallback for a browser without MSE
    * (Safari), where the native path does expose `audioTracks` anyway.
    */
-  function adapterKindFor(streamKind, caps) {
+  function adapterKindFor(streamKind, caps, requestPolicy) {
     if (streamKind === "dash") return "dash";
-    if (streamKind === "hls") return caps && caps.hlsSupported === false ? "native" : "hls";
+    if (streamKind === "hls") return requestPolicy && requestPolicy.required ? "hls" : caps && caps.hlsSupported === false ? "native" : "hls";
     return "native";
   }
 
@@ -775,6 +882,7 @@
     createNativeAdapter: createNativeAdapter,
     createHlsAdapter: createHlsAdapter,
     createDashAdapter: createDashAdapter,
+    createDashFetchLoader: createDashFetchLoader,
     adapterKindFor: adapterKindFor,
     detachMedia: detachMedia
   };

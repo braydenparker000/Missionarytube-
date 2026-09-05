@@ -21,6 +21,8 @@ export async function loadYouTube() {
     Event,
     EventTarget
   });
+  const requests = await readFile(new URL("../../assets/js/playback/request-policy.js", import.meta.url), "utf8");
+  vm.runInContext(requests, context, { filename: "assets/js/playback/request-policy.js" });
   const streams = await readFile(new URL("../../assets/js/playback/streams.js", import.meta.url), "utf8");
   vm.runInContext(streams, context, { filename: "assets/js/playback/streams.js" });
   for (const name of MODULES) {

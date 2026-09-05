@@ -14,6 +14,31 @@ function classify(raw) {
   return S.evaluate(normalize(raw), caps);
 }
 
+test("extensionless manifest URLs use explicit MIME and filename hints", () => {
+  const url="https://cdn.example.test/resolve?id=synthetic";
+  for(const raw of [{url,mimeType:"application/vnd.apple.mpegurl"},{url,behaviorHints:{filename:"live.m3u8"}},{url,behaviorHints:{mimeType:"application/x-mpegURL; charset=utf-8"}}]) assert.equal(normalize(raw).kind,"hls");
+  for(const raw of [{url,mimeType:"application/dash+xml"},{url,behaviorHints:{filename:"movie.mpd"}}]) assert.equal(normalize(raw).kind,"dash");
+  assert.equal(normalize({url,title:"An HLS DASH documentary"}).kind,"direct","release titles are not manifest hints");
+});
+
+test("usable request headers are attempted with the fetch player, empty hints remain native", () => {
+  const raw={url:"https://cdn.example.test/movie.mp4",behaviorHints:{proxyHeaders:{request:{Authorization:"Bearer synthetic"}}}};
+  const stream=normalize(raw);
+  assert.equal(stream.requestPolicy.required,true);
+  assert.equal(stream.facts.requestHeaders,true);
+  const result=S.evaluate(stream,{...caps,mse:true});
+  assert.equal(result.playable,true);
+  assert.equal(result.state,S.STATE.PROBABLY_READY);
+  assert.equal(S.evaluate(stream,{...caps,mse:false}).playable,false);
+  assert.equal(S.evaluate(normalize({...raw,url:"https://cdn.example.test/audio.mp3"}),{...caps,mse:true}).playable,false,"audio-only fetch player is not implemented");
+  const hls=normalize({...raw,url:"https://cdn.example.test/audio.m3u8",behaviorHints:{...raw.behaviorHints,filename:"audio.mp3"}});
+  assert.equal(hls.facts.audioOnly,true);
+  assert.equal(S.evaluate(hls,{...caps,mse:true}).playable,true,"HLS has its own audio-only fetch pipeline");
+  assert.equal(S.evaluate(hls,{...caps,mse:true,nativeHls:true,hlsSupported:false}).playable,false,"native HLS cannot substitute for request-header support");
+  assert.equal(S.evaluate(hls,{...caps,mse:true,nativeHls:true}).reasons.some(reason=>reason.code==='hls-native'),false);
+  assert.equal(classify({url:raw.url,behaviorHints:{proxyHeaders:{request:{}}}}).playable,true);
+});
+
 test("every supported stream shape normalizes to the right kind", () => {
   const kinds = fixtures.everyShape.map((raw) => normalize(raw).kind);
   assert.deepEqual(kinds, [
