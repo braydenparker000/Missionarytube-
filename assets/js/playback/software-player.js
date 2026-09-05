@@ -5,6 +5,8 @@
   const releaseQuery=new URL(document.currentScript.src).search;
   const codecs={27:'h264',173:'hevc',139:'vp8',167:'vp9',225:'av1',86018:'aac',86019:'ac3',86056:'eac3',86020:'dca',86017:'mp3',86076:'opus',86028:'flac',86021:'vorbis'};
   const abort=()=>new DOMException('Playback cancelled','AbortError');
+  // CustomIOLoader uses common/io's sentinel, not avutil's codec EOF (-7).
+  const IO_END=-1048576;
   const error=(code,type='decode')=>Object.assign(new Error('The decoder could not play this file.'),{playbackType:type,playbackCode:code});
   let library;
   function load(){
@@ -42,6 +44,7 @@
         try{
           const init=global.AstraPlayback.requests.fetchInit(config.requestPolicy,this.url,{signal:controller.signal,headers:{Range:`bytes=${start}-${start+limit-1}`},credentials:'omit',mode:'cors',referrerPolicy:'no-referrer'});
           const response=await fetch(this.url,init);
+          if(response.status===416&&start>0){this.total=start;this.bytes=new Uint8Array();this.offset=0;return;}
           if(!response.ok)throw error(null,'network');
           const range=response.headers.get('content-range')?.match(/^bytes (\d+)-(\d+)\/(\d+|\*)$/);
           if(range&&Number(range[1])!==start||start&&response.status!==206)throw error('RANGE_UNSUPPORTED','network');
@@ -50,13 +53,13 @@
           const reader=response.body.getReader(),parts=[];let size=0;
           while(true){const next=await reader.read();if(next.done)break;size+=next.value.length;if(size>limit)throw error('RANGE_UNSUPPORTED','network');parts.push(next.value);}
           this.bytes=new Uint8Array(size);let at=0;for(const part of parts){this.bytes.set(part,at);at+=part.length;}this.offset=0;
-          if(size<limit&&!this.total)this.total=start+size;
+          if(response.status===200&&!this.total)this.total=start+size;
         }catch(e){if(!this.closed&&!config.signal?.aborted)config.onReadError?.(e.playbackType?e:error(null,'network'));throw e;}
         finally{controller.abort();clearTimeout(timer);config.signal?.removeEventListener('abort',cancel);}
       }
       async read(buffer){
-        if(this.closed) return -7;
-        if(this.offset>=this.bytes.length){await this.fill();if(!this.bytes.length)return -7;}
+        if(this.closed) return IO_END;
+        if(this.offset>=this.bytes.length){await this.fill();if(!this.bytes.length)return IO_END;}
         const count=Math.min(buffer.length,this.bytes.length-this.offset);buffer.set(this.bytes.subarray(this.offset,this.offset+count));this.offset+=count;this.position+=count;return count;
       }
       async seek(pos){
