@@ -15,15 +15,25 @@ export async function preparePipeline(input, {startTime=0,audioId='',supports=()
   const videoCodec=await video.getCodecParameterString();
   if(!videoCodec||!supports(`video/mp4; codecs="${videoCodec}"`))throw new Error('This device cannot decode the video codec. A transcoding server or an external player is required.');
   const audioTracks=await input.getAudioTracks();
-  const audio=audioTracks.find(t=>String(t.id)===String(audioId))||await input.getPrimaryAudioTrack();
-  const audioCodec=audio&&await audio.getCodecParameterString();
-  const copyAudio=!!audioCodec&&!['ac3','eac3','dts'].includes(await audio.getCodec())&&supports(`audio/mp4; codecs="${audioCodec}"`);
-  if(audio&&!copyAudio&&(!(await audio.canDecode())||!(await encodeAudio('opus'))))throw new Error('The selected audio track cannot be converted on this device. Try another audio track or an external player.');
+  const requestedAudio=audioTracks.find(t=>String(t.id)===String(audioId));
+  const primaryAudio=requestedAudio||await input.getPrimaryAudioTrack();
+  let audio=null,copyAudio=false,mime=`video/mp4; codecs="${videoCodec}"`;
+  // A default TrueHD/unsupported track must not prevent playback when the same
+  // file also contains usable audio. Explicit user selections remain explicit.
+  const choices=requestedAudio?[requestedAudio]:[primaryAudio,...audioTracks.filter(t=>t!==primaryAudio)].filter(Boolean);
+  for(const track of choices){
+    const codec=await track.getCodecParameterString();
+    const copy=!!codec&&!['ac3','eac3','dts'].includes(await track.getCodec())&&supports(`audio/mp4; codecs="${codec}"`);
+    if(!copy&&(!(await track.canDecode())||!(await encodeAudio('opus'))))continue;
+    const combined=`video/mp4; codecs="${videoCodec},${copy?codec:'opus'}"`;
+    if(!supports(combined))continue;
+    audio=track;copyAudio=copy;mime=combined;break;
+  }
+  if(choices.length&&!audio)throw new Error('No playable audio track is available on this device. Try another source or an external player.');
   const sink=new EncodedPacketSink(video);
   const first=await sink.getKeyPacket(startTime)||await sink.getFirstKeyPacket();
   if(!first)throw new Error('No usable video keyframe was found.');
   const base=Math.max(0,first.timestamp);
-  const mime=`video/mp4; codecs="${videoCodec}${audio?','+(copyAudio?audioCodec:'opus'):''}"`;
   if(!supports(mime))throw new Error('Chrome cannot combine these tracks. Use an external player or server conversion.');
   return {video,audio,audioTracks,copyAudio,sink,first,base,mime,duration:await input.getDurationFromMetadata()};
 }
@@ -111,6 +121,7 @@ export function createAdapter(config) {
     disposeRun();if(destroyed)return;
     const run={controller:new AbortController(),input:new Input({formats:ALL_FORMATS,source:new UrlSource(config.url,{maxCacheSize:16*1024*1024,parallelism:2,getRetryDelay:n=>n<1?1:null,requestInit:{credentials:'omit'}})})};current=run;
     const signal=run.controller.signal;
+    try {
     const plan=await preparePipeline(run.input,{startTime:time,audioId,supports:type=>MediaSource.isTypeSupported(type)});check(signal);
     duration=plan.duration||0;
     tracks=await Promise.all(plan.audioTracks.map(async(t,i)=>({id:String(t.id),label:(await t.getName())||(await t.getLanguageCode())||`Audio ${i+1}`,lang:await t.getLanguageCode(),active:t===plan.audio})));
@@ -135,6 +146,13 @@ export function createAdapter(config) {
     run.job=pumpPipeline(plan,{target:new AppendOnlyStreamTarget(new WritableStream({write:append})),signal,pace,onOutput:out=>run.output=out})
       .then(()=>{check(signal);if(ms.readyState==='open')ms.endOfStream();})
       .catch(error=>{if(current===run&&!signal.aborted){disposeRun();fail(error);}});
+    }catch(error){
+      // A cancelled metadata read may reject with InputDisposedError instead
+      // of AbortError. Do not let that stale attempt fail a newer seek/retry.
+      const stale=current!==run||signal.aborted;
+      if(current===run)disposeRun();
+      throw stale?cancelled():error;
+    }
   }
   config.scope?.listen?.(media,'error',()=>fail(new Error('Chrome could not decode the converted stream. This video may need server conversion.')));
   const api={kind:'compatibility',attach:()=>start(config.startTime||0),destroy(){destroyed=true;disposeRun();},getAudioTracks:()=>tracks,

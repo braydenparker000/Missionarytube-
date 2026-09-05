@@ -89,5 +89,14 @@ for(const codec of ['aac','ac3','eac3','dts']) {
     await writeFile(new URL(id+'.json',dir),JSON.stringify(resource==='meta'?{meta}:{streams:[{name:'MKV '+codec.toUpperCase(),title:'Generated AVC + '+codec.toUpperCase(),url:'https://missionarytube.z13.web.core.windows.net/assets/playback-check/avc-'+codec+'.mkv',behaviorHints:{filename:codec+'.mkv'}}]}));
   }
 }
+// An intentionally missing first-party file exercises real browser failure
+// recovery. The second source proves Choose source can recover successfully.
+const recoveryId='astra-check-recovery',recoveryMeta={id:recoveryId,type:'video',name:'Playback recovery',description:'The first source intentionally fails. Retry, close, or choose the working test clip.'};
+checkItems.push(recoveryMeta);
+await writeFile(new URL(`meta/video/${recoveryId}.json`,checkAddon),JSON.stringify({meta:recoveryMeta}));
+await writeFile(new URL(`stream/video/${recoveryId}.json`,checkAddon),JSON.stringify({streams:[
+  {name:'Failure check',title:'Unavailable test source',url:'https://missionarytube.z13.web.core.windows.net/assets/playback-check/unavailable.mkv'},
+  {name:'Working check',title:'Working AAC test clip',url:'https://missionarytube.z13.web.core.windows.net/assets/playback-check/avc-aac.mkv'}
+]}));
 const checkCatalog=new URL('catalog/video/',checkAddon);await mkdir(checkCatalog,{recursive:true});
 await writeFile(new URL('checks.json',checkCatalog),JSON.stringify({metas:checkItems}));
