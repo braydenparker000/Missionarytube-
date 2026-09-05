@@ -70,7 +70,7 @@
   }
   async function prepare(config){
     const AVPlayer=await load();if(config.signal?.aborted)throw abort();
-    AVPlayer.setLogLevel(5);
+    AVPlayer.setLogLevel(config.debug===true?2:5);
     const stream=new MediaStream(),controller=new AbortController();
     let taken=false,disposed=false,rejectFailure,readFailure;
     const failed=new Promise((_,reject)=>rejectFailure=reject);failed.catch(()=>{});
