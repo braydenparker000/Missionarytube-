@@ -1,6 +1,16 @@
 import {cp, mkdir, readFile, writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 
+// libmedia 1.3.1 requires WebGL before considering its WritableStream renderer.
+// That renderer writes VideoFrames directly and does not use a GL context.
+// Preserve all other prerequisites and keep the exception MediaStream-only.
+export function patchMediaStreamGuard(source){
+  const before='if(!y.A.wasmPlayerSupported)';
+  const after='if(!y.A.wasmPlayerSupported&&!(this.isMediaStreamMode()&&y.A.trackGenerator&&y.A.wasmBaseSupported&&y.A.fetch&&y.A.audioContext))';
+  if(source.split(before).length!==2)throw new Error('libmedia capability patch no longer matches the pinned runtime');
+  return source.replace(before,after);
+}
+
 // Runtime chunks and decoder binaries stay together, on Astra's own origin.
 // Downloads are pinned to a commit AND verified against reviewed SHA-256s.
 export async function buildLibmedia() {
@@ -8,6 +18,8 @@ export async function buildLibmedia() {
   const destination=new URL('../dist/assets/js/playback/libmedia/',import.meta.url);
   await mkdir(destination,{recursive:true});
   await cp(new URL('../node_modules/@libmedia/avplayer/dist/umd/',import.meta.url),destination,{recursive:true});
+  const runtime=new URL('avplayer.js',destination);
+  await writeFile(runtime,patchMediaStreamGuard(await readFile(runtime,'utf8')));
   await Promise.all(manifest.assets.map(async asset=>{
     const cache=new URL('../.browser-check/libmedia/'+asset.path,import.meta.url);
     let bytes;try{bytes=await readFile(cache);}catch{}

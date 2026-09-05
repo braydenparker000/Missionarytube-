@@ -41,8 +41,11 @@ come from the libmedia v1.3.1 release commit
 records each file's SHA-256. The build refuses mismatches. Assets are served
 from Astra's own origin and fetched by the browser only when needed.
 
-Unmodified libmedia is copyright Gaoxing Zhao and contributors, distributed
+libmedia is copyright Gaoxing Zhao and contributors, distributed
 under LGPLv3. License texts are in `assets/licenses/libmedia-COPYING.*.txt`.
+A narrow capability patch in `scripts/build-libmedia.mjs` permits the existing
+VideoFrame/MediaStream renderer when WebGL is absent; all its other required
+APIs remain checked. The patch and its license notice accompany the runtime.
 The corresponding source and build scripts are available at
 https://github.com/zhaohappy/libmedia/tree/152f629d3021fd8013efa464fcb7b55f9fbe7753
 and the exact package sources are included by the pinned npm packages.

@@ -2,6 +2,7 @@
 (function(global){
   'use strict';
   const base=new URL('libmedia/',document.currentScript.src);
+  const releaseQuery=new URL(document.currentScript.src).search;
   const codecs={27:'h264',173:'hevc',139:'vp8',167:'vp9',225:'av1',86018:'aac',86019:'ac3',86056:'eac3',86020:'dca',86017:'mp3',86076:'opus',86028:'flac',86021:'vorbis'};
   const abort=()=>new DOMException('Playback cancelled','AbortError');
   const error=(code,type='decode')=>Object.assign(new Error('The decoder could not play this file.'),{playbackType:type,playbackCode:code});
@@ -11,7 +12,8 @@
     if(!library)library=new Promise((resolve,reject)=>{
       const script=document.createElement('script'),timer=setTimeout(()=>done(false),15000);
       const done=ok=>{clearTimeout(timer);script.onload=script.onerror=null;if(ok&&global.AVPlayer)resolve(global.AVPlayer);else{script.remove();library=null;reject(error(null,'library'));}};
-      script.src=new URL('avplayer.js',base);script.onload=()=>done(true);script.onerror=()=>done(false);document.head.append(script);
+      const url=new URL('avplayer.js',base);url.search=releaseQuery;
+      script.src=url;script.onload=()=>done(true);script.onerror=()=>done(false);document.head.append(script);
     });
     return library;
   }
