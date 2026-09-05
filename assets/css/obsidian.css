@@ -5613,3 +5613,6 @@ main:has(#page-home.active) .topbar {
   .search-provider-empty.error { align-items: flex-start; flex-wrap: wrap; }
   .search-provider-empty.error .btn { width: 100%; margin-left: 0; }
 }
+
+/* Captions follow the decoder clock, including after seeks. */
+.software-captions{position:absolute;bottom:18%;left:6%;right:6%;text-align:center;pointer-events:none;color:white;font-size:clamp(16px,2.4vw,30px);line-height:1.35;text-shadow:0 1px 3px #000;white-space:pre-line;z-index:2}.software-captions>div{width:fit-content;max-width:100%;margin:2px auto;padding:2px 8px;background:#000b;border-radius:4px}

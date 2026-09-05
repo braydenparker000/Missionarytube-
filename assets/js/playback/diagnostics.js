@@ -45,7 +45,7 @@
     }
     function record(event,details={}){
       const entry={event:member(event,['start','playing','buffering','seeking','seeked','paused','ended','failure','retry','restart','repair','repair-check','repair-unavailable','repair-cancelled','picture-missing']),seconds:number((now()-began)/1000)};
-      if(details.engine)entry.engine=member(details.engine,['native','hls','dash','compatibility']);
+      if(details.engine)entry.engine=member(details.engine,['native','hls','dash','compatibility','software']);
       if(details.currentTime!=null)entry.position=number(details.currentTime);
       if(details.failure)entry.failure=failureCode(details.failure);
       if(stages.includes(details.failure?.playbackStage))entry.stage=details.failure.playbackStage;

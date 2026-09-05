@@ -10,18 +10,23 @@ const failureType = error => error?.playbackType || (/fetch|network|http|load fa
 const tagFailure = (error,stage) => {if(error&&typeof error==='object'&&error.name!=='AbortError'){if(!error.playbackType)error.playbackType=failureType(error);if(stage&&!error.playbackStage)error.playbackStage=stage;}return error;};
 const atStage = async(stage,operation) => {try{return await operation();}catch(error){throw tagFailure(error,stage);}};
 const playbackError = (code,stage,message,type='unsupported') => Object.assign(new Error(message),{playbackCode:code,playbackStage:stage,playbackType:type});
+const softwareEligible=error=>!!globalThis.AstraSoftware&&['VIDEO_CODEC_UNSUPPORTED','AUDIO_CODEC_UNSUPPORTED','TRACK_COMBINATION_UNSUPPORTED','MEDIA_DECODE_FAILED'].includes(error?.playbackCode);
 
 function createInput(config) {
   // Mediabunny numbers failed requests from one. Body interruptions also use
   // one, so a shared budget bounds retries across both reads and HLS children.
-  let retries=1;
+  let retries=1,resolved=null;
   return new Input({formats:ALL_FORMATS,source:new UrlSource(config.url,{maxCacheSize:16*1024*1024,parallelism:2,
     getRetryDelay:(_attempt,error)=>{
       if(!retries||error?.name==='AbortError'||error?.playbackType==='access'||(failureType(error)!=='network'&&error?.name!=='TypeError'))return null;
       retries--;return .25;
-    },requestInit:{credentials:'omit'},fetchFn:(url,init)=>{
+    },requestInit:{credentials:'omit'},fetchFn:async(url,init)=>{
       const requests=globalThis.AstraPlayback?.requests;
       if(config.requestPolicy&&!requests)throw new Error('Stream request support did not load. Retry playback.');
+      if(url===config.url&&!config.requestPolicy?.required&&globalThis.AstraPlayback?.delivery){
+        resolved??=globalThis.AstraPlayback.delivery.resolve(config.url,{signal:init?.signal});
+        url=await resolved;
+      }
       return fetch(url,requests?requests.fetchInit(config.requestPolicy,url,init):init);
     }})});
 }
@@ -40,7 +45,7 @@ export async function prepareRepair(config) {
       take(){check(config.signal);if(!input)throw cancelled();const ready={input,plan};input=null;config.signal?.removeEventListener('abort',dispose);return ready;},
       dispose
     };
-  }catch(error){dispose();if(config.signal?.aborted)throw cancelled();throw tagFailure(error);}
+  }catch(error){dispose();if(config.signal?.aborted)throw cancelled();if(softwareEligible(error))return globalThis.AstraSoftware.prepare(config);throw tagFailure(error);}
 }
 
 // Shared by the browser adapter and real-file regression tests. Only audio
@@ -169,7 +174,7 @@ export async function pumpPipeline(plan,{target,signal,pace=async()=>{},onOutput
   catch(error){await output.cancel().catch(()=>{});throw error;}
 }
 
-export function createAdapter(config) {
+export function createRemuxAdapter(config) {
   const media=config.media;
   let destroyed=false,current=null,audioId='',tracks=[],duration=0,prepared=config.prepared||null;
   const fail=error=>{if(!destroyed&&error?.name!=='AbortError')config.onError?.({type:failureType(error),detail:error?.message||'Compatibility playback failed.',playbackCode:error?.playbackCode,playbackStage:error?.playbackStage,playbackCodec:error?.playbackCodec});};
@@ -230,6 +235,26 @@ export function createAdapter(config) {
     selectAudioTrack(id){if(!tracks.some(t=>t.id===String(id)))return false;if(audioId===String(id))return true;audioId=String(id);start(media.currentTime,!media.paused).catch(fail);return true;},
     seekTo(time){const target=Math.max(0,Math.min(duration||Infinity,time));for(let i=0;i<media.buffered.length;i++)if(target>=media.buffered.start(i)&&target<media.buffered.end(i)){media.currentTime=target;return;}start(target,!media.paused).catch(fail);},
     getVideoQualities:()=>[],selectVideoQuality:()=>false};
+  config.scope?.onDispose?.(()=>api.destroy());return api;
+}
+
+// One adapter contract owns both paths. A codec failure can move to actual
+// decoding once; network/access failures never start another identical retry.
+export function createAdapter(config){
+  let delegate,dead=false,software=config.prepared?.kind==='software',switching=false;
+  const fail=e=>{if(!dead)config.onError?.(e);};
+  const attachSoftware=async()=>{
+    if(dead||switching)return;switching=true;
+    const time=config.media.currentTime||config.startTime||0,autoplay=config.media.readyState? !config.media.paused : config.autoplay!==false;
+    const audioLanguage=delegate?.getAudioTracks().find(track=>track.active)?.lang||config.audioLanguage;
+    delegate?.destroy();config.media.pause();config.media.removeAttribute('src');config.media.load();
+    software=true;
+    delegate=globalThis.AstraSoftware.createAdapter({...config,prepared:null,startTime:time,autoplay,audioLanguage,onError:fail});
+    try{await delegate.attach();}finally{switching=false;}
+  };
+  const onError=e=>{if(!dead&&!software&&softwareEligible(e))attachSoftware().catch(fail);else fail(e);};
+  delegate=software?globalThis.AstraSoftware.createAdapter({...config,onError:fail}):createRemuxAdapter({...config,onError});
+  const api={get kind(){return delegate.kind;},async attach(){try{return await delegate.attach();}catch(e){if(!software&&softwareEligible(e))return attachSoftware();throw e;}},destroy(){if(dead)return;dead=true;delegate.destroy();},getAudioTracks:()=>delegate.getAudioTracks(),selectAudioTrack:id=>delegate.selectAudioTrack(id),seekTo:time=>delegate.seekTo(time),getVideoQualities:()=>delegate.getVideoQualities(),selectVideoQuality:id=>delegate.selectVideoQuality(id)};
   config.scope?.onDispose?.(()=>api.destroy());return api;
 }
 

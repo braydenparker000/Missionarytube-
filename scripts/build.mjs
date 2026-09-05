@@ -1,6 +1,7 @@
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { build } from "esbuild";
+import {buildLibmedia} from './build-libmedia.mjs';
 
 const root = new URL("../", import.meta.url);
 const output = new URL("../dist/", import.meta.url);
@@ -46,6 +47,9 @@ await build({
   bundle: true, minify: true, format: "iife", target: ["chrome120"], legalComments: "inline",
   banner: {js: "/*! Mediabunny + AC3/DTS 1.55.7 · MPL-2.0 · See assets/licenses/mediabunny.txt */"}
 });
+
+// Preserve libmedia worker chunks and verify every decoder binary.
+await buildLibmedia();
 
 // The release meta value is Astra's single version source. Source files keep a
 // readable placeholder; the production build gives every local asset the same

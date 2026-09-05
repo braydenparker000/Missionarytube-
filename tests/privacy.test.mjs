@@ -28,6 +28,8 @@ for (const path of files) contents.set(path, await readFile(path, "utf8"));
 
 /** Hosts the app is allowed to reference, with why each is acceptable. */
 const ALLOWED_HOSTS = [
+  "api.torbox.app", // Read-only JSON lookup for the selected TorBox source
+  "torrentio.strem.fun", // Only recognize the public resolver URL shape
   "v3-cinemeta.strem.io", // the public default add-on, no configuration or token
   "cdn.jsdelivr.net", // pinned, integrity-checked player runtimes
   "registry.npmjs.org", // used by the dependency pinning script
