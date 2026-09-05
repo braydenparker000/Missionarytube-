@@ -10,15 +10,15 @@
 <section><h2>Software decoder</h2><div class="buttons"><button data-test="hevc" data-file="hevc-aac" data-mode="software">HEVC · Software</button><button data-test="hevc" data-file="hevc-aac" data-mode="software" data-start="6.5">HEVC · Software seek</button><button data-test="ac3" data-mode="software">AC-3 · Software</button><button data-test="eac3" data-mode="software">E-AC-3 · Software</button><button data-test="dts" data-mode="software">DTS · Software</button></div></section>
 <section><h2>Player controls</h2><div class="buttons"><button id="seek">Seek to 2 seconds</button><button id="seekFar">Seek to 30 seconds</button><button id="pause">Pause</button><button id="resume">Resume</button><button id="stop">Stop</button></div></section>
 <p>Compatibility mode repackages video and converts unsupported audio. When needed, Astra can also decode video in software. Performance depends on the device; provider browser-access restrictions still apply.</p><small id="result"></small>
-<script src="assets/js/playback/request-policy.js?v=0.32.0"></script><script src="assets/js/playback/delivery.js?v=0.32.0"></script><script src="assets/js/playback/software-player.js?v=0.32.0"></script><script src="assets/js/playback/compatibility.js?v=0.32.0"></script><script>
+<script src="assets/js/playback/request-policy.js?v=0.32.1"></script><script src="assets/js/playback/delivery.js?v=0.32.1"></script><script src="assets/js/playback/software-player.js?v=0.32.1"></script><script src="assets/js/playback/compatibility.js?v=0.32.1"></script><script>
 const media=document.querySelector('video'),status=document.querySelector('#status');let adapter=null;
 function stop(){adapter?.destroy();adapter=null;media.pause();media.removeAttribute('src');media.load();}
 for(const button of document.querySelectorAll('[data-test]'))button.onclick=async()=>{
  stop();const codec=button.dataset.test,url=new URL('assets/playback-check/'+(button.dataset.file||'avc-'+codec)+'.mkv',location.href).href;
  const requestPolicy=button.dataset.headers?AstraPlayback.requests.analyze(url,{request:{'X-Astra-Playback-Check':'enabled'}}):null;
  status.textContent='Starting '+button.textContent+'…';document.querySelector('#result').textContent='';
- try{if(button.dataset.mode==='native'){media.src=url;await media.play();}else{adapter=(button.dataset.mode==='software'?AstraSoftware:AstraCompatibility).createAdapter({media,url,forceSoftware:button.dataset.mode==='software',requestPolicy,startTime:Number(button.dataset.start)||0,onError:error=>status.textContent=error.detail});await adapter.attach();}}
- catch(error){status.textContent='Could not play: '+error.message;}
+ try{if(button.dataset.mode==='native'){media.src=url;await media.play();}else{adapter=(button.dataset.mode==='software'?AstraSoftware:AstraCompatibility).createAdapter({media,url,debug:true,forceSoftware:button.dataset.mode==='software',requestPolicy,startTime:Number(button.dataset.start)||0,onError:error=>status.textContent=[error.detail,error.type,error.playbackCode].filter(Boolean).join(' · ')});await adapter.attach();}}
+ catch(error){status.textContent='Could not play: '+[error.message,error.playbackType,error.playbackCode].filter(Boolean).join(' · ');}
 };
 media.onplaying=()=>{status.textContent='Playing. You should see motion and hear a tone.';document.querySelector('#result').textContent='Playback started successfully';};
 media.onerror=()=>status.textContent='Direct playback failed. Try compatibility mode.';
