@@ -133,6 +133,7 @@
     }
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
     if (parsed.username || parsed.password) return "";
+    if (/https?:/i.test(parsed.pathname) || /^(https?|javascript)$/i.test(parsed.hostname)) return "";
     if (parsed.search || parsed.hash) return "";
     var path = parsed.pathname.replace(/\/+$/, "");
     return parsed.protocol + "//" + parsed.host + path;

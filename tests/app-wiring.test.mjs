@@ -178,7 +178,7 @@ test("the picker surfaces compatibility instead of hiding sources", () => {
     assert.equal(html.includes(gone), false, `${gone} would edit the add-on's own result list`);
   }
   assert.match(html, /player\.sources=prepareStreams\(state\.currentStreams\)/);
-  assert.match(html, /const list=player\.sources,total=list\.length/, "the picker renders the prepared list as-is");
+  assert.match(html, /AstraStreamView\.select\(all,sourceView\)/, "only explicit view controls filter or sort the displayed list");
 });
 
 test("the close control can never be faded out or made unclickable", () => {

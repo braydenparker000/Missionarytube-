@@ -382,3 +382,10 @@ test("a stats response that is not an Invidious server is rejected", async () =>
   assert.equal(entry.state, "unhealthy");
   assert.equal(entry.lastError, "malformed");
 });
+
+
+test("instance validation rejects accidentally nested URLs and retains local development hosts",()=>{
+ assert.equal(YT.config.normalizeInstance("https://relay.example.test/https://relay.example.test/api/youtube"), "");
+ assert.equal(YT.config.normalizeInstance("https://https://relay.example.test"), "");
+ assert.equal(YT.config.normalizeInstance("http://localhost:3000/api/youtube"), "http://localhost:3000/api/youtube");
+});

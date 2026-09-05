@@ -229,8 +229,8 @@ test("MediaCapabilities refinement upgrades and downgrades without throwing", as
     ...fixtures.androidChromeCapabilities(),
     decodingInfo: async () => ({ supported: false, smooth: false })
   });
-  assert.equal(refined[0].evaluation.state, S.STATE.UNSUPPORTED);
-  assert.equal(refined[0].evaluation.playable, false);
+  assert.equal(refined[0].evaluation.state, S.STATE.PROBABLY_READY);
+  assert.equal(refined[0].evaluation.playable, true);
 
   const rejecting = S.prepare(S.normalizeAll([fixtures.cached1080], { pageUrl: fixtures.PAGE_URL }), { capabilities: caps });
   const survived = await S.refineWithDecodingInfo(rejecting, {
@@ -352,7 +352,7 @@ test("a decodingInfo downgrade updates the verdict and its explanation, not the 
   });
 
   const downgraded = refined.find((entry) => entry.stream.title === "Example 1080p x264 4 GB");
-  assert.equal(downgraded.evaluation.state, S.STATE.UNSUPPORTED);
+  assert.equal(downgraded.evaluation.state, S.STATE.PROBABLY_READY);
   assert.equal(
     downgraded.why,
     "The device reports it cannot decode this source.",
@@ -461,4 +461,16 @@ test("a source with no known resolution is not probed at all", async () => {
   });
   assert.equal(asked, 0);
   assert.equal(noResolution[0].evaluation.playable, true, "and its synchronous verdict stands");
+});
+
+
+test("MKV and negative browser hints still permit a real playback attempt", async () => {
+  const raw = {...fixtures.mkvStream, _addonOrder: 7, behaviorHints: {notWebReady: true}};
+  const normalized = normalize(raw);
+  assert.equal(normalized.addonOrder, 7);
+  const entries = S.prepare([normalized], {capabilities:caps});
+  assert.equal(entries[0].evaluation.playable, true);
+  await S.refineWithDecodingInfo(entries, {...fixtures.androidChromeCapabilities(), decodingInfo: async()=>({supported:false,smooth:false})});
+  assert.equal(entries[0].evaluation.playable, true);
+  assert.equal(classify({...raw,url:'javascript:alert(1)'}).playable,false);
 });
