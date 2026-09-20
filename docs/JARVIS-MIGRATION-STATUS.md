@@ -1,6 +1,6 @@
 # Jarvis Storage migration status — 2026-09-20
 
-Status: staged and tested; homepage cutover pending Cloudflare deployment.
+Status: live. Jarvis is the homepage at https://missionarytube.z13.web.core.windows.net/.
 
 ## Preserved infrastructure
 
@@ -11,32 +11,31 @@ Status: staged and tested; homepage cutover pending Cloudflare deployment.
 
 ## Implemented
 
-- Jarvis backend CORS commit: 4e0804b1d4923d2ad8a13ed6bc26f241c1ccb55c in braydenparker999/jarvis/main. Supports exact Storage and SWA origins, including OAuth responses. Cloudflare has NOT deployed it yet; live health still reports v6.
+- Jarvis backend CORS commit: 4e0804b1d4923d2ad8a13ed6bc26f241c1ccb55c in braydenparker999/jarvis/main. Supports exact Storage and SWA origins, including OAuth responses. The owner manually deployed the existing Worker; live health reports v7 and both frontend origins pass API checks.
 - Storage deployment commit: 269731633809069e357fabed0aef71b96e03e192. Uses a pinned checkout of Jarvis, preserving the source repository's publication issue and existing backend relationship.
 - Production source rollback branches exist in both repositories; see README.
 - Deployment run: https://github.com/braydenparker000/Missionarytube-/actions/runs/35497625182
 - Full pre-migration $web bytes and properties saved before overwrites: artifact storage-before-35497625182, ID 10601775900, 6,172,417 compressed bytes, 90-day retention.
-- Jarvis files deployed except root index.html. Preview: https://missionarytube.z13.web.core.windows.net/jarvis-preview.html . Root still serves Astra deliberately.
+- Successful production cutover: https://github.com/braydenparker000/Missionarytube-/actions/runs/35498216036 at commit ab476ac4341d57035f4d4b97406e97906cafcf39. Root now serves Jarvis.
+- A second pre-cutover snapshot is storage-before-35498216036-1, artifact ID 10600598246. Original pre-migration artifact above remains preserved.
 - Azure Static Web Apps backup and shared inbox were refreshed successfully and remain live.
 
 ## Verification
 
 - 517 existing repository tests passed locally and in CI; 28 Jarvis tests passed.
 - Build: 114 original frontend files, 16.57 MiB, no music/video payloads. Added preview and release metadata; excluded SWA configuration from deployment.
-- All 115 staged files passed SHA-256 and MIME validation, including WASM; all 13 folder routes returned correct index files.
+- All 116 final files passed SHA-256 and MIME validation, including WASM; all 13 folder routes and the final root returned correct index files.
+- Live API preflight, health v7 and shared-inbox reads passed for both Storage and SWA origins. Browser verified Connected on the Storage inbox and Daily Board, existing messages/replies/briefings, reader publications connection, responder landing and its Open Jarvis navigation.
+- Final root was refreshed in the browser and confirmed Home · Jarvis. A tab with cached Astra initially needed an ordinary refresh; the new homepage uses Cache-Control: no-cache.
 - Browser verified launcher and navigation, local notes and unsent draft persistence across reload, Astra external catalog loading, DrawerCast startup/settings, Ianua initialization and IndexedDB-backed storage count, sandboxed HTML rendering.
 - Full IndexedDB write/import round trip and actual A15/local-network playback were not performed.
 - No test message was sent. Local notes/composer test text was cleared.
 - Quick AI remains an unconfigured pre-existing placeholder, not a working provider integration.
 
-## Remaining work
+## Device checks and limits
 
-Cloudflare dashboard presented a persistent human-verification challenge in the connected browser. The live API rejects the new Storage origin with HTTP 403. Deployment therefore stopped at the backend readiness gate BEFORE replacing root index.html. Live inbox, Daily Board, responder/OAuth end-to-end requests on Storage cannot be verified until that changes.
+The owner should open https://missionarytube.z13.web.core.windows.net/ on the restricted Android device and refresh if the old Astra page is cached. Restricted-device access and real A15/local-network playback cannot be verified from the cloud browser. No new message, briefing or OAuth authorization was created during migration testing. Full OAuth completion remains unverified.
 
-After Cloudflare access is restored:
-1. Deploy existing jarvis-hub-api from braydenparker999/jarvis/main at commit 4e0804b or later: root /backend, no build command, npx wrangler deploy. Preserve the existing HUBS binding/migration.
-2. Verify /health reports v7 and preflight/read responses allow both exact origins.
-3. Rerun Deploy to Azure Storage on main. It backs up again, verifies staged files and APIs, promotes the root homepage, then verifies the final site.
-4. Test live shared inbox, Daily Board, responder UI and final root navigation. Have the owner verify restricted Android access and A15 playback.
+Do not retire the SWA backup or alter federation. Browser data on the SWA origin does not transfer automatically; use the existing app export/import tools where available. Quick AI provider configuration and hourly schedules were not changed.
 
-Do not retire the SWA backup or alter federation. Browser data on the SWA origin does not transfer automatically; use the existing app export/import tools where available.
+For future frontend releases, update jarvis-release.json to the reviewed source commit. Deployment artifacts now include the run attempt in their names so retrying preserves earlier backups.

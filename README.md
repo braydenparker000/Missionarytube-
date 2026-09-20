@@ -13,7 +13,7 @@ Update the commit in `jarvis-release.json` after reviewing a Jarvis release. Pus
 The workflow:
 1. Runs existing repository checks, all Jarvis tests, and the static build.
 2. Logs in with the unchanged Entra OIDC identity.
-3. Saves every existing `$web` blob and its properties to the `storage-before-<run-id>` GitHub artifact (90-day retention) before overwriting anything.
+3. Saves every existing `$web` blob and its properties to the `storage-before-<run-id>-<attempt>` GitHub artifact (90-day retention) before overwriting anything.
 4. Uploads Jarvis files, excluding the root `index.html`; the new launcher is available temporarily at `/jarvis-preview.html`.
 5. Verifies every deployed file by SHA-256 and MIME type and checks all 13 folder routes.
 6. Requires successful API preflight, health and shared-inbox responses for **both** frontend origins.
