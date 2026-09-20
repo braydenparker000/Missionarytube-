@@ -61,6 +61,10 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: node .jarvis-source/scripts/configure-quick-ai.mjs dist
+      - name: Configure shared Drive
+        env:
+          GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
+        run: node .jarvis-source/scripts/configure-drive.mjs dist
       - name: Sign in to Azure with OIDC
         uses: azure/login@v2
         with:
