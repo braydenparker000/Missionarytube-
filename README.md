@@ -15,7 +15,7 @@ The workflow:
 2. Logs in with the unchanged Entra OIDC identity.
 3. Saves every existing `$web` blob and its properties to the `storage-before-<run-id>-<attempt>` GitHub artifact (90-day retention) before overwriting anything.
 4. Uploads Jarvis files, excluding the root `index.html`; the new launcher is available temporarily at `/jarvis-preview.html`.
-5. Verifies every deployed file by SHA-256 and MIME type and checks all 13 folder routes.
+5. Verifies every deployed file by SHA-256 and MIME type and checks all 14 folder routes.
 6. Requires successful API preflight, health and shared-inbox responses for **both** frontend origins.
 7. Overwrites the homepage only after those gates pass, then verifies root and all files again.
 
@@ -31,10 +31,10 @@ For an exact website rollback, download `storage-before-<first-migration-run-id>
 
 ## Static compatibility and browser data
 
-The artifact contains only frontend files and existing player code/decoders (about 17 MiB); no music or movie files, backend source, credentials or tests are uploaded. Media remains on external providers or the A15 DrawerCast server. All modules, folders, CSS and assets retain their existing paths. Lazy player decoders are loaded when needed, not by the launcher.
+The artifact contains only frontend files and existing player code/decoders (about 17 MiB); no music or movie files, backend source, Azure credentials or tests are uploaded. Media remains on external providers or the A15 DrawerCast server. All modules, folders, CSS and assets retain their existing paths. Lazy player decoders are loaded when needed, not by the launcher.
 
 Storage does not process `staticwebapp.config.json`. The build converts the applicable CSP and referrer policy to HTML meta tags and the upload sets revalidation caching. Header-only policies such as `frame-ancestors` and `X-Content-Type-Options` cannot be replicated by that conversion. No CDN or extra Azure service is introduced to supply headers.
 
 Shared messages and briefings remain in the same Cloudflare store and publication issue. A hostname change creates separate browser storage: unsent drafts, hub preferences, notes, DrawerCast settings/pairing and Ianua files do not automatically transfer from the SWA hostname. Export/import supported data on the device before abandoning the old site. Astra settings already saved on this Storage hostname remain on the same origin when Astra moves to `/media/`. Real A15 playback and restricted-device behavior require a device check.
 
-Quick AI is an existing unconfigured placeholder; this migration does not configure an AI provider or change hourly schedules.
+Quick AI at `/quick-ai/` uses Groq directly, with streaming replies and browser-local chats. Set the `GROQ_API_KEY` Actions secret once in this repository and in the Jarvis source repository (for the SWA backup). Deployment injects it into `assets/quick-ai-config.json` after building, keeping the key out of git and logs. The owner explicitly approved making this shared provider key available in the deployed frontend. No Azure identity, backend, or hourly schedule changes are required.
