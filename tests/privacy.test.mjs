@@ -59,6 +59,7 @@ const ALLOWED_HOSTS = [
   "music.youtube.com",
   "youtu.be",
   "github.com",
+  "token.actions.githubusercontent.com", // public GitHub OIDC issuer documented for the existing federation
   "claude.ai",
   "code.claude.com",
   "raw.githubusercontent.com",
