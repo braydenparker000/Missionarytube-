@@ -8,7 +8,8 @@ import { join } from "node:path";
  * URL, credential, or personal stream URL is ever committed.
  */
 
-const SKIP_DIRS = new Set([".git", "node_modules", "dist", ".github"]);
+// External pinned checkouts and deployment/rollback artifacts are not committed source.
+const SKIP_DIRS = new Set([".git", "node_modules", "dist", ".github", ".jarvis-source", "rollback", "upload"]);
 const TEXT = /\.(?:js|mjs|cjs|html|css|json|md|yml|yaml)$/;
 
 async function sourceFiles(directory = ".") {
@@ -71,6 +72,8 @@ const ALLOWED_HOSTS = [
   "developer.mozilla.org",
   "creativecommons.org",
   "missionarytube.z13.web.core.windows.net", // the owner's own public site URL
+  "gray-meadow-09216fd10.1.azurestaticapps.net", // retained Jarvis backup
+  "jarvis-hub-api.braydenparker999.workers.dev", // unchanged Jarvis backend
   "cdn.dashjs.org" // negative fixture only: proves validation rejects the mutable /latest/ URL
 ];
 

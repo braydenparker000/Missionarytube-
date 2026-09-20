@@ -6,6 +6,8 @@ on:
     branches:
       - main
     paths:
+      - "jarvis-release.json"
+      - "scripts/*jarvis*.mjs"
       - "*.html"
       - "assets/**"
       - "src/**"
@@ -20,13 +22,13 @@ permissions:
 
 concurrency:
   group: azure-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
     if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -36,10 +38,22 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
+      - name: Read pinned Jarvis revision
+        id: jarvis
+        run: node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
+      - name: Check out pinned Jarvis source
+        uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: ${{ steps.jarvis.outputs.commit }}
+          path: .jarvis-source
+          persist-credentials: false
       - name: Install pinned dependencies
         run: npm ci
       - name: Validate source
         run: npm test
+      - name: Validate Jarvis
+        run: npm run test:jarvis
       - name: Build deployment artifact
         run: npm run build
       - name: Sign in to Azure with OIDC
@@ -48,14 +62,48 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Upload site to the static website container
+      - name: Verify the existing deployment target
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+        run: test "$STORAGE_ACCOUNT" = missionarytube
+      - name: Preserve existing website bytes and properties
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
         run: |
+          mkdir -p rollback/files
+          az storage blob list --account-name "$STORAGE_ACCOUNT" --auth-mode login --container-name '$web' --output json > rollback/manifest.json
+          az storage blob download-batch --account-name "$STORAGE_ACCOUNT" --auth-mode login --source '$web' --destination rollback/files --no-progress --only-show-errors
+          test -s rollback/files/index.html
+          cp jarvis-release.json rollback/new-release.json
+      - name: Save rollback artifact before any overwrite
+        uses: actions/upload-artifact@v4
+        with:
+          name: storage-before-${{ github.run_id }}
+          path: rollback/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Stage Jarvis while keeping the current homepage
+        run: |
+          cp -a dist upload
+          rm upload/index.html
           az storage blob upload-batch \
             --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" \
-            --auth-mode login \
-            --destination '$web' \
-            --source dist \
-            --overwrite true
+            --auth-mode login --destination '$web' --source upload \
+            --overwrite true --content-cache-control no-cache --only-show-errors
+      - name: Check every staged file and directory route
+        run: node scripts/check-jarvis-static.mjs
+      - name: Require working backend for both frontend origins
+        run: node scripts/check-jarvis-api.mjs
+      - name: Promote Jarvis homepage after successful checks
+        run: |
+          az storage blob upload \
+            --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" \
+            --auth-mode login --container-name '$web' \
+            --name index.html --file dist/index.html \
+            --content-type 'text/html; charset=utf-8' \
+            --content-cache-control no-cache --overwrite true --only-show-errors
+      - name: Verify the final root and all frontend files
+        run: node scripts/check-jarvis-static.mjs --cutover
       - name: Sign out of Azure
         if: always()
         run: az logout

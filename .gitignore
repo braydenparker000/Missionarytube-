@@ -9,3 +9,7 @@ node_modules/
 *.pfx
 *.key
 .DS_Store
+
+.jarvis-source/
+rollback/
+upload/

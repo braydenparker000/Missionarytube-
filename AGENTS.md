@@ -2,7 +2,7 @@
 
 ## Mission
 
-Maintain MissionaryTube as a fast, reliable, mobile-first static web app whose deployable source lives on `main`.
+Maintain Jarvis as the primary frontend on the existing MissionaryTube Storage endpoint. Keep the repository name, main branch, and Entra deployment identity unchanged. `jarvis-release.json` pins the Jarvis source; legacy MissionaryTube source remains available for rollback.
 
 ## Required checks
 
