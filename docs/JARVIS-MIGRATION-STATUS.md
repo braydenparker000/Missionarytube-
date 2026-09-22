@@ -48,3 +48,10 @@ For future frontend releases, update jarvis-release.json to the reviewed source 
 - Verification: 517 repository tests, 92 Jarvis tests, build of 140 frontend files / 18.92 MiB. Deployment run https://github.com/braydenparker000/Missionarytube-/actions/runs/35774831516 passed every gate, including the live Worker check for the Storage origin.
 - Still to check on a device: open `/drawercast/`, refresh Drive and confirm the song count matches the folder. Old waveform blobs may remain in `$web`; they are unreferenced and harmless.
 - Rollback: set `jarvis-release.json` back to `bab237025787d0c4f9cd14ebc23184fb5a0383cc`, or restore the run's `storage-before-35774831516-1` artifact. The previous frontend expects the old Worker, which still accepts the Storage origin, so a frontend-only rollback is safe.
+
+## Update 2026-09-22: My Media (/mymedia/)
+
+- Pins Jarvis `8c0250e31a92f1d61269f17f1623517004d0ce15` (merge of braydenparker999/jarvis#4). It adds `/mymedia/`, a library for the owner's Google Drive video folder, with playback in the browser. Details are in the Jarvis repo's `docs/drive-video.md`.
+- The page uses the existing `GOOGLE_DRIVE_API_KEY` secret. It needs no new secret, service or Azure change. The folder ID is committed in Jarvis `public/assets/drive-config.json` as `videoFolderId`.
+- `scripts/check-jarvis-static.mjs` now also checks the `/mymedia/` route (16 directory routes).
+- Rollback: set the pin back to `ebf433dcc857894cd07607fef9a1e5d11a6f8dd3`.
