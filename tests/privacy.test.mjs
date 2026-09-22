@@ -73,7 +73,7 @@ const ALLOWED_HOSTS = [
   "developer.mozilla.org",
   "creativecommons.org",
   "missionarytube.z13.web.core.windows.net", // the owner's own public site URL
-  "gray-meadow-09216fd10.1.azurestaticapps.net", // retained Jarvis backup
+  "gray-meadow-09216fd10.1.azurestaticapps.net", // retired Jarvis Static Web App, named in historical docs
   "jarvis-hub-api.braydenparker999.workers.dev", // unchanged Jarvis backend
   "cdn.dashjs.org" // negative fixture only: proves validation rejects the mutable /latest/ URL
 ];

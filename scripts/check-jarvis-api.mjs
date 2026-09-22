@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 const release=JSON.parse(await readFile('jarvis-release.json','utf8'));
-for(const origin of [release.storageOrigin,release.backupOrigin]) {
+for(const origin of [release.storageOrigin]) {
  for(const method of ['OPTIONS','GET']) {
   const response=await fetch(release.apiOrigin+'/health',{method,headers:{Origin:origin,'Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type'},signal:AbortSignal.timeout(20000)});
   assert.equal(response.status,method==='OPTIONS'?204:200,`${origin}: deploy the Cloudflare CORS change before cutover`);
