@@ -1,0 +1,1023 @@
+From 11fbfc94ae6bea167735c1b7a24a22166a5610e5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 22 Sep 2026 19:57:53 +0000
+Subject: [PATCH] Add My Media: a Google Drive video library at /mymedia/
+
+Lists the configured Drive folder (subfolders, pagination, yt-dlp names,
+subtitle and thumbnail sidecars) and plays each file with the browser's
+own player, falling back to Astra's compatibility and software decoders
+for formats Chrome rejects. Watch progress, resume, Continue watching,
+search, sort, speed, subtitles, picture in picture and lock-screen
+controls. Adds the launcher entry, the /mymedia* CSP and docs.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Vf1AAntx9hRd94s2hm8rQp
+---
+ docs/drive-video.md             |  45 +++++
+ public/assets/drive-config.json |   2 +-
+ public/assets/hub.js            |   3 +-
+ public/mymedia/app.js           | 292 ++++++++++++++++++++++++++++++++
+ public/mymedia/index.html       |  74 ++++++++
+ public/mymedia/library.js       | 211 +++++++++++++++++++++++
+ public/mymedia/mymedia.css      |  44 +++++
+ public/mymedia/player.js        |  98 +++++++++++
+ public/staticwebapp.config.json |   6 +
+ tests/mymedia.test.js           | 136 +++++++++++++++
+ 10 files changed, 909 insertions(+), 2 deletions(-)
+ create mode 100644 docs/drive-video.md
+ create mode 100644 public/mymedia/app.js
+ create mode 100644 public/mymedia/index.html
+ create mode 100644 public/mymedia/library.js
+ create mode 100644 public/mymedia/mymedia.css
+ create mode 100644 public/mymedia/player.js
+ create mode 100644 tests/mymedia.test.js
+
+diff --git a/docs/drive-video.md b/docs/drive-video.md
+new file mode 100644
+index 0000000..47d7237
+--- /dev/null
++++ b/docs/drive-video.md
+@@ -0,0 +1,45 @@
++# My Media: Google Drive videos
++
++`/mymedia/` is a video library for one Google Drive folder of downloaded YouTube videos. It lists the folder and plays each file in the browser, straight from Google's servers. Nothing is proxied through Azure or Cloudflare, and no video is stored in this repository or the deployed site.
++
++The folder is `1lU0PKBXwi6uMy5L9VV2bptYQm1t7ImoW`, set as `videoFolderId` in `public/assets/drive-config.json`. The owner chose to build it into the site rather than paste it on the page. It must stay shared as **Anyone with the link → Viewer**. The page uses the same shared `GOOGLE_DRIVE_API_KEY` that DrawerCast uses, injected at deploy time by `scripts/configure-drive.mjs`. The committed config has no key.
++
++## Files
++
++- `public/mymedia/index.html`, `mymedia.css`: the page, in the Jarvis style.
++- `public/mymedia/library.js`: Drive listing, name parsing, sidecar pairing, sorting, search and watch progress. Pure functions, covered by `tests/mymedia.test.js`.
++- `public/mymedia/player.js`: plays a file and falls back to Astra's decoders.
++- `public/mymedia/app.js`: the page logic.
++- Launcher entry: `My Media` in the Library group of `public/assets/hub.js`.
++- Security policy: the `/mymedia*` route in `public/staticwebapp.config.json`. The Missionarytube build turns it into a `<meta>` CSP. It allows Drive (`www.googleapis.com`), YouTube thumbnails (`i.ytimg.com`) and Drive thumbnails (`*.googleusercontent.com`), and nothing else remote.
++
++## Library
++
++- Every refresh reads the whole folder, including subfolders and every page of results. The list is replaced only when the whole read succeeds, and the last good list is kept in the browser for an instant, offline-tolerant start.
++- Video files: `.mp4 .m4v .webm .mkv .mov`. Each subfolder becomes its own section.
++- Titles: yt-dlp's `Title [videoID].ext` naming gives a clean title and the video's YouTube thumbnail. Files without an ID keep their file name as the title.
++- Sidecars with the same name as the video are picked up automatically: subtitles (`Title [id].en.vtt`, `.srt`, converted to WebVTT in the browser) and a thumbnail image (`.jpg .png .webp`).
++- Thumbnails are tried in order: a sidecar image, then YouTube's thumbnail, then Drive's own thumbnail, then a plain placeholder.
++- Search matches every word against the title and folder. Sorting: newest, title (numbers sort naturally) or longest.
++
++## Playback
++
++1. The browser's own player streams the Drive file with byte ranges, so seeking works. This covers MP4 (H.264/AAC) and WebM (VP9/AV1, Opus), which is what nearly all YouTube downloads are.
++2. If the browser rejects the file's format (MKV, AC-3/DTS audio, a codec without hardware support), the page loads Astra's compatibility player from `/media/assets/js/playback/`. It repackages the file in the browser, and if the browser still cannot decode it, Astra's WebAssembly decoder takes over. That decoder is fine up to about 720p on a phone.
++
++Controls: the browser's native controls (fullscreen, which rotates to landscape where Android allows it), plus ±10 s, speed (remembered), subtitles, picture in picture and Mark watched. The lock screen gets the title and seek buttons. Keyboard: `j`/`l` skip 10 s, `k` play/pause, `f` fullscreen.
++
++Progress is saved in the browser every 5 seconds, on pause and when leaving the page. A video resumes where you left off unless you had watched less than 10 seconds or more than 93%. Reaching 93% or the end marks it watched, and rewatching keeps the mark. Continue watching shows the six most recent unfinished videos. Nothing is synced between devices.
++
++## Limits
++
++- Google does not publish Drive's per-file download limit. It is meant for files downloaded by many people, so rewatching your own videos should not reach it. If it is reached, that one file is blocked for about a day.
++- Mobile data: 1080p uses about 1–3 GB an hour.
++- Android Chrome pauses video in the background unless picture in picture is on.
++- Anyone with the folder link can see the videos, and the API key is visible in the deployed page, as it is for DrawerCast.
++
++## Verification
++
++- `npm test` runs `tests/mymedia.test.js`, which covers listing, pagination, sidecars, name parsing, progress, stored-data validation, sorting, search, subtitle conversion, the launcher entry and the security policy.
++- The browser check used Chromium at phone size, with Drive faked by a local server that supports byte ranges. It covered the launcher entry, the library and its sections, WebM native playback, ±10 s, VTT and SRT subtitles, speed, Continue watching, resume after reload, marking watched at the end, Up next and search. It also covered the fallbacks: an H.264 MP4 through Astra's software decoder (the test browser has no H.264), an H.264 + AC-3 MKV, and a VP9 MKV in a subfolder. No CSP violations were logged.
++- Still to check on the phone against the real folder: playback, seeking and resuming.
+diff --git a/public/assets/drive-config.json b/public/assets/drive-config.json
+index c60b5c6..5fd6ad1 100644
+--- a/public/assets/drive-config.json
++++ b/public/assets/drive-config.json
+@@ -1 +1 @@
+-{"apiKey":"","folderId":"1VlEUztloW5saoM7iF11fodDKSmCGP2ZZ"}
++{"apiKey":"","folderId":"1VlEUztloW5saoM7iF11fodDKSmCGP2ZZ","videoFolderId":"1lU0PKBXwi6uMy5L9VV2bptYQm1t7ImoW"}
+diff --git a/public/assets/hub.js b/public/assets/hub.js
+index 27e571e..4c254e9 100644
+--- a/public/assets/hub.js
++++ b/public/assets/hub.js
+@@ -5,13 +5,14 @@ export const apps = [
+   {id:'board',name:'Daily Board',description:'Your briefing',href:'/daily-board/',icon:'board',group:'Conversation'},
+   {id:'drawercast',name:'DrawerCast',description:'Music',href:'/drawercast/',icon:'music',group:'Library'},
+   {id:'media',name:'Media',description:'Astra · Videos',href:'/media/',icon:'media',group:'Library'},
++  {id:'mymedia',name:'My Media',description:'Drive videos',href:'/mymedia/',icon:'videos',group:'Library'},
+   {id:'notes',name:'Notes',description:'Saved in this browser',href:'/notes/',icon:'notes',group:'Utilities'},
+   {id:'tools',name:'Tools',description:'Files and HTML preview',href:'/tools/',icon:'tools',group:'Utilities'},
+   {id:'guitar',name:'Guitar',description:'Songsterr · PDF tabs',href:'/guitar/',icon:'music',group:'Utilities'},
+   {id:'server',name:'Server',description:'Connection & status',href:'/server/',icon:'server',group:'Utilities'}
+ ];
+ const glyphs={
+-menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',back:'<path d="m12 5-7 7 7 7M5 12h15"/>',search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',more:'<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',chevron:'<path d="m9 6 6 6-6 6"/>',home:'<path d="m3 10 9-7 9 7v10H14v-6h-4v6H3z"/>',favorites:'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/>',settings:'<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--bg)"/><circle cx="15" cy="17" r="3" fill="var(--bg)"/>',chat:'<path d="M21 11a8 8 0 0 1-8 8H7l-4 3V11a9 9 0 0 1 18 0Z"/><path d="M8 9h8M8 13h5"/>',board:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>',music:'<path d="M4 10v4M8 5v14M12 8v8M16 3v18M20 9v6"/>',media:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/>',notes:'<path d="M14 3H4v18h16V9zM14 3v6h6M8 13h8M8 17h5"/>',tools:'<path d="m14 5 5 5M4 20l5-1L20 8a3.5 3.5 0 0 0-5-5L4 14z"/>',server:'<rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M7 7h.1M7 17h.1M12 7h5M12 17h5"/>'};
++menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',back:'<path d="m12 5-7 7 7 7M5 12h15"/>',search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',more:'<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',chevron:'<path d="m9 6 6 6-6 6"/>',home:'<path d="m3 10 9-7 9 7v10H14v-6h-4v6H3z"/>',favorites:'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/>',settings:'<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--bg)"/><circle cx="15" cy="17" r="3" fill="var(--bg)"/>',chat:'<path d="M21 11a8 8 0 0 1-8 8H7l-4 3V11a9 9 0 0 1 18 0Z"/><path d="M8 9h8M8 13h5"/>',board:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>',music:'<path d="M4 10v4M8 5v14M12 8v8M16 3v18M20 9v6"/>',videos:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m10.5 10.5 4 2.5-4 2.5z"/>',media:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/>',notes:'<path d="M14 3H4v18h16V9zM14 3v6h6M8 13h8M8 17h5"/>',tools:'<path d="m14 5 5 5M4 20l5-1L20 8a3.5 3.5 0 0 0-5-5L4 14z"/>',server:'<rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M7 7h.1M7 17h.1M12 7h5M12 17h5"/>'};
+ export const icon=name=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${glyphs[name]||glyphs.tools}</svg>`;
+ export function loadPreferences(){try{const p=JSON.parse(localStorage.getItem('jarvis.preferences.v1'));if(p&&Array.isArray(p.favorites))return {favorites:p.favorites.filter(id=>apps.some(a=>a.id===id))};}catch{}return {favorites:['jarvis','drawercast']};}
+ export function savePreferences(p){localStorage.setItem('jarvis.preferences.v1',JSON.stringify(p));}
+diff --git a/public/mymedia/app.js b/public/mymedia/app.js
+new file mode 100644
+index 0000000..e1af278
+--- /dev/null
++++ b/public/mymedia/app.js
+@@ -0,0 +1,292 @@
++import {createVideoApi, mediaURL, thumbnails, parseLibrary, parseProgress, recordProgress, resumeTime,
++  continueWatching, searchVideos, sortVideos, groupByFolder, formatDuration, srtToVtt,
++  PROGRESS_KEY, LIBRARY_KEY} from './library.js';
++import {play} from './player.js';
++
++const $ = id => document.getElementById(id);
++const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
++const read = key => { try { return localStorage.getItem(key); } catch { return null; } };
++const write = (key, value) => { try { localStorage.setItem(key, value); return true; } catch { return false; } };
++const SORT_KEY = 'mymedia.sort.v1', SPEED_KEY = 'mymedia.speed.v1';
++
++let key = '', folder = '', api = null, loading = false;
++let library = parseLibrary(read(LIBRARY_KEY));
++let progress = parseProgress(read(PROGRESS_KEY));
++let query = '', sort = read(SORT_KEY) || 'newest';
++let current = null, libraryScroll = 0, depth = 0, ready = false;
++
++function status(text, error = false, el = $('status')) {
++  el.hidden = !text; el.textContent = text; el.classList.toggle('error', error);
++}
++function saveProgress() {
++  if (!write(PROGRESS_KEY, JSON.stringify(progress))) status('This browser could not save your place in videos.', true);
++}
++
++/* ---- library ---------------------------------------------------------- */
++
++function card(video) {
++  const p = progress[video.id], duration = video.duration || p?.d || 0;
++  const images = thumbnails(video, key);
++  const percent = p && !p.done && duration ? Math.min(100, p.t / duration * 100) : 0;
++  const left = resumeTime(p) && duration ? formatDuration(duration - p.t) + ' left' : '';
++  const date = video.modified ? new Date(video.modified).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'}) : '';
++  const detail = p?.done ? '<span class="watched-mark">✓ Watched</span>' : esc(left || date);
++  return `<a class="video-card" href="#v=${esc(video.id)}"><div class="thumb">` +
++    `<span class="placeholder" aria-hidden="true">▶</span>` +
++    (images.length ? `<img alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" src="${esc(images[0])}" data-fallbacks="${esc(JSON.stringify(images.slice(1)))}">` : '') +
++    (duration ? `<span class="length">${formatDuration(duration)}</span>` : '') +
++    (percent ? `<span class="bar"><span data-progress="${percent.toFixed(1)}"></span></span>` : '') +
++    `</div><span class="card-text"><strong>${esc(video.title)}</strong><small>${detail}</small></span></a>`;
++}
++
++// Thumbnail candidates fall through in order; the placeholder shows if all fail.
++document.addEventListener('error', event => {
++  const img = event.target;
++  if (!(img instanceof HTMLImageElement) || !img.dataset.fallbacks) return;
++  const rest = JSON.parse(img.dataset.fallbacks);
++  if (rest.length) { img.dataset.fallbacks = JSON.stringify(rest.slice(1)); img.src = rest[0]; }
++  else img.remove();
++}, true);
++
++// Widths are set through CSSOM: the page's CSP does not allow inline style attributes.
++function paintBars(root) {
++  root.querySelectorAll('[data-progress]').forEach(el => { el.style.width = el.dataset.progress + '%'; });
++}
++
++function renderLibrary() {
++  renderShelves();
++  paintBars($('library-view'));
++}
++function renderShelves() {
++  if (!library) { $('sections').innerHTML = ''; $('continue').hidden = true; return; }
++  const videos = sortVideos(searchVideos(library.videos, query), sort);
++  if (query) {
++    $('continue').hidden = true;
++    $('sections').innerHTML = videos.length
++      ? `<section class="shelf"><h2 class="eyebrow">${videos.length} result${videos.length === 1 ? '' : 's'}</h2><div class="video-grid">${videos.map(v => card(v)).join('')}</div></section>`
++      : `<p class="empty">No videos match “${esc(query)}”.</p>`;
++    return;
++  }
++  const resume = continueWatching(library.videos, progress, 6);
++  $('continue').hidden = !resume.length;
++  $('continue-grid').innerHTML = resume.map(v => card(v)).join('');
++  const groups = groupByFolder(videos, library.name);
++  $('sections').innerHTML = groups.length
++    ? groups.map(g => `<section class="shelf"><h2 class="eyebrow">${esc(g.label)} · ${g.items.length}</h2><div class="video-grid">${g.items.map(v => card(v)).join('')}</div></section>`).join('')
++    : '<p class="empty">No videos in this folder yet. Add MP4 or WebM files in Google Drive, then refresh.</p>';
++}
++
++function summary() {
++  if (!library) return '';
++  const count = library.videos.length, when = new Date(library.fetched);
++  return `${count} video${count === 1 ? '' : 's'} · updated ${when.toLocaleString(undefined, {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})}`;
++}
++
++async function refresh() {
++  if (!api || loading) return;
++  loading = true; $('refresh').disabled = true;
++  status(library ? 'Checking Drive for new videos…' : 'Loading your videos…');
++  try {
++    library = await api.list(folder, AbortSignal.timeout(60000));
++    if (!write(LIBRARY_KEY, JSON.stringify(library))) console.warn('My Media: library cache not saved');
++    status(summary());
++    renderLibrary();
++    route();
++  } catch (error) {
++    const reason = error?.name === 'TimeoutError' ? 'Drive took too long to answer.' : error?.message || 'Drive could not be read.';
++    status(library ? reason + ' Showing the last saved list.' : reason, true);
++  } finally {
++    loading = false; $('refresh').disabled = false;
++  }
++}
++
++/* ---- player ----------------------------------------------------------- */
++
++const video = $('video');
++let lastSave = 0;
++
++function remember(ended = false) {
++  // Some files report an infinite duration; Drive's metadata covers those.
++  const duration = Number.isFinite(video.duration) ? video.duration : current?.video.duration;
++  if (!current || !duration) return;
++  progress[current.video.id] = recordProgress(progress[current.video.id], video.currentTime, duration, ended);
++  lastSave = Date.now();
++  saveProgress();
++  paintWatched();
++}
++function paintWatched() {
++  const done = !!(current && progress[current.video.id]?.done);
++  $('watched').setAttribute('aria-pressed', String(done));
++  $('watched').textContent = done ? 'Watched ✓' : 'Mark watched';
++}
++
++async function loadCaptions(item, signal) {
++  const select = $('captions');
++  select.hidden = !item.subtitles.length;
++  select.innerHTML = '<option value="">Subtitles off</option>' + item.subtitles.map((s, i) => `<option value="${i}">${esc(s.lang)}</option>`).join('');
++  for (const [i, sub] of item.subtitles.entries()) {
++    try {
++      const response = await fetch(mediaURL(sub.id, key), {signal, credentials:'omit', referrerPolicy:'no-referrer'});
++      if (!response.ok) continue;
++      const text = srtToVtt(await response.text());
++      if (signal.aborted) return;
++      const url = URL.createObjectURL(new Blob([text], {type:'text/vtt'}));
++      current.urls.push(url);
++      const track = Object.assign(document.createElement('track'), {kind:'subtitles', label:sub.lang, srclang:sub.lang.slice(0, 2), src:url});
++      track.dataset.index = i;
++      video.append(track);
++    } catch {}
++  }
++}
++
++function openVideo(item) {
++  closeVideo();
++  const controller = new AbortController();
++  current = {video:item, controller, urls:[], handle:null};
++  $('library-view').hidden = true; $('player-view').hidden = false;
++  $('back').textContent = '← Library'; $('back').href = '#'; $('back').setAttribute('aria-label', 'Back to library');
++  $('refresh').hidden = true;
++  document.title = item.title + ' · My Media';
++  $('video-title').textContent = item.title;
++  const bits = [item.folder, item.height ? item.height + 'p' : '', item.size ? (item.size / 1048576).toFixed(0) + ' MB' : ''];
++  $('video-meta').textContent = bits.filter(Boolean).join(' · ');
++  status('', false, $('player-status'));
++  paintWatched();
++  const images = thumbnails(item, key);
++  if (images.length) video.poster = images.find(u => u.includes('ytimg')) || '';
++  // A new source resets playbackRate to defaultPlaybackRate, so set both.
++  video.defaultPlaybackRate = video.playbackRate = Number($('speed').value) || 1;
++  current.handle = play(video, mediaURL(item.id, key), {
++    startTime:resumeTime(progress[item.id]),
++    onError:message => status(message, true, $('player-status')),
++    onMode:mode => mode === 'compatibility' && status('Preparing this file for your browser…', false, $('player-status'))
++  });
++  loadCaptions(item, controller.signal);
++  renderNext(item);
++  if ('mediaSession' in navigator) {
++    navigator.mediaSession.metadata = new MediaMetadata({title:item.title, artist:item.folder, album:'My Media',
++      artwork:item.youtubeId ? [{src:'https://i.ytimg.com/vi/' + item.youtubeId + '/hqdefault.jpg', sizes:'480x360', type:'image/jpeg'}] : []});
++  }
++  window.scrollTo(0, 0);
++}
++
++function closeVideo() {
++  if (!current) return;
++  remember();
++  current.controller.abort();
++  current.handle?.close();
++  video.querySelectorAll('track').forEach(t => t.remove());
++  current.urls.forEach(u => URL.revokeObjectURL(u));
++  video.removeAttribute('poster');
++  if (document.pictureInPictureElement === video) document.exitPictureInPicture().catch(() => {});
++  current = null;
++}
++
++function renderNext(item) {
++  const siblings = sortVideos(library.videos.filter(v => v.folder === item.folder), sort);
++  const at = siblings.findIndex(v => v.id === item.id);
++  const next = [...siblings.slice(at + 1), ...siblings.slice(0, Math.max(0, at))].slice(0, 12);
++  $('next-list').innerHTML = next.length ? next.map(v => card(v)).join('') : '<p class="status">Nothing else in this folder.</p>';
++  paintBars($('next-list'));
++}
++
++video.addEventListener('timeupdate', () => { if (Date.now() - lastSave > 5000) remember(); });
++video.addEventListener('pause', () => remember());
++video.addEventListener('ended', () => remember(true));
++video.addEventListener('playing', () => { if (current?.handle?.mode === 'compatibility') status('', false, $('player-status')); });
++addEventListener('pagehide', () => remember());
++document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && remember());
++
++const skip = seconds => current?.handle?.seek((video.currentTime || 0) + seconds);
++$('back-10').addEventListener('click', () => skip(-10));
++$('forward-10').addEventListener('click', () => skip(10));
++$('speed').value = read(SPEED_KEY) || '1';
++if (![...$('speed').options].some(o => o.value === $('speed').value)) $('speed').value = '1';
++$('speed').addEventListener('change', () => { video.defaultPlaybackRate = video.playbackRate = Number($('speed').value); write(SPEED_KEY, $('speed').value); });
++video.addEventListener('ratechange', () => { if (String(video.playbackRate) !== $('speed').value && [...$('speed').options].some(o => o.value === String(video.playbackRate))) $('speed').value = String(video.playbackRate); });
++$('captions').addEventListener('change', () => {
++  for (const track of video.textTracks) track.mode = 'disabled';
++  const index = $('captions').value;
++  const el = [...video.querySelectorAll('track')].find(t => t.dataset.index === index);
++  if (el) el.track.mode = 'showing';
++});
++$('pip').hidden = !document.pictureInPictureEnabled;
++$('pip').addEventListener('click', () => (document.pictureInPictureElement ? document.exitPictureInPicture() : video.requestPictureInPicture()).catch(() => status('Picture in picture is not available for this video.', true, $('player-status'))));
++$('watched').addEventListener('click', () => {
++  if (!current) return;
++  const id = current.video.id, entry = progress[id];
++  progress[id] = entry?.done ? {...entry, done:false, at:Date.now()} : {...recordProgress(entry, 0, video.duration || entry?.d || 0, true), done:true};
++  saveProgress(); paintWatched();
++});
++// Landscape videos rotate the phone's fullscreen view when Android allows it.
++document.addEventListener('fullscreenchange', () => {
++  if (document.fullscreenElement === video && video.videoWidth > video.videoHeight) screen.orientation?.lock?.('landscape').catch(() => {});
++  else if (!document.fullscreenElement) screen.orientation?.unlock?.();
++});
++if ('mediaSession' in navigator) {
++  const handlers = {seekbackward:d => skip(-(d.seekOffset || 10)), seekforward:d => skip(d.seekOffset || 10), seekto:d => current?.handle?.seek(d.seekTime)};
++  for (const [action, fn] of Object.entries(handlers)) { try { navigator.mediaSession.setActionHandler(action, fn); } catch {} }
++}
++document.addEventListener('keydown', event => {
++  if (!current || event.ctrlKey || event.metaKey || event.altKey || /^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) return;
++  const actions = {j:() => skip(-10), l:() => skip(10), k:() => (video.paused ? video.play() : video.pause()),
++    f:() => (document.fullscreenElement ? document.exitFullscreen() : video.requestFullscreen()).catch(() => {})};
++  const action = actions[event.key.toLowerCase()];
++  if (action) { event.preventDefault(); action(); }
++});
++
++/* ---- routing ---------------------------------------------------------- */
++
++// #v=<Drive file ID> is the player; anything else is the library. Real links
++// keep Android Back working.
++function route() {
++  const id = /^#v=([A-Za-z0-9_-]{10,200})$/.exec(location.hash)?.[1];
++  const item = id && library?.videos.find(v => v.id === id);
++  if (id && !ready) return; // opened once the Drive key has loaded
++  if (item && api) { if (current?.video.id !== id) { if (!current) libraryScroll = scrollY; openVideo(item); } return; }
++  if (id && api && (loading || !library)) return; // shown once the list arrives
++  depth = 0;
++  closeVideo();
++  $('player-view').hidden = true; $('library-view').hidden = false;
++  $('back').textContent = '← Jarvis'; $('back').href = '/'; $('back').setAttribute('aria-label', 'Back to Jarvis');
++  $('refresh').hidden = false;
++  document.title = 'My Media · Jarvis';
++  if (id) status(api ? 'That video is no longer in the folder.' : 'Videos cannot play until the Drive settings load.', true);
++  renderLibrary();
++  requestAnimationFrame(() => window.scrollTo(0, libraryScroll));
++}
++addEventListener('hashchange', route);
++document.addEventListener('click', event => {
++  const link = event.target.closest?.('a[href^="#"]');
++  if (!link) return;
++  // Back to the list in one step, however many Up next videos were opened.
++  if (link.getAttribute('href').startsWith('#v=')) depth++;
++  else if (link.id === 'back' && depth) { event.preventDefault(); history.go(-depth); }
++});
++
++$('search').addEventListener('input', () => { query = $('search').value.trim(); renderLibrary(); });
++$('sort').value = ['newest', 'title', 'longest'].includes(sort) ? sort : 'newest';
++$('sort').addEventListener('change', () => { sort = $('sort').value; write(SORT_KEY, sort); renderLibrary(); });
++$('refresh').addEventListener('click', refresh);
++
++/* ---- start ------------------------------------------------------------ */
++
++async function start() {
++  if (library) status(summary());
++  route();
++  try {
++    const response = await fetch('/assets/drive-config.json', {cache:'no-store', signal:AbortSignal.timeout(15000)});
++    const config = await response.json();
++    key = String(config.apiKey || '').trim(); folder = String(config.videoFolderId || '').trim();
++    api = createVideoApi(key);
++    if (!folder) throw Error('No video folder is configured.');
++  } catch (error) {
++    ready = true; route();
++    status((error?.message || 'Drive settings could not be loaded.') + (library ? ' Showing the last saved list.' : ''), true);
++    return;
++  }
++  ready = true;
++  route(); // thumbnails that need the key, or a video link opened directly
++  refresh();
++}
++start();
+diff --git a/public/mymedia/index.html b/public/mymedia/index.html
+new file mode 100644
+index 0000000..34f5621
+--- /dev/null
++++ b/public/mymedia/index.html
+@@ -0,0 +1,74 @@
++<!doctype html>
++<html lang="en">
++<head>
++  <meta charset="utf-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
++  <meta name="theme-color" content="#121212">
++  <title>My Media · Jarvis</title>
++  <link rel="icon" href="data:,">
++  <link rel="stylesheet" href="/assets/shell.css">
++  <link rel="stylesheet" href="/mymedia/mymedia.css">
++  <script type="module" src="/mymedia/app.js"></script>
++</head>
++<body>
++  <div class="workspace mymedia">
++    <header class="topbar">
++      <a class="text-button" id="back" href="/" aria-label="Back to Jarvis">← Jarvis</a>
++      <span class="brand" id="heading">My Media</span>
++      <button class="text-button" id="refresh" type="button">Refresh</button>
++    </header>
++
++    <main id="library-view">
++      <div class="library-tools">
++        <label class="sr-only" for="search">Search videos</label>
++        <input id="search" type="search" placeholder="Search videos" autocomplete="off">
++        <label class="sr-only" for="sort">Sort videos</label>
++        <select id="sort">
++          <option value="newest">Newest</option>
++          <option value="title">Title</option>
++          <option value="longest">Longest</option>
++        </select>
++      </div>
++      <p id="status" class="status" role="status">Loading your videos…</p>
++      <section id="continue" class="shelf" aria-labelledby="continue-label" hidden>
++        <h2 class="eyebrow" id="continue-label">Continue watching</h2>
++        <div class="video-grid" id="continue-grid"></div>
++      </section>
++      <div id="sections"></div>
++    </main>
++
++    <main id="player-view" hidden>
++      <div class="stage">
++        <video id="video" controls playsinline preload="metadata"></video>
++      </div>
++      <div class="watch-body">
++        <h1 id="video-title"></h1>
++        <p class="watch-meta" id="video-meta"></p>
++        <p id="player-status" class="status" role="status" hidden></p>
++        <div class="player-tools" role="toolbar" aria-label="Playback">
++          <button type="button" id="back-10" aria-label="Back 10 seconds">−10s</button>
++          <button type="button" id="forward-10" aria-label="Forward 10 seconds">+10s</button>
++          <label class="sr-only" for="speed">Playback speed</label>
++          <select id="speed">
++            <option value="0.75">0.75×</option>
++            <option value="1">1×</option>
++            <option value="1.25">1.25×</option>
++            <option value="1.5">1.5×</option>
++            <option value="1.75">1.75×</option>
++            <option value="2">2×</option>
++          </select>
++          <label class="sr-only" for="captions">Subtitles</label>
++          <select id="captions" hidden></select>
++          <button type="button" id="pip" hidden>Picture in picture</button>
++          <button type="button" id="watched" aria-pressed="false">Mark watched</button>
++        </div>
++        <section class="shelf" aria-labelledby="next-label">
++          <h2 class="eyebrow" id="next-label">Up next</h2>
++          <div class="next-list" id="next-list"></div>
++        </section>
++      </div>
++    </main>
++  </div>
++  <noscript><p>Enable JavaScript to use My Media.</p></noscript>
++</body>
++</html>
+diff --git a/public/mymedia/library.js b/public/mymedia/library.js
+new file mode 100644
+index 0000000..75b8d68
+--- /dev/null
++++ b/public/mymedia/library.js
+@@ -0,0 +1,211 @@
++// My Media: Drive folder listing, file naming and watch progress.
++// Pure functions only; the page wires them to the DOM in app.js.
++import {folderId} from '../drawercast/drive-api.js';
++
++const ROOT = 'https://www.googleapis.com/drive/v3/files';
++const ID = /^[A-Za-z0-9_-]{10,200}$/;
++const FOLDER = 'application/vnd.google-apps.folder';
++export const VIDEO = /\.(mp4|m4v|webm|mkv|mov)$/i;
++const SUBTITLE = /\.(vtt|srt)$/i;
++const IMAGE = /\.(jpe?g|png|webp)$/i;
++const YOUTUBE_ID = /\s*\[([A-Za-z0-9_-]{11})\]$/;
++export const PROGRESS_KEY = 'mymedia.progress.v1';
++export const LIBRARY_KEY = 'mymedia.library.v1';
++const WATCHED = 0.93;
++
++export {folderId};
++
++const stem = name => name.replace(/\.[^.]+$/, '');
++
++// "Title [dQw4w9WgXcQ].mp4" → {title:'Title', youtubeId:'dQw4w9WgXcQ'}
++export function parseName(name) {
++  const base = stem(String(name || ''));
++  const youtubeId = YOUTUBE_ID.exec(base)?.[1] || '';
++  const title = base.replace(YOUTUBE_ID, '').replace(/_/g, ' ').trim() || base;
++  return {title, youtubeId};
++}
++
++// yt-dlp sidecars share the video's stem: "Title [id].en.vtt", "Title [id].webp".
++function sidecarsFor(video, others) {
++  const base = stem(video.name), subtitles = [];
++  let image = null;
++  for (const f of others) {
++    const other = stem(f.name);
++    if (other !== base && !other.startsWith(base + '.')) continue;
++    if (SUBTITLE.test(f.name)) {
++      const lang = other.slice(base.length + 1) || 'und';
++      subtitles.push({id:f.id, lang, format:f.name.split('.').at(-1).toLowerCase()});
++    } else if (IMAGE.test(f.name) && !image) image = f.id;
++  }
++  subtitles.sort((a, b) => a.lang.localeCompare(b.lang));
++  return {subtitles, image};
++}
++
++export function toVideo(file, folder, others = []) {
++  const {title, youtubeId} = parseName(file.name);
++  const meta = file.videoMediaMetadata || {};
++  return {id:file.id, name:file.name, title, youtubeId, folder,
++    mimeType:file.mimeType || '', size:Number(file.size) || 0,
++    modified:Date.parse(file.modifiedTime) || 0,
++    duration:Math.round(Number(meta.durationMillis) / 1000) || 0,
++    width:Number(meta.width) || 0, height:Number(meta.height) || 0,
++    thumbnail:/^https:\/\/[a-z0-9.-]+\.googleusercontent\.com\//.test(file.thumbnailLink || '') ? file.thumbnailLink : '',
++    ...sidecarsFor(file, others)};
++}
++
++export function createVideoApi(key, fetcher = fetch) {
++  if (!/^AIza[A-Za-z0-9_-]{30,}$/.test(key || '')) throw Error('The shared Drive API key is not configured.');
++  async function get(path, params, signal) {
++    const url = new URL(ROOT + path);
++    for (const [name, value] of Object.entries({...params, key})) url.searchParams.set(name, value);
++    const response = await fetcher(url.href, {signal, credentials:'omit', cache:'no-store'});
++    const data = await response.json().catch(() => ({}));
++    if (!response.ok) {
++      const reason = data.error?.errors?.[0]?.reason || '';
++      if (response.status === 404) throw Error('Drive folder not found. Set it to Anyone with the link → Viewer.');
++      if (response.status === 429 || /rateLimit|quota/i.test(reason)) throw Error('Drive is limiting requests. Wait a moment, then refresh.');
++      if (response.status === 403) throw Error('Drive refused access. Check that the folder is shared as Anyone with the link → Viewer.');
++      throw Error('Drive could not be read (HTTP ' + response.status + ').');
++    }
++    return data;
++  }
++  // Walks every subfolder and page. Nothing is returned unless the whole read succeeds.
++  async function list(folder, signal) {
++    const root = folderId(folder);
++    const info = await get('/' + root, {fields:'id,name,mimeType'}, signal);
++    if (info.mimeType !== FOLDER) throw Error('The configured video folder is not a folder.');
++    const queue = [{id:root, path:info.name}], visited = new Set(), videos = [];
++    while (queue.length) {
++      if (visited.size >= 500) throw Error('This folder has too many subfolders.');
++      const current = queue.shift();
++      if (visited.has(current.id)) continue;
++      visited.add(current.id);
++      const files = [], seen = new Set();
++      let token = '';
++      do {
++        const page = await get('', {q:"'" + current.id + "' in parents and trashed = false", pageSize:'1000',
++          fields:'nextPageToken,files(id,name,mimeType,size,modifiedTime,thumbnailLink,videoMediaMetadata(width,height,durationMillis),capabilities(canDownload))',
++          ...(token ? {pageToken:token} : {})}, signal);
++        if (!Array.isArray(page.files)) throw Error('Drive returned an incomplete folder listing.');
++        for (const f of page.files) {
++          if (!ID.test(f.id || '') || typeof f.name !== 'string') continue;
++          if (f.mimeType === FOLDER) queue.push({id:f.id, path:current.path + '/' + f.name});
++          else if (f.capabilities?.canDownload !== false) files.push(f);
++        }
++        token = page.nextPageToken || '';
++        if (token && seen.has(token)) throw Error('Drive pagination repeated.');
++        seen.add(token);
++      } while (token);
++      const others = files.filter(f => !VIDEO.test(f.name));
++      for (const f of files) if (VIDEO.test(f.name)) videos.push(toVideo(f, current.path, others));
++      if (videos.length > 20000) throw Error('Choose a folder with fewer than 20,000 videos.');
++    }
++    return {id:root, name:info.name, videos, fetched:Date.now()};
++  }
++  return {list, mediaURL:id => mediaURL(id, key)};
++}
++
++export function mediaURL(id, key) {
++  if (!ID.test(id || '')) throw Error('Invalid Drive file ID.');
++  const url = new URL(ROOT + '/' + id);
++  url.searchParams.set('alt', 'media');
++  url.searchParams.set('key', key);
++  return url.href;
++}
++
++// Ordered image candidates; the page falls through on load errors.
++export function thumbnails(video, key) {
++  const list = [];
++  if (video.image && key) list.push(mediaURL(video.image, key));
++  if (video.youtubeId) list.push('https://i.ytimg.com/vi/' + video.youtubeId + '/mqdefault.jpg');
++  if (video.thumbnail) list.push(video.thumbnail);
++  return list;
++}
++
++export function parseLibrary(raw) {
++  try {
++    const data = JSON.parse(raw);
++    if (data && typeof data.id === 'string' && Array.isArray(data.videos)) return data;
++  } catch {}
++  return null;
++}
++
++export function parseProgress(raw) {
++  try {
++    const data = JSON.parse(raw);
++    if (data && typeof data === 'object' && !Array.isArray(data)) {
++      const clean = {};
++      for (const [id, p] of Object.entries(data)) {
++        if (ID.test(id) && p && Number.isFinite(p.t) && Number.isFinite(p.d)) {
++          clean[id] = {t:Math.max(0, p.t), d:Math.max(0, p.d), done:!!p.done, at:Number(p.at) || 0};
++        }
++      }
++      return clean;
++    }
++  } catch {}
++  return {};
++}
++
++// Returns the new entry for one video. Watched stays set once reached.
++export function recordProgress(previous, time, duration, ended = false, now = Date.now()) {
++  const t = Number.isFinite(time) ? Math.max(0, time) : 0;
++  const d = Number.isFinite(duration) && duration > 0 ? duration : previous?.d || 0;
++  const done = !!previous?.done || ended || (d > 0 && t >= d * WATCHED);
++  return {t:ended ? 0 : t, d, done, at:now};
++}
++
++// Where to start: resume unless barely started or essentially finished.
++export function resumeTime(entry) {
++  if (!entry || !entry.d) return 0;
++  return entry.t > 10 && entry.t < entry.d * WATCHED ? entry.t : 0;
++}
++
++export function continueWatching(videos, progress, limit = 10) {
++  return videos
++    .filter(v => resumeTime(progress[v.id]) > 0)
++    .sort((a, b) => progress[b.id].at - progress[a.id].at)
++    .slice(0, limit);
++}
++
++export function searchVideos(videos, query) {
++  const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
++  if (!words.length) return videos;
++  return videos.filter(v => {
++    const text = (v.title + ' ' + v.folder).toLowerCase();
++    return words.every(w => text.includes(w));
++  });
++}
++
++export const SORTS = {
++  newest:(a, b) => b.modified - a.modified,
++  title:(a, b) => a.title.localeCompare(b.title, undefined, {numeric:true, sensitivity:'base'}),
++  longest:(a, b) => b.duration - a.duration
++};
++
++export function sortVideos(videos, mode) {
++  return [...videos].sort(SORTS[mode] || SORTS.newest);
++}
++
++// Sections in folder order: the root folder first, then subfolders by name.
++export function groupByFolder(videos, rootName) {
++  const groups = new Map();
++  for (const v of videos) {
++    if (!groups.has(v.folder)) groups.set(v.folder, []);
++    groups.get(v.folder).push(v);
++  }
++  return [...groups.entries()]
++    .sort(([a], [b]) => (a === rootName ? -1 : b === rootName ? 1 : a.localeCompare(b, undefined, {numeric:true})))
++    .map(([path, items]) => ({path, label:path === rootName ? 'All videos' : path.slice(rootName.length + 1), items}));
++}
++
++export function formatDuration(seconds) {
++  const s = Math.max(0, Math.floor(Number(seconds) || 0));
++  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), r = String(s % 60).padStart(2, '0');
++  return h ? h + ':' + String(m).padStart(2, '0') + ':' + r : m + ':' + r;
++}
++
++export function srtToVtt(text) {
++  const body = String(text || '').replace(/^﻿/, '').replace(/\r\n?/g, '\n')
++    .replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
++  return /^WEBVTT/.test(body) ? body : 'WEBVTT\n\n' + body;
++}
+diff --git a/public/mymedia/mymedia.css b/public/mymedia/mymedia.css
+new file mode 100644
+index 0000000..cd3816e
+--- /dev/null
++++ b/public/mymedia/mymedia.css
+@@ -0,0 +1,44 @@
++/* My Media: a media library may use more width than the launcher (style guide). */
++.mymedia.workspace{max-width:1200px;padding-bottom:calc(32px + env(safe-area-inset-bottom))}
++.mymedia .topbar{justify-content:space-between;padding-left:max(8px,env(safe-area-inset-left));padding-right:max(8px,env(safe-area-inset-right))}
++.mymedia .brand{font-size:20px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
++.mymedia .text-button{white-space:nowrap}
++.mymedia main{padding:0 max(20px,env(safe-area-inset-right)) 0 max(20px,env(safe-area-inset-left))}
++.mymedia [hidden]{display:none!important}
++.mymedia :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
++.mymedia input,.mymedia select{min-height:48px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font-size:16px;padding:8px 12px}
++.library-tools{display:flex;gap:8px;margin:4px 0 8px}
++.library-tools input{flex:1;min-width:0}
++.library-tools select{flex:0 0 auto;width:auto}
++.status{font-size:13px;line-height:1.5;color:var(--muted);margin:8px 0 16px}
++.status.error{color:var(--error)}
++.shelf{margin:0 0 24px}
++.video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:20px 12px}
++@media(min-width:700px){.video-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:24px 16px}}
++.video-card{display:block;min-width:0;border-radius:8px}
++.video-card:hover{background:none}
++.thumb{position:relative;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:var(--raised)}
++.thumb img{width:100%;height:100%;object-fit:cover;display:block}
++.thumb .placeholder{position:absolute;inset:0;display:grid;place-items:center;color:var(--label)}
++.thumb .length{position:absolute;right:6px;bottom:6px;background:#000c;color:#fff;font-size:12px;line-height:16px;padding:1px 5px;border-radius:4px}
++.thumb .bar{position:absolute;left:0;right:0;bottom:0;height:3px;background:#ffffff33}
++.thumb .bar span{display:block;height:100%;background:var(--accent)}
++.video-card strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:15px;line-height:21px;font-weight:500;margin-top:8px;overflow-wrap:anywhere}
++.card-text{display:block;min-width:0}
++.video-card small{display:block;color:var(--muted);font-size:13px;line-height:18px;margin-top:2px}
++.video-card .watched-mark{color:var(--success)}
++.empty{padding:12vh 0;color:var(--muted);text-align:center}
++
++/* Player */
++.stage{margin:0 calc(-1 * max(20px,env(safe-area-inset-right))) 0 calc(-1 * max(20px,env(safe-area-inset-left)));background:#000}
++.stage video{display:block;width:100%;max-height:75svh;aspect-ratio:16/9;background:#000}
++@media(min-width:700px){.stage{margin:0;border-radius:8px;overflow:hidden}}
++.watch-body h1{font-size:20px;line-height:26px;font-weight:600;margin:16px 0 4px;overflow-wrap:anywhere}
++.watch-meta{font-size:13px;color:var(--muted);margin:0 0 8px}
++.player-tools{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 24px}
++.player-tools button{padding:8px 12px;border:1px solid var(--line);border-radius:6px;color:var(--text);font-size:14px}
++.player-tools button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
++.player-tools select{font-size:14px;width:auto;flex:0 0 auto}
++.next-list{display:grid;gap:12px}
++.next-list .video-card{display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:start}
++.next-list .video-card strong{margin-top:0}
+diff --git a/public/mymedia/player.js b/public/mymedia/player.js
+new file mode 100644
+index 0000000..bf16071
+--- /dev/null
++++ b/public/mymedia/player.js
+@@ -0,0 +1,98 @@
++// Plays a Drive file in a <video>. The browser's own decoder handles MP4 and
++// WebM. When it refuses a file (MKV, AC-3/DTS audio, codecs without hardware
++// support), Astra's compatibility remuxer and software decoder take over.
++const ASTRA = '/media/assets/js/playback/';
++// Order matters: the software decoder needs request policy, and the
++// compatibility player hands off to the software decoder when present.
++const FALLBACK_SCRIPTS = ['request-policy.js', 'software-player.js', 'compatibility.js'];
++let fallbackLoad = null;
++
++function loadScript(src) {
++  return new Promise((resolve, reject) => {
++    const script = document.createElement('script');
++    script.src = src;
++    script.onload = resolve;
++    script.onerror = () => { script.remove(); reject(Error('The compatibility player could not load.')); };
++    document.head.append(script);
++  });
++}
++
++function loadFallback() {
++  if (globalThis.AstraCompatibility) return Promise.resolve();
++  fallbackLoad ??= FALLBACK_SCRIPTS.reduce((chain, name) => chain.then(() => loadScript(ASTRA + name)), Promise.resolve())
++    .catch(error => { fallbackLoad = null; throw error; });
++  return fallbackLoad;
++}
++
++// MEDIA_ERR_DECODE (3) and MEDIA_ERR_SRC_NOT_SUPPORTED (4) mean the format,
++// not the network, is the problem.
++const formatProblem = media => [3, 4].includes(media.error?.code);
++
++// A refused Drive request (sharing, quota, key) also surfaces as "not
++// supported". Ask for one byte to tell the two apart before switching decoders.
++export async function driveProblem(url, fetcher = fetch) {
++  try {
++    const response = await fetcher(url, {headers:{Range:'bytes=0-0'}, credentials:'omit', referrerPolicy:'no-referrer', cache:'no-store'});
++    await response.body?.cancel();
++    if (response.ok) return '';
++    if (response.status === 404) return 'This video is no longer in Drive. Refresh the library.';
++    if (response.status === 403 || response.status === 429) return 'Drive refused this video right now. If it was played a lot today, Drive may limit it for up to a day; otherwise check the folder is shared as Anyone with the link.';
++    return 'Drive could not send this video (HTTP ' + response.status + ').';
++  } catch {
++    return 'The video could not be reached. Check your connection, then try again.';
++  }
++}
++
++export function play(media, url, {startTime = 0, onError = () => {}, onMode = () => {}} = {}) {
++  let adapter = null, closed = false, fellBack = false;
++  const cleanup = [];
++  const listen = (type, fn) => { media.addEventListener(type, fn); cleanup.push(() => media.removeEventListener(type, fn)); };
++
++  async function fallback() {
++    if (fellBack || closed) return;
++    fellBack = true;
++    const at = media.currentTime || startTime;
++    onMode('compatibility');
++    try {
++      await loadFallback();
++      if (closed) return;
++      media.removeAttribute('src'); media.load();
++      adapter = globalThis.AstraCompatibility.createAdapter({media, url, startTime:at, autoplay:true,
++        onError:e => !closed && onError(e?.detail || 'This video could not be played on this device.')});
++      await adapter.attach();
++    } catch (error) {
++      if (!closed && error?.name !== 'AbortError') onError(error?.message || 'This video could not be played on this device.');
++    }
++  }
++
++  listen('error', async () => {
++    if (closed || fellBack) return;
++    if (!formatProblem(media)) return onError('The video stopped loading. Check your connection, then try again.');
++    const problem = await driveProblem(url);
++    if (closed) return;
++    if (problem) onError(problem); else fallback();
++  });
++  // Chrome sometimes plays the audio of an unsupported video track with no picture.
++  listen('loadedmetadata', () => {
++    if (!fellBack && media.videoWidth === 0 && media.duration > 0 && !media.error) fallback();
++    else if (startTime > 0 && !fellBack) media.currentTime = startTime;
++  });
++  onMode('native');
++  media.src = url;
++  media.play().catch(() => {});
++
++  return {
++    get mode() { return fellBack ? 'compatibility' : 'native'; },
++    close() {
++      if (closed) return;
++      closed = true;
++      cleanup.forEach(fn => fn());
++      adapter?.destroy();
++      media.pause(); media.removeAttribute('src'); media.load();
++    },
++    seek(seconds) {
++      const target = Math.max(0, Math.min(media.duration || Infinity, seconds));
++      if (adapter?.seekTo) adapter.seekTo(target); else media.currentTime = target;
++    }
++  };
++}
+diff --git a/public/staticwebapp.config.json b/public/staticwebapp.config.json
+index ee2b9b3..913069e 100644
+--- a/public/staticwebapp.config.json
++++ b/public/staticwebapp.config.json
+@@ -30,6 +30,12 @@
+         "Content-Security-Policy": "default-src 'none'; script-src 'self' blob: 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; media-src 'self' blob: https: http://localhost:* http://127.0.0.1:*; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; worker-src 'self' blob:; frame-src 'self' https:; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+       }
+     },
++    {
++      "route": "/mymedia*",
++      "headers": {
++        "Content-Security-Policy": "default-src 'none'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: https://i.ytimg.com https://www.googleapis.com https://*.googleusercontent.com; media-src 'self' blob: https://www.googleapis.com; connect-src 'self' https://www.googleapis.com; worker-src 'self' blob:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
++      }
++    },
+     {
+       "route": "/portal*",
+       "headers": {
+diff --git a/tests/mymedia.test.js b/tests/mymedia.test.js
+new file mode 100644
+index 0000000..1bc5bdd
+--- /dev/null
++++ b/tests/mymedia.test.js
+@@ -0,0 +1,136 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {readFile} from 'node:fs/promises';
++import {parseName, createVideoApi, mediaURL, thumbnails, parseLibrary, parseProgress, recordProgress, resumeTime,
++  continueWatching, searchVideos, sortVideos, groupByFolder, formatDuration, srtToVtt} from '../public/mymedia/library.js';
++import {apps} from '../public/assets/hub.js';
++
++const key = 'AIza' + 'x'.repeat(35), root = 'folder123456789', child = 'child1234567890';
++const folder = {id:root, name:'Videos', mimeType:'application/vnd.google-apps.folder'};
++const file = (id, name, extra = {}) => ({id, name, mimeType:'video/mp4', size:'1000', modifiedTime:'2026-09-22T03:19:32Z', ...extra});
++
++test('parses yt-dlp names and keeps titles without an ID', () => {
++  assert.deepEqual(parseName('Bob Ross - Secluded Bridge (Season 10 Episode 4) [vrAMRxBB5KI].mp4'),
++    {title:'Bob Ross - Secluded Bridge (Season 10 Episode 4)', youtubeId:'vrAMRxBB5KI'});
++  assert.deepEqual(parseName('ScrapMan - This Castle Hide and Seek has Some Tricky Spots.mp4'),
++    {title:'ScrapMan - This Castle Hide and Seek has Some Tricky Spots', youtubeId:''});
++  assert.equal(parseName('Not an id [short].mkv').youtubeId, '');
++});
++
++test('lists every page and subfolder, keeps only videos and pairs sidecars', async () => {
++  const calls = [];
++  const responses = [folder,
++    {files:[file('video1234567890', 'One [abcdefghijk].mp4', {videoMediaMetadata:{durationMillis:'61500', width:1920, height:1080}}),
++      {id:'subtitle123456', name:'One [abcdefghijk].en.vtt', mimeType:'text/vtt'},
++      {id:'imagefile12345', name:'One [abcdefghijk].webp', mimeType:'image/webp'},
++      {id:'notes123456789', name:'notes.txt', mimeType:'text/plain'},
++      {id:child, name:'Bob Ross', mimeType:'application/vnd.google-apps.folder'}], nextPageToken:'next'},
++    {files:[file('video2234567890', 'Two.webm', {thumbnailLink:'https://lh3.googleusercontent.com/drive-storage/abc'}),
++      file('locked12345678', 'Locked.mp4', {capabilities:{canDownload:false}})]},
++    {files:[file('video3234567890', 'Three.mkv', {thumbnailLink:'https://evil.test/x.jpg'})]}];
++  const api = createVideoApi(key, async (url, options) => { calls.push({url:new URL(url), options}); return Response.json(responses.shift()); });
++  const result = await api.list('https://drive.google.com/drive/folders/' + root + '?usp=sharing');
++  assert.deepEqual(result.videos.map(v => v.id), ['video1234567890', 'video2234567890', 'video3234567890']);
++  const [one, two, three] = result.videos;
++  assert.equal(one.duration, 62); assert.equal(one.height, 1080); assert.equal(one.youtubeId, 'abcdefghijk');
++  assert.deepEqual(one.subtitles, [{id:'subtitle123456', lang:'en', format:'vtt'}]);
++  assert.equal(one.image, 'imagefile12345');
++  assert.equal(two.thumbnail, 'https://lh3.googleusercontent.com/drive-storage/abc');
++  assert.equal(three.folder, 'Videos/Bob Ross'); assert.equal(three.thumbnail, '', 'foreign thumbnail hosts are dropped');
++  assert.equal(calls[2].url.searchParams.get('pageToken'), 'next');
++  assert.ok(calls.every(c => c.url.origin === 'https://www.googleapis.com' && c.options.credentials === 'omit'));
++});
++
++test('a failed page rejects the whole listing, and errors are readable', async () => {
++  const responses = [Response.json(folder), Response.json({files:[], nextPageToken:'next'}), Response.json({error:{}}, {status:403})];
++  await assert.rejects(createVideoApi(key, async () => responses.shift()).list(root), /Anyone with the link/);
++  await assert.rejects(createVideoApi(key, async () => Response.json({error:{}}, {status:404})).list(root), /not found/);
++  await assert.rejects(createVideoApi(key, async () => Response.json({...folder, mimeType:'video/mp4'})).list(root), /not a folder/);
++  assert.throws(() => createVideoApi(''), /not configured/);
++  await assert.rejects(createVideoApi(key).list("x' in parents"), /folder link/);
++});
++
++test('repeated pagination tokens stop instead of looping', async () => {
++  let call = 0;
++  const api = createVideoApi(key, async () => Response.json(call++ === 0 ? folder : {files:[], nextPageToken:'again'}));
++  await assert.rejects(api.list(root), /pagination repeated/);
++  assert.equal(call, 3);
++});
++
++test('media and thumbnail URLs stay on Google hosts, in fallback order', () => {
++  const url = new URL(mediaURL('video1234567890', key));
++  assert.equal(url.origin + url.pathname, 'https://www.googleapis.com/drive/v3/files/video1234567890');
++  assert.equal(url.searchParams.get('alt'), 'media');
++  assert.throws(() => mediaURL('../x', key));
++  assert.deepEqual(thumbnails({image:'imagefile12345', youtubeId:'abcdefghijk', thumbnail:'https://lh3.googleusercontent.com/a'}, key).map(u => new URL(u).host),
++    ['www.googleapis.com', 'i.ytimg.com', 'lh3.googleusercontent.com']);
++  assert.deepEqual(thumbnails({youtubeId:'', thumbnail:''}, key), []);
++});
++
++test('progress resumes mid-video, resets near the end and keeps watched', () => {
++  const at = recordProgress(null, 300, 1000, false, 5);
++  assert.deepEqual(at, {t:300, d:1000, done:false, at:5});
++  assert.equal(resumeTime(at), 300);
++  assert.equal(resumeTime(recordProgress(null, 5, 1000)), 0, 'barely started');
++  const near = recordProgress(at, 950, 1000);
++  assert.equal(near.done, true); assert.equal(resumeTime(near), 0);
++  const ended = recordProgress(at, 1000, 1000, true);
++  assert.equal(ended.t, 0); assert.equal(ended.done, true);
++  assert.equal(recordProgress(ended, 20, NaN).done, true, 'rewatching keeps the watched mark');
++  assert.equal(recordProgress(ended, 20, NaN).d, 1000);
++});
++
++test('stored data is validated before use', () => {
++  assert.deepEqual(parseProgress('{"video1234567890":{"t":5,"d":10,"at":1},"bad id!":{"t":1,"d":2},"video2234567890":{"t":"x"}}'),
++    {video1234567890:{t:5, d:10, done:false, at:1}});
++  assert.deepEqual(parseProgress('not json'), {});
++  assert.deepEqual(parseProgress('[]'), {});
++  assert.equal(parseLibrary('{"id":"x"}'), null);
++  assert.equal(parseLibrary('{"id":"x","videos":[]}').id, 'x');
++});
++
++test('continue watching, search, sort and folder sections', () => {
++  const videos = [
++    {id:'a', title:'Bob Ross - Winter Mist', folder:'Videos', modified:1, duration:1500},
++    {id:'b', title:'Dark Souls hammers', folder:'Videos', modified:3, duration:4000},
++    {id:'c', title:'Episode 10', folder:'Videos/Bob Ross', modified:2, duration:60},
++    {id:'d', title:'Episode 9', folder:'Videos/Bob Ross', modified:4, duration:60}];
++  const progress = {a:{t:100, d:1500, at:1}, b:{t:200, d:4000, at:9}, c:{t:59, d:60, done:true, at:10}};
++  assert.deepEqual(continueWatching(videos, progress).map(v => v.id), ['b', 'a']);
++  assert.deepEqual(searchVideos(videos, 'bob winter').map(v => v.id), ['a']);
++  assert.deepEqual(searchVideos(videos, 'ROSS').map(v => v.id), ['a', 'c', 'd'], 'folder names are searchable');
++  assert.deepEqual(sortVideos(videos, 'newest').map(v => v.id), ['d', 'b', 'c', 'a']);
++  assert.deepEqual(sortVideos(videos, 'title').map(v => v.id), ['a', 'b', 'd', 'c'], 'numbers sort naturally');
++  assert.deepEqual(sortVideos(videos, 'longest').map(v => v.id)[0], 'b');
++  assert.deepEqual(groupByFolder(videos, 'Videos').map(g => [g.label, g.items.length]), [['All videos', 2], ['Bob Ross', 2]]);
++});
++
++test('formats durations and converts SRT subtitles', () => {
++  assert.equal(formatDuration(62), '1:02');
++  assert.equal(formatDuration(3723), '1:02:03');
++  assert.equal(formatDuration(NaN), '0:00');
++  assert.equal(srtToVtt('﻿1\r\n00:00:01,500 --> 00:00:02,000\r\nHi\r\n'), 'WEBVTT\n\n1\n00:00:01.500 --> 00:00:02.000\nHi\n');
++  assert.equal(srtToVtt('WEBVTT\n\n00:01.000 --> 00:02.000\nHi'), 'WEBVTT\n\n00:01.000 --> 00:02.000\nHi');
++});
++
++test('launcher entry, folder config and page security policy are in place', async () => {
++  assert.ok(apps.some(a => a.id === 'mymedia' && a.href === '/mymedia/' && a.group === 'Library'));
++  const drive = JSON.parse(await readFile(new URL('../public/assets/drive-config.json', import.meta.url), 'utf8'));
++  assert.equal(drive.apiKey, '', 'no key is committed');
++  assert.match(drive.videoFolderId, /^[A-Za-z0-9_-]{10,}$/);
++  const config = JSON.parse(await readFile(new URL('../public/staticwebapp.config.json', import.meta.url), 'utf8'));
++  const csp = config.routes.find(r => r.route === '/mymedia*').headers['Content-Security-Policy'];
++  for (const need of ["media-src 'self' blob: https://www.googleapis.com", "connect-src 'self' https://www.googleapis.com", 'https://i.ytimg.com', "'wasm-unsafe-eval'"]) assert.ok(csp.includes(need), need);
++  assert.ok(!/unsafe-inline/.test(csp));
++  const html = await readFile(new URL('../public/mymedia/index.html', import.meta.url), 'utf8');
++  assert.ok(!/\sstyle=/.test(html), 'no inline styles under this CSP');
++});
++
++test('a refused Drive request is reported instead of switching decoders', async () => {
++  const {driveProblem} = await import('../public/mymedia/player.js');
++  const reply = status => async (url, init) => { assert.equal(init.headers.Range, 'bytes=0-0'); return new Response('x', {status}); };
++  assert.equal(await driveProblem('https://www.googleapis.com/x', reply(206)), '');
++  assert.match(await driveProblem('https://www.googleapis.com/x', reply(403)), /refused/);
++  assert.match(await driveProblem('https://www.googleapis.com/x', reply(404)), /no longer in Drive/);
++  assert.match(await driveProblem('https://www.googleapis.com/x', async () => { throw TypeError('offline'); }), /connection/);
++});
+-- 
+2.43.0
+
