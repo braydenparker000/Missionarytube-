@@ -101,7 +101,7 @@ jobs:
             --overwrite true --content-cache-control no-cache --only-show-errors
       - name: Check every staged file and directory route
         run: node scripts/check-jarvis-static.mjs
-      - name: Require working backend for both frontend origins
+      - name: Require working backend for the Storage origin
         run: node scripts/check-jarvis-api.mjs
       - name: Promote Jarvis homepage after successful checks
         run: |

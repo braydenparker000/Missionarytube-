@@ -36,6 +36,15 @@ Status: live. Jarvis is the homepage at https://missionarytube.z13.web.core.wind
 
 The owner should open https://missionarytube.z13.web.core.windows.net/ on the restricted Android device and refresh if the old Astra page is cached. Restricted-device access and real A15/local-network playback cannot be verified from the cloud browser. No new message, briefing or OAuth authorization was created during migration testing. Full OAuth completion remains unverified.
 
-Do not retire the SWA backup or alter federation. Browser data on the SWA origin does not transfer automatically; use the existing app export/import tools where available. Quick AI provider configuration and hourly schedules were not changed.
+Do not alter federation. (The SWA backup was retired on 2026-09-22; see below.) Browser data on the SWA origin does not transfer automatically; use the existing app export/import tools where available. Quick AI provider configuration and hourly schedules were not changed.
 
 For future frontend releases, update jarvis-release.json to the reviewed source commit. Deployment artifacts now include the run attempt in their names so retrying preserves earlier backups.
+
+## Update 2026-09-22: Static Web App retired, live Drive reads
+
+- Release commit 602349c87ae33299537fbbbb31d1d612b8609daf pins Jarvis `ebf433dcc857894cd07607fef9a1e5d11a6f8dd3` (merge of braydenparker999/jarvis#3).
+- Jarvis changes shipped: DrawerCast always lists the real Drive folder (`drive-prepared.json` only supplies tags/duration for files whose size and MD5 still match); the 50 stale bundled waveforms and checked-in manifest were removed; the Worker (`backend/origins.js`) accepts only the Storage origin; the SWA deploy workflow was removed from Jarvis.
+- The SWA at gray-meadow-09216fd10.1.azurestaticapps.net is retired and no longer serves Jarvis. `jarvis-release.json` no longer has `backupOrigin`, and `scripts/check-jarvis-api.mjs` checks only the Storage origin, because the Worker now rejects the old one. The gray-meadow entry stays in the privacy-test allowlist because historical docs still name it. `GROQ_API_KEY` is needed only in this repository's Actions secrets.
+- Verification: 517 repository tests, 92 Jarvis tests, build of 140 frontend files / 18.92 MiB. Deployment run https://github.com/braydenparker000/Missionarytube-/actions/runs/35774831516 passed every gate, including the live Worker check for the Storage origin.
+- Still to check on a device: open `/drawercast/`, refresh Drive and confirm the song count matches the folder. Old waveform blobs may remain in `$web`; they are unreferenced and harmless.
+- Rollback: set `jarvis-release.json` back to `bab237025787d0c4f9cd14ebc23184fb5a0383cc`, or restore the run's `storage-before-35774831516-1` artifact. The previous frontend expects the old Worker, which still accepts the Storage origin, so a frontend-only rollback is safe.

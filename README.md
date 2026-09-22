@@ -16,10 +16,10 @@ The workflow:
 3. Saves every existing `$web` blob and its properties to the `storage-before-<run-id>-<attempt>` GitHub artifact (90-day retention) before overwriting anything.
 4. Uploads Jarvis files, excluding the root `index.html`; the new launcher is available temporarily at `/jarvis-preview.html`.
 5. Verifies every deployed file by SHA-256 and MIME type and checks all 14 folder routes.
-6. Requires successful API preflight, health and shared-inbox responses for **both** frontend origins.
+6. Requires successful API preflight, health and shared-inbox responses for the Storage origin.
 7. Overwrites the homepage only after those gates pass, then verifies root and all files again.
 
-If the Cloudflare gate fails, the current homepage remains intact. Deploy the committed backend CORS change in the existing `jarvis-hub-api` Worker, then rerun this workflow. The Worker must run v7 or later. The migration adds only the exact new frontend origin and retains the old origin; it does not make API CORS unrestricted.
+If the Cloudflare gate fails, the current homepage remains intact. Deploy the committed backend CORS change in the existing `jarvis-hub-api` Worker, then rerun this workflow. The Worker must run v7 or later. Since Jarvis `ebf433d` the Worker accepts only the exact Storage origin; the retired Static Web App origin is rejected. API CORS is not unrestricted.
 
 ## Rollback
 
