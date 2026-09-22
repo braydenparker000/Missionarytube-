@@ -55,3 +55,4 @@ For future frontend releases, update jarvis-release.json to the reviewed source 
 - The page uses the existing `GOOGLE_DRIVE_API_KEY` secret. It needs no new secret, service or Azure change. The folder ID is committed in Jarvis `public/assets/drive-config.json` as `videoFolderId`.
 - `scripts/check-jarvis-static.mjs` now also checks the `/mymedia/` route (16 directory routes).
 - Rollback: set the pin back to `ebf433dcc857894cd07607fef9a1e5d11a6f8dd3`.
+- Deployed by run https://github.com/braydenparker000/Missionarytube-/actions/runs/35779806917. On 2026-09-22 the owner confirmed on their phone that `/mymedia/` lists and plays the real Drive folder.
