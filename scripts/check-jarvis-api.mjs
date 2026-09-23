@@ -13,3 +13,9 @@ for(const origin of [release.storageOrigin]) {
  const state=await response.json();assert.equal(state.mode,'github-publications');assert.ok(Array.isArray(state.messages));assert.ok(Array.isArray(state.posts));
  console.log(`${origin}: preflight, health, and shared inbox passed`);
 }
+
+const quick=await fetch(release.apiOrigin+'/quick-ai/status',{headers:{Origin:release.storageOrigin},signal:AbortSignal.timeout(20000)});
+assert.equal(quick.status,200,'Deploy updated Worker before frontend cutover');
+const info=await quick.json();assert.equal(info.version,2,'Quick Chat Worker v2 required');
+assert.equal(JSON.stringify(info).includes('apiKey'),false);
+console.log('Quick Chat Worker v2 route available; model readiness is reported separately.');

@@ -57,14 +57,14 @@ jobs:
         run: npm run test:jarvis
       - name: Build deployment artifact
         run: npm run build
-      - name: Configure shared Quick AI
-        env:
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      - name: Configure public Quick AI metadata (no provider key)
         run: node .jarvis-source/scripts/configure-quick-ai.mjs dist
       - name: Configure shared Drive
         env:
           GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
         run: node .jarvis-source/scripts/configure-drive.mjs dist
+      - name: Require updated Worker before changing live blobs
+        run: node scripts/check-jarvis-api.mjs
       - name: Sign in to Azure with OIDC
         uses: azure/login@v2
         with:
@@ -95,6 +95,8 @@ jobs:
         run: |
           cp -a dist upload
           rm upload/index.html
+          # Remove the legacy public credential blob before the new credential-free config is uploaded.
+          az storage blob delete --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" --auth-mode login --container-name '$web' --name assets/quick-ai-config.json --only-show-errors
           az storage blob upload-batch \
             --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" \
             --auth-mode login --destination '$web' --source upload \
