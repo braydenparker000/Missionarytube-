@@ -66,6 +66,7 @@ jobs:
       - name: Require updated Worker before changing live blobs
         run: node scripts/check-jarvis-api.mjs
       - name: Sign in to Azure with OIDC
+        id: azure_signin
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -116,5 +117,5 @@ jobs:
       - name: Verify the final root and all frontend files
         run: node scripts/check-jarvis-static.mjs --cutover
       - name: Sign out of Azure
-        if: always()
+        if: ${{ always() && steps.azure_signin.outcome == 'success' }}
         run: az logout
