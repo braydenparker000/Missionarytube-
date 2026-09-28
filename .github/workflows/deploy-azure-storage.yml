@@ -23,13 +23,13 @@ permissions:
 
 concurrency:
   group: azure-production
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
     if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -96,6 +96,13 @@ jobs:
           path: rollback/
           if-no-files-found: error
           retention-days: 90
+      - name: Verify media preparation tool
+        run: ffmpeg -version > /dev/null
+      - name: Publish a verified catalog before installing the v2 reader
+        env:
+          GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
+          AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+        run: node .jarvis-source/scripts/publish-drive-catalog.mjs
       - name: Stage Jarvis while keeping the current homepage
         run: |
           cp -a dist upload

@@ -1,0 +1,59 @@
+name: Publish Poweramp Drive catalog
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      allow_large_removal:
+        description: 'Confirm that removing more than 20% of the published songs is intentional'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+# Serialize catalog publication with deployment so neither can replace a newer
+# pointer or include a partially published generation in a rollback backup.
+concurrency:
+  group: azure-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read pinned Jarvis revision
+        id: jarvis
+        run: node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: ${{ steps.jarvis.outputs.commit }}
+          path: .jarvis-source
+          persist-credentials: false
+      - name: Verify media preparation tool
+        run: ffmpeg -version > /dev/null
+      - name: Sign in using existing Azure identity
+        id: azure_signin
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Reconcile, prepare, verify, and publish catalog
+        env:
+          GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
+          AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          ALLOW_LARGE_REMOVAL: ${{ inputs.allow_large_removal == true && 'true' || 'false' }}
+        run: node .jarvis-source/scripts/publish-drive-catalog.mjs
+      - name: Sign out
+        if: ${{ always() && steps.azure_signin.outcome == 'success' }}
+        run: az logout
