@@ -96,8 +96,13 @@ jobs:
           path: rollback/
           if-no-files-found: error
           retention-days: 90
-      - name: Verify media preparation tool
-        run: ffmpeg -version > /dev/null
+      - name: Install media preparation tool from Ubuntu packages
+        run: |
+          if ! command -v ffmpeg > /dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          ffmpeg -version > /dev/null
       - name: Publish a verified catalog before installing the v2 reader
         env:
           GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}

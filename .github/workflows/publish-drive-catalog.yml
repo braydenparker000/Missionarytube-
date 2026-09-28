@@ -39,8 +39,13 @@ jobs:
           ref: ${{ steps.jarvis.outputs.commit }}
           path: .jarvis-source
           persist-credentials: false
-      - name: Verify media preparation tool
-        run: ffmpeg -version > /dev/null
+      - name: Install media preparation tool from Ubuntu packages
+        run: |
+          if ! command -v ffmpeg > /dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          ffmpeg -version > /dev/null
       - name: Sign in using existing Azure identity
         id: azure_signin
         uses: azure/login@v2
