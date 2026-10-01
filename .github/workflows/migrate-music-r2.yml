@@ -36,7 +36,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: braydenparker999/jarvis
-          ref: 5072f0b1d111de2ba2b239818474e312d807250a
+          ref: 7faad4f0e9e8bcaf5c0fbb2822c12ecf47933c84
           path: .jarvis-source
           persist-credentials: false
       - name: Set up Python
