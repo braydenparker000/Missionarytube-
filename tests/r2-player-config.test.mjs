@@ -9,8 +9,13 @@ test('R2 deployment config is independent of Drive settings and includes no cred
 test('an unconfigured R2 source stays disabled without affecting Drive',()=>{
   assert.deepEqual(r2PlayerConfig({apiOrigin:release.apiOrigin}),{rootId:'',manifestURL:''});
 });
+test('a completed clone can use the canonical R2 catalog as its own source',()=>{
+  const full={...release,r2ManifestURL:release.apiOrigin+'/music/manifest.json'};
+  assert.deepEqual(r2PlayerConfig(full),{rootId:full.r2RootId,manifestURL:full.r2ManifestURL});
+});
 test('R2 source configuration refuses wrong roots, endpoints, credentials and insecure origins',()=>{
   for(const change of [{r2RootId:''},{r2RootId:'../root'},
+    {r2ManifestURL:release.apiOrigin+'/music/audio/catalog.json'},
     {r2ManifestURL:release.r2ManifestURL+'?key=test'},
     {r2ManifestURL:'https://other.test/music/partial/manifest.json'},
     {apiOrigin:'http://music.example.test',r2ManifestURL:'http://music.example.test/music/partial/manifest.json'},

@@ -3,6 +3,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
 
 const release=JSON.parse(await readFile('jarvis-release.json','utf8'));
+const expectedPartial=new URL(release.r2ManifestURL).pathname==='/music/partial/manifest.json';
 const player=release.storageOrigin+'/drawercast/';
 const folder='music-verification/browser';
 await mkdir(folder,{recursive:true});
@@ -44,7 +45,7 @@ async function play(kind,origin){
   await page.waitForFunction(at=>[...document.querySelectorAll('audio')].some(a=>!a.paused&&!a.error&&a.currentTime>at+1),first.currentTime,{timeout:6000});
   assert.equal(await page.evaluate(()=>window.PA.Engine.current.source),kind);
   check(kind+' audio advances',{...first,partial:first.partial});
-  assert.equal(first.partial,kind==='r2');
+  assert.equal(first.partial,kind==='r2' && expectedPartial);
   if(!await page.locator('#sc-player').isVisible())await page.locator('#mini').click();
   stage=kind+' artwork';
   await page.waitForFunction(()=>getComputedStyle(document.querySelector('#artA')).backgroundImage.startsWith('url('),{timeout:15000});
@@ -80,7 +81,8 @@ try{
   }));
   const driveCount=catalog.count,r2Count=mapping.files.length;
   assert.ok(Number.isSafeInteger(driveCount)&&driveCount>=r2Count&&r2Count>0);
-  report.partialMapComplete=mapping.complete;
+  assert.equal(mapping.complete,!expectedPartial);
+  report.mapMode=mapping.mode;report.mapComplete=mapping.complete;
   stage='browser startup';
   browser=await chromium.launch({headless:true,executablePath:process.env.MUSIC_BROWSER_EXECUTABLE,args:['--no-sandbox']});
   page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true});

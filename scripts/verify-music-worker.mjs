@@ -8,7 +8,11 @@ import {validateR2Manifest} from '../.jarvis-source/public/drawercast/r2-api.js'
 const api='https://jarvis-hub-api.braydenparker999.workers.dev';
 const origin='https://missionarytube.z13.web.core.windows.net';
 const root='1VlEUztloW5saoM7iF11fodDKSmCGP2ZZ';
-const endpoint=api+'/music/partial/manifest.json';
+const release=JSON.parse(await readFile('jarvis-release.json','utf8'));
+const expected=process.argv[2]?JSON.parse(await readFile(process.argv[2],'utf8')):null;
+const endpoint=process.argv[3] || (expected?.mode==='partial'?api+'/music/partial/manifest.json':release.r2ManifestURL);
+assert.ok([api+'/music/partial/manifest.json',api+'/music/manifest.json'].includes(endpoint));
+const partial=endpoint===api+'/music/partial/manifest.json';
 const get=(url,options={})=>fetch(url,{...options,headers:{Origin:origin,...options.headers},signal:AbortSignal.timeout(40000)});
 const manifestResponse=await get(endpoint);
 assert.equal(manifestResponse.status,200);
@@ -17,15 +21,13 @@ const manifest=await manifestResponse.json();
 const catalog=await readCatalog({root,pointerURL:origin+'/assets/drive-catalog-v2.json',baseURL:origin+'/assets/drive-catalog-v2/'});
 const tracks=catalog.records.map(record=>catalogTrack(record,root));
 const mapping=validateR2Manifest(manifest,{root,manifestURL:endpoint,tracks});
-assert.equal(mapping.complete,false);
-const expectedPath=process.argv[2];
-if(expectedPath){
- const expected=JSON.parse(await readFile(expectedPath,'utf8'));
- for(const key of ['verifiedCount','inventoryCount','inventoryBytes','verifiedBytesTotal','sourceRevision'])assert.equal(manifest[key],expected[key]);
+assert.equal(mapping.complete,!partial);
+if(expected){
+ for(const key of ['verifiedCount','inventoryCount','inventoryBytes','sourceRevision',...(partial?['verifiedBytesTotal']:[])])assert.equal(manifest[key],expected[key]);
 }
 await mkdir('music-verification',{recursive:true});
-const result={checkedAt:new Date().toISOString(),mode:manifest.mode,complete:false,verifiedCount:mapping.count,inventoryCount:manifest.inventoryCount,
- verifiedBytesTotal:manifest.verifiedBytesTotal,catalogMatches:true,samples:[]};
+const result={checkedAt:new Date().toISOString(),mode:manifest.mode,complete:manifest.complete,verifiedCount:mapping.count,inventoryCount:manifest.inventoryCount,
+ verifiedBytesTotal:partial?manifest.verifiedBytesTotal:manifest.inventoryBytes,catalogMatches:true,samples:[]};
 const files=manifest.files;
 for(const [i,file] of [files[0],files[Math.floor(files.length/2)],files.at(-1)].entries()){
  const full=await get(file.url);
@@ -63,11 +65,14 @@ for(const [i,file] of [files[0],files[Math.floor(files.length/2)],files.at(-1)].
 }
 const denied=await get(endpoint,{headers:{Origin:'https://unapproved.example.test'}});
 assert.equal(denied.status,403);await denied.body?.cancel();
-const canonical=await get(api+'/music/manifest.json');
-assert.equal(canonical.status,503);await canonical.body?.cancel();
-const unmapped=tracks.find(track=>!mapping.mediaURL(track));
-assert.ok(unmapped,'Partial playback must leave an unmapped Drive track available');
-result.unmappedDriveTrack=unmapped.remoteId;
-result.unapprovedOrigin=403;result.unpublishedCanonicalMap=503;
+if(partial){
+ const canonical=await get(api+'/music/manifest.json');
+ assert.ok([200,503].includes(canonical.status));
+ if(canonical.status===200)assert.equal(validateR2Manifest(await canonical.json(),{root,manifestURL:api+'/music/manifest.json',tracks}).complete,true);
+ else await canonical.body?.cancel();
+ result.canonicalMap=canonical.status;
+}else result.canonicalMap=200;
+result.unmappedDriveTrack=tracks.find(track=>!mapping.mediaURL(track))?.remoteId || null;
+result.unapprovedOrigin=403;
 await writeFile('music-verification/report.json',JSON.stringify(result,null,2)+'\n');
 console.log(JSON.stringify(result));
