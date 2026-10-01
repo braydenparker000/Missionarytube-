@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {musicWorkerConfig} from '../scripts/prepare-music-worker.mjs';
+import {checkedBindings} from '../scripts/check-music-worker-bindings.mjs';
 
 const base = () => ({name:'jarvis-hub-api',main:'worker.js',compatibility_date:'2026-09-19',workers_dev:true,
   durable_objects:{bindings:[{name:'HUBS',class_name:'Hub'}]},migrations:[{tag:'v1',new_sqlite_classes:['Hub']}],
@@ -36,7 +37,23 @@ test('deployment is manual, immutable, serialized and tested before scoped secre
   assert.match(workflow,/cancel-in-progress: false/);
   assert.ok(workflow.indexOf('npm --prefix .jarvis-source test')<workflow.indexOf('secrets.CLOUDFLARE_API_TOKEN'));
   assert.match(workflow,/secrets.R2_ACCOUNT_ID/);
-  assert.doesNotMatch(workflow,/R2_SECRET_ACCESS_KEY|R2_ACCESS_KEY_ID/);
+  assert.match(workflow,/partial_report_run_id:/);
+  assert.match(workflow,/actions: read/);
+  assert.match(workflow,/actions\/download-artifact@v4/);
+  assert.match(workflow,/publish-r2-partial\.py --report/);
+  assert.doesNotMatch(workflow,/GOOGLE_DRIVE_API_KEY|migrate-drive-to-r2\.py --/);
   assert.match(workflow,/versions list --name jarvis-hub-api --json/);
   assert.match(workflow,/persist-credentials: false/);
+});
+test('remote resource preflight refuses lost bindings and omits all variable values',()=>{
+  const bindings=[{name:'HUBS',type:'durable_object_namespace',class_name:'Hub',namespace_id:'existing'},
+    {name:'SECRET',type:'secret_text',text:'never-return-this'},
+    {name:'EXISTING',type:'plain_text',text:'private-value'}];
+  const record=checkedBindings({bindings});
+  assert.equal(record[0].namespace_id,'existing');
+  assert.ok(!JSON.stringify(record).includes('private-value'));
+  assert.ok(!JSON.stringify(record).includes('never-return-this'));
+  assert.throws(()=>checkedBindings({bindings:[...bindings,{name:'OTHER',type:'r2_bucket',bucket_name:'other'}]}));
+  assert.throws(()=>checkedBindings({bindings:[]}));
+  assert.throws(()=>checkedBindings({bindings:[{...bindings[0],class_name:'Other'}]}));
 });

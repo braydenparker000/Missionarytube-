@@ -8,6 +8,13 @@ if(head!==release.commit)throw Error('Jarvis source must match the pinned releas
 await rm('dist',{recursive:true,force:true});
 await mkdir('dist',{recursive:true});
 await cp(join(source,'public'),'dist',{recursive:true});
+if (release.r2ManifestURL) {
+ const endpoint=release.apiOrigin+'/music/partial/manifest.json';
+ if(release.r2ManifestURL!==endpoint)throw Error('Unexpected partial music endpoint');
+ const file='dist/assets/drive-config.json';
+ const drive=JSON.parse(await readFile(file,'utf8'));
+ await writeFile(file,JSON.stringify({...drive,r2ManifestURL:endpoint})+'\n');
+}
 const config=JSON.parse(await readFile('dist/staticwebapp.config.json','utf8'));
 await rm('dist/staticwebapp.config.json');
 const files=[];

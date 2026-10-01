@@ -12,9 +12,15 @@ on:
         required: true
         type: boolean
         default: false
+      partial_report_run_id:
+        description: 'Completed migration run whose verified R2 subset should be published (blank = no map change)'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: jarvis-worker-production
@@ -24,7 +30,7 @@ jobs:
   deploy:
     if: ${{ inputs.confirm_public_music == true }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,6 +61,54 @@ jobs:
           npm --prefix .jarvis-source test
           node --test tests/music-worker-workflow.test.mjs
           node scripts/prepare-music-worker.mjs .jarvis-source
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test migration and partial publication without credentials
+        run: python -m unittest discover -s .jarvis-source/tests -p 'test_r2*.py'
+      - name: Resolve one completed migration report from this repository
+        if: ${{ inputs.partial_report_run_id != '' }}
+        id: report
+        uses: actions/github-script@v7
+        env:
+          REPORT_RUN_ID: ${{ inputs.partial_report_run_id }}
+        with:
+          script: |
+            const id = process.env.REPORT_RUN_ID;
+            if (!/^[1-9][0-9]{0,14}$/.test(id)) throw Error('A numeric report run ID is required');
+            const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: Number(id)});
+            if (run.status !== 'completed' || run.path !== '.github/workflows/migrate-music-r2.yml' ||
+                run.repository.full_name !== 'braydenparker000/Missionarytube-') throw Error('Unexpected or unfinished migration run');
+            const name = `r2-migration-report-${id}-${run.run_attempt}`;
+            const {data} = await github.rest.actions.listWorkflowRunArtifacts({...context.repo, run_id: Number(id)});
+            const matches = data.artifacts.filter(a => a.name === name && !a.expired);
+            if (matches.length !== 1) throw Error('Exactly one retained report artifact is required');
+            core.setOutput('name', name);
+      - name: Download saved report artifact
+        if: ${{ inputs.partial_report_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.partial_report_run_id }}
+          name: ${{ steps.report.outputs.name }}
+          path: .partial-report
+      - name: Install R2 publication client
+        if: ${{ inputs.partial_report_run_id != '' }}
+        run: python -m pip install --disable-pip-version-check --no-cache-dir 'boto3>=1.35,<2'
+      - name: Publish partial map by reading and hashing R2 only
+        if: ${{ inputs.partial_report_run_id != '' }}
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: jarvis-music
+          MUSIC_ROOT_ID: 1VlEUztloW5saoM7iF11fodDKSmCGP2ZZ
+        run: python .jarvis-source/scripts/publish-r2-partial.py --report .partial-report/r2-migration-report.json --output r2-partial-playback-report.json
+      - name: Check current Worker bindings before deployment
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/check-music-worker-bindings.mjs
       - name: Record current Worker versions for rollback and deploy
         uses: cloudflare/wrangler-action@v4
         with:
@@ -64,6 +118,7 @@ jobs:
           workingDirectory: .jarvis-source
           preCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-before.json
           command: deploy --config backend/wrangler.music.generated.json
+          postCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-after.json
       - name: Preserve deployment checkpoint
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -71,6 +126,9 @@ jobs:
           name: worker-checkpoint-${{ github.run_id }}
           path: |
             .jarvis-source/worker-versions-before.json
+            .jarvis-source/worker-versions-after.json
             .jarvis-source/backend/wrangler.music.generated.json
+            worker-bindings-before.json
+            r2-partial-playback-report.json
           if-no-files-found: warn
           retention-days: 30
