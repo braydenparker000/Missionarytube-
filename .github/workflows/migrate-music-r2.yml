@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: braydenparker999/jarvis
-          ref: e205cc2a899b01872dec8f587dce743d343f2edc
+          ref: dd0797bd48431ea04354f83663c3df765cc8f5b0
           path: .jarvis-source
           persist-credentials: false
       - name: Record exact tested source

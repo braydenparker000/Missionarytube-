@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/verify-music-sources.yml'
       - 'scripts/verify-music-sources.mjs'
+      - 'scripts/verify-music-worker.mjs'
   workflow_dispatch:
   workflow_run:
     workflows: [Deploy to Azure Storage]
@@ -33,6 +34,22 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Read exact player source revision
+        id: jarvis
+        run: node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: ${{ steps.jarvis.outputs.commit }}
+          path: .jarvis-source
+          persist-credentials: false
+      - name: Verify delivered R2 bytes, decoding, Range and CORS
+        run: |
+          if ! command -v ffmpeg > /dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          node scripts/verify-music-worker.mjs
       - name: Use the runner's installed Chrome
         run: |
           chrome_path=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
@@ -45,6 +62,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: music-sources-${{ github.run_id }}
-          path: music-verification/browser/
+          path: |
+            music-verification/browser/
+            music-verification/report.json
           if-no-files-found: error
           retention-days: 30
