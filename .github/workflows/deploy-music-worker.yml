@@ -120,7 +120,12 @@ jobs:
           command: deploy --config backend/wrangler.music.generated.json
           postCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-after.json
       - name: Verify live music bytes, decoding, Range, CORS and catalog matching
-        run: node scripts/verify-music-worker.mjs ${{ inputs.partial_report_run_id != '' && 'r2-partial-playback-report.json' || '' }}
+        run: |
+          if ! command -v ffmpeg > /dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          node scripts/verify-music-worker.mjs ${{ inputs.partial_report_run_id != '' && 'r2-partial-playback-report.json' || '' }}
       - name: Preserve deployment checkpoint
         if: ${{ always() }}
         uses: actions/upload-artifact@v4

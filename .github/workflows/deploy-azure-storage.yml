@@ -99,6 +99,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
       - name: Install media preparation tool from Ubuntu packages
+        if: ${{ steps.jarvis.outputs.preserve_catalog != 'true' }}
         run: |
           if ! command -v ffmpeg > /dev/null; then
             sudo apt-get update -qq
