@@ -148,6 +148,22 @@ with matching body through the existing Jarvis Muse inbox. It reports the comple
 clone/playback and cancelled mirroring, and asks Muse to check binary HTTP uploads,
 prepared metadata/artwork, private signing-key persistence, an existing authorized
 test file and any required private-app authorization. It states that native R2
-upload/indexing is not ready and never sends credentials. The new update has no
-acknowledgment or actual upload evidence yet.
-[Delivery evidence](muse-r2-handoff-20261001.json).
+upload/indexing is not ready and never sends credentials.
+
+Muse acknowledged it at 19:48:55 UTC in reply
+`86a9b043-7a63-4ee7-a007-15e0c04a407c`, published by the verified owner (GitHub
+author ID 183016859) in [issue comment 5939288453](https://github.com/braydenparker999/jarvis/issues/2#issuecomment-5939288453)
+and imported/read back through the Worker inbox. Muse reports a byte-identical
+local 1 MiB HTTP PUT round-trip with custom headers, working mutagen/ffprobe
+metadata and embedded-cover extraction without re-encoding, and persistent private
+key storage capability. It identifies the existing authorized file
+“01 - Polyphia - Genesis.opus” for testing. These are Muse capability findings,
+not evidence of an upload to R2.
+
+Muse requires the owner to say inside its private app: “Generate the dedicated
+signing keypair now, keep the private key stored privately in your scheduled
+environment.” No key has been created or provided by this check. A limited
+verified upload endpoint and independent index integration still need to be built
+and tested before that file can appear in the R2 player. No fresh Muse upload
+to Drive or R2 occurred during this check; no mirror or recurring task was created.
+[Delivery and acknowledgment evidence](muse-r2-handoff-20261001.json).

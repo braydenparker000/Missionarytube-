@@ -2,7 +2,22 @@
   "messageId": "ed79e264-83e3-4502-a033-1e25c818eeba",
   "createdAt": "2026-10-01T19:47:03.429Z",
   "readBackMatches": true,
-  "acknowledged": false,
-  "replyIds": [],
-  "mode": "github-publications"
+  "acknowledged": true,
+  "replyIds": [
+    "86a9b043-7a63-4ee7-a007-15e0c04a407c"
+  ],
+  "mode": "github-publications",
+  "replyCreatedAt": "2026-10-01T19:48:55Z",
+  "replyPublicationURL": "https://github.com/braydenparker999/jarvis/issues/2#issuecomment-5939288453",
+  "verifiedPublisherAuthorId": 183016859,
+  "replyImportedAndReadBack": true,
+  "actualR2UploadVerified": false,
+  "uploadInterfaceDeployed": false,
+  "testFileReportedByMuse": "01 - Polyphia - Genesis.opus",
+  "museReportedCapabilities": {
+    "binaryHTTPWithCustomHeaders": true,
+    "metadataAndArtworkWithoutReencoding": true,
+    "privateSigningKeyPersistence": true
+  },
+  "privateMuseAuthorizationRequired": true
 }
