@@ -17,8 +17,7 @@ permissions:
 jobs:
   publish:
     if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' }}
-    # Serialize Azure publication with deployment; the independent R2 mirror
-    # uses the same lock as the manual migration instead.
+    # Serialize Azure catalog publication with deployment.
     concurrency:
       group: azure-production
       cancel-in-progress: false
@@ -65,64 +64,3 @@ jobs:
       - name: Sign out
         if: ${{ always() && steps.azure_signin.outcome == 'success' }}
         run: az logout
-
-  mirror:
-    # Enable only after a complete clone and a successful manual incremental run.
-    # Muse continues uploading to Drive; this job copies new/changed files to R2.
-    if: ${{ vars.MUSIC_R2_MIRROR_ENABLED == 'true' }}
-    needs: publish
-    concurrency:
-      group: r2-music-migration
-      cancel-in-progress: false
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: braydenparker999/jarvis
-          ref: dd0797bd48431ea04354f83663c3df765cc8f5b0
-          path: .jarvis-source
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Test immutable migration code without credentials
-        run: python -m unittest discover -s .jarvis-source/tests -p 'test_r2*.py'
-      - name: Install R2 client dependency
-        run: python -m pip install --disable-pip-version-check --no-cache-dir 'boto3>=1.35,<2'
-      - name: Require complete baseline and mirror incrementally
-        env:
-          GOOGLE_DRIVE_AUTH_MODE: oauth
-          GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
-          GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
-          GOOGLE_DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET: jarvis-music
-          DRIVE_DOWNLOAD_INTERVAL_SECONDS: '5'
-        run: |
-          python - <<'PYTHON'
-          import importlib.util, json, os
-          from pathlib import Path
-          spec = importlib.util.spec_from_file_location('migration', '.jarvis-source/scripts/migrate-drive-to-r2.py')
-          m = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(m)
-          try:
-              root = json.loads(Path('.jarvis-source/public/assets/drive-config.json').read_text())['folderId']
-              client = m.r2_client(os.environ['R2_ACCOUNT_ID'], os.environ['R2_ACCESS_KEY_ID'], os.environ['R2_SECRET_ACCESS_KEY'])
-              baseline = m.load_incremental_baseline(client, 'jarvis-music', root)
-              if not baseline['files']:
-                  raise m.MigrationError('Recurring mirror requires a valid completed clone; no transfer started.')
-          except Exception as exc:
-              raise SystemExit(m.safe_error(exc)) from None
-          PYTHON
-          python .jarvis-source/scripts/migrate-drive-to-r2.py --limit 0 --concurrency 1 --incremental
-      - name: Preserve verified mirror report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: r2-mirror-report-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .jarvis-source/r2-migration-report.json
-          if-no-files-found: ignore
-          retention-days: 30

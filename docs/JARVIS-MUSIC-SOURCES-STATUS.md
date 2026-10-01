@@ -42,7 +42,7 @@ Evidence: [browser report](music-sources-browser-20261001.json),
 [source switches](poweramp-separate-sources-20261001.png),
 [initial isolation check](music-source-isolation-20261001.json).
 
-## Authenticated transfer — active checkpoint at 17:50 UTC
+## Authenticated transfer — active checkpoint read at 18:21 UTC
 
 The owner configured the supported read-only OAuth grant in Actions. Probe
 [run 36895894543](https://github.com/braydenparker000/Missionarytube-/actions/runs/36895894543)
@@ -56,10 +56,10 @@ was dispatched at 17:11 UTC and is **in progress**, not complete. It runs exact
 source `e205cc2a899b01872dec8f587dce743d343f2edc` from orchestration
 `9cf3ae50fc1e8f9926baedea47c2627f7b4e098f`, with `auth_mode=oauth`, `mode=copy`,
 `limit=0`, concurrency 1 and at least five seconds between new Drive downloads.
-At 17:50 UTC its visible log showed `Progress 600/1287 · copied=286 skipped=314
-failed=0`. Existing objects were re-read and hashed before skipping. This is a
-progress count, not a completed report or a published 600-track player catalog.
-687 tracks remain after that checkpoint. Do not start another transfer while this
+At 18:21 UTC the latest visible progress line was `Progress 800/1287 · copied=486
+skipped=314 failed=0`. Existing objects were re-read and hashed before skipping.
+This is a progress count, not a completed report or a published 800-track player
+catalog. 487 tracks remain after that checkpoint. Do not start another transfer while this
 run is active. Its final report, exact byte totals and stable final inventory
 must be inspected before claiming completion.
 
@@ -70,7 +70,7 @@ run 36864240781 stopped after 44 new copies on Google's automated-query 403;
 no networks were rotated or repeated requests made to evade that refusal.
 The supported owner grant passed its real probe before this full copy began.
 
-## Publisher, verification and gated mirroring
+## Publisher, verification and cancelled mirroring
 
 - Source [PR 15](https://github.com/braydenparker999/jarvis/pull/15) is merged.
   Exact tested OAuth publisher: `9f65e014f578d7947b97a88fd8a32b0b2e8e693d`.
@@ -85,7 +85,7 @@ The supported owner grant passed its real probe before this full copy began.
   existing catalog generation unchanged. Its mirror job was **skipped**.
   This verifies OAuth inventory access, not a fresh Muse upload or new artwork preparation.
 - Source [PR 16](https://github.com/braydenparker999/jarvis/pull/16) is merged.
-  Future transfer/mirror code pins `dd0797bd48431ea04354f83663c3df765cc8f5b0`;
+  Future manual transfer code pins `dd0797bd48431ea04354f83663c3df765cc8f5b0`;
   source CI [36900565547](https://github.com/braydenparker999/jarvis/actions/runs/36900565547)
   passed 229 JavaScript / 93 migration tests. urllib's real redirect handler
   confirms owner authorization is omitted on same-host and cross-host redirects.
@@ -118,17 +118,15 @@ The supported owner grant passed its real probe before this full copy began.
   Package installation consumed most of this run; the timeout is extended
   to 25 minutes for subsequent checks, and per-sample verification now reports
   progress without request details.
-- A single incremental mirror is prepared after the existing hourly catalog
-  publication. Its `MUSIC_R2_MIRROR_ENABLED` gate is **not enabled**. It requires
-  a valid complete canonical baseline and shares `r2-music-migration` serialization
-  with manual transfers. Azure publication keeps its separate deployment lock.
-  No recurring R2 transfer is active; no direct Muse R2 credential is configured.
-- A finite hourly completion check was created to continue the already authorized
-  work after this long-running clone ends. It must inspect the final report,
-  perform the canonical cutover and live checks, prove a manual incremental run,
-  and only then enable the existing mirror. It must stop/report a Google refusal
-  without another automatic transfer. Creation of the check does not prove those
-  remaining actions have occurred.
+- On 2026-10-01 the user cancelled recurring R2 mirroring and chose direct Muse
+  uploads to R2 as the desired end state. The prepared, never-enabled mirror job
+  is removed from `publish-drive-catalog.yml`; the existing Drive-only catalog
+  publisher remains. No recurring R2 transfer is active. No direct Muse R2
+  upload integration is configured.
+- The finite completion check now only finishes the existing one-time clone,
+  verifies its report, performs the canonical cutover and checks live playback.
+  It explicitly must not run an incremental copy or activate recurring mirroring.
+  It must stop/report a Google refusal without another automatic transfer.
 
 Remaining acceptance steps:
 
@@ -137,15 +135,21 @@ Remaining acceptance steps:
 2. Verify `/music/manifest.json`, then update only `r2ManifestURL` to that canonical
    endpoint, deploy Azure with a rollback artifact, and pass actual protocol and
    browser playback checks. Retain separate Drive/R2 sources and the historical partial map.
-3. Run `mode=incremental`, `auth_mode=oauth`, `limit=0`, concurrency 1 manually.
-   Inspect its baseline binding, reused byte proof, current identities, complete
-   report and successful conditional canonical PUT. Do not enable recurrence merely
-   because the full clone passed.
-4. Set the nonsecret `MUSIC_R2_MIRROR_ENABLED=true` only after those checks; run the
-   existing catalog workflow once and inspect both publication and mirror evidence.
-5. Verify one actual requested Muse upload by its new Drive ID, published metadata/
-   artwork, Drive playback, then its verified mirror and separate R2 playback.
-   Physical Android screen-lock/background playback also remains unverified.
+3. Build native R2 intake: authorize a limited upload, verify the uploaded bytes,
+   extract/register metadata and artwork, and atomically publish an independent
+   R2 catalog. The current read-only Worker and migration manifest do not discover
+   arbitrary uploads. Current R2 track metadata/artwork still comes from the
+   published Drive-derived static catalog, despite independent playback identities.
+4. Verify one actual Muse upload through that R2 intake and its appearance,
+   artwork, playback and seeking with Drive disabled. Physical Android
+   screen-lock/background playback also remains unverified.
+
+The one-time migration preserves the exact audio bytes; it does not transcode.
+Hash-matching copies therefore introduce no audio quality loss. Comparative
+Drive/R2 startup latency has not been measured. The current Worker sends
+`Cache-Control: private, no-store`; edge-caching performance is not yet a verified
+benefit of this implementation. Direct R2 intake should remove Drive from the new
+music upload path while keeping all existing Drive originals intact.
 
 ## Muse intake
 
@@ -162,7 +166,6 @@ The existing catalog publication is scheduled at minute 17 hourly. Scheduled
 succeeded at 16:27 UTC; the newer manual OAuth run is recorded above. Observed run times are delayed, so the configured cadence
 is not a guaranteed hourly delivery time. Acknowledgment and an earlier catalog
 run do not prove a fresh Muse upload, its current runner health or a new track's
-visibility. Verify one requested upload by its actual Drive file ID, then its
-published catalog entry, then playback in Drive. After mirroring is enabled,
-verify that new track separately in the R2 source. The existing Muse account must
-show the actual scheduled task/run; this repository cannot verify it alone.
+visibility. The existing Muse account must show the actual scheduled task/run;
+this repository cannot verify it alone. The user now prefers direct R2 intake,
+which remains to be implemented and verified. No new Muse message was sent.
