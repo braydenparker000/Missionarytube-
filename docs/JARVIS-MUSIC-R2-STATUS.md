@@ -1,4 +1,10 @@
-# Jarvis music playback checkpoint — 2026-10-01
+# Initial Jarvis music delivery checkpoint — 2026-10-01
+
+The combined source layout described here was superseded by the independent
+Google Drive and Cloudflare R2 sources. See
+[JARVIS-MUSIC-SOURCES-STATUS.md](JARVIS-MUSIC-SOURCES-STATUS.md) for the current
+frontend deployment and source-isolation verification. Worker byte verification
+and the original migration evidence below remain relevant.
 
 Poweramp partial R2 playback is deployed and verified. The bulk clone remains
 incomplete and paused after Google's automated-query refusal. Drive originals
