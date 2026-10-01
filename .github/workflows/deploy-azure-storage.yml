@@ -41,7 +41,9 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Read pinned Jarvis revision
         id: jarvis
-        run: node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
+        run: |
+          node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
+          node -p "'preserve_catalog=' + (require('./jarvis-release.json').preserveDriveCatalog === true)" >> "$GITHUB_OUTPUT"
       - name: Check out pinned Jarvis source
         uses: actions/checkout@v4
         with:
@@ -104,6 +106,7 @@ jobs:
           fi
           ffmpeg -version > /dev/null
       - name: Publish a verified catalog before installing the v2 reader
+        if: ${{ steps.jarvis.outputs.preserve_catalog != 'true' }}
         env:
           GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
           AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
