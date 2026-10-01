@@ -3,7 +3,7 @@
   "commit": "7a5c267831f42eda30c1ced45c1a237a986326b3",
   "storageOrigin": "https://missionarytube.z13.web.core.windows.net",
   "apiOrigin": "https://jarvis-hub-api.braydenparker999.workers.dev",
-  "r2ManifestURL": "https://jarvis-hub-api.braydenparker999.workers.dev/music/partial/manifest.json",
+  "r2ManifestURL": "https://jarvis-hub-api.braydenparker999.workers.dev/music/manifest.json",
   "preserveDriveCatalog": true,
   "r2RootId": "1VlEUztloW5saoM7iF11fodDKSmCGP2ZZ"
 }
