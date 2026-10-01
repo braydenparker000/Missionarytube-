@@ -76,6 +76,8 @@ const ALLOWED_HOSTS = [
   "gray-meadow-09216fd10.1.azurestaticapps.net", // retired Jarvis Static Web App, named in historical docs
   "jarvis-hub-api.braydenparker999.workers.dev", // unchanged Jarvis backend
   "api.cloudflare.com", // CI-only preflight for the existing Worker's bindings
+  "developers.google.com", // official Drive download and error handling documentation
+  "support.google.com", // Google's documented source-access recovery process
   "cdn.dashjs.org" // negative fixture only: proves validation rejects the mutable /latest/ URL
 ];
 

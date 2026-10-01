@@ -1,0 +1,59 @@
+{
+  "checkedAt": "2026-10-01T13:53:37.428Z",
+  "mode": "partial",
+  "complete": false,
+  "verifiedCount": 314,
+  "inventoryCount": 1287,
+  "verifiedBytesTotal": 1256156900,
+  "catalogMatches": true,
+  "samples": [
+    {
+      "driveId": "1-0o44mIKKxZnC7b2Wv7bp-3ZTik-eMoQ",
+      "bytes": 4046954,
+      "hashMatched": true,
+      "decoded": true,
+      "duration": 224.08,
+      "GET": 200,
+      "HEAD": 200,
+      "Range": 206,
+      "suffix": 206,
+      "invalidRange": 416,
+      "ETag": 304,
+      "preflight": 204,
+      "CORS": true
+    },
+    {
+      "driveId": "16kwKMpbo5xJLFLP8jovgu1EDKbmAPhAt",
+      "bytes": 5279570,
+      "hashMatched": true,
+      "decoded": true,
+      "duration": 307.5,
+      "GET": 200,
+      "HEAD": 200,
+      "Range": 206,
+      "suffix": 206,
+      "invalidRange": 416,
+      "ETag": 304,
+      "preflight": 204,
+      "CORS": true
+    },
+    {
+      "driveId": "1EaPbbMIawVnWoUuvbNFxlMRIt-Z9gcpU",
+      "bytes": 2955758,
+      "hashMatched": true,
+      "decoded": true,
+      "duration": 185.52,
+      "GET": 200,
+      "HEAD": 200,
+      "Range": 206,
+      "suffix": 206,
+      "invalidRange": 416,
+      "ETag": 304,
+      "preflight": 204,
+      "CORS": true
+    }
+  ],
+  "unmappedDriveTrack": "1__7KRoyZ_6bmLyQXOCxJ9bbeKPgBxaYM",
+  "unapprovedOrigin": 403,
+  "unpublishedCanonicalMap": 503
+}
