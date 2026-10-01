@@ -1,0 +1,80 @@
+{
+  "checkedAt": "2026-10-01T19:25:13.731Z",
+  "sourceCommit": "7a5c267831f42eda30c1ced45c1a237a986326b3",
+  "checks": [
+    {
+      "name": "live source pin",
+      "passed": true,
+      "commit": "7a5c267831f42eda30c1ced45c1a237a986326b3"
+    },
+    {
+      "name": "separate source rows",
+      "passed": true,
+      "driveCount": 1287,
+      "r2Count": 1287
+    },
+    {
+      "name": "Drive disabled leaves only R2",
+      "passed": true,
+      "count": 1287
+    },
+    {
+      "name": "r2 audio advances",
+      "passed": true,
+      "origin": "https://jarvis-hub-api.braydenparker999.workers.dev",
+      "partial": false,
+      "currentTime": 1.023712,
+      "duration": 168.0605,
+      "paused": false,
+      "readyState": 4,
+      "error": null
+    },
+    {
+      "name": "r2 artwork renders",
+      "passed": true,
+      "width": 320,
+      "height": 320,
+      "origin": "https://missionarytube.z13.web.core.windows.net"
+    },
+    {
+      "name": "r2 seek continues playback",
+      "passed": true,
+      "before": 2.067047,
+      "after": 24.572005,
+      "origin": "https://jarvis-hub-api.braydenparker999.workers.dev"
+    },
+    {
+      "name": "R2 disabled leaves only Drive",
+      "passed": true,
+      "count": 1287
+    },
+    {
+      "name": "drive audio advances",
+      "passed": true,
+      "origin": "https://www.googleapis.com",
+      "partial": false,
+      "currentTime": 1.024,
+      "duration": 168.0605,
+      "paused": false,
+      "readyState": 4,
+      "error": null
+    },
+    {
+      "name": "drive artwork renders",
+      "passed": true,
+      "width": 320,
+      "height": 320,
+      "origin": "https://missionarytube.z13.web.core.windows.net"
+    },
+    {
+      "name": "drive seek continues playback",
+      "passed": true,
+      "before": 2.064313,
+      "after": 24.566667,
+      "origin": "https://www.googleapis.com"
+    }
+  ],
+  "passed": true,
+  "mapMode": "full",
+  "mapComplete": true
+}

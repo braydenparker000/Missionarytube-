@@ -1,0 +1,22 @@
+{
+  "artworkVisible": true,
+  "checkedAt": "2026-10-01T19:29:28.867Z",
+  "media": [
+    {
+      "currentTime": 102.124,
+      "duration": 277.76,
+      "error": null,
+      "origin": "https://jarvis-hub-api.braydenparker999.workers.dev",
+      "path": "/music/audio/1zt_VP7Z3CG8ZCjg8nF_Tq5sEUKAvb1b6/1564c39997ab2f9c135022d83cca0f4e.opus",
+      "paused": false,
+      "readyState": 4
+    }
+  ],
+  "seekBefore": 45.234667,
+  "driveDisabled": true,
+  "r2TrackCount": 1287,
+  "seekImmediatelyAfterVisible": "1:08",
+  "newlyCopiedTrack": "Lost Call \u2014 No Mana",
+  "sourceChoicesRestored": true,
+  "playbackPausedAfterTest": true
+}
