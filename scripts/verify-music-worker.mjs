@@ -62,6 +62,7 @@ for(const [i,file] of [files[0],files[Math.floor(files.length/2)],files.at(-1)].
  assert.equal(preflight.headers.get('access-control-allow-origin'),origin);
  result.samples.push({driveId:file.driveId,bytes:bytes.length,hashMatched:true,decoded:true,duration:Number(metadata.format.duration),
   GET:200,HEAD:200,Range:206,suffix:206,invalidRange:416,ETag:304,preflight:204,CORS:true});
+ console.log('Verified delivered audio sample '+(i+1)+': hash, decoding, Range and CORS passed.');
 }
 const denied=await get(endpoint,{headers:{Origin:'https://unapproved.example.test'}});
 assert.equal(denied.status,403);await denied.body?.cancel();

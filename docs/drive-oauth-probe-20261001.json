@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-10-01T16:59:05.144932+00:00",
+  "mode": "drive-only-probe",
+  "authMode": "oauth",
+  "complete": false,
+  "driveId": "1-0o44mIKKxZnC7b2Wv7bp-3ZTik-eMoQ",
+  "hashes": {
+    "size": 4046954,
+    "md5": "5b5d14a09ecbceb64b5f4e2f16158b72",
+    "sha256": "59371ac52b10b1d48b2158df3731bfe37ae0000e699629f0e349b2d4c47a888d"
+  },
+  "r2Written": false
+}
