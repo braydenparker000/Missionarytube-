@@ -78,6 +78,7 @@ const ALLOWED_HOSTS = [
   "api.cloudflare.com", // CI-only preflight for the existing Worker's bindings
   "developers.google.com", // official Drive download and error handling documentation
   "support.google.com", // Google's documented source-access recovery process
+  "www.googleapis.com", // existing Drive playback origin checked without logging query credentials
   "cdn.dashjs.org" // negative fixture only: proves validation rejects the mutable /latest/ URL
 ];
 
