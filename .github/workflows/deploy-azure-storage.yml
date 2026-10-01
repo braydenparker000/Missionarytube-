@@ -8,6 +8,7 @@ on:
     paths:
       - "jarvis-release.json"
       - "scripts/*jarvis*.mjs"
+      - "scripts/r2-player-config.mjs"
       - "tests/**"
       - "*.html"
       - "assets/**"

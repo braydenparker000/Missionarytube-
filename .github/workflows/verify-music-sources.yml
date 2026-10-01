@@ -1,0 +1,45 @@
+name: Verify live music sources
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Deploy to Azure Storage]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: music-source-browser-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Use the runner's installed Chrome
+        run: |
+          chrome_path=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
+          test -n "$chrome_path"
+          printf 'MUSIC_BROWSER_EXECUTABLE=%s\n' "$chrome_path" >> "$GITHUB_ENV"
+      - name: Verify independent live playback, seeking and artwork
+        run: node scripts/verify-music-sources.mjs
+      - name: Save sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: music-sources-${{ github.run_id }}
+          path: music-verification/browser/
+          if-no-files-found: error
+          retention-days: 30
