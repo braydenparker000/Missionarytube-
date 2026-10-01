@@ -1,0 +1,80 @@
+name: Clone Drive music to Cloudflare R2
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Tracks to verify/copy (5 = smoke test, 0 = full library)'
+        required: true
+        default: '5'
+        type: string
+      concurrency:
+        description: 'Parallel file transfers (1-8)'
+        required: true
+        default: '4'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r2-music-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out orchestration repository
+        uses: actions/checkout@v4
+
+      - name: Check out current Jarvis migration code
+        uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: main
+          path: .jarvis-source
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install R2 client dependency
+        run: python -m pip install --disable-pip-version-check --no-cache-dir 'boto3>=1.35,<2'
+
+      - name: Validate migration configuration
+        env:
+          GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in GOOGLE_DRIVE_API_KEY R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET; do
+            test -n "${!name}" || { echo "Missing required GitHub secret/variable: $name"; exit 1; }
+          done
+
+      - name: Clone and verify Drive audio in R2
+        env:
+          GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
+        run: |
+          python .jarvis-source/scripts/migrate-drive-to-r2.py             --limit "${{ inputs.limit }}"             --concurrency "${{ inputs.concurrency }}"
+
+      - name: Save migration report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r2-migration-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .jarvis-source/r2-migration-report.json
+          if-no-files-found: ignore
+          retention-days: 30
