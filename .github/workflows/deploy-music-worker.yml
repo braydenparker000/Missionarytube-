@@ -1,0 +1,76 @@
+name: Deploy verified music Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: 'Exact tested Jarvis source commit (40-character SHA)'
+        required: true
+        type: string
+      confirm_public_music:
+        description: 'Approved: bind jarvis-music and deploy public-by-link read-only music delivery'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jarvis-worker-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ inputs.confirm_public_music == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Require an immutable source revision
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          if ! [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]; then
+            echo 'An exact 40-character Jarvis commit is required' >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: ${{ inputs.source_commit }}
+          path: .jarvis-source
+          persist-credentials: false
+      - name: Verify the checkout and run regression tests without deployment secrets
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          test "$(git -C .jarvis-source rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test -f .jarvis-source/tests/music-delivery.test.js
+          npm --prefix .jarvis-source test
+          node --test tests/music-worker-workflow.test.mjs
+          node scripts/prepare-music-worker.mjs .jarvis-source
+      - name: Record current Worker versions for rollback and deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.R2_ACCOUNT_ID }}
+          wranglerVersion: '4.136.3'
+          workingDirectory: .jarvis-source
+          preCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-before.json
+          command: deploy --config backend/wrangler.music.generated.json
+      - name: Preserve deployment checkpoint
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-checkpoint-${{ github.run_id }}
+          path: |
+            .jarvis-source/worker-versions-before.json
+            .jarvis-source/backend/wrangler.music.generated.json
+          if-no-files-found: warn
+          retention-days: 30
