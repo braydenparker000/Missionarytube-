@@ -16,8 +16,20 @@ on:
       concurrency:
         description: 'Parallel file transfers (1-8)'
         required: true
-        default: '4'
+        default: '1'
         type: string
+      auth_mode:
+        description: 'Owner OAuth grant or the existing public-file API key'
+        required: true
+        default: oauth
+        type: choice
+        options: [oauth, public_api_key]
+      mode:
+        description: 'Probe reads one Drive file without writing R2; incremental requires a completed clone'
+        required: true
+        default: probe
+        type: choice
+        options: [probe, copy, incremental]
 
 permissions:
   contents: read
@@ -29,20 +41,28 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
     steps:
-      - name: Check out current Jarvis migration code
+      - name: Check out pinned Jarvis migration code
         uses: actions/checkout@v4
         with:
           repository: braydenparker999/jarvis
-          ref: main
+          ref: e205cc2a899b01872dec8f587dce743d343f2edc
           path: .jarvis-source
           persist-credentials: false
+      - name: Record exact tested source
+        id: source
+        run: echo "sha=$(git -C .jarvis-source rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Syntax-check migration code
-        run: python -m py_compile .jarvis-source/scripts/migrate-drive-to-r2.py
+      - name: Test migration integrity and refusal guards
+        working-directory: .jarvis-source
+        run: |
+          python -m py_compile scripts/migrate-drive-to-r2.py
+          python -m unittest discover -s tests -p 'test_r2*.py' -v
 
   migrate:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -53,11 +73,11 @@ jobs:
       - name: Check out orchestration repository
         uses: actions/checkout@v4
 
-      - name: Check out current Jarvis migration code
+      - name: Check out exact validated migration code
         uses: actions/checkout@v4
         with:
           repository: braydenparker999/jarvis
-          ref: main
+          ref: ${{ needs.validate.outputs.source_sha }}
           path: .jarvis-source
           persist-credentials: false
 
@@ -69,36 +89,64 @@ jobs:
       - name: Install R2 client dependency
         run: python -m pip install --disable-pip-version-check --no-cache-dir 'boto3>=1.35,<2'
 
-      - name: Validate migration configuration
+      - name: Read or copy with the selected owner authorization
         env:
+          GOOGLE_DRIVE_AUTH_MODE: ${{ inputs.auth_mode }}
           GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET: ${{ vars.R2_BUCKET }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          for name in GOOGLE_DRIVE_API_KEY R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET; do
-            test -n "${!name}" || { echo "Missing required GitHub secret/variable: $name"; exit 1; }
-          done
-
-      - name: Clone and verify Drive audio in R2
-        env:
-          GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
+          GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
+          GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
+          GOOGLE_DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET: ${{ vars.R2_BUCKET }}
           R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
+          DRIVE_DOWNLOAD_INTERVAL_SECONDS: '5'
+          MIGRATION_MODE: ${{ inputs.mode }}
+          MIGRATION_LIMIT: ${{ inputs.limit }}
+          MIGRATION_CONCURRENCY: ${{ inputs.concurrency }}
+        shell: bash
         run: |
-          python .jarvis-source/scripts/migrate-drive-to-r2.py             --limit "${{ inputs.limit }}"             --concurrency "${{ inputs.concurrency }}"
+          set -euo pipefail
+          if [ "$MIGRATION_MODE" = probe ]; then
+            python - <<'PYTHON'
+          import importlib.util, json, os, tempfile
+          from datetime import datetime, timezone
+          from pathlib import Path
+          root = Path('.jarvis-source')
+          spec = importlib.util.spec_from_file_location('migration', root / 'scripts/migrate-drive-to-r2.py')
+          m = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(m)
+          try:
+              auth = m.drive_auth_from_env()
+              config = json.loads((root / 'public/assets/drive-config.json').read_text())
+              _, files = m.list_music(config['folderId'], auth)
+              if not files:
+                  raise m.MigrationError('Drive music inventory is empty.')
+              with tempfile.TemporaryDirectory() as directory:
+                  hashes = m.download_drive_file(files[0], auth, Path(directory) / 'probe')
+              report = {'checkedAt': datetime.now(timezone.utc).isoformat(), 'mode': 'drive-only-probe', 'authMode': os.environ['GOOGLE_DRIVE_AUTH_MODE'], 'complete': False, 'driveId': files[0]['id'], 'hashes': hashes, 'r2Written': False}
+              (root / 'drive-probe-report.json').write_text(json.dumps(report, indent=2) + '\n')
+              print('One Drive audio file downloaded and hashed. No R2 objects or Drive originals were changed.')
+          except Exception as exc:
+              raise SystemExit(m.safe_error(exc)) from None
+          PYTHON
+          elif [ "$MIGRATION_MODE" = copy ]; then
+            python .jarvis-source/scripts/migrate-drive-to-r2.py --limit "$MIGRATION_LIMIT" --concurrency "$MIGRATION_CONCURRENCY"
+          elif [ "$MIGRATION_MODE" = incremental ]; then
+            test "$MIGRATION_LIMIT" = 0 || { echo 'Incremental mode requires limit=0.'; exit 1; }
+            python .jarvis-source/scripts/migrate-drive-to-r2.py --limit 0 --concurrency "$MIGRATION_CONCURRENCY" --incremental
+          else
+            echo 'Invalid migration mode.'; exit 1
+          fi
 
       - name: Save migration report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: r2-migration-report-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .jarvis-source/r2-migration-report.json
+          path: |
+            .jarvis-source/r2-migration-report.json
+            .jarvis-source/drive-probe-report.json
           if-no-files-found: ignore
           retention-days: 30

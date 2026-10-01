@@ -46,8 +46,17 @@ async function play(kind,origin){
   check(kind+' audio advances',{...first,partial:first.partial});
   assert.equal(first.partial,kind==='r2');
   if(!await page.locator('#sc-player').isVisible())await page.locator('#mini').click();
-  await page.waitForFunction(()=>!!document.querySelector('#artA img')?.naturalWidth,{timeout:15000});
-  check(kind+' artwork renders',{});
+  stage=kind+' artwork';
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('#artA')).backgroundImage.startsWith('url('),{timeout:15000});
+  const artwork=await page.evaluate(async()=>{
+    const css=getComputedStyle(document.querySelector('#artA')).backgroundImage;
+    const url=css.slice(4,-1).replace(/^"|"$/g,'');
+    const img=new Image();img.src=url;await img.decode();
+    return {width:img.naturalWidth,height:img.naturalHeight,origin:new URL(url).origin};
+  });
+  assert.ok(artwork.width>0&&artwork.height>0);assert.equal(artwork.origin,release.storageOrigin);
+  check(kind+' artwork renders',artwork);
+  stage=kind+' seeking';
   const before=(await media()).find(a=>!a.paused&&a.origin===origin).currentTime;
   const bounds=await page.locator('#transport').boundingBox();assert.ok(bounds);
   await page.mouse.move(bounds.x+bounds.width*.60,bounds.y+18);
