@@ -5,14 +5,16 @@ fallback or combined track identity. Each source has its own switch and library
 records; turning Drive off leaves only verified R2 tracks. Drive originals are
 intact. The initial combined layout in JARVIS-MUSIC-R2-STATUS.md is superseded.
 
-## Deployed and verified
+## Deployed and verified playback
 
 - Frontend exact tested source: `7a5c267831f42eda30c1ced45c1a237a986326b3`.
   Source PRs [12](https://github.com/braydenparker999/jarvis/pull/12) and
   [13](https://github.com/braydenparker999/jarvis/pull/13) are merged.
-- Azure [run 36885397506](https://github.com/braydenparker000/Missionarytube-/actions/runs/36885397506)
-  succeeded from deployment revision `4ee713effbec1d6d1ac09c00b3cec28130a66426`.
-  Rollback artifact: `11174981167`, `storage-before-36885397506-1`.
+- Latest Azure [run 36901040262](https://github.com/braydenparker000/Missionarytube-/actions/runs/36901040262)
+  succeeded from deployment revision `3ee9f3c105b22d03d03b67b39666f7dd81b9ee77`.
+  Rollback artifact: `11182080345`, `storage-before-36901040262-1`.
+  Earlier independent-source deployment 36885397506 and its rollback artifact
+  `11174981167` remain historical checkpoints.
 - Worker remains version `3a918cd8-74be-4197-8730-888a98657cbc` from saved source
   `8647b99fdb17927b0f22ea4cdd0cbc1b7f515951`, deployed by successful
   [run 36870873575](https://github.com/braydenparker000/Missionarytube-/actions/runs/36870873575).
@@ -40,58 +42,110 @@ Evidence: [browser report](music-sources-browser-20261001.json),
 [source switches](poweramp-separate-sources-20261001.png),
 [initial isolation check](music-source-isolation-20261001.json).
 
-## Remaining transfer and authenticated preparation
+## Authenticated transfer — active checkpoint at 17:50 UTC
 
-314 of 1,287 tracks are byte-verified in R2: 1,256,156,900 of 4,989,786,207 bytes.
-973 tracks / 3,733,629,307 bytes remain. Latest actual transfer is still
-[run 36864240781](https://github.com/braydenparker000/Missionarytube-/actions/runs/36864240781),
-which stopped after 44 new copies when Google returned its automated-query 403.
-Its report and the published partial map remain `complete=false`; the full
-canonical map stays separate. No further bulk run was dispatched and no recurring
-R2 mirror is active. Networks were not rotated and the refusal was not retried.
+The owner configured the supported read-only OAuth grant in Actions. Probe
+[run 36895894543](https://github.com/braydenparker000/Missionarytube-/actions/runs/36895894543)
+succeeded: one 4,046,954-byte Drive audio file was downloaded and hashed, with no
+R2 writes. Its [sanitized report](drive-oauth-probe-20261001.json) has
+`authMode=oauth`, `mode=drive-only-probe`, `complete=false`, `r2Written=false`.
+The complete inventory remains 1,287 tracks / 4,989,786,207 bytes.
 
-[Source PR 14](https://github.com/braydenparker999/jarvis/pull/14) merged authenticated
-Drive reading. Exact tested transfer source is
-`e205cc2a899b01872dec8f587dce743d343f2edc`; source CI
-[36888528695](https://github.com/braydenparker999/jarvis/actions/runs/36888528695)
-passed 223 JavaScript and 92 Python tests. Deployment
-[PR 70](https://github.com/braydenparker000/Missionarytube-/pull/70) pins that source.
-Orchestration [run 36888794159](https://github.com/braydenparker000/Missionarytube-/actions/runs/36888794159)
-passed integrity validation; its transfer job was **skipped**. This is preparation,
-not a successful authenticated download or additional migration progress.
+Full copy [run 36897596735](https://github.com/braydenparker000/Missionarytube-/actions/runs/36897596735)
+was dispatched at 17:11 UTC and is **in progress**, not complete. It runs exact
+source `e205cc2a899b01872dec8f587dce743d343f2edc` from orchestration
+`9cf3ae50fc1e8f9926baedea47c2627f7b4e098f`, with `auth_mode=oauth`, `mode=copy`,
+`limit=0`, concurrency 1 and at least five seconds between new Drive downloads.
+At 17:50 UTC its visible log showed `Progress 600/1287 · copied=286 skipped=314
+failed=0`. Existing objects were re-read and hashed before skipping. This is a
+progress count, not a completed report or a published 600-track player catalog.
+687 tracks remain after that checkpoint. Do not start another transfer while this
+run is active. Its final report, exact byte totals and stable final inventory
+must be inspected before claiming completion.
 
-The manual workflow defaults to `auth_mode=oauth`, `mode=probe`, concurrency 1.
-The probe reads/hashes one Drive audio file and writes no R2 object. Actual copy
-and incremental modes require an explicit manual selection. Copy runs pace new
-media requests by at least five seconds, re-read/hash existing R2 bytes before
-skipping, and preserve Drive originals. OAuth tokens refresh server-side and use
-bearer headers; missing/failed grants stop without public-key fallback. Refusal
-403s pause, including metadata failures. No credentials were retrieved or printed.
+The live player still uses the earlier, separately published 314-track partial
+map (`complete=false`, 1,256,156,900 verified bytes). The full canonical map stays
+separate and is not selected in `jarvis-release.json`. The former public-file
+run 36864240781 stopped after 44 new copies on Google's automated-query 403;
+no networks were rotated or repeated requests made to evade that refusal.
+The supported owner grant passed its real probe before this full copy began.
 
-Next steps:
+## Publisher, verification and gated mirroring
 
-1. Complete the owner's supported Google OAuth consent flow using the existing
-   Google Cloud project with Drive API enabled. Request read-only file-content
-   access (`https://www.googleapis.com/auth/drive.readonly`) and offline access.
-   Store `GOOGLE_DRIVE_CLIENT_ID`, `GOOGLE_DRIVE_CLIENT_SECRET`, and
-   `GOOGLE_DRIVE_REFRESH_TOKEN` only in the deployment repository's
-   [Actions secrets](https://github.com/braydenparker000/Missionarytube-/settings/secrets/actions).
-   Do not paste values into chat or commits. This grant is not configured or
-   verified in this checkpoint, and authentication does not establish that
-   Google's refusal or quotas have cleared.
-2. Run one authenticated `mode=probe` and inspect its real report. Stop if Google
-   refuses. A successful phone/browser download does not verify the Actions path.
-3. After access is verified, resume `mode=copy`, `limit=0`, concurrency 1. Require
-   every byte/identity check and a stable final inventory before publishing a
-   complete canonical baseline. Refresh the verified R2 source map afterward.
-4. Run one manual incremental reconciliation, review its complete report and
-   conditional publication compatibility, then activate a single recurring mirror
-   after the existing catalog publisher. Preserve the shared single-writer group.
-   No second schedule or direct Muse R2 credential is needed for this path.
+- Source [PR 15](https://github.com/braydenparker999/jarvis/pull/15) is merged.
+  Exact tested OAuth publisher: `9f65e014f578d7947b97a88fd8a32b0b2e8e693d`.
+  Source CI [36899589088](https://github.com/braydenparker999/jarvis/actions/runs/36899589088)
+  passed 229 JavaScript / 92 migration tests. Tokens refresh server-side, stay
+  scoped to Drive, cannot follow redirects, and never enter player configuration.
+  Grant failure or Drive refusal stops publication without public-key fallback.
+- Deployment [PR 72](https://github.com/braydenparker000/Missionarytube-/pull/72)
+  merged at `484b20b11c511d3535cf2827d07633d2e51bf501`.
+  Real OAuth catalog [run 36900272903](https://github.com/braydenparker000/Missionarytube-/actions/runs/36900272903)
+  passed at 17:35 UTC: all 1,287 songs listed, no changed metadata candidates,
+  existing catalog generation unchanged. Its mirror job was **skipped**.
+  This verifies OAuth inventory access, not a fresh Muse upload or new artwork preparation.
+- Source [PR 16](https://github.com/braydenparker999/jarvis/pull/16) is merged.
+  Future transfer/mirror code pins `dd0797bd48431ea04354f83663c3df765cc8f5b0`;
+  source CI [36900565547](https://github.com/braydenparker999/jarvis/actions/runs/36900565547)
+  passed 229 JavaScript / 93 migration tests. urllib's real redirect handler
+  confirms owner authorization is omitted on same-host and cross-host redirects.
+  No credential exposure was observed. The active clone remains on its original revision.
+- Deployment [PR 73](https://github.com/braydenparker000/Missionarytube-/pull/73)
+  merged at `3ee9f3c105b22d03d03b67b39666f7dd81b9ee77`. All 528 deployment tests
+  and the unchanged pinned frontend build passed. Azure
+  [run 36901040262](https://github.com/braydenparker000/Missionarytube-/actions/runs/36901040262)
+  passed, preserving source `7a5c267831f42eda30c1ced45c1a237a986326b3` and partial
+  R2 configuration. Rollback artifact: `11182080345`, `storage-before-36901040262-1`.
+  The Worker's deployed revision and HUBS binding remain unchanged.
+- Direct cloud Chrome at 17:41–17:47 UTC confirmed separate 1,287-song Drive and
+  314-song R2 rows. With only R2 enabled, actual Worker audio advanced to 49.67 s
+  (duration 224.08 s, readyState 4, no media error), then a real seek continued at
+  114.31 s. With only Drive enabled, Google audio advanced to 52.13 s (duration
+  284.32 s, readyState 4, no media error), then a seek continued at 97.05 s.
+  Artwork rendered for both. Playback was paused afterward and all four original
+  source choices were restored. [R2 source isolation](poweramp-cloud-r2-isolation-20261001.png),
+  [R2 playing](poweramp-cloud-r2-playing-20261001.png),
+  [Drive playing](poweramp-cloud-drive-playing-20261001.png),
+  [restored source rows](poweramp-cloud-sources-20261001.png).
+- Fresh automated protocol/browser [run 36901040002](https://github.com/braydenparker000/Missionarytube-/actions/runs/36901040002)
+  **passed** at 17:49 UTC from orchestration `3ee9f3c105b22d03d03b67b39666f7dd81b9ee77`.
+  Artifact `11181882979` contains [protocol evidence](music-protocol-after-oauth-20261001.json)
+  and [browser evidence](music-browser-after-oauth-20261001.json). All three audio
+  samples matched SHA-256 and decoded; GET/HEAD 200, byte/suffix Range 206,
+  invalid Range 416, ETag 304, OPTIONS 204 and CORS passed. Both independent
+  sources advanced audio, sought and decoded 320×320 artwork. The canonical
+  endpoint still returned 503, accurately reflecting the incomplete clone.
+  Package installation consumed most of this run; the timeout is extended
+  to 25 minutes for subsequent checks, and per-sample verification now reports
+  progress without request details.
+- A single incremental mirror is prepared after the existing hourly catalog
+  publication. Its `MUSIC_R2_MIRROR_ENABLED` gate is **not enabled**. It requires
+  a valid complete canonical baseline and shares `r2-music-migration` serialization
+  with manual transfers. Azure publication keeps its separate deployment lock.
+  No recurring R2 transfer is active; no direct Muse R2 credential is configured.
+- A finite hourly completion check was created to continue the already authorized
+  work after this long-running clone ends. It must inspect the final report,
+  perform the canonical cutover and live checks, prove a manual incremental run,
+  and only then enable the existing mirror. It must stop/report a Google refusal
+  without another automatic transfer. Creation of the check does not prove those
+  remaining actions have occurred.
 
-Official references: [Drive downloads](https://developers.google.com/workspace/drive/api/guides/manage-downloads),
-[Drive scopes](https://developers.google.com/workspace/drive/api/guides/api-specific-auth),
-[offline OAuth](https://developers.google.com/identity/protocols/oauth2/web-server#offline).
+Remaining acceptance steps:
+
+1. Inspect the full copy's actual final artifact, require `complete=true`, no
+   failures and all matching bytes/identities plus a stable final Drive inventory.
+2. Verify `/music/manifest.json`, then update only `r2ManifestURL` to that canonical
+   endpoint, deploy Azure with a rollback artifact, and pass actual protocol and
+   browser playback checks. Retain separate Drive/R2 sources and the historical partial map.
+3. Run `mode=incremental`, `auth_mode=oauth`, `limit=0`, concurrency 1 manually.
+   Inspect its baseline binding, reused byte proof, current identities, complete
+   report and successful conditional canonical PUT. Do not enable recurrence merely
+   because the full clone passed.
+4. Set the nonsecret `MUSIC_R2_MIRROR_ENABLED=true` only after those checks; run the
+   existing catalog workflow once and inspect both publication and mirror evidence.
+5. Verify one actual requested Muse upload by its new Drive ID, published metadata/
+   artwork, Drive playback, then its verified mirror and separate R2 playback.
+   Physical Android screen-lock/background playback also remains unverified.
 
 ## Muse intake
 
@@ -103,9 +157,9 @@ music requests still produce tagged Opus files with embedded cover art in
 upload configured and does not perform in-place metadata updates. No new message
 was sent to Muse during this work.
 
-The existing catalog publication is scheduled at minute 17 hourly; its latest
-observed scheduled [run 36839540646](https://github.com/braydenparker000/Missionarytube-/actions/runs/36839540646)
-succeeded at 08:56 UTC. Observed run times are delayed, so the configured cadence
+The existing catalog publication is scheduled at minute 17 hourly. Scheduled
+[run 36892100230](https://github.com/braydenparker000/Missionarytube-/actions/runs/36892100230)
+succeeded at 16:27 UTC; the newer manual OAuth run is recorded above. Observed run times are delayed, so the configured cadence
 is not a guaranteed hourly delivery time. Acknowledgment and an earlier catalog
 run do not prove a fresh Muse upload, its current runner health or a new track's
 visibility. Verify one requested upload by its actual Drive file ID, then its

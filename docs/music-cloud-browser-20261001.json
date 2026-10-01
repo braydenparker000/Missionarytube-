@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-10-01T17:47:00Z",
+  "method": "direct-cloud-Chrome-visible-UI-and-audio-DOM",
+  "sourceCommit": "7a5c267831f42eda30c1ced45c1a237a986326b3",
+  "mapMode": "partial",
+  "mapComplete": false,
+  "driveCount": 1287,
+  "r2Count": 314,
+  "independentSourceSwitches": true,
+  "r2": {
+    "origin": "https://jarvis-hub-api.braydenparker999.workers.dev",
+    "currentTime": 49.669333,
+    "duration": 224.08,
+    "readyState": 4,
+    "error": null,
+    "seekObservedBefore": 73.098667,
+    "seekObservedAfter": 114.309267,
+    "continuedAfterSeek": true,
+    "artworkVisible": true
+  },
+  "drive": {
+    "origin": "https://www.googleapis.com",
+    "currentTime": 52.128,
+    "duration": 284.32,
+    "readyState": 4,
+    "error": null,
+    "seekObservedBefore": 66.05067,
+    "seekObservedAfter": 97.0506,
+    "continuedAfterSeek": true,
+    "artworkVisible": true
+  },
+  "sourceChoicesRestored": true,
+  "playbackPausedAfterVerification": true,
+  "unverified": [
+    "fresh Muse upload",
+    "physical Android screen-lock/background",
+    "complete canonical R2 playback",
+    "incremental R2 publication"
+  ]
+}
