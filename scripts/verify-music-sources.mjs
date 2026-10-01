@@ -28,8 +28,8 @@ async function toggle(kind,on){
   assert.equal(await control.getAttribute('aria-checked'),String(on));
 }
 async function closeSettings(){
-  for(let i=0;i<3&&await page.locator('#sc-settings').isVisible();i++)await page.locator('#set-back').click();
-  assert.equal(await page.locator('#sc-settings').isVisible(),false);
+  if(await page.locator('#sc-settings').isVisible())await page.locator('#set-close').click();
+  await page.locator('#sc-settings').waitFor({state:'hidden'});
 }
 async function play(kind,origin){
   stage=kind+' playback';
