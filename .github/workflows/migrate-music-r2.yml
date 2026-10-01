@@ -32,11 +32,11 @@ jobs:
     outputs:
       source_sha: ${{ steps.source.outputs.sha }}
     steps:
-      - name: Check out current Jarvis migration code
+      - name: Check out pinned Jarvis migration code
         uses: actions/checkout@v4
         with:
           repository: braydenparker999/jarvis
-          ref: main
+          ref: 5072f0b1d111de2ba2b239818474e312d807250a
           path: .jarvis-source
           persist-credentials: false
       - name: Set up Python
@@ -62,7 +62,7 @@ jobs:
       - name: Check out orchestration repository
         uses: actions/checkout@v4
 
-      - name: Check out current Jarvis migration code
+      - name: Check out pinned Jarvis migration code
         uses: actions/checkout@v4
         with:
           repository: braydenparker999/jarvis
