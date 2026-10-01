@@ -1,6 +1,8 @@
 {
   "repository": "braydenparker999/jarvis",
-  "commit": "f3ca37bf15683bc29a5ebbde2023b5f0d630d5b5",
+  "commit": "8647b99fdb17927b0f22ea4cdd0cbc1b7f515951",
   "storageOrigin": "https://missionarytube.z13.web.core.windows.net",
-  "apiOrigin": "https://jarvis-hub-api.braydenparker999.workers.dev"
+  "apiOrigin": "https://jarvis-hub-api.braydenparker999.workers.dev",
+  "r2ManifestURL": "https://jarvis-hub-api.braydenparker999.workers.dev/music/partial/manifest.json",
+  "preserveDriveCatalog": true
 }
