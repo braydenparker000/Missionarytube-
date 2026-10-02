@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {readCatalog,catalogTrack} from '../.jarvis-source/public/drawercast/drive-catalog.js';
 import {validateR2Manifest} from '../.jarvis-source/public/drawercast/r2-api.js';
+import {libraryMapping} from '../.jarvis-source/public/drawercast/r2-library.js';
 
 const api='https://jarvis-hub-api.braydenparker999.workers.dev';
 const origin='https://missionarytube.z13.web.core.windows.net';
@@ -11,24 +12,26 @@ const root='1VlEUztloW5saoM7iF11fodDKSmCGP2ZZ';
 const release=JSON.parse(await readFile('jarvis-release.json','utf8'));
 const expected=process.argv[2]?JSON.parse(await readFile(process.argv[2],'utf8')):null;
 const endpoint=process.argv[3] || (expected?.mode==='partial'?api+'/music/partial/manifest.json':release.r2ManifestURL);
-assert.ok([api+'/music/partial/manifest.json',api+'/music/manifest.json'].includes(endpoint));
+assert.ok([api+'/music/partial/manifest.json',api+'/music/manifest.json',api+'/music/library.json'].includes(endpoint));
 const partial=endpoint===api+'/music/partial/manifest.json';
+const native=endpoint===api+'/music/library.json';
 const get=(url,options={})=>fetch(url,{...options,headers:{Origin:origin,...options.headers},signal:AbortSignal.timeout(40000)});
 const manifestResponse=await get(endpoint);
 assert.equal(manifestResponse.status,200);
 assert.equal(manifestResponse.headers.get('access-control-allow-origin'),origin);
 const manifest=await manifestResponse.json();
-const catalog=await readCatalog({root,pointerURL:origin+'/assets/drive-catalog-v2.json',baseURL:origin+'/assets/drive-catalog-v2/'});
-const tracks=catalog.records.map(record=>catalogTrack(record,root));
-const mapping=validateR2Manifest(manifest,{root,manifestURL:endpoint,tracks});
+let tracks,mapping;
+if(native)({tracks,mapping}=libraryMapping(manifest,endpoint));
+else{const catalog=await readCatalog({root,pointerURL:origin+'/assets/drive-catalog-v2.json',baseURL:origin+'/assets/drive-catalog-v2/'});
+  tracks=catalog.records.map(record=>catalogTrack(record,root));mapping=validateR2Manifest(manifest,{root,manifestURL:endpoint,tracks});}
 assert.equal(mapping.complete,!partial);
 if(expected){
  for(const key of ['verifiedCount','inventoryCount','inventoryBytes','sourceRevision',...(partial?['verifiedBytesTotal']:[])])assert.equal(manifest[key],expected[key]);
 }
 await mkdir('music-verification',{recursive:true});
-const result={checkedAt:new Date().toISOString(),mode:manifest.mode,complete:manifest.complete,verifiedCount:mapping.count,inventoryCount:manifest.inventoryCount,
- verifiedBytesTotal:partial?manifest.verifiedBytesTotal:manifest.inventoryBytes,catalogMatches:true,samples:[]};
-const files=manifest.files;
+const result={checkedAt:new Date().toISOString(),mode:native?'library':manifest.mode,complete:manifest.complete,verifiedCount:mapping.count,inventoryCount:native?manifest.count:manifest.inventoryCount,
+ verifiedBytesTotal:native?manifest.tracks.reduce((n,t)=>n+t.size,0):partial?manifest.verifiedBytesTotal:manifest.inventoryBytes,catalogMatches:true,samples:[]};
+const files=native?manifest.tracks.map(t=>({...t,driveId:t.id.slice(3),url:api+'/music/library/audio/'+t.id})):manifest.files;
 for(const [i,file] of [files[0],files[Math.floor(files.length/2)],files.at(-1)].entries()){
  const full=await get(file.url);
  assert.equal(full.status,200);

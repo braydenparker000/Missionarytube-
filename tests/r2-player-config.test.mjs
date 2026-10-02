@@ -13,6 +13,10 @@ test('a completed clone can use the canonical R2 catalog as its own source',()=>
   const full={...release,r2ManifestURL:release.apiOrigin+'/music/manifest.json'};
   assert.deepEqual(r2PlayerConfig(full),{rootId:full.r2RootId,manifestURL:full.r2ManifestURL});
 });
+test('native R2 discovery has no Drive root or credential dependency',()=>{
+  assert.deepEqual(r2PlayerConfig({...release,r2RootId:undefined,r2ManifestURL:release.apiOrigin+'/music/library.json'}),
+    {rootId:'',manifestURL:release.apiOrigin+'/music/library.json'});
+});
 test('R2 source configuration refuses wrong roots, endpoints, credentials and insecure origins',()=>{
   for(const change of [{r2RootId:''},{r2RootId:'../root'},
     {r2ManifestURL:release.apiOrigin+'/music/audio/catalog.json'},

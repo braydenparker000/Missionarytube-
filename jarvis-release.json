@@ -1,9 +1,8 @@
 {
   "repository": "braydenparker999/jarvis",
-  "commit": "7a5c267831f42eda30c1ced45c1a237a986326b3",
+  "commit": "79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c",
   "storageOrigin": "https://missionarytube.z13.web.core.windows.net",
   "apiOrigin": "https://jarvis-hub-api.braydenparker999.workers.dev",
-  "r2ManifestURL": "https://jarvis-hub-api.braydenparker999.workers.dev/music/manifest.json",
-  "preserveDriveCatalog": true,
-  "r2RootId": "1VlEUztloW5saoM7iF11fodDKSmCGP2ZZ"
+  "r2ManifestURL": "https://jarvis-hub-api.braydenparker999.workers.dev/music/library.json",
+  "preserveDriveCatalog": true
 }

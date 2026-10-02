@@ -166,6 +166,7 @@ jobs:
             sudo apt-get install -y --no-install-recommends ffmpeg
           fi
           python scripts/music-upload-canary.py
+          node scripts/assert-music-upload-revoked.mjs --enabled
           python .jarvis-source/scripts/upload-music-r2.py music-verification/native/canary.opus --key .jarvis-source/.music-test-key.pem --report music-verification/native/upload.json
           node scripts/verify-native-upload.mjs
       - name: Verify the newly uploaded song in the exact deployed mobile player
