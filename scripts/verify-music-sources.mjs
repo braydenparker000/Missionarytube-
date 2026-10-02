@@ -4,6 +4,7 @@ import {chromium} from 'playwright-core';
 
 const release=JSON.parse(await readFile('jarvis-release.json','utf8'));
 const expectedPartial=new URL(release.r2ManifestURL).pathname==='/music/partial/manifest.json';
+const expectedNative=new URL(release.r2ManifestURL).pathname==='/music/library.json';
 const player=release.storageOrigin+'/drawercast/';
 const folder='music-verification/browser';
 await mkdir(folder,{recursive:true});
@@ -79,10 +80,10 @@ try{
     const response=await fetch(url,{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(15000)});
     assert.equal(response.status,200);return response.json();
   }));
-  const driveCount=catalog.count,r2Count=mapping.files.length;
-  assert.ok(Number.isSafeInteger(driveCount)&&driveCount>=r2Count&&r2Count>0);
+  const driveCount=catalog.count,r2Count=expectedNative?mapping.count:mapping.files.length;
+  assert.ok(Number.isSafeInteger(driveCount)&&Number.isSafeInteger(r2Count)&&r2Count>0&&(expectedNative||driveCount>=r2Count));
   assert.equal(mapping.complete,!expectedPartial);
-  report.mapMode=mapping.mode;report.mapComplete=mapping.complete;
+  report.mapMode=expectedNative?'library':mapping.mode;report.mapComplete=mapping.complete;
   stage='browser startup';
   browser=await chromium.launch({headless:true,executablePath:process.env.MUSIC_BROWSER_EXECUTABLE,args:['--no-sandbox']});
   page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true});
@@ -92,7 +93,7 @@ try{
   await page.waitForFunction(expected=>window.PA&&[...PA.LIB.map.values()].filter(t=>t.source==='r2').length===expected.r2Count&&
     [...PA.LIB.map.values()].filter(t=>t.source==='drive').length===expected.driveCount,{driveCount,r2Count},{timeout:60000});
   sample=await page.evaluate(()=>{
-    const t=[...PA.LIB.map.values()].filter(t=>t.source==='r2').sort((a,b)=>a.id.localeCompare(b.id))[0];
+    const t=[...PA.LIB.map.values()].filter(t=>t.source==='r2'&&!t.id.startsWith('r2_native_')).sort((a,b)=>a.id.localeCompare(b.id))[0];
     return {title:t.title,remoteId:t.remoteId};
   });
   await sources();
