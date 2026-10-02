@@ -1,0 +1,79 @@
+{
+  "checkedAt": "2026-10-02T01:26:21Z",
+  "sourceCommit": "79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c",
+  "deploymentRevision": "4ce64542afcbf6c20da301c6c0fe45ab42a243f4",
+  "sourcePRs": [
+    17,
+    18
+  ],
+  "deploymentPRs": [
+    78,
+    79
+  ],
+  "worker": {
+    "run": 36950677494,
+    "version": "5b86f37c-a4ac-4421-9957-6b2b717d7ac3",
+    "canaryVersion": "dd0ef450-d1b9-442a-be96-62f3bcb9c74d",
+    "previousVersion": "8ec9ed37-4b71-48b9-82f0-c6117d1666bc",
+    "legacyRollbackVersion": "3a918cd8-74be-4197-8730-888a98657cbc",
+    "HUBSPreserved": true,
+    "MUSIC_R2": "jarvis-music",
+    "artifact": 11203851309,
+    "artifactSha256": "aa1617303344a7631f32dd6c6f614f58b3e8cd7a266dee5e52d5e2a4092d7a3c",
+    "temporaryKeyRevokedAndRejected": true,
+    "musePublicKeysRegistered": 0
+  },
+  "azure": {
+    "run": 36950583926,
+    "rollbackArtifact": 11203458889,
+    "rollbackArtifactSha256": "ae056c95771a3fb785ff0a293b8cd8df742c3dfb5692f619bcadff2deecb3e70",
+    "sourceCommit": "79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c",
+    "r2ManifestURL": "https://jarvis-hub-api.braydenparker999.workers.dev/music/library.json"
+  },
+  "independentSources": {
+    "run": 36950813135,
+    "passed": true,
+    "artifact": 11204371427,
+    "artifactSha256": "1cd500f50a7c434b01d116a5b11faac81651aa8e50e0682c939d090de0b0b213",
+    "DriveCount": 1287,
+    "R2Count": 1287
+  },
+  "library": {
+    "kind": "r2-library",
+    "complete": true,
+    "count": 1287,
+    "bytes": 4989786207,
+    "key": "catalog/r2-library-v1.json",
+    "originalIDsPreserved": true,
+    "canonicalMigrationMapRetained": true
+  },
+  "nativeUpload": {
+    "generatedTestSong": true,
+    "registered": true,
+    "countDuringTest": 1288,
+    "audioHashDecodeRangeCORSArtworkPassed": true,
+    "actualMobilePlaybackSeekingPassed": true,
+    "canaryCleaned": true,
+    "actualMuseUploadVerified": false
+  },
+  "tests": {
+    "sourceJavaScript": 236,
+    "sourcePython": 93,
+    "deployment": 530,
+    "sourceCI": 36950379027,
+    "deploymentCI": 36950491009,
+    "exactSourceBuildPassed": true
+  },
+  "recurringR2MirrorEnabled": false,
+  "GoogleTransfers": 0,
+  "earlierFailedChecks": [
+    {
+      "run": 36949581084,
+      "blocker": "Python urllib default client was rejected by Cloudflare before the Worker; immediate revocation probe still saw the previous edge policy. Fixed truthful client identifier and bounded propagation check; later live run passed."
+    },
+    {
+      "run": 36950583929,
+      "blocker": "Push-triggered browser check ran before Azure finished and rejected the old frontend pin. Post-Azure follow-up 36950813135 passed."
+    }
+  ]
+}

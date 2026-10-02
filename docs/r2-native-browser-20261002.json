@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-10-02T01:24:16.935Z",
+  "sourceCommit": "79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c",
+  "id": "r2_native_76242b2175c1165a3038946d9c69ba3da862fb1a848d8b893c310e7c999df831",
+  "passed": true,
+  "driveDisabled": true,
+  "artwork": {
+    "width": 320,
+    "height": 320,
+    "origin": "https://jarvis-hub-api.braydenparker999.workers.dev"
+  },
+  "audio": {
+    "time": 6.362667,
+    "duration": 20.0065,
+    "readyState": 4,
+    "error": null,
+    "path": "/music/library/audio/r2_native_76242b2175c1165a3038946d9c69ba3da862fb1a848d8b893c310e7c999df831"
+  },
+  "seekBefore": 1.349333
+}
