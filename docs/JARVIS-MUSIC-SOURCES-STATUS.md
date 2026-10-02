@@ -1,6 +1,48 @@
 # Independent Jarvis music sources — 2026-10-02
 
-## Measured audio release
+## Audio fidelity follow-up
+
+Source [PR 20](https://github.com/braydenparker999/jarvis/pull/20) adds a reported
+0.25 dB preparation reserve so the safety guard stays idle at full volume on
+the measured corpus. It distributes attenuation through exceptionally extreme
+EQ cascades that previously produced heavy modulation or silence, retains each
+fading curve's preamp/headroom, corrects a negative-preamp estimate, and aligns
+the tone preview with the actual shelf frequencies and Q.
+
+Reviewed source `775fb403be63bfd64dfcfba91ce2ae3dedcf9c36` passes 251 source JavaScript /
+93 Python tests, 530 deployment tests and the exact pinned 156-file / 19.09 MiB
+static build. Source CI [36973051008](https://github.com/braydenparker999/jarvis/actions/runs/36973051008)
+passed. Transparent production renders still null exactly at 44.1/48/96 kHz;
+all six full original corpus files now have zero guard reduction at 100%.
+Eighteen extreme production cascades match declared response within 0.001 dB
+with no dynamic reduction. Normal and 32-band rapid edits pass the unchanged
+independent −0.9 dBTP output criterion. The second 30-minute run passed all 180 non-silent samples, with zero
+unexpected backend changes, 19.647 ms worst interval drift, bounded sampled
+heap and successful non-silent recovery after an injected callback failure.
+The tested production bytes match candidate `710e95d`; the final source
+commit only adds reviewed evidence. Static-build streaming under the production
+content policy also passed; an initial catalog timeout is retained in the
+source review evidence. Physical A15/DAC/Bluetooth tests remain unverified.
+
+A separate one-time [100-track analysis run 36969619574](https://github.com/braydenparker000/Missionarytube-/actions/runs/36969619574)
+completed with zero failures. Artifact `11211850074`, SHA-256
+`af71b7a4a6954f0ec07713ea7d48db8adbc3f5338cc4de95ba78be8284942f7e`,
+was downloaded and digest-verified; every patch passed strict schema and live
+immutable-identity/prior-analysis checks before [apply 36970101878](https://github.com/braydenparker000/Missionarytube-/actions/runs/36970101878).
+All 100 live analysis records exactly match the reviewed artifact. Every one
+of the 1600 pre-apply audio identities remained unchanged in the then-current
+1603-track library. Coverage is 120 measured tracks, not the entire growing
+library. Twelve files in this batch exceeded the +3 dBTP unknown-file assumption.
+Apply artifact `11211705301` has GitHub-recorded digest
+`d6f4f11da9dd881b1826f6d58b1de65ac7cd7600022f3ba00945110e56ea917a`.
+This is metadata-only work; no audio rewrite, Google transfer or schedule was
+added. The existing Worker and upload authorization are unchanged.
+
+Source PR 20 merged as `afbb1fa1e498018e69326d468aeccc5c39b42111`; the
+release pins exact reviewed head `775fb403be63bfd64dfcfba91ce2ae3dedcf9c36`.
+Frontend rollback is preserved by the existing Azure workflow before overwrite.
+
+## First measured audio release
 
 Audio is the only active task; the owner confirmed there is no separate shuffle
 work to integrate. Source [PR 19](https://github.com/braydenparker999/jarvis/pull/19)
@@ -9,11 +51,11 @@ hash-bound audio analysis and signed metadata-only corrections. The source graph
 measurements and smallest A15 comparison protocol are in
 [measured-audio.md](https://github.com/braydenparker999/jarvis/blob/codex/measured-audio-fidelity/docs/measured-audio.md).
 
-Live source pin `cebdc8d924e35480aaefc293e0a90e8e113118c3` passes
+First-release source pin `cebdc8d924e35480aaefc293e0a90e8e113118c3` passes
 249 JavaScript / 93 Python tests. Source CI
 [36967173265](https://github.com/braydenparker999/jarvis/actions/runs/36967173265)
 passed; the exact pinned candidate passes 530 deployment tests and the static
-build. The final 30-minute endurance run passed 180 actual non-silent samples, alternating volume, seeks and mode edits, with no unexpected backend changes. Worst unreset media/wall interval difference was 19.8 ms; sampled heap ranged 7.0–13.1 MiB and ended below its start. Real callback failure recovered to non-silent fallback afterward. Pinned deployment CI [36967247449](https://github.com/braydenparker000/Missionarytube-/actions/runs/36967247449) passed. Source PR 19 merged as `0fdf1942c28a6f82db19225716edfb768b25c768`; deployment [PR 84](https://github.com/braydenparker000/Missionarytube-/pull/84) merged as `42b327f3d0c4faaad9bd09f65dfc5383c581a9de`. Azure [36967307732](https://github.com/braydenparker000/Missionarytube-/actions/runs/36967307732) succeeded. Live `/release.json` confirms `cebdc8d924e35480aaefc293e0a90e8e113118c3`, and real production Chrome playback, worklet, seeks, Range/CORS, artwork, media session and non-silent track switches passed with no asset interception.
+build. The final 30-minute endurance run passed 180 actual non-silent samples, alternating volume, seeks and mode edits, with no unexpected backend changes. Worst unreset media/wall interval difference was 19.8 ms; sampled heap ranged 7.0–13.1 MiB and ended below its start. Real callback failure recovered to non-silent fallback afterward. Pinned deployment CI [36967247449](https://github.com/braydenparker000/Missionarytube-/actions/runs/36967247449) passed. Source PR 19 merged as `0fdf1942c28a6f82db19225716edfb768b25c768`; deployment [PR 84](https://github.com/braydenparker000/Missionarytube-/pull/84) merged as `42b327f3d0c4faaad9bd09f65dfc5383c581a9de`. Azure [36967307732](https://github.com/braydenparker000/Missionarytube-/actions/runs/36967307732) succeeded. At the first release, `/release.json` confirmed `cebdc8d924e35480aaefc293e0a90e8e113118c3`, and real production Chrome playback, worklet, seeks, Range/CORS, artwork, media session and non-silent track switches passed with no asset interception.
 
 The complete production graph nulled exactly at tested 44.1/48/96 kHz rates.
 All 297 guard vectors passed an independent 32×, 8193-tap output oracle;

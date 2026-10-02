@@ -1,0 +1,48 @@
+{
+  "sourcePR": 20,
+  "sourceReviewedHead": "775fb403be63bfd64dfcfba91ce2ae3dedcf9c36",
+  "sourceMergeCommit": "afbb1fa1e498018e69326d468aeccc5c39b42111",
+  "sourceCIRun": 36973051008,
+  "sourceCIConclusion": "success",
+  "sourceJavaScriptTests": 251,
+  "sourcePythonTests": 93,
+  "deploymentTests": 530,
+  "buildFiles": 156,
+  "buildMiB": 19.09,
+  "endurance": {
+    "samples": 180,
+    "worstUnresetIntervalDriftSeconds": 0.019647000000000858,
+    "heapMinBytes": 7339038,
+    "heapMaxBytes": 13745941,
+    "firstHeapBytes": 13745941,
+    "lastHeapBytes": 8026999,
+    "minimumOutputRms": 0.007121409722706291,
+    "unexpectedBackendChanges": 0
+  },
+  "sourceProductionSha256": {
+    "public/drawercast/audio-core.js": "4f5d778b56c619858ac37ce2ab1f41a73069b875b080fec3066a52fdd4032e3e",
+    "public/drawercast/player.js": "4bfc8153a28b04a0a869de2f94193b513dd08ab00af311111dcf04e82a665c90"
+  },
+  "metadata": {
+    "analyzeRun": 36969619574,
+    "analyzeArtifact": 11211850074,
+    "analyzeArtifactSha256": "af71b7a4a6954f0ec07713ea7d48db8adbc3f5338cc4de95ba78be8284942f7e",
+    "localDigestVerified": true,
+    "applyRun": 36970101878,
+    "analyzerSourceCommit": "cebdc8d924e35480aaefc293e0a90e8e113118c3",
+    "patchesReviewedAndApplied": 100,
+    "failures": 0,
+    "higherThanUnknownAssumption": 12,
+    "maxSourceTruePeakDbtp": 5.8,
+    "schemaAndLiveAnalysisExact": true,
+    "allPreviousOriginalIdentitiesPreserved": 1600,
+    "liveCatalogCountAtVerification": 1603,
+    "analyzedTrackCount": 120,
+    "audioWrites": 0,
+    "googleRequests": 0,
+    "scope": "Bounded one-time R2 metadata analysis; source originals unchanged; no schedule",
+    "applyArtifact": 11211705301,
+    "applyArtifactGitHubSha256": "d6f4f11da9dd881b1826f6d58b1de65ac7cd7600022f3ba00945110e56ea917a"
+  },
+  "physicalTests": "unverified"
+}
