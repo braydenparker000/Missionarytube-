@@ -28,6 +28,17 @@ test('wrong Worker, missing existing storage and conflicting bucket names fail c
   for(const input of [{...base(),name:'another-worker'},{...base(),main:'other.js'},{...base(),durable_objects:{}},
     {...base(),r2_buckets:[{binding:'MUSIC_R2',bucket_name:'wrong'}]}])assert.throws(()=>musicWorkerConfig(input));
 });
+test('only explicit nonsecret upload public keys may configure native writes',()=>{
+  const publicKey='a'.repeat(64),candidate=musicWorkerConfig(base(),{uploadPublicKeys:[publicKey]});
+  assert.deepEqual(JSON.parse(candidate.vars.MUSIC_UPLOAD_PUBLIC_KEYS),[publicKey]);
+  assert.equal(musicWorkerConfig(base(),{uploadPublicKeys:[]}).vars.MUSIC_UPLOAD_PUBLIC_KEYS,'[]');
+  for(const uploadPublicKeys of ['secret',[123],['invalid'],Array(9).fill(publicKey)])assert.throws(()=>musicWorkerConfig(base(),{uploadPublicKeys}));
+  const flow=fs.readFileSync(new URL('../.github/workflows/deploy-music-worker.yml',import.meta.url),'utf8');
+  assert.match(flow,/native_upload_setup:/);assert.match(flow,/muse_public_key:/);
+  assert.match(flow,/Revoke temporary verification key/);assert.match(flow,/Delete temporary private signing material/);
+  const artifact=flow.slice(flow.indexOf('name: Preserve deployment checkpoint'));
+  assert.doesNotMatch(artifact,/\.pem|upload-keys|r2-library-seed\.json/);
+});
 test('deployment is manual, immutable, serialized and tested before scoped secret use',()=>{
   const workflow=fs.readFileSync(new URL('../.github/workflows/deploy-music-worker.yml',import.meta.url),'utf8');
   assert.match(workflow,/workflow_dispatch:/);

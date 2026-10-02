@@ -17,6 +17,16 @@ on:
         required: false
         type: string
         default: ''
+      native_upload_setup:
+        description: 'Approved: initialize independent R2 library and test limited signed native uploads (no Google downloads)'
+        required: false
+        type: boolean
+        default: false
+      muse_public_key:
+        description: 'Optional NONSECRET raw Ed25519 public key, 64 lowercase hex; blank leaves Muse uploads disabled'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -66,6 +76,34 @@ jobs:
           python-version: '3.12'
       - name: Test migration and partial publication without credentials
         run: python -m unittest discover -s .jarvis-source/tests -p 'test_r2*.py'
+      - name: Prepare native library and temporary upload verification key
+        if: ${{ inputs.native_upload_setup == true }}
+        env:
+          MUSE_PUBLIC_KEY: ${{ inputs.muse_public_key }}
+        run: |
+          test -f .jarvis-source/tests/native-r2.test.js
+          node .jarvis-source/scripts/build-r2-library.mjs r2-library-seed.json
+          node --input-type=module <<'JS'
+          import {generateKeyPairSync} from 'node:crypto';
+          import {writeFileSync} from 'node:fs';
+          const muse=process.env.MUSE_PUBLIC_KEY;
+          if(muse && !/^[a-f0-9]{64}$/.test(muse))throw Error('Only a nonsecret raw Ed25519 public key is accepted');
+          const keys=generateKeyPairSync('ed25519');
+          writeFileSync('.jarvis-source/.music-test-key.pem',keys.privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600});
+          const publicKey=keys.publicKey.export({type:'spki',format:'der'}).subarray(-32).toString('hex');
+          writeFileSync('.music-upload-keys.json',JSON.stringify([...(muse?[muse]:[]),publicKey]));
+          JS
+          node scripts/prepare-music-worker.mjs .jarvis-source .music-upload-keys.json
+      - name: Install native publication and uploader dependencies
+        if: ${{ inputs.native_upload_setup == true }}
+        run: python -m pip install --disable-pip-version-check --no-cache-dir 'boto3>=1.35,<2' 'mutagen==1.48.1'
+      - name: Initialize independent library without overwriting an existing library
+        if: ${{ inputs.native_upload_setup == true }}
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: python scripts/manage-r2-library.py seed r2-library-seed.json > r2-library-seed-report.json
       - name: Resolve one completed migration report from this repository
         if: ${{ inputs.partial_report_run_id != '' }}
         id: report
@@ -110,6 +148,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: node scripts/check-music-worker-bindings.mjs
       - name: Record current Worker versions for rollback and deploy
+        id: worker_deploy
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -119,6 +158,65 @@ jobs:
           preCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-before.json
           command: deploy --config backend/wrangler.music.generated.json
           postCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-after.json
+      - name: Verify real signed native upload, artwork, hashes, decode, Range and CORS
+        if: ${{ inputs.native_upload_setup == true }}
+        run: |
+          if ! command -v ffmpeg > /dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          python scripts/music-upload-canary.py
+          python .jarvis-source/scripts/upload-music-r2.py music-verification/native/canary.opus --key .jarvis-source/.music-test-key.pem --report music-verification/native/upload.json
+          node scripts/verify-native-upload.mjs
+      - name: Verify the newly uploaded song in the exact deployed mobile player
+        if: ${{ inputs.native_upload_setup == true }}
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          npm ci
+          chrome_path=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
+          test -n "$chrome_path"
+          export MUSIC_BROWSER_EXECUTABLE="$chrome_path"
+          node scripts/verify-native-upload-browser.mjs
+      - name: Remove only this run's generated verification song and blobs
+        if: ${{ always() && inputs.native_upload_setup == true && steps.worker_deploy.outcome == 'success' }}
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          if test -f music-verification/native/upload.json; then
+            python scripts/manage-r2-library.py cleanup music-verification/native/upload.json > r2-canary-cleanup-report.json
+          fi
+      - name: Revoke temporary verification key and retain only explicitly registered Muse public key
+        if: ${{ always() && inputs.native_upload_setup == true && steps.worker_deploy.outcome == 'success' }}
+        env:
+          MUSE_PUBLIC_KEY: ${{ inputs.muse_public_key }}
+        run: |
+          cp .jarvis-source/worker-versions-after.json .jarvis-source/worker-versions-canary.json
+          node --input-type=module <<'JS'
+          import {writeFileSync} from 'node:fs';
+          const key=process.env.MUSE_PUBLIC_KEY;
+          if(key && !/^[a-f0-9]{64}$/.test(key))throw Error('Invalid public key');
+          writeFileSync('.music-upload-keys.json',JSON.stringify(key?[key]:[]));
+          JS
+          node scripts/prepare-music-worker.mjs .jarvis-source .music-upload-keys.json
+      - name: Deploy final Worker with temporary upload access revoked
+        if: ${{ always() && inputs.native_upload_setup == true && steps.worker_deploy.outcome == 'success' }}
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.R2_ACCOUNT_ID }}
+          wranglerVersion: '4.136.3'
+          workingDirectory: .jarvis-source
+          command: deploy --config backend/wrangler.music.generated.json
+          postCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-after.json
+      - name: Require live rejection of the revoked temporary upload key
+        if: ${{ always() && inputs.native_upload_setup == true && steps.worker_deploy.outcome == 'success' }}
+        run: node scripts/assert-music-upload-revoked.mjs
+      - name: Delete temporary private signing material
+        if: always()
+        run: rm -f .jarvis-source/.music-test-key.pem
       - name: Verify live music bytes, decoding, Range, CORS and catalog matching
         run: |
           if ! command -v ffmpeg > /dev/null; then
@@ -134,9 +232,15 @@ jobs:
           path: |
             .jarvis-source/worker-versions-before.json
             .jarvis-source/worker-versions-after.json
+            .jarvis-source/worker-versions-canary.json
             .jarvis-source/backend/wrangler.music.generated.json
             worker-bindings-before.json
             r2-partial-playback-report.json
             music-verification/report.json
+            music-verification/native/upload.json
+            music-verification/native/proof.json
+            music-verification/native/browser/
+            r2-library-seed-report.json
+            r2-canary-cleanup-report.json
           if-no-files-found: warn
           retention-days: 30
