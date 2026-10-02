@@ -1,0 +1,29 @@
+{
+  "status": "prepared-not-dispatched",
+  "sourceCommit": "79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c",
+  "publicKey": "7fa680e288968cb138bceb78a1632a922bcb09cd83643f37fb91d50428c0c99f",
+  "algorithm": "Ed25519",
+  "publicKeyFormatReceived": "SPKI PEM",
+  "publicKeyEncodingValidated": true,
+  "keyPublication": {
+    "id": "7644c513-70c5-4d5d-b061-cf5561c2e7c8",
+    "commentId": 5943978656,
+    "authorId": 183016859,
+    "createdAt": "2026-10-02T01:38:47Z",
+    "url": "https://github.com/braydenparker999/jarvis/issues/2#issuecomment-5943978656"
+  },
+  "capabilityAcknowledgment": {
+    "id": "19432169-87f7-421d-87cd-e6aa4ba1c756",
+    "commentId": 5943931423,
+    "createdAt": "2026-10-02T01:33:45Z"
+  },
+  "grantScope": [
+    "signed prepared Opus uploads",
+    "signed JPEG/PNG cover uploads",
+    "verified track registration in jarvis-music"
+  ],
+  "museUploadAccessEnabled": false,
+  "actualMuseUploadVerified": false,
+  "privateKeyRetrieved": false,
+  "nextStep": "Confirm final browser dispatch to register this public key; then require successful deployment and actual Muse upload/playback proof."
+}
