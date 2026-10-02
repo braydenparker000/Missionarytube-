@@ -1,5 +1,5 @@
 {
-  "status": "enabled-upload-request-delivered",
+  "status": "enabled-muse-upload-held",
   "sourceCommit": "79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c",
   "publicKey": "7fa680e288968cb138bceb78a1632a922bcb09cd83643f37fb91d50428c0c99f",
   "algorithm": "Ed25519",
@@ -25,7 +25,7 @@
   "museUploadAccessEnabled": true,
   "actualMuseUploadVerified": false,
   "privateKeyRetrieved": false,
-  "nextStep": "Require Muse signed upload report and verify its actual file in the live independent R2 player.",
+  "nextStep": "Owner confirms the already authorized direct R2 upload in the private Muse app; Muse rejected the public inbox handoff under its own safety rules. No upload was attempted.",
   "userActionTimeConfirmation": "Yes enable.",
   "workerDeployment": {
     "runId": 36952719062,
@@ -68,7 +68,14 @@
     "id": "da349bec-e40d-4529-93d9-81c0820337f8",
     "deliveredAt": "2026-10-02T01:53:42.430Z",
     "deliveryVerified": true,
-    "acknowledged": false,
-    "record": "muse-enabled-handoff-20261002.json"
+    "acknowledged": true,
+    "record": "muse-enabled-handoff-20261002.json",
+    "acknowledgmentId": "2fccceb1-4c22-4c3f-a131-0628d444c34b",
+    "acknowledgedAt": "2026-10-02T02:03:51Z"
+  },
+  "museUploadHold": {
+    "replyRecord": "muse-upload-hold-20261002.json",
+    "reason": "Muse inbox safety check did not accept the fetched instructions; private-app owner confirmation requested.",
+    "noDownloadRunUploadOrKeyAccessReported": true
   }
 }

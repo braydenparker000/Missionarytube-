@@ -8,7 +8,9 @@ Direct R2 upload/indexing is now deployed and verified end to end with a generat
 test song. Muse reports its private signing-key setup complete, and its public key has
 been received, validated and enabled after the owner confirmed “Yes enable.”
 Deployment 36952719062 passed the live native checks and removed its temporary
-test key. Muse was asked to upload Genesis; actual Muse upload remains pending.
+test key. Muse acknowledged the Genesis request at 02:03:51 UTC but held it
+under its inbox safety rules. Private-app owner confirmation is required; no
+actual Muse upload was attempted.
 
 ## Current native R2 deployment and rollback
 
@@ -194,7 +196,7 @@ Its then-present mirror job was skipped. Future manual migration code pins
 229 JavaScript / 93 Python tests, including stripping OAuth headers on redirects.
 The completed copy stayed on its original exact revision.
 
-## Native R2 uploads and Muse — key enabled, first upload pending
+## Native R2 uploads and Muse — key enabled, Muse upload held
 
 Current R2 playback reads its own independent library, containing prepared tags,
 duration and artwork links. The Worker verifies signed uploads and registers
@@ -304,7 +306,15 @@ in the live player with Drive disabled: playing at readyState 4, no error,
 seeking 40.032→68.143993 seconds, album art rendered. Browser source choices
 were restored after QA. The full audio SHA-256/ffmpeg decode, byte Range, HEAD,
 ETag and artwork hash/dimensions also passed. This is the already migrated file; Muse's upload report
-and acknowledgment remain pending.
+remains unverified. Muse acknowledged the enabled handoff at 02:03:51 UTC
+in verified owner-authored [comment 5944234950](https://github.com/braydenparker999/jarvis/issues/2#issuecomment-5944234950),
+reply `2fccceb1-4c22-4c3f-a131-0628d444c34b`. The owner-authored GitHub
+publication is verified; Worker sync last ran before this reply, so inbox import
+is not yet confirmed. Muse says its safety check rejected the
+fetched instructions, nothing was downloaded/run/uploaded and no key was
+touched. It requires confirmation in the private Muse app. This is Muse's
+external safety decision, not a Worker/upload failure; no retry or second
+inbox instruction was sent to bypass it. [Actual hold reply](muse-upload-hold-20261002.json).
 
 [Enabled key and rollback record](muse-r2-key-registration-20261002.json),
 [signed canary upload](muse-enabled-upload-proof-20261002.json),
