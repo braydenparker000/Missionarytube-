@@ -1,0 +1,59 @@
+{
+  "checkedAt": "2026-10-02T01:25:06.345Z",
+  "mode": "library",
+  "complete": true,
+  "verifiedCount": 1287,
+  "inventoryCount": 1287,
+  "verifiedBytesTotal": 4989786207,
+  "catalogMatches": true,
+  "samples": [
+    {
+      "driveId": "1__7KRoyZ_6bmLyQXOCxJ9bbeKPgBxaYM",
+      "bytes": 4072589,
+      "hashMatched": true,
+      "decoded": true,
+      "duration": 168.0605,
+      "GET": 200,
+      "HEAD": 200,
+      "Range": 206,
+      "suffix": 206,
+      "invalidRange": 416,
+      "ETag": 304,
+      "preflight": 204,
+      "CORS": true
+    },
+    {
+      "driveId": "1kbE-JQtnGci4Pqyo2IeboWmttNrL24r3",
+      "bytes": 4269971,
+      "hashMatched": true,
+      "decoded": true,
+      "duration": 112.261938,
+      "GET": 200,
+      "HEAD": 200,
+      "Range": 206,
+      "suffix": 206,
+      "invalidRange": 416,
+      "ETag": 304,
+      "preflight": 204,
+      "CORS": true
+    },
+    {
+      "driveId": "1ZyQB4r2sxkpelyr9NTrOATY9ErKVpBCn",
+      "bytes": 5104492,
+      "hashMatched": true,
+      "decoded": true,
+      "duration": 277.0075,
+      "GET": 200,
+      "HEAD": 200,
+      "Range": 206,
+      "suffix": 206,
+      "invalidRange": 416,
+      "ETag": 304,
+      "preflight": 204,
+      "CORS": true
+    }
+  ],
+  "canonicalMap": 200,
+  "unmappedDriveTrack": null,
+  "unapprovedOrigin": 403
+}

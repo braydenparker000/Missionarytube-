@@ -1,12 +1,86 @@
-# Independent Jarvis music sources — 2026-10-01
+# Independent Jarvis music sources — 2026-10-02
 
 The one-time Drive-to-R2 clone and canonical Poweramp playback cutover are complete.
 All 1,287 tracks / 4,989,786,207 bytes are verified in R2. Drive and R2 retain
 separate switches and track identities, with no cross-source audio fallback.
 Drive originals remain intact. Recurring R2 mirroring is cancelled and removed.
-Direct Muse-to-R2 upload/indexing remains unfinished.
+Direct R2 upload/indexing is now deployed and verified end to end with a generated
+test song. Actual Muse upload remains pending its private signing-key setup and
+public-key registration. Muse upload access is currently disabled.
 
-## Exact deployed revisions and rollback
+## Current native R2 deployment and rollback
+
+- Existing player retained; only its R2 discovery adapter changed. Exact frontend
+  and Worker source: `79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c`, source
+  [PR 17](https://github.com/braydenparker999/jarvis/pull/17) and
+  [PR 18](https://github.com/braydenparker999/jarvis/pull/18) merged. The large
+  player file was retained. Source CI
+  [36950379027](https://github.com/braydenparker999/jarvis/actions/runs/36950379027)
+  passed 236 JavaScript / 93 Python tests.
+- Deployment PRs
+  [78](https://github.com/braydenparker000/Missionarytube-/pull/78) and
+  [79](https://github.com/braydenparker000/Missionarytube-/pull/79) merged;
+  exact deployed revision `4ce64542afcbf6c20da301c6c0fe45ab42a243f4`.
+  CI [36950491009](https://github.com/braydenparker000/Missionarytube-/actions/runs/36950491009)
+  passed, as did 530 deployment tests and the exact pinned build locally.
+  Azure [36950583926](https://github.com/braydenparker000/Missionarytube-/actions/runs/36950583926)
+  succeeded. Rollback artifact `11203458889`, `storage-before-36950583926-1`,
+  ZIP SHA-256 `ae056c95771a3fb785ff0a293b8cd8df742c3dfb5692f619bcadff2deecb3e70`.
+  Live `/release.json` and `/assets/r2-config.json` confirm the source pin and
+  `/music/library.json`. `preserveDriveCatalog=true` remains; R2 no longer
+  needs the Drive root or catalog to discover songs.
+- Worker [36950677494](https://github.com/braydenparker000/Missionarytube-/actions/runs/36950677494)
+  succeeded from that exact source. Final version
+  `5b86f37c-a4ac-4421-9957-6b2b717d7ac3`, temporary-test version
+  `dd0ef450-d1b9-442a-be96-62f3bcb9c74d`, prior version
+  `8ec9ed37-4b71-48b9-82f0-c6117d1666bc`; pre-native rollback version
+  `3a918cd8-74be-4197-8730-888a98657cbc` remains available. HUBS and
+  MUSIC_R2=jarvis-music were checked and retained. Checkpoint artifact
+  `11203851309`, ZIP SHA-256
+  `aa1617303344a7631f32dd6c6f614f58b3e8cd7a266dee5e52d5e2a4092d7a3c`.
+  Final `MUSIC_UPLOAD_PUBLIC_KEYS=[]`; the temporary key was revoked, live
+  correctly signed requests rejected with 401, and its private file deleted.
+- Independent library `catalog/r2-library-v1.json` is complete, contains all
+  1,287 original tracks / 4,989,786,207 bytes, and retains their existing
+  `r2_<original ID>` identities and verified object proofs. Seeding used the
+  complete migration report and already published metadata; no Google transfer.
+  Canonical migration map `catalog/drive-r2-map-v1.json` stays separate.
+  Legacy covers remain immutable Azure images; new uploads store covers in R2.
+- A real signed upload of an original generated 20-second Opus song registered
+  as `r2_native_76242b2175c1165a3038946d9c69ba3da862fb1a848d8b893c310e7c999df831`,
+  increasing the library to 1,288. Audio SHA-256, all 518,983 bytes, full ffmpeg
+  decode, Range/CORS and embedded 320×320 artwork passed. Mobile Chrome found
+  the track with Drive/local/server disabled, played actual R2 audio at readyState
+  4, and sought from 1.349 to 6.363 seconds while playback continued. Its cover
+  rendered from the Worker. Cleanup removed only the canary and its blobs,
+  retaining the baseline and returning to 1,287 tracks. No audio was transcoded
+  by the upload client. This proves the native pipeline, not a Muse upload.
+- Post-Azure [36950813135](https://github.com/braydenparker000/Missionarytube-/actions/runs/36950813135)
+  passed actual separate-source playback, seeking and artwork, with 1,287 R2
+  and 1,287 Drive tracks. R2 seeking: 2.045→24.569 seconds; separate Drive:
+  2.045→24.565 seconds. Artifact `11204371427`, ZIP SHA-256
+  `1cd500f50a7c434b01d116a5b11faac81651aa8e50e0682c939d090de0b0b213`.
+  Three current library audio samples also passed hash/decode, GET/HEAD,
+  byte/suffix Range, invalid Range, ETag, preflight and denied-origin checks.
+- Earlier native attempt 36949581084 failed before Worker upload on Cloudflare
+  rejection of Python urllib's default client identifier, and an immediate
+  revocation probe still saw the prior edge policy. The client now uses its
+  truthful `JarvisMusicUploader/1.0` name; deployment checks allow at most 60
+  seconds for normal policy propagation using invalid registration that cannot
+  write tracks. Later live upload and revocation checks passed. Push-triggered
+  check 36950583929 rejected the old frontend pin before Azure completed;
+  the authoritative post-Azure check above passed. No Google retry was made.
+
+[Deployment and rollback evidence](r2-native-deployment-20261002.json),
+[native upload proof](r2-native-proof-20261002.json),
+[canary mobile proof](r2-native-browser-20261002.json),
+[current protocol proof](r2-native-protocol-20261002.json),
+[source isolation proof](r2-native-isolation-browser-20261002.json),
+[cleanup](r2-native-cleanup-20261002.json).
+Physical Android background playback and comparative startup latency remain
+unverified. No recurring R2 mirror or new schedule was added.
+
+## Previous canonical deployment and rollback
 
 - Frontend source remains `7a5c267831f42eda30c1ced45c1a237a986326b3`.
   The existing player was retained. Source PRs 12 and 13 remain merged.
@@ -118,22 +192,30 @@ Its then-present mirror job was skipped. Future manual migration code pins
 229 JavaScript / 93 Python tests, including stripping OAuth headers on redirects.
 The completed copy stayed on its original exact revision.
 
-## Native R2 uploads and Muse — unfinished integration
+## Native R2 uploads and Muse — private setup pending
 
-Current R2 playback is independent, but its titles/artwork still come from the
-published Drive-derived static catalog. The current read-only Worker and
-migration manifest do not automatically discover arbitrary uploads.
+Current R2 playback reads its own independent library, containing prepared tags,
+duration and artwork links. The Worker verifies signed uploads and registers
+finished songs into that list. New registered songs appear on refresh or the
+player's five-minute check, deferred while R2 is playing. Raw files uploaded by
+another tool without registration do not automatically become songs.
 
-Remaining native upload work:
+Remaining Muse-specific work:
 
-1. Add authorized, limited music upload access using the existing R2 binding.
-2. Verify uploaded audio/artwork, accept prepared tags/duration and register stable
-   song identities in an automatically maintained independent R2 song list.
-3. Change only the R2 discovery adapter to read that list, retaining the player,
-   source isolation and existing ratings/playlists; initialize it from the verified
-   migration and existing metadata without more Google downloads.
-4. Verify an actual Muse upload appearing in the player with Drive disabled,
-   including artwork, playback, seeking, duplicate and interrupted-upload handling.
+1. Owner authorizes a dedicated Ed25519 PKCS8 PEM key inside the private Muse app.
+   Muse retains the private file privately across runs at mode 0600 and sends only
+   its raw 32-byte public verification key (64 lowercase hex) through the inbox.
+2. Register that nonsecret public key using `muse_public_key` in the existing
+   manual Worker deployment; do not give Muse R2 account credentials.
+3. Muse uses the pinned `scripts/upload-music-r2.py` client on its existing
+   authorized tagged Opus test file with embedded cover. Verify its actual
+   registration response and live player playback/seeking with Drive disabled.
+   Identical existing audio returns the existing song ID without duplication.
+
+The endpoint/client/index/adapter and real generated-file verification are done.
+Duplicate, interruption and concurrent registration handling have regression
+coverage. An actual Muse upload and its persistent private-key setup are not
+verified. [Client contract and private setup](https://github.com/braydenparker999/jarvis/blob/79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c/docs/native-r2-uploads.md).
 
 The prior Muse inbox handoff `c454e4ed-50d1-47cb-8da4-1b12757c236f` was acknowledged
 by reply `487c315c-7386-418a-aece-758079cc353e` at 13:03:33 UTC. Muse's last verified
@@ -162,8 +244,16 @@ not evidence of an upload to R2.
 
 Muse requires the owner to say inside its private app: “Generate the dedicated
 signing keypair now, keep the private key stored privately in your scheduled
-environment.” No key has been created or provided by this check. A limited
-verified upload endpoint and independent index integration still need to be built
-and tested before that file can appear in the R2 player. No fresh Muse upload
+environment.” No Muse key has been created or provided by this check. The
+limited verified upload endpoint, independent index and player integration are
+now deployed and tested as described above. No fresh Muse upload
 to Drive or R2 occurred during this check; no mirror or recurring task was created.
 [Delivery and acknowledgment evidence](muse-r2-handoff-20261001.json).
+
+The verified native deployment handoff `8d1ad670-e210-4dde-a415-0f7e84372e73`
+was delivered and read back at 2026-10-02 01:29:01 UTC. It supplies the exact
+client pin/hash and tested contract, states that Muse uploads remain disabled,
+and asks Muse to prepare the client while waiting for the owner's private key
+authorization. It does not authorize private key generation from the public
+inbox and contains no credentials. Delivery is verified; acknowledgment remains
+pending. [Native Muse handoff](muse-native-r2-handoff-20261002.json).

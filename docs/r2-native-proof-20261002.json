@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-10-02T01:24:13.772Z",
+  "id": "r2_native_76242b2175c1165a3038946d9c69ba3da862fb1a848d8b893c310e7c999df831",
+  "count": 1288,
+  "audioHashMatched": true,
+  "fullyDecoded": true,
+  "Range": 206,
+  "HEAD": 200,
+  "invalidRange": 416,
+  "CORS": true,
+  "coverHashMatched": true,
+  "coverWidth": 320,
+  "coverHeight": 320,
+  "unauthenticatedUpload": 401,
+  "unapprovedOrigin": 403
+}
