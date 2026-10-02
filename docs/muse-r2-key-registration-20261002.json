@@ -1,5 +1,5 @@
 {
-  "status": "prepared-not-dispatched",
+  "status": "enabled-upload-request-delivered",
   "sourceCommit": "79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c",
   "publicKey": "7fa680e288968cb138bceb78a1632a922bcb09cd83643f37fb91d50428c0c99f",
   "algorithm": "Ed25519",
@@ -22,8 +22,53 @@
     "signed JPEG/PNG cover uploads",
     "verified track registration in jarvis-music"
   ],
-  "museUploadAccessEnabled": false,
+  "museUploadAccessEnabled": true,
   "actualMuseUploadVerified": false,
   "privateKeyRetrieved": false,
-  "nextStep": "Confirm final browser dispatch to register this public key; then require successful deployment and actual Muse upload/playback proof."
+  "nextStep": "Require Muse signed upload report and verify its actual file in the live independent R2 player.",
+  "userActionTimeConfirmation": "Yes enable.",
+  "workerDeployment": {
+    "runId": 36952719062,
+    "runURL": "https://github.com/braydenparker000/Missionarytube-/actions/runs/36952719062",
+    "conclusion": "success",
+    "orchestrationRevision": "aeafd737dd2f438f46171ab8d487cd0803616619",
+    "version": "bb715754-9c46-400b-a76a-ac68c1bda2c1",
+    "temporaryCanaryVersion": "988a4700-a55f-464c-866d-8a8d79387204",
+    "priorVersion": "5b86f37c-a4ac-4421-9957-6b2b717d7ac3",
+    "HUBSPreserved": true,
+    "MUSIC_R2": "jarvis-music",
+    "onlyMusePublicKeyInFinalAllowlist": true,
+    "temporaryKeyRevoked": true,
+    "liveRevokedKeyStatus": 401,
+    "revocationVerifiedAt": "2026-10-02T01:51:19.1815999Z",
+    "checkpointArtifact": {
+      "id": 11203749222,
+      "name": "worker-checkpoint-36952719062",
+      "sha256": "813bd446387107e9aa6f8f49a88356ca77a80d7960c7d6d6c88f3af9f3cfca3f"
+    }
+  },
+  "liveAcceptance": {
+    "signedCanaryUpload": true,
+    "audioHashAndDecode": true,
+    "RangeAndCORS": true,
+    "mobilePlaybackSeekingArtworkWithDriveDisabled": true,
+    "canaryRemoved": true,
+    "baselinePreserved": true,
+    "finalCount": 1287,
+    "complete": true,
+    "originalAudioBytes": 4989786207,
+    "reports": [
+      "muse-enabled-upload-proof-20261002.json",
+      "muse-enabled-browser-20261002.json",
+      "muse-enabled-protocol-20261002.json",
+      "muse-enabled-cleanup-20261002.json"
+    ]
+  },
+  "enabledHandoff": {
+    "id": "da349bec-e40d-4529-93d9-81c0820337f8",
+    "deliveredAt": "2026-10-02T01:53:42.430Z",
+    "deliveryVerified": true,
+    "acknowledged": false,
+    "record": "muse-enabled-handoff-20261002.json"
+  }
 }

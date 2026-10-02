@@ -1,0 +1,21 @@
+{
+  "checkedAt": "2026-10-02T02:00:58.005Z",
+  "id": "r2_1594bzGkaPidWVBMpAM5_QwpEX7AVG-t7",
+  "count": 1287,
+  "complete": true,
+  "preexistingMigratedTrack": true,
+  "actualMuseUploadVerified": false,
+  "audioBytes": 3445432,
+  "audioSha256": "dada1575177136141027298e21b4b73d0e1cf9eace01ac3ea4ac98492f22f34e",
+  "hashMatched": true,
+  "fullyDecoded": true,
+  "Range": 206,
+  "HEAD": 200,
+  "invalidRange": 416,
+  "ETag": 304,
+  "CORS": true,
+  "coverHashMatched": true,
+  "coverSha256": "f3a2be0b358a84bacd6afe84eef440c6b74a167dbfcdcbc2bca9f43a431ca7c4",
+  "coverWidth": 320,
+  "coverHeight": 320
+}
