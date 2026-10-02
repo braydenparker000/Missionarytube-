@@ -5,8 +5,9 @@ All 1,287 tracks / 4,989,786,207 bytes are verified in R2. Drive and R2 retain
 separate switches and track identities, with no cross-source audio fallback.
 Drive originals remain intact. Recurring R2 mirroring is cancelled and removed.
 Direct R2 upload/indexing is now deployed and verified end to end with a generated
-test song. Actual Muse upload remains pending its private signing-key setup and
-public-key registration. Muse upload access is currently disabled.
+test song. Muse reports its private signing-key setup complete, and its public key has
+been received and validated. Public-key registration and actual Muse upload
+remain pending. Muse upload access is currently disabled.
 
 ## Current native R2 deployment and rollback
 
@@ -192,7 +193,7 @@ Its then-present mirror job was skipped. Future manual migration code pins
 229 JavaScript / 93 Python tests, including stripping OAuth headers on redirects.
 The completed copy stayed on its original exact revision.
 
-## Native R2 uploads and Muse — private setup pending
+## Native R2 uploads and Muse — public-key registration pending
 
 Current R2 playback reads its own independent library, containing prepared tags,
 duration and artwork links. The Worker verifies signed uploads and registers
@@ -202,9 +203,9 @@ another tool without registration do not automatically become songs.
 
 Remaining Muse-specific work:
 
-1. Owner authorizes a dedicated Ed25519 PKCS8 PEM key inside the private Muse app.
-   Muse retains the private file privately across runs at mode 0600 and sends only
-   its raw 32-byte public verification key (64 lowercase hex) through the inbox.
+1. Muse reports its dedicated Ed25519 key generated and retained privately.
+   Its public verification key has been received and validated; see the receipt
+   below. Private persistence is Muse's report, not independently inspected here.
 2. Register that nonsecret public key using `muse_public_key` in the existing
    manual Worker deployment; do not give Muse R2 account credentials.
 3. Muse uses the pinned `scripts/upload-music-r2.py` client on its existing
@@ -255,5 +256,31 @@ was delivered and read back at 2026-10-02 01:29:01 UTC. It supplies the exact
 client pin/hash and tested contract, states that Muse uploads remain disabled,
 and asks Muse to prepare the client while waiting for the owner's private key
 authorization. It does not authorize private key generation from the public
-inbox and contains no credentials. Delivery is verified; acknowledgment remains
-pending. [Native Muse handoff](muse-native-r2-handoff-20261002.json).
+inbox and contains no credentials. Delivery is verified; acknowledgment was
+subsequently received at 01:33:45 UTC as recorded below.
+[Native Muse handoff](muse-native-r2-handoff-20261002.json).
+
+## Muse public key received — registration prepared, not dispatched
+
+Muse acknowledged readiness in owner-authored issue comment `5943931423` at
+2026-10-02 01:33:45 UTC (reply `19432169-87f7-421d-87cd-e6aa4ba1c756`).
+It subsequently published only its Ed25519 SPKI PEM public key in owner-authored
+[comment 5943978656](https://github.com/braydenparker999/jarvis/issues/2#issuecomment-5943978656)
+at 01:38:47 UTC (publication `7644c513-70c5-4d5d-b061-cf5561c2e7c8`). The
+44-byte DER SPKI prefix and 32-byte raw Ed25519 public key were validated.
+No private key was requested, retrieved or stored here. Muse reports that its
+private key remains in its persistent private environment.
+
+The existing manual Worker form is prepared with exact source
+`79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c`, native upload verification enabled,
+blank partial migration run, and Muse's validated nonsecret raw public key.
+The final dispatch is pending fresh confirmation because browser rules require
+confirmation when granting an agent new authenticated upload access. No new
+Worker run has been dispatched, Muse upload access remains disabled, and no
+actual Muse upload is verified. Existing 1,287-track R2 playback is unchanged.
+
+[Public-key receipt and prepared grant](muse-r2-key-registration-20261002.json).
+The second publication reused the first acknowledgment's replyTo; the inbox's
+unique reply constraint retained the first acknowledgment. The public key was
+read directly from the verified owner's GitHub publication. Subsequent Muse
+responses should reply to a new handoff ID so they can be imported separately.
