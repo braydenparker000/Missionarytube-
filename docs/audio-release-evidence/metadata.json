@@ -1,0 +1,13 @@
+{
+  "verifiedAt": "2026-10-02T05:13:18.954202+00:00",
+  "currentCount": 1572,
+  "startingSnapshotCount": 1358,
+  "priorAudioIdentitiesChanged": 0,
+  "appliedAnalysisCount": 20,
+  "analysisRun": 36967356344,
+  "applyRun": 36967713291,
+  "analysisArtifactId": 11209849098,
+  "analysisArtifactSha256": "9fc2b2c8fd01f0b6c3710e39366c358b6756ecd85761a562f574b8b93c9d4c96",
+  "originalAudioWrites": 0,
+  "googleTransfers": 0
+}

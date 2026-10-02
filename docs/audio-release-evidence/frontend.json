@@ -1,0 +1,17 @@
+{
+  "sourcePin": "cebdc8d924e35480aaefc293e0a90e8e113118c3",
+  "sourceMerge": "0fdf1942c28a6f82db19225716edfb768b25c768",
+  "sourceCI": 36967173265,
+  "deploymentHead": "6d765f0730c508a8829482ef28b81f1c8b469828",
+  "deploymentMerge": "42b327f3d0c4faaad9bd09f65dfc5383c581a9de",
+  "deploymentCI": 36967247449,
+  "azureRun": 36967307732,
+  "azureConclusion": "success",
+  "artifacts": [
+    {
+      "id": 11210187154,
+      "name": "storage-before-36967307732-1",
+      "digest": "sha256:f827bdda1aae793af03130debba0df487d0e198e97f2fe9bf77fcf9b5a2dce82"
+    }
+  ]
+}

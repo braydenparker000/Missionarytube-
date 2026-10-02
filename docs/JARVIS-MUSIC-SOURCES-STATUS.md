@@ -9,11 +9,11 @@ hash-bound audio analysis and signed metadata-only corrections. The source graph
 measurements and smallest A15 comparison protocol are in
 [measured-audio.md](https://github.com/braydenparker999/jarvis/blob/codex/measured-audio-fidelity/docs/measured-audio.md).
 
-Implementation candidate `cebdc8d924e35480aaefc293e0a90e8e113118c3` passes
+Live source pin `cebdc8d924e35480aaefc293e0a90e8e113118c3` passes
 249 JavaScript / 93 Python tests. Source CI
-[36964912606](https://github.com/braydenparker999/jarvis/actions/runs/36964912606)
+[36967173265](https://github.com/braydenparker999/jarvis/actions/runs/36967173265)
 passed; the exact pinned candidate passes 530 deployment tests and the static
-build. The final 30-minute endurance run passed 180 actual non-silent samples, alternating volume, seeks and mode edits, with no unexpected backend changes. Worst unreset media/wall interval difference was 19.8 ms; sampled heap ranged 7.0–13.1 MiB and ended below its start. Real callback failure recovered to non-silent fallback afterward. Frontend promotion follows the final pinned CI.
+build. The final 30-minute endurance run passed 180 actual non-silent samples, alternating volume, seeks and mode edits, with no unexpected backend changes. Worst unreset media/wall interval difference was 19.8 ms; sampled heap ranged 7.0–13.1 MiB and ended below its start. Real callback failure recovered to non-silent fallback afterward. Pinned deployment CI [36967247449](https://github.com/braydenparker000/Missionarytube-/actions/runs/36967247449) passed. Source PR 19 merged as `0fdf1942c28a6f82db19225716edfb768b25c768`; deployment [PR 84](https://github.com/braydenparker000/Missionarytube-/pull/84) merged as `42b327f3d0c4faaad9bd09f65dfc5383c581a9de`. Azure [36967307732](https://github.com/braydenparker000/Missionarytube-/actions/runs/36967307732) succeeded. Live `/release.json` confirms `cebdc8d924e35480aaefc293e0a90e8e113118c3`, and real production Chrome playback, worklet, seeks, Range/CORS, artwork, media session and non-silent track switches passed with no asset interception.
 
 The complete production graph nulled exactly at tested 44.1/48/96 kHz rates.
 All 297 guard vectors passed an independent 32×, 8193-tap output oracle;
@@ -31,7 +31,7 @@ existing upload authorization was retained with `keep_vars=true`. HUBS and
 MUSIC_R2=jarvis-music were checked and preserved. Checkpoint artifact
 `11208902875`, `worker-checkpoint-36963369153`, digest
 `efd7fe104b600975c29180aa11b826397f48aac279f47e49ad30854061e9ff3e`.
-Deployed version `c832d447-29e8-4d27-a105-2ed696c40acc`; prior production version `bb715754-9c46-400b-a76a-ac68c1bda2c1` is retained for rollback. The checkpoint ZIP digest was checked locally. An unsigned browser analysis correction was rejected with 403.
+Deployed version `c832d447-29e8-4d27-a105-2ed696c40acc`; prior production version `bb715754-9c46-400b-a76a-ac68c1bda2c1` is retained for rollback. The checkpoint ZIP digest was checked locally. Unsigned browser/server analysis corrections were rejected with 403/401 respectively.
 
 The manual `analyze-r2-audio.yml` defaults to read-only analysis, at most 100
 objects, and saves an exact artifact/checkpoint. Applying a reviewed successful
@@ -45,6 +45,41 @@ check found all 1,358 starting-snapshot IDs, audio hashes, sizes and paths intac
 in the then-current 1,488-track library. The 1,287 migration baseline below is
 historical, not a fixed current-library count. The owner reported Muse success;
 this task has not independently verified a new Muse upload or contacted Muse.
+
+## Audio release checkpoint and bounded metadata application
+
+Azure preserved rollback artifact `11210187154`,
+`storage-before-36967307732-1`, before overwriting live files. GitHub records ZIP
+SHA-256 `f827bdda1aae793af03130debba0df487d0e198e97f2fe9bf77fcf9b5a2dce82`.
+The prior frontend source pin was `79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c`;
+restore the saved bytes/properties for an exact frontend rollback. The analysis
+jobs also retain catalog-before checkpoints. A metadata rollback must preserve
+later uploads and compare exact IDs/proofs/prior analysis rather than blindly
+replace the catalog with an old snapshot.
+
+The one-time bounded [analysis run 36967356344](https://github.com/braydenparker000/Missionarytube-/actions/runs/36967356344)
+read 20 existing R2 originals strictly after checkpoint
+`r2_14zD_buUG0bZPqW05lHKTdZZD2sGMACJi`. All 20 succeeded. Artifact
+`11209849098` was downloaded and reviewed: its ZIP SHA-256
+`9fc2b2c8fd01f0b6c3710e39366c358b6756ecd85761a562f574b8b93c9d4c96`
+matched; every measurement passed the same registration/playback schema. Genesis
+matched the independent prior analysis at −7.5 LUFS / +3.0 dBTP. The source SHA,
+audio identities, decoded-container gain basis and measurement fields were checked.
+
+[Apply run 36967713291](https://github.com/braydenparker000/Missionarytube-/actions/runs/36967713291)
+succeeded using that exact reviewed artifact and conditional catalog writes.
+Its artifact `11210443141` has GitHub-recorded SHA-256
+`26c0142c74f739afe8b2c1015abba2687a5273f4bdc458ec63885b029fcfc4e5`.
+Live verification confirmed all 20 measurements and immutable proofs, zero
+original-audio writes, zero Google transfers, and all 1,358 starting-snapshot
+IDs/hashes/sizes/audio paths intact in the then-current 1,572-track library.
+This is a 20-track metadata backfill, not a claim that the entire growing library
+has been analyzed. No scheduled backfill or mirroring was created.
+
+Machine-readable release, live browser and metadata records are in
+[`docs/audio-release-evidence/`](audio-release-evidence/). Physical A15/DAC/Bluetooth
+listening, screen-off and route-handoff tests remain unverified. Use the source
+owner comparison protocol with the same hashed file and measured output level.
 
 ## Historical source and migration checkpoint
 
