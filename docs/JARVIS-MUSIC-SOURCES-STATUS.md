@@ -1,5 +1,53 @@
 # Independent Jarvis music sources — 2026-10-02
 
+## Measured audio release candidate
+
+Audio is the only active task; the owner confirmed there is no separate shuffle
+work to integrate. Source [PR 19](https://github.com/braydenparker999/jarvis/pull/19)
+adds transparent playback, volume before final protection, accurate optional EQ,
+hash-bound audio analysis and signed metadata-only corrections. The source graph,
+measurements and smallest A15 comparison protocol are in
+[measured-audio.md](https://github.com/braydenparker999/jarvis/blob/codex/measured-audio-fidelity/docs/measured-audio.md).
+
+Implementation candidate `b3220c86411799415629d48ea86583b1cbedc515` passes
+248 JavaScript / 93 Python tests. Source CI
+[36963212479](https://github.com/braydenparker999/jarvis/actions/runs/36963212479)
+passed; the exact pinned candidate passes 530 deployment tests and the static
+build. The final endurance run is pending, so frontend promotion is pending.
+
+The complete production graph nulled exactly at tested 44.1/48/96 kHz rates.
+All 297 guard vectors passed an independent 32×, 8193-tap output oracle;
+worst −1.658 dBTP against the unchanged −0.9 limit. On Genesis, old limiter
+activity was 74.23% even at 50% volume; the new path had zero activity at 50%
+across six verified original files. 108 EQ-extreme cases and actual R2 streaming,
+seeks, natural next, hard switches, artwork, media session, Range/CORS and real
+callback-failure recovery passed. Physical A15/DAC/Bluetooth listening and
+background tests remain unverified; official EBU vector retrieval returned 403.
+
+Worker [36963369153](https://github.com/braydenparker000/Missionarytube-/actions/runs/36963369153)
+successfully deployed that implementation and verified live bytes, decoding,
+Range, CORS and catalog matching. Native setup and migration were disabled;
+existing upload authorization was retained with `keep_vars=true`. HUBS and
+MUSIC_R2=jarvis-music were checked and preserved. Checkpoint artifact
+`11208902875`, `worker-checkpoint-36963369153`, digest
+`efd7fe104b600975c29180aa11b826397f48aac279f47e49ad30854061e9ff3e`.
+An unsigned browser analysis correction was rejected with 403.
+
+The manual `analyze-r2-audio.yml` defaults to read-only analysis, at most 100
+objects, and saves an exact artifact/checkpoint. Applying a reviewed successful
+artifact checks its source SHA, immutable audio proofs and prior analysis, then
+conditionally changes catalog metadata only. It has no schedule, audio rewrite,
+Google download or migration. Existing prepared uploads can optionally use
+`--analyze`; analysis failures leave upload available.
+
+The active library is growing through independent native uploads. A 04:11 UTC
+check found all 1,358 starting-snapshot IDs, audio hashes, sizes and paths intact
+in the then-current 1,488-track library. The 1,287 migration baseline below is
+historical, not a fixed current-library count. The owner reported Muse success;
+this task has not independently verified a new Muse upload or contacted Muse.
+
+## Historical source and migration checkpoint
+
 The one-time Drive-to-R2 clone and canonical Poweramp playback cutover are complete.
 All 1,287 tracks / 4,989,786,207 bytes are verified in R2. Drive and R2 retain
 separate switches and track identities, with no cross-source audio fallback.
