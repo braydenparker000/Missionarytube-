@@ -11,7 +11,7 @@ the tone preview with the actual shelf frequencies and Q.
 
 Reviewed source `775fb403be63bfd64dfcfba91ce2ae3dedcf9c36` passes 251 source JavaScript /
 93 Python tests, 530 deployment tests and the exact pinned 156-file / 19.09 MiB
-static build. Source CI [36970756488](https://github.com/braydenparker999/jarvis/actions/runs/36970756488)
+static build. Source CI [36973051008](https://github.com/braydenparker999/jarvis/actions/runs/36973051008)
 passed. Transparent production renders still null exactly at 44.1/48/96 kHz;
 all six full original corpus files now have zero guard reduction at 100%.
 Eighteen extreme production cascades match declared response within 0.001 dB
@@ -37,6 +37,10 @@ Apply artifact `11211705301` has GitHub-recorded digest
 `d6f4f11da9dd881b1826f6d58b1de65ac7cd7600022f3ba00945110e56ea917a`.
 This is metadata-only work; no audio rewrite, Google transfer or schedule was
 added. The existing Worker and upload authorization are unchanged.
+
+Source PR 20 merged as `afbb1fa1e498018e69326d468aeccc5c39b42111`; the
+release pins exact reviewed head `775fb403be63bfd64dfcfba91ce2ae3dedcf9c36`.
+Frontend rollback is preserved by the existing Azure workflow before overwrite.
 
 ## First measured audio release
 
