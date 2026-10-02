@@ -6,8 +6,9 @@ separate switches and track identities, with no cross-source audio fallback.
 Drive originals remain intact. Recurring R2 mirroring is cancelled and removed.
 Direct R2 upload/indexing is now deployed and verified end to end with a generated
 test song. Muse reports its private signing-key setup complete, and its public key has
-been received and validated. Public-key registration and actual Muse upload
-remain pending. Muse upload access is currently disabled.
+been received, validated and enabled after the owner confirmed “Yes enable.”
+Deployment 36952719062 passed the live native checks and removed its temporary
+test key. Muse was asked to upload Genesis; actual Muse upload remains pending.
 
 ## Current native R2 deployment and rollback
 
@@ -30,7 +31,7 @@ remain pending. Muse upload access is currently disabled.
   Live `/release.json` and `/assets/r2-config.json` confirm the source pin and
   `/music/library.json`. `preserveDriveCatalog=true` remains; R2 no longer
   needs the Drive root or catalog to discover songs.
-- Worker [36950677494](https://github.com/braydenparker000/Missionarytube-/actions/runs/36950677494)
+- Initial native Worker [36950677494](https://github.com/braydenparker000/Missionarytube-/actions/runs/36950677494)
   succeeded from that exact source. Final version
   `5b86f37c-a4ac-4421-9957-6b2b717d7ac3`, temporary-test version
   `dd0ef450-d1b9-442a-be96-62f3bcb9c74d`, prior version
@@ -39,7 +40,7 @@ remain pending. Muse upload access is currently disabled.
   MUSIC_R2=jarvis-music were checked and retained. Checkpoint artifact
   `11203851309`, ZIP SHA-256
   `aa1617303344a7631f32dd6c6f614f58b3e8cd7a266dee5e52d5e2a4092d7a3c`.
-  Final `MUSIC_UPLOAD_PUBLIC_KEYS=[]`; the temporary key was revoked, live
+  Its initial final `MUSIC_UPLOAD_PUBLIC_KEYS=[]`; the temporary key was revoked, live
   correctly signed requests rejected with 401, and its private file deleted.
 - Independent library `catalog/r2-library-v1.json` is complete, contains all
   1,287 original tracks / 4,989,786,207 bytes, and retains their existing
@@ -193,7 +194,7 @@ Its then-present mirror job was skipped. Future manual migration code pins
 229 JavaScript / 93 Python tests, including stripping OAuth headers on redirects.
 The completed copy stayed on its original exact revision.
 
-## Native R2 uploads and Muse — public-key registration pending
+## Native R2 uploads and Muse — key enabled, first upload pending
 
 Current R2 playback reads its own independent library, containing prepared tags,
 duration and artwork links. The Worker verifies signed uploads and registers
@@ -201,13 +202,13 @@ finished songs into that list. New registered songs appear on refresh or the
 player's five-minute check, deferred while R2 is playing. Raw files uploaded by
 another tool without registration do not automatically become songs.
 
-Remaining Muse-specific work:
+Muse integration status:
 
 1. Muse reports its dedicated Ed25519 key generated and retained privately.
    Its public verification key has been received and validated; see the receipt
    below. Private persistence is Muse's report, not independently inspected here.
-2. Register that nonsecret public key using `muse_public_key` in the existing
-   manual Worker deployment; do not give Muse R2 account credentials.
+2. Public-key registration succeeded in Worker run 36952719062. Only Muse's
+   validated public key remains allowed; no R2 account credentials were shared.
 3. Muse uses the pinned `scripts/upload-music-r2.py` client on its existing
    authorized tagged Opus test file with embedded cover. Verify its actual
    registration response and live player playback/seeking with Drive disabled.
@@ -260,7 +261,7 @@ inbox and contains no credentials. Delivery is verified; acknowledgment was
 subsequently received at 01:33:45 UTC as recorded below.
 [Native Muse handoff](muse-native-r2-handoff-20261002.json).
 
-## Muse public key received — registration prepared, not dispatched
+## Muse public key enabled — deployment and rollback record
 
 Muse acknowledged readiness in owner-authored issue comment `5943931423` at
 2026-10-02 01:33:45 UTC (reply `19432169-87f7-421d-87cd-e6aa4ba1c756`).
@@ -271,15 +272,49 @@ at 01:38:47 UTC (publication `7644c513-70c5-4d5d-b061-cf5561c2e7c8`). The
 No private key was requested, retrieved or stored here. Muse reports that its
 private key remains in its persistent private environment.
 
-The existing manual Worker form is prepared with exact source
-`79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c`, native upload verification enabled,
-blank partial migration run, and Muse's validated nonsecret raw public key.
-The final dispatch is pending fresh confirmation because browser rules require
-confirmation when granting an agent new authenticated upload access. No new
-Worker run has been dispatched, Muse upload access remains disabled, and no
-actual Muse upload is verified. Existing 1,287-track R2 playback is unchanged.
+The owner confirmed “Yes enable.” before dispatch. Manual Worker
+[run 36952719062](https://github.com/braydenparker000/Missionarytube-/actions/runs/36952719062)
+succeeded from exact source `79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c`
+and orchestration `aeafd737dd2f438f46171ab8d487cd0803616619`.
+Final Worker `bb715754-9c46-400b-a76a-ac68c1bda2c1` preserves HUBS and
+MUSIC_R2=jarvis-music. Its final allowlist contains only Muse's validated public
+key. Temporary canary Worker `988a4700-a55f-464c-866d-8a8d79387204` was
+replaced, its test key revoked, and a live correctly signed request rejected
+with 401 at 01:51:19 UTC. No private credential was retrieved or printed.
+Prior Worker `5b86f37c-a4ac-4421-9957-6b2b717d7ac3` is the rollback
+version. Checkpoint artifact `11203749222`, `worker-checkpoint-36952719062`,
+ZIP SHA-256 `813bd446387107e9aa6f8f49a88356ca77a80d7960c7d6d6c88f3af9f3cfca3f`
+records the configuration and rollback; Azure source/deployment are unchanged.
 
-[Public-key receipt and prepared grant](muse-r2-key-registration-20261002.json).
+The generated signed canary registered and became visible in the player with
+Drive/local/server disabled. Hash/ffmpeg, Range/CORS, 320×320 artwork and actual
+mobile playback/seek passed (1.442667→6.456 seconds, readyState 4, no error).
+Cleanup preserved the complete 1,287-track / 4,989,786,207-byte baseline.
+Three original audio samples passed current hash/decode/HTTP checks again.
+This proves the deployed pipeline, not an actual Muse signature/upload.
+
+The enabled handoff `da349bec-e40d-4529-93d9-81c0820337f8` was delivered
+and read back at 2026-10-02 01:53:42 UTC. It supplies the exact client/hash,
+explains that no separate key ID or R2 account binding is needed, and requests
+one direct upload of Muse's existing tagged Genesis file. No Drive upload,
+re-encoding, mirror or new schedule was requested. Identical Genesis bytes
+should reuse stable ID `r2_1594bzGkaPidWVBMpAM5_QwpEX7AVG-t7` and keep
+count 1,287. The original Genesis audio (3,445,432 bytes) was also checked
+in the live player with Drive disabled: playing at readyState 4, no error,
+seeking 40.032→68.143993 seconds, album art rendered. Browser source choices
+were restored after QA. The full audio SHA-256/ffmpeg decode, byte Range, HEAD,
+ETag and artwork hash/dimensions also passed. This is the already migrated file; Muse's upload report
+and acknowledgment remain pending.
+
+[Enabled key and rollback record](muse-r2-key-registration-20261002.json),
+[signed canary upload](muse-enabled-upload-proof-20261002.json),
+[mobile player proof](muse-enabled-browser-20261002.json),
+[current protocol proof](muse-enabled-protocol-20261002.json),
+[cleanup](muse-enabled-cleanup-20261002.json),
+[enabled handoff](muse-enabled-handoff-20261002.json),
+[Genesis browser proof](muse-genesis-browser-20261002.json),
+[Genesis protocol proof](muse-genesis-protocol-20261002.json).
+
 The second publication reused the first acknowledgment's replyTo; the inbox's
 unique reply constraint retained the first acknowledgment. The public key was
 read directly from the verified owner's GitHub publication. Subsequent Muse

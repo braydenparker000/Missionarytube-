@@ -8,9 +8,11 @@
   "sourceCommit": "79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c",
   "workerRun": 36950677494,
   "sourceIsolationRun": 36950813135,
-  "museKeyRegistered": false,
+  "museKeyRegistered": true,
   "acknowledgmentId": "19432169-87f7-421d-87cd-e6aa4ba1c756",
   "acknowledgedAt": "2026-10-02T01:33:45Z",
   "publicKeyReceived": true,
-  "publicKeyRegistered": false
+  "publicKeyRegistered": true,
+  "registrationWorkerRun": 36952719062,
+  "supersededBy": "da349bec-e40d-4529-93d9-81c0820337f8"
 }

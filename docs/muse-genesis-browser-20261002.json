@@ -1,0 +1,22 @@
+{
+  "checkedAt": "2026-10-02T01:58:40.101Z",
+  "trackId": "r2_1594bzGkaPidWVBMpAM5_QwpEX7AVG-t7",
+  "museUploadVerified": false,
+  "preexistingMigratedTrack": true,
+  "before": {
+    "duration": 194.6405,
+    "src": "https://jarvis-hub-api.braydenparker999.workers.dev/music/library/audio/r2_1594bzGkaPidWVBMpAM5_QwpEX7AVG-t7",
+    "time": 40.032
+  },
+  "after": {
+    "art": "url(\"https://missionarytube.z13.web.core.windows.net/assets/drive-catalog-v2/covers/f3a2be0b358a84bacd6afe84eef440c6b74a167dbfcdcbc2bca9f43a431ca7c4.jpg\")",
+    "duration": 194.6405,
+    "error": null,
+    "paused": false,
+    "readyState": 4,
+    "src": "https://jarvis-hub-api.braydenparker999.workers.dev/music/library/audio/r2_1594bzGkaPidWVBMpAM5_QwpEX7AVG-t7",
+    "time": 68.143993
+  },
+  "driveDisabledDuringTest": true,
+  "passed": true
+}
