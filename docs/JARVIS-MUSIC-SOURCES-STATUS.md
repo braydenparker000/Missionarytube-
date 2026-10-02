@@ -1,6 +1,6 @@
 # Independent Jarvis music sources — 2026-10-02
 
-## Measured audio release candidate
+## Measured audio release
 
 Audio is the only active task; the owner confirmed there is no separate shuffle
 work to integrate. Source [PR 19](https://github.com/braydenparker999/jarvis/pull/19)
@@ -9,11 +9,11 @@ hash-bound audio analysis and signed metadata-only corrections. The source graph
 measurements and smallest A15 comparison protocol are in
 [measured-audio.md](https://github.com/braydenparker999/jarvis/blob/codex/measured-audio-fidelity/docs/measured-audio.md).
 
-Implementation candidate `e220767b0b9aab8c3e1187e41399cbe44a1ba41c` passes
+Implementation candidate `cebdc8d924e35480aaefc293e0a90e8e113118c3` passes
 249 JavaScript / 93 Python tests. Source CI
 [36964912606](https://github.com/braydenparker999/jarvis/actions/runs/36964912606)
 passed; the exact pinned candidate passes 530 deployment tests and the static
-build. The final endurance run is pending, so frontend promotion is pending.
+build. The final 30-minute endurance run passed 180 actual non-silent samples, alternating volume, seeks and mode edits, with no unexpected backend changes. Worst unreset media/wall interval difference was 19.8 ms; sampled heap ranged 7.0–13.1 MiB and ended below its start. Real callback failure recovered to non-silent fallback afterward. Frontend promotion follows the final pinned CI.
 
 The complete production graph nulled exactly at tested 44.1/48/96 kHz rates.
 All 297 guard vectors passed an independent 32×, 8193-tap output oracle;
