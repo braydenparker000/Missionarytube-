@@ -9,9 +9,9 @@ hash-bound audio analysis and signed metadata-only corrections. The source graph
 measurements and smallest A15 comparison protocol are in
 [measured-audio.md](https://github.com/braydenparker999/jarvis/blob/codex/measured-audio-fidelity/docs/measured-audio.md).
 
-Implementation candidate `b3220c86411799415629d48ea86583b1cbedc515` passes
-248 JavaScript / 93 Python tests. Source CI
-[36963212479](https://github.com/braydenparker999/jarvis/actions/runs/36963212479)
+Implementation candidate `e220767b0b9aab8c3e1187e41399cbe44a1ba41c` passes
+249 JavaScript / 93 Python tests. Source CI
+[36964912606](https://github.com/braydenparker999/jarvis/actions/runs/36964912606)
 passed; the exact pinned candidate passes 530 deployment tests and the static
 build. The final endurance run is pending, so frontend promotion is pending.
 
@@ -25,13 +25,13 @@ callback-failure recovery passed. Physical A15/DAC/Bluetooth listening and
 background tests remain unverified; official EBU vector retrieval returned 403.
 
 Worker [36963369153](https://github.com/braydenparker000/Missionarytube-/actions/runs/36963369153)
-successfully deployed that implementation and verified live bytes, decoding,
+successfully deployed backend source `b3220c86411799415629d48ea86583b1cbedc515` (backend bytes unchanged in the later frontend candidate) and verified live bytes, decoding,
 Range, CORS and catalog matching. Native setup and migration were disabled;
 existing upload authorization was retained with `keep_vars=true`. HUBS and
 MUSIC_R2=jarvis-music were checked and preserved. Checkpoint artifact
 `11208902875`, `worker-checkpoint-36963369153`, digest
 `efd7fe104b600975c29180aa11b826397f48aac279f47e49ad30854061e9ff3e`.
-An unsigned browser analysis correction was rejected with 403.
+Deployed version `c832d447-29e8-4d27-a105-2ed696c40acc`; prior production version `bb715754-9c46-400b-a76a-ac68c1bda2c1` is retained for rollback. The checkpoint ZIP digest was checked locally. An unsigned browser analysis correction was rejected with 403.
 
 The manual `analyze-r2-audio.yml` defaults to read-only analysis, at most 100
 objects, and saves an exact artifact/checkpoint. Applying a reviewed successful
