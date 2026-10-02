@@ -9,7 +9,7 @@ EQ cascades that previously produced heavy modulation or silence, retains each
 fading curve's preamp/headroom, corrects a negative-preamp estimate, and aligns
 the tone preview with the actual shelf frequencies and Q.
 
-Reviewed source `775fb403be63bfd64dfcfba91ce2ae3dedcf9c36` passes 251 source JavaScript /
+Live source pin `775fb403be63bfd64dfcfba91ce2ae3dedcf9c36` passes 251 source JavaScript /
 93 Python tests, 530 deployment tests and the exact pinned 156-file / 19.09 MiB
 static build. Source CI [36973051008](https://github.com/braydenparker999/jarvis/actions/runs/36973051008)
 passed. Transparent production renders still null exactly at 44.1/48/96 kHz;
@@ -41,6 +41,30 @@ added. The existing Worker and upload authorization are unchanged.
 Source PR 20 merged as `afbb1fa1e498018e69326d468aeccc5c39b42111`; the
 release pins exact reviewed head `775fb403be63bfd64dfcfba91ce2ae3dedcf9c36`.
 Frontend rollback is preserved by the existing Azure workflow before overwrite.
+
+Deployment [PR 85](https://github.com/braydenparker000/Missionarytube-/pull/85)
+merged as `6f712d76812665403d4c64793de652f6e92f2fe5`; exact-head CI
+[36973261060](https://github.com/braydenparker000/Missionarytube-/actions/runs/36973261060)
+and Azure [36973334393](https://github.com/braydenparker000/Missionarytube-/actions/runs/36973334393)
+passed. Live `/release.json` confirms the reviewed source, and both deployed
+audio JavaScript hashes exactly match the 30-minute-tested files. Fresh live
+Chrome, with no asset interception, passed actual R2 audio, seek, pause/resume,
+natural and hard track transitions, artwork, media controls and Range/CORS.
+A separate live 100%-volume Genesis segment confirmed the measured peak,
+0.25 dB reserve, declared fixed gain and zero recent guard reduction. This
+segment is additional live evidence; full-file tests remain separately recorded.
+The existing automatic source verification [36973538139](https://github.com/braydenparker000/Missionarytube-/actions/runs/36973538139)
+also passed; its normal checks cover both independent sources.
+
+Azure saved rollback artifact `11211709623`, `storage-before-36973334393-1`,
+before overwriting live files. GitHub-recorded ZIP SHA-256 is
+`2d3960df52ca2ab4c0b91b6d36ee8ff36f4e9eb0ab0b20d3e18dae684dd223dc`.
+The previous frontend pin was `cebdc8d924e35480aaefc293e0a90e8e113118c3`.
+The rollback ZIP was not downloaded; its retained existing public app settings
+need not be retrieved to record the checkpoint. Live browser, volume-segment,
+release and checkpoint records are in `docs/audio-release-evidence/followup-*`.
+The Worker was not redeployed for this frontend-only follow-up. Physical A15,
+USB DAC and Bluetooth listening/background checks remain unverified.
 
 ## First measured audio release
 

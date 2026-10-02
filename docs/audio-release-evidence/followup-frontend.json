@@ -1,0 +1,29 @@
+{
+  "sourceReviewedHead": "775fb403be63bfd64dfcfba91ce2ae3dedcf9c36",
+  "sourceMergeCommit": "afbb1fa1e498018e69326d468aeccc5c39b42111",
+  "sourcePR": 20,
+  "sourceCIRun": 36973051008,
+  "deploymentPR": 85,
+  "deploymentReviewedHead": "d0252f492857ab3d709d6de6fdd04b7e7bbe4b3b",
+  "deploymentMergeCommit": "6f712d76812665403d4c64793de652f6e92f2fe5",
+  "deploymentCIRun": 36973261060,
+  "azureRun": 36973334393,
+  "azureConclusion": "success",
+  "liveRelease": {
+    "source": "braydenparker999/jarvis",
+    "commit": "775fb403be63bfd64dfcfba91ce2ae3dedcf9c36",
+    "bytes": 20014378
+  },
+  "liveProductionHashesMatchTestedSource": true,
+  "rollback": {
+    "artifactId": 11211709623,
+    "name": "storage-before-36973334393-1",
+    "githubRecordedSha256": "2d3960df52ca2ab4c0b91b6d36ee8ff36f4e9eb0ab0b20d3e18dae684dd223dc",
+    "previousSourcePin": "cebdc8d924e35480aaefc293e0a90e8e113118c3",
+    "localZipDigestVerified": false
+  },
+  "existingAutomaticSourceVerificationRun": 36973538139,
+  "existingAutomaticSourceVerificationConclusion": "success",
+  "workerRedeployed": false,
+  "physicalTests": "unverified"
+}

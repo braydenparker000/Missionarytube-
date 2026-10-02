@@ -1,0 +1,230 @@
+{
+  "startedAt": "2026-10-02T06:27:28.159Z",
+  "minutes": 0,
+  "live": true,
+  "errors": [],
+  "checks": [
+    "independent R2 source selection",
+    "actual R2 HTMLMediaElement decode and worklet",
+    "seek continues actual audio",
+    "pause/resume",
+    "effects stored and restored across transparent mode",
+    "browser byte/suffix Range and CORS",
+    "artwork decodes",
+    "media-session metadata",
+    "actual natural current/next track transition",
+    "hard track switch renders actual PCM"
+  ],
+  "samples": [],
+  "latency": {
+    "seeksMs": [
+      1106.7519390000007
+    ],
+    "pageAndCatalogMs": 2195.586684,
+    "selectionToPlayheadOverOneSecondMs": 2713.637944
+  },
+  "passed": true,
+  "browser": "151.0.7922.173",
+  "catalog": {
+    "r2": 1634,
+    "drive": 1287,
+    "mode": "transparent"
+  },
+  "release": {
+    "source": "braydenparker999/jarvis",
+    "commit": "775fb403be63bfd64dfcfba91ce2ae3dedcf9c36",
+    "bytes": 20014378
+  },
+  "initial": {
+    "at": 1790922453483,
+    "time": 1.117333,
+    "contextTime": 2.716734693877551,
+    "rate": 44100,
+    "readyState": 4,
+    "mediaError": null,
+    "mode": "transparent",
+    "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+    "ledger": {
+      "db": 0,
+      "reason": "Off",
+      "reference": null,
+      "normalizationDb": 0,
+      "userPreampDb": 0,
+      "eqHeadroomDb": 0,
+      "volumeDb": 0,
+      "overlapDb": 0,
+      "protectiveDb": -6.2567363585234315,
+      "peakDb": 3,
+      "peakBoundDb": 3.256736358523432,
+      "peakMeasurementReserveDb": 0.25,
+      "peakKnown": true,
+      "ceilingDb": -1,
+      "detectorMarginDb": 2,
+      "degraded": false,
+      "trackGain": 1,
+      "finalGain": 0.48659000297197863,
+      "stereoReserveDb": 0
+    },
+    "recent": {
+      "reduction": 1,
+      "activeFrames": 0,
+      "frames": 11136,
+      "inputPeak": 0.43809542028678067,
+      "outputPeak": 0.4353475570678711,
+      "delay": 329
+    },
+    "outputRms": 0.04630503467125022,
+    "heap": 16866922,
+    "playing": true
+  },
+  "custom": {
+    "at": 1790922455872,
+    "time": 44.320653,
+    "contextTime": 5.108390022675737,
+    "rate": 44100,
+    "readyState": 4,
+    "mediaError": null,
+    "mode": "custom",
+    "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+    "ledger": {
+      "db": 0,
+      "reason": "Off",
+      "reference": null,
+      "normalizationDb": 0,
+      "userPreampDb": -3,
+      "eqHeadroomDb": -2.5000000000004308,
+      "volumeDb": 0,
+      "overlapDb": 0,
+      "protectiveDb": -5.7567363585234315,
+      "peakDb": 3,
+      "peakBoundDb": 3.256736358523432,
+      "peakMeasurementReserveDb": 0.25,
+      "peakKnown": true,
+      "ceilingDb": -1,
+      "detectorMarginDb": 2,
+      "degraded": false,
+      "trackGain": 1,
+      "finalGain": 0.5154222732820964,
+      "stereoReserveDb": 0
+    },
+    "recent": {
+      "reduction": 1,
+      "activeFrames": 0,
+      "frames": 11136,
+      "inputPeak": 0.22258926928043365,
+      "outputPeak": 0.22258926928043365,
+      "delay": 329
+    },
+    "outputRms": 0.01421698187680678,
+    "heap": 8284573,
+    "playing": true
+  },
+  "protocol": [
+    {
+      "range": "bytes=0-1023",
+      "status": 206,
+      "bytes": 1024,
+      "contentRange": "bytes 0-1023/3445432"
+    },
+    {
+      "range": "bytes=-32",
+      "status": 206,
+      "bytes": 32,
+      "contentRange": "bytes 3445400-3445431/3445432"
+    }
+  ],
+  "artwork": {
+    "width": 320,
+    "height": 320,
+    "origin": "https://missionarytube.z13.web.core.windows.net"
+  },
+  "mediaSession": {
+    "title": "Genesis",
+    "playbackState": "playing"
+  },
+  "next": {
+    "at": 1790922459633,
+    "time": 1.043119,
+    "contextTime": 8.870022675736962,
+    "rate": 44100,
+    "readyState": 4,
+    "mediaError": null,
+    "mode": "transparent",
+    "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+    "ledger": {
+      "db": 0,
+      "reason": "Off",
+      "reference": null,
+      "normalizationDb": 0,
+      "userPreampDb": 0,
+      "eqHeadroomDb": 0,
+      "volumeDb": 0,
+      "overlapDb": 0,
+      "protectiveDb": -6,
+      "peakDb": 3,
+      "peakBoundDb": 3,
+      "peakMeasurementReserveDb": 0,
+      "peakKnown": false,
+      "ceilingDb": -1,
+      "detectorMarginDb": 2,
+      "degraded": false,
+      "trackGain": 1,
+      "finalGain": 0.5011872336272722,
+      "stereoReserveDb": 0
+    },
+    "recent": {
+      "reduction": 1,
+      "activeFrames": 0,
+      "frames": 11136,
+      "inputPeak": 0.24178121338822395,
+      "outputPeak": 0.23468174040317535,
+      "delay": 329
+    },
+    "outputRms": 0.04929879436565587,
+    "heap": 9304395,
+    "playing": true
+  },
+  "final": {
+    "at": 1790922461653,
+    "time": 1.112441,
+    "contextTime": 10.89015873015873,
+    "rate": 44100,
+    "readyState": 4,
+    "mediaError": null,
+    "mode": "transparent",
+    "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+    "ledger": {
+      "db": 0,
+      "reason": "Off",
+      "reference": null,
+      "normalizationDb": 0,
+      "userPreampDb": 0,
+      "eqHeadroomDb": 0,
+      "volumeDb": 0,
+      "overlapDb": 0,
+      "protectiveDb": -6.2567363585234315,
+      "peakDb": 3,
+      "peakBoundDb": 3.256736358523432,
+      "peakMeasurementReserveDb": 0.25,
+      "peakKnown": true,
+      "ceilingDb": -1,
+      "detectorMarginDb": 2,
+      "degraded": false,
+      "trackGain": 1,
+      "finalGain": 0.48659000297197863,
+      "stereoReserveDb": 0
+    },
+    "recent": {
+      "reduction": 1,
+      "activeFrames": 0,
+      "frames": 11136,
+      "inputPeak": 0.43816180306730834,
+      "outputPeak": 0.4357149600982666,
+      "delay": 329
+    },
+    "outputRms": 0.04603728184876821,
+    "heap": 10405222,
+    "playing": true
+  },
+  "finishedAt": "2026-10-02T06:27:41.654Z"
+}

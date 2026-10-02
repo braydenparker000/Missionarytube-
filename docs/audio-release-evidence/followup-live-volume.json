@@ -1,0 +1,183 @@
+{
+  "live": true,
+  "assetInterception": false,
+  "browser": "151.0.7922.173",
+  "samples": [
+    {
+      "time": 44.27224,
+      "ledger": {
+        "db": 0,
+        "reason": "Off",
+        "reference": null,
+        "normalizationDb": 0,
+        "userPreampDb": 0,
+        "eqHeadroomDb": 0,
+        "volumeDb": 0,
+        "overlapDb": 0,
+        "protectiveDb": -6.2567363585234315,
+        "peakDb": 3,
+        "peakBoundDb": 3.256736358523432,
+        "peakMeasurementReserveDb": 0.25,
+        "peakKnown": true,
+        "ceilingDb": -1,
+        "detectorMarginDb": 2,
+        "degraded": false,
+        "trackGain": 1,
+        "finalGain": 0.48659000297197863,
+        "stereoReserveDb": 0
+      },
+      "recent": {
+        "reduction": 1,
+        "activeFrames": 0,
+        "frames": 11136,
+        "inputPeak": 0.22258222103118896,
+        "outputPeak": 0.22258222103118896,
+        "delay": 329
+      },
+      "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+      "rms": 0.0243954685290754
+    },
+    {
+      "time": 44.506667,
+      "ledger": {
+        "db": 0,
+        "reason": "Off",
+        "reference": null,
+        "normalizationDb": 0,
+        "userPreampDb": 0,
+        "eqHeadroomDb": 0,
+        "volumeDb": 0,
+        "overlapDb": 0,
+        "protectiveDb": -6.2567363585234315,
+        "peakDb": 3,
+        "peakBoundDb": 3.256736358523432,
+        "peakMeasurementReserveDb": 0.25,
+        "peakKnown": true,
+        "ceilingDb": -1,
+        "detectorMarginDb": 2,
+        "degraded": false,
+        "trackGain": 1,
+        "finalGain": 0.48659000297197863,
+        "stereoReserveDb": 0
+      },
+      "recent": {
+        "reduction": 1,
+        "activeFrames": 0,
+        "frames": 11136,
+        "inputPeak": 0.3166269361972809,
+        "outputPeak": 0.3166269361972809,
+        "delay": 329
+      },
+      "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+      "rms": 0.060945626760477975
+    },
+    {
+      "time": 44.762667,
+      "ledger": {
+        "db": 0,
+        "reason": "Off",
+        "reference": null,
+        "normalizationDb": 0,
+        "userPreampDb": 0,
+        "eqHeadroomDb": 0,
+        "volumeDb": 0,
+        "overlapDb": 0,
+        "protectiveDb": -6.2567363585234315,
+        "peakDb": 3,
+        "peakBoundDb": 3.256736358523432,
+        "peakMeasurementReserveDb": 0.25,
+        "peakKnown": true,
+        "ceilingDb": -1,
+        "detectorMarginDb": 2,
+        "degraded": false,
+        "trackGain": 1,
+        "finalGain": 0.48659000297197863,
+        "stereoReserveDb": 0
+      },
+      "recent": {
+        "reduction": 1,
+        "activeFrames": 0,
+        "frames": 11136,
+        "inputPeak": 0.22866769134998322,
+        "outputPeak": 0.22866769134998322,
+        "delay": 329
+      },
+      "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+      "rms": 0.04720496248813325
+    },
+    {
+      "time": 45.018667,
+      "ledger": {
+        "db": 0,
+        "reason": "Off",
+        "reference": null,
+        "normalizationDb": 0,
+        "userPreampDb": 0,
+        "eqHeadroomDb": 0,
+        "volumeDb": 0,
+        "overlapDb": 0,
+        "protectiveDb": -6.2567363585234315,
+        "peakDb": 3,
+        "peakBoundDb": 3.256736358523432,
+        "peakMeasurementReserveDb": 0.25,
+        "peakKnown": true,
+        "ceilingDb": -1,
+        "detectorMarginDb": 2,
+        "degraded": false,
+        "trackGain": 1,
+        "finalGain": 0.48659000297197863,
+        "stereoReserveDb": 0
+      },
+      "recent": {
+        "reduction": 1,
+        "activeFrames": 0,
+        "frames": 11136,
+        "inputPeak": 0.2280428282353886,
+        "outputPeak": 0.22779452800750732,
+        "delay": 329
+      },
+      "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+      "rms": 0.0433872510691728
+    },
+    {
+      "time": 45.274667,
+      "ledger": {
+        "db": 0,
+        "reason": "Off",
+        "reference": null,
+        "normalizationDb": 0,
+        "userPreampDb": 0,
+        "eqHeadroomDb": 0,
+        "volumeDb": 0,
+        "overlapDb": 0,
+        "protectiveDb": -6.2567363585234315,
+        "peakDb": 3,
+        "peakBoundDb": 3.256736358523432,
+        "peakMeasurementReserveDb": 0.25,
+        "peakKnown": true,
+        "ceilingDb": -1,
+        "detectorMarginDb": 2,
+        "degraded": false,
+        "trackGain": 1,
+        "finalGain": 0.48659000297197863,
+        "stereoReserveDb": 0
+      },
+      "recent": {
+        "reduction": 1,
+        "activeFrames": 0,
+        "frames": 11136,
+        "inputPeak": 0.33646251532008953,
+        "outputPeak": 0.33583641052246094,
+        "delay": 329
+      },
+      "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+      "rms": 0.04789244391176215
+    }
+  ],
+  "passed": true,
+  "release": {
+    "source": "braydenparker999/jarvis",
+    "commit": "775fb403be63bfd64dfcfba91ce2ae3dedcf9c36",
+    "bytes": 20014378
+  }
+}
