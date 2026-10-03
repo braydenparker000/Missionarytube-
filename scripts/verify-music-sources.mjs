@@ -83,6 +83,30 @@ async function play(kind,origin){
   await page.waitForFunction(at=>[...document.querySelectorAll('audio')].some(a=>!a.paused&&a.currentTime>at+1),after.currentTime,{timeout:6000});
   await page.locator('#btn-play').click();
   await page.waitForFunction(()=>[...document.querySelectorAll('audio')].every(a=>a.paused),null,{timeout:6000});
+  stage=kind+' mini thumb and expansion';
+  await page.locator('[data-nav="library"]').click();
+  await page.getByRole('button',{name:'All Songs',exact:true}).click();
+  const slider=page.locator('#mini-seek');
+  const thumb=()=>page.evaluate(()=>{
+    const rail=document.querySelector('#mini-seek').getBoundingClientRect(),fill=document.querySelector('#mini-fill');
+    const r=fill.getBoundingClientRect(),pseudo=getComputedStyle(fill,'::after');
+    return {left:r.left-rail.left,right:r.left+parseFloat(pseudo.width)-rail.right,transform:getComputedStyle(fill).transform};
+  });
+  await slider.press('Home');
+  await page.waitForFunction(()=>[...document.querySelectorAll('audio')].some(a=>a.currentSrc&&a.paused&&a.currentTime<.5));
+  assert.ok(Math.abs((await thumb()).left)<2);
+  await slider.press('End');
+  await page.waitForFunction(()=>[...document.querySelectorAll('audio')].some(a=>a.currentSrc&&a.paused&&a.duration-a.currentTime<1));
+  assert.ok(Math.abs((await thumb()).right)<2);
+  assert.notEqual((await thumb()).transform,'none');
+  await page.screenshot({path:folder+'/'+kind+'-mini.png'});
+  const selected=await page.evaluate(()=>PA.Engine.current.id);
+  const title=await page.locator('#mini-title').boundingBox();assert.ok(title);
+  await page.mouse.click(title.x+title.width/2,title.y+title.height/2,{clickCount:2});
+  await page.locator('#sc-player').waitFor({state:'visible'});
+  assert.equal(await page.evaluate(()=>PA.Engine.current.id),selected);
+  assert.ok((await media()).every(a=>a.paused));
+  check(kind+' mini thumb reaches both endpoints and rapid expansion preserves paused track',{viewport:'393x852'});
 }
 try{
   const current=await fetch(release.storageOrigin+'/release.json',{cache:'no-store',signal:AbortSignal.timeout(15000)}).then(r=>r.json());
