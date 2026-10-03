@@ -27,7 +27,86 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  podcast_worker:
+    if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: jarvis-worker-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read the exact podcast release
+        id: release
+        run: |
+          node --input-type=module <<'JS' >> "$GITHUB_OUTPUT"
+          import {readFileSync} from 'node:fs';
+          const r=JSON.parse(readFileSync('jarvis-release.json','utf8'));
+          if(!/^[a-f0-9]{40}$/.test(r.commit))throw Error('An immutable source commit is required');
+          console.log('commit='+r.commit);
+          console.log('enabled='+(r.deployPodcastWorker===true));
+          JS
+      - uses: actions/checkout@v4
+        if: steps.release.outputs.enabled == 'true'
+        with:
+          repository: braydenparker999/jarvis
+          ref: ${{ steps.release.outputs.commit }}
+          path: .jarvis-source
+          persist-credentials: false
+      - name: Test the pinned podcast source before deployment
+        if: steps.release.outputs.enabled == 'true'
+        env:
+          SOURCE_COMMIT: ${{ steps.release.outputs.commit }}
+        run: |
+          test "$(git -C .jarvis-source rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test -f .jarvis-source/backend/podcasts.js
+          npm --prefix .jarvis-source ci
+          npm --prefix .jarvis-source test
+          export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
+          test -n "$JARVIS_CHROME"
+          cd .jarvis-source
+          node --test tests/podcasts-browser.test.js
+      - name: Preserve existing bindings and prepare the podcast Worker
+        if: steps.release.outputs.enabled == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          node scripts/check-music-worker-bindings.mjs
+          node scripts/prepare-music-worker.mjs .jarvis-source
+      - name: Deploy the existing Worker with podcast routes
+        if: steps.release.outputs.enabled == 'true'
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.R2_ACCOUNT_ID }}
+          wranglerVersion: '4.136.3'
+          workingDirectory: .jarvis-source
+          preCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-before.json
+          command: deploy --config backend/wrangler.music.generated.json
+          postCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-after.json
+      - name: Require real directory search, RSS and audio before frontend promotion
+        if: steps.release.outputs.enabled == 'true'
+        run: node .jarvis-source/scripts/verify-podcasts.mjs
+      - name: Preserve podcast Worker rollback information
+        if: ${{ always() && steps.release.outputs.enabled == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: podcast-worker-${{ github.run_id }}
+          path: |
+            .jarvis-source/worker-versions-before.json
+            .jarvis-source/worker-versions-after.json
+            .jarvis-source/backend/wrangler.music.generated.json
+            worker-bindings-before.json
+          if-no-files-found: warn
+          retention-days: 30
   deploy:
+    needs: podcast_worker
     if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40

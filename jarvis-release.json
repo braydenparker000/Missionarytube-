@@ -1,8 +1,9 @@
 {
   "repository": "braydenparker999/jarvis",
-  "commit": "c48feaa7fae22f40b1708ee28b57ed8743da102a",
+  "commit": "4ad384911c1f29c6f5205225bb1a8bd3b28e63ba",
   "storageOrigin": "https://missionarytube.z13.web.core.windows.net",
   "apiOrigin": "https://jarvis-hub-api.braydenparker999.workers.dev",
   "r2ManifestURL": "https://jarvis-hub-api.braydenparker999.workers.dev/music/library.json",
-  "preserveDriveCatalog": true
+  "preserveDriveCatalog": true,
+  "deployPodcastWorker": true
 }
