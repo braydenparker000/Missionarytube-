@@ -349,7 +349,7 @@ test("every catalog names the add-on that published it", () => {
   assert.match(html, /group\.youtube\?'yt-rail':'search-result-rail'/);
   assert.match(html, /group\.youtube\?youtubeCardsHTML\(items\):cardsHTML\(items\)/,
     "a 16:9 YouTube still is not cropped into a 2:3 poster box");
-  assert.match(html, /Results remain separated by source/);
+  assert.match(html, /Search results/);
   assert.match(html, /function browseSourceLine\(list\)/, "browse states which add-ons produced the grid");
   assert.match(css, /\.provider-chip \{/);
 });

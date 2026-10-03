@@ -18,6 +18,8 @@
 
   function minutesOf(value) {
     var text = String(value == null ? "" : value).toLowerCase();
+    var clock = text.match(/^\s*(\d+):(\d{2})(?::(\d{2}))?\s*$/);
+    if (clock) return clock[3] ? Number(clock[1]) * 60 + Number(clock[2]) + Number(clock[3]) / 60 : Number(clock[1]) + Number(clock[2]) / 60;
     var hours = text.match(/(\d+(?:\.\d+)?)\s*(?:h|hr|hour)/);
     var minutes = text.match(/(\d+)\s*(?:m|min|minute)/);
     if (hours || minutes) return Math.round(Number(hours && hours[1] || 0) * 60 + Number(minutes && minutes[1] || 0));
@@ -27,19 +29,31 @@
 
   function parse(raw) {
     var source = String(raw == null ? "" : raw).trim().replace(/\s+/g, " ");
-    if (/^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\//i.test(source)) {
+    if (/^youtube:[A-Za-z0-9_-]{11}$/.test(source) || /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\//i.test(source)) {
       return { raw: source, text: source, type: "", genre: "", maxMinutes: 0, filters: [] };
     }
     var query = clean(source);
     var rest = query;
     var filters = [];
-    var type = TYPES.find(function (entry) { return entry.pattern.test(rest); });
+    // Titles are literal by default. Only explicit field syntax or an
+    // unambiguous browse/duration clause may remove words from the query.
+    var explicit = source.match(/^(movie|film|series|show|anime|music|youtube)\s*:\s*/i);
+    var durationClause = /\b(?:under|less\s+than)\s+(\d+(?:\.\d+)?|one|two|three|four)\s*(hours?|hrs?|minutes?|mins?)\b/i.test(rest);
+    var browseClause = new RegExp("^(?:" + GENRES.join("|") + ")\\s+(?:movies?|films?|series|shows?|anime)$", "i").test(rest);
+    var youtubePrefix = /^youtube\s+/i.test(rest);
+    var bareType = /^(?:movies|films|series|shows|anime|music|youtube)$/i.test(rest);
+    if (!explicit && !durationClause && !browseClause && !youtubePrefix && !bareType) {
+      return { raw: source, text: source, type: "", genre: "", maxMinutes: 0, filters: [] };
+    }
+    var forcedType = explicit ? explicit[1].toLowerCase().replace(/^(?:film)$/, "movie").replace(/^(?:show)$/, "series") : youtubePrefix ? "youtube" : "";
+    var type = TYPES.find(function (entry) { return forcedType ? entry.value === forcedType : entry.pattern.test(rest); });
     if (type) {
       var typeMatch = rest.match(type.pattern);
       filters.push({ key: "type", label: type.label, raw: typeMatch[0], value: type.value });
       rest = rest.replace(type.pattern, " ");
+      if (explicit) rest = rest.replace(/^\s*:\s*/, "");
     }
-    var genre = GENRES.find(function (name) {
+    var genre = !explicit && GENRES.find(function (name) {
       var pattern = new RegExp("\\b" + name.replace(" ", "\\s+") + "\\b", "i");
       return pattern.test(rest);
     });

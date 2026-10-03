@@ -63,7 +63,7 @@ test("pending progress is flushed when playback or the page ends", () => {
   // Playback Engine v2 registers the pause listener through the attempt's
   // resource scope, so it is released with the rest of the attempt.
   assert.match(html, /scope\.listen\(el,'pause',\(\)=>progress\.flush\(\)\)/);
-  assert.match(html, /function closePlayer\(silent\)\{[\s\S]{0,500}?progress\.flush\(\)/);
+  assert.match(html, /function closePlayer\(silent\)\{[\s\S]{0,650}?progress\.flush\(\)/);
 });
 
 test("completion is only ever recorded from a real ended event", () => {
@@ -263,7 +263,7 @@ test("a stream response is scoped to the lookup that asked for it", () => {
 });
 
 test("switching or dismissing a title cancels the in-flight lookup", () => {
-  assert.match(html, /function cancelStreamLookup\(\)\{\s*player\.lookup\?\.loader\?\.cancel\(\);player\.lookup=null;player\.metaRequest=null;/);
+  assert.match(html, /function cancelStreamLookup\(\)\{\s*player\.lookup\?\.controller\?\.abort\(\);player\.lookup\?\.loader\?\.cancel\(\);player\.lookup=null;player\.metaRequest\?\.controller\?\.abort\(\);player\.metaRequest=null;/);
   assert.match(html, /async function openMedia\(key,opener\)\{\s*\n\s*cancelStreamLookup\(\);/, "opening another title invalidates it");
   assert.match(html, /data-dismiss\]',root\)\.forEach\(x=>x\.onclick=e=>\{if\(e\.target===x\)closeModal\(\)\}\)/, "so does dismissing the modal");
 });
@@ -328,15 +328,15 @@ test("the decoding probe refreshes verdicts without reordering the list", () => 
 test("a deferred metadata response cannot replace another title", () => {
   const openMedia = html.match(/async function openMedia\(key,opener\)\{[\s\S]*?\n {4}\}/);
   assert.ok(openMedia, "openMedia exists");
-  assert.match(openMedia[0], /const request=\{key\};player\.metaRequest=request;/, "the request is stamped");
-  assert.match(openMedia[0], /const full=await fullMeta\(item\);\s*\n\s*if\(player\.metaRequest!==request\)return;/,
+  assert.match(openMedia[0], /const request=\{key,controller:new AbortController\(\)\};player\.metaRequest=request;/, "the request is stamped");
+  assert.match(openMedia[0], /const full=await fullMeta\(item,request\.controller\.signal\);\s*\n\s*if\(player\.metaRequest!==request\)return;/,
     "both post-await mutations are guarded");
   assert.equal(
     openMedia[0].includes("item=await fullMeta(item);state.currentMeta=item;showDetail(item,false)"),
     false,
     "the unguarded assignment is gone"
   );
-  assert.match(html, /function cancelStreamLookup\(\)\{\s*\n?\s*player\.lookup\?\.loader\?\.cancel\(\);player\.lookup=null;player\.metaRequest=null;/,
+  assert.match(html, /function cancelStreamLookup\(\)\{\s*\n?\s*player\.lookup\?\.controller\?\.abort\(\);player\.lookup\?\.loader\?\.cancel\(\);player\.lookup=null;player\.metaRequest\?\.controller\?\.abort\(\);player\.metaRequest=null;/,
     "dismissing or switching invalidates a pending metadata request");
 });
 
