@@ -677,17 +677,18 @@
       const direct=YT.api.videoIdFromInput(q);
       const searchable=intent.type==='youtube'||direct?[]:allCatalogs().filter(x=>(x.cat.extra||[]).some(e=>e.name==='search'));
       const groups=AstraSearch.groupSources(searchable).map(group=>({...group,items:[],pending:group.catalogs.length,succeeded:0,failed:0,status:'loading'}));
+      const youtubeGroup=youtubeEnabled()&&(!intent.type||intent.type==='youtube'||direct)?{key:'youtube',name:'YouTube',addon:null,catalogs:[],items:[],pending:1,succeeded:0,failed:0,status:'loading',youtube:true}:null;
+      if(youtubeGroup)groups.unshift(youtubeGroup);
       const byProvider=new Map(groups.map(group=>[group.key,group]));
       const local=[...new Set([...state.metaCache.values(),...state.homeItems,...Object.values(state.library).map(entry=>entry.meta).filter(Boolean)])];
       local.forEach(item=>{
+        if(isYouTubeMeta(item)&&!youtubeGroup)return;
         if(AstraSearch.matchRank(item,providerQuery)>=9||!AstraSearchIntent.matches(item,intent))return;
         const key=item._providerKey||'device';
         let group=byProvider.get(key);
         if(!group){group={key,name:item._addonName||'On this device',addon:null,catalogs:[],items:[],pending:0,succeeded:0,failed:0,status:'cached'};groups.push(group);byProvider.set(key,group)}
         group.items=AstraSearch.merge(group.items,[item],providerQuery);
       });
-      const youtubeGroup=youtubeEnabled()&&(!intent.type||intent.type==='youtube'||direct)?{key:'youtube',name:'YouTube',addon:null,catalogs:[],items:[],pending:1,succeeded:0,failed:0,status:'loading',youtube:true}:null;
-      if(youtubeGroup)groups.unshift(youtubeGroup);
       const extra=youtubeGroup?1:0;
       const run={token,query:q,providerQuery,intent,type:'all',groups,total:searchable.length+extra,pending:searchable.length+extra,route};
       state.searchRun=run;
