@@ -9,7 +9,7 @@ const player=release.storageOrigin+'/drawercast/';
 const folder='music-verification/browser';
 await mkdir(folder,{recursive:true});
 const report={checkedAt:new Date().toISOString(),sourceCommit:release.commit,checks:[],passed:false};
-let browser,page,sample,stage='release';
+let browser,page,touchSession,sample,stage='release';
 const sanitize=s=>String(s).replace(/https?:\/\/[^\s<>"']+/g,value=>{
   try{const u=new URL(value);return u.origin+u.pathname;}catch{return '[URL omitted]';}
 });
@@ -18,6 +18,15 @@ const media=()=>page.evaluate(()=>[...document.querySelectorAll('audio')].filter
   const u=new URL(a.currentSrc);return {origin:u.origin,partial:u.pathname.startsWith('/music/partial/'),
     currentTime:a.currentTime,duration:a.duration,paused:a.paused,readyState:a.readyState,error:a.error?.code??null};
 }));
+const contact=(id,x,y)=>({id,x,y,radiusX:1,radiusY:1,force:1});
+const touch=(type,points)=>touchSession.send('Input.dispatchTouchEvent',{type,touchPoints:points});
+const frame=()=>page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>done())));
+async function touchSeek(fraction){
+  const r=await page.locator('#mini-seek').boundingBox();assert.ok(r);
+  await touch('touchStart',[contact(1,r.x+r.width*.1,r.y+r.height/2)]);
+  for(let i=1;i<=8;i++){await touch('touchMove',[contact(1,r.x+r.width*(.1+(fraction-.1)*i/8),r.y+r.height/2)]);await frame();}
+  await touch('touchEnd',[]);
+}
 async function sources(){
   await page.locator('[data-nav="menu"]').click();
   await page.getByRole('button',{name:'Music tools',exact:true}).click();
@@ -87,6 +96,11 @@ async function play(kind,origin){
   await page.locator('[data-nav="library"]').click();
   await page.getByRole('button',{name:'All Songs',exact:true}).click();
   const slider=page.locator('#mini-seek');
+  const chosen=await page.evaluate(()=>PA.Engine.current.id);
+  await touchSeek(.65);
+  await page.waitForFunction(()=>Math.abs(PA.Engine.time()/PA.Engine.duration()-.65)<.015);
+  assert.equal(await page.evaluate(()=>PA.Engine.current.id),chosen);assert.ok((await media()).every(a=>a.paused));
+  check(kind+' real touch mini seeking preserves the paused song',{viewport:'393x852',fraction:.65});
   const thumb=()=>page.evaluate(()=>{
     const rail=document.querySelector('#mini-seek').getBoundingClientRect(),fill=document.querySelector('#mini-fill');
     const r=fill.getBoundingClientRect(),pseudo=getComputedStyle(fill,'::after');
@@ -107,6 +121,34 @@ async function play(kind,origin){
   assert.equal(await page.evaluate(()=>PA.Engine.current.id),selected);
   assert.ok((await media()).every(a=>a.paused));
   check(kind+' mini thumb reaches both endpoints and rapid expansion preserves paused track',{viewport:'393x852'});
+  if(kind==='r2')await restoredTouch();
+}
+async function restoredTouch(){
+  stage='restored metadata-only touch seek';
+  const id=await page.evaluate(()=>PA.Engine.current.id);
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForFunction(id=>PA.Engine.current?.id===id&&PA.Engine.duration()>0&&PA.R2Source.mapping?.complete===true,id,{timeout:60000});
+  assert.equal(await page.evaluate(()=>PA.Engine.el().src),'');
+  await page.locator('[data-nav="library"]').tap();await page.getByRole('button',{name:'All Songs',exact:true}).tap();
+  await touchSeek(.4);
+  assert.ok(Math.abs(await page.evaluate(()=>PA.Engine.time()/PA.Engine.duration())-.4)<.015);
+  assert.equal(await page.evaluate(()=>PA.Engine.el().src),'');assert.equal(await page.evaluate(()=>PA.Engine.current.id),id);
+  await page.locator('#mini-play').tap();
+  await page.waitForFunction(()=>!PA.Engine.el().paused&&PA.Engine.el().readyState>=3&&Math.abs(PA.Engine.time()/PA.Engine.duration()-.4)<.04,null,{timeout:15000});
+  await page.locator('#mini-play').tap();await page.waitForFunction(()=>PA.Engine.el().paused);
+  check('restored song accepts touch seek before Play and resumes at the chosen position',{viewport:'393x852',fraction:.4});
+  stage='native scrolling and bounded song window';
+  await touchSession.send('Emulation.setCPUThrottlingRate',{rate:4});
+  try{
+    await touch('touchStart',[contact(1,150,530)]);
+    for(let y=510;y>=230;y-=20){await touch('touchMove',[contact(1,150,y)]);await frame();}
+    await touch('touchEnd',[]);
+    await page.waitForFunction(()=>document.querySelector('#list-body').scrollTop>100);
+    assert.equal(await page.evaluate(()=>PA.Engine.current.id),id);assert.equal(await page.evaluate(()=>PA.Engine.el().paused),true);
+    const mounted=await page.locator('#list-body .trow').count(),total=await page.evaluate(()=>document.querySelector('#list-body .zoom-list').__items.length);
+    assert.ok(mounted<220&&total>mounted);check('native touch scroll keeps the paused song with a bounded DOM',{viewport:'393x852',mounted,total,cpuThrottle:4});
+  }finally{await touchSession.send('Emulation.setCPUThrottlingRate',{rate:1});}
+  await page.screenshot({path:folder+'/r2-touch-scroll.png'});
 }
 try{
   const current=await fetch(release.storageOrigin+'/release.json',{cache:'no-store',signal:AbortSignal.timeout(15000)}).then(r=>r.json());
@@ -122,6 +164,7 @@ try{
   stage='browser startup';
   browser=await chromium.launch({headless:true,executablePath:process.env.MUSIC_BROWSER_EXECUTABLE,args:['--no-sandbox']});
   page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true});
+  touchSession=await page.context().newCDPSession(page);
   page.setDefaultTimeout(15000);
   await page.goto(player,{waitUntil:'domcontentloaded'});
   stage='independent libraries';
