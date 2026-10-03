@@ -124,6 +124,7 @@ jobs:
         run: |
           node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
           node -p "'preserve_catalog=' + (require('./jarvis-release.json').preserveDriveCatalog === true)" >> "$GITHUB_OUTPUT"
+          node -p "'podcasts_enabled=' + (require('./jarvis-release.json').deployPodcastWorker === true)" >> "$GITHUB_OUTPUT"
       - name: Check out pinned Jarvis source
         uses: actions/checkout@v4
         with:
@@ -214,6 +215,23 @@ jobs:
             --content-cache-control no-cache --overwrite true --only-show-errors
       - name: Verify the final root and all frontend files
         run: node scripts/check-jarvis-static.mjs --cutover
+      - name: Verify real podcast discovery and playback in the deployed mobile page
+        if: steps.jarvis.outputs.podcasts_enabled == 'true'
+        run: |
+          export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
+          test -n "$JARVIS_CHROME"
+          export PODCAST_LIVE_URL="https://missionarytube.z13.web.core.windows.net/podcasts/"
+          export JARVIS_SCREENSHOT_DIR="$RUNNER_TEMP/podcasts-live"
+          cd .jarvis-source
+          node --test --test-name-pattern='live podcast discovery' tests/podcasts-browser.test.js
+      - name: Preserve live podcast mobile screenshots
+        if: ${{ always() && steps.jarvis.outputs.podcasts_enabled == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: podcasts-live-${{ github.run_id }}
+          path: ${{ runner.temp }}/podcasts-live
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Sign out of Azure
         if: ${{ always() && steps.azure_signin.outcome == 'success' }}
         run: az logout
