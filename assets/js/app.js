@@ -655,8 +655,9 @@
             const wanted=new Set();let position=0;
             for(const fresh of [...nextRail.children]){
               const key=fresh.dataset.open,node=existing.get(key)||fresh;wanted.add(key);
-              if(!existing.has(key)){node.onclick=()=>openMedia(node.dataset.open,node);hydrateIcons(node)}
+              if(!existing.has(key))node.onclick=()=>openMedia(node.dataset.open,node);
               if(rail.children[position]!==node)rail.insertBefore(node,rail.children[position]||null);
+              if(!existing.has(key)){hydrateIcons(node)}
               position++;
             }
             for(const node of [...rail.children])if(!wanted.has(node.dataset.open))node.remove();
