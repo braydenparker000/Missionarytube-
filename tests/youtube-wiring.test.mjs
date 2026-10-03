@@ -77,9 +77,9 @@ test("search is debounced, cancelled and answered as its own provider lane", () 
   assert.match(search, /const live=\(\)=>state\.searchRun===run&&run\.token===state\.searchSequence/);
   assert.match(search, /YT\.api\.videoIdFromInput\(q\)/, "a pasted link resolves to that video");
   // The debounce only starts searches while the search page still owns them.
-  assert.match(html, /searchTimer=setTimeout\(\(\)=>\{if\(state.currentPage==='search'\)search\(q\)\},350\)/);
+  assert.match(html, /searchTimer=setTimeout\(\(\)=>\{if\(state.currentPage==='search'\)search\(q\)\},220\)/);
   // The group joins the same progressive run the add-ons report into.
-  assert.match(html, /const youtubeGroup=youtubeEnabled\(\)\?\{key:'youtube',name:'YouTube'/);
+  assert.match(html, /const youtubeGroup=youtubeEnabled\(\)&&[\s\S]*?\?\{key:'youtube',name:'YouTube'/);
   assert.match(html, /total:searchable\.length\+extra,pending:searchable\.length\+extra/,
     "the progress line counts YouTube honestly");
 });
@@ -100,7 +100,7 @@ test("thumbnails are lazily loaded, escaped, and shaped like the artwork", () =>
 test("a YouTube video resolves into ordinary Astra streams, in the same picker", () => {
   const load = region(/async function loadYouTubeSources\(m,videoId,options=\{\}\)\{[\s\S]*?\n {4}\}/);
   // The same staleness contract the add-on lookup uses.
-  assert.match(load, /const lookup=\{mediaKey:mediaKey\(m\),videoId:String\(videoId\),token:\+\+state\.searchToken\}/);
+  assert.match(load, /const lookup=\{mediaKey:mediaKey\(m\),videoId:String\(videoId\),token:\+\+state\.searchToken,controller:new AbortController\(\)\}/);
   assert.match(load, /const stale=\(\)=>player\.lookup!==lookup/);
   assert.match(load, /if\(stale\(\)\)return\[\]/);
   // The plan becomes streams, and the streams go through the existing pipeline.
@@ -156,14 +156,14 @@ test("progress, Continue Watching and the library work on a YouTube item unchang
   // Nothing special: the meta is an ordinary meta with an ordinary key, so the
   // existing recorder, the resume list and the save button all already apply.
   assert.match(html, /function youtubeMeta\(video\)\{[\s\S]*?return recordMeta\(\{/);
-  const detail = region(/function showDetail\(m,loading=false\)\{[\s\S]*?\n {4}\}/);
+  const detail = region(/function showDetail\(m,loading=false,informationOnly=false\)\{[\s\S]*?\n {4}\}/);
   assert.match(detail, /cta=m\.type==='youtube'\s*\n\s*\?`\$\{resumeProg&&!resumeProg\.completed\?'Continue':'Play'\} this video`/);
   assert.match(detail, /data-get-streams="\$\{esc\(resume\.id\)\}"/);
 });
 
 test("a failed playback link is re-resolved once, never in a loop", () => {
   const refresh = region(/function youtubeMaybeRefresh\(\)\{[\s\S]*?\n {4}\}/);
-  assert.match(refresh, /if\(!yt\|\|yt\.refreshed\)return false/);
+  assert.match(refresh, /if\(!yt\|\|yt\.refreshed\|\|yt\.renewing\)return false/);
   assert.match(refresh, /yt\.refreshed=true/, "one refresh per resolution, so a dead video cannot loop");
   assert.match(refresh, /\{fresh:true\}/);
   assert.match(html, /if\(options\.fresh\)youtubeProvider\(\)\.client\.forget\(videoId\)/);

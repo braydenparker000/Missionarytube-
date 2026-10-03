@@ -138,7 +138,7 @@ function flushRevealQueue() {
   const elements = [...revealQueue].filter((element) => revealPending.has(element) && element.isConnected);
   revealQueue.clear();
   if (!elements.length) return;
-  if (reduced() || navigationUpdating) {
+  if (reduced() || constrainedMotion() || navigationUpdating) {
     elements.forEach(finishReveal);
     return;
   }
@@ -197,7 +197,7 @@ function refresh(root = document) {
   candidates.push(...root.querySelectorAll(REVEAL_SELECTOR));
   const fresh = candidates.filter(revealEligible);
   if (!fresh.length) return 0;
-  if (reduced() || navigationUpdating) {
+  if (reduced() || constrainedMotion() || navigationUpdating) {
     fresh.forEach((element) => {
       element.dataset.astraReveal = "done";
       gsap.set(element, { clearProps: "transform,opacity,willChange" });
@@ -238,7 +238,7 @@ function installPressFeedback() {
   };
 
   document.addEventListener("pointerdown", (event) => {
-    if (reduced() || event.pointerType === "mouse" || !event.isPrimary || event.button > 0) return;
+    if (reduced() || constrainedMotion() || event.pointerType === "mouse" || !event.isPrimary || event.button > 0) return;
     const target = event.target.closest?.(PRESS_SELECTOR);
     if (!target || target.matches(":disabled") || target.closest("[data-motion-static]")) return;
     press = { target, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
@@ -619,7 +619,7 @@ function navigate({ from, to, direction = "auto", update } = {}) {
   // callback after a newer route action. The lighter GSAP transform preserves
   // direction without putting a visual snapshot above the live controls.
   commit();
-  if (!reduced()) {
+  if (!reduced() && !constrainedMotion()) {
     const page = document.querySelector(".page.active");
     if (page) {
       const lean = constrainedMotion();
@@ -641,12 +641,12 @@ function syncDock(root, activeId) {
   const place = (animate = true) => {
     const values = { x: active.offsetLeft, width: active.offsetWidth };
     gsap.killTweensOf(indicator);
-    if (reduced() || !animate) gsap.set(indicator, values);
+    if (reduced() || constrainedMotion() || !animate) gsap.set(indicator, values);
     else gsap.to(indicator, { ...values, duration: 0.28, ease: "power4.out" });
   };
   place(indicator.dataset.ready === "true");
   indicator.dataset.ready = "true";
-  if (!reduced()) gsap.fromTo(active.querySelector(".dock-icon"), { y: 4, scale: 0.86 }, { y: 0, scale: 1, duration: 0.26, ease: "back.out(2.6)", clearProps: "transform" });
+  if (!reduced() && !constrainedMotion()) gsap.fromTo(active.querySelector(".dock-icon"), { y: 4, scale: 0.86 }, { y: 0, scale: 1, duration: 0.26, ease: "back.out(2.6)", clearProps: "transform" });
   dockResize?.disconnect?.();
   if (typeof ResizeObserver === "function") {
     dockResize = new ResizeObserver(() => place(false));

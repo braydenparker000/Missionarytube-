@@ -90,7 +90,7 @@
     if (direct) return direct;
     var parsed;
     try {
-      parsed = new URL(raw);
+      parsed = new URL(/^(?:www\.|m\.|music\.)?(?:youtube\.com|youtu\.be)\//i.test(raw) ? "https://" + raw : raw);
     } catch (error) {
       return "";
     }
@@ -628,10 +628,16 @@
      * kill a request another part of the UI is still waiting for.
      */
     function run(key, describe, signal, requestManager, retry) {
+      if (retry) cache.drop(key);
       var cached = cache.get(key);
+      if (signal && signal.aborted) return Promise.reject(errorFor("aborted", "The request was cancelled."));
       if (cached !== undefined) return Promise.resolve({ cached: true, value: cached });
 
       var entry = inflight.get(key);
+      if (entry && entry.controller && entry.controller.signal.aborted) {
+        inflight.delete(key);
+        entry = null;
+      }
       if (!entry) {
         var controller = Controller ? new Controller() : null;
         entry = { controller: controller, refs: 0, promise: null };
@@ -642,11 +648,11 @@
           })
           .then(
             function (result) {
-              inflight.delete(key);
+              if (inflight.get(key) === entry) inflight.delete(key);
               return result;
             },
             function (error) {
-              inflight.delete(key);
+              if (inflight.get(key) === entry) inflight.delete(key);
               throw error;
             }
           );
@@ -748,7 +754,9 @@
             validate: isArrayBody
           };
         },
-        request.signal
+        request.signal,
+        null,
+        request.retry
       ).then(function (outcome) {
         if (outcome.cached) return outcome.value;
         var result = outcome.value;
@@ -785,7 +793,9 @@
             validate: isArrayBody
           };
         },
-        request.signal
+        request.signal,
+        null,
+        request.retry
       ).then(function (outcome) {
         if (outcome.cached) return outcome.value;
         var result = outcome.value;
@@ -857,7 +867,9 @@
             validate: function (body) { return !!body && typeof body === "object"; }
           };
         },
-        request.signal
+        request.signal,
+        null,
+        request.retry
       ).then(function (outcome) {
         if (outcome.cached) return outcome.value;
         var result = outcome.value;
@@ -891,7 +903,9 @@
             validate: function (body) { return !!body && typeof body === "object"; }
           };
         },
-        request.signal
+        request.signal,
+        null,
+        request.retry
       ).then(function (outcome) {
         if (outcome.cached) return outcome.value;
         var result = outcome.value;

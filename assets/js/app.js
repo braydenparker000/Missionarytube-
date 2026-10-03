@@ -88,7 +88,7 @@
     function refreshCatalogRegistry(){state.catalogRegistry=AstraCatalogs.build(manifests(),{includeAdult:state.settings.showAdult,excludeType:AstraHub.isOutOfScope});state.homeLayout=AstraCatalogs.reconcile(state.catalogRegistry,state.homeLayout);store.set('homeLayout',state.homeLayout);return state.catalogRegistry}
     function catalogEntries(visibleOnly=false){const entries=refreshCatalogRegistry();return AstraCatalogs.ordered(entries,state.homeLayout,visibleOnly)}
     function recordMeta(m,source,cat){const item={...m,_addonUrl:source?.addon?.url||m._addonUrl,_addonName:source?.manifest?.name||m._addonName,_providerKey:source?AstraCatalogs.providerKey(source):m._providerKey,_catalogKey:source&&cat?AstraCatalogs.catalogKey(source,cat):m._catalogKey};const ref=mediaRef(item),key=mediaKey(item);if(ref)state.metaCache.set(ref,item);if(key&&!state.metaCache.has(key))state.metaCache.set(key,item);return item}
-    async function getCatalog(source,cat,extra={}){const key=source.addon.url+'|'+cat.type+'|'+cat.id+'|'+JSON.stringify(extra);if(state.catalogCache.has(key))return state.catalogCache.get(key);const p=fetchAddonJSON(source.addon,'catalog',endpoint(source.addon,'catalog',cat.type,cat.id,extra),data=>!!(data&&Array.isArray(data.metas))).then(d=>d.metas.map(x=>recordMeta({...x,type:x.type||cat.type},source,cat))).catch(e=>{state.catalogCache.delete(key);throw e});state.catalogCache.set(key,p);return p}
+    async function getCatalog(source,cat,extra={},options={}){if(options.signal)return fetchAddonJSON(source.addon,'catalog',endpoint(source.addon,'catalog',cat.type,cat.id,extra),14000,data=>!!(data&&Array.isArray(data.metas)),options.signal).then(d=>d.metas.map(x=>recordMeta({...x,type:x.type||cat.type},source,cat)));const key=source.addon.url+'|'+cat.type+'|'+cat.id+'|'+JSON.stringify(extra);if(state.catalogCache.has(key))return state.catalogCache.get(key);const p=fetchAddonJSON(source.addon,'catalog',endpoint(source.addon,'catalog',cat.type,cat.id,extra),data=>!!(data&&Array.isArray(data.metas))).then(d=>d.metas.map(x=>recordMeta({...x,type:x.type||cat.type},source,cat))).catch(e=>{state.catalogCache.delete(key);throw e});state.catalogCache.set(key,p);return p}
     function catalogExtras(cat,overrides={}){const out={};for(const e of cat.extra||[]){if(e.isRequired&&e.name!=='search'&&e.name!=='skip'&&e.options?.length)out[e.name]=e.options[0]}return {...out,...overrides}}
     function yearOf(m){return m.releaseInfo||m.year||(m.released?String(m.released).slice(0,4):'')}
     function audioLanguageChoices(current){const choices=[['original','Original / source default'],['ja','Japanese'],['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['it','Italian'],['ko','Korean'],['zh','Chinese']],value=String(current||'original').toLowerCase();if(value&&!choices.some(([id])=>id===value))choices.push([value,value.toUpperCase()]);return choices}
@@ -584,9 +584,9 @@
     function searchSummaryHTML(run){
       const count=searchResultCount(run),done=run.total-run.pending;
       return `<div class="search-report">
-        <span class="label">Federated search</span>
+        <span class="label">Search results</span>
         <div class="search-report-line"><h2>${esc(run.query)}</h2><span>${count} result${count===1?'':'s'}</span></div>
-        <p>${run.pending?`${done} of ${run.total} catalog${run.total===1?'':'s'} answered`:`${run.total} catalog${run.total===1?'':'s'} checked across ${run.groups.length} provider${run.groups.length===1?'':'s'}`}. Results remain separated by source.</p>
+        <p>${run.pending?`${done} of ${run.total} catalog${run.total===1?'':'s'} answered`:`${run.total} catalog${run.total===1?'':'s'} checked across ${run.groups.length} provider${run.groups.length===1?'':'s'}`}. </p>
         ${run.pending?`<i class="search-progress" style="--search-progress:${run.total?Math.round(done/run.total*100):100}%"></i>`:''}
       </div>`;
     }
@@ -613,11 +613,11 @@
       else body=`<div class="search-provider-empty"><span>${icon('search')}</span><p>${run.type==='all'?'No title match from this provider.':`No ${esc(typeLabel(run.type).toLowerCase())} match from this provider.`}</p></div>`;
       return `<section class="search-provider-result" data-search-provider="${esc(group.key)}">
         <div class="search-provider-head"><div>${providerChip(group.name)}<span>${catalogs?`${catalogs} searchable catalog${catalogs===1?'':'s'}`:group.youtube?'Video results':'From this device'}</span></div><b class="search-provider-state ${status.className}">${esc(status.label)}</b></div>
-        ${body}</section>`;
+        <div data-search-body>${body}</div></section>`;
     }
     function bindSearchDynamic(root){
       $$('[data-search-type]',root).forEach(button=>button.onclick=()=>{const run=state.searchRun;if(!run)return;run.type=button.dataset.searchType;renderSearchRun(run)});
-      $$('[data-search-jump]',root).forEach(button=>button.onclick=()=>{const target=$$('[data-search-provider]',root).find(node=>node.dataset.searchProvider===button.dataset.searchJump);target?.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'})});
+      $$('[data-search-jump]',root).forEach(button=>button.onclick=()=>{const target=$$('[data-search-provider]',$('#searchRoot')).find(node=>node.dataset.searchProvider===button.dataset.searchJump);target?.scrollIntoView({behavior:motionOk()?'smooth':'auto',block:'start'})});
       $$('[data-search-intent-remove]',root).forEach(button=>button.onclick=()=>{const next=AstraSearchIntent.remove(state.query,button.dataset.searchIntentRemove),input=$('#globalSearch');if(input)input.value=next;$('#searchClear')?.classList.toggle('hidden',!next);search(next)});
       $$('[data-search-retry]',root).forEach(button=>button.onclick=()=>retrySearchGroup(state.searchRun,button.dataset.searchRetry));
     }
@@ -625,30 +625,57 @@
       if(state.searchRun!==run||!run.route?.current()||state.currentPage!=='search')return;
       const root=$('#searchRoot');if(!root)return;
       root.innerHTML=`<div id="searchSummary">${searchSummaryHTML(run)}</div><div id="searchIntent">${searchIntentHTML(run)}</div><div id="searchFilters">${searchFiltersHTML(run)}</div><div id="searchProviderStrip">${searchProviderStripHTML(run)}</div>
-        <div class="search-provider-list">${run.groups.length?run.groups.map(group=>searchProviderHTML(group,run)).join(''):stateHTML('No searchable providers','None of your enabled add-ons exposes search. Install one that does, or browse its catalogs instead.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}</div>`;
+        <div class="search-provider-list" data-motion-static>${run.groups.length?run.groups.map(group=>searchProviderHTML(group,run)).join(''):stateHTML('No searchable providers','None of your enabled add-ons exposes search. Install one that does, or browse its catalogs instead.','<button class="btn btn-primary" data-nav="addons">Manage add-ons</button>')}</div>`;
       bindDynamic(root);bindSearchDynamic(root);
     }
     function refreshSearchRun(run,group){
       if(state.searchRun!==run||!run.route?.current()||state.currentPage!=='search')return;
-      const root=$('#searchRoot');if(!root)return;
-      const summary=$('#searchSummary',root),intent=$('#searchIntent',root),filters=$('#searchFilters',root),strip=$('#searchProviderStrip',root);
-      if(summary)summary.innerHTML=searchSummaryHTML(run);
-      if(intent)intent.innerHTML=searchIntentHTML(run);
-      if(filters)filters.innerHTML=searchFiltersHTML(run);
-      if(strip)strip.innerHTML=searchProviderStripHTML(run);
-      const section=$$('[data-search-provider]',root).find(node=>node.dataset.searchProvider===group.key);
-      if(section)section.outerHTML=searchProviderHTML(group,run);
-      else renderSearchRun(run);
-      bindDynamic(root);bindSearchDynamic(root);
+      run.dirty ||= new Set();run.dirty.add(group);
+      if(run.paintFrame)return;
+      run.paintFrame=requestAnimationFrame(()=>{
+        run.paintFrame=0;
+        if(state.searchRun!==run||!run.route.current()||state.currentPage!=='search')return;
+        const root=$('#searchRoot');if(!root)return;
+        for(const [id,html] of [['searchSummary',searchSummaryHTML(run)],['searchIntent',searchIntentHTML(run)],['searchFilters',searchFiltersHTML(run)],['searchProviderStrip',searchProviderStripHTML(run)]]){
+          const node=document.getElementById(id);
+          if(node&&node._searchHTML!==html){node.innerHTML=html;node._searchHTML=html;bindSearchDynamic(node)}
+        }
+        for(const changed of run.dirty){
+          const section=$$('[data-search-provider]',root).find(node=>node.dataset.searchProvider===changed.key);
+          if(!section)continue;
+          const template=document.createElement('template');template.innerHTML=searchProviderHTML(changed,run);
+          const next=template.content.firstElementChild;
+          const oldHead=$('.search-provider-head',section),head=$('.search-provider-head',next);
+          if(oldHead.innerHTML!==head.innerHTML)oldHead.replaceWith(head);
+          const body=$('[data-search-body]',section),nextBody=$('[data-search-body]',next);
+          const rail=$('.rail-scroll',body),nextRail=$('.rail-scroll',nextBody);
+          if(rail&&nextRail){
+            // Keep existing artwork, focused cards and the horizontal scroll.
+            const existing=new Map([...rail.children].map(node=>[node.dataset.open,node]));
+            const wanted=new Set();let position=0;
+            for(const fresh of [...nextRail.children]){
+              const key=fresh.dataset.open,node=existing.get(key)||fresh;wanted.add(key);
+              if(!existing.has(key)){node.onclick=()=>openMedia(node.dataset.open,node);hydrateIcons(node)}
+              if(rail.children[position]!==node)rail.insertBefore(node,rail.children[position]||null);
+              position++;
+            }
+            for(const node of [...rail.children])if(!wanted.has(node.dataset.open))node.remove();
+
+          }else if(body.innerHTML!==nextBody.innerHTML){body.replaceChildren(...nextBody.childNodes);bindDynamic(body);bindSearchDynamic(body)}
+        }
+        run.dirty.clear();
+      });
     }
     function search(q,route=Routes.begin('search')){
       q=String(q||'').trim();
       state.query=q;
       if(!route.current()||state.currentPage!=='search')return;
+      youtube.browseAbort?.abort();youtube.browseToken++;
       const token=++state.searchSequence;
       if(!q){state.searchRun=null;return renderDiscover(route)}
       const intent=AstraSearchIntent.parse(q),providerQuery=intent.text||q;
-      const searchable=allCatalogs().filter(x=>(x.cat.extra||[]).some(e=>e.name==='search'));
+      const direct=YT.api.videoIdFromInput(q);
+      const searchable=intent.type==='youtube'||direct?[]:allCatalogs().filter(x=>(x.cat.extra||[]).some(e=>e.name==='search'));
       const groups=AstraSearch.groupSources(searchable).map(group=>({...group,items:[],pending:group.catalogs.length,succeeded:0,failed:0,status:'loading'}));
       const byProvider=new Map(groups.map(group=>[group.key,group]));
       const local=[...new Set([...state.metaCache.values(),...state.homeItems,...Object.values(state.library).map(entry=>entry.meta).filter(Boolean)])];
@@ -659,18 +686,19 @@
         if(!group){group={key,name:item._addonName||'On this device',addon:null,catalogs:[],items:[],pending:0,succeeded:0,failed:0,status:'cached'};groups.push(group);byProvider.set(key,group)}
         group.items=AstraSearch.merge(group.items,[item],providerQuery);
       });
-      const youtubeGroup=youtubeEnabled()?{key:'youtube',name:'YouTube',addon:null,catalogs:[],items:[],pending:1,succeeded:0,failed:0,status:'loading',youtube:true}:null;
+      const youtubeGroup=youtubeEnabled()&&(!intent.type||intent.type==='youtube'||direct)?{key:'youtube',name:'YouTube',addon:null,catalogs:[],items:[],pending:1,succeeded:0,failed:0,status:'loading',youtube:true}:null;
       if(youtubeGroup)groups.unshift(youtubeGroup);
       const extra=youtubeGroup?1:0;
       const run={token,query:q,providerQuery,intent,type:'all',groups,total:searchable.length+extra,pending:searchable.length+extra,route};
       state.searchRun=run;
+      route.onDispose(()=>{youtube.searchAbort?.abort();cancelAnimationFrame(run.paintFrame||0)});
       renderSearchRun(run);
       if(youtubeGroup)searchYouTube(run,youtubeGroup,providerQuery);
       groups.filter(group=>group.catalogs.length).forEach(group=>searchProviderGroup(run,group));
     }
     function searchProviderGroup(run,group){
       group.catalogs.forEach(source=>{
-        getCatalog(source.s,source.cat,catalogExtras(source.cat,{search:run.providerQuery})).then(items=>{
+        getCatalog(source.s,source.cat,catalogExtras(source.cat,{search:run.providerQuery}),{signal:run.route.signal}).then(items=>{
           if(state.searchRun!==run||run.token!==state.searchSequence||!run.route.current())return;
           group.items=AstraSearch.merge(group.items,items,run.providerQuery);group.succeeded++;
         }).catch(()=>{
@@ -687,7 +715,7 @@
     function retrySearchGroup(run,key){
       if(!run||state.searchRun!==run||!run.route?.current())return;
       const group=run.groups.find(item=>item.key===key);if(!group||group.pending)return;
-      group.items=[];group.failed=0;group.succeeded=0;group.error='';group.status='loading';group.pending=group.youtube?1:group.catalogs.length;
+      group.items=[];group.failed=0;group.succeeded=0;group.error='';group.retry=true;group.status='loading';group.pending=group.youtube?1:group.catalogs.length;
       run.pending+=group.pending;refreshSearchRun(run,group);
       if(group.youtube)searchYouTube(run,group,run.providerQuery);else searchProviderGroup(run,group);
     }
@@ -698,12 +726,13 @@
     function searchYouTube(run,group,q){
       youtube.searchAbort?.abort();
       const controller=new AbortController();youtube.searchAbort=controller;
+      run.route.onDispose(()=>controller.abort());
       const live=()=>state.searchRun===run&&run.token===state.searchSequence&&run.route?.current();
       const direct=YT.api.videoIdFromInput(q);
       const client=youtubeProvider().client;
       const request=direct
-        ?client.video(direct,{signal:controller.signal}).then(record=>({items:[record],instance:record.instance}))
-        :client.search(q,{signal:controller.signal});
+        ?client.video(direct,{signal:controller.signal,retry:!!group.retry}).then(record=>({items:[record],instance:record.instance}))
+        :client.search(q,{signal:controller.signal,retry:!!group.retry});
       request.then(result=>{
         if(!live())return;
         group.items=(result.items||[]).filter(item=>item&&item.kind==='video').map(youtubeMeta).filter(Boolean);
@@ -815,10 +844,10 @@
         ${state.addons.length?`<div class="addon-list" style="margin-top:var(--s5)">${state.addons.map(addonCard).join('')}</div>`:stateHTML('No add-ons installed','Install one to give Astra something to show.','<button class="btn btn-primary" data-action="install">Install add-on</button>')}`;
       bindDynamic(root);
     }
-    async function fullMeta(item){if(item._fullMeta)return item;
+    async function fullMeta(item,signal){if(item._fullMeta)return item;
       // YouTube's own record is the full metadata; no add-on can supply it.
-      if(isYouTubeMeta(item)){try{const record=await youtubeProvider().client.video(item._youtube.videoId);return youtubeMeta(record)||item}catch{return item}}
-      const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){try{const d=await fetchAddonJSON(s.addon,'meta',endpoint(s.addon,'meta',item.type,item.id),data=>!!data?.meta);return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
+      if(isYouTubeMeta(item)){try{const record=await youtubeProvider().client.video(item._youtube.videoId,{signal});return youtubeMeta(record)||item}catch{return item}}
+      const candidates=manifests().filter(s=>hasResource(s.manifest,'meta',item.type,item.id)).sort((a,b)=>(b.addon.url===item._addonUrl)-(a.addon.url===item._addonUrl));for(const s of candidates){if(signal?.aborted)return item;try{const d=await fetchAddonJSON(s.addon,'meta',endpoint(s.addon,'meta',item.type,item.id),14000,data=>!!data?.meta,signal);return recordMeta({...item,...d.meta,_fullMeta:true},s)}catch{}}return item}
     async function openMedia(key,opener){
       cancelStreamLookup();
       if(state.currentPage==='search'&&state.query)rememberSearch(state.query);
@@ -829,14 +858,14 @@
       modalReturnFocus=opener instanceof HTMLElement?opener:rememberFocus();
       // Stamp the request: a slow full-metadata response for one title must not
       // replace whatever the viewer has open by the time it lands.
-      const request={key};player.metaRequest=request;
+      const request={key,controller:new AbortController()};player.metaRequest=request;
       await Motion.sharedOpen({source:opener,targetSelector:'.dossier-poster',update:()=>{
         state.currentVideo=null;state.currentStreams=[];state.detailBrowser=null;player.sources=[];
         state.currentMeta=item;showDetail(item,true);
       }});
-      const full=await fullMeta(item);
+      const full=await fullMeta(item,request.controller.signal);
       if(player.metaRequest!==request)return;
-      state.currentMeta=full;showDetail(full,false);
+      state.currentMeta=full;showDetail(full,false,true);
     }
     function resumeVideo(m){const videos=m.videos||[];if(!videos.length)return{id:m.id,title:m.name};return AstraPlayback.episodes.resumeTarget(m,id=>videoProgress(m,id)).video||videos[0]}
     function episodeCode(v){return AstraPlayback.episodes.episodeCode(v)}
@@ -957,7 +986,7 @@
     }
     /* The dossier sheet. Artwork band, hard seam, then the record: the same
        structure whether the title is a film, an album or a radio station. */
-    function showDetail(m,loading=false){
+    function showDetail(m,loading=false,informationOnly=false){
       const root=$('#modalRoot'),isSaved=!!state.library[mediaKey(m)],videos=m.videos||[],
         groups=AstraPlayback.episodes.groupVideos(videos),hasVideoBrowser=groups.episodes.length>0||videos.length>1,
         seasons=[...new Set(groups.episodes.map(v=>v.season).filter(x=>x!=null))],
@@ -968,7 +997,7 @@
           ?`${resumeProg&&!resumeProg.completed?'Continue':'Play'} this video`
           :videos.length?`${resumeProg&&!resumeProg.completed?'Continue':'Play'} ${target||'first item'}`:'Find sources',
         headlineFacts=[m._youtube?.author,yearOf(m),typeLabel(m.type),m.runtime,m.imdbRating?`${m.imdbRating}/10`:''].filter(Boolean);
-      root.innerHTML=`<div class="sheet" data-dismiss><section class="sheet-panel cinema-detail" role="dialog" aria-modal="true" aria-labelledby="dossierTitle">
+      const html=`<div class="sheet" data-dismiss><section class="sheet-panel cinema-detail" role="dialog" aria-modal="true" aria-labelledby="dossierTitle">
         <button class="sheet-close" data-close aria-label="Close">${icon('close')}</button>
         <div class="dossier-art ${art?'image-loading':'image-error'}">${mediaImage(art)}<span class="dossier-art-shade" aria-hidden="true"></span></div>
         <header class="dossier-head">
@@ -989,6 +1018,17 @@
                ${dossierRecord(m)}
                ${m.cast?.length?`<p class="dossier-cast">Cast · ${esc(m.cast.slice(0,8).join(' · '))}</p>`:''}</section>${hasVideoBrowser?seriesSectionsHTML(videos,defaultSeason):''}`}</div>
       </section></div>`;
+      if(informationOnly&&$('.dossier-body',root)){
+        const template=document.createElement('template');template.innerHTML=html;
+        const old=$('.dossier-body',root),next=$('.dossier-body',template.content);
+        const cta=$('[data-get-streams]',root),freshCTA=$('[data-get-streams]',template.content);
+        if(cta&&freshCTA){cta.dataset.getStreams=freshCTA.dataset.getStreams;cta.innerHTML=freshCTA.innerHTML}
+        const facts=$('.dossier-meta',root),freshFacts=$('.dossier-meta',template.content);
+        if(facts&&freshFacts)facts.innerHTML=freshFacts.innerHTML;
+        if(next){old.replaceChildren(...next.childNodes);bindDynamic(old);bindDetailDynamic(old)}
+        return;
+      }
+      root.innerHTML=html;
       bindDynamic(root);bindDetailDynamic(root);
     }
     /* ---- YouTube through Invidious ---------------------------------------
@@ -1129,8 +1169,8 @@
        verdict, the player and Continue Watching all work unchanged. */
     async function loadYouTubeSources(m,videoId,options={}){
       const root=$('#streamOverlayRoot');if(!root)return[];
-      player.lookup?.loader?.cancel();
-      const lookup={mediaKey:mediaKey(m),videoId:String(videoId),token:++state.searchToken};
+      player.lookup?.controller?.abort();player.lookup?.loader?.cancel();
+      const lookup={mediaKey:mediaKey(m),videoId:String(videoId),token:++state.searchToken,controller:new AbortController()};
       player.lookup=lookup;
       state.currentVideo={id:String(videoId),title:m.name};
       const stale=()=>player.lookup!==lookup||lookup.token!==state.searchToken||!state.currentMeta
@@ -1148,7 +1188,7 @@
       if(!youtubeEnabled())return fail('YouTube is turned off','Turn YouTube on in Settings to resolve and play videos.',false);
       try{
         if(options.fresh)youtubeProvider().client.forget(videoId);
-        const record=await youtubeProvider().client.video(videoId,{retry:!!options.fresh});
+        const record=await youtubeProvider().client.video(videoId,{retry:!!options.fresh,signal:lookup.controller.signal});
         if(stale())return[];
         const plan=YT.playback.buildPlan(record,{
           config:youtubeConfig(),instance:record.instance,
@@ -1212,15 +1252,45 @@
        cannot become a loop. */
     function youtubeMaybeRefresh(){
       const yt=player.youtube;
-      if(!yt||yt.refreshed)return false;
+      if(!yt||yt.refreshed||yt.renewing)return false;
       yt.refreshed=true;
+      if(player.session){renewYouTubePlayback(yt,true);return true}
       const m=state.currentMeta;
       if(!m||!isYouTubeMeta(m))return false;
-      closePlayer(true);
-      showDetail(m,false);
+      closePlayer(true);showDetail(m,false);
       loadYouTubeSources(m,yt.videoId,{fresh:true});
-      toast('The video connection failed. Astra is requesting fresh playback links.');
       return true;
+    }
+    function armYouTubeRenewal(){
+      clearTimeout(player.leaseTimer);
+      const yt=player.youtube;if(!yt||!player.session)return;
+      const expires=yt.plan.variants.map(variant=>variant.expiresAt).filter(at=>at>0);
+      if(!expires.length)return;
+      player.leaseTimer=setTimeout(()=>renewYouTubePlayback(yt),Math.max(1000,Math.min(...expires)-Date.now()-YT.playback.EXPIRY_MARGIN_MS));
+    }
+    async function renewYouTubePlayback(yt,recovery=false){
+      if(player.youtube!==yt||!player.session||yt.renewing)return;
+      yt.renewing=true;
+      const session=player.session,controller=new AbortController();player.leaseAbort=controller;
+      const live=()=>player.session===session&&player.youtube===yt&&!controller.signal.aborted;
+      try{
+        const record=await youtubeProvider().client.video(yt.videoId,{retry:true,signal:controller.signal});
+        if(!live())return;
+        const el=$('#mediaEl'),snap=session.snapshot(),resumeAt=el?.currentTime||snap.resumeTime||0,paused=el?el.paused:player.lastPaused===true;
+        const active=YT.playback.variantById(yt.plan,currentYouTubeVariant()),plan=YT.playback.buildPlan(record,{config:youtubeConfig(),instance:record.instance,capabilities:YT.playback.browserCapabilities(window)});
+        if(!plan.variants.length)throw Error('No playable stream was returned.');
+        const raw=YT.playback.toStreams(plan,record),sources=prepareStreams(raw);
+        const selected=sources.find(entry=>entry.stream.raw?._youtube?.height===active?.height)||sources[0];
+        state.currentStreams=raw;player.sources=sources;
+        player.youtube={videoId:yt.videoId,record,plan,refreshed:recovery,byVariant:new Map(sources.map(entry=>[entry.stream.raw?._youtube?.variantId,candidateKey(entry)]))};
+        openPlayer(selected,{resumeAt,paused,diagnostics:player.diagnostics});
+      }catch(error){
+        if(!live()||youtubeAborted(error))return;
+        yt.renewing=false;
+        if(recovery){renderPlayerError(session.snapshot());toast(youtubeErrorText(error),'bad')}
+        // A proactive failure leaves the current media playing. Terminal
+        // recovery remains available if the existing lease later expires.
+      }
     }
     /* ---- YouTube quality ------------------------------------------------
        Only what will actually play is listed. An adaptive rung switches the
@@ -1326,20 +1396,21 @@
       const root=$('#streamOverlayRoot');if(root){Motion.releaseSurface(root);root.replaceChildren()}
       document.body.classList.remove('source-picker-open');
     }
-    function finishStreamClose(){const target=streamReturnFocus;streamReturnFocus=null;player.lookup?.loader?.cancel();player.lookup=null;hideStreamDrawer();focusBack(target)}
+    function finishStreamClose(){const target=streamReturnFocus;streamReturnFocus=null;player.lookup?.controller?.abort();player.lookup?.loader?.cancel();player.lookup=null;hideStreamDrawer();focusBack(target)}
     function closeStreamPicker(){
-      player.lookup?.loader?.cancel();player.lookup=null;
+      player.lookup?.controller?.abort();player.lookup?.loader?.cancel();player.lookup=null;
       const root=$('#streamOverlayRoot');
       if(!root||!root.children.length)return finishStreamClose();
       let finished=false;const done=()=>{if(finished)return;finished=true;clearTimeout(timer);finishStreamClose()};const timer=setTimeout(done,450);if(!Motion.dismissSurface(root,done))done();
     }
     async function loadStreams(videoId,opener){
+      player.metaRequest?.controller?.abort();player.metaRequest=null;
       const m=state.currentMeta;if(!m)return[];
       if(opener instanceof HTMLElement)streamReturnFocus=opener;
       if(isYouTubeMeta(m))return loadYouTubeSources(m,m._youtube.videoId);
       state.currentVideo=(m.videos||[]).find(v=>String(v.id)===String(videoId))||{id:videoId,title:m.name};
       const root=$('#streamOverlayRoot');if(!root)return[];
-      player.lookup?.loader?.cancel();
+      player.lookup?.controller?.abort();player.lookup?.loader?.cancel();
       const lookup={mediaKey:mediaKey(m),videoId:String(videoId),token:++state.searchToken,pending:0,failed:0};
       player.lookup=lookup;
       const stale=()=>player.lookup!==lookup||lookup.token!==state.searchToken||!state.currentMeta
@@ -1395,7 +1466,7 @@
     function currentModal(){return $('#modalRoot')?.firstElementChild||null}
     /** Invalidate any in-flight lookup, so its response cannot land later. */
     function cancelStreamLookup(){
-      player.lookup?.loader?.cancel();player.lookup=null;player.metaRequest=null;
+      player.lookup?.controller?.abort();player.lookup?.loader?.cancel();player.lookup=null;player.metaRequest?.controller?.abort();player.metaRequest=null;
       hideStreamDrawer();
     }
 
@@ -1481,7 +1552,7 @@
     function openPlayer(entry,options={}){
       if(!entry)return;
       if(player.youtube&&YT.playback.planExpired(player.youtube.plan)&&youtubeMaybeRefresh())return;
-      player.lookup?.loader?.cancel();player.lookup=null;hideStreamDrawer();
+      player.lookup?.controller?.abort();player.lookup?.loader?.cancel();player.lookup=null;hideStreamDrawer();
       const m=state.currentMeta,v=state.currentVideo||m;
       const s=entry.stream;
       if(s.kind==='youtube'){openAddonYouTube(entry);return}
@@ -1521,7 +1592,7 @@
       player.session=PB.engine.createSession({
         candidates:(ladder||[entry]).map(item=>({id:candidateKey(item),stream:item.stream,evaluation:item.evaluation,entry:item})),
         resumeTime,
-        startupTimeoutMs:player.compatibility?45000:undefined,
+        startupTimeoutMs:player.compatibility?45000:ladder?30000:undefined,
         readPlaybackState:attemptId=>{const el=$('#mediaEl');return el&&player.session?.snapshot().attemptId===attemptId?{currentTime:el.currentTime,paused:el.paused,seeking:el.seeking,ended:el.ended}:null},
         autoFailover:!!ladder,
         maxAttempts:ladder?ladder.length:PB.engine.DEFAULT_MAX_ATTEMPTS,
@@ -1529,6 +1600,7 @@
       });
       if(ladder)player.session.play(candidateKey(entry));
       else player.session.start();
+      armYouTubeRenewal();
     }
     /* Two surfaces share one set of hooks. Video mounts over everything in
        #modalRoot; audio mounts in #audioRoot so it survives browsing and can
@@ -1652,6 +1724,7 @@
       player.pendingSeek=null;
 
       const playbackPosition=()=>({currentTime:el.currentTime,paused:el.paused,seeking:el.seeking});
+      scope.listen(el,'play',()=>{player.lastPaused=false});scope.listen(el,'pause',()=>{player.lastPaused=true});
       scope.listen(el,'playing',()=>{report('ready',playbackPosition());player.diagnostics?.record('playing',{engine:player.adapter?.kind||adapterKind,currentTime:el.currentTime})});
       // Metadata is not playback. Keep the startup deadline until frames can
       // actually be presented; canplay also allows a user to resume autoplay.
@@ -1994,6 +2067,7 @@
       if(action==='next')session.tryNext();
     }
     function closePlayer(silent){
+      clearTimeout(player.leaseTimer);player.leaseAbort?.abort();player.leaseAbort=null;
       clearTimeout(player.idleTimer);
       clearTimeout(player.noticeTimer);player.noticeTimer=null;player.notice=null;
       player.nextEpisode=null;player.pendingSeek=null;
@@ -2513,7 +2587,7 @@
       Motion.mountSurface({root,key:detail?'detail':'utility',panelSelector,edge:!!detail,down:true,onDismiss:()=>{cancelStreamLookup();finishModalClose()}});
     }
     function bindDynamic(root=document){hydrateIcons(root);$$('[data-speed]',root).forEach(button=>button.onclick=()=>{playbackRate=Number(button.dataset.speed);const el=$('#mediaEl');if(el)el.playbackRate=playbackRate;closeTrackMenu(true);renderTools(player.session?.snapshot()||{})});$$('[data-health-test]',root).forEach(x=>x.onclick=()=>testAllAddonHealth());$$('[data-health-addon]',root).forEach(x=>x.onclick=()=>{const addon=state.addons.find(item=>addonHealthKey(item)===x.dataset.healthAddon);if(addon)checkAddonHealth(addon)});$$('[data-nav]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav(x.dataset.nav)});$$('[data-close]',root).forEach(x=>x.onclick=()=>closeModal());$$('[data-close-streams]',root).forEach(x=>x.onclick=()=>closeStreamPicker());$$('[data-dismiss-streams]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeStreamPicker()});$$('[data-close-player]',root).forEach(x=>x.onclick=()=>closePlayer());$$('[data-dismiss]',root).forEach(x=>x.onclick=e=>{if(e.target===x)closeModal()});$$('[data-open]',root).forEach(x=>x.onclick=()=>openMedia(x.dataset.open,x));$$('[data-library]',root).forEach(x=>x.onclick=()=>toggleLibrary(x.dataset.library));$$('[data-get-streams]',root).forEach(x=>x.onclick=()=>{if(x.classList.contains('video-row')){$$('.video-row.active',root).forEach(y=>y.classList.remove('active'));x.classList.add('active')}loadStreams(x.dataset.getStreams,x)});$$('[data-play-source]',root).forEach(x=>x.onclick=()=>openPlayer(entryById(x.dataset.playSource)));$$('[data-switch-source]',root).forEach(x=>x.onclick=()=>{const entry=entryById(x.dataset.switchSource);closeTrackMenu();if(entry)openPlayer(entry)});$$('[data-player-action]',root).forEach(x=>x.onclick=()=>playerAction(x.dataset.playerAction));$$('[data-episode-nav]',root).forEach(x=>x.onclick=()=>{const dir=x.dataset.episodeNav,m=player.meta;if(!m)return;const target=dir==='next'?AstraPlayback.episodes.nextEpisode(m.videos,player.video.id):AstraPlayback.episodes.previousEpisode(m.videos,player.video.id);if(target)goToEpisode(target)});$$('[data-countdown]',root).forEach(x=>x.onclick=()=>{const next=player.nextEpisode;cancelCountdown();if(x.dataset.countdown!=='cancel'&&next)goToEpisode(next)});$$('[data-track-menu]',root).forEach(x=>x.onclick=()=>{if(player.menu===x.dataset.trackMenu)closeTrackMenu();else openTrackMenu(x.dataset.trackMenu)});$$('[data-text-track]',root).forEach(x=>x.onclick=()=>selectSubtitle(x.dataset.textTrack));$$('[data-audio-track]',root).forEach(x=>x.onclick=()=>selectAudioTrack(x.dataset.audioTrack));$$('[data-quality]',root).forEach(x=>x.onclick=()=>selectQuality(x.dataset.quality));$$('[data-youtube-browse]',root).forEach(x=>x.onclick=()=>{youtube.browse=null;renderYouTubeBrowse()});$$('[data-youtube-reload]',root).forEach(x=>x.onclick=()=>{const m=state.currentMeta;if(m)loadYouTubeSources(m,x.dataset.youtubeReload,{fresh:true})});$$('[data-youtube-test]',root).forEach(x=>x.onclick=()=>testYouTubeInstances());$$('[data-youtube-toggle]',root).forEach(x=>x.onclick=()=>{const key=x.dataset.youtubeToggle;youtubeApply({[key]:!youtubeStored()[key]});renderYouTubeSettings()});$$('[data-youtube-select]',root).forEach(x=>x.onchange=()=>{youtubeApply({[x.dataset.youtubeSelect]:Number(x.value)});renderYouTubeSettings()});$$('[data-load-more]',root).forEach(x=>x.onclick=()=>{state.discoverVisible+=DISCOVER_BATCH;renderDiscoverPage()});$$('[data-hub-open]',root).forEach(x=>x.onclick=()=>openHubSector(x.dataset.hubOpen));$$('[data-browse-catalog]',root).forEach(x=>x.onclick=()=>{clearQuery();state.discover={type:'all',sector:null,sectorLabel:'',addon:'all',catalog:x.dataset.browseCatalog,genre:'all'};state.discoverVisible=DISCOVER_BATCH;nav('search')});$$('[data-settings-route]',root).forEach(x=>x.onclick=()=>{if(root!==document)closeModal();nav('settings',x.dataset.settingsRoute)});$$('[data-season]',root).forEach(x=>x.onclick=()=>{$$('[data-season]',root).forEach(c=>{const selected=c===x;c.classList.toggle('active',selected);c.setAttribute('aria-selected',String(selected));c.tabIndex=selected?0:-1});$('#episodeList').innerHTML=episodeHTML(state.currentMeta.videos,x.dataset.season);bindDynamic($('#episodeList'))});$$('[data-action="install"]',root).forEach(x=>x.onclick=installModal);$$('[data-configure]',root).forEach(x=>x.onclick=()=>{const u=safeUrl(x.dataset.configure);if(u&&/^https?:/i.test(u))window.open(u,'_blank','noopener');else toast('The add-on returned an unsafe configuration link.','bad')});$$('[data-toggle-addon]',root).forEach(x=>x.onclick=async()=>{const a=addonByUrl(x.dataset.toggleAddon);a.enabled=a.enabled===false;store.set('addons',state.addons);await loadManifests();invalidateCatalogs();renderAddons()});$$('[data-remove-addon]',root).forEach(x=>x.onclick=()=>{const a=addonByUrl(x.dataset.removeAddon);if(!confirm(`Remove ${a.name||'this add-on'}?`))return;state.addons=state.addons.filter(n=>n!==a);state.manifests.delete(a.url);store.set('addons',state.addons);invalidateCatalogs();renderAddons()});$$('[data-copy]',root).forEach(x=>x.onclick=async()=>{try{await navigator.clipboard.writeText(x.dataset.copy);toast('Copied','good')}catch{toast('Chrome blocked clipboard access.','bad')}});$$('[data-setting]',root).forEach(x=>x.onclick=()=>{const k=x.dataset.setting;state.settings[k]=!state.settings[k];x.classList.toggle('on',state.settings[k]);x.setAttribute('aria-pressed',String(state.settings[k]));saveSettings();if(k==='showAdult')invalidateCatalogs()});$$('[data-select-setting]',root).forEach(x=>x.onchange=()=>saveSettings());$$('[data-export]',root).forEach(x=>x.onclick=exportData);$$('[data-import]',root).forEach(x=>x.onclick=()=>$('#importFile',root)?.click());const imp=$('#importFile',root);if(imp)imp.onchange=()=>imp.files[0]&&importData(imp.files[0]);bindMotionSurface(root);Motion.refresh(root)}
-    function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;state.query=q;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>{if(state.currentPage==='search')search(q)},350)});$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);rememberSearch(e.target.value);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if($('#playerShell')&&!player.locked&&!e.target.closest('input,select,textarea,button,[contenteditable]')&&!e.ctrlKey&&!e.altKey&&!e.metaKey){const action=({' ':'playpause',k:'playpause',m:'mute',f:'fullscreen',p:'pip',ArrowLeft:'seek-back',ArrowRight:'seek-forward'})[e.key];if(action){e.preventDefault();playerAction(action);return}}if(e.key!=='Escape')return;if($('#streamOverlayRoot')?.children.length){closeStreamPicker();return}if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('.player-shell',$('#modalRoot')))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
+    function globalEvents(){$('#globalSearch').addEventListener('input',e=>{const q=e.target.value;if(e.isComposing)return;Routes.release('search');state.searchSequence++;youtube.searchAbort?.abort();youtube.browseAbort?.abort();state.query=q;$('#searchClear').classList.toggle('hidden',!q);clearTimeout(searchTimer);searchTimer=setTimeout(()=>{if(state.currentPage==='search')search(q)},220)});$('#globalSearch').addEventListener('compositionend',e=>e.target.dispatchEvent(new Event('input',{bubbles:true})));$('#globalSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.target.blur();clearTimeout(searchTimer);rememberSearch(e.target.value);search(e.target.value)}});$('#searchClear').onclick=()=>{clearQuery();renderDiscover()};document.addEventListener('keydown',e=>{if($('#playerShell')&&!player.locked&&!e.target.closest('input,select,textarea,button,[contenteditable]')&&!e.ctrlKey&&!e.altKey&&!e.metaKey){const action=({' ':'playpause',k:'playpause',m:'mute',f:'fullscreen',p:'pip',ArrowLeft:'seek-back',ArrowRight:'seek-forward'})[e.key];if(action){e.preventDefault();playerAction(action);return}}if(e.key!=='Escape')return;if($('#streamOverlayRoot')?.children.length){closeStreamPicker();return}if($('#trackMenu')){closeTrackMenu();return}if($('#countdownCard')){cancelCountdown();return}if($('#modalRoot').children.length){if($('.player-shell',$('#modalRoot')))closePlayer();else closeModal()}});window.addEventListener('pagehide',()=>progress.flush());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')progress.flush()})}
     function productEvents(){
       document.addEventListener('click',event=>{
         const preset=event.target.closest?.('[data-look]');
