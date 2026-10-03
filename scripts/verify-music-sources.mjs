@@ -66,6 +66,17 @@ async function play(kind,origin){
   await page.waitForFunction(at=>[...document.querySelectorAll('audio')].some(a=>!a.paused&&!a.error&&a.currentTime>at+5),before,{timeout:10000});
   const after=(await media()).find(a=>!a.paused&&a.origin===origin);
   check(kind+' seek continues playback',{before,after:after.currentTime,origin:after.origin});
+  stage=kind+' restored transport controls';
+  await page.waitForFunction(()=>{
+    const controls=document.querySelector('#transport .ctrls');
+    if(document.body.classList.contains('scrubbing')||!controls||Number(getComputedStyle(controls).opacity)<.99)return false;
+    return ['#btn-play','[data-act="prev"]','[data-act="next"]'].every(selector=>{
+      const button=document.querySelector(selector),r=button?.getBoundingClientRect();
+      return r&&r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&
+        document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===button;
+    });
+  },null,{timeout:6000});
+  check(kind+' transport controls restore and remain tappable',{viewport:'393x852'});
   await page.screenshot({path:folder+'/'+kind+'-playing.png'});
   await page.waitForFunction(()=>document.querySelector('#btn-play')?.getAttribute('aria-label')==='Pause');
   // The gesture suppresses accidental taps briefly; wait on its playback clock.
@@ -80,7 +91,7 @@ try{
     const response=await fetch(url,{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(15000)});
     assert.equal(response.status,200);return response.json();
   }));
-  const driveCount=catalog.count,r2Count=expectedNative?mapping.count:mapping.files.length;
+  const driveCount=catalog.count;let r2Count=expectedNative?mapping.count:mapping.files.length;
   assert.ok(Number.isSafeInteger(driveCount)&&Number.isSafeInteger(r2Count)&&r2Count>0&&(expectedNative||driveCount>=r2Count));
   assert.equal(mapping.complete,!expectedPartial);
   report.mapMode=expectedNative?'library':mapping.mode;report.mapComplete=mapping.complete;
@@ -90,8 +101,15 @@ try{
   page.setDefaultTimeout(15000);
   await page.goto(player,{waitUntil:'domcontentloaded'});
   stage='independent libraries';
-  await page.waitForFunction(expected=>window.PA&&[...PA.LIB.map.values()].filter(t=>t.source==='r2').length===expected.r2Count&&
-    [...PA.LIB.map.values()].filter(t=>t.source==='drive').length===expected.driveCount,{driveCount,r2Count},{timeout:60000});
+  // Native uploads may append songs between preflight and the browser's fetch.
+  // Validate the exact snapshot committed by the browser, rather than waiting
+  // forever for it to equal an earlier independent HTTP response's count.
+  await page.waitForFunction(expected=>{
+    if(!window.PA)return false;const tracks=[...PA.LIB.map.values()],r2=tracks.filter(t=>t.source==='r2');
+    return tracks.filter(t=>t.source==='drive').length===expected.driveCount&&r2.length>0&&
+      (expected.native?PA.R2Source?.mapping?.complete===true&&PA.R2Source.mapping.matches(r2):r2.length===expected.r2Count);
+  },{driveCount,r2Count,native:expectedNative},{timeout:60000});
+  if(expectedNative){r2Count=await page.evaluate(()=>[...PA.LIB.map.values()].filter(t=>t.source==='r2').length);check('current R2 catalog snapshot',{count:r2Count});}
   sample=await page.evaluate(()=>{
     const t=[...PA.LIB.map.values()].filter(t=>t.source==='r2'&&!t.id.startsWith('r2_native_')).sort((a,b)=>a.id.localeCompare(b.id))[0];
     return {title:t.title,remoteId:t.remoteId};
