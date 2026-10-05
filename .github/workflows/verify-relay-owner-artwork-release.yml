@@ -1,0 +1,49 @@
+name: Verify owner Relay artwork release
+
+on:
+  push:
+    branches: [activate/relay-owner-77fe40c]
+    paths:
+      - '.github/workflows/verify-relay-owner-artwork-release.yml'
+      - 'scripts/verify-relay-owner-artwork-release.mjs'
+      - '.github/relay-owner-artwork-release/target.json'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: jarvis-worker-production
+  cancel-in-progress: false
+
+jobs:
+  verify_release:
+    if: >-
+      github.repository == 'braydenparker000/Missionarytube-' &&
+      github.actor_id == '183016859' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/activate/relay-owner-77fe40c' &&
+      github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out the reviewed verification source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Use Node without installing dependencies
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Check the verification fixture without credentials
+        run: node --test scripts/verify-relay-owner-artwork-release.test.mjs
+      - name: Verify exact release and preserved private access with sealed GET only
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/verify-relay-owner-artwork-release.mjs
+
+# No checkpoint.json, activation edits, flag writes, OAuth/device creation or artifacts.
