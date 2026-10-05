@@ -1,0 +1,70 @@
+name: Activate approved owner Relay once
+
+# Publishing this branch-only checkpoint is the explicit activation trigger.
+# This workflow must never be added to a main/PR/schedule/dispatch trigger.
+on:
+  push:
+    branches: [activate/relay-owner-77fe40c]
+    paths: ['.github/relay-owner-activation/checkpoint.json']
+
+permissions:
+  contents: read
+  actions: read
+
+# Shares the existing Worker production lock, including release deployment.
+concurrency:
+  group: jarvis-worker-production
+  cancel-in-progress: false
+
+jobs:
+  activate:
+    if: >-
+      github.repository == 'braydenparker000/Missionarytube-' &&
+      github.actor_id == '183016859' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/activate/relay-owner-77fe40c' &&
+      github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out this reviewed activation revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Use Node without credential exposure
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Check out the one approved Jarvis source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: braydenparker999/jarvis
+          ref: 77fe40ced30d547a7c051a5969ed9d74ee90e91f
+          path: .jarvis-source
+          persist-credentials: false
+      - name: Verify immutable source and run mock-only activation checks
+        run: |
+          test "$(git -C .jarvis-source rev-parse HEAD)" = '77fe40ced30d547a7c051a5969ed9d74ee90e91f'
+          test "$(git -C .jarvis-source rev-parse 'HEAD^{tree}')" = '9f3924d528dc489effedc6fc3fc4c2e06a729ebc'
+          test -z "$(git -C .jarvis-source status --porcelain)"
+          node --test scripts/activate-relay-owner.test.mjs scripts/relay-owner-gate.test.mjs tests/music-worker-workflow.test.mjs
+      - name: Install tested source dependencies before sealed credentials
+        run: |
+          npm --prefix .jarvis-source ci
+          npm --prefix .jarvis-source test
+      - name: Install only the existing pinned Wrangler version without credentials
+        run: npm install --prefix "$RUNNER_TEMP/relay-owner-wrangler" --no-audit --no-fund wrangler@4.136.3
+      - name: Recheck live release, version and owner-off gates, then enable only owner pairing
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/activate-relay-owner.mjs
+      - name: Remove generated config even if the runner step was interrupted
+        if: always()
+        run: rm -f .jarvis-source/backend/wrangler.owner-activation.generated.json
+
+# No settings, credentials, raw CLI output, generated config, or raw provider
+# responses are uploaded. Success logs contain only the sanitized proof.
