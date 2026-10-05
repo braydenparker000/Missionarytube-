@@ -1,0 +1,68 @@
+name: Read-only Relay owner gate preflight
+
+# Branch/PR validation only. No deployment, variable update or production trigger.
+on:
+  push:
+    branches: [fix/relay-owner-gate-preflight]
+    paths:
+      - '.github/workflows/validate-relay-owner-gate.yml'
+      - 'scripts/check-music-worker-bindings.mjs'
+      - 'scripts/relay-owner-gate.mjs'
+      - 'scripts/relay-owner-gate.test.mjs'
+  pull_request:
+    paths:
+      - '.github/workflows/validate-relay-owner-gate.yml'
+      - 'scripts/check-music-worker-bindings.mjs'
+      - 'scripts/relay-owner-gate.mjs'
+      - 'scripts/relay-owner-gate.test.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  unit-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out proposed public guard source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Node without installing dependencies
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Test classification, sealed GET and trigger isolation
+        run: node --test scripts/relay-owner-gate.test.mjs tests/music-worker-workflow.test.mjs
+
+  provider-preflight:
+    needs: unit-validation
+    # Never expose the existing provider credential to forks, another repository,
+    # another branch's PR, or an actor other than the existing verified owner.
+    if: >-
+      github.repository == 'braydenparker000/Missionarytube-' &&
+      github.actor_id == '183016859' &&
+      (github.event_name == 'push' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'fix/relay-owner-gate-preflight'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: relay-owner-gate-preflight
+      cancel-in-progress: false
+    steps:
+      - name: Check out the validated public guard source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Node without installing dependencies
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Require owner access to be absent or false using the existing sealed GET
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/check-music-worker-bindings.mjs --owner-gate
