@@ -68,6 +68,7 @@ jobs:
         run: |
           test "$(git -C .jarvis-source rev-parse HEAD)" = "$SOURCE_COMMIT"
           test -f .jarvis-source/tests/music-delivery.test.js
+          npm --prefix .jarvis-source ci
           npm --prefix .jarvis-source test
           node --test tests/music-worker-workflow.test.mjs
           node scripts/prepare-music-worker.mjs .jarvis-source
