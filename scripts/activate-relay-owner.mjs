@@ -54,11 +54,20 @@ export function bindingIdentities(settings, checkedBindings) {
   const hubs = identities.find(binding => binding.name === 'HUBS');
   const music = identities.find(binding => binding.name === 'MUSIC_R2');
   if (!hubs || !/^[a-f0-9]{32}$/.test(hubs.namespace_id || '') || music?.type !== 'r2_bucket' || music.bucket_name !== 'jarvis-music') fail();
+  const hubResource = settings.bindings.find(binding => binding.name === 'HUBS');
+  const musicResource = settings.bindings.find(binding => binding.name === 'MUSIC_R2');
+  // The pinned config represents the ordinary production Worker and global R2.
+  // Refuse an external dispatch namespace, nonproduction DO or regional bucket
+  // before uploading a config that does not explicitly represent that target.
+  if (Object.hasOwn(hubResource, 'dispatch_namespace') ||
+      (hubResource.environment !== undefined && hubResource.environment !== 'production') ||
+      (hubResource.jurisdiction !== undefined && hubResource.jurisdiction !== 'default') ||
+      (musicResource.jurisdiction !== undefined && musicResource.jurisdiction !== 'default')) fail();
   // Extend the established sanitized contract with resource identity qualifiers.
   // Never access unrelated plain-text or secret values.
   return identities.map(identity => {
     const original = settings.bindings.find(binding => binding.name === identity.name);
-    for (const key of ['script_name', 'environment', 'jurisdiction'])
+    for (const key of ['script_name', 'environment', 'dispatch_namespace', 'jurisdiction'])
       if (original[key] !== undefined) identity[key] = original[key];
     return identity;
   }).sort((a, b) => a.name.localeCompare(b.name));

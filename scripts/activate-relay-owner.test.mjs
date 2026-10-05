@@ -136,7 +136,12 @@ test('binding identities include resources and variable names/types without read
   for (const input of [{bindings: settings().bindings.filter(binding => binding.name !== 'MUSIC_R2')},
     {bindings: [...settings().bindings, unread('OTHER', 'plain_text')]},
     {bindings: [...settings().bindings, {name: 'NEW', type: 'kv_namespace', namespace_id: namespace}]},
-    {bindings: settings().bindings.map(binding => binding.name === 'HUBS' ? {...binding, namespace_id: ''} : binding)}])
+    {bindings: settings().bindings.map(binding => binding.name === 'HUBS' ? {...binding, namespace_id: ''} : binding)},
+    {bindings: settings().bindings.map(binding => binding.name === 'HUBS' ? {...binding, dispatch_namespace: 'other'} : binding)},
+    {bindings: settings().bindings.map(binding => binding.name === 'HUBS' ? {...binding, dispatch_namespace: ''} : binding)},
+    {bindings: settings().bindings.map(binding => binding.name === 'HUBS' ? {...binding, environment: 'staging'} : binding)},
+    {bindings: settings().bindings.map(binding => binding.name === 'HUBS' ? {...binding, jurisdiction: 'eu'} : binding)},
+    {bindings: settings().bindings.map(binding => binding.name === 'MUSIC_R2' ? {...binding, jurisdiction: 'eu'} : binding)}])
     assert.throws(() => bindingIdentities(input, guards.checkedBindings));
 });
 

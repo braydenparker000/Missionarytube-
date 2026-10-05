@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "approved_action": "enable_owner_pairing_only",
+  "source_repository": "braydenparker999/jarvis",
+  "source_commit": "77fe40ced30d547a7c051a5969ed9d74ee90e91f",
+  "source_tree": "9f3924d528dc489effedc6fc3fc4c2e06a729ebc",
+  "release_commit": "414e1a2a034603f9aaa692c2e957a5385eb733fe",
+  "release_run_id": "37359402224",
+  "release_run_attempt": 1,
+  "worker_deployment_id": "0def5e4e-fb7a-4afb-bafd-182ebca2404d",
+  "worker_version_id": "9a78fd74-524c-4ba0-af3f-ff12eaec8864",
+  "worker_script_etag": "e830965d21d7abcb9d7defc5de4c3a52977d51fc1746ae8e5c53e0ff13372084",
+  "verified_at": "2026-10-05T19:04:41.684Z"
+}
