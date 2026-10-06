@@ -66,9 +66,10 @@ jobs:
           test "$(git -C .jarvis-source rev-parse HEAD)" = "$SOURCE_COMMIT"
           test -f .jarvis-source/backend/podcasts.js
           npm --prefix .jarvis-source ci
-          npm --prefix .jarvis-source test
           export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
           test -n "$JARVIS_CHROME"
+          test -x "$JARVIS_CHROME"
+          npm --prefix .jarvis-source test
           cd .jarvis-source
           node --test tests/podcasts-browser.test.js
       - name: Preserve existing bindings and prepare the podcast Worker
