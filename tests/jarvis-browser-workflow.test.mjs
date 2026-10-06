@@ -23,3 +23,19 @@ for (const file of ['ci.yml', 'deploy-azure-storage.yml']) {
     assert.doesNotMatch(step, /CLOUDFLARE|AZURE|secret|token|--browser=|skip|install/);
   });
 }
+
+test('backend validates its browser before the full pinned source gate and before deployment', async () => {
+  const source = await readFile(new URL('../.github/workflows/deploy-azure-storage.yml', import.meta.url), 'utf8');
+  const start = source.indexOf('      - name: Test the pinned podcast source before deployment');
+  const finish = source.indexOf('      - name: Preserve existing bindings and prepare the podcast Worker', start);
+  assert.ok(start >= 0 && finish > start);
+  const step = source.slice(start, finish);
+  const browser = step.indexOf('export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"');
+  const validate = step.indexOf('npm --prefix .jarvis-source test');
+  assert.ok(browser >= 0 && validate > browser);
+  assert.ok(step.indexOf('test -n "$JARVIS_CHROME"') < validate);
+  assert.ok(step.indexOf('test -x "$JARVIS_CHROME"') < validate);
+  assert.ok(step.indexOf('npm --prefix .jarvis-source ci') < browser);
+  assert.ok(step.indexOf('git -C .jarvis-source rev-parse HEAD') < browser);
+  assert.doesNotMatch(step.slice(browser, validate), /skip|secret|token|CLOUDFLARE|AZURE/);
+});
