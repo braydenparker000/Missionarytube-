@@ -138,6 +138,12 @@ jobs:
         run: npm --prefix .jarvis-source ci
       - name: Validate source
         run: npm test
+      - name: Use the source-validated browser for Jarvis checks
+        run: |
+          jarvis_chromium_path="$(command -v google-chrome || command -v chromium)"
+          test -n "$jarvis_chromium_path"
+          test -x "$jarvis_chromium_path"
+          printf 'JARVIS_CHROME=%s\n' "$jarvis_chromium_path" >> "$GITHUB_ENV"
       - name: Validate Jarvis
         run: npm run test:jarvis
       - name: Build deployment artifact
