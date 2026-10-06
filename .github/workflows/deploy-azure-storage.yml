@@ -138,6 +138,13 @@ jobs:
         run: npm --prefix .jarvis-source ci
       - name: Validate source
         run: npm test
+      - name: Install locked Jarvis browser for recovery validation
+        working-directory: .jarvis-source
+        run: |
+          npx --no-install playwright-core install --with-deps chromium
+          jarvis_chromium_path="$(node --input-type=module -e 'import {chromium} from "playwright-core"; process.stdout.write(chromium.executablePath())')"
+          test -x "$jarvis_chromium_path"
+          printf 'JARVIS_CHROME=%s\n' "$jarvis_chromium_path" >> "$GITHUB_ENV"
       - name: Validate Jarvis
         run: npm run test:jarvis
       - name: Build deployment artifact
