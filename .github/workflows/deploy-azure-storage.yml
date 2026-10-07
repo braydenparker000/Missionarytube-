@@ -150,12 +150,8 @@ jobs:
       - name: Preserve existing website bytes and properties
         env:
           STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
-        run: |
-          mkdir -p rollback/files
-          az storage blob list --account-name "$STORAGE_ACCOUNT" --auth-mode login --container-name '$web' --output json > rollback/manifest.json
-          az storage blob download-batch --account-name "$STORAGE_ACCOUNT" --auth-mode login --source '$web' --destination rollback/files --no-progress --only-show-errors
-          test -s rollback/files/index.html
-          cp jarvis-release.json rollback/new-release.json
+          AZCOPY_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: node scripts/backup-jarvis-storage.mjs
       - name: Save rollback artifact before any overwrite
         uses: actions/upload-artifact@v4
         with:

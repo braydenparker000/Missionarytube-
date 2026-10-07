@@ -1,23 +1,105 @@
 import {createHash} from 'node:crypto';
-import {readFileSync,writeFileSync,appendFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,appendFileSync,lstatSync,existsSync,readdirSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
-import {resolve} from 'node:path';
+import {resolve,relative,dirname} from 'node:path';
+import {createRequire} from 'node:module';
 import {pathToFileURL} from 'node:url';
 import {checkedBindings,readWorkerSettings} from './check-music-worker-bindings.mjs';
 
 const REPO='braydenparker000/Missionarytube-',WORKFLOW='.github/workflows/deploy-azure-storage.yml';
-const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs'];
+const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs'];
 const SHA=/^[a-f0-9]{40}$/,DIGEST=/^[a-f0-9]{64}$/,UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const hash=value=>createHash('sha256').update(typeof value==='string'||Buffer.isBuffer(value)?value:JSON.stringify(value)).digest('hex');
 const blob=bytes=>createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
+export function backendInputIdentity(source,{bundler,workerConfig}={}){
+  const rows=execFileSync('git',['-C',source,'ls-tree','-rz','HEAD'],{encoding:'utf8'}).split('\0').filter(Boolean);
+  const tracked=new Map(rows.map(row=>{const match=/^(100644|100755) blob ([a-f0-9]{40})\t(.+)$/.exec(row);if(!match)throw Error('Unsupported immutable Worker source type');return [match[3],{mode:match[1],sha:match[2]}];}));
+  const entry=path=>{
+    const normalized=relative(source,resolve(source,path)).replaceAll('\\','/');
+    if(!normalized||normalized.startsWith('../')||normalized==='..')throw Error('Worker input escaped its qualified source');
+    const bytes=readFileSync(resolve(source,normalized)),info=lstatSync(resolve(source,normalized));
+    if(!info.isFile()||info.isSymbolicLink())throw Error('Unsupported Worker input file type');
+    const mode=(info.mode&0o111)?'100755':'100644',git=tracked.get(normalized);
+    if(git&&(git.mode!==mode||git.sha!==blob(bytes)))throw Error('Worker input differs from the qualified immutable source');
+    return {path:normalized,mode,sha256:hash(bytes)};
+  };
+  const inspectResolvers=(directory,prefix='')=>{
+    for(const item of readdirSync(directory,{withFileTypes:true})){
+      if(['.git','node_modules','.wrangler'].includes(item.name))continue;
+      const path=prefix+item.name;
+      if(item.isDirectory())inspectResolvers(resolve(directory,item.name),path+'/');
+      else if(['package.json','tsconfig.json','jsconfig.json'].includes(item.name)&&!tracked.has(path))throw Error('Untracked Worker resolver config was not qualified');
+    }
+  };
+  inspectResolvers(source);
+  // Resolve this before invoking esbuild: malformed untracked configs must not
+  // escape rejection through the conservative bundle-error fallback.
+  for(let directory=dirname(source);;directory=dirname(directory)){
+    if(['tsconfig.json','jsconfig.json'].some(name=>existsSync(resolve(directory,name))))throw Error('External Worker resolver config was not qualified');
+    if(dirname(directory)===directory)break;
+  }
+  const config=workerConfig||JSON.parse(readFileSync(resolve(source,'backend/wrangler.music.generated.json'),'utf8'));
+  if(config.main!=='worker.js')throw Error('Unexpected qualified Worker entrypoint');
+  // Include every backend/config source and both resolver manifests regardless
+  // of tree shaking. The bundler additionally discovers the transitive public
+  // and dependency graph, rather than maintaining a fragile three-file list.
+  const base=[...tracked.keys()].filter(path=>path.startsWith('backend/')||['package.json','package-lock.json'].includes(path));
+  base.forEach(entry);
+  const resolver=JSON.parse(readFileSync(resolve(source,'package.json'),'utf8'));
+  const supportedConfig=new Set(['name','main','compatibility_date','workers_dev','keep_vars','vars','durable_objects','migrations','observability','r2_buckets']);
+  // This graph is an independent conservative resolver, not an attestation of
+  // Wrangler's bundle. Unknown build/alias/rules/assets/module options always
+  // require a fresh actual Wrangler publication, never an inferred skip.
+  const resolverSupported=Object.keys(config).every(key=>supportedConfig.has(key))&&resolver.type==='module'&&
+    !['imports','exports','browser','main','module'].some(key=>Object.hasOwn(resolver,key));
+  const compiler=bundler||createRequire(resolve(source,'package.json'))('esbuild');
+  let result;
+  try{result=compiler.buildSync({absWorkingDir:source,entryPoints:['backend/worker.js'],bundle:true,write:false,metafile:true,platform:'browser',format:'esm',target:'es2022',logLevel:'silent',external:['cloudflare:workers','node:*']});}
+  catch{
+    // Unrecognized resolver/plugin/dynamic behavior cannot authorize reuse.
+    // Current complete qualification still precedes a fresh actual Worker
+    // deployment, whose normal provider checks remain mandatory.
+    return {reusable:false,bundled:false,compiler:compiler.version,inputs:[...tracked.keys()].sort().map(entry)};
+  }
+  if(!result.metafile?.inputs||!Array.isArray(result.outputFiles)||result.outputFiles.length!==1)throw Error('Incomplete Worker bundler identity');
+  let reusable=resolverSupported&&!(result.warnings?.length);
+  const paths=new Set(base);
+  for(const [path,metadata] of Object.entries(result.metafile.inputs)){
+    const input=entry(path);paths.add(input.path);
+    if(!tracked.has(input.path)){
+      if(!input.path.startsWith('node_modules/'))throw Error('Untracked application input was not qualified');
+      reusable=false; // package condition/alias resolution may differ in Wrangler
+    }
+    let directory=dirname(resolve(source,input.path));
+    while(directory===source||directory.startsWith(source+'/')){
+      for(const name of ['tsconfig.json','jsconfig.json','package.json']){
+        const file=resolve(directory,name);if(!existsSync(file))continue;
+        const path=relative(source,file).replaceAll('\\','/');
+        if(path==='package.json')continue;
+        if(!tracked.has(path)&&!path.startsWith('node_modules/'))throw Error('Untracked Worker resolver config was not qualified');
+        paths.add(entry(path).path);reusable=false;
+      }
+      if(directory===source)break;directory=dirname(directory);
+    }
+    if(!Array.isArray(metadata.imports)||metadata.imports.some(item=>item.kind==='dynamic-import'||(item.external&&!['node:crypto','cloudflare:workers'].includes(item.path))))reusable=false;
+    if(/\.[cm]?js$/.test(input.path)){
+      const code=readFileSync(resolve(source,input.path),'utf8');
+      // Conservative lexical detection catches unresolved import(variable),
+      // including comments between keyword and parentheses. False positives
+      // only force deployment; strings/comments never grant a skip.
+      if(/\b(?:eval|Function)\b/.test(code)||/\b(?:import|require)(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\n]*(?:\n|$))*\(/.test(code))reusable=false;
+    }
+  }
+  const inputs=[...(reusable?paths:new Set([...tracked.keys(),...paths]))].sort().map(entry);
+  return {reusable,bundled:true,compiler:compiler.version,bundleSha256:hash(Buffer.from(result.outputFiles[0].contents)),inputs};
+}
 export function candidateIdentity(root=process.cwd()){
   const source=resolve(root,'.jarvis-source'),release=JSON.parse(readFileSync(resolve(root,'jarvis-release.json'),'utf8'));
-  const paths=execFileSync('git',['-C',source,'ls-files','-z','backend','package-lock.json'],{encoding:'utf8'}).split('\0').filter(Boolean).sort();
-  const inputs=paths.map(path=>[path,hash(readFileSync(resolve(source,path)))]);
+  const closure=backendInputIdentity(source);
   const recipe=RECIPES.map(path=>({path,sha:blob(readFileSync(resolve(root,path)))}));
-  const backendDigest=hash({schema:1,inputs,preparer:recipe.find(x=>x.path==='scripts/prepare-music-worker.mjs').sha,
+  const backendDigest=hash({schema:2,closure,preparer:recipe.find(x=>x.path==='scripts/prepare-music-worker.mjs').sha,
     generatedConfig:hash(readFileSync(resolve(source,'backend/wrangler.music.generated.json'))),wrangler:'4.136.3'});
-  return {schema:1,source:release.commit,orchestration:execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),backendDigest,recipe,
+  return {schema:1,source:release.commit,orchestration:execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),backendDigest,backendReusable:closure.reusable,recipe,
     storageOrigin:release.storageOrigin,apiOrigin:release.apiOrigin};
 }
 export function activeVersion(data){
@@ -41,7 +123,7 @@ export async function liveIdentity({account,token,fetcher=globalThis.fetch}){
 }
 export const receiptDigest=receipt=>hash(JSON.stringify(receipt));
 export function checkedReuse(receipt,candidate,live,run,tree,jobs){
-  if(!receipt||receipt.schema!==1||receipt.repository!==REPO||receipt.backendDigest!==candidate.backendDigest||receipt.version!==live.version||
+  if(!receipt||receipt.schema!==1||receipt.backendReusable!==true||candidate.backendReusable!==true||receipt.repository!==REPO||receipt.backendDigest!==candidate.backendDigest||receipt.version!==live.version||
     receipt.settingsDigest!==live.settingsDigest||receipt.storageOrigin!==candidate.storageOrigin||receipt.apiOrigin!==candidate.apiOrigin||
     !SHA.test(receipt.source||'')||!SHA.test(receipt.orchestration||'')||!DIGEST.test(receipt.backendDigest||'')||!UUID.test(receipt.version||''))throw Error('Worker receipt does not match actual code, configuration and live provider identity');
   if(!run||run.repository?.full_name!==REPO||run.head_repository?.full_name!==REPO||run.head_repository?.fork===true||
