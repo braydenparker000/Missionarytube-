@@ -110,3 +110,21 @@ test('missing or unverifiable production receipt safely falls back to qualified 
   const good=await findWorkerReuse(candidate,live,{fetcher});assert.equal(good.reuse,true);
   const raced=await findWorkerReuse(candidate,{...live,version:'11111111-1111-1111-1111-111111111111'},{fetcher});assert.deepEqual(raced,{reuse:false});
 });
+test('incomplete or duplicated immutable production metadata cannot authorize Worker reuse',()=>{
+  const complete=jobsFor(receipt);
+  for(const invalid of [{...complete,total_count:2},{...complete,jobs:[]},
+    {total_count:2,jobs:[complete.jobs[0],structuredClone(complete.jobs[0])]}])
+    assert.throws(()=>checkedReuse(receipt,candidate,live,run,tree,invalid));
+  for(const conclusion of ['failure','cancelled','skipped']){
+    const invalid=jobsFor(receipt);invalid.jobs[0].steps[0].conclusion=conclusion;
+    assert.throws(()=>checkedReuse(receipt,candidate,live,run,tree,invalid),/immutable success metadata/);
+  }
+});
+test('split, malformed or unsuccessful provider deployment data cannot identify one qualified active Worker',()=>{
+  const other='11111111-1111-1111-1111-111111111111';
+  for(const versions of [[{version_id:version,percentage:100},{version_id:other,percentage:100}],
+    [{version_id:version,percentage:50},{version_id:other,percentage:50}],
+    [{version_id:version,percentage:'100'}],[{version_id:'not-a-version',percentage:100}]])
+    assert.throws(()=>activeVersion({success:true,result:{deployments:[{id:version,versions}]}}));
+  assert.throws(()=>activeVersion({success:false,result:{deployments:[{id:version,versions:[{version_id:version,percentage:100}]}]}}));
+});
