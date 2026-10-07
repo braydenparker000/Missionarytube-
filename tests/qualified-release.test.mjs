@@ -156,3 +156,14 @@ test('a changed binding namespace forbids receipt reuse even when active Worker 
   assert.notEqual(changedDigest,originalDigest);
   assert.throws(()=>checkedReuse(prior,candidate,{...live,settingsDigest:changedDigest},run,tree,jobsFor(prior)),/actual code, configuration and live provider identity/);
 });
+
+
+test('production receipt requires the exact run identifier and orchestration head',()=>{
+  for(const change of [{id:124},{head_sha:'d'.repeat(40)}])
+    assert.throws(()=>checkedReuse(receipt,candidate,live,{...run,...change},tree,jobsFor(receipt)),/successful exact production release/);
+});
+test('receipt event proof permits trusted main dispatch and rejects unrelated triggers',()=>{
+  checkedReuse(receipt,candidate,live,{...run,event:'workflow_dispatch'},tree,jobsFor(receipt));
+  for(const event of ['schedule','pull_request','pull_request_target'])
+    assert.throws(()=>checkedReuse(receipt,candidate,live,{...run,event},tree,jobsFor(receipt)),/successful exact production release/);
+});
