@@ -1,0 +1,184 @@
+name: Qualify the exact Jarvis release
+
+on:
+  workflow_call:
+    outputs:
+      source:
+        value: ${{ jobs.plan.outputs.source }}
+      node22:
+        value: ${{ jobs.plan.outputs.node22 }}
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      node22: ${{ steps.plan.outputs.node22 }}
+      node24: ${{ steps.plan.outputs.node24 }}
+      python: ${{ steps.plan.outputs.python }}
+      source: ${{ steps.source.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read the immutable source pin
+        id: source
+        run: |
+          node --input-type=module <<'JS' >> "$GITHUB_OUTPUT"
+          import {readFileSync} from 'node:fs';
+          const r=JSON.parse(readFileSync('jarvis-release.json','utf8'));
+          if(r.repository!=='braydenparker999/jarvis'||!/^[a-f0-9]{40}$/.test(r.commit))throw Error('Unexpected or mutable Jarvis source');
+          console.log('commit='+r.commit);
+          JS
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: ${{ steps.source.outputs.commit }}
+          path: .jarvis-source
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+      - name: Bind the exact Node24 owner runtime
+        run: printf 'QUALIFICATION_NODE24=%s\n' "$(node --version)" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.15'
+      - name: Plan exact source qualification before any provider credentials
+        id: plan
+        run: |
+          export QUALIFICATION_NODE22="$(node --version)"
+          export QUALIFICATION_PYTHON="$(python --version)"
+          export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
+          test -n "$JARVIS_CHROME"
+          test -x "$JARVIS_CHROME"
+          node scripts/plan-jarvis-qualification.mjs plan
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-qualification-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: jarvis-qualification-plan.json
+          if-no-files-found: error
+          retention-days: 14
+
+  component:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      QUALIFICATION_NODE22: v${{ needs.plan.outputs.node22 }}
+      QUALIFICATION_NODE24: v${{ needs.plan.outputs.node24 }}
+      QUALIFICATION_PYTHON: Python ${{ needs.plan.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: ${{ needs.plan.outputs.source }}
+          path: .jarvis-source
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: .jarvis-source/package-lock.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: jarvis-qualification-plan-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Install exact source dependencies for fresh or fallback execution
+        if: ${{ matrix.reuse != true }}
+        run: npm --prefix .jarvis-source ci
+      - name: Restore only the checksum-verified official browser archive
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/jarvis-qualification-browser/chrome.zip
+          key: jarvis-browser-linux64-154.0.8037.97-487c3b0e89f786d9257a6265a29bacf18b893e90f29c0ef6f7be9706ecc8c7a2
+      - name: Select the exact qualified Chrome154 build
+        run: node scripts/install-jarvis-browser.mjs
+      - uses: actions/setup-python@v5
+        if: ${{ matrix.component == 'migration' }}
+        with:
+          python-version: ${{ needs.plan.outputs.python }}
+      - name: Execute or verify every current source component
+        env:
+          POWERAMP_EVIDENCE_DIR: ${{ runner.temp }}/poweramp-browser
+          JARVIS_SCREENSHOT_DIR: ${{ runner.temp }}/podcast-browser
+        run: |
+          test -n "$JARVIS_CHROME"
+          test -x "$JARVIS_CHROME"
+          node scripts/plan-jarvis-qualification.mjs run "${{ matrix.component }}"
+      - name: Preserve qualification provenance and required browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-component-${{ matrix.component }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            qualification-${{ matrix.component }}.json
+            ${{ runner.temp }}/poweramp-browser
+            ${{ runner.temp }}/podcast-browser
+          if-no-files-found: warn
+          retention-days: 14
+
+  build:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: ${{ needs.plan.outputs.source }}
+          path: .jarvis-source
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ needs.plan.outputs.node22 }}
+          cache: npm
+      - run: npm ci
+      - name: Validate deployment orchestration once
+        run: npm test
+      - name: Build the exact immutable frontend once
+        run: npm run build
+      - name: Bind source, orchestration, dependencies, configuration and every artifact byte
+        run: node scripts/qualified-artifact.mjs create
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            dist
+            qualified-artifact.json
+          if-no-files-found: error
+          retention-days: 14
+
+  qualification:
+    needs: [plan, component, build]
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require all current source lanes and exact artifact validation
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          COMPONENT_RESULT: ${{ needs.component.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          test "$PLAN_RESULT" = success
+          test "$COMPONENT_RESULT" = success
+          test "$BUILD_RESULT" = success

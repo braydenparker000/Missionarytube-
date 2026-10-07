@@ -59,6 +59,8 @@ const ALLOWED_HOSTS = [
   "music.youtube.com",
   "youtu.be",
   "github.com",
+  "storage.googleapis.com", // exact checksum-verified official Chrome-for-Testing archive, CI fixtures only
+  "api.github.com", // bounded read-only public qualification and production-run provenance
   "token.actions.githubusercontent.com", // public GitHub OIDC issuer documented for the existing federation
   "claude.ai",
   "code.claude.com",

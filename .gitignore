@@ -10,7 +10,16 @@ node_modules/
 *.key
 .DS_Store
 
-.jarvis-source/
+.jarvis-source
 rollback/
 upload/
 music-verification/
+
+qualified-artifact.json
+jarvis-qualification-plan.json
+qualification-*.json
+worker-identity-*.json
+worker-bindings-before.json
+release-qualified.json
+
+configured-artifact.json

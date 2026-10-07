@@ -27,61 +27,63 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  podcast_worker:
-    if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+  qualification:
+    uses: ./.github/workflows/qualify-jarvis.yml
+    permissions:
+      contents: read
+  deploy:
+    needs: qualification
+    if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
     concurrency:
       group: jarvis-worker-production
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out exact orchestration
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - name: Read the exact podcast release
-        id: release
+          node-version: ${{ needs.qualification.outputs.node22 }}
+      - name: Read pinned Jarvis revision
+        id: jarvis
         run: |
-          node --input-type=module <<'JS' >> "$GITHUB_OUTPUT"
-          import {readFileSync} from 'node:fs';
-          const r=JSON.parse(readFileSync('jarvis-release.json','utf8'));
-          if(!/^[a-f0-9]{40}$/.test(r.commit))throw Error('An immutable source commit is required');
-          console.log('commit='+r.commit);
-          console.log('enabled='+(r.deployPodcastWorker===true));
-          JS
+          node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
+          node -p "'preserve_catalog=' + (require('./jarvis-release.json').preserveDriveCatalog === true)" >> "$GITHUB_OUTPUT"
+          node -p "'podcasts_enabled=' + (require('./jarvis-release.json').deployPodcastWorker === true)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
-        if: steps.release.outputs.enabled == 'true'
         with:
           repository: braydenparker999/jarvis
-          ref: ${{ steps.release.outputs.commit }}
+          ref: ${{ steps.jarvis.outputs.commit }}
           path: .jarvis-source
           persist-credentials: false
-      - name: Test the pinned podcast source before deployment
-        if: steps.release.outputs.enabled == 'true'
-        env:
-          SOURCE_COMMIT: ${{ steps.release.outputs.commit }}
-        run: |
-          test "$(git -C .jarvis-source rev-parse HEAD)" = "$SOURCE_COMMIT"
-          test -f .jarvis-source/backend/podcasts.js
-          npm --prefix .jarvis-source ci
-          export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
-          test -n "$JARVIS_CHROME"
-          test -x "$JARVIS_CHROME"
-          npm --prefix .jarvis-source test
-          cd .jarvis-source
-          node --test tests/podcasts-browser.test.js
-      - name: Preserve existing bindings and prepare the podcast Worker
-        if: steps.release.outputs.enabled == 'true'
+      - name: Download this run's exact qualified frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: jarvis-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Verify immutable artifact before provider credentials or changes
+        run: node scripts/qualified-artifact.mjs verify
+      - name: Install locked dependencies for final live browser verification
+        run: npm --prefix .jarvis-source ci
+      - name: Preserve current bindings and prepare the exact qualified Worker
+        if: steps.jarvis.outputs.podcasts_enabled == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: |
           node scripts/check-music-worker-bindings.mjs
           node scripts/prepare-music-worker.mjs .jarvis-source
-      - name: Deploy the existing Worker with podcast routes
-        if: steps.release.outputs.enabled == 'true'
+      - name: Verify actual live Worker identity and compatible unchanged configuration
+        if: steps.jarvis.outputs.podcasts_enabled == 'true'
+        id: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/worker-release-identity.mjs plan
+      - name: Deploy the exact qualified changed Worker with rollback checkpoint
+        if: ${{ steps.jarvis.outputs.podcasts_enabled == 'true' && steps.worker.outputs.deploy == 'true' }}
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -91,11 +93,17 @@ jobs:
           preCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-before.json
           command: deploy --config backend/wrangler.music.generated.json
           postCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-after.json
-      - name: Require real directory search, RSS and audio before frontend promotion
-        if: steps.release.outputs.enabled == 'true'
+      - name: Verify real podcast search RSS and audio before frontend changes
+        if: steps.jarvis.outputs.podcasts_enabled == 'true'
         run: node .jarvis-source/scripts/verify-podcasts.mjs
-      - name: Preserve podcast Worker rollback information
-        if: ${{ always() && steps.release.outputs.enabled == 'true' }}
+      - name: Record the actual qualified active Worker and configuration
+        if: steps.jarvis.outputs.podcasts_enabled == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/worker-release-identity.mjs record
+      - name: Preserve podcast Worker rollback and exact identity information
+        if: ${{ always() && steps.jarvis.outputs.podcasts_enabled == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: podcast-worker-${{ github.run_id }}
@@ -104,51 +112,10 @@ jobs:
             .jarvis-source/worker-versions-after.json
             .jarvis-source/backend/wrangler.music.generated.json
             worker-bindings-before.json
+            worker-identity-before.json
+            worker-identity-current.json
           if-no-files-found: warn
           retention-days: 30
-  deploy:
-    needs: podcast_worker
-    if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Read pinned Jarvis revision
-        id: jarvis
-        run: |
-          node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
-          node -p "'preserve_catalog=' + (require('./jarvis-release.json').preserveDriveCatalog === true)" >> "$GITHUB_OUTPUT"
-          node -p "'podcasts_enabled=' + (require('./jarvis-release.json').deployPodcastWorker === true)" >> "$GITHUB_OUTPUT"
-      - name: Check out pinned Jarvis source
-        uses: actions/checkout@v4
-        with:
-          repository: braydenparker999/jarvis
-          ref: ${{ steps.jarvis.outputs.commit }}
-          path: .jarvis-source
-          persist-credentials: false
-      - name: Install pinned dependencies
-        run: npm ci
-      - name: Install pinned Jarvis source dependencies
-        run: npm --prefix .jarvis-source ci
-      - name: Validate source
-        run: npm test
-      - name: Use the source-validated browser for Jarvis checks
-        run: |
-          jarvis_chromium_path="$(command -v google-chrome || command -v chromium)"
-          test -n "$jarvis_chromium_path"
-          test -x "$jarvis_chromium_path"
-          printf 'JARVIS_CHROME=%s\n' "$jarvis_chromium_path" >> "$GITHUB_ENV"
-      - name: Validate Jarvis
-        run: npm run test:jarvis
-      - name: Build deployment artifact
-        run: npm run build
       - name: Prepare public Quick AI keys
         env:
           QUICK_AI_GEMINI_KEY: ${{ secrets.QUICK_AI_GEMINI_KEY }}
@@ -159,6 +126,8 @@ jobs:
         env:
           GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
         run: node .jarvis-source/scripts/configure-drive.mjs dist
+      - name: Seal the final configured artifact without exposing configuration values
+        run: node scripts/qualified-artifact.mjs configure
       - name: Require existing backend before changing live blobs
         run: node scripts/check-jarvis-api.mjs
       - name: Sign in to Azure with OIDC
@@ -202,6 +171,8 @@ jobs:
           GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
           AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
         run: node .jarvis-source/scripts/publish-drive-catalog.mjs
+      - name: Verify sealed configured bytes immediately before staging
+        run: node scripts/qualified-artifact.mjs verify-configured
       - name: Stage Jarvis while keeping the current homepage
         run: |
           cp -a dist upload
@@ -214,6 +185,14 @@ jobs:
         run: node scripts/check-jarvis-static.mjs
       - name: Require working backend for the Storage origin
         run: node scripts/check-jarvis-api.mjs
+      - name: Revalidate sealed configured bytes before homepage promotion
+        run: node scripts/qualified-artifact.mjs verify-configured
+      - name: Revalidate actual backend identity immediately before homepage promotion
+        if: steps.jarvis.outputs.podcasts_enabled == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/worker-release-identity.mjs verify
       - name: Promote Jarvis homepage after successful checks
         run: |
           az storage blob upload \
@@ -241,6 +220,26 @@ jobs:
           path: ${{ runner.temp }}/podcasts-live
           if-no-files-found: ignore
           retention-days: 14
+      - name: Record a digest-bound production receipt after all live checks
+        id: receipt
+        if: steps.jarvis.outputs.podcasts_enabled == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/worker-release-identity.mjs receipt
+      - name: verified-production-receipt-${{ steps.receipt.outputs.digest }}
+        if: steps.jarvis.outputs.podcasts_enabled == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          EXPECTED_RECEIPT_DIGEST: ${{ steps.receipt.outputs.digest }}
+        run: node scripts/worker-release-identity.mjs verify-receipt
+      - name: Publish the verified production receipt
+        if: steps.jarvis.outputs.podcasts_enabled == 'true'
+        run: |
+          az storage blob upload --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" --auth-mode login --container-name '$web' \
+            --name release-qualified.json --file release-qualified.json --content-type 'application/json' \
+            --content-cache-control no-cache --overwrite true --only-show-errors
       - name: Sign out of Azure
         if: ${{ always() && steps.azure_signin.outcome == 'success' }}
         run: az logout
