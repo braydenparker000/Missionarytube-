@@ -141,3 +141,18 @@ test('matching receipts and stamps from forks or another repository cannot autho
     {head_repository:{full_name:receipt.repository,fork:true}}])
     assert.throws(()=>checkedReuse(receipt,candidate,live,{...run,...change},tree,jobsFor(receipt)),/successful exact production release/);
 });
+
+
+test('semantic binding reordering preserves the qualified settings fingerprint',()=>{
+  const bindings=[{name:'HUBS',type:'durable_object_namespace',class_name:'Hub',namespace_id:'existing'},
+    {name:'PRIVATE_VALUE',type:'plain_text',text:'fixture-private-value'}];
+  assert.equal(settingsDigest({bindings}),settingsDigest({bindings:[...bindings].reverse()}));
+});
+test('a changed binding namespace forbids receipt reuse even when active Worker version is unchanged',()=>{
+  const bindings=[{name:'HUBS',type:'durable_object_namespace',class_name:'Hub',namespace_id:'existing'}];
+  const originalDigest=settingsDigest({bindings}),prior={...receipt,settingsDigest:originalDigest};
+  checkedReuse(prior,candidate,{...live,settingsDigest:originalDigest},run,tree,jobsFor(prior));
+  const changedDigest=settingsDigest({bindings:[{...bindings[0],namespace_id:'rotated'}]});
+  assert.notEqual(changedDigest,originalDigest);
+  assert.throws(()=>checkedReuse(prior,candidate,{...live,settingsDigest:changedDigest},run,tree,jobsFor(prior)),/actual code, configuration and live provider identity/);
+});
