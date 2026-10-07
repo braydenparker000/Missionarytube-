@@ -13,7 +13,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  gate-owner:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    outputs:
+      deploy_only: ${{ steps.classify.outputs.deploy_only }}
+      qualification_verified: ${{ steps.classify.outputs.qualification_verified }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+      - name: Require exact completed producer qualification or retain full Validate
+        id: classify
+        run: node scripts/partition-main-qualification.mjs
   static-checks:
+    needs: gate-owner
+    if: ${{ always() && !cancelled() && (github.event_name != 'push' || needs.gate-owner.result != 'success' || needs.gate-owner.outputs.deploy_only != 'true' || needs.gate-owner.outputs.qualification_verified != 'true') }}
     uses: ./.github/workflows/qualify-jarvis.yml
     permissions:
       contents: read
