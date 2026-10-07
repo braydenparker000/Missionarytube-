@@ -1,41 +1,38 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readFileSync} from 'node:fs';
+const read=file=>readFileSync(new URL('../.github/workflows/'+file,import.meta.url),'utf8');
+const qualification=read('qualify-jarvis.yml'),production=read('deploy-azure-storage.yml');
 
-// The full source gate uses the runner's Google Chrome, with Chromium fallback.
-// Supplying that same validated path lets the CI-required recovery journey run
-// without replacing the already-qualified player browser with another build.
-for (const file of ['ci.yml', 'deploy-azure-storage.yml']) {
-  test(file + ': release checks provide the source-validated browser before Jarvis validation', async () => {
-    const source = await readFile(new URL('../.github/workflows/' + file, import.meta.url), 'utf8');
-    const start = source.indexOf('      - name: Use the source-validated browser for Jarvis checks');
-    const finish = source.indexOf('      - name: Validate Jarvis');
-    assert.ok(start >= 0 && finish > start);
-    const step = source.slice(start, finish);
-    assert.match(step, /command -v google-chrome \|\| command -v chromium/);
-    assert.match(step, /test -n "\$jarvis_chromium_path"/);
-    assert.match(step, /test -x "\$jarvis_chromium_path"/);
-    assert.match(step, /JARVIS_CHROME=%s\\n/);
-    assert.match(step, />> "\$GITHUB_ENV"/);
-    assert.match(source.slice(finish), /run: npm run test:jarvis/);
-    assert.ok(source.indexOf('run: npm --prefix .jarvis-source ci') < start);
-    assert.ok(source.indexOf('run: npm test') < start);
-    assert.doesNotMatch(step, /CLOUDFLARE|AZURE|secret|token|--browser=|skip|install/);
-  });
-}
-
-test('backend validates its browser before the full pinned source gate and before deployment', async () => {
-  const source = await readFile(new URL('../.github/workflows/deploy-azure-storage.yml', import.meta.url), 'utf8');
-  const start = source.indexOf('      - name: Test the pinned podcast source before deployment');
-  const finish = source.indexOf('      - name: Preserve existing bindings and prepare the podcast Worker', start);
-  assert.ok(start >= 0 && finish > start);
-  const step = source.slice(start, finish);
-  const browser = step.indexOf('export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"');
-  const validate = step.indexOf('npm --prefix .jarvis-source test');
-  assert.ok(browser >= 0 && validate > browser);
-  assert.ok(step.indexOf('test -n "$JARVIS_CHROME"') < validate);
-  assert.ok(step.indexOf('test -x "$JARVIS_CHROME"') < validate);
-  assert.ok(step.indexOf('npm --prefix .jarvis-source ci') < browser);
-  assert.ok(step.indexOf('git -C .jarvis-source rev-parse HEAD') < browser);
-  assert.doesNotMatch(step.slice(browser, validate), /skip|secret|token|CLOUDFLARE|AZURE/);
+test('PR and production qualification share one complete reusable pipeline',()=>{
+  for(const file of ['ci.yml','deploy-azure-storage.yml'])assert.match(read(file),/uses: \.\/\.github\/workflows\/qualify-jarvis\.yml/);
+  assert.doesNotMatch(production,/npm run test:jarvis|npm --prefix \.jarvis-source test|run: npm test|run: npm run build/);
+  assert.match(qualification,/fail-fast: false/);
+  assert.match(qualification,/needs: \[plan, component, build\]/);
+  for(const name of ['PLAN','COMPONENT','BUILD'])assert.match(qualification,new RegExp('test "\\$'+name+'_RESULT" = success'));
+  assert.doesNotMatch(qualification,/continue-on-error|secrets\.|azure\/login|wrangler-action/);
+});
+test('every source lane has its own exact checkout dependencies and mandatory locked browser',()=>{
+  const lane=qualification.slice(qualification.indexOf('\n  component:'),qualification.indexOf('\n  build:'));
+  assert.ok(lane.indexOf('path: .jarvis-source')<lane.indexOf('npm --prefix .jarvis-source ci'));
+  assert.ok(lane.indexOf('npm --prefix .jarvis-source ci')<lane.indexOf('node scripts/install-jarvis-browser.mjs'));
+  assert.ok(lane.indexOf('test -x "$JARVIS_CHROME"')<lane.indexOf('node scripts/plan-jarvis-qualification.mjs run'));
+  assert.match(lane,/QUALIFICATION_NODE24:/);assert.match(lane,/QUALIFICATION_PYTHON:/);
+  assert.match(lane,/if: \$\{\{ matrix.component == 'migration' \}\}/);
+});
+test('immutable artifact is built once and verified before any provider credentials',()=>{
+  assert.equal((qualification.match(/run: npm run build/g)||[]).length,1);
+  assert.match(qualification,/node scripts\/qualified-artifact\.mjs create/);
+  const verification=production.indexOf('node scripts/qualified-artifact.mjs verify');
+  assert.ok(verification>0&&verification<production.indexOf('secrets.CLOUDFLARE_API_TOKEN'));
+  assert.match(production,/name: jarvis-\$\{\{ github.sha \}\}-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}/);
+  assert.match(production,/needs: qualification/);assert.match(production,/github.ref == 'refs\/heads\/main'/);
+});
+test('backend stays serialized and its actual identity is rechecked before homepage promotion',()=>{
+  assert.match(production,/group: jarvis-worker-production\n      cancel-in-progress: false/);
+  const backend=production.indexOf('node scripts/worker-release-identity.mjs verify'),promotion=production.indexOf('name: Promote Jarvis homepage');
+  assert.ok(backend>0&&backend<promotion);
+  assert.ok(production.indexOf('Save rollback artifact before any overwrite')<production.indexOf('Stage Jarvis'));
+  assert.ok(production.indexOf('Check every staged file')<promotion);
+  assert.ok(production.indexOf('node scripts/worker-release-identity.mjs receipt')>production.indexOf("--test-name-pattern='live podcast discovery'"));
 });

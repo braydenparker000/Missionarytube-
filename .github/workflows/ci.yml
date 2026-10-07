@@ -3,8 +3,7 @@ name: Validate
 on:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
@@ -15,49 +14,6 @@ concurrency:
 
 jobs:
   static-checks:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Read pinned Jarvis revision
-        id: jarvis
-        run: node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
-      - name: Check out pinned Jarvis source
-        uses: actions/checkout@v4
-        with:
-          repository: braydenparker999/jarvis
-          ref: ${{ steps.jarvis.outputs.commit }}
-          path: .jarvis-source
-          persist-credentials: false
-      - name: Install pinned dependencies
-        run: npm ci
-      - name: Install pinned Jarvis source dependencies
-        run: npm --prefix .jarvis-source ci
-      - name: Validate source
-        run: npm test
-      - name: Use the source-validated browser for Jarvis checks
-        run: |
-          jarvis_chromium_path="$(command -v google-chrome || command -v chromium)"
-          test -n "$jarvis_chromium_path"
-          test -x "$jarvis_chromium_path"
-          printf 'JARVIS_CHROME=%s\n' "$jarvis_chromium_path" >> "$GITHUB_ENV"
-      - name: Validate Jarvis
-        run: npm run test:jarvis
-      - name: Build deployment artifact
-        run: npm run build
-      - name: Verify artifact entry point
-        run: test -f dist/index.html
-      - name: Upload deployment preview
-        uses: actions/upload-artifact@v4
-        with:
-          name: jarvis-${{ github.sha }}
-          path: dist
-          if-no-files-found: error
-          retention-days: 7
+    uses: ./.github/workflows/qualify-jarvis.yml
+    permissions:
+      contents: read
