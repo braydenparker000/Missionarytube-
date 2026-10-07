@@ -87,7 +87,10 @@ cannot masquerade as fresh same-attempt proof. Producer creation must be within
 five minutes; future, malformed and stale metadata is rejected.
 
 The fixed total proof budget is 90 seconds, with at most 12 GETs, 3 seconds per
-request, 8-second polling intervals, 128 KiB per response and 1 MiB total.
+request, 128 KiB per response and 1 MiB total. An initial 8-second probe is
+followed by adaptive spacing across the same horizon, reserving the final
+exact-attempt recheck and its timeout. Normal queued states only keep waiting;
+all completed-success proof requirements remain unchanged.
 Redirects, HTTP/network errors, disabled/missing workflows, exhausted rate
 limits, malformed/oversized bodies and budget exhaustion choose full Validate.
 There is no credential fallback or permission expansion. PR/nonpush events
