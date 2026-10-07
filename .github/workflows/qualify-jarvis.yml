@@ -43,15 +43,15 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '24.21.0'
       - name: Bind the exact Node24 owner runtime
         run: printf 'QUALIFICATION_NODE24=%s\n' "$(node --version)" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.23.3'
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.12.15'
       - name: Install locked qualification dependencies
         run: npm --prefix .jarvis-source ci
       - name: Plan exact source qualification before any provider credentials
