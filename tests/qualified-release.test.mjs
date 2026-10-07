@@ -11,7 +11,7 @@ import {activeVersion,settingsDigest,checkedReuse,findWorkerReuse,newlyDeployedV
 
 const sha='a'.repeat(40),digest='b'.repeat(64),version='12345678-1234-1234-1234-123456789abc';
 const release={repository:'braydenparker999/jarvis',commit:sha,storageOrigin:'https://missionarytube.z13.web.core.windows.net',apiOrigin:'https://jarvis-hub-api.braydenparker999.workers.dev'};
-const candidate={schema:1,...release,source:sha,orchestration:sha,backendDigest:digest,recipe:[{path:'.github/workflows/deploy-azure-storage.yml',sha}]};
+const candidate={schema:1,...release,source:sha,orchestration:sha,backendDigest:digest,backendReusable:true,recipe:[{path:'.github/workflows/deploy-azure-storage.yml',sha}]};
 const live={version,settingsDigest:'c'.repeat(64)};
 const receipt={...candidate,...live,repository:'braydenparker000/Missionarytube-',runId:'123',attempt:'2'};
 const run={id:123,run_attempt:2,repository:{full_name:receipt.repository},head_repository:{full_name:receipt.repository},event:'push',head_branch:'main',path:'.github/workflows/deploy-azure-storage.yml',head_sha:sha,status:'completed',conclusion:'success'};
