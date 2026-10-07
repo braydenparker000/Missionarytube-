@@ -10,7 +10,7 @@ import {BROWSER_IDENTITY} from './install-jarvis-browser.mjs';
 // full current in-run qualification and cannot assert their own proof.
 export const trustedRecipe = {
   '.github/workflows/validate-r2.yml':'0e0816239472dfcf713d311d0209ee94b7c06277',
-  'scripts/qualification-proof.mjs':'48e0933755ac574b6e039eab6a9c6a5c6aa0e900',
+  'scripts/qualification-proof.mjs':'2c82fb7758e768eb28cb074c0ee0d5b769bf8149',
   'scripts/install-qualification-browser.mjs':'6c409f044097fc6ad2460d48efa4d2a4c95685cc',
   'tests/helpers/ci-test-inventory.mjs':'a377536b073a7b90d9e3537b7bd9164c30313081',
 };
