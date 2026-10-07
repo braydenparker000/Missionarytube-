@@ -26,7 +26,7 @@ For publication-to-live timing, additionally supply all three flags:
 --publication-operation actual-connector-operation-reference
 ```
 
-These are UTC timestamps observed immediately before and after the actual connector operation publishing this candidate, with a verifiable operation reference. They are not Git commit author/committer timestamps, guessed push times, approval times, qualification start times, or fictional example values. The real publication is bounded by the two observations. The lower duration uses the later publication bound; the upper duration uses the earlier bound. Candidate-to-final-mobile includes elapsed review, queue, scheduling and all qualification/deployment work between publication and live verification, including earlier failed attempts if the actual publication predates a rerun. Equivalent baseline publication bounds use the same three flags prefixed with `--baseline-`. Missing bounds remain clearly unavailable.
+These are UTC timestamps observed immediately before and after the actual connector operation publishing this candidate, with a verifiable operation reference. They are not Git commit author/committer timestamps, guessed push times, approval times, qualification start times, or fictional example values. The real publication is bounded by the two observations. The lower duration uses the later publication bound; the upper duration uses the earlier bound. Candidate-to-final-mobile includes elapsed review, queue, scheduling and all qualification/deployment work between publication and live verification, including earlier failed attempts if the actual publication predates a rerun. Equivalent baseline publication bounds use the same three flags prefixed with `--baseline-`. Missing bounds remain clearly unavailable. Bounds and their operation linkage are caller-supplied evidence; this read-only collector does not independently authenticate publication. Review the operation and source-candidate versus orchestration-candidate scope externally before treating that interval as a whole change-to-live observation.
 
 ## Timing interpretation
 
@@ -36,7 +36,7 @@ These are UTC timestamps observed immediately before and after the actual connec
 - Milestone completion uses the exact matching successful step's `completed_at`, not the start or a similarly named stale step
 - GitHub's public workflow-run response has no exact `completed_at`. Terminal completion is reported conservatively between the final completed job and completed-run `updated_at`; the update timestamp is not mislabeled as exact completion. Stale update timestamps are rejected
 - Reduction passes the 75% target only when the candidate upper duration is at most one quarter of the baseline lower duration for the same endpoint. Terminal uncertainty is retained. Numbers are not rounded up to turn 74.9999% into a success
-- The ten-minute target passes only when a successfully verified candidate-to-mobile upper bound is at most 600 seconds. It fails when the lower bound is greater than 600; a crossing interval is inconclusive
+- Separate ten-minute assessments cover candidate-to-mobile and candidate-to-terminal completion. Each passes only when its successfully verified upper bound is at most 600 seconds, fails when its lower bound exceeds 600, and is inconclusive when the interval crosses 600. Mobile success does not imply terminal completion met the target
 - Timing comparison does not itself prove equivalent application source, configuration, runtimes, required tests, or cold-versus-reuse lanes. Review those release identities separately before making a same-application optimization claim
 
 ## Fetch and failure boundaries
@@ -45,7 +45,7 @@ Only the allowlisted public repository `braydenparker000/Missionarytube-`, deplo
 
 Each run costs at most five GETs: initial exact-attempt metadata, up to three 100-job pages, and a metadata recheck. Each response is bounded to 2 MiB with a 10-second request timeout. Comparisons cost at most ten GETs. Redirects and credentials are disabled; no environment tokens or saved GitHub login are read. Rate limits, non-public resources, network errors and missing/malformed data produce `unavailable`, without authentication fallback. There is no watch loop, workflow dispatch, rerun, merge, permission change, or promotion capability.
 
-Exit status: 0 for valid verified successful timing evidence, 1 for a failed exact run, and 2 for pending/unavailable evidence. Exit 0 is not a performance target claim; inspect `comparison.metrics.<endpoint>.meets75PercentReduction` and `routineCandidateToLive.state` independently.
+Exit status: 0 for valid verified successful timing evidence, 1 for a failed exact run, and 2 for pending/unavailable evidence. Exit 0 is not a performance target claim; inspect `comparison.metrics.<endpoint>.meets75PercentReduction` and both `routineCandidateToLive.state` and `routineCandidateToTerminal.state` independently.
 
 ## Verified baseline and test scope
 

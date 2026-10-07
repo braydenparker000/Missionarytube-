@@ -166,6 +166,8 @@ export function buildReport(input, snapshot) {
       diagnostics.push('Publication operation does not bracket publication of the candidate that created this run');
     }
     const routine = assessThreshold(metrics.candidate_to_mobile, 600, state);
+    const terminalRoutine = assessThreshold(metrics.candidate_to_terminal, 600, state);
+    if (publication) diagnostics.push('Publication bounds and operation linkage are caller-supplied evidence, not independently authenticated; source versus orchestration candidate scope requires external review');
     if (!qualificationJobs.length) diagnostics.push('No modular qualification jobs in this attempt; qualification/production queue interval is unavailable');
     if (spec.attempt > 1) diagnostics.push('Run created_at is the original run creation, not this attempt start; attempt-start timings exclude earlier attempts');
     diagnostics.push('Timestamps measure this deployment workflow, not application-source/runtime equivalence or total review time without publication bounds');
@@ -176,10 +178,10 @@ export function buildReport(input, snapshot) {
       otherJobs: jobs.filter(job => job.name !== 'deploy' && !job.name.startsWith('qualification / ')),
       production: { job: deploy ?? null, qualificationReadyToStart: duration(qEnd, qEnd, deploy?.startedAt == null ? null : Date.parse(deploy.startedAt), deploy?.startedAt == null ? null : Date.parse(deploy.startedAt)), queueBasis: 'Qualification end to deploy start includes dependency scheduling/queue wait; public metadata does not separate concurrency, runner, or review waits' },
       milestones: { homepagePromotion: homepage, finalStaticVerification: staticCheck, finalLiveMobileVerification: mobile, terminalCompletion: terminal },
-      metrics, routineCandidateToLive: routine, diagnostics,
+      metrics, routineCandidateToLive: routine, routineCandidateToTerminal: terminalRoutine, diagnostics,
     };
   } catch (error) {
-    return { schemaVersion: 1, state: 'unavailable', identity: spec ?? null, metrics: {}, routineCandidateToLive: unavailable('Valid completed run evidence required'), diagnostics: [error.message] };
+    return { schemaVersion: 1, state: 'unavailable', identity: spec ?? null, metrics: {}, routineCandidateToLive: unavailable('Valid completed run evidence required'), routineCandidateToTerminal: unavailable('Valid completed run evidence required'), diagnostics: [error.message] };
   }
 }
 
@@ -252,7 +254,7 @@ export async function collectReleaseLatency(input, { fetchImpl = globalThis.fetc
     const report = buildReport(spec, { run, recheckedRun, jobs, totalCount, jobsFetchedFor: `${API}${path}/jobs` });
     return { ...report, collection: { requests, unauthenticated: true, maxRequests: LIMITS.pages + 2, maxResponseBytes: LIMITS.bytes, perRequestTimeoutMs: LIMITS.timeoutMs } };
   } catch (error) {
-    return { schemaVersion: 1, state: 'unavailable', identity: spec ?? null, metrics: {}, routineCandidateToLive: unavailable('Valid completed run evidence required'), diagnostics: [error.message], collection: { requests, unauthenticated: true } };
+    return { schemaVersion: 1, state: 'unavailable', identity: spec ?? null, metrics: {}, routineCandidateToLive: unavailable('Valid completed run evidence required'), routineCandidateToTerminal: unavailable('Valid completed run evidence required'), diagnostics: [error.message], collection: { requests, unauthenticated: true } };
   }
 }
 

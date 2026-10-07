@@ -92,6 +92,16 @@ test('explicit connector operation bounds include pre-run review/queue time and 
   assert.equal(report(f, { ...f.requested, publication: { before: at(-100), after: at(-90), operation: 'github.update_refs operation 125' } }).routineCandidateToLive.state, 'passed');
 });
 
+test('mobile ten-minute success cannot hide terminal completion exceeding ten minutes', () => {
+  const f = fixture(), r = report(f, { ...f.requested, publication: { before: at(-500), after: at(-499), operation: 'recorded connector publication bracket' } });
+  assert.equal(r.routineCandidateToLive.state, 'passed');
+  assert.equal(r.routineCandidateToTerminal.state, 'inconclusive');
+  const over = report(f, { ...f.requested, publication: { before: at(-502), after: at(-501), operation: 'recorded connector publication bracket' } });
+  assert.equal(over.routineCandidateToLive.state, 'passed');
+  assert.equal(over.routineCandidateToTerminal.state, 'failed');
+  assert.ok(over.diagnostics.some(value => value.includes('caller-supplied')));
+});
+
 test('publication bounds beginning after run creation cannot claim candidate timing', () => {
   const f = fixture(), r = report(f, { ...f.requested, publication: { before: at(1), after: at(2), operation: 'actual connector operation' } });
   assert.equal(r.metrics.candidate_to_mobile.state, 'unavailable');
