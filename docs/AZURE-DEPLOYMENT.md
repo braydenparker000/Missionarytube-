@@ -67,3 +67,45 @@ These values are settings, never repository file contents.
 6. If the test fails or the wrong storage account was selected, immediately set the variable to `false` or delete it before troubleshooting.
 
 The upload overwrites matching files but intentionally does not delete unrelated blobs. This avoids destructive cleanup during early setup. Once the repository layout is stable, a separately reviewed cleanup strategy can be added.
+
+## Readiness and complete rollback backup join
+
+The exact immutable frontend is verified before provider credentials. Worker
+preparation/deployment and the qualified-dependency check remain backend-first.
+Public configuration is sealed and the existing API/CORS gate passes before
+Azure OIDC login and the fixed `missionarytube` target guard.
+
+After that guard, `overlap-jarvis-prewrite.mjs` runs the unchanged real podcast
+search/RSS/audio readiness script alongside the unchanged read-only full `$web`
+backup helper. Azure OIDC therefore occurs before podcast readiness finishes;
+this only advances the already-authorized rollback read. No new credentials,
+permissions, account, alternate authentication route or storage write is added.
+Readiness receives runtime/network settings and runner process bookkeeping,
+without provider-secret or OIDC capability environment variables. Its `HOME`,
+`XDG_CONFIG_HOME` and `AZURE_CONFIG_DIR` point to dedicated, initially empty
+temporary directories; only backup inherits the original Azure session paths.
+The temporary directories are removed after both lane exits, including failure
+and cancellation. Both processes run as the same UID, so this reduces accidental
+credential discovery and is not a security sandbox against intentional access.
+
+Both lanes must succeed before recording the actual Worker identity. The Worker
+checkpoint upload retains `always()` so failed readiness/backup still preserves
+available rollback information. A successful storage rollback artifact upload
+is additionally required before catalog publication or any frontend overwrite.
+The later configured-byte checks, backend rechecks, homepage-last promotion,
+final mobile playback and digest-bound receipt are unchanged.
+
+Each lane runs in a supervised POSIX process group. Failure, timeout, SIGINT or
+SIGTERM terminates all lane groups, escalates after one second and awaits their
+exit. Runner tracking remains available for forced supervisor termination.
+Readiness's 30-minute overall failure-path cap retains its existing multi-attempt
+publisher budgets; backup's four-minute overall cap retains the existing
+30-second inventory and 120-second transfer limits. Authentication, inventory,
+corrupt transfers or other backup failures still fail closed. Only missing
+AzCopy (`ENOENT`) selects the existing Azure CLI transport.
+
+The overlap helper is part of the reviewed Worker receipt recipe. A recipe
+change requires a truthful successful-production bootstrap before later warm
+reuse. Concurrent local tests establish ordering and failure safety, not a
+measured production speedup; production benefit needs a separate real warm-run
+measurement after review and publication approval.
