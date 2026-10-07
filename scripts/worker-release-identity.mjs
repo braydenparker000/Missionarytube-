@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url';
 import {checkedBindings,readWorkerSettings} from './check-music-worker-bindings.mjs';
 
 const REPO='braydenparker000/Missionarytube-',WORKFLOW='.github/workflows/deploy-azure-storage.yml';
-const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs'];
+const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs'];
 const SHA=/^[a-f0-9]{40}$/,DIGEST=/^[a-f0-9]{64}$/,UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const hash=value=>createHash('sha256').update(typeof value==='string'||Buffer.isBuffer(value)?value:JSON.stringify(value)).digest('hex');
 const blob=bytes=>createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');

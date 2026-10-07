@@ -33,6 +33,9 @@ export function checkedManifest(manifest,identity,files) {
   return true;
 }
 export const CONFIGURATION_FILES=['assets/quick-ai-config.json','assets/drive-config.json'];
+export function identityDifferences(before,after){
+  return [...new Set([...Object.keys(before||{}),...Object.keys(after||{})])].filter(key=>JSON.stringify(before?.[key])!==JSON.stringify(after?.[key])).sort();
+}
 export function checkedConfigurationDelta(before,after){
   if(!Array.isArray(before)||!Array.isArray(after)||before.length!==after.length)throw Error('Configured artifact added or removed files');
   for(let i=0;i<before.length;i++){
@@ -47,7 +50,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
   else if(process.argv[2]==='verify')checkedManifest(JSON.parse(await readFile('qualified-artifact.json','utf8')),identity,files);
   else if(['configure','verify-configured'].includes(process.argv[2])){
     const before=JSON.parse(await readFile('qualified-artifact.json','utf8'));
-    if(JSON.stringify(before.identity)!==JSON.stringify(identity))throw Error('Configured artifact base identity changed');
+    if(JSON.stringify(before.identity)!==JSON.stringify(identity))throw Error('Configured artifact base identity changed: '+identityDifferences(before.identity,identity).join(', '));
     checkedConfigurationDelta(before.files,files);
     const configured={identity:{...identity,baseManifestDigest:hash(JSON.stringify(before))},files};
     if(process.argv[2]==='configure')await writeFile('configured-artifact.json',JSON.stringify(configured,null,2)+'\n');
