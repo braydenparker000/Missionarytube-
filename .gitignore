@@ -23,3 +23,5 @@ worker-bindings-before.json
 release-qualified.json
 
 configured-artifact.json
+.worker-tools/
+worker-tooling-source-before.json

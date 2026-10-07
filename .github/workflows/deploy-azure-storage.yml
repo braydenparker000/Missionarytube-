@@ -82,6 +82,9 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: node scripts/worker-release-identity.mjs plan
+      - name: Prepare isolated Worker tooling without changing qualified dependencies
+        if: ${{ steps.jarvis.outputs.podcasts_enabled == 'true' && steps.worker.outputs.deploy == 'true' }}
+        run: node scripts/prepare-worker-tools.mjs prepare
       - name: Deploy the exact qualified changed Worker with rollback checkpoint
         if: ${{ steps.jarvis.outputs.podcasts_enabled == 'true' && steps.worker.outputs.deploy == 'true' }}
         uses: cloudflare/wrangler-action@v4
@@ -89,10 +92,13 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.R2_ACCOUNT_ID }}
           wranglerVersion: '4.136.3'
-          workingDirectory: .jarvis-source
-          preCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-before.json
-          command: deploy --config backend/wrangler.music.generated.json
-          postCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-after.json
+          workingDirectory: .worker-tools
+          preCommands: npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/.jarvis-source/worker-versions-before.json"
+          command: deploy --config "${{ github.workspace }}/.jarvis-source/backend/wrangler.music.generated.json"
+          postCommands: npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/.jarvis-source/worker-versions-after.json"
+      - name: Verify installer left qualified source dependencies unchanged
+        if: ${{ steps.jarvis.outputs.podcasts_enabled == 'true' && steps.worker.outputs.deploy == 'true' }}
+        run: node scripts/prepare-worker-tools.mjs verify
       - name: Verify real podcast search RSS and audio before frontend changes
         if: steps.jarvis.outputs.podcasts_enabled == 'true'
         run: node .jarvis-source/scripts/verify-podcasts.mjs
