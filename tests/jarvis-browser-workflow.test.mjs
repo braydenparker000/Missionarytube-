@@ -19,6 +19,10 @@ test('every source lane has its own exact checkout dependencies and mandatory lo
   assert.ok(lane.indexOf('test -x "$JARVIS_CHROME"')<lane.indexOf('node scripts/plan-jarvis-qualification.mjs run'));
   assert.match(lane,/QUALIFICATION_NODE24:/);assert.match(lane,/QUALIFICATION_PYTHON:/);
   assert.match(lane,/if: \$\{\{ matrix.component == 'migration' \}\}/);
+  const install=/name: Install exact source dependencies for fresh or fallback execution\n        if: \$\{\{ matrix.reuse != true \}\}\n        run: npm --prefix \.jarvis-source ci/;
+  assert.match(lane,install);
+  assert.ok(!install.test(lane.replace('matrix.reuse != true','matrix.reuse == true')),'Fresh or missing-proof lanes must not skip their locked install');
+  assert.ok(!install.test(lane.replace('run: npm --prefix .jarvis-source ci','run: true')),'Fallback must retain the exact dependency installation');
 });
 test('immutable artifact is built once and verified before any provider credentials',()=>{
   assert.equal((qualification.match(/run: npm run build/g)||[]).length,1);
