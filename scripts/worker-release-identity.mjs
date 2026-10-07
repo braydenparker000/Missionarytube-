@@ -6,7 +6,7 @@ import {pathToFileURL} from 'node:url';
 import {checkedBindings,readWorkerSettings} from './check-music-worker-bindings.mjs';
 
 const REPO='braydenparker000/Missionarytube-',WORKFLOW='.github/workflows/deploy-azure-storage.yml';
-const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs'];
+const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs'];
 const SHA=/^[a-f0-9]{40}$/,DIGEST=/^[a-f0-9]{64}$/,UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const hash=value=>createHash('sha256').update(typeof value==='string'||Buffer.isBuffer(value)?value:JSON.stringify(value)).digest('hex');
 const blob=bytes=>createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
@@ -39,7 +39,8 @@ export async function liveIdentity({account,token,fetcher=globalThis.fetch}){
   if(!response.ok)throw Error('Active Worker identity could not be verified');
   return {version:activeVersion(await response.json()),settingsDigest:settingsDigest(settings)};
 }
-export function checkedReuse(receipt,candidate,live,run,tree){
+export const receiptDigest=receipt=>hash(JSON.stringify(receipt));
+export function checkedReuse(receipt,candidate,live,run,tree,jobs){
   if(!receipt||receipt.schema!==1||receipt.repository!==REPO||receipt.backendDigest!==candidate.backendDigest||receipt.version!==live.version||
     receipt.settingsDigest!==live.settingsDigest||receipt.storageOrigin!==candidate.storageOrigin||receipt.apiOrigin!==candidate.apiOrigin||
     !SHA.test(receipt.source||'')||!SHA.test(receipt.orchestration||'')||!DIGEST.test(receipt.backendDigest||'')||!UUID.test(receipt.version||''))throw Error('Worker receipt does not match actual code, configuration and live provider identity');
@@ -48,6 +49,11 @@ export function checkedReuse(receipt,candidate,live,run,tree){
     String(run.id)!==receipt.runId||String(run.run_attempt)!==receipt.attempt||run.status!=='completed'||run.conclusion!=='success')throw Error('Worker receipt is not from a successful exact production release');
   if(!tree||tree.truncated!==false||!Array.isArray(tree.tree)||JSON.stringify(receipt.recipe)!==JSON.stringify(candidate.recipe))throw Error('Worker release recipe mismatch');
   for(const entry of candidate.recipe){const files=tree.tree.filter(e=>e.path===entry.path&&e.type==='blob');if(files.length!==1||files[0].sha!==entry.sha)throw Error('Untrusted immutable production recipe');}
+  if(!jobs||!Array.isArray(jobs.jobs)||jobs.total_count!==jobs.jobs.length)throw Error('Incomplete immutable production job metadata');
+  const deploy=jobs.jobs.filter(j=>j.name==='deploy');
+  if(deploy.length!==1||deploy[0].run_id!==run.id||deploy[0].run_attempt!==run.run_attempt||deploy[0].head_sha!==receipt.orchestration||deploy[0].status!=='completed'||deploy[0].conclusion!=='success')throw Error('Receipt job is not the exact successful production attempt');
+  const stamps=deploy[0].steps.filter(s=>s.name==='verified-production-receipt-'+receiptDigest(receipt));
+  if(stamps.length!==1||stamps[0].status!=='completed'||stamps[0].conclusion!=='success')throw Error('Mutable receipt is not bound to this production run immutable success metadata');
   return true;
 }
 export function newlyDeployedVersion(before,after,live){
@@ -65,10 +71,11 @@ export async function findWorkerReuse(candidate,live,{fetcher=globalThis.fetch}=
   try{
     if(candidate.storageOrigin!=='https://missionarytube.z13.web.core.windows.net')throw Error('Unexpected receipt origin');
     const receipt=await publicJson(candidate.storageOrigin+'/release-qualified.json',fetcher);
-    if(!/^[1-9][0-9]{0,14}$/.test(receipt.runId||'')||!SHA.test(receipt.orchestration||''))throw Error('Invalid production receipt');
+    if(!/^[1-9][0-9]{0,14}$/.test(receipt.runId||'')||!/^[1-9][0-9]{0,5}$/.test(receipt.attempt||'')||!SHA.test(receipt.orchestration||''))throw Error('Invalid production receipt');
     const run=await publicJson(`https://api.github.com/repos/${REPO}/actions/runs/${receipt.runId}`,fetcher);
     const tree=await publicJson(`https://api.github.com/repos/${REPO}/git/trees/${receipt.orchestration}?recursive=1`,fetcher);
-    checkedReuse(receipt,candidate,live,run,tree);
+    const jobs=await publicJson(`https://api.github.com/repos/${REPO}/actions/runs/${receipt.runId}/attempts/${receipt.attempt}/jobs?per_page=100`,fetcher);
+    checkedReuse(receipt,candidate,live,run,tree,jobs);
     return {reuse:true,runId:receipt.runId,attempt:receipt.attempt,version:live.version};
   }catch{return {reuse:false};}
 }
@@ -93,7 +100,14 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
       const expected=JSON.parse(readFileSync('worker-identity-current.json','utf8'));
       if(JSON.stringify(expected.live)!==JSON.stringify(live))throw Error('Live Worker changed after final frontend verification');
       const receipt={...candidate,repository:REPO,...live,runId:String(process.env.GITHUB_RUN_ID),attempt:String(process.env.GITHUB_RUN_ATTEMPT)};
+      const configured=JSON.parse(readFileSync('configured-artifact.json','utf8'));
+      receipt.frontendArtifactDigest=receiptDigest(configured);
+      receipt.publicConfigurationDigest=hash(configured.files.filter(f=>['assets/quick-ai-config.json','assets/drive-config.json'].includes(f.path)));
       writeFileSync('release-qualified.json',JSON.stringify(receipt,null,2)+'\n');
+      if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'digest='+receiptDigest(receipt)+'\n');
+    }else if(command==='verify-receipt'){
+      const receipt=JSON.parse(readFileSync('release-qualified.json','utf8'));
+      if(receiptDigest(receipt)!==process.env.EXPECTED_RECEIPT_DIGEST||receipt.backendDigest!==candidate.backendDigest||receipt.version!==live.version||receipt.settingsDigest!==live.settingsDigest)throw Error('Production receipt changed before its immutable success stamp');
     }else throw Error('Use plan, record, verify or receipt');
   }catch{console.error('Worker identity qualification failed; no frontend promotion is authorized');process.exitCode=1;}
 }

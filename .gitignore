@@ -21,3 +21,5 @@ qualification-*.json
 worker-identity-*.json
 worker-bindings-before.json
 release-qualified.json
+
+configured-artifact.json

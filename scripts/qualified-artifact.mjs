@@ -32,10 +32,27 @@ export function checkedManifest(manifest,identity,files) {
     throw Error('Qualified artifact identity, files or digest mismatch');
   return true;
 }
+export const CONFIGURATION_FILES=['assets/quick-ai-config.json','assets/drive-config.json'];
+export function checkedConfigurationDelta(before,after){
+  if(!Array.isArray(before)||!Array.isArray(after)||before.length!==after.length)throw Error('Configured artifact added or removed files');
+  for(let i=0;i<before.length;i++){
+    if(before[i].path!==after[i].path)throw Error('Configured artifact paths changed');
+    if(!CONFIGURATION_FILES.includes(before[i].path)&&JSON.stringify(before[i])!==JSON.stringify(after[i]))throw Error('Unexpected mutation outside approved public configuration files');
+  }
+  return true;
+}
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   const identity=await artifactIdentity(),files=await fileManifest(resolve('dist'));
   if(process.argv[2]==='create')await writeFile('qualified-artifact.json',JSON.stringify({identity,files},null,2)+'\n');
   else if(process.argv[2]==='verify')checkedManifest(JSON.parse(await readFile('qualified-artifact.json','utf8')),identity,files);
+  else if(['configure','verify-configured'].includes(process.argv[2])){
+    const before=JSON.parse(await readFile('qualified-artifact.json','utf8'));
+    if(JSON.stringify(before.identity)!==JSON.stringify(identity))throw Error('Configured artifact base identity changed');
+    checkedConfigurationDelta(before.files,files);
+    const configured={identity:{...identity,baseManifestDigest:hash(JSON.stringify(before))},files};
+    if(process.argv[2]==='configure')await writeFile('configured-artifact.json',JSON.stringify(configured,null,2)+'\n');
+    else checkedManifest(JSON.parse(await readFile('configured-artifact.json','utf8')),configured.identity,files);
+  }
   else throw Error('Use create or verify');
   console.log('Exact orchestration, source, dependency, release and artifact identities verified');
 }

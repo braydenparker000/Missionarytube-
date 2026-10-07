@@ -1,4 +1,4 @@
-import {readFileSync, writeFileSync, appendFileSync, existsSync} from 'node:fs';
+import {readFileSync, writeFileSync, appendFileSync, lstatSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {execFileSync, spawnSync} from 'node:child_process';
 import {resolve} from 'node:path';
@@ -17,6 +17,34 @@ export const trustedRecipe = {
 const components = ['relay','frontend','poweramp','blankLibrary','podcasts','migration','performance','owner24'];
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const blob = bytes => createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex');
+const requiredTests=['tests/ci-workflow.test.js','tests/oauth-consent-browser.test.js','tests/relay-owner-browser.test.js',
+  'tests/relay-owner-password-browser.test.js','tests/relay-owner-password-runtime.test.js','tests/relay-events.test.js','tests/relay-owner.test.js',
+  'tests/shared.test.js','tests/publications.test.js','tests/origins.test.js','tests/hub.test.js',
+  'tests/poweramp-blank-library-browser.test.js','tests/podcasts-browser.test.js'];
+export function trustedInventory(paths){
+  const files=paths.filter(p=>/^tests\/[^/]+\.test\.js$/.test(p)).sort();
+  if(new Set(files).size!==files.length||requiredTests.some(p=>!files.includes(p)))throw Error('Missing or duplicate mandatory source coverage');
+  const relay=files.filter(p=>/^tests\/relay-/.test(p)||['tests/ci-workflow.test.js','tests/oauth-consent-browser.test.js','tests/shared.test.js','tests/publications.test.js','tests/origins.test.js','tests/hub.test.js'].includes(p));
+  const dedicated=['tests/poweramp-blank-library-browser.test.js','tests/podcasts-browser.test.js'];
+  const regressions=files.filter(p=>!relay.includes(p)&&!dedicated.includes(p));
+  const heavy=p=>/^tests\/(?:poweramp|drawercast|audio-fidelity|r2-playback|drive-catalog)/.test(p);
+  const groups={relay,frontend:regressions.filter(p=>!heavy(p)),poweramp:regressions.filter(heavy),blankLibrary:[dedicated[0]],podcasts:[dedicated[1]],owner24:relay};
+  const assigned=['relay','frontend','poweramp','blankLibrary','podcasts'].flatMap(c=>groups[c]);
+  if(assigned.length!==files.length||new Set(assigned).size!==files.length)throw Error('Every source test must have exactly one aggregate owner');
+  return groups;
+}
+export function immutableSourceSnapshot(root){
+  const rows=execFileSync('git',['-C',root,'ls-tree','-rz','--full-tree','HEAD'],{encoding:'utf8'}).split('\0').filter(Boolean);
+  const entries=rows.map(row=>{
+    const m=/^(100644|100755) blob ([a-f0-9]{40})\t(.+)$/.exec(row);
+    if(!m)throw Error('Unsupported source file type or submodule');
+    const [,mode,sha,path]=m,info=lstatSync(resolve(root,path));
+    if(!info.isFile()||info.isSymbolicLink()||((info.mode&0o111)!==0)!==(mode==='100755')||blob(readFileSync(resolve(root,path)))!==sha)throw Error('Source HEAD/worktree bytes or mode changed');
+    return {path,sha,mode};
+  });
+  execFileSync('git',['-C',root,'diff','HEAD','--exit-code'],{stdio:'pipe'});
+  return hash(JSON.stringify(entries));
+}
 export function recipeAllowed(root, expected = trustedRecipe) {
   return Object.entries(expected).every(([path,sha]) => {
     try {return blob(readFileSync(resolve(root,path))) === sha;} catch {return false;}
@@ -47,13 +75,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
         proof=await q.findProof(plan,{sourceSha:release.commit});
         if (!proof.qualified) proof=await q.findProof(plan);
       } else {
-        const {inventory}=await import(pathToFileURL(resolve(root,'tests/helpers/ci-test-inventory.mjs')));
         const paths=execFileSync('git',['-C',root,'ls-files','-z'],{encoding:'utf8'}).split('\0').filter(Boolean);
-        const coverage=inventory(paths.filter(p=>/^tests\/[^/]+\.test\.js$/.test(p)));
-        const heavy=p=>/^tests\/(?:poweramp|drawercast|audio-fidelity|r2-playback|drive-catalog)/.test(p);
-        const tests={...coverage.groups,frontend:coverage.groups.regressions.filter(p=>!heavy(p)),poweramp:coverage.groups.regressions.filter(heavy),owner24:coverage.groups.relay};
+        const tests=trustedInventory(paths);
+        const snapshot=immutableSourceSnapshot(root);
         const digest=hash(JSON.stringify({release,paths:paths.map(p=>[p,blob(readFileSync(resolve(root,p)))]),node22,node24,browser:BROWSER_IDENTITY}));
-        plan={digest,environment:{node22,node24,python:process.env.QUALIFICATION_PYTHON,browser:BROWSER_IDENTITY},components:Object.fromEntries(components.map(c=>[c,{digest,tests:tests[c]||[]}]))};
+        plan={digest,snapshot,environment:{node22,node24,python:process.env.QUALIFICATION_PYTHON,browser:BROWSER_IDENTITY},components:Object.fromEntries(components.map(c=>[c,{digest,tests:tests[c]||[]}]))};
       }
       const matrix=components.map(component=>({component,digest:plan.components[component].digest,node:(component==='owner24'?node24:node22).slice(1),
         reuse:proof.qualified || !!proof.reuse?.[component],provenance:proof.qualified?proof:proof.reuse?.[component]||null,trusted}));
@@ -75,7 +101,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
         if(result.error||result.status!==0)throw Error('Required source qualification failed');
       } else {
         if (item.reuse) throw Error('Unknown qualification recipe cannot reuse evidence');
-        const before=execFileSync('git',['-C',root,'diff','--exit-code'],{stdio:'pipe'});
+        if(immutableSourceSnapshot(root)!==file.plan.snapshot)throw Error('Source changed before fallback qualification');
         const performance=['tests/poweramp-render-trace-browser.mjs','tests/poweramp-persistent-prototype-browser.mjs','tests/poweramp-preview-setup-browser.mjs'];
         const commands=name==='migration'?[['python',['-m','py_compile','scripts/migrate-drive-to-r2.py']],['python',['-m','unittest','discover','-s','tests','-p','test_r2*.py','-v']]]:
           name==='performance'?performance.map(p=>[process.execPath,['--test',p]]):[[process.execPath,['--test',...file.plan.components[name].tests]]];
@@ -85,7 +111,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
         for(const [binary,args] of commands){const result=spawnSync(binary,args,{cwd:root,env:{...process.env,POWERAMP_BASELINE_REF:'8aa7fce4dd83d5417614ae112134631dd98df7b6',
           ...(name==='owner24'?{REQUIRE_RELAY_OWNER_BROWSER:'1',CHROMIUM_PATH:process.env.JARVIS_CHROME,PLAYWRIGHT_CHROMIUM_EXECUTABLE:process.env.JARVIS_CHROME}:{})},stdio:'inherit'});
           if(result.error||result.status!==0)failed=true;}
-        execFileSync('git',['-C',root,'diff','--exit-code'],{stdio:'pipe'});
+        if(sourceHead(root)!==release.commit||immutableSourceSnapshot(root)!==file.plan.snapshot)throw Error('Source changed after fallback qualification');
         if(failed)throw Error('Full current source qualification failed');
       }
       writeFileSync('qualification-'+name+'.json',JSON.stringify({schema:1,source:release.commit,component:name,digest:item.digest,outcome:item.reuse?'verified-reused':'freshly-executed',provenance:item.provenance})+'\n');
