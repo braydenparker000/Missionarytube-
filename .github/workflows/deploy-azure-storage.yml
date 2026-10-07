@@ -99,29 +99,6 @@ jobs:
       - name: Verify installer left qualified source dependencies unchanged
         if: ${{ steps.jarvis.outputs.podcasts_enabled == 'true' && steps.worker.outputs.deploy == 'true' }}
         run: node scripts/prepare-worker-tools.mjs verify
-      - name: Verify real podcast search RSS and audio before frontend changes
-        if: steps.jarvis.outputs.podcasts_enabled == 'true'
-        run: node .jarvis-source/scripts/verify-podcasts.mjs
-      - name: Record the actual qualified active Worker and configuration
-        if: steps.jarvis.outputs.podcasts_enabled == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        run: node scripts/worker-release-identity.mjs record
-      - name: Preserve podcast Worker rollback and exact identity information
-        if: ${{ always() && steps.jarvis.outputs.podcasts_enabled == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: podcast-worker-${{ github.run_id }}
-          path: |
-            .jarvis-source/worker-versions-before.json
-            .jarvis-source/worker-versions-after.json
-            .jarvis-source/backend/wrangler.music.generated.json
-            worker-bindings-before.json
-            worker-identity-before.json
-            worker-identity-current.json
-          if-no-files-found: warn
-          retention-days: 30
       - name: Prepare public Quick AI keys
         env:
           QUICK_AI_GEMINI_KEY: ${{ secrets.QUICK_AI_GEMINI_KEY }}
@@ -147,11 +124,32 @@ jobs:
         env:
           STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
         run: test "$STORAGE_ACCOUNT" = missionarytube
-      - name: Preserve existing website bytes and properties
+      - name: Join real podcast readiness and verified full rollback backup
         env:
+          PODCASTS_ENABLED: ${{ steps.jarvis.outputs.podcasts_enabled }}
           STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
           AZCOPY_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: node scripts/backup-jarvis-storage.mjs
+        run: node scripts/overlap-jarvis-prewrite.mjs
+      - name: Record the actual qualified active Worker and configuration
+        if: steps.jarvis.outputs.podcasts_enabled == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/worker-release-identity.mjs record
+      - name: Preserve podcast Worker rollback and exact identity information
+        if: ${{ always() && steps.jarvis.outputs.podcasts_enabled == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: podcast-worker-${{ github.run_id }}
+          path: |
+            .jarvis-source/worker-versions-before.json
+            .jarvis-source/worker-versions-after.json
+            .jarvis-source/backend/wrangler.music.generated.json
+            worker-bindings-before.json
+            worker-identity-before.json
+            worker-identity-current.json
+          if-no-files-found: warn
+          retention-days: 30
       - name: Save rollback artifact before any overwrite
         uses: actions/upload-artifact@v4
         with:

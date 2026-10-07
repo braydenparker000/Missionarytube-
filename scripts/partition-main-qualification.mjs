@@ -25,7 +25,7 @@ export const DEPLOY_PATHS = Object.freeze([
 // at most the older 300-file limit. Larger pushes keep both qualification calls.
 export const MAX_DEPLOY_ONLY_PATHS = 300;
 export const GATE_RECIPE_SHA256 = Object.freeze({
-  '.github/workflows/deploy-azure-storage.yml': 'cf38195b3052f536359751d5980e1a4cdb479434d3894c1754a909b56277bc93',
+  '.github/workflows/deploy-azure-storage.yml': '30dc3c7caffa0d4048e63be296936d1ddbd8f2e55ebbba06e6a1d2f77db950a3',
   '.github/workflows/qualify-jarvis.yml': '0a4957bf97acaa01ade5bd298128710e7c9ba1c882896f691d30a62a4067c6c3',
 });
 const expectedTrigger = 'on:\n  workflow_dispatch:\n  push:\n    branches:\n      - main\n    paths:\n'
