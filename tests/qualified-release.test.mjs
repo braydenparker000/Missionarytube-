@@ -128,3 +128,16 @@ test('split, malformed or unsuccessful provider deployment data cannot identify 
     assert.throws(()=>activeVersion({success:true,result:{deployments:[{id:version,versions}]}}));
   assert.throws(()=>activeVersion({success:false,result:{deployments:[{id:version,versions:[{version_id:version,percentage:100}]}]}}));
 });
+
+
+test('matching receipt stamps on foreign or unfinished production jobs cannot authorize reuse',()=>{
+  for(const change of [{run_id:124},{head_sha:'d'.repeat(40)},{status:'in_progress'},{conclusion:'cancelled'}]){
+    const foreign=jobsFor(receipt);Object.assign(foreign.jobs[0],change);
+    assert.throws(()=>checkedReuse(receipt,candidate,live,run,tree,foreign),/exact successful production attempt/);
+  }
+});
+test('matching receipts and stamps from forks or another repository cannot authorize reuse',()=>{
+  for(const change of [{repository:{full_name:'other/repo'}},
+    {head_repository:{full_name:receipt.repository,fork:true}}])
+    assert.throws(()=>checkedReuse(receipt,candidate,live,{...run,...change},tree,jobsFor(receipt)),/successful exact production release/);
+});
