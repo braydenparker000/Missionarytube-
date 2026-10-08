@@ -105,10 +105,10 @@ test('a forged mutable receipt cannot borrow a real successful run and recipe',(
   const duplicate=jobsFor(receipt);duplicate.jobs[0].steps.push(duplicate.jobs[0].steps[0]);assert.throws(()=>checkedReuse(receipt,candidate,live,run,tree,duplicate),/immutable success metadata/);
 });
 test('missing or unverifiable production receipt safely falls back to qualified Worker deployment',async()=>{
-  const unavailable=await findWorkerReuse(candidate,live,{fetcher:async()=>new Response('',{status:404})});assert.deepEqual(unavailable,{reuse:false});
+  const unavailable=await findWorkerReuse(candidate,live,{fetcher:async()=>new Response('',{status:404})});assert.deepEqual(unavailable,{reuse:false,reason:'receipt_missing'});
   const fetcher=async url=>Response.json(url.includes('release-qualified.json')?receipt:url.includes('/git/trees/')?tree:url.includes('/jobs?')?jobsFor(receipt):run);
   const good=await findWorkerReuse(candidate,live,{fetcher});assert.equal(good.reuse,true);
-  const raced=await findWorkerReuse(candidate,{...live,version:'11111111-1111-1111-1111-111111111111'},{fetcher});assert.deepEqual(raced,{reuse:false});
+  const raced=await findWorkerReuse(candidate,{...live,version:'11111111-1111-1111-1111-111111111111'},{fetcher});assert.deepEqual(raced,{reuse:false,reason:'identity_mismatch'});
 });
 test('incomplete or duplicated immutable production metadata cannot authorize Worker reuse',()=>{
   const complete=jobsFor(receipt);
