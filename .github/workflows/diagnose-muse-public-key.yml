@@ -1,0 +1,60 @@
+name: Read-only Muse public key diagnostic
+
+# One authorized branch run. No PR, main, deployment or recurring trigger.
+on:
+  push:
+    branches: [fix/muse-upload-key-diagnostic-20261008]
+    paths:
+      - '.github/workflows/diagnose-muse-public-key.yml'
+      - 'scripts/diagnose-muse-public-key.mjs'
+      - 'scripts/diagnose-muse-public-key.test.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  unit-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out public diagnostic and redaction tests
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Node without installing dependencies
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Test raw fingerprint matching, failure redaction and trigger isolation
+        run: node --test scripts/diagnose-muse-public-key.test.mjs
+
+  provider-diagnostic:
+    needs: unit-validation
+    # Reuse the established owner-gated CI identity without exposing it to forks
+    # or other branches. The provider step makes exactly one fixed GET.
+    if: >-
+      github.repository == 'braydenparker000/Missionarytube-' &&
+      github.actor_id == '183016859' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/fix/muse-upload-key-diagnostic-20261008'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: muse-public-key-diagnostic
+      cancel-in-progress: false
+    steps:
+      - name: Check out the validated public diagnostic
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Node without installing dependencies
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Read only the existing Worker key binding and emit a sanitized membership result
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/diagnose-muse-public-key.mjs
