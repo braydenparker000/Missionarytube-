@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdtemp,readdir,rm,mkdir,symlink} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join,resolve} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {join,resolve,dirname} from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {execFileSync,spawnSync} from 'node:child_process';
-import {TARGET,RECIPES,authorizedContext,checkedCandidate,checkedPin,checkedConfiguration,checkedReleaseHead,trustedCandidate,
+import {TARGET,RECIPES,authorizedContext,checkedCandidate,checkedPin,checkedConfiguration,trustedCandidate,
   sealedReaders,observeReuse} from './astra-worker-reuse-preflight.mjs';
 import {liveIdentity,findWorkerReuse,settingsDigest,receiptDigest} from './worker-release-identity.mjs';
 
@@ -88,11 +88,24 @@ test('forged or inherited checkout HEAD and symlink roots fail before importing 
 });
 
 test('current branch pin, recipes, cleanliness and exact three-file scope are checked before provider reads',async()=>{
-  const root=await mkdtemp(join(tmpdir(),'astra-preflight-current-'));
+  const directory=await mkdtemp(join(tmpdir(),'astra-preflight-current-')),root=join(directory,'checkout');
   const run=(...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:'pipe'}).trim();
   try{
-    execFileSync('git',['clone','--shared','--no-checkout',repository,root],{stdio:'pipe'});
-    run('checkout','--detach',TARGET.orchestration);
+    // Build an independent fictional graph. Hosted Validate intentionally has
+    // only the current commit, so fixtures cannot depend on release ancestry.
+    await mkdir(root);run('init');
+    for(const path of ['jarvis-release.json',...RECIPES.map(([path])=>path)]){
+      await mkdir(dirname(join(root,path)),{recursive:true});
+      await writeFile(join(root,path),await readFile(join(repository,path)));
+    }
+    run('add','.');run('-c','user.name=Fictional fixture','-c','user.email=fixture@example.test','commit','-m','fictional predecessor');
+    const predecessor=run('rev-parse','HEAD');
+    const native=await readFile(join(repository,'scripts/astra-worker-reuse-preflight.mjs'),'utf8');
+    const constant="orchestration:'"+TARGET.orchestration+"'";
+    assert.equal(native.split(constant).length,2,'substitute only the predecessor constant, preserving the native gate');
+    const module=join(directory,'fixture-preflight.mjs');
+    await writeFile(module,native.replace(constant,"orchestration:'"+predecessor+"'"));
+    const {checkedReleaseHead}=await import(pathToFileURL(module).href);
     const added=['.github/workflows/astra-worker-reuse-preflight.yml','scripts/astra-worker-reuse-preflight.mjs','scripts/astra-worker-reuse-preflight.test.mjs'];
     for(const path of added)await writeFile(join(root,path),await readFile(join(repository,path)));
     run('add',...added);run('-c','user.name=Fictional fixture','-c','user.email=fixture@example.test','commit','-m','fictional approved delta');
@@ -109,7 +122,7 @@ test('current branch pin, recipes, cleanliness and exact three-file scope are ch
       });
     }
     assert.equal(calls,0);
-  }finally{await rm(root,{recursive:true,force:true});}
+  }finally{await rm(directory,{recursive:true,force:true});}
 });
 
 test('successful current fictional identity plus exact historical proof makes six ordered GETs only',async()=>{
