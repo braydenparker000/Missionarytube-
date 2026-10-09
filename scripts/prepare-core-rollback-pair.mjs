@@ -92,9 +92,9 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     if(podcastMigration){
       const contract=podcastCanonicalContract(oldFiles,candidateFiles,{sourcePair:report.sourcePair,artifactSha256:zipDigest});
       const helperDigest=sha256(await readFile(join(root,'scripts/podcast-canonical-migration.mjs')));
-      report.canonicalMigration={...contract.envelope,digest:contract.digest,helperDigest,
-        qualification:await qualifyCanonicalChain(contract,{loader,recipe,rawProof,candidateProof:{kind:'local-candidate-only',source:candidate,orchestration:report.orchestration}})};
       previousFiles=derivedPodcastView(contract);previousProof={kind:'derived-compatibility-view',rawProof,migrationDigest:contract.digest,helperDigest};
+      report.canonicalMigration={...contract.envelope,digest:contract.digest,helperDigest,
+        qualification:await qualifyCanonicalChain(contract,{loader,recipe,rawProof,derivedProof:previousProof,candidateProof:{kind:'local-candidate-only',source:candidate,orchestration:report.orchestration}})};
       const raw=buildPublication(oldFiles,{proof:rawProof,recipe,loader});await savePublication(raw,join(output,'raw-previous'));
       report.rawPrevious={files:174,inputDigest:raw.plan.inputDigest,releaseId:raw.plan.releaseId};
       await writeFile(join(output,'canonical-migration.json'),JSON.stringify(report.canonicalMigration,null,2)+'\n');
@@ -102,6 +102,7 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     const previous=buildPublication(previousFiles,{proof:previousProof,recipe,loader});
     const next=buildPublication(candidateFiles,{proof:{kind:'local-candidate-only',source:candidate,orchestration:report.orchestration},recipe,loader});
     compatibleLoaders(previous,next);
+    if(podcastMigration){assert.equal(report.canonicalMigration.qualification.rawReleaseId,report.rawPrevious.releaseId);assert.equal(report.canonicalMigration.qualification.derivedReleaseId,previous.plan.releaseId);assert.equal(report.canonicalMigration.qualification.candidateReleaseId,next.plan.releaseId);}
     for(const [name,publication] of [['previous',previous],['candidate',next]])await savePublication(publication,join(output,name));
     report.publications={previous:{releaseId:previous.plan.releaseId,digest:sha256(previous.plan)},candidate:{releaseId:next.plan.releaseId,digest:sha256(next.plan)}};
     const contracts=await rollbackPairContracts({root,previous,backend:{candidate:{source:candidate}}});

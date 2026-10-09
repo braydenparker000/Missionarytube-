@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {createServer} from 'node:http';
 import {chromium} from 'playwright-core';
-import {readTree,sha256,mimeFor} from '../scripts/static-publication.mjs';
+import {readTree,sha256,mimeFor,buildPublication,stageRelease,installLoaders,switchPointer,POINTER} from '../scripts/static-publication.mjs';
 import {podcastCanonicalContract,derivedPodcastView,migratePodcastCanonical,qualifyCanonicalChain,LocalMigrationStore,PODCAST_PAIR,PODCAST_ORDER} from '../scripts/podcast-canonical-migration.mjs';
 let workspace,raw,candidate,contract;const source=resolve('.jarvis-source'),trees=[];
 const binding={sourcePair:{previous:PODCAST_PAIR.previous,candidate:PODCAST_PAIR.candidate},artifactSha256:PODCAST_PAIR.artifactSha256};
@@ -82,7 +82,17 @@ test('actual canonical mixed-shell migration completes SWv2→v3 with offline au
   assert.equal(await page.evaluate(async()=>typeof(await import('/podcasts/directory.js')).clientDirectory),'function');
   const retained=await page.evaluate(async()=>{const r=await fetch('/podcasts/offline/fictional',{headers:{Range:'bytes=1-3'}}),core=await import('/podcasts/core.js');return {status:r.status,range:r.headers.get('Content-Range'),audio:[...new Uint8Array(await r.arrayBuffer())],art:await(await(await caches.open('jarvis-podcast-art-v1')).match('/fictional-art')).text(),feed:await core.storedFeed('https://example.test/fictional-feed'),note:localStorage.getItem('jarvis.notes.v1'),keys:await caches.keys(),app:(await(await(await caches.open('jarvis-podcast-shell-v3')).match('/podcasts/app.js?v=20261009')).text()).includes("./directory.js")};});
   assert.equal(retained.status,206);assert.equal(retained.range,'bytes 1-3/5');assert.deepEqual(retained.audio,[2,3,4]);assert.equal(retained.art,'fictional-art');assert.equal(retained.feed.show.feedUrl,'https://example.test/fictional-feed');assert.equal(retained.note,'fictional-note');assert.equal(retained.app,true);assert.ok(retained.keys.includes('jarvis-podcast-audio-v1'));assert.ok(retained.keys.includes('jarvis-podcast-art-v1'));assert.equal(retained.keys.includes('jarvis-podcast-shell-v2'),false);assert.deepEqual(errors,[]);assert.equal(unexpected,0);assert.ok(externalFixtures.length>0);assert.ok(externalFixtures.every(value=>endpointPaths.includes(value.endpoint)||value.endpoint.startsWith(apiOrigin+'/podcasts/')));
-  // Main rollback does not touch this canonical shell; compare exact bytes.
+  // Exercise the original main publication flow on this same canonical store,
+  // then reload the real SW-controlled podcast while the main pointer rolled back.
+  const loader=await readFile('scripts/static-release-loader.js'),recipe=sha256('fictional-browser-same-chain');
+  const previous=buildPublication(derivedPodcastView(contract),{loader,recipe,proof:{kind:'derived-compatibility-view',migrationDigest:contract.digest}}),next=buildPublication(candidate,{loader,recipe,proof:{kind:'local-ed7-candidate'}});previous.original=derivedPodcastView(contract);
+  await stageRelease(previous,store);await stageRelease(next,store);await installLoaders(previous,next,store,{guard:async()=>{}});
+  const expected=async()=>{const item=await store.get(POINTER);return {etag:item.etag,sha256:sha256(item.bytes)};};
+  await switchPointer(next,store,{expected:await expected(),guard:async()=>{}});await switchPointer(previous,store,{expected:await expected(),guard:async()=>{}});assert.equal(JSON.parse((await store.get(POINTER)).bytes).releaseId,previous.plan.releaseId);
+  await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#results').hasAttribute('aria-busy'));
+  assert.equal(await page.evaluate(async()=>typeof(await import('/podcasts/directory.js')).clientDirectory),'function');
+  const rolledBack=await page.evaluate(async()=>({note:localStorage.getItem('jarvis.notes.v1'),audio:await(await fetch('/podcasts/offline/fictional',{headers:{Range:'bytes=1-3'}})).arrayBuffer().then(b=>[...new Uint8Array(b)]),art:await(await(await caches.open('jarvis-podcast-art-v1')).match('/fictional-art')).text(),keys:await caches.keys()}));
+  assert.equal(rolledBack.note,'fictional-note');assert.deepEqual(rolledBack.audio,[2,3,4]);assert.equal(rolledBack.art,'fictional-art');assert.ok(rolledBack.keys.includes('jarvis-podcast-shell-v3'));assert.equal(rolledBack.keys.includes('jarvis-podcast-shell-v2'),false);
   for(const path of PODCAST_ORDER)assert.deepEqual((await store.get(path)).bytes,candidate.get(path));await context.close();
  }finally{await browser?.close();await new Promise(r=>server.close(r));}
 });

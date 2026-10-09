@@ -60,12 +60,12 @@ export class LocalMigrationStore{
  raceLocal(path){assert.equal(typeof path,'string');stores.get(this).raceTarget=path;}
  async get(path){return localGet(this,path);}async route(path){return localGet(this,path+'index.html');}async put(path,bytes,contentType,condition){localPut(this,path,bytes,contentType,condition);}
 }
-export async function qualifyCanonicalChain(contract,{loader,recipe,rawProof,candidateProof}={}){
+export async function qualifyCanonicalChain(contract,{loader,recipe,rawProof,candidateProof,derivedProof}={}){
  const state=states.get(contract);assert.ok(state);const guard=async envelope=>assert.equal(sha256(envelope),contract.digest);
  let interruptions=0;for(const after of [false,true])for(let stop=0;stop<4;stop++){
   const store=new LocalMigrationStore(state.previous);store.stop=stop;store.after=after;await assert.rejects(migratePodcastCanonical(contract,store,{guard}),/Local interruption/);store.stop=Infinity;await migratePodcastCanonical(contract,store,{guard});assert.deepEqual(store.writes,PODCAST_ORDER);interruptions++;
  }
- const raw=buildPublication(state.previous,{proof:rawProof,loader,recipe}),derived=buildPublication(state.derived,{proof:{kind:'derived-compatibility-view',rawProof,migrationDigest:contract.digest},loader,recipe}),candidate=buildPublication(state.candidate,{proof:candidateProof,loader,recipe});
+ const raw=buildPublication(state.previous,{proof:rawProof,loader,recipe}),derived=buildPublication(state.derived,{proof:derivedProof||{kind:'derived-compatibility-view',rawProof,migrationDigest:contract.digest},loader,recipe}),candidate=buildPublication(state.candidate,{proof:candidateProof,loader,recipe});
  assert.throws(()=>compatibleLoaders(raw,candidate),/separately reviewed migration/);compatibleLoaders(derived,candidate);
  const store=new LocalMigrationStore(state.previous);await migratePodcastCanonical(contract,store,{guard});derived.original=copy(state.derived);await stageRelease(derived,store);await stageRelease(candidate,store);await installLoaders(derived,candidate,store,{guard:async()=>guard(contract.envelope)});
  const expected=async()=>{const p=await store.get(POINTER);return {etag:p.etag,sha256:sha256(p.bytes)};};
@@ -82,5 +82,5 @@ export async function qualifyCanonicalChain(contract,{loader,recipe,rawProof,can
  await verifyRelease(derived,store,{canonical:true});await verifyRelease(candidate,store,{canonical:true});for(const path of PODCAST_ORDER)assert.deepEqual((await store.get(path)).bytes,state.candidate.get(path));
  let refusals=0;for(const mutate of [s=>s.replaceLocal('podcasts/core.js',Buffer.from('foreign')),s=>s.replaceLocal('podcasts/app.js',state.previous.get('podcasts/app.js'),'text/plain'),s=>s.replaceLocal('podcasts/sw.js',state.candidate.get('podcasts/sw.js'))]){const s=new LocalMigrationStore(state.previous);mutate(s);await assert.rejects(migratePodcastCanonical(contract,s,{guard}),/foreign/);assert.equal(s.writes.length,0);refusals++;}
  const denied=new LocalMigrationStore(state.previous);await assert.rejects(migratePodcastCanonical(contract,denied,{guard:async()=>{throw Error('No canonical migration authorization');}}),/authorization/);assert.equal(denied.writes.length,0);refusals++;
- return {schema:1,kind:'fictional-local-exact-chain',rawFiles:174,derivedFiles:175,candidateFiles:179,interruptions,refusals,defaultRawPairRefused:true,mainPromotionAndRollbackPassed:true,securityCanonicalRetained:true,perActionApprovalRefusals:approvalRefusals,missingHostedPairRefused:true,productionOperations:0};
+ return {schema:1,kind:'fictional-local-exact-chain',rawFiles:174,derivedFiles:175,candidateFiles:179,rawReleaseId:raw.plan.releaseId,derivedReleaseId:derived.plan.releaseId,candidateReleaseId:candidate.plan.releaseId,interruptions,refusals,defaultRawPairRefused:true,mainPromotionAndRollbackPassed:true,securityCanonicalRetained:true,perActionApprovalRefusals:approvalRefusals,missingHostedPairRefused:true,productionOperations:0};
 }
