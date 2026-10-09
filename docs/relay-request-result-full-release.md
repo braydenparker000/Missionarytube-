@@ -1,7 +1,7 @@
 # Ordinary Relay deployment draft
 
 This draft pairs deployment base `4c18a226e10968437941d82b77c3c09383815898`
-with source `902ad4a1b56da7d081315817e8d761a9cf6da5b3`. The source retains
+with source `606ef60b91eac7396ba5a9fd417e65830900ff6e`. The source retains
 the live configuration, dependencies, Poweramp, Astra, MyMedia and Podcasts.
 Its ordinary Relay backend changes need the existing fresh Worker qualification
 and publication path. No account-admission, native dispatch, preflight or
@@ -33,6 +33,11 @@ If retained data from an earlier v2 candidate contains coordination rows at
 `imported=0`, its bounded compatibility cleanup must complete before c4 rollback.
 The live legacy code never created v2 rows; no extra snapshot prerequisite is
 introduced.
+
+The v2 reconciler retains its own durable coverage checkpoint. Missing coverage
+starts a bounded replay from the beginning; a c4 interruption restarts the
+partial scan from the last fully covered cutoff. The legacy publisher watermark
+alone cannot skip unexamined v2 comments.
 
 After the existing full backup and rollback artifact barriers, the dependency
 helper verifies the complete configured seal and stages four fixed modules:
