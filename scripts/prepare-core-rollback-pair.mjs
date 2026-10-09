@@ -86,7 +86,7 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     report.buildRecipeDigest=sha256(await Promise.all(buildRecipes.map(async path=>({path,sha256:sha256(await readFile(join(root,path)))}))));
     report.candidateArtifact={kind:'local-source-build',files:inventory(candidateFiles),inputDigest:sha256(inventory(candidateFiles))};
     const loader=await readFile(join(root,'scripts/static-release-loader.js')),recipe=sha256({reviewedProducer:PRODUCER,buildRecipeDigest:report.buildRecipeDigest});
-    const previous=buildPublication(oldFiles,{proof:{kind:'remote-pr-qualified-artifact',identity:seal.identity},recipe,loader});
+    const previous=buildPublication(oldFiles,{proof:{kind:baselineIdentity.kind,identity:seal.identity},recipe,loader});
     const next=buildPublication(candidateFiles,{proof:{kind:'local-candidate-only',source:candidate,orchestration:report.orchestration},recipe,loader});
     compatibleLoaders(previous,next);
     for(const [name,publication] of [['previous',previous],['candidate',next]])await savePublication(publication,join(output,name));

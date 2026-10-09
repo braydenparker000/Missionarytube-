@@ -15,6 +15,12 @@ const CORE_EVENT_TEMPLATE='CREATE INDEX IF NOT EXISTS relay_event_kind_seq ON re
 const CORE_TRIGGER_TEMPLATE="CREATE TRIGGER IF NOT EXISTS relay_owner_job_change_${name} ${on} ${when ? 'WHEN ' + when : ''} BEGIN ${body} END";
 const CORE_OWNER_SCHEMA_SHA256='f34c45f84f72e7d2379eec337663d4964078cab23deeaa36048d203c0a34923b';
 const CORE_EVENT_DECLARATION_SHA256='9c8c1e320aa491a360ce668e7c1df94ae6c515b1f30f9e88e009ef53fa308226';
+// Bind imports, lexical scope and every call site too. A generator substring
+// alone cannot exclude a shadowed binding or another identical dynamic call.
+const CORE_SCHEMA_FILE_SHA256=Object.freeze({
+  'backend/relay-events.js':'4e9131ba836b7e47f01aa77324f2b7c0eb3760b6f03418a55d9d5bd09e7d8c65',
+  'backend/relay-owner-jobs.js':'d2a192d9b839eb9686e1e28bb99e266919f1ddd630527a1b32d2ecb9e6298aba',
+});
 const OWNER='github:183016859';
 const ownerChange=ids=>`INSERT OR REPLACE INTO relay_owner_job_changes(job_id)
   SELECT id FROM relay_owner_entries INDEXED BY sqlite_autoindex_relay_owner_entries_1
@@ -59,6 +65,7 @@ function coreOwnerTriggers(){
 }
 async function coreSchemaStatement({path,code,text,git}){
   if(path==='backend/relay-events.js'&&text===CORE_EVENT_TEMPLATE){
+    if(sha256(code)!==CORE_SCHEMA_FILE_SHA256[path])throw Error('Changed CORE routing context requires migration review');
     const declaration=code.match(/const eventKindSQL = `[\s\S]*?`;/g);
     if(declaration?.length!==1||sha256(declaration[0])!==CORE_EVENT_DECLARATION_SHA256)throw Error('Changed CORE routing expression requires migration review');
     const [common,tools]=await Promise.all([git(['show','backend/relay-common.js']),git(['show','backend/public-coordination-tools.js'])]);
@@ -69,6 +76,7 @@ async function coreSchemaStatement({path,code,text,git}){
     return {deferred:false,sql:["CREATE INDEX IF NOT EXISTS relay_event_kind_seq ON relay_events((CASE WHEN json_extract(data,'$.inbox_id')='brayden-owner' THEN 'relay.owner.message.created'\n  WHEN COALESCE(json_extract(data,'$.coordination_event_id'),'') NOT IN ('',0) THEN 'relay.public.result.changed' ELSE 'relay.message.created' END),seq);"]};
   }
   if(path==='backend/relay-owner-jobs.js'&&text===CORE_TRIGGER_TEMPLATE){
+    if(sha256(code)!==CORE_SCHEMA_FILE_SHA256[path])throw Error('Changed CORE trigger context requires migration review');
     const start=code.indexOf('const changeSQL = ids =>'),end=code.indexOf('\nconst changeWatermark');
     if(start<0||end<=start||sha256(code.slice(start,end))!==CORE_OWNER_SCHEMA_SHA256||/\bchangeTrigger\b/.test(code.slice(0,start)+code.slice(end)))throw Error('Changed CORE trigger generator requires migration review');
     const common=await git(['show','backend/relay-common.js']);

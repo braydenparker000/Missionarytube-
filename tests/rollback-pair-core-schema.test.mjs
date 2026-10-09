@@ -34,10 +34,13 @@ test('the exact finite CORE manifest preserves all original DDL and survives eve
 test('changed CORE generators, routing constants, call sites and arbitrary trigger/expression SQL are refused',async()=>{
   const mutations=[
     ['backend/relay-events.js',code=>code.replace("'$.inbox_id'","'$.unknown_inbox'")],
+    ['backend/relay-events.js',code=>code.replace('export function relayEventSchema(ctx) {',"export function relayEventSchema(ctx) {\n  const eventKindSQL = '0';")],
+    ['backend/relay-events.js',code=>code+"\nfunction repeatedSchema(ctx) { ctx.storage.sql.exec(`CREATE INDEX IF NOT EXISTS relay_event_kind_seq ON relay_events((${eventKindSQL}),seq)`); }\n"],
     ['backend/relay-common.js',code=>code.replace("RELAY_OWNER_INBOX = 'brayden-owner'","RELAY_OWNER_INBOX = 'foreign-owner'")],
     ['backend/relay-common.js',code=>code.replace("RELAY_OWNER = 'github:183016859'","RELAY_OWNER = 'github:0'")],
     ['backend/public-coordination-tools.js',code=>code.replace("PUBLIC_RESULT_EVENT = 'relay.public.result.changed'","PUBLIC_RESULT_EVENT = 'foreign.event'")],
     ['backend/relay-owner-jobs.js',code=>code.replace("['INSERT', 'UPDATE', 'DELETE']","['INSERT', 'UPDATE']")],
+    ['backend/relay-owner-jobs.js',code=>code.replace('import {RELAY_OWNER,','import {RELAY_OWNER as REVIEWED_RELAY_OWNER,')+"\nconst RELAY_OWNER = 'github:0';\n"],
     ['backend/relay-owner-jobs.js',code=>code.replace("NEW.recoveries<2","NEW.recoveries<99")],
     ['backend/relay-owner-jobs.js',code=>code+"\nchangeTrigger(ctx,'unreviewed','AFTER INSERT ON relay_owner_jobs','','SELECT 1;');\n"],
     ['backend/relay-owner-jobs.js',code=>code+"\nctx.storage.sql.exec('CREATE TRIGGER IF NOT EXISTS unreviewed AFTER INSERT ON relay_owner_jobs BEGIN SELECT 1; END');\n"],

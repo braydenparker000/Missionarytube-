@@ -13,7 +13,11 @@ expression declaration and routing constants, and the exact SHA256 of the
 7,693-byte private schema-generator block. Twenty independent trigger SQL
 contracts are enumerated and appended after all source tables. A new call site,
 changed generator/constant or any other dynamic/destructive/unresolved DDL
-remains a refusal. Native workerd compares the contracts to the actual installed
+remains a refusal. Exact SHA256 guards for both complete schema-owning files
+also bind imports, lexical scopes and call sites, refusing a local shadow,
+aliased owner binding or repeated dynamic expression call. Any change to those
+files requires a new exact review even when its intended schema is unchanged.
+Native workerd compares the contracts to the actual installed
 index and all twenty triggers. The native SQLite interruption fixture uses
 SQLite's complete-statement grammar for trigger bodies; original assertions
 and c4/ea9 fixture identities remain unchanged.
@@ -77,6 +81,13 @@ independent hosted producer and per-action recovery approval gates remain.
 After the pending schema-neutral CORE fixes and exact source merge, regenerate
 the pair against that merged source and the reviewed integrated deployment
 producer. A new schema-generator change requires another manifest review.
+The exact local f999-to-a77 attempt reproduced all qualified baseline files,
+then the unchanged `compatibleLoaders` gate refused CORE's changes to the frozen
+canonical podcast app, document and service worker, plus its new directory
+module. That refusal is an additional blocker requiring a separately reviewed
+podcast migration or a compatible candidate; the finite schema extension does
+not authorize those changes.
+
 Production applicability still needs current exact static/Worker baseline,
 fresh live quota/capacity evidence and the existing cutover/offline review.
 These fictional fixtures do not establish live migration headroom or provider
