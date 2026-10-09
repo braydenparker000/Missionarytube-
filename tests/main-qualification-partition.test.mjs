@@ -37,7 +37,8 @@ const classify = (paths, options = {}, input = {}) => classifyMainPush({
   qualificationWorkflow: options.qualificationWorkflow ?? qualification });
 
 test('reviewed path partition is exactly the existing Deploy list, with unchanged events and main branch', () => {
-  assert.deepEqual(DEPLOY_PATHS, ['jarvis-release.json', 'scripts/*jarvis*.mjs', 'scripts/r2-player-config.mjs',
+  assert.deepEqual(DEPLOY_PATHS, ['jarvis-release.json', 'scripts/*jarvis*.mjs',
+    'scripts/static-publication.mjs','scripts/static-release-loader.js','scripts/azure-static-store.mjs','scripts/release-recovery-plan.mjs','scripts/r2-player-config.mjs',
     'tests/**', '*.html', 'assets/**', 'src/**', 'scripts/build.mjs', 'package.json', 'package-lock.json',
     '.github/workflows/deploy-azure-storage.yml']);
   const paths = deploy.slice(deploy.indexOf('    paths:\n'), deploy.indexOf('\npermissions:'))
@@ -76,6 +77,7 @@ const known = ['jarvis-release.json', 'index.html', 'playback-check.html', 'asse
   'tests/main-qualification-partition.test.mjs', 'tests/jarvis-release-latency.test.mjs',
   'scripts/jarvis-release-latency.mjs'];
 const recipes = ['scripts/build-jarvis.mjs', 'scripts/check-jarvis-api.mjs', 'scripts/r2-player-config.mjs',
+  'scripts/static-publication.mjs','scripts/static-release-loader.js','scripts/azure-static-store.mjs','scripts/release-recovery-plan.mjs',
   'scripts/build.mjs', 'tests/nested/fixture.json', 'tests/helpers/harness.mjs', 'tests/browser/youtube-flow.mjs',
   'tests/ci-test-inventory.mjs', 'tests/nested/regression.test.mjs', 'package.json', 'package-lock.json',
   '.github/workflows/deploy-azure-storage.yml'];

@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {fileManifest,checkedManifest,checkedConfigurationDelta} from '../scripts/qualified-artifact.mjs';
 import {recipeAllowed,checkedRelease,trustedInventory,immutableSourceSnapshot} from '../scripts/plan-jarvis-qualification.mjs';
 import {verifiedBrowserArchive} from '../scripts/install-jarvis-browser.mjs';
-import {activeVersion,settingsDigest,checkedReuse,findWorkerReuse,newlyDeployedVersion,receiptDigest} from '../scripts/worker-release-identity.mjs';
+import {activeVersion,settingsDigest,checkedReuse,findWorkerReuse,newlyDeployedVersion,receiptDigest,checkedFrontendPublication,verifyPublishedPointer} from '../scripts/worker-release-identity.mjs';
 
 const sha='a'.repeat(40),digest='b'.repeat(64),version='12345678-1234-1234-1234-123456789abc';
 const release={repository:'braydenparker999/jarvis',commit:sha,storageOrigin:'https://missionarytube.z13.web.core.windows.net',apiOrigin:'https://jarvis-hub-api.braydenparker999.workers.dev'};
@@ -18,6 +18,18 @@ const run={id:123,run_attempt:2,repository:{full_name:receipt.repository},head_r
 const tree={truncated:false,tree:[{path:candidate.recipe[0].path,type:'blob',sha}]};
 const jobsFor=value=>({total_count:1,jobs:[{name:'deploy',run_id:123,run_attempt:2,head_sha:sha,status:'completed',conclusion:'success',
   steps:[{name:'verified-production-receipt-'+receiptDigest(value),status:'completed',conclusion:'success'}]}]});
+
+test('versioned receipt binds original artifact, backend checkpoint and current pointer with bounded reads',async()=>{
+  const plan={releaseId:digest,pointer:{schema:1,releaseId:digest},proof:{kind:'same-run-configured-artifact',artifactDigest:digest,backendIdentityDigest:digest}},state={phase:'verified',releaseId:digest},context={artifactDigest:digest,backendIdentityDigest:digest};
+  const bound=checkedFrontendPublication(plan,state,context);
+  const bytes=JSON.stringify(plan.pointer)+'\n';
+  assert.equal(bound.frontendPublicationDigest,receiptDigest(plan));
+  await verifyPublishedPointer(bound.activeFrontendPointerDigest,{fetcher:async()=>new Response(bytes,{headers:{'Content-Type':'application/json'}})});
+  for(const change of [{phase:'selected'},{releaseId:'f'.repeat(64)}])assert.throws(()=>checkedFrontendPublication(plan,{...state,...change},context));
+  assert.throws(()=>checkedFrontendPublication(plan,state,{...context,artifactDigest:'e'.repeat(64)}));
+  assert.throws(()=>checkedFrontendPublication(plan,state,{...context,backendIdentityDigest:'e'.repeat(64)}));
+  for(const response of [new Response(bytes+'changed',{headers:{'Content-Type':'application/json'}}),new Response(bytes,{headers:{'Content-Type':'text/plain'}}),new Response('',{status:503}),new Response('x'.repeat(131073),{headers:{'Content-Type':'application/json'}})])await assert.rejects(verifyPublishedPointer(bound.activeFrontendPointerDigest,{fetcher:async()=>response}),/pointer/);
+});
 
 test('exact source release and origins reject mutable or mismatched deployment identities',()=>{
   checkedRelease(release,sha);

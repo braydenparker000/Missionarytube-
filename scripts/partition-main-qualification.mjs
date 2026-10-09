@@ -10,6 +10,10 @@ import { verifyCompletedDeployQualification } from './verify-main-qualification-
 export const DEPLOY_PATHS = Object.freeze([
   'jarvis-release.json',
   'scripts/*jarvis*.mjs',
+  'scripts/static-publication.mjs',
+  'scripts/static-release-loader.js',
+  'scripts/azure-static-store.mjs',
+  'scripts/release-recovery-plan.mjs',
   'scripts/r2-player-config.mjs',
   'tests/**',
   '*.html',
@@ -25,8 +29,8 @@ export const DEPLOY_PATHS = Object.freeze([
 // at most the older 300-file limit. Larger pushes keep both qualification calls.
 export const MAX_DEPLOY_ONLY_PATHS = 300;
 export const GATE_RECIPE_SHA256 = Object.freeze({
-  '.github/workflows/deploy-azure-storage.yml': '30dc3c7caffa0d4048e63be296936d1ddbd8f2e55ebbba06e6a1d2f77db950a3',
-  '.github/workflows/qualify-jarvis.yml': '0a4957bf97acaa01ade5bd298128710e7c9ba1c882896f691d30a62a4067c6c3',
+  '.github/workflows/deploy-azure-storage.yml': 'c53ad957c860d93c7e41563704d7e6121a24c8c5b76b882bb6d04df279798e10',
+  '.github/workflows/qualify-jarvis.yml': '47291c949ed2a987cbfed7ac4534e4df592da9c1decf709014606a7cf78aa3af',
 });
 const expectedTrigger = 'on:\n  workflow_dispatch:\n  push:\n    branches:\n      - main\n    paths:\n'
   + DEPLOY_PATHS.map(pattern => `      - "${pattern}"\n`).join('');

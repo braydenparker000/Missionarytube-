@@ -7,7 +7,7 @@ import {pathToFileURL} from 'node:url';
 import {checkedBindings,readWorkerSettings} from './check-music-worker-bindings.mjs';
 
 const REPO='braydenparker000/Missionarytube-',WORKFLOW='.github/workflows/deploy-azure-storage.yml';
-const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs','scripts/overlap-jarvis-prewrite.mjs'];
+const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs','scripts/overlap-jarvis-prewrite.mjs','scripts/static-publication.mjs','scripts/static-release-loader.js','scripts/azure-static-store.mjs','scripts/publish-jarvis-versioned.mjs','scripts/release-recovery-plan.mjs'];
 const SHA=/^[a-f0-9]{40}$/,DIGEST=/^[a-f0-9]{64}$/,UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const REASONS=new Set(['receipt_missing','receipt_unavailable','receipt_invalid','origin_mismatch','backend_not_reusable',
   'backend_digest_mismatch','identity_mismatch','settings_mismatch','qualification_unavailable','qualification_mismatch',
@@ -134,6 +134,23 @@ export async function liveIdentity({account,token,fetcher=globalThis.fetch}){
   }catch{throw refusal('provider_check_failed','Live Worker identity could not be verified');}
 }
 export const receiptDigest=receipt=>hash(JSON.stringify(receipt));
+export function checkedFrontendPublication(publication,state,{artifactDigest,backendIdentityDigest}={}){
+  if(!publication||!DIGEST.test(publication.releaseId||'')||state?.phase!=='verified'||state.releaseId!==publication.releaseId||
+    publication.proof?.kind!=='same-run-configured-artifact'||publication.proof.artifactDigest!==artifactDigest||publication.proof.backendIdentityDigest!==backendIdentityDigest)
+    throw Error('Exact versioned frontend publication was not verified');
+  return {frontendReleaseId:publication.releaseId,frontendPublicationDigest:hash(publication),activeFrontendPointerDigest:hash(JSON.stringify(publication.pointer)+'\n')};
+}
+export async function verifyPublishedPointer(expectedDigest,{fetcher=globalThis.fetch}={}){
+  try{
+    if(!DIGEST.test(expectedDigest||''))throw Error();
+    const response=await fetcher('https://missionarytube.z13.web.core.windows.net/jarvis-active-release.json',
+      {method:'GET',cache:'no-store',redirect:'error',credentials:'omit',signal:AbortSignal.timeout(20000)});
+    if(response.status!==200||!response.headers.get('content-type')?.toLowerCase().startsWith('application/json'))throw Error();
+    const reader=response.body.getReader(),chunks=[];let size=0;
+    try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>131072)throw Error();chunks.push(value);}}finally{await reader.cancel().catch(()=>{});}
+    if(hash(Buffer.concat(chunks,size))!==expectedDigest)throw Error();return true;
+  }catch{throw Error('Actual active frontend pointer changed or could not be verified');}
+}
 export function checkedReuse(receipt,candidate,live,run,tree,jobs){
   const mismatch='Worker receipt does not match actual code, configuration and live provider identity';
   if(!receipt||receipt.schema!==1||receipt.repository!==REPO||!SHA.test(receipt.source||'')||!SHA.test(receipt.orchestration||'')||!DIGEST.test(receipt.backendDigest||'')||!UUID.test(receipt.version||''))throw refusal('receipt_invalid',mismatch);
@@ -207,11 +224,15 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
       const configured=JSON.parse(readFileSync('configured-artifact.json','utf8'));
       receipt.frontendArtifactDigest=receiptDigest(configured);
       receipt.publicConfigurationDigest=hash(configured.files.filter(f=>['assets/quick-ai-config.json','assets/drive-config.json'].includes(f.path)));
+      const publication=JSON.parse(readFileSync('.publication/candidate/plan.json','utf8')),state=JSON.parse(readFileSync('.publication/state.json','utf8'));
+      Object.assign(receipt,checkedFrontendPublication(publication,state,{artifactDigest:receipt.frontendArtifactDigest,backendIdentityDigest:hash(expected)}));
+      await verifyPublishedPointer(receipt.activeFrontendPointerDigest);
       writeFileSync('release-qualified.json',JSON.stringify(receipt,null,2)+'\n');
       if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'digest='+receiptDigest(receipt)+'\n');
     }else if(command==='verify-receipt'){
       const receipt=JSON.parse(readFileSync('release-qualified.json','utf8'));
       if(receiptDigest(receipt)!==process.env.EXPECTED_RECEIPT_DIGEST||receipt.backendDigest!==candidate.backendDigest||receipt.version!==live.version||receipt.settingsDigest!==live.settingsDigest)throw Error('Production receipt changed before its immutable success stamp');
+      await verifyPublishedPointer(receipt.activeFrontendPointerDigest);
     }else throw Error('Use plan, record, verify or receipt');
   }catch(error){console.error(`Worker identity qualification failed (${diagnosticReason(error)}); no frontend promotion is authorized`);process.exitCode=1;}
 }

@@ -252,7 +252,7 @@ test('reviewed workflow fingerprint keeps later ordinary dedup eligible while th
   const deploy=await readFile(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');
   const qualification=await readFile(new URL('../.github/workflows/qualify-jarvis.yml',import.meta.url),'utf8');
   assert.equal(GATE_RECIPE_SHA256['.github/workflows/deploy-azure-storage.yml'],createHash('sha256').update(deploy).digest('hex'));
-  assert.equal(GATE_RECIPE_SHA256['.github/workflows/qualify-jarvis.yml'],'0a4957bf97acaa01ade5bd298128710e7c9ba1c882896f691d30a62a4067c6c3');
+  assert.equal(GATE_RECIPE_SHA256['.github/workflows/qualify-jarvis.yml'],'47291c949ed2a987cbfed7ac4534e4df592da9c1decf709014606a7cf78aa3af');
   assert.equal(recognizedGatingRecipes(deploy,qualification),true);
   const before='a'.repeat(40),after='b'.repeat(40),event={ref:'refs/heads/main',repository:{full_name:'braydenparker000/Missionarytube-'},created:false,deleted:false,forced:false,before,after};
   for(const path of ['.github/workflows/deploy-azure-storage.yml','scripts/overlap-jarvis-prewrite.mjs']){

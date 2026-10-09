@@ -8,6 +8,10 @@ on:
     paths:
       - "jarvis-release.json"
       - "scripts/*jarvis*.mjs"
+      - "scripts/static-publication.mjs"
+      - "scripts/static-release-loader.js"
+      - "scripts/azure-static-store.mjs"
+      - "scripts/release-recovery-plan.mjs"
       - "scripts/r2-player-config.mjs"
       - "tests/**"
       - "*.html"
@@ -173,16 +177,37 @@ jobs:
         run: node .jarvis-source/scripts/publish-drive-catalog.mjs
       - name: Verify sealed configured bytes immediately before staging
         run: node scripts/qualified-artifact.mjs verify-configured
+      - name: Prepare immutable releases and a compatible canonical loader cutover
+        run: node scripts/publish-jarvis-versioned.mjs prepare
+      - name: Preserve sealed publication and original proof before release writes
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-before-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .publication/
+            dist/
+            configured-artifact.json
+            qualified-artifact.json
+            worker-identity-current.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
       - name: Stage Jarvis while keeping the current homepage
-        run: |
-          cp -a dist upload
-          rm upload/index.html
-          az storage blob upload-batch \
-            --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" \
-            --auth-mode login --destination '$web' --source upload \
-            --overwrite true --content-cache-control no-cache --only-show-errors
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publish-jarvis-versioned.mjs stage
       - name: Check every staged file and directory route
-        run: node scripts/check-jarvis-static.mjs
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+        run: node scripts/publish-jarvis-versioned.mjs check-staged
+      - name: Install or verify canonical loaders while the previous release stays selected
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publish-jarvis-versioned.mjs bootstrap
       - name: Require working backend for the Storage origin
         run: node scripts/check-jarvis-api.mjs
       - name: Revalidate sealed configured bytes before homepage promotion
@@ -194,15 +219,15 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: node scripts/worker-release-identity.mjs verify
       - name: Promote Jarvis homepage after successful checks
-        run: |
-          az storage blob upload \
-            --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" \
-            --auth-mode login --container-name '$web' \
-            --name index.html --file dist/index.html \
-            --content-type 'text/html; charset=utf-8' \
-            --content-cache-control no-cache --overwrite true --only-show-errors
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publish-jarvis-versioned.mjs promote
       - name: Verify the final root and all frontend files
-        run: node scripts/check-jarvis-static.mjs --cutover
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+        run: node scripts/publish-jarvis-versioned.mjs verify
       - name: Verify real podcast discovery and playback in the deployed mobile page
         if: steps.jarvis.outputs.podcasts_enabled == 'true'
         run: |
@@ -240,6 +265,19 @@ jobs:
           az storage blob upload --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" --auth-mode login --container-name '$web' \
             --name release-qualified.json --file release-qualified.json --content-type 'application/json' \
             --content-cache-control no-cache --overwrite true --only-show-errors
+      - name: Preserve interruption and promotion checkpoints with exact original artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-after-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .publication/
+            configured-artifact.json
+            qualified-artifact.json
+            worker-identity-current.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 90
       - name: Sign out of Azure
         if: ${{ always() && steps.azure_signin.outcome == 'success' }}
         run: az logout
