@@ -22,10 +22,10 @@ Worker identity.
 All original qualification, configuration, namespace, rollback backup,
 staged-byte, live API, mobile podcast and production-receipt checks remain.
 The changed recipe deliberately retains full current qualification rather
-than extending the historical main-push dedup fingerprint. Source PR CI does
-not supply a trusted successful source-main artifact. The corresponding source
-main qualification and the deployment workflow's exact eight lanes and sealed
-artifact remain separate release evidence.
+than extending the historical main-push dedup fingerprint. This source recipe
+uses all eight current in-run qualification lanes and a sealed artifact. Trusted
+successful source-main evidence is needed only for eligible qualification reuse;
+it is not a separate prerequisite for this fresh publication path.
 
 After the existing full backup and rollback artifact barriers, the dependency
 helper verifies the complete configured seal and stages four fixed modules:
@@ -44,5 +44,5 @@ already do. These offline fixtures neither invent a source SHA nor attest a
 live provider, storage backup, hosted artifact or production execution.
 
 Local tests and builds prepare a reviewable draft. Exact hosted qualification,
-independent review, the trusted source-main evidence and existing live gates
+independent review and existing live gates
 are still required before promotion. No local check authorizes deployment.
