@@ -2,8 +2,14 @@
 
 This change extends the PR127 producer at
 `6485e1f3fbc919d3977eeffdc110db225d148490` for the independently reviewed
-schema additions in source candidate
-`a77ed42ba659010c477a4808a37d9d9d96896f4f`. The unchanged producer refused
+schema additions first reviewed in source
+`a77ed42ba659010c477a4808a37d9d9d96896f4f`, now pinned for the final reviewed
+CORE candidate `bb29214aa7081b8d8b26937b7eff07fea199c8f7`.
+Its event and private schema files are byte identical to a77; all 77 DDL
+statements remain unchanged. Local preparation freshly binds the complete
+runtime closure to the selected candidate, including its worker, alarm, reader
+and doc fixes.
+The unchanged producer refused
 that candidate's interpolated event expression index and private-feed trigger
 generator. That original refusal is retained as the starting observation.
 
@@ -78,10 +84,10 @@ database restoration or private live probes occur. Production's original
 same-run qualification, target-aware refusal, actual backend/inventory checks,
 independent hosted producer and per-action recovery approval gates remain.
 
-After the pending schema-neutral CORE fixes and exact source merge, regenerate
+After this reviewed CORE candidate's exact source merge, regenerate
 the pair against that merged source and the reviewed integrated deployment
 producer. A new schema-generator change requires another manifest review.
-The exact local f999-to-a77 attempt reproduced all qualified baseline files,
+The historical local f999-to-a77 attempt reproduced all qualified baseline files,
 then the unchanged `compatibleLoaders` gate refused CORE's changes to the frozen
 canonical podcast app, document and service worker, plus its new directory
 module. That refusal is an additional blocker requiring a separately reviewed

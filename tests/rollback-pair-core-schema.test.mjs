@@ -10,7 +10,7 @@ import {schemaAt} from '../scripts/rollback-pair-contracts.mjs';
 
 const execute=promisify(execFile),repository=resolve('.'),source=join(repository,'.jarvis-source');
 const LIVE='c4d62409a3b67e4e5dac88809c6a4a0290b6e39e';
-const CORE=process.env.CORE_RECOVERY_CANDIDATE||'a77ed42ba659010c477a4808a37d9d9d96896f4f';
+const CORE=process.env.CORE_RECOVERY_CANDIDATE||'bb29214aa7081b8d8b26937b7eff07fea199c8f7';
 const sqlShape=sql=>sql.replace(/--[^\n]*/g,'').replace(/\bIF NOT EXISTS\s+/g,'').replace(/;\s*$/,'').replace(/\s+/g,' ').trim();
 
 test('the exact finite CORE manifest preserves all original DDL and survives every populated native SQLite interruption',async()=>{
