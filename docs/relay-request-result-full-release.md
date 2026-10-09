@@ -1,7 +1,7 @@
 # Ordinary Relay deployment draft
 
 This draft pairs deployment base `4c18a226e10968437941d82b77c3c09383815898`
-with source `ccf1064764ba00451864023f494a0204564b1478`. The source retains
+with source `902ad4a1b56da7d081315817e8d761a9cf6da5b3`. The source retains
 the live configuration, dependencies, Poweramp, Astra, MyMedia and Podcasts.
 Its ordinary Relay backend changes need the existing fresh Worker qualification
 and publication path. No account-admission, native dispatch, preflight or
@@ -26,6 +26,13 @@ than extending the historical main-push dedup fingerprint. All eight source lane
 require current qualification through verified eligible reuse or fresh execution,
 plus a sealed artifact. Trusted source-main evidence supports eligible reuse;
 it is not a separate prerequisite for the fresh publication path.
+
+The corrected public journal keeps new v2 dependencies at `imported=-1`, outside
+the retained c4 importer, and an additive entry trigger survives c4 rollback.
+If retained data from an earlier v2 candidate contains coordination rows at
+`imported=0`, its bounded compatibility cleanup must complete before c4 rollback.
+The live legacy code never created v2 rows; no extra snapshot prerequisite is
+introduced.
 
 After the existing full backup and rollback artifact barriers, the dependency
 helper verifies the complete configured seal and stages four fixed modules:
