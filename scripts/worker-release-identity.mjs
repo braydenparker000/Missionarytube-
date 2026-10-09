@@ -41,6 +41,10 @@ const REUSE_RECIPES=Object.freeze([
 const reusePolicies=new WeakMap();
 const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 function checkedReuseRelease(root){
+  const head=execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8',stdio:'pipe',timeout:10000,maxBuffer:65536}).trim();
+  const tree=execFileSync('git',['-C',root,'ls-tree','-rz',head,'--','jarvis-release.json',...RECIPES],{encoding:'utf8',stdio:'pipe',timeout:10000,maxBuffer:65536});
+  const committed=new Map(tree.split('\0').filter(Boolean).map(row=>{const match=/^(100644|100755) blob ([a-f0-9]{40})\t(.+)$/.exec(row);
+    if(!match)throw refusal('recipe_mismatch','Immutable Worker reuse recipe required');return [match[3],{mode:match[1],sha:match[2]}];}));
   const releasePath=resolve(root,'jarvis-release.json'),info=lstatSync(releasePath);
   if(!info.isFile()||info.isSymbolicLink())throw refusal('recipe_mismatch','Immutable Worker reuse release required');
   const bytes=readFileSync(releasePath),release=JSON.parse(bytes);
@@ -54,16 +58,17 @@ function checkedReuseRelease(root){
     !equal(policy.reference,REUSE_REFERENCE))throw refusal('recipe_mismatch','Finite Worker reuse-only policy required');
   const recipe=REUSE_RECIPES.map(entry=>{const file=resolve(root,entry.path),info=lstatSync(file);
     if(!info.isFile()||info.isSymbolicLink())throw refusal('recipe_mismatch','Immutable Worker reuse recipe required');
-    return {path:entry.path,sha:blob(readFileSync(file))};});
+    const sha=blob(readFileSync(file)),tracked=committed.get(entry.path);
+    if(!tracked||tracked.sha!==sha||tracked.mode!==((info.mode&0o111)?'100755':'100644'))throw refusal('recipe_mismatch','Worker reuse recipe differs from immutable release');
+    return {path:entry.path,sha};});
   if(!equal(policy.recipe,recipe)||recipe.some((entry,index)=>entry.path!=='scripts/worker-release-identity.mjs'&&entry.sha!==REUSE_RECIPES[index].sha)||
     recipe[4].sha===REUSE_RECIPES[4].sha)throw refusal('recipe_mismatch','Unknown Worker reuse-only recipe');
-  const committed=execFileSync('git',['-C',root,'rev-parse','HEAD:jarvis-release.json'],{encoding:'utf8',stdio:'pipe'}).trim();
-  if(blob(bytes)!==committed)throw refusal('recipe_mismatch','Worker reuse policy differs from immutable release');
-  return {release,recipe};
+  const tracked=committed.get('jarvis-release.json');
+  if(!tracked||blob(bytes)!==tracked.sha||tracked.mode!==((info.mode&0o111)?'100755':'100644'))throw refusal('recipe_mismatch','Worker reuse policy differs from immutable release');
+  return {release,recipe,head};
 }
 export function checkedWorkerReuseOnlyPolicy(root=process.cwd(),candidate=candidateIdentity(root)){
-  root=resolve(root);const {recipe}=checkedReuseRelease(root);
-  const head=execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8',stdio:'pipe'}).trim();
+  root=resolve(root);const {recipe,head}=checkedReuseRelease(root);
   const sourceHead=execFileSync('git',['-C',resolve(root,'.jarvis-source'),'rev-parse','HEAD'],{encoding:'utf8',stdio:'pipe'}).trim();
   if(candidate.schema!==1||candidate.source!==REUSE_SOURCE||sourceHead!==REUSE_SOURCE||candidate.orchestration!==head||
     candidate.backendReusable!==true||candidate.backendDigest!==REUSE_REFERENCE.backendDigest||!equal(candidate.recipe,recipe)||

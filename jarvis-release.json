@@ -33,7 +33,7 @@
       },
       {
         "path": "scripts/worker-release-identity.mjs",
-        "sha": "a10064dd4bcd26a7a2dfbee921bc0cf43088b741"
+        "sha": "66b8f5d3abce1761005212fc87044ec333824085"
       },
       {
         "path": "scripts/prepare-music-worker.mjs",

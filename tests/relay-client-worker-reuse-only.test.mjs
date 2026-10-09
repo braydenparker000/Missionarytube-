@@ -94,6 +94,17 @@ test('reuse refusal and rate/transport errors terminate the native plan without 
   }finally{await rm(f.root,{recursive:true,force:true});}
 });
 
+test('policy cannot mint from declared guard working bytes when immutable HEAD contains a different guard',async()=>{
+  const f=await fixture();try{
+    const path=join(f.root,'scripts/worker-release-identity.mjs'),approved=await readFile(path);
+    await writeFile(path,'// unknown committed guard\n');commit(f.root);
+    await writeFile(path,approved);
+    const candidate={...f.candidate,orchestration:git(f.root,'rev-parse','HEAD')};
+    assert.throws(()=>checkedWorkerReuseOnlyPolicy(f.root,candidate),/differs from immutable release/);
+    await absent(join(f.root,'worker-identity-before.json'));await absent(join(f.root,'outputs'));
+  }finally{await rm(f.root,{recursive:true,force:true});}
+});
+
 test('actual production entrypoint refuses missing/malformed policy and unknown flags before any fetch or checkpoint',async()=>{
   const f=await fixture();try{
     const mock=join(f.root,'mock-fetch.mjs');await writeFile(mock,"import{writeFileSync}from'node:fs';globalThis.fetch=async()=>{writeFileSync('reads.json','unexpected');throw Error('FICTIONAL_SECRET');};\n");
