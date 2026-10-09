@@ -10,6 +10,7 @@ import {schemaAt,rollbackPairContracts,ADVERSARIAL_TESTS} from './rollback-pair-
 import {fileManifest,checkedManifest} from './qualified-artifact.mjs';
 import {readTree,inventory,buildPublication,savePublication,compatibleLoaders,sha256} from './static-publication.mjs';
 import {runPairRuntime} from './rollback-pair-runtime.mjs';
+import {podcastCanonicalContract,derivedPodcastView,qualifyCanonicalChain} from './podcast-canonical-migration.mjs';
 
 const execute=promisify(execFile),LIVE='c4d62409a3b67e4e5dac88809c6a4a0290b6e39e';
 const PRODUCER='6485e1f3fbc919d3977eeffdc110db225d148490',PR_CHECKOUT='318974ac3b4013d1e4156a87caaa88eea9735df4';
@@ -21,7 +22,7 @@ const BASELINES=Object.freeze([
 ]);
 const TRANSPORT=['PATH','TMPDIR','TMP','TEMP','LANG','LC_ALL','TZ'];
 const json=async path=>JSON.parse(await readFile(path,'utf8'));
-export async function prepareLocalCorePair({root=process.cwd(),artifactZip,candidate,node22,baseline,chrome=process.env.JARVIS_CHROME}={}){
+export async function prepareLocalCorePair({root=process.cwd(),artifactZip,candidate,node22,baseline,chrome=process.env.JARVIS_CHROME,podcastMigration=false}={}){
   assert.equal(process.version,'v24.21.0','Use the exact qualified local runtime');
   assert.match(candidate||'',/^[a-f0-9]{40}$/);
   assert.ok(artifactZip&&node22&&baseline,'Exact remote baseline artifact, clean baseline checkout and qualified builder are required');
@@ -86,9 +87,22 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
     report.buildRecipeDigest=sha256(await Promise.all(buildRecipes.map(async path=>({path,sha256:sha256(await readFile(join(root,path)))}))));
     report.candidateArtifact={kind:'local-source-build',files:inventory(candidateFiles),inputDigest:sha256(inventory(candidateFiles))};
     const loader=await readFile(join(root,'scripts/static-release-loader.js')),recipe=sha256({reviewedProducer:PRODUCER,buildRecipeDigest:report.buildRecipeDigest});
-    const previous=buildPublication(oldFiles,{proof:{kind:baselineIdentity.kind,identity:seal.identity},recipe,loader});
+    const rawProof={kind:baselineIdentity.kind,identity:seal.identity};
+    let previousFiles=oldFiles,previousProof=rawProof;
+    if(podcastMigration){
+      const contract=podcastCanonicalContract(oldFiles,candidateFiles,{sourcePair:report.sourcePair,artifactSha256:zipDigest});
+      const helperDigest=sha256(await readFile(join(root,'scripts/podcast-canonical-migration.mjs')));
+      previousFiles=derivedPodcastView(contract);previousProof={kind:'derived-compatibility-view',rawProof,migrationDigest:contract.digest,helperDigest};
+      report.canonicalMigration={...contract.envelope,digest:contract.digest,helperDigest,
+        qualification:await qualifyCanonicalChain(contract,{loader,recipe,rawProof,derivedProof:previousProof,candidateProof:{kind:'local-candidate-only',source:candidate,orchestration:report.orchestration}})};
+      const raw=buildPublication(oldFiles,{proof:rawProof,recipe,loader});await savePublication(raw,join(output,'raw-previous'));
+      report.rawPrevious={files:174,inputDigest:raw.plan.inputDigest,releaseId:raw.plan.releaseId};
+      await writeFile(join(output,'canonical-migration.json'),JSON.stringify(report.canonicalMigration,null,2)+'\n');
+    }
+    const previous=buildPublication(previousFiles,{proof:previousProof,recipe,loader});
     const next=buildPublication(candidateFiles,{proof:{kind:'local-candidate-only',source:candidate,orchestration:report.orchestration},recipe,loader});
     compatibleLoaders(previous,next);
+    if(podcastMigration){assert.equal(report.canonicalMigration.qualification.rawReleaseId,report.rawPrevious.releaseId);assert.equal(report.canonicalMigration.qualification.derivedReleaseId,previous.plan.releaseId);assert.equal(report.canonicalMigration.qualification.candidateReleaseId,next.plan.releaseId);}
     for(const [name,publication] of [['previous',previous],['candidate',next]])await savePublication(publication,join(output,name));
     report.publications={previous:{releaseId:previous.plan.releaseId,digest:sha256(previous.plan)},candidate:{releaseId:next.plan.releaseId,digest:sha256(next.plan)}};
     const contracts=await rollbackPairContracts({root,previous,backend:{candidate:{source:candidate}}});
@@ -108,6 +122,6 @@ with zipfile.ZipFile(sys.argv[1]) as archive:
   }catch(error){report.status='blocked';report.failure={name:error.name};await checkpoint();throw Object.assign(Error('Local exact candidate preparation blocked; evidence retained at '+output),{cause:error,output});}
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
-  try{const [artifactZip,candidate,node22,baseline]=process.argv.slice(2),result=await prepareLocalCorePair({artifactZip,candidate,node22,baseline});console.log(JSON.stringify({output:result.output,status:result.report.status,integratedMainProof:false,productionOperations:0}));}
+  try{const [artifactZip,candidate,node22,baseline,option]=process.argv.slice(2);assert.ok(option===undefined||option==='--podcast-migration','Unsupported local option');const result=await prepareLocalCorePair({artifactZip,candidate,node22,baseline,podcastMigration:option==='--podcast-migration'});console.log(JSON.stringify({output:result.output,status:result.report.status,integratedMainProof:false,productionOperations:0}));}
   catch(error){console.error(error.message);process.exitCode=1;}
 }
