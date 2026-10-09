@@ -33,7 +33,7 @@ export const DEPLOY_PATHS = Object.freeze([
 export const MAX_DEPLOY_ONLY_PATHS = 300;
 export const GATE_RECIPE_SHA256 = Object.freeze({
   '.github/workflows/deploy-azure-storage.yml': '053b61a5ef45243142ec3b7f85c5a688093b6f538b5237c71595c4be0b6bca83',
-  '.github/workflows/qualify-jarvis.yml': '9e3dd649674de9ba9b336014c556420effe73e2f7653b526c125d800a1e53d59',
+  '.github/workflows/qualify-jarvis.yml': '848207d3f399fd8d4d5403bd5bde4be8b68c75d70b08f6499e609ff29c4c4d54',
 });
 const expectedTrigger = 'on:\n  workflow_dispatch:\n  push:\n    branches:\n      - main\n    paths:\n'
   + DEPLOY_PATHS.map(pattern => `      - "${pattern}"\n`).join('');
