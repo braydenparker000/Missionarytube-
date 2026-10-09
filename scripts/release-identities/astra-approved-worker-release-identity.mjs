@@ -7,7 +7,7 @@ import {pathToFileURL} from 'node:url';
 import {checkedBindings,readWorkerSettings} from './check-music-worker-bindings.mjs';
 
 const REPO='braydenparker000/Missionarytube-',WORKFLOW='.github/workflows/deploy-azure-storage.yml';
-const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs','scripts/overlap-jarvis-prewrite.mjs','scripts/stage-relay-client-dependencies.mjs'];
+const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs','scripts/overlap-jarvis-prewrite.mjs'];
 const SHA=/^[a-f0-9]{40}$/,DIGEST=/^[a-f0-9]{64}$/,UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const REASONS=new Set(['receipt_missing','receipt_unavailable','receipt_invalid','origin_mismatch','backend_not_reusable',
   'backend_digest_mismatch','identity_mismatch','settings_mismatch','qualification_unavailable','qualification_mismatch',
@@ -21,69 +21,6 @@ const refusal=(reason,message)=>new IdentityDiagnostic(reason,message);
 const diagnosticReason=error=>error instanceof IdentityDiagnostic&&REASONS.has(error.reason)?error.reason:'unexpected_error';
 const hash=value=>createHash('sha256').update(typeof value==='string'||Buffer.isBuffer(value)?value:JSON.stringify(value)).digest('hex');
 const blob=bytes=>createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
-const REUSE_SOURCE='c85a42d2bea5d12d576ac84080660a34f11732c4';
-const REUSE_REFERENCE=Object.freeze({source:'f999581aa979712b4b63a6783b7c56842fedb6a1',
-  orchestration:'9c01243ad03b921a0b0614d5eb003944a2807a6c',
-  backendDigest:'2b9daec99e498c7c43f658ca1898f09dc6fed83b92f87a3b82e77ee32cb128b5'});
-const REUSE_RECIPES=Object.freeze([
-  [WORKFLOW,'33e98b0b3e82f6ff43b228d111bfcb5cd1d2f24c'],
-  ['.github/workflows/qualify-jarvis.yml','f4bc1df3cd797c9517342d58d404f5ef1e2ec45b'],
-  ['scripts/plan-jarvis-qualification.mjs','791835fc23006bcfed4e39a3fa774193f565dcdc'],
-  ['scripts/install-jarvis-browser.mjs','6c409f044097fc6ad2460d48efa4d2a4c95685cc'],
-  ['scripts/worker-release-identity.mjs','4ac2cefceb2a1409064a1e99f23aa4bf47718f30'],
-  ['scripts/prepare-music-worker.mjs','825fee647eed7d583e77e02a6dbdf3fbc41d5887'],
-  ['scripts/prepare-worker-tools.mjs','aab50340494d89066dcab9dda1a51a6b643e848b'],
-  ['scripts/check-music-worker-bindings.mjs','3ef4f486a24037b8f8821e6e593a98b7cb902a78'],
-  ['scripts/qualified-artifact.mjs','b1579ef43ecadb1a06577e0f13949450169090e7'],
-  ['scripts/backup-jarvis-storage.mjs','6ab19a7dcb4966d3946332a950a46a103b240cee'],
-  ['scripts/overlap-jarvis-prewrite.mjs','f9c52feacb60bd5f0894f90f741bd08075a2fe84'],
-].map(([path,sha])=>Object.freeze({path,sha})));
-const reusePolicies=new WeakMap();
-const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-function checkedReuseRelease(root){
-  const head=execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8',stdio:'pipe',timeout:10000,maxBuffer:65536}).trim();
-  const tree=execFileSync('git',['-C',root,'ls-tree','-rz',head,'--','jarvis-release.json',...RECIPES],{encoding:'utf8',stdio:'pipe',timeout:10000,maxBuffer:65536});
-  const committed=new Map(tree.split('\0').filter(Boolean).map(row=>{const match=/^(100644|100755) blob ([a-f0-9]{40})\t(.+)$/.exec(row);
-    if(!match)throw refusal('recipe_mismatch','Immutable Worker reuse recipe required');return [match[3],{mode:match[1],sha:match[2]}];}));
-  const releasePath=resolve(root,'jarvis-release.json'),info=lstatSync(releasePath);
-  if(!info.isFile()||info.isSymbolicLink())throw refusal('recipe_mismatch','Immutable Worker reuse release required');
-  const bytes=readFileSync(releasePath),release=JSON.parse(bytes);
-  const expectedKeys=['apiOrigin','commit','deployPodcastWorker','preserveDriveCatalog','r2ManifestURL','repository','storageOrigin','workerReusePolicy'];
-  if(!equal(Object.keys(release).sort(),expectedKeys)||release.repository!=='braydenparker999/jarvis'||release.commit!==REUSE_SOURCE||
-    release.storageOrigin!=='https://missionarytube.z13.web.core.windows.net'||release.apiOrigin!=='https://jarvis-hub-api.braydenparker999.workers.dev'||
-    release.r2ManifestURL!=='https://jarvis-hub-api.braydenparker999.workers.dev/music/library.json'||release.preserveDriveCatalog!==true||release.deployPodcastWorker!==true)
-    throw refusal('recipe_mismatch','Finite Worker reuse-only release required');
-  const policy=release.workerReusePolicy;
-  if(!policy||!equal(Object.keys(policy).sort(),['mode','recipe','reference','schema'])||policy.schema!==1||policy.mode!=='reuse-only'||
-    !equal(policy.reference,REUSE_REFERENCE))throw refusal('recipe_mismatch','Finite Worker reuse-only policy required');
-  const recipe=RECIPES.map(path=>{const file=resolve(root,path),info=lstatSync(file);
-    if(!info.isFile()||info.isSymbolicLink())throw refusal('recipe_mismatch','Immutable Worker reuse recipe required');
-    const sha=blob(readFileSync(file)),tracked=committed.get(path);
-    if(!tracked||tracked.sha!==sha||tracked.mode!==((info.mode&0o111)?'100755':'100644'))throw refusal('recipe_mismatch','Worker reuse recipe differs from immutable release');
-    return {path,sha};});
-  if(!equal(policy.recipe,recipe)||recipe.some((entry,index)=>![WORKFLOW,'scripts/worker-release-identity.mjs','scripts/stage-relay-client-dependencies.mjs'].includes(entry.path)&&entry.sha!==REUSE_RECIPES[index].sha)||
-    recipe[0].sha===REUSE_RECIPES[0].sha||recipe[4].sha===REUSE_RECIPES[4].sha)throw refusal('recipe_mismatch','Unknown Worker reuse-only recipe');
-  const tracked=committed.get('jarvis-release.json');
-  if(!tracked||blob(bytes)!==tracked.sha||tracked.mode!==((info.mode&0o111)?'100755':'100644'))throw refusal('recipe_mismatch','Worker reuse policy differs from immutable release');
-  return {release,recipe,head};
-}
-export function checkedWorkerReuseOnlyPolicy(root=process.cwd(),candidate=candidateIdentity(root)){
-  root=resolve(root);const {recipe,head}=checkedReuseRelease(root);
-  const sourceHead=execFileSync('git',['-C',resolve(root,'.jarvis-source'),'rev-parse','HEAD'],{encoding:'utf8',stdio:'pipe'}).trim();
-  if(candidate.schema!==1||candidate.source!==REUSE_SOURCE||sourceHead!==REUSE_SOURCE||candidate.orchestration!==head||
-    candidate.backendReusable!==true||candidate.backendDigest!==REUSE_REFERENCE.backendDigest||!equal(candidate.recipe,recipe)||
-    candidate.storageOrigin!=='https://missionarytube.z13.web.core.windows.net'||candidate.apiOrigin!=='https://jarvis-hub-api.braydenparker999.workers.dev')
-    throw refusal('recipe_mismatch','Worker reuse-only identity drift');
-  const token=Object.freeze({});reusePolicies.set(token,{candidate:JSON.stringify(candidate),recipe});return token;
-}
-function checkedRecipeTransition(receipt,candidate,policy){
-  const approved=reusePolicies.get(policy);
-  if(!approved||approved.candidate!==JSON.stringify(candidate)||!equal(candidate.recipe,approved.recipe)||
-    receipt.source!==REUSE_REFERENCE.source||receipt.orchestration!==REUSE_REFERENCE.orchestration||
-    receipt.backendDigest!==REUSE_REFERENCE.backendDigest||!equal(receipt.recipe,REUSE_RECIPES))
-    throw refusal('recipe_mismatch','Unknown Worker recipe transition');
-  return {...candidate,recipe:receipt.recipe};
-}
 export function backendInputIdentity(source,{bundler,workerConfig}={}){
   const rows=execFileSync('git',['-C',source,'ls-tree','-rz','HEAD'],{encoding:'utf8'}).split('\0').filter(Boolean);
   const tracked=new Map(rows.map(row=>{const match=/^(100644|100755) blob ([a-f0-9]{40})\t(.+)$/.exec(row);if(!match)throw Error('Unsupported immutable Worker source type');return [match[3],{mode:match[1],sha:match[2]}];}));
@@ -197,7 +134,7 @@ export async function liveIdentity({account,token,fetcher=globalThis.fetch}){
   }catch{throw refusal('provider_check_failed','Live Worker identity could not be verified');}
 }
 export const receiptDigest=receipt=>hash(JSON.stringify(receipt));
-function checkedSameRecipeReuse(receipt,candidate,live,run,tree,jobs){
+export function checkedReuse(receipt,candidate,live,run,tree,jobs){
   const mismatch='Worker receipt does not match actual code, configuration and live provider identity';
   if(!receipt||receipt.schema!==1||receipt.repository!==REPO||!SHA.test(receipt.source||'')||!SHA.test(receipt.orchestration||'')||!DIGEST.test(receipt.backendDigest||'')||!UUID.test(receipt.version||''))throw refusal('receipt_invalid',mismatch);
   if(receipt.backendReusable!==true||candidate.backendReusable!==true)throw refusal('backend_not_reusable',mismatch);
@@ -220,13 +157,6 @@ function checkedSameRecipeReuse(receipt,candidate,live,run,tree,jobs){
   if(stamps.length!==1||stamps[0].status!=='completed'||stamps[0].conclusion!=='success')throw refusal('qualification_incomplete','Mutable receipt is not bound to this production run immutable success metadata');
   return true;
 }
-export function checkedReuse(receipt,candidate,live,run,tree,jobs,policy){
-  if(policy!==undefined){const approved=reusePolicies.get(policy);
-    if(!approved||approved.candidate!==JSON.stringify(candidate))throw refusal('recipe_mismatch','Unverified Worker reuse-only policy');
-    if(equal(receipt?.recipe,candidate.recipe)&&receipt.source!==REUSE_SOURCE)throw refusal('recipe_mismatch','Unknown guarded Worker receipt source');}
-  const checked=equal(receipt?.recipe,candidate.recipe)?candidate:checkedRecipeTransition(receipt,candidate,policy);
-  return checkedSameRecipeReuse(receipt,checked,live,run,tree,jobs);
-}
 export function newlyDeployedVersion(before,after,live){
   if(!Array.isArray(before)||!Array.isArray(after)||before.some(v=>!UUID.test(v.id||''))||after.some(v=>!UUID.test(v.id||'')))throw Error('Invalid Worker version checkpoints');
   const old=new Set(before.map(v=>v.id)),created=after.filter(v=>!old.has(v.id));
@@ -241,7 +171,7 @@ async function publicJson(url,fetcher,{unavailable='qualification_unavailable',i
   if(!r.ok)throw refusal(r.status===404?missing:unavailable,message);
   try{return await r.json();}catch{throw refusal(invalid,message);}
 }
-export async function findWorkerReuse(candidate,live,{fetcher=globalThis.fetch,policy}={}){
+export async function findWorkerReuse(candidate,live,{fetcher=globalThis.fetch}={}){
   try{
     if(candidate.storageOrigin!=='https://missionarytube.z13.web.core.windows.net')throw refusal('origin_mismatch','Unexpected receipt origin');
     const receipt=await publicJson(candidate.storageOrigin+'/release-qualified.json',fetcher,{unavailable:'receipt_unavailable',invalid:'receipt_invalid',missing:'receipt_missing'});
@@ -249,30 +179,20 @@ export async function findWorkerReuse(candidate,live,{fetcher=globalThis.fetch,p
     const run=await publicJson(`https://api.github.com/repos/${REPO}/actions/runs/${receipt.runId}`,fetcher);
     const tree=await publicJson(`https://api.github.com/repos/${REPO}/git/trees/${receipt.orchestration}?recursive=1`,fetcher);
     const jobs=await publicJson(`https://api.github.com/repos/${REPO}/actions/runs/${receipt.runId}/attempts/${receipt.attempt}/jobs?per_page=100`,fetcher);
-    checkedReuse(receipt,candidate,live,run,tree,jobs,policy);
+    checkedReuse(receipt,candidate,live,run,tree,jobs);
     return {reuse:true,runId:receipt.runId,attempt:receipt.attempt,version:live.version};
   }catch(error){return {reuse:false,reason:diagnosticReason(error)};}
 }
-export async function planWorkerReuseOnly(candidate,live,{policy,fetcher=globalThis.fetch}={}){
-  const approved=reusePolicies.get(policy);
-  if(!approved||approved.candidate!==JSON.stringify(candidate))throw refusal('recipe_mismatch','Unverified Worker reuse-only plan');
-  const proof=await findWorkerReuse(candidate,live,{policy,fetcher});
-  if(proof.reuse!==true)throw refusal(proof.reason,'Worker reuse-only proof refused');
-  return proof;
-}
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   try{
-    if(process.argv.length!==3||!['plan','record','verify','receipt','verify-receipt'].includes(process.argv[2]))throw refusal('recipe_mismatch','Exact Worker reuse-only command required');
-    checkedReuseRelease(process.cwd());
-    const command=process.argv[2],candidate=candidateIdentity(),policy=checkedWorkerReuseOnlyPolicy(process.cwd(),candidate),live=await liveIdentity({account:process.env.CLOUDFLARE_ACCOUNT_ID,token:process.env.CLOUDFLARE_API_TOKEN});
+    const command=process.argv[2],candidate=candidateIdentity(),live=await liveIdentity({account:process.env.CLOUDFLARE_ACCOUNT_ID,token:process.env.CLOUDFLARE_API_TOKEN});
     if(command==='plan'){
-      const proof=await planWorkerReuseOnly(candidate,live,{policy});
+      const proof=await findWorkerReuse(candidate,live);
       writeFileSync('worker-identity-before.json',JSON.stringify({candidate,live,proof},null,2)+'\n');
       if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'deploy='+!proof.reuse+'\n');
       console.log(proof.reuse?'Actual active Worker and configuration match a verified successful production release':`No exact live Worker reuse proof (${proof.reason}); current qualified backend deployment required`);
     }else if(command==='record'){
       const before=JSON.parse(readFileSync('worker-identity-before.json','utf8'));
-      if(before.proof.reuse!==true||!equal(before.candidate,candidate))throw refusal('recipe_mismatch','Worker reuse-only checkpoint refused');
       if(before.proof.reuse){
         if(JSON.stringify(before.live)!==JSON.stringify(live)||before.candidate.backendDigest!==candidate.backendDigest)throw Error('Previously qualified Worker changed before recording');
       }else newlyDeployedVersion(JSON.parse(readFileSync('.jarvis-source/worker-versions-before.json','utf8')),JSON.parse(readFileSync('.jarvis-source/worker-versions-after.json','utf8')),live);

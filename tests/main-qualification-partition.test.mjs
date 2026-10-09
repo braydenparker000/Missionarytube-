@@ -10,7 +10,9 @@ import { DEPLOY_PATHS, MAX_DEPLOY_ONLY_PATHS, recognizedDeployTrigger, matchesDe
 import { producerFixture } from './helpers/main-qualification-producer-fixture.mjs';
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-const deploy = read('.github/workflows/deploy-azure-storage.yml');
+// Exact historical recipe exercises delegation; the amended current workflow
+// intentionally remains unknown and gets full qualification in the stage tests.
+const deploy = read('scripts/release-identities/astra-approved-deploy-azure-storage.yml');
 const ci = read('.github/workflows/ci.yml');
 const qualification = read('.github/workflows/qualify-jarvis.yml');
 const before = 'a'.repeat(40), after = 'b'.repeat(40);

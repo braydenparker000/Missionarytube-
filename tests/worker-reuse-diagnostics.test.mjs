@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,readFile,copyFile,symlink,rm,access} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,dirname,resolve} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {execFileSync,spawnSync} from 'node:child_process';
-import {candidateIdentity,findWorkerReuse,liveIdentity,receiptDigest,settingsDigest} from '../scripts/worker-release-identity.mjs';
+import {findWorkerReuse,liveIdentity,receiptDigest,settingsDigest} from '../scripts/worker-release-identity.mjs';
 
 const sha='a'.repeat(40),version='12345678-1234-1234-1234-123456789abc';
 // Synthetic sentinels only: diagnostics must never copy these values.
@@ -122,10 +122,16 @@ test('plan CLI records safe fallback diagnostics and deploy flags; provider fail
     commit(source);
     await symlink(join(repository,'node_modules'),join(source,'node_modules'),'dir');
     await writeFile(join(source,'backend/wrangler.music.generated.json'),'{"main":"worker.js"}');
-    for(const path of recipes){await mkdir(dirname(join(root,path)),{recursive:true});await copyFile(join(repository,path),join(root,path));}
+    // This case retains the archived deployment-capable CLI contract. The
+    // production reuse-only CLI is covered separately without a deploy fallback.
+    for(const path of recipes){await mkdir(dirname(join(root,path)),{recursive:true});await copyFile(join(repository,
+      path==='scripts/worker-release-identity.mjs'?'scripts/release-identities/astra-approved-worker-release-identity.mjs':
+      path==='.github/workflows/deploy-azure-storage.yml'?'scripts/release-identities/astra-approved-deploy-azure-storage.yml':path),join(root,path));}
+    await copyFile(join(repository,'scripts/relay-owner-gate.mjs'),join(root,'scripts/relay-owner-gate.mjs'));
     await writeFile(join(root,'jarvis-release.json'),JSON.stringify({...candidate,commit:sha}));
     await writeFile(join(root,'.gitignore'),'.jarvis-source/\n');commit(root);
-    const proof=proofFor(candidateIdentity(root)),mock=join(root,'mock-fetch.mjs');
+    const archived=await import(pathToFileURL(join(root,'scripts/worker-release-identity.mjs')).href);
+    const proof=proofFor(archived.candidateIdentity(root)),mock=join(root,'mock-fetch.mjs');
     await writeFile(mock,`const proof=${JSON.stringify(proof)},settings=${JSON.stringify(settings)},secret=${JSON.stringify(sensitive)};
       globalThis.fetch=async url=>{
         if(process.env.DIAGNOSTIC_SCENARIO==='provider_failure')throw Object.assign(new Error(secret),{reason:secret});
@@ -140,7 +146,7 @@ test('plan CLI records safe fallback diagnostics and deploy flags; provider fail
     for(const [scenario,reason] of [['missing','receipt_missing'],['mismatch','backend_digest_mismatch'],['reuse',null],['provider_failure','provider_check_failed']]){
       const output=join(root,'output-'+scenario),artifact=join(root,'worker-identity-before.json');
       await rm(artifact,{force:true});
-      const result=spawnSync(process.execPath,['--import',mock,join(repository,'scripts/worker-release-identity.mjs'),'plan'],{cwd:root,encoding:'utf8',
+      const result=spawnSync(process.execPath,['--import',mock,join(root,'scripts/worker-release-identity.mjs'),'plan'],{cwd:root,encoding:'utf8',
         env:{PATH:process.env.PATH,CLOUDFLARE_ACCOUNT_ID:'a'.repeat(32),CLOUDFLARE_API_TOKEN:sensitive,GITHUB_OUTPUT:output,DIAGNOSTIC_SCENARIO:scenario}});
       assert.ifError(result.error);
       assert.equal(result.status,scenario==='provider_failure'?1:0);
