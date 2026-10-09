@@ -14,6 +14,8 @@ const CORE=process.env.CORE_RECOVERY_CANDIDATE||'ed7bbd436689be3ac9cca1ab5f11134
 const sqlShape=sql=>sql.replace(/--[^\n]*/g,'').replace(/\bIF NOT EXISTS\s+/g,'').replace(/;\s*$/,'').replace(/\s+/g,' ').trim();
 
 async function lockedNativeTools(workspace,manifests,t){
+  const deadline=performance.now()+20000;
+  const checkDeadline=()=>{if(performance.now()>=deadline)throw Error('Source-locked native fixture tooling bootstrap failed (timeout)');};
   const lock=JSON.parse(manifests.get('package-lock.json')),packages=Object.entries(lock.packages).filter(([path])=>path);
   for(const [path,entry] of packages){
     assert.match(path,/^node_modules\/(?:[A-Za-z0-9_.@-]+\/)*[A-Za-z0-9_.-]+$/);
@@ -36,7 +38,8 @@ async function lockedNativeTools(workspace,manifests,t){
   const exact=async directory=>(await inspect(directory)).complete;
   // Only a complete physical source installation can be reused. Resolution
   // through the orchestration parent would select its different esbuild lock.
-  if(await exact(source)){t.diagnostic('Reused exact source-locked native fixture tooling');return join(source,'node_modules');}
+  const reusable=await exact(source);checkDeadline();
+  if(reusable){t.diagnostic('Reused exact source-locked native fixture tooling');checkDeadline();return join(source,'node_modules');}
   const tools=join(workspace,'tools');await mkdir(tools);
   for(const [path,contents] of manifests)await writeFile(join(tools,path),contents,{mode:0o600});
   const userConfig=join(tools,'user.npmrc'),globalConfig=join(tools,'global.npmrc');
@@ -53,7 +56,7 @@ async function lockedNativeTools(workspace,manifests,t){
   }
   for(const key of ['NO_PROXY','NODE_EXTRA_CA_CERTS','SSL_CERT_FILE','SSL_CERT_DIR'])if(process.env[key])env[key]=process.env[key];
   Object.assign(env,{PATH:dirname(process.execPath)+delimiter+(env.PATH||''),CI:'true',NO_UPDATE_NOTIFIER:'1'});
-  const deadline=performance.now()+20000;let outputRemaining=64*1024;
+  let outputRemaining=64*1024;
   for(let attempt=0;attempt<2;attempt++){
     for(const [path,contents] of manifests)assert.ok(await readFile(join(tools,path),'utf8')===contents,'Bootstrap must preserve the exact candidate manifests before each install');
     const remaining=Math.floor(deadline-performance.now());
@@ -68,7 +71,8 @@ async function lockedNativeTools(workspace,manifests,t){
       const reason=error.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER'?'output limit':error.killed?'timeout':Number.isInteger(error.code)?'exit '+error.code:'launch failure';
       throw Error('Source-locked native fixture tooling bootstrap failed ('+reason+')');
     }
-    const inventory=await inspect(tools);
+    checkDeadline();
+    const inventory=await inspect(tools);checkDeadline();
     if(inventory.complete)break;
     t.diagnostic('Incomplete source-locked native fixture tooling: '+JSON.stringify({missing:inventory.missing,mismatched:inventory.mismatched}));
     if(attempt||!inventory.retryable)break;
@@ -77,8 +81,9 @@ async function lockedNativeTools(workspace,manifests,t){
     t.diagnostic('Retrying an incomplete optional source-locked native fixture tooling installation');
   }
   for(const [path,contents] of manifests)assert.equal(await readFile(join(tools,path),'utf8'),contents,'Bootstrap must preserve the exact candidate manifests');
-  assert.equal(await exact(tools),true,'Bootstrap must install the exact applicable locked packages');
-  t.diagnostic('Provisioned isolated source-locked native fixture tooling with lifecycle scripts disabled');
+  checkDeadline();
+  assert.equal(await exact(tools),true,'Bootstrap must install the exact applicable locked packages');checkDeadline();
+  t.diagnostic('Provisioned isolated source-locked native fixture tooling with lifecycle scripts disabled');checkDeadline();
   return join(tools,'node_modules');
 }
 
