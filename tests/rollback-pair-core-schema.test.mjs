@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {mkdtemp,writeFile,readFile,symlink,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,readFile,symlink,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {resolve,join} from 'node:path';
+import {resolve,join,dirname,delimiter} from 'node:path';
 import {createRequire} from 'node:module';
 import {schemaAt} from '../scripts/rollback-pair-contracts.mjs';
 
@@ -12,6 +12,58 @@ const execute=promisify(execFile),repository=resolve('.'),source=join(repository
 const LIVE='c4d62409a3b67e4e5dac88809c6a4a0290b6e39e';
 const CORE=process.env.CORE_RECOVERY_CANDIDATE||'ed7bbd436689be3ac9cca1ab5f111341dd690b80';
 const sqlShape=sql=>sql.replace(/--[^\n]*/g,'').replace(/\bIF NOT EXISTS\s+/g,'').replace(/;\s*$/,'').replace(/\s+/g,' ').trim();
+
+async function lockedNativeTools(workspace,manifests,t){
+  const lock=JSON.parse(manifests.get('package-lock.json')),packages=Object.entries(lock.packages).filter(([path])=>path);
+  for(const [path,entry] of packages){
+    assert.match(path,/^node_modules\/(?:[A-Za-z0-9_.@-]+\/)*[A-Za-z0-9_.-]+$/);
+    assert.ok(path.split('/').every(part=>part!=='.'&&part!=='..'));
+    let url;try{url=new URL(entry.resolved);}catch{throw Error('Native fixture tooling requires public locked registry URLs');}
+    assert.ok(url.protocol==='https:'&&url.hostname==='registry.npmjs.org'&&!url.port&&!url.username&&!url.password&&!url.search&&!url.hash,
+      'Native fixture tooling requires credential-free public locked registry URLs');
+    assert.match(entry.integrity,/^sha512-[A-Za-z0-9+/]+=*$/);
+  }
+  const applicable=(values,value)=>!values||(!values.includes('!'+value)&&(values.includes(value)||values.every(item=>item.startsWith('!'))));
+  const exact=async directory=>{
+    for(const [path,entry] of packages){
+      if(!applicable(entry.os,process.platform)||!applicable(entry.cpu,process.arch))continue;
+      try{if(JSON.parse(await readFile(join(directory,path,'package.json'),'utf8')).version!==entry.version)return false;}
+      catch(error){if(error.code==='ENOENT')return false;throw error;}
+    }
+    return true;
+  };
+  // Only a complete physical source installation can be reused. Resolution
+  // through the orchestration parent would select its different esbuild lock.
+  if(await exact(source)){t.diagnostic('Reused exact source-locked native fixture tooling');return join(source,'node_modules');}
+  const tools=join(workspace,'tools');await mkdir(tools);
+  for(const [path,contents] of manifests)await writeFile(join(tools,path),contents,{mode:0o600});
+  const userConfig=join(tools,'user.npmrc'),globalConfig=join(tools,'global.npmrc');
+  for(const path of [userConfig,globalConfig])await writeFile(path,'',{mode:0o600});
+  await mkdir(join(tools,'cache'),{mode:0o700});
+  const env=Object.fromEntries(['PATH','TMPDIR','TMP','TEMP','LANG','LC_ALL','TZ','SystemRoot','WINDIR'].filter(key=>process.env[key]!==undefined).map(key=>[key,process.env[key]]));
+  // Keep public-registry transport and trust configuration without inheriting
+  // npm authentication, user configuration, Node hooks or provider credentials.
+  for(const key of ['HTTP_PROXY','HTTPS_PROXY'])if(process.env[key]){
+    let proxy;try{proxy=new URL(process.env[key]);}catch{throw Error('Native fixture proxy transport must be a credential-free URL');}
+    assert.ok(['http:','https:'].includes(proxy.protocol)&&!proxy.username&&!proxy.password&&!proxy.search&&!proxy.hash,
+      'Native fixture proxy transport must be a credential-free URL');
+    env[key]=process.env[key];
+  }
+  for(const key of ['NO_PROXY','NODE_EXTRA_CA_CERTS','SSL_CERT_FILE','SSL_CERT_DIR'])if(process.env[key])env[key]=process.env[key];
+  Object.assign(env,{PATH:dirname(process.execPath)+delimiter+(env.PATH||''),CI:'true',NO_UPDATE_NOTIFIER:'1'});
+  try{
+    await execute('npm',['ci','--ignore-scripts','--include=dev','--include=optional','--no-audit','--no-fund','--progress=false',
+      '--userconfig',userConfig,'--globalconfig',globalConfig,'--registry','https://registry.npmjs.org','--cache',join(tools,'cache'),
+      '--fetch-retries=0','--fetch-timeout=10000'],{cwd:tools,env,timeout:20000,maxBuffer:64*1024});
+  }catch(error){
+    const reason=error.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER'?'output limit':error.killed?'timeout':Number.isInteger(error.code)?'exit '+error.code:'launch failure';
+    throw Error('Source-locked native fixture tooling bootstrap failed ('+reason+')');
+  }
+  for(const [path,contents] of manifests)assert.equal(await readFile(join(tools,path),'utf8'),contents,'Bootstrap must preserve the exact candidate manifests');
+  assert.equal(await exact(tools),true,'Bootstrap must install the exact applicable locked packages');
+  t.diagnostic('Provisioned isolated source-locked native fixture tooling with lifecycle scripts disabled');
+  return join(tools,'node_modules');
+}
 
 test('the exact finite CORE manifest preserves all original DDL and survives every populated native SQLite interruption',async()=>{
   assert.match(CORE,/^[a-f0-9]{40}$/);
@@ -61,13 +113,17 @@ test('changed CORE generators, routing constants, call sites and arbitrary trigg
 
 test('native workerd actual CORE schema installs exactly the independently enumerated expression index and twenty private-feed triggers', {timeout:30000},async t=>{
   const workspace=await mkdtemp(join(tmpdir(),'native-core-schema-source-')),checkout=join(workspace,'source');
-  await execute('git',['-C',source,'worktree','add','--detach',checkout,CORE]);
-  t.after(async()=>{await execute('git',['-C',source,'worktree','remove','--force',checkout]);await rm(workspace,{recursive:true,force:true});});
+  let worktree=false;
+  t.after(async()=>{try{if(worktree)await execute('git',['-C',source,'worktree','remove','--force',checkout]);}finally{await rm(workspace,{recursive:true,force:true});}});
+  const manifests=new Map();
   for(const path of ['package.json','package-lock.json']){
     const committed=(await execute('git',['-C',source,'show',CORE+':'+path],{maxBuffer:1024*1024})).stdout;
     assert.equal(await readFile(join(source,path),'utf8'),committed,'Native tooling must match the exact candidate lock');
+    manifests.set(path,committed);
   }
-  await symlink(join(source,'node_modules'),join(checkout,'node_modules'),'dir');
+  const modules=await lockedNativeTools(workspace,manifests,t);
+  await execute('git',['-C',source,'worktree','add','--detach',checkout,CORE]);worktree=true;
+  await symlink(modules,join(checkout,'node_modules'),'dir');
   const require=createRequire(join(checkout,'package.json')),{build}=require('esbuild'),{Miniflare,convertV4MiniflareOptions}=require('miniflare');
   const fixture=`
     import {DurableObject} from 'cloudflare:workers';
