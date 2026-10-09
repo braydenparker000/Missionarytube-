@@ -8,7 +8,16 @@ import sys
 root = pathlib.Path(sys.argv[1]) if len(sys.argv) == 2 else pathlib.Path(__file__).parent
 live = (root / "live-schema.sql").read_text()
 candidate = (root / "candidate-schema.sql").read_text()
-statements = [item.strip() for item in candidate.split(";") if item.strip()]
+statements, pending_statement = [], ""
+for character in candidate:
+    pending_statement += character
+    # SQLite recognizes the complete CREATE TRIGGER ... BEGIN ... END grammar;
+    # inner DML semicolons are not separate interruption points.
+    if character == ";" and sqlite3.complete_statement(pending_statement):
+        statements.append(pending_statement.strip())
+        pending_statement = ""
+if pending_statement.strip():
+    raise ValueError("Incomplete schema statement requires migration review")
 
 
 def seed(db):
