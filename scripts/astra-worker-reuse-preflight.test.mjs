@@ -14,6 +14,7 @@ const repository=resolve(fileURLToPath(new URL('../',import.meta.url)));
 // Immutable public release identity bytes; provider response fixtures remain fictional.
 const historicalPin=new URL('./release-identities/astra-approved-jarvis-release.json',import.meta.url);
 const historicalIdentity=new URL('./release-identities/astra-approved-worker-release-identity.mjs',import.meta.url);
+const historicalWorkflow=new URL('./release-identities/astra-approved-deploy-azure-storage.yml',import.meta.url);
 const account='a'.repeat(32),token='fictional-preflight-token',version='12345678-1234-1234-1234-123456789abc';
 const privateText='FICTIONAL_PRIVATE_TEXT https://user:password@private.invalid/path?token=not-real';
 const candidate=()=>({schema:1,source:TARGET.source,orchestration:TARGET.orchestration,
@@ -110,7 +111,8 @@ test('current branch pin, recipes, cleanliness and exact three-file scope are ch
     for(const path of ['jarvis-release.json',...RECIPES.map(([path])=>path)]){
       await mkdir(dirname(join(root,path)),{recursive:true});
       await writeFile(join(root,path),await readFile(path==='jarvis-release.json'?historicalPin:
-        path==='scripts/worker-release-identity.mjs'?historicalIdentity:join(repository,path)));
+        path==='scripts/worker-release-identity.mjs'?historicalIdentity:
+        path==='.github/workflows/deploy-azure-storage.yml'?historicalWorkflow:join(repository,path)));
     }
     run('add','.');run('-c','user.name=Fictional fixture','-c','user.email=fixture@example.test','commit','-m','fictional predecessor');
     const predecessor=run('rev-parse','HEAD');

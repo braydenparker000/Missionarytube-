@@ -7,7 +7,7 @@ import {pathToFileURL} from 'node:url';
 import {checkedBindings,readWorkerSettings} from './check-music-worker-bindings.mjs';
 
 const REPO='braydenparker000/Missionarytube-',WORKFLOW='.github/workflows/deploy-azure-storage.yml';
-const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs','scripts/overlap-jarvis-prewrite.mjs'];
+const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs','scripts/overlap-jarvis-prewrite.mjs','scripts/stage-relay-client-dependencies.mjs'];
 const SHA=/^[a-f0-9]{40}$/,DIGEST=/^[a-f0-9]{64}$/,UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const REASONS=new Set(['receipt_missing','receipt_unavailable','receipt_invalid','origin_mismatch','backend_not_reusable',
   'backend_digest_mismatch','identity_mismatch','settings_mismatch','qualification_unavailable','qualification_mismatch',
@@ -56,13 +56,13 @@ function checkedReuseRelease(root){
   const policy=release.workerReusePolicy;
   if(!policy||!equal(Object.keys(policy).sort(),['mode','recipe','reference','schema'])||policy.schema!==1||policy.mode!=='reuse-only'||
     !equal(policy.reference,REUSE_REFERENCE))throw refusal('recipe_mismatch','Finite Worker reuse-only policy required');
-  const recipe=REUSE_RECIPES.map(entry=>{const file=resolve(root,entry.path),info=lstatSync(file);
+  const recipe=RECIPES.map(path=>{const file=resolve(root,path),info=lstatSync(file);
     if(!info.isFile()||info.isSymbolicLink())throw refusal('recipe_mismatch','Immutable Worker reuse recipe required');
-    const sha=blob(readFileSync(file)),tracked=committed.get(entry.path);
+    const sha=blob(readFileSync(file)),tracked=committed.get(path);
     if(!tracked||tracked.sha!==sha||tracked.mode!==((info.mode&0o111)?'100755':'100644'))throw refusal('recipe_mismatch','Worker reuse recipe differs from immutable release');
-    return {path:entry.path,sha};});
-  if(!equal(policy.recipe,recipe)||recipe.some((entry,index)=>entry.path!=='scripts/worker-release-identity.mjs'&&entry.sha!==REUSE_RECIPES[index].sha)||
-    recipe[4].sha===REUSE_RECIPES[4].sha)throw refusal('recipe_mismatch','Unknown Worker reuse-only recipe');
+    return {path,sha};});
+  if(!equal(policy.recipe,recipe)||recipe.some((entry,index)=>![WORKFLOW,'scripts/worker-release-identity.mjs','scripts/stage-relay-client-dependencies.mjs'].includes(entry.path)&&entry.sha!==REUSE_RECIPES[index].sha)||
+    recipe[0].sha===REUSE_RECIPES[0].sha||recipe[4].sha===REUSE_RECIPES[4].sha)throw refusal('recipe_mismatch','Unknown Worker reuse-only recipe');
   const tracked=committed.get('jarvis-release.json');
   if(!tracked||blob(bytes)!==tracked.sha||tracked.mode!==((info.mode&0o111)?'100755':'100644'))throw refusal('recipe_mismatch','Worker reuse policy differs from immutable release');
   return {release,recipe,head};

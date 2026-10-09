@@ -17,7 +17,7 @@
     "recipe": [
       {
         "path": ".github/workflows/deploy-azure-storage.yml",
-        "sha": "33e98b0b3e82f6ff43b228d111bfcb5cd1d2f24c"
+        "sha": "7d432d404df59ef67551e8b613d6eb0201229d99"
       },
       {
         "path": ".github/workflows/qualify-jarvis.yml",
@@ -33,7 +33,7 @@
       },
       {
         "path": "scripts/worker-release-identity.mjs",
-        "sha": "66b8f5d3abce1761005212fc87044ec333824085"
+        "sha": "aa67ad98bc4df1bfabac987ae04d123582f1a545"
       },
       {
         "path": "scripts/prepare-music-worker.mjs",
@@ -58,6 +58,10 @@
       {
         "path": "scripts/overlap-jarvis-prewrite.mjs",
         "sha": "f9c52feacb60bd5f0894f90f741bd08075a2fe84"
+      },
+      {
+        "path": "scripts/stage-relay-client-dependencies.mjs",
+        "sha": "9042927b9373dcec2c76a9be6e66e612a492f1fd"
       }
     ]
   }

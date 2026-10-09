@@ -173,15 +173,10 @@ jobs:
         run: node .jarvis-source/scripts/publish-drive-catalog.mjs
       - name: Verify sealed configured bytes immediately before staging
         run: node scripts/qualified-artifact.mjs verify-configured
-      - name: Upload and verify both Relay dependencies before importer overwrite
-        env:
-          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
-        run: node scripts/stage-relay-client-dependencies.mjs
       - name: Stage Jarvis while keeping the current homepage
         run: |
           cp -a dist upload
           rm upload/index.html
-          rm upload/assets/relay-transfer.js upload/assets/relay-draft-store.js
           az storage blob upload-batch \
             --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" \
             --auth-mode login --destination '$web' --source upload \

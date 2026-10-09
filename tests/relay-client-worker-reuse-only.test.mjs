@@ -31,7 +31,9 @@ async function fixture(){
   const settings={bindings:[{name:'HUBS',type:'durable_object_namespace',class_name:'Hub',namespace_id:'fictional-hubs'},
     {name:'FICTIONAL_VALUE',type:'plain_text',text:SECRET}]};
   const live={version:VERSION,settingsDigest:settingsDigest(settings)};
-  const legacy=release.workerReusePolicy.recipe.map(item=>({...item,sha:item.path==='scripts/worker-release-identity.mjs'?'4ac2cefceb2a1409064a1e99f23aa4bf47718f30':item.sha}));
+  const legacy=release.workerReusePolicy.recipe.filter(item=>item.path!=='scripts/stage-relay-client-dependencies.mjs').map(item=>({...item,
+    sha:item.path==='scripts/worker-release-identity.mjs'?'4ac2cefceb2a1409064a1e99f23aa4bf47718f30':
+      item.path==='.github/workflows/deploy-azure-storage.yml'?'33e98b0b3e82f6ff43b228d111bfcb5cd1d2f24c':item.sha}));
   const receipt={...candidate,...live,...release.workerReusePolicy.reference,repository:'braydenparker000/Missionarytube-',recipe:legacy,runId:'123',attempt:'2'};
   const run={id:123,run_attempt:2,repository:{full_name:receipt.repository},head_repository:{full_name:receipt.repository},event:'push',head_branch:'main',
     path:'.github/workflows/deploy-azure-storage.yml',head_sha:receipt.orchestration,status:'completed',conclusion:'success'};
@@ -101,6 +103,24 @@ test('policy cannot mint from declared guard working bytes when immutable HEAD c
     await writeFile(path,approved);
     const candidate={...f.candidate,orchestration:git(f.root,'rev-parse','HEAD')};
     assert.throws(()=>checkedWorkerReuseOnlyPolicy(f.root,candidate),/differs from immutable release/);
+    await absent(join(f.root,'worker-identity-before.json'));await absent(join(f.root,'outputs'));
+  }finally{await rm(f.root,{recursive:true,force:true});}
+});
+
+test('current workflow and dependency helper are HEAD-bound while the historical receipt stays exactly eleven recipes',async()=>{
+  const f=await fixture();try{
+    assert.equal(f.candidate.recipe.length,12);assert.equal(f.receipt.recipe.length,11);
+    assert.ok(!f.receipt.recipe.some(entry=>entry.path==='scripts/stage-relay-client-dependencies.mjs'));
+    assert.equal(f.receipt.recipe[0].sha,'33e98b0b3e82f6ff43b228d111bfcb5cd1d2f24c');
+    assert.equal(checkedReuse(f.receipt,f.candidate,f.live,f.run,f.tree,f.jobs,f.policy),true);
+    for(const path of ['.github/workflows/deploy-azure-storage.yml','scripts/stage-relay-client-dependencies.mjs']){
+      const file=join(f.root,path),approved=await readFile(file);
+      await writeFile(file,'// unknown committed recipe\n');commit(f.root);await writeFile(file,approved);
+      assert.throws(()=>checkedWorkerReuseOnlyPolicy(f.root,{...f.candidate,orchestration:git(f.root,'rev-parse','HEAD')}),/differs from immutable release/);
+      await writeFile(file,approved);commit(f.root);
+    }
+    const adapted=structuredClone(f.receipt);adapted.recipe=f.candidate.recipe;
+    assert.throws(()=>checkedReuse(adapted,f.candidate,f.live,f.run,f.tree,f.jobs,f.policy));
     await absent(join(f.root,'worker-identity-before.json'));await absent(join(f.root,'outputs'));
   }finally{await rm(f.root,{recursive:true,force:true});}
 });

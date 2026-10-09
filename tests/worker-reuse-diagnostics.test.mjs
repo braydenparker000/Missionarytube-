@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,readFile,copyFile,symlink,rm,access} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,dirname,resolve} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {execFileSync,spawnSync} from 'node:child_process';
-import {candidateIdentity,findWorkerReuse,liveIdentity,receiptDigest,settingsDigest} from '../scripts/worker-release-identity.mjs';
+import {findWorkerReuse,liveIdentity,receiptDigest,settingsDigest} from '../scripts/worker-release-identity.mjs';
 
 const sha='a'.repeat(40),version='12345678-1234-1234-1234-123456789abc';
 // Synthetic sentinels only: diagnostics must never copy these values.
@@ -125,11 +125,13 @@ test('plan CLI records safe fallback diagnostics and deploy flags; provider fail
     // This case retains the archived deployment-capable CLI contract. The
     // production reuse-only CLI is covered separately without a deploy fallback.
     for(const path of recipes){await mkdir(dirname(join(root,path)),{recursive:true});await copyFile(join(repository,
-      path==='scripts/worker-release-identity.mjs'?'scripts/release-identities/astra-approved-worker-release-identity.mjs':path),join(root,path));}
+      path==='scripts/worker-release-identity.mjs'?'scripts/release-identities/astra-approved-worker-release-identity.mjs':
+      path==='.github/workflows/deploy-azure-storage.yml'?'scripts/release-identities/astra-approved-deploy-azure-storage.yml':path),join(root,path));}
     await copyFile(join(repository,'scripts/relay-owner-gate.mjs'),join(root,'scripts/relay-owner-gate.mjs'));
     await writeFile(join(root,'jarvis-release.json'),JSON.stringify({...candidate,commit:sha}));
     await writeFile(join(root,'.gitignore'),'.jarvis-source/\n');commit(root);
-    const proof=proofFor(candidateIdentity(root)),mock=join(root,'mock-fetch.mjs');
+    const archived=await import(pathToFileURL(join(root,'scripts/worker-release-identity.mjs')).href);
+    const proof=proofFor(archived.candidateIdentity(root)),mock=join(root,'mock-fetch.mjs');
     await writeFile(mock,`const proof=${JSON.stringify(proof)},settings=${JSON.stringify(settings)},secret=${JSON.stringify(sensitive)};
       globalThis.fetch=async url=>{
         if(process.env.DIAGNOSTIC_SCENARIO==='provider_failure')throw Object.assign(new Error(secret),{reason:secret});
