@@ -14,6 +14,9 @@ export const DEPLOY_PATHS = Object.freeze([
   'scripts/static-release-loader.js',
   'scripts/azure-static-store.mjs',
   'scripts/release-recovery-plan.mjs',
+  'scripts/rollback-pair-proof.mjs',
+  'scripts/rollback-pair-contracts.mjs',
+  'scripts/rollback-pair-runtime.mjs',
   'scripts/r2-player-config.mjs',
   'tests/**',
   '*.html',
@@ -29,8 +32,8 @@ export const DEPLOY_PATHS = Object.freeze([
 // at most the older 300-file limit. Larger pushes keep both qualification calls.
 export const MAX_DEPLOY_ONLY_PATHS = 300;
 export const GATE_RECIPE_SHA256 = Object.freeze({
-  '.github/workflows/deploy-azure-storage.yml': 'c53ad957c860d93c7e41563704d7e6121a24c8c5b76b882bb6d04df279798e10',
-  '.github/workflows/qualify-jarvis.yml': '47291c949ed2a987cbfed7ac4534e4df592da9c1decf709014606a7cf78aa3af',
+  '.github/workflows/deploy-azure-storage.yml': '053b61a5ef45243142ec3b7f85c5a688093b6f538b5237c71595c4be0b6bca83',
+  '.github/workflows/qualify-jarvis.yml': '9e3dd649674de9ba9b336014c556420effe73e2f7653b526c125d800a1e53d59',
 });
 const expectedTrigger = 'on:\n  workflow_dispatch:\n  push:\n    branches:\n      - main\n    paths:\n'
   + DEPLOY_PATHS.map(pattern => `      - "${pattern}"\n`).join('');

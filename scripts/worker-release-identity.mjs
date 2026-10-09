@@ -7,7 +7,7 @@ import {pathToFileURL} from 'node:url';
 import {checkedBindings,readWorkerSettings} from './check-music-worker-bindings.mjs';
 
 const REPO='braydenparker000/Missionarytube-',WORKFLOW='.github/workflows/deploy-azure-storage.yml';
-const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs','scripts/overlap-jarvis-prewrite.mjs','scripts/static-publication.mjs','scripts/static-release-loader.js','scripts/azure-static-store.mjs','scripts/publish-jarvis-versioned.mjs','scripts/release-recovery-plan.mjs'];
+const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs','scripts/overlap-jarvis-prewrite.mjs','scripts/static-publication.mjs','scripts/static-release-loader.js','scripts/azure-static-store.mjs','scripts/publish-jarvis-versioned.mjs','scripts/release-recovery-plan.mjs','scripts/rollback-pair-proof.mjs','scripts/rollback-pair-contracts.mjs','scripts/qualify-jarvis-rollback-pair.mjs','scripts/rollback-pair-runtime.mjs','tests/fixtures/release-recovery/schema-recovery.py'];
 const SHA=/^[a-f0-9]{40}$/,DIGEST=/^[a-f0-9]{64}$/,UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const REASONS=new Set(['receipt_missing','receipt_unavailable','receipt_invalid','origin_mismatch','backend_not_reusable',
   'backend_digest_mismatch','identity_mismatch','settings_mismatch','qualification_unavailable','qualification_mismatch',
@@ -206,6 +206,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
     if(command==='plan'){
       const proof=await findWorkerReuse(candidate,live);
       writeFileSync('worker-identity-before.json',JSON.stringify({candidate,live,proof},null,2)+'\n');
+      writeFileSync('worker-identity-planned.json',JSON.stringify({schema:1,candidate,beforeLive:live},null,2)+'\n');
       if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'deploy='+!proof.reuse+'\n');
       console.log(proof.reuse?'Actual active Worker and configuration match a verified successful production release':`No exact live Worker reuse proof (${proof.reason}); current qualified backend deployment required`);
     }else if(command==='record'){
@@ -213,10 +214,16 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
       if(before.proof.reuse){
         if(JSON.stringify(before.live)!==JSON.stringify(live)||before.candidate.backendDigest!==candidate.backendDigest)throw Error('Previously qualified Worker changed before recording');
       }else newlyDeployedVersion(JSON.parse(readFileSync('.jarvis-source/worker-versions-before.json','utf8')),JSON.parse(readFileSync('.jarvis-source/worker-versions-after.json','utf8')),live);
-      writeFileSync('worker-identity-current.json',JSON.stringify({candidate,live},null,2)+'\n');
+      const current={candidate,live};writeFileSync('worker-identity-current.json',JSON.stringify(current,null,2)+'\n');
+      if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'digest='+hash(current)+'\n');
+    }else if(command==='verify-planned'){
+      const expected=JSON.parse(readFileSync('worker-identity-planned.json','utf8'));
+      if(JSON.stringify(expected.candidate)!==JSON.stringify(candidate)||JSON.stringify(expected.beforeLive)!==JSON.stringify(live))throw Error('Backend changed after read-only prewrite qualification');
     }else if(command==='verify'){
       const expected=JSON.parse(readFileSync('worker-identity-current.json','utf8'));
-      if(expected.candidate.backendDigest!==candidate.backendDigest||expected.live.version!==live.version||expected.live.settingsDigest!==live.settingsDigest)throw Error('Live Worker changed during release; frontend promotion stopped');
+      const planned=JSON.parse(readFileSync('worker-identity-planned.json','utf8'));
+      if(JSON.stringify(expected.candidate)!==JSON.stringify(candidate)||JSON.stringify(planned.candidate)!==JSON.stringify(candidate)||expected.live.version!==live.version||expected.live.settingsDigest!==live.settingsDigest||
+        expected.live.settingsDigest!==planned.beforeLive.settingsDigest||process.env.EXPECTED_BACKEND_IDENTITY_DIGEST&&hash(expected)!==process.env.EXPECTED_BACKEND_IDENTITY_DIGEST)throw Error('Live Worker changed during release; frontend promotion stopped');
     }else if(command==='receipt'){
       const expected=JSON.parse(readFileSync('worker-identity-current.json','utf8'));
       if(JSON.stringify(expected.live)!==JSON.stringify(live))throw Error('Live Worker changed after final frontend verification');
@@ -225,7 +232,10 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
       receipt.frontendArtifactDigest=receiptDigest(configured);
       receipt.publicConfigurationDigest=hash(configured.files.filter(f=>['assets/quick-ai-config.json','assets/drive-config.json'].includes(f.path)));
       const publication=JSON.parse(readFileSync('.publication/candidate/plan.json','utf8')),state=JSON.parse(readFileSync('.publication/state.json','utf8'));
-      Object.assign(receipt,checkedFrontendPublication(publication,state,{artifactDigest:receipt.frontendArtifactDigest,backendIdentityDigest:hash(expected)}));
+      const planned=JSON.parse(readFileSync('worker-identity-planned.json','utf8'));
+      if(JSON.stringify(expected.candidate)!==JSON.stringify(planned.candidate)||expected.live.settingsDigest!==planned.beforeLive.settingsDigest)throw Error('Actual backend differs from the qualified prewrite contract');
+      receipt.actualBackendIdentityDigest=hash(expected);
+      Object.assign(receipt,checkedFrontendPublication(publication,state,{artifactDigest:receipt.frontendArtifactDigest,backendIdentityDigest:hash(planned)}));
       await verifyPublishedPointer(receipt.activeFrontendPointerDigest);
       writeFileSync('release-qualified.json',JSON.stringify(receipt,null,2)+'\n');
       if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'digest='+receiptDigest(receipt)+'\n');

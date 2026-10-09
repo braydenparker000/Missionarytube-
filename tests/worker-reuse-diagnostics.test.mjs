@@ -112,7 +112,8 @@ test('plan CLI records safe fallback diagnostics and deploy flags; provider fail
   const recipes=['.github/workflows/deploy-azure-storage.yml','.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs',
     'scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs',
     'scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs','scripts/overlap-jarvis-prewrite.mjs',
-    'scripts/static-publication.mjs','scripts/static-release-loader.js','scripts/azure-static-store.mjs','scripts/publish-jarvis-versioned.mjs','scripts/release-recovery-plan.mjs'];
+    'scripts/static-publication.mjs','scripts/static-release-loader.js','scripts/azure-static-store.mjs','scripts/publish-jarvis-versioned.mjs','scripts/release-recovery-plan.mjs',
+    'scripts/rollback-pair-proof.mjs','scripts/rollback-pair-contracts.mjs','scripts/qualify-jarvis-rollback-pair.mjs','scripts/rollback-pair-runtime.mjs','tests/fixtures/release-recovery/schema-recovery.py'];
   const git=(cwd,...args)=>execFileSync('git',['-C',cwd,...args],{stdio:'pipe'});
   const commit=cwd=>{git(cwd,'init');git(cwd,'add','.');git(cwd,'-c','user.name=Diagnostic fixture','-c','user.email=fixture@example.test','commit','-m','fixture');};
   try{

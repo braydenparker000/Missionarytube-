@@ -1,121 +1,136 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,readFile,writeFile,copyFile,rm} from 'node:fs/promises';
-import {join,dirname} from 'node:path';
-import {tmpdir} from 'node:os';
-import {execFileSync} from 'node:child_process';
-import {createHash} from 'node:crypto';
-import {artifactIdentity,fileManifest} from '../scripts/qualified-artifact.mjs';
-import {verifyBackupFiles} from '../scripts/backup-jarvis-storage.mjs';
-import {publicationCommand,checkedActionApproval,checkedRollbackPair} from '../scripts/publish-jarvis-versioned.mjs';
+import {readFile,writeFile,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {publicationCommand,preservedPublication,checkedActionApproval,checkedRollbackPair} from '../scripts/publish-jarvis-versioned.mjs';
+import {rollbackPairContracts} from '../scripts/rollback-pair-contracts.mjs';
 import {sha256,mimeFor,POINTER,ROOT} from '../scripts/static-publication.mjs';
+import {commandFixture} from './fixtures/release-recovery/command-fixture.mjs';
 
-const policy="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'";
-const html=name=>Buffer.from('<!doctype html><head><meta http-equiv="Content-Security-Policy" content="'+policy+'"><script src="/assets/app.js"></script></head><body>'+name+'</body>');
-const recipes=['static-publication.mjs','static-release-loader.js','azure-static-store.mjs','publish-jarvis-versioned.mjs','release-recovery-plan.mjs'];
-const git=(root,...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
-const commit=root=>{git(root,'init');git(root,'add','.');git(root,'-c','user.name=Recovery fixture','-c','user.email=fixture@example.test','commit','-m','synthetic fixture');return git(root,'rev-parse','HEAD');};
-async function fixture(){
-  const root=await mkdtemp(join(tmpdir(),'versioned-command-')),source=join(root,'.jarvis-source');
-  await mkdir(source);await writeFile(join(source,'package-lock.json'),'{}');const sourceSHA=commit(source);
-  await mkdir(join(root,'scripts'));for(const name of recipes)await copyFile(new URL('../scripts/'+name,import.meta.url),join(root,'scripts',name));
-  await writeFile(join(root,'scripts/build-jarvis.mjs'),'// synthetic qualified build recipe');
-  await writeFile(join(root,'package-lock.json'),'{}');await writeFile(join(root,'jarvis-release.json'),JSON.stringify({repository:'braydenparker999/jarvis',commit:sourceSHA,storageOrigin:'https://missionarytube.z13.web.core.windows.net',apiOrigin:'https://jarvis-hub-api.braydenparker999.workers.dev'}));
-  await writeFile(join(root,'.gitignore'),'.jarvis-source/\ndist/\nrollback/\n.publication/\n*artifact.json\nworker-identity-current.json\n');const orchestration=commit(root);
-  const env={GITHUB_REPOSITORY:'braydenparker000/Missionarytube-',GITHUB_REF:'refs/heads/main',GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1',STORAGE_ACCOUNT:'missionarytube',CLOUDFLARE_API_TOKEN:'SYNTHETIC_SECRET',CLOUDFLARE_ACCOUNT_ID:'SYNTHETIC_ACCOUNT'};
-  const old=new Map([['index.html',html('old')],['assets/app.js',Buffer.from('window.old=true;')]]);
-  const next=new Map([['index.html',html('candidate')],['assets/app.js',Buffer.from('window.candidate=true;')]]);
-  for(const [kind,files] of [['dist',next],['rollback/files',old]])for(const [path,bytes] of files){const dest=join(root,kind,path);await mkdir(dirname(dest),{recursive:true});await writeFile(dest,bytes);}
-  const identity=await artifactIdentity({root,env}),files=await fileManifest(join(root,'dist')),base={identity,files};
-  await writeFile(join(root,'qualified-artifact.json'),JSON.stringify(base));await writeFile(join(root,'configured-artifact.json'),JSON.stringify({identity:{...identity,baseManifestDigest:sha256(base)},files}));
-  await writeFile(join(root,'worker-identity-current.json'),JSON.stringify({candidate:{source:sourceSHA,orchestration},live:{version:'12345678-1234-1234-1234-123456789abc',settingsDigest:'a'.repeat(64)}}));
-  const manifest=[...old].map(([name,bytes])=>({name,properties:{contentLength:bytes.length,etag:'"old-'+name+'"',contentSettings:{contentType:mimeFor(name),contentMd5:createHash('md5').update(bytes).digest('base64')}}}));
-  await writeFile(join(root,'rollback/manifest.json'),JSON.stringify(manifest));await writeFile(join(root,'rollback/verified-backup.json'),JSON.stringify({schema:1,account:'missionarytube',container:'$web',files:await verifyBackupFiles(manifest,join(root,'rollback/files'))}));
-  const blobs=new Map([...old].map(([name,bytes])=>[name,{bytes,contentType:mimeFor(name),etag:'"old-'+name+'"'}])),writes=[],calls=[];let serial=0;
-  const store={get:async key=>blobs.get(key),route:async key=>blobs.get(key+'index.html'),put:async(key,bytes,contentType,condition)=>{
-    if(condition.ifNoneMatch==='*'&&blobs.has(key)||condition.ifMatch&&condition.ifMatch!==blobs.get(key)?.etag)throw Error('provider precondition');
-    blobs.set(key,{bytes,contentType,etag:'"write-'+(++serial)+'"'});writes.push(key);
-  }};
-  const runner=async(binary,args,options)=>{calls.push({binary,args,env:options.env});return {stdout:'fixture pass'};};
-  return {root,env,store,writes,calls,runner,blobs,cleanup:()=>rm(root,{recursive:true,force:true})};
-}
-test('production command fixture seals original proof, stages, bootstraps, promotes and verifies without mutable asset writes',async()=>{
-  const f=await fixture();try{
-    const opts={root:f.root,env:f.env,store:f.store,runner:f.runner};
-    const prepared=await publicationCommand('prepare',opts);assert.equal(prepared.initial,true);assert.equal(f.writes.length,0);
-    await publicationCommand('stage',opts);assert.ok(f.writes.every(path=>path.startsWith(ROOT)));assert.equal(f.blobs.get(POINTER),undefined);
-    await publicationCommand('bootstrap',opts);assert.equal(JSON.parse(f.blobs.get(POINTER).bytes).releaseId,prepared.previousReleaseId);
-    await publicationCommand('promote',opts);const verified=await publicationCommand('verify',opts);assert.equal(verified.releaseId,prepared.releaseId);assert.match(verified.publicationDigest,/^[a-f0-9]{64}$/);
-    assert.ok(!f.writes.includes('assets/app.js'));assert.ok(f.calls.some(call=>call.args.includes('scripts/worker-release-identity.mjs')));
+test('full production commands seal, stage, bootstrap, promote and verify without shared asset overwrites',async()=>{
+  const f=await commandFixture();try{
+    const prepared=await f.prepare();assert.equal(prepared.initial,true);assert.equal(f.writes.length,0);
+    await publicationCommand('stage',f.opts);assert.ok(f.writes.every(path=>path.startsWith(ROOT)));assert.equal(f.blobs.get(POINTER),undefined);
+    await publicationCommand('bootstrap',f.opts);assert.equal(JSON.parse(f.blobs.get(POINTER).bytes).releaseId,prepared.previousReleaseId);
+    await publicationCommand('promote',f.opts);const verified=await publicationCommand('verify',f.opts);assert.equal(verified.releaseId,prepared.releaseId);
+    assert.match(verified.publicationDigest,/^[a-f0-9]{64}$/);assert.ok(!f.writes.includes('assets/app.js'));
     const state=JSON.parse(await readFile(join(f.root,'.publication/state.json')));assert.equal(state.phase,'verified');assert.ok(!JSON.stringify(state).includes('SYNTHETIC_SECRET'));
   }finally{await f.cleanup();}
 });
-test('a later release reconstructs the selected previous publication from a full backup and changes only its pointer',async()=>{
-  const f=await fixture();try{
-    const opts={root:f.root,env:f.env,store:f.store,runner:f.runner};
-    for(const command of ['prepare','stage','bootstrap','promote','verify'])await publicationCommand(command,opts);
-    const first=JSON.parse(f.blobs.get(POINTER).bytes).releaseId;
-    await rm(join(f.root,'rollback/files'),{recursive:true});
-    const manifest=[];
-    for(const [name,item] of f.blobs){
-      const path=join(f.root,'rollback/files',name);await mkdir(dirname(path),{recursive:true});await writeFile(path,item.bytes);
-      manifest.push({name,properties:{contentLength:item.bytes.length,etag:item.etag,contentSettings:{contentType:item.contentType,contentMd5:createHash('md5').update(item.bytes).digest('base64')}}});
-    }
-    await writeFile(join(f.root,'rollback/manifest.json'),JSON.stringify(manifest));
-    await writeFile(join(f.root,'rollback/verified-backup.json'),JSON.stringify({schema:1,account:'missionarytube',container:'$web',files:await verifyBackupFiles(manifest,join(f.root,'rollback/files'))}));
-    opts.env={...f.env,GITHUB_RUN_ID:'124'};
-    const identity=await artifactIdentity({root:f.root,env:opts.env}),files=await fileManifest(join(f.root,'dist')),base={identity,files};
-    await writeFile(join(f.root,'qualified-artifact.json'),JSON.stringify(base));
-    await writeFile(join(f.root,'configured-artifact.json'),JSON.stringify({identity:{...identity,baseManifestDigest:sha256(base)},files}));
-    const next=await publicationCommand('prepare',opts);assert.equal(next.initial,false);assert.equal(next.previousReleaseId,first);
-    await publicationCommand('stage',opts);const before=f.writes.length;await publicationCommand('bootstrap',opts);assert.equal(f.writes.length,before);
-    await publicationCommand('promote',opts);assert.deepEqual(f.writes.slice(before),[POINTER]);
-    await publicationCommand('verify',opts);assert.notEqual(next.releaseId,first);
+test('a later release reconstructs its exact previous publication from complete backup and changes only the pointer',async()=>{
+  const f=await commandFixture();try{
+    await f.prepare();for(const command of ['stage','bootstrap','promote','verify'])await publicationCommand(command,f.opts);
+    const first=JSON.parse(f.blobs.get(POINTER).bytes).releaseId;await f.backup();f.opts.env={...f.env,GITHUB_RUN_ID:'124'};await f.seal();
+    const next=await publicationCommand('prepare',f.opts);assert.equal(next.initial,false);assert.equal(next.previousReleaseId,first);
+    const proof=await f.pair(),metadata=async url=>{
+      if(url.includes('/git/trees/'))return f.tree;
+      if(url.includes('/jobs?')){const jobs=f.jobs();for(const job of jobs.jobs)job.run_id=124;return jobs;}
+      return {...f.run(),id:124};
+    };
+    assert.equal(proof.runId,'124');const opts={...f.opts,metadata};
+    await publicationCommand('stage',opts);const start=f.writes.length;await publicationCommand('bootstrap',opts);assert.equal(f.writes.length,start);
+    await publicationCommand('promote',opts);assert.deepEqual(f.writes.slice(start),[POINTER]);await publicationCommand('verify',opts);
   }finally{await f.cleanup();}
 });
-test('unknown branch/run or mutated artifact, recipe, previous plan or complete backup refuses any release write',async()=>{
-  for(const kind of ['branch','run','artifact','recipe','previous','backup']){
-    const f=await fixture();try{
-      const opts={root:f.root,env:f.env,store:f.store,runner:f.runner};await publicationCommand('prepare',opts);
+test('branch, run, artifact, committed recipe, transitive helper, previous plan and backup drift refuse release writes',async()=>{
+  for(const kind of ['branch','run','artifact','recipe','worker_verifier','readiness','helper','previous','backup']){
+    const f=await commandFixture();try{
+      await f.prepare();const opts={...f.opts};
       if(kind==='branch')opts.env={...f.env,GITHUB_REF:'refs/heads/unapproved'};
       if(kind==='run')opts.env={...f.env,GITHUB_RUN_ID:'999'};
       if(kind==='artifact')await writeFile(join(f.root,'dist/assets/app.js'),'changed');
       if(kind==='recipe')await writeFile(join(f.root,'scripts/static-release-loader.js'),'changed');
+      if(kind==='worker_verifier')await writeFile(join(f.root,'scripts/worker-release-identity.mjs'),'changed');
+      if(kind==='readiness')await writeFile(join(f.root,'scripts/check-jarvis-api.mjs'),'changed');
+      if(kind==='helper')await writeFile(join(f.root,'.jarvis-source/tests/helpers/indirect.js'),'changed');
       if(kind==='previous'){
         const file=join(f.root,'.publication/previous/canonical/index.html'),bytes=Buffer.from('changed previous document'),planPath=join(f.root,'.publication/previous/plan.json');
-        await writeFile(file,bytes);const plan=JSON.parse(await readFile(planPath));
-        Object.assign(plan.canonical.find(item=>item.path==='index.html'),{bytes:bytes.length,sha256:sha256(bytes)});
-        await writeFile(planPath,JSON.stringify(plan));
+        await writeFile(file,bytes);const plan=JSON.parse(await readFile(planPath));Object.assign(plan.canonical.find(item=>item.path==='index.html'),{bytes:bytes.length,sha256:sha256(bytes)});await writeFile(planPath,JSON.stringify(plan));
       }
       if(kind==='backup')await writeFile(join(f.root,'rollback/files/assets/app.js'),'changed');
-      await assert.rejects(publicationCommand('stage',opts));assert.equal(f.writes.length,0);
+      await assert.rejects(publicationCommand('stage',opts));assert.equal(f.writes.length,0,kind);
     }finally{await f.cleanup();}
   }
 });
-test('manual resume requires exact action approval and isolates fresh readiness from provider credentials',async()=>{
-  const f=await fixture();try{
-    const opts={root:f.root,env:f.env,store:f.store,runner:f.runner};await publicationCommand('prepare',opts);
-    const context=JSON.parse(await readFile(join(f.root,'.publication/context.json'))),candidate={plan:JSON.parse(await readFile(join(f.root,'.publication/candidate/plan.json')))},previous={plan:JSON.parse(await readFile(join(f.root,'.publication/previous/plan.json')))},expected=JSON.parse(await readFile(join(f.root,'.publication/expected-pointer.json')));
-    const approval={schema:1,action:'resume',account:'missionarytube',container:'$web',releaseId:context.releaseId,previousReleaseId:context.previousReleaseId,artifactDigest:context.artifactDigest,backupDigest:context.backupDigest,backendIdentityDigest:context.backendIdentityDigest,expectedPointer:expected};
-    for(const change of [{action:'rollback'},{account:'other'},{releaseId:'b'.repeat(64)},{artifactDigest:'b'.repeat(64)}])assert.throws(()=>checkedActionApproval({...approval,...change},{action:'resume',context,candidate,previous,expected}));
-    await assert.rejects(publicationCommand('resume',opts),/approval/);assert.equal(f.writes.length,0);
-    await publicationCommand('resume',{...opts,approval});
+test('missing, stale or unexecuted pair proof stops every forward provider-write command',async()=>{
+  for(const command of ['stage','bootstrap','promote'])for(const change of ['missing','schema','pending','producer','stamp','activation']){
+    const f=await commandFixture();try{
+      await f.prepare();const proofPath=join(f.root,'.publication/rollback-compatibility.json');
+      if(change==='missing')await rm(proofPath);
+      if(['schema','pending'].includes(change)){
+        const proof=JSON.parse(await readFile(proofPath));proof.record.bindings[change==='schema'?'schemaInputsDigest':'pendingRuntimeDigest']='f'.repeat(64);proof.pairDigest=sha256(proof.record);await writeFile(proofPath,JSON.stringify(proof));
+      }
+      const metadata=async url=>{if(!url.includes('/jobs?'))return f.metadata(url);const jobs=f.jobs();
+        if(change==='producer')jobs.jobs[0].conclusion='failure';if(change==='stamp')jobs.jobs[0].steps[1].name='verified-recovery-pair-'+ 'f'.repeat(64);
+        if(change==='activation')jobs.jobs[1].steps[1].name='verified-release-backend-'+ 'f'.repeat(64);return jobs;};
+      await assert.rejects(publicationCommand(command,{...f.opts,metadata}));assert.equal(f.writes.length,0,command+' '+change);
+    }finally{await f.cleanup();}
+  }
+});
+test('manual resume requires exact approval and isolates fresh readiness from all provider credentials',async()=>{
+  const f=await commandFixture();try{
+    await f.prepare();f.finish('cancelled');const approval=await f.approve('resume'),inputs=await preservedPublication(f.opts),expected=approval.expectedPointer;
+    for(const change of [{action:'rollback'},{account:'other'},{releaseId:'b'.repeat(64)},{artifactDigest:'b'.repeat(64)}])assert.throws(()=>checkedActionApproval({...approval,...change},{action:'resume',...inputs,expected}));
+    await assert.rejects(publicationCommand('resume',f.opts),/approval/);assert.equal(f.writes.length,0);
+    await publicationCommand('resume',{...f.opts,env:{...f.env,GITHUB_RUN_ID:'999'},approval});
     const lane=f.calls.find(call=>call.args.some(arg=>arg.endsWith('/scripts/verify-podcasts.mjs')));assert.ok(lane);
     assert.equal(lane.env.CLOUDFLARE_API_TOKEN,undefined);assert.equal(lane.env.CLOUDFLARE_ACCOUNT_ID,undefined);assert.ok(lane.env.HOME.startsWith(join(f.root,'.publication/readiness-')));
   }finally{await f.cleanup();}
 });
-test('a rollback needs an exact successful immutable pair stamp, not a file asserting compatibility',()=>{
-  const previous={plan:{releaseId:'a'.repeat(64)}},context={backendIdentityDigest:'b'.repeat(64),orchestration:'c'.repeat(40)},pair={schema:1,previousReleaseId:previous.plan.releaseId,backendIdentityDigest:context.backendIdentityDigest,schemaBackwardCompatible:true,pendingWorkCompatible:true,exactPairQualified:true};
-  const recipe=[{path:'.github/workflows/deploy-azure-storage.yml',sha:'d'.repeat(40)}],tree={truncated:false,tree:recipe.map(entry=>({...entry,type:'blob'}))};
-  const proof={pair,pairDigest:sha256(pair),recipe,orchestration:context.orchestration,runId:'123',attempt:'1'},repo={full_name:'braydenparker000/Missionarytube-'};
-  const run={id:123,run_attempt:1,repository:repo,head_repository:repo,head_sha:proof.orchestration,status:'completed',conclusion:'success',event:'push',head_branch:'main',path:'.github/workflows/deploy-azure-storage.yml'};
-  const jobs={total_count:1,jobs:[{run_id:123,run_attempt:1,head_sha:proof.orchestration,status:'completed',conclusion:'success',steps:[{name:'verified-recovery-pair-'+proof.pairDigest,status:'completed',conclusion:'success'}]}]};
-  const opts={previous,context,run,jobs,tree,recipe};checkedRollbackPair(proof,opts);
-  for(const change of [{conclusion:'failure'},{head_sha:'d'.repeat(40)},{run_attempt:2},{head_repository:{...repo,fork:true}},{event:'pull_request'}])assert.throws(()=>checkedRollbackPair(proof,{...opts,run:{...run,...change}}));
-  assert.throws(()=>checkedRollbackPair(pair,opts));
-  assert.throws(()=>checkedRollbackPair({...proof,pair:{...pair,pendingWorkCompatible:false}},opts));
-  assert.throws(()=>checkedRollbackPair(proof,{...opts,jobs:{...jobs,total_count:2}}));
-  assert.throws(()=>checkedRollbackPair(proof,{...opts,jobs:{total_count:1,jobs:[{...jobs.jobs[0],steps:[]}]}}));
-  assert.throws(()=>checkedRollbackPair(proof,{...opts,tree:{...tree,truncated:true}}));
-  assert.throws(()=>checkedRollbackPair(proof,{...opts,tree:{...tree,tree:[{...tree.tree[0],sha:'f'.repeat(40)}]}}));
+test('full approved rollback and previous-target verification survive a failed or cancelled later deployment',async()=>{
+  for(const conclusion of ['failure','cancelled'])for(const lostResponse of [false,true]){
+    const f=await commandFixture();try{
+      const prepared=await f.prepare();for(const command of ['stage','bootstrap','promote'])await publicationCommand(command,f.opts);
+      f.finish(conclusion);await publicationCommand('inspect',f.opts);const approval=await f.approve('rollback'),opts={...f.opts,env:{...f.env,GITHUB_RUN_ID:'999'},approval};
+      const start=f.writes.length;if(lostResponse){f.interrupt(start,true);await assert.rejects(publicationCommand('rollback',opts),/after provider commit/);f.interrupt(Infinity);}
+      const selected=await publicationCommand('rollback',opts);assert.equal(selected.releaseId,prepared.previousReleaseId);assert.equal(selected.reconciled,lostResponse);
+      assert.deepEqual(f.writes.slice(start),[POINTER]);
+      const verified=await publicationCommand('verify',{...f.opts,verifyTarget:'previous'});assert.equal(verified.releaseId,prepared.previousReleaseId);
+      assert.equal((await publicationCommand('verify',f.opts)).releaseId,prepared.previousReleaseId);
+      const state=JSON.parse(await readFile(join(f.root,'.publication/state.json')));assert.equal(state.phase,'verified');assert.equal(state.releaseId,prepared.previousReleaseId);
+      await assert.rejects(publicationCommand('verify',{...f.opts,verifyTarget:'candidate'}),/verification target/);
+    }finally{await f.cleanup();}
+  }
+});
+test('foreign, malformed, wrong-MIME and later pointers cannot be inspected or approved over with an old checkpoint',async()=>{
+  for(const kind of ['foreign','malformed','mime','later']){
+    const f=await commandFixture();try{
+      await f.prepare();for(const command of ['stage','bootstrap','promote'])await publicationCommand(command,f.opts);f.finish('failure');
+      await publicationCommand('inspect',f.opts);const approval=await f.approve('rollback'),start=f.writes.length;
+      const item=f.blobs.get(POINTER);if(kind==='mime')item.contentType='text/plain';else item.bytes=Buffer.from(kind==='malformed'?'{':JSON.stringify({schema:1,releaseId:'f'.repeat(64),prefix:'/_jarvis/releases/'+ 'f'.repeat(64)+'/'}));
+      item.etag='"later-release"';await assert.rejects(publicationCommand('inspect',f.opts),/malformed, foreign or a later/);
+      await assert.rejects(publicationCommand('rollback',{...f.opts,approval}),/malformed, foreign or a later/);assert.equal(f.writes.length,start);
+      await assert.rejects(publicationCommand('stage',f.opts),/malformed, foreign or a later/);assert.equal(f.writes.length,start);
+    }finally{await f.cleanup();}
+  }
+});
+test('bootstrap never adopts a pointer changed during installation or after final verification',async()=>{
+  for(const late of [false,true]){
+    const f=await commandFixture();try{
+      await f.prepare();await publicationCommand('stage',f.opts);const originalGet=f.store.get,originalPut=f.store.put;let pointerReads=0;
+      const foreign=()=>f.blobs.set(POINTER,{bytes:Buffer.from('{"foreign":true}\n'),contentType:mimeFor(POINTER),etag:'"foreign"'});
+      if(late)f.store.get=async key=>{if(key===POINTER&&++pointerReads===4)foreign();return originalGet(key);};
+      else f.store.put=async(...args)=>{await originalPut(...args);if(args[0]==='index.html')foreign();};
+      await assert.rejects(publicationCommand('bootstrap',f.opts),/pointer|foreign/i);
+      const expected=JSON.parse(await readFile(join(f.root,'.publication/expected-pointer.json')));assert.equal(expected.etag,null);
+      const start=f.writes.length;await assert.rejects(publicationCommand('promote',f.opts));assert.equal(f.writes.length,start);
+    }finally{await f.cleanup();}
+  }
+});
+test('hosted proof requires ordered successful independent producer and activation stamps at the original head',async()=>{
+  const f=await commandFixture();try{
+    await f.prepare();f.finish('failure');const inputs=await preservedPublication(f.opts),contracts=await rollbackPairContracts({...inputs,root:f.root}),proof=await f.pair();
+    const opts={...inputs,contracts,currentBackend:f.currentBackend,run:f.run(),jobs:f.jobs(),tree:f.tree,recipe:f.backend.candidate.recipe};
+    assert.equal(checkedRollbackPair(proof,opts),true);
+    for(const change of [{head_sha:'d'.repeat(40)},{run_attempt:2},{head_repository:{full_name:f.env.GITHUB_REPOSITORY,fork:true}},{event:'pull_request'},{status:'in_progress',conclusion:null}])assert.throws(()=>checkedRollbackPair(proof,{...opts,run:{...opts.run,...change}}));
+    assert.throws(()=>checkedRollbackPair({...proof,record:{...proof.record,evidence:{schemaBackwardCompatible:true,pendingWorkCompatible:true}}},opts));
+    for(const field of ['schemaInputsDigest','pendingRuntimeDigest','runtimeRecipeDigest','artifactDigest','backupDigest','backendDigest']){
+      const changed=structuredClone(proof);changed.record.bindings[field]='f'.repeat(64);changed.pairDigest=sha256(changed.record);assert.throws(()=>checkedRollbackPair(changed,opts),field);
+    }
+    for(const mutate of [jobs=>jobs.total_count++,jobs=>jobs.jobs[0].steps.reverse().forEach((step,index)=>step.number=index+1),jobs=>jobs.jobs[0].steps[0].conclusion='failure',jobs=>jobs.jobs[1].steps.pop()]){
+      const jobs=f.jobs();mutate(jobs);assert.throws(()=>checkedRollbackPair(proof,{...opts,jobs}));
+    }
+    assert.throws(()=>checkedRollbackPair(proof,{...opts,currentBackend:{...f.currentBackend,live:{...f.currentBackend.live,settingsDigest:'f'.repeat(64)}}}));
+    assert.throws(()=>checkedRollbackPair(proof,{...opts,tree:{...f.tree,truncated:true}}));
+  }finally{await f.cleanup();}
 });

@@ -184,7 +184,8 @@ test('production has no Validate dependency or proof wait, and CI requires both 
   const deploy = readFileSync(new URL('../.github/workflows/deploy-azure-storage.yml', import.meta.url), 'utf8');
   const qualification = readFileSync(new URL('../.github/workflows/qualify-jarvis.yml', import.meta.url), 'utf8');
   const ci = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
-  assert.match(deploy, /\n  deploy:\n    needs: qualification\n/u);
+  assert.match(deploy, /\n  prewrite:\n    needs: qualification\n/u);
+  assert.match(deploy, /\n  deploy:\n    needs: \[qualification, prewrite, rollback-pair\]\n/u);
   assert.doesNotMatch(deploy + qualification, /partition-main-qualification|verify-main-qualification-producer|needs:.*(?:Validate|gate-owner|static-checks)/u);
   assert.match(ci, /timeout-minutes: 3/u);
   assert.match(ci, /needs\.gate-owner\.outputs\.qualification_verified != 'true'/u);

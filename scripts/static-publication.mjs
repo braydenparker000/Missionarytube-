@@ -113,6 +113,11 @@ export async function loadPublication(directory){
 }
 const normalizedMIME=type=>{const parts=(type||'').toLowerCase().split(';').map(p=>p.trim());if(parts.slice(1).some(p=>p.startsWith('charset=')&&!/^charset=(?:"?utf-8"?)$/.test(p)))return '';return parts[0]==='application/javascript'?'text/javascript':parts[0];};
 function matches(actual,bytes,type){return actual&&bytes&&normalizedMIME(actual.contentType)===normalizedMIME(type)&&actual.bytes.length===bytes.length&&sha256(actual.bytes)===sha256(bytes);}
+export function recognizedPointer(actual,{candidate,previous,allowMissing=false}){
+  if(!actual&&allowMissing)return null;
+  for(const [name,publication] of [['candidate',candidate],['previous',previous]])if(matches(actual,Buffer.from(JSON.stringify(publication.plan.pointer)+'\n'),mimeFor(POINTER)))return name;
+  throw Error('Active pointer is malformed, foreign or a later release; mutation refused');
+}
 export async function verifyRelease(publication,store,{canonical=false}={}){
   if(!matches(await store.get(ROOT+publication.plan.releaseId+'/'+RELEASE_MANIFEST),Buffer.from(JSON.stringify(publication.plan)+'\n'),mimeFor(RELEASE_MANIFEST)))throw Error('Immutable publication manifest differs');
   for(const [path,bytes] of publication.payload)if(!matches(await store.get(ROOT+publication.plan.releaseId+'/'+path),bytes,mimeFor(path)))throw Error('Immutable bytes or MIME differ');
@@ -151,7 +156,7 @@ export async function stageRelease(publication,store,{checkpoint=async()=>{}}={}
 export async function switchPointer(target,store,{expected,guard,checkpoint=async()=>{}}={}){
   await verifyRelease(target,store,{canonical:true});
   const bytes=Buffer.from(JSON.stringify(target.plan.pointer)+'\n'),live=await store.get(POINTER);
-  if(matches(live,bytes,mimeFor(POINTER))){await guard();return {phase:'selected',releaseId:target.plan.releaseId,reconciled:true};}
+  if(matches(live,bytes,mimeFor(POINTER))){await guard();await checkpoint({phase:'selected',releaseId:target.plan.releaseId});return {phase:'selected',releaseId:target.plan.releaseId,reconciled:true};}
   if(!expected||((live?.etag??null)!==expected.etag)||((live?sha256(live.bytes):null)!==expected.sha256))throw Error('Active pointer changed; mutation refused');
   await guard(); // Actual backend/config, sealed artifact, readiness and approvals.
   await store.put(POINTER,bytes,mimeFor(POINTER),live?{ifMatch:live.etag}:{ifNoneMatch:'*'});
@@ -181,4 +186,5 @@ export async function installLoaders(previous,candidate,store,{guard,checkpoint=
     await checkpoint({phase:'bootstrap',releaseId:previous.plan.releaseId});
   }
   await verifyRelease(previous,store,{canonical:true});
+  if(!matches(await store.get(POINTER),Buffer.from(JSON.stringify(previous.plan.pointer)+'\n'),mimeFor(POINTER)))throw Error('Previous pointer changed during canonical bootstrap');
 }

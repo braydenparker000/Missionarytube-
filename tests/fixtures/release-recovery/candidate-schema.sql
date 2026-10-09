@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS public_coordination_events (
     payload TEXT NOT NULL, provenance TEXT NOT NULL, recorded_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS public_coordination_request ON public_coordination_events(request_id, seq);
 CREATE INDEX IF NOT EXISTS public_coordination_attempt ON public_coordination_events(attempt_id);
+CREATE UNIQUE INDEX IF NOT EXISTS public_coordination_version ON public_coordination_events(request_id, attempt_id, result_version)
+    WHERE disposition='accepted' AND result_version IS NOT NULL;
 CREATE TABLE IF NOT EXISTS public_changes (
     seq INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, item_id TEXT NOT NULL,
     request_id TEXT, UNIQUE(kind,item_id));

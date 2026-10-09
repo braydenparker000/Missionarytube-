@@ -38,7 +38,8 @@ const classify = (paths, options = {}, input = {}) => classifyMainPush({
 
 test('reviewed path partition is exactly the existing Deploy list, with unchanged events and main branch', () => {
   assert.deepEqual(DEPLOY_PATHS, ['jarvis-release.json', 'scripts/*jarvis*.mjs',
-    'scripts/static-publication.mjs','scripts/static-release-loader.js','scripts/azure-static-store.mjs','scripts/release-recovery-plan.mjs','scripts/r2-player-config.mjs',
+    'scripts/static-publication.mjs','scripts/static-release-loader.js','scripts/azure-static-store.mjs','scripts/release-recovery-plan.mjs',
+    'scripts/rollback-pair-proof.mjs','scripts/rollback-pair-contracts.mjs','scripts/rollback-pair-runtime.mjs','scripts/r2-player-config.mjs',
     'tests/**', '*.html', 'assets/**', 'src/**', 'scripts/build.mjs', 'package.json', 'package-lock.json',
     '.github/workflows/deploy-azure-storage.yml']);
   const paths = deploy.slice(deploy.indexOf('    paths:\n'), deploy.indexOf('\npermissions:'))
@@ -60,7 +61,8 @@ test('push/main remains unfiltered; PR qualification and existing manual Deploy 
   assert.match(ci, /node-version: '22\.23\.3'/u);
   assert.match(ci, /if: \$\{\{ always\(\) && !cancelled\(\) && \(github\.event_name != 'push' \|\| needs\.gate-owner\.result != 'success' \|\| needs\.gate-owner\.outputs\.deploy_only != 'true' \|\| needs\.gate-owner\.outputs\.qualification_verified != 'true'\) \}\}/u);
   assert.match(ci, /static-checks:[\s\S]*uses: \.\/\.github\/workflows\/qualify-jarvis\.yml\n    permissions:\n      contents: read/u);
-  assert.match(deploy, /jobs:\n  qualification:\n    uses: \.\/\.github\/workflows\/qualify-jarvis\.yml\n    permissions:\n      contents: read\n  deploy:\n    needs: qualification/u);
+  assert.match(deploy, /jobs:\n  qualification:\n    uses: \.\/\.github\/workflows\/qualify-jarvis\.yml\n    permissions:\n      contents: read\n  prewrite:\n    needs: qualification/u);
+  assert.match(deploy, /  deploy:\n    needs: \[qualification, prewrite, rollback-pair\]/u);
   assert.match(qualification, /needs: \[plan, component, build\]/u);
   for (const name of ['PLAN', 'COMPONENT', 'BUILD']) assert.ok(qualification.includes(`test "$${name}_RESULT" = success`));
   for (const eventName of ['pull_request', 'workflow_dispatch', 'merge_group', undefined]) {
