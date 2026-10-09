@@ -6,25 +6,24 @@ import {execFileSync,spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {resolve,join,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {stageRelayClientDependencies} from '../scripts/stage-relay-client-dependencies.mjs';
+import {stageRelayCoreDependencies} from '../scripts/stage-relay-core-dependencies.mjs';
 import {artifactIdentity,fileManifest} from '../scripts/qualified-artifact.mjs';
 import {recognizedDeployTrigger,recognizedGatingRecipes,classifyMainPush} from '../scripts/partition-main-qualification.mjs';
-import {relayClientSource,relayClientRecipePath} from './helpers/relay-client-release-fixture.mjs';
 
 const repository=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const modules=['assets/relay-transfer.js','assets/relay-draft-store.js'];
-const importers=['assets/app.js','assets/quick-ai.js','assets/relay-owner-ui.js'];
+const modules=['assets/relay-transfer.js','assets/relay-draft-store.js','assets/public-coordination.js','assets/public-reader-cache.js'];
+const importers=['assets/app.js','assets/conversation.js','assets/relay-owner-ui.js'];
 const ORIGIN='https://missionarytube.z13.web.core.windows.net';
 const SECRET='FICTIONAL_PRIVATE_PROVIDER_BODY https://user:secret@private.invalid?token=not-real';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const git=(root,...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:'pipe'}).trim();
 async function fixture(){
   // Fictional storage and small sealed inventory, with the exact public module
-  // bytes from c85. This is neither an account backup nor a hosted artifact.
-  const root=await mkdtemp(join(tmpdir(),'relay-dependencies-'));
+  // bytes from the exact ordinary source. This is neither an account backup nor a hosted artifact.
+  const root=await mkdtemp(join(tmpdir(),'relay-core-dependencies-'));
   await mkdir(join(root,'scripts'));await mkdir(join(root,'dist/assets'),{recursive:true});
-  for(const path of ['jarvis-release.json','package-lock.json','scripts/build-jarvis.mjs'])await copyFile(join(repository,relayClientRecipePath(path)),join(root,path));
-  const source=await relayClientSource();
+  for(const path of ['jarvis-release.json','package-lock.json','scripts/build-jarvis.mjs'])await copyFile(join(repository,path),join(root,path));
+  const source=join(repository,'.jarvis-source');
   await symlink(source,join(root,'.jarvis-source'),'dir');
   await writeFile(join(root,'.gitignore'),'.jarvis-source\ndist/\nqualified-artifact.json\nconfigured-artifact.json\n');
   git(root,'init');git(root,'add','.');git(root,'-c','user.name=Fictional fixture','-c','user.email=fixture@example.test','commit','-m','fictional sealed staging');
@@ -62,7 +61,7 @@ async function fixture(){
   const api={root,env,old,storage,events,runner,fetcher,files,
     set failure(value){failUpload=value.failUpload??-1;loseUploadReply=value.loseUploadReply??-1;failRead=value.failRead??-1;responseOverride=value.responseOverride??null;},
     get counts(){return {uploads,reads,batches};},
-    async run(){await stageRelayClientDependencies({root,env,runner,fetcher});
+    async run(){await stageRelayCoreDependencies({root,env,runner,fetcher});
       // Represents the existing later batch. Assert dependency availability at
       // its actual entry boundary, before the first retained importer changes.
       for(const path of modules){const entry=storage.get(path),local=await readFile(join(root,'dist',path));
@@ -75,15 +74,15 @@ async function fixture(){
   };return api;
 }
 
-test('both sealed dependencies are uploaded and hash/MIME verified before any importer batch',async()=>{
+test('all four sealed dependencies are uploaded and hash/MIME verified before any importer batch',async()=>{
   const f=await fixture();try{
-    await f.run();assert.deepEqual(f.counts,{uploads:2,reads:2,batches:1});
-    assert.deepEqual(f.events,['upload:'+modules[0],'verify:'+modules[0],'upload:'+modules[1],'verify:'+modules[1],'batch']);
+    await f.run();assert.deepEqual(f.counts,{uploads:4,reads:4,batches:1});
+    assert.deepEqual(f.events,[...modules.flatMap(path=>['upload:'+path,'verify:'+path]),'batch']);
     assert.deepEqual(f.storage.get('index.html').bytes,f.old.get('index.html'));
   }finally{await f.cleanup();}
 });
 
-test('interruption and lost upload replies at dependency prefixes zero, one and two retain every old importer',async t=>{
+test('interruption and lost upload replies at every dependency prefix retain every old importer',async t=>{
   for(const [name,failure,prefix,counts] of [
     ['before first upload',{failUpload:0},0,{uploads:1,reads:0,batches:0}],
     ['first upload reply lost',{loseUploadReply:0},1,{uploads:1,reads:0,batches:0}],
@@ -91,6 +90,12 @@ test('interruption and lost upload replies at dependency prefixes zero, one and 
     ['before second upload',{failUpload:1},1,{uploads:2,reads:1,batches:0}],
     ['second upload reply lost',{loseUploadReply:1},2,{uploads:2,reads:1,batches:0}],
     ['second verification refused',{failRead:1},2,{uploads:2,reads:2,batches:0}],
+    ['before coordination upload',{failUpload:2},2,{uploads:3,reads:2,batches:0}],
+    ['coordination upload reply lost',{loseUploadReply:2},3,{uploads:3,reads:2,batches:0}],
+    ['coordination verification refused',{failRead:2},3,{uploads:3,reads:3,batches:0}],
+    ['before reader cache upload',{failUpload:3},3,{uploads:4,reads:3,batches:0}],
+    ['reader cache upload reply lost',{loseUploadReply:3},4,{uploads:4,reads:3,batches:0}],
+    ['reader cache verification refused',{failRead:3},4,{uploads:4,reads:4,batches:0}],
   ])await t.test(name,async()=>{
     const f=await fixture();try{
       f.failure=failure;await assert.rejects(f.run(),error=>error.message==='Relay dependency staging failed; no importer overwrite is authorized');
@@ -100,11 +105,11 @@ test('interruption and lost upload replies at dependency prefixes zero, one and 
   });
 });
 
-test('later explicit retry after a lost response verifies both modules before changing old importers',async()=>{
+test('later explicit retry after a lost response verifies all four modules before changing old importers',async()=>{
   const f=await fixture();try{
     f.failure={loseUploadReply:1};await assert.rejects(f.run());f.assertOriginal();
     f.failure={};await f.run();assert.equal(f.counts.batches,1);
-    assert.deepEqual(f.events.slice(-5),['upload:'+modules[0],'verify:'+modules[0],'upload:'+modules[1],'verify:'+modules[1],'batch']);
+    assert.deepEqual(f.events.slice(-9),[...modules.flatMap(path=>['upload:'+path,'verify:'+path]),'batch']);
   }finally{await f.cleanup();}
 });
 
@@ -144,19 +149,19 @@ test('source, target, configured seal and exact dependency drift refuse before a
 });
 
 test('workflow preserves all prewrite barriers, requires staging success, excludes dependencies from unordered batch and keeps full qualification',async()=>{
-  const flow=await readFile(join(repository,relayClientRecipePath('.github/workflows/deploy-azure-storage.yml')),'utf8');
+  const flow=await readFile(join(repository,'.github/workflows/deploy-azure-storage.yml'),'utf8');
   const ordered=['Verify actual live Worker identity','Join real podcast readiness and verified full rollback backup','Record the actual qualified active Worker',
     'Save rollback artifact before any overwrite','Verify sealed configured bytes immediately before staging',
-    'Upload and verify both Relay dependencies before importer overwrite','Stage Jarvis','Check every staged file','Revalidate actual backend identity','Promote Jarvis homepage'];
+    'Upload and verify all Relay dependencies before importer overwrite','Stage Jarvis','Check every staged file','Revalidate actual backend identity','Promote Jarvis homepage'];
   for(let i=1;i<ordered.length;i++)assert.ok(flow.indexOf(ordered[i-1])>=0&&flow.indexOf(ordered[i-1])<flow.indexOf(ordered[i]),ordered[i]);
-  const stage=flow.slice(flow.indexOf('      - name: Upload and verify both Relay dependencies'),flow.indexOf('      - name: Stage Jarvis'));
+  const stage=flow.slice(flow.indexOf('      - name: Upload and verify all Relay dependencies'),flow.indexOf('      - name: Stage Jarvis'));
   assert.match(stage,/STORAGE_ACCOUNT: \$\{\{ vars\.AZURE_STORAGE_ACCOUNT \}\}/);
-  assert.match(stage,/run: node scripts\/stage-relay-client-dependencies\.mjs/);assert.doesNotMatch(stage,/continue-on-error|always\(|\n\s+if:/);
+  assert.match(stage,/run: node scripts\/stage-relay-core-dependencies\.mjs/);assert.doesNotMatch(stage,/continue-on-error|always\(|\n\s+if:/);
   const batch=flow.slice(flow.indexOf('      - name: Stage Jarvis'),flow.indexOf('      - name: Check every staged file'));
-  assert.ok(batch.indexOf('rm upload/assets/relay-transfer.js upload/assets/relay-draft-store.js')<batch.indexOf('az storage blob upload-batch'));
+  assert.ok(batch.indexOf('rm upload/assets/relay-transfer.js upload/assets/relay-draft-store.js upload/assets/public-coordination.js upload/assets/public-reader-cache.js')<batch.indexOf('az storage blob upload-batch'));
   assert.match(batch,/rm upload\/index.html/);assert.match(batch,/--auth-mode login --destination '\$web' --source upload/);
   assert.match(batch,/--overwrite true --content-cache-control no-cache --only-show-errors/);
-  const qualification=await readFile(join(repository,relayClientRecipePath('.github/workflows/qualify-jarvis.yml')),'utf8');
+  const qualification=await readFile(join(repository,'.github/workflows/qualify-jarvis.yml'),'utf8');
   assert.equal(recognizedDeployTrigger(flow),true);assert.equal(recognizedGatingRecipes(flow,qualification),false);
   const before='a'.repeat(40),after='b'.repeat(40),event={ref:'refs/heads/main',repository:{full_name:'braydenparker000/Missionarytube-'},created:false,deleted:false,forced:false,before,after};
   const git=args=>args[0]==='rev-parse'?after+'\n':args[0]==='rev-list'?'1\n':args[0]==='diff'?'jarvis-release.json\0':'';
@@ -167,7 +172,7 @@ test('workflow preserves all prewrite barriers, requires staging success, exclud
 test('real stage entrypoint refuses unknown flags without invoking storage or public verification',()=>{
   const hook="globalThis.fetch=()=>{throw Error('Unexpected fictional HTTP');};";
   const result=spawnSync(process.execPath,['--import','data:text/javascript;base64,'+Buffer.from(hook).toString('base64'),
-    join(repository,'scripts/stage-relay-client-dependencies.mjs'),'--allow-unsealed'],{cwd:repository,encoding:'utf8',timeout:10000,maxBuffer:65536,env:{PATH:process.env.PATH}});
+    join(repository,'scripts/stage-relay-core-dependencies.mjs'),'--allow-unsealed'],{cwd:repository,encoding:'utf8',timeout:10000,maxBuffer:65536,env:{PATH:process.env.PATH}});
   assert.equal(result.status,1);assert.equal(result.stdout,'');
   assert.equal(result.stderr,'Relay dependency staging failed; no importer overwrite is authorized\n');
 });

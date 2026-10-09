@@ -147,7 +147,6 @@ jobs:
           ref: ${{ needs.plan.outputs.source }}
           path: .jarvis-source
           persist-credentials: false
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ needs.plan.outputs.node22 }}

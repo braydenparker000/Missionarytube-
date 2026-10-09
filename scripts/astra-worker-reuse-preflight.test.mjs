@@ -112,7 +112,8 @@ test('current branch pin, recipes, cleanliness and exact three-file scope are ch
       await mkdir(dirname(join(root,path)),{recursive:true});
       await writeFile(join(root,path),await readFile(path==='jarvis-release.json'?historicalPin:
         path==='scripts/worker-release-identity.mjs'?historicalIdentity:
-        path==='.github/workflows/deploy-azure-storage.yml'?historicalWorkflow:join(repository,path)));
+        path==='.github/workflows/deploy-azure-storage.yml'?historicalWorkflow:
+        path==='.github/workflows/qualify-jarvis.yml'?join(repository,'scripts/release-identities/relay-client-approved-qualify-jarvis.yml'):join(repository,path)));
     }
     run('add','.');run('-c','user.name=Fictional fixture','-c','user.email=fixture@example.test','commit','-m','fictional predecessor');
     const predecessor=run('rev-parse','HEAD');

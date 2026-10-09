@@ -1,22 +1,27 @@
 {
   "repository": "braydenparker999/jarvis",
-  "commit": "ccf1064764ba00451864023f494a0204564b1478",
+  "commit": "c85a42d2bea5d12d576ac84080660a34f11732c4",
   "storageOrigin": "https://missionarytube.z13.web.core.windows.net",
   "apiOrigin": "https://jarvis-hub-api.braydenparker999.workers.dev",
   "r2ManifestURL": "https://jarvis-hub-api.braydenparker999.workers.dev/music/library.json",
   "preserveDriveCatalog": true,
   "deployPodcastWorker": true,
-  "workerDeploymentPolicy": {
+  "workerReusePolicy": {
     "schema": 1,
-    "mode": "full-release",
+    "mode": "reuse-only",
+    "reference": {
+      "source": "f999581aa979712b4b63a6783b7c56842fedb6a1",
+      "orchestration": "9c01243ad03b921a0b0614d5eb003944a2807a6c",
+      "backendDigest": "2b9daec99e498c7c43f658ca1898f09dc6fed83b92f87a3b82e77ee32cb128b5"
+    },
     "recipe": [
       {
         "path": ".github/workflows/deploy-azure-storage.yml",
-        "sha": "2cfcb06c867dc6319ef53ac07c0c536bea1003cd"
+        "sha": "7d432d404df59ef67551e8b613d6eb0201229d99"
       },
       {
         "path": ".github/workflows/qualify-jarvis.yml",
-        "sha": "9c0f1cf9fa55b09c3f747c013bb3e1bbecbfa2ce"
+        "sha": "f4bc1df3cd797c9517342d58d404f5ef1e2ec45b"
       },
       {
         "path": "scripts/plan-jarvis-qualification.mjs",
@@ -57,14 +62,6 @@
       {
         "path": "scripts/stage-relay-client-dependencies.mjs",
         "sha": "9042927b9373dcec2c76a9be6e66e612a492f1fd"
-      },
-      {
-        "path": "scripts/relay-worker-release-identity.mjs",
-        "sha": "b5cca7c2cc59caca4711794b9db8fe943b3b1a2d"
-      },
-      {
-        "path": "scripts/stage-relay-core-dependencies.mjs",
-        "sha": "b11495eca3f6ef89987e96e185f2828059fc58e8"
       }
     ]
   }

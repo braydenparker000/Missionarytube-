@@ -34,9 +34,9 @@ test('immutable artifact is built once and verified before any provider credenti
 });
 test('backend stays serialized and its actual identity is rechecked before homepage promotion',()=>{
   assert.match(production,/group: jarvis-worker-production\n      cancel-in-progress: false/);
-  const backend=production.indexOf('node scripts/worker-release-identity.mjs verify'),promotion=production.indexOf('name: Promote Jarvis homepage');
+  const backend=production.indexOf('node scripts/relay-worker-release-identity.mjs verify'),promotion=production.indexOf('name: Promote Jarvis homepage');
   assert.ok(backend>0&&backend<promotion);
   assert.ok(production.indexOf('Save rollback artifact before any overwrite')<production.indexOf('Stage Jarvis'));
   assert.ok(production.indexOf('Check every staged file')<promotion);
-  assert.ok(production.indexOf('node scripts/worker-release-identity.mjs receipt')>production.indexOf("--test-name-pattern='live podcast discovery'"));
+  assert.ok(production.indexOf('node scripts/relay-worker-release-identity.mjs receipt')>production.indexOf("--test-name-pattern='live podcast discovery'"));
 });
