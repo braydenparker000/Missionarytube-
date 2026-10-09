@@ -24,14 +24,16 @@ async function lockedNativeTools(workspace,manifests,t){
     assert.match(entry.integrity,/^sha512-[A-Za-z0-9+/]+=*$/);
   }
   const applicable=(values,value)=>!values||(!values.includes('!'+value)&&(values.includes(value)||values.every(item=>item.startsWith('!'))));
-  const exact=async directory=>{
+  const inspect=async directory=>{
+    const missing=[],mismatched=[];let optionalOnly=true;
     for(const [path,entry] of packages){
       if(!applicable(entry.os,process.platform)||!applicable(entry.cpu,process.arch))continue;
-      try{if(JSON.parse(await readFile(join(directory,path,'package.json'),'utf8')).version!==entry.version)return false;}
-      catch(error){if(error.code==='ENOENT')return false;throw error;}
+      try{if(JSON.parse(await readFile(join(directory,path,'package.json'),'utf8')).version!==entry.version)mismatched.push(path);}
+      catch(error){if(error.code!=='ENOENT')throw error;missing.push(path);optionalOnly&&=entry.optional===true;}
     }
-    return true;
+    return {complete:!missing.length&&!mismatched.length,missing,mismatched,retryable:missing.length>0&&optionalOnly&&!mismatched.length};
   };
+  const exact=async directory=>(await inspect(directory)).complete;
   // Only a complete physical source installation can be reused. Resolution
   // through the orchestration parent would select its different esbuild lock.
   if(await exact(source)){t.diagnostic('Reused exact source-locked native fixture tooling');return join(source,'node_modules');}
@@ -51,13 +53,28 @@ async function lockedNativeTools(workspace,manifests,t){
   }
   for(const key of ['NO_PROXY','NODE_EXTRA_CA_CERTS','SSL_CERT_FILE','SSL_CERT_DIR'])if(process.env[key])env[key]=process.env[key];
   Object.assign(env,{PATH:dirname(process.execPath)+delimiter+(env.PATH||''),CI:'true',NO_UPDATE_NOTIFIER:'1'});
-  try{
-    await execute('npm',['ci','--ignore-scripts','--include=dev','--include=optional','--no-audit','--no-fund','--progress=false',
-      '--userconfig',userConfig,'--globalconfig',globalConfig,'--registry','https://registry.npmjs.org','--cache',join(tools,'cache'),
-      '--fetch-retries=0','--fetch-timeout=10000'],{cwd:tools,env,timeout:20000,maxBuffer:64*1024});
-  }catch(error){
-    const reason=error.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER'?'output limit':error.killed?'timeout':Number.isInteger(error.code)?'exit '+error.code:'launch failure';
-    throw Error('Source-locked native fixture tooling bootstrap failed ('+reason+')');
+  const deadline=performance.now()+20000;let outputRemaining=64*1024;
+  for(let attempt=0;attempt<2;attempt++){
+    for(const [path,contents] of manifests)assert.ok(await readFile(join(tools,path),'utf8')===contents,'Bootstrap must preserve the exact candidate manifests before each install');
+    const remaining=Math.floor(deadline-performance.now());
+    if(remaining<=0)throw Error('Source-locked native fixture tooling bootstrap failed (timeout)');
+    if(outputRemaining<2)throw Error('Source-locked native fixture tooling bootstrap failed (output limit)');
+    try{
+      const result=await execute('npm',['ci','--ignore-scripts','--include=dev','--include=optional','--no-audit','--no-fund','--progress=false',
+        '--userconfig',userConfig,'--globalconfig',globalConfig,'--registry','https://registry.npmjs.org','--cache',join(tools,'cache'),
+        '--fetch-retries=0','--fetch-timeout='+Math.min(10000,remaining)],{cwd:tools,env,timeout:remaining,maxBuffer:Math.floor(outputRemaining/2)});
+      outputRemaining-=Buffer.byteLength(result.stdout)+Buffer.byteLength(result.stderr);
+    }catch(error){
+      const reason=error.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER'?'output limit':error.killed?'timeout':Number.isInteger(error.code)?'exit '+error.code:'launch failure';
+      throw Error('Source-locked native fixture tooling bootstrap failed ('+reason+')');
+    }
+    const inventory=await inspect(tools);
+    if(inventory.complete)break;
+    t.diagnostic('Incomplete source-locked native fixture tooling: '+JSON.stringify({missing:inventory.missing,mismatched:inventory.mismatched}));
+    if(attempt||!inventory.retryable)break;
+    // npm may return success after omitting a failed optional download. One
+    // repeat uses the same cache and the remaining total time/output budgets.
+    t.diagnostic('Retrying an incomplete optional source-locked native fixture tooling installation');
   }
   for(const [path,contents] of manifests)assert.equal(await readFile(join(tools,path),'utf8'),contents,'Bootstrap must preserve the exact candidate manifests');
   assert.equal(await exact(tools),true,'Bootstrap must install the exact applicable locked packages');
