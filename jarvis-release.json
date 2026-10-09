@@ -60,11 +60,11 @@
       },
       {
         "path": "scripts/relay-worker-release-identity.mjs",
-        "sha": "4fc6af1d207f127d11728aadcfef7ca634357531"
+        "sha": "b37fce80a74f97461654fcee97bcc8b222eb9f8a"
       },
       {
         "path": "scripts/stage-relay-core-dependencies.mjs",
-        "sha": "f935cd3d96786d678e9d2cdcd3deac93758c638a"
+        "sha": "86b39f1d72640fccea3382552a1a73c4116827b5"
       }
     ]
   }
