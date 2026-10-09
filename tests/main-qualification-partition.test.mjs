@@ -14,7 +14,7 @@ const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'
 // intentionally remains unknown and gets full qualification in the stage tests.
 const deploy = read('scripts/release-identities/astra-approved-deploy-azure-storage.yml');
 const ci = read('.github/workflows/ci.yml');
-const qualification = read('.github/workflows/qualify-jarvis.yml');
+const qualification = read('scripts/release-identities/relay-client-approved-qualify-jarvis.yml');
 const before = 'a'.repeat(40), after = 'b'.repeat(40);
 const event = () => ({ ref: 'refs/heads/main', repository: { full_name: 'braydenparker000/Missionarytube-' },
   created: false, deleted: false, forced: false, before, after });

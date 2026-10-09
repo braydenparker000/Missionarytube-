@@ -6,6 +6,7 @@ import {join,dirname,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync,spawnSync} from 'node:child_process';
 import {checkedWorkerReuseOnlyPolicy,checkedReuse,planWorkerReuseOnly,receiptDigest,settingsDigest,liveIdentity} from '../scripts/worker-release-identity.mjs';
+import {relayClientSource,relayClientRecipePath} from './helpers/relay-client-release-fixture.mjs';
 
 const repository=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const SOURCE='c85a42d2bea5d12d576ac84080660a34f11732c4';
@@ -15,12 +16,12 @@ const git=(root,...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8
 const commit=root=>{git(root,'add','.');git(root,'-c','user.name=Fictional fixture','-c','user.email=fixture@example.test','commit','-m','fictional guarded recipe');};
 async function fixture(){
   const root=await mkdtemp(join(tmpdir(),'relay-reuse-only-'));
-  const release=JSON.parse(await readFile(join(repository,'jarvis-release.json'),'utf8'));
-  for(const {path} of release.workerReusePolicy.recipe){await mkdir(dirname(join(root,path)),{recursive:true});await copyFile(join(repository,path),join(root,path));}
+  const release=JSON.parse(await readFile(join(repository,relayClientRecipePath('jarvis-release.json')),'utf8'));
+  for(const {path} of release.workerReusePolicy.recipe){await mkdir(dirname(join(root,path)),{recursive:true});await copyFile(join(repository,relayClientRecipePath(path)),join(root,path));}
   await copyFile(join(repository,'scripts/relay-owner-gate.mjs'),join(root,'scripts/relay-owner-gate.mjs'));
   await writeFile(join(root,'jarvis-release.json'),JSON.stringify(release,null,2)+'\n');
   await writeFile(join(root,'.gitignore'),'.jarvis-source/\nworker-identity-before.json\noutputs\nmock-fetch.mjs\nreads.json\n');
-  await symlink(join(repository,'.jarvis-source'),join(root,'.jarvis-source'),'dir');
+  await symlink(await relayClientSource(),join(root,'.jarvis-source'),'dir');
   git(root,'init');commit(root);
   // Fictional declaration of the exact independently reviewed backend identity.
   // Native backend closure equality is separate; no live configuration is copied.

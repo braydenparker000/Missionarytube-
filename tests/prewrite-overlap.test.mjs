@@ -250,7 +250,7 @@ test('workflow preserves credential, join, Worker recording and rollback upload 
 });
 test('reviewed workflow fingerprint keeps later ordinary dedup eligible while the overlap recipe rollout requires full qualification',async()=>{
   const deploy=await readFile(new URL('../scripts/release-identities/astra-approved-deploy-azure-storage.yml',import.meta.url),'utf8');
-  const qualification=await readFile(new URL('../.github/workflows/qualify-jarvis.yml',import.meta.url),'utf8');
+  const qualification=await readFile(new URL('../scripts/release-identities/relay-client-approved-qualify-jarvis.yml',import.meta.url),'utf8');
   assert.equal(GATE_RECIPE_SHA256['.github/workflows/deploy-azure-storage.yml'],createHash('sha256').update(deploy).digest('hex'));
   assert.equal(GATE_RECIPE_SHA256['.github/workflows/qualify-jarvis.yml'],'0a4957bf97acaa01ade5bd298128710e7c9ba1c882896f691d30a62a4067c6c3');
   assert.equal(recognizedGatingRecipes(deploy,qualification),true);
