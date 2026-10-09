@@ -1,9 +1,64 @@
 {
   "repository": "braydenparker999/jarvis",
-  "commit": "0751ef2e303389b21d3cdae8aceb44511ae0c782",
+  "commit": "c85a42d2bea5d12d576ac84080660a34f11732c4",
   "storageOrigin": "https://missionarytube.z13.web.core.windows.net",
   "apiOrigin": "https://jarvis-hub-api.braydenparker999.workers.dev",
   "r2ManifestURL": "https://jarvis-hub-api.braydenparker999.workers.dev/music/library.json",
   "preserveDriveCatalog": true,
-  "deployPodcastWorker": true
+  "deployPodcastWorker": true,
+  "workerReusePolicy": {
+    "schema": 1,
+    "mode": "reuse-only",
+    "reference": {
+      "source": "f999581aa979712b4b63a6783b7c56842fedb6a1",
+      "orchestration": "9c01243ad03b921a0b0614d5eb003944a2807a6c",
+      "backendDigest": "2b9daec99e498c7c43f658ca1898f09dc6fed83b92f87a3b82e77ee32cb128b5"
+    },
+    "recipe": [
+      {
+        "path": ".github/workflows/deploy-azure-storage.yml",
+        "sha": "33e98b0b3e82f6ff43b228d111bfcb5cd1d2f24c"
+      },
+      {
+        "path": ".github/workflows/qualify-jarvis.yml",
+        "sha": "f4bc1df3cd797c9517342d58d404f5ef1e2ec45b"
+      },
+      {
+        "path": "scripts/plan-jarvis-qualification.mjs",
+        "sha": "791835fc23006bcfed4e39a3fa774193f565dcdc"
+      },
+      {
+        "path": "scripts/install-jarvis-browser.mjs",
+        "sha": "6c409f044097fc6ad2460d48efa4d2a4c95685cc"
+      },
+      {
+        "path": "scripts/worker-release-identity.mjs",
+        "sha": "a10064dd4bcd26a7a2dfbee921bc0cf43088b741"
+      },
+      {
+        "path": "scripts/prepare-music-worker.mjs",
+        "sha": "825fee647eed7d583e77e02a6dbdf3fbc41d5887"
+      },
+      {
+        "path": "scripts/prepare-worker-tools.mjs",
+        "sha": "aab50340494d89066dcab9dda1a51a6b643e848b"
+      },
+      {
+        "path": "scripts/check-music-worker-bindings.mjs",
+        "sha": "3ef4f486a24037b8f8821e6e593a98b7cb902a78"
+      },
+      {
+        "path": "scripts/qualified-artifact.mjs",
+        "sha": "b1579ef43ecadb1a06577e0f13949450169090e7"
+      },
+      {
+        "path": "scripts/backup-jarvis-storage.mjs",
+        "sha": "6ab19a7dcb4966d3946332a950a46a103b240cee"
+      },
+      {
+        "path": "scripts/overlap-jarvis-prewrite.mjs",
+        "sha": "f9c52feacb60bd5f0894f90f741bd08075a2fe84"
+      }
+    ]
+  }
 }
