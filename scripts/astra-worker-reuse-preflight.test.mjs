@@ -5,11 +5,14 @@ import {tmpdir} from 'node:os';
 import {join,resolve,dirname} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {execFileSync,spawnSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 import {TARGET,RECIPES,authorizedContext,checkedCandidate,checkedPin,checkedConfiguration,trustedCandidate,
   sealedReaders,observeReuse} from './astra-worker-reuse-preflight.mjs';
 import {liveIdentity,findWorkerReuse,settingsDigest,receiptDigest} from './worker-release-identity.mjs';
 
 const repository=resolve(fileURLToPath(new URL('../',import.meta.url)));
+// Immutable public release identity bytes; provider response fixtures remain fictional.
+const historicalPin=new URL('./release-identities/astra-approved-jarvis-release.json',import.meta.url);
 const account='a'.repeat(32),token='fictional-preflight-token',version='12345678-1234-1234-1234-123456789abc';
 const privateText='FICTIONAL_PRIVATE_TEXT https://user:password@private.invalid/path?token=not-real';
 const candidate=()=>({schema:1,source:TARGET.source,orchestration:TARGET.orchestration,
@@ -64,7 +67,7 @@ test('candidate, complete pin bytes and prepared source configuration cannot dri
   for(const [key,value] of [['source','f'.repeat(40)],['orchestration','f'.repeat(40)],['backendDigest','f'.repeat(64)],
     ['backendReusable',false],['storageOrigin','https://private.invalid'],['apiOrigin','https://private.invalid'],['recipe',[]]])
     assert.throws(()=>checkedCandidate({...candidate(),[key]:value}),key);
-  const pin=await readFile(new URL('../jarvis-release.json',import.meta.url));
+  const pin=await readFile(historicalPin);
   checkedPin(pin);
   const release=JSON.parse(pin);
   for(const [key,value] of [['commit','f'.repeat(40)],['deployPodcastWorker',false],['repository','fork/repo'],['apiOrigin','https://private.invalid']])
@@ -87,6 +90,15 @@ test('forged or inherited checkout HEAD and symlink roots fail before importing 
   }finally{await rm(root,{recursive:true,force:true});}
 });
 
+test('historical positive pin fixture stays byte exact while the current integrated pin remains refused',async()=>{
+  const approved=await readFile(historicalPin),current=await readFile(new URL('../jarvis-release.json',import.meta.url));
+  assert.equal(createHash('sha256').update(approved).digest('hex'),'54fe5b2fbf39de05214955523feddfb2872a72b39e02752aa3f7eab1d46f690e');
+  assert.equal(JSON.parse(approved).commit,TARGET.source);checkedPin(approved);
+  if(!current.equals(approved))assert.throws(()=>checkedPin(current),'A changed current release cannot retarget the fixed historical observer');
+  const integrated=Buffer.from(approved.toString().replace(TARGET.source,'ed7bbd436689be3ac9cca1ab5f111341dd690b80'));
+  assert.throws(()=>checkedPin(integrated),'The actual integrated source pin stays outside the historical native gate');
+});
+
 test('current branch pin, recipes, cleanliness and exact three-file scope are checked before provider reads',async()=>{
   const directory=await mkdtemp(join(tmpdir(),'astra-preflight-current-')),root=join(directory,'checkout');
   const run=(...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:'pipe'}).trim();
@@ -96,7 +108,7 @@ test('current branch pin, recipes, cleanliness and exact three-file scope are ch
     await mkdir(root);run('init');
     for(const path of ['jarvis-release.json',...RECIPES.map(([path])=>path)]){
       await mkdir(dirname(join(root,path)),{recursive:true});
-      await writeFile(join(root,path),await readFile(join(repository,path)));
+      await writeFile(join(root,path),await readFile(path==='jarvis-release.json'?historicalPin:join(repository,path)));
     }
     run('add','.');run('-c','user.name=Fictional fixture','-c','user.email=fixture@example.test','commit','-m','fictional predecessor');
     const predecessor=run('rev-parse','HEAD');
