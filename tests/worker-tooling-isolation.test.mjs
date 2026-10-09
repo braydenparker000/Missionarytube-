@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,writeFile,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,readFile,chmod,rm} from 'node:fs/promises';
+import {spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {prepareWorkerTools,verifyWorkerTools,sourceDependencyIdentity} from '../scripts/prepare-worker-tools.mjs';
@@ -33,4 +34,29 @@ test('production action uses an isolated installer cwd and the same absolute qua
   assert.doesNotMatch(action,/workingDirectory: \.jarvis-source/);
   assert.match(action,/node scripts\/prepare-worker-tools\.mjs verify/);
   assert.ok(flow.indexOf('node scripts/prepare-worker-tools.mjs prepare')<flow.indexOf('uses: cloudflare/wrangler-action@v4'));
+});
+
+test('the shipped action pre-command stops on fresh authorization failure after installer setup',async()=>{
+  const flow=await readFile(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');
+  const match=flow.match(/          preCommands: >-\n((?:            [^\n]+\n)+)/);
+  assert.ok(match,'the action must supply its pre-command as one folded shell command');
+  const command=match[1].trim().split('\n').map(line=>line.trim()).join(' ');
+  const root=await mkdtemp(join(tmpdir(),'worker-action-pre-command-'));
+  try{
+    const bin=join(root,'bin'),cwd=join(root,'.worker-tools'),log=join(root,'calls');
+    await mkdir(bin);await mkdir(cwd);await mkdir(join(root,'.jarvis-source'));
+    await writeFile(join(bin,'node'),'#!/bin/sh\nprintf "guard %s\\n" "$PWD" >> "$MOCK_CALL_LOG"\nexit "$MOCK_GUARD_STATUS"\n');
+    await writeFile(join(bin,'npx'),'#!/bin/sh\nprintf "versions %s\\n" "$PWD" >> "$MOCK_CALL_LOG"\nprintf "[]\\n"\n');
+    await chmod(join(bin,'node'),0o700);await chmod(join(bin,'npx'),0o700);
+    const env={PATH:bin+':'+process.env.PATH,GITHUB_WORKSPACE:root,MOCK_CALL_LOG:log,MOCK_GUARD_STATUS:'19'};
+    const denied=spawnSync('/bin/sh',['-c',command],{cwd,env,encoding:'utf8'});
+    assert.equal(denied.error,undefined);assert.equal(denied.status,19);
+    assert.equal(await readFile(log,'utf8'),'guard '+root+'\n');
+    await assert.rejects(readFile(join(root,'.jarvis-source/worker-versions-before.json')),error=>error.code==='ENOENT');
+    await writeFile(log,'');
+    const permitted=spawnSync('/bin/sh',['-c',command],{cwd,env:{...env,MOCK_GUARD_STATUS:'0'},encoding:'utf8'});
+    assert.equal(permitted.error,undefined);assert.equal(permitted.status,0);
+    assert.equal(await readFile(log,'utf8'),'guard '+root+'\nversions '+cwd+'\n');
+    assert.deepEqual(JSON.parse(await readFile(join(root,'.jarvis-source/worker-versions-before.json'),'utf8')),[]);
+  }finally{await rm(root,{recursive:true,force:true});}
 });

@@ -7,6 +7,10 @@ on:
         value: ${{ jobs.plan.outputs.source }}
       node22:
         value: ${{ jobs.plan.outputs.node22 }}
+      node24:
+        value: ${{ jobs.plan.outputs.node24 }}
+      python:
+        value: ${{ jobs.plan.outputs.python }}
 
 permissions:
   contents: read
@@ -147,11 +151,19 @@ jobs:
           ref: ${{ needs.plan.outputs.source }}
           path: .jarvis-source
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ needs.plan.outputs.node22 }}
           cache: npm
       - run: npm ci
+      - name: Restore only the checksum-verified official browser archive for publication fixtures
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/jarvis-qualification-browser/chrome.zip
+          key: jarvis-browser-linux64-154.0.8037.97-487c3b0e89f786d9257a6265a29bacf18b893e90f29c0ef6f7be9706ecc8c7a2
+      - name: Select the exact qualified Chrome154 build for publication fixtures
+        run: node scripts/install-jarvis-browser.mjs
       - name: Validate deployment orchestration once
         run: npm test
       - name: Build the exact immutable frontend once

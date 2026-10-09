@@ -8,6 +8,13 @@ on:
     paths:
       - "jarvis-release.json"
       - "scripts/*jarvis*.mjs"
+      - "scripts/static-publication.mjs"
+      - "scripts/static-release-loader.js"
+      - "scripts/azure-static-store.mjs"
+      - "scripts/release-recovery-plan.mjs"
+      - "scripts/rollback-pair-proof.mjs"
+      - "scripts/rollback-pair-contracts.mjs"
+      - "scripts/rollback-pair-runtime.mjs"
       - "scripts/r2-player-config.mjs"
       - "tests/**"
       - "*.html"
@@ -31,7 +38,7 @@ jobs:
     uses: ./.github/workflows/qualify-jarvis.yml
     permissions:
       contents: read
-  deploy:
+  prewrite:
     needs: qualification
     if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
@@ -39,6 +46,8 @@ jobs:
     concurrency:
       group: jarvis-worker-production
       cancel-in-progress: false
+    outputs:
+      deploy_worker: ${{ steps.worker.outputs.deploy }}
     steps:
       - name: Check out exact orchestration
         uses: actions/checkout@v4
@@ -59,6 +68,7 @@ jobs:
           ref: ${{ steps.jarvis.outputs.commit }}
           path: .jarvis-source
           persist-credentials: false
+          fetch-depth: 0
       - name: Download this run's exact qualified frontend
         uses: actions/download-artifact@v4
         with:
@@ -82,23 +92,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: node scripts/worker-release-identity.mjs plan
-      - name: Prepare isolated Worker tooling without changing qualified dependencies
-        if: ${{ steps.jarvis.outputs.podcasts_enabled == 'true' && steps.worker.outputs.deploy == 'true' }}
-        run: node scripts/prepare-worker-tools.mjs prepare
-      - name: Deploy the exact qualified changed Worker with rollback checkpoint
-        if: ${{ steps.jarvis.outputs.podcasts_enabled == 'true' && steps.worker.outputs.deploy == 'true' }}
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.R2_ACCOUNT_ID }}
-          wranglerVersion: '4.136.3'
-          workingDirectory: .worker-tools
-          preCommands: npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/.jarvis-source/worker-versions-before.json"
-          command: deploy --config "${{ github.workspace }}/.jarvis-source/backend/wrangler.music.generated.json"
-          postCommands: npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/.jarvis-source/worker-versions-after.json"
-      - name: Verify installer left qualified source dependencies unchanged
-        if: ${{ steps.jarvis.outputs.podcasts_enabled == 'true' && steps.worker.outputs.deploy == 'true' }}
-        run: node scripts/prepare-worker-tools.mjs verify
       - name: Prepare public Quick AI keys
         env:
           QUICK_AI_GEMINI_KEY: ${{ secrets.QUICK_AI_GEMINI_KEY }}
@@ -130,26 +123,6 @@ jobs:
           STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
           AZCOPY_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: node scripts/overlap-jarvis-prewrite.mjs
-      - name: Record the actual qualified active Worker and configuration
-        if: steps.jarvis.outputs.podcasts_enabled == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        run: node scripts/worker-release-identity.mjs record
-      - name: Preserve podcast Worker rollback and exact identity information
-        if: ${{ always() && steps.jarvis.outputs.podcasts_enabled == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: podcast-worker-${{ github.run_id }}
-          path: |
-            .jarvis-source/worker-versions-before.json
-            .jarvis-source/worker-versions-after.json
-            .jarvis-source/backend/wrangler.music.generated.json
-            worker-bindings-before.json
-            worker-identity-before.json
-            worker-identity-current.json
-          if-no-files-found: warn
-          retention-days: 30
       - name: Save rollback artifact before any overwrite
         uses: actions/upload-artifact@v4
         with:
@@ -157,32 +130,222 @@ jobs:
           path: rollback/
           if-no-files-found: error
           retention-days: 90
-      - name: Install media preparation tool from Ubuntu packages
-        if: ${{ steps.jarvis.outputs.preserve_catalog != 'true' }}
-        run: |
-          if ! command -v ffmpeg > /dev/null; then
-            sudo apt-get update -qq
-            sudo apt-get install -y --no-install-recommends ffmpeg
-          fi
-          ffmpeg -version > /dev/null
-      - name: Publish a verified catalog before installing the v2 reader
-        if: ${{ steps.jarvis.outputs.preserve_catalog != 'true' }}
-        env:
-          GOOGLE_DRIVE_API_KEY: ${{ secrets.GOOGLE_DRIVE_API_KEY }}
-          AZURE_STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
-        run: node .jarvis-source/scripts/publish-drive-catalog.mjs
       - name: Verify sealed configured bytes immediately before staging
         run: node scripts/qualified-artifact.mjs verify-configured
-      - name: Stage Jarvis while keeping the current homepage
+      - name: Prepare immutable releases and a compatible canonical loader cutover
+        run: node scripts/publish-jarvis-versioned.mjs prepare
+      - name: Preserve sealed publication and original proof before release writes
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-before-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .publication/
+            dist/
+            configured-artifact.json
+            qualified-artifact.json
+            worker-identity-planned.json
+            worker-identity-before.json
+            worker-bindings-before.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+      - name: Sign out of Azure
+        if: ${{ always() && steps.azure_signin.outcome == 'success' }}
+        run: az logout
+
+  rollback-pair:
+    needs: [qualification, prewrite]
+    if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: ${{ needs.qualification.outputs.source }}
+          path: .jarvis-source
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ needs.qualification.outputs.node24 }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ needs.qualification.outputs.python }}
+      - run: npm --prefix .jarvis-source ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: publication-before-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: storage-before-${{ github.run_id }}-${{ github.run_attempt }}
+          path: rollback
+      - name: Reconstruct only the immutable local Worker configuration
+        run: node scripts/prepare-music-worker.mjs .jarvis-source
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/jarvis-qualification-browser/chrome.zip
+          key: jarvis-browser-linux64-154.0.8037.97-487c3b0e89f786d9257a6265a29bacf18b893e90f29c0ef6f7be9706ecc8c7a2
+      - name: Select the exact qualified Chrome154 build
+        run: node scripts/install-jarvis-browser.mjs
+      - name: Qualify the exact previous frontend and candidate backend pair
+        id: pair
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/qualify-jarvis-rollback-pair.mjs produce
+      - name: verified-recovery-pair-${{ steps.pair.outputs.digest }}
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          EXPECTED_PAIR_DIGEST: ${{ steps.pair.outputs.digest }}
+        run: node scripts/qualify-jarvis-rollback-pair.mjs verify-local
+      - name: Preserve the exact qualified rollback pair
+        uses: actions/upload-artifact@v4
+        with:
+          name: rollback-pair-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .publication/rollback-compatibility.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+
+  deploy:
+    needs: [qualification, prewrite, rollback-pair]
+    if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    concurrency:
+      group: jarvis-worker-production
+      cancel-in-progress: false
+    steps:
+      - name: Check out exact orchestration
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ needs.qualification.outputs.node22 }}
+      - name: Read pinned Jarvis revision
+        id: jarvis
         run: |
-          cp -a dist upload
-          rm upload/index.html
-          az storage blob upload-batch \
-            --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" \
-            --auth-mode login --destination '$web' --source upload \
-            --overwrite true --content-cache-control no-cache --only-show-errors
+          node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
+          node -p "'preserve_catalog=' + (require('./jarvis-release.json').preserveDriveCatalog === true)" >> "$GITHUB_OUTPUT"
+          node -p "'podcasts_enabled=' + (require('./jarvis-release.json').deployPodcastWorker === true)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: ${{ steps.jarvis.outputs.commit }}
+          path: .jarvis-source
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: publication-before-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: storage-before-${{ github.run_id }}-${{ github.run_attempt }}
+          path: rollback
+      - uses: actions/download-artifact@v4
+        with:
+          name: rollback-pair-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .publication
+      - name: Verify immutable artifact before provider credentials or changes
+        run: node scripts/qualified-artifact.mjs verify-configured
+      - name: Install locked dependencies for final live browser verification
+        run: npm --prefix .jarvis-source ci
+      - name: Reconstruct only the immutable local Worker configuration
+        run: node scripts/prepare-music-worker.mjs .jarvis-source
+      - name: Sign in to Azure with OIDC
+        id: azure_signin
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Verify the existing deployment target
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+        run: test "$STORAGE_ACCOUNT" = missionarytube
+      - name: Require independently completed prewrite proof before any provider change
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/qualify-jarvis-rollback-pair.mjs authorize-change
+      - name: Prepare isolated Worker tooling without changing qualified dependencies
+        if: ${{ steps.jarvis.outputs.podcasts_enabled == 'true' && needs.prewrite.outputs.deploy_worker == 'true' }}
+        run: node scripts/prepare-worker-tools.mjs prepare
+      - name: Deploy the exact qualified changed Worker with rollback checkpoint
+        if: ${{ steps.jarvis.outputs.podcasts_enabled == 'true' && needs.prewrite.outputs.deploy_worker == 'true' }}
+        uses: cloudflare/wrangler-action@v4
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.R2_ACCOUNT_ID }}
+          wranglerVersion: '4.136.3'
+          workingDirectory: .worker-tools
+          preCommands: >-
+            (cd "$GITHUB_WORKSPACE" && node scripts/qualify-jarvis-rollback-pair.mjs authorize-change) &&
+            npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/.jarvis-source/worker-versions-before.json"
+          command: deploy --config "${{ github.workspace }}/.jarvis-source/backend/wrangler.music.generated.json"
+          postCommands: npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/.jarvis-source/worker-versions-after.json"
+      - name: Verify installer left qualified source dependencies unchanged
+        if: ${{ steps.jarvis.outputs.podcasts_enabled == 'true' && needs.prewrite.outputs.deploy_worker == 'true' }}
+        run: node scripts/prepare-worker-tools.mjs verify
+      - name: Record the actual qualified active Worker and configuration
+        if: steps.jarvis.outputs.podcasts_enabled == 'true'
+        id: backend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/worker-release-identity.mjs record
+      - name: verified-release-backend-${{ steps.backend.outputs.digest }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          EXPECTED_BACKEND_IDENTITY_DIGEST: ${{ steps.backend.outputs.digest }}
+        run: node scripts/worker-release-identity.mjs verify
+      - name: Preserve the activated Worker checkpoint before frontend writes
+        uses: actions/upload-artifact@v4
+        with:
+          name: podcast-worker-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .jarvis-source/worker-versions-before.json
+            .jarvis-source/worker-versions-after.json
+            .jarvis-source/backend/wrangler.music.generated.json
+            worker-bindings-before.json
+            worker-identity-before.json
+            worker-identity-planned.json
+            worker-identity-current.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+      - name: Stage Jarvis while keeping the current homepage
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publish-jarvis-versioned.mjs stage
       - name: Check every staged file and directory route
-        run: node scripts/check-jarvis-static.mjs
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+        run: node scripts/publish-jarvis-versioned.mjs check-staged
+      - name: Install or verify canonical loaders while the previous release stays selected
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publish-jarvis-versioned.mjs bootstrap
       - name: Require working backend for the Storage origin
         run: node scripts/check-jarvis-api.mjs
       - name: Revalidate sealed configured bytes before homepage promotion
@@ -194,15 +357,15 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: node scripts/worker-release-identity.mjs verify
       - name: Promote Jarvis homepage after successful checks
-        run: |
-          az storage blob upload \
-            --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" \
-            --auth-mode login --container-name '$web' \
-            --name index.html --file dist/index.html \
-            --content-type 'text/html; charset=utf-8' \
-            --content-cache-control no-cache --overwrite true --only-show-errors
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publish-jarvis-versioned.mjs promote
       - name: Verify the final root and all frontend files
-        run: node scripts/check-jarvis-static.mjs --cutover
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+        run: node scripts/publish-jarvis-versioned.mjs verify
       - name: Verify real podcast discovery and playback in the deployed mobile page
         if: steps.jarvis.outputs.podcasts_enabled == 'true'
         run: |
@@ -240,6 +403,25 @@ jobs:
           az storage blob upload --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" --auth-mode login --container-name '$web' \
             --name release-qualified.json --file release-qualified.json --content-type 'application/json' \
             --content-cache-control no-cache --overwrite true --only-show-errors
+      - name: Preserve interruption and promotion checkpoints with exact original artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-after-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .publication/
+            configured-artifact.json
+            qualified-artifact.json
+            worker-identity-current.json
+            worker-identity-planned.json
+            worker-identity-before.json
+            worker-bindings-before.json
+            .jarvis-source/worker-versions-before.json
+            .jarvis-source/worker-versions-after.json
+            .jarvis-source/backend/wrangler.music.generated.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 90
       - name: Sign out of Azure
         if: ${{ always() && steps.azure_signin.outcome == 'success' }}
         run: az logout
