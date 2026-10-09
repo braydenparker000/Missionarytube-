@@ -1,6 +1,6 @@
 {
   "repository": "braydenparker999/jarvis",
-  "commit": "606ef60b91eac7396ba5a9fd417e65830900ff6e",
+  "commit": "712cc3f3b897c3afc3a3359e4fd38875afe7c3c4",
   "storageOrigin": "https://missionarytube.z13.web.core.windows.net",
   "apiOrigin": "https://jarvis-hub-api.braydenparker999.workers.dev",
   "r2ManifestURL": "https://jarvis-hub-api.braydenparker999.workers.dev/music/library.json",
@@ -60,11 +60,11 @@
       },
       {
         "path": "scripts/relay-worker-release-identity.mjs",
-        "sha": "4fc6af1d207f127d11728aadcfef7ca634357531"
+        "sha": "b37fce80a74f97461654fcee97bcc8b222eb9f8a"
       },
       {
         "path": "scripts/stage-relay-core-dependencies.mjs",
-        "sha": "f935cd3d96786d678e9d2cdcd3deac93758c638a"
+        "sha": "86b39f1d72640fccea3382552a1a73c4116827b5"
       }
     ]
   }
