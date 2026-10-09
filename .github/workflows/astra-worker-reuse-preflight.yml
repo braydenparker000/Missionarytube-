@@ -1,0 +1,80 @@
+name: Read-only Astra Worker reuse preflight
+
+# The reviewed exact release branch only. This workflow cannot deploy or promote.
+on:
+  push:
+    branches: [release/astra-live-candidate-20261009]
+    paths:
+      - '.github/workflows/astra-worker-reuse-preflight.yml'
+      - 'scripts/astra-worker-reuse-preflight.mjs'
+      - 'scripts/astra-worker-reuse-preflight.test.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  unit-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Test fixed reads, refusals, timeout and output isolation
+        run: node --test scripts/astra-worker-reuse-preflight.test.mjs
+
+  provider-preflight:
+    needs: unit-validation
+    if: >-
+      github.repository == 'braydenparker000/Missionarytube-' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/release/astra-live-candidate-20261009' &&
+      github.actor_id == '183016859' &&
+      github.triggering_actor == 'braydenparker999'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: astra-worker-reuse-preflight
+      cancel-in-progress: false
+    steps:
+      - name: Check out the unit-tested public preflight code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out the trusted immutable release recipes
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: braydenparker000/Missionarytube-
+          ref: 4532be6b6842320ed0cc64be973425d9505c7b03
+          path: .astra-trusted-release
+          persist-credentials: false
+      - name: Check out the exact immutable source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: braydenparker999/jarvis
+          ref: f999581aa979712b4b63a6783b7c56842fedb6a1
+          path: .astra-trusted-release/.jarvis-source
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Install locked source dependencies before credential exposure
+        run: npm --prefix .astra-trusted-release/.jarvis-source ci
+      - name: Prepare the exact local configuration before credential exposure
+        run: node .astra-trusted-release/scripts/prepare-music-worker.mjs .astra-trusted-release/.jarvis-source
+      - name: Verify both immutable HEADs, pin, recipes and backend before credential exposure
+        run: node scripts/astra-worker-reuse-preflight.mjs verify
+      - name: Observe current Worker reuse with fixed GETs only
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/astra-worker-reuse-preflight.mjs read
