@@ -6,7 +6,7 @@ import {execFileSync,spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {resolve,join,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {stageRelayCoreDependencies} from '../scripts/stage-relay-core-dependencies.mjs';
+import {stageRelayCoreDependencies,DEPENDENCIES} from '../scripts/stage-relay-core-dependencies.mjs';
 import {artifactIdentity,fileManifest} from '../scripts/qualified-artifact.mjs';
 import {recognizedDeployTrigger,recognizedGatingRecipes,classifyMainPush} from '../scripts/partition-main-qualification.mjs';
 
@@ -237,4 +237,16 @@ test('real stage entrypoint refuses unknown flags without invoking storage or pu
     join(repository,'scripts/stage-relay-core-dependencies.mjs'),'--allow-unsealed'],{cwd:repository,encoding:'utf8',timeout:10000,maxBuffer:65536,env:{PATH:process.env.PATH}});
   assert.equal(result.status,1);assert.equal(result.stdout,'');
   assert.equal(result.stderr,'Relay dependency staging failed; no importer overwrite is authorized\n');
+});
+
+
+test('assistant attachment contract seal binds the exact current module before owner UI importers',async()=>{
+  const path='assets/relay-attachment-contract.js',index=modules.indexOf(path);
+  assert.equal(index,5);assert.equal(DEPENDENCIES.length,8);
+  const dependency=DEPENDENCIES[index];
+  assert.deepEqual(dependency,{path,bytes:2986,sha256:'b02ee0d8f10eb2f4df3998cada4aec5090b1a46760e1fd9179e2708b8f1b5abc'});
+  const bytes=await readFile(join(repository,'.jarvis-source/public',path));
+  assert.equal(bytes.length,dependency.bytes);assert.equal(hash(bytes),dependency.sha256);
+  assert.notEqual(hash(bytes),'9cb8e9e4322d743b59e332fe6999966838c39caafc05666483d510f39aeea17e','old contract is not accepted for this source');
+  for(const importer of ['assets/relay-owner-api.js','assets/relay-owner-ui.js'])assert.ok(importers.includes(importer));
 });
