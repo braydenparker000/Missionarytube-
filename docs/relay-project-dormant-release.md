@@ -1,6 +1,6 @@
 # Dormant shared-project release
 
-This candidate pairs source PR112 `4d67e20f78eaf996a54956f72081752885d98808` with the current released attachment/navigation source. No project access, callbacks or agent execution is activated.
+This candidate pins combined source PR118 `0a3bf1e124e2f8d1d8fb235e96060a10eb4c0a98` (tree `c54ea4ec2d135d3da5caa1545602657a0fc4115d`), containing the exact reviewed PR112 dormant inbox, PR115 playback reliability, PR116 cancelled-favicon fixture and PR117 stationary-release fixture deltas on the current released attachment/navigation source. No project access, callbacks or agent execution is activated.
 
 ## Release gate
 
@@ -33,4 +33,4 @@ Lucy participation needs exact-current OAuth-family binding, finite project/logi
 
 ## Qualification
 
-Existing hosted full deployment tests/build and all eight source components must qualify the final exact pair, followed by independent review. Poweramp UI and all eight existing frontend dependency seals are unchanged. PR113 and ongoing Poweramp work are not included.
+Existing hosted full deployment tests/build and all eight source components must qualify the final exact pair, followed by independent review. Poweramp UI and all eight existing frontend dependency seals are unchanged. PR113/114 attachment follow-ups are not included. PR115 changes transport recovery and MediaSession action registration without changing Poweramp UI. PR117 models setup release at rest using one original contact with a 100 ms stationary interval and a native >=80 ms assertion; measured rapid release/regrab, held-owner, pixel and performance gates remain intact. Physical headset/Android acceptance and historical hosted emulated-fling causality remain unverified.

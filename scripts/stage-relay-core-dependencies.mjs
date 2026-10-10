@@ -7,7 +7,7 @@ import {pathToFileURL} from 'node:url';
 import {artifactIdentity,fileManifest,checkedConfigurationDelta,checkedManifest} from './qualified-artifact.mjs';
 
 const execute=promisify(execFile);
-export const SOURCE='4d67e20f78eaf996a54956f72081752885d98808';
+export const SOURCE='0a3bf1e124e2f8d1d8fb235e96060a10eb4c0a98';
 const ORIGIN='https://missionarytube.z13.web.core.windows.net';
 export const DEPENDENCIES=Object.freeze([
   Object.freeze({path:'assets/relay-transfer.js',bytes:5992,sha256:'de1bafae504abaea90c058f3e06d48c1c04c77605b8d3f68287fe32a4d92531b'}),
