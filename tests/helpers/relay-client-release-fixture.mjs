@@ -13,7 +13,8 @@ const git=(...args)=>execFileSync('git',['-C',join(repository,'.jarvis-source'),
 export function relayClientRecipePath(path){
   return ({'jarvis-release.json':'scripts/release-identities/relay-client-approved-jarvis-release.json',
     '.github/workflows/deploy-azure-storage.yml':'scripts/release-identities/relay-client-approved-deploy-azure-storage.yml',
-    '.github/workflows/qualify-jarvis.yml':'scripts/release-identities/relay-client-approved-qualify-jarvis.yml'})[path]||path;
+    '.github/workflows/qualify-jarvis.yml':'scripts/release-identities/relay-client-approved-qualify-jarvis.yml',
+    'scripts/check-music-worker-bindings.mjs':'scripts/release-identities/relay-approved-check-music-worker-bindings.mjs'})[path]||path;
 }
 // Historical assertion fixtures use a genuine retained ancestor, never a
 // declared/fabricated source HEAD. No fetch, provider or credential is needed.

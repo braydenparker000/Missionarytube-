@@ -13,15 +13,6 @@ export function checkedBindings(settings) {
       (hubs[0].script_name && hubs[0].script_name !== 'jarvis-hub-api')) {
     throw Error('Existing HUBS binding does not match the tested Worker');
   }
-  // Dormant project publication must not inherit activation through keep_vars.
-  // Unknown, opaque or duplicated flag state is not evidence that a flag is off.
-  // Later deliberate activation requires a separately reviewed release mode.
-  for (const name of ['RELAY_PROJECT_ENABLED','RELAY_PROJECT_ADMIN_ENABLED','RELAY_PROJECT_EVENTS_ENABLED']) {
-    const flags = bindings.filter(binding => binding?.name === name);
-    if (flags.length > 1 || (flags.length === 1 && (flags[0].type !== 'plain_text' || flags[0].text !== 'false'))) {
-      throw Error('Project flags must be absent or false for this dormant release');
-    }
-  }
   for (const binding of bindings) {
     if (['plain_text', 'secret_text'].includes(binding.type)) continue;
     if (binding.name === 'HUBS') continue;

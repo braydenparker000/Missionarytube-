@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {mkdtemp,mkdir,readFile,writeFile,copyFile,symlink,rm,access} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join,dirname,resolve} from 'node:path';
@@ -49,6 +50,13 @@ async function fixture(){
   return {root,release,candidate,policy,settings,live,receipt,run,tree,jobs,calls,fetcher};
 }
 const absent=async path=>{await assert.rejects(access(path));};
+
+test('historical binding preflight fixture keeps its immutable approved blob identity',async()=>{
+  const path=relayClientRecipePath('scripts/check-music-worker-bindings.mjs');
+  assert.equal(path,'scripts/release-identities/relay-approved-check-music-worker-bindings.mjs');
+  const bytes=await readFile(join(repository,path));
+  assert.equal(createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex'),'3ef4f486a24037b8f8821e6e593a98b7cb902a78');
+});
 
 test('finite original receipt retains every original provenance check and six GETs without a write',async()=>{
   const f=await fixture();try{
