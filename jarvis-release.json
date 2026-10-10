@@ -1,6 +1,6 @@
 {
   "repository": "braydenparker999/jarvis",
-  "commit": "454dd99d1bbe8626523c92e786f8875b3add712e",
+  "commit": "7264c473cb45be370647d95f37aa6db99759af1a",
   "storageOrigin": "https://missionarytube.z13.web.core.windows.net",
   "apiOrigin": "https://jarvis-hub-api.braydenparker999.workers.dev",
   "r2ManifestURL": "https://jarvis-hub-api.braydenparker999.workers.dev/music/library.json",
@@ -12,7 +12,7 @@
     "recipe": [
       {
         "path": ".github/workflows/deploy-azure-storage.yml",
-        "sha": "9ff662b1e150270d272a410e8fcb468065ae024a"
+        "sha": "6714205d3f0211b0c666bd7ccf7845a7ae4eefd9"
       },
       {
         "path": ".github/workflows/qualify-jarvis.yml",
@@ -60,11 +60,11 @@
       },
       {
         "path": "scripts/relay-worker-release-identity.mjs",
-        "sha": "b5c58d7038412d0784b88e7ee2f28df8a9063f2d"
+        "sha": "c4a6f93eae60e13f89150db7959f2ae88d9339d5"
       },
       {
         "path": "scripts/stage-relay-core-dependencies.mjs",
-        "sha": "458f06c65fec3526090f49c7fc896030e66f4e1d"
+        "sha": "b89c2a7b791dc754cefc9e3cd4d24fbab3a693d9"
       }
     ]
   }
