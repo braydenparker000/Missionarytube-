@@ -7,7 +7,7 @@ import {pathToFileURL} from 'node:url';
 import {artifactIdentity,fileManifest,checkedConfigurationDelta,checkedManifest} from './qualified-artifact.mjs';
 
 const execute=promisify(execFile);
-export const SOURCE='0fb52d103cd0d75af90c93d751869493f63671f7';
+export const SOURCE='454dd99d1bbe8626523c92e786f8875b3add712e';
 const ORIGIN='https://missionarytube.z13.web.core.windows.net';
 export const DEPENDENCIES=Object.freeze([
   Object.freeze({path:'assets/relay-transfer.js',bytes:5992,sha256:'de1bafae504abaea90c058f3e06d48c1c04c77605b8d3f68287fe32a4d92531b'}),
@@ -15,6 +15,7 @@ export const DEPENDENCIES=Object.freeze([
   Object.freeze({path:'assets/public-coordination.js',bytes:10678,sha256:'c6987811ec2096652b84138c4d1c7609909a0aa2c4133c883be745c8f90e7291'}),
   Object.freeze({path:'assets/public-reader-cache.js',bytes:9283,sha256:'ed2f6710658c940c708f34ac748e572065df2ed7183e6e6401f81d2764404aa9'}),
   Object.freeze({path:'assets/relay-menu-history.js',bytes:3529,sha256:'f2c7517550b3348e2324ef79a35f351811bf8662ed02344f8d1c62d250b946d1'}),
+  Object.freeze({path:'assets/relay-attachments.js',bytes:9543,sha256:'501392c48b3125bf2d62cecab052ccb1abc5b51f7f8f07976e77df3dc02a5a73'}),
 ]);
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const FAILURE='Relay dependency staging failed; no importer overwrite is authorized';
@@ -69,6 +70,6 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
   try{
     if(process.argv.length!==2)throw Error(FAILURE);
     await stageRelayCoreDependencies();
-    console.log('All five exact Relay dependencies are uploaded and verified; importer staging may proceed');
+    console.log('All six exact Relay dependencies are uploaded and verified; importer staging may proceed');
   }catch{console.error(FAILURE);process.exitCode=1;}
 }
