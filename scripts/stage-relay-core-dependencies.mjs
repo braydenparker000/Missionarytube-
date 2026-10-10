@@ -7,7 +7,7 @@ import {pathToFileURL} from 'node:url';
 import {artifactIdentity,fileManifest,checkedConfigurationDelta,checkedManifest} from './qualified-artifact.mjs';
 
 const execute=promisify(execFile);
-export const SOURCE='0a3bf1e124e2f8d1d8fb235e96060a10eb4c0a98';
+export const SOURCE='de90c20dce73e6f370795c085d9307e2c7a4f8e2';
 const ORIGIN='https://missionarytube.z13.web.core.windows.net';
 export const DEPENDENCIES=Object.freeze([
   Object.freeze({path:'assets/relay-transfer.js',bytes:5992,sha256:'de1bafae504abaea90c058f3e06d48c1c04c77605b8d3f68287fe32a4d92531b'}),
@@ -15,7 +15,7 @@ export const DEPENDENCIES=Object.freeze([
   Object.freeze({path:'assets/public-coordination.js',bytes:10678,sha256:'c6987811ec2096652b84138c4d1c7609909a0aa2c4133c883be745c8f90e7291'}),
   Object.freeze({path:'assets/public-reader-cache.js',bytes:9283,sha256:'ed2f6710658c940c708f34ac748e572065df2ed7183e6e6401f81d2764404aa9'}),
   Object.freeze({path:'assets/relay-menu-history.js',bytes:3529,sha256:'f2c7517550b3348e2324ef79a35f351811bf8662ed02344f8d1c62d250b946d1'}),
-  Object.freeze({path:'assets/relay-attachment-contract.js',bytes:2036,sha256:'9cb8e9e4322d743b59e332fe6999966838c39caafc05666483d510f39aeea17e'}),
+  Object.freeze({path:'assets/relay-attachment-contract.js',bytes:2986,sha256:'b02ee0d8f10eb2f4df3998cada4aec5090b1a46760e1fd9179e2708b8f1b5abc'}),
   Object.freeze({path:'assets/relay-attachment-content.js',bytes:3728,sha256:'8d0588eb5c82199e9d1af7c2b4bc594c3906be7afbc60e6e1e722b8f7b4599f3'}),
   Object.freeze({path:'assets/relay-attachments.js',bytes:12437,sha256:'c84a89ecbac377345eedca05035a49f5e67d0d045204c59270e979f5245edce9'}),
 ]);
