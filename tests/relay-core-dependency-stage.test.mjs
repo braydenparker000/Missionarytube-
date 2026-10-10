@@ -11,7 +11,7 @@ import {artifactIdentity,fileManifest} from '../scripts/qualified-artifact.mjs';
 import {recognizedDeployTrigger,recognizedGatingRecipes,classifyMainPush} from '../scripts/partition-main-qualification.mjs';
 
 const repository=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const modules=['assets/relay-transfer.js','assets/relay-draft-store.js','assets/public-coordination.js','assets/public-reader-cache.js'];
+const modules=['assets/relay-transfer.js','assets/relay-draft-store.js','assets/public-coordination.js','assets/public-reader-cache.js','assets/relay-menu-history.js'];
 const importers=['assets/app.js','assets/conversation.js','assets/relay-owner-ui.js'];
 const ORIGIN='https://missionarytube.z13.web.core.windows.net';
 const SECRET='FICTIONAL_PRIVATE_PROVIDER_BODY https://user:secret@private.invalid?token=not-real';
@@ -74,9 +74,9 @@ async function fixture(){
   };return api;
 }
 
-test('all four sealed dependencies are uploaded and hash/MIME verified before any importer batch',async()=>{
+test('all five sealed dependencies are uploaded and hash/MIME verified before any importer batch',async()=>{
   const f=await fixture();try{
-    await f.run();assert.deepEqual(f.counts,{uploads:4,reads:4,batches:1});
+    await f.run();assert.deepEqual(f.counts,{uploads:5,reads:5,batches:1});
     assert.deepEqual(f.events,[...modules.flatMap(path=>['upload:'+path,'verify:'+path]),'batch']);
     assert.deepEqual(f.storage.get('index.html').bytes,f.old.get('index.html'));
   }finally{await f.cleanup();}
@@ -96,6 +96,9 @@ test('interruption and lost upload replies at every dependency prefix retain eve
     ['before reader cache upload',{failUpload:3},3,{uploads:4,reads:3,batches:0}],
     ['reader cache upload reply lost',{loseUploadReply:3},4,{uploads:4,reads:3,batches:0}],
     ['reader cache verification refused',{failRead:3},4,{uploads:4,reads:4,batches:0}],
+    ['before menu history upload',{failUpload:4},4,{uploads:5,reads:4,batches:0}],
+    ['menu history upload reply lost',{loseUploadReply:4},5,{uploads:5,reads:4,batches:0}],
+    ['menu history verification refused',{failRead:4},5,{uploads:5,reads:5,batches:0}],
   ])await t.test(name,async()=>{
     const f=await fixture();try{
       f.failure=failure;await assert.rejects(f.run(),error=>error.message==='Relay dependency staging failed; no importer overwrite is authorized');
@@ -105,11 +108,11 @@ test('interruption and lost upload replies at every dependency prefix retain eve
   });
 });
 
-test('later explicit retry after a lost response verifies all four modules before changing old importers',async()=>{
+test('later explicit retry after a lost response verifies all five modules before changing old importers',async()=>{
   const f=await fixture();try{
     f.failure={loseUploadReply:1};await assert.rejects(f.run());f.assertOriginal();
     f.failure={};await f.run();assert.equal(f.counts.batches,1);
-    assert.deepEqual(f.events.slice(-9),[...modules.flatMap(path=>['upload:'+path,'verify:'+path]),'batch']);
+    assert.deepEqual(f.events.slice(-(modules.length*2+1)),[...modules.flatMap(path=>['upload:'+path,'verify:'+path]),'batch']);
   }finally{await f.cleanup();}
 });
 
@@ -129,6 +132,22 @@ test('HTTP, transport, MIME, length and hash refusals have no retry, batch or pr
   });
 });
 
+
+test('menu history MIME, size and digest are checked before any importer changes',async t=>{
+  for(const [name,corrupt] of [
+    ['wrong MIME',entry=>new Response(entry.bytes,{headers:{'content-type':'application/json'}})],
+    ['wrong size',entry=>new Response(Buffer.concat([entry.bytes,Buffer.from('x')]),{headers:{'content-type':entry.mime}})],
+    ['wrong digest',entry=>new Response(Buffer.alloc(entry.bytes.length),{headers:{'content-type':entry.mime}})],
+  ])await t.test(name,async()=>{
+    const f=await fixture();try{
+      f.failure={responseOverride:(entry,index)=>index===4?corrupt(entry):new Response(entry.bytes,{headers:{'content-type':entry.mime}})};
+      await assert.rejects(f.run(),error=>error.message==='Relay dependency staging failed; no importer overwrite is authorized');
+      assert.deepEqual(f.counts,{uploads:5,reads:5,batches:0});f.assertOriginal();
+      assert.ok(!f.events.includes('batch'));
+    }finally{await f.cleanup();}
+  });
+});
+
 test('source, target, configured seal and exact dependency drift refuse before any provider call',async t=>{
   for(const [name,mutate] of [
     ['wrong account',async f=>{f.env.STORAGE_ACCOUNT='foreign';}],
@@ -137,6 +156,8 @@ test('source, target, configured seal and exact dependency drift refuse before a
     ['changed sealed importer',f=>writeFile(join(f.root,'dist/assets/app.js'),'unreviewed')],
     ['changed dependency',f=>writeFile(join(f.root,'dist',modules[1]),'unreviewed')],
     ['missing dependency',f=>rm(join(f.root,'dist',modules[1]))],
+    ['changed menu history',f=>writeFile(join(f.root,'dist',modules[4]),'unreviewed')],
+    ['missing menu history',f=>rm(join(f.root,'dist',modules[4]))],
     ['bad configured identity',async f=>{const file=join(f.root,'configured-artifact.json'),manifest=JSON.parse(await readFile(file));manifest.identity.baseManifestDigest='f'.repeat(64);await writeFile(file,JSON.stringify(manifest));}],
     ['resealed unknown dependency',async f=>{await writeFile(join(f.root,'dist',modules[0]),'unreviewed');
       const files=await fileManifest(join(f.root,'dist')),identity=await artifactIdentity({root:f.root,env:f.env}),before={identity,files};
@@ -158,7 +179,9 @@ test('workflow preserves all prewrite barriers, requires staging success, exclud
   assert.match(stage,/STORAGE_ACCOUNT: \$\{\{ vars\.AZURE_STORAGE_ACCOUNT \}\}/);
   assert.match(stage,/run: node scripts\/stage-relay-core-dependencies\.mjs/);assert.doesNotMatch(stage,/continue-on-error|always\(|\n\s+if:/);
   const batch=flow.slice(flow.indexOf('      - name: Stage Jarvis'),flow.indexOf('      - name: Check every staged file'));
-  assert.ok(batch.indexOf('rm upload/assets/relay-transfer.js upload/assets/relay-draft-store.js upload/assets/public-coordination.js upload/assets/public-reader-cache.js')<batch.indexOf('az storage blob upload-batch'));
+  const removal=batch.match(/^\s+rm (upload\/assets\/[^\n]+)$/m)?.[1]?.split(/\s+/)||[];
+  assert.deepEqual(removal,modules.map(path=>'upload/'+path),'every sealed dependency is excluded from the unordered batch');
+  assert.ok(batch.indexOf('rm '+removal.join(' '))<batch.indexOf('az storage blob upload-batch'));
   assert.match(batch,/rm upload\/index.html/);assert.match(batch,/--auth-mode login --destination '\$web' --source upload/);
   assert.match(batch,/--overwrite true --content-cache-control no-cache --only-show-errors/);
   const qualification=await readFile(join(repository,'.github/workflows/qualify-jarvis.yml'),'utf8');

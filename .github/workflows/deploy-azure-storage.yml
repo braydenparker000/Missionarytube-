@@ -181,7 +181,7 @@ jobs:
         run: |
           cp -a dist upload
           rm upload/index.html
-          rm upload/assets/relay-transfer.js upload/assets/relay-draft-store.js upload/assets/public-coordination.js upload/assets/public-reader-cache.js
+          rm upload/assets/relay-transfer.js upload/assets/relay-draft-store.js upload/assets/public-coordination.js upload/assets/public-reader-cache.js upload/assets/relay-menu-history.js
           az storage blob upload-batch \
             --account-name "${{ vars.AZURE_STORAGE_ACCOUNT }}" \
             --auth-mode login --destination '$web' --source upload \
