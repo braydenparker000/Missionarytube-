@@ -7,7 +7,7 @@ import {candidateIdentity,findWorkerReuse,liveIdentity,newlyDeployedVersion,rece
 
 // This is the full-release entrypoint. The preceding client-only entrypoint and
 // its finite historical transition stay unchanged and cannot deploy a Worker.
-export const RELAY_SOURCE='fd010f40fec5b41d168ea02764aeb5400e047db7';
+export const RELAY_SOURCE='c95d66aad543c3f203539f55728524704efcb2c3';
 export const RELAY_EXTRA_RECIPES=Object.freeze(['scripts/relay-worker-release-identity.mjs','scripts/stage-relay-core-dependencies.mjs']);
 const REPO='braydenparker000/Missionarytube-',ORIGIN='https://missionarytube.z13.web.core.windows.net';
 const API='https://jarvis-hub-api.braydenparker999.workers.dev';
