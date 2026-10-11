@@ -18,3 +18,26 @@ export function checkedMusicFrontend(release,current,receipt){
   assert.equal(current.commit,release.commit);
   return {commit:current.commit,workerSource:release.commit};
 }
+
+export async function verifiedMusicReceipt(receipt,fetcher=fetch){
+ const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+ if(hash(receipt)===RECEIPT)return receipt;
+ const a=receipt.activation,parent=a?.parentReceipt;
+ assert.equal(hash(parent),RECEIPT);assert.equal(a.kind,'lucy-muse-channel');
+ assert.equal(a.fingerprint,'7cc3b9c2b3bbc0f5ee4947b5987b71a95310749b8d042f0c66e77c60727467a3');
+ assert.deepEqual(Object.keys(a).sort(),['codeDigest','expectedSettingsDigest','fingerprint','kind','parentReceipt']);
+ for(const value of [a.codeDigest,a.expectedSettingsDigest,receipt.settingsDigest])assert.match(value,/^[a-f0-9]{64}$/);
+ assert.match(receipt.orchestration,/^[a-f0-9]{40}$/);assert.match(receipt.version,/^[a-f0-9-]{36}$/);
+ assert.match(receipt.runId,/^[1-9][0-9]*$/);assert.match(receipt.attempt,/^[1-9][0-9]*$/);
+ assert.deepEqual(receipt,{...parent,version:receipt.version,settingsDigest:receipt.settingsDigest,orchestration:receipt.orchestration,runId:receipt.runId,attempt:receipt.attempt,activation:a});
+ const repo='braydenparker000/Missionarytube-',base='https://api.github.com/repos/'+repo;
+ const get=async path=>{const r=await fetcher(base+path,{redirect:'error',signal:AbortSignal.timeout(15000)});assert.equal(r.status,200);return r.json();};
+ const run=await get('/actions/runs/'+receipt.runId);
+ assert.equal(run.repository.full_name,repo);assert.equal(run.head_repository.full_name,repo);assert.notEqual(run.head_repository.fork,true);
+ assert.equal(run.head_sha,receipt.orchestration);assert.equal(run.run_attempt,Number(receipt.attempt));assert.equal(run.head_branch,'main');
+ assert.equal(run.event,'workflow_dispatch');assert.equal(run.path,'.github/workflows/deploy-azure-storage.yml');assert.equal(run.conclusion,'success');
+ const jobs=await get('/actions/runs/'+receipt.runId+'/attempts/'+receipt.attempt+'/jobs?per_page=100');
+ assert.equal(jobs.total_count,jobs.jobs.length);
+ assert.ok(jobs.jobs.some(j=>j.name==='deploy'&&j.head_sha===receipt.orchestration&&j.run_attempt===Number(receipt.attempt)&&j.conclusion==='success'&&j.steps.some(s=>s.name==='verified-production-receipt-'+hash(receipt)&&s.conclusion==='success')));
+ return parent;
+}
