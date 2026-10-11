@@ -44,17 +44,42 @@ async function codeDigest(){
  }
  return createHash('sha256').update(Buffer.from(await r.arrayBuffer())).digest('hex');
 }
+export function checkedAuditTransition(rest,expected,beforeAnnotations,afterAnnotations){
+ assert.equal(digest({...rest,annotations:beforeAnnotations}),expected,'Pinned pre-write settings not reconstructed');
+ assert.equal(digest(rest.annotations),digest(afterAnnotations),'Live annotations differ from active version');
+ const omitAudit=value=>Object.fromEntries(Object.entries(value||{}).filter(([key])=>key!=='workers/triggered_by'));
+ assert.deepEqual(canonical(omitAudit(beforeAnnotations)),canonical(omitAudit(afterAnnotations)),'Non-audit annotation changed');
+ console.log(JSON.stringify({baselineReconstructed:true,onlyMetadataDifference:'annotations.workers/triggered_by'}));
+}
+async function versionAnnotations(version){
+ const {account,token}=credentials();
+ const r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/workers/scripts/jarvis-hub-api/versions/${version}`,{redirect:'error',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(30000)});
+ assert.equal(r.status,200,'Version metadata unavailable');const data=await r.json();assert.equal(data.success,true);assert.equal(data.result.id,version);return data.result.annotations;
+}
 async function verifyCurrent(checkpoint){
  const live=await liveIdentity(credentials()),settings=await readWorkerSettings(credentials());
  assert.equal(settingsDigest(settings),live.settingsDigest);checkedAfter(settings,checkpoint.expectedDigest);
- const {bindings,...rest}=settings;assert.equal(digest(rest),checkpoint.otherSettingsDigest,'Unrelated Worker settings changed');
+ const {bindings,...rest}=settings;
+ if(digest(rest)!==checkpoint.otherSettingsDigest){
+  const [priorAnnotations,currentAnnotations]=await Promise.all([versionAnnotations(VERSION),versionAnnotations(live.version)]);
+  console.log(JSON.stringify({annotationDifferenceKeys:[...new Set([...Object.keys(priorAnnotations||{}),...Object.keys(currentAnnotations||{})])].filter(key=>JSON.stringify(priorAnnotations?.[key])!==JSON.stringify(currentAnnotations?.[key]))}));
+  checkedAuditTransition(rest,checkpoint.otherSettingsDigest,priorAnnotations,currentAnnotations);
+ }
  assert.equal(await codeDigest(),checkpoint.codeDigest,'Worker code changed');
  const response=await fetch('https://jarvis-hub-api.braydenparker999.workers.dev/relay/agents/messages',{redirect:'error',signal:AbortSignal.timeout(30000)});
  assert.equal(response.status,401,'Channel must be active and require authentication');
  return live;
 }
+async function recordReceipt(parent,after,checkpoint){
+  const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+  const receipt={...parent,...after,orchestration:head,runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT,
+   activation:{kind:'lucy-muse-channel',parentReceipt:parent,fingerprint:FINGERPRINT,expectedSettingsDigest:checkpoint.expectedDigest,codeDigest:checkpoint.codeDigest}};
+  await writeFile('release-qualified.json',JSON.stringify(receipt,null,2)+'\n');
+  const hash=receiptDigest(receipt);await appendFile(process.env.GITHUB_OUTPUT,'digest='+hash+'\n');
+  console.log(JSON.stringify({settingsVerified:true,otherBindingsUnchanged:true,workerCodeUnchanged:true,frontendUnchanged:true,authenticatedExchangeVerified:false,version:after.version,receiptDigest:hash}));
+}
 async function main(command){
- assert.ok(['activate','stamp','published','diagnose'].includes(command));
+ assert.ok(['activate','stamp','published','diagnose','recover'].includes(command));
  if(command==='diagnose'){
   const settings=await readWorkerSettings(credentials());
   checkedAfter(settings,'7d353876b97ecebca19e47712156f9854fcf1bd839c7191e3496a2df713815e8');
@@ -69,6 +94,17 @@ async function main(command){
   console.log(JSON.stringify({readOnly:true,bindingsVerified:true,codeUnchanged:true,restKeys:Object.keys(rest).sort(),baselineMatches:matches,currentSettingsDigest:settingsDigest(settings),version:(await liveIdentity(credentials())).version}));return;
  }
 
+ if(command==='recover'){
+  const checkpoint=await local('docs/evidence/channel-activation-checkpoint-38182909362.json');
+  assert.equal(receiptDigest(checkpoint.parent),BASE_RECEIPT);
+  assert.equal(checkpoint.expectedDigest,'7d353876b97ecebca19e47712156f9854fcf1bd839c7191e3496a2df713815e8');
+  assert.equal(checkpoint.otherSettingsDigest,'09ebde2030b5042b86c7777a7344e3d1c28644693f7a8d8726d136444b644684');
+  assert.equal(checkpoint.codeDigest,'238bae015ac446e4828b600e3abc4d95efe7f49c6af7398389e4d9c89f136b5e');
+  assert.equal(receiptDigest(await json(ORIGIN+'/release-qualified.json')),BASE_RECEIPT);
+  const after=await verifyCurrent(checkpoint);assert.equal(after.version,'373a45db-c3af-4493-8664-d4bf9f6204de');
+  await mkdir('channel-activation',{recursive:true});await writeFile('channel-activation/checkpoint.json',JSON.stringify(checkpoint,null,2)+'\n');
+  await recordReceipt(checkpoint.parent,after,checkpoint);return;
+ }
  if(command==='activate'){
   const parent=await json(ORIGIN+'/release-qualified.json');assert.equal(receiptDigest(parent),BASE_RECEIPT);
   const live=await liveIdentity(credentials()),settings=await readWorkerSettings(credentials());
@@ -82,12 +118,7 @@ async function main(command){
    method:'PATCH',redirect:'error',headers:{Authorization:'Bearer '+token},body,signal:AbortSignal.timeout(30000)});
   assert.equal(response.status,200,'Approved settings update failed');assert.equal((await response.json()).success,true);
   const after=await verifyCurrent(checkpoint);
-  const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
-  const receipt={...parent,...after,orchestration:head,runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT,
-   activation:{kind:'lucy-muse-channel',parentReceipt:parent,fingerprint:FINGERPRINT,expectedSettingsDigest:checkpoint.expectedDigest,codeDigest:checkpoint.codeDigest}};
-  await writeFile('release-qualified.json',JSON.stringify(receipt,null,2)+'\n');
-  const hash=receiptDigest(receipt);await appendFile(process.env.GITHUB_OUTPUT,'digest='+hash+'\n');
-  console.log(JSON.stringify({settingsVerified:true,otherBindingsUnchanged:true,workerCodeUnchanged:true,frontendUnchanged:true,authenticatedExchangeVerified:false,version:after.version,receiptDigest:hash}));
+  await recordReceipt(parent,after,checkpoint);
  }else{
   const checkpoint=await local('channel-activation/checkpoint.json'),receipt=await local('release-qualified.json');
   assert.equal(receiptDigest(checkpoint.parent),BASE_RECEIPT);

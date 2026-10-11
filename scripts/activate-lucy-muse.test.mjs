@@ -17,3 +17,14 @@ test('exact two-value transition preserves all unrelated bindings and secret ref
  }
  assert.throws(()=>transition({bindings:[...before.bindings,{name:'RELAY_AGENT_MUSE_TOKEN_SHA256',type:'plain_text',text:FINGERPRINT}]}));
 });
+
+test('only provider audit trigger may differ after exact baseline reconstruction',async()=>{
+ const {checkedAuditTransition}=await import('./activate-lucy-muse.mjs');
+ const {canonicalDigest}=await import('./lucy-settings-diagnostic.mjs');
+ const before={'workers/triggered_by':'upload','workers/tag':'retained'},after={...before,'workers/triggered_by':'secret'};
+ const old={compatibility_date:'2026-01-01',compatibility_flags:['first','second'],annotations:before},current={...old,annotations:after};
+ checkedAuditTransition(current,canonicalDigest(old),before,after);
+ assert.throws(()=>checkedAuditTransition({...current,compatibility_date:'2026-02-02'},canonicalDigest(old),before,after));
+ assert.throws(()=>checkedAuditTransition({...current,compatibility_flags:['second','first']},canonicalDigest(old),before,after));
+ assert.throws(()=>checkedAuditTransition({...current,annotations:{...after,'workers/tag':'changed'}},canonicalDigest(old),before,{...after,'workers/tag':'changed'}));
+});
