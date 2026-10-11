@@ -7,6 +7,8 @@ import {inventory, requireBrowser, performance} from '../tests/helpers/ci-test-i
 import {BROWSER_IDENTITY} from './install-qualification-browser.mjs';
 
 export const REPOSITORY = 'braydenparker999/jarvis';
+// Exact repository-owned release refs; never accept arbitrary branches or PR runs.
+export const TRUSTED_BRANCHES = ['main', 'release/astra-live-backport-20261009', 'release/ci-reuse-repair-20261011'];
 export const WORKFLOW = '.github/workflows/validate-r2.yml';
 export const COMPONENTS = ['relay', 'frontend', 'poweramp', 'blankLibrary', 'podcasts', 'migration', 'performance', 'owner24'];
 export const BASELINES = ['04ef034738e6a3ccc2c03391ea9b00e0fc98ae66', '8aa7fce4dd83d5417614ae112134631dd98df7b6'];
@@ -68,9 +70,9 @@ export function makePlan(entries, environment) {
 
 export function checkedRun(run, {sourceSha, workflowId} = {}) {
   if (!run || run.repository?.full_name !== REPOSITORY || run.head_repository?.full_name !== REPOSITORY || run.head_repository?.fork === true ||
-      run.event !== 'push' || run.head_branch !== 'main' || run.path !== WORKFLOW || run.status !== 'completed' || run.conclusion !== 'success' ||
+      run.event !== 'push' || !TRUSTED_BRANCHES.includes(run.head_branch) || run.path !== WORKFLOW || run.status !== 'completed' || run.conclusion !== 'success' ||
       !SHA.test(run.head_sha || '') || !Number.isSafeInteger(run.id) || run.id < 1 || !Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1 ||
-      (sourceSha && run.head_sha !== sourceSha) || (workflowId && run.workflow_id !== workflowId)) throw Error('Run is not a trusted successful main qualification');
+      (sourceSha && run.head_sha !== sourceSha) || (workflowId && run.workflow_id !== workflowId)) throw Error('Run is not a trusted successful source qualification');
   return run;
 }
 
@@ -116,7 +118,7 @@ export async function findProof(plan, {sourceSha, fetcher, currentRunId} = {}) {
   const api = publicClient(fetcher);
   const fallback = {qualified:false, reuse:{}, reason:'No verified successful qualification for the current inputs'};
   try {
-    const data = await api(`/repos/${REPOSITORY}/actions/workflows/validate-r2.yml/runs?event=push&branch=main&status=success&per_page=3${sourceSha ? '&head_sha=' + sourceSha : ''}`);
+    const data = await api(`/repos/${REPOSITORY}/actions/workflows/validate-r2.yml/runs?event=push&status=success&per_page=3${sourceSha ? '&head_sha=' + sourceSha : ''}`);
     if (!Array.isArray(data.workflow_runs)) throw Error('Invalid qualification run list');
     const reuse = {};
     for (const candidate of data.workflow_runs) {

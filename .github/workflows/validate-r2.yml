@@ -3,7 +3,7 @@ name: Validate R2 migration and playback
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, release/astra-live-backport-20261009, release/ci-reuse-repair-20261011]
 
 permissions:
   contents: read
@@ -57,7 +57,7 @@ jobs:
 
   component:
     needs: plan
-    # A name alone never proves a pass. Consumers verify the completed main
+    # A name alone never proves a pass. Consumers verify the completed trusted push
     # run, exact attempt, immutable recipe bytes, and every required outcome.
     name: qualified-${{ matrix.component }}-${{ matrix.digest }}
     runs-on: ubuntu-24.04
