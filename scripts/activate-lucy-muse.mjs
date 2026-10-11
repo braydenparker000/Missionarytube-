@@ -54,7 +54,21 @@ async function verifyCurrent(checkpoint){
  return live;
 }
 async function main(command){
- assert.ok(['activate','stamp','published'].includes(command));
+ assert.ok(['activate','stamp','published','diagnose'].includes(command));
+ if(command==='diagnose'){
+  const settings=await readWorkerSettings(credentials());
+  checkedAfter(settings,'7d353876b97ecebca19e47712156f9854fcf1bd839c7191e3496a2df713815e8');
+  assert.equal(await codeDigest(),'238bae015ac446e4828b600e3abc4d95efe7f49c6af7398389e4d9c89f136b5e','Worker code changed');
+  const {bindings,...rest}=settings,expected='09ebde2030b5042b86c7777a7344e3d1c28644693f7a8d8726d136444b644684';
+  const candidates=[undefined,null,false,true,[],{},'api','wrangler','dash','standard','bundled','unbound'];
+  const matches=[];
+  for(const key of Object.keys(rest))for(const value of candidates){
+   const prior={...rest};if(value===undefined)delete prior[key];else prior[key]=value;
+   if(digest(prior)===expected)matches.push({field:key,prior:value===undefined?'absent':value,currentType:typeof rest[key],currentHash:digest(rest[key]),current:typeof rest[key]==='boolean'||rest[key]===null||Array.isArray(rest[key])&&rest[key].length===0?rest[key]:undefined});
+  }
+  console.log(JSON.stringify({readOnly:true,bindingsVerified:true,codeUnchanged:true,restKeys:Object.keys(rest).sort(),baselineMatches:matches,currentSettingsDigest:settingsDigest(settings),version:(await liveIdentity(credentials())).version}));return;
+ }
+
  if(command==='activate'){
   const parent=await json(ORIGIN+'/release-qualified.json');assert.equal(receiptDigest(parent),BASE_RECEIPT);
   const live=await liveIdentity(credentials()),settings=await readWorkerSettings(credentials());
