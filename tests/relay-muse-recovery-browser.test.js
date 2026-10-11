@@ -7,7 +7,7 @@ test('Muse reload recovery, incremental history, rich text, search and phone rea
   const browser=await launchQualifiedBrowser(t);if(!browser)return;const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}}),pages=[];
   try{
     const owner=await h.pair(await h.oauth()),phone=await openConversationPage(browser,h,{owner,clock:false});pages.push(phone);const page=phone.page;
-    await page.goto(SITE+'/mast/');await page.locator('#composer:not([hidden])').waitFor();assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(250, 249, 246)');
+    await page.goto(SITE+'/mast/');await page.locator('#composer:not([hidden])').waitFor();assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(0, 0, 0)');
     await page.locator('#message').fill('Retained unsent synthetic draft');await page.reload();await page.waitForFunction(()=>document.querySelector('#message').value==='Retained unsent synthetic draft');
     phone.rule(r=>r.path==='/relay/owner/mast'&&r.method==='POST',async({forward})=>{await forward();return {abort:true};});
     await page.getByRole('button',{name:'Send',exact:true}).click();await page.getByRole('button',{name:'Retry',exact:true}).waitFor();
@@ -30,6 +30,12 @@ test('Muse reload recovery, incremental history, rich text, search and phone rea
     await page.evaluate(()=>sessionStorage.setItem('jarvis.mast.draft.v1','invalid'));await page.reload();await page.getByText(/Cannot retain the private draft/).waitFor();
     await page.locator('#message').fill('Must not be sent');const count=h.rows('SELECT COUNT(*) AS n FROM relay_mast_entries')[0].n;await page.getByRole('button',{name:'Send',exact:true}).click();assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_mast_entries')[0].n,count);
     h.rows('UPDATE relay_owner_sessions SET revoked_ms=1 WHERE device_id=?',owner.device.id);await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.locator('#login:not([hidden])').waitFor();assert.equal(await page.locator('.message-row').count(),0);assert.equal(await page.evaluate(()=>sessionStorage.getItem('jarvis.mast.draft.v1')),null);
+    const privateReads=phone.records.filter(r=>r.path.startsWith('/relay/owner/')).length;
+    await page.setViewportSize({width:390,height:844});await page.goto(SITE+'/muse/');await page.locator('body.muse-page').waitFor();
+    assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(0, 0, 0)');
+    assert.match(await page.locator('#conversation-visibility').innerText(),/Public/);
+    assert.equal(phone.records.filter(r=>r.path.startsWith('/relay/owner/')).length,privateReads,'public Muse never loads private history');
+    await page.screenshot({path:'docs/evidence/muse-parity/public-phone.png'});
     assertBrowserContained(phone);
   }finally{await closeConversationHarness(browser,h,pages);}
 });

@@ -14,7 +14,7 @@ or existing schedule changes.
 Chat parity now includes shared safe rich text/code rendering and copy actions,
 inline verified images and file downloads, local conversation search, explicit
 text export, grouped dates, scroll-position preservation and a latest-message
-control. The warm editorial palette follows Relay. The keyboard viewport resizes
+control. The charcoal/blue palette follows Relay's final overrides and PR126: black canvas, #303030 surfaces, #f7f7f7 text, #a3a3a3 secondary text and #506d92 filled actions. The public Muse page gets the same scoped color update without changing its public access boundary. The keyboard viewport resizes
 the reading area and keeps the composer in view. Owner connection management
 continues to use Relay's existing account/device UI.
 
