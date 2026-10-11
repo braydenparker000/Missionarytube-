@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {LUCY_DISCOVERY_BASELINE,checkedLucyDiscoveryBaseline,expectedLucyDiscoverySettings,planLucyDiscoverySettings,checkedLucyDiscoveryCheckpoint} from '../scripts/relay-worker-release-identity.mjs';
+import {canonicalSettingsDigest,expectedCanonicalLucyDiscoverySettings,LUCY_DISCOVERY_BASELINE,checkedLucyDiscoveryBaseline,expectedLucyDiscoverySettings,planLucyDiscoverySettings,checkedLucyDiscoveryCheckpoint} from '../scripts/relay-worker-release-identity.mjs';
 import {settingsDigest} from '../scripts/worker-release-identity.mjs';
 
 const flag='RELAY_AGENT_LUCY_OAUTH_ENABLED';
@@ -39,8 +39,8 @@ test('activation requires the pinned live Worker and settings, never a caller-se
 
 test('recording requires the exact expected digest, and unchanged releases retain strict equality',()=>{
   const before={live:{...LUCY_DISCOVERY_BASELINE},proof:{reuse:false},
-    settingsTransition:{kind:'lucy-oauth-discovery',expectedSettingsDigest:settingsDigest(enabled)}};
-  assert.equal(checkedLucyDiscoveryCheckpoint(before),settingsDigest(enabled));
+    settingsTransition:{kind:'lucy-oauth-discovery',expectedSettingsDigest:settingsDigest(enabled),expectedCanonicalSettingsDigest:canonicalSettingsDigest(enabled)}};
+  assert.equal(checkedLucyDiscoveryCheckpoint(before),canonicalSettingsDigest(enabled));
   for(const mutate of [b=>b.live.version='12345678-1234-1234-1234-123456789abc',b=>b.live.settingsDigest='a'.repeat(64),
     b=>b.proof.reuse=true,b=>b.settingsTransition.kind='allow-settings-change',b=>b.settingsTransition.flag='RELAY_AGENTS_ENABLED',
     b=>b.settingsTransition.expectedSettingsDigest=b.live.settingsDigest]){
@@ -50,3 +50,13 @@ test('recording requires the exact expected digest, and unchanged releases retai
   assert.equal(checkedLucyDiscoveryCheckpoint(unchanged),settingsDigest(enabled));
   unchanged.settingsTransition.expectedSettingsDigest='b'.repeat(64);assert.throws(()=>checkedLucyDiscoveryCheckpoint(unchanged));
 });
+
+ test('canonical comparison ignores object order but rejects other bindings and nested array changes',()=>{
+ const reordered={bindings:enabled.bindings.map(b=>Object.fromEntries(Object.entries(b).reverse()))};
+ assert.equal(canonicalSettingsDigest(reordered),expectedCanonicalLucyDiscoverySettings(settings));
+ for(const mutate of [s=>s.bindings[1].text='true',s=>s.bindings[0].namespace_id='other',s=>s.bindings.push({name:'NEW',type:'secret_text'})]){
+ const changed=structuredClone(reordered);mutate(changed);assert.notEqual(canonicalSettingsDigest(changed),expectedCanonicalLucyDiscoverySettings(settings));
+ }
+ const a=structuredClone(enabled);a.bindings[0].nested={array:[1,2]};
+ const b=structuredClone(a);b.bindings[0].nested.array.reverse();assert.notEqual(canonicalSettingsDigest(a),canonicalSettingsDigest(b));
+ });

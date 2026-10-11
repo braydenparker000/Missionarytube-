@@ -9,7 +9,9 @@ import {readWorkerSettings} from './check-music-worker-bindings.mjs';
 // This is the full-release entrypoint. The preceding client-only entrypoint and
 // its finite historical transition stay unchanged and cannot deploy a Worker.
 export const RELAY_SOURCE='c28c1b2f70aabb5217b08bf31ffe4c93d0353765';
-export const RELAY_EXTRA_RECIPES=Object.freeze(['scripts/relay-worker-release-identity.mjs','scripts/stage-relay-core-dependencies.mjs']);
+export const RELAY_EXTRA_RECIPES=Object.freeze(['scripts/relay-worker-release-identity.mjs','scripts/stage-relay-core-dependencies.mjs',
+  'scripts/lucy-settings-diagnostic.mjs','scripts/reconcile-lucy-receipt.mjs']);
+export const LUCY_RECEIPT_MODE='reconcile-lucy-discovery';
 const REPO='braydenparker000/Missionarytube-',ORIGIN='https://missionarytube.z13.web.core.windows.net';
 const API='https://jarvis-hub-api.braydenparker999.workers.dev';
 const SHA=/^[a-f0-9]{40}$/,DIGEST=/^[a-f0-9]{64}$/;
@@ -33,6 +35,14 @@ export const LUCY_DISCOVERY_BASELINE=Object.freeze({
   settingsDigest:'ff0e42eea34106d9ddf694dc50600bb2aea4101b21a4e3a18464ebc48691e415'
 });
 const LUCY_DISCOVERY_FLAG='RELAY_AGENT_LUCY_OAUTH_ENABLED';
+function canonical(value){
+  if(Array.isArray(value))return value.map(canonical);
+  if(value!==null&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])]));
+  return value;
+}
+// Keep the legacy binding-name identity rule; normalize only object keys.
+// Arrays inside bindings retain their exact order. Legacy receipt hashes remain unchanged.
+export const canonicalSettingsDigest=settings=>settingsDigest(canonical(settings));
 export function checkedLucyDiscoveryBaseline(live){
   if(!equal(live,LUCY_DISCOVERY_BASELINE))throw refusal('settings_mismatch');
 }
@@ -48,22 +58,30 @@ export function expectedLucyDiscoverySettings(settings){
   return settingsDigest({...settings,bindings:[...settings.bindings.filter(binding=>binding.name!==LUCY_DISCOVERY_FLAG),
     {name:LUCY_DISCOVERY_FLAG,type:'plain_text',text:'true'}]});
 }
+export function expectedCanonicalLucyDiscoverySettings(settings){
+  discoveryBinding(settings);
+  return canonicalSettingsDigest({...settings,bindings:[...settings.bindings.filter(binding=>binding.name!==LUCY_DISCOVERY_FLAG),
+    {name:LUCY_DISCOVERY_FLAG,type:'plain_text',text:'true'}]});
+}
 export function planLucyDiscoverySettings(settings,live){
   if(settingsDigest(settings)!==live.settingsDigest)throw refusal('settings_mismatch');
   const current=discoveryBinding(settings);
   if(current?.text==='true')return {kind:'unchanged',expectedSettingsDigest:live.settingsDigest};
   checkedLucyDiscoveryBaseline(live);
-  return {kind:'lucy-oauth-discovery',expectedSettingsDigest:expectedLucyDiscoverySettings(settings)};
+  return {kind:'lucy-oauth-discovery',expectedSettingsDigest:expectedLucyDiscoverySettings(settings),
+    expectedCanonicalSettingsDigest:expectedCanonicalLucyDiscoverySettings(settings)};
 }
 export function checkedLucyDiscoveryCheckpoint(before){
   const transition=before.settingsTransition;
-  if(!transition||!equal(Object.keys(transition).sort(),['expectedSettingsDigest','kind'])||!DIGEST.test(transition.expectedSettingsDigest))
+  if(!transition||!DIGEST.test(transition.expectedSettingsDigest))
     throw refusal('settings_mismatch');
   if(transition.kind==='unchanged'){
-    if(transition.expectedSettingsDigest!==before.live.settingsDigest)throw refusal('settings_mismatch');
+    if(!equal(Object.keys(transition).sort(),['expectedSettingsDigest','kind'])||transition.expectedSettingsDigest!==before.live.settingsDigest)throw refusal('settings_mismatch');
   }else if(transition.kind==='lucy-oauth-discovery'){
     checkedLucyDiscoveryBaseline(before.live);
-    if(before.proof.reuse!==false||transition.expectedSettingsDigest===before.live.settingsDigest)throw refusal('settings_mismatch');
+    if(!equal(Object.keys(transition).sort(),['expectedCanonicalSettingsDigest','expectedSettingsDigest','kind'])||
+      !DIGEST.test(transition.expectedCanonicalSettingsDigest)||before.proof.reuse!==false||transition.expectedSettingsDigest===before.live.settingsDigest)throw refusal('settings_mismatch');
+    return transition.expectedCanonicalSettingsDigest;
   }else throw refusal('settings_mismatch');
   return transition.expectedSettingsDigest;
 }
@@ -81,8 +99,8 @@ function checkedRelease(root){
     release.r2ManifestURL!==API+'/music/library.json'||release.preserveDriveCatalog!==true||release.deployPodcastWorker!==true)
     throw refusal('recipe_mismatch');
   const policy=release.workerDeploymentPolicy;
-  if(!policy||!equal(Object.keys(policy).sort(),['mode','recipe','schema'])||policy.schema!==1||policy.mode!=='full-release'||
-    !Array.isArray(policy.recipe)||policy.recipe.length!==14)throw refusal('recipe_mismatch');
+  if(!policy||!equal(Object.keys(policy).sort(),['mode','recipe','schema'])||policy.schema!==1||!['full-release',LUCY_RECEIPT_MODE].includes(policy.mode)||
+    !Array.isArray(policy.recipe)||policy.recipe.length!==12+RELAY_EXTRA_RECIPES.length)throw refusal('recipe_mismatch');
   const paths=['jarvis-release.json',...policy.recipe.map(item=>item.path)];
   if(new Set(paths).size!==paths.length)throw refusal('recipe_mismatch');
   const tree=git(root,'ls-tree','-rz',head,'--',...paths);
@@ -126,7 +144,7 @@ function checkedCurrent(expected,candidate,live){
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   try{
     if(process.argv.length!==3||!['plan','record','verify','receipt','verify-receipt'].includes(process.argv[2]))throw refusal('recipe_mismatch');
-    checkedRelease(process.cwd());
+    if(checkedRelease(process.cwd()).release.workerDeploymentPolicy.mode!=='full-release')throw refusal('recipe_mismatch');
     const command=process.argv[2],candidate=relayCandidateIdentity(),policy=checkedRelayFullReleasePolicy(process.cwd(),candidate);
     let live;try{live=await liveIdentity({account:process.env.CLOUDFLARE_ACCOUNT_ID,token:process.env.CLOUDFLARE_API_TOKEN});}
     catch{throw refusal('provider_check_failed');}
@@ -144,14 +162,18 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
         `No exact live Worker reuse proof (${proof.reason}); current qualified backend deployment required`);
     }else if(command==='record'){
       const before=checkedCheckpoint(JSON.parse(readFileSync('worker-identity-before.json','utf8')),candidate);
-      if(checkedLucyDiscoveryCheckpoint(before)!==live.settingsDigest)throw refusal('settings_mismatch');
+      const expected=checkedLucyDiscoveryCheckpoint(before);
+      if(before.settingsTransition.kind==='lucy-oauth-discovery'){
+        const settings=await readWorkerSettings({account:process.env.CLOUDFLARE_ACCOUNT_ID,token:process.env.CLOUDFLARE_API_TOKEN});
+        if(settingsDigest(settings)!==live.settingsDigest||canonicalSettingsDigest(settings)!==expected)throw refusal('settings_mismatch');
+      }else if(expected!==live.settingsDigest)throw refusal('settings_mismatch');
       if(before.proof.reuse){if(!equal(before.live,live))throw refusal('identity_mismatch');}
       else newlyDeployedVersion(JSON.parse(readFileSync('.jarvis-source/worker-versions-before.json','utf8')),
         JSON.parse(readFileSync('.jarvis-source/worker-versions-after.json','utf8')),live);
       writeFileSync('worker-identity-current.json',JSON.stringify({candidate,live},null,2)+'\n');
       if(before.settingsTransition.kind==='lucy-oauth-discovery')console.log(JSON.stringify({
         settingsTransition:'lucy-oauth-discovery',flag:LUCY_DISCOVERY_FLAG,value:'true',
-        beforeSettingsDigest:before.live.settingsDigest,expectedSettingsDigest:before.settingsTransition.expectedSettingsDigest,
+        beforeSettingsDigest:before.live.settingsDigest,expectedCanonicalSettingsDigest:before.settingsTransition.expectedCanonicalSettingsDigest,
         actualSettingsDigest:live.settingsDigest,otherBindingsUnchanged:true}));
     }else if(command==='verify'){
       checkedCurrent(JSON.parse(readFileSync('worker-identity-current.json','utf8')),candidate,live);
