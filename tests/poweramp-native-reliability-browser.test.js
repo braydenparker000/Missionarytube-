@@ -44,6 +44,48 @@ async function openPage(browser,fixture){
 test('Poweramp native R2 Chrome lifecycle and recovery contracts',{timeout:Math.max(300000,(soakSegments*75+120)*1000)},async t=>{
   const fixture=await servePowerampFixture(),browser=await chromium.launch({executablePath:requireBrowser(),headless:true,args:['--no-sandbox']});
   try{
+    await t.test('turning off an expired sleep fade keeps real decoded audio advancing',async()=>{
+      const h=await openPage(browser,fixture);
+      try{
+        await h.page.locator('#btn-play').tap();
+        await h.page.waitForFunction(()=>PA.Engine.playing&&PA.Engine.time()>.2);
+        await h.page.evaluate(()=>PA.Engine.setSleep(.001));
+        await h.page.waitForFunction(()=>PA.Engine.sleepAt===0);
+        const before=await h.page.evaluate(()=>{PA.Engine.setSleep(0);return PA.Engine.time();});
+        // Observe beyond the original 4.2-second completion, with real native
+        // media time; no virtual clock or replacement play implementation.
+        await h.page.waitForTimeout(4500);
+        const after=await h.page.evaluate(()=>({time:PA.Engine.time(),intent:PA.Engine.wantsPlayback(),paused:PA.Engine.el().paused}));
+        assert.equal(after.intent,true);assert.equal(after.paused,false);assert.ok(after.time>before+3);
+        assert.deepEqual(h.errors,[]);
+      }finally{await h.context.close();}
+    });
+    await t.test('deleting through the library preserves shuffled transport occurrences',async()=>{
+      const h=await openPage(browser,fixture);
+      try{
+        await h.page.locator('#btn-play').tap();
+        await h.page.waitForFunction(()=>PA.Engine.playing);
+        await h.page.evaluate(async()=>{
+          const {Engine,SET}=PA;SET.previousRestarts=false;
+          Engine.queue.push(Engine.queue[1]);Engine.order=[2,0,3,1];
+          await Engine.playIndex(3,true);
+          PA.Views.push({kind:'all',title:'All Songs'});
+        });
+        await h.page.waitForFunction(()=>PA.Nav.cur==='list'&&!document.querySelector('.player-scene-input'));
+        await h.page.evaluate(()=>PA.Selection.enter('r2_fixture_0',document.querySelector('#list-body .zoom-list')));
+        await h.page.locator('[data-select="Delete"]').click();
+        await h.page.locator('#sheet .actions').getByRole('button',{name:'Delete',exact:true}).click();
+        await h.page.waitForFunction(()=>!PA.LIB.map.has('r2_fixture_0'));
+        const state=()=>h.page.evaluate(()=>({order:PA.Engine.order,pos:PA.Engine.pos,id:PA.Engine.current.id}));
+        assert.deepEqual(await state(),{order:[1,2,0],pos:1,id:'r2_fixture_1'});
+        for(const [action,pos,id] of [['nexttrack',2,'r2_fixture_1'],['nexttrack',0,'r2_fixture_2'],['previoustrack',2,'r2_fixture_1']]){
+          await h.page.evaluate(action=>fixtureMediaActions.get(action)(),action);
+          await h.page.waitForFunction(()=>PA.Engine.playing&&PA.Engine.time()>.05);
+          assert.deepEqual(await state(),{order:[1,2,0],pos,id});
+        }
+        assert.deepEqual(h.errors,[]);
+      }finally{await h.context.close();}
+    });
     await t.test('startup restoration keeps native R2 position without a mapping or media request',async()=>{
       const h=await openPage(browser,fixture);
       try{
