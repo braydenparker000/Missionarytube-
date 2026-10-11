@@ -1,0 +1,76 @@
+TAP version 13
+# Subtest: a timed-out worker retires the pool and settles active and queued tag reads
+ok 1 - a timed-out worker retires the pool and settles active and queued tag reads
+  ---
+  duration_ms: 3.917755
+  type: 'test'
+  ...
+# Subtest: queued tags receive their timeout when dispatched, not while waiting for a worker
+ok 2 - queued tags receive their timeout when dispatched, not while waiting for a worker
+  ---
+  duration_ms: 0.9853
+  type: 'test'
+  ...
+# Subtest: stop settles outstanding tags and stale worker messages cannot free a restarted worker
+ok 3 - stop settles outstanding tags and stale worker messages cannot free a restarted worker
+  ---
+  duration_ms: 0.856447
+  type: 'test'
+  ...
+# Subtest: late local metadata cannot persist a deleted track record
+ok 4 - late local metadata cannot persist a deleted track record
+  ---
+  duration_ms: 0.981334
+  type: 'test'
+  ...
+# Subtest: late local metadata cannot persist a replacement track record
+ok 5 - late local metadata cannot persist a replacement track record
+  ---
+  duration_ms: 0.914935
+  type: 'test'
+  ...
+# Subtest: late duration completion cannot resurrect a deleted track
+ok 6 - late duration completion cannot resurrect a deleted track
+  ---
+  duration_ms: 2.341618
+  type: 'test'
+  ...
+# Subtest: background audio cache skips entries removed before their batch starts
+ok 7 - background audio cache skips entries removed before their batch starts
+  ---
+  duration_ms: 0.877067
+  type: 'test'
+  ...
+# Subtest: a deleted local root read cannot refill the file cache
+ok 8 - a deleted local root read cannot refill the file cache
+  ---
+  duration_ms: 1.09147
+  type: 'test'
+  ...
+# Subtest: a deleted local handle read cannot refill the file cache
+ok 9 - a deleted local handle read cannot refill the file cache
+  ---
+  duration_ms: 1.077689
+  type: 'test'
+  ...
+# Subtest: a deleted local blob read cannot refill the file cache
+ok 10 - a deleted local blob read cannot refill the file cache
+  ---
+  duration_ms: 1.098881
+  type: 'test'
+  ...
+# Subtest: a stopped metadata job does not mark its replacement record as already repaired
+ok 11 - a stopped metadata job does not mark its replacement record as already repaired
+  ---
+  duration_ms: 0.861434
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 76.322022
