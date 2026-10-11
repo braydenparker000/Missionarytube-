@@ -123,7 +123,7 @@ function drawShell() {
       const ownerActions=[
         {label:'Public chat',icon:'chat',action:()=>ownerController.showPublic(),section:'Conversation'},
         {label:ownerController.hasCredential?'Owner chat':ownerController.status==='pending'?'Pairing status':'Connect this phone',icon:'chat',action:()=>ownerController.showOwner()},
-        {label:'Mast · private',icon:'chat',href:'/mast/',action:()=>{}},
+        {label:'Muse · private',icon:'chat',href:'/mast/',action:()=>{}},
         {label:'Muse · public',icon:'chat',href:'/muse/',action:()=>{}},
       ];
       const conversationActions=privateView

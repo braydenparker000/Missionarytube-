@@ -19,7 +19,7 @@ test('Mast phone: closed state, safe uncertain-send retry and chronological priv
     const id=h.rows('SELECT id FROM relay_mast_entries')[0].id;
     await h.fixture.request('/relay/mast/reply',{method:'POST',headers:{Authorization:'Bearer '+token},body:JSON.stringify({id:crypto.randomUUID(),reply_to:id,body:'Synthetic Mast reply — only this conversation.'})});
     await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.getByText('Synthetic Mast reply — only this conversation.',{exact:true}).waitFor();
-    assert.deepEqual(await page.locator('.message-author').allTextContents(),['You','Mast']);
+    assert.deepEqual(await page.locator('.message-author').allTextContents(),['You','Muse']);
     await mkdir(evidence,{recursive:true});await page.screenshot({path:evidence+'/phone-390.png'});
     await page.setViewportSize({width:390,height:520});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     const box=await page.locator('#message').boundingBox();assert.ok(box.y+box.height<=520);
@@ -29,7 +29,7 @@ test('Mast phone: closed state, safe uncertain-send retry and chronological priv
   const closed=createConversationFixture(t),closedPages=[];const secondBrowser=await launchQualifiedBrowser(t);
   try{
     const owner=await closed.pair(await closed.oauth()),phone=await openConversationPage(secondBrowser,closed,{owner,clock:false});closedPages.push(phone);
-    await phone.page.goto(SITE+'/mast/');await phone.page.getByText('Awaiting approval to activate Mast access.',{exact:true}).waitFor();assert.ok(await phone.page.locator('#composer').isHidden());
+    await phone.page.goto(SITE+'/mast/');await phone.page.getByText('Muse adapter is not connected. Secure setup is still required.',{exact:true}).waitFor();assert.ok(await phone.page.locator('#composer').isHidden());
     await phone.page.screenshot({path:evidence+'/inactive-390.png'});assertBrowserContained(phone);
   }finally{await closeConversationHarness(secondBrowser,closed,closedPages);}
 });

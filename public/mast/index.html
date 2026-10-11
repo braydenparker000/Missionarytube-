@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Mast · Jarvis</title>
+  <title>Muse · Jarvis</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/assets/shell.css">
   <link rel="stylesheet" href="/assets/conversation.css">
   <link rel="stylesheet" href="/assets/mast.css">
   <script type="module" src="/assets/mast.js"></script>
 </head>
-<body class="module-page conversation-page relay-page" data-conversation-mode="owner">
+<body class="module-page mast-page" data-conversation-mode="owner">
   <main class="workspace">
-    <header class="topbar"><a class="icon-button" href="/jarvis/" aria-label="Back to Relay">←</a><div class="conversation-identity"><h1 class="brand">Mast</h1><span class="conversation-visibility">Private owner conversation</span></div><button id="refresh" type="button">Refresh</button></header>
+    <header class="topbar"><a class="icon-button" href="/jarvis/" aria-label="Back to Relay">←</a><div class="conversation-identity"><h1 class="brand">Muse</h1><span class="conversation-visibility">Private owner conversation</span></div><button id="refresh" type="button">Refresh</button></header>
     <p id="status" role="status">Checking owner access…</p>
     <form id="login" hidden>
       <h2>Sign in to Jarvis</h2><p>Use your existing owner account.</p>
@@ -20,13 +20,17 @@
       <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
       <button type="submit">Sign in</button><a href="/jarvis/">Owner connection options</a>
     </form>
-    <section id="messages" class="messages" aria-label="Conversation with Mast" aria-live="polite"></section>
+    <details id="connection"><summary>Connection details</summary><p id="connection-detail">Checking secure adapter setup…</p><p>Lucy–Muse coordination is a separate private channel. No messages are forwarded there automatically.</p><a href="/jarvis/">Manage owner connection in Relay</a></details>
+    <div class="mast-tools"><label for="search" class="sr-only">Search this conversation</label><input id="search" type="search" placeholder="Search conversation" autocomplete="off"><button id="export" type="button" disabled>Export text</button></div>
+    <section id="messages" class="messages" aria-label="Conversation with Muse" aria-live="polite"></section>
+    <button id="latest" type="button" hidden>Latest messages ↓</button>
     <form id="composer" class="composer" hidden>
-      <label class="sr-only" for="message">Message Mast</label>
+      <label class="sr-only" for="message">Message Muse</label>
       <div id="selected-files" aria-live="polite"></div>
-      <input id="files" type="file" multiple hidden aria-label="Choose Mast files">
-      <div class="composer-input"><button id="choose-files" type="button" aria-label="Attach images or files">+</button><textarea id="message" maxlength="4000" placeholder="Message Mast…" required></textarea><button id="send" type="submit">Send</button></div>
-      <p class="composer-note">Only messages sent here are shared with Mast. Up to 4 files, 1 MB each.</p>
+      <input id="files" type="file" multiple hidden aria-label="Choose Muse files">
+      <div class="composer-input"><button id="choose-files" type="button" aria-label="Attach images or files">+</button><textarea id="message" maxlength="4000" placeholder="Message Muse…" required></textarea><button id="send" type="submit">Send</button></div>
+      <button id="discard-pending" type="button" hidden>Stop retrying</button>
+      <p class="composer-note">Only messages sent here are shared with Muse. Up to 4 files, 1 MB each. Unsent text and retry IDs stay in this tab until sent or cleared.</p>
     </form>
   </main>
 </body>

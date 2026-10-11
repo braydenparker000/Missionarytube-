@@ -12,6 +12,11 @@ function schema(ctx) {
     role TEXT NOT NULL CHECK(role IN ('owner','mast')), reply_to TEXT UNIQUE,
     body TEXT NOT NULL, created_at TEXT NOT NULL, device_id TEXT NOT NULL)`);
 }
+function adapterState(ctx,env){
+  ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS relay_mast_presence (token_hash TEXT PRIMARY KEY,fetched_ms INTEGER NOT NULL,fetched_sequence INTEGER NOT NULL)');
+  const record=rows(ctx,'SELECT fetched_ms,fetched_sequence FROM relay_mast_presence WHERE token_hash=?',env.RELAY_MAST_TOKEN_SHA256)[0];
+  return record?{lastFetchedAt:new Date(record.fetched_ms).toISOString(),fetchedSequence:record.fetched_sequence}:null;
+}
 function entry(row,ctx) {
   return {id:row.id, sequence:row.seq, role:row.role, body:row.body, createdAt:row.created_at, replyTo:row.reply_to, visibility:'private', destination:'mast',attachments:mastFileMetadata(ctx,row.id)};
 }
@@ -21,7 +26,7 @@ export function mastList(ctx, env, after) {
   if (!mastEnabled(env)) return {enabled:false, messages:[], nextCursor:null};
   schema(ctx);
   const selected = rows(ctx, 'SELECT * FROM relay_mast_entries WHERE seq>? ORDER BY seq LIMIT 51', offset);
-  return {enabled:true, messages:selected.slice(0,50).map(row=>entry(row,ctx)), nextCursor:selected.length>50?String(selected[49].seq):null};
+  return {enabled:true, adapter:adapterState(ctx,env), messages:selected.slice(0,50).map(row=>entry(row,ctx)), nextCursor:selected.length>50?String(selected[49].seq):null};
 }
 export function mastSend(ctx, env, body, session, now = Date.now()) {
   if (!mastEnabled(env)) fail(503, 'Mast chat awaits activation');
@@ -58,7 +63,11 @@ export async function mastAdapterStore(ctx, env, input) {
     return ctx.storage.transactionSync(() => {
       if (input.op==='list') {
         fields(input,['op','token_hash','after'],['op','token_hash']);
-        return json(mastList(ctx,env,input.after));
+        const result=mastList(ctx,env,input.after),now=Date.now();
+        const sequence=result.messages.at(-1)?.sequence||0;
+        rows(ctx,'DELETE FROM relay_mast_presence WHERE token_hash<>?',input.token_hash);
+        rows(ctx,'INSERT INTO relay_mast_presence VALUES(?,?,?) ON CONFLICT(token_hash) DO UPDATE SET fetched_ms=excluded.fetched_ms,fetched_sequence=MAX(fetched_sequence,excluded.fetched_sequence)',input.token_hash,now,sequence);
+        return json(result);
       }
       fields(input,['op','token_hash','id','reply_to','body','attachment_ids'],['op','token_hash','id','reply_to','body']);
       if (input.op!=='reply' || !uuid(input.id) || !uuid(input.reply_to) || typeof input.body!=='string' || !input.body.trim()&&!input.attachment_ids?.length || input.body.length>6000) fail(400,'Invalid Mast reply');

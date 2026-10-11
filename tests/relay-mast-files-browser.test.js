@@ -24,8 +24,9 @@ test('Mast phone files: uncertain uploads/sends, inline images both ways, exact 
     // Exercise the actual pagehide handler with the persisted flag used by BFCache.
     // Browser cache admission itself is not claimed by this lifecycle simulation.
     await page.evaluate(()=>{dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));});
-    assert.equal(await page.locator('#selected-files').innerText(),'');assert.equal(await page.locator('#message').inputValue(),'');
+    assert.match(await page.locator('#selected-files').innerText(),/retained for this exact retry/);assert.equal(await page.locator('#message').inputValue(),'');
     assert.equal(await page.locator('#message').evaluate(x=>x.required),false,'file-only pending intent still passes native form validation');
+    await page.reload();await page.getByRole('button',{name:'Retry',exact:true}).waitFor();
     await page.getByRole('button',{name:'Retry',exact:true}).click();await page.locator('.outgoing img').waitFor();
     await page.waitForFunction(()=>document.querySelector('.outgoing img')?.naturalWidth===280);await page.screenshot({path:dir+'/mast-owner-image-phone-390.png'});
     assert.equal(phone.records.filter(r=>r.path==='/relay/owner/mast'&&r.method==='POST').at(-1).body,pendingBody,'restore retries the exact original message and file IDs');

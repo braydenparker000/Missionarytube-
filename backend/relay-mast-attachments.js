@@ -31,8 +31,8 @@ function target(ctx,body,actor){
     if(rows(ctx,'SELECT id FROM relay_mast_entries WHERE reply_to=? AND id<>?',body.reply_to,body.message_id).length)fail(409,'attachment_message_conflict','Mast message already has a reply');
   }else if(body.reply_to!==undefined)fail(400,'attachment_invalid','Owner files cannot select a reply target');
 }
-function precheck(ctx,body,actor,now){
-  target(ctx,body,actor);
+function precheck(ctx,body,actor,now,targetCheck=target){
+  targetCheck(ctx,body,actor);
   const prior=rows(ctx,'SELECT * FROM relay_mast_files WHERE id=?',body.id)[0];
   if(prior){
     if(prior.actor!==actor||prior.message_id!==body.message_id)missing();
@@ -75,16 +75,16 @@ function read(ctx,body){
   if(bytes.length!==r.size_bytes||bytes.length>ATTACHMENT_MAX_BYTES)fail(503,'attachment_unavailable','Mast file integrity unavailable');
   return {attachment:metadata(r),bytes};
 }
-export async function mastFileOperation(ctx,input,authorize){
+export async function mastFileOperation(ctx,input,authorize,targetCheck=target){
   const allowed={file_admit:[],file_upload:['id','message_id','reply_to','name','mime_type','data_base64'],file_discard:['message_id','attachment_id'],file_content:['message_id','attachment_id','preview']};
   fields(input,['op','token_hash',...(allowed[input.op]||[])],['op','token_hash',...(allowed[input.op]||[]).filter(k=>!['reply_to','preview'].includes(k))]);
   const check=()=>{const actor=authorize();mastFileSchema(ctx);return actor;};
   if(input.op==='file_admit'){ctx.storage.transactionSync(()=>{check();admit(ctx,Date.now(),'ingress');});return json({admitted:true});}
   if(input.op==='file_upload'){
     const actor=ctx.storage.transactionSync(()=>{const actor=check();admit(ctx,Date.now(),'codec');return actor;});
-    precheck(ctx,input,actor,Date.now());const prepared=await relayAttachmentPrepare(input);
+    precheck(ctx,input,actor,Date.now(),targetCheck);const prepared=await relayAttachmentPrepare(input);
     return ctx.storage.transactionSync(()=>{
-      const current=check();if(current!==actor)missing();const now=Date.now();cleanup(ctx,now);const prior=precheck(ctx,input,actor,now);
+      const current=check();if(current!==actor)missing();const now=Date.now();cleanup(ctx,now);const prior=precheck(ctx,input,actor,now,targetCheck);
       if(prior){if(prior.sha256!==prepared.sha256||prior.size_bytes!==prepared.bytes.length)fail(409,'attachment_id_conflict','Mast file bytes conflict');return json({attachment:metadata(prior),newWrite:false,visibility:'private'});}
       rows(ctx,'INSERT INTO relay_mast_files VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',input.id,input.message_id,input.reply_to??null,actor,input.name,input.mime_type,prepared.bytes.length,prepared.sha256,prepared.bytes.buffer,now,now+limits.draftMs,'staged',null);
       const day='bytes:'+new Date(now).toISOString().slice(0,10);rows(ctx,"DELETE FROM relay_mast_file_rates WHERE bucket LIKE 'bytes:%' AND bucket<>?",day);

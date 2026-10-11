@@ -339,7 +339,8 @@ export function createRelayOwnerApi({ fetcher = globalThis.fetch, origin = API_O
       if(typeof data.enabled!=='boolean' || !Array.isArray(data.messages) || data.messages.length>50
         || !(data.nextCursor===null || /^[0-9]+$/.test(data.nextCursor)&&Number(data.nextCursor)>Number(after))
         || !data.enabled&&(data.messages.length||data.nextCursor!==null)) throw new OwnerApiError('invalid');
-      return {enabled:data.enabled,messages:data.messages.map(mastEntry),nextCursor:data.nextCursor};
+      if(data.adapter!=null&&(!validDate(data.adapter.lastFetchedAt)||!Number.isSafeInteger(data.adapter.fetchedSequence)||data.adapter.fetchedSequence<0))throw new OwnerApiError('invalid');
+      return {enabled:data.enabled,adapter:data.adapter||null,messages:data.messages.map(mastEntry),nextCursor:data.nextCursor};
     },
     async mastSend(id, body, attachmentIds=[]) {
       const data=await attachmentCall('/relay/owner/mast', {body:{id,body,...(attachmentIds.length?{attachment_ids:attachmentIds}:{})}});
