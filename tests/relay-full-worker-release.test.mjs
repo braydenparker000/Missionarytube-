@@ -5,7 +5,7 @@ import {execFileSync,spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {relayCandidateIdentity,checkedRelayFullReleasePolicy,planRelayFullRelease,RELAY_SOURCE,LUCY_DISCOVERY_BASELINE} from '../scripts/relay-worker-release-identity.mjs';
+import {canonicalSettingsDigest,relayCandidateIdentity,checkedRelayFullReleasePolicy,planRelayFullRelease,RELAY_SOURCE,LUCY_DISCOVERY_BASELINE} from '../scripts/relay-worker-release-identity.mjs';
 import {settingsDigest,receiptDigest,backendInputIdentity} from '../scripts/worker-release-identity.mjs';
 import {musicWorkerConfig} from '../scripts/prepare-music-worker.mjs';
 import * as esbuild from 'esbuild';
@@ -35,6 +35,7 @@ after(async()=>{
 async function fixture(){
   const root=await mkdtemp(join(tmpdir(),'relay-full-release-'));
   const release=JSON.parse(await readFile(join(repository,'jarvis-release.json'),'utf8'));
+  release.workerDeploymentPolicy.mode='full-release';
   for(const {path} of release.workerDeploymentPolicy.recipe){await mkdir(dirname(join(root,path)),{recursive:true});await copyFile(join(repository,path),join(root,path));}
   await copyFile(join(repository,'scripts/relay-owner-gate.mjs'),join(root,'scripts/relay-owner-gate.mjs'));
   await writeFile(join(root,'jarvis-release.json'),JSON.stringify(release,null,2)+'\n');
@@ -80,7 +81,7 @@ function cli(f,mock,command,scenario='reuse',extra=[],env={}){
 
 test('actual qualified backend closure and every current recipe are HEAD-bound before planning',async()=>{
   const f=await fixture();try{
-    assert.equal(f.candidate.source,RELAY_SOURCE);assert.equal(f.candidate.recipe.length,14);
+    assert.equal(f.candidate.source,RELAY_SOURCE);assert.equal(f.candidate.recipe.length,16);
     assert.match(f.candidate.backendDigest,/^[a-f0-9]{64}$/);
     assert.equal((await planRelayFullRelease(f.candidate,f.live,{policy:f.policy,fetcher:f.fetcher})).reuse,true);
     assert.equal(f.calls.length,4);assert.ok(f.calls.every(({init})=>init.method==='GET'&&init.body===undefined&&init.redirect==='error'));
@@ -152,7 +153,7 @@ test('Lucy discovery checkpoint accepts only its expected full settings digest a
   const f=await fixture();try{
     const mock=await hook(f);
     const before={candidate:f.candidate,live:{...LUCY_DISCOVERY_BASELINE},proof:{reuse:false,reason:'backend_digest_mismatch'},
-      settingsTransition:{kind:'lucy-oauth-discovery',expectedSettingsDigest:settingsDigest(f.settings)}};
+      settingsTransition:{kind:'lucy-oauth-discovery',expectedSettingsDigest:settingsDigest(f.settings),expectedCanonicalSettingsDigest:canonicalSettingsDigest(f.settings)}};
     await writeFile(join(f.root,'worker-identity-before.json'),JSON.stringify(before));
     const source=join(f.root,'.jarvis-source');
     await writeFile(join(source,'worker-versions-before.json'),JSON.stringify([{id:LUCY_DISCOVERY_BASELINE.version}]));

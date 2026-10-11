@@ -216,7 +216,7 @@ test('workflow preserves all prewrite barriers, requires staging success, exclud
   for(let i=1;i<ordered.length;i++)assert.ok(flow.indexOf(ordered[i-1])>=0&&flow.indexOf(ordered[i-1])<flow.indexOf(ordered[i]),ordered[i]);
   const stage=flow.slice(flow.indexOf('      - name: Upload and verify all Relay dependencies'),flow.indexOf('      - name: Stage Jarvis'));
   assert.match(stage,/STORAGE_ACCOUNT: \$\{\{ vars\.AZURE_STORAGE_ACCOUNT \}\}/);
-  assert.match(stage,/run: node scripts\/stage-relay-core-dependencies\.mjs/);assert.doesNotMatch(stage,/continue-on-error|always\(|\n\s+if:/);
+  assert.match(stage,/run: node scripts\/stage-relay-core-dependencies\.mjs/);assert.doesNotMatch(stage,/continue-on-error|always\(/);assert.match(stage,/if: steps.jarvis.outputs.receipt_only != 'true'/);
   const batch=flow.slice(flow.indexOf('      - name: Stage Jarvis'),flow.indexOf('      - name: Check every staged file'));
   const removal=batch.match(/^\s+rm (upload\/assets\/[^\n]+)$/m)?.[1]?.split(/\s+/)||[];
   assert.deepEqual(removal,modules.map(path=>'upload/'+path),'every sealed dependency is excluded from the unordered batch');

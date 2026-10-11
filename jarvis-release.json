@@ -8,11 +8,11 @@
   "deployPodcastWorker": true,
   "workerDeploymentPolicy": {
     "schema": 1,
-    "mode": "full-release",
+    "mode": "reconcile-lucy-discovery",
     "recipe": [
       {
         "path": ".github/workflows/deploy-azure-storage.yml",
-        "sha": "6714205d3f0211b0c666bd7ccf7845a7ae4eefd9"
+        "sha": "122a5d805b5a05efd68759892637142de941dd2f"
       },
       {
         "path": ".github/workflows/qualify-jarvis.yml",
@@ -60,11 +60,19 @@
       },
       {
         "path": "scripts/relay-worker-release-identity.mjs",
-        "sha": "cc08b94dee95679932e03615315431463024146a"
+        "sha": "d9de998c613dfb2a282911cb3c7c24293fd44057"
       },
       {
         "path": "scripts/stage-relay-core-dependencies.mjs",
         "sha": "145383d9dacf11854c3b50615e90ee6aed6f71e9"
+      },
+      {
+        "path": "scripts/lucy-settings-diagnostic.mjs",
+        "sha": "d913e7e924fde0c380c7ff726210da0ba0ff8c9f"
+      },
+      {
+        "path": "scripts/reconcile-lucy-receipt.mjs",
+        "sha": "dead02be2479dd4e37535f7cf4534d0ba9432093"
       }
     ]
   }
