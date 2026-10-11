@@ -1,0 +1,288 @@
+TAP version 13
+# Subtest: a timed-out worker retires the pool and settles active and queued tag reads
+not ok 1 - a timed-out worker retires the pool and settles active and queued tag reads
+  ---
+  duration_ms: 4.183765
+  type: 'test'
+  location: '/workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:19:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        'A',
+    -   'B',
+    -   'C'
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 'A'
+    1: 'B'
+    2: 'C'
+  actual:
+    0: 'A'
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:23:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: queued tags receive their timeout when dispatched, not while waiting for a worker
+not ok 2 - queued tags receive their timeout when dispatched, not while waiting for a worker
+  ---
+  duration_ms: 1.050107
+  type: 'test'
+  location: '/workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:26:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:30:30)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: stop settles outstanding tags and stale worker messages cannot free a restarted worker
+not ok 3 - stop settles outstanding tags and stale worker messages cannot free a restarted worker
+  ---
+  duration_ms: 0.904098
+  type: 'test'
+  location: '/workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:33:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+    + []
+    - [
+    -   'A',
+    -   'B'
+    - ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0: 'A'
+    1: 'B'
+  actual:
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:36:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: late local metadata cannot persist a deleted track record
+not ok 4 - late local metadata cannot persist a deleted track record
+  ---
+  duration_ms: 0.954684
+  type: 'test'
+  location: '/workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:47:39'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:51:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: late local metadata cannot persist a replacement track record
+not ok 5 - late local metadata cannot persist a replacement track record
+  ---
+  duration_ms: 0.724338
+  type: 'test'
+  location: '/workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:47:39'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:51:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: late duration completion cannot resurrect a deleted track
+not ok 6 - late duration completion cannot resurrect a deleted track
+  ---
+  duration_ms: 1.751731
+  type: 'test'
+  location: '/workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:53:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:59:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: background audio cache skips entries removed before their batch starts
+not ok 7 - background audio cache skips entries removed before their batch starts
+  ---
+  duration_ms: 0.803868
+  type: 'test'
+  location: '/workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:61:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:65:26)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: a deleted local root read cannot refill the file cache
+not ok 8 - a deleted local root read cannot refill the file cache
+  ---
+  duration_ms: 1.038811
+  type: 'test'
+  location: '/workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:67:44'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + {
+    +   name: 'song.wav',
+    +   type: 'audio/wav'
+    + }
+    - null
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: ~
+  actual:
+    name: 'song.wav'
+    type: 'audio/wav'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:74:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: a deleted local handle read cannot refill the file cache
+not ok 9 - a deleted local handle read cannot refill the file cache
+  ---
+  duration_ms: 1.124339
+  type: 'test'
+  location: '/workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:67:44'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + {
+    +   name: 'song.wav',
+    +   type: 'audio/wav'
+    + }
+    - null
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: ~
+  actual:
+    name: 'song.wav'
+    type: 'audio/wav'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:74:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: a deleted local blob read cannot refill the file cache
+not ok 10 - a deleted local blob read cannot refill the file cache
+  ---
+  duration_ms: 1.128705
+  type: 'test'
+  location: '/workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:67:44'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + File {
+    +   [Symbol(kHandle)]: Blob {},
+    +   [Symbol(kLength)]: 5,
+    +   [Symbol(kType)]: 'audio/*'
+    + }
+    - null
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: ~
+  actual:
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:74:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: a stopped metadata job does not mark its replacement record as already repaired
+not ok 11 - a stopped metadata job does not mark its replacement record as already repaired
+  ---
+  duration_ms: 0.877468
+  type: 'test'
+  location: '/workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:76:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/poweramp-full-review/tests/poweramp-background-ownership.test.js:78:48)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 0
+# fail 11
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 74.795458

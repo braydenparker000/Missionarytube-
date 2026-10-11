@@ -24,8 +24,9 @@ test('Mast phone files: uncertain uploads/sends, inline images both ways, exact 
     // Exercise the actual pagehide handler with the persisted flag used by BFCache.
     // Browser cache admission itself is not claimed by this lifecycle simulation.
     await page.evaluate(()=>{dispatchEvent(new PageTransitionEvent('pagehide',{persisted:true}));dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));});
-    assert.equal(await page.locator('#selected-files').innerText(),'');assert.equal(await page.locator('#message').inputValue(),'');
+    assert.match(await page.locator('#selected-files').innerText(),/retained for this exact retry/);assert.equal(await page.locator('#message').inputValue(),'');
     assert.equal(await page.locator('#message').evaluate(x=>x.required),false,'file-only pending intent still passes native form validation');
+    await page.reload();await page.getByRole('button',{name:'Retry',exact:true}).waitFor();
     await page.getByRole('button',{name:'Retry',exact:true}).click();await page.locator('.outgoing img').waitFor();
     await page.waitForFunction(()=>document.querySelector('.outgoing img')?.naturalWidth===280);await page.screenshot({path:dir+'/mast-owner-image-phone-390.png'});
     assert.equal(phone.records.filter(r=>r.path==='/relay/owner/mast'&&r.method==='POST').at(-1).body,pendingBody,'restore retries the exact original message and file IDs');
@@ -34,7 +35,7 @@ test('Mast phone files: uncertain uploads/sends, inline images both ways, exact 
     for(const file of [{id:image,name:'synthetic-mast.png',mime_type:'image/png',data_base64:png.toString('base64')},{id:documentId,name:'synthetic-mast.txt',mime_type:'text/plain',data_base64:Buffer.from(text).toString('base64')}])assert.equal((await adapter('files',{...file,message_id:reply,reply_to:message})).status,201);
     assert.equal((await adapter('reply',{id:reply,reply_to:message,body:'Synthetic image and file from Mast.',attachment_ids:[image,documentId]})).status,201);
     await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.getByText('Synthetic image and file from Mast.',{exact:true}).waitFor();
-    await page.locator('.message-row:not(.outgoing) img').scrollIntoViewIfNeeded();await page.waitForFunction(()=>[...document.querySelectorAll('.message-row img')].length===2&&[...document.querySelectorAll('.message-row img')].every(x=>x.complete&&x.naturalWidth===280));
+    await page.locator('.message-row:not(.outgoing) .relay-linked-attachment').first().scrollIntoViewIfNeeded();await page.waitForFunction(()=>[...document.querySelectorAll('.message-row img')].length===2&&[...document.querySelectorAll('.message-row img')].every(x=>x.complete&&x.naturalWidth===280));
     const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Download synthetic-mast.txt',exact:true}).click();const download=await downloadPromise;assert.equal((await readFile(await download.path())).toString(),text);
     await page.screenshot({path:dir+'/mast-files-phone-390.png'});
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.setViewportSize({width:390,height:520});const box=await page.locator('#send').boundingBox();assert.ok(box.y+box.height<=520);

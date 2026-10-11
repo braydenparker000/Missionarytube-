@@ -143,3 +143,16 @@ body:is(.relay-page,.muse-page) .rich-body .code-block pre{padding-top:60px}
 .owner-work-time{font-size:12px;line-height:20px;color:#b6aea2}
 .owner-work-filters select{flex:1 1 180px;width:auto}
 .owner-work .text-button{min-width:48px;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+
+/* Public Muse keeps its explicit public boundary; match current Relay colors only. */
+body.muse-page{--bg:#000;--surface:#303030;--raised:#393939;--line:#494949;--accent:#dce3eb;--text:#f7f7f7;--muted:#a3a3a3;--label:#a3a3a3;background:var(--bg);color-scheme:dark}
+body.muse-page .workspace,body.muse-page .topbar{background:var(--bg)}
+body.muse-page .outgoing .bubble{background:#506d92;color:#fff;border-color:transparent;border-radius:16px}
+body.muse-page .composer{background:var(--bg)}
+body.muse-page .composer-input{background:#303030;border-color:#515151;border-radius:16px}
+body.muse-page .composer-input:focus-within{border-color:#dce3eb;box-shadow:0 0 0 1px #dce3eb}
+body.muse-page .composer-input .send-icon{background:#506d92;color:#fff}
+body.muse-page .composer-input textarea::placeholder{color:#aaa}
+body.muse-page .rich-body .code-block{background:#202020;color:#f7f7f7;border-color:#505050}
+body.muse-page .rich-body .code-copy{background:#383838;color:#d7e7fa}
+body.muse-page :is(button,a,input,textarea):focus-visible{outline:2px solid var(--accent);outline-offset:3px}

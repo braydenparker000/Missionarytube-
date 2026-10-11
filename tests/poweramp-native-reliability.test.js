@@ -688,3 +688,114 @@ test('watchdog observes native interruption even when the pause notification is 
   a.paused=true;const before=loadSnapshot(a);await h.clock.advance(20000);
   assertNoNewAudio(a,before);assert.equal(h.Engine.wantsPlayback(),false);
 });
+
+test('turning off an expiring sleep timer cancels its fade and delayed pause', async()=>{
+  const h=harness();await h.start();const gains=[];h.Engine.setGain=(...args)=>gains.push(args);
+  h.Engine.setSleep(1);await h.clock.advance(60000);
+  const completion=h.clock.scheduled.findLast(t=>t.delay===4200);
+  h.Engine.setSleep(0);await h.clock.advance(5000);
+  completion.fn();await flush();
+  assert.equal(h.Engine.wantsPlayback(),true);
+  assert.equal(h.audio().paused,false);
+  assert.deepEqual(gains.at(-1),[h.Engine.cur,1,0],'Off also cancels the scheduled gain ramp');
+});
+
+test('rescheduling an expiring sleep timer replaces its completion, then expires once', async()=>{
+  const h=harness();await h.start();h.Engine.setSleep(1);await h.clock.advance(60000);
+  h.Engine.setSleep(1);await h.clock.advance(5000);
+  assert.equal(h.Engine.wantsPlayback(),true);
+  await h.clock.advance(59200);
+  assert.equal(h.Engine.wantsPlayback(),false);
+  assert.equal(h.diagnosticReport().events.filter(e=>e.event==='pause-request'&&e.reason==='sleep').length,1);
+});
+
+test('expired sleep completion cannot pause a newer selection or an explicit resume', async()=>{
+  for(const action of ['next','resume']){
+    const h=harness();addNext(h);await h.start();h.Engine.setSleep(1);await h.clock.advance(60000);
+    if(action==='next'){h.Engine.next();await flush();h.audio().playing();}
+    else {h.Engine.pause();h.Engine.play();h.audio().playing();}
+    await h.clock.advance(5000);
+    assert.equal(h.Engine.wantsPlayback(),true,action);
+    assert.equal(h.audio().paused,false,action);
+  }
+});
+
+function deletionHarness(){
+  const h=harness();h.ctx.FILES=new Map();h.ctx.LIB.ids=[...h.ctx.LIB.map.keys()];
+  h.ctx.IDB.del=async()=>{};
+  vm.runInContext(block('async function removeTracks(ids){','async function clearLibrary(){')+'\nglobalThis.removeTracks=removeTracks;',h.ctx);
+  return h;
+}
+
+test('library deletion preserves shuffled occurrence indices and repeated transport actions', async()=>{
+  const h=deletionHarness(),b=addNext(h,'B'),c=addNext(h,'C');
+  h.Engine.queue.push(b);h.Engine.order=[2,0,3,1];h.Engine.pos=2;h.Engine.current=b;
+  h.Engine.el().src=h.urls.get(b.id);await h.start(1);h.ctx.SET.previousRestarts=false;
+  await h.ctx.removeTracks([h.selected.id]);
+  assert.deepEqual(Array.from(h.Engine.order),[1,2,0]);assert.equal(h.Engine.pos,1);
+  assert.equal(h.Engine.queue[h.Engine.order[h.Engine.pos]],b);
+  h.Engine.next();await flush();assert.equal(h.Engine.current,b);assert.equal(h.Engine.pos,2);
+  h.Engine.next();await flush();assert.equal(h.Engine.current,c);assert.equal(h.Engine.pos,0);
+  h.Engine.prev();await flush();assert.equal(h.Engine.current,b);assert.equal(h.Engine.pos,2);
+});
+
+test('deleting the selected track cancels its pending file and retains a paused surviving queue', async()=>{
+  const h=deletionHarness(),b=addNext(h,'B');let release;
+  h.ctx.getFileFor=()=>new Promise(resolve=>{release=resolve;});
+  const pending=h.Engine.playIndex(0,true);
+  await h.ctx.removeTracks([h.selected.id]);
+  release({__remoteURL:h.urls.get(h.selected.id)});await pending;await flush();
+  assert.equal(h.Engine.wantsPlayback(),false);
+  assert.equal(h.Engine.current,b);assert.equal(h.Engine.pos,0);
+  assert.deepEqual(Array.from(h.Engine.order),[0]);
+  assert.ok(h.Engine.els.every(a=>!a.src&&a.paused));
+});
+
+test('stop releases the active local object URL and clears both slot resources', async()=>{
+  const h=harness('local');await h.start();const url=h.audio().src;
+  h.Engine.stop();
+  assert.ok(h.revoked.includes(url));
+  assert.ok(h.Engine.els.every(a=>a.paused&&!a.src));
+});
+
+test('deleting every queued track clears order and pending explicit entries without autoplay', async()=>{
+  const h=deletionHarness();await h.start();h.PlaybackQueue.pending=[h.selected.id];h.PlaybackQueue.active=true;
+  await h.ctx.removeTracks([h.selected.id]);
+  assert.equal(h.Engine.current,null);assert.equal(h.Engine.pos,-1);
+  assert.equal(h.Engine.order.length,0);assert.equal(h.Engine.queue.length,0);
+  assert.equal(h.PlaybackQueue.pending.length,0);assert.equal(h.PlaybackQueue.active,false);
+  assert.equal(h.Engine.wantsPlayback(),false);
+});
+
+test('a native end during the sleep fade stops without automatically selecting another track', async()=>{
+  const h=harness();addNext(h);await h.start();h.Engine.setSleep(1);await h.clock.advance(60000);
+  endWithoutEvent(h.audio());h.audio().emit('ended');await flush();await h.clock.advance(5000);
+  assert.equal(h.Engine.current,h.selected);assert.equal(h.Engine.wantsPlayback(),false);
+  assert.equal(h.Engine.pos,0);
+});
+
+test('an expiring sleep fade prevents an automatic crossfade from superseding its pause', async()=>{
+  const h=harness();addNext(h);await h.start();h.ctx.SET.audioMode='custom';h.Engine.setSleep(1);
+  await h.clock.advance(60000);h.Engine.startCrossfade();await flush();
+  assert.equal(h.PlaybackTransitions.pending,false);assert.equal(h.Engine.current,h.selected);
+  await h.clock.advance(4200);assert.equal(h.Engine.wantsPlayback(),false);
+});
+
+test('sleep expiry cancels a pending source load rather than letting it start after expiry', async()=>{
+  const h=harness();let release;h.ctx.getFileFor=()=>new Promise(resolve=>{release=resolve;});
+  const pending=h.Engine.playIndex(0,true);h.Engine.setSleep(1);await h.clock.advance(60000);
+  assert.equal(h.Engine.wantsPlayback(),false);
+  release({__remoteURL:h.urls.get(h.selected.id)});await pending;
+  assert.equal(h.audio().attempts.length,0);assert.equal(h.audio().paused,true);
+});
+
+test('clearing the library cancels a pending selection before IndexedDB completes', async()=>{
+  const h=deletionHarness();let file,storage;
+  h.ctx.artURLs=new Map();h.ctx.getFileFor=()=>new Promise(resolve=>{file=resolve;});
+  let calls=0;h.ctx.IDB.clear=()=>calls++===0?new Promise(resolve=>{storage=resolve;}):Promise.resolve();
+  vm.runInContext(block('async function clearLibrary(){','/* =====================================================================\n   AUDIO ENGINE')+'\nglobalThis.clearLibrary=clearLibrary;',h.ctx);
+  const playing=h.Engine.playIndex(0,true),clearing=h.ctx.clearLibrary();await flush();
+  assert.equal(h.Engine.wantsPlayback(),false);assert.equal(h.Engine.current,null);
+  file({__remoteURL:h.urls.get(h.selected.id)});await playing;assert.equal(h.audio().attempts.length,0);
+  storage();await clearing;
+});
