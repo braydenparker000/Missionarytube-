@@ -12,7 +12,7 @@ const content=createPrivateAttachmentContent({document,read:async(item,options)=
 const observed=new WeakSet(),previews=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){previews.unobserve(e.target);e.target.querySelector('button[aria-label^="Preview "]')?.click();}},{root:messages});
 const draft=createAttachmentDraft({enabled:()=>enabled&&api.hasCredential,upload:(file,{id,messageId,signal})=>api.uploadAttachment(messageId,id,file,{signal}),discard:(messageId,id)=>api.discardAttachment(messageId,id),onChange:renderDraft});
 function renderDraft(){
-  const state=draft.snapshot();selected.replaceChildren();choose.disabled=busy||state.locked;input.required=!state.items.length;
+  const state=draft.snapshot();selected.replaceChildren();choose.disabled=busy||state.locked||!!pending;input.required=!state.items.length&&!pending?.files.length;
   for(const item of state.items){const row=document.createElement('div');row.className='mast-selected-file';
     const text=document.createElement('span');text.textContent=item.name+' · '+({selected:'Ready to send',uploading:'Uploading…',ready:'Uploaded',error:item.error}[item.status]);
     const remove=document.createElement('button');remove.type='button';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+item.name);remove.disabled=state.locked;remove.onclick=()=>draft.remove(item.id);row.append(text,remove);selected.append(row);
@@ -59,7 +59,7 @@ login.addEventListener('submit',async event=>{
   catch(error){accessError(error);}finally{button.disabled=false;}
 });
 composer.addEventListener('submit',async event=>{
-  event.preventDefault();if(busy||!enabled||!input.value.trim()&&!draft.snapshot().items.length)return;
+  event.preventDefault();if(busy||!enabled||!pending&&!input.value.trim()&&!draft.snapshot().items.length)return;
   busy=true;send.disabled=true;input.readOnly=true;renderDraft();
   try {
     if(!pending){
