@@ -1,3 +1,4 @@
+import {mastAdapterPublic, mastAdapterStore} from './relay-mast.js';
 import {connector,oauthStore} from './connector.js';
 import {sharedStore,sharedSchema,SHARED_OBJECT,validateSharedRead,readLegacyInboxPage} from './shared.js';
 import {syncPublications,importPublicationHint,seedPublicationReconciliation,nextPublicationReconciliationAt,publicationReadNeedsWake} from './publications.js';
@@ -23,6 +24,7 @@ export default {
   async fetch(request, env) {
     const project=await projectTransport(request,env);if(project)return project;
     const relay=await relayConnector(request,env);if(relay)return relay;
+    const mast=await mastAdapterPublic(request,env);if(mast)return mast;
     const owner=await relayOwnerPublic(request,env);if(owner)return owner;
     const native=await nativeMusic(request,env);if(native)return native;
     const media = await music(request, env); if (media) return media;
@@ -163,6 +165,7 @@ export class Hub {
       }
       return operation();
     }
+    if(path==='/internal/relay/mast')return mastAdapterStore(this.ctx,this.env,await request.json());
     if(path==='/internal/relay/oauth')return relayOAuthStore(this.ctx,await request.json(),Date.now(),this.env);
     if(path==='/internal/relay/owner'){
       try {
