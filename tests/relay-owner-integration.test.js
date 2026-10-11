@@ -94,7 +94,7 @@ test('old public grants get native owner step-up without private reads or owner 
     ['relay_owner_delivery_status',{inbox_id:RELAY_OWNER_INBOX,message_ids:[id]}],
     ['relay_owner_reply',{inbox_id:RELAY_OWNER_INBOX,message_id:id,body:'Unconsented private reply'}]
   ];
-  const expected=`Bearer resource_metadata="${s.env.RELAY_MCP_ORIGIN}/.well-known/oauth-protected-resource/relay/mcp", scope="${RELAY_SCOPES.join(' ')}", error="insufficient_scope", error_description="Authorize Owner chat access to use this tool"`;
+  const expected=`Bearer resource_metadata="${s.env.RELAY_MCP_ORIGIN}/.well-known/oauth-protected-resource/relay/mcp", scope="${[...RELAY_PUBLIC_SCOPES,RELAY_OWNER_SCOPE].join(' ')}", error="insufficient_scope", error_description="Authorize Owner chat access to use this tool"`;
   for(const [name,arguments_] of calls){
     const response=await s.rpc(ordinary,'tools/call',{name,arguments:arguments_});
     assert.equal(response.error,undefined);
