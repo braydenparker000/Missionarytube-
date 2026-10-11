@@ -6,7 +6,7 @@ import {execFileSync, spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {makePlan, inputOwners, COMPONENTS, RECIPE, REPOSITORY, WORKFLOW, checkedRun, checkedJobs, checkedRecipe, publicClient, findProof, assertCurrent, localEntries} from '../scripts/qualification-proof.mjs';
+import {makePlan, inputOwners, COMPONENTS, RECIPE, REPOSITORY, WORKFLOW, TRUSTED_BRANCHES, checkedRun, checkedJobs, checkedRecipe, publicClient, findProof, assertCurrent, localEntries} from '../scripts/qualification-proof.mjs';
 
 const sha = 'a'.repeat(40), otherSha = 'b'.repeat(40);
 const env = {node22:'v22.23.3', node24:'v24.21.0', browser:'Google Chrome for Testing 154.0.8037.97', python:'Python 3.12.15', platform:'ubuntu-24.04-x64', measurement:'full-isolated-serial-v1'};
@@ -443,4 +443,43 @@ test('qualification planning loads with built-ins and recipe files alone, withou
     assert.equal(result.stdout.trim(),plan.digest);
     assert.equal(existsSync(join(root,'node_modules')),false,'the qualification helper cannot install dependencies implicitly');
   } finally {rmSync(root,{recursive:true,force:true});}
+});
+
+
+test('trusted release push producer, lookup and verifier agree without accepting arbitrary refs', async () => {
+  const workflow = readFileSync(new URL('../.github/workflows/validate-r2.yml', import.meta.url), 'utf8');
+  const producerBranches = workflow.match(/branches: \[([^\]]+)\]/)[1].split(',').map(value => value.trim());
+  assert.deepEqual(producerBranches, TRUSTED_BRANCHES);
+  for (const head_branch of TRUSTED_BRANCHES) {
+    const fetcher = fixtureFetch({run:{...goodRun(),head_branch}});
+    const lookup = async (url, options) => {
+      if (url.includes('/runs?')) {
+        const query = new URL(url).searchParams;
+        assert.equal(query.get('event'), 'push');
+        assert.equal(query.has('branch'), false, 'lookup must discover trusted non-main pushes');
+        assert.equal(query.get('head_sha'), sha);
+      }
+      return fetcher(url, options);
+    };
+    assert.equal((await findProof(plan,{sourceSha:sha,fetcher:lookup})).qualified,true);
+    assert.deepEqual(Object.keys((await findProof(plan,{fetcher})).reuse),COMPONENTS);
+    for (const override of [{event:'pull_request'},{head_repository:{full_name:'fork/jarvis',fork:true}}]) {
+      const proof = await findProof(plan,{fetcher:fixtureFetch({run:{...goodRun(),head_branch,...override}})});
+      assert.equal(proof.qualified,false);assert.deepEqual(proof.reuse,{});
+    }
+  }
+  for (const head_branch of ['feature/arbitrary','release/arbitrary','release/ci-reuse-repair-20261011-extra','refs/heads/main']) {
+    const proof = await findProof(plan,{fetcher:fixtureFetch({run:{...goodRun(),head_branch}})});
+    assert.equal(proof.qualified,false);assert.deepEqual(proof.reuse,{});
+  }
+});
+
+test('changed recipe bootstraps all lanes before its matching release proof can be reused', async () => {
+  const next = changed('scripts/qualification-proof.mjs');
+  const run = {...goodRun(),head_branch:'release/ci-reuse-repair-20261011'};
+  const old = await findProof(next,{fetcher:fixtureFetch({run})});
+  assert.deepEqual(old.reuse,{});
+  const fetcher = fixtureFetch({run,all:jobs(next),recipe:{truncated:false,tree:next.recipe.map(e=>({...e,type:'blob'}))}});
+  assert.equal((await findProof(next,{sourceSha:sha,fetcher})).qualified,true);
+  assert.deepEqual(Object.keys((await findProof(next,{fetcher})).reuse),COMPONENTS);
 });
