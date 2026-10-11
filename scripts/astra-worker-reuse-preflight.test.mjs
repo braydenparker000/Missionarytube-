@@ -117,7 +117,8 @@ test('current branch pin, recipes, cleanliness and exact three-file scope are ch
         path==='scripts/worker-release-identity.mjs'?historicalIdentity:
         path==='.github/workflows/deploy-azure-storage.yml'?historicalWorkflow:
         path==='.github/workflows/qualify-jarvis.yml'?join(repository,'scripts/release-identities/relay-client-approved-qualify-jarvis.yml'):
-        path==='scripts/check-music-worker-bindings.mjs'?historicalBindings:join(repository,path)));
+        path==='scripts/check-music-worker-bindings.mjs'?historicalBindings:
+        path==='scripts/plan-jarvis-qualification.mjs'?join(repository,'scripts/release-identities/relay-client-approved-plan-jarvis-qualification.mjs'):join(repository,path)));
     }
     run('add','.');run('-c','user.name=Fictional fixture','-c','user.email=fixture@example.test','commit','-m','fictional predecessor');
     const predecessor=run('rev-parse','HEAD');
