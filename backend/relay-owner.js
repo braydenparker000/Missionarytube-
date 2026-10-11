@@ -1,4 +1,4 @@
-import {mastList, mastSend} from './relay-mast.js';
+import {mastList, mastSend, mastOwnerFileStore} from './relay-mast.js';
 // Private owner devices and messages. Never persist, log, or return a device
 // credential through MCP; the display code is deliberately not a credential.
 import {RELAY_OWNER, RELAY_OWNER_SCOPE, RELAY_OWNER_INBOX, RELAY_OAUTH_OBJECT, RelayError, fields, uuid, cursor, random, hash, equal, boundedText, json, relayEnabled, relayIssuer} from './relay-common.js';
@@ -217,7 +217,8 @@ export async function relayOwnerStore(ctx, env, body, enqueueOwnerMessage = () =
       });
     }
     const allowed = {
-      mast_list: ['after'], mast_send: ['id', 'body'],
+      mast_list: ['after'], mast_send: ['id', 'body', 'attachment_ids'],
+      mast_file_admit: [], mast_file_upload: ['id','message_id','name','mime_type','data_base64'], mast_file_discard: ['message_id','attachment_id'], mast_file_content: ['message_id','attachment_id','preview'],
       pair_status: ['request_id'], session: [], messages_list: ['after', 'limit'], message: ['id', 'body', 'attachment_ids'],
       attachment_admit: [], attachment_upload: ['id', 'message_id', 'name', 'mime_type', 'data_base64'], attachment_discard: ['message_id', 'attachment_id'], attachment_content: ['message_id', 'attachment_id', 'preview'],
       conversation: ['message_id'], deliverables_list: ['message_id','after','limit'], delivery_list: ['message_ids'], delivery_retry: ['message_id'], devices_list: [], device_revoke: ['device_id'],
@@ -228,6 +229,7 @@ export async function relayOwnerStore(ctx, env, body, enqueueOwnerMessage = () =
       ? allowed[body.op].filter(key => !['confirm_duplicate_risk', 'project_title', 'goal_title', 'attachment_ids', 'preview'].includes(key)) : [];
     fields(body, ['op', 'token_hash', ...allowed[body.op]], ['op', 'token_hash', ...required]);
     if (!hex(body.token_hash)) fail(401, 'Owner device authentication required');
+    if(body.op.startsWith('mast_file_'))return await mastOwnerFileStore(ctx,env,body,()=>requireSession(ctx,body.token_hash,Date.now()));
     if (body.op === 'attachment_admit') {
       ctx.storage.transactionSync(() => {
         const now = Date.now(); requireSession(ctx, body.token_hash, now);
@@ -489,6 +491,9 @@ export async function relayOwnerPublic(request, env) {
     const routes = {'/pair/start': ['POST', 'pair_start'], '/pair/status': ['POST', 'pair_status'], '/session': ['GET', 'session'], '/messages': [request.method === 'POST' ? 'POST' : 'GET', request.method === 'POST' ? 'message' : 'messages_list'], '/conversation': ['GET', 'conversation'], '/devices': ['GET', 'devices_list'], '/devices/revoke': ['POST', 'device_revoke'], '/delivery': ['POST','delivery_list'], '/delivery/retry': ['POST','delivery_retry'],
       '/credentials': [request.method === 'POST' ? 'POST' : 'GET', request.method === 'POST' ? 'credentials_save' : 'credentials_status'], '/credentials/prepare': ['POST', 'credentials_prepare'], '/login': ['POST', 'password_login'],
       '/jobs': [request.method === 'POST' ? 'POST' : 'GET', request.method === 'POST' ? 'job_create' : 'jobs_list'], '/jobs/changes': ['GET', 'jobs_changes'], '/jobs/detail': ['GET', 'job_read'], '/jobs/cancel': ['POST', 'job_cancel'], '/jobs/retry': ['POST', 'job_retry']};
+    routes['/mast/files']=['POST','mast_file_upload'];
+    routes['/mast/files/discard']=['POST','mast_file_discard'];
+    routes['/mast/files/content']=['GET','mast_file_content'];
     routes['/mast'] = [request.method === 'POST' ? 'POST' : 'GET', request.method === 'POST' ? 'mast_send' : 'mast_list'];
     routes['/attachments'] = ['POST', 'attachment_upload'];
     routes['/attachments/discard'] = ['POST', 'attachment_discard'];
@@ -497,24 +502,24 @@ export async function relayOwnerPublic(request, env) {
     const suffix = path.slice('/relay/owner'.length), route = Object.hasOwn(routes, suffix) ? routes[suffix] : null;
     if (!route) return wrap(json({error: 'Not found'}, 404));
     if (request.method !== route[0]) return wrap(json({error: 'Method not allowed'}, 405, {Allow: route[0] + ', OPTIONS'}));
-    const queryFields = route[1] === 'mast_list'?['after']:route[1] === 'deliverables_list'?['message_id','after','limit']:route[1] === 'attachment_content' ? ['message_id', 'attachment_id', 'preview'] : route[1] === 'jobs_changes' ? ['after', 'limit', 'through'] : ['messages_list', 'jobs_list'].includes(route[1]) ? ['after', 'limit'] : route[1] === 'conversation' ? ['message_id'] : route[1] === 'job_read' ? ['job_id'] : [];
+    const queryFields = route[1] === 'mast_list'?['after']:route[1] === 'deliverables_list'?['message_id','after','limit']:['attachment_content','mast_file_content'].includes(route[1]) ? ['message_id', 'attachment_id', 'preview'] : route[1] === 'jobs_changes' ? ['after', 'limit', 'through'] : ['messages_list', 'jobs_list'].includes(route[1]) ? ['after', 'limit'] : route[1] === 'conversation' ? ['message_id'] : route[1] === 'job_read' ? ['job_id'] : [];
     if ([...url.searchParams.keys()].some(k => !queryFields.includes(k) || url.searchParams.getAll(k).length !== 1)) fail(400, 'Invalid owner query');
     let body = {};
     let admittedHash;
     if (request.method === 'POST') {
       if (!origin) fail(403, 'Owner request origin required');
       if (request.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase() !== 'application/json') return wrap(json({error: 'Expected JSON'}, 415));
-      if (route[1] === 'attachment_upload') {
+      if (['attachment_upload','mast_file_upload'].includes(route[1])) {
         const token = request.headers.get('Authorization')?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
         if (!token) fail(401, 'Owner device bearer required');
         admittedHash = await hash(token);
-        const admission = await env.HUBS.get(env.HUBS.idFromName(RELAY_OAUTH_OBJECT)).fetch(new Request('https://internal/internal/relay/owner', {method:'POST', body:JSON.stringify({op:'attachment_admit',token_hash:admittedHash})}));
+        const admission = await env.HUBS.get(env.HUBS.idFromName(RELAY_OAUTH_OBJECT)).fetch(new Request('https://internal/internal/relay/owner', {method:'POST', body:JSON.stringify({op:route[1]==='mast_file_upload'?'mast_file_admit':'attachment_admit',token_hash:admittedHash})}));
         if (!admission.ok) return wrap(admission);
       }
-      try { body = JSON.parse(await boundedText(request, route[1] === 'attachment_upload' ? ATTACHMENT_BODY_LIMIT : 16000)); }
-      catch (error) { if (route[1] === 'attachment_upload' && error instanceof RelayError && error.message === 'Body too large') fail(413, 'Attachment exceeds 1 MiB', 'attachment_too_large'); fail(400, 'Invalid owner JSON'); }
+      try { body = JSON.parse(await boundedText(request, ['attachment_upload','mast_file_upload'].includes(route[1]) ? ATTACHMENT_BODY_LIMIT : 16000)); }
+      catch (error) { if (['attachment_upload','mast_file_upload'].includes(route[1]) && error instanceof RelayError && error.message === 'Body too large') fail(413, 'Attachment exceeds 1 MiB', 'attachment_too_large'); fail(400, 'Invalid owner JSON'); }
     }
-    const inputFields = {mast_send: ['id', 'body'], pair_start: ['label'], pair_status: ['request_id'], message: ['id', 'body', 'attachment_ids'], attachment_upload: ['id', 'message_id', 'name', 'mime_type', 'data_base64'], attachment_discard: ['message_id', 'attachment_id'], delivery_list:['message_ids'], delivery_retry:['message_id'], device_revoke: ['device_id'],
+    const inputFields = {mast_send: ['id', 'body','attachment_ids'], mast_file_upload:['id','message_id','name','mime_type','data_base64'], mast_file_discard:['message_id','attachment_id'], pair_start: ['label'], pair_status: ['request_id'], message: ['id', 'body', 'attachment_ids'], attachment_upload: ['id', 'message_id', 'name', 'mime_type', 'data_base64'], attachment_discard: ['message_id', 'attachment_id'], delivery_list:['message_ids'], delivery_retry:['message_id'], device_revoke: ['device_id'],
       credentials_prepare: ['purpose'], credentials_save: ['username', 'password', 'password_confirmation', 'current_password', 'consent_token', 'confirm', 'access_days', 'preserve_existing_sessions'], password_login: ['username', 'password', 'label', 'replace_device_id', 'confirm_replacement'],
       job_create: ['id', 'title', 'body', 'action_kind', 'project_title', 'goal_title'], job_cancel: ['job_id'], job_retry: ['job_id', 'id', 'confirm_duplicate_risk']};
     fields(body, inputFields[route[1]] || [], (inputFields[route[1]] || []).filter(k => !['current_password', 'replace_device_id', 'confirm_replacement', 'confirm_duplicate_risk', 'project_title', 'goal_title', 'attachment_ids'].includes(k)));
@@ -536,7 +541,7 @@ export async function relayOwnerPublic(request, env) {
     if (route[1] === 'jobs_changes' && url.searchParams.has('through')) input.through = url.searchParams.get('through');
     if (['conversation','deliverables_list'].includes(route[1])) input.message_id = url.searchParams.get('message_id');
     if (route[1] === 'job_read') input.job_id = url.searchParams.get('job_id');
-    if (route[1] === 'attachment_content') {
+    if (['attachment_content','mast_file_content'].includes(route[1])) {
       input.message_id = url.searchParams.get('message_id');
       input.attachment_id = url.searchParams.get('attachment_id');
       if (url.searchParams.has('preview')) {

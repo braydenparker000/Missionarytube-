@@ -23,8 +23,10 @@
     <section id="messages" class="messages" aria-label="Conversation with Mast" aria-live="polite"></section>
     <form id="composer" class="composer" hidden>
       <label class="sr-only" for="message">Message Mast</label>
-      <div class="composer-input"><textarea id="message" maxlength="4000" placeholder="Message Mast…" required></textarea><button id="send" type="submit">Send</button></div>
-      <p class="composer-note">Only messages sent here are shared with Mast.</p>
+      <div id="selected-files" aria-live="polite"></div>
+      <input id="files" type="file" multiple hidden aria-label="Choose Mast files">
+      <div class="composer-input"><button id="choose-files" type="button" aria-label="Attach images or files">+</button><textarea id="message" maxlength="4000" placeholder="Message Mast…" required></textarea><button id="send" type="submit">Send</button></div>
+      <p class="composer-note">Only messages sent here are shared with Mast. Up to 4 files, 1 MB each.</p>
     </form>
   </main>
 </body>
