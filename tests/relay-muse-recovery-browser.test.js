@@ -4,6 +4,7 @@ import {mkdir} from 'node:fs/promises';
 import {createConversationFixture,launchQualifiedBrowser,openConversationPage,closeConversationHarness,assertBrowserContained,SITE} from './helpers/relay-conversation-browser-fixture.js';
 import {hash,random} from '../backend/relay-common.js';
 test('Muse reload recovery, incremental history, rich text, search and phone reading position',{timeout:60000},async t=>{
+  const evidence=(process.env.JARVIS_SCREENSHOT_DIR||'/tmp')+'/muse-parity';
   const browser=await launchQualifiedBrowser(t);if(!browser)return;const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}}),pages=[];
   try{
     const owner=await h.pair(await h.oauth()),phone=await openConversationPage(browser,h,{owner,clock:false});pages.push(phone);const page=phone.page;
@@ -24,8 +25,8 @@ test('Muse reload recovery, incremental history, rich text, search and phone rea
     await page.locator('#messages').evaluate(x=>x.scrollTop=20);await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('#refresh').disabled);assert.ok(Math.abs(await page.locator('#messages').evaluate(x=>x.scrollTop)-20)<3);
     await page.setViewportSize({width:320,height:520});await page.waitForTimeout(100);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));const box=await page.locator('#send').boundingBox();assert.ok(box.y+box.height<=520);
     await page.setViewportSize({width:390,height:844});await page.locator('#messages').evaluate(x=>x.scrollTop=0);
-    await mkdir('docs/evidence/muse-parity',{recursive:true});await page.screenshot({path:'docs/evidence/muse-parity/private-phone.png'});
-    await page.setViewportSize({width:1280,height:850});await page.screenshot({path:'docs/evidence/muse-parity/private-desktop.png'});
+    await mkdir(evidence,{recursive:true});await page.screenshot({path:evidence+'/private-phone.png'});
+    await page.setViewportSize({width:1280,height:850});await page.screenshot({path:evidence+'/private-desktop.png'});
     // Corrupt pending storage is a visible stop, never a new message identity.
     await page.evaluate(()=>sessionStorage.setItem('jarvis.mast.draft.v1','invalid'));await page.reload();await page.getByText(/Cannot retain the private draft/).waitFor();
     await page.locator('#message').fill('Must not be sent');const count=h.rows('SELECT COUNT(*) AS n FROM relay_mast_entries')[0].n;await page.getByRole('button',{name:'Send',exact:true}).click();assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_mast_entries')[0].n,count);
@@ -35,7 +36,7 @@ test('Muse reload recovery, incremental history, rich text, search and phone rea
     assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(0, 0, 0)');
     assert.match(await page.locator('#conversation-visibility').innerText(),/Public/);
     assert.equal(phone.records.filter(r=>r.path.startsWith('/relay/owner/')).length,privateReads,'public Muse never loads private history');
-    await page.screenshot({path:'docs/evidence/muse-parity/public-phone.png'});
+    await page.screenshot({path:evidence+'/public-phone.png'});
     assertBrowserContained(phone);
   }finally{await closeConversationHarness(browser,h,pages);}
 });
