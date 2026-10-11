@@ -121,6 +121,10 @@ test('launcher browser behavior', { skip: executablePath ? false : 'Install Chro
         .replaceAll('env(safe-area-inset-top)', '24px').replaceAll('env(safe-area-inset-bottom)', '34px')
         .replaceAll('env(safe-area-inset-left)', '16px').replaceAll('env(safe-area-inset-right)', '16px');
       await context.route('**/assets/shell.css', route => route.fulfill({ contentType: 'text/css', body: css }));
+      const alignedCss = (await readFile(join(publicRoot, 'assets/aligned-pages.css'), 'utf8'))
+        .replaceAll('env(safe-area-inset-top)', '24px').replaceAll('env(safe-area-inset-bottom)', '34px')
+        .replaceAll('env(safe-area-inset-left)', '16px').replaceAll('env(safe-area-inset-right)', '16px');
+      await context.route('**/assets/aligned-pages.css*', route => route.fulfill({ contentType: 'text/css', body: alignedCss }));
       await page.goto(origin);
       await page.locator('#launcher-time').waitFor();
       const firstButton = await page.locator('#search-button').boundingBox();
