@@ -3,11 +3,12 @@ import {readFileSync,writeFileSync,appendFileSync,lstatSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {candidateIdentity,findWorkerReuse,liveIdentity,newlyDeployedVersion,receiptDigest} from './worker-release-identity.mjs';
+import {candidateIdentity,findWorkerReuse,liveIdentity,newlyDeployedVersion,receiptDigest,settingsDigest} from './worker-release-identity.mjs';
+import {readWorkerSettings} from './check-music-worker-bindings.mjs';
 
 // This is the full-release entrypoint. The preceding client-only entrypoint and
 // its finite historical transition stay unchanged and cannot deploy a Worker.
-export const RELAY_SOURCE='363f710068bb6f2c456dbbf183f063484a36fe11';
+export const RELAY_SOURCE='c28c1b2f70aabb5217b08bf31ffe4c93d0353765';
 export const RELAY_EXTRA_RECIPES=Object.freeze(['scripts/relay-worker-release-identity.mjs','scripts/stage-relay-core-dependencies.mjs']);
 const REPO='braydenparker000/Missionarytube-',ORIGIN='https://missionarytube.z13.web.core.windows.net';
 const API='https://jarvis-hub-api.braydenparker999.workers.dev';
@@ -23,6 +24,49 @@ class ReleaseDiagnostic extends Error{constructor(reason){super('Relay release r
 const refusal=reason=>new ReleaseDiagnostic(reason);
 const diagnostic=error=>error instanceof ReleaseDiagnostic&&REASONS.has(error.reason)?error.reason:'unexpected_error';
 const git=(root,...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:'pipe',timeout:10000,maxBuffer:131072}).trim();
+
+// Finite approved transition from the digest-bound production receipt for run
+// 38139432843. No caller, workflow input or environment can select another flag,
+// value, prior Worker or baseline. Provider values stay in memory only.
+export const LUCY_DISCOVERY_BASELINE=Object.freeze({
+  version:'3be007a0-cad1-45c8-8580-7a1105840d66',
+  settingsDigest:'ff0e42eea34106d9ddf694dc50600bb2aea4101b21a4e3a18464ebc48691e415'
+});
+const LUCY_DISCOVERY_FLAG='RELAY_AGENT_LUCY_OAUTH_ENABLED';
+export function checkedLucyDiscoveryBaseline(live){
+  if(!equal(live,LUCY_DISCOVERY_BASELINE))throw refusal('settings_mismatch');
+}
+function discoveryBinding(settings){
+  settingsDigest(settings); // Retain every existing binding/security check.
+  const matches=settings.bindings.filter(binding=>binding.name===LUCY_DISCOVERY_FLAG);
+  if(matches.length>1||matches.some(binding=>!equal(Object.keys(binding).sort(),['name','text','type'])||binding.type!=='plain_text'||!['false','true'].includes(binding.text)))
+    throw refusal('settings_mismatch');
+  return matches[0];
+}
+export function expectedLucyDiscoverySettings(settings){
+  discoveryBinding(settings);
+  return settingsDigest({...settings,bindings:[...settings.bindings.filter(binding=>binding.name!==LUCY_DISCOVERY_FLAG),
+    {name:LUCY_DISCOVERY_FLAG,type:'plain_text',text:'true'}]});
+}
+export function planLucyDiscoverySettings(settings,live){
+  if(settingsDigest(settings)!==live.settingsDigest)throw refusal('settings_mismatch');
+  const current=discoveryBinding(settings);
+  if(current?.text==='true')return {kind:'unchanged',expectedSettingsDigest:live.settingsDigest};
+  checkedLucyDiscoveryBaseline(live);
+  return {kind:'lucy-oauth-discovery',expectedSettingsDigest:expectedLucyDiscoverySettings(settings)};
+}
+export function checkedLucyDiscoveryCheckpoint(before){
+  const transition=before.settingsTransition;
+  if(!transition||!equal(Object.keys(transition).sort(),['expectedSettingsDigest','kind'])||!DIGEST.test(transition.expectedSettingsDigest))
+    throw refusal('settings_mismatch');
+  if(transition.kind==='unchanged'){
+    if(transition.expectedSettingsDigest!==before.live.settingsDigest)throw refusal('settings_mismatch');
+  }else if(transition.kind==='lucy-oauth-discovery'){
+    checkedLucyDiscoveryBaseline(before.live);
+    if(before.proof.reuse!==false||transition.expectedSettingsDigest===before.live.settingsDigest)throw refusal('settings_mismatch');
+  }else throw refusal('settings_mismatch');
+  return transition.expectedSettingsDigest;
+}
 
 export function relayCandidateIdentity(root=process.cwd()){
   root=resolve(root);const candidate=candidateIdentity(root);
@@ -70,7 +114,7 @@ export async function planRelayFullRelease(candidate,live,{policy,fetcher=global
   return findWorkerReuse(candidate,live,{fetcher});
 }
 function checkedCheckpoint(before,candidate){
-  if(!before||!equal(Object.keys(before).sort(),['candidate','live','proof'])||!equal(before.candidate,candidate)||
+  if(!before||!equal(Object.keys(before).sort(),['candidate','live','proof','settingsTransition'])||!equal(before.candidate,candidate)||
     !before.live||typeof before.proof?.reuse!=='boolean'||(before.proof.reuse!==true&&!REASONS.has(before.proof.reason)))
     throw refusal('recipe_mismatch');
   return before;
@@ -88,17 +132,27 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
     catch{throw refusal('provider_check_failed');}
     if(command==='plan'){
       const proof=await planRelayFullRelease(candidate,live,{policy});
-      writeFileSync('worker-identity-before.json',JSON.stringify({candidate,live,proof},null,2)+'\n');
+      let settings;try{settings=await readWorkerSettings({account:process.env.CLOUDFLARE_ACCOUNT_ID,token:process.env.CLOUDFLARE_API_TOKEN});}
+      catch{throw refusal('provider_check_failed');}
+      const settingsTransition=planLucyDiscoverySettings(settings,live);
+      const config=JSON.parse(readFileSync('.jarvis-source/backend/wrangler.music.generated.json','utf8'));
+      if(config.keep_vars!==true||config.vars?.[LUCY_DISCOVERY_FLAG]!=='true'||settingsTransition.kind!=='unchanged'&&proof.reuse)
+        throw refusal('settings_mismatch');
+      writeFileSync('worker-identity-before.json',JSON.stringify({candidate,live,proof,settingsTransition},null,2)+'\n');
       if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,'deploy='+!proof.reuse+'\n');
       console.log(proof.reuse?'Actual active Worker and configuration match a verified successful production release':
         `No exact live Worker reuse proof (${proof.reason}); current qualified backend deployment required`);
     }else if(command==='record'){
       const before=checkedCheckpoint(JSON.parse(readFileSync('worker-identity-before.json','utf8')),candidate);
-      if(before.live.settingsDigest!==live.settingsDigest)throw refusal('settings_mismatch');
+      if(checkedLucyDiscoveryCheckpoint(before)!==live.settingsDigest)throw refusal('settings_mismatch');
       if(before.proof.reuse){if(!equal(before.live,live))throw refusal('identity_mismatch');}
       else newlyDeployedVersion(JSON.parse(readFileSync('.jarvis-source/worker-versions-before.json','utf8')),
         JSON.parse(readFileSync('.jarvis-source/worker-versions-after.json','utf8')),live);
       writeFileSync('worker-identity-current.json',JSON.stringify({candidate,live},null,2)+'\n');
+      if(before.settingsTransition.kind==='lucy-oauth-discovery')console.log(JSON.stringify({
+        settingsTransition:'lucy-oauth-discovery',flag:LUCY_DISCOVERY_FLAG,value:'true',
+        beforeSettingsDigest:before.live.settingsDigest,expectedSettingsDigest:before.settingsTransition.expectedSettingsDigest,
+        actualSettingsDigest:live.settingsDigest,otherBindingsUnchanged:true}));
     }else if(command==='verify'){
       checkedCurrent(JSON.parse(readFileSync('worker-identity-current.json','utf8')),candidate,live);
     }else if(command==='receipt'){
