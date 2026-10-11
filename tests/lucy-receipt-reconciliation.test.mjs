@@ -29,3 +29,13 @@ test('receipt-only workflow excludes all Worker and frontend writes with unchang
  assert.ok(!/method:\s*['"](?:POST|PUT|PATCH|DELETE)/.test(script));
  assert.match(script,/frontendSource:existing.source/);
 });
+
+test('artifact redirects strip credentials and failures expose only operation and status',async()=>{
+ const {bytes}=await import('../scripts/reconcile-lucy-receipt.mjs');const calls=[];
+ const fetcher=async(url,init)=>{calls.push({url,init});return calls.length===1?new Response(null,{status:302,headers:{location:'https://archive.example.test/file?sig=fictional-private'}}):new Response('archive');};
+ assert.equal((await bytes('https://api.github.com/repos/owner/repo/actions/artifacts/1/zip',{fetcher,token:'fictional-token'})).toString(),'archive');
+ assert.equal(calls[0].init.headers.Authorization,'Bearer fictional-token');assert.deepEqual(calls[1].init.headers,{});
+ assert.ok(calls.every(c=>c.init.redirect==='manual'));
+ await assert.rejects(bytes('https://api.github.com/repos/owner/repo/actions/artifacts/1/zip',{fetcher:async()=>new Response('private body',{status:403}),token:'fictional-token'}),e=>e.safeCode==='artifact_archive_http_403'&&!e.message.includes('private'));
+ await assert.rejects(bytes('https://api.github.com/repos/owner/repo/actions/artifacts/1/zip',{fetcher:async()=>new Response(null,{status:302,headers:{location:'http://unsafe.example.test'}})}),/redirect_unsafe/);
+});

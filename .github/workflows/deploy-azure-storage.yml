@@ -78,6 +78,8 @@ jobs:
           node scripts/prepare-music-worker.mjs .jarvis-source
       - name: Verify retained reconciliation provenance
         if: steps.jarvis.outputs.receipt_only == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/reconcile-lucy-receipt.mjs provenance
       - name: Record existing Worker and preserved frontend receipt
         id: reconciliation
