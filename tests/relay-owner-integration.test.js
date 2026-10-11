@@ -54,7 +54,10 @@ test('owner schemas are discoverable, capability is explicit and old grants neve
     assert.deepEqual(tool._meta.securitySchemes,tool.securitySchemes);
     assert.ok(tool.inputSchema&&tool.outputSchema);
   }
-  assert.equal((await s.rpc(owner,'tools/list')).result.tools.length,1+relayOwnerTools.length);
+  const ownerCatalog=(await s.rpc(owner,'tools/list')).result.tools;
+  assert.equal(ownerCatalog.length,2+relayOwnerTools.length);
+  assert.deepEqual(ownerCatalog.map(tool=>tool.name).sort(),['relay_event_access_status',...relayOwnerTools.map(tool=>tool.name),'relay_project_binding_status'].sort());
+  assert.equal(ownerCatalog.find(tool=>tool.name==='relay_project_binding_status').annotations.readOnlyHint,true);
   assert.deepEqual((await s.rpc(ordinary,'events/list')).result.events.map(x=>x.name),[RELAY_EVENT]);
   assert.deepEqual((await s.rpc(owner,'events/list')).result.events.map(x=>x.name),[RELAY_OWNER_EVENT]);
   await assert.rejects(relayOwnerRpc(s.ctx,s.env,ordinary,'relay_owner_devices_list',{}),e=>e.code===-32012);
@@ -128,7 +131,10 @@ test('owner step-up preserves only live verified scopes of a partial public gran
 
 test('a newly consented full owner grant retains public tools and owner operations',async t=>{
   const s=fixture(t),owner=await grant(s,RELAY_SCOPES.join(' '));
-  assert.equal((await s.rpc(owner,'tools/list')).result.tools.length,4+relayOwnerTools.length);
+  const ownerCatalog=(await s.rpc(owner,'tools/list')).result.tools;
+  assert.equal(ownerCatalog.length,5+relayOwnerTools.length);
+  assert.deepEqual(ownerCatalog.map(tool=>tool.name).sort(),['relay_list_pending','relay_read_conversation','relay_reply','relay_event_access_status',...relayOwnerTools.map(tool=>tool.name),'relay_project_binding_status'].sort());
+  assert.equal(ownerCatalog.find(tool=>tool.name==='relay_project_binding_status').annotations.readOnlyHint,true);
   assert.deepEqual((await s.rpc(owner,'events/list')).result.events.map(x=>x.name),[RELAY_EVENT,RELAY_OWNER_EVENT]);
   const devices=await s.rpc(owner,'tools/call',{name:'relay_owner_devices_list',arguments:{}});
   assert.equal(devices.result.isError,false);assert.deepEqual(devices.result.structuredContent,{devices:[]});

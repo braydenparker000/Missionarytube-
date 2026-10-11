@@ -1,8 +1,8 @@
 import {enqueueRelayProjectMessage} from './relay-events.js';
 // Shared project transport. Text is inert; project agents are never owner identities.
 // All authorization and state transitions serialize in the existing SQLite DO.
-import {boundedText, canonical, hash, json, RELAY_OWNER, RELAY_OWNER_SCOPE, RELAY_OAUTH_OBJECT, uuid} from './relay-common.js';
-import {relayAuthenticate, relayTokenActiveInStore} from './relay-oauth.js';
+import {boundedText, canonical, hash, json, RelayError, fields as rpcFields, RELAY_OWNER, RELAY_OWNER_SCOPE, RELAY_OAUTH_OBJECT, uuid} from './relay-common.js';
+import {relayAuthenticate, relayTokenActiveInStore, relayReadOnlyPrincipal} from './relay-oauth.js';
 
 export const PROJECT_LIMITS = Object.freeze({page: 50, body: 6000, outstanding: 2000, history: 20000, grants: 128, attempts: 6, recoveries: 2, lease: 300000});
 const rows = (ctx, sql, ...args) => [...ctx.storage.sql.exec(sql, ...args)];
@@ -122,13 +122,28 @@ function claimRow(ctx, grant, args, now, allowFinished = false) {
   if (row.state !== 'claimed' || row.lease_until <= now) fail(409, 'lease_expired');
   return row;
 }
+export function projectBindingStatus(ctx, env, principal, args) {
+  rpcFields(args, []);
+  if(env.RELAY_OWNER_ENABLED!=='true'||principal?.principal!==RELAY_OWNER||!principal.scopes?.includes(RELAY_OWNER_SCOPE))throw new RelayError(-32012,'Owner authorization required');
+  const live=relayReadOnlyPrincipal(ctx,env,principal.accessHash);
+  if(!live||live.grantId!==principal.grantId||!live.scopes.includes(RELAY_OWNER_SCOPE))throw new RelayError(-32012,'Owner authorization required');
+  const objects=rows(ctx,"SELECT type FROM sqlite_master WHERE name='project_bindings'");
+  if(!objects.length)return {parentGrantId:live.grantId,bindings:[]};
+  if(objects.length!==1||objects[0].type!=='table')throw Error('Invalid binding storage');
+  const bindings=rows(ctx,'SELECT id,parent_grant,project,agent,expires_ms,revoked_ms FROM project_bindings WHERE parent_grant=? LIMIT ?',live.grantId,PROJECT_LIMITS.grants+1);
+  if(bindings.length>PROJECT_LIMITS.grants)throw Error('Invalid binding storage');
+  const seen=new Set();
+  return {parentGrantId:live.grantId,bindings:bindings.map(b=>{
+    if(!uuid(b.id)||seen.has(b.id)||b.parent_grant!==live.grantId||!project(b.project)||!agent(b.agent)
+      ||!Number.isSafeInteger(b.expires_ms)||b.expires_ms<0||b.expires_ms>8640000000000000
+      ||(b.revoked_ms!==null&&(!Number.isSafeInteger(b.revoked_ms)||b.revoked_ms<0||b.revoked_ms>8640000000000000)))throw Error('Invalid binding storage');
+    seen.add(b.id);
+    return {bindingId:b.id,project:b.project,agent:b.agent,expiresAt:iso(b.expires_ms),revokedAt:iso(b.revoked_ms)};
+  })};
+}
 function administration(ctx, env, principal, args, now) {
   if (env.RELAY_PROJECT_ADMIN_ENABLED !== 'true' || env.RELAY_OWNER_ENABLED !== 'true' || principal?.principal !== RELAY_OWNER || !principal.scopes?.includes(RELAY_OWNER_SCOPE)
     || !relayTokenActiveInStore(ctx, env, principal, RELAY_OWNER_SCOPE)) fail(403, 'project_admin_required');
-  if (args?.op === 'binding_status') {
-    fields(args,['op'],['op']);
-    return {parentGrantId:principal.grantId,bindings:rows(ctx,'SELECT * FROM project_bindings WHERE parent_grant=?',principal.grantId).map(b=>({bindingId:b.id,project:b.project,agent:b.agent,expiresAt:iso(b.expires_ms),revokedAt:iso(b.revoked_ms)}))};
-  }
   if (['binding_create','binding_revoke'].includes(args?.op)) return bindingAdministration(ctx, principal, args, now);
   fields(args,['op','grantId','tokenHash','project','agent','expiresAt','confirm'],['op']);
   if (args.op === 'revoke') {

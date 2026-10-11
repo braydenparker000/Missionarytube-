@@ -166,7 +166,7 @@ export class Hub {
       return operation();
     }
     if(path==='/internal/relay/mast')return mastAdapterStore(this.ctx,this.env,await request.json());
-    if(path==='/internal/relay/oauth')return relayOAuthStore(this.ctx,await request.json());
+    if(path==='/internal/relay/oauth')return relayOAuthStore(this.ctx,await request.json(),Date.now(),this.env);
     if(path==='/internal/relay/owner'){
       try {
         const body=await request.json();
