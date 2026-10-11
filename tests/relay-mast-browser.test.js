@@ -6,6 +6,7 @@ import {hash,random} from '../backend/relay-common.js';
 
 test('Mast phone: closed state, safe uncertain-send retry and chronological private reply',{timeout:60000},async t=>{
   const browser=await launchQualifiedBrowser(t);if(!browser)return;
+  const evidence=process.env.MAST_EVIDENCE_DIR||'/tmp/jarvis-mast-evidence';
   const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}}),pages=[];
   try{
     const owner=await h.pair(await h.oauth()),phone=await openConversationPage(browser,h,{owner,clock:false});pages.push(phone);
@@ -19,7 +20,7 @@ test('Mast phone: closed state, safe uncertain-send retry and chronological priv
     await h.fixture.request('/relay/mast/reply',{method:'POST',headers:{Authorization:'Bearer '+token},body:JSON.stringify({id:crypto.randomUUID(),reply_to:id,body:'Synthetic Mast reply — only this conversation.'})});
     await page.getByRole('button',{name:'Refresh',exact:true}).click();await page.getByText('Synthetic Mast reply — only this conversation.',{exact:true}).waitFor();
     assert.deepEqual(await page.locator('.message-author').allTextContents(),['You','Mast']);
-    await mkdir('docs/evidence/owner-mast-chat',{recursive:true});await page.screenshot({path:'docs/evidence/owner-mast-chat/phone-390.png'});
+    await mkdir(evidence,{recursive:true});await page.screenshot({path:evidence+'/phone-390.png'});
     await page.setViewportSize({width:390,height:520});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     const box=await page.locator('#message').boundingBox();assert.ok(box.y+box.height<=520);
     await assertNoPrivatePersistence(page,['Synthetic hello Mast','Synthetic Mast reply']);assertBrowserContained(phone);
@@ -29,6 +30,6 @@ test('Mast phone: closed state, safe uncertain-send retry and chronological priv
   try{
     const owner=await closed.pair(await closed.oauth()),phone=await openConversationPage(secondBrowser,closed,{owner,clock:false});closedPages.push(phone);
     await phone.page.goto(SITE+'/mast/');await phone.page.getByText('Awaiting approval to activate Mast access.',{exact:true}).waitFor();assert.ok(await phone.page.locator('#composer').isHidden());
-    await phone.page.screenshot({path:'docs/evidence/owner-mast-chat/inactive-390.png'});assertBrowserContained(phone);
+    await phone.page.screenshot({path:evidence+'/inactive-390.png'});assertBrowserContained(phone);
   }finally{await closeConversationHarness(secondBrowser,closed,closedPages);}
 });
