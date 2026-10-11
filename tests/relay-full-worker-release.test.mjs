@@ -5,7 +5,7 @@ import {execFileSync,spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {relayCandidateIdentity,checkedRelayFullReleasePolicy,planRelayFullRelease,RELAY_SOURCE} from '../scripts/relay-worker-release-identity.mjs';
+import {relayCandidateIdentity,checkedRelayFullReleasePolicy,planRelayFullRelease,RELAY_SOURCE,LUCY_DISCOVERY_BASELINE} from '../scripts/relay-worker-release-identity.mjs';
 import {settingsDigest,receiptDigest,backendInputIdentity} from '../scripts/worker-release-identity.mjs';
 import {musicWorkerConfig} from '../scripts/prepare-music-worker.mjs';
 import * as esbuild from 'esbuild';
@@ -43,6 +43,7 @@ async function fixture(){
   git(root,'init');commit(root);
   const candidate=relayCandidateIdentity(root),policy=checkedRelayFullReleasePolicy(root,candidate);
   const settings={bindings:[{name:'HUBS',type:'durable_object_namespace',class_name:'Hub',namespace_id:'fictional-hubs'},
+    {name:'RELAY_AGENT_LUCY_OAUTH_ENABLED',type:'plain_text',text:'true'},
     {name:'FICTIONAL_VALUE',type:'plain_text',text:SECRET}]};
   const live={version:VERSION,settingsDigest:settingsDigest(settings)};
   const receipt={...candidate,...live,repository:'braydenparker000/Missionarytube-',runId:'123',attempt:'2'};
@@ -143,6 +144,26 @@ test('fresh deployment must be uniquely active with unchanged settings before re
     assert.equal(cli(f,mock,'record','new_version').status,0);
     assert.equal(cli(f,mock,'verify','new_version').status,0);
     assert.equal(cli(f,mock,'verify','reuse').status,1);
+    assert.equal(cli(f,mock,'verify','settings_changed').status,1);
+  }finally{await rm(f.root,{recursive:true,force:true});}
+});
+
+test('Lucy discovery checkpoint accepts only its expected full settings digest and uniquely deployed Worker',async()=>{
+  const f=await fixture();try{
+    const mock=await hook(f);
+    const before={candidate:f.candidate,live:{...LUCY_DISCOVERY_BASELINE},proof:{reuse:false,reason:'backend_digest_mismatch'},
+      settingsTransition:{kind:'lucy-oauth-discovery',expectedSettingsDigest:settingsDigest(f.settings)}};
+    await writeFile(join(f.root,'worker-identity-before.json'),JSON.stringify(before));
+    const source=join(f.root,'.jarvis-source');
+    await writeFile(join(source,'worker-versions-before.json'),JSON.stringify([{id:LUCY_DISCOVERY_BASELINE.version}]));
+    await writeFile(join(source,'worker-versions-after.json'),JSON.stringify([{id:LUCY_DISCOVERY_BASELINE.version},{id:NEW_VERSION}]));
+    assert.equal(cli(f,mock,'record','settings_changed').status,1);await absent(join(f.root,'worker-identity-current.json'));
+    assert.equal(cli(f,mock,'record','reuse').status,1);await absent(join(f.root,'worker-identity-current.json'));
+    const result=cli(f,mock,'record','new_version');assert.equal(result.status,0,result.stderr);
+    assert.ok(!(result.stdout+result.stderr).includes(SECRET));
+    const recorded=JSON.parse(await readFile(join(f.root,'worker-identity-current.json'),'utf8'));
+    assert.equal(recorded.live.settingsDigest,settingsDigest(f.settings));
+    assert.equal(cli(f,mock,'verify','new_version').status,0);
     assert.equal(cli(f,mock,'verify','settings_changed').status,1);
   }finally{await rm(f.root,{recursive:true,force:true});}
 });
