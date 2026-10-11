@@ -30,8 +30,8 @@ and blob URLs. Reload reconciles accepted IDs; explicit Retry reuses unaccepted 
 Refresh fetches only entries after the last successfully fetched sequence.
 
 Connection details show configuration separately from the adapter's last successful
-GET. “Fetched by Muse” means returned to the authenticated adapter, not read by a
-human/model or work started/completed. A reply is a durable authenticated message,
+GET. “Fetch served” means the server handled an authenticated fetch request; it does
+not prove client receipt, human/model reading, or work started/completed. A reply is a durable authenticated message,
 not proof that any requested external action happened. Public visitor messages
 never grant authority. This release does not clone Relay Work jobs, result correction
 or privileged execution into either chat; those are separate authorization contracts,

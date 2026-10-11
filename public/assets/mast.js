@@ -38,7 +38,7 @@ function render(){
     const row=document.createElement('article');row.className='message-row'+(message.role==='owner'?' outgoing':'');row.dataset.id=message.id;
     const author=document.createElement('span');author.className='message-author';author.textContent=message.role==='owner'?'You':'Muse';
     const body=document.createElement('div');body.className='bubble rich-body';richText(body,message.body);
-    const time=document.createElement('span');time.className='message-time';time.textContent=new Date(message.createdAt).toLocaleString()+(message.role==='owner'?(replied.has(message.id)?' · Replied':adapter?.fetchedSequence>=message.sequence?' · Fetched by Muse · Awaiting reply':' · Saved · Awaiting Muse'):'');
+    const time=document.createElement('span');time.className='message-time';time.textContent=new Date(message.createdAt).toLocaleString()+(message.role==='owner'?(replied.has(message.id)?' · Replied':adapter?.fetchedSequence>=message.sequence?' · Fetch served · Awaiting reply':' · Saved · Awaiting Muse'):'');
     row.append(author,body);
     for(const file of message.attachments){const node=content.row(file);row.append(node);if(file.mimeType.startsWith('image/'))previews.observe(node);}
     const copy=document.createElement('button');copy.type='button';copy.className='mast-copy';copy.textContent='Copy';copy.setAttribute('aria-label','Copy message');copy.onclick=async()=>{try{status.textContent=await copyText(message.body)?'Message copied.':'Copy unavailable. Select the message text to copy it.';}catch{status.textContent='Copy unavailable. Select the message text to copy it.';}};
@@ -53,7 +53,7 @@ function reset(){++epoch;enabled=false;history.clear();after='0';adapter=null;co
 function accessError(error){status.textContent=error.message;if(error.name==='MastDraftError'){draftError=true;renderDraft();}if(!api.hasCredential)reset();}
 function connection(){
   $('connection-detail').textContent=!enabled?'Secure adapter setup is incomplete. No connected agent is claimed.':!adapter?'Access is configured; no Muse fetch has been observed.':
-    'Last adapter fetch: '+new Date(adapter.lastFetchedAt).toLocaleString()+'. A fetch confirms delivery to the adapter, not that an agent has started or completed work.';
+    'Last authenticated fetch request: '+new Date(adapter.lastFetchedAt).toLocaleString()+'. The server handled this request; client receipt and agent execution are not confirmed by a fetch.';
 }
 async function refresh(){
   if(loading||busy)return;loading=true;const generation=epoch;$('refresh').disabled=true;
