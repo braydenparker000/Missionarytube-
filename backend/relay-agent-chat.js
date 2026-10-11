@@ -1,21 +1,22 @@
-// Independent agent conversation. Neither owner/Mast bearer nor owner OAuth is
-// authority here. A separate Durable Object contains only explicitly sent data.
-import {RelayError,hash,equal,uuid,cursor,fields,json,boundedText} from './relay-common.js';
+// Independent agent conversation. Owner/Mast credentials do not grant access.
+// Lucy needs explicit channel OAuth scope; Muse uses a distinct dedicated bearer.
+import {RELAY_OAUTH_OBJECT,RELAY_AGENT_SCOPE,RELAY_OWNER,RelayError,hash,equal,uuid,cursor,fields,json,boundedText} from './relay-common.js';
 import {ATTACHMENT_BODY_LIMIT} from './relay-owner-attachments.js';
 import {mastFileMetadata,mastFileCheckMessage,mastFileLink,mastFileOperation} from './relay-mast-attachments.js';
-export const AGENT_CHAT_OBJECT='jarvis-private-lucy-muse-v1';
+import {relayTokenActiveInStore} from './relay-oauth.js';
+export const AGENT_CHAT_OBJECT=RELAY_OAUTH_OBJECT;
+// Fixed SQL namespace, not a user-selected table or owner-history adapter.
+const isolated=ctx=>({storage:{sql:{exec:(sql,...args)=>ctx.storage.sql.exec(sql.replaceAll('relay_mast_','relay_agents_'),...args)},transactionSync:fn=>ctx.storage.transactionSync(fn)}});
 const rows=(ctx,q,...v)=>[...ctx.storage.sql.exec(q,...v)];
 const fail=(status,message)=>{throw new RelayError(-32602,message,{status});};
-const keys=env=>[env.RELAY_AGENT_LUCY_TOKEN_SHA256,env.RELAY_AGENT_MUSE_TOKEN_SHA256];
-export const agentChatEnabled=env=>env.RELAY_AGENTS_ENABLED==='true'&&keys(env).every(k=>/^[a-f0-9]{64}$/.test(k||'')&&k!==env.RELAY_MAST_TOKEN_SHA256)&&keys(env)[0]!==keys(env)[1];
+export const agentChatEnabled=env=>env.RELAY_AGENTS_ENABLED==='true'&&env.RELAY_AGENT_LUCY_OAUTH_ENABLED==='true'&&/^[a-f0-9]{64}$/.test(env.RELAY_AGENT_MUSE_TOKEN_SHA256||'')&&env.RELAY_AGENT_MUSE_TOKEN_SHA256!==env.RELAY_MAST_TOKEN_SHA256;
 function identity(env,digest){
   if(!agentChatEnabled(env))fail(503,'Lucy–Muse channel is not activated');
-  if(typeof digest!=='string')fail(401,'Agent authentication required');
-  const index=keys(env).findIndex(k=>equal(k,digest));if(index<0)fail(401,'Agent authentication required');
-  return ['lucy','muse'][index];
+  if(typeof digest!=='string'||!equal(digest,env.RELAY_AGENT_MUSE_TOKEN_SHA256))fail(401,'Muse channel authentication required');
+  return 'muse';
 }
 function schema(ctx){
-  // Same file repository schema, in a different object; no owner rows or grants.
+  // Same file repository schema, mapped to fixed separate channel tables.
   ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS relay_mast_entries (
     seq INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT NOT NULL UNIQUE,
     role TEXT NOT NULL CHECK(role IN ('lucy','muse')),reply_to TEXT,
@@ -26,10 +27,17 @@ function target(ctx,body){
   if(!uuid(body.message_id)||!uuid(body.id)||body.message_id===body.id)fail(400,'Invalid channel file IDs');
   if(body.reply_to!==undefined&&body.reply_to!==null&&(!uuid(body.reply_to)||!rows(ctx,'SELECT id FROM relay_mast_entries WHERE id=?',body.reply_to).length))fail(404,'Channel reply target not found');
 }
-export async function agentChatStore(ctx,env,input){
+export async function agentChatStore(sourceCtx,env,input){
   try{
-    const role=identity(env,input.token_hash);schema(ctx);
-    const authorize=()=>{if(identity(env,input.token_hash)!==role)fail(401,'Agent identity changed');return role+':'+input.token_hash;};
+    const principal=input.principal;
+    const authorize=()=>{
+      if(!agentChatEnabled(env))fail(503,'Lucy–Muse channel is not activated');
+      if(principal){if(principal.principal!==RELAY_OWNER||!relayTokenActiveInStore(sourceCtx,env,principal,RELAY_AGENT_SCOPE))fail(403,'Explicit Lucy channel OAuth scope required');return 'lucy:'+principal.grantId;}
+      identity(env,input.token_hash);return 'muse:'+input.token_hash;
+    };
+    const actor=authorize(),role=actor.startsWith('lucy:')?'lucy':'muse',ctx=isolated(sourceCtx);
+    input={...input,token_hash:principal?.accessHash||input.token_hash};delete input.principal;
+    schema(ctx);
     if(input.op?.startsWith('file_'))return await mastFileOperation(ctx,input,authorize,target);
     return ctx.storage.transactionSync(()=>{
       authorize();

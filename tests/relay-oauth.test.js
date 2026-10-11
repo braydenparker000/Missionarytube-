@@ -189,21 +189,21 @@ test('omitted authorization scope and refresh stay public; explicit owner recons
   const publicTokens = await (await exchangeCode(s, code)).json();
   assert.equal(publicTokens.scope, RELAY_PUBLIC_SCOPES.join(' '));
   assert.ok(!(await authenticate(s, publicTokens.access_token)).scopes.includes(RELAY_OWNER_SCOPE));
-  await expectError(await refresh(s, publicTokens.refresh_token, {scope: FULL_SCOPE}), 'invalid_grant');
+  await expectError(await refresh(s, publicTokens.refresh_token, {scope: [...RELAY_PUBLIC_SCOPES,RELAY_OWNER_SCOPE].join(' ')}), 'invalid_grant');
   const rotated = await (await refresh(s, publicTokens.refresh_token)).json();
   assert.equal(rotated.scope, RELAY_PUBLIC_SCOPES.join(' '));
   assert.equal((await rpc(rotated.access_token, 'tools/list')).result.tools.length, 4 + relayOwnerTools.length);
   const stepUp = await rpc(rotated.access_token, 'tools/call', {name: 'relay_owner_devices_list', arguments: {}});
   assert.equal(stepUp.result.isError, true);
   const requestedScope = stepUp.result._meta['mcp/www_authenticate'][0].match(/scope="([^"]+)"/)[1];
-  assert.equal(requestedScope, FULL_SCOPE);
+  assert.equal(requestedScope, [...RELAY_PUBLIC_SCOPES,RELAY_OWNER_SCOPE].join(' '));
   const login = await start(s, {scope: requestedScope}), ownerConsent = await callback(s, login);
   assert.match(ownerConsent.html, /Owner chat access:/);
   assert.match(ownerConsent.html, /Each phone approval separately grants persistent device access with a 365-day inactivity expiry renewed on use/);
   const ownerApproved = await approve(s, ownerConsent), ownerCode = new URL(ownerApproved.headers.get('Location')).searchParams.get('code');
   const ownerTokens = await (await exchangeCode(s, ownerCode)).json();
-  assert.equal(ownerTokens.scope, FULL_SCOPE);
-  assert.deepEqual((await authenticate(s, ownerTokens.access_token)).scopes, RELAY_SCOPES);
+  assert.equal(ownerTokens.scope, [...RELAY_PUBLIC_SCOPES,RELAY_OWNER_SCOPE].join(' '));
+  assert.deepEqual((await authenticate(s, ownerTokens.access_token)).scopes, [...RELAY_PUBLIC_SCOPES,RELAY_OWNER_SCOPE]);
   const ownerCatalog=(await rpc(ownerTokens.access_token, 'tools/list')).result.tools;
   assert.equal(ownerCatalog.length, 5 + relayOwnerTools.length);
   assert.deepEqual(ownerCatalog.filter(tool=>tool.name.startsWith('relay_project_')).map(tool=>tool.name),['relay_project_binding_status']);
@@ -241,7 +241,7 @@ test('public-event step-up requires explicit new consent and retains read/reply/
   const stepUp = await rpc(oldTokens.access_token, 'tools/call', helperCall);
   assert.equal(stepUp.result.isError, true); assert.equal(stepUp.error, undefined);
   const requestedScope = stepUp.result._meta['mcp/www_authenticate'][0].match(/scope="([^"]+)"/)[1];
-  assert.equal(requestedScope, FULL_SCOPE); assert.deepEqual(oauthRows(s), before);
+  assert.equal(requestedScope, [...RELAY_PUBLIC_SCOPES,RELAY_OWNER_SCOPE].join(' ')); assert.deepEqual(oauthRows(s), before);
   await expectError(await refresh(s, oldTokens.refresh_token, {scope: requestedScope}), 'invalid_grant');
   assert.deepEqual(oauthRows(s), before);
   const cancelledLogin = await start(s, {scope: requestedScope}), cancelledConsent = await callback(s, cancelledLogin);
@@ -254,7 +254,7 @@ test('public-event step-up requires explicit new consent and retains read/reply/
   assert.equal(oauthRows(s).filter(row => row.category === 'grant').length, 1, 'login and consent form alone never grant events');
   const approved = await approve(s, consent), code = new URL(approved.headers.get('Location')).searchParams.get('code');
   const tokens = await (await exchangeCode(s, code)).json();
-  assert.equal(tokens.scope, FULL_SCOPE); assert.deepEqual((await authenticate(s, tokens.access_token)).scopes, RELAY_SCOPES);
+  assert.equal(tokens.scope, [...RELAY_PUBLIC_SCOPES,RELAY_OWNER_SCOPE].join(' ')); assert.deepEqual((await authenticate(s, tokens.access_token)).scopes, [...RELAY_PUBLIC_SCOPES,RELAY_OWNER_SCOPE]);
   assert.deepEqual((await rpc(tokens.access_token, 'events/list')).result.events.map(event => event.name), [RELAY_EVENT, RELAY_OWNER_EVENT]);
   assert.deepEqual((await rpc(tokens.access_token, 'tools/call', helperCall)).result.structuredContent, {scope: 'relay:events', event: RELAY_EVENT, authorized: true});
   assert.deepEqual((await rpc(tokens.access_token, 'tools/call', {name: 'relay_owner_devices_list', arguments: {}})).result.structuredContent, {devices: []});
@@ -873,4 +873,11 @@ test('SQLite transaction rolls back incomplete token rotation on a storage failu
   assert.deepEqual(oauthRows(s), before, 'consume/tombstone/deletions must roll back together');
   assert.ok(await authenticate(s, first.access_token));
   assert.equal((await refresh(s, first.refresh_token)).status, 200);
+});
+test('Lucy channel scope requires explicit consent and cannot arrive through refresh',async t=>{
+ const s=fixture(t);const old=await ownerTokens(s,{scope:'relay:read'});
+ await expectError(await refresh(s,old.refresh_token,{scope:'relay:agents-lucy'}),'invalid_grant');
+ const login=await start(s,{scope:'relay:agents-lucy'}),consent=await callback(s,login);
+ assert.match(consent.html,/Private Lucy–Muse channel:/);assert.doesNotMatch(consent.html,/Owner chat access:/);assert.doesNotMatch(consent.html,/Allow ChatGPT to read the public Relay inbox/);
+ const accepted=await approve(s,consent),code=new URL(accepted.headers.get('Location')).searchParams.get('code');const token=await (await exchangeCode(s,code)).json();assert.equal(token.scope,'relay:agents-lucy');assert.deepEqual((await authenticate(s,token.access_token)).scopes,['relay:agents-lucy']);
 });

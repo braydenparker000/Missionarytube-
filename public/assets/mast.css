@@ -25,3 +25,6 @@ a{color:var(--accent)}button,input,textarea{font:inherit;color:inherit}button{ba
 .mast-page .workspace{min-height:0}.mast-page .composer-input textarea{min-height:48px;height:48px}.mast-page .message-author{letter-spacing:0}
 
 .mast-page input::placeholder,.mast-page textarea::placeholder{color:#aaa;opacity:1}.mast-page .rich-body .code-block{background:#202020;border-color:#505050;color:#f7f7f7}.mast-page .rich-body .code-copy{background:#383838;color:#d7e7fa}.mast-page .composer-input:focus-within{border-color:#dce3eb;box-shadow:0 0 0 1px #dce3eb}
+
+.mast-tabs{display:flex;flex-shrink:0;gap:8px;margin:0 20px}.mast-tabs button[aria-pressed=true]{background:#506d92;color:white}.mast-tabs button{min-width:80px}
+#work-panel{flex:1;min-height:0;overflow:auto;padding:12px 20px}#work-panel label{display:block;margin:12px 0}#work-panel input,#work-panel select,#work-panel textarea{display:block;width:100%;max-width:650px}#work-panel textarea{min-height:100px}#work-panel button{border:1px solid #515151;margin:6px 6px 6px 0}#work-panel summary{min-height:48px;cursor:pointer;display:flex;align-items:center}.mast-work-row{padding:16px 0;border-top:1px solid #494949}.mast-work-row h3{margin:0}.mast-work-row p{overflow-wrap:anywhere}

@@ -9,7 +9,8 @@ export const RELAY_OWNER_SCOPE = 'relay:owner';
 export const RELAY_OWNER_INBOX = 'brayden-owner';
 export const RELAY_OWNER_EVENT = 'relay.owner.message.created';
 // Advertising a new capability never expands a previously issued grant.
-export const RELAY_SCOPES = [...RELAY_PUBLIC_SCOPES, RELAY_OWNER_SCOPE];
+export const RELAY_AGENT_SCOPE = 'relay:agents-lucy';
+export const RELAY_SCOPES = [...RELAY_PUBLIC_SCOPES, RELAY_OWNER_SCOPE, RELAY_AGENT_SCOPE];
 export const RELAY_VERSION = '2026-07-28';
 export const RELAY_CALLBACK = 'https://chatgpt.com/connector_platform_oauth_redirect';
 export const encoder = new TextEncoder();

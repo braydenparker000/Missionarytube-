@@ -1,3 +1,4 @@
+import {createMastWork} from './mast-work.js';
 import {createRelayOwnerApi} from './relay-owner-api.js';
 import {createAttachmentDraft,RELAY_ATTACHMENT_TYPES} from './relay-attachments.js';
 import {createPrivateAttachmentContent} from './relay-attachment-content.js';
@@ -10,6 +11,10 @@ const composer=$('composer'),input=$('message'),send=$('send'),picker=$('files')
 let enabled=false,busy=false,pending=null,history=new Map(),loading=false,epoch=0,after='0',restored=false,adapter=null,draftError=false;
 const content=createPrivateAttachmentContent({document,read:async(item,options)=>{try{return await api.attachmentContent(item,options);}catch(error){accessError(error);throw error;}}});
 const previews=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){previews.unobserve(e.target);e.target.querySelector('button[aria-label^="Preview "]')?.click();}},{root:messages});
+const work=createMastWork({api,storage:tab,panel:$('work-panel'),status,onCreated:()=>refresh(),onError:accessError});
+let workOpen=false;
+function destination(open){workOpen=open;$('work-panel').hidden=!open;messages.hidden=open;composer.hidden=open||!enabled;document.querySelector('.mast-tools').hidden=open;$('chat-tab').setAttribute('aria-pressed',String(!open));$('work-tab').setAttribute('aria-pressed',String(open));if(open)work.refresh();}
+$('chat-tab').onclick=()=>destination(false);$('work-tab').onclick=()=>destination(true);
 const draft=createAttachmentDraft({enabled:()=>enabled&&api.hasCredential,upload:(file,{id,messageId,signal})=>api.uploadAttachment(messageId,id,file,{signal}),discard:(messageId,id)=>api.discardAttachment(messageId,id),onChange:renderDraft});
 picker.accept=RELAY_ATTACHMENT_TYPES.join(',');
 function renderDraft(){
@@ -42,14 +47,14 @@ function render(){
     row.append(author,body);
     for(const file of message.attachments){const node=content.row(file);row.append(node);if(file.mimeType.startsWith('image/'))previews.observe(node);}
     const copy=document.createElement('button');copy.type='button';copy.className='mast-copy';copy.textContent='Copy';copy.setAttribute('aria-label','Copy message');copy.onclick=async()=>{try{status.textContent=await copyText(message.body)?'Message copied.':'Copy unavailable. Select the message text to copy it.';}catch{status.textContent='Copy unavailable. Select the message text to copy it.';}};
-    row.append(time,copy);messages.append(row);
+    row.append(time,copy);if(message.role==='owner'){const request=document.createElement('button');request.type='button';request.textContent='Work from this message';request.onclick=()=>{work.prepare(message);destination(true);};row.append(request);}messages.append(row);
   }
   content.prune();
   if(!messages.children.length){const p=document.createElement('p');p.className='mast-empty';p.textContent=query?'No matching messages.':enabled?'Start your private conversation with Muse.':'Muse is not connected yet. Your private messages never go to the public Muse inbox.';messages.append(p);}
   messages.scrollTop=bottom?messages.scrollHeight:position;
   $('latest').hidden=bottom;$('export').disabled=!history.size;
 }
-function reset(){++epoch;enabled=false;history.clear();after='0';adapter=null;content.clear();previews.disconnect();draft.clear();pending=null;input.value='';input.readOnly=false;restored=false;try{journal.clear();}catch(e){status.textContent=e.message;}render();composer.hidden=true;login.hidden=false;}
+function reset(){try{work.reset();}catch{}destination(false);++epoch;enabled=false;history.clear();after='0';adapter=null;content.clear();previews.disconnect();draft.clear();pending=null;input.value='';input.readOnly=false;restored=false;try{journal.clear();}catch(e){status.textContent=e.message;}render();composer.hidden=true;login.hidden=false;}
 function accessError(error){status.textContent=error.message;if(error.name==='MastDraftError'){draftError=true;renderDraft();}if(!api.hasCredential)reset();}
 function connection(){
   $('connection-detail').textContent=!enabled?'Secure adapter setup is incomplete. No connected agent is claimed.':!adapter?'Access is configured; no Muse fetch has been observed.':
@@ -62,13 +67,13 @@ async function refresh(){
     const additions=[];let cursor=after,data;
     do{data=await api.mastMessages(cursor);if(generation!==epoch)return;additions.push(...data.messages);cursor=data.nextCursor;}while(cursor);
     if(generation!==epoch)return;
-    enabled=data.enabled;adapter=data.adapter;login.hidden=true;composer.hidden=!enabled;
+    enabled=data.enabled;adapter=data.adapter;login.hidden=true;composer.hidden=!enabled||workOpen;
     if(!enabled){history.clear();after='0';content.clear();}
     else for(const m of additions){history.set(m.id,m);after=String(Math.max(Number(after),m.sequence));}
     if(!restored){const saved=journal.read(api.deviceId);if(saved){pending=saved.pending;input.value=saved.body;input.readOnly=!!pending;send.textContent=pending?'Retry':'Send';}restored=true;autosize(input);}
     if(pending&&history.has(pending.id))sent();
     status.textContent=pending?'Send not confirmed. Retry keeps the original message and file IDs.':enabled?'Only this conversation is shared with Muse.':'Muse adapter is not connected. Secure setup is still required.';
-    connection();render();renderDraft();
+    connection();render();renderDraft();if(workOpen)work.refresh();
   }catch(error){accessError(error);}finally{loading=false;$('refresh').disabled=false;}
 }
 login.addEventListener('submit',async event=>{

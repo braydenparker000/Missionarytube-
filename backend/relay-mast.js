@@ -1,3 +1,4 @@
+import {mastWork} from './relay-mast-work.js';
 import {ATTACHMENT_BODY_LIMIT} from './relay-owner-attachments.js';
 import {mastFileMetadata,mastFileCheckMessage,mastFileLink,mastFileOperation} from './relay-mast-attachments.js';
 // Owner-to-Mast only. No public inbox, owner Relay entries, OAuth grants or callbacks.
@@ -46,6 +47,10 @@ function insert(ctx, message, now) {
   mastFileLink(ctx,message.id,files);
   return {entry:entry(rows(ctx,'SELECT * FROM relay_mast_entries WHERE id=?',message.id)[0],ctx),newWrite:true};
 }
+export function mastOwnerWork(ctx,env,input,session){
+  if(!mastEnabled(env))fail(503,'Mast chat awaits activation');schema(ctx);
+  return mastWork(ctx,{...input,op:input.op.slice(5)},{owner:session,send:body=>mastSend(ctx,env,body,session)});
+}
 export async function mastOwnerFileStore(ctx,env,input,requireOwner){
   const authorize=()=>{if(!mastEnabled(env))fail(503,'Mast chat awaits activation');const actor=requireOwner();schema(ctx);return 'owner:'+actor.device_id;};
   return mastFileOperation(ctx,{...input,op:input.op.slice(5)},authorize);
@@ -61,6 +66,7 @@ export async function mastAdapterStore(ctx, env, input) {
     };
     if(input.op?.startsWith('file_'))return await mastFileOperation(ctx,input,authorize);
     return ctx.storage.transactionSync(() => {
+      if(input.op?.startsWith('work_'))return json(mastWork(ctx,input,{writer:authorize()}));
       if (input.op==='list') {
         fields(input,['op','token_hash','after'],['op','token_hash']);
         const result=mastList(ctx,env,input.after),now=Date.now();
@@ -92,7 +98,12 @@ export async function mastAdapterPublic(request, env) {
     const store=body=>env.HUBS.get(env.HUBS.idFromName(RELAY_OAUTH_OBJECT)).fetch(new Request('https://internal/internal/relay/mast',{method:'POST',body:JSON.stringify({...body,token_hash:tokenHash})}));
     const tokenHash=await hash(token);
     let input;
-    if (url.pathname==='/relay/mast/messages' && request.method==='GET') {
+    if(url.pathname==='/relay/mast/work'&&request.method==='GET'){
+      if([...url.searchParams.keys()].some(k=>!['after','job_id'].includes(k)||url.searchParams.getAll(k).length!==1)||url.searchParams.has('after')&&url.searchParams.has('job_id'))fail(400,'Invalid Muse work query');
+      input={...Object.fromEntries(url.searchParams),op:url.searchParams.has('job_id')?'work_read':'work_list'};
+    }else if(/^\/relay\/mast\/work\/(claim|update|plan|correct)$/.test(url.pathname)&&request.method==='POST'&&!url.search){
+      const body=JSON.parse(await boundedText(request,16000));input={...body,op:'work_'+url.pathname.split('/').at(-1)};
+    }else if (url.pathname==='/relay/mast/messages' && request.method==='GET') {
       if ([...url.searchParams.keys()].some(k=>k!=='after') || url.searchParams.getAll('after').length>1) fail(400,'Invalid Mast query');
       input={op:'list',after:url.searchParams.get('after')||'0'};
     } else if (url.pathname==='/relay/mast/files/content' && request.method==='GET') {

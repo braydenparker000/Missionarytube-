@@ -67,7 +67,7 @@ test('read/reply/owner grant gets native all-four challenge without grant, messa
   const snapshot = () => ['relay_oauth', 'shared_entries', 'relay_events', 'relay_subscriptions', 'relay_outbox'].map(table => s.rows('SELECT * FROM ' + table));
   const before = snapshot();
   const result = (await s.rpc(auth, 'tools/call', {name: TOOL, arguments: {}})).result;
-  assertChallenge(result, s, RELAY_SCOPES.join(' '));
+  assertChallenge(result, s, 'relay:read relay:reply relay:events relay:owner');
   assert.deepEqual(snapshot(), before);
   for (const secret of [publicBody, auth.access, auth.refresh, auth.accessHash, auth.grantId]) assert.ok(!JSON.stringify(result).includes(secret));
   const widened = await s.registry({op: 'exchange', key: 'refresh:' + await hash(auth.refresh),
