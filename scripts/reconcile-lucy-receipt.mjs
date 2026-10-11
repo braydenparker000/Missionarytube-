@@ -20,10 +20,26 @@ const DIR='.lucy-reconcile';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const fail=code=>{throw Object.assign(Error(code),{safeCode:code});};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-async function bytes(url){
-  const response=await fetch(url,{method:'GET',redirect:'follow',cache:'no-store',signal:AbortSignal.timeout(60000)});
-  if(!response.ok)fail('read_unavailable');
-  const data=Buffer.from(await response.arrayBuffer());if(data.length>40*1024*1024)fail('read_too_large');return data;
+export async function bytes(url,{fetcher=globalThis.fetch,token=process.env.GITHUB_TOKEN}={}){
+  const initial=new URL(url),github=initial.origin==='https://api.github.com';
+  const operation=github?(initial.pathname.endsWith('/zip')?'artifact_archive':initial.pathname.includes('/artifacts/')?'artifact_metadata':initial.pathname.endsWith('/jobs')?'run_jobs':'run_metadata'):'frontend_bytes';
+  let target=initial;
+  for(let hop=0;hop<4;hop++){
+    const headers=github&&hop===0?{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(token?{Authorization:'Bearer '+token}:{})}:{};
+    let response;
+    try{response=await fetcher(target.href,{method:'GET',redirect:'manual',headers,cache:'no-store',signal:AbortSignal.timeout(60000)});}
+    catch{fail(operation+'_transport_failed');}
+    if(github||!response.ok)console.log(JSON.stringify({operation,hop,status:response.status}));
+    if([301,302,303,307,308].includes(response.status)){
+      const location=response.headers.get('location');if(!location)fail(operation+'_redirect_missing');
+      try{target=new URL(location,target);}catch{fail(operation+'_redirect_invalid');}
+      if(target.protocol!=='https:'||target.username||target.password)fail(operation+'_redirect_unsafe');
+      continue;
+    }
+    if(!response.ok)fail(operation+'_http_'+response.status);
+    const data=Buffer.from(await response.arrayBuffer());if(data.length>40*1024*1024)fail('read_too_large');return data;
+  }
+  fail(operation+'_redirect_limit');
 }
 const json=async url=>JSON.parse((await bytes(url)).toString('utf8'));
 const local=async path=>JSON.parse(await readFile(path,'utf8'));
@@ -37,7 +53,7 @@ async function checkedRun(id,head,path,conclusion,event='push'){
 async function artifact(id,name,digest,run,directory){
   const metadata=await json(`${API}/actions/artifacts/${id}`);
   if(metadata.id!==id||metadata.name!==name||metadata.digest!=='sha256:'+digest||metadata.expired||metadata.workflow_run?.id!==run)fail('artifact_provenance_mismatch');
-  // Public immutable artifacts need no new GitHub token permissions. Never log
+  // Use only the existing token permissions. Never log
   // the temporary redirect URL. Verify the archive before extracting any file.
   const archive=await bytes(`${API}/actions/artifacts/${id}/zip`);
   if(hash(archive)!==digest)fail('artifact_digest_mismatch');
