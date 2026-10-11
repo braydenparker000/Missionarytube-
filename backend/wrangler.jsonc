@@ -5,6 +5,7 @@
   "workers_dev": true,
   "keep_vars": true,
   "vars": {
+    "RELAY_AGENT_LUCY_OAUTH_ENABLED": "true",
     "RELAY_GITHUB_CLIENT_ID": "Ov23liy7fmf3O9cJUBvW",
     "RELAY_WEBHOOK_EGRESS_URL": "https://jarvis-relay-egress.vercel.app/api/relay-egress"
   },
