@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
+import {checkedMusicFrontend} from './music-frontend-identity.mjs';
 
 const release=JSON.parse(await readFile('jarvis-release.json','utf8'));
 const expectedPartial=new URL(release.r2ManifestURL).pathname==='/music/partial/manifest.json';
@@ -152,7 +153,14 @@ async function restoredTouch(){
 }
 try{
   const current=await fetch(release.storageOrigin+'/release.json',{cache:'no-store',signal:AbortSignal.timeout(15000)}).then(r=>r.json());
-  assert.equal(current.commit,release.commit);check('live source pin',{commit:current.commit});
+  let receipt;
+  if(release.workerDeploymentPolicy?.mode==='reconcile-lucy-discovery'){
+    const response=await fetch(release.storageOrigin+'/release-qualified.json',{cache:'no-store',signal:AbortSignal.timeout(15000)});
+    assert.equal(response.status,200);receipt=await response.json();
+  }
+  const identity=checkedMusicFrontend(release,current,receipt);
+  report.sourceCommit=identity.commit;report.workerSourceCommit=identity.workerSource;
+  check('live source pin',identity);
   const [catalog,mapping]=await Promise.all([release.storageOrigin+'/assets/drive-catalog-v2.json',release.r2ManifestURL].map(async url=>{
     const response=await fetch(url,{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(15000)});
     assert.equal(response.status,200);return response.json();
