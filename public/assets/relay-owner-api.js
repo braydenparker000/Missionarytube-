@@ -114,6 +114,14 @@ function privateJob(value){
     ...(presentation?{presentation}:{})});
 }
 
+function mastEntry(value) {
+  if(!value || !jobIdentifier(value.id) || !Number.isSafeInteger(value.sequence) || value.sequence<1
+    || !['owner','mast'].includes(value.role) || typeof value.body!=='string' || !value.body.trim() || value.body.length>6000
+    || !validDate(value.createdAt) || value.visibility!=='private' || value.destination!=='mast'
+    || (value.role==='owner'?value.replyTo!==null:!jobIdentifier(value.replyTo))) throw new OwnerApiError('invalid');
+  return {id:value.id,sequence:value.sequence,role:value.role,body:value.body,createdAt:value.createdAt,replyTo:value.replyTo};
+}
+
 export class OwnerApiError extends Error {
   constructor(kind = 'network', status = 0) {
     const messages = {
@@ -320,6 +328,19 @@ export function createRelayOwnerApi({ fetcher = globalThis.fetch, origin = API_O
       if (data.status !== 'approved') throw new OwnerApiError('invalid');
       if (data.device.id !== credential?.device_id) throw new OwnerApiError('invalid');
       return data;
+    },
+    async mastMessages(after='0') {
+      const data=await call('/relay/owner/mast?after='+encodeURIComponent(after), {token:credential?.device_token});
+      if(typeof data.enabled!=='boolean' || !Array.isArray(data.messages) || data.messages.length>50
+        || !(data.nextCursor===null || /^[0-9]+$/.test(data.nextCursor)&&Number(data.nextCursor)>Number(after))
+        || !data.enabled&&(data.messages.length||data.nextCursor!==null)) throw new OwnerApiError('invalid');
+      return {enabled:data.enabled,messages:data.messages.map(mastEntry),nextCursor:data.nextCursor};
+    },
+    async mastSend(id, body) {
+      const data=await call('/relay/owner/mast', {token:credential?.device_token, body:{id,body}});
+      const entry=mastEntry(data.entry);
+      if(entry.id!==id || entry.role!=='owner' || entry.body!==body.trim())throw new OwnerApiError('invalid');
+      return {entry};
     },
     async messages(after = '0') {
       if (!/^\d{1,15}$/.test(String(after))) throw new OwnerApiError('invalid');
