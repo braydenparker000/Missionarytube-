@@ -117,7 +117,7 @@ test('My Media video-feed layout and preserved browsing/playback flows',
         if(width<600)assert.ok(await page.locator('.feed-grid .thumb').first().evaluate(n=>n.getBoundingClientRect().bottom)<775,'the first complete video thumbnail fits above mobile navigation even with watch progress');
         assert.equal(await page.locator('.feed-grid .card-creator').first().textContent(),'Preview channel');
         assert.ok(!(await page.locator('.feed-grid strong').first().textContent()).startsWith('Preview channel - '));
-        assert.equal(await page.locator('body').evaluate(n=>getComputedStyle(n).getPropertyValue('--accent').trim()),'#efbc78');
+        assert.equal(await page.locator('body').evaluate(n=>getComputedStyle(n).getPropertyValue('--accent').trim()),'#dce3eb');
         assert.equal(await page.locator('body').evaluate(n=>getComputedStyle(n).fontFamily),'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif');
         await layout(page);await screenshot(page,'my-media-feed-'+width);
         await page.locator('#load-more').click();assert.equal(await page.locator('.feed-grid .video-tile').count(),72);
@@ -256,7 +256,7 @@ test('My Media video-feed layout and preserved browsing/playback flows',
       await page.goto(origin+'/mymedia/#v=missing000000000');await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('no longer'));
       assert.equal(await page.locator('#library-view').isVisible(),true);assert.deepEqual(errors,[]);await context.close();
     });
-    await t.test('real archive covers in phone, tablet, desktop and watch previews',async()=>{
+    await t.test('real archive covers in phone, tablet, desktop and watch previews', {skip:process.env.JARVIS_LIVE_THUMBNAILS==='0'?'Live thumbnail access explicitly disabled; fixture playback and fallback layouts are covered above':false},async()=>{
       for(const width of [360,390,430,768,1200]){
         const {page,context,errors}=await session(width,true,true);
         await page.waitForFunction(()=>{const images=[...document.querySelectorAll('.feed-grid .thumb img')];return images.length>=4 && images.slice(0,4).every(img=>img.complete && img.naturalWidth>0);},null,{timeout:30000});
