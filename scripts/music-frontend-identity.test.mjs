@@ -18,3 +18,18 @@ test('preserved frontend requires the complete pinned verified receipt',()=>{
  for(const key of ['source','frontendSource','frontendOrchestration','version','runId','attempt','frontendArtifactDigest'])assert.throws(()=>checkedMusicFrontend(release,current,{...receipt,[key]:'changed'}));
  assert.throws(()=>checkedMusicFrontend(release,current,{...receipt,extra:true}));
 });
+
+test('activation receipt requires exact parent and successful digest-bound trusted workflow',async()=>{
+ const {verifiedMusicReceipt}=await import('./music-frontend-identity.mjs');const {createHash}=await import('node:crypto');
+ const parent=JSON.parse(readFileSync(new URL('../docs/evidence/lucy-verified-receipt-38168396000.json',import.meta.url)));
+ const receipt={...parent,orchestration:'a'.repeat(40),runId:'123',attempt:'1',settingsDigest:'b'.repeat(64),activation:{kind:'lucy-muse-channel',parentReceipt:parent,fingerprint:'7cc3b9c2b3bbc0f5ee4947b5987b71a95310749b8d042f0c66e77c60727467a3',expectedSettingsDigest:'c'.repeat(64),codeDigest:'d'.repeat(64)}};
+ const hash=createHash('sha256').update(JSON.stringify(receipt)).digest('hex'),repo='braydenparker000/Missionarytube-';
+ const run={repository:{full_name:repo},head_repository:{full_name:repo},head_sha:receipt.orchestration,run_attempt:1,head_branch:'main',event:'workflow_dispatch',path:'.github/workflows/deploy-azure-storage.yml',conclusion:'success'};
+ const jobs={total_count:1,jobs:[{name:'deploy',head_sha:receipt.orchestration,run_attempt:1,conclusion:'success',steps:[{name:'verified-production-receipt-'+hash,conclusion:'success'}]}]};
+ const fetcher=async url=>Response.json(url.includes('/jobs?')?jobs:run);
+ assert.deepEqual(await verifiedMusicReceipt(receipt,fetcher),parent);
+ await assert.rejects(verifiedMusicReceipt({...receipt,frontendSource:'f'.repeat(40)},fetcher));
+ run.head_repository.fork=true;await assert.rejects(verifiedMusicReceipt(receipt,fetcher));delete run.head_repository.fork;
+ jobs.total_count=2;await assert.rejects(verifiedMusicReceipt(receipt,fetcher));jobs.total_count=1;
+ jobs.jobs[0].steps[0].name='wrong';await assert.rejects(verifiedMusicReceipt(receipt,fetcher));
+});

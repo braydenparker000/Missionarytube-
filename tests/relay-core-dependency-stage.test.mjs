@@ -224,11 +224,11 @@ test('workflow preserves all prewrite barriers, requires staging success, exclud
   assert.match(batch,/rm upload\/index.html/);assert.match(batch,/--auth-mode login --destination '\$web' --source upload/);
   assert.match(batch,/--overwrite true --content-cache-control no-cache --only-show-errors/);
   const qualification=await readFile(join(repository,'.github/workflows/qualify-jarvis.yml'),'utf8');
-  assert.equal(recognizedDeployTrigger(flow),true);assert.equal(recognizedGatingRecipes(flow,qualification),false);
+  assert.equal(recognizedDeployTrigger(flow),false);assert.equal(recognizedGatingRecipes(flow,qualification),false);
   const before='a'.repeat(40),after='b'.repeat(40),event={ref:'refs/heads/main',repository:{full_name:'braydenparker000/Missionarytube-'},created:false,deleted:false,forced:false,before,after};
   const git=args=>args[0]==='rev-parse'?after+'\n':args[0]==='rev-list'?'1\n':args[0]==='diff'?'jarvis-release.json\0':'';
   const result=classifyMainPush({eventName:'push',event,headSha:after},{git,workflow:flow,qualificationWorkflow:qualification});
-  assert.equal(result.deployOnly,false);assert.equal(result.reason,'unrecognized-gating-recipe');
+  assert.equal(result.deployOnly,false);assert.equal(result.reason,'unrecognized-deploy-trigger');
 });
 
 test('real stage entrypoint refuses unknown flags without invoking storage or public verification',()=>{

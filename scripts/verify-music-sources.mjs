@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
-import {checkedMusicFrontend} from './music-frontend-identity.mjs';
+import {checkedMusicFrontend,verifiedMusicReceipt} from './music-frontend-identity.mjs';
 
 const release=JSON.parse(await readFile('jarvis-release.json','utf8'));
 const expectedPartial=new URL(release.r2ManifestURL).pathname==='/music/partial/manifest.json';
@@ -156,7 +156,7 @@ try{
   let receipt;
   if(release.workerDeploymentPolicy?.mode==='reconcile-lucy-discovery'){
     const response=await fetch(release.storageOrigin+'/release-qualified.json',{cache:'no-store',signal:AbortSignal.timeout(15000)});
-    assert.equal(response.status,200);receipt=await response.json();
+    assert.equal(response.status,200);receipt=await verifiedMusicReceipt(await response.json());
   }
   const identity=checkedMusicFrontend(release,current,receipt);
   report.sourceCommit=identity.commit;report.workerSourceCommit=identity.workerSource;
