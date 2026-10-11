@@ -11,7 +11,8 @@ let fixture;
 const git=(...args)=>execFileSync('git',['-C',join(repository,'.jarvis-source'),...args],
   {encoding:'utf8',stdio:'pipe',timeout:30000,maxBuffer:131072});
 export function relayClientRecipePath(path){
-  return ({'jarvis-release.json':'scripts/release-identities/relay-client-approved-jarvis-release.json',
+  return ({'scripts/plan-jarvis-qualification.mjs':'scripts/release-identities/relay-client-approved-plan-jarvis-qualification.mjs',
+    'jarvis-release.json':'scripts/release-identities/relay-client-approved-jarvis-release.json',
     '.github/workflows/deploy-azure-storage.yml':'scripts/release-identities/relay-client-approved-deploy-azure-storage.yml',
     '.github/workflows/qualify-jarvis.yml':'scripts/release-identities/relay-client-approved-qualify-jarvis.yml',
     'scripts/check-music-worker-bindings.mjs':'scripts/release-identities/relay-approved-check-music-worker-bindings.mjs'})[path]||path;
