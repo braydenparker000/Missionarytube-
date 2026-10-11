@@ -3,6 +3,20 @@ import assert from 'node:assert/strict';
 import {createConversationFixture} from './helpers/relay-conversation-browser-fixture.js';
 import {hash,random,RELAY_AGENT_SCOPE} from '../backend/relay-common.js';
 import {agentChatStore} from '../backend/relay-agent-chat.js';
+test('Lucy discovery alone exposes scoped tools without activating channel data or expanding existing grants',async t=>{
+  const h=createConversationFixture(t,{env:{RELAY_AGENT_LUCY_OAUTH_ENABLED:'true',RELAY_AGENTS_ENABLED:'false'}});t.after(()=>h.close());
+  const existing=await h.oauth(),lucy=await h.oauth(RELAY_AGENT_SCOPE);
+  const catalog=await (await h.rpcResponse(existing,'tools/list')).json();
+  const tools=catalog.result.tools.filter(tool=>tool.name.startsWith('relay_agent_'));
+  assert.equal(tools.length,5);
+  for(const tool of tools)assert.deepEqual(tool.securitySchemes,[{type:'oauth2',scopes:[RELAY_AGENT_SCOPE]}]);
+  assert.ok(!existing.scopes.includes(RELAY_AGENT_SCOPE));
+  const challenge=await (await h.rpcResponse(existing,'tools/call',{name:'relay_agent_list',arguments:{}})).json();
+  assert.equal(challenge.result.isError,true);assert.match(challenge.result._meta['mcp/www_authenticate'][0],/relay:agents-lucy/);
+  const blocked=await (await h.rpcResponse(lucy,'tools/call',{name:'relay_agent_list',arguments:{}})).json();
+  assert.equal(blocked.result.isError,true);
+  assert.equal((await h.fixture.request('/relay/agents/messages')).status,503);
+});
 test('Lucy scoped MCP and Muse bearer isolate agent history, files, spoofing and immutable retries',async t=>{
   const muse=random(),mast=random(),h=createConversationFixture(t,{env:{RELAY_AGENTS_ENABLED:'true',RELAY_AGENT_LUCY_OAUTH_ENABLED:'true',RELAY_AGENT_MUSE_TOKEN_SHA256:await hash(muse),RELAY_MAST_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(mast)}});t.after(()=>h.close());
   const ownerAuth=await h.oauth(),lucy=await h.oauth(RELAY_AGENT_SCOPE),owner=await h.pair(ownerAuth);
