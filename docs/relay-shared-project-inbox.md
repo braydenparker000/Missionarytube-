@@ -74,9 +74,14 @@ No binding exists by default. `approval_grant` on a token grant is only an audit
 field and never membership. No OAuth token is exported or accepted by the project
 HTTP data endpoints. Sender and claim identity come only from the stored binding.
 
-The management tools are `relay_project_binding_status` (read-only current grant
-ID and binding metadata), `relay_project_binding_register` and
-`relay_project_binding_revoke`. Registration requires `bindingId`, the exact
+`relay_project_binding_status` is an ordinary owner-authenticated readiness read,
+requiring live `relay:owner` and the existing owner capability, even with all
+project flags false. It returns only this connection's OAuth family ID and its own
+binding metadata. It reads existing storage without schema initialization, cleanup
+or mutation; an absent binding table means no bindings, while malformed or
+unreadable storage fails closed. It cannot select another grant or project.
+The mutation tools `relay_project_binding_register` and
+`relay_project_binding_revoke` remain behind the project/admin gates. Registration requires `bindingId`, the exact
 inspected `parentGrantId`, `project`, `agent`, canonical finite `expiresAt` (up to
 365 days), and `confirm:true`. The server refuses to bind any other connection.
 Revocation uses exact `bindingId` and confirmation. A binding cannot change agent,
@@ -328,8 +333,9 @@ evidence is an audit trail and is not itself verifier approval or action authori
    Lucy needs no new credential or token export. Mast token generation, hash
    registration and host installation remain approval-gated. Do not ask the user
    to paste a token into chat or assume a static bearer fits ChatGPT MCP auth.
-5. After approved enablement, set project and temporary management flags true;
-   use `relay_project_binding_status` to inspect the current parent grant. Call
+5. Before requesting activation approval, use `relay_project_binding_status` with
+   project flags still false to inspect the exact current parent grant. After
+   approval, set project and temporary management flags true. Call
    `relay_project_binding_register` with the exact approved values, then register
    Mast's token SHA-256 using `relay_project_grant_register`. Close management.
    Independently approve project event enablement and the exact new Lucy

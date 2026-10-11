@@ -66,11 +66,32 @@ export function relayTokenActiveInStore(ctx,env,principal,requiredScope){
   const token=localValue(ctx,'access:'+principal.accessHash);
   return !!token&&token.grantId===principal.grantId&&(!requiredScope||token.scope.split(' ').includes(requiredScope))&&relayGrantActiveInStore(ctx,env,principal.grantId,requiredScope);
 }
-export async function relayAuthenticate(request, env) {
+// Readiness inspection must not initialize or clean up the OAuth registry.
+export function relayReadOnlyPrincipal(ctx, env, accessHash, now = Date.now()) {
+  if (!relayEnabled(env) || !/^[a-f0-9]{64}$/.test(accessHash || '')) return null;
+  const readExisting = (key, category) => {
+    const row = [...ctx.storage.sql.exec('SELECT category,value,expires_at FROM relay_oauth WHERE key=?',key)][0];
+    if (!row) return null;
+    if (row.category !== category || !Number.isSafeInteger(row.expires_at)) throw Error('Invalid OAuth storage');
+    const value = JSON.parse(row.value);
+    if (!isObject(value) || !scopes(value.scope)) throw Error('Invalid OAuth storage');
+    return row.expires_at > now ? value : null;
+  };
+  const token = readExisting('access:'+accessHash,'access');
+  if (!token || typeof token.client_id !== 'string' || !token.client_id || typeof token.grantId !== 'string' || !token.grantId || token.resource !== relayResource(env)) return null;
+  const grant = readExisting('grant:'+token.grantId,'grant');
+  if (!grant || grant.revoked !== false || grant.principal !== RELAY_OWNER || grant.resource !== relayResource(env)
+    || !Number.isSafeInteger(grant.expiresAt) || grant.expiresAt <= now || token.client_id !== grant.client_id
+    || token.scope.split(' ').some(scope=>!grant.scope.split(' ').includes(scope))) return null;
+  return {principal:RELAY_OWNER,grantId:token.grantId,scopes:token.scope.split(' '),accessHash};
+}
+export async function relayAuthenticate(request, env, readOnly = false) {
   if (!relayEnabled(env)) return null;
   const token = request.headers.get('Authorization')?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
   if (!token) return null;
-  const accessHash=await hash(token),value = await read(env, 'access:' + accessHash);
+  const accessHash=await hash(token);
+  if(readOnly)return (await registry(env,{op:'authenticate-readonly',accessHash})).principal;
+  const value = await read(env, 'access:' + accessHash);
   if (!value || !await relayGrantActive(env, value.grantId)) return null;
   return {principal: RELAY_OWNER, grantId: value.grantId, scopes: value.scope.split(' '),accessHash};
 }
@@ -209,7 +230,8 @@ export async function relayOAuth(request, env, fetcher = fetch) {
 }
 
 // Every exchange/rotation and consume is atomic. Rows hold only hashed bearer IDs.
-export function relayOAuthStore(ctx, b, now = Date.now()) {
+export function relayOAuthStore(ctx, b, now = Date.now(), env) {
+  if(b.op==='authenticate-readonly')return json({principal:relayReadOnlyPrincipal(ctx,env,b.accessHash,now)});
   const sql = ctx.storage.sql;
   sql.exec('CREATE TABLE IF NOT EXISTS relay_oauth (key TEXT PRIMARY KEY, category TEXT NOT NULL, value TEXT NOT NULL, expires_at INTEGER NOT NULL)');
   sql.exec('CREATE INDEX IF NOT EXISTS relay_oauth_expiry ON relay_oauth(expires_at)');
