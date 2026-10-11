@@ -788,3 +788,14 @@ test('sleep expiry cancels a pending source load rather than letting it start af
   release({__remoteURL:h.urls.get(h.selected.id)});await pending;
   assert.equal(h.audio().attempts.length,0);assert.equal(h.audio().paused,true);
 });
+
+test('clearing the library cancels a pending selection before IndexedDB completes', async()=>{
+  const h=deletionHarness();let file,storage;
+  h.ctx.artURLs=new Map();h.ctx.getFileFor=()=>new Promise(resolve=>{file=resolve;});
+  let calls=0;h.ctx.IDB.clear=()=>calls++===0?new Promise(resolve=>{storage=resolve;}):Promise.resolve();
+  vm.runInContext(block('async function clearLibrary(){','/* =====================================================================\n   AUDIO ENGINE')+'\nglobalThis.clearLibrary=clearLibrary;',h.ctx);
+  const playing=h.Engine.playIndex(0,true),clearing=h.ctx.clearLibrary();await flush();
+  assert.equal(h.Engine.wantsPlayback(),false);assert.equal(h.Engine.current,null);
+  file({__remoteURL:h.urls.get(h.selected.id)});await playing;assert.equal(h.audio().attempts.length,0);
+  storage();await clearing;
+});

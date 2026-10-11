@@ -86,6 +86,20 @@ test('Poweramp native R2 Chrome lifecycle and recovery contracts',{timeout:Math.
         assert.deepEqual(h.errors,[]);
       }finally{await h.context.close();}
     });
+    await t.test('one unreadable local file does not strand scanning or block the next import',async()=>{
+      const h=await openPage(browser,fixture);
+      try{
+        const result=await h.page.evaluate(async origin=>{
+          const bytes=await (await fetch(origin+'/__fixture__/audio/0.wav')).arrayBuffer();
+          const good=new File([bytes],'readable.wav',{type:'audio/wav'});
+          const bad={name:'unreadable.wav',__path:'unreadable.wav',__handle:{getFile:async()=>{throw new DOMException('Unavailable','NotReadableError');}}};
+          const first=await PA.addFiles([bad,good]);
+          const second=await PA.addFiles([new File([bytes],'second.wav',{type:'audio/wav'})]);
+          return {first,second,local:[...PA.LIB.map.values()].filter(t=>!t.source).length};
+        },fixture.origin);
+        assert.deepEqual(result,{first:1,second:1,local:2});assert.deepEqual(h.errors,[]);
+      }finally{await h.context.close();}
+    });
     await t.test('startup restoration keeps native R2 position without a mapping or media request',async()=>{
       const h=await openPage(browser,fixture);
       try{

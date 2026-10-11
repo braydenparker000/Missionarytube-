@@ -13,9 +13,9 @@ import {chromium} from 'playwright-core';
 import {buildPreview} from '../scripts/build-poweramp-preview.mjs';
 
 const sourceHash='a6d0fb71df79ca8cc3d80627fb911e5894bb9fff465818ada78feb81b2688759';
-// The transport-only repair changes the full-source fingerprint. The frozen
+// The playback and background ownership repairs change the full-source fingerprint. The frozen
 // v8 baseline, measured UI cases, and geometry/pixel gates stay unchanged.
-const expectedCandidateHash='eddedc6cbea78c31d5913b1831282cbe12de4180dbccbc26c6e849ae04abfe83';
+const expectedCandidateHash='6702fcef17e14c7c467568c181a4932d06686ccbb757a648eec0446648c42986';
 const baselineRef='04ef034738e6a3ccc2c03391ea9b00e0fc98ae66';
 const profile={viewport:{width:519,height:988},deviceScaleFactor:2.0818214416503906,isMobile:true,hasTouch:true};
 const executablePath=[process.env.JARVIS_CHROME,'/usr/bin/chromium','/usr/bin/google-chrome',chromium.executablePath()].find(p=>p&&existsSync(p));

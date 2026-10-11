@@ -1018,22 +1018,23 @@ const TagPool={
         const w=new Worker(this.url);
         w.busy=false;
         w.onmessage=function(e){
+          if(!self_.workers.includes(w)||w.job!==e.data.id)return;
           const j=self_.jobs.get(e.data.id);
-          w.busy=false;
+          w.busy=false;w.job=null;
           if(j){ self_.jobs.delete(e.data.id); j.resolve(e.data.tags||{}); }
           self_.pump();
         };
         w.onerror=function(){
+          if(!self_.workers.includes(w))return;
           CAP.workers=false;
-          w.busy=false;
-          self_.drain();
+          self_.stop();
         };
         this.workers.push(w);
       }
       CAP.workers=true;
       return true;
     }catch(e){
-      CAP.workers=false;
+      CAP.workers=false;this.stop();
       return false;
     }
   },
@@ -1042,7 +1043,10 @@ const TagPool={
     const pending=Array.from(this.jobs.values()).concat(this.queue);
     this.jobs.clear();
     this.queue.length=0;
-    pending.forEach(function(j){ readTags(j.file,{skipArt:j.skipArt,wantDuration:j.wantDuration}).then(j.resolve); });
+    pending.forEach(function(j){
+      clearTimeout(j.timer);
+      Promise.resolve().then(()=>readTags(j.file,{skipArt:j.skipArt,wantDuration:j.wantDuration})).then(j.resolve,()=>j.resolve({}));
+    });
   },
   pump:function(){
     while(this.queue.length){
@@ -1050,10 +1054,13 @@ const TagPool={
       for(let i=0;i<this.workers.length;i++){ if(!this.workers[i].busy){ w=this.workers[i]; break; } }
       if(!w) return;
       const job=this.queue.shift();
-      w.busy=true;
+      w.busy=true;w.job=job.id;
       this.jobs.set(job.id, job);
+      // The deadline belongs to dispatched work. A wedged worker cannot
+      // keep a slot busy forever or strand jobs whose queue wait has expired.
+      job.timer=setTimeout(()=>{if(this.jobs.get(job.id)!==job)return;CAP.workers=false;this.stop();},20000);
       try{ w.postMessage({id:job.id, file:job.file, folder:job.folder, skipArt:job.skipArt, wantDuration:job.wantDuration}); }
-      catch(e){ w.busy=false; this.jobs.delete(job.id); readTags(job.file,{skipArt:job.skipArt,wantDuration:job.wantDuration}).then(job.resolve); }
+      catch(e){ CAP.workers=false;this.stop();return; }
     }
   },
   read:function(file, folder, skipArt, wantDuration){
@@ -1062,20 +1069,14 @@ const TagPool={
     return new Promise(function(resolve){
       const id=self_.seq++;
       const job={id:id, file:file, folder:folder||'', skipArt:!!skipArt, wantDuration:!!wantDuration};
-      const timer=setTimeout(function(){
-        if(self_.jobs.has(id)){
-          self_.jobs.delete(id);
-          readTags(file,{skipArt:skipArt,wantDuration:wantDuration}).then(resolve);
-        }
-      }, 20000);
-      job.resolve=function(t){ clearTimeout(timer); resolve(t); };
+      job.resolve=function(t){ clearTimeout(job.timer); resolve(t); };
       self_.queue.push(job);
       self_.pump();
     });
   },
   stop:function(){
-    this.workers.forEach(function(w){ try{ w.terminate(); }catch(e){} });
-    this.workers.length=0;
+    this.workers.forEach(function(w){ w.onmessage=w.onerror=null;try{ w.terminate(); }catch(e){} });
+    this.workers.length=0;this.drain();
     this.started=false;
     if(this.url){ URL.revokeObjectURL(this.url); this.url=null; }
   }
@@ -1136,12 +1137,13 @@ const MetadataRepair={
   },
   pump(){
     while(this.active<2&&this.queue.length){const {t,resolve}=this.queue.shift();this.active++;
-      this.repair(t).catch(()=>{}).finally(()=>{this.active--;this.attempted.add(t.id);this.jobs.delete(t.id);resolve();this.pump();});
+      this.repair(t).catch(()=>{}).finally(()=>{this.active--;if(LIB.map.get(t.id)===t)this.attempted.add(t.id);this.jobs.delete(t.id);resolve();this.pump();});
     }
   },
   async repair(t){
     const file=await getFileFor(t);if(!file?.slice)return;
     const tags=await TagPool.read(file,t.folder||'',false,true);
+    if(LIB.map.get(t.id)!==t)return;
     if(tags.sampleRate)t.sr=tags.sampleRate;if(tags.channels)t.ch=tags.channels;
     if(tags.bits)t.bits=tags.bits;if(tags.codec)t.codec=tags.codec;if(tags.tagDur)t.dur=tags.tagDur;
     if(tags.artKey&&!t.customArt)t.artKey=tags.artKey;
@@ -1149,6 +1151,7 @@ const MetadataRepair={
       const key='reader2-'+hash(t.id+'|'+tags.pic.data.length);
       await storeArt(key,new Blob([tags.pic.data],{type:tags.pic.mime}));t.artKey=key;
     }
+    if(LIB.map.get(t.id)!==t)return;
     t.tagReaderVersion=2;persistTrack(t);
   }
 };
@@ -1341,12 +1344,13 @@ async function getFileFor(t){
   if(t?.source==='drive') return DriveSource.fileFor(t);
   if(t?.source==='r2') return R2Source.fileFor(t);
   if(t && t.remote) return DrawerCast.fileFor(t);
+  if(LIB.map.get(t.id)!==t)return null;
   if(FILES.has(t.id)) return FILES.get(t.id);
   /* a linked folder is always the freshest source, and costs no storage */
   if(t.rootId && t.rel){
     try{
       const f = await resolveInRoot(t.rootId, t.rel);
-      if(f){ FILES.set(t.id,f); t.needsPerm=false; return f; }
+      if(f){ if(LIB.map.get(t.id)!==t)return null;FILES.set(t.id,f); t.needsPerm=false; return f; }
       if(ROOTS.perm[t.rootId]!=='granted') t.needsPerm=true;
     }catch(e){}
   }
@@ -1357,6 +1361,7 @@ async function getFileFor(t){
       if(h.queryPermission) perm = await h.queryPermission({mode:'read'});
       if(perm==='granted'){
         const f = await h.getFile();
+        if(LIB.map.get(t.id)!==t)return null;
         FILES.set(t.id,f);
         return f;
       }
@@ -1365,6 +1370,7 @@ async function getFileFor(t){
   try{
     const blob = await IDB.get('blobs', t.id);
     if(blob){
+      if(LIB.map.get(t.id)!==t)return null;
       const f = new File([blob], baseName(t.path||t.title||'track'), { type: blob.type || 'audio/*' });
       FILES.set(t.id, f);
       return f;
@@ -1482,7 +1488,7 @@ async function addFiles(files, opts){
   const folderImage=async function(folder){
     const e=imgMap[folder];
     if(!e) return null;
-    if(!e.file) e.file=await fileOf(e.item);
+    if(!e.file){try{e.file=await fileOf(e.item);}catch(e){return null;}}
     return e.file;
   };
 
@@ -1504,7 +1510,7 @@ async function addFiles(files, opts){
       }
       return ex;
     }
-    const f = await fileOf(item);
+    let f;try{f=await fileOf(item);}catch(e){failed++;return null;}
     if(!f) { failed++; return null; }
 
     let tg={};
@@ -1719,7 +1725,7 @@ function startBackgroundCache(items){
 async function runBackgroundCache(){
   const BATCH=6;
   while(BG.queue.length && !BG.abort){
-    const batch=BG.queue.splice(0,BATCH);
+    const batch=BG.queue.splice(0,BATCH).filter(it=>LIB.map.has(it.id));
     try{
       await IDB.bulk('blobs', batch.map(function(it){ return [it.id, it.file]; }));
     }catch(e){
@@ -1769,11 +1775,12 @@ async function runDurations(){
   const lane=async function(){
     while(DUR.queue.length && !DUR.abort){
       const t=DUR.queue.shift();
+      if(LIB.map.get(t.id)!==t)continue;
       try{
         const f=await getFileFor(t);          /* already cached from the scan */
         if(f){
           const d=await tailDuration(f, t);
-          if(d>0.2){ t.dur=d; t.needDur=false; updated.push(t); }
+          if(d>0.2&&LIB.map.get(t.id)===t){ t.dur=d; t.needDur=false; updated.push(t); }
         }
       }catch(e){}
       DUR.done++;
@@ -1784,7 +1791,7 @@ async function runDurations(){
   await Promise.all([lane(),lane(),lane()]);
   DUR.running=false;
   if(updated.length){
-    await persistTracks(updated);
+    await persistTracks(updated.filter(t=>LIB.map.get(t.id)===t));
     Views.refreshAll();
     if(Engine.current && !Engine.current.dur) UI.renderProgress();
   }
@@ -1922,9 +1929,8 @@ async function removeTracks(ids){
 async function clearLibrary(){
   LIB.map.clear(); LIB.ids.length=0; FILES.clear();
   artURLs.forEach(function(u){ if(u) URL.revokeObjectURL(u); });
-  artURLs.clear();
+  artURLs.clear();Engine.stop();
   try{ await IDB.clear('tracks'); await IDB.clear('blobs'); await IDB.clear('art'); await IDB.clear('handles'); }catch(e){}
-  Engine.stop();
   Views.refreshAll();
   toast('Library cleared');
 }
