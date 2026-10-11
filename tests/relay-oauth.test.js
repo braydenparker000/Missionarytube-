@@ -204,7 +204,9 @@ test('omitted authorization scope and refresh stay public; explicit owner recons
   const ownerTokens = await (await exchangeCode(s, ownerCode)).json();
   assert.equal(ownerTokens.scope, FULL_SCOPE);
   assert.deepEqual((await authenticate(s, ownerTokens.access_token)).scopes, RELAY_SCOPES);
-  assert.equal((await rpc(ownerTokens.access_token, 'tools/list')).result.tools.length, 4 + relayOwnerTools.length);
+  const ownerCatalog=(await rpc(ownerTokens.access_token, 'tools/list')).result.tools;
+  assert.equal(ownerCatalog.length, 5 + relayOwnerTools.length);
+  assert.deepEqual(ownerCatalog.filter(tool=>tool.name.startsWith('relay_project_')).map(tool=>tool.name),['relay_project_binding_status']);
   const devices = await rpc(ownerTokens.access_token, 'tools/call', {name: 'relay_owner_devices_list', arguments: {}});
   assert.equal(devices.result.isError, false); assert.deepEqual(devices.result.structuredContent, {devices: []});
   assert.deepEqual((await authenticate(s, rotated.access_token)).scopes, RELAY_PUBLIC_SCOPES, 'new consent never silently expands the old token');
