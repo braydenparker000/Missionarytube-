@@ -1,0 +1,14 @@
+[
+  {
+    "path": "drawercast/shuffle-worker.js",
+    "before": null,
+    "sha256": "5b8b8a5cfbf322eacb30baba06ca528e8049a6491313c3a0c99c9984bc417651",
+    "bytes": 13019
+  },
+  {
+    "path": "drawercast/player.js",
+    "before": "6d38407a61152fa40cdbee4025e594e6a53efd2585b8db208b9d2a675c7d4a2a",
+    "sha256": "b9c1556a6f90811bd47eca11c735f281893ea698d026efd1738a563427169ec1",
+    "bytes": 965054
+  }
+]
