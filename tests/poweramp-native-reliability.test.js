@@ -557,7 +557,7 @@ test('returning to the page leaves an explicit pending context resume owned by i
 
 function catalogHarness(h) {
   h.ctx.LIB.ids=[...h.ctx.LIB.map.keys()];
-  Object.assign(h.ctx, {AbortController, FILES:new Map(), MusicSources:{refresh(){}}, allTracks:()=>[...h.ctx.LIB.map.values()],
+  Object.assign(h.ctx, {AbortController, FILES:new Map(), MusicSources:{refresh(){}}, PlaylistFiles:{seed(){}}, allTracks:()=>[...h.ctx.LIB.map.values()],
     libAdd:t=>h.ctx.LIB.map.set(t.id,t)});
   h.ctx.SourceLibrary.enabled = () => true;
   const R2 = vm.runInContext(block('const R2Source={', '// RAM-only, bounded playback evidence.') + '\nR2Source', h.ctx);
