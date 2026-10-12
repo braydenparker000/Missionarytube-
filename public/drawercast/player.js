@@ -8228,7 +8228,13 @@ const ListOptions={
   },
   prepare(data,spec){
     if(spec.kind==='queue')return data;
-    const options=this.get(spec),items=data.items;if(!Array.isArray(items))return data;
+    const options=this.get(spec);let items=data.items;if(!Array.isArray(items))return data;
+    if(options.sort==='added'&&data.type==='tracks'&&!['playlist','bookmarks','search'].includes(spec.kind)&&typeof LIB!=='undefined'){
+      // Legacy category builders pre-sort by title/album. Recover library order
+      // before the stable date sort so ties do not inherit that alphabetization.
+      const ranks=new Map(LIB.ids.map((id,i)=>[id,i]));
+      items=items.slice().sort((a,b)=>(ranks.get(a.id)??Infinity)-(ranks.get(b.id)??Infinity));data=Object.assign({},data,{items});
+    }
     if(data.type==='tracks'){
       if(options.sort==='shuffle'){
         const indices=this.shuffleMap(items);

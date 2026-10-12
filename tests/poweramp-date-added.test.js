@@ -4,8 +4,8 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../public/drawercast/player.js',import.meta.url),'utf8');
 const start=source.indexOf('const ListOptions={'),end=source.indexOf('\n  show(box)',start);
-function options(reverse){
-  const ctx=vm.createContext({SET:{shuffleOn:false,sortTracks:'added',listOptions:{all:{sort:'added',reverse}}},ListZoom:{key:()=> 'all',keys:{all:'all'}},sortNat:(a,b)=>a.localeCompare(b),trackArtist:t=>t.artist,trackAlbum:t=>t.album,baseName:s=>s});
+function options(reverse,ids){
+  const ctx=vm.createContext({...(ids?{LIB:{ids}}:{}),SET:{shuffleOn:false,sortTracks:'added',listOptions:{all:{sort:'added',reverse}}},ListZoom:{key:()=> 'all',keys:{all:'all'}},sortNat:(a,b)=>a.localeCompare(b),trackArtist:t=>t.artist,trackAlbum:t=>t.album,baseName:s=>s});
   vm.runInContext(source.slice(start,end)+'\n};globalThis.options=ListOptions;',ctx);return ctx.options;
 }
 test('date added orders dates, preserves ties, and keeps missing dates last in both directions',()=>{
@@ -21,4 +21,10 @@ test('all unknown dates retain order and explain unavailable sort; R2 upload pro
   const result=opts.prepare({type:'tracks',items:tracks},{kind:'all'});
   assert.deepEqual(Array.from(result.items,t=>t.id),['z','a']);assert.match(result.sortNotice,/No date added/);
   assert.match(opts.prepare({type:'tracks',items:[{added:100,addedSource:'r2-upload'}]},{kind:'all'}).sortNotice,/verified upload time/);
+});
+
+test('category date ties recover library order after legacy title sorting',()=>{
+  const input=[{id:'a',title:'A',added:10},{id:'z',title:'Z',added:10}];
+  for(const reverse of [false,true])assert.deepEqual(Array.from(options(reverse,['z','a']).prepare({type:'tracks',items:input},{kind:'all'}).items,t=>t.id),['z','a']);
+  assert.deepEqual(Array.from(options(false,['z','a']).prepare({type:'tracks',items:input},{kind:'playlist'}).items,t=>t.id),['a','z']);
 });
