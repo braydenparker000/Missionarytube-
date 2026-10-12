@@ -929,3 +929,53 @@ test('manual queue at shuffled cycle end respects repeat-off and starts a fresh 
     else{assert.equal(h.Engine._shuffle.consumed.size,1);assert.deepEqual(Array.from(h.Engine.order),Array.from(h.Engine._shuffle.ranks,k=>h.Engine._shuffle.indices.get(k)));}
   }
 });
+
+test('shuffle listening recency excludes failed reads and unplayed skips while selections stay consumed',async()=>{
+  const h=harness();for(let i=0;i<3;i++)addNext(h,'recency-'+i);h.ctx.SET.shuffleOn=true;h.ctx.SET.shuffleMode=1;h.Engine.buildOrder();
+  const state=h.Engine._shuffle;assert.deepEqual(Array.from(state.recent||[]),[]);
+  await h.start(1);assert.deepEqual(Array.from(state.recent||[]),[h.selected.id]);
+  h.ctx.getFileFor=async()=>{throw Error('Unreadable media');};h.Engine.next();await flush();const failed=h.Engine.current.id;
+  assert.equal(state.consumed.size,2);assert.equal(JSON.parse(state.history[state.cursor])[0],failed);assert.deepEqual(Array.from(state.recent||[]),[h.selected.id]);
+  h.ctx.getFileFor=async t=>({__remoteURL:h.urls.get(t.id)});h.Engine.next();await flush();const skipped=h.Engine.current.id;
+  h.Engine.next();await flush();assert.equal(state.consumed.size,4);assert.ok(state.history.some(k=>JSON.parse(k)[0]===skipped));assert.deepEqual(Array.from(state.recent||[]),[h.selected.id]);
+  h.Engine.play();h.audio().playing();const heard=h.Engine.current.id;assert.deepEqual(Array.from(state.recent),[h.selected.id,heard]);
+  h.Engine.onPlaying(h.Engine.cur);assert.deepEqual(Array.from(state.recent),[h.selected.id,heard]);
+});
+
+test('shuffle successful manual-queue listening updates base recency without spending another base entry',async()=>{
+  const h=harness();for(let i=0;i<3;i++)addNext(h,'manual-recency-'+i);h.ctx.SET.shuffleOn=true;h.ctx.SET.shuffleMode=1;h.Engine.buildOrder();await h.start(1);
+  const manual=h.Engine.queue[3].id;h.PlaybackQueue.pending=[manual];h.PlaybackQueue.forced=true;h.Engine.next();await flush();h.audio().playing();
+  assert.deepEqual(Array.from(h.PlaybackQueue.resume.shuffle.recent),[h.selected.id,manual]);assert.equal(h.PlaybackQueue.resume.shuffle.consumed.length,1);
+  h.Engine.next();await flush();assert.deepEqual(Array.from(h.Engine._shuffle.recent),[h.selected.id,manual]);
+});
+
+function largeShuffleHarness(){
+  const h=harness();for(let i=0;i<2100;i++)addNext(h,'large-'+i);h.ctx.SET.shuffleOn=true;h.ctx.SET.shuffleMode=1;h.ctx.SET.previousRestarts=false;
+  return h;
+}
+test('large shuffle defers generation and preserves two queued Next intents',async()=>{
+  const h=largeShuffleHarness(),build=h.Engine.buildOrder(0);assert.ok(h.Engine._shuffleBuild);assert.ok(!h.Engine._shuffle);
+  const first=h.Engine.next(),second=h.Engine.next();await h.clock.advance(0);await build;await first;await second;
+  assert.equal(h.Engine._shuffle.consumed.size,3);assert.equal(h.Engine._shuffle.history.length,3);assert.notEqual(h.Engine.current.id,h.selected.id);assert.equal(h.Engine.order[0],0);
+  assert.equal(new Set(h.Engine.order).size,2101);assert.ok(h.Engine._shuffleGenerationStats.generation.slices>1);
+});
+test('Pause cancels queued navigation while a large shuffle finishes; replacing its queue cannot revive it',async()=>{
+  const h=largeShuffleHarness();const build=h.Engine.buildOrder(0),next=h.Engine.next();h.Engine.pause();await h.clock.advance(0);await build;await next;assert.equal(h.Engine.current.id,h.selected.id);assert.equal(h.Engine._shuffle.consumed.size,1);
+  const refresh=h.Engine.buildOrder();const oldNext=h.Engine.next();h.Engine.setQueue([h.selected],0,false);await h.clock.advance(0);await refresh;await oldNext;assert.equal(h.Engine.queue.length,1);assert.equal(h.Engine.current.id,h.selected.id);assert.equal(h.Engine._shuffle.keys.length,1);
+});
+test('manual queue priority waits for a large base bag and restores its ranks and consumption',async()=>{
+  const h=largeShuffleHarness();const build=h.Engine.buildOrder(0),manual=h.Engine.queue[7];h.PlaybackQueue.pending=[manual.id];h.PlaybackQueue.forced=true;
+  const next=h.Engine.next();await h.clock.advance(0);await build;await next;await flush();assert.equal(h.PlaybackQueue.active,true);assert.equal(h.Engine.current.id,manual.id);
+  const saved=h.PlaybackQueue.resume.shuffle;assert.equal(saved.ranks.length,2101);assert.equal(saved.consumed.length,1);
+  h.Engine.next();await flush();await h.clock.advance(0);await flush();assert.equal(h.PlaybackQueue.active,false);assert.equal(h.Engine._shuffle.keys.length,2101);assert.equal(h.Engine._shuffle.consumed.size,2);
+});
+
+test('large checkpoint cache preserves immediate lifecycle writes and compact queue restoration',async()=>{
+  const h=largeShuffleHarness(),storage=new Map();h.ctx.localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)};
+  const build=h.Engine.buildOrder(0);h.Engine.checkpoint(true);const initial=JSON.parse(storage.get('dc.playback-checkpoint'));
+  assert.equal(initial.ids.length,2101);assert.equal(initial.curId,h.selected.id);
+  await h.clock.advance(0);await build;h.Engine.checkpoint();const encoded=storage.get('dc.playback-checkpoint'),saved=JSON.parse(encoded);
+  assert.equal(saved.shuffle.version,4);assert.equal(saved.shuffle.orderBased,true);assert.equal(saved.shuffle.consumed.length,1);
+  h.Engine._shuffle=null;h.ctx.IDB.get=async()=>({savedAt:saved.savedAt,encoded});const restore=h.Engine.restoreState();await flush();await h.clock.advance(0);await restore;
+  assert.equal(h.Engine.current.id,h.selected.id);assert.equal(h.Engine._shuffle.consumed.size,1);assert.equal(new Set(h.Engine.order).size,2101);
+});

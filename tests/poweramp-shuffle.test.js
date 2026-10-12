@@ -8,7 +8,7 @@ function cycle(queue,seed=1,saved=null,mode=1){
   let x=seed;const math=Object.create(Math);math.random=()=>((x=(Math.imul(x,1664525)+1013904223)>>>0)/4294967296);
   const context=vm.createContext({Math:math});
   const shuffle=source.slice(source.indexOf('function shuffleArray('),source.indexOf('\nfunction installSearchPlayback('));
-  const clazz=source.slice(source.indexOf('  class ShuffleCycle{'),source.indexOf('  Engine._syncShuffle='));
+  const clazz=source.slice(source.indexOf('  class ShuffleCycle{'),source.indexOf('  const largeShuffle='));
   vm.runInContext(shuffle+'\n'+clazz+'\nglobalThis.Cycle=ShuffleCycle;',context);
   return new context.Cycle(queue,mode,saved);
 }
@@ -66,4 +66,20 @@ test('same-length in-place queue replacement retains surviving occurrence ranks'
   const list=tracks([3,3]),c=cycle(list),original=[...c.ranks];const removed=c.keys[2];
   list[2]={id:'replacement',artist:'new'};c.sync(list,1,true);
   assert.deepEqual([...c.ranks].slice(0,-1),original.filter(k=>k!==removed));assert.equal(c.keys.length,6);assert.equal(finish(c).length,6);
+});
+
+test('legacy selection history never migrates into successful-listening recency',()=>{
+  const list=tracks([3,3]),original=cycle(list);const s=original.peek(1);original.select(original.indices.get(s.key),s);
+  const old={...plain(original.snapshot()),version:1};delete old.recent;
+  const restored=cycle(list,7,old);assert.deepEqual(Array.from(restored.recent),[]);assert.deepEqual(Array.from(restored.history),old.history);assert.deepEqual(Array.from(restored.consumed),old.consumed);
+  restored.heard(list[3].id);const fresh=cycle(list,8,plain(restored.snapshot()));assert.deepEqual(Array.from(fresh.recent),[list[3].id]);
+});
+
+test('worker uses the exact player model and compact persistence retains duplicate occurrences',async()=>{
+  const {shuffleWorkerSource}=await import('../scripts/build-poweramp-shuffle-worker.mjs');
+  const handler=readFileSync(new URL('../scripts/poweramp-shuffle-worker-handler.js',import.meta.url),'utf8');
+  assert.equal(readFileSync(new URL('../public/drawercast/shuffle-worker.js',import.meta.url),'utf8'),shuffleWorkerSource(source,handler));
+  const list=[{id:'duplicate'},{id:'other'},{id:'duplicate'}],c=cycle(list),step=c.peek(1);c.select(c.indices.get(step.key),step);c.heard('other');
+  const saved=plain(c.compactSnapshot()),restored=cycle(list,999,saved);
+  assert.deepEqual(plain(restored.snapshot()),plain(c.snapshot()));
 });
