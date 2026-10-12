@@ -61,3 +61,9 @@ test('bounded candidate selection reduces clustering across seeded balanced cata
   }
   assert.ok(after<before*.75,`${after} vs ${before}`);
 });
+
+test('same-length in-place queue replacement retains surviving occurrence ranks',()=>{
+  const list=tracks([3,3]),c=cycle(list),original=[...c.ranks];const removed=c.keys[2];
+  list[2]={id:'replacement',artist:'new'};c.sync(list,1,true);
+  assert.deepEqual([...c.ranks].slice(0,-1),original.filter(k=>k!==removed));assert.equal(c.keys.length,6);assert.equal(finish(c).length,6);
+});

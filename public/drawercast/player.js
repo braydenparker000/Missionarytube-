@@ -9374,8 +9374,8 @@ function installPlaybackRework(){
       }
       this.sync(queue,mode);
     }
-    sync(queue,mode){
-      if(this.queue===queue&&this.length===queue.length&&(!mode||mode===this.mode))return;
+    sync(queue,mode,force=false){
+      if(!force&&this.queue===queue&&this.length===queue.length&&(!mode||mode===this.mode))return;
       const counts=new Map(),keys=queue.map(t=>{const n=counts.get(t.id)||0;counts.set(t.id,n+1);return JSON.stringify([t.id,n]);}),valid=new Set(keys),old=new Set(this.keys);
       const current=this.history[this.cursor],before=this.history.slice(0,this.cursor+1).filter(k=>valid.has(k)).length;
       this.history=this.history.filter(k=>valid.has(k));this.cursor=current&&valid.has(current)?before-1:Math.min(before-1,this.history.length-1);
@@ -9426,12 +9426,12 @@ function installPlaybackRework(){
     }
     snapshot(){return {version:1,mode:this.mode,keys:this.keys,ranks:this.ranks,consumed:[...this.consumed],history:this.history,cursor:this.cursor};}
   }
-  Engine._syncShuffle=function(){
+  Engine._syncShuffle=function(force=false){
     if(PlaybackQueue.active)return null;
     const mode=SET.shuffleOn?(SET.shuffleMode||1):0;
     if(!mode&&!this._shuffle&&!this._shuffleState)return null;
     if(!this._shuffle){this._shuffle=new ShuffleCycle(this.queue,mode,this._shuffleState);this._shuffleState=null;const selected=this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id);if(!this._shuffleFresh&&this._shuffle.cursor<0&&selected>=0)this._shuffle.select(selected);this._shuffleFresh=false;}
-    else this._shuffle.sync(this.queue,mode);
+    else this._shuffle.sync(this.queue,mode,force);
     return this._shuffle;
   };
   Engine._shuffleStep=function(direction,loop){
@@ -9450,7 +9450,7 @@ function installPlaybackRework(){
     const mode=SET.shuffleOn?(SET.shuffleMode||1):0;
     const selected=Number.isInteger(anchor)?anchor:(this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id));
     if(PlaybackQueue.active&&nativeValues().queue_no_shuffle||!mode){this.order=this.queue.map((_,i)=>i);this.pos=Math.max(0,this.order.indexOf(selected));return;}
-    if(!PlaybackQueue.active){const state=this._syncShuffle();this.order=state.ranks.map(k=>state.indices.get(k));this.pos=Math.max(0,this.order.indexOf(selected));return;}
+    if(!PlaybackQueue.active){const state=this._syncShuffle(true);this.order=state.ranks.map(k=>state.indices.get(k));this.pos=Math.max(0,this.order.indexOf(selected));return;}
     this.order=shuffleArray(this.queue.map((_,i)=>i));this.pos=Math.max(0,this.order.indexOf(selected));
   };
   const setQueue=Engine.setQueue;Engine.setQueue=function(list,index,autoplay){this._shuffleFresh=true;this._shuffle=null;this._shuffleState=null;if(PlaybackQueue.active&&!PlaybackQueue.starting){PlaybackQueue.active=false;PlaybackQueue.resume=null;PlaybackQueue.save();}return setQueue.call(this,list,index,autoplay);};
