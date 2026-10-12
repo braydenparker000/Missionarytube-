@@ -9450,7 +9450,13 @@ function installPlaybackRework(){
     const mode=SET.shuffleOn?(SET.shuffleMode||1):0;
     const selected=Number.isInteger(anchor)?anchor:(this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id));
     if(PlaybackQueue.active&&nativeValues().queue_no_shuffle||!mode){this.order=this.queue.map((_,i)=>i);this.pos=Math.max(0,this.order.indexOf(selected));return;}
-    if(!PlaybackQueue.active){const state=this._syncShuffle(true);this.order=state.ranks.map(k=>state.indices.get(k));this.pos=Math.max(0,this.order.indexOf(selected));return;}
+    if(!PlaybackQueue.active){
+      const state=this._syncShuffle(true);
+      // An explicit starting occurrence anchors a new category/mode. Ordinary
+      // toggles have no anchor and must retain every saved rank.
+      if(Number.isInteger(anchor)){const at=state.ranks.indexOf(state.keys[selected]);if(at>=0){if(mode===1)state.ranks.unshift(...state.ranks.splice(at,1));else state.ranks.push(...state.ranks.splice(0,at));state.bagAt=0;}}
+      this.order=state.ranks.map(k=>state.indices.get(k));this.pos=Math.max(0,this.order.indexOf(selected));return;
+    }
     this.order=shuffleArray(this.queue.map((_,i)=>i));this.pos=Math.max(0,this.order.indexOf(selected));
   };
   const setQueue=Engine.setQueue;Engine.setQueue=function(list,index,autoplay){this._shuffleFresh=true;this._shuffle=null;this._shuffleState=null;if(PlaybackQueue.active&&!PlaybackQueue.starting){PlaybackQueue.active=false;PlaybackQueue.resume=null;PlaybackQueue.save();}return setQueue.call(this,list,index,autoplay);};
