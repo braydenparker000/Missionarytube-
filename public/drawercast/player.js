@@ -3937,7 +3937,7 @@ const InputLifecycle={
   cancel(options={}){
     this.version++;if(!options.keepContacts)this.contacts.clear();this.gesture=null;this.motionSettle=null;
     const rebasing=this.rebasing;this.rebasing=rebasing||!!options.preserveScene;
-    try{for(const [reset,node] of this.resets){reset();if(node?.isConnected===false)this.resets.delete(reset);}}finally{this.rebasing=rebasing;}
+    try{for(const [reset,node] of this.resets){reset(options);if(node?.isConnected===false)this.resets.delete(reset);}}finally{this.rebasing=rebasing;}
   },
   watchSettle(node,cancel,accepts=e=>node.contains(e.target)){this.motionSettle={node,cancel,accepts};},
   unwatchSettle(node){if(this.motionSettle?.node===node)this.motionSettle=null;},
@@ -4220,7 +4220,7 @@ const Views={
     return {type:'tree', dirs:Array.from(dirs).sort(sortNat), counts:counts, items:files.sort(function(a,b){ return (a.track-b.track)||sortNat(a.title,b.title); }), path:path};
   },
   render:function(spec, keepScroll){
-    InputLifecycle.cancel();
+    InputLifecycle.cancel({preserveMiniSeek:true});
     if(Selection.mode)Selection.exit();
     const body=$('#list-body');
     const st=keepScroll?body.scrollTop:0;
@@ -7251,7 +7251,9 @@ function setupSeekGestures(){
     e.preventDefault();e.stopPropagation();InputLifecycle.cancelMotionSettle();cancel();
     const current=Engine.time();Engine.seek(e.key==='Home'?0:e.key==='End'?duration:clamp(current+(e.key==='ArrowRight'?5:-5),0,duration));UI.renderProgress();
   });
-  InputLifecycle.register(()=>{cancel();UI.seekWidth=0;});
+  // Rebuilding list rows must not cancel a scrub on the unchanged mini rail.
+  // Selection changes, navigation, backgrounding and additional contacts still cancel.
+  InputLifecycle.register(options=>{if(options?.preserveMiniSeek&&owner?.node===miniSeek&&valid(owner))return;cancel();UI.seekWidth=0;});
 }
 function setupVizGestures(){
   const v=$('#vizfull');
