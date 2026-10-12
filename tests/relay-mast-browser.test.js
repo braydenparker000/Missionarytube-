@@ -17,7 +17,7 @@ test('Mast phone: closed state, safe uncertain-send retry and chronological priv
     await page.getByRole('button',{name:'Retry',exact:true}).click();await page.locator('.outgoing').waitFor();
     assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_mast_entries')[0].n,1);
     const id=h.rows('SELECT id FROM relay_mast_entries')[0].id;
-    await h.fixture.request('/relay/mast/reply',{method:'POST',headers:{Authorization:'Bearer '+token},body:JSON.stringify({id:crypto.randomUUID(),reply_to:id,body:'Synthetic Mast reply — only this conversation.'})});
+    await h.fixture.request('/relay/mast/messages',{method:'POST',headers:{Authorization:'Bearer '+token},body:JSON.stringify({id:crypto.randomUUID(),reply_to:id,body:'Synthetic Mast reply — only this conversation.'})});
     await page.locator('#refresh').evaluate(button=>button.click());await page.getByText('Synthetic Mast reply — only this conversation.',{exact:true}).waitFor();
     assert.deepEqual(await page.locator('.message-author').allTextContents(),['You','Mast']);
     await mkdir(evidence,{recursive:true});await page.screenshot({path:evidence+'/phone-390.png'});
