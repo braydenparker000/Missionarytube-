@@ -63,7 +63,8 @@ test('genuine navigation cancels a held synthetic read without hiding browser or
   const held = phone.hold(record => record.method === 'GET' && record.path === '/shared/changes');
   await phone.page.goto(MUSE_URL); const record = await held.entered;
   assert.ok(target?.networkId); assert.equal(target.request.url, record.url);
-  await phone.page.getByRole('link', {name: 'Back to Jarvis', exact: true}).click();
+  await phone.page.locator('#relay-menu-button').click();
+  await phone.page.getByRole('link', {name: 'Jarvis home', exact: true}).click();
   await phone.page.waitForURL(SITE + '/');
   const failed = await cancellation.promise;
   assert.equal(failed.requestId, target.networkId); assert.equal(failed.canceled, true); assert.equal(failed.errorText, 'net::ERR_ABORTED');
