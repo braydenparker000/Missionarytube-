@@ -16,7 +16,7 @@ on:
         type: boolean
         default: false
       publish_poweramp_background:
-        description: Publish the qualified Poweramp Date Added repair, preserving Worker settings
+        description: Publish qualified persistent shuffle, preserving Worker settings
         type: boolean
         default: false
       deploy_mast_chat_only:
@@ -652,11 +652,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: braydenparker999/jarvis
-          ref: 92b6b598136df0b5dc179ad77b6c601c284523f5
+          ref: 0636f664e063278eb93e7b743e89b8b04c20e9e5
           path: .poweramp-source
           persist-credentials: false
       - name: Verify trusted source and back up exact existing files
-        run: node scripts/publish-poweramp-sort.mjs prepare
+        run: node scripts/publish-poweramp-shuffle.mjs prepare
       - name: Preserve rollback files before publication
         uses: actions/upload-artifact@v4
         with:
@@ -671,23 +671,23 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Publish verified helpers before player; preserve all other blobs
+      - name: Publish verified shuffle worker before player; preserve all other blobs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        run: node scripts/publish-poweramp-sort.mjs publish
+        run: node scripts/publish-poweramp-shuffle.mjs publish
       - name: Record exact patch provenance and unchanged Worker
         id: poweramp
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        run: node scripts/publish-poweramp-sort.mjs record
+        run: node scripts/publish-poweramp-shuffle.mjs record
       - name: verified-production-receipt-${{ steps.poweramp.outputs.digest }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           EXPECTED_RECEIPT_DIGEST: ${{ steps.poweramp.outputs.digest }}
-        run: node scripts/publish-poweramp-sort.mjs stamp
+        run: node scripts/publish-poweramp-shuffle.mjs stamp
       - name: Publish only the verified patch receipt
         run: |
           az storage blob upload --account-name missionarytube --auth-mode login --container-name '$web' \
@@ -698,7 +698,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           EXPECTED_RECEIPT_DIGEST: ${{ steps.poweramp.outputs.digest }}
-        run: node scripts/publish-poweramp-sort.mjs published
+        run: node scripts/publish-poweramp-shuffle.mjs published
       - name: Preserve nonsecret publication evidence
         if: always()
         uses: actions/upload-artifact@v4
