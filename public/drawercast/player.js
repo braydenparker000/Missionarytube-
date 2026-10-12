@@ -9507,7 +9507,7 @@ function installPlaybackRework(){
     return null;
   };
   Engine._encodeShuffleCheckpoint=function(state){
-    const cached=this._shuffle,job=this._shuffleBuild,ready=cached?.queue===this.queue&&!job;
+    const cached=this._shuffle,job=this._shuffleBuild,ready=cached?.queue===this.queue&&(!job||job.cycle);
     const ids=ready?cached.idsJSON:job?.transport?.idsJSON||JSON.stringify(state.ids),order=ready?(SET.shuffleOn?cached.rankJSON:cached.canonicalJSON):job?.transport?.orderJSON||JSON.stringify(state.order);
     const rest={...state};delete rest.ids;delete rest.order;delete rest.shuffle;
     let encoded=JSON.stringify(rest).slice(0,-1)+',"ids":'+ids+',"order":'+order;
