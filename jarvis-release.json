@@ -12,7 +12,7 @@
     "recipe": [
       {
         "path": ".github/workflows/deploy-azure-storage.yml",
-        "sha": "110e4b0c84da9dfd58653770597078c3a38a0ee0"
+        "sha": "00e4be93b2855b91cf8ca808aafd0824dfb7da6d"
       },
       {
         "path": ".github/workflows/qualify-jarvis.yml",

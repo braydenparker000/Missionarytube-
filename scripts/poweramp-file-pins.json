@@ -1,0 +1,20 @@
+[
+  {
+    "path": "drawercast/r2-api.js",
+    "before": "2128cf0f257bdef01d6348bba2856aad2433b8e5cbd5dc06bb0d6e47c0a0bd5c",
+    "sha256": "c65071cdf56b8c2dff9972b2bb108c766ebacd93d964b42f6edd732ae5cff6a8",
+    "bytes": 10587
+  },
+  {
+    "path": "drawercast/r2-library.js",
+    "before": "ec5574534993b15c7653348dff6b26d23f8fb8e802fc6237af27caa9a597969c",
+    "sha256": "e81aff002079ff30f37809b33ac29d3ca2c693208caaec78346e796263c6ad0f",
+    "bytes": 8770
+  },
+  {
+    "path": "drawercast/player.js",
+    "before": "8f24a32cacde9d531be4382ae41142c1ad03d9dd48a8046ad20d2000d995b074",
+    "sha256": "f3287895ea933de86c0054b42dafcc035652997fbab49b153e5bb0025b325f02",
+    "bytes": 925008
+  }
+]
