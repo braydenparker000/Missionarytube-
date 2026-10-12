@@ -1,3 +1,7 @@
+import {agentChatEnabled} from './relay-agent-events.js';
+export {agentChatEnabled} from './relay-agent-events.js';
+import {enqueueRelayAgentMessage,scheduleRelayAlarm} from './relay-events.js';
+import {reserveRelayCoreWake,releaseRelayCoreWake} from './relay-core-alarm.js';
 // Independent agent conversation. Owner/Mast credentials do not grant access.
 // Lucy needs explicit channel OAuth scope; Muse uses a distinct dedicated bearer.
 import {RELAY_OAUTH_OBJECT,RELAY_AGENT_SCOPE,RELAY_OWNER,RelayError,hash,equal,uuid,cursor,fields,json,boundedText} from './relay-common.js';
@@ -9,7 +13,6 @@ export const AGENT_CHAT_OBJECT=RELAY_OAUTH_OBJECT;
 const isolated=ctx=>({storage:{sql:{exec:(sql,...args)=>ctx.storage.sql.exec(sql.replaceAll('relay_mast_','relay_agents_'),...args)},transactionSync:fn=>ctx.storage.transactionSync(fn)}});
 const rows=(ctx,q,...v)=>[...ctx.storage.sql.exec(q,...v)];
 const fail=(status,message)=>{throw new RelayError(-32602,message,{status});};
-export const agentChatEnabled=env=>env.RELAY_AGENTS_ENABLED==='true'&&env.RELAY_AGENT_LUCY_OAUTH_ENABLED==='true'&&/^[a-f0-9]{64}$/.test(env.RELAY_AGENT_MUSE_TOKEN_SHA256||'')&&env.RELAY_AGENT_MUSE_TOKEN_SHA256!==env.RELAY_MAST_TOKEN_SHA256;
 function identity(env,digest){
   if(!agentChatEnabled(env))fail(503,'Lucy–Muse channel is not activated');
   if(typeof digest!=='string'||!equal(digest,env.RELAY_AGENT_MUSE_TOKEN_SHA256))fail(401,'Muse channel authentication required');
@@ -28,6 +31,7 @@ function target(ctx,body){
   if(body.reply_to!==undefined&&body.reply_to!==null&&(!uuid(body.reply_to)||!rows(ctx,'SELECT id FROM relay_mast_entries WHERE id=?',body.reply_to).length))fail(404,'Channel reply target not found');
 }
 export async function agentChatStore(sourceCtx,env,input){
+  let wake=null;
   try{
     const principal=input.principal;
     const authorize=()=>{
@@ -37,6 +41,7 @@ export async function agentChatStore(sourceCtx,env,input){
     };
     const actor=authorize(),role=actor.startsWith('lucy:')?'lucy':'muse',ctx=isolated(sourceCtx);
     input={...input,token_hash:principal?.accessHash||input.token_hash};delete input.principal;
+    if(input.op==='send'&&role==='muse'){wake=await reserveRelayCoreWake(sourceCtx);authorize();}
     schema(ctx);
     if(input.op?.startsWith('file_'))return await mastFileOperation(ctx,input,authorize,target);
     return ctx.storage.transactionSync(()=>{
@@ -57,9 +62,11 @@ export async function agentChatStore(sourceCtx,env,input){
       if(rows(ctx,'SELECT COUNT(*) AS n FROM relay_mast_entries')[0].n>=10000)fail(429,'Channel storage full');
       rows(ctx,'INSERT INTO relay_mast_entries(id,role,reply_to,body,created_at,device_id) VALUES(?,?,?,?,?,?)',input.id,role,reply,body,new Date().toISOString(),role);
       mastFileLink(ctx,input.id,files);
+      if(role==='muse')enqueueRelayAgentMessage(sourceCtx,input.id);
       return json({entry:entry(ctx,rows(ctx,'SELECT * FROM relay_mast_entries WHERE id=?',input.id)[0]),newWrite:true},201);
     });
   }catch(e){return json({error:e instanceof RelayError?e.message:'Channel unavailable',...(e.data?.code?{code:e.data.code}:{})},e instanceof RelayError?e.data?.status||400:503);}
+  finally{if(wake){releaseRelayCoreWake(sourceCtx,wake);try{await scheduleRelayAlarm(sourceCtx);}catch{}}}
 }
 export async function agentChatPublic(request,env){
   const url=new URL(request.url);if(!url.pathname.startsWith('/relay/agents/'))return null;
