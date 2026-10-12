@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateKeyPairSync,createHash,sign} from 'node:crypto';
 import {nativeMusic} from '../backend/music-upload.js';
-import {LIBRARY_KEY,validateLibrary,libraryMapping,signatureMessage} from '../public/drawercast/r2-library.js';
-import {r2Tracks} from '../public/drawercast/r2-api.js';
+import {LIBRARY_KEY,validateLibrary,libraryMapping,restoreLibrarySnapshot,signatureMessage} from '../public/drawercast/r2-library.js';
+import {r2Tracks,commitR2Catalog} from '../public/drawercast/r2-api.js';
 const api='https://jarvis-hub-api.braydenparker999.workers.dev',origin='https://missionarytube.z13.web.core.windows.net';
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const audio=Buffer.concat([Buffer.from('OggS'),Buffer.alloc(24),Buffer.from('OpusHead'),Buffer.alloc(32)]);
@@ -182,4 +182,29 @@ test('new partial album membership removes a stale complete-album analysis claim
   assert.ok((await (await f.get('/music/library.json')).json()).tracks[0].metadata.audioAnalysis.album);
   const second=Buffer.concat([audio,Buffer.from('new album member')]);await f.putAudio(second);await f.register(f.registration(second));
   index=await (await f.get('/music/library.json')).json();assert.equal(index.count,2);assert.equal(index.tracks[0].metadata.audioAnalysis.album,undefined);
+});
+
+test('cached native discovery restores only the exact endpoint and validated saved identities',async()=>{
+  const f=fixture();await f.putAudio();await f.register(f.registration());
+  const data=await (await f.get('/music/library.json')).json(),url=api+'/music/library.json';
+  const {tracks,snapshot}=libraryMapping(data,url);
+  assert.equal(restoreLibrarySnapshot(snapshot,url,tracks).mapping.mediaURL(tracks[0]),url.replace('.json','/audio/')+tracks[0].id);
+  for(const changed of [{...snapshot,version:2},{...snapshot,endpoint:'https://other.test/music/library.json'},
+    {...snapshot,data:{...data,complete:false}},{...snapshot,data:{...data,tracks:[{...data.tracks[0],audioKey:'native/audio/'+ 'f'.repeat(64)+'.opus'}]}}])assert.equal(restoreLibrarySnapshot(changed,url,tracks),null);
+  assert.equal(restoreLibrarySnapshot(snapshot,url,[{...tracks[0],sha256:'e'.repeat(64)}]),null);
+  assert.equal(restoreLibrarySnapshot(snapshot,url,[{...tracks[0],size:1}]),null);
+  assert.equal(restoreLibrarySnapshot(snapshot,url,[]),null);
+});
+test('native catalog commit skips unchanged tracks, atomically saves discovery, and aborts on playback takeover',async()=>{
+  const f=fixture();await f.putAudio();await f.register(f.registration());
+  const data=await (await f.get('/music/library.json')).json();
+  const {tracks,mapping,snapshot}=libraryMapping(data,api+'/music/library.json');
+  const old=r2Tracks(mapping,tracks)[0];let tx,request,updates=0,saved=null;
+  const db={transaction(names){assert.deepEqual(names,['tracks','kv']);tx={abort(){this.error=Error('Playback takeover');this.onabort();},objectStore(name){return name==='kv'?{put(value,key){saved={value,key};}}:{openCursor(){request={};return request;}};}};return tx;}};
+  const pending=commitR2Catalog(db,mapping,tracks,{snapshot});
+  let complete=false;pending.then(()=>complete=true);
+  request.result={key:old.id,value:old,update(){updates++;},continue(){request.result=null;request.onsuccess();}};request.onsuccess();
+  await Promise.resolve();assert.equal(complete,false);assert.equal(updates,0);assert.deepEqual(saved,{value:snapshot,key:'r2-native-snapshot'});
+  tx.oncomplete();assert.equal((await pending).fresh.length,1);
+  const rejected=commitR2Catalog(db,mapping,tracks,{snapshot,valid:()=>false});request.onsuccess();await assert.rejects(rejected,/Playback takeover/);
 });

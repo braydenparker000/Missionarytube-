@@ -268,7 +268,7 @@ test('Poweramp native output interruption, browsing and full-page reload',{timeo
   });
   try{
     browser=await chromium.launch({executablePath:requireBrowser(),headless:true,args:['--no-sandbox']});
-    await t.test('real AudioContext suspension yields native playback until explicit Play',async()=>{
+    await t.test('real context-only suspension resumes output naturally but native pause still requires Play',async()=>{
       const h=await open();
       try{
         await h.page.locator('#btn-play').tap();await output(h.page);
@@ -279,7 +279,11 @@ test('Poweramp native output interruption, browsing and full-page reload',{timeo
         await output(h.page);
         assert.equal(await h.page.evaluate(()=>PA.Engine.cur),selected);
         await h.page.evaluate(()=>PA.Engine.ctx.suspend());
-        await h.page.waitForFunction(()=>!PA.Engine.wantsPlayback()&&!PA.Engine.playing&&PA.Engine.el().paused);
+        await h.page.waitForFunction(()=>PA.Engine.wantsPlayback()&&!PA.Engine.playing&&!PA.Engine.el().paused);
+        await h.page.evaluate(()=>PA.Engine.ctx.resume());
+        await output(h.page);
+        await h.page.evaluate(async()=>{await PA.Engine.ctx.suspend();PA.Engine.el().pause();});
+        await h.page.waitForFunction(()=>!PA.Engine.wantsPlayback()&&PA.Engine.el().paused);
         await h.page.evaluate(()=>PA.Engine.ctx.resume());
         await h.page.waitForTimeout(1000);
         assert.equal((await h.state()).intent,false,'output return does not override an interruption');
