@@ -3,6 +3,10 @@ name: Deploy to Azure Storage
 on:
   workflow_dispatch:
     inputs:
+      publish_poweramp_background:
+        description: Publish only the three qualified Poweramp files, preserving Worker settings
+        type: boolean
+        default: false
       deploy_mast_chat_only:
         description: Deploy the exact restrictive Mast Work gate without changing settings
         type: boolean
@@ -57,13 +61,13 @@ concurrency:
 
 jobs:
   qualification:
-    if: ${{ inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true }}
+    if: ${{ inputs.publish_poweramp_background != true && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true }}
     uses: ./.github/workflows/qualify-jarvis.yml
     permissions:
       contents: read
   deploy:
     needs: qualification
-    if: ${{ vars.AZURE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true }}
+    if: ${{ inputs.publish_poweramp_background != true && vars.AZURE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     concurrency:
@@ -331,7 +335,7 @@ jobs:
 
   activate-lucy-muse:
     name: deploy
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && (inputs.activate_lucy_muse == true || inputs.diagnose_lucy_muse == true || inputs.recover_lucy_muse_receipt == true || inputs.replace_muse_fingerprint == true) && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
+    if: ${{ inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && (inputs.activate_lucy_muse == true || inputs.diagnose_lucy_muse == true || inputs.recover_lucy_muse_receipt == true || inputs.replace_muse_fingerprint == true) && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
@@ -394,7 +398,7 @@ jobs:
 
   private-wake:
     name: deploy
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake == true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
+    if: ${{ inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake == true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:
@@ -486,7 +490,7 @@ jobs:
 
   mast-chat-only:
     name: deploy
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.deploy_mast_chat_only == true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
+    if: ${{ inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.deploy_mast_chat_only == true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:
@@ -578,7 +582,7 @@ jobs:
 
   activate-owner-mast:
     name: deploy
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.activate_owner_mast == true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
+    if: ${{ inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.activate_owner_mast == true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
@@ -632,6 +636,85 @@ jobs:
           name: owner-mast-activation-${{ github.run_id }}
           path: |
             owner-mast-activation/
+            release-qualified.json
+          retention-days: 90
+          if-no-files-found: warn
+      - name: Sign out
+        if: ${{ always() && steps.azure_signin.outcome == 'success' }}
+        run: az logout
+
+  poweramp-background:
+    name: deploy
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_poweramp_background == true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: jarvis-worker-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: af32b6d23c8118c49b93f48cd6367518789fb548
+          path: .poweramp-source
+          persist-credentials: false
+      - name: Verify trusted source and back up exact existing files
+        run: node scripts/publish-poweramp-background.mjs prepare
+      - name: Preserve rollback files before publication
+        uses: actions/upload-artifact@v4
+        with:
+          name: poweramp-before-${{ github.run_id }}-${{ github.run_attempt }}
+          path: poweramp-publication/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Sign in using existing Azure identity
+        id: azure_signin
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Publish verified helpers before player; preserve all other blobs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publish-poweramp-background.mjs publish
+      - name: Record exact patch provenance and unchanged Worker
+        id: poweramp
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publish-poweramp-background.mjs record
+      - name: verified-production-receipt-${{ steps.poweramp.outputs.digest }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          EXPECTED_RECEIPT_DIGEST: ${{ steps.poweramp.outputs.digest }}
+        run: node scripts/publish-poweramp-background.mjs stamp
+      - name: Publish only the verified patch receipt
+        run: |
+          az storage blob upload --account-name missionarytube --auth-mode login --container-name '$web' \
+            --name release-qualified.json --file release-qualified.json --content-type 'application/json' \
+            --content-cache-control no-cache --overwrite true --only-show-errors
+      - name: Verify live file hashes, receipt and unchanged settings
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          EXPECTED_RECEIPT_DIGEST: ${{ steps.poweramp.outputs.digest }}
+        run: node scripts/publish-poweramp-background.mjs published
+      - name: Preserve nonsecret publication evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: poweramp-publication-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            poweramp-publication/*.json
             release-qualified.json
           retention-days: 90
           if-no-files-found: warn
