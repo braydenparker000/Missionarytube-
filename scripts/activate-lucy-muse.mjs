@@ -8,6 +8,8 @@ import {readWorkerSettings,checkedBindings} from './check-music-worker-bindings.
 import {liveIdentity,settingsDigest,receiptDigest} from './worker-release-identity.mjs';
 import {canonical} from './lucy-settings-diagnostic.mjs';
 export const FINGERPRINT='7cc3b9c2b3bbc0f5ee4947b5987b71a95310749b8d042f0c66e77c60727467a3';
+export const REPLACEMENT='c6395979c5ec29b1edd1ee15c8bd4ef2733c23684802c61f0c6efef6157718d6';
+export const REPLACEMENT_BASE='c61900082c954c1c9a5ffd6cb8736532b14da778ff71a4c53a6aaed3c2d649be';
 export const BASE_RECEIPT='03c33d919658af489451e9b0997db6363a95bd5682463b5ff47308f3e4bc73c7';
 const VERSION='373ce184-a738-428f-b2c9-3088f9f75336',SETTINGS='24bdae2a7e5442d7c183fd22db58b7e728a76a8022183ff0681c9370bc5eed4d';
 const ORIGIN='https://missionarytube.z13.web.core.windows.net';
@@ -26,6 +28,17 @@ export function transition(settings){
  // Same retention representation used by Wrangler's settings update. Never read secret values.
  const bindings=settings.bindings.filter(b=>![FLAG,TOKEN].includes(b.name)).map(({name,type})=>({name,type}));
  bindings.push({name:FLAG,type:'plain_text',text:'true'},{name:TOKEN,type:'plain_text',text:FINGERPRINT});
+ return {bindings,expectedDigest:bindingDigest(expected)};
+}
+export function replacementTransition(settings){
+ checkedBindings(settings);assert.equal(new Set(settings.bindings.map(b=>b.name)).size,settings.bindings.length);
+ const find=name=>settings.bindings.find(b=>b.name===name);
+ for(const name of [FLAG,LUCY]){assert.equal(find(name)?.type,'plain_text');assert.equal(find(name)?.text,'true');}
+ assert.equal(find(TOKEN)?.type,'plain_text');assert.equal(find(TOKEN)?.text,FINGERPRINT,'Exact old fingerprint required');
+ assert.notEqual(find('RELAY_MAST_TOKEN_SHA256')?.text,REPLACEMENT);
+ const expected={...settings,bindings:settings.bindings.map(b=>b.name===TOKEN?{...b,text:REPLACEMENT}:b)};
+ const bindings=settings.bindings.filter(b=>b.name!==TOKEN).map(({name,type})=>({name,type}));
+ bindings.push({name:TOKEN,type:'plain_text',text:REPLACEMENT});
  return {bindings,expectedDigest:bindingDigest(expected)};
 }
 export function checkedAfter(settings,expectedDigest){
@@ -61,7 +74,7 @@ async function verifyCurrent(checkpoint){
  assert.equal(settingsDigest(settings),live.settingsDigest);checkedAfter(settings,checkpoint.expectedDigest);
  const {bindings,...rest}=settings;
  if(digest(rest)!==checkpoint.otherSettingsDigest){
-  const [priorAnnotations,currentAnnotations]=await Promise.all([versionAnnotations(VERSION),versionAnnotations(live.version)]);
+  const [priorAnnotations,currentAnnotations]=await Promise.all([versionAnnotations(checkpoint.parent.version),versionAnnotations(live.version)]);
   console.log(JSON.stringify({annotationDifferenceKeys:[...new Set([...Object.keys(priorAnnotations||{}),...Object.keys(currentAnnotations||{})])].filter(key=>JSON.stringify(priorAnnotations?.[key])!==JSON.stringify(currentAnnotations?.[key]))}));
   checkedAuditTransition(rest,checkpoint.otherSettingsDigest,priorAnnotations,currentAnnotations);
  }
@@ -73,13 +86,13 @@ async function verifyCurrent(checkpoint){
 async function recordReceipt(parent,after,checkpoint){
   const head=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
   const receipt={...parent,...after,orchestration:head,runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT,
-   activation:{kind:'lucy-muse-channel',parentReceipt:parent,fingerprint:FINGERPRINT,expectedSettingsDigest:checkpoint.expectedDigest,codeDigest:checkpoint.codeDigest}};
+   activation:{kind:'lucy-muse-channel',parentReceipt:parent,fingerprint:receiptDigest(parent)===REPLACEMENT_BASE?REPLACEMENT:FINGERPRINT,expectedSettingsDigest:checkpoint.expectedDigest,codeDigest:checkpoint.codeDigest}};
   await writeFile('release-qualified.json',JSON.stringify(receipt,null,2)+'\n');
   const hash=receiptDigest(receipt);await appendFile(process.env.GITHUB_OUTPUT,'digest='+hash+'\n');
   console.log(JSON.stringify({settingsVerified:true,otherBindingsUnchanged:true,workerCodeUnchanged:true,frontendUnchanged:true,authenticatedExchangeVerified:false,version:after.version,receiptDigest:hash}));
 }
 async function main(command){
- assert.ok(['activate','stamp','published','diagnose','recover'].includes(command));
+ assert.ok(['activate','replace','stamp','published','diagnose','recover'].includes(command));
  if(command==='diagnose'){
   const settings=await readWorkerSettings(credentials());
   checkedAfter(settings,'7d353876b97ecebca19e47712156f9854fcf1bd839c7191e3496a2df713815e8');
@@ -105,11 +118,13 @@ async function main(command){
   await mkdir('channel-activation',{recursive:true});await writeFile('channel-activation/checkpoint.json',JSON.stringify(checkpoint,null,2)+'\n');
   await recordReceipt(checkpoint.parent,after,checkpoint);return;
  }
- if(command==='activate'){
-  const parent=await json(ORIGIN+'/release-qualified.json');assert.equal(receiptDigest(parent),BASE_RECEIPT);
+ if(command==='activate'||command==='replace'){
+  const replacing=command==='replace',base=replacing?REPLACEMENT_BASE:BASE_RECEIPT;
+  const parent=await json(ORIGIN+'/release-qualified.json');assert.equal(receiptDigest(parent),base);
   const live=await liveIdentity(credentials()),settings=await readWorkerSettings(credentials());
-  assert.equal(live.version,VERSION,'Pinned Worker version changed');assert.equal(live.settingsDigest,SETTINGS,'Pinned settings changed');assert.equal(settingsDigest(settings),SETTINGS,'Settings changed between reads');
-  const planned=transition(settings),{bindings,...rest}=settings;
+  assert.equal(live.version,replacing?'373a45db-c3af-4493-8664-d4bf9f6204de':VERSION,'Pinned Worker version changed');
+  assert.equal(live.settingsDigest,replacing?'7d353876b97ecebca19e47712156f9854fcf1bd839c7191e3496a2df713815e8':SETTINGS,'Pinned settings changed');assert.equal(settingsDigest(settings),live.settingsDigest,'Settings changed between reads');
+  const planned=replacing?replacementTransition(settings):transition(settings),{bindings,...rest}=settings;
   const checkpoint={parent,expectedDigest:planned.expectedDigest,otherSettingsDigest:digest(rest),codeDigest:await codeDigest()};
   await mkdir('channel-activation',{recursive:true});await writeFile('channel-activation/checkpoint.json',JSON.stringify(checkpoint,null,2)+'\n');
   assert.deepEqual(await liveIdentity(credentials()),live);
@@ -121,10 +136,10 @@ async function main(command){
   await recordReceipt(parent,after,checkpoint);
  }else{
   const checkpoint=await local('channel-activation/checkpoint.json'),receipt=await local('release-qualified.json');
-  assert.equal(receiptDigest(checkpoint.parent),BASE_RECEIPT);
+  assert.ok([BASE_RECEIPT,REPLACEMENT_BASE].includes(receiptDigest(checkpoint.parent)));
   const live=await verifyCurrent(checkpoint);assert.equal(live.version,receipt.version);assert.equal(live.settingsDigest,receipt.settingsDigest);
   assert.equal(receiptDigest(receipt),process.env.EXPECTED_RECEIPT_DIGEST);
-  const published=await json(ORIGIN+'/release-qualified.json');assert.equal(receiptDigest(published),command==='published'?receiptDigest(receipt):BASE_RECEIPT);
+  const published=await json(ORIGIN+'/release-qualified.json');assert.equal(receiptDigest(published),command==='published'?receiptDigest(receipt):receiptDigest(checkpoint.parent));
   console.log(JSON.stringify({operation:command,verified:true,version:live.version,channelRequiresAuthentication:true}));
  }
 }

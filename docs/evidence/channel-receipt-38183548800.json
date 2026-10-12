@@ -1,0 +1,192 @@
+{
+  "schema": 1,
+  "source": "c28c1b2f70aabb5217b08bf31ffe4c93d0353765",
+  "orchestration": "a7418a8d5e3489fa0860a21ab0bfac1fb20622c2",
+  "backendDigest": "93d890666aea19a5cba577c68704ef3535039d0a987458f78bbb64717ba9f79b",
+  "backendReusable": true,
+  "recipe": [
+    {
+      "path": ".github/workflows/deploy-azure-storage.yml",
+      "sha": "876a04e2a1180320b69870401a1309e661ba5685"
+    },
+    {
+      "path": ".github/workflows/qualify-jarvis.yml",
+      "sha": "9c0f1cf9fa55b09c3f747c013bb3e1bbecbfa2ce"
+    },
+    {
+      "path": "scripts/plan-jarvis-qualification.mjs",
+      "sha": "eee6f0e67f2fab11c650dbf80cb8b60d5f7e3a23"
+    },
+    {
+      "path": "scripts/install-jarvis-browser.mjs",
+      "sha": "6c409f044097fc6ad2460d48efa4d2a4c95685cc"
+    },
+    {
+      "path": "scripts/worker-release-identity.mjs",
+      "sha": "aa67ad98bc4df1bfabac987ae04d123582f1a545"
+    },
+    {
+      "path": "scripts/prepare-music-worker.mjs",
+      "sha": "825fee647eed7d583e77e02a6dbdf3fbc41d5887"
+    },
+    {
+      "path": "scripts/prepare-worker-tools.mjs",
+      "sha": "aab50340494d89066dcab9dda1a51a6b643e848b"
+    },
+    {
+      "path": "scripts/check-music-worker-bindings.mjs",
+      "sha": "79a85d5b4c5ec5dc43f5f613588767960fd87580"
+    },
+    {
+      "path": "scripts/qualified-artifact.mjs",
+      "sha": "b1579ef43ecadb1a06577e0f13949450169090e7"
+    },
+    {
+      "path": "scripts/backup-jarvis-storage.mjs",
+      "sha": "6ab19a7dcb4966d3946332a950a46a103b240cee"
+    },
+    {
+      "path": "scripts/overlap-jarvis-prewrite.mjs",
+      "sha": "f9c52feacb60bd5f0894f90f741bd08075a2fe84"
+    },
+    {
+      "path": "scripts/stage-relay-client-dependencies.mjs",
+      "sha": "9042927b9373dcec2c76a9be6e66e612a492f1fd"
+    },
+    {
+      "path": "scripts/relay-worker-release-identity.mjs",
+      "sha": "d9de998c613dfb2a282911cb3c7c24293fd44057"
+    },
+    {
+      "path": "scripts/stage-relay-core-dependencies.mjs",
+      "sha": "145383d9dacf11854c3b50615e90ee6aed6f71e9"
+    },
+    {
+      "path": "scripts/lucy-settings-diagnostic.mjs",
+      "sha": "d913e7e924fde0c380c7ff726210da0ba0ff8c9f"
+    },
+    {
+      "path": "scripts/reconcile-lucy-receipt.mjs",
+      "sha": "47346908dee81b548625ee1b654373473f1f3e77"
+    }
+  ],
+  "storageOrigin": "https://missionarytube.z13.web.core.windows.net",
+  "apiOrigin": "https://jarvis-hub-api.braydenparker999.workers.dev",
+  "repository": "braydenparker000/Missionarytube-",
+  "version": "373a45db-c3af-4493-8664-d4bf9f6204de",
+  "settingsDigest": "7d353876b97ecebca19e47712156f9854fcf1bd839c7191e3496a2df713815e8",
+  "runId": "38183548800",
+  "attempt": "1",
+  "frontendSource": "363f710068bb6f2c456dbbf183f063484a36fe11",
+  "frontendOrchestration": "40835db24e9036a33d26f9a57e7c8c9851ec1208",
+  "frontendArtifactDigest": "db92334de3037a4283ca2b4491dbac6e1c65929e1e16aa84694f35960b9a14fc",
+  "publicConfigurationDigest": "fd1a610da240ccbe9c40edb82171f33c034da0eec5a7310af3c0b4b2a96b697f",
+  "reconciliation": {
+    "kind": "lucy-oauth-discovery",
+    "workerDeploymentRun": "38165680255",
+    "workerDeploymentAttempt": "1",
+    "checkpointArtifact": 11712500345,
+    "previousReceiptDigest": "069b5c96904dfaa6bf0e24e157b9c3c3f3719ee2d7b2c0201a429cc8df864b9a",
+    "frontendRun": "38139432843",
+    "canonicalSettingsDigest": "24bdae2a7e5442d7c183fd22db58b7e728a76a8022183ff0681c9370bc5eed4d"
+  },
+  "activation": {
+    "kind": "lucy-muse-channel",
+    "parentReceipt": {
+      "schema": 1,
+      "source": "c28c1b2f70aabb5217b08bf31ffe4c93d0353765",
+      "orchestration": "d506ce86b67afddd23ede2f45e5c8945ba277690",
+      "backendDigest": "93d890666aea19a5cba577c68704ef3535039d0a987458f78bbb64717ba9f79b",
+      "backendReusable": true,
+      "recipe": [
+        {
+          "path": ".github/workflows/deploy-azure-storage.yml",
+          "sha": "876a04e2a1180320b69870401a1309e661ba5685"
+        },
+        {
+          "path": ".github/workflows/qualify-jarvis.yml",
+          "sha": "9c0f1cf9fa55b09c3f747c013bb3e1bbecbfa2ce"
+        },
+        {
+          "path": "scripts/plan-jarvis-qualification.mjs",
+          "sha": "eee6f0e67f2fab11c650dbf80cb8b60d5f7e3a23"
+        },
+        {
+          "path": "scripts/install-jarvis-browser.mjs",
+          "sha": "6c409f044097fc6ad2460d48efa4d2a4c95685cc"
+        },
+        {
+          "path": "scripts/worker-release-identity.mjs",
+          "sha": "aa67ad98bc4df1bfabac987ae04d123582f1a545"
+        },
+        {
+          "path": "scripts/prepare-music-worker.mjs",
+          "sha": "825fee647eed7d583e77e02a6dbdf3fbc41d5887"
+        },
+        {
+          "path": "scripts/prepare-worker-tools.mjs",
+          "sha": "aab50340494d89066dcab9dda1a51a6b643e848b"
+        },
+        {
+          "path": "scripts/check-music-worker-bindings.mjs",
+          "sha": "79a85d5b4c5ec5dc43f5f613588767960fd87580"
+        },
+        {
+          "path": "scripts/qualified-artifact.mjs",
+          "sha": "b1579ef43ecadb1a06577e0f13949450169090e7"
+        },
+        {
+          "path": "scripts/backup-jarvis-storage.mjs",
+          "sha": "6ab19a7dcb4966d3946332a950a46a103b240cee"
+        },
+        {
+          "path": "scripts/overlap-jarvis-prewrite.mjs",
+          "sha": "f9c52feacb60bd5f0894f90f741bd08075a2fe84"
+        },
+        {
+          "path": "scripts/stage-relay-client-dependencies.mjs",
+          "sha": "9042927b9373dcec2c76a9be6e66e612a492f1fd"
+        },
+        {
+          "path": "scripts/relay-worker-release-identity.mjs",
+          "sha": "d9de998c613dfb2a282911cb3c7c24293fd44057"
+        },
+        {
+          "path": "scripts/stage-relay-core-dependencies.mjs",
+          "sha": "145383d9dacf11854c3b50615e90ee6aed6f71e9"
+        },
+        {
+          "path": "scripts/lucy-settings-diagnostic.mjs",
+          "sha": "d913e7e924fde0c380c7ff726210da0ba0ff8c9f"
+        },
+        {
+          "path": "scripts/reconcile-lucy-receipt.mjs",
+          "sha": "47346908dee81b548625ee1b654373473f1f3e77"
+        }
+      ],
+      "storageOrigin": "https://missionarytube.z13.web.core.windows.net",
+      "apiOrigin": "https://jarvis-hub-api.braydenparker999.workers.dev",
+      "repository": "braydenparker000/Missionarytube-",
+      "version": "373ce184-a738-428f-b2c9-3088f9f75336",
+      "settingsDigest": "24bdae2a7e5442d7c183fd22db58b7e728a76a8022183ff0681c9370bc5eed4d",
+      "runId": "38168396000",
+      "attempt": "1",
+      "frontendSource": "363f710068bb6f2c456dbbf183f063484a36fe11",
+      "frontendOrchestration": "40835db24e9036a33d26f9a57e7c8c9851ec1208",
+      "frontendArtifactDigest": "db92334de3037a4283ca2b4491dbac6e1c65929e1e16aa84694f35960b9a14fc",
+      "publicConfigurationDigest": "fd1a610da240ccbe9c40edb82171f33c034da0eec5a7310af3c0b4b2a96b697f",
+      "reconciliation": {
+        "kind": "lucy-oauth-discovery",
+        "workerDeploymentRun": "38165680255",
+        "workerDeploymentAttempt": "1",
+        "checkpointArtifact": 11712500345,
+        "previousReceiptDigest": "069b5c96904dfaa6bf0e24e157b9c3c3f3719ee2d7b2c0201a429cc8df864b9a",
+        "frontendRun": "38139432843",
+        "canonicalSettingsDigest": "24bdae2a7e5442d7c183fd22db58b7e728a76a8022183ff0681c9370bc5eed4d"
+      }
+    },
+    "fingerprint": "7cc3b9c2b3bbc0f5ee4947b5987b71a95310749b8d042f0c66e77c60727467a3",
+    "expectedSettingsDigest": "7d353876b97ecebca19e47712156f9854fcf1bd839c7191e3496a2df713815e8",
+    "codeDigest": "238bae015ac446e4828b600e3abc4d95efe7f49c6af7398389e4d9c89f136b5e"
+  }
+}

@@ -28,3 +28,18 @@ test('only provider audit trigger may differ after exact baseline reconstruction
  assert.throws(()=>checkedAuditTransition({...current,compatibility_flags:['second','first']},canonicalDigest(old),before,after));
  assert.throws(()=>checkedAuditTransition({...current,annotations:{...after,'workers/tag':'changed'}},canonicalDigest(old),before,{...after,'workers/tag':'changed'}));
 });
+
+test('replacement changes only the exact old fingerprint; both flags and unrelated values stay exact',async()=>{
+ const {replacementTransition,REPLACEMENT,bindingDigest}=await import('./activate-lucy-muse.mjs');
+ const settings=structuredClone(before);settings.bindings.find(b=>b.name==='RELAY_AGENTS_ENABLED').text='true';
+ settings.bindings.push({name:'RELAY_AGENT_MUSE_TOKEN_SHA256',type:'plain_text',text:FINGERPRINT});
+ const original=structuredClone(settings),plan=replacementTransition(settings);assert.deepEqual(settings,original);
+ assert.deepEqual(plan.bindings.filter(b=>'text'in b),[{name:'RELAY_AGENT_MUSE_TOKEN_SHA256',type:'plain_text',text:REPLACEMENT}]);
+ const expected=structuredClone(settings);expected.bindings.at(-1).text=REPLACEMENT;
+ assert.equal(plan.expectedDigest,bindingDigest(expected));checkedAfter(expected,plan.expectedDigest);
+ for(const name of ['RELAY_AGENTS_ENABLED','RELAY_AGENT_LUCY_OAUTH_ENABLED','RELAY_MAST_TOKEN_SHA256']){
+  const changed=structuredClone(expected);changed.bindings.find(b=>b.name===name).text='changed';assert.throws(()=>checkedAfter(changed,plan.expectedDigest));
+ }
+ const wrong=structuredClone(settings);wrong.bindings.at(-1).text='0'.repeat(64);assert.throws(()=>replacementTransition(wrong));
+ assert.throws(()=>replacementTransition(expected),'cannot repeat replacement');
+});

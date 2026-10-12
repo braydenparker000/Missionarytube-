@@ -23,8 +23,9 @@ export async function verifiedMusicReceipt(receipt,fetcher=fetch){
  const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
  if(hash(receipt)===RECEIPT)return receipt;
  const a=receipt.activation,parent=a?.parentReceipt;
- assert.equal(hash(parent),RECEIPT);assert.equal(a.kind,'lucy-muse-channel');
- assert.equal(a.fingerprint,'7cc3b9c2b3bbc0f5ee4947b5987b71a95310749b8d042f0c66e77c60727467a3');
+ const parentDigest=hash(parent),replacementBase='c61900082c954c1c9a5ffd6cb8736532b14da778ff71a4c53a6aaed3c2d649be';
+ assert.ok([RECEIPT,replacementBase].includes(parentDigest));assert.equal(a.kind,'lucy-muse-channel');
+ assert.equal(a.fingerprint,parentDigest===replacementBase?'c6395979c5ec29b1edd1ee15c8bd4ef2733c23684802c61f0c6efef6157718d6':'7cc3b9c2b3bbc0f5ee4947b5987b71a95310749b8d042f0c66e77c60727467a3');
  assert.deepEqual(Object.keys(a).sort(),['codeDigest','expectedSettingsDigest','fingerprint','kind','parentReceipt']);
  for(const value of [a.codeDigest,a.expectedSettingsDigest,receipt.settingsDigest])assert.match(value,/^[a-f0-9]{64}$/);
  assert.match(receipt.orchestration,/^[a-f0-9]{40}$/);assert.match(receipt.version,/^[a-f0-9-]{36}$/);
@@ -39,5 +40,5 @@ export async function verifiedMusicReceipt(receipt,fetcher=fetch){
  const jobs=await get('/actions/runs/'+receipt.runId+'/attempts/'+receipt.attempt+'/jobs?per_page=100');
  assert.equal(jobs.total_count,jobs.jobs.length);
  assert.ok(jobs.jobs.some(j=>j.name==='deploy'&&j.head_sha===receipt.orchestration&&j.run_attempt===Number(receipt.attempt)&&j.conclusion==='success'&&j.steps.some(s=>s.name==='verified-production-receipt-'+hash(receipt)&&s.conclusion==='success')));
- return parent;
+ return parentDigest===RECEIPT?parent:parent.activation.parentReceipt;
 }

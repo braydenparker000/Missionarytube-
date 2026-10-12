@@ -3,6 +3,10 @@ name: Deploy to Azure Storage
 on:
   workflow_dispatch:
     inputs:
+      replace_muse_fingerprint:
+        description: 'Replace only the owner-approved Muse fingerprint using exact old/new pins'
+        type: boolean
+        default: false
       recover_lucy_muse_receipt:
         description: 'Read-only settings verification and receipt recovery; no settings write'
         type: boolean
@@ -41,7 +45,7 @@ concurrency:
 
 jobs:
   qualification:
-    if: ${{ inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true }}
+    if: ${{ inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true }}
     uses: ./.github/workflows/qualify-jarvis.yml
     permissions:
       contents: read
@@ -315,7 +319,7 @@ jobs:
 
   activate-lucy-muse:
     name: deploy
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.activate_lucy_muse == true || inputs.diagnose_lucy_muse == true || inputs.recover_lucy_muse_receipt == true) && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.activate_lucy_muse == true || inputs.diagnose_lucy_muse == true || inputs.recover_lucy_muse_receipt == true || inputs.replace_muse_fingerprint == true) && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
@@ -333,7 +337,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        run: node scripts/activate-lucy-muse.mjs ${{ inputs.diagnose_lucy_muse == true && 'diagnose' || inputs.recover_lucy_muse_receipt == true && 'recover' || 'activate' }}
+        run: node scripts/activate-lucy-muse.mjs ${{ inputs.diagnose_lucy_muse == true && 'diagnose' || inputs.recover_lucy_muse_receipt == true && 'recover' || inputs.replace_muse_fingerprint == true && 'replace' || 'activate' }}
       - name: Sign in using existing Azure identity
         if: inputs.diagnose_lucy_muse != true
         id: azure_signin
