@@ -472,7 +472,7 @@ test('public and Muse preserve separate drafts and reading positions through Hom
     });
     const before = await anchor(); assert.ok(before.id);
     const draft = `Fictional ${channel} draft for Back behavior`; await input.fill(draft);
-    if(channel==='public')await page.locator('#relay-menu-button').click();await page.getByRole('link', {name: channel === 'muse' ? 'Back to Jarvis' : 'Jarvis home', exact: true}).click();
+    await page.locator('#relay-menu-button').click();await page.getByRole('link', {name: 'Jarvis home', exact: true}).click();
     await page.waitForURL(SITE + '/');
     await page.goBack(); await input.waitFor();
     assert.equal(await input.inputValue(), draft);

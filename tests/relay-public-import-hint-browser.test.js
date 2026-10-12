@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {performance} from 'node:perf_hooks';
 import {createHmac} from 'node:crypto';
-import {createConversationFixture,launchQualifiedBrowser,openConversationPage,closeConversationHarness,assertBrowserContained,writeSyntheticEvidence,
+import {createConversationFixture,launchQualifiedBrowser,openConversationPage,closeConversationHarness,conversationMenu,assertBrowserContained,writeSyntheticEvidence,
   MUSE_URL,WORKER} from './helpers/relay-conversation-browser-fixture.js';
 import {sharedStore} from '../backend/shared.js';
 import {COMMENT_URL,ISSUE_URL} from '../backend/publications.js';
@@ -41,8 +41,7 @@ test('fixed-comment hint delivers through durable import, separate signed notifi
   assert.equal(notifications.length,1);assert.equal(notifications[0].data.should_execute,false);
   const exact=await h.rpc(auth,'relay_read_public_result',{inbox_id:RELAY_INBOX,message_id:notifications[0].data.message_id});
   assert.equal(exact.events.at(-1).eventId,publication.eventId);assert.equal(exact.reply.id,holdId);const exactReadMs=performance.now()-started;
-  await page.getByRole('button',{name:'Conversation menu',exact:true}).click();
-  await page.getByRole('dialog').getByRole('button',{name:'Refresh inbox',exact:true}).click();
+  await conversationMenu(page,'Refresh inbox');
   const report=page.locator(`[data-message-id="coordination:${publication.eventId}"]`);await report.waitFor();
   const renderedMs=performance.now()-started;assert.equal(await report.getByRole('link',{name:'Fictional reviewed source · revision 1'}).getAttribute('href'),publication.artifacts[0].url);
   assert.equal(await report.getByText('Public report · private execution unverified.',{exact:true}).isVisible(),true);
