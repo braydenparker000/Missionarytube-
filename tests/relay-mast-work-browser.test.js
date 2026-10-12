@@ -4,7 +4,7 @@ import {mkdir} from 'node:fs/promises';
 import {createConversationFixture,launchQualifiedBrowser,openConversationPage,closeConversationHarness,assertBrowserContained,SITE} from './helpers/relay-conversation-browser-fixture.js';
 import {hash,random} from '../backend/relay-common.js';
 test('Muse Work phone preserves unconfirmed request identity and displays version-bound completion',{timeout:60000},async t=>{
- const browser=await launchQualifiedBrowser(t);if(!browser)return;const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}}),pages=[];
+ const browser=await launchQualifiedBrowser(t);if(!browser)return;const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_WORK_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}}),pages=[];
  try{
   const owner=await h.pair(await h.oauth()),phone=await openConversationPage(browser,h,{owner,clock:false});pages.push(phone);const page=phone.page;
   await page.goto(SITE+'/mast/');await page.locator('#composer:not([hidden])').waitFor();await page.getByRole('button',{name:'Work',exact:true}).click();await page.getByText('New request',{exact:true}).click();

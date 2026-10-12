@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createConversationFixture} from './helpers/relay-conversation-browser-fixture.js';
 import {hash,random} from '../backend/relay-common.js';
 test('Muse Work owns isolated requests, plans, leases, exact-version completion/corrections and safe retry',async t=>{
- const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}});t.after(()=>h.close());const owner=await h.pair(await h.oauth());
+ const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_WORK_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}});t.after(()=>h.close());const owner=await h.pair(await h.oauth());
  const phone=(path,body)=>h.phone('/mast/work'+path,body,owner.device_token),adapter=(path,body,credential=token)=>h.fixture.request('/relay/mast/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+credential},...(body?{body:JSON.stringify(body)}:{})});
  assert.equal((await h.phone('/mast/work')).status,401);assert.equal((await adapter('work',null,owner.device_token)).status,401);
  const id=crypto.randomUUID(),request={id,title:'Synthetic draft',body:'Prepare a draft only',action_kind:'draft'};
