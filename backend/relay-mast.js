@@ -47,7 +47,9 @@ function insert(ctx, message, now) {
   mastFileLink(ctx,message.id,files);
   return {entry:entry(rows(ctx,'SELECT * FROM relay_mast_entries WHERE id=?',message.id)[0],ctx),newWrite:true};
 }
+export const mastWorkEnabled = env => mastEnabled(env) && env.RELAY_MAST_WORK_ENABLED === 'true';
 export function mastOwnerWork(ctx,env,input,session){
+  if(!mastWorkEnabled(env))fail(503,'Mast Work is not activated');
   if(!mastEnabled(env))fail(503,'Mast chat awaits activation');schema(ctx);
   return mastWork(ctx,{...input,op:input.op.slice(5)},{owner:session,send:body=>mastSend(ctx,env,body,session)});
 }
@@ -66,7 +68,7 @@ export async function mastAdapterStore(ctx, env, input) {
     };
     if(input.op?.startsWith('file_'))return await mastFileOperation(ctx,input,authorize);
     return ctx.storage.transactionSync(() => {
-      if(input.op?.startsWith('work_'))return json(mastWork(ctx,input,{writer:authorize()}));
+      if(input.op?.startsWith('work_')){if(!mastWorkEnabled(env))fail(503,'Mast Work is not activated');return json(mastWork(ctx,input,{writer:authorize()}));}
       if (input.op==='list') {
         fields(input,['op','token_hash','after'],['op','token_hash']);
         const result=mastList(ctx,env,input.after),now=Date.now();
@@ -95,6 +97,7 @@ export async function mastAdapterPublic(request, env) {
   try {
     const token=request.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{32,512})$/)?.[1];
     if (!token || !equal(await hash(token),env.RELAY_MAST_TOKEN_SHA256)) return json({error:'Mast authentication required'},401);
+    if((url.pathname==='/relay/mast/work'||url.pathname.startsWith('/relay/mast/work/'))&&!mastWorkEnabled(env))fail(503,'Mast Work is not activated');
     const store=body=>env.HUBS.get(env.HUBS.idFromName(RELAY_OAUTH_OBJECT)).fetch(new Request('https://internal/internal/relay/mast',{method:'POST',body:JSON.stringify({...body,token_hash:tokenHash})}));
     const tokenHash=await hash(token);
     let input;
