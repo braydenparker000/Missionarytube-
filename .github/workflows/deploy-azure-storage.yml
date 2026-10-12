@@ -20,7 +20,7 @@ on:
         type: boolean
         default: false
       deploy_mast_chat_only:
-        description: Deploy the exact Mast reply route alias without changing settings
+        description: Recover the exact deployed Mast reply receipt without uploading Worker code
         type: boolean
         default: false
       activate_owner_mast:
@@ -521,33 +521,12 @@ jobs:
           ref: 95d39031bb7b80f637c969a761e2aff9cc6a1040
           path: .jarvis-source
           persist-credentials: false
-      - name: Verify exact source proof and retained production receipt
-        run: node scripts/deploy-mast-reply-route.mjs prepare
-      - name: Install exact source dependencies
-        run: npm --prefix .jarvis-source ci
-      - name: Prepare isolated pinned Worker tooling
-        run: |
-          node scripts/prepare-worker-tools.mjs prepare
-          npm --prefix .worker-tools install --no-save wrangler@4.136.3
-      - name: Build the qualified Worker without publishing
-        working-directory: .worker-tools
-        run: npx wrangler deploy --dry-run --config "$GITHUB_WORKSPACE/.jarvis-source/backend/wrangler.music.generated.json" --outdir "$GITHUB_WORKSPACE/mast-reply-route-release/bundle"
-      - name: Checkpoint exact Worker and every retained binding
+      - name: Validate fixed recovery evidence and live identity without uploading
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        run: node scripts/deploy-mast-reply-route.mjs checkpoint
-      - name: Deploy only the qualified Worker
-        working-directory: .worker-tools
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        run: |
-          npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/mast-reply-route-release/versions-before.json"
-          npx wrangler deploy --config "$GITHUB_WORKSPACE/.jarvis-source/backend/wrangler.music.generated.json"
-          npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/mast-reply-route-release/versions-after.json"
-      - name: Verify source dependency isolation
-        run: node scripts/prepare-worker-tools.mjs verify
+        run: node scripts/deploy-mast-reply-route.mjs recover
       - name: Verify uploaded bytes and unchanged bindings; record receipt
         id: wake
         env:
