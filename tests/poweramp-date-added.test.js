@@ -16,11 +16,11 @@ test('date added orders dates, preserves ties, and keeps missing dates last in b
   }
   assert.deepEqual(tracks.map(t=>t.id),['z','a','b','x','n','zero','bad']);
 });
-test('all unknown dates retain order and explain unavailable sort; R2 upload provenance is visible',()=>{
+test('all unknown dates retain order and explain unavailable sort; R2 provenance stays out of the prepared header',()=>{
   const opts=options(true),tracks=[{id:'z'},{id:'a',added:0}];
   const result=opts.prepare({type:'tracks',items:tracks},{kind:'all'});
   assert.deepEqual(Array.from(result.items,t=>t.id),['z','a']);assert.match(result.sortNotice,/No date added/);
-  assert.match(opts.prepare({type:'tracks',items:[{added:100,addedSource:'r2-upload'}]},{kind:'all'}).sortNotice,/verified upload time/);
+  assert.equal(opts.prepare({type:'tracks',items:[{added:100,addedSource:'r2-upload'}]},{kind:'all'}).sortNotice,undefined);
 });
 
 test('category date ties recover library order after legacy title sorting',()=>{
