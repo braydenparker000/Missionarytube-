@@ -211,7 +211,7 @@ test('full release keeps original qualification, config, backup and rollback gat
   for(let i=1;i<order.length;i++)assert.ok(flow.indexOf(order[i-1])>=0&&flow.indexOf(order[i-1])<flow.indexOf(order[i]),order[i]);
   for(const command of ['plan','record','verify','receipt','verify-receipt'])assert.ok(flow.includes('node scripts/relay-worker-release-identity.mjs '+command));
   assert.match(flow,/workingDirectory: \.worker-tools/);assert.match(flow,/wranglerVersion: '4\.136\.3'/);
-  assert.match(flow,/if: \$\{\{ vars\.AZURE_DEPLOY_ENABLED == 'true' && github\.ref == 'refs\/heads\/main' && github.event_name == 'workflow_dispatch' && inputs.activate_lucy_muse != true \}\}/);
+  assert.match(flow,/if: \$\{\{ vars\.AZURE_DEPLOY_ENABLED == 'true' && github\.ref == 'refs\/heads\/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true \}\}/);
   assert.doesNotMatch(flow,/continue-on-error|skip.*qualification|--force|allow-deploy/);
   const qualification=await readFile(join(repository,'.github/workflows/qualify-jarvis.yml'),'utf8');
   assert.match(qualification.slice(qualification.indexOf('  build:')),/path: \.jarvis-source\n          persist-credentials: false\n          fetch-depth: 0/);
