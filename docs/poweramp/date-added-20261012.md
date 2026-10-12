@@ -11,3 +11,5 @@ Date Added defaults newest first. Reverse selects oldest first. Unknown/nonposit
 Reproduction: the new tests against untouched d7daef3 yield 3 failures (15 existing tests pass): native expected upload 1700000002000 instead of import wall clock; equal dates sort alphabetically; all-unknown reverse changes order. The same tests pass after the repair.
 
 Live catalog read from this environment failed with ECONNREFUSED; no claim is made about the live distribution of dates. No deployment or catalog writes were performed.
+
+Validation: 188 targeted Node tests passed. Native R2 Chromium lifecycle tests passed. The same three local library-history timeouts reproduce on unchanged d7daef3. CI poweramp, frontend, blank-library, migration, relay, owner24 and podcasts lanes passed on ccea437. The performance lane stopped at its full-source candidate fingerprint before measuring; the candidate pin is updated for this source change, retaining the frozen v8 baseline and every geometry, pixel and performance gate.
