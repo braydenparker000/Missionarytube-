@@ -1,5 +1,5 @@
-import {museConversations} from './muse-conversations.js';
-import {icon, sheet, appViewport, autosize} from './ui.js';
+import {museShell,museSheet as sheet} from './muse-shell.js';
+import {icon, appViewport, autosize} from './ui.js';
 import {conversation} from './conversation.js';
 import {createDirectApi} from './direct-api.js';
 import {museBody} from './channels.js';
@@ -28,7 +28,7 @@ function render() {
   const attention=state?.outbox.some(m=>['rejected','conflict'].includes(m.sendState));
   $('status').textContent=storageError?'Cannot save on this device':syncError?state?.outbox.length?attention?'Send needs attention · text saved on this device':'Send unconfirmed · queued on this device':'Inbox unavailable · draft saved':busy?state?.outbox.length?'Sending publicly · Muse destination':'Refreshing public inbox…':state?.outbox.length?'Queued on this device':state?.publisher?.ok===false?'Messages saved · replies delayed':'Public inbox · replies arrive after a check';
   if(!state)return;
-  if(!chatUI)chatUI=conversation({panel:$('messages'),composer:$('prompt'),channel:'muse',author:'Mast',body:m=>m.role==='user'?museBody(m.body):m.body,notify,draftChanged:value=>{state={...state,composer:value};try{commit(state);}catch(error){storageError=error.message;render();}},emptyTitle:'Follow a thought.',emptyDescription:'Write to the Muse destination in the shared public Relay inbox. Replies appear here after an assistant checks the request.',scope:'Public Muse conversation'});
+  if(!chatUI)chatUI=conversation({panel:$('messages'),composer:$('prompt'),channel:'muse',dateGroups:true,bubbleFooter:true,author:'Mast',body:m=>m.role==='user'?museBody(m.body):m.body,notify,draftChanged:value=>{state={...state,composer:value};try{commit(state);}catch(error){storageError=error.message;render();}},emptyTitle:'Follow a thought.',emptyDescription:'Write to the Muse destination in the shared public Relay inbox. Replies appear here after an assistant checks the request.',scope:'Public Muse conversation'});
   chatUI.update(state.messages);
   chatUI.setDelivery({busy,error:!!syncError});
 }
@@ -98,10 +98,12 @@ render(); sync();
 $('search-toggle').onclick=()=>{const bar=$('search-bar');bar.hidden=!bar.hidden;if(!bar.hidden)$('conversation-search').focus();else{$('conversation-search').value='';chatUI?.search('');}};
 $('search-close').onclick=()=>$('search-toggle').click();
 $('conversation-search').oninput=e=>chatUI?.search(e.target.value);
-$('muse-menu').onclick=()=>{
-  const d=museConversations(false,[{label:'Search messages',icon:'search',action:()=>$('search-toggle').click()},{label:'Bookmarks',icon:'bookmark',action:()=>chatUI?.bookmarks()},{label:'Latest messages',icon:'chat',action:()=>chatUI?.latest()},{label:'Refresh inbox',icon:'refresh',action:sync},{label:'Connection details',icon:'info',action:()=>{const detail=sheet('Muse connection',[]);detail.classList.add('conversation-sheet');const p=document.createElement('p');p.className='sheet-context';p.textContent=storageError||syncError||(state?.syncedAt?'Public inbox refreshed '+time(state.syncedAt)+'. Messages are stored separately from the assistant’s reply delivery.':'The public inbox has not been refreshed yet.');detail.append(p);const note=document.createElement('p');note.className='sheet-note';note.textContent='This page checks for saved replies. It cannot confirm that Muse has an active schedule or is currently working.';detail.append(note);}},{label:'Reply setup instructions',icon:'clock',action:()=>$('setup').click()}]);
+function openPublicSettings(){
+  const d=sheet('Public Muse',[{label:'Refresh inbox',icon:'refresh',action:sync},{label:'Connection details',icon:'info',action:()=>{const detail=sheet('Muse connection',[]);detail.classList.add('conversation-sheet');const p=document.createElement('p');p.className='sheet-context';p.textContent=storageError||syncError||(state?.syncedAt?'Public inbox refreshed '+time(state.syncedAt)+'. Messages are stored separately from the assistant’s reply delivery.':'The public inbox has not been refreshed yet.');detail.append(p);const note=document.createElement('p');note.className='sheet-note';note.textContent='This page checks for saved replies. It cannot confirm that Muse has an active schedule or is currently working.';detail.append(note);}},{label:'Reply setup instructions',icon:'clock',action:()=>$('setup').click()}]);
   d.classList.add('conversation-sheet');const p=document.createElement('p');p.className='sheet-context';p.textContent='Anyone with this website address can read and post here. Choose Owner chat for your private conversation with Mast.';d.querySelector('.dialog-heading').after(p);const note=document.createElement('p');note.className='sheet-note';note.textContent='Public replies appear after an assistant checks the request. This page does not confirm that Mast is currently working.';d.append(note);
   const relay=document.createElement('a');relay.href='/jarvis/';relay.className='sheet-action';relay.innerHTML=icon('chat');relay.append(document.createTextNode('Relay conversations'));note.before(relay);
 };
 addEventListener('pagehide',()=>chatUI?.savePosition());
 autosize($('prompt'));
+
+museShell({privateView:false,search:()=>{const bar=$('search-bar');bar.hidden=!bar.hidden;if(!bar.hidden)$('conversation-search').focus();else{$('conversation-search').value='';chatUI?.search('');}},work:()=>location.assign('/mast/#work'),saved:()=>chatUI?.bookmarks(),settings:openPublicSettings,attach:()=>{const d=sheet('Attachments',[{label:'Open private chat',icon:'chat',action:()=>location.assign('/mast/')}]);const p=document.createElement('p');p.className='sheet-context';p.textContent='Files use your signed-in private conversation. Your public draft stays here.';d.append(p);}});

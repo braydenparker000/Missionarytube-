@@ -2,7 +2,7 @@ import {el, icon, richText, sheet, copyText, readLocal, writeLocal, autosize, me
 import {publicReportLabel} from './public-coordination.js';
 
 // Keep existing nodes and their scroll anchors across inbox refreshes.
-export function conversation({panel, composer, channel, author, body=m=>m.body, notify=()=>{}, draftChanged=()=>{}, emptyTitle='What’s on your mind?', emptyDescription='Write a message to '+author+'.', scope='',dateGroups=false} ){
+export function conversation({panel, composer, channel, author, body=m=>m.body, notify=()=>{}, draftChanged=()=>{}, emptyTitle='What’s on your mind?', emptyDescription='Write a message to '+author+'.', scope='',dateGroups=false,bubbleFooter=channel==='relay'} ){
   let messages=[], query='', savedOnly=false, first=true, timer, start, deliveryBusy=false, deliveryError=false;
   const key='jarvis.'+channel+'.bookmarks.v1';
   const raw=readLocal(key,[]), bookmarks=new Set(Array.isArray(raw)?raw:[]);
@@ -41,11 +41,11 @@ export function conversation({panel, composer, channel, author, body=m=>m.body, 
       if(!row){row=el('article','','message-row '+(m.role==='user'?'outgoing':'incoming'));row.dataset.messageId=m.id;
         const header=el('div','','message-heading');header.append(el('span',m.role==='user'?'You':author,'message-author'));
         const action=el('button','','message-actions');action.type='button';action.dataset.messageActions=m.id;action.setAttribute('aria-label','Message actions');action.innerHTML=icon('more');header.append(action);
-        if(dateGroups&&channel==='relay'){const footer=el('div','','message-footer'),bubble=el('div','','bubble');footer.append(el('span','','message-time'),action);bubble.append(el('div','','message-body rich-body'),footer);row.append(header,bubble);}else if(dateGroups){const footer=el('div','','message-footer');footer.append(el('span','','message-time'),action);row.append(header,el('div','','bubble rich-body'),footer);}else row.append(header,el('div','','bubble rich-body'),el('span','','message-time'));
+        if(dateGroups&&bubbleFooter){const footer=el('div','','message-footer'),bubble=el('div','','bubble');footer.append(el('span','','message-time'),action);bubble.append(el('div','','message-body rich-body'),footer);row.append(header,bubble);}else if(dateGroups){const footer=el('div','','message-footer');footer.append(el('span','','message-time'),action);row.append(header,el('div','','bubble rich-body'),footer);}else row.append(header,el('div','','bubble rich-body'),el('span','','message-time'));
       }
       if(dateGroups){const day=messageDay(m.createdAt),label=previousDay!==day.key?day.label:'';previousDay=day.key;let divider=row.querySelector('.message-day');if(label){if(!divider){divider=el('p','','message-day');row.insertBefore(divider,row.firstChild);}divider.textContent=label;}else divider?.remove();}
       row.classList.toggle('bookmarked',bookmarks.has(m.id));
-      const prior=selected[i-1];row.classList.toggle('message-group-continuation',channel==='relay'&&!!prior&&prior.role===m.role&&publicReportLabel(prior)===publicReportLabel(m)&&messageDay(prior.createdAt).key===messageDay(m.createdAt).key&&Date.parse(m.createdAt)-Date.parse(prior.createdAt)<300000);
+      const prior=selected[i-1];row.classList.toggle('message-group-continuation',bubbleFooter&&!!prior&&prior.role===m.role&&publicReportLabel(prior)===publicReportLabel(m)&&messageDay(prior.createdAt).key===messageDay(m.createdAt).key&&Date.parse(m.createdAt)-Date.parse(prior.createdAt)<300000);
       const reportLabel=publicReportLabel(m);
       row.querySelector('.message-author').textContent=reportLabel|| (m.role==='user'?'You':author);
       if(reportLabel)row.setAttribute('aria-label',reportLabel+' · public report; no private execution authority');
