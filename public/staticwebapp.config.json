@@ -7,6 +7,18 @@
   },
   "routes": [
     {
+      "route": "/mast/*",
+      "headers": {
+        "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; font-src data:; img-src 'self' data:; connect-src 'self' https://jarvis-hub-api.braydenparker999.workers.dev; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; frame-src 'self' blob:"
+      }
+    },
+    {
+      "route": "/muse/*",
+      "headers": {
+        "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; font-src data:; img-src 'self' data:; connect-src 'self' https://jarvis-hub-api.braydenparker999.workers.dev; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; frame-src 'self' blob:"
+      }
+    },
+    {
       "route": "/muse-key*",
       "headers": {
         "Cache-Control": "no-store",
