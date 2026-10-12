@@ -1,0 +1,51 @@
+[
+  {
+    "path": "assets/conversation.js",
+    "before": "c9b88857738e7bd509d05735203e610bda6e6303fe1ed8cd6eb2b285e7592c76",
+    "sha256": "7544da586d1f16197b38b3b550f61b2e834b27f957ba1017923a8c8ac2c1d77d",
+    "bytes": 10749,
+    "contentType": "application/javascript"
+  },
+  {
+    "path": "assets/muse-shell.js",
+    "before": null,
+    "sha256": "7aae6e78b4f08f75f0fc0479cbf628d101c821dde1df7603fe8c6df35e33d19f",
+    "bytes": 3996,
+    "contentType": "application/javascript"
+  },
+  {
+    "path": "assets/mast.css",
+    "before": "3f2d61ad14b9e9ad00001756a44b36267a25d8f454562ccb260f56f2b675620f",
+    "sha256": "62b55749a00872ab7cd82f44209a5eeacd84026a66a18dc23b25e11298a8c843",
+    "bytes": 971,
+    "contentType": "text/css"
+  },
+  {
+    "path": "assets/mast.js",
+    "before": "a1dd2ff54951439a6c270a69cdcfa43345ff30e8406e9e6b798054420335c72e",
+    "sha256": "573ca86c70cc9b3e29ac5de93a6888a5e3df7ea2eb4677670aad769a6473720d",
+    "bytes": 14256,
+    "contentType": "application/javascript"
+  },
+  {
+    "path": "assets/muse.js",
+    "before": "2fd972cd43cb200dd114d4f0176f6d8bca6ccf93dde222c48f4191dcf18fa654",
+    "sha256": "0122b3032a70289b1bf8ab1924f0215f4b897be66bf23d05ed7a71af6df847d2",
+    "bytes": 10051,
+    "contentType": "application/javascript"
+  },
+  {
+    "path": "mast/index.html",
+    "before": "cf309d87a32e4a34a7756e50327fe19bc43f00e5c78fe7c248ee80c61ac58a6c",
+    "sha256": "d623e7394bd17118c0afd8c21ea2109a9c370bf44757356b59be53de127a558f",
+    "bytes": 4925,
+    "contentType": "text/html"
+  },
+  {
+    "path": "muse/index.html",
+    "before": "858918e09f1d530b30399360953af8fa9c41f5bcaa4be8d77421748159a71ce7",
+    "sha256": "6ab763a6a055459c21072ac129be87f9216b8b6ccac2e833b4bf14997bb797bb",
+    "bytes": 3945,
+    "contentType": "text/html"
+  }
+]
