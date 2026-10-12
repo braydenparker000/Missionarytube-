@@ -82,3 +82,25 @@ test('offline preview playlist writes stay in isolated memory',{timeout:30000},a
     assert.deepEqual(result,{saved:true,opens:0});
   }finally{await browser.close();await rm(directory,{recursive:true,force:true});}
 });
+
+test('metadata-only mini seek survives a same-song library refresh and cancels on selection change',{timeout:30000},async()=>{
+  const fixture=await servePowerampFixture(),browser=await chromium.launch({executablePath:requireBrowser(),headless:true,args:['--no-sandbox']});
+  const h=await openFixturePage(browser,fixture,{count:3,art:false}),cdp=await h.context.newCDPSession(h.page);
+  const touch=(type,x,y)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{id:1,x,y,radiusX:1,radiusY:1,force:1}]});
+  try{
+    await h.page.evaluate(()=>{const {Engine:E}=PA;E.releaseSlot(E.cur);E._resumePosition={id:E.current.id,time:17};PA.Views.push({kind:'all',title:'All Songs'});});
+    await h.page.waitForFunction(()=>PA.Nav.cur==='list'&&!document.querySelector('.player-scene-input'));
+    const r=await h.page.locator('#mini-seek').boundingBox(),y=r.y+r.height/2;
+    await touch('touchStart',r.x+r.width*.1,y);await touch('touchMove',r.x+r.width*.3,y);
+    assert.equal(await h.page.evaluate(()=>PA.UI.seekDragging),true);
+    await h.page.evaluate(()=>PA.Views.refreshAll());
+    assert.equal(await h.page.evaluate(()=>PA.UI.seekDragging),true,'same-song refresh must preserve the mini seek contact');
+    await touch('touchMove',r.x+r.width*.4,y);await touch('touchEnd');
+    assert.ok(Math.abs(await h.page.evaluate(()=>PA.Engine.time()/PA.Engine.duration())-.4)<.015);
+    assert.equal(await h.page.evaluate(()=>PA.Engine.el().src),'');
+    await touch('touchStart',r.x+r.width*.2,y);
+    await h.page.evaluate(()=>{PA.Engine.current=[...PA.LIB.map.values()].find(t=>t.id!==PA.Engine.current.id);PA.Views.refreshAll();});
+    assert.equal(await h.page.evaluate(()=>PA.UI.seekDragging),false,'selection changes still cancel the old seek');
+    await touch('touchEnd');assert.deepEqual(h.errors,[]);
+  }finally{await h.context.close();await browser.close();await fixture.close();}
+});
