@@ -20,7 +20,7 @@ on:
         type: boolean
         default: false
       deploy_mast_chat_only:
-        description: Deploy the exact restrictive Mast Work gate without changing settings
+        description: Deploy the exact Mast reply route alias without changing settings
         type: boolean
         default: false
       activate_owner_mast:
@@ -518,11 +518,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: braydenparker999/jarvis
-          ref: 0f658032340040f676b2a8517db40d49d74b5d4c
+          ref: 95d39031bb7b80f637c969a761e2aff9cc6a1040
           path: .jarvis-source
           persist-credentials: false
       - name: Verify exact source proof and retained production receipt
-        run: node scripts/deploy-mast-chat-only.mjs prepare
+        run: node scripts/deploy-mast-reply-route.mjs prepare
       - name: Install exact source dependencies
         run: npm --prefix .jarvis-source ci
       - name: Prepare isolated pinned Worker tooling
@@ -531,21 +531,21 @@ jobs:
           npm --prefix .worker-tools install --no-save wrangler@4.136.3
       - name: Build the qualified Worker without publishing
         working-directory: .worker-tools
-        run: npx wrangler deploy --dry-run --config "$GITHUB_WORKSPACE/.jarvis-source/backend/wrangler.music.generated.json" --outdir "$GITHUB_WORKSPACE/mast-chat-only-release/bundle"
+        run: npx wrangler deploy --dry-run --config "$GITHUB_WORKSPACE/.jarvis-source/backend/wrangler.music.generated.json" --outdir "$GITHUB_WORKSPACE/mast-reply-route-release/bundle"
       - name: Checkpoint exact Worker and every retained binding
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        run: node scripts/deploy-mast-chat-only.mjs checkpoint
+        run: node scripts/deploy-mast-reply-route.mjs checkpoint
       - name: Deploy only the qualified Worker
         working-directory: .worker-tools
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: |
-          npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/mast-chat-only-release/versions-before.json"
+          npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/mast-reply-route-release/versions-before.json"
           npx wrangler deploy --config "$GITHUB_WORKSPACE/.jarvis-source/backend/wrangler.music.generated.json"
-          npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/mast-chat-only-release/versions-after.json"
+          npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/mast-reply-route-release/versions-after.json"
       - name: Verify source dependency isolation
         run: node scripts/prepare-worker-tools.mjs verify
       - name: Verify uploaded bytes and unchanged bindings; record receipt
@@ -553,7 +553,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-        run: node scripts/deploy-mast-chat-only.mjs record
+        run: node scripts/deploy-mast-reply-route.mjs record
       - name: Sign in using existing Azure identity
         id: azure_signin
         uses: azure/login@v2
@@ -566,7 +566,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           EXPECTED_RECEIPT_DIGEST: ${{ steps.wake.outputs.digest }}
-        run: node scripts/deploy-mast-chat-only.mjs stamp
+        run: node scripts/deploy-mast-reply-route.mjs stamp
       - name: Publish only the verified Worker receipt
         run: |
           az storage blob upload --account-name missionarytube --auth-mode login --container-name '$web' \
@@ -577,14 +577,14 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           EXPECTED_RECEIPT_DIGEST: ${{ steps.wake.outputs.digest }}
-        run: node scripts/deploy-mast-chat-only.mjs published
+        run: node scripts/deploy-mast-reply-route.mjs published
       - name: Preserve nonsecret release evidence and rollback version
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mast-chat-only-release-${{ github.run_id }}-${{ github.run_attempt }}
+          name: mast-reply-route-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            mast-chat-only-release/*.json
+            mast-reply-route-release/*.json
             release-qualified.json
           retention-days: 90
           if-no-files-found: warn
