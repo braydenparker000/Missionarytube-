@@ -1,0 +1,16 @@
+[
+  {
+    "path": "drawercast/curated-playlists.json",
+    "before": null,
+    "sha256": "86bc49aac0a6c1b1fab06e6020e956b5e40d21cd252acde97f9ee7a7d61e9bcf",
+    "bytes": 968384,
+    "contentType": "application/json"
+  },
+  {
+    "path": "drawercast/player.js",
+    "before": "f3287895ea933de86c0054b42dafcc035652997fbab49b153e5bb0025b325f02",
+    "sha256": "c922c89d60a01763408539a888ccc98ad6c91bb73bc0c5be15fa48f54cce1f44",
+    "bytes": 930668,
+    "contentType": "application/javascript"
+  }
+]
