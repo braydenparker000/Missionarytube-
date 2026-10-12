@@ -19,9 +19,11 @@ The local helper scripts/relay-assistant-file-args.mjs validates and packages an
    - Existing accepted replies remain untouched. A conflicting reply fails; choose the later-deliverable tool when the original already has an accepted reply.
 3. relay_owner_deliverable_send({inbox_id:"brayden-owner",message_id,delivery_id,body,attachment_ids})
    - Append one immutable later assistant deliverable to the original conversation.
+   - For an owner-requested text progress update, pass nonempty body (at most 6,000 characters) and attachment_ids: []. Files remain optional only for this later-delivery tool; the first file reply still requires one to four staged files.
    - It neither consumes nor replaces an accepted reply, rewrites a job result, nor marks work complete.
    - The same stable UUID, body, ordered file IDs and original message are required on uncertain-write retries.
    - Both commit tools return {inbox_id,delivery,newWrite,visibility:"private"}.
+   - Text updates share the existing 32-delivery limit, authentication, grant binding and stable creation-order pagination. They are agent-authored status text, not independently verified execution or completion evidence. No new scope, credential or HTTP route is introduced.
 4. relay_owner_attachment_discard({inbox_id:"brayden-owner",message_id,delivery_id,attachment_id})
    - Dispose only the same grant's unlinked stage; linked files remain immutable.
    - A bounded cancellation tombstone prevents a delayed upload from resurrecting that UUID.
@@ -42,6 +44,8 @@ GET /relay/owner/conversation?message_id=<original UUID> adds:
 
 Each later delivery is:
 {id,messageId,kind:"deliverable",role:"assistant",body,createdAt,author_authenticated:true,principal:"github:183016859",authentication_source:"owner-oauth-mcp",visibility:"private",attachments:[metadata]}
+
+For a text update, attachments is empty and body is nonempty. The private phone view displays these under “Updates and files from assistant” in creation order, with the accepted reply intact. A cached native host may still enforce the old attachment_ids minimum of one; refresh its tool metadata under the existing relay:owner connection before using text-only updates. Do not claim live delivery from code/catalog tests alone or add credentials/scopes to bypass a stale schema.
 
 Commit receipts use the same delivery shape with kind:"reply" or "deliverable". A reply delivery's id is the actual immutable accepted reply UUID. Filename and body remain inert untrusted display data. Attachment metadata remains:
 {id,messageId,name,mimeType,sizeBytes,sha256,createdAt,state:"linked",visibility:"private"}

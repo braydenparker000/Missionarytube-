@@ -22,7 +22,8 @@ export function messageAttachments(entry){
 
 export function assistantDeliverable(value,messageId){
   if(!value||value.role!=='assistant'||value.kind!=='deliverable'||value.messageId!==messageId||!attachmentUuid(value.id)||value.id===messageId
-    ||typeof value.body!=='string'||value.body.length>6000||!Number.isFinite(Date.parse(value.createdAt))||!Array.isArray(value.attachments)||!value.attachments.length)throw Error('Invalid private deliverable');
+    ||value.visibility!=='private'||value.author_authenticated!==true||value.principal!=='github:183016859'||value.authentication_source!=='owner-oauth-mcp'
+    ||typeof value.body!=='string'||value.body.length>6000||!Number.isFinite(Date.parse(value.createdAt))||!Array.isArray(value.attachments)||!value.attachments.length&&!value.body.trim())throw Error('Invalid private deliverable');
   const attachments=messageAttachments({...value,replyTo:messageId});
   return {id:value.id,messageId,kind:'deliverable',role:'assistant',body:value.body,createdAt:value.createdAt,attachments};
 }

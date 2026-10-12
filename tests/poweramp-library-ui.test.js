@@ -87,6 +87,13 @@ test('List Options has a fixed header/footer contract, sixteen sorts and all ten
   panel.querySelector('[data-list-close]').onclick();assert.equal(h.calls.at(-1),'close');
   assert.match(html,/\.list-options-body\{overflow-y:auto/);assert.match(html,/\.list-options-footer\{flex-shrink:0/);
 });
+test('Date Added provenance is available from an accessible sort control only when needed',()=>{
+  const h=harness(),items=tracks().map(t=>({...t,addedSource:'r2-upload'}));h.context.Views.currentData={type:'tracks',items};h.options.save({kind:'all'},{sort:'added'});h.options.show(h.box);
+  const panel=h.$('#sheet'),button=panel.querySelector('[data-date-added-info]'),info=panel.querySelector('.date-added-info');
+  assert.ok(button);assert.equal(button.tagName,'BUTTON');assert.equal(button.getAttribute('aria-label'),'Date Added information');assert.equal(button.getAttribute('aria-expanded'),'false');
+  assert.equal(info.textContent,'R2 dates use verified upload time; original library-add dates are unavailable.');button.onclick();assert.equal(button.getAttribute('aria-expanded'),'true');assert.equal(info.hidden,false);button.onclick();assert.equal(button.getAttribute('aria-expanded'),'false');assert.equal(info.hidden,true);
+  h.context.Views.currentData={type:'tracks',items:tracks()};h.options.show(h.box);assert.equal(h.$('#sheet').querySelector('[data-date-added-info]'),null);
+});
 test('options update the actual sorted category and keep queue sorting controls disabled',()=>{
   const h=harness();h.context.Views.currentData={type:'tracks',items:tracks()};h.options.show(h.box);
   h.$('#sheet').querySelector('.list-sort-options').querySelectorAll('input').find(n=>n.getAttribute('value')==='mtime').onchange();

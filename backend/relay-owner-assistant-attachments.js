@@ -115,7 +115,7 @@ export function relayAssistantDeliveryList(ctx,messageId,after,limit){
 export function relayAssistantDeliveryPrepare(ctx,principal,args,kind,now){
  identifiers(args.message_id,args.delivery_id);
  const accepted=target(ctx,principal,args.message_id,args.delivery_id);
- if(!['reply','deliverable'].includes(kind)||typeof args.body!=='string'||args.body.length>6000||!Array.isArray(args.attachment_ids)||args.attachment_ids.length<1||args.attachment_ids.length>4||args.attachment_ids.some(x=>!uuid(x)||x===args.delivery_id||x===args.message_id)||new Set(args.attachment_ids).size!==args.attachment_ids.length)fail(400,'attachment_invalid','Invalid assistant attachment delivery');
+ if(!['reply','deliverable'].includes(kind)||typeof args.body!=='string'||args.body.length>6000||!Array.isArray(args.attachment_ids)||args.attachment_ids.length<(kind==='reply'?1:0)||args.attachment_ids.length>4||!args.attachment_ids.length&&!args.body.trim()||args.attachment_ids.some(x=>!uuid(x)||x===args.delivery_id||x===args.message_id)||new Set(args.attachment_ids).size!==args.attachment_ids.length)fail(400,'attachment_invalid','Invalid assistant delivery');
  const body=args.body.trim();
  if(accepted){
   if(accepted.kind!==kind||accepted.body!==body||JSON.stringify(relayAssistantAttachmentMetadata(ctx,accepted.id).map(x=>x.id))!==JSON.stringify(args.attachment_ids))fail(409,'attachment_delivery_conflict','Delivery ID conflicts with an accepted immutable delivery');

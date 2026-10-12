@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {messageAttachments} from '../public/assets/relay-attachment-contract.js';
+import {messageAttachments,assistantDeliverable} from '../public/assets/relay-attachment-contract.js';
 import {createRelayOwnerApi,OWNER_SESSION_KEY} from '../public/assets/relay-owner-api.js';
 import {createRelayOwnerController} from '../public/assets/relay-owner-ui.js';
 const originalId=crypto.randomUUID(),replyId=crypto.randomUUID(),deliveryId=crypto.randomUUID(),deviceId=crypto.randomUUID();
@@ -9,6 +9,11 @@ const delivery={id:deliveryId,sequence:3,role:'assistant',body:'',createdAt:meta
 const original={id:originalId,sequence:1,role:'user',body:'Synthetic report request',createdAt:'2026-10-10T18:00:00Z',visibility:'private',author_authenticated:true};
 const reply={...delivery,id:replyId,sequence:2,body:'Accepted text reply remains unchanged.',createdAt:'2026-10-10T18:00:01Z',attachments:[]};
 const token='a'.repeat(64),storage={getItem:key=>key===OWNER_SESSION_KEY?JSON.stringify({device_token:token,device_id:deviceId}):null};
+test('text updates retain private authenticated provenance even without files',()=>{
+ const update={...delivery,messageId:originalId,kind:'deliverable',body:'Synthetic progress',attachments:[]};
+ assert.equal(assistantDeliverable(update,originalId).body,update.body);
+ for(const change of [{body:'   '},{visibility:'public'},{author_authenticated:false},{principal:'github:other'},{authentication_source:'shared'}])assert.throws(()=>assistantDeliverable({...update,...change},originalId));
+});
 test('private assistant file metadata requires authenticated owner MCP provenance and exact delivery linkage',()=>{
  assert.deepEqual(messageAttachments(delivery),[metadata]);
  for(const change of [{role:'system'},{visibility:'public'},{author_authenticated:false},{principal:'github:other'},{authentication_source:'owner-device-session'},{replyTo:null},{replyTo:deliveryId},{attachments:[{...metadata,messageId:replyId}]},{attachments:[metadata,metadata]}])assert.throws(()=>messageAttachments({...delivery,...change}));

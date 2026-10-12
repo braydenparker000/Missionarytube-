@@ -8263,7 +8263,6 @@ const ListOptions={
         data=Object.assign({},data,{items:items.slice().sort(this.comparator(options.sort,options.reverse))});
       }else if(options.sort!=='original')data=Object.assign({},data,{sortNotice:this.availability(options.sort,data,spec)});
       if(options.reverse&&options.sort!=='added')data=Object.assign({},data,{items:data.items.slice().reverse()});
-      if(options.sort==='added'&&items.some(t=>t.addedSource==='r2-upload'))data=Object.assign({},data,{sortNotice:'R2 dates use verified upload time; original library-add dates are unavailable.'});
       const alphaField={filename:'filename',path:'path',artist:'artist',album:'album'}[options.sort]||'title';
       return Object.assign({},data,{alphaField});
     }
@@ -8274,7 +8273,8 @@ const ListOptions={
   show(box){
     if(!box)return;
     const spec=box.__spec||Views.currentSpec||{kind:'all'},data=Views.currentData||{type:'tracks',items:box.__items||[]},options=this.get(spec),s=$('#sheet');
-    s.innerHTML='<div class="list-options-content"><header class="list-options-head"><h3>'+esc('List Options: '+(spec.title||spec.key||Views.title(spec)))+'</h3><button class="iconbtn" data-list-settings aria-label="Open library settings">'+icoHTML('settings')+'</button></header><div class="list-options-body"><h4>Sort</h4><div class="list-sort-options"></div><label class="list-choice"><input type="checkbox" data-list-reverse '+(options.reverse?'checked ':'')+(spec.kind==='queue'?'disabled':'')+'><span>Reverse</span></label><h4>Layout</h4><label class="list-choice"><input type="checkbox" data-list-titles '+(options.titlesOnly?'checked':'')+'><span>Show titles only</span></label><h4>View As</h4><p class="list-pinch-hint">'+icoHTML('info')+' Pinch-to-zoom for zooming</p><div class="list-view-options"></div></div><footer class="list-options-footer"><button class="btn" data-list-close>Close</button></footer></div>';
+    const hasR2Dates=options.sort==='added'&&data.type==='tracks'&&data.items.some(t=>t.addedSource==='r2-upload');
+    s.innerHTML='<div class="list-options-content"><header class="list-options-head"><h3>'+esc('List Options: '+(spec.title||spec.key||Views.title(spec)))+'</h3><button class="iconbtn" data-list-settings aria-label="Open library settings">'+icoHTML('settings')+'</button></header><div class="list-options-body"><div class="list-sort-heading"><h4>Sort</h4>'+(hasR2Dates?'<button type="button" class="date-added-info-button" data-date-added-info aria-label="Date Added information" aria-expanded="false" aria-controls="date-added-info">'+icoHTML('info')+'</button>':'')+'</div>'+(hasR2Dates?'<p class="date-added-info" id="date-added-info" hidden>R2 dates use verified upload time; original library-add dates are unavailable.</p>':'')+'<div class="list-sort-options"></div><label class="list-choice"><input type="checkbox" data-list-reverse '+(options.reverse?'checked ':'')+(spec.kind==='queue'?'disabled':'')+'><span>Reverse</span></label><h4>Layout</h4><label class="list-choice"><input type="checkbox" data-list-titles '+(options.titlesOnly?'checked':'')+'><span>Show titles only</span></label><h4>View As</h4><p class="list-pinch-hint">'+icoHTML('info')+' Pinch-to-zoom for zooming</p><div class="list-view-options"></div></div><footer class="list-options-footer"><button class="btn" data-list-close>Close</button></footer></div>';
     const activeBox=()=>{const live=$('#list-body .zoom-list');return live&&this.key(live.__spec||Views.currentSpec)===this.key(spec)?live:null;};
     const change=value=>{if(!activeBox())return;this.save(spec,value);const scroll=s.querySelector('.list-options-body').scrollTop;Views.render(Views.currentSpec||spec,true);this.show($('#list-body .zoom-list'));s.querySelector('.list-options-body').scrollTop=scroll;};
     const sorts=s.querySelector('.list-sort-options');
@@ -8284,6 +8284,8 @@ const ListOptions={
       row.querySelector('input').onchange=()=>change({sort:id});sorts.append(row);
     }
     if(spec.kind==='queue'||options.sort==='original')sorts.prepend(el('p','list-options-note',spec.kind==='queue'?'Queue order follows its Added queue or Playback order tab. Sorting and reversing are disabled.':'Current order is preserved until you choose a sort.'));
+    const dateInfoButton=s.querySelector('[data-date-added-info]');
+    if(dateInfoButton)dateInfoButton.onclick=()=>{const info=s.querySelector('.date-added-info'),expanded=dateInfoButton.getAttribute('aria-expanded')==='true';dateInfoButton.setAttribute('aria-expanded',String(!expanded));info.hidden=expanded;};
     const layoutLabels={[-4]:'Grid - 1 line small',[-3]:'1 line extra small',[-2]:'1 line',[-1]:'List - no images',0:'List - compact',3:'List - small',4:'List',1:'Grid - extra small',2:'Grid - small',5:'Grid'};
     for(const id of [-4,-3,-2,-1,0,3,4,1,2,5]){
       const row=el('label','list-choice');row.innerHTML='<input type="radio" name="list-view" value="'+id+'" '+(+box.dataset.zoom===id?'checked':'')+'><span>'+layoutLabels[id]+'</span>';
