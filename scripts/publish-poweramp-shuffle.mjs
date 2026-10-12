@@ -6,11 +6,14 @@ import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {immutableSourceSnapshot,recipeAllowed} from './plan-jarvis-qualification.mjs';
+import {immutableSourceSnapshot,recipeAllowed,trustedRecipe} from './plan-jarvis-qualification.mjs';
 import {liveIdentity,receiptDigest} from './worker-release-identity.mjs';
 export const SOURCE='0636f664e063278eb93e7b743e89b8b04c20e9e5';
 export const PARENT='adcae42174117ff958e5bfb0407468b02cd3c30c0e2596ebd276306ceda9b7bf';
 export const FILES=JSON.parse(readFileSync(new URL('./poweramp-shuffle-file-pins.json',import.meta.url)));
+// Reviewed finite recipe: adds the mandatory shuffle latency test to the
+// existing serial performance lane; verifier and browser installer stay pinned.
+const SHUFFLE_RECIPE={...trustedRecipe,'.github/workflows/validate-r2.yml':'9a352d9671250bbdcb8701a6065905219442f0e0','tests/helpers/ci-test-inventory.mjs':'ea4b765d4b510cf7e1cafd9a84526924bbaa4e86'};
 const ORIGIN='https://missionarytube.z13.web.core.windows.net',ROOT=resolve('.poweramp-source');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const git=(root,...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8'}).trim();
@@ -26,7 +29,7 @@ export function checkedShuffleReceipt(receipt){
  assert.equal(canonicalDigest(receipt),canonicalDigest({...prior,orchestration:receipt.orchestration,runId:receipt.runId,attempt:receipt.attempt,frontendArtifactDigest:receiptDigest(p.artifact),shufflePatch:p}));return prior;
 }
 async function source(){
- assert.equal(git(ROOT,'rev-parse','HEAD'),SOURCE);immutableSourceSnapshot(ROOT);assert.ok(recipeAllowed(ROOT));
+ assert.equal(git(ROOT,'rev-parse','HEAD'),SOURCE);immutableSourceSnapshot(ROOT);assert.ok(recipeAllowed(ROOT,SHUFFLE_RECIPE));
  const q=await import(pathToFileURL(resolve(ROOT,'scripts/qualification-proof.mjs')));
  const plan=q.makePlan(q.localEntries(ROOT),q.declaredEnvironment(ROOT,{QUALIFICATION_NODE22:'v22.23.3',QUALIFICATION_NODE24:'v24.21.0',QUALIFICATION_PYTHON:'Python 3.12.15'}));
  const proof=await q.findProof(plan,{sourceSha:SOURCE});assert.equal(proof.qualified,true,'Exact trusted source proof required');
