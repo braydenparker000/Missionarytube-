@@ -1,9 +1,10 @@
+import {museConversations} from './muse-conversations.js';
 import {createMastWork} from './mast-work.js';
 import {createRelayOwnerApi} from './relay-owner-api.js';
 import {createAttachmentDraft,RELAY_ATTACHMENT_TYPES} from './relay-attachments.js';
 import {createPrivateAttachmentContent} from './relay-attachment-content.js';
 import {createMastDraftStore} from './mast-draft.js';
-import {richText,copyText,autosize,messageDay} from './ui.js';
+import {richText,copyText,autosize,messageDay,icon} from './ui.js';
 let storage,tab;try{storage=localStorage;tab=sessionStorage;}catch{}
 const api=createRelayOwnerApi({storage,attachmentDestination:'mast'}),journal=createMastDraftStore(tab);
 const $=id=>document.getElementById(id),status=$('status'),login=$('login'),messages=$('messages');
@@ -41,7 +42,7 @@ function render(){
     if(query&&!((message.body+' '+message.attachments.map(a=>a.name).join(' ')).toLocaleLowerCase().includes(query)))continue;
     const date=messageDay(message.createdAt);if(date.key!==day){day=date.key;const label=document.createElement('p');label.className='mast-day';label.textContent=date.label;messages.append(label);}
     const row=document.createElement('article');row.className='message-row'+(message.role==='owner'?' outgoing':'');row.dataset.id=message.id;
-    const author=document.createElement('span');author.className='message-author';author.textContent=message.role==='owner'?'You':'Muse';
+    const author=document.createElement('span');author.className='message-author';author.textContent=message.role==='owner'?'You':'Mast';
     const body=document.createElement('div');body.className='bubble rich-body';richText(body,message.body);
     const time=document.createElement('span');time.className='message-time';time.textContent=new Date(message.createdAt).toLocaleString()+(message.role==='owner'?(replied.has(message.id)?' · Replied':adapter?.fetchedSequence>=message.sequence?' · Fetch served · Awaiting reply':' · Saved · Awaiting Muse'):'');
     row.append(author,body);
@@ -104,9 +105,12 @@ window.addEventListener('storage',event=>{if(event.key==='jarvis.relay.owner-ses
 window.addEventListener('online',refresh);
 $('refresh').onclick=refresh;$('search').oninput=render;$('latest').onclick=()=>{messages.scrollTop=messages.scrollHeight;$('latest').hidden=true;};
 messages.addEventListener('scroll',()=>{$('latest').hidden=messages.scrollHeight-messages.scrollTop-messages.clientHeight<80;});
-$('export').onclick=()=>{const text=[...history.values()].sort((a,b)=>a.sequence-b.sequence).map(m=>`${m.role==='owner'?'You':'Muse'} · ${m.createdAt}\n${m.body}\n${m.attachments.map(a=>a.name).join('\n')}`).join('\n\n');const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='private-muse-conversation.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('export').onclick=()=>{const text=[...history.values()].sort((a,b)=>a.sequence-b.sequence).map(m=>`${m.role==='owner'?'You':'Mast'} · ${m.createdAt}\n${m.body}\n${m.attachments.map(a=>a.name).join('\n')}`).join('\n\n');const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='private-muse-conversation.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
 function viewport(){document.documentElement.style.setProperty('--mast-height',(window.visualViewport?.height||innerHeight)+'px');}
 window.visualViewport?.addEventListener('resize',viewport);viewport();
 setInterval(()=>{if(!document.hidden&&enabled)refresh();},15000);
 refresh();
+
+$('muse-menu').innerHTML=icon('more');
+$('muse-menu').onclick=()=>museConversations(true,[{label:'Refresh private inbox',icon:'refresh',action:refresh},{label:'Connection details',icon:'info',action:()=>{$('connection').open=true;}}]);
