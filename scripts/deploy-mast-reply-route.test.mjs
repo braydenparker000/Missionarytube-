@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {checkedMastReplyReceipt,SOURCE,preservedConfig} from './deploy-mast-reply-route.mjs';
+import {checkedMastReplyReceipt,SOURCE,preservedConfig,checkedRecoveryFiles} from './deploy-mast-reply-route.mjs';
 import {receiptDigest} from './worker-release-identity.mjs';
 import {verifiedMusicReceipt} from './music-frontend-identity.mjs';
 const parent=JSON.parse(readFileSync(new URL('../docs/evidence/mast-reply-parent-receipt-38208066705.json',import.meta.url)));
@@ -17,4 +17,10 @@ test('route receipt requires exact successful production attempt and stamp, then
  const repo='braydenparker000/Missionarytube-';const fetcher=async url=>{const item=chain.find(x=>url.includes('/runs/'+x.runId));assert.ok(item);return Response.json(url.includes('/jobs?')?{total_count:1,jobs:[{name:'deploy',run_id:Number(item.runId),head_sha:item.orchestration,run_attempt:Number(item.attempt),status:'completed',conclusion:'success',steps:[{name:'verified-production-receipt-'+receiptDigest(item),status:'completed',conclusion:'success'}]}]}:{id:Number(item.runId),repository:{full_name:repo},head_repository:{full_name:repo},head_sha:item.orchestration,run_attempt:Number(item.attempt),head_branch:'main',event:'workflow_dispatch',path:'.github/workflows/deploy-azure-storage.yml',status:'completed',conclusion:'success'});};
  await verifiedMusicReceipt(r,fetcher);
  for(const change of [d=>{d.jobs[0].run_attempt=2},d=>{d.jobs[0].steps=[]},d=>{d.total_count=2}])await assert.rejects(verifiedMusicReceipt(r,async url=>{const data=await(await fetcher(url)).json();if(url.includes('/runs/123/')&&data.jobs)change(data);return Response.json(data)}));
+});
+
+test('recovery rejects substituted evidence and its production job cannot upload Worker code',()=>{
+ assert.throws(()=>checkedRecoveryFiles({'checkpoint.json':Buffer.from('{}')}),/Recovery evidence mismatch/);
+ const flow=readFileSync(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');const job=flow.split('  mast-chat-only:')[1].split('  activate-owner-mast:')[0];
+ assert.match(job,/run-id: 38251820112/);assert.match(job,/mast-reply-route-release-38251820112-2/);assert.match(job,/deploy-mast-reply-route.mjs recover/);assert.doesNotMatch(job,/wrangler|deploy-mast-reply-route.mjs prepare|deploy-mast-reply-route.mjs checkpoint/);
 });

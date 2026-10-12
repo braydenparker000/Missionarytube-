@@ -54,16 +54,36 @@ async function codeSha(){
 const recipePaths=['scripts/mast-worker-input-identity.mjs','.github/workflows/deploy-azure-storage.yml','scripts/deploy-mast-reply-route.mjs','scripts/plan-jarvis-qualification.mjs','scripts/check-music-worker-bindings.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/lucy-settings-diagnostic.mjs','scripts/activate-lucy-muse.mjs'];
 async function recipe(){return Promise.all(recipePaths.map(async path=>{const bytes=await readFile(path),sha=createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');assert.equal(git(process.cwd(),'rev-parse','HEAD:'+path),sha);return {path,sha};}));}
 async function verify(checkpoint){
- await source();assert.deepEqual(await recipe(),checkpoint.recipe);
- const live=await liveIdentity(credentials()),settings=await readWorkerSettings(credentials());
+ checkpointStage='verify_source';await source();assert.deepEqual(await recipe(),checkpoint.recipe);
+ checkpointStage='verify_live_identity';const live=await retryRead(()=>liveIdentity(credentials()));checkpointStage='verify_settings';const settings=await retryRead(()=>readWorkerSettings(credentials()));
  assert.equal(settingsDigest(settings),live.settingsDigest);checkedPreservedSettings(settings,checkpoint.bindings);
  assert.equal(nonBindingDigest(settings),checkpoint.nonBindings,'Non-binding settings changed');
- assert.equal(live.settingsDigest,SETTINGS);assert.equal(await codeSha(),checkpoint.bundleSha256,'Uploaded code differs from qualified dry run');
- assert.equal(await frontend(),checkpoint.frontend);return live;
+ assert.equal(live.settingsDigest,SETTINGS);checkpointStage='verify_uploaded_code';assert.equal(await retryRead(codeSha),checkpoint.bundleSha256,'Uploaded code differs from qualified dry run');
+ checkpointStage='verify_frontend';assert.equal(await frontend(),checkpoint.frontend);return live;
 }
+async function retryRead(operation){
+ for(let attempt=0;;attempt++){try{return await operation()}catch(error){if(attempt===2||error.code==='ERR_ASSERTION')throw error;await new Promise(resolve=>setTimeout(resolve,2000));}}
+}
+const RECOVERY_FILES={
+ 'checkpoint.json':'9196083b74a01ddc12e9cdf9c78f88283c49f23c87db6674234db162148526f3',
+ 'plan.json':'b04494bf922f04fac284b1dfaee887f1e1a557a0e7050edbbaf89484893e74f9',
+ 'versions-after.json':'2986533a00526b1c820d4fbf8f054dbf274cc111cfef089977d8a5ee01b59cf5',
+ 'versions-before.json':'6201a4fe22d04bfae95f351b97577e28db2c209a80fcef087e932c48dde6aaec'};
+export function checkedRecoveryFiles(files){for(const [name,digest] of Object.entries(RECOVERY_FILES))assert.equal(hash(files[name]),digest,'Recovery evidence mismatch: '+name);}
 let checkpointStage='start';
 async function main(command){
- assert.ok(['prepare','checkpoint','record','stamp','published'].includes(command));
+ assert.ok(['recover','prepare','checkpoint','record','stamp','published'].includes(command));
+ if(command==='recover'){
+  checkpointStage='recovery_evidence';const files=Object.fromEntries(await Promise.all(Object.keys(RECOVERY_FILES).map(async name=>[name,await readFile('mast-reply-route-release/'+name)])));checkedRecoveryFiles(files);
+  await source();assert.equal(receiptDigest(await json(ORIGIN+'/release-qualified.json')),PARENT);
+  const plan=JSON.parse(files['plan.json']),checkpoint=JSON.parse(files['checkpoint.json']);
+  assert.equal(plan.source,SOURCE);assert.equal(receiptDigest(plan.parent),PARENT);assert.equal(receiptDigest(checkpoint.parent),PARENT);
+  const live=await retryRead(()=>liveIdentity(credentials()));assert.equal(live.version,'e2726f23-35c7-4245-81f6-aa54420cc035');assert.equal(live.settingsDigest,SETTINGS);
+  newlyDeployedVersion(JSON.parse(files['versions-before.json']),JSON.parse(files['versions-after.json']),live);
+  plan.recipe=checkpoint.recipe=await recipe();
+  await writeFile('mast-reply-route-release/plan.json',JSON.stringify(plan,null,2)+'\n');await writeFile('mast-reply-route-release/checkpoint.json',JSON.stringify(checkpoint,null,2)+'\n');
+  console.log('Exact failed-run checkpoint verified; receipt-only recovery, no Worker upload');return;
+ }
  if(command==='prepare'){
   const proof=await source(),parent=await json(ORIGIN+'/release-qualified.json');assert.equal(receiptDigest(parent),PARENT);
   await mkdir('mast-reply-route-release',{recursive:true});
