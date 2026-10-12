@@ -827,7 +827,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: braydenparker999/jarvis
-          ref: 6455e8eb3ec4658e4951f6e1f0eff060ee2f8f9c
+          ref: 550c8395d23d42eea66686cfe21793505606115d
           path: .poweramp-playlists-source
           persist-credentials: false
       - name: Verify trusted source and back up exact existing files

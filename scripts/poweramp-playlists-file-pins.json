@@ -9,8 +9,8 @@
   {
     "path": "drawercast/player.js",
     "before": "f3287895ea933de86c0054b42dafcc035652997fbab49b153e5bb0025b325f02",
-    "sha256": "c922c89d60a01763408539a888ccc98ad6c91bb73bc0c5be15fa48f54cce1f44",
-    "bytes": 930668,
+    "sha256": "55fbc7be498379dfe51023573795e0e54c735ffe8e26e6991e5fa11e22193e1d",
+    "bytes": 930943,
     "contentType": "application/javascript"
   }
 ]

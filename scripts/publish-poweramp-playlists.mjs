@@ -7,7 +7,7 @@ import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {immutableSourceSnapshot,recipeAllowed} from './plan-jarvis-qualification.mjs';
 import {liveIdentity,receiptDigest} from './worker-release-identity.mjs';
-export const SOURCE='6455e8eb3ec4658e4951f6e1f0eff060ee2f8f9c';
+export const SOURCE='550c8395d23d42eea66686cfe21793505606115d';
 export const PARENT='8bd8716d27723e0f8d5ab5b19fb05b9ff4ed8445abf19b712d1749b2fa6dddcc';
 export const FILES=JSON.parse(readFileSync(new URL('./poweramp-playlists-file-pins.json',import.meta.url)));
 const ORIGIN='https://missionarytube.z13.web.core.windows.net',ROOT=resolve('.poweramp-playlists-source');
