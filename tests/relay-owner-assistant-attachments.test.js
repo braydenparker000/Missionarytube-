@@ -8,6 +8,31 @@ import {ATTACHMENT_LIMITS} from '../backend/relay-owner-attachments.js';
 const pdf=JSON.parse(readFileSync(new URL('./fixtures/relay-attachment-document.json',import.meta.url))).pdf;
 const status=n=>e=>e.data?.status===n;
 const stage=async(s,message,delivery,options)=>(await s.assistantUpload(message,delivery,options)).attachment;
+test('private text updates: exact retries, owner isolation and immutable accepted result',async t=>{
+ const s=await assistantFixture(t),message=id(),run=id();await s.send(message);
+ await s.rpc('relay_owner_job_claim',{inbox_id:s.inbox,job_id:message,run_id:run,event_id:id()});
+ const reply=await s.rpc('relay_owner_reply',{inbox_id:s.inbox,message_id:message,body:'Synthetic immutable result.'});
+ await s.rpc('relay_owner_job_update',{inbox_id:s.inbox,job_id:message,run_id:run,event_id:id(),stage:'completed',expected_reply_id:reply.entry.id,expected_version:1,summary:'Synthetic checked result.',outcome:'known'});
+ const before=await s.rpc('relay_owner_job_read',{inbox_id:s.inbox,job_id:message}),entries=s.sql('SELECT * FROM relay_owner_entries'),events=s.sql('SELECT * FROM relay_owner_job_events');
+ const update=s.commitArgs(message,id(),[],'Synthetic progress update.');
+ await assert.rejects((async()=>{await s.connector('relay_owner_deliverable_send',update);throw Error('Synthetic lost response');})(),/lost response/);
+ const retry=(await s.connector('relay_owner_deliverable_send',update)).structuredContent;assert.equal(retry.newWrite,false);assert.deepEqual(retry.delivery.attachments,[]);
+ await assert.rejects(s.connector('relay_owner_deliverable_send',{...update,body:'Changed update'}),status(409));
+ const second=await s.commit(message,id(),[],'Synthetic second update.');
+ const history=(await s.connector('relay_owner_deliverables_list',{inbox_id:s.inbox,message_id:message})).structuredContent;
+ assert.deepEqual(history.deliverables.map(x=>x.id),[update.delivery_id,second.delivery.id]);
+ assert.deepEqual((await s.rpc('relay_owner_job_read',{inbox_id:s.inbox,job_id:message})).job,before.job);
+ assert.deepEqual(s.sql('SELECT * FROM relay_owner_entries'),entries);assert.deepEqual(s.sql('SELECT * FROM relay_owner_job_events'),events);
+ await assert.rejects(s.commit(message,id(),[],'   '),status(400));await assert.rejects(s.commit(message,id(),[],'x'.repeat(6001)),status(400));
+ await assert.rejects(s.commit(message,id(),[],'Text-only first reply','reply'),status(400));
+ const publicId=id();sharedStore(s.ctx,'/internal/shared/message',{id:publicId,body:'Synthetic public request'});
+ for(const target of [publicId,reply.entry.id,id()])await assert.rejects(s.commit(target,id(),[],'Private update'),status(404));
+ const catalog=await relayRpc(s.ctx,s.env,s.principal,{method:'tools/list',params:{_meta:{}}});
+ const tool=catalog.tools.find(x=>x.name==='relay_owner_deliverable_send');assert.equal(tool.inputSchema.properties.attachment_ids.minItems,0);assert.deepEqual(tool.securitySchemes,[{type:'oauth2',scopes:['relay:owner']}]);
+ assert.equal((await s.connector('relay_owner_deliverable_send',s.commitArgs(message,id(),[],'Unauthorized update'),{...s.principal,scopes:['relay:read']})).isError,true);
+ const row=s.sql('SELECT value FROM relay_oauth WHERE key=?','grant:'+s.principal.grantId)[0],grant=JSON.parse(row.value);grant.revoked=true;s.sql('UPDATE relay_oauth SET value=? WHERE key=?',JSON.stringify(grant),'grant:'+s.principal.grantId);
+ await assert.rejects(s.connector('relay_owner_deliverable_send',update),e=>e.code===-32012);assert.equal(s.sql('SELECT COUNT(*) AS n FROM relay_owner_assistant_deliveries')[0].n,2);
+});
 test('assistant files: first file-only reply is immutable, privately linked and completion-unverified',async t=>{
  const s=await assistantFixture(t),message=id(),delivery=id();await s.send(message);
  const file=await stage(s,message,delivery,{name:'synthetic.png',mime_type:'image/png',data_base64:raster.png});
@@ -65,7 +90,7 @@ test('assistant files: uncertain stage and commit responses retry exact IDs with
  assert.equal(s.sql('SELECT uploads FROM relay_owner_attachment_rates')[0].uploads,1);
  await assert.rejects(s.connector('relay_owner_attachment_upload',{...args,data_base64:Buffer.from('Different valid UTF-8 bytes').toString('base64')}),status(409));
  await assert.rejects(s.connector('relay_owner_deliverable_send',{...commit,body:'Different body'}),status(409));
- await assert.rejects(s.connector('relay_owner_deliverable_send',{...commit,attachment_ids:[]}),status(400));
+ await assert.rejects(s.connector('relay_owner_deliverable_send',{...commit,attachment_ids:[]}),status(409));
 });
 test('assistant files: order and linkage cannot change on an accepted delivery retry',async t=>{
  const s=await assistantFixture(t),message=id(),delivery=id();await s.send(message);

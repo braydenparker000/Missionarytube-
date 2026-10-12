@@ -706,12 +706,12 @@ export function createRelayOwnerUI({ controller = createRelayOwnerController(), 
       const bubble=make('div','','bubble');if(m.body)bubble.append(make('p',m.body,'message-body'));for(const item of m.attachments||[])bubble.append(attachmentContent.row(item));row.append(bubble);
       if(m.role==='user'&&state.attachmentsEnabled){
         const deliveries=state.deliveryPages[m.id],section=make('section','','relay-assistant-deliveries');section.dataset.originalId=m.id;
-        const toggle=action(deliveries?.open?'Close assistant files':'Files from assistant',()=>deliveries?.open?controller.closeDeliverables(m.id):controller.loadDeliverables(m.id),'text-button');toggle.setAttribute('aria-expanded',String(!!deliveries?.open));section.append(toggle);
+        const toggle=action(deliveries?.open?'Close assistant updates':'Updates and files from assistant',()=>deliveries?.open?controller.closeDeliverables(m.id):controller.loadDeliverables(m.id),'text-button');toggle.setAttribute('aria-expanded',String(!!deliveries?.open));section.append(toggle);
         if(deliveries?.open){
-          const status=make('p',deliveries.busy?'Loading private files…':deliveries.error||(!deliveries.items.length?'No later files have been delivered.':''),'request-meta');status.setAttribute('role','status');section.append(status);
-          for(const delivery of deliveries.items){const entry=make('article','','relay-assistant-deliverable');entry.dataset.deliveryId=delivery.id;entry.append(make('p','Files from assistant · '+messageStamp(delivery.createdAt),'request-meta'));if(delivery.body)entry.append(make('p',delivery.body,'message-body'));for(const item of delivery.attachments)entry.append(attachmentContent.row(item));section.append(entry);}
-          const refresh=action(deliveries.error?'Retry loading files':'Refresh files',()=>controller.loadDeliverables(m.id),'text-button');refresh.disabled=deliveries.busy;section.append(refresh);
-          if(deliveries.nextCursor){const more=action('Load more files',()=>controller.loadDeliverables(m.id,{more:true}),'text-button');more.disabled=deliveries.busy;section.append(more);}
+          const status=make('p',deliveries.busy?'Loading private updates…':deliveries.error||(!deliveries.items.length?'No later updates or files have been delivered.':''),'request-meta');status.setAttribute('role','status');section.append(status);
+          for(const delivery of deliveries.items){const entry=make('article','','relay-assistant-deliverable');entry.dataset.deliveryId=delivery.id;entry.append(make('p',(delivery.attachments.length?'Files from assistant':'Update from assistant')+' · '+messageStamp(delivery.createdAt),'request-meta'));if(delivery.body)entry.append(make('p',delivery.body,'message-body'));for(const item of delivery.attachments)entry.append(attachmentContent.row(item));section.append(entry);}
+          const refresh=action(deliveries.error?'Retry loading updates':'Refresh updates',()=>controller.loadDeliverables(m.id),'text-button');refresh.disabled=deliveries.busy;section.append(refresh);
+          if(deliveries.nextCursor){const more=action('Load more updates',()=>controller.loadDeliverables(m.id,{more:true}),'text-button');more.disabled=deliveries.busy;section.append(more);}
         }row.append(section);
       }
       let status='';
