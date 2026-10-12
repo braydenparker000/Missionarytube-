@@ -2448,7 +2448,12 @@ const R2Source={
         try{
           const saved=await IDB.get('kv','r2-native-snapshot');
           const restored=this.helper.restoreLibrarySnapshot(saved,this.manifestURL,allTracks(true).filter(t=>t.source==='r2'));
-          if(restored&&SourceLibrary.enabled('r2')&&!this.mapping){this.mapping=restored.mapping;this.status='Saved R2 library ready';Engine.tracePlayback('r2-cache-restored');void PlaylistFiles.seed();}
+          if(restored&&SourceLibrary.enabled('r2')&&!this.mapping){
+            // Repair legacy import-time dates even when the network is offline.
+            const repaired=[];
+            for(const fresh of restored.tracks){const old=LIB.map.get(fresh.id);if(old&&(old.added!==fresh.added||old.addedSource!==fresh.addedSource)){old.added=fresh.added;old.addedSource=fresh.addedSource;repaired.push(old);}}
+            if(repaired.length){void persistTracks(repaired).catch(()=>{});Views.refreshAll();}
+            this.mapping=restored.mapping;this.status='Saved R2 library ready';Engine.tracePlayback('r2-cache-restored');void PlaylistFiles.seed();}
         }catch(_){}
       }
       await this.connect(true);
@@ -8201,7 +8206,12 @@ const ListOptions={
     const found=data.items.some(t=>numeric?Number.isFinite(Number(t[field]))&&t[field]!=null&&t[field]!==''&&(!['track','year','dur','added','mtime','lastPlayed'].includes(field)||Number(t[field])>0):!!t[field]);
     return found?'':'No '+({mtime:'filesystem date',added:'date added',lastPlayed:'last-played time',plays:'play-count',track:'track-number',dur:'duration'}[field]||field)+' data in this category';
   },
-  comparator(id){
+  comparator(id,reverse=false){
+    // Unknown dates stay last in either direction; equal dates retain source order.
+    if(id==='added')return (a,b)=>{
+      const av=Number(a.added),bv=Number(b.added),ak=Number.isFinite(av)&&av>0,bk=Number.isFinite(bv)&&bv>0;
+      return ak!==bk?(ak?-1:1):ak?(av-bv)*(reverse?1:-1):0;
+    };
     const text=fn=>(a,b)=>sortNat(fn(a)||'',fn(b)||'');
     const number=(field,desc=false)=>(a,b)=>{
       const av=Number(a[field]),bv=Number(b[field]),positive=['track','disc','year','dur','added','mtime','lastPlayed'].includes(field),ak=a[field]!=null&&a[field]!==''&&Number.isFinite(av)&&(!positive||av>0),bk=b[field]!=null&&b[field]!==''&&Number.isFinite(bv)&&(!positive||bv>0);
@@ -8226,9 +8236,10 @@ const ListOptions={
         // A saved unavailable choice is retained, but its fallback is explicit.
         data=Object.assign({},data,{sortNotice:'Shuffle order is unavailable for this category. Showing its library order.'});
       }else if(options.sort!=='original'&&!this.availability(options.sort,data,spec)){
-        data=Object.assign({},data,{items:items.slice().sort(this.comparator(options.sort))});
+        data=Object.assign({},data,{items:items.slice().sort(this.comparator(options.sort,options.reverse))});
       }else if(options.sort!=='original')data=Object.assign({},data,{sortNotice:this.availability(options.sort,data,spec)});
-      if(options.reverse)data=Object.assign({},data,{items:data.items.slice().reverse()});
+      if(options.reverse&&options.sort!=='added')data=Object.assign({},data,{items:data.items.slice().reverse()});
+      if(options.sort==='added'&&items.some(t=>t.addedSource==='r2-upload'))data=Object.assign({},data,{sortNotice:'R2 dates use verified upload time; original library-add dates are unavailable.'});
       const alphaField={filename:'filename',path:'path',artist:'artist',album:'album'}[options.sort]||'title';
       return Object.assign({},data,{alphaField});
     }

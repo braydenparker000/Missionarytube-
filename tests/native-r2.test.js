@@ -208,3 +208,22 @@ test('native catalog commit skips unchanged tracks, atomically saves discovery, 
   tx.oncomplete();assert.equal((await pending).fresh.length,1);
   const rejected=commitR2Catalog(db,mapping,tracks,{snapshot,valid:()=>false});request.onsuccess();await assert.rejects(rejected,/Playback takeover/);
 });
+
+test('native dates use verified upload time through stale saved state, refresh and offline snapshot',async()=>{
+  const f=fixture();await f.putAudio();await f.register(f.registration());
+  const data=await (await f.get('/music/library.json')).json(),url=api+'/music/library.json';
+  const expected=Date.parse(data.tracks[0].r2Identity.lastModified);
+  const {tracks,mapping,snapshot}=libraryMapping(data,url);
+  assert.equal(tracks[0].added,expected);assert.equal(tracks[0].addedSource,'r2-upload');
+  const old={...tracks[0],added:Date.now(),rating:5,plays:8,resumeAt:4,customArt:true,artKey:'saved'};
+  const merged=r2Tracks(mapping,tracks,[old])[0];
+  assert.equal(merged.added,expected);assert.equal(merged.rating,5);assert.equal(merged.plays,8);assert.equal(merged.resumeAt,4);assert.equal(merged.artKey,'saved');
+  assert.equal(restoreLibrarySnapshot(snapshot,url,[old]).tracks[0].added,expected);
+  let tx,request,updated;
+  const db={transaction(){tx={objectStore(){return {openCursor(){request={};return request;}};}};return tx;}};
+  const committed=commitR2Catalog(db,mapping,tracks);
+  request.result={key:old.id,value:old,update(t){updated=t;},continue(){request.result=null;request.onsuccess();}};
+  request.onsuccess();tx.oncomplete();
+  assert.equal((await committed).fresh[0].added,expected);assert.equal(updated.added,expected);assert.equal(updated.rating,5);
+  data.generatedAt='2030-01-01T00:00:00Z';assert.equal(libraryMapping(data,url).tracks[0].added,expected);
+});
