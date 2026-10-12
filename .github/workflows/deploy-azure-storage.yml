@@ -974,6 +974,7 @@ jobs:
           ref: 46a26806f123de296d4e50b4ee7b753bbff0304b
           path: .jarvis-source
           persist-credentials: false
+          fetch-depth: 0
       - name: Verify exact source proof and retained production receipt
         run: node scripts/publish-owner-progress.mjs prepare
       - name: Install exact source dependencies
