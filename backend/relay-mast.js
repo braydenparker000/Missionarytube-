@@ -119,7 +119,7 @@ export async function mastAdapterPublic(request, env) {
       const body=JSON.parse(await boundedText(request,upload?ATTACHMENT_BODY_LIMIT:16000));
       const keys=upload?['id','message_id','reply_to','name','mime_type','data_base64']:['message_id','attachment_id'];fields(body,keys,keys);
       input={...body,op:upload?'file_upload':'file_discard'};
-    } else if (url.pathname==='/relay/mast/reply' && request.method==='POST' && !url.search) {
+    } else if (['/relay/mast/reply','/relay/mast/messages'].includes(url.pathname) && request.method==='POST' && !url.search) {
       const body=JSON.parse(await boundedText(request,16000));
       fields(body,['id','reply_to','body','attachment_ids'],['id','reply_to','body']);
       input={...body,op:'reply'};

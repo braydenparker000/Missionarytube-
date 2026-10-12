@@ -9,7 +9,7 @@ Owner routes: `GET /relay/owner/mast?after=0`, `POST /relay/owner/mast` with `{i
 Server-to-server only, with an independent bearer credential:
 
 - `GET /relay/mast/messages?after=0`: reads only this dedicated conversation, including its replies. Follow `nextCursor`; persist your cursor only after processing. A responder should also reconcile owner messages without a reply after interruption.
-- `POST /relay/mast/reply`: `{id,reply_to,body,attachment_ids?}`; UUID IDs, at most 6,000 characters. `reply_to` must identify an owner message in this conversation. Retry the exact same reply ID/body after an uncertain response. Duplicate replies return 200; conflicting IDs/bodies return 409.
+- `POST /relay/mast/messages` (also `POST /relay/mast/reply`, the existing adapter path): `{id,reply_to,body,attachment_ids?}`; UUID IDs, at most 6,000 characters. `reply_to` must identify an owner message in this conversation. Retry the exact same reply ID/body after an uncertain response. Duplicate replies return 200 across either path; conflicting IDs/bodies return 409. Both paths use the same reply-only handler: neither permits Mast to write as the owner or reply into Lucy’s private Relay/agent history.
 
 Authorization is checked again inside storage. The adapter cannot select another inbox, read Lucy's history, call owner APIs, use project channels, impersonate Lucy, access owner attachment routes or invoke work. Browser-origin adapter requests are rejected. No outbound callback, model provider or scheduling machinery is added. This is a pull/reply protocol for an approved Mast runner, not an automatic model response.
 
