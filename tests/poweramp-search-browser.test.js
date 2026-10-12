@@ -1,3 +1,4 @@
+import {instrumentFixtureBoot} from './helpers/poweramp-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
@@ -19,7 +20,7 @@ test('production Poweramp boot and Search routing/options/playback with bounded 
       const pathname=new URL(req.url,'http://localhost').pathname;
       if(pathname==='/fixture.wav'){res.writeHead(200,{'Content-Type':'audio/wav','Content-Length':audio.length});return res.end(audio);}
       let path=resolve(root,'.'+decodeURIComponent(pathname));if(!path.startsWith(root.endsWith(sep)?root:root+sep))throw Error('Invalid path');
-      if((await stat(path)).isDirectory())path=join(path,'index.html');res.writeHead(200,{'Content-Type':mime[extname(path)]||'application/octet-stream','Cache-Control':'no-store'});res.end(await readFile(path));
+      if((await stat(path)).isDirectory())path=join(path,'index.html');res.writeHead(200,{'Content-Type':mime[extname(path)]||'application/octet-stream','Cache-Control':'no-store'});const bytes=await readFile(path);res.end(path.endsWith('/drawercast/player.js')?instrumentFixtureBoot(bytes.toString()):bytes);
     }catch{res.writeHead(404);res.end('Not found');}
   });
   await new Promise((done,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',done);});
@@ -34,7 +35,7 @@ test('production Poweramp boot and Search routing/options/playback with bounded 
     await context.addInitScript(()=>localStorage.setItem('drawercast.sources.v1',JSON.stringify({local:false,drive:false,r2:false,server:false})));
     const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(origin+'/drawercast/');
-    await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');
+    await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');await page.evaluate(()=>window.__powerampBootPromise);
     await page.evaluate(async origin=>{
       const {LIB,SourceLibrary,SET,NativeSettings,Views,R2Source,UI}=PA;SourceLibrary.flags.r2=true;SET.listZoom={search:3};SET.animations='normal';NativeSettings.values.search_track_titles_only=false;
       const tracks=Array.from({length:5000},(_,i)=>({id:'r2_search_'+i,source:'r2',remote:true,remoteId:'search_'+i,title:'The Song '+i,artist:'The Artist',album:'The Album '+i%200,albumArtist:'The Album Artist',composer:'The Composer',genre:'The Genre',year:2026,folder:'The Folder',path:'The Folder/'+i+'.wav',ext:'wav',dur:20,size:320044,added:i}));

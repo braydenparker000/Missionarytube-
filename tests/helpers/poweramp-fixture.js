@@ -89,6 +89,14 @@ export async function installPowerampFixture({origin,count=24,art=true,preview=f
   window.powerampFixture={count,tracks,ready:true};
 }
 
+// The source deliberately overlaps configuration with boot. Fixtures must wait
+// for the actual boot promise before replacing library/transport state.
+export function instrumentFixtureBoot(source){
+  const startup="if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);\nelse boot();";
+  if(!source.includes(startup))throw Error('Unknown Poweramp boot entrypoint');
+  return source.replace(startup,"const fixtureBoot=()=>window.__powerampBootPromise=boot();\nif(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fixtureBoot);\nelse fixtureBoot();");
+}
+
 export async function servePowerampFixture({root=process.env.POWERAMP_PUBLIC_ROOT||defaultRoot}={}){
   root=resolve(root);const audio=new Map(),requests={audio:0,covers:0,paths:[]};
   const server=createServer(async(req,res)=>{
@@ -106,6 +114,7 @@ export async function servePowerampFixture({root=process.env.POWERAMP_PUBLIC_ROO
       let path=resolve(root,'.'+decodeURIComponent(pathname));
       if(!path.startsWith(root+sep))throw Error('Invalid path');if((await stat(path)).isDirectory())path=join(path,'index.html');
       let body=await readFile(path);
+      if(pathname==='/drawercast/player.js')body=instrumentFixtureBoot(body.toString());
       res.writeHead(200,{'Content-Type':mime[extname(path)]||'application/octet-stream','Cache-Control':'no-store'});res.end(body);
     }catch{res.writeHead(404);res.end('Not found');}
   });
@@ -121,7 +130,7 @@ export async function openFixturePage(browser,fixture,options={}){
   await context.addInitScript(installFixtureInputTrace);
   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   page.setDefaultTimeout(5000);
-  await page.goto(fixture.origin+'/drawercast/');await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');
+  await page.goto(fixture.origin+'/drawercast/');await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');await page.evaluate(()=>window.__powerampBootPromise);
   await page.evaluate(installPowerampFixture,{origin:fixture.origin,...options});
   const cdp=await context.newCDPSession(page),point=(x,y,id=1)=>({id,x,y,radiusX:1,radiusY:1,force:1});
   let lastPoint=null,lastTarget=null;

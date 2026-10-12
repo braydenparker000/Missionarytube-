@@ -1,3 +1,4 @@
+import {instrumentFixtureBoot} from './helpers/poweramp-fixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
@@ -29,7 +30,7 @@ test('Poweramp real Chrome touch and large-library regressions',{timeout:120000}
       }
       let path=resolve(root,'.'+decodeURIComponent(pathname));if(!path.startsWith(root.endsWith(sep)?root:root+sep))throw Error('Invalid path');
       if((await stat(path)).isDirectory())path=join(path,'index.html');
-      res.writeHead(200,{'Content-Type':mime[extname(path)]||'application/octet-stream','Cache-Control':'no-store'});res.end(await readFile(path));
+      res.writeHead(200,{'Content-Type':mime[extname(path)]||'application/octet-stream','Cache-Control':'no-store'});const bytes=await readFile(path);res.end(path.endsWith('/drawercast/player.js')?instrumentFixtureBoot(bytes.toString()):bytes);
     }catch{res.writeHead(404);res.end('Not found');}
   });
   await new Promise(done=>server.listen(0,'127.0.0.1',done));
@@ -47,7 +48,7 @@ test('Poweramp real Chrome touch and large-library regressions',{timeout:120000}
     await context.addInitScript(()=>localStorage.setItem('drawercast.sources.v1',JSON.stringify({local:false,drive:false,r2:false,server:false})));
     const page=await context.newPage(),errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error('Poweramp browser error:',e.message);});
     await page.goto(origin+'/drawercast/');
-    await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');
+    await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');await page.evaluate(()=>window.__powerampBootPromise);
     await page.evaluate(async origin=>{
       const {LIB,SET,SourceLibrary,Engine,R2Source,UI,Views,NativeSettings}=PA;
       SourceLibrary.flags.r2=true;SET.animations='normal';SET.listZoom={files:3};SET.keepQueue=true;

@@ -4,12 +4,12 @@ import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {chromium} from 'playwright-core';
 import {requireBrowser} from './helpers/ci-test-inventory.mjs';
-import {fixtureWav, installPowerampFixture, mobileContext, servePowerampFixture, sourceFlags} from './helpers/poweramp-fixture.js';
+import {fixtureWav, instrumentFixtureBoot, installPowerampFixture, mobileContext, servePowerampFixture, sourceFlags} from './helpers/poweramp-fixture.js';
 
 // Generated native-R2 metadata and PCM only. No production media or catalog
 // calls. The optional frozen source gives a before/after reproduction.
 const soakSegments=Math.max(1,Math.min(8,Number(process.env.POWERAMP_SOAK_SEGMENTS)||1));
-const frozenSource=process.env.POWERAMP_PLAYER_SOURCE?await readFile(process.env.POWERAMP_PLAYER_SOURCE,'utf8'):null;
+const frozenSource=process.env.POWERAMP_PLAYER_SOURCE?instrumentFixtureBoot(await readFile(process.env.POWERAMP_PLAYER_SOURCE,'utf8')):null;
 async function evidence(h){
   return h.page.evaluate(()=>({position:PA.Engine.pos,intent:PA.Engine.wantsPlayback(),playing:PA.Engine.playing,loading:!!PA.Engine._loadingRequest,withheld:window.withheldEnds||0,
     slots:PA.Engine.els.map(a=>({time:a.currentTime,duration:a.duration,paused:a.paused,ended:a.ended,error:a.error?.code||0,readyState:a.readyState,networkState:a.networkState})),
@@ -31,7 +31,7 @@ async function openPage(browser,fixture){
   await context.addInitScript(flags=>localStorage.setItem('drawercast.sources.v1',JSON.stringify(flags)),sourceFlags);
   const page=await context.newPage();page.setDefaultTimeout(10000);page.on('pageerror',e=>errors.push(e.message));
   await page.goto(fixture.origin+'/drawercast/');
-  await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');
+  await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');await page.evaluate(()=>window.__powerampBootPromise);
   await page.evaluate(installPowerampFixture,{origin:fixture.origin,count:3,art:false});
   await page.evaluate(()=>{
     for(const track of PA.LIB.map.values()){track.remote=false;track.nativeR2=true;}

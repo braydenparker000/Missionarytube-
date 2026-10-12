@@ -250,7 +250,7 @@ test('Poweramp native output interruption, browsing and full-page reload',{timeo
       if(!localStorage.getItem('drawercast.sources.v1'))localStorage.setItem('drawercast.sources.v1',JSON.stringify(flags));
     },sourceFlags);
     const page=await context.newPage();page.setDefaultTimeout(10000);page.on('pageerror',error=>errors.push(error.message));
-    await page.goto(fixture.origin+'/drawercast/');await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');
+    await page.goto(fixture.origin+'/drawercast/');await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');await page.evaluate(()=>window.__powerampBootPromise);
     await page.evaluate(installPowerampFixture,{origin:fixture.origin,count:3,art:false});
     await page.evaluate(()=>{
       for(const track of PA.LIB.map.values()){track.remote=false;track.nativeR2=true;}
