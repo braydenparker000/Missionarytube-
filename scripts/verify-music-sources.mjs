@@ -153,12 +153,13 @@ async function restoredTouch(){
 }
 try{
   const current=await fetch(release.storageOrigin+'/release.json',{cache:'no-store',signal:AbortSignal.timeout(15000)}).then(r=>r.json());
-  let receipt;
+  let receipt,actualWorkerSource;
   if(release.workerDeploymentPolicy?.mode==='reconcile-lucy-discovery'){
     const response=await fetch(release.storageOrigin+'/release-qualified.json',{cache:'no-store',signal:AbortSignal.timeout(15000)});
-    assert.equal(response.status,200);receipt=await verifiedMusicReceipt(await response.json());
+    assert.equal(response.status,200);const actual=await response.json();receipt=await verifiedMusicReceipt(actual);actualWorkerSource=actual.source;
   }
   const identity=checkedMusicFrontend(release,current,receipt);
+  if(actualWorkerSource)identity.workerSource=actualWorkerSource;
   report.sourceCommit=identity.commit;report.workerSourceCommit=identity.workerSource;
   check('live source pin',identity);
   const [catalog,mapping]=await Promise.all([release.storageOrigin+'/assets/drive-catalog-v2.json',release.r2ManifestURL].map(async url=>{

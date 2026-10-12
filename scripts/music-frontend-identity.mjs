@@ -1,3 +1,4 @@
+import {checkedWakeReceipt} from './deploy-private-wake.mjs';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 
@@ -22,6 +23,22 @@ export function checkedMusicFrontend(release,current,receipt){
 export async function verifiedMusicReceipt(receipt,fetcher=fetch){
  const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
  if(hash(receipt)===RECEIPT)return receipt;
+ if(receipt.workerPatch){
+  const parent=checkedWakeReceipt(receipt),repo='braydenparker000/Missionarytube-',base='https://api.github.com/repos/'+repo;
+  const get=async path=>{const r=await fetcher(base+path,{redirect:'error',signal:AbortSignal.timeout(15000)});assert.equal(r.status,200);return r.json();};
+  const run=await get('/actions/runs/'+receipt.runId);
+  assert.equal(run.repository.full_name,repo);assert.equal(run.head_repository.full_name,repo);assert.notEqual(run.head_repository.fork,true);
+  assert.equal(String(run.id),receipt.runId);assert.equal(run.head_sha,receipt.orchestration);assert.equal(run.run_attempt,Number(receipt.attempt));
+  assert.equal(run.head_branch,'main');assert.equal(run.event,'workflow_dispatch');assert.equal(run.path,'.github/workflows/deploy-azure-storage.yml');
+  assert.equal(run.status,'completed');assert.equal(run.conclusion,'success');
+  const page=await get('/actions/runs/'+receipt.runId+'/attempts/'+receipt.attempt+'/jobs?per_page=100');
+  assert.equal(page.total_count,page.jobs.length);
+  const jobs=page.jobs.filter(j=>j.name==='deploy'&&j.status==='completed'&&j.conclusion==='success');assert.equal(jobs.length,1);
+  const j=jobs[0];assert.equal(j.run_id,run.id);assert.equal(j.run_attempt,run.run_attempt);assert.equal(j.head_sha,run.head_sha);
+  const stamps=j.steps.filter(s=>s.name==='verified-production-receipt-'+hash(receipt));assert.equal(stamps.length,1);
+  assert.equal(stamps[0].status,'completed');assert.equal(stamps[0].conclusion,'success');
+  return verifiedMusicReceipt(parent,fetcher);
+ }
  const a=receipt.activation,parent=a?.parentReceipt;
  const parentDigest=hash(parent),replacementBase='c61900082c954c1c9a5ffd6cb8736532b14da778ff71a4c53a6aaed3c2d649be';
  assert.ok([RECEIPT,replacementBase].includes(parentDigest));assert.equal(a.kind,'lucy-muse-channel');
