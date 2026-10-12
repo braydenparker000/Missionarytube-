@@ -105,6 +105,24 @@ function toast(msg,ms){
 /* =====================================================================
    INDEXEDDB
    ===================================================================== */
+// Playlist payload and one-time seed receipt commit together. Request success
+// alone is not durability: publish to the UI only after transaction completion.
+function commitPlaylistState(db,expected,next,marker=null,valid=()=>true){
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('kv','readwrite'),store=tx.objectStore('kv');
+    let remaining=marker?2:1,stored,seeded=false,applied=false,failure=null;
+    const finish=()=>{
+      if(--remaining)return;
+      if(seeded)return;
+      if(!valid()||JSON.stringify(stored||[])!==JSON.stringify(expected)){failure=Error('Playlists or music library changed. Try again.');tx.abort();return;}
+      store.put(next,'playlists');if(marker)store.put(true,marker);applied=true;
+    };
+    const read=store.get('playlists');read.onsuccess=()=>{stored=read.result;finish();};
+    if(marker){const receipt=store.get(marker);receipt.onsuccess=()=>{seeded=receipt.result===true;finish();};}
+    tx.oncomplete=()=>resolve(applied);
+    tx.onabort=tx.onerror=()=>reject(failure||tx.error||Error('Playlists could not be saved.'));
+  });
+}
 const IDB = (function(){
   let dbp=null;
   const STORES=['tracks','blobs','art','kv','handles'];
@@ -128,6 +146,7 @@ const IDB = (function(){
   function tx(store,mode){ return open().then(db=>db.transaction(store,mode).objectStore(store)); }
   function wrap(req){ return new Promise((res,rej)=>{ req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); }
   return {
+    playlists:(expected,next,marker,valid)=>open().then(db=>commitPlaylistState(db,expected,next,marker,valid)),
     catalog:(module,snapshot)=>open().then(db=>module.commitCatalog(db,snapshot)),
     r2Catalog:(module,mapping,tracks,options)=>open().then(db=>module.commitR2Catalog(db,mapping,tracks,options)),
     get:(s,k)=>tx(s,'readonly').then(o=>wrap(o.get(k))),
@@ -2429,7 +2448,7 @@ const R2Source={
         try{
           const saved=await IDB.get('kv','r2-native-snapshot');
           const restored=this.helper.restoreLibrarySnapshot(saved,this.manifestURL,allTracks(true).filter(t=>t.source==='r2'));
-          if(restored&&SourceLibrary.enabled('r2')&&!this.mapping){this.mapping=restored.mapping;this.status='Saved R2 library ready';Engine.tracePlayback('r2-cache-restored');}
+          if(restored&&SourceLibrary.enabled('r2')&&!this.mapping){this.mapping=restored.mapping;this.status='Saved R2 library ready';Engine.tracePlayback('r2-cache-restored');void PlaylistFiles.seed();}
         }catch(_){}
       }
       await this.connect(true);
@@ -2477,6 +2496,7 @@ const R2Source={
       if(Engine.current?.source==='r2')Engine.current=LIB.map.get(selected)||null;
       if(!Engine.current&&allTracks().length){Engine.queue=allTracks();Engine.buildOrder();Engine.pos=0;Engine.current=Engine.queue[Engine.order[0]];}
       Engine.saveState();UI.renderNowPlaying(Engine.current);UI.renderPlayState();Views.refreshAll();
+      void PlaylistFiles.seed();
       if(!quiet)toast('Cloudflare R2 ready · '+fresh.length+' songs');return true;
     }catch(e){
       this.error=e.name==='AbortError'?'R2 refresh canceled or timed out.':e.message;
@@ -4886,9 +4906,10 @@ const Selection={
    PLAYLISTS / BOOKMARKS
    ===================================================================== */
 const Playlists={
-  data:[],
-  load:async function(){ try{ this.data = (await IDB.get('kv','playlists'))||[]; }catch(e){ this.data=[]; } },
-  save:function(){ IDB.set('kv','playlists',this.data).catch(function(){}); },
+  data:[],persisted:[],writes:Promise.resolve(),
+  load:async function(){ try{ this.data = structuredClone((await IDB.get('kv','playlists'))||[]); }catch(e){ this.data=[]; }this.persisted=structuredClone(this.data); },
+  enqueue(task){const work=this.writes.then(task);this.writes=work.catch(()=>{});return work;},
+  save:function(){return this.enqueue(async()=>{const next=structuredClone(this.data);await IDB.playlists(this.persisted,next);this.persisted=next;}).catch(()=>toast('Playlists could not be saved. Try again.'));},
   all:function(){ return this.data; },
   get:function(id){ return this.data.filter(function(p){ return p.id===id; })[0]; },
   create:function(name){ const p={id:hash(name+Date.now()), name:name, ids:[]}; this.data.push(p); this.save(); return p; },
@@ -9100,8 +9121,82 @@ const LibraryPresentation={
 Views.render=function(spec,keep){renderListBeforeRework.call(this,spec,keep);LibraryPresentation.render(spec,this.currentData);};
 
 const PlaylistFiles={
-  export(){downloadText('DrawerCast-playlists.json',JSON.stringify({format:'DrawerCast-playlists',playlists:Playlists.data.map(p=>({name:p.name,tracks:p.ids.map(id=>LIB.map.get(id)).filter(Boolean).map(t=>({id:t.id,path:t.path,title:t.title,artist:trackArtist(t)}))}))},null,2),'application/json');},
-  import(){const input=el('input');input.type='file';input.accept='.json,.m3u,.m3u8';input.onchange=async()=>{const file=input.files?.[0];if(!file)return;try{const text=await file.text(),all=allTracks(true),lists=file.name.toLowerCase().endsWith('.json')?JSON.parse(text).playlists:[{name:file.name.replace(/\.m3u8?$/i,''),tracks:text.split(/\r?\n/).filter(s=>s.trim()&&!s.startsWith('#')).map(path=>({path:path.trim()}))}];if(!Array.isArray(lists)||lists.length>1000)throw Error('Invalid playlist file');let count=0,missing=0;const resolved=lists.map(p=>{if(typeof p.name!=='string'||!Array.isArray(p.tracks))throw Error('Invalid playlist');return {name:p.name,ids:p.tracks.map(ref=>{const t=all.find(t=>t.id===ref.id||ref.path&&t.path===ref.path)||((matches)=>matches.length===1?matches[0]:null)(all.filter(t=>ref.path&&baseName(t.path||'')===baseName(ref.path)||ref.title&&t.title===ref.title&&trackArtist(t)===ref.artist));if(t){count++;return t.id;}missing++;return null;}).filter(Boolean)};});for(const p of resolved){const list=Playlists.create(p.name);list.ids=p.ids;}Playlists.save();Views.refreshAll();toast('Imported '+count+' tracks'+(missing?' · '+missing+' unavailable':''));}catch(e){toast(e.message||'Could not import playlists');}};input.click();}
+  seedURL:'./curated-playlists.json?v=86bc49aa',seedMarker:'playlist-seed:curated-v1',
+  maxBytes:5*1024*1024,maxTracks:50000,
+  export(){downloadText('DrawerCast-playlists.json',JSON.stringify({format:'DrawerCast-playlists',playlists:Playlists.data.map(p=>({name:p.name,tracks:p.ids.map(id=>LIB.map.get(id)).filter(Boolean).map(t=>({id:t.id,path:t.path,title:t.title,artist:trackArtist(t),source:SourceLibrary.kind(t)}))}))},null,2),'application/json');},
+  parse(text,name){
+    if(typeof text!=='string'||text.length>this.maxBytes)throw Error('Playlist file is too large.');
+    const json=/\.json$/i.test(name),data=json?JSON.parse(text):{playlists:[{name:name.replace(/\.m3u8?$/i,''),tracks:text.split(/\r?\n/).map(s=>s.trim()).filter(s=>s&&!s.startsWith('#')).map(path=>({path}))}]};
+    if(json&&data?.format!=='DrawerCast-playlists')throw Error('That file is not a playlist export.');
+    if(!Array.isArray(data?.playlists)||data.playlists.length>1000)throw Error('Invalid playlist file.');
+    let total=0;
+    return data.playlists.map(p=>{
+      if(!p||typeof p.name!=='string'||!p.name.trim()||p.name.length>256||/[\x00-\x1f\x7f]/.test(p.name)||!Array.isArray(p.tracks)||(total+=p.tracks.length)>this.maxTracks)throw Error('Invalid playlist.');
+      const tracks=p.tracks.map(ref=>{
+        if(!ref||typeof ref!=='object'||Array.isArray(ref)||!['id','path'].some(k=>typeof ref[k]==='string'&&ref[k].length))throw Error('Invalid playlist track.');
+        for(const k of ['id','path','title','artist','source'])if(ref[k]!=null&&(typeof ref[k]!=='string'||ref[k].length>4096||/[\x00-\x1f\x7f]/.test(ref[k])))throw Error('Invalid playlist track.');
+        if(ref.source!=null&&!['r2','drive','local','server'].includes(ref.source))throw Error('Invalid playlist source.');
+        return {...ref};
+      });return {name:p.name.trim(),tracks};
+    });
+  },
+  resolve(lists,{r2Only=false}={}){
+    const all=allTracks(true),paths=new Map(),owners=new Map();let matched=0,missing=0,ambiguous=0;
+    for(const t of all){if(!paths.has(t.path))paths.set(t.path,[]);paths.get(t.path).push(t);}
+    const resolved=lists.map(p=>({name:p.name,ids:p.tracks.map(ref=>{
+      // ID wins independently of library order. Never guess by basename/title.
+      const source=ref.source||(ref.id?.startsWith('r2_')?'r2':ref.id?.startsWith('gd_')?'drive':null);
+      const eligible=t=>!!t&&(!source||SourceLibrary.kind(t)===source)&&(!r2Only||t.source==='r2'&&!!R2Source.fileFor(t));
+      let t=LIB.map.get(ref.id);
+      if(t&&!eligible(t)){missing++;return null;}
+      if(!t){const candidates=(paths.get(ref.path)||[]).filter(eligible);if(candidates.length>1){ambiguous++;return null;}t=candidates[0];}
+      if(!t){missing++;return null;}matched++;owners.set(t.id,t);return t.id;
+    }).filter(Boolean)}));
+    return {lists:resolved,matched,missing,ambiguous,valid:()=>[...owners].every(([id,t])=>LIB.map.get(id)===t&&(!r2Only||SourceLibrary.enabled('r2')&&!!R2Source.fileFor(t)))};
+  },
+  apply(lists,{marker=null,r2Only=false}={}){
+    return Playlists.enqueue(async()=>{
+      const result=this.resolve(lists,{r2Only});
+      if(r2Only&&(result.missing||result.ambiguous))return {...result,pending:true,created:0};
+      const existing=new Set([...Playlists.data,...Playlists.persisted].map(p=>p.name));
+      const created=result.lists.filter(p=>!marker||!existing.has(p.name)).map(p=>({id:crypto.randomUUID(),name:p.name,ids:p.ids}));
+      const next=[...structuredClone(Playlists.persisted),...created];
+      const applied=await IDB.playlists(Playlists.persisted,next,marker,result.valid);
+      if(applied){
+        Playlists.persisted=structuredClone(next);
+        // Imports only append new lists. Edits/deletions made while storage was
+        // committing stay in memory and queued saves include the new lists.
+        Playlists.data.push(...created);Views.refreshAll();
+      }
+      return {...result,created:applied?created.length:0,pending:false};
+    });
+  },
+  async seed(){
+    if(!this.seedURL||this.seedDone||!SourceLibrary.enabled('r2')||!R2Source.native||!R2Source.mapping)return;
+    if(this.seeding){this.seedAgain=true;return;}
+    this.seeding=true;
+    try{
+      if(await IDB.get('kv',this.seedMarker)===true){this.seedDone=true;return;}
+      const response=await fetch(this.seedURL,{credentials:'omit',signal:AbortSignal.timeout(15000)});
+      if(!response.ok)throw Error('Curated playlists unavailable');
+      const lists=this.parse(await response.text(),'curated.json');
+      if(lists.length!==8||new Set(lists.map(p=>p.name)).size!==8||lists.some(p=>!p.tracks.length))throw Error('Invalid curated playlists');
+      if(!SourceLibrary.enabled('r2')||!R2Source.native||!R2Source.mapping)return;
+      const result=await this.apply(lists,{marker:this.seedMarker,r2Only:true});
+      this.seedDone=!result.pending;
+    }catch(_){Engine.tracePlayback('playlist-seed-deferred');}
+    finally{this.seeding=false;if(this.seedAgain){this.seedAgain=false;void this.seed();}}
+  },
+  import(){
+    const input=el('input');input.type='file';input.accept='.json,.m3u,.m3u8';
+    input.onchange=async()=>{const file=input.files?.[0];if(!file)return;
+      try{
+        if(file.size>this.maxBytes)throw Error('Playlist file is too large.');
+        const result=await this.apply(this.parse(await file.text(),file.name));
+        toast('Imported '+result.created+' playlists · '+result.matched+' tracks'+(result.missing?' · '+result.missing+' unavailable':'')+(result.ambiguous?' · '+result.ambiguous+' ambiguous':''));
+      }catch(e){toast(e.message||'Could not import playlists');}
+    };input.click();
+  }
 };
 Playlists.addTo=function(id,ids){const list=this.get(id);if(!list)return;let add=nativeValues().pl_no_dups===false?ids.slice():ids.filter(i=>!list.ids.includes(i));if(nativeValues().playlist_insert_pos===2)add=shuffleArray(add);if(nativeValues().playlist_insert_pos===1)list.ids.unshift(...add);else list.ids.push(...add);this.save();toast('Added to '+list.name);};
 function shuffleArray(items){const a=items.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
