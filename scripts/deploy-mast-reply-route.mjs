@@ -60,6 +60,7 @@ async function verify(checkpoint){
  assert.equal(live.settingsDigest,SETTINGS);assert.equal(await codeSha(),checkpoint.bundleSha256,'Uploaded code differs from qualified dry run');
  assert.equal(await frontend(),checkpoint.frontend);return live;
 }
+let checkpointStage='start';
 async function main(command){
  assert.ok(['prepare','checkpoint','record','stamp','published'].includes(command));
  if(command==='prepare'){
@@ -72,15 +73,15 @@ async function main(command){
  }
  const plan=await local('mast-reply-route-release/plan.json');assert.equal(receiptDigest(plan.parent),PARENT);
  if(command==='checkpoint'){
-  await source();assert.deepEqual(await recipe(),plan.recipe);
-  assert.equal(receiptDigest(await json(ORIGIN+'/release-qualified.json')),PARENT);
-  const live=await liveIdentity(credentials()),settings=await readWorkerSettings(credentials());
-  assert.deepEqual(live,{version:VERSION,settingsDigest:SETTINGS});assert.equal(settingsDigest(settings),SETTINGS);
-  checkedBindings(settings);assert.ok(!settings.bindings.some(b=>b.name==='RELAY_MAST_WORK_ENABLED'&&(b.type!=='plain_text'||b.text!=='false')),'Work must remain disabled');const bindings=bindingDigest(settings);
-  const closure=backendInputIdentity(ROOT),bundleSha256=hash(await readFile('mast-reply-route-release/bundle/worker.js'));
-  const backendDigest=canonicalDigest({closure,config:await local(resolve(ROOT,'backend/wrangler.music.generated.json')),wrangler:'4.136.3',bundleSha256});
-  await writeFile('mast-reply-route-release/checkpoint.json',JSON.stringify({...plan,live,bindings,nonBindings:nonBindingDigest(settings),backendDigest,bundleSha256},null,2)+'\n');
-  assert.deepEqual(await liveIdentity(credentials()),live);console.log('Pinned Worker, complete bindings and qualified dry-run bundle verified');return;
+  checkpointStage='trusted_source';await source();checkpointStage='release_recipe';assert.deepEqual(await recipe(),plan.recipe);
+  checkpointStage='parent_receipt';assert.equal(receiptDigest(await json(ORIGIN+'/release-qualified.json')),PARENT);
+  checkpointStage='live_identity';const live=await liveIdentity(credentials());checkpointStage='settings_read';const settings=await readWorkerSettings(credentials());
+  checkpointStage='pinned_identity';assert.deepEqual(live,{version:VERSION,settingsDigest:SETTINGS});assert.equal(settingsDigest(settings),SETTINGS);
+  checkpointStage='binding_and_work_gate';checkedBindings(settings);assert.ok(!settings.bindings.some(b=>b.name==='RELAY_MAST_WORK_ENABLED'&&(b.type!=='plain_text'||b.text!=='false')),'Work must remain disabled');const bindings=bindingDigest(settings);
+  checkpointStage='backend_input_identity';const closure=backendInputIdentity(ROOT);checkpointStage='bundle_digest';const bundleSha256=hash(await readFile('mast-reply-route-release/bundle/worker.js'));
+  checkpointStage='backend_digest';const backendDigest=canonicalDigest({closure,config:await local(resolve(ROOT,'backend/wrangler.music.generated.json')),wrangler:'4.136.3',bundleSha256});
+  checkpointStage='checkpoint_write';await writeFile('mast-reply-route-release/checkpoint.json',JSON.stringify({...plan,live,bindings,nonBindings:nonBindingDigest(settings),backendDigest,bundleSha256},null,2)+'\n');
+  checkpointStage='identity_recheck';assert.deepEqual(await liveIdentity(credentials()),live);console.log('Pinned Worker, complete bindings and qualified dry-run bundle verified');return;
  }
  const checkpoint=await local('mast-reply-route-release/checkpoint.json'),live=await verify(checkpoint);
  if(command==='record'){
@@ -98,4 +99,4 @@ async function main(command){
   console.log(JSON.stringify({operation:command,verified:true,source:SOURCE,version:live.version}));
  }
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)main(process.argv[2]).catch(e=>{console.error('Mast reply-route release stopped: '+(e.code==='ERR_ASSERTION'?e.message.split('\n')[0]:'provider_or_validation_failed'));process.exitCode=1;});
+if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)main(process.argv[2]).catch(e=>{console.error('Mast reply-route release stopped at '+checkpointStage+': '+(e.code==='ERR_ASSERTION'?e.message.split('\n')[0]:'provider_or_validation_failed'));process.exitCode=1;});
