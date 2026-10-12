@@ -501,10 +501,6 @@ jobs:
         run: az logout
 
   mast-chat-only:
-    permissions:
-      contents: read
-      actions: read
-      id-token: write
     name: deploy
     if: ${{ inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.deploy_mast_chat_only == true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
@@ -525,15 +521,9 @@ jobs:
           ref: 95d39031bb7b80f637c969a761e2aff9cc6a1040
           path: .jarvis-source
           persist-credentials: false
-      - name: Download exact post-upload checkpoint from attempt 2
-        uses: actions/download-artifact@v4
-        with:
-          name: mast-reply-route-release-38251820112-2
-          run-id: 38251820112
-          github-token: ${{ github.token }}
-          path: .
       - name: Validate fixed recovery evidence and live identity without uploading
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: node scripts/deploy-mast-reply-route.mjs recover

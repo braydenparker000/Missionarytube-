@@ -1,3 +1,4 @@
+import {bytes as artifactBytes} from './reconcile-lucy-receipt.mjs';
 import {mastBackendInputIdentity} from './mast-worker-input-identity.mjs';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -51,7 +52,7 @@ async function codeSha(){
  assert.equal(r.status,200);const form=await r.formData(),files=[...form.entries()];assert.equal(files.length,1,'Unexpected deployed modules');
  assert.equal(files[0][0],'worker.js');return hash(Buffer.from(await files[0][1].arrayBuffer()));
 }
-const recipePaths=['scripts/mast-worker-input-identity.mjs','.github/workflows/deploy-azure-storage.yml','scripts/deploy-mast-reply-route.mjs','scripts/plan-jarvis-qualification.mjs','scripts/check-music-worker-bindings.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/lucy-settings-diagnostic.mjs','scripts/activate-lucy-muse.mjs'];
+const recipePaths=['scripts/reconcile-lucy-receipt.mjs','scripts/mast-worker-input-identity.mjs','.github/workflows/deploy-azure-storage.yml','scripts/deploy-mast-reply-route.mjs','scripts/plan-jarvis-qualification.mjs','scripts/check-music-worker-bindings.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/lucy-settings-diagnostic.mjs','scripts/activate-lucy-muse.mjs'];
 async function recipe(){return Promise.all(recipePaths.map(async path=>{const bytes=await readFile(path),sha=createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');assert.equal(git(process.cwd(),'rev-parse','HEAD:'+path),sha);return {path,sha};}));}
 async function verify(checkpoint){
  checkpointStage='verify_source';await source();assert.deepEqual(await recipe(),checkpoint.recipe);
@@ -74,6 +75,10 @@ let checkpointStage='start';
 async function main(command){
  assert.ok(['recover','prepare','checkpoint','record','stamp','published'].includes(command));
  if(command==='recover'){
+  checkpointStage='recovery_archive';
+  const archive=await artifactBytes('https://api.github.com/repos/braydenparker000/Missionarytube-/actions/artifacts/11749006967/zip');
+  assert.equal(hash(archive),'363ca9a945f65794ee1934cb4cd7bdc7899c2feb963867756286eb8389b934f3');
+  await writeFile('mast-recovery.zip',archive);execFileSync('unzip',['-q','mast-recovery.zip'],{stdio:'pipe'});
   checkpointStage='recovery_evidence';const files=Object.fromEntries(await Promise.all(Object.keys(RECOVERY_FILES).map(async name=>[name,await readFile('mast-reply-route-release/'+name)])));checkedRecoveryFiles(files);
   await source();assert.equal(receiptDigest(await json(ORIGIN+'/release-qualified.json')),PARENT);
   const plan=JSON.parse(files['plan.json']),checkpoint=JSON.parse(files['checkpoint.json']);

@@ -22,5 +22,5 @@ test('route receipt requires exact successful production attempt and stamp, then
 test('recovery rejects substituted evidence and its production job cannot upload Worker code',()=>{
  assert.throws(()=>checkedRecoveryFiles({'checkpoint.json':Buffer.from('{}')}),/Recovery evidence mismatch/);
  const flow=readFileSync(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');const job=flow.split('  mast-chat-only:')[1].split('  activate-owner-mast:')[0];
- assert.match(job,/run-id: 38251820112/);assert.match(job,/mast-reply-route-release-38251820112-2/);assert.match(job,/deploy-mast-reply-route.mjs recover/);assert.doesNotMatch(job,/wrangler|deploy-mast-reply-route.mjs prepare|deploy-mast-reply-route.mjs checkpoint/);
+ assert.ok(!flow.includes('actions: read'));assert.match(job,/deploy-mast-reply-route.mjs recover/);assert.doesNotMatch(job,/wrangler|deploy-mast-reply-route.mjs prepare|deploy-mast-reply-route.mjs checkpoint/);
 });
