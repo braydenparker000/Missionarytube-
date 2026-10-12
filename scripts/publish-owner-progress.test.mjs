@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {publicationBytes,patchManifest,checkedProgressReceipt,checkedProgressChange,unchangedInventory,FILES,SOURCE,SETTINGS} from './publish-owner-progress.mjs';
+import {readFileSync,mkdtempSync,mkdirSync,writeFileSync,symlinkSync,rmSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import {tmpdir} from 'node:os';
+import {resolve,join} from 'node:path';
+import {backendInputIdentity} from './worker-release-identity.mjs';
+import {mastBackendInputIdentity,publicationBytes,patchManifest,checkedProgressReceipt,checkedProgressChange,unchangedInventory,FILES,SOURCE,SETTINGS} from './publish-owner-progress.mjs';
 import {receiptDigest} from './worker-release-identity.mjs';
 const parent={source:'a'.repeat(40),frontendArtifactDigest:'b'.repeat(64),settingsDigest:SETTINGS,version:'11111111-1111-1111-1111-111111111111',shufflePatch:{preserved:true},mastReplyPatch:{preserved:true}};
 function receipt(){const artifact=patchManifest(parent);return {...parent,source:SOURCE,backendDigest:'c'.repeat(64),backendReusable:false,recipe:[{path:'reviewed',sha:'d'.repeat(40)}],version:'22222222-2222-2222-2222-222222222222',orchestration:'e'.repeat(40),runId:'123',attempt:'1',frontendArtifactDigest:receiptDigest(artifact),ownerProgressPatch:{kind:'owner-progress-and-sort-info',parentReceipt:parent,sourceProof:{qualified:true,sourceSha:SOURCE},artifact,codeSha256:'f'.repeat(64)}};}
@@ -26,4 +30,15 @@ test('publication mode serializes backup, Worker, static files and receipt using
  assert.ok(job.includes('ref: '+SOURCE));assert.match(job,/path: \.jarvis-source\n          persist-credentials: false\n          fetch-depth: 0/);assert.ok(job.includes('group: jarvis-worker-production'));assert.ok(job.includes('persist-credentials: false'));
  const steps=['publish-owner-progress.mjs prepare','wrangler deploy --dry-run','publish-owner-progress.mjs checkpoint','name: owner-progress-before-','wrangler deploy --config','publish-owner-progress.mjs publish','publish-owner-progress.mjs record','publish-owner-progress.mjs stamp','--name release-qualified.json','publish-owner-progress.mjs published'];let last=-1;for(const step of steps){const next=job.indexOf(step);assert.ok(next>last,step);last=next;}
  assert.ok(workflow.slice(0,workflow.indexOf('  owner-progress:\n')).match(/if: \$\{\{ inputs.publish_owner_progress != true/g).length>=10);
+});
+
+test('checkpoint resolves qualified URL-suffixed inputs and still requires a fresh Worker publication',()=>{
+ const root=mkdtempSync(join(tmpdir(),'progress-suffix-'));
+ try{
+  mkdirSync(join(root,'backend'));mkdirSync(join(root,'public'));writeFileSync(join(root,'public','r2-api.js'),'export const api=42;\n');writeFileSync(join(root,'backend','worker.js'),"import {api} from '../public/r2-api.js?v=snapshot-v1';export default {fetch(){return new Response(String(api));}};\n");
+  writeFileSync(join(root,'package.json'),JSON.stringify({name:'qualified-fixture',type:'module'}));writeFileSync(join(root,'package-lock.json'),'{}');writeFileSync(join(root,'backend','wrangler.music.generated.json'),JSON.stringify({name:'jarvis-hub-api',main:'worker.js',keep_vars:true,vars:{}}));symlinkSync(resolve('node_modules'),join(root,'node_modules'),'dir');
+  const git=(...args)=>execFileSync('git',['-C',root,...args],{stdio:'pipe'});git('init');git('add','backend','public','package.json','package-lock.json');git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-m','Qualified source fixture');
+  assert.throws(()=>backendInputIdentity(root),error=>error.code==='ENOENT'&&error.path.endsWith('r2-api.js?v=snapshot-v1'));
+  const closure=mastBackendInputIdentity(root);assert.equal(closure.reusable,false);assert.equal(closure.bundled,true);assert.ok(closure.inputs.some(i=>i.path==='public/r2-api.js'));assert.ok(closure.inputs.every(i=>!i.path.includes('?')&&/^[a-f0-9]{64}$/.test(i.sha256)));
+ }finally{rmSync(root,{recursive:true,force:true});}
 });
