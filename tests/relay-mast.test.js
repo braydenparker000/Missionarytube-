@@ -35,3 +35,26 @@ test('Mast defaults closed even with owner access; no schema or accepted write',
   assert.equal((await h.fixture.request('/relay/mast/messages')).status,503);
   assert.deepEqual(h.rows("SELECT name FROM sqlite_master WHERE name='relay_mast_entries'"),[]);
 });
+
+
+test('Mast documented POST messages aliases reply without widening identity, targeting or duplicate rules',async t=>{
+ const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}});t.after(()=>h.close());
+ const owner=await h.pair(await h.oauth()),id=crypto.randomUUID();
+ assert.equal((await h.phone('/mast',{id,body:'Synthetic owner request'},owner.device_token)).status,201);
+ const reply={id:crypto.randomUUID(),reply_to:id,body:'Synthetic Mast response'};
+ const post=(body=reply,credential=token,headers={},path='messages')=>h.fixture.request('/relay/mast/'+path,{method:'POST',headers:{Authorization:'Bearer '+credential,...headers},body:JSON.stringify(body)});
+ assert.equal((await post(reply,owner.device_token)).status,401);
+ assert.equal((await post(reply,token,{Origin:'https://missionarytube.z13.web.core.windows.net'})).status,403);
+ assert.equal((await post({...reply,role:'owner'})).status,400);
+ assert.equal((await post({id:reply.id,body:reply.body})).status,400);
+ const lucy=crypto.randomUUID();await h.phone('/messages',{id:lucy,body:'Unrelated private Relay request'},owner.device_token);
+ assert.equal((await post({...reply,reply_to:lucy})).status,404);
+ assert.equal((await post(reply,token,{},'messages?after=0')).status,404);
+ const accepted=await post();assert.equal(accepted.status,201);const result=await accepted.json();
+ assert.equal(result.entry.role,'mast');assert.equal(result.entry.destination,'mast');assert.equal(result.entry.replyTo,id);assert.equal(result.newWrite,true);
+ for(const path of ['reply','messages']){const duplicate=await post(reply,token,{},path);assert.equal(duplicate.status,200);assert.equal((await duplicate.json()).newWrite,false);}
+ assert.equal((await post({...reply,id:crypto.randomUUID()})).status,409);
+ assert.equal((await post({...reply,body:'Changed reply'})).status,409);
+ const history=await (await h.phone('/mast',undefined,owner.device_token)).json();assert.deepEqual(history.messages.map(m=>m.role),['owner','mast']);
+ assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_mast_entries')[0].n,2);
+});
