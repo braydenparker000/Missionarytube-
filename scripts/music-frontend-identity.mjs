@@ -1,3 +1,4 @@
+import {checkedMuseLauncherReceipt} from './publish-muse-launcher.mjs';
 import {checkedPowerampReceipt} from './publish-poweramp-background.mjs';
 import {checkedOwnerMastReceipt} from './activate-owner-mast.mjs';
 import {checkedMastGateReceipt} from './deploy-mast-chat-only.mjs';
@@ -26,8 +27,8 @@ export function checkedMusicFrontend(release,current,receipt){
 export async function verifiedMusicReceipt(receipt,fetcher=fetch){
  const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
  if(hash(receipt)===RECEIPT)return receipt;
- if(receipt.frontendPatch||receipt.ownerMastActivation||receipt.mastGatePatch||receipt.workerPatch){
-  const parent=receipt.frontendPatch?checkedPowerampReceipt(receipt):receipt.ownerMastActivation?checkedOwnerMastReceipt(receipt):receipt.mastGatePatch?checkedMastGateReceipt(receipt):checkedWakeReceipt(receipt),repo='braydenparker000/Missionarytube-',base='https://api.github.com/repos/'+repo;
+ if(receipt.launcherPatch||receipt.frontendPatch||receipt.ownerMastActivation||receipt.mastGatePatch||receipt.workerPatch){
+  const parent=receipt.launcherPatch?checkedMuseLauncherReceipt(receipt):receipt.frontendPatch?checkedPowerampReceipt(receipt):receipt.ownerMastActivation?checkedOwnerMastReceipt(receipt):receipt.mastGatePatch?checkedMastGateReceipt(receipt):checkedWakeReceipt(receipt),repo='braydenparker000/Missionarytube-',base='https://api.github.com/repos/'+repo;
   const get=async path=>{const r=await fetcher(base+path,{redirect:'error',signal:AbortSignal.timeout(15000)});assert.equal(r.status,200);return r.json();};
   const run=await get('/actions/runs/'+receipt.runId);
   assert.equal(run.repository.full_name,repo);assert.equal(run.head_repository.full_name,repo);assert.notEqual(run.head_repository.fork,true);
