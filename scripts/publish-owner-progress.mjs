@@ -1,3 +1,5 @@
+import {mastBackendInputIdentity} from './mast-worker-input-identity.mjs';
+export {mastBackendInputIdentity};
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFile,writeFile,mkdir,appendFile} from 'node:fs/promises';
@@ -7,7 +9,7 @@ import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {immutableSourceSnapshot,recipeAllowed,trustedRecipe} from './plan-jarvis-qualification.mjs';
 import {readWorkerSettings} from './check-music-worker-bindings.mjs';
-import {liveIdentity,settingsDigest,receiptDigest,newlyDeployedVersion,backendInputIdentity} from './worker-release-identity.mjs';
+import {liveIdentity,settingsDigest,receiptDigest,newlyDeployedVersion} from './worker-release-identity.mjs';
 import {preservedConfig,nonBindingDigest,checkedPreservedSettings} from './deploy-private-wake.mjs';
 import {bindingDigest} from './activate-lucy-muse.mjs';
 import {canonicalDigest} from './lucy-settings-diagnostic.mjs';
@@ -58,9 +60,10 @@ export function unchangedInventory(before,after){const omitted=new Set([...FILES
 async function verifyFiles(){for(const f of FILES){const r=await get(f.path);assert.equal(hash(Buffer.from(await r.arrayBuffer())),f.sha256);assert.match(r.headers.get('cache-control')||'',/no-cache|no-store/);}}
 async function existing(f){const bytes=Buffer.from(await(await get(f.path)).arrayBuffer());assert.equal(hash(bytes),f.before,'Existing frontend bytes changed');return bytes;}
 async function codeSha(){const {account,token}=credentials(),r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/workers/scripts/jarvis-hub-api/content/v2`,{redirect:'error',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(30000)});assert.equal(r.status,200);const files=[...(await r.formData()).entries()];assert.equal(files.length,1);assert.equal(files[0][0],'worker.js');return hash(Buffer.from(await files[0][1].arrayBuffer()));}
-const recipePaths=['.github/workflows/deploy-azure-storage.yml','scripts/publish-owner-progress.mjs','scripts/owner-progress-file-pins.json','scripts/plan-jarvis-qualification.mjs','scripts/check-music-worker-bindings.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/deploy-private-wake.mjs','scripts/activate-lucy-muse.mjs','scripts/lucy-settings-diagnostic.mjs'];
+const recipePaths=['.github/workflows/deploy-azure-storage.yml','scripts/publish-owner-progress.mjs','scripts/mast-worker-input-identity.mjs','scripts/owner-progress-file-pins.json','scripts/plan-jarvis-qualification.mjs','scripts/check-music-worker-bindings.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/deploy-private-wake.mjs','scripts/activate-lucy-muse.mjs','scripts/lucy-settings-diagnostic.mjs'];
 async function recipe(){return Promise.all(recipePaths.map(async path=>{const bytes=await readFile(path),sha=createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');assert.equal(git(process.cwd(),'rev-parse','HEAD:'+path),sha);return {path,sha};}));}
 async function verifyWorker(c){await source();assert.deepEqual(await recipe(),c.recipe);const live=await liveIdentity(credentials()),settings=await readWorkerSettings(credentials());assert.equal(settingsDigest(settings),live.settingsDigest);checkedPreservedSettings(settings,c.bindings);assert.equal(nonBindingDigest(settings),c.nonBindings);assert.equal(live.settingsDigest,SETTINGS);assert.equal(await codeSha(),c.bundleSha256);return live;}
+let checkpointStage='start';
 async function main(command){
  assert.ok(['prepare','checkpoint','publish','record','stamp','published'].includes(command));
  if(command==='prepare'){
@@ -71,9 +74,9 @@ async function main(command){
  }
  const plan=await local(OUT+'/plan.json');assert.equal(receiptDigest(plan.parent),PARENT);assert.deepEqual(plan.files,FILES);
  if(command==='checkpoint'){
-  await source();await parent();assert.deepEqual(await recipe(),plan.recipe);const live=await liveIdentity(credentials()),settings=await readWorkerSettings(credentials());assert.deepEqual(live,{version:VERSION,settingsDigest:SETTINGS});assert.equal(settingsDigest(settings),SETTINGS);checkedPreservedSettings(settings,bindingDigest(settings));
-  const bundleSha256=hash(await readFile(OUT+'/bundle/worker.js')),backendDigest=canonicalDigest({closure:backendInputIdentity(ROOT),config:await local(resolve(ROOT,'backend/wrangler.music.generated.json')),wrangler:'4.136.3',bundleSha256});
-  await writeFile(OUT+'/checkpoint.json',JSON.stringify({...plan,live,bindings:bindingDigest(settings),nonBindings:nonBindingDigest(settings),bundleSha256,backendDigest,storageBefore:inventory()},null,2)+'\n');assert.deepEqual(await liveIdentity(credentials()),live);console.log('Exact Worker, complete settings, source bundle and static backup verified');return;
+  checkpointStage='trusted_source';await source();checkpointStage='parent_receipt';await parent();checkpointStage='release_recipe';assert.deepEqual(await recipe(),plan.recipe);checkpointStage='live_identity';const live=await liveIdentity(credentials());checkpointStage='settings_read';const settings=await readWorkerSettings(credentials());checkpointStage='pinned_identity';assert.deepEqual(live,{version:VERSION,settingsDigest:SETTINGS});assert.equal(settingsDigest(settings),SETTINGS);checkpointStage='retained_bindings';checkedPreservedSettings(settings,bindingDigest(settings));
+  checkpointStage='backend_input_identity';const closure=mastBackendInputIdentity(ROOT);checkpointStage='bundle_digest';const bundleSha256=hash(await readFile(OUT+'/bundle/worker.js')),backendDigest=canonicalDigest({closure,config:await local(resolve(ROOT,'backend/wrangler.music.generated.json')),wrangler:'4.136.3',bundleSha256});checkpointStage='storage_inventory';const storageBefore=inventory();
+  await writeFile(OUT+'/checkpoint.json',JSON.stringify({...plan,live,bindings:bindingDigest(settings),nonBindings:nonBindingDigest(settings),bundleSha256,backendDigest,storageBefore},null,2)+'\n');assert.deepEqual(await liveIdentity(credentials()),live);console.log('Exact Worker, complete settings, source bundle and static backup verified');return;
  }
  const c=await local(OUT+'/checkpoint.json'),live=await verifyWorker(c);
  if(command==='publish'){
@@ -88,4 +91,4 @@ async function main(command){
   const r=await local('release-qualified.json');checkedProgressReceipt(r);assert.equal(r.version,live.version);assert.equal(receiptDigest(r),process.env.EXPECTED_RECEIPT_DIGEST);await verifyFiles();unchangedInventory(c.storageBefore,inventory());assert.equal(receiptDigest(await(await get('release-qualified.json')).json()),command==='published'?receiptDigest(r):PARENT);console.log(JSON.stringify({operation:command,verified:true,source:SOURCE,version:live.version,settingsUnchanged:true}));
  }
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)main(process.argv[2]).catch(e=>{console.error('Owner progress publication stopped: '+(e.code==='ERR_ASSERTION'?e.message.split('\n')[0]:'provider_or_validation_failed'));process.exitCode=1;});
+if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)main(process.argv[2]).catch(e=>{console.error('Owner progress publication stopped at '+checkpointStage+': '+(e.code==='ERR_ASSERTION'?e.message.split('\n')[0]:'provider_or_validation_failed'));process.exitCode=1;});
