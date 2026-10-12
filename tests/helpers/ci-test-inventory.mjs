@@ -9,7 +9,7 @@ export const dedicated = ['tests/poweramp-blank-library-browser.test.js', 'tests
 export const relayContracts = ['tests/ci-workflow.test.js', 'tests/oauth-consent-browser.test.js',
   'tests/shared.test.js', 'tests/publications.test.js', 'tests/origins.test.js', 'tests/hub.test.js'];
 export const performance = ['tests/poweramp-render-trace-browser.mjs',
-  'tests/poweramp-persistent-prototype-browser.mjs', 'tests/poweramp-preview-setup-browser.mjs'];
+  'tests/poweramp-persistent-prototype-browser.mjs', 'tests/poweramp-preview-setup-browser.mjs', 'tests/poweramp-shuffle-latency-browser.mjs'];
 
 export function inventory(files) {
   const all = [...files].sort();

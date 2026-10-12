@@ -2923,6 +2923,7 @@ const Engine = {
     this.dur=t.dur||0;
     this.releaseSlot(this.cur);
     this.playing=false;UI.renderPlayState();
+    this._recordShuffle?.(qi);
     this.current=t;
     this.pos = Math.max(0, this.order.indexOf(qi));
     UI.renderNowPlaying(t);UI.renderProgress();
@@ -3410,12 +3411,21 @@ const Engine = {
     },min*60000);
     UI.renderToggles();toast('Sleeping in '+min+' min');
   },
-  checkpoint:function(){
+  checkpoint:function(force=false){
+    const preparing=this._shuffleBuild;
+    if(!force&&preparing&&!preparing.cycle&&!preparing.transport&&(typeof document==='undefined'||document.visibilityState!=='hidden')){
+      if(!preparing.checkpointPending){preparing.checkpointPending=true;(preparing.transportPromise||preparing.promise).then(result=>{preparing.checkpointPending=false;if(result&&(!this._shuffleBuild||this._shuffleBuild===preparing))this.checkpoint();}).catch(()=>{});}
+      return;
+    }
     const state={ids:this.queue.map(t=>t.id),pos:this.pos,order:this.order.slice(),curId:this.current?.id||null,time:this.time(),savedAt:Date.now()};
+    const shuffle=this._syncShuffle?.();if(shuffle){state.shuffle=shuffle.compactSnapshot(false);if(SET.shuffleOn){delete state.shuffle.ranks;state.shuffle.orderBased=true;}}
+    else if(this._shuffleBuild)state.shuffle=this._shuffleBuild.saved||this._shuffle?.compactSnapshot()||this._shuffleState;
     if(typeof PlaybackQueue!=='undefined')state.explicitQueue={pending:PlaybackQueue.pending.slice(),active:PlaybackQueue.active,resume:PlaybackQueue.resume,forced:PlaybackQueue.forced};
     // The synchronous copy survives a reload before an IndexedDB write commits.
-    try{localStorage.setItem('dc.playback-checkpoint',JSON.stringify(state));}catch(e){}
-    try{IDB.set('kv','state',state).catch(()=>{});}catch(e){}
+    const serialized=this.queue.length>1024&&this._encodeShuffleCheckpoint?this._encodeShuffleCheckpoint(state):JSON.stringify(state);
+    try{localStorage.setItem('dc.playback-checkpoint',serialized);}catch(e){}
+    const stored=this.queue.length>1024?{savedAt:state.savedAt,encoded:serialized}:state;
+    const write=()=>{try{IDB.set('kv','state',stored).catch(()=>{});}catch(e){}};if(this.queue.length>1024)setTimeout(write,0);else write();
     this._lastCheckpoint=Date.now();
   },
   saveState:debounce(function(){Engine.checkpoint();},700),
@@ -3424,16 +3434,20 @@ const Engine = {
     try{
       const request=this._playRequest;
       let s=await IDB.get('kv','state').catch(()=>null);
-      try{const checkpoint=JSON.parse(localStorage.getItem('dc.playback-checkpoint')||'null');if(checkpoint&&Number.isFinite(checkpoint.savedAt)&&(!s||checkpoint.savedAt>(s.savedAt||0)))s=checkpoint;}catch(e){}
+      try{const checkpoint=JSON.parse(localStorage.getItem('dc.playback-checkpoint')||'null');if(checkpoint&&Number.isFinite(checkpoint.savedAt)&&(!s||checkpoint.savedAt>=(s.savedAt||0)))s=checkpoint;}catch(e){}
+      if(s?.encoded){await new Promise(resolve=>setTimeout(resolve,0));s=JSON.parse(s.encoded);}
       if(request!==this._playRequest)return false;
       if(!s || !Array.isArray(s.ids) || !s.ids.length) return false;
-      const q=[],remap=new Map();
-      s.ids.slice(0,50000).forEach((id,i)=>{const t=typeof id==='string'?LIB.map.get(id):null;if(sourceTrackEnabled(t)){remap.set(i,q.length);q.push(t);}});
-      if(!q.length) return false;
-      if(request!==this._playRequest)return false;
-      this.queue=q;this._restoredQueueState=s.explicitQueue;
-      const validOrder=Array.isArray(s.order)&&s.order.length===s.ids.length&&new Set(s.order).size===s.ids.length&&s.order.every(i=>Number.isInteger(i)&&i>=0&&i<s.ids.length);
-      this.order=validOrder?s.order.filter(i=>remap.has(i)).map(i=>remap.get(i)):q.map((_,i)=>i);
+      let q,remap,validOrder,order;
+      if(s.ids.length>1024&&this._restoreShuffleQueue){
+        const restored=await this._restoreShuffleQueue(s,()=>request===this._playRequest);if(!restored)return false;({q,remap,validOrder,order}=restored);
+      }else{
+        q=[];remap=new Map();s.ids.slice(0,50000).forEach((id,i)=>{const t=typeof id==='string'?LIB.map.get(id):null;if(sourceTrackEnabled(t)){remap.set(i,q.length);q.push(t);}});
+        validOrder=Array.isArray(s.order)&&s.order.length===s.ids.length&&new Set(s.order).size===s.ids.length&&s.order.every(i=>Number.isInteger(i)&&i>=0&&i<s.ids.length);
+        order=validOrder?s.order.filter(i=>remap.has(i)).map(i=>remap.get(i)):q.map((_,i)=>i);
+      }
+      if(!q.length||request!==this._playRequest)return false;
+      this.queue=q;this.order=order;this._restoredQueueState=s.explicitQueue;this._shuffle=null;this._shuffleBuild=null;this._shuffleState=[3,4].includes(s.shuffle?.version)?{...s.shuffle,ids:s.shuffle.ids||s.ids,ranks:s.shuffle.orderBased?s.order:s.shuffle.ranks}:s.shuffle;
       const savedIndex=validOrder?remap.get(s.order[s.pos]):-1;
       const restoredIndex=q[savedIndex]?.id===s.curId?savedIndex:q.findIndex(t=>t.id===s.curId);
       this.pos=restoredIndex>=0?Math.max(0,this.order.indexOf(restoredIndex)):0;
@@ -3545,7 +3559,7 @@ const UI = {
   refreshEmpty:function(){
     const cta=$('#art-cta');
     if(!cta) return;
-    const empty = !(allTracks().length || Engine.current);
+    const empty = !(Engine.current || allTracks().length);
     cta.hidden = !empty;
     document.body.classList.toggle('empty-lib', empty);
   },
@@ -6035,6 +6049,9 @@ function resolveTrackStep(delta){
     const next=resume?.order.slice(resume.pos).map(i=>LIB.map.get(resume.ids[i])).find(sourceTrackEnabled)||null;
     return {...step,kind:'queue-finish',queueEnd:nativeValues().queue_end,track:next};
   }
+  const shuffled=Engine._shuffleStep?.(direction,true);
+  if(shuffled?.pending)return null;
+  if(shuffled&&!shuffled.exhausted)return {...step,kind:'track',pos:Engine.order.indexOf(shuffled.index),index:shuffled.index,track:Engine.queue[shuffled.index],shuffle:shuffled};
   const pos=direction<0?(Engine.pos<=0?Engine.order.length-1:Engine.pos-1):(Engine.pos+1)%Engine.order.length;
   return {...step,kind:'track',pos,index:Engine.order[pos],track:Engine.queue[Engine.order[pos]]||null};
 }
@@ -6059,7 +6076,8 @@ function commitTrackStep(step){
     // another deliberate Next continues from this requested target, not from
     // the still-audible outgoing song.
     const request=Engine._playRequest;Engine.pos=step.pos;
-    const result=Engine.playIndex(step.index,autoplay),acceptedRequest=Engine._playRequest;
+    Engine._shuffleNavigation=step.shuffle;
+    const result=Engine.playIndex(step.index,autoplay),acceptedRequest=Engine._playRequest;Engine._shuffleNavigation=null;
     if(acceptedRequest===request&&Engine.current?.id!==step.track.id){Engine.pos=step.originPos;UI.artDir=0;return false;}
     if(Engine.current?.id!==step.track.id)Engine._manualStepOrigin={currentId:step.currentId,queue:step.queue,order:step.order,pos:step.originPos};
     else Engine._manualStepOrigin=null;
@@ -7372,7 +7390,7 @@ function bindStatic(){
   $('#t-shuffle').onclick=function(){
     SET.shuffleOn=!SET_shuffleOn();
     saveSet();
-    Engine.buildOrder();
+    Engine.buildOrder();Engine.saveState();
     UI.renderToggles();
     toast('Shuffle '+(SET.shuffleOn?'on':'off'));
   };
@@ -9262,9 +9280,9 @@ function setupRework(){
   const sync=EQ.sync;EQ.sync=function(){sync.call(this);const v=nativeValues();if(v.eq_labels===2){$$('#bands [data-gain-label]').forEach(b=>b.textContent=Math.round((Math.pow(10,SET.eqGains[+b.dataset.gainLabel]/20)-1)*100)+'%');if($('#pv'))$('#pv').textContent=Math.round((Math.pow(10,SET.preamp/20)-1)*100)+'%';}if(v.tone_labels===1){$('#bass-v').textContent=(SET.bass*15).toFixed(1)+' dB';$('#treble-v').textContent=(SET.treble*15).toFixed(1)+' dB';}};
   const item=PAGES.skin.items.find(i=>i.key==='skin_seekbar');if(item)item.desc='Waveform scrolls beneath a fixed center marker. Drag left to seek forward, right to go back. Static mode shows the whole track.';
   const nav=Nav.go;Nav.go=function(...args){nav.apply(Nav,args);NativeSettings.syncNavigation();wakeLock(SET.keepScreenOn||Nav.cur==='lyrics'&&nativeValues().lyrics_keep_screen);};
-  window.addEventListener('pagehide',()=>{Engine.tracePlayback('pagehide');Engine.checkpoint();});
+  window.addEventListener('pagehide',()=>{Engine.tracePlayback('pagehide');Engine.checkpoint(true);});
   window.addEventListener('pageshow',()=>{Engine.tracePlayback('pageshow');Engine.reconcilePlaybackLifecycle();});
-  document.addEventListener('freeze',()=>{Engine.tracePlayback('freeze');Engine.checkpoint();});
+  document.addEventListener('freeze',()=>{Engine.tracePlayback('freeze');Engine.checkpoint(true);});
   document.addEventListener('resume',()=>{Engine.tracePlayback('page-resume');Engine.reconcilePlaybackLifecycle();});
   window.addEventListener('offline',()=>{Engine.tracePlayback('offline');Engine.noteR2OfflineSource();});
   window.addEventListener('online',()=>{Engine.tracePlayback('online');if(Engine._r2Recovery?.phase==='offline')Engine.beginR2Recovery();});
@@ -9289,14 +9307,17 @@ const PlaybackQueue={
     this.save();Engine.saveState();Views.refreshAll();toast(next?'Playing next':'Added to queue');
   },
   shouldStart(){
-    if(this.active||!this.pending.some(id=>sourceTrackEnabled(LIB.map.get(id))))return false;const v=nativeValues(),next=Engine.queue[Engine.order[Engine.pos+1]];
+    if(this.active||!this.pending.some(id=>sourceTrackEnabled(LIB.map.get(id))))return false;const v=nativeValues(),step=Engine._shuffleStep?.(1,SET.repeatMode==='all'),next=Engine.queue[step?(step.exhausted?-1:step.index):Engine.order[Engine.pos+1]];
     return this.forced||v.queue_start!==3||!next||trackAlbum(next)!==trackAlbum(Engine.current);
   },
   play(index=0){if(this.active)return Engine.playIndex(Engine.order[index],true);return this.begin(true,index);},
   clear(){this.pending=[];this.forced=false;if(this.active&&this.resume){const value=nativeValues().queue_end;nativeValues().queue_end=1;this.finish(Engine.wantsPlayback());nativeValues().queue_end=value;}else if(this.active){this.active=false;this.resume=null;Engine.stop();}this.save();Views.refreshAll();},
   begin(immediate=false,index=0,autoplay=true){
+    if(Engine._shuffleBuild)return Engine._deferShuffleNavigation(()=>this.begin(immediate,index,autoplay));
     const tracks=this.pending.map(id=>LIB.map.get(id)).filter(sourceTrackEnabled);if(!tracks.length)return false;
-    this.resume=Engine.current?{ids:Engine.queue.map(t=>t.id),order:Engine.order.slice(),pos:Engine.pos+(immediate?0:1),time:immediate?Engine.time():0}:null;
+    const shuffle=Engine._syncShuffle?.(),next=shuffle&&SET.shuffleOn&&!immediate?Engine._shuffleStep(1,SET.repeatMode==='all'):null;
+    if(next?.pending)return Engine._deferShuffleNavigation(()=>this.begin(immediate,index,autoplay));
+    this.resume=Engine.current?{ids:Engine.queue.map(t=>t.id),order:Engine.order.slice(),pos:next?(next.exhausted?Engine.order.length:Engine.order.indexOf(next.index)):Engine.pos+(immediate?0:1),time:immediate?Engine.time():0,shuffle:shuffle?.compactSnapshot(false),shuffleCycle:next?.cycle?(shuffle.pendingIndices||next.cycle):null}:null;
     this.active=true;this.pending=this.pending.filter(id=>!sourceTrackEnabled(LIB.map.get(id)));this.forced=false;this.starting=true;try{Engine.setQueue(tracks,index,autoplay);}finally{this.starting=false;}this.save();return true;
   },
   finish(autoplay=true){
@@ -9307,18 +9328,19 @@ const PlaybackQueue={
     resume.ids.forEach((id,i)=>{const t=LIB.map.get(id);if(sourceTrackEnabled(t)){remap.set(i,tracks.length);tracks.push(t);}});
     const surviving=resume.order.map((i,pos)=>({i:remap.get(i),pos})).filter(x=>x.i!=null);
     const order=surviving.map(x=>x.i),pos=surviving.findIndex(x=>x.pos>=resume.pos);
-    Engine.queue=tracks;Engine.order=order;
+    Engine.queue=tracks;Engine.order=order;Engine._shuffle=null;Engine._shuffleState=[3,4].includes(resume.shuffle?.version)?{...resume.shuffle,ids:resume.ids}:resume.shuffle;
     if(pos<0){Engine.stop();Views.refreshAll();return;}
     Engine.pos=pos;
+    if(resume.shuffleCycle&&Engine._shuffleState){Engine._shuffleState.ranks=resume.shuffleCycle;Engine._shuffleState.consumed=[];Engine.buildOrder(order[pos]);}
     Engine.playIndex(order[pos],autoplay,surviving[pos].pos===resume.pos?resume.time:0);Views.refreshAll();
   }
 
 };
 const PlaybackTransitions={token:0,finish:null,pending:false,
-  cancel(pauseOther=true,keepPreload=null){this.token++;clearTimeout(this.finish);this.finish=null;this.pending=false;Engine.xfading=false;Engine._overlapTrack=null;AudioQuality.refreshGain();if(pauseOther&&Engine.els.length===2){if(keepPreload&&Engine.preloadId===keepPreload)Engine.pauseElement(Engine.other());else Engine.releaseSlot(1-Engine.cur);Engine.setGain(1-Engine.cur,0,0);}},
-  async to(index,ms){
+  cancel(pauseOther=true,keepPreload=null){this.token++;clearTimeout(this.finish);this.finish=null;this.pending=false;Engine._shufflePending=null;Engine.xfading=false;Engine._overlapTrack=null;AudioQuality.refreshGain();if(pauseOther&&Engine.els.length===2){if(keepPreload&&Engine.preloadId===keepPreload)Engine.pauseElement(Engine.other());else Engine.releaseSlot(1-Engine.cur);Engine.setGain(1-Engine.cur,0,0);}},
+  async to(index,ms,shuffleStep){
     const track=Engine.queue[index];if(!track)return;
-    this.cancel();this.pending=true;Engine._playRequest=(Engine._playRequest||0)+1;const token=this.token,old=Engine.cur,next=1-old;let file;try{file=await getFileFor(track);}catch(e){if(token===this.token){this.pending=false;toast('Could not load the next track');}return;}if(token!==this.token)return;if(!file){this.pending=false;return;}
+    const pending=this.pending?Engine._shufflePending:null;this.cancel();Engine._shufflePending=[...(pending||[]),index];this.pending=true;Engine._playRequest=(Engine._playRequest||0)+1;const token=this.token,old=Engine.cur,next=1-old;let file;try{file=await getFileFor(track);}catch(e){if(token===this.token){this.pending=false;toast('Could not load the next track');}return;}if(token!==this.token)return;if(!file){this.pending=false;return;}
     if(Engine.ctx?.state==='closed'){this.pending=false;Engine.pause('context-failed');toast('Audio output was closed. Reload this page to play again.',6000);return;}
     Engine.ensureCtx('selection');const audio=Engine.els[next],url=audioSource(file),oldURL=audio.src;
     const owner={token,request:Engine._playRequest};audio._transitionOwner=owner;
@@ -9327,7 +9349,7 @@ const PlaybackTransitions={token:0,finish:null,pending:false,
     try{await audio.play();}catch(e){if(token===this.token&&ownsSlot()){this.pending=false;Engine.pauseElement(audio);toast('Could not start the next track');}return;}
     if(token!==this.token||!Engine.wantsPlayback()||!ownsSlot()){if(ownsSlot()&&Engine.cur!==next)Engine.pauseElement(audio);return;}
     if(!audio.ended&&audio.paused){this.cancel();Engine.pause('interrupted');return;}
-    Engine.resetSelectionRecovery(track);
+    Engine.resetSelectionRecovery(track);Engine._recordShuffle?.(index,shuffleStep);
     if(audio.ended){
       // The renderer can receive play completion after this spare has finished.
       // Consume its real end through queue policy, never call it active output.
@@ -9348,56 +9370,387 @@ function upcomingTracks(){
 }
 function upcomingIndices(){
   if(SET.repeatMode==='one')return Engine.current?[Engine.order[Engine.pos]]:[];
+  const state=SET.shuffleOn&&!PlaybackQueue.active?Engine._syncShuffle?.():null;
+  if(state){const remaining=[...state.history.slice(state.cursor+1),...state.ranks.filter(k=>!state.consumed.has(k))];if(!remaining.length&&SET.repeatMode==='all'){const next=Engine._shuffleStep(1,true);if(next?.cycle)remaining.push(...next.cycle);}return remaining.map(k=>state.indices.get(k)).filter(i=>sourceTrackEnabled(Engine.queue[i]));}
+  if(SET.shuffleOn&&Engine._shuffleBuild)return [];
   const order=Engine.order.slice(Engine.current?Engine.pos+1:0);
   const loops=PlaybackQueue.active?nativeValues().queue_end===0:SET.repeatMode==='all';
   if(loops&&Engine.current)order.push(...Engine.order.slice(0,Engine.pos+1));
   return order.filter(i=>sourceTrackEnabled(Engine.queue[i]));
 }
 function installPlaybackRework(){
+  // Occurrence keys preserve duplicate playlist entries. History is independent
+  // of the no-replacement bag: revisiting history never spends another entry.
+  class ShuffleCycle{
+    constructor(queue,mode,saved,{defer=false}={}){
+      this.mode=mode||1;this.keys=[];this.ranks=[];this.consumed=new Set();this.history=[];this.cursor=-1;this.recent=[];this.saved=saved;this.bagAt=0;this.ids=[];this.numericRanks=[];this.numericConsumed=new Set();this.numericHistory=[];this.packedConsumed='';this.packedHistory='';
+      if(!defer)this.sync(queue,mode);
+    }
+    *restoreWork(){
+      let s=this.saved;this.saved=null;
+      if(s?.version===4){
+        if(typeof s.consumed!=='string'||s.consumed.length>50000||typeof s.history!=='string'||s.history.length>50000)return;
+        const decode=function*(text){const out=[];for(let i=0;i<text.length;i++){out.push(text.charCodeAt(i)-256);if(i%128===127)yield;}return out;};
+        s={...s,version:3,consumed:yield* decode(s.consumed),history:yield* decode(s.history)};
+      }
+      if(s?.version===3){
+        if(!Array.isArray(s.ids)||s.ids.length>50000||!Array.isArray(s.ranks)||s.ranks.length!==s.ids.length||!Array.isArray(s.consumed)||s.consumed.length>50000||!Array.isArray(s.history)||s.history.length>50000)return;
+        const keys=[],counts=new Map();let count=0;
+        for(const id of s.ids){if(typeof id!=='string')return;const n=counts.get(id)||0;counts.set(id,n+1);keys.push(JSON.stringify([id,n]));if(++count%128===0)yield;}
+        const convert=function*(items){const out=[];for(const i of items){if(!Number.isInteger(i)||i<0||i>=keys.length)return null;out.push(keys[i]);if(++count%128===0)yield;}return out;};
+        const ranks=yield* convert(s.ranks),consumed=yield* convert(s.consumed),history=yield* convert(s.history);if(!ranks||!consumed||!history)return;
+        s={...s,version:2,keys,ranks,consumed,history};
+      }
+
+      if(!s||![1,2].includes(s.version)||![1,2,3,4].includes(s.mode)||!Array.isArray(s.keys)||s.keys.length>50000||!Array.isArray(s.ranks)||s.ranks.length!==s.keys.length||!Array.isArray(s.consumed)||s.consumed.length>50000||!Array.isArray(s.history)||s.history.length>50000||!Number.isInteger(s.cursor)||s.cursor< -1||s.cursor>=s.history.length)return;
+      const valid=new Set(),ranks=new Set(),consumed=new Set();let count=0;
+      for(const k of s.keys){if(typeof k!=='string'||valid.has(k))return;valid.add(k);if(++count%128===0)yield;}
+      for(const k of s.ranks){if(!valid.has(k)||ranks.has(k))return;ranks.add(k);if(++count%128===0)yield;}
+      for(const k of s.consumed){if(!valid.has(k))return;consumed.add(k);if(++count%128===0)yield;}
+      for(const k of s.history){if(!valid.has(k))return;if(++count%128===0)yield;}
+      // v1 recorded selections, including failed loads. Never migrate those
+      // selections into successful-listening recency.
+      if(s.version===2&&(!Array.isArray(s.recent)||s.recent.length>64||s.recent.some(id=>typeof id!=='string')))return;
+      this.keys=s.keys;this.ranks=s.ranks;this.consumed=consumed;this.history=s.history;this.cursor=s.cursor;this.mode=s.mode;this.recent=s.version===2?s.recent.slice():[];
+    }
+    *syncWork(queue,mode,force=false){
+      if(!force&&this.queue===queue&&this.length===queue.length&&(!mode||mode===this.mode))return;
+      if(this.saved)yield* this.restoreWork();
+      const counts=new Map(),keys=[],ids=[],idJSON=[],canonicalJSON=[],valid=new Set(),old=new Set(),indices=new Map();let count=0;
+      for(const k of this.keys){old.add(k);if(++count%128===0)yield;}
+      for(let i=0;i<queue.length;i++){const t=queue[i],n=counts.get(t.id)||0;counts.set(t.id,n+1);const k=JSON.stringify([t.id,n]);keys.push(k);ids.push(t.id);idJSON.push(JSON.stringify(t.id));canonicalJSON.push(String(i));valid.add(k);indices.set(k,i);if(++count%128===0)yield;}
+      const history=[];let before=0;
+      for(let i=0;i<this.history.length;i++){const k=this.history[i];if(valid.has(k)){history.push(k);if(i<=this.cursor)before++;}if(++count%128===0)yield;}
+      const consumed=new Set(),ranks=[],additions=[];
+      for(const k of this.consumed){if(valid.has(k))consumed.add(k);if(++count%128===0)yield;}
+      for(const k of this.ranks){if(valid.has(k))ranks.push(k);if(++count%128===0)yield;}
+      for(const k of keys){if(!old.has(k))additions.push(k);if(++count%128===0)yield;}
+      this.history=history;this.cursor=Math.min(before-1,history.length-1);this.consumed=consumed;this.keys=keys;this.queue=queue;this.length=queue.length;this.indices=indices;
+      if(mode&&mode!==this.mode){this.mode=mode;this.ranks=yield* this.rankWork(keys);}
+      else{const added=yield* this.rankWork(additions);for(const k of added){ranks.push(k);if(++count%128===0)yield;}this.ranks=ranks;}
+      this.ids=ids;this.numericRanks=[];this.numericConsumed=new Set();this.numericHistory=[];const packedConsumed=[],packedHistory=[],rankJSON=[];
+      for(const k of this.ranks){this.numericRanks.push(indices.get(k));rankJSON.push(String(indices.get(k)));if(++count%128===0)yield;}
+      for(const k of consumed){this.numericConsumed.add(indices.get(k));packedConsumed.push(String.fromCharCode(indices.get(k)+256));if(++count%128===0)yield;}
+      for(const k of history){this.numericHistory.push(indices.get(k));packedHistory.push(String.fromCharCode(indices.get(k)+256));if(++count%128===0)yield;}
+      this.packedConsumed=packedConsumed.join('');this.packedHistory=packedHistory.join('');this.idsJSON='['+idJSON.join(',')+']';this.rankJSON='['+rankJSON.join(',')+']';this.canonicalJSON='['+canonicalJSON.join(',')+']';
+      this.pendingCycle=null;this.pendingIndices=null;this.bagAt=0;
+    }
+    sync(queue,mode,force=false){const work=this.syncWork(queue,mode,force);while(!work.next().done){};}
+    *permutationWork(items){
+      if(items.length<=128)return shuffleArray(items);
+      const a=[];let count=0;for(const k of items){a.push(k);if(++count%128===0)yield;}
+      for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];if(++count%128===0)yield;}return a;
+    }
+    *rankWork(keys){
+      if(!keys.length)return [];
+      if(this.mode!==1){
+        const groups=new Map();let count=0;
+        for(const key of keys){const t=this.queue[this.indices.get(key)],group=JSON.stringify([t.albumArtist||t.artist||'',t.album||'']);if(!groups.has(group))groups.set(group,[]);groups.get(group).push(key);if(++count%128===0)yield;}
+        let values=[];for(const group of groups.values()){values.push(group);if(++count%128===0)yield;}
+        if(this.mode!==2)values=yield* this.permutationWork(values);
+        const result=[];for(let group of values){if(this.mode!==3)group=yield* this.permutationWork(group);for(const key of group){result.push(key);if(++count%128===0)yield;}}return result;
+      }
+      const candidates=Math.max(1,Math.min(8,Math.floor(16000/keys.length)));
+      if(candidates===1)return yield* this.permutationWork(keys);
+      const known=v=>{const s=String(v||'').trim().toLowerCase();return !s||/^(unknown(?: artist| album)?|<unknown>)$/.test(s)?null:s;};
+      const recent=new Map(this.recent.map((id,i,a)=>[id,(i+1)/a.length])),metadata=new Map(),now=Date.now();let last=null,count=0;
+      const heard=this.recent.at(-1);
+      for(const key of keys){const t=this.queue[this.indices.get(key)];if(t.id===heard)last=t;metadata.set(key,{artist:known(t.albumArtist||t.artist),album:known(t.album),recent:Math.max(recent.get(t.id)||0,t.lastPlayed>0?Math.max(0,1-(now-t.lastPlayed)/604800000):0)});if(++count%128===0)yield;}
+      const boundary=known(last?.albumArtist||last?.artist);
+      const score=function*(order){let total=0,artist=boundary,album=known(last?.album),run=1;
+        for(let i=0;i<order.length;i++){const m=metadata.get(order[i]);run=m.artist&&m.artist===artist?run+1:1;if(run>1)total+=4+run*run;if(m.artist&&m.artist===artist&&m.album&&m.album===album)total+=2;if(i<128)total+=m.recent*(128-i)/16;artist=m.artist;album=m.album;if(i%128===127)yield;}return total;};
+      let best=yield* this.permutationWork(keys),cost=yield* score(best);
+      // Bounded Fisher–Yates candidate selection remains a nonuniform heuristic.
+      for(let i=1;i<candidates;i++){const candidate=yield* this.permutationWork(keys),value=yield* score(candidate);if(value<cost){best=candidate;cost=value;}}
+      return best;
+    }
+    rank(keys){const work=this.rankWork(keys);let step;while(!(step=work.next()).done){}return step.value;}
+    *cycleWork(){
+      const ranks=yield* this.rankWork(this.keys),current=this.history[this.cursor];
+      if(ranks.length>1&&ranks[0]===current)ranks.push(ranks.shift());return ranks;
+    }
+    peek(direction,loop=false){
+      const cursor=this.cursor+(direction<0?-1:1);
+      if(cursor>=0&&cursor<this.history.length)return {key:this.history[cursor],cursor};
+      if(direction<0)return this.cursor>=0?{key:this.history[this.cursor],cursor:this.cursor}:null;
+      while(this.bagAt<this.ranks.length&&this.consumed.has(this.ranks[this.bagAt]))this.bagAt++;
+      const key=this.ranks[this.bagAt];if(key)return {key};
+      if(!loop||!this.keys.length)return null;
+      if(!this.pendingCycle){if(this.cooperative)return {pending:true};const work=this.cycleWork();let step;while(!(step=work.next()).done){}this.pendingCycle=step.value;this.pendingIndices=this.pendingCycle.map(k=>this.indices.get(k));this.pendingRankJSON=JSON.stringify(this.pendingIndices);}
+      return {key:this.pendingCycle[0],cycle:this.pendingCycle};
+    }
+    select(index,step){
+      const key=this.keys[index];if(key==null)return;
+      if(step?.key===key&&Number.isInteger(step.cursor)&&this.history[step.cursor]===key){this.cursor=step.cursor;return;}
+      if(step?.key===key&&step.cycle&&step.cycle===this.pendingCycle){this.ranks=this.pendingCycle;this.numericRanks=this.pendingIndices;this.rankJSON=this.pendingRankJSON||JSON.stringify(this.numericRanks);this.pendingRankJSON=null;this.pendingCycle=null;this.pendingIndices=null;this.consumed.clear();this.numericConsumed.clear();this.packedConsumed='';this.bagAt=0;}
+      if(!this.consumed.has(key))this.packedConsumed+=String.fromCharCode(index+256);this.consumed.add(key);this.numericConsumed.add(index);
+      if(this.history[this.cursor]===key)return;
+      this.history.splice(this.cursor+1);this.numericHistory.splice(this.cursor+1);this.history.push(key);this.numericHistory.push(index);this.packedHistory=this.packedHistory.slice(0,this.cursor+1)+String.fromCharCode(index+256);if(this.history.length>50000){this.history.shift();this.numericHistory.shift();this.packedHistory=this.packedHistory.slice(1);}this.cursor=this.history.length-1;
+    }
+    heard(id){this.recent.push(id);if(this.recent.length>64)this.recent.shift();}
+    compactSnapshot(withIds=true){return {version:4,mode:this.mode,...(withIds?{ids:this.ids}:{}),ranks:this.numericRanks,consumed:this.packedConsumed,history:this.packedHistory,cursor:this.cursor,recent:this.recent.slice()};}
+    snapshot(){return {version:2,mode:this.mode,keys:this.keys,ranks:this.ranks,consumed:[...this.consumed],history:this.history,cursor:this.cursor,recent:this.recent.slice()};}
+  }
+  const largeShuffle=queue=>queue.length>1024;
+  const shuffleNow=()=>globalThis.performance?.now?.()??Date.now();
+  const shuffleYield=()=>new Promise(resolve=>setTimeout(resolve,0));
+  Engine._runShuffleWork=async function(work,valid=()=>true){
+    const stats={slices:0,maxSliceMs:0};let step;
+    await shuffleYield();
+    while(valid()){
+      const started=shuffleNow();let checkpoints=0;
+      do{step=work.next();checkpoints++;}while(!step.done&&checkpoints<4&&shuffleNow()-started<2);
+      stats.slices++;stats.maxSliceMs=Math.max(stats.maxSliceMs,shuffleNow()-started);
+      if(step.done){this._shuffleWorkStats=stats;return {value:step.value,stats};}
+      await shuffleYield();
+    }
+    return null;
+  };
+  Engine._encodeShuffleCheckpoint=function(state){
+    const cached=this._shuffle,job=this._shuffleBuild,ready=cached?.queue===this.queue&&(!job||job.cycle);
+    const ids=ready?cached.idsJSON:job?.transport?.idsJSON||JSON.stringify(state.ids),order=ready?(SET.shuffleOn?cached.rankJSON:cached.canonicalJSON):job?.transport?.orderJSON||JSON.stringify(state.order);
+    const rest={...state};delete rest.ids;delete rest.order;delete rest.shuffle;
+    let encoded=JSON.stringify(rest).slice(0,-1)+',"ids":'+ids+',"order":'+order;
+    if(state.shuffle){
+      const saved={...state.shuffle},rank=saved.ranks,savedIDs=saved.ids;delete saved.ranks;delete saved.ids;
+      encoded+=',"shuffle":'+JSON.stringify(saved).slice(0,-1);
+      if(rank)encoded+=',"ranks":'+(rank===cached?.numericRanks?cached.rankJSON:job?.transport&&rank.length===state.order.length&&rank.every((i,pos)=>i===state.order[pos])?job.transport.orderJSON:JSON.stringify(rank));
+      if(savedIDs)encoded+=',"ids":'+(savedIDs===cached?.ids?cached.idsJSON:job?.transport&&savedIDs.length===state.ids.length&&savedIDs.every((id,i)=>id===state.ids[i])?job.transport.idsJSON:JSON.stringify(savedIDs));
+      encoded+='}';
+    }
+    return encoded+'}';
+  };
+  Engine._restoreShuffleQueue=async function(saved,valid){
+    const origin=this.queue;
+    const work=function*(){
+      const q=[],remap=new Map(),seen=new Set();let count=0;
+      for(let i=0;i<Math.min(50000,saved.ids.length);i++){const id=saved.ids[i],t=typeof id==='string'?LIB.map.get(id):null;if(sourceTrackEnabled(t)){remap.set(i,q.length);q.push(t);}if(++count%128===0)yield;}
+      let validOrder=Array.isArray(saved.order)&&saved.order.length===saved.ids.length;
+      if(validOrder)for(const i of saved.order){if(!Number.isInteger(i)||i<0||i>=saved.ids.length||seen.has(i)){validOrder=false;break;}seen.add(i);if(++count%128===0)yield;}
+      const order=[];if(validOrder){for(const i of saved.order){if(remap.has(i))order.push(remap.get(i));if(++count%128===0)yield;}}
+      else for(let i=0;i<q.length;i++){order.push(i);if(++count%128===0)yield;}
+      return {q,remap,validOrder,order};
+    };
+    const result=await this._runShuffleWork(work(),()=>valid()&&this.queue===origin);return result?.value;
+  };
+  Engine._workerShuffle=async function(queue,mode,saved,options,valid){
+    if(typeof Worker==='undefined')return null;
+    let worker;try{worker=new Worker('./shuffle-worker.js?v=20261012');}catch(_){return null;}
+    const ranks=[],json={idsJSON:[],rankJSON:[],canonicalJSON:[]};let finish;
+    const result=new Promise(resolve=>{finish=resolve;});
+    worker.onmessage=({data})=>{
+      if(!valid()){worker.terminate();finish(null);return;}
+      if(data.type==='ranks')ranks.push(...data.value);
+      else if(data.type==='json')json[data.field].push(data.value);
+      else if(data.type==='done'){worker.terminate();finish({...data,ranks,json});}
+      else if(data.type==='failed'){worker.terminate();finish(null);}
+    };
+    worker.onerror=event=>{event.preventDefault();worker.terminate();finish(null);};
+    const header=saved?{...saved}:null;
+    if(header)for(const field of ['ids','keys','ranks','consumed','history'])if(Array.isArray(header[field]))delete header[field];
+    worker.postMessage({type:'start',mode,saved:header,...options});
+    const upload=function*(){
+      for(let i=0;i<queue.length;i+=128){const value=[];for(let j=i;j<Math.min(queue.length,i+128);j++){const t=queue[j];value.push({id:t.id,artist:t.artist,albumArtist:t.albumArtist,album:t.album,lastPlayed:t.lastPlayed});}worker.postMessage({type:'tracks',value});yield;}
+      if(saved)for(const field of ['ids','keys','ranks','consumed','history'])if(Array.isArray(saved[field]))for(let i=0;i<saved[field].length;i+=128){worker.postMessage({type:'saved',field,value:saved[field].slice(i,i+128)});yield;}
+    };
+    const sent=await this._runShuffleWork(upload(),valid);
+    if(!sent||!valid()){worker.terminate();finish(null);return null;}
+    worker.postMessage({type:'finish'});const built=await result;
+    return built?{...built,upload:sent.stats}:null;
+  };
+  Engine._workerShuffleState=async function(queue,built,valid){
+    const state=Object.create(ShuffleCycle.prototype);
+    Object.assign(state,{mode:built.mode,queue,length:queue.length,largeProxy:true,cooperative:true,ids:[],keys:[],indices:{get:index=>index},ranks:built.ranks,numericRanks:built.ranks,consumed:new Set(),numericConsumed:new Set(),history:[],numericHistory:[],cursor:built.cursor,recent:built.recent,packedConsumed:built.consumed,packedHistory:built.history,bagAt:0,pendingCycle:null,pendingIndices:null});
+    const hydrate=function*(){
+      for(let i=0;i<queue.length;i++){state.ids.push(queue[i].id);state.keys.push(i);if(i%128===127)yield;}
+      for(let i=0;i<built.consumed.length;i++){const index=built.consumed.charCodeAt(i)-256;state.consumed.add(index);state.numericConsumed.add(index);if(i%128===127)yield;}
+      for(let i=0;i<built.history.length;i++){const index=built.history.charCodeAt(i)-256;state.history.push(index);state.numericHistory.push(index);if(i%128===127)yield;}
+      for(const field of ['idsJSON','rankJSON','canonicalJSON']){state[field]=built.json[field].join('');yield;}
+      return state;
+    };
+    const hydrated=await this._runShuffleWork(hydrate(),valid);if(!hydrated)return null;
+    state.sync=function(){};
+    state.snapshot=function(){return this.compactSnapshot();};
+    state.peek=function(direction,loop=false){
+      const cursor=this.cursor+(direction<0?-1:1);
+      if(cursor>=0&&cursor<this.history.length)return {key:this.history[cursor],cursor};
+      if(direction<0)return this.cursor>=0?{key:this.history[this.cursor],cursor:this.cursor}:null;
+      while(this.bagAt<this.ranks.length&&this.consumed.has(this.ranks[this.bagAt]))this.bagAt++;
+      const key=this.ranks[this.bagAt];if(key!=null)return {key};
+      if(!loop||!this.keys.length)return null;if(!this.pendingCycle)return {pending:true};
+      return {key:this.pendingCycle[0],cycle:this.pendingCycle};
+    };
+    return {state,stats:hydrated.stats};
+  };
+  Engine._deferShuffleNavigation=function(action){
+    const job=this._shuffleBuild,queue=this.queue,intent=this._shuffleIntent||0;
+    if(!job)return action();
+    return job.promise.then(()=>{
+      if(this.queue!==queue||(this._shuffleIntent||0)!==intent)return;
+      const previous=this._shuffleDeferred;this._shuffleDeferred=true;
+      try{return action();}finally{this._shuffleDeferred=previous;}
+    });
+  };
+  Engine._prepareShuffle=function(mode,anchor){
+    const queue=this.queue;
+    if(this._shuffleBuild?.queue===queue&&this._shuffleBuild.mode===mode)return this._shuffleBuild.promise;
+    const saved=this._shuffle?.compactSnapshot()||this._shuffleState;
+    const selected=this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id);
+    const seed=!this._shuffleFresh;this._shuffleFresh=false;
+    const job={queue,mode,saved,events:[],anchor,order:this.order};this._shuffleBuild=job;
+    let state=new ShuffleCycle(queue,mode,saved,{defer:true});state.cooperative=true;
+    const valid=()=>this._shuffleBuild===job&&this.queue===queue;
+    job.promise=(async()=>{
+      const built=typeof Worker==='undefined'?null:await this._workerShuffle(queue,mode,saved,{anchor,seedIndex:seed?selected:-1},valid);
+      if(!valid())return;
+      if(built){
+        const hydrated=await this._workerShuffleState(queue,built,valid);if(!hydrated||!valid())return;state=hydrated.state;
+        for(const event of job.events){if(event.heard)state.heard(event.heard);else state.select(event.index,event.step);}
+        const current=this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id);
+        this._shuffle=state;this._shuffleState=null;this._shuffleBuild=null;
+        if(SET.shuffleOn){this.order=state.numericRanks.slice();this.pos=Math.max(0,this.order.indexOf(current));}
+        this._shuffleGenerationStats={worker:true,upload:built.upload,generation:hydrated.stats};Views.refreshQueueOrder?.();this.saveState();return state;
+      }
+      const prepareJSON=function*(){const ids=[],order=[];for(let i=0;i<queue.length;i++){ids.push(JSON.stringify(queue[i].id));order.push(String(job.order[i]??i));if(i%128===127)yield;}return {idsJSON:'['+ids.join(',')+']',orderJSON:'['+order.join(',')+']'};};
+      job.transportPromise=this._runShuffleWork(prepareJSON(),valid);const transport=await job.transportPromise;if(!transport||!valid())return;
+      job.transport=transport.value;
+      const result=await this._runShuffleWork(state.syncWork(queue,mode,true),valid);if(!result||!valid())return;
+      if(seed&&state.cursor<0&&selected>=0)state.select(selected);
+      if(Number.isInteger(anchor)){const at=state.ranks.indexOf(state.keys[anchor]);if(at>=0){if(mode===1)state.ranks.unshift(...state.ranks.splice(at,1));else state.ranks.push(...state.ranks.splice(0,at));if(mode===1)state.numericRanks.unshift(...state.numericRanks.splice(at,1));else state.numericRanks.push(...state.numericRanks.splice(0,at));}}
+      const project=function*(){const order=[],parts=[];for(let i=0;i<state.ranks.length;i++){const index=state.indices.get(state.ranks[i]);order.push(index);parts.push(String(index));if(i%128===127)yield;}state.rankJSON='['+parts.join(',')+']';return order;};
+      const projected=await this._runShuffleWork(project(),valid);if(!projected||!valid())return;
+      for(const event of job.events){if(event.heard)state.heard(event.heard);else state.select(event.index,event.step);}
+      const current=this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id);
+      this._shuffle=state;this._shuffleState=null;this._shuffleBuild=null;
+      if(SET.shuffleOn){this.order=projected.value;this.pos=Math.max(0,this.order.indexOf(current));}
+      this._shuffleGenerationStats={generation:result.stats,projection:projected.stats};
+      Views.refreshQueueOrder?.();this.saveState();return state;
+    })();
+    // Cancellation is an ordinary state change; unexpected failures retire the
+    // pending job so transport cannot remain stuck waiting for an old queue.
+    job.promise.catch(()=>{if(this._shuffleBuild===job)this._shuffleBuild=null;});
+    return job.promise;
+  };
+  Engine._prepareShuffleCycle=function(state){
+    if(this._shuffleBuild)return this._shuffleBuild.promise;
+    const queue=this.queue,job={queue,mode:state.mode,events:[],cycle:true};this._shuffleBuild=job;
+    job.promise=(async()=>{
+      const valid=()=>this._shuffleBuild===job&&this.queue===queue&&this._shuffle===state;
+      if(state.largeProxy){
+        const built=await this._workerShuffle(queue,state.mode,state.compactSnapshot(),{cycle:true,seedIndex:-1},valid);if(!built||!valid())return;
+        state.pendingCycle=built.ranks;state.pendingIndices=built.ranks;state.pendingRankJSON=built.json.rankJSON.join('');this._shuffleCycleStats={worker:true,upload:built.upload};this._shuffleBuild=null;return state;
+      }
+      const result=await this._runShuffleWork(state.cycleWork(),valid);if(!result||!valid())return;
+      const project=function*(){const indices=[],parts=[];for(let i=0;i<result.value.length;i++){const index=state.indices.get(result.value[i]);indices.push(index);parts.push(String(index));if(i%128===127)yield;}state.pendingRankJSON='['+parts.join(',')+']';return indices;};
+      const projected=await this._runShuffleWork(project(),valid);if(!projected||!valid())return;
+      state.pendingCycle=result.value;state.pendingIndices=projected.value;this._shuffleCycleStats={generation:result.stats,projection:projected.stats};this._shuffleBuild=null;return state;
+    })();
+    job.promise.catch(()=>{if(this._shuffleBuild===job)this._shuffleBuild=null;});return job.promise;
+  };
+  Engine._syncShuffle=function(force=false){
+    if(PlaybackQueue.active)return null;
+    const mode=SET.shuffleOn?(SET.shuffleMode||1):0;
+    if(this._shuffleBuild){
+      if(this._shuffleBuild.queue===this.queue&&(!mode||this._shuffleBuild.mode===mode))return this._shuffleBuild.cycle?this._shuffle:null;
+      this._shuffleBuild=null;
+    }
+    if(!mode&&!this._shuffle&&!this._shuffleState)return null;
+    if((largeShuffle(this.queue)||this._shuffle?.largeProxy)&&(!this._shuffle||force||this._shuffle.queue!==this.queue||mode&&mode!==this._shuffle.mode)){
+      this._prepareShuffle(mode||this._shuffle?.mode||1);return null;
+    }
+    if(!this._shuffle){this._shuffle=new ShuffleCycle(this.queue,mode,this._shuffleState);this._shuffleState=null;const selected=this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id);if(!this._shuffleFresh&&this._shuffle.cursor<0&&selected>=0)this._shuffle.select(selected);this._shuffleFresh=false;}
+    else this._shuffle.sync(this.queue,mode,force);
+    return this._shuffle;
+  };
+  Engine._shuffleStep=function(direction,loop){
+    const state=this._syncShuffle();if(!SET.shuffleOn)return null;if(!state)return this._shuffleBuild?{pending:true}:null;
+    if(PlaybackTransitions.pending&&this._shufflePending?.length){
+      if(direction<0)return {key:state.history[state.cursor],cursor:state.cursor,index:state.indices.get(state.history[state.cursor])};
+      const pending=new Set(this._shufflePending.map(i=>state.keys[i]));
+      const key=state.ranks.find(k=>!state.consumed.has(k)&&!pending.has(k));
+      if(key)return {key,index:state.indices.get(key)};
+    }
+    const step=state.peek(direction,loop);
+    if(step?.pending){this._prepareShuffleCycle(state);return step;}
+    return step?{...step,index:state.indices.get(step.key)}:{exhausted:true};
+  };
+  Engine._recordShuffle=function(index,step=this._shuffleNavigation){
+    const state=this._syncShuffle();
+    if(state){state.select(index,step);if(SET.shuffleOn&&step?.cycle)this.order=state.numericRanks.slice();}
+    else if(!PlaybackQueue.active&&this._shuffleBuild?.queue===this.queue)this._shuffleBuild.events.push({index,step});
+    this._shuffleNavigation=null;
+  };
+  Engine._recordShuffleListening=function(){
+    const id=this.current?.id;if(!id||this._shuffleHeardRequest===this._playRequest)return;
+    const saved=PlaybackQueue.active?PlaybackQueue.resume?.shuffle:null,state=PlaybackQueue.active?null:this._syncShuffle(),job=!PlaybackQueue.active&&this._shuffleBuild?.queue===this.queue?this._shuffleBuild:null;
+    if(!saved&&!state&&!job)return;this._shuffleHeardRequest=this._playRequest;
+    if(saved){saved.recent=[...(saved.recent||[]),id].slice(-64);if(saved.version===1)saved.version=2;}
+    else if(state)state.heard(id);else job.events.push({heard:id});
+    this.saveState();
+  };
+  const onPlaying=Engine.onPlaying;
+  Engine.onPlaying=function(i){
+    const result=onPlaying.call(this,i),started=this._mediaStarted;
+    if(i===this.cur&&this.playing&&started?.request===this._playRequest&&started.slot===i&&started.source===this.el().src)this._recordShuffleListening();
+    return result;
+  };
+
   Engine.buildOrder=function(anchor){
     const mode=SET.shuffleOn?(SET.shuffleMode||1):0;
     const selected=Number.isInteger(anchor)?anchor:(this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id));
     if(PlaybackQueue.active&&nativeValues().queue_no_shuffle||!mode){this.order=this.queue.map((_,i)=>i);this.pos=Math.max(0,this.order.indexOf(selected));return;}
-    const groups=new Map();this.queue.forEach((t,i)=>{const key=JSON.stringify([t.albumArtist||trackArtist(t),trackAlbum(t)]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i);});
-    this.order=mode===1?shuffleArray(this.queue.map((_,i)=>i)):(mode===2?Array.from(groups.values()).map(shuffleArray):mode===3?shuffleArray(Array.from(groups.values())):shuffleArray(Array.from(groups.values())).map(shuffleArray)).flat();
-    const index=this.order.indexOf(selected);
-    if(index>=0){if(mode===1)this.order.unshift(...this.order.splice(index,1));else this.order.push(...this.order.splice(0,index));}
-    this.pos=0;
+    if(!PlaybackQueue.active){
+      if(largeShuffle(this.queue)||this._shuffle?.largeProxy){
+        if(!this.order.length||this.order.length!==this.queue.length)this.order=this.queue.map((_,i)=>i);
+        this.pos=Math.max(0,this.order.indexOf(selected));return this._prepareShuffle(mode,Number.isInteger(anchor)?anchor:undefined);
+      }
+      const state=this._syncShuffle(true);
+      // An explicit starting occurrence anchors a new category/mode. Ordinary
+      // toggles have no anchor and must retain every saved rank.
+      if(Number.isInteger(anchor)){const at=state.ranks.indexOf(state.keys[selected]);if(at>=0){if(mode===1)state.ranks.unshift(...state.ranks.splice(at,1));else state.ranks.push(...state.ranks.splice(0,at));if(mode===1)state.numericRanks.unshift(...state.numericRanks.splice(at,1));else state.numericRanks.push(...state.numericRanks.splice(0,at));state.rankJSON=JSON.stringify(state.numericRanks);state.bagAt=0;}}
+      this.order=state.numericRanks.slice();this.pos=Math.max(0,this.order.indexOf(selected));return;
+    }
+    this.order=shuffleArray(this.queue.map((_,i)=>i));this.pos=Math.max(0,this.order.indexOf(selected));
   };
-  const setQueue=Engine.setQueue;Engine.setQueue=function(list,index,autoplay){if(PlaybackQueue.active&&!PlaybackQueue.starting){PlaybackQueue.active=false;PlaybackQueue.resume=null;PlaybackQueue.save();}return setQueue.call(this,list,index,autoplay);};
+  const setQueue=Engine.setQueue;Engine.setQueue=function(list,index,autoplay){this._shuffleIntent=(this._shuffleIntent||0)+1;this._shuffleBuild=null;this.order=[];this._shuffleFresh=true;this._shuffle=null;this._shuffleState=null;if(PlaybackQueue.active&&!PlaybackQueue.starting){PlaybackQueue.active=false;PlaybackQueue.resume=null;PlaybackQueue.save();}return setQueue.call(this,list,index,autoplay);};
   const playIndex=Engine.playIndex;
   Engine.playIndex=function(index,autoplay,position){
     const t=this.queue[index];if(!sourceTrackEnabled(t))return this.selectionUnavailable();
+    if(this._shuffleBuild&&!this._shuffleDeferred)this._shuffleIntent=(this._shuffleIntent||0)+1;
     this.cancelSleepFade();
     const outgoing=this.current;if(outgoing&&!this._autoAdvance&&!this.el().ended&&nativeValues().restore_pos){outgoing.resumeAt=this.time();persistTrack(outgoing);}
     const mode=nativeValues().fade_manual_advance||0;
     // Cloud media can take seconds to become playable. Manual cloud selection
     // must update immediately, rather than leaving the old song on screen.
     const cloudSwitch=['drive','r2'].includes(t.source)||['drive','r2'].includes(outgoing?.source);
-    if(position==null&&!cloudSwitch&&autoplay!==false&&this.playing&&outgoing?.id!==t.id&&mode&&SET.audioMode!=='transparent'&&!this._autoAdvance)return PlaybackTransitions.to(index,mode===1?nativeValues().fade_short_xfade_ms||400:SET.crossfadeLen*1000);
+    if(position==null&&!cloudSwitch&&autoplay!==false&&this.playing&&outgoing?.id!==t.id&&mode&&SET.audioMode!=='transparent'&&!this._autoAdvance)return PlaybackTransitions.to(index,mode===1?nativeValues().fade_short_xfade_ms||400:SET.crossfadeLen*1000,this._shuffleNavigation);
     PlaybackTransitions.cancel(true,t.id);if(!this._autoAdvance)AudioQuality.reset();this.listened=0;this.listenedLast=0;this.counted=false;clearTimeout(this.silenceTimer);clearTimeout(this.fadeTimer);
     if(position==null&&nativeValues().restore_pos&&t.resumeAt>0&&t.resumeAt<(t.dur||0)-3&&(t.dur||0)>=(nativeValues().restore_pos_min_dur||45)*60)position=t.resumeAt;
     return playIndex.call(this,index,autoplay,position||0);
   };
   Engine.setGain=function(i,value,ms){const node=this.gains[i];if(node&&this.ctx){const now=this.ctx.currentTime;node.gain.cancelScheduledValues(now);node.gain.setValueAtTime(Math.max(0,node.gain.value),now);ms>0?node.gain.linearRampToValueAtTime(Math.max(0,value),now+ms/1000):node.gain.setValueAtTime(Math.max(0,value),now);}else if(this.els[i])this.els[i].volume=clamp(value,0,1)*SET.volume*SET.volume;};
-  const pause=Engine.pause;Engine.pause=function(reason){restoreTrackStepOrigin();this._playRequest=(this._playRequest||0)+1;this._loadingRequest=null;if(this._pendingSeek)this._pendingSeek.request=this._playRequest;PlaybackTransitions.cancel();clearTimeout(this.silenceTimer);return pause.call(this,reason);};
+  const pause=Engine.pause;Engine.pause=function(reason){this._shuffleIntent=(this._shuffleIntent||0)+1;restoreTrackStepOrigin();this._playRequest=(this._playRequest||0)+1;this._loadingRequest=null;if(this._pendingSeek)this._pendingSeek.request=this._playRequest;PlaybackTransitions.cancel();clearTimeout(this.silenceTimer);return pause.call(this,reason);};
   const play=Engine.play;Engine.play=function(){clearTimeout(this.fadeTimer);clearTimeout(this.silenceTimer);return play.call(this);};
-  const stop=Engine.stop;Engine.stop=function(){restoreTrackStepOrigin();AudioQuality.reset();this._playRequest=(this._playRequest||0)+1;this._loadingRequest=null;this._pendingSeek=null;this._resumePosition=null;PlaybackTransitions.cancel();clearTimeout(this.silenceTimer);return stop.call(this);};
+  const stop=Engine.stop;Engine.stop=function(){this._shuffleIntent=(this._shuffleIntent||0)+1;this._shuffleBuild=null;restoreTrackStepOrigin();AudioQuality.reset();this._playRequest=(this._playRequest||0)+1;this._loadingRequest=null;this._pendingSeek=null;this._resumePosition=null;PlaybackTransitions.cancel();clearTimeout(this.silenceTimer);return stop.call(this);};
   const seek=Engine.seek;Engine.seek=function(seconds){restoreTrackStepOrigin();PlaybackTransitions.cancel();AudioQuality.reset();const result=seek.call(this,seconds);this.listenedLast=this.time();if(this.playing&&SET.audioMode!=='transparent'&&nativeValues().fade_seek){this.setGain(this.cur,0,0);this.setGain(this.cur,this.rgGain(this.current),nativeValues().fade_seek_ms||100);}return result;};
   const next=Engine.next;
   Engine.next=function(auto){
+    if(this._shuffleBuild)return this._deferShuffleNavigation(()=>this.next(auto));
     const previous=this._autoAdvance;this._autoAdvance=!!auto;
     try{
-      if(!auto)return next.call(this,auto);
+      if(!auto){if(!PlaybackQueue.active&&!PlaybackQueue.shouldStart()){const step=this._shuffleStep(1,true);if(step?.pending)return this._deferShuffleNavigation(()=>this.next(false));}return next.call(this,auto);}
       if(SET.repeatMode==='one')return next.call(this,true);
       if(PlaybackQueue.shouldStart()){PlaybackQueue.begin(false,0,!!auto||this.wantsPlayback());return;}
       if(PlaybackQueue.active&&this.pos+1>=this.order.length){PlaybackQueue.finish(!!auto||this.wantsPlayback());return;}
+      const step=this._shuffleStep(1,SET.repeatMode==='all');
+      if(step){if(step.pending)return this._deferShuffleNavigation(()=>this.next(auto));if(step.exhausted){this.pause();this.el().currentTime=0;UI.renderProgress();return;}this._shuffleNavigation=step;return this.playIndex(step.index,true);}
       return next.call(this,auto);
-    }finally{this._autoAdvance=previous;}
+    }finally{this._autoAdvance=previous;this._shuffleNavigation=null;}
   };
+  const prev=Engine.prev;Engine.prev=function(){if(this._shuffleBuild)return this._deferShuffleNavigation(()=>this.prev());const step=this._shuffleStep(-1,false);if(step?.pending)return this._deferShuffleNavigation(()=>this.prev());return prev.call(this);};
   Engine.countPlayed=function(){if(!this.current||this.counted)return;this.counted=true;this.current.plays=(this.current.plays||0)+1;this.current.lastPlayed=Date.now();persistTrack(this.current);};
-  Engine.onEnded=function(i){this.tracePlayback('ended-received');if(i!==this.cur||this._loadingRequest||!this.wantsPlayback()||!this.el().ended||this._endedRequest===this._playRequest)return;if(this.ctx&&this.ctx.state!=='running'){this.holdContextSuspension();return;}this._endedRequest=this._playRequest;this.playing=false;UI.renderPlayState();if(this.current){this.current.resumeAt=0;this.countPlayed();persistTrack(this.current);}if(this._sleepFade){this.pause('sleep');return;}const request=this._playRequest;const advance=()=>{if(request!==this._playRequest||!this.wantsPlayback())return;if(this.ctx&&this.ctx.state!=='running'){this._endedRequest=null;this.holdContextSuspension();return;}this.listened=0;this.counted=false;this.next(true);};const gap=nativeValues().track_end_silence_ms||0;if(gap){clearTimeout(this.silenceTimer);this.silenceTimer=setTimeout(advance,gap);}else advance();};
-  Engine.startCrossfade=function(){if(this._sleepFade||SET.audioMode==='transparent')return;if(PlaybackQueue.active&&this.pos+1>=this.order.length)return;if(this.xfading||PlaybackTransitions.pending||!this.playing||PlaybackQueue.shouldStart()||SET.repeatMode==='one')return;let pos=this.pos+1;if(pos>=this.order.length){if(SET.repeatMode==='all')pos=0;else return;}return PlaybackTransitions.to(this.order[pos],Math.max(50,SET.crossfadeLen*1000));};
+  Engine.onEnded=function(i){this.tracePlayback('ended-received');if(i!==this.cur||this._loadingRequest||!this.wantsPlayback()||!this.el().ended||this._endedRequest===this._playRequest)return;if(this.ctx&&this.ctx.state!=='running'){this.holdContextSuspension();return;}this._endedRequest=this._playRequest;this._recordShuffleListening?.();this.playing=false;UI.renderPlayState();if(this.current){this.current.resumeAt=0;this.countPlayed();persistTrack(this.current);}if(this._sleepFade){this.pause('sleep');return;}const request=this._playRequest;const advance=()=>{if(request!==this._playRequest||!this.wantsPlayback())return;if(this.ctx&&this.ctx.state!=='running'){this._endedRequest=null;this.holdContextSuspension();return;}this.listened=0;this.counted=false;this.next(true);};const gap=nativeValues().track_end_silence_ms||0;if(gap){clearTimeout(this.silenceTimer);this.silenceTimer=setTimeout(advance,gap);}else advance();};
+  Engine.startCrossfade=function(){if(this._sleepFade||SET.audioMode==='transparent')return;if(PlaybackQueue.active&&this.pos+1>=this.order.length)return;if(this.xfading||PlaybackTransitions.pending||!this.playing||PlaybackQueue.shouldStart()||SET.repeatMode==='one')return;const step=this._shuffleStep(1,SET.repeatMode==='all');if(step){if(!step.pending&&!step.exhausted)return PlaybackTransitions.to(step.index,Math.max(50,SET.crossfadeLen*1000),step);return;}let pos=this.pos+1;if(pos>=this.order.length){if(SET.repeatMode==='all')pos=0;else return;}return PlaybackTransitions.to(this.order[pos],Math.max(50,SET.crossfadeLen*1000));};
   const time=Engine.onTime;Engine.onTime=function(i){
     if(i!==this.cur||this._loadingRequest)return;
     if(this.playing){const now=this.time(),delta=now-(this.listenedLast||0);if(delta>0&&delta<3*Math.max(1,SET.speed))this.listened=(this.listened||0)+delta;this.listenedLast=now;const threshold=this.duration()*(nativeValues().played_dur??14)/100;if(this.listened>=Math.max(1,threshold))this.countPlayed();}
@@ -9405,7 +9758,7 @@ function installPlaybackRework(){
     SET.crossfade=enabled&&mode!==0&&(mode!==3||SET.shuffleOn)&&(mode!==1||!sameAlbum);
     try{return time.call(this,i);}finally{SET.crossfade=enabled;}
   };
-  const restore=Engine.restoreState;Engine.restoreState=async function(){const result=await restore.call(this);try{const saved=this._restoredQueueState||JSON.parse(localStorage.getItem('dc.explicit-queue')||'null');if(saved&&Array.isArray(saved.pending)){PlaybackQueue.pending=saved.pending.filter(id=>LIB.map.has(id));PlaybackQueue.active=!!saved.active&&result;PlaybackQueue.resume=saved.resume&&Array.isArray(saved.resume.ids)&&Array.isArray(saved.resume.order)&&Number.isInteger(saved.resume.pos)&&saved.resume.pos>=0&&saved.resume.pos<=saved.resume.order.length&&saved.resume.order.every(i=>Number.isInteger(i)&&i>=0&&i<saved.resume.ids.length)?saved.resume:null;PlaybackQueue.forced=!!saved.forced;}}catch(e){}return result;};
+  const restore=Engine.restoreState;Engine.restoreState=async function(){const result=await restore.call(this);try{const saved=this._restoredQueueState||JSON.parse(localStorage.getItem('dc.explicit-queue')||'null');if(saved&&Array.isArray(saved.pending)){PlaybackQueue.pending=saved.pending.filter(id=>LIB.map.has(id));PlaybackQueue.active=!!saved.active&&result;PlaybackQueue.resume=saved.resume&&Array.isArray(saved.resume.ids)&&Array.isArray(saved.resume.order)&&Number.isInteger(saved.resume.pos)&&saved.resume.pos>=0&&saved.resume.pos<=saved.resume.order.length&&saved.resume.order.every(i=>Number.isInteger(i)&&i>=0&&i<saved.resume.ids.length)?saved.resume:null;PlaybackQueue.forced=!!saved.forced;}}catch(e){}this._syncShuffle();if(this._shuffleBuild)await this._shuffleBuild.promise;return result;};
   const items=Views.buildItems;Views.buildItems=function(spec){if(spec.kind==='queue'){const indices=spec.queueView==='upcoming'?upcomingIndices():null;return {type:'tracks',items:indices?indices.map(i=>Engine.queue[i]):PlaybackQueue.tracks(),indices};}return items.call(this,spec);};
   const counts=Views.counts;Views.counts=function(){const result=counts.call(this);result.queue=PlaybackQueue.tracks().length;return result;};
   const playFirstUpcoming=data=>{const index=data.indices?.[0];if(Engine.queue[index]?.id===data.items[0]?.id&&index!=null)Engine.playIndex(index,true);};
