@@ -4,7 +4,7 @@ import {existsSync} from 'node:fs';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {join,resolve} from 'node:path';
 import {chromium} from 'playwright-core';
-import {fixtureCover,fixtureSceneSettled,installFixtureInputTrace,installPowerampFixture,reportFixtureFailure,servePowerampFixture,sourceFlags} from './helpers/poweramp-fixture.js';
+import {fixtureCover,instrumentFixtureBoot,fixtureSceneSettled,installFixtureInputTrace,installPowerampFixture,reportFixtureFailure,servePowerampFixture,sourceFlags} from './helpers/poweramp-fixture.js';
 import {compareScreenshotPNG} from './helpers/poweramp-png.js';
 
 const executablePath=[process.env.JARVIS_CHROME,'/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome',chromium.executablePath()].find(p=>p&&existsSync(p));
@@ -34,8 +34,8 @@ async function openVisualPage(browser,fixture,{theme,baseline=false,art=true}){
     playerSource=playerSource.replace('const ScreenDrag={',"Object.assign(SharedPlayerMotion,SnapshotReferenceMotion,{appearanceEnabled:false,install(){},setMiniLabel(node,text){node.textContent=text;}});\nconst ScreenDrag={");
   }
   playerSource=playerSource.replace('window.PA = {','window.fixtureActualMotion=SharedPlayerMotion;window.fixtureRawScene=()=>ScreenDrag.state||ScreenDrag.settling;window.PA = {');
-  await context.route('**/drawercast/player.js*',route=>route.fulfill({contentType:'application/javascript',body:playerSource}));
-  await page.goto(fixture.origin+'/drawercast/');await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');await page.evaluate(installPowerampFixture,{origin:fixture.origin,count:60,art});
+  await context.route('**/drawercast/player.js*',route=>route.fulfill({contentType:'application/javascript',body:instrumentFixtureBoot(playerSource)}));
+  await page.goto(fixture.origin+'/drawercast/');await page.waitForFunction(()=>window.PA?.R2Source.manifestURL==='fixture-disabled');await page.evaluate(()=>window.__powerampBootPromise);await page.evaluate(installPowerampFixture,{origin:fixture.origin,count:60,art});
   await page.evaluate(async theme=>{
     PA.SET.uiTheme=theme;PA.applySettings('uiTheme');PA.UI.renderPlayState();PA.Engine.seek(42);
     PA.Waveform.accept({duration:180,peaks:Array.from({length:2880},(_,i)=>40+(i*37+i%17*13)%205)});PA.UI.renderProgress();PA.UI.drawViz();await document.fonts.ready;
