@@ -153,10 +153,10 @@ async function restoredTouch(){
 }
 try{
   const current=await fetch(release.storageOrigin+'/release.json',{cache:'no-store',signal:AbortSignal.timeout(15000)}).then(r=>r.json());
-  let receipt,actualWorkerSource,frontendPatchSource,launcherPatchSource,playlistPatchSource,museDesignSource;
+  let receipt,actualWorkerSource,frontendPatchSource,launcherPatchSource,playlistPatchSource,museDesignSource,sortPatchSource;
   if(release.workerDeploymentPolicy?.mode==='reconcile-lucy-discovery'){
     const response=await fetch(release.storageOrigin+'/release-qualified.json',{cache:'no-store',signal:AbortSignal.timeout(15000)});
-    assert.equal(response.status,200);const actual=await response.json();receipt=await verifiedMusicReceipt(actual);actualWorkerSource=actual.source;frontendPatchSource=actual.frontendPatch?.artifact?.source;launcherPatchSource=actual.launcherPatch?.artifact?.source;playlistPatchSource=actual.playlistPatch?.artifact?.source;museDesignSource=actual.museDesignPatch?.artifact?.source;
+    assert.equal(response.status,200);const actual=await response.json();receipt=await verifiedMusicReceipt(actual);actualWorkerSource=actual.source;frontendPatchSource=actual.frontendPatch?.artifact?.source;launcherPatchSource=actual.launcherPatch?.artifact?.source;playlistPatchSource=actual.playlistPatch?.artifact?.source;museDesignSource=actual.museDesignPatch?.artifact?.source;sortPatchSource=actual.sortPatch?.artifact?.source;
   }
   const identity=checkedMusicFrontend(release,current,receipt);
   if(actualWorkerSource)identity.workerSource=actualWorkerSource;
@@ -165,6 +165,7 @@ try{
   if(launcherPatchSource)report.launcherPatchSource=launcherPatchSource;
   if(playlistPatchSource)report.playlistPatchSource=playlistPatchSource;
   if(museDesignSource)report.museDesignSource=museDesignSource;
+  if(sortPatchSource)report.sortPatchSource=sortPatchSource;
   check('live source pin',identity);
   const [catalog,mapping]=await Promise.all([release.storageOrigin+'/assets/drive-catalog-v2.json',release.r2ManifestURL].map(async url=>{
     const response=await fetch(url,{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(15000)});
