@@ -156,3 +156,8 @@ body.muse-page .composer-input textarea::placeholder{color:#aaa}
 body.muse-page .rich-body .code-block{background:#202020;color:#f7f7f7;border-color:#505050}
 body.muse-page .rich-body .code-copy{background:#383838;color:#d7e7fa}
 body.muse-page :is(button,a,input,textarea):focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* Muse uses Relay's conversation sheet for both public and owner routes. */
+.muse-mode-sheet{background:#1b1b1b;color:#f7f7f7;max-height:85dvh;overflow:auto}
+.muse-mode-sheet .sheet-action{display:flex;align-items:center;width:100%;text-align:left}
+.muse-mode-sheet .dialog-heading{background:#1b1b1b}

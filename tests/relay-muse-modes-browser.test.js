@@ -1,0 +1,46 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+import {createConversationFixture,launchQualifiedBrowser,openConversationPage,closeConversationHarness,assertBrowserContained,SITE} from './helpers/relay-conversation-browser-fixture.js';
+import {hash,random} from '../backend/relay-common.js';
+
+test('Muse phone: one launcher, explicit mode switch, owner auth and isolated drafts/history',{timeout:60000},async t=>{
+ const browser=await launchQualifiedBrowser(t);if(!browser)return;
+ const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}}),pages=[];
+ try{
+  const signedOut=await openConversationPage(browser,h,{clock:false});pages.push(signedOut);
+  let p=signedOut.page;await p.goto(SITE+'/');
+  assert.equal(await p.locator('a[href="/mast/"]').count(),0);
+  await p.locator('a[href="/muse/"]').first().click();
+  await p.waitForFunction(()=>document.querySelector('#status')?.textContent!=='Opening public inbox…');
+  await p.locator('#prompt').fill('Synthetic public draft');
+  await p.getByRole('button',{name:'Conversation menu',exact:true}).click();
+  await p.getByRole('link',{name:'Owner chat',exact:true}).click();
+  await p.locator('#login:not([hidden])').waitFor();assert.ok(await p.locator('#composer').isHidden());
+  assert.equal(await p.locator('#message').inputValue(),'');
+  assert.ok(!signedOut.records.some(r=>r.path.startsWith('/relay/owner/mast')));
+  await p.getByRole('button',{name:'Conversation menu',exact:true}).click();
+  await p.getByRole('link',{name:'Public chat',exact:true}).click();
+  await p.waitForFunction(()=>document.querySelector('#prompt')?.value==='Synthetic public draft');
+  assert.equal(await p.locator('#prompt').inputValue(),'Synthetic public draft');
+  const owner=await h.pair(await h.oauth());
+  await h.phone('/mast',{id:crypto.randomUUID(),body:'Synthetic PRIVATE history'},owner.device_token);
+  const phone=await openConversationPage(browser,h,{owner,clock:false});pages.push(phone);p=phone.page;
+  await p.goto(SITE+'/mast/');await p.getByText('Synthetic PRIVATE history',{exact:true}).waitFor();
+  await p.locator('#message').fill('Synthetic PRIVATE draft');
+  const evidence=process.env.JARVIS_SCREENSHOT_DIR||'/tmp/muse-modes-evidence';await mkdir(evidence,{recursive:true});
+  await p.getByRole('button',{name:'Conversation menu',exact:true}).click();
+  await p.screenshot({path:evidence+'/private-menu-390.png'});
+  await p.getByRole('link',{name:'Public chat',exact:true}).click();
+  await p.locator('#prompt').waitFor();assert.equal(await p.locator('#prompt').inputValue(),'');
+  assert.ok(!(await p.locator('body').innerText()).includes('Synthetic PRIVATE'));
+  await p.getByRole('button',{name:'Conversation menu',exact:true}).click();
+  await p.screenshot({path:evidence+'/public-menu-390.png'});
+  await p.getByRole('link',{name:'Owner chat',exact:true}).click();
+  await p.locator('#composer:not([hidden])').waitFor();assert.equal(await p.locator('#message').inputValue(),'Synthetic PRIVATE draft');
+  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_mast_entries')[0].n,1);
+  assert.ok(phone.records.every(r=>r.method!=='POST'||!r.path.startsWith('/shared/')));
+  for(const page of pages)assertBrowserContained(page);
+ }finally{await closeConversationHarness(browser,h,pages);}
+});
