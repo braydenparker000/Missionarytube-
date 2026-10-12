@@ -2923,6 +2923,7 @@ const Engine = {
     this.dur=t.dur||0;
     this.releaseSlot(this.cur);
     this.playing=false;UI.renderPlayState();
+    this._recordShuffle?.(qi);
     this.current=t;
     this.pos = Math.max(0, this.order.indexOf(qi));
     UI.renderNowPlaying(t);UI.renderProgress();
@@ -3412,6 +3413,7 @@ const Engine = {
   },
   checkpoint:function(){
     const state={ids:this.queue.map(t=>t.id),pos:this.pos,order:this.order.slice(),curId:this.current?.id||null,time:this.time(),savedAt:Date.now()};
+    const shuffle=this._syncShuffle?.();if(shuffle)state.shuffle=shuffle.snapshot();
     if(typeof PlaybackQueue!=='undefined')state.explicitQueue={pending:PlaybackQueue.pending.slice(),active:PlaybackQueue.active,resume:PlaybackQueue.resume,forced:PlaybackQueue.forced};
     // The synchronous copy survives a reload before an IndexedDB write commits.
     try{localStorage.setItem('dc.playback-checkpoint',JSON.stringify(state));}catch(e){}
@@ -3431,7 +3433,7 @@ const Engine = {
       s.ids.slice(0,50000).forEach((id,i)=>{const t=typeof id==='string'?LIB.map.get(id):null;if(sourceTrackEnabled(t)){remap.set(i,q.length);q.push(t);}});
       if(!q.length) return false;
       if(request!==this._playRequest)return false;
-      this.queue=q;this._restoredQueueState=s.explicitQueue;
+      this.queue=q;this._restoredQueueState=s.explicitQueue;this._shuffle=null;this._shuffleState=s.shuffle;
       const validOrder=Array.isArray(s.order)&&s.order.length===s.ids.length&&new Set(s.order).size===s.ids.length&&s.order.every(i=>Number.isInteger(i)&&i>=0&&i<s.ids.length);
       this.order=validOrder?s.order.filter(i=>remap.has(i)).map(i=>remap.get(i)):q.map((_,i)=>i);
       const savedIndex=validOrder?remap.get(s.order[s.pos]):-1;
@@ -6035,6 +6037,8 @@ function resolveTrackStep(delta){
     const next=resume?.order.slice(resume.pos).map(i=>LIB.map.get(resume.ids[i])).find(sourceTrackEnabled)||null;
     return {...step,kind:'queue-finish',queueEnd:nativeValues().queue_end,track:next};
   }
+  const shuffled=Engine._shuffleStep?.(direction,true);
+  if(shuffled&&!shuffled.exhausted)return {...step,kind:'track',pos:Engine.order.indexOf(shuffled.index),index:shuffled.index,track:Engine.queue[shuffled.index],shuffle:shuffled};
   const pos=direction<0?(Engine.pos<=0?Engine.order.length-1:Engine.pos-1):(Engine.pos+1)%Engine.order.length;
   return {...step,kind:'track',pos,index:Engine.order[pos],track:Engine.queue[Engine.order[pos]]||null};
 }
@@ -6059,7 +6063,8 @@ function commitTrackStep(step){
     // another deliberate Next continues from this requested target, not from
     // the still-audible outgoing song.
     const request=Engine._playRequest;Engine.pos=step.pos;
-    const result=Engine.playIndex(step.index,autoplay),acceptedRequest=Engine._playRequest;
+    Engine._shuffleNavigation=step.shuffle;
+    const result=Engine.playIndex(step.index,autoplay),acceptedRequest=Engine._playRequest;Engine._shuffleNavigation=null;
     if(acceptedRequest===request&&Engine.current?.id!==step.track.id){Engine.pos=step.originPos;UI.artDir=0;return false;}
     if(Engine.current?.id!==step.track.id)Engine._manualStepOrigin={currentId:step.currentId,queue:step.queue,order:step.order,pos:step.originPos};
     else Engine._manualStepOrigin=null;
@@ -7372,7 +7377,7 @@ function bindStatic(){
   $('#t-shuffle').onclick=function(){
     SET.shuffleOn=!SET_shuffleOn();
     saveSet();
-    Engine.buildOrder();
+    Engine.buildOrder();Engine.saveState();
     UI.renderToggles();
     toast('Shuffle '+(SET.shuffleOn?'on':'off'));
   };
@@ -9289,14 +9294,15 @@ const PlaybackQueue={
     this.save();Engine.saveState();Views.refreshAll();toast(next?'Playing next':'Added to queue');
   },
   shouldStart(){
-    if(this.active||!this.pending.some(id=>sourceTrackEnabled(LIB.map.get(id))))return false;const v=nativeValues(),next=Engine.queue[Engine.order[Engine.pos+1]];
+    if(this.active||!this.pending.some(id=>sourceTrackEnabled(LIB.map.get(id))))return false;const v=nativeValues(),step=Engine._shuffleStep?.(1,SET.repeatMode==='all'),next=Engine.queue[step?(step.exhausted?-1:step.index):Engine.order[Engine.pos+1]];
     return this.forced||v.queue_start!==3||!next||trackAlbum(next)!==trackAlbum(Engine.current);
   },
   play(index=0){if(this.active)return Engine.playIndex(Engine.order[index],true);return this.begin(true,index);},
   clear(){this.pending=[];this.forced=false;if(this.active&&this.resume){const value=nativeValues().queue_end;nativeValues().queue_end=1;this.finish(Engine.wantsPlayback());nativeValues().queue_end=value;}else if(this.active){this.active=false;this.resume=null;Engine.stop();}this.save();Views.refreshAll();},
   begin(immediate=false,index=0,autoplay=true){
     const tracks=this.pending.map(id=>LIB.map.get(id)).filter(sourceTrackEnabled);if(!tracks.length)return false;
-    this.resume=Engine.current?{ids:Engine.queue.map(t=>t.id),order:Engine.order.slice(),pos:Engine.pos+(immediate?0:1),time:immediate?Engine.time():0}:null;
+    const shuffle=Engine._syncShuffle?.(),next=shuffle&&SET.shuffleOn&&!immediate?Engine._shuffleStep(1,SET.repeatMode==='all'):null;
+    this.resume=Engine.current?{ids:Engine.queue.map(t=>t.id),order:Engine.order.slice(),pos:next?(next.exhausted?Engine.order.length:Engine.order.indexOf(next.index)):Engine.pos+(immediate?0:1),time:immediate?Engine.time():0,shuffle:shuffle?.snapshot(),shuffleCycle:next?.cycle||null}:null;
     this.active=true;this.pending=this.pending.filter(id=>!sourceTrackEnabled(LIB.map.get(id)));this.forced=false;this.starting=true;try{Engine.setQueue(tracks,index,autoplay);}finally{this.starting=false;}this.save();return true;
   },
   finish(autoplay=true){
@@ -9307,18 +9313,19 @@ const PlaybackQueue={
     resume.ids.forEach((id,i)=>{const t=LIB.map.get(id);if(sourceTrackEnabled(t)){remap.set(i,tracks.length);tracks.push(t);}});
     const surviving=resume.order.map((i,pos)=>({i:remap.get(i),pos})).filter(x=>x.i!=null);
     const order=surviving.map(x=>x.i),pos=surviving.findIndex(x=>x.pos>=resume.pos);
-    Engine.queue=tracks;Engine.order=order;
+    Engine.queue=tracks;Engine.order=order;Engine._shuffle=null;Engine._shuffleState=resume.shuffle;
     if(pos<0){Engine.stop();Views.refreshAll();return;}
     Engine.pos=pos;
+    if(resume.shuffleCycle&&Engine._shuffleState){Engine._shuffleState.ranks=resume.shuffleCycle;Engine._shuffleState.consumed=[];Engine.buildOrder(order[pos]);}
     Engine.playIndex(order[pos],autoplay,surviving[pos].pos===resume.pos?resume.time:0);Views.refreshAll();
   }
 
 };
 const PlaybackTransitions={token:0,finish:null,pending:false,
-  cancel(pauseOther=true,keepPreload=null){this.token++;clearTimeout(this.finish);this.finish=null;this.pending=false;Engine.xfading=false;Engine._overlapTrack=null;AudioQuality.refreshGain();if(pauseOther&&Engine.els.length===2){if(keepPreload&&Engine.preloadId===keepPreload)Engine.pauseElement(Engine.other());else Engine.releaseSlot(1-Engine.cur);Engine.setGain(1-Engine.cur,0,0);}},
-  async to(index,ms){
+  cancel(pauseOther=true,keepPreload=null){this.token++;clearTimeout(this.finish);this.finish=null;this.pending=false;Engine._shufflePending=null;Engine.xfading=false;Engine._overlapTrack=null;AudioQuality.refreshGain();if(pauseOther&&Engine.els.length===2){if(keepPreload&&Engine.preloadId===keepPreload)Engine.pauseElement(Engine.other());else Engine.releaseSlot(1-Engine.cur);Engine.setGain(1-Engine.cur,0,0);}},
+  async to(index,ms,shuffleStep){
     const track=Engine.queue[index];if(!track)return;
-    this.cancel();this.pending=true;Engine._playRequest=(Engine._playRequest||0)+1;const token=this.token,old=Engine.cur,next=1-old;let file;try{file=await getFileFor(track);}catch(e){if(token===this.token){this.pending=false;toast('Could not load the next track');}return;}if(token!==this.token)return;if(!file){this.pending=false;return;}
+    const pending=this.pending?Engine._shufflePending:null;this.cancel();Engine._shufflePending=[...(pending||[]),index];this.pending=true;Engine._playRequest=(Engine._playRequest||0)+1;const token=this.token,old=Engine.cur,next=1-old;let file;try{file=await getFileFor(track);}catch(e){if(token===this.token){this.pending=false;toast('Could not load the next track');}return;}if(token!==this.token)return;if(!file){this.pending=false;return;}
     if(Engine.ctx?.state==='closed'){this.pending=false;Engine.pause('context-failed');toast('Audio output was closed. Reload this page to play again.',6000);return;}
     Engine.ensureCtx('selection');const audio=Engine.els[next],url=audioSource(file),oldURL=audio.src;
     const owner={token,request:Engine._playRequest};audio._transitionOwner=owner;
@@ -9327,7 +9334,7 @@ const PlaybackTransitions={token:0,finish:null,pending:false,
     try{await audio.play();}catch(e){if(token===this.token&&ownsSlot()){this.pending=false;Engine.pauseElement(audio);toast('Could not start the next track');}return;}
     if(token!==this.token||!Engine.wantsPlayback()||!ownsSlot()){if(ownsSlot()&&Engine.cur!==next)Engine.pauseElement(audio);return;}
     if(!audio.ended&&audio.paused){this.cancel();Engine.pause('interrupted');return;}
-    Engine.resetSelectionRecovery(track);
+    Engine.resetSelectionRecovery(track);Engine._recordShuffle?.(index,shuffleStep);
     if(audio.ended){
       // The renderer can receive play completion after this spare has finished.
       // Consume its real end through queue policy, never call it active output.
@@ -9348,23 +9355,105 @@ function upcomingTracks(){
 }
 function upcomingIndices(){
   if(SET.repeatMode==='one')return Engine.current?[Engine.order[Engine.pos]]:[];
+  const state=SET.shuffleOn&&!PlaybackQueue.active?Engine._syncShuffle?.():null;
+  if(state){const remaining=[...state.history.slice(state.cursor+1),...state.ranks.filter(k=>!state.consumed.has(k))];if(!remaining.length&&SET.repeatMode==='all'){const next=state.peek(1,true);if(next?.cycle)remaining.push(...next.cycle);}return remaining.map(k=>state.indices.get(k)).filter(i=>sourceTrackEnabled(Engine.queue[i]));}
   const order=Engine.order.slice(Engine.current?Engine.pos+1:0);
   const loops=PlaybackQueue.active?nativeValues().queue_end===0:SET.repeatMode==='all';
   if(loops&&Engine.current)order.push(...Engine.order.slice(0,Engine.pos+1));
   return order.filter(i=>sourceTrackEnabled(Engine.queue[i]));
 }
 function installPlaybackRework(){
+  // Occurrence keys preserve duplicate playlist entries. History is independent
+  // of the no-replacement bag: revisiting history never spends another entry.
+  class ShuffleCycle{
+    constructor(queue,mode,saved){
+      this.mode=mode||1;this.keys=[];this.ranks=[];this.consumed=new Set();this.history=[];this.cursor=-1;
+      const savedKeys=new Set(Array.isArray(saved?.keys)?saved.keys:[]);
+      if(saved?.version===1&&[1,2,3,4].includes(saved.mode)&&Array.isArray(saved.keys)&&saved.keys.length<=50000&&new Set(saved.keys).size===saved.keys.length&&saved.keys.every(k=>typeof k==='string')&&Array.isArray(saved.ranks)&&saved.ranks.length===saved.keys.length&&new Set(saved.ranks).size===saved.keys.length&&saved.ranks.every(k=>savedKeys.has(k))&&Array.isArray(saved.consumed)&&saved.consumed.length<=50000&&Array.isArray(saved.history)&&saved.history.length<=50000&&Number.isInteger(saved.cursor)&&saved.cursor>=-1&&saved.cursor<saved.history.length){
+        this.keys=saved.keys;this.ranks=saved.ranks;const valid=new Set(this.keys);this.consumed=new Set(saved.consumed.filter(k=>valid.has(k)));this.history=saved.history.filter(k=>valid.has(k));this.cursor=Math.min(saved.cursor,this.history.length-1);this.mode=saved.mode||this.mode;
+      }
+      this.sync(queue,mode);
+    }
+    sync(queue,mode){
+      if(this.queue===queue&&this.length===queue.length&&(!mode||mode===this.mode))return;
+      const counts=new Map(),keys=queue.map(t=>{const n=counts.get(t.id)||0;counts.set(t.id,n+1);return JSON.stringify([t.id,n]);}),valid=new Set(keys),old=new Set(this.keys);
+      const current=this.history[this.cursor],before=this.history.slice(0,this.cursor+1).filter(k=>valid.has(k)).length;
+      this.history=this.history.filter(k=>valid.has(k));this.cursor=current&&valid.has(current)?before-1:Math.min(before-1,this.history.length-1);
+      this.consumed=new Set([...this.consumed].filter(k=>valid.has(k)));this.keys=keys;this.queue=queue;this.length=queue.length;this.indices=new Map(keys.map((k,i)=>[k,i]));
+      this.ranks=this.ranks.filter(k=>valid.has(k));
+      const additions=keys.filter(k=>!old.has(k));
+      if(mode&&mode!==this.mode){this.mode=mode;this.ranks=this.rank(keys);}
+      else this.ranks.push(...this.rank(additions));
+      this.pendingCycle=null;this.bagAt=0;
+    }
+    rank(keys){
+      if(!keys.length)return [];
+      if(this.mode!==1){
+        const groups=new Map();for(const key of keys){const t=this.queue[this.indices.get(key)],group=JSON.stringify([t.albumArtist||t.artist||'',t.album||'']);if(!groups.has(group))groups.set(group,[]);groups.get(group).push(key);}
+        const values=[...groups.values()];return (this.mode===2?values.map(shuffleArray):this.mode===3?shuffleArray(values):shuffleArray(values).map(shuffleArray)).flat();
+      }
+      const candidates=Math.max(1,Math.min(8,Math.floor(16000/keys.length)));
+      if(candidates===1)return shuffleArray(keys);
+      const known=v=>{const s=String(v||'').trim().toLowerCase();return !s||/^(unknown(?: artist| album)?|<unknown>)$/.test(s)?null:s;};
+      const recent=new Map(this.history.slice(-64).map((key,i,a)=>[key,(i+1)/a.length]));
+      const metadata=new Map(keys.map(key=>{const t=this.queue[this.indices.get(key)];return [key,{artist:known(t.albumArtist||t.artist),album:known(t.album),recent:Math.max(recent.get(key)||0,t.lastPlayed>0?Math.max(0,1-(Date.now()-t.lastPlayed)/604800000):0)}];}));
+      const last=this.queue[this.indices.get(this.history[this.cursor])],boundary=known(last?.albumArtist||last?.artist);
+      const score=order=>{let total=0,artist=boundary,album=known(last?.album),run=1;
+        for(let i=0;i<order.length;i++){const m=metadata.get(order[i]);run=m.artist&&m.artist===artist?run+1:1;if(run>1)total+=4+run*run;if(m.artist&&m.artist===artist&&m.album&&m.album===album)total+=2;if(i<128)total+=m.recent*(128-i)/16;artist=m.artist;album=m.album;}return total;};
+      let best=shuffleArray(keys),cost=score(best);
+      // Bounded best-of-eight Fisher–Yates candidates: heuristic, not uniform
+      // and not a claim of optimal artist separation. Every occurrence survives.
+      for(let i=1;i<candidates;i++){const candidate=shuffleArray(keys),value=score(candidate);if(value<cost){best=candidate;cost=value;}}
+      return best;
+    }
+    peek(direction,loop=false){
+      const cursor=this.cursor+(direction<0?-1:1);
+      if(cursor>=0&&cursor<this.history.length)return {key:this.history[cursor],cursor};
+      if(direction<0)return this.cursor>=0?{key:this.history[this.cursor],cursor:this.cursor}:null;
+      while(this.bagAt<this.ranks.length&&this.consumed.has(this.ranks[this.bagAt]))this.bagAt++;
+      const key=this.ranks[this.bagAt];if(key)return {key};
+      if(!loop||!this.keys.length)return null;
+      if(!this.pendingCycle){this.pendingCycle=this.rank(this.keys);const current=this.history[this.cursor];if(this.pendingCycle.length>1&&this.pendingCycle[0]===current)this.pendingCycle.push(this.pendingCycle.shift());}
+      return {key:this.pendingCycle[0],cycle:this.pendingCycle};
+    }
+    select(index,step){
+      const key=this.keys[index];if(key==null)return;
+      if(step?.key===key&&Number.isInteger(step.cursor)&&this.history[step.cursor]===key){this.cursor=step.cursor;return;}
+      if(step?.key===key&&step.cycle===this.pendingCycle){this.ranks=this.pendingCycle;this.pendingCycle=null;this.consumed.clear();this.bagAt=0;}
+      this.consumed.add(key);
+      if(this.history[this.cursor]===key)return;
+      this.history.splice(this.cursor+1);this.history.push(key);if(this.history.length>50000)this.history.shift();this.cursor=this.history.length-1;
+    }
+    snapshot(){return {version:1,mode:this.mode,keys:this.keys,ranks:this.ranks,consumed:[...this.consumed],history:this.history,cursor:this.cursor};}
+  }
+  Engine._syncShuffle=function(){
+    if(PlaybackQueue.active)return null;
+    const mode=SET.shuffleOn?(SET.shuffleMode||1):0;
+    if(!mode&&!this._shuffle&&!this._shuffleState)return null;
+    if(!this._shuffle){this._shuffle=new ShuffleCycle(this.queue,mode,this._shuffleState);this._shuffleState=null;const selected=this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id);if(!this._shuffleFresh&&this._shuffle.cursor<0&&selected>=0)this._shuffle.select(selected);this._shuffleFresh=false;}
+    else this._shuffle.sync(this.queue,mode);
+    return this._shuffle;
+  };
+  Engine._shuffleStep=function(direction,loop){
+    const state=this._syncShuffle();if(!SET.shuffleOn||!state)return null;
+    if(PlaybackTransitions.pending&&this._shufflePending?.length){
+      if(direction<0)return {key:state.history[state.cursor],cursor:state.cursor,index:state.indices.get(state.history[state.cursor])};
+      const pending=new Set(this._shufflePending.map(i=>state.keys[i]));
+      const key=state.ranks.find(k=>!state.consumed.has(k)&&!pending.has(k));
+      if(key)return {key,index:state.indices.get(key)};
+    }
+    const step=state.peek(direction,loop);return step?{...step,index:state.indices.get(step.key)}:{exhausted:true};
+  };
+  Engine._recordShuffle=function(index,step=this._shuffleNavigation){const state=this._syncShuffle();if(state){state.select(index,step);if(SET.shuffleOn&&step?.cycle)this.order=state.ranks.map(k=>state.indices.get(k));}this._shuffleNavigation=null;};
+
   Engine.buildOrder=function(anchor){
     const mode=SET.shuffleOn?(SET.shuffleMode||1):0;
     const selected=Number.isInteger(anchor)?anchor:(this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id));
     if(PlaybackQueue.active&&nativeValues().queue_no_shuffle||!mode){this.order=this.queue.map((_,i)=>i);this.pos=Math.max(0,this.order.indexOf(selected));return;}
-    const groups=new Map();this.queue.forEach((t,i)=>{const key=JSON.stringify([t.albumArtist||trackArtist(t),trackAlbum(t)]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i);});
-    this.order=mode===1?shuffleArray(this.queue.map((_,i)=>i)):(mode===2?Array.from(groups.values()).map(shuffleArray):mode===3?shuffleArray(Array.from(groups.values())):shuffleArray(Array.from(groups.values())).map(shuffleArray)).flat();
-    const index=this.order.indexOf(selected);
-    if(index>=0){if(mode===1)this.order.unshift(...this.order.splice(index,1));else this.order.push(...this.order.splice(0,index));}
-    this.pos=0;
+    if(!PlaybackQueue.active){const state=this._syncShuffle();this.order=state.ranks.map(k=>state.indices.get(k));this.pos=Math.max(0,this.order.indexOf(selected));return;}
+    this.order=shuffleArray(this.queue.map((_,i)=>i));this.pos=Math.max(0,this.order.indexOf(selected));
   };
-  const setQueue=Engine.setQueue;Engine.setQueue=function(list,index,autoplay){if(PlaybackQueue.active&&!PlaybackQueue.starting){PlaybackQueue.active=false;PlaybackQueue.resume=null;PlaybackQueue.save();}return setQueue.call(this,list,index,autoplay);};
+  const setQueue=Engine.setQueue;Engine.setQueue=function(list,index,autoplay){this._shuffleFresh=true;this._shuffle=null;this._shuffleState=null;if(PlaybackQueue.active&&!PlaybackQueue.starting){PlaybackQueue.active=false;PlaybackQueue.resume=null;PlaybackQueue.save();}return setQueue.call(this,list,index,autoplay);};
   const playIndex=Engine.playIndex;
   Engine.playIndex=function(index,autoplay,position){
     const t=this.queue[index];if(!sourceTrackEnabled(t))return this.selectionUnavailable();
@@ -9374,7 +9463,7 @@ function installPlaybackRework(){
     // Cloud media can take seconds to become playable. Manual cloud selection
     // must update immediately, rather than leaving the old song on screen.
     const cloudSwitch=['drive','r2'].includes(t.source)||['drive','r2'].includes(outgoing?.source);
-    if(position==null&&!cloudSwitch&&autoplay!==false&&this.playing&&outgoing?.id!==t.id&&mode&&SET.audioMode!=='transparent'&&!this._autoAdvance)return PlaybackTransitions.to(index,mode===1?nativeValues().fade_short_xfade_ms||400:SET.crossfadeLen*1000);
+    if(position==null&&!cloudSwitch&&autoplay!==false&&this.playing&&outgoing?.id!==t.id&&mode&&SET.audioMode!=='transparent'&&!this._autoAdvance)return PlaybackTransitions.to(index,mode===1?nativeValues().fade_short_xfade_ms||400:SET.crossfadeLen*1000,this._shuffleNavigation);
     PlaybackTransitions.cancel(true,t.id);if(!this._autoAdvance)AudioQuality.reset();this.listened=0;this.listenedLast=0;this.counted=false;clearTimeout(this.silenceTimer);clearTimeout(this.fadeTimer);
     if(position==null&&nativeValues().restore_pos&&t.resumeAt>0&&t.resumeAt<(t.dur||0)-3&&(t.dur||0)>=(nativeValues().restore_pos_min_dur||45)*60)position=t.resumeAt;
     return playIndex.call(this,index,autoplay,position||0);
@@ -9392,12 +9481,14 @@ function installPlaybackRework(){
       if(SET.repeatMode==='one')return next.call(this,true);
       if(PlaybackQueue.shouldStart()){PlaybackQueue.begin(false,0,!!auto||this.wantsPlayback());return;}
       if(PlaybackQueue.active&&this.pos+1>=this.order.length){PlaybackQueue.finish(!!auto||this.wantsPlayback());return;}
+      const step=this._shuffleStep(1,SET.repeatMode==='all');
+      if(step){if(step.exhausted){this.pause();this.el().currentTime=0;UI.renderProgress();return;}this._shuffleNavigation=step;return this.playIndex(step.index,true);}
       return next.call(this,auto);
-    }finally{this._autoAdvance=previous;}
+    }finally{this._autoAdvance=previous;this._shuffleNavigation=null;}
   };
   Engine.countPlayed=function(){if(!this.current||this.counted)return;this.counted=true;this.current.plays=(this.current.plays||0)+1;this.current.lastPlayed=Date.now();persistTrack(this.current);};
   Engine.onEnded=function(i){this.tracePlayback('ended-received');if(i!==this.cur||this._loadingRequest||!this.wantsPlayback()||!this.el().ended||this._endedRequest===this._playRequest)return;if(this.ctx&&this.ctx.state!=='running'){this.holdContextSuspension();return;}this._endedRequest=this._playRequest;this.playing=false;UI.renderPlayState();if(this.current){this.current.resumeAt=0;this.countPlayed();persistTrack(this.current);}if(this._sleepFade){this.pause('sleep');return;}const request=this._playRequest;const advance=()=>{if(request!==this._playRequest||!this.wantsPlayback())return;if(this.ctx&&this.ctx.state!=='running'){this._endedRequest=null;this.holdContextSuspension();return;}this.listened=0;this.counted=false;this.next(true);};const gap=nativeValues().track_end_silence_ms||0;if(gap){clearTimeout(this.silenceTimer);this.silenceTimer=setTimeout(advance,gap);}else advance();};
-  Engine.startCrossfade=function(){if(this._sleepFade||SET.audioMode==='transparent')return;if(PlaybackQueue.active&&this.pos+1>=this.order.length)return;if(this.xfading||PlaybackTransitions.pending||!this.playing||PlaybackQueue.shouldStart()||SET.repeatMode==='one')return;let pos=this.pos+1;if(pos>=this.order.length){if(SET.repeatMode==='all')pos=0;else return;}return PlaybackTransitions.to(this.order[pos],Math.max(50,SET.crossfadeLen*1000));};
+  Engine.startCrossfade=function(){if(this._sleepFade||SET.audioMode==='transparent')return;if(PlaybackQueue.active&&this.pos+1>=this.order.length)return;if(this.xfading||PlaybackTransitions.pending||!this.playing||PlaybackQueue.shouldStart()||SET.repeatMode==='one')return;const step=this._shuffleStep(1,SET.repeatMode==='all');if(step){if(!step.exhausted)return PlaybackTransitions.to(step.index,Math.max(50,SET.crossfadeLen*1000),step);return;}let pos=this.pos+1;if(pos>=this.order.length){if(SET.repeatMode==='all')pos=0;else return;}return PlaybackTransitions.to(this.order[pos],Math.max(50,SET.crossfadeLen*1000));};
   const time=Engine.onTime;Engine.onTime=function(i){
     if(i!==this.cur||this._loadingRequest)return;
     if(this.playing){const now=this.time(),delta=now-(this.listenedLast||0);if(delta>0&&delta<3*Math.max(1,SET.speed))this.listened=(this.listened||0)+delta;this.listenedLast=now;const threshold=this.duration()*(nativeValues().played_dur??14)/100;if(this.listened>=Math.max(1,threshold))this.countPlayed();}

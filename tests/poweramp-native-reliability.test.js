@@ -861,3 +861,71 @@ test('delayed track-end silence cannot force a suspended context or lose its pen
   assert.equal(h.Engine.current.id,h.selected.id);assert.equal(c.resumeCalls,resumes);assert.equal(h.Engine.wantsPlayback(),true);
   c.change('running');await h.clock.advance(1000);await flush();assert.equal(h.Engine.current.id,next.id);
 });
+
+test('shuffle consumes a full cycle, preserves toggles and navigates real selection history',async()=>{
+  const h=harness();for(let i=0;i<5;i++)addNext(h,'shuffle-'+i);h.ctx.SET.shuffleOn=true;h.ctx.SET.shuffleMode=1;h.ctx.SET.previousRestarts=false;h.ctx.SET.repeatMode='off';
+  h.Engine.buildOrder();await h.start(1);const ranks=Array.from(h.Engine.order),seen=[h.Engine.current.id];
+  h.Engine.next();await flush();seen.push(h.Engine.current.id);const state=h.Engine._shuffle,consumed=state.consumed.size;
+  h.Engine.prev();await flush();assert.equal(h.Engine.current.id,seen[0]);
+  h.Engine.next();await flush();assert.equal(h.Engine.current.id,seen[1]);assert.equal(state.consumed.size,consumed);
+  h.ctx.SET.shuffleOn=false;h.Engine.buildOrder();h.ctx.SET.shuffleOn=true;h.Engine.buildOrder();assert.deepEqual(Array.from(h.Engine.order),ranks);assert.equal(state.consumed.size,consumed);
+  for(let i=0;i<4;i++){h.Engine.next(true);await flush();seen.push(h.Engine.current.id);}
+  assert.equal(new Set(seen).size,6);const last=h.Engine.current.id;h.Engine.next(true);await flush();assert.equal(h.Engine.current.id,last);assert.equal(h.Engine.wantsPlayback(),false);
+  h.ctx.SET.repeatMode='all';h.Engine.next(true);await flush();assert.notEqual(h.Engine.current.id,last);assert.equal(state.consumed.size,1);
+});
+
+test('shuffle manual queue interruption preserves bag; repeat-one and duplicate ended do not spend twice',async()=>{
+  const h=harness();for(let i=0;i<4;i++)addNext(h,'shuffle-'+i);h.ctx.SET.shuffleOn=true;h.ctx.SET.shuffleMode=1;h.ctx.SET.repeatMode='off';
+  h.Engine.buildOrder();await h.start(1);const saved=JSON.parse(JSON.stringify(h.Engine._shuffle.snapshot())),expected=h.Engine._shuffleStep(1,false).index;
+  h.PlaybackQueue.pending=[h.Engine.queue[3].id];h.PlaybackQueue.forced=true;
+  h.Engine.next();await flush();assert.equal(h.PlaybackQueue.active,true);assert.equal(h.Engine.current.id,JSON.parse(saved.keys[3])[0]);
+  h.Engine.next();await flush();assert.equal(h.PlaybackQueue.active,false);assert.equal(h.Engine.current.id,JSON.parse(saved.keys[expected])[0]);
+  assert.equal(h.Engine._shuffle.consumed.size,2);
+  h.ctx.SET.repeatMode='one';h.audio().ended=true;h.Engine.onEnded(h.Engine.cur);await flush();assert.equal(h.Engine._shuffle.consumed.size,2);
+  h.ctx.SET.repeatMode='off';h.audio().playing();h.audio().ended=true;h.Engine.onEnded(h.Engine.cur);h.Engine.onEnded(h.Engine.cur);await flush();assert.equal(h.Engine._shuffle.consumed.size,3);
+});
+
+test('shuffle new queue honors requested anchor and failed preflight spends nothing',async()=>{
+  const h=harness();for(let i=0;i<4;i++)addNext(h,'shuffle-'+i);h.ctx.SET.shuffleOn=true;h.ctx.SET.shuffleMode=1;
+  const list=h.Engine.queue.slice();h.Engine.setQueue(list,3,false);await flush();
+  assert.equal(h.Engine.current,list[3]);assert.equal(h.Engine._shuffle.consumed.size,1);
+  const expected=h.Engine._shuffleStep(1,false),before=JSON.stringify(h.Engine._shuffle.snapshot());h.ctx.R2Source.fileFor=()=>null;
+  h.Engine.next();await flush();assert.equal(JSON.stringify(h.Engine._shuffle.snapshot()),before);assert.equal(h.Engine._shuffleStep(1,false).index,expected.index);
+});
+
+test('shuffle checkpoint reload preserves consumed set, cursor, ranks and current without autoplay',async()=>{
+  const h=harness();for(let i=0;i<5;i++)addNext(h,'shuffle-'+i);h.ctx.SET.shuffleOn=true;h.ctx.SET.shuffleMode=1;h.ctx.SET.previousRestarts=false;
+  const storage=new Map();h.ctx.localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)};
+  h.Engine.buildOrder();h.Engine.next();await flush();h.Engine.next();await flush();h.Engine.prev();await flush();h.Engine.checkpoint();
+  const before=JSON.parse(JSON.stringify(h.Engine._shuffle.snapshot())),current=h.Engine.current.id;
+  h.Engine._shuffle=null;h.Engine.queue=[];h.Engine.order=[];h.Engine.current=null;
+  assert.equal(await h.Engine.restoreState(),true);h.Engine._syncShuffle();assert.equal(h.Engine.current.id,current);assert.deepEqual(JSON.parse(JSON.stringify(h.Engine._shuffle.snapshot())),before);
+});
+
+test('rapid shuffled local fades advance requests without spending canceled candidates',async()=>{
+  const h=harness('local');for(let i=0;i<4;i++)h.add(track('local',{id:'local-'+i}),'blob:local-'+i);
+  h.ctx.SET.shuffleOn=true;h.ctx.SET.shuffleMode=1;h.ctx.SET.previousRestarts=false;h.ctx.SET.audioMode='processed';
+  h.ctx.nativeValues=()=>({fade_manual_advance:1,fade_short_xfade_ms:400});h.Engine.buildOrder();await h.start(1);
+  const state=h.Engine._shuffle,spent=state.consumed.size;h.Engine.next();const first=h.Engine.order[h.Engine.pos];
+  h.Engine.next();const second=h.Engine.order[h.Engine.pos];assert.notEqual(first,second);assert.equal(state.consumed.size,spent);
+  h.Engine.pause();await flush();assert.equal(state.consumed.size,spent);assert.equal(h.Engine._shuffleStep(1,false).index,first);
+});
+
+test('shuffle toggle never repeats an already consumed song before cycle exhaustion',async()=>{
+  const h=harness();for(let i=0;i<5;i++)addNext(h,'toggle-'+i);h.ctx.shuffleArray=a=>a.slice().reverse();
+  h.ctx.SET.shuffleOn=true;h.ctx.SET.shuffleMode=1;h.Engine.buildOrder();const seen=[h.Engine.current.id];
+  for(let i=0;i<2;i++){h.Engine.next();await flush();seen.push(h.Engine.current.id);}
+  h.ctx.SET.shuffleOn=false;h.Engine.buildOrder();h.ctx.SET.shuffleOn=true;h.Engine.buildOrder();
+  h.Engine.next();await flush();seen.push(h.Engine.current.id);assert.equal(new Set(seen).size,seen.length);
+});
+
+test('manual queue at shuffled cycle end respects repeat-off and starts a fresh repeat-all bag',async()=>{
+  for(const repeat of ['off','all']){
+    const h=harness();for(let i=0;i<2;i++)addNext(h,'end-'+i);h.ctx.SET.shuffleOn=true;h.ctx.SET.shuffleMode=1;h.ctx.SET.repeatMode=repeat;h.Engine.buildOrder();
+    h.Engine.next();await flush();h.Engine.next();await flush();assert.equal(h.Engine._shuffle.consumed.size,3);
+    h.PlaybackQueue.pending=[h.selected.id];h.PlaybackQueue.forced=true;h.Engine.next();await flush();assert.equal(h.PlaybackQueue.active,true);
+    h.Engine.next();await flush();assert.equal(h.PlaybackQueue.active,false);
+    if(repeat==='off')assert.equal(h.Engine.current,null);
+    else{assert.equal(h.Engine._shuffle.consumed.size,1);assert.deepEqual(Array.from(h.Engine.order),Array.from(h.Engine._shuffle.ranks,k=>h.Engine._shuffle.indices.get(k)));}
+  }
+});
