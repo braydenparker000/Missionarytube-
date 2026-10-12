@@ -1,6 +1,7 @@
+import {AGENT_EVENT,agentChatEnabled} from './relay-agent-events.js';
 import {PROJECT_EVENT,projectEventsEnabled,projectEventBinding} from './relay-project-events.js';
 import {PRIMARY_SITE} from './origins.js';
-import {RELAY_OWNER, RELAY_INBOX, RELAY_EVENT, RELAY_OWNER_SCOPE, RELAY_OWNER_INBOX, RELAY_OWNER_EVENT, RelayError, fields, inboxArgs, cursor, uuid, httpsURL, signingKey, signWebhook, hash, canonical, random, equal, boundedText, encoder, relayEnabled, json} from './relay-common.js';
+import {RELAY_AGENT_SCOPE, RELAY_OWNER, RELAY_INBOX, RELAY_EVENT, RELAY_OWNER_SCOPE, RELAY_OWNER_INBOX, RELAY_OWNER_EVENT, RelayError, fields, inboxArgs, cursor, uuid, httpsURL, signingKey, signWebhook, hash, canonical, random, equal, boundedText, encoder, relayEnabled, json} from './relay-common.js';
 import {relayGrantActiveInStore,relayTokenActiveInStore} from './relay-oauth.js';
 import {PUBLIC_RESULT_EVENT} from './public-coordination-tools.js';
 import {reserveRelayCoreWake,releaseRelayCoreWake,scheduleRelayCoreAlarm} from './relay-core-alarm.js';
@@ -28,7 +29,7 @@ const eventSchemaProbe=`SELECT e.seq,c.created_ms,s.id,x.examined_seq,o.event_se
   relay_outbox d INDEXED BY relay_outbox_due,relay_outbox i INDEXED BY relay_outbox_event,
   relay_delivery_receipts r,relay_outbox_recoveries h,relay_verified v,relay_activations a,
   relay_event_meta m,relay_owner_event_bodies b WHERE o.status IN ('pending','failed') LIMIT 0`;
-const eventName = event => {const data=JSON.parse(event.data);return data.project_event_id ? PROJECT_EVENT : data.inbox_id === RELAY_OWNER_INBOX ? RELAY_OWNER_EVENT : data.coordination_event_id ? PUBLIC_RESULT_EVENT : RELAY_EVENT;};
+const eventName = event => {const data=JSON.parse(event.data);return data.destination==='lucy-muse' ? AGENT_EVENT : data.project_event_id ? PROJECT_EVENT : data.inbox_id === RELAY_OWNER_INBOX ? RELAY_OWNER_EVENT : data.coordination_event_id ? PUBLIC_RESULT_EVENT : RELAY_EVENT;};
 // Keep the routing expression identical in the index and the refill predicate.
 // Journal data is server-created; the expression also preserves the original
 // empty/false coordination-id behavior for retained occurrences.
@@ -37,9 +38,9 @@ const eventKindSQL = `CASE WHEN json_extract(data,'$.inbox_id')='${RELAY_OWNER_I
 // Project metadata shares the existing public routing bucket, but exact kind,
 // project and recipient filters isolate payloads. Avoid another index write on
 // every existing public/private event; scans remain bounded by the input page.
-const indexedKind = name => name === PROJECT_EVENT ? RELAY_EVENT : name;
-const eventScope = name => name === RELAY_OWNER_EVENT ? RELAY_OWNER_SCOPE : 'relay:events';
-const eventEnabled = (env, name) => relayEnabled(env) && (name !== PROJECT_EVENT || projectEventsEnabled(env)) && (name !== RELAY_OWNER_EVENT || env.RELAY_OWNER_ENABLED === 'true');
+const indexedKind = name => [PROJECT_EVENT,AGENT_EVENT].includes(name) ? RELAY_EVENT : name;
+const eventScope = name => name===AGENT_EVENT ? RELAY_AGENT_SCOPE : name === RELAY_OWNER_EVENT ? RELAY_OWNER_SCOPE : 'relay:events';
+const eventEnabled = (env, name) => relayEnabled(env) && (name !== AGENT_EVENT || agentChatEnabled(env)) && (name !== PROJECT_EVENT || projectEventsEnabled(env)) && (name !== RELAY_OWNER_EVENT || env.RELAY_OWNER_ENABLED === 'true');
 const subscriptionActive = (ctx, env, sub) => eventEnabled(env, sub.name) && relayGrantActiveInStore(ctx, env, sub.grant_id, eventScope(sub.name)) && (sub.name !== PROJECT_EVENT || !!projectEventBinding(ctx,env,sub.grant_id,JSON.parse(sub.arguments)));
 export function relayEventSchema(ctx) {
   const sql = ctx.storage.sql;
@@ -114,6 +115,7 @@ export const relayOwnerEventDefinition = {
   payloadSchema: {type: 'object', properties: {inbox_id: {type: 'string', const: RELAY_OWNER_INBOX}, message_id: {type: 'string', format: 'uuid'}, author_authenticated: {type: 'boolean', const: true}, principal: {type: 'string', const: RELAY_OWNER}, device_id: {type: 'string'}, visibility: {type: 'string', const: 'private'}, url: {type: 'string', format: 'uri'}}, required: ['inbox_id', 'message_id', 'author_authenticated', 'principal', 'device_id', 'visibility', 'url'], additionalProperties: false}
 };
 function eventArguments(value, name) {
+  if(name===AGENT_EVENT){fields(value,['destination'],['destination']);if(value.destination!=='lucy-muse')throw new RelayError(-32012,'Forbidden channel');return value;}
   if(name===PROJECT_EVENT){
     fields(value,['project','bindingId'],['project','bindingId']);
     if(typeof value.project!=='string'||!/^[a-z][a-z0-9-]{0,63}$/.test(value.project)||!uuid(value.bindingId))throw new RelayError(-32602,'Invalid project event binding');
@@ -145,7 +147,7 @@ function enqueueFor(ctx, sub, event, now,budget) {
     if(!binding||data.project!==args.project||data.recipient!==binding.agent)return 'ignored';
   }
   if(name===PUBLIC_RESULT_EVENT){const args=JSON.parse(sub.arguments);if(args.request_id&&args.request_id!==JSON.parse(event.data).message_id)return 'ignored';}
-  const message = [PUBLIC_RESULT_EVENT,PROJECT_EVENT].includes(name) ? {body:''} : event.message_body != null ? {body:event.message_body} : name === RELAY_OWNER_EVENT
+  const message = [PUBLIC_RESULT_EVENT,PROJECT_EVENT,AGENT_EVENT].includes(name) ? {body:''} : event.message_body != null ? {body:event.message_body} : name === RELAY_OWNER_EVENT
     ? rows(ctx, 'SELECT body FROM relay_owner_event_bodies WHERE event_id=?', event.event_id)[0]
     : rows(ctx, "SELECT body FROM shared_entries WHERE id=? AND kind='user'", event.message_id)[0];
   if (!message || !matches(sub, message)) return 'ignored';
@@ -189,7 +191,9 @@ function fillOutbox(ctx,sub,now,inTransaction=false){
     const end=page.length<limit?ceiling:page.at(-1).seq;
     const args=JSON.parse(sub.arguments),values=[sub.id,indexedKind(sub.name),start,end];
     let filter='';
-    if(sub.name===PROJECT_EVENT){
+    if(sub.name===AGENT_EVENT){
+      filter=" AND json_extract(e.data,'$.destination')='lucy-muse' AND json_extract(e.data,'$.sender')='muse'";
+    }else if(sub.name===PROJECT_EVENT){
       filter=" AND json_extract(e.data,'$.project')=? AND json_extract(e.data,'$.recipient')=(SELECT agent FROM project_bindings WHERE id=? AND parent_grant=?)";values.push(args.project,args.bindingId,sub.grant_id);
     }else if(sub.name===PUBLIC_RESULT_EVENT){
       if(args.request_id){filter=" AND json_extract(e.data,'$.message_id')=?";values.push(args.request_id);}
@@ -260,6 +264,15 @@ export function enqueueRelayProjectMessage(ctx, message, projectEventId, now=Dat
   const saved=rows(ctx,'SELECT * FROM relay_events WHERE event_id=?',eventId)[0];
   for(const sub of rows(ctx,"SELECT * FROM relay_subscriptions WHERE name=? AND state='active' AND expires_ms>?",PROJECT_EVENT,now))considerLiveEvent(ctx,sub,saved,now);
 }
+// Only called for a new authenticated Muse write, in its message transaction.
+export function enqueueRelayAgentMessage(ctx,messageId,now=Date.now()){
+  relayEventSchema(ctx);
+  const eventId='relay_agent_msg_'+messageId;
+  const data={destination:'lucy-muse',visibility:'private',message_id:messageId,sender:'muse',recipient:'lucy',execution_authorized:false};
+  ctx.storage.sql.exec('INSERT OR IGNORE INTO relay_events(event_id,message_id,occurred_at,created_ms,data) VALUES(?,?,?,?,?)',eventId,'agent:'+messageId,new Date(now).toISOString(),now,JSON.stringify(data));
+  const saved=rows(ctx,'SELECT * FROM relay_events WHERE event_id=?',eventId)[0];
+  for(const sub of rows(ctx,"SELECT * FROM relay_subscriptions WHERE name=? AND state='active' AND expires_ms>?",AGENT_EVENT,now))considerLiveEvent(ctx,sub,saved,now);
+}
 export function webhookTransport(env) {
   // The trusted adapter validates DNS on every connection and pins the public IP.
   // Do not replace this with Workers fetch: it cannot pin DNS while preserving TLS.
@@ -307,7 +320,7 @@ async function verifyCallback(ctx, sub, fetcher, now) {
 }
 function subscriptionParams(p, subscribing) {
   fields(p, subscribing ? ['name', 'arguments', 'delivery', 'cursor', 'ttlMs', 'maxAgeMs', '_meta'] : ['name', 'arguments', 'delivery', '_meta'], ['name', 'arguments', 'delivery']);
-  if (![RELAY_EVENT, RELAY_OWNER_EVENT, PUBLIC_RESULT_EVENT, PROJECT_EVENT].includes(p.name)) throw new RelayError(-32011, 'Unknown event', {kind: 'event'});
+  if (![RELAY_EVENT, RELAY_OWNER_EVENT, PUBLIC_RESULT_EVENT, PROJECT_EVENT, AGENT_EVENT].includes(p.name)) throw new RelayError(-32011, 'Unknown event', {kind: 'event'});
   eventArguments(p.arguments, p.name);
   fields(p.delivery, subscribing ? ['mode', 'url', 'secret'] : ['mode', 'url'], subscribing ? ['mode', 'url', 'secret'] : ['mode', 'url']);
   if (p.delivery.mode !== 'webhook') throw new RelayError(-32014, 'Unsupported delivery mode', {feature: 'deliveryMode', value: p.delivery.mode});

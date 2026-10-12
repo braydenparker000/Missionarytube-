@@ -1,3 +1,4 @@
+import {agentEventDefinition} from './relay-agent-events.js';
 import {agentTools} from './relay-agent-tools.js';
 import {agentChatStore,agentChatEnabled} from './relay-agent-chat.js';
 import {RELAY_AGENT_SCOPE} from './relay-common.js';
@@ -90,7 +91,7 @@ export async function relayRpc(ctx, env, principal, rpc, callbacks={}) {
       // Enabled owner schemas are discoverable for explicit scope step-up;
       // private data and every owner operation still require the live scope.
       ? complete({tools: [...(env.RELAY_AGENT_LUCY_OAUTH_ENABLED==='true'?agentTools:[]),...tools.filter(t => t.name === eventAccessTool || principal.scopes.includes(scopeFor[t.name])), ...(relayOwnerEnabled(env) ? relayOwnerTools : []), ...(relayOwnerEnabled(env) && relayTokenActiveInStore(ctx,env,principal,RELAY_OWNER_SCOPE) ? projectReadTools : []), ...(env.RELAY_PROJECT_ENABLED === 'true' && relayTokenActiveInStore(ctx,env,principal,'relay:read') ? projectParticipationTools : []), ...(projectAdminEnabled(env) && relayTokenActiveInStore(ctx,env,principal,RELAY_OWNER_SCOPE) ? projectAdminTools : [])], ...(principal.scopes.includes('relay:read')?{nextCursor:COORDINATION_CATALOG_CURSOR}:{}),ttlMs: 300000, cacheScope: 'private'})
-      : complete({events: [...(principal.scopes.includes('relay:events') ? [relayEventDefinition] : []), ...(relayOwnerEnabled(env) && principal.scopes.includes(RELAY_OWNER_SCOPE) ? [relayOwnerEventDefinition] : []), ...(projectEventsEnabled(env) && principal.scopes.includes('relay:events') ? [projectEventDefinition] : [])], ...(principal.scopes.includes('relay:events')?{nextCursor:COORDINATION_CATALOG_CURSOR}:{}),ttlMs: 300000, cacheScope: 'private'});
+      : complete({events: [...(agentChatEnabled(env)&&relayTokenActiveInStore(ctx,env,principal,RELAY_AGENT_SCOPE)?[agentEventDefinition]:[]), ...(principal.scopes.includes('relay:events') ? [relayEventDefinition] : []), ...(relayOwnerEnabled(env) && principal.scopes.includes(RELAY_OWNER_SCOPE) ? [relayOwnerEventDefinition] : []), ...(projectEventsEnabled(env) && principal.scopes.includes('relay:events') ? [projectEventDefinition] : [])], ...(principal.scopes.includes('relay:events')?{nextCursor:COORDINATION_CATALOG_CURSOR}:{}),ttlMs: 300000, cacheScope: 'private'});
   }
   if (rpc.method === 'events/subscribe') {
     const result=await relaySubscribe(ctx,principal,p,env);
