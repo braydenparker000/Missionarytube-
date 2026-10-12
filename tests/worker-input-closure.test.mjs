@@ -1,3 +1,4 @@
+import {suffixAwareBundler} from '../scripts/mast-worker-input-identity.mjs';
 import test from 'node:test';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
@@ -97,4 +98,16 @@ test('real immutable source closure includes all known bundled public dependenci
 test('non-reusable closure flag cannot satisfy even an otherwise matching prior receipt',()=>{
   assert.throws(()=>checkedReuse({schema:1,backendReusable:false},{backendReusable:true},{},null,null,null),/does not match/);
   assert.throws(()=>checkedReuse({schema:1,backendReusable:true},{backendReusable:false},{},null,null,null),/does not match/);
+});
+
+test('URL-suffixed bundler inputs bind tracked bytes and force fresh publication',async()=>{
+  const f=await fixture();try{
+    await f.change('backend/worker.js',"import {value} from '../public/nested.js?v=snapshot-v1';export {value};");
+    assert.throws(f.identity,/ENOENT/);
+    const identity=()=>backendInputIdentity(f.root,{bundler:suffixAwareBundler(esbuild,f.root)});
+    const before=identity();assert.equal(before.reusable,false);assert.equal(before.bundled,true);
+    assert.ok(before.inputs.some(input=>input.path==='public/nested.js'));
+    await f.change('public/nested.js',"export const value='changed qualified bytes';");assert.notDeepEqual(identity(),before);
+    await writeFile(join(f.root,'public/nested.js'),"export const value='unqualified bytes';");assert.throws(identity,/differs from/);
+  }finally{await f.cleanup();}
 });
