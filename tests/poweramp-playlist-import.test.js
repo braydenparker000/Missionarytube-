@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 const source=await readFile(process.env.POWERAMP_PLAYER_SOURCE||new URL('../public/drawercast/player.js',import.meta.url),'utf8');
 const section=(a,b)=>source.slice(source.indexOf(a),source.indexOf(b,source.indexOf(a)));
 const clone=x=>JSON.parse(JSON.stringify(x));
@@ -77,4 +78,14 @@ test('playlist input limits are checked before any writes and M3U paths resolve 
   const h=harness();assert.throws(()=>h.F.parse('x'.repeat(h.F.maxBytes+1),'a.json'),/large/);
   assert.throws(()=>h.F.parse(JSON.stringify({format:'DrawerCast-playlists',playlists:[{name:'A',tracks:Array.from({length:50001},()=>({id:'x'}))}]}),'a.json'),/Invalid playlist/);
   const lists=h.F.parse('#EXTM3U\nr2_a.opus\n','Example.m3u');assert.equal(h.F.resolve(lists).matched,1);assert.equal(h.P.data.length,0);
+});
+
+test('published curated artifact is byte-exact and resolves all authored references without guessing',async()=>{
+  const bytes=await readFile(new URL('../public/drawercast/curated-playlists.json',import.meta.url));
+  assert.equal(bytes.length,968384);assert.equal(createHash('sha256').update(bytes).digest('hex'),'86bc49aac0a6c1b1fab06e6020e956b5e40d21cd252acde97f9ee7a7d61e9bcf');
+  const data=JSON.parse(bytes),refs=data.playlists.flatMap(p=>p.tracks);
+  const h=harness(refs.map(r=>({...r,source:'r2'}))),lists=h.F.parse(bytes.toString(),'curated.json'),result=h.F.resolve(lists,{r2Only:true});
+  assert.equal(lists.length,8);assert.equal(new Set(lists.map(p=>p.name)).size,8);assert.deepEqual(clone(lists.map(p=>p.tracks.length)),[145,1139,984,448,288,472,270,64]);
+  assert.equal(new Set(refs.map(r=>r.id)).size,3810);assert.ok(refs.every(r=>r.id.startsWith('r2_')));assert.equal(result.matched,3810);assert.equal(result.missing+result.ambiguous,0);
+  assert.match(h.F.seedURL,/curated-playlists\.json/);
 });

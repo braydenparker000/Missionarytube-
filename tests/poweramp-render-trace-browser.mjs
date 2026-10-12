@@ -15,7 +15,7 @@ import {buildPreview} from '../scripts/build-poweramp-preview.mjs';
 const sourceHash='a6d0fb71df79ca8cc3d80627fb911e5894bb9fff465818ada78feb81b2688759';
 // The playback and background ownership repairs change the full-source fingerprint. The frozen
 // v8 baseline, measured UI cases, and geometry/pixel gates stay unchanged.
-const expectedCandidateHash='24d9aa411cf1c2c4ccb6aa038773d8a6f35c7f5b2f401e7d82895ff6dfa1124d';
+const expectedCandidateHash='c2b8a0dbefda8d76be563de0de575e4ef660f669b8641078d93b73b3c8393935';
 const baselineRef='04ef034738e6a3ccc2c03391ea9b00e0fc98ae66';
 const profile={viewport:{width:519,height:988},deviceScaleFactor:2.0818214416503906,isMobile:true,hasTouch:true};
 const executablePath=[process.env.JARVIS_CHROME,'/usr/bin/chromium','/usr/bin/google-chrome',chromium.executablePath()].find(p=>p&&existsSync(p));

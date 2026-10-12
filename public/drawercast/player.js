@@ -4907,7 +4907,7 @@ const Selection={
    ===================================================================== */
 const Playlists={
   data:[],persisted:[],writes:Promise.resolve(),
-  load:async function(){ try{ this.data = (await IDB.get('kv','playlists'))||[]; }catch(e){ this.data=[]; }this.persisted=structuredClone(this.data); },
+  load:async function(){ try{ this.data = structuredClone((await IDB.get('kv','playlists'))||[]); }catch(e){ this.data=[]; }this.persisted=structuredClone(this.data); },
   enqueue(task){const work=this.writes.then(task);this.writes=work.catch(()=>{});return work;},
   save:function(){return this.enqueue(async()=>{const next=structuredClone(this.data);await IDB.playlists(this.persisted,next);this.persisted=next;}).catch(()=>toast('Playlists could not be saved. Try again.'));},
   all:function(){ return this.data; },
@@ -9121,7 +9121,7 @@ const LibraryPresentation={
 Views.render=function(spec,keep){renderListBeforeRework.call(this,spec,keep);LibraryPresentation.render(spec,this.currentData);};
 
 const PlaylistFiles={
-  seedURL:null,seedMarker:'playlist-seed:curated-v1',
+  seedURL:'./curated-playlists.json?v=86bc49aa',seedMarker:'playlist-seed:curated-v1',
   maxBytes:5*1024*1024,maxTracks:50000,
   export(){downloadText('DrawerCast-playlists.json',JSON.stringify({format:'DrawerCast-playlists',playlists:Playlists.data.map(p=>({name:p.name,tracks:p.ids.map(id=>LIB.map.get(id)).filter(Boolean).map(t=>({id:t.id,path:t.path,title:t.title,artist:trackArtist(t),source:SourceLibrary.kind(t)}))}))},null,2),'application/json');},
   parse(text,name){

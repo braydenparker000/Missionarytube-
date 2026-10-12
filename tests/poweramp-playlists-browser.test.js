@@ -38,3 +38,47 @@ test('playlist imports and one-time curated seeding use durable browser storage'
     assert.deepEqual(aborted,{failed:true,memory:false,disk:false});assert.deepEqual(h.errors,[]);
   }finally{await h.context.close();await browser.close();await fixture.close();}
 });
+
+test('the actual eight curated playlists seed only after complete R2 readiness without blocking the UI',{timeout:60000},async()=>{
+  const {readFile}=await import('node:fs/promises');
+  const curated=JSON.parse(await readFile(new URL('../public/drawercast/curated-playlists.json',import.meta.url),'utf8'));
+  const fixture=await servePowerampFixture(),browser=await chromium.launch({executablePath:requireBrowser(),headless:true,args:['--no-sandbox']});
+  const h=await openFixturePage(browser,fixture,{count:3,art:false});let reads=0,release;
+  const held=new Promise(r=>release=r);
+  await h.context.route('**/curated-playlists.json*',async route=>{if(++reads===2)await held;await route.continue();});
+  try{
+    await h.page.evaluate(async lists=>{
+      const {Playlists:P,PlaylistFiles:F,R2Source:R,LIB}=PA;
+      P.data=[{id:'owned',name:'My own playlist',ids:[]}];await P.save();
+      window.curatedFixtureTracks=lists.flatMap(p=>p.tracks).map(t=>({...t,source:'r2',remote:false,dur:180}));
+      LIB.map=new Map(curatedFixtureTracks.slice(0,1).map(t=>[t.id,t]));LIB.ids=[...LIB.map.keys()];
+      R.native=true;R.mapping=null;R.fileFor=t=>LIB.map.has(t.id)?{__remoteURL:'https://fixture.invalid/unused'}:null;
+      await F.seed();
+    },curated.playlists);
+    assert.equal(reads,0,'a nonempty library without native R2 mapping is not ready');
+    await h.page.evaluate(async()=>{PA.R2Source.mapping={};await PA.PlaylistFiles.seed();});
+    assert.equal(await h.page.evaluate(()=>PA.IDB.get('kv',PA.PlaylistFiles.seedMarker)),undefined,'partial catalog does not consume seed receipt');
+    await h.page.evaluate(()=>{PA.LIB.map=new Map(curatedFixtureTracks.map(t=>[t.id,t]));PA.LIB.ids=[...PA.LIB.map.keys()];window.beforeSeedSelection=PA.Engine.current;void PA.PlaylistFiles.seed();PA.Nav.go('library');});
+    await h.page.waitForFunction(()=>PA.PlaylistFiles.seeding&&PA.Nav.cur==='library');
+    assert.equal(await h.page.evaluate(()=>PA.Playlists.data.length),1,'held artifact fetch does not block navigation or mutate playlists');
+    release();await h.page.waitForFunction(()=>PA.PlaylistFiles.seedDone);
+    const saved=await h.page.evaluate(async()=>({lists:await PA.IDB.get('kv','playlists'),sameSelection:PA.Engine.current===beforeSeedSelection}));
+    assert.equal(saved.sameSelection,true);assert.equal(saved.lists.length,9);
+    assert.deepEqual(saved.lists.slice(1).map(p=>({name:p.name,count:p.ids.length})),curated.playlists.map(p=>({name:p.name,count:p.tracks.length})));
+    await h.page.evaluate(async()=>{const p=PA.Playlists.data.find(p=>p.id!=='owned');PA.Playlists.remove(p.id);await PA.Playlists.writes;await PA.Playlists.load();PA.PlaylistFiles.seedDone=false;await PA.PlaylistFiles.seed();});
+    assert.equal(await h.page.evaluate(()=>PA.Playlists.data.length),8);assert.equal(reads,2,'durable seed receipt prevents re-fetch and resurrection');assert.deepEqual(h.errors,[]);
+  }finally{release();await h.context.close();await browser.close();await fixture.close();}
+});
+
+test('offline preview playlist writes stay in isolated memory',{timeout:30000},async()=>{
+  const {buildPreview}=await import('../scripts/build-poweramp-preview.mjs');const {mkdtemp,rm}=await import('node:fs/promises');
+  const {tmpdir}=await import('node:os');const {join}=await import('node:path');const {pathToFileURL}=await import('node:url');
+  const directory=await mkdtemp(join(tmpdir(),'playlist-preview-'));const output=join(directory,'preview.html');await buildPreview(output);
+  const browser=await chromium.launch({executablePath:requireBrowser(),headless:true,args:['--no-sandbox']}),page=await browser.newPage();
+  try{
+    await page.addInitScript(()=>{window.persistentOpens=0;indexedDB.open=()=>{persistentOpens++;throw Error('Persistent storage forbidden in preview');};});
+    await page.goto(pathToFileURL(output).href);await page.waitForFunction(()=>window.PA?.Playlists.data.length>0);
+    const result=await page.evaluate(async()=>{PA.Playlists.create('Preview-only playlist');await PA.Playlists.writes;return {saved:PA.Playlists.persisted.some(p=>p.name==='Preview-only playlist'),opens:persistentOpens};});
+    assert.deepEqual(result,{saved:true,opens:0});
+  }finally{await browser.close();await rm(directory,{recursive:true,force:true});}
+});

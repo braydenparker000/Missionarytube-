@@ -133,8 +133,9 @@ const Preview={
   },
   notice(){toast('Offline UI preview: fictional placeholders, simulated playback, no audio or live accounts',5500);},
   prepare(){
-    for(const name of ['get','set','del','keys','all','clear','bulk'])delete IDB[name];
+    for(const name of ['get','set','del','keys','all','clear','bulk','playlists'])delete IDB[name];
     Object.assign(IDB,{
+      playlists:async(expected,next,marker,valid=()=>true)=>{const store=this.store('kv');if(marker&&store.get(marker)===true)return false;if(!valid()||JSON.stringify(store.get('playlists')||[])!==JSON.stringify(expected))throw Error('Preview playlists changed');store.set('playlists',structuredClone(next));if(marker)store.set(marker,true);return true;},
       get:async(s,k)=>this.store(s).get(k),set:async(s,k,v)=>{this.store(s).set(k,v);return k;},
       del:async(s,k)=>{this.store(s).delete(k);},keys:async s=>Array.from(this.store(s).keys()),
       all:async s=>Array.from(this.store(s).values()),clear:async s=>{this.store(s).clear();},
