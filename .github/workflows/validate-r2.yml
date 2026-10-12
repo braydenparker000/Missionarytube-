@@ -96,7 +96,7 @@ jobs:
         with:
           python-version: ${{ needs.plan.outputs.python }}
       - name: Require the exact planned browser and execute or verify this component
-        # Independent groups use distinct runners. All three Poweramp
+        # Independent groups use distinct runners. The Poweramp
         # measurements stay serial on this isolated performance runner.
         env:
           POWERAMP_EVIDENCE_DIR: ${{ runner.temp }}/poweramp-browser
