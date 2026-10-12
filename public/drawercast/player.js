@@ -129,7 +129,7 @@ const IDB = (function(){
   function wrap(req){ return new Promise((res,rej)=>{ req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); }
   return {
     catalog:(module,snapshot)=>open().then(db=>module.commitCatalog(db,snapshot)),
-    r2Catalog:(module,mapping,tracks)=>open().then(db=>module.commitR2Catalog(db,mapping,tracks)),
+    r2Catalog:(module,mapping,tracks,options)=>open().then(db=>module.commitR2Catalog(db,mapping,tracks,options)),
     get:(s,k)=>tx(s,'readonly').then(o=>wrap(o.get(k))),
     set:(s,k,v)=>tx(s,'readwrite').then(o=>wrap(o.put(v,k))),
     del:(s,k)=>tx(s,'readwrite').then(o=>wrap(o.delete(k))),
@@ -2406,8 +2406,9 @@ const DriveSource={
 const R2Source={
   helper:null,catalog:null,mapping:null,root:'',manifestURL:'',busy:false,
   status:'Not configured',error:'',controller:null,timer:null,
-  async install(){
-    try{
+  prepare(){
+    if(this.preparation)return this.preparation;
+    this.preparation=(async()=>{
       const response=await fetch('/assets/r2-config.json',{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(15000)});
       if(!response.ok)throw Error('R2 configuration could not be loaded.');
       const config=await response.json();
@@ -2415,10 +2416,24 @@ const R2Source={
       this.manifestURL=typeof config.manifestURL==='string'?config.manifestURL:'';
       this.native=this.manifestURL.endsWith('/music/library.json');
       if(!this.manifestURL||(!this.native&&!this.root)){this.status='Not configured';return;}
-      this.helper=await import(this.native?'./r2-library.js?v=native-v1':'./r2-api.js?v=separate-source-v1');
+      this.helper=await import(this.native?'./r2-library.js?v=native-snapshot-v2':'./r2-api.js?v=separate-source-v1');
       if(!this.native)this.catalog=await import('./drive-catalog.js?v=catalog-v2');
+      Engine.tracePlayback('r2-config-ready');
+    })();
+    this.preparation.catch(()=>{});return this.preparation;
+  },
+  async install(){
+    try{
+      await this.prepare();
+      if(this.native&&SourceLibrary.enabled('r2')&&this.helper){
+        try{
+          const saved=await IDB.get('kv','r2-native-snapshot');
+          const restored=this.helper.restoreLibrarySnapshot(saved,this.manifestURL,allTracks(true).filter(t=>t.source==='r2'));
+          if(restored&&SourceLibrary.enabled('r2')&&!this.mapping){this.mapping=restored.mapping;this.status='Saved R2 library ready';Engine.tracePlayback('r2-cache-restored');}
+        }catch(_){}
+      }
       await this.connect(true);
-    }catch(e){this.error=e.message;this.status='R2 unavailable';}
+    }catch(e){this.preparation=null;this.error=e.message;this.status='R2 unavailable';}
     finally{MusicSources.refresh();}
   },
   suspend(){this.controller?.abort();clearTimeout(this.timer);},
@@ -2436,8 +2451,9 @@ const R2Source={
     try{
       // Read the static, hashed metadata snapshot independently of DriveSource.
       // No Google API request or media download is needed to build this library.
-      let tracks,mapping;
-      if(this.native)({tracks,mapping}=await this.helper.readLibrary({url,signal:controller.signal}));
+      let tracks,mapping,snapshot;
+      Engine.tracePlayback('r2-catalog-start');
+      if(this.native)({tracks,mapping,snapshot}=await this.helper.readLibrary({url,signal:controller.signal}));
       else{
         const snapshot=await this.catalog.readCatalog({root,signal:controller.signal});
         tracks=snapshot.records.map(record=>this.catalog.catalogTrack(record,root));
@@ -2445,12 +2461,12 @@ const R2Source={
       }
       if(controller.signal.aborted||!SourceLibrary.enabled('r2')||root!==this.root||url!==this.manifestURL)return false;
       if(Engine.current?.source==='r2'&&Engine.wantsPlayback()){this.status='R2 update pending · pause playback to sync';return false;}
-      const {fresh,gone}=await IDB.r2Catalog(this.helper,mapping,tracks);
+      const {fresh,gone}=await IDB.r2Catalog(this.helper,mapping,tracks,{snapshot,valid:()=>!controller.signal.aborted&&SourceLibrary.enabled('r2')&&root===this.root&&url===this.manifestURL&&!(Engine.current?.source==='r2'&&Engine.wantsPlayback())});
       if(controller.signal.aborted||!SourceLibrary.enabled('r2')||root!==this.root||url!==this.manifestURL)return false;
       if(Engine.current?.source==='r2'&&Engine.wantsPlayback()){this.status='R2 update pending · pause playback to sync';return false;}
       for(const id of gone){LIB.map.delete(id);FILES.delete(id);const i=LIB.ids.indexOf(id);if(i>=0)LIB.ids.splice(i,1);}
       fresh.forEach(libAdd);
-      this.mapping=mapping;this.status='Verified R2 library ready';this.error='';
+      this.mapping=mapping;this.status='Verified R2 library ready';this.error='';Engine.tracePlayback('r2-catalog-ready');
       const selected=Engine.current?.id;
       if(selected&&gone.includes(selected))Engine.stop();
       const order=Engine.order.slice(),currentOrder=Engine.order[Engine.pos],remap=new Map(),queue=[],removed=new Set(gone);
@@ -2479,9 +2495,10 @@ const R2Source={
       '<p role="status">'+esc(this.error||this.status)+'</p>'+
       '<p class="note">'+allTracks(true).filter(t=>t.source==='r2').length+' verified songs. Registered uploads appear on refresh; the library also checks for updates every five minutes.</p>'+
       '<p class="note">This source has its own track entries, ratings and playlists. Turning it off keeps its saved library.</p>',
-      [{label:'Refresh R2',pri:true},{label:'Close'}]);
+      [{label:'Refresh R2',pri:true},{label:'Copy playback diagnostics'},{label:'Close'}]);
+    $$('#sheet .actions .btn')[1].onclick=()=>PlaybackDiagnostics.copy();
     const refresh=$$('#sheet .actions .btn')[0];
-    refresh.onclick=async()=>{refresh.disabled=true;if(!SourceLibrary.enabled('r2'))MusicSources.setEnabled('r2',true,false);await this.connect();refresh.disabled=false;};
+    refresh.onclick=async()=>{refresh.disabled=true;if(!SourceLibrary.enabled('r2'))MusicSources.setEnabled('r2',true,false);if(!this.helper)await this.install();else await this.connect();refresh.disabled=false;};
   },
   exportRemote(t){
     const file=this.fileFor(t);if(!file)return this.show();
@@ -2511,7 +2528,12 @@ const PlaybackDiagnostics={limit:80,maxBytes:31000,entries:[],sizes:[],bytes:0,
     const size=JSON.stringify(entry).length+1;this.entries.push(entry);this.sizes.push(size);this.bytes+=size;
     while(this.entries.length>this.limit||this.bytes>this.maxBytes){this.entries.shift();this.bytes-=this.sizes.shift();}
   },
-  report(){return {schema:'poweramp-playback-v1',events:this.entries.map(entry=>({...entry}))};}
+  report(){return {schema:'poweramp-playback-v1',events:this.entries.map(entry=>({...entry}))};},
+  async copy(){
+    const text=JSON.stringify(this.report(),null,2);
+    try{await navigator.clipboard.writeText(text);toast('Playback diagnostics copied. No song details or URLs included.');}
+    catch(_){dialog('Playback diagnostics','<p>Copy this report to share it.</p><textarea readonly aria-label="Playback diagnostics" rows="12">'+esc(text)+'</textarea>',[{label:'Close'}]);const field=$('#sheet textarea');field?.focus();field?.select();}
+  }
 };
 const Engine = {
   ctx:null, nodes:null, ready:false,
@@ -2554,7 +2576,7 @@ const Engine = {
   resetSelectionRecovery:function(track){
     this._driveRetryId=this._driveErrorReportedId=null;
     this._serverRetryId=this._serverErrorReportedId=null;
-    this._r2RetryId=this._r2ErrorReportedId=null;
+    this._r2RetryId=this._r2ErrorReportedId=null;this._r2Progress=null;this._contextHold=null;
     clearTimeout(this._driveRetryTimer);clearTimeout(this._serverRetryTimer);this.clearR2Recovery();
     this._driveRetryTimer=this._serverRetryTimer=this._r2RetryTimer=null;
     this.clearBuffering();this._mediaStarted=null;
@@ -2584,7 +2606,7 @@ const Engine = {
     const token=this._r2Recovery;
     if(!this.r2RecoveryValid(token)){if(token)this.clearR2Recovery();return;}
     if(navigator.onLine===false)return;
-    if(this.ctx&&this.ctx.state!=='running'){this.pause('context-interrupted');return;}
+    if(this.ctx&&this.ctx.state!=='running'){this.holdContextSuspension();return;}
     const a=token.audio,position=this.time(),at=Number.isFinite(position)?Math.max(0,position):token.position;
     clearTimeout(this._r2RetryTimer);this._r2RetryTimer=null;this._r2OfflineSource=null;token.phase='reload';
     // Delay the one clean-URL reload until it can use the network. Keep any
@@ -2593,19 +2615,32 @@ const Engine = {
     this.tracePlayback('r2-retry-start');this.startElement(a);
     if(this._r2Recovery===token)this._r2Recovery=null;
   },
+  holdContextSuspension:function(){
+    const a=this.el(),c=this.ctx;
+    // A context-only suspension is not an instruction to pause the element.
+    // Never resume a context here. Native focus pauses and interrupted/closed
+    // contexts remain terminal until an explicit Play.
+    if(c?.state!=='suspended'||!a||a.paused&&!a.ended){this.pause('context-interrupted');return false;}
+    this._contextHold={context:c,request:this._playRequest,audio:a,source:a.src};
+    this._r2Progress=null;this.clearBuffering();this.playing=false;
+    this.tracePlayback('context-held');UI.renderPlayState();return true;
+  },
   reconcilePlaybackLifecycle:function(){
     if(!this.wantsPlayback()||this._loadingRequest)return;
     if(this.ctx&&this.ctx.state!=='running'){
       if(this.ctx.state==='suspended'&&this._contextResume?.context===this.ctx&&this._contextResume.request===this._playRequest)return;
-      this.pause('context-interrupted');return;
+      this.holdContextSuspension();return;
     }
     const a=this.el();if(!a)return;
+    const held=this._contextHold;this._contextHold=null;
+    const continuing=held&&held.context===this.ctx&&held.request===this._playRequest&&held.audio===a&&held.source===a.src;
     // Read native state after a renderer freeze. Reuse the ordinary end
     // handler's request fence, silence setting, repeat and queue policy.
     if(a.ended){this.tracePlayback('lifecycle-ended');this.onEnded(this.cur);return;}
-    if(this._r2Recovery?.phase==='offline'&&navigator.onLine!==false){this.beginR2Recovery();return;}
+    if(this._r2Recovery&&(this._r2Recovery.phase==='offline'||continuing)&&navigator.onLine!==false){this.beginR2Recovery();return;}
     // A missing pause event is still an interruption, never a reason to play.
     if(a.paused)this.onPause(this.cur);
+    else if(continuing){if(a.error)this.onError(this.cur);else if(a.readyState>=3)this.onPlaying(this.cur);else this.onBuffering(this.cur,'initial');}
   },
   cancelTransitionForFailure:function(){
     if(typeof PlaybackTransitions!=='undefined'&&(PlaybackTransitions.pending||this.xfading))PlaybackTransitions.cancel();
@@ -2640,7 +2675,7 @@ const Engine = {
     if(a.paused||a.ended||a.error||a.readyState<3)return;
     this._r2OfflineSource=null;
     this._mediaStarted={request:this._playRequest,attempt:this._playAttempt,slot:i,source:a.src};
-    if(this.ctx&&this.ctx.state!=='running'){this.tracePlayback('element-awaits-context');return;}
+    if(this.ctx&&this.ctx.state!=='running'){this.tracePlayback('element-awaits-context');if(!(this._contextResume?.context===this.ctx&&this._contextResume.request===this._playRequest))this.holdContextSuspension();return;}
     this.playing=true;this._playIntent=true;this.clearBuffering();this.tracePlayback('element-playing');
     UI.renderPlayState();this.updateMediaSession();
   },
@@ -2674,7 +2709,9 @@ const Engine = {
       ctx.addEventListener?.('statechange',()=>{
         this.tracePlayback('context-state');
         const expectedSuspend=ctx.state==='suspended'&&this._contextResume?.context===ctx&&this._contextResume.request===this._playRequest;
-        if(['suspended','interrupted','closed'].includes(ctx.state)&&!expectedSuspend&&this.wantsPlayback())this.pause('context-interrupted');
+        if(!this.wantsPlayback())return;
+        if(['suspended','interrupted','closed'].includes(ctx.state)&&!expectedSuspend)this.holdContextSuspension();
+        else if(ctx.state==='running'&&this._contextHold)this.reconcilePlaybackLifecycle();
       });
       const n={};
       n.preamp = ctx.createGain();
@@ -2955,7 +2992,7 @@ const Engine = {
     return p;
   },
   play:function(){
-    this.cancelSleepFade();
+    this.cancelSleepFade();this._contextHold=null;
     if(this.ctx?.state==='closed'){this.pause('context-failed');toast('Audio output was closed. Reload this page to play again.',6000);return;}
     this._playIntent=true;this.ensureCtx('play');
     clearTimeout(this._driveRetryTimer);clearTimeout(this._serverRetryTimer);this.clearR2Recovery();
@@ -2971,7 +3008,7 @@ const Engine = {
     return this.startElement(a);
   },
   pause:function(reason='user'){
-    this.cancelSleepFade();
+    this.cancelSleepFade();this._contextHold=null;this._r2Progress=null;
     const a=this.el(), self=this;
     this._playIntent=false;this._playAttempt=(this._playAttempt||0)+1;this._mediaStarted=null;this.tracePlayback('pause-request',{reason});
     this.clearBuffering();
@@ -2993,7 +3030,7 @@ const Engine = {
   wantsPlayback:function(){return this._playIntent===false?false:this._playIntent===true||this.playing||!!(this._loadingRequest&&this._loadingAutoplay);},
   toggle:function(){ this.wantsPlayback() ? this.pause() : this.play(); },
   stop:function(){
-    this.cancelSleepFade();
+    this.cancelSleepFade();this._contextHold=null;this._r2Progress=null;
     this._playIntent=false;this._playAttempt=(this._playAttempt||0)+1;this._mediaStarted=null;this.tracePlayback('stop-request');
     this.clearBuffering();
     clearTimeout(this._driveRetryTimer);
@@ -3045,6 +3082,7 @@ const Engine = {
   },
   seek:function(sec){
     if(!Number.isFinite(sec))return;
+    this._r2Progress=null;
     if(this._loadingRequest)this._requestedSeek=Math.max(0,sec);
     else if(!this.el().src&&this.current)this._resumePosition={id:this.current.id,time:Math.max(0,sec)};
     else this.seekWhenReady(sec);
@@ -3105,7 +3143,7 @@ const Engine = {
       if(retryable&&this.r2RecoveryValid(this._r2Recovery)&&this._r2Recovery.phase!=='reload'){this.tracePlayback('r2-retry-already-pending');return;}
       if(retryable&&this._r2RetryId!==t.id){
         if(offlineSource)this.tracePlayback('r2-source-rejected-offline');
-        this._r2RetryId=t.id;this._playIntent=true;this.playing=false;this._mediaStarted=null;UI.renderPlayState();
+        this._r2RetryId=t.id;this._r2Progress=null;this._playIntent=true;this.playing=false;this._mediaStarted=null;UI.renderPlayState();
         const position=this.time(),at=Number.isFinite(position)?Math.max(0,position):0,source=a.src,request=this._playRequest;
         // Same-URL reload aborts old pending play promises. Retire that attempt,
         // but keep this selection's one-retry budget and original clean URL.
@@ -3192,10 +3230,22 @@ const Engine = {
     UI.renderProgress();
     UI.renderMeta();
   },
+  noteR2Progress:function(a){
+    if(this.current?.source!=='r2'||this._r2RetryId!==this.current.id||!this.playing||!this.wantsPlayback()||a.paused||a.ended||a.error||a.readyState<3||this.ctx&&this.ctx.state!=='running'){this._r2Progress=null;return;}
+    const now=Date.now(),time=a.currentTime,p=this._r2Progress;
+    if(!p||p.request!==this._playRequest||p.audio!==a||p.source!==a.src){this._r2Progress={request:this._playRequest,audio:a,source:a.src,time,at:now,seconds:0};return;}
+    const dt=now-p.at,delta=time-p.time;if(dt<=0||delta===0)return;
+    // Thirty seconds of observed output, not bytes, readiness, seek jumps or
+    // elapsed background time. A relapse before that remains terminal.
+    if(dt>5000||delta<0||delta>Math.max(.25,dt/1000*Math.max(1,SET.speed)*1.5))p.seconds=0;
+    else p.seconds+=Math.min(delta,dt/1000);
+    p.time=time;p.at=now;
+    if(p.seconds>=30){this._r2RetryId=null;this._r2Progress=null;this.tracePlayback('r2-retry-rearmed');}
+  },
   onTime:function(i){
     if(i!==this.cur||this._loadingRequest) return;
     if(this.playing&&Date.now()-(this._lastCheckpoint||0)>=10000)this.checkpoint();
-    const a=this.el();
+    const a=this.el();this.noteR2Progress(a);
     if(this.playing&&!a.paused&&!a.ended&&!a.error&&a.readyState>=3&&this._bufferAt!=null&&a.currentTime>this._bufferAt+0.05)this.clearBuffering();
     if(SET.gapless && !SET.crossfade && this.playing) this.preloadNext();
     if(SET.crossfade && this.playing){
@@ -3207,6 +3257,7 @@ const Engine = {
   clearBuffering:function(){clearTimeout(this._stallTimer);this._stallTimer=null;this._bufferAt=null;this._bufferToken=null;},
   onBuffering:function(i,reason){
     if(i!==this.cur||this._loadingRequest||!this.wantsPlayback()||!this.transportCapabilities().network)return;
+    this._r2Progress=null;
     const a=this.el(),request=this._playRequest,source=a.src,track=this.current.id;
     const previous=this._bufferToken;
     if(this._stallTimer&&previous?.request===request&&previous.source===source&&previous.slot===i&&(a.currentTime||0)<=this._bufferAt+0.05)return;
@@ -3216,7 +3267,7 @@ const Engine = {
     this._bufferAt=a.currentTime||0;
     this._stallTimer=setTimeout(()=>{
       if(this._bufferToken!==token||this._playRequest!==request||this.el()!==a||a.src!==source||this.current?.id!==track||!this.wantsPlayback()||a.ended)return;
-      if(this.ctx&&this.ctx.state!=='running'){this.pause('context-interrupted');return;}
+      if(this.ctx&&this.ctx.state!=='running'){if(this._contextResume?.context===this.ctx&&this._contextResume.request===request)this.pause('context-interrupted');else this.holdContextSuspension();return;}
       // Timers can resume before queued native events after suspension. A
       // paused element yields focus; a few final buffered frames do not prove
       // that a stream with no future data has recovered.
@@ -9231,7 +9282,7 @@ function installPlaybackRework(){
     }finally{this._autoAdvance=previous;}
   };
   Engine.countPlayed=function(){if(!this.current||this.counted)return;this.counted=true;this.current.plays=(this.current.plays||0)+1;this.current.lastPlayed=Date.now();persistTrack(this.current);};
-  Engine.onEnded=function(i){this.tracePlayback('ended-received');if(i!==this.cur||this._loadingRequest||!this.wantsPlayback()||!this.el().ended||this._endedRequest===this._playRequest)return;this._endedRequest=this._playRequest;this.playing=false;UI.renderPlayState();if(this.current){this.current.resumeAt=0;this.countPlayed();persistTrack(this.current);}if(this._sleepFade){this.pause('sleep');return;}const request=this._playRequest;const advance=()=>{if(request!==this._playRequest||!this.wantsPlayback())return;this.listened=0;this.counted=false;this.next(true);};const gap=nativeValues().track_end_silence_ms||0;if(gap){clearTimeout(this.silenceTimer);this.silenceTimer=setTimeout(advance,gap);}else advance();};
+  Engine.onEnded=function(i){this.tracePlayback('ended-received');if(i!==this.cur||this._loadingRequest||!this.wantsPlayback()||!this.el().ended||this._endedRequest===this._playRequest)return;if(this.ctx&&this.ctx.state!=='running'){this.holdContextSuspension();return;}this._endedRequest=this._playRequest;this.playing=false;UI.renderPlayState();if(this.current){this.current.resumeAt=0;this.countPlayed();persistTrack(this.current);}if(this._sleepFade){this.pause('sleep');return;}const request=this._playRequest;const advance=()=>{if(request!==this._playRequest||!this.wantsPlayback())return;if(this.ctx&&this.ctx.state!=='running'){this._endedRequest=null;this.holdContextSuspension();return;}this.listened=0;this.counted=false;this.next(true);};const gap=nativeValues().track_end_silence_ms||0;if(gap){clearTimeout(this.silenceTimer);this.silenceTimer=setTimeout(advance,gap);}else advance();};
   Engine.startCrossfade=function(){if(this._sleepFade||SET.audioMode==='transparent')return;if(PlaybackQueue.active&&this.pos+1>=this.order.length)return;if(this.xfading||PlaybackTransitions.pending||!this.playing||PlaybackQueue.shouldStart()||SET.repeatMode==='one')return;let pos=this.pos+1;if(pos>=this.order.length){if(SET.repeatMode==='all')pos=0;else return;}return PlaybackTransitions.to(this.order[pos],Math.max(50,SET.crossfadeLen*1000));};
   const time=Engine.onTime;Engine.onTime=function(i){
     if(i!==this.cur||this._loadingRequest)return;
@@ -9849,6 +9900,7 @@ async function boot(){
   DockLayout.install();
   applySettings();
   Engine.init();
+  R2Source.prepare(); // Overlap configuration/modules with local library restoration.
   Engine.applySpeed();
   setupArtGestures();
   setupSeekGestures();

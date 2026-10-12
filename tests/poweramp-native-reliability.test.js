@@ -458,7 +458,7 @@ test('missed end enters and finishes an explicit queue using its existing resume
   assert.equal(h.PlaybackQueue.active, false); assert.equal(h.Engine.current.id, next.id);
 });
 
-for (const state of ['suspended', 'interrupted', 'closed']) {
+for (const state of ['interrupted', 'closed']) {
   test(`lifecycle and online never override an AudioContext ${state} interruption`, async () => {
     const h = harness('native-r2', {webAudio: true}); await h.start(42); h.Engine.ctx.change(state);
     const before = h.Engine.els.map(loadSnapshot), resumes = h.Engine.ctx.resumeCalls;
@@ -798,4 +798,66 @@ test('clearing the library cancels a pending selection before IndexedDB complete
   assert.equal(h.Engine.wantsPlayback(),false);assert.equal(h.Engine.current,null);
   file({__remoteURL:h.urls.get(h.selected.id)});await playing;assert.equal(h.audio().attempts.length,0);
   storage();await clearing;
+});
+
+// Background suspension is distinct from user/focus pause. These tests execute
+// the real statechange/visibility/end handlers; no real device behavior is implied.
+test('context-only suspension retains ownership until output naturally runs again',async()=>{
+  const h=harness('native-r2',{webAudio:true});await h.start(42);const a=h.audio(),c=h.Engine.ctx;
+  const before=loadSnapshot(a),resumes=c.resumeCalls;hide(h);c.change('suspended');
+  assert.equal(h.Engine.wantsPlayback(),true);assert.equal(h.Engine.playing,false);assert.equal(a.paused,false);
+  show(h);await h.clock.advance(90000);assertNoNewAudio(a,before);assert.equal(c.resumeCalls,resumes);
+  c.change('running');await flush();assert.equal(h.Engine.playing,true);assert.equal(a.currentTime,42);
+  assertNoNewAudio(a,before);assert.equal(c.resumeCalls,resumes);
+});
+for(const delivered of [false,true])test(`suspended output consumes ${delivered?'delivered':'missed'} native end exactly once after natural resume`,async()=>{
+  const h=harness('native-r2',{webAudio:true});const next=addNext(h);addNext(h,'third');await h.start(198);
+  const c=h.Engine.ctx;hide(h);endWithoutEvent(h.audio());c.state='suspended';
+  if(delivered)h.audio().emit('ended');else show(h);
+  assert.equal(h.Engine.current.id,h.selected.id);assert.equal(h.Engine.wantsPlayback(),true);
+  c.change('running');await flush();show(h);h.ctx.document.emit('resume');await flush();
+  assert.equal(h.Engine.current.id,next.id);assert.equal(h.Engine.pos,1);
+});
+for(const action of ['pause','stop','focus','next','screen-off'])test(`context continuation cannot cross ${action}`,async()=>{
+  const h=harness('native-r2',{webAudio:true});const next=addNext(h);await h.start(42);const a=h.audio(),c=h.Engine.ctx;
+  hide(h);c.change('suspended');
+  if(action==='focus'){a.pause();await h.clock.advance(0);}
+  else if(action==='screen-off'){h.ctx.nativeValues=()=>({pause_on_screen_off:true});hide(h);}
+  else if(action==='next'){await h.Engine.playIndex(1,false);}
+  else h.Engine[action]();
+  const before=h.Engine.els.map(loadSnapshot);c.change('running');show(h);await flush();
+  assert.equal(h.Engine.wantsPlayback(),false);h.Engine.els.forEach((a,i)=>assertNoNewAudio(a,before[i]));
+  if(action==='next')assert.equal(h.Engine.current.id,next.id);
+});
+test('a missed native focus pause invalidates context continuation on resume',async()=>{
+  const h=harness('native-r2',{webAudio:true});await h.start();h.Engine.ctx.change('suspended');h.audio().paused=true;
+  h.Engine.ctx.change('running');assert.equal(h.Engine.wantsPlayback(),false);assert.equal(h.audio().paused,true);
+});
+async function recoveredR2(){
+  const h=harness('native-r2',{webAudio:true});await h.start(10);const a=h.audio();
+  a.error={code:2};a.emit('error');await h.clock.advance(800);a.metadata(400);a.playing();await flush();a.emit('timeupdate');return h;
+}
+test('independent network failure may recover after thirty seconds of proven playback',async()=>{
+  const h=await recoveredR2(),a=h.audio();
+  for(let i=1;i<=30;i++){await h.clock.advance(1000);a.progress(10+i);}
+  assert.equal(h.Engine._r2RetryId,null);assert.equal(h.diagnosticReport().events.filter(e=>e.event==='r2-retry-rearmed').length,1);
+  a.error={code:2};a.emit('error');await h.clock.advance(800);assert.equal(h.Engine.wantsPlayback(),true);
+  a.metadata(400);a.playing();a.error={code:2};a.emit('error');await h.clock.advance(1000);
+  assert.equal(h.Engine.wantsPlayback(),false,'a relapse cannot turn into a retry loop');
+});
+for(const condition of ['29-seconds','ready-events','seek','throttled-jump','context-held'])test(`retry is not renewed by ${condition}`,async()=>{
+  const h=await recoveredR2(),a=h.audio();
+  if(condition==='29-seconds'){for(let i=1;i<=29;i++){await h.clock.advance(1000);a.progress(10+i);}}
+  else if(condition==='ready-events'){for(let i=0;i<40;i++){await h.clock.advance(1000);a.emit('playing');a.emit('progress');}}
+  else if(condition==='seek'){h.Engine.seek(100);await h.clock.advance(1000);a.emit('timeupdate');}
+  else if(condition==='throttled-jump'){await h.clock.advance(120000);a.progress(130);}
+  else{h.Engine.ctx.change('suspended');for(let i=1;i<=40;i++){await h.clock.advance(1000);a.progress(10+i);}h.Engine.ctx.change('running');}
+  assert.equal(h.Engine._r2RetryId,h.selected.id);a.error={code:2};a.emit('error');assert.equal(h.Engine.wantsPlayback(),false);
+});
+
+test('delayed track-end silence cannot force a suspended context or lose its pending end',async()=>{
+  const h=harness('native-r2',{webAudio:true});const next=addNext(h);h.ctx.nativeValues=()=>({track_end_silence_ms:1000});await h.start(198);
+  const c=h.Engine.ctx,resumes=c.resumeCalls;endWithoutEvent(h.audio());h.audio().emit('ended');c.change('suspended');await h.clock.advance(2000);
+  assert.equal(h.Engine.current.id,h.selected.id);assert.equal(c.resumeCalls,resumes);assert.equal(h.Engine.wantsPlayback(),true);
+  c.change('running');await h.clock.advance(1000);await flush();assert.equal(h.Engine.current.id,next.id);
 });
