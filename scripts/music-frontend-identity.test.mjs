@@ -33,3 +33,13 @@ test('activation receipt requires exact parent and successful digest-bound trust
  jobs.total_count=2;await assert.rejects(verifiedMusicReceipt(receipt,fetcher));jobs.total_count=1;
  jobs.jobs[0].steps[0].name='wrong';await assert.rejects(verifiedMusicReceipt(receipt,fetcher));
 });
+
+test('replacement receipt is anchored to the exact verified activation and new fingerprint',async()=>{
+ const {verifiedMusicReceipt}=await import('./music-frontend-identity.mjs');const {createHash}=await import('node:crypto');
+ const parent=JSON.parse(readFileSync(new URL('../docs/evidence/channel-receipt-38183548800.json',import.meta.url)));
+ const receipt={...parent,orchestration:'e'.repeat(40),runId:'124',attempt:'1',settingsDigest:'f'.repeat(64),activation:{...parent.activation,parentReceipt:parent,fingerprint:'c6395979c5ec29b1edd1ee15c8bd4ef2733c23684802c61f0c6efef6157718d6'}};
+ const hash=createHash('sha256').update(JSON.stringify(receipt)).digest('hex'),repo='braydenparker000/Missionarytube-';
+ const fetcher=async url=>Response.json(url.includes('/jobs?')?{total_count:1,jobs:[{name:'deploy',head_sha:receipt.orchestration,run_attempt:1,conclusion:'success',steps:[{name:'verified-production-receipt-'+hash,conclusion:'success'}]}]}:{repository:{full_name:repo},head_repository:{full_name:repo},head_sha:receipt.orchestration,run_attempt:1,head_branch:'main',event:'workflow_dispatch',path:'.github/workflows/deploy-azure-storage.yml',conclusion:'success'});
+ assert.deepEqual(await verifiedMusicReceipt(receipt,fetcher),parent.activation.parentReceipt);
+ await assert.rejects(verifiedMusicReceipt({...receipt,activation:{...receipt.activation,fingerprint:parent.activation.fingerprint}},fetcher));
+});
