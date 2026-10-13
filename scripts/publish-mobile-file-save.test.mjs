@@ -1,0 +1,27 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {checkedMobileFileSaveReceipt,checkedMobileFileSaveChange,patchManifest,unchangedInventory,FILES,SOURCE} from './publish-mobile-file-save.mjs';
+import {receiptDigest} from './worker-release-identity.mjs';
+const parent={schema:1,source:'b'.repeat(40),version:'synthetic-version',settingsDigest:'c'.repeat(64),frontendArtifactDigest:'d'.repeat(64)};
+const receipt=()=>{const artifact=patchManifest(parent);return {...parent,orchestration:'a'.repeat(40),runId:'123',attempt:'1',frontendArtifactDigest:receiptDigest(artifact),mobileFileSavePatch:{kind:'mobile-file-save',parentReceipt:parent,sourceProof:{qualified:true,sourceSha:SOURCE},artifact}};};
+test('patch receipt allows only the qualified saving overlay, preserving Worker and settings',()=>{
+ const r=receipt();assert.deepEqual(checkedMobileFileSaveChange(r,parent),parent);
+ for(const bad of [{...r,version:'changed'},{...r,settingsDigest:'a'.repeat(64)},{...r,frontendSource:SOURCE},{...r,frontendArtifactDigest:parent.frontendArtifactDigest},{...r,mobileFileSavePatch:{...r.mobileFileSavePatch,sourceProof:{qualified:false,sourceSha:SOURCE}}}])assert.throws(()=>checkedMobileFileSaveChange(bad,parent));
+ const changed=structuredClone(r);changed.mobileFileSavePatch.artifact.files[0].sha256='f'.repeat(64);changed.frontendArtifactDigest=receiptDigest(changed.mobileFileSavePatch.artifact);assert.throws(()=>checkedMobileFileSaveChange(changed,parent));
+});
+test('whole-store guard rejects unrelated modifications, deletion and additions',()=>{
+ const before=[...FILES.filter(f=>f.before!==null).map(f=>({name:f.path,etag:'old',size:1})),{name:'index.html',etag:'same',size:2},{name:'release-qualified.json',etag:'old',size:3}];
+ const after=[...before.map(f=>FILES.some(x=>x.path===f.name)||f.name==='release-qualified.json'?{...f,etag:'new'}:f),...FILES.filter(f=>f.before===null).map(f=>({name:f.path,etag:'new',size:f.bytes}))];
+ unchangedInventory(before,after);
+ for(const bad of [after.filter(f=>f.name!=='index.html'),[...after,{name:'new.js',etag:'new',size:1}],after.map(f=>f.name==='index.html'?{...f,etag:'changed'}:f)])assert.throws(()=>unchangedInventory(before,bad));
+});
+
+test('production receipt refuses a synthetic or changed parent identity',()=>{assert.throws(()=>checkedMobileFileSaveReceipt(receipt()));});
+test('scoped dispatch publishes dependency first and cannot deploy Worker or change settings',()=>{
+ const workflow=readFileSync(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8'),job=workflow.slice(workflow.indexOf('  mobile-file-save:\n'));
+ assert.deepEqual(FILES.map(f=>f.path),['assets/file-save.js','assets/relay-attachment-content.js','guitar/runtime.js','guitar/guitar.js']);
+ assert.equal(workflow.slice(workflow.indexOf('jobs:')).split('inputs.publish_mobile_file_save != true').length-1,12);
+ assert.ok(job.includes('ref: '+SOURCE));assert.ok(job.includes('group: jarvis-worker-production'));assert.doesNotMatch(job,/wrangler deploy|keep-vars|activate-|versions upload/);
+ let last=-1;for(const step of ['publish-mobile-file-save.mjs prepare','name: mobile-file-save-before-','azure/login@v2','publish-mobile-file-save.mjs publish','publish-mobile-file-save.mjs record','publish-mobile-file-save.mjs stamp','--name release-qualified.json','publish-mobile-file-save.mjs published']){const next=job.indexOf(step);assert.ok(next>last,step);last=next;}
+});

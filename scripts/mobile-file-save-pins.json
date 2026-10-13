@@ -1,0 +1,30 @@
+[
+  {
+    "path": "assets/file-save.js",
+    "bytes": 2146,
+    "sha256": "372bbad0c13e254aecbe72750a3f2d86781172ebc2b08b164a2c6d67dfe01518",
+    "before": null,
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "path": "assets/relay-attachment-content.js",
+    "bytes": 6278,
+    "sha256": "35d6ab366e5dab51dfbdb212ba12d29e798d0ad7352dee157774dd60c7a370ec",
+    "before": "ad3407c0e688b175be3c4879aaa57698197d2a1365f5cd76324c97f4f8aae2e0",
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "path": "guitar/runtime.js",
+    "bytes": 1769,
+    "sha256": "25d7c55c98e6b7effe740a66c4e08c9954e343e2e93a8bfaf7a2a1b24efaacba",
+    "before": "0b8a80e58b2e7764f74a1205ff27ab4b55e877d879e009bfaa812c9c502ca860",
+    "contentType": "application/javascript; charset=utf-8"
+  },
+  {
+    "path": "guitar/guitar.js",
+    "bytes": 18703,
+    "sha256": "b93696dd228a5d27385e40b44af278dd3d5038caec4c8d956d646a5809c3bf2b",
+    "before": "c6dc1649433ada18b24545dadd4afb3b8477ffdd15ced61c86acc66020102a82",
+    "contentType": "application/javascript; charset=utf-8"
+  }
+]

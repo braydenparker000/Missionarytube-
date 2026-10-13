@@ -42,7 +42,7 @@ test('publication mode serializes backup, Worker, static files and receipt using
  const workflow=readFileSync(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8'),job=workflow.slice(workflow.indexOf('  simple-chat-tasks:\n'));
  assert.ok(job.includes('ref: '+SOURCE));assert.match(job,/path: \.jarvis-source\n          persist-credentials: false\n          fetch-depth: 0/);assert.ok(job.includes('group: jarvis-worker-production'));assert.ok(job.includes('persist-credentials: false'));
  const steps=['publish-simple-chat-tasks.mjs prepare','wrangler deploy --dry-run','publish-simple-chat-tasks.mjs checkpoint','name: simple-chat-tasks-before-','wrangler deploy --config','publish-simple-chat-tasks.mjs publish','publish-simple-chat-tasks.mjs record','publish-simple-chat-tasks.mjs stamp','--name release-qualified.json','publish-simple-chat-tasks.mjs published'];let last=-1;for(const step of steps){const next=job.indexOf(step);assert.ok(next>last,step);last=next;}
- assert.equal(workflow.slice(workflow.indexOf('jobs:')).split('inputs.publish_simple_chat_tasks != true').length-1,11);
+ assert.equal(workflow.slice(workflow.indexOf('jobs:')).split('inputs.publish_simple_chat_tasks != true').length-1,12);
 });
 
 test('checkpoint resolves qualified URL-suffixed inputs and still requires a fresh Worker publication',()=>{
