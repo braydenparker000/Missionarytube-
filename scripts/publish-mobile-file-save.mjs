@@ -10,6 +10,14 @@ import {liveIdentity,receiptDigest} from './worker-release-identity.mjs';
 export const SOURCE='d5428cae57e195405afbd140965f9fca16d65110';
 export const PARENT='9e0386d943e9b02656817a3413ef15c4648288795abf6d7e27f17f0e886f1612';
 export const FILES=JSON.parse(readFileSync(new URL('./mobile-file-save-pins.json',import.meta.url)));
+// Scoped review: same proof engine/browser; a workflow comment changed and
+// the inventory adds the required shuffle-latency measurement without removing coverage.
+export const SAVING_RECIPE=Object.freeze({
+  '.github/workflows/validate-r2.yml':'9a352d9671250bbdcb8701a6065905219442f0e0',
+  'scripts/qualification-proof.mjs':'ed5644fe333ec067ee24051e55b978a83932aa34',
+  'scripts/install-qualification-browser.mjs':'6c409f044097fc6ad2460d48efa4d2a4c95685cc',
+  'tests/helpers/ci-test-inventory.mjs':'ea4b765d4b510cf7e1cafd9a84526924bbaa4e86',
+});
 const ORIGIN='https://missionarytube.z13.web.core.windows.net',ROOT=resolve('.mobile-file-save-source');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const git=(root,...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8'}).trim();
@@ -30,7 +38,7 @@ export function checkedMobileFileSaveChange(receipt,prior){
 }
 async function releaseBytes(file){return readFile(resolve(ROOT,'public',file.path));}
 async function source(){
- assert.equal(git(ROOT,'rev-parse','HEAD'),SOURCE);immutableSourceSnapshot(ROOT);assert.ok(recipeAllowed(ROOT));
+ assert.equal(git(ROOT,'rev-parse','HEAD'),SOURCE);immutableSourceSnapshot(ROOT);assert.ok(recipeAllowed(ROOT,SAVING_RECIPE),'Reviewed saving qualification recipe changed');
  const q=await import(pathToFileURL(resolve(ROOT,'scripts/qualification-proof.mjs')));
  const plan=q.makePlan(q.localEntries(ROOT),q.declaredEnvironment(ROOT,{QUALIFICATION_NODE22:'v22.23.3',QUALIFICATION_NODE24:'v24.21.0',QUALIFICATION_PYTHON:'Python 3.12.15'}));
  const proof=await q.findProof(plan,{sourceSha:SOURCE});assert.equal(proof.qualified,true,'Exact trusted source proof required');
