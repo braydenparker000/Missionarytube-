@@ -367,6 +367,19 @@ export function createRelayOwnerApi({ fetcher = globalThis.fetch, origin = API_O
         || !(data.nextCursor === null || /^\d{1,15}$/.test(String(data.nextCursor)))) throw new OwnerApiError('invalid');
       return {...data,messages:data.messages.map(entry=>({...entry,attachments:parseAttachments(entry)}))};
     },
+    async chatUpdates(after='0'){
+      if(!/^\d{1,15}$/.test(String(after)))throw new OwnerApiError('invalid');
+      const data=await authenticated('/relay/owner/updates?after='+encodeURIComponent(after));
+      if(data.visibility!=='private'||!Array.isArray(data.updates)||data.updates.length>50
+        ||!(data.nextCursor===null||/^\d{1,15}$/.test(data.nextCursor)&&Number(data.nextCursor)>Number(after)))throw new OwnerApiError('invalid');
+      let previous=Number(after);const updates=data.updates.map(item=>{
+        if(!Number.isSafeInteger(item.sequence)||item.sequence<=previous)throw new OwnerApiError('invalid');previous=item.sequence;
+        let parsed;try{parsed=assistantDeliverable(item,item.messageId);}catch{throw new OwnerApiError('invalid');}
+        return {...parsed,replyTo:item.messageId,sequence:item.sequence};
+      });
+      if(new Set(updates.map(x=>x.id)).size!==updates.length||data.nextCursor!==null&&(!updates.length||Number(data.nextCursor)!==previous))throw new OwnerApiError('invalid');
+      return {updates,nextCursor:data.nextCursor};
+    },
     async deliverables(messageId,after='0',{signal}={}){
       if(!attachmentUuid(messageId)||!/^\d{1,15}$/.test(String(after)))throw new OwnerApiError('invalid');
       const query=new URLSearchParams({message_id:messageId,after:String(after),limit:'10'});

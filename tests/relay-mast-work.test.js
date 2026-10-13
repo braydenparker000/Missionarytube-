@@ -2,6 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createConversationFixture} from './helpers/relay-conversation-browser-fixture.js';
 import {hash,random} from '../backend/relay-common.js';
+test('Mast planning classifies only an existing private owner chat without duplicating it or claiming execution',async t=>{
+ const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_WORK_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}});t.after(()=>h.close());const owner=await h.pair(await h.oauth()),id=crypto.randomUUID();
+ assert.equal((await h.phone('/mast',{id,body:'Draft a weekend plan'},owner.device_token)).status,201);
+ const plan={job_id:id,event_id:crypto.randomUUID(),title:'Weekend plan',goal:'Prepare a draft',plan:['Read the request','Prepare options'],expected_revision:0};
+ const submit=(data,credential=token)=>h.fixture.request('/relay/mast/work/plan',{method:'POST',headers:{Authorization:'Bearer '+credential},body:JSON.stringify(data)});
+ assert.equal((await submit(plan,owner.device_token)).status,401);
+ const first=await(await submit(plan)).json();assert.equal(first.job.stage,'queued');assert.equal(first.job.execution,null);assert.equal(first.job.id,id);
+ assert.equal((await(await submit(plan)).json()).newWrite,false);assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_mast_entries')[0].n,1);assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_mast_work')[0].n,1);
+ const lucy=crypto.randomUUID();await h.phone('/messages',{id:lucy,body:'Unrelated Lucy request'},owner.device_token);assert.equal((await submit({...plan,job_id:lucy,event_id:crypto.randomUUID()})).status,404);
+});
 test('Muse Work owns isolated requests, plans, leases, exact-version completion/corrections and safe retry',async t=>{
  const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_WORK_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}});t.after(()=>h.close());const owner=await h.pair(await h.oauth());
  const phone=(path,body)=>h.phone('/mast/work'+path,body,owner.device_token),adapter=(path,body,credential=token)=>h.fixture.request('/relay/mast/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+credential},...(body?{body:JSON.stringify(body)}:{})});

@@ -134,13 +134,13 @@ test('menu destinations wait for history closure, retain private drafts and pres
   await conversationMenu(page, 'Owner chat');
   await page.locator('#relay-owner-message-text').waitFor();
   assert.equal(await page.locator('#relay-owner-message-text').inputValue(), privateDraft);
-  await openMenu(page); await page.getByRole('dialog').getByRole('button', {name: 'Work', exact: true}).click();
+  await openMenu(page); await page.getByRole('dialog').getByRole('button', {name: 'Tasks', exact: true}).click();
   await page.locator('#relay-owner-current-work').waitFor();
   assert.equal(await page.evaluate(() => document.activeElement.id), 'relay-menu-button');
   assert.equal(await page.locator('dialog.app-sheet[open]').count(), 0);
   assert.equal(phone.records.filter(r => r.method === 'POST').length, writes, 'Menu navigation never submits owner messages or jobs');
   await assertNoPrivatePersistence(page, [privateDraft], {draft: privateDraft});
-  await page.goBack(); await assertHome(page);
+  await page.goBack();await page.locator('#relay-owner-message-text').waitFor();assert.equal(await page.locator('#relay-owner-message-text').inputValue(),privateDraft);await page.goBack(); await assertHome(page);
   assertBrowserContained(phone);
 });
 

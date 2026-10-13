@@ -1,45 +1,24 @@
-import {richText} from './ui.js';
-// Explicit owner requests and authenticated reports. This UI never runs jobs.
-export function createMastWork({api,storage,panel,status,onCreated,onError}){
-  const key='jarvis.mast.work-intent.v1',list=panel.querySelector('#work-list'),form=panel.querySelector('form'),retry=panel.querySelector('#work-retry-intent');
-  let pending=null,busy=false,loading=false,sourceId=null;
-  const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;};
-  function restore(){const raw=storage?.getItem(key);if(!raw)return;const r=JSON.parse(raw);if(r.device!==api.deviceId){storage.removeItem(key);return;}if(!['create','cancel','retry'].includes(r.op)||typeof r.args!=='object'||!r.args)throw Error('Unrecognized saved Muse request. Do not create a replacement until the previous outcome is checked.');pending=r;retry.hidden=false;retry.textContent='Retry unconfirmed '+r.op;}
-  function clear(){storage?.removeItem(key);pending=null;retry.hidden=true;}
-  async function submit(op,args){
-    if(busy)return;busy=true;
-    try{
-      restore();if(pending&&(pending.op!==op||JSON.stringify(pending.args)!==JSON.stringify(args)))throw Error('Resolve the previous unconfirmed request first.');
-      if(!storage)throw Error('Tab storage is required to preserve the request ID.');pending={device:api.deviceId,op,args};storage.setItem(key,JSON.stringify(pending));retry.hidden=false;
-      const result=await api.mastWork(op,args);clear();if(op==='create'){form.reset();sourceId=null;form.elements.body.readOnly=false;form.elements.body.required=true;}status.textContent='Muse request saved. Execution is not implied.';onCreated();await refresh();return result;
-    }catch(e){status.textContent=e.message;retry.textContent='Retry unconfirmed '+op;if(!api.hasCredential)onError(e);}finally{busy=false;}
-  }
-  function row(j){
-    const card=el('article',null,'mast-work-row'),heading=el('h3',j.title),state=el('p',j.cancelRequested&&!['cancelled','completed','failed'].includes(j.stage)?'Cancellation requested · stop not confirmed':({queued:'Queued · no execution reported',running:'Running · authenticated runtime report',waiting_for_owner:'Waiting for owner',completed:'Completion reported by Muse',failed:'Failure reported by Muse',cancelled:'Cancellation acknowledged by Muse',outcome_unknown:'Outcome unknown · completion unverified'})[j.stage]);
-    card.append(heading,state);
-    if(j.spec.projectTitle)card.append(el('p',j.spec.projectTitle+(j.spec.goalTitle?' · '+j.spec.goalTitle:''),'request-meta'));
-    if(j.summary)card.append(el('p',j.summary));
-    if(j.plan){const plan=el('details'),summary=el('summary','Plan · revision '+j.plan.revision);plan.append(summary,el('p',j.plan.goal));const steps=el('ol');for(const s of j.plan.steps)steps.append(el('li',s));plan.append(steps);card.append(plan);}
-    const chat=el('button','View conversation and files');chat.type='button';chat.onclick=()=>document.getElementById('chat-tab').click();card.append(chat);
-    const original=el('details');original.append(el('summary','Original request · '+j.actionKind),el('p',j.body));card.append(original);
-    if(j.latestResult){const output=el('section'),body=el('div',null,'rich-body');richText(body,j.latestResult.body);output.append(el('h4','Result · version '+j.latestResult.version),body);
-      output.append(el('p',j.completion?'Completion report applies to result version '+j.completion.resultVersion+'.'+(j.completion.resultVersion!==j.latestResult.version?' The latest correction is not covered by that report.':''):'Saved result; completion has not been reported.','request-meta'));card.append(output);
-      if(j.resultHistory.length>1){const versions=el('details');versions.append(el('summary','Original result and correction history'));for(const r of j.resultHistory){const body=el('div',null,'rich-body');richText(body,r.body);versions.append(el('h4','Version '+r.version),el('p',r.correctionSummary||'Original accepted reply'),body);}card.append(versions);}
-    }
-    if(!['completed','failed','cancelled'].includes(j.stage)&&!j.cancelRequested){const cancel=el('button','Request cancellation');cancel.type='button';cancel.onclick=()=>submit('cancel',{job_id:j.id,event_id:crypto.randomUUID()});card.append(cancel);}
-    if(j.retryAllowed){const again=el('button','Retry as a new attempt');again.type='button';again.onclick=()=>{if(j.retryRequiresConfirmation&&!confirm('The earlier execution outcome may be unknown. Creating another attempt could duplicate actions. Continue?'))return;submit('retry',{job_id:j.id,id:crypto.randomUUID(),confirm_duplicate_risk:j.retryRequiresConfirmation});};card.append(again);}
-    const detail=el('details');detail.append(el('summary','Activity and report provenance'));detail.addEventListener('toggle',async()=>{if(!detail.open||detail.dataset.loaded)return;try{const data=await api.mastWork('read',{job_id:j.id});for(const e of data.events)detail.append(el('p',e.createdAt+' · '+e.op+(e.summary?' · '+e.summary:'')));detail.dataset.loaded='true';}catch(e){status.textContent=e.message;if(!api.hasCredential)onError(e);}});card.append(detail);
-    return card;
-  }
-  async function refresh(){
-    if(loading||!api.hasCredential)return;loading=true;
-    try{restore();let after='0';const jobs=[];do{const data=await api.mastWork('list',{after});jobs.push(...data.jobs);after=data.nextCursor;}while(after);
-      list.replaceChildren(...jobs.reverse().map(row));if(!jobs.length)list.append(el('p','No Muse work requests yet. Requests stay separate from Lucy’s Work history.'));
-    }catch(e){status.textContent=e.message;if(!api.hasCredential){reset();onError(e);}}finally{loading=false;}
-  }
-  form.onsubmit=event=>{event.preventDefault();const data=Object.fromEntries(new FormData(form));submit('create',{id:sourceId||crypto.randomUUID(),title:data.title,body:data.body,action_kind:data.action_kind,...(data.project_title?{project_title:data.project_title}:{}),...(data.goal_title?{goal_title:data.goal_title}:{})});};
-  retry.onclick=()=>{if(pending)submit(pending.op,pending.args);};
-  function reset(){try{clear();}finally{pending=null;sourceId=null;form.reset();form.elements.body.readOnly=false;form.elements.body.required=true;list.replaceChildren();}}
-  function prepare(message){sourceId=message.id;form.elements.title.value=message.body.slice(0,120)||'Attached request';form.elements.body.value=message.body;form.elements.body.readOnly=true;form.elements.body.required=false;form.closest('details').open=true;}
-  return {refresh,reset,prepare};
+import {richText,icon} from './ui.js';
+import {museSheet,museNavigate} from './muse-shell.js';
+// Saved task organization and Mast's reports only. Never launch a session.
+export function createMastWork({api,storage,panel,status,onCreated,onError,onConversation}){
+ const key='jarvis.mast.work-intent.v1',list=panel.querySelector('#work-list'),retry=panel.querySelector('#work-retry-intent');
+ let jobs=new Map(),pending=null,loading=false,epoch=0;
+ const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;};
+ const label=j=>j.cancelRequested&&!['completed','failed','cancelled'].includes(j.stage)?'Stop not confirmed':({queued:'Waiting for Mast',running:'In progress',waiting_for_owner:'Needs your input',completed:j.completion?'Done':'Finish not confirmed',failed:'Could not finish',cancelled:'Stopped',outcome_unknown:'Status unknown'})[j.stage]||'Status unknown';
+ function restore(){const raw=storage?.getItem(key);if(!raw)return;const r=JSON.parse(raw);if(r.device!==api.deviceId){storage.removeItem(key);return;}if(!['create','cancel','retry'].includes(r.op)||!r.args)throw Error('The earlier send needs checking before retry.');pending=r;retry.hidden=false;}
+ function show(j){
+  const dialog=museSheet(j.plan?.title||j.title,[]);dialog.classList.add('owner-request-detail');dialog.setAttribute('aria-label','Muse task');
+  const content=el('div',null,'request-screen-content');content.append(el('p',label(j),'request-state'),el('p',j.body,'request-body'));
+  const activity=el('section',null,'request-card'),timeline=el('ol',null,'request-events');activity.append(el('h3','Updates'),timeline);timeline.append(el('li','Request received · '+new Date(j.createdAt).toLocaleString()));
+  if(j.summary)timeline.append(el('li',j.summary));content.append(activity);
+  if(j.latestResult){const result=el('div',null,'request-body rich-body');richText(result,j.latestResult.body);content.append(result);if(j.completion&&j.latestResult.version>j.completion.resultVersion)content.append(el('p','The latest correction has not been confirmed complete.','request-meta'));}
+  const chat=el('button','View conversation','primary');chat.type='button';chat.onclick=()=>museNavigate(()=>onConversation(j.id));content.append(chat);dialog.append(content);
+  const generation=epoch;api.mastWork('read',{job_id:j.id}).then(data=>{if(generation!==epoch||!dialog.open)return;for(const event of data.events.filter(e=>e.summary).slice(-5)){const item=el('li');item.append(el('p',event.summary),el('small',new Date(event.createdAt).toLocaleTimeString(),'request-meta'));timeline.append(item);}}).catch(e=>{if(generation!==epoch||!dialog.open)return;activity.append(el('p','Latest updates could not be loaded.','request-meta'));if(!api.hasCredential)onError(e);});
+ }
+ function render(){list.replaceChildren();for(const [history,title]of [[false,'In progress'],[true,'History']]){list.append(el('h2',title,'task-section-heading'));const selected=[...jobs.values()].filter(j=>Boolean(['failed','cancelled'].includes(j.stage)||j.stage==='completed'&&j.completion)===history).reverse();for(const j of selected){const row=el('button',null,'owner-work-task');row.type='button';row.dataset.jobId=j.id;row.dataset.state=history?'finished':'working';const text=el('span',null,'owner-work-row-content');text.append(el('span',j.plan?.title||j.title,'owner-work-title'),el('span',label(j),'job-state'));const arrow=el('span',null,'owner-work-row-arrow');arrow.innerHTML=icon('chevron');row.append(text,arrow);row.onclick=()=>show(j);list.append(row);}if(!selected.length)list.append(el('p',history?'Finished tasks will appear here.':'Ask Mast in Chat. Tasks appear when Mast saves a plan.','relay-owner-note'));}}
+ async function refresh(){if(loading||!api.hasCredential)return;loading=true;const generation=epoch;try{restore();let after='0',seen=new Set(),next=new Map();do{if(seen.has(after))throw Error('Task history could not be loaded.');seen.add(after);const data=await api.mastWork('list',{after});if(generation!==epoch)return;for(const j of data.jobs)next.set(j.id,j);after=data.nextCursor;}while(after);jobs=next;render();panel.querySelector('#work-note').textContent='Tasks start in Chat. Mast reports progress from an existing session.';}catch(e){if(generation!==epoch)return;if(!api.hasCredential){reset();onError(e);}else{list.replaceChildren();panel.querySelector('#work-note').textContent=e.status===503?'Muse Tasks are not connected yet. Chat remains available. This page cannot start Mast.':'Task history is unavailable. Your chat and draft are kept.';}}finally{loading=false;}}
+ retry.onclick=async()=>{if(!pending||loading)return;loading=true;try{const r=await api.mastWork(pending.op,pending.args);storage.removeItem(key);pending=null;retry.hidden=true;onCreated();return r;}catch(e){status.textContent=e.message;if(!api.hasCredential)onError(e);}finally{loading=false;refresh();}};
+ function reset(){++epoch;jobs.clear();pending=null;retry.hidden=true;list.replaceChildren();}
+ return {refresh,reset,show,lookup:id=>jobs.get(id)};
 }

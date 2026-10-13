@@ -45,6 +45,15 @@ export function mastWork(ctx,input,{owner,writer,send,now=Date.now()}={}){
     const j={id:input.id,title:spec.title,body:input.body.trim(),spec,actionKind:spec.actionKind,device:owner.device_id,stage:'queued',outcome:'not_started',run:null,writer:null,expires:0,createdAt:new Date(now).toISOString(),updatedAt:new Date(now).toISOString(),cancelRequested:false,attempt:1,parentId:null,rootId:input.id,retryId:null,plan:null,corrections:[],completion:null};
     rows(ctx,'INSERT INTO relay_mast_work(id,value) VALUES(?,?)',j.id,JSON.stringify(j));return {job:view(ctx,j,now),newWrite:true};
   }
+  // Planning can classify an existing natural chat request. Keep the original
+  // UUID/body/device; this creates organization only, never an execution claim.
+  if(op==='work_plan'&&!owner&&!rows(ctx,'SELECT id FROM relay_mast_work WHERE id=?',input.job_id||'').length){
+    relayOwnerJobValidateRpc('relay_owner_job_plan',input);
+    if(input.expected_revision!==0)fail(409,'Muse plan revision conflict');
+    const original=rows(ctx,"SELECT * FROM relay_mast_entries WHERE id=? AND role='owner'",input.job_id)[0];
+    if(!original)fail(404,'Muse request not found');
+    mastWork(ctx,{op:'work_create',id:original.id,body:original.body,title:input.title,action_kind:'unclassified'},{owner:{device_id:original.device_id},now});
+  }
   const j=read(ctx,input.job_id);
   if(op==='work_read')return {job:view(ctx,j,now),events:rows(ctx,'SELECT id,arguments,created_ms FROM relay_mast_work_events WHERE job_id=? ORDER BY seq',j.id).map(r=>({id:r.id,...JSON.parse(r.arguments),token_hash:undefined,createdAt:new Date(r.created_ms).toISOString()}))};
   if(op==='work_retry'){

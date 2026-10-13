@@ -112,6 +112,14 @@ export function relayAssistantDeliveryList(ctx,messageId,after,limit){
  const page=selected.slice(0,size);
  return {message_id:messageId,deliverables:page.map(row=>delivery(ctx,row)),nextCursor:selected.length>size?String(page.at(-1).seq):null};
 }
+// One creation cursor across later deliveries, for chronological private chat.
+// Original-owner linkage is checked again before any metadata leaves storage.
+export function relayAssistantDeliveryFeed(ctx,after){
+ const offset=cursor(after)||0;
+ const selected=rows(ctx,"SELECT d.* FROM relay_owner_assistant_deliveries d JOIN relay_owner_entries u ON u.id=d.message_id AND u.kind='user' AND u.principal=d.principal WHERE d.principal=? AND d.kind='deliverable' AND d.seq>? ORDER BY d.seq LIMIT 51",RELAY_OWNER,offset);
+ const page=selected.slice(0,50);
+ return {updates:page.map(row=>({...delivery(ctx,row),sequence:row.seq})),nextCursor:selected.length>50?String(page.at(-1).seq):null,visibility:'private'};
+}
 export function relayAssistantDeliveryPrepare(ctx,principal,args,kind,now){
  identifiers(args.message_id,args.delivery_id);
  const accepted=target(ctx,principal,args.message_id,args.delivery_id);

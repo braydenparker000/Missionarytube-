@@ -8,7 +8,7 @@ import {FRONTEND_ORIGINS} from './origins.js';
 import {relayOwnerPasswordSchema, relayOwnerPasswordStore} from './relay-owner-password.js';
 import {relayOwnerJobSchema, relayOwnerJobEnsure, relayOwnerJobSpecification, relayOwnerJobSpecify, relayOwnerJobRead, relayOwnerJobsList, relayOwnerJobsChanges, relayOwnerJobCancel, relayOwnerJobRetryPrepare, relayOwnerJobRetryLink, relayOwnerJobReplyCheck, relayOwnerJobReplySaved, relayOwnerJobValidateRpc, relayOwnerJobRpc} from './relay-owner-jobs.js';
 import {ATTACHMENT_BODY_LIMIT, relayAttachmentSchema, relayAttachmentMetadata, relayAttachmentAdmit, relayAttachmentPrecheck, relayAttachmentPrepare, relayAttachmentUpload, relayAttachmentCheckMessage, relayAttachmentLink, relayAttachmentDiscard, relayAttachmentRead, relayAttachmentVerify, relayAttachmentDownload,relayAttachmentInboundMessageCheck} from './relay-owner-attachments.js';
-import {relayAssistantAttachmentPrecheck,relayAssistantAttachmentUpload,relayAssistantAttachmentDiscard,relayAssistantAttachmentMetadata,relayAssistantDeliveryList,relayAssistantDeliveryPrepare,relayAssistantDeliverySave} from './relay-owner-assistant-attachments.js';
+import {relayAssistantAttachmentPrecheck,relayAssistantAttachmentUpload,relayAssistantAttachmentDiscard,relayAssistantAttachmentMetadata,relayAssistantDeliveryList,relayAssistantDeliveryFeed,relayAssistantDeliveryPrepare,relayAssistantDeliverySave} from './relay-owner-assistant-attachments.js';
 
 export {RELAY_OWNER_SCOPE, RELAY_OWNER_INBOX};
 export const RELAY_OWNER_SESSION_MS = 365 * 86400000;
@@ -195,7 +195,7 @@ export async function relayOwnerStore(ctx, env, body, enqueueOwnerMessage = () =
       // Advertise this service version only after the existing login succeeds.
       // Password/session configuration and the credential implementation stay
       // unchanged; older services do not need speculative job requests.
-      if (body.op === 'password_login' && response.ok) return json({...await response.json(), jobs_enabled: true, attachments_enabled: true}, response.status, Object.fromEntries(response.headers));
+      if (body.op === 'password_login' && response.ok) return json({...await response.json(), jobs_enabled: true, attachments_enabled: true, inline_updates_enabled: true}, response.status, Object.fromEntries(response.headers));
       return response;
     }
     if (body?.op === 'pair_start') {
@@ -222,7 +222,7 @@ export async function relayOwnerStore(ctx, env, body, enqueueOwnerMessage = () =
       mast_file_admit: [], mast_file_upload: ['id','message_id','name','mime_type','data_base64'], mast_file_discard: ['message_id','attachment_id'], mast_file_content: ['message_id','attachment_id','preview'],
       pair_status: ['request_id'], session: [], messages_list: ['after', 'limit'], message: ['id', 'body', 'attachment_ids'],
       attachment_admit: [], attachment_upload: ['id', 'message_id', 'name', 'mime_type', 'data_base64'], attachment_discard: ['message_id', 'attachment_id'], attachment_content: ['message_id', 'attachment_id', 'preview'],
-      conversation: ['message_id'], deliverables_list: ['message_id','after','limit'], delivery_list: ['message_ids'], delivery_retry: ['message_id'], devices_list: [], device_revoke: ['device_id'],
+      chat_updates: ['after'], conversation: ['message_id'], deliverables_list: ['message_id','after','limit'], delivery_list: ['message_ids'], delivery_retry: ['message_id'], devices_list: [], device_revoke: ['device_id'],
       jobs_list: ['after', 'limit'], jobs_changes: ['after', 'limit', 'through'], job_read: ['job_id'], job_create: ['id', 'title', 'body', 'action_kind', 'project_title', 'goal_title'], job_cancel: ['job_id'], job_retry: ['job_id', 'id', 'confirm_duplicate_risk'],
     };
     if (!body || !Object.hasOwn(allowed, body.op)) fail(400, 'Invalid owner operation');
@@ -282,16 +282,17 @@ export async function relayOwnerStore(ctx, env, body, enqueueOwnerMessage = () =
         if (!session || session.revoked_ms !== null) return json({status: 'revoked'});
         if (session.expires_ms <= now) return json({status: 'expired'});
         const active = requireSession(ctx, body.token_hash, now);
-        return json({status: 'approved', device: shortDevice(renew(ctx, active, now)), jobs_enabled: true, attachments_enabled: true});
+        return json({status: 'approved', device: shortDevice(renew(ctx, active, now)), jobs_enabled: true, attachments_enabled: true, inline_updates_enabled: true});
       }
       const session = requireSession(ctx, body.token_hash, now);
       let result;
       if(body.op.startsWith('mast_work_'))result=mastOwnerWork(ctx,env,body,session);
       if (body.op === 'mast_list') result = mastList(ctx, env, body.after);
       if (body.op === 'mast_send') result = mastSend(ctx, env, body, session, now);
-      if (body.op === 'session') result = {status: 'approved', device: shortDevice({...session, expires_ms: now + RELAY_OWNER_SESSION_MS}), jobs_enabled: true, attachments_enabled: true};
+      if (body.op === 'session') result = {status: 'approved', device: shortDevice({...session, expires_ms: now + RELAY_OWNER_SESSION_MS}), jobs_enabled: true, attachments_enabled: true, inline_updates_enabled: true};
       if (body.op === 'messages_list') result = listMessages(ctx, body.after, body.limit,false,env);
       if (body.op === 'conversation') {const data=conversation(ctx,body.message_id,env);result={...data,deliverables:data.deliverables||[],deliverablesNextCursor:data.deliverablesNextCursor??null};}
+      if (body.op === 'chat_updates') result = relayAssistantDeliveryFeed(ctx,body.after);
       if (body.op === 'deliverables_list') result = {...relayAssistantDeliveryList(ctx,body.message_id,body.after,body.limit),visibility:'private'};
       if (body.op === 'message') result = insertMessage(ctx, session, body, enqueueOwnerMessage, now,env);
       if (body.op === 'attachment_discard') result = relayAttachmentDiscard(ctx, session, body, now);
@@ -502,11 +503,12 @@ export async function relayOwnerPublic(request, env) {
     routes['/attachments'] = ['POST', 'attachment_upload'];
     routes['/attachments/discard'] = ['POST', 'attachment_discard'];
     routes['/attachments/content'] = ['GET', 'attachment_content'];
+    routes['/updates'] = ['GET','chat_updates'];
     routes['/deliverables'] = ['GET','deliverables_list'];
     const suffix = path.slice('/relay/owner'.length), route = Object.hasOwn(routes, suffix) ? routes[suffix] : null;
     if (!route) return wrap(json({error: 'Not found'}, 404));
     if (request.method !== route[0]) return wrap(json({error: 'Method not allowed'}, 405, {Allow: route[0] + ', OPTIONS'}));
-    const queryFields = ['mast_list','mast_work_list'].includes(route[1])?['after']:route[1]==='mast_work_read'?['job_id']:route[1] === 'deliverables_list'?['message_id','after','limit']:['attachment_content','mast_file_content'].includes(route[1]) ? ['message_id', 'attachment_id', 'preview'] : route[1] === 'jobs_changes' ? ['after', 'limit', 'through'] : ['messages_list', 'jobs_list'].includes(route[1]) ? ['after', 'limit'] : route[1] === 'conversation' ? ['message_id'] : route[1] === 'job_read' ? ['job_id'] : [];
+    const queryFields = ['mast_list','mast_work_list'].includes(route[1])?['after']:route[1]==='mast_work_read'?['job_id']:route[1] === 'chat_updates'?['after']:route[1] === 'deliverables_list'?['message_id','after','limit']:['attachment_content','mast_file_content'].includes(route[1]) ? ['message_id', 'attachment_id', 'preview'] : route[1] === 'jobs_changes' ? ['after', 'limit', 'through'] : ['messages_list', 'jobs_list'].includes(route[1]) ? ['after', 'limit'] : route[1] === 'conversation' ? ['message_id'] : route[1] === 'job_read' ? ['job_id'] : [];
     if ([...url.searchParams.keys()].some(k => !queryFields.includes(k) || url.searchParams.getAll(k).length !== 1)) fail(400, 'Invalid owner query');
     let body = {};
     let admittedHash;
@@ -534,7 +536,7 @@ export async function relayOwnerPublic(request, env) {
       if (!token) fail(401, 'Owner device bearer required');
       input.token_hash = admittedHash || await hash(token);
     }
-    if (['mast_list','mast_work_list', 'messages_list', 'jobs_list', 'jobs_changes','deliverables_list'].includes(route[1])) {
+    if (['mast_list','mast_work_list', 'messages_list', 'jobs_list', 'jobs_changes','deliverables_list','chat_updates'].includes(route[1])) {
       if (url.searchParams.has('after')) input.after = url.searchParams.get('after');
       if (url.searchParams.has('limit')) {
         const limit = url.searchParams.get('limit');
