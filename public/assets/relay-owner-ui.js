@@ -65,7 +65,7 @@ export function createRelayOwnerController({ api = createRelayOwnerApi(), draftS
           if(previous&&(previous.kind!=='deliverable'||JSON.stringify(previous)!==JSON.stringify({...update,saved:true})))throw new OwnerApiError('invalid');
           map.set(update.id,{...update,saved:true});
         }
-        state.messages=[...map.values()].sort((a,b)=>Date.parse(a.createdAt)-Date.parse(b.createdAt)||(a.sequence||0)-(b.sequence||0));
+        state.messages=[...map.values()].sort((a,b)=>Date.parse(a.createdAt)-Date.parse(b.createdAt)||Number(a.kind==='deliverable')-Number(b.kind==='deliverable')||(a.sequence||0)-(b.sequence||0));
         if(data.updates.length)updateCursor=String(data.updates.at(-1).sequence);
         if(data.nextCursor===null)break;
         updateCursor=data.nextCursor;
