@@ -23,7 +23,7 @@ test('natural chat shows authenticated plan and progress in place, groups explic
     const follow=h.rows("SELECT id FROM relay_owner_entries WHERE kind='user' ORDER BY seq DESC LIMIT 1")[0];
     await rpc('relay_owner_job_link',{job_id:follow.id,work_id:request.id,event_id:crypto.randomUUID(),reason:'Explicit fictional garden reference.'});
     await page.reload();await page.locator('[data-message-id="'+follow.id+'"] button').filter({hasText:'View task'}).waitFor();
-    await conversationMenu(page,'Requests');const work=page.locator('#relay-owner-current-work');assert.equal(await work.locator('button[data-job-id]').count(),1);
+    await conversationMenu(page,'Requests');const work=page.locator('#relay-owner-current-work');assert.equal(await work.locator('button[data-job-id]').count(),1);await writeSyntheticEvidence(phone,'relay-tasks-320',{naturalClassification:true});
     await work.locator('button[data-job-id]').click();await page.getByRole('heading',{name:'Fictional garden options',exact:true}).waitFor();assert.equal(await page.locator('#relay-owner-request-properties').count(),0);
     for(const size of [{width:320,height:740},{width:390,height:844},{width:390,height:520}]){await page.setViewportSize(size);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}
     await page.emulateMedia({reducedMotion:'reduce'});await page.getByRole('button',{name:'Back from task',exact:true}).click();await conversationMenu(page,'Public chat');assert.equal((await page.locator('body').innerText()).includes('Fictional garden options'),false);

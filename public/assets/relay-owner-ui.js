@@ -607,7 +607,7 @@ export function createRelayOwnerUI({ controller = createRelayOwnerController(), 
     if(job.completion){const receipt=make('p',job.completion.summary,'request-copy');receipt.id='relay-owner-completion';receipt.dataset.resultVersion=String(job.completion.resultVersion);activity.append(receipt);if((latest?.version||job.resultVersion)>job.completion.resultVersion)activity.append(make('p','The latest correction has not been confirmed complete.','request-meta'));}
     content.append(activity);
     const actions=make('div','','request-actions');actions.append(action('View conversation',()=>{
-      const show=()=>{controller.setRequestsOnly(false);controller.setQuery('');const row=[...chatNodes.messages.children].find(n=>n.dataset.messageId===job.id);row?.scrollIntoView?.({block:'center'});chatNodes.input.focus({preventScroll:true});};
+      const show=async()=>{controller.setRequestsOnly(false);controller.setQuery('');await controller.refresh();if(!chatNodes)return;const row=[...chatNodes.messages.children].find(n=>n.dataset.messageId===job.id);row?.scrollIntoView?.({block:'center'});chatNodes.input.focus({preventScroll:true});};
       if(navigation)navigation.close(detailDialog,show);else{controller.closeJobDetail();show();}
     },'primary'));
     const refresh=action(state.jobDetailBusy?'Refreshing…':'Refresh',()=>controller.inspectJob(job.id,{refresh:true}),'text-button');refresh.id='relay-owner-request-refresh';refresh.disabled=state.jobDetailBusy;actions.append(refresh);content.append(actions);

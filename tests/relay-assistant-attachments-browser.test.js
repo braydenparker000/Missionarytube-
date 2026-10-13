@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {readFile,mkdir} from 'node:fs/promises';
-import {createConversationFixture,launchQualifiedBrowser,openConversationPage,closeConversationHarness,assertBrowserContained,assertNoPrivatePersistence,conversationMenu,RELAY_URL,OWNER_KEY} from './helpers/relay-conversation-browser-fixture.js';
+import {createConversationFixture,launchQualifiedBrowser,openConversationPage,closeConversationHarness,assertBrowserContained,assertNoPrivatePersistence,conversationMenu,writeSyntheticEvidence,RELAY_URL,OWNER_KEY} from './helpers/relay-conversation-browser-fixture.js';
 const available=existsSync(new URL('../backend/relay-owner-assistant-attachments.js',import.meta.url));
 const inbox_id='brayden-owner';
 async function journey(t,{height=568}={}){if(!available){t.skip('Requires exact assistant delivery backend pair.');return;}const browser=await launchQualifiedBrowser(t);if(!browser)return;const h=createConversationFixture(t),pages=[];t.after(()=>closeConversationHarness(browser,h,pages));const auth=await h.oauth(),owner=await h.pair(auth),phone=await openConversationPage(browser,h,{owner,clock:false,width:320,height});pages.push(phone);const page=phone.page;return {h,auth,owner,phone,page};}
@@ -33,7 +33,7 @@ test('actual MCP later image and PDF preserves text, retries after a synthetic p
  await assert.rejects((async()=>{await commit(j,message,delivery,[image,document]);throw Error('Synthetic lost response after persistence');})(),/lost response/);
  assert.equal((await commit(j,message,delivery,[image,document])).newWrite,false);
  await page.goto(RELAY_URL);await page.getByText('Accepted synthetic text remains unchanged.',{exact:true}).waitFor();await page.getByRole('button',{name:'Download Synthetic report.pdf',exact:true}).waitFor();assert.equal(await page.locator('[data-delivery-id]').count(),1);await conversationMenu(page,'Search messages');await page.locator('#relay-owner-search').fill('report.pdf');await page.getByRole('button',{name:'Download Synthetic report.pdf',exact:true}).waitFor();await page.locator('#relay-owner-search').fill('');
- await page.locator('[data-delivery-id]').scrollIntoViewIfNeeded();await page.waitForFunction(()=>document.querySelector('.relay-linked-preview')?.naturalWidth>0);assert.equal(await page.locator('iframe,embed,object').count(),0);
+ await page.locator('[data-delivery-id]').scrollIntoViewIfNeeded();await page.waitForFunction(()=>document.querySelector('.relay-linked-preview')?.naturalWidth>0);assert.equal(await page.locator('iframe,embed,object').count(),0);await writeSyntheticEvidence(phone,'relay-inline-files-320',{chronological:true,private:true});
  const download=page.waitForEvent('download');await page.getByRole('button',{name:'Download Synthetic report.pdf',exact:true}).click();assert.deepEqual(await readFile(await(await download).path()),pdf);
  const conversation=await(await h.phone('/conversation?message_id='+message,undefined,j.owner.device_token)).json();assert.equal(conversation.reply.id,reply.entry.id);assert.equal(conversation.reply.body,reply.entry.body);assert.equal(conversation.deliverables.length,1);
  await conversationMenu(page,'Public chat');assert.equal(await page.locator('.relay-linked-attachment').count(),0);await conversationMenu(page,'Owner chat');await page.getByRole('button',{name:'Close preview of Synthetic illustration.png',exact:true}).waitFor();
