@@ -642,5 +642,5 @@ body.relay-page .relay-linked-attachment:first-child{margin-top:0;padding-top:0;
 body.relay-page .relay-attachment-chip>div{min-width:0}
 
 /* The simplified Tasks view uses existing cards, fonts and colors. */
-body.relay-page .owner-work .task-section-heading{font-size:13px;line-height:20px;color:var(--muted);font-weight:400;margin:16px 4px 8px}
+body.relay-page .owner-work h2.task-section-heading{font-size:13px;line-height:20px;color:var(--muted);font-weight:400;margin:16px 4px 8px}
 body.relay-page .task-section-heading:not(:first-child){margin-top:24px}
