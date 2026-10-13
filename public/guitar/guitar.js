@@ -3,6 +3,7 @@ import { API_ORIGIN } from '/assets/config.js';
 import { filename, createDownload, nativeSaveMode, saveToDevice, triggerDownload, withDeadline, renderInWorker } from './runtime.js';
 import { allGuitarValue, resolveParts } from './track-selection.js';
 const $ = id => document.getElementById(id);
+let savingFile = false;
 let busy = false, current = null, results = [], readyDownload = null, scoreCache=null, previewURLs=[], libraryView='recent';
 const stored=readLocal('jarvis.guitar.library.v1',{});
 let recent=Array.isArray(stored.recent)?stored.recent.filter(x=>x&&Number.isInteger(x.songId)).slice(0,30):[], saved=Array.isArray(stored.saved)?stored.saved.filter(x=>x&&Number.isInteger(x.songId)).slice(0,100):[];
@@ -110,25 +111,28 @@ function showSong() {
   }
   const download = text('button', 'Save PDF', 'primary guitar-download'); download.type = 'button'; download.id = 'download-pdf';
   const actions = document.createElement('div'); actions.id = 'pdf-actions'; actions.className = 'pdf-actions'; actions.hidden = true;
-  const save = text('button', 'Save PDF', 'primary guitar-download'); save.type = 'button'; save.id = 'save-pdf';
+  const save = text('button', 'Save to Files', 'primary guitar-download'); save.type = 'button'; save.id = 'save-pdf';
   const open = text('a', 'Open PDF', 'secondary guitar-download'); open.id = 'open-pdf'; open.target = '_blank'; open.rel = 'noopener';
   const direct = text('a', 'Direct download', 'secondary guitar-download'); direct.id = 'direct-download';
   save.onclick = async () => {
-    if (!readyDownload || save.disabled) return;
+    if (!readyDownload || save.disabled || savingFile) return;
+    const prepared = readyDownload;
     if (!nativeSaveMode(readyDownload)) {
       triggerDownload(readyDownload); status('Download requested. If Chrome stays quiet, use Open PDF.'); return;
     }
-    save.disabled = true;
+    save.disabled = true; savingFile = true;
     try {
-      const mode = await saveToDevice(readyDownload);
-      status(mode === 'file-picker' ? 'PDF saved to the folder you chose.' : 'Choose Files, Drive, or another app in the system sheet.');
+      const mode = await saveToDevice(prepared);
+      if (readyDownload !== prepared) return;
+      status(mode === 'file-picker' ? 'PDF saved to the folder you chose.' : 'File handed to the selected app. Saving there is not confirmed.');
     } catch (e) {
+      if (readyDownload !== prepared) return;
       if (e?.name === 'AbortError') status('Save cancelled. The PDF is still ready.');
-      else status("Couldn't open Android's save options. Try Open PDF or Direct download.", true);
-    } finally { save.disabled = false; }
+      else status("Couldn't save or share this PDF. Try Open PDF or Direct download.", true);
+    } finally { savingFile = false; save.disabled = false; }
   };
-  open.onclick = () => status('PDF opened in a new tab. Use Chrome’s download button there.');
-  direct.onclick = () => status('Direct download requested. Check Chrome Downloads.');
+  open.onclick = () => { if(savingFile)return false; readyDownload?.handoff(); status('Open requested. Use the PDF viewer’s save or download action.'); };
+  direct.onclick = () => { if(savingFile)return false; readyDownload?.handoff(); status('Download requested. Check browser Downloads; saving is not confirmed.'); };
   actions.append(save, open, direct);
   if(current.tracks.length>1)select.onchange=()=>{clearReadyDownload();clearPreview();status('');};
   download.onclick = () => { clearReadyDownload(); generate(parts(), download, actions, open, direct, save); };

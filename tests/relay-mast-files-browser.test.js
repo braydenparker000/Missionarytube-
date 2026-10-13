@@ -36,7 +36,7 @@ test('Mast phone files: uncertain uploads/sends, inline images both ways, exact 
     assert.equal((await adapter('reply',{id:reply,reply_to:message,body:'Synthetic image and file from Mast.',attachment_ids:[image,documentId]})).status,201);
     await page.locator('#refresh').evaluate(button=>button.click());await page.getByText('Synthetic image and file from Mast.',{exact:true}).waitFor();
     await page.locator('.message-row:not(.outgoing) .relay-linked-attachment').first().scrollIntoViewIfNeeded();await page.waitForFunction(()=>[...document.querySelectorAll('.message-row img')].length===2&&[...document.querySelectorAll('.message-row img')].every(x=>x.complete&&x.naturalWidth===280));
-    const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Download synthetic-mast.txt',exact:true}).click();const download=await downloadPromise;assert.equal((await readFile(await download.path())).toString(),text);
+    await page.getByRole('button',{name:'Save to Files: synthetic-mast.txt',exact:true}).click();const downloadPromise=page.waitForEvent('download');await page.getByRole('link',{name:'Download synthetic-mast.txt',exact:true}).click();const download=await downloadPromise;assert.equal((await readFile(await download.path())).toString(),text);
     await page.screenshot({path:dir+'/mast-files-phone-390.png'});
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.setViewportSize({width:390,height:520});const box=await page.locator('#send').boundingBox();assert.ok(box.y+box.height<=520);
     await assertNoPrivatePersistence(page,['synthetic-owner.png','Synthetic Mast document']);
