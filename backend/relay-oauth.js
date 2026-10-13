@@ -77,7 +77,7 @@ export function relayReadOnlyPrincipal(ctx, env, accessHash, now = Date.now(), p
     return row.expires_at > now ? value : null;
   };
   const token = readExisting('access:'+accessHash,'access');
-  if (!token || typeof token.client_id !== 'string' || !token.client_id || typeof token.grantId !== 'string' || !token.grantId || token.resource !== policy.resource(env)) return null;
+  if (!token || typeof token.client_id !== 'string' || !token.client_id || typeof token.grantId !== 'string' || !token.grantId || token.resource !== policy.resource(env) || policy.staticClient && token.client_id !== policy.staticClient(env)) return null;
   const grant = readExisting('grant:'+token.grantId,'grant');
   if (!grant || grant.revoked !== false || grant.principal !== policy.principal || grant.resource !== policy.resource(env)
     || !Number.isSafeInteger(grant.expiresAt) || grant.expiresAt <= now || token.client_id !== grant.client_id
