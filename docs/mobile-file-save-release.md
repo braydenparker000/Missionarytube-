@@ -7,3 +7,7 @@ The scoped dispatch uses the existing Azure identity, both production locks, an 
 Receipt assertions and whole-store guards have synthetic refusal tests. The source tests cover authenticated synthetic files only, feature detection, actual user activation at the native API call, cancellation, repeated taps, exact Chromium download bytes and safe Blob URL lifetime. Physical Android save/share sheet and Files validation remains unperformed; emulation is identified as such.
 
 The existing release policy's workflow blob pin is refreshed to match the additional mutually exclusive dispatch. All previous permissions, production conditions and release gates remain required. The full deployment checkout/build remains on its existing pinned source; this operation is a four-file overlay, never a wholesale publication of the later source branch.
+
+## Qualification recipe reconciliation
+
+The first dispatch stopped in read-only preparation, before Azure sign-in or any write: the deployment's old global recipe did not match the live source branch. Review against the approved `c28c1b2` recipe found only a workflow comment change and the addition of `tests/poweramp-shuffle-latency-browser.mjs` to required serial performance coverage. The proof engine and browser installer are byte-identical, and no coverage was removed. This publisher pins all four reviewed recipe blobs locally; the general deployment recipe and every proof/provenance check remain unchanged. The exact merged source passed trusted-branch run 38401671599.
