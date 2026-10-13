@@ -20,6 +20,9 @@ export async function inspect({account,token,fetcher=globalThis.fetch}){
  const version=activeVersion(await (await api('deployments?per_page=1')).json());
  const metadata=await (await api('versions/'+version)).json();
  if(metadata.success!==true||metadata.result?.id!==version)throw Error('invalid_version_metadata');
+ const subdomain=await (await api('subdomain')).json();
+ const accountResponse=await fetcher(`https://api.cloudflare.com/client/v4/accounts/${account}/workers/subdomain`,{method:'GET',redirect:'error',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(30000)});
+ if(!accountResponse.ok)throw Error('account_subdomain_unavailable');const accountDomain=await accountResponse.json();
  const content=await api('content/v2'),files=[...(await content.formData()).entries()].filter(([,v])=>typeof v!=='string');
  if(files.length!==1||files[0][0]!=='worker.js')throw Error('unexpected_worker_modules');
  const bytes=Buffer.from(await files[0][1].arrayBuffer());
@@ -27,7 +30,9 @@ export async function inspect({account,token,fetcher=globalThis.fetch}){
  if(JSON.stringify(summary(settings))!==JSON.stringify(summary(second)))throw Error('settings_changed');
  if(activeVersion(await (await api('deployments?per_page=1')).json())!==version)throw Error('version_changed');
  const code=bytes.toString('utf8');
- return {readOnly:true,worker:'jarvis-hub-api',activeVersion:version,codeSha256:createHash('sha256').update(bytes).digest('hex'),makimaHandlerPresent:code.includes('Makima adapter is not activated')&&code.includes('makima_channel_send'),compatibilityDate:settings.compatibility_date,compatibilityFlags:settings.compatibility_flags||[],...summary(settings)};
+ const publicResponse=await fetcher('https://jarvis-hub-api.braydenparker999.workers.dev/.well-known/oauth-protected-resource/relay/makima/mcp',{method:'GET',redirect:'error',signal:AbortSignal.timeout(15000)});
+ const body=await publicResponse.json().catch(()=>null);
+ return {readOnly:true,worker:'jarvis-hub-api',activeVersion:version,codeSha256:createHash('sha256').update(bytes).digest('hex'),makimaHandlerPresent:code.includes('Makima adapter is not activated')&&code.includes('makima_channel_send'),workersDevEnabled:subdomain.result?.enabled===true,accountSubdomainMatches:accountDomain.result?.subdomain==='braydenparker999',publicMetadataStatus:publicResponse.status,expectedDisabledResponse:body?.error==='Makima adapter is not activated',publicNotFoundResponse:body?.error==='Not found',compatibilityDate:settings.compatibility_date,compatibilityFlags:settings.compatibility_flags||[],...summary(settings)};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  try{
