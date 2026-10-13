@@ -1,4 +1,5 @@
 import {mastList, mastSend, mastOwnerFileStore, mastOwnerWork} from './relay-mast.js';
+import {MAKIMA_OBJECT,makimaEnabled} from './relay-makima-policy.js';
 // Private owner devices and messages. Never persist, log, or return a device
 // credential through MCP; the display code is deliberately not a credential.
 import {RELAY_OWNER, RELAY_OWNER_SCOPE, RELAY_OWNER_INBOX, RELAY_OAUTH_OBJECT, RelayError, fields, uuid, cursor, random, hash, equal, boundedText, json, relayEnabled, relayIssuer} from './relay-common.js';
@@ -217,6 +218,7 @@ export async function relayOwnerStore(ctx, env, body, enqueueOwnerMessage = () =
       });
     }
     const allowed = {
+      makima_list: ['after'], makima_send: ['id','body','reply_to'],
       mast_work_list:['after'],mast_work_read:['job_id'],mast_work_create:['id','body','title','action_kind','project_title','goal_title'],mast_work_cancel:['job_id','event_id'],mast_work_retry:['job_id','id','confirm_duplicate_risk'],
       mast_list: ['after'], mast_send: ['id', 'body', 'attachment_ids'],
       mast_file_admit: [], mast_file_upload: ['id','message_id','name','mime_type','data_base64'], mast_file_discard: ['message_id','attachment_id'], mast_file_content: ['message_id','attachment_id','preview'],
@@ -230,6 +232,16 @@ export async function relayOwnerStore(ctx, env, body, enqueueOwnerMessage = () =
       ? allowed[body.op].filter(key => !['confirm_duplicate_risk', 'project_title', 'goal_title', 'attachment_ids', 'preview'].includes(key)) : [];
     fields(body, ['op', 'token_hash', ...allowed[body.op]], ['op', 'token_hash', ...required]);
     if (!hex(body.token_hash)) fail(401, 'Owner device authentication required');
+    if(body.op==='makima_list'||body.op==='makima_send'){
+      if(!makimaEnabled(env))fail(503,'Makima adapter is not activated');
+      ctx.storage.transactionSync(()=>requireSession(ctx,body.token_hash,Date.now()));
+      // Only authenticated owner ingress may stamp the peer identity.
+      // Copy only explicit text, never history or device credentials.
+      const response=await env.HUBS.get(env.HUBS.idFromName(MAKIMA_OBJECT)).fetch(new Request('https://internal/internal/relay/makima/channel',{method:'POST',body:JSON.stringify({op:body.op==='makima_list'?'list':'send',sender:'owner',...(body.after!==undefined?{after:body.after}:{}),...(body.op==='makima_send'?{id:body.id,body:body.body,reply_to:body.reply_to}: {})})}));
+      ctx.storage.transactionSync(()=>requireSession(ctx,body.token_hash,Date.now()));
+      const data=await response.json();
+      return data.error ? json(data,400) : json(data);
+    }
     if(body.op.startsWith('mast_file_'))return await mastOwnerFileStore(ctx,env,body,()=>requireSession(ctx,body.token_hash,Date.now()));
     if (body.op === 'attachment_admit') {
       ctx.storage.transactionSync(() => {
@@ -500,6 +512,7 @@ export async function relayOwnerPublic(request, env) {
     routes['/mast/files/discard']=['POST','mast_file_discard'];
     routes['/mast/files/content']=['GET','mast_file_content'];
     routes['/mast'] = [request.method === 'POST' ? 'POST' : 'GET', request.method === 'POST' ? 'mast_send' : 'mast_list'];
+    if(makimaEnabled(env))routes['/makima']=[request.method==='POST'?'POST':'GET',request.method==='POST'?'makima_send':'makima_list'];
     routes['/attachments'] = ['POST', 'attachment_upload'];
     routes['/attachments/discard'] = ['POST', 'attachment_discard'];
     routes['/attachments/content'] = ['GET', 'attachment_content'];
@@ -508,7 +521,7 @@ export async function relayOwnerPublic(request, env) {
     const suffix = path.slice('/relay/owner'.length), route = Object.hasOwn(routes, suffix) ? routes[suffix] : null;
     if (!route) return wrap(json({error: 'Not found'}, 404));
     if (request.method !== route[0]) return wrap(json({error: 'Method not allowed'}, 405, {Allow: route[0] + ', OPTIONS'}));
-    const queryFields = ['mast_list','mast_work_list'].includes(route[1])?['after']:route[1]==='mast_work_read'?['job_id']:route[1] === 'chat_updates'?['after']:route[1] === 'deliverables_list'?['message_id','after','limit']:['attachment_content','mast_file_content'].includes(route[1]) ? ['message_id', 'attachment_id', 'preview'] : route[1] === 'jobs_changes' ? ['after', 'limit', 'through'] : ['messages_list', 'jobs_list'].includes(route[1]) ? ['after', 'limit'] : route[1] === 'conversation' ? ['message_id'] : route[1] === 'job_read' ? ['job_id'] : [];
+    const queryFields = ['makima_list','mast_list','mast_work_list'].includes(route[1])?['after']:route[1]==='mast_work_read'?['job_id']:route[1] === 'chat_updates'?['after']:route[1] === 'deliverables_list'?['message_id','after','limit']:['attachment_content','mast_file_content'].includes(route[1]) ? ['message_id', 'attachment_id', 'preview'] : route[1] === 'jobs_changes' ? ['after', 'limit', 'through'] : ['messages_list', 'jobs_list'].includes(route[1]) ? ['after', 'limit'] : route[1] === 'conversation' ? ['message_id'] : route[1] === 'job_read' ? ['job_id'] : [];
     if ([...url.searchParams.keys()].some(k => !queryFields.includes(k) || url.searchParams.getAll(k).length !== 1)) fail(400, 'Invalid owner query');
     let body = {};
     let admittedHash;
@@ -525,10 +538,10 @@ export async function relayOwnerPublic(request, env) {
       try { body = JSON.parse(await boundedText(request, ['attachment_upload','mast_file_upload'].includes(route[1]) ? ATTACHMENT_BODY_LIMIT : 16000)); }
       catch (error) { if (['attachment_upload','mast_file_upload'].includes(route[1]) && error instanceof RelayError && error.message === 'Body too large') fail(413, 'Attachment exceeds 1 MiB', 'attachment_too_large'); fail(400, 'Invalid owner JSON'); }
     }
-    const inputFields = {mast_work_create:['id','body','title','action_kind','project_title','goal_title'],mast_work_cancel:['job_id','event_id'],mast_work_retry:['job_id','id','confirm_duplicate_risk'],mast_send: ['id', 'body','attachment_ids'], mast_file_upload:['id','message_id','name','mime_type','data_base64'], mast_file_discard:['message_id','attachment_id'], pair_start: ['label'], pair_status: ['request_id'], message: ['id', 'body', 'attachment_ids'], attachment_upload: ['id', 'message_id', 'name', 'mime_type', 'data_base64'], attachment_discard: ['message_id', 'attachment_id'], delivery_list:['message_ids'], delivery_retry:['message_id'], device_revoke: ['device_id'],
+    const inputFields = {makima_send:['id','body','reply_to'],mast_work_create:['id','body','title','action_kind','project_title','goal_title'],mast_work_cancel:['job_id','event_id'],mast_work_retry:['job_id','id','confirm_duplicate_risk'],mast_send: ['id', 'body','attachment_ids'], mast_file_upload:['id','message_id','name','mime_type','data_base64'], mast_file_discard:['message_id','attachment_id'], pair_start: ['label'], pair_status: ['request_id'], message: ['id', 'body', 'attachment_ids'], attachment_upload: ['id', 'message_id', 'name', 'mime_type', 'data_base64'], attachment_discard: ['message_id', 'attachment_id'], delivery_list:['message_ids'], delivery_retry:['message_id'], device_revoke: ['device_id'],
       credentials_prepare: ['purpose'], credentials_save: ['username', 'password', 'password_confirmation', 'current_password', 'consent_token', 'confirm', 'access_days', 'preserve_existing_sessions'], password_login: ['username', 'password', 'label', 'replace_device_id', 'confirm_replacement'],
       job_create: ['id', 'title', 'body', 'action_kind', 'project_title', 'goal_title'], job_cancel: ['job_id'], job_retry: ['job_id', 'id', 'confirm_duplicate_risk']};
-    fields(body, inputFields[route[1]] || [], (inputFields[route[1]] || []).filter(k => !['current_password', 'replace_device_id', 'confirm_replacement', 'confirm_duplicate_risk', 'project_title', 'goal_title', 'attachment_ids'].includes(k)));
+    fields(body, inputFields[route[1]] || [], (inputFields[route[1]] || []).filter(k => !['current_password', 'replace_device_id', 'confirm_replacement', 'confirm_duplicate_risk', 'project_title', 'goal_title', 'attachment_ids','reply_to'].includes(k)));
     const input = {op: route[1], ...body};
     if (['pair_start', 'password_login'].includes(route[1])) input.rate_hash = await hash('owner-' + route[1] + '-ip:' + (request.headers.get('CF-Connecting-IP') || 'unknown'));
     else {
@@ -536,7 +549,7 @@ export async function relayOwnerPublic(request, env) {
       if (!token) fail(401, 'Owner device bearer required');
       input.token_hash = admittedHash || await hash(token);
     }
-    if (['mast_list','mast_work_list', 'messages_list', 'jobs_list', 'jobs_changes','deliverables_list','chat_updates'].includes(route[1])) {
+    if (['makima_list','mast_list','mast_work_list', 'messages_list', 'jobs_list', 'jobs_changes','deliverables_list','chat_updates'].includes(route[1])) {
       if (url.searchParams.has('after')) input.after = url.searchParams.get('after');
       if (url.searchParams.has('limit')) {
         const limit = url.searchParams.get('limit');
