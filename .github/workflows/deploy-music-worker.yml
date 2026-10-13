@@ -3,6 +3,11 @@ name: Deploy verified music Worker
 on:
   workflow_dispatch:
     inputs:
+      makima_deploy_only:
+        description: 'Approved exact Makima-only code deployment and public identity/flag; preserve all other settings'
+        required: false
+        type: boolean
+        default: false
       makima_inspect_only:
         description: 'Read-only Makima active version, handler presence and secret NAMES; no values or writes'
         required: false
@@ -48,7 +53,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ inputs.confirm_public_music == true && inputs.verify_lucy_discovery_only != true && inputs.makima_inspect_only != true }}
+    if: ${{ inputs.confirm_public_music == true && inputs.verify_lucy_discovery_only != true && inputs.makima_inspect_only != true && inputs.makima_deploy_only != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -308,7 +313,7 @@ jobs:
         run: node scripts/lucy-settings-diagnostic.mjs
 
   makima-inspect:
-    if: ${{ inputs.makima_inspect_only == true && inputs.confirm_public_music != true && github.actor_id == '183016859' && github.triggering_actor == 'braydenparker999' && inputs.source_commit == '099ec1a0b2b621a3799f4f8346490903f212a912' }}
+    if: ${{ inputs.makima_inspect_only == true && inputs.makima_deploy_only != true && inputs.confirm_public_music != true && github.actor_id == '183016859' && github.triggering_actor == 'braydenparker999' && inputs.source_commit == '099ec1a0b2b621a3799f4f8346490903f212a912' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -332,3 +337,38 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: node scripts/makima-provider-inspect.mjs
+
+  makima-deploy:
+    if: ${{ inputs.makima_deploy_only == true && inputs.makima_inspect_only != true && inputs.confirm_public_music != true && inputs.verify_lucy_discovery_only != true && inputs.native_upload_setup != true && inputs.partial_report_run_id == '' && inputs.muse_public_key == '' && github.actor_id == '183016859' && github.triggering_actor == 'braydenparker999' && inputs.source_commit == '099ec1a0b2b621a3799f4f8346490903f212a912' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+      - name: Verify preservation, credential non-access and fail-closed paths before credentials
+        run: node --test scripts/deploy-makima.test.mjs scripts/makima-provider-inspect.test.mjs
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: 099ec1a0b2b621a3799f4f8346490903f212a912
+          path: .jarvis-source
+          persist-credentials: false
+      - name: Install only the immutable source's locked compiler before credentials
+        run: npm --prefix .jarvis-source ci
+      - name: Reconcile pinned Worker, deploy exact qualified source, and enable only Makima
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/deploy-makima.mjs
+      - name: Preserve public endpoint readiness evidence only
+        uses: actions/upload-artifact@v4
+        with:
+          name: makima-endpoint-ready-${{ github.run_id }}
+          path: makima-endpoint-ready.json
+          if-no-files-found: error
+          retention-days: 14
