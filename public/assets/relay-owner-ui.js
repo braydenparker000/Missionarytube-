@@ -658,7 +658,7 @@ export function createRelayOwnerUI({ controller = createRelayOwnerController(), 
     for (const m of selected) {
       const day=messageDay(m.createdAt),dayStart=day.key!==previousDay?day.label:'';previousDay=day.key;
       const grouped=!!previousMessage&&previousMessage.role===m.role&&!dayStart&&Date.parse(m.createdAt)-Date.parse(previousMessage.createdAt)<300000;previousMessage=m;
-      const candidate=jobs.get(m.id),job=candidate&&(actionableWork(candidate)||candidate.result)?candidate:null,replyJob=m.replyTo?jobs.get(m.replyTo):null,stale=state.syncStale||state.jobsError||state.jobDetailStale&&state.jobDetailId===job?.id,signature=JSON.stringify([m,state.deliveryPages[m.id],job,replyJob?.resultVersion,state.busy,state.sending,stale,job?jobLabel(job):null,dayStart,grouped]);let row=existing.get(m.id);
+      const candidate=jobs.get(m.id),job=candidate&&actionableWork(candidate)?candidate:null,replyJob=m.replyTo?jobs.get(m.replyTo):null,stale=state.syncStale||state.jobsError||state.jobDetailStale&&state.jobDetailId===job?.id,signature=JSON.stringify([m,state.deliveryPages[m.id],job,replyJob?.resultVersion,state.busy,state.sending,stale,job?jobLabel(job):null,dayStart,grouped]);let row=existing.get(m.id);
       if(row?._signature===signature){nodes.push(row);continue;}
       row = make('article', '', 'message-row ' + (m.role === 'user' ? 'outgoing' : 'incoming')+(grouped?' message-group-continuation':''));row._signature=signature;
       row.dataset.messageId = m.id;if(m.kind==='deliverable')row.dataset.deliveryId=m.id;

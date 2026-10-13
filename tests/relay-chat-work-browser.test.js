@@ -11,6 +11,7 @@ test('natural chat shows authenticated plan and progress in place, groups explic
     await page.goto(RELAY_URL);const input=page.locator('#relay-owner-message-text');await input.waitFor();
     await input.fill('What is a fictional garden?');await page.getByRole('button',{name:'Send private message',exact:true}).click();
     await page.locator('.message-row.outgoing').waitFor();assert.equal(await page.locator('.message-job').count(),0,'Ordinary chat has no task controls');
+    const question=h.rows("SELECT id FROM relay_owner_entries WHERE kind='user' ORDER BY seq DESC LIMIT 1")[0];await rpc('relay_owner_reply',{message_id:question.id,body:'A fictional garden is a garden in an example.'});await page.reload();await page.getByText('A fictional garden is a garden in an example.',{exact:true}).waitFor();assert.equal(await page.locator('.message-job').count(),0,'A normal reply does not turn a question into a task');
     await input.fill('Prepare a draft plan for my fictional garden.');await page.getByRole('button',{name:'Send private message',exact:true}).click();
     await page.waitForFunction(()=>document.querySelectorAll('.message-row.outgoing').length===2);
     const request=h.rows("SELECT id FROM relay_owner_entries WHERE kind='user' ORDER BY seq DESC LIMIT 1")[0];
