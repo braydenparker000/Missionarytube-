@@ -1079,7 +1079,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: braydenparker999/jarvis
-          ref: a87cd83865e70165c63832fdb72955445f8d1c95
+          ref: fed236966d928a4f8221474e502459e13e82e2a4
           path: .jarvis-source
           persist-credentials: false
           fetch-depth: 0

@@ -1,51 +1,21 @@
 [
   {
-    "path": "assets/app.js",
-    "before": "967f8aaf2d51c72d1538516cd5bd1670c8f451c01700d2bba0c8f31b3c221055",
-    "sha256": "867bf8f1f92e3811ffcf3336330758adfe36b762006a93eb94454eed853bd62c",
-    "bytes": 48496,
-    "contentType": "application/javascript",
-    "sourceSha256": "867bf8f1f92e3811ffcf3336330758adfe36b762006a93eb94454eed853bd62c"
-  },
-  {
-    "path": "assets/mast-work.js",
-    "before": "18731fbd9f3ee78742c4926a85bff4aa3acdf8605c7abb5703f9d157069a11d4",
-    "sha256": "83969cdde594a933f00b5b08500b4bd5c0794b1f7a313c2ddce1dc65734f138d",
-    "bytes": 5255,
-    "contentType": "application/javascript",
-    "sourceSha256": "83969cdde594a933f00b5b08500b4bd5c0794b1f7a313c2ddce1dc65734f138d"
-  },
-  {
-    "path": "assets/mast.js",
-    "before": "573ca86c70cc9b3e29ac5de93a6888a5e3df7ea2eb4677670aad769a6473720d",
-    "sha256": "c0d90682ea22ccfa845f8c2bd8a3a12332391c2dbd8404b397539d1c7c80c5ba",
-    "bytes": 14865,
-    "contentType": "application/javascript",
-    "sourceSha256": "c0d90682ea22ccfa845f8c2bd8a3a12332391c2dbd8404b397539d1c7c80c5ba"
-  },
-  {
-    "path": "assets/muse-shell.js",
-    "before": "7aae6e78b4f08f75f0fc0479cbf628d101c821dde1df7603fe8c6df35e33d19f",
+    "path": "assets/muse-shell-simple-chat-tasks-v1.js",
+    "sourcePath": "assets/muse-shell.js",
+    "before": null,
     "sha256": "58658c212b5ca5cb0e072deb3cfd9ac6de4da2619f8eaafb1d65556f7e417810",
     "bytes": 4184,
     "contentType": "application/javascript",
     "sourceSha256": "58658c212b5ca5cb0e072deb3cfd9ac6de4da2619f8eaafb1d65556f7e417810"
   },
   {
-    "path": "assets/muse.js",
-    "before": "0122b3032a70289b1bf8ab1924f0215f4b897be66bf23d05ed7a71af6df847d2",
-    "sha256": "f8ccc75957faeeef6827f9a2093136c033739b2b17752879136065fd3bdfbe2f",
-    "bytes": 10052,
+    "path": "assets/mast-work-simple-chat-tasks-v1.js",
+    "sourcePath": "assets/mast-work.js",
+    "before": null,
+    "sha256": "36c2e6650bae134ac05bba2ccec95e21a4731088c5262bc0fcf8c0654d0f3c7b",
+    "bytes": 5276,
     "contentType": "application/javascript",
-    "sourceSha256": "f8ccc75957faeeef6827f9a2093136c033739b2b17752879136065fd3bdfbe2f"
-  },
-  {
-    "path": "assets/relay-attachment-content.js",
-    "before": "8d0588eb5c82199e9d1af7c2b4bc594c3906be7afbc60e6e1e722b8f7b4599f3",
-    "sha256": "ad3407c0e688b175be3c4879aaa57698197d2a1365f5cd76324c97f4f8aae2e0",
-    "bytes": 4019,
-    "contentType": "application/javascript",
-    "sourceSha256": "ad3407c0e688b175be3c4879aaa57698197d2a1365f5cd76324c97f4f8aae2e0"
+    "sourceSha256": "83969cdde594a933f00b5b08500b4bd5c0794b1f7a313c2ddce1dc65734f138d"
   },
   {
     "path": "assets/relay-owner-api.js",
@@ -56,12 +26,12 @@
     "sourceSha256": "8546e3778244fd1b8c8501e8ad7ebbae23e910eba9e68c16aed6911d273c2e17"
   },
   {
-    "path": "assets/relay-owner-ui.js",
-    "before": "9cf3cd1d2d4d8728edad391bc21a43057faa7837d21ab0632facf73d7176e543",
-    "sha256": "6aef5fbda5c7cab14b19292cf1210cf95920972a3c7e04a44632f281e35a18e1",
-    "bytes": 91946,
+    "path": "assets/relay-attachment-content.js",
+    "before": "8d0588eb5c82199e9d1af7c2b4bc594c3906be7afbc60e6e1e722b8f7b4599f3",
+    "sha256": "ad3407c0e688b175be3c4879aaa57698197d2a1365f5cd76324c97f4f8aae2e0",
+    "bytes": 4019,
     "contentType": "application/javascript",
-    "sourceSha256": "6aef5fbda5c7cab14b19292cf1210cf95920972a3c7e04a44632f281e35a18e1"
+    "sourceSha256": "ad3407c0e688b175be3c4879aaa57698197d2a1365f5cd76324c97f4f8aae2e0"
   },
   {
     "path": "assets/relay.css",
@@ -70,6 +40,38 @@
     "bytes": 279674,
     "contentType": "text/css; charset=utf-8",
     "sourceSha256": "020ece525dace587075b361a0780fcb735def59e72d62c775c243a7e676a92fb"
+  },
+  {
+    "path": "assets/relay-owner-ui.js",
+    "before": "9cf3cd1d2d4d8728edad391bc21a43057faa7837d21ab0632facf73d7176e543",
+    "sha256": "6aef5fbda5c7cab14b19292cf1210cf95920972a3c7e04a44632f281e35a18e1",
+    "bytes": 91946,
+    "contentType": "application/javascript",
+    "sourceSha256": "6aef5fbda5c7cab14b19292cf1210cf95920972a3c7e04a44632f281e35a18e1"
+  },
+  {
+    "path": "assets/muse.js",
+    "before": "0122b3032a70289b1bf8ab1924f0215f4b897be66bf23d05ed7a71af6df847d2",
+    "sha256": "a668785d3ed2bf2480126d32cd527a7495b814c1a1f5f3c96c0fdeaad6e19a68",
+    "bytes": 10073,
+    "contentType": "application/javascript",
+    "sourceSha256": "f8ccc75957faeeef6827f9a2093136c033739b2b17752879136065fd3bdfbe2f"
+  },
+  {
+    "path": "assets/mast.js",
+    "before": "573ca86c70cc9b3e29ac5de93a6888a5e3df7ea2eb4677670aad769a6473720d",
+    "sha256": "006a13801a3973dff467d0ba4710fd44a04324e172559798755485855f86e6e1",
+    "bytes": 14907,
+    "contentType": "application/javascript",
+    "sourceSha256": "c0d90682ea22ccfa845f8c2bd8a3a12332391c2dbd8404b397539d1c7c80c5ba"
+  },
+  {
+    "path": "assets/app.js",
+    "before": "967f8aaf2d51c72d1538516cd5bd1670c8f451c01700d2bba0c8f31b3c221055",
+    "sha256": "867bf8f1f92e3811ffcf3336330758adfe36b762006a93eb94454eed853bd62c",
+    "bytes": 48496,
+    "contentType": "application/javascript",
+    "sourceSha256": "867bf8f1f92e3811ffcf3336330758adfe36b762006a93eb94454eed853bd62c"
   },
   {
     "path": "mast/index.html",

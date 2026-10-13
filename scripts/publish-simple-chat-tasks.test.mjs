@@ -21,6 +21,18 @@ test('chat publication carries the existing static document security policy into
  assert.ok(html.includes("font-src 'self' data:"));assert.ok(!html.includes('frame-ancestors'));assert.ok(html.includes('strict-origin-when-cross-origin'));assert.equal(html.split('http-equiv="Content-Security-Policy"').length,2);
  assert.deepEqual(publicationBytes('assets/mast.js',raw,config),raw);assert.throws(()=>publicationBytes('mast/index.html',Buffer.from(html),config));
 });
+test('versioned Muse dependencies precede all new importers and preserve the existing modules during interrupted publication',()=>{
+ assert.deepEqual(FILES.slice(0,2).map(f=>[f.path,f.sourcePath,f.before]),[
+  ['assets/muse-shell-simple-chat-tasks-v1.js','assets/muse-shell.js',null],
+  ['assets/mast-work-simple-chat-tasks-v1.js','assets/mast-work.js',null],
+ ]);
+ assert.ok(!FILES.some(f=>['assets/mast-work.js','assets/muse-shell.js'].includes(f.path)));
+ const js=publicationBytes('assets/mast.js',Buffer.from("import {museShell} from './muse-shell.js';import {createMastWork} from './mast-work.js';"));
+ assert.match(js.toString(),/muse-shell-simple-chat-tasks-v1\.js/);assert.match(js.toString(),/mast-work-simple-chat-tasks-v1\.js/);
+ const before=[{name:'assets/mast-work.js',etag:'old-work',size:1},{name:'assets/muse-shell.js',etag:'old-shell',size:1}];
+ const after=[...before,...FILES.map(f=>({name:f.path,etag:'new',size:f.bytes}))];unchangedInventory(before,after);
+ assert.throws(()=>unchangedInventory(before,after.map(f=>f.name==='assets/mast-work.js'?{...f,etag:'changed'}:f)));
+});
 test('whole-store verification rejects changes to shuffle worker, Mast, additions and deletions',()=>{
  const before=[...FILES.map(f=>({name:f.path,etag:'old',size:1})),{name:'drawercast/shuffle-worker.js',etag:'same',size:2},{name:'drawercast/player.js',etag:'same',size:2},{name:'release-qualified.json',etag:'old',size:3}].sort((a,b)=>a.name.localeCompare(b.name));
  const after=before.map(f=>FILES.some(x=>x.path===f.name)||f.name==='release-qualified.json'?{...f,etag:'new'}:f);unchangedInventory(before,after);

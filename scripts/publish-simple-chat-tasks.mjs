@@ -13,7 +13,7 @@ import {liveIdentity,settingsDigest,receiptDigest,newlyDeployedVersion} from './
 import {preservedConfig,nonBindingDigest,checkedPreservedSettings} from './deploy-private-wake.mjs';
 import {bindingDigest} from './activate-lucy-muse.mjs';
 import {canonicalDigest} from './lucy-settings-diagnostic.mjs';
-export const SOURCE='a87cd83865e70165c63832fdb72955445f8d1c95';
+export const SOURCE='fed236966d928a4f8221474e502459e13e82e2a4';
 export const PARENT='789d6a106b242927eef27c6d55ab0d6511286c1aa454eda9cff3a077e9ab3083';
 export const SETTINGS='3c39815e49f25015e028032211cf8135acfdef92249d72dd08a54b21fb733da8';
 const VERSION='09320875-dd54-42e0-935c-a6ee6b446b41',BASE='46a26806f123de296d4e50b4ee7b753bbff0304b';
@@ -25,6 +25,7 @@ const git=(root,...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8
 const local=async p=>JSON.parse(await readFile(p,'utf8'));
 const credentials=()=>({account:process.env.CLOUDFLARE_ACCOUNT_ID,token:process.env.CLOUDFLARE_API_TOKEN});
 export function publicationBytes(path,raw,config){
+ if(path.endsWith('.js'))return Buffer.from(raw.toString().replaceAll("'./muse-shell.js'","'./muse-shell-simple-chat-tasks-v1.js'").replaceAll("'./mast-work.js'","'./mast-work-simple-chat-tasks-v1.js'"));
  if(!path.endsWith('.html'))return raw;
  const route='/'+path,match=config.routes.find(r=>route.startsWith(r.route.replace('*','')));
  const csp=(match?.headers?.['Content-Security-Policy']||config.globalHeaders['Content-Security-Policy']).replace(/frame-ancestors[^;]*(;|$)/g,'');
@@ -53,15 +54,15 @@ async function source(){
  const q=await import(pathToFileURL(resolve(ROOT,'scripts/qualification-proof.mjs')));
  const plan=q.makePlan(q.localEntries(ROOT),q.declaredEnvironment(ROOT,{QUALIFICATION_NODE22:'v22.23.3',QUALIFICATION_NODE24:'v24.21.0',QUALIFICATION_PYTHON:'Python 3.12.15'}));
  const proof=await q.findProof(plan,{sourceSha:SOURCE});assert.equal(proof.qualified,true,'Exact trusted source proof required');
- assert.deepEqual(FILES.map(f=>f.path),['assets/app.js', 'assets/mast-work.js', 'assets/mast.js', 'assets/muse-shell.js', 'assets/muse.js', 'assets/relay-attachment-content.js', 'assets/relay-owner-api.js', 'assets/relay-owner-ui.js', 'assets/relay.css', 'mast/index.html']);
- for(const f of FILES){const raw=await readFile(resolve(ROOT,'public',f.path)),bytes=publicationBytes(f.path,raw,await config());assert.equal(hash(raw),f.sourceSha256);assert.equal(hash(bytes),f.sha256);assert.equal(bytes.length,f.bytes);}
+ assert.deepEqual(FILES.map(f=>f.sourcePath||f.path).sort(),['assets/app.js', 'assets/mast-work.js', 'assets/mast.js', 'assets/muse-shell.js', 'assets/muse.js', 'assets/relay-attachment-content.js', 'assets/relay-owner-api.js', 'assets/relay-owner-ui.js', 'assets/relay.css', 'mast/index.html']);
+ for(const f of FILES){const raw=await readFile(resolve(ROOT,'public',f.sourcePath||f.path)),bytes=publicationBytes(f.path,raw,await config());assert.equal(hash(raw),f.sourceSha256);assert.equal(hash(bytes),f.sha256);assert.equal(bytes.length,f.bytes);}
  return proof;
 }
 const az=args=>execFileSync('az',['storage','blob',...args,'--account-name','missionarytube','--auth-mode','login','--container-name','$web','--only-show-errors'],{encoding:'utf8',stdio:'pipe',maxBuffer:8*1024*1024});
 function inventory(){const rows=JSON.parse(az(['list','--query','[].{name:name,etag:properties.etag,size:properties.contentLength}','--output','json']));assert.ok(Array.isArray(rows)&&rows.length<5000);return rows.sort((a,b)=>a.name.localeCompare(b.name));}
-export function unchangedInventory(before,after){const omitted=new Set([...FILES.map(f=>f.path),'release-qualified.json']);assert.deepEqual(after.filter(f=>!omitted.has(f.name)),before.filter(f=>!omitted.has(f.name)),'Unrelated blob changed');assert.deepEqual(after.map(f=>f.name),before.map(f=>f.name),'Blob inventory changed');}
+export function unchangedInventory(before,after){const omitted=new Set([...FILES.map(f=>f.path),'release-qualified.json']);assert.deepEqual(after.filter(f=>!omitted.has(f.name)),before.filter(f=>!omitted.has(f.name)),'Unrelated blob changed');assert.deepEqual(after.map(f=>f.name).sort(),[...new Set([...before.map(f=>f.name),...FILES.map(f=>f.path)])].sort(),'Blob inventory changed');}
 async function verifyFiles(){for(const f of FILES){const r=await get(f.path);assert.equal(hash(Buffer.from(await r.arrayBuffer())),f.sha256);assert.match(r.headers.get('cache-control')||'',/no-cache|no-store/);}}
-async function existing(f){const bytes=Buffer.from(await(await get(f.path)).arrayBuffer());assert.equal(hash(bytes),f.before,'Existing frontend bytes changed');return bytes;}
+async function existing(f){const r=await fetch(ORIGIN+'/'+f.path,{redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000)});if(f.before===null){assert.equal(r.status,404,'New dependency already exists');return null;}assert.equal(r.status,200);const bytes=Buffer.from(await r.arrayBuffer());assert.equal(hash(bytes),f.before,'Existing frontend bytes changed');return bytes;}
 async function codeSha(){const {account,token}=credentials(),r=await fetch(`https://api.cloudflare.com/client/v4/accounts/${account}/workers/scripts/jarvis-hub-api/content/v2`,{redirect:'error',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(30000)});assert.equal(r.status,200);const files=[...(await r.formData()).entries()];assert.equal(files.length,1);assert.equal(files[0][0],'worker.js');return hash(Buffer.from(await files[0][1].arrayBuffer()));}
 const recipePaths=['.github/workflows/deploy-azure-storage.yml','scripts/publish-simple-chat-tasks.mjs','scripts/mast-worker-input-identity.mjs','scripts/simple-chat-tasks-file-pins.json','scripts/plan-jarvis-qualification.mjs','scripts/check-music-worker-bindings.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/deploy-private-wake.mjs','scripts/activate-lucy-muse.mjs','scripts/lucy-settings-diagnostic.mjs'];
 async function recipe(){return Promise.all(recipePaths.map(async path=>{const bytes=await readFile(path),sha=createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');assert.equal(git(process.cwd(),'rev-parse','HEAD:'+path),sha);return {path,sha};}));}
@@ -71,7 +72,7 @@ async function main(command){
  assert.ok(['prepare','checkpoint','publish','record','stamp','published'].includes(command));
  if(command==='prepare'){
   const proof=await source(),prior=await parent();await mkdir(OUT,{recursive:true});
-  for(const f of FILES){const bytes=await existing(f);await mkdir(resolve(OUT,'before',f.path,'..'),{recursive:true});await writeFile(resolve(OUT,'before',f.path),bytes);await mkdir(resolve(OUT,'stage',f.path,'..'),{recursive:true});await writeFile(resolve(OUT,'stage',f.path),publicationBytes(f.path,await readFile(resolve(ROOT,'public',f.path)),await config()));}
+  for(const f of FILES){const bytes=await existing(f);if(bytes){await mkdir(resolve(OUT,'before',f.path,'..'),{recursive:true});await writeFile(resolve(OUT,'before',f.path),bytes);}await mkdir(resolve(OUT,'stage',f.path,'..'),{recursive:true});await writeFile(resolve(OUT,'stage',f.path),publicationBytes(f.path,await readFile(resolve(ROOT,'public',f.sourcePath||f.path)),await config()));}
   await writeFile(resolve(ROOT,'backend/wrangler.music.generated.json'),JSON.stringify(preservedConfig(await local(resolve(ROOT,'backend/wrangler.jsonc'))),null,2)+'\n');
   await writeFile(OUT+'/plan.json',JSON.stringify({source:SOURCE,proof,parent:prior,files:FILES,recipe:await recipe()},null,2)+'\n');console.log(JSON.stringify({source:SOURCE,proofRun:proof.runId,files:FILES.map(f=>f.path)}));return;
  }
