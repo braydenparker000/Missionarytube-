@@ -1,6 +1,6 @@
 import {boundedText, fields, isObject, json, uuid, cursor, RelayError, relayIssuer} from './relay-common.js';
 import {relayAuthenticate, relayOAuth, relayTokenActiveInStore} from './relay-oauth.js';
-import {MAKIMA_PATH, MAKIMA_OBJECT, MAKIMA_SCOPE, MAKIMA_VERSION, makimaEnabled, makimaOAuthPolicy as policy, makimaOAuthEnv} from './relay-makima-policy.js';
+import {MAKIMA_PATH, MAKIMA_OBJECT, MAKIMA_SCOPE, MAKIMA_VERSION, makimaEnabled, makimaOAuthPolicy as policy} from './relay-makima-policy.js';
 
 const channel = 'makima';
 const schema = (properties, required = []) => ({type:'object',properties,required,additionalProperties:false});
@@ -66,7 +66,7 @@ export async function makimaConnector(request, env) {
   const cors = origin ? {'Access-Control-Allow-Origin':origin,Vary:'Origin'} : {};
   if (request.method === 'OPTIONS') return new Response(null,{status:204,headers:{...cors,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type, Accept, MCP-Protocol-Version'}});
   const response = await (async () => {
-    const oauth = await relayOAuth(request,makimaOAuthEnv(env),fetch,policy); if (oauth) return oauth;
+    const oauth = await relayOAuth(request,env,fetch,policy); if (oauth) return oauth;
     if (path !== MAKIMA_PATH + '/mcp') return json({error:'Not found'},404);
     let principal;
     try { principal = await relayAuthenticate(request,env,false,policy); } catch { return json({error:'Authentication unavailable'},503); }

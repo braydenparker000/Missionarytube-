@@ -96,6 +96,8 @@ export async function relayAuthenticate(request, env, readOnly = false, policy =
 }
 export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT_POLICY) {
   const url = new URL(request.url), path = url.pathname, issuer = relayIssuer(env), resource = policy.resource(env);
+  const githubClientId = policy.githubClientId ? policy.githubClientId(env) : env.RELAY_GITHUB_CLIENT_ID;
+  const githubClientSecret = policy.githubClientSecret ? policy.githubClientSecret(env) : env.RELAY_GITHUB_CLIENT_SECRET;
   const protectedPath = '/.well-known/oauth-protected-resource' + policy.path + '/mcp';
   const metadataPath = '/.well-known/oauth-authorization-server' + policy.path;
   if (!(path.startsWith(policy.path + '/oauth/') || path === protectedPath || path === metadataPath)) return null;
@@ -123,7 +125,7 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
       return json({client_id, redirect_uris: [RELAY_CALLBACK], token_endpoint_auth_method: 'none', grant_types: ['authorization_code', 'refresh_token'], response_types: ['code']}, 201);
     }
     if (path === policy.path + '/oauth/authorize' && request.method === 'GET') {
-      if (!env.RELAY_GITHUB_CLIENT_ID || !env.RELAY_GITHUB_CLIENT_SECRET) return err('temporarily_unavailable', 503);
+      if (!githubClientId || !githubClientSecret) return err('temporarily_unavailable', 503);
       const p = Object.fromEntries(url.searchParams); p.scope ||= policy.defaultScopes.join(' ');
       if ([...url.searchParams.keys()].some(k => url.searchParams.getAll(k).length !== 1)) return err('invalid_request', 400, 'duplicate_parameter');
       const issue = authParamsError(p, await read(env, 'client:' + p.client_id, policy), env, policy);
@@ -132,7 +134,7 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
       const stored = await put(env, 'login:' + await hash(state), {p, browser: await hash(browser), verifier}, Date.now() + SESSION_MS, 'session', policy);
       if (stored.error) return err('temporarily_unavailable', 503);
       const github = new URL('https://github.com/login/oauth/authorize');
-      github.search = new URLSearchParams({client_id: env.RELAY_GITHUB_CLIENT_ID, redirect_uri: issuer + policy.path + '/oauth/github/callback', state, code_challenge: await challenge(verifier), code_challenge_method: 'S256', allow_signup: 'false', scope: ''});
+      github.search = new URLSearchParams({client_id: githubClientId, redirect_uri: issuer + policy.path + '/oauth/github/callback', state, code_challenge: await challenge(verifier), code_challenge_method: 'S256', allow_signup: 'false', scope: ''});
       return redirect(github.href, {'Set-Cookie': cookieHeader(browser, 600, policy)});
     }
     if (path === policy.path + '/oauth/github/callback' && request.method === 'GET') {
@@ -151,7 +153,7 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
       processingFailure = 'github_token_exchange_unavailable';
       // Workers rejects redirect:'error'. Manual never forwards credentials to
       // a redirect target; the existing !ok checks below reject every 3xx.
-      const tokenResponse = await fetcher('https://github.com/login/oauth/access_token', {method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(10000), headers: {'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json'}, body: new URLSearchParams({client_id: env.RELAY_GITHUB_CLIENT_ID, client_secret: env.RELAY_GITHUB_CLIENT_SECRET, code, redirect_uri: issuer + policy.path + '/oauth/github/callback', code_verifier: login.verifier}).toString()});
+      const tokenResponse = await fetcher('https://github.com/login/oauth/access_token', {method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(10000), headers: {'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json'}, body: new URLSearchParams({client_id: githubClientId, client_secret: githubClientSecret, code, redirect_uri: issuer + policy.path + '/oauth/github/callback', code_verifier: login.verifier}).toString()});
       if (!tokenResponse.ok) return err('temporarily_unavailable', 503, 'github_token_endpoint_error');
       processingFailure = 'github_token_response_invalid';
       const githubToken = JSON.parse(await boundedText(tokenResponse, 65536));

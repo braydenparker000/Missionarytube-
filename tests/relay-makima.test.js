@@ -51,7 +51,7 @@ function fixture(t, overrides = {}) {
 }
 
 test('Makima is dormant with no configuration, partial configuration or explicit disable; no registry is allocated',async t=>{
-  for (const env of [{RELAY_MAKIMA_ENABLED:'false'},{RELAY_MAKIMA_ENABLED:undefined},{RELAY_MAKIMA_CLIENT_ID:undefined},{RELAY_MAKIMA_GITHUB_CLIENT_SECRET:undefined},{RELAY_MCP_ENABLED:'false'}]) {
+  for (const env of [{RELAY_MAKIMA_ENABLED:'false'},{RELAY_MAKIMA_ENABLED:undefined},{RELAY_MAKIMA_CLIENT_ID:undefined},{RELAY_MAKIMA_GITHUB_CLIENT_SECRET:undefined},{RELAY_MCP_ENABLED:'false'}, {RELAY_MAKIMA_GITHUB_CLIENT_ID:'fixture-github-client'}, {RELAY_MAKIMA_GITHUB_CLIENT_SECRET:'fixture-github-secret'}]) {
     const s=fixture(t,env);
     for (const path of ['/mcp','/oauth/register','/oauth/authorize','/oauth/token']) assert.equal((await s.request(path)).status,503);
     assert.equal(s.fixture.objects.has(MAKIMA_OBJECT),false);
@@ -82,7 +82,7 @@ test('authorize strictly validates public client, exact callback, S256, audience
     {scope:'relay:owner'}, {scope:'relay:agents-lucy'}, {scope:SCOPE+' relay:read'}, {resource:WORKER+'/relay/mcp'},
   ]) { const r=await s.start(extra); assert.equal(r.status,400); assert.equal(r.headers.get('Location'),null); }
   const params=await s.start(); assert.equal(params.status,302);
-  const duplicate=await s.request('/oauth/authorize?'+new URLSearchParams({...(await (async()=>({response_type:'code',client_id:CLIENT,redirect_uri:CALLBACK,resource,scope:SCOPE,state:'s',code_challenge:await challenge(VERIFIER),code_challenge_method:'S256'}))())})+'&scope='+SCOPE);
+  const duplicate=await s.request('/oauth/authorize?'+new URLSearchParams({response_type:'code',client_id:CLIENT,redirect_uri:CALLBACK,resource,scope:SCOPE,state:'s',code_challenge:await challenge(VERIFIER),code_challenge_method:'S256'})+'&scope='+SCOPE);
   assert.equal(duplicate.status,400); assert.deepEqual(s.network,[]);
 });
 
@@ -192,4 +192,29 @@ test('pagination is bounded and cursor validation cannot select another history;
   for (const after of ['-1','1 OR 1=1',1,'1'.repeat(16)]) assert.ok((await (await s.call(auth.access_token,'makima_channel_list',{after})).json()).error);
   s.fixture.env.RELAY_MAKIMA_CLIENT_ID='d'.repeat(64); assert.equal((await s.list(auth.access_token)).status,401);
   s.fixture.env.RELAY_MAKIMA_CLIENT_ID=CLIENT;s.fixture.env.RELAY_MAKIMA_ENABLED='false';assert.equal((await s.list(auth.access_token)).status,503);
+});
+
+test('revocation between ingress and Durable Object execution blocks a cached Makima call',async t=>{
+  const s=fixture(t),auth=await s.tokens(),target=s.fixture.object(MAKIMA_OBJECT).hub,fetch=target.fetch.bind(target);
+  t.mock.method(target,'fetch',async request=>{
+    if(new URL(request.url).pathname==='/internal/relay/makima/rpc')s.rows("UPDATE relay_oauth SET value=json_set(value,'$.revoked',json('true')) WHERE category='grant'");
+    return fetch(request);
+  });
+  const result=await (await s.send(auth.access_token,{id:crypto.randomUUID(),body:'must not save'})).json();
+  assert.equal(result.error.code,-32012);
+  assert.equal(s.rows("SELECT COUNT(*) AS n FROM sqlite_master WHERE name='makima_messages'")[0].n,0);
+});
+
+test('owner device revocation across the bridge prevents releasing channel data and does not change either channel history',async t=>{
+  const s=fixture(t),auth=await s.tokens(),ownerAuth=await s.oauth(),owner=await s.pair(ownerAuth);
+  await s.send(auth.access_token,{id:crypto.randomUUID(),body:'synthetic-channel-private-text'});
+  const target=s.fixture.object(MAKIMA_OBJECT).hub,fetch=target.fetch.bind(target);
+  t.mock.method(target,'fetch',async request=>{
+    const r=await fetch(request);
+    if(new URL(request.url).pathname==='/internal/relay/makima/channel')s.ctx.storage.sql.exec('UPDATE relay_owner_sessions SET revoked_ms=? WHERE device_id=?',Date.now(),owner.device.id);
+    return r;
+  });
+  const response=await s.phone('/makima',undefined,owner.device_token);
+  assert.equal(response.status,401);assert.ok(!(await response.text()).includes('synthetic-channel-private-text'));
+  assert.equal(s.rows('SELECT COUNT(*) AS n FROM makima_messages')[0].n,1);
 });
