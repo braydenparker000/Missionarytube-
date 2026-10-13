@@ -1192,6 +1192,11 @@ jobs:
           persist-credentials: false
       - name: Verify trusted source and back up exact existing files
         run: node scripts/publish-mobile-file-save.mjs prepare
+      - name: Reconcile the accepted Worker read-only; require Makima disabled
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publish-mobile-file-save.mjs reconcile
       - name: Preserve rollback files before publication
         uses: actions/upload-artifact@v4
         with:

@@ -2,9 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {checkedMobileFileSaveReceipt,checkedMobileFileSaveChange,patchManifest,unchangedInventory,FILES,SOURCE} from './publish-mobile-file-save.mjs';
+import {WORKER,PROVENANCE,workerCheckpointDigest} from './saving-worker-reconciliation.mjs';
 import {receiptDigest} from './worker-release-identity.mjs';
 const parent={schema:1,source:'b'.repeat(40),version:'synthetic-version',settingsDigest:'c'.repeat(64),frontendArtifactDigest:'d'.repeat(64)};
-const receipt=()=>{const artifact=patchManifest(parent);return {...parent,orchestration:'a'.repeat(40),runId:'123',attempt:'1',frontendArtifactDigest:receiptDigest(artifact),mobileFileSavePatch:{kind:'mobile-file-save',parentReceipt:parent,sourceProof:{qualified:true,sourceSha:SOURCE},artifact}};};
+const checkpoint={...WORKER,settingsDigest:'e'.repeat(64),fullSettingsDigest:'f'.repeat(64),makimaEnabled:false,provenance:PROVENANCE};
+const receipt=()=>{const artifact=patchManifest(parent);return {...parent,source:checkpoint.source,version:checkpoint.version,settingsDigest:checkpoint.settingsDigest,backendDigest:workerCheckpointDigest(checkpoint),backendReusable:false,orchestration:'a'.repeat(40),runId:'123',attempt:'1',frontendArtifactDigest:receiptDigest(artifact),mobileFileSavePatch:{kind:'mobile-file-save',parentReceipt:parent,sourceProof:{qualified:true,sourceSha:SOURCE},artifact,workerCheckpoint:checkpoint}};};
 test('patch receipt allows only the qualified saving overlay, preserving Worker and settings',()=>{
  const r=receipt();assert.deepEqual(checkedMobileFileSaveChange(r,parent),parent);
  for(const bad of [{...r,version:'changed'},{...r,settingsDigest:'a'.repeat(64)},{...r,frontendSource:SOURCE},{...r,frontendArtifactDigest:parent.frontendArtifactDigest},{...r,mobileFileSavePatch:{...r.mobileFileSavePatch,sourceProof:{qualified:false,sourceSha:SOURCE}}}])assert.throws(()=>checkedMobileFileSaveChange(bad,parent));
@@ -23,7 +25,7 @@ test('scoped dispatch publishes dependency first and cannot deploy Worker or cha
  assert.deepEqual(FILES.map(f=>f.path),['assets/file-save.js','assets/relay-attachment-content.js','guitar/runtime.js','guitar/guitar.js']);
  assert.equal(workflow.slice(workflow.indexOf('jobs:')).split('inputs.publish_mobile_file_save != true').length-1,12);
  assert.ok(job.includes('ref: '+SOURCE));assert.ok(job.includes('group: jarvis-worker-production'));assert.doesNotMatch(job,/wrangler deploy|keep-vars|activate-|versions upload/);
- let last=-1;for(const step of ['publish-mobile-file-save.mjs prepare','name: mobile-file-save-before-','azure/login@v2','publish-mobile-file-save.mjs publish','publish-mobile-file-save.mjs record','publish-mobile-file-save.mjs stamp','--name release-qualified.json','publish-mobile-file-save.mjs published']){const next=job.indexOf(step);assert.ok(next>last,step);last=next;}
+ let last=-1;for(const step of ['publish-mobile-file-save.mjs prepare','publish-mobile-file-save.mjs reconcile','name: mobile-file-save-before-','azure/login@v2','publish-mobile-file-save.mjs publish','publish-mobile-file-save.mjs record','publish-mobile-file-save.mjs stamp','--name release-qualified.json','publish-mobile-file-save.mjs published']){const next=job.indexOf(step);assert.ok(next>last,step);last=next;}
 });
 test('scoped qualification recipe retains the proof engine and installer and rejects every changed recipe byte',async()=>{
  const {SAVING_RECIPE}=await import('./publish-mobile-file-save.mjs');const {trustedRecipe,recipeAllowed}=await import('./plan-jarvis-qualification.mjs');

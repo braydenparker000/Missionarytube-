@@ -6,7 +6,8 @@ import {execFileSync} from 'node:child_process';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {immutableSourceSnapshot,recipeAllowed} from './plan-jarvis-qualification.mjs';
-import {liveIdentity,receiptDigest} from './worker-release-identity.mjs';
+import {receiptDigest} from './worker-release-identity.mjs';
+import {reconcileWorker,verifyWorkerCheckpoint,checkedCheckpoint,workerCheckpointDigest} from './saving-worker-reconciliation.mjs';
 export const SOURCE='d5428cae57e195405afbd140965f9fca16d65110';
 export const PARENT='9e0386d943e9b02656817a3413ef15c4648288795abf6d7e27f17f0e886f1612';
 export const FILES=JSON.parse(readFileSync(new URL('./mobile-file-save-pins.json',import.meta.url)));
@@ -31,10 +32,11 @@ export function checkedMobileFileSaveReceipt(receipt){
 }
 export function checkedMobileFileSaveChange(receipt,prior){
  const p=receipt.mobileFileSavePatch;assert.deepEqual(p?.parentReceipt,prior);
- assert.deepEqual(Object.keys(p).sort(),['artifact','kind','parentReceipt','sourceProof']);assert.equal(p.kind,'mobile-file-save');
+ assert.deepEqual(Object.keys(p).sort(),['artifact','kind','parentReceipt','sourceProof','workerCheckpoint']);assert.equal(p.kind,'mobile-file-save');
  assert.equal(p.sourceProof.qualified,true);assert.equal(p.sourceProof.sourceSha,SOURCE);assert.deepEqual(p.artifact,patchManifest(prior));
  assert.match(receipt.orchestration,/^[a-f0-9]{40}$/);assert.match(receipt.runId,/^[1-9][0-9]*$/);assert.match(receipt.attempt,/^[1-9][0-9]*$/);
- assert.deepEqual(receipt,{...prior,orchestration:receipt.orchestration,runId:receipt.runId,attempt:receipt.attempt,frontendArtifactDigest:receiptDigest(p.artifact),mobileFileSavePatch:p});return prior;
+ const checkpoint=checkedCheckpoint(p.workerCheckpoint);
+ assert.deepEqual(receipt,{...prior,source:checkpoint.source,version:checkpoint.version,settingsDigest:checkpoint.settingsDigest,backendDigest:workerCheckpointDigest(checkpoint),backendReusable:false,orchestration:receipt.orchestration,runId:receipt.runId,attempt:receipt.attempt,frontendArtifactDigest:receiptDigest(p.artifact),mobileFileSavePatch:p});return prior;
 }
 async function releaseBytes(file){return readFile(resolve(ROOT,'public',file.path));}
 async function source(){
@@ -53,30 +55,33 @@ export function unchangedInventory(before,after){
  assert.deepEqual(after.filter(f=>!omitted.has(f.name)),before.filter(f=>!omitted.has(f.name)),'An unrelated blob changed');
  const expected=new Set([...before.map(f=>f.name),...FILES.map(f=>f.path)]);assert.deepEqual([...new Set(after.map(f=>f.name))].sort(),[...expected].sort(),'Unexpected blob inventory changed');
 }
-async function worker(prior){assert.deepEqual(await liveIdentity({account:process.env.CLOUDFLARE_ACCOUNT_ID,token:process.env.CLOUDFLARE_API_TOKEN}),{version:prior.version,settingsDigest:prior.settingsDigest});}
+const workerOptions=()=>({account:process.env.CLOUDFLARE_ACCOUNT_ID,token:process.env.CLOUDFLARE_API_TOKEN});
+async function worker(){const checkpoint=await local('mobile-file-save-publication/worker-checkpoint.json');await verifyWorkerCheckpoint(checkpoint,workerOptions());return checkpoint;}
 async function verifyFile(file){const r=await get(file.path);assert.equal(hash(Buffer.from(await r.arrayBuffer())),file.sha256);assert.match(r.headers.get('cache-control')||'',/no-cache|no-store/);assert.match(r.headers.get('content-type')||'',/^(application|text)\/javascript(?:;|$)/i);}
 async function verifyFiles(){for(const file of FILES)await verifyFile(file);}
 async function main(command){
- assert.ok(['prepare','publish','record','stamp','published'].includes(command));
+ assert.ok(['prepare','reconcile','publish','record','stamp','published'].includes(command));
  if(command==='prepare'){
   const proof=await source(),prior=await parent();await mkdir('mobile-file-save-publication/before',{recursive:true});
   for(const file of FILES){const bytes=await existing(file);if(bytes){const out=resolve('mobile-file-save-publication/before',file.path);await mkdir(resolve(out,'..'),{recursive:true});await writeFile(out,bytes);}}
   await writeFile('mobile-file-save-publication/plan.json',JSON.stringify({source:SOURCE,proof,parent:prior,files:FILES},null,2)+'\n');
   console.log(JSON.stringify({source:SOURCE,proofRun:proof.runId,files:FILES.map(f=>f.path),workerDeployed:false}));return;
  }
- const plan=await local('mobile-file-save-publication/plan.json');assert.equal(receiptDigest(plan.parent),PARENT);assert.deepEqual(plan.files,FILES);await source();await worker(plan.parent);
+ const plan=await local('mobile-file-save-publication/plan.json');assert.equal(receiptDigest(plan.parent),PARENT);assert.deepEqual(plan.files,FILES);await source();
+ if(command==='reconcile'){await parent();const checkpoint=await reconcileWorker(workerOptions());await writeFile('mobile-file-save-publication/worker-checkpoint.json',JSON.stringify(checkpoint,null,2)+'\n');console.log(JSON.stringify({readOnly:true,...checkpoint}));return;}
+ const checkpoint=await worker();
  if(command==='publish'){
   await parent();const before=inventory();await writeFile('mobile-file-save-publication/storage-before.json',JSON.stringify(before,null,2)+'\n');
   // Publish only the pinned saving modules; inventory checks preserve all other files.
   for(const file of FILES){
-   await parent();await existing(file);
+   await parent();await worker();await existing(file);
    az(['upload','--name',file.path,'--file',resolve('.mobile-file-save-stage',file.path),'--content-type',file.contentType,'--content-cache-control','no-cache','--overwrite','true']);
    await verifyFile(file);
   }
-  await verifyFiles();unchangedInventory(before,inventory());await worker(plan.parent);
+  await verifyFiles();unchangedInventory(before,inventory());await worker();
  }else if(command==='record'){
   await parent();await verifyFiles();unchangedInventory(await local('mobile-file-save-publication/storage-before.json'),inventory());
-  const artifact=patchManifest(plan.parent),receipt={...plan.parent,orchestration:git(process.cwd(),'rev-parse','HEAD'),runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT,frontendArtifactDigest:receiptDigest(artifact),mobileFileSavePatch:{kind:'mobile-file-save',parentReceipt:plan.parent,sourceProof:plan.proof,artifact}};
+  const artifact=patchManifest(plan.parent),receipt={...plan.parent,source:checkpoint.source,version:checkpoint.version,settingsDigest:checkpoint.settingsDigest,backendDigest:workerCheckpointDigest(checkpoint),backendReusable:false,orchestration:git(process.cwd(),'rev-parse','HEAD'),runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT,frontendArtifactDigest:receiptDigest(artifact),mobileFileSavePatch:{kind:'mobile-file-save',parentReceipt:plan.parent,sourceProof:plan.proof,artifact,workerCheckpoint:checkpoint}};
   checkedMobileFileSaveReceipt(receipt);await writeFile('release-qualified.json',JSON.stringify(receipt)+'\n');await appendFile(process.env.GITHUB_OUTPUT,'digest='+receiptDigest(receipt)+'\n');
   console.log(JSON.stringify({source:SOURCE,receiptDigest:receiptDigest(receipt),workerUnchanged:true,settingsUnchanged:true,unrelatedBlobsUnchanged:true}));
  }else{
