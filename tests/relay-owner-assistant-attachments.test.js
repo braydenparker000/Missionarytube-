@@ -8,6 +8,17 @@ import {ATTACHMENT_LIMITS} from '../backend/relay-owner-attachments.js';
 const pdf=JSON.parse(readFileSync(new URL('./fixtures/relay-attachment-document.json',import.meta.url))).pdf;
 const status=n=>e=>e.data?.status===n;
 const stage=async(s,message,delivery,options)=>(await s.assistantUpload(message,delivery,options)).attachment;
+test('private chat update feed pages immutable deliveries across originals and rejects unauthenticated readers',async t=>{
+ const s=await assistantFixture(t),originals=[id(),id()];for(const message of originals)await s.send(message);
+ const expected=[];for(const message of originals)for(let n=0;n<26;n++)expected.push((await s.commit(message,id(),[],'Synthetic update '+n)).delivery.id);
+ assert.equal((await s.http('/updates?after=0',{token:null})).status,401);
+ const first=await(await s.http('/updates?after=0')).json();assert.equal(first.updates.length,50);assert.equal(first.visibility,'private');
+ const second=await(await s.http('/updates?after='+first.nextCursor)).json();assert.equal(second.updates.length,2);assert.equal(second.nextCursor,null);assert.deepEqual([...first.updates,...second.updates].map(x=>x.id),expected);
+ assert.deepEqual((await(await s.http('/updates?after='+second.updates.at(-1).sequence)).json()).updates,[]);
+ const foreign=id();s.sql("INSERT INTO relay_owner_entries(id,kind,body,created_at,principal,device_id,authentication_source) VALUES(?,'user',?,?,?,?,?)",foreign,'Foreign private data',new Date().toISOString(),'github:987654321',id(),'owner-device-session');
+ s.sql("INSERT INTO relay_owner_assistant_deliveries(id,message_id,kind,body,created_at,principal,grant_id) VALUES(?,?,'deliverable',?,?,?,?)",id(),foreign,'Foreign update',new Date().toISOString(),'github:987654321',s.principal.grantId);
+ assert.deepEqual((await(await s.http('/updates?after='+second.updates.at(-1).sequence)).json()).updates,[]);
+});
 test('private text updates: exact retries, owner isolation and immutable accepted result',async t=>{
  const s=await assistantFixture(t),message=id(),run=id();await s.send(message);
  await s.rpc('relay_owner_job_claim',{inbox_id:s.inbox,job_id:message,run_id:run,event_id:id()});

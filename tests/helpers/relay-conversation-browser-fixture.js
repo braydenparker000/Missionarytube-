@@ -217,11 +217,11 @@ export async function openConversationPage(browser, harness, {width = 390, heigh
 export async function conversationMenu(page, label) {
   if (await page.locator('body.relay-page').count()) {
     const inWork = await page.locator('body').getAttribute('data-relay-destination') === 'work';
-    if (label === 'Requests') {
-      if (!inWork) await page.getByRole('button', {name: 'Open current work', exact: true}).click();
+    if (['Requests','Tasks'].includes(label)) {
+      if (!inWork) await page.getByRole('button', {name: 'Open Tasks', exact: true}).click();
       return;
     }
-    if (label === 'Search current work') {
+    if (label === 'Search tasks') {
       await page.getByRole('button', {name: label, exact: true}).click();
       return;
     }
@@ -256,7 +256,7 @@ export async function conversationMenu(page, label) {
     } else if (label === 'Bookmarks') {
       await page.waitForFunction(() => document.querySelector('.conversation-identity .brand')?.textContent === 'Saved');
     }
-    if (inWork && label.startsWith('Refresh')) await page.getByRole('button', {name: 'Open current work', exact: true}).click();
+    if (inWork && label.startsWith('Refresh')) await page.getByRole('button', {name: 'Open Tasks', exact: true}).click();
     return;
   }
   await page.getByRole('button', {name: 'Conversation menu', exact: true}).click();
