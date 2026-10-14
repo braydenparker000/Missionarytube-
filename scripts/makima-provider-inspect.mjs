@@ -7,6 +7,16 @@ import {activeVersion} from './worker-release-identity.mjs';
 export const SOURCE='099ec1a0b2b621a3799f4f8346490903f212a912';
 export const CLIENT='b6bf3d2688484111e45ab58a644208918b875ad6fccc16f3ef65ad986aab4def';
 const NAMES=['RELAY_MAKIMA_GITHUB_CLIENT_ID','RELAY_MAKIMA_GITHUB_CLIENT_SECRET','RELAY_MAKIMA_CLIENT_ID','RELAY_MAKIMA_ENABLED'];
+const ORIGIN='https://jarvis-hub-api.braydenparker999.workers.dev';
+export async function publicPolicy(fetcher,resourceResponse,resource){
+ const get=path=>fetcher(ORIGIN+path,{method:'GET',redirect:'error',signal:AbortSignal.timeout(15000)});
+ const ar=await get('/.well-known/oauth-authorization-server/relay/makima');const auth=await ar.json().catch(()=>null);
+ const invalid=new URLSearchParams({client_id:CLIENT,redirect_uri:ORIGIN+'/relay/makima/invalid-callback',response_type:'code',resource:ORIGIN+'/relay/makima/mcp',scope:'relay:makima',state:'synthetic-diagnostic-state',code_challenge_method:'S256',code_challenge:'a'.repeat(43)});
+ const denied=await get('/relay/makima/oauth/authorize?'+invalid),error=await denied.json().catch(()=>null);
+ const challenge=await get('/relay/makima/mcp');
+ const result={protectedResourceScoped:resourceResponse.status===200&&resource?.resource===ORIGIN+'/relay/makima/mcp'&&JSON.stringify(resource?.authorization_servers)===JSON.stringify([ORIGIN+'/relay/makima'])&&JSON.stringify(resource?.scopes_supported)==='["relay:makima"]',authorizationMetadataScoped:ar.status===200&&auth?.issuer===ORIGIN+'/relay/makima'&&JSON.stringify(auth?.scopes_supported)==='["relay:makima"]'&&JSON.stringify(auth?.code_challenge_methods_supported)==='["S256"]'&&!auth?.registration_endpoint,strictCallbackVerified:denied.status===400&&!denied.headers.has('Location')&&error?.error_description==='redirect_uri_mismatch',unauthenticatedMcpDenied:challenge.status===401,grantCreated:false,realGrokConnection:false};
+ return {...result,endpointReady:result.protectedResourceScoped&&result.authorizationMetadataScoped&&result.strictCallbackVerified&&result.unauthenticatedMcpDenied};
+}
 export function summary(settings){
  if(!Array.isArray(settings?.bindings))throw Error('invalid_settings');
  const bindings=settings.bindings;
@@ -32,7 +42,9 @@ export async function inspect({account,token,fetcher=globalThis.fetch}){
  const code=bytes.toString('utf8');
  const publicResponse=await fetcher('https://jarvis-hub-api.braydenparker999.workers.dev/.well-known/oauth-protected-resource/relay/makima/mcp',{method:'GET',redirect:'error',signal:AbortSignal.timeout(15000)});
  const body=await publicResponse.json().catch(()=>null);
- return {readOnly:true,worker:'jarvis-hub-api',activeVersion:version,codeSha256:createHash('sha256').update(bytes).digest('hex'),makimaHandlerPresent:code.includes('Makima adapter is not activated')&&code.includes('makima_channel_send'),workersDevEnabled:subdomain.result?.enabled===true,accountSubdomainMatches:accountDomain.result?.subdomain==='braydenparker999',publicMetadataStatus:publicResponse.status,expectedDisabledResponse:body?.error==='Makima adapter is not activated',publicNotFoundResponse:body?.error==='Not found',compatibilityDate:settings.compatibility_date,compatibilityFlags:settings.compatibility_flags||[],...summary(settings)};
+ const policy=summary(settings).enabled?await publicPolicy(fetcher,publicResponse,body):null;
+ if(activeVersion(await (await api('deployments?per_page=1')).json())!==version)throw Error('version_changed');
+ return {readOnly:true,worker:'jarvis-hub-api',activeVersion:version,codeSha256:createHash('sha256').update(bytes).digest('hex'),makimaHandlerPresent:code.includes('Makima adapter is not activated')&&code.includes('makima_channel_send'),workersDevEnabled:subdomain.result?.enabled===true,accountSubdomainMatches:accountDomain.result?.subdomain==='braydenparker999',publicMetadataStatus:publicResponse.status,expectedDisabledResponse:body?.error==='Makima adapter is not activated',publicNotFoundResponse:body?.error==='Not found',compatibilityDate:settings.compatibility_date,compatibilityFlags:settings.compatibility_flags||[],...summary(settings),publicPolicy:policy};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  try{

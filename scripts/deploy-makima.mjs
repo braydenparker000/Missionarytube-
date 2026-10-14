@@ -15,7 +15,7 @@ const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof v
 const projected=value=>JSON.stringify(canonical(projectedSettings(value)));
 const mutable=new Set(['RELAY_MAKIMA_CLIENT_ID','RELAY_MAKIMA_ENABLED']);
 const publicFlags=new Set(['RELAY_MCP_ENABLED','RELAY_OWNER_ENABLED','RELAY_AGENTS_ENABLED','RELAY_MAST_ENABLED','RELAY_AGENT_LUCY_OAUTH_ENABLED','MUSIC_PUBLIC_READ']);
-const metadataKeys=['compatibility_date','compatibility_flags','logpush','observability','placement','limits','tail_consumers','tags','cache_options'];
+const metadataKeys=['compatibility_date','compatibility_flags','usage_model','logpush','observability','placement','limits','tail_consumers','tags','cache_options'];
 export function projectedSettings(settings){
  if(!Array.isArray(settings?.bindings))stop('invalid_settings');
  const names=settings.bindings.map(b=>b.name);if(new Set(names).size!==names.length)stop('duplicate_bindings');
@@ -41,8 +41,13 @@ export function uploadMetadata(settings){
 }
 export function enableBindings(settings){
  const id=settings.bindings?.find(b=>b.name==='RELAY_MAKIMA_CLIENT_ID');if(id?.type!=='plain_text'||id.text!==CLIENT)stop('public_client_mismatch');
- // Existing plaintext and secret values stay server-side; retain by name/type.
- return settings.bindings.filter(b=>b.name!=='RELAY_MAKIMA_ENABLED').map(({name,type})=>({name,type})).concat({name:'RELAY_MAKIMA_ENABLED',type:'plain_text',text:'true'});
+ // The documented inherit binding preserves values without copying credentials.
+ return settings.bindings.filter(b=>b.name!=='RELAY_MAKIMA_ENABLED').map(({name})=>({name,type:'inherit'})).concat({name:'RELAY_MAKIMA_ENABLED',type:'plain_text',text:'true'});
+}
+export function enableSettings(settings){
+ return {...Object.fromEntries(metadataKeys.filter(k=>k in settings).map(k=>[k,settings[k]])),
+  annotations:Object.fromEntries(['workers/message','workers/tag'].filter(k=>k in (settings.annotations||{})).map(k=>[k,settings.annotations[k]])),
+  bindings:enableBindings(settings)};
 }
 export async function deploy({account,token,bundle,fetcher=globalThis.fetch,onStage=()=>{},checkpoint={version:BEFORE_VERSION,code:BEFORE_CODE}}){
  const api=async(path,init={})=>{
@@ -68,7 +73,7 @@ export async function deploy({account,token,bundle,fetcher=globalThis.fetch,onSt
  if(inactive.status!==503)stop(inactive.status===403?'public_access_denied_before_enable':'disabled_route_unverified');
  if(await version()!==afterVersion)stop('live_identity_changed');
  if(projected(await readSettings())!==expected)stop('preserved_settings_changed');
- const patch=new FormData();patch.set('settings',JSON.stringify({bindings:enableBindings(after)}));
+ const patch=new FormData();patch.set('settings',JSON.stringify(enableSettings(after)));
  if((await (await api('settings',{method:'PATCH',body:patch})).json()).success!==true)stop('enable_failed');
  const enabled=await readSettings();
  if(projected(enabled)!==expected||summary(enabled).enabled!==true||summary(enabled).publicClientMatches!==true)stop('enable_verification_failed');
