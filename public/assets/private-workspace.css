@@ -4,3 +4,13 @@ html{height:100%;overflow:hidden}body{height:var(--private-height,100dvh);displa
 @media(max-width:700px){.workspace-layout{height:auto}main{padding-top:12px}.view-header{margin-bottom:10px}.view-header button{min-height:40px;padding:8px 12px}#destinations a{min-height:44px}#workspace-status{margin:4px 0;font-size:10px}}
 @media(max-width:700px) and (max-height:580px){.workspace-header{height:48px;padding-block:6px}.wordmark span,.view-header .eyebrow,#workspace-status{display:none}.workspace-layout>aside{padding-block:4px}main{padding-top:6px}.view-header{margin-bottom:6px}h1{font-size:18px}}
 body[data-keyboard=true] .workspace-header{height:48px;padding-block:6px}body[data-keyboard=true] .wordmark span,body[data-keyboard=true] .view-header .eyebrow,body[data-keyboard=true] #workspace-status{display:none}
+
+/* One compact mobile bar and recipient strip; the conversation owns the rest. */
+.workspace-menu nav button{display:block;width:100%;text-align:left;border:0;background:transparent;border-radius:10px;font-size:14px}
+body:not([data-view=lucy]) [data-chat-action=search],body:not([data-view=lucy]) [data-chat-action=account],body:not([data-view=lucy]) [data-chat-action=disconnect],body:not([data-view=mast]) [data-chat-action=relay-menu-button]{display:none}
+@media(max-width:700px){
+.workspace-header,body[data-keyboard=true] .workspace-header{height:44px;padding:0 12px;border-bottom:0}.wordmark{font-size:18px;letter-spacing:-.4px}.wordmark span{display:none}.workspace-menu summary{padding:10px 8px;font-size:13px}.workspace-menu nav{top:42px}
+.workspace-layout>aside{padding:0 6px 4px}#destinations{gap:2px}#destinations a{padding:6px 10px;min-height:44px;border-radius:10px}#destinations .avatar{width:20px;height:20px;font-size:12px}#destinations span{font-size:12px}
+main{padding:0;min-height:0}#view-body{border:0;border-radius:0}.view-header{padding:12px;margin:0}body[data-view=lucy] .view-header,body[data-view=mast] .view-header{display:none}#workspace-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);margin:0;padding:0;min-height:0}
+body[data-keyboard=true] .workspace-header{display:none}
+}

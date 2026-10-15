@@ -1,3 +1,4 @@
+if(parent!==window)document.body.classList.add('private-embedded');
 import {createRelayOwnerController,createRelayOwnerUI} from './relay-owner-ui.js';
 import {createRelayAttachmentUI} from './private-attachments.js';
 import {sheet,appViewport} from './ui.js';
@@ -9,7 +10,7 @@ const attachments=createRelayAttachmentUI({controller,openSheet:sheet,notify:tex
 controller.bindAttachments(()=>attachments.draft());
 controller.showOwner();
 ui.mount(document.getElementById('content'));
-function controls(){const input=document.querySelector('.composer-input');if(input&&!input.querySelector('.private-attach')){const button=document.createElement('button');button.type='button';button.className='relay-composer-plus private-attach';button.textContent='+';button.setAttribute('aria-label','Attach images or files to Lucy');button.onclick=attachments.open;input.prepend(button);}attachments.sync();document.getElementById('disconnect').hidden=!controller.hasCredential;}
+function controls(){const textarea=document.getElementById('relay-owner-message-text');if(textarea)textarea.placeholder='Message Lucy privately…';const input=document.querySelector('.composer-input');if(input&&!input.querySelector('.private-attach')){const button=document.createElement('button');button.type='button';button.className='relay-composer-plus private-attach';button.textContent='+';button.setAttribute('aria-label','Attach images or files to Lucy');button.onclick=attachments.open;input.prepend(button);}attachments.sync();document.getElementById('disconnect').hidden=!controller.hasCredential;}
 controller.subscribe(controls);controls();appViewport();
 document.getElementById('search').onclick=()=>ui.toggleSearch();document.getElementById('account').onclick=()=>controller.showAccount();document.getElementById('disconnect').onclick=()=>controller.disconnect();
 // No public store or transport is imported. Recipient is fixed for this document.
