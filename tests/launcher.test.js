@@ -4,11 +4,11 @@ import { access } from 'node:fs/promises';
 import { apps, loadPreferences, savePreferences } from '../public/assets/hub.js';
 
 const destinations = [
-  ['jarvis', 'Relay', '/jarvis/'],
+  ['jarvis', 'Jarvis', '/private/'],
   ['drawercast', 'Poweramp', '/drawercast/'],
   ['podcasts', 'Podcasts', '/podcasts/'],
   ['media', 'Astra', '/media/'],
-  ['muse', 'Muse', '/muse/'],
+  ['muse', 'Mast', '/private/#mast'],
   ['quick-ai', 'Quick AI', '/quick-ai/'],
   ['board', 'Daily Board', '/daily-board/'],
   ['guitar', 'Guitar', '/guitar/'],
@@ -19,11 +19,12 @@ const destinations = [
   ['settings', 'Settings', '/settings/']
 ];
 
-test('launcher names and order follow issue #21 while keeping every existing app URL and ID', async () => {
+test('launcher opens unified private chats while preserving app IDs and secondary public routes', async () => {
   assert.deepEqual(apps.map(a => [a.id, a.name, a.href]), destinations);
-  assert.equal(apps.find(a => a.id === 'jarvis').description, 'Thoughtful conversation');
-  assert.equal(apps.filter(a => a.name === 'Jarvis').length, 0);
-  for (const app of apps) await access(new URL(`../public${app.href}index.html`, import.meta.url));
+  assert.equal(apps.find(a => a.id === 'jarvis').description, 'Private chats & shared tasks');
+  assert.equal(apps.filter(a => a.name === 'Jarvis').length, 1);
+  for(const route of ['/jarvis/','/muse/'])await access(new URL(`../public${route}index.html`,import.meta.url));
+  for (const app of apps) await access(new URL(`../public${app.href.split('#')[0]}index.html`, import.meta.url));
 });
 
 function withStorage(values, run) {
