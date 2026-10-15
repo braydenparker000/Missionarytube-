@@ -23,3 +23,6 @@ function invalidate(accessLost=false){++epoch;for(const frame of frames.values()
 addEventListener('hashchange',show);addEventListener('storage',event=>{if(event.key===OWNER_SESSION_KEY)invalidate();});
 document.getElementById('refresh').onclick=()=>{if(current==='tasks')show();else frames.get(current)?.contentWindow?.jarvisPrivateReader?.refresh();};
 show();
+// Mobile keyboards resize the top-level visual viewport, not an iframe's visual viewport.
+function fitViewport(){const viewport=window.visualViewport;if(viewport&&viewport.scale!==1)return;const height=viewport?.height||innerHeight;document.documentElement.style.setProperty('--private-height',Math.round(height)+'px');document.body.dataset.keyboard=String(innerHeight-height>120);}
+fitViewport();window.visualViewport?.addEventListener('resize',fitViewport);addEventListener('resize',fitViewport);
