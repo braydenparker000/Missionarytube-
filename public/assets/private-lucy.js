@@ -15,5 +15,5 @@ document.getElementById('search').onclick=()=>ui.toggleSearch();document.getElem
 // No public store or transport is imported. Recipient is fixed for this document.
 addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==parent)return;if(event.data?.type==='jarvis-private-refresh')ui.refresh();});
 
-window.jarvisPrivateReader=Object.freeze({list:()=>readTaskPages(cursor=>api.jobs(cursor)),detail:id=>api.jobDetail(id),refresh:()=>ui.refresh()});
+window.jarvisPrivateReader=Object.freeze({get connected(){return api.hasCredential;},list:()=>readTaskPages(cursor=>api.jobs(cursor)),detail:id=>api.jobDetail(id),refresh:()=>ui.refresh()});
 addEventListener('storage',event=>{if(event.key==='jarvis.relay.owner-session.v1'){api.refreshStoredCredential();location.reload();}});
