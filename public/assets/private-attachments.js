@@ -11,8 +11,8 @@ export function createAttachmentDraft({maxFiles=4,maxBytes=1024*1024,onChange=()
     if(locked||preparing)return;const generation=selectionGeneration,ownsSelection=()=>generation===selectionGeneration&&!locked,pending=[];notice='';
     for(let file of files){
       if(!ownsSelection())return;
-      if(!file.type){const extension=file.name.split('.').at(-1)?.toLowerCase(),type={txt:'text/plain',md:'text/markdown',csv:'text/csv',json:'application/json',pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp'}[extension];if(type)file=new File([file],file.name,{type,lastModified:file.lastModified});}
-      if(file.size>maxBytes&&['image/png','image/jpeg','image/webp'].includes(file.type)){preparing=true;notice='Preparing photo on this device…';emit();try{const prepared=await preparePrivatePhoto(file);if(!ownsSelection())return;file=prepared.file;notice=prepared.notice||'';}catch(error){if(ownsSelection())notice=error.message;continue;}finally{preparing=false;emit();}}
+      if(!file.type||file.type==='application/octet-stream'){const extension=file.name.split('.').at(-1)?.toLowerCase(),type={txt:'text/plain',md:'text/markdown',csv:'text/csv',json:'application/json',pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp'}[extension];if(type)file=new File([file],file.name,{type,lastModified:file.lastModified});}
+      if(['image/png','image/jpeg','image/webp','image/jpg'].includes(file.type)){preparing=true;notice='Preparing photo on this device…';emit();try{const prepared=await preparePrivatePhoto(file);if(!ownsSelection())return;file=prepared.file;notice=prepared.notice||'';}catch(error){if(ownsSelection())notice=error.message;continue;}finally{preparing=false;emit();}}
       if(!ownsSelection())return;
       if(!attachmentFilename(file.name)){notice='Choose a file with a simple name under 240 bytes, without path separators or control characters.';continue;}
       if(items.length>=maxFiles){notice=`Choose up to ${maxFiles} files.`;break;}
