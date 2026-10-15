@@ -1,9 +1,9 @@
 export const apps = [
-  {id:'jarvis',name:'Relay',description:'Thoughtful conversation',href:'/jarvis/',icon:'chat',group:'Conversation'},
+  {id:'jarvis',name:'Jarvis',description:'Private chats & shared tasks',href:'/private/',icon:'chat',group:'Conversation'},
   {id:'drawercast',name:'Poweramp',description:'Music',href:'/drawercast/',icon:'music',group:'Library'},
   {id:'podcasts',name:'Podcasts',description:'Discover, listen & download',href:'/podcasts/',icon:'podcast',group:'Library'},
   {id:'media',name:'Astra',description:'Videos',href:'/media/',icon:'media',group:'Library'},
-  {id:'muse',name:'Muse',description:'Chat with Mast · Public or private',href:'/muse/',icon:'chat',group:'Conversation'},
+  {id:'muse',name:'Mast',description:'Private Muse conversation in Jarvis',href:'/private/#mast',icon:'chat',group:'Conversation'},
   {id:'quick-ai',name:'Quick AI',description:'Fast answers · Gemini or Qwen',href:'/quick-ai/',icon:'chat',group:'Conversation'},
   {id:'board',name:'Daily Board',description:'Your briefing',href:'/daily-board/',icon:'board',group:'Conversation'},
   {id:'guitar',name:'Guitar',description:'Songsterr · PDF tabs',href:'/guitar/',icon:'music',group:'Utilities'},

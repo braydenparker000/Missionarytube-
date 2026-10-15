@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+import {chromium} from 'playwright-core';
+import {createConversationFixture,openConversationPage,closeConversationHarness,assertBrowserContained,SITE} from './helpers/relay-conversation-browser-fixture.js';
+import {hash,random} from '../backend/relay-common.js';
+// Local development smoke, separate from the repository's pinned qualification browser.
+test('unified workspace keeps recipients, histories, task identities and unavailable channels isolated',{timeout:60000},async t=>{
+ if(!process.env.PRIVATE_WORKSPACE_CHROME){t.skip('Set PRIVATE_WORKSPACE_CHROME for local browser smoke');return;}
+ const browser=await chromium.launch({executablePath:process.env.PRIVATE_WORKSPACE_CHROME,headless:true});
+ const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_WORK_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}}),pages=[];
+ try{const owner=await h.pair(await h.oauth()),id=crypto.randomUUID();await h.phone('/messages',{id,body:'Lucy original history'},owner.device_token);
+ await h.phone('/mast',{id,body:'Mast original history'},owner.device_token);
+ await h.fixture.request('/relay/mast/work/plan',{method:'POST',headers:{Authorization:'Bearer '+token},body:JSON.stringify({job_id:id,event_id:crypto.randomUUID(),title:'Mast saved task',goal:'Preserve identity',plan:['Read'],expected_revision:0})});
+ const phone=await openConversationPage(browser,h,{owner,clock:false,...(process.env.PRIVATE_WORKSPACE_ROOT?{root:process.env.PRIVATE_WORKSPACE_ROOT}:{})});pages.push(phone);const page=phone.page;await page.goto(SITE+'/private/');const lucy=page.frameLocator('iframe[title="Private conversation with Lucy"]');
+ await lucy.getByText('Lucy original history',{exact:true}).waitFor();assert.equal(await lucy.getByText('Mast original history',{exact:true}).count(),0);
+ await lucy.getByRole('button',{name:'Attach images or files to Lucy'}).click();await lucy.locator('input[type=file][aria-label="Choose files"]').setInputFiles({name:'lucy-private.txt',mimeType:'text/plain',buffer:Buffer.from('Lucy file fixture')});await lucy.locator('dialog[open] button[aria-label="Close"]').click();
+ const input=lucy.locator('#relay-owner-message-text');await input.fill('Lucy only fixture');await lucy.locator('#relay-owner-message-form button[type=submit]').click();await lucy.getByText('Lucy only fixture',{exact:true}).waitFor();
+ await page.locator('[data-view="mast"]').click();const mast=page.frameLocator('iframe[title="Private conversation with Mast"]');await mast.getByText('Mast original history',{exact:true}).waitFor();assert.equal(await mast.getByText('Lucy original history',{exact:true}).count(),0);
+ await mast.locator('#files').setInputFiles({name:'mast-private.txt',mimeType:'text/plain',buffer:Buffer.from('Mast file fixture')});await mast.locator('#message').fill('Mast only fixture');await mast.locator('#send').click();await mast.getByText('Mast only fixture',{exact:true}).waitFor();
+ await mast.getByText('mast-private.txt',{exact:false}).first().waitFor();await mast.locator('#message').fill('Retained Mast draft');await page.locator('[data-view="lucy"]').click();await page.locator('[data-view="mast"]').click();assert.equal(await mast.locator('#message').inputValue(),'Retained Mast draft');
+ await page.locator('[data-view="tasks"]').click();await page.getByText('Mast saved task',{exact:true}).waitFor();assert.equal(await page.locator('[data-agent="mast"][data-task-id="'+id+'"]').count(),1);
+ await page.locator('[data-view="makima"]').click();await page.getByText('Disconnected · coming later',{exact:true}).waitFor();assert.equal(await page.locator('iframe:not([hidden])').count(),0);
+ await page.locator('[data-view="collaboration"]').click();await page.getByText('Read-only · access unavailable',{exact:true}).waitFor();assert.equal(await page.locator('textarea').count(),0);
+ await page.reload();await page.getByRole('heading',{name:'Shared collaboration',exact:true}).waitFor();await page.locator('[data-view="mast"]').click();await mast.getByText('Mast original history',{exact:true}).waitFor();
+ await mast.getByText('mast-private.txt',{exact:false}).first().waitFor();await page.setViewportSize({width:390,height:560});const composerBox=await mast.locator('#message').boundingBox();assert.ok(composerBox.y+composerBox.height<=560);await page.setViewportSize({width:390,height:844});
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await mkdir('/tmp/private-workspace-evidence',{recursive:true});await page.screenshot({path:'/tmp/private-workspace-evidence/mobile.png'});
+ assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_owner_entries WHERE body=?','Mast only fixture')[0].n,0);assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_mast_entries WHERE body=?','Lucy only fixture')[0].n,0);await page.setViewportSize({width:1280,height:900});await page.screenshot({path:'/tmp/private-workspace-evidence/desktop.png'});
+ // A page-only session can fail without a storage event. Exercise that reset path.
+ await page.evaluate(()=>{document.querySelector('iframe[title="Private conversation with Mast"]').contentWindow.jarvisPrivateReader={list:async()=>{const e=Error('Expired');e.kind='expired';throw e;}};});await page.locator('[data-view="tasks"]').click();await page.waitForURL('**/#lucy');assert.equal(await page.locator('iframe[title="Private conversation with Mast"]').count(),0);await lucy.getByText('Lucy original history',{exact:true}).waitFor();
+ h.rows('UPDATE relay_owner_sessions SET revoked_ms=1 WHERE device_id=?',owner.device.id);await page.locator('[data-view="tasks"]').click();await page.waitForURL('**/#lucy');assert.equal(await page.locator('iframe[title="Private conversation with Mast"]').count(),0);await lucy.locator('#relay-owner-message-text').waitFor({state:'hidden'});assert.equal(await lucy.getByText('Lucy original history',{exact:true}).count(),0);assertBrowserContained(phone);assert.ok(phone.records.every(r=>!r.path.startsWith('/shared/')&&!r.path.startsWith('/v1/')&&!r.path.startsWith('/relay/agents/')));
+ }finally{await closeConversationHarness(browser,h,pages);}
+});
