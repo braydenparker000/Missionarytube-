@@ -16,7 +16,7 @@
     {
       "path": "assets/private-chat-frame.css",
       "sha256": "e212d60e11e4e2cdc1efb8e1695bc807f5ed017a1eb400f240af53efe8ea0179",
-      "before": "a22b39af549e18cfe694003657499ae839a61d955bfbd6d60b8977442eb869a5",
+      "before": "e212d60e11e4e2cdc1efb8e1695bc807f5ed017a1eb400f240af53efe8ea0179",
       "bytes": 6040
     },
     {
@@ -58,7 +58,7 @@
     {
       "path": "assets/private-workspace.css",
       "sha256": "7f9237a53b7d16eaf2a00f54a85c420f3d614838f7cc671c45727adf1cdc6423",
-      "before": "df4803eb5d0faa64071b33ce1824b29b5e408ec0a646df7abc7fd19e0f2b9cf8",
+      "before": "7f9237a53b7d16eaf2a00f54a85c420f3d614838f7cc671c45727adf1cdc6423",
       "bytes": 10516
     },
     {
@@ -69,7 +69,7 @@
     },
     {
       "path": "private/index.html",
-      "sha256": "a1aabe0b598c4099911f03db258e76257296fd532d56bec204d6493dca74139e",
+      "sha256": "242c749a9f796d7dbb07cb645c26578b2e8db8c06d21e99b6db9554b4ccde388",
       "before": "a1aabe0b598c4099911f03db258e76257296fd532d56bec204d6493dca74139e",
       "bytes": 2601
     },
@@ -152,5 +152,5 @@
       "sha256": "3c2fa5bda1736ea0e66b3ecd56b573c061f45eb0e377d658cc009fcd96805e08"
     }
   ],
-  "source": "43975818e32d05d1be057c66fd29b7fe9e0c30b6"
+  "source": "377eca3cd8dc5ad58e50ed4e1ac0405d490f4a82"
 }
