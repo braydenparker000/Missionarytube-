@@ -23,3 +23,33 @@ body.relay-page .chat-empty h2{font-size:22px}
 body.relay-page main#content .messages{padding:8px 12px;scroll-padding-top:8px}
 body.relay-page .composer{padding:6px 10px max(6px,env(safe-area-inset-bottom))}
 body.relay-page .composer-bottom{padding-top:2px;font-size:11px;line-height:16px}
+
+/* Quiet reading surface and composer, inspired by ChatGPT's dark conversation UI. */
+body.relay-page{--bg:#212121;--surface:#2f2f2f;--raised:#383838;--text:#ececec;--muted:#b4b4b4;--label:#b4b4b4;--accent:#ededed;--line:#424242;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;color-scheme:dark}
+body.relay-page .workspace,body.relay-page main#content,body.relay-page .relay-owner-chat,body.relay-page .composer{background:var(--bg)}
+body.relay-page main#content .messages{background:var(--bg);scrollbar-width:thin;scrollbar-color:#555 transparent}
+body.relay-page main#content .messages>.message-row{max-width:760px;margin-bottom:24px}
+body.relay-page main#content .message-row .bubble{font-size:16px;line-height:1.65;letter-spacing:0;max-width:100%;color:var(--text)}
+body.relay-page main#content .message-row.outgoing .bubble{max-width:85%;background:#303030;color:#ececec;border:1px solid #ffffff04;border-radius:22px;padding:10px 16px}
+body.relay-page main#content .message-row:not(.outgoing) .bubble{background:transparent;border:0;padding:0}
+body.relay-page .message-time{font-size:11px;line-height:17px;color:#aaa}
+body.relay-page main#content .composer-input{max-width:760px;border:1px solid #414141;background:#303030;border-radius:26px;padding:4px;gap:6px;box-shadow:0 2px 8px #00000014;transition:border-color .15s,box-shadow .15s}
+body.relay-page main#content .composer-input:focus-within{border-color:#888;box-shadow:0 0 0 1px #888}
+body.relay-page main#content .composer-input textarea{font-family:inherit;font-size:16px;line-height:24px;padding:10px 0;min-height:44px;color:#ececec;caret-color:#fff}
+body.relay-page main#content .composer-input textarea::placeholder{color:#b4b4b4}
+body.relay-page main#content .composer-input .send-icon{width:44px;min-width:44px;max-width:44px;height:44px;min-height:44px;background:#eee;color:#212121;border:0;border-radius:50%;align-self:flex-end;opacity:1}
+body.relay-page main#content .composer-input .send-icon:disabled{background:#444;color:#a0a0a0;opacity:1;cursor:default}
+body.relay-page main#content .composer-input .send-icon:not(:disabled):hover{background:#fff}
+body.relay-page main#content .composer-input .relay-composer-plus{width:44px;min-width:44px;height:44px;min-height:44px;margin:0;border-radius:50%;font-size:25px;font-weight:300;color:#ddd;align-self:flex-end}
+body.relay-page main#content .composer-input .relay-composer-plus:hover{background:#444}
+body.relay-page .composer-bottom{max-width:760px;margin-inline:auto;color:#a8a8a8;text-align:center}
+body.relay-page :is(button,a,input,select,summary):focus-visible{outline:2px solid #e0e0e0;outline-offset:3px}
+body.relay-page .app-sheet{background:#282828;border:1px solid #484848;box-shadow:0 16px 60px #0006;border-radius:20px}
+body.relay-page .app-sheet::backdrop{background:#0008}
+body.relay-page .sheet-action:hover{background:#383838}
+body.relay-page .relay-attachment-chip{background:#333;border-color:#555;border-radius:14px}
+body.relay-page .chat-empty h2{font-weight:550;letter-spacing:-.5px;color:#ececec}
+body.relay-page .conversation-search{background:#212121;padding:8px 12px;border-bottom:1px solid #363636}
+body.relay-page .conversation-search input{background:#2f2f2f;border:1px solid #4a4a4a;border-radius:12px;color:#ececec}
+@media(min-width:701px){body.relay-page main#content .messages{padding:24px max(24px,calc((100% - 760px)/2)) 12px}body.relay-page .composer{padding-inline:24px;padding-bottom:12px}}
+@media(prefers-reduced-motion:reduce){body.relay-page main#content .composer-input{transition:none}}
