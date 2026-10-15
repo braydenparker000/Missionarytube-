@@ -1,1 +1,20 @@
-html,body{height:100%;min-height:0}body .workspace{height:100dvh;min-height:0;width:100%;max-width:none;padding:0}body .topbar{display:none!important}body main#content{padding-top:0!important;min-height:0;flex:1}body .relay-owner-content{height:100%;min-height:0}.private-tools{display:flex;justify-content:flex-end;gap:6px;padding:6px 12px;flex-shrink:0}.private-tools button{font-size:11px;min-height:40px;padding:6px 12px;background:transparent;color:#aaa;border:0}#notice:empty{display:none}#notice{font-size:12px;margin:4px 12px}.mast-page .workspace{display:flex;flex-direction:column}.mast-page .relay-owner-panel{height:100%;min-height:0}.mast-page .relay-owner-chat .messages{min-height:0}body .composer{padding-bottom:max(10px,env(safe-area-inset-bottom))}
+/* Embedded chats have their own bounded viewport; standalone header space does not apply. */
+html,body{height:100%;min-height:0;overflow:hidden}
+body.relay-page .workspace{display:flex;flex-direction:column;height:min(var(--app-height,100dvh),100dvh);min-height:0;width:100%;max-width:none;margin:0;padding:0}
+body.relay-page .topbar{display:none!important}
+body.relay-page main#content{padding:0!important;min-height:0;height:auto;flex:1;overflow:hidden}
+body.relay-page .relay-owner-content .relay-owner-panel:not(.relay-owner-chat){padding:16px;overflow:auto}
+body.relay-page .relay-owner-content .relay-owner-chat{height:100%;min-height:0}
+body.relay-page main#content .messages{padding:16px 12px;scroll-padding-top:16px;min-height:0;overscroll-behavior:contain}
+body.relay-page .conversation-search{margin-top:0;flex-shrink:0}
+.private-tools{display:flex;justify-content:flex-end;gap:6px;padding:2px 8px;flex-shrink:0;border-bottom:1px solid #ffffff0d}
+.private-tools button{font-size:11px;min-height:40px;padding:6px 12px;background:transparent;color:#aaa;border:0}
+#notice:empty{display:none}#notice{font-size:12px;margin:4px 12px;flex-shrink:0}
+body.relay-page .composer{padding:8px 12px max(8px,env(safe-area-inset-bottom));flex-shrink:0}
+body.relay-page .composer-input textarea{font-size:16px;max-height:min(120px,25dvh);min-width:0}
+body.relay-page main#content .message-row .bubble{max-width:88%;font-size:16px;line-height:1.45;overflow-wrap:anywhere}
+body.relay-page .app-sheet{max-height:calc(100dvh - 12px);overflow:auto;padding:16px}
+body.relay-page .relay-attachment-summary,#selected-files{max-height:28dvh;overflow:auto;overscroll-behavior:contain}
+body.relay-page .chat-empty{padding:16px 12px}
+body.relay-page .chat-empty h2{font-size:22px}
+@media(max-height:420px){.private-tools{padding:0 6px}.private-tools button{min-height:32px;padding:2px 10px}body.relay-page .composer-bottom{padding-top:2px}body.relay-page .composer-bottom>span{font-size:9px}body.relay-page main#content .messages{padding-top:8px}body.relay-page .chat-empty h2{font-size:18px}}

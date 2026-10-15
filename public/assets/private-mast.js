@@ -2,7 +2,7 @@ import {readTaskPages} from './private-tasks.js';
 import {museShell,museSheet as sheet} from './private-muse-shell.js';
 import {createMastWork} from './private-mast-work.js';
 import {createRelayOwnerApi} from './relay-owner-api.js';
-import {createAttachmentDraft,RELAY_ATTACHMENT_TYPES} from './relay-attachments.js';
+import {createAttachmentDraft,RELAY_ATTACHMENT_TYPES} from './private-attachments.js';
 import {createPrivateAttachmentContent} from './relay-attachment-content.js';
 import {createMastDraftStore} from './mast-draft.js';
 import {richText,copyText,autosize,messageDay,icon} from './ui.js';
@@ -20,7 +20,7 @@ $('chat-tab').onclick=()=>destination(false);$('work-tab').onclick=()=>destinati
 const draft=createAttachmentDraft({enabled:()=>enabled&&api.hasCredential,upload:(file,{id,messageId,signal})=>api.uploadAttachment(messageId,id,file,{signal}),discard:(messageId,id)=>api.discardAttachment(messageId,id),onChange:renderDraft});
 picker.accept=RELAY_ATTACHMENT_TYPES.join(',');
 function renderDraft(){
-  const state=draft.snapshot();send.disabled=busy||(!pending&&!input.value.trim()&&!state.items.length);selected.replaceChildren();choose.disabled=busy||state.locked||!!pending;input.required=!state.items.length&&!pending?.files.length;
+  const state=draft.snapshot();send.disabled=busy||state.preparing||(!pending&&!input.value.trim()&&!state.items.length);selected.replaceChildren();choose.disabled=busy||state.preparing||state.locked||!!pending;input.required=!state.items.length&&!pending?.files.length;
   for(const item of state.items){const row=document.createElement('div');row.className='mast-selected-file';
     const text=document.createElement('span');text.textContent=item.name+' · '+({selected:'Ready to send',uploading:'Uploading…',ready:'Uploaded',error:item.error}[item.status]);
     const remove=document.createElement('button');remove.type='button';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+item.name);remove.disabled=state.locked;remove.onclick=()=>draft.remove(item.id);row.append(text,remove);selected.append(row);

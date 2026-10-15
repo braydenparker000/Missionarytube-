@@ -1,5 +1,5 @@
 import {createRelayOwnerController,createRelayOwnerUI} from './relay-owner-ui.js';
-import {createRelayAttachmentUI} from './relay-attachments.js';
+import {createRelayAttachmentUI} from './private-attachments.js';
 import {sheet,appViewport} from './ui.js';
 import {createRelayOwnerApi} from './relay-owner-api.js';
 import {readTaskPages} from './private-tasks.js';
