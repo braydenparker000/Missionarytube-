@@ -1,0 +1,144 @@
+{
+  "schema": 1,
+  "files": [
+    {
+      "path": "assets/hub.js",
+      "sha256": "9443bb98a5d80cb8cb5c2a3d1fc3040d1f775a8af10b41fc5dea263bce854441",
+      "before": "3c5f85004864be7c45015f674022cda47ce68d31a08f515e15777ce3f0635364",
+      "bytes": 7543
+    },
+    {
+      "path": "assets/private-chat-frame.css",
+      "sha256": "38e34cd21afdd044b250dc1cb9bbf284d5dae19ec12ad0a4a90c85c0ba9ef25f",
+      "before": null,
+      "bytes": 767
+    },
+    {
+      "path": "assets/private-lucy.js",
+      "sha256": "bb803ddb16ccd3941e9ce4cb85139e2ef2f4bd902753d774307a32501beda1b2",
+      "before": null,
+      "bytes": 2169
+    },
+    {
+      "path": "assets/private-mast-work.js",
+      "sha256": "4eca2738aa511aee769cc02423cf88543adb78011bb16bcc4cf0c8641a7babc7",
+      "before": null,
+      "bytes": 5263
+    },
+    {
+      "path": "assets/private-mast.js",
+      "sha256": "77f01d293416b5d0c762a64d350fa1a7248915d7041840487da85d50f9862fe1",
+      "before": null,
+      "bytes": 15179
+    },
+    {
+      "path": "assets/private-muse-shell.js",
+      "sha256": "58658c212b5ca5cb0e072deb3cfd9ac6de4da2619f8eaafb1d65556f7e417810",
+      "before": null,
+      "bytes": 4184
+    },
+    {
+      "path": "assets/private-tasks.js",
+      "sha256": "ab64493a92177690db3dfd253b99d09826c3233f9b8c3d7e77c0953bc2453b16",
+      "before": null,
+      "bytes": 1019
+    },
+    {
+      "path": "assets/private-workspace.css",
+      "sha256": "4851fd90a8ca7e22886ede0a7b63456049c3dad6fa89795a824acd030138ad17",
+      "before": null,
+      "bytes": 4902
+    },
+    {
+      "path": "assets/private-workspace.js",
+      "sha256": "a08717c6e03d7513a14e8c31466fb89ae5ce877a76ccbbb820debbdb3584a674",
+      "before": null,
+      "bytes": 5515
+    },
+    {
+      "path": "private/index.html",
+      "sha256": "1d92d2d8a8b7e15659194eaaaae3071be6dbbc8ba815fef5ca0c338a5165877f",
+      "before": null,
+      "bytes": 2304
+    },
+    {
+      "path": "private/lucy.html",
+      "sha256": "39d8b1811b129ab680d97ba58916e728027b540951f3f9089fbd75732cfc5923",
+      "before": null,
+      "bytes": 1303
+    },
+    {
+      "path": "private/mast.html",
+      "sha256": "8b1a4889fbe303dd8f1b86b3792542a68832924f12dc6d9fc91569cb0ad8f116",
+      "before": null,
+      "bytes": 4213
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "assets/config.js",
+      "sha256": "68348a3626a9e5374802fcecffd439b946e4335ec50384d964f79f86ca4e5c19"
+    },
+    {
+      "path": "assets/conversation.css",
+      "sha256": "e1c2c3a7382f85e74e81e8fa998f51ec554418af77e22355b32fdc027c986e63"
+    },
+    {
+      "path": "assets/file-save.js",
+      "sha256": "372bbad0c13e254aecbe72750a3f2d86781172ebc2b08b164a2c6d67dfe01518"
+    },
+    {
+      "path": "assets/mast-draft.js",
+      "sha256": "b9eace966ce39a513fcdb899698566bb028bbdae3010e52abfaeaf3dc9991020"
+    },
+    {
+      "path": "assets/mast.css",
+      "sha256": "62b55749a00872ab7cd82f44209a5eeacd84026a66a18dc23b25e11298a8c843"
+    },
+    {
+      "path": "assets/premium.css",
+      "sha256": "3999cce53709bcbabebe7ae182d7c01e365f85b307924261baa0b16bcde5a58f"
+    },
+    {
+      "path": "assets/relay-attachment-content.js",
+      "sha256": "35d6ab366e5dab51dfbdb212ba12d29e798d0ad7352dee157774dd60c7a370ec"
+    },
+    {
+      "path": "assets/relay-attachment-contract.js",
+      "sha256": "9f4d083d17ea6dc914c3c7fdcf1f8baad0dda0a323072be1f4cd7c96518d92f2"
+    },
+    {
+      "path": "assets/relay-attachments.js",
+      "sha256": "c84a89ecbac377345eedca05035a49f5e67d0d045204c59270e979f5245edce9"
+    },
+    {
+      "path": "assets/relay-draft-store.js",
+      "sha256": "d5dcacb7770e6d0ee980c22feaf25cbf9c9e40db3a9f3e0245985c56e98c3f6b"
+    },
+    {
+      "path": "assets/relay-menu-history.js",
+      "sha256": "f2c7517550b3348e2324ef79a35f351811bf8662ed02344f8d1c62d250b946d1"
+    },
+    {
+      "path": "assets/relay-owner-api.js",
+      "sha256": "8546e3778244fd1b8c8501e8ad7ebbae23e910eba9e68c16aed6911d273c2e17"
+    },
+    {
+      "path": "assets/relay-owner-ui.js",
+      "sha256": "6aef5fbda5c7cab14b19292cf1210cf95920972a3c7e04a44632f281e35a18e1"
+    },
+    {
+      "path": "assets/relay.css",
+      "sha256": "020ece525dace587075b361a0780fcb735def59e72d62c775c243a7e676a92fb"
+    },
+    {
+      "path": "assets/shell.css",
+      "sha256": "0ef93e3305309e5d5967993f82e886ace3cf16483a935ce692147172a1b6f0e2"
+    },
+    {
+      "path": "assets/ui.js",
+      "sha256": "3c2fa5bda1736ea0e66b3ecd56b573c061f45eb0e377d658cc009fcd96805e08"
+    }
+  ],
+  "source": "59620a15b5872e683535c468d0c8deb5a4ee469a"
+}

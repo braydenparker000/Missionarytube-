@@ -1,0 +1,64 @@
+name: Publish private Jarvis workspace
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: azure-production
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Read exact source revision
+        id: source
+        run: echo "sha=$(node -p 'JSON.parse(require("fs").readFileSync("scripts/private-workspace-pins.json")).source')" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker999/jarvis
+          ref: ${{ steps.source.outputs.sha }}
+          path: .private-workspace-source
+          persist-credentials: false
+      - run: npm ci --ignore-scripts
+        working-directory: .private-workspace-source
+      - name: Prepare patch and verify existing live dependencies
+        run: node scripts/publish-private-workspace.mjs prepare
+      - name: Test private workspace with real routing and synthetic data only
+        working-directory: .private-workspace-source
+        env:
+          PRIVATE_WORKSPACE_CHROME: /usr/bin/google-chrome
+          PRIVATE_WORKSPACE_ROOT: ${{ github.workspace }}/.private-workspace-stage
+        run: node --test tests/private-workspace*.test.js tests/relay-owner-ui.test.js tests/relay-owner-completion-semantics.test.js tests/relay-mast.test.js tests/relay-mast-files.test.js tests/relay-mast-work.test.js tests/relay-owner-attachments.test.js tests/relay-owner-assistant-attachments.test.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: private-workspace-before-${{ github.run_id }}
+          path: private-workspace-publication/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Sign in using existing Azure identity
+        id: azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Publish only pinned static files and verify live bytes
+        run: node scripts/publish-private-workspace.mjs publish
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: private-workspace-evidence-${{ github.run_id }}
+          path: private-workspace-publication/
+          retention-days: 90
+      - name: End Azure session
+        if: ${{ always() && steps.azure.outcome == 'success' }}
+        run: az logout
