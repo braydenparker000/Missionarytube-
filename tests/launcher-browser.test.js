@@ -170,11 +170,11 @@ test('launcher browser behavior', { skip: executablePath ? false : 'Install Chro
         assert.equal(await link.getAttribute('href'), app.href);
         await link.click();
         await page.waitForURL(origin + app.href, { waitUntil: 'domcontentloaded' });
-        assert.equal(new URL(page.url()).pathname, app.href);
+        assert.equal(new URL(page.url()).pathname, app.href.split('#')[0]);
         assert.equal(await page.locator('body.launcher-page').count(), 0, 'Launcher styling leaves with Home');
         if (app.id === 'jarvis') {
-          assert.equal(await page.title(), 'Relay · Jarvis');
-          assert.equal(await page.getByRole('heading', { name: 'Relay', exact: true }).count(), 1);
+          assert.equal(await page.title(), 'Jarvis · Private workspace');
+          assert.equal(await page.getByRole('heading', { name: 'Lucy', exact: true }).count(), 1);
         }
       }
       await finish(session);
@@ -206,23 +206,23 @@ test('launcher browser behavior', { skip: executablePath ? false : 'Install Chro
       assert.equal(await page.locator('.favorite-mark').count(), 3);
       await page.getByRole('link', { name: 'Favorites', exact: true }).click();
       assert.equal(new URL(page.url()).pathname, '/favorites/');
-      assert.deepEqual(await names(page), ['Relay', 'Poweramp', 'My Media']);
+      assert.deepEqual(await names(page), ['Jarvis', 'Poweramp', 'My Media']);
       await page.getByRole('button', { name: 'Edit favorites' }).click();
-      assert.equal(await page.getByRole('checkbox', { name: 'Relay', exact: true }).isChecked(), true);
+      assert.equal(await page.getByRole('checkbox', { name: 'Jarvis', exact: true }).isChecked(), true);
       await page.getByRole('checkbox', { name: 'Poweramp', exact: true }).uncheck();
       await page.getByRole('checkbox', { name: 'Guitar', exact: true }).check();
       await page.getByRole('button', { name: 'Save favorites' }).click();
       await page.reload();
       await page.locator('.launcher-list').waitFor();
-      assert.deepEqual(await names(page), ['Relay', 'Guitar', 'My Media']);
+      assert.deepEqual(await names(page), ['Jarvis', 'Guitar', 'My Media']);
       assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('jarvis.preferences.v1'))), { favorites: ['jarvis', 'guitar', 'mymedia'] });
       await page.locator('.brand').click();
-      assert.equal(await page.locator('.launcher-link[href="/jarvis/"] .favorite-mark').count(), 1);
+      assert.equal(await page.locator('.launcher-link[href="/private/"] .favorite-mark').count(), 1);
       await page.getByRole('button', { name: 'Search apps' }).click();
       await page.getByRole('searchbox', { name: 'Find an app' }).fill(' PoWeRaMp ');
       assert.deepEqual(await names(page), ['Poweramp']);
       await page.locator('#app-search').fill('jarvis');
-      assert.deepEqual(await names(page), ['Relay']);
+      assert.deepEqual(await names(page), ['Jarvis']);
       await page.locator('#app-search').fill('nothing matches');
       assert.equal(await page.getByRole('status').filter({ hasText: 'No apps match your search.' }).count(), 1);
       await page.getByRole('button', { name: 'Search apps' }).click();
