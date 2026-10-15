@@ -53,3 +53,18 @@ body.relay-page .conversation-search{background:#212121;padding:8px 12px;border-
 body.relay-page .conversation-search input{background:#2f2f2f;border:1px solid #4a4a4a;border-radius:12px;color:#ececec}
 @media(min-width:701px){body.relay-page main#content .messages{padding:24px max(24px,calc((100% - 760px)/2)) 12px}body.relay-page .composer{padding-inline:24px;padding-bottom:12px}}
 @media(prefers-reduced-motion:reduce){body.relay-page main#content .composer-input{transition:none}}
+
+/* Black canvas: the header and drawer carry navigation, not the transcript. */
+body.relay-page{--bg:#000;--surface:#000;--raised:#000;--line:#333;background:#000}
+body.relay-page .workspace,body.relay-page main#content,body.relay-page main#content .messages,body.relay-page .relay-owner-chat,body.relay-page .composer,body.relay-page .conversation-search{background:#000}
+body.relay-page main#content .message-row.outgoing .bubble{background:#000;border:1px solid #303030}
+body.relay-page main#content .composer-input{background:#000;border-color:#555;box-shadow:none}
+body.relay-page main#content .composer-input:focus-within{border-color:#bbb;box-shadow:0 0 0 1px #777}
+body.relay-page main#content .composer-input .send-icon{background:#000;color:#fff;border:1px solid #777}
+body.relay-page main#content .composer-input .send-icon:disabled{background:#000;color:#777;border-color:#333}
+body.relay-page main#content .composer-input .send-icon:not(:disabled):hover{background:#171717}
+body.relay-page .app-sheet,body.relay-page .app-sheet .dialog-heading,body.relay-page .relay-attachment-chip{background:#000}
+body.relay-page .composer-bottom:has([data-quiet=true]){display:none}
+
+body.relay-page .chat-empty h2{font-size:22px}
+body.relay-page .message-actions{background:#000;border-color:#444}

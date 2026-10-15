@@ -10,7 +10,7 @@ const attachments=createRelayAttachmentUI({controller,openSheet:sheet,notify:tex
 controller.bindAttachments(()=>attachments.draft());
 controller.showOwner();
 ui.mount(document.getElementById('content'));
-function controls(){const textarea=document.getElementById('relay-owner-message-text');if(textarea)textarea.placeholder='Message Lucy privately…';const input=document.querySelector('.composer-input');if(input&&!input.querySelector('.private-attach')){const button=document.createElement('button');button.type='button';button.className='relay-composer-plus private-attach';button.textContent='+';button.setAttribute('aria-label','Attach images or files to Lucy');button.onclick=attachments.open;input.prepend(button);}attachments.sync();document.getElementById('disconnect').hidden=!controller.hasCredential;}
+function controls(){const textarea=document.getElementById('relay-owner-message-text');if(textarea)textarea.placeholder='Message Lucy…';const input=document.querySelector('.composer-input');if(input&&!input.querySelector('.private-attach')){const button=document.createElement('button');button.type='button';button.className='relay-composer-plus private-attach';button.textContent='+';button.setAttribute('aria-label','Attach images or files to Lucy');button.onclick=attachments.open;input.prepend(button);}attachments.sync();document.getElementById('disconnect').hidden=!controller.hasCredential;}
 controller.subscribe(controls);controls();appViewport();
 document.getElementById('search').onclick=()=>ui.toggleSearch();document.getElementById('account').onclick=()=>controller.showAccount();document.getElementById('disconnect').onclick=()=>controller.disconnect();
 // No public store or transport is imported. Recipient is fixed for this document.
@@ -18,3 +18,6 @@ addEventListener('message',event=>{if(event.origin!==location.origin||event.sour
 
 window.jarvisPrivateReader=Object.freeze({get connected(){return api.hasCredential;},list:()=>readTaskPages(cursor=>api.jobs(cursor)),detail:id=>api.jobDetail(id),refresh:()=>ui.refresh()});
 addEventListener('storage',event=>{if(event.key==='jarvis.relay.owner-session.v1'){api.refreshStoredCredential();location.reload();}});
+
+const quietStatus=new MutationObserver(()=>{for(const el of document.querySelectorAll('.composer-bottom [role=status]'))el.dataset.quiet=String(el.textContent.trim()==='Private · messages and work requests');});
+quietStatus.observe(document.getElementById('content'),{childList:true,subtree:true,characterData:true});

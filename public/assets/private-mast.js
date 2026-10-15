@@ -52,7 +52,7 @@ function render(){
     const footer=document.createElement('div');footer.className='message-footer';footer.append(time,copy);body.append(footer);messages.append(row);
   }
   content.prune();
-  if(!messages.children.length){const p=document.createElement('div');p.className='chat-empty';const title=document.createElement('h2');title.textContent=query?'No matching messages.':'Your private conversation.';const note=document.createElement('p');note.textContent=enabled?'Write to Mast. Only messages sent here are shared.':'Muse is not connected yet. Your private messages never go to the public Muse inbox.';p.append(title,note);messages.append(p);}
+  if(!messages.children.length){const p=document.createElement('div');p.className='chat-empty';const title=document.createElement('h2');title.textContent=query?'No matching messages.':'Your private conversation.';const note=document.createElement('p');note.textContent=enabled?'Write to Mast. Only messages sent here are shared.':'Muse is not connected yet. Your private messages never go to the public Muse inbox.';note.hidden=enabled&&!query;p.append(title,note);messages.append(p);}
   messages.scrollTop=bottom?messages.scrollHeight:position;
   $('latest').hidden=bottom;$('export').disabled=!history.size;
 }
@@ -123,3 +123,6 @@ if(['#tasks','#work'].includes(location.hash))destination(true,false);
 
 // Fixed Mast recipient; parent receives read-only functions, never a credential.
 window.jarvisPrivateReader=Object.freeze({get connected(){return api.hasCredential;},list:()=>readTaskPages(cursor=>api.mastWork('list',{after:cursor})),detail:id=>api.mastWork('read',{job_id:id}),refresh});
+
+const quietStatus=new MutationObserver(()=>{status.dataset.quiet=String(status.textContent.trim()==='Only this conversation is shared with Muse.');});
+quietStatus.observe(status,{childList:true,characterData:true,subtree:true});
