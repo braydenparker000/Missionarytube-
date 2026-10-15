@@ -4,73 +4,73 @@
     {
       "path": "assets/hub.js",
       "sha256": "9443bb98a5d80cb8cb5c2a3d1fc3040d1f775a8af10b41fc5dea263bce854441",
-      "before": "3c5f85004864be7c45015f674022cda47ce68d31a08f515e15777ce3f0635364",
+      "before": "9443bb98a5d80cb8cb5c2a3d1fc3040d1f775a8af10b41fc5dea263bce854441",
       "bytes": 7543
     },
     {
       "path": "assets/private-chat-frame.css",
       "sha256": "38e34cd21afdd044b250dc1cb9bbf284d5dae19ec12ad0a4a90c85c0ba9ef25f",
-      "before": null,
+      "before": "38e34cd21afdd044b250dc1cb9bbf284d5dae19ec12ad0a4a90c85c0ba9ef25f",
       "bytes": 767
     },
     {
       "path": "assets/private-lucy.js",
-      "sha256": "bb803ddb16ccd3941e9ce4cb85139e2ef2f4bd902753d774307a32501beda1b2",
-      "before": null,
-      "bytes": 2169
+      "sha256": "ea74ce29994041938fe3c9537b5a59e8639649c913375900183310903c7ff037",
+      "before": "bb803ddb16ccd3941e9ce4cb85139e2ef2f4bd902753d774307a32501beda1b2",
+      "bytes": 2212
     },
     {
       "path": "assets/private-mast-work.js",
       "sha256": "4eca2738aa511aee769cc02423cf88543adb78011bb16bcc4cf0c8641a7babc7",
-      "before": null,
+      "before": "4eca2738aa511aee769cc02423cf88543adb78011bb16bcc4cf0c8641a7babc7",
       "bytes": 5263
     },
     {
       "path": "assets/private-mast.js",
-      "sha256": "77f01d293416b5d0c762a64d350fa1a7248915d7041840487da85d50f9862fe1",
-      "before": null,
-      "bytes": 15179
+      "sha256": "8681729f1b1abe79dad9022ddebb52be212e7695a9a1881fe0148c080e5e1adc",
+      "before": "77f01d293416b5d0c762a64d350fa1a7248915d7041840487da85d50f9862fe1",
+      "bytes": 15222
     },
     {
       "path": "assets/private-muse-shell.js",
       "sha256": "58658c212b5ca5cb0e072deb3cfd9ac6de4da2619f8eaafb1d65556f7e417810",
-      "before": null,
+      "before": "58658c212b5ca5cb0e072deb3cfd9ac6de4da2619f8eaafb1d65556f7e417810",
       "bytes": 4184
     },
     {
       "path": "assets/private-tasks.js",
       "sha256": "ab64493a92177690db3dfd253b99d09826c3233f9b8c3d7e77c0953bc2453b16",
-      "before": null,
+      "before": "ab64493a92177690db3dfd253b99d09826c3233f9b8c3d7e77c0953bc2453b16",
       "bytes": 1019
     },
     {
       "path": "assets/private-workspace.css",
       "sha256": "4851fd90a8ca7e22886ede0a7b63456049c3dad6fa89795a824acd030138ad17",
-      "before": null,
+      "before": "4851fd90a8ca7e22886ede0a7b63456049c3dad6fa89795a824acd030138ad17",
       "bytes": 4902
     },
     {
       "path": "assets/private-workspace.js",
-      "sha256": "a08717c6e03d7513a14e8c31466fb89ae5ce877a76ccbbb820debbdb3584a674",
-      "before": null,
-      "bytes": 5515
+      "sha256": "1ab860c04c8af5c22c5c5d6e1e107f418e2ac952bf1d6857a584b7db7d83c128",
+      "before": "a08717c6e03d7513a14e8c31466fb89ae5ce877a76ccbbb820debbdb3584a674",
+      "bytes": 5635
     },
     {
       "path": "private/index.html",
       "sha256": "1d92d2d8a8b7e15659194eaaaae3071be6dbbc8ba815fef5ca0c338a5165877f",
-      "before": null,
+      "before": "1d92d2d8a8b7e15659194eaaaae3071be6dbbc8ba815fef5ca0c338a5165877f",
       "bytes": 2304
     },
     {
       "path": "private/lucy.html",
       "sha256": "39d8b1811b129ab680d97ba58916e728027b540951f3f9089fbd75732cfc5923",
-      "before": null,
+      "before": "39d8b1811b129ab680d97ba58916e728027b540951f3f9089fbd75732cfc5923",
       "bytes": 1303
     },
     {
       "path": "private/mast.html",
       "sha256": "8b1a4889fbe303dd8f1b86b3792542a68832924f12dc6d9fc91569cb0ad8f116",
-      "before": null,
+      "before": "8b1a4889fbe303dd8f1b86b3792542a68832924f12dc6d9fc91569cb0ad8f116",
       "bytes": 4213
     }
   ],
@@ -140,5 +140,5 @@
       "sha256": "3c2fa5bda1736ea0e66b3ecd56b573c061f45eb0e377d658cc009fcd96805e08"
     }
   ],
-  "source": "59620a15b5872e683535c468d0c8deb5a4ee469a"
+  "source": "01bd76a31d7025d2eadd25e807c7d3bd9d272bfa"
 }
