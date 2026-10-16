@@ -3,7 +3,7 @@ import {readTaskPages,taskStatus} from './private-tasks.js';
 import {createRelayOwnerApi,OWNER_SESSION_KEY} from './relay-owner-api.js';
 const body=document.getElementById('view-body'),status=document.getElementById('workspace-status');
 const navigation=createRelayMenuHistory({history,getURL:()=>location.href});
-const drawer=document.getElementById('navigation-drawer');
+const drawer=document.getElementById('navigation-drawer'),picker=document.getElementById('agent-panel'),pickerButton=document.getElementById('agent-select');
 const titles={lucy:'Lucy',mast:'Mast',makima:'Makima',tasks:'Tasks',collaboration:'Collaboration'},frames=new Map();let current=null,epoch=0,lastChat='lucy';
 const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text)el.textContent=text;if(cls)el.className=cls;return el;};
 const agentName=agent=>agent==='lucy'?'Lucy':'Mast';
@@ -16,7 +16,7 @@ async function tasks(generation){const list=node('div',null,'tasks');body.append
  }catch(error){if(epoch!==generation)return;if(['expired','revoked','unauthorized'].includes(error.kind)){invalidate(true);return;}section.replaceChildren(node('h2',agentName(agent)),node('p',error.status===503?'Tasks are not available from this agent yet.':'Sign in to '+agentName(agent)+' or reconnect to load its private tasks.','source-note'));}}));
  if(epoch===generation)status.textContent='Makima is disconnected. No Makima tasks are queried.';
 }
-function show(){const next=location.hash.slice(1);current=Object.hasOwn(titles,next)?next:'lucy';if(['lucy','mast'].includes(current))lastChat=current;const chatLink=document.querySelector('#destinations a');chatLink.href='#'+lastChat;chatLink.dataset.view=lastChat;document.body.dataset.view=current;const generation=++epoch;clearSurface();status.textContent='';document.getElementById('view-title').textContent=titles[current];document.getElementById('agent-select').value=current;for(const link of document.querySelectorAll('a[data-view]')){if(link.dataset.view===current)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}document.getElementById('refresh').hidden=['makima','collaboration'].includes(current);
+function show(){const next=location.hash.slice(1);current=Object.hasOwn(titles,next)?next:'lucy';if(['lucy','mast'].includes(current))lastChat=current;const chatLink=document.querySelector('#destinations a');chatLink.href='#'+lastChat;chatLink.dataset.view=lastChat;document.body.dataset.view=current;const generation=++epoch;clearSurface();status.textContent='';document.getElementById('view-title').textContent=titles[current];for(const option of picker.querySelectorAll('[data-agent]'))option.setAttribute('aria-pressed',String(option.dataset.agent===current));for(const link of document.querySelectorAll('a[data-view]')){if(link.dataset.view===current)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}document.getElementById('refresh').hidden=['makima','collaboration'].includes(current);
  if(['lucy','mast'].includes(current)){let frame=frames.get(current);if(!frame){frame=node('iframe');frame.title='Private conversation with '+titles[current];frame.src='/private/'+current+'.html';frames.set(current,frame);body.append(frame);}frame.hidden=false;frame.inert=false;status.textContent='To '+titles[current]+' only · private owner conversation';}
  else if(current==='tasks')tasks(generation);
  else if(current==='makima')empty('Makima will join later','Grokbot is not connected yet.','K','Disconnected · coming later');
@@ -32,7 +32,13 @@ fitViewport();window.visualViewport?.addEventListener('resize',fitViewport);addE
 
 for(const button of document.querySelectorAll('[data-chat-action]'))button.onclick=()=>navigation.navigate(()=>frames.get(current)?.contentDocument?.getElementById(button.dataset.chatAction)?.click());
 
-document.getElementById('agent-select').onchange=event=>{location.hash=event.target.value;};
+pickerButton.onclick=()=>{picker.showModal();pickerButton.setAttribute('aria-expanded','true');navigation.open(picker);(picker.querySelector('[aria-pressed="true"]')||picker.querySelector('[data-agent]')).focus();};
+document.getElementById('close-agent-panel').onclick=()=>navigation.close(picker);
+picker.addEventListener('cancel',event=>{event.preventDefault();navigation.close(picker);});
+picker.addEventListener('close',()=>{pickerButton.setAttribute('aria-expanded','false');navigation.closed(picker);pickerButton.focus();});
+picker.addEventListener('click',event=>{if(event.target===picker){const r=picker.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)navigation.close(picker);}});
+for(const option of picker.querySelectorAll('[data-agent]'))option.onclick=()=>navigation.navigate(()=>{location.hash=option.dataset.agent;});
+picker.addEventListener('keydown',event=>{const options=[...picker.querySelectorAll('[data-agent]')],index=options.indexOf(document.activeElement);if(index<0)return;let next;if(event.key==='ArrowDown')next=(index+1)%options.length;else if(event.key==='ArrowUp')next=(index+options.length-1)%options.length;else if(event.key==='Home')next=0;else if(event.key==='End')next=options.length-1;else return;event.preventDefault();options[next].focus();});
 document.getElementById('open-drawer').onclick=()=>{drawer.showModal();navigation.open(drawer);};
 document.getElementById('close-drawer').onclick=()=>navigation.close(drawer);
 drawer.addEventListener('cancel',event=>{event.preventDefault();navigation.close(drawer);});

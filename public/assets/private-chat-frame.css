@@ -68,3 +68,15 @@ body.relay-page .composer-bottom:has([data-quiet=true]){display:none}
 
 body.relay-page .chat-empty h2{font-size:22px}
 body.relay-page .message-actions{background:#000;border-color:#444}
+
+/* Actions participate in bubble layout instead of extending 52px beyond it. */
+body.relay-page main#content .message-row .message-actions{position:static;inset:auto;display:inline-flex;align-items:center;justify-content:center;margin:8px 0 0;width:44px;min-width:44px;height:44px;min-height:44px;opacity:1;vertical-align:middle}
+body.relay-page :is(.workspace,#content,.relay-owner-chat,.messages,.message-row,.bubble,.message-body,.composer,.composer-input,.relay-attachment-summary,.relay-attachment-chip){min-width:0;max-width:100%}
+body.relay-page .message-body{overflow-wrap:anywhere}
+body.relay-page .rich-body :is(.code-block,pre){min-width:0;max-width:100%}
+body.relay-page .rich-body pre{overflow:auto;white-space:pre;overscroll-behavior-x:contain}
+body.relay-page :is(.bubble,.app-sheet) :is(img,video,canvas,iframe){max-width:100%;object-fit:contain}
+body.relay-page :is(.bubble,.app-sheet) img{height:auto}
+body.relay-page .composer-input textarea{width:0;flex:1 1 0;min-width:0}
+body.relay-page :is(.relay-attachment-chip,.relay-attachment-item) :is(span,div){min-width:0;overflow-wrap:anywhere}
+body.relay-page .app-sheet :is(input,textarea){max-width:100%;min-width:0}
