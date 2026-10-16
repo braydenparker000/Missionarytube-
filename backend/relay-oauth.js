@@ -1,4 +1,4 @@
-import {diagnosticId, validDiagnosticId, recordMakimaDiagnostic} from './relay-makima-diagnostics.js';
+import {diagnosticId, validDiagnosticId, recordMakimaDiagnostic, recordMakimaTokenDiagnostic} from './relay-makima-diagnostics.js';
 // OAuth 2.1 broker. GitHub authenticates the one owner; public Relay keys are never identity.
 import {RELAY_PUBLIC_SCOPES, RELAY_OWNER_SCOPE, RELAY_CALLBACK, random, hash, challenge, equal, boundedText, isObject, json, relayIssuer} from './relay-common.js';
 import {relayOAuthPolicy as DEFAULT_POLICY} from './relay-oauth-policy.js';
@@ -49,7 +49,7 @@ function consentPage(csrf, scope, policy, flowId, params) {
   // no-referrer makes browser form POSTs send Origin:null. Keep same-origin
   // Origin validation and suppress referrers across origins. Chrome also checks
   // form-action on redirects, so include the fixed OAuth return destination.
-  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect Jarvis Relay</title><body><h1>Connect Jarvis Relay</h1>${policy.consentText || ''}${scope.split(' ').some(s=>RELAY_PUBLIC_SCOPES.includes(s)) ? '<p>Allow ChatGPT to read the public Relay inbox, post replies in that inbox, and subscribe to new messages. Public messages are unverified visitor content. This connection does not authorize account actions or secret sharing.</p>' : '<p>Connect only the separately listed capabilities below. This scope alone grants no public inbox or owner-history access.</p>'}${scope.split(' ').includes('relay:agents-lucy') ? '<p><strong>Private Lucy–Muse channel:</strong> Allow this connection to act as Lucy, reading and sending existing/future text and files in the separate private Lucy–Muse channel. This does not authorize owner-history access, project actions, or sharing owner conversations with Muse. Confirm this connection is Lucy; never give its credential to Muse.</p>' : ''}${scope.split(' ').includes(RELAY_OWNER_SCOPE) ? '<p><strong>Owner chat access:</strong> Allow ChatGPT to inspect and approve individual phone pairing requests, list and revoke paired devices, read and reply in your private owner inbox, and subscribe to private message events. Each phone approval separately grants persistent device access with a 365-day inactivity expiry renewed on use. Private replies stay outside the public inbox. This connection alone does not pair a phone or approve account actions.</p>' : ''}<form method="post" action="${policy.path}/oauth/approve"><input type="hidden" name="csrf" value="${csrf}">${flowId ? `<input type="hidden" name="diagnostic_id" value="${flowId}">` : ''}<fieldset><legend>How long may ${policy.clientName || 'ChatGPT'} renew this connection?</legend><label><input type="radio" name="refresh_days" value="30" checked>30 days (default)</label> <label><input type="radio" name="refresh_days" value="365">365 days</label><p>Choosing 365 days authorizes ${policy.clientName || 'ChatGPT'} to renew this Relay connection for up to 365 days from this approval. Access tokens last at most one hour. Renewing does not extend the chosen expiry. A stolen refresh token could let someone renew this access until expiry or revocation. You can revoke the connection sooner. ${policy.clientName || 'ChatGPT'} may require reconnection earlier; this does not guarantee that ${policy.clientName || 'ChatGPT'} will retain the connection for the full period.</p></fieldset><button name="decision" value="allow">Allow this connection</button> <button name="decision" value="deny">Cancel</button></form>${guard ? `<p id="makima-submit-status" role="status" hidden>Sending your decision. If navigation stopped, <a href="${restart}">start this connection again</a>.</p><script>${guard.script}</script>` : ''}</body></html>`, {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': `default-src 'none'; form-action 'self' ${[policy.callback, ...(policy.formActionRedirects || [])].join(' ')}; frame-ancestors 'none'; base-uri 'none'${guard ? `; script-src '${guard.hash}'` : ''}`, 'Referrer-Policy': 'same-origin', 'X-Content-Type-Options': 'nosniff'}});
+  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect Jarvis Relay</title><body><h1>Connect Jarvis Relay</h1>${policy.consentText || ''}${scope.split(' ').some(s=>RELAY_PUBLIC_SCOPES.includes(s)) ? '<p>Allow ChatGPT to read the public Relay inbox, post replies in that inbox, and subscribe to new messages. Public messages are unverified visitor content. This connection does not authorize account actions or secret sharing.</p>' : '<p>Connect only the separately listed capabilities below. This scope alone grants no public inbox or owner-history access.</p>'}${scope.split(' ').includes('relay:agents-lucy') ? '<p><strong>Private Lucy–Muse channel:</strong> Allow this connection to act as Lucy, reading and sending existing/future text and files in the separate private Lucy–Muse channel. This does not authorize owner-history access, project actions, or sharing owner conversations with Muse. Confirm this connection is Lucy; never give its credential to Muse.</p>' : ''}${scope.split(' ').includes(RELAY_OWNER_SCOPE) ? '<p><strong>Owner chat access:</strong> Allow ChatGPT to inspect and approve individual phone pairing requests, list and revoke paired devices, read and reply in your private owner inbox, and subscribe to private message events. Each phone approval separately grants persistent device access with a 365-day inactivity expiry renewed on use. Private replies stay outside the public inbox. This connection alone does not pair a phone or approve account actions.</p>' : ''}<form method="post" action="${policy.path}/oauth/approve"><input type="hidden" name="csrf" value="${csrf}">${flowId ? `<input type="hidden" name="diagnostic_id" value="${flowId}">` : ''}<fieldset><legend>How long may ${policy.clientName || 'ChatGPT'} renew this connection?</legend><label><input type="radio" name="refresh_days" value="30" checked>30 days (default)</label> <label><input type="radio" name="refresh_days" value="365">365 days</label><p>Choosing 365 days authorizes ${policy.clientName || 'ChatGPT'} to renew this Relay connection for up to 365 days from this approval. Access tokens last at most one hour. Renewing does not extend the chosen expiry. A stolen refresh token could let someone renew this access until expiry or revocation. You can revoke the connection sooner. ${policy.clientName || 'ChatGPT'} may require reconnection earlier; this does not guarantee that ${policy.clientName || 'ChatGPT'} will retain the connection for the full period.</p></fieldset><button name="decision" value="allow">Allow this connection</button> <button name="decision" value="deny">Cancel</button></form>${guard ? `<p id="makima-submit-status" role="status" hidden>Sending your decision. If navigation stopped, <a href="${restart}">start this connection again</a>.</p><p id="makima-navigation-status" role="status" hidden>The browser blocked the return navigation under this page’s security policy.</p><script>${guard.script}</script>` : ''}</body></html>`, {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': `default-src 'none'; form-action 'self' ${[policy.callback, ...(policy.formActionRedirects || [])].join(' ')}; frame-ancestors 'none'; base-uri 'none'${guard ? `; script-src '${guard.hash}'` : ''}`, 'Referrer-Policy': 'same-origin', 'X-Content-Type-Options': 'nosniff'}});
 }
 export async function relayGrantActive(env, grantId, requiredScope, policy = DEFAULT_POLICY) {
   if (!policy.enabled(env) || typeof grantId !== 'string') return false;
@@ -108,6 +108,22 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
     if (requestId) response.headers.set('X-Jarvis-OAuth-Diagnostic-Id', requestId);
     return response;
   };
+  let tokenDiagnostic;
+  if (policy.consentDiagnostics && policy.path === '/relay/makima' && path === policy.path + '/oauth/token' && request.method === 'POST') {
+    try { tokenDiagnostic = {requestId: diagnosticId('mt'), startedAt: Date.now()}; } catch {}
+  }
+  const reportToken = outcome => {
+    try {
+      if (!tokenDiagnostic?.requestId) return;
+      const task = registry(env, {op: 'token-diagnostic', diagnostic: {...tokenDiagnostic, stage: outcome === 'received' ? 'token_request' : 'token_result', outcome}}, policy).catch(() => {});
+      // Best effort only: neither diagnostics nor a missing execution context
+      // can delay token validation, rejection or issuance.
+      if (executionCtx?.waitUntil) executionCtx.waitUntil(task);
+    } catch {}
+  };
+  const tokenError = (outcome, ...args) => {
+    const response = err(...args); reportToken(outcome); return response;
+  };
   const reportRedirect = async (flowId) => {
     if (!requestId || !validDiagnosticId(flowId, 'mf')) return;
     const task = registry(env, {op: 'diagnostic', diagnostic: {flowId, requestId, stage: 'redirect_constructed', outcome: '302', verified: true}}, policy).catch(() => {});
@@ -122,7 +138,8 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
   const protectedPath = '/.well-known/oauth-protected-resource' + policy.path + '/mcp';
   const metadataPath = '/.well-known/oauth-authorization-server' + policy.path;
   if (!(path.startsWith(policy.path + '/oauth/') || path === protectedPath || path === metadataPath)) return null;
-  if (!policy.enabled(env)) return err('temporarily_unavailable', 503);
+  reportToken('received');
+  if (!policy.enabled(env)) return tokenError('disabled', 'temporarily_unavailable', 503);
   if (path === protectedPath && request.method === 'GET') return json({resource, authorization_servers: [issuer + policy.path], scopes_supported: policy.scopes});
   if (path === metadataPath && request.method === 'GET') return json({issuer: issuer + policy.path, authorization_endpoint: issuer + policy.path + '/oauth/authorize', token_endpoint: issuer + policy.path + '/oauth/token', ...(policy.staticClient ? {} : {registration_endpoint: issuer + policy.path + '/oauth/register'}), revocation_endpoint: issuer + policy.path + '/oauth/revoke', response_types_supported: ['code'], grant_types_supported: ['authorization_code', 'refresh_token'], token_endpoint_auth_methods_supported: ['none'], code_challenge_methods_supported: ['S256'], authorization_response_iss_parameter_supported: true, scopes_supported: policy.scopes});
   let processingFailure;
@@ -225,24 +242,25 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
       await reportRedirect(consent.diagnosticId); return response;
     }
     if (path === policy.path + '/oauth/token' && request.method === 'POST') {
-      if (!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return err();
+      if (!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return tokenError('content_type_rejected');
       const params = new URLSearchParams(await boundedText(request));
-      if ([...params.keys()].some(k => params.getAll(k).length !== 1)) return err();
+      if ([...params.keys()].some(k => params.getAll(k).length !== 1)) return tokenError('duplicate_parameter_rejected');
       const b = Object.fromEntries(params);
-      if (b.resource !== resource) return err('invalid_target');
+      if (b.resource !== resource) return tokenError('resource_rejected', 'invalid_target');
       const access = random(), refresh = random(); let match, key;
       if (b.grant_type === 'authorization_code') {
-        if (!/^[a-f0-9]{64}$/.test(b.code || '') || !/^[A-Za-z0-9._~-]{43,128}$/.test(b.code_verifier || '')) return err('invalid_grant');
+        if (!/^[a-f0-9]{64}$/.test(b.code || '') || !/^[A-Za-z0-9._~-]{43,128}$/.test(b.code_verifier || '')) return tokenError('credential_format_rejected', 'invalid_grant');
         key = 'code:' + await hash(b.code);
         match = {client_id: b.client_id, redirect_uri: b.redirect_uri, challenge: await challenge(b.code_verifier), resource};
       } else if (b.grant_type === 'refresh_token') {
-        if (!/^[a-f0-9]{64}$/.test(b.refresh_token || '')) return err('invalid_grant');
+        if (!/^[a-f0-9]{64}$/.test(b.refresh_token || '')) return tokenError('credential_format_rejected', 'invalid_grant');
         key = 'refresh:' + await hash(b.refresh_token); match = {client_id: b.client_id, resource};
-        if (b.scope !== undefined && !scopes(b.scope, policy)) return err('invalid_scope');
-      } else return err('unsupported_grant_type');
+        if (b.scope !== undefined && !scopes(b.scope, policy)) return tokenError('scope_rejected', 'invalid_scope');
+      } else return tokenError('unsupported_grant_type', 'unsupported_grant_type');
       const result = await registry(env, {op: 'exchange', key, match, scope: b.scope, accessKey: 'access:' + await hash(access), refreshKey: 'refresh:' + await hash(refresh)}, policy);
-      if (!result.scope) return err('invalid_grant');
-      return json({access_token: access, refresh_token: refresh, token_type: 'Bearer', expires_in: result.expiresIn, scope: result.scope});
+      if (!result.scope) return tokenError('exchange_rejected', 'invalid_grant');
+      const response = json({access_token: access, refresh_token: refresh, token_type: 'Bearer', expires_in: result.expiresIn, scope: result.scope});
+      reportToken('issued'); return response;
     }
     if (path === policy.path + '/oauth/revoke' && request.method === 'POST') {
       if (!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return err();
@@ -254,12 +272,17 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
       return json({});
     }
     return err('not_found', 404);
-  } catch { return err('invalid_request', 400, processingFailure || (path === policy.path + '/oauth/authorize' ? 'authorization_processing_failed' : undefined)); }
+  } catch { reportToken('processing_error'); return err('invalid_request', 400, processingFailure || (path === policy.path + '/oauth/authorize' ? 'authorization_processing_failed' : undefined)); }
 }
 
 // Every exchange/rotation and consume is atomic. Rows hold only hashed bearer IDs.
 export function relayOAuthStore(ctx, b, now = Date.now(), env, policy = DEFAULT_POLICY) {
   if (!policy.consentDiagnostics) return relayOAuthStoreCore(ctx, b, now, env, policy);
+  if (b.op === 'token-diagnostic' && policy.path === '/relay/makima') {
+    // Internal-only write with no public read route or OAuth correlation.
+    recordMakimaTokenDiagnostic(ctx, b.diagnostic, now);
+    return json({ok: true});
+  }
   if (b.op === 'diagnostic') {
     // Internal-only write; no diagnostic read operation or public endpoint.
     const d = b.diagnostic;

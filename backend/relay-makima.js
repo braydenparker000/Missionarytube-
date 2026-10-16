@@ -1,6 +1,7 @@
 import {boundedText, fields, isObject, json, uuid, cursor, RelayError, relayIssuer} from './relay-common.js';
 import {relayAuthenticate, relayOAuth, relayTokenActiveInStore} from './relay-oauth.js';
 import {MAKIMA_PATH, MAKIMA_OBJECT, MAKIMA_SCOPE, MAKIMA_VERSION, makimaEnabled, makimaOAuthPolicy as policy} from './relay-makima-policy.js';
+import {diagnosticId} from './relay-makima-diagnostics.js';
 
 const channel = 'makima';
 const schema = (properties, required = []) => ({type:'object',properties,required,additionalProperties:false});
@@ -62,7 +63,19 @@ export async function makimaConnector(request, env, executionCtx) {
   if (!(path.startsWith(MAKIMA_PATH + '/') || path === metadata || path === '/.well-known/oauth-authorization-server' + MAKIMA_PATH)) return null;
   if (!makimaEnabled(env)) return json({error:'Makima adapter is not activated'},503);
   const origin = request.headers.get('Origin');
-  if (origin && ![relayIssuer(env),'https://www.cursor.com'].includes(origin)) return json({error:'Origin not allowed'},403);
+  if (origin && ![relayIssuer(env),'https://www.cursor.com'].includes(origin)) {
+    if (path === MAKIMA_PATH + '/oauth/token' && request.method === 'POST') {
+      try {
+        const requestId = diagnosticId('mt');
+        if (requestId) {
+          const diagnostic = {requestId, startedAt: Date.now(), stage: 'token_result', outcome: 'token_origin_rejected'};
+          const task = env.HUBS.get(env.HUBS.idFromName(MAKIMA_OBJECT)).fetch(new Request('https://internal/internal/relay/makima/oauth', {method: 'POST', body: JSON.stringify({op: 'token-diagnostic', diagnostic})})).catch(() => {});
+          if (executionCtx?.waitUntil) executionCtx.waitUntil(task);
+        }
+      } catch { /* Observation cannot affect this existing Origin rejection. */ }
+    }
+    return json({error:'Origin not allowed'},403);
+  }
   const cors = origin ? {'Access-Control-Allow-Origin':origin,Vary:'Origin'} : {};
   if (request.method === 'OPTIONS') return new Response(null,{status:204,headers:{...cors,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type, Accept, MCP-Protocol-Version'}});
   const response = await (async () => {

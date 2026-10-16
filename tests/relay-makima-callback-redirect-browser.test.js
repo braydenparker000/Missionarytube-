@@ -81,6 +81,8 @@ test('Makima consent allows the fixed Cursor canonical host; old CSP blocks afte
           await assert.doesNotReject(async () => { for (let i = 0; i < 100 && !violations.length; i++) await page.waitForTimeout(50); assert.ok(violations.length, 'Expected Chromium form-action violation'); });
           assert.equal(approval.status, 302, 'Consent was consumed and code issued before navigation failed');
           assert.deepEqual(destinations, [CALLBACK]);
+          await page.locator('#makima-navigation-status').waitFor({state: 'visible'});
+          assert.equal(await page.locator('#makima-navigation-status').innerText(), 'The browser blocked the return navigation under this page’s security policy.');
           await page.goto(ORIGIN + '/stale'); await page.locator('button[value="allow"]').click();
           assert.equal(JSON.parse(await page.locator('body').innerText()).error_description, 'consent_session_expired_or_used');
         }
