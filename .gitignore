@@ -31,3 +31,6 @@ worker-tooling-source-before.json
 private-workspace-publication/
 .collaboration-baseline/
 private-collaboration-publication/
+.makima-cookie-source/
+.makima-cookie-baseline/
+makima-cookie-publication/
