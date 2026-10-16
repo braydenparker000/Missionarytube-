@@ -114,14 +114,15 @@ test('Makima duplicate native submits: delayed first success versus second navig
       try {
         await cdp.send('Fetch.enable', {patterns: [{urlPattern: '*', requestStage: 'Request'}]});
         await page.goto(authorize);
-        const button = page.locator(`button[value="${decision}"]`), box = await button.boundingBox();
-        assert.ok(box);
+        // Resolve geometry before navigation starts: Playwright locator APIs
+        // wait for a pending navigation, which is deliberately held below.
+        const box = await page.locator(`button[value="${decision}"]`).boundingBox();
+        const secondBox = await page.locator(`button[value="${secondDecision}"]`).boundingBox();
+        assert.ok(box); assert.ok(secondBox);
         // Native pointer clicks: no forged POSTs or manufactured browser cookies.
         await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
         await held.promise;
         assert.equal(approvals[0].status, 302); assert.equal(approvals[0].decision, decision);
-        const secondBox = await page.locator(`button[value="${secondDecision}"]`).boundingBox();
-        assert.ok(secondBox);
         await page.mouse.click(secondBox.x + secondBox.width / 2, secondBox.y + secondBox.height / 2);
         if (!guarded) {
           await secondSeen.promise;
@@ -136,12 +137,21 @@ test('Makima duplicate native submits: delayed first success versus second navig
           release.resolve(); await Promise.allSettled([...pending]);
           assert.equal(new URL(page.url()).pathname, PATH + '/oauth/approve', 'The canceled first success must not replace the second error navigation');
         } else {
-          // Drain browser tasks; the second submit event has been synchronously blocked.
-          assert.equal(await page.locator('form').getAttribute('aria-busy'), 'true');
-          assert.equal(await button.getAttribute('aria-disabled'), 'true');
-          assert.equal(await button.isDisabled(), true, 'ARIA communicates the pending state to accessibility APIs');
-          assert.equal(await button.evaluate(element => element.disabled), false, 'Native disabled must stay false to preserve successful submitter serialization');
-          await page.waitForTimeout(200); assert.equal(approvals.length, 1);
+          // Inspect the still-active document directly through CDP. Locator
+          // actions/reads would wait for the intentionally held navigation.
+          const inspection = await cdp.send('Runtime.evaluate', {
+            expression: `JSON.stringify({busy: document.querySelector('form').getAttribute('aria-busy'), buttons: [...document.querySelectorAll('form button')].map(button => ({ariaDisabled: button.getAttribute('aria-disabled'), nativeDisabled: button.disabled}))})`,
+            returnByValue: true,
+          });
+          assert.equal(inspection.exceptionDetails, undefined);
+          const state = JSON.parse(inspection.result.value);
+          assert.equal(state.busy, 'true');
+          assert.ok(state.buttons.length > 0);
+          for (const button of state.buttons) {
+            assert.equal(button.ariaDisabled, 'true', 'ARIA exposes the pending state');
+            assert.equal(button.nativeDisabled, false, 'Native disabled must stay false to preserve successful submitter serialization');
+          }
+          await new Promise(resolve => setTimeout(resolve, 200)); assert.equal(approvals.length, 1);
           release.resolve(); await page.waitForURL(CANONICAL + '**');
           const result = new URL(page.url());
           assert.equal(result.searchParams.get('state'), 'synthetic-state');
