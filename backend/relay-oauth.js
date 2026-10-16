@@ -36,7 +36,9 @@ const redirect = (url, headers = {}) => new Response(null, {status: 302, headers
 function oauthRedirect(p, env, params, policy) {
   const url = new URL(p.redirect_uri);
   for (const [k, v] of Object.entries({...params, state: p.state, iss: relayIssuer(env) + policy.path})) url.searchParams.set(k, v);
-  return redirect(url.href, {'Set-Cookie': cookieHeader('', 0, policy)});
+  // A delayed terminal response must not delete a newer Makima flow's shared
+  // cookie. Consumed login/consent records remain unusable until cookie expiry.
+  return redirect(url.href, policy.retainTerminalCookie ? {} : {'Set-Cookie': cookieHeader('', 0, policy)});
 }
 function consentPage(csrf, scope, policy) {
   // No interpolated upstream content or script. CSRF is random lowercase hex.
