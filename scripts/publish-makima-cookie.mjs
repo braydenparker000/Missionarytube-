@@ -8,14 +8,14 @@ import {pathToFileURL} from 'node:url';
 import {immutableSourceSnapshot,recipeAllowed} from './plan-jarvis-qualification.mjs';
 import {SAVING_RECIPE} from './publish-mobile-file-save.mjs';
 import {observe,publishWorker} from './publish-private-collaboration.mjs';
-export const SOURCE='457d6e28884ad12bca715163a2830a63cf743a5e';
-export const BASE='416d41a83c5819aae3e3a34d3d76919c217e1f97';
-export const BEFORE={version:'2038b032-22ff-4169-b661-b84651a3547e',codeSha256:'419b4ad9ceb822889b01497a7d36a1145ba7a4ff3c9bc7f19ca59f2bef8e6496',settingsDigest:'0cf6bb029536a278c7141132fc9f96110f7b43d81f674c3ceb16e306a6aaa7bc'};
+export const SOURCE='53f4960c4d163373c770a462017b8dc3bb7f2ab4';
+export const BASE='457d6e28884ad12bca715163a2830a63cf743a5e';
+export const BEFORE={version:'b0633098-9ebc-40f9-8a01-7ca4120d18c7',codeSha256:'2ee0af152d0b06dc6964fce1bce4e0eaea6859e6d67146f62c0fb03b2794ce88',settingsDigest:'0cf6bb029536a278c7141132fc9f96110f7b43d81f674c3ceb16e306a6aaa7bc'};
 const root=resolve('.makima-cookie-source'),out=resolve('makima-cookie-publication');
 const hash=x=>createHash('sha256').update(x).digest('hex');
 const git=(...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:'pipe'}).trim();
 const json=async p=>JSON.parse(await readFile(p,'utf8'));
-export function checkedPaths(paths){assert.deepEqual(paths,["backend/relay-makima-policy.js","backend/relay-oauth.js","tests/relay-makima-callback-redirect-browser.test.js","tests/relay-makima-cookie-browser.test.js","tests/relay-makima.test.js"]);}
+export function checkedPaths(paths){assert.deepEqual(paths,["backend/relay-makima-diagnostics.js","backend/relay-makima-policy.js","backend/relay-makima.js","backend/relay-oauth.js","backend/worker.js","tests/relay-makima-diagnostics.test.js","tests/relay-makima.test.js"]);}
 export function checkedBaseline(identity){for(const [key,value] of Object.entries(BEFORE))assert.equal(identity[key],value,'Production baseline changed: '+key);}
 async function source(){
  assert.equal(git('rev-parse','HEAD'),SOURCE);immutableSourceSnapshot(root);assert.ok(recipeAllowed(root,SAVING_RECIPE));
@@ -52,4 +52,5 @@ async function main(mode){
  console.log('Exact Makima repair Worker and preserved settings/schedules verified');
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)main(process.argv[2]).catch(()=>{console.error('Makima publication stopped: source proof, baseline or preservation check failed. No provider body logged. Inspect checkpoint and active identity before any retry.');process.exitCode=1;});
+
 
