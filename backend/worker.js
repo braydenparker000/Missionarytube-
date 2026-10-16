@@ -1,4 +1,6 @@
 import {agentChatPublic,agentChatStore} from './relay-agent-chat.js';
+import {makimaConnector,makimaRpc,makimaChannelStore} from './relay-makima.js';
+import {MAKIMA_OBJECT,makimaEnabled,makimaOAuthPolicy} from './relay-makima-policy.js';
 import {mastAdapterPublic, mastAdapterStore} from './relay-mast.js';
 import {connector,oauthStore} from './connector.js';
 import {sharedStore,sharedSchema,SHARED_OBJECT,validateSharedRead,readLegacyInboxPage} from './shared.js';
@@ -23,6 +25,7 @@ const publicState = state => ({messages:state.messages, posts:state.posts});
 const unanswered = state => state.messages.filter(m=>m.role==='user' && !state.messages.some(r=>r.kind==='reply' && r.replyTo===m.id));
 export default {
   async fetch(request, env) {
+    const makima=await makimaConnector(request,env);if(makima)return makima;
     const project=await projectTransport(request,env);if(project)return project;
     const relay=await relayConnector(request,env);if(relay)return relay;
     const agents=await agentChatPublic(request,env);if(agents)return agents;
@@ -158,6 +161,17 @@ export class Hub {
   }
   async fetch(request){
     const path=new URL(request.url).pathname;
+    if(path.startsWith('/internal/relay/makima/')){
+      if(this.ctx.id?.name && this.ctx.id.name!==MAKIMA_OBJECT)return json({error:'Wrong Makima object'},403);
+      if(!makimaEnabled(this.env))return json({error:'Makima adapter is not activated'},503);
+      try{
+        const input=await request.json();
+        if(path==='/internal/relay/makima/oauth')return relayOAuthStore(this.ctx,input,Date.now(),this.env,makimaOAuthPolicy);
+        if(path==='/internal/relay/makima/rpc')return json({result:makimaRpc(this.ctx,this.env,input.principal,input.rpc)});
+        if(path==='/internal/relay/makima/channel')return json(makimaChannelStore(this.ctx,this.env,input));
+      }catch(error){return json({error:{code:error instanceof RelayError?error.code:-32603,message:error instanceof RelayError?error.message:'Makima storage unavailable'}});}
+      return json({error:'Not found'},404);
+    }
     if(path==='/internal/relay/projects'){
       const input=await request.json(),operation=()=>projectStore(this.ctx,this.env,input);
       if(input.op==='send'){
