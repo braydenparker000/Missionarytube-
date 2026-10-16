@@ -1,3 +1,5 @@
+import {boardEnabled} from './relay-board-auth.js';
+import {boardToolOperation} from './relay-board-tools.js';
 import {agentChatEnabled} from './relay-agent-events.js';
 export {agentChatEnabled} from './relay-agent-events.js';
 import {enqueueRelayAgentMessage,scheduleRelayAlarm} from './relay-events.js';
@@ -75,6 +77,15 @@ export async function agentChatPublic(request,env){
     if(request.headers.has('Origin'))fail(403,'Browser access not allowed');
     const token=request.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9_-]{32,512})$/)?.[1];
     if(!token)fail(401,'Agent authentication required');const digest=await hash(token);identity(env,digest);
+    if(url.pathname==='/relay/agents/board'){
+      if(!boardEnabled(env))return json({error:'Board is not activated'},503);
+      if(request.method!=='POST'||url.search||!request.headers.get('Content-Type')?.startsWith('application/json'))return json({error:'Expected board JSON POST'},400);
+      const body=JSON.parse(await boundedText(request,16000));fields(body,['op','args'],['op','args']);
+      if(!boardToolOperation('jarvis_board_'+body.op))return json({error:'Unknown board operation'},400);
+      // Owner-verified Mast is the existing Muse-app profile. The separate
+      // relay-mast runner is deliberately not granted board access.
+      return env.HUBS.get(env.HUBS.idFromName(AGENT_CHAT_OBJECT)).fetch(new Request('https://internal/internal/relay/board/agent',{method:'POST',body:JSON.stringify({agent:'mast',token_hash:digest,op:body.op,args:body.args})}));
+    }
     const store=input=>env.HUBS.get(env.HUBS.idFromName(AGENT_CHAT_OBJECT)).fetch(new Request('https://internal/internal/relay/agents',{method:'POST',body:JSON.stringify({...input,token_hash:digest})}));
     const path=url.pathname.slice('/relay/agents/'.length);let input;
     if(request.method==='GET'&&['messages','files/content'].includes(path)){

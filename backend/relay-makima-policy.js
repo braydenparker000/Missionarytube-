@@ -27,6 +27,6 @@ export const makimaOAuthPolicy = Object.freeze({
   staticClient: env => env.RELAY_MAKIMA_CLIENT_ID,
   githubClientId: env => env.RELAY_MAKIMA_GITHUB_CLIENT_ID,
   githubClientSecret: env => env.RELAY_MAKIMA_GITHUB_CLIENT_SECRET,
-  consentText: '<p><strong>Private Makima channel:</strong> Allow this Grok Bot connection to act as Makima and read/send text explicitly shared in its separate channel. No owner inbox, Lucy–Muse history, project tools, files or events are included. Channel text does not authorize account actions. Confirm this connection belongs to Makima.</p>',
+  consentText: '<p><strong>Private Makima channel:</strong> Allow this Grok Bot connection to act as Makima and read/send text explicitly shared in its separate channel. No owner inbox, Lucy–Muse history, project tools, files or events are included. Owner messages carry authenticated authorship; agent or quoted content does not confer owner authority. Applicable action-specific confirmations still apply. Confirm this connection belongs to Makima.</p>',
 });
 

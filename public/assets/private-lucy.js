@@ -17,7 +17,7 @@ document.getElementById('search').onclick=()=>ui.toggleSearch();document.getElem
 // No public store or transport is imported. Recipient is fixed for this document.
 addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==parent)return;if(event.data?.type==='jarvis-private-refresh')ui.refresh();});
 
-window.jarvisPrivateReader=Object.freeze({collaboration:after=>api.collaboration(after),collaborationFile:(messageId,attachmentId)=>api.collaborationFile(messageId,attachmentId),get connected(){return api.hasCredential;},list:()=>readTaskPages(cursor=>api.jobs(cursor)),detail:id=>api.jobDetail(id),refresh:()=>ui.refresh()});
+window.jarvisPrivateReader=Object.freeze({board:api.board,collaboration:after=>api.collaboration(after),collaborationFile:(messageId,attachmentId)=>api.collaborationFile(messageId,attachmentId),get connected(){return api.hasCredential;},list:()=>readTaskPages(cursor=>api.jobs(cursor)),detail:id=>api.jobDetail(id),refresh:()=>ui.refresh()});
 addEventListener('storage',event=>{if(event.key==='jarvis.relay.owner-session.v1'){api.refreshStoredCredential();location.reload();}});
 
 const quietStatus=new MutationObserver(()=>{for(const el of document.querySelectorAll('.composer-bottom [role=status]'))el.dataset.quiet=String(el.textContent.trim()==='Private · messages and work requests');});
