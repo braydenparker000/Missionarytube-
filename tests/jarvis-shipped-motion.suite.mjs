@@ -246,7 +246,8 @@ test("shipped mobile motion avoids offscreen GPU layers and costly document snap
         opacity: getComputedStyle(row).opacity,
         calls,
         imageTransform: image.transform,
-        imageTransition: image.transitionDuration
+        imageTransition: image.transitionDuration,
+        backdrop: getComputedStyle(document.querySelector("#sticky")).backdropFilter
       };
     });
     assert.equal(result.lean, true, "a narrow coarse device with few cores takes the lean path");
@@ -255,9 +256,11 @@ test("shipped mobile motion avoids offscreen GPU layers and costly document snap
     assert.deepEqual(result.calls, [], "constrained motion does not snapshot the document");
     assert.equal(result.imageTransform, "none");
     assert.match(result.imageTransition, /0\.22s/);
-    // The 419px query declares backdrop-filter: none on .episode-nav-sticky, but a
-    // later rule of the same specificity sets saturate(180%) blur(20px) and wins.
-    // Computed style at 390px is not none, so that clause is not claimed here.
+    // Observed limitation, not the intended none clause. The 419px rule declares
+    // backdrop-filter: none, and a later .episode-nav-sticky rule wins.
+    assert.notEqual(result.backdrop, "none");
+    assert.match(result.backdrop, /blur\(20px\)/);
+    assert.match(result.backdrop, /saturate\((?:180%|1\.8)\)/);
     assert.deepEqual(session.errors, []);
   } finally { await session.close(); }
 });
@@ -357,3 +360,90 @@ test("shipped view-transition callbacks cannot reorder or stall visible state", 
     assert.deepEqual(session.errors, []);
   } finally { await session.close(); }
 });
+
+test("shipped velocity at or above 720 dismisses below the distance threshold", async () => {
+  const session = await openPage({
+    width: 850,
+    height: 800,
+    touch: true,
+    body: `<div id="surface" style="position:fixed;inset:0"><div class="backdrop" style="position:absolute;inset:0"><div class="panel" style="position:absolute;inset:40px;background:#222">panel</div></div></div>`
+  });
+  try {
+    await session.page.evaluate(() => {
+      window.dismissed = 0;
+      AstraMotion.mountSurface({
+        root: document.querySelector("#surface"),
+        key: "detail",
+        onDismiss() { window.dismissed += 1; }
+      });
+    });
+    const settled = () => session.page.waitForFunction(() => {
+      const transform = getComputedStyle(document.querySelector(".panel")).transform;
+      if (transform === "none") return true;
+      const parts = transform.slice(transform.indexOf("(") + 1, -1).split(",").map((part) => Number(part));
+      return Math.abs(parts[5] || 0) < 1;
+    });
+    await settled();
+    const client = await session.page.context().newCDPSession(session.page);
+    const point = async () => {
+      const box = await session.page.locator(".motion-drag-grip").boundingBox();
+      assert.ok(box && box.height > 0, "the shipped surface exposes a drag grip");
+      return { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + Math.min(6, box.height / 2)) };
+    };
+    const touch = (type, x, clientY) => client.send("Input.dispatchTouchEvent", {
+      type,
+      touchPoints: type === "touchEnd" ? [] : [{ x, y: clientY, radiusX: 2, radiusY: 2, force: 1, id: 1 }]
+    });
+    const read = () => session.page.evaluate(() => {
+      const transform = getComputedStyle(document.querySelector(".panel")).transform;
+      const match = /matrix\([^,]+,[^,]+,[^,]+,[^,]+,[^,]+,\s*(-?\d+(?:\.\d+)?)/.exec(transform || "");
+      return {
+        y: match ? Number(match[1]) : 0,
+        height: window.innerHeight,
+        dismissed: window.dismissed,
+        surface: document.querySelector("#surface").dataset.motionSurface || ""
+      };
+    });
+    // The bundle inlines shouldDismiss: distance >= min(132, max(72, size * 0.24))
+    // OR velocity >= 720. size is max(480, innerHeight). At 800px that distance is 132.
+    const distanceThreshold = (height) => {
+      const size = Math.max(480, height);
+      return Math.min(132, Math.max(72, size * 0.24));
+    };
+
+    const slow = await point();
+    await touch("touchStart", slow.x, slow.y);
+    for (let step = 1; step <= 8; step += 1) {
+      await touch("touchMove", slow.x, Math.round(slow.y + (110 * step) / 8));
+      await session.page.waitForTimeout(40);
+    }
+    const slowReading = await read();
+    await touch("touchEnd", slow.x, slow.y + 110);
+    await session.page.waitForTimeout(500);
+    const slowAfter = await read();
+    const slowThreshold = distanceThreshold(slowReading.height);
+    assert.ok(slowReading.y > 96 && slowReading.y < slowThreshold, `slow drag distance ${slowReading.y} stays under ${slowThreshold}`);
+    assert.equal(slowAfter.dismissed, 0, "the same distance at low velocity snaps back");
+    assert.equal(slowAfter.surface, "detail");
+    await settled();
+
+    const flick = await point();
+    await touch("touchStart", flick.x, flick.y);
+    await touch("touchMove", flick.x, flick.y + 8);
+    await session.page.waitForTimeout(50);
+    await touch("touchMove", flick.x, flick.y + 110);
+    const flickReading = await read();
+    await touch("touchEnd", flick.x, flick.y + 110);
+    await session.page.waitForTimeout(500);
+    const flickAfter = await read();
+    const flickThreshold = distanceThreshold(flickReading.height);
+    assert.ok(flickReading.y > 96 && flickReading.y < flickThreshold, `flick distance ${flickReading.y} stays under ${flickThreshold}`);
+    assert.equal(flickAfter.dismissed, 1, "a sub-threshold flick dismisses through the velocity >= 720 branch");
+    assert.equal(flickAfter.surface, "", "the dismissed surface is released");
+    assert.deepEqual(session.errors, []);
+  } finally { await session.close(); }
+});
+
+test("shipped: at 390px .episode-nav-sticky backdrop-filter is none", {
+  todo: "The @media (max-width: 419px) rule sets backdrop-filter: none on .episode-nav-sticky, but a later .episode-nav-sticky rule of the same specificity sets saturate(180%) blur(20px) and wins. The computed style at 390px is that blur, recorded by the mobile motion test. The none clause stays unsupported on the shipped stylesheet."
+}, () => {});

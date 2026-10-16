@@ -1,0 +1,273 @@
+
+> missionarytube@0.1.0 test:media-jarvis:shipped
+> node scripts/test-jarvis-media.mjs shipped
+
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Initialized empty Git repository in /tmp/jarvis-pinned-fp4cJs/.git/
+From https://github.com/braydenparker999/jarvis
+ * branch            c28c1b2f70aabb5217b08bf31ffe4c93d0353765 -> FETCH_HEAD
+HEAD is now at c28c1b2 Merge pull request #130 from braydenparker999/release/lucy-oauth-discovery-20261011
+$ git -C /tmp/jarvis-pinned-fp4cJs rev-parse HEAD
+c28c1b2f70aabb5217b08bf31ffe4c93d0353765
+$ git -C /tmp/jarvis-pinned-fp4cJs status --porcelain
+<empty>
+clean checkout verified: git status --porcelain empty at c28c1b2f70aabb5217b08bf31ffe4c93d0353765
+Jarvis media source c28c1b2f70aabb5217b08bf31ffe4c93d0353765 public/media c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7
+media suite: shipped (3 files)
+TAP version 13
+# Output has already been finalized.
+# Subtest: shipped: real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact
+ok 1 - shipped: real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact
+  ---
+  duration_ms: 83.449435
+  ...
+# Output has already been finalized.
+# Subtest: shipped: HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it
+ok 2 - shipped: HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it
+  ---
+  duration_ms: 32.008277
+  ...
+# Output has already been finalized.
+# Subtest: shipped: HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes
+ok 3 - shipped: HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes
+  ---
+  duration_ms: 10.890162
+  ...
+# Subtest: shipped: seeking starts at a preceding keyframe and unsupported video is explicit
+ok 4 - shipped: seeking starts at a preceding keyframe and unsupported video is explicit
+  ---
+  duration_ms: 3.010684
+  ...
+# Output has already been finalized.
+# Subtest: shipped: surround audio is downmixed to bounded stereo samples
+ok 5 - shipped: surround audio is downmixed to bounded stereo samples
+  ---
+  duration_ms: 27.156205
+  ...
+# Output has already been finalized.
+# Output has already been finalized.
+# Subtest: shipped: audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps
+ok 6 - shipped: audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps
+  ---
+  duration_ms: 430.149121
+  ...
+# Output has already been finalized.
+# Subtest: shipped: an unsupported default audio track falls back to usable audio in the same file
+ok 7 - shipped: an unsupported default audio track falls back to usable audio in the same file
+  ---
+  duration_ms: 31.556601
+  ...
+# Subtest: shipped: replacing an in-flight startup reports the old read as cancelled, not a new playback failure
+ok 8 - shipped: replacing an in-flight startup reports the old read as cancelled, not a new playback failure
+  ---
+  duration_ms: 6.176982
+  ...
+# Output has already been finalized.
+# Subtest: shipped: real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks
+ok 9 - shipped: real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks
+  ---
+  duration_ms: 98.167288
+  ...
+# Subtest: shipped: audio conversion selects AAC when MP4 cannot accept Opus
+ok 10 - shipped: audio conversion selects AAC when MP4 cannot accept Opus
+  ---
+  duration_ms: 11.158508
+  ...
+# Output has already been finalized.
+# Subtest: shipped: a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window
+ok 11 - shipped: a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window
+  ---
+  duration_ms: 15.451147
+  ...
+# Output has already been finalized.
+# HTTP server (origin https://media.example.test) did not respond to a range request with 206 Partial Content, meaning the resource will now be streamed sequentially, with old data being evicted from the cache. Reads into evicted regions will throw. To enable efficient media file streaming across a network, please make sure your server supports range requests. Alternatively, set maxCacheSize to Infinity in the UrlSource options to keep the entire resource in memory.
+# Retrying failed fetch. Error: TypeError: Failed to fetch
+#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:667:54)
+#     at fetchFn (assets/js/playback/compatibility.js:9263:1605)
+#     at jr (assets/js/playback/compatibility.js:8:4121)
+#     at A._runWorker (assets/js/playback/compatibility.js:200:6379)
+#     at A8.runWorker (assets/js/playback/compatibility.js:200:17749)
+#     at A8.read (assets/js/playback/compatibility.js:200:15937)
+#     at A._read (assets/js/playback/compatibility.js:200:6189)
+#     at Qx.requestSlice (assets/js/playback/compatibility.js:272:470)
+#     at eA._canReadInput (assets/js/playback/compatibility.js:218:4414)
+#     at assets/js/playback/compatibility.js:266:2637
+# Subtest: shipped: copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer
+ok 12 - shipped: copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer
+  ---
+  duration_ms: 7.236894
+  ...
+# Subtest: shipped: compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges
+ok 13 - shipped: compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges
+  ---
+  duration_ms: 2.195171
+  ...
+# Subtest: shipped: compatibility HLS children on another origin never receive addon credentials
+ok 14 - shipped: compatibility HLS children on another origin never receive addon credentials
+  ---
+  duration_ms: 2.518373
+  ...
+# Subtest: shipped: compatibility startup distinguishes blocked access and connection failures
+ok 15 - shipped: compatibility startup distinguishes blocked access and connection failures
+  ---
+  duration_ms: 250.62952
+  ...
+# Retrying failed fetch. Error: TypeError: Failed to fetch
+#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:692:31)
+#     at fetchFn (assets/js/playback/compatibility.js:9263:1605)
+#     at jr (assets/js/playback/compatibility.js:8:4121)
+#     at A._runWorker (assets/js/playback/compatibility.js:200:6379)
+#     at A8.runWorker (assets/js/playback/compatibility.js:200:17749)
+#     at A8.read (assets/js/playback/compatibility.js:200:15937)
+#     at A._read (assets/js/playback/compatibility.js:200:6189)
+#     at Qx.requestSlice (assets/js/playback/compatibility.js:272:470)
+#     at eA._canReadInput (assets/js/playback/compatibility.js:218:4414)
+#     at assets/js/playback/compatibility.js:266:2637
+# Output has already been finalized.
+# Retrying failed fetch. Error: TypeError: Failed to fetch
+#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:721:36)
+#     at fetchFn (assets/js/playback/compatibility.js:9263:1605)
+#     at jr (assets/js/playback/compatibility.js:8:4121)
+#     at A._runWorker (assets/js/playback/compatibility.js:200:6379)
+#     at A8.runWorker (assets/js/playback/compatibility.js:200:17749)
+#     at A8.read (assets/js/playback/compatibility.js:200:15937)
+#     at A._read (assets/js/playback/compatibility.js:200:6189)
+#     at Qx.requestSlice (assets/js/playback/compatibility.js:272:470)
+#     at eA._canReadInput (assets/js/playback/compatibility.js:218:4414)
+#     at assets/js/playback/compatibility.js:266:2637
+# Subtest: shipped: audio repair retries a transient request and transfers the real prepared input without rereading
+ok 16 - shipped: audio repair retries a transient request and transfers the real prepared input without rereading
+  ---
+  duration_ms: 258.585349
+  ...
+# Error while reading response stream. Attempting to resume. TypeError: network interrupted
+#     at Object.start (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:722:85)
+#     at setupReadableStreamDefaultController (node:internal/webstreams/readablestream:2464:23)
+#     at setupReadableStreamDefaultControllerFromSource (node:internal/webstreams/readablestream:2496:3)
+#     at new ReadableStream (node:internal/webstreams/readablestream:279:7)
+#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:722:27)
+#     at fetchFn (assets/js/playback/compatibility.js:9263:1605)
+#     at jr (assets/js/playback/compatibility.js:8:4121)
+#     at A._runWorker (assets/js/playback/compatibility.js:200:6379)
+#     at A8.runWorker (assets/js/playback/compatibility.js:200:17749)
+#     at A8.read (assets/js/playback/compatibility.js:200:15937)
+# Subtest: shipped: audio repair bounds persistent fetch failures to one shared retry
+ok 17 - shipped: audio repair bounds persistent fetch failures to one shared retry
+  ---
+  duration_ms: 250.544882
+  ...
+# Retrying failed fetch. Error: TypeError: Failed to fetch
+#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:734:54)
+#     at fetchFn (assets/js/playback/compatibility.js:9263:1605)
+#     at jr (assets/js/playback/compatibility.js:8:4121)
+#     at A._runWorker (assets/js/playback/compatibility.js:200:6379)
+#     at A8.runWorker (assets/js/playback/compatibility.js:200:17749)
+#     at A8.read (assets/js/playback/compatibility.js:200:15937)
+#     at A._read (assets/js/playback/compatibility.js:200:6189)
+#     at Qx.requestSlice (assets/js/playback/compatibility.js:272:470)
+#     at eA._canReadInput (assets/js/playback/compatibility.js:218:4414)
+#     at assets/js/playback/compatibility.js:266:2637
+# Subtest: shipped: audio repair bounds persistent body failures to one shared retry
+ok 18 - shipped: audio repair bounds persistent body failures to one shared retry
+  ---
+  duration_ms: 251.527308
+  ...
+# Subtest: shipped: cancelling repair during its retry delay stops it without another request
+ok 19 - shipped: cancelling repair during its retry delay stops it without another request
+  ---
+  duration_ms: 310.553337
+  ...
+# Subtest: shipped: repair cancellation promptly rejects a pending metadata fetch
+ok 20 - shipped: repair cancellation promptly rejects a pending metadata fetch
+  ---
+  duration_ms: 0.801156
+  ...
+# Subtest: shipped: prepared repair is disposed when abandoned or its adapter is destroyed before attach
+ok 21 - shipped: prepared repair is disposed when abandoned or its adapter is destroyed before attach
+  ---
+  duration_ms: 3.264235
+  ...
+# Subtest: shipped: aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter
+ok 22 - shipped: aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter
+  ---
+  duration_ms: 3.180316
+  ...
+# Subtest: shipped: an already-aborted pumpPipeline job passes AbortError through attach()
+ok 23 - shipped: an already-aborted pumpPipeline job passes AbortError through attach() # TODO createAdapter detaches the mux job and does not reject attach() with the internal AbortError. The shipped bundle does not export pumpPipeline, so the source-unit assertion in tests/compatibility-player.test.mjs cannot be executed against the public adapter. Keyframe selection and the explicit unsupported-video error remain covered above.
+  ---
+  duration_ms: 0.153702
+  ...
+# Subtest: characterization: held scripts leave the stored accent and motion unapplied at first paint
+ok 24 - characterization: held scripts leave the stored accent and motion unapplied at first paint
+  ---
+  duration_ms: 560.102075
+  ...
+# Subtest: stored non-default accent and motion are applied before first paint
+ok 25 - stored non-default accent and motion are applied before first paint # TODO appearance.js and bootstrap.js are deferred. While their responses are held, the first paint uses the stylesheet default ice accent (\#b4d1ff) and .page.active still runs page-arrival. The stored violet accent and motion off are applied only after the scripts run. The characterization in this file records that limitation and does not treat it as a passing guarantee.
+  ---
+  duration_ms: 0.185571
+  ...
+# Subtest: shipped motion distinguishes a tap, a cancelled drag, and a committed dismissal
+ok 26 - shipped motion distinguishes a tap, a cancelled drag, and a committed dismissal
+  ---
+  duration_ms: 2039.940871
+  ...
+# Subtest: shipped custom press physics owns touch and pen, not mouse clicks
+ok 27 - shipped custom press physics owns touch and pen, not mouse clicks
+  ---
+  duration_ms: 808.978172
+  ...
+# Subtest: shipped navigation direction follows the dock and accepts an explicit back route
+ok 28 - shipped navigation direction follows the dock and accepts an explicit back route
+  ---
+  duration_ms: 151.484819
+  ...
+# Subtest: shipped content choreography is viewport-aware and bounded
+ok 29 - shipped content choreography is viewport-aware and bounded
+  ---
+  duration_ms: 136.045432
+  ...
+# Subtest: shipped mobile motion avoids offscreen GPU layers and costly document snapshots
+ok 30 - shipped mobile motion avoids offscreen GPU layers and costly document snapshots
+  ---
+  duration_ms: 149.833469
+  ...
+# Subtest: shipped direct interaction motion stays inside the 360ms release budget
+ok 31 - shipped direct interaction motion stays inside the 360ms release budget
+  ---
+  duration_ms: 140.596873
+  ...
+# Subtest: shipped view-transition callbacks cannot reorder or stall visible state
+ok 32 - shipped view-transition callbacks cannot reorder or stall visible state
+  ---
+  duration_ms: 305.701623
+  ...
+# Subtest: shipped velocity at or above 720 dismisses below the distance threshold
+ok 33 - shipped velocity at or above 720 dismisses below the distance threshold
+  ---
+  duration_ms: 2022.82185
+  ...
+# Subtest: shipped: at 390px .episode-nav-sticky backdrop-filter is none
+ok 34 - shipped: at 390px .episode-nav-sticky backdrop-filter is none # TODO The @media (max-width: 419px) rule sets backdrop-filter: none on .episode-nav-sticky, but a later .episode-nav-sticky rule of the same specificity sets saturate(180%) blur(20px) and wins. The computed style at 390px is that blur, recorded by the mobile motion test. The none clause stays unsupported on the shipped stylesheet.
+  ---
+  duration_ms: 0.304096
+  ...
+1..34
+# tests 34
+# suites 0
+# pass 31
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 3
+# duration_ms 15926.213865
+EXIT:0

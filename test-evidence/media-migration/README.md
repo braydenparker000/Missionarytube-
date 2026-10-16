@@ -6,8 +6,9 @@ This directory records the Jarvis-targeted media suite. It does not change the r
 
 | Command | What it runs |
 | --- | --- |
-| `npm test` | `node scripts/check.mjs && node --test`. `MEDIA_APP_ROOT` is unset, so media tests read the repo-root copy. A green result is not the migration passing. |
-| `npm run test:media-jarvis` | `node scripts/test-jarvis-media.mjs`. Fresh clone of the `jarvis-release.json` commit. Sets `MEDIA_APP_ROOT` to that clone's `public/media`. This is the suite that exercises Jarvis sources and bundles. |
+| `npm test` | `node scripts/check.mjs && node --test`. `MEDIA_APP_ROOT` is unset, so media tests read the repo-root copy. A green result is not the migration passing. `scripts/test-jarvis-media.mjs` matches Node's `test-*.mjs` discovery; under that runner it exits 0 without selecting a suite. |
+| `npm run test:media-jarvis:source` | Fresh clone of the pinned commit, then the retained source-unit files. Missing `src/` paths still fail instead of reading the root copy. |
+| `npm run test:media-jarvis:shipped` | Fresh clone of the same pin, then the shipped-bundle suites only: compatibility, motion, and the first-paint characterization. |
 
 Jarvis-targeted reads throw if `MEDIA_APP_ROOT` is the repo root, and they throw `ERR_MEDIA_ROOT_FALLBACK` if a file is missing, instead of opening the root copy.
 
@@ -44,13 +45,7 @@ MEDIA_APP_ROOT=/tmp/jarvis-pinned/public/media node --test --test-reporter=tap \
 
 That file list is the runner at `eac77ab` (no `tests/initial-theme.test.mjs`). Output: `baseline.tap`.
 
-Migrated, after the harness edits:
-
-```
-node scripts/test-jarvis-media.mjs
-```
-
-The script creates a temporary directory, `git init`, `git remote add origin https://github.com/braydenparker999/jarvis.git`, `git fetch --depth 1 origin c28c1b2f70aabb5217b08bf31ffe4c93d0353765`, `git checkout --detach FETCH_HEAD`, prints `git rev-parse HEAD` and `git status --porcelain`, and exits before tests if HEAD is not the pin or porcelain is non-empty. It then runs the media list, `tests/initial-theme.test.mjs`, `tests/jarvis-shipped-compatibility.suite.mjs`, and `tests/jarvis-shipped-motion.suite.mjs` with `MEDIA_APP_ROOT` set to `<temp>/public/media`, and deletes the temp directory. Output: `migrated.tap`. The command transcript is `checkout-verification.txt`.
+The earlier combined command `node scripts/test-jarvis-media.mjs` wrote `migrated.tap`. It now requires `source` or `shipped`. Both modes still create a temporary directory, `git init`, `git remote add origin https://github.com/braydenparker999/jarvis.git`, `git fetch --depth 1 origin c28c1b2f70aabb5217b08bf31ffe4c93d0353765`, `git checkout --detach FETCH_HEAD`, print `git rev-parse HEAD` and `git status --porcelain`, and exit before tests if HEAD is not the pin or porcelain is non-empty. `source` runs the retained source-unit list. `shipped` runs the three shipped suites. Each deletes its temp directory. Transcripts: `source-unit.txt`, `shipped.txt`.
 
 ## Clean checkout verification
 
@@ -69,34 +64,34 @@ HEAD equality was not the only check. Porcelain was printed and had to be empty.
 
 ## Totals
 
-| Run | Tests | Pass | Fail |
-| --- | --- | --- | --- |
-| Baseline Jarvis (`baseline.tap`) | 511 | 456 | 55 |
-| Harness-only Jarvis, previous `migrated.tap` | 512 | 483 | 29 |
-| Shipped-bundle Jarvis (`migrated.tap`, this pass) | 541 | 512 | 29 |
-| Default `npm test` (root copy, not the migration) | 1117 | 1117 | 0 |
+| Run | Tests | Pass | Fail | Skip | Todo |
+| --- | --- | --- | --- | --- | --- |
+| Baseline Jarvis (`baseline.tap`) | 511 | 456 | 55 | 0 | 0 |
+| `npm run test:media-jarvis:source` (`source-unit.txt`) | 512 | 483 | 29 | 0 | 0 |
+| `npm run test:media-jarvis:shipped` (`shipped.txt`) | 34 | 31 | 0 | 0 | 3 |
+| Default `npm test` (root copy, not the migration) | 1117 | 1117 | 0 | 0 | 0 |
 
-The Jarvis gain from 512 to 541 is the 22 shipped compatibility tests plus the 7 shipped motion tests. The 29 failures are the original source-unit names. They still throw `Refusing to fall back to the repo-root copy` and were not loosened. `npm test` gained `tests/shell-assets.test.mjs` (1116 to 1117).
-
-`npm run build` (`node scripts/build-jarvis.mjs`) completed against a `.jarvis-source` checkout whose HEAD was the pin: 192 frontend files, 20.09 MiB. Transcript: `npm-build.txt`. Root suite transcript: `npm-test.txt`. `dist/` is not part of this evidence.
+The 29 source-unit failures still throw `Refusing to fall back to the repo-root copy`. They are not in the shipped command, so a missing `src/` path does not hide a shipped assertion. The shipped command's 3 todos are the unsupported clauses below. `npm run build` completed against `.jarvis-source` at the pin: 192 frontend files, 20.09 MiB (`npm-build.txt`). Root suite transcript: `npm-test.txt`. `dist/` is not part of this evidence.
 
 26 of the original 55 pass after the earlier harness fixes. The same 29 source-unit names still fail on the Jarvis run. Their shipped-bundle status is in `no-counterpart-mapping.md`.
 
 ## This migration is incomplete
 
-Shipped-bundle coverage has not fully passed. `tests/jarvis-shipped-compatibility.suite.mjs` and `tests/jarvis-shipped-motion.suite.mjs` pass against the pin, and the 29 source-unit tests still fail on purpose. These clauses are still unsupported or pending, so the root media copy cannot be treated as retired:
+The shipped command passes its runnable assertions. The source-unit command still fails the same 29 names. These clauses stay explicit todos, so the root media copy cannot be treated as retired:
 
-- The original before-first-paint guarantee is unresolved. `tests/initial-theme.test.mjs` is a characterization of a parser/VM loading-mode model. A pass on the deferred Jarvis shell explicitly leaves the saved accent and motion preference unapplied. It is not a throttled browser paint test. A future browser test would have to hold script responses and inspect computed styles or screenshots. That test was not written in this pass.
-- `seeking starts at a preceding keyframe and unsupported video is explicit` is covered for the keyframe and the explicit unsupported-video error. The original also rejects `pumpPipeline` when its signal is already aborted. `createAdapter` detaches that mux job and does not surface the internal `AbortError`. That clause is unsupported-documented.
-- Gesture distance, tap slop, and in-range progress are covered in Chrome. The `velocity >= 720` dismiss branch did not get a stable gesture. For that branch only: artifact identity verified; deployed behavioral coverage pending.
-- Narrow-viewport `backdrop-filter: none` is declared inside `@media (max-width: 419px)`, and a later `.episode-nav-sticky` rule of the same specificity sets `saturate(180%) blur(20px)` and wins. The computed style at 390px is not `none`. That clause is unsupported-documented. The rest of the mobile-motion case is covered.
+- Before-first-paint theme guarantee. `tests/jarvis-shipped-first-paint.suite.mjs` serves the pinned `public/media` bundle, seeds `localStorage['astra.v1.appearance']` with violet / motion off / charcoal, and holds every `.js` response. At first contentful paint the stored values are present and unapplied: `--accent` is the default `#b4d1ff`, `.brand-orbit` is `rgb(180, 209, 255)`, and `.page.active` is still `page-arrival`. After the responses are released, `appearance.js` sets violet / off / charcoal, `--accent` becomes `#cbbaff`, and the page animation becomes `none`. Evidence: `first-paint/computed-style.json`, `first-paint/held.png`, `first-paint/released.png`. The guarantee itself is `test.todo`, not a pass. `tests/initial-theme.test.mjs` remains the parser/VM characterization in the source command.
+- Aborted `pumpPipeline` `AbortError` is not passed back through `attach()`. `createAdapter` detaches that mux job, and the bundle does not export `pumpPipeline`. Todo in `tests/jarvis-shipped-compatibility.suite.mjs`. The keyframe and explicit unsupported-video clauses stay covered.
+- At 390px, `.episode-nav-sticky` `backdrop-filter: none` inside `@media (max-width: 419px)` loses to a later rule of the same specificity, `saturate(180%) blur(20px)`. The mobile motion test records that computed blur. The `none` clause is a todo.
 
-## Shipped-bundle commands
+`velocity >= 720` now has a shipped behavioral test. A slow 110px touch drag on an 800px-tall surface snaps back. The same distance, released immediately after the jump, dismisses. 110px is under the inlined distance threshold (`min(132, max(72, size * 0.24))`, which is 132 at that height).
 
-Clean pin, empty porcelain, this pass:
+## Commands recorded in this pass
+
+Clean pin, empty porcelain, each Jarvis command clones its own temporary checkout:
 
 ```
-npm run test:media-jarvis
+npm run test:media-jarvis:source
+npm run test:media-jarvis:shipped
 ```
 
 Root suite and build, `MEDIA_APP_ROOT` unset, `.jarvis-source` checked out at the same pin:
@@ -106,15 +101,20 @@ npm test
 npm run build
 ```
 
-`npm test` was recorded before the last gesture-drag wait in `tests/jarvis-shipped-motion.suite.mjs`. That file is a `*.suite.mjs` and is not part of `node --test` discovery, so the root transcript still matches the root suite. The gesture change is in `migrated.tap`.
+`*.suite.mjs` files are not part of `node --test` discovery. The source command exits 1 because of the 29 missing-`src` failures. The shipped command exits 0.
 
 ## Files
 
 - `baseline.tap`
 - `migrated.tap`
 - `checkout-verification.txt`
+- `source-unit.txt`
+- `shipped.txt`
 - `npm-test.txt`
 - `npm-build.txt`
+- `first-paint/computed-style.json`
+- `first-paint/held.png`
+- `first-paint/released.png`
 - `originally-failing.txt`
 - `before-after.md`
 - `no-counterpart-mapping.md`

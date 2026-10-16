@@ -782,3 +782,7 @@ test("shipped: aborting an unconsumed prepared repair invalidates it; abort afte
     assert.equal((await ready.input.getPrimaryAudioTrack()).codec, "aac");
   } finally { ready.input.dispose(); }
 });
+
+test("shipped: an already-aborted pumpPipeline job passes AbortError through attach()", {
+  todo: "createAdapter detaches the mux job and does not reject attach() with the internal AbortError. The shipped bundle does not export pumpPipeline, so the source-unit assertion in tests/compatibility-player.test.mjs cannot be executed against the public adapter. Keyframe selection and the explicit unsupported-video error remain covered above."
+}, () => {});

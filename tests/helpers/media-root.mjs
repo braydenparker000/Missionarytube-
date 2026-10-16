@@ -13,8 +13,8 @@ export function repoRoot() {
  * Directory whose index.html and assets/ the media regression tests read.
  *
  * Unset MEDIA_APP_ROOT keeps the repo-root copy, so `npm test` stays on that
- * path. scripts/test-jarvis-media.mjs sets MEDIA_APP_ROOT to a clean checkout
- * of the pinned Jarvis commit at public/media. A Jarvis target that resolves
+ * path. scripts/test-jarvis-media.mjs source|shipped sets MEDIA_APP_ROOT to a
+ * clean checkout of the pinned Jarvis commit at public/media. A Jarvis target that resolves
  * to this repository is a failed run, never a silent fallback.
  */
 export function mediaAppRoot() {
