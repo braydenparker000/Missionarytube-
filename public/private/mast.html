@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/assets/mast.css">
   <link rel="stylesheet" href="/assets/relay.css?v=20261010-v6">
   <script type="module" src="/assets/private-mast.js"></script>
-<link rel="stylesheet" href="/assets/private-chat-frame.css"></head>
+<link rel="stylesheet" href="/assets/private-chat-frame.css"><link rel="stylesheet" href="/assets/private-theme.css"></head>
 <body class="relay-page conversation-page module-page mast-page" data-conversation-mode="owner">
   <div class="workspace">
     <header class="topbar"></header>
@@ -34,7 +34,7 @@
       <label class="sr-only" for="message">Message Muse</label>
       <div id="selected-files" aria-live="polite"></div>
       <input id="files" type="file" multiple hidden aria-label="Choose Muse files">
-      <div class="composer-input"><button class="relay-composer-plus" id="choose-files" type="button" aria-label="Attach images or files">+</button><textarea rows="1" id="message" maxlength="4000" placeholder="Message Mast…" required></textarea><button id="send" class="primary send-icon" aria-label="Send" type="submit">Send</button></div>
+      <div class="composer-input"><button class="relay-composer-plus" id="choose-files" type="button" aria-label="Attach images or files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><textarea rows="1" id="message" maxlength="4000" placeholder="Message Mast…" required></textarea><button id="send" class="primary send-icon" aria-label="Send" type="submit">Send</button></div>
       <button id="discard-pending" type="button" hidden>Stop retrying</button>
       <div class="composer-bottom"><span id="status" role="status">Checking owner access…</span></div>
     </form>
