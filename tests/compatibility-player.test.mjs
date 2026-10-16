@@ -2,8 +2,33 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {AppendOnlyStreamTarget,AudioSample,Input,BufferSource,BufferTarget,AudioSampleSink,EncodedPacketSink,ALL_FORMATS} from 'mediabunny';
-import {preparePipeline,pumpPipeline,stereoSample,alignAudioSample,createAdapter,prepareRepair} from '../src/compatibility-player.js';
-import '../assets/js/playback/request-policy.js';
+import { appFileURL } from './helpers/media-root.mjs';
+
+let playerModule;
+try {
+  playerModule = await import(appFileURL('src/compatibility-player.js').href);
+} catch (error) {
+  playerModule = error;
+  // The root-only player module registers these decoders at import time.
+  // Keep that side effect when the module has no Jarvis counterpart so the
+  // fixture checks below still run, and player calls still throw the original
+  // module error.
+  const { registerAc3Decoder } = await import('@mediabunny/ac3');
+  const { registerDtsDecoder } = await import('@mediabunny/dts');
+  registerAc3Decoder();
+  registerDtsDecoder();
+}
+await import(appFileURL('assets/js/playback/request-policy.js').href);
+const playerExport = (name) => (...args) => {
+  if (playerModule instanceof Error) throw playerModule;
+  return playerModule[name](...args);
+};
+const preparePipeline = playerExport('preparePipeline');
+const pumpPipeline = playerExport('pumpPipeline');
+const stereoSample = playerExport('stereoSample');
+const alignAudioSample = playerExport('alignAudioSample');
+const createAdapter = playerExport('createAdapter');
+const prepareRepair = playerExport('prepareRepair');
 const inputFor=async name=>new Input({source:new BufferSource(Buffer.from(await readFile(new URL(`./fixtures/media/${name}.mkv.base64`,import.meta.url),'utf8'),'base64')),formats:ALL_FORMATS});
 
 test('the reported MP4 H264/AC3 combination has readable video and decodable audio',async()=>{

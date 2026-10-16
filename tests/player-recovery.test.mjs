@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
 import vm from "node:vm";
 import { loadPlayback, createClock } from "./helpers/playback.mjs";
 
-const source = await readFile(new URL("../assets/js/app.js", import.meta.url), "utf8");
+const source = await readAppSource("assets/js/app.js");
 const PB = await loadPlayback();
 
 // Execute the shipped UI functions with the real engine. Only the DOM and

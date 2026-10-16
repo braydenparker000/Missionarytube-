@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
+import { listAppDir, readAppSource } from "./helpers/media-root.mjs";
 
-const shell = await readFile("index.html", "utf8");
-const appSource = await readFile("assets/js/app.js", "utf8");
+const shell = await readAppSource("index.html");
+const appSource = await readAppSource("assets/js/app.js");
 const html = `${shell}\n${appSource}`;
-const css = await readFile("assets/css/obsidian.css", "utf8");
-const hubSource = await readFile("assets/js/hub.js", "utf8");
+const css = await readAppSource("assets/css/obsidian.css");
+const hubSource = await readAppSource("assets/js/hub.js");
 
 /* ---- design system ---------------------------------------------------- */
 
@@ -518,7 +518,7 @@ test("the stylesheet is the only place raw colours are defined", async () => {
   const inline = html.match(/<style>([\s\S]*?)<\/style>/)[1];
   const hexes = [...inline.matchAll(/#[0-9a-f]{3,8}\b/gi)].map((m) => m[0]);
   assert.ok(hexes.length <= 3, `the critical block defines ${hexes.length} colours`);
-  const files = await readdir("assets/css");
+  const files = await listAppDir("assets/css");
   assert.deepEqual(files.sort(), ["cinema.css", "collection.css", "obsidian.css"]);
   for (const file of files) assert.ok(shell.includes(`assets/css/${file}?v=`), `${file} is loaded and cache-versioned`);
 });

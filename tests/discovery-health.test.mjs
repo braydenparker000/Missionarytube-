@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
 
-const source = await readFile("assets/js/discovery-health.js", "utf8");
-const shell = await readFile("index.html", "utf8");
-const appSource = await readFile("assets/js/app.js", "utf8");
+const source = await readAppSource("assets/js/discovery-health.js");
+const shell = await readAppSource("index.html");
+const appSource = await readAppSource("assets/js/app.js");
 const html = `${shell}\n${appSource}`;
-const css = await readFile("assets/css/obsidian.css", "utf8");
+const css = await readAppSource("assets/css/obsidian.css");
 const context = { console };
 vm.runInNewContext(source, context, { filename: "discovery-health.js" });
 const discovery = context.AstraDiscovery;

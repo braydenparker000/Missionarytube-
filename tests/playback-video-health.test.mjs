@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { readFile } from 'node:fs/promises';
+import { readAppSource } from './helpers/media-root.mjs';
 
 const context = vm.createContext({});
-vm.runInContext(await readFile(new URL('../assets/js/playback/video-health.js', import.meta.url), 'utf8'), context);
+vm.runInContext(await readAppSource('assets/js/playback/video-health.js'), context);
 const { readMedia, create } = context.AstraPlayback.videoHealth;
 
 function fixture() {

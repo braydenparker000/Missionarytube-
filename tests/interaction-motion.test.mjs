@@ -1,19 +1,38 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import {
-  dragProgress,
-  movedPastTapSlop,
-  navigationDirection,
-  shouldDismiss
-} from "../src/interaction-logic.js";
+import { appFileURL, readAppSource } from "./helpers/media-root.mjs";
 
-const shell = await readFile("index.html", "utf8");
-const appSource = await readFile("assets/js/app.js", "utf8");
+let logicModule;
+try {
+  logicModule = await import(appFileURL("src/interaction-logic.js").href);
+} catch (error) {
+  logicModule = error;
+}
+const logic = (name) => (...args) => {
+  if (logicModule instanceof Error) throw logicModule;
+  return logicModule[name](...args);
+};
+const dragProgress = logic("dragProgress");
+const movedPastTapSlop = logic("movedPastTapSlop");
+const navigationDirection = logic("navigationDirection");
+const shouldDismiss = logic("shouldDismiss");
+
+const shell = await readAppSource("index.html");
+const appSource = await readAppSource("assets/js/app.js");
 const html = `${shell}\n${appSource}`;
-const css = await readFile("assets/css/obsidian.css", "utf8");
-const bundle = await readFile("assets/js/astra-motion.js", "utf8");
-const source = await readFile("src/astra-motion.js", "utf8");
+const css = await readAppSource("assets/css/obsidian.css");
+const bundle = await readAppSource("assets/js/astra-motion.js");
+let motionSourceResult;
+try {
+  motionSourceResult = await readAppSource("src/astra-motion.js");
+} catch (error) {
+  motionSourceResult = error;
+}
+const motionSource = () => {
+  if (motionSourceResult instanceof Error) throw motionSourceResult;
+  return motionSourceResult;
+};
 const pkg = JSON.parse(await readFile("package.json", "utf8"));
 
 test("gesture thresholds distinguish a tap, a cancelled drag and a committed dismissal", () => {
@@ -26,9 +45,9 @@ test("gesture thresholds distinguish a tap, a cancelled drag and a committed dis
 });
 
 test("custom press physics owns touch and pen, not mouse clicks", () => {
-  assert.match(source, /event\.pointerType === "mouse"/);
-  assert.match(source, /document\.addEventListener\("pointerdown"/);
-  assert.match(source, /document\.addEventListener\("pointercancel"/);
+  assert.match(motionSource(), /event\.pointerType === "mouse"/);
+  assert.match(motionSource(), /document\.addEventListener\("pointerdown"/);
+  assert.match(motionSource(), /document\.addEventListener\("pointercancel"/);
 });
 
 test("navigation direction follows the dock and accepts an explicit back route", () => {
@@ -61,25 +80,25 @@ test("site-wide content choreography is shared, viewport-aware and bounded", () 
   assert.match(bundle, /\.search-provider-result/);
   assert.match(bundle, /\.video-row/);
   assert.match(bundle, /\.stream-item/);
-  assert.match(source, /const budget = lean \? 8 : 14/);
-  assert.match(source, /const deferred = elements\.slice\(budget\)/);
-  assert.match(source, /deferred\.forEach\(finishReveal\)/);
+  assert.match(motionSource(), /const budget = lean \? 8 : 14/);
+  assert.match(motionSource(), /const deferred = elements\.slice\(budget\)/);
+  assert.match(motionSource(), /deferred\.forEach\(finishReveal\)/);
   assert.match(css, /GSAP also owns content arrival/);
 });
 
 test("mobile motion avoids offscreen GPU layers and costly document snapshots", () => {
-  const refreshSource = source.slice(source.indexOf("function refresh("), source.indexOf("function handleReducedMotionChange"));
+  const refreshSource = motionSource().slice(motionSource().indexOf("function refresh("), motionSource().indexOf("function handleReducedMotionChange"));
   assert.equal(refreshSource.includes("opacity: 0"), false, "offscreen elements are observed without layer promotion");
-  assert.match(source, /navigator\.deviceMemory/);
-  assert.match(source, /navigator\.hardwareConcurrency/);
-  assert.match(source, /!constrainedMotion\(\).*document\.startViewTransition/);
-  assert.match(source, /reduced\(\) \|\| constrainedMotion\(\)/);
+  assert.match(motionSource(), /navigator\.deviceMemory/);
+  assert.match(motionSource(), /navigator\.hardwareConcurrency/);
+  assert.match(motionSource(), /!constrainedMotion\(\).*document\.startViewTransition/);
+  assert.match(motionSource(), /reduced\(\) \|\| constrainedMotion\(\)/);
   assert.match(css, /\.motion-lean \.media-image \{ transform: none; transition: opacity 220ms/);
   assert.match(css, /@media \(max-width: 419px\)[\s\S]*\.episode-nav-sticky \{[\s\S]*?backdrop-filter: none;/);
 });
 
 test("direct interaction motion never exceeds the 360ms release budget", () => {
-  const seconds = [...source.matchAll(/duration:\s*(?:[^\n]*?\?\s*)?(0?\.\d+)/g)].map((match) => Number(match[1]));
+  const seconds = [...motionSource().matchAll(/duration:\s*(?:[^\n]*?\?\s*)?(0?\.\d+)/g)].map((match) => Number(match[1]));
   assert.ok(seconds.length >= 9, "the runtime duration set is covered");
   assert.ok(Math.max(...seconds) <= 0.36, `runtime motion reached ${Math.max(...seconds)}s`);
   assert.match(css, /::view-transition-group\(astra-art\) \{[\s\S]*?animation-duration: 340ms;/);
@@ -87,9 +106,9 @@ test("direct interaction motion never exceeds the 360ms release budget", () => {
 });
 
 test("View Transition callbacks cannot reorder or stall visible state", () => {
-  const open = source.slice(source.indexOf("function sharedOpen"), source.indexOf("function sharedClose"));
-  const close = source.slice(source.indexOf("function sharedClose"), source.indexOf("function navigate"));
-  const navigation = source.slice(source.indexOf("function navigate"), source.indexOf("function syncDock"));
+  const open = motionSource().slice(motionSource().indexOf("function sharedOpen"), motionSource().indexOf("function sharedClose"));
+  const close = motionSource().slice(motionSource().indexOf("function sharedClose"), motionSource().indexOf("function navigate"));
+  const navigation = motionSource().slice(motionSource().indexOf("function navigate"), motionSource().indexOf("function syncDock"));
   assert.match(open, /fallback = setTimeout\(commit, 100\)/);
   assert.match(open, /Promise\.race/);
   assert.match(close, /fallback = setTimeout\(commit, 100\)/);

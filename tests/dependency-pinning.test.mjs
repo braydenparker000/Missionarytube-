@@ -1,14 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
 const run = promisify(execFile);
-const shell = await readFile("index.html", "utf8");
-const appSource = await readFile("assets/js/app.js", "utf8");
+const shell = await readAppSource("index.html");
+const appSource = await readAppSource("assets/js/app.js");
 const html = `${shell}\n${appSource}`;
 
 const MUTABLE = /(?:\/|@)(?:latest|next|canary|edge|beta|dev|main|master)(?:\/|$)/i;

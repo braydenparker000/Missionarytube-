@@ -1,14 +1,12 @@
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./media-root.mjs";
 import vm from "node:vm";
-
-const MODULE_URL = new URL("../../assets/js/progress-store.js", import.meta.url);
 
 /**
  * Evaluate the shipped classic script in an isolated context, so the tests
  * exercise the exact file the browser loads.
  */
 export async function loadProgressModule() {
-  const source = await readFile(MODULE_URL, "utf8");
+  const source = await readAppSource("assets/js/progress-store.js");
   const context = vm.createContext({ setTimeout, clearTimeout, console });
   vm.runInContext(source, context, { filename: "assets/js/progress-store.js" });
   return context.AstraProgress;

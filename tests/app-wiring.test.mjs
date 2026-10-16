@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
 
-const shell = await readFile("index.html", "utf8");
-const appSource = await readFile("assets/js/app.js", "utf8");
+const shell = await readAppSource("index.html");
+const appSource = await readAppSource("assets/js/app.js");
 const html = `${shell}\n${appSource}`;
 // The design system moved out of the inline <style> into a reviewable, cacheable
 // stylesheet. The guarantees the player chrome depends on are asserted against
 // that file now; they are the same guarantees, in the same terms.
-const css = await readFile("assets/css/obsidian.css", "utf8");
+const css = await readAppSource("assets/css/obsidian.css");
 
 test("the external app loads after the progress store", () => {
   const module = shell.indexOf('src="assets/js/progress-store.js?v=__ASTRA_VERSION__"');

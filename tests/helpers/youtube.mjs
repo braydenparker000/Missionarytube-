@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./media-root.mjs";
 import vm from "node:vm";
 
 const MODULES = ["config", "instances", "api", "playback"];
@@ -21,12 +21,12 @@ export async function loadYouTube() {
     Event,
     EventTarget
   });
-  const requests = await readFile(new URL("../../assets/js/playback/request-policy.js", import.meta.url), "utf8");
+  const requests = await readAppSource("assets/js/playback/request-policy.js");
   vm.runInContext(requests, context, { filename: "assets/js/playback/request-policy.js" });
-  const streams = await readFile(new URL("../../assets/js/playback/streams.js", import.meta.url), "utf8");
+  const streams = await readAppSource("assets/js/playback/streams.js");
   vm.runInContext(streams, context, { filename: "assets/js/playback/streams.js" });
   for (const name of MODULES) {
-    const source = await readFile(new URL(`../../assets/js/youtube/${name}.js`, import.meta.url), "utf8");
+    const source = await readAppSource(`assets/js/youtube/${name}.js`);
     vm.runInContext(source, context, { filename: `assets/js/youtube/${name}.js` });
   }
   return context.AstraYouTube;

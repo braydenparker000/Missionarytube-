@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
 import test from "node:test";
 import vm from "node:vm";
 
-const source = await readFile("assets/js/search-intent.js", "utf8");
+const source = await readAppSource("assets/js/search-intent.js");
 const context = {};
 vm.runInNewContext(source, context, { filename: "search-intent.js" });
 const intent = context.AstraSearchIntent;

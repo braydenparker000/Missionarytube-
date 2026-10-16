@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
 import test from "node:test";
 import vm from "node:vm";
 
-const source = await readFile("assets/js/route-runtime.js", "utf8");
+const source = await readAppSource("assets/js/route-runtime.js");
 const context = { AbortController, console };
 vm.runInNewContext(source, context, { filename: "route-runtime.js" });
 

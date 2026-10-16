@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./media-root.mjs";
 import vm from "node:vm";
 
 const MODULES = ["delivery", "source-loader", "settings", "request-policy", "video-health", "diagnostics", "streams", "adapters", "engine", "episodes", "subtitles"];
@@ -25,7 +25,7 @@ export async function loadPlayback() {
     fetch: undefined
   });
   for (const name of MODULES) {
-    const source = await readFile(new URL(`../../assets/js/playback/${name}.js`, import.meta.url), "utf8");
+    const source = await readAppSource(`assets/js/playback/${name}.js`);
     vm.runInContext(source, context, { filename: `assets/js/playback/${name}.js` });
   }
   return context.AstraPlayback;

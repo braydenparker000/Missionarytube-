@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {readFile} from 'node:fs/promises';
+import {readAppSource} from './helpers/media-root.mjs';
 const context=vm.createContext({});
-for(const name of ['video-health','diagnostics'])vm.runInContext(await readFile(`assets/js/playback/${name}.js`,'utf8'),context);
+for(const name of ['video-health','diagnostics'])vm.runInContext(await readAppSource(`assets/js/playback/${name}.js`),context);
 const {create,failureCode,describe}=context.AstraPlayback.diagnostics;
 test('playback report cannot include source credentials or arbitrary metadata',()=>{
   const log=create();

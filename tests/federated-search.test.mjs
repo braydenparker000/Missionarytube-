@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
 import test from "node:test";
 import vm from "node:vm";
 
-const source = await readFile("assets/js/federated-search.js", "utf8");
-const shell = await readFile("index.html", "utf8");
-const appSource = await readFile("assets/js/app.js", "utf8");
+const source = await readAppSource("assets/js/federated-search.js");
+const shell = await readAppSource("index.html");
+const appSource = await readAppSource("assets/js/app.js");
 const html = `${shell}\n${appSource}`;
-const css = await readFile("assets/css/obsidian.css", "utf8");
+const css = await readAppSource("assets/css/obsidian.css");
 const context = {};
 vm.runInNewContext(source, context, { filename: "federated-search.js" });
 const search = context.AstraSearch;

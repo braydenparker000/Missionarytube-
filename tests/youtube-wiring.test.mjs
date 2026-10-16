@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
 
 /**
  * The YouTube provider is only worth anything if it is wired into the app the
@@ -8,10 +8,10 @@ import { readFile } from "node:fs/promises";
  * same player, the same progress. These check the seams, in the shipped file.
  */
 
-const shell = await readFile("index.html", "utf8");
-const appSource = await readFile("assets/js/app.js", "utf8");
+const shell = await readAppSource("index.html");
+const appSource = await readAppSource("assets/js/app.js");
 const html = `${shell}\n${appSource}`;
-const css = await readFile("assets/css/obsidian.css", "utf8");
+const css = await readAppSource("assets/css/obsidian.css");
 
 const region = (pattern) => {
   const match = html.match(pattern);
