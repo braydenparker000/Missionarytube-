@@ -1,3 +1,4 @@
+import {makimaContinuationURL} from './helpers/relay-makima-continuation.js';
 import {createHash} from 'node:crypto';
 import {MAKIMA_CONSENT_SCRIPT, MAKIMA_CONSENT_SCRIPT_HASH} from '../backend/relay-makima-consent.js';
 import test from 'node:test';
@@ -31,8 +32,8 @@ function fixture(t, overrides = {}) {
   const parameters = async extra => ({response_type:'code',client_id:CLIENT,redirect_uri:CALLBACK,resource,scope:SCOPE,state:'synthetic-state',code_challenge:await challenge(VERIFIER),code_challenge_method:'S256',...extra});
   const start = async extra => request('/oauth/authorize?' + new URLSearchParams(await parameters(extra)));
   const exchange = (code,extra={}) => request('/oauth/token',form({grant_type:'authorization_code',client_id:CLIENT,redirect_uri:CALLBACK,resource,code,code_verifier:VERIFIER,...extra}));
-  async function consent() {
-    const login = await start(); assert.equal(login.status,302);
+  async function consent(extra) {
+    const login = await start(extra); assert.equal(login.status,302);
     const state = new URL(login.headers.get('Location')).searchParams.get('state');
     const response = await request('/oauth/github/callback?' + new URLSearchParams({state,code:'synthetic-code'}),{headers:{Cookie:cookie(login)}});
     assert.equal(response.status,200);
@@ -44,7 +45,7 @@ function fixture(t, overrides = {}) {
     return {html,csrf:html.match(/name="csrf" value="([a-f0-9]{64})"/)[1],cookie:cookie(response)};
   }
   const approve = (c,extra={}) => request('/oauth/approve',{...form({csrf:c.csrf,decision:'allow',...extra}),headers:{...form({}).headers,Origin:WORKER,Cookie:c.cookie}});
-  async function code() { const r = await approve(await consent()); assert.equal(r.status,302); assert.equal(new URL(r.headers.get('Location')).origin,'https://www.cursor.com'); return new URL(r.headers.get('Location')).searchParams.get('code'); }
+  async function code() { return (await makimaContinuationURL(await approve(await consent()))).searchParams.get('code'); }
   async function tokens() { const r=await exchange(await code()); assert.equal(r.status,200); const b=await r.json(); assert.equal(b.scope,SCOPE); return b; }
   const rpc = (token,method,params={},headers={},envelope={}) => request('/mcp',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',Accept:'application/json, text/event-stream',...headers},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params,...envelope})});
   const call = (token,name,args={}) => rpc(token,'tools/call',{name,arguments:args});
@@ -114,8 +115,8 @@ test('consent cookies and CSRF are isolated; cancel never issues credentials',as
   assert.match(c.cookie,/^__Host-jarvis-makima=/);
   const wrong=await s.approve({...c,cookie:c.cookie.replace('__Host-jarvis-makima','__Host-jarvis-relay')}); assert.equal(wrong.status,400);
   assert.equal((await s.approve(c,{csrf:'a'.repeat(64)})).status,400);
-  const denied=await s.approve(c,{decision:'deny'}); assert.equal(denied.status,302);
-  assert.equal(new URL(denied.headers.get('Location')).searchParams.get('error'),'access_denied');
+  const denied=await s.approve(c,{decision:'deny'}); assert.equal(denied.status,200);
+  assert.equal((await makimaContinuationURL(denied)).searchParams.get('error'),'access_denied');
   assert.equal(s.rows("SELECT COUNT(*) AS n FROM relay_oauth WHERE category IN ('grant','access','refresh','code')")[0].n,0);
 });
 
@@ -231,7 +232,7 @@ test('retained Makima cookies cannot replay approved, denied or expired consent;
       const r=await s.request('/oauth/approve',{...form({csrf:c.csrf,decision}),headers:{...form({}).headers,Origin:origin,Cookie:c.cookie}});
       assert.equal(r.status,403);
     }
-    const completed=await s.approve(c,{decision}); assert.equal(completed.status,302);
+    const completed=await s.approve(c,{decision}); assert.equal(completed.status,200);
     assert.equal(completed.headers.get('Set-Cookie'),null);
     const before=s.rows("SELECT COUNT(*) AS n FROM relay_oauth WHERE category='grant'")[0].n;
     const replay=await s.approve(c); assert.equal(replay.status,400);
@@ -260,9 +261,9 @@ test('Makima delayed login cookies cannot replace or stand in for consent', asyn
   const legacy = await s.approve({...c, cookie: cookie(delayed).replace('__Host-jarvis-makima-login=', '__Host-jarvis-makima=')});
   assert.equal((await legacy.json()).error_description, 'consent_session_expired_or_used');
   const approved = await s.approve({...c, cookie: [...jar].map(([k,v]) => `${k}=${v}`).join('; ')});
-  assert.equal(approved.status, 302);
+  assert.equal(approved.status, 200);
   assert.equal(approved.headers.get('Set-Cookie'), null);
-  assert.equal((await s.exchange(new URL(approved.headers.get('Location')).searchParams.get('code'))).status, 200);
+  assert.equal((await s.exchange((await makimaContinuationURL(approved)).searchParams.get('code'))).status, 200);
   const replay = await s.approve(c);
   assert.equal((await replay.json()).error_description, 'consent_session_expired_or_used');
 });
@@ -280,7 +281,7 @@ test('Makima registry storage exceptions report unavailable without consuming fr
     assert.equal(response.status, 400);
     assert.deepEqual(await response.json(), {error:'invalid_request', error_description:'consent_registry_unavailable'});
   } finally { sql.exec = original; }
-  assert.equal((await s.approve(c)).status, 302);
+  assert.equal((await s.approve(c)).status, 200);
 });
 
 test('Makima login cookie is phase-bound, single-use and expires after ten minutes', async t => {
@@ -310,7 +311,7 @@ test('Makima consent recovery link starts a fresh flow with original validated p
   assert.equal(url.searchParams.get('redirect_uri'), CALLBACK);
   assert.equal(url.searchParams.get('state'), 'synthetic-state');
   assert.equal(url.searchParams.get('code_challenge'), await challenge(VERIFIER));
-  assert.equal((await f.approve(c)).status, 302);
+  assert.equal((await f.approve(c)).status, 200);
   assert.equal((await f.approve(c)).status, 400);
   const restarted = await f.fixture.request(href);
   assert.equal(restarted.status, 302);
@@ -321,6 +322,65 @@ test('Makima consent recovery link starts a fresh flow with original validated p
   const html = await callback.text(), fresh = {csrf: html.match(/name="csrf" value="([a-f0-9]{64})"/)[1], cookie: cookie(callback)};
   assert.notEqual(fresh.csrf, c.csrf);
   assert.notEqual(fresh.cookie, c.cookie);
-  assert.equal((await f.approve(fresh)).status, 302);
+  assert.equal((await f.approve(fresh)).status, 200);
   assert.equal((await f.approve(c)).status, 400);
+});
+
+
+test('Makima continuation preserves hostile-looking state as data, exact callback, issuer and one-use PKCE code', async t => {
+  const s = fixture(t), state = '<script>synthetic</script>&"\' \u2603 %25 #fragment', c = await s.consent({state});
+  const response = await s.approve(c), target = await makimaContinuationURL(response), html = await response.clone().text();
+  assert.equal(response.headers.get('Set-Cookie'), null);
+  assert.equal(target.searchParams.get('state'), state);
+  assert.equal(target.searchParams.get('iss'), WORKER + PATH);
+  assert.deepEqual([...target.searchParams.keys()].sort(), ['code', 'iss', 'state']);
+  assert.ok(!html.includes(state));
+  assert.match(html, /&amp;state=/); assert.match(html, /&amp;iss=/);
+  assert.ok(!html.includes('Connection complete'));
+  const code = target.searchParams.get('code'); assert.match(code, /^[a-f0-9]{64}$/);
+  assert.equal((await s.exchange(code, {code_verifier: 'wrong-but-valid-length-verifier-'.repeat(2)})).status, 400);
+  assert.equal((await s.exchange(code)).status, 200);
+  assert.equal((await s.exchange(code)).status, 400);
+  const before = s.rows("SELECT COUNT(*) AS n FROM relay_oauth WHERE category='grant'")[0].n;
+  assert.equal((await s.approve(c)).status, 400);
+  assert.equal(s.rows("SELECT COUNT(*) AS n FROM relay_oauth WHERE category='grant'")[0].n, before);
+});
+
+test('Makima cancellation continuation sends only access_denied, state and issuer; repeated submission stays consumed', async t => {
+  const s = fixture(t), c = await s.consent(), response = await s.approve(c, {decision: 'deny'});
+  const target = await makimaContinuationURL(response);
+  assert.deepEqual([...target.searchParams.keys()].sort(), ['error', 'iss', 'state']);
+  assert.equal(target.searchParams.get('error'), 'access_denied');
+  assert.equal(target.searchParams.get('state'), 'synthetic-state');
+  assert.equal(target.searchParams.get('iss'), WORKER + PATH);
+  assert.equal(s.rows("SELECT COUNT(*) AS n FROM relay_oauth WHERE category IN ('grant','code','access','refresh')")[0].n, 0);
+  assert.equal((await s.approve(c)).status, 400);
+});
+
+test('continuation never links to a corrupted stored callback or takes a submitted return target', async t => {
+  const s = fixture(t);
+  const valid = await s.consent();
+  const target = await makimaContinuationURL(await s.approve(valid, {redirect_uri: 'https://unlisted.invalid/callback'}));
+  assert.equal(target.origin + target.pathname, CALLBACK);
+  for (const decision of ['allow', 'deny']) {
+    const c = await s.consent();
+    for (const row of s.rows("SELECT key,value FROM relay_oauth WHERE key LIKE 'consent:%'")) {
+      const value = JSON.parse(row.value); value.p.redirect_uri = 'https://unlisted.invalid/callback';
+      s.rows('UPDATE relay_oauth SET value=? WHERE key=?', JSON.stringify(value), row.key);
+    }
+    const rejected = await s.approve(c, {decision}); assert.equal(rejected.status, 400);
+    assert.equal(rejected.headers.get('Location'), null); assert.ok(!(await rejected.text()).includes('unlisted.invalid'));
+  }
+});
+
+test('waiting on the continuation page cannot extend the ten-minute code lifetime', async t => {
+  const s = fixture(t); let now = Date.now(); t.mock.method(Date, 'now', () => now);
+  const c = await s.consent(), response = await s.approve(c), target = await makimaContinuationURL(response);
+  const code = target.searchParams.get('code');
+  const observations = JSON.stringify(s.rows('SELECT * FROM makima_oauth_diagnostics'));
+  assert.ok(!observations.includes(code)); assert.ok(!observations.includes('synthetic-state'));
+  assert.match(observations, /continuation_constructed/);
+  now += 600000;
+  assert.equal((await s.exchange(code)).status, 400);
+  assert.equal((await s.approve(c)).status, 400);
 });

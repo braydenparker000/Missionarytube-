@@ -53,7 +53,7 @@ test('Makima delayed login and terminal responses cannot replace another tab’s
             const response = await mf.dispatchFetch(req.url, {method: req.method, headers: req.headers, body: req.postData, redirect: 'manual'});
             status = response.status; headers = Object.fromEntries(response.headers); body = await response.text();
             if (status === 200 && url.pathname.endsWith('/github/callback')) consentHtml = body;
-            if (older && status === 302 && (url.pathname.endsWith('/approve') || decision === 'authorize' && url.pathname.endsWith('/authorize') || decision === 'github-cancel' && url.pathname.endsWith('/github/callback'))) {
+            if (older && (status === 200 && url.pathname.endsWith('/approve') || status === 302 && (decision === 'authorize' && url.pathname.endsWith('/authorize') || decision === 'github-cancel' && url.pathname.endsWith('/github/callback')))) {
               // Hold the already-generated response before Chromium sees its headers.
               held.resolve({headers}); await release.promise;
             }
@@ -89,6 +89,7 @@ test('Makima delayed login and terminal responses cannot replace another tab’s
           const login = (await context.cookies(ORIGIN)).find(c => c.name === COOKIE + '-login');
           assert.ok(login); assert.equal(login.httpOnly, true); assert.equal(login.secure, true); assert.equal(login.sameSite, 'Lax');
         } else {
+          if (['allow', 'deny'].includes(decision)) await old.locator('#makima-oauth-continue').click();
           await old.waitForURL(CANONICAL_CALLBACK + '**');
           assert.equal(oldResponse.headers['set-cookie'], undefined, 'terminal response must not mutate a newer cookie');
         }
@@ -99,7 +100,7 @@ test('Makima delayed login and terminal responses cannot replace another tab’s
           await old.locator('button[value="allow"]').click();
           assert.equal(JSON.parse(await old.locator('body').innerText()).error_description, 'consent_csrf_mismatch');
         }
-        await fresh.locator('button[value="allow"]').click(); await fresh.waitForURL(CANONICAL_CALLBACK + '**');
+        await fresh.locator('button[value="allow"]').click(); await fresh.locator('#makima-oauth-continue').click(); await fresh.waitForURL(CANONICAL_CALLBACK + '**');
         assert.match(new URL(fresh.url()).searchParams.get('code'), /^[a-f0-9]{64}$/);
         assert.deepEqual((await context.cookies(ORIGIN)).find(c => c.name === COOKIE), before);
         // Retaining the real cookie does not make consumed consent replayable.

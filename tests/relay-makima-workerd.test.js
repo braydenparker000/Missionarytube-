@@ -1,3 +1,4 @@
+import {makimaContinuationURL} from './helpers/relay-makima-continuation.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
@@ -30,8 +31,7 @@ test('offline workerd runs actual Makima OAuth and stateless MCP with no live eg
     assert.equal(consent.status,200);
     const html=await consent.text(),csrf=html.match(/name="csrf" value="([a-f0-9]{64})"/)[1];
     const allow=await request('/oauth/approve',{...form({csrf,decision:'allow'}),headers:{...form({}).headers,Origin:origin,Cookie:cookie(consent)}});
-    assert.equal(allow.status,302);
-    const code=new URL(allow.headers.get('Location')).searchParams.get('code');
+    const code=(await makimaContinuationURL(allow)).searchParams.get('code');
     const exchange=await request('/oauth/token',form({grant_type:'authorization_code',client_id:client,redirect_uri:MAKIMA_CALLBACK,resource,code,code_verifier:verifier}));
     assert.equal(exchange.status,200);const token=await exchange.json();assert.equal(token.scope,'relay:makima');
     const rpc=async(method,params={})=>{

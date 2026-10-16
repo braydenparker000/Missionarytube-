@@ -99,7 +99,7 @@ test('Makima duplicate native submits: delayed first success versus second navig
           // first navigation is allowed. Session closure or other failures fail.
           const canceledInterception = /^(?:cdpSession\.send: )?Protocol error \(Fetch\.fulfillRequest\): Invalid InterceptionId\.?$/.test(error.message);
           const expectedCancellation = recovering
-            ? approvals.length === 1 && approvals[0].status === 302
+            ? approvals.length === 1 && approvals[0].status === 200
             : !guarded && approvals.length === 2 && approvals[1].status === 400;
           if (!(isFirstApproval && expectedCancellation && firstCancellation === 'net::ERR_ABORTED' && canceledInterception)) throw error;
         }
@@ -120,7 +120,7 @@ test('Makima duplicate native submits: delayed first success versus second navig
         // Native pointer clicks: no forged POSTs or manufactured browser cookies.
         await bounded(page.mouse.click(box.x + box.width / 2, box.y + box.height / 2), 'first native click');
         await bounded(held.promise, 'first approval reached worker');
-        assert.equal(approvals[0].status, 302); assert.equal(approvals[0].decision, decision);
+        assert.equal(approvals[0].status, 200); assert.equal(approvals[0].decision, decision);
         if (recovering) {
           // Stop the real pending browser navigation before using any locator.
           // This models the user stopping a request after the server consumed it.
@@ -135,8 +135,9 @@ test('Makima duplicate native submits: delayed first success versus second navig
           await page.waitForURL(ORIGIN + PATH + '/oauth/github/callback?**');
           assert.notEqual(await page.locator('input[name="csrf"]').getAttribute('value'), originalCsrf);
           await page.locator('button[value="allow"]').click();
+          await page.locator('#makima-oauth-continue').click();
           await page.waitForURL(CANONICAL + '**');
-          assert.deepEqual(approvals.map(x => [x.status, x.decision]), [[302, 'allow'], [302, 'allow']]);
+          assert.deepEqual(approvals.map(x => [x.status, x.decision]), [[200, 'allow'], [200, 'allow']]);
           const recovered = new URL(page.url());
           assert.equal(recovered.searchParams.get('state'), 'synthetic-state');
           const exchanged = await bounded(mf.dispatchFetch(ORIGIN + PATH + '/oauth/token', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: new URLSearchParams({grant_type: 'authorization_code', client_id: CLIENT, redirect_uri: CALLBACK, resource: ORIGIN + PATH + '/mcp', code: recovered.searchParams.get('code'), code_verifier: VERIFIER}).toString()}), 'recovered token exchange');
@@ -149,7 +150,7 @@ test('Makima duplicate native submits: delayed first success versus second navig
           await bounded(secondSeen.promise, 'second approval reached worker');
           await page.waitForURL(ORIGIN + PATH + '/oauth/approve');
           assert.equal(JSON.parse(await page.locator('body').innerText()).error_description, 'consent_session_expired_or_used');
-          assert.deepEqual(approvals.map(x => x.status), [302, 400]);
+          assert.deepEqual(approvals.map(x => x.status), [200, 400]);
           assert.equal(await bounded(firstCanceled.promise, 'first approval navigation cancellation'), 'net::ERR_ABORTED');
           release.resolve(); await bounded(Promise.allSettled([...pending]), 'released first response completion');
           assert.equal(new URL(page.url()).pathname, PATH + '/oauth/approve', 'The canceled first success must not replace the second error navigation');
@@ -159,7 +160,7 @@ test('Makima duplicate native submits: delayed first success versus second navig
           // The unit below covers accessibility state; this case validates the
           // actual submitted request count, decision and eventual callback.
           await new Promise(resolve => setTimeout(resolve, 200)); assert.equal(approvals.length, 1);
-          release.resolve(); await page.waitForURL(CANONICAL + '**');
+          release.resolve(); await page.locator('#makima-oauth-continue').click(); await page.waitForURL(CANONICAL + '**');
           assert.equal(approvals.length, 1, 'Only the first decision may reach the worker');
           const result = new URL(page.url());
           assert.equal(result.searchParams.get('state'), 'synthetic-state');
@@ -190,7 +191,7 @@ test('Makima duplicate native submits: delayed first success versus second navig
     await t.test('production guard pageshow restoration resets accessibility state without disabling buttons', async () => {
       const page = await bounded(browser.newPage(), 'create unit page');
       try {
-        await page.setContent('<form><button name="decision" value="allow">Allow</button></form><p id="makima-submit-status" hidden>Sending</p>');
+        await page.setContent('<form><button name="decision" value="allow">Allow</button></form><p id="makima-submit-status" hidden>Sending</p><p id="makima-navigation-status" hidden>Blocked</p>');
         await bounded(page.evaluate(guard), 'install unit guard');
         await bounded(page.evaluate(() => document.querySelector('form').dispatchEvent(new Event('submit', {cancelable: true}))), 'unit first submit');
         assert.equal(await page.locator('form').getAttribute('aria-busy'), 'true');
