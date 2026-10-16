@@ -8,14 +8,14 @@ import {pathToFileURL} from 'node:url';
 import {immutableSourceSnapshot,recipeAllowed} from './plan-jarvis-qualification.mjs';
 import {SAVING_RECIPE} from './publish-mobile-file-save.mjs';
 import {observe,publishWorker} from './publish-private-collaboration.mjs';
-export const SOURCE='01a17019bdca592ef14d183aabc81c58ea7928ff';
-export const BASE='72f86e00b0c8b4f7e1fdb41e1ab2601b50fb365c';
-export const BEFORE={version:'c7e89df4-85b3-488b-b213-c13668c9dc9b',codeSha256:'e5a7245981551626524cd8e318c1237c33f3bd4321f60d6176f628487cf128f3',settingsDigest:'0cf6bb029536a278c7141132fc9f96110f7b43d81f674c3ceb16e306a6aaa7bc'};
+export const SOURCE='416d41a83c5819aae3e3a34d3d76919c217e1f97';
+export const BASE='01a17019bdca592ef14d183aabc81c58ea7928ff';
+export const BEFORE={version:'9cc2ad69-2052-4b01-b003-1b5d9c8e9498',codeSha256:'53b7fd3dc05f41a37e0d246a1b3876bd05bba952609c03aa522b3d9f1f4455a3',settingsDigest:'0cf6bb029536a278c7141132fc9f96110f7b43d81f674c3ceb16e306a6aaa7bc'};
 const root=resolve('.makima-cookie-source'),out=resolve('makima-cookie-publication');
 const hash=x=>createHash('sha256').update(x).digest('hex');
 const git=(...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:'pipe'}).trim();
 const json=async p=>JSON.parse(await readFile(p,'utf8'));
-export function checkedPaths(paths){assert.deepEqual(paths,['backend/relay-makima-policy.js','backend/relay-oauth.js','tests/relay-makima-cookie-browser.test.js','tests/relay-makima.test.js']);}
+export function checkedPaths(paths){assert.deepEqual(paths,["backend/relay-makima-policy.js","backend/relay-oauth.js","backend/worker.js","tests/relay-makima-cookie-browser.test.js","tests/relay-makima.test.js"]);}
 export function checkedBaseline(identity){for(const [key,value] of Object.entries(BEFORE))assert.equal(identity[key],value,'Production baseline changed: '+key);}
 async function source(){
  assert.equal(git('rev-parse','HEAD'),SOURCE);immutableSourceSnapshot(root);assert.ok(recipeAllowed(root,SAVING_RECIPE));
@@ -27,7 +27,7 @@ async function source(){
  const compile=async dir=>{const r=await build({absWorkingDir:dir,entryPoints:['backend/worker.js'],bundle:true,write:false,platform:'browser',format:'esm',target:'es2022',external:['node:crypto'],logLevel:'silent'});assert.equal(r.outputFiles.length,1);return r.outputFiles[0].contents;};
  const baseline=resolve('.makima-cookie-baseline');
  try{await readFile(resolve(baseline,'backend/worker.js'));}catch{git('worktree','add','--detach',baseline,BASE);}
- assert.equal(hash(await compile(baseline)),BEFORE.codeSha256,'Baseline must reproduce deployed Collaboration bytes');
+ assert.equal(hash(await compile(baseline)),BEFORE.codeSha256,'Baseline must reproduce deployed Makima bytes');
  return {source:SOURCE,proof,bundle:await compile(root)};
 }
 export async function deploy({credentials,bundle,checkpoint,fetcher=globalThis.fetch}){
@@ -44,7 +44,7 @@ async function main(mode){
  const plan=await json(resolve(out,'plan.json'));assert.deepEqual(plan,expected);
  if(mode==='deploy'){
   const result=await deploy({credentials,bundle:s.bundle,checkpoint:async before=>writeFile(resolve(out,'checkpoint.json'),JSON.stringify({...expected,before},null,2)+'\n')});
-  const receipt={schema:1,kind:'makima-consent-cookie-worker',source:SOURCE,proof:s.proof,orchestration:process.env.GITHUB_SHA,runId:process.env.GITHUB_RUN_ID,...result,settingsUnchanged:true,schedulesUnchanged:true,credentialsChanged:false};
+  const receipt={schema:1,kind:'makima-session-worker',source:SOURCE,proof:s.proof,orchestration:process.env.GITHUB_SHA,runId:process.env.GITHUB_RUN_ID,...result,settingsUnchanged:true,schedulesUnchanged:true,credentialsChanged:false};
   await writeFile(resolve(out,'release.json'),JSON.stringify(receipt,null,2)+'\n');
   console.log(JSON.stringify({source:SOURCE,version:result.after.version,codeSha256:result.after.codeSha256,settingsUnchanged:true,schedulesUnchanged:true}));return;
  }
@@ -52,3 +52,4 @@ async function main(mode){
  console.log('Exact Makima repair Worker and preserved settings/schedules verified');
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href)main(process.argv[2]).catch(()=>{console.error('Makima publication stopped: source proof, baseline or preservation check failed. No provider body logged. Inspect checkpoint and active identity before any retry.');process.exitCode=1;});
+
