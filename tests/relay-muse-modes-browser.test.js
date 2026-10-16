@@ -11,7 +11,9 @@ test('Muse phone: one launcher, explicit mode switch, owner auth and isolated dr
   const signedOut=await openConversationPage(browser,h,{clock:false});pages.push(signedOut);
   let p=signedOut.page;await p.goto(SITE+'/');
   assert.equal(await p.locator('a[href="/mast/"]').count(),0);
-  await p.locator('a[href="/muse/"]').first().click();
+  await p.locator('a[href="/private/"]').first().click();
+  await p.locator('#open-drawer').click();
+  await p.getByRole('link',{name:'Public Muse',exact:true}).click();
   await p.waitForFunction(()=>document.querySelector('#status')?.textContent!=='Opening public inbox…');
   await p.locator('#prompt').fill('Synthetic public draft');
   await p.getByRole('button',{name:'Open Muse menu',exact:true}).click();
