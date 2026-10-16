@@ -42,3 +42,31 @@ export function recordMakimaDiagnostic(ctx, observation, now) {
     });
   } catch { /* Diagnostics must never determine an OAuth result. */ }
 }
+
+const tokenOutcomes = {
+  token_request: ['received'],
+  token_result: ['content_type_rejected', 'duplicate_parameter_rejected', 'resource_rejected', 'credential_format_rejected', 'scope_rejected', 'unsupported_grant_type', 'exchange_rejected', 'issued', 'processing_error', 'disabled', 'token_origin_rejected'],
+};
+export function recordMakimaTokenDiagnostic(ctx, observation, now) {
+  try {
+    // These IDs and the start time are generated independently at ingress, not
+    // copied from any OAuth input or correlated with a consent/grant/token.
+    const {requestId, startedAt, stage, outcome} = observation || {};
+    if (!validDiagnosticId(requestId, 'mt') || !tokenOutcomes[stage]?.includes(outcome)
+      || !Number.isSafeInteger(now) || !Number.isSafeInteger(startedAt) || startedAt < 0 || startedAt > now) return;
+    const sql = ctx.storage.sql;
+    sql.exec('CREATE TABLE IF NOT EXISTS makima_token_diagnostics (request_id TEXT PRIMARY KEY, created_ms INTEGER NOT NULL, expires_ms INTEGER NOT NULL, at_ms INTEGER NOT NULL, stage TEXT NOT NULL, outcome TEXT NOT NULL, build TEXT NOT NULL)');
+    ctx.storage.transactionSync(() => {
+      // As with consent observations, expiry is logical and deletion happens
+      // on the next write. Delayed results cannot restart the retention window.
+      sql.exec('DELETE FROM makima_token_diagnostics WHERE expires_ms<=?', now);
+      if (startedAt + TTL <= now) return;
+      const existing = [...sql.exec('SELECT * FROM makima_token_diagnostics WHERE request_id=?', requestId)][0];
+      // Independent background writes can arrive out of order. A received
+      // event or duplicate result must not overwrite the first terminal result.
+      if (existing && (existing.created_ms !== startedAt || existing.stage === 'token_result' || stage === 'token_request')) return;
+      if (!existing && [...sql.exec('SELECT COUNT(*) AS n FROM makima_token_diagnostics')][0].n >= LIMIT) return;
+      sql.exec('INSERT OR REPLACE INTO makima_token_diagnostics VALUES(?,?,?,?,?,?,?)', requestId, startedAt, startedAt + TTL, now, stage, outcome, 'makima-token-diagnostic-v1');
+    });
+  } catch { /* Diagnostics must never determine an OAuth result. */ }
+}
