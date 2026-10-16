@@ -16,6 +16,7 @@ export const makimaOAuthPolicy = Object.freeze({
   // Cursor canonicalizes www to the apex host with a 308. Chromium applies
   // form-action to that redirect too; OAuth registration stays exact and unchanged.
   formActionRedirects: ['https://cursor.com/agents/mcp/oauth/callback'],
+  consentDiagnostics: true,
   retainTerminalCookie: true,
   loginCookie: '__Host-jarvis-makima-login',
   cookie: '__Host-jarvis-makima', clientName: 'Makima', enabled: makimaEnabled,

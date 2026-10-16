@@ -56,7 +56,7 @@ export function makimaRpc(ctx, env, principal, rpc) {
   return {content:[{type:'text',text:JSON.stringify(data)}],structuredContent:data,isError:false};
 }
 
-export async function makimaConnector(request, env) {
+export async function makimaConnector(request, env, executionCtx) {
   const path = new URL(request.url).pathname;
   const metadata = '/.well-known/oauth-protected-resource' + MAKIMA_PATH + '/mcp';
   if (!(path.startsWith(MAKIMA_PATH + '/') || path === metadata || path === '/.well-known/oauth-authorization-server' + MAKIMA_PATH)) return null;
@@ -66,7 +66,7 @@ export async function makimaConnector(request, env) {
   const cors = origin ? {'Access-Control-Allow-Origin':origin,Vary:'Origin'} : {};
   if (request.method === 'OPTIONS') return new Response(null,{status:204,headers:{...cors,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type, Accept, MCP-Protocol-Version'}});
   const response = await (async () => {
-    const oauth = await relayOAuth(request,env,fetch,policy); if (oauth) return oauth;
+    const oauth = await relayOAuth(request,env,fetch,policy,executionCtx); if (oauth) return oauth;
     if (path !== MAKIMA_PATH + '/mcp') return json({error:'Not found'},404);
     let principal;
     try { principal = await relayAuthenticate(request,env,false,policy); } catch { return json({error:'Authentication unavailable'},503); }
@@ -94,3 +94,4 @@ export async function makimaConnector(request, env) {
   })();
   return new Response(response.body,{status:response.status,headers:{...Object.fromEntries(response.headers),...cors}});
 }
+
