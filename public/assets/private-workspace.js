@@ -1,3 +1,4 @@
+import {readAccent,setAccent} from './private-theme.js';
 import {createRelayMenuHistory} from './relay-menu-history.js';
 import {readTaskPages,taskStatus} from './private-tasks.js';
 import {createRelayOwnerApi,OWNER_SESSION_KEY} from './relay-owner-api.js';
@@ -46,3 +47,8 @@ drawer.addEventListener('close',()=>navigation.closed(drawer));
 drawer.addEventListener('click',event=>{if(event.target===drawer){const r=drawer.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)navigation.close(drawer);}});
 for(const link of drawer.querySelectorAll('a'))link.onclick=event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();navigation.navigate(()=>location.assign(link.href));};
 addEventListener('popstate',()=>navigation.popstate());
+
+for(const input of document.querySelectorAll('input[name="accent"]')){input.checked=input.value===readAccent();input.onchange=()=>{if(input.checked)setAccent(input.value);};}
+
+// Enable header controls only after their module handlers are installed.
+document.getElementById('open-drawer').disabled=false;pickerButton.disabled=false;

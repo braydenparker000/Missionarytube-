@@ -1,3 +1,4 @@
+import './private-theme.js';
 if(parent!==window)document.body.classList.add('private-embedded');
 import {createRelayOwnerController,createRelayOwnerUI} from './relay-owner-ui.js';
 import {createRelayAttachmentUI} from './private-attachments.js';
@@ -10,7 +11,7 @@ const attachments=createRelayAttachmentUI({controller,openSheet:sheet,notify:tex
 controller.bindAttachments(()=>attachments.draft());
 controller.showOwner();
 ui.mount(document.getElementById('content'));
-function controls(){const textarea=document.getElementById('relay-owner-message-text');if(textarea)textarea.placeholder='Message Lucy…';const input=document.querySelector('.composer-input');if(input&&!input.querySelector('.private-attach')){const button=document.createElement('button');button.type='button';button.className='relay-composer-plus private-attach';button.textContent='+';button.setAttribute('aria-label','Attach images or files to Lucy');button.onclick=attachments.open;input.prepend(button);}attachments.sync();document.getElementById('disconnect').hidden=!controller.hasCredential;}
+function controls(){const textarea=document.getElementById('relay-owner-message-text');if(textarea)textarea.placeholder='Message Lucy…';const input=document.querySelector('.composer-input');if(input&&!input.querySelector('.private-attach')){const button=document.createElement('button');button.type='button';button.className='relay-composer-plus private-attach';button.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';button.setAttribute('aria-label','Attach images or files to Lucy');button.onclick=attachments.open;input.prepend(button);}attachments.sync();document.getElementById('disconnect').hidden=!controller.hasCredential;}
 controller.subscribe(controls);controls();appViewport();
 document.getElementById('search').onclick=()=>ui.toggleSearch();document.getElementById('account').onclick=()=>controller.showAccount();document.getElementById('disconnect').onclick=()=>controller.disconnect();
 // No public store or transport is imported. Recipient is fixed for this document.

@@ -1,0 +1,11 @@
+:root{--private-accent:#d6d6d6;--private-accent-ink:#000}
+:root[data-accent=blue]{--private-accent:#8ab4ff}:root[data-accent=mint]{--private-accent:#85d8b2}:root[data-accent=rose]{--private-accent:#f5a9cc}:root[data-accent=amber]{--private-accent:#efc477}
+:root :is(button,a,input,textarea,summary):focus-visible{outline:2px solid var(--private-accent);outline-offset:2px}
+:root #destinations a[aria-current]{border-color:var(--private-accent)}
+:root .agent-options [aria-pressed=true]{box-shadow:inset 0 0 0 1px var(--private-accent);color:var(--private-accent)}
+:root .task-card a{color:var(--private-accent)}
+body.relay-page main#content .composer-input:focus-within{border-color:var(--private-accent);box-shadow:0 0 0 1px var(--private-accent)}
+body.relay-page main#content .composer-input .send-icon:not(:disabled){background:var(--private-accent);color:var(--private-accent-ink);border-color:var(--private-accent)}
+body.relay-page main#content .composer-input .send-icon:not(:disabled):hover{background:var(--private-accent);filter:brightness(1.08)}
+body.relay-page :is(button,a,input,select,summary):focus-visible{outline-color:var(--private-accent)}
+body.relay-page .rich-body a{color:var(--private-accent)}

@@ -1,3 +1,4 @@
+import './private-theme.js';
 import {readTaskPages} from './private-tasks.js';
 import {museShell,museSheet as sheet} from './private-muse-shell.js';
 import {createMastWork} from './private-mast-work.js';
