@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "ready": true,
-  "source": "fbdfc732ba64ec5381479c0facb4acfe38a2ebe5",
+  "source": "13e9179e024bec2ad30c86d571c2cfa1b7220f19",
   "recipe": {
     ".github/workflows/validate-r2.yml": "9a352d9671250bbdcb8701a6065905219442f0e0",
     "scripts/qualification-proof.mjs": "ed5644fe333ec067ee24051e55b978a83932aa34",
@@ -16,6 +16,12 @@
   },
   "parentReceiptSha256": "4daeb31533e77a06fbbd05e7ecd3d9e9111312bd87349eb7a088c7558da4eee8",
   "files": [
+    {
+      "path": "assets/muse.js",
+      "sha256": "fa48012ea080c999a89af22b0f630f82eea9c8a5bddbdd4c1090daa59a84035d",
+      "bytes": 10164,
+      "before": "a668785d3ed2bf2480126d32cd527a7495b814c1a1f5f3c96c0fdeaad6e19a68"
+    },
     {
       "path": "assets/private-appearance-settings.js",
       "sha256": "4b33c5ca2fda230ad4ba26222fbce78f79a03df16a1dec7c7e009f8b947e0770",
@@ -107,6 +113,12 @@
       "before": "0b9683bf0b8e6b3eca275a2c9cc4f142e5c41de7a58331a63a2b84af27621438"
     },
     {
+      "path": "muse/index.html",
+      "sha256": "d69559cfe30aeb415de5ea2ef089a36b8e0420989e0bc3f7a84fe5cffb7eea0b",
+      "bytes": 3616,
+      "before": "6ab763a6a055459c21072ac129be87f9216b8b6ccac2e833b4bf14997bb797bb"
+    },
+    {
       "path": "private/index.html",
       "sha256": "8250c6b8a08798daadf129b851512fb2a0018f7a3f16fc4e235cfae7380990c4",
       "bytes": 4351,
@@ -115,12 +127,24 @@
   ],
   "dependencies": [
     {
+      "path": "assets/channels.js",
+      "sha256": "a5dad9e2a90049bb27736e98d8db2e06117b699ed40d679fff533b0585133c75"
+    },
+    {
       "path": "assets/config.js",
       "sha256": "68348a3626a9e5374802fcecffd439b946e4335ec50384d964f79f86ca4e5c19"
     },
     {
       "path": "assets/conversation.css",
       "sha256": "e1c2c3a7382f85e74e81e8fa998f51ec554418af77e22355b32fdc027c986e63"
+    },
+    {
+      "path": "assets/conversation.js",
+      "sha256": "7544da586d1f16197b38b3b550f61b2e834b27f957ba1017923a8c8ac2c1d77d"
+    },
+    {
+      "path": "assets/direct-api.js",
+      "sha256": "7c9b9ce485cd3b5f092b1fe8a6bdfe116ce55a1427b9515d65d2f5adce41754a"
     },
     {
       "path": "assets/file-save.js",
@@ -131,8 +155,32 @@
       "sha256": "b9eace966ce39a513fcdb899698566bb028bbdae3010e52abfaeaf3dc9991020"
     },
     {
+      "path": "assets/mast-work-simple-chat-tasks-v1.js",
+      "sha256": "36c2e6650bae134ac05bba2ccec95e21a4731088c5262bc0fcf8c0654d0f3c7b"
+    },
+    {
       "path": "assets/mast.css",
       "sha256": "62b55749a00872ab7cd82f44209a5eeacd84026a66a18dc23b25e11298a8c843"
+    },
+    {
+      "path": "assets/mast.js",
+      "sha256": "006a13801a3973dff467d0ba4710fd44a04324e172559798755485855f86e6e1"
+    },
+    {
+      "path": "assets/muse-shell-simple-chat-tasks-v1.js",
+      "sha256": "58658c212b5ca5cb0e072deb3cfd9ac6de4da2619f8eaafb1d65556f7e417810"
+    },
+    {
+      "path": "assets/muse-shell.js",
+      "sha256": "7aae6e78b4f08f75f0fc0479cbf628d101c821dde1df7603fe8c6df35e33d19f"
+    },
+    {
+      "path": "assets/muse-store.js",
+      "sha256": "a670e143e16bdc272eef02212c5f2342d38b0590fdb9d5c7bbc99642f3d57154"
+    },
+    {
+      "path": "assets/muse.css",
+      "sha256": "1b4f26262662cd636606f5b0f92f6c61bf920c08f15f4e1ab0c5a7b1c89ce542"
     },
     {
       "path": "assets/premium.css",
@@ -199,6 +247,18 @@
       "sha256": "d1e3934b4179386b724045ca9fac9cd70e4bb0b10b89a9aa05e018ca4f0863a9"
     },
     {
+      "path": "assets/public-coordination.js",
+      "sha256": "c6987811ec2096652b84138c4d1c7609909a0aa2c4133c883be745c8f90e7291"
+    },
+    {
+      "path": "assets/public-delivery-store.js",
+      "sha256": "ecccab2e260001ca11c8e61d6b9771da409524478ab7c4631b54ab5b864a471a"
+    },
+    {
+      "path": "assets/public-reader-cache.js",
+      "sha256": "ed2f6710658c940c708f34ac748e572065df2ed7183e6e6401f81d2764404aa9"
+    },
+    {
       "path": "assets/relay-attachment-content.js",
       "sha256": "35d6ab366e5dab51dfbdb212ba12d29e798d0ad7352dee157774dd60c7a370ec"
     },
@@ -233,6 +293,10 @@
     {
       "path": "assets/ui.js",
       "sha256": "3c2fa5bda1736ea0e66b3ecd56b573c061f45eb0e377d658cc009fcd96805e08"
+    },
+    {
+      "path": "mast/index.html",
+      "sha256": "84e7ded33861bd16c5c30105fe3240629204bb214111f131c5ddd5e2adfdb0f4"
     },
     {
       "path": "private/lucy.html",

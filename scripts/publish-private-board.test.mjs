@@ -23,3 +23,10 @@ test('preview defaults to read-only staging and every Azure side effect requires
  assert.match(y,/readUInt32BE\(16\),390/);assert.match(y,/readUInt32BE\(20\),844/);
  assert.doesNotMatch(y,/permissions:\n(?:.*\n)*?  (?:contents|actions): write/);
 });
+
+test('public Muse race guard permits exactly its two reviewed assets',()=>{
+ for(const path of ['muse/index.html','assets/muse.js']){const p=valid();p.files[0].path=path;assert.equal(checkedPins(p).files[0].path,path);}
+ for(const path of ['muse/other.html','assets/muse-shell.js','assets/muse.css','mast/index.html','jarvis/index.html']){const p=valid();p.files[0].path=path;assert.throws(()=>checkedPins(p));}
+});
+
+test('existing private Muse route may only be pinned as an unchanged dependency',()=>{const p=valid();p.dependencies=[{path:'mast/index.html',sha256:h}];checkedPins(p);p.files[0].path='mast/index.html';assert.throws(()=>checkedPins(p));for(const path of ['mast/other.html','admin/index.html']){const x=valid();x.dependencies=[{path,sha256:h}];assert.throws(()=>checkedPins(x));}});

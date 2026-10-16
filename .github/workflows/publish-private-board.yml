@@ -67,7 +67,7 @@ jobs:
           export PRIVATE_WORKSPACE_CHROME="$JARVIS_CHROME"
           export CHROMIUM_PATH="$JARVIS_CHROME"
           export PLAYWRIGHT_CHROMIUM_EXECUTABLE="$JARVIS_CHROME"
-          node --test --test-concurrency=1 tests/private-board*.test.js tests/private-workspace*.test.js tests/private-makima*.test.js tests/relay-owner-collaboration.test.js tests/relay-owner-ui.test.js tests/relay-owner-completion-semantics.test.js tests/relay-mast.test.js tests/relay-mast-files.test.js tests/relay-mast-work.test.js tests/relay-owner-attachments.test.js tests/relay-owner-assistant-attachments.test.js
+          node --test --test-concurrency=1 tests/private-board*.test.js tests/private-workspace*.test.js tests/private-makima*.test.js tests/relay-muse-modes-browser.test.js tests/relay-owner-collaboration.test.js tests/relay-owner-ui.test.js tests/relay-owner-completion-semantics.test.js tests/relay-mast.test.js tests/relay-mast-files.test.js tests/relay-mast-work.test.js tests/relay-owner-attachments.test.js tests/relay-owner-assistant-attachments.test.js
       - name: Require exact mobile visual evidence
         run: |
           node --input-type=module <<'JS'
