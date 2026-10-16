@@ -238,3 +238,61 @@ test('retained Makima cookies cannot replay approved, denied or expired consent;
   s.rows("UPDATE relay_oauth SET expires_at=0 WHERE key LIKE 'consent:%'");
   assert.equal((await (await s.approve(expired)).json()).error_description,'consent_session_expired_or_used');
 });
+
+
+test('Makima delayed login cookies cannot replace or stand in for consent', async t => {
+  const s = fixture(t);
+  const delayed = await s.start();
+  assert.equal(delayed.status, 302);
+  assert.match(cookie(delayed), /^__Host-jarvis-makima-login=/);
+  assert.match(delayed.headers.get('Set-Cookie'), /Path=\/; HttpOnly; Secure; SameSite=Lax; Max-Age=600$/);
+  const c = await s.consent();
+  // Apply the delayed response after fresh consent, as a browser cookie jar does.
+  const jar = new Map([c.cookie, cookie(delayed)].map(value => value.split('=')));
+  assert.equal(jar.size, 2);
+  const denied = await s.approve({...c, cookie: cookie(delayed)});
+  assert.equal((await denied.json()).error_description, 'consent_cookie_missing');
+  // A legacy shared login cookie must never be promoted to consent either.
+  const legacy = await s.approve({...c, cookie: cookie(delayed).replace('__Host-jarvis-makima-login=', '__Host-jarvis-makima=')});
+  assert.equal((await legacy.json()).error_description, 'consent_session_expired_or_used');
+  const approved = await s.approve({...c, cookie: [...jar].map(([k,v]) => `${k}=${v}`).join('; ')});
+  assert.equal(approved.status, 302);
+  assert.equal(approved.headers.get('Set-Cookie'), null);
+  assert.equal((await s.exchange(new URL(approved.headers.get('Location')).searchParams.get('code'))).status, 200);
+  const replay = await s.approve(c);
+  assert.equal((await replay.json()).error_description, 'consent_session_expired_or_used');
+});
+
+test('Makima registry storage exceptions report unavailable without consuming fresh consent', async t => {
+  const s = fixture(t), c = await s.consent();
+  const sql = s.fixture.object(MAKIMA_OBJECT).ctx.storage.sql;
+  const original = sql.exec;
+  sql.exec = () => { throw Error('synthetic storage fault must not leak'); };
+  try {
+    const internal = await s.fixture.object(MAKIMA_OBJECT).hub.fetch(new Request('https://internal/internal/relay/makima/oauth', {method:'POST', body:JSON.stringify({op:'get', key:'consent:synthetic'})}));
+    assert.equal(internal.status, 503);
+    assert.deepEqual(await internal.json(), {error:'Makima storage unavailable'});
+    const response = await s.approve(c);
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), {error:'invalid_request', error_description:'consent_registry_unavailable'});
+  } finally { sql.exec = original; }
+  assert.equal((await s.approve(c)).status, 302);
+});
+
+test('Makima login cookie is phase-bound, single-use and expires after ten minutes', async t => {
+  const s = fixture(t);
+  let now = Date.now(); t.mock.method(Date, 'now', () => now);
+  const login = await s.start();
+  const state = new URL(login.headers.get('Location')).searchParams.get('state');
+  const callback = value => s.request('/oauth/github/callback?' + new URLSearchParams({state,code:'synthetic-code'}), {headers:{Cookie:value}});
+  const legacy = await callback(cookie(login).replace('__Host-jarvis-makima-login=', '__Host-jarvis-makima='));
+  assert.equal((await legacy.json()).error_description, 'login_cookie_missing');
+  assert.equal((await callback(cookie(login))).status, 200);
+  assert.equal((await (await callback(cookie(login))).json()).error_description, 'login_state_expired_or_used');
+  const expiring = await s.start();
+  now += 600000;
+  const expired = await s.request('/oauth/github/callback?' + new URLSearchParams({state:new URL(expiring.headers.get('Location')).searchParams.get('state'),code:'synthetic-code'}), {headers:{Cookie:cookie(expiring)}});
+  assert.equal((await expired.json()).error_description, 'login_state_expired_or_used');
+  const c = await s.consent(); now += 600000;
+  assert.equal((await (await s.approve(c)).json()).error_description, 'consent_session_expired_or_used');
+});

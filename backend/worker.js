@@ -169,7 +169,12 @@ export class Hub {
         if(path==='/internal/relay/makima/oauth')return relayOAuthStore(this.ctx,input,Date.now(),this.env,makimaOAuthPolicy);
         if(path==='/internal/relay/makima/rpc')return json({result:makimaRpc(this.ctx,this.env,input.principal,input.rpc)});
         if(path==='/internal/relay/makima/channel')return json(makimaChannelStore(this.ctx,this.env,input));
-      }catch(error){return json({error:{code:error instanceof RelayError?error.code:-32603,message:error instanceof RelayError?error.message:'Makima storage unavailable'}});}
+      }catch(error){
+        // OAuth callers use HTTP status to distinguish unavailable storage from
+        // a missing/consumed record. Keep the RPC envelope behavior unchanged.
+        if(path==='/internal/relay/makima/oauth')return json({error:'Makima storage unavailable'},503);
+        return json({error:{code:error instanceof RelayError?error.code:-32603,message:error instanceof RelayError?error.message:'Makima storage unavailable'}});
+      }
       return json({error:'Not found'},404);
     }
     if(path==='/internal/relay/projects'){
@@ -284,4 +289,5 @@ export async function syncShared(env) {
   const imported=await sharedInternal(env,'/reconcile-legacy');
   if(!imported.ok)throw Error('Inbox reconciliation unavailable');
 }
+
 
