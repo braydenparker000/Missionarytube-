@@ -1,3 +1,4 @@
+import {diagnosticId, validDiagnosticId, recordMakimaDiagnostic} from './relay-makima-diagnostics.js';
 // OAuth 2.1 broker. GitHub authenticates the one owner; public Relay keys are never identity.
 import {RELAY_PUBLIC_SCOPES, RELAY_OWNER_SCOPE, RELAY_CALLBACK, random, hash, challenge, equal, boundedText, isObject, json, relayIssuer} from './relay-common.js';
 import {relayOAuthPolicy as DEFAULT_POLICY} from './relay-oauth-policy.js';
@@ -11,7 +12,7 @@ const CLIENT_EXPIRY = Number.MAX_SAFE_INTEGER;
 const cookieHeader = (value, age = 600, policy = DEFAULT_POLICY) => `${policy.cookie}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${age}`;
 const cookie = (request, policy = DEFAULT_POLICY) => request.headers.get('Cookie')?.split(';').map(x => x.trim()).find(x => x.startsWith(policy.cookie + '='))?.slice(policy.cookie.length + 1);
 const scopes = (value, policy = DEFAULT_POLICY) => typeof value === 'string' && value.length > 0 && value.split(' ').every(x => policy.scopes.includes(x)) && new Set(value.split(' ')).size === value.split(' ').length;
-const err = (error = 'invalid_request', status = 400, description) => json({error, ...(description ? {error_description: description} : {})}, status);
+const oauthError = (error = 'invalid_request', status = 400, description) => json({error, ...(description ? {error_description: description} : {})}, status);
 const registry = async (env, body, policy = DEFAULT_POLICY) => {
   const r = await env.HUBS.get(env.HUBS.idFromName(policy.registry)).fetch(new Request('https://internal/internal' + policy.path + '/oauth', {method: 'POST', body: JSON.stringify(body)}));
   if (!r.ok) throw Error('OAuth storage unavailable');
@@ -19,7 +20,7 @@ const registry = async (env, body, policy = DEFAULT_POLICY) => {
 };
 const read = (env, key, policy = DEFAULT_POLICY) => registry(env, {op: 'get', key}, policy).then(x => x.value);
 const put = (env, key, value, expiresAt, category, policy = DEFAULT_POLICY) => registry(env, {op: 'put', key, value, expiresAt, category}, policy);
-const consume = (env, key, match = {}, policy = DEFAULT_POLICY) => registry(env, {op: 'consume', key, match}, policy);
+const consume = (env, key, match = {}, policy = DEFAULT_POLICY, diagnostic) => registry(env, {op: 'consume', key, match, ...(diagnostic ? {diagnostic} : {})}, policy);
 function authParamsError(b, client, env, policy) {
   // Fixed diagnostic codes only: never echo IDs, URIs, state, PKCE or input.
   if (!client || !b.client_id) return 'client_not_registered';
@@ -40,12 +41,12 @@ function oauthRedirect(p, env, params, policy) {
   // cookie. Consumed login/consent records remain unusable until cookie expiry.
   return redirect(url.href, policy.retainTerminalCookie ? {} : {'Set-Cookie': cookieHeader('', 0, policy)});
 }
-function consentPage(csrf, scope, policy) {
+function consentPage(csrf, scope, policy, flowId) {
   // No interpolated upstream content or script. CSRF is random lowercase hex.
   // no-referrer makes browser form POSTs send Origin:null. Keep same-origin
   // Origin validation and suppress referrers across origins. Chrome also checks
   // form-action on redirects, so include the fixed OAuth return destination.
-  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect Jarvis Relay</title><body><h1>Connect Jarvis Relay</h1>${policy.consentText || ''}${scope.split(' ').some(s=>RELAY_PUBLIC_SCOPES.includes(s)) ? '<p>Allow ChatGPT to read the public Relay inbox, post replies in that inbox, and subscribe to new messages. Public messages are unverified visitor content. This connection does not authorize account actions or secret sharing.</p>' : '<p>Connect only the separately listed capabilities below. This scope alone grants no public inbox or owner-history access.</p>'}${scope.split(' ').includes('relay:agents-lucy') ? '<p><strong>Private Lucy–Muse channel:</strong> Allow this connection to act as Lucy, reading and sending existing/future text and files in the separate private Lucy–Muse channel. This does not authorize owner-history access, project actions, or sharing owner conversations with Muse. Confirm this connection is Lucy; never give its credential to Muse.</p>' : ''}${scope.split(' ').includes(RELAY_OWNER_SCOPE) ? '<p><strong>Owner chat access:</strong> Allow ChatGPT to inspect and approve individual phone pairing requests, list and revoke paired devices, read and reply in your private owner inbox, and subscribe to private message events. Each phone approval separately grants persistent device access with a 365-day inactivity expiry renewed on use. Private replies stay outside the public inbox. This connection alone does not pair a phone or approve account actions.</p>' : ''}<form method="post" action="${policy.path}/oauth/approve"><input type="hidden" name="csrf" value="${csrf}"><fieldset><legend>How long may ${policy.clientName || 'ChatGPT'} renew this connection?</legend><label><input type="radio" name="refresh_days" value="30" checked>30 days (default)</label> <label><input type="radio" name="refresh_days" value="365">365 days</label><p>Choosing 365 days authorizes ${policy.clientName || 'ChatGPT'} to renew this Relay connection for up to 365 days from this approval. Access tokens last at most one hour. Renewing does not extend the chosen expiry. A stolen refresh token could let someone renew this access until expiry or revocation. You can revoke the connection sooner. ${policy.clientName || 'ChatGPT'} may require reconnection earlier; this does not guarantee that ${policy.clientName || 'ChatGPT'} will retain the connection for the full period.</p></fieldset><button name="decision" value="allow">Allow this connection</button> <button name="decision" value="deny">Cancel</button></form></body></html>`, {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': `default-src 'none'; form-action 'self' ${[policy.callback, ...(policy.formActionRedirects || [])].join(' ')}; frame-ancestors 'none'; base-uri 'none'`, 'Referrer-Policy': 'same-origin', 'X-Content-Type-Options': 'nosniff'}});
+  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect Jarvis Relay</title><body><h1>Connect Jarvis Relay</h1>${policy.consentText || ''}${scope.split(' ').some(s=>RELAY_PUBLIC_SCOPES.includes(s)) ? '<p>Allow ChatGPT to read the public Relay inbox, post replies in that inbox, and subscribe to new messages. Public messages are unverified visitor content. This connection does not authorize account actions or secret sharing.</p>' : '<p>Connect only the separately listed capabilities below. This scope alone grants no public inbox or owner-history access.</p>'}${scope.split(' ').includes('relay:agents-lucy') ? '<p><strong>Private Lucy–Muse channel:</strong> Allow this connection to act as Lucy, reading and sending existing/future text and files in the separate private Lucy–Muse channel. This does not authorize owner-history access, project actions, or sharing owner conversations with Muse. Confirm this connection is Lucy; never give its credential to Muse.</p>' : ''}${scope.split(' ').includes(RELAY_OWNER_SCOPE) ? '<p><strong>Owner chat access:</strong> Allow ChatGPT to inspect and approve individual phone pairing requests, list and revoke paired devices, read and reply in your private owner inbox, and subscribe to private message events. Each phone approval separately grants persistent device access with a 365-day inactivity expiry renewed on use. Private replies stay outside the public inbox. This connection alone does not pair a phone or approve account actions.</p>' : ''}<form method="post" action="${policy.path}/oauth/approve"><input type="hidden" name="csrf" value="${csrf}">${flowId ? `<input type="hidden" name="diagnostic_id" value="${flowId}">` : ''}<fieldset><legend>How long may ${policy.clientName || 'ChatGPT'} renew this connection?</legend><label><input type="radio" name="refresh_days" value="30" checked>30 days (default)</label> <label><input type="radio" name="refresh_days" value="365">365 days</label><p>Choosing 365 days authorizes ${policy.clientName || 'ChatGPT'} to renew this Relay connection for up to 365 days from this approval. Access tokens last at most one hour. Renewing does not extend the chosen expiry. A stolen refresh token could let someone renew this access until expiry or revocation. You can revoke the connection sooner. ${policy.clientName || 'ChatGPT'} may require reconnection earlier; this does not guarantee that ${policy.clientName || 'ChatGPT'} will retain the connection for the full period.</p></fieldset><button name="decision" value="allow">Allow this connection</button> <button name="decision" value="deny">Cancel</button></form></body></html>`, {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': `default-src 'none'; form-action 'self' ${[policy.callback, ...(policy.formActionRedirects || [])].join(' ')}; frame-ancestors 'none'; base-uri 'none'`, 'Referrer-Policy': 'same-origin', 'X-Content-Type-Options': 'nosniff'}});
 }
 export async function relayGrantActive(env, grantId, requiredScope, policy = DEFAULT_POLICY) {
   if (!policy.enabled(env) || typeof grantId !== 'string') return false;
@@ -96,8 +97,20 @@ export async function relayAuthenticate(request, env, readOnly = false, policy =
   if (!value || policy.staticClient && (value.client_id !== policy.staticClient(env) || value.resource !== policy.resource(env)) || !await relayGrantActive(env, value.grantId, undefined, policy)) return null;
   return {principal: policy.principal, grantId: value.grantId, scopes: value.scope.split(' '),accessHash};
 }
-export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT_POLICY) {
+export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT_POLICY, executionCtx) {
   const url = new URL(request.url), path = url.pathname, issuer = relayIssuer(env), resource = policy.resource(env);
+  const requestId = policy.consentDiagnostics ? diagnosticId('mr') : undefined;
+  const err = (...args) => {
+    const response = oauthError(...args);
+    if (requestId) response.headers.set('X-Jarvis-OAuth-Diagnostic-Id', requestId);
+    return response;
+  };
+  const reportRedirect = async (flowId) => {
+    if (!requestId || !validDiagnosticId(flowId, 'mf')) return;
+    const task = registry(env, {op: 'diagnostic', diagnostic: {flowId, requestId, stage: 'redirect_constructed', outcome: '302', verified: true}}, policy).catch(() => {});
+    if (executionCtx?.waitUntil) { try { executionCtx.waitUntil(task); } catch {} }
+    else await task; // Local fixtures have no execution context.
+  };
   // Login redirects may arrive after a newer consent page. Separate Makima
   // phases so a delayed authorize response cannot replace its consent cookie.
   const loginPolicy = policy.loginCookie ? {...policy, cookie: policy.loginCookie} : policy;
@@ -171,11 +184,12 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
       // Upstream token is never persisted or forwarded to the MCP client.
       if (user.id !== 183016859) return err('access_denied', 403, 'github_owner_not_allowed');
       const csrf = random(), session = random();
+      const flowId = requestId ? diagnosticId('mf') : undefined;
       processingFailure = 'consent_registry_unavailable';
-      const stored = await put(env, 'consent:' + await hash(session), {p: login.p, csrf}, Date.now() + SESSION_MS, 'session', policy);
+      const stored = await put(env, 'consent:' + await hash(session), {p: login.p, csrf, ...(flowId ? {diagnosticId: flowId, diagnosticRequestId: requestId} : {})}, Date.now() + SESSION_MS, 'session', policy);
       if (stored.error) return err('temporarily_unavailable', 503, 'consent_capacity_unavailable');
       processingFailure = 'consent_response_unavailable';
-      const response = consentPage(csrf, login.p.scope, policy), headers = new Headers(response.headers); headers.set('Set-Cookie', cookieHeader(session, 600, policy));
+      const response = consentPage(csrf, login.p.scope, policy, flowId), headers = new Headers(response.headers); headers.set('Set-Cookie', cookieHeader(session, 600, policy));
       return new Response(response.body, {status: 200, headers});
     }
     if (path === policy.path + '/oauth/approve' && request.method === 'POST') {
@@ -192,16 +206,20 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
       // Missing selection preserves the thirty-day contract for older forms.
       if (b.decision === 'allow' && b.refresh_days !== undefined && !['30', '365'].includes(b.refresh_days)) return err('invalid_request', 400, 'consent_duration_invalid');
       processingFailure = 'consent_registry_unavailable';
-      const consumed = await consume(env, 'consent:' + await hash(session), {csrf: b.csrf}, policy), consent = consumed.value;
+      const consumed = await consume(env, 'consent:' + await hash(session), {csrf: b.csrf}, policy, requestId ? {flowId: validDiagnosticId(b.diagnostic_id, 'mf') ? b.diagnostic_id : undefined, requestId} : undefined), consent = consumed.value;
       if (!consent) return err('invalid_request', 400, consumed.reason === 'binding_mismatch' ? 'consent_csrf_mismatch' : 'consent_session_expired_or_used');
-      if (b.decision === 'deny') return oauthRedirect(consent.p, env, {error: 'access_denied'}, policy);
+      if (b.decision === 'deny') {
+        const response = oauthRedirect(consent.p, env, {error: 'access_denied'}, policy);
+        await reportRedirect(consent.diagnosticId); return response;
+      }
       const code = random(), grantId = random();
       processingFailure = 'consent_grant_processing_failed';
-      const stored = await registry(env, {op: 'authorize', grantId, codeKey: 'code:' + await hash(code), params: consent.p, resource, durationDays: b.refresh_days === '365' ? 365 : DEFAULT_REFRESH_DAYS}, policy);
+      const stored = await registry(env, {op: 'authorize', grantId, codeKey: 'code:' + await hash(code), params: consent.p, resource, durationDays: b.refresh_days === '365' ? 365 : DEFAULT_REFRESH_DAYS, ...(requestId ? {diagnostic: {flowId: consent.diagnosticId, requestId}} : {})}, policy);
       if (stored.error) return stored.error === 'Client expired'
         ? err('invalid_request', 400, 'consent_client_not_registered')
         : err('temporarily_unavailable', 503, 'consent_grant_capacity_unavailable');
-      return oauthRedirect(consent.p, env, {code}, policy);
+      const response = oauthRedirect(consent.p, env, {code}, policy);
+      await reportRedirect(consent.diagnosticId); return response;
     }
     if (path === policy.path + '/oauth/token' && request.method === 'POST') {
       if (!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return err();
@@ -238,6 +256,27 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
 
 // Every exchange/rotation and consume is atomic. Rows hold only hashed bearer IDs.
 export function relayOAuthStore(ctx, b, now = Date.now(), env, policy = DEFAULT_POLICY) {
+  if (!policy.consentDiagnostics) return relayOAuthStoreCore(ctx, b, now, env, policy);
+  if (b.op === 'diagnostic') {
+    // Internal-only write; no diagnostic read operation or public endpoint.
+    const d = b.diagnostic;
+    if (d?.stage === 'redirect_constructed') recordMakimaDiagnostic(ctx, d, now);
+    return json({ok: true});
+  }
+  const trace = {};
+  if (b.op === 'consume' && b.key?.startsWith('consent:')) {
+    Object.assign(trace, {flowId: b.diagnostic?.flowId, requestId: b.diagnostic?.requestId, stage: 'consent_consume', outcome: 'storage_error', verified: false});
+    // Inspect only expiry before normal cleanup; never copy the lookup key.
+    try { trace.expired = [...ctx.storage.sql.exec('SELECT expires_at FROM relay_oauth WHERE key=?', b.key)][0]?.expires_at <= now; } catch {}
+  } else if (b.op === 'authorize') Object.assign(trace, {flowId: b.diagnostic?.flowId, requestId: b.diagnostic?.requestId, stage: 'grant_authorize', outcome: 'storage_error', verified: true});
+  else if (b.op === 'put' && b.key?.startsWith('consent:')) Object.assign(trace, {flowId: b.value?.diagnosticId, requestId: b.value?.diagnosticRequestId, stage: 'consent_put', outcome: 'storage_error', verified: true, create: true});
+  try {
+    const response = relayOAuthStoreCore(ctx, b, now, env, policy, trace);
+    recordMakimaDiagnostic(ctx, trace, now);
+    return response;
+  } catch (error) { trace.outcome = 'storage_error'; recordMakimaDiagnostic(ctx, trace, now); throw error; }
+}
+function relayOAuthStoreCore(ctx, b, now, env, policy, trace = {}) {
   if(b.op==='authenticate-readonly')return json({principal:relayReadOnlyPrincipal(ctx,env,b.accessHash,now,policy)});
   const sql = ctx.storage.sql;
   sql.exec('CREATE TABLE IF NOT EXISTS relay_oauth (key TEXT PRIMARY KEY, category TEXT NOT NULL, value TEXT NOT NULL, expires_at INTEGER NOT NULL)');
@@ -281,16 +320,18 @@ export function relayOAuthStore(ctx, b, now = Date.now(), env, policy = DEFAULT_
     if (b.op === 'put') {
       const limits = {client: 50, session: 100};
       const validExpiry = Number.isFinite(b.expiresAt) && b.expiresAt > now;
-      if (!(b.category in limits) || !validExpiry || count(b.category) >= limits[b.category]) return json({error: 'Registry full'});
-      store(b.key, b.category, b.value, b.category === 'client' ? CLIENT_EXPIRY : b.expiresAt); return json({ok: true});
+      if (!(b.category in limits) || !validExpiry || count(b.category) >= limits[b.category]) { trace.outcome = 'capacity'; return json({error: 'Registry full'}); }
+      store(b.key, b.category, b.value, b.category === 'client' ? CLIENT_EXPIRY : b.expiresAt); trace.outcome = 'ok'; return json({ok: true});
     }
     if (b.op === 'consume') {
       const value = get(b.key);
-      if (!value) return json({value: null, reason: 'not_found'});
-      if (Object.entries(b.match || {}).some(([k, v]) => !equal(value[k], v))) return json({value: null, reason: 'binding_mismatch'});
-      remove(b.key); return json({value});
+      if (!value) { trace.outcome = trace.expired ? 'expired' : 'not_found'; return json({value: null, reason: 'not_found'}); }
+      if (trace.stage === 'consent_consume') { trace.flowId = value.diagnosticId; trace.verified = true; }
+      if (Object.entries(b.match || {}).some(([k, v]) => !equal(value[k], v))) { trace.outcome = 'binding_mismatch'; return json({value: null, reason: 'binding_mismatch'}); }
+      remove(b.key); trace.outcome = 'ok'; return json({value});
     }
     if (b.op === 'authorize') {
+      trace.outcome = 'rejected';
       const durationDays = b.durationDays === undefined ? DEFAULT_REFRESH_DAYS : b.durationDays;
       if (!REFRESH_DAYS.includes(durationDays)) return json({error: 'Invalid duration'}, 400);
       const p = b.params, expiration = now + durationDays * 86400000;
@@ -345,7 +386,7 @@ export function relayOAuthStore(ctx, b, now = Date.now(), env, policy = DEFAULT_
       // this same family to that expiry, including on an older rollback worker.
       store('grant:' + b.grantId, 'grant', grant, now + SESSION_MS);
       store(b.codeKey, 'code', {grantId: b.grantId, client_id: p.client_id, redirect_uri: p.redirect_uri, challenge: p.code_challenge, resource: b.resource, scope: p.scope}, now + SESSION_MS);
-      return json({ok: true});
+      trace.outcome = 'ok'; return json({ok: true});
     }
     if (b.op === 'exchange') {
       const value = get(b.key);

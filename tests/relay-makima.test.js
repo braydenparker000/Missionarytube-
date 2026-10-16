@@ -161,7 +161,7 @@ test('dedicated credentials, tools and history isolate Makima from Lucy, Muse, M
   assert.equal((await s.call(auth.access_token,'makima_channel_list',{channel:'lucy-muse'})).status,200);
   assert.equal((await (await s.call(auth.access_token,'makima_channel_list',{channel:'lucy-muse'})).json()).error.code,-32602);
   const names=s.rows("SELECT name FROM sqlite_master WHERE type='table'").map(r=>r.name);
-  assert.ok(names.every(n=>['relay_oauth','makima_messages','sqlite_sequence'].includes(n)));
+  assert.ok(names.every(n=>['relay_oauth','makima_messages','makima_oauth_diagnostics','sqlite_sequence'].includes(n)));
   assert.equal(s.fixture.object(MAKIMA_OBJECT).alarms.length,0);
 });
 

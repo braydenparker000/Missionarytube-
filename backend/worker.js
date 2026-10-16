@@ -24,8 +24,8 @@ const json = (data, status=200) => Response.json(data, {status});
 const publicState = state => ({messages:state.messages, posts:state.posts});
 const unanswered = state => state.messages.filter(m=>m.role==='user' && !state.messages.some(r=>r.kind==='reply' && r.replyTo===m.id));
 export default {
-  async fetch(request, env) {
-    const makima=await makimaConnector(request,env);if(makima)return makima;
+  async fetch(request, env, executionCtx) {
+    const makima=await makimaConnector(request,env,executionCtx);if(makima)return makima;
     const project=await projectTransport(request,env);if(project)return project;
     const relay=await relayConnector(request,env);if(relay)return relay;
     const agents=await agentChatPublic(request,env);if(agents)return agents;
