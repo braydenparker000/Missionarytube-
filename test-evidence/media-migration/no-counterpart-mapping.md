@@ -1,78 +1,68 @@
-# 29 tests with no direct Jarvis source counterpart
+# 29 source-unit tests and their shipped-bundle status
 
-These 29 are the failures that remain in `migrated.tap`. None are classified obsolete because the old source file is absent. The protected behavior still ships. The Jarvis-targeted run fails loudly if it would read the repo-root copy of that source file. `npm test` (unset `MEDIA_APP_ROOT`) still executes the source units against the root copy.
+These 29 names still fail in `migrated.tap` (541 tests, 512 pass, 29 fail). None are classified obsolete because the old source file is absent. The Jarvis-targeted run fails loudly if it would read the repo-root copy. `npm test` (unset `MEDIA_APP_ROOT`) still executes the source units against the root copy: 1117 pass, 0 fail (`npm-test.txt`).
+
+The migration is incomplete. The source-unit names still fail, and the clauses listed as unsupported-documented or pending below are not shipped-bundle passes.
 
 Deployed motion bytes: `public/media/assets/js/astra-motion.js` git blob `01cb4830d63b1e63b270eeaf2d6752946edc8242`, identical to the root copy. The pinned tree has no `src/astra-motion.js` and no `src/interaction-logic.js`.
 
 Deployed motion stylesheet: `public/media/assets/css/obsidian.css` git blob `294f9e8189a9eee554ca3ded5e402724f8beefca`, identical to the root copy.
 
-Deployed compatibility player: `public/media/assets/js/playback/compatibility.js`. It assigns `globalThis.AstraCompatibility` with `createAdapter` and `prepareRepair`. Pipeline helpers that the root tests import (`preparePipeline`, `pumpPipeline`, `stereoSample`, `alignAudioSample`) are inlined under minified names and are not module exports. There is no `src/compatibility-player.js` in the pin.
+Deployed compatibility player: `public/media/assets/js/playback/compatibility.js`. It assigns `globalThis.AstraCompatibility` with `createAdapter` and `prepareRepair`. Pipeline helpers that the root tests import (`preparePipeline`, `pumpPipeline`, `stereoSample`, `alignAudioSample`) are inlined under minified names and are not module exports. There is no `src/compatibility-player.js` in the pin. Matching those minified names is not a behavior check.
 
-## Motion source units — covered elsewhere (7)
+Status values: `covered`, `mapped`, `unsupported-documented`. A motion clause that was not given a runnable behavior check in this pass is `artifact identity verified; deployed behavioral coverage pending`.
 
-The source-unit tests stay on the root suite. Against Jarvis they throw `Refusing to fall back to the repo-root copy` and do not read root `src/`. The shipped behavior is locked by the byte-identical bundle and stylesheet, plus the shell tests that already pass on Jarvis.
+## Motion
 
-Qualifying test: `tests/interaction-motion.test.mjs` — `the shipped motion bundle matches the qualified compatibility build`.
+New suite: `tests/jarvis-shipped-motion.suite.mjs`. It loads the pinned bundle and `obsidian.css` in headless Chrome and calls `AstraMotion`. The seven source-unit tests stay in the Jarvis run and still refuse `src/`.
 
-That test hashes the shipped bundle to `01cb4830d63b1e63b270eeaf2d6752946edc8242`, requires `AstraMotion`, requires the local script before `app.js`, rejects a CDN script, and rejects `player.session`. When `MEDIA_APP_ROOT` is unset it also checks root `package.json` for `gsap` 3.15.0 and `esbuild` 0.28.2. When `MEDIA_APP_ROOT` is set it does not read the root package.
+Qualifying hash test, unchanged: `tests/interaction-motion.test.mjs` — `the shipped motion bundle matches the qualified compatibility build`. It hashes the bundle, requires `AstraMotion`, requires the local script before `app.js` via `scriptRunsBefore`, rejects a CDN script, and rejects `player.session`. That hash is artifact identity. It is not the behavioral coverage below.
 
-The bundle contains the source-unit markers `pointerType`, `pointerdown`, `pointercancel`, `Math.hypot`, `.24`, `720`, `deviceMemory`, `hardwareConcurrency`, `startViewTransition`, and `IntersectionObserver`.
+| Original test | Shipped test | Status |
+| --- | --- | --- |
+| gesture thresholds distinguish a tap, a cancelled drag and a committed dismissal | `shipped motion distinguishes a tap, a cancelled drag, and a committed dismissal` | covered for tap slop, a below-threshold snap-back, a distance dismiss, and in-range progress. `velocity >= 720`: artifact identity verified; deployed behavioral coverage pending |
+| custom press physics owns touch and pen, not mouse clicks | `shipped custom press physics owns touch and pen, not mouse clicks` | covered |
+| navigation direction follows the dock and accepts an explicit back route | `shipped navigation direction follows the dock and accepts an explicit back route` | covered |
+| site-wide content choreography is shared, viewport-aware and bounded | `shipped content choreography is viewport-aware and bounded` | covered |
+| mobile motion avoids offscreen GPU layers and costly document snapshots | `shipped mobile motion avoids offscreen GPU layers and costly document snapshots` | covered for lean refresh, no opacity promotion, no document snapshot, and the lean image transition. `backdrop-filter: none` at 390px is unsupported-documented: the 419px rule declares it, and a later `.episode-nav-sticky` rule sets `saturate(180%) blur(20px)` and wins |
+| direct interaction motion never exceeds the 360ms release budget | `shipped direct interaction motion stays inside the 360ms release budget` | covered. CSSOM seek rule is 360ms, view-transition art is 340ms, and the live navigation and press tweens settle inside a 360ms clock advance |
+| View Transition callbacks cannot reorder or stall visible state | `shipped view-transition callbacks cannot reorder or stall visible state` | covered |
 
-Shell tests that pass on Jarvis and read the same app and CSS:
+## Compatibility player
 
-- `navigation, dock and title detail continuity are all wired`
-- `every mobile overlay can be dismissed physically without touching Player V3`
-- `dismissed detail and source surfaces return keyboard focus`
-- `reduced motion removes autonomous choreography and gesture zones`
+New suite: `tests/jarvis-shipped-compatibility.suite.mjs`. It loads pinned `compatibility.js` and `request-policy.js` in a VM and calls `AstraCompatibility.createAdapter` / `prepareRepair`. The 22 source-unit tests stay in the Jarvis run and still refuse `src/compatibility-player.js`.
 
-| Test | Protected behavior | Deployed implementation | Existing coverage | Class |
-| --- | --- | --- | --- | --- |
-| gesture thresholds distinguish a tap, a cancelled drag and a committed dismissal | Tap slop, dismiss distance/velocity, and drag progress from `src/interaction-logic.js` | Inlined in `assets/js/astra-motion.js` (blob `01cb4830d63b1e63b270eeaf2d6752946edc8242`; contains `Math.hypot`, `.24`, `720`) | `the shipped motion bundle matches the qualified compatibility build` | covered elsewhere |
-| custom press physics owns touch and pen, not mouse clicks | Pointer physics ignore mouse and listen for `pointerdown` / `pointercancel` | Same bundle (`pointerType`, `pointerdown`, `pointercancel`) | same qualification test | covered elsewhere |
-| navigation direction follows the dock and accepts an explicit back route | Dock order and an explicit back route | Same bundle, called from app `Motion.navigate` | qualification test, plus `navigation, dock and title detail continuity are all wired` | covered elsewhere |
-| site-wide content choreography is shared, viewport-aware and bounded | `Motion.refresh`, intersection reveals, and a bounded reveal budget | Same bundle (`IntersectionObserver`, `.search-provider-result`, `.video-row`, `.stream-item`) and identical `assets/css/obsidian.css` (`GSAP also owns content arrival`) | qualification test. CSS bytes match the file the root source test asserts | covered elsewhere |
-| mobile motion avoids offscreen GPU layers and costly document snapshots | No offscreen opacity promotion; memory and CPU gates; lean CSS | Same bundle (`deviceMemory`, `hardwareConcurrency`, `startViewTransition`) and identical CSS (`.motion-lean .media-image`, narrow `backdrop-filter: none`) | qualification test. CSS bytes match the root file | covered elsewhere |
-| direct interaction motion never exceeds the 360ms release budget | Source durations at most 0.36s; view-transition 340ms; seek pop 360ms | Same bundle and identical CSS (`animation-duration: 340ms`, `player-seek-pop 360ms`) | qualification test. CSS bytes match the root file | covered elsewhere |
-| View Transition callbacks cannot reorder or stall visible state | Open/close commit fallbacks; navigation does not wait on a snapshot | Same bundle and identical CSS (`::view-transition { pointer-events: none; }`) | qualification test. CSS bytes match the root file | covered elsewhere |
+Existing tests that still do not replace this suite:
 
-These seven are not retired. The root suite still runs the source units. The Jarvis failure is the guard that refuses the root copy, not evidence that the behavior left the deployed app.
+- `tests/playback-request-policy.test.mjs` covers `request-policy.js` alone. It does not attach the compatibility adapter.
+- `tests/player-recovery.test.mjs` stubs `prepareRepair`.
+- `tests/software-player.test.mjs` covers `AstraSoftware`, a different adapter.
 
-## Compatibility player — needs a new Jarvis test (22)
+| Original test | Shipped test | Status |
+| --- | --- | --- |
+| real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact | `shipped: real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact` | covered |
+| HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it | `shipped: HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it` | covered |
+| HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes | `shipped: HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes` | covered |
+| seeking starts at a preceding keyframe and unsupported video is explicit | `shipped: seeking starts at a preceding keyframe and unsupported video is explicit` | covered for the preceding keyframe and the explicit "cannot decode the video codec" error. The pre-aborted `pumpPipeline` `AbortError` is unsupported-documented: `createAdapter` detaches the mux job and does not reject `attach()` with that internal error |
+| surround audio is downmixed to bounded stereo samples | `shipped: surround audio is downmixed to bounded stereo samples` | covered |
+| audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps | `shipped: audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps` | covered |
+| an unsupported default audio track falls back to usable audio in the same file | `shipped: an unsupported default audio track falls back to usable audio in the same file` | covered. MP4 would copy Vorbis, so the test rejects that combination the way an unsupported device would. The undecodable default track then yields to the AAC sibling, and forcing the Vorbis track id rejects with `AUDIO_CODEC_UNSUPPORTED` |
+| replacing an in-flight startup reports the old read as cancelled, not a new playback failure | `shipped: replacing an in-flight startup reports the old read as cancelled, not a new playback failure` | covered |
+| real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks | `shipped: real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks` | covered |
+| audio conversion selects AAC when MP4 cannot accept Opus | `shipped: audio conversion selects AAC when MP4 cannot accept Opus` | covered. A fresh bundle load records the encoder query `mp4a.40.2` and does not query Opus |
+| a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window | `shipped: a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window` | covered |
+| copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer | `shipped: copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer` | covered |
+| compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges | `shipped: compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges` | covered |
+| compatibility HLS children on another origin never receive addon credentials | `shipped: compatibility HLS children on another origin never receive addon credentials` | covered |
+| compatibility startup distinguishes blocked access and connection failures | `shipped: compatibility startup distinguishes blocked access and connection failures` | covered |
+| audio repair retries a transient request and transfers the real prepared input without rereading | `shipped: audio repair retries a transient request and transfers the real prepared input without rereading` | covered |
+| audio repair bounds persistent fetch failures to one shared retry | `shipped: audio repair bounds persistent fetch failures to one shared retry` | covered |
+| audio repair bounds persistent body failures to one shared retry | `shipped: audio repair bounds persistent body failures to one shared retry` | covered |
+| cancelling repair during its retry delay stops it without another request | `shipped: cancelling repair during its retry delay stops it without another request` | covered |
+| repair cancellation promptly rejects a pending metadata fetch | `shipped: repair cancellation promptly rejects a pending metadata fetch` | covered |
+| prepared repair is disposed when abandoned or its adapter is destroyed before attach | `shipped: prepared repair is disposed when abandoned or its adapter is destroyed before attach` | covered |
+| aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter | `shipped: aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter` | covered |
 
-Each test imports `src/compatibility-player.js` and calls `preparePipeline`, `pumpPipeline`, `stereoSample`, `alignAudioSample`, `createAdapter`, or `prepareRepair`. The pin has no such module. The migrated error is `Refusing to fall back to the repo-root copy for src/compatibility-player.js`.
+## Script order harness
 
-The behavior is in `public/media/assets/js/playback/compatibility.js` (`AstraCompatibility.createAdapter` / `prepareRepair`). App playback calls those two exports (`assets/js/app.js`). A new Jarvis test has to drive that shipped bundle (or a harness around those two exports). Matching the minified helper names would not be a behavior check.
-
-Existing tests that do not cover these cases:
-
-- `tests/playback-request-policy.test.mjs` covers `assets/js/playback/request-policy.js` alone (`segment origins never inherit addon credentials, including from earlier init objects`, `demuxer range wins over a static addon range`). It does not attach the compatibility adapter or perform its fetch.
-- `tests/player-recovery.test.mjs` stubs `AstraCompatibility.prepareRepair`. It checks recovery UI and bounded reopen. It does not remux bytes, downmix, or run the real retry/abort path.
-- `tests/software-player.test.mjs` covers `assets/js/playback/software-player.js` (`AstraSoftware`), a different adapter.
-- `the reported MP4 H264/AC3 combination has readable video and decodable audio` passes on Jarvis because it reads the fixture with mediabunny and does not call the missing module. It does not remux.
-
-| Test | Protected behavior | Deployed implementation | Existing coverage | Class |
-| --- | --- | --- | --- | --- |
-| real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact | AVC/AAC MKV becomes fragmented MP4 and the video bytes survive | `AstraCompatibility.prepareRepair` / `createAdapter` in `assets/js/playback/compatibility.js` | none that mux bytes | needs a new Jarvis test |
-| HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it | HEVC output uses `hvc1` as the muxer writes it | same bundle | none | needs a new Jarvis test |
-| HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes | Open-GOP seek drops leading pictures and keeps retained samples | same bundle | none | needs a new Jarvis test |
-| seeking starts at a preceding keyframe and unsupported video is explicit | Seek starts at a prior keyframe; unsupported video is an explicit error | same bundle | none | needs a new Jarvis test |
-| surround audio is downmixed to bounded stereo samples | Surround samples become bounded stereo | same bundle (`stereoSample` is inlined) | none | needs a new Jarvis test |
-| audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps | Audio that crosses the seek keyframe is trimmed before encode | same bundle | none | needs a new Jarvis test |
-| an unsupported default audio track falls back to usable audio in the same file | Default audio that cannot be used falls back inside the file | same bundle | none | needs a new Jarvis test |
-| replacing an in-flight startup reports the old read as cancelled, not a new playback failure | Superseded startup is `AbortError`, not a new playback failure | same bundle | none | needs a new Jarvis test |
-| real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks | VP8/Vorbis falls back to WebM and keeps both tracks | same bundle | none | needs a new Jarvis test |
-| audio conversion selects AAC when MP4 cannot accept Opus | Opus is converted to AAC for MP4 | same bundle | none | needs a new Jarvis test |
-| a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window | WebM seek keeps a keyframe outside the first read-ahead | same bundle | none | needs a new Jarvis test |
-| copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer | Copied AAC across the seek keyframe keeps timing and muxes | same bundle | none | needs a new Jarvis test |
-| compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges | Addon `Authorization` stays on the media origin; demuxer ranges replace a static range; redirect error; credentials omitted | `createAdapter` in the same bundle, using the request policy | policy module only: `demuxer range wins over a static addon range`. Not adapter fetch | needs a new Jarvis test |
-| compatibility HLS children on another origin never receive addon credentials | Cross-origin HLS segments do not receive `Authorization` or `X-Playback-Key` | `createAdapter` in the same bundle | policy module only: `segment origins never inherit addon credentials, including from earlier init objects`. Not adapter fetch | needs a new Jarvis test |
-| compatibility startup distinguishes blocked access and connection failures | A credentialed URL that is not fetched is `access` at `metadata`; a failed fetch is `network` | `createAdapter` in the same bundle | none through the adapter | needs a new Jarvis test |
-| audio repair retries a transient request and transfers the real prepared input without rereading | One retry, then the adapter uses the prepared input and does not fetch again | `prepareRepair` then `createAdapter` | recovery tests stub `prepareRepair` | needs a new Jarvis test |
-| audio repair bounds persistent fetch failures to one shared retry | Persistent fetch failure stops at two requests and `playbackType=network` | `prepareRepair` | none | needs a new Jarvis test |
-| audio repair bounds persistent body failures to one shared retry | Persistent body failure stops at two requests | `prepareRepair` | none | needs a new Jarvis test |
-| cancelling repair during its retry delay stops it without another request | Abort during the retry delay is `AbortError` and does not send a second request | `prepareRepair` | none | needs a new Jarvis test |
-| repair cancellation promptly rejects a pending metadata fetch | Abort rejects a pending metadata fetch | `prepareRepair` | none | needs a new Jarvis test |
-| prepared repair is disposed when abandoned or its adapter is destroyed before attach | Abandoned or pre-attach destroy invalidates `take()` | `prepareRepair` / `createAdapter` | none | needs a new Jarvis test |
-| aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter | Abort before take invalidates the preparation; abort after transfer leaves ownership with the adapter | `prepareRepair` / `createAdapter` | none | needs a new Jarvis test |
-
-No test in this list is truly obsolete. The repair pipeline is still what `app.js` calls through `AstraCompatibility`.
+`tests/helpers/shell-assets.mjs` now reads `<script>` elements only. A preload `<link href>` cannot satisfy `assetIndex` or `scriptRunsBefore`. `async`, including `async defer`, is not an ordered load. Mixed blocking/defer pairs are not ordered. `tests/shell-assets.test.mjs` locks that. `app-wiring`, `redesign`, and the motion script-order check use `scriptRunsBefore`.

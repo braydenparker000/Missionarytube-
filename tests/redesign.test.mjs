@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { listAppDir, readAppSource } from "./helpers/media-root.mjs";
-import { assetIndex, releaseMeta, sharedCacheKey, RELEASE_PLACEHOLDER } from "./helpers/shell-assets.mjs";
+import { assetIndex, findScript, scriptRunsBefore, stylesheetIndex, releaseMeta, sharedCacheKey, RELEASE_PLACEHOLDER } from "./helpers/shell-assets.mjs";
 import { assertArtworkResilience } from "./helpers/artwork-behavior.mjs";
 
 const shell = await readAppSource("index.html");
@@ -77,12 +77,11 @@ test("one release placeholder owns every local shell asset cache key", () => {
 });
 
 test("the early bootstrap and application are external reviewable files", () => {
-  const bootstrap = assetIndex(shell, "assets/js/bootstrap.js");
-  const appearance = assetIndex(shell, "assets/js/appearance.js");
-  const stylesheet = assetIndex(shell, "assets/css/obsidian.css");
-  const app = assetIndex(shell, "assets/js/app.js");
-  assert.ok(bootstrap > -1 && appearance > -1, "bootstrap and appearance are external files");
-  assert.ok(stylesheet > -1 && app > stylesheet, "the application loads after the document shell and dependencies");
+  assert.equal(scriptRunsBefore(shell, "assets/js/bootstrap.js", "assets/js/app.js"), true, "bootstrap is an external file that runs before the application");
+  assert.equal(scriptRunsBefore(shell, "assets/js/appearance.js", "assets/js/app.js"), true, "appearance is an external file that runs before the application");
+  const stylesheet = stylesheetIndex(shell, "assets/css/obsidian.css");
+  const app = findScript(shell, "assets/js/app.js");
+  assert.ok(stylesheet > -1 && app && app.index > stylesheet, "the application script follows the stylesheet link");
   assert.equal(/<script>\s*\(\(\)=>/.test(shell), false, "the application must not be embedded in HTML");
 });
 

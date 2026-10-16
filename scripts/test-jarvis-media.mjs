@@ -65,6 +65,8 @@ const tests = [
   "tests/catalog-registry.test.mjs",
   "tests/collection-tools.test.mjs",
   "tests/compatibility-player.test.mjs",
+  "tests/jarvis-shipped-compatibility.suite.mjs",
+  "tests/jarvis-shipped-motion.suite.mjs",
   "tests/dependency-pinning.test.mjs",
   "tests/discovery-health.test.mjs",
   "tests/federated-search.test.mjs",

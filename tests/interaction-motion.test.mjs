@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { appFileURL, appPath, readAppSource } from "./helpers/media-root.mjs";
-import { assetIndex } from "./helpers/shell-assets.mjs";
+import { scriptRunsBefore } from "./helpers/shell-assets.mjs";
 
 const MOTION_BUNDLE_BLOB = "01cb4830d63b1e63b270eeaf2d6752946edc8242";
 
@@ -70,9 +70,7 @@ test("the shipped motion bundle matches the qualified compatibility build", asyn
   const blob = createHash("sha1").update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest("hex");
   assert.equal(blob, MOTION_BUNDLE_BLOB, "Jarvis and the root copy ship the same motion bytes");
   assert.match(bundle, /AstraMotion/);
-  const runtime = assetIndex(shell, "assets/js/astra-motion.js");
-  const app = assetIndex(shell, "assets/js/app.js");
-  assert.ok(runtime > -1 && runtime < app, "the shipped bundle loads before app wiring");
+  assert.equal(scriptRunsBefore(shell, "assets/js/astra-motion.js", "assets/js/app.js"), true, "the shipped bundle loads before app wiring");
   assert.equal(/<script[^>]+src="https?:/.test(html), false, "motion never loads from a CDN");
   assert.equal(bundle.includes("player.session"), false, "the motion layer has no playback-engine ownership");
 });

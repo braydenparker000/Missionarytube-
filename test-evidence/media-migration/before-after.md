@@ -2,7 +2,7 @@
 
 Baseline is `baseline.tap`: 511 tests, 456 pass, 55 fail, against pinned Jarvis `public/media` before the harness changes in this commit.
 
-Migrated is `migrated.tap`: 512 tests, 483 pass, 29 fail. The extra test is `initial theme renders while appearance and bootstrap are still loading`. It was not one of the original 55. It passes on both the root copy and the pinned Jarvis tree.
+The harness-only Jarvis run was 512 tests, 483 pass, 29 fail. This pass's `migrated.tap` is 541 tests, 512 pass, 29 fail. The extra test from the harness pass was renamed to `characterization: loading mode leaves a deferred stored accent and motion preference unapplied`. It was not one of the original 55. It passes on both trees as a loading-mode characterization. The original before-first-paint guarantee stays unresolved.
 
 Classes used here: `harness`, `implementation-detail`, `real behavior difference`. The 29 tests that still fail are classified again in `no-counterpart-mapping.md`. Their expectation was not rewritten to pass.
 
@@ -40,7 +40,7 @@ Shared cache key: the root shell uses the placeholder `__ASTRA_VERSION__`. Jarvi
 | nothing in the UI invents content, availability or telemetry | regex required `audio-player.js?v=__ASTRA_VERSION__` | Same stamp | Same path check. The no-invented-telemetry assertions are unchanged | pass | implementation-detail |
 | the Gallery stylesheet cache key matches the visible app version | expected `__ASTRA_VERSION__`, actual `0.34.6` | Jarvis stamps the release meta instead of the placeholder | Accept the placeholder or the `astra-release` meta, and require one shared key | pass | implementation-detail |
 | one release placeholder owns every local shell asset cache key | actual keys were `?v=0.34.6`, including `/assets/pip-diagnostics.js?v=0.34.6` | Same stamp, plus a leading slash on one path | Same shared-key rule. Independent keys still fail | pass | implementation-detail |
-| the early bootstrap and application are external reviewable files | `the js class is set before first paint` | Tag order was treated as proof the script had run. Jarvis defers `bootstrap.js` and `appearance.js`, so they do not run before first paint | Keep the external-file and order checks. Drop the tag-order paint claim. The paint behavior is the new theme test below | pass | implementation-detail |
+| the early bootstrap and application are external reviewable files | `the js class is set before first paint` | Tag order was treated as proof the script had run. Jarvis defers `bootstrap.js` and `appearance.js`, so they do not run before first paint | Keep the external-file and order checks. Drop the tag-order paint claim. The loading-mode characterization below does not close the first-paint guarantee | pass | implementation-detail |
 | no runtime framework and no unpinned remote script was introduced | `local.length >= 9` was false | The local-script regex required `<script src=` and missed `<script defer src=` | Count local scripts with or without `defer`. Remote `http(s)` scripts still fail | pass | implementation-detail |
 | YouTube plays natively, and no iframe or embed survives anywhere | unexpected host `images.metahub.space` | Jarvis preconnects the poster CDN. It is not a YouTube or Invidious instance | Allow that poster host. `youtube.com`, `youtube-nocookie`, and Invidious instance hosts still fail. No iframe/embed assertion was relaxed | pass | implementation-detail |
 | every catalog card, including new releases, has resilient artwork | regex required inline `onload="this.parentElement.classList.add('image-ready')"` | Jarvis binds `bindArtwork` and `AstraArtworkFallback` instead of inline handlers | Fire load and error on the rendered image. Fallback advance, `image-error`, and `image-ready` must happen. CSS opacity rule kept | pass | implementation-detail |
@@ -50,20 +50,26 @@ Shared cache key: the root shell uses the placeholder `__ASTRA_VERSION__`. Jarvi
 
 `pending progress is flushed when playback or the page ends` is an implementation detail of the call shape. The saved behavior (checkpoint the live position, flush when media is not live, do not invent completion) holds on both trees. It is not a remaining behavior failure.
 
-## Real behavior difference — new test, passing
+## Loading-mode characterization — not a first-paint pass
 
-`initial theme renders while appearance and bootstrap are still loading` models first paint while scripts are still in flight. Parser-blocking scripts run. `defer`, `async`, and `type=module` stay pending. A script tag's presence is not treated as execution.
+`characterization: loading mode leaves a deferred stored accent and motion preference unapplied` is a parser/VM model of script loading mode. It is not a throttled browser paint test, and a pass does not satisfy the original before-first-paint guarantee.
 
-Both trees must paint a dark floor from the render-blocking stylesheet (`--cinema-floor: #050607`), a dark critical-CSS fallback, default accent `#b4d1ff`, and `color-scheme: dark`, with a stored non-default accent (`violet`) in `localStorage`.
+Parser-blocking scripts run inside the VM. `defer`, `async`, and `type=module` stay pending. A script tag's presence is not treated as execution. The model does not hold script responses, and it does not read computed styles or screenshots.
 
-- Root copy: `appearance.js` and `bootstrap.js` block the parser, so the stored accent, motion, and surface are applied and the `js` class is set before paint.
-- Jarvis: those scripts are `defer`. The test requires `dataset.accent` to stay unset, the `js` class to stay off, both scripts to remain pending, and `executed.length` to be 0.
+Both trees must expose a dark floor from the render-blocking stylesheet (`--cinema-floor: #050607`), a dark critical-CSS fallback, default accent `#b4d1ff`, and `color-scheme: dark`, with a stored non-default accent (`violet`) and motion preference (`off`) in the modeled `localStorage`.
 
-Result on the migrated run: pass. Class: real behavior difference, asserted explicitly. Deferred script tags alone are not accepted as before-first-paint proof.
+- Root copy: `appearance.js` and `bootstrap.js` block the parser, so the stored accent, motion, and surface are applied and the `js` class is set in this model.
+- Jarvis: those scripts are `defer`. The passing result requires `dataset.accent` and `dataset.motion` to stay unset, the `js` class to stay off, both scripts to remain pending, and `executed.length` to be 0. The saved accent and motion preference remain unapplied.
 
-## Still failing (29)
+Result on the migrated run: pass, as a characterization. The original first-paint guarantee is unresolved, pending a future browser test that holds script responses and inspects computed styles or screenshots. That browser test was not written in this pass.
 
-These are the original no-counterpart failures. The harness change makes a Jarvis run throw `Refusing to fall back to the repo-root copy` instead of reading root `src/`. Expectations were not loosened. See `no-counterpart-mapping.md`.
+## Shipped-bundle pass
+
+`tests/jarvis-shipped-compatibility.suite.mjs` (22) and `tests/jarvis-shipped-motion.suite.mjs` (7) drive the pinned bundles. They pass in `migrated.tap`. The original 29 source-unit names still fail in that same file. Per-test status is in `no-counterpart-mapping.md`. The migration stays incomplete while the pump-abort clause, the `velocity >= 720` branch, the narrow `backdrop-filter: none` cascade, and the first-paint guarantee remain unsupported or pending.
+
+## Still failing on the Jarvis source-unit names (29)
+
+These original names still fail in `migrated.tap`. The harness makes a Jarvis run throw `Refusing to fall back to the repo-root copy` instead of reading root `src/`. Expectations were not loosened. Shipped-bundle suites now cover the public guarantees where the pin supports them. The rows below stay failures. See `no-counterpart-mapping.md`.
 
 | Test | Failure before | Cause | Change | Result after | Class |
 | --- | --- | --- | --- | --- | --- |

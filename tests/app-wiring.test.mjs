@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readAppSource } from "./helpers/media-root.mjs";
-import { assetIndex } from "./helpers/shell-assets.mjs";
+import { scriptRunsBefore } from "./helpers/shell-assets.mjs";
 import { loadPlaybackBoundary } from "./helpers/playback-boundary.mjs";
 
 const shell = await readAppSource("index.html");
@@ -13,18 +13,13 @@ const html = `${shell}\n${appSource}`;
 const css = await readAppSource("assets/css/obsidian.css");
 
 test("the external app loads after the progress store", () => {
-  const module = assetIndex(shell, "assets/js/progress-store.js");
-  const app = assetIndex(shell, "assets/js/app.js");
-  assert.ok(module > -1, "progress-store.js must be loaded");
-  assert.ok(app > module, "the app script must run after the store is defined");
+  assert.equal(scriptRunsBefore(shell, "assets/js/progress-store.js", "assets/js/app.js"), true, "the app script must run after the store is defined");
   assert.equal(/<script>\s*\(\(\)=>\{'use strict';/.test(shell), false, "application code must not remain inline");
   assert.match(appSource, /const progress=AstraProgress\.createProgressStore\(/);
 });
 
 test("route ownership loads before the app and releases inactive catalog DOM", () => {
-  const runtime = assetIndex(shell, "assets/js/route-runtime.js");
-  const app = assetIndex(shell, "assets/js/app.js");
-  assert.ok(runtime > -1 && runtime < app, "route-runtime.js must load before the application");
+  assert.equal(scriptRunsBefore(shell, "assets/js/route-runtime.js", "assets/js/app.js"), true, "route-runtime.js must load before the application");
   assert.match(appSource, /const Routes=AstraRoutes\.createRouteRuntime\(\)/);
   assert.match(appSource, /if\(changed\)releasePage\(fromPage\)/);
   assert.match(appSource, /if\(root\)root\.replaceChildren\(\)/);
@@ -121,17 +116,11 @@ test("backups round-trip the normalized progress shape", () => {
 /* ---- Playback Engine v2 wiring ---------------------------------------- */
 
 test("every playback module is loaded before the app script", () => {
-  const app = assetIndex(shell, "assets/js/app.js");
   for (const name of ["settings", "streams", "adapters", "engine", "episodes", "subtitles"]) {
-    const at = assetIndex(shell, `assets/js/playback/${name}.js`);
-    assert.ok(at > -1, `${name}.js is not loaded`);
-    assert.ok(at < app, `${name}.js must load before the app script`);
+    assert.equal(scriptRunsBefore(shell, `assets/js/playback/${name}.js`, "assets/js/app.js"), true, `${name}.js must load before the app script`);
   }
   // settings.js is read by streams.js for the resolution ceiling.
-  assert.ok(
-    shell.indexOf('playback/settings.js') < shell.indexOf('playback/streams.js'),
-    "settings must load before streams"
-  );
+  assert.equal(scriptRunsBefore(shell, "assets/js/playback/settings.js", "assets/js/playback/streams.js"), true, "settings must load before streams");
 });
 
 test("the v1 playback path is fully removed", () => {

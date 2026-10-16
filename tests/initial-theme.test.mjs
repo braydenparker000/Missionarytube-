@@ -31,9 +31,12 @@ function scriptTags(head) {
 }
 
 /**
- * Stylesheets and critical CSS apply while scripts are still in flight.
- * Parser-blocking head scripts hold first paint; deferred scripts do not.
- * A script tag's presence is not treated as evidence that it has run.
+ * Characterization of script loading mode, not a browser paint test.
+ * Parser-blocking head scripts are executed in this VM. `defer`, `async`,
+ * and module scripts stay pending; their tags are not treated as having run.
+ * A passing result on a deferred shell explicitly leaves the stored accent
+ * and motion preference unapplied. It does not establish the original
+ * before-first-paint guarantee.
  */
 function firstPaint(stored) {
   const head = shell.slice(shell.indexOf("<head>"), shell.indexOf("</head>"));
@@ -84,7 +87,7 @@ function firstPaint(stored) {
   };
 }
 
-test("initial theme renders while appearance and bootstrap are still loading", () => {
+test("characterization: loading mode leaves a deferred stored accent and motion preference unapplied", () => {
   const stored = JSON.stringify({ accent: "violet", motion: "off", surface: "charcoal" });
   const paint = firstPaint(stored);
   assert.equal(paint.executed.some((src) => src.includes("defer")), false);
@@ -107,5 +110,5 @@ test("initial theme renders while appearance and bootstrap are still loading", (
   assert.equal(paint.jsClass, false, "a deferred bootstrap script has not marked the document at first paint");
   assert.ok(paint.pending.some((src) => src.includes("appearance.js")));
   assert.ok(paint.pending.some((src) => src.includes("bootstrap.js")));
-  assert.equal(paint.executed.length, 0, "throttled deferred scripts are not treated as having run");
+  assert.equal(paint.executed.length, 0, "deferred scripts stay pending in this parser model and are not treated as having run");
 });
