@@ -13,6 +13,7 @@ export const makimaEnabled = env => relayEnabled(env) && env.RELAY_MAKIMA_ENABLE
 export const makimaOAuthPolicy = Object.freeze({
   path: MAKIMA_PATH, registry: MAKIMA_OBJECT, principal: 'agent:makima',
   scopes: [MAKIMA_SCOPE], defaultScopes: [MAKIMA_SCOPE], callback: MAKIMA_CALLBACK,
+  retainTerminalCookie: true,
   cookie: '__Host-jarvis-makima', clientName: 'Makima', enabled: makimaEnabled,
   resource: env => relayIssuer(env) + MAKIMA_PATH + '/mcp',
   staticClient: env => env.RELAY_MAKIMA_CLIENT_ID,

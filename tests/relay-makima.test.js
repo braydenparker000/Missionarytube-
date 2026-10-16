@@ -218,3 +218,23 @@ test('owner device revocation across the bridge prevents releasing channel data 
   assert.equal(response.status,401);assert.ok(!(await response.text()).includes('synthetic-channel-private-text'));
   assert.equal(s.rows('SELECT COUNT(*) AS n FROM makima_messages')[0].n,1);
 });
+
+test('retained Makima cookies cannot replay approved, denied or expired consent; Origin remains required',async t=>{
+  const s=fixture(t);
+  for(const decision of ['allow','deny']) {
+    const c=await s.consent();
+    for(const origin of ['null','https://evil.invalid']) {
+      const r=await s.request('/oauth/approve',{...form({csrf:c.csrf,decision}),headers:{...form({}).headers,Origin:origin,Cookie:c.cookie}});
+      assert.equal(r.status,403);
+    }
+    const completed=await s.approve(c,{decision}); assert.equal(completed.status,302);
+    assert.equal(completed.headers.get('Set-Cookie'),null);
+    const before=s.rows("SELECT COUNT(*) AS n FROM relay_oauth WHERE category='grant'")[0].n;
+    const replay=await s.approve(c); assert.equal(replay.status,400);
+    assert.equal((await replay.json()).error_description,'consent_session_expired_or_used');
+    assert.equal(s.rows("SELECT COUNT(*) AS n FROM relay_oauth WHERE category='grant'")[0].n,before);
+  }
+  const expired=await s.consent();
+  s.rows("UPDATE relay_oauth SET expires_at=0 WHERE key LIKE 'consent:%'");
+  assert.equal((await (await s.approve(expired)).json()).error_description,'consent_session_expired_or_used');
+});
