@@ -1,6 +1,15 @@
 name: Publish verified private board frontend only
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Preview screenshots first; publish only after exact-pin visual review
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - publish
 permissions:
   contents: read
   actions: read
@@ -52,12 +61,30 @@ jobs:
           PRIVATE_WORKSPACE_ROOT: ${{ github.workspace }}/.private-board-stage
           REQUIRE_RELAY_OWNER_BROWSER: '1'
           REQUIRE_PRIVATE_BOARD_BROWSER: '1'
+          PRIVATE_CHAT_SCREENSHOT_DIR: ${{ github.workspace }}/private-board-publication/screenshots
         run: |
           test -x "$JARVIS_CHROME"
           export PRIVATE_WORKSPACE_CHROME="$JARVIS_CHROME"
           export CHROMIUM_PATH="$JARVIS_CHROME"
           export PLAYWRIGHT_CHROMIUM_EXECUTABLE="$JARVIS_CHROME"
-          node --test --test-concurrency=1 tests/private-board*.test.js tests/private-workspace*.test.js tests/relay-owner-collaboration.test.js tests/relay-owner-ui.test.js tests/relay-owner-completion-semantics.test.js tests/relay-mast.test.js tests/relay-mast-files.test.js tests/relay-mast-work.test.js tests/relay-owner-attachments.test.js tests/relay-owner-assistant-attachments.test.js
+          node --test --test-concurrency=1 tests/private-board*.test.js tests/private-workspace*.test.js tests/private-makima*.test.js tests/relay-muse-modes-browser.test.js tests/relay-owner-collaboration.test.js tests/relay-owner-ui.test.js tests/relay-owner-completion-semantics.test.js tests/relay-mast.test.js tests/relay-mast-files.test.js tests/relay-mast-work.test.js tests/relay-owner-attachments.test.js tests/relay-owner-assistant-attachments.test.js
+      - name: Require exact mobile visual evidence
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          const pins=readFileSync('scripts/private-board-pins.json');
+          const plan=JSON.parse(readFileSync('private-board-publication/plan.json'));
+          const files=['group-normal.png','group-menu.png','group-spectrum.png','makima.png'];
+          const screenshots=files.map(name=>{
+            const bytes=readFileSync('private-board-publication/screenshots/'+name);
+            assert.equal(bytes.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+            assert.equal(bytes.readUInt32BE(16),390);assert.equal(bytes.readUInt32BE(20),844);
+            return {name,sha256:createHash('sha256').update(bytes).digest('hex'),width:390,height:844};
+          });
+          writeFileSync('private-board-publication/visual-evidence.json',JSON.stringify({source:plan.pins.source,orchestration:process.env.GITHUB_SHA,pinsSha256:createHash('sha256').update(pins).digest('hex'),screenshots},null,2)+'\n');
+          JS
       - uses: actions/upload-artifact@v4
         with:
           name: private-board-before-${{ github.run_id }}-${{ github.run_attempt }}
@@ -65,6 +92,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
       - name: Sign in using existing Azure identity
+        if: ${{ inputs.mode == 'publish' }}
         id: azure
         uses: azure/login@v2
         with:
@@ -72,11 +100,13 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Publish pinned static files; Worker identity checks are read-only
+        if: ${{ inputs.mode == 'publish' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: node scripts/publish-private-board.mjs publish
       - name: Verify exact live static files and unchanged Worker
+        if: ${{ inputs.mode == 'publish' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -88,5 +118,5 @@ jobs:
           path: private-board-publication/
           retention-days: 90
       - name: End Azure session
-        if: ${{ always() && steps.azure.outcome == 'success' }}
+        if: ${{ always() && inputs.mode == 'publish' && steps.azure.outcome == 'success' }}
         run: az logout

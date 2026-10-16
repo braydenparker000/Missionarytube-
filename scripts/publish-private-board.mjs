@@ -21,8 +21,8 @@ export function checkedPins(p){
  for(const v of Object.values(p.recipe))assert.match(v,SHA);
  assert.ok(Array.isArray(p.files)&&p.files.length>0&&p.files.length<40);assert.ok(Array.isArray(p.dependencies)&&p.dependencies.length<100);
  const paths=[...p.files,...p.dependencies].map(f=>f.path);assert.equal(new Set(paths).size,paths.length);
- for(const f of p.files){assert.match(f.path,/^(private\/[a-z]+\.html|assets\/(?:hub|relay-owner-api|private-[a-z-]+)\.(?:js|css))$/);assert.match(f.sha256,HASH);assert.ok(f.before===null||HASH.test(f.before));assert.ok(Number.isSafeInteger(f.bytes)&&f.bytes>0);}
- for(const f of p.dependencies){assert.match(f.path,/^(?:assets|private)\/[a-zA-Z0-9_-]+\.(?:html|js|css)$/);assert.match(f.sha256,HASH);}
+ for(const f of p.files){assert.ok(['muse/index.html','assets/muse.js'].includes(f.path)||/^(private\/[a-z]+\.html|assets\/(?:hub|relay-owner-api|private-[a-z-]+)\.(?:js|css))$/.test(f.path),'Unreviewed static path');assert.match(f.sha256,HASH);assert.ok(f.before===null||HASH.test(f.before));assert.ok(Number.isSafeInteger(f.bytes)&&f.bytes>0);}
+ for(const f of p.dependencies){assert.ok(f.path==='mast/index.html'||/^(?:assets|private)\/[a-zA-Z0-9_-]+\.(?:html|js|css)$/.test(f.path),'Unreviewed dependency path');assert.match(f.sha256,HASH);}
  return p;
 }
 export function checkedExisting(bytes,file,allowPublished=false){const digest=bytes===null?null:hash(bytes);assert.ok(digest===file.before||(allowPublished&&digest===file.sha256),'Live baseline changed: '+file.path);}
