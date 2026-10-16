@@ -92,3 +92,15 @@ export async function agentChatPublic(request,env){
     return await store(input);
   }catch(e){return json({error:e instanceof RelayError?e.message:'Invalid channel request'},e instanceof RelayError?e.data?.status||400:400);}
 }
+
+// The authenticated owner's separate read-only projection. Agent transports and
+// scopes remain unchanged; no operation supplied by the caller selects a table.
+export async function agentChatOwnerRead(sourceCtx,env,input,authorize){
+  authorize();
+  if(!agentChatEnabled(env))fail(503,'Lucy–Muse channel is not activated');
+  const ctx=isolated(sourceCtx);schema(ctx);
+  const check=()=>{const session=authorize();if(!agentChatEnabled(env))fail(503,'Lucy–Muse channel is not activated');return 'owner-read:'+session.device_id;};
+  if(input.op==='collaboration_file_content')return mastFileOperation(ctx,{...input,op:'file_content'},check,target);
+  if(input.op!=='collaboration_list')fail(403,'Read-only channel');
+  return ctx.storage.transactionSync(()=>{check();const after=cursor(input.after)||0;const result=rows(ctx,'SELECT * FROM relay_mast_entries WHERE seq>? ORDER BY seq LIMIT 51',after);return json({destination:'lucy-muse',visibility:'private',readOnly:true,messages:result.slice(0,50).map(r=>entry(ctx,r)),nextCursor:result.length>50?String(result[49].seq):null});});
+}

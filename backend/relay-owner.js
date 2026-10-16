@@ -1,3 +1,4 @@
+import {agentChatOwnerRead} from './relay-agent-chat.js';
 import {mastList, mastSend, mastOwnerFileStore, mastOwnerWork} from './relay-mast.js';
 // Private owner devices and messages. Never persist, log, or return a device
 // credential through MCP; the display code is deliberately not a credential.
@@ -217,6 +218,7 @@ export async function relayOwnerStore(ctx, env, body, enqueueOwnerMessage = () =
       });
     }
     const allowed = {
+      collaboration_list:['after'], collaboration_file_content:['message_id','attachment_id','preview'],
       mast_work_list:['after'],mast_work_read:['job_id'],mast_work_create:['id','body','title','action_kind','project_title','goal_title'],mast_work_cancel:['job_id','event_id'],mast_work_retry:['job_id','id','confirm_duplicate_risk'],
       mast_list: ['after'], mast_send: ['id', 'body', 'attachment_ids'],
       mast_file_admit: [], mast_file_upload: ['id','message_id','name','mime_type','data_base64'], mast_file_discard: ['message_id','attachment_id'], mast_file_content: ['message_id','attachment_id','preview'],
@@ -230,6 +232,7 @@ export async function relayOwnerStore(ctx, env, body, enqueueOwnerMessage = () =
       ? allowed[body.op].filter(key => !['confirm_duplicate_risk', 'project_title', 'goal_title', 'attachment_ids', 'preview'].includes(key)) : [];
     fields(body, ['op', 'token_hash', ...allowed[body.op]], ['op', 'token_hash', ...required]);
     if (!hex(body.token_hash)) fail(401, 'Owner device authentication required');
+    if(['collaboration_list','collaboration_file_content'].includes(body.op))return await agentChatOwnerRead(ctx,env,body,()=>requireSession(ctx,body.token_hash,Date.now()));
     if(body.op.startsWith('mast_file_'))return await mastOwnerFileStore(ctx,env,body,()=>requireSession(ctx,body.token_hash,Date.now()));
     if (body.op === 'attachment_admit') {
       ctx.storage.transactionSync(() => {
@@ -496,6 +499,8 @@ export async function relayOwnerPublic(request, env) {
       '/jobs': [request.method === 'POST' ? 'POST' : 'GET', request.method === 'POST' ? 'job_create' : 'jobs_list'], '/jobs/changes': ['GET', 'jobs_changes'], '/jobs/detail': ['GET', 'job_read'], '/jobs/cancel': ['POST', 'job_cancel'], '/jobs/retry': ['POST', 'job_retry']};
     routes['/mast/work']=[request.method==='POST'?'POST':'GET',request.method==='POST'?'mast_work_create':'mast_work_list'];
     routes['/mast/work/detail']=['GET','mast_work_read'];routes['/mast/work/cancel']=['POST','mast_work_cancel'];routes['/mast/work/retry']=['POST','mast_work_retry'];
+    routes['/collaboration']=['GET','collaboration_list'];
+    routes['/collaboration/files/content']=['GET','collaboration_file_content'];
     routes['/mast/files']=['POST','mast_file_upload'];
     routes['/mast/files/discard']=['POST','mast_file_discard'];
     routes['/mast/files/content']=['GET','mast_file_content'];
@@ -508,7 +513,7 @@ export async function relayOwnerPublic(request, env) {
     const suffix = path.slice('/relay/owner'.length), route = Object.hasOwn(routes, suffix) ? routes[suffix] : null;
     if (!route) return wrap(json({error: 'Not found'}, 404));
     if (request.method !== route[0]) return wrap(json({error: 'Method not allowed'}, 405, {Allow: route[0] + ', OPTIONS'}));
-    const queryFields = ['mast_list','mast_work_list'].includes(route[1])?['after']:route[1]==='mast_work_read'?['job_id']:route[1] === 'chat_updates'?['after']:route[1] === 'deliverables_list'?['message_id','after','limit']:['attachment_content','mast_file_content'].includes(route[1]) ? ['message_id', 'attachment_id', 'preview'] : route[1] === 'jobs_changes' ? ['after', 'limit', 'through'] : ['messages_list', 'jobs_list'].includes(route[1]) ? ['after', 'limit'] : route[1] === 'conversation' ? ['message_id'] : route[1] === 'job_read' ? ['job_id'] : [];
+    const queryFields = ['collaboration_list','mast_list','mast_work_list'].includes(route[1])?['after']:route[1]==='mast_work_read'?['job_id']:route[1] === 'chat_updates'?['after']:route[1] === 'deliverables_list'?['message_id','after','limit']:['collaboration_file_content','attachment_content','mast_file_content'].includes(route[1]) ? ['message_id', 'attachment_id', 'preview'] : route[1] === 'jobs_changes' ? ['after', 'limit', 'through'] : ['messages_list', 'jobs_list'].includes(route[1]) ? ['after', 'limit'] : route[1] === 'conversation' ? ['message_id'] : route[1] === 'job_read' ? ['job_id'] : [];
     if ([...url.searchParams.keys()].some(k => !queryFields.includes(k) || url.searchParams.getAll(k).length !== 1)) fail(400, 'Invalid owner query');
     let body = {};
     let admittedHash;
@@ -536,7 +541,7 @@ export async function relayOwnerPublic(request, env) {
       if (!token) fail(401, 'Owner device bearer required');
       input.token_hash = admittedHash || await hash(token);
     }
-    if (['mast_list','mast_work_list', 'messages_list', 'jobs_list', 'jobs_changes','deliverables_list','chat_updates'].includes(route[1])) {
+    if (['collaboration_list','mast_list','mast_work_list', 'messages_list', 'jobs_list', 'jobs_changes','deliverables_list','chat_updates'].includes(route[1])) {
       if (url.searchParams.has('after')) input.after = url.searchParams.get('after');
       if (url.searchParams.has('limit')) {
         const limit = url.searchParams.get('limit');
@@ -547,7 +552,7 @@ export async function relayOwnerPublic(request, env) {
     if (route[1] === 'jobs_changes' && url.searchParams.has('through')) input.through = url.searchParams.get('through');
     if (['conversation','deliverables_list'].includes(route[1])) input.message_id = url.searchParams.get('message_id');
     if (['job_read','mast_work_read'].includes(route[1])) input.job_id = url.searchParams.get('job_id');
-    if (['attachment_content','mast_file_content'].includes(route[1])) {
+    if (['collaboration_file_content','attachment_content','mast_file_content'].includes(route[1])) {
       input.message_id = url.searchParams.get('message_id');
       input.attachment_id = url.searchParams.get('attachment_id');
       if (url.searchParams.has('preview')) {

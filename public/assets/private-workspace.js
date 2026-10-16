@@ -1,3 +1,4 @@
+import {renderCollaboration} from './private-collaboration.js';
 import {readAccent,setAccent} from './private-theme.js';
 import {createRelayMenuHistory} from './relay-menu-history.js';
 import {readTaskPages,taskStatus} from './private-tasks.js';
@@ -17,15 +18,15 @@ async function tasks(generation){const list=node('div',null,'tasks');body.append
  }catch(error){if(epoch!==generation)return;if(['expired','revoked','unauthorized'].includes(error.kind)){invalidate(true);return;}section.replaceChildren(node('h2',agentName(agent)),node('p',error.status===503?'Tasks are not available from this agent yet.':'Sign in to '+agentName(agent)+' or reconnect to load its private tasks.','source-note'));}}));
  if(epoch===generation)status.textContent='Makima is disconnected. No Makima tasks are queried.';
 }
-function show(){const next=location.hash.slice(1);current=Object.hasOwn(titles,next)?next:'lucy';if(['lucy','mast'].includes(current))lastChat=current;const chatLink=document.querySelector('#destinations a');chatLink.href='#'+lastChat;chatLink.dataset.view=lastChat;document.body.dataset.view=current;const generation=++epoch;clearSurface();status.textContent='';document.getElementById('view-title').textContent=titles[current];for(const option of picker.querySelectorAll('[data-agent]'))option.setAttribute('aria-pressed',String(option.dataset.agent===current));for(const link of document.querySelectorAll('a[data-view]')){if(link.dataset.view===current)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}document.getElementById('refresh').hidden=['makima','collaboration'].includes(current);
+function show(){const next=location.hash.slice(1);current=Object.hasOwn(titles,next)?next:'lucy';if(['lucy','mast'].includes(current))lastChat=current;const chatLink=document.querySelector('#destinations a');chatLink.href='#'+lastChat;chatLink.dataset.view=lastChat;document.body.dataset.view=current;const generation=++epoch;clearSurface();status.textContent='';document.getElementById('view-title').textContent=titles[current];for(const option of picker.querySelectorAll('[data-agent]'))option.setAttribute('aria-pressed',String(option.dataset.agent===current));for(const link of document.querySelectorAll('a[data-view]')){if(link.dataset.view===current)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}document.getElementById('refresh').hidden=current==='makima';
  if(['lucy','mast'].includes(current)){let frame=frames.get(current);if(!frame){frame=node('iframe');frame.title='Private conversation with '+titles[current];frame.src='/private/'+current+'.html';frames.set(current,frame);body.append(frame);}frame.hidden=false;frame.inert=false;status.textContent='To '+titles[current]+' only · private owner conversation';}
  else if(current==='tasks')tasks(generation);
  else if(current==='makima')empty('Makima will join later','Grokbot is not connected yet.','K','Disconnected · coming later');
- else empty('Shared collaboration','The shared channel is not available to this account.','↔','Read-only · access unavailable');
+ else {const bridge=[...frames.values()].map(f=>f.contentWindow?.jarvisPrivateReader).find(r=>r?.connected&&r.collaboration);const api=bridge||createRelayOwnerApi();if(!bridge&&!api.hasCredential)empty('Sign in to view collaboration','Open Lucy or Mast and sign in to your private owner account.','↔','Read-only');else renderCollaboration({container:body,api,isCurrent:()=>epoch===generation&&current==='collaboration',onAccessLost:()=>invalidate(true)});}
 }
 function invalidate(accessLost=false){navigation.invalidate();++epoch;for(const frame of frames.values())frame.remove();frames.clear();if(accessLost)history.replaceState(null,'','#lucy');show();}
 addEventListener('hashchange',show);addEventListener('storage',event=>{if(event.key===OWNER_SESSION_KEY)invalidate();});
-document.getElementById('refresh').onclick=()=>navigation.navigate(()=>{if(current==='tasks')show();else frames.get(current)?.contentWindow?.jarvisPrivateReader?.refresh();});
+document.getElementById('refresh').onclick=()=>navigation.navigate(()=>{if(['tasks','collaboration'].includes(current))show();else frames.get(current)?.contentWindow?.jarvisPrivateReader?.refresh();});
 show();
 // Mobile keyboards resize the top-level visual viewport, not an iframe's visual viewport.
 function fitViewport(){const viewport=window.visualViewport;if(viewport&&viewport.scale!==1)return;const height=viewport?.height||innerHeight;document.documentElement.style.setProperty('--private-height',Math.round(height)+'px');document.body.dataset.keyboard=String(innerHeight-height>120);}

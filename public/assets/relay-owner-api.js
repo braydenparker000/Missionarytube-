@@ -261,6 +261,15 @@ export function createRelayOwnerApi({ fetcher = globalThis.fetch, origin = API_O
   }
   function parseAttachments(entry){try{return messageAttachments(entry);}catch{throw new OwnerApiError('invalid');}}
   return {
+    async collaboration(after='0'){
+      if(!/^\d{1,15}$/.test(String(after)))throw new OwnerApiError('invalid');
+      const data=await attachmentCall('/relay/owner/collaboration?after='+encodeURIComponent(after));
+      if(data.destination!=='lucy-muse'||data.visibility!=='private'||data.readOnly!==true||!Array.isArray(data.messages)||data.messages.length>50)throw new OwnerApiError('invalid');
+      const messages=data.messages.map((m,i)=>{if(!identifier(m.id)||!['lucy','muse'].includes(m.role)||m.destination!=='lucy-muse'||m.visibility!=='private'||typeof m.body!=='string'||m.body.length>6000||!Number.isSafeInteger(m.sequence)||m.sequence<=Number(after)||(i&&m.sequence<=data.messages[i-1].sequence)||!validDate(m.createdAt)||!(m.replyTo===null||identifier(m.replyTo)))throw new OwnerApiError('invalid');if(!Array.isArray(m.attachments)||m.attachments.length>4)throw new OwnerApiError('invalid');let attachments;try{attachments=m.attachments.map(f=>attachmentMetadata(f,{messageId:m.id,state:'linked'}));}catch{throw new OwnerApiError('invalid');}if(new Set(attachments.map(f=>f.id)).size!==attachments.length)throw new OwnerApiError('invalid');return {...m,attachments};});
+      if(new Set(messages.map(m=>m.id)).size!==messages.length||!(data.nextCursor===null||messages.length&&String(messages.at(-1).sequence)===data.nextCursor))throw new OwnerApiError('invalid');
+      return {messages,nextCursor:data.nextCursor};
+    },
+    collaborationFile(messageId,attachmentId){if(!identifier(messageId)||!identifier(attachmentId))throw new OwnerApiError('invalid');return attachmentCall('/relay/owner/collaboration/files/content?message_id='+encodeURIComponent(messageId)+'&attachment_id='+encodeURIComponent(attachmentId),{binary:true});},
     get hasCredential() { return !!credential; },
     get deviceId() { return credential?.device_id || null; },
     get storageWarning() { return storageWarning; },
