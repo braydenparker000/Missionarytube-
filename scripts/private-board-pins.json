@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "ready": true,
-  "source": "13e9179e024bec2ad30c86d571c2cfa1b7220f19",
+  "source": "324d4c4196dc7ee602a23210c62cc92238c7da96",
   "recipe": {
     ".github/workflows/validate-r2.yml": "9a352d9671250bbdcb8701a6065905219442f0e0",
     "scripts/qualification-proof.mjs": "ed5644fe333ec067ee24051e55b978a83932aa34",
@@ -90,8 +90,8 @@
     },
     {
       "path": "assets/private-theme.css",
-      "sha256": "afcb37a64394c70f7af5be50c181ac76c4fc100269de305d0d0d22aed3efc1ce",
-      "bytes": 6606,
+      "sha256": "e71e558205fa52fb2553950feffeccdf52719544a31047515e8fe59867d43cc0",
+      "bytes": 7325,
       "before": "432c2a557e6772025d8bf08a4dfef8f9a270064c4519f9420dfe8661cb8692e6"
     },
     {
