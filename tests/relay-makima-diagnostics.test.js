@@ -1,3 +1,4 @@
+import {makimaContinuationURL} from './helpers/relay-makima-continuation.js';
 import {MAKIMA_CONSENT_SCRIPT_HASH} from '../backend/relay-makima-consent.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -41,7 +42,7 @@ function fixture(t, overrides = {}) {
     return {diag:html.match(/name="diagnostic_id" value="([^"]+)"/)[1],csrf:html.match(/name="csrf" value="([a-f0-9]{64})"/)[1],cookie:cookie(response)};
   }
   const approve = (c,extra={}) => request('/oauth/approve',{...form({csrf:c.csrf,decision:'allow',diagnostic_id:c.diag,...extra}),headers:{...form({}).headers,Origin:WORKER,Cookie:c.cookie}});
-  async function code() { const r = await approve(await consent()); assert.equal(r.status,302); assert.equal(new URL(r.headers.get('Location')).origin,'https://www.cursor.com'); return new URL(r.headers.get('Location')).searchParams.get('code'); }
+  async function code() { return (await makimaContinuationURL(await approve(await consent()))).searchParams.get('code'); }
   async function tokens() { const r=await exchange(await code()); assert.equal(r.status,200); const b=await r.json(); assert.equal(b.scope,SCOPE); return b; }
   const rpc = (token,method,params={},headers={},envelope={}) => request('/mcp',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json',Accept:'application/json, text/event-stream',...headers},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params,...envelope})});
   const call = (token,name,args={}) => rpc(token,'tools/call',{name,arguments:args});
@@ -57,14 +58,14 @@ const events = s => journal(s).flatMap(row => JSON.parse(row.events));
 
 test('Makima private diagnostics distinguish duplicate ingress and preserve one-use approval',async t=>{
  const s=fixture(t),c=await s.consent();
- const first=await s.approve(c);assert.equal(first.status,302);
+ const first=await s.approve(c);assert.equal(first.status,200);
  const second=await s.approve(c);assert.equal(second.status,400);
  assert.equal((await second.json()).error_description,'consent_session_expired_or_used');
  const id=second.headers.get('X-Jarvis-OAuth-Diagnostic-Id');assert.match(id,/^mr_/);
- const e=events(s);assert.deepEqual(e.map(x=>[x.stage,x.outcome]),[['consent_put','ok'],['consent_consume','ok'],['grant_authorize','ok'],['redirect_constructed','302'],['consent_consume','not_found']]);
+ const e=events(s);assert.deepEqual(e.map(x=>[x.stage,x.outcome]),[['consent_put','ok'],['consent_consume','ok'],['grant_authorize','ok'],['continuation_constructed','200'],['consent_consume','not_found']]);
  assert.equal(e[1].request_id,e[2].request_id);assert.equal(e[1].request_id,e[3].request_id);assert.notEqual(e[1].request_id,e[4].request_id);assert.equal(e[4].request_id,id);assert.equal(e[4].correlation,'submitted_unverified');
  assert.equal(s.rows("SELECT COUNT(*) AS n FROM relay_oauth WHERE category='grant'")[0].n,1);
- const code=new URL(first.headers.get('Location')).searchParams.get('code');
+ const code=(await makimaContinuationURL(first)).searchParams.get('code');
  const tokens=await (await s.exchange(code)).json();
  const text=JSON.stringify(journal(s));
  for(const secret of [c.csrf,c.cookie.split('=')[1],CLIENT,VERIFIER,code,tokens.access_token,tokens.refresh_token,'synthetic-state',await hash(code),await hash(c.cookie.split('=')[1])])assert.ok(!text.includes(secret));
@@ -93,7 +94,7 @@ test('expiry remains rejected, diagnostic TTL never extends, and events are boun
 test('unknown or forged diagnostic IDs never allocate or authorize',async t=>{
  const s=fixture(t),c=await s.consent();
  const fake='mf_22222222-2222-4222-8222-222222222222';
- const first=await s.approve(c,{diagnostic_id:fake});assert.equal(first.status,302);
+ const first=await s.approve(c,{diagnostic_id:fake});assert.equal(first.status,200);
  assert.equal(journal(s).length,1);assert.equal(journal(s)[0].flow_id,c.diag);
  const replay=await s.approve(c,{diagnostic_id:fake});assert.equal(replay.status,400);assert.equal(journal(s).length,1);
  assert.equal((await s.approve(c,{diagnostic_id:CLIENT})).status,400);
@@ -103,13 +104,13 @@ test('unknown or forged diagnostic IDs never allocate or authorize',async t=>{
 test('journal faults do not change consent, grant issuance or OAuth error responses',async t=>{
  const s=fixture(t),c=await s.consent(),sql=s.fixture.object(MAKIMA_OBJECT).ctx.storage.sql,original=sql.exec;
  sql.exec=(query,...args)=>{if(query.includes('makima_oauth_diagnostics'))throw Error('synthetic diagnostic storage failure');return original(query,...args);};
- try { assert.equal((await s.approve(c)).status,302);const replay=await s.approve(c);assert.equal((await replay.json()).error_description,'consent_session_expired_or_used'); } finally {sql.exec=original;}
+ try { assert.equal((await s.approve(c)).status,200);const replay=await s.approve(c);assert.equal((await replay.json()).error_description,'consent_session_expired_or_used'); } finally {sql.exec=original;}
 });
 
 test('diagnostic capacity cannot block new OAuth flows and does not overwrite prior traces',async t=>{
  const s=fixture(t);
- for(let i=0;i<100;i++){const c=await s.consent();assert.equal((await s.approve(c,{decision:'deny'})).status,302);}
- assert.equal(journal(s).length,100);const c=await s.consent();assert.equal((await s.approve(c)).status,302);assert.equal(journal(s).length,100);
+ for(let i=0;i<100;i++){const c=await s.consent();assert.equal((await s.approve(c,{decision:'deny'})).status,200);}
+ assert.equal(journal(s).length,100);const c=await s.consent();assert.equal((await s.approve(c)).status,200);assert.equal(journal(s).length,100);
 });
 
 test('authorization failure stays rejected and consumed; diagnostics preserve exact failure stage',async t=>{
@@ -122,7 +123,7 @@ test('authorization failure stays rejected and consumed; diagnostics preserve ex
 
 test('known cross-flow ID flooding cannot evict verified successful lifecycle evidence',async t=>{
  const s=fixture(t),first=await s.consent(),second=await s.consent();
- assert.equal((await s.approve(first)).status,302);assert.equal((await s.approve(second)).status,302);
+ assert.equal((await s.approve(first)).status,200);assert.equal((await s.approve(second)).status,200);
  const prior=JSON.parse(journal(s).find(row=>row.flow_id===first.diag).events);
  for(let i=0;i<20;i++)assert.equal((await s.approve(second,{diagnostic_id:first.diag})).status,400);
  const row=journal(s).find(row=>row.flow_id===first.diag),e=JSON.parse(row.events);

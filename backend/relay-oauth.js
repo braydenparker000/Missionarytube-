@@ -41,6 +41,20 @@ function oauthRedirect(p, env, params, policy) {
   // cookie. Consumed login/consent records remain unusable until cookie expiry.
   return redirect(url.href, policy.retainTerminalCookie ? {} : {'Set-Cookie': cookieHeader('', 0, policy)});
 }
+function consentReturn(p, env, params, policy) {
+  const response = oauthRedirect(p, env, params, policy);
+  if (!policy.consentContinuation) return response;
+  // A committed document and a new user-tapped link end the form-navigation
+  // chain. Keep the exact registered callback; never accept a submitted target.
+  if (p.redirect_uri !== policy.callback) throw Error('Invalid consent callback');
+  const href = response.headers.get('Location').replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
+  const headers = new Headers(response.headers);
+  headers.delete('Location');
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  headers.set('Content-Security-Policy', "default-src 'none'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'");
+  headers.set('X-Content-Type-Options', 'nosniff');
+  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Continue to Makima</title><body><h1>Continue to Makima</h1><p>Your decision was saved. Tap the link to return to Makima.</p><a id="makima-oauth-continue" href="${href}" rel="noreferrer" referrerpolicy="no-referrer">Continue to Makima</a></body></html>`, {headers});
+}
 function consentPage(csrf, scope, policy, flowId, params) {
   // No upstream content or input enters the fixed optional script.
   // CSRF is random lowercase hex. The restart URL encodes validated parameters.
@@ -124,9 +138,10 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
   const tokenError = (outcome, ...args) => {
     const response = err(...args); reportToken(outcome); return response;
   };
-  const reportRedirect = async (flowId) => {
+  const reportConsentReturn = async (flowId, status) => {
     if (!requestId || !validDiagnosticId(flowId, 'mf')) return;
-    const task = registry(env, {op: 'diagnostic', diagnostic: {flowId, requestId, stage: 'redirect_constructed', outcome: '302', verified: true}}, policy).catch(() => {});
+    const stage = status === 200 ? 'continuation_constructed' : 'redirect_constructed', outcome = status === 200 ? '200' : '302';
+    const task = registry(env, {op: 'diagnostic', diagnostic: {flowId, requestId, stage, outcome, verified: true}}, policy).catch(() => {});
     if (executionCtx?.waitUntil) { try { executionCtx.waitUntil(task); } catch {} }
     else await task; // Local fixtures have no execution context.
   };
@@ -229,8 +244,8 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
       const consumed = await consume(env, 'consent:' + await hash(session), {csrf: b.csrf}, policy, requestId ? {flowId: validDiagnosticId(b.diagnostic_id, 'mf') ? b.diagnostic_id : undefined, requestId} : undefined), consent = consumed.value;
       if (!consent) return err('invalid_request', 400, consumed.reason === 'binding_mismatch' ? 'consent_csrf_mismatch' : 'consent_session_expired_or_used');
       if (b.decision === 'deny') {
-        const response = oauthRedirect(consent.p, env, {error: 'access_denied'}, policy);
-        await reportRedirect(consent.diagnosticId); return response;
+        const response = consentReturn(consent.p, env, {error: 'access_denied'}, policy);
+        await reportConsentReturn(consent.diagnosticId, response.status); return response;
       }
       const code = random(), grantId = random();
       processingFailure = 'consent_grant_processing_failed';
@@ -238,8 +253,8 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
       if (stored.error) return stored.error === 'Client expired'
         ? err('invalid_request', 400, 'consent_client_not_registered')
         : err('temporarily_unavailable', 503, 'consent_grant_capacity_unavailable');
-      const response = oauthRedirect(consent.p, env, {code}, policy);
-      await reportRedirect(consent.diagnosticId); return response;
+      const response = consentReturn(consent.p, env, {code}, policy);
+      await reportConsentReturn(consent.diagnosticId, response.status); return response;
     }
     if (path === policy.path + '/oauth/token' && request.method === 'POST') {
       if (!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return tokenError('content_type_rejected');
@@ -286,7 +301,7 @@ export function relayOAuthStore(ctx, b, now = Date.now(), env, policy = DEFAULT_
   if (b.op === 'diagnostic') {
     // Internal-only write; no diagnostic read operation or public endpoint.
     const d = b.diagnostic;
-    if (d?.stage === 'redirect_constructed') recordMakimaDiagnostic(ctx, d, now);
+    if (['redirect_constructed', 'continuation_constructed'].includes(d?.stage)) recordMakimaDiagnostic(ctx, d, now);
     return json({ok: true});
   }
   const trace = {};

@@ -10,6 +10,7 @@ const outcomes = {
   consent_consume: ['ok', 'not_found', 'expired', 'binding_mismatch', 'storage_error'],
   grant_authorize: ['ok', 'rejected', 'storage_error'],
   redirect_constructed: ['302'],
+  continuation_constructed: ['200'],
 };
 export function recordMakimaDiagnostic(ctx, observation, now) {
   try {
@@ -32,7 +33,7 @@ export function recordMakimaDiagnostic(ctx, observation, now) {
       const trustedLifecycle = event => event.correlation === 'store_verified' &&
         (event.stage === 'consent_put' && event.outcome === 'ok' ||
          event.stage === 'consent_consume' && event.outcome === 'ok' ||
-         event.stage === 'grant_authorize' || event.stage === 'redirect_constructed');
+         event.stage === 'grant_authorize' || event.stage === 'redirect_constructed' || event.stage === 'continuation_constructed');
       while (events.length > EVENTS) {
         const discard = events.findIndex(event => !trustedLifecycle(event));
         if (discard < 0) return; // Unexpected shape: preserve stored evidence.

@@ -18,6 +18,7 @@ export const makimaOAuthPolicy = Object.freeze({
   // form-action to that redirect too; OAuth registration stays exact and unchanged.
   formActionRedirects: ['https://cursor.com/agents/mcp/oauth/callback'],
   consentDiagnostics: true,
+  consentContinuation: true,
   consentGuard: Object.freeze({script: MAKIMA_CONSENT_SCRIPT, hash: MAKIMA_CONSENT_SCRIPT_HASH}),
   retainTerminalCookie: true,
   loginCookie: '__Host-jarvis-makima-login',
