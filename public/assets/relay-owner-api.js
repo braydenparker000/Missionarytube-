@@ -1,3 +1,4 @@
+import {createMakimaApi} from './private-makima-api.js';
 import {createBoardApi} from './private-board-api.js';
 import {RELAY_ATTACHMENT_TYPES,RELAY_ATTACHMENT_MAX_BYTES,attachmentUuid,attachmentMetadata,messageAttachments,assistantDeliverable} from './relay-attachment-contract.js';
 import { API_ORIGIN } from './config.js';
@@ -264,6 +265,7 @@ export function createRelayOwnerApi({ fetcher = globalThis.fetch, origin = API_O
   function parseAttachments(entry){try{return messageAttachments(entry);}catch{throw new OwnerApiError('invalid');}}
   return {
     board: createBoardApi(attachmentCall),
+    makima: createMakimaApi(attachmentCall),
     async collaboration(after='0'){
       if(!/^\d{1,15}$/.test(String(after)))throw new OwnerApiError('invalid');
       const data=await attachmentCall('/relay/owner/collaboration?after='+encodeURIComponent(after));
