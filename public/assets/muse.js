@@ -74,6 +74,8 @@ $('composer').onsubmit = e => {
 $('prompt').onkeydown = e => {
   if (e.key === 'Enter' && (e.ctrlKey||e.metaKey) && !e.isComposing) { e.preventDefault(); $('composer').requestSubmit(); }
 };
+// Restore the saved draft and bind all composer handlers before accepting input.
+$('prompt').disabled = false;
 $('refresh').onclick = sync;
 $('muse-retry').onclick=sync;
 $('setup').onclick = async () => {
