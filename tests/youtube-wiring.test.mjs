@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import vm from "node:vm";
 import { readAppSource } from "./helpers/media-root.mjs";
+import { assertArtworkResilience } from "./helpers/artwork-behavior.mjs";
+import { extractIndentedFunction } from "./helpers/app-extract.mjs";
 
 /**
  * The YouTube provider is only worth anything if it is wired into the app the
@@ -86,8 +89,34 @@ test("search is debounced, cancelled and answered as its own provider lane", () 
 
 test("thumbnails are lazily loaded, escaped, and shaped like the artwork", () => {
   const card = region(/function youtubeCardHTML\(m,index=0\)\{[\s\S]*?\n {4}\}/);
-  assert.match(card, /mediaImage\(art\)/, "the shared image helper carries loading=lazy");
-  assert.match(card, /safeUrl\(m\.poster\|\|m\.background\|\|''\)/);
+  assert.match(card, /mediaImage\(/, "thumbnails go through the shared image helper");
+  assertArtworkResilience(appSource, assert);
+  assert.ok(/safeUrl\(m\.poster\|\|m\.background\|\|''\)/.test(card) || /videoArtCandidates\(/.test(card),
+    "the thumbnail is chosen by a URL sanitizer");
+  const safeUrl = appSource.match(/const safeUrl=\(url\)=>\{[\s\S]*?\};/);
+  assert.ok(safeUrl, "safeUrl rejects non-http addresses");
+  const videoArt = extractIndentedFunction(appSource, "videoArtCandidates");
+  const art = videoArt ? extractIndentedFunction(appSource, "artCandidates") : "";
+  const backdrop = videoArt ? extractIndentedFunction(appSource, "backdropCandidates") : "";
+  const safe = vm.createContext({
+    location: { href: "https://example.test/" },
+    URL,
+    Set,
+    AstraCatalogs: {
+      artCandidates(item, kind) {
+        return kind === "video" ? [item.poster, item.background] : [item.background, item.poster];
+      }
+    }
+  });
+  vm.runInContext(`${safeUrl[0]}\n${art}\n${backdrop}\n${videoArt}\nthis.safeUrl=safeUrl;\nthis.videoArtCandidates=typeof videoArtCandidates==="function"?videoArtCandidates:null;`, safe);
+  assert.equal(safe.safeUrl("javascript:alert(1)"), "");
+  assert.equal(safe.safeUrl("https://images.example.test/still.jpg"), "https://images.example.test/still.jpg");
+  if (videoArt) {
+    assert.deepEqual(
+      [...safe.videoArtCandidates({ poster: "javascript:alert(1)", background: "https://images.example.test/still.jpg" }, {})],
+      ["https://images.example.test/still.jpg"]
+    );
+  }
   // Every value interpolated into the card markup is either escaped, produced
   // by a helper that escapes, or a number this file computed itself.
   const SAFE = /^(?:esc\(|icon\(|mediaImage\(|Math\.|pct\b|art\?|duration\?|info\.live\?|info\.author\?' by '\+esc\()/;

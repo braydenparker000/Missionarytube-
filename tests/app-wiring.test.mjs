@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readAppSource } from "./helpers/media-root.mjs";
+import { assetIndex } from "./helpers/shell-assets.mjs";
+import { loadPlaybackBoundary } from "./helpers/playback-boundary.mjs";
 
 const shell = await readAppSource("index.html");
 const appSource = await readAppSource("assets/js/app.js");
@@ -11,8 +13,8 @@ const html = `${shell}\n${appSource}`;
 const css = await readAppSource("assets/css/obsidian.css");
 
 test("the external app loads after the progress store", () => {
-  const module = shell.indexOf('src="assets/js/progress-store.js?v=__ASTRA_VERSION__"');
-  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
+  const module = assetIndex(shell, "assets/js/progress-store.js");
+  const app = assetIndex(shell, "assets/js/app.js");
   assert.ok(module > -1, "progress-store.js must be loaded");
   assert.ok(app > module, "the app script must run after the store is defined");
   assert.equal(/<script>\s*\(\(\)=>\{'use strict';/.test(shell), false, "application code must not remain inline");
@@ -20,8 +22,8 @@ test("the external app loads after the progress store", () => {
 });
 
 test("route ownership loads before the app and releases inactive catalog DOM", () => {
-  const runtime = shell.indexOf('src="assets/js/route-runtime.js?v=__ASTRA_VERSION__"');
-  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
+  const runtime = assetIndex(shell, "assets/js/route-runtime.js");
+  const app = assetIndex(shell, "assets/js/app.js");
   assert.ok(runtime > -1 && runtime < app, "route-runtime.js must load before the application");
   assert.match(appSource, /const Routes=AstraRoutes\.createRouteRuntime\(\)/);
   assert.match(appSource, /if\(changed\)releasePage\(fromPage\)/);
@@ -58,12 +60,41 @@ test("localStorage writes cannot throw out of the app", () => {
 });
 
 test("pending progress is flushed when playback or the page ends", () => {
-  assert.match(html, /window\.addEventListener\('pagehide',\(\)=>progress\.flush\(\)\)/);
-  assert.match(html, /document\.visibilityState==='hidden'\)progress\.flush\(\)/);
-  // Playback Engine v2 registers the pause listener through the attempt's
-  // resource scope, so it is released with the rest of the attempt.
-  assert.match(html, /scope\.listen\(el,'pause',\(\)=>progress\.flush\(\)\)/);
-  assert.match(html, /function closePlayer\(silent\)\{[\s\S]{0,650}?progress\.flush\(\)/);
+  const boundary = loadPlaybackBoundary(appSource);
+  const saved = (before, { checkpointRecords = false } = {}) => {
+    const fresh = boundary.records.slice(before.records);
+    assert.equal(fresh.some((record) => record.detail.completed), false, "a boundary save must not mark the episode complete");
+    if (boundary.hasCheckpoint && checkpointRecords) {
+      assert.equal(fresh.at(-1)?.detail.time, boundary.media.currentTime);
+      assert.equal(fresh.at(-1)?.detail.immediate, true);
+      assert.equal(fresh.at(-1)?.detail.duration, boundary.media.duration);
+      return;
+    }
+    assert.ok(boundary.flushes > before.flushes, "pending progress is written at the boundary");
+  };
+  const beforeHide = { records: boundary.records.length, flushes: boundary.flushes };
+  boundary.hidePage();
+  saved(beforeHide, { checkpointRecords: true });
+  const beforeVisibility = { records: boundary.records.length, flushes: boundary.flushes };
+  boundary.hideVisibility();
+  saved(beforeVisibility, { checkpointRecords: true });
+  const beforePause = { records: boundary.records.length, flushes: boundary.flushes };
+  boundary.pause();
+  saved(beforePause, { checkpointRecords: true });
+  boundary.media.ended = true;
+  const beforeEnded = { records: boundary.records.length, flushes: boundary.flushes };
+  boundary.hidePage();
+  saved(beforeEnded);
+  const beforeClose = { records: boundary.records.length, flushes: boundary.flushes };
+  boundary.media.ended = false;
+  boundary.close();
+  assert.ok(boundary.flushes > beforeClose.flushes, "closing the player flushes progress");
+  assert.equal(boundary.player.meta, null);
+  if (boundary.hasCheckpoint) {
+    const recorded = boundary.records.slice(beforeClose.records);
+    assert.equal(recorded[0]?.detail.time, 120.5);
+    assert.equal(recorded.some((record) => record.detail.completed), false);
+  }
 });
 
 test("completion is only ever recorded from a real ended event", () => {
@@ -90,9 +121,9 @@ test("backups round-trip the normalized progress shape", () => {
 /* ---- Playback Engine v2 wiring ---------------------------------------- */
 
 test("every playback module is loaded before the app script", () => {
-  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
+  const app = assetIndex(shell, "assets/js/app.js");
   for (const name of ["settings", "streams", "adapters", "engine", "episodes", "subtitles"]) {
-    const at = shell.indexOf(`src="assets/js/playback/${name}.js?v=__ASTRA_VERSION__"`);
+    const at = assetIndex(shell, `assets/js/playback/${name}.js`);
     assert.ok(at > -1, `${name}.js is not loaded`);
     assert.ok(at < app, `${name}.js must load before the app script`);
   }

@@ -1,13 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { appFileURL, readAppSource } from "./helpers/media-root.mjs";
+import { appFileURL, appPath, readAppSource } from "./helpers/media-root.mjs";
+import { assetIndex } from "./helpers/shell-assets.mjs";
+
+const MOTION_BUNDLE_BLOB = "01cb4830d63b1e63b270eeaf2d6752946edc8242";
 
 let logicModule;
 try {
   logicModule = await import(appFileURL("src/interaction-logic.js").href);
 } catch (error) {
-  logicModule = error;
+  logicModule = process.env.MEDIA_APP_ROOT
+    ? new Error(`Refusing to fall back to the repo-root copy for src/interaction-logic.js. Jarvis ships the motion compatibility bundle without src modules. ${error.message}`)
+    : error;
 }
 const logic = (name) => (...args) => {
   if (logicModule instanceof Error) throw logicModule;
@@ -33,8 +39,6 @@ const motionSource = () => {
   if (motionSourceResult instanceof Error) throw motionSourceResult;
   return motionSourceResult;
 };
-const pkg = JSON.parse(await readFile("package.json", "utf8"));
-
 test("gesture thresholds distinguish a tap, a cancelled drag and a committed dismissal", () => {
   assert.equal(movedPastTapSlop(20, 20, 25, 24), false);
   assert.equal(movedPastTapSlop(20, 20, 32, 20), true);
@@ -56,14 +60,21 @@ test("navigation direction follows the dock and accepts an explicit back route",
   assert.equal(navigationDirection("settings", "settings", "back"), "back");
 });
 
-test("the motion runtime is exact, local and loaded before app wiring", () => {
-  assert.equal(pkg.dependencies.gsap, "3.15.0");
-  assert.equal(pkg.devDependencies.esbuild, "0.28.2");
-  const runtime = shell.indexOf('src="assets/js/astra-motion.js?v=__ASTRA_VERSION__"');
-  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
-  assert.ok(runtime > -1 && runtime < app);
+test("the shipped motion bundle matches the qualified compatibility build", async () => {
+  if (!process.env.MEDIA_APP_ROOT) {
+    const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+    assert.equal(pkg.dependencies.gsap, "3.15.0");
+    assert.equal(pkg.devDependencies.esbuild, "0.28.2");
+  }
+  const bytes = await readFile(appPath("assets/js/astra-motion.js"));
+  const blob = createHash("sha1").update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest("hex");
+  assert.equal(blob, MOTION_BUNDLE_BLOB, "Jarvis and the root copy ship the same motion bytes");
   assert.match(bundle, /AstraMotion/);
+  const runtime = assetIndex(shell, "assets/js/astra-motion.js");
+  const app = assetIndex(shell, "assets/js/app.js");
+  assert.ok(runtime > -1 && runtime < app, "the shipped bundle loads before app wiring");
   assert.equal(/<script[^>]+src="https?:/.test(html), false, "motion never loads from a CDN");
+  assert.equal(bundle.includes("player.session"), false, "the motion layer has no playback-engine ownership");
 });
 
 test("navigation, dock and title detail continuity are all wired", () => {

@@ -1,0 +1,59 @@
+# 55 tests that failed against pinned Jarvis public/media before this harness change.
+# Source: baseline.tap (511 tests, 456 pass, 55 fail).
+# Order matches the baseline TAP.
+
+the external app loads after the progress store
+route ownership loads before the app and releases inactive catalog DOM
+pending progress is flushed when playback or the page ends
+every playback module is loaded before the app script
+real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact
+HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it
+HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes
+seeking starts at a preceding keyframe and unsupported video is explicit
+surround audio is downmixed to bounded stereo samples
+audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps
+an unsupported default audio track falls back to usable audio in the same file
+replacing an in-flight startup reports the old read as cancelled, not a new playback failure
+real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks
+audio conversion selects AAC when MP4 cannot accept Opus
+a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window
+copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer
+compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges
+compatibility HLS children on another origin never receive addon credentials
+compatibility startup distinguishes blocked access and connection failures
+audio repair retries a transient request and transfers the real prepared input without rereading
+audio repair bounds persistent fetch failures to one shared retry
+audio repair bounds persistent body failures to one shared retry
+cancelling repair during its retry delay stops it without another request
+repair cancellation promptly rejects a pending metadata fetch
+prepared repair is disposed when abandoned or its adapter is destroyed before attach
+aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter
+the app exposes direct Surprise Me and focused health controls
+natural-language constraints stay visible, removable, and evidence based
+gesture thresholds distinguish a tap, a cancelled drag and a committed dismissal
+custom press physics owns touch and pen, not mouse clicks
+navigation direction follows the dock and accepts an explicit back route
+the motion runtime is exact, local and loaded before app wiring
+site-wide content choreography is shared, viewport-aware and bounded
+mobile motion avoids offscreen GPU layers and costly document snapshots
+direct interaction motion never exceeds the 360ms release budget
+View Transition callbacks cannot reorder or stall visible state
+the rendered failure card retries the same source after the engine has settled
+a timed-out seek offers restarting from zero without repeating the stuck position
+expired stream recovery can request a fresh source list for the same episode
+the rendered failure card can return to the source picker
+the rendered failure card's close button is bound after replacing the media element
+external playback can read the failed source when the current attempt is gone
+a failed compatibility attempt does not repeatedly reopen itself
+failure unlocks controls and exposes its recovery state
+a source connection failure does not start unnecessary format conversion
+YouTube keeps its own playback recovery instead of the file converter
+a docked audio failure expands to an accessible recovery screen
+the Gallery stylesheet cache key matches the visible app version
+one release placeholder owns every local shell asset cache key
+the early bootstrap and application are external reviewable files
+nothing in the UI invents content, availability or telemetry
+YouTube plays natively, and no iframe or embed survives anywhere
+no runtime framework and no unpinned remote script was introduced
+every catalog card, including new releases, has resilient artwork
+thumbnails are lazily loaded, escaped, and shaped like the artwork

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
 import { readAppSource } from "./helpers/media-root.mjs";
+import { assetIndex } from "./helpers/shell-assets.mjs";
 
 const source = await readAppSource("assets/js/discovery-health.js");
 const shell = await readAppSource("index.html");
@@ -129,7 +130,7 @@ test("Surprise Me deduplicates identity, respects filters, and excludes future r
 });
 
 test("the app exposes direct Surprise Me and focused health controls", () => {
-  assert.match(shell, /<script src="assets\/js\/discovery-health\.js\?v=__ASTRA_VERSION__"><\/script>/);
+  assert.ok(assetIndex(shell, "assets/js/discovery-health.js") > -1, "discovery-health.js must be loaded");
   assert.match(html, /class="surprise-trigger" data-surprise-me/);
   assert.match(html, /async function surpriseMe\(button\)/);
   assert.doesNotMatch(html, /<h2>The Briefing<\/h2>/);

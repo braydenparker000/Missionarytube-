@@ -8,7 +8,9 @@ let playerModule;
 try {
   playerModule = await import(appFileURL('src/compatibility-player.js').href);
 } catch (error) {
-  playerModule = error;
+  playerModule = process.env.MEDIA_APP_ROOT
+    ? new Error(`Refusing to fall back to the repo-root copy for src/compatibility-player.js. ${error.message}`)
+    : error;
   // The root-only player module registers these decoders at import time.
   // Keep that side effect when the module has no Jarvis counterpart so the
   // fixture checks below still run, and player calls still throw the original

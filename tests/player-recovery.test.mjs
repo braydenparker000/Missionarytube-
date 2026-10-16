@@ -104,7 +104,7 @@ function fixture({ failure = "network", youtube = false, compatibility = false }
     capsNow: () => ({ mse: true }),
     playbackRate: 1
   });
-  for (const name of ["activePlayerCandidate", "canRepairPlayback", "cancelPlaybackRepair", "repairPlayback", "recoveryMode"]) {
+  for (const name of ["bindArtwork", "activePlayerCandidate", "canRepairPlayback", "cancelPlaybackRepair", "repairPlayback", "recoveryMode"]) {
     vm.runInContext(appFunction(name, false), context);
   }
   for (const name of ["bindDynamic", "setAudioDocked", "renderPlayerError", "playerAction", "renderPlayerState"]) {

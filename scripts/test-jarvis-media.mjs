@@ -1,52 +1,63 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const release = JSON.parse(readFileSync(resolve(repoRoot, "jarvis-release.json"), "utf8"));
 if (release.repository !== "braydenparker999/jarvis" || !/^[a-f0-9]{40}$/.test(release.commit || "")) {
   throw new Error("jarvis-release.json does not pin an exact braydenparker999/jarvis commit");
 }
 
-const source = resolve(repoRoot, ".jarvis-source");
+const source = mkdtempSync(resolve(tmpdir(), "jarvis-pinned-"));
+let status = 1;
 const origin = "https://github.com/braydenparker999/jarvis.git";
 
 function git(args, cwd = source) {
   execFileSync("git", args, { cwd, stdio: "inherit" });
 }
 
-function head() {
-  return execFileSync("git", ["-C", source, "rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+function captured(args) {
+  return execFileSync("git", ["-C", source, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
-// Qualification checks this same pin out to .jarvis-source before `npm test`
-// (qualify-jarvis.yml). Reuse that checkout when it is already present.
-if (!existsSync(resolve(source, ".git"))) {
+// Fresh clone of the pinned SHA. A reused .jarvis-source checkout is not
+// evidence: qualification may have left it dirty, and HEAD equality alone
+// does not prove the worktree is clean.
+try {
   execFileSync("git", ["init", source], { stdio: "inherit" });
   git(["remote", "add", "origin", origin]);
-}
-let current = "";
-try {
-  current = head();
-} catch {
-  current = "";
-}
-if (current !== release.commit) {
   git(["fetch", "--depth", "1", "origin", release.commit]);
   git(["checkout", "--detach", "FETCH_HEAD"]);
-}
-if (head() !== release.commit) throw new Error("Jarvis source is not the pinned release commit");
+  const head = captured(["rev-parse", "HEAD"]);
+  const porcelain = execFileSync("git", ["-C", source, "status", "--porcelain"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  console.log(`$ git -C ${source} rev-parse HEAD`);
+  console.log(head);
+  console.log(`$ git -C ${source} status --porcelain`);
+  console.log(porcelain.length ? porcelain : "<empty>");
+  if (head !== release.commit) throw new Error(`Jarvis source ${head} is not the pinned release ${release.commit}`);
+  if (porcelain !== "") throw new Error(`Pinned Jarvis checkout is not clean:\n${porcelain}`);
+  console.log(`clean checkout verified: git status --porcelain empty at ${head}`);
 
-const media = resolve(source, "public/media");
-if (!existsSync(resolve(media, "index.html")) || !existsSync(resolve(media, "assets/js/app.js"))) {
-  throw new Error("Pinned Jarvis checkout has no public/media app");
+  const media = resolve(source, "public/media");
+  if (media === repoRoot) throw new Error("Pinned media path resolved to the repo-root copy");
+  if (!existsSync(resolve(media, "index.html")) || !existsSync(resolve(media, "assets/js/app.js"))) {
+    throw new Error("Pinned Jarvis checkout has no public/media app");
+  }
+  const tree = captured(["rev-parse", "HEAD:public/media"]);
+  console.log(`Jarvis media source ${release.commit} public/media ${tree}`);
+  status = runMediaTests(media);
+} finally {
+  rmSync(source, { recursive: true, force: true });
 }
-const tree = execFileSync("git", ["-C", source, "rev-parse", "HEAD:public/media"], { encoding: "utf8" }).trim();
-console.log(`Jarvis media source ${release.commit} public/media ${tree}`);
+process.exit(status);
 
-// The 33 tests that read the repo-root media copy, plus playback-diagnostics,
-// which reads assets/js/playback/*.js through a template the dependency map missed.
+function runMediaTests(media) {
+
+// Media regression tests that read index.html and assets/. initial-theme
+// checks first paint while scripts are still loading. Source-unit tests stay
+// in this list and fail loudly when the pinned tree has no src module.
 const tests = [
   "tests/app-wiring.test.mjs",
   "tests/appearance.test.mjs",
@@ -57,6 +68,7 @@ const tests = [
   "tests/dependency-pinning.test.mjs",
   "tests/discovery-health.test.mjs",
   "tests/federated-search.test.mjs",
+  "tests/initial-theme.test.mjs",
   "tests/interaction-motion.test.mjs",
   "tests/library-continuity.test.mjs",
   "tests/media-hub.test.mjs",
@@ -89,4 +101,5 @@ const result = spawnSync(process.execPath, ["--test", "--test-reporter=tap", ...
   env: { ...process.env, MEDIA_APP_ROOT: media },
   stdio: "inherit"
 });
-process.exit(result.status ?? 1);
+return result.status ?? 1;
+}
