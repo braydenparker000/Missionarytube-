@@ -29,3 +29,5 @@ worker-tooling-source-before.json
 .private-workspace-source/
 .private-workspace-stage/
 private-workspace-publication/
+.collaboration-baseline/
+private-collaboration-publication/

@@ -16,14 +16,20 @@
     {
       "path": "assets/private-chat-frame.css",
       "sha256": "24c67ce8fe7af9e95b5268d5bfeb84df37d0881f30349c9e34980d6a832d81bf",
-      "before": "26cddaab2da0e960d3a900f6ac9c6ef147dc11df01e35a1c94f6befda1f75a24",
+      "before": "24c67ce8fe7af9e95b5268d5bfeb84df37d0881f30349c9e34980d6a832d81bf",
       "bytes": 9869
     },
     {
+      "path": "assets/private-collaboration.js",
+      "sha256": "e9633c7bcb5ed508236550a3cbee6156472b9adb1d277d59c620ff87c3e4775d",
+      "before": null,
+      "bytes": 2585
+    },
+    {
       "path": "assets/private-lucy.js",
-      "sha256": "1da83fd8cc7d139c94d9d60aac5bb28bd37544b2e4c01e664726e8a2070d3221",
-      "before": "f13c51dddbdab8eb6bbb09295208a9b04dc528ba5c29a3f932943b7aa270d5bb",
-      "bytes": 2924
+      "sha256": "a870b70d0bd7b6b2a5c102e2bd2bac82fb4c887b465e4bc1568baac39c80d55d",
+      "before": "1da83fd8cc7d139c94d9d60aac5bb28bd37544b2e4c01e664726e8a2070d3221",
+      "bytes": 3060
     },
     {
       "path": "assets/private-mast-work.js",
@@ -33,9 +39,9 @@
     },
     {
       "path": "assets/private-mast.js",
-      "sha256": "debd523cfebf270e5d5d13df6dc71c34224b7627fe5c567984f8095c008a21d7",
-      "before": "0e154fae3ee9eca43a9268c23b04849ebb0b4fa73e7e413854aabf7a92c00109",
-      "bytes": 15545
+      "sha256": "bcd25014f83be614d91b25695a68793d757f39dce58bea9e1329eedcd3cb459e",
+      "before": "debd523cfebf270e5d5d13df6dc71c34224b7627fe5c567984f8095c008a21d7",
+      "bytes": 15681
     },
     {
       "path": "assets/private-muse-shell.js",
@@ -58,43 +64,49 @@
     {
       "path": "assets/private-theme.css",
       "sha256": "432c2a557e6772025d8bf08a4dfef8f9a270064c4519f9420dfe8661cb8692e6",
-      "before": null,
+      "before": "432c2a557e6772025d8bf08a4dfef8f9a270064c4519f9420dfe8661cb8692e6",
       "bytes": 1216
     },
     {
       "path": "assets/private-theme.js",
       "sha256": "cd8dc4db938ede161eef84bdd661c0a1e658fded85c71277aeb624c59e025871",
-      "before": null,
+      "before": "cd8dc4db938ede161eef84bdd661c0a1e658fded85c71277aeb624c59e025871",
       "bytes": 848
     },
     {
       "path": "assets/private-workspace.css",
-      "sha256": "cbad9f893ef3324ce792a9ff2207d4f67bb065bb7ed0ddbe5c2b1d7d952525a6",
-      "before": "a620b441e891f90abbc089ee8751ff49d8756010272f95926c715557bc657e86",
-      "bytes": 7145
+      "sha256": "f446a3496d949e5b1640cb8474da3630b674a0fe452ebcca7f5e0b8cf1436f11",
+      "before": "cbad9f893ef3324ce792a9ff2207d4f67bb065bb7ed0ddbe5c2b1d7d952525a6",
+      "bytes": 7676
     },
     {
       "path": "assets/private-workspace.js",
-      "sha256": "efd7cb999ac0baf36d75db45067d6f652ba93b17e2e4ddd7e0133cfd4753b906",
-      "before": "5a6c0faa882357cf67a4496ce3c9ee19b815cd5881381427f8e7b16c6ed56337",
-      "bytes": 9035
+      "sha256": "bcb91d8e690093fd0d4071548b30660a10695ccda8d226c22458d7f15ad23395",
+      "before": "efd7cb999ac0baf36d75db45067d6f652ba93b17e2e4ddd7e0133cfd4753b906",
+      "bytes": 9426
+    },
+    {
+      "path": "assets/relay-owner-api.js",
+      "sha256": "14108abf8b5aaa1bcb9d912cac34b2ed7d3d97772ee96aeb7e81b6c8fe2988ef",
+      "before": "8546e3778244fd1b8c8501e8ad7ebbae23e910eba9e68c16aed6911d273c2e17",
+      "bytes": 45710
     },
     {
       "path": "private/index.html",
       "sha256": "c3b710123f81c34b9097f53b727567cc30b41e80cebe985ab30db47b66a6ac03",
-      "before": "969841280094426e42d404367137c60d255cc39c10cd8b2f73cff4940305381d",
+      "before": "c3b710123f81c34b9097f53b727567cc30b41e80cebe985ab30db47b66a6ac03",
       "bytes": 4052
     },
     {
       "path": "private/lucy.html",
       "sha256": "6ebe15e33e568d464e81fbf7b775d206178f7b5e9996bbabab46c4ef435ab734",
-      "before": "39d8b1811b129ab680d97ba58916e728027b540951f3f9089fbd75732cfc5923",
+      "before": "6ebe15e33e568d464e81fbf7b775d206178f7b5e9996bbabab46c4ef435ab734",
       "bytes": 1359
     },
     {
       "path": "private/mast.html",
       "sha256": "603a10ce02e3333b562acc788182d33ab897ff3d4d9011a52522fc332411ad81",
-      "before": "ae670f3b811b583de9c510ebd5476c46fb980ed24cc04420059f94f20c82daf4",
+      "before": "603a10ce02e3333b562acc788182d33ab897ff3d4d9011a52522fc332411ad81",
       "bytes": 4436
     }
   ],
@@ -144,10 +156,6 @@
       "sha256": "f2c7517550b3348e2324ef79a35f351811bf8662ed02344f8d1c62d250b946d1"
     },
     {
-      "path": "assets/relay-owner-api.js",
-      "sha256": "8546e3778244fd1b8c8501e8ad7ebbae23e910eba9e68c16aed6911d273c2e17"
-    },
-    {
       "path": "assets/relay-owner-ui.js",
       "sha256": "6aef5fbda5c7cab14b19292cf1210cf95920972a3c7e04a44632f281e35a18e1"
     },
@@ -164,5 +172,6 @@
       "sha256": "3c2fa5bda1736ea0e66b3ecd56b573c061f45eb0e377d658cc009fcd96805e08"
     }
   ],
-  "source": "5f150b62cb677aa3c24d66b3ef022a8d86481507"
+  "source": "72f86e00b0c8b4f7e1fdb41e1ab2601b50fb365c",
+  "collaboration": "owner-read-only"
 }
