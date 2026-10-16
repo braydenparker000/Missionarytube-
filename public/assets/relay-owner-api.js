@@ -1,3 +1,4 @@
+import {createBoardApi} from './private-board-api.js';
 import {RELAY_ATTACHMENT_TYPES,RELAY_ATTACHMENT_MAX_BYTES,attachmentUuid,attachmentMetadata,messageAttachments,assistantDeliverable} from './relay-attachment-contract.js';
 import { API_ORIGIN } from './config.js';
 
@@ -235,6 +236,7 @@ export function createRelayOwnerApi({ fetcher = globalThis.fetch, origin = API_O
         : unauthenticated
         ? reported === 'session_expired' ? 'expired' : reported === 'session_revoked' ? 'revoked' : 'unauthorized'
         : reported === 'owner_not_enabled' ? 'disabled' : response.status >= 500 ? 'unavailable' : response.status === 409 ? 'conflict' : 'rejected';
+      if(path.startsWith('/relay/owner/board/message?')&&response.status===404&&data?.error==='Board message not found')throw new OwnerApiError('board_message_missing',404);
       throw new OwnerApiError(kind, response.status);
     }
     if (!data || typeof data !== 'object') throw new OwnerApiError('invalid');
@@ -261,6 +263,7 @@ export function createRelayOwnerApi({ fetcher = globalThis.fetch, origin = API_O
   }
   function parseAttachments(entry){try{return messageAttachments(entry);}catch{throw new OwnerApiError('invalid');}}
   return {
+    board: createBoardApi(attachmentCall),
     async collaboration(after='0'){
       if(!/^\d{1,15}$/.test(String(after)))throw new OwnerApiError('invalid');
       const data=await attachmentCall('/relay/owner/collaboration?after='+encodeURIComponent(after));

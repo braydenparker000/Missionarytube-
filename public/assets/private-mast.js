@@ -123,7 +123,7 @@ addEventListener('popstate',()=>destination(['#tasks','#work'].includes(location
 if(['#tasks','#work'].includes(location.hash))destination(true,false);
 
 // Fixed Mast recipient; parent receives read-only functions, never a credential.
-window.jarvisPrivateReader=Object.freeze({collaboration:after=>api.collaboration(after),collaborationFile:(messageId,attachmentId)=>api.collaborationFile(messageId,attachmentId),get connected(){return api.hasCredential;},list:()=>readTaskPages(cursor=>api.mastWork('list',{after:cursor})),detail:id=>api.mastWork('read',{job_id:id}),refresh});
+window.jarvisPrivateReader=Object.freeze({board:api.board,collaboration:after=>api.collaboration(after),collaborationFile:(messageId,attachmentId)=>api.collaborationFile(messageId,attachmentId),get connected(){return api.hasCredential;},list:()=>readTaskPages(cursor=>api.mastWork('list',{after:cursor})),detail:id=>api.mastWork('read',{job_id:id}),refresh});
 
 const quietStatus=new MutationObserver(()=>{status.dataset.quiet=String(status.textContent.trim()==='Only this conversation is shared with Muse.');});
 quietStatus.observe(status,{childList:true,characterData:true,subtree:true});

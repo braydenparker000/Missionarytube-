@@ -1,3 +1,5 @@
+import {boardStore} from './relay-board.js';
+import {boardConnections,boardEnabled} from './relay-board-auth.js';
 import {agentChatOwnerRead} from './relay-agent-chat.js';
 import {mastList, mastSend, mastOwnerFileStore, mastOwnerWork} from './relay-mast.js';
 import {MAKIMA_OBJECT,makimaEnabled} from './relay-makima-policy.js';
@@ -219,6 +221,7 @@ export async function relayOwnerStore(ctx, env, body, enqueueOwnerMessage = () =
       });
     }
     const allowed = {
+      board_list:['after'],board_message:['message_id'],board_connections:[],board_send:['id','body','reply_to','result_links','approval_request'],board_approve:['id','request_id','decision'],board_activate:['id','confirm','duration_days','members'],board_rebind:['id','agent','current_membership_id','connection_id','confirm'],board_revoke:['membership_id','confirm'],board_tasks:['after'],board_task_create:['id','title','body','assignee'],board_resolve:['id','task_id','expected_fence','resolution','evidence'],
       collaboration_list:['after'], collaboration_file_content:['message_id','attachment_id','preview'],
       makima_list: ['after'], makima_send: ['id','body','reply_to'],
       mast_work_list:['after'],mast_work_read:['job_id'],mast_work_create:['id','body','title','action_kind','project_title','goal_title'],mast_work_cancel:['job_id','event_id'],mast_work_retry:['job_id','id','confirm_duplicate_risk'],
@@ -234,13 +237,22 @@ export async function relayOwnerStore(ctx, env, body, enqueueOwnerMessage = () =
       ? allowed[body.op].filter(key => !['confirm_duplicate_risk', 'project_title', 'goal_title', 'attachment_ids', 'preview'].includes(key)) : [];
     fields(body, ['op', 'token_hash', ...allowed[body.op]], ['op', 'token_hash', ...required]);
     if (!hex(body.token_hash)) fail(401, 'Owner device authentication required');
+    if(body.op.startsWith('board_')){
+      if(!boardEnabled(env))fail(503,'Shared board is not activated');
+      requireSession(ctx,body.token_hash,Date.now());
+      const connections=['board_connections','board_activate','board_rebind'].includes(body.op)?await boardConnections(ctx,env):null;
+      const authorize=()=>{const session=requireSession(ctx,body.token_hash,Date.now());return {agent:'owner',actor:'owner:'+session.device_id,authenticationSource:session.authentication_source,...(connections?{verifiedConnections:connections.verify()}: {})};};
+      if(body.op==='board_connections'){authorize();return json({connections});}
+      const {op,token_hash,...args}=body;
+      return json(boardStore(ctx,{op:op.slice(6),args},authorize));
+    }
     if(['collaboration_list','collaboration_file_content'].includes(body.op))return await agentChatOwnerRead(ctx,env,body,()=>requireSession(ctx,body.token_hash,Date.now()));
     if(body.op==='makima_list'||body.op==='makima_send'){
       if(!makimaEnabled(env))fail(503,'Makima adapter is not activated');
-      ctx.storage.transactionSync(()=>requireSession(ctx,body.token_hash,Date.now()));
+      const session=ctx.storage.transactionSync(()=>requireSession(ctx,body.token_hash,Date.now()));
       // Only authenticated owner ingress may stamp the peer identity.
       // Copy only explicit text, never history or device credentials.
-      const response=await env.HUBS.get(env.HUBS.idFromName(MAKIMA_OBJECT)).fetch(new Request('https://internal/internal/relay/makima/channel',{method:'POST',body:JSON.stringify({op:body.op==='makima_list'?'list':'send',sender:'owner',...(body.after!==undefined?{after:body.after}:{}),...(body.op==='makima_send'?{id:body.id,body:body.body,reply_to:body.reply_to}: {})})}));
+      const response=await env.HUBS.get(env.HUBS.idFromName(MAKIMA_OBJECT)).fetch(new Request('https://internal/internal/relay/makima/channel',{method:'POST',body:JSON.stringify({op:body.op==='makima_list'?'list':'send',sender:'owner',ownerProvenance:{principal:session.principal,authentication_source:session.authentication_source},...(body.after!==undefined?{after:body.after}:{}),...(body.op==='makima_send'?{id:body.id,body:body.body,reply_to:body.reply_to}: {})})}));
       ctx.storage.transactionSync(()=>requireSession(ctx,body.token_hash,Date.now()));
       const data=await response.json();
       return data.error ? json(data,400) : json(data);
@@ -511,6 +523,9 @@ export async function relayOwnerPublic(request, env) {
       '/jobs': [request.method === 'POST' ? 'POST' : 'GET', request.method === 'POST' ? 'job_create' : 'jobs_list'], '/jobs/changes': ['GET', 'jobs_changes'], '/jobs/detail': ['GET', 'job_read'], '/jobs/cancel': ['POST', 'job_cancel'], '/jobs/retry': ['POST', 'job_retry']};
     routes['/mast/work']=[request.method==='POST'?'POST':'GET',request.method==='POST'?'mast_work_create':'mast_work_list'];
     routes['/mast/work/detail']=['GET','mast_work_read'];routes['/mast/work/cancel']=['POST','mast_work_cancel'];routes['/mast/work/retry']=['POST','mast_work_retry'];
+    routes['/board']=['GET','board_list'];routes['/board/message']=['GET','board_message'];routes['/board/connections']=['GET','board_connections'];
+    routes['/board/messages']=['POST','board_send'];routes['/board/approvals']=['POST','board_approve'];routes['/board/activate']=['POST','board_activate'];routes['/board/revoke']=['POST','board_revoke'];routes['/board/rebind']=['POST','board_rebind'];
+    routes['/board/tasks']=[request.method==='POST'?'POST':'GET',request.method==='POST'?'board_task_create':'board_tasks'];routes['/board/tasks/resolve']=['POST','board_resolve'];
     routes['/collaboration']=['GET','collaboration_list'];
     routes['/collaboration/files/content']=['GET','collaboration_file_content'];
     routes['/mast/files']=['POST','mast_file_upload'];
@@ -526,7 +541,7 @@ export async function relayOwnerPublic(request, env) {
     const suffix = path.slice('/relay/owner'.length), route = Object.hasOwn(routes, suffix) ? routes[suffix] : null;
     if (!route) return wrap(json({error: 'Not found'}, 404));
     if (request.method !== route[0]) return wrap(json({error: 'Method not allowed'}, 405, {Allow: route[0] + ', OPTIONS'}));
-    const queryFields = ['collaboration_list','makima_list','mast_list','mast_work_list'].includes(route[1])?['after']:route[1]==='mast_work_read'?['job_id']:route[1] === 'chat_updates'?['after']:route[1] === 'deliverables_list'?['message_id','after','limit']:['collaboration_file_content','attachment_content','mast_file_content'].includes(route[1]) ? ['message_id', 'attachment_id', 'preview'] : route[1] === 'jobs_changes' ? ['after', 'limit', 'through'] : ['messages_list', 'jobs_list'].includes(route[1]) ? ['after', 'limit'] : route[1] === 'conversation' ? ['message_id'] : route[1] === 'job_read' ? ['job_id'] : [];
+    const queryFields = route[1]==='board_message'?['message_id']:['board_list','board_tasks','collaboration_list','makima_list','mast_list','mast_work_list'].includes(route[1])?['after']:route[1]==='mast_work_read'?['job_id']:route[1] === 'chat_updates'?['after']:route[1] === 'deliverables_list'?['message_id','after','limit']:['collaboration_file_content','attachment_content','mast_file_content'].includes(route[1]) ? ['message_id', 'attachment_id', 'preview'] : route[1] === 'jobs_changes' ? ['after', 'limit', 'through'] : ['messages_list', 'jobs_list'].includes(route[1]) ? ['after', 'limit'] : route[1] === 'conversation' ? ['message_id'] : route[1] === 'job_read' ? ['job_id'] : [];
     if ([...url.searchParams.keys()].some(k => !queryFields.includes(k) || url.searchParams.getAll(k).length !== 1)) fail(400, 'Invalid owner query');
     let body = {};
     let admittedHash;
@@ -543,10 +558,10 @@ export async function relayOwnerPublic(request, env) {
       try { body = JSON.parse(await boundedText(request, ['attachment_upload','mast_file_upload'].includes(route[1]) ? ATTACHMENT_BODY_LIMIT : 16000)); }
       catch (error) { if (['attachment_upload','mast_file_upload'].includes(route[1]) && error instanceof RelayError && error.message === 'Body too large') fail(413, 'Attachment exceeds 1 MiB', 'attachment_too_large'); fail(400, 'Invalid owner JSON'); }
     }
-    const inputFields = {makima_send:['id','body','reply_to'],mast_work_create:['id','body','title','action_kind','project_title','goal_title'],mast_work_cancel:['job_id','event_id'],mast_work_retry:['job_id','id','confirm_duplicate_risk'],mast_send: ['id', 'body','attachment_ids'], mast_file_upload:['id','message_id','name','mime_type','data_base64'], mast_file_discard:['message_id','attachment_id'], pair_start: ['label'], pair_status: ['request_id'], message: ['id', 'body', 'attachment_ids'], attachment_upload: ['id', 'message_id', 'name', 'mime_type', 'data_base64'], attachment_discard: ['message_id', 'attachment_id'], delivery_list:['message_ids'], delivery_retry:['message_id'], device_revoke: ['device_id'],
+    const inputFields = {board_send:['id','body','reply_to','result_links','approval_request'],board_approve:['id','request_id','decision'],board_activate:['id','confirm','duration_days','members'],board_rebind:['id','agent','current_membership_id','connection_id','confirm'],board_revoke:['membership_id','confirm'],board_task_create:['id','title','body','assignee'],board_resolve:['id','task_id','expected_fence','resolution','evidence'],makima_send:['id','body','reply_to'],mast_work_create:['id','body','title','action_kind','project_title','goal_title'],mast_work_cancel:['job_id','event_id'],mast_work_retry:['job_id','id','confirm_duplicate_risk'],mast_send: ['id', 'body','attachment_ids'], mast_file_upload:['id','message_id','name','mime_type','data_base64'], mast_file_discard:['message_id','attachment_id'], pair_start: ['label'], pair_status: ['request_id'], message: ['id', 'body', 'attachment_ids'], attachment_upload: ['id', 'message_id', 'name', 'mime_type', 'data_base64'], attachment_discard: ['message_id', 'attachment_id'], delivery_list:['message_ids'], delivery_retry:['message_id'], device_revoke: ['device_id'],
       credentials_prepare: ['purpose'], credentials_save: ['username', 'password', 'password_confirmation', 'current_password', 'consent_token', 'confirm', 'access_days', 'preserve_existing_sessions'], password_login: ['username', 'password', 'label', 'replace_device_id', 'confirm_replacement'],
       job_create: ['id', 'title', 'body', 'action_kind', 'project_title', 'goal_title'], job_cancel: ['job_id'], job_retry: ['job_id', 'id', 'confirm_duplicate_risk']};
-    fields(body, inputFields[route[1]] || [], (inputFields[route[1]] || []).filter(k => !['current_password', 'replace_device_id', 'confirm_replacement', 'confirm_duplicate_risk', 'project_title', 'goal_title', 'attachment_ids','reply_to'].includes(k)));
+    fields(body, inputFields[route[1]] || [], (inputFields[route[1]] || []).filter(k => !['current_password', 'replace_device_id', 'confirm_replacement', 'confirm_duplicate_risk', 'project_title', 'goal_title', 'attachment_ids','reply_to','result_links','approval_request'].includes(k)));
     const input = {op: route[1], ...body};
     if (['pair_start', 'password_login'].includes(route[1])) input.rate_hash = await hash('owner-' + route[1] + '-ip:' + (request.headers.get('CF-Connecting-IP') || 'unknown'));
     else {
@@ -554,7 +569,7 @@ export async function relayOwnerPublic(request, env) {
       if (!token) fail(401, 'Owner device bearer required');
       input.token_hash = admittedHash || await hash(token);
     }
-    if (['collaboration_list','makima_list','mast_list','mast_work_list', 'messages_list', 'jobs_list', 'jobs_changes','deliverables_list','chat_updates'].includes(route[1])) {
+    if (['board_list','board_tasks','collaboration_list','makima_list','mast_list','mast_work_list', 'messages_list', 'jobs_list', 'jobs_changes','deliverables_list','chat_updates'].includes(route[1])) {
       if (url.searchParams.has('after')) input.after = url.searchParams.get('after');
       if (url.searchParams.has('limit')) {
         const limit = url.searchParams.get('limit');
@@ -563,7 +578,7 @@ export async function relayOwnerPublic(request, env) {
       }
     }
     if (route[1] === 'jobs_changes' && url.searchParams.has('through')) input.through = url.searchParams.get('through');
-    if (['conversation','deliverables_list'].includes(route[1])) input.message_id = url.searchParams.get('message_id');
+    if (['board_message','conversation','deliverables_list'].includes(route[1])) input.message_id = url.searchParams.get('message_id');
     if (['job_read','mast_work_read'].includes(route[1])) input.job_id = url.searchParams.get('job_id');
     if (['collaboration_file_content','attachment_content','mast_file_content'].includes(route[1])) {
       input.message_id = url.searchParams.get('message_id');

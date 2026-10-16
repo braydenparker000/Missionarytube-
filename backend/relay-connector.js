@@ -1,3 +1,5 @@
+import {boardEnabled,boardAgentStore} from './relay-board-auth.js';
+import {boardTools,boardToolOperation} from './relay-board-tools.js';
 import {agentEventDefinition} from './relay-agent-events.js';
 import {agentTools} from './relay-agent-tools.js';
 import {agentChatStore,agentChatEnabled} from './relay-agent-chat.js';
@@ -90,7 +92,7 @@ export async function relayRpc(ctx, env, principal, rpc, callbacks={}) {
     return rpc.method === 'tools/list'
       // Enabled owner schemas are discoverable for explicit scope step-up;
       // private data and every owner operation still require the live scope.
-      ? complete({tools: [...(env.RELAY_AGENT_LUCY_OAUTH_ENABLED==='true'?agentTools:[]),...tools.filter(t => t.name === eventAccessTool || principal.scopes.includes(scopeFor[t.name])), ...(relayOwnerEnabled(env) ? relayOwnerTools : []), ...(relayOwnerEnabled(env) && relayTokenActiveInStore(ctx,env,principal,RELAY_OWNER_SCOPE) ? projectReadTools : []), ...(env.RELAY_PROJECT_ENABLED === 'true' && relayTokenActiveInStore(ctx,env,principal,'relay:read') ? projectParticipationTools : []), ...(projectAdminEnabled(env) && relayTokenActiveInStore(ctx,env,principal,RELAY_OWNER_SCOPE) ? projectAdminTools : [])], ...(principal.scopes.includes('relay:read')?{nextCursor:COORDINATION_CATALOG_CURSOR}:{}),ttlMs: 300000, cacheScope: 'private'})
+      ? complete({tools: [...(boardEnabled(env)&&env.RELAY_AGENT_LUCY_OAUTH_ENABLED==='true'?boardTools:[]),...(env.RELAY_AGENT_LUCY_OAUTH_ENABLED==='true'?agentTools:[]),...tools.filter(t => t.name === eventAccessTool || principal.scopes.includes(scopeFor[t.name])), ...(relayOwnerEnabled(env) ? relayOwnerTools : []), ...(relayOwnerEnabled(env) && relayTokenActiveInStore(ctx,env,principal,RELAY_OWNER_SCOPE) ? projectReadTools : []), ...(env.RELAY_PROJECT_ENABLED === 'true' && relayTokenActiveInStore(ctx,env,principal,'relay:read') ? projectParticipationTools : []), ...(projectAdminEnabled(env) && relayTokenActiveInStore(ctx,env,principal,RELAY_OWNER_SCOPE) ? projectAdminTools : [])], ...(principal.scopes.includes('relay:read')?{nextCursor:COORDINATION_CATALOG_CURSOR}:{}),ttlMs: 300000, cacheScope: 'private'})
       : complete({events: [...(agentChatEnabled(env)&&relayTokenActiveInStore(ctx,env,principal,RELAY_AGENT_SCOPE)?[agentEventDefinition]:[]), ...(principal.scopes.includes('relay:events') ? [relayEventDefinition] : []), ...(relayOwnerEnabled(env) && principal.scopes.includes(RELAY_OWNER_SCOPE) ? [relayOwnerEventDefinition] : []), ...(projectEventsEnabled(env) && principal.scopes.includes('relay:events') ? [projectEventDefinition] : [])], ...(principal.scopes.includes('relay:events')?{nextCursor:COORDINATION_CATALOG_CURSOR}:{}),ttlMs: 300000, cacheScope: 'private'});
   }
   if (rpc.method === 'events/subscribe') {
@@ -104,6 +106,8 @@ export async function relayRpc(ctx, env, principal, rpc, callbacks={}) {
   if (rpc.method !== 'tools/call') throw new RelayError(-32601, `Method not found; supported protocol is ${RELAY_VERSION}`);
   fields(p, ['_meta', 'name', 'arguments'], ['_meta', 'name', 'arguments']);
   const name = p.name, args = p.arguments;
+  const boardOp=boardEnabled(env)?boardToolOperation(name):null;
+  if(boardOp){const tool=boardTools.find(t=>t.name===name);fields(args,Object.keys(tool.inputSchema.properties),tool.inputSchema.required);return toolResult(await boardAgentStore(ctx,env,{agent:'lucy',principal,op:boardOp,args}));}
   if (!(name in scopeFor)) throw new RelayError(-32602, 'Unknown tool');
   if (scopeFor[name] === RELAY_OWNER_SCOPE && !relayOwnerEnabled(env)) throw new RelayError(-32012, 'Owner capability is not activated');
   if (!principal.scopes.includes(scopeFor[name])||!relayTokenActiveInStore(ctx,env,principal,scopeFor[name])) {

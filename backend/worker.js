@@ -1,3 +1,4 @@
+import {boardAgentStore,boardMakimaAuth} from './relay-board-auth.js';
 import {agentChatPublic,agentChatStore} from './relay-agent-chat.js';
 import {makimaConnector,makimaRpc,makimaChannelStore} from './relay-makima.js';
 import {MAKIMA_OBJECT,makimaEnabled,makimaOAuthPolicy} from './relay-makima-policy.js';
@@ -15,7 +16,7 @@ import {relayOAuthStore} from './relay-oauth.js';
 import {drainRelayOutbox,scheduleRelayAlarm,enqueueRelayOwnerMessage,webhookTransport} from './relay-events.js';
 import {reserveRelayCoreWake,releaseRelayCoreWake,assertRelayCoreWake,beginRelayCoreAlarm,abandonRelayCoreAlarm} from './relay-core-alarm.js';
 import {relayOwnerPublic,relayOwnerStore,relayOwnerAssistantAttachmentIngress} from './relay-owner.js';
-import {RelayError,boundedText} from './relay-common.js';
+import {RelayError,boundedText,RELAY_OAUTH_OBJECT} from './relay-common.js';
 import {projectTransport,projectStore} from './relay-projects.js';
 const paths = new Set(['/v1/state', '/v1/messages', '/v1/board', '/v1/responder/connect', '/v1/responder/revoke', '/v1/agent/inbox', '/v1/agent/replies', '/v1/agent/board']);
 const digest = async value => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))),b=>b.toString(16).padStart(2,'0')).join('');
@@ -161,13 +162,19 @@ export class Hub {
   }
   async fetch(request){
     const path=new URL(request.url).pathname;
+    if(path==='/internal/relay/board/agent'){
+      if(this.ctx.id?.name && this.ctx.id.name!==RELAY_OAUTH_OBJECT)return json({error:'Wrong board object'},403);
+      try{return json(await boardAgentStore(this.ctx,this.env,await request.json()));}
+      catch(error){return json({error:{code:error instanceof RelayError?error.code:-32603,message:error instanceof RelayError?error.message:'Board unavailable'}},error.data?.status||400);}
+    }
     if(path.startsWith('/internal/relay/makima/')){
       if(this.ctx.id?.name && this.ctx.id.name!==MAKIMA_OBJECT)return json({error:'Wrong Makima object'},403);
       if(!makimaEnabled(this.env))return json({error:'Makima adapter is not activated'},503);
       try{
         const input=await request.json();
         if(path==='/internal/relay/makima/oauth')return relayOAuthStore(this.ctx,input,Date.now(),this.env,makimaOAuthPolicy);
-        if(path==='/internal/relay/makima/rpc')return json({result:makimaRpc(this.ctx,this.env,input.principal,input.rpc)});
+        if(path==='/internal/relay/makima/board-auth')return json(await boardMakimaAuth(this.ctx,this.env,input));
+        if(path==='/internal/relay/makima/rpc')return json({result:await makimaRpc(this.ctx,this.env,input.principal,input.rpc)});
         if(path==='/internal/relay/makima/channel')return json(makimaChannelStore(this.ctx,this.env,input));
       }catch(error){
         // OAuth callers use HTTP status to distinguish unavailable storage from
