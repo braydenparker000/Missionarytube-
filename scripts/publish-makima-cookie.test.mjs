@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {BEFORE,SOURCE,checkedPaths,checkedBaseline,deploy} from './publish-makima-cookie.mjs';
 test('Makima publisher pins only the reviewed repair and preserves the deployed Makima baseline',()=>{
- const paths=["backend/relay-makima-diagnostics.js","backend/relay-makima-policy.js","backend/relay-makima.js","backend/relay-oauth.js","backend/worker.js","tests/relay-makima-diagnostics.test.js","tests/relay-makima.test.js"];
+ const paths=["backend/relay-makima-consent.js","backend/relay-makima-policy.js","backend/relay-oauth.js","tests/relay-makima-consent.test.js","tests/relay-makima-diagnostics.test.js","tests/relay-makima-double-submit-browser.test.js","tests/relay-makima.test.js"];
  checkedPaths(paths);assert.throws(()=>checkedPaths([...paths,'backend/relay-owner.js']));assert.throws(()=>checkedPaths(paths.slice(1)));
  checkedBaseline({...BEFORE,schedulesDigest:'synthetic'});
  for(const key of Object.keys(BEFORE))assert.throws(()=>checkedBaseline({...BEFORE,[key]:'changed'}));
@@ -25,5 +25,6 @@ test('Makima publication refuses drift before checkpoint or write',async()=>{
  await assert.rejects(deploy({credentials:{account:'a'.repeat(32),token:'synthetic'},bundle:Buffer.from('candidate'),checkpoint:async()=>{checkpoints++;},fetcher}),/Production baseline changed: codeSha256/);
  assert.equal(writes,0);assert.equal(checkpoints,0);
 });
+
 
 
