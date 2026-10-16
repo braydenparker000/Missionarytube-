@@ -36,7 +36,7 @@ function fixture(t, overrides = {}) {
     assert.equal(response.status,200);
     const html = await response.text();
     assert.match(html,/Private Makima channel/); assert.doesNotMatch(html,/How long may ChatGPT/);
-    assert.equal(response.headers.get('Content-Security-Policy'),`default-src 'none'; form-action 'self' ${CALLBACK}; frame-ancestors 'none'; base-uri 'none'`);
+    assert.equal(response.headers.get('Content-Security-Policy'),`default-src 'none'; form-action 'self' ${CALLBACK} https://cursor.com/agents/mcp/oauth/callback; frame-ancestors 'none'; base-uri 'none'`);
     return {csrf:html.match(/name="csrf" value="([a-f0-9]{64})"/)[1],cookie:cookie(response)};
   }
   const approve = (c,extra={}) => request('/oauth/approve',{...form({csrf:c.csrf,decision:'allow',...extra}),headers:{...form({}).headers,Origin:WORKER,Cookie:c.cookie}});
@@ -76,7 +76,7 @@ test('metadata offers a separate audience, PKCE and only Makima scope; DCR never
 test('authorize strictly validates public client, exact callback, S256, audience, scope and duplicate parameters before upstream traffic',async t=>{
   const s=fixture(t);
   for (const extra of [
-    {client_id:'d'.repeat(64)}, {redirect_uri:CALLBACK+'?x=1'}, {redirect_uri:'https://www.cursor.com.evil.invalid/agents/mcp/oauth/callback'},
+    {client_id:'d'.repeat(64)}, {redirect_uri:'https://cursor.com/agents/mcp/oauth/callback'}, {redirect_uri:CALLBACK+'?x=1'}, {redirect_uri:'https://www.cursor.com.evil.invalid/agents/mcp/oauth/callback'},
     {redirect_uri:'https://www.cursor.com:443/agents/mcp/oauth/callback'}, {redirect_uri:'http://localhost:8787/callback'},
     {redirect_uri:'cursor://anysphere.cursor-mcp/oauth/callback'}, {code_challenge_method:'plain'}, {code_challenge:'bad'},
     {scope:'relay:owner'}, {scope:'relay:agents-lucy'}, {scope:SCOPE+' relay:read'}, {resource:WORKER+'/relay/mcp'},
