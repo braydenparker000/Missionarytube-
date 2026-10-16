@@ -98,6 +98,9 @@ export async function relayAuthenticate(request, env, readOnly = false, policy =
 }
 export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT_POLICY) {
   const url = new URL(request.url), path = url.pathname, issuer = relayIssuer(env), resource = policy.resource(env);
+  // Login redirects may arrive after a newer consent page. Separate Makima
+  // phases so a delayed authorize response cannot replace its consent cookie.
+  const loginPolicy = policy.loginCookie ? {...policy, cookie: policy.loginCookie} : policy;
   const githubClientId = policy.githubClientId ? policy.githubClientId(env) : env.RELAY_GITHUB_CLIENT_ID;
   const githubClientSecret = policy.githubClientSecret ? policy.githubClientSecret(env) : env.RELAY_GITHUB_CLIENT_SECRET;
   const protectedPath = '/.well-known/oauth-protected-resource' + policy.path + '/mcp';
@@ -137,12 +140,12 @@ export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT
       if (stored.error) return err('temporarily_unavailable', 503);
       const github = new URL('https://github.com/login/oauth/authorize');
       github.search = new URLSearchParams({client_id: githubClientId, redirect_uri: issuer + policy.path + '/oauth/github/callback', state, code_challenge: await challenge(verifier), code_challenge_method: 'S256', allow_signup: 'false', scope: ''});
-      return redirect(github.href, {'Set-Cookie': cookieHeader(browser, 600, policy)});
+      return redirect(github.href, {'Set-Cookie': cookieHeader(browser, 600, loginPolicy)});
     }
     if (path === policy.path + '/oauth/github/callback' && request.method === 'GET') {
       processingFailure = 'github_callback_processing_failed';
       if([...url.searchParams.keys()].some(k=>url.searchParams.getAll(k).length!==1))return err('invalid_request', 400, 'callback_duplicate_parameter');
-      const state = url.searchParams.get('state'), browser = cookie(request, policy);
+      const state = url.searchParams.get('state'), browser = cookie(request, loginPolicy);
       if (!/^[a-f0-9]{64}$/.test(state || '')) return err('invalid_request', 400, 'callback_state_invalid');
       if (browser === undefined) return err('invalid_request', 400, 'login_cookie_missing');
       if (!/^[a-f0-9]{64}$/.test(browser)) return err('invalid_request', 400, 'login_cookie_invalid');
@@ -384,4 +387,5 @@ export function relayOAuthStore(ctx, b, now = Date.now(), env, policy = DEFAULT_
     return json({error: 'Invalid operation'}, 400);
   });
 }
+
 

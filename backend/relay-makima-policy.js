@@ -14,6 +14,7 @@ export const makimaOAuthPolicy = Object.freeze({
   path: MAKIMA_PATH, registry: MAKIMA_OBJECT, principal: 'agent:makima',
   scopes: [MAKIMA_SCOPE], defaultScopes: [MAKIMA_SCOPE], callback: MAKIMA_CALLBACK,
   retainTerminalCookie: true,
+  loginCookie: '__Host-jarvis-makima-login',
   cookie: '__Host-jarvis-makima', clientName: 'Makima', enabled: makimaEnabled,
   resource: env => relayIssuer(env) + MAKIMA_PATH + '/mcp',
   staticClient: env => env.RELAY_MAKIMA_CLIENT_ID,
@@ -21,3 +22,4 @@ export const makimaOAuthPolicy = Object.freeze({
   githubClientSecret: env => env.RELAY_MAKIMA_GITHUB_CLIENT_SECRET,
   consentText: '<p><strong>Private Makima channel:</strong> Allow this Grok Bot connection to act as Makima and read/send text explicitly shared in its separate channel. No owner inbox, Lucy–Muse history, project tools, files or events are included. Channel text does not authorize account actions. Confirm this connection belongs to Makima.</p>',
 });
+
