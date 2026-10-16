@@ -32,3 +32,13 @@ body.relay-page main#content .composer-input:focus-within{border-color:var(--pri
 .accent-choices label:has(:checked){color:var(--private-accent-readable)}
 .makima-chat .makima-composer{border-color:var(--private-accent-border)}.makima-chat .makima-composer:focus-within{border-color:var(--private-accent-readable)}.makima-chat .makima-message-byline h3{font-size:14px;font-weight:550;color:#ececec}.makima-chat .makima-composer button[type=submit]{background:var(--private-accent);color:var(--private-accent-ink)}.makima-chat .makima-message[data-identity=owner] .makima-message-byline{justify-content:flex-end}
 .shared-board .board-composer-row:focus-within{border-color:var(--private-accent-readable);box-shadow:0 0 0 1px var(--private-accent-readable)}
+
+/* Keep device settings controls aligned in the narrow navigation drawer. */
+#navigation-drawer{width:min(336px,calc(100vw - 24px));scroll-padding-top:64px}
+#navigation-drawer .drawer-heading{position:sticky;top:-12px;z-index:1;background:#000;padding-top:12px}
+.spectrum-row input[type=color]{flex:0 0 44px;width:44px}
+.spectrum-row input[type=text]{flex:1;width:0}
+#navigation-drawer .spectrum-row button{flex:none;min-width:52px;white-space:nowrap;overflow-wrap:normal}
+.avatar-setting{display:grid;grid-template-columns:26px minmax(0,1fr) max-content max-content;gap:6px}
+#navigation-drawer .avatar-setting button{padding:8px 6px;white-space:nowrap;overflow-wrap:normal}
+.avatar-setting .avatar-label{min-width:0}
