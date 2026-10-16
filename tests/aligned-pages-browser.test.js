@@ -37,7 +37,7 @@ test('aligned pages: board, guitar, route isolation and responsive states', {tim
   await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.className),'skip-link');await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>document.activeElement.id),'content');
   await page.getByRole('link',{name:'Back to Home'}).click();await page.locator('#launcher-time').waitFor();await palette();await shot('home');
   // SPA route changes must not leave the new page class active in Relay.
-  await page.locator('.launcher-link[href="/jarvis/"]').click();assert.equal(await page.locator('body.aligned-hub').count(),0);
+  await page.locator('.launcher-link[href="/private/"]').click();await page.locator('#open-drawer').click();await page.getByRole('link',{name:'Public Relay',exact:true}).click();await page.waitForURL(origin+'/jarvis/');assert.equal(await page.locator('body.aligned-hub').count(),0);
   await page.goto(origin+'/daily-board/');posts=[];await page.evaluate(()=>localStorage.clear());await page.reload();await page.locator('.empty-board').waitFor();await shot('daily-board-empty');
   fail=true;await page.reload();await page.getByRole('button',{name:'Connection details'}).click();await page.locator('#connection-detail').filter({hasText:'unavailable'}).waitFor();await shot('daily-board-error');fail=false;
   await page.goto(origin+'/guitar/');await page.locator('.tab-empty').waitFor();await palette();await shot('guitar-empty');

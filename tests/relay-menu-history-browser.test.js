@@ -17,7 +17,8 @@ async function journey(t, {privateView = false, direct = false} = {}) {
   if (direct) await page.goto(RELAY_URL);
   else {
     await page.goto(SITE + '/');
-    await page.locator('#app-directory a[href="/jarvis/"]').click();
+    // Public Relay remains a secondary route; this suite isolates its own Back stack.
+    await page.goto(RELAY_URL);
   }
   await page.locator(privateView ? '#relay-owner-message-text' : '#message-text').waitFor();
   return {h, phone, page, owner};

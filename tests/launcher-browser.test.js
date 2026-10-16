@@ -174,7 +174,8 @@ test('launcher browser behavior', { skip: executablePath ? false : 'Install Chro
         assert.equal(await page.locator('body.launcher-page').count(), 0, 'Launcher styling leaves with Home');
         if (app.id === 'jarvis') {
           assert.equal(await page.title(), 'Jarvis · Private workspace');
-          assert.equal(await page.getByRole('heading', { name: 'Lucy', exact: true }).count(), 1);
+          await page.getByRole('button', { name: 'Choose conversation', exact: true }).waitFor();
+          assert.equal(await page.locator('#view-title').textContent(), 'Lucy');
         }
       }
       await finish(session);
@@ -222,7 +223,7 @@ test('launcher browser behavior', { skip: executablePath ? false : 'Install Chro
       await page.getByRole('searchbox', { name: 'Find an app' }).fill(' PoWeRaMp ');
       assert.deepEqual(await names(page), ['Poweramp']);
       await page.locator('#app-search').fill('jarvis');
-      assert.deepEqual(await names(page), ['Jarvis']);
+      assert.deepEqual(await names(page), ['Jarvis', 'Mast']);
       await page.locator('#app-search').fill('nothing matches');
       assert.equal(await page.getByRole('status').filter({ hasText: 'No apps match your search.' }).count(), 1);
       await page.getByRole('button', { name: 'Search apps' }).click();

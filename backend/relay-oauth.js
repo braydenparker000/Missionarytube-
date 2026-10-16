@@ -1,6 +1,6 @@
 // OAuth 2.1 broker. GitHub authenticates the one owner; public Relay keys are never identity.
-import {RELAY_OWNER, RELAY_OAUTH_OBJECT, RELAY_SCOPES, RELAY_PUBLIC_SCOPES, RELAY_OWNER_SCOPE, RELAY_CALLBACK, random, hash, challenge, equal, boundedText, fields, isObject, json, relayEnabled, relayIssuer, relayResource} from './relay-common.js';
-const REGISTRY = RELAY_OAUTH_OBJECT;
+import {RELAY_PUBLIC_SCOPES, RELAY_OWNER_SCOPE, RELAY_CALLBACK, random, hash, challenge, equal, boundedText, isObject, json, relayIssuer} from './relay-common.js';
+import {relayOAuthPolicy as DEFAULT_POLICY} from './relay-oauth-policy.js';
 const SESSION_MS = 600000;
 const ACCESS_MS = 3600000;
 const DEFAULT_REFRESH_DAYS = 30;
@@ -8,104 +8,106 @@ const REFRESH_DAYS = [DEFAULT_REFRESH_DAYS, 365];
 // Public DCR identity is not a session or bearer credential. ChatGPT registers
 // once per connection and reuses the client even after a cancelled first login.
 const CLIENT_EXPIRY = Number.MAX_SAFE_INTEGER;
-const COOKIE = '__Host-jarvis-relay';
-const cookieHeader = (value, age = 600) => `${COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${age}`;
-const cookie = request => request.headers.get('Cookie')?.split(';').map(x => x.trim()).find(x => x.startsWith(COOKIE + '='))?.slice(COOKIE.length + 1);
-const scopes = value => typeof value === 'string' && value.length > 0 && value.split(' ').every(x => RELAY_SCOPES.includes(x)) && new Set(value.split(' ')).size === value.split(' ').length;
+const cookieHeader = (value, age = 600, policy = DEFAULT_POLICY) => `${policy.cookie}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${age}`;
+const cookie = (request, policy = DEFAULT_POLICY) => request.headers.get('Cookie')?.split(';').map(x => x.trim()).find(x => x.startsWith(policy.cookie + '='))?.slice(policy.cookie.length + 1);
+const scopes = (value, policy = DEFAULT_POLICY) => typeof value === 'string' && value.length > 0 && value.split(' ').every(x => policy.scopes.includes(x)) && new Set(value.split(' ')).size === value.split(' ').length;
 const err = (error = 'invalid_request', status = 400, description) => json({error, ...(description ? {error_description: description} : {})}, status);
-const registry = async (env, body) => {
-  const r = await env.HUBS.get(env.HUBS.idFromName(REGISTRY)).fetch(new Request('https://internal/internal/relay/oauth', {method: 'POST', body: JSON.stringify(body)}));
+const registry = async (env, body, policy = DEFAULT_POLICY) => {
+  const r = await env.HUBS.get(env.HUBS.idFromName(policy.registry)).fetch(new Request('https://internal/internal' + policy.path + '/oauth', {method: 'POST', body: JSON.stringify(body)}));
   if (!r.ok) throw Error('OAuth storage unavailable');
   return r.json();
 };
-const read = (env, key) => registry(env, {op: 'get', key}).then(x => x.value);
-const put = (env, key, value, expiresAt, category) => registry(env, {op: 'put', key, value, expiresAt, category});
-const consume = (env, key, match = {}) => registry(env, {op: 'consume', key, match});
-function authParamsError(b, client, env) {
+const read = (env, key, policy = DEFAULT_POLICY) => registry(env, {op: 'get', key}, policy).then(x => x.value);
+const put = (env, key, value, expiresAt, category, policy = DEFAULT_POLICY) => registry(env, {op: 'put', key, value, expiresAt, category}, policy);
+const consume = (env, key, match = {}, policy = DEFAULT_POLICY) => registry(env, {op: 'consume', key, match}, policy);
+function authParamsError(b, client, env, policy) {
   // Fixed diagnostic codes only: never echo IDs, URIs, state, PKCE or input.
   if (!client || !b.client_id) return 'client_not_registered';
   if (b.redirect_uri !== client.redirect) return 'redirect_uri_mismatch';
   if (b.response_type !== 'code') return 'unsupported_response_type';
   if (b.code_challenge_method !== 'S256') return 'pkce_s256_required';
   if (typeof b.code_challenge !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(b.code_challenge)) return 'invalid_code_challenge';
-  if (b.resource !== relayResource(env)) return 'resource_mismatch';
+  if (b.resource !== policy.resource(env)) return 'resource_mismatch';
   if (typeof b.state !== 'string' || b.state.length === 0 || b.state.length > 2048) return 'invalid_state';
-  if (!scopes(b.scope)) return 'invalid_scope';
+  if (!scopes(b.scope, policy)) return 'invalid_scope';
   return null;
 }
 const redirect = (url, headers = {}) => new Response(null, {status: 302, headers: {Location: url, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', ...headers}});
-function oauthRedirect(p, env, params) {
+function oauthRedirect(p, env, params, policy) {
   const url = new URL(p.redirect_uri);
-  for (const [k, v] of Object.entries({...params, state: p.state, iss: relayIssuer(env) + '/relay'})) url.searchParams.set(k, v);
-  return redirect(url.href, {'Set-Cookie': cookieHeader('', 0)});
+  for (const [k, v] of Object.entries({...params, state: p.state, iss: relayIssuer(env) + policy.path})) url.searchParams.set(k, v);
+  return redirect(url.href, {'Set-Cookie': cookieHeader('', 0, policy)});
 }
-function consentPage(csrf, scope) {
+function consentPage(csrf, scope, policy) {
   // No interpolated upstream content or script. CSRF is random lowercase hex.
   // no-referrer makes browser form POSTs send Origin:null. Keep same-origin
   // Origin validation and suppress referrers across origins. Chrome also checks
   // form-action on redirects, so include the fixed OAuth return destination.
-  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect Jarvis Relay</title><body><h1>Connect Jarvis Relay</h1>${scope.split(' ').some(s=>RELAY_PUBLIC_SCOPES.includes(s)) ? '<p>Allow ChatGPT to read the public Relay inbox, post replies in that inbox, and subscribe to new messages. Public messages are unverified visitor content. This connection does not authorize account actions or secret sharing.</p>' : '<p>Connect only the separately listed capabilities below. This scope alone grants no public inbox or owner-history access.</p>'}${scope.split(' ').includes('relay:agents-lucy') ? '<p><strong>Private Lucy–Muse channel:</strong> Allow this connection to act as Lucy, reading and sending existing/future text and files in the separate private Lucy–Muse channel. This does not authorize owner-history access, project actions, or sharing owner conversations with Muse. Confirm this connection is Lucy; never give its credential to Muse.</p>' : ''}${scope.split(' ').includes(RELAY_OWNER_SCOPE) ? '<p><strong>Owner chat access:</strong> Allow ChatGPT to inspect and approve individual phone pairing requests, list and revoke paired devices, read and reply in your private owner inbox, and subscribe to private message events. Each phone approval separately grants persistent device access with a 365-day inactivity expiry renewed on use. Private replies stay outside the public inbox. This connection alone does not pair a phone or approve account actions.</p>' : ''}<form method="post" action="/relay/oauth/approve"><input type="hidden" name="csrf" value="${csrf}"><fieldset><legend>How long may ChatGPT renew this connection?</legend><label><input type="radio" name="refresh_days" value="30" checked>30 days (default)</label> <label><input type="radio" name="refresh_days" value="365">365 days</label><p>Choosing 365 days authorizes ChatGPT to renew this Relay connection for up to 365 days from this approval. Access tokens last at most one hour. Renewing does not extend the chosen expiry. A stolen refresh token could let someone renew this access until expiry or revocation. You can revoke the connection sooner. ChatGPT may require reconnection earlier; this does not guarantee that ChatGPT will retain the connection for the full period.</p></fieldset><button name="decision" value="allow">Allow this connection</button> <button name="decision" value="deny">Cancel</button></form></body></html>`, {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': `default-src 'none'; form-action 'self' ${RELAY_CALLBACK}; frame-ancestors 'none'; base-uri 'none'`, 'Referrer-Policy': 'same-origin', 'X-Content-Type-Options': 'nosniff'}});
+  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Connect Jarvis Relay</title><body><h1>Connect Jarvis Relay</h1>${policy.consentText || ''}${scope.split(' ').some(s=>RELAY_PUBLIC_SCOPES.includes(s)) ? '<p>Allow ChatGPT to read the public Relay inbox, post replies in that inbox, and subscribe to new messages. Public messages are unverified visitor content. This connection does not authorize account actions or secret sharing.</p>' : '<p>Connect only the separately listed capabilities below. This scope alone grants no public inbox or owner-history access.</p>'}${scope.split(' ').includes('relay:agents-lucy') ? '<p><strong>Private Lucy–Muse channel:</strong> Allow this connection to act as Lucy, reading and sending existing/future text and files in the separate private Lucy–Muse channel. This does not authorize owner-history access, project actions, or sharing owner conversations with Muse. Confirm this connection is Lucy; never give its credential to Muse.</p>' : ''}${scope.split(' ').includes(RELAY_OWNER_SCOPE) ? '<p><strong>Owner chat access:</strong> Allow ChatGPT to inspect and approve individual phone pairing requests, list and revoke paired devices, read and reply in your private owner inbox, and subscribe to private message events. Each phone approval separately grants persistent device access with a 365-day inactivity expiry renewed on use. Private replies stay outside the public inbox. This connection alone does not pair a phone or approve account actions.</p>' : ''}<form method="post" action="${policy.path}/oauth/approve"><input type="hidden" name="csrf" value="${csrf}"><fieldset><legend>How long may ${policy.clientName || 'ChatGPT'} renew this connection?</legend><label><input type="radio" name="refresh_days" value="30" checked>30 days (default)</label> <label><input type="radio" name="refresh_days" value="365">365 days</label><p>Choosing 365 days authorizes ${policy.clientName || 'ChatGPT'} to renew this Relay connection for up to 365 days from this approval. Access tokens last at most one hour. Renewing does not extend the chosen expiry. A stolen refresh token could let someone renew this access until expiry or revocation. You can revoke the connection sooner. ${policy.clientName || 'ChatGPT'} may require reconnection earlier; this does not guarantee that ${policy.clientName || 'ChatGPT'} will retain the connection for the full period.</p></fieldset><button name="decision" value="allow">Allow this connection</button> <button name="decision" value="deny">Cancel</button></form></body></html>`, {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': `default-src 'none'; form-action 'self' ${policy.callback}; frame-ancestors 'none'; base-uri 'none'`, 'Referrer-Policy': 'same-origin', 'X-Content-Type-Options': 'nosniff'}});
 }
-export async function relayGrantActive(env, grantId, requiredScope) {
-  if (!relayEnabled(env) || typeof grantId !== 'string') return false;
-  const grant = await read(env, 'grant:' + grantId);
-  return !!grant && grant.principal === RELAY_OWNER && !grant.revoked && grant.expiresAt > Date.now() && grant.resource === relayResource(env) && (!requiredScope || grant.scope.split(' ').includes(requiredScope));
+export async function relayGrantActive(env, grantId, requiredScope, policy = DEFAULT_POLICY) {
+  if (!policy.enabled(env) || typeof grantId !== 'string') return false;
+  const grant = await read(env, 'grant:' + grantId, policy);
+  return !!grant && (!policy.staticClient || grant.client_id===policy.staticClient(env)) && grant.principal === policy.principal && !grant.revoked && grant.expiresAt > Date.now() && grant.resource === policy.resource(env) && (!requiredScope || grant.scope.split(' ').includes(requiredScope));
 }
 function localValue(ctx,key,now=Date.now()){
   ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS relay_oauth (key TEXT PRIMARY KEY, category TEXT NOT NULL, value TEXT NOT NULL, expires_at INTEGER NOT NULL)');
   const row=[...ctx.storage.sql.exec('SELECT value FROM relay_oauth WHERE key=? AND expires_at>?',key,now)][0];
   return row?JSON.parse(row.value):null;
 }
-export function relayGrantActiveInStore(ctx,env,grantId,requiredScope){
-  if(!relayEnabled(env)||typeof grantId!=='string')return false;
+export function relayGrantActiveInStore(ctx,env,grantId,requiredScope,policy=DEFAULT_POLICY){
+  if(!policy.enabled(env)||typeof grantId!=='string')return false;
   const grant=localValue(ctx,'grant:'+grantId);
-  return !!grant&&!grant.revoked&&grant.principal===RELAY_OWNER&&grant.resource===relayResource(env)&&(!requiredScope||grant.scope.split(' ').includes(requiredScope));
+  return !!grant&&(!policy.staticClient||grant.client_id===policy.staticClient(env))&&!grant.revoked&&grant.principal===policy.principal&&grant.resource===policy.resource(env)&&(!requiredScope||grant.scope.split(' ').includes(requiredScope));
 }
-export function relayTokenActiveInStore(ctx,env,principal,requiredScope){
-  if(principal.principal!==RELAY_OWNER||typeof principal.accessHash!=='string')return false;
+export function relayTokenActiveInStore(ctx,env,principal,requiredScope,policy=DEFAULT_POLICY){
+  if(principal.principal!==policy.principal||typeof principal.accessHash!=='string')return false;
   const token=localValue(ctx,'access:'+principal.accessHash);
-  return !!token&&token.grantId===principal.grantId&&(!requiredScope||token.scope.split(' ').includes(requiredScope))&&relayGrantActiveInStore(ctx,env,principal.grantId,requiredScope);
+  return !!token&&(!policy.staticClient||token.client_id===policy.staticClient(env)&&token.resource===policy.resource(env))&&token.grantId===principal.grantId&&(!requiredScope||token.scope.split(' ').includes(requiredScope))&&relayGrantActiveInStore(ctx,env,principal.grantId,requiredScope,policy);
 }
 // Readiness inspection must not initialize or clean up the OAuth registry.
-export function relayReadOnlyPrincipal(ctx, env, accessHash, now = Date.now()) {
-  if (!relayEnabled(env) || !/^[a-f0-9]{64}$/.test(accessHash || '')) return null;
+export function relayReadOnlyPrincipal(ctx, env, accessHash, now = Date.now(), policy = DEFAULT_POLICY) {
+  if (!policy.enabled(env) || !/^[a-f0-9]{64}$/.test(accessHash || '')) return null;
   const readExisting = (key, category) => {
     const row = [...ctx.storage.sql.exec('SELECT category,value,expires_at FROM relay_oauth WHERE key=?',key)][0];
     if (!row) return null;
     if (row.category !== category || !Number.isSafeInteger(row.expires_at)) throw Error('Invalid OAuth storage');
     const value = JSON.parse(row.value);
-    if (!isObject(value) || !scopes(value.scope)) throw Error('Invalid OAuth storage');
+    if (!isObject(value) || !scopes(value.scope, policy)) throw Error('Invalid OAuth storage');
     return row.expires_at > now ? value : null;
   };
   const token = readExisting('access:'+accessHash,'access');
-  if (!token || typeof token.client_id !== 'string' || !token.client_id || typeof token.grantId !== 'string' || !token.grantId || token.resource !== relayResource(env)) return null;
+  if (!token || typeof token.client_id !== 'string' || !token.client_id || typeof token.grantId !== 'string' || !token.grantId || token.resource !== policy.resource(env) || policy.staticClient && token.client_id !== policy.staticClient(env)) return null;
   const grant = readExisting('grant:'+token.grantId,'grant');
-  if (!grant || grant.revoked !== false || grant.principal !== RELAY_OWNER || grant.resource !== relayResource(env)
+  if (!grant || grant.revoked !== false || grant.principal !== policy.principal || grant.resource !== policy.resource(env)
     || !Number.isSafeInteger(grant.expiresAt) || grant.expiresAt <= now || token.client_id !== grant.client_id
     || token.scope.split(' ').some(scope=>!grant.scope.split(' ').includes(scope))) return null;
-  return {principal:RELAY_OWNER,grantId:token.grantId,scopes:token.scope.split(' '),accessHash};
+  return {principal:policy.principal,grantId:token.grantId,scopes:token.scope.split(' '),accessHash};
 }
-export async function relayAuthenticate(request, env, readOnly = false) {
-  if (!relayEnabled(env)) return null;
+export async function relayAuthenticate(request, env, readOnly = false, policy = DEFAULT_POLICY) {
+  if (!policy.enabled(env)) return null;
   const token = request.headers.get('Authorization')?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
   if (!token) return null;
   const accessHash=await hash(token);
-  if(readOnly)return (await registry(env,{op:'authenticate-readonly',accessHash})).principal;
-  const value = await read(env, 'access:' + accessHash);
-  if (!value || !await relayGrantActive(env, value.grantId)) return null;
-  return {principal: RELAY_OWNER, grantId: value.grantId, scopes: value.scope.split(' '),accessHash};
+  if(readOnly)return (await registry(env,{op:'authenticate-readonly',accessHash},policy)).principal;
+  const value = await read(env, 'access:' + accessHash, policy);
+  if (!value || policy.staticClient && (value.client_id !== policy.staticClient(env) || value.resource !== policy.resource(env)) || !await relayGrantActive(env, value.grantId, undefined, policy)) return null;
+  return {principal: policy.principal, grantId: value.grantId, scopes: value.scope.split(' '),accessHash};
 }
-export async function relayOAuth(request, env, fetcher = fetch) {
-  const url = new URL(request.url), path = url.pathname, issuer = relayIssuer(env), resource = relayResource(env);
-  const protectedPath = '/.well-known/oauth-protected-resource/relay/mcp';
-  const metadataPath = '/.well-known/oauth-authorization-server/relay';
-  if (!(path.startsWith('/relay/oauth/') || path === protectedPath || path === metadataPath)) return null;
-  if (!relayEnabled(env)) return err('temporarily_unavailable', 503);
-  if (path === protectedPath && request.method === 'GET') return json({resource, authorization_servers: [issuer + '/relay'], scopes_supported: RELAY_SCOPES});
-  if (path === metadataPath && request.method === 'GET') return json({issuer: issuer + '/relay', authorization_endpoint: issuer + '/relay/oauth/authorize', token_endpoint: issuer + '/relay/oauth/token', registration_endpoint: issuer + '/relay/oauth/register', revocation_endpoint: issuer + '/relay/oauth/revoke', response_types_supported: ['code'], grant_types_supported: ['authorization_code', 'refresh_token'], token_endpoint_auth_methods_supported: ['none'], code_challenge_methods_supported: ['S256'], authorization_response_iss_parameter_supported: true, scopes_supported: RELAY_SCOPES});
+export async function relayOAuth(request, env, fetcher = fetch, policy = DEFAULT_POLICY) {
+  const url = new URL(request.url), path = url.pathname, issuer = relayIssuer(env), resource = policy.resource(env);
+  const githubClientId = policy.githubClientId ? policy.githubClientId(env) : env.RELAY_GITHUB_CLIENT_ID;
+  const githubClientSecret = policy.githubClientSecret ? policy.githubClientSecret(env) : env.RELAY_GITHUB_CLIENT_SECRET;
+  const protectedPath = '/.well-known/oauth-protected-resource' + policy.path + '/mcp';
+  const metadataPath = '/.well-known/oauth-authorization-server' + policy.path;
+  if (!(path.startsWith(policy.path + '/oauth/') || path === protectedPath || path === metadataPath)) return null;
+  if (!policy.enabled(env)) return err('temporarily_unavailable', 503);
+  if (path === protectedPath && request.method === 'GET') return json({resource, authorization_servers: [issuer + policy.path], scopes_supported: policy.scopes});
+  if (path === metadataPath && request.method === 'GET') return json({issuer: issuer + policy.path, authorization_endpoint: issuer + policy.path + '/oauth/authorize', token_endpoint: issuer + policy.path + '/oauth/token', ...(policy.staticClient ? {} : {registration_endpoint: issuer + policy.path + '/oauth/register'}), revocation_endpoint: issuer + policy.path + '/oauth/revoke', response_types_supported: ['code'], grant_types_supported: ['authorization_code', 'refresh_token'], token_endpoint_auth_methods_supported: ['none'], code_challenge_methods_supported: ['S256'], authorization_response_iss_parameter_supported: true, scopes_supported: policy.scopes});
   let processingFailure;
   try {
-    if (path === '/relay/oauth/register' && request.method === 'POST') {
+    if (path === policy.path + '/oauth/register' && request.method === 'POST') {
+      if (policy.staticClient) return err('invalid_client_metadata');
       if (!request.headers.get('Content-Type')?.startsWith('application/json')) return err('invalid_client_metadata');
       const b = JSON.parse(await boundedText(request));
       if (!isObject(b) || !Array.isArray(b.redirect_uris) || b.redirect_uris.length !== 1 || b.redirect_uris[0] !== RELAY_CALLBACK
@@ -122,36 +124,36 @@ export async function relayOAuth(request, env, fetcher = fetch) {
       const client_id = stored.client_id;
       return json({client_id, redirect_uris: [RELAY_CALLBACK], token_endpoint_auth_method: 'none', grant_types: ['authorization_code', 'refresh_token'], response_types: ['code']}, 201);
     }
-    if (path === '/relay/oauth/authorize' && request.method === 'GET') {
-      if (!env.RELAY_GITHUB_CLIENT_ID || !env.RELAY_GITHUB_CLIENT_SECRET) return err('temporarily_unavailable', 503);
-      const p = Object.fromEntries(url.searchParams); p.scope ||= RELAY_PUBLIC_SCOPES.join(' ');
+    if (path === policy.path + '/oauth/authorize' && request.method === 'GET') {
+      if (!githubClientId || !githubClientSecret) return err('temporarily_unavailable', 503);
+      const p = Object.fromEntries(url.searchParams); p.scope ||= policy.defaultScopes.join(' ');
       if ([...url.searchParams.keys()].some(k => url.searchParams.getAll(k).length !== 1)) return err('invalid_request', 400, 'duplicate_parameter');
-      const issue = authParamsError(p, await read(env, 'client:' + p.client_id), env);
+      const issue = authParamsError(p, await read(env, 'client:' + p.client_id, policy), env, policy);
       if (issue) return err('invalid_request', 400, issue);
       const state = random(), browser = random(), verifier = random();
-      const stored = await put(env, 'login:' + await hash(state), {p, browser: await hash(browser), verifier}, Date.now() + SESSION_MS, 'session');
+      const stored = await put(env, 'login:' + await hash(state), {p, browser: await hash(browser), verifier}, Date.now() + SESSION_MS, 'session', policy);
       if (stored.error) return err('temporarily_unavailable', 503);
       const github = new URL('https://github.com/login/oauth/authorize');
-      github.search = new URLSearchParams({client_id: env.RELAY_GITHUB_CLIENT_ID, redirect_uri: issuer + '/relay/oauth/github/callback', state, code_challenge: await challenge(verifier), code_challenge_method: 'S256', allow_signup: 'false', scope: ''});
-      return redirect(github.href, {'Set-Cookie': cookieHeader(browser)});
+      github.search = new URLSearchParams({client_id: githubClientId, redirect_uri: issuer + policy.path + '/oauth/github/callback', state, code_challenge: await challenge(verifier), code_challenge_method: 'S256', allow_signup: 'false', scope: ''});
+      return redirect(github.href, {'Set-Cookie': cookieHeader(browser, 600, policy)});
     }
-    if (path === '/relay/oauth/github/callback' && request.method === 'GET') {
+    if (path === policy.path + '/oauth/github/callback' && request.method === 'GET') {
       processingFailure = 'github_callback_processing_failed';
       if([...url.searchParams.keys()].some(k=>url.searchParams.getAll(k).length!==1))return err('invalid_request', 400, 'callback_duplicate_parameter');
-      const state = url.searchParams.get('state'), browser = cookie(request);
+      const state = url.searchParams.get('state'), browser = cookie(request, policy);
       if (!/^[a-f0-9]{64}$/.test(state || '')) return err('invalid_request', 400, 'callback_state_invalid');
       if (browser === undefined) return err('invalid_request', 400, 'login_cookie_missing');
       if (!/^[a-f0-9]{64}$/.test(browser)) return err('invalid_request', 400, 'login_cookie_invalid');
       processingFailure = 'login_registry_unavailable';
-      const consumed = await consume(env, 'login:' + await hash(state), {browser: await hash(browser)}), login = consumed.value;
+      const consumed = await consume(env, 'login:' + await hash(state), {browser: await hash(browser)}, policy), login = consumed.value;
       if (!login) return err('invalid_request', 400, consumed.reason === 'binding_mismatch' ? 'login_cookie_mismatch' : 'login_state_expired_or_used');
-      if (url.searchParams.has('error')) return oauthRedirect(login.p, env, {error: 'access_denied'});
+      if (url.searchParams.has('error')) return oauthRedirect(login.p, env, {error: 'access_denied'}, policy);
       const code = url.searchParams.get('code');
       if (typeof code !== 'string' || !/^[A-Za-z0-9_-]{1,200}$/.test(code)) return err('invalid_request', 400, 'github_code_invalid');
       processingFailure = 'github_token_exchange_unavailable';
       // Workers rejects redirect:'error'. Manual never forwards credentials to
       // a redirect target; the existing !ok checks below reject every 3xx.
-      const tokenResponse = await fetcher('https://github.com/login/oauth/access_token', {method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(10000), headers: {'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json'}, body: new URLSearchParams({client_id: env.RELAY_GITHUB_CLIENT_ID, client_secret: env.RELAY_GITHUB_CLIENT_SECRET, code, redirect_uri: issuer + '/relay/oauth/github/callback', code_verifier: login.verifier}).toString()});
+      const tokenResponse = await fetcher('https://github.com/login/oauth/access_token', {method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(10000), headers: {'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json'}, body: new URLSearchParams({client_id: githubClientId, client_secret: githubClientSecret, code, redirect_uri: issuer + policy.path + '/oauth/github/callback', code_verifier: login.verifier}).toString()});
       if (!tokenResponse.ok) return err('temporarily_unavailable', 503, 'github_token_endpoint_error');
       processingFailure = 'github_token_response_invalid';
       const githubToken = JSON.parse(await boundedText(tokenResponse, 65536));
@@ -165,16 +167,16 @@ export async function relayOAuth(request, env, fetcher = fetch) {
       if (user.id !== 183016859) return err('access_denied', 403, 'github_owner_not_allowed');
       const csrf = random(), session = random();
       processingFailure = 'consent_registry_unavailable';
-      const stored = await put(env, 'consent:' + await hash(session), {p: login.p, csrf}, Date.now() + SESSION_MS, 'session');
+      const stored = await put(env, 'consent:' + await hash(session), {p: login.p, csrf}, Date.now() + SESSION_MS, 'session', policy);
       if (stored.error) return err('temporarily_unavailable', 503, 'consent_capacity_unavailable');
       processingFailure = 'consent_response_unavailable';
-      const response = consentPage(csrf, login.p.scope), headers = new Headers(response.headers); headers.set('Set-Cookie', cookieHeader(session));
+      const response = consentPage(csrf, login.p.scope, policy), headers = new Headers(response.headers); headers.set('Set-Cookie', cookieHeader(session, 600, policy));
       return new Response(response.body, {status: 200, headers});
     }
-    if (path === '/relay/oauth/approve' && request.method === 'POST') {
+    if (path === policy.path + '/oauth/approve' && request.method === 'POST') {
       processingFailure = 'consent_request_processing_failed';
       if (request.headers.get('Origin') !== issuer || !request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return err('access_denied', 403, 'consent_origin_or_content_type_invalid');
-      const session = cookie(request),params=new URLSearchParams(await boundedText(request));
+      const session = cookie(request, policy),params=new URLSearchParams(await boundedText(request));
       if([...params.keys()].some(k=>params.getAll(k).length!==1))return err('invalid_request', 400, 'consent_duplicate_parameter');
       const b = Object.fromEntries(params);
       if (session === undefined) return err('invalid_request', 400, 'consent_cookie_missing');
@@ -185,18 +187,18 @@ export async function relayOAuth(request, env, fetcher = fetch) {
       // Missing selection preserves the thirty-day contract for older forms.
       if (b.decision === 'allow' && b.refresh_days !== undefined && !['30', '365'].includes(b.refresh_days)) return err('invalid_request', 400, 'consent_duration_invalid');
       processingFailure = 'consent_registry_unavailable';
-      const consumed = await consume(env, 'consent:' + await hash(session), {csrf: b.csrf}), consent = consumed.value;
+      const consumed = await consume(env, 'consent:' + await hash(session), {csrf: b.csrf}, policy), consent = consumed.value;
       if (!consent) return err('invalid_request', 400, consumed.reason === 'binding_mismatch' ? 'consent_csrf_mismatch' : 'consent_session_expired_or_used');
-      if (b.decision === 'deny') return oauthRedirect(consent.p, env, {error: 'access_denied'});
+      if (b.decision === 'deny') return oauthRedirect(consent.p, env, {error: 'access_denied'}, policy);
       const code = random(), grantId = random();
       processingFailure = 'consent_grant_processing_failed';
-      const stored = await registry(env, {op: 'authorize', grantId, codeKey: 'code:' + await hash(code), params: consent.p, resource, durationDays: b.refresh_days === '365' ? 365 : DEFAULT_REFRESH_DAYS});
+      const stored = await registry(env, {op: 'authorize', grantId, codeKey: 'code:' + await hash(code), params: consent.p, resource, durationDays: b.refresh_days === '365' ? 365 : DEFAULT_REFRESH_DAYS}, policy);
       if (stored.error) return stored.error === 'Client expired'
         ? err('invalid_request', 400, 'consent_client_not_registered')
         : err('temporarily_unavailable', 503, 'consent_grant_capacity_unavailable');
-      return oauthRedirect(consent.p, env, {code});
+      return oauthRedirect(consent.p, env, {code}, policy);
     }
-    if (path === '/relay/oauth/token' && request.method === 'POST') {
+    if (path === policy.path + '/oauth/token' && request.method === 'POST') {
       if (!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return err();
       const params = new URLSearchParams(await boundedText(request));
       if ([...params.keys()].some(k => params.getAll(k).length !== 1)) return err();
@@ -210,28 +212,28 @@ export async function relayOAuth(request, env, fetcher = fetch) {
       } else if (b.grant_type === 'refresh_token') {
         if (!/^[a-f0-9]{64}$/.test(b.refresh_token || '')) return err('invalid_grant');
         key = 'refresh:' + await hash(b.refresh_token); match = {client_id: b.client_id, resource};
-        if (b.scope !== undefined && !scopes(b.scope)) return err('invalid_scope');
+        if (b.scope !== undefined && !scopes(b.scope, policy)) return err('invalid_scope');
       } else return err('unsupported_grant_type');
-      const result = await registry(env, {op: 'exchange', key, match, scope: b.scope, accessKey: 'access:' + await hash(access), refreshKey: 'refresh:' + await hash(refresh)});
+      const result = await registry(env, {op: 'exchange', key, match, scope: b.scope, accessKey: 'access:' + await hash(access), refreshKey: 'refresh:' + await hash(refresh)}, policy);
       if (!result.scope) return err('invalid_grant');
       return json({access_token: access, refresh_token: refresh, token_type: 'Bearer', expires_in: result.expiresIn, scope: result.scope});
     }
-    if (path === '/relay/oauth/revoke' && request.method === 'POST') {
+    if (path === policy.path + '/oauth/revoke' && request.method === 'POST') {
       if (!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return err();
       const params=new URLSearchParams(await boundedText(request));
       if([...params.keys()].some(k=>params.getAll(k).length!==1))return err();
       const b = Object.fromEntries(params);
       if (!/^[a-f0-9]{64}$/.test(b.token || '') || !/^[a-f0-9]{64}$/.test(b.client_id || '')) return json({});
-      await registry(env, {op: 'revoke', tokenHash: await hash(b.token), client_id: b.client_id});
+      await registry(env, {op: 'revoke', tokenHash: await hash(b.token), client_id: b.client_id}, policy);
       return json({});
     }
     return err('not_found', 404);
-  } catch { return err('invalid_request', 400, processingFailure || (path === '/relay/oauth/authorize' ? 'authorization_processing_failed' : undefined)); }
+  } catch { return err('invalid_request', 400, processingFailure || (path === policy.path + '/oauth/authorize' ? 'authorization_processing_failed' : undefined)); }
 }
 
 // Every exchange/rotation and consume is atomic. Rows hold only hashed bearer IDs.
-export function relayOAuthStore(ctx, b, now = Date.now(), env) {
-  if(b.op==='authenticate-readonly')return json({principal:relayReadOnlyPrincipal(ctx,env,b.accessHash,now)});
+export function relayOAuthStore(ctx, b, now = Date.now(), env, policy = DEFAULT_POLICY) {
+  if(b.op==='authenticate-readonly')return json({principal:relayReadOnlyPrincipal(ctx,env,b.accessHash,now,policy)});
   const sql = ctx.storage.sql;
   sql.exec('CREATE TABLE IF NOT EXISTS relay_oauth (key TEXT PRIMARY KEY, category TEXT NOT NULL, value TEXT NOT NULL, expires_at INTEGER NOT NULL)');
   sql.exec('CREATE INDEX IF NOT EXISTS relay_oauth_expiry ON relay_oauth(expires_at)');
@@ -241,7 +243,9 @@ export function relayOAuthStore(ctx, b, now = Date.now(), env) {
     // identities must re-register, never be reconstructed from an authorize URL.
     sql.exec("UPDATE relay_oauth SET expires_at=? WHERE category='client' AND expires_at>? AND expires_at<?", CLIENT_EXPIRY, now, CLIENT_EXPIRY);
     sql.exec('DELETE FROM relay_oauth WHERE expires_at<=?', now);
-    const get = key => { const r = [...sql.exec('SELECT value FROM relay_oauth WHERE key=?', key)][0]; return r ? JSON.parse(r.value) : null; };
+    const get = key => {
+      if (policy.staticClient && key.startsWith('client:')) return policy.enabled(env) && key === 'client:' + policy.staticClient(env) ? {redirect: policy.callback} : null;
+      const r = [...sql.exec('SELECT value FROM relay_oauth WHERE key=?', key)][0]; return r ? JSON.parse(r.value) : null; };
     const store = (key, category, value, expiration) => sql.exec('INSERT OR REPLACE INTO relay_oauth VALUES(?,?,?,?)', key, category, JSON.stringify(value), expiration);
     const remove = key => sql.exec('DELETE FROM relay_oauth WHERE key=?', key);
     const count = category => [...sql.exec('SELECT COUNT(*) AS n FROM relay_oauth WHERE category=?', category)][0].n;
@@ -258,6 +262,7 @@ export function relayOAuthStore(ctx, b, now = Date.now(), env) {
       store(key,'rate',{count:rate.count+1},now+SESSION_MS);return json({ok:true});
     }
     if (b.op === 'register') {
+      if (policy.staticClient) return json({error:'Registration disabled'},400);
       // RFC 7591 permits reuse for instances with the same registration. This
       // broker accepts only one fixed ChatGPT public callback/security policy.
       // Reuse before the row cap so unauthenticated DCR cannot fill it forever.
@@ -285,7 +290,7 @@ export function relayOAuthStore(ctx, b, now = Date.now(), env) {
       if (!REFRESH_DAYS.includes(durationDays)) return json({error: 'Invalid duration'}, 400);
       const p = b.params, expiration = now + durationDays * 86400000;
       const client=get('client:'+p.client_id);
-      if(!client)return json({error:'Client expired'});
+      if(!client || policy.staticClient && (authParamsError(p,client,env,policy) || b.resource !== policy.resource(env)))return json({error:'Client expired'});
       // Legacy Allow stored a thirty-day grant before its ten-minute code was
       // redeemed. An expired, never-issued consent must not exhaust the ten
       // usable-family slots. Preserve every row; only omit proven abandoned
@@ -320,8 +325,8 @@ export function relayOAuthStore(ctx, b, now = Date.now(), env) {
             && grant.resource===resource.origin+'/relay/mcp';
         }catch{}
         const knownPending = row.category==='grant' && /^grant:[a-f0-9]{64}$/.test(row.key) && isObject(grant)
-          && grant.revoked===false && grant.principal===RELAY_OWNER
-          && typeof grant.client_id==='string' && /^[a-f0-9]{64}$/.test(grant.client_id) && scopes(grant.scope)
+          && grant.revoked===false && grant.principal===policy.principal
+          && typeof grant.client_id==='string' && /^[a-f0-9]{64}$/.test(grant.client_id) && scopes(grant.scope, policy)
           && knownResource && Number.isSafeInteger(grant.expiresAt) && grant.expiresAt>now
           && Number.isSafeInteger(row.expires_at) && row.expires_at>now && row.expires_at<=grant.expiresAt
           && (grant.consentDurationDays===undefined||REFRESH_DAYS.includes(grant.consentDurationDays))
@@ -329,7 +334,7 @@ export function relayOAuthStore(ctx, b, now = Date.now(), env) {
         return !knownPending || referenced.has(row.key.slice(6));
       });
       if(counted.length>=10)return json({error:'Registry full'});
-      const grant = {principal: RELAY_OWNER, client_id: p.client_id, scope: p.scope, resource: b.resource, expiresAt: expiration, revoked: false, consentDurationDays: durationDays};
+      const grant = {principal: policy.principal, client_id: p.client_id, scope: p.scope, resource: b.resource, expiresAt: expiration, revoked: false, consentDurationDays: durationDays};
       // Pending grants physically expire with the code. Keep the original
       // absolute lifetime in the value: a valid atomic exchange below promotes
       // this same family to that expiry, including on an older rollback worker.
@@ -347,9 +352,9 @@ export function relayOAuthStore(ctx, b, now = Date.now(), env) {
       }
       if (Object.entries(b.match).some(([k, v]) => !equal(value[k], v))) return json({});
       const grant = get('grant:' + value.grantId);
-      if (!grant || grant.revoked || grant.principal !== RELAY_OWNER) return json({});
+      if (!grant || grant.revoked || grant.principal !== policy.principal || policy.staticClient && (!policy.enabled(env) || value.client_id !== policy.staticClient(env) || value.resource !== policy.resource(env))) return json({});
       const scope = b.scope || value.scope;
-      if (!scopes(scope) || scope.split(' ').some(s => !value.scope.split(' ').includes(s))) return json({});
+      if (!scopes(scope, policy) || scope.split(' ').some(s => !value.scope.split(' ').includes(s))) return json({});
       if(b.key.startsWith('refresh:')&&count('used')>=10000)return json({});
       remove(b.key);
       if (b.key.startsWith('refresh:')) {
