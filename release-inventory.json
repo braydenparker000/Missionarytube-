@@ -1,0 +1,296 @@
+{
+  "schema": 1,
+  "kind": "historical-release-inventory",
+  "observedAt": "2026-10-16T18:26:18Z",
+  "deployment": {
+    "repository": "braydenparker000/Missionarytube-",
+    "repositoryId": 1350047370,
+    "commit": "6093a80ee86c868ead96c7141cd127a51e8b9b16",
+    "tree": "6ba60210ee6ca2f6f5bbd668320cbe95104e9cd4"
+  },
+  "source": {
+    "repository": "braydenparker999/jarvis",
+    "qualifiedCommit": "324d4c4196dc7ee602a23210c62cc92238c7da96",
+    "mergedCommit": "0e8d89cecd15e681ae949b116e64df8f52668a6d",
+    "tree": "7d594ae123c2bc990e349f6bdb9290899829d158"
+  },
+  "components": {
+    "privateFrontend": {
+      "owner": "publish-private-board",
+      "source": "324d4c4196dc7ee602a23210c62cc92238c7da96",
+      "receiptUrl": "https://missionarytube.z13.web.core.windows.net/private-workspace-release.json",
+      "receiptSha256": "e1225d3d56402c089b4347e656bdd704267680d1996e4f488f4bf1ec9ac8e3e4",
+      "runId": "38946691555",
+      "assets": [
+        {
+          "path": "assets/muse.js",
+          "sha256": "fa48012ea080c999a89af22b0f630f82eea9c8a5bddbdd4c1090daa59a84035d"
+        },
+        {
+          "path": "assets/private-appearance-settings.js",
+          "sha256": "4b33c5ca2fda230ad4ba26222fbce78f79a03df16a1dec7c7e009f8b947e0770"
+        },
+        {
+          "path": "assets/private-appearance-state.js",
+          "sha256": "a56f9a7262d32b668c7f93d11dcba90e8c968f1f1c41859379593f7b9f71025a"
+        },
+        {
+          "path": "assets/private-avatars.js",
+          "sha256": "dbe521f084fbaa8fcfc511e4154d6ae99484552316995e29c7d61949207bae05"
+        },
+        {
+          "path": "assets/private-board.js",
+          "sha256": "3d0d37ca8fb073e16fe3f5eb7b48fdda557ac87a544a37503085a8289ba42b86"
+        },
+        {
+          "path": "assets/private-group-chat.css",
+          "sha256": "856ae43ee9efeb4fb27ba3e6214820b68d3da3092a07dde188571cc443fb6dc0"
+        },
+        {
+          "path": "assets/private-lucy.js",
+          "sha256": "abbc472c61656558e0947041967ce08da608e2f1d2fec5fc6523bcaa1ff6d668"
+        },
+        {
+          "path": "assets/private-makima-api.js",
+          "sha256": "2b1d4777fc6f1586fa147ab13879b8193826b37ac325cdc2fb01b52b60d9cd9c"
+        },
+        {
+          "path": "assets/private-makima.css",
+          "sha256": "f79db6495fb8b2c436bacf1a9017cb2c2e597c0cab8eae5e5c3920baea5524b1"
+        },
+        {
+          "path": "assets/private-makima.js",
+          "sha256": "da72ca71fd3e317f6917f5d1bd9c40e9360e2316097202f1896defee5800d078"
+        },
+        {
+          "path": "assets/private-mast.js",
+          "sha256": "c4614a88624d3252c412f609a645ef2bbbc5915ee23fa634c9892d200bc46482"
+        },
+        {
+          "path": "assets/private-menu-motion.js",
+          "sha256": "15f446b6fedb7bf6607ecca723217849ee7afafebd96a58d005b5000dcc8154b"
+        },
+        {
+          "path": "assets/private-theme.css",
+          "sha256": "e71e558205fa52fb2553950feffeccdf52719544a31047515e8fe59867d43cc0"
+        },
+        {
+          "path": "assets/private-theme.js",
+          "sha256": "a941911dda2302f78ec3f69ab62ebfdb5ec2ecb8a81bce478e684020a54d8714"
+        },
+        {
+          "path": "assets/private-workspace.js",
+          "sha256": "526d9c64f4f2a7f66003f262c4ed2bead76a1b0cbf5d07070ef68a9ff2f2737d"
+        },
+        {
+          "path": "assets/relay-owner-api.js",
+          "sha256": "9506286317847b393bd23fd19baba60b3b2cecb2f2276852b74b7ade2ca24085"
+        },
+        {
+          "path": "muse/index.html",
+          "sha256": "d69559cfe30aeb415de5ea2ef089a36b8e0420989e0bc3f7a84fe5cffb7eea0b"
+        },
+        {
+          "path": "private/index.html",
+          "sha256": "8250c6b8a08798daadf129b851512fb2a0018f7a3f16fc4e235cfae7380990c4"
+        }
+      ],
+      "preservedDependencies": [
+        {
+          "path": "assets/channels.js",
+          "sha256": "a5dad9e2a90049bb27736e98d8db2e06117b699ed40d679fff533b0585133c75"
+        },
+        {
+          "path": "assets/config.js",
+          "sha256": "68348a3626a9e5374802fcecffd439b946e4335ec50384d964f79f86ca4e5c19"
+        },
+        {
+          "path": "assets/conversation.css",
+          "sha256": "e1c2c3a7382f85e74e81e8fa998f51ec554418af77e22355b32fdc027c986e63"
+        },
+        {
+          "path": "assets/conversation.js",
+          "sha256": "7544da586d1f16197b38b3b550f61b2e834b27f957ba1017923a8c8ac2c1d77d"
+        },
+        {
+          "path": "assets/direct-api.js",
+          "sha256": "7c9b9ce485cd3b5f092b1fe8a6bdfe116ce55a1427b9515d65d2f5adce41754a"
+        },
+        {
+          "path": "assets/file-save.js",
+          "sha256": "372bbad0c13e254aecbe72750a3f2d86781172ebc2b08b164a2c6d67dfe01518"
+        },
+        {
+          "path": "assets/mast-draft.js",
+          "sha256": "b9eace966ce39a513fcdb899698566bb028bbdae3010e52abfaeaf3dc9991020"
+        },
+        {
+          "path": "assets/mast-work-simple-chat-tasks-v1.js",
+          "sha256": "36c2e6650bae134ac05bba2ccec95e21a4731088c5262bc0fcf8c0654d0f3c7b"
+        },
+        {
+          "path": "assets/mast.css",
+          "sha256": "62b55749a00872ab7cd82f44209a5eeacd84026a66a18dc23b25e11298a8c843"
+        },
+        {
+          "path": "assets/mast.js",
+          "sha256": "006a13801a3973dff467d0ba4710fd44a04324e172559798755485855f86e6e1"
+        },
+        {
+          "path": "assets/muse-shell-simple-chat-tasks-v1.js",
+          "sha256": "58658c212b5ca5cb0e072deb3cfd9ac6de4da2619f8eaafb1d65556f7e417810"
+        },
+        {
+          "path": "assets/muse-shell.js",
+          "sha256": "7aae6e78b4f08f75f0fc0479cbf628d101c821dde1df7603fe8c6df35e33d19f"
+        },
+        {
+          "path": "assets/muse-store.js",
+          "sha256": "a670e143e16bdc272eef02212c5f2342d38b0590fdb9d5c7bbc99642f3d57154"
+        },
+        {
+          "path": "assets/muse.css",
+          "sha256": "1b4f26262662cd636606f5b0f92f6c61bf920c08f15f4e1ab0c5a7b1c89ce542"
+        },
+        {
+          "path": "assets/premium.css",
+          "sha256": "3999cce53709bcbabebe7ae182d7c01e365f85b307924261baa0b16bcde5a58f"
+        },
+        {
+          "path": "assets/private-attachments.js",
+          "sha256": "ef11a9792409e6a9ca89bf260cbd59a77c0917aea4f7ae0a4cb5c292b9dea663"
+        },
+        {
+          "path": "assets/private-board-activation.js",
+          "sha256": "7ae21a02682d3a70904c5cb405b03e42ed3b6a48b566bb6628846e592b344f6d"
+        },
+        {
+          "path": "assets/private-board-api.js",
+          "sha256": "d3ca7bb84b4f85873aacdc5692049810d4e44f3fa94a66076ea7497efc5532df"
+        },
+        {
+          "path": "assets/private-board-approvals.js",
+          "sha256": "c271a6c72718ec8835943a330f93daa5017ad8d4aad5d340dd7a3b1f553d45fb"
+        },
+        {
+          "path": "assets/private-board-rebind.js",
+          "sha256": "464f45db9ee7ddf7f6751792e6c2ae8e0238f254f952cc55278e2638782492df"
+        },
+        {
+          "path": "assets/private-board-state.js",
+          "sha256": "d0c30f52757d76fd6cae0f2dd131abd1cc010cc0909d2641fc53e218de96f24f"
+        },
+        {
+          "path": "assets/private-board-task-resolution.js",
+          "sha256": "412bc2a20c10cae00f3c2410de05128b4f0457ad7eabca45518821b3cce34a89"
+        },
+        {
+          "path": "assets/private-board-tasks.js",
+          "sha256": "3ba2b10413c440c3fe1f6a0d3797741b7a47d963321169d8ddf116ee2d42ce5f"
+        },
+        {
+          "path": "assets/private-chat-frame.css",
+          "sha256": "24c67ce8fe7af9e95b5268d5bfeb84df37d0881f30349c9e34980d6a832d81bf"
+        },
+        {
+          "path": "assets/private-collaboration.js",
+          "sha256": "e9633c7bcb5ed508236550a3cbee6156472b9adb1d277d59c620ff87c3e4775d"
+        },
+        {
+          "path": "assets/private-mast-work.js",
+          "sha256": "4eca2738aa511aee769cc02423cf88543adb78011bb16bcc4cf0c8641a7babc7"
+        },
+        {
+          "path": "assets/private-muse-shell.js",
+          "sha256": "7b704fcc4ed0fe77ce6420e5248c5a1c2a86ae3eda105416eda42cf0b2e1dc03"
+        },
+        {
+          "path": "assets/private-photo.js",
+          "sha256": "bc2e164ec58cfb082def73e4741dd980035fe17d580cad584947202780c46345"
+        },
+        {
+          "path": "assets/private-tasks.js",
+          "sha256": "ab64493a92177690db3dfd253b99d09826c3233f9b8c3d7e77c0953bc2453b16"
+        },
+        {
+          "path": "assets/private-workspace.css",
+          "sha256": "d1e3934b4179386b724045ca9fac9cd70e4bb0b10b89a9aa05e018ca4f0863a9"
+        },
+        {
+          "path": "assets/public-coordination.js",
+          "sha256": "c6987811ec2096652b84138c4d1c7609909a0aa2c4133c883be745c8f90e7291"
+        },
+        {
+          "path": "assets/public-delivery-store.js",
+          "sha256": "ecccab2e260001ca11c8e61d6b9771da409524478ab7c4631b54ab5b864a471a"
+        },
+        {
+          "path": "assets/public-reader-cache.js",
+          "sha256": "ed2f6710658c940c708f34ac748e572065df2ed7183e6e6401f81d2764404aa9"
+        },
+        {
+          "path": "assets/relay-attachment-content.js",
+          "sha256": "35d6ab366e5dab51dfbdb212ba12d29e798d0ad7352dee157774dd60c7a370ec"
+        },
+        {
+          "path": "assets/relay-attachment-contract.js",
+          "sha256": "9f4d083d17ea6dc914c3c7fdcf1f8baad0dda0a323072be1f4cd7c96518d92f2"
+        },
+        {
+          "path": "assets/relay-attachments.js",
+          "sha256": "c84a89ecbac377345eedca05035a49f5e67d0d045204c59270e979f5245edce9"
+        },
+        {
+          "path": "assets/relay-draft-store.js",
+          "sha256": "d5dcacb7770e6d0ee980c22feaf25cbf9c9e40db3a9f3e0245985c56e98c3f6b"
+        },
+        {
+          "path": "assets/relay-menu-history.js",
+          "sha256": "f2c7517550b3348e2324ef79a35f351811bf8662ed02344f8d1c62d250b946d1"
+        },
+        {
+          "path": "assets/relay-owner-ui.js",
+          "sha256": "6aef5fbda5c7cab14b19292cf1210cf95920972a3c7e04a44632f281e35a18e1"
+        },
+        {
+          "path": "assets/relay.css",
+          "sha256": "020ece525dace587075b361a0780fcb735def59e72d62c775c243a7e676a92fb"
+        },
+        {
+          "path": "assets/shell.css",
+          "sha256": "0ef93e3305309e5d5967993f82e886ace3cf16483a935ce692147172a1b6f0e2"
+        },
+        {
+          "path": "assets/ui.js",
+          "sha256": "3c2fa5bda1736ea0e66b3ecd56b573c061f45eb0e377d658cc009fcd96805e08"
+        },
+        {
+          "path": "mast/index.html",
+          "sha256": "84e7ded33861bd16c5c30105fe3240629204bb214111f131c5ddd5e2adfdb0f4"
+        },
+        {
+          "path": "private/lucy.html",
+          "sha256": "6ebe15e33e568d464e81fbf7b775d206178f7b5e9996bbabab46c4ef435ab734"
+        },
+        {
+          "path": "private/mast.html",
+          "sha256": "603a10ce02e3333b562acc788182d33ab897ff3d4d9011a52522fc332411ad81"
+        }
+      ]
+    },
+    "worker": {
+      "owner": "jarvis-hub-api",
+      "source": "62ac633f367250ed21b3ecf7a4627263e9e07d9f",
+      "version": "aaf9612a-dc41-4904-bd90-887b4f8f9f7c",
+      "codeSha256": "642af5986b00aaa9d059204668dc0e1351cd0d0dbeee19f3b577c4a0a68232e8",
+      "settingsDigest": "e2a1add50b4ec89596fdb1409d5335b3e1357229c07071a730dd637cf32dc089",
+      "schedulesDigest": "6daa9ec137a94fc5962f6d05ab16df8dba70096ae34571ccd552ac130cd733c5"
+    },
+    "legacyGeneralRecipe": {
+      "owner": "jarvis-release.json consumers",
+      "source": "c28c1b2f70aabb5217b08bf31ffe4c93d0353765",
+      "status": "recipe-only-not-complete-live-baseline"
+    }
+  },
+  "coverage": "private frontend dependency closure and Worker identity only; other applications not fully inventoried"
+}
