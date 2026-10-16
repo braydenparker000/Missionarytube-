@@ -144,20 +144,10 @@ test('Makima duplicate native submits: delayed first success versus second navig
           release.resolve(); await bounded(Promise.allSettled([...pending]), 'released first response completion');
           assert.equal(new URL(page.url()).pathname, PATH + '/oauth/approve', 'The canceled first success must not replace the second error navigation');
         } else {
-          // Inspect the still-active document directly through CDP. Locator
-          // actions/reads would wait for the intentionally held navigation.
-          const inspection = await send('Runtime.evaluate', {
-            expression: `JSON.stringify({busy: document.querySelector('form').getAttribute('aria-busy'), buttons: [...document.querySelectorAll('form button')].map(button => ({ariaDisabled: button.getAttribute('aria-disabled'), nativeDisabled: button.disabled}))})`,
-            returnByValue: true,
-          });
-          assert.equal(inspection.exceptionDetails, undefined);
-          const state = JSON.parse(inspection.result.value);
-          assert.equal(state.busy, 'true');
-          assert.ok(state.buttons.length > 0);
-          for (const button of state.buttons) {
-            assert.equal(button.ariaDisabled, 'true', 'ARIA exposes the pending state');
-            assert.equal(button.nativeDisabled, false, 'Native disabled must stay false to preserve successful submitter serialization');
-          }
+          // Do not evaluate JavaScript while a navigation is held: Chromium
+          // can defer even direct CDP Runtime.evaluate until it completes.
+          // The unit below covers accessibility state; this case validates the
+          // actual submitted request count, decision and eventual callback.
           await new Promise(resolve => setTimeout(resolve, 200)); assert.equal(approvals.length, 1);
           release.resolve(); await page.waitForURL(CANONICAL + '**');
           const result = new URL(page.url());
@@ -193,6 +183,8 @@ test('Makima duplicate native submits: delayed first success versus second navig
         await bounded(page.evaluate(guard), 'install unit guard');
         await bounded(page.evaluate(() => document.querySelector('form').dispatchEvent(new Event('submit', {cancelable: true}))), 'unit first submit');
         assert.equal(await page.locator('form').getAttribute('aria-busy'), 'true');
+        assert.equal(await page.locator('button').getAttribute('aria-disabled'), 'true');
+        assert.equal(await page.locator('button').evaluate(element => element.disabled), false);
         // Unit-check the handler used for BFCache restoration; this does not claim
         // that the synthetic browser fixture exercised an actual BFCache entry.
         await bounded(page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}))), 'unit pageshow');
