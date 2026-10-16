@@ -91,15 +91,39 @@ function isAllowed(host) {
   return /(?:^|\.)(?:example\.(?:test|com|org|net)|test|invalid|localhost)$/.test(host);
 }
 
+// This public OAuth callback is owner setup documentation, not an app request
+// destination. Permit only its exact token-free URL in the named handoff and
+// this test's definition; do not allowlist the host for other files or paths.
+const PUBLIC_MAKIMA_CALLBACK = "https://www.cursor.com/agents/mcp/oauth/callback";
+const CALLBACK_REFERENCE_FILES = new Set(["docs/makima-resume-20261014.md", "tests/privacy.test.mjs"]);
+function isAllowedDocumentationReference(path, reference) {
+  return CALLBACK_REFERENCE_FILES.has(path) && reference === PUBLIC_MAKIMA_CALLBACK;
+}
+
 test("no committed file references a non-allowlisted external host", () => {
   const offenders = [];
   for (const [path, source] of contents) {
     for (const match of source.matchAll(/https?:\/\/([a-z0-9.-]+\.[a-z]{2,})(?::\d+)?/gi)) {
       const host = match[1].toLowerCase();
-      if (!isAllowed(host)) offenders.push(`${path}: ${host}`);
+      const reference = source.slice(match.index).match(/^https?:\/\/[^\s"'`<>]+/i)?.[0];
+      if (!isAllowed(host) && !isAllowedDocumentationReference(path, reference)) offenders.push(`${path}: ${host}`);
     }
   }
   assert.deepEqual(offenders, [], "an unexpected host may be a configured add-on or personal stream URL");
+});
+
+test("public Makima callback exception cannot allow app destinations or OAuth query data", () => {
+  const doc = "docs/makima-resume-20261014.md";
+  assert.equal(isAllowed(new URL(PUBLIC_MAKIMA_CALLBACK).hostname), false);
+  assert.equal(isAllowedDocumentationReference(doc, PUBLIC_MAKIMA_CALLBACK), true);
+  for (const path of ["src/app.js", "scripts/other.mjs", "docs/other.md"])
+    assert.equal(isAllowedDocumentationReference(path, PUBLIC_MAKIMA_CALLBACK), false);
+  for (const suffix of ["?state=synthetic-private-state", "#fragment", "/extra"])
+    assert.equal(isAllowedDocumentationReference(doc, PUBLIC_MAKIMA_CALLBACK + suffix), false);
+  for (const mutate of [url => url.protocol = "http:", url => url.port = "8443", url => url.pathname = "/other", url => url.hostname = "cursor.com", url => url.username = "synthetic-user"]){
+    const url = new URL(PUBLIC_MAKIMA_CALLBACK); mutate(url);
+    assert.equal(isAllowedDocumentationReference(doc, url.href), false);
+  }
 });
 
 test("no committed file contains a Stremio-style configured manifest path", () => {
