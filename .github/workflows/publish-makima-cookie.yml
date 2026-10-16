@@ -1,6 +1,9 @@
 name: Publish Makima session repair
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-makima-cookie.yml']
 permissions:
   contents: read
   actions: read
@@ -9,7 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
-    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' }}
+    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'publish-makima-457d6e28-once'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
@@ -25,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: braydenparker999/jarvis
-          ref: 416d41a83c5819aae3e3a34d3d76919c217e1f97
+          ref: 457d6e28884ad12bca715163a2830a63cf743a5e
           path: .makima-cookie-source
           persist-credentials: false
           fetch-depth: 0
