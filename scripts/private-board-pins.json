@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "ready": true,
+  "source": "62ac633f367250ed21b3ecf7a4627263e9e07d9f",
+  "recipe": {
+    ".github/workflows/validate-r2.yml": "9a352d9671250bbdcb8701a6065905219442f0e0",
+    "scripts/qualification-proof.mjs": "ed5644fe333ec067ee24051e55b978a83932aa34",
+    "scripts/install-qualification-browser.mjs": "6c409f044097fc6ad2460d48efa4d2a4c95685cc",
+    "tests/helpers/ci-test-inventory.mjs": "ea4b765d4b510cf7e1cafd9a84526924bbaa4e86"
+  },
+  "worker": {
+    "version": "aaf9612a-dc41-4904-bd90-887b4f8f9f7c",
+    "codeSha256": "642af5986b00aaa9d059204668dc0e1351cd0d0dbeee19f3b577c4a0a68232e8",
+    "settingsDigest": "e2a1add50b4ec89596fdb1409d5335b3e1357229c07071a730dd637cf32dc089",
+    "schedulesDigest": "6daa9ec137a94fc5962f6d05ab16df8dba70096ae34571ccd552ac130cd733c5"
+  },
+  "parentReceiptSha256": "5027d01540106e21ffdc08593b3464a94d90628aefd7208daab091e7dfc16cec",
+  "files": [
+    {
+      "path": "assets/private-board-activation.js",
+      "sha256": "7ae21a02682d3a70904c5cb405b03e42ed3b6a48b566bb6628846e592b344f6d",
+      "bytes": 5048,
+      "before": null
+    },
+    {
+      "path": "assets/private-board-api.js",
+      "sha256": "d3ca7bb84b4f85873aacdc5692049810d4e44f3fa94a66076ea7497efc5532df",
+      "bytes": 8842,
+      "before": null
+    },
+    {
+      "path": "assets/private-board-approvals.js",
+      "sha256": "c271a6c72718ec8835943a330f93daa5017ad8d4aad5d340dd7a3b1f553d45fb",
+      "bytes": 2629,
+      "before": null
+    },
+    {
+      "path": "assets/private-board-rebind.js",
+      "sha256": "464f45db9ee7ddf7f6751792e6c2ae8e0238f254f952cc55278e2638782492df",
+      "bytes": 4399,
+      "before": null
+    },
+    {
+      "path": "assets/private-board-state.js",
+      "sha256": "d0c30f52757d76fd6cae0f2dd131abd1cc010cc0909d2641fc53e218de96f24f",
+      "bytes": 1313,
+      "before": null
+    },
+    {
+      "path": "assets/private-board-task-resolution.js",
+      "sha256": "412bc2a20c10cae00f3c2410de05128b4f0457ad7eabca45518821b3cce34a89",
+      "bytes": 3148,
+      "before": null
+    },
+    {
+      "path": "assets/private-board-tasks.js",
+      "sha256": "3ba2b10413c440c3fe1f6a0d3797741b7a47d963321169d8ddf116ee2d42ce5f",
+      "bytes": 5446,
+      "before": null
+    },
+    {
+      "path": "assets/private-board.js",
+      "sha256": "36f7fd5b472e0f376587d3d88e032128bc89639e96086079662e29291b622da5",
+      "bytes": 9351,
+      "before": null
+    },
+    {
+      "path": "assets/private-lucy.js",
+      "sha256": "636fd9c7751122a3a8b9cd7fdf45363071ca095dbbac524c8048fb80d3488382",
+      "bytes": 3076,
+      "before": "a870b70d0bd7b6b2a5c102e2bd2bac82fb4c887b465e4bc1568baac39c80d55d"
+    },
+    {
+      "path": "assets/private-mast.js",
+      "sha256": "7e842579df17568a1d42c258e05c92c04963e09387e8f1c91ae4adcfa2164587",
+      "bytes": 15697,
+      "before": "bcd25014f83be614d91b25695a68793d757f39dce58bea9e1329eedcd3cb459e"
+    },
+    {
+      "path": "assets/private-workspace.css",
+      "sha256": "d1e3934b4179386b724045ca9fac9cd70e4bb0b10b89a9aa05e018ca4f0863a9",
+      "bytes": 10603,
+      "before": "f446a3496d949e5b1640cb8474da3630b674a0fe452ebcca7f5e0b8cf1436f11"
+    },
+    {
+      "path": "assets/private-workspace.js",
+      "sha256": "e96b0652d0e297fcf82438c32d2522188eef08201693eb553bc52feadf7a7f79",
+      "bytes": 9982,
+      "before": "bcb91d8e690093fd0d4071548b30660a10695ccda8d226c22458d7f15ad23395"
+    },
+    {
+      "path": "assets/relay-owner-api.js",
+      "sha256": "0b9683bf0b8e6b3eca275a2c9cc4f142e5c41de7a58331a63a2b84af27621438",
+      "bytes": 45982,
+      "before": "14108abf8b5aaa1bcb9d912cac34b2ed7d3d97772ee96aeb7e81b6c8fe2988ef"
+    },
+    {
+      "path": "private/index.html",
+      "sha256": "5a405b12a320276010f4dd5dddd6cf8f9fc9d8c058f73ab965607505eccb8647",
+      "bytes": 4135,
+      "before": "c3b710123f81c34b9097f53b727567cc30b41e80cebe985ab30db47b66a6ac03"
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "assets/config.js",
+      "sha256": "68348a3626a9e5374802fcecffd439b946e4335ec50384d964f79f86ca4e5c19"
+    },
+    {
+      "path": "assets/conversation.css",
+      "sha256": "e1c2c3a7382f85e74e81e8fa998f51ec554418af77e22355b32fdc027c986e63"
+    },
+    {
+      "path": "assets/file-save.js",
+      "sha256": "372bbad0c13e254aecbe72750a3f2d86781172ebc2b08b164a2c6d67dfe01518"
+    },
+    {
+      "path": "assets/mast-draft.js",
+      "sha256": "b9eace966ce39a513fcdb899698566bb028bbdae3010e52abfaeaf3dc9991020"
+    },
+    {
+      "path": "assets/mast.css",
+      "sha256": "62b55749a00872ab7cd82f44209a5eeacd84026a66a18dc23b25e11298a8c843"
+    },
+    {
+      "path": "assets/premium.css",
+      "sha256": "3999cce53709bcbabebe7ae182d7c01e365f85b307924261baa0b16bcde5a58f"
+    },
+    {
+      "path": "assets/private-attachments.js",
+      "sha256": "ef11a9792409e6a9ca89bf260cbd59a77c0917aea4f7ae0a4cb5c292b9dea663"
+    },
+    {
+      "path": "assets/private-chat-frame.css",
+      "sha256": "24c67ce8fe7af9e95b5268d5bfeb84df37d0881f30349c9e34980d6a832d81bf"
+    },
+    {
+      "path": "assets/private-collaboration.js",
+      "sha256": "e9633c7bcb5ed508236550a3cbee6156472b9adb1d277d59c620ff87c3e4775d"
+    },
+    {
+      "path": "assets/private-mast-work.js",
+      "sha256": "4eca2738aa511aee769cc02423cf88543adb78011bb16bcc4cf0c8641a7babc7"
+    },
+    {
+      "path": "assets/private-muse-shell.js",
+      "sha256": "7b704fcc4ed0fe77ce6420e5248c5a1c2a86ae3eda105416eda42cf0b2e1dc03"
+    },
+    {
+      "path": "assets/private-photo.js",
+      "sha256": "bc2e164ec58cfb082def73e4741dd980035fe17d580cad584947202780c46345"
+    },
+    {
+      "path": "assets/private-tasks.js",
+      "sha256": "ab64493a92177690db3dfd253b99d09826c3233f9b8c3d7e77c0953bc2453b16"
+    },
+    {
+      "path": "assets/private-theme.css",
+      "sha256": "432c2a557e6772025d8bf08a4dfef8f9a270064c4519f9420dfe8661cb8692e6"
+    },
+    {
+      "path": "assets/private-theme.js",
+      "sha256": "cd8dc4db938ede161eef84bdd661c0a1e658fded85c71277aeb624c59e025871"
+    },
+    {
+      "path": "assets/relay-attachment-content.js",
+      "sha256": "35d6ab366e5dab51dfbdb212ba12d29e798d0ad7352dee157774dd60c7a370ec"
+    },
+    {
+      "path": "assets/relay-attachment-contract.js",
+      "sha256": "9f4d083d17ea6dc914c3c7fdcf1f8baad0dda0a323072be1f4cd7c96518d92f2"
+    },
+    {
+      "path": "assets/relay-attachments.js",
+      "sha256": "c84a89ecbac377345eedca05035a49f5e67d0d045204c59270e979f5245edce9"
+    },
+    {
+      "path": "assets/relay-draft-store.js",
+      "sha256": "d5dcacb7770e6d0ee980c22feaf25cbf9c9e40db3a9f3e0245985c56e98c3f6b"
+    },
+    {
+      "path": "assets/relay-menu-history.js",
+      "sha256": "f2c7517550b3348e2324ef79a35f351811bf8662ed02344f8d1c62d250b946d1"
+    },
+    {
+      "path": "assets/relay-owner-ui.js",
+      "sha256": "6aef5fbda5c7cab14b19292cf1210cf95920972a3c7e04a44632f281e35a18e1"
+    },
+    {
+      "path": "assets/relay.css",
+      "sha256": "020ece525dace587075b361a0780fcb735def59e72d62c775c243a7e676a92fb"
+    },
+    {
+      "path": "assets/shell.css",
+      "sha256": "0ef93e3305309e5d5967993f82e886ace3cf16483a935ce692147172a1b6f0e2"
+    },
+    {
+      "path": "assets/ui.js",
+      "sha256": "3c2fa5bda1736ea0e66b3ecd56b573c061f45eb0e377d658cc009fcd96805e08"
+    },
+    {
+      "path": "private/lucy.html",
+      "sha256": "6ebe15e33e568d464e81fbf7b775d206178f7b5e9996bbabab46c4ef435ab734"
+    },
+    {
+      "path": "private/mast.html",
+      "sha256": "603a10ce02e3333b562acc788182d33ab897ff3d4d9011a52522fc332411ad81"
+    }
+  ]
+}
