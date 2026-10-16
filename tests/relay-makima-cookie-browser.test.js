@@ -9,6 +9,7 @@ import {challenge} from '../backend/relay-common.js';
 import {MAKIMA_CALLBACK as CALLBACK} from '../backend/relay-makima-policy.js';
 
 const ORIGIN = 'https://makima.example.test', PATH = '/relay/makima', COOKIE = '__Host-jarvis-makima';
+const CANONICAL_CALLBACK = 'https://cursor.com/agents/mcp/oauth/callback';
 const CLIENT = 'c'.repeat(64), VERIFIER = 'synthetic-browser-verifier-'.repeat(3);
 const executablePath = [process.env.JARVIS_CHROME, '/usr/bin/chromium', chromium.executablePath()].find(p => p && existsSync(p));
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return {promise, resolve}; };
@@ -42,7 +43,8 @@ test('Makima delayed login and terminal responses cannot replace another tab’s
           const req = event.request, url = new URL(req.url);
           let status = 200, headers = {'Content-Type': 'text/html'}, body = '';
           if (url.pathname === '/favicon.ico') status = 204;
-          else if (url.origin + url.pathname === CALLBACK) body = '<title>Complete</title>';
+          else if (url.origin + url.pathname === CALLBACK) { status = 308; headers = {Location: CANONICAL_CALLBACK + url.search}; }
+          else if (url.origin + url.pathname === CANONICAL_CALLBACK) body = '<title>Complete</title>';
           else if (url.origin === 'https://github.com' && url.pathname === '/login/oauth/authorize') {
             if (older && decision === 'authorize') body = '<title>Login pending</title>';
             else { status = 302; headers = {Location: ORIGIN + PATH + '/oauth/github/callback?' + new URLSearchParams({state: url.searchParams.get('state'), ...(older && decision === 'github-cancel' ? {error: 'access_denied'} : {code: 'synthetic-code'})})}; }
@@ -87,7 +89,7 @@ test('Makima delayed login and terminal responses cannot replace another tab’s
           const login = (await context.cookies(ORIGIN)).find(c => c.name === COOKIE + '-login');
           assert.ok(login); assert.equal(login.httpOnly, true); assert.equal(login.secure, true); assert.equal(login.sameSite, 'Lax');
         } else {
-          await old.waitForURL(CALLBACK + '**');
+          await old.waitForURL(CANONICAL_CALLBACK + '**');
           assert.equal(oldResponse.headers['set-cookie'], undefined, 'terminal response must not mutate a newer cookie');
         }
         assert.deepEqual((await context.cookies(ORIGIN)).find(c => c.name === COOKIE), before);
@@ -97,7 +99,7 @@ test('Makima delayed login and terminal responses cannot replace another tab’s
           await old.locator('button[value="allow"]').click();
           assert.equal(JSON.parse(await old.locator('body').innerText()).error_description, 'consent_csrf_mismatch');
         }
-        await fresh.locator('button[value="allow"]').click(); await fresh.waitForURL(CALLBACK + '**');
+        await fresh.locator('button[value="allow"]').click(); await fresh.waitForURL(CANONICAL_CALLBACK + '**');
         assert.match(new URL(fresh.url()).searchParams.get('code'), /^[a-f0-9]{64}$/);
         assert.deepEqual((await context.cookies(ORIGIN)).find(c => c.name === COOKIE), before);
         // Retaining the real cookie does not make consumed consent replayable.

@@ -13,6 +13,9 @@ export const makimaEnabled = env => relayEnabled(env) && env.RELAY_MAKIMA_ENABLE
 export const makimaOAuthPolicy = Object.freeze({
   path: MAKIMA_PATH, registry: MAKIMA_OBJECT, principal: 'agent:makima',
   scopes: [MAKIMA_SCOPE], defaultScopes: [MAKIMA_SCOPE], callback: MAKIMA_CALLBACK,
+  // Cursor canonicalizes www to the apex host with a 308. Chromium applies
+  // form-action to that redirect too; OAuth registration stays exact and unchanged.
+  formActionRedirects: ['https://cursor.com/agents/mcp/oauth/callback'],
   retainTerminalCookie: true,
   loginCookie: '__Host-jarvis-makima-login',
   cookie: '__Host-jarvis-makima', clientName: 'Makima', enabled: makimaEnabled,
