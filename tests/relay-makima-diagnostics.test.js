@@ -1,3 +1,4 @@
+import {MAKIMA_CONSENT_SCRIPT_HASH} from '../backend/relay-makima-consent.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createConversationFixture, WORKER} from './helpers/relay-conversation-browser-fixture.js';
@@ -36,7 +37,7 @@ function fixture(t, overrides = {}) {
     assert.equal(response.status,200);
     const html = await response.text();
     assert.match(html,/Private Makima channel/); assert.doesNotMatch(html,/How long may ChatGPT/);
-    assert.equal(response.headers.get('Content-Security-Policy'),`default-src 'none'; form-action 'self' ${CALLBACK} https://cursor.com/agents/mcp/oauth/callback; frame-ancestors 'none'; base-uri 'none'`);
+    assert.equal(response.headers.get('Content-Security-Policy'),`default-src 'none'; form-action 'self' ${CALLBACK} https://cursor.com/agents/mcp/oauth/callback; frame-ancestors 'none'; base-uri 'none'; script-src '${MAKIMA_CONSENT_SCRIPT_HASH}'`);
     return {diag:html.match(/name="diagnostic_id" value="([^"]+)"/)[1],csrf:html.match(/name="csrf" value="([a-f0-9]{64})"/)[1],cookie:cookie(response)};
   }
   const approve = (c,extra={}) => request('/oauth/approve',{...form({csrf:c.csrf,decision:'allow',diagnostic_id:c.diag,...extra}),headers:{...form({}).headers,Origin:WORKER,Cookie:c.cookie}});

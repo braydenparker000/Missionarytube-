@@ -1,3 +1,5 @@
+import {createHash} from 'node:crypto';
+import {MAKIMA_CONSENT_SCRIPT, MAKIMA_CONSENT_SCRIPT_HASH} from '../backend/relay-makima-consent.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createConversationFixture, WORKER} from './helpers/relay-conversation-browser-fixture.js';
@@ -36,8 +38,10 @@ function fixture(t, overrides = {}) {
     assert.equal(response.status,200);
     const html = await response.text();
     assert.match(html,/Private Makima channel/); assert.doesNotMatch(html,/How long may ChatGPT/);
-    assert.equal(response.headers.get('Content-Security-Policy'),`default-src 'none'; form-action 'self' ${CALLBACK} https://cursor.com/agents/mcp/oauth/callback; frame-ancestors 'none'; base-uri 'none'`);
-    return {csrf:html.match(/name="csrf" value="([a-f0-9]{64})"/)[1],cookie:cookie(response)};
+    assert.equal(response.headers.get('Content-Security-Policy'),`default-src 'none'; form-action 'self' ${CALLBACK} https://cursor.com/agents/mcp/oauth/callback; frame-ancestors 'none'; base-uri 'none'; script-src '${MAKIMA_CONSENT_SCRIPT_HASH}'`);
+    assert.ok(html.includes('<script>' + MAKIMA_CONSENT_SCRIPT + '</script>'));
+    assert.equal(MAKIMA_CONSENT_SCRIPT_HASH, 'sha256-' + createHash('sha256').update(MAKIMA_CONSENT_SCRIPT).digest('base64'));
+    return {html,csrf:html.match(/name="csrf" value="([a-f0-9]{64})"/)[1],cookie:cookie(response)};
   }
   const approve = (c,extra={}) => request('/oauth/approve',{...form({csrf:c.csrf,decision:'allow',...extra}),headers:{...form({}).headers,Origin:WORKER,Cookie:c.cookie}});
   async function code() { const r = await approve(await consent()); assert.equal(r.status,302); assert.equal(new URL(r.headers.get('Location')).origin,'https://www.cursor.com'); return new URL(r.headers.get('Location')).searchParams.get('code'); }
@@ -295,4 +299,28 @@ test('Makima login cookie is phase-bound, single-use and expires after ten minut
   assert.equal((await expired.json()).error_description, 'login_state_expired_or_used');
   const c = await s.consent(); now += 600000;
   assert.equal((await (await s.approve(c)).json()).error_description, 'consent_session_expired_or_used');
+});
+
+// Recovery starts a fresh login; it never reissues or retries consumed consent.
+test('Makima consent recovery link starts a fresh flow with original validated parameters', async t => {
+  const f = fixture(t), c = await f.consent();
+  const href = c.html.match(/<a href="([^"]+)">start this connection again<\/a>/)[1].replaceAll('&amp;', '&');
+  const url = new URL(href, WORKER);
+  assert.equal(url.pathname, PATH + '/oauth/authorize');
+  assert.equal(url.searchParams.get('redirect_uri'), CALLBACK);
+  assert.equal(url.searchParams.get('state'), 'synthetic-state');
+  assert.equal(url.searchParams.get('code_challenge'), await challenge(VERIFIER));
+  assert.equal((await f.approve(c)).status, 302);
+  assert.equal((await f.approve(c)).status, 400);
+  const restarted = await f.fixture.request(href);
+  assert.equal(restarted.status, 302);
+  const github = new URL(restarted.headers.get('Location'));
+  assert.equal(github.origin, 'https://github.com');
+  const callback = await f.request('/oauth/github/callback?' + new URLSearchParams({state: github.searchParams.get('state'), code: 'synthetic-code'}), {headers: {Cookie: cookie(restarted)}});
+  assert.equal(callback.status, 200);
+  const html = await callback.text(), fresh = {csrf: html.match(/name="csrf" value="([a-f0-9]{64})"/)[1], cookie: cookie(callback)};
+  assert.notEqual(fresh.csrf, c.csrf);
+  assert.notEqual(fresh.cookie, c.cookie);
+  assert.equal((await f.approve(fresh)).status, 302);
+  assert.equal((await f.approve(c)).status, 400);
 });
