@@ -16,7 +16,7 @@
       },
       {
         "path": ".github/workflows/qualify-jarvis.yml",
-        "sha": "44cddf3d3411f408dc42723bbe35abc325ea8c30"
+        "sha": "e0fdfbf2d10f0092a1c4a84ec9ef877a7847daba"
       },
       {
         "path": "scripts/plan-jarvis-qualification.mjs",

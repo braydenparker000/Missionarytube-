@@ -140,3 +140,24 @@ prior cleanup evidence). Source import does not resolve or weaken that gate.
   occurred during preparation. Existing media TODOs/mobile-motion failure and
   the separately observed live-music release-check failure are not fixed or
   weakened by this checkout change.
+
+## Qualification checkout origin: execution checklist
+
+- **Obstacle / scope:** after the build checkout moved, planning and component
+  qualification still fetched the exact same Jarvis source from the former
+  repository. Only those two checkout origins now use the surviving repository;
+  deploy jobs, schedules, credentials, source pin, tree, suite selection and
+  original source provenance stay fixed.
+- **Identity:** source `c28c1b2f70aabb5217b08bf31ffe4c93d0353765`, tree
+  `900f1e53227b84976619bbfdb2a3f17170f30429`; verified commit is reachable from
+  destination `main` before changing either checkout.
+- **Checks / reason:** checkout-boundary test requires all three qualification
+  checkouts to use destination history, keeps only the source-origin proof
+  identity, and verifies the exact source pin plus workflow recipe hash. Relay
+  Worker release identity also binds the updated workflow blob through the
+  `jarvis-release.json` recipe. Focused checkout, release-recipe and provenance
+  checks passed 31 tests in 7.4 seconds; diff whitespace check passed. Full
+  root CI runs on the draft PR.
+- **Finish / state:** one exact-diff review and terminal draft-PR CI complete
+  this patch. It is not merged or deployed. The two existing shipped UI TODOs
+  and the live-music release-check failure remain outside this checkout change.
