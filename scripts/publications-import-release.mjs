@@ -11,14 +11,17 @@ import {fullSettingsDigest} from './saving-worker-reconciliation.mjs';
 import {settingsDigest} from './worker-release-identity.mjs';
 
 export const SOURCE='62ac633f367250ed21b3ecf7a4627263e9e07d9f';
-export const BASELINE=Object.freeze({version:'aaf9612a-dc41-4904-bd90-887b4f8f9f7c',
+export const BASELINE=Object.freeze({version:'484ad36b-1d9f-4679-ad1c-40fb47c99dd9',
   codeSha256:'642af5986b00aaa9d059204668dc0e1351cd0d0dbeee19f3b577c4a0a68232e8',workerBytes:645522,
-  settingsDigest:'e2a1add50b4ec89596fdb1409d5335b3e1357229c07071a730dd637cf32dc089',
+  settingsDigest:'86d52aa1195c29495fe84aadaea05962a4730bbcc2067f49b720293198439e92',
+  normalizedSettingsDigest:'e2a1add50b4ec89596fdb1409d5335b3e1357229c07071a730dd637cf32dc089',
+  auditAnnotation:'upload',
   settingsShapeDigest:'b3f90280b3fa8d60be3b75202e223336eeba79f2f1abb52b27e7dc191e6c0d4c',
   schedulesDigest:'6daa9ec137a94fc5962f6d05ab16df8dba70096ae34571ccd552ac130cd733c5'});
-// Cloudflare rewrites this provider-generated audit annotation during a script upload.
-// The remaining settings, bindings and schedules still have to match the pinned baseline.
-export const UPLOAD_SETTINGS_DIGEST='86d52aa1195c29495fe84aadaea05962a4730bbcc2067f49b720293198439e92';
+export const CREATION_SETTINGS_DIGEST=BASELINE.normalizedSettingsDigest;
+// The provider may retain `upload` or restore the original creation marker after an upload.
+// Both raw digests are pinned; all other settings remain part of the normalized digest.
+export const UPLOAD_SETTINGS_DIGEST=BASELINE.settingsDigest;
 export const CANDIDATE=Object.freeze({workerSha256:'74c8bf880a674b19bfeab74f65cf87e069b9f88233c4e65eba37393b13d0064d',
   workerBytes:661389,importerSha256:'9397e2e3731368e5d5a51e865f2cfd45c33fae992dcdaae2dfa4c879b7deeed8',
   cacheSha256:'a61ad5a113bf1fb1e048d2dd1d8a3b99a7acc132ac3723161fefa6f419672b95',
@@ -44,7 +47,7 @@ export function checkedBaseline(identity){
 }
 export function checkedRollbackIdentity(identity){
  assert.ok([BASELINE.codeSha256,CANDIDATE.workerSha256].includes(identity.codeSha256),'Unrecognized Worker bytes');
- assert.ok([BASELINE.settingsDigest,UPLOAD_SETTINGS_DIGEST].includes(identity.settingsDigest),'Worker settings changed');
+ assert.ok([BASELINE.settingsDigest,CREATION_SETTINGS_DIGEST].includes(identity.settingsDigest),'Worker settings changed');
  assert.equal(identity.schedulesDigest,BASELINE.schedulesDigest,'Worker schedules changed');return identity;
 }
 export function checkedBackupArtifacts({manifest,checkpoint,worker,cache}){
@@ -94,12 +97,25 @@ export function checkedRollbackObservation(observed){
  noDestinationActivation(observed.settings);checkedRollbackIdentity(observed.identity);
  assert.equal(fullSettingsDigest(observed.settings),observed.identity.settingsDigest,'Worker settings identity changed');
  const annotation=observed.settings.annotations?.['workers/triggered_by'];
- if(observed.identity.settingsDigest===UPLOAD_SETTINGS_DIGEST){
-  assert.equal(annotation,'upload','Unexpected provider-generated Worker audit annotation');
-  const normalized={...observed.settings,annotations:{...observed.settings.annotations,'workers/triggered_by':'create_version_api'}};
-  assert.equal(fullSettingsDigest(normalized),BASELINE.settingsDigest,'Worker settings changed beyond the provider-generated audit annotation');
- }else assert.equal(annotation,'create_version_api','Unexpected baseline Worker audit annotation');
+ assert.ok(['create_version_api','upload'].includes(annotation),'Unexpected provider-generated Worker audit annotation');
+ assert.equal(observed.identity.settingsDigest,annotation==='upload'?UPLOAD_SETTINGS_DIGEST:CREATION_SETTINGS_DIGEST,
+  'Worker audit annotation and settings digest do not match');
+ const normalized={...observed.settings,annotations:{...observed.settings.annotations,'workers/triggered_by':'create_version_api'}};
+ assert.equal(fullSettingsDigest(normalized),BASELINE.normalizedSettingsDigest,'Worker settings changed beyond the provider-generated audit annotation');
  assert.equal(settingsDigest(observed.settings),BASELINE.settingsShapeDigest,'Worker binding values or shape changed');
+ return observed;
+}
+export function checkedPublishedObservation(observed){
+ noDestinationActivation(observed.settings);
+ assert.equal(observed.identity.settingsDigest,fullSettingsDigest(observed.settings),'Worker settings identity changed');
+ const annotation=observed.settings.annotations?.['workers/triggered_by'];
+ assert.ok(['create_version_api','upload'].includes(annotation),'Unexpected provider-generated Worker audit annotation');
+ assert.equal(observed.identity.settingsDigest,annotation==='upload'?UPLOAD_SETTINGS_DIGEST:CREATION_SETTINGS_DIGEST,
+  'Worker audit annotation and settings digest do not match');
+ const normalized={...observed.settings,annotations:{...observed.settings.annotations,'workers/triggered_by':'create_version_api'}};
+ assert.equal(fullSettingsDigest(normalized),BASELINE.normalizedSettingsDigest,'Worker settings changed beyond the provider-generated audit annotation');
+ assert.equal(settingsDigest(observed.settings),BASELINE.settingsShapeDigest,'Worker binding values or shape changed');
+ assert.equal(observed.identity.schedulesDigest,BASELINE.schedulesDigest,'Worker schedules changed');
  return observed;
 }
 export async function rollbackCandidate({observeCurrent,readCache,restoreWorker,restoreCache,verifyObservation=checkedRollbackObservation}){
@@ -182,6 +198,8 @@ async function conditionalStaticUpload(file,{expectedHash,expectedEtag}){
 async function preflight(){
  const manifest=await compile();const current=await observe(credentials());checkedBaseline(current.identity);noDestinationActivation(current.settings);
  assert.equal(fullSettingsDigest(current.settings),BASELINE.settingsDigest);
+ assert.equal(current.settings.annotations?.['workers/triggered_by'],BASELINE.auditAnnotation);
+ assert.equal(fullSettingsDigest({...current.settings,annotations:{...current.settings.annotations,'workers/triggered_by':'create_version_api'}}),BASELINE.normalizedSettingsDigest);
  assert.equal(settingsDigest(current.settings),BASELINE.settingsShapeDigest,'Worker binding values or shape changed');
  const oldWorker=await workerBytes();assert.equal(sha(oldWorker),BASELINE.codeSha256);
  const oldCacheSnapshot=checkedStaticSnapshot(await cacheSnapshot('cache-before.js'),CANDIDATE.cacheBeforeSha256);
@@ -193,7 +211,7 @@ async function preflight(){
  await writeFile(resolve(OUT,'checkpoint.json'),JSON.stringify(checkpoint,null,2)+'\n');
  checkedBackupArtifacts({manifest,checkpoint,worker:oldWorker,cache:oldCache});
  console.log(JSON.stringify({preflight:true,workerBefore:checkpoint.before.codeSha256,cacheBefore:checkpoint.cacheRollbackSha256,
-   rollbackFiles:['worker-before.js','cache-before.js'],settingsUnchanged:true,destinationActivation:false}));
+   rollbackFiles:['worker-before.js','cache-before.js'],settingsPinned:true,destinationActivation:false}));
 }
 async function publish(){
  const manifest=await compile(),checkpoint=await json(resolve(OUT,'checkpoint.json'));
@@ -204,26 +222,26 @@ async function publish(){
  const oldCache=await readFile(resolve(OUT,'cache-before.js'));assert.equal(sha(oldCache),checkpoint.cacheRollbackSha256);
  const worker=await readFile(resolve(OUT,'worker-candidate.js'));assert.equal(sha(worker),CANDIDATE.workerSha256);
  const cache=await readFile(resolve(OUT,'public-reader-cache.js'));assert.equal(sha(cache),CANDIDATE.cacheSha256);
- const afterWorker=await publishWorker({account,token,bundle:worker,before:checkpoint.before});
- assert.equal(afterWorker.codeSha256,CANDIDATE.workerSha256);assert.equal(afterWorker.settingsDigest,checkpoint.before.settingsDigest);
+ const afterWorker=await publishWorker({account,token,bundle:worker,before:checkpoint.before,allowGeneratedUploadAnnotation:true});
+ assert.equal(afterWorker.codeSha256,CANDIDATE.workerSha256);
+ assert.ok([BASELINE.settingsDigest,CREATION_SETTINGS_DIGEST].includes(afterWorker.settingsDigest),'Unexpected post-upload Worker settings digest');
  assert.equal(afterWorker.schedulesDigest,checkpoint.before.schedulesDigest);
  const immediatelyBeforeStatic=await observe({account,token});
  assert.equal(immediatelyBeforeStatic.identity.codeSha256,CANDIDATE.workerSha256);
- assert.equal(immediatelyBeforeStatic.identity.settingsDigest,checkpoint.before.settingsDigest);
+ checkedPublishedObservation(immediatelyBeforeStatic);
  assert.equal(immediatelyBeforeStatic.identity.schedulesDigest,checkpoint.before.schedulesDigest);
- noDestinationActivation(immediatelyBeforeStatic.settings);
- assert.equal(fullSettingsDigest(immediatelyBeforeStatic.settings),BASELINE.settingsDigest);
- assert.equal(settingsDigest(immediatelyBeforeStatic.settings),BASELINE.settingsShapeDigest);
  await conditionalStaticUpload('public-reader-cache.js',{expectedHash:CANDIDATE.cacheBeforeSha256,expectedEtag:checkpoint.cacheBeforeEtag});
  const liveCache=checkedStaticSnapshot(await cacheSnapshot('cache-live.js'),CANDIDATE.cacheSha256);
- const final=(await observe({account,token})).identity;assert.equal(final.codeSha256,CANDIDATE.workerSha256);
- assert.equal(final.settingsDigest,checkpoint.before.settingsDigest);assert.equal(final.schedulesDigest,checkpoint.before.schedulesDigest);
+ const finalObserved=checkedPublishedObservation(await observe({account,token})),final=finalObserved.identity;assert.equal(final.codeSha256,CANDIDATE.workerSha256);
+ assert.equal(final.schedulesDigest,checkpoint.before.schedulesDigest);
  const receipt={schema:1,kind:'daily-board-import-candidate',source:SOURCE,manifest,candidateWorkerSha256:CANDIDATE.workerSha256,
-   candidateCacheSha256:CANDIDATE.cacheSha256,before:checkpoint.before,after:final,settingsUnchanged:true,schedulesUnchanged:true,
+   candidateCacheSha256:CANDIDATE.cacheSha256,before:checkpoint.before,after:final,
+   settingsPreservedExceptProviderAuditAnnotation:true,providerAuditAnnotationBefore:BASELINE.auditAnnotation,
+   providerAuditAnnotationAfter:finalObserved.settings.annotations?.['workers/triggered_by'],schedulesUnchanged:true,
    destinationActivation:false,rollbackArtifacts:checkpoint.rollback};
  await writeFile(resolve(OUT,'receipt.json'),JSON.stringify(receipt,null,2)+'\n');
  console.log(JSON.stringify({published:true,workerSha256:final.codeSha256,cacheSha256:CANDIDATE.cacheSha256,
-   settingsUnchanged:true,schedulesUnchanged:true,destinationActivation:false}));
+   settingsPreservedExceptProviderAuditAnnotation:true,schedulesUnchanged:true,destinationActivation:false}));
 }
 async function rollback(){
  const checkpoint=await json(resolve(OUT,'checkpoint.json')),oldWorker=await readFile(resolve(OUT,'worker-before.js')),
@@ -233,11 +251,11 @@ async function rollback(){
  const {account,token}=credentials();
  const result=await rollbackCandidate({
   observeCurrent:()=>observe({account,token}),readCache:()=>cacheSnapshot('cache-live.js'),
-  restoreWorker:identity=>publishWorker({account,token,bundle:oldWorker,before:identity}),
+  restoreWorker:identity=>publishWorker({account,token,bundle:oldWorker,before:identity,allowGeneratedUploadAnnotation:true}),
   restoreCache:snapshot=>conditionalStaticUpload('cache-before.js',{expectedHash:CANDIDATE.cacheSha256,expectedEtag:snapshot.etag})
  });
  assert.equal(checkpoint.before.settingsDigest,BASELINE.settingsDigest);assert.equal(checkpoint.before.schedulesDigest,BASELINE.schedulesDigest);
- console.log(JSON.stringify({rolledBack:true,...result,settingsUnchanged:true,schedulesUnchanged:true}));
+ console.log(JSON.stringify({rolledBack:true,...result,settingsPreservedExceptProviderAuditAnnotation:true,schedulesUnchanged:true}));
 }
 async function main(mode){assert.ok(['prepare','preflight','verify-backup','publish','rollback'].includes(mode));await mkdir(OUT,{recursive:true});
  if(mode==='prepare'){await compile();return;}if(mode==='preflight'){await preflight();return;}

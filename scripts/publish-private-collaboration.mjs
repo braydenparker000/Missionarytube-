@@ -51,11 +51,23 @@ export async function observe({account,token,fetcher=globalThis.fetch}){
  assert.equal(activeVersion(await(await api('deployments?per_page=1')).json()),version);
  return {settings,identity:{version,codeSha256,settingsDigest:fullSettingsDigest(settings),schedulesDigest}};
 }
-export async function publishWorker({account,token,bundle,before,fetcher=globalThis.fetch}){
+const uploadAuditKey='workers/triggered_by';
+function normalizedUploadSettingsDigest(settings){
+ const marker=settings.annotations?.[uploadAuditKey];
+ assert.ok(['create_version_api','upload'].includes(marker),'Unexpected Worker upload audit annotation');
+ return fullSettingsDigest({...settings,annotations:{...settings.annotations,[uploadAuditKey]:'create_version_api'}});
+}
+export async function publishWorker({account,token,bundle,before,fetcher=globalThis.fetch,allowGeneratedUploadAnnotation=false}){
  const current=await observe({account,token,fetcher});assert.deepEqual(current.identity,before,'Worker changed before publication');
+ if(allowGeneratedUploadAnnotation)assert.ok(['create_version_api','upload'].includes(current.settings.annotations?.[uploadAuditKey]),'Unexpected prepublication Worker audit annotation');
  const body=new FormData();body.set('metadata',JSON.stringify(preservingMetadata(current.settings)));body.set('worker.js',new Blob([bundle],{type:'application/javascript+module'}),'worker.js');
  const response=await fetcher(`https://api.cloudflare.com/client/v4/accounts/${account}/workers/scripts/jarvis-hub-api`,{method:'PUT',body,redirect:'error',headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(30000)});assert.equal(response.status,200,'Worker upload failed');assert.equal((await response.json()).success,true);
- const after=(await observe({account,token,fetcher})).identity;assert.equal(after.codeSha256,hash(bundle));assert.equal(after.settingsDigest,before.settingsDigest,'Settings changed');assert.equal(after.schedulesDigest,before.schedulesDigest,'Schedules changed');assert.notEqual(after.version,before.version);
+ const observedAfter=await observe({account,token,fetcher}),after=observedAfter.identity;assert.equal(after.codeSha256,hash(bundle));
+ if(allowGeneratedUploadAnnotation){
+  assert.ok(['create_version_api','upload'].includes(observedAfter.settings.annotations?.[uploadAuditKey]),'Unexpected post-upload Worker audit annotation');
+  assert.equal(normalizedUploadSettingsDigest(observedAfter.settings),normalizedUploadSettingsDigest(current.settings),'Worker settings changed beyond the provider-generated upload annotation');
+ }else assert.equal(after.settingsDigest,before.settingsDigest,'Settings changed');
+ assert.equal(after.schedulesDigest,before.schedulesDigest,'Schedules changed');assert.notEqual(after.version,before.version);
  return after;
 }
 async function main(mode){
