@@ -9,6 +9,8 @@ import {checkedPowerampReceipt} from './publish-poweramp-background.mjs';
 import {checkedOwnerMastReceipt} from './activate-owner-mast.mjs';
 import {checkedMastGateReceipt} from './deploy-mast-chat-only.mjs';
 import {checkedWakeReceipt} from './deploy-private-wake.mjs';
+import {checkedChatTasksReceipt} from './publish-simple-chat-tasks.mjs';
+import {checkedMobileFileSaveReceipt} from './publish-mobile-file-save.mjs';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 
@@ -17,6 +19,28 @@ import {createHash} from 'node:crypto';
 const RECEIPT='03c33d919658af489451e9b0997db6363a95bd5682463b5ff47308f3e4bc73c7';
 const WORKER='c28c1b2f70aabb5217b08bf31ffe4c93d0353765';
 const FRONTEND='363f710068bb6f2c456dbbf183f063484a36fe11';
+const RECEIPT_LAYERS=[
+  ['mobileFileSavePatch',checkedMobileFileSaveReceipt],
+  ['simpleChatTasksPatch',checkedChatTasksReceipt],
+  ['ownerProgressPatch',checkedProgressReceipt],
+  ['shufflePatch',checkedShuffleReceipt],
+  ['sortPatch',checkedSortReceipt],
+  ['mastReplyPatch',checkedMastReplyReceipt],
+  ['museDesignPatch',checkedMuseDesignReceipt],
+  ['playlistPatch',checkedPlaylistReceipt],
+  ['launcherPatch',checkedMuseLauncherReceipt],
+  ['frontendPatch',checkedPowerampReceipt],
+  ['ownerMastActivation',checkedOwnerMastReceipt],
+  ['mastGatePatch',checkedMastGateReceipt],
+  ['workerPatch',checkedWakeReceipt]
+];
+export function nextMusicReceipt(receipt){
+  const key=RECEIPT_LAYERS.find(([name])=>receipt?.[name])?.[0];
+  if(!key)return null;
+  const parent=receipt[key]?.parentReceipt;
+  assert.ok(parent&&typeof parent==='object'&&!Array.isArray(parent),'receipt layer has no verified parent');
+  return {key,parent};
+}
 export function checkedMusicFrontend(release,current,receipt){
   assert.equal(current.source,'braydenparker999/jarvis');
   if(release.workerDeploymentPolicy?.mode==='reconcile-lucy-discovery'){
@@ -33,8 +57,11 @@ export function checkedMusicFrontend(release,current,receipt){
 export async function verifiedMusicReceipt(receipt,fetcher=fetch){
  const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
  if(hash(receipt)===RECEIPT)return receipt;
- if(receipt.ownerProgressPatch||receipt.shufflePatch||receipt.sortPatch||receipt.mastReplyPatch||receipt.museDesignPatch||receipt.playlistPatch||receipt.launcherPatch||receipt.frontendPatch||receipt.ownerMastActivation||receipt.mastGatePatch||receipt.workerPatch){
-  const parent=receipt.ownerProgressPatch?checkedProgressReceipt(receipt):receipt.shufflePatch?checkedShuffleReceipt(receipt):receipt.sortPatch?checkedSortReceipt(receipt):receipt.mastReplyPatch?checkedMastReplyReceipt(receipt):receipt.museDesignPatch?checkedMuseDesignReceipt(receipt):receipt.playlistPatch?checkedPlaylistReceipt(receipt):receipt.launcherPatch?checkedMuseLauncherReceipt(receipt):receipt.frontendPatch?checkedPowerampReceipt(receipt):receipt.ownerMastActivation?checkedOwnerMastReceipt(receipt):receipt.mastGatePatch?checkedMastGateReceipt(receipt):checkedWakeReceipt(receipt),repo='braydenparker000/Missionarytube-',base='https://api.github.com/repos/'+repo;
+ const layer=nextMusicReceipt(receipt);
+ if(layer){
+  const {key,parent}=layer,check=RECEIPT_LAYERS.find(([name])=>name===key)[1];
+  assert.deepEqual(check(receipt),parent,'receipt layer parent changed');
+  const repo='braydenparker000/Missionarytube-',base='https://api.github.com/repos/'+repo;
   const get=async path=>{const r=await fetcher(base+path,{redirect:'error',signal:AbortSignal.timeout(15000)});assert.equal(r.status,200);return r.json();};
   const run=await get('/actions/runs/'+receipt.runId);
   assert.equal(run.repository.full_name,repo);assert.equal(run.head_repository.full_name,repo);assert.notEqual(run.head_repository.fork,true);
