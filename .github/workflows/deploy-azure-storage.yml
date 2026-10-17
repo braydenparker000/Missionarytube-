@@ -1365,11 +1365,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ needs.qualification.outputs.node22 }}
+      - name: Read exact pinned Jarvis source revision
+        id: source
+        run: node -e "console.log('commit='+require('./jarvis-release.json').commit)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker000/Missionarytube-
+          ref: ${{ steps.source.outputs.commit }}
+          path: .jarvis-source
+          persist-credentials: false
+          fetch-depth: 0
       - name: Download this run's exact qualified frontend
         uses: actions/download-artifact@v4
         with:
           name: jarvis-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: dist
+          path: .
+      - name: Verify exact qualified artifact identity and every byte
+        run: node scripts/qualified-artifact.mjs verify
       - name: Verify exact candidate and live parent lineage before credentials
         run: node scripts/publish-media-appearance.mjs prepare
       - name: Sign in using existing Azure identity
@@ -1381,6 +1393,10 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Capture the exact four-object rollback set and storage inventory
         run: node scripts/publish-media-appearance.mjs backup
+      - name: Bind candidate proof and run identity into recovery package
+        run: node scripts/publish-media-appearance.mjs prepare-proof
+      - name: Verify rollback package locally before preservation
+        run: node scripts/publish-media-appearance.mjs verify-package
       - name: Preserve rollback bytes and properties before publication
         id: rollback
         uses: actions/upload-artifact@v4
@@ -1390,26 +1406,13 @@ jobs:
           include-hidden-files: true
           retention-days: 90
           if-no-files-found: error
-      - name: Normalize rollback artifact identity
-        id: normalize
-        env:
-          ARTIFACT_ID: ${{ steps.rollback.outputs.artifact-id }}
-          ARTIFACT_DIGEST: ${{ steps.rollback.outputs.artifact-digest }}
-        run: |
-          case "$ARTIFACT_DIGEST" in sha256:*) ;; *) ARTIFACT_DIGEST="sha256:$ARTIFACT_DIGEST" ;; esac
-          printf 'digest=%s\n' "$ARTIFACT_DIGEST" >> "$GITHUB_OUTPUT"
-      - name: Bind the chained media receipt to rollback artifact
-        env:
-          ROLLBACK_ARTIFACT_ID: ${{ steps.rollback.outputs.artifact-id }}
-          ROLLBACK_ARTIFACT_DIGEST: ${{ steps.normalize.outputs.digest }}
-        run: node scripts/publish-media-appearance.mjs prepare-proof
       - name: Validate all rollback bytes before any write
         run: node scripts/publish-media-appearance.mjs verify-backup
       - name: Publish only the two media files, component sidecar and release marker
         id: publish
         run: node scripts/publish-media-appearance.mjs publish
       - name: Restore only still-candidate objects after a failed publication
-        if: ${{ failure() && steps.azure_signin.outcome == 'success' && steps.rollback.outputs.artifact-id != '' && steps.publish.outcome == 'failure' }}
+        if: ${{ always() && steps.azure_signin.outcome == 'success' && steps.rollback.outputs.artifact-id != '' && steps.publish.outcome != 'success' }}
         run: node scripts/publish-media-appearance.mjs rollback
       - name: Preserve media publication evidence
         if: always()

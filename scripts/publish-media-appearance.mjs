@@ -23,6 +23,8 @@ export const CANDIDATE=Object.freeze({
  })
 });
 export const ALLOWLIST=Object.freeze(['media/index.html','media/assets/css/obsidian.css','release-component-provenance.json','release.json']);
+export const PRESERVED_OVERLAY=Object.freeze({path:'assets/public-reader-cache.js',sha256:'a61ad5a113bf1fb1e048d2dd1d8a3b99a7acc132ac3723161fefa6f419672b95'});
+export const PRESERVED_HASHES=Object.freeze({...OVERRIDES,[PRESERVED_OVERLAY.path]:PRESERVED_OVERLAY.sha256});
 const ORIGIN='https://missionarytube.z13.web.core.windows.net',PROOF='release-component-provenance.json';
 const DIR='.media-only-publication',sha=b=>createHash('sha256').update(b).digest('hex');
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),fail=m=>{throw Error('Media-only publication refused: '+m);};
@@ -56,6 +58,12 @@ export function checkedParentSidecar(sidecar,releaseSha256){
  for(const item of sidecar.preservedOverrides)assert.equal(OVERRIDES[item.path],item.sha256,'Preserved override identity changed');
  return true;
 }
+export function checkedPreservedHashes(actual){
+ assert.ok(Array.isArray(actual),'Preserved live hash observations required');
+ const rows=[...actual].sort((a,b)=>a.path.localeCompare(b.path)),expected=Object.entries(PRESERVED_HASHES)
+  .map(([path,sha256])=>({path,sha256})).sort((a,b)=>a.path.localeCompare(b.path));
+ assert.deepEqual(rows,expected,'Live preserved component or public-reader-cache hash changed');return true;
+}
 export function checkedBlobObservation(observed,{expectedHash,expectedEtag}={}){
  assert.ok(observed&&typeof observed.etag==='string'&&observed.etag.length>0&&observed.etag.length<=128,'Blob ETag required');
  assert.ok(Number.isSafeInteger(observed.bytes)&&observed.bytes>=0,'Blob byte count required');
@@ -64,11 +72,34 @@ export function checkedBlobObservation(observed,{expectedHash,expectedEtag}={}){
  if(expectedEtag!==undefined)assert.equal(observed.etag,expectedEtag,'Blob ETag changed');
  return observed;
 }
+export function checkedPublishedProperties(actual,expected){
+ assert.equal(actual?.contentType,expected.contentType,'Published content type mismatch');
+ assert.equal(actual?.cacheControl,expected.cacheControl,'Published cache control mismatch');
+ assert.equal(actual?.contentDisposition||'',expected.contentDisposition||'','Published content disposition changed');
+ assert.equal(actual?.contentEncoding||'',expected.contentEncoding||'','Published content encoding changed');
+ assert.equal(actual?.contentLanguage||'',expected.contentLanguage||'','Published content language changed');
+ const metadata=v=>Object.fromEntries(Object.entries(v||{}).sort(([a],[b])=>a.localeCompare(b)));
+ assert.deepEqual(metadata(actual?.metadata),metadata(expected.metadata),'Published blob metadata changed');return true;
+}
+export async function uploadTransition({readCurrent,writeCandidate,readBack,before,candidate,settings}){
+ const observed=checkedBlobObservation(await readCurrent(),{expectedHash:before.sha256,expectedEtag:before.etag});
+ await writeCandidate({ifMatch:observed.etag,settings});
+ const after=checkedBlobObservation(await readBack(),{expectedHash:candidate.sha256});
+ assert.equal(after.bytes,candidate.bytes,'Published blob size mismatch');
+ checkedPublishedProperties(after.properties,settings);return after;
+}
+export function rollbackManifest(snapshots,files,inventoryBytes){
+ const entries=[];
+ for(const [path,snapshot] of Object.entries(snapshots).sort(([a],[b])=>a.localeCompare(b)))
+  entries.push({path,sha256:snapshot.sha256,bytes:snapshot.bytes,etag:snapshot.etag,properties:snapshot.properties,backup:snapshot.backup});
+ const backupFiles=Object.entries(files).sort(([a],[b])=>a.localeCompare(b)).map(([path,bytes])=>({path,sha256:sha(bytes),bytes:bytes.length}));
+ return {schema:1,snapshots:entries,files:backupFiles,inventorySha256:sha(inventoryBytes)};
+}
 export function checkedRollbackAction(current,before,candidate){
  if(current.sha256===before.sha256){
   assert.equal(current.bytes,before.bytes);
   const p=current.properties||{},q=before.properties||{};
-  const fields=['contentType','cacheControl','contentEncoding','contentLanguage','contentMd5'];
+  const fields=['contentType','cacheControl','contentDisposition','contentEncoding','contentLanguage','contentMd5'];
   const metadata=v=>Object.fromEntries(Object.entries(v.metadata||{}).sort(([a],[b])=>a.localeCompare(b)));
   return fields.every(k=>p[k]===q[k])&&same(metadata(p),metadata(q))?'keep':'restore';
  }
@@ -100,7 +131,7 @@ function inventory(){
 }
 function blobProperties(name){
  const value=JSON.parse(az(['storage','blob','show','--account-name','missionarytube','--auth-mode','login','--container-name','$web','--name',name,
-  '--query','{etag:properties.etag,size:properties.contentLength,contentType:properties.contentSettings.contentType,cacheControl:properties.contentSettings.cacheControl,contentEncoding:properties.contentSettings.contentEncoding,contentLanguage:properties.contentSettings.contentLanguage,contentMd5:properties.contentSettings.contentMd5,metadata:metadata}','--output','json','--only-show-errors']));
+  '--query','{etag:properties.etag,size:properties.contentLength,contentType:properties.contentSettings.contentType,cacheControl:properties.contentSettings.cacheControl,contentDisposition:properties.contentSettings.contentDisposition,contentEncoding:properties.contentSettings.contentEncoding,contentLanguage:properties.contentSettings.contentLanguage,contentMd5:properties.contentSettings.contentMd5,metadata:metadata}','--output','json','--only-show-errors']));
  assert.ok(typeof value.etag==='string'&&Number.isSafeInteger(value.size),'Incomplete Azure Blob properties for '+name);return value;
 }
 async function blobBytes(name,file){
@@ -117,25 +148,39 @@ function uploadArgs(path,file,observation,props){
   ...staticIfMatch(observation,{expectedHash:observation.sha256,expectedEtag:observation.etag}),'--overwrite','true','--only-show-errors'];
  if(props.contentType)args.push('--content-type',props.contentType);
  if(props.cacheControl)args.push('--content-cache-control',props.cacheControl);
+ if(props.contentDisposition)args.push('--content-disposition',props.contentDisposition);
  if(props.contentEncoding)args.push('--content-encoding',props.contentEncoding);
  if(props.contentLanguage)args.push('--content-language',props.contentLanguage);
  if(props.contentMd5)args.push('--content-md5',props.contentMd5);
  if(props.metadata&&Object.keys(props.metadata).length)args.push('--metadata',...Object.entries(props.metadata).map(([k,v])=>`${k}=${v}`));
  return args;
 }
-async function snapshotHttp(path,expected){
+async function snapshotHttp(path,expected,settings){
  const response=await originGet(path);assert.equal(response.status,200,'Live blob unavailable: '+path);
  const bytes=Buffer.from(await response.arrayBuffer());assert.equal(sha(bytes),expected,'Live public bytes differ: '+path);
- return {bytes,etag:response.headers.get('etag'),contentType:response.headers.get('content-type'),cacheControl:response.headers.get('cache-control')};
+ if(settings){assert.equal(response.headers.get('content-type'),settings.contentType);assert.equal(response.headers.get('cache-control'),settings.cacheControl);
+  assert.equal(response.headers.get('content-disposition')||'',settings.contentDisposition||'');}
+ return {bytes,etag:response.headers.get('etag'),contentType:response.headers.get('content-type'),cacheControl:response.headers.get('cache-control'),contentDisposition:response.headers.get('content-disposition')};
 }
-async function waitForPublicHash(path,expected){
+async function waitForPublicHash(path,expected,settings){
  let last='unavailable';
  for(let attempt=0;attempt<8;attempt++){
-  try{const r=await originGet(path);if(r.status===200){const b=Buffer.from(await r.arrayBuffer());last=sha(b);if(last===expected)return b;}}
+  try{const r=await originGet(path);if(r.status===200){const b=Buffer.from(await r.arrayBuffer());last=sha(b);if(last===expected){
+   if(settings){assert.equal(r.headers.get('content-type'),settings.contentType);assert.equal(r.headers.get('cache-control'),settings.cacheControl);
+    assert.equal(r.headers.get('content-disposition')||'',settings.contentDisposition||'');}
+   return b;}}}
   catch(error){last=String(error.message||error).split('\n')[0];}
   await new Promise(resolve=>setTimeout(resolve,1000));
  }
  fail('public_readback_mismatch_'+path+'_'+last);
+}
+async function verifyPreservedPublic(){
+ const observed=[];
+ for(const path of Object.keys(PRESERVED_HASHES).sort()){
+  const response=await originGet(path);assert.equal(response.status,200,'Preserved live object unavailable: '+path);
+  const bytes=Buffer.from(await response.arrayBuffer());observed.push({path,sha256:sha(bytes)});
+ }
+ checkedPreservedHashes(observed);return observed;
 }
 async function prepare(){
  const release=await readFile('dist/release.json'),built=JSON.parse(release),files=await import('./qualified-artifact.mjs').then(m=>m.fileManifest(resolve('dist')));
@@ -153,6 +198,7 @@ async function prepare(){
  assert.equal(sha(Buffer.from(JSON.stringify(qualified))),proof.parentReleaseQualifiedDigest,'Parent qualification receipt changed');
  assert.equal(sha(privateBytes),proof.privateWorkspaceReceiptSha256,'Private workspace receipt changed');
  checkedCandidate(parent,built,files);
+ await verifyPreservedPublic();
  for(const [path,pin] of Object.entries(CANDIDATE.files))await snapshotHttp(path,pin.beforeSha256);
  const releaseCandidate=candidateRelease(parent,built);
  await mkdir(DIR,{recursive:true});
@@ -160,7 +206,7 @@ async function prepare(){
  await copyFile('dist/media/index.html',resolve(DIR,'index-candidate.html'));
  await copyFile('dist/media/assets/css/obsidian.css',resolve(DIR,'obsidian-candidate.css'));
  await writeFile(resolve(DIR,'candidate-files.json'),JSON.stringify(CANDIDATE.files,null,2)+'\n');
- await writeFile(resolve(DIR,'candidate.json'),JSON.stringify({schema:1,source:CANDIDATE.media,files:CANDIDATE.files,
+ await writeFile(resolve(DIR,'candidate.json'),JSON.stringify({schema:2,source:CANDIDATE.media,files:CANDIDATE.files,
   parentReleaseSha256:PARENT.releaseSha256,parentSidecarSha256:PARENT.sidecarSha256,parentMedia:PARENT.media,allowlist:ALLOWLIST},null,2)+'\n');
  console.log(JSON.stringify({preflight:true,source:CANDIDATE.media,mediaFiles:2,parentReceiptsPinned:true,preservedOverrides:22,allowlist:ALLOWLIST}));
 }
@@ -173,20 +219,40 @@ async function backup(){
  const publicRelease=await originGet('release.json');assert.equal(sha(Buffer.from(await publicRelease.arrayBuffer())),PARENT.releaseSha256,'Public release changed during capture');
  await writeFile(resolve(DIR,'inventory-before.json'),JSON.stringify(before,null,2)+'\n');
  await writeFile(resolve(DIR,'snapshots.json'),JSON.stringify(snapshots,null,2)+'\n');
+ const files={};for(const [path,snapshot] of Object.entries(snapshots))files[path]=await readFile(resolve(DIR,snapshot.backup));
+ const manifest=rollbackManifest(snapshots,files,Buffer.from(JSON.stringify(before,null,2)+'\n'));await writeFile(resolve(DIR,'rollback-manifest.json'),JSON.stringify(manifest,null,2)+'\n');
  console.log(JSON.stringify({rollbackReady:true,objects:ALLOWLIST.length,releaseSha256:snapshots['release.json'].sha256,
   sidecarSha256:snapshots[PROOF].sha256,mediaAssets:2,inventoryObjects:before.length}));
 }
-function settingsFor(path){return {contentType:CANDIDATE.files[path]?.contentType||'application/json',cacheControl:'no-cache'};}
+function settingsFor(path,before){return {...(before.properties||{}),contentType:CANDIDATE.files[path]?.contentType||'application/json',cacheControl:'no-cache',contentMd5:undefined};}
+export async function verifyRollbackPackage(root=DIR,pins={source:CANDIDATE.media,parentReleaseSha256:PARENT.releaseSha256,parentSidecarSha256:PARENT.sidecarSha256,files:CANDIDATE.files}){
+ const candidate=await json(resolve(root,'candidate.json')),snapshots=await json(resolve(root,'snapshots.json'));
+ checkedAllowlist(candidate.allowlist);assert.equal(candidate.schema,2);
+ assert.deepEqual(candidate.source,pins.source,'Recovery package source pin changed');
+ assert.deepEqual(Object.keys(snapshots).sort(),[...ALLOWLIST].sort(),'Recovery snapshot set differs from exact allowlist');
+ assert.equal(snapshots['release.json'].sha256,pins.parentReleaseSha256,'Recovery parent release changed');
+ assert.equal(snapshots[PROOF].sha256,pins.parentSidecarSha256,'Recovery parent provenance changed');
+ for(const [path,pin] of Object.entries(pins.files))assert.equal(snapshots[path].sha256,pin.beforeSha256,'Recovery media baseline changed: '+path);
+ const manifest=await json(resolve(root,'rollback-manifest.json'));
+ const files={};for(const [path,snap] of Object.entries(snapshots)){const bytes=await readFile(resolve(root,snap.backup));assert.equal(bytes.length,snap.bytes);assert.equal(sha(bytes),snap.sha256);files[path]=bytes;}
+ const inventoryBytes=await readFile(resolve(root,'inventory-before.json'));
+ assert.deepEqual(manifest,rollbackManifest(snapshots,files,inventoryBytes),'Rollback manifest does not bind exact captured files');
+ const candidateRelease=await readFile(resolve(root,'candidate-release.json'));
+ assert.equal(sha(candidateRelease),candidate.candidateReleaseSha256,'Candidate release package identity changed');
+ const proof=JSON.parse(await readFile(resolve(root,'candidate-provenance.json'),'utf8'));
+ assert.equal(proof.releaseJsonSha256,sha(candidateRelease));
+ assert.deepEqual(proof.mediaPublication.source,pins.source,'Recovery candidate source changed');
+ assert.deepEqual(proof.mediaPublication.files,Object.entries(pins.files).map(([path,f])=>({path,sha256:f.sha256,bytes:f.bytes})),'Recovery candidate file pins changed');
+ assert.deepEqual(proof.mediaPublication.run,{orchestration:candidate.orchestration,runId:candidate.runId,attempt:candidate.attempt});
+ assert.equal(proof.mediaPublication.rollback.manifestSha256,sha(await readFile(resolve(root,'rollback-manifest.json'))));
+ assert.equal(proof.mediaPublication.rollback.name,`media-only-rollback-${candidate.runId}-${candidate.attempt}`);
+ return {candidate,snapshots,manifest,proof};
+}
 async function backupArtifact(){
- const snapshots=await json(resolve(DIR,'snapshots.json')),inventoryBefore=await json(resolve(DIR,'inventory-before.json'));
- checkedAllowlist(Object.keys(snapshots));
- for(const path of ALLOWLIST){const snap=snapshots[path],bytes=await readFile(resolve(DIR,snap.backup));assert.equal(bytes.length,snap.bytes);assert.equal(sha(bytes),snap.sha256);}
+ const {snapshots}=await verifyRollbackPackage(),inventoryBefore=await json(resolve(DIR,'inventory-before.json'));
  await checkInventory(inventoryBefore);
 }
 async function makeProof(){
- const rollback={artifactId:process.env.ROLLBACK_ARTIFACT_ID,artifactDigest:process.env.ROLLBACK_ARTIFACT_DIGEST,
-  name:`media-only-rollback-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`};
- assert.match(rollback.artifactId||'',/^[0-9]+$/);assert.match(rollback.artifactDigest||'',/^sha256:[a-f0-9]{64}$/);
  assert.match(process.env.GITHUB_SHA||'',/^[a-f0-9]{40}$/);assert.match(process.env.GITHUB_RUN_ID||'',/^[0-9]+$/);
  assert.match(process.env.GITHUB_RUN_ATTEMPT||'',/^[0-9]+$/);
  const parentProof=JSON.parse((await readFile(resolve(DIR,'provenance-before.json'))).toString('utf8'));
@@ -195,19 +261,34 @@ async function makeProof(){
   releaseJsonSha256:sha(release),parent:{releaseJsonSha256:PARENT.releaseSha256,sidecarSha256:PARENT.sidecarSha256},
   activePublicProvenance:parentProof,activePublic:parentProof.activePublic,preservedOverrides:parentProof.preservedOverrides,
   mediaPublication:{source:CANDIDATE.media,files:Object.entries(CANDIDATE.files).map(([path,f])=>({path,sha256:f.sha256,bytes:f.bytes})),
-   run:{orchestration:process.env.GITHUB_SHA,runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT},rollback}};
+   preservedLive:Object.entries(PRESERVED_HASHES).map(([path,sha256])=>({path,sha256})).sort((a,b)=>a.path.localeCompare(b.path)),
+   run:{orchestration:process.env.GITHUB_SHA,runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT},
+   rollback:{name:`media-only-rollback-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`,manifestSha256:sha(await readFile(resolve(DIR,'rollback-manifest.json')))}}};
  await writeFile(resolve(DIR,'candidate-provenance.json'),JSON.stringify(published,null,2)+'\n');
  const allowlist=await json(resolve(DIR,'candidate.json'));assert.deepEqual(allowlist.allowlist,ALLOWLIST);
- console.log(JSON.stringify({provenanceReady:true,releaseJsonSha256:sha(release),sidecarSha256:sha(Buffer.from(JSON.stringify(published,null,2)+'\n')),rollbackArtifact:rollback.artifactId}));
+ allowlist.orchestration=process.env.GITHUB_SHA;allowlist.runId=process.env.GITHUB_RUN_ID;allowlist.attempt=process.env.GITHUB_RUN_ATTEMPT;
+ allowlist.candidateReleaseSha256=sha(release);await writeFile(resolve(DIR,'candidate.json'),JSON.stringify(allowlist,null,2)+'\n');
+ console.log(JSON.stringify({provenanceReady:true,releaseJsonSha256:sha(release),sidecarSha256:sha(Buffer.from(JSON.stringify(published,null,2)+'\n')),rollbackArtifact:published.mediaPublication.rollback.name}));
 }
 async function observed(path){const props=blobProperties(path),snap=await azureSnapshot(path,'observation.bin');assert.equal(snap.etag,props.etag);return snap;}
-async function uploadCandidate(path,file,expectedHash,expectedEtag){
- const current=await observed(path);checkedBlobObservation(current,{expectedHash,expectedEtag});
- const props=settingsFor(path);
- az(uploadArgs(path,resolve(DIR,file),current,props));
- const after=await observed(path);assert.equal(after.sha256,expectedHash,'Uploaded bytes did not verify: '+path);
- await waitForPublicHash(path,expectedHash);
- return after;
+async function uploadCandidate(path,file,candidate,before){
+ const props=settingsFor(path,before);
+ return uploadTransition({before, candidate, settings:props, readCurrent:()=>observed(path),
+  writeCandidate:({ifMatch,settings})=>{
+   const current={sha256:before.sha256,etag:ifMatch,bytes:before.bytes};
+   az(uploadArgs(path,resolve(DIR,file),current,settings));
+  },readBack:async()=>{
+   const after=await observed(path);const bytes=await waitForPublicHash(path,candidate.sha256,props);
+   assert.equal(sha(bytes),candidate.sha256);return {...after,properties:after.properties};
+  }});
+}
+export async function restorePackagedAllowlist({root=DIR,readCurrent,restore,pins}){
+ const {snapshots,proof}=await verifyRollbackPackage(root,pins),candidateRelease=await readFile(resolve(root,'candidate-release.json'));
+ const files=Object.fromEntries(proof.mediaPublication.files.map(f=>[f.path,f]));
+ const sidecar=await readFile(resolve(root,'candidate-provenance.json'));
+ const candidates={...files,[PROOF]:{sha256:sha(sidecar),bytes:sidecar.length},'release.json':{sha256:sha(candidateRelease),bytes:candidateRelease.length}};
+ assert.deepEqual(Object.keys(candidates).sort(),[...ALLOWLIST].sort(),'Recovery candidate identity does not match allowlist');
+ return restoreAllowlisted({readCurrent,readBefore:async path=>snapshots[path],readCandidate:async path=>candidates[path],restore});
 }
 async function checkInventory(before){
  const after=inventory(),other=ALLOWLIST;
@@ -222,12 +303,14 @@ async function publish(){
  const proofValue=JSON.parse(candidateProof.toString('utf8'));
  assert.equal(proofValue.parent.releaseJsonSha256,PARENT.releaseSha256);
  assert.equal(proofValue.parent.sidecarSha256,PARENT.sidecarSha256);
+ await verifyPreservedPublic();
  const expected={...CANDIDATE.files,'release-component-provenance.json':{sha256:sha(candidateProof),bytes:candidateProof.length},
   'release.json':{sha256:sha(await readFile(resolve(DIR,'candidate-release.json'))),bytes:(await readFile(resolve(DIR,'candidate-release.json'))).length}};
- for(const path of ['media/index.html','media/assets/css/obsidian.css'])await uploadCandidate(path,path==='media/index.html'?'index-candidate.html':'obsidian-candidate.css',expected[path].sha256,snapshots[path].etag);
+ for(const path of ['media/index.html','media/assets/css/obsidian.css'])await uploadCandidate(path,path==='media/index.html'?'index-candidate.html':'obsidian-candidate.css',expected[path],snapshots[path]);
  await writeFile(resolve(DIR,'provenance-candidate.json'),candidateProof);
- await uploadCandidate(PROOF,'provenance-candidate.json',expected[PROOF].sha256,snapshots[PROOF].etag);
- await uploadCandidate('release.json','candidate-release.json',expected['release.json'].sha256,snapshots['release.json'].etag);
+ await uploadCandidate(PROOF,'provenance-candidate.json',expected[PROOF],snapshots[PROOF]);
+ await uploadCandidate('release.json','candidate-release.json',expected['release.json'],snapshots['release.json']);
+ await verifyPreservedPublic();
  await checkInventory(await json(resolve(DIR,'inventory-before.json')));
  const liveProof=await originGet(PROOF),liveRelease=await originGet('release.json');
  assert.equal(sha(Buffer.from(await liveProof.arrayBuffer())),expected[PROOF].sha256);
@@ -236,29 +319,24 @@ async function publish(){
   componentProvenanceSha256:expected[PROOF].sha256,preservedOverrides:22,nonAllowlistedBlobsUnchanged:true}));
 }
 async function rollback(){
- await backupArtifact();const snapshots=await json(resolve(DIR,'snapshots.json'));
- const candidates={
-  'media/index.html':CANDIDATE.files['media/index.html'],
-  'media/assets/css/obsidian.css':CANDIDATE.files['media/assets/css/obsidian.css'],
-  [PROOF]:{sha256:sha(await readFile(resolve(DIR,'candidate-provenance.json'))),bytes:(await readFile(resolve(DIR,'candidate-provenance.json'))).length},
-  'release.json':{sha256:sha(await readFile(resolve(DIR,'candidate-release.json'))),bytes:(await readFile(resolve(DIR,'candidate-release.json'))).length}
- };
- const actions=await restoreAllowlisted({readCurrent:observed,readBefore:async path=>snapshots[path],
-  readCandidate:async path=>candidates[path],restore:async(path,current,before)=>{
+ const {snapshots,proof}=await verifyRollbackPackage();await checkInventory(await json(resolve(DIR,'inventory-before.json')));
+ assert.equal(proof.mediaPublication.source.commit,CANDIDATE.media.commit,'Recovery package source identity mismatch');
+ const actions=await restorePackagedAllowlist({readCurrent:observed,restore:async(path,current,before)=>{
   const file=before.backup,props=before.properties;
   az(uploadArgs(path,resolve(DIR,file),current,props));
   const restored=await observed(path);assert.equal(restored.sha256,before.sha256);assert.equal(restored.bytes,before.bytes);
   assert.equal(checkedRollbackAction(restored,before,{sha256:'candidate',bytes:0}),'keep','Blob content settings were not restored');
-  await waitForPublicHash(path,before.sha256);
+  await waitForPublicHash(path,before.sha256,before.properties);
  }});
  const beforeInventory=await json(resolve(DIR,'inventory-before.json'));await checkInventory(beforeInventory);
  for(const path of ALLOWLIST){const restored=await observed(path);assert.equal(restored.sha256,snapshots[path].sha256);
-  assert.equal(checkedRollbackAction(restored,snapshots[path],candidates[path]),'keep','Blob content settings were not restored');}
+  assert.equal(checkedRollbackAction(restored,snapshots[path],{sha256:'candidate',bytes:0}),'keep','Blob content settings were not restored');}
+ await verifyPreservedPublic();
  console.log(JSON.stringify({rolledBack:true,paths:ALLOWLIST,actions,exactParentBytesRestored:true,nonAllowlistedBlobsUnchanged:true}));
 }
 async function main(mode){
  await mkdir(DIR,{recursive:true});
- if(mode==='prepare')return prepare();if(mode==='backup')return backup();if(mode==='prepare-proof')return makeProof();
+ if(mode==='prepare')return prepare();if(mode==='backup')return backup();if(mode==='prepare-proof')return makeProof();if(mode==='verify-package')return verifyRollbackPackage();
  if(mode==='verify-backup')return backupArtifact();if(mode==='publish')return publish();if(mode==='rollback')return rollback();
  fail('invalid_command');
 }

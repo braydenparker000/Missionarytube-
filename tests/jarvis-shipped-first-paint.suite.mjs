@@ -211,7 +211,7 @@ test("stored non-default accent and motion are applied before first paint", { ti
     assert.equal(pin.commit, "c28c1b2f70aabb5217b08bf31ffe4c93d0353765");
     assert.equal(mediaSource.repository, "braydenparker000/Missionarytube-");
     assert.equal(mediaSource.path, "jarvis/public/media");
-    assert.equal(mediaSource.commit, "9f0dd2419db9110e3b14365f0e7bb85fb8bb8fd6");
+    assert.equal(mediaSource.commit, "bccda52d2c84bdfc2d315c7250cd9efbd8594aff");
     assert.equal(mediaTree, "4a4aceb3661e437471a1d28f6574b9b21b28a343");
     assert.equal(new URL(page.url()).pathname, "/media/");
     assert.ok(heldPaths.includes("/assets/pip-diagnostics.js"), "the page requests /assets/pip-diagnostics.js from the site root");
