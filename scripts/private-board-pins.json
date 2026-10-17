@@ -9,9 +9,9 @@
     "tests/helpers/ci-test-inventory.mjs": "ea4b765d4b510cf7e1cafd9a84526924bbaa4e86"
   },
   "worker": {
-    "version": "aaf9612a-dc41-4904-bd90-887b4f8f9f7c",
+    "version": "484ad36b-1d9f-4679-ad1c-40fb47c99dd9",
     "codeSha256": "642af5986b00aaa9d059204668dc0e1351cd0d0dbeee19f3b577c4a0a68232e8",
-    "settingsDigest": "e2a1add50b4ec89596fdb1409d5335b3e1357229c07071a730dd637cf32dc089",
+    "settingsDigest": "86d52aa1195c29495fe84aadaea05962a4730bbcc2067f49b720293198439e92",
     "schedulesDigest": "6daa9ec137a94fc5962f6d05ab16df8dba70096ae34571ccd552ac130cd733c5"
   },
   "parentReceiptSha256": "4daeb31533e77a06fbbd05e7ecd3d9e9111312bd87349eb7a088c7558da4eee8",

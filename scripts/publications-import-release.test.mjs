@@ -4,7 +4,7 @@ import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {BASELINE,CANDIDATE,SOURCE,UPLOAD_SETTINGS_DIGEST,checkedBaseline,checkedRollbackIdentity,checkedStaticPrewrite,planRollback,rollbackCandidate,staticIfMatch,verifyRollbackFiles} from './publications-import-release.mjs';
+import {BASELINE,CANDIDATE,CREATION_SETTINGS_DIGEST,SOURCE,checkedBaseline,checkedRollbackIdentity,checkedStaticPrewrite,planRollback,rollbackCandidate,staticIfMatch,verifyRollbackFiles} from './publications-import-release.mjs';
 import {readFileSync} from 'node:fs';
 
 const sha=value=>createHash('sha256').update(value).digest('hex');
@@ -16,6 +16,10 @@ test('candidate pins the reproduced live Worker and both source overlays',async(
  assert.equal(sha(importer),CANDIDATE.importerSha256);
  assert.equal(sha(cache),CANDIDATE.cacheSha256);assert.equal(cache.length,CANDIDATE.cacheBytes);
  assert.equal(BASELINE.codeSha256,'642af5986b00aaa9d059204668dc0e1351cd0d0dbeee19f3b577c4a0a68232e8');
+ assert.equal(BASELINE.version,'484ad36b-1d9f-4679-ad1c-40fb47c99dd9');
+ assert.equal(BASELINE.settingsDigest,'86d52aa1195c29495fe84aadaea05962a4730bbcc2067f49b720293198439e92');
+ assert.equal(BASELINE.normalizedSettingsDigest,'e2a1add50b4ec89596fdb1409d5335b3e1357229c07071a730dd637cf32dc089');
+ assert.equal(BASELINE.auditAnnotation,'upload');
  assert.equal(CANDIDATE.workerSha256,'74c8bf880a674b19bfeab74f65cf87e069b9f88233c4e65eba37393b13d0064d');
 });
 
@@ -68,7 +72,7 @@ test('static prewrite rejects changed bytes, changed ETag and missing ETag',()=>
 
 test('rollback accepts every baseline/candidate partial-write state and rejects foreign bytes',()=>{
  for(const codeSha256 of [BASELINE.codeSha256,CANDIDATE.workerSha256]){
-  for(const settingsDigest of [BASELINE.settingsDigest,UPLOAD_SETTINGS_DIGEST])
+  for(const settingsDigest of [BASELINE.settingsDigest,CREATION_SETTINGS_DIGEST])
    assert.equal(checkedRollbackIdentity({...BASELINE,codeSha256,settingsDigest}).codeSha256,codeSha256);
   assert.throws(()=>checkedRollbackIdentity({...BASELINE,codeSha256,settingsDigest:'drift'}));
   assert.throws(()=>checkedRollbackIdentity({...BASELINE,codeSha256,schedulesDigest:'drift'}));
