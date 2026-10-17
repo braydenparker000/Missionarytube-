@@ -81,7 +81,9 @@ if (!MODES.has(mode)) {
 
 const source = mkdtempSync(resolve(tmpdir(), "jarvis-pinned-"));
 let status = 1;
-const origin = "https://github.com/braydenparker999/jarvis.git";
+// Fetch preserved history from the surviving repository; release metadata
+// retains the original source provenance and exact commit.
+const origin = "https://github.com/braydenparker000/Missionarytube-.git";
 
 function git(args, cwd = source) {
   execFileSync("git", args, { cwd, stdio: "inherit" });
