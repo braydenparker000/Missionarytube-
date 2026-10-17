@@ -2,12 +2,13 @@ import {cp,mkdir,readFile,readdir,rm,writeFile,stat} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {join,extname} from 'node:path';
 import {r2PlayerConfig} from './r2-player-config.mjs';
-import {readConnectSource,readDailyBoardSource,readMediaSource,readRouteDataSource} from './media-source.mjs';
+import {readAppBundlesSource,readConnectSource,readDailyBoardSource,readMediaSource,readRouteDataSource} from './media-source.mjs';
 const release=JSON.parse(await readFile('jarvis-release.json','utf8'));
 const mediaSource=readMediaSource();
 const dailyBoardSource=readDailyBoardSource();
 const connectSource=readConnectSource();
 const routeDataSource=readRouteDataSource();
+const appBundlesSource=readAppBundlesSource();
 const source='.jarvis-source';
 const head=execFileSync('git',['-C',source,'rev-parse','HEAD'],{encoding:'utf8'}).trim();
 if(head!==release.commit)throw Error('Jarvis source must match the pinned release commit');
@@ -21,6 +22,11 @@ await cp(dailyBoardSource.directory,'dist/daily-board',{recursive:true});
 await rm('dist/connect',{recursive:true,force:true});
 await cp(connectSource.directory,'dist/connect',{recursive:true});
 for(const component of Object.values(routeDataSource.components)){
+ const destination=component.path.split('/').at(-1);
+ await rm(`dist/${destination}`,{recursive:true,force:true});
+ await cp(component.directory,`dist/${destination}`,{recursive:true});
+}
+for(const component of Object.values(appBundlesSource.components)){
  const destination=component.path.split('/').at(-1);
  await rm(`dist/${destination}`,{recursive:true,force:true});
  await cp(component.directory,`dist/${destination}`,{recursive:true});
@@ -57,5 +63,7 @@ await writeFile('dist/release.json',JSON.stringify({source:release.repository,co
   components:{...Object.fromEntries([mediaSource,dailyBoardSource,connectSource].map(component=>[component.path.split('/').at(-1),
     {repository:component.repository,commit:component.commit,path:component.path,tree:component.tree}])),
     ...Object.fromEntries(Object.entries(routeDataSource.components).map(([name,component])=>[name,
-      {repository:routeDataSource.repository,commit:routeDataSource.commit,path:component.path,tree:component.tree}]))}},null,2)+'\n');
+      {repository:routeDataSource.repository,commit:routeDataSource.commit,path:component.path,tree:component.tree}])),
+    ...Object.fromEntries(Object.entries(appBundlesSource.components).map(([name,component])=>[name,
+      {repository:appBundlesSource.repository,commit:appBundlesSource.commit,path:component.path,tree:component.tree}]))}},null,2)+'\n');
 console.log(`Built Jarvis ${head}: ${files.length} frontend files, ${(total/1024/1024).toFixed(2)} MiB; no media payloads.`);

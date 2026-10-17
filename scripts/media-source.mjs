@@ -34,6 +34,15 @@ export const COMPONENT_GROUP_SOURCES = {
       reader: { path: "jarvis/public/reader", tree: "3e13fa1f294299a11f16a062d9d6328ea1451ca9" },
       respond: { path: "jarvis/public/respond", tree: "14da00ba05225eddc0ad9d1717660c1f4b2e93c9" }
     }
+  },
+  appBundles: {
+    repository: "braydenparker000/Missionarytube-",
+    commit: "54fb839d4efa26af6d4162d65b00e4308dffe274",
+    components: {
+      mymedia: { path: "jarvis/public/mymedia", tree: "977932e1ef88d4701f187982d3f04c9906625b6d" },
+      podcasts: { path: "jarvis/public/podcasts", tree: "d94f14ad0bc92c426d3111aae8aef0aaa9f49858" },
+      youtubeArchive: { path: "jarvis/public/youtube-archive", tree: "3321453446d8013f8fda7610294b841fb1501f10" }
+    }
   }
 };
 
@@ -123,5 +132,10 @@ export const readRouteDataSource = (root = process.cwd()) => {
   root = resolve(root);
   const source = JSON.parse(readFileSync(join(root, "jarvis-routeData-source.json"), "utf8"));
   return checkedComponentGroup("routeData", source, { root });
+};
+export const readAppBundlesSource = (root = process.cwd()) => {
+  root = resolve(root);
+  const source = JSON.parse(readFileSync(join(root, "jarvis-appBundles-source.json"), "utf8"));
+  return checkedComponentGroup("appBundles", source, { root });
 };
 export const checkedMediaSource = (source, options) => checkedComponentSource("media", source, options);
