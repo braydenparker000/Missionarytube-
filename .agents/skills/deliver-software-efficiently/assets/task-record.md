@@ -1,0 +1,17 @@
+# Bounded change record
+- Outcome:
+- User authorization / scope reference (no secrets):
+- Explicit exclusions / held work:
+- Delivery owner:
+- Reviewer / independent tasks (if needed):
+- Repository, base revision and component:
+- Acceptance behaviors:
+- Risk and affected consumers:
+- Fast check command:
+- Component / release checks and why:
+- Artifact / branch / candidate revision:
+- Current blocker, evidence and next action:
+- Next checkpoint:
+- Rollback or recovery:
+- Result: implemented / reviewed / merged / deployed / verified (separate facts)
+- Known pre-existing findings outside this batch:
