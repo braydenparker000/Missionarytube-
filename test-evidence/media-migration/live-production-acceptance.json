@@ -1,0 +1,364 @@
+{
+  "checkedOn": "2026-10-17",
+  "site": "https://missionarytube.z13.web.core.windows.net/media/",
+  "deployment": {
+    "pullRequest": 248,
+    "mainCommit": "b3853e336b5c12d037605d73186884af34660998",
+    "publishRun": "39060426739",
+    "publishSucceeded": true,
+    "allowlist": [
+      "media/index.html",
+      "media/assets/css/obsidian.css",
+      "release-component-provenance.json",
+      "release.json"
+    ],
+    "publishedMediaFiles": 2,
+    "preservedOverrides": 22,
+    "nonAllowlistedBlobsUnchanged": true,
+    "publisherReadback": "Azure and public-origin hash/property verification passed"
+  },
+  "liveSha256": {
+    "media/index.html": {
+      "bytes": 5989,
+      "sha256": "9fba937037f8ca77e1c5225c7edb702d6f90113477e35f240f4ec1aa30957d8e"
+    },
+    "media/assets/css/obsidian.css": {
+      "bytes": 183312,
+      "sha256": "d527b53e1092abaa8d544ec0e1ec5dc6df9c5d3718ff3aa7e52d4cfbc236c67e"
+    },
+    "assets/public-reader-cache.js": {
+      "bytes": 10193,
+      "sha256": "a61ad5a113bf1fb1e048d2dd1d8a3b99a7acc132ac3723161fefa6f419672b95"
+    },
+    "release.json": {
+      "sha256": "f4824cc607452894c9a81f7a2110a764914fdf365409acebef004dfd6390c3c8"
+    },
+    "release-component-provenance.json": {
+      "sha256": "4abb1af0e011fc62bd1841caadf58d1490d686d76d2895269c882b7291e5a37b"
+    }
+  },
+  "liveBrowser": {
+    "browser": "Chromium",
+    "viewport": "390x844",
+    "storedAppearance": {
+      "accent": "violet",
+      "motion": "off",
+      "surface": "charcoal",
+      "density": "comfortable",
+      "glass": "glass"
+    },
+    "appearanceHttpStatus": 200,
+    "otherScriptRequestsHeldAtPaint": 30,
+    "firstContentfulPaintMs": 536,
+    "appearanceResponseEndMs": 234.4,
+    "appearanceRequestDurationMs": 104.3,
+    "appearanceBeforeFirstPaint": true,
+    "rootDataset": {
+      "accent": "violet",
+      "surface": "charcoal",
+      "density": "comfortable",
+      "glass": "glass",
+      "motion": "off"
+    },
+    "accentCss": "#cbbaff",
+    "brandColor": "rgb(203, 186, 255)",
+    "activePageAnimation": "none",
+    "stickyBackdropFilter": {
+      "390px": "none",
+      "420px": "saturate(1.8) blur(20px)"
+    }
+  },
+  "deployedMusicAcceptance": {
+    "workflowRun": "39060584579",
+    "runUrl": "https://github.com/braydenparker000/Missionarytube-/actions/runs/39060584579",
+    "headCommit": "b3853e336b5c12d037605d73186884af34660998",
+    "job": "verify",
+    "conclusion": "success",
+    "artifactId": "12110899621",
+    "artifactSha256": "2dde80c88027bf227115fea6eb7719cf5066ed0a62dd64ac5de6f9c97308590f",
+    "passedBrowserChecks": 19,
+    "r2LibraryTracks": 7544,
+    "r2LibraryBytes": 34645316265,
+    "driveTracks": 1287,
+    "interactionCoverage": [
+      "R2 and Google Drive remain separately toggleable",
+      "both sources play and audio clocks advance",
+      "both sources seek while playing",
+      "artwork renders from the site storage origin",
+      "transport controls restore and remain tappable at 393x852",
+      "real-touch mini seeking, endpoints and rapid expansion preserve selected track",
+      "restored R2 item accepts touch seek before Play and resumes near the selected position",
+      "native touch scrolling keeps paused item with bounded DOM at 4x CPU throttle (52 rows of 7544)"
+    ]
+  },
+  "failedVerifierDiagnosis": {
+    "workflowRun": "39003845606",
+    "jobId": "117312152059",
+    "failedStep": "Verify independent live playback, seeking and artwork",
+    "failedAt": "release",
+    "artifactId": "12089993785",
+    "artifactSha256": "ed36525463a4a9f8ea86ba84730482c3865d267358f97fa83b38128ca3746fd0",
+    "sanitizedMismatch": {
+      "actual": "099ec1a0b2b621a3799f4f8346490903f212a912",
+      "expected": "46a26806f123de296d4e50b4ee7b753bbff0304b"
+    },
+    "classification": "stale verifier receipt-chain parser",
+    "evidence": "The run checked the outer live receipt as Owner Progress, although newer mobileFileSavePatch and simpleChatTasksPatch wrappers preceded that parent. The current parser recognizes and peels both wrappers; the later exact-main workflow run above passed live source identity and browser checks."
+  },
+  "limitations": [
+    "Authenticated Relay conversations, tasks, and delivery were not exercised; no sign-in or pairing was attempted.",
+    "Guitar preview was inspected through measure 59, but playback was not tested: the unsaved preview has no playback control and no tab was saved.",
+    "Physical-phone/device acceptance remains outstanding.",
+    "Daily Board dynamic rendering was not checked because its read path can advance synchronization."
+  ],
+  "staticRouteReadback": {
+    "checkedOn": "2026-10-17",
+    "site": "https://missionarytube.z13.web.core.windows.net/",
+    "mainHead": "49c01361e54f9e23d7bc55c8b49c84fd9b8ba89f",
+    "tls": "Normal verified HTTPS; no certificate-validation bypass",
+    "routes": {
+      "/": {
+        "status": 200,
+        "bytes": 1903,
+        "sha256": "68aafa41562628ad87a93557ff5ab5afeecba83874b2b4abe142b953fd4b9454"
+      },
+      "/jarvis/index.html": {
+        "status": 200,
+        "bytes": 2012,
+        "sha256": "f430545cbcea844544fa7b841f754ecb6af167c1f102fe3bd9fd15e41acfd1a0"
+      },
+      "/mast/index.html": {
+        "status": 200,
+        "bytes": 4153,
+        "sha256": "84e7ded33861bd16c5c30105fe3240629204bb214111f131c5ddd5e2adfdb0f4"
+      },
+      "/muse/index.html": {
+        "status": 200,
+        "bytes": 3616,
+        "sha256": "d69559cfe30aeb415de5ea2ef089a36b8e0420989e0bc3f7a84fe5cffb7eea0b"
+      },
+      "/daily-board/index.html": {
+        "status": 200,
+        "bytes": 1903,
+        "sha256": "68aafa41562628ad87a93557ff5ab5afeecba83874b2b4abe142b953fd4b9454",
+        "note": "Identical to root shell in source and live; no dynamic feed RPC called."
+      },
+      "/media/index.html": {
+        "status": 200,
+        "bytes": 5989,
+        "sha256": "9fba937037f8ca77e1c5225c7edb702d6f90113477e35f240f4ec1aa30957d8e"
+      },
+      "/drawercast/index.html": {
+        "status": 200,
+        "bytes": 532674,
+        "sha256": "fe360100776b4ca0f8cd416a8f929e13f85f5c73cb6cfe48ab5be8b1f6c35faf"
+      },
+      "/podcasts/index.html": {
+        "status": 200,
+        "bytes": 5736,
+        "sha256": "12d849cf5707612013e1a6467e9839ad103255f4e5fabada71b899b6b8231d9a"
+      },
+      "/guitar/index.html": {
+        "status": 200,
+        "bytes": 2701,
+        "sha256": "c11b1bcdc0521e0520f04d914e89d1a6e8686dfc306c2ac88d542a404906310a"
+      },
+      "/reader/index.html": {
+        "status": 200,
+        "bytes": 823,
+        "sha256": "7783186be6a8cab59412fc0447c246cae0aa1855d689814b0176fc88f0a21562"
+      },
+      "/respond/index.html": {
+        "status": 200,
+        "bytes": 703,
+        "sha256": "df7f06d0d7215a15034b57760261d4586178c7d21784dc66266608be0f9f323d"
+      },
+      "/connect/index.html": {
+        "status": 200,
+        "bytes": 703,
+        "sha256": "df7f06d0d7215a15034b57760261d4586178c7d21784dc66266608be0f9f323d"
+      },
+      "/quick-ai/index.html": {
+        "status": 200,
+        "bytes": 4002,
+        "sha256": "c7e0725370006f097984f954963d5d0b4eb9510d3c4fd32be3d847f777a512f0"
+      },
+      "/portal/index.html": {
+        "status": 200,
+        "bytes": 53464,
+        "sha256": "deb1febb57d9aa8384c9e637f0427784ef0ebdcca83ad9366252af3a54335e81"
+      },
+      "/mymedia/index.html": {
+        "status": 200,
+        "bytes": 6692,
+        "sha256": "093d4cb73769d8ea1e29345ff45c5d4de50dfe925b4d8beb36275808737bbae1"
+      },
+      "/youtube-archive/index.html": {
+        "status": 200,
+        "bytes": 3052,
+        "sha256": "ec6de48e40bf6d6cd9b1a3e93d70da57df6923192d6c8ba2e1cef8c978e5f582"
+      }
+    },
+    "contentOverlay": {
+      "path": "/content/jarvis.json",
+      "note": "Data-only component; no index.html is expected. /content/index.html returns 404."
+    },
+    "dailyBoardWorkerHealth": {
+      "status": 200,
+      "body": {
+        "ok": true,
+        "mode": "github-publications",
+        "version": 7,
+        "publicationIssue": 2
+      },
+      "note": "Read-only health confirms old issue source. Did not call board/read RPC because it invokes syncPublicRead and may advance reconciliation state."
+    },
+    "limits": [
+      "HTTP/index readback is not interactive route acceptance.",
+      "Daily Board dynamic feed rendering/data was not checked.",
+      "Current browser-smoke gap remains for launcher, Relay, Guitar, podcasts and agent integration routes.",
+      "Quick AI remains a pre-existing unconfigured placeholder.",
+      "Physical-device testing remains outstanding."
+    ]
+  },
+  "interactiveAcceptanceReview": {
+    "checkedOn": "2026-10-17",
+    "browserAttempt": {
+      "browser": "Chromium at /usr/bin/chromium via playwright-core 1.56.1",
+      "navigation": "https://missionarytube.z13.web.core.windows.net/",
+      "tlsValidation": "Default browser certificate validation; ignoreHTTPSErrors was not set",
+      "result": "Navigation failed with net::ERR_CERT_AUTHORITY_INVALID before DOMContentLoaded. No trust or TLS settings were changed."
+    },
+    "existingCoverage": {
+      "launcher": "jarvis/tests/launcher-browser.test.js uses a local HTTP fixture with mocked API; not production navigation.",
+      "relay": "jarvis/tests/relay-owner-browser.test.js uses offline browser contexts and fixture APIs; synthetic session journeys, no production session.",
+      "podcasts": "jarvis/tests/podcasts-browser.test.js runs fixture journeys locally; its optional live discovery/search/playback case requires PODCAST_LIVE_URL and Chrome.",
+      "guitar": "jarvis/tests/guitar-selection-browser.test.js uses a local HTTP fixture; tests track selection and score request boundaries, not live playback.",
+      "hostedLiveRoute": "deploy-azure-storage.yml has one live podcast browser step, but it is gated to a full non-receipt-only publish. Current run 39060426739 was a media-only publication, so that step did not run."
+    },
+    "previousHostedEvidence": {
+      "workflowRun": "38033446045",
+      "runUrl": "https://github.com/braydenparker000/Missionarytube-/actions/runs/38033446045",
+      "head": "4cbadf190e0d86b2a0d7c9b1ca0961d255bedb63",
+      "sourcePin": "fd010f40fec5b41d168ea02764aeb5400e047db7",
+      "podcastLiveSmoke": "success",
+      "limit": "2026-10-10 production check; it does not prove the current live route identities or current live Relay/Guitar behavior."
+    },
+    "liveVersusSelectedSource": {
+      "rootIndex": {
+        "liveSha256": "68aafa41562628ad87a93557ff5ab5afeecba83874b2b4abe142b953fd4b9454",
+        "selectedSha256": "d1ffa0e7033349fe5d71bd389e075bc7b7482a99d6744fb49423025259492eaf"
+      },
+      "jarvisIndex": {
+        "liveSha256": "f430545cbcea844544fa7b841f754ecb6af167c1f102fe3bd9fd15e41acfd1a0",
+        "selectedSha256": "9acc4c9a121edeb8d5bcb7af0b9dcd424a0134fa04aaf0ce2d020fb570109ac0"
+      },
+      "assetsAppJs": {
+        "liveSha256": "867bf8f1f92e3811ffcf3336330758adfe36b762006a93eb94454eed853bd62c",
+        "selectedSha256": "2893001862044a230b163f5f1e8193e1663a3b6d6df7a453777f957cd4f05955",
+        "note": "Live bytes match the intentionally preserved asset hash in release-component-provenance.json."
+      },
+      "guitarPage": {
+        "liveSha256": "c11b1bcdc0521e0520f04d914e89d1a6e8686dfc306c2ac88d542a404906310a",
+        "selectedSha256": "d628b5ff7f3ccac63ce151e8dbc41b70bbf47c73e609d57c2596f6d87f6c9887"
+      },
+      "guitarScript": {
+        "liveSha256": "b93696dd228a5d27385e40b44af278dd3d5038caec4c8d956d646a5809c3bf2b",
+        "selectedSha256": "c6dc1649433ada18b24545dadd4afb3b8477ffdd15ced61c86acc66020102a82",
+        "note": "Live bytes match the intentionally preserved asset hash in release-component-provenance.json."
+      },
+      "podcastsPage": {
+        "liveSha256": "12d849cf5707612013e1a6467e9839ad103255f4e5fabada71b899b6b8231d9a",
+        "selectedSha256": "a294ea27c2cb80798d14a67ce9270c936e2cdd97625b52f746d99c5d217ddf46"
+      }
+    },
+    "dailyBoardReadOnlySource": {
+      "upstreamIssue": "https://github.com/braydenparker999/jarvis/issues/2",
+      "state": "open",
+      "commentCount": 283,
+      "validPublicationComments": 227,
+      "briefingCount": 16,
+      "latestBriefingDate": "2026-10-16",
+      "workerHealth": {
+        "status": 200,
+        "mode": "github-publications",
+        "version": 7,
+        "publicationIssue": 2
+      },
+      "dynamicReaderCalled": false
+    },
+    "currentGap": "Live cloud-browser acceptance now covers the listed launcher, Podcasts, Guitar preview, and private sign-in-gate interactions. Authenticated Relay behavior, guitar playback, physical-device use, and Daily Board dynamic-feed rendering remain unverified."
+  },
+  "liveCloudChromeAcceptance": {
+    "checkedOn": "2026-10-17",
+    "browser": "Parent-run cloud Chrome using normal HTTPS certificate validation",
+    "result": "No observed failure in the tested scope",
+    "journeys": [
+      "Launcher Search apps filtered for pod and opened Podcasts.",
+      "Podcasts search for 99% Invisible returned 8 shows; Roman Mars episode list loaded.",
+      "Played The Problem With Football Helmets; timer advanced to 0:02; seek-forward 30 seconds reached 0:36; pause worked.",
+      "Guitar search Blackbird selected Beatles version 57, selected the acoustic track, previewed notation, and opened the full tab through measure 59.",
+      "Private Lucy sign-in gate rendered; selector Mast navigated to /private/#mast and settled on the Mast sign-in gate; navigation drawer opened and closed."
+    ],
+    "notTested": [
+      "Authenticated Relay conversations, tasks, and message delivery; no sign-in or pairing was attempted.",
+      "Guitar playback; the unsaved preview has no playback control and no tab was saved.",
+      "Physical-device interaction."
+    ],
+    "dailyBoard": "No synchronization or state-advancing read endpoint was called."
+  },
+  "dailyBoardCutover": {
+    "status": "pending; unchanged",
+    "readerSource": "braydenparker999/jarvis#2",
+    "destinationIssue2": "Already used by the import PR; not reused.",
+    "workerHealth": {
+      "mode": "github-publications",
+      "version": 7,
+      "publicationIssue": 2
+    },
+    "writerSwitch": "Not performed; source issue, automation, Worker configuration, and schedules remain unchanged.",
+    "syncRead": "Not called."
+  },
+  "verifiedReleaseIds": {
+    "media": {
+      "pullRequest": 248,
+      "mainHead": "b3853e336b5c12d037605d73186884af34660998",
+      "componentSource": "bccda52d2c84bdfc2d315c7250cd9efbd8594aff",
+      "componentPath": "jarvis/public/media",
+      "publishRun": 39060426739,
+      "publishedFiles": 2,
+      "rollbackArtifactId": 12111127615,
+      "rollbackArtifactName": "media-only-rollback-39060426739-1",
+      "rollbackArtifactSha256": "29da793f671a929075522ad3011ba43c223a037eb49f9810e4a54b9db4790a12",
+      "rollbackLocation": "GitHub Actions artifact for run 39060426739; retained through 2027-01-15."
+    },
+    "music": {
+      "verificationRun": 39060584579,
+      "headCommit": "b3853e336b5c12d037605d73186884af34660998",
+      "conclusion": "success",
+      "passedBrowserChecks": 19,
+      "artifactId": 12110899621,
+      "artifactSha256": "2dde80c88027bf227115fea6eb7719cf5066ed0a62dd64ac5de6f9c97308590f"
+    },
+    "activeSharedSource": {
+      "snapshotCommit": "de5d7177a778f4bfa2aa071ab064a8a4fb9b2246",
+      "snapshotPath": "jarvis-active-public-c28/public",
+      "historicalGeneralSourcePin": "c28c1b2f70aabb5217b08bf31ffe4c93d0353765"
+    }
+  },
+  "performanceOptimizationDisposition": {
+    "status": "rejected for this consolidation batch",
+    "review": "Focused independent review",
+    "reason": "The estimated transfer reduction was unmeasured and did not establish FCP improvement. Splitting controller and UI increases private-session lifecycle regression risk while selected c28 source differs from 22 preserved live overrides. The simple-chat-tasks publisher also redeploys the Worker; its historical owner-api pin 8546e377 does not match the preserved live owner-api hash 95062863. This source, ownership, and publisher expansion is disproportionate to the unproven benefit.",
+    "sourceIdentity": {
+      "selectedC28AppSha256": "2893001862044a230b163f5f1e8193e1663a3b6d6df7a453777f957cd4f05955",
+      "preservedLiveAppSha256": "867bf8f1f92e3811ffcf3336330758adfe36b762006a93eb94454eed853bd62c",
+      "preservedLiveOwnerApiSha256": "9506286317847b393bd23fd19baba60b3b2cecb2f2276852b74b7ade2ca24085",
+      "historicalSimpleChatTasksOwnerApiPin": "8546e3778244fd1b8c8501e8ad7ebbae23e910eba9e68c16aed6911d273c2e17",
+      "preservedOverrideCount": 22
+    },
+    "changesMade": false,
+    "speedupClaimed": false
+  },
+  "runtimeChangesInThisDisposition": false
+}

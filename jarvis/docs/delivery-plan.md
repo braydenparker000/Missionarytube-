@@ -50,13 +50,20 @@ dual-reader through a watermark, switches the one writer, and verifies rollback.
 The active feed selection, writer, issue, schedule and publication endpoint
 have not been changed. Only the additive, disabled reader path is deployed.
 
+The interface-only lazy-loading optimization was reviewed and rejected for
+this consolidation batch: no FCP benefit was measured, while preserving the
+divergent live override source and private-session lifecycle would expand
+ownership and regression risk. No speedup is claimed. The current interaction
+evidence and explicit disposition are in the
+[consolidation acceptance record](../../docs/jarvis-source-import.md#current-acceptance-and-optimization-disposition-2026-10-17).
+
 ## Delivery sequence and finish lines
 
 ### 1. Close the current test-infrastructure batch
 
 [Deployment repository PR213](https://github.com/braydenparker000/Missionarytube-/pull/213) merged as `0c521d76b5f1c12ea38d5cc07d96c8ca6f1b725b`. The batch moved media tests toward pinned Jarvis source; it did not change application assets, source pins, workflows or deployment.
 
-DONE for this historical infrastructure batch: merge verified and evidence retained in the PR. This media UI repair moves `appearance.js` before the stylesheets and reapplies the 390px backdrop override after the shared rule. The shipped qualification criteria now assert both computed pre-paint appearance and the completed mobile CSS cascade; production remains on its existing artifact until a separately reviewed publication.
+DONE for this historical infrastructure batch: merge verified and evidence retained in the PR. The media UI repair merged as PR248 at `b3853e336b5c12d037605d73186884af34660998` and was published successfully by run [39060426739](https://github.com/braydenparker000/Missionarytube-/actions/runs/39060426739). It moves `appearance.js` before the stylesheets and reapplies the 390px backdrop override after the shared rule; shipped qualification covers computed pre-paint appearance and the completed mobile CSS cascade. Its rollback is GitHub Actions artifact `media-only-rollback-39060426739-1` (ID `12111127615`, SHA-256 `29da793f671a929075522ad3011ba43c223a037eb49f9810e4a54b9db4790a12`, retained through 2027-01-15). Current live music verification passed 19 browser checks in run [39060584579](https://github.com/braydenparker000/Missionarytube-/actions/runs/39060584579). See the [acceptance record](../../docs/jarvis-source-import.md#current-acceptance-and-optimization-disposition-2026-10-17) for verified-TLS cloud interactions and remaining authenticated Relay, guitar playback, Daily Board and physical-device limits.
 
 ### 2. Retire duplicate application code reversibly
 
