@@ -63,6 +63,20 @@ The import is frozen for this first patch: do not install dependencies or
 write generated files inside it before updating the boundary in the next
 reviewed source-development patch.
 
+## Media component source
+
+The unchanged media component now has its own exact destination identity in
+[`jarvis-media-source.json`](../jarvis-media-source.json): commit
+`7520eeaea05825ef8edafc5882ef4e053e99f26d`, path `jarvis/public/media`, tree
+`c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7`. Its bytes match the former
+`c28c1b2f70aabb5217b08bf31ffe4c93d0353765:public/media` tree. The build keeps
+the general release source and all other public paths on their existing pin,
+then replaces only `dist/media` with the exact destination subtree. The
+`dist/release.json` keeps the historical general source fields and adds the
+media repository, commit, path and tree. The existing full-file artifact
+manifest seals those bytes; its schema and historical receipt validation stay
+unchanged.
+
 ## Unchanged operational boundaries
 
 `jarvis-release.json` still selects external source `c28c1b2f70aabb5217b08bf31ffe4c93d0353765`.

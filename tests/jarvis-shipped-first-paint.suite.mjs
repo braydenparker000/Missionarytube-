@@ -7,20 +7,17 @@ import { createRequire } from "node:module";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mediaAppRoot } from "./helpers/media-root.mjs";
+import { readMediaSource } from "../scripts/media-source.mjs";
 
 if (!process.env.MEDIA_APP_ROOT) {
-  throw new Error("Refusing to read the repo-root media copy. This suite runs only with MEDIA_APP_ROOT set to the pinned Jarvis checkout.");
+  throw new Error("Refusing to read the repo-root media copy. This suite requires MEDIA_APP_ROOT set to the exact Jarvis media source.");
 }
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const mediaRoot = mediaAppRoot();
-const jarvisRepo = resolve(mediaRoot, "../..");
-const jarvisHead = execFileSync("git", ["-C", jarvisRepo, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
-const mediaTree = execFileSync("git", ["-C", jarvisRepo, "rev-parse", "HEAD:public/media"], { encoding: "utf8" }).trim();
+const mediaSource = readMediaSource(repoRoot);
+const mediaTree = execFileSync("git", ["-C", repoRoot, "rev-parse", `${mediaSource.commit}:${mediaSource.path}`], { encoding: "utf8" }).trim();
 const pin = JSON.parse(readFileSync(resolve(repoRoot, "jarvis-release.json"), "utf8"));
-if (jarvisHead !== pin.commit) {
-  throw new Error(`First-paint checkout ${jarvisHead} is not the pinned Jarvis commit ${pin.commit}`);
-}
 
 const chrome = [process.env.CHROME_PATH, "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable"].find((path) => path && existsSync(path));
 if (!chrome) throw new Error("Chrome is required to characterize the shipped Jarvis first paint. Set CHROME_PATH.");
@@ -171,8 +168,9 @@ test("characterization: held scripts leave the stored accent and motion unapplie
 
     const limitation = "Stored violet accent and motion off were present in localStorage under astra.v1.appearance, and the document had already painted, while every requested script response was still held. appearance.js is deferred, so that paint used the stylesheet default ice accent (#b4d1ff) and .page.active was still running page-arrival. The stored accent, surface, and motion were applied only after the script responses were released.";
     const report = {
-      jarvisCommit: jarvisHead,
+      jarvisCommit: pin.commit,
       mediaTree,
+      mediaSource: {repository:mediaSource.repository,commit:mediaSource.commit,path:mediaSource.path,tree:mediaSource.tree},
       storageKey: STORAGE_KEY,
       stored: STORED,
       defaults: { accent: "ice", accentColor: "#b4d1ff", motion: "full", surface: "black" },
@@ -195,7 +193,10 @@ test("characterization: held scripts leave the stored accent and motion unapplie
     };
     writeFileSync(resolve(EVIDENCE, "computed-style.json"), `${JSON.stringify(report, null, 2)}\n`);
 
-    assert.equal(jarvisHead, "c28c1b2f70aabb5217b08bf31ffe4c93d0353765");
+    assert.equal(pin.commit, "c28c1b2f70aabb5217b08bf31ffe4c93d0353765");
+    assert.equal(mediaSource.repository, "braydenparker000/Missionarytube-");
+    assert.equal(mediaSource.path, "jarvis/public/media");
+    assert.equal(mediaSource.commit, "7520eeaea05825ef8edafc5882ef4e053e99f26d");
     assert.equal(mediaTree, "c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7");
     assert.equal(new URL(page.url()).pathname, "/media/");
     assert.ok(heldPaths.includes("/assets/pip-diagnostics.js"), "the page requests /assets/pip-diagnostics.js from the site root");
