@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -34,7 +34,7 @@ test("active public source rejects a changed commit, path or tree", () => {
 test("media source resolves only the pinned destination commit, path and tree", () => {
   const checked = readMediaSource(root);
   assert.equal(checked.repository, "braydenparker000/Missionarytube-");
-  assert.equal(checked.commit, "9f0dd2419db9110e3b14365f0e7bb85fb8bb8fd6");
+  assert.equal(checked.commit, "bccda52d2c84bdfc2d315c7250cd9efbd8594aff");
   assert.equal(checked.path, "jarvis/public/media");
   assert.equal(checked.tree, "4a4aceb3661e437471a1d28f6574b9b21b28a343");
   assert.equal(checked.directory, resolve(root, "jarvis/public/media"));
@@ -136,6 +136,7 @@ test("the exact reviewed source remains usable in a shallow destination checkout
     run("fetch", "--depth=1", root, head);
     run("checkout", "--detach", "FETCH_HEAD");
     assert.equal(execFileSync("git", ["-C", shallow, "rev-parse", "--is-shallow-repository"], { encoding: "utf8" }).trim(), "true");
+    writeFileSync(resolve(shallow, "jarvis-media-source.json"), JSON.stringify(source, null, 2) + "\n");
     const checked = readMediaSource(shallow);
     assert.equal(checked.tree, source.tree);
     assert.equal(checked.directory, resolve(shallow, source.path));

@@ -7,6 +7,10 @@ on:
         description: Publish only qualified Relay and Guitar saving modules; retain every setting and unrelated blob
         type: boolean
         default: false
+      publish_media_only:
+        description: Publish only the two reviewed media appearance files and chain the component release receipt
+        type: boolean
+        default: false
       publish_active_public_provenance:
         description: Publish only the destination-owned active-public source receipt; preserve every runtime blob
         type: boolean
@@ -95,7 +99,7 @@ jobs:
       contents: read
   deploy:
     needs: qualification
-    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.publish_active_public_provenance != true && vars.AZURE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.publish_active_public_provenance != true && inputs.publish_media_only != true && vars.AZURE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     concurrency:
@@ -363,7 +367,7 @@ jobs:
 
   activate-lucy-muse:
     name: deploy
-    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && (inputs.activate_lucy_muse == true || inputs.diagnose_lucy_muse == true || inputs.recover_lucy_muse_receipt == true || inputs.replace_muse_fingerprint == true) && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && (inputs.activate_lucy_muse == true || inputs.diagnose_lucy_muse == true || inputs.recover_lucy_muse_receipt == true || inputs.replace_muse_fingerprint == true) && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
@@ -426,7 +430,7 @@ jobs:
 
   private-wake:
     name: deploy
-    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake == true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake == true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:
@@ -518,7 +522,7 @@ jobs:
 
   mast-chat-only:
     name: deploy
-    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.deploy_mast_chat_only == true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.deploy_mast_chat_only == true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:
@@ -589,7 +593,7 @@ jobs:
 
   activate-owner-mast:
     name: deploy
-    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.activate_owner_mast == true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.activate_owner_mast == true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
@@ -652,7 +656,7 @@ jobs:
 
   poweramp-background:
     name: deploy
-    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && github.event_name == 'workflow_dispatch' && inputs.publish_poweramp_background == true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && github.event_name == 'workflow_dispatch' && inputs.publish_poweramp_background == true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
@@ -731,7 +735,7 @@ jobs:
 
   muse-launcher:
     name: deploy
-    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && github.event_name == 'workflow_dispatch' && inputs.publish_muse_launcher == true && inputs.publish_poweramp_background != true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && github.event_name == 'workflow_dispatch' && inputs.publish_muse_launcher == true && inputs.publish_poweramp_background != true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
@@ -810,7 +814,7 @@ jobs:
 
   poweramp-playlists:
     name: deploy
-    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && github.event_name == 'workflow_dispatch' && inputs.publish_poweramp_playlists == true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && github.event_name == 'workflow_dispatch' && inputs.publish_poweramp_playlists == true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
@@ -889,7 +893,7 @@ jobs:
 
   muse-relay-design:
     name: deploy
-    if: ${{ inputs.publish_owner_progress != true && inputs.publish_poweramp_playlists != true && github.event_name == 'workflow_dispatch' && inputs.publish_muse_relay_design == true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_owner_progress != true && inputs.publish_poweramp_playlists != true && github.event_name == 'workflow_dispatch' && inputs.publish_muse_relay_design == true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
@@ -967,7 +971,7 @@ jobs:
         run: az logout
   owner-progress:
     name: deploy
-    if: ${{ inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.publish_owner_progress == true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.publish_owner_progress == true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:
@@ -1071,7 +1075,7 @@ jobs:
         run: az logout
   simple-chat-tasks:
     name: deploy
-    if: ${{ inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.publish_simple_chat_tasks == true && inputs.publish_owner_progress != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.publish_simple_chat_tasks == true && inputs.publish_owner_progress != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_mobile_file_save != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:
@@ -1176,7 +1180,7 @@ jobs:
   active-public-provenance:
     name: deploy
     needs: qualification
-    if: ${{ inputs.publish_active_public_provenance == true && vars.AZURE_DEPLOY_ENABLED == 'true' && vars.AZURE_STORAGE_ACCOUNT == 'missionarytube' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && needs.qualification.result == 'success' && inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_active_public_provenance == true && vars.AZURE_DEPLOY_ENABLED == 'true' && vars.AZURE_STORAGE_ACCOUNT == 'missionarytube' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && needs.qualification.result == 'success' && inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     concurrency:
@@ -1266,7 +1270,7 @@ jobs:
 
   mobile-file-save:
     name: deploy
-    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && github.event_name == 'workflow_dispatch' && inputs.publish_mobile_file_save == true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true }}
+    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && github.event_name == 'workflow_dispatch' && inputs.publish_mobile_file_save == true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true && inputs.publish_media_only != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     concurrency:
@@ -1342,6 +1346,78 @@ jobs:
           path: |
             mobile-file-save-publication/*.json
             release-qualified.json
+          retention-days: 90
+          if-no-files-found: warn
+      - name: Sign out
+        if: ${{ always() && steps.azure_signin.outcome == 'success' }}
+        run: az logout
+
+  media-only:
+    name: deploy
+    needs: qualification
+    if: ${{ inputs.publish_media_only == true && inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.publish_active_public_provenance != true && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && vars.AZURE_STORAGE_ACCOUNT == 'missionarytube' && needs.qualification.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ needs.qualification.outputs.node22 }}
+      - name: Download this run's exact qualified frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: jarvis-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist
+      - name: Verify exact candidate and live parent lineage before credentials
+        run: node scripts/publish-media-appearance.mjs prepare
+      - name: Sign in using existing Azure identity
+        id: azure_signin
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Capture the exact four-object rollback set and storage inventory
+        run: node scripts/publish-media-appearance.mjs backup
+      - name: Preserve rollback bytes and properties before publication
+        id: rollback
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-only-rollback-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .media-only-publication/
+          include-hidden-files: true
+          retention-days: 90
+          if-no-files-found: error
+      - name: Normalize rollback artifact identity
+        id: normalize
+        env:
+          ARTIFACT_ID: ${{ steps.rollback.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.rollback.outputs.artifact-digest }}
+        run: |
+          case "$ARTIFACT_DIGEST" in sha256:*) ;; *) ARTIFACT_DIGEST="sha256:$ARTIFACT_DIGEST" ;; esac
+          printf 'digest=%s\n' "$ARTIFACT_DIGEST" >> "$GITHUB_OUTPUT"
+      - name: Bind the chained media receipt to rollback artifact
+        env:
+          ROLLBACK_ARTIFACT_ID: ${{ steps.rollback.outputs.artifact-id }}
+          ROLLBACK_ARTIFACT_DIGEST: ${{ steps.normalize.outputs.digest }}
+        run: node scripts/publish-media-appearance.mjs prepare-proof
+      - name: Validate all rollback bytes before any write
+        run: node scripts/publish-media-appearance.mjs verify-backup
+      - name: Publish only the two media files, component sidecar and release marker
+        id: publish
+        run: node scripts/publish-media-appearance.mjs publish
+      - name: Restore only still-candidate objects after a failed publication
+        if: ${{ failure() && steps.azure_signin.outcome == 'success' && steps.rollback.outputs.artifact-id != '' && steps.publish.outcome == 'failure' }}
+        run: node scripts/publish-media-appearance.mjs rollback
+      - name: Preserve media publication evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-only-publication-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .media-only-publication/
+          include-hidden-files: true
           retention-days: 90
           if-no-files-found: warn
       - name: Sign out

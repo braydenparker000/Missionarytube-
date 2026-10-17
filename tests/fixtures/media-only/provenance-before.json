@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "kind": "active-public-source-provenance",
+  "repository": "braydenparker000/Missionarytube-",
+  "orchestration": "217c0a49cb3bf3ba6a62a83388a226dca16456a7",
+  "runId": "39034316137",
+  "attempt": "1",
+  "releaseJsonSha256": "d676c6977fbfc8e44c2017342077273561c895e3b8d1d4e41583bf8601d4ce74",
+  "parentReleaseJsonSha256": "17a2ad99c4bc07671c0dcc6ae23159addf734f138beae915961b82bf66349c3f",
+  "parentReleaseQualifiedDigest": "c064b89a4734848861d96a2bafc66cd27d359a1b090f9ca099b4a9c41bfc64f5",
+  "privateWorkspaceReceiptSha256": "e1225d3d56402c089b4347e656bdd704267680d1996e4f488f4bf1ec9ac8e3e4",
+  "artifactManifestSha256": "7ba0de4903f6b684fee99a6fbb9205ff43fc81f0946e67ab98cd731ff777527d",
+  "activePublic": {
+    "repository": "braydenparker000/Missionarytube-",
+    "commit": "de5d7177a778f4bfa2aa071ab064a8a4fb9b2246",
+    "path": "jarvis-active-public-c28/public",
+    "tree": "67a47e36414a8ceb4040c9454f64ed1982a9146c"
+  },
+  "preservedOverrides": [
+    {
+      "path": "assets/app.js",
+      "sha256": "867bf8f1f92e3811ffcf3336330758adfe36b762006a93eb94454eed853bd62c"
+    },
+    {
+      "path": "assets/conversation.css",
+      "sha256": "e1c2c3a7382f85e74e81e8fa998f51ec554418af77e22355b32fdc027c986e63"
+    },
+    {
+      "path": "assets/conversation.js",
+      "sha256": "7544da586d1f16197b38b3b550f61b2e834b27f957ba1017923a8c8ac2c1d77d"
+    },
+    {
+      "path": "assets/drive-config.json",
+      "sha256": "b45dc30894fda2c7e6b6d05d9fb7dcf152d358d758f0518062edd35d4c12eff6"
+    },
+    {
+      "path": "assets/hub.js",
+      "sha256": "9443bb98a5d80cb8cb5c2a3d1fc3040d1f775a8af10b41fc5dea263bce854441"
+    },
+    {
+      "path": "assets/mast.css",
+      "sha256": "62b55749a00872ab7cd82f44209a5eeacd84026a66a18dc23b25e11298a8c843"
+    },
+    {
+      "path": "assets/mast.js",
+      "sha256": "006a13801a3973dff467d0ba4710fd44a04324e172559798755485855f86e6e1"
+    },
+    {
+      "path": "assets/muse.js",
+      "sha256": "fa48012ea080c999a89af22b0f630f82eea9c8a5bddbdd4c1090daa59a84035d"
+    },
+    {
+      "path": "assets/quick-ai-config.json",
+      "sha256": "758d22439c0578977f994659725989987cba61a2da89513521f545d203c2e03f"
+    },
+    {
+      "path": "assets/relay-attachment-content.js",
+      "sha256": "35d6ab366e5dab51dfbdb212ba12d29e798d0ad7352dee157774dd60c7a370ec"
+    },
+    {
+      "path": "assets/relay-attachment-contract.js",
+      "sha256": "9f4d083d17ea6dc914c3c7fdcf1f8baad0dda0a323072be1f4cd7c96518d92f2"
+    },
+    {
+      "path": "assets/relay-owner-api.js",
+      "sha256": "9506286317847b393bd23fd19baba60b3b2cecb2f2276852b74b7ade2ca24085"
+    },
+    {
+      "path": "assets/relay-owner-ui.js",
+      "sha256": "6aef5fbda5c7cab14b19292cf1210cf95920972a3c7e04a44632f281e35a18e1"
+    },
+    {
+      "path": "assets/relay.css",
+      "sha256": "020ece525dace587075b361a0780fcb735def59e72d62c775c243a7e676a92fb"
+    },
+    {
+      "path": "drawercast/index.html",
+      "sha256": "fe360100776b4ca0f8cd416a8f929e13f85f5c73cb6cfe48ab5be8b1f6c35faf"
+    },
+    {
+      "path": "drawercast/player.js",
+      "sha256": "aede20b8b5785d4719765dc44a0a3c390159bf4fdeb5e11e9d641df83d40901a"
+    },
+    {
+      "path": "drawercast/r2-api.js",
+      "sha256": "72c1fc3e7c47aa800ac92a033703d9c11b05f45e902c832264a88ef0a06e0676"
+    },
+    {
+      "path": "drawercast/r2-library.js",
+      "sha256": "859032229615470d2b3b5a2d53a9e2f46d00c74c78c75e4f0cf20b5e3029f04c"
+    },
+    {
+      "path": "guitar/guitar.js",
+      "sha256": "b93696dd228a5d27385e40b44af278dd3d5038caec4c8d956d646a5809c3bf2b"
+    },
+    {
+      "path": "guitar/runtime.js",
+      "sha256": "25d7c55c98e6b7effe740a66c4e08c9954e343e2e93a8bfaf7a2a1b24efaacba"
+    },
+    {
+      "path": "mast/index.html",
+      "sha256": "84e7ded33861bd16c5c30105fe3240629204bb214111f131c5ddd5e2adfdb0f4"
+    },
+    {
+      "path": "muse/index.html",
+      "sha256": "d69559cfe30aeb415de5ea2ef089a36b8e0420989e0bc3f7a84fe5cffb7eea0b"
+    }
+  ],
+  "rollback": {
+    "artifactId": "12101717234",
+    "artifactDigest": "sha256:ae9daf37211cc447967dc9d66a01dddfbb68c2d9e9ca09d23eb81821b306fc37",
+    "name": "active-public-provenance-rollback-39034316137-1"
+  }
+}

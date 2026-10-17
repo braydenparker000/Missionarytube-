@@ -1,0 +1,79 @@
+{
+  "source": "braydenparker999/jarvis",
+  "commit": "c28c1b2f70aabb5217b08bf31ffe4c93d0353765",
+  "bytes": 21063258,
+  "components": {
+    "activePublic": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "de5d7177a778f4bfa2aa071ab064a8a4fb9b2246",
+      "path": "jarvis-active-public-c28/public",
+      "tree": "67a47e36414a8ceb4040c9454f64ed1982a9146c"
+    },
+    "media": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "7520eeaea05825ef8edafc5882ef4e053e99f26d",
+      "path": "jarvis/public/media",
+      "tree": "c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7"
+    },
+    "daily-board": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "8201af9d10b6c0731f55c2b297b070b7922968d3",
+      "path": "jarvis/public/daily-board",
+      "tree": "b3214e6e8731cc0f3146d79a467c7c48710c3620"
+    },
+    "connect": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "41383d9d5154aab3b1d7922d5e7c376376139c07",
+      "path": "jarvis/public/connect",
+      "tree": "14da00ba05225eddc0ad9d1717660c1f4b2e93c9"
+    },
+    "content": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "2b29ab492af5a68bc49888cdb441fafdd38b5427",
+      "path": "jarvis/public/content",
+      "tree": "d3855220d2b412feee57054ee31d367806755eef"
+    },
+    "portal": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "2b29ab492af5a68bc49888cdb441fafdd38b5427",
+      "path": "jarvis/public/portal",
+      "tree": "f77aad2ee6548e770164a3be447b006a6692a3d0"
+    },
+    "quickAi": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "2b29ab492af5a68bc49888cdb441fafdd38b5427",
+      "path": "jarvis/public/quick-ai",
+      "tree": "b003bed5af0c7480f557531ec66f296a6851ca6d"
+    },
+    "reader": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "2b29ab492af5a68bc49888cdb441fafdd38b5427",
+      "path": "jarvis/public/reader",
+      "tree": "3e13fa1f294299a11f16a062d9d6328ea1451ca9"
+    },
+    "respond": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "2b29ab492af5a68bc49888cdb441fafdd38b5427",
+      "path": "jarvis/public/respond",
+      "tree": "14da00ba05225eddc0ad9d1717660c1f4b2e93c9"
+    },
+    "mymedia": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "54fb839d4efa26af6d4162d65b00e4308dffe274",
+      "path": "jarvis/public/mymedia",
+      "tree": "977932e1ef88d4701f187982d3f04c9906625b6d"
+    },
+    "podcasts": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "54fb839d4efa26af6d4162d65b00e4308dffe274",
+      "path": "jarvis/public/podcasts",
+      "tree": "d94f14ad0bc92c426d3111aae8aef0aaa9f49858"
+    },
+    "youtubeArchive": {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "54fb839d4efa26af6d4162d65b00e4308dffe274",
+      "path": "jarvis/public/youtube-archive",
+      "tree": "3321453446d8013f8fda7610294b841fb1501f10"
+    }
+  }
+}
