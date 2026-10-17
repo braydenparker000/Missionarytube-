@@ -16,6 +16,9 @@ export const BASELINE=Object.freeze({version:'aaf9612a-dc41-4904-bd90-887b4f8f9f
   settingsDigest:'e2a1add50b4ec89596fdb1409d5335b3e1357229c07071a730dd637cf32dc089',
   settingsShapeDigest:'b3f90280b3fa8d60be3b75202e223336eeba79f2f1abb52b27e7dc191e6c0d4c',
   schedulesDigest:'6daa9ec137a94fc5962f6d05ab16df8dba70096ae34571ccd552ac130cd733c5'});
+// Cloudflare rewrites this provider-generated audit annotation during a script upload.
+// The remaining settings, bindings and schedules still have to match the pinned baseline.
+export const UPLOAD_SETTINGS_DIGEST='86d52aa1195c29495fe84aadaea05962a4730bbcc2067f49b720293198439e92';
 export const CANDIDATE=Object.freeze({workerSha256:'74c8bf880a674b19bfeab74f65cf87e069b9f88233c4e65eba37393b13d0064d',
   workerBytes:661389,importerSha256:'9397e2e3731368e5d5a51e865f2cfd45c33fae992dcdaae2dfa4c879b7deeed8',
   cacheSha256:'a61ad5a113bf1fb1e048d2dd1d8a3b99a7acc132ac3723161fefa6f419672b95',
@@ -41,7 +44,7 @@ export function checkedBaseline(identity){
 }
 export function checkedRollbackIdentity(identity){
  assert.ok([BASELINE.codeSha256,CANDIDATE.workerSha256].includes(identity.codeSha256),'Unrecognized Worker bytes');
- assert.equal(identity.settingsDigest,BASELINE.settingsDigest,'Worker settings changed');
+ assert.ok([BASELINE.settingsDigest,UPLOAD_SETTINGS_DIGEST].includes(identity.settingsDigest),'Worker settings changed');
  assert.equal(identity.schedulesDigest,BASELINE.schedulesDigest,'Worker schedules changed');return identity;
 }
 export function checkedBackupArtifacts({manifest,checkpoint,worker,cache}){
@@ -87,9 +90,15 @@ export function planRollback(workerSha256,cacheSha256){
  return Object.freeze({worker:workerSha256===CANDIDATE.workerSha256?'restore':'keep',
    cache:cacheSha256===CANDIDATE.cacheSha256?'restore':'keep'});
 }
-function checkedRollbackObservation(observed){
+export function checkedRollbackObservation(observed){
  noDestinationActivation(observed.settings);checkedRollbackIdentity(observed.identity);
- assert.equal(fullSettingsDigest(observed.settings),BASELINE.settingsDigest,'Worker settings changed');
+ assert.equal(fullSettingsDigest(observed.settings),observed.identity.settingsDigest,'Worker settings identity changed');
+ const annotation=observed.settings.annotations?.['workers/triggered_by'];
+ if(observed.identity.settingsDigest===UPLOAD_SETTINGS_DIGEST){
+  assert.equal(annotation,'upload','Unexpected provider-generated Worker audit annotation');
+  const normalized={...observed.settings,annotations:{...observed.settings.annotations,'workers/triggered_by':'create_version_api'}};
+  assert.equal(fullSettingsDigest(normalized),BASELINE.settingsDigest,'Worker settings changed beyond the provider-generated audit annotation');
+ }else assert.equal(annotation,'create_version_api','Unexpected baseline Worker audit annotation');
  assert.equal(settingsDigest(observed.settings),BASELINE.settingsShapeDigest,'Worker binding values or shape changed');
  return observed;
 }
