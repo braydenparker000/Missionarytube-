@@ -34,13 +34,12 @@ Every implementation should report:
 
 Use a `fix/` branch and the normal PR checks. If production is unusable, a fast merge is acceptable only after the minimum automated checks pass. Follow it with a full review issue; do not make Azure portal edits that are absent from GitHub.
 
-## Importing the current site
+## Frontend source and checks
 
-When the current production HTML is supplied:
-
-1. Replace the placeholder `index.html` on a new branch.
-2. Add any referenced local assets under `assets/`.
-3. Remove private tokens or user-specific addon configuration before committing.
-4. Run `npm test` and `npm run build`.
-5. Compare the built `dist/index.html` with the supplied source and test on Android Chrome.
-6. Merge only after confirming the GitHub version matches the intended live behavior.
+The current build reads the Jarvis checkout pinned by `jarvis-release.json`.
+Media HTML and assets live under that checkout's `public/media/`; the former
+root `index.html` and `assets/` app copy have been retired. Do not recreate them
+for frontend changes. See [README.md](../README.md#media-regression-checks) for
+checkout preparation and regression checks. Run `npm test` and `npm run build`
+with that exact checkout, then inspect `dist/` and test on Android Chrome when
+changing user-visible behavior.

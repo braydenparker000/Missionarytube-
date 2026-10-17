@@ -53,11 +53,11 @@ async function checkFixture(mutate) {
   try {
     await cp(process.cwd(), directory, {
       recursive: true,
-      filter: (source) => !/(?:^|\/)(?:\.git|dist|node_modules)$/.test(source)
+      filter: (source) => source !== join(process.cwd(), ".git") && !/(?:^|\/)(?:dist|node_modules)$/.test(source)
     });
     await mutate(directory);
     try {
-      const { stdout } = await run(process.execPath, ["scripts/check.mjs"], { cwd: directory });
+      const { stdout } = await run(process.execPath, ["scripts/check.mjs"], { cwd: directory, env: { ...process.env, MEDIA_APP_ROOT: join(directory, ".jarvis-source/public/media") } });
       return { code: 0, output: stdout };
     } catch (error) {
       return { code: error.code ?? 1, output: `${error.stdout || ""}${error.stderr || ""}` };
@@ -75,7 +75,7 @@ test("validation passes on an unmodified checkout", async () => {
 
 test("validation rejects a mutable /latest/ dependency URL", async () => {
   const result = await checkFixture(async (directory) => {
-    const path = join(directory, "assets/js/app.js");
+    const path = join(directory, ".jarvis-source/public/media/assets/js/app.js");
     const source = await readFile(path, "utf8");
     await writeFile(
       path,
@@ -92,7 +92,7 @@ test("validation rejects a mutable /latest/ dependency URL", async () => {
 
 test("validation rejects a remote script without an integrity hash", async () => {
   const result = await checkFixture(async (directory) => {
-    const path = join(directory, "assets/js/app.js");
+    const path = join(directory, ".jarvis-source/public/media/assets/js/app.js");
     const source = await readFile(path, "utf8");
     await writeFile(path, source.replace(/,integrity:'sha384-[^']+'/, ""));
   });
@@ -103,7 +103,7 @@ test("validation rejects a remote script without an integrity hash", async () =>
 
 test("validation requires the progress store module to ship", async () => {
   const result = await checkFixture(async (directory) => {
-    await rm(join(directory, "assets/js/progress-store.js"));
+    await rm(join(directory, ".jarvis-source/public/media/assets/js/progress-store.js"));
   });
 
   assert.equal(result.code, 1);

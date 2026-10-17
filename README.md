@@ -38,3 +38,19 @@ Storage does not process `staticwebapp.config.json`. The build converts the appl
 Shared messages and briefings remain in the same Cloudflare store and publication issue. A hostname change creates separate browser storage: unsent drafts, hub preferences, notes, DrawerCast settings/pairing and Ianua files do not automatically transfer from the SWA hostname. Export/import supported data on the device before abandoning the old site. Astra settings already saved on this Storage hostname remain on the same origin when Astra moves to `/media/`. Real A15 playback and restricted-device behavior require a device check.
 
 Quick AI at `/quick-ai/` calls Gemini, Groq, and Tavily directly from the browser. The deployment workflow uses `QUICK_AI_GEMINI_KEY`, the existing `GROQ_API_KEY`, and `QUICK_AI_TAVILY_KEY` Actions secrets to generate the owner's intentionally public free-plan configuration in the built artifact. It requires all three values before logging into Azure or touching blobs. The legacy public config blob is replaced during staging. Main Jarvis chat and Muse keep their existing Worker and check-based delivery paths.
+
+## Media regression checks
+
+The unused root media app and its legacy build/browser commands have been retired.
+`npm test` validates the exact `jarvis-release.json` checkout at
+`.jarvis-source/public/media`; missing or mismatched checkouts fail closed.
+Prepare it with `git clone https://github.com/braydenparker999/jarvis.git .jarvis-source`
+and `git -C .jarvis-source checkout --detach <commit-from-jarvis-release.json>`.
+`MEDIA_APP_ROOT` can select another checkout's `public/media` at the same pin.
+
+The three retained `src/` modules are test-only legacy support for 29 source-unit
+contracts, selected explicitly by the test helper; they are not built or shipped.
+Fixtures and licenses remain. `npm run test:media-jarvis:qualify` retains the two
+documented shipped UI TODOs and intentionally exits nonzero until those are resolved.
+See [migration evidence](test-evidence/media-migration/README.md) for that earlier
+snapshot; its description of default root routing predates this cleanup.

@@ -7,9 +7,6 @@
   "scripts": {
     "test": "node scripts/check.mjs && node --test",
     "build": "node scripts/build-jarvis.mjs",
-    "pin:check": "node scripts/pin-player-libs.mjs --check",
-    "test:browser": "node tests/browser/youtube-flow.mjs",
-    "build:legacy": "node scripts/build.mjs",
     "test:jarvis": "npm --prefix .jarvis-source test",
     "test:media-jarvis:source": "node scripts/test-jarvis-media.mjs source",
     "test:media-jarvis:shipped": "node scripts/test-jarvis-media.mjs shipped",
