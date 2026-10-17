@@ -62,9 +62,11 @@ new credential configuration; no secret values are included in the evidence.
 The original imported source tree remains `9f983eb6a86ddc1989c3d4e7b85fb7c7d2819938`
 as recorded in the inventory and import evidence. PR236 updated the maintained-
 tree guard for the Daily Board reader; the source-budget and scheduler fixes
-update that guard to `cef4a361abf510e2bd0de478ae64ee77b06d5e1e`. Each update changes only the
-current allowed tree identity; it does not rewrite imported history or the
-original source snapshot. Future edits under `jarvis/` still require an
+updated that guard to `cef4a361abf510e2bd0de478ae64ee77b06d5e1e`. PR243 updates
+the maintained tree for the documentation-only change to `jarvis/docs/delivery-plan.md`,
+recording tree `1b1f076b2b5a9936f3a4286dc8e1a64437e69317`. These updates
+preserve the original import identity and history; they only advance the
+explicitly reviewed current tree. Future edits under `jarvis/` still require an
 explicit reviewed boundary update.
 
 ## Media component source
