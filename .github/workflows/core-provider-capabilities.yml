@@ -1,0 +1,75 @@
+name: One bounded CORE provider capability observation
+
+# Root controls the first creation push only, after independent exact-head review.
+# Ordinary branch updates, force updates and action reruns cannot query again.
+on:
+  push:
+    branches: [review/core-provider-capabilities-20261009]
+    paths:
+      - '.github/workflows/core-provider-capabilities.yml'
+      - 'docs/core-provider-capabilities-20261009.md'
+      - 'scripts/core-provider-capabilities.mjs'
+      - 'scripts/core-provider-capabilities.test.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  unit-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Test bounded requests, refusals and output isolation without secrets
+        run: node --test scripts/core-provider-capabilities.test.mjs
+
+  provider-observation:
+    needs: unit-validation
+    if: >-
+      github.repository == 'braydenparker000/Missionarytube-' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/review/core-provider-capabilities-20261009' &&
+      github.actor_id == '183016859' &&
+      github.actor == 'braydenparker999' &&
+      github.triggering_actor == 'braydenparker999' &&
+      github.run_attempt == 1 &&
+      github.event.created == true &&
+      github.event.before == '0000000000000000000000000000000000000000' &&
+      github.event.deleted == false &&
+      github.event.forced == false &&
+      github.event.after == github.sha &&
+      github.event.repository.full_name == 'braydenparker000/Missionarytube-' &&
+      github.event.repository.fork == false &&
+      github.event.sender.id == 183016859 &&
+      github.event.sender.login == 'braydenparker999'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: core-provider-capability-observation
+      cancel-in-progress: false
+    steps:
+      - name: Check out the exact unit-tested public query
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Verify base, exact four-file delta, pin, recipes and original observer before credential exposure
+        run: node scripts/core-provider-capabilities.mjs verify
+      - name: Observe fixed HUBS binding and one account settings capability query
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/core-provider-capabilities.mjs read
