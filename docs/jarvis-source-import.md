@@ -264,15 +264,37 @@ prior cleanup evidence). Source import does not resolve or weaken that gate.
 The frontend regression suite also compares the pinned source against
 historical My Media commit `8c4f6de790b3e06cd78b11706dfa2c055174bbf1`, retained
 by original ref `fix/mymedia-count-clarity-qualified-20261010` in the original
-Jarvis repository. That commit is not reachable in destination history. The
-frontend qualification lane fetches only that exact ref into a local legacy
-tracking ref and verifies its SHA without moving the pinned checkout HEAD or
-changing its worktree. This preserves the test's before/after comparison while
-the active source checkout remains in Missionarytube-. The separate live
-thumbnail test in `mymedia-layout-browser.test.js` timed out on the unchanged
-pinned source when this environment's request to `i.ytimg.com` returned 403;
-the assertion is preserved and the network-dependent result is not treated as
-a code regression.
+Jarvis repository. PR225 originally fetched that exact ref because the commit
+was not reachable in destination history. This cutover preserves its original
+ancestry through a no-tree-change merge parent, then fetches the current
+qualification ref from Missionarytube- and verifies the exact baseline SHA
+without moving the pinned checkout HEAD or changing its worktree. The original
+Jarvis ref remains untouched. This keeps the historical before/after
+comparison while removing the qualification lane's remaining source fetch
+from the former repository. The separate live thumbnail test in
+`mymedia-layout-browser.test.js` timed out on the unchanged pinned source when
+the environment's request to `i.ytimg.com` returned 403; the assertion is
+preserved and the network-dependent result is not treated as a code regression.
+
+## Historical qualification baseline origin: execution checklist
+
+- **Scope:** the frontend qualification lane still needs the exact My Media
+  before/after test commit `8c4f6de790b3e06cd78b11706dfa2c055174bbf1`, but no
+  longer fetches its branch from the former repository. A merge commit with
+  the destination tree unchanged records that historical commit as a second
+  parent. The workflow fetches its current event ref from Missionarytube- into
+  the pinned source checkout, verifies the baseline SHA, and confirms the
+  pinned checkout HEAD and worktree did not move.
+- **Preservation:** the original upstream branch and all files remain intact;
+  only Git ancestry, the qualification fetch URL, and the qualification
+  workflow's recorded recipe hash changed. No application, deployment
+  endpoint, credential or publication path changed.
+- **Checks:** the checkout-origin and qualification workflow checks pass; the
+  focused checkout, qualified-release and Worker release suites passed 32
+  tests. `check-release-inventory.mjs release-inventory.json` reports the
+  saved observation valid and not live-verified. Root CI provides the full
+  required checks for this workflow and release-recipe update. No deployment
+  was run.
 
 ## Fixed source checkout origins: execution checklist
 
