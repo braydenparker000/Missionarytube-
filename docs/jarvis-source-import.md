@@ -77,6 +77,20 @@ media repository, commit, path and tree. The existing full-file artifact
 manifest seals those bytes; its schema and historical receipt validation stay
 unchanged.
 
+## Daily Board route source
+
+The byte-identical `daily-board` route now has an exact destination identity in
+[`jarvis-dailyBoard-source.json`](../jarvis-dailyBoard-source.json): commit
+`8201af9d10b6c0731f55c2b297b070b7922968d3`, path
+`jarvis/public/daily-board`, tree
+`b3214e6e8731cc0f3146d79a467c7c48710c3620`. Its tree matches the pinned
+`c28c1b2f70aabb5217b08bf31ffe4c93d0353765:public/daily-board` tree. The build
+replaces only `dist/daily-board` from that verified destination subtree; the
+route's `/assets/*` dependencies remain from the general pinned source. The
+resulting built route SHA256 matches the preserved pre-cutover artifact
+manifest. `dist/release.json` now records both media and Daily Board component
+identities while retaining the general source fields.
+
 ## Unchanged operational boundaries
 
 `jarvis-release.json` still selects external source `c28c1b2f70aabb5217b08bf31ffe4c93d0353765`.
@@ -93,9 +107,10 @@ its external-checkout test-routing change. No imported release workflow runs.
 - Establish component inventories beyond the existing private frontend's
   18 published files and 45 preserved dependencies. Refresh Worker metadata
   separately; a public receipt is not a new live Worker observation.
-- Switch source/test/build consumers to the surviving repository one component
-  at a time, preserving artifact hashes, upload ordering, rollback receipts,
-  dependency checks and static-only versus Worker release boundaries.
+- Continue switching source/test/build consumers to the surviving repository
+  one component at a time, preserving artifact hashes, upload ordering,
+  rollback receipts, dependency checks and static-only versus Worker release
+  boundaries.
 - Migrate repository-specific qualification provenance with fresh proofs;
   preserve historical proof origins. Update workflow path filters and gate
   recipes together only in that reviewed cutover, not this import.
