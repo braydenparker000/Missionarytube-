@@ -47,3 +47,13 @@ existing pinned release checkout still supplies deployment inputs; this import
 is not a release or component cutover. Root `npm test` explicitly selects the
 orchestration tests. See [the import record](docs/jarvis-source-import.md) and
 [canonical delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
+
+## Media regression checks
+
+The duplicate root media app and its legacy build/browser commands have been
+retired. Media source checks read `jarvis/public/media` from the imported source
+snapshot; deployment remains pinned through `jarvis-release.json` until each
+component cutover is reviewed. The three retained `src/` modules support 29
+legacy source-only contracts and are not built or shipped. Fixtures and licenses
+remain. The media qualification command retains its documented shipped UI TODOs
+and can report not ready; see [migration evidence](test-evidence/media-migration/README.md).

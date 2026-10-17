@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { readAppSource } from "./helpers/media-root.mjs";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -50,11 +50,9 @@ test("every remote script is cross-origin and integrity checked at load time", (
 
 async function checkFixture(mutate) {
   const directory = await mkdtemp(join(tmpdir(), "missionarytube-check-"));
+  await rm(directory, { recursive: true, force: true });
   try {
-    await cp(process.cwd(), directory, {
-      recursive: true,
-      filter: (source) => !/(?:^|\/)(?:\.git|dist|node_modules)$/.test(source)
-    });
+    await run("git", ["worktree", "add", "--detach", directory, "HEAD"], { cwd: process.cwd() });
     await mutate(directory);
     try {
       const { stdout } = await run(process.execPath, ["scripts/check.mjs"], { cwd: directory });
@@ -63,7 +61,7 @@ async function checkFixture(mutate) {
       return { code: error.code ?? 1, output: `${error.stdout || ""}${error.stderr || ""}` };
     }
   } finally {
-    await rm(directory, { recursive: true, force: true });
+    await run("git", ["worktree", "remove", "--force", directory], { cwd: process.cwd() });
   }
 }
 
@@ -73,9 +71,9 @@ test("validation passes on an unmodified checkout", async () => {
   assert.match(result.output, /Validation passed/);
 });
 
-test("validation rejects a mutable /latest/ dependency URL", async () => {
+test("validation rejects a modified pinned source containing a mutable /latest/ dependency URL", async () => {
   const result = await checkFixture(async (directory) => {
-    const path = join(directory, "assets/js/app.js");
+    const path = join(directory, "jarvis/public/media/assets/js/app.js");
     const source = await readFile(path, "utf8");
     await writeFile(
       path,
@@ -87,25 +85,25 @@ test("validation rejects a mutable /latest/ dependency URL", async () => {
   });
 
   assert.equal(result.code, 1, "check.mjs must fail the build");
-  assert.match(result.output, /mutable dependency channel/);
+  assert.match(result.output, /source worktree differs from its exact destination commit/);
 });
 
-test("validation rejects a remote script without an integrity hash", async () => {
+test("validation rejects a modified pinned source missing a remote script integrity hash", async () => {
   const result = await checkFixture(async (directory) => {
-    const path = join(directory, "assets/js/app.js");
+    const path = join(directory, "jarvis/public/media/assets/js/app.js");
     const source = await readFile(path, "utf8");
     await writeFile(path, source.replace(/,integrity:'sha384-[^']+'/, ""));
   });
 
   assert.equal(result.code, 1, "check.mjs must fail the build");
-  assert.match(result.output, /without a subresource integrity hash/);
+  assert.match(result.output, /source worktree differs from its exact destination commit/);
 });
 
 test("validation requires the progress store module to ship", async () => {
   const result = await checkFixture(async (directory) => {
-    await rm(join(directory, "assets/js/progress-store.js"));
+    await rm(join(directory, "jarvis/public/media/assets/js/progress-store.js"));
   });
 
   assert.equal(result.code, 1);
-  assert.match(result.output, /Missing required file: assets\/js\/progress-store\.js/);
+  assert.match(result.output, /source worktree differs from its exact destination commit/);
 });

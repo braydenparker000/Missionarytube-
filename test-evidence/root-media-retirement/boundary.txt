@@ -1,0 +1,50 @@
+REMOVE app assets/css/cinema.css
+REMOVE app assets/css/collection.css
+REMOVE app assets/css/obsidian.css
+REMOVE app assets/images/README.md
+REMOVE app assets/js/app.js
+REMOVE app assets/js/appearance.js
+REMOVE app assets/js/astra-motion.js
+REMOVE app assets/js/audio-player.js
+REMOVE app assets/js/bootstrap.js
+REMOVE app assets/js/catalog-registry.js
+REMOVE app assets/js/collection-tools.js
+REMOVE app assets/js/discovery-health.js
+REMOVE app assets/js/federated-search.js
+REMOVE app assets/js/hub.js
+REMOVE app assets/js/playback/adapters.js
+REMOVE app assets/js/playback/delivery.js
+REMOVE app assets/js/playback/diagnostics.js
+REMOVE app assets/js/playback/engine.js
+REMOVE app assets/js/playback/episodes.js
+REMOVE app assets/js/playback/request-policy.js
+REMOVE app assets/js/playback/settings.js
+REMOVE app assets/js/playback/software-player.js
+REMOVE app assets/js/playback/source-loader.js
+REMOVE app assets/js/playback/source-view.js
+REMOVE app assets/js/playback/streams.js
+REMOVE app assets/js/playback/subtitles.js
+REMOVE app assets/js/playback/video-health.js
+REMOVE app assets/js/progress-store.js
+REMOVE app assets/js/route-runtime.js
+REMOVE app assets/js/search-intent.js
+REMOVE app assets/js/youtube/api.js
+REMOVE app assets/js/youtube/config.js
+REMOVE app assets/js/youtube/instances.js
+REMOVE app assets/js/youtube/playback.js
+RETAIN license assets/licenses/libmedia-COPYING.GPLv3.txt
+RETAIN license assets/licenses/libmedia-COPYING.LGPLv3.txt
+RETAIN license assets/licenses/libmedia-modifications.txt
+RETAIN license assets/licenses/mediabunny.txt
+REMOVE app index.html
+REMOVE app playback-check.html
+RETAIN test-only src/astra-motion.js
+RETAIN test-only src/compatibility-player.js
+RETAIN test-only src/interaction-logic.js
+
+REMOVE obsolete tooling
+scripts/build.mjs
+scripts/pin-player-libs.mjs
+tests/browser/youtube-flow.mjs
+tests/browser/servers.mjs
+tests/browser/media.mjs

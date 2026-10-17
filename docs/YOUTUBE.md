@@ -86,7 +86,7 @@ fields.
 
 ## Instances
 
-Configuration lives in one file, [`assets/js/youtube/config.js`](../assets/js/youtube/config.js):
+Configuration lives in one file, `public/media/assets/js/youtube/config.js` in the Jarvis checkout pinned by `jarvis-release.json`:
 
 | Value | Meaning |
 | --- | --- |
@@ -160,37 +160,10 @@ per attempt — enough to recover, bounded so a dead video cannot loop.
 and its sanitizing, the playback plan and quality ladder, the adapters' quality
 control, and the wiring in `index.html`. None of that proves a video plays.
 
-`npm run test:browser` does. It launches Chromium at a phone-shaped viewport,
-serves the real site, and plays real video generated with `ffmpeg`. What is
-substituted is only the remote services, by four local servers whose
-differences are the point:
-
-| Server | Stands in for | Sends CORS headers? |
-| --- | --- | --- |
-| piped | a Piped instance, proxying its own streams | yes |
-| invidious | an Invidious instance and its compatibility proxy | yes |
-| google | the direct progressive host | **no** |
-| addon | a Stremio add-on | yes |
-| app | the site itself | n/a |
-
-The CORS-less media host is not an oversight: it is how the check proves that
-direct progressive playback works with nothing in between, and that adaptive
-playback genuinely needs the proxy.
-
-Twenty-four checks run, including the Piped path end to end, a mixed pool where
-a dead Piped instance is answered by an Invidious one, instance failover with
-the configured server genuinely refusing every request, and a signed URL
-genuinely returning 403.
-
-Two honest caveats:
-
-- The bundled Chromium ships without proprietary codecs, so the generated media
-  is VP9 and Opus in WebM rather than H.264 and AAC. The app never names a
-  codec of its own — it asks `canPlayType` and `MediaSource.isTypeSupported` —
-  so the paths under test are the ones a real Android Chrome takes.
-- It is a mock Invidious. It implements the endpoints and the response shapes,
-  but it cannot prove that a real instance is up, or that YouTube has not
-  changed something since.
+The old root-app `test:browser` harness has been retired with the unused root
+copy. Its mock-provider playback results are historical evidence, not a current
+Jarvis playback qualification. Use the pinned media qualification commands in
+[README.md](../README.md); the documented shipped UI TODOs remain unresolved.
 
 ## Privacy and security
 

@@ -95,8 +95,9 @@ function runNodeTest(files, { media = null, namePattern = "", skipPattern = "" }
 }
 
 // The 29 names run against the tree that actually contains their src modules.
-// The pin does not, so they use the repo-root copy. MEDIA_APP_ROOT is removed
-// rather than pointed at the repo root, which the helper rejects.
+// The pin does not, so they use explicit test-only legacy sources. MEDIA_APP_ROOT is removed
+// so legacySourcePath selects only the three retained modules; media assets
+// still resolve to the default pinned checkout, never the repo root.
 function sourceOnlyEnv(media) {
   if (sourceModulesPresent(media)) return media;
   if (!sourceModulesPresent(repoRoot)) {
