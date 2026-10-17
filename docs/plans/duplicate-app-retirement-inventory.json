@@ -1,0 +1,364 @@
+{
+  "main": "0c521d76b5f1c12ea38d5cc07d96c8ca6f1b725b",
+  "jarvis_pin": "c28c1b2f70aabb5217b08bf31ffe4c93d0353765",
+  "public_media_tree": "c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7",
+  "obsolete_count": 43,
+  "obsolete_bytes": 1009279,
+  "identical": 33,
+  "differs": 5,
+  "no_counterpart": 5,
+  "files": [
+    {
+      "path": "assets/css/cinema.css",
+      "bytes": 29307,
+      "sha256": "4f8891a46249fa7cf28c52baa210132ee97334204f463caebdf20027b9da1c2c",
+      "status": "identical",
+      "jarvis": "public/media/assets/css/cinema.css",
+      "jarvis_sha256": "4f8891a46249fa7cf28c52baa210132ee97334204f463caebdf20027b9da1c2c"
+    },
+    {
+      "path": "assets/css/collection.css",
+      "bytes": 10518,
+      "sha256": "0f2b9cd56d5c96ebe2c2368a84fbf3e69a74a75fce2fc01eb37dbd17d8675c16",
+      "status": "identical",
+      "jarvis": "public/media/assets/css/collection.css",
+      "jarvis_sha256": "0f2b9cd56d5c96ebe2c2368a84fbf3e69a74a75fce2fc01eb37dbd17d8675c16"
+    },
+    {
+      "path": "assets/css/obsidian.css",
+      "bytes": 183191,
+      "sha256": "abdb7814df31e3e2bbeed041dae0841e64ac722ae30c2f5eaf35b77447b4373f",
+      "status": "identical",
+      "jarvis": "public/media/assets/css/obsidian.css",
+      "jarvis_sha256": "abdb7814df31e3e2bbeed041dae0841e64ac722ae30c2f5eaf35b77447b4373f"
+    },
+    {
+      "path": "assets/images/README.md",
+      "bytes": 226,
+      "sha256": "cb683335a8c052a8f99a1ded1171884a2acd4040a5a2f6859720a28c72e4e6ea",
+      "status": "no-counterpart",
+      "jarvis": null,
+      "jarvis_sha256": null
+    },
+    {
+      "path": "assets/js/app.js",
+      "bytes": 241197,
+      "sha256": "34e783f26e3b199b9d226f27218492604fb87f84672edd99449aa18ef76a8e9f",
+      "status": "differs",
+      "jarvis": "public/media/assets/js/app.js",
+      "jarvis_sha256": "983cf2c4ff215d78198cf56fbdaece63666d5220d8e7538b3df42a8a83fa410c"
+    },
+    {
+      "path": "assets/js/appearance.js",
+      "bytes": 1540,
+      "sha256": "218bd5ce148855da92de9ddfb21999a2cc28c0a5ca6db93cd6195cc74ecb4ffa",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/appearance.js",
+      "jarvis_sha256": "218bd5ce148855da92de9ddfb21999a2cc28c0a5ca6db93cd6195cc74ecb4ffa"
+    },
+    {
+      "path": "assets/js/astra-motion.js",
+      "bytes": 128145,
+      "sha256": "d060ab0d98fcf89c2ff57164f8593c84fdf52ae1452d9ae7f9cf99aa8507c8d4",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/astra-motion.js",
+      "jarvis_sha256": "d060ab0d98fcf89c2ff57164f8593c84fdf52ae1452d9ae7f9cf99aa8507c8d4"
+    },
+    {
+      "path": "assets/js/audio-player.js",
+      "bytes": 5082,
+      "sha256": "14b28354767ef5f0e0f6b604169bb414974e2c6e04912b5b62c9fe632e0016c2",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/audio-player.js",
+      "jarvis_sha256": "14b28354767ef5f0e0f6b604169bb414974e2c6e04912b5b62c9fe632e0016c2"
+    },
+    {
+      "path": "assets/js/bootstrap.js",
+      "bytes": 80,
+      "sha256": "25282cbd681772e7f6a81b1966a5d3c152d33117107509a6f6705239d2cfe373",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/bootstrap.js",
+      "jarvis_sha256": "25282cbd681772e7f6a81b1966a5d3c152d33117107509a6f6705239d2cfe373"
+    },
+    {
+      "path": "assets/js/catalog-registry.js",
+      "bytes": 6624,
+      "sha256": "6b3ae028d76a90f5086239006fad75f98ad33090351ec02bffede31ff92f5404",
+      "status": "differs",
+      "jarvis": "public/media/assets/js/catalog-registry.js",
+      "jarvis_sha256": "971a785bcd982a189ed110ca3defec8afce0576ca93a374dc1e066c09a6b86ea"
+    },
+    {
+      "path": "assets/js/collection-tools.js",
+      "bytes": 3980,
+      "sha256": "16e49c248fadff9b141a83fb5193b29270cb19e6b0af1eeb677a737b5b2c95bc",
+      "status": "differs",
+      "jarvis": "public/media/assets/js/collection-tools.js",
+      "jarvis_sha256": "2134bd3aff07e13c0fc0a9fb1f0a34a43b6d892d4123e3eab98d80b3578e07e9"
+    },
+    {
+      "path": "assets/js/discovery-health.js",
+      "bytes": 10137,
+      "sha256": "affdcb02a6c4e16aff7efc1c6aea3b345c9b868a5aaa9233a4c7df23f6e3e0ae",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/discovery-health.js",
+      "jarvis_sha256": "affdcb02a6c4e16aff7efc1c6aea3b345c9b868a5aaa9233a4c7df23f6e3e0ae"
+    },
+    {
+      "path": "assets/js/federated-search.js",
+      "bytes": 3875,
+      "sha256": "898d173fd6682b0a0498b4f6a1db4283e3e3d9f5b0a7a8895bab9c5e8d967f82",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/federated-search.js",
+      "jarvis_sha256": "898d173fd6682b0a0498b4f6a1db4283e3e3d9f5b0a7a8895bab9c5e8d967f82"
+    },
+    {
+      "path": "assets/js/hub.js",
+      "bytes": 12399,
+      "sha256": "f4451d7851de4af663dd938604b178faf4670ee713a01295fb9b67b42bb35418",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/hub.js",
+      "jarvis_sha256": "f4451d7851de4af663dd938604b178faf4670ee713a01295fb9b67b42bb35418"
+    },
+    {
+      "path": "assets/js/playback/adapters.js",
+      "bytes": 34514,
+      "sha256": "954a68d5c55340ce4ee54c77f367afeb1277e0fb8a2750b9ef2f3d43b3d0cf30",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/adapters.js",
+      "jarvis_sha256": "954a68d5c55340ce4ee54c77f367afeb1277e0fb8a2750b9ef2f3d43b3d0cf30"
+    },
+    {
+      "path": "assets/js/playback/delivery.js",
+      "bytes": 4109,
+      "sha256": "ad39956cfbea85e34583297c15fc0179fdcc70710571108f88d7f284c38cf34f",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/delivery.js",
+      "jarvis_sha256": "ad39956cfbea85e34583297c15fc0179fdcc70710571108f88d7f284c38cf34f"
+    },
+    {
+      "path": "assets/js/playback/diagnostics.js",
+      "bytes": 6625,
+      "sha256": "b732a6cad3afc333fec7592cfcbc71fd1c1de56d4bf05d6c6c978d4b580c6178",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/diagnostics.js",
+      "jarvis_sha256": "b732a6cad3afc333fec7592cfcbc71fd1c1de56d4bf05d6c6c978d4b580c6178"
+    },
+    {
+      "path": "assets/js/playback/engine.js",
+      "bytes": 19738,
+      "sha256": "3395a004bb22d6d5d8d9d4183f3fa7223b6e6cb7a2dd5761c140103f73b262c6",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/engine.js",
+      "jarvis_sha256": "3395a004bb22d6d5d8d9d4183f3fa7223b6e6cb7a2dd5761c140103f73b262c6"
+    },
+    {
+      "path": "assets/js/playback/episodes.js",
+      "bytes": 11050,
+      "sha256": "23d5f9120c30dd4da842325e24481828666986aa2338f2618323b2466bbcbb70",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/episodes.js",
+      "jarvis_sha256": "23d5f9120c30dd4da842325e24481828666986aa2338f2618323b2466bbcbb70"
+    },
+    {
+      "path": "assets/js/playback/request-policy.js",
+      "bytes": 4117,
+      "sha256": "97b1f216c8dde1088c0a4fcbf81ca8723ae3f04a8b04d8fb4c0b3ff7c5f4bd20",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/request-policy.js",
+      "jarvis_sha256": "97b1f216c8dde1088c0a4fcbf81ca8723ae3f04a8b04d8fb4c0b3ff7c5f4bd20"
+    },
+    {
+      "path": "assets/js/playback/settings.js",
+      "bytes": 3545,
+      "sha256": "401c1b014f016c24e3de77d24419a998087cd92fe5d7a79fe7195a0d87342193",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/settings.js",
+      "jarvis_sha256": "401c1b014f016c24e3de77d24419a998087cd92fe5d7a79fe7195a0d87342193"
+    },
+    {
+      "path": "assets/js/playback/software-player.js",
+      "bytes": 13260,
+      "sha256": "d98533f7d3210040ac3a6670b8ba4a315490fcc78cff58ab79cce31d19ed0686",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/software-player.js",
+      "jarvis_sha256": "d98533f7d3210040ac3a6670b8ba4a315490fcc78cff58ab79cce31d19ed0686"
+    },
+    {
+      "path": "assets/js/playback/source-loader.js",
+      "bytes": 926,
+      "sha256": "b3cc4319b79aa985e182126cd1e2abc203b0b15a9cc0fd9ce090b2dd90d681fb",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/source-loader.js",
+      "jarvis_sha256": "b3cc4319b79aa985e182126cd1e2abc203b0b15a9cc0fd9ce090b2dd90d681fb"
+    },
+    {
+      "path": "assets/js/playback/source-view.js",
+      "bytes": 1937,
+      "sha256": "5ad274d90a21539b11cf8ced6c193de3cff7b47246152cbd8e846f262f023b85",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/source-view.js",
+      "jarvis_sha256": "5ad274d90a21539b11cf8ced6c193de3cff7b47246152cbd8e846f262f023b85"
+    },
+    {
+      "path": "assets/js/playback/streams.js",
+      "bytes": 30905,
+      "sha256": "fd476ea60f909aff71a599ed9744da78fb3f59a835d6c4f29bedd5cee60a6b47",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/streams.js",
+      "jarvis_sha256": "fd476ea60f909aff71a599ed9744da78fb3f59a835d6c4f29bedd5cee60a6b47"
+    },
+    {
+      "path": "assets/js/playback/subtitles.js",
+      "bytes": 11953,
+      "sha256": "5834e3a52b6d7bd05afa2344d14940e377ca5040990347eac76cff0c441944c6",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/subtitles.js",
+      "jarvis_sha256": "5834e3a52b6d7bd05afa2344d14940e377ca5040990347eac76cff0c441944c6"
+    },
+    {
+      "path": "assets/js/playback/video-health.js",
+      "bytes": 3571,
+      "sha256": "6c26ea18f33594536f9edd41194980fd6298d6892fcd79de4bb1fbd956551c7b",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/playback/video-health.js",
+      "jarvis_sha256": "6c26ea18f33594536f9edd41194980fd6298d6892fcd79de4bb1fbd956551c7b"
+    },
+    {
+      "path": "assets/js/progress-store.js",
+      "bytes": 12526,
+      "sha256": "7f72e118aed59f2690385400fb43a5b9f90324368cd5d40db1e8b456730938cb",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/progress-store.js",
+      "jarvis_sha256": "7f72e118aed59f2690385400fb43a5b9f90324368cd5d40db1e8b456730938cb"
+    },
+    {
+      "path": "assets/js/route-runtime.js",
+      "bytes": 1702,
+      "sha256": "eb444db421633c0dc2236b85fc32571f6091824fdd40f6b1d02bae8026176709",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/route-runtime.js",
+      "jarvis_sha256": "eb444db421633c0dc2236b85fc32571f6091824fdd40f6b1d02bae8026176709"
+    },
+    {
+      "path": "assets/js/search-intent.js",
+      "bytes": 5814,
+      "sha256": "944c839b2dbbea6eeb4c5cfba1fa3671b2c036ea79ed617b88392fc964fad8d7",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/search-intent.js",
+      "jarvis_sha256": "944c839b2dbbea6eeb4c5cfba1fa3671b2c036ea79ed617b88392fc964fad8d7"
+    },
+    {
+      "path": "assets/js/youtube/api.js",
+      "bytes": 35686,
+      "sha256": "0edb198fe20b1322555e2165348d64e3dcbba7c09e509c8fba408e2af22fee67",
+      "status": "differs",
+      "jarvis": "public/media/assets/js/youtube/api.js",
+      "jarvis_sha256": "ec174231d8b52ef88460ef905f5dc1ff178bf3f445d351373bdccb43aa72c5ac"
+    },
+    {
+      "path": "assets/js/youtube/config.js",
+      "bytes": 10424,
+      "sha256": "66c5cc28155c541bfe1e7ff8de661e2f59ef2c91b8eece26c7407ac5477cdd2b",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/youtube/config.js",
+      "jarvis_sha256": "66c5cc28155c541bfe1e7ff8de661e2f59ef2c91b8eece26c7407ac5477cdd2b"
+    },
+    {
+      "path": "assets/js/youtube/instances.js",
+      "bytes": 22313,
+      "sha256": "e38471ba7943e16f2852999a3b91033cfade398365a3c38c04607cb73702bd6f",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/youtube/instances.js",
+      "jarvis_sha256": "e38471ba7943e16f2852999a3b91033cfade398365a3c38c04607cb73702bd6f"
+    },
+    {
+      "path": "assets/js/youtube/playback.js",
+      "bytes": 19878,
+      "sha256": "77cfaa6a0612680d73660a94fbca2183d44e0c81dec7b0a8020c498543fad559",
+      "status": "identical",
+      "jarvis": "public/media/assets/js/youtube/playback.js",
+      "jarvis_sha256": "77cfaa6a0612680d73660a94fbca2183d44e0c81dec7b0a8020c498543fad559"
+    },
+    {
+      "path": "assets/licenses/libmedia-COPYING.GPLv3.txt",
+      "bytes": 35147,
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+      "status": "identical",
+      "jarvis": "public/media/assets/licenses/libmedia-COPYING.GPLv3.txt",
+      "jarvis_sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    {
+      "path": "assets/licenses/libmedia-COPYING.LGPLv3.txt",
+      "bytes": 7650,
+      "sha256": "ea8af5e789cb2d4e9b10bce3874982ade163b749b6bfbdb32e2df21c4d106de1",
+      "status": "identical",
+      "jarvis": "public/media/assets/licenses/libmedia-COPYING.LGPLv3.txt",
+      "jarvis_sha256": "ea8af5e789cb2d4e9b10bce3874982ade163b749b6bfbdb32e2df21c4d106de1"
+    },
+    {
+      "path": "assets/licenses/libmedia-modifications.txt",
+      "bytes": 878,
+      "sha256": "431afe4f0ceaf6a7a6efee19a9461415a8f27eb1c14a13ca510077170e622cab",
+      "status": "identical",
+      "jarvis": "public/media/assets/licenses/libmedia-modifications.txt",
+      "jarvis_sha256": "431afe4f0ceaf6a7a6efee19a9461415a8f27eb1c14a13ca510077170e622cab"
+    },
+    {
+      "path": "assets/licenses/mediabunny.txt",
+      "bytes": 17098,
+      "sha256": "789275aeb2428b805e709c59bed8111f8781a2bb42fe634b9ec542a5734e7000",
+      "status": "identical",
+      "jarvis": "public/media/assets/licenses/mediabunny.txt",
+      "jarvis_sha256": "789275aeb2428b805e709c59bed8111f8781a2bb42fe634b9ec542a5734e7000"
+    },
+    {
+      "path": "index.html",
+      "bytes": 5384,
+      "sha256": "98031df87bde88b6c401062192bc18707b3706d8f5cfbd35527bc0a9d8e989ee",
+      "status": "differs",
+      "jarvis": "public/media/index.html",
+      "jarvis_sha256": "123acb17e65998e239bfa7bc05614d923aa9b6ffa818d3a497ef8df47cbe277e"
+    },
+    {
+      "path": "playback-check.html",
+      "bytes": 6000,
+      "sha256": "51eb9c337d1191416ab83ff69ec108df2dcbfaae43026b1e33c591b36b4dacae",
+      "status": "no-counterpart",
+      "jarvis": null,
+      "jarvis_sha256": null
+    },
+    {
+      "path": "src/astra-motion.js",
+      "bytes": 25644,
+      "sha256": "f0bc343e935f077520a8a9c90489626d58ad1c178a6578944ea7d4998e84db7a",
+      "status": "no-counterpart",
+      "jarvis": null,
+      "jarvis_sha256": null
+    },
+    {
+      "path": "src/compatibility-player.js",
+      "bytes": 19504,
+      "sha256": "4760f1a03bc210a0bc5cf61a9179f19978fb473557a46f9f035c1a682fb2b02c",
+      "status": "no-counterpart",
+      "jarvis": null,
+      "jarvis_sha256": null
+    },
+    {
+      "path": "src/interaction-logic.js",
+      "bytes": 1080,
+      "sha256": "acaff850fd3a50fa4bc45f88e1f202370df8a82edae80e2d894d75b55072e21e",
+      "status": "no-counterpart",
+      "jarvis": null,
+      "jarvis_sha256": null
+    }
+  ],
+  "dist": {
+    "builder_reported_files": 192,
+    "builder_reported": "20.09 MiB",
+    "final_files": 194,
+    "final_bytes": 21073841,
+    "manifest_sha256": "b2ab23bac1a1824f605f680d94c2807e4e40e59480a749d591f6ee4558b5e0d5",
+    "note": "build-jarvis logs the walk count before copying dist/index.html to dist/jarvis-preview.html and writing dist/release.json. The manifest hashes the final tree."
+  }
+}
