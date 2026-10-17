@@ -107,8 +107,9 @@ pre-cutover artifact manifest. PR225 is merged at
 ## Remaining cutover batches and estimate
 
 The media, Daily Board, Connect, and unchanged route/data cutovers are merged.
-PR226 merged at `54fb839d4efa26af6d4162d65b00e4308dffe274`. The next
-independent bundled-app batch is proposed together in PR227:
+PR226 merged at `54fb839d4efa26af6d4162d65b00e4308dffe274`. The independent
+bundled-app batch is also merged: PR227 at
+`cfaee9d3fbef4c18533155308cc625d6b696c085`.
 
 - `content`, `portal`, `quick-ai`, `reader`, and `respond` have exact matching
   source/destination trees at the pinned source and current destination main.
@@ -125,30 +126,33 @@ independent bundled-app batch is proposed together in PR227:
   `conversation.css` and `relay.css`. Exclude these seven routes until those
   dependencies are separately reconciled.
 
-`mymedia` (8 files), `podcasts` (9), and `youtube-archive` (4) have matching
-source/destination trees. Their local dependencies also match: My Media's
-`assets/ui.js`, pip diagnostics, Drive config/API, shell/premium/aligned CSS,
-and playback assets; Podcasts' config module and shell/premium CSS; and
-YouTube Archive's internal stylesheet and pages. The bundle group uses the
-same exact source resolver and records each identity in `dist/release.json`.
+`mymedia` (8 files), `podcasts` (9), and `youtube-archive` (4) were cut over
+with matching source/destination trees. Their local dependencies also match:
+My Media's `assets/ui.js`, pip diagnostics, Drive config/API,
+shell/premium/aligned CSS, and playback assets; Podcasts' config module and
+shell/premium CSS; and YouTube Archive's internal stylesheet and pages. The
+exact group is recorded in
+[`jarvis-appBundles-source.json`](../jarvis-appBundles-source.json), and the
+build records each identity in `dist/release.json`.
 
-Each batch still needs exact per-path tree checks, source tests, and built-file
-manifest comparison. The other public differences are not candidates for blind
-copy: `assets` has 13 modified and 32 added files; `drawercast` has 4 modified
-and 2 added files; `guitar` has 2 modified files; `mast` and `muse` each have 1
-modified file; and `staticwebapp.config.json` differs. The added asset files
+For future changed or dependency-sensitive paths, require exact per-path tree
+checks, source tests, and built-file manifest comparison. The other public
+differences are not candidates for blind copy: `assets` has 13 modified and 32
+added files; `drawercast` has 4 modified and 2 added files; `guitar` has 2
+modified files; `mast` and `muse` each have 1 modified file; and
+`staticwebapp.config.json` differs. The added asset files
 include private/security modules. Preserve destination-only `muse-key` and
 `private` files. Review changed behavior and prove any behavior-preserving
 movement before selecting the resulting batches. Keep the held playback and
 security behavior unchanged.
 
-Estimate: 6–8 PRs including PR227, or 5–7 after it, for the bounded remaining
-consolidation, assuming later file-level review does not reveal more split
-boundaries. This includes unchanged batches, reconciliation of the seven routes
-with differing shared assets, non-held semantic reconciliation,
-source/build/qualification/provenance integration, and the final root-media
-cleanup and documentation. PR215 remains a draft on the older deployment base;
-retain its 36-file removal and 4-file/3-module retention inventory, but
+Estimate: 5–7 PRs remain for the bounded consolidation, assuming later
+file-level review does not reveal more split boundaries. This includes
+reconciliation of the seven routes with differing shared assets, non-held
+semantic reconciliation, source/build/qualification/provenance integration,
+and the final root-media cleanup and documentation. PR215 remains a draft on
+the older deployment base; retain its 36-file removal and 4-file/3-module
+retention inventory, but
 supersede it in the final cleanup rather than merging it independently. The
 final live frontend check requires the guarded Azure deployment path and
 post-deploy receipt/smoke checks. Worker and R2 publications retain their
