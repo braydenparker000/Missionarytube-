@@ -60,11 +60,12 @@ credential-pattern hits found mock OAuth responses/negative fixtures, not a
 new credential configuration; no secret values are included in the evidence.
 
 The original imported source tree remains `9f983eb6a86ddc1989c3d4e7b85fb7c7d2819938`
-as recorded in the inventory and import evidence. PR236 explicitly updates the
-exact maintained-tree guard to `671b9c2f5d7e3f23afdf04cff4c6555c995caf6b` for
-the reviewed Daily Board reader changes. This updates the current allowed tree
-identity; it does not rewrite imported history or the original source snapshot.
-Future edits under `jarvis/` still require an explicit reviewed boundary update.
+as recorded in the inventory and import evidence. PR236 updated the maintained-
+tree guard for the Daily Board reader; this source-budget change updates that
+guard to `5575aaf924457a22284bf9758ec4143583672883`. Each update changes only the
+current allowed tree identity; it does not rewrite imported history or the
+original source snapshot. Future edits under `jarvis/` still require an
+explicit reviewed boundary update.
 
 ## Media component source
 
@@ -201,7 +202,7 @@ the open `braydenparker999/jarvis#2` issue. The external scheduled writer
 was identified; `jarvis_publish_briefing` is a separate Worker board API.
 Treat the issue and automation as an operational dependency. Preserve the
 original issue and messages until the reader, external writer, provenance,
-per-source cursors and deduplication can migrate together with rollback.
+  per-source cursors and deduplication can migrate together with rollback.
 Destination issue #2 is already an imported PR and cannot be reused. No
 issue, schedule, writer, or publication endpoint was changed here.
 
@@ -288,7 +289,15 @@ consolidation:
   and keeps scan/watermark state per issue. Existing global publication-ID and
   same-date briefing reservations continue to suppress duplicates. No issue was
   created, feed switched, test content published, schedule/access changed, or
-  deployment activated. A later cutover still requires a unique destination
+  deployment activated. The additive source has a separate ceiling of 144
+  GitHub reads per UTC day, half of the unchanged 288-read reconciliation
+  budget; both readers still share the existing 36-per-hour and 48-total-per-
+  hour ceilings, with the historical feed processed first. Empty destination
+  scans use adaptive 5-to-30-minute backoff. Journaled destination work retries
+  locally before network reads, including after an upstream failure. The
+  publisher status exposes bounded per-source pending/conflict counts,
+  catch-up state and watermark presence; it excludes comment IDs and bodies.
+  A later cutover still requires a unique destination
   issue, source authentication/provenance verification through a watermark,
   switching the single writer only after dual-read validation, and a rollback
   that disables the destination reader while keeping the old feed untouched.

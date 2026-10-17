@@ -22,6 +22,18 @@ function reconciliation(value) {
   }
   return structuredClone(value);
 }
+function additionalSources(value) {
+  if(!Array.isArray(value)||value.length>1)throw invalid();
+  for(const source of value){
+    if(!fields(source,['source','pending','conflicts','morePending','moreConflicts','catchingUp','watermarkEstablished'])||
+      typeof source.source!=='string'||!/^braydenparker000\/Missionarytube-#([1-9]\d{0,8})$/.test(source.source)||
+      Number(source.source.split('#')[1])<=2||
+      !Number.isSafeInteger(source.pending)||source.pending<0||source.pending>600||
+      !Number.isSafeInteger(source.conflicts)||source.conflicts<0||source.conflicts>100||
+      ['morePending','moreConflicts','catchingUp','watermarkEstablished'].some(key=>typeof source[key]!=='boolean'))throw invalid();
+  }
+  return structuredClone(value);
+}
 export function publicReaderMetadata(data, previous={}) {
   const metadata={};
   if(data.serviceVersion!==undefined){
@@ -30,7 +42,7 @@ export function publicReaderMetadata(data, previous={}) {
   }else if(previous.serviceVersion!==undefined)metadata.serviceVersion=previous.serviceVersion;
   const publisher=data.publisher===undefined?previous.publisher:data.publisher;
   if(publisher!==undefined){
-    const allowed=['source','ok','error','lastAttempt','lastSuccessfulSync','catchingUp','pending','conflicts','morePending','moreConflicts','httpStatus','reason','retryAt','reconciliation'];
+    const allowed=['source','ok','error','lastAttempt','lastSuccessfulSync','catchingUp','pending','conflicts','morePending','moreConflicts','httpStatus','reason','retryAt','reconciliation','additionalSources'];
     if(!fields(publisher,allowed)||typeof publisher.ok!=='boolean'||
       ['source','error','reason'].some(key=>publisher[key]!==undefined&&!publicText(publisher[key]))||
       ['lastAttempt','lastSuccessfulSync','retryAt'].some(key=>publisher[key]!==undefined&&!timestamp(publisher[key]))||
@@ -38,6 +50,7 @@ export function publicReaderMetadata(data, previous={}) {
       publisher.httpStatus!==undefined&&(!Number.isSafeInteger(publisher.httpStatus)||publisher.httpStatus<100||publisher.httpStatus>599)||
       ['pending','conflicts'].some(key=>publisher[key]!==undefined&&(!Number.isSafeInteger(publisher[key])||publisher[key]<0)))throw invalid();
     metadata.publisher={...publisher,...(publisher.reconciliation!==undefined?{reconciliation:reconciliation(publisher.reconciliation)}:{})};
+    if(publisher.additionalSources!==undefined)metadata.publisher.additionalSources=additionalSources(publisher.additionalSources);
   }
   return metadata;
 }
