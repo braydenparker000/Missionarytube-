@@ -93,26 +93,39 @@ identities while retaining the general source fields.
 
 ## Connect notice page source
 
-The one-file static Connect notice is proposed for cutover in PR225 with an
-exact destination identity in
+The one-file static Connect notice was cut over in PR225 with an exact
+destination identity in
 [`jarvis-connect-source.json`](../jarvis-connect-source.json): commit
 `41383d9d5154aab3b1d7922d5e7c376376139c07`, path `jarvis/public/connect`, tree
 `14da00ba05225eddc0ad9d1717660c1f4b2e93c9`. Its tree matches the pinned
 `c28c1b2f70aabb5217b08bf31ffe4c93d0353765:public/connect` tree. The build
 replaces only `dist/connect`; its `/assets/shell.css` dependency remains on the
 general pinned source, and the generated route matches the preserved
-pre-cutover artifact manifest.
+pre-cutover artifact manifest. PR225 is merged at
+`2b29ab492af5a68bc49888cdb441fafdd38b5427`.
 
 ## Remaining cutover batches and estimate
 
-The media and Daily Board cutovers are merged; the Connect route is in PR225.
-The remaining byte-identical paths can be reviewed in two compatible batches:
+The media, Daily Board, and Connect cutovers are merged. The next route/data
+batch is proposed together in PR226:
 
-- Shared route/data paths: `content`, `favorites`, root `index.html`, `jarvis`,
-  `notes`, `portal`, `quick-ai`, `reader`, `respond`, `server`, `settings`, and
-  `tools`.
-- Bundled app paths: `mymedia` (8 files), `podcasts` (9), and
-  `youtube-archive` (4).
+- `content`, `portal`, `quick-ai`, `reader`, and `respond` have exact matching
+  source/destination trees at the pinned source and current destination main.
+  Their local runtime assets also match: Quick AI's CSS, JavaScript, config,
+  and transitive modules; Reader's JavaScript and transitive modules; and the
+  shared shell stylesheet used by Reader and Respond. Portal uses its existing
+  external font and icon stylesheets. The source resolver validates these five
+  subtrees together at destination commit
+  `2b29ab492af5a68bc49888cdb441fafdd38b5427`, recorded in
+  [`jarvis-routeData-source.json`](../jarvis-routeData-source.json).
+- `favorites`, root `index.html`, `jarvis`, `notes`, `server`, `settings`, and
+  `tools` have matching route trees, but load `/assets/app.js`, whose pinned
+  source and destination blobs differ. `jarvis` also loads changed
+  `conversation.css` and `relay.css`. Exclude these seven routes until those
+  dependencies are separately reconciled.
+
+The unchanged bundled-app batch remains `mymedia` (8 files), `podcasts` (9),
+and `youtube-archive` (4). It is independent of the route/data resolver change.
 
 Each batch still needs exact per-path tree checks, source tests, and built-file
 manifest comparison. The other public differences are not candidates for blind
@@ -124,9 +137,10 @@ include private/security modules. Preserve destination-only `muse-key` and
 movement before selecting the resulting batches. Keep the held playback and
 security behavior unchanged.
 
-Estimate: 6–8 PRs including PR225, or 5–7 after it, for the bounded remaining
+Estimate: 7–9 PRs including PR226, or 6–8 after it, for the bounded remaining
 consolidation, assuming later file-level review does not reveal more split
-boundaries. This includes unchanged batches, non-held semantic reconciliation,
+boundaries. This includes unchanged batches, reconciliation of the seven routes
+with differing shared assets, non-held semantic reconciliation,
 source/build/qualification/provenance integration, and the final root-media
 cleanup and documentation. PR215 remains a draft on the older deployment base;
 retain its 36-file removal and 4-file/3-module retention inventory, but
