@@ -110,7 +110,7 @@ general pinned source, and the generated route matches the preserved
 pre-cutover artifact manifest. PR225 is merged at
 `2b29ab492af5a68bc49888cdb441fafdd38b5427`.
 
-## Remaining cutover batches and estimate
+## Merged component cutovers and remaining source variants
 
 The media, Daily Board, Connect, and unchanged route/data cutovers are merged.
 PR226 merged at `54fb839d4efa26af6d4162d65b00e4308dffe274`. The independent
@@ -142,15 +142,13 @@ exact group is recorded in
 build records each identity in `dist/release.json`.
 
 For future changed or dependency-sensitive paths, require exact per-path tree
-checks, source tests, and built-file manifest comparison. The other public
-differences are not candidates for blind copy: `assets` has 13 modified and 32
-added files; `drawercast` has 4 modified and 2 added files; `guitar` has 2
+checks, source tests, and built-file manifest comparison. The remaining
+differences are itemized in the disposition table below: `assets` has 13
+modified and 32 added files (excluding the separately owned reader-cache
+overlay); `drawercast` has 4 modified and 2 added files; `guitar` has 2
 modified files; `mast` and `muse` each have 1 modified file; and
-`staticwebapp.config.json` differs. The added asset files
-include private/security modules. Preserve destination-only `muse-key` and
-`private` files. Review changed behavior and prove any behavior-preserving
-movement before selecting the resulting batches. Keep the held playback and
-security behavior unchanged.
+`staticwebapp.config.json` differs. Keep held playback and security behavior
+unchanged.
 
 The source import and root-media cleanup batches are complete: PR228 merged at
 `07f010ae72148cc14e9872fc76373912f0b5a8f3`, PR229 at
@@ -197,6 +195,34 @@ modules. The pre-change sorted artifact manifest SHA256 was
 193 non-receipt artifact files kept their hashes, and only the receipt changed
 to add variant provenance. The focused resolver/import/privacy tests passed,
 and root `npm test` passed 1,147/1,147 tests.
+
+## Remaining variant dispositions
+
+Reviewed against the exact active snapshot and imported `jarvis/public` tree on
+2026-10-17. The source import is retained for ancestry and review; identical
+imported route copies are not candidates for deletion. These dispositions are
+about runtime selection, not permission to activate features.
+
+| Variant | Disposition | Evidence and boundary |
+|---|---|---|
+| `/media`, `/daily-board`, `/connect`, `/content`, `/portal`, `/quick-ai`, `/reader`, `/respond`, `/mymedia`, `/podcasts`, `/youtube-archive` | **Identical/superseded** by exact component source overlays | Their selected destination trees and dependency closures are verified in the existing source manifests. Keep each manifest and historical imported source; no second copy is needed in the active build. |
+| Root shell plus `/favorites`, `/jarvis`, `/notes`, `/server`, `/settings`, `/tools` | **Explicitly held on active c28 snapshot** | The page trees match, but their shared assets differ. Keep the snapshot as one coherent current shell and retain the imported variants under `jarvis/public`. |
+| Coupled Relay/Mast/Muse UI: `assets/app.js`, `conversation.js/css`, `relay.css`, `hub.js`, `mast-work.js`, `mast.js/css`, `muse.js`, `relay-owner-*`, `relay-attachment-*`, `mast/index.html`, `muse/index.html` | **Explicit product choice; no file-by-file merge** | The active Mast **Work** flow creates owner requests with action classification and optional project/goal, records request IDs before sending, supports retry of an unconfirmed request, requests cancellation, retries eligible attempts with duplicate-risk confirmation, and shows plans, results, corrections and report provenance. The imported **Tasks** panel is a paginated, read-only history for tasks started from Chat; it removes the explicit request form, cancel and new-attempt retry controls, and detailed report provenance. It retains a recovery action for a locally stored unconfirmed operation. The imported app also changes navigation/hash history, renames Work to Tasks, and combines separate private/public Muse entries. Keep the current Work flow and labels as the baseline. If desired later, add Tasks history as a distinct read-only panel/route; it must not replace or hide Work. A Tasks label may be considered as an alias to that history only after its destination and behavior are defined. |
+| `assets/hub.js` and imported private workspace/auth modules | **Explicit access/security hold** | The imported launcher changes public Relay and Muse destinations to private workspace/Mast routes and adds private modules. Keep the current public destinations and dormant additions until route access, authentication and security headers receive a separate scoped review. |
+| `assets/file-save.js`, imported Guitar changes (`guitar.js`, `runtime.js`) | **Explicit feature hold** | The imported variant adds Android Files/share-sheet save behavior and changes its completion wording. Keep the current Save PDF/Open/Direct download behavior; device qualification and its user-visible contract are not behavior-preserving. |
+| Drawercast (`index.html`, `player.js`, `r2-api.js`, `r2-library.js`, plus `curated-playlists.json` and `shuffle-worker.js`) | **Explicit storage/playback hold** | The imported variant changes R2 library identity/snapshot handling, ordering and playlist/shuffle behavior. Keep current catalog/storage/playback behavior; do not select individual files without validating the shared data contract and playback rollback. |
+| `staticwebapp.config.json` | **Explicit security decision** | The imported config adds private/Mast/Muse route CSP and no-store policies. Keep the active config unchanged until the new routes and policy are reviewed together; do not cherry-pick headers or routes. |
+| `assets/public-reader-cache.js` | **Specialized publisher owns this variant; preserve as a separate overlay** | The Daily Board importer workflow pins and publishes this helper separately; the general Azure upload removes it from staging, so it cannot overwrite the specialist's live bytes. Do not merge its identity into the broad c28 tree or clean up either source copy. |
+| Separately published destination `muse-key` and private-workspace assets | **Retain independent owners and receipts** | `jarvis/public` contains historical/imported variants, but the separately published destination assets have their own source pins and receipts. Do not replace or delete them based on the imported copies. |
+
+The exact route overlays above are the reviewed **safe behavior-preserving
+integrations**. No other differing source file is proven safe to relocate.
+Each remaining diff has a known identity and is explicitly held; there is no
+genuinely unresolved source-tree identity in this inventory. The safe runtime
+disposition for this phase is to keep the c28 shell, retain imported history,
+and leave held variants dormant. Consolidation is repository/deployment
+ownership; adopting optional Tasks history, private routes, file saving, or
+playback changes is a separate product or security change.
 
 The Daily Board reader still imports owner-authored publication comments from
 the open `braydenparker999/jarvis#2` issue. The external scheduled writer
