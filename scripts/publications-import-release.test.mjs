@@ -4,7 +4,7 @@ import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {BASELINE,CANDIDATE,SOURCE,checkedBaseline,checkedRollbackIdentity,checkedStaticPrewrite,planRollback,staticIfMatch,verifyRollbackFiles} from './publications-import-release.mjs';
+import {BASELINE,CANDIDATE,SOURCE,checkedBaseline,checkedRollbackIdentity,checkedStaticPrewrite,planRollback,rollbackCandidate,staticIfMatch,verifyRollbackFiles} from './publications-import-release.mjs';
 import {readFileSync} from 'node:fs';
 
 const sha=value=>createHash('sha256').update(value).digest('hex');
@@ -80,4 +80,54 @@ test('rollback accepts every baseline/candidate partial-write state and rejects 
  assert.throws(()=>planRollback(BASELINE.codeSha256,'foreign'));
  // A second rollback attempt after either component was already restored is inert.
  assert.deepEqual(planRollback(BASELINE.codeSha256,CANDIDATE.cacheBeforeSha256),{worker:'keep',cache:'keep'});
+});
+
+function rollbackMock(workerStart,cacheStart,{failCacheRestore=false,foreignSettings=false,foreignSchedule=false}={}){
+ let worker=workerStart,cache=cacheStart,etag='"cache-etag-0"',fail=failCacheRestore;
+ const calls={worker:0,cache:0};
+ const snapshot=()=>({etag,bytes:cache===CANDIDATE.cacheSha256?CANDIDATE.cacheBytes:CANDIDATE.cacheBeforeBytes,sha256:cache});
+ const observeCurrent=()=>({identity:{version:BASELINE.version,codeSha256:worker,
+   settingsDigest:foreignSettings?'foreign':BASELINE.settingsDigest,
+   schedulesDigest:foreignSchedule?'foreign':BASELINE.schedulesDigest},settings:{bindings:[]}});
+ const verifyObservation=observation=>{checkedRollbackIdentity(observation.identity);return observation;};
+ const execute=()=>rollbackCandidate({observeCurrent,readCache:async()=>snapshot(),verifyObservation,
+   restoreWorker:async()=>{calls.worker++;worker=BASELINE.codeSha256;},
+   restoreCache:async current=>{calls.cache++;assert.equal(current.sha256,CANDIDATE.cacheSha256);assert.equal(current.etag,etag);
+     if(fail){fail=false;throw Error('simulated partial rollback');}cache=CANDIDATE.cacheBeforeSha256;etag='"cache-etag-1"';}});
+ return {execute,calls,state:()=>({worker,cache,etag})};
+}
+
+test('real rollback orchestration recovers all four baseline/candidate provider states',async()=>{
+ const cases=[
+  [BASELINE.codeSha256,CANDIDATE.cacheBeforeSha256,{worker:0,cache:0}],
+  [BASELINE.codeSha256,CANDIDATE.cacheSha256,{worker:0,cache:1}],
+  [CANDIDATE.workerSha256,CANDIDATE.cacheBeforeSha256,{worker:1,cache:0}],
+  [CANDIDATE.workerSha256,CANDIDATE.cacheSha256,{worker:1,cache:1}]
+ ];
+ for(const [worker,cache,expected] of cases){
+  const mock=rollbackMock(worker,cache),result=await mock.execute();
+  assert.deepEqual(mock.calls,expected);assert.equal(result.workerSha256,BASELINE.codeSha256);
+  assert.equal(result.cacheSha256,CANDIDATE.cacheBeforeSha256);
+  assert.deepEqual(mock.state(),{worker:BASELINE.codeSha256,cache:CANDIDATE.cacheBeforeSha256,etag:cache===CANDIDATE.cacheSha256?'"cache-etag-1"':'"cache-etag-0"'});
+ }
+});
+
+test('real rollback orchestration resumes after a partially completed rollback',async()=>{
+ const mock=rollbackMock(CANDIDATE.workerSha256,CANDIDATE.cacheSha256,{failCacheRestore:true});
+ await assert.rejects(mock.execute(),/simulated partial rollback/);
+ assert.deepEqual(mock.state(),{worker:BASELINE.codeSha256,cache:CANDIDATE.cacheSha256,etag:'"cache-etag-0"'});
+ const result=await mock.execute();
+ assert.deepEqual(mock.calls,{worker:1,cache:2});assert.equal(result.workerSha256,BASELINE.codeSha256);
+ assert.equal(result.cacheSha256,CANDIDATE.cacheBeforeSha256);
+});
+
+test('real rollback orchestration rejects foreign bytes or settings before any restore',async()=>{
+ for(const mock of [
+  rollbackMock('foreign',CANDIDATE.cacheSha256),
+  rollbackMock(BASELINE.codeSha256,'foreign'),
+  rollbackMock(CANDIDATE.workerSha256,CANDIDATE.cacheSha256,{foreignSettings:true}),
+  rollbackMock(CANDIDATE.workerSha256,CANDIDATE.cacheSha256,{foreignSchedule:true})
+ ]){
+  await assert.rejects(mock.execute());assert.deepEqual(mock.calls,{worker:0,cache:0});
+ }
 });

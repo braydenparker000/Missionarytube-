@@ -69,6 +69,12 @@ export function checkedStaticSnapshot(snapshot,expectedHash){
  assert.ok(Number.isSafeInteger(snapshot.bytes)&&snapshot.bytes>=0,'Exact blob size required');
  return snapshot;
 }
+export function checkedStaticReleaseState(snapshot){
+ assert.ok(snapshot&&typeof snapshot.etag==='string'&&snapshot.etag.length>0&&snapshot.etag.length<=128,'Exact blob ETag required');
+ const known=new Map([[CANDIDATE.cacheBeforeSha256,CANDIDATE.cacheBeforeBytes],[CANDIDATE.cacheSha256,CANDIDATE.cacheBytes]]);
+ assert.ok(known.has(snapshot.sha256),'Unrecognized static asset bytes; refusing rollback');
+ assert.equal(snapshot.bytes,known.get(snapshot.sha256),'Static asset size does not match its pinned hash');return snapshot;
+}
 export function checkedStaticPrewrite(snapshot,{expectedHash,expectedEtag}){
  checkedStaticSnapshot(snapshot,expectedHash);assert.equal(snapshot.etag,expectedEtag,'Static asset ETag changed since rollback capture');return snapshot;
 }
@@ -80,6 +86,28 @@ export function planRollback(workerSha256,cacheSha256){
  assert.ok([CANDIDATE.cacheBeforeSha256,CANDIDATE.cacheSha256].includes(cacheSha256),'Unrecognized static bytes; refusing rollback');
  return Object.freeze({worker:workerSha256===CANDIDATE.workerSha256?'restore':'keep',
    cache:cacheSha256===CANDIDATE.cacheSha256?'restore':'keep'});
+}
+function checkedRollbackObservation(observed){
+ noDestinationActivation(observed.settings);checkedRollbackIdentity(observed.identity);
+ assert.equal(fullSettingsDigest(observed.settings),BASELINE.settingsDigest,'Worker settings changed');
+ assert.equal(settingsDigest(observed.settings),BASELINE.settingsShapeDigest,'Worker binding values or shape changed');
+ return observed;
+}
+export async function rollbackCandidate({observeCurrent,readCache,restoreWorker,restoreCache,verifyObservation=checkedRollbackObservation}){
+ let current=verifyObservation(await observeCurrent());
+ const cacheState=checkedStaticReleaseState(await readCache());
+ const actions=planRollback(current.identity.codeSha256,cacheState.sha256);
+ if(actions.worker==='restore')await restoreWorker(current.identity);
+ if(actions.cache==='restore'){
+  current=verifyObservation(await observeCurrent());
+  assert.equal(current.identity.codeSha256,BASELINE.codeSha256,'Worker rollback did not complete before cache restoration');
+  const immediate=checkedStaticPrewrite(await readCache(),{expectedHash:CANDIDATE.cacheSha256,expectedEtag:cacheState.etag});
+  await restoreCache(immediate);
+ }
+ const restored=verifyObservation(await observeCurrent());
+ assert.equal(restored.identity.codeSha256,BASELINE.codeSha256,'Worker rollback verification failed');
+ const restoredCache=checkedStaticSnapshot(await readCache(),CANDIDATE.cacheBeforeSha256);
+ return {workerSha256:restored.identity.codeSha256,cacheSha256:restoredCache.sha256,workerAction:actions.worker,cacheAction:actions.cache};
 }
 async function compile(){
  assert.equal(git('rev-parse','HEAD'),SOURCE,'Worker source revision changed');
@@ -193,24 +221,14 @@ async function rollback(){
    oldCache=await readFile(resolve(OUT,'cache-before.js'));
  const manifest=await json(resolve(OUT,'candidate.json'));
  checkedBackupArtifacts({manifest,checkpoint,worker:oldWorker,cache:oldCache});
- const {account,token}=credentials(),current=await observe({account,token});noDestinationActivation(current.settings);
- checkedRollbackIdentity(current.identity);
- const cacheState=checkedStaticSnapshot(await cacheSnapshot('cache-live.js'),CANDIDATE.cacheBeforeSha256);
- const actions=planRollback(current.identity.codeSha256,cacheState.sha256);
- assert.equal(fullSettingsDigest(current.settings),BASELINE.settingsDigest);assert.equal(settingsDigest(current.settings),BASELINE.settingsShapeDigest);
- if(actions.worker==='restore')await publishWorker({account,token,bundle:oldWorker,before:current.identity});
- if(actions.cache==='restore'){
-  const immediatelyBeforeStatic=await observe({account,token});noDestinationActivation(immediatelyBeforeStatic.settings);
-  assert.equal(immediatelyBeforeStatic.identity.codeSha256,BASELINE.codeSha256);
-  checkedRollbackIdentity(immediatelyBeforeStatic.identity);
-  assert.equal(fullSettingsDigest(immediatelyBeforeStatic.settings),BASELINE.settingsDigest);
-  assert.equal(settingsDigest(immediatelyBeforeStatic.settings),BASELINE.settingsShapeDigest);
-  await conditionalStaticUpload('cache-before.js',{expectedHash:CANDIDATE.cacheSha256,expectedEtag:cacheState.etag});
- }
- const restored=(await observe({account,token})).identity,restoredCache=checkedStaticSnapshot(await cacheSnapshot('cache-restored.js'),CANDIDATE.cacheBeforeSha256);
- assert.equal(restored.codeSha256,BASELINE.codeSha256);assert.equal(restored.settingsDigest,checkpoint.before.settingsDigest);
- assert.equal(restored.schedulesDigest,checkpoint.before.schedulesDigest);
- console.log(JSON.stringify({rolledBack:true,workerSha256:restored.codeSha256,cacheSha256:restoredCache.sha256,settingsUnchanged:true,schedulesUnchanged:true,workerAction:actions.worker,cacheAction:actions.cache}));
+ const {account,token}=credentials();
+ const result=await rollbackCandidate({
+  observeCurrent:()=>observe({account,token}),readCache:()=>cacheSnapshot('cache-live.js'),
+  restoreWorker:identity=>publishWorker({account,token,bundle:oldWorker,before:identity}),
+  restoreCache:snapshot=>conditionalStaticUpload('cache-before.js',{expectedHash:CANDIDATE.cacheSha256,expectedEtag:snapshot.etag})
+ });
+ assert.equal(checkpoint.before.settingsDigest,BASELINE.settingsDigest);assert.equal(checkpoint.before.schedulesDigest,BASELINE.schedulesDigest);
+ console.log(JSON.stringify({rolledBack:true,...result,settingsUnchanged:true,schedulesUnchanged:true}));
 }
 async function main(mode){assert.ok(['prepare','preflight','verify-backup','publish','rollback'].includes(mode));await mkdir(OUT,{recursive:true});
  if(mode==='prepare'){await compile();return;}if(mode==='preflight'){await preflight();return;}
