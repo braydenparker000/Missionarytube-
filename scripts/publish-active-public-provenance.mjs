@@ -139,7 +139,7 @@ async function prepareProof(){
  checkedPublicationProof(proof,release,state.parentReleaseQualifiedDigest,state.privateWorkspaceReceiptSha256);
  await writeFile(DIR+'/provenance.json',JSON.stringify(proof,null,2)+'\n');
  if(process.env.GITHUB_OUTPUT)await writeFile(process.env.GITHUB_OUTPUT,`sha256=${sha(Buffer.from(JSON.stringify(proof)))}\n`,{flag:'a'});
- console.log(JSON.stringify({provenanceReady:true,releaseJsonSha256:proof.releaseJsonSha256,preservedOverrides:proof.preservedOverrides.length,rollbackArtifactId}));
+ console.log(JSON.stringify({provenanceReady:true,releaseJsonSha256:proof.releaseJsonSha256,preservedOverrides:proof.preservedOverrides.length,artifactId}));
 }
 async function publish(){
  const plan=JSON.parse(await readFile(DIR+'/preflight.json','utf8'));
