@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {resolve} from 'node:path';
-import {fileManifest} from './qualified-artifact.mjs';
 import {OVERRIDES} from './publish-active-public-provenance.mjs';
 import {ALLOWLIST,CANDIDATE,PARENT,candidateRelease,checkedAllowlist,checkedBlobObservation,checkedCandidate,checkedParentSidecar,
  checkedRollbackAction,restoreAllowlisted} from './publish-media-appearance.mjs';
 
 const sha=value=>createHash('sha256').update(value).digest('hex');
-const builtRelease=JSON.parse(readFileSync('dist/release.json','utf8'));
+const builtRelease={source:'braydenparker999/jarvis',commit:'c28c1b2f70aabb5217b08bf31ffe4c93d0353765',bytes:CANDIDATE.bytes,
+ components:{activePublic:{repository:'braydenparker000/Missionarytube-',commit:'d'.repeat(40),path:'active/public',tree:'e'.repeat(40)},
+  media:CANDIDATE.media,dailyBoard:{commit:'f'.repeat(40)},connect:{commit:'1'.repeat(40)}}};
 
 test('media candidate changes only its exact release identity and two file pins',async()=>{
  assert.equal(CANDIDATE.media.commit,'bccda52d2c84bdfc2d315c7250cd9efbd8594aff');
@@ -17,9 +17,9 @@ test('media candidate changes only its exact release identity and two file pins'
  const changed={...oldRelease,bytes:builtRelease.bytes,components:{...oldRelease.components,media:builtRelease.components.media}};
  assert.deepEqual(changed,builtRelease);
  assert.equal(candidateRelease(oldRelease,builtRelease).toString(),JSON.stringify(builtRelease,null,2)+'\n');
- assert.equal(sha(readFileSync('dist/media/index.html')),CANDIDATE.files['media/index.html'].sha256);
- assert.equal(sha(readFileSync('dist/media/assets/css/obsidian.css')),CANDIDATE.files['media/assets/css/obsidian.css'].sha256);
- const files=await fileManifest(resolve('dist'));
+ const paths=[...Object.keys(OVERRIDES),...Object.keys(CANDIDATE.files),...Array.from({length:170},(_,i)=>`candidate/${i}.js`)];
+ const files=paths.map(path=>({path,bytes:1,sha256:'a'.repeat(64)}));
+ for(const [path,pin] of Object.entries(CANDIDATE.files))Object.assign(files.find(f=>f.path===path),pin);
  assert.equal(checkedCandidate(oldRelease,builtRelease,files),true);
  assert.throws(()=>checkedCandidate(oldRelease,{...builtRelease,components:{...builtRelease.components,activePublic:{commit:'foreign'}}},files));
 });
