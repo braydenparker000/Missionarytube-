@@ -1,0 +1,71 @@
+name: Validate Relay owner pairing
+
+# Validation only. This workflow never deploys or enables a production feature.
+# Fixture pairing approvals are mocked authorization, not live phone approvals.
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/validate-relay-owner.yml'
+      - 'backend/**'
+      - 'public/assets/**'
+      - 'public/jarvis/**'
+      - 'public/muse/**'
+      - 'scripts/install-qualification-browser.mjs'
+      - 'tests/relay-*'
+      - 'tests/oauth-consent-browser.test.js'
+      - 'tests/ci-workflow.test.js'
+      - 'tests/helpers/ci-test-inventory.mjs'
+      - 'tests/shared.test.js'
+      - 'tests/publications.test.js'
+      - 'tests/origins.test.js'
+      - 'tests/hub.test.js'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relay-owner-validation-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  owner-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      REQUIRE_RELAY_OWNER_BROWSER: '1'
+    steps:
+      - name: Check out the proposed source
+        # https://github.com/actions/checkout/releases/tag/v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Use Node 24 for the SQLite fixture
+        # https://github.com/actions/setup-node/releases/tag/v7.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.21.0'
+          package-manager-cache: false
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Restore the checksum-verified qualified browser archive
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/jarvis-qualification-browser/chrome.zip
+          key: jarvis-browser-linux64-154.0.8037.97-487c3b0e89f786d9257a6265a29bacf18b893e90f29c0ef6f7be9706ecc8c7a2
+      - name: Select the exact qualified Chrome154 build
+        run: |
+          node scripts/install-qualification-browser.mjs
+          chromium_path="$RUNNER_TEMP/jarvis-qualification-browser/installed/chrome-linux64/chrome"
+          test -x "$chromium_path"
+          printf 'CHROMIUM_PATH=%s\n' "$chromium_path" >> "$GITHUB_ENV"
+          printf 'PLAYWRIGHT_CHROMIUM_EXECUTABLE=%s\n' "$chromium_path" >> "$GITHUB_ENV"
+          printf 'JARVIS_CHROME=%s\n' "$chromium_path" >> "$GITHUB_ENV"
+      - name: Bundle the proposed Worker without deployment
+        run: npx --no-install esbuild backend/worker.js --bundle --platform=browser --external:node:crypto --format=esm --outfile="$RUNNER_TEMP/relay-owner-worker.mjs"
+      - name: Run owner browser and affected regression tests
+        # Includes real OAuth consent/catalog routing, without unrelated media
+        # measurements. Owner Chromium remains mandatory for this Node 24 job.
+        run: node tests/helpers/ci-test-inventory.mjs run relay --require-browser

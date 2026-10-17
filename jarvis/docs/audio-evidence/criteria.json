@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "declaredBeforeTuning": "2026-10-02",
+  "transparentResidualRmsDbfsMax": -120,
+  "representativeInputDbfs": -20,
+  "guardCeilingDbtp": -1.0,
+  "independentOutputPeakDbtpMax": -0.9,
+  "oracle": "SciPy resample_poly 32x, Kaiser beta 12, 8193-tap FIR; independent FFmpeg ebur128 peak=true",
+  "eqMagnitudeErrorDbMax": 0.05,
+  "rates": [44100, 48000, 96000],
+  "enduranceMinutes": 30,
+  "hardware": "Samsung A15 USB DAC and Bluetooth tests remain unverified without the devices"
+}

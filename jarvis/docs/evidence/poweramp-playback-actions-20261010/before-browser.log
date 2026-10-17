@@ -1,0 +1,124 @@
+TAP version 13
+# NATIVE_R2_ART_CONTROLS {"position":0,"intent":false,"playing":false,"loading":false,"withheld":0,"slots":[{"time":0,"duration":null,"paused":true,"ended":false,"error":0,"readyState":0,"networkState":0},{"time":0,"duration":null,"paused":true,"ended":false,"error":0,"readyState":0,"networkState":0}],"playback":{"schema":"poweramp-playback-v1","events":[{"at":1791660191662,"event":"pageshow","source":"none","request":0,"attempt":0,"slot":0,"intent":false,"playing":false,"paused":true,"ended":false,"time":0,"readyState":0,"networkState":0,"mediaError":0,"context":"none","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":null,"error":null}]}}
+# Subtest: Poweramp native R2 Chrome lifecycle and recovery contracts
+    # Subtest: Media Session setting changes apply before stalled artwork storage completes
+    not ok 1 - Media Session setting changes apply before stalled artwork storage completes
+      ---
+      duration_ms: 356.970349
+      type: 'test'
+      location: '/workspace/jarvis/tests/poweramp-native-reliability-browser.test.js:185:13'
+      failureType: 'testCodeFailure'
+      error: |-
+        Expected values to be strictly deep-equal:
+        + actual - expected
+        
+          {
+        +   disabled: false,
+        -   disabled: true,
+            enabled: true
+          }
+        
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected:
+        disabled: true
+        enabled: true
+      actual:
+        disabled: false
+        enabled: true
+      operator: 'deepStrictEqual'
+      stack: |-
+        TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability-browser.test.js:201:16)
+        runNextTicks (node:internal/process/task_queues:64:5)
+        process.processImmediate (node:internal/timers:452:9)
+        process.callbackTrampoline (node:internal/async_hooks:130:17)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability-browser.test.js:185:5)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+# NATIVE_R2_HELD {"requests":2,"position":0,"intent":true,"playing":true,"loading":false,"withheld":0,"slots":[{"time":87,"duration":180,"paused":false,"ended":false,"error":0,"readyState":1,"networkState":2},{"time":0,"duration":null,"paused":true,"ended":false,"error":0,"readyState":0,"networkState":0}],"playback":{"schema":"poweramp-playback-v1","events":[{"at":1791660191973,"event":"pageshow","source":"none","request":0,"attempt":0,"slot":0,"intent":false,"playing":false,"paused":true,"ended":false,"time":0,"readyState":0,"networkState":0,"mediaError":0,"context":"none","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":null,"error":null},{"at":1791660192202,"event":"selection-start","source":"r2","request":2,"attempt":0,"slot":0,"intent":true,"playing":false,"paused":true,"ended":false,"time":0,"readyState":0,"networkState":0,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":null,"error":null},{"at":1791660192205,"event":"play-request","source":"r2","request":2,"attempt":1,"slot":0,"intent":true,"playing":false,"paused":true,"ended":false,"time":0,"readyState":0,"networkState":3,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":null,"error":null},{"at":1791660192205,"event":"buffering","source":"r2","request":2,"attempt":1,"slot":0,"intent":true,"playing":false,"paused":false,"ended":false,"time":0,"readyState":0,"networkState":3,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":"initial","error":null},{"at":1791660192209,"event":"context-state","source":"r2","request":2,"attempt":1,"slot":0,"intent":true,"playing":false,"paused":false,"ended":false,"time":0,"readyState":0,"networkState":3,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","bufferingMs":4,"screenOffPause":false,"reason":null,"error":null},{"at":1791660192231,"event":"element-playing","source":"r2","request":2,"attempt":1,"slot":0,"intent":true,"playing":true,"paused":false,"ended":false,"time":87,"readyState":1,"networkState":2,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":null,"error":null}]}}
+    # Subtest: native held network stream: delayed playing
+    not ok 2 - native held network stream: delayed playing
+      ---
+      duration_ms: 476.858565
+      type: 'test'
+      location: '/workspace/jarvis/tests/poweramp-native-reliability-browser.test.js:205:77'
+      failureType: 'testCodeFailure'
+      error: |-
+        Expected values to be strictly equal:
+        
+        false !== true
+        
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected: true
+      actual: false
+      operator: 'strictEqual'
+      stack: |-
+        TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability-browser.test.js:241:44)
+        runNextTicks (node:internal/process/task_queues:64:5)
+        process.processImmediate (node:internal/timers:452:9)
+        process.callbackTrampoline (node:internal/async_hooks:130:17)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability-browser.test.js:205:69)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+# NATIVE_R2_HELD {"requests":2,"position":0,"intent":true,"playing":false,"loading":false,"withheld":0,"slots":[{"time":87,"duration":180,"paused":true,"ended":false,"error":0,"readyState":1,"networkState":2},{"time":0,"duration":null,"paused":true,"ended":false,"error":0,"readyState":0,"networkState":0}],"playback":{"schema":"poweramp-playback-v1","events":[{"at":1791660192551,"event":"pageshow","source":"none","request":0,"attempt":0,"slot":0,"intent":false,"playing":false,"paused":true,"ended":false,"time":0,"readyState":0,"networkState":0,"mediaError":0,"context":"none","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":null,"error":null},{"at":1791660192726,"event":"selection-start","source":"r2","request":2,"attempt":0,"slot":0,"intent":true,"playing":false,"paused":true,"ended":false,"time":0,"readyState":0,"networkState":0,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":null,"error":null},{"at":1791660192728,"event":"play-request","source":"r2","request":2,"attempt":1,"slot":0,"intent":true,"playing":false,"paused":true,"ended":false,"time":0,"readyState":0,"networkState":3,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":null,"error":null},{"at":1791660192728,"event":"buffering","source":"r2","request":2,"attempt":1,"slot":0,"intent":true,"playing":false,"paused":false,"ended":false,"time":0,"readyState":0,"networkState":3,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":"initial","error":null},{"at":1791660192733,"event":"context-state","source":"r2","request":2,"attempt":1,"slot":0,"intent":true,"playing":false,"paused":false,"ended":false,"time":0,"readyState":0,"networkState":3,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","bufferingMs":5,"screenOffPause":false,"reason":null,"error":null},{"at":1791660192744,"event":"element-playing","source":"r2","request":2,"attempt":1,"slot":0,"intent":true,"playing":true,"paused":false,"ended":false,"time":0,"readyState":4,"networkState":1,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":null,"error":null},{"at":1791660192744,"event":"element-playing","source":"r2","request":2,"attempt":1,"slot":0,"intent":true,"playing":true,"paused":false,"ended":false,"time":0,"readyState":4,"networkState":1,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":null,"error":null},{"at":1791660192816,"event":"buffering","source":"r2","request":2,"attempt":1,"slot":0,"intent":true,"playing":true,"paused":false,"ended":false,"time":87,"readyState":1,"networkState":2,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","screenOffPause":false,"reason":null,"error":null},{"at":1791660206822,"event":"media-error","source":"r2","request":2,"attempt":1,"slot":0,"intent":true,"playing":true,"paused":true,"ended":false,"time":87,"readyState":1,"networkState":2,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"none","bufferingMs":14006,"screenOffPause":false,"reason":"stall","error":"OtherError"},{"at":1791660206822,"event":"r2-retry-scheduled","source":"r2","request":2,"attempt":2,"slot":0,"intent":true,"playing":false,"paused":true,"ended":false,"time":87,"readyState":1,"networkState":2,"mediaError":0,"context":"running","visibility":"visible","online":true,"mode":"transparent","gapless":true,"crossfade":false,"recovery":"pending","screenOffPause":false,"reason":"stall","error":null}]}}
+    # Subtest: native held network stream: missing pause event
+    not ok 3 - native held network stream: missing pause event
+      ---
+      duration_ms: 586.206336
+      type: 'test'
+      location: '/workspace/jarvis/tests/poweramp-native-reliability-browser.test.js:205:77'
+      failureType: 'testCodeFailure'
+      error: |-
+        Expected values to be strictly deep-equal:
+        + actual - expected
+        
+          {
+        +   intent: true,
+        -   intent: false,
+            paused: true,
+        +   recovery: true
+        -   recovery: false
+          }
+        
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected:
+        intent: false
+        paused: true
+        recovery: false
+      actual:
+        intent: true
+        paused: true
+        recovery: true
+      operator: 'deepStrictEqual'
+      stack: |-
+        TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability-browser.test.js:234:18)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability-browser.test.js:205:69)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    1..3
+not ok 1 - Poweramp native R2 Chrome lifecycle and recovery contracts
+  ---
+  duration_ms: 1750.36548
+  type: 'test'
+  location: '/workspace/jarvis/tests/poweramp-native-reliability-browser.test.js:44:1'
+  failureType: 'subtestsFailed'
+  error: '3 subtests failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..1
+# tests 4
+# suites 0
+# pass 0
+# fail 4
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2033.810119

@@ -1,0 +1,41 @@
+{
+  "runtime": "Node 22.23.3; Chrome for Testing 154.0.8037.97",
+  "command": "npm test",
+  "final_playback_candidate": true,
+  "qualification_pass": false,
+  "tests": 2538,
+  "pass": 2535,
+  "fail": 2,
+  "cancelled": 0,
+  "skipped": 1,
+  "duration_ms": 265911.380422,
+  "failures": [
+    "Unchanged My Media external archive-cover subtest times out, also failing its parent suite"
+  ],
+  "skips": [
+    "Opt-in live podcast discovery/search/playback"
+  ],
+  "poweramp_endpoint_pixels": [
+    {
+      "name": "snapshot-visual-dark-endpoint-list",
+      "changedPixels": 0,
+      "changedFraction": 0
+    },
+    {
+      "name": "snapshot-visual-dark-endpoint-player",
+      "changedPixels": 1080,
+      "changedFraction": 0.0004861448711716091
+    },
+    {
+      "name": "snapshot-visual-light-endpoint-list",
+      "changedPixels": 0,
+      "changedFraction": 0
+    },
+    {
+      "name": "snapshot-visual-light-endpoint-player",
+      "changedPixels": 1080,
+      "changedFraction": 0.0004861448711716091
+    }
+  ],
+  "note": "Final production bytes and regression tests. The initial missing-baseline and Relay attachment replay failures passed on this complete rerun; neither was changed by this patch."
+}

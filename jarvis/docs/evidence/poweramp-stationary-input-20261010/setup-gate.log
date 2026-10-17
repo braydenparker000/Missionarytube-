@@ -1,0 +1,37 @@
+TAP version 13
+# Subtest: persistent setup summary rejects missing, slow or clone-based opens and closes
+ok 1 - persistent setup summary rejects missing, slow or clone-based opens and closes
+  ---
+  duration_ms: 4.25729
+  type: 'test'
+  ...
+# Subtest: Poweramp isolated persistent cold, repeat and playing open/close setup at 4x CPU
+    # Subtest: 60 tracks
+    ok 1 - 60 tracks
+      ---
+      duration_ms: 4117.241185
+      type: 'test'
+      ...
+    # Subtest: 5000 tracks
+    ok 2 - 5000 tracks
+      ---
+      duration_ms: 3908.529668
+      type: 'test'
+      ...
+    1..2
+ok 2 - Poweramp isolated persistent cold, repeat and playing open/close setup at 4x CPU
+  ---
+  duration_ms: 8451.878173
+  type: 'test'
+  ...
+# POWERAMP_PERSISTENT_SETUP {"source":"715fe2e947e43810c0b224156daa069d741382b6a41fab921e6ea16ae4724fe3","tracks":60,"summary":{"cpuThrottling":4,"setupMaxMs":33,"max_ms":14.300000000279397,"samples":[{"label":"cold-open","operations":[{"operation":"shared.create","direction":"expand","modelValid":false,"ms":14.200000000186265,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"expand","modelValid":false,"ms":14.300000000279397,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]},{"label":"cold-close","operations":[{"operation":"shared.create","direction":"collapse","modelValid":false,"ms":10,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"collapse","modelValid":false,"ms":10.600000000093132,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]},{"label":"repeat-open","operations":[{"operation":"shared.create","direction":"expand","modelValid":true,"ms":11,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"expand","modelValid":true,"ms":11.600000000093132,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]},{"label":"repeat-close","operations":[{"operation":"shared.create","direction":"collapse","modelValid":true,"ms":8.600000000093132,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"collapse","modelValid":true,"ms":8.700000000186265,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]},{"label":"playing-open","operations":[{"operation":"shared.create","direction":"expand","modelValid":true,"ms":9.5,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"expand","modelValid":true,"ms":10.799999999813735,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]},{"label":"playing-close","operations":[{"operation":"shared.create","direction":"collapse","modelValid":true,"ms":7.7000000001862645,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"collapse","modelValid":true,"ms":8,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]}]},"livePlaying":{"before":{"p":0.5,"time":0.2691999999997206,"fill":"translateX(0.177972%)","current":"0:00","play":"Pause","fullPlay":"Pause","sameOwner":true,"playing":true,"wantsPlayback":true},"after":{"p":0.5,"time":0.4571999999997206,"fill":"translateX(0.316713%)","current":"0:00","play":"Pause","fullPlay":"Pause","sameOwner":true,"playing":true,"wantsPlayback":true}}}
+# POWERAMP_PERSISTENT_SETUP {"source":"715fe2e947e43810c0b224156daa069d741382b6a41fab921e6ea16ae4724fe3","tracks":5000,"summary":{"cpuThrottling":4,"setupMaxMs":33,"max_ms":14.200000000186265,"samples":[{"label":"cold-open","operations":[{"operation":"shared.create","direction":"expand","modelValid":false,"ms":14,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"expand","modelValid":false,"ms":14.200000000186265,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]},{"label":"cold-close","operations":[{"operation":"shared.create","direction":"collapse","modelValid":false,"ms":8.199999999720603,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"collapse","modelValid":false,"ms":9.700000000186265,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]},{"label":"repeat-open","operations":[{"operation":"shared.create","direction":"expand","modelValid":true,"ms":12.899999999906868,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"expand","modelValid":true,"ms":13,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]},{"label":"repeat-close","operations":[{"operation":"shared.create","direction":"collapse","modelValid":true,"ms":10,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"collapse","modelValid":true,"ms":10.600000000093132,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]},{"label":"playing-open","operations":[{"operation":"shared.create","direction":"expand","modelValid":true,"ms":11.200000000186265,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"expand","modelValid":true,"ms":11.400000000372529,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]},{"label":"playing-close","operations":[{"operation":"shared.create","direction":"collapse","modelValid":true,"ms":8,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0},{"operation":"screen.create","direction":"collapse","modelValid":true,"ms":8.100000000093132,"clones":0,"deepClones":0,"styleEnumerations":0,"cssRulesReads":0}]}]},"livePlaying":{"before":{"p":0.5,"time":0.2946000000000931,"fill":"translateX(0.197203%)","current":"0:00","play":"Pause","fullPlay":"Pause","sameOwner":true,"playing":true,"wantsPlayback":true},"after":{"p":0.5,"time":0.4866000000000931,"fill":"translateX(0.336853%)","current":"0:00","play":"Pause","fullPlay":"Pause","sameOwner":true,"playing":true,"wantsPlayback":true}}}
+1..2
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8703.592728

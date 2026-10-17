@@ -1,0 +1,43 @@
+{
+  "runtime": "Node 22.23.3; Chrome for Testing 154.0.8037.97",
+  "command": "npm test",
+  "tests": 2527,
+  "passed": 2521,
+  "failed": 4,
+  "cancelled": 0,
+  "skipped": 2,
+  "duration_ms": 260265.955456,
+  "qualification_pass": false,
+  "failures": [
+    "My Media external archive-cover subtest timeout (also fails its parent)",
+    "My Media refinement missing historical baseline object; fetched afterward",
+    "Relay attachment connection-loss replay browser timeout"
+  ],
+  "skips": [
+    "Live podcast discovery/search/playback",
+    "Relay two-phone journey requires CHROMIUM_PATH or PLAYWRIGHT_CHROMIUM_EXECUTABLE"
+  ],
+  "poweramp_endpoint_pixels": [
+    {
+      "name": "snapshot-visual-dark-endpoint-list",
+      "changedPixels": 0,
+      "changedFraction": 0
+    },
+    {
+      "name": "snapshot-visual-dark-endpoint-player",
+      "changedPixels": 0,
+      "changedFraction": 0
+    },
+    {
+      "name": "snapshot-visual-light-endpoint-list",
+      "changedPixels": 0,
+      "changedFraction": 0
+    },
+    {
+      "name": "snapshot-visual-light-endpoint-player",
+      "changedPixels": 0,
+      "changedFraction": 0
+    }
+  ],
+  "note": "Initial candidate run predates the reviewed timeupdate/watchdog fixes and optional extended soak; not final qualification."
+}

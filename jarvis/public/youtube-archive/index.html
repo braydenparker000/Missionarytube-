@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="YouTube Archive: personal, authorized video archiving to Google Drive. App information, privacy, and terms.">
+<title>YouTube Archive</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><nav aria-label="Archive information"><a href="index.html">YouTube Archive</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></nav></header>
+<main><p class="eyebrow">A personal tool by Brayden Parker</p>
+<h1>YouTube Archive</h1>
+<p class="lead">Save authorized public YouTube videos to your own Google Drive, automatically or on request.</p>
+<section><h2>What the app does</h2><p>The archiver checks configured creators once a day, downloads new authorized videos, and uploads them to a folder selected by the owner. Manual requests use the same process. The default quality is the best available video up to 480p, with audio.</p><p>Each completed video is recorded so repeat requests return the existing archive record. Failed work can be retried without marking an unfinished upload complete.</p></section>
+<section><h2>Why Google authorization is needed</h2><p>The owner authorizes Google Drive access so the background job can inspect the destination, create subfolders, upload video files, and verify uploads. The requested Drive permission is broad, but the application uses the configured archive destination. An API key alone does not grant upload access.</p><p>Authorization takes place on Google's pages. This information site does not collect passwords, client secrets, or tokens. There is no public sign-up or upload endpoint.</p></section>
+<section><h2>Where your information goes</h2><p>Video files are stored in the owner's Google Drive. Archive metadata is stored in a public GitHub repository. Files uploaded into a shared Drive folder inherit its sharing settings; a link-viewable destination is not private.</p><p>Read the <a href="privacy.html">privacy policy</a> for details about permissions, storage, sharing, retention, and revoking access.</p></section>
+<section><h2>Personal use</h2><p>This app is operated by Brayden Parker for his own authorized media. It is an independent project and is not affiliated with or endorsed by Google or YouTube.</p><p><a href="https://github.com/braydenparker999/YouTube-Drive">Source code and setup documentation</a></p></section></main>
+<footer><p>Operated by Brayden Parker · <a href="index.html">App information</a> · <a href="privacy.html">Privacy policy</a> · <a href="terms.html">Terms</a></p></footer>
+</body>
+</html>

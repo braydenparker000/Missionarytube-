@@ -1,0 +1,87 @@
+✖ context-only suspension retains ownership until output naturally runs again (9.508716ms)
+✖ suspended output consumes missed native end exactly once after natural resume (3.065658ms)
+✖ suspended output consumes delivered native end exactly once after natural resume (3.429888ms)
+✖ independent network failure may recover after thirty seconds of proven playback (4.341997ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 80.261331
+
+✖ failing tests:
+
+test at tests/poweramp-native-reliability.test.js:805:1
+✖ context-only suspension retains ownership until output naturally runs again (9.508716ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///workspace/poweramp-background-fix/tests/poweramp-native-reliability.test.js:808:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/poweramp-native-reliability.test.js:813:37
+✖ suspended output consumes missed native end exactly once after natural resume (3.065658ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///workspace/poweramp-background-fix/tests/poweramp-native-reliability.test.js:817:58)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/poweramp-native-reliability.test.js:813:37
+✖ suspended output consumes delivered native end exactly once after natural resume (3.429888ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'private-native-next'
+  - 'private-native-r2-track-id'
+                    ^
+  
+      at TestContext.<anonymous> (file:///workspace/poweramp-background-fix/tests/poweramp-native-reliability.test.js:817:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'private-native-next',
+    expected: 'private-native-r2-track-id',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/poweramp-native-reliability.test.js:840:1
+✖ independent network failure may recover after thirty seconds of proven playback (4.341997ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'private-native-r2-track-id'
+  - null
+  
+      at TestContext.<anonymous> (file:///workspace/poweramp-background-fix/tests/poweramp-native-reliability.test.js:843:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'private-native-r2-track-id',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

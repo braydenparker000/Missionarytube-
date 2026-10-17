@@ -1,0 +1,15 @@
+# Relay client draft and transfer safety release
+
+This release starts at the live frontend source `f999581aa979712b4b63a6783b7c56842fedb6a1`. Its runtime delta is exactly five files from independently reviewed PR77 head `ac0a8377217094cac121c03726b52ce00bfe4e03`: `public/assets/app.js`, `quick-ai.js`, `relay-owner-ui.js`, `relay-transfer.js` and `relay-draft-store.js`. The first three baseline files exactly match PR77's `ea9c09c1ddb172c1f0d668b58a5e7066f1c8318f` base.
+
+Quick AI requires an explicit private or public Relay destination before preparing a draft. Existing destination drafts and the source chat remain saved. If the source chat cannot be saved, navigation stops and the live answer and draft remain available. An interrupted draft adoption resumes once; edited or oversized drafts remain available for review, copying or explicit journal-bound dismissal. Preparing or adopting a transfer never sends a message or creates a job.
+
+Unsent private composer text survives navigation and a confirmed session expiry in this tab's sessionStorage, under a separate owner draft key. Expiry still clears authenticated history and access. Sign-in is required before reviewing the private composer. Revocation, deliberate disconnect and credential replacement clear the private draft and history; an explicit successful send clears the matching draft. Credentials and authenticated history are never copied into this draft store or into public Relay drafts. Session lifetimes and grants are unchanged.
+
+The complete backend tree and transitive Worker imports remain byte-identical to f999/c4. There are no new endpoints, request contracts, schemas, jobs, subscriptions or schedules. Podcast canonical files, service worker, config, styles, Astra and Poweramp remain exact. The existing conversation design is retained. Account-wide admission and the separate podcast canonical migration are not dependencies of this client delta.
+
+This release improves Relay draft safety. It does not implement later public artifact delivery, wake Lucy, qualify private execution, or prove direct push to Muse. Those server improvements remain a separate release. The native admission work is frozen on its separate branch.
+
+Qualification must bind this exact source, all five reviewed file blobs and the resulting frontend artifact, with the original source/browser/deployment checks intact. Production must retain the existing proven Worker: obtain fresh exact reuse proof and stop if reuse is refused; do not deploy a fallback Worker. Existing credential handling, binding preservation, live backup, artifact, staging and final verification gates remain required. Parent independent review precedes merge and deployment.
+
+The added transfer tests use fictional accounts and closed provider responses. Existing tests retain their assertions, with the approved explicit destination interaction and same-tab expiry draft expectations updated to the reviewed behavior. No live private session, credential/access change, media action, provider-denial retry or production operation is part of this candidate preparation.

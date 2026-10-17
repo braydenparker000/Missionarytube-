@@ -1,0 +1,140 @@
+TAP version 13
+# Subtest: Poweramp mandatory Chromium scene, seek, and art contracts
+    # Subtest: real upward mini swipe blocks uncovered background rows during settling
+    ok 1 - real upward mini swipe blocks uncovered background rows during settling
+      ---
+      duration_ms: 3291.968657
+      type: 'test'
+      ...
+    # Subtest: mini tap and drag both start from the same mini cover and expanding surface
+    ok 2 - mini tap and drag both start from the same mini cover and expanding surface
+      ---
+      duration_ms: 2540.702366
+      type: 'test'
+      ...
+    # Subtest: real held mini drag has continuous checkpoint geometry and exact full endpoint
+    ok 3 - real held mini drag has continuous checkpoint geometry and exact full endpoint
+      ---
+      duration_ms: 3052.882417
+      type: 'test'
+      ...
+    # Subtest: shared-scene regrab freezes the painted cover and held release resumes destination
+    ok 4 - shared-scene regrab freezes the painted cover and held release resumes destination
+      ---
+      duration_ms: 6014.035613
+      type: 'test'
+      ...
+    # Subtest: real artwork downward drag retains its captured pointer stream through inert preview
+    ok 5 - real artwork downward drag retains its captured pointer stream through inert preview
+      ---
+      duration_ms: 3600.277023
+      type: 'test'
+      ...
+    # Subtest: horizontal artwork swipe changes exactly one track and never changes scene
+    ok 6 - horizontal artwork swipe changes exactly one track and never changes scene
+      ---
+      duration_ms: 3193.323371
+      type: 'test'
+      ...
+    # Subtest: real paused waveform scrub commits the final move without loading audio
+    ok 7 - real paused waveform scrub commits the final move without loading audio
+      ---
+      duration_ms: 1874.08171
+      type: 'test'
+      ...
+    # Subtest: real transport taps advance once and moved or canceled contact cannot skip
+    ok 8 - real transport taps advance once and moved or canceled contact cannot skip
+      ---
+      duration_ms: 2380.0941
+      type: 'test'
+      ...
+    # Subtest: a genuine next-button-origin waveform scrub seeks without a trailing track skip
+    ok 9 - a genuine next-button-origin waveform scrub seeks without a trailing track skip
+      ---
+      duration_ms: 2038.051977
+      type: 'test'
+      ...
+    # Subtest: previous restart honors restored paused resume position without changing cover
+    ok 10 - previous restart honors restored paused resume position without changing cover
+      ---
+      duration_ms: 2266.181401
+      type: 'test'
+      ...
+    # Subtest: late canonical artwork survives opening scene cleanup
+    ok 11 - late canonical artwork survives opening scene cleanup
+      ---
+      duration_ms: 3113.500374
+      type: 'test'
+      ...
+    # Subtest: late canonical artwork survives closing scene cleanup
+    ok 12 - late canonical artwork survives closing scene cleanup
+      ---
+      duration_ms: 3516.201594
+      type: 'test'
+      ...
+    # Subtest: late canonical artwork survives abort scene cleanup
+    ok 13 - late canonical artwork survives abort scene cleanup
+      ---
+      duration_ms: 3065.202128
+      type: 'test'
+      ...
+    # Subtest: late canonical artwork survives regrab scene cleanup
+    ok 14 - late canonical artwork survives regrab scene cleanup
+      ---
+      duration_ms: 3586.563502
+      type: 'test'
+      ...
+    # Subtest: committed artwork remains decoded while a later art fetch is delayed
+    ok 15 - committed artwork remains decoded while a later art fetch is delayed
+      ---
+      duration_ms: 2395.861568
+      type: 'test'
+      ...
+    1..15
+ok 1 - Poweramp mandatory Chromium scene, seek, and art contracts
+  ---
+  duration_ms: 46828.876429
+  type: 'test'
+  ...
+# Subtest: Poweramp persistent live-owner visuals, exact canonical endpoints and dynamic held producers
+    # Subtest: dark endpoint pixels, tracked/regrab ownership, delayed art and waveform/theme
+    ok 1 - dark endpoint pixels, tracked/regrab ownership, delayed art and waveform/theme
+      ---
+      duration_ms: 78710.240219
+      type: 'test'
+      ...
+    # Subtest: light endpoint pixels, tracked/regrab ownership, delayed art and waveform/theme
+    ok 2 - light endpoint pixels, tracked/regrab ownership, delayed art and waveform/theme
+      ---
+      duration_ms: 71564.389807
+      type: 'test'
+      ...
+    1..2
+ok 2 - Poweramp persistent live-owner visuals, exact canonical endpoints and dynamic held producers
+  ---
+  duration_ms: 151605.298119
+  type: 'test'
+  ...
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-dark-endpoint-list","endpoint":true,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null,"regions":{"surface":{"pixels":2221560,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null},"art":{"pixels":10000,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null},"title":{"pixels":31050,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-dark-endpoint-player","endpoint":true,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null,"regions":{"surface":{"pixels":2221560,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null},"art":{"pixels":1009020,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null},"title":{"pixels":37280,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-dark-held-025","endpoint":false,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":393903,"exactChangedPixels":1431633,"changedFraction":0.17730918813806515,"maxChannelDelta":206,"meanChannelDelta":2.92680267469706,"changedBounds":{"left":0,"top":1243,"width":1080,"height":814},"regions":{"surface":{"pixels":698436,"changedPixels":390386,"exactChangedPixels":644942,"changedFraction":0.5589431243521239,"maxChannelDelta":206,"meanChannelDelta":8.898273786001868,"changedBounds":{"left":18,"top":1256,"width":1026,"height":586}},"art":{"pixels":106276,"changedPixels":105612,"exactChangedPixels":106256,"changedFraction":0.9937521171289849,"maxChannelDelta":172,"meanChannelDelta":18.0847769016523,"changedBounds":{"left":61,"top":1282,"width":326,"height":326}},"title":{"pixels":33588,"changedPixels":31545,"exactChangedPixels":33241,"changedFraction":0.9391747052518756,"maxChannelDelta":205,"meanChannelDelta":25.223353578659044,"changedBounds":{"left":162,"top":1547,"width":622,"height":54}},"sub":{"pixels":29762,"changedPixels":27622,"exactChangedPixels":29606,"changedFraction":0.9280962300920637,"maxChannelDelta":206,"meanChannelDelta":33.402837510919966,"changedBounds":{"left":162,"top":1605,"width":647,"height":46}},"play":{"pixels":20592,"changedPixels":11127,"exactChangedPixels":20561,"changedFraction":0.5403554778554779,"maxChannelDelta":105,"meanChannelDelta":12.317113442113442,"changedBounds":{"left":785,"top":1627,"width":144,"height":143}},"seek":{"pixels":41237,"changedPixels":6393,"exactChangedPixels":39184,"changedFraction":0.1550306763343599,"maxChannelDelta":35,"meanChannelDelta":1.518751364066251,"changedBounds":{"left":417,"top":1802,"width":247,"height":40}}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-dark-held-05","endpoint":false,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":930968,"exactChangedPixels":1722899,"changedFraction":0.41906048002304686,"maxChannelDelta":217,"meanChannelDelta":6.646045233979726,"changedBounds":{"left":0,"top":774,"width":1080,"height":1283},"regions":{"surface":{"pixels":1196524,"changedPixels":904242,"exactChangedPixels":1101315,"changedFraction":0.7557240807539172,"maxChannelDelta":217,"meanChannelDelta":12.09740548455359,"changedBounds":{"left":12,"top":837,"width":1056,"height":1130}},"art":{"pixels":305256,"changedPixels":305187,"exactChangedPixels":305256,"changedFraction":0.9997739602169982,"maxChannelDelta":217,"meanChannelDelta":18.367075503839402,"changedBounds":{"left":53,"top":866,"width":552,"height":553}},"title":{"pixels":35973,"changedPixels":35952,"exactChangedPixels":35973,"changedFraction":0.9994162288382954,"maxChannelDelta":198,"meanChannelDelta":34.15349011758819,"changedBounds":{"left":120,"top":1390,"width":571,"height":63}},"sub":{"pixels":32913,"changedPixels":32273,"exactChangedPixels":32908,"changedFraction":0.9805547959772735,"maxChannelDelta":205,"meanChannelDelta":40.19829550633488,"changedBounds":{"left":120,"top":1457,"width":621,"height":53}},"play":{"pixels":35344,"changedPixels":26718,"exactChangedPixels":32447,"changedFraction":0.7559416025350838,"maxChannelDelta":152,"meanChannelDelta":19.79857260072431,"changedBounds":{"left":657,"top":1555,"width":188,"height":188}},"seek":{"pixels":51622,"changedPixels":34034,"exactChangedPixels":51622,"changedFraction":0.6592925496881175,"maxChannelDelta":70,"meanChannelDelta":1.8513811940645462,"changedBounds":{"left":53,"top":1773,"width":974,"height":53}}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-dark-held-075","endpoint":false,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":1597849,"exactChangedPixels":1929578,"changedFraction":0.719246385422856,"maxChannelDelta":227,"meanChannelDelta":8.971653477736366,"changedBounds":{"left":0,"top":337,"width":1080,"height":1720},"regions":{"surface":{"pixels":1705055,"changedPixels":1533129,"exactChangedPixels":1569082,"changedFraction":0.8991668890446349,"maxChannelDelta":227,"meanChannelDelta":11.504502787300117,"changedBounds":{"left":6,"top":418,"width":1068,"height":1593}},"art":{"pixels":605284,"changedPixels":605265,"exactChangedPixels":605284,"changedFraction":0.9999686097765677,"maxChannelDelta":227,"meanChannelDelta":9.60828635813932,"changedBounds":{"left":46,"top":451,"width":778,"height":778}},"title":{"pixels":36778,"changedPixels":36678,"exactChangedPixels":36774,"changedFraction":0.9972809831964762,"maxChannelDelta":209,"meanChannelDelta":28.325846973734297,"changedBounds":{"left":79,"top":1234,"width":518,"height":71}},"sub":{"pixels":35580,"changedPixels":35330,"exactChangedPixels":35574,"changedFraction":0.992973580663294,"maxChannelDelta":210,"meanChannelDelta":28.75761663856099,"changedBounds":{"left":79,"top":1310,"width":593,"height":60}},"play":{"pixels":53824,"changedPixels":47957,"exactChangedPixels":52319,"changedFraction":0.890996581450654,"maxChannelDelta":167,"meanChannelDelta":35.155585798156956,"changedBounds":{"left":530,"top":1484,"width":232,"height":232}},"seek":{"pixels":61318,"changedPixels":59996,"exactChangedPixels":61318,"changedFraction":0.9784402622394729,"maxChannelDelta":150,"meanChannelDelta":4.1132946280048275,"changedBounds":{"left":46,"top":1744,"width":989,"height":62}}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-dark-regrab-held-05","endpoint":false,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":930968,"exactChangedPixels":1722899,"changedFraction":0.41906048002304686,"maxChannelDelta":217,"meanChannelDelta":6.646045233979726,"changedBounds":{"left":0,"top":774,"width":1080,"height":1283},"regions":{"surface":{"pixels":1196524,"changedPixels":904242,"exactChangedPixels":1101315,"changedFraction":0.7557240807539172,"maxChannelDelta":217,"meanChannelDelta":12.09740548455359,"changedBounds":{"left":12,"top":837,"width":1056,"height":1130}},"art":{"pixels":305256,"changedPixels":305187,"exactChangedPixels":305256,"changedFraction":0.9997739602169982,"maxChannelDelta":217,"meanChannelDelta":18.367075503839402,"changedBounds":{"left":53,"top":866,"width":552,"height":553}},"title":{"pixels":35973,"changedPixels":35952,"exactChangedPixels":35973,"changedFraction":0.9994162288382954,"maxChannelDelta":198,"meanChannelDelta":34.15349011758819,"changedBounds":{"left":120,"top":1390,"width":571,"height":63}},"sub":{"pixels":32913,"changedPixels":32273,"exactChangedPixels":32908,"changedFraction":0.9805547959772735,"maxChannelDelta":205,"meanChannelDelta":40.19829550633488,"changedBounds":{"left":120,"top":1457,"width":621,"height":53}},"play":{"pixels":35344,"changedPixels":26718,"exactChangedPixels":32447,"changedFraction":0.7559416025350838,"maxChannelDelta":152,"meanChannelDelta":19.79857260072431,"changedBounds":{"left":657,"top":1555,"width":188,"height":188}},"seek":{"pixels":51622,"changedPixels":34034,"exactChangedPixels":51622,"changedFraction":0.6592925496881175,"maxChannelDelta":70,"meanChannelDelta":1.8513811940645462,"changedBounds":{"left":53,"top":1773,"width":974,"height":53}}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-dark-late-art-held-05","endpoint":false,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":928109,"exactChangedPixels":1728937,"changedFraction":0.41777354651686205,"maxChannelDelta":212,"meanChannelDelta":6.441128081168188,"changedBounds":{"left":0,"top":794,"width":1080,"height":1263},"regions":{"surface":{"pixels":1196524,"changedPixels":911004,"exactChangedPixels":1104433,"changedFraction":0.7613754508894096,"maxChannelDelta":212,"meanChannelDelta":11.723464803046157,"changedBounds":{"left":12,"top":837,"width":1056,"height":1130}},"art":{"pixels":305256,"changedPixels":305213,"exactChangedPixels":305256,"changedFraction":0.9998591346279844,"maxChannelDelta":212,"meanChannelDelta":17.347853113452317,"changedBounds":{"left":53,"top":866,"width":552,"height":553}},"title":{"pixels":35973,"changedPixels":35865,"exactChangedPixels":35973,"changedFraction":0.9969977483112334,"maxChannelDelta":199,"meanChannelDelta":33.84702415700664,"changedBounds":{"left":120,"top":1390,"width":571,"height":63}},"sub":{"pixels":32913,"changedPixels":32187,"exactChangedPixels":32913,"changedFraction":0.9779418466867196,"maxChannelDelta":206,"meanChannelDelta":39.74939233737429,"changedBounds":{"left":120,"top":1457,"width":621,"height":53}},"play":{"pixels":35344,"changedPixels":27488,"exactChangedPixels":35208,"changedFraction":0.7777274784970575,"maxChannelDelta":153,"meanChannelDelta":19.46852365323676,"changedBounds":{"left":657,"top":1555,"width":188,"height":188}},"seek":{"pixels":51622,"changedPixels":38228,"exactChangedPixels":51622,"changedFraction":0.740536980357212,"maxChannelDelta":71,"meanChannelDelta":2.1650265390724885,"changedBounds":{"left":53,"top":1773,"width":974,"height":53}}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-light-endpoint-list","endpoint":true,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null,"regions":{"surface":{"pixels":2221560,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null},"art":{"pixels":10000,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null},"title":{"pixels":31050,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-light-endpoint-player","endpoint":true,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null,"regions":{"surface":{"pixels":2221560,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null},"art":{"pixels":1009020,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null},"title":{"pixels":37280,"changedPixels":0,"exactChangedPixels":0,"changedFraction":0,"maxChannelDelta":0,"meanChannelDelta":0,"changedBounds":null}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-light-held-025","endpoint":false,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":609283,"exactChangedPixels":1663861,"changedFraction":0.2742590792056033,"maxChannelDelta":211,"meanChannelDelta":3.6465317164515025,"changedBounds":{"left":0,"top":1235,"width":1080,"height":822},"regions":{"surface":{"pixels":698436,"changedPixels":598032,"exactChangedPixels":682864,"changedFraction":0.8562445234781713,"maxChannelDelta":211,"meanChannelDelta":10.967055320745208,"changedBounds":{"left":18,"top":1256,"width":1044,"height":668}},"art":{"pixels":106276,"changedPixels":106271,"exactChangedPixels":106276,"changedFraction":0.9999529526892242,"maxChannelDelta":211,"meanChannelDelta":18.111102224396852,"changedBounds":{"left":61,"top":1282,"width":326,"height":326}},"title":{"pixels":33588,"changedPixels":31970,"exactChangedPixels":33506,"changedFraction":0.951828033821603,"maxChannelDelta":211,"meanChannelDelta":20.836251042038825,"changedBounds":{"left":162,"top":1547,"width":622,"height":54}},"sub":{"pixels":29762,"changedPixels":28798,"exactChangedPixels":29741,"changedFraction":0.9676097036489483,"maxChannelDelta":177,"meanChannelDelta":26.566720986492843,"changedBounds":{"left":162,"top":1605,"width":647,"height":46}},"play":{"pixels":20592,"changedPixels":20458,"exactChangedPixels":20592,"changedFraction":0.9934926184926185,"maxChannelDelta":177,"meanChannelDelta":16.009214743589745,"changedBounds":{"left":785,"top":1627,"width":144,"height":143}},"seek":{"pixels":41237,"changedPixels":41237,"exactChangedPixels":41237,"changedFraction":1,"maxChannelDelta":18,"meanChannelDelta":8.701481679074618,"changedBounds":{"left":61,"top":1802,"width":959,"height":43}}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-light-held-05","endpoint":false,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":1020104,"exactChangedPixels":1895501,"changedFraction":0.4591836367237437,"maxChannelDelta":194,"meanChannelDelta":7.903408415707881,"changedBounds":{"left":0,"top":782,"width":1080,"height":1275},"regions":{"surface":{"pixels":1196524,"changedPixels":984967,"exactChangedPixels":1171644,"changedFraction":0.8231903413554597,"maxChannelDelta":194,"meanChannelDelta":14.282788728015484,"changedBounds":{"left":12,"top":837,"width":1056,"height":1131}},"art":{"pixels":305256,"changedPixels":304058,"exactChangedPixels":305256,"changedFraction":0.9960754252168672,"maxChannelDelta":186,"meanChannelDelta":17.08710066305003,"changedBounds":{"left":53,"top":866,"width":552,"height":553}},"title":{"pixels":35973,"changedPixels":35902,"exactChangedPixels":35973,"changedFraction":0.9980262975009034,"maxChannelDelta":162,"meanChannelDelta":30.45183192950268,"changedBounds":{"left":120,"top":1390,"width":571,"height":63}},"sub":{"pixels":32913,"changedPixels":32492,"exactChangedPixels":32911,"changedFraction":0.9872087017288002,"maxChannelDelta":183,"meanChannelDelta":29.19151247227539,"changedBounds":{"left":120,"top":1457,"width":621,"height":53}},"play":{"pixels":35344,"changedPixels":35179,"exactChangedPixels":35343,"changedFraction":0.9953315980081485,"maxChannelDelta":194,"meanChannelDelta":22.922462086917157,"changedBounds":{"left":657,"top":1555,"width":188,"height":188}},"seek":{"pixels":51622,"changedPixels":51622,"exactChangedPixels":51622,"changedFraction":1,"maxChannelDelta":62,"meanChannelDelta":17.674305528650574,"changedBounds":{"left":53,"top":1773,"width":974,"height":53}}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-light-held-075","endpoint":false,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":1656267,"exactChangedPixels":2080094,"changedFraction":0.7455423216118403,"maxChannelDelta":214,"meanChannelDelta":11.838749572372567,"changedBounds":{"left":0,"top":337,"width":1080,"height":1720},"regions":{"surface":{"pixels":1705055,"changedPixels":1584100,"exactChangedPixels":1690387,"changedFraction":0.929060939383187,"maxChannelDelta":214,"meanChannelDelta":15.165079718836049,"changedBounds":{"left":6,"top":418,"width":1069,"height":1594}},"art":{"pixels":605284,"changedPixels":555912,"exactChangedPixels":605284,"changedFraction":0.9184316783526411,"maxChannelDelta":204,"meanChannelDelta":6.290447128951038,"changedBounds":{"left":46,"top":451,"width":778,"height":778}},"title":{"pixels":36778,"changedPixels":36436,"exactChangedPixels":36778,"changedFraction":0.9907009625319484,"maxChannelDelta":190,"meanChannelDelta":36.15977622491707,"changedBounds":{"left":79,"top":1234,"width":518,"height":71}},"sub":{"pixels":35580,"changedPixels":34795,"exactChangedPixels":35572,"changedFraction":0.9779370432827431,"maxChannelDelta":191,"meanChannelDelta":38.97421304103429,"changedBounds":{"left":79,"top":1310,"width":593,"height":60}},"play":{"pixels":53824,"changedPixels":52374,"exactChangedPixels":53823,"changedFraction":0.9730603448275862,"maxChannelDelta":214,"meanChannelDelta":28.910969084423307,"changedBounds":{"left":530,"top":1484,"width":232,"height":232}},"seek":{"pixels":61318,"changedPixels":61318,"exactChangedPixels":61318,"changedFraction":1,"maxChannelDelta":120,"meanChannelDelta":29.70090348674125,"changedBounds":{"left":46,"top":1744,"width":989,"height":62}}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-light-regrab-held-05","endpoint":false,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":1020104,"exactChangedPixels":1895501,"changedFraction":0.4591836367237437,"maxChannelDelta":194,"meanChannelDelta":7.903408415707881,"changedBounds":{"left":0,"top":782,"width":1080,"height":1275},"regions":{"surface":{"pixels":1196524,"changedPixels":984967,"exactChangedPixels":1171644,"changedFraction":0.8231903413554597,"maxChannelDelta":194,"meanChannelDelta":14.282788728015484,"changedBounds":{"left":12,"top":837,"width":1056,"height":1131}},"art":{"pixels":305256,"changedPixels":304058,"exactChangedPixels":305256,"changedFraction":0.9960754252168672,"maxChannelDelta":186,"meanChannelDelta":17.08710066305003,"changedBounds":{"left":53,"top":866,"width":552,"height":553}},"title":{"pixels":35973,"changedPixels":35902,"exactChangedPixels":35973,"changedFraction":0.9980262975009034,"maxChannelDelta":162,"meanChannelDelta":30.45183192950268,"changedBounds":{"left":120,"top":1390,"width":571,"height":63}},"sub":{"pixels":32913,"changedPixels":32492,"exactChangedPixels":32911,"changedFraction":0.9872087017288002,"maxChannelDelta":183,"meanChannelDelta":29.19151247227539,"changedBounds":{"left":120,"top":1457,"width":621,"height":53}},"play":{"pixels":35344,"changedPixels":35179,"exactChangedPixels":35343,"changedFraction":0.9953315980081485,"maxChannelDelta":194,"meanChannelDelta":22.922462086917157,"changedBounds":{"left":657,"top":1555,"width":188,"height":188}},"seek":{"pixels":51622,"changedPixels":51622,"exactChangedPixels":51622,"changedFraction":1,"maxChannelDelta":62,"meanChannelDelta":17.674305528650574,"changedBounds":{"left":53,"top":1773,"width":974,"height":53}}}}}
+# POWERAMP_SNAPSHOT_VISUAL {"name":"snapshot-visual-light-late-art-held-05","endpoint":false,"pixels":{"width":1080,"height":2057,"channelTolerance":2,"pixels":2221560,"changedPixels":1048383,"exactChangedPixels":1863276,"changedFraction":0.47191298006806026,"maxChannelDelta":199,"meanChannelDelta":7.932053601973388,"changedBounds":{"left":0,"top":782,"width":1080,"height":1275},"regions":{"surface":{"pixels":1196524,"changedPixels":1012442,"exactChangedPixels":1147589,"changedFraction":0.846152688955675,"maxChannelDelta":199,"meanChannelDelta":14.306539609736202,"changedBounds":{"left":12,"top":837,"width":1056,"height":1131}},"art":{"pixels":305256,"changedPixels":305019,"exactChangedPixels":305256,"changedFraction":0.9992236024844721,"maxChannelDelta":180,"meanChannelDelta":16.88005886862175,"changedBounds":{"left":53,"top":866,"width":552,"height":553}},"title":{"pixels":35973,"changedPixels":35902,"exactChangedPixels":35973,"changedFraction":0.9980262975009034,"maxChannelDelta":160,"meanChannelDelta":30.53595752369833,"changedBounds":{"left":120,"top":1390,"width":571,"height":63}},"sub":{"pixels":32913,"changedPixels":32553,"exactChangedPixels":32913,"changedFraction":0.9890620727372162,"maxChannelDelta":186,"meanChannelDelta":29.340663263755964,"changedBounds":{"left":120,"top":1457,"width":621,"height":53}},"play":{"pixels":35344,"changedPixels":35180,"exactChangedPixels":35344,"changedFraction":0.9953598913535536,"maxChannelDelta":199,"meanChannelDelta":23.239786102308738,"changedBounds":{"left":657,"top":1555,"width":188,"height":188}},"seek":{"pixels":51622,"changedPixels":51622,"exactChangedPixels":51622,"changedFraction":1,"maxChannelDelta":64,"meanChannelDelta":18.3954370229747,"changedBounds":{"left":53,"top":1773,"width":974,"height":53}}}}}
+1..2
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 199572.022071

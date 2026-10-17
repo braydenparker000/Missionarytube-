@@ -1,0 +1,269 @@
+{
+  "startedAt": "2026-10-02T04:28:47.622Z",
+  "minutes": 0,
+  "live": false,
+  "errors": [],
+  "checks": [
+    "independent R2 source selection",
+    "actual R2 HTMLMediaElement decode and worklet",
+    "seek continues actual audio",
+    "pause/resume",
+    "effects stored and restored across transparent mode",
+    "browser byte/suffix Range and CORS",
+    "artwork decodes",
+    "media-session metadata",
+    "actual natural current/next track transition",
+    "hard track switch renders actual PCM",
+    "real callback exception recovers to one degraded path with non-silent PCM"
+  ],
+  "samples": [],
+  "latency": {
+    "seeksMs": [
+      1107.3602860000005
+    ],
+    "pageAndCatalogMs": 1068.521921,
+    "selectionToPlayheadOverOneSecondMs": 2084.0165509999997
+  },
+  "passed": true,
+  "browser": "151.0.7922.173",
+  "injectedFaultModules": 1,
+  "catalog": {
+    "r2": 1512,
+    "drive": 0,
+    "mode": "transparent"
+  },
+  "initial": {
+    "at": 1790915331065,
+    "time": 1.069333,
+    "contextTime": 2.089795918367347,
+    "rate": 44100,
+    "readyState": 4,
+    "mediaError": null,
+    "mode": "transparent",
+    "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+    "ledger": {
+      "db": 0,
+      "reason": "Off",
+      "reference": null,
+      "normalizationDb": 0,
+      "userPreampDb": 0,
+      "eqHeadroomDb": 0,
+      "volumeDb": 0,
+      "overlapDb": 0,
+      "protectiveDb": -6,
+      "peakDb": 3,
+      "peakKnown": false,
+      "ceilingDb": -1,
+      "detectorMarginDb": 2,
+      "degraded": false,
+      "trackGain": 1,
+      "finalGain": 0.5011872336272722,
+      "stereoReserveDb": 0
+    },
+    "recent": {
+      "reduction": 1,
+      "activeFrames": 0,
+      "frames": 11136,
+      "inputPeak": 0.45123785481496753,
+      "outputPeak": 0.4484075605869293,
+      "delay": 329
+    },
+    "outputRms": 0.05343459327809683,
+    "heap": 7519747,
+    "playing": true
+  },
+  "custom": {
+    "at": 1790915333447,
+    "time": 44.322018,
+    "contextTime": 4.481451247165533,
+    "rate": 44100,
+    "readyState": 4,
+    "mediaError": null,
+    "mode": "custom",
+    "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+    "ledger": {
+      "db": 0,
+      "reason": "Off",
+      "reference": null,
+      "normalizationDb": 0,
+      "userPreampDb": -3,
+      "eqHeadroomDb": -2.5000000000004308,
+      "volumeDb": 0,
+      "overlapDb": 0,
+      "protectiveDb": -5.5,
+      "peakDb": 3,
+      "peakKnown": false,
+      "ceilingDb": -1,
+      "detectorMarginDb": 2,
+      "degraded": false,
+      "trackGain": 1,
+      "finalGain": 0.5308844442309884,
+      "stereoReserveDb": 0
+    },
+    "recent": {
+      "reduction": 1,
+      "activeFrames": 0,
+      "frames": 11136,
+      "inputPeak": 0.2292589396238327,
+      "outputPeak": 0.2292589396238327,
+      "delay": 329
+    },
+    "outputRms": 0.014053159834775533,
+    "heap": 9866010,
+    "playing": true
+  },
+  "protocol": [
+    {
+      "range": "bytes=0-1023",
+      "status": 206,
+      "bytes": 1024,
+      "contentRange": "bytes 0-1023/3445432"
+    },
+    {
+      "range": "bytes=-32",
+      "status": 206,
+      "bytes": 32,
+      "contentRange": "bytes 3445400-3445431/3445432"
+    }
+  ],
+  "artwork": {
+    "width": 320,
+    "height": 320,
+    "origin": "https://missionarytube.z13.web.core.windows.net"
+  },
+  "mediaSession": {
+    "title": "Genesis",
+    "playbackState": "playing"
+  },
+  "next": {
+    "at": 1790915337541,
+    "time": 1.021333,
+    "contextTime": 8.568163265306122,
+    "rate": 44100,
+    "readyState": 4,
+    "mediaError": null,
+    "mode": "transparent",
+    "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+    "ledger": {
+      "db": 0,
+      "reason": "Off",
+      "reference": null,
+      "normalizationDb": 0,
+      "userPreampDb": 0,
+      "eqHeadroomDb": 0,
+      "volumeDb": 0,
+      "overlapDb": 0,
+      "protectiveDb": -6,
+      "peakDb": 3,
+      "peakKnown": false,
+      "ceilingDb": -1,
+      "detectorMarginDb": 2,
+      "degraded": false,
+      "trackGain": 1,
+      "finalGain": 0.5011872336272722,
+      "stereoReserveDb": 0
+    },
+    "recent": {
+      "reduction": 1,
+      "activeFrames": 0,
+      "frames": 11136,
+      "inputPeak": 0.24159431655858749,
+      "outputPeak": 0.23807638883590698,
+      "delay": 329
+    },
+    "outputRms": 0.05336257886656246,
+    "heap": 11160278,
+    "playing": true
+  },
+  "final": {
+    "at": 1790915339452,
+    "time": 1.090667,
+    "contextTime": 10.47219954648526,
+    "rate": 44100,
+    "readyState": 4,
+    "mediaError": null,
+    "mode": "transparent",
+    "backend": "4\u00d7 FIR true-peak guard \u00b7 6 ms lookahead + 64 samples \u00b7 2 dB detector margin",
+    "ledger": {
+      "db": 0,
+      "reason": "Off",
+      "reference": null,
+      "normalizationDb": 0,
+      "userPreampDb": 0,
+      "eqHeadroomDb": 0,
+      "volumeDb": 0,
+      "overlapDb": 0,
+      "protectiveDb": -6,
+      "peakDb": 3,
+      "peakKnown": false,
+      "ceilingDb": -1,
+      "detectorMarginDb": 2,
+      "degraded": false,
+      "trackGain": 1,
+      "finalGain": 0.5011872336272722,
+      "stereoReserveDb": 0
+    },
+    "recent": {
+      "reduction": 1,
+      "activeFrames": 0,
+      "frames": 11136,
+      "inputPeak": 0.45099085569381714,
+      "outputPeak": 0.45099085569381714,
+      "delay": 329
+    },
+    "outputRms": 0.048533434932218136,
+    "heap": 11983779,
+    "playing": true
+  },
+  "faultState": {
+    "listener": "object",
+    "ctx": "running",
+    "port": "MessagePort"
+  },
+  "processorErrorRecovery": {
+    "at": 1790915343080,
+    "time": 4.714667,
+    "contextTime": 14.094512471655328,
+    "rate": 44100,
+    "readyState": 4,
+    "mediaError": null,
+    "mode": "transparent",
+    "backend": "Degraded browser compressor; true peak unverified",
+    "ledger": {
+      "db": 0,
+      "reason": "Off",
+      "reference": null,
+      "normalizationDb": 0,
+      "userPreampDb": 0,
+      "eqHeadroomDb": 0,
+      "volumeDb": 0,
+      "overlapDb": 0,
+      "protectiveDb": -12,
+      "peakDb": 3,
+      "peakKnown": false,
+      "ceilingDb": -1,
+      "detectorMarginDb": 2,
+      "degraded": true,
+      "trackGain": 1,
+      "finalGain": 0.251188643150958,
+      "stereoReserveDb": 0
+    },
+    "recent": {
+      "reduction": 1,
+      "activeFrames": 0,
+      "frames": 11136,
+      "inputPeak": 0.45099085569381714,
+      "outputPeak": 0.45099085569381714,
+      "delay": 329
+    },
+    "outputRms": 0.025077525151462297,
+    "heap": 12309803,
+    "playing": true
+  },
+  "finishedAt": "2026-10-02T04:29:03.081Z",
+  "productionFiles": {
+    "public/drawercast/player.js": "c6860d54c47cc2edf80094902a7c6861ce754076fbfb026a9104efcd91cee1dd",
+    "public/drawercast/audio-core.js": "3aa2dccb7f307fb0aadbd3eae46adc7a7ea663f87ca9bdf86d3446fe861aec1c",
+    "public/drawercast/audio-analysis.js": "e566046c769ac021141a54ca48c34e7bb21460a15c2a8417204e7556b8199400"
+  }
+}

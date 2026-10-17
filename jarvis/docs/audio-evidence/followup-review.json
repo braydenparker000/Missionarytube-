@@ -1,0 +1,42 @@
+{
+  "productionChangesReviewed": [
+    "Reported 0.25 dB measurement reserve; exact sample-peak floor; shared album allowance",
+    "Full-response estimate separated from user preamp",
+    "Extreme section normalization with reported conservative total headroom",
+    "Preamp/headroom retained per fading curve; transparent path remains unity",
+    "Tone renderer uses configured frequencies and Q"
+  ],
+  "credentialsOrPrivateAddonURLsAdded": false,
+  "audioRewritesOrNewSchedules": false,
+  "backendChanges": false,
+  "supersededChecks": [
+    {
+      "check": "initial built-site R2 discovery",
+      "result": "timeout with no page error",
+      "resolution": "Same bytes and production CSP; fresh diagnostic and full pipeline retry passed"
+    },
+    {
+      "check": "one additional-file initial download",
+      "result": "HTTP 503",
+      "resolution": "Subsequent Range 206 and full hash-verified retries passed"
+    }
+  ],
+  "finalChecks": {
+    "sourceJavaScriptTests": 251,
+    "sourcePythonTests": 93,
+    "deploymentTests": 530,
+    "staticBuildFiles": 156,
+    "staticBuildMiB": 19.09,
+    "transparentResidualPeak": 0,
+    "extremeCascades": 18,
+    "fullReferenceFilesWithoutGuardReduction": 6,
+    "additionalFullFileRendersWithoutReduction": 6,
+    "enduranceMinutes": 30,
+    "enduranceNonSilentSamples": 180
+  },
+  "unverified": [
+    "Physical A15/DAC/Bluetooth output, listening, background and route handoff",
+    "Official EBU vectors unavailable (403)",
+    "Whole growing library analysis; coverage is 120 tracks"
+  ]
+}

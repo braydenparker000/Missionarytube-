@@ -1,0 +1,1810 @@
+TAP version 13
+# Subtest: metadata-only selected songs can seek before Play, including a refreshed catalog record
+ok 1 - metadata-only selected songs can seek before Play, including a refreshed catalog record
+  ---
+  duration_ms: 4.511452
+  type: 'test'
+  ...
+# Subtest: routing into Web Audio clears retained element volume while slot gains stay separate
+ok 2 - routing into Web Audio clears retained element volume while slot gains stay separate
+  ---
+  duration_ms: 2.172251
+  type: 'test'
+  ...
+# Subtest: cancelled transition releases spare streaming request
+ok 3 - cancelled transition releases spare streaming request
+  ---
+  duration_ms: 1.452136
+  type: 'test'
+  ...
+# Subtest: gapless handoff retains the matching preloaded song
+ok 4 - gapless handoff retains the matching preloaded song
+  ---
+  duration_ms: 1.40199
+  type: 'test'
+  ...
+# Subtest: released local object URLs are revoked
+ok 5 - released local object URLs are revoked
+  ---
+  duration_ms: 1.319317
+  type: 'test'
+  ...
+# Subtest: late failure of an abandoned play attempt cannot pause the new track
+ok 6 - late failure of an abandoned play attempt cannot pause the new track
+  ---
+  duration_ms: 1.569563
+  type: 'test'
+  ...
+# Subtest: rapid manual drive skips select immediately without awaiting cloud crossfade readiness
+ok 7 - rapid manual drive skips select immediately without awaiting cloud crossfade readiness
+  ---
+  duration_ms: 1.165956
+  type: 'test'
+  ...
+# Subtest: rapid manual r2 skips select immediately without awaiting cloud crossfade readiness
+ok 8 - rapid manual r2 skips select immediately without awaiting cloud crossfade readiness
+  ---
+  duration_ms: 0.870842
+  type: 'test'
+  ...
+# Subtest: a streamed Ogg duration arriving after loadedmetadata updates the track and its saved duration
+ok 9 - a streamed Ogg duration arriving after loadedmetadata updates the track and its saved duration
+  ---
+  duration_ms: 1.801913
+  type: 'test'
+  ...
+# Subtest: Drive metadata cannot reset the retry budget and an old timer cannot restart playback
+ok 10 - Drive metadata cannot reset the retry budget and an old timer cannot restart playback
+  ---
+  duration_ms: 2.488627
+  type: 'test'
+  ...
+# Subtest: Drive retry resumes the interrupted position and reports only one terminal error
+ok 11 - Drive retry resumes the interrupted position and reports only one terminal error
+  ---
+  duration_ms: 1.608421
+  type: 'test'
+  ...
+# Subtest: Drive initial play rejection uses bounded retry, while a silent start arms the stall timer
+ok 12 - Drive initial play rejection uses bounded retry, while a silent start arms the stall timer
+  ---
+  duration_ms: 1.375401
+  type: 'test'
+  ...
+# Subtest: pausing a pending Drive retry prevents its timer from starting audio
+ok 13 - pausing a pending Drive retry prevents its timer from starting audio
+  ---
+  duration_ms: 1.508581
+  type: 'test'
+  ...
+# Subtest: tapping Play after a terminal Drive rejection starts a fresh selection
+ok 14 - tapping Play after a terminal Drive rejection starts a fresh selection
+  ---
+  duration_ms: 1.304995
+  type: 'test'
+  ...
+# Subtest: a new selection stops the previous stream while its file is loading
+ok 15 - a new selection stops the previous stream while its file is loading
+  ---
+  duration_ms: 1.684937
+  type: 'test'
+  ...
+# Subtest: play waits for a missing source to load before asking the audio element to play
+ok 16 - play waits for a missing source to load before asking the audio element to play
+  ---
+  duration_ms: 1.942835
+  type: 'test'
+  ...
+# Subtest: A15 network failure retries once and then reports a durable error
+ok 17 - A15 network failure retries once and then reports a durable error
+  ---
+  duration_ms: 1.483874
+  type: 'test'
+  ...
+# Subtest: A15 silent stall invokes the same bounded retry and a stale timer cannot play a new song
+ok 18 - A15 silent stall invokes the same bounded retry and a stale timer cannot play a new song
+  ---
+  duration_ms: 1.336161
+  type: 'test'
+  ...
+# Subtest: saved queue rejects a damaged order rather than indexing outside the library
+ok 19 - saved queue rejects a damaged order rather than indexing outside the library
+  ---
+  duration_ms: 1.502022
+  type: 'test'
+  ...
+# Subtest: the installed end-of-track handler ignores old and delayed endings
+ok 20 - the installed end-of-track handler ignores old and delayed endings
+  ---
+  duration_ms: 1.704597
+  type: 'test'
+  ...
+# Subtest: shuffle starts on the selected occurrence and includes every song exactly once
+ok 21 - shuffle starts on the selected occurrence and includes every song exactly once
+  ---
+  duration_ms: 2.714306
+  type: 'test'
+  ...
+# Subtest: all shuffle modes retain every occurrence after the starting song
+ok 22 - all shuffle modes retain every occurrence after the starting song
+  ---
+  duration_ms: 2.159021
+  type: 'test'
+  ...
+# Subtest: rapid skips preserve playback intent while sources load; Pause cancels the final start
+ok 23 - rapid skips preserve playback intent while sources load; Pause cancels the final start
+  ---
+  duration_ms: 2.807517
+  type: 'test'
+  ...
+# Subtest: rapid skip starts the final selected song and ignores late prior sources
+ok 24 - rapid skip starts the final selected song and ignores late prior sources
+  ---
+  duration_ms: 12.616165
+  type: 'test'
+  ...
+# Subtest: restored remote position is shown before loading and applied when metadata is ready
+ok 25 - restored remote position is shown before loading and applied when metadata is ready
+  ---
+  duration_ms: 4.234185
+  type: 'test'
+  ...
+# Subtest: a pending seek cannot leak into the next track, even when metadata is late
+ok 26 - a pending seek cannot leak into the next track, even when metadata is late
+  ---
+  duration_ms: 2.342367
+  type: 'test'
+  ...
+# Subtest: queue return preserves duplicate occurrences and remaps a removed earlier track
+ok 27 - queue return preserves duplicate occurrences and remaps a removed earlier track
+  ---
+  duration_ms: 2.261525
+  type: 'test'
+  ...
+# Subtest: queue finish skips removed resume target without transferring its seek offset
+ok 28 - queue finish skips removed resume target without transferring its seek offset
+  ---
+  duration_ms: 2.135145
+  type: 'test'
+  ...
+# Subtest: autoplay ignores duplicate ended events and delayed ended events after Pause
+ok 29 - autoplay ignores duplicate ended events and delayed ended events after Pause
+  ---
+  duration_ms: 2.186271
+  type: 'test'
+  ...
+# Subtest: repeat one re-arms end handling on each completed play
+ok 30 - repeat one re-arms end handling on each completed play
+  ---
+  duration_ms: 2.221976
+  type: 'test'
+  ...
+# Subtest: a paused Next starts pending queue paused
+ok 31 - a paused Next starts pending queue paused
+  ---
+  duration_ms: 2.25161
+  type: 'test'
+  ...
+# Subtest: saved shuffled queue retains duplicate selection after a source disappears
+ok 32 - saved shuffled queue retains duplicate selection after a source disappears
+  ---
+  duration_ms: 2.295786
+  type: 'test'
+  ...
+# Subtest: category skip retains loading playback intent
+ok 33 - category skip retains loading playback intent
+  ---
+  duration_ms: 2.694206
+  type: 'test'
+  ...
+# Subtest: reload uses the newer synchronous checkpoint when the database write is delayed
+ok 34 - reload uses the newer synchronous checkpoint when the database write is delayed
+  ---
+  duration_ms: 2.29782
+  type: 'test'
+  ...
+# Subtest: periodic playback checkpoint captures playhead and explicit queue together
+ok 35 - periodic playback checkpoint captures playhead and explicit queue together
+  ---
+  duration_ms: 2.327153
+  type: 'test'
+  ...
+# Subtest: natural advance retains delayed output; manual changes reset the guard/filter state
+ok 36 - natural advance retains delayed output; manual changes reset the guard/filter state
+  ---
+  duration_ms: 2.301856
+  type: 'test'
+  ...
+# Subtest: automatic entry to and return from the explicit queue also retains the output tail
+ok 37 - automatic entry to and return from the explicit queue also retains the output tail
+  ---
+  duration_ms: 7.237707
+  type: 'test'
+  ...
+# Subtest: upload rejects unregistered, tampered, stale and cross-destination signatures before R2
+ok 38 - upload rejects unregistered, tampered, stale and cross-destination signatures before R2
+  ---
+  duration_ms: 28.822374
+  type: 'test'
+  ...
+# Subtest: blobs stay invisible until verified audio and artwork registration; retries are idempotent
+ok 39 - blobs stay invisible until verified audio and artwork registration; retries are idempotent
+  ---
+  duration_ms: 14.556846
+  type: 'test'
+  ...
+# Subtest: content-addressed PUT cannot overwrite existing data and registration survives a CAS conflict
+ok 40 - content-addressed PUT cannot overwrite existing data and registration survives a CAS conflict
+  ---
+  duration_ms: 8.071411
+  type: 'test'
+  ...
+# Subtest: valid signatures cannot publish altered, oversized, malformed or incomplete bodies
+ok 41 - valid signatures cannot publish altered, oversized, malformed or incomplete bodies
+  ---
+  duration_ms: 6.100605
+  type: 'test'
+  ...
+# Subtest: different concurrent registrations preserve both songs
+ok 42 - different concurrent registrations preserve both songs
+  ---
+  duration_ms: 4.883292
+  type: 'test'
+  ...
+# Subtest: native audio supports actual byte ranges, ETags and artwork; changed identities fail closed
+ok 43 - native audio supports actual byte ranges, ETags and artwork; changed identities fail closed
+  ---
+  duration_ms: 8.580919
+  type: 'test'
+  ...
+# Subtest: repeated range and catalog reads reuse validation but still check live catalog and media identities
+ok 44 - repeated range and catalog reads reuse validation but still check live catalog and media identities
+  ---
+  duration_ms: 6.710663
+  type: 'test'
+  ...
+# Subtest: a cached catalog immediately sees registration, removal, invalid replacement and deletion
+ok 45 - a cached catalog immediately sees registration, removal, invalid replacement and deletion
+  ---
+  duration_ms: 7.99676
+  type: 'test'
+  ...
+# Subtest: catalog cache is isolated by storage binding and fails closed on replacement between HEAD and GET
+ok 46 - catalog cache is isolated by storage binding and fails closed on replacement between HEAD and GET
+  ---
+  duration_ms: 12.90489
+  type: 'test'
+  ...
+# Subtest: native source preserves prior migrated track identity and source-local user state
+ok 47 - native source preserves prior migrated track identity and source-local user state
+  ---
+  duration_ms: 0.987166
+  type: 'test'
+  ...
+# Subtest: signed analysis upgrades bind the existing object, preserve IDs and handle CAS/idempotency/conflicts
+ok 48 - signed analysis upgrades bind the existing object, preserve IDs and handle CAS/idempotency/conflicts
+  ---
+  duration_ms: 8.574579
+  type: 'test'
+  ...
+# Subtest: signed duplicate analysis correction accepts the exact prior object without client JSON-number ambiguity
+ok 49 - signed duplicate analysis correction accepts the exact prior object without client JSON-number ambiguity
+  ---
+  duration_ms: 7.528294
+  type: 'test'
+  ...
+# Subtest: new partial album membership removes a stale complete-album analysis claim
+ok 50 - new partial album membership removes a stale complete-album analysis claim
+  ---
+  duration_ms: 7.205839
+  type: 'test'
+  ...
+# Subtest: native-r2 successful retry then crossfade A to B to A grants a fresh retry
+ok 51 - native-r2 successful retry then crossfade A to B to A grants a fresh retry
+  ---
+  duration_ms: 9.619613
+  type: 'test'
+  ...
+# Subtest: native-r2 accepted crossfade retires historical terminal and retry state before revisiting A
+ok 52 - native-r2 accepted crossfade retires historical terminal and retry state before revisiting A
+  ---
+  duration_ms: 3.184244
+  type: 'test'
+  ...
+# Subtest: legacy-r2 successful retry then crossfade A to B to A grants a fresh retry
+ok 53 - legacy-r2 successful retry then crossfade A to B to A grants a fresh retry
+  ---
+  duration_ms: 3.854212
+  type: 'test'
+  ...
+# Subtest: legacy-r2 accepted crossfade retires historical terminal and retry state before revisiting A
+ok 54 - legacy-r2 accepted crossfade retires historical terminal and retry state before revisiting A
+  ---
+  duration_ms: 2.685753
+  type: 'test'
+  ...
+# Subtest: drive successful retry then crossfade A to B to A grants a fresh retry
+ok 55 - drive successful retry then crossfade A to B to A grants a fresh retry
+  ---
+  duration_ms: 3.324555
+  type: 'test'
+  ...
+# Subtest: drive accepted crossfade retires historical terminal and retry state before revisiting A
+ok 56 - drive accepted crossfade retires historical terminal and retry state before revisiting A
+  ---
+  duration_ms: 2.682869
+  type: 'test'
+  ...
+# Subtest: server successful retry then crossfade A to B to A grants a fresh retry
+ok 57 - server successful retry then crossfade A to B to A grants a fresh retry
+  ---
+  duration_ms: 5.171516
+  type: 'test'
+  ...
+# Subtest: server accepted crossfade retires historical terminal and retry state before revisiting A
+ok 58 - server accepted crossfade retires historical terminal and retry state before revisiting A
+  ---
+  duration_ms: 2.425953
+  type: 'test'
+  ...
+# Subtest: installed automatic crossfade repeat-all A to B to A grants a new R2 retry budget
+ok 59 - installed automatic crossfade repeat-all A to B to A grants a new R2 retry budget
+  ---
+  duration_ms: 3.532559
+  type: 'test'
+  ...
+# Subtest: delayed already-ended incoming crossfade advances once to the next playable song
+ok 60 - delayed already-ended incoming crossfade advances once to the next playable song
+  ---
+  duration_ms: 3.53422
+  type: 'test'
+  ...
+# Subtest: already-ended final incoming crossfade is bounded with repeat off
+ok 61 - already-ended final incoming crossfade is bounded with repeat off
+  ---
+  duration_ms: 2.622909
+  type: 'test'
+  ...
+# Subtest: already-ended final incoming crossfade is bounded with repeat one
+ok 62 - already-ended final incoming crossfade is bounded with repeat one
+  ---
+  duration_ms: 2.432262
+  type: 'test'
+  ...
+# Subtest: already-ended final incoming crossfade is bounded with repeat all
+ok 63 - already-ended final incoming crossfade is bounded with repeat all
+  ---
+  duration_ms: 2.698824
+  type: 'test'
+  ...
+# Subtest: late already-ended crossfade completion honors pause cancellation
+ok 64 - late already-ended crossfade completion honors pause cancellation
+  ---
+  duration_ms: 2.742319
+  type: 'test'
+  ...
+# Subtest: late already-ended crossfade completion honors stop cancellation
+ok 65 - late already-ended crossfade completion honors stop cancellation
+  ---
+  duration_ms: 3.551077
+  type: 'test'
+  ...
+# Subtest: late already-ended crossfade completion honors skip cancellation
+ok 66 - late already-ended crossfade completion honors skip cancellation
+  ---
+  duration_ms: 2.202937
+  type: 'test'
+  ...
+# Subtest: late already-ended crossfade completion honors native-focus-pause cancellation
+ok 67 - late already-ended crossfade completion honors native-focus-pause cancellation
+  ---
+  duration_ms: 2.102095
+  type: 'test'
+  ...
+# Subtest: late already-ended crossfade completion honors context-interrupted cancellation
+ok 68 - late already-ended crossfade completion honors context-interrupted cancellation
+  ---
+  duration_ms: 2.803701
+  type: 'test'
+  ...
+# Subtest: native-r2 unavailable next preflight normalizes natural end and explicit replay ends legitimately
+ok 69 - native-r2 unavailable next preflight normalizes natural end and explicit replay ends legitimately
+  ---
+  duration_ms: 3.302322
+  type: 'test'
+  ...
+# Subtest: native-r2 manual unavailable selection preserves healthy outgoing playback
+ok 70 - native-r2 manual unavailable selection preserves healthy outgoing playback
+  ---
+  duration_ms: 2.171028
+  type: 'test'
+  ...
+# Subtest: legacy-r2 unavailable next preflight normalizes natural end and explicit replay ends legitimately
+ok 71 - legacy-r2 unavailable next preflight normalizes natural end and explicit replay ends legitimately
+  ---
+  duration_ms: 2.396107
+  type: 'test'
+  ...
+# Subtest: legacy-r2 manual unavailable selection preserves healthy outgoing playback
+ok 72 - legacy-r2 manual unavailable selection preserves healthy outgoing playback
+  ---
+  duration_ms: 2.007422
+  type: 'test'
+  ...
+# Subtest: drive unavailable next preflight normalizes natural end and explicit replay ends legitimately
+ok 73 - drive unavailable next preflight normalizes natural end and explicit replay ends legitimately
+  ---
+  duration_ms: 4.613506
+  type: 'test'
+  ...
+# Subtest: drive manual unavailable selection preserves healthy outgoing playback
+ok 74 - drive manual unavailable selection preserves healthy outgoing playback
+  ---
+  duration_ms: 1.864778
+  type: 'test'
+  ...
+# Subtest: server unavailable next preflight normalizes natural end and explicit replay ends legitimately
+ok 75 - server unavailable next preflight normalizes natural end and explicit replay ends legitimately
+  ---
+  duration_ms: 2.290669
+  type: 'test'
+  ...
+# Subtest: server manual unavailable selection preserves healthy outgoing playback
+ok 76 - server manual unavailable selection preserves healthy outgoing playback
+  ---
+  duration_ms: 2.008104
+  type: 'test'
+  ...
+# Subtest: local unavailable next preflight normalizes natural end and explicit replay ends legitimately
+ok 77 - local unavailable next preflight normalizes natural end and explicit replay ends legitimately
+  ---
+  duration_ms: 2.578452
+  type: 'test'
+  ...
+# Subtest: local manual unavailable selection preserves healthy outgoing playback
+ok 78 - local manual unavailable selection preserves healthy outgoing playback
+  ---
+  duration_ms: 1.743545
+  type: 'test'
+  ...
+# Subtest: default transparent gapless unavailable next stops and replay can advance
+ok 79 - default transparent gapless unavailable next stops and replay can advance
+  ---
+  duration_ms: 2.673605
+  type: 'test'
+  ...
+# Subtest: production-order native end listener retains track-end silence and dedupes one advance
+ok 80 - production-order native end listener retains track-end silence and dedupes one advance
+  ---
+  duration_ms: 2.240102
+  type: 'test'
+  ...
+# Subtest: healthy production-order gapless R2 handoff preserves clean media URL and playback confirmation
+ok 81 - healthy production-order gapless R2 handoff preserves clean media URL and playback confirmation
+  ---
+  duration_ms: 2.351971
+  type: 'test'
+  ...
+# Subtest: native-r2 terminal outgoing error cancels a pending crossfade and its late completion
+ok 82 - native-r2 terminal outgoing error cancels a pending crossfade and its late completion
+  ---
+  duration_ms: 3.675854
+  type: 'test'
+  ...
+# Subtest: native-r2 rejected incoming crossfade does not grant the outgoing song an extra retry
+ok 83 - native-r2 rejected incoming crossfade does not grant the outgoing song an extra retry
+  ---
+  duration_ms: 2.130257
+  type: 'test'
+  ...
+# Subtest: legacy-r2 terminal outgoing error cancels a pending crossfade and its late completion
+ok 84 - legacy-r2 terminal outgoing error cancels a pending crossfade and its late completion
+  ---
+  duration_ms: 2.134454
+  type: 'test'
+  ...
+# Subtest: legacy-r2 rejected incoming crossfade does not grant the outgoing song an extra retry
+ok 85 - legacy-r2 rejected incoming crossfade does not grant the outgoing song an extra retry
+  ---
+  duration_ms: 2.110467
+  type: 'test'
+  ...
+# Subtest: drive terminal outgoing error cancels a pending crossfade and its late completion
+ok 86 - drive terminal outgoing error cancels a pending crossfade and its late completion
+  ---
+  duration_ms: 2.644702
+  type: 'test'
+  ...
+# Subtest: drive rejected incoming crossfade does not grant the outgoing song an extra retry
+ok 87 - drive rejected incoming crossfade does not grant the outgoing song an extra retry
+  ---
+  duration_ms: 2.028674
+  type: 'test'
+  ...
+# Subtest: server terminal outgoing error cancels a pending crossfade and its late completion
+ok 88 - server terminal outgoing error cancels a pending crossfade and its late completion
+  ---
+  duration_ms: 4.993057
+  type: 'test'
+  ...
+# Subtest: server rejected incoming crossfade does not grant the outgoing song an extra retry
+ok 89 - server rejected incoming crossfade does not grant the outgoing song an extra retry
+  ---
+  duration_ms: 1.986601
+  type: 'test'
+  ...
+# Subtest: obsolete ended callback on a healthy reused current slot cannot skip the new song
+ok 90 - obsolete ended callback on a healthy reused current slot cannot skip the new song
+  ---
+  duration_ms: 2.281424
+  type: 'test'
+  ...
+# Subtest: outgoing native end cancels pending incoming crossfade and ordinarily starts the next song
+ok 91 - outgoing native end cancels pending incoming crossfade and ordinarily starts the next song
+  ---
+  duration_ms: 3.894574
+  type: 'test'
+  ...
+# Subtest: unavailable next preserves the exact duplicate queue occurrence through explicit replay
+ok 92 - unavailable next preserves the exact duplicate queue occurrence through explicit replay
+  ---
+  duration_ms: 2.135325
+  type: 'test'
+  ...
+# Subtest: completed incoming B with unavailable C stops and later explicit B replay can advance to C
+ok 93 - completed incoming B with unavailable C stops and later explicit B replay can advance to C
+  ---
+  duration_ms: 2.250888
+  type: 'test'
+  ...
+# Subtest: Pause during completed incoming track-end silence prevents its scheduled advance
+ok 94 - Pause during completed incoming track-end silence prevents its scheduled advance
+  ---
+  duration_ms: 2.197298
+  type: 'test'
+  ...
+# Subtest: late crossfade play completion from a paused nonended incoming element yields interruption
+ok 95 - late crossfade play completion from a paused nonended incoming element yields interruption
+  ---
+  duration_ms: 2.066101
+  type: 'test'
+  ...
+# Subtest: real ended event before a new selection reports playing still advances once
+ok 96 - real ended event before a new selection reports playing still advances once
+  ---
+  duration_ms: 2.221324
+  type: 'test'
+  ...
+# Subtest: late-ended repeat-one incoming restores element volume before replay
+ok 97 - late-ended repeat-one incoming restores element volume before replay
+  ---
+  duration_ms: 2.23883
+  type: 'test'
+  ...
+# Subtest: late-ended repeat-one incoming restores Web Audio gain target before replay
+ok 98 - late-ended repeat-one incoming restores Web Audio gain target before replay
+  ---
+  duration_ms: 2.253613
+  type: 'test'
+  ...
+# Subtest: native-r2 canceled same-URL crossfade late resolve cannot disturb newer pending incoming attempt
+ok 99 - native-r2 canceled same-URL crossfade late resolve cannot disturb newer pending incoming attempt
+  ---
+  duration_ms: 2.106241
+  type: 'test'
+  ...
+# Subtest: native-r2 canceled same-URL crossfade late resolve cannot disturb newer committed incoming attempt
+ok 100 - native-r2 canceled same-URL crossfade late resolve cannot disturb newer committed incoming attempt
+  ---
+  duration_ms: 2.056236
+  type: 'test'
+  ...
+# Subtest: native-r2 canceled same-URL crossfade late reject cannot disturb newer pending incoming attempt
+ok 101 - native-r2 canceled same-URL crossfade late reject cannot disturb newer pending incoming attempt
+  ---
+  duration_ms: 2.107412
+  type: 'test'
+  ...
+# Subtest: native-r2 canceled same-URL crossfade late reject cannot disturb newer committed incoming attempt
+ok 102 - native-r2 canceled same-URL crossfade late reject cannot disturb newer committed incoming attempt
+  ---
+  duration_ms: 2.456598
+  type: 'test'
+  ...
+# Subtest: local canceled same-URL crossfade late resolve cannot disturb newer pending incoming attempt
+ok 103 - local canceled same-URL crossfade late resolve cannot disturb newer pending incoming attempt
+  ---
+  duration_ms: 2.035975
+  type: 'test'
+  ...
+# Subtest: local canceled same-URL crossfade late resolve cannot disturb newer committed incoming attempt
+ok 104 - local canceled same-URL crossfade late resolve cannot disturb newer committed incoming attempt
+  ---
+  duration_ms: 2.174023
+  type: 'test'
+  ...
+# Subtest: local canceled same-URL crossfade late reject cannot disturb newer pending incoming attempt
+ok 105 - local canceled same-URL crossfade late reject cannot disturb newer pending incoming attempt
+  ---
+  duration_ms: 2.089375
+  type: 'test'
+  ...
+# Subtest: local canceled same-URL crossfade late reject cannot disturb newer committed incoming attempt
+ok 106 - local canceled same-URL crossfade late reject cannot disturb newer committed incoming attempt
+  ---
+  duration_ms: 2.052941
+  type: 'test'
+  ...
+# Subtest: pause still cancels both same-URL transitions despite first late resolve and second late resolve
+ok 107 - pause still cancels both same-URL transitions despite first late resolve and second late resolve
+  ---
+  duration_ms: 2.150428
+  type: 'test'
+  ...
+# Subtest: pause still cancels both same-URL transitions despite first late reject and second late resolve
+ok 108 - pause still cancels both same-URL transitions despite first late reject and second late resolve
+  ---
+  duration_ms: 2.02589
+  type: 'test'
+  ...
+# Subtest: stop still cancels both same-URL transitions despite first late resolve and second late resolve
+ok 109 - stop still cancels both same-URL transitions despite first late resolve and second late resolve
+  ---
+  duration_ms: 2.062015
+  type: 'test'
+  ...
+# Subtest: stop still cancels both same-URL transitions despite first late reject and second late resolve
+ok 110 - stop still cancels both same-URL transitions despite first late reject and second late resolve
+  ---
+  duration_ms: 1.993811
+  type: 'test'
+  ...
+# Subtest: offline source error4 retains the selected Next and intent through one online recovery
+ok 111 - offline source error4 retains the selected Next and intent through one online recovery
+  ---
+  duration_ms: 10.454069
+  type: 'test'
+  ...
+# Subtest: offline source error4 can arrive after online when its interrupted load is still owned
+ok 112 - offline source error4 can arrive after online when its interrupted load is still owned
+  ---
+  duration_ms: 2.879305
+  type: 'test'
+  ...
+# Subtest: offline source error4 cannot cross pause during retry delay
+ok 113 - offline source error4 cannot cross pause during retry delay
+  ---
+  duration_ms: 2.914148
+  type: 'test'
+  ...
+# Subtest: offline source error4 cannot cross pause during online wait
+ok 114 - offline source error4 cannot cross pause during online wait
+  ---
+  duration_ms: 3.618868
+  type: 'test'
+  ...
+# Subtest: offline source error4 cannot cross stop during retry delay
+ok 115 - offline source error4 cannot cross stop during retry delay
+  ---
+  duration_ms: 2.812525
+  type: 'test'
+  ...
+# Subtest: offline source error4 cannot cross stop during online wait
+ok 116 - offline source error4 cannot cross stop during online wait
+  ---
+  duration_ms: 2.687275
+  type: 'test'
+  ...
+# Subtest: offline source error4 cannot cross focus during retry delay
+ok 117 - offline source error4 cannot cross focus during retry delay
+  ---
+  duration_ms: 2.678763
+  type: 'test'
+  ...
+# Subtest: offline source error4 cannot cross focus during online wait
+ok 118 - offline source error4 cannot cross focus during online wait
+  ---
+  duration_ms: 7.58521
+  type: 'test'
+  ...
+# Subtest: offline source error4 cannot cross selection during retry delay
+ok 119 - offline source error4 cannot cross selection during retry delay
+  ---
+  duration_ms: 3.10195
+  type: 'test'
+  ...
+# Subtest: offline source error4 cannot cross selection during online wait
+ok 120 - offline source error4 cannot cross selection during online wait
+  ---
+  duration_ms: 3.212457
+  type: 'test'
+  ...
+# Subtest: offline source error4 expires without media reload or later automatic Play
+ok 121 - offline source error4 expires without media reload or later automatic Play
+  ---
+  duration_ms: 2.697592
+  type: 'test'
+  ...
+# Subtest: offline source error4 online return respects a suspended AudioContext
+ok 122 - offline source error4 online return respects a suspended AudioContext
+  ---
+  duration_ms: 3.207028
+  type: 'test'
+  ...
+# Subtest: offline source error4 online return respects a interrupted AudioContext
+ok 123 - offline source error4 online return respects a interrupted AudioContext
+  ---
+  duration_ms: 2.707607
+  type: 'test'
+  ...
+# Subtest: offline source error4 online return respects a closed AudioContext
+ok 124 - offline source error4 online return respects a closed AudioContext
+  ---
+  duration_ms: 2.932686
+  type: 'test'
+  ...
+# Subtest: source error4 guards keep online failure terminal without offline loading evidence
+ok 125 - source error4 guards keep online failure terminal without offline loading evidence
+  ---
+  duration_ms: 5.150043
+  type: 'test'
+  ...
+# Subtest: source error4 guards keep metadata failure terminal without offline loading evidence
+ok 126 - source error4 guards keep metadata failure terminal without offline loading evidence
+  ---
+  duration_ms: 2.117017
+  type: 'test'
+  ...
+# Subtest: source error4 guards keep playing failure terminal without offline loading evidence
+ok 127 - source error4 guards keep playing failure terminal without offline loading evidence
+  ---
+  duration_ms: 4.024519
+  type: 'test'
+  ...
+# Subtest: source error4 guards keep decode failure terminal without offline loading evidence
+ok 128 - source error4 guards keep decode failure terminal without offline loading evidence
+  ---
+  duration_ms: 2.157899
+  type: 'test'
+  ...
+# Subtest: source error4 guards cannot renew old offline evidence with duplicate lifecycle notifications
+ok 129 - source error4 guards cannot renew old offline evidence with duplicate lifecycle notifications
+  ---
+  duration_ms: 2.187343
+  type: 'test'
+  ...
+# Subtest: source error4 guards retire offline loading evidence after actual metadata
+ok 130 - source error4 guards retire offline loading evidence after actual metadata
+  ---
+  duration_ms: 2.114303
+  type: 'test'
+  ...
+# Subtest: source error4 guards retire offline loading evidence after actual playing
+ok 131 - source error4 guards retire offline loading evidence after actual playing
+  ---
+  duration_ms: 2.153182
+  type: 'test'
+  ...
+# Subtest: offline source error4 and its old play rejection cannot stop a newer playing selection
+ok 132 - offline source error4 and its old play rejection cannot stop a newer playing selection
+  ---
+  duration_ms: 2.74283
+  type: 'test'
+  ...
+# Subtest: native R2 element startup preserves a checkpoint before mapping is installed
+ok 133 - native R2 element startup preserves a checkpoint before mapping is installed
+  ---
+  duration_ms: 2.495247
+  type: 'test'
+  ...
+# Subtest: native R2 Web Audio startup preserves a checkpoint before mapping is installed
+ok 134 - native R2 Web Audio startup preserves a checkpoint before mapping is installed
+  ---
+  duration_ms: 2.355757
+  type: 'test'
+  ...
+# Subtest: initial R2 seek metadata cannot cancel visible no-output recovery
+ok 135 - initial R2 seek metadata cannot cancel visible no-output recovery
+  ---
+  duration_ms: 2.307284
+  type: 'test'
+  ...
+# Subtest: manual seek during visible buffering retains a bounded deadline at the requested position
+ok 136 - manual seek during visible buffering retains a bounded deadline at the requested position
+  ---
+  duration_ms: 3.410755
+  type: 'test'
+  ...
+# Subtest: initial R2 seek metadata cannot cancel hidden no-output recovery
+ok 137 - initial R2 seek metadata cannot cancel hidden no-output recovery
+  ---
+  duration_ms: 2.154093
+  type: 'test'
+  ...
+# Subtest: manual seek during hidden buffering retains a bounded deadline at the requested position
+ok 138 - manual seek during hidden buffering retains a bounded deadline at the requested position
+  ---
+  duration_ms: 2.281124
+  type: 'test'
+  ...
+# Subtest: pageshow consumes a missed native R2 end exactly once
+ok 139 - pageshow consumes a missed native R2 end exactly once
+  ---
+  duration_ms: 2.63714
+  type: 'test'
+  ...
+# Subtest: resume consumes a missed native R2 end exactly once
+ok 140 - resume consumes a missed native R2 end exactly once
+  ---
+  duration_ms: 2.64368
+  type: 'test'
+  ...
+# Subtest: visibilitychange consumes a missed native R2 end exactly once
+ok 141 - visibilitychange consumes a missed native R2 end exactly once
+  ---
+  duration_ms: 2.440504
+  type: 'test'
+  ...
+# Subtest: lifecycle return preserves intentional pause even with an ended flag
+ok 142 - lifecycle return preserves intentional pause even with an ended flag
+  ---
+  duration_ms: 2.275356
+  type: 'test'
+  ...
+# Subtest: lifecycle return preserves intentional stop even with an ended flag
+ok 143 - lifecycle return preserves intentional stop even with an ended flag
+  ---
+  duration_ms: 2.116957
+  type: 'test'
+  ...
+# Subtest: lifecycle return preserves intentional focus even with an ended flag
+ok 144 - lifecycle return preserves intentional focus even with an ended flag
+  ---
+  duration_ms: 2.173522
+  type: 'test'
+  ...
+# Subtest: lifecycle observation of an unreported native focus pause yields intent without autoplay
+ok 145 - lifecycle observation of an unreported native focus pause yields intent without autoplay
+  ---
+  duration_ms: 2.312632
+  type: 'test'
+  ...
+# Subtest: offline R2 recovery waits for online, reloads once at its saved position and keeps its retry bound
+ok 146 - offline R2 recovery waits for online, reloads once at its saved position and keeps its retry bound
+  ---
+  duration_ms: 3.648933
+  type: 'test'
+  ...
+# Subtest: offline recovery expires visibly and a later online event requires explicit Play
+ok 147 - offline recovery expires visibly and a later online event requires explicit Play
+  ---
+  duration_ms: 2.464
+  type: 'test'
+  ...
+# Subtest: offline retry completion cannot cross a newer pause
+ok 148 - offline retry completion cannot cross a newer pause
+  ---
+  duration_ms: 2.410249
+  type: 'test'
+  ...
+# Subtest: offline retry completion cannot cross a newer stop
+ok 149 - offline retry completion cannot cross a newer stop
+  ---
+  duration_ms: 2.358802
+  type: 'test'
+  ...
+# Subtest: offline retry completion cannot cross a newer focus
+ok 150 - offline retry completion cannot cross a newer focus
+  ---
+  duration_ms: 2.198801
+  type: 'test'
+  ...
+# Subtest: offline retry completion cannot cross a newer selection
+ok 151 - offline retry completion cannot cross a newer selection
+  ---
+  duration_ms: 2.174945
+  type: 'test'
+  ...
+# Subtest: throttled recovery timer rechecks Pause, source ownership and queued ended events
+ok 152 - throttled recovery timer rechecks Pause, source ownership and queued ended events
+  ---
+  duration_ms: 2.204409
+  type: 'test'
+  ...
+# Subtest: throttled watchdog checks real playhead progress before spending a retry
+ok 153 - throttled watchdog checks real playhead progress before spending a retry
+  ---
+  duration_ms: 1.997998
+  type: 'test'
+  ...
+# Subtest: missed ended recovery preserves off repeat and reordered queue occurrences
+ok 154 - missed ended recovery preserves off repeat and reordered queue occurrences
+  ---
+  duration_ms: 2.122475
+  type: 'test'
+  ...
+# Subtest: missed ended recovery preserves one repeat and reordered queue occurrences
+ok 155 - missed ended recovery preserves one repeat and reordered queue occurrences
+  ---
+  duration_ms: 2.022294
+  type: 'test'
+  ...
+# Subtest: missed ended recovery preserves all repeat and reordered queue occurrences
+ok 156 - missed ended recovery preserves all repeat and reordered queue occurrences
+  ---
+  duration_ms: 3.576304
+  type: 'test'
+  ...
+# Subtest: missed end enters and finishes an explicit queue using its existing resume order
+ok 157 - missed end enters and finishes an explicit queue using its existing resume order
+  ---
+  duration_ms: 2.794868
+  type: 'test'
+  ...
+# Subtest: lifecycle and online never override an AudioContext suspended interruption
+ok 158 - lifecycle and online never override an AudioContext suspended interruption
+  ---
+  duration_ms: 2.193022
+  type: 'test'
+  ...
+# Subtest: lifecycle and online never override an AudioContext interrupted interruption
+ok 159 - lifecycle and online never override an AudioContext interrupted interruption
+  ---
+  duration_ms: 2.15242
+  type: 'test'
+  ...
+# Subtest: lifecycle and online never override an AudioContext closed interruption
+ok 160 - lifecycle and online never override an AudioContext closed interruption
+  ---
+  duration_ms: 2.128625
+  type: 'test'
+  ...
+# Subtest: background diagnostics explain mode, online recovery and missed ends without private media identifiers
+ok 161 - background diagnostics explain mode, online recovery and missed ends without private media identifiers
+  ---
+  duration_ms: 2.297188
+  type: 'test'
+  ...
+# Subtest: late normal gapless preload after pause cannot claim or overwrite an audio slot
+ok 162 - late normal gapless preload after pause cannot claim or overwrite an audio slot
+  ---
+  duration_ms: 2.224058
+  type: 'test'
+  ...
+# Subtest: late normal gapless preload after stop cannot claim or overwrite an audio slot
+ok 163 - late normal gapless preload after stop cannot claim or overwrite an audio slot
+  ---
+  duration_ms: 2.057417
+  type: 'test'
+  ...
+# Subtest: late normal gapless preload after selection cannot claim or overwrite an audio slot
+ok 164 - late normal gapless preload after selection cannot claim or overwrite an audio slot
+  ---
+  duration_ms: 2.184348
+  type: 'test'
+  ...
+# Subtest: ordinary gapless promotion reloads an errored spare and retains a fresh bounded retry
+ok 165 - ordinary gapless promotion reloads an errored spare and retains a fresh bounded retry
+  ---
+  duration_ms: 2.628678
+  type: 'test'
+  ...
+# Subtest: offline retry keeps a later seek and cannot allocate extra reloads from duplicate notifications
+ok 166 - offline retry keeps a later seek and cannot allocate extra reloads from duplicate notifications
+  ---
+  duration_ms: 3.086837
+  type: 'test'
+  ...
+# Subtest: a brief offline hint without media trouble never pauses or reloads healthy native R2
+ok 167 - a brief offline hint without media trouble never pauses or reloads healthy native R2
+  ---
+  duration_ms: 2.191479
+  type: 'test'
+  ...
+# Subtest: offline codec error 3 stops visibly and does not enter connectivity recovery
+ok 168 - offline codec error 3 stops visibly and does not enter connectivity recovery
+  ---
+  duration_ms: 2.124649
+  type: 'test'
+  ...
+# Subtest: offline codec error 4 stops visibly and does not enter connectivity recovery
+ok 169 - offline codec error 4 stops visibly and does not enter connectivity recovery
+  ---
+  duration_ms: 2.203237
+  type: 'test'
+  ...
+# Subtest: duplicate lifecycle returns honor configured end silence and Pause cancels its sole advance
+ok 170 - duplicate lifecycle returns honor configured end silence and Pause cancels its sole advance
+  ---
+  duration_ms: 2.340043
+  type: 'test'
+  ...
+# Subtest: configured Pause on Screen Off cancels the normal native R2 path
+ok 171 - configured Pause on Screen Off cancels the normal native R2 path
+  ---
+  duration_ms: 2.323228
+  type: 'test'
+  ...
+# Subtest: returning to the page leaves an explicit pending context resume owned by its original Play
+ok 172 - returning to the page leaves an explicit pending context resume owned by its original Play
+  ---
+  duration_ms: 2.53055
+  type: 'test'
+  ...
+# Subtest: native R2 refresh defers library scans while an ordinary Play is still waiting for output
+ok 173 - native R2 refresh defers library scans while an ordinary Play is still waiting for output
+  ---
+  duration_ms: 2.448486
+  type: 'test'
+  ...
+# Subtest: R2 catalog refresh preserves duplicate occurrences and the selected shuffled occurrence
+ok 174 - R2 catalog refresh preserves duplicate occurrences and the selected shuffled occurrence
+  ---
+  duration_ms: 2.468196
+  type: 'test'
+  ...
+# Subtest: catalog commit completing after a new R2 Play defers in-memory queue and source changes
+ok 175 - catalog commit completing after a new R2 Play defers in-memory queue and source changes
+  ---
+  duration_ms: 2.283548
+  type: 'test'
+  ...
+# Subtest: online R2 retry delay remains cancellable before spending its sole network reload
+ok 176 - online R2 retry delay remains cancellable before spending its sole network reload
+  ---
+  duration_ms: 2.15836
+  type: 'test'
+  ...
+# Subtest: throttled buffering and spare errors expose timing and slot evidence without consuming the active retry
+ok 177 - throttled buffering and spare errors expose timing and slot evidence without consuming the active retry
+  ---
+  duration_ms: 5.123895
+  type: 'test'
+  ...
+# Subtest: native-r2 completed repeat-one loop gets a fresh retry without renewing it during that loop
+ok 178 - native-r2 completed repeat-one loop gets a fresh retry without renewing it during that loop
+  ---
+  duration_ms: 2.626214
+  type: 'test'
+  ...
+# Subtest: legacy-r2 completed repeat-one loop gets a fresh retry without renewing it during that loop
+ok 179 - legacy-r2 completed repeat-one loop gets a fresh retry without renewing it during that loop
+  ---
+  duration_ms: 2.975099
+  type: 'test'
+  ...
+# Subtest: late playing event cannot erase a current no-data deadline
+ok 180 - late playing event cannot erase a current no-data deadline
+  ---
+  duration_ms: 2.48407
+  type: 'test'
+  ...
+# Subtest: late play completion cannot erase a current no-data deadline
+ok 181 - late play completion cannot erase a current no-data deadline
+  ---
+  duration_ms: 2.220684
+  type: 'test'
+  ...
+# Subtest: Media Session actions remain usable while artwork is unresolved and after it rejects
+ok 182 - Media Session actions remain usable while artwork is unresolved and after it rejects
+  ---
+  duration_ms: 2.900507
+  type: 'test'
+  ...
+# Subtest: invalid MediaMetadata does not prevent handler registration
+ok 183 - invalid MediaMetadata does not prevent handler registration
+  ---
+  duration_ms: 1.709904
+  type: 'test'
+  ...
+# Subtest: an old same-selection artwork completion cannot replace newer Media Session metadata
+ok 184 - an old same-selection artwork completion cannot replace newer Media Session metadata
+  ---
+  duration_ms: 1.71976
+  type: 'test'
+  ...
+# Subtest: late playing during an established stall preserves recovery and Pause still cancels it
+ok 185 - late playing during an established stall preserves recovery and Pause still cancels it
+  ---
+  duration_ms: 4.593186
+  type: 'test'
+  ...
+# Subtest: late timeupdate without future data cannot consume a stalled stream deadline
+ok 186 - late timeupdate without future data cannot consume a stalled stream deadline
+  ---
+  duration_ms: 2.350478
+  type: 'test'
+  ...
+# Subtest: watchdog observes native interruption even when the pause notification is missing
+ok 187 - watchdog observes native interruption even when the pause notification is missing
+  ---
+  duration_ms: 2.033442
+  type: 'test'
+  ...
+# Subtest: explicit transport capabilities classify native-r2 independently of legacy remote
+ok 188 - explicit transport capabilities classify native-r2 independently of legacy remote
+  ---
+  duration_ms: 5.880854
+  type: 'test'
+  ...
+# Subtest: explicit transport capabilities classify legacy-r2 independently of legacy remote
+ok 189 - explicit transport capabilities classify legacy-r2 independently of legacy remote
+  ---
+  duration_ms: 1.720911
+  type: 'test'
+  ...
+# Subtest: explicit transport capabilities classify drive independently of legacy remote
+ok 190 - explicit transport capabilities classify drive independently of legacy remote
+  ---
+  duration_ms: 4.359763
+  type: 'test'
+  ...
+# Subtest: explicit transport capabilities classify server independently of legacy remote
+ok 191 - explicit transport capabilities classify server independently of legacy remote
+  ---
+  duration_ms: 1.985319
+  type: 'test'
+  ...
+# Subtest: explicit transport capabilities classify local independently of legacy remote
+ok 192 - explicit transport capabilities classify local independently of legacy remote
+  ---
+  duration_ms: 1.623925
+  type: 'test'
+  ...
+# Subtest: native-r2 transient network recovery reloads the exact clean URL and preserves actual position
+ok 193 - native-r2 transient network recovery reloads the exact clean URL and preserves actual position
+  ---
+  duration_ms: 6.270911
+  type: 'test'
+  ...
+# Subtest: native-r2 recovery preserves a requested seek while media metadata is still pending
+ok 194 - native-r2 recovery preserves a requested seek while media metadata is still pending
+  ---
+  duration_ms: 3.405137
+  type: 'test'
+  ...
+# Subtest: native-r2 silent initial Play has a bounded no-progress watchdog
+ok 195 - native-r2 silent initial Play has a bounded no-progress watchdog
+  ---
+  duration_ms: 2.243207
+  type: 'test'
+  ...
+# Subtest: native-r2 repeated waiting and metadata cannot renew an exhausted retry budget
+ok 196 - native-r2 repeated waiting and metadata cannot renew an exhausted retry budget
+  ---
+  duration_ms: 3.332748
+  type: 'test'
+  ...
+# Subtest: legacy-r2 transient network recovery reloads the exact clean URL and preserves actual position
+ok 197 - legacy-r2 transient network recovery reloads the exact clean URL and preserves actual position
+  ---
+  duration_ms: 2.704151
+  type: 'test'
+  ...
+# Subtest: legacy-r2 recovery preserves a requested seek while media metadata is still pending
+ok 198 - legacy-r2 recovery preserves a requested seek while media metadata is still pending
+  ---
+  duration_ms: 3.196522
+  type: 'test'
+  ...
+# Subtest: legacy-r2 silent initial Play has a bounded no-progress watchdog
+ok 199 - legacy-r2 silent initial Play has a bounded no-progress watchdog
+  ---
+  duration_ms: 2.1786
+  type: 'test'
+  ...
+# Subtest: legacy-r2 repeated waiting and metadata cannot renew an exhausted retry budget
+ok 200 - legacy-r2 repeated waiting and metadata cannot renew an exhausted retry budget
+  ---
+  duration_ms: 2.533324
+  type: 'test'
+  ...
+# Subtest: explicit Play on an errored native R2 slot reloads it and retains the interrupted position
+ok 201 - explicit Play on an errored native R2 slot reloads it and retains the interrupted position
+  ---
+  duration_ms: 2.224279
+  type: 'test'
+  ...
+# Subtest: a current play policy rejection clears actual and desired state without automatic retry
+ok 202 - a current play policy rejection clears actual and desired state without automatic retry
+  ---
+  duration_ms: 2.104358
+  type: 'test'
+  ...
+# Subtest: a current codec rejection does not enter transient R2 network recovery
+ok 203 - a current codec rejection does not enter transient R2 network recovery
+  ---
+  duration_ms: 1.958679
+  type: 'test'
+  ...
+# Subtest: a current AbortError cannot claim actual playing output
+ok 204 - a current AbortError cannot claim actual playing output
+  ---
+  duration_ms: 2.574651
+  type: 'test'
+  ...
+# Subtest: a stale rejected play on the old selection cannot alter the new track
+ok 205 - a stale rejected play on the old selection cannot alter the new track
+  ---
+  duration_ms: 2.199061
+  type: 'test'
+  ...
+# Subtest: stale AbortError from a same-URL reload cannot cancel the newer play attempt
+ok 206 - stale AbortError from a same-URL reload cannot cancel the newer play attempt
+  ---
+  duration_ms: 2.777502
+  type: 'test'
+  ...
+# Subtest: intentional pause cancels pending native R2 network recovery
+ok 207 - intentional pause cancels pending native R2 network recovery
+  ---
+  duration_ms: 2.170678
+  type: 'test'
+  ...
+# Subtest: intentional stop cancels pending native R2 network recovery
+ok 208 - intentional stop cancels pending native R2 network recovery
+  ---
+  duration_ms: 2.087553
+  type: 'test'
+  ...
+# Subtest: skip cancels old recovery before the final selected source resolves
+ok 209 - skip cancels old recovery before the final selected source resolves
+  ---
+  duration_ms: 2.569398
+  type: 'test'
+  ...
+# Subtest: MediaSession focus Pause cancels pending native R2 recovery and waits for explicit Play
+ok 210 - MediaSession focus Pause cancels pending native R2 recovery and waits for explicit Play
+  ---
+  duration_ms: 4.681899
+  type: 'test'
+  ...
+# Subtest: an unexpected native Pause reflects output loss without fighting an OS focus interruption
+ok 211 - an unexpected native Pause reflects output loss without fighting an OS focus interruption
+  ---
+  duration_ms: 1.898909
+  type: 'test'
+  ...
+# Subtest: AudioContext interrupted updates actual output and does not automatically resume over calls or OS focus
+ok 212 - AudioContext interrupted updates actual output and does not automatically resume over calls or OS focus
+  ---
+  duration_ms: 2.592763
+  type: 'test'
+  ...
+# Subtest: AudioContext suspended updates actual output and does not automatically resume over calls or OS focus
+ok 213 - AudioContext suspended updates actual output and does not automatically resume over calls or OS focus
+  ---
+  duration_ms: 2.890001
+  type: 'test'
+  ...
+# Subtest: AudioContext closed updates actual output and does not automatically resume over calls or OS focus
+ok 214 - AudioContext closed updates actual output and does not automatically resume over calls or OS focus
+  ---
+  duration_ms: 2.368786
+  type: 'test'
+  ...
+# Subtest: a rejected explicit AudioContext resume cannot leave false actual playback or trigger an autonomous resume loop
+ok 215 - a rejected explicit AudioContext resume cannot leave false actual playback or trigger an autonomous resume loop
+  ---
+  duration_ms: 2.429438
+  type: 'test'
+  ...
+# Subtest: playback diagnostics are bounded snapshots that exclude URLs, track identities, titles and secrets
+ok 216 - playback diagnostics are bounded snapshots that exclude URLs, track identities, titles and secrets
+  ---
+  duration_ms: 16.046829
+  type: 'test'
+  ...
+# Subtest: native-r2 pending Play separates desired intent from confirmed output
+ok 217 - native-r2 pending Play separates desired intent from confirmed output
+  ---
+  duration_ms: 2.155435
+  type: 'test'
+  ...
+# Subtest: native-r2 buffering watchdog eligibility follows transport capability
+ok 218 - native-r2 buffering watchdog eligibility follows transport capability
+  ---
+  duration_ms: 1.998899
+  type: 'test'
+  ...
+# Subtest: legacy-r2 pending Play separates desired intent from confirmed output
+ok 219 - legacy-r2 pending Play separates desired intent from confirmed output
+  ---
+  duration_ms: 1.832339
+  type: 'test'
+  ...
+# Subtest: legacy-r2 buffering watchdog eligibility follows transport capability
+ok 220 - legacy-r2 buffering watchdog eligibility follows transport capability
+  ---
+  duration_ms: 1.825779
+  type: 'test'
+  ...
+# Subtest: drive pending Play separates desired intent from confirmed output
+ok 221 - drive pending Play separates desired intent from confirmed output
+  ---
+  duration_ms: 2.923031
+  type: 'test'
+  ...
+# Subtest: drive buffering watchdog eligibility follows transport capability
+ok 222 - drive buffering watchdog eligibility follows transport capability
+  ---
+  duration_ms: 1.784557
+  type: 'test'
+  ...
+# Subtest: server pending Play separates desired intent from confirmed output
+ok 223 - server pending Play separates desired intent from confirmed output
+  ---
+  duration_ms: 1.765158
+  type: 'test'
+  ...
+# Subtest: server buffering watchdog eligibility follows transport capability
+ok 224 - server buffering watchdog eligibility follows transport capability
+  ---
+  duration_ms: 1.705888
+  type: 'test'
+  ...
+# Subtest: local pending Play separates desired intent from confirmed output
+ok 225 - local pending Play separates desired intent from confirmed output
+  ---
+  duration_ms: 1.730455
+  type: 'test'
+  ...
+# Subtest: local buffering watchdog eligibility follows transport capability
+ok 226 - local buffering watchdog eligibility follows transport capability
+  ---
+  duration_ms: 1.704296
+  type: 'test'
+  ...
+# Subtest: native-r2 a genuine no-progress stall recovers the exact URL at the saved playhead
+ok 227 - native-r2 a genuine no-progress stall recovers the exact URL at the saved playhead
+  ---
+  duration_ms: 2.062936
+  type: 'test'
+  ...
+# Subtest: native-r2 repeated waiting cannot indefinitely postpone the original stall deadline
+ok 228 - native-r2 repeated waiting cannot indefinitely postpone the original stall deadline
+  ---
+  duration_ms: 2.04603
+  type: 'test'
+  ...
+# Subtest: native-r2 advancing playback cancels the stall timeout without reloading
+ok 229 - native-r2 advancing playback cancels the stall timeout without reloading
+  ---
+  duration_ms: 1.884798
+  type: 'test'
+  ...
+# Subtest: legacy-r2 a genuine no-progress stall recovers the exact URL at the saved playhead
+ok 230 - legacy-r2 a genuine no-progress stall recovers the exact URL at the saved playhead
+  ---
+  duration_ms: 1.960913
+  type: 'test'
+  ...
+# Subtest: legacy-r2 repeated waiting cannot indefinitely postpone the original stall deadline
+ok 231 - legacy-r2 repeated waiting cannot indefinitely postpone the original stall deadline
+  ---
+  duration_ms: 2.047532
+  type: 'test'
+  ...
+# Subtest: legacy-r2 advancing playback cancels the stall timeout without reloading
+ok 232 - legacy-r2 advancing playback cancels the stall timeout without reloading
+  ---
+  duration_ms: 1.831939
+  type: 'test'
+  ...
+# Subtest: a queued owned recovery pause cannot hide a later genuine external focus pause
+ok 233 - a queued owned recovery pause cannot hide a later genuine external focus pause
+  ---
+  duration_ms: 3.370294
+  type: 'test'
+  ...
+# Subtest: spare element pauses and errors cannot change the active track or consume its recovery budget
+ok 234 - spare element pauses and errors cannot change the active track or consume its recovery budget
+  ---
+  duration_ms: 2.058228
+  type: 'test'
+  ...
+# Subtest: explicit Play after an exhausted R2 recovery starts a fresh bounded attempt at the retained position
+ok 235 - explicit Play after an exhausted R2 recovery starts a fresh bounded attempt at the retained position
+  ---
+  duration_ms: 2.300975
+  type: 'test'
+  ...
+# Subtest: current AbortError visibly yields focus and cancels automatic initial-stall recovery
+ok 236 - current AbortError visibly yields focus and cancels automatic initial-stall recovery
+  ---
+  duration_ms: 1.763986
+  type: 'test'
+  ...
+# Subtest: diagnostic details are allowlisted instead of retaining arbitrary error or reason text
+ok 237 - diagnostic details are allowlisted instead of retaining arbitrary error or reason text
+  ---
+  duration_ms: 1.631867
+  type: 'test'
+  ...
+# Subtest: AudioContext interrupted during R2 recovery cancels retry and routine context checks cannot restart audio
+ok 238 - AudioContext interrupted during R2 recovery cancels retry and routine context checks cannot restart audio
+  ---
+  duration_ms: 2.16565
+  type: 'test'
+  ...
+# Subtest: AudioContext suspended during R2 recovery cancels retry and routine context checks cannot restart audio
+ok 239 - AudioContext suspended during R2 recovery cancels retry and routine context checks cannot restart audio
+  ---
+  duration_ms: 2.069055
+  type: 'test'
+  ...
+# Subtest: stale policy failure from a same-URL reload cannot pause a new successfully playing attempt
+ok 240 - stale policy failure from a same-URL reload cannot pause a new successfully playing attempt
+  ---
+  duration_ms: 2.095545
+  type: 'test'
+  ...
+# Subtest: late play success after intentional pause cannot reassert playback intent or actual output
+ok 241 - late play success after intentional pause cannot reassert playback intent or actual output
+  ---
+  duration_ms: 1.827752
+  type: 'test'
+  ...
+# Subtest: late play success after intentional stop cannot reassert playback intent or actual output
+ok 242 - late play success after intentional stop cannot reassert playback intent or actual output
+  ---
+  duration_ms: 1.82623
+  type: 'test'
+  ...
+# Subtest: a late native R2 network error after intentional Pause never starts recovery
+ok 243 - a late native R2 network error after intentional Pause never starts recovery
+  ---
+  duration_ms: 1.990737
+  type: 'test'
+  ...
+# Subtest: hung AudioContext resume with zero-advancement media never retries the R2 URL or claims actual output
+ok 244 - hung AudioContext resume with zero-advancement media never retries the R2 URL or claims actual output
+  ---
+  duration_ms: 2.944403
+  type: 'test'
+  ...
+# Subtest: hung AudioContext resume with advancing media never retries the R2 URL or claims actual output
+ok 245 - hung AudioContext resume with advancing media never retries the R2 URL or claims actual output
+  ---
+  duration_ms: 2.468507
+  type: 'test'
+  ...
+# Subtest: load cancelling the queued owned pause cannot mask a genuine external pause after R2 retry starts
+ok 246 - load cancelling the queued owned pause cannot mask a genuine external pause after R2 retry starts
+  ---
+  duration_ms: 2.490039
+  type: 'test'
+  ...
+# Subtest: installed transition awaits pending AudioContext resume after incoming media starts before reporting actual output
+ok 247 - installed transition awaits pending AudioContext resume after incoming media starts before reporting actual output
+  ---
+  duration_ms: 2.677741
+  type: 'test'
+  ...
+# Subtest: installed transition pending media is safely cancelled by native-focus-pause and late completion cannot change selection
+ok 248 - installed transition pending media is safely cancelled by native-focus-pause and late completion cannot change selection
+  ---
+  duration_ms: 2.610861
+  type: 'test'
+  ...
+# Subtest: installed transition pending media is safely cancelled by context-interrupted and late completion cannot change selection
+ok 249 - installed transition pending media is safely cancelled by context-interrupted and late completion cannot change selection
+  ---
+  duration_ms: 2.141885
+  type: 'test'
+  ...
+# Subtest: installed transition pending media is safely cancelled by intentional-pause and late completion cannot change selection
+ok 250 - installed transition pending media is safely cancelled by intentional-pause and late completion cannot change selection
+  ---
+  duration_ms: 2.067462
+  type: 'test'
+  ...
+# Subtest: installed transition pending media is safely cancelled by intentional-stop and late completion cannot change selection
+ok 251 - installed transition pending media is safely cancelled by intentional-stop and late completion cannot change selection
+  ---
+  duration_ms: 2.06526
+  type: 'test'
+  ...
+# Subtest: installed transition cannot select or start incoming media with an already closed AudioContext
+ok 252 - installed transition cannot select or start incoming media with an already closed AudioContext
+  ---
+  duration_ms: 4.446464
+  type: 'test'
+  ...
+# Subtest: raw installed transition cancellation silences a late successful incoming promise while preserving the outgoing track
+ok 253 - raw installed transition cancellation silences a late successful incoming promise while preserving the outgoing track
+  ---
+  duration_ms: 1.960331
+  type: 'test'
+  ...
+# Subtest: previous preview and commit restart restored/unloaded logical time without choosing another song
+ok 254 - previous preview and commit restart restored/unloaded logical time without choosing another song
+  ---
+  duration_ms: 3.129141
+  type: 'test'
+  ...
+# Subtest: previous action remains the exact preview when logical time crosses the restart threshold
+ok 255 - previous action remains the exact preview when logical time crosses the restart threshold
+  ---
+  duration_ms: 0.80368
+  type: 'test'
+  ...
+# Subtest: manual next and previous follow the selected occurrence and wrap at either end
+ok 256 - manual next and previous follow the selected occurrence and wrap at either end
+  ---
+  duration_ms: 2.893886
+  type: 'test'
+  ...
+# Subtest: swipe commit preserves playback intent rather than starting a paused selection
+ok 257 - swipe commit preserves playback intent rather than starting a paused selection
+  ---
+  duration_ms: 0.697961
+  type: 'test'
+  ...
+# Subtest: explicit queue preview and commit use the same pending first track
+ok 258 - explicit queue preview and commit use the same pending first track
+  ---
+  duration_ms: 0.769078
+  type: 'test'
+  ...
+# Subtest: explicit queue return preview skips removed or disabled saved songs
+ok 259 - explicit queue return preview skips removed or disabled saved songs
+  ---
+  duration_ms: 0.77743
+  type: 'test'
+  ...
+# Subtest: looping explicit queue previews its first occurrence
+ok 260 - looping explicit queue previews its first occurrence
+  ---
+  duration_ms: 1.60725
+  type: 'test'
+  ...
+# Subtest: a queue return with no surviving target previews no artwork but can stop through its exact action
+ok 261 - a queue return with no surviving target previews no artwork but can stop through its exact action
+  ---
+  duration_ms: 0.720745
+  type: 'test'
+  ...
+# Subtest: swipe actions cannot survive newer track, pause, queue or order changes
+ok 262 - swipe actions cannot survive newer track, pause, queue or order changes
+  ---
+  duration_ms: 5.303695
+  type: 'test'
+  ...
+# Subtest: empty manual navigation is inert
+ok 263 - empty manual navigation is inert
+  ---
+  duration_ms: 0.788067
+  type: 'test'
+  ...
+# Subtest: neighbor art becomes cached only after a successful decode and concurrent warms coalesce
+ok 264 - neighbor art becomes cached only after a successful decode and concurrent warms coalesce
+  ---
+  duration_ms: 2.347714
+  type: 'test'
+  ...
+# Subtest: missing or broken neighbor art is a stable placeholder rather than an undecoded URL
+ok 265 - missing or broken neighbor art is a stable placeholder rather than an undecoded URL
+  ---
+  duration_ms: 1.897196
+  type: 'test'
+  ...
+# Subtest: a replaced cover invalidates cache and late older artwork cannot overwrite the newer decoded cover
+ok 266 - a replaced cover invalidates cache and late older artwork cannot overwrite the newer decoded cover
+  ---
+  duration_ms: 1.081658
+  type: 'test'
+  ...
+# Subtest: decoded neighbor cache remains bounded
+ok 267 - decoded neighbor cache remains bounded
+  ---
+  duration_ms: 1.355501
+  type: 'test'
+  ...
+# Subtest: rendering a committed swipe seeds decoded artwork immediately without clearing it during async lookup
+ok 268 - rendering a committed swipe seeds decoded artwork immediately without clearing it during async lookup
+  ---
+  duration_ms: 1.221739
+  type: 'test'
+  ...
+# Subtest: late same-track render work cannot overwrite a newer artwork refresh
+ok 269 - late same-track render work cannot overwrite a newer artwork refresh
+  ---
+  duration_ms: 0.694155
+  type: 'test'
+  ...
+# Subtest: same-track artwork refresh keeps the actual mini owner visible during a live scene
+ok 270 - same-track artwork refresh keeps the actual mini owner visible during a live scene
+  ---
+  duration_ms: 0.54447
+  type: 'test'
+  ...
+# Subtest: complete content-verified maps validate playback without changing catalog metadata
+ok 271 - complete content-verified maps validate playback without changing catalog metadata
+  ---
+  duration_ms: 2.349157
+  type: 'test'
+  ...
+# Subtest: smoke, partial, failed, unverified and wrong-root manifests cannot activate R2
+ok 272 - smoke, partial, failed, unverified and wrong-root manifests cannot activate R2
+  ---
+  duration_ms: 1.154217
+  type: 'test'
+  ...
+# Subtest: explicit partial manifests keep the full catalog and expose only verified playback URLs
+ok 273 - explicit partial manifests keep the full catalog and expose only verified playback URLs
+  ---
+  duration_ms: 0.27222
+  type: 'test'
+  ...
+# Subtest: partial playback requires its dedicated configured endpoint, exact media prefix and explicit mode
+ok 274 - partial playback requires its dedicated configured endpoint, exact media prefix and explicit mode
+  ---
+  duration_ms: 0.461174
+  type: 'test'
+  ...
+# Subtest: partial manifests require successful counts, inventory bounds and actual verified byte totals
+ok 275 - partial manifests require successful counts, inventory bounds and actual verified byte totals
+  ---
+  duration_ms: 1.280007
+  type: 'test'
+  ...
+# Subtest: partial file proofs and source identity remain as strict as full manifests
+ok 276 - partial file proofs and source identity remain as strict as full manifests
+  ---
+  duration_ms: 0.742157
+  type: 'test'
+  ...
+# Subtest: partial libraries allow new unmapped tracks but reject removed, duplicated or changed mapped tracks
+ok 277 - partial libraries allow new unmapped tracks but reject removed, duplicated or changed mapped tracks
+  ---
+  duration_ms: 0.319651
+  type: 'test'
+  ...
+# Subtest: a full manifest cannot become partial by supplying partial byte totals or extra catalog tracks
+ok 278 - a full manifest cannot become partial by supplying partial byte totals or extra catalog tracks
+  ---
+  duration_ms: 0.182735
+  type: 'test'
+  ...
+# Subtest: file identity, actual body hashes, byte counts and content-addressed keys are required
+ok 279 - file identity, actual body hashes, byte counts and content-addressed keys are required
+  ---
+  duration_ms: 4.118691
+  type: 'test'
+  ...
+# Subtest: mapping must match every catalog track by stable ID, Drive root, size and MD5
+ok 280 - mapping must match every catalog track by stable ID, Drive root, size and MD5
+  ---
+  duration_ms: 0.891502
+  type: 'test'
+  ...
+# Subtest: new and changed songs fail closed, without retaining stale revision URLs
+ok 281 - new and changed songs fail closed, without retaining stale revision URLs
+  ---
+  duration_ms: 0.367884
+  type: 'test'
+  ...
+# Subtest: only explicit credential-free HTTPS URLs on the configured map origin are accepted
+ok 282 - only explicit credential-free HTTPS URLs on the configured map origin are accepted
+  ---
+  duration_ms: 0.747015
+  type: 'test'
+  ...
+# Subtest: a same-origin HTTPS Worker path prefix can supply the playback endpoint
+ok 283 - a same-origin HTTPS Worker path prefix can supply the playback endpoint
+  ---
+  duration_ms: 0.290497
+  type: 'test'
+  ...
+# Subtest: manifest reads omit credentials and referrers, refuse redirects and use a bounded JSON stream
+ok 284 - manifest reads omit credentials and referrers, refuse redirects and use a bounded JSON stream
+  ---
+  duration_ms: 22.515238
+  type: 'test'
+  ...
+# Subtest: partial manifest reads use only the configured endpoint and retain partial completion state
+ok 285 - partial manifest reads use only the configured endpoint and retain partial completion state
+  ---
+  duration_ms: 0.489747
+  type: 'test'
+  ...
+# Subtest: invalid URLs never reach fetch; redirects, non-JSON, errors and corrupt responses reject
+ok 286 - invalid URLs never reach fetch; redirects, non-JSON, errors and corrupt responses reject
+  ---
+  duration_ms: 2.744392
+  type: 'test'
+  ...
+# Subtest: compressed or chunked manifests are bounded by decoded bytes, not a hidden wire encoding
+ok 287 - compressed or chunked manifests are bounded by decoded bytes, not a hidden wire encoding
+  ---
+  duration_ms: 0.44514
+  type: 'test'
+  ...
+# Subtest: an aborted manifest request never installs a map
+ok 288 - an aborted manifest request never installs a map
+  ---
+  duration_ms: 0.25909
+  type: 'test'
+  ...
+# Subtest: oversized headers and chunked streams are cancelled before parsing
+ok 289 - oversized headers and chunked streams are cancelled before parsing
+  ---
+  duration_ms: 0.643039
+  type: 'test'
+  ...
+# Subtest: R2 has distinct track IDs, metadata and its own user state; unmapped songs are absent
+ok 290 - R2 has distinct track IDs, metadata and its own user state; unmapped songs are absent
+  ---
+  duration_ms: 0.76376
+  type: 'test'
+  ...
+# Subtest: R2 loads and plays without a Drive API or enabled Drive source
+ok 291 - R2 loads and plays without a Drive API or enabled Drive source
+  ---
+  duration_ms: 4.333875
+  type: 'test'
+  ...
+# Subtest: Drive always uses Google even for a verified copied song and refuses R2 entries
+ok 292 - Drive always uses Google even for a verified copied song and refuses R2 entries
+  ---
+  duration_ms: 1.574911
+  type: 'test'
+  ...
+# Subtest: an unavailable R2 map does not rewrite the Drive library or select Drive playback
+ok 293 - an unavailable R2 map does not rewrite the Drive library or select Drive playback
+  ---
+  duration_ms: 0.978854
+  type: 'test'
+  ...
+# Subtest: disabling R2 during map download prevents activation
+ok 294 - disabling R2 during map download prevents activation
+  ---
+  duration_ms: 0.966435
+  type: 'test'
+  ...
+# Subtest: R2 refresh yields to its own playback while unrelated Drive playback can continue
+ok 295 - R2 refresh yields to its own playback while unrelated Drive playback can continue
+  ---
+  duration_ms: 1.128559
+  type: 'test'
+  ...
+# Subtest: R2 audio errors stop on the same source and never invoke Drive or server retries
+ok 296 - R2 audio errors stop on the same source and never invoke Drive or server retries
+  ---
+  duration_ms: 1.41484
+  type: 'test'
+  ...
+# Subtest: Drive still retries Google once at the interrupted position
+ok 297 - Drive still retries Google once at the interrupted position
+  ---
+  duration_ms: 1.254669
+  type: 'test'
+  ...
+# Subtest: R2 database commit retains every other source and preserves its own saved state
+ok 298 - R2 database commit retains every other source and preserves its own saved state
+  ---
+  duration_ms: 0.683429
+  type: 'test'
+  ...
+# Subtest: catalog refresh still preserves stable IDs, prepared artwork and user state independently of R2
+ok 299 - catalog refresh still preserves stable IDs, prepared artwork and user state independently of R2
+  ---
+  duration_ms: 0.478891
+  type: 'test'
+  ...
+# Subtest: R2 database abort never reports a successfully saved library
+ok 300 - R2 database abort never reports a successfully saved library
+  ---
+  duration_ms: 0.261433
+  type: 'test'
+  ...
+1..300
+# tests 300
+# suites 0
+# pass 300
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 464.6679

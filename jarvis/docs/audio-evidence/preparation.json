@@ -1,0 +1,37 @@
+{
+  "tags": {
+    "title": "Synthetic gain fixture",
+    "artist": "Jarvis audio test",
+    "album": "",
+    "albumArtist": "",
+    "genre": "",
+    "composer": "",
+    "year": 0,
+    "track": 0,
+    "disc": 0,
+    "dur": 3.0,
+    "sr": 48000,
+    "ch": 2,
+    "codec": "Opus",
+    "rgTrack": -8.0,
+    "r128TrackGain": -573,
+    "opusHeadGainDb": 6.0
+  },
+  "analysis": {
+    "version": 1,
+    "sha256": "d798bc285927a0a2a06c5d5d55238e251035b30b06792a54bb8b701116016ddf",
+    "audioBytes": 98413,
+    "gainBasis": "decoded-container-gain",
+    "decoder": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+    "method": "FFmpeg ebur128 BS.1770 true-peak / float PCM sample peak v1",
+    "analyzedAt": "2026-10-02T03:37:17.759684+00:00",
+    "sampleRate": 48000,
+    "channels": 2,
+    "integratedLufs": -18.5,
+    "samplePeakDbfs": -17.03727955243972,
+    "truePeakDbtp": -17.0,
+    "containerGainDb": 6.0
+  },
+  "audioRewrittenByUploader": false,
+  "fixtureIsSynthetic": true
+}

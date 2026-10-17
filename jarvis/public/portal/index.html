@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#05060a">
+<title>IANUA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+/* ══════════════════════════════════════════════════════════
+   IANUA — tokens
+   ══════════════════════════════════════════════════════════ */
+:root{
+  --void:#06070d;
+  --fg:#f2f3f7;
+  --fg2:rgba(242,243,247,.62);
+  --fg3:rgba(242,243,247,.34);
+  --fg4:rgba(242,243,247,.16);
+
+  --iris:#8b8cff;
+  --iris-l:#a9a6ff;
+  --cyan:#5ec8ff;
+  --gold:#f5c563;
+  --ok:#5ce8b0;
+  --err:#ff6b7d;
+
+  --irisD:rgba(139,140,255,.14);
+  --errD:rgba(255,107,125,.12);
+  --okD:rgba(92,232,176,.12);
+
+  /* glass materials */
+  --glass:rgba(255,255,255,.055);
+  --glass-hi:rgba(255,255,255,.085);
+  --hairline:rgba(255,255,255,.10);
+  --hairline-hi:rgba(255,255,255,.18);
+  --blur:blur(32px) saturate(180%);
+  --blur-lite:blur(20px) saturate(160%);
+
+  --r-lg:26px;
+  --r:20px;
+  --r-sm:14px;
+
+  --lift:0 8px 32px rgba(0,0,0,.44), 0 2px 8px rgba(0,0,0,.3);
+  --lift-lg:0 20px 60px rgba(0,0,0,.55), 0 4px 14px rgba(0,0,0,.35);
+  --sheen:inset 0 1px 0 rgba(255,255,255,.16), inset 0 -1px 0 rgba(255,255,255,.03);
+}
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+html,body{height:100%}
+body{
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  background:var(--void);
+  color:var(--fg);
+  height:100dvh;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* ══════════════════════════════════════════════════════════
+   AURORA — the light the glass refracts
+   ══════════════════════════════════════════════════════════ */
+.aurora{position:fixed;inset:-20%;z-index:0;pointer-events:none;filter:blur(64px);opacity:1}
+.blob{position:absolute;border-radius:50%;mix-blend-mode:screen;will-change:transform}
+.b1{width:62vmax;height:62vmax;top:-18%;left:-22%;background:radial-gradient(circle at 35% 35%,rgba(120,96,255,.66),transparent 62%);animation:drift1 34s ease-in-out infinite}
+.b2{width:54vmax;height:54vmax;bottom:-22%;right:-18%;background:radial-gradient(circle at 60% 40%,rgba(58,178,255,.5),transparent 62%);animation:drift2 42s ease-in-out infinite}
+.b3{width:44vmax;height:44vmax;top:34%;right:-14%;background:radial-gradient(circle at 50% 50%,rgba(232,88,192,.38),transparent 62%);animation:drift3 50s ease-in-out infinite}
+.b4{width:38vmax;height:38vmax;bottom:6%;left:-10%;background:radial-gradient(circle at 50% 50%,rgba(92,232,176,.22),transparent 62%);animation:drift1 46s ease-in-out infinite reverse}
+@keyframes drift1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(8vw,6vh) scale(1.12)}66%{transform:translate(-5vw,10vh) scale(.94)}}
+@keyframes drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-10vw,-8vh) scale(1.16)}}
+@keyframes drift3{0%,100%{transform:translate(0,0) scale(1)}40%{transform:translate(-7vw,7vh) scale(.9)}75%{transform:translate(5vw,-5vh) scale(1.1)}}
+/* grain — keeps the gradients from banding */
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.032;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
+@media(prefers-reduced-motion:reduce){.blob{animation:none}}
+
+/* ══════════════════════════════════════════════════════════
+   SHELL
+   ══════════════════════════════════════════════════════════ */
+.app{position:relative;z-index:2;height:100dvh;max-width:520px;margin:0 auto}
+@media(min-width:521px){
+  .app::before,.app::after{content:'';position:absolute;top:0;bottom:0;width:1px;background:linear-gradient(180deg,transparent,rgba(255,255,255,.08),transparent);z-index:30}
+  .app::before{left:0}.app::after{right:0}
+}
+
+/* ── Header: content scrolls beneath it ── */
+.chrome-top{
+  position:absolute;top:0;left:0;right:0;z-index:20;
+  padding:16px 20px 14px;
+  text-align:center;
+  background:linear-gradient(180deg,rgba(5,6,10,.72),rgba(5,6,10,.42) 62%,transparent);
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  -webkit-mask-image:linear-gradient(180deg,#000 62%,transparent);
+          mask-image:linear-gradient(180deg,#000 62%,transparent);
+  padding-top:calc(16px + env(safe-area-inset-top,0px));
+}
+.wordmark{
+  font-family:'Cinzel',Georgia,serif;
+  font-weight:700;
+  font-size:26px;
+  letter-spacing:.34em;
+  text-indent:.34em;          /* optical centering for the tracking */
+  line-height:1.05;
+  background:linear-gradient(180deg,#ffffff 0%,#cfd2ff 45%,#8b8cff 130%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 2px 18px rgba(139,140,255,.34));
+  animation:riseIn .9s cubic-bezier(.16,1,.3,1) both;
+}
+.wordmark-sub{
+  margin-top:5px;font-size:9.5px;font-weight:400;letter-spacing:.42em;text-indent:.42em;
+  text-transform:uppercase;color:var(--fg3);
+  animation:riseIn 1.1s .12s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes riseIn{from{opacity:0;transform:translateY(-8px);filter:blur(6px)}to{opacity:1;transform:none;filter:blur(0)}}
+
+/* ── Panels ── */
+.panels{position:absolute;inset:0}
+.panel{
+  position:absolute;inset:0;
+  overflow-y:auto;overflow-x:hidden;
+  padding:104px 18px 132px;
+  opacity:0;transform:translateY(10px) scale(.995);
+  pointer-events:none;
+  transition:opacity .34s cubic-bezier(.16,1,.3,1),transform .34s cubic-bezier(.16,1,.3,1);
+  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent;
+  overscroll-behavior:contain;
+}
+.panel.active{opacity:1;transform:none;pointer-events:auto}
+.panel::-webkit-scrollbar{width:5px}
+.panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.13);border-radius:3px}
+
+/* ── Floating tab bar ── */
+.tab-bar{
+  position:absolute;z-index:20;
+  left:16px;right:16px;bottom:calc(14px + env(safe-area-inset-bottom,0px));
+  display:flex;gap:4px;padding:7px;
+  background:var(--glass);
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--hairline);
+  border-radius:24px;
+  box-shadow:var(--lift-lg),var(--sheen);
+}
+.tab-btn{
+  flex:1;position:relative;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:9px 0 8px;
+  background:none;border:none;border-radius:18px;
+  color:var(--fg3);font-family:inherit;font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+  cursor:pointer;
+  transition:color .3s cubic-bezier(.16,1,.3,1),background .3s;
+}
+.tab-btn i{font-size:16px;transition:transform .38s cubic-bezier(.34,1.56,.64,1)}
+.tab-btn.active{
+  color:var(--fg);
+  background:linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.05));
+  box-shadow:var(--sheen),0 2px 10px rgba(0,0,0,.24);
+}
+.tab-btn.active i{transform:translateY(-1px) scale(1.12);color:var(--iris-l);filter:drop-shadow(0 0 10px rgba(139,140,255,.6))}
+
+/* ══════════════════════════════════════════════════════════
+   GLASS PRIMITIVES
+   ══════════════════════════════════════════════════════════ */
+.glass{
+  position:relative;
+  background:var(--glass);
+  backdrop-filter:var(--blur-lite);-webkit-backdrop-filter:var(--blur-lite);
+  border:1px solid var(--hairline);
+  border-radius:var(--r);
+  box-shadow:var(--lift),var(--sheen);
+}
+/* specular top-edge highlight */
+.glass::before{
+  content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(168deg,rgba(255,255,255,.13) 0%,rgba(255,255,255,.02) 26%,transparent 55%);
+}
+@supports not (backdrop-filter:blur(1px)){
+  .glass,.tab-bar,.chrome-top{background:rgba(20,22,32,.9)}
+}
+
+/* ── Typography ── */
+.title-bar{text-align:center;margin-bottom:22px}
+.title-bar h2{
+  font-family:'Cinzel',serif;font-size:19px;font-weight:600;
+  letter-spacing:.2em;text-indent:.2em;text-transform:uppercase;color:var(--fg);
+}
+.title-bar p{font-size:11.5px;color:var(--fg3);margin-top:7px;letter-spacing:.02em;font-weight:300}
+.sec-head{
+  display:flex;align-items:center;gap:9px;
+  font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.19em;
+  color:var(--fg3);margin:26px 4px 12px;
+}
+.sec-head:first-child{margin-top:0}
+.sec-head i{color:var(--iris);font-size:10px;filter:drop-shadow(0 0 6px rgba(139,140,255,.5))}
+.sec-head .cnt{margin-left:auto;color:var(--fg4);letter-spacing:.06em;font-weight:500}
+.sec-head::after{content:'';flex:0 0 auto;order:-1}
+
+/* ── Inputs ── */
+input[type=text],input[type=search],textarea{
+  width:100%;padding:13px 15px;
+  background:rgba(255,255,255,.045);
+  backdrop-filter:var(--blur-lite);-webkit-backdrop-filter:var(--blur-lite);
+  border:1px solid var(--hairline);
+  border-radius:var(--r-sm);
+  color:var(--fg);
+  font-family:'JetBrains Mono',monospace;font-size:12.5px;
+  outline:none;
+  box-shadow:var(--sheen);
+  transition:border-color .28s,box-shadow .28s,background .28s;
+}
+input:focus,textarea:focus{
+  border-color:rgba(139,140,255,.55);
+  background:rgba(255,255,255,.07);
+  box-shadow:0 0 0 4px rgba(139,140,255,.13),var(--sheen),0 0 24px rgba(139,140,255,.18);
+}
+input::placeholder,textarea::placeholder{color:var(--fg4)}
+textarea{resize:vertical;line-height:1.6}
+input[type=search]{font-family:'Inter',sans-serif;font-size:13px}
+.field-label{display:block;font-size:9.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--fg3);margin-bottom:8px;margin-left:3px}
+
+/* ── Buttons ── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:12px 18px;border:1px solid var(--hairline);border-radius:var(--r-sm);
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:600;letter-spacing:.03em;
+  cursor:pointer;white-space:nowrap;
+  background:var(--glass);color:var(--fg);
+  backdrop-filter:var(--blur-lite);-webkit-backdrop-filter:var(--blur-lite);
+  box-shadow:var(--sheen),0 2px 10px rgba(0,0,0,.22);
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1),background .25s,border-color .25s,box-shadow .25s,opacity .2s;
+}
+.btn:hover{background:var(--glass-hi);border-color:var(--hairline-hi)}
+.btn:active{transform:scale(.955)}
+.btn:disabled{opacity:.3;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-p{
+  background:linear-gradient(135deg,rgba(139,140,255,.55),rgba(94,200,255,.38));
+  border-color:rgba(169,166,255,.42);
+  box-shadow:var(--sheen),0 4px 20px rgba(139,140,255,.3);
+}
+.btn-p:hover{background:linear-gradient(135deg,rgba(139,140,255,.68),rgba(94,200,255,.5));box-shadow:var(--sheen),0 6px 28px rgba(139,140,255,.42)}
+.btn-d{background:rgba(255,107,125,.13);border-color:rgba(255,107,125,.26);color:var(--err)}
+.btn-d:hover{background:rgba(255,107,125,.22);border-color:rgba(255,107,125,.4)}
+.btn-g{background:none;border-color:transparent;box-shadow:none;color:var(--fg3);padding:8px 11px}
+.btn-g:hover{color:var(--iris-l);background:var(--irisD);border-color:transparent}
+.btn-block{width:100%}
+.row{display:flex;gap:9px;align-items:center}
+.row>*{flex:1}
+
+/* Hero button */
+.hero-btn{
+  position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;gap:11px;width:100%;
+  padding:18px;margin-top:18px;
+  border:1px solid rgba(169,166,255,.45);border-radius:var(--r);
+  background:linear-gradient(135deg,rgba(139,140,255,.58),rgba(94,200,255,.4));
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  color:#fff;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;letter-spacing:.05em;
+  cursor:pointer;
+  box-shadow:0 8px 34px rgba(139,140,255,.34),var(--sheen);
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1),box-shadow .28s,opacity .2s;
+}
+.hero-btn:hover{box-shadow:0 12px 46px rgba(139,140,255,.46),var(--sheen)}
+.hero-btn:active{transform:scale(.975)}
+.hero-btn:disabled{opacity:.28;cursor:not-allowed;box-shadow:none;transform:none}
+/* travelling specular sweep */
+.hero-btn::after{
+  content:'';position:absolute;top:0;left:-60%;width:45%;height:100%;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.4),transparent);
+  transform:skewX(-18deg);
+  animation:sweep 4.5s ease-in-out infinite;
+}
+.hero-btn:disabled::after{animation:none;opacity:0}
+@keyframes sweep{0%,72%{left:-60%}100%{left:130%}}
+
+/* ── Drop zone ── */
+.drop-zone{
+  position:relative;padding:44px 24px;text-align:center;cursor:pointer;
+  border:1.5px dashed rgba(255,255,255,.16);border-radius:var(--r-lg);
+  background:rgba(255,255,255,.03);
+  backdrop-filter:var(--blur-lite);-webkit-backdrop-filter:var(--blur-lite);
+  box-shadow:var(--sheen);
+  transition:all .32s cubic-bezier(.16,1,.3,1);
+}
+.drop-zone:hover,.drop-zone.dragover{
+  border-color:rgba(139,140,255,.6);background:rgba(139,140,255,.09);
+  box-shadow:0 0 40px rgba(139,140,255,.2),var(--sheen);transform:translateY(-2px);
+}
+.dz-icon{font-size:34px;color:var(--fg4);margin-bottom:14px;transition:all .32s}
+.drop-zone:hover .dz-icon,.drop-zone.dragover .dz-icon{color:var(--iris-l);transform:translateY(-3px);filter:drop-shadow(0 4px 16px rgba(139,140,255,.55))}
+.dz-text{font-size:14px;color:var(--fg2);font-weight:500;margin-bottom:5px}
+.dz-sub{font-size:11px;color:var(--fg4);font-weight:300}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+.file-info{
+  display:flex;align-items:center;gap:11px;padding:13px 15px;margin-top:10px;
+  background:rgba(139,140,255,.11);border:1px solid rgba(139,140,255,.24);
+  border-radius:var(--r-sm);font-size:13px;
+  backdrop-filter:var(--blur-lite);-webkit-backdrop-filter:var(--blur-lite);
+  box-shadow:var(--sheen);
+  animation:slideIn .42s cubic-bezier(.16,1,.3,1);
+}
+.file-info>i{color:var(--iris-l)}
+.fi-name{font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fi-size{color:var(--fg3);font-size:10.5px;font-family:'JetBrains Mono',monospace}
+.fi-remove{color:var(--fg4);cursor:pointer;padding:5px;transition:color .2s,transform .2s}
+.fi-remove:hover{color:var(--err);transform:scale(1.15)}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:none}}
+
+/* ── Toggle ── */
+.adv-toggle{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 17px;margin-top:22px;cursor:pointer;user-select:none;-webkit-user-select:none;
+  background:var(--glass);border:1px solid var(--hairline);border-radius:var(--r);
+  backdrop-filter:var(--blur-lite);-webkit-backdrop-filter:var(--blur-lite);
+  box-shadow:var(--sheen);transition:all .28s;
+}
+.adv-toggle:hover{background:var(--glass-hi);border-color:var(--hairline-hi)}
+.adv-left{display:flex;align-items:center;gap:11px;font-size:13px;font-weight:500;color:var(--fg2)}
+.adv-left i{color:var(--fg3);font-size:13px}
+.adv-toggle.on .adv-left,.adv-toggle.on .adv-left i{color:var(--iris-l)}
+.adv-switch{
+  width:44px;height:26px;flex-shrink:0;position:relative;border-radius:13px;
+  background:rgba(255,255,255,.10);border:1px solid var(--hairline);
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.4);
+  transition:background .32s,border-color .32s;
+}
+.adv-toggle.on .adv-switch{background:linear-gradient(135deg,rgba(139,140,255,.85),rgba(94,200,255,.7));border-color:rgba(169,166,255,.6);box-shadow:inset 0 1px 2px rgba(255,255,255,.24),0 0 16px rgba(139,140,255,.45)}
+.adv-switch::after{
+  content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
+  background:linear-gradient(180deg,#fff,#d8d9e8);
+  box-shadow:0 2px 6px rgba(0,0,0,.45);
+  transition:transform .36s cubic-bezier(.34,1.4,.64,1);
+}
+.adv-toggle.on .adv-switch::after{transform:translateX(18px)}
+.adv-panel{max-height:0;overflow:hidden;opacity:0;transition:max-height .44s cubic-bezier(.16,1,.3,1),opacity .3s}
+.adv-panel.open{max-height:760px;opacity:1}
+.adv-panel-inner{padding:16px 0 4px}
+
+/* ── Cards ── */
+.card{
+  position:relative;padding:16px;margin-bottom:11px;
+  background:var(--glass);border:1px solid var(--hairline);border-radius:var(--r);
+  backdrop-filter:var(--blur-lite);-webkit-backdrop-filter:var(--blur-lite);
+  box-shadow:var(--lift),var(--sheen);
+  transition:transform .3s cubic-bezier(.16,1,.3,1),border-color .3s,background .3s;
+  animation:cardIn .5s cubic-bezier(.16,1,.3,1) both;
+}
+.card::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(168deg,rgba(255,255,255,.11) 0%,transparent 48%)}
+.card:hover{border-color:var(--hairline-hi);background:var(--glass-hi);transform:translateY(-2px)}
+.card.starred{border-color:rgba(245,197,99,.3)}
+.card.starred::after{
+  content:'';position:absolute;left:0;top:16px;bottom:16px;width:2px;border-radius:2px;
+  background:linear-gradient(180deg,var(--gold),rgba(245,197,99,.15));
+  box-shadow:0 0 14px rgba(245,197,99,.6);
+}
+@keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.98);filter:blur(3px)}to{opacity:1;transform:none;filter:blur(0)}}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;position:relative;z-index:1}
+.star-btn{background:none;border:none;color:var(--fg4);font-size:15px;cursor:pointer;padding:3px;transition:color .25s,transform .3s cubic-bezier(.34,1.56,.64,1)}
+.star-btn:hover{color:var(--gold);transform:scale(1.2)}
+.star-btn.on{color:var(--gold);filter:drop-shadow(0 0 9px rgba(245,197,99,.7))}
+.card-name{font-size:13.5px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.01em}
+.card-time{font-size:9.5px;color:var(--fg4);font-family:'JetBrains Mono',monospace;white-space:nowrap}
+.card-preview{
+  position:relative;z-index:1;
+  font-size:10.5px;font-family:'JetBrains Mono',monospace;color:var(--fg4);
+  line-height:1.5;max-height:31px;overflow:hidden;word-break:break-all;margin-bottom:12px;
+  -webkit-mask-image:linear-gradient(90deg,#000 68%,transparent);mask-image:linear-gradient(90deg,#000 68%,transparent);
+}
+.card-actions{display:flex;gap:7px;position:relative;z-index:1}
+.card-actions .btn{flex:1;padding:9px 6px;font-size:11px;border-radius:11px}
+.card-actions .btn.narrow{flex:0 0 auto;padding:9px 12px}
+
+/* ── Option cards ── */
+.opt-card{
+  display:flex;align-items:center;gap:13px;padding:16px;margin-bottom:10px;cursor:pointer;
+  background:var(--glass);border:1px solid var(--hairline);border-radius:var(--r);
+  backdrop-filter:var(--blur-lite);-webkit-backdrop-filter:var(--blur-lite);
+  box-shadow:var(--sheen);transition:all .3s cubic-bezier(.16,1,.3,1);
+}
+.opt-card:hover{background:var(--glass-hi);border-color:var(--hairline-hi)}
+.opt-card.selected{
+  border-color:rgba(139,140,255,.5);
+  background:linear-gradient(135deg,rgba(139,140,255,.16),rgba(94,200,255,.07));
+  box-shadow:0 0 30px rgba(139,140,255,.18),var(--sheen);
+}
+.opt-icon{color:var(--fg3);font-size:16px;width:22px;text-align:center;transition:color .3s}
+.opt-card.selected .opt-icon{color:var(--iris-l);filter:drop-shadow(0 0 8px rgba(139,140,255,.6))}
+.opt-info{flex:1}
+.opt-name{font-size:13px;font-weight:600}
+.opt-desc{font-size:11px;color:var(--fg3);margin-top:3px;line-height:1.42;font-weight:300}
+.opt-radio{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--fg4);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color .3s}
+.opt-card.selected .opt-radio{border-color:var(--iris-l)}
+.opt-card.selected .opt-radio::after{content:'';width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--iris-l),var(--cyan));box-shadow:0 0 10px rgba(139,140,255,.8)}
+
+/* ── Empty / stats ── */
+.empty{padding:56px 20px;text-align:center;color:var(--fg4);font-size:13.5px;animation:cardIn .5s cubic-bezier(.16,1,.3,1) both}
+.empty i{font-size:30px;display:block;margin-bottom:14px;opacity:.55}
+.empty p{margin-top:7px;font-size:11px;font-weight:300;line-height:1.5}
+.stat-line{font-size:12.5px;color:var(--fg2);margin-bottom:14px;line-height:1.85;font-weight:300;padding:0 3px}
+.stat-line strong{color:var(--fg);font-weight:600;font-family:'JetBrains Mono',monospace;font-size:12px}
+.danger-zone{margin-top:34px;padding-top:24px;border-top:1px solid rgba(255,255,255,.07)}
+
+/* ── Toasts ── */
+.toast-box{position:fixed;top:calc(18px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;width:min(90vw,380px)}
+.toast{
+  display:flex;align-items:center;gap:9px;padding:13px 16px;
+  border-radius:var(--r-sm);font-size:12.5px;font-weight:500;
+  background:rgba(255,255,255,.09);
+  backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--hairline-hi);
+  box-shadow:var(--lift-lg),var(--sheen);
+  animation:tIn .45s cubic-bezier(.16,1,.3,1),tOut .35s cubic-bezier(.4,0,1,1) 2.65s forwards;
+}
+.toast-ok{color:var(--ok);border-color:rgba(92,232,176,.3)}
+.toast-err{color:var(--err);border-color:rgba(255,107,125,.3)}
+.toast-info{color:var(--iris-l);border-color:rgba(139,140,255,.32)}
+@keyframes tIn{from{opacity:0;transform:translateY(-16px) scale(.94);filter:blur(6px)}to{opacity:1;transform:none;filter:blur(0)}}
+@keyframes tOut{to{opacity:0;transform:translateY(-12px) scale(.96);filter:blur(4px)}}
+
+/* ══════════════════════════════════════════════════════════
+   LITE MODE
+   Live backdrop-filter is the single most expensive thing a
+   phone GPU can be asked to do — every blurred surface forces
+   a fresh snapshot of everything behind it, every frame.
+   Lite keeps the look and drops the live blur: the aurora
+   becomes a baked gradient, surfaces become opaque-ish fills.
+   ══════════════════════════════════════════════════════════ */
+body.lite .blob{display:none}
+body.lite .aurora{
+  filter:none;opacity:1;inset:0;
+  background:
+    radial-gradient(58% 42% at 18% 6%,rgba(120,96,255,.30),transparent 70%),
+    radial-gradient(54% 40% at 88% 82%,rgba(58,178,255,.20),transparent 70%),
+    radial-gradient(46% 36% at 96% 38%,rgba(232,88,192,.15),transparent 70%),
+    radial-gradient(40% 30% at 4% 88%,rgba(92,232,176,.10),transparent 70%);
+}
+body.lite .chrome-top,body.lite .tab-bar,body.lite .glass,body.lite .card,
+body.lite .btn,body.lite .hero-btn,body.lite .opt-card,body.lite .adv-toggle,
+body.lite .drop-zone,body.lite .file-info,body.lite .toast,
+body.lite input,body.lite textarea{backdrop-filter:none;-webkit-backdrop-filter:none}
+body.lite .chrome-top{background:linear-gradient(180deg,rgba(6,7,13,.96),rgba(6,7,13,.72) 62%,transparent)}
+body.lite .tab-bar{background:rgba(15,17,26,.93)}
+body.lite .card,body.lite .glass,body.lite .opt-card,body.lite .adv-toggle{background:rgba(21,23,33,.76)}
+body.lite .card:hover,body.lite .glass:hover,body.lite .opt-card:hover,body.lite .adv-toggle:hover{background:rgba(28,31,43,.82)}
+body.lite .opt-card.selected{background:linear-gradient(135deg,rgba(96,97,190,.5),rgba(66,120,160,.34))}
+body.lite input,body.lite textarea{background:rgba(18,20,29,.82)}
+body.lite input:focus,body.lite textarea:focus{background:rgba(24,26,37,.9)}
+body.lite .btn:not(.btn-p):not(.btn-d):not(.btn-g){background:rgba(28,31,42,.8)}
+body.lite .btn:not(.btn-p):not(.btn-d):not(.btn-g):hover{background:rgba(38,41,54,.86)}
+body.lite .btn-p{background:linear-gradient(135deg,rgba(120,121,232,.92),rgba(80,168,214,.78))}
+body.lite .hero-btn{background:linear-gradient(135deg,rgba(120,121,232,.95),rgba(80,168,214,.8))}
+body.lite .btn-d{background:rgba(74,32,42,.7)}
+body.lite .drop-zone{background:rgba(18,20,29,.55)}
+body.lite .file-info{background:rgba(58,54,110,.6)}
+body.lite .toast{background:rgba(26,28,40,.95)}
+body.lite .hero-btn::after{display:none}          /* no specular sweep */
+body.lite .card{animation:none}                    /* no per-card entrance */
+body.lite .panel{transition:opacity .16s linear;transform:none}
+body.lite .panel:not(.active){transform:none}
+body.lite .wordmark{filter:none}
+</style>
+</head>
+<body>
+
+<div class="aurora">
+  <div class="blob b1"></div><div class="blob b2"></div>
+  <div class="blob b3"></div><div class="blob b4"></div>
+</div>
+<div class="grain"></div>
+
+<div class="toast-box" id="toasts"></div>
+
+<div class="app">
+
+  <header class="chrome-top">
+    <div class="wordmark">IANUA</div>
+    <a class="wordmark-sub" href="/" style="padding:16px">← Jarvis Home</a>
+  </header>
+
+  <div class="panels">
+
+    <!-- ══ LIBRARY ══ -->
+    <section class="panel active" id="panelLibrary">
+      <div class="title-bar">
+        <h2>Library</h2>
+        <p>Everything you've kept — star it to hold it at the top</p>
+      </div>
+      <input type="search" id="searchBox" placeholder="Search…" style="margin-bottom:18px">
+      <div id="libContent"></div>
+    </section>
+
+    <!-- ══ ADD ══ -->
+    <section class="panel" id="panelAdd">
+      <div class="title-bar">
+        <h2>Inscribe</h2>
+        <p>Bring a file across, or write it here</p>
+      </div>
+
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".html,.htm,.txt" multiple>
+        <div class="dz-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+        <div class="dz-text">Drop HTML files here</div>
+        <div class="dz-sub">or tap to browse — several at once is fine</div>
+      </div>
+
+      <div id="fileInfo"></div>
+
+      <div id="nameField" style="margin-top:16px;display:none">
+        <label class="field-label">Name</label>
+        <input type="text" id="pageName" placeholder="Untitled">
+      </div>
+
+      <button class="hero-btn" id="saveBtn" onclick="saveUploaded()" disabled>
+        <i class="fa-solid fa-feather-pointed"></i> <span id="saveBtnText">Keep</span>
+      </button>
+      <button class="btn btn-block" id="openNowBtn" onclick="openUploaded()" disabled style="margin-top:11px">
+        <i class="fa-solid fa-play"></i> Open without keeping
+      </button>
+
+      <div class="adv-toggle" id="advToggle" onclick="toggleAdvanced()">
+        <div class="adv-left"><i class="fa-solid fa-terminal"></i> Write or paste HTML</div>
+        <div class="adv-switch"></div>
+      </div>
+      <div class="adv-panel" id="advPanel">
+        <div class="adv-panel-inner">
+          <textarea id="editorCode" placeholder="<!DOCTYPE html>&#10;<html>&#10;  <head><title>Hello</title></head>&#10;  <body><h1>Hello world</h1></body>&#10;</html>" style="height:clamp(170px,36vh,320px)"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:10.5px;color:var(--fg4)">
+            <span id="editorMeta" style="font-family:'JetBrains Mono',monospace">0 chars · 0 lines</span>
+            <button class="btn btn-g" onclick="insertTemplate()" style="font-size:10px"><i class="fa-solid fa-wand-magic-sparkles"></i> Template</button>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn btn-p" id="advSaveBtn" onclick="saveManual()" disabled><i class="fa-solid fa-feather-pointed"></i> Keep</button>
+            <button class="btn" id="advOpenBtn" onclick="openManual()" disabled><i class="fa-solid fa-play"></i> Open</button>
+          </div>
+          <button class="btn btn-g btn-block" id="cancelEditBtn" onclick="cancelEdit()" style="margin-top:10px;display:none">Cancel edit</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ SETTINGS ══ -->
+    <section class="panel" id="panelSettings">
+      <div class="title-bar"><h2>Settings</h2></div>
+
+      <div class="sec-head"><i class="fa-solid fa-door-open"></i> How pages open</div>
+      <div id="methodOptions"></div>
+
+      <div class="sec-head" style="margin-top:30px"><i class="fa-solid fa-wand-magic-sparkles"></i> Visual effects</div>
+      <div id="fxOptions"></div>
+
+      <div class="sec-head" style="margin-top:30px"><i class="fa-solid fa-database"></i> Storage</div>
+      <div class="stat-line" id="dataStats">…</div>
+      <div class="row">
+        <button class="btn" onclick="exportAll()"><i class="fa-solid fa-file-export"></i> Export</button>
+        <button class="btn" onclick="document.getElementById('importInput').click()"><i class="fa-solid fa-file-import"></i> Import</button>
+      </div>
+      <input type="file" id="importInput" accept=".json" style="display:none">
+
+      <div class="danger-zone">
+        <div class="sec-head" style="color:var(--err)"><i class="fa-solid fa-triangle-exclamation" style="color:var(--err);filter:none"></i> Danger</div>
+        <button class="btn btn-d btn-block" id="clearBtn" onclick="clearAllData()"><i class="fa-solid fa-trash-can"></i> Erase everything</button>
+      </div>
+    </section>
+
+  </div>
+
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="library" onclick="switchTab('library')"><i class="fa-solid fa-book-bookmark"></i><span>Library</span></button>
+    <button class="tab-btn" data-tab="add" onclick="switchTab('add')"><i class="fa-solid fa-plus"></i><span>Add</span></button>
+    <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')"><i class="fa-solid fa-sliders"></i><span>Settings</span></button>
+  </nav>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   STATE
+   ══════════════════════════════════════════════════════ */
+let db = null;
+let editingId = null;
+let pending = [];
+let searchTerm = '';
+
+const DB_NAME = 'ianua';
+const DB_VER  = 1;
+const STORE   = 'pages';
+
+/* ══════════════════════════════════════════════════════
+   TOAST
+   ══════════════════════════════════════════════════════ */
+function toast(msg, type='info'){
+  const cls = {ok:'toast-ok', err:'toast-err', info:'toast-info'};
+  const ico = {ok:'fa-circle-check', err:'fa-circle-xmark', info:'fa-circle-info'};
+  const t = document.createElement('div');
+  t.className = 'toast ' + (cls[type] || cls.info);
+  t.innerHTML = `<i class="fa-solid ${ico[type]||ico.info}"></i><span></span>`;
+  t.querySelector('span').textContent = msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(() => t.remove(), 3050);
+}
+
+/* ══════════════════════════════════════════════════════
+   INDEXEDDB
+   Record: { id, name, code, timestamp, pinned }
+   ══════════════════════════════════════════════════════ */
+function openDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains(STORE)){
+        const s = d.createObjectStore(STORE, { keyPath:'id', autoIncrement:true });
+        s.createIndex('pinned','pinned');
+        s.createIndex('timestamp','timestamp');
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+function store(mode){ return db.transaction(STORE, mode).objectStore(STORE); }
+function wrap(req){ return new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); }); }
+
+const dbAll    = ()   => wrap(store('readonly').getAll());
+const dbGet    = id   => wrap(store('readonly').get(id));
+const dbAdd    = item => wrap(store('readwrite').add(item));
+const dbPut    = item => wrap(store('readwrite').put(item));
+const dbDelete = id   => wrap(store('readwrite').delete(id));
+const dbClear  = ()   => wrap(store('readwrite').clear());
+
+/* ══════════════════════════════════════════════════════
+   TABS
+   ══════════════════════════════════════════════════════ */
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  const map = { library:'panelLibrary', add:'panelAdd', settings:'panelSettings' };
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === map[name]));
+  if(name === 'library')  renderLibrary();
+  if(name === 'settings') renderSettings();
+}
+
+/* ══════════════════════════════════════════════════════
+   OPENING
+   ══════════════════════════════════════════════════════ */
+function getMethod(){ return localStorage.getItem('ianua_method') || 'blob'; }
+function setMethod(m){ localStorage.setItem('ianua_method', m); renderSettings(); }
+
+/* ── Visual effects ──
+   Default to lite on touch devices and low-core machines,
+   where live backdrop blur costs more than it's worth.      */
+function defaultFx(){
+  const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  const weak   = (navigator.hardwareConcurrency || 8) <= 6;
+  return (coarse || weak) ? 'lite' : 'full';
+}
+function getFx(){ return localStorage.getItem('ianua_fx') || defaultFx(); }
+function applyFx(){ document.body.classList.toggle('lite', getFx() === 'lite'); }
+function setFx(v){ localStorage.setItem('ianua_fx', v); applyFx(); renderSettings(); }
+
+function openHTML(html){
+  if(!html || !html.trim()){ toast('Nothing to open','err'); return; }
+  // A sandboxed origin keeps imported HTML away from Jarvis and player storage.
+  const frame=document.createElement('iframe');
+  frame.title='HTML document';
+  frame.setAttribute('sandbox','allow-scripts allow-forms allow-modals allow-downloads');
+  frame.srcdoc=html;
+  frame.style.cssText='border:0;width:100%;height:100%;background:white';
+  if(getMethod()==='replace'){
+    const overlay=document.createElement('div');overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:#121212;padding-top:52px';
+    const close=document.createElement('button');close.textContent='← Back to Ianua';close.style.cssText='position:absolute;top:0;left:0;height:48px;padding:0 20px;color:white';close.onclick=()=>overlay.remove();overlay.append(close,frame);frame.style.height='100%';document.body.append(overlay);
+  }else{
+    const wrapper='<!doctype html><html><head><title>HTML document</title><style>html,body{margin:0;height:100%;overflow:hidden}</style></head><body>'+frame.outerHTML+'</body></html>';
+    const url=URL.createObjectURL(new Blob([wrapper],{type:'text/html'}));
+    const w=window.open(url,'_blank');if(w)w.opener=null;else toast('Pop-up blocked — allow pop-ups here','err');
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   ADD — staging files
+   ══════════════════════════════════════════════════════ */
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  readFiles([...e.dataTransfer.files]);
+});
+document.getElementById('fileInput').addEventListener('change', function(e){
+  readFiles([...e.target.files]); this.value = '';
+});
+
+function readFiles(files){
+  const valid = files.filter(f => /\.(html?|txt)$/i.test(f.name));
+  if(!valid.length){ toast('No HTML files in that selection','err'); return; }
+  let done = 0;
+  valid.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      pending.push({ name:file.name.replace(/\.[^.]+$/,''), code:reader.result, size:file.size, fullName:file.name });
+      if(++done === valid.length) renderPending();
+    };
+    reader.onerror = () => { toast('Could not read ' + file.name,'err'); if(++done === valid.length) renderPending(); };
+    reader.readAsText(file);
+  });
+}
+
+function renderPending(){
+  const box = document.getElementById('fileInfo');
+  box.innerHTML = pending.map((p,i) => `
+    <div class="file-info">
+      <i class="fa-solid fa-file-code"></i>
+      <span class="fi-name"></span>
+      <span class="fi-size">${(p.size/1024).toFixed(1)} KB</span>
+      <span class="fi-remove" onclick="removePending(${i})"><i class="fa-solid fa-xmark"></i></span>
+    </div>`).join('');
+  box.querySelectorAll('.fi-name').forEach((el,i) => el.textContent = pending[i].fullName);
+
+  const one = pending.length === 1;
+  if(one) document.getElementById('pageName').value = pending[0].name;
+  syncNameField();
+  document.getElementById('saveBtnText').textContent = pending.length > 1 ? `Keep all ${pending.length}` : 'Keep';
+  document.getElementById('saveBtn').disabled    = pending.length === 0;
+  document.getElementById('openNowBtn').disabled = !one;
+  if(pending.length) toast(`Loaded ${pending.length} file${pending.length>1?'s':''}`,'ok');
+}
+function removePending(i){ pending.splice(i,1); renderPending(); }
+function clearPending(){ pending = []; renderPending(); document.getElementById('pageName').value = ''; }
+
+function openUploaded(){ if(pending.length === 1) openHTML(pending[0].code); }
+
+async function saveUploaded(){
+  if(!pending.length) return;
+  try{
+    if(pending.length === 1){
+      const name = document.getElementById('pageName').value.trim() || pending[0].name || 'Untitled';
+      await dbAdd({ name, code:pending[0].code, timestamp:Date.now(), pinned:false });
+      toast('Kept: ' + name,'ok');
+    } else {
+      for(const p of pending) await dbAdd({ name:p.name || 'Untitled', code:p.code, timestamp:Date.now(), pinned:false });
+      toast(`Kept ${pending.length} pages`,'ok');
+    }
+    clearPending();
+    switchTab('library');
+  }catch(e){ toast('Save failed: ' + e.message,'err'); }
+}
+
+/* ══════════════════════════════════════════════════════
+   ADD — editor
+   ══════════════════════════════════════════════════════ */
+const editorCode = document.getElementById('editorCode');
+
+function toggleAdvanced(){
+  const on = document.getElementById('advToggle').classList.toggle('on');
+  document.getElementById('advPanel').classList.toggle('open', on);
+  syncNameField();
+}
+function openAdvanced(){
+  document.getElementById('advToggle').classList.add('on');
+  document.getElementById('advPanel').classList.add('open');
+  syncNameField();
+}
+/* One name box, two flows — show it whenever exactly one thing needs naming */
+function syncNameField(){
+  const editorOpen = document.getElementById('advPanel').classList.contains('open');
+  document.getElementById('nameField').style.display = (editorOpen || pending.length === 1) ? 'block' : 'none';
+}
+function editorUpdate(){
+  const code = editorCode.value;
+  document.getElementById('editorMeta').textContent =
+    `${code.length} chars · ${code ? code.split('\n').length : 0} lines`;
+  document.getElementById('advSaveBtn').disabled = !code.trim();
+  document.getElementById('advOpenBtn').disabled = !code.trim();
+}
+editorCode.addEventListener('input', editorUpdate);
+
+function insertTemplate(){
+  if(editorCode.value.trim()){ toast('Clear the editor first','info'); return; }
+  editorCode.value = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hello World</title>
+  <style>
+    body{font-family:system-ui,sans-serif;display:flex;align-items:center;
+         justify-content:center;min-height:100vh;margin:0;
+         background:#0a0a12;color:#eaeaea}
+    h1{font-size:2.5rem;letter-spacing:.05em}
+  </style>
+</head>
+<body><h1>Hello, World!</h1></body>
+</html>`;
+  editorUpdate();
+}
+
+function openManual(){ openHTML(editorCode.value); }
+
+async function saveManual(){
+  const code = editorCode.value.trim();
+  if(!code) return;
+  const name = document.getElementById('pageName').value.trim() || 'Untitled';
+  try{
+    if(editingId !== null){
+      const item = await dbGet(editingId);
+      if(item){
+        item.name = name; item.code = code; item.timestamp = Date.now();
+        await dbPut(item);
+        toast('Updated: ' + name,'ok');
+      }
+      cancelEdit();
+    } else {
+      await dbAdd({ name, code, timestamp:Date.now(), pinned:false });
+      toast('Kept: ' + name,'ok');
+      editorCode.value = '';
+      editorUpdate();
+    }
+    switchTab('library');
+  }catch(e){ toast('Save failed: ' + e.message,'err'); }
+}
+
+function cancelEdit(){
+  editingId = null;
+  editorCode.value = '';
+  document.getElementById('pageName').value = '';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  document.getElementById('advSaveBtn').innerHTML = '<i class="fa-solid fa-feather-pointed"></i> Keep';
+  syncNameField();
+  editorUpdate();
+}
+
+/* ══════════════════════════════════════════════════════
+   LIBRARY
+   ══════════════════════════════════════════════════════ */
+document.getElementById('searchBox').addEventListener('input', e => {
+  searchTerm = e.target.value.toLowerCase();
+  renderLibrary();
+});
+
+async function renderLibrary(){
+  const box = document.getElementById('libContent');
+  try{
+    let all = await dbAll();
+    if(searchTerm) all = all.filter(x => x.name.toLowerCase().includes(searchTerm));
+
+    if(!all.length){
+      box.innerHTML = searchTerm
+        ? `<div class="empty"><i class="fa-solid fa-magnifying-glass"></i>Nothing by that name</div>`
+        : `<div class="empty"><i class="fa-regular fa-moon"></i>The library is empty<p>Cross to Add and bring something through</p></div>`;
+      return;
+    }
+
+    const starred = all.filter(x => x.pinned).sort((a,b) => b.timestamp - a.timestamp);
+    const rest    = all.filter(x => !x.pinned).sort((a,b) => b.timestamp - a.timestamp);
+    let html = '';
+    if(starred.length){
+      html += `<div class="sec-head"><i class="fa-solid fa-star"></i> Starred <span class="cnt">${starred.length}</span></div>` + starred.map(renderCard).join('');
+    }
+    if(rest.length){
+      html += `<div class="sec-head"><i class="fa-solid fa-layer-group"></i> All pages <span class="cnt">${rest.length}</span></div>` + rest.map(renderCard).join('');
+    }
+    box.innerHTML = html;
+  }catch(e){
+    box.innerHTML = `<div class="empty"><i class="fa-solid fa-circle-xmark"></i>Could not open the library</div>`;
+  }
+}
+
+function renderCard(item){
+  const preview = item.code.substring(0,110).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])).replace(/\n/g,' ');
+  return `
+  <div class="card ${item.pinned?'starred':''}">
+    <div class="card-head">
+      <button class="star-btn ${item.pinned?'on':''}" onclick="togglePin(${item.id})" title="${item.pinned?'Unstar':'Star'}">
+        <i class="fa-${item.pinned?'solid':'regular'} fa-star"></i>
+      </button>
+      <span class="card-name">${esc(item.name)}</span>
+      <span class="card-time">${relTime(item.timestamp)}</span>
+    </div>
+    <div class="card-preview">${preview}</div>
+    <div class="card-actions">
+      <button class="btn btn-p" onclick="libOpen(${item.id})"><i class="fa-solid fa-play"></i> Open</button>
+      <button class="btn" onclick="libEdit(${item.id})"><i class="fa-solid fa-pen"></i> Edit</button>
+      <button class="btn narrow" onclick="libDownload(${item.id})" title="Download"><i class="fa-solid fa-file-arrow-down"></i></button>
+      <button class="btn btn-d narrow" onclick="libDelete(${item.id})" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
+    </div>
+  </div>`;
+}
+
+function esc(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function relTime(ts){
+  const d = Date.now() - ts;
+  if(d < 60000)      return 'just now';
+  if(d < 3600000)    return Math.floor(d/60000) + 'm';
+  if(d < 86400000)   return Math.floor(d/3600000) + 'h';
+  if(d < 2592000000) return Math.floor(d/86400000) + 'd';
+  return new Date(ts).toLocaleDateString();
+}
+
+async function togglePin(id){
+  const item = await dbGet(id);
+  if(!item) return;
+  item.pinned = !item.pinned;
+  await dbPut(item);
+  renderLibrary();
+  toast(item.pinned ? 'Starred: ' + item.name : 'Unstarred: ' + item.name,'ok');
+}
+
+async function libOpen(id){
+  const item = await dbGet(id);
+  if(!item) return;
+  item.timestamp = Date.now();
+  await dbPut(item);
+  openHTML(item.code);
+}
+
+async function libEdit(id){
+  const item = await dbGet(id);
+  if(!item) return;
+  switchTab('add');
+  openAdvanced();
+  editorCode.value = item.code;
+  editingId = item.id;
+  document.getElementById('pageName').value = item.name;
+  document.getElementById('cancelEditBtn').style.display = 'block';
+  document.getElementById('advSaveBtn').innerHTML = '<i class="fa-solid fa-check"></i> Update';
+  editorUpdate();
+  toast('Editing: ' + item.name,'info');
+}
+
+async function libDownload(id){
+  const item = await dbGet(id);
+  if(!item) return;
+  downloadBlob(item.code,'text/html',(item.name||'page').replace(/[^\w\-. ]/g,'_') + '.html');
+  toast('Downloaded','ok');
+}
+
+async function libDelete(id){
+  const item = await dbGet(id);
+  if(item && !confirm(`Delete “${item.name}”? This cannot be undone.`)) return;
+  await dbDelete(id);
+  renderLibrary();
+  toast('Deleted','ok');
+}
+
+function downloadBlob(text, type, filename){
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ══════════════════════════════════════════════════════
+   SETTINGS
+   ══════════════════════════════════════════════════════ */
+function renderSettings(){
+  const methods = [
+    { id:'blob',    icon:'fa-arrow-up-right-from-square', name:'New tab',        desc:'Opens on a sandboxed blob origin. The safe default.' },
+    { id:'replace', icon:'fa-rotate',                     name:'Replace this page', desc:'Loads over IANUA itself. Back button returns you.' }
+  ];
+  const cur = getMethod();
+  document.getElementById('methodOptions').innerHTML = methods.map(m => `
+    <div class="opt-card ${m.id===cur?'selected':''}" onclick="setMethod('${m.id}')">
+      <div class="opt-icon"><i class="fa-solid ${m.icon}"></i></div>
+      <div class="opt-info"><div class="opt-name">${m.name}</div><div class="opt-desc">${m.desc}</div></div>
+      <div class="opt-radio"></div>
+    </div>`).join('');
+
+  const fxs = [
+    { id:'lite', icon:'fa-bolt',     name:'Lite',   desc:'Baked gradients, no live blur. Much smoother on phones.' },
+    { id:'full', icon:'fa-gem',      name:'Full',   desc:'Drifting aurora and real backdrop blur. Heavy on mobile GPUs.' }
+  ];
+  const curFx = getFx();
+  document.getElementById('fxOptions').innerHTML = fxs.map(f => `
+    <div class="opt-card ${f.id===curFx?'selected':''}" onclick="setFx('${f.id}')">
+      <div class="opt-icon"><i class="fa-solid ${f.icon}"></i></div>
+      <div class="opt-info"><div class="opt-name">${f.name}</div><div class="opt-desc">${f.desc}</div></div>
+      <div class="opt-radio"></div>
+    </div>`).join('');
+
+  dbAll().then(async all => {
+    const bytes = all.reduce((n,x) => n + (x.code ? x.code.length : 0), 0);
+    let quota = '';
+    if(navigator.storage && navigator.storage.estimate){
+      try{
+        const est = await navigator.storage.estimate();
+        if(est.quota) quota = `<br>Browser allowance · <strong>${(est.quota/1048576).toFixed(0)} MB</strong>`;
+      }catch(e){}
+    }
+    document.getElementById('dataStats').innerHTML =
+      `<strong>${all.length}</strong> page${all.length===1?'':'s'} held · <strong>${all.filter(x=>x.pinned).length}</strong> starred<br>` +
+      `Occupying <strong>${(bytes/1048576).toFixed(2)} MB</strong>${quota}`;
+  }).catch(() => {});
+}
+
+async function exportAll(){
+  const all = await dbAll();
+  if(!all.length){ toast('Nothing to export','info'); return; }
+  downloadBlob(JSON.stringify({ format:'ianua-backup', version:1, exported:new Date().toISOString(), pages:all }, null, 2),
+    'application/json', `ianua-backup-${new Date().toISOString().slice(0,10)}.json`);
+  toast(`Exported ${all.length} pages`,'ok');
+}
+
+document.getElementById('importInput').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  this.value = '';
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try{
+      const data  = JSON.parse(reader.result);
+      const pages = Array.isArray(data) ? data : data.pages;
+      if(!Array.isArray(pages)) throw new Error('Unrecognised backup');
+      let n = 0;
+      for(const p of pages){
+        if(typeof p.code !== 'string') continue;
+        await dbAdd({ name:p.name || 'Untitled', code:p.code, timestamp:p.timestamp || Date.now(), pinned:!!p.pinned });
+        n++;
+      }
+      toast(`Imported ${n} pages`,'ok');
+      renderSettings();
+    }catch(err){ toast('Import failed: ' + err.message,'err'); }
+  };
+  reader.readAsText(file);
+});
+
+async function clearAllData(){
+  const btn = document.getElementById('clearBtn');
+  const reset = () => {
+    btn.dataset.confirm = '';
+    btn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Erase everything';
+  };
+  if(btn.dataset.confirm){
+    try{ await dbClear(); toast('Everything erased','ok'); renderSettings(); }
+    catch(e){ toast('Failed: ' + e.message,'err'); }
+    reset();
+  } else {
+    btn.dataset.confirm = '1';
+    btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Tap again to confirm';
+    setTimeout(reset, 3000);
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   INIT
+   ══════════════════════════════════════════════════════ */
+(async function init(){
+  applyFx();
+  try{
+    await openDB();
+    if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+  }catch(e){
+    toast('Storage unavailable — nothing will persist','err');
+  }
+  editorUpdate();
+  renderLibrary();
+})();
+</script>
+</body>
+</html>

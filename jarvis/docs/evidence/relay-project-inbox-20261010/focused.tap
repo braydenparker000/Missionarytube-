@@ -1,0 +1,29 @@
+✔ Python hook through real workerd HTTP: maximum Unicode/escaped replies and two-way host notification receipts (2041.618639ms)
+✔ deterministic Bash-invoked Python adapter: durable deduplication and recovery (690.802783ms)
+✔ actual workerd HTTP + SQLite persistence: two-way traffic, concurrent claims, restart, revoked grants, no egress (1611.692144ms)
+✔ disabled default; public, owner and project credentials have distinct authority (114.458678ms)
+✔ messages, explicit reply events, delivery ACK, claim, and result remain separate (31.127055ms)
+✔ concurrent duplicate sends, conflicting keys and spoofed metadata cannot change accepted data (20.516269ms)
+✔ atomic persistence rolls back on event failure, retry after storage outage is duplicate-safe (40.400719ms)
+✔ concurrent claims have one winner, retries preserve lease, expired fences cannot reply or finish (24.41819ms)
+✔ accepted reply survives lease expiry and recovery, including conflicting second reply (27.356842ms)
+✔ revocation and expiry deny reads, ACKs, writes and in-flight claims; admin cannot revive a revoked grant (44.828287ms)
+✔ cross-project reads/cursors/ACK/claims/replies denied, private owner and public history isolated (68.041759ms)
+✔ bounded pages and retained replay recover ACKed events, ACK batches roll back atomically (71.666957ms)
+✔ bounded admission does not lose accepted messages; retry remains possible while full (84.972351ms)
+✔ durable backoff and bounded recovery stop a failing host from spinning (36.599597ms)
+✔ grant creation requires explicit finite approval and management enablement (39.357046ms)
+✔ history admission reserves answers for accepted work even when notes fill capacity (258.591895ms)
+✔ existing owner MCP can explicitly manage approved grants only behind both flags, without becoming a project agent (31.317499ms)
+✔ grant revoked while a streamed send is in flight cannot commit after final authorization (13.434323ms)
+✔ both directions can initiate requests, bounded notes are inert, and oversized inputs never persist (21.004491ms)
+✔ ambiguous host timeout stays unknown, explicit reconciled retry is audited, outcome reports remain held (24.154449ms)
+✔ timeout after an accepted reply permits report-only recovery and never replaces that reply (37.043308ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3453.157223

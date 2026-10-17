@@ -1,0 +1,118 @@
+{
+  "source": {
+    "baseline": "7ebb3ac1f68b0efbd9f345d2d7123e86988814dea13bec89181613fc4df98fcf",
+    "candidate": "715fe2e947e43810c0b224156daa069d741382b6a41fab921e6ea16ae4724fe3"
+  },
+  "thresholds": {
+    "setupMaxMs": 33,
+    "deepClones": 0,
+    "styleEnumerations": 0,
+    "cssRulesReads": 0,
+    "geometryTolerance": 0.05,
+    "pixelChangedFraction": 0.0005,
+    "pixelMeanDelta": 0.05
+  },
+  "failures": [],
+  "themes": [
+    {
+      "theme": "dark",
+      "candidateSetupMs": [
+        10.200000000186265,
+        9.799999999813735,
+        2.2999999998137355,
+        8.5,
+        13.899999999906868,
+        9.600000000093132
+      ],
+      "endpointPixels": [
+        {
+          "screen": "list",
+          "pixels": {
+            "width": 1080,
+            "height": 2057,
+            "channelTolerance": 2,
+            "pixels": 2221560,
+            "changedPixels": 0,
+            "exactChangedPixels": 0,
+            "changedFraction": 0,
+            "maxChannelDelta": 0,
+            "meanChannelDelta": 0,
+            "changedBounds": null,
+            "regions": {}
+          }
+        },
+        {
+          "screen": "player",
+          "pixels": {
+            "width": 1080,
+            "height": 2057,
+            "channelTolerance": 2,
+            "pixels": 2221560,
+            "changedPixels": 1080,
+            "exactChangedPixels": 1080,
+            "changedFraction": 0.0004861448711716091,
+            "maxChannelDelta": 16,
+            "meanChannelDelta": 0.0037433155080213902,
+            "changedBounds": {
+              "left": 0,
+              "top": 2056,
+              "width": 1080,
+              "height": 1
+            },
+            "regions": {}
+          }
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "candidateSetupMs": [
+        13.600000000093132,
+        7.600000000093132,
+        11.300000000279397,
+        8.399999999906868,
+        11.200000000186265,
+        7.199999999720603
+      ],
+      "endpointPixels": [
+        {
+          "screen": "list",
+          "pixels": {
+            "width": 1080,
+            "height": 2057,
+            "channelTolerance": 2,
+            "pixels": 2221560,
+            "changedPixels": 0,
+            "exactChangedPixels": 0,
+            "changedFraction": 0,
+            "maxChannelDelta": 0,
+            "meanChannelDelta": 0,
+            "changedBounds": null,
+            "regions": {}
+          }
+        },
+        {
+          "screen": "player",
+          "pixels": {
+            "width": 1080,
+            "height": 2057,
+            "channelTolerance": 2,
+            "pixels": 2221560,
+            "changedPixels": 1080,
+            "exactChangedPixels": 1080,
+            "changedFraction": 0.0004861448711716091,
+            "maxChannelDelta": 14,
+            "meanChannelDelta": 0.002563288860080304,
+            "changedBounds": {
+              "left": 0,
+              "top": 2056,
+              "width": 1080,
+              "height": 1
+            },
+            "regions": {}
+          }
+        }
+      ]
+    }
+  ]
+}

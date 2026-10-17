@@ -1,0 +1,38 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createConversationFixture} from './helpers/relay-conversation-browser-fixture.js';
+import {hash,random} from '../backend/relay-common.js';
+test('Mast planning classifies only an existing private owner chat without duplicating it or claiming execution',async t=>{
+ const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_WORK_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}});t.after(()=>h.close());const owner=await h.pair(await h.oauth()),id=crypto.randomUUID();
+ assert.equal((await h.phone('/mast',{id,body:'Draft a weekend plan'},owner.device_token)).status,201);
+ const plan={job_id:id,event_id:crypto.randomUUID(),title:'Weekend plan',goal:'Prepare a draft',plan:['Read the request','Prepare options'],expected_revision:0};
+ const submit=(data,credential=token)=>h.fixture.request('/relay/mast/work/plan',{method:'POST',headers:{Authorization:'Bearer '+credential},body:JSON.stringify(data)});
+ assert.equal((await submit(plan,owner.device_token)).status,401);
+ const first=await(await submit(plan)).json();assert.equal(first.job.stage,'queued');assert.equal(first.job.execution,null);assert.equal(first.job.id,id);
+ assert.equal((await(await submit(plan)).json()).newWrite,false);assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_mast_entries')[0].n,1);assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_mast_work')[0].n,1);
+ const lucy=crypto.randomUUID();await h.phone('/messages',{id:lucy,body:'Unrelated Lucy request'},owner.device_token);assert.equal((await submit({...plan,job_id:lucy,event_id:crypto.randomUUID()})).status,404);
+});
+test('Muse Work owns isolated requests, plans, leases, exact-version completion/corrections and safe retry',async t=>{
+ const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_WORK_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}});t.after(()=>h.close());const owner=await h.pair(await h.oauth());
+ const phone=(path,body)=>h.phone('/mast/work'+path,body,owner.device_token),adapter=(path,body,credential=token)=>h.fixture.request('/relay/mast/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+credential},...(body?{body:JSON.stringify(body)}:{})});
+ assert.equal((await h.phone('/mast/work')).status,401);assert.equal((await adapter('work',null,owner.device_token)).status,401);
+ const id=crypto.randomUUID(),request={id,title:'Synthetic draft',body:'Prepare a draft only',action_kind:'draft'};
+ assert.equal((await phone('',request)).status,201);assert.equal((await phone('',request)).status,200);assert.equal((await phone('',{...request,title:'Changed'})).status,409);
+ assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_mast_work')[0].n,1);
+ const plan={job_id:id,event_id:crypto.randomUUID(),title:'Draft plan',goal:'Draft, no publication',plan:['Read request','Prepare draft'],expected_revision:0};assert.equal((await adapter('work/plan',plan)).status,200);assert.equal((await adapter('work/plan',plan)).status,200);
+ const run=crypto.randomUUID(),claim={job_id:id,event_id:crypto.randomUUID(),run_id:run};assert.equal((await adapter('work/claim',claim)).status,200);assert.equal((await adapter('work/claim',{...claim,event_id:crypto.randomUUID(),run_id:crypto.randomUUID()})).status,409);
+ const reply=crypto.randomUUID();await adapter('reply',{id:reply,reply_to:id,body:'Draft v1'});
+ const detail=async()=> (await (await phone('/detail?job_id='+id)).json()).job;
+ assert.equal((await detail()).stage,'outcome_unknown');
+ const done={job_id:id,event_id:crypto.randomUUID(),run_id:run,stage:'completed',outcome:'known',summary:'Draft prepared',expected_reply_id:reply,expected_version:1};
+ assert.equal((await adapter('work/update',{...done,expected_version:2})).status,409);assert.equal((await adapter('work/update',done)).status,200);
+ const correction={job_id:id,event_id:crypto.randomUUID(),expected_reply_id:reply,expected_version:1,body:'Draft v2',correction_summary:'Corrected typo'};
+ assert.equal((await adapter('work/correct',correction)).status,200);assert.equal((await adapter('work/correct',correction)).status,200);assert.equal((await adapter('work/correct',{...correction,event_id:crypto.randomUUID()})).status,409);
+ assert.equal((await detail()).completion.resultVersion,1);assert.equal((await detail()).latestResult.version,2);assert.equal(h.rows('SELECT body FROM relay_mast_entries WHERE id=?',reply)[0].body,'Draft v1');
+ const second=crypto.randomUUID();await phone('',{...request,id:second});const run2=crypto.randomUUID();await adapter('work/claim',{job_id:second,event_id:crypto.randomUUID(),run_id:run2});
+ const raw=JSON.parse(h.rows('SELECT value FROM relay_mast_work WHERE id=?',second)[0].value);raw.expires=1;h.rows('UPDATE relay_mast_work SET value=? WHERE id=?',JSON.stringify(raw),second);
+ assert.equal((await phone('/retry',{job_id:second,id:crypto.randomUUID()})).status,409);
+ const retry={job_id:second,id:crypto.randomUUID(),confirm_duplicate_risk:true};assert.equal((await phone('/retry',retry)).status,201);assert.equal((await phone('/retry',retry)).status,200);
+ assert.equal((await phone('/cancel',{job_id:retry.id,event_id:crypto.randomUUID()})).status,201);assert.equal((await adapter('work/update',{job_id:retry.id,event_id:crypto.randomUUID(),stage:'cancelled',summary:'Never started',outcome:'not_started'})).status,200);
+ assert.equal(h.rows('SELECT COUNT(*) AS n FROM relay_owner_entries WHERE body=?',request.body)[0].n,0);
+});

@@ -1,0 +1,10 @@
+import {readFile,writeFile} from 'node:fs/promises';
+import {join} from 'node:path';
+const directory=process.argv[2];
+if(!['public','dist'].includes(directory))throw Error('Expected public or dist output directory');
+const key=process.env.GOOGLE_DRIVE_API_KEY?.trim();
+if(!/^AIza[A-Za-z0-9_-]{30,}$/.test(key||''))throw Error('Set the GOOGLE_DRIVE_API_KEY Actions secret before deploying.');
+const path=join(directory,'assets/drive-config.json');
+const config=JSON.parse(await readFile(path,'utf8'));
+await writeFile(path,JSON.stringify({...config,apiKey:key})+'\n');
+console.log('Shared Drive configuration prepared.');

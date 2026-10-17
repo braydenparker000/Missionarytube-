@@ -1,0 +1,4803 @@
+[
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 8,
+    "name": "RenderInputRouter::GetWidgetInputHandler",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 2,
+    "tid": 81690,
+    "ts": 2674213297,
+    "tts": 2107179
+  },
+  {
+    "args": {
+      "action": "Action::UP"
+    },
+    "cat": "input",
+    "dur": 18,
+    "name": "GestureProvider::OnTouchEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 17,
+    "tid": 81690,
+    "ts": 2674213328,
+    "tts": 2107204
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 58,
+    "name": "RenderWidgetHostInputEventRouter::ForwardEmulatedTouchEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 51,
+    "tid": 81690,
+    "ts": 2674213348,
+    "tts": 2107223
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 31,
+    "name": "PassthroughTouchEventQueue::QueueEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 28,
+    "tid": 81690,
+    "ts": 2674213373,
+    "tts": 2107246
+  },
+  {
+    "args": {
+      "type": "TouchEnd"
+    },
+    "cat": "input",
+    "dur": 26,
+    "name": "InputRouterImpl::FilterAndSendWebInputEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 23,
+    "tid": 81690,
+    "ts": 2674213377,
+    "tts": 2107250
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "InputEventSentBlocking",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674213387,
+    "tts": 2107259
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderInputRouter::GetWidgetInputHandler",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674213389
+  },
+  {
+    "args": {
+      "num_touches": 1
+    },
+    "cat": "input",
+    "dur": 5,
+    "name": "InputHandlerProxy::HandleTouchEnd",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 5,
+    "tid": 81969,
+    "ts": 2674213459,
+    "tts": 145262
+  },
+  {
+    "args": {
+      "Disposition": 1
+    },
+    "cat": "input",
+    "dur": 32,
+    "name": "WidgetInputHandlerManager::DidHandleInputEventSentToCompositor",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 26,
+    "tid": 81969,
+    "ts": 2674213499,
+    "tts": 145301
+  },
+  {
+    "args": {
+      "dispatch_type": 0,
+      "event_type": "kTouchEnd"
+    },
+    "cat": "input",
+    "dur": 28,
+    "name": "MainThreadEventQueue::HandleEvent",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 23,
+    "tid": 81969,
+    "ts": 2674213502,
+    "tts": 145304
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Blocking",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81969,
+    "ts": 2674213504,
+    "tts": 145305
+  },
+  {
+    "args": {
+      "ack_state": "kSetNonBlocking"
+    },
+    "cat": "input",
+    "dur": 22,
+    "name": "WidgetInputHandlerManager::DidHandleInputEventSentToMain",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 20,
+    "tid": 81969,
+    "ts": 2674213507,
+    "tts": 145307
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Using allowed_touch_action",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81969,
+    "ts": 2674213510,
+    "tts": 145309
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1036,
+    "name": "PassthroughTouchEventQueue::ProcessTouchAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 152,
+    "tid": 81690,
+    "ts": 2674213567,
+    "tts": 2107306
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1021,
+    "name": "RenderWidgetHostInputEventRouter::ProcessAckedTouchEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 140,
+    "tid": 81690,
+    "ts": 2674213573,
+    "tts": 2107312
+  },
+  {
+    "args": {
+      "touch_disposition_gesture_filter": {
+        "gesture_count": 1
+      }
+    },
+    "cat": "input",
+    "dur": 104,
+    "name": "TouchDispositionGestureFilter::FilterAndSendPacket",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 78,
+    "tid": 81690,
+    "ts": 2674213577,
+    "tts": 2107316
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 102,
+    "name": "TouchDispositionGestureFilter::SendGesture",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 78,
+    "tid": 81690,
+    "ts": 2674213578,
+    "tts": 2107316
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 100,
+    "name": "RenderWidgetHostInputEventRouter::ForwardEmulatedGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 77,
+    "tid": 81690,
+    "ts": 2674213580,
+    "tts": 2107317
+  },
+  {
+    "args": {
+      "target": "0x0",
+      "type": "GestureFlingStart"
+    },
+    "cat": "input",
+    "dur": 98,
+    "name": "RenderWidgetHostInputEventRouter::DispatchTouchscreenGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 76,
+    "tid": 81690,
+    "ts": 2674213582,
+    "tts": 2107318
+  },
+  {
+    "args": {
+      "type": "GestureFlingStart"
+    },
+    "cat": "input",
+    "dur": 94,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 74,
+    "tid": 81690,
+    "ts": 2674213584,
+    "tts": 2107320
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 86,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 69,
+    "tid": 81690,
+    "ts": 2674213591,
+    "tts": 2107325
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 82,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 67,
+    "tid": 81690,
+    "ts": 2674213591,
+    "tts": 2107325
+  },
+  {
+    "args": {
+      "type": "GestureFlingStart"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674213592
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 16101.3720703125
+    },
+    "cat": "input",
+    "dur": 5,
+    "name": "FlingBooster::GetVelocityForFlingStart",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 3,
+    "tid": 81690,
+    "ts": 2674213593,
+    "tts": 2107325
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "No Boost - NoActiveFling",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674213596,
+    "tts": 2107327
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::Reset",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674213597
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 22,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 13,
+    "tid": 81690,
+    "ts": 2674213621,
+    "tts": 2107351
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 19,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 11,
+    "tid": 81690,
+    "ts": 2674213624,
+    "tts": 2107353
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674213625
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674213625
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 5,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 2,
+    "tid": 81690,
+    "ts": 2674213626,
+    "tts": 2107353
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674213628,
+    "tts": 2107354
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674213628,
+    "tts": 2107354
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674213629,
+    "tts": 2107354
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674213630,
+    "tts": 2107355
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 11,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 9,
+    "tid": 81690,
+    "ts": 2674213631,
+    "tts": 2107355
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674213631,
+    "tts": 2107355
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 3,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 2,
+    "tid": 81690,
+    "ts": 2674213639,
+    "tts": 2107362
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674213640,
+    "tts": 2107363
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 14147.9296875
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674213644
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForFling",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674213673,
+    "tts": 2107392
+  },
+  {
+    "args": {
+      "type": "GestureFlingStart"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674213675
+  },
+  {
+    "args": {
+      "type": "GestureFlingStart"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674213676
+  },
+  {
+    "args": {
+      "target": "0x0"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostInputEventRouter::SetTouchscreenGestureTarget",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674213678
+  },
+  {
+    "args": {
+      "num": 1
+    },
+    "cat": "input",
+    "dur": 4,
+    "name": "TouchActionFilter::DecreaseActiveTouches",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 4,
+    "tid": 81690,
+    "ts": 2674214596,
+    "tts": 2107452
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "TouchActionFilter::ResetTouchAction",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 2,
+    "tid": 81690,
+    "ts": 2674214600,
+    "tts": 2107456
+  },
+  {
+    "args": {
+      "caused_frame_update": true,
+      "generation_ts": 2674117958,
+      "gesture": 7
+    },
+    "cat": "input",
+    "dur": 11,
+    "name": "GestureType",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 8,
+    "tid": 81969,
+    "ts": 2674227748,
+    "tts": 145818
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 64,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 52,
+    "tid": 81690,
+    "ts": 2674227975,
+    "tts": 2112241
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 48,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 39,
+    "tid": 81690,
+    "ts": 2674227989,
+    "tts": 2112254
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674227991,
+    "tts": 2112255
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674227992
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 26,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 23,
+    "tid": 81690,
+    "ts": 2674227994,
+    "tts": 2112256
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674227995,
+    "tts": 2112257
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674227996,
+    "tts": 2112258
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674227997,
+    "tts": 2112258
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674227998,
+    "tts": 2112258
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 17,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 14,
+    "tid": 81690,
+    "ts": 2674228020,
+    "tts": 2112279
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674228021,
+    "tts": 2112279
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 7,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 5,
+    "tid": 81690,
+    "ts": 2674228030,
+    "tts": 2112288
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 2,
+    "tid": 81690,
+    "ts": 2674228034,
+    "tts": 2112291
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 11659.037109375
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674228039,
+    "tts": 2112293
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 67,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 54,
+    "tid": 81690,
+    "ts": 2674243215,
+    "tts": 2113792
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 46,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 38,
+    "tid": 81690,
+    "ts": 2674243235,
+    "tts": 2113808
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 3,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674243236,
+    "tts": 2113809
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674243238
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 5,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 2,
+    "tid": 81690,
+    "ts": 2674243239,
+    "tts": 2113810
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674243240,
+    "tts": 2113811
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674243241,
+    "tts": 2113812
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674243242,
+    "tts": 2113812
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674243243,
+    "tts": 2113812
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 37,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 34,
+    "tid": 81690,
+    "ts": 2674243244,
+    "tts": 2113812
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674243245,
+    "tts": 2113829
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 6,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 5,
+    "tid": 81690,
+    "ts": 2674243274,
+    "tts": 2113841
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674243278,
+    "tts": 2113845
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 10033.388671875
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674243282,
+    "tts": 2113846
+  },
+  {
+    "args": {
+      "caused_frame_update": true,
+      "generation_ts": 2674117958,
+      "gesture": 16
+    },
+    "cat": "input",
+    "dur": 16,
+    "name": "GestureType",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 13,
+    "tid": 81969,
+    "ts": 2674259843,
+    "tts": 146759
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 45,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 35,
+    "tid": 81690,
+    "ts": 2674260238,
+    "tts": 2114180
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 27,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 20,
+    "tid": 81690,
+    "ts": 2674260255,
+    "tts": 2114195
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 3,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674260256,
+    "tts": 2114196
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674260258
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 5,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 3,
+    "tid": 81690,
+    "ts": 2674260259,
+    "tts": 2114197
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674260260,
+    "tts": 2114198
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674260261,
+    "tts": 2114199
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674260262,
+    "tts": 2114199
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674260263,
+    "tts": 2114200
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 18,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 15,
+    "tid": 81690,
+    "ts": 2674260264,
+    "tts": 2114200
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674260265,
+    "tts": 2114200
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 6,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 5,
+    "tid": 81690,
+    "ts": 2674260276,
+    "tts": 2114210
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674260280,
+    "tts": 2114214
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 8703.9111328125
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674260283,
+    "tts": 2114215
+  },
+  {
+    "args": {
+      "caused_frame_update": true,
+      "generation_ts": 2674197012,
+      "gesture": 6
+    },
+    "cat": "input",
+    "dur": 8,
+    "name": "GestureType",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 4,
+    "tid": 81969,
+    "ts": 2674276807,
+    "tts": 148849
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 48,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 39,
+    "tid": 81690,
+    "ts": 2674276947,
+    "tts": 2114620
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 30,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 21,
+    "tid": 81690,
+    "ts": 2674276965,
+    "tts": 2114638
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674276967,
+    "tts": 2114639
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674276968
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 5,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 2,
+    "tid": 81690,
+    "ts": 2674276969,
+    "tts": 2114640
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674276971,
+    "tts": 2114641
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674276972,
+    "tts": 2114642
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674276973,
+    "tts": 2114642
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674276974,
+    "tts": 2114642
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 20,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 17,
+    "tid": 81690,
+    "ts": 2674276974,
+    "tts": 2114642
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674276975,
+    "tts": 2114642
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 7,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 6,
+    "tid": 81690,
+    "ts": 2674276987,
+    "tts": 2114653
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674276992,
+    "tts": 2114658
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 7710.865234375
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674276996,
+    "tts": 2114659
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 50,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 39,
+    "tid": 81690,
+    "ts": 2674293425,
+    "tts": 2115063
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 29,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 22,
+    "tid": 81690,
+    "ts": 2674293445,
+    "tts": 2115080
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674293447,
+    "tts": 2115081
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674293448
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 5,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 3,
+    "tid": 81690,
+    "ts": 2674293449,
+    "tts": 2115082
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674293450,
+    "tts": 2115083
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674293451,
+    "tts": 2115084
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674293452,
+    "tts": 2115084
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674293453,
+    "tts": 2115085
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 20,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 17,
+    "tid": 81690,
+    "ts": 2674293454,
+    "tts": 2115085
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674293455,
+    "tts": 2115085
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 7,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 6,
+    "tid": 81690,
+    "ts": 2674293467,
+    "tts": 2115096
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674293472,
+    "tts": 2115101
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 6932.9541015625
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674293475,
+    "tts": 2115102
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 51,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 40,
+    "tid": 81690,
+    "ts": 2674310212,
+    "tts": 2115463
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 29,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 21,
+    "tid": 81690,
+    "ts": 2674310233,
+    "tts": 2115482
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 3,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674310234,
+    "tts": 2115483
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674310236
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 5,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 3,
+    "tid": 81690,
+    "ts": 2674310237,
+    "tts": 2115484
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674310238,
+    "tts": 2115485
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674310239,
+    "tts": 2115486
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674310240,
+    "tts": 2115486
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674310241,
+    "tts": 2115487
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 20,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 16,
+    "tid": 81690,
+    "ts": 2674310242,
+    "tts": 2115487
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674310243,
+    "tts": 2115487
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 7,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 5,
+    "tid": 81690,
+    "ts": 2674310255,
+    "tts": 2115498
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674310260,
+    "tts": 2115502
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 6302.48974609375
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674310263,
+    "tts": 2115503
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 42,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 33,
+    "tid": 81690,
+    "ts": 2674326567,
+    "tts": 2115966
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 24,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 18,
+    "tid": 81690,
+    "ts": 2674326584,
+    "tts": 2115981
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674326585
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674326586
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 5,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 3,
+    "tid": 81690,
+    "ts": 2674326587,
+    "tts": 2115982
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674326588,
+    "tts": 2115983
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674326589,
+    "tts": 2115984
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674326590,
+    "tts": 2115984
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674326591,
+    "tts": 2115985
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 16,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 14,
+    "tid": 81690,
+    "ts": 2674326592,
+    "tts": 2115985
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674326592,
+    "tts": 2115985
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 7,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 5,
+    "tid": 81690,
+    "ts": 2674326601,
+    "tts": 2115994
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674326606,
+    "tts": 2115998
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 5778.31689453125
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674326610,
+    "tts": 2115999
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 55,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 43,
+    "tid": 81690,
+    "ts": 2674343158,
+    "tts": 2116628
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 40,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 32,
+    "tid": 81690,
+    "ts": 2674343172,
+    "tts": 2116639
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674343173,
+    "tts": 2116640
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674343174
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 23,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 20,
+    "tid": 81690,
+    "ts": 2674343176,
+    "tts": 2116641
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674343177,
+    "tts": 2116642
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674343196,
+    "tts": 2116661
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674343197,
+    "tts": 2116661
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674343198,
+    "tts": 2116661
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 13,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 10,
+    "tid": 81690,
+    "ts": 2674343199,
+    "tts": 2116661
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674343199,
+    "tts": 2116661
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 5,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 4,
+    "tid": 81690,
+    "ts": 2674343206,
+    "tts": 2116667
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674343210,
+    "tts": 2116670
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 5333.71142578125
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674343213,
+    "tts": 2116671
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 31,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 20,
+    "tid": 81690,
+    "ts": 2674360052,
+    "tts": 2117034
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 18,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 9,
+    "tid": 81690,
+    "ts": 2674360064,
+    "tts": 2117045
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674360065
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674360065
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 3,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674360067
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674360068,
+    "tts": 2117046
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674360068,
+    "tts": 2117046
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674360069,
+    "tts": 2117046
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674360070,
+    "tts": 2117046
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 10,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 8,
+    "tid": 81690,
+    "ts": 2674360071,
+    "tts": 2117046
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674360071,
+    "tts": 2117046
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 4,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 3,
+    "tid": 81690,
+    "ts": 2674360077,
+    "tts": 2117051
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674360080,
+    "tts": 2117053
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 4950.556640625
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674360083
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 28,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 17,
+    "tid": 81690,
+    "ts": 2674376780,
+    "tts": 2117948
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 17,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 8,
+    "tid": 81690,
+    "ts": 2674376790,
+    "tts": 2117957
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674376791
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674376792
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 3,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674376793
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674376794,
+    "tts": 2117957
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674376795,
+    "tts": 2117957
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674376795,
+    "tts": 2117957
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674376796,
+    "tts": 2117957
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 10,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 8,
+    "tid": 81690,
+    "ts": 2674376797,
+    "tts": 2117957
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674376797,
+    "tts": 2117957
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 4,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 3,
+    "tid": 81690,
+    "ts": 2674376803,
+    "tts": 2117962
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674376805,
+    "tts": 2117964
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 4616.01708984375
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674376808,
+    "tts": 2117965
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 38,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 25,
+    "tid": 81690,
+    "ts": 2674393653,
+    "tts": 2118901
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 19,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 11,
+    "tid": 81690,
+    "ts": 2674393671,
+    "tts": 2118915
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674393672
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674393673
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 3,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674393674
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674393675,
+    "tts": 2118915
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674393675,
+    "tts": 2118915
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674393676,
+    "tts": 2118915
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674393677,
+    "tts": 2118915
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 13,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 11,
+    "tid": 81690,
+    "ts": 2674393677,
+    "tts": 2118915
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674393678,
+    "tts": 2118915
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 6,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 5,
+    "tid": 81690,
+    "ts": 2674393684,
+    "tts": 2118921
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674393688,
+    "tts": 2118925
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 4320.7587890625
+    },
+    "cat": "input",
+    "dur": 21,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674393691,
+    "tts": 2118945
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 39,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 29,
+    "tid": 81690,
+    "ts": 2674409904,
+    "tts": 2119245
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 22,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 15,
+    "tid": 81690,
+    "ts": 2674409920,
+    "tts": 2119259
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674409921,
+    "tts": 2119260
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674409922
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 4,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674409924,
+    "tts": 2119261
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674409924,
+    "tts": 2119261
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674409926,
+    "tts": 2119262
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674409926,
+    "tts": 2119262
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674409927,
+    "tts": 2119262
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 14,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 12,
+    "tid": 81690,
+    "ts": 2674409928,
+    "tts": 2119262
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674409928,
+    "tts": 2119262
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 5,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 4,
+    "tid": 81690,
+    "ts": 2674409937,
+    "tts": 2119270
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674409940,
+    "tts": 2119273
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 4057.596435546875
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674409943,
+    "tts": 2119274
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 37,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 27,
+    "tid": 81690,
+    "ts": 2674426585,
+    "tts": 2119719
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 22,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 15,
+    "tid": 81690,
+    "ts": 2674426599,
+    "tts": 2119731
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 3,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674426600,
+    "tts": 2119732
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674426602
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 4,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674426603,
+    "tts": 2119733
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674426604,
+    "tts": 2119733
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674426605,
+    "tts": 2119733
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674426605,
+    "tts": 2119733
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674426606,
+    "tts": 2119734
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 14,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 12,
+    "tid": 81690,
+    "ts": 2674426607,
+    "tts": 2119734
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674426607,
+    "tts": 2119734
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 5,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 4,
+    "tid": 81690,
+    "ts": 2674426616,
+    "tts": 2119742
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674426619,
+    "tts": 2119745
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 3821.37353515625
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674426622
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 67,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 56,
+    "tid": 81690,
+    "ts": 2674443273,
+    "tts": 2121413
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 51,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 43,
+    "tid": 81690,
+    "ts": 2674443288,
+    "tts": 2121426
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 28,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674443289,
+    "tts": 2121452
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674443316
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 6,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 3,
+    "tid": 81690,
+    "ts": 2674443317,
+    "tts": 2121453
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674443319,
+    "tts": 2121454
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674443320,
+    "tts": 2121455
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674443321,
+    "tts": 2121455
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674443322,
+    "tts": 2121456
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 15,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 13,
+    "tid": 81690,
+    "ts": 2674443323,
+    "tts": 2121456
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674443323,
+    "tts": 2121456
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 6,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 5,
+    "tid": 81690,
+    "ts": 2674443332,
+    "tts": 2121464
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674443336,
+    "tts": 2121468
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 3607.783447265625
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674443340,
+    "tts": 2121469
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 38,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 28,
+    "tid": 81690,
+    "ts": 2674459916,
+    "tts": 2122804
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 23,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 15,
+    "tid": 81690,
+    "ts": 2674459930,
+    "tts": 2122817
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674459932,
+    "tts": 2122818
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674459933
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 4,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674459934,
+    "tts": 2122819
+  },
+  {
+    "args": {
+      "action": "NONE"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674459935,
+    "tts": 2122820
+  },
+  {
+    "args": {
+      "action": "n/a"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674459936,
+    "tts": 2122820
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674459937,
+    "tts": 2122820
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Drop Events",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674459938,
+    "tts": 2122820
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 14,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 12,
+    "tid": 81690,
+    "ts": 2674459939,
+    "tts": 2122820
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674459939,
+    "tts": 2122820
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 6,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 4,
+    "tid": 81690,
+    "ts": 2674459947,
+    "tts": 2122828
+  },
+  {
+    "args": {
+      "type": "GestureScrollUpdate"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674459951,
+    "tts": 2122831
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 3413.471435546875
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveProgressFling",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674459955,
+    "tts": 2122832
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderInputRouter::GetWidgetInputHandler",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674460428,
+    "tts": 2123079
+  },
+  {
+    "args": {
+      "action": "Action::DOWN"
+    },
+    "cat": "input",
+    "dur": 15,
+    "name": "GestureProvider::OnTouchEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 14,
+    "tid": 81690,
+    "ts": 2674460444,
+    "tts": 2123094
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 58,
+    "name": "RenderWidgetHostInputEventRouter::ForwardEmulatedTouchEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 52,
+    "tid": 81690,
+    "ts": 2674460461,
+    "tts": 2123110
+  },
+  {
+    "args": {
+      "target": "0x138c01e9ed08"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostInputEventRouter::CancelScrollBubblingIfConflicting",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674460465,
+    "tts": 2123113
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 42,
+    "name": "PassthroughTouchEventQueue::QueueEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 39,
+    "tid": 81690,
+    "ts": 2674460476,
+    "tts": 2123123
+  },
+  {
+    "args": {
+      "type": "TouchStart"
+    },
+    "cat": "input",
+    "dur": 39,
+    "name": "InputRouterImpl::FilterAndSendWebInputEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 36,
+    "tid": 81690,
+    "ts": 2674460479,
+    "tts": 2123126
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "InputEventSentBlocking",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674460506,
+    "tts": 2123152
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "RenderInputRouter::GetWidgetInputHandler",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674460508
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 22,
+    "name": "InputHandlerProxy::HandleTouchStart",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 18,
+    "tid": 81969,
+    "ts": 2674460603,
+    "tts": 154927
+  },
+  {
+    "args": {
+      "Needs allowed TouchAction": true
+    },
+    "cat": "input",
+    "dur": 19,
+    "name": "InputHandlerProxy::HitTestTouchEvent",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 16,
+    "tid": 81969,
+    "ts": 2674460604,
+    "tts": 154928
+  },
+  {
+    "args": {
+      "TouchAction": "NONE"
+    },
+    "cat": "input",
+    "name": "Adding TouchAction",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81969,
+    "ts": 2674460618,
+    "tts": 154941
+  },
+  {
+    "args": {
+      "Type": 1
+    },
+    "cat": "input",
+    "name": "HaveHandler",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81969,
+    "ts": 2674460620,
+    "tts": 154942
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "DidNotHandle due to no touchaction",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81969,
+    "ts": 2674460621,
+    "tts": 154943
+  },
+  {
+    "args": {
+      "new": 1,
+      "old": -1
+    },
+    "cat": "input",
+    "name": "Update touch_result_",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81969,
+    "ts": 2674460622,
+    "tts": 154943
+  },
+  {
+    "args": {
+      "disposition": 1
+    },
+    "cat": "input",
+    "name": "HitTest",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81969,
+    "ts": 2674460624,
+    "tts": 154944
+  },
+  {
+    "args": {
+      "TouchAction": "NONE",
+      "disposition": 1
+    },
+    "cat": "input",
+    "name": "Allowed TouchAction",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81969,
+    "ts": 2674460625,
+    "tts": 154945
+  },
+  {
+    "args": {
+      "Disposition": 1
+    },
+    "cat": "input",
+    "dur": 9,
+    "name": "WidgetInputHandlerManager::DidHandleInputEventSentToCompositor",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 7,
+    "tid": 81969,
+    "ts": 2674460630,
+    "tts": 154949
+  },
+  {
+    "args": {
+      "dispatch_type": 0,
+      "event_type": "{kTouchStart, kTouchTypeFirst}"
+    },
+    "cat": "input",
+    "dur": 4,
+    "name": "MainThreadEventQueue::HandleEvent",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 4,
+    "tid": 81969,
+    "ts": 2674460634,
+    "tts": 154952
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Blocking",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81969,
+    "ts": 2674460636,
+    "tts": 154954
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 15,
+    "name": "EventHandler::BestNodeForHitTestResult",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 14,
+    "tid": 81954,
+    "ts": 2674460992,
+    "tts": 2801766
+  },
+  {
+    "args": {
+      "touch_action": "MANIPULATION"
+    },
+    "cat": "input",
+    "dur": 7,
+    "name": "InputRouterImpl::SetTouchActionFromMain",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 4,
+    "tid": 81690,
+    "ts": 2674461103,
+    "tts": 2123222
+  },
+  {
+    "args": {
+      "action": "MANIPULATION",
+      "allowed": "n/a"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "TouchActionFilter::OnSetTouchAction",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674461105,
+    "tts": 2123224
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1,
+    "name": "InputRouterImpl::ProcessDeferredGestureEventQueue",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674461107
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Unknown InputEventResultState",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674461109,
+    "tts": 2123226
+  },
+  {
+    "args": {
+      "ack_state": "kNotConsumed"
+    },
+    "cat": "input",
+    "dur": 15,
+    "name": "WidgetInputHandlerManager::DidHandleInputEventSentToMain",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 13,
+    "tid": 81954,
+    "ts": 2674462087,
+    "tts": 2802816
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "PostingToCompositor",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81954,
+    "ts": 2674462090,
+    "tts": 2802818
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 153,
+    "name": "PassthroughTouchEventQueue::ProcessTouchAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 82,
+    "tid": 81690,
+    "ts": 2674462181,
+    "tts": 2123246
+  },
+  {
+    "args": {
+      "num": 0
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "TouchActionFilter::IncreaseActiveTouches",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674462182,
+    "tts": 2123247
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 147,
+    "name": "RenderWidgetHostInputEventRouter::ProcessAckedTouchEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 78,
+    "tid": 81690,
+    "ts": 2674462186,
+    "tts": 2123250
+  },
+  {
+    "args": {
+      "touch_disposition_gesture_filter": {
+        "gesture_count": 1
+      }
+    },
+    "cat": "input",
+    "dur": 83,
+    "name": "TouchDispositionGestureFilter::FilterAndSendPacket",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 55,
+    "tid": 81690,
+    "ts": 2674462192,
+    "tts": 2123255
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 68,
+    "name": "TouchDispositionGestureFilter::SendGesture",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 51,
+    "tid": 81690,
+    "ts": 2674462193,
+    "tts": 2123255
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 65,
+    "name": "RenderWidgetHostInputEventRouter::ForwardEmulatedGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 50,
+    "tid": 81690,
+    "ts": 2674462195,
+    "tts": 2123256
+  },
+  {
+    "args": {
+      "target": "0x0",
+      "type": "GestureFlingCancel"
+    },
+    "cat": "input",
+    "dur": 63,
+    "name": "RenderWidgetHostInputEventRouter::DispatchTouchscreenGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 48,
+    "tid": 81690,
+    "ts": 2674462197,
+    "tts": 2123258
+  },
+  {
+    "args": {
+      "type": "GestureFlingCancel"
+    },
+    "cat": "input",
+    "dur": 62,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 47,
+    "tid": 81690,
+    "ts": 2674462198,
+    "tts": 2123259
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 54,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 41,
+    "tid": 81690,
+    "ts": 2674462205,
+    "tts": 2123265
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 51,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 40,
+    "tid": 81690,
+    "ts": 2674462205,
+    "tts": 2123265
+  },
+  {
+    "args": {
+      "type": "GestureFlingCancel"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674462206
+  },
+  {
+    "args": {
+      "type": "GestureScrollEnd"
+    },
+    "cat": "input",
+    "dur": 44,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 35,
+    "tid": 81690,
+    "ts": 2674462207,
+    "tts": 2123265
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 25,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 18,
+    "tid": 81690,
+    "ts": 2674462225,
+    "tts": 2123282
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674462226
+  },
+  {
+    "args": {
+      "type": "GestureScrollEnd"
+    },
+    "cat": "input",
+    "name": "FlingBooster::ObserveGestureEvent",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674462226
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "TouchActionFilter::FilterGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674462227
+  },
+  {
+    "args": {
+      "action": "MANIPULATION"
+    },
+    "cat": "input",
+    "name": "active_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674462228,
+    "tts": 2123282
+  },
+  {
+    "args": {
+      "action": "MANIPULATION"
+    },
+    "cat": "input",
+    "name": "allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674462228,
+    "tts": 2123282
+  },
+  {
+    "args": {
+      "action": "AUTO"
+    },
+    "cat": "input",
+    "name": "compositor_allowed_action",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674462229,
+    "tts": 2123282
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 19,
+    "name": "InputRouterImpl::SendGestureEventWithoutQueueing",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 18,
+    "tid": 81690,
+    "ts": 2674462230,
+    "tts": 2123282
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForTouchAction",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674462230,
+    "tts": 2123282
+  },
+  {
+    "args": {
+      "type": "GestureScrollEnd"
+    },
+    "cat": "input",
+    "dur": 4,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 3,
+    "tid": 81690,
+    "ts": 2674462245,
+    "tts": 2123297
+  },
+  {
+    "args": {
+      "type": "GestureScrollEnd"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 2,
+    "tid": 81690,
+    "ts": 2674462247,
+    "tts": 2123298
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForFling",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674462256,
+    "tts": 2123305
+  },
+  {
+    "args": {
+      "type": "GestureFlingCancel"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674462257
+  },
+  {
+    "args": {
+      "type": "GestureFlingCancel"
+    },
+    "cat": "input",
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674462258
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 13,
+    "name": "TouchDispositionGestureFilter::SendGesture",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 4,
+    "tid": 81690,
+    "ts": 2674462261,
+    "tts": 2123306
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 12,
+    "name": "RenderWidgetHostInputEventRouter::ForwardEmulatedGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 4,
+    "tid": 81690,
+    "ts": 2674462262,
+    "tts": 2123306
+  },
+  {
+    "args": {
+      "target": "0x0",
+      "type": "GestureTapDown"
+    },
+    "cat": "input",
+    "dur": 11,
+    "name": "RenderWidgetHostInputEventRouter::DispatchTouchscreenGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 4,
+    "tid": 81690,
+    "ts": 2674462263,
+    "tts": 2123306
+  },
+  {
+    "args": {
+      "target": "0x138c01e9ed08"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostInputEventRouter::CancelScrollBubblingIfConflicting",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674462264
+  },
+  {
+    "args": {
+      "target": "0x138c01e9ed08"
+    },
+    "cat": "input",
+    "name": "RenderWidgetHostInputEventRouter::SetTouchscreenGestureTarget",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674462265
+  },
+  {
+    "args": {
+      "type": "GestureTapDown"
+    },
+    "cat": "input",
+    "dur": 8,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 3,
+    "tid": 81690,
+    "ts": 2674462266,
+    "tts": 2123307
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 4,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674462269,
+    "tts": 2123309
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674462269,
+    "tts": 2123309
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilterTapSuppression",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674462269,
+    "tts": 2123309
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForFling",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674462271,
+    "tts": 2123310
+  },
+  {
+    "args": {
+      "type": "GestureTapDown"
+    },
+    "cat": "input",
+    "dur": 2,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674462271
+  },
+  {
+    "args": {
+      "type": "GestureTapDown"
+    },
+    "cat": "input",
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674462272
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 7,
+    "name": "RenderInputRouter::GetWidgetInputHandler",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 2,
+    "tid": 81690,
+    "ts": 2674494523,
+    "tts": 2123960
+  },
+  {
+    "args": {
+      "action": "Action::UP"
+    },
+    "cat": "input",
+    "dur": 17,
+    "name": "GestureProvider::OnTouchEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 17,
+    "tid": 81690,
+    "ts": 2674494550,
+    "tts": 2123981
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 75,
+    "name": "RenderWidgetHostInputEventRouter::ForwardEmulatedTouchEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 69,
+    "tid": 81690,
+    "ts": 2674494570,
+    "tts": 2123999
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 31,
+    "name": "PassthroughTouchEventQueue::QueueEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 26,
+    "tid": 81690,
+    "ts": 2674494613,
+    "tts": 2124042
+  },
+  {
+    "args": {
+      "type": "TouchEnd"
+    },
+    "cat": "input",
+    "dur": 25,
+    "name": "InputRouterImpl::FilterAndSendWebInputEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 23,
+    "tid": 81690,
+    "ts": 2674494618,
+    "tts": 2124045
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "InputEventSentBlocking",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674494628,
+    "tts": 2124055
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderInputRouter::GetWidgetInputHandler",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674494630
+  },
+  {
+    "args": {
+      "num_touches": 1
+    },
+    "cat": "input",
+    "dur": 3,
+    "name": "InputHandlerProxy::HandleTouchEnd",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 3,
+    "tid": 81969,
+    "ts": 2674494723,
+    "tts": 155781
+  },
+  {
+    "args": {
+      "Disposition": 1
+    },
+    "cat": "input",
+    "dur": 10,
+    "name": "WidgetInputHandlerManager::DidHandleInputEventSentToCompositor",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 7,
+    "tid": 81969,
+    "ts": 2674494733,
+    "tts": 155790
+  },
+  {
+    "args": {
+      "dispatch_type": 0,
+      "event_type": "kTouchEnd"
+    },
+    "cat": "input",
+    "dur": 4,
+    "name": "MainThreadEventQueue::HandleEvent",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 4,
+    "tid": 81969,
+    "ts": 2674494738,
+    "tts": 155793
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Blocking",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81969,
+    "ts": 2674494740,
+    "tts": 155795
+  },
+  {
+    "args": {
+      "ack_state": "kNotConsumed"
+    },
+    "cat": "input",
+    "dur": 15,
+    "name": "WidgetInputHandlerManager::DidHandleInputEventSentToMain",
+    "ph": "X",
+    "pid": 81954,
+    "tdur": 12,
+    "tid": 81954,
+    "ts": 2674495974,
+    "tts": 2828426
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "Using allowed_touch_action",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81954,
+    "ts": 2674495976,
+    "tts": 2828427
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "PostingToCompositor",
+    "ph": "I",
+    "pid": 81954,
+    "s": "t",
+    "tid": 81954,
+    "ts": 2674495977,
+    "tts": 2828427
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1067,
+    "name": "PassthroughTouchEventQueue::ProcessTouchAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 96,
+    "tid": 81690,
+    "ts": 2674496085,
+    "tts": 2124170
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1056,
+    "name": "RenderWidgetHostInputEventRouter::ProcessAckedTouchEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 89,
+    "tid": 81690,
+    "ts": 2674496092,
+    "tts": 2124177
+  },
+  {
+    "args": {
+      "touch_disposition_gesture_filter": {
+        "gesture_count": 1
+      }
+    },
+    "cat": "input",
+    "dur": 1048,
+    "name": "TouchDispositionGestureFilter::FilterAndSendPacket",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 83,
+    "tid": 81690,
+    "ts": 2674496098,
+    "tts": 2124182
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1047,
+    "name": "TouchDispositionGestureFilter::SendGesture",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 82,
+    "tid": 81690,
+    "ts": 2674496099,
+    "tts": 2124183
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 43,
+    "name": "TouchDispositionGestureFilter::SendGesture",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 35,
+    "tid": 81690,
+    "ts": 2674496101,
+    "tts": 2124184
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 42,
+    "name": "RenderWidgetHostInputEventRouter::ForwardEmulatedGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 34,
+    "tid": 81690,
+    "ts": 2674496102,
+    "tts": 2124185
+  },
+  {
+    "args": {
+      "target": "0x0",
+      "type": "GestureShowPress"
+    },
+    "cat": "input",
+    "dur": 39,
+    "name": "RenderWidgetHostInputEventRouter::DispatchTouchscreenGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 32,
+    "tid": 81690,
+    "ts": 2674496105,
+    "tts": 2124187
+  },
+  {
+    "args": {
+      "type": "GestureShowPress"
+    },
+    "cat": "input",
+    "dur": 35,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 30,
+    "tid": 81690,
+    "ts": 2674496108,
+    "tts": 2124189
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 27,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 22,
+    "tid": 81690,
+    "ts": 2674496116,
+    "tts": 2124197
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 2,
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674496117,
+    "tts": 2124197
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilterTapSuppression",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674496118,
+    "tts": 2124197
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForFling",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674496119,
+    "tts": 2124198
+  },
+  {
+    "args": {
+      "type": "GestureShowPress"
+    },
+    "cat": "input",
+    "dur": 3,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 2,
+    "tid": 81690,
+    "ts": 2674496139,
+    "tts": 2124217
+  },
+  {
+    "args": {
+      "type": "GestureShowPress"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674496141,
+    "tts": 2124218
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1000,
+    "name": "RenderWidgetHostInputEventRouter::ForwardEmulatedGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 46,
+    "tid": 81690,
+    "ts": 2674496145,
+    "tts": 2124219
+  },
+  {
+    "args": {
+      "target": "0x0",
+      "type": "GestureTap"
+    },
+    "cat": "input",
+    "dur": 1000,
+    "name": "RenderWidgetHostInputEventRouter::DispatchTouchscreenGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 46,
+    "tid": 81690,
+    "ts": 2674496145,
+    "tts": 2124219
+  },
+  {
+    "args": {
+      "type": "GestureTap"
+    },
+    "cat": "input",
+    "dur": 996,
+    "name": "RenderInputRouter::ForwardGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 45,
+    "tid": 81690,
+    "ts": 2674496146,
+    "tts": 2124219
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 992,
+    "name": "InputRouterImpl::SendGestureEvent",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 43,
+    "tid": 81690,
+    "ts": 2674496149,
+    "tts": 2124221
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FlingController::ObserveAndMaybeConsumeGestureEvent",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674496150
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilterTapSuppression",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674496150,
+    "tts": 2124221
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "name": "FilteredForFling",
+    "ph": "I",
+    "pid": 81690,
+    "s": "t",
+    "tid": 81690,
+    "ts": 2674496151,
+    "tts": 2124221
+  },
+  {
+    "args": {
+      "type": "GestureTap"
+    },
+    "cat": "input",
+    "dur": 988,
+    "name": "RenderInputRouter::OnGestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 42,
+    "tid": 81690,
+    "ts": 2674496152,
+    "tts": 2124222
+  },
+  {
+    "args": {
+      "type": "GestureTap"
+    },
+    "cat": "input",
+    "dur": 6,
+    "name": "RenderWidgetHostViewAura::GestureEventAck",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 3,
+    "tid": 81690,
+    "ts": 2674497134,
+    "tts": 2124261
+  },
+  {
+    "args": {
+      "target": "0x0"
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "RenderWidgetHostInputEventRouter::SetTouchscreenGestureTarget",
+    "ph": "X",
+    "pid": 81690,
+    "tdur": 1,
+    "tid": 81690,
+    "ts": 2674497143,
+    "tts": 2124264
+  },
+  {
+    "args": {
+      "num": 1
+    },
+    "cat": "input",
+    "dur": 1,
+    "name": "TouchActionFilter::DecreaseActiveTouches",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674497149
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "dur": 1,
+    "name": "TouchActionFilter::ResetTouchAction",
+    "ph": "X",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674497150
+  },
+  {
+    "args": {
+      "vx": 0,
+      "vy": 16101.3720703125
+    },
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "FlingController::HandlingGestureFling",
+    "ph": "b",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674213612
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674213616
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674227966
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674243204
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674260228
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674276936
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674293414
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674310200
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674326558
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674343150
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674360046
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674376774
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674393644
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674409896
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674426577
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674443265
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "ProgressFling",
+    "ph": "n",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674459908
+  },
+  {
+    "args": {},
+    "cat": "input",
+    "id2": {
+      "local": "0x5e"
+    },
+    "name": "FlingController::HandlingGestureFling",
+    "ph": "e",
+    "pid": 81690,
+    "tid": 81690,
+    "ts": 2674462254
+  }
+]

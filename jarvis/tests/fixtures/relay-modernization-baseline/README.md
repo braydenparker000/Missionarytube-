@@ -1,0 +1,3 @@
+These three before images render the unchanged Relay source identified in manifest.json. All studio/workshop content, sessions and devices are fictional. Offline Chrome serves the actual local application and Worker/SQLite fixture; two unrelated service configurations are replaced with empty local stubs. The image bytes and capture geometry are preserved, with SHA-256 hashes. They are review evidence, not screenshot equality assertions or a real owner browser capture.
+
+The Relay modernization browser check uses the existing JARVIS_SCREENSHOT_DIR artifact route to export these before images and 31 corresponding after scenarios from the checked-out candidate. The workflow and qualification gates are unchanged.

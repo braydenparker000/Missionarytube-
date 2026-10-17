@@ -1,0 +1,7 @@
+{
+  "scriptFile": "index.cjs",
+  "bindings": [
+    {"authLevel": "anonymous", "type": "httpTrigger", "direction": "in", "name": "req", "methods": ["post"], "route": "relay-egress"},
+    {"type": "http", "direction": "out", "name": "$return"}
+  ]
+}

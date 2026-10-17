@@ -1,0 +1,1412 @@
+{
+  "synthetic": true,
+  "node": "v22.23.3",
+  "browser": "Google Chrome for Testing 154.0.8037.97",
+  "backend": "Real Worker routing and SQLite; original Azure Origin; offline CDP fixture; no live requests",
+  "capturedAt": "2026-10-08T07:00:04.352Z",
+  "evidence": [
+    {
+      "name": "real-owner-360x800",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "geometry": {
+        "width": 360,
+        "documentWidth": 360,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 360,
+          "height": 72,
+          "top": 0,
+          "right": 360,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 659,
+          "width": 360,
+          "height": 141,
+          "top": 659,
+          "right": 360,
+          "bottom": 800,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-menu-360x800",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "geometry": {
+        "width": 360,
+        "documentWidth": 360,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 360,
+          "height": 72,
+          "top": 0,
+          "right": 360,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 659,
+          "width": 360,
+          "height": 141,
+          "top": 659,
+          "right": 360,
+          "bottom": 800,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 120,
+          "width": 360,
+          "height": 680,
+          "top": 120,
+          "right": 360,
+          "bottom": 800,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 906,
+          "clientHeight": 678,
+          "heading": {
+            "x": 21,
+            "y": 141,
+            "width": 318,
+            "height": 61,
+            "top": 141,
+            "right": 339,
+            "bottom": 202,
+            "left": 21
+          },
+          "focus": "<button class=\"icon-button\" aria-label=\"Close\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 6 12 12M6 18 18 6"
+        }
+      }
+    },
+    {
+      "name": "real-owner-queued-360x800",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "geometry": {
+        "width": 360,
+        "documentWidth": 360,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 360,
+          "height": 72,
+          "top": 0,
+          "right": 360,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 659,
+          "width": 360,
+          "height": 141,
+          "top": 659,
+          "right": 360,
+          "bottom": 800,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 261,
+          "width": 360,
+          "height": 539,
+          "top": 261,
+          "right": 360,
+          "bottom": 800,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 537,
+          "clientHeight": 537,
+          "heading": {
+            "x": 21,
+            "y": 282,
+            "width": 318,
+            "height": 61,
+            "top": 282,
+            "right": 339,
+            "bottom": 343,
+            "left": 21
+          },
+          "focus": "<dialog class=\"app-sheet conversation-sheet owner-request-detail\" id=\"relay-owner-request-dialog\" aria-label=\"Private request\" open=\"\"><div class=\"dialog-heading\"><h2 class=\"\">Private request</h2><button class=\"icon-butt"
+        }
+      }
+    },
+    {
+      "name": "real-owner-result-360x800",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "geometry": {
+        "width": 360,
+        "documentWidth": 360,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 360,
+          "height": 72,
+          "top": 0,
+          "right": 360,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 659,
+          "width": 360,
+          "height": 141,
+          "top": 659,
+          "right": 360,
+          "bottom": 800,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 120,
+          "width": 360,
+          "height": 680,
+          "top": 120,
+          "right": 360,
+          "bottom": 800,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 841,
+          "clientHeight": 678,
+          "heading": {
+            "x": 21,
+            "y": 141,
+            "width": 318,
+            "height": 61,
+            "top": 141,
+            "right": 339,
+            "bottom": 202,
+            "left": 21
+          },
+          "focus": "<dialog class=\"app-sheet conversation-sheet owner-request-detail\" id=\"relay-owner-request-dialog\" aria-label=\"Private request\" open=\"\"><div class=\"dialog-heading\"><h2 class=\"\">Private request</h2><button class=\"icon-butt"
+        }
+      }
+    },
+    {
+      "name": "real-owner-request-360x800",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "geometry": {
+        "width": 360,
+        "documentWidth": 360,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 360,
+          "height": 72,
+          "top": 0,
+          "right": 360,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 477,
+          "width": 360,
+          "height": 323,
+          "top": 477,
+          "right": 360,
+          "bottom": 800,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-390x844",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 72,
+          "top": 0,
+          "right": 390,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 703,
+          "width": 390,
+          "height": 141,
+          "top": 703,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-menu-390x844",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 72,
+          "top": 0,
+          "right": 390,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 703,
+          "width": 390,
+          "height": 141,
+          "top": 703,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 126.609375,
+          "width": 390,
+          "height": 717.390625,
+          "top": 126.609375,
+          "right": 390,
+          "bottom": 844,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 906,
+          "clientHeight": 715,
+          "heading": {
+            "x": 21,
+            "y": 147.609375,
+            "width": 348,
+            "height": 61,
+            "top": 147.609375,
+            "right": 369,
+            "bottom": 208.609375,
+            "left": 21
+          },
+          "focus": "<button class=\"icon-button\" aria-label=\"Close\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 6 12 12M6 18 18 6"
+        }
+      }
+    },
+    {
+      "name": "real-owner-queued-390x844",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 72,
+          "top": 0,
+          "right": 390,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 703,
+          "width": 390,
+          "height": 141,
+          "top": 703,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 361,
+          "width": 390,
+          "height": 483,
+          "top": 361,
+          "right": 390,
+          "bottom": 844,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 481,
+          "clientHeight": 481,
+          "heading": {
+            "x": 21,
+            "y": 382,
+            "width": 348,
+            "height": 61,
+            "top": 382,
+            "right": 369,
+            "bottom": 443,
+            "left": 21
+          },
+          "focus": "<dialog class=\"app-sheet conversation-sheet owner-request-detail\" id=\"relay-owner-request-dialog\" aria-label=\"Private request\" open=\"\"><div class=\"dialog-heading\"><h2 class=\"\">Private request</h2><button class=\"icon-butt"
+        }
+      }
+    },
+    {
+      "name": "real-owner-result-390x844",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 72,
+          "top": 0,
+          "right": 390,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 703,
+          "width": 390,
+          "height": 141,
+          "top": 703,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 126.609375,
+          "width": 390,
+          "height": 717.390625,
+          "top": 126.609375,
+          "right": 390,
+          "bottom": 844,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 841,
+          "clientHeight": 715,
+          "heading": {
+            "x": 21,
+            "y": 147.609375,
+            "width": 348,
+            "height": 61,
+            "top": 147.609375,
+            "right": 369,
+            "bottom": 208.609375,
+            "left": 21
+          },
+          "focus": "<dialog class=\"app-sheet conversation-sheet owner-request-detail\" id=\"relay-owner-request-dialog\" aria-label=\"Private request\" open=\"\"><div class=\"dialog-heading\"><h2 class=\"\">Private request</h2><button class=\"icon-butt"
+        }
+      }
+    },
+    {
+      "name": "real-owner-request-390x844",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 72,
+          "top": 0,
+          "right": 390,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 521,
+          "width": 390,
+          "height": 323,
+          "top": 521,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-412x915",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "geometry": {
+        "width": 412,
+        "documentWidth": 412,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 412,
+          "height": 72,
+          "top": 0,
+          "right": 412,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 774,
+          "width": 412,
+          "height": 141,
+          "top": 774,
+          "right": 412,
+          "bottom": 915,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-menu-412x915",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "geometry": {
+        "width": 412,
+        "documentWidth": 412,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 412,
+          "height": 72,
+          "top": 0,
+          "right": 412,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 774,
+          "width": 412,
+          "height": 141,
+          "top": 774,
+          "right": 412,
+          "bottom": 915,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 137.25,
+          "width": 412,
+          "height": 777.75,
+          "top": 137.25,
+          "right": 412,
+          "bottom": 915,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 906,
+          "clientHeight": 776,
+          "heading": {
+            "x": 21,
+            "y": 158.25,
+            "width": 370,
+            "height": 61,
+            "top": 158.25,
+            "right": 391,
+            "bottom": 219.25,
+            "left": 21
+          },
+          "focus": "<button class=\"icon-button\" aria-label=\"Close\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 6 12 12M6 18 18 6"
+        }
+      }
+    },
+    {
+      "name": "real-owner-queued-412x915",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "geometry": {
+        "width": 412,
+        "documentWidth": 412,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 412,
+          "height": 72,
+          "top": 0,
+          "right": 412,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 774,
+          "width": 412,
+          "height": 141,
+          "top": 774,
+          "right": 412,
+          "bottom": 915,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 452,
+          "width": 412,
+          "height": 463,
+          "top": 452,
+          "right": 412,
+          "bottom": 915,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 461,
+          "clientHeight": 461,
+          "heading": {
+            "x": 21,
+            "y": 473,
+            "width": 370,
+            "height": 61,
+            "top": 473,
+            "right": 391,
+            "bottom": 534,
+            "left": 21
+          },
+          "focus": "<dialog class=\"app-sheet conversation-sheet owner-request-detail\" id=\"relay-owner-request-dialog\" aria-label=\"Private request\" open=\"\"><div class=\"dialog-heading\"><h2 class=\"\">Private request</h2><button class=\"icon-butt"
+        }
+      }
+    },
+    {
+      "name": "real-owner-result-412x915",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "geometry": {
+        "width": 412,
+        "documentWidth": 412,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 412,
+          "height": 72,
+          "top": 0,
+          "right": 412,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 774,
+          "width": 412,
+          "height": 141,
+          "top": 774,
+          "right": 412,
+          "bottom": 915,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 137.25,
+          "width": 412,
+          "height": 777.75,
+          "top": 137.25,
+          "right": 412,
+          "bottom": 915,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 821,
+          "clientHeight": 776,
+          "heading": {
+            "x": 21,
+            "y": 158.25,
+            "width": 370,
+            "height": 61,
+            "top": 158.25,
+            "right": 391,
+            "bottom": 219.25,
+            "left": 21
+          },
+          "focus": "<dialog class=\"app-sheet conversation-sheet owner-request-detail\" id=\"relay-owner-request-dialog\" aria-label=\"Private request\" open=\"\"><div class=\"dialog-heading\"><h2 class=\"\">Private request</h2><button class=\"icon-butt"
+        }
+      }
+    },
+    {
+      "name": "real-owner-request-412x915",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "geometry": {
+        "width": 412,
+        "documentWidth": 412,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 412,
+          "height": 72,
+          "top": 0,
+          "right": 412,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 592,
+          "width": 412,
+          "height": 323,
+          "top": 592,
+          "right": 412,
+          "bottom": 915,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-390x520",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 520
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 64,
+          "top": 0,
+          "right": 390,
+          "bottom": 64,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 379,
+          "width": 390,
+          "height": 141,
+          "top": 379,
+          "right": 390,
+          "bottom": 520,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-menu-390x520",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 520
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 64,
+          "top": 0,
+          "right": 390,
+          "bottom": 64,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 379,
+          "width": 390,
+          "height": 141,
+          "top": 379,
+          "right": 390,
+          "bottom": 520,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 78,
+          "width": 390,
+          "height": 442,
+          "top": 78,
+          "right": 390,
+          "bottom": 520,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 906,
+          "clientHeight": 440,
+          "heading": {
+            "x": 21,
+            "y": 99,
+            "width": 348,
+            "height": 61,
+            "top": 99,
+            "right": 369,
+            "bottom": 160,
+            "left": 21
+          },
+          "focus": "<button class=\"icon-button\" aria-label=\"Close\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 6 12 12M6 18 18 6"
+        }
+      }
+    },
+    {
+      "name": "real-owner-queued-390x520",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 520
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 64,
+          "top": 0,
+          "right": 390,
+          "bottom": 64,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 379,
+          "width": 390,
+          "height": 141,
+          "top": 379,
+          "right": 390,
+          "bottom": 520,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 78,
+          "width": 390,
+          "height": 442,
+          "top": 78,
+          "right": 390,
+          "bottom": 520,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 481,
+          "clientHeight": 440,
+          "heading": {
+            "x": 21,
+            "y": 99,
+            "width": 348,
+            "height": 61,
+            "top": 99,
+            "right": 369,
+            "bottom": 160,
+            "left": 21
+          },
+          "focus": "<dialog class=\"app-sheet conversation-sheet owner-request-detail\" id=\"relay-owner-request-dialog\" aria-label=\"Private request\" open=\"\"><div class=\"dialog-heading\"><h2 class=\"\">Private request</h2><button class=\"icon-butt"
+        }
+      }
+    },
+    {
+      "name": "real-owner-result-390x520",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 520
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 64,
+          "top": 0,
+          "right": 390,
+          "bottom": 64,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 379,
+          "width": 390,
+          "height": 141,
+          "top": 379,
+          "right": 390,
+          "bottom": 520,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 78,
+          "width": 390,
+          "height": 442,
+          "top": 78,
+          "right": 390,
+          "bottom": 520,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 841,
+          "clientHeight": 440,
+          "heading": {
+            "x": 21,
+            "y": 99,
+            "width": 348,
+            "height": 61,
+            "top": 99,
+            "right": 369,
+            "bottom": 160,
+            "left": 21
+          },
+          "focus": "<dialog class=\"app-sheet conversation-sheet owner-request-detail\" id=\"relay-owner-request-dialog\" aria-label=\"Private request\" open=\"\"><div class=\"dialog-heading\"><h2 class=\"\">Private request</h2><button class=\"icon-butt"
+        }
+      }
+    },
+    {
+      "name": "real-owner-request-390x520",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 520
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 64,
+          "top": 0,
+          "right": 390,
+          "bottom": 64,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 247,
+          "width": 390,
+          "height": 273,
+          "top": 247,
+          "right": 390,
+          "bottom": 520,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-1280x900",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "geometry": {
+        "width": 1280,
+        "documentWidth": 1280,
+        "header": {
+          "x": 261,
+          "y": 0,
+          "width": 758,
+          "height": 72,
+          "top": 0,
+          "right": 1019,
+          "bottom": 72,
+          "left": 261
+        },
+        "composer": {
+          "x": 261,
+          "y": 759,
+          "width": 758,
+          "height": 141,
+          "top": 759,
+          "right": 1019,
+          "bottom": 900,
+          "left": 261
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-menu-1280x900",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "geometry": {
+        "width": 1280,
+        "documentWidth": 1280,
+        "header": {
+          "x": 261,
+          "y": 0,
+          "width": 758,
+          "height": 72,
+          "top": 0,
+          "right": 1019,
+          "bottom": 72,
+          "left": 261
+        },
+        "composer": {
+          "x": 261,
+          "y": 759,
+          "width": 758,
+          "height": 141,
+          "top": 759,
+          "right": 1019,
+          "bottom": 900,
+          "left": 261
+        },
+        "sheet": {
+          "x": 320,
+          "y": 111,
+          "width": 640,
+          "height": 765,
+          "top": 111,
+          "right": 960,
+          "bottom": 876,
+          "left": 320,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 884,
+          "clientHeight": 763,
+          "heading": {
+            "x": 341,
+            "y": 132,
+            "width": 598,
+            "height": 61,
+            "top": 132,
+            "right": 939,
+            "bottom": 193,
+            "left": 341
+          },
+          "focus": "<button class=\"icon-button\" aria-label=\"Close\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 6 12 12M6 18 18 6"
+        }
+      }
+    },
+    {
+      "name": "real-owner-queued-1280x900",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "geometry": {
+        "width": 1280,
+        "documentWidth": 1280,
+        "header": {
+          "x": 261,
+          "y": 0,
+          "width": 758,
+          "height": 72,
+          "top": 0,
+          "right": 1019,
+          "bottom": 72,
+          "left": 261
+        },
+        "composer": {
+          "x": 261,
+          "y": 759,
+          "width": 758,
+          "height": 141,
+          "top": 759,
+          "right": 1019,
+          "bottom": 900,
+          "left": 261
+        },
+        "sheet": {
+          "x": 320,
+          "y": 413,
+          "width": 640,
+          "height": 463,
+          "top": 413,
+          "right": 960,
+          "bottom": 876,
+          "left": 320,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 461,
+          "clientHeight": 461,
+          "heading": {
+            "x": 341,
+            "y": 434,
+            "width": 598,
+            "height": 61,
+            "top": 434,
+            "right": 939,
+            "bottom": 495,
+            "left": 341
+          },
+          "focus": "<dialog class=\"app-sheet conversation-sheet owner-request-detail\" id=\"relay-owner-request-dialog\" aria-label=\"Private request\" open=\"\"><div class=\"dialog-heading\"><h2 class=\"\">Private request</h2><button class=\"icon-butt"
+        }
+      }
+    },
+    {
+      "name": "real-owner-result-1280x900",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "geometry": {
+        "width": 1280,
+        "documentWidth": 1280,
+        "header": {
+          "x": 261,
+          "y": 0,
+          "width": 758,
+          "height": 72,
+          "top": 0,
+          "right": 1019,
+          "bottom": 72,
+          "left": 261
+        },
+        "composer": {
+          "x": 261,
+          "y": 759,
+          "width": 758,
+          "height": 141,
+          "top": 759,
+          "right": 1019,
+          "bottom": 900,
+          "left": 261
+        },
+        "sheet": {
+          "x": 320,
+          "y": 111,
+          "width": 640,
+          "height": 765,
+          "top": 111,
+          "right": 960,
+          "bottom": 876,
+          "left": 320,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 773,
+          "clientHeight": 763,
+          "heading": {
+            "x": 341,
+            "y": 132,
+            "width": 598,
+            "height": 61,
+            "top": 132,
+            "right": 939,
+            "bottom": 193,
+            "left": 341
+          },
+          "focus": "<dialog class=\"app-sheet conversation-sheet owner-request-detail\" id=\"relay-owner-request-dialog\" aria-label=\"Private request\" open=\"\"><div class=\"dialog-heading\"><h2 class=\"\">Private request</h2><button class=\"icon-butt"
+        }
+      }
+    },
+    {
+      "name": "real-owner-request-1280x900",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "geometry": {
+        "width": 1280,
+        "documentWidth": 1280,
+        "header": {
+          "x": 261,
+          "y": 0,
+          "width": 758,
+          "height": 72,
+          "top": 0,
+          "right": 1019,
+          "bottom": 72,
+          "left": 261
+        },
+        "composer": {
+          "x": 261,
+          "y": 645,
+          "width": 758,
+          "height": 255,
+          "top": 645,
+          "right": 1019,
+          "bottom": 900,
+          "left": 261
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-correction-390x844",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 72,
+          "top": 0,
+          "right": 390,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 703,
+          "width": 390,
+          "height": 141,
+          "top": 703,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "sheet": {
+          "x": 0,
+          "y": 126.609375,
+          "width": 390,
+          "height": 717.390625,
+          "top": 126.609375,
+          "right": 390,
+          "bottom": 844,
+          "left": 0,
+          "opacity": "1",
+          "background": "rgb(27, 27, 27)",
+          "scrollTop": 0,
+          "scrollHeight": 933,
+          "clientHeight": 715,
+          "heading": {
+            "x": 21,
+            "y": 147.609375,
+            "width": 348,
+            "height": 61,
+            "top": 147.609375,
+            "right": 369,
+            "bottom": 208.609375,
+            "left": 21
+          },
+          "focus": "<dialog class=\"app-sheet conversation-sheet owner-request-detail\" id=\"relay-owner-request-dialog\" aria-label=\"Private request\" open=\"\"><div class=\"dialog-heading\"><h2 class=\"\">Private request</h2><button class=\"icon-butt"
+        }
+      }
+    },
+    {
+      "name": "real-muse-empty-390x844",
+      "url": "https://missionarytube.z13.web.core.windows.net/muse/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 72,
+          "top": 0,
+          "right": 390,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 733,
+          "width": 390,
+          "height": 111,
+          "top": 733,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-muse-send-unconfirmed-390x844",
+      "url": "https://missionarytube.z13.web.core.windows.net/muse/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 72,
+          "top": 0,
+          "right": 390,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 733,
+          "width": 390,
+          "height": 111,
+          "top": 733,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-public-error-390x844",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 72,
+          "top": 0,
+          "right": 390,
+          "bottom": 72,
+          "left": 0
+        },
+        "composer": {
+          "x": 0,
+          "y": 733,
+          "width": 390,
+          "height": 111,
+          "top": 733,
+          "right": 390,
+          "bottom": 844,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-loading-390x844",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 72,
+          "top": 0,
+          "right": 390,
+          "bottom": 72,
+          "left": 0
+        },
+        "sheet": null
+      }
+    },
+    {
+      "name": "real-owner-expired-390x844",
+      "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "geometry": {
+        "width": 390,
+        "documentWidth": 390,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 72,
+          "top": 0,
+          "right": 390,
+          "bottom": 72,
+          "left": 0
+        },
+        "sheet": null
+      }
+    }
+  ]
+}

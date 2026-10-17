@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-10-12T04:35:34.307851+00:00",
+  "rawBytes": 968384,
+  "rawSha256": "86bc49aac0a6c1b1fab06e6020e956b5e40d21cd252acde97f9ee7a7d61e9bcf",
+  "gzipBytes": 229417,
+  "gzipSha256": "07cfd399e28484c1aea5ac9095feccf27c968aedc7b58e74bb23564631a4d3a2",
+  "playlists": 8,
+  "entries": 3810,
+  "counts": [
+    145,
+    1139,
+    984,
+    448,
+    288,
+    472,
+    270,
+    64
+  ],
+  "catalogTracks": 6828,
+  "catalogSha256": "24cd4c00b177fbd3f88c3259557c6f2fcdd88b6f5b0014a6e6a5a0182344659d",
+  "exactIdMatches": 3810,
+  "missing": 0,
+  "ambiguous": 0,
+  "fallbackMatches": 0,
+  "audioDownloads": 0
+}

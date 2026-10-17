@@ -1,0 +1,21 @@
+{
+  "analyzeRun": 36969619574,
+  "analyzeArtifact": 11211850074,
+  "analyzeArtifactSha256": "af71b7a4a6954f0ec07713ea7d48db8adbc3f5338cc4de95ba78be8284942f7e",
+  "localDigestVerified": true,
+  "applyRun": 36970101878,
+  "analyzerSourceCommit": "cebdc8d924e35480aaefc293e0a90e8e113118c3",
+  "patchesReviewedAndApplied": 100,
+  "failures": 0,
+  "higherThanUnknownAssumption": 12,
+  "maxSourceTruePeakDbtp": 5.8,
+  "schemaAndLiveAnalysisExact": true,
+  "allPreviousOriginalIdentitiesPreserved": 1600,
+  "liveCatalogCountAtVerification": 1603,
+  "analyzedTrackCount": 120,
+  "audioWrites": 0,
+  "googleRequests": 0,
+  "scope": "Bounded one-time R2 metadata analysis; source originals unchanged; no schedule",
+  "applyArtifact": 11211705301,
+  "applyArtifactGitHubSha256": "d6f4f11da9dd881b1826f6d58b1de65ac7cd7600022f3ba00945110e56ea917a"
+}

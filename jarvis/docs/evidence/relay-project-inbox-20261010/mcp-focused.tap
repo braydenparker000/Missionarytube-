@@ -1,0 +1,35 @@
+✔ Python hook through real workerd HTTP: maximum Unicode/escaped replies and two-way host notification receipts (2277.279562ms)
+✔ deterministic Bash-invoked Python adapter: durable deduplication and recovery (360.643036ms)
+✔ actual workerd HTTP + SQLite persistence: two-way traffic, concurrent claims, restart, revoked grants, no egress (1809.182534ms)
+✔ disabled default; public, owner and project credentials have distinct authority (113.867356ms)
+✔ messages, explicit reply events, delivery ACK, claim, and result remain separate (78.07823ms)
+✔ concurrent duplicate sends, conflicting keys and spoofed metadata cannot change accepted data (101.879302ms)
+✔ atomic persistence rolls back on event failure, retry after storage outage is duplicate-safe (49.739754ms)
+✔ concurrent claims have one winner, retries preserve lease, expired fences cannot reply or finish (51.018567ms)
+✔ accepted reply survives lease expiry and recovery, including conflicting second reply (48.382552ms)
+✔ revocation and expiry deny reads, ACKs, writes and in-flight claims; admin cannot revive a revoked grant (24.513681ms)
+✔ cross-project reads/cursors/ACK/claims/replies denied, private owner and public history isolated (41.412529ms)
+✔ bounded pages and retained replay recover ACKed events, ACK batches roll back atomically (57.531602ms)
+✔ bounded admission does not lose accepted messages; retry remains possible while full (86.773632ms)
+✔ durable backoff and bounded recovery stop a failing host from spinning (40.117313ms)
+✔ grant creation requires explicit finite approval and management enablement (49.302664ms)
+✔ history admission reserves answers for accepted work even when notes fill capacity (572.940871ms)
+✔ existing owner MCP can explicitly manage approved grants only behind both flags, without becoming a project agent (25.109241ms)
+✔ grant revoked while a streamed send is in flight cannot commit after final authorization (19.244878ms)
+✔ both directions can initiate requests, bounded notes are inert, and oversized inputs never persist (24.806692ms)
+✔ ambiguous host timeout stays unknown, explicit reconciled retry is audited, outcome reports remain held (26.448542ms)
+✔ timeout after an accepted reply permits report-only recovery and never replaces that reply (36.220558ms)
+✔ held-state cooldown begins at recording time for every transition and preserves recovery cap (60.173958ms)
+✔ OAuth participation requires explicit exact-grant binding; typed MCP operations isolate identity and private data (59.191563ms)
+✔ project MCP callbacks are separately gated, binding-addressed, replayable and revoked before delivery (67.24722ms)
+✔ binding survives same-family refresh, requires explicit replacement after revocation, and denies callback verification races (24.904456ms)
+✔ unauthorized HTTP and MCP project sends cannot reserve shared alarms (12.614591ms)
+✔ project event discovery is gated and callbacks stop on binding expiry, parent revocation or flag disablement (135.027939ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3300.199368

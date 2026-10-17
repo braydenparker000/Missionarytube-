@@ -1,0 +1,17 @@
+{
+  "synthetic": true,
+  "node": "v22.23.3",
+  "browser": "Google Chrome for Testing 154.0.8037.97",
+  "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scope": "Synthetic local Worker/SQLite/browser; not production latency",
+  "importedMs": 1.385614999999916,
+  "renderedMs": 23.773343999999952,
+  "acceptedReplyUnchanged": true,
+  "revision1Visible": true,
+  "revision2Visible": true,
+  "reloadDeduplicated": true
+}

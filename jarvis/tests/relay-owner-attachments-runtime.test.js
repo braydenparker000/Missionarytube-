@@ -1,0 +1,44 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
+import {build} from 'esbuild';
+import {Miniflare,convertV4MiniflareOptions} from 'miniflare';
+import {PRIMARY_SITE} from '../backend/origins.js';
+import {raster,id} from './helpers/relay-attachment-fixture.js';
+test('private attachments: actual workerd SQLite and full Worker/Hub HTTP routing preserve exact bytes/hash and owner gating',{timeout:60000},async()=>{
+ const config=JSON.parse(readFileSync(new URL('../backend/wrangler.jsonc',import.meta.url),'utf8'));
+ const bundle=await build({entryPoints:[fileURLToPath(new URL('./helpers/relay-attachment-runtime-worker.js',import.meta.url))],bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',external:['node:crypto']});
+ let egress=0;
+ const origin='https://attachment-runtime.example.test';
+ const mf=new Miniflare(convertV4MiniflareOptions({name:'local-private-attachment-runtime',modules:true,script:bundle.outputFiles[0].text,compatibilityDate:config.compatibility_date,compatibilityFlags:config.compatibility_flags||[],cf:false,telemetry:{enabled:false},bindings:{RELAY_MCP_ENABLED:'true',RELAY_OWNER_ENABLED:'true',RELAY_MCP_ORIGIN:origin},durableObjects:{HUBS:{className:'AttachmentRuntimeHub',useSQLite:true}},outboundService(){egress++;throw Error('Private attachment fixtures must not make external requests');}}));
+ try{
+  const setup=await(await mf.dispatchFetch(origin+'/fixture/setup')).json();assert.match(setup.token,/^[a-f0-9]{64}$/);
+  const request=(path,body,token=setup.token)=>mf.dispatchFetch(origin+path,{method:body===undefined?'GET':'POST',headers:{Origin:PRIMARY_SITE,...(token?{Authorization:'Bearer '+token}:{}),...(body===undefined?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+  assert.equal((await(await request('/relay/owner/session')).json()).attachments_enabled,true);
+  const message=id(),attachment=id(),bytes=Buffer.from(raster.png,'base64'),sha=createHash('sha256').update(bytes).digest('hex');
+  const uploaded=await request('/relay/owner/attachments',{id:attachment,message_id:message,name:'synthetic.png',mime_type:'image/png',data_base64:raster.png});
+  assert.equal(uploaded.status,201);assert.equal((await uploaded.json()).attachment.sha256,sha);
+  const sent=await request('/relay/owner/messages',{id:message,body:'Synthetic actual workerd fixture',attachment_ids:[attachment]});
+  assert.equal(sent.status,201);const entry=(await sent.json()).entry;assert.equal(entry.attachments[0].id,attachment);assert.equal(entry.attachments[0].sha256,sha);
+  const route='/relay/owner/attachments/content?message_id='+message+'&attachment_id='+attachment;
+  const content=await request(route);assert.equal(content.status,200);assert.deepEqual(Buffer.from(await content.arrayBuffer()),bytes);
+  const preview=await request(route+'&preview=1');assert.equal(preview.status,200);assert.match(preview.headers.get('Content-Disposition'),/^inline;/);
+  const native=await request('/fixture/tool',{name:'relay_owner_attachment_read',args:{inbox_id:'brayden-owner',message_id:message,attachment_id:attachment}});
+  const result=await native.json();assert.equal(result.structuredContent.attachment.sha256,sha);
+  assert.deepEqual(Buffer.from(result.content.find(c=>c.type==='image').data,'base64'),bytes);
+  const largeMessage=id(),largeAttachment=id(),largeBytes=Buffer.alloc(1048576,65),largeSha=createHash('sha256').update(largeBytes).digest('hex');
+  const largeUpload=await request('/relay/owner/attachments',{id:largeAttachment,message_id:largeMessage,name:'large-synthetic.txt',mime_type:'text/plain',data_base64:largeBytes.toString('base64')});
+  assert.equal(largeUpload.status,201);assert.equal((await largeUpload.json()).attachment.sha256,largeSha);
+  assert.equal((await request('/relay/owner/messages',{id:largeMessage,body:'Synthetic maximum BLOB fixture',attachment_ids:[largeAttachment]})).status,201);
+  const largeDownload=await request('/relay/owner/attachments/content?message_id='+largeMessage+'&attachment_id='+largeAttachment);
+  assert.equal(largeDownload.status,200);const largeReturned=Buffer.from(await largeDownload.arrayBuffer());
+  assert.deepEqual(largeReturned,largeBytes);assert.equal(createHash('sha256').update(largeReturned).digest('hex'),largeSha);
+  assert.equal((await request(route,undefined,null)).status,401);
+  assert.equal((await request('/relay/owner/attachments/discard',{message_id:message,attachment_id:attachment})).status,409);
+  const revoke=await request('/relay/owner/devices/revoke',{device_id:setup.device_id});assert.equal(revoke.status,200);
+  assert.equal((await request(route)).status,401);
+  assert.equal(egress,0);
+ }finally{await mf.dispose();}
+});

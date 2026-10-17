@@ -1,0 +1,137 @@
+# Exact base: 97b048abfde97426da7b5eb3a310964631ce724c
+# Command: npm test; Node 22.23.3; Chrome 154.0.8037.97
+# JARVIS_CHROME and CHROMIUM_PATH set; PODCAST_LIVE_URL unset
+# Original complete log SHA256: 81d74df8d2c0b8472c63f0946fabe32fb7db9b7f753d132eed197e14babab569
+# Selected public-safe TAP excerpts; omitted unrelated tests.
+
+# Verbatim original log lines 1702-1812
+# Subtest: My Media video-feed layout and preserved browsing/playback flows
+    # Subtest: feed fits 360px with 1 columns
+    ok 1 - feed fits 360px with 1 columns
+      ---
+      duration_ms: 791.109466
+      type: 'test'
+      ...
+    # Subtest: feed fits 390px with 1 columns
+    ok 2 - feed fits 390px with 1 columns
+      ---
+      duration_ms: 530.528072
+      type: 'test'
+      ...
+    # Subtest: feed fits 430px with 1 columns
+    ok 3 - feed fits 430px with 1 columns
+      ---
+      duration_ms: 467.953235
+      type: 'test'
+      ...
+    # Subtest: feed fits 768px with 2 columns
+    ok 4 - feed fits 768px with 2 columns
+      ---
+      duration_ms: 649.001485
+      type: 'test'
+      ...
+    # Subtest: feed fits 1200px with 4 columns
+    ok 5 - feed fits 1200px with 4 columns
+      ---
+      duration_ms: 676.391402
+      type: 'test'
+      ...
+    # Subtest: search, creator screens, save, queue, folder controls and navigation are retained
+    ok 6 - search, creator screens, save, queue, folder controls and navigation are retained
+      ---
+      duration_ms: 1822.217166
+      type: 'test'
+      ...
+    # Subtest: creator directory and per-screen state survive menu playback, Back, Forward and reload at 360px
+    ok 7 - creator directory and per-screen state survive menu playback, Back, Forward and reload at 360px
+      ---
+      duration_ms: 1575.230071
+      type: 'test'
+      ...
+    # Subtest: creator directory and per-screen state survive menu playback, Back, Forward and reload at 390px
+    ok 8 - creator directory and per-screen state survive menu playback, Back, Forward and reload at 390px
+      ---
+      duration_ms: 1543.006176
+      type: 'test'
+      ...
+    # Subtest: creator directory and per-screen state survive menu playback, Back, Forward and reload at 430px
+    ok 9 - creator directory and per-screen state survive menu playback, Back, Forward and reload at 430px
+      ---
+      duration_ms: 1791.91439
+      type: 'test'
+      ...
+    # Subtest: creator directory and per-screen state survive menu playback, Back, Forward and reload at 1200px
+    ok 10 - creator directory and per-screen state survive menu playback, Back, Forward and reload at 1200px
+      ---
+      duration_ms: 1334.938561
+      type: 'test'
+      ...
+    # Subtest: browse readiness waits for the destination render after a native Back URL change
+    ok 11 - browse readiness waits for the destination render after a native Back URL change
+      ---
+      duration_ms: 840.158128
+      type: 'test'
+      ...
+    # Subtest: original YouTube dates sort separately from archive additions; undated videos stay last
+    ok 12 - original YouTube dates sort separately from archive additions; undated videos stay last
+      ---
+      duration_ms: 573.035377
+      type: 'test'
+      ...
+    # Subtest: watch layout, native playback, progress and back at 390px
+    ok 13 - watch layout, native playback, progress and back at 390px
+      ---
+      duration_ms: 1231.51834
+      type: 'test'
+      ...
+    # Subtest: watch layout, native playback, progress and back at 1200px
+    ok 14 - watch layout, native playback, progress and back at 1200px
+      ---
+      duration_ms: 1294.105848
+      type: 'test'
+      ...
+    # Subtest: real archive covers in phone, tablet, desktop and watch previews
+    not ok 15 - real archive covers in phone, tablet, desktop and watch previews
+      ---
+      duration_ms: 30471.777788
+      type: 'test'
+      location: '/tmp/poweramp-baseline-97/tests/mymedia-layout-browser.test.js:259:13'
+      failureType: 'testCodeFailure'
+      error: 'page.waitForFunction: Timeout 30000ms exceeded.'
+      code: 'ERR_TEST_FAILURE'
+      name: 'TimeoutError'
+      stack: |-
+        TestContext.<anonymous> (/tmp/poweramp-baseline-97/tests/mymedia-layout-browser.test.js:262:20)
+        async TestContext.<anonymous> (/tmp/poweramp-baseline-97/tests/mymedia-layout-browser.test.js:259:5)
+      ...
+    1..15
+not ok 229 - My Media video-feed layout and preserved browsing/playback flows
+  ---
+  duration_ms: 46010.09705
+  type: 'test'
+  location: '/tmp/poweramp-baseline-97/tests/mymedia-layout-browser.test.js:29:1'
+  failureType: 'subtestsFailed'
+  error: '1 subtest failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: archive channel prefixes are split only when grounded in a collection or explicit metadata
+ok 230 - archive channel prefixes are split only when grounded in a collection or explicit metadata
+
+# Verbatim original log lines 2436-2442
+# Subtest: live podcast discovery, search and playback
+ok 292 - live podcast discovery, search and playback # SKIP
+  ---
+  duration_ms: 0.123666
+  type: 'test'
+  ...
+# Subtest: public URLs reject credentials, local addresses, numeric tricks and unsafe protocols
+
+# Verbatim aggregate summary
+# tests 2527
+# suites 0
+# pass 2523
+# fail 3
+# cancelled 0
+# skipped 1
+# todo 0
+# duration_ms 254500.462572

@@ -1,0 +1,33 @@
+name: Deploy approved Relay egress
+
+# Deliberately manual. Resource, credential setup, and cutover require approval.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: relay-egress
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate connector and egress
+        run: node --test tests/relay-*.test.js tests/publications.test.js
+      - name: Require approved deployment credential
+        env:
+          DEPLOYMENT_TOKEN: ${{ secrets.RELAY_EGRESS_DEPLOYMENT_TOKEN }}
+        run: test -n "$DEPLOYMENT_TOKEN"
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.RELAY_EGRESS_DEPLOYMENT_TOKEN }}
+          action: upload
+          app_location: relay-egress/public
+          api_location: relay-egress/api
+          output_location: ''
+          skip_app_build: true

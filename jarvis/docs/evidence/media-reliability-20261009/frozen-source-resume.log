@@ -1,0 +1,42 @@
+TAP version 13
+# ASTRA_RESUME {"release":"0.34.6","hash":"","playback":"playing","media":{"time":0.32474,"duration":30,"paused":false,"ended":false,"readyState":4,"networkState":1,"error":0,"frames":8},"pip":false,"fullscreen":false,"status":"","savedProgress":[{"time":0.255763,"duration":30,"completed":false}]}
+# Subtest: Astra real native media, HTTP recovery, resume and PiP acceptance
+    # Subtest: video decodes, seeks, pauses and resumes after reload without autoplay
+    not ok 1 - video decodes, seeks, pauses and resumes after reload without autoplay
+      ---
+      duration_ms: 3805.766555
+      type: 'test'
+      location: '/workspace/jarvis/tests/media-reliability-browser.test.js:23:13'
+      failureType: 'testCodeFailure'
+      error: 'explicit Play resumes the saved position'
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected: true
+      actual: false
+      operator: '=='
+      stack: |-
+        TestContext.<anonymous> (file:///workspace/jarvis/tests/media-reliability-browser.test.js:42:16)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async TestContext.<anonymous> (file:///workspace/jarvis/tests/media-reliability-browser.test.js:23:5)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    1..1
+not ok 1 - Astra real native media, HTTP recovery, resume and PiP acceptance
+  ---
+  duration_ms: 4748.776095
+  type: 'test'
+  location: '/workspace/jarvis/tests/media-reliability-browser.test.js:19:1'
+  failureType: 'subtestsFailed'
+  error: '1 subtest failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..1
+# tests 2
+# suites 0
+# pass 0
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5375.57303

@@ -1,0 +1,29 @@
+TAP version 13
+# Subtest: Poweramp native R2 Chrome lifecycle and recovery contracts
+    # Subtest: turning off an expired sleep fade keeps real decoded audio advancing
+    ok 1 - turning off an expired sleep fade keeps real decoded audio advancing
+      ---
+      duration_ms: 5652.708835
+      type: 'test'
+      ...
+    # Subtest: deleting through the library preserves shuffled transport occurrences
+    ok 2 - deleting through the library preserves shuffled transport occurrences
+      ---
+      duration_ms: 1844.045274
+      type: 'test'
+      ...
+    1..2
+ok 1 - Poweramp native R2 Chrome lifecycle and recovery contracts
+  ---
+  duration_ms: 7969.98376
+  type: 'test'
+  ...
+1..1
+# tests 3
+# suites 0
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8255.427854

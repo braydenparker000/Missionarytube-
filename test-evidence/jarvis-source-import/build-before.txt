@@ -1,0 +1,6 @@
+
+> missionarytube@0.1.0 build
+> node scripts/build-jarvis.mjs
+
+Built Jarvis c28c1b2f70aabb5217b08bf31ffe4c93d0353765: 192 frontend files, 20.09 MiB; no media payloads.
+elapsed=0.336 exit=0

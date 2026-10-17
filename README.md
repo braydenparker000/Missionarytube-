@@ -38,3 +38,12 @@ Storage does not process `staticwebapp.config.json`. The build converts the appl
 Shared messages and briefings remain in the same Cloudflare store and publication issue. A hostname change creates separate browser storage: unsent drafts, hub preferences, notes, DrawerCast settings/pairing and Ianua files do not automatically transfer from the SWA hostname. Export/import supported data on the device before abandoning the old site. Astra settings already saved on this Storage hostname remain on the same origin when Astra moves to `/media/`. Real A15 playback and restricted-device behavior require a device check.
 
 Quick AI at `/quick-ai/` calls Gemini, Groq, and Tavily directly from the browser. The deployment workflow uses `QUICK_AI_GEMINI_KEY`, the existing `GROQ_API_KEY`, and `QUICK_AI_TAVILY_KEY` Actions secrets to generate the owner's intentionally public free-plan configuration in the built artifact. It requires all three values before logging into Azure or touching blobs. The legacy public config blob is replaced during staging. Main Jarvis chat and Muse keep their existing Worker and check-based delivery paths.
+
+## Source consolidation in progress
+
+The authoritative Jarvis source snapshot is now imported at `jarvis/`, preserving
+its original Git ancestry. Missionarytube- is the surviving repository. The
+existing pinned release checkout still supplies deployment inputs; this import
+is not a release or component cutover. Root `npm test` explicitly selects the
+orchestration tests. See [the import record](docs/jarvis-source-import.md) and
+[canonical delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).

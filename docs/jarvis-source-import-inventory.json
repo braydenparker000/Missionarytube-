@@ -1,0 +1,858 @@
+{
+  "schema": 1,
+  "observedAt": "2026-10-17T02:15:51.612460+00:00",
+  "destination": {
+    "repository": "braydenparker000/Missionarytube-",
+    "base": "1179c4fe40a84a6ddb3fd1dcd37950e6239f12d4"
+  },
+  "import": {
+    "repository": "braydenparker999/jarvis",
+    "ref": "refs/heads/feat/simple-chat-tasks",
+    "commit": "118673457777c9226e846d4513dc5e4eb206ea38",
+    "tree": "9f983eb6a86ddc1989c3d4e7b85fb7c7d2819938",
+    "path": "jarvis",
+    "files": 926,
+    "mode": "100644",
+    "ancestry": "original commit is second parent; no squash or history rewrite"
+  },
+  "sourceMain": {
+    "repository": "braydenparker999/jarvis",
+    "commit": "ed7bbd436689be3ac9cca1ab5f111341dd690b80",
+    "references": [
+      "refs/heads/main"
+    ],
+    "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+    "includedInImportedAncestry": false,
+    "includedInDestinationAncestry": false
+  },
+  "components": [
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "0636f664e063278eb93e7b743e89b8b04c20e9e5",
+      "references": [
+        ".github/workflows/deploy-azure-storage.yml:667",
+        "scripts/publish-poweramp-shuffle.mjs:11:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "0e8d89cecd15e681ae949b116e64df8f52668a6d",
+      "references": [
+        "release-inventory.json:source:mergedCommit"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "0f658032340040f676b2a8517db40d49d74b5d4c",
+      "references": [
+        "scripts/deploy-mast-chat-only.mjs:13:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "126d4bc4c792a188b2e86cd334bd4bcd6ab3a74c",
+      "references": [
+        ".github/workflows/deploy-azure-storage.yml:441",
+        "scripts/deploy-private-wake.mjs:13:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "324d4c4196dc7ee602a23210c62cc92238c7da96",
+      "references": [
+        "release-inventory.json:components:privateFrontend:source",
+        "release-inventory.json:source:qualifiedCommit",
+        "scripts/private-board-pins.json:source"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "363f710068bb6f2c456dbbf183f063484a36fe11",
+      "references": [
+        "scripts/music-frontend-identity.mjs:19:FRONTEND",
+        "scripts/reconcile-lucy-receipt.mjs:17:FRONT_SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "42acd57ab44c23db738ee9db8c519d3aec3787ea",
+      "references": [
+        ".github/workflows/deploy-azure-storage.yml:746",
+        "scripts/publish-muse-launcher.mjs:10:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "4532be6b6842320ed0cc64be973425d9505c7b03",
+      "references": [
+        ".github/workflows/astra-worker-reuse-preflight.yml:56"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "46a26806f123de296d4e50b4ee7b753bbff0304b",
+      "references": [
+        ".github/workflows/deploy-azure-storage.yml:982",
+        "scripts/publish-owner-progress.mjs:16:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "550c8395d23d42eea66686cfe21793505606115d",
+      "references": [
+        ".github/workflows/deploy-azure-storage.yml:825",
+        "scripts/publish-poweramp-playlists.mjs:10:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "6093a80ee86c868ead96c7141cd127a51e8b9b16",
+      "references": [
+        "release-inventory.json:deployment:commit"
+      ],
+      "preservation": "reachable through deployment base parent",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "62ac633f367250ed21b3ecf7a4627263e9e07d9f",
+      "references": [
+        "release-inventory.json:components:worker:source"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "72f86e00b0c8b4f7e1fdb41e1ab2601b50fb365c",
+      "references": [
+        "scripts/private-workspace-pins.json:source"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "833b97c4264c364dcce0789a6d64f938176a9057",
+      "references": [
+        ".github/workflows/publish-muse-key.yml:25",
+        "scripts/publish-muse-key.mjs:8:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "92b6b598136df0b5dc179ad77b6c601c284523f5",
+      "references": [
+        "scripts/publish-poweramp-sort.mjs:11:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "95d39031bb7b80f637c969a761e2aff9cc6a1040",
+      "references": [
+        ".github/workflows/deploy-azure-storage.yml:533",
+        "scripts/deploy-mast-reply-route.mjs:15:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "9f65e014f578d7947b97a88fd8a32b0b2e8e693d",
+      "references": [
+        ".github/workflows/publish-drive-catalog.yml:35"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "c28c1b2f70aabb5217b08bf31ffe4c93d0353765",
+      "references": [
+        "jarvis-release.json:commit",
+        "release-inventory.json:components:legacyGeneralRecipe:source",
+        "scripts/lucy-settings-diagnostic.mjs:9:SOURCE",
+        "scripts/music-frontend-identity.mjs:18:WORKER",
+        "scripts/relay-worker-release-identity.mjs:11:RELAY_SOURCE",
+        "scripts/stage-relay-core-dependencies.mjs:10:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "c85a42d2bea5d12d576ac84080660a34f11732c4",
+      "references": [
+        "scripts/stage-relay-client-dependencies.mjs:10:SOURCE",
+        "scripts/worker-release-identity.mjs:24:REUSE_SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "d5428cae57e195405afbd140965f9fca16d65110",
+      "references": [
+        ".github/workflows/deploy-azure-storage.yml:1190",
+        "scripts/publish-mobile-file-save.mjs:11:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "d7daef3d6aa43fdb9d6622843aa50d9de8a075d5",
+      "references": [
+        ".github/workflows/deploy-azure-storage.yml:904",
+        "scripts/publish-muse-relay-design.mjs:10:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "dcb111b7bc15642cabddbb8a8651fd4f918fe608",
+      "references": [
+        ".github/workflows/publish-makima-cookie.yml:28",
+        "scripts/publish-makima-cookie.mjs:11:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "dd0797bd48431ea04354f83663c3df765cc8f5b0",
+      "references": [
+        ".github/workflows/migrate-music-r2.yml:51"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "ed9ab565d4c4147f3a2a5582474ad6915f15c798",
+      "references": [
+        "scripts/publish-poweramp-background.mjs:10:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "f999581aa979712b4b63a6783b7c56842fedb6a1",
+      "references": [
+        ".github/workflows/astra-worker-reuse-preflight.yml:63"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "commit": "fed236966d928a4f8221474e502459e13e82e2a4",
+      "references": [
+        ".github/workflows/deploy-azure-storage.yml:1086",
+        "scripts/publish-simple-chat-tasks.mjs:16:SOURCE"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    }
+  ],
+  "openPullRequests": [
+    {
+      "baseRefName": "release/astra-live-backport-20261009",
+      "headRefName": "test/makima-live-callback-diagnostic-20261016",
+      "headRefOid": "266d5a2bfcb4ea1e8ec5b48934706e57edaecba9",
+      "number": 168,
+      "title": "Diagnose Makima native callback handoff",
+      "url": "https://github.com/braydenparker999/jarvis/pull/168",
+      "baseRefOid": "324d4c4196dc7ee602a23210c62cc92238c7da96",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "266d5a2bfcb4ea1e8ec5b48934706e57edaecba9",
+      "references": [
+        "refs/heads/test/makima-live-callback-diagnostic-20261016"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "release/astra-live-backport-20261009",
+      "headRefName": "review/poweramp-freeze-20261013",
+      "headRefOid": "68ce9db27f926d27ffeb373decbaeb684d3522da",
+      "number": 149,
+      "title": "Review Poweramp freeze resume: reproduce stop and reject unsafe retries",
+      "url": "https://github.com/braydenparker999/jarvis/pull/149",
+      "baseRefOid": "324d4c4196dc7ee602a23210c62cc92238c7da96",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "68ce9db27f926d27ffeb373decbaeb684d3522da",
+      "references": [
+        "refs/heads/review/poweramp-freeze-20261013"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "makima/poweramp-freeze-evidence",
+      "headRefOid": "cbfab1d62b388feea9539191afe1b673b397f0f4",
+      "number": 148,
+      "title": "Poweramp web: freeze-stop evidence and proposed resume patch (docs only, unapplied)",
+      "url": "https://github.com/braydenparker999/jarvis/pull/148",
+      "baseRefOid": "ed7bbd436689be3ac9cca1ab5f111341dd690b80",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "cbfab1d62b388feea9539191afe1b673b397f0f4",
+      "references": [
+        "refs/heads/makima/poweramp-freeze-evidence"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "release/astra-live-backport-20261009",
+      "headRefName": "docs/makima-secure-handoff-20261013",
+      "headRefOid": "5dc86c3aea0f597523ddd70c96bda2d71db3c3dd",
+      "number": 147,
+      "title": "Document approved Makima secure owner setup",
+      "url": "https://github.com/braydenparker999/jarvis/pull/147",
+      "baseRefOid": "324d4c4196dc7ee602a23210c62cc92238c7da96",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "5dc86c3aea0f597523ddd70c96bda2d71db3c3dd",
+      "references": [
+        "refs/heads/docs/makima-secure-handoff-20261013"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "release/astra-live-backport-20261009",
+      "headRefName": "feat/muse-work-hook",
+      "headRefOid": "9d5cc68cade74580c1a06edd902d6b47b2bbcac0",
+      "number": 129,
+      "title": "Add dormant Muse Work caller for a pinned owner connector CLI",
+      "url": "https://github.com/braydenparker999/jarvis/pull/129",
+      "baseRefOid": "324d4c4196dc7ee602a23210c62cc92238c7da96",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "9d5cc68cade74580c1a06edd902d6b47b2bbcac0",
+      "references": [
+        "refs/heads/feat/muse-work-hook"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "release/astra-live-backport-20261009",
+      "headRefName": "prototype/mast-upload-checkpoints",
+      "headRefOid": "80defbe0d54b73808963d5d8d88c8aa123a28f9d",
+      "number": 120,
+      "title": "Prototype bounded preparation and receipt-verified upload recovery offline",
+      "url": "https://github.com/braydenparker999/jarvis/pull/120",
+      "baseRefOid": "324d4c4196dc7ee602a23210c62cc92238c7da96",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "80defbe0d54b73808963d5d8d88c8aa123a28f9d",
+      "references": [
+        "refs/heads/prototype/mast-upload-checkpoints"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "release/astra-live-backport-20261009",
+      "headRefName": "feature/relay-assistant-attachments-20261010",
+      "headRefOid": "2ca9559671be7973793dbac44c86b4ea8dcd5a53",
+      "number": 114,
+      "title": "Draft private assistant file replies and later deliverables",
+      "url": "https://github.com/braydenparker999/jarvis/pull/114",
+      "baseRefOid": "324d4c4196dc7ee602a23210c62cc92238c7da96",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "2ca9559671be7973793dbac44c86b4ea8dcd5a53",
+      "references": [
+        "refs/heads/feature/relay-assistant-attachments-20261010"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "feature/relay-navigation-attachments-20261010",
+      "headRefName": "feature/relay-attachment-transport-20261010",
+      "headRefOid": "bc2d3e956dd96226b7e0664d2f531487f56c3102",
+      "number": 110,
+      "title": "Deliver private Relay attachments with immutable retries and authorized reads",
+      "url": "https://github.com/braydenparker999/jarvis/pull/110",
+      "baseRefOid": "454dd99d1bbe8626523c92e786f8875b3add712e",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "bc2d3e956dd96226b7e0664d2f531487f56c3102",
+      "references": [
+        "refs/heads/feature/relay-attachment-transport-20261010"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "release/astra-live-backport-20261009",
+      "headRefName": "fix/mymedia-count-clarity-qualified-20261010",
+      "headRefOid": "8c4f6de790b3e06cd78b11706dfa2c055174bbf1",
+      "number": 102,
+      "title": "Clarify My Media shown and total counts with mandatory browser coverage",
+      "url": "https://github.com/braydenparker999/jarvis/pull/102",
+      "baseRefOid": "324d4c4196dc7ee602a23210c62cc92238c7da96",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "8c4f6de790b3e06cd78b11706dfa2c055174bbf1",
+      "references": [
+        "refs/heads/fix/mymedia-count-clarity-qualified-20261010"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "design/relay-v6-production-20261010",
+      "headRefName": "feature/relay-chat-work-20261010",
+      "headRefOid": "b64c53ce03ff5e28897267ef7fc0c2e592ede6a1",
+      "number": 99,
+      "title": "Organize actionable private chat into named work and linked follow-ups",
+      "url": "https://github.com/braydenparker999/jarvis/pull/99",
+      "baseRefOid": "000ce4089bffc8201370d3491d0b52ea7fed3680",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "b64c53ce03ff5e28897267ef7fc0c2e592ede6a1",
+      "references": [
+        "refs/heads/feature/relay-chat-work-20261010"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "fix/astra-catalog-type-labels-20261010",
+      "headRefName": "fix/guitar-default-selection-20261010",
+      "headRefOid": "ae17f2d78c980a411c82e591d851f6c56e5a57e9",
+      "number": 98,
+      "title": "Prefer guitar tracks while preserving song-specific saved choices",
+      "url": "https://github.com/braydenparker999/jarvis/pull/98",
+      "baseRefOid": "0aa539a488ac56d44b5c44886ad5a33c63c30f43",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "ae17f2d78c980a411c82e591d851f6c56e5a57e9",
+      "references": [
+        "refs/heads/fix/guitar-default-selection-20261010"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "fix/astra-pending-http-gate-20261010",
+      "headRefName": "fix/astra-navigation-reliability-20261010",
+      "headRefOid": "bace4e2f940326a0ad3ab9f02eb413515ef306cc",
+      "number": 96,
+      "title": "Keep selected Astra searches from being overwritten by an old debounce",
+      "url": "https://github.com/braydenparker999/jarvis/pull/96",
+      "baseRefOid": "adf2a1550b0a4c4882228a0d4f91c5ed94ff8c18",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "bace4e2f940326a0ad3ab9f02eb413515ef306cc",
+      "references": [
+        "refs/heads/fix/astra-navigation-reliability-20261010"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "release/astra-live-backport-20261009",
+      "headRefName": "design/podcasts-release-20261010",
+      "headRefOid": "71d757e711916943af3ea07a30e059dee2f987e8",
+      "number": 95,
+      "title": "Podcasts 1.2: focused discovery, compact listening, reliable Back and saved states",
+      "url": "https://github.com/braydenparker999/jarvis/pull/95",
+      "baseRefOid": "324d4c4196dc7ee602a23210c62cc92238c7da96",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "71d757e711916943af3ea07a30e059dee2f987e8",
+      "references": [
+        "refs/heads/design/podcasts-release-20261010"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "fix/relay-request-result-release-20261009",
+      "headRefName": "fix/relay-rollback-recovery-20261009",
+      "headRefOid": "902ad4a1b56da7d081315817e8d761a9cf6da5b3",
+      "number": 84,
+      "title": "Preserve communication history across retained-state Worker rollback",
+      "url": "https://github.com/braydenparker999/jarvis/pull/84",
+      "baseRefOid": "ccf1064764ba00451864023f494a0204564b1478",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "902ad4a1b56da7d081315817e8d761a9cf6da5b3",
+      "references": [
+        "refs/heads/fix/relay-rollback-recovery-20261009"
+      ],
+      "preservation": "reachable through imported source parent",
+      "includedInImportedAncestry": true,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "baseRefName": "fix/inactive-core-migration-preflight-20261009",
+      "headRefName": "fix/core-account-admission-20261009",
+      "headRefOid": "493f413f6f260aad910d5d94da7017f0a1ab9f14",
+      "number": 81,
+      "title": "Guard inactive Hub ingress with durable account reservations",
+      "url": "https://github.com/braydenparker999/jarvis/pull/81",
+      "baseRefOid": "9afca828e4b794b099139bdb4b2d546f63578df2",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "493f413f6f260aad910d5d94da7017f0a1ab9f14",
+      "references": [
+        "refs/heads/fix/core-account-admission-20261009"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "fix/inactive-core-migration-preflight-20261009",
+      "headRefOid": "9afca828e4b794b099139bdb4b2d546f63578df2",
+      "number": 80,
+      "title": "Prepare inactive combined CORE migration admission",
+      "url": "https://github.com/braydenparker999/jarvis/pull/80",
+      "baseRefOid": "ed7bbd436689be3ac9cca1ab5f111341dd690b80",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "9afca828e4b794b099139bdb4b2d546f63578df2",
+      "references": [
+        "refs/heads/fix/inactive-core-migration-preflight-20261009"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "fix/inactive-migration-preflight-20261009",
+      "headRefOid": "f484210826ac3cdfd05e0cbe5b3a50c0d213ecb8",
+      "number": 79,
+      "title": "Prepare inactive bounded Relay migration preflight",
+      "url": "https://github.com/braydenparker999/jarvis/pull/79",
+      "baseRefOid": "ed7bbd436689be3ac9cca1ab5f111341dd690b80",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "f484210826ac3cdfd05e0cbe5b3a50c0d213ecb8",
+      "references": [
+        "refs/heads/fix/inactive-migration-preflight-20261009"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "acceptance/lucy-muse-execution",
+      "headRefOid": "c1627035908a0b0c587fa7e05e355a4295dfd573",
+      "number": 76,
+      "title": "test: add Lucy/Muse execution acceptance gates and evidence harness",
+      "url": "https://github.com/braydenparker999/jarvis/pull/76",
+      "baseRefOid": "ed7bbd436689be3ac9cca1ab5f111341dd690b80",
+      "headRefVerified": true,
+      "repository": "braydenparker999/jarvis",
+      "commit": "c1627035908a0b0c587fa7e05e355a4295dfd573",
+      "references": [
+        "refs/heads/acceptance/lucy-muse-execution"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "cleanup/retire-root-media",
+      "headRefOid": "a3f58d84be48ad1ff656afd4785fbafdd94c8692",
+      "number": 215,
+      "title": "Retire unused root media copy; validate pinned Jarvis media",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/215",
+      "baseRefOid": "1179c4fe40a84a6ddb3fd1dcd37950e6239f12d4",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "a3f58d84be48ad1ff656afd4785fbafdd94c8692",
+      "references": [
+        "refs/heads/cleanup/retire-root-media"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "release/makima-control-20261013",
+      "headRefOid": "7b41011b27c06902def8110292ce567cafbd7baf",
+      "number": 186,
+      "title": "Add bounded Makima release controls and public OAuth verification",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/186",
+      "baseRefOid": "1179c4fe40a84a6ddb3fd1dcd37950e6239f12d4",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "7b41011b27c06902def8110292ce567cafbd7baf",
+      "references": [
+        "refs/heads/release/makima-control-20261013"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "review/core-ordinary-relay-draft-20261009",
+      "headRefName": "review/core-ordinary-relay-rollback-draft-20261009",
+      "headRefOid": "8be330d58593a18933583c7debfa911deead9c5f",
+      "number": 137,
+      "title": "Pin qualified retained-state communication rollback recovery",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/137",
+      "baseRefOid": "0d6756a04cafdc9d3f1f431763f7e32c0ddfc508",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "8be330d58593a18933583c7debfa911deead9c5f",
+      "references": [
+        "refs/heads/review/core-ordinary-relay-rollback-draft-20261009"
+      ],
+      "preservation": "reachable through deployment base parent",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": true
+    },
+    {
+      "baseRefName": "fix/core-exact-recovery-pair-20261009",
+      "headRefName": "fix/core-compatible-recovery-20261009",
+      "headRefOid": "9a39314d40bd4f59986cbc0cdc065ebc0836f137",
+      "number": 134,
+      "title": "Qualify explicit podcast canonical migration for CORE recovery",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/134",
+      "baseRefOid": "cff1286251247c442c84a444102cd0571231f1d4",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "9a39314d40bd4f59986cbc0cdc065ebc0836f137",
+      "references": [
+        "refs/heads/fix/core-compatible-recovery-20261009"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "review/core-provider-usage-20261009",
+      "headRefOid": "8b20ffb96b5c3b19b51dfcc1e36e860039f34773",
+      "number": 133,
+      "title": "Add bounded private provider usage diagnosis",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/133",
+      "baseRefOid": "1179c4fe40a84a6ddb3fd1dcd37950e6239f12d4",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "8b20ffb96b5c3b19b51dfcc1e36e860039f34773",
+      "references": [
+        "refs/heads/review/core-provider-usage-20261009"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "review/core-provider-capabilities-20261009",
+      "headRefOid": "2a20a852c969d320c55deb8593cd32b53c9fa365",
+      "number": 132,
+      "title": "Bound one provider capability observation through existing CI auth",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/132",
+      "baseRefOid": "1179c4fe40a84a6ddb3fd1dcd37950e6239f12d4",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "2a20a852c969d320c55deb8593cd32b53c9fa365",
+      "references": [
+        "refs/heads/review/core-provider-capabilities-20261009"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "review/integrated-jarvis-source-20261009",
+      "headRefOid": "fc900dde8756daa1ea31c02de78cd7e676498bbb",
+      "number": 131,
+      "title": "Qualify integrated Jarvis communication source",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/131",
+      "baseRefOid": "1179c4fe40a84a6ddb3fd1dcd37950e6239f12d4",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "fc900dde8756daa1ea31c02de78cd7e676498bbb",
+      "references": [
+        "refs/heads/review/integrated-jarvis-source-20261009"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "fix/jarvis-release-recovery-20261009",
+      "headRefName": "fix/core-exact-recovery-pair-20261009",
+      "headRefOid": "cff1286251247c442c84a444102cd0571231f1d4",
+      "number": 130,
+      "title": "Bind CORE recovery schema and preserve exact-pair refusals",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/130",
+      "baseRefOid": "6485e1f3fbc919d3977eeffdc110db225d148490",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "cff1286251247c442c84a444102cd0571231f1d4",
+      "references": [
+        "refs/heads/fix/core-exact-recovery-pair-20261009"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "test/security-transfer-release-20261009",
+      "headRefOid": "51c50411ae654ea26ae6de9f21fb71e3dfe59bc2",
+      "number": 128,
+      "title": "Prepare read-only validation for Jarvis security and transfer artifacts",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/128",
+      "baseRefOid": "1179c4fe40a84a6ddb3fd1dcd37950e6239f12d4",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "51c50411ae654ea26ae6de9f21fb71e3dfe59bc2",
+      "references": [
+        "refs/heads/test/security-transfer-release-20261009"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "fix/jarvis-release-recovery-20261009",
+      "headRefOid": "6485e1f3fbc919d3977eeffdc110db225d148490",
+      "number": 127,
+      "title": "Make Jarvis publication recoverable with independent prewrite proof",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/127",
+      "baseRefOid": "1179c4fe40a84a6ddb3fd1dcd37950e6239f12d4",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "6485e1f3fbc919d3977eeffdc110db225d148490",
+      "references": [
+        "refs/heads/fix/jarvis-release-recovery-20261009"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "fix/public-communication-release",
+      "headRefOid": "35eb1aad6fa728424214fff26c53886770834536",
+      "number": 126,
+      "title": "Deploy combined Relay coordination and database read repair",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/126",
+      "baseRefOid": "1179c4fe40a84a6ddb3fd1dcd37950e6239f12d4",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "35eb1aad6fa728424214fff26c53886770834536",
+      "references": [
+        "refs/heads/fix/public-communication-release"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "codex/verified-r2-migration",
+      "headRefOid": "c24d246d54d76da537f9b2160e85b4757d6d3ee6",
+      "number": 61,
+      "title": "Pin R2 transfers to tested source and require integrity tests",
+      "url": "https://github.com/braydenparker000/Missionarytube-/pull/61",
+      "baseRefOid": "1179c4fe40a84a6ddb3fd1dcd37950e6239f12d4",
+      "headRefVerified": true,
+      "repository": "braydenparker000/Missionarytube-",
+      "commit": "c24d246d54d76da537f9b2160e85b4757d6d3ee6",
+      "references": [
+        "refs/heads/codex/verified-r2-migration"
+      ],
+      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "includedInImportedAncestry": false,
+      "includedInDestinationAncestry": false
+    }
+  ],
+  "limitations": [
+    "Only ancestry of the selected import is added to the destination; no open-work heads or other refs are pushed.",
+    "Original repositories, branch refs, publication endpoints, issues, PRs, and Actions artifacts remain in place.",
+    "An inventory reference preserves identity, not availability after future deletion of the original repository. Separate history publication is required for heads outside imported ancestry.",
+    "Snapshot is not a new component qualification or live Worker observation."
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "base": "97b048abfde97426da7b5eb3a310964631ce724c",
+  "node": "v24.21.0",
+  "python": "3.12.14",
+  "browser": "Google Chrome for Testing 154.0.8037.97",
+  "sourceSha256": {
+    "backend/worker.js": "f46278e1b9dfc012bb3d8ccd605f147528f48a05d7ff1066d43d12ad7cb44217",
+    "backend/relay-connector.js": "bb2e801823bac80b99ab5fc49cfe657d0242672fda3288b025b83ad7f6c6ae91",
+    "backend/relay-projects.js": "fc584658d1cda7993cbcfbccd9462c9b620d2da429f20e38c738328b0ddc7e49",
+    "backend/relay-project-tools.js": "2b4f99fcf25384a58923c9ea4ba9f905be04ceda5e7f05a2c038cd8f7f926502",
+    "scripts/project-inbox-hook.py": "a015cd96d6b9da9eb90289fe079c726384fceeb6eff8510b4a959181de867103",
+    "scripts/lib/project_hook.py": "bf776f265f1c91ee52a3453688c4117916ddf9b994d0ffa7171afaa28254cb81",
+    "backend/relay-events.js": "37ec2bc8f1350ae7436bfb613714d437ac1b9387022d645405ff31de6f097cdc",
+    "backend/relay-project-events.js": "db140668a8a0c4b6bde6cc997ab14435139ee1c95dabb37515392eb7c6896b00"
+  },
+  "fullRelayLogSha256": "043366eb86f27b4c30318d13bb90b80c729d63e71cc13f75f574e9682b439416",
+  "focusedLogSha256": "5d448796c87f335be96baa500115762cfc3d304f6482cdf86fc44427d2069f8f",
+  "mcpFocusedLogSha256": "c7bcb3f71a9dac9234fbcd9b9ba7ec63b662e683b401a3d6d881a85b8d86639a",
+  "mcpFocusedTests": 27,
+  "initialHostedHead": "d6b995b0fea0ee8ee285da3c42d0fe1cba61eae8",
+  "initialHostedChecks": "11/11 successful; subsequent commits require fresh CI",
+  "costRegression": "Extra routing index failed existing max8writes budget; removed duplicate index without weakening gate;31 targeted tests passed"
+}
