@@ -1,0 +1,158 @@
+TAP version 13
+# Subtest: Astra real native media, HTTP recovery, resume and PiP acceptance
+    # Subtest: video decodes, seeks, pauses and resumes after reload without autoplay
+    ok 1 - video decodes, seeks, pauses and resumes after reload without autoplay
+      ---
+      duration_ms: 11350.074569
+      type: 'test'
+      ...
+    # Subtest: non-silent native audio keeps its element during browsing and respects Pause across freeze/return
+    ok 2 - non-silent native audio keeps its element during browsing and respects Pause across freeze/return
+      ---
+      duration_ms: 8362.970773
+      type: 'test'
+      ...
+    # Subtest: closing or leaving the page checkpoints a live seek inside the write interval
+    ok 3 - closing or leaving the page checkpoints a live seek inside the write interval
+      ---
+      duration_ms: 15814.005975
+      type: 'test'
+      ...
+    # Subtest: a real native end stays completed after closing the player and reloading
+    ok 4 - a real native end stays completed after closing the player and reloading
+      ---
+      duration_ms: 8551.831578
+      type: 'test'
+      ...
+    # Subtest: failed HTTP source stays bounded; explicit Retry recovers the selected source
+    ok 5 - failed HTTP source stays bounded; explicit Retry recovers the selected source
+      ---
+      duration_ms: 8008.71823
+      type: 'test'
+      ...
+    # Subtest: real held HTTP audio respects Pause and preserves a stalled seek through explicit Retry
+    ok 6 - real held HTTP audio respects Pause and preserves a stalled seek through explicit Retry
+      ---
+      duration_ms: 6007.360045
+      type: 'test'
+      ...
+    # Subtest: native inline and fullscreen PiP requests at one second preserve route and Pause
+    ok 7 - native inline and fullscreen PiP requests at one second preserve route and Pause
+      ---
+      duration_ms: 13985.323167
+      type: 'test'
+      ...
+    # Subtest: closing a pending native HTTP source aborts it and cannot resurrect playback after return
+    ok 8 - closing a pending native HTTP source aborts it and cannot resurrect playback after return
+      ---
+      duration_ms: 4170.080332
+      type: 'test'
+      ...
+    1..8
+ok 1 - Astra real native media, HTTP recovery, resume and PiP acceptance
+  ---
+  duration_ms: 81105.293222
+  type: 'test'
+  ...
+# Subtest: My Media actual native PiP transitions and navigation
+    # Subtest: inline entry, one-second comparison and real native exit
+    ok 1 - inline entry, one-second comparison and real native exit
+      ---
+      duration_ms: 5001.395592
+      type: 'test'
+      ...
+    # Subtest: fullscreen entry, one-second comparison and real native exit
+    ok 2 - fullscreen entry, one-second comparison and real native exit
+      ---
+      duration_ms: 4344.759722
+      type: 'test'
+      ...
+    1..2
+ok 2 - My Media actual native PiP transitions and navigation
+  ---
+  duration_ms: 10335.722324
+  type: 'test'
+  ...
+# Subtest: Poweramp native output interruption, browsing and full-page reload
+    # Subtest: real AudioContext suspension yields native playback until explicit Play
+    ok 1 - real AudioContext suspension yields native playback until explicit Play
+      ---
+      duration_ms: 4444.050371
+      type: 'test'
+      ...
+    # Subtest: a real reload preserves the native R2 checkpoint without fetching or autoplay
+    ok 2 - a real reload preserves the native R2 checkpoint without fetching or autoplay
+      ---
+      duration_ms: 4554.149134
+      type: 'test'
+      ...
+    1..2
+ok 3 - Poweramp native output interruption, browsing and full-page reload
+  ---
+  duration_ms: 10042.940725
+  type: 'test'
+  ...
+# Subtest: My Media PiP evidence preserves playback and has a selectable copy-denied report
+ok 4 - My Media PiP evidence preserves playback and has a selectable copy-denied report
+  ---
+  duration_ms: 10186.241799
+  type: 'test'
+  ...
+# Subtest: Poweramp native R2 Chrome lifecycle and recovery contracts
+    # Subtest: startup restoration keeps native R2 position without a mapping or media request
+    ok 1 - startup restoration keeps native R2 position without a mapping or media request
+      ---
+      duration_ms: 6068.571324
+      type: 'test'
+      ...
+    # Subtest: real native end withheld before a freeze is consumed once on a resume notification
+    ok 2 - real native end withheld before a freeze is consumed once on a resume notification
+      ---
+      duration_ms: 6681.53259
+      type: 'test'
+      ...
+    # Subtest: offline Next source error4 preserves intent and recovers the same native media online
+    ok 3 - offline Next source error4 preserves intent and recovers the same native media online
+      ---
+      duration_ms: 4971.060085
+      type: 'test'
+      ...
+    # Subtest: Pause cancels the native offline source recovery before online
+    ok 4 - Pause cancels the native offline source recovery before online
+      ---
+      duration_ms: 5009.598198
+      type: 'test'
+      ...
+    # Subtest: real unsupported media remains terminal online
+    ok 5 - real unsupported media remains terminal online
+      ---
+      duration_ms: 4097.930676
+      type: 'test'
+      ...
+    # Subtest: real unsupported media remains terminal after its one offline probe
+    ok 6 - real unsupported media remains terminal after its one offline probe
+      ---
+      duration_ms: 5748.497342
+      type: 'test'
+      ...
+    # Subtest: native seek metadata on a held network stream cannot cancel its recovery deadline
+    ok 7 - native seek metadata on a held network stream cannot cancel its recovery deadline
+      ---
+      duration_ms: 2469.471841
+      type: 'test'
+      ...
+    1..7
+ok 5 - Poweramp native R2 Chrome lifecycle and recovery contracts
+  ---
+  duration_ms: 38798.869304
+  type: 'test'
+  ...
+1..5
+# tests 24
+# suites 0
+# pass 24
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 105267.039944

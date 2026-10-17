@@ -1,0 +1,198 @@
+TAP version 13
+# Subtest: late playing event cannot erase a current no-data deadline
+not ok 1 - late playing event cannot erase a current no-data deadline
+  ---
+  duration_ms: 8.371494
+  type: 'test'
+  location: '/workspace/jarvis/tests/poweramp-native-reliability.test.js:628:66'
+  failureType: 'testCodeFailure'
+  error: |-
+    queued startup notification must preserve the original deadline
+    
+    null !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: ~
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability.test.js:634:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: late play completion cannot erase a current no-data deadline
+not ok 2 - late play completion cannot erase a current no-data deadline
+  ---
+  duration_ms: 3.126618
+  type: 'test'
+  location: '/workspace/jarvis/tests/poweramp-native-reliability.test.js:628:66'
+  failureType: 'testCodeFailure'
+  error: |-
+    queued startup notification must preserve the original deadline
+    
+    null !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: ~
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability.test.js:634:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: Media Session actions remain usable while artwork is unresolved and after it rejects
+not ok 3 - Media Session actions remain usable while artwork is unresolved and after it rejects
+  ---
+  duration_ms: 2.239852
+  type: 'test'
+  location: '/workspace/jarvis/tests/poweramp-native-reliability.test.js:640:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    controls must register before metadata I/O
+    + actual - expected
+    
+    + 'undefined'
+    - 'function'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'function'
+  actual: 'undefined'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability.test.js:644:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: invalid MediaMetadata does not prevent handler registration
+not ok 4 - invalid MediaMetadata does not prevent handler registration
+  ---
+  duration_ms: 1.974933
+  type: 'test'
+  location: '/workspace/jarvis/tests/poweramp-native-reliability.test.js:653:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'undefined'
+    - 'function'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'function'
+  actual: 'undefined'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability.test.js:655:46)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: an old same-selection artwork completion cannot replace newer Media Session metadata
+not ok 5 - an old same-selection artwork completion cannot replace newer Media Session metadata
+  ---
+  duration_ms: 2.043366
+  type: 'test'
+  location: '/workspace/jarvis/tests/poweramp-native-reliability.test.js:658:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'https://fixture.test/old.jpg'
+    - 'https://fixture.test/new.jpg'
+                            ^
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'https://fixture.test/new.jpg'
+  actual: 'https://fixture.test/old.jpg'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability.test.js:663:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: late playing during an established stall preserves recovery and Pause still cancels it
+not ok 6 - late playing during an established stall preserves recovery and Pause still cancels it
+  ---
+  duration_ms: 3.573831
+  type: 'test'
+  location: '/workspace/jarvis/tests/poweramp-native-reliability.test.js:666:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    null !== 2
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 2
+  actual: ~
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability.test.js:670:12)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: late timeupdate without future data cannot consume a stalled stream deadline
+not ok 7 - late timeupdate without future data cannot consume a stalled stream deadline
+  ---
+  duration_ms: 2.513674
+  type: 'test'
+  location: '/workspace/jarvis/tests/poweramp-native-reliability.test.js:678:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    last buffered frames are not proof that the stall recovered
+    
+    null !== 2
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 2
+  actual: ~
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability.test.js:681:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: watchdog observes native interruption even when the pause notification is missing
+not ok 8 - watchdog observes native interruption even when the pause notification is missing
+  ---
+  duration_ms: 3.114459
+  type: 'test'
+  location: '/workspace/jarvis/tests/poweramp-native-reliability.test.js:686:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    cancelled recovery must not start audio
+    
+    2 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 2
+  operator: 'strictEqual'
+  stack: |-
+    assertNoNewAudio (file:///workspace/jarvis/tests/poweramp-native-reliability.test.js:200:10)
+    TestContext.<anonymous> (file:///workspace/jarvis/tests/poweramp-native-reliability.test.js:689:3)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 0
+# fail 8
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 87.06394

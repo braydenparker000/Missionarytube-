@@ -1,0 +1,170 @@
+{
+  "schema": 1,
+  "syntheticOnly": true,
+  "productionContentIncluded": false,
+  "sourceBase": "e63fa716cf3e90522b6d6b1f1bcf36e67a67d186",
+  "nodeRuntimes": [
+    "v22.23.3",
+    "v24.21.0"
+  ],
+  "browser": "Google Chrome for Testing 154.0.8037.97",
+  "baseline": {
+    "trackedArchiveFiles": 473,
+    "archiveSha256": "213f5381018f0ab4d4b99275e3b4e3f934dd53b83a004c2335df29212a6d9f1a",
+    "expectedFailures": 44,
+    "passingControls": 15,
+    "countedTests": 59,
+    "note": "Seven malformed durable evidence subtests require valid typed completion, absent on the original baseline. Baseline therefore counts59 versus final66; no skips."
+  },
+  "checks": {
+    "owner-completion-e63-final-before-node24.tap": {
+      "sha256": "d76c336ac0c753a884624603fb478b234a5485f44c9d1f2e45d413e3900e19e3",
+      "tests": 59,
+      "pass": 15,
+      "fail": 44,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 618.003129
+    },
+    "owner-completion-frozen-node24.tap": {
+      "sha256": "10be901cee6b6c3098f319a2d1be2590f40ead03b6a2baa4cdc09a7e226cf7b1",
+      "tests": 66,
+      "pass": 66,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 1035.648795
+    },
+    "owner-completion-frozen-node22.tap": {
+      "sha256": "c9ac2756ab73e016b7507de2a34071cd1a9258e4df42f5d1d32ad4b681397a73",
+      "tests": 66,
+      "pass": 66,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 1048.373785
+    },
+    "owner-completion-integrated-node24.tap": {
+      "tests": 884,
+      "pass": 884,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "sha256": "db8ec151d722e1c3cf37f2f131ff46c35ee20f12831c49ac8e9032fde9f798c2",
+      "durationMs": 57612.408571,
+      "node": "v24.21.0",
+      "browser": "Google Chrome for Testing 154.0.8037.97"
+    }
+  },
+  "workerBundle": {
+    "lockedEsbuild": true,
+    "successful": true,
+    "bytes": 288981,
+    "sha256": "7fc5286285bf11650caf669e7555e51ef3c2edbee85857d2a75160fa06e3e8dc"
+  },
+  "sourceHashes": {
+    "backend/connector.js": "3d8277cf6ce0e4c0944501832ac6ed4c964d31ef796e87258dca8b446e61dae7",
+    "backend/music-library-cache.js": "63d3ca0e3b73dd8007f2fd7aa6af242c389bcfb15a1d1b24f763d89d074324cb",
+    "backend/music-upload.js": "9c0f6ff1bf9f29b1774da3cd00a52c54df3e37bd880c0a52924e08b078b91734",
+    "backend/music.js": "88d91fdf2f274e016d8ddd2a34bcefe234f5fc9b6331f13edc2303d93d4939fd",
+    "backend/origins.js": "cc6465744ea2d6c59ea265894072c94cdfb5652ec0d7589c4fd20f754a8a3c32",
+    "backend/podcasts.js": "2311e5d29bd6a3a6c127a94099fb14c3c96b80ebc5cb5d290093b6c219544b0a",
+    "backend/publications.js": "38514633e6a4458cb3c6151310b802a37fee1762e9730987a33bca3d8223a323",
+    "backend/relay-common.js": "5a9ef7d4082efcf4fc94f7773e9b5325b65f5eac840a756872997a365ef19fd1",
+    "backend/relay-connector.js": "2cf924428e90e23c32db3befd9b8fb83c2620b56028237d474387b251998ca7d",
+    "backend/relay-events.js": "e6f68a943f4e5da7e626887eb7010facd5f361c5245661297ac06897c13e903f",
+    "backend/relay-oauth.js": "b6164d93c421a25885f9a6f29453217b63e380fb42af6a5010885da88e95ad06",
+    "backend/relay-owner-job-tools.js": "62f1ca112ecae61469ca6e9a487e0fc3fc360f9d04854da082fe4753ffaa8bd8",
+    "backend/relay-owner-jobs.js": "f24549879ff05db83ea453ad96f2184c85e29312f51a1ad1d04128e19afe91f7",
+    "backend/relay-owner-password.js": "0d56aaabcd516b494ca3cea4e0ffbb3eb8f0199bd6d99029ab52cedfbb435f93",
+    "backend/relay-owner-tools.js": "2c1b8eb8823efd52a77b0308663341b4f7585fa58821289ab49283651e919027",
+    "backend/relay-owner.js": "7d2ea50a4741b027379380ff537291eeec552358555fe0f09d7f3f81f2a06ebd",
+    "backend/shared.js": "00a5c5b00a995f943d52ce8bc4cafc2f20bc62dbede498c06af905d6edc4e2b3",
+    "backend/songsterr.js": "ce34179fbbc4a811aa1deaaf3a5443d9abcf48601d1e6603f12ed53bec141911",
+    "backend/worker.js": "e1e8a7a9945ddc9455f7bc3c3565c169e373f81ef70dbfbabc28f00801150e36",
+    "package-lock.json": "fca4df825d44d6e0f5ccd8e1cf197d16397d48544650810259594255155f14ab",
+    "package.json": "0e7599afb8cee8ee0b3b0021bb92679026029c9a276da59a50cb079719af895d",
+    "public/assets/relay-owner-api.js": "74fa1ddb4e0b1e82ebc30d170f2986ca08797f13d4a6d6a8a6ebcc1247e3c225",
+    "public/assets/relay-owner-ui.js": "7a3a65f2b3abf008539109de7102fac307c3218c2692d17255a15087df424a48",
+    "tests/helpers/relay-conversation-browser-fixture.js": "73829b982bc7a4f96b9b76e67ab7ddec798950232cc0a63c20fd507915a046ae",
+    "tests/relay-conversation-adversarial-browser.test.js": "ef4f338e0b2b3870ba8aee0487ad892d7ccbdc89294748a41fa3a7f1a76f909c",
+    "tests/relay-fixture.js": "5cdb795b4637dab94a0b74b970bd72229981519a1031df7d13382adabd4aab9c",
+    "tests/relay-owner-completion-semantics.test.js": "7d17b458010c2d6bfa82e8e99e66fd3191059e3650f4d86dfd67ecbdcd105e81",
+    "tests/relay-owner-integration.test.js": "a10496a1de71eb4a7e1e1b5afd7d1353da853f2add535f2480677a003fad84dd",
+    "tests/relay-owner-job-corrections.test.js": "1c9ded5b5ae35a105bf7f121e584d78fb5ac4768259d6fe31ae3b297ea9edc9b",
+    "tests/relay-owner-jobs-ui-adversarial.test.js": "3f223306335882607e9c8d0cb9086b1c08bea414c2695ae8d9b6832fea6f5457",
+    "tests/relay-owner-jobs.test.js": "8e83814a2e0d881a4895fe1c4ee714b958337e603622591223c3255523ac7833"
+  },
+  "artifacts": [
+    {
+      "path": "docs/conversation-evidence/synthetic-owner-reply-unverified-390x844.png",
+      "sha256": "2dde9977d2144bfe54e2d7f71a8e7bdc7d640d0556a316a5b9ea60c4fd636497",
+      "bytes": 57833,
+      "fixture": {
+        "synthetic": true,
+        "node": "v22.23.3",
+        "browser": "Google Chrome for Testing 154.0.8037.97",
+        "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "fictionalFixturesOnly": true,
+        "typedCompletion": false,
+        "immutableReplyPreserved": true
+      }
+    },
+    {
+      "path": "docs/conversation-evidence/synthetic-owner-work-reported-complete-390x844.png",
+      "sha256": "24f0350c0356132d80ee49ae4f330454831fb863b7b88eabd12a1b91b3099501",
+      "bytes": 60602,
+      "fixture": {
+        "synthetic": true,
+        "node": "v22.23.3",
+        "browser": "Google Chrome for Testing 154.0.8037.97",
+        "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "fictionalFixturesOnly": true,
+        "typedCompletion": true,
+        "immutableReplyPreserved": true
+      }
+    },
+    {
+      "path": "docs/conversation-evidence/synthetic-owner-work-reported-complete-390x520.png",
+      "sha256": "c995907b7a44e089af4c0850398953c7c05c62a7e9aacad206b19337170a526e",
+      "bytes": 36611,
+      "fixture": {
+        "synthetic": true,
+        "node": "v22.23.3",
+        "browser": "Google Chrome for Testing 154.0.8037.97",
+        "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+        "viewport": {
+          "width": 390,
+          "height": 520
+        },
+        "fictionalFixturesOnly": true,
+        "typedCompletion": true,
+        "geometry": {
+          "width": 390,
+          "height": 442,
+          "top": 78,
+          "scrollable": true,
+          "horizontalOverflow": false
+        }
+      }
+    }
+  ],
+  "captureScript": "docs/conversation-evidence/owner-completion-capture.mjs",
+  "limitations": [
+    "Synthetic routes use the real Worker, SQLite and existing owner OAuth fixtures with offline browser routing; these are not live owner messages.",
+    "Local qualification does not prove live cached-host discovery or callability of optional job-progress tools.",
+    "An expired original execution lease may settle a known terminal completion under the original still-live OAuth grant; it does not renew or reclaim work.",
+    "Phone-size viewport renders model available geometry; physical keyboard and owner-phone acceptance remain separate tests.",
+    "Published-head CI is the separate qualification proof; this manifest describes frozen local implementation and fixture evidence."
+  ],
+  "preparedAt": "2026-10-08T15:20:34.654077+00:00"
+}

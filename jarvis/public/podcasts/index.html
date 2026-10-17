@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101317">
+  <meta name="podcasts-release" content="1.2.0">
+  <title>Podcasts · Jarvis</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/assets/shell.css">
+  <link rel="stylesheet" href="/assets/premium.css?v=20261003">
+  <link rel="stylesheet" href="/podcasts/style.css?v=20261010">
+  <script type="module" src="/podcasts/app.js?v=20261010"></script>
+</head>
+<body class="module-page podcast-page">
+  <a class="skip-link" href="#content">Skip to content</a>
+  <div class="workspace">
+    <header class="topbar">
+      <a class="icon-button" href="/" aria-label="Back to Jarvis" data-icon="back"></a>
+      <span class="brand">Podcasts</span>
+      <button class="icon-button" id="add-feed" aria-label="Add RSS feed" data-icon="plus"></button>
+      <button class="icon-button" id="settings" aria-label="Podcast settings" data-icon="settings"></button>
+    </header>
+    <main id="content" tabindex="-1">
+      <div class="page-heading"><div><h1 id="heading">Discover</h1></div><button class="text-button" id="refresh" aria-label="Refresh podcasts" data-icon="refresh"></button></div>
+      <p id="view-description" class="view-description">A good story is just a search away.</p>
+      <p id="offline-status" class="offline-status" role="status" hidden>You’re offline. <a href="#downloads">Open downloads</a></p>
+      <form id="search-form" role="search"><label class="sr-only" for="query">Search podcasts</label><div class="search-box"><span data-icon="search"></span><input id="query" type="search" placeholder="Shows, people, or topics" maxlength="120" autocomplete="off" enterkeyhint="search"><button id="clear-search" type="button" aria-label="Clear search" hidden>×</button><button type="submit" aria-label="Search">Find</button></div></form>
+      <p id="status" class="status" role="status" hidden></p>
+      <div id="search-history"></div>
+      <div id="results"></div>
+    </main>
+    <section id="mini-player" class="mini-player" aria-label="Now playing" hidden>
+      <button id="open-player" class="mini-info"><img id="mini-art" alt=""><span><strong id="mini-title"></strong><small id="mini-show"></small></span></button>
+      <button class="icon-button" id="mini-back" aria-label="Back 15 seconds" data-icon="rewind"></button>
+      <button class="icon-button" id="mini-play" aria-label="Play episode" data-icon="play"></button>
+      <div class="mini-bottom"><span id="mini-elapsed">0:00</span><input id="mini-seek" aria-describedby="mini-seek-position-text" type="range" min="0" max="100" value="0" step="0.1" aria-label="Episode position"><span id="mini-seek-position-text" class="sr-only">Play audio to enable seeking</span><button id="mini-sleep" aria-label="Set sleep timer"><span data-icon="moon"></span><span id="mini-sleep-label">Sleep</span></button></div>
+    </section>
+    <nav class="podcast-nav" aria-label="Podcast navigation">
+      <a href="#discover" data-view="discover" aria-current="page"><span data-icon="search"></span>Discover</a>
+      <a href="#library" data-view="library"><span data-icon="library"></span>Library</a>
+      <a href="#downloads" data-view="downloads"><span data-icon="download"></span>Downloads</a>
+      <a href="#queue" data-view="queue"><span data-icon="queue"></span>Queue</a>
+    </nav>
+  </div>
+  <audio id="audio" preload="none"></audio>
+  <dialog id="player" class="player-sheet" aria-labelledby="player-heading">
+    <header class="dialog-heading"><h2 id="player-heading">Now playing</h2><button class="icon-button" id="close-player" aria-label="Close player" data-icon="down"></button></header>
+    <img id="player-art" class="player-art" alt="">
+    <h3 id="player-title"></h3><p id="player-show" class="muted"></p>
+    <p id="playback-status" class="status" role="status" hidden></p>
+    <label class="sr-only" for="seek">Episode position</label><input id="seek" aria-describedby="seek-position-text" type="range" min="0" max="100" value="0" step="0.1">
+    <span id="seek-position-text" class="sr-only">Play audio to enable seeking</span><div class="time-row"><span id="elapsed">0:00</span><span id="remaining">−0:00</span></div>
+    <div class="transport"><button id="back-15" aria-label="Back 15 seconds"><span data-icon="rewind"></span><small>15</small></button><button id="play" class="play-button" aria-label="Play episode" data-icon="play"></button><button id="forward-30" aria-label="Forward 30 seconds"><span data-icon="forward"></span><small>30</small></button></div>
+    <div class="player-tools"><button id="speed">1× speed</button><button id="sleep"><span data-icon="moon"></span><span id="sleep-label">Sleep timer</span></button><button id="player-download" aria-label="Download episode" data-icon="download"></button><button id="player-menu" aria-label="Episode options" data-icon="more"></button></div>
+    <details class="player-notes-disclosure"><summary>Episode notes</summary><div id="player-notes" class="episode-notes"></div></details>
+  </dialog>
+  <dialog id="sheet" class="app-sheet" aria-labelledby="sheet-heading"></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <noscript><p>Enable JavaScript to browse and play podcasts.</p></noscript>
+</body>
+</html>

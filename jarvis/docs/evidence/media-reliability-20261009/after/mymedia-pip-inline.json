@@ -1,0 +1,150 @@
+{
+  "release": "0.38.0",
+  "hash": "#v=video1234567890",
+  "paused": false,
+  "time": 3.044391,
+  "pip": {
+    "schema": 1,
+    "app": "mymedia",
+    "release": "0.38.0",
+    "environment": {
+      "chrome": "154.0.0.0",
+      "android": "unknown",
+      "displayMode": "browser",
+      "tabContext": "unknown"
+    },
+    "nativeExitReason": "unavailable",
+    "state": {
+      "visibility": "visible",
+      "focused": true,
+      "pipEventActive": false,
+      "pipElement": false,
+      "fullscreen": false,
+      "mediaFullscreen": false,
+      "paused": false,
+      "ended": false,
+      "readyState": 4
+    },
+    "lastExit": {
+      "sequence": 3,
+      "milliseconds": 2970,
+      "event": "leavepictureinpicture",
+      "visibility": "visible",
+      "focused": true,
+      "pipEventActive": false,
+      "pipElement": false,
+      "fullscreen": false,
+      "mediaFullscreen": false,
+      "paused": false,
+      "ended": false,
+      "readyState": 4
+    },
+    "events": [
+      {
+        "sequence": 1,
+        "milliseconds": 0,
+        "event": "observe",
+        "visibility": "visible",
+        "focused": true,
+        "pipEventActive": false,
+        "pipElement": false,
+        "fullscreen": false,
+        "mediaFullscreen": false,
+        "paused": false,
+        "ended": false,
+        "readyState": 4
+      },
+      {
+        "sequence": 2,
+        "milliseconds": 1290,
+        "event": "enterpictureinpicture",
+        "visibility": "visible",
+        "focused": true,
+        "pipEventActive": true,
+        "pipElement": true,
+        "fullscreen": false,
+        "mediaFullscreen": false,
+        "paused": false,
+        "ended": false,
+        "readyState": 4
+      },
+      {
+        "sequence": 3,
+        "milliseconds": 2970,
+        "event": "leavepictureinpicture",
+        "visibility": "visible",
+        "focused": true,
+        "pipEventActive": false,
+        "pipElement": false,
+        "fullscreen": false,
+        "mediaFullscreen": false,
+        "paused": false,
+        "ended": false,
+        "readyState": 4
+      }
+    ]
+  },
+  "errors": [],
+  "entered": {
+    "release": "0.38.0",
+    "hash": "#v=video1234567890",
+    "paused": false,
+    "time": 2.41989,
+    "pip": {
+      "schema": 1,
+      "app": "mymedia",
+      "release": "0.38.0",
+      "environment": {
+        "chrome": "154.0.0.0",
+        "android": "unknown",
+        "displayMode": "browser",
+        "tabContext": "unknown"
+      },
+      "nativeExitReason": "unavailable",
+      "state": {
+        "visibility": "visible",
+        "focused": true,
+        "pipEventActive": true,
+        "pipElement": true,
+        "fullscreen": false,
+        "mediaFullscreen": false,
+        "paused": false,
+        "ended": false,
+        "readyState": 4
+      },
+      "lastExit": null,
+      "events": [
+        {
+          "sequence": 1,
+          "milliseconds": 0,
+          "event": "observe",
+          "visibility": "visible",
+          "focused": true,
+          "pipEventActive": false,
+          "pipElement": false,
+          "fullscreen": false,
+          "mediaFullscreen": false,
+          "paused": false,
+          "ended": false,
+          "readyState": 4
+        },
+        {
+          "sequence": 2,
+          "milliseconds": 1290,
+          "event": "enterpictureinpicture",
+          "visibility": "visible",
+          "focused": true,
+          "pipEventActive": true,
+          "pipElement": true,
+          "fullscreen": false,
+          "mediaFullscreen": false,
+          "paused": false,
+          "ended": false,
+          "readyState": 4
+        }
+      ]
+    }
+  },
+  "visibilityObserved": "visible",
+  "exitControl": "document.exitPictureInPicture; Android Home/close/expand not exercised"
+}

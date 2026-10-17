@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { checkJarvisImport } from "../scripts/check-jarvis-import.mjs";
 
 /**
  * The repository is public. These checks fail the build if a configured add-on
@@ -15,7 +16,7 @@ const TEXT = /\.(?:js|mjs|cjs|html|css|json|md|yml|yaml)$/;
 async function sourceFiles(directory = ".") {
   const found = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (SKIP_DIRS.has(entry.name)) continue;
+    if (SKIP_DIRS.has(entry.name) || (directory === "." && entry.name === "jarvis")) continue;
     const path = join(directory, entry.name);
     if (entry.isDirectory()) found.push(...(await sourceFiles(path)));
     else if (TEXT.test(entry.name)) found.push(path);
@@ -23,6 +24,10 @@ async function sourceFiles(directory = ".") {
   return found;
 }
 
+// The imported application has its own public services and synthetic OAuth
+// fixtures. Accept only the reviewed, exact source tree, not a broad host or
+// credential exemption for future edits. Keep every legacy privacy assertion.
+await checkJarvisImport();
 const files = await sourceFiles();
 const contents = new Map();
 for (const path of files) contents.set(path, await readFile(path, "utf8"));

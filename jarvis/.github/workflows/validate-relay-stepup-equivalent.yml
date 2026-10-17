@@ -1,0 +1,118 @@
+name: Validate equivalent combined release on Ubuntu 24
+
+on:
+  push:
+    branches: [fix/relay-owner-stepup-consent]
+    paths: ['.github/workflows/validate-relay-stepup-equivalent.yml']
+
+permissions:
+  contents: read
+
+# One bounded validation-only recovery for the queued ubuntu-latest check.
+# Step arrays, Node/Python versions and evidence match current validate-r2.yml.
+concurrency:
+  group: relay-stepup-equivalent-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: github.repository == 'braydenparker999/jarvis' && github.actor_id == '183016859' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned test dependencies
+        run: npm ci
+      - name: Trace isolated unchanged Poweramp rendering
+        if: always()
+        env:
+          POWERAMP_EVIDENCE_DIR: ${{ runner.temp }}/poweramp-browser
+        run: |
+          export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
+          test -n "$JARVIS_CHROME"
+          node --check tests/poweramp-render-trace-browser.mjs
+          node --test tests/poweramp-render-trace-browser.mjs
+      - name: Preserve isolated Poweramp render traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: poweramp-render-trace-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/poweramp-browser/render-trace-summary.json
+            ${{ runner.temp }}/poweramp-browser/render-trace-*-report.json
+            ${{ runner.temp }}/poweramp-browser/render-trace-*-timings.json
+            ${{ runner.temp }}/poweramp-browser/render-trace-*-events.json.gz
+            ${{ runner.temp }}/poweramp-browser/render-visual-*.png
+            ${{ runner.temp }}/poweramp-browser/render-baked-backdrop-*.png
+            ${{ runner.temp }}/poweramp-browser/render-layer-pictures-*.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Measure persistent live-node Poweramp prototype
+        if: always()
+        env:
+          POWERAMP_EVIDENCE_DIR: ${{ runner.temp }}/poweramp-browser
+          POWERAMP_BASELINE_REF: 8aa7fce4dd83d5417614ae112134631dd98df7b6
+        run: |
+          export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
+          test -n "$JARVIS_CHROME"
+          node --test tests/poweramp-persistent-prototype-browser.mjs
+      - name: Verify actual library visibility after mini round trips
+        if: always()
+        env:
+          POWERAMP_EVIDENCE_DIR: ${{ runner.temp }}/poweramp-browser
+        run: |
+          export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
+          test -n "$JARVIS_CHROME"
+          node --test tests/poweramp-blank-library-browser.test.js
+      - name: Run frontend regression tests
+        if: always()
+        env:
+          POWERAMP_EVIDENCE_DIR: ${{ runner.temp }}/poweramp-browser
+        run: |
+          export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
+          test -n "$JARVIS_CHROME"
+          npm test
+      - name: Measure isolated cold and playing Poweramp input setup
+        if: always()
+        env:
+          POWERAMP_EVIDENCE_DIR: ${{ runner.temp }}/poweramp-browser
+        run: |
+          export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
+          test -n "$JARVIS_CHROME"
+          node --test tests/poweramp-preview-setup-browser.mjs
+      - name: Preserve Poweramp trusted-input evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: poweramp-browser-${{ github.run_id }}
+          path: ${{ runner.temp }}/poweramp-browser
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Verify podcast listening and offline playback in Chromium
+        run: |
+          export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
+          test -n "$JARVIS_CHROME"
+          export JARVIS_SCREENSHOT_DIR="$RUNNER_TEMP/podcast-screenshots"
+          node --test tests/podcasts-browser.test.js
+      - name: Preserve podcast browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: podcast-browser-${{ github.run_id }}
+          path: ${{ runner.temp }}/podcast-screenshots
+          if-no-files-found: ignore
+          retention-days: 14
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check migration syntax and integrity tests
+        run: |
+          python -m py_compile scripts/migrate-drive-to-r2.py
+          test -f tests/test_r2_migration.py
+          python -m unittest discover -s tests -p 'test_r2*.py' -v
+

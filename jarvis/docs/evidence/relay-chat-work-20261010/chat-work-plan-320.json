@@ -1,0 +1,11 @@
+{
+  "synthetic": true,
+  "node": "v22.23.3",
+  "browser": "Google Chrome for Testing 154.0.8037.97",
+  "url": "https://missionarytube.z13.web.core.windows.net/jarvis/",
+  "viewport": {
+    "width": 320,
+    "height": 740
+  },
+  "inertMarkup": true
+}

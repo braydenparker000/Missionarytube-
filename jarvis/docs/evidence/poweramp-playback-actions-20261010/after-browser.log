@@ -1,0 +1,77 @@
+TAP version 13
+# Subtest: Poweramp native R2 Chrome lifecycle and recovery contracts
+    # Subtest: startup restoration keeps native R2 position without a mapping or media request
+    ok 1 - startup restoration keeps native R2 position without a mapping or media request
+      ---
+      duration_ms: 491.226497
+      type: 'test'
+      ...
+    # Subtest: real native end withheld before a freeze is consumed once on a resume notification
+    ok 2 - real native end withheld before a freeze is consumed once on a resume notification
+      ---
+      duration_ms: 761.759379
+      type: 'test'
+      ...
+    # Subtest: offline Next source error4 preserves intent and recovers the same native media online
+    ok 3 - offline Next source error4 preserves intent and recovers the same native media online
+      ---
+      duration_ms: 1617.276495
+      type: 'test'
+      ...
+    # Subtest: Pause cancels the native offline source recovery before online
+    ok 4 - Pause cancels the native offline source recovery before online
+      ---
+      duration_ms: 2293.602952
+      type: 'test'
+      ...
+    # Subtest: real unsupported media remains terminal online
+    ok 5 - real unsupported media remains terminal online
+      ---
+      duration_ms: 1474.806601
+      type: 'test'
+      ...
+    # Subtest: real unsupported media remains terminal after its one offline probe
+    ok 6 - real unsupported media remains terminal after its one offline probe
+      ---
+      duration_ms: 2274.11385
+      type: 'test'
+      ...
+    # Subtest: registered Media Session commands survive rapid navigation, background return and prolonged native playback
+    ok 7 - registered Media Session commands survive rapid navigation, background return and prolonged native playback
+      ---
+      duration_ms: 329468.647421
+      type: 'test'
+      ...
+    # Subtest: Media Session setting changes apply before stalled artwork storage completes
+    ok 8 - Media Session setting changes apply before stalled artwork storage completes
+      ---
+      duration_ms: 274.469989
+      type: 'test'
+      ...
+    # Subtest: native held network stream: delayed playing
+    ok 9 - native held network stream: delayed playing
+      ---
+      duration_ms: 403.588581
+      type: 'test'
+      ...
+    # Subtest: native held network stream: missing pause event
+    ok 10 - native held network stream: missing pause event
+      ---
+      duration_ms: 440.486468
+      type: 'test'
+      ...
+    1..10
+ok 1 - Poweramp native R2 Chrome lifecycle and recovery contracts
+  ---
+  duration_ms: 339896.323253
+  type: 'test'
+  ...
+1..1
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 340131.138285

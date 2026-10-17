@@ -1,0 +1,18 @@
+{
+  "synthetic": true,
+  "node": "v22.23.3",
+  "browser": "Google Chrome for Testing 154.0.8037.97",
+  "url": "https://missionarytube.z13.web.core.windows.net/muse/",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scope": "Synthetic local GitHub/Worker/SQLite/MCP/signed-callback/browser; not live Lucy/Muse host latency",
+  "importedMs": 14.327824000000192,
+  "callbackAcceptedMs": 16.05585400000018,
+  "exactReadMs": 20.470216000000164,
+  "renderedMs": 413.71040600000015,
+  "githubFetches": 1,
+  "newExecutionRequests": 0,
+  "cooldownBypassedWithoutChangingCadence": true
+}

@@ -1,0 +1,126 @@
+{
+  "name": "snapshot-visual-light-endpoint-player",
+  "scope": "Canonical endpoints: unchanged tight pixel and geometry gates.",
+  "limits": {
+    "geometryTolerance": 0.05,
+    "pixelLimits": {
+      "channelTolerance": 2,
+      "changedFraction": 0.0005,
+      "meanChannelDelta": 0.05,
+      "regionChangedFraction": 0.003
+    }
+  },
+  "baseline": {
+    "screen": "player",
+    "hidden": false,
+    "inert": false,
+    "opacity": "1",
+    "visibility": "visible",
+    "time": 42,
+    "geometry": {
+      "surface": {
+        "left": 0,
+        "top": 0,
+        "width": 519,
+        "height": 988
+      },
+      "art": {
+        "left": 18.5,
+        "top": 17.15625,
+        "width": 482,
+        "height": 482
+      },
+      "title": {
+        "left": 18.484375,
+        "top": 517.640625,
+        "width": 223.203125,
+        "height": 38.015625
+      }
+    },
+    "activeInput": false,
+    "activeMasks": 0,
+    "orphanClones": 0
+  },
+  "candidate": {
+    "screen": "player",
+    "hidden": false,
+    "inert": false,
+    "opacity": "1",
+    "visibility": "visible",
+    "time": 42,
+    "geometry": {
+      "surface": {
+        "left": 0,
+        "top": 0,
+        "width": 519,
+        "height": 988
+      },
+      "art": {
+        "left": 18.5,
+        "top": 17.15625,
+        "width": 482,
+        "height": 482
+      },
+      "title": {
+        "left": 18.484375,
+        "top": 517.640625,
+        "width": 223.203125,
+        "height": 38.015625
+      }
+    },
+    "activeInput": false,
+    "activeMasks": 0,
+    "orphanClones": 0
+  },
+  "pixels": {
+    "width": 1080,
+    "height": 2057,
+    "channelTolerance": 2,
+    "pixels": 2221560,
+    "changedPixels": 1080,
+    "exactChangedPixels": 1080,
+    "changedFraction": 0.0004861448711716091,
+    "maxChannelDelta": 18,
+    "meanChannelDelta": 0.0029224959037793263,
+    "changedBounds": {
+      "left": 0,
+      "top": 2056,
+      "width": 1080,
+      "height": 1
+    },
+    "regions": {
+      "surface": {
+        "pixels": 2221560,
+        "changedPixels": 1080,
+        "exactChangedPixels": 1080,
+        "changedFraction": 0.0004861448711716091,
+        "maxChannelDelta": 18,
+        "meanChannelDelta": 0.0029224959037793263,
+        "changedBounds": {
+          "left": 0,
+          "top": 2056,
+          "width": 1080,
+          "height": 1
+        }
+      },
+      "art": {
+        "pixels": 1009020,
+        "changedPixels": 0,
+        "exactChangedPixels": 0,
+        "changedFraction": 0,
+        "maxChannelDelta": 0,
+        "meanChannelDelta": 0,
+        "changedBounds": null
+      },
+      "title": {
+        "pixels": 37280,
+        "changedPixels": 0,
+        "exactChangedPixels": 0,
+        "changedFraction": 0,
+        "maxChannelDelta": 0,
+        "meanChannelDelta": 0,
+        "changedBounds": null
+      }
+    }
+  }
+}

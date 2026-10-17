@@ -1,0 +1,186 @@
+{
+  "browser": "151.0.7922.173",
+  "rows": [
+    {
+      "rate": 44100,
+      "tone": [
+        100,
+        10000,
+        0.7071068,
+        0.7071068
+      ],
+      "plottedToneFreqs": [
+        100,
+        10000
+      ],
+      "plottedToneQ": [
+        0.7071068,
+        0.7071068
+      ],
+      "points": 180,
+      "maxMagnitudeErrorDb": 7.993605777301127e-15,
+      "maxActiveCoefficientError": 0
+    },
+    {
+      "rate": 44100,
+      "tone": [
+        200,
+        4000,
+        0.7,
+        0.7
+      ],
+      "plottedToneFreqs": [
+        200,
+        4000
+      ],
+      "plottedToneQ": [
+        0.7,
+        0.7
+      ],
+      "points": 180,
+      "maxMagnitudeErrorDb": 7.105427357601002e-15,
+      "maxActiveCoefficientError": 0
+    },
+    {
+      "rate": 44100,
+      "tone": [
+        47,
+        12000,
+        12,
+        0.1
+      ],
+      "plottedToneFreqs": [
+        47,
+        12000
+      ],
+      "plottedToneQ": [
+        12,
+        0.1
+      ],
+      "points": 180,
+      "maxMagnitudeErrorDb": 7.105427357601002e-15,
+      "maxActiveCoefficientError": 0
+    },
+    {
+      "rate": 48000,
+      "tone": [
+        100,
+        10000,
+        0.7071068,
+        0.7071068
+      ],
+      "plottedToneFreqs": [
+        100,
+        10000
+      ],
+      "plottedToneQ": [
+        0.7071068,
+        0.7071068
+      ],
+      "points": 180,
+      "maxMagnitudeErrorDb": 7.105427357601002e-15,
+      "maxActiveCoefficientError": 0
+    },
+    {
+      "rate": 48000,
+      "tone": [
+        200,
+        4000,
+        0.7,
+        0.7
+      ],
+      "plottedToneFreqs": [
+        200,
+        4000
+      ],
+      "plottedToneQ": [
+        0.7,
+        0.7
+      ],
+      "points": 180,
+      "maxMagnitudeErrorDb": 7.105427357601002e-15,
+      "maxActiveCoefficientError": 0
+    },
+    {
+      "rate": 48000,
+      "tone": [
+        47,
+        12000,
+        12,
+        0.1
+      ],
+      "plottedToneFreqs": [
+        47,
+        12000
+      ],
+      "plottedToneQ": [
+        12,
+        0.1
+      ],
+      "points": 180,
+      "maxMagnitudeErrorDb": 8.881784197001252e-15,
+      "maxActiveCoefficientError": 0
+    },
+    {
+      "rate": 96000,
+      "tone": [
+        100,
+        10000,
+        0.7071068,
+        0.7071068
+      ],
+      "plottedToneFreqs": [
+        100,
+        10000
+      ],
+      "plottedToneQ": [
+        0.7071068,
+        0.7071068
+      ],
+      "points": 180,
+      "maxMagnitudeErrorDb": 7.549516567451064e-15,
+      "maxActiveCoefficientError": 0
+    },
+    {
+      "rate": 96000,
+      "tone": [
+        200,
+        4000,
+        0.7,
+        0.7
+      ],
+      "plottedToneFreqs": [
+        200,
+        4000
+      ],
+      "plottedToneQ": [
+        0.7,
+        0.7
+      ],
+      "points": 180,
+      "maxMagnitudeErrorDb": 7.105427357601002e-15,
+      "maxActiveCoefficientError": 0
+    },
+    {
+      "rate": 96000,
+      "tone": [
+        47,
+        12000,
+        12,
+        0.1
+      ],
+      "plottedToneFreqs": [
+        47,
+        12000
+      ],
+      "plottedToneQ": [
+        12,
+        0.1
+      ],
+      "points": 180,
+      "maxMagnitudeErrorDb": 7.105427357601002e-15,
+      "maxActiveCoefficientError": 0
+    }
+  ],
+  "passed": true
+}

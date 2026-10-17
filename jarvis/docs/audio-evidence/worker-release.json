@@ -1,0 +1,16 @@
+{
+  "runId": 36963369153,
+  "sourceCommit": "b3220c86411799415629d48ea86583b1cbedc515",
+  "deployedVersions": [
+    "c832d447-29e8-4d27-a105-2ed696c40acc"
+  ],
+  "artifactId": 11208902875,
+  "artifactDigest": "efd7fe104b600975c29180aa11b826397f48aac279f47e49ad30854061e9ff3e",
+  "nativeSetup": false,
+  "partialMigration": false,
+  "previousVersion": "bb715754-9c46-400b-a76a-ac68c1bda2c1",
+  "archiveDigestVerified": true,
+  "unsignedBrowserCorrectionStatus": 403,
+  "unsignedServerCorrectionStatus": 401,
+  "frontendPreviousPin": "79452a07cdc456700e0ebf8b2b5b8ca4bd589d8c"
+}

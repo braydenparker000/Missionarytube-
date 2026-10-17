@@ -1,0 +1,17 @@
+{
+  "release": "0.34.6",
+  "hash": "",
+  "playback": "exhausted",
+  "media": null,
+  "pip": false,
+  "fullscreen": false,
+  "status": "",
+  "savedProgress": [
+    {
+      "time": 87,
+      "duration": 180,
+      "completed": false
+    }
+  ],
+  "errors": []
+}

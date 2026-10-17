@@ -1,0 +1,225 @@
+{
+  "schema": 1,
+  "repository": "braydenparker999/jarvis",
+  "baseCommit": "ea9c09c1ddb172c1f0d668b58a5e7066f1c8318f",
+  "branch": "fix/media-reliability-20261009",
+  "astraRelease": {
+    "before": "0.34.5",
+    "after": "0.34.6"
+  },
+  "mymediaRelease": "0.38.0",
+  "orchestration": {
+    "repository": "braydenparker000/Missionarytube-",
+    "mainCommit": "bf12a379754225db770429d01bf730758fab9a4b",
+    "existingJarvisPin": "c4d62409a3b67e4e5dac88809c6a4a0290b6e39e",
+    "pinChanged": false,
+    "tests": {
+      "pass": 852,
+      "fail": 0,
+      "skipped": 0
+    },
+    "existingPinBuild": {
+      "result": "pass",
+      "fileCount": 172,
+      "sizeMiB": 19.58,
+      "mediaPayloads": false,
+      "candidateBuild": false
+    }
+  },
+  "runtime": {
+    "node": "22.23.3",
+    "playwrightCore": "1.56.1",
+    "browser": "Chrome for Testing",
+    "browserVersion": "154.0.8037.97",
+    "browserArchiveSha256": "487c3b0e89f786d9257a6265a29bacf18b893e90f29c0ef6f7be9706ecc8c7a2",
+    "headless": true
+  },
+  "qualification": {
+    "focusedBrowser": {
+      "tests": 24,
+      "pass": 24,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "command": "node --test tests/media-reliability-browser.test.js tests/poweramp-native-reliability-browser.test.js tests/pip-diagnostics-browser.test.js"
+    },
+    "astraContracts": {
+      "tests": 15,
+      "pass": 15,
+      "fail": 0,
+      "skipped": 0,
+      "command": "node --test tests/astra-artwork.test.js tests/astra-state.test.js tests/astra-reliability.test.js"
+    },
+    "trackedQualificationInventory": {
+      "tests": 26,
+      "pass": 26,
+      "fail": 0,
+      "skipped": 0,
+      "command": "node --test tests/qualification-proof.test.js"
+    },
+    "powerampIsolatedSceneVisual": {
+      "tests": 19,
+      "pass": 19,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "command": "node --test --test-concurrency=1 tests/poweramp-scene-browser.test.js tests/poweramp-snapshot-visual-browser.test.js",
+      "thresholdsUnchanged": true,
+      "canonicalEndpointsChangedPixels": 0
+    },
+    "frozenMainReproduction": {
+      "expectedFailure": true,
+      "pausedTime": 10.034096,
+      "savedTime": 0.252644,
+      "resumedTime": 0.290191,
+      "indexRelease": "0.34.5",
+      "scriptSha256": "3e9ee690309f3d4edb47b1c0eb025b4c7130702c98ac236206d2cd8b38b7429e"
+    },
+    "frozenScriptOnlyReplay": {
+      "expectedFailure": true,
+      "resumedTime": 0.32474,
+      "savedTime": 0.255763,
+      "indexRelease": "0.34.6",
+      "scriptOverrideFrom": "ea9c09c1ddb172c1f0d668b58a5e7066f1c8318f",
+      "candidateQualification": false
+    },
+    "candidateResume": {
+      "pausedTime": 10.164296,
+      "savedTime": 10.164296,
+      "resumedTime": 10.189891
+    },
+    "aggregate": {
+      "command": "npm test",
+      "qualificationPass": false,
+      "tests": 2032,
+      "pass": 2022,
+      "fail": 6,
+      "cancelled": 2,
+      "skipped": 2,
+      "sourceStableThroughoutRun": false,
+      "failures": [
+        {
+          "case": "Astra uniform release asset version",
+          "disposition": "Corrected; isolated 15-contract pass."
+        },
+        {
+          "case": "Tracked source closure inventory",
+          "disposition": "New suite staged; isolated 26-contract pass."
+        },
+        {
+          "case": "My Media live archive covers",
+          "disposition": "Existing external-thumbnail timeout; remains unqualified."
+        },
+        {
+          "case": "Poweramp late canonical artwork regrab",
+          "disposition": "Unchanged serial scene suite passes."
+        },
+        {
+          "case": "Poweramp light snapshot visual parent deadline",
+          "disposition": "Unchanged serial visual suite passes."
+        }
+      ]
+    }
+  },
+  "sourceHashes": {
+    "public/media/assets/js/app.js": {
+      "baseSha256": "3e9ee690309f3d4edb47b1c0eb025b4c7130702c98ac236206d2cd8b38b7429e",
+      "candidateSha256": "22ae61d95ab4a8ee62dc32ce3c43bb686cd274df3f74b1dbb51ecbd41e36c3fa",
+      "unchanged": false
+    },
+    "public/media/index.html": {
+      "baseSha256": "b2ef7d3fff76a8751a250e2e0ef445200dfaee45db1854a9a9da80ec683d37e9",
+      "candidateSha256": "123acb17e65998e239bfa7bc05614d923aa9b6ffa818d3a497ef8df47cbe277e",
+      "unchanged": false
+    },
+    "public/drawercast/player.js": {
+      "baseSha256": "ae45b9cbff63c1b129aa2672cc855454ce52611e75ab7fdacda2dc7b20c7247d",
+      "candidateSha256": "ae45b9cbff63c1b129aa2672cc855454ce52611e75ab7fdacda2dc7b20c7247d",
+      "unchanged": true
+    },
+    "public/drawercast/index.html": {
+      "baseSha256": "1d86b5539affed5b3188592c26e5725668c06ea977329deacd94836c6078f016",
+      "candidateSha256": "1d86b5539affed5b3188592c26e5725668c06ea977329deacd94836c6078f016",
+      "unchanged": true
+    },
+    "public/assets/pip-diagnostics.js": {
+      "baseSha256": "7c2444e291662a928025f00bddb05693ea1f27d52a0123ee384b7da97613116c",
+      "candidateSha256": "7c2444e291662a928025f00bddb05693ea1f27d52a0123ee384b7da97613116c",
+      "unchanged": true
+    },
+    "public/mymedia/app.js": {
+      "baseSha256": "943728a5de2e22af38ab397086a1c98e9ddddd1dbfce344081881cc393ca9396",
+      "candidateSha256": "943728a5de2e22af38ab397086a1c98e9ddddd1dbfce344081881cc393ca9396",
+      "unchanged": true
+    },
+    "public/media/assets/css/obsidian.css": {
+      "baseSha256": "abdb7814df31e3e2bbeed041dae0841e64ac722ae30c2f5eaf35b77447b4373f",
+      "candidateSha256": "abdb7814df31e3e2bbeed041dae0841e64ac722ae30c2f5eaf35b77447b4373f",
+      "unchanged": true
+    }
+  },
+  "phoneStatus": [
+    {
+      "observedAtUTC": "2026-10-09T02:48:27Z",
+      "phone_connected": false,
+      "protocol": 1,
+      "session_id": null,
+      "bridge_version": null,
+      "last_heartbeat_at": null
+    },
+    {
+      "observedAtUTC": "2026-10-09T03:10:20Z",
+      "phone_connected": false,
+      "protocol": 1,
+      "session_id": null,
+      "bridge_version": null,
+      "last_heartbeat_at": null
+    }
+  ],
+  "limitations": [
+    "No physical Samsung A15 or Android test performed.",
+    "Android Home/PiP entry animation and native close/expand focus behavior remain untested.",
+    "Headless My Media visibility stayed visible after bringToFront, so native hidden-tab exit policy was not exercised.",
+    "Desktop AudioContext suspension and CDP freeze are not Android audio-focus or screen-off evidence.",
+    "My Media Google transport is mocked with generated fixture bytes; Astra/Poweramp media use actual local HTTP.",
+    "Screenshots show page content, not the OS PiP window.",
+    "Complete stable-source qualification, serial performance gates and combined candidate-pin build remain with the integration owner."
+  ],
+  "publicationScope": {
+    "merge": false,
+    "deploy": false,
+    "settingsChanged": false,
+    "credentialsChanged": false,
+    "podcastsProviderChanged": false,
+    "generatedAuthorizedFixturesOnly": true
+  },
+  "artifactSha256": {
+    "after/astra-audio-browse-resume.json": "302328c8198591c3dd887803564574155d4b2bdeb4a2c4183c65b3f3a0df3d9e",
+    "after/astra-checkpoint-close.json": "a610aca65942b797ffb748a7c1e6fea4adc113f973f379ad3853d06bcb949fef",
+    "after/astra-checkpoint-pagehide.json": "05ed56837c38740aecea1e7a7877ab1207fad81fe07d3280cfa9a4439f39738d",
+    "after/astra-close-pending-http.json": "5c86121d653e083690f23813414835c05d2d9ab6de8873665a9f912841a96f1a",
+    "after/astra-ended-completion.json": "0b00f13418d73d37625b889772cbdcb45a5115b51636e7a9ecc09d9f3d532543",
+    "after/astra-http-failed.json": "bbff8f4fabd330ee549c5145bd3a60dc6fe31fd266fc843ef08dee4d80be2c26",
+    "after/astra-http-retried.json": "15fc373b5f869fad116eca0e63d5b6520d9f910675b87808ca4244bd89ef7793",
+    "after/astra-pip-fullscreen.json": "cf5f0c4f454515fea3ded2eb48de1d9d92067f53cbc4f587712ac247d1698772",
+    "after/astra-pip-inline.json": "64c949053efc4b52ac6f1bde185a6730935d859937da33598526e101021f720c",
+    "after/astra-stalled-seek-retried.json": "1f7052b95e403a5061c2a2e8b93c34c5a603849229af0ad6f497a8de736129ac",
+    "after/astra-stalled-seek.json": "96a1ae6819988acaec3a56626902f20f3878737a71fc463f2549f191fa22e839",
+    "after/astra-video-paused.json": "c05c2ad8c91e68c34164c0447b0dbc3b98c0aa1970711e025c6cb44bd1c425cf",
+    "after/astra-video-paused.png": "f649d7efeea4aa180bf818147a3464b0f38234c74a885b8c994d29d4b96c7883",
+    "after/astra-video-resumed.json": "6b371747927343743df2e5226e845587457974c1eaa0e9c179d6c4239f504cff",
+    "after/mymedia-pip-fullscreen.json": "29bf67834e0b4de738fcf7111bd50aab7fda402dcf9dbc640f9734c99735826b",
+    "after/mymedia-pip-inline.json": "ee5bed3c4cdd803daf3dcd8e4a9e534e292936f15af800980b0677eb1d3056f9",
+    "after/poweramp-context-interruption.json": "6623ed5d8944b586cb07f7b7349b65b856eb25707a7fc018cad3baf7d7330590",
+    "after/poweramp-reload-checkpoint.json": "3ca316d422b760e0e645f13de2b076d2b8234181e28531d6ceeafb47a2786e6c",
+    "astra-contracts.log": "560a707265c3b55cf021fa75e8908a6c4acbb4f613030c5992abd386e37252b7",
+    "astra-resume-before.log": "363ca004c108375fd8dc12c77be1f7a24e91dadeeab5aebb061ee32c3120f72f",
+    "before/astra-video-paused.json": "2b9c178b3f7822d03db549d10f58e963d141c2ff6d38b510f8a7879bf3548f4b",
+    "before/astra-video-paused.png": "05316f02fa63f154ed6ef7f79487def074c56117479bc13d726283e6e5e91760",
+    "before/astra-video-resume-failure.json": "e0f6e6310fb839fe43b370bdf3124d1d6abb6e13d68ee05bd9514d9dc65cc6d5",
+    "focused-browser.log": "92fc2d1732edfb8bf8050086859acb6df136784cc5dc4ba018676f831306249c",
+    "frozen-source-resume.log": "4dce77645c6299b996ea09fd1a06a5edaa7500d717941e99347e2748da6ed98a",
+    "poweramp-isolated-gates.log": "c1a4f511c7852cb1d2b1d1d9152b4cdbe3d5b3b18821eb7386b92f1d7a3f0194",
+    "qualification-inventory.log": "d0a893be368fc4291f32d5fc212098ee7d5b466c7beae8e0dfd76220934e52d2"
+  }
+}

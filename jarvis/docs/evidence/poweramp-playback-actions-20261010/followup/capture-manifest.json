@@ -1,0 +1,86 @@
+{
+  "baseline": "97b048abfde97426da7b5eb3a310964631ce724c",
+  "head": "7fa82b4419c502fec2487ae181dbf0acef5b737d",
+  "images": [
+    {
+      "source": "baseline",
+      "file": "snapshot-visual-dark-endpoint-list-baseline.png",
+      "sha256": "e2e658320d22c4bfc15161642d04001b2d92dba00fd30594dfeecd73979a6be8"
+    },
+    {
+      "source": "baseline",
+      "file": "snapshot-visual-dark-endpoint-list-live.png",
+      "sha256": "e2e658320d22c4bfc15161642d04001b2d92dba00fd30594dfeecd73979a6be8"
+    },
+    {
+      "source": "baseline",
+      "file": "snapshot-visual-dark-endpoint-player-baseline.png",
+      "sha256": "067b3feb08ab7e2388f14738676162c624320364ad25dad9ca21bc0b8c73f607"
+    },
+    {
+      "source": "baseline",
+      "file": "snapshot-visual-dark-endpoint-player-live.png",
+      "sha256": "6b5049a705391e549360abe5cf506805cdade41b5e990f976cc5456a36916250"
+    },
+    {
+      "source": "baseline",
+      "file": "snapshot-visual-light-endpoint-list-baseline.png",
+      "sha256": "f6414480b36ef5bdcf8542e5f6cdb78a338cb5a11ba81ce0c69c9ca970da5051"
+    },
+    {
+      "source": "baseline",
+      "file": "snapshot-visual-light-endpoint-list-live.png",
+      "sha256": "f6414480b36ef5bdcf8542e5f6cdb78a338cb5a11ba81ce0c69c9ca970da5051"
+    },
+    {
+      "source": "baseline",
+      "file": "snapshot-visual-light-endpoint-player-baseline.png",
+      "sha256": "f68973b0fb460a7bdd23bee44a6e2e1ad1b44e11d65d79d035f4bee503a75c3a"
+    },
+    {
+      "source": "baseline",
+      "file": "snapshot-visual-light-endpoint-player-live.png",
+      "sha256": "e258f1818559dc4003a3f8b33a1d45081cb9e4c6db17969308adf64281356528"
+    },
+    {
+      "source": "head",
+      "file": "snapshot-visual-dark-endpoint-list-baseline.png",
+      "sha256": "e2e658320d22c4bfc15161642d04001b2d92dba00fd30594dfeecd73979a6be8"
+    },
+    {
+      "source": "head",
+      "file": "snapshot-visual-dark-endpoint-list-live.png",
+      "sha256": "e2e658320d22c4bfc15161642d04001b2d92dba00fd30594dfeecd73979a6be8"
+    },
+    {
+      "source": "head",
+      "file": "snapshot-visual-dark-endpoint-player-baseline.png",
+      "sha256": "067b3feb08ab7e2388f14738676162c624320364ad25dad9ca21bc0b8c73f607"
+    },
+    {
+      "source": "head",
+      "file": "snapshot-visual-dark-endpoint-player-live.png",
+      "sha256": "6b5049a705391e549360abe5cf506805cdade41b5e990f976cc5456a36916250"
+    },
+    {
+      "source": "head",
+      "file": "snapshot-visual-light-endpoint-list-baseline.png",
+      "sha256": "f6414480b36ef5bdcf8542e5f6cdb78a338cb5a11ba81ce0c69c9ca970da5051"
+    },
+    {
+      "source": "head",
+      "file": "snapshot-visual-light-endpoint-list-live.png",
+      "sha256": "f6414480b36ef5bdcf8542e5f6cdb78a338cb5a11ba81ce0c69c9ca970da5051"
+    },
+    {
+      "source": "head",
+      "file": "snapshot-visual-light-endpoint-player-baseline.png",
+      "sha256": "f68973b0fb460a7bdd23bee44a6e2e1ad1b44e11d65d79d035f4bee503a75c3a"
+    },
+    {
+      "source": "head",
+      "file": "snapshot-visual-light-endpoint-player-live.png",
+      "sha256": "e258f1818559dc4003a3f8b33a1d45081cb9e4c6db17969308adf64281356528"
+    }
+  ]
+}

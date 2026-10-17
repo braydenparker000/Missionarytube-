@@ -1,0 +1,198 @@
+{
+  "snapshotGeneratedAt": "2026-10-02T03:00:33.132Z",
+  "countAtSnapshot": 1358,
+  "tracks": [
+    {
+      "id": "r2_1594bzGkaPidWVBMpAM5_QwpEX7AVG-t7",
+      "sha256": "dada1575177136141027298e21b4b73d0e1cf9eace01ac3ea4ac98492f22f34e",
+      "size": 3445432,
+      "metadata": {
+        "title": "Genesis",
+        "artist": "Polyphia feat. Brasstracks",
+        "album": "Remember That You Will Die",
+        "albumArtist": "Polyphia",
+        "genre": "",
+        "composer": "",
+        "year": 2022,
+        "track": 1,
+        "disc": 0,
+        "dur": 194.64,
+        "sr": 48000,
+        "ch": 2,
+        "codec": "opus",
+        "bits": 0
+      },
+      "r2Identity": {
+        "etag": "a7848fc2be101f865f7f686763d96ef2",
+        "lastModified": "2026-10-01T04:48:09+00:00",
+        "metadata": {
+          "source-drive-id": "1594bzGkaPidWVBMpAM5_QwpEX7AVG-t7",
+          "source-md5": "a7848fc2be101f865f7f686763d96ef2",
+          "source-sha256": "dada1575177136141027298e21b4b73d0e1cf9eace01ac3ea4ac98492f22f34e",
+          "source-size": "3445432"
+        },
+        "size": 3445432
+      }
+    },
+    {
+      "id": "r2_1kUQFCc-ZSozmn0P76sktrfs546P3ATT9",
+      "sha256": "2629a92448ad44dfc77c5a10c0496cca46d0af16fb283e4d021654972d18dcd4",
+      "size": 332184,
+      "metadata": {
+        "title": "Bittersweet Acoustic",
+        "artist": "Tim Henson",
+        "album": "Tim Henson YouTube channel",
+        "albumArtist": "Tim Henson",
+        "genre": "",
+        "composer": "",
+        "year": 2019,
+        "track": 1,
+        "disc": 0,
+        "dur": 16.96,
+        "sr": 48000,
+        "ch": 2,
+        "codec": "opus",
+        "bits": 0
+      },
+      "r2Identity": {
+        "etag": "5f67a2cd9c73743eedf1d7c5ef1309c2",
+        "lastModified": "2026-10-01T18:35:17+00:00",
+        "metadata": {
+          "source-drive-id": "1kUQFCc-ZSozmn0P76sktrfs546P3ATT9",
+          "source-md5": "5f67a2cd9c73743eedf1d7c5ef1309c2",
+          "source-sha256": "2629a92448ad44dfc77c5a10c0496cca46d0af16fb283e4d021654972d18dcd4",
+          "source-size": "332184"
+        },
+        "size": 332184
+      }
+    },
+    {
+      "id": "r2_17PoMocoYELzJK4Y__SJkh8g0o3WcofuE",
+      "sha256": "afef221e20f3cf7bddd4cf5c8b0f3810d9211a35e36e17f27b3fe6b42c64b38b",
+      "size": 4028374,
+      "metadata": {
+        "title": "Fr\u00e9d\u00e9ric Chopin - Nocturne Op. 27 No. 1 (Piano Solo)",
+        "artist": "steven960929",
+        "album": "",
+        "albumArtist": "",
+        "genre": "",
+        "composer": "",
+        "year": 0,
+        "track": 0,
+        "disc": 0,
+        "dur": 298.08,
+        "sr": 48000,
+        "ch": 2,
+        "codec": "opus",
+        "bits": 0
+      },
+      "r2Identity": {
+        "etag": "c998c8ced8270d1ff0fea6ea20e56355",
+        "lastModified": "2026-10-01T05:02:16+00:00",
+        "metadata": {
+          "source-drive-id": "17PoMocoYELzJK4Y__SJkh8g0o3WcofuE",
+          "source-md5": "c998c8ced8270d1ff0fea6ea20e56355",
+          "source-sha256": "afef221e20f3cf7bddd4cf5c8b0f3810d9211a35e36e17f27b3fe6b42c64b38b",
+          "source-size": "4028374"
+        },
+        "size": 4028374
+      }
+    },
+    {
+      "id": "r2_1_1vFQdL1_jAo9HkoL3ICseh6pHg8dB0q",
+      "sha256": "abf4f2b6f06ac6f6b4b0f00359dbec9c7e504db77ed5d01a6924fb649216952a",
+      "size": 1591457,
+      "metadata": {
+        "title": "hookedonyou.mp3",
+        "artist": "Marcus Cardello",
+        "album": "hookedonyou.mp3",
+        "albumArtist": "",
+        "genre": "Electro, Dance",
+        "composer": "",
+        "year": 2026,
+        "track": 47,
+        "disc": 1,
+        "dur": 229.37,
+        "sr": 22050,
+        "ch": 2,
+        "codec": "aac",
+        "bits": 0
+      },
+      "r2Identity": {
+        "etag": "0b3e8154bdcc071c0e7a937ad80a37d4",
+        "lastModified": "2026-10-01T18:06:58+00:00",
+        "metadata": {
+          "source-drive-id": "1_1vFQdL1_jAo9HkoL3ICseh6pHg8dB0q",
+          "source-md5": "0b3e8154bdcc071c0e7a937ad80a37d4",
+          "source-sha256": "abf4f2b6f06ac6f6b4b0f00359dbec9c7e504db77ed5d01a6924fb649216952a",
+          "source-size": "1591457"
+        },
+        "size": 1591457
+      }
+    },
+    {
+      "id": "r2_1AwWFL-nbMZ9qf9zjgEHhGezMVbfaqgrA",
+      "sha256": "2e9274abc794dd40a1511d4b2362b439fe75b3399eeeae42c02abcc7e10009c7",
+      "size": 2610753,
+      "metadata": {
+        "title": "Acoustic VS Electric Guitar - Marcin and Ichika Nito",
+        "artist": "Marcin, Ichika Nito",
+        "album": "Marcin YouTube channel",
+        "albumArtist": "Marcin",
+        "genre": "",
+        "composer": "",
+        "year": 2022,
+        "track": 1,
+        "disc": 0,
+        "dur": 135.62,
+        "sr": 48000,
+        "ch": 2,
+        "codec": "opus",
+        "bits": 0
+      },
+      "r2Identity": {
+        "etag": "e56159c475b81f8b50eed8c595025c4d",
+        "lastModified": "2026-10-01T05:19:44+00:00",
+        "metadata": {
+          "source-drive-id": "1AwWFL-nbMZ9qf9zjgEHhGezMVbfaqgrA",
+          "source-md5": "e56159c475b81f8b50eed8c595025c4d",
+          "source-sha256": "2e9274abc794dd40a1511d4b2362b439fe75b3399eeeae42c02abcc7e10009c7",
+          "source-size": "2610753"
+        },
+        "size": 2610753
+      }
+    },
+    {
+      "id": "r2_192IdTZsvk-cWb4zaKTvjlluCxKFZ1gTE",
+      "sha256": "4827710aab09072238505990369a40fada7e5c7e3aadecb2990bfb8bb3c649f4",
+      "size": 1605638,
+      "metadata": {
+        "title": "want to love (just raw) (Acoustic)",
+        "artist": "sunkissed",
+        "album": "",
+        "albumArtist": "",
+        "genre": "",
+        "composer": "",
+        "year": 0,
+        "track": 0,
+        "disc": 0,
+        "dur": 80.06,
+        "sr": 48000,
+        "ch": 2,
+        "codec": "opus",
+        "bits": 0
+      },
+      "r2Identity": {
+        "etag": "e134767de1f209330c334fe92a0ce150",
+        "lastModified": "2026-10-01T05:03:02+00:00",
+        "metadata": {
+          "source-drive-id": "192IdTZsvk-cWb4zaKTvjlluCxKFZ1gTE",
+          "source-md5": "e134767de1f209330c334fe92a0ce150",
+          "source-sha256": "4827710aab09072238505990369a40fada7e5c7e3aadecb2990bfb8bb3c649f4",
+          "source-size": "1605638"
+        },
+        "size": 1605638
+      }
+    }
+  ]
+}

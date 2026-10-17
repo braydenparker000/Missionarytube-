@@ -1,0 +1,87 @@
+{
+  "browser": "151.0.7922.173",
+  "startedAt": "2026-10-02T04:05:36.634Z",
+  "definition": "Wall-clock selection to media readyState >= 3 and playhead > 0.05 s; seek to target + 0.05 s. Includes network and observation scheduling. Cloud host only; audible latency/underruns/battery unmeasured.",
+  "rows": [
+    {
+      "version": "previous-live-79452a0",
+      "trial": 0,
+      "seeksMs": [
+        82.44216599999982,
+        112.46827200000007,
+        80.09245299999975,
+        960.3810710000002,
+        80.84851600000002
+      ],
+      "pageCatalogMs": 861.1978730000001,
+      "selectionMs": 1121.651224
+    },
+    {
+      "version": "previous-live-79452a0",
+      "trial": 1,
+      "seeksMs": [
+        84.97609100000045,
+        83.56337299999996,
+        80.19810399999915,
+        82.39607700000033,
+        79.64105699999982
+      ],
+      "pageCatalogMs": 875.0404490000001,
+      "selectionMs": 1260.5541869999997
+    },
+    {
+      "version": "previous-live-79452a0",
+      "trial": 2,
+      "seeksMs": [
+        95.60580899999877,
+        80.06324900000072,
+        80.26614899999913,
+        81.36365599999954,
+        79.48371599999882
+      ],
+      "pageCatalogMs": 726.7925990000003,
+      "selectionMs": 1078.070565
+    },
+    {
+      "version": "candidate",
+      "trial": 0,
+      "seeksMs": [
+        94.12467500000093,
+        81.64896699999917,
+        82.81335299999955,
+        81.71815900000001,
+        79.94894599999861
+      ],
+      "pageCatalogMs": 687.0855169999995,
+      "selectionMs": 1006.5629559999998
+    },
+    {
+      "version": "candidate",
+      "trial": 1,
+      "seeksMs": [
+        83.2465859999993,
+        159.08117700000003,
+        81.16882400000031,
+        80.84330399999999,
+        79.55873100000099
+      ],
+      "pageCatalogMs": 648.3305789999995,
+      "selectionMs": 955.0804640000006
+    },
+    {
+      "version": "candidate",
+      "trial": 2,
+      "seeksMs": [
+        82.88850900000034,
+        79.86261900000136,
+        81.99932900000022,
+        79.82092600000033,
+        80.1502529999998
+      ],
+      "pageCatalogMs": 600.2656079999997,
+      "selectionMs": 1132.046889000001
+    }
+  ],
+  "passed": true,
+  "finishedAt": "2026-10-02T04:05:51.713Z"
+}

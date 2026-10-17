@@ -1,0 +1,9 @@
+{
+  "productionCandidate": "e220767b0b9aab8c3e1187e41399cbe44a1ba41c",
+  "filesReviewed": 44,
+  "credentialPatternFileHits": [],
+  "diffCheckPassed": true,
+  "backendUnchangedSinceWorkerDeployment": true,
+  "sourceCIRun": 36964912606,
+  "deploymentCIRun": 36965303640
+}

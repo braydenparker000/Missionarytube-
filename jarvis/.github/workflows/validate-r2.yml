@@ -1,0 +1,133 @@
+name: Validate R2 migration and playback
+
+on:
+  pull_request:
+  push:
+    branches: [main, release/astra-live-backport-20261009, release/ci-reuse-repair-20261011]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r2-validation-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      digest: ${{ steps.plan.outputs.digest }}
+      node22: ${{ steps.plan.outputs.node22 }}
+      node24: ${{ steps.plan.outputs.node24 }}
+      python: ${{ steps.plan.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+      - name: Bind the exact owner runtime
+        run: printf 'QUALIFICATION_NODE24=%s\n' "$(node --version)" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.15'
+      - name: Compute complete coverage and verified unchanged-input reuse
+        id: plan
+        run: |
+          export QUALIFICATION_NODE22="$(node --version)"
+          export QUALIFICATION_PYTHON="$(python --version)"
+          export JARVIS_CHROME="$(command -v google-chrome || command -v chromium)"
+          test -n "$JARVIS_CHROME"
+          test -x "$JARVIS_CHROME"
+          node scripts/qualification-proof.mjs plan
+      - name: Preserve the immutable qualification plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: qualification-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: qualification-plan.json
+          if-no-files-found: error
+          retention-days: 14
+
+  component:
+    needs: plan
+    # A name alone never proves a pass. Consumers verify the completed trusted push
+    # run, exact attempt, immutable recipe bytes, and every required outcome.
+    name: qualified-${{ matrix.component }}-${{ matrix.digest }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      QUALIFICATION_NODE22: v${{ needs.plan.outputs.node22 }}
+      QUALIFICATION_NODE24: v${{ needs.plan.outputs.node24 }}
+      QUALIFICATION_PYTHON: Python ${{ needs.plan.outputs.python }}
+      QUALIFICATION_COMPONENT_DIGEST: ${{ matrix.digest }}
+      QUALIFICATION_REUSE: ${{ matrix.reuse }}
+      QUALIFICATION_PROVENANCE: ${{ toJSON(matrix.provenance) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install locked test dependencies and browser metadata
+        run: npm ci
+      - name: Restore only the checksum-verified official browser archive
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/jarvis-qualification-browser/chrome.zip
+          key: jarvis-browser-linux64-154.0.8037.97-487c3b0e89f786d9257a6265a29bacf18b893e90f29c0ef6f7be9706ecc8c7a2
+      - name: Select the exact qualified Chrome154 build across runner images
+        run: node scripts/install-qualification-browser.mjs
+      - uses: actions/setup-python@v5
+        if: ${{ matrix.component == 'migration' }}
+        with:
+          python-version: ${{ needs.plan.outputs.python }}
+      - name: Require the exact planned browser and execute or verify this component
+        # Independent groups use distinct runners. The Poweramp
+        # measurements stay serial on this isolated performance runner.
+        env:
+          POWERAMP_EVIDENCE_DIR: ${{ runner.temp }}/poweramp-browser
+          JARVIS_SCREENSHOT_DIR: ${{ runner.temp }}/podcast-browser
+        run: |
+          test -n "$JARVIS_CHROME"
+          test -x "$JARVIS_CHROME"
+          node scripts/qualification-proof.mjs run "${{ matrix.component }}"
+      - name: Preserve browser evidence and execution provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qualification-${{ matrix.component }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            qualification-${{ matrix.component }}.json
+            ${{ runner.temp }}/poweramp-browser
+            ${{ runner.temp }}/podcast-browser
+          if-no-files-found: warn
+          retention-days: 14
+
+  qualification:
+    needs: [plan, component]
+    if: ${{ always() && !cancelled() }}
+    name: qualified-source-${{ needs.plan.outputs.digest }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require every planned qualification lane
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          COMPONENT_RESULT: ${{ needs.component.result }}
+        run: |
+          test "$PLAN_RESULT" = success
+          test "$COMPONENT_RESULT" = success

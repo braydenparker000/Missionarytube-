@@ -1,0 +1,31 @@
+{
+  "browser": "151.0.7922.173",
+  "baseline": null,
+  "rows": [
+    {
+      "rate": 44100,
+      "resetTime": 0.1219047619047619,
+      "alignedPostResetSample": 5961,
+      "preResetTailPeak": 0.010616053827106953,
+      "postResetPeak": 0,
+      "passed": true
+    },
+    {
+      "rate": 48000,
+      "resetTime": 0.12,
+      "alignedPostResetSample": 6368,
+      "preResetTailPeak": 0.011113074608147144,
+      "postResetPeak": 0,
+      "passed": true
+    },
+    {
+      "rate": 96000,
+      "resetTime": 0.12,
+      "alignedPostResetSample": 12416,
+      "preResetTailPeak": 0.013563359156250954,
+      "postResetPeak": 0,
+      "passed": true
+    }
+  ],
+  "passed": true
+}

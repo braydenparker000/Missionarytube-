@@ -1,0 +1,159 @@
+{
+  "libebur128Version": "1.2.6",
+  "sourceSha": "67b33abe1558160ed76ada1322329b0e9e058b02",
+  "sameDecoderPcm": true,
+  "meterAlgorithmsIndependent": true,
+  "EBUPublicVectorDownload": "HTTP 403; not claimed verified",
+  "tracks": [
+    {
+      "id": "r2_1594bzGkaPidWVBMpAM5_QwpEX7AVG-t7",
+      "libebur128": {
+        "integratedLufs": -7.48676063,
+        "truePeakDbtp": 3.00673636,
+        "samplePeakDbfs": 3.00673636
+      },
+      "ffmpeg": {
+        "version": 1,
+        "sha256": "dada1575177136141027298e21b4b73d0e1cf9eace01ac3ea4ac98492f22f34e",
+        "audioBytes": 3445432,
+        "gainBasis": "decoded-container-gain",
+        "decoder": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "method": "FFmpeg ebur128 BS.1770 true-peak / float PCM sample peak v1",
+        "analyzedAt": "2026-10-02T03:17:41.018064+00:00",
+        "sampleRate": 48000,
+        "channels": 2,
+        "integratedLufs": -7.5,
+        "samplePeakDbfs": 3.006736358523432,
+        "truePeakDbtp": 3.0,
+        "containerGainDb": 0.0
+      },
+      "loudnessDifferenceLu": 0.013239369999999973,
+      "truePeakDifferenceDb": 0.006736360000000108
+    },
+    {
+      "id": "r2_1kUQFCc-ZSozmn0P76sktrfs546P3ATT9",
+      "libebur128": {
+        "integratedLufs": -16.68124196,
+        "truePeakDbtp": -0.14990369,
+        "samplePeakDbfs": -0.26765965
+      },
+      "ffmpeg": {
+        "version": 1,
+        "sha256": "2629a92448ad44dfc77c5a10c0496cca46d0af16fb283e4d021654972d18dcd4",
+        "audioBytes": 332184,
+        "gainBasis": "decoded-container-gain",
+        "decoder": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "method": "FFmpeg ebur128 BS.1770 true-peak / float PCM sample peak v1",
+        "analyzedAt": "2026-10-02T03:18:14.505440+00:00",
+        "sampleRate": 48000,
+        "channels": 2,
+        "integratedLufs": -16.7,
+        "samplePeakDbfs": -0.2676596499733918,
+        "truePeakDbtp": -0.2,
+        "containerGainDb": 0.0
+      },
+      "loudnessDifferenceLu": 0.018758039999998033,
+      "truePeakDifferenceDb": 0.050096310000000005
+    },
+    {
+      "id": "r2_17PoMocoYELzJK4Y__SJkh8g0o3WcofuE",
+      "libebur128": {
+        "integratedLufs": -16.64617967,
+        "truePeakDbtp": -0.55914983,
+        "samplePeakDbfs": -0.57041201
+      },
+      "ffmpeg": {
+        "version": 1,
+        "sha256": "afef221e20f3cf7bddd4cf5c8b0f3810d9211a35e36e17f27b3fe6b42c64b38b",
+        "audioBytes": 4028374,
+        "gainBasis": "decoded-container-gain",
+        "decoder": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "method": "FFmpeg ebur128 BS.1770 true-peak / float PCM sample peak v1",
+        "analyzedAt": "2026-10-02T03:18:20.199850+00:00",
+        "sampleRate": 48000,
+        "channels": 2,
+        "integratedLufs": -16.7,
+        "samplePeakDbfs": -0.5704120148218671,
+        "truePeakDbtp": -0.6,
+        "containerGainDb": 0.0
+      },
+      "loudnessDifferenceLu": 0.05382033000000064,
+      "truePeakDifferenceDb": 0.04085017000000002
+    },
+    {
+      "id": "r2_1_1vFQdL1_jAo9HkoL3ICseh6pHg8dB0q",
+      "libebur128": {
+        "integratedLufs": -8.56972698,
+        "truePeakDbtp": 4.44439012,
+        "samplePeakDbfs": 4.19607384
+      },
+      "ffmpeg": {
+        "version": 1,
+        "sha256": "abf4f2b6f06ac6f6b4b0f00359dbec9c7e504db77ed5d01a6924fb649216952a",
+        "audioBytes": 1591457,
+        "gainBasis": "decoded-container-gain",
+        "decoder": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "method": "FFmpeg ebur128 BS.1770 true-peak / float PCM sample peak v1",
+        "analyzedAt": "2026-10-02T03:19:12.751119+00:00",
+        "sampleRate": 44100,
+        "channels": 2,
+        "integratedLufs": -8.6,
+        "samplePeakDbfs": 4.431272823726316,
+        "truePeakDbtp": 4.4,
+        "containerGainDb": 0
+      },
+      "loudnessDifferenceLu": 0.030273019999999207,
+      "truePeakDifferenceDb": 0.04439012000000009
+    },
+    {
+      "id": "r2_1AwWFL-nbMZ9qf9zjgEHhGezMVbfaqgrA",
+      "libebur128": {
+        "integratedLufs": -13.856269,
+        "truePeakDbtp": 0.77622628,
+        "samplePeakDbfs": 0.69961886
+      },
+      "ffmpeg": {
+        "version": 1,
+        "sha256": "2e9274abc794dd40a1511d4b2362b439fe75b3399eeeae42c02abcc7e10009c7",
+        "audioBytes": 2610753,
+        "gainBasis": "decoded-container-gain",
+        "decoder": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "method": "FFmpeg ebur128 BS.1770 true-peak / float PCM sample peak v1",
+        "analyzedAt": "2026-10-02T03:19:51.916289+00:00",
+        "sampleRate": 48000,
+        "channels": 2,
+        "integratedLufs": -13.9,
+        "samplePeakDbfs": 0.6996188572660277,
+        "truePeakDbtp": 0.8,
+        "containerGainDb": 0.0
+      },
+      "loudnessDifferenceLu": 0.043731000000001075,
+      "truePeakDifferenceDb": -0.023773719999999998
+    },
+    {
+      "id": "r2_192IdTZsvk-cWb4zaKTvjlluCxKFZ1gTE",
+      "libebur128": {
+        "integratedLufs": -10.72449268,
+        "truePeakDbtp": 1.00483802,
+        "samplePeakDbfs": 1.00437316
+      },
+      "ffmpeg": {
+        "version": 1,
+        "sha256": "4827710aab09072238505990369a40fada7e5c7e3aadecb2990bfb8bb3c649f4",
+        "audioBytes": 1605638,
+        "gainBasis": "decoded-container-gain",
+        "decoder": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+        "method": "FFmpeg ebur128 BS.1770 true-peak / float PCM sample peak v1",
+        "analyzedAt": "2026-10-02T03:20:15.379353+00:00",
+        "sampleRate": 48000,
+        "channels": 2,
+        "integratedLufs": -10.7,
+        "samplePeakDbfs": 1.004373157036315,
+        "truePeakDbtp": 1.0,
+        "containerGainDb": 0.0
+      },
+      "loudnessDifferenceLu": -0.024492679999999822,
+      "truePeakDifferenceDb": 0.004838019999999998
+    }
+  ]
+}

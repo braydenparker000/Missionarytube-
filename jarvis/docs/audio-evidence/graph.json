@@ -1,0 +1,406 @@
+{
+  "startedAt": "2026-10-02T05:40:51.652Z",
+  "graph": [
+    {
+      "rate": 44100,
+      "volume": 1,
+      "declaredDelaySamples": 329,
+      "residualRmsDbfs": -180,
+      "residualPeak": 0,
+      "gainErrorDb": 0,
+      "ledger": {
+        "db": 0,
+        "reason": "Off",
+        "reference": null,
+        "normalizationDb": 0,
+        "userPreampDb": 0,
+        "eqHeadroomDb": 0,
+        "volumeDb": 0,
+        "overlapDb": 0,
+        "protectiveDb": 0,
+        "peakDb": -15,
+        "peakBoundDb": -14.75,
+        "peakMeasurementReserveDb": 0.25,
+        "peakKnown": true,
+        "ceilingDb": -1,
+        "detectorMarginDb": 2,
+        "degraded": false,
+        "trackGain": 1,
+        "finalGain": 1,
+        "stereoReserveDb": 0
+      },
+      "backend": "4× FIR true-peak guard · 6 ms lookahead + 64 samples · 2 dB detector margin"
+    },
+    {
+      "rate": 44100,
+      "volume": 0.5,
+      "declaredDelaySamples": 329,
+      "residualRmsDbfs": -180,
+      "residualPeak": 0,
+      "gainErrorDb": 0,
+      "ledger": {
+        "db": 0,
+        "reason": "Off",
+        "reference": null,
+        "normalizationDb": 0,
+        "userPreampDb": 0,
+        "eqHeadroomDb": 0,
+        "volumeDb": -12.041199826559248,
+        "overlapDb": 0,
+        "protectiveDb": 0,
+        "peakDb": -15,
+        "peakBoundDb": -14.75,
+        "peakMeasurementReserveDb": 0.25,
+        "peakKnown": true,
+        "ceilingDb": -1,
+        "detectorMarginDb": 2,
+        "degraded": false,
+        "trackGain": 1,
+        "finalGain": 1,
+        "stereoReserveDb": 0
+      },
+      "backend": "4× FIR true-peak guard · 6 ms lookahead + 64 samples · 2 dB detector margin"
+    },
+    {
+      "rate": 48000,
+      "volume": 1,
+      "declaredDelaySamples": 352,
+      "residualRmsDbfs": -180,
+      "residualPeak": 0,
+      "gainErrorDb": 0,
+      "ledger": {
+        "db": 0,
+        "reason": "Off",
+        "reference": null,
+        "normalizationDb": 0,
+        "userPreampDb": 0,
+        "eqHeadroomDb": 0,
+        "volumeDb": 0,
+        "overlapDb": 0,
+        "protectiveDb": 0,
+        "peakDb": -15,
+        "peakBoundDb": -14.75,
+        "peakMeasurementReserveDb": 0.25,
+        "peakKnown": true,
+        "ceilingDb": -1,
+        "detectorMarginDb": 2,
+        "degraded": false,
+        "trackGain": 1,
+        "finalGain": 1,
+        "stereoReserveDb": 0
+      },
+      "backend": "4× FIR true-peak guard · 6 ms lookahead + 64 samples · 2 dB detector margin"
+    },
+    {
+      "rate": 48000,
+      "volume": 0.5,
+      "declaredDelaySamples": 352,
+      "residualRmsDbfs": -180,
+      "residualPeak": 0,
+      "gainErrorDb": 0,
+      "ledger": {
+        "db": 0,
+        "reason": "Off",
+        "reference": null,
+        "normalizationDb": 0,
+        "userPreampDb": 0,
+        "eqHeadroomDb": 0,
+        "volumeDb": -12.041199826559248,
+        "overlapDb": 0,
+        "protectiveDb": 0,
+        "peakDb": -15,
+        "peakBoundDb": -14.75,
+        "peakMeasurementReserveDb": 0.25,
+        "peakKnown": true,
+        "ceilingDb": -1,
+        "detectorMarginDb": 2,
+        "degraded": false,
+        "trackGain": 1,
+        "finalGain": 1,
+        "stereoReserveDb": 0
+      },
+      "backend": "4× FIR true-peak guard · 6 ms lookahead + 64 samples · 2 dB detector margin"
+    },
+    {
+      "rate": 96000,
+      "volume": 1,
+      "declaredDelaySamples": 640,
+      "residualRmsDbfs": -180,
+      "residualPeak": 0,
+      "gainErrorDb": 0,
+      "ledger": {
+        "db": 0,
+        "reason": "Off",
+        "reference": null,
+        "normalizationDb": 0,
+        "userPreampDb": 0,
+        "eqHeadroomDb": 0,
+        "volumeDb": 0,
+        "overlapDb": 0,
+        "protectiveDb": 0,
+        "peakDb": -15,
+        "peakBoundDb": -14.75,
+        "peakMeasurementReserveDb": 0.25,
+        "peakKnown": true,
+        "ceilingDb": -1,
+        "detectorMarginDb": 2,
+        "degraded": false,
+        "trackGain": 1,
+        "finalGain": 1,
+        "stereoReserveDb": 0
+      },
+      "backend": "4× FIR true-peak guard · 6 ms lookahead + 64 samples · 2 dB detector margin"
+    },
+    {
+      "rate": 96000,
+      "volume": 0.5,
+      "declaredDelaySamples": 640,
+      "residualRmsDbfs": -180,
+      "residualPeak": 0,
+      "gainErrorDb": 0,
+      "ledger": {
+        "db": 0,
+        "reason": "Off",
+        "reference": null,
+        "normalizationDb": 0,
+        "userPreampDb": 0,
+        "eqHeadroomDb": 0,
+        "volumeDb": -12.041199826559248,
+        "overlapDb": 0,
+        "protectiveDb": 0,
+        "peakDb": -15,
+        "peakBoundDb": -14.75,
+        "peakMeasurementReserveDb": 0.25,
+        "peakKnown": true,
+        "ceilingDb": -1,
+        "detectorMarginDb": 2,
+        "degraded": false,
+        "trackGain": 1,
+        "finalGain": 1,
+        "stereoReserveDb": 0
+      },
+      "backend": "4× FIR true-peak guard · 6 ms lookahead + 64 samples · 2 dB detector margin"
+    }
+  ],
+  "eq": [
+    {
+      "rate": 44100,
+      "type": "peaking",
+      "results": [
+        {
+          "freq": 20,
+          "measuredDb": 0.00005111456650268319,
+          "referenceDb": 0.00005111928908736433,
+          "errorDb": -4.722584681138059e-9
+        },
+        {
+          "freq": 937.23,
+          "measuredDb": 12.000717241347035,
+          "referenceDb": 12.00000000000044,
+          "errorDb": 0.0007172413465941219
+        },
+        {
+          "freq": 19000,
+          "measuredDb": 0.000024527473257065878,
+          "referenceDb": 0.000024521950378322024,
+          "errorDb": 5.522878743853717e-9
+        }
+      ]
+    },
+    {
+      "rate": 44100,
+      "type": "lowshelf",
+      "results": [
+        {
+          "freq": 20,
+          "measuredDb": 12.005874831485134,
+          "referenceDb": 12.005874839444612,
+          "errorDb": -7.95947840970257e-9
+        },
+        {
+          "freq": 937.23,
+          "measuredDb": 6.000058265828061,
+          "referenceDb": 6.000000000000563,
+          "errorDb": 0.00005826582749790532
+        },
+        {
+          "freq": 19000,
+          "measuredDb": -0.0028186418572755897,
+          "referenceDb": -0.002818662833112089,
+          "errorDb": 2.097583649916107e-8
+        }
+      ]
+    },
+    {
+      "rate": 44100,
+      "type": "highshelf",
+      "results": [
+        {
+          "freq": 20,
+          "measuredDb": -0.005874846292060841,
+          "referenceDb": -0.005874839444530478,
+          "errorDb": -6.8475303630424755e-9
+        },
+        {
+          "freq": 937.23,
+          "measuredDb": 6.001220047954795,
+          "referenceDb": 5.999999999999503,
+          "errorDb": 0.0012200479552921806
+        },
+        {
+          "freq": 19000,
+          "measuredDb": 12.002818683390606,
+          "referenceDb": 12.002818662833112,
+          "errorDb": 2.0557493485284795e-8
+        }
+      ]
+    },
+    {
+      "rate": 48000,
+      "type": "peaking",
+      "results": [
+        {
+          "freq": 20,
+          "measuredDb": 0.0000511373455847267,
+          "referenceDb": 0.00005114303453168895,
+          "errorDb": -5.6889469622549795e-9
+        },
+        {
+          "freq": 937.23,
+          "measuredDb": 12.000702983588933,
+          "referenceDb": 11.999999999999893,
+          "errorDb": 0.0007029835890399738
+        },
+        {
+          "freq": 19000,
+          "measuredDb": 0.0000491749992087454,
+          "referenceDb": 0.000048938927367207784,
+          "errorDb": 2.3607184153761772e-7
+        }
+      ]
+    },
+    {
+      "rate": 48000,
+      "type": "lowshelf",
+      "results": [
+        {
+          "freq": 20,
+          "measuredDb": 12.005877564152632,
+          "referenceDb": 12.00587756743085,
+          "errorDb": -3.2782185854784984e-9
+        },
+        {
+          "freq": 937.23,
+          "measuredDb": 6.000042332079822,
+          "referenceDb": 5.999999999999708,
+          "errorDb": 0.00004233208011417133
+        },
+        {
+          "freq": 19000,
+          "measuredDb": -0.005624103508665802,
+          "referenceDb": -0.005624344912304192,
+          "errorDb": 2.41403638389856e-7
+        }
+      ]
+    },
+    {
+      "rate": 48000,
+      "type": "highshelf",
+      "results": [
+        {
+          "freq": 20,
+          "measuredDb": -0.00587755644131395,
+          "referenceDb": -0.005877567431044348,
+          "errorDb": 1.0989730398272557e-8
+        },
+        {
+          "freq": 937.23,
+          "measuredDb": 6.001210568113246,
+          "referenceDb": 6.000000000000243,
+          "errorDb": 0.0012105681130023527
+        },
+        {
+          "freq": 19000,
+          "measuredDb": 12.005624449406195,
+          "referenceDb": 12.005624344912304,
+          "errorDb": 1.0449389087341387e-7
+        }
+      ]
+    },
+    {
+      "rate": 96000,
+      "type": "peaking",
+      "results": [
+        {
+          "freq": 20,
+          "measuredDb": 0.00005124342391242744,
+          "referenceDb": 0.00005123949435518564,
+          "errorDb": 3.9295572418012684e-9
+        },
+        {
+          "freq": 937.23,
+          "measuredDb": 12.00062156424866,
+          "referenceDb": 11.999999999999789,
+          "errorDb": 0.0006215642488704987
+        },
+        {
+          "freq": 19000,
+          "measuredDb": 0.00020696882101183667,
+          "referenceDb": 0.00020695679158526606,
+          "errorDb": 1.2029426570608686e-8
+        }
+      ]
+    },
+    {
+      "rate": 96000,
+      "type": "lowshelf",
+      "results": [
+        {
+          "freq": 20,
+          "measuredDb": 12.005888659159067,
+          "referenceDb": 12.005888649213826,
+          "errorDb": 9.945241075115518e-9
+        },
+        {
+          "freq": 937.23,
+          "measuredDb": 5.999952445672055,
+          "referenceDb": 6.000000000001414,
+          "errorDb": -0.00004755432935876769
+        },
+        {
+          "freq": 19000,
+          "measuredDb": -0.02375966458840282,
+          "referenceDb": -0.02375973447113456,
+          "errorDb": 6.988273174024506e-8
+        }
+      ]
+    },
+    {
+      "rate": 96000,
+      "type": "highshelf",
+      "results": [
+        {
+          "freq": 20,
+          "measuredDb": -0.00588863816673093,
+          "referenceDb": -0.005888649213913941,
+          "errorDb": 1.1047183011252126e-8
+        },
+        {
+          "freq": 937.23,
+          "measuredDb": 6.0011553295378945,
+          "referenceDb": 5.999999999997897,
+          "errorDb": 0.0011553295399977515
+        },
+        {
+          "freq": 19000,
+          "measuredDb": 12.0237598083272,
+          "referenceDb": 12.023759734471135,
+          "errorDb": 7.385606615173401e-8
+        }
+      ]
+    }
+  ],
+  "opus": [],
+  "passed": true,
+  "browser": "151.0.7922.173"
+}

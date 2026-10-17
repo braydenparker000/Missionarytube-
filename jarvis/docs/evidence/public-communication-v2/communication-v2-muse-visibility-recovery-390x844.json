@@ -1,0 +1,14 @@
+{
+  "synthetic": true,
+  "node": "v22.23.3",
+  "browser": "Google Chrome for Testing 154.0.8037.97",
+  "url": "https://missionarytube.z13.web.core.windows.net/muse/",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scope": "Synthetic visibility/reload recovery; not a live Muse hook trial",
+  "recoveryRenderMs": 23.880701000000045,
+  "anchorPreserved": true,
+  "newExecutionRequests": 0
+}

@@ -5,7 +5,7 @@
   "description": "Jarvis frontend deployment using the existing MissionaryTube Azure federation",
   "type": "module",
   "scripts": {
-    "test": "node scripts/check.mjs && node --test",
+    "test": "node scripts/check.mjs && node --test tests/*.test.mjs scripts/*.test.mjs scripts/test-jarvis-media.mjs",
     "build": "node scripts/build-jarvis.mjs",
     "pin:check": "node scripts/pin-player-libs.mjs --check",
     "test:browser": "node tests/browser/youtube-flow.mjs",

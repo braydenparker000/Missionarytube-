@@ -1,0 +1,45 @@
+{
+  "baseline_full": {
+    "sha": "97b048abfde97426da7b5eb3a310964631ce724c",
+    "tests": 2527,
+    "passed": 2523,
+    "failed": 3,
+    "skipped": 1,
+    "failures": [
+      "real archive covers in phone, tablet, desktop and watch previews",
+      "My Media video-feed layout and preserved browsing/playback flows (parent)",
+      "browser replay after an empty HTTP connection loss preserves the same upload identity"
+    ],
+    "skip": "live podcast discovery, search and playback; PODCAST_LIVE_URL unset"
+  },
+  "head_visual": {
+    "tests": 3,
+    "passed": 3,
+    "failed": 0
+  },
+  "archive_probe": {
+    "url": "https://i.ytimg.com/vi/5UjIOB5UgNY/mqdefault.jpg",
+    "error": "Tunnel connection failed: 403 Forbidden",
+    "interpretation": "Environment egress denial for a fixture image; not evidence of an application route failure."
+  },
+  "hosted": {
+    "run": 38079663508,
+    "head": "7fa82b4419c502fec2487ae181dbf0acef5b737d",
+    "passed": [
+      "frontend",
+      "poweramp",
+      "performance",
+      "blankLibrary",
+      "migration",
+      "podcasts",
+      "owner24",
+      "plan"
+    ],
+    "failed": [
+      "relay",
+      "source aggregate"
+    ],
+    "relay_error": "OAuth consent browser CSRF mismatch case: Fetch.fulfillRequest Invalid InterceptionId",
+    "release_qualified": false
+  }
+}

@@ -1,0 +1,168 @@
+{
+  "method": "Diagnostic-only 100ms favicon fulfillment delay; removed from final fixture. No browser network access; original offline guards retained.",
+  "records": [
+    {
+      "path": "/favicon.ico",
+      "origin": "https://github.com",
+      "frameId": "BBD75283D2F3B1487C2C5880F651222B",
+      "resourceType": "Other",
+      "networkId": "79836.2",
+      "documentEpoch": 2,
+      "currentEpoch": 3,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://chatgpt.com",
+      "frameId": "66F4BB465AB4E3EF0229DEE3BA5E1B72",
+      "resourceType": "Other",
+      "networkId": "79875.2",
+      "documentEpoch": 1,
+      "currentEpoch": 2,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://github.com",
+      "frameId": "66F4BB465AB4E3EF0229DEE3BA5E1B72",
+      "resourceType": "Other",
+      "networkId": "79914.2",
+      "documentEpoch": 2,
+      "currentEpoch": 3,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://github.com",
+      "frameId": "3303C9C662280E54CAA96A4EDA10F9A5",
+      "resourceType": "Other",
+      "networkId": "80092.2",
+      "documentEpoch": 2,
+      "currentEpoch": 3,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://github.com",
+      "frameId": "C83598A590A2171B69EEE62C6731B51F",
+      "resourceType": "Other",
+      "networkId": "80181.2",
+      "documentEpoch": 2,
+      "currentEpoch": 3,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://github.com",
+      "frameId": "2C2B2ADFD69FC463913C4BB1C9118AB9",
+      "resourceType": "Other",
+      "networkId": "80270.2",
+      "documentEpoch": 2,
+      "currentEpoch": 3,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://chatgpt.com",
+      "frameId": "8371CEB05499DA08441F3FD8A39DC7DD",
+      "resourceType": "Other",
+      "networkId": "80311.2",
+      "documentEpoch": 1,
+      "currentEpoch": 2,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://chatgpt.com",
+      "frameId": "089D84077C453CAF3F39B1B5D86A8F45",
+      "resourceType": "Other",
+      "networkId": "80380.2",
+      "documentEpoch": 1,
+      "currentEpoch": 2,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://github.com",
+      "frameId": "089D84077C453CAF3F39B1B5D86A8F45",
+      "resourceType": "Other",
+      "networkId": "80419.2",
+      "documentEpoch": 2,
+      "currentEpoch": 3,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://untrusted.attacker.test",
+      "frameId": "089D84077C453CAF3F39B1B5D86A8F45",
+      "resourceType": "Other",
+      "networkId": "80438.2",
+      "documentEpoch": 4,
+      "currentEpoch": 5,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://chatgpt.com",
+      "frameId": "BF1B3FC51B93556EC4C0F17BD8EBE6B3",
+      "resourceType": "Other",
+      "networkId": "80478.2",
+      "documentEpoch": 1,
+      "currentEpoch": 2,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://github.com",
+      "frameId": "BF1B3FC51B93556EC4C0F17BD8EBE6B3",
+      "resourceType": "Other",
+      "networkId": "80517.2",
+      "documentEpoch": 2,
+      "currentEpoch": 3,
+      "networkFailures": [],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    },
+    {
+      "path": "/favicon.ico",
+      "origin": "https://relay.example.test",
+      "frameId": "BF1B3FC51B93556EC4C0F17BD8EBE6B3",
+      "resourceType": "Other",
+      "networkId": "80526.3",
+      "documentEpoch": 4,
+      "currentEpoch": 5,
+      "networkFailures": [
+        {
+          "requestId": "80526.3",
+          "errorText": "net::ERR_ABORTED",
+          "canceled": true,
+          "type": "Other"
+        }
+      ],
+      "error": "cdpSession.send: Protocol error (Fetch.fulfillRequest): Invalid InterceptionId.",
+      "closing": false
+    }
+  ]
+}

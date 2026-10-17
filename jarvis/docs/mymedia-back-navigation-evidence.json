@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "applicationSource": "c4d62409a3b67e4e5dac88809c6a4a0290b6e39e",
+  "applicationSHA256": "943728a5de2e22af38ab397086a1c98e9ddddd1dbfce344081881cc393ca9396",
+  "evidenceOrigin": "Existing fictional MyMedia browser fixture; no owner identifiers or content",
+  "diagnosis": "Browser harness accepted destination URL before hashchange restored the destination render",
+  "runtime": {
+    "node22": "22.23.3",
+    "node24": "24.21.0",
+    "chrome": "154.0.8037.97",
+    "chromeArchiveSHA256": "487c3b0e89f786d9257a6265a29bacf18b893e90f29c0ef6f7be9706ecc8c7a2"
+  },
+  "retainedArtifacts": [
+    {
+      "repository": "braydenparker999/jarvis",
+      "run": 37802921637,
+      "attempt": 1,
+      "job": 113399648689,
+      "artifact": 11561028507,
+      "zipSHA256": "64278d5ebd88d9c203802c41962eba0deee6945366de18483bfb01d2fe87620c",
+      "transitionTraceAvailable": false
+    },
+    {
+      "repository": "braydenparker999/jarvis",
+      "run": 37802921637,
+      "attempt": 2,
+      "job": 113402400295,
+      "artifact": 11561059607,
+      "zipSHA256": "b4a061cc45654d43c2ef0b79ebb9a8e0a7b63e1888b9cfe66f5683a61bf6f867",
+      "transitionTraceAvailable": false
+    },
+    {
+      "repository": "braydenparker000/Missionarytube-",
+      "run": 37804062718,
+      "attempt": 1,
+      "job": 113403940063,
+      "artifact": 11561768962,
+      "zipSHA256": "a688a9d40553ae350c4bbaa58ff353134eec594a97fe2991f42dd9c3284918ff",
+      "transitionTraceAvailable": false
+    }
+  ],
+  "urlOnlyUnobservedProbe": {
+    "flows": 20,
+    "reachedBack": 18,
+    "staleImmediateBackReads": 15,
+    "completedAfterDestinationRender": 18,
+    "earlyCreatorCountFailures": 2
+  },
+  "observedTraceProbe": {
+    "flows": 6,
+    "completed": 6,
+    "staleImmediateBackReads": 0,
+    "exampleTimeline": [
+      {
+        "at": 1264.3999999985099,
+        "kind": "hashchange-capture",
+        "hash": "#creators",
+        "search": "quiet",
+        "title": "Preview channel"
+      },
+      {
+        "at": 1281,
+        "kind": "hashchange-frame",
+        "hash": "#creators",
+        "search": "Preview",
+        "title": "Creators"
+      }
+    ],
+    "captureToRenderedFrameMillis": 16.6
+  },
+  "renderReadyUnobservedProbe": {
+    "flows": 20,
+    "completed": 20,
+    "staleImmediateBackReads": 0
+  },
+  "renderReadyThrottledProbe": {
+    "flows": 4,
+    "cpuThrottleRate": 6,
+    "completed": 4,
+    "staleImmediateBackReads": 0
+  },
+  "focusedChecks": {
+    "node22": {
+      "pass": 6,
+      "skip": 0
+    },
+    "node24": {
+      "pass": 6,
+      "skip": 0
+    },
+    "viewportWidths": [
+      360,
+      390,
+      430,
+      1200
+    ],
+    "heldEventRegressionIncluded": true
+  },
+  "urlOnlyMutation": {
+    "expectedFailureObserved": true,
+    "error": "Missing expected rejection"
+  },
+  "unitChecks": {
+    "pass": 22,
+    "skip": 0
+  },
+  "fullLocalAttempt": {
+    "creatorNavigationPassed": true,
+    "overallPassed": false,
+    "unchangedFailure": "real archive covers readiness timeout at 30000ms"
+  },
+  "limitations": [
+    "Focused local counts are not full qualification",
+    "Physical Android phone not observed"
+  ]
+}

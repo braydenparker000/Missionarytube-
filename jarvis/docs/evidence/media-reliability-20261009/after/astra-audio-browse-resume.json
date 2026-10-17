@@ -1,0 +1,26 @@
+{
+  "release": "0.34.6",
+  "hash": "",
+  "playback": "playing",
+  "media": {
+    "time": 1.846455,
+    "duration": 180,
+    "paused": false,
+    "ended": false,
+    "readyState": 4,
+    "networkState": 1,
+    "error": 0,
+    "frames": 0
+  },
+  "pip": false,
+  "fullscreen": false,
+  "status": "",
+  "savedProgress": [
+    {
+      "time": 1.727255,
+      "duration": 180,
+      "completed": false
+    }
+  ],
+  "errors": []
+}

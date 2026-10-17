@@ -1,0 +1,10 @@
+/* Muse-specific file/work structures only. Chat visuals come from relay.css. */
+.mast-page .relay-owner-chat{height:100%;display:flex;flex-direction:column;min-height:0}
+.mast-page .mast-selected-file{display:flex;align-items:center;gap:8px;font-size:13px;overflow-wrap:anywhere}
+.mast-page .mast-selected-file span{flex:1;min-width:0}.mast-page #selected-files{max-height:100px;overflow:auto}
+.mast-page .relay-linked-attachment{max-width:100%;overflow-wrap:anywhere}.mast-page .relay-linked-preview{max-width:100%;max-height:300px;object-fit:contain}
+.mast-page #latest{position:absolute;bottom:120px;align-self:center;z-index:2}
+.mast-page #work-panel{padding:130px 20px 30px;overflow:auto}.mast-page #work-panel label{display:block;margin:12px 0}
+.mast-page #work-panel :is(input,textarea,select){display:block;width:100%}
+body.mast-page #private-chat:not(.relay-owner-chat){overflow:auto}
+body.mast-page #private-chat:not(.relay-owner-chat)>.messages{display:none}

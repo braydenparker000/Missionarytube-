@@ -1,0 +1,87 @@
+TAP version 13
+# Subtest: CI has Chromium for the real Relay OAuth browser regression
+ok 1 - CI has Chromium for the real Relay OAuth browser regression
+  ---
+  duration_ms: 0.628316
+  type: 'test'
+  ...
+# Subtest: Relay OAuth navigation uses browser-generated origins and real workerd SQLite Durable Objects
+    # Subtest: old no-referrer consent recreates Chromium Origin:null and the deployed 403
+    ok 1 - old no-referrer consent recreates Chromium Origin:null and the deployed 403
+      ---
+      duration_ms: 592.446769
+      type: 'test'
+      ...
+    # Subtest: old self-only form CSP blocks the real cross-origin ChatGPT redirect after a valid POST
+    ok 2 - old self-only form CSP blocks the real cross-origin ChatGPT redirect after a valid POST
+      ---
+      duration_ms: 634.389596
+      type: 'test'
+      ...
+    # Subtest: fresh Allow reaches ChatGPT, exchanges S256 once, discovers tools/events and reads real SQLite conversation
+    ok 3 - fresh Allow reaches ChatGPT, exchanges S256 once, discovers tools/events and reads real SQLite conversation
+      ---
+      duration_ms: 847.632574
+      type: 'test'
+      ...
+    # Subtest: Cancel reaches the exact ChatGPT callback without creating a grant; a fresh retry still works
+    ok 4 - Cancel reaches the exact ChatGPT callback without creating a grant; a fresh retry still works
+      ---
+      duration_ms: 1003.983039
+      type: 'test'
+      ...
+    # Subtest: explicit 365-day browser selection reaches ChatGPT and retains one-hour access tokens
+    ok 5 - explicit 365-day browser selection reaches ChatGPT and retains one-hour access tokens
+      ---
+      duration_ms: 607.639026
+      type: 'test'
+      ...
+    # Subtest: upstream GitHub cancellation returns access_denied without token exchange
+    ok 6 - upstream GitHub cancellation returns access_denied without token exchange
+      ---
+      duration_ms: 469.306478
+      type: 'test'
+      ...
+    # Subtest: previously granted GitHub GET auto-redirect also completes a fresh Relay consent
+    ok 7 - previously granted GitHub GET auto-redirect also completes a fresh Relay consent
+      ---
+      duration_ms: 455.840517
+      type: 'test'
+      ...
+    # Subtest: real browser cross-origin form is rejected without weakening the Origin allowlist
+    ok 8 - real browser cross-origin form is rejected without weakening the Origin allowlist
+      ---
+      duration_ms: 1389.939057
+      type: 'test'
+      ...
+    # Subtest: a cancelled document interception remains a fixture failure
+    ok 9 - a cancelled document interception remains a fixture failure
+      ---
+      duration_ms: 243.49774
+      type: 'test'
+      ...
+    # Subtest: browser-generated same-origin CSRF mismatch is rejected without consuming the valid consent
+    ok 10 - browser-generated same-origin CSRF mismatch is rejected without consuming the valid consent
+      ---
+      duration_ms: 678.756832
+      type: 'test'
+      ...
+    1..10
+ok 2 - Relay OAuth navigation uses browser-generated origins and real workerd SQLite Durable Objects
+  ---
+  duration_ms: 7507.81029
+  type: 'test'
+  ...
+# Legacy consent: browser Origin=null, HTTP 403, no downstream callback
+# Legacy self-only form CSP: issuer Origin, HTTP 302, browser blocks final ChatGPT callback
+# Candidate Allow: issuer Origin, exact callback with no cross-origin referrer, one-use S256 exchange, authenticated tool read/event discovery
+# Explicit year consent: actual radio selection, same-origin browser POST, exact ChatGPT callback, unchanged scopes and one-hour access
+1..2
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8179.111612

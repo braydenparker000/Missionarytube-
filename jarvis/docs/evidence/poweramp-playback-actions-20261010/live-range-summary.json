@@ -1,0 +1,10 @@
+{
+  "probe": "public catalog with actual frontend Origin; no identifiers or URLs retained",
+  "stage": "catalog",
+  "status": 403,
+  "content_type": "text/plain; charset=UTF-8",
+  "recognized_response": [],
+  "response_body": "error code: 1010\n",
+  "interpretation": "Consistent with documented Cloudflare client-signature access denial; specific rule and backend health not established. No bypass attempted.",
+  "documentation": "https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-1xxx-errors/error-1010/"
+}

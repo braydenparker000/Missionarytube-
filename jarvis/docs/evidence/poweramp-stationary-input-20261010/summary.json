@@ -1,0 +1,24 @@
+{
+  "before": {
+    "iterations": 6,
+    "passed": 5,
+    "failed": 1,
+    "flings": 1,
+    "tapSuppressions": 3,
+    "traceSHA256": "fbf10dfb74f01d3a5cbbae22f8e2c36b10434c6938636ae5d05dc64c00bfe4c3"
+  },
+  "after": {
+    "iterations": 20,
+    "passed": 20,
+    "failed": 0,
+    "flings": 0,
+    "tapSuppressions": 0,
+    "traceSHA256": "b65c144a2a98c0af3c8e4014c657f27c8ff60c34286511933077a4f3b06804e0"
+  },
+  "source": "715fe2e947e43810c0b224156daa069d741382b6a41fab921e6ea16ae4724fe3",
+  "runtime": {
+    "node": "22.23.3",
+    "chrome": "154.0.8037.97",
+    "cpuThrottle": 4
+  }
+}

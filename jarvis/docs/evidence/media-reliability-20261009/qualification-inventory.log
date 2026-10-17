@@ -1,0 +1,166 @@
+TAP version 13
+# Subtest: all aggregate tests have exactly one execution owner, with a distinct Node24 security runtime
+ok 1 - all aggregate tests have exactly one execution owner, with a distinct Node24 security runtime
+  ---
+  duration_ms: 3.986236
+  type: 'test'
+  ...
+# Subtest: real component edits invalidate relevant checks while unchanged isolated measurements can be proven
+ok 2 - real component edits invalidate relevant checks while unchanged isolated measurements can be proven
+  ---
+  duration_ms: 29.774943
+  type: 'test'
+  ...
+# Subtest: dependencies, trusted recipe, new/deleted/renamed tests, unknown paths and environment changes invalidate conservatively
+ok 3 - dependencies, trusted recipe, new/deleted/renamed tests, unknown paths and environment changes invalidate conservatively
+  ---
+  duration_ms: 37.811123
+  type: 'test'
+  ...
+# Subtest: wrong repository, source SHA, trigger, branch, workflow, attempt or unsuccessful status cannot qualify
+ok 4 - wrong repository, source SHA, trigger, branch, workflow, attempt or unsuccessful status cannot qualify
+  ---
+  duration_ms: 2.358069
+  type: 'test'
+  ...
+# Subtest: a copied job name, skipped gate, duplicate or mixed attempt is never a qualification proof
+ok 5 - a copied job name, skipped gate, duplicate or mixed attempt is never a qualification proof
+  ---
+  duration_ms: 0.376586
+  type: 'test'
+  ...
+# Subtest: immutable recipe validation rejects tampering, missing blobs and incomplete trees
+ok 6 - immutable recipe validation rejects tampering, missing blobs and incomplete trees
+  ---
+  duration_ms: 0.299263
+  type: 'test'
+  ...
+# Subtest: exact successful source qualification and equal-component reuse bind to immutable GitHub provenance
+ok 7 - exact successful source qualification and equal-component reuse bind to immutable GitHub provenance
+  ---
+  duration_ms: 65.095844
+  type: 'test'
+  ...
+# Subtest: expired/unavailable/malformed/incomplete/tampered proof fails closed to full current qualification
+ok 8 - expired/unavailable/malformed/incomplete/tampered proof fails closed to full current qualification
+  ---
+  duration_ms: 3.943532
+  type: 'test'
+  ...
+# Subtest: public proof reads have a strict host/path/request budget and never accept credentials or redirects
+ok 9 - public proof reads have a strict host/path/request budget and never accept credentials or redirects
+  ---
+  duration_ms: 3.863281
+  type: 'test'
+  ...
+# Subtest: changed files/runtime and reduced diagnostic plans cannot satisfy a named qualification
+ok 10 - changed files/runtime and reduced diagnostic plans cannot satisfy a named qualification
+  ---
+  duration_ms: 3.433944
+  type: 'test'
+  ...
+# Subtest: every input class has explicit execution owners, with unknown inputs conservatively shared
+ok 11 - every input class has explicit execution owners, with unknown inputs conservatively shared
+  ---
+  duration_ms: 0.549889
+  type: 'test'
+  ...
+# Subtest: the complete tracked source closes every component over owned bytes and modes
+ok 12 - the complete tracked source closes every component over owned bytes and modes
+  ---
+  duration_ms: 5110.718394
+  type: 'test'
+  ...
+# Subtest: local inventories hash working bytes and reject missing files or changed filesystem types and modes
+ok 13 - local inventories hash working bytes and reject missing files or changed filesystem types and modes
+  ---
+  duration_ms: 99.79011
+  type: 'test'
+  ...
+# Subtest: test additions, deletions and renames invalidate every inventory identity without dropping execution coverage
+ok 14 - test additions, deletions and renames invalidate every inventory identity without dropping execution coverage
+  ---
+  duration_ms: 6.907046
+  type: 'test'
+  ...
+# Subtest: each exact runtime identity invalidates all components, and frontend-only test edits preserve isolated digests
+ok 15 - each exact runtime identity invalidates all components, and frontend-only test edits preserve isolated digests
+  ---
+  duration_ms: 10.815478
+  type: 'test'
+  ...
+# Subtest: reuse can combine independently verified immutable runs but never promote a partial result to exact qualification
+ok 16 - reuse can combine independently verified immutable runs but never promote a partial result to exact qualification
+  ---
+  duration_ms: 3.219054
+  type: 'test'
+  ...
+# Subtest: late request, JSON or pagination failures discard already verified component reuse
+ok 17 - late request, JSON or pagination failures discard already verified component reuse
+  ---
+  duration_ms: 20.131976
+  type: 'test'
+  ...
+# Subtest: every incomplete final or component gate fails closed for exact qualification and safe reuse
+ok 18 - every incomplete final or component gate fails closed for exact qualification and safe reuse
+  ---
+  duration_ms: 89.345213
+  type: 'test'
+  ...
+# Subtest: every job must bind to the trusted run head SHA even when its name is not a requested gate
+ok 19 - every job must bind to the trusted run head SHA even when its name is not a requested gate
+  ---
+  duration_ms: 1.873688
+  type: 'test'
+  ...
+# Subtest: wrong or absent job heads reject exact source proof and all component reuse from that candidate
+ok 20 - wrong or absent job heads reject exact source proof and all component reuse from that candidate
+  ---
+  duration_ms: 29.169374
+  type: 'test'
+  ...
+# Subtest: an inconsistent later job head contributes no reuse while independently verified earlier provenance remains valid
+ok 21 - an inconsistent later job head contributes no reuse while independently verified earlier provenance remains valid
+  ---
+  duration_ms: 4.526242
+  type: 'test'
+  ...
+# Subtest: each actual Worker-bundled public dependency invalidates security and podcast evidence
+ok 22 - each actual Worker-bundled public dependency invalidates security and podcast evidence
+  ---
+  duration_ms: 20.053872
+  type: 'test'
+  ...
+# Subtest: future shared modules and helpers fail closed on addition, edit, removal and rename
+ok 23 - future shared modules and helpers fail closed on addition, edit, removal and rename
+  ---
+  duration_ms: 56.679567
+  type: 'test'
+  ...
+# Subtest: changed existing shared test helpers and backend files invalidate every lane
+ok 24 - changed existing shared test helpers and backend files invalidate every lane
+  ---
+  duration_ms: 4.328914
+  type: 'test'
+  ...
+# Subtest: generic public inputs include security and podcasts while unrelated UI edits preserve isolated performance reuse
+ok 25 - generic public inputs include security and podcasts while unrelated UI edits preserve isolated performance reuse
+  ---
+  duration_ms: 10.241263
+  type: 'test'
+  ...
+# Subtest: qualification planning loads with built-ins and recipe files alone, without npm installation
+ok 26 - qualification planning loads with built-ins and recipe files alone, without npm installation
+  ---
+  duration_ms: 117.343731
+  type: 'test'
+  ...
+1..26
+# tests 26
+# suites 0
+# pass 26
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6180.932265

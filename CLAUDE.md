@@ -4,6 +4,23 @@
 
 Maintain MissionaryTube as a fast, reliable, mobile-first static web app whose deployable source lives on `main`.
 
+## Consolidation destination
+
+`braydenparker000/Missionarytube-` is the surviving repository. Authoritative
+Jarvis application source is imported under `jarvis/`; use its canonical
+[delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
+This root guidance supersedes the imported delivery plan's former two-repository
+destination. Keep the imported snapshot exact until the component-cutover patch
+is reviewed; the import guard fails on byte, mode, or file-set changes.
+
+The deployed build still uses the external checkout selected by
+`jarvis-release.json`. Importing source does not switch production or authorize
+running nested workflows. Root `npm test` is the deployment suite; imported
+application tests remain a separately qualified component. Do not run them as
+an accidental part of root discovery. Preserve Daily Board issue #2, current
+release paths and all original repository refs. See
+[the import record](docs/jarvis-source-import.md) for remaining cutover work.
+
 ## Required checks
 
 Before proposing changes:

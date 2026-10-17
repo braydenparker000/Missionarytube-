@@ -1,0 +1,72 @@
+{
+  "runtime": "v24.19.0",
+  "host": "Managed Linux desktop Node; excludes browser/Android scheduler and is not an underrun measurement",
+  "rows": [
+    {
+      "backend": "previous sample-only limiter",
+      "rate": 44100,
+      "framesPerBlock": 128,
+      "deadlineMs": 2.9024943310657596,
+      "p50Ms": 0.0027840000000054488,
+      "p95Ms": 0.021481999999991785,
+      "p99Ms": 0.04519700000000171,
+      "maxMs": 3.511417999999992,
+      "allocatedTypedBufferBytes": 6408
+    },
+    {
+      "backend": "previous sample-only limiter",
+      "rate": 48000,
+      "framesPerBlock": 128,
+      "deadlineMs": 2.6666666666666665,
+      "p50Ms": 0.006099000000006072,
+      "p95Ms": 0.011687000000009107,
+      "p99Ms": 0.030034999999998035,
+      "maxMs": 0.15949499999999261,
+      "allocatedTypedBufferBytes": 6960
+    },
+    {
+      "backend": "previous sample-only limiter",
+      "rate": 96000,
+      "framesPerBlock": 128,
+      "deadlineMs": 1.3333333333333333,
+      "p50Ms": 0.0029439999999993915,
+      "p95Ms": 0.004896999999999707,
+      "p99Ms": 0.013620000000003074,
+      "maxMs": 0.2543849999999992,
+      "allocatedTypedBufferBytes": 13872
+    },
+    {
+      "backend": "new true-peak guard",
+      "rate": 44100,
+      "framesPerBlock": 128,
+      "deadlineMs": 2.9024943310657596,
+      "p50Ms": 0.0802189999999996,
+      "p95Ms": 0.17102199999999357,
+      "p99Ms": 0.24146600000000262,
+      "maxMs": 0.3830549999999846,
+      "allocatedTypedBufferBytes": 14136
+    },
+    {
+      "backend": "new true-peak guard",
+      "rate": 48000,
+      "framesPerBlock": 128,
+      "deadlineMs": 2.6666666666666665,
+      "p50Ms": 0.0792369999999778,
+      "p95Ms": 0.1462359999999876,
+      "p99Ms": 0.2156379999999558,
+      "maxMs": 1.0670229999999492,
+      "allocatedTypedBufferBytes": 14688
+    },
+    {
+      "backend": "new true-peak guard",
+      "rate": 96000,
+      "framesPerBlock": 128,
+      "deadlineMs": 1.3333333333333333,
+      "p50Ms": 0.07819600000004812,
+      "p95Ms": 0.23525699999993321,
+      "p99Ms": 0.4963920000000144,
+      "maxMs": 2.2627880000000005,
+      "allocatedTypedBufferBytes": 21600
+    }
+  ]
+}

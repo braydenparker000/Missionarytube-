@@ -1,0 +1,100 @@
+TAP version 13
+# Subtest: Astra orders and deduplicates artwork aliases
+ok 1 - Astra orders and deduplicates artwork aliases
+  ---
+  duration_ms: 4.427663
+  type: 'test'
+  ...
+# Subtest: Astra preserves catalog artwork when full metadata returns blanks
+ok 2 - Astra preserves catalog artwork when full metadata returns blanks
+  ---
+  duration_ms: 1.628595
+  type: 'test'
+  ...
+# Subtest: Astra startup scripts are deferred and release assets share one version
+ok 3 - Astra startup scripts are deferred and release assets share one version
+  ---
+  duration_ms: 0.999347
+  type: 'test'
+  ...
+# Subtest: Astra images use ordered fallback handling without a referrer
+ok 4 - Astra images use ordered fallback handling without a referrer
+  ---
+  duration_ms: 1.940705
+  type: 'test'
+  ...
+# Subtest: normal movie, show and song names retain every search word
+ok 5 - normal movie, show and song names retain every search word
+  ---
+  duration_ms: 10.4
+  type: 'test'
+  ...
+# Subtest: explicit search filters and clear browse clauses remain supported
+ok 6 - explicit search filters and clear browse clauses remain supported
+  ---
+  duration_ms: 7.788585
+  type: 'test'
+  ...
+# Subtest: YouTube pasted links work with and without a scheme
+ok 7 - YouTube pasted links work with and without a scheme
+  ---
+  duration_ms: 2.910661
+  type: 'test'
+  ...
+# Subtest: an immediate same-query retry owns a new request after the last subscriber cancels
+ok 8 - an immediate same-query retry owns a new request after the last subscriber cancels
+  ---
+  duration_ms: 5.575324
+  type: 'test'
+  ...
+# Subtest: cached replies respect cancellation and explicit Try again reaches instance recovery
+ok 9 - cached replies respect cancellation and explicit Try again reaches instance recovery
+  ---
+  duration_ms: 6.070289
+  type: 'test'
+  ...
+# Subtest: a newly mounted thumbnail is not discarded while its request starts
+ok 10 - a newly mounted thumbnail is not discarded while its request starts
+  ---
+  duration_ms: 3.617367
+  type: 'test'
+  ...
+# Subtest: cached YouTube results share the live video lane and obey provider filters
+ok 11 - cached YouTube results share the live video lane and obey provider filters
+  ---
+  duration_ms: 5.599038
+  type: 'test'
+  ...
+# Subtest: YouTube renewal keeps the live position, pause state and selected quality
+ok 12 - YouTube renewal keeps the live position, pause state and selected quality
+  ---
+  duration_ms: 6.135471
+  type: 'test'
+  ...
+# Subtest: closing or switching a player while renewing cannot start the old video again
+ok 13 - closing or switching a player while renewing cannot start the old video again
+  ---
+  duration_ms: 1.031841
+  type: 'test'
+  ...
+# Subtest: Astra can start with a damaged add-on value and retains valid providers
+ok 14 - Astra can start with a damaged add-on value and retains valid providers
+  ---
+  duration_ms: 6.018355
+  type: 'test'
+  ...
+# Subtest: Astra keeps sound saved titles when neighboring browser data is damaged
+ok 15 - Astra keeps sound saved titles when neighboring browser data is damaged
+  ---
+  duration_ms: 1.038122
+  type: 'test'
+  ...
+1..15
+# tests 15
+# suites 0
+# pass 15
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 431.43797

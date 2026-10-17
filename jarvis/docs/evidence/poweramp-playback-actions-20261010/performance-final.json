@@ -1,0 +1,40 @@
+{
+  "runtime": "Node 22.23.3; verified Chrome for Testing 154.0.8037.97",
+  "execution": "isolated, serial; original thresholds and complete case plan",
+  "candidate_player_sha256": "10009870adbabe88db873f5b5f1af7f47acd50d5471a37c8f9700b169f5811b0",
+  "preview_sources": {
+    "baseline": "a6d0fb71df79ca8cc3d80627fb911e5894bb9fff465818ada78feb81b2688759",
+    "candidate": "eddedc6cbea78c31d5913b1831282cbe12de4180dbccbc26c6e849ae04abfe83"
+  },
+  "render_trace_cases": 8,
+  "planned_cases": 8,
+  "runs": [
+    {
+      "name": "render-trace-final",
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 82608.853782
+    },
+    {
+      "name": "persistent-final",
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 61810.074306
+    },
+    {
+      "name": "setup-final",
+      "tests": 4,
+      "pass": 4,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "duration_ms": 8096.108981
+    }
+  ]
+}

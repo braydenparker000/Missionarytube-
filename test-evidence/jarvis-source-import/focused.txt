@@ -1,0 +1,16 @@
+✔ imported Jarvis bytes and modes match the exact source tree (263.10392ms)
+✔ import guard detects changed bytes, executable modes and added files (7.752228ms)
+✔ deployment command explicitly selects every existing orchestration test, never jarvis tests (3.087841ms)
+✔ no committed file references a non-allowlisted external host (13.7448ms)
+✔ no committed file contains a Stremio-style configured manifest path (4.576447ms)
+✔ no committed file contains credential-shaped values (55.777413ms)
+✔ test fixtures use only reserved, non-resolvable hosts (0.66171ms)
+✔ no fixture carries a plausible real infohash or token (0.389026ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 447.007975

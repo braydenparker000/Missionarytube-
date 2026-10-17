@@ -1,0 +1,17 @@
+{
+  "synthetic": true,
+  "node": "v22.23.3",
+  "browser": "Google Chrome for Testing 154.0.8037.97",
+  "url": "https://missionarytube.z13.web.core.windows.net/muse/",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scope": "Synthetic local Worker/SQLite/browser; not production latency",
+  "importedMs": 2.2694249999999556,
+  "renderedMs": 30.12948899999992,
+  "acceptedReplyUnchanged": true,
+  "revision1Visible": true,
+  "revision2Visible": true,
+  "reloadDeduplicated": true
+}
