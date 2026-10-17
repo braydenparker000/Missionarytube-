@@ -4,11 +4,11 @@ Primary destination: https://missionarytube.z13.web.core.windows.net/
 
 This repository now controls Jarvis's frontend deployment using the **existing** MissionaryTube Storage account, `$web` container, Entra app and GitHub OIDC federation. The repository name and `main` branch remain unchanged deliberately. No Azure service, identity, credential or permission is created.
 
-`jarvis-release.json` pins the exact frontend source in `braydenparker999/jarvis`. The workflow checks out that revision into `.jarvis-source`, runs its tests, and packages `public/`. Keeping that repository retains its Cloudflare deployment relationship and publication issue #2. The original Static Web App frontend at https://gray-meadow-09216fd10.1.azurestaticapps.net/ is retired; the Storage site is the only frontend. Existing MissionaryTube source is retained in this repository for rollback and is **not** included in the Jarvis deployment.
+Missionarytube- (repository ID `1350047370`) is the surviving source and deployment repository. The imported Jarvis history is maintained under `jarvis/`; the original `braydenparker999/jarvis` repository remains intact as historical provenance and for the Daily Board publication dependency described below. The original Static Web App frontend at https://gray-meadow-09216fd10.1.azurestaticapps.net/ is retired; the existing Azure Storage route remains the frontend deployment path.
 
 ## Release
 
-Update the commit in `jarvis-release.json` after reviewing a Jarvis release. Push to `main` or run **Deploy to Azure Storage** on `main`. Keep the existing `AZURE_DEPLOY_ENABLED=true`, `AZURE_STORAGE_ACCOUNT=missionarytube`, and three `AZURE_*` identity secrets unchanged.
+Use reviewed source and component identities recorded by the build and release manifests. The general historical source pin in `jarvis-release.json` is still used by remaining qualification and release consumers; it does not establish that every live component comes from one checkout. The existing Azure Storage route and its identity remain in place. Push checks can qualify a commit while production upload jobs are skipped; inspect the actual job results before describing a release as deployed. Keep the existing `AZURE_DEPLOY_ENABLED=true`, `AZURE_STORAGE_ACCOUNT=missionarytube`, and three `AZURE_*` identity secrets unchanged.
 
 The workflow:
 1. Runs existing repository checks, all Jarvis tests, and the static build.
@@ -43,17 +43,37 @@ Quick AI at `/quick-ai/` calls Gemini, Groq, and Tavily directly from the browse
 
 The authoritative Jarvis source snapshot is now imported at `jarvis/`, preserving
 its original Git ancestry. Missionarytube- is the surviving repository. The
-existing pinned release checkout still supplies deployment inputs; this import
-is not a release or component cutover. Root `npm test` explicitly selects the
-orchestration tests. See [the import record](docs/jarvis-source-import.md) and
-[canonical delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
+active frontend build starts from destination commit
+`de5d7177a778f4bfa2aa071ab064a8a4fb9b2246`, path
+`jarvis-active-public-c28/public`, tree
+`67a47e36414a8ceb4040c9454f64ed1982a9146c`, byte- and mode-identical to the
+former c28 public tree, and overlays only component paths with exact
+destination identities. The full imported
+variant at `jarvis/public` is preserved but not wholesale activated. Divergent
+shared UI, security, storage, playback and device variants remain held; see
+[the import and release record](docs/jarvis-source-import.md) for the exact
+component map. Root `npm test` explicitly selects the orchestration tests. See
+also the [canonical delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
+
+The additive Daily Board destination-reader code was published to the existing
+Worker in [run 39040982427](https://github.com/braydenparker000/Missionarytube-/actions/runs/39040982427)
+(code SHA-256 `74c8bf880a674b19bfeab74f65cf87e069b9f88233c4e65eba37393b13d0064d`),
+but the destination-feed path remains disabled: no destination issue or
+enabling configuration is present. The current reader and scheduled automation still use the open
+[`braydenparker999/jarvis#2`](https://github.com/braydenparker999/jarvis/issues/2),
+“Jarvis publications — replies and Daily Board.” Destination issue #2 is
+already an imported PR and must not be reused. Keep the old feed intact until a
+separately approved migration has a unique destination issue, dual-read
+reconciliation, writer switch and rollback. This consolidation has not changed
+the publication schedule or writer.
 
 ## Media regression checks
 
 The duplicate root media app and its legacy build/browser commands have been
 retired. Media source checks read `jarvis/public/media` from the imported source
-snapshot; deployment remains pinned through `jarvis-release.json` until each
-component cutover is reviewed. The three retained `src/` modules support 29
-legacy source-only contracts and are not built or shipped. Fixtures and licenses
-remain. The media qualification command retains its documented shipped UI TODOs
-and can report not ready; see [migration evidence](test-evidence/media-migration/README.md).
+snapshot, and the built route uses its exact destination component identity.
+Other paths stay on their active source identities until their own cutover is
+reviewed. The three retained `src/` modules support 29 legacy source-only
+contracts and are not built or shipped. Fixtures and licenses remain. The media
+qualification command retains its documented shipped UI TODOs and can report
+not ready; see [migration evidence](test-evidence/media-migration/README.md).
