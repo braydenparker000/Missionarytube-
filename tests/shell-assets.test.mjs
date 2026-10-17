@@ -12,15 +12,15 @@ const shell = `
 <script defer src="assets/js/app.js?v=1"></script>
 `;
 
-test("script order ignores preload links and rejects async or mixed loading modes", () => {
+test("script order ignores preload links and models parser-blocking, deferred, and async modes", () => {
   assert.equal(findScript(shell, "assets/js/app.js").index > stylesheetIndex(shell, "assets/css/obsidian.css"), true);
   assert.equal(assetIndex(shell, "assets/js/app.js") > assetIndex(shell, "assets/js/progress-store.js"), true);
   assert.equal(scriptRunsBefore(shell, "assets/js/progress-store.js", "assets/js/app.js"), true, "two deferred scripts keep document order");
   assert.equal(assetIndex(shell, "assets/js/async-only.js"), -1, "an async script is not an ordered load");
   assert.equal(scriptMode(findScript(shell, "assets/js/async-both.js")), "async", "async wins when a tag also sets defer");
   assert.equal(scriptRunsBefore(shell, "assets/js/async-only.js", "assets/js/app.js"), false);
-  assert.equal(scriptRunsBefore(shell, "assets/js/progress-store.js", "assets/js/blocking.js"), false, "defer and parser-blocking scripts do not share an order");
-  assert.equal(scriptRunsBefore(shell, "assets/js/blocking.js", "assets/js/app.js"), false, "a later deferred script is not ordered against an earlier blocking script");
+  assert.equal(scriptRunsBefore(shell, "assets/js/progress-store.js", "assets/js/blocking.js"), false, "a deferred script does not run before a parser-blocking script");
+  assert.equal(scriptRunsBefore(shell, "assets/js/blocking.js", "assets/js/app.js"), true, "parser-blocking scripts run before deferred scripts");
   assert.equal(assetIndex(shell, "assets/css/obsidian.css"), -1, "a stylesheet link is not a script");
   assert.ok(stylesheetIndex(shell, "assets/css/obsidian.css") > -1);
   const preloadOnly = `<link rel="preload" href="assets/js/app.js" as="script">`;
