@@ -1,6 +1,6 @@
 # Source-only disposition
 
-`npm run test:media-jarvis:source` still runs the original source-unit names against pinned Jarvis `c28c1b2f70aabb5217b08bf31ffe4c93d0353765`. Twenty-nine of them fail before any assertion, with `Refusing to fall back to the repo-root copy`, because the pin has no `src/compatibility-player.js`, `src/interaction-logic.js`, or `src/astra-motion.js`. Those names are not in the shipped command. Their expectations were not rewritten to pass.
+`npm run test:media-jarvis:source` still runs the original source-unit names against pinned Jarvis `c28c1b2f70aabb5217b08bf31ffe4c93d0353765`. Twenty-nine of them fail before any assertion, with `Refusing to fall back to the repo-root copy`, because the pin has no `src/compatibility-player.js`, `src/interaction-logic.js`, or `src/astra-motion.js`. `npm run test:media-jarvis:pinned` runs the other 483 checks against that shipped bundle and skips these 29 names. `npm run test:media-jarvis:source-only` runs these 29 names wherever those source modules exist. On this pin that is the repo-root copy, with `MEDIA_APP_ROOT` unset. Their expectations were not rewritten to pass.
 
 This file sorts each of those 29 into kept coverage or a pending gap. Kept coverage names the shipped test that now exercises the same behavior on the pinned bundles. A pending gap is a source clause that still has no passing shipped assertion. The gaps are also listed in `pending-and-discrepancies.md`.
 

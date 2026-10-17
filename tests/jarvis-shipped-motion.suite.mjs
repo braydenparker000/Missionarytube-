@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { mediaAppRoot, readAppSource } from "./helpers/media-root.mjs";
 
 if (!process.env.MEDIA_APP_ROOT) {
@@ -532,10 +533,122 @@ test("shipped velocity at or above 720 dismisses below the distance threshold", 
     const flickAfter = await read();
     const flickThreshold = distanceThreshold(flickReading.height);
     assert.ok(flickReading.y > 96 && flickReading.y < flickThreshold, `flick distance ${flickReading.y} stays under ${flickThreshold}`);
-    assert.equal(flickAfter.dismissed, 1, "a sub-threshold flick dismisses through the velocity >= 720 branch");
+    assert.equal(flickAfter.dismissed, 1, "a sub-threshold flick dismisses");
     assert.equal(flickAfter.surface, "", "the dismissed surface is released");
     assert.deepEqual(session.errors, []);
   } finally { await session.close(); }
+});
+
+test("shipped release velocity cutoff is measured below the distance threshold", { timeout: 60000 }, async () => {
+  const decisionFn = "function Na({distance:a=0,velocity:t=0,size:e=1}={}){let i=Math.min(132,Math.max(72,(Number(e)||1)*.24));return Number(a)>=i||Number(t)>=720}";
+  const decisionPatched = "function Na({distance:a=0,velocity:t=0,size:e=1}={}){let i=Math.min(132,Math.max(72,(Number(e)||1)*.24));const result=Number(a)>=i||Number(t)>=720;(window.__decisions||(window.__decisions=[])).push({distance:Number(a),velocity:Number(t),size:Number(e),threshold:i,result});return result}";
+  const getter = 't.get=function(i,r){var n=this._props[i]||console.warn("Not tracking "+i+" velocity."),s,o,f;return s=parseFloat(r?n.v1:n.g(n.t,n.p)),o=s-parseFloat(n.v2)';
+  const getterPatched = 't.get=function(i,r){var n=this._props[i]||console.warn("Not tracking "+i+" velocity."),s,o,f;if(window.__targetVelocity&&i==="y"&&n){var span=parseFloat(n.g(n.t,n.p))-parseFloat(n.v2);if(span)ai.time=n.t2+span/window.__targetVelocity}return s=parseFloat(r?n.v1:n.g(n.t,n.p)),o=s-parseFloat(n.v2)';
+  const track = "try{ui.track(a,c),s=!0}catch{s=!1}";
+  const trackPatched = "try{ui.track(a,c),s=!0,window.__gsap=X}catch{s=!1}";
+  assert.ok(motionSource.includes(decisionFn) && motionSource.includes(getter) && motionSource.includes(track), "the shipped velocity getter is still the tracker formula");
+  const patched = motionSource.replace(decisionFn, decisionPatched).replace(getter, getterPatched).replace(track, trackPatched);
+  const page = await browser.newPage({ viewport: { width: 850, height: 800 }, hasTouch: true });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(String(error)));
+  try {
+    await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+    await page.setContent(`<!doctype html><html><head><style>${css}</style></head><body>
+      <div id="surface" style="position:fixed;inset:0"><div class="backdrop" style="position:absolute;inset:0"><div class="panel" style="position:absolute;inset:40px;background:#222">panel</div></div></div>
+    </body></html>`);
+    await page.addScriptTag({ content: patched });
+    await page.evaluate(() => AstraMotion.init());
+    const requested = [];
+    for (let velocity = 600; velocity <= 840; velocity += 10) requested.push(velocity);
+    for (let velocity = 711; velocity <= 729; velocity += 1) if (!requested.includes(velocity)) requested.push(velocity);
+    const trials = [];
+    for (const velocity of requested) {
+      await page.evaluate(() => {
+        const root = document.querySelector("#surface");
+        AstraMotion.releaseSurface(root);
+        root.dataset.motionSurface = "settled";
+        window.dismissed = 0;
+        window.__decisions = [];
+        AstraMotion.mountSurface({
+          root,
+          key: "detail",
+          onDismiss() { window.dismissed += 1; }
+        });
+      });
+      await page.clock.fastForward(50);
+      const box = await page.locator(".motion-drag-grip").boundingBox();
+      assert.ok(box && box.height > 0, "the shipped surface exposes a drag grip");
+      const x = Math.round(box.x + box.width / 2);
+      const y = Math.round(box.y + Math.min(6, box.height / 2));
+      await page.evaluate(({ x, y, velocity }) => {
+        window.__targetVelocity = velocity;
+        const grip = document.querySelector(".motion-drag-grip");
+        const fire = (type, clientY, buttons) => (type === "pointerdown" ? grip : document).dispatchEvent(new PointerEvent(type, {
+          bubbles: true, cancelable: true, pointerId: 1, pointerType: "touch", isPrimary: true,
+          clientX: x, clientY, button: 0, buttons, view: window
+        }));
+        fire("pointerdown", y, 1);
+        fire("pointermove", y + 100, 1);
+      }, { x, y, velocity });
+      await page.clock.fastForward(16);
+      await page.evaluate(() => window.__gsap.ticker.tick());
+      await page.evaluate(({ x, y }) => {
+        document.dispatchEvent(new PointerEvent("pointerup", {
+          bubbles: true, cancelable: true, pointerId: 1, pointerType: "touch", isPrimary: true,
+          clientX: x, clientY: y, button: 0, buttons: 0, view: window
+        }));
+      }, { x, y: y + 100 });
+      const decision = await page.evaluate(() => (window.__decisions || []).at(-1) || null);
+      for (let frame = 0; frame < 8; frame += 1) {
+        await page.clock.fastForward(50);
+        await page.evaluate(() => window.__gsap.ticker.tick());
+      }
+      const after = await page.evaluate(() => ({
+        dismissed: window.dismissed,
+        surface: document.querySelector("#surface").dataset.motionSurface || ""
+      }));
+      trials.push({
+        requestedVelocity: velocity,
+        velocity: decision ? decision.velocity : null,
+        distance: decision ? decision.distance : null,
+        threshold: decision ? decision.threshold : null,
+        decision: decision ? decision.result : null,
+        dismissed: after.dismissed,
+        surface: after.surface,
+        outcome: after.dismissed > 0 ? "dismiss" : "snap"
+      });
+    }
+    const snaps = trials.filter((trial) => trial.outcome === "snap");
+    const dismisses = trials.filter((trial) => trial.outcome === "dismiss");
+    const highestSnap = Math.max(...snaps.map((trial) => trial.velocity));
+    const lowestDismiss = Math.min(...dismisses.map((trial) => trial.velocity));
+    const measuredCutoff = highestSnap + 1 === lowestDismiss ? lowestDismiss : null;
+    const report = {
+      method: "Release velocity is the shipped InertiaPlugin value (current - previousSample) / (tickerTime - previousSampleTime). Distance stays at 100px. At an 800px viewport the distance threshold is 132px, so these trials can dismiss only through velocity. tickerTime is placed, inside that getter, so the formula returns each requested velocity. Dismiss or snap-back is the shipped branch and the visible surface.",
+      distancePx: 100,
+      claimedCutoff: measuredCutoff,
+      highestSnap,
+      lowestDismiss,
+      trials
+    };
+    const evidence = fileURLToPath(new URL("../test-evidence/media-migration/dismiss-velocity.json", import.meta.url));
+    mkdirSync(fileURLToPath(new URL("../test-evidence/media-migration/", import.meta.url)), { recursive: true });
+    writeFileSync(evidence, `${JSON.stringify(report, null, 2)}\n`);
+    assert.deepEqual(errors, []);
+    for (const trial of trials) {
+      assert.equal(trial.velocity, trial.requestedVelocity, `measured release velocity ${trial.velocity} is the requested ${trial.requestedVelocity}`);
+      assert.equal(trial.distance, 100);
+      assert.equal(trial.threshold, 132);
+      assert.ok(trial.distance < trial.threshold);
+      assert.equal(trial.decision, trial.outcome === "dismiss");
+      assert.equal(trial.outcome, trial.velocity >= 720 ? "dismiss" : "snap");
+    }
+    assert.equal(highestSnap, 719);
+    assert.equal(lowestDismiss, 720);
+    assert.equal(measuredCutoff, 720, "the measured dismiss cutoff is 720");
+  } finally {
+    await page.close();
+  }
 });
 
 test("shipped: at 390px .episode-nav-sticky backdrop-filter is none", {

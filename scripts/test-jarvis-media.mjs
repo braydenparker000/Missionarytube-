@@ -3,6 +3,14 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  SOURCE_ONLY_FILES,
+  parsePending,
+  scanTodos,
+  sourceModulesPresent,
+  sourceOnlyPattern,
+  verdict
+} from "./media-qualification.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const release = JSON.parse(readFileSync(resolve(repoRoot, "jarvis-release.json"), "utf8"));
@@ -59,15 +67,15 @@ const SHIPPED_TESTS = [
   "tests/jarvis-shipped-first-paint.suite.mjs"
 ];
 
-const SUITES = { source: SOURCE_TESTS, shipped: SHIPPED_TESTS };
-const suite = process.argv[2];
-if (!SUITES[suite]) {
+const MODES = new Set(["source", "shipped", "pinned", "source-only", "qualify"]);
+const mode = process.argv[2];
+if (!MODES.has(mode)) {
   // `npm test` discovers this file because the name matches test-*.mjs.
-  // Inside that runner the explicit source and shipped scripts are not the
-  // invocation, and a nested --test run is skipped by Node. Leave the root
-  // suite green instead of treating a missing selector as a Jarvis failure.
+  // Inside that runner the explicit scripts are not the invocation, and a
+  // nested --test run is skipped by Node. Leave the root suite green instead
+  // of treating a missing selector as a Jarvis failure.
   if (process.env.NODE_TEST_CONTEXT) process.exit(0);
-  console.error("usage: node scripts/test-jarvis-media.mjs <source|shipped>");
+  console.error("usage: node scripts/test-jarvis-media.mjs <source|shipped|pinned|source-only|qualify>");
   process.exit(2);
 }
 
@@ -81,6 +89,41 @@ function git(args, cwd = source) {
 
 function captured(args) {
   return execFileSync("git", ["-C", source, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+}
+
+function runNodeTest(files, { media = null, namePattern = "", skipPattern = "" } = {}) {
+  const env = { ...process.env };
+  if (media) env.MEDIA_APP_ROOT = media;
+  else delete env.MEDIA_APP_ROOT;
+  const args = ["--test", "--test-reporter=tap"];
+  if (namePattern) args.push(`--test-name-pattern=${namePattern}`);
+  if (skipPattern) args.push(`--test-skip-pattern=${skipPattern}`);
+  args.push(...files);
+  const result = spawnSync(process.execPath, args, { cwd: repoRoot, env, stdio: "inherit" });
+  return result.status ?? 1;
+}
+
+// The 29 names run against the tree that actually contains their src modules.
+// The pin does not, so they use the repo-root copy. MEDIA_APP_ROOT is removed
+// rather than pointed at the repo root, which the helper rejects.
+function sourceOnlyEnv(media) {
+  if (sourceModulesPresent(media)) return media;
+  if (!sourceModulesPresent(repoRoot)) {
+    throw new Error("source-only tests have no src/compatibility-player.js, src/interaction-logic.js, or src/astra-motion.js");
+  }
+  console.log("source-only modules are absent from the pinned public/media tree; running them where those sources exist");
+  return null;
+}
+
+function qualificationVerdict(testsPass) {
+  const pending = parsePending(readFileSync(resolve(repoRoot, "test-evidence/media-migration/pending-and-discrepancies.md"), "utf8"));
+  const todos = scanTodos(resolve(repoRoot, "tests"));
+  const result = verdict({ testsPass, pending, todos });
+  console.log(`pending items: ${result.pendingCount === null ? "malformed" : result.pendingCount}`);
+  console.log(`todos: ${result.todoCount}`);
+  if (result.reasons.length) console.log(result.reasons.map((reason) => `- ${reason}`).join("\n"));
+  console.log(`QUALIFICATION: ${result.status}`);
+  return result.ready ? 0 : 1;
 }
 
 // Fresh clone of the pinned SHA. A reused .jarvis-source checkout is not
@@ -108,18 +151,32 @@ try {
   }
   const tree = captured(["rev-parse", "HEAD:public/media"]);
   console.log(`Jarvis media source ${release.commit} public/media ${tree}`);
-  status = runMediaTests(media);
+  const pattern = sourceOnlyPattern();
+  if (mode === "source") {
+    console.log(`media suite: source (${SOURCE_TESTS.length} files)`);
+    status = runNodeTest(SOURCE_TESTS, { media });
+  } else if (mode === "shipped") {
+    console.log(`media suite: shipped (${SHIPPED_TESTS.length} files)`);
+    status = runNodeTest(SHIPPED_TESTS, { media });
+  } else if (mode === "pinned") {
+    console.log(`media suite: pinned (${SOURCE_TESTS.length} files, source-only names skipped)`);
+    status = runNodeTest(SOURCE_TESTS, { media, skipPattern: pattern });
+  } else if (mode === "source-only") {
+    console.log(`media suite: source-only (${SOURCE_ONLY_FILES.length} files)`);
+    status = runNodeTest(SOURCE_ONLY_FILES, { media: sourceOnlyEnv(media), namePattern: pattern });
+  } else {
+    console.log("=== pinned ===");
+    const pinned = runNodeTest(SOURCE_TESTS, { media, skipPattern: pattern });
+    console.log(`pinned exit ${pinned}`);
+    console.log("=== source-only ===");
+    const sourceOnly = runNodeTest(SOURCE_ONLY_FILES, { media: sourceOnlyEnv(media), namePattern: pattern });
+    console.log(`source-only exit ${sourceOnly}`);
+    console.log("=== shipped ===");
+    const shipped = runNodeTest(SHIPPED_TESTS, { media });
+    console.log(`shipped exit ${shipped}`);
+    status = qualificationVerdict(pinned === 0 && sourceOnly === 0 && shipped === 0);
+  }
 } finally {
   rmSync(source, { recursive: true, force: true });
 }
 process.exit(status);
-
-function runMediaTests(media) {
-  console.log(`media suite: ${suite} (${SUITES[suite].length} files)`);
-  const result = spawnSync(process.execPath, ["--test", "--test-reporter=tap", ...SUITES[suite]], {
-    cwd: repoRoot,
-    env: { ...process.env, MEDIA_APP_ROOT: media },
-    stdio: "inherit"
-  });
-  return result.status ?? 1;
-}

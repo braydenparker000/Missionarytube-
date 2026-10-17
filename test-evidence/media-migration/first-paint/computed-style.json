@@ -15,6 +15,12 @@
     "motion": "full",
     "surface": "black"
   },
+  "layout": {
+    "siteRoot": "public",
+    "pagePath": "/media/",
+    "pipDiagnostics": "/assets/pip-diagnostics.js",
+    "pipDiagnosticsStatus": 200
+  },
   "viewport": {
     "width": 390,
     "height": 844
@@ -70,7 +76,7 @@
       "first-paint",
       "first-contentful-paint"
     ],
-    "completedScripts": 20
+    "completedScripts": 11
   },
   "screenshots": {
     "held": "test-evidence/media-migration/first-paint/held.png",

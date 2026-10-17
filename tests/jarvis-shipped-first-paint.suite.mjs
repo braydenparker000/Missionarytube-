@@ -51,13 +51,15 @@ function startServer(root) {
   const prefix = root.endsWith(sep) ? root : root + sep;
   const server = createServer((request, response) => {
     const url = new URL(request.url, "http://127.0.0.1");
-    const rel = decodeURIComponent(url.pathname).replace(/^\/+/, "") || "index.html";
-    const file = normalize(join(root, rel));
+    let rel = decodeURIComponent(url.pathname).replace(/^\/+/, "");
+    if (rel.endsWith("/")) rel = rel.slice(0, -1);
+    let file = rel ? normalize(join(root, rel)) : root;
     if (file !== root && !file.startsWith(prefix)) {
       response.writeHead(403);
       response.end();
       return;
     }
+    if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
     if (!existsSync(file) || !statSync(file).isFile()) {
       response.writeHead(404);
       response.end("missing");
@@ -103,7 +105,10 @@ async function readPaint(page) {
 }
 
 test("characterization: held scripts leave the stored accent and motion unapplied at first paint", { timeout: 30000 }, async () => {
-  const host = await startServer(mediaRoot);
+  // public/media/index.html requests /assets/pip-diagnostics.js from the site
+  // root, so the server has to be the pinned public/ tree and the page /media/.
+  const siteRoot = resolve(mediaRoot, "..");
+  const host = await startServer(siteRoot);
   const browser = await chromium.launch({ executablePath: chrome, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
   try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
@@ -112,18 +117,25 @@ test("characterization: held scripts leave the stored accent and motion unapplie
     }, JSON.stringify(STORED));
     const page = await context.newPage();
     const heldRoutes = [];
+    const heldPaths = [];
+    let pipStatus = null;
     let releaseScripts = false;
+    page.on("response", (response) => {
+      const pathname = new URL(response.url()).pathname;
+      if (pathname === "/assets/pip-diagnostics.js") pipStatus = response.status();
+    });
     await page.route("**/*", (route) => {
       const url = route.request().url();
       if (!url.startsWith(host.origin)) return route.abort();
       if (!releaseScripts && url.includes(".js")) {
         heldRoutes.push(route);
+        heldPaths.push(new URL(url).pathname);
         return undefined;
       }
       return route.continue();
     });
     await page.emulateMedia({ reducedMotion: "no-preference", colorScheme: "dark" });
-    await page.goto(`${host.origin}/`, { waitUntil: "commit", timeout: 10000 });
+    await page.goto(`${host.origin}/media/`, { waitUntil: "commit", timeout: 10000 });
     await page.waitForFunction(() => {
       const paints = performance.getEntriesByType("paint").map((entry) => entry.name);
       const background = getComputedStyle(document.documentElement).backgroundColor;
@@ -164,6 +176,12 @@ test("characterization: held scripts leave the stored accent and motion unapplie
       storageKey: STORAGE_KEY,
       stored: STORED,
       defaults: { accent: "ice", accentColor: "#b4d1ff", motion: "full", surface: "black" },
+      layout: {
+        siteRoot: "public",
+        pagePath: "/media/",
+        pipDiagnostics: "/assets/pip-diagnostics.js",
+        pipDiagnosticsStatus: pipStatus
+      },
       viewport: { width: 390, height: 844 },
       heldScriptRequestsAtPaint: heldCount,
       beforeFirstPaintGuarantee: false,
@@ -179,6 +197,9 @@ test("characterization: held scripts leave the stored accent and motion unapplie
 
     assert.equal(jarvisHead, "c28c1b2f70aabb5217b08bf31ffe4c93d0353765");
     assert.equal(mediaTree, "c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7");
+    assert.equal(new URL(page.url()).pathname, "/media/");
+    assert.ok(heldPaths.includes("/assets/pip-diagnostics.js"), "the page requests /assets/pip-diagnostics.js from the site root");
+    assert.equal(pipStatus, 200, "/assets/pip-diagnostics.js is served from public/assets");
     assert.ok(heldCount >= 20, `script responses were held at first paint (${heldCount})`);
     assert.equal(held.appearanceDefined, false);
     assert.equal(held.completedScripts, 0);

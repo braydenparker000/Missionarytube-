@@ -1,6 +1,12 @@
 # Pending items and discrepancies
 
-These are the todos, unsupported behaviors, and known discrepancies that must clear before the pinned Jarvis media app (`c28c1b2f70aabb5217b08bf31ffe4c93d0353765`) is qualified. A green `npm test` runs the repo-root copy and does not clear them. A green `npm run test:media-jarvis:shipped` does not clear them either: the three todos below are reported, not passed.
+These are the todos, unsupported behaviors, and known discrepancies that must clear before the pinned Jarvis media app (`c28c1b2f70aabb5217b08bf31ffe4c93d0353765`) is qualified. A green `npm test` runs the repo-root copy and does not clear them. A green `npm run test:media-jarvis:shipped` does not clear them either: the three todos below are reported, not passed. `npm run test:media-jarvis:qualify` reads the block below and the `test` todos on disk. It prints `QUALIFICATION: NOT READY` and exits non-zero while any pending item or todo remains, including a todo whose reason is empty. `QUALIFICATION: READY` requires the pinned checks and the source-only checks to pass, this block to be an empty list, and the todo count to be 0.
+
+```qualification
+todo	stored non-default accent and motion are applied before first paint	tests/jarvis-shipped-first-paint.suite.mjs
+todo	shipped: an already-aborted pumpPipeline job passes AbortError through attach()	tests/jarvis-shipped-compatibility.suite.mjs
+todo	shipped: at 390px .episode-nav-sticky backdrop-filter is none	tests/jarvis-shipped-motion.suite.mjs
+```
 
 Kept source-only names, and which shipped test covers each, are in `source-only-disposition.md`. Those 27 missing-`src` refusals are not additional behavioral gaps.
 
@@ -24,7 +30,7 @@ Each of these is `test.todo` in a shipped suite. Node counts them as todo, not p
 
 ### First paint does not apply the stored accent or motion
 
-`tests/jarvis-shipped-first-paint.suite.mjs` serves the pinned `public/media` bundle, seeds `astra.v1.appearance` with violet / motion off / charcoal, and holds every script response.
+`tests/jarvis-shipped-first-paint.suite.mjs` serves the pinned Jarvis `public/` tree in its real layout and opens `/media/`, because `public/media/index.html` loads `/assets/pip-diagnostics.js` from the site root. It seeds `astra.v1.appearance` with violet / motion off / charcoal and holds every script response.
 
 At first contentful paint the stored values are present and unapplied:
 
