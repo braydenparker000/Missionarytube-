@@ -95,3 +95,48 @@ its external-checkout test-routing change. No imported release workflow runs.
 Existing media qualification remains NOT READY (two documented UI TODOs and
 an additional mobile-motion assertion reproduced on untouched main in the
 prior cleanup evidence). Source import does not resolve or weaken that gate.
+
+## Qualification build consumer: execution checklist
+
+- **Obstacle / owner:** the qualification build job still acquired unchanged
+  source from the former repository. Codex owns this bounded checkout cutover.
+- **Scope:** only that build job's repository becomes
+  `braydenparker000/Missionarytube-`; its exact workflow blob entry in
+  `jarvis-release.json` becomes `44cddf3d3411f408dc42723bbe35abc325ea8c30`.
+  Planning/component checkouts, deploy jobs, permissions, schedules, build
+  scripts, source provenance and `GATE_RECIPE_SHA256` remain unchanged.
+- **Identity:** retain source `c28c1b2f70aabb5217b08bf31ffe4c93d0353765`,
+  tree `900f1e53227b84976619bbfdb2a3f17170f30429`. A fresh fetch from the
+  destination verified both identities and an empty worktree status.
+- **Required checks / reasons:** checkout-boundary coverage prevents other jobs
+  or refs changing; artifact-identity checks preserve source/configuration
+  binding; Worker recipe-policy checks require the exact updated workflow;
+  partition/producer checks retain full qualification on recipe drift.
+  The five focused files (`scripts/relay-source-bootstrap.test.mjs`,
+  `tests/qualified-release.test.mjs`, `tests/relay-full-worker-release.test.mjs`,
+  `tests/main-qualification-partition.test.mjs`, and
+  `tests/main-qualification-producer.test.mjs`) passed 165 tests in 7.642s.
+  The added stale-workflow-recipe case also passed a focused rerun in 0.981s,
+  rejecting the old hash before any provider read, output or checkpoint.
+- **Byte evidence:** isolated before/after builds used exact base/candidate
+  package, release and build-script files. The baseline used the existing clean
+  pinned checkout; the candidate used a fresh destination checkout. Builds
+  passed in 0.319s / 0.298s (fetch plus both builds: 5.167s). All 194 dist files
+  match each other and `../test-evidence/jarvis-source-import/after.sha256`;
+  sorted-manifest SHA256 remains
+  `b2ab23bac1a1824f605f680d94c2807e4e40e59480a749d591f6ee4558b5e0d5`.
+- **Reuse / invalidation:** prior source/runtime evidence is reused because
+  source bytes, dependencies, build scripts and runtime configuration did not
+  change. A different pin/tree, input bytes, dependency lock or environment
+  invalidates the corresponding evidence. The changed workflow and recipe
+  are checked afresh. Artifact release/recipe metadata changes intentionally;
+  byte identity does not authorize reuse of an incompatible production receipt.
+  Historical deduplication hashes remain unchanged and continue to require
+  full qualification. No unrelated broad suite was run manually; required
+  root orchestration/build checks run in draft-PR CI.
+- **Finish / state:** draft publication plus terminal CI and exact-diff review
+  complete this patch. It is not merged or deployed by this task. CI waiting
+  and final readiness are reported on the PR; no credential/access blocker
+  occurred during preparation. Existing media TODOs/mobile-motion failure and
+  the separately observed live-music release-check failure are not fixed or
+  weakened by this checkout change.
