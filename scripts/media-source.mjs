@@ -4,6 +4,8 @@ import { join, resolve } from "node:path";
 
 export const MEDIA_SOURCE_PATH = "jarvis/public/media";
 export const MEDIA_SOURCE_REPOSITORY = "braydenparker000/Missionarytube-";
+export const MEDIA_SOURCE_COMMIT = "7520eeaea05825ef8edafc5882ef4e053e99f26d";
+export const MEDIA_SOURCE_TREE = "c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7";
 
 function git(root, ...args) {
   return execFileSync("git", ["-C", root, ...args], {
@@ -14,21 +16,30 @@ function git(root, ...args) {
 
 export function checkedMediaSource(source, { root = process.cwd(), head = git(resolve(root), "rev-parse", "HEAD") } = {}) {
   root = resolve(root);
-  if (!source || source.repository !== MEDIA_SOURCE_REPOSITORY || !/^[a-f0-9]{40}$/.test(source.commit || "") ||
-      source.path !== MEDIA_SOURCE_PATH || !/^[a-f0-9]{40}$/.test(source.tree || "")) {
+  if (!source || source.repository !== MEDIA_SOURCE_REPOSITORY || source.commit !== MEDIA_SOURCE_COMMIT ||
+      source.path !== MEDIA_SOURCE_PATH || source.tree !== MEDIA_SOURCE_TREE) {
     throw new Error("Invalid exact Jarvis media source identity");
   }
-  let commitTree;
   let headTree;
   try {
-    commitTree = git(root, "rev-parse", `${source.commit}:${source.path}`);
     headTree = git(root, "rev-parse", `${head}:${source.path}`);
-    execFileSync("git", ["-C", root, "merge-base", "--is-ancestor", source.commit, head], { stdio: "ignore" });
   } catch {
-    throw new Error("Jarvis media source commit/path is not present in destination history");
+    throw new Error("Jarvis media source path is absent from destination history");
   }
-  if (commitTree !== source.tree || headTree !== source.tree) {
-    throw new Error("Jarvis media source commit, path or tree does not match the qualified destination tree");
+  if (headTree !== source.tree) {
+    throw new Error("Jarvis media source destination path does not match the qualified tree");
+  }
+  let commitTree = null;
+  try { commitTree = git(root, "rev-parse", `${source.commit}:${source.path}`); }
+  catch {
+    if (git(root, "rev-parse", "--is-shallow-repository") !== "true") {
+      throw new Error("Jarvis media source commit is absent from destination history");
+    }
+  }
+  if (commitTree !== null) {
+    if (commitTree !== source.tree) throw new Error("Jarvis media source commit does not contain the qualified tree");
+    try { execFileSync("git", ["-C", root, "merge-base", "--is-ancestor", source.commit, head], { stdio: "ignore" }); }
+    catch { throw new Error("Jarvis media source commit is not an ancestor of the destination checkout"); }
   }
   const directory = resolve(root, source.path);
   try {
