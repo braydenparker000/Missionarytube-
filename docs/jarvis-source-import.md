@@ -161,3 +161,28 @@ prior cleanup evidence). Source import does not resolve or weaken that gate.
 - **Finish / state:** one exact-diff review and terminal draft-PR CI complete
   this patch. It is not merged or deployed. The two existing shipped UI TODOs
   and the live-music release-check failure remain outside this checkout change.
+
+## Fixed source checkout origins: execution checklist
+
+- **Obstacle / scope:** sixteen source checkouts across the main Azure workflow
+  and six compatible publisher/verifier workflows still named the former
+  repository. Their fifteen distinct commits were each verified as ancestors
+  of destination `main` before changing origins. Checkout refs, source trees,
+  script behavior, workflow schedules, manual gates, credentials, permissions
+  and publication destinations stay unchanged.
+- **Checks / reason:** a focused boundary test enumerates every migrated ref,
+  retains historical source provenance and protects intentionally excluded
+  dynamic or unreachable checkouts. The deployment workflow recipe hash in
+  `jarvis-release.json` is updated to its exact new blob. Focused publisher,
+  qualification, recipe and prewrite checks passed 210 tests in 8.4 seconds;
+  `git diff --check` passed. CI and post-merge results are recorded on this PR.
+- **Finish / state:** the exact diff was reviewed once; this patch was merged
+  without running production publication, upload, migration or deployment jobs.
+- **Remaining obstacles:** `deploy-music-worker.yml` and
+  `analyze-r2-audio.yml` accept runtime `source_commit` inputs. `migrate-music-r2.yml`
+  validates the original repository's fixed source run and then executes at a
+  validated dynamic SHA, so its paired flow remains on that origin. The Astra
+  preflight compares reachable `f999581aa979712b4b63a6783b7c56842fedb6a1` with
+  reference-only `4532be6b6842320ed0cc64be973425d9505c7b03`; that latter history
+  is not in destination ancestry. Historical proof identities, publication
+  endpoints and Daily Board issue #2 remain tied to their existing owners.
