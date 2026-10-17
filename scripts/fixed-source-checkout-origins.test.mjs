@@ -52,8 +52,8 @@ test('frontend qualification restores the exact historical My Media baseline wit
   assert.ok(start>=0);
   const end=workflow.indexOf('\n      - name:',start+1),step=workflow.slice(start,end<0?undefined:end);
   assert.match(step,/if: \$\{\{ matrix\.component == 'frontend' \}\}/);
-  assert.match(step,/https:\/\/github\.com\/braydenparker999\/jarvis\.git/);
-  assert.match(step,/refs\/heads\/fix\/mymedia-count-clarity-qualified-20261010/);
+  assert.match(step,/https:\/\/github\.com\/\$\{GITHUB_REPOSITORY\}\.git/);
+  assert.match(step,/git -C \.jarvis-source fetch --no-tags .*\$GITHUB_REF/);
   assert.match(step,/8c4f6de790b3e06cd78b11706dfa2c055174bbf1/);
   assert.match(step,/git -C \.jarvis-source rev-parse HEAD/);
   assert.match(step,/git -C \.jarvis-source status --porcelain/);
