@@ -76,3 +76,8 @@ The composer shows reported token usage for completed replies in the current sav
 
 Rollback: pin a previous *public-config* Jarvis revision or disable Quick Chat while preserving the local chat storage. Do not roll back to the older exposed `apiKey` format or reintroduce a Cloudflare Worker dependency. Rotate the old Groq key only after confirming other consumers and the new frontend release.
 
+## Shared engineering delivery
+
+Use the [portable delivery SOP](.agents/skills/deliver-software-efficiently/SKILL.md)
+and [bounded delivery plan](docs/delivery-plan.md) for shared project work.
+Agents without automatic skill discovery should explicitly read the SOP.
