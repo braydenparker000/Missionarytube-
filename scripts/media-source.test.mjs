@@ -4,11 +4,12 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
-import { checkedComponentSource, checkedMediaSource, readDailyBoardSource, readMediaSource } from "./media-source.mjs";
+import { checkedComponentSource, checkedMediaSource, readConnectSource, readDailyBoardSource, readMediaSource } from "./media-source.mjs";
 
 const root = process.cwd();
 const source = JSON.parse(readFileSync(resolve(root, "jarvis-media-source.json"), "utf8"));
 const dailyBoardSource = JSON.parse(readFileSync(resolve(root, "jarvis-dailyBoard-source.json"), "utf8"));
+const connectSource = JSON.parse(readFileSync(resolve(root, "jarvis-connect-source.json"), "utf8"));
 
 test("media source resolves only the pinned destination commit, path and tree", () => {
   const checked = readMediaSource(root);
@@ -38,6 +39,21 @@ test("daily-board source rejects an incorrect destination commit, path or tree",
   assert.throws(() => checkedComponentSource("dailyBoard", { ...dailyBoardSource, commit: "f".repeat(40) }, { root }), /Invalid exact Jarvis dailyBoard source identity/);
   assert.throws(() => checkedComponentSource("dailyBoard", { ...dailyBoardSource, path: "public/daily-board" }, { root }), /Invalid exact Jarvis dailyBoard source identity/);
   assert.throws(() => checkedComponentSource("dailyBoard", { ...dailyBoardSource, tree: "e".repeat(40) }, { root }), /Invalid exact Jarvis dailyBoard source identity/);
+});
+
+test("connect source resolves its exact destination commit, path and tree", () => {
+  const checked = readConnectSource(root);
+  assert.equal(checked.repository, "braydenparker000/Missionarytube-");
+  assert.equal(checked.commit, "41383d9d5154aab3b1d7922d5e7c376376139c07");
+  assert.equal(checked.path, "jarvis/public/connect");
+  assert.equal(checked.tree, "14da00ba05225eddc0ad9d1717660c1f4b2e93c9");
+  assert.equal(checked.directory, resolve(root, "jarvis/public/connect"));
+});
+
+test("connect source rejects an incorrect destination commit, path or tree", () => {
+  assert.throws(() => checkedComponentSource("connect", { ...connectSource, commit: "f".repeat(40) }, { root }), /Invalid exact Jarvis connect source identity/);
+  assert.throws(() => checkedComponentSource("connect", { ...connectSource, path: "public/connect" }, { root }), /Invalid exact Jarvis connect source identity/);
+  assert.throws(() => checkedComponentSource("connect", { ...connectSource, tree: "e".repeat(40) }, { root }), /Invalid exact Jarvis connect source identity/);
 });
 
 test("the exact reviewed source remains usable in a shallow destination checkout", () => {

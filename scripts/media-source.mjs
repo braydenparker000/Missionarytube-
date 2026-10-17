@@ -14,6 +14,12 @@ export const COMPONENT_SOURCES = {
     commit: "8201af9d10b6c0731f55c2b297b070b7922968d3",
     path: "jarvis/public/daily-board",
     tree: "b3214e6e8731cc0f3146d79a467c7c48710c3620"
+  },
+  connect: {
+    repository: "braydenparker000/Missionarytube-",
+    commit: "41383d9d5154aab3b1d7922d5e7c376376139c07",
+    path: "jarvis/public/connect",
+    tree: "14da00ba05225eddc0ad9d1717660c1f4b2e93c9"
   }
 };
 
@@ -71,4 +77,5 @@ export function readComponentSource(name, root = process.cwd()) {
 
 export const readMediaSource = (root = process.cwd()) => readComponentSource("media", root);
 export const readDailyBoardSource = (root = process.cwd()) => readComponentSource("dailyBoard", root);
+export const readConnectSource = (root = process.cwd()) => readComponentSource("connect", root);
 export const checkedMediaSource = (source, options) => checkedComponentSource("media", source, options);

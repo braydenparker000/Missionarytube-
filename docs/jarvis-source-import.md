@@ -91,6 +91,17 @@ resulting built route SHA256 matches the preserved pre-cutover artifact
 manifest. `dist/release.json` now records both media and Daily Board component
 identities while retaining the general source fields.
 
+## Connect notice page source
+
+The one-file static Connect notice now has an exact destination identity in
+[`jarvis-connect-source.json`](../jarvis-connect-source.json): commit
+`41383d9d5154aab3b1d7922d5e7c376376139c07`, path `jarvis/public/connect`, tree
+`14da00ba05225eddc0ad9d1717660c1f4b2e93c9`. Its tree matches the pinned
+`c28c1b2f70aabb5217b08bf31ffe4c93d0353765:public/connect` tree. The build
+replaces only `dist/connect`; its `/assets/shell.css` dependency remains on the
+general pinned source, and the generated route matches the preserved
+pre-cutover artifact manifest.
+
 ## Unchanged operational boundaries
 
 `jarvis-release.json` still selects external source `c28c1b2f70aabb5217b08bf31ffe4c93d0353765`.
