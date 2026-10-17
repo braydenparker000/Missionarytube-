@@ -1,0 +1,85 @@
+{
+  "jarvisCommit": "c28c1b2f70aabb5217b08bf31ffe4c93d0353765",
+  "mediaTree": "c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7",
+  "storageKey": "astra.v1.appearance",
+  "stored": {
+    "accent": "violet",
+    "motion": "off",
+    "surface": "charcoal",
+    "density": "comfortable",
+    "glass": "glass"
+  },
+  "defaults": {
+    "accent": "ice",
+    "accentColor": "#b4d1ff",
+    "motion": "full",
+    "surface": "black"
+  },
+  "layout": {
+    "siteRoot": "public",
+    "pagePath": "/media/",
+    "pipDiagnostics": "/assets/pip-diagnostics.js",
+    "pipDiagnosticsStatus": 200
+  },
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "heldScriptRequestsAtPaint": 31,
+  "beforeFirstPaintGuarantee": false,
+  "limitation": "Stored violet accent and motion off were present in localStorage under astra.v1.appearance, and the document had already painted, while every requested script response was still held. appearance.js is deferred, so that paint used the stylesheet default ice accent (#b4d1ff) and .page.active was still running page-arrival. The stored accent, surface, and motion were applied only after the script responses were released.",
+  "held": {
+    "readyState": "interactive",
+    "appearanceDefined": false,
+    "appearance": null,
+    "className": "",
+    "dataset": {},
+    "stored": "{\"accent\":\"violet\",\"motion\":\"off\",\"surface\":\"charcoal\",\"density\":\"comfortable\",\"glass\":\"glass\"}",
+    "accent": "#b4d1ff",
+    "accentFill": "#245dd9",
+    "background": "rgb(5, 6, 7)",
+    "brandColor": "rgb(180, 209, 255)",
+    "pageAnimation": "page-arrival",
+    "pageAnimationDuration": "0.32s",
+    "paints": [
+      "first-paint",
+      "first-contentful-paint"
+    ],
+    "completedScripts": 0
+  },
+  "released": {
+    "readyState": "interactive",
+    "appearanceDefined": true,
+    "appearance": {
+      "accent": "violet",
+      "surface": "charcoal",
+      "density": "comfortable",
+      "glass": "glass",
+      "motion": "off"
+    },
+    "className": "js",
+    "dataset": {
+      "accent": "violet",
+      "surface": "charcoal",
+      "density": "comfortable",
+      "glass": "glass",
+      "motion": "off"
+    },
+    "stored": "{\"accent\":\"violet\",\"motion\":\"off\",\"surface\":\"charcoal\",\"density\":\"comfortable\",\"glass\":\"glass\"}",
+    "accent": "#cbbaff",
+    "accentFill": "#6748bb",
+    "background": "rgb(17, 19, 24)",
+    "brandColor": "rgb(203, 186, 255)",
+    "pageAnimation": "none",
+    "pageAnimationDuration": "0s",
+    "paints": [
+      "first-paint",
+      "first-contentful-paint"
+    ],
+    "completedScripts": 11
+  },
+  "screenshots": {
+    "held": "test-evidence/media-migration/first-paint/held.png",
+    "released": "test-evidence/media-migration/first-paint/released.png"
+  }
+}

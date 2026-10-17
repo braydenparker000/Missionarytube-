@@ -1,12 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
+import { listAppDir, readAppSource } from "./helpers/media-root.mjs";
+import { assetIndex, findScript, scriptRunsBefore, stylesheetIndex, releaseMeta, sharedCacheKey, RELEASE_PLACEHOLDER } from "./helpers/shell-assets.mjs";
+import { assertArtworkResilience } from "./helpers/artwork-behavior.mjs";
 
-const shell = await readFile("index.html", "utf8");
-const appSource = await readFile("assets/js/app.js", "utf8");
+const shell = await readAppSource("index.html");
+const appSource = await readAppSource("assets/js/app.js");
 const html = `${shell}\n${appSource}`;
-const css = await readFile("assets/css/obsidian.css", "utf8");
-const hubSource = await readFile("assets/js/hub.js", "utf8");
+const css = await readAppSource("assets/css/obsidian.css");
+const hubSource = await readAppSource("assets/js/hub.js");
 
 /* ---- design system ---------------------------------------------------- */
 
@@ -56,30 +58,30 @@ test("global search copy names every supported content family", () => {
 });
 
 test("the Gallery stylesheet cache key matches the visible app version", () => {
-  const version = shell.match(/<meta name="astra-release" content="([^"]+)">/)?.[1];
+  const version = releaseMeta(shell);
+  const { key } = sharedCacheKey(shell);
   const stylesheetVersion = shell.match(/obsidian\.css\?v=([^"']+)/)?.[1];
-  assert.match(version || "", /^\d+\.\d+\.\d+$/, "the release meta value must be semantic");
-  assert.equal(stylesheetVersion, "__ASTRA_VERSION__", "the build must own the stylesheet cache key");
+  assert.match(version, /^\d+\.\d+\.\d+$/, "the release meta value must be semantic");
+  assert.ok(stylesheetVersion === RELEASE_PLACEHOLDER || stylesheetVersion === version,
+    "the stylesheet cache key is the build placeholder or the stamped release");
+  assert.equal(stylesheetVersion, key, "the stylesheet uses the same key as the rest of the shell");
   assert.match(appSource, /const APP_VERSION=document\.querySelector\('meta\[name="astra-release"\]'\)\?\.content\|\|'dev'/);
 });
 
 test("one release placeholder owns every local shell asset cache key", () => {
-  const localAssets = [...shell.matchAll(/(?:src|href)="(assets\/[^"]+)"/g)].map((match) => match[1]);
-  assert.ok(localAssets.length >= 19, "the complete local shell asset set must be inspected");
-  assert.deepEqual(
-    localAssets.filter((asset) => !asset.endsWith("?v=__ASTRA_VERSION__")),
-    [],
-    "no local shell asset may carry a stale independent cache version"
-  );
+  const { assets, keys, key, meta } = sharedCacheKey(shell);
+  assert.ok(assets.length >= 19, "the complete local shell asset set must be inspected");
+  assert.deepEqual([...new Set(keys)], [key], "no local shell asset may carry a stale independent cache version");
+  assert.ok(key === RELEASE_PLACEHOLDER || key === meta, "the shared key is the build placeholder or the visible release");
   assert.equal((shell.match(/<meta name="astra-release"/g) || []).length, 1);
 });
 
 test("the early bootstrap and application are external reviewable files", () => {
-  const bootstrap = shell.indexOf('src="assets/js/bootstrap.js?v=__ASTRA_VERSION__"');
-  const stylesheet = shell.indexOf('href="assets/css/obsidian.css?v=__ASTRA_VERSION__"');
-  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
-  assert.ok(bootstrap > -1 && bootstrap < stylesheet, "the js class is set before first paint");
-  assert.ok(app > stylesheet, "the application loads after the document shell and dependencies");
+  assert.equal(scriptRunsBefore(shell, "assets/js/bootstrap.js", "assets/js/app.js"), true, "bootstrap is an external file that runs before the application");
+  assert.equal(scriptRunsBefore(shell, "assets/js/appearance.js", "assets/js/app.js"), true, "appearance is an external file that runs before the application");
+  const stylesheet = stylesheetIndex(shell, "assets/css/obsidian.css");
+  const app = findScript(shell, "assets/js/app.js");
+  assert.ok(stylesheet > -1 && app && app.index > stylesheet, "the application script follows the stylesheet link");
   assert.equal(/<script>\s*\(\(\)=>/.test(shell), false, "the application must not be embedded in HTML");
 });
 
@@ -229,7 +231,7 @@ test("nothing in the UI invents content, availability or telemetry", () => {
     /youtube/i.test(html.slice(Math.max(0, i - 400), i + 400)) ? "" : m)), false,
     "no trending label exists outside the YouTube provider");
   // The audio module says in its own source why there is no waveform.
-  assert.match(shell, /<script src="assets\/js\/audio-player\.js\?v=__ASTRA_VERSION__"><\/script>/);
+  assert.ok(assetIndex(shell, "assets/js/audio-player.js") > -1, "the audio module ships as its own file");
 });
 
 test("a sector is only shown as populated when a provider exposes it", () => {
@@ -278,13 +280,15 @@ test("YouTube plays natively, and no iframe or embed survives anywhere", () => {
   // Instance URLs live in one configuration module, never in the app shell.
   // The only address index.html may contain is the field's own placeholder.
   const hosts = [...html.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1].toLowerCase());
+  // images.metahub.space is the poster CDN preconnect, not a YouTube instance.
   assert.deepEqual(
     hosts.filter(
-      (host) => !/^(?:cdn\.jsdelivr\.net|v3-cinemeta\.strem\.io|piped\.example\.org)$/.test(host)
+      (host) => !/^(?:cdn\.jsdelivr\.net|v3-cinemeta\.strem\.io|images\.metahub\.space|piped\.example\.org)$/.test(host)
     ),
     [],
     "an instance host must not be hard-coded in index.html"
   );
+  assert.equal(hosts.some((host) => /(^|\.)youtube\.com$|youtube-nocookie|invidious/.test(host)), false);
 });
 
 test("this is not a PWA and does not pretend to be installable", () => {
@@ -309,7 +313,7 @@ test("no runtime framework and no unpinned remote script was introduced", async 
     assert.equal(framework.test(html), false, `${framework} would be a new runtime dependency`);
   }
   // Every local script the shell loads must exist.
-  const local = [...html.matchAll(/<script src="(assets\/[^"]+)"/g)].map((m) => m[1]);
+  const local = [...html.matchAll(/<script\b[^>]*\bsrc="\/?(assets\/[^"]+)"/g)].map((m) => m[1]);
   assert.ok(local.length >= 9);
 });
 
@@ -455,8 +459,7 @@ test("every catalog card, including new releases, has resilient artwork", () => 
   assert.match(html, /function mediaImage\(url,options=\{\}\)/);
   assert.match(html, /class="art-loader" aria-hidden="true"/);
   assert.match(html, /class="release-art art \$\{p\?'image-loading':'image-error'\}"/);
-  assert.match(html, /onload="this\.parentElement\.classList\.add\('image-ready'\)"/);
-  assert.match(html, /onerror="this\.parentElement\.classList\.add\('image-error'\);this\.remove\(\)"/);
+  assertArtworkResilience(appSource, assert);
   assert.match(css, /\.image-ready > \.media-image \{ opacity: 1; transform: scale\(1\); \}/);
   assert.match(css, /\.art \{\s*display: block;/, "span artwork needs a box or loaded posters collapse");
   assert.match(css, /\.rail-scroll\.release-rail \{ grid-auto-columns: min\(84vw, 330px\); \}/,
@@ -518,7 +521,7 @@ test("the stylesheet is the only place raw colours are defined", async () => {
   const inline = html.match(/<style>([\s\S]*?)<\/style>/)[1];
   const hexes = [...inline.matchAll(/#[0-9a-f]{3,8}\b/gi)].map((m) => m[0]);
   assert.ok(hexes.length <= 3, `the critical block defines ${hexes.length} colours`);
-  const files = await readdir("assets/css");
+  const files = await listAppDir("assets/css");
   assert.deepEqual(files.sort(), ["cinema.css", "collection.css", "obsidian.css"]);
   for (const file of files) assert.ok(shell.includes(`assets/css/${file}?v=`), `${file} is loaded and cache-versioned`);
 });

@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {readFile} from 'node:fs/promises';
+import {readAppSource} from './helpers/media-root.mjs';
 
 const context=vm.createContext({URL});
-vm.runInContext(await readFile('assets/js/collection-tools.js','utf8'),context);
+vm.runInContext(await readAppSource('assets/js/collection-tools.js'),context);
 const tools=context.AstraCollections;
 const plain=value=>JSON.parse(JSON.stringify(value));
 const titles=[{id:'a',type:'movie',name:'Amélie',year:2001,genres:['Comedy']},{id:'b',type:'series',name:'Dark',year:2017},{id:'c',type:'movie',name:'Arrival',year:2016}];
@@ -52,7 +52,7 @@ test('backup serialization errors and unavailable storage leave the original set
   assert.equal(writes,0);assert.throws(()=>tools.commit(null,{a:'value'}));
 });
 
-const app=await readFile('assets/js/app.js','utf8');
+const app=await readAppSource('assets/js/app.js');
 function homeFixture(){
   const nodes={homeRoot:{innerHTML:''},featureMount:{innerHTML:''},homeSections:{innerHTML:'',slots:[],insertAdjacentHTML(_,html){this.slots.push({dataset:{homeCatalog:html},outerHTML:html});},addEventListener(){}}};
   const waiting=new Map();let active=true;

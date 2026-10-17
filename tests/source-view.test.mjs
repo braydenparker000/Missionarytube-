@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import '../assets/js/playback/source-view.js';
+import { appFileURL } from './helpers/media-root.mjs';
+await import(appFileURL('assets/js/playback/source-view.js').href);
 const V=globalThis.AstraStreamView;
 const row=(id,provider,resolution,size,languages=[])=>({id,stream:{addonOrder:provider,addonName:'Same label',title:id,facts:{resolution:resolution+'p',resolutionRank:resolution,sizeBytes:size,audioLanguages:languages}}});
 const rows=[row('first',0,720,40,['en']),row('second',0,2160,80,['fr']),row('third',1,1080,20,['en']),row('fourth',1,1080,0,['en'])];

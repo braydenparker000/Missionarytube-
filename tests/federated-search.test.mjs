@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
+import { assetIndex } from "./helpers/shell-assets.mjs";
 import test from "node:test";
 import vm from "node:vm";
 
-const source = await readFile("assets/js/federated-search.js", "utf8");
-const shell = await readFile("index.html", "utf8");
-const appSource = await readFile("assets/js/app.js", "utf8");
+const source = await readAppSource("assets/js/federated-search.js");
+const shell = await readAppSource("index.html");
+const appSource = await readAppSource("assets/js/app.js");
 const html = `${shell}\n${appSource}`;
-const css = await readFile("assets/css/obsidian.css", "utf8");
+const css = await readAppSource("assets/css/obsidian.css");
 const context = {};
 vm.runInNewContext(source, context, { filename: "federated-search.js" });
 const search = context.AstraSearch;
@@ -76,7 +77,7 @@ test("the app renders and updates each provider independently", () => {
 });
 
 test("natural-language constraints stay visible, removable, and evidence based", () => {
-  assert.match(shell, /assets\/js\/search-intent\.js\?v=__ASTRA_VERSION__/);
+  assert.ok(assetIndex(shell, "assets/js/search-intent.js") > -1, "search-intent.js must be loaded");
   assert.match(html, /const intent=AstraSearchIntent\.parse\(q\),providerQuery=intent\.text\|\|q/);
   assert.match(html, /group\.items\.filter\(item=>AstraSearchIntent\.matches\(item,run\.intent\)\)/);
   assert.match(html, /aria-label="Interpreted search filters"/);

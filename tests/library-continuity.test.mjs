@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
 
-const app = await readFile(new URL("../assets/js/app.js", import.meta.url), "utf8");
-const css = await readFile(new URL("../assets/css/obsidian.css", import.meta.url), "utf8");
+const app = await readAppSource("assets/js/app.js");
+const css = await readAppSource("assets/css/obsidian.css");
 
 test("Library joins saved titles and bounded local playback shelves", () => {
   assert.match(app, /function libraryActivity\(\)/);

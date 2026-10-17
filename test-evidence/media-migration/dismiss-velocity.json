@@ -1,0 +1,441 @@
+{
+  "kind": "instrumented-decision-boundary",
+  "instrumentation": "Replaces the minified decision function and controls ticker time so the tracker formula returns each requested velocity. Separate from the untouched slow-drag and fast-flick gesture, which leaves the shipped decision function and ticker unchanged.",
+  "method": "Release velocity is the shipped InertiaPlugin value (current - previousSample) / (tickerTime - previousSampleTime). Distance stays at 100px. At an 800px viewport the distance threshold is 132px, so these trials can dismiss only through velocity. The minified decision function is replaced with the same threshold expression plus a decision log. tickerTime is placed, inside that getter, so the formula returns each requested velocity. Dismiss or snap-back is that instrumented branch and the visible surface.",
+  "distancePx": 100,
+  "claimedCutoff": 720,
+  "highestSnap": 719,
+  "lowestDismiss": 720,
+  "trials": [
+    {
+      "requestedVelocity": 600,
+      "velocity": 600,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 610,
+      "velocity": 610,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 620,
+      "velocity": 620,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 630,
+      "velocity": 630,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 640,
+      "velocity": 640,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 650,
+      "velocity": 650,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 660,
+      "velocity": 660,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 670,
+      "velocity": 670,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 680,
+      "velocity": 680,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 690,
+      "velocity": 690,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 700,
+      "velocity": 700,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 710,
+      "velocity": 710,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 720,
+      "velocity": 720,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 730,
+      "velocity": 730,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 740,
+      "velocity": 740,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 750,
+      "velocity": 750,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 760,
+      "velocity": 760,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 770,
+      "velocity": 770,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 780,
+      "velocity": 780,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 790,
+      "velocity": 790,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 800,
+      "velocity": 800,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 810,
+      "velocity": 810,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 820,
+      "velocity": 820,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 830,
+      "velocity": 830,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 840,
+      "velocity": 840,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 711,
+      "velocity": 711,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 712,
+      "velocity": 712,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 713,
+      "velocity": 713,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 714,
+      "velocity": 714,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 715,
+      "velocity": 715,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 716,
+      "velocity": 716,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 717,
+      "velocity": 717,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 718,
+      "velocity": 718,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 719,
+      "velocity": 719,
+      "distance": 100,
+      "threshold": 132,
+      "decision": false,
+      "dismissed": 0,
+      "surface": "detail",
+      "outcome": "snap"
+    },
+    {
+      "requestedVelocity": 721,
+      "velocity": 721,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 722,
+      "velocity": 722,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 723,
+      "velocity": 723,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 724,
+      "velocity": 724,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 725,
+      "velocity": 725,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 726,
+      "velocity": 726,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 727,
+      "velocity": 727,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 728,
+      "velocity": 728,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    },
+    {
+      "requestedVelocity": 729,
+      "velocity": 729,
+      "distance": 100,
+      "threshold": 132,
+      "decision": true,
+      "dismissed": 1,
+      "surface": "",
+      "outcome": "dismiss"
+    }
+  ]
+}

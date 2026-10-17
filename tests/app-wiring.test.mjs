@@ -1,28 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
+import { scriptRunsBefore } from "./helpers/shell-assets.mjs";
+import { loadPlaybackBoundary } from "./helpers/playback-boundary.mjs";
 
-const shell = await readFile("index.html", "utf8");
-const appSource = await readFile("assets/js/app.js", "utf8");
+const shell = await readAppSource("index.html");
+const appSource = await readAppSource("assets/js/app.js");
 const html = `${shell}\n${appSource}`;
 // The design system moved out of the inline <style> into a reviewable, cacheable
 // stylesheet. The guarantees the player chrome depends on are asserted against
 // that file now; they are the same guarantees, in the same terms.
-const css = await readFile("assets/css/obsidian.css", "utf8");
+const css = await readAppSource("assets/css/obsidian.css");
 
 test("the external app loads after the progress store", () => {
-  const module = shell.indexOf('src="assets/js/progress-store.js?v=__ASTRA_VERSION__"');
-  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
-  assert.ok(module > -1, "progress-store.js must be loaded");
-  assert.ok(app > module, "the app script must run after the store is defined");
+  assert.equal(scriptRunsBefore(shell, "assets/js/progress-store.js", "assets/js/app.js"), true, "the app script must run after the store is defined");
   assert.equal(/<script>\s*\(\(\)=>\{'use strict';/.test(shell), false, "application code must not remain inline");
   assert.match(appSource, /const progress=AstraProgress\.createProgressStore\(/);
 });
 
 test("route ownership loads before the app and releases inactive catalog DOM", () => {
-  const runtime = shell.indexOf('src="assets/js/route-runtime.js?v=__ASTRA_VERSION__"');
-  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
-  assert.ok(runtime > -1 && runtime < app, "route-runtime.js must load before the application");
+  assert.equal(scriptRunsBefore(shell, "assets/js/route-runtime.js", "assets/js/app.js"), true, "route-runtime.js must load before the application");
   assert.match(appSource, /const Routes=AstraRoutes\.createRouteRuntime\(\)/);
   assert.match(appSource, /if\(changed\)releasePage\(fromPage\)/);
   assert.match(appSource, /if\(root\)root\.replaceChildren\(\)/);
@@ -58,12 +55,41 @@ test("localStorage writes cannot throw out of the app", () => {
 });
 
 test("pending progress is flushed when playback or the page ends", () => {
-  assert.match(html, /window\.addEventListener\('pagehide',\(\)=>progress\.flush\(\)\)/);
-  assert.match(html, /document\.visibilityState==='hidden'\)progress\.flush\(\)/);
-  // Playback Engine v2 registers the pause listener through the attempt's
-  // resource scope, so it is released with the rest of the attempt.
-  assert.match(html, /scope\.listen\(el,'pause',\(\)=>progress\.flush\(\)\)/);
-  assert.match(html, /function closePlayer\(silent\)\{[\s\S]{0,650}?progress\.flush\(\)/);
+  const boundary = loadPlaybackBoundary(appSource);
+  const saved = (before, { checkpointRecords = false } = {}) => {
+    const fresh = boundary.records.slice(before.records);
+    assert.equal(fresh.some((record) => record.detail.completed), false, "a boundary save must not mark the episode complete");
+    if (boundary.hasCheckpoint && checkpointRecords) {
+      assert.equal(fresh.at(-1)?.detail.time, boundary.media.currentTime);
+      assert.equal(fresh.at(-1)?.detail.immediate, true);
+      assert.equal(fresh.at(-1)?.detail.duration, boundary.media.duration);
+      return;
+    }
+    assert.ok(boundary.flushes > before.flushes, "pending progress is written at the boundary");
+  };
+  const beforeHide = { records: boundary.records.length, flushes: boundary.flushes };
+  boundary.hidePage();
+  saved(beforeHide, { checkpointRecords: true });
+  const beforeVisibility = { records: boundary.records.length, flushes: boundary.flushes };
+  boundary.hideVisibility();
+  saved(beforeVisibility, { checkpointRecords: true });
+  const beforePause = { records: boundary.records.length, flushes: boundary.flushes };
+  boundary.pause();
+  saved(beforePause, { checkpointRecords: true });
+  boundary.media.ended = true;
+  const beforeEnded = { records: boundary.records.length, flushes: boundary.flushes };
+  boundary.hidePage();
+  saved(beforeEnded);
+  const beforeClose = { records: boundary.records.length, flushes: boundary.flushes };
+  boundary.media.ended = false;
+  boundary.close();
+  assert.ok(boundary.flushes > beforeClose.flushes, "closing the player flushes progress");
+  assert.equal(boundary.player.meta, null);
+  if (boundary.hasCheckpoint) {
+    const recorded = boundary.records.slice(beforeClose.records);
+    assert.equal(recorded[0]?.detail.time, 120.5);
+    assert.equal(recorded.some((record) => record.detail.completed), false);
+  }
 });
 
 test("completion is only ever recorded from a real ended event", () => {
@@ -90,17 +116,11 @@ test("backups round-trip the normalized progress shape", () => {
 /* ---- Playback Engine v2 wiring ---------------------------------------- */
 
 test("every playback module is loaded before the app script", () => {
-  const app = shell.indexOf('src="assets/js/app.js?v=__ASTRA_VERSION__"');
   for (const name of ["settings", "streams", "adapters", "engine", "episodes", "subtitles"]) {
-    const at = shell.indexOf(`src="assets/js/playback/${name}.js?v=__ASTRA_VERSION__"`);
-    assert.ok(at > -1, `${name}.js is not loaded`);
-    assert.ok(at < app, `${name}.js must load before the app script`);
+    assert.equal(scriptRunsBefore(shell, `assets/js/playback/${name}.js`, "assets/js/app.js"), true, `${name}.js must load before the app script`);
   }
   // settings.js is read by streams.js for the resolution ceiling.
-  assert.ok(
-    shell.indexOf('playback/settings.js') < shell.indexOf('playback/streams.js'),
-    "settings must load before streams"
-  );
+  assert.equal(scriptRunsBefore(shell, "assets/js/playback/settings.js", "assets/js/playback/streams.js"), true, "settings must load before streams");
 });
 
 test("the v1 playback path is fully removed", () => {

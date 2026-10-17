@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {readFile} from 'node:fs/promises';
+import {readAppSource} from './helpers/media-root.mjs';
 
-const source = await readFile('assets/js/appearance.js', 'utf8');
+const source = await readAppSource('assets/js/appearance.js');
 function boot({value = null, unavailable = false, full = false} = {}) {
   const dataset = {}, events = [];
   let stored = value;

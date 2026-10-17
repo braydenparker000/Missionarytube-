@@ -10,7 +10,12 @@
     "pin:check": "node scripts/pin-player-libs.mjs --check",
     "test:browser": "node tests/browser/youtube-flow.mjs",
     "build:legacy": "node scripts/build.mjs",
-    "test:jarvis": "npm --prefix .jarvis-source test"
+    "test:jarvis": "npm --prefix .jarvis-source test",
+    "test:media-jarvis:source": "node scripts/test-jarvis-media.mjs source",
+    "test:media-jarvis:shipped": "node scripts/test-jarvis-media.mjs shipped",
+    "test:media-jarvis:pinned": "node scripts/test-jarvis-media.mjs pinned",
+    "test:media-jarvis:source-only": "node scripts/test-jarvis-media.mjs source-only",
+    "test:media-jarvis:qualify": "node scripts/test-jarvis-media.mjs qualify"
   },
   "dependencies": {
     "@libmedia/avplayer": "1.3.1",

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
 import test from "node:test";
 import { loadCatalogs, source } from "./helpers/redesign.mjs";
 
@@ -94,8 +94,8 @@ test("media references preserve exact identity while separating providers", () =
 });
 
 test("the app wires provider-safe refs through catalog, browse and search", async () => {
-  const shell = await readFile(new URL("../index.html", import.meta.url), "utf8");
-  const app = await readFile(new URL("../assets/js/app.js", import.meta.url), "utf8");
+  const shell = await readAppSource("index.html");
+  const app = await readAppSource("assets/js/app.js");
   const html = `${shell}\n${app}`;
 
   assert.match(html, /assets\/js\/catalog-registry\.js/);
@@ -111,8 +111,8 @@ test("the app wires provider-safe refs through catalog, browse and search", asyn
 });
 
 test("Home layout is reachable and exposes mobile-accessible controls", async () => {
-  const shell = await readFile(new URL("../index.html", import.meta.url), "utf8");
-  const app = await readFile(new URL("../assets/js/app.js", import.meta.url), "utf8");
+  const shell = await readAppSource("index.html");
+  const app = await readAppSource("assets/js/app.js");
   const html = `${shell}\n${app}`;
 
   // Home layout is a settings destination now, not a modal stacked on a modal.

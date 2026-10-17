@@ -1,13 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./helpers/media-root.mjs";
+import { assetIndex } from "./helpers/shell-assets.mjs";
 
-const source = await readFile("assets/js/discovery-health.js", "utf8");
-const shell = await readFile("index.html", "utf8");
-const appSource = await readFile("assets/js/app.js", "utf8");
+const source = await readAppSource("assets/js/discovery-health.js");
+const shell = await readAppSource("index.html");
+const appSource = await readAppSource("assets/js/app.js");
 const html = `${shell}\n${appSource}`;
-const css = await readFile("assets/css/obsidian.css", "utf8");
+const css = await readAppSource("assets/css/obsidian.css");
 const context = { console };
 vm.runInNewContext(source, context, { filename: "discovery-health.js" });
 const discovery = context.AstraDiscovery;
@@ -129,7 +130,7 @@ test("Surprise Me deduplicates identity, respects filters, and excludes future r
 });
 
 test("the app exposes direct Surprise Me and focused health controls", () => {
-  assert.match(shell, /<script src="assets\/js\/discovery-health\.js\?v=__ASTRA_VERSION__"><\/script>/);
+  assert.ok(assetIndex(shell, "assets/js/discovery-health.js") > -1, "discovery-health.js must be loaded");
   assert.match(html, /class="surprise-trigger" data-surprise-me/);
   assert.match(html, /async function surpriseMe\(button\)/);
   assert.doesNotMatch(html, /<h2>The Briefing<\/h2>/);

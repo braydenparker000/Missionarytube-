@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readAppSource } from "./media-root.mjs";
 import vm from "node:vm";
 
 /**
@@ -6,7 +6,7 @@ import vm from "node:vm";
  * global it attaches, so the tests exercise the exact file the browser loads.
  */
 async function loadGlobal(path, name) {
-  const source = await readFile(new URL(`../../${path}`, import.meta.url), "utf8");
+  const source = await readAppSource(path);
   const context = vm.createContext({ console, Math, Number, String, Array, Object });
   vm.runInContext(source, context, { filename: path });
   return context[name];
