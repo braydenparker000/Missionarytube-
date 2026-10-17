@@ -121,10 +121,10 @@ bundled-app batch is also merged: PR227 at
   `2b29ab492af5a68bc49888cdb441fafdd38b5427`, recorded in
   [`jarvis-routeData-source.json`](../jarvis-routeData-source.json).
 - `favorites`, root `index.html`, `jarvis`, `notes`, `server`, `settings`, and
-  `tools` have matching route trees, but load `/assets/app.js`, whose pinned
-  source and destination blobs differ. `jarvis` also loads changed
-  `conversation.css` and `relay.css`. Exclude these seven routes until those
-  dependencies are separately reconciled.
+  `tools` have matching route trees, but load shared assets whose imported
+  source differs. These seven routes remain on the exact active c28 public
+  source snapshot described below. Their imported variants remain preserved
+  under `jarvis/public` and are not activated by this build.
 
 `mymedia` (8 files), `podcasts` (9), and `youtube-archive` (4) were cut over
 with matching source/destination trees. Their local dependencies also match:
@@ -146,27 +146,74 @@ include private/security modules. Preserve destination-only `muse-key` and
 movement before selecting the resulting batches. Keep the held playback and
 security behavior unchanged.
 
-Estimate: 5–7 PRs remain for the bounded consolidation, assuming later
-file-level review does not reveal more split boundaries. This includes
-reconciliation of the seven routes with differing shared assets, non-held
-semantic reconciliation, source/build/qualification/provenance integration,
-and the final root-media cleanup and documentation. PR215 remains a draft on
-the older deployment base; retain its 36-file removal and 4-file/3-module
-retention inventory, but
-supersede it in the final cleanup rather than merging it independently. The
-final live frontend check requires the guarded Azure deployment path and
-post-deploy receipt/smoke checks. Worker and R2 publications retain their
-separate gates. Static builds, tests, CI, and source-path integration do not
-require a live deployment.
+The source import and root-media cleanup batches are complete: PR228 merged at
+`07f010ae72148cc14e9872fc76373912f0b5a8f3`, PR229 at
+`8a3e45d706c011f7052a66d77147ad47a143d5a3`, and PR230 at
+`cc2a2b0c8693094d0c4dbdddeb8e53e0489fddf7`. PR230 superseded and closed the
+older PR215 after its callers retired. A guarded Azure deployment and actual
+post-deploy receipt/smoke checks are still required before claiming live
+delivery. Worker and R2 publications retain their separate gates.
+
+## Active and pending public variants
+
+The static build now starts from the exact pinned public tree at
+`jarvis-active-public-c28/public`, recorded in
+[`jarvis-activePublic-source.json`](../jarvis-activePublic-source.json):
+destination repository `braydenparker000/Missionarytube-`, source commit
+`de5d7177a778f4bfa2aa071ab064a8a4fb9b2246`, path
+`jarvis-active-public-c28/public`, tree
+`67a47e36414a8ceb4040c9454f64ed1982a9146c`. The snapshot tree is byte- and
+mode-identical to `public/` at historical Jarvis commit
+`c28c1b2f70aabb5217b08bf31ffe4c93d0353765`; source ancestry is retained in
+destination Git history. Component-specific overlays continue to use their
+existing exact destination identities.
+
+`jarvis/public` remains the imported, pending variant and is unchanged. The
+build resolves the active variant by exact repository, commit, path and tree,
+then verifies the worktree against that commit before copying it. This keeps
+the currently selected Relay/Mast/Muse UI, the seven dependent routes, and
+held drawercast/Guitar/config behavior byte-for-byte as built. The frontend
+release receipt records the active variant separately from the historical
+general Worker source pin in `jarvis-release.json`; that pin and all Worker
+release gates remain unchanged.
+
+The active snapshot is at the repository root so the exact imported-source
+guard for `jarvis/` remains unchanged. Its build comparison produced the same
+194-file path set and the same SHA256 for every output file except
+`dist/release.json`, whose additional active-variant provenance is intentional.
+The output remains 20.09 MiB with no media payloads. A focused dependency walk
+from the seven routes resolved all 25 referenced local files and JavaScript
+modules. The pre-change sorted artifact manifest SHA256 was
+`2c4786a24f2962097b29a26205860435a95b3e82a1d55df7e33d067020d56e17`; all
+193 non-receipt artifact files kept their hashes, and only the receipt changed
+to add variant provenance. The focused resolver/import/privacy tests passed,
+and root `npm test` passed 1,147/1,147 tests.
+
+The Daily Board reader still imports owner-authored publication comments from
+the open `braydenparker999/jarvis#2` issue. The external scheduled writer
+“Publish Jarvis Daily Board” still targets that issue. No repository writer
+was identified; `jarvis_publish_briefing` is a separate Worker board API.
+Treat the issue and automation as an operational dependency. Preserve the
+original issue and messages until the reader, external writer, provenance,
+per-source cursors and deduplication can migrate together with rollback.
+Destination issue #2 is already an imported PR and cannot be reused. No
+issue, schedule, writer, or publication endpoint was changed here.
+
+The newest available live-music run, 39003845606, failed in the release check
+before catalog, sample, or browser playback checks ran. The runner log exposes
+only the sanitized stage; its report artifact returned HTTP 403 on download.
+The failed run therefore does not establish a new playback or seeking defect.
 
 ## Unchanged operational boundaries
 
-`jarvis-release.json` still selects external source `c28c1b2f70aabb5217b08bf31ffe4c93d0353765`.
-The build, Worker configuration, root workflows, schedules, credentials,
-package dependencies/lockfile, component pins, qualification gate recipes,
-Azure endpoint and federation, and publication/importer endpoints are unchanged.
-PR215 remains unmerged; this patch does not retire its root media files or reuse
-its external-checkout test-routing change. No imported release workflow runs.
+`jarvis-release.json` still carries the historical general source identity
+`braydenparker999/jarvis@c28c1b2f70aabb5217b08bf31ffe4c93d0353765` for Worker
+qualification and release checks. The workflow checkout origins use
+destination history. This batch changes only the static build's active public
+tree and its frontend provenance; Worker configuration, workflows, schedules,
+credentials, package lock, component pins, qualification gates, Azure endpoint
+and federation, and publication/importer endpoints remain unchanged. No
+imported release workflow runs.
 
 ## Remaining component-cutover checklist
 
@@ -175,17 +222,17 @@ its external-checkout test-routing change. No imported release workflow runs.
 - Establish component inventories beyond the existing private frontend's
   18 published files and 45 preserved dependencies. Refresh Worker metadata
   separately; a public receipt is not a new live Worker observation.
-- Continue switching source/test/build consumers to the surviving repository
-  one component at a time, preserving artifact hashes, upload ordering,
-  rollback receipts, dependency checks and static-only versus Worker release
-  boundaries.
+- Continue reviewing remaining historical provenance fields and component
+  consumers against destination ancestry, preserving artifact hashes, upload
+  ordering, rollback receipts, dependency checks and static-only versus Worker
+  release boundaries.
 - Migrate repository-specific qualification provenance with fresh proofs;
   preserve historical proof origins. Update workflow path filters and gate
   recipes together only in that reviewed cutover, not this import.
-- Retain the approved PR215 deletion/assertion inventory for the cutover that
-  actually retires the root app; do not merge PR215 independently.
-- Preserve Daily Board issue #2 and its importer until a coordinated endpoint,
-  provenance, cursor/deduplication and agent-schedule migration is reviewed.
+- PR230 completed the root-media cleanup; its tests and license files remain.
+- Preserve Daily Board issue #2 and its external writer until a coordinated
+  endpoint, provenance, cursor/deduplication and reader/writer rollback plan
+  is reviewed. Do not change responder schedules.
 - Retain Drive/R2/music, private-board/collaboration, Makima/Muse and egress
   release paths. Any credential or expanded-access change is separately gated.
 - Complete agent references and archival decisions only after the replacement

@@ -1,0 +1,101 @@
+/* Match the final approved charcoal/blue overrides in relay.css and shared controls without loading chat layout.
+   Existing shell, sheet, launcher, library and score components retain their behavior.
+   Scope includes SPA Home / Daily Board only, plus the two standalone modules. */
+body:is(.aligned-hub,.media-page,.guitar-page) {
+  --bg:#000;
+  --surface:#303030;
+  --raised:#393939;
+  --line:#494949;
+  --accent:#dce3eb;
+  --text:#f7f7f7;
+  --muted:#a3a3a3;
+  --label:#a3a3a3;
+  background:var(--bg);
+}
+body.aligned-hub::before { content:none; }
+:is(.aligned-hub,.media-page,.guitar-page) .workspace {
+  background:var(--bg);
+}
+:is(.aligned-hub,.media-page,.guitar-page) .topbar {
+  min-height:calc(72px + env(safe-area-inset-top));
+  padding:env(safe-area-inset-top) max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left));
+  gap:8px;
+  background:var(--bg);
+  border-bottom:1px solid #ffffff09;
+}
+:is(.aligned-hub,.media-page,.guitar-page) .topbar .brand {
+  font-size:20px;line-height:26px;font-weight:600;letter-spacing:0;
+  text-transform:none;color:var(--text);
+}
+:is(.aligned-hub,.media-page,.guitar-page) .icon-button {
+  border-radius:50%;color:#f7f7f7;flex-shrink:0;
+}
+:is(.aligned-hub,.media-page,.guitar-page) .icon-button svg { width:22px;height:22px; }
+:is(.aligned-hub,.media-page,.guitar-page) :is(input:not([type=radio]):not([type=checkbox]),select,textarea) {
+  background:var(--surface);border-color:#515151;border-radius:16px;min-height:48px;
+}
+:is(.aligned-hub,.media-page,.guitar-page) :is(input,textarea)::placeholder { color:#aaa;opacity:1; }
+:is(.aligned-hub,.media-page,.guitar-page) :is(a,button,input,select,textarea,summary):focus-visible {
+  outline:2px solid var(--accent);outline-offset:3px;
+}
+:is(.aligned-hub,.media-page,.guitar-page) .primary { border-radius:16px;background:#506d92;color:#fff; }
+:is(.aligned-hub,.media-page,.guitar-page) .app-sheet {
+  border-radius:26px 26px 0 0;background:#242424;border-color:#444;
+}
+:is(.aligned-hub,.media-page,.guitar-page) .sheet-action { font-size:15px;line-height:22px;min-height:52px; }
+/* Keep the live clock and every launcher destination, with a quieter hierarchy. */
+.aligned-hub .workspace.launcher { max-width:680px; }
+.aligned-hub .launcher main { padding-inline:20px; }
+.aligned-hub .launcher-clock { padding:24px 0; }
+.aligned-hub .launcher-time { font-size:clamp(48px,14vw,64px);letter-spacing:-.035em; }
+.aligned-hub .launcher-date { margin-top:8px; }
+.aligned-hub .launcher-link { gap:16px;font-size:17px;line-height:24px;min-height:64px;border-bottom:1px solid #ffffff09; }
+.aligned-hub .launcher-link.launcher-relay,.aligned-hub .launcher-relay>svg { color:var(--text); }
+.aligned-hub .launcher-utilities .launcher-link { font-size:16px; }
+.aligned-hub .launcher-name { overflow-wrap:anywhere; }
+.aligned-hub .launcher .search-field input { padding:12px;border:1px solid var(--line);background:var(--surface);border-radius:8px; }
+/* Read the full briefing, including preserved line breaks and long titles. */
+.aligned-hub .page-heading { margin:24px 0 20px; }
+.aligned-hub .page-heading .subheading { margin:8px 0 0; }
+.aligned-hub .board-entry { padding:24px 0 0; }
+.aligned-hub .board-entry p { color:var(--text);font-size:16px;line-height:1.6; }
+.aligned-hub .board-entry h2 { font-size:22px;font-weight:500;line-height:1.4; }
+.aligned-hub .empty-board { text-align:left;padding:32px 0; }
+.aligned-hub .empty-board h2 { font-size:25px;font-weight:500; }
+.aligned-hub .empty-icon { color:var(--muted); }
+/* Neutral media surfaces; preserve feed density, filters and the full player. */
+.media-page :is(.thumb,.collection-art) { background:var(--raised);border-radius:8px; }
+.media-page :is(.discovery-filters button,.player-tools button,.player-tools select) { background:var(--surface);color:var(--muted);min-height:48px; }
+.media-page .discovery-filters button[aria-pressed=true] { background:#506d92;color:#fff;border-color:#7c9dc4; }
+.media-page .player-tools button[aria-pressed=true] { color:var(--accent); }
+.media-page .featured-collection { background:var(--surface); }
+.media-page .media-nav { background:#000; }
+.media-page .media-nav a { color:var(--muted);position:relative; }
+.media-page .media-nav a[aria-current] { color:var(--accent); }
+.media-page .media-nav a[aria-current]::after { content:'';position:absolute;bottom:2px;width:4px;height:4px;border-radius:50%;background:currentColor; }
+.media-page :is(.folder-icon,.thumb .placeholder,.collection-art>span) { color:var(--muted); }
+.media-page .library-tools select { font-size:14px; }
+.media-page a.card-creator { min-height:48px;display:flex;align-items:center; }
+.media-page :is(.creator-strip-heading>a,.watch-creator) { min-height:48px; }
+.media-page .folder-actions { flex-wrap:wrap;gap:8px; }
+.guitar-page :is(.guitar-search button,.track-picker) { background:var(--surface);border-color:var(--line);border-radius:8px; }
+.guitar-page .module-tabs { gap:24px; }
+.guitar-page .tab-empty h2 { font-size:25px;line-height:32px;letter-spacing:-.02em; }
+.guitar-page .notation-meta { flex-wrap:wrap; }
+.guitar-page .notation-zoom { min-height:48px; }
+@media(max-width:370px) {
+  :is(.aligned-hub,.media-page,.guitar-page) .topbar { padding-inline:8px;gap:4px; }
+  .aligned-hub .launcher main { padding-inline:16px; }
+  .media-page .library-tools { flex-wrap:wrap; }
+  .media-page .library-tools input { flex-basis:100%; }
+  .media-page .library-tools select { max-width:none;width:100%; }
+}
+@media(min-width:800px) {
+  :is(.aligned-hub,.guitar-page) .workspace { border-inline:1px solid #ffffff0a; }
+  .aligned-hub .launcher main { padding-inline:32px; }
+  :is(.aligned-hub,.media-page,.guitar-page) .app-sheet { border-radius:26px; }
+}
+
+/* The sticky browsing row follows the shared toolbar without covering it. */
+.media-page .library-toolbar { top:calc(72px + env(safe-area-inset-top));background:var(--bg); }
+:is(.aligned-hub,.media-page,.guitar-page) .primary:hover { background:#506d92; }

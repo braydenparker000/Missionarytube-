@@ -3,6 +3,12 @@ import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 
 export const COMPONENT_SOURCES = {
+  activePublic: {
+    repository: "braydenparker000/Missionarytube-",
+    commit: "de5d7177a778f4bfa2aa071ab064a8a4fb9b2246",
+    path: "jarvis-active-public-c28/public",
+    tree: "67a47e36414a8ceb4040c9454f64ed1982a9146c"
+  },
   media: {
     repository: "braydenparker000/Missionarytube-",
     commit: "7520eeaea05825ef8edafc5882ef4e053e99f26d",
@@ -126,6 +132,7 @@ export function readComponentSource(name, root = process.cwd()) {
 }
 
 export const readMediaSource = (root = process.cwd()) => readComponentSource("media", root);
+export const readActivePublicSource = (root = process.cwd()) => readComponentSource("activePublic", root);
 export const readDailyBoardSource = (root = process.cwd()) => readComponentSource("dailyBoard", root);
 export const readConnectSource = (root = process.cwd()) => readComponentSource("connect", root);
 export const readRouteDataSource = (root = process.cwd()) => {
