@@ -62,7 +62,7 @@ new credential configuration; no secret values are included in the evidence.
 The original imported source tree remains `9f983eb6a86ddc1989c3d4e7b85fb7c7d2819938`
 as recorded in the inventory and import evidence. PR236 updated the maintained-
 tree guard for the Daily Board reader; the source-budget and scheduler fixes
-update that guard to `30fc34ef73f9743cacb8605308f6a5c78fbc964d`. Each update changes only the
+update that guard to `cef4a361abf510e2bd0de478ae64ee77b06d5e1e`. Each update changes only the
 current allowed tree identity; it does not rewrite imported history or the
 original source snapshot. Future edits under `jarvis/` still require an
 explicit reviewed boundary update.
@@ -301,6 +301,9 @@ consolidation:
   journal insertion, preserving historical-feed idle backoff. Unresolved
   destination journal rows use the persisted local retry cadence; new public
   generations can still wake and recover them immediately.
+  Network-only reads apply newly admitted publications during that pass without
+  retrying older pending rows; they leave the existing local retry deadline in
+  place.
   A later cutover still requires a unique destination
   issue, source authentication/provenance verification through a watermark,
   switching the single writer only after dual-read validation, and a rollback

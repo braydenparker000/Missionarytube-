@@ -146,6 +146,39 @@ test('unresolved destination rows follow the persisted local cadence while a new
   assert.equal(h.rows('SELECT imported FROM publication_source_comments WHERE source_key=? AND comment_id=906',`${newRepo}#93`)[0].imported,1);
 });
 
+test('a new briefing on a network-only source poll publishes immediately without postponing the old pending retry deadline',async t=>{
+  const h=createConversationFixture(t);t.after(()=>h.close());
+  const start=Date.UTC(2026,9,17),requestId=crypto.randomUUID(),pending={schema:'jarvis-publication-v1',id:crypto.randomUUID(),type:'reply',replyTo:requestId,body:'Old unresolved reply'};
+  const briefing=publication(crypto.randomUUID(),'New scheduled briefing','2026-10-17','Arrived on second source poll');
+  const env={[DESTINATION_PUBLICATION_ISSUE_ENV]:'95',[DESTINATION_PUBLICATION_ENABLE_ENV]:'true'};
+  const oldPath=`/repos/${oldRepo}/issues/2/comments`,newPath=`/repos/${newRepo}/issues/95/comments`;
+  let destinationPolls=0;
+  const fetcher=async url=>{
+    const path=new URL(url).pathname;
+    if(path===oldPath)return Response.json([]);
+    if(path===newPath){destinationPolls++;return Response.json(destinationPolls===1?[comment(newRepo,95,908,pending)]:[
+      comment(newRepo,95,908,pending),comment(newRepo,95,909,briefing)]);}
+    assert.fail(`Unexpected source request ${path}`);
+  };
+  await syncPublications(h.ctx,fetcher,start,env);
+  assert.equal(destinationPolls,1);
+  assert.equal(h.rows('SELECT imported FROM publication_source_comments WHERE source_key=? AND comment_id=908',`${newRepo}#95`)[0].imported,0);
+  const localDeadline=metadata(h,'publisher-local-next-attempt');
+  const generationBefore=h.rows('SELECT COALESCE(MAX(seq),0) AS n FROM public_changes')[0].n;
+  assert.equal(metadata(h,'publisher-local-generation'),generationBefore,'No external generation is pending before the second poll');
+  const next=nextPublicationReconciliationAt(h.ctx,start);
+  assert.equal(next,start+300000,'The next source fetch is the actual five-minute scheduler wake');
+  await syncPublications(h.ctx,fetcher,next,env);
+  assert.equal(destinationPolls,2);
+  assert.equal(h.rows('SELECT imported FROM publication_source_comments WHERE source_key=? AND comment_id=909',`${newRepo}#95`)[0].imported,1,
+    'A newly admitted briefing is applied during the network-only poll');
+  assert.equal(h.rows('SELECT imported FROM publication_source_comments WHERE source_key=? AND comment_id=908',`${newRepo}#95`)[0].imported,0,
+    'The older unresolved reply remains on its durable local retry cadence');
+  assert.equal(metadata(h,'publisher-local-next-attempt'),localDeadline,'A network-only pass must not move the existing local retry later');
+  const posts=(await sharedStore(h.ctx,'/internal/shared/state',{},new URLSearchParams({after:'0'})).json()).posts;
+  assert.equal(posts.some(post=>post.id===briefing.id),true);
+});
+
 test('full-day scheduled reconciliation keeps unresolved destination work bounded and the historical source fair under repeated tail comments',async t=>{
   const h=createConversationFixture(t);t.after(()=>h.close());
   const start=Date.UTC(2026,9,17),end=start+86400000,requestId=crypto.randomUUID();
