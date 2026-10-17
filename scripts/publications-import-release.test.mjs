@@ -4,7 +4,7 @@ import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {BASELINE,CANDIDATE,SOURCE,checkedBaseline,checkedRollbackIdentity,checkedStaticPrewrite,planRollback,rollbackCandidate,staticIfMatch,verifyRollbackFiles} from './publications-import-release.mjs';
+import {BASELINE,CANDIDATE,SOURCE,UPLOAD_SETTINGS_DIGEST,checkedBaseline,checkedRollbackIdentity,checkedStaticPrewrite,planRollback,rollbackCandidate,staticIfMatch,verifyRollbackFiles} from './publications-import-release.mjs';
 import {readFileSync} from 'node:fs';
 
 const sha=value=>createHash('sha256').update(value).digest('hex');
@@ -68,7 +68,8 @@ test('static prewrite rejects changed bytes, changed ETag and missing ETag',()=>
 
 test('rollback accepts every baseline/candidate partial-write state and rejects foreign bytes',()=>{
  for(const codeSha256 of [BASELINE.codeSha256,CANDIDATE.workerSha256]){
-  assert.equal(checkedRollbackIdentity({...BASELINE,codeSha256}).codeSha256,codeSha256);
+  for(const settingsDigest of [BASELINE.settingsDigest,UPLOAD_SETTINGS_DIGEST])
+   assert.equal(checkedRollbackIdentity({...BASELINE,codeSha256,settingsDigest}).codeSha256,codeSha256);
   assert.throws(()=>checkedRollbackIdentity({...BASELINE,codeSha256,settingsDigest:'drift'}));
   assert.throws(()=>checkedRollbackIdentity({...BASELINE,codeSha256,schedulesDigest:'drift'}));
  }
