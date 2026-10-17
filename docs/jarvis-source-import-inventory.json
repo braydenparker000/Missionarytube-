@@ -108,9 +108,16 @@
       "references": [
         ".github/workflows/astra-worker-reuse-preflight.yml:56"
       ],
-      "preservation": "reference-only; original repository/refs retained; copying this history requires separate publication",
+      "preservation": "reference-only at inventory observation; later verified as an ancestor of current destination main; original repository ref retained; not an original import parent",
       "includedInImportedAncestry": false,
-      "includedInDestinationAncestry": false
+      "includedInDestinationAncestry": false,
+      "currentDestinationAncestry": {
+        "destinationMainAtVerification": "0c5ed469023dbfdafd76188558b7d190e42d4938",
+        "verifiedAt": "2026-10-17T03:17:12Z",
+        "isAncestor": true,
+        "compareAheadBy": 701,
+        "compareBehindBy": 0
+      }
     },
     {
       "repository": "braydenparker999/jarvis",

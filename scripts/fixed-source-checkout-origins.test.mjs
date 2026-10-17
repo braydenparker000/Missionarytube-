@@ -58,9 +58,21 @@ test('dynamic commits must pass destination-main ancestry and retained migration
     assert.ok(guard>=0&&existingChecks>guard,'source ancestry must be checked before source tests or install');
   }
   const migration=read('.github/workflows/migrate-music-r2.yml');
-  assert.equal((migration.match(new RegExp('repository: '+prior,'g'))||[]).length,2);
-  assert.match(migration,/ref: dd0797bd48431ea04354f83663c3df765cc8f5b0/);
-  assert.match(migration,/ref: \$\{\{ needs\.validate\.outputs\.source_sha \}\}/);
+  assert.deepEqual(checkoutRefs('.github/workflows/migrate-music-r2.yml'),[
+    'dd0797bd48431ea04354f83663c3df765cc8f5b0','${{ needs.validate.outputs.source_sha }}']);
+  assert.match(migration,/permissions:\s+contents: read/);
+  assert.match(migration,/workflow_dispatch:/);
+  assert.match(migration,/if: \$\{\{ github\.event_name == 'workflow_dispatch' \}\}/);
+  assert.match(migration,/python -m unittest discover -s tests -p 'test_r2\*\.py' -v/);
+  const inventory=JSON.parse(read('docs/jarvis-source-import-inventory.json'));
+  const astraComparison=inventory.components.find(identity=>identity.commit==='4532be6b6842320ed0cc64be973425d9505c7b03');
+  assert.ok(astraComparison);
+  assert.equal(astraComparison.includedInImportedAncestry,false);
+  assert.equal(astraComparison.includedInDestinationAncestry,false,'preserve the original observedAt snapshot');
+  assert.equal(astraComparison.currentDestinationAncestry.destinationMainAtVerification,'0c5ed469023dbfdafd76188558b7d190e42d4938');
+  assert.equal(astraComparison.currentDestinationAncestry.isAncestor,true);
+  assert.equal(astraComparison.currentDestinationAncestry.compareBehindBy,0);
+  assert.match(astraComparison.preservation,/ancestor of current destination main/);
   const astra=read('.github/workflows/astra-worker-reuse-preflight.yml');
   assert.deepEqual(checkoutRefs('.github/workflows/astra-worker-reuse-preflight.yml'),[
     '4532be6b6842320ed0cc64be973425d9505c7b03','f999581aa979712b4b63a6783b7c56842fedb6a1']);

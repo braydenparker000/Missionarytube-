@@ -28,12 +28,14 @@ whether it is reachable through the import parent, through the deployment base,
 or remains reference-only in its original repository.
 
 Jarvis main `ed7bbd436689be3ac9cca1ab5f111341dd690b80` is not an ancestor of the
-selected source. The preflight source `4532be6b6842320ed0cc64be973425d9505c7b03`
-and open-work heads outside either parent are not independently published here.
-Their existing refs remain intact; preserving those objects in Missionarytube-
-requires a separately reviewed publication. An inventory reference is not a
-replacement for an archival ref if the original repository is later deleted.
-No open PR behavior is accepted merely by listing it.
+selected source. At the inventory observation, preflight source
+`4532be6b6842320ed0cc64be973425d9505c7b03` was outside both original import
+parents and recorded as reference-only. A later public comparison confirms it
+is now an ancestor of destination `main`; it was not added as an import parent.
+Other open-work heads outside either parent remain unimported unless separately
+reviewed. Their original refs remain intact. An inventory reference alone is
+not an archival ref if the original repository is later deleted. No open PR
+behavior is accepted merely by listing it.
 
 ## Test and privacy boundaries
 
@@ -178,14 +180,10 @@ prior cleanup evidence). Source import does not resolve or weaken that gate.
   `git diff --check` passed. CI and post-merge results are recorded on this PR.
 - **Finish / state:** the exact diff was reviewed once; this patch was merged
   without running production publication, upload, migration or deployment jobs.
-- **Remaining obstacles:** `deploy-music-worker.yml` and
-  `analyze-r2-audio.yml` accept runtime `source_commit` inputs. `migrate-music-r2.yml`
-  validates the original repository's fixed source run and then executes at a
-  validated dynamic SHA, so its paired flow remains on that origin. The import
-  inventory had marked Astra commit `4532be6b6842320ed0cc64be973425d9505c7b03`
-  reference-only; a later public comparison confirms it is already behind
-  current destination `main`. Historical proof identities, publication
-  endpoints and Daily Board issue #2 remain tied to their existing owners.
+- **Remaining dependencies:** historical proof identities, provenance readers,
+  publication endpoints and Daily Board issue #2 remain tied to their existing
+  owners. The active `migrate-music-r2.yml` source checkouts now use destination
+  history while preserving the fixed validation pin and exact validated SHA.
 
 ## Provenance-gated dynamic checkouts and Astra source: execution checklist
 
@@ -207,9 +205,9 @@ prior cleanup evidence). Source import does not resolve or weaken that gate.
   proof and manual-gate checks passed 29 tests in 0.6 seconds. This patch did
   not run deployment, analysis, upload, migration or Astra workflows; applicable
   CI, integration and terminal post-merge checks are recorded on this PR.
-- **Remaining checkout:** `migrate-music-r2.yml` still has two original-repo
-  checkouts, the fixed validation pin `dd0797bd48431ea04354f83663c3df765cc8f5b0`
-  and the validated dynamic `source_sha`. Editing that workflow triggers its
-  main-push validation job, which is explicitly held for this task. Original
-  Actions proof identities, provenance readers and publication destinations
-  also remain on their existing owners.
+- **R2 migration checkout:** both `migrate-music-r2.yml` source checkouts use
+  destination history, preserving fixed validation
+  pin `dd0797bd48431ea04354f83663c3df765cc8f5b0` and exact validated dynamic
+  `source_sha`. The push-path validation remains separate from its manual
+  migration job. Original Actions proof identities, provenance readers and
+  publication destinations remain on their existing owners.
