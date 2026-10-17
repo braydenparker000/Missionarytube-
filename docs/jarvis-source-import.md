@@ -86,15 +86,15 @@ artifact manifest seals those bytes; its schema and historical receipt
 validation stay unchanged.
 
 PR247 changes only `media/index.html` and
-`media/assets/css/obsidian.css`. The guarded publisher proposed with this source
-update writes those two files, `release-component-provenance.json`, and
-`release.json` only. It verifies the existing parent receipts and 22 retained
-override hashes, captures exact blob bytes and properties before writes, uses
-ETag conditions, and places `release.json` last as the release marker. The
-updated sidecar carries the previous active-public proof forward and records
-the media source and file hashes. The parent release byte count is
-`21063258`; the reviewed candidate is `21063373`. The deployment has not run;
-PR247's merge alone is not evidence that either media file is live.
+`media/assets/css/obsidian.css`. PR248 added the guarded publisher for those two
+files plus `release-component-provenance.json` and `release.json`. It verifies
+the existing parent receipts and 22 retained override hashes, captures exact
+blob bytes and properties before writes, uses ETag conditions, and places
+`release.json` last as the release marker. The updated sidecar carries the
+previous active-public proof forward and records the media source and file
+hashes. The parent release byte count is `21063258`; the reviewed candidate is
+`21063373`. PR248 publication run 39060426739 succeeded and verified live
+readback; PR247's merge alone was not evidence that either media file was live.
 
 ## Daily Board route source
 
@@ -308,9 +308,10 @@ field remains the historical source identity, not an active checkout origin.
 
 ## Current acceptance and optimization disposition (2026-10-17)
 
-- **Media appearance:** PR248 merged at `b3853e336b5c12d037605d73186884af34660998`.
-  Its source is `bccda52d2c84bdfc2d315c7250cd9efbd8594aff` at
-  `jarvis/public/media`. Publication run
+- **Media appearance:** the runtime repair/source change merged in PR247 as
+  `bccda52d2c84bdfc2d315c7250cd9efbd8594aff` at `jarvis/public/media`.
+  PR248 added the publisher and merged at
+  `b3853e336b5c12d037605d73186884af34660998`. Publication run
   [39060426739](https://github.com/braydenparker000/Missionarytube-/actions/runs/39060426739)
   succeeded. The rollback artifact is `media-only-rollback-39060426739-1`,
   artifact ID `12111127615`, SHA-256
@@ -407,8 +408,9 @@ consolidation:
   access change requires separate authorization.
 - **Legacy refs and media qualification:** preserve original repository refs;
   no rename, archive, or deletion is part of this plan. The stored-appearance
-  first-paint and 390px backdrop repair is merged and published in PR248/run
-  39060426739. Current live music verification passed in run 39060584579;
+  first-paint and 390px backdrop repair is sourced by PR247 and was published
+  by the PR248 publisher in run 39060426739. Current live music verification
+  passed in run 39060584579;
   physical-device acceptance remains outstanding as recorded above.
 
 No additional application cutover or deployment is required to close this
@@ -418,8 +420,8 @@ from the former repository's operational feed.
 
 The historical cleanup evidence below records the earlier NOT READY media
 qualification. The first-paint/mobile-motion repair subsequently merged as
-PR248 and was published by run 39060426739; source import did not weaken the
-gate.
+PR247 and was published by the PR248 publisher in run 39060426739; source
+import did not weaken the gate.
 
 The execution checklists below preserve each historical patch's original
 evidence and state; the dated consolidation closeout above is the current
@@ -465,8 +467,9 @@ status.
   root orchestration/build checks run in draft-PR CI.
 - **Finish / state:** draft publication plus terminal CI and exact-diff review
   completed this historical checkout patch. The media TODOs were later resolved
-  and published in PR248/run 39060426739; exact-main music verification passed
-  in run 39060584579. Neither result is attributed to this checkout change.
+  in PR247 and published by PR248/run 39060426739; exact-main music
+  verification passed in run 39060584579. Neither result is attributed to this
+  checkout change.
 
 ## Qualification checkout origin: execution checklist
 

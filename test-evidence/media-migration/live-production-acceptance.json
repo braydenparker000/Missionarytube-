@@ -2,7 +2,6 @@
   "checkedOn": "2026-10-17",
   "site": "https://missionarytube.z13.web.core.windows.net/media/",
   "deployment": {
-    "pullRequest": 248,
     "mainCommit": "b3853e336b5c12d037605d73186884af34660998",
     "publishRun": "39060426739",
     "publishSucceeded": true,
@@ -15,7 +14,9 @@
     "publishedMediaFiles": 2,
     "preservedOverrides": 22,
     "nonAllowlistedBlobsUnchanged": true,
-    "publisherReadback": "Azure and public-origin hash/property verification passed"
+    "publisherReadback": "Azure and public-origin hash/property verification passed",
+    "sourcePullRequest": 247,
+    "publisherPullRequest": 248
   },
   "liveSha256": {
     "media/index.html": {
@@ -66,7 +67,8 @@
     "stickyBackdropFilter": {
       "390px": "none",
       "420px": "saturate(1.8) blur(20px)"
-    }
+    },
+    "tlsValidationNote": "This media appearance smoke used a proxy TLS exception. Its appearance/FCP metrics are not normal-certificate-validation acceptance; see liveCloudChromeAcceptance for the separate normal-TLS browser interactions."
   },
   "deployedMusicAcceptance": {
     "workflowRun": "39060584579",
@@ -114,7 +116,6 @@
   "staticRouteReadback": {
     "checkedOn": "2026-10-17",
     "site": "https://missionarytube.z13.web.core.windows.net/",
-    "mainHead": "49c01361e54f9e23d7bc55c8b49c84fd9b8ba89f",
     "tls": "Normal verified HTTPS; no certificate-validation bypass",
     "routes": {
       "/": {
@@ -216,10 +217,15 @@
     "limits": [
       "HTTP/index readback is not interactive route acceptance.",
       "Daily Board dynamic feed rendering/data was not checked.",
-      "Current browser-smoke gap remains for launcher, Relay, Guitar, podcasts and agent integration routes.",
+      "At the time of this route readback, interactive browser acceptance had not yet been recorded; later normal-TLS results are in liveCloudChromeAcceptance. Authenticated Relay conversations/tasks/delivery and Guitar playback remain untested.",
       "Quick AI remains a pre-existing unconfigured placeholder.",
       "Physical-device testing remains outstanding."
-    ]
+    ],
+    "checkedReference": {
+      "commit": "49c01361e54f9e23d7bc55c8b49c84fd9b8ba89f",
+      "kind": "local PR worktree HEAD at the time this HTTP readback was recorded",
+      "note": "This is not a main-branch head or a production deployment identity."
+    }
   },
   "interactiveAcceptanceReview": {
     "checkedOn": "2026-10-17",
@@ -321,7 +327,6 @@
   },
   "verifiedReleaseIds": {
     "media": {
-      "pullRequest": 248,
       "mainHead": "b3853e336b5c12d037605d73186884af34660998",
       "componentSource": "bccda52d2c84bdfc2d315c7250cd9efbd8594aff",
       "componentPath": "jarvis/public/media",
@@ -330,7 +335,11 @@
       "rollbackArtifactId": 12111127615,
       "rollbackArtifactName": "media-only-rollback-39060426739-1",
       "rollbackArtifactSha256": "29da793f671a929075522ad3011ba43c223a037eb49f9810e4a54b9db4790a12",
-      "rollbackLocation": "GitHub Actions artifact for run 39060426739; retained through 2027-01-15."
+      "rollbackLocation": "GitHub Actions artifact for run 39060426739; retained through 2027-01-15.",
+      "sourcePullRequest": 247,
+      "publisherPullRequest": 248,
+      "sourceMergeCommit": "bccda52d2c84bdfc2d315c7250cd9efbd8594aff",
+      "publisherMergeCommit": "b3853e336b5c12d037605d73186884af34660998"
     },
     "music": {
       "verificationRun": 39060584579,
