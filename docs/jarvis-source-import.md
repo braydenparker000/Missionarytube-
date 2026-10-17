@@ -276,12 +276,19 @@ consolidation:
   Jarvis Daily Board” (`6ac854579d1481918af16682c5b5936c`) still targets that
   issue. No repository writer was identified; `jarvis_publish_briefing` writes
   to a separate Worker board API. Destination issue #2 is already an imported
-  PR. Preserve the old issue, messages and schedule. If feed migration is
-  separately approved, first create a unique destination issue and implement
-  additive dual-read with composite repository/issue/comment identity,
-  per-source cursors, deduplication, watermark reconciliation, writer cutover
-  and rollback. Do not change access or responder schedules as part of this
-  consolidation.
+  PR. Preserve the old issue, messages and schedule. The reader now has a
+  backward-compatible second-source path gated by both
+  `JARVIS_DAILY_BOARD_DESTINATION_ENABLED=true` and an exact
+  `JARVIS_DAILY_BOARD_DESTINATION_ISSUE`; neither is configured here, so the
+  existing issue remains the only active feed. The additive journal keys
+  comments by repository/issue/comment ID, stores exact source comment bodies,
+  and keeps scan/watermark state per issue. Existing global publication-ID and
+  same-date briefing reservations continue to suppress duplicates. No issue was
+  created, feed switched, test content published, schedule/access changed, or
+  deployment activated. A later cutover still requires a unique destination
+  issue, source authentication/provenance verification through a watermark,
+  switching the single writer only after dual-read validation, and a rollback
+  that disables the destination reader while keeping the old feed untouched.
 - **Historical inventory and separate release paths:**
   `release-inventory.json` remains the explicitly historical 2026-10-16
   observation of a limited 18-file/45-dependency private frontend closure and
