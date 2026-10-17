@@ -47,10 +47,15 @@ jobs:
           [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]] || exit 1
       - uses: actions/checkout@v4
         with:
-          repository: braydenparker999/jarvis
+          repository: braydenparker000/Missionarytube-
           ref: ${{ inputs.source_commit }}
           path: .jarvis-source
           persist-credentials: false
+          fetch-depth: 0
+      - name: Require the exact source commit in approved destination history
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: node scripts/check-source-commit-reachable.mjs .jarvis-source "$SOURCE_COMMIT"
       - name: Verify schema and upload security tests without credentials
         working-directory: .jarvis-source
         run: node --test tests/audio-fidelity.test.js tests/native-r2.test.js
