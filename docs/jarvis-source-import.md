@@ -86,15 +86,15 @@ artifact manifest seals those bytes; its schema and historical receipt
 validation stay unchanged.
 
 PR247 changes only `media/index.html` and
-`media/assets/css/obsidian.css`. The guarded publisher proposed with this source
-update writes those two files, `release-component-provenance.json`, and
-`release.json` only. It verifies the existing parent receipts and 22 retained
-override hashes, captures exact blob bytes and properties before writes, uses
-ETag conditions, and places `release.json` last as the release marker. The
-updated sidecar carries the previous active-public proof forward and records
-the media source and file hashes. The parent release byte count is
-`21063258`; the reviewed candidate is `21063373`. The deployment has not run;
-PR247's merge alone is not evidence that either media file is live.
+`media/assets/css/obsidian.css`. PR248 added the guarded publisher for those two
+files plus `release-component-provenance.json` and `release.json`. It verifies
+the existing parent receipts and 22 retained override hashes, captures exact
+blob bytes and properties before writes, uses ETag conditions, and places
+`release.json` last as the release marker. The updated sidecar carries the
+previous active-public proof forward and records the media source and file
+hashes. The parent release byte count is `21063258`; the reviewed candidate is
+`21063373`. PR248 publication run 39060426739 succeeded and verified live
+readback; PR247's merge alone was not evidence that either media file was live.
 
 ## Daily Board route source
 
@@ -261,7 +261,9 @@ commit `bd2853c619bb3123e0761569928cca68d18a0239`. Earlier run
 seeking and artwork.” Its report artifact download returned HTTP 403, so the
 exact inner assertion is unavailable. The later successful verifier supersedes
 that historical failure; it is not an outstanding playback failure. The
-provenance-only run below did not rerun the playback verifier.
+provenance-only run below did not rerun the playback verifier. The latest exact-
+main verification is run [39060584579](https://github.com/braydenparker000/Missionarytube-/actions/runs/39060584579)
+at `b3853e336b5c12d037605d73186884af34660998`; it passed all 19 browser checks.
 
 The destination-owned static artifact was published through the provenance-only
 route in run [39034316137](https://github.com/braydenparker000/Missionarytube-/actions/runs/39034316137)
@@ -303,6 +305,58 @@ active public source provenance path. These changes preserve the historical
 source commit and current Relay/Mast/Muse behavior. The active checkout origin is
 `braydenparker000/Missionarytube-`; the old `jarvis-release.json` repository
 field remains the historical source identity, not an active checkout origin.
+
+The imported [`jarvis/docs/delivery-plan.md`](../jarvis/docs/delivery-plan.md)
+remains a frozen historical source snapshot; its dated checkpoints are not the
+current closeout. This destination-owned section and its linked acceptance
+record are the current status.
+
+## Current acceptance and optimization disposition (2026-10-17)
+
+- **Media appearance:** the runtime repair/source change merged in PR247 as
+  `bccda52d2c84bdfc2d315c7250cd9efbd8594aff` at `jarvis/public/media`.
+  PR248 added the publisher and merged at
+  `b3853e336b5c12d037605d73186884af34660998`. Publication run
+  [39060426739](https://github.com/braydenparker000/Missionarytube-/actions/runs/39060426739)
+  succeeded. The rollback artifact is `media-only-rollback-39060426739-1`,
+  artifact ID `12111127615`, SHA-256
+  `29da793f671a929075522ad3011ba43c223a037eb49f9810e4a54b9db4790a12`; it is
+  retained in that run through 2027-01-15. Publisher readback matched expected
+  hashes for the two scoped media files and release metadata.
+- **Music:** exact-main run 39060584579 passed 19 browser checks for R2/Drive
+  playback, seeking, artwork and mobile touch behavior. The earlier
+  39003845606 verifier failure was stale receipt-chain parsing, not a current
+  music failure.
+- **Normal-TLS cloud Chrome:** launcher search filtered `pod` and opened
+  Podcasts; Podcasts search found eight `99% Invisible` shows, loaded Roman
+  Mars episodes, and “The Problem With Football Helmets” played, sought from
+  0:02 to 0:36, and paused. Guitar search selected Beatles “Blackbird” version
+  57 and its acoustic track, then showed notation preview and full tab through
+  measure 59. `/private/` and `/private/#mast` rendered the Lucy and Mast
+  sign-in gates; the navigation drawer opened and closed. No failure was
+  observed in these tested flows.
+- **Acceptance limits:** authenticated Relay conversations, tasks and delivery
+  were not tested; no sign-in or pairing was attempted. Guitar playback was
+  not tested because the unsaved preview has no playback control and no tab was
+  saved. Physical-device testing remains outstanding. Daily Board dynamic
+  rendering was not checked because its read path can advance synchronization.
+- **Daily Board:** migration remains pending and unchanged. The reader and
+  external writer still use open `braydenparker999/jarvis#2`; Worker health
+  reports version 7 and publication issue 2. No destination issue, writer,
+  schedule, endpoint, or synchronization read was changed in this closeout.
+- **Performance:** the proposed interface-only lazy-loading change was rejected
+  for this consolidation batch after focused review. Its possible startup
+  benefit was unmeasured and no FCP improvement was established; the selected
+  c28 source differs from 22 preserved live overrides, controller extraction
+  risks private-session lifecycle regressions, and the simple-chat-tasks
+  publisher also redeploys the Worker. Its historical owner-api pin
+  `8546e377…` differs from preserved live hash `95062863…`. No optimization
+  or speedup claim was made.
+
+The compact evidence record, including route readbacks and artifact identities,
+is [`live-production-acceptance.json`](../test-evidence/media-migration/live-production-acceptance.json).
+This documentation closeout made no runtime, Worker, credential, settings,
+issue, writer, endpoint, or schedule changes.
 
 The following work is explicitly held or belongs to a separately scoped
 operational migration; it is not a blocker to this behavior-preserving
@@ -358,11 +412,11 @@ consolidation:
   and egress release paths with their own gates; any credential or expanded
   access change requires separate authorization.
 - **Legacy refs and media qualification:** preserve original repository refs;
-  no rename, archive, or deletion is part of this plan. This batch resolves the
-  stored-appearance first-paint and 390px backdrop criteria with shipped
-  assertions; qualification is READY only after the focused browser checks and
-  required CI pass. The live-music release verifier failure remains separate
-  and unresolved.
+  no rename, archive, or deletion is part of this plan. The stored-appearance
+  first-paint and 390px backdrop repair is sourced by PR247 and was published
+  by the PR248 publisher in run 39060426739. Current live music verification
+  passed in run 39060584579;
+  physical-device acceptance remains outstanding as recorded above.
 
 No additional application cutover or deployment is required to close this
 behavior-preserving phase. Keep the held variants and Daily Board dependency
@@ -370,8 +424,9 @@ visible in any future plan rather than describing this as full independence
 from the former repository's operational feed.
 
 The historical cleanup evidence below records the earlier NOT READY media
-qualification. The later first-paint/mobile-motion repair is tracked in its
-own draft PR; source import did not weaken the gate.
+qualification. The first-paint/mobile-motion repair subsequently merged as
+PR247 and was published by the PR248 publisher in run 39060426739; source
+import did not weaken the gate.
 
 The execution checklists below preserve each historical patch's original
 evidence and state; the dated consolidation closeout above is the current
@@ -416,11 +471,10 @@ status.
   full qualification. No unrelated broad suite was run manually; required
   root orchestration/build checks run in draft-PR CI.
 - **Finish / state:** draft publication plus terminal CI and exact-diff review
-  complete this patch. It is not merged or deployed by this task. CI waiting
-  and final readiness are reported on the PR; no credential/access blocker
-  occurred during preparation. Existing media TODOs/mobile-motion failure and
-  the separately observed live-music release-check failure are not fixed or
-  weakened by this checkout change.
+  completed this historical checkout patch. The media TODOs were later resolved
+  in PR247 and published by PR248/run 39060426739; exact-main music
+  verification passed in run 39060584579. Neither result is attributed to this
+  checkout change.
 
 ## Qualification checkout origin: execution checklist
 
@@ -439,9 +493,10 @@ status.
   `jarvis-release.json` recipe. Focused checkout, release-recipe and provenance
   checks passed 31 tests in 7.4 seconds; diff whitespace check passed. Full
   root CI runs on the draft PR.
-- **Finish / state:** one exact-diff review and terminal draft-PR CI complete
-  this historical checkout patch. The later media UI repair is a separate
-  draft change; the live-music release-check failure remains unresolved.
+- **Finish / state:** one exact-diff review and terminal draft-PR CI completed
+  this historical checkout patch. The later media publication and current
+  music acceptance are recorded above; they are separate from this checkout
+  change.
 
 The frontend regression suite also compares the pinned source against
 historical My Media commit `8c4f6de790b3e06cd78b11706dfa2c055174bbf1`, retained
