@@ -12,7 +12,7 @@
     "recipe": [
       {
         "path": ".github/workflows/deploy-azure-storage.yml",
-        "sha": "62a3db0908d11e13a388b3c25959928eafd0baa1"
+        "sha": "46cee992e29b923dbd3247d21c339d4f482492ca"
       },
       {
         "path": ".github/workflows/qualify-jarvis.yml",
@@ -60,7 +60,7 @@
       },
       {
         "path": "scripts/relay-worker-release-identity.mjs",
-        "sha": "d9de998c613dfb2a282911cb3c7c24293fd44057"
+        "sha": "c3ddab6a66fb70b83a82c5360ea7fe1c767c2dfe"
       },
       {
         "path": "scripts/stage-relay-core-dependencies.mjs",
@@ -73,6 +73,10 @@
       {
         "path": "scripts/reconcile-lucy-receipt.mjs",
         "sha": "47346908dee81b548625ee1b654373473f1f3e77"
+      },
+      {
+        "path": "scripts/publish-active-public-provenance.mjs",
+        "sha": "d05fb8093ecc5a54ae40ea3f5dbd8c6af76e50eb"
       }
     ]
   }

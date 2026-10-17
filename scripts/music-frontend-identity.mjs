@@ -19,6 +19,8 @@ import {createHash} from 'node:crypto';
 const RECEIPT='03c33d919658af489451e9b0997db6363a95bd5682463b5ff47308f3e4bc73c7';
 const WORKER='c28c1b2f70aabb5217b08bf31ffe4c93d0353765';
 const FRONTEND='363f710068bb6f2c456dbbf183f063484a36fe11';
+const ACTIVE_PUBLIC=Object.freeze({repository:'braydenparker000/Missionarytube-',commit:'de5d7177a778f4bfa2aa071ab064a8a4fb9b2246',
+ path:'jarvis-active-public-c28/public',tree:'67a47e36414a8ceb4040c9454f64ed1982a9146c'});
 const RECEIPT_LAYERS=[
   ['mobileFileSavePatch',checkedMobileFileSaveReceipt],
   ['simpleChatTasksPatch',checkedChatTasksReceipt],
@@ -47,8 +49,10 @@ export function checkedMusicFrontend(release,current,receipt){
     assert.equal(release.commit,WORKER);
     assert.equal(createHash('sha256').update(JSON.stringify(receipt)).digest('hex'),RECEIPT,'verified reconciliation receipt changed');
     assert.equal(receipt.source,WORKER);assert.equal(receipt.frontendSource,FRONTEND);
-    assert.equal(current.commit,FRONTEND);
-    return {commit:FRONTEND,workerSource:WORKER,receiptDigest:RECEIPT};
+    const relocated=current.commit===release.commit;
+    if(relocated)assert.deepEqual(current.components?.activePublic,ACTIVE_PUBLIC,'active public source identity changed');
+    else assert.equal(current.commit,FRONTEND);
+    return {commit:current.commit,workerSource:WORKER,receiptDigest:RECEIPT,...(relocated?{activePublic:ACTIVE_PUBLIC}:{})};
   }
   assert.equal(current.commit,release.commit);
   return {commit:current.commit,workerSource:release.commit};

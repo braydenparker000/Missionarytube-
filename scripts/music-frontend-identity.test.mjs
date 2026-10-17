@@ -29,6 +29,15 @@ test('preserved frontend requires the complete pinned verified receipt',()=>{
  for(const key of ['source','frontendSource','frontendOrchestration','version','runId','attempt','frontendArtifactDigest'])assert.throws(()=>checkedMusicFrontend(release,current,{...receipt,[key]:'changed'}));
  assert.throws(()=>checkedMusicFrontend(release,current,{...receipt,extra:true}));
 });
+test('destination-owned active public provenance is exact while historical frontend bytes remain pinned',()=>{
+ const receipt=JSON.parse(readFileSync(new URL('../docs/evidence/lucy-verified-receipt-38168396000.json',import.meta.url)));
+ const release={commit:receipt.source,workerDeploymentPolicy:{mode:'reconcile-lucy-discovery'}};
+ const current={source,commit:release.commit,components:{activePublic:{repository:'braydenparker000/Missionarytube-',
+  commit:'de5d7177a778f4bfa2aa071ab064a8a4fb9b2246',path:'jarvis-active-public-c28/public',tree:'67a47e36414a8ceb4040c9454f64ed1982a9146c'}}};
+ assert.equal(checkedMusicFrontend(release,current,receipt).activePublic.commit,current.components.activePublic.commit);
+ assert.throws(()=>checkedMusicFrontend(release,{...current,components:{activePublic:{...current.components.activePublic,tree:'f'.repeat(40)}}},receipt));
+ assert.throws(()=>checkedMusicFrontend(release,{...current,commit:'f'.repeat(40)},receipt));
+});
 
 test('activation receipt requires exact parent and successful digest-bound trusted workflow',async()=>{
  const {verifiedMusicReceipt}=await import('./music-frontend-identity.mjs');const {createHash}=await import('node:crypto');
