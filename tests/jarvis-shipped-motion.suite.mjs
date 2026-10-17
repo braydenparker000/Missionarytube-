@@ -23,14 +23,33 @@ function translateX(transform) {
   return match ? Number(match[1]) : 0;
 }
 
-async function openPage({ width, height, touch = false, body, clock = false }) {
-  const page = await browser.newPage({ viewport: { width, height }, hasTouch: touch });
+async function openPage({ width, height, touch = false, lowPower = false, body, clock = false }) {
+  const page = await browser.newPage({ viewport: { width, height }, hasTouch: touch, isMobile: lowPower });
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error)));
   // GSAP captures requestAnimationFrame when the bundle evaluates. Install the
   // clock first so a later fast-forward actually releases those tweens.
   if (clock) await page.clock.install();
-  await page.setContent(`<!doctype html><html><head><style>${css}</style></head><body>${body}</body></html>`);
+  await page.setContent(`<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body>${body}</body></html>`);
+  if (lowPower) await page.evaluate(() => {
+    Object.defineProperty(navigator, "hardwareConcurrency", { configurable: true, get: () => 2 });
+    Object.defineProperty(navigator, "deviceMemory", { configurable: true, get: () => 2 });
+    const matchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => {
+      const result = matchMedia(query);
+      if (query !== "(pointer: coarse)" || result.matches) return result;
+      return {
+        media: query,
+        matches: true,
+        onchange: null,
+        addListener() {},
+        removeListener() {},
+        addEventListener() {},
+        removeEventListener() {},
+        dispatchEvent() { return true; }
+      };
+    };
+  });
   await page.addScriptTag({ content: motionSource });
   await page.evaluate(() => AstraMotion.init());
   return {
@@ -228,6 +247,7 @@ test("shipped mobile motion avoids offscreen GPU layers and costly document snap
     width: 390,
     height: 800,
     touch: true,
+    lowPower: true,
     body: `<div class="video-row" id="row" style="min-height:18px;height:18px">row</div>
       <img class="media-image" id="shot" alt="" style="width:40px;height:40px">
       <div class="episode-nav-sticky" id="sticky">nav</div>`
@@ -257,11 +277,7 @@ test("shipped mobile motion avoids offscreen GPU layers and costly document snap
     assert.deepEqual(result.calls, [], "constrained motion does not snapshot the document");
     assert.equal(result.imageTransform, "none");
     assert.match(result.imageTransition, /0\.22s/);
-    // Observed limitation, not the intended none clause. The 419px rule declares
-    // backdrop-filter: none, and a later .episode-nav-sticky rule wins.
-    assert.notEqual(result.backdrop, "none");
-    assert.match(result.backdrop, /blur\(20px\)/);
-    assert.match(result.backdrop, /saturate\((?:180%|1\.8)\)/);
+    assert.equal(result.backdrop, "none", "the narrow-screen rule wins after the later shared declaration");
     assert.deepEqual(session.errors, []);
   } finally { await session.close(); }
 });
@@ -658,7 +674,3 @@ test("shipped instrumented decision boundary: replaced minified dismiss function
     await page.close();
   }
 });
-
-test("shipped: at 390px .episode-nav-sticky backdrop-filter is none", {
-  todo: "The @media (max-width: 419px) rule sets backdrop-filter: none on .episode-nav-sticky, but a later .episode-nav-sticky rule of the same specificity sets saturate(180%) blur(20px) and wins. The computed style at 390px is that blur, recorded by the mobile motion test. The none clause stays unsupported on the shipped stylesheet."
-}, () => {});

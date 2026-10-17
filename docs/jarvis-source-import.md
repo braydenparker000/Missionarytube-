@@ -345,19 +345,20 @@ consolidation:
   and egress release paths with their own gates; any credential or expanded
   access change requires separate authorization.
 - **Legacy refs and media qualification:** preserve original repository refs;
-  no rename, archive, or deletion is part of this plan. Existing media
-  qualification remains NOT READY because of the documented UI TODOs and
-  mobile-motion assertion. Do not weaken that gate. The successful live
-  playback verifier above is distinct from these media qualification items.
+  no rename, archive, or deletion is part of this plan. This batch resolves the
+  stored-appearance first-paint and 390px backdrop criteria with shipped
+  assertions; qualification is READY only after the focused browser checks and
+  required CI pass. The live-music release verifier failure remains separate
+  and unresolved.
 
 No additional application cutover or deployment is required to close this
 behavior-preserving phase. Keep the held variants and Daily Board dependency
 visible in any future plan rather than describing this as full independence
 from the former repository's operational feed.
 
-Existing media qualification remains NOT READY (two documented UI TODOs and
-an additional mobile-motion assertion reproduced on untouched main in the
-prior cleanup evidence). Source import does not resolve or weaken that gate.
+The historical cleanup evidence below records the earlier NOT READY media
+qualification. The later first-paint/mobile-motion repair is tracked in its
+own draft PR; source import did not weaken the gate.
 
 The execution checklists below preserve each historical patch's original
 evidence and state; the dated consolidation closeout above is the current
@@ -426,8 +427,8 @@ status.
   checks passed 31 tests in 7.4 seconds; diff whitespace check passed. Full
   root CI runs on the draft PR.
 - **Finish / state:** one exact-diff review and terminal draft-PR CI complete
-  this patch. It is not merged or deployed. The two existing shipped UI TODOs
-  and the live-music release-check failure remain outside this checkout change.
+  this historical checkout patch. The later media UI repair is a separate
+  draft change; the live-music release-check failure remains unresolved.
 
 The frontend regression suite also compares the pinned source against
 historical My Media commit `8c4f6de790b3e06cd78b11706dfa2c055174bbf1`, retained

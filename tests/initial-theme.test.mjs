@@ -31,12 +31,8 @@ function scriptTags(head) {
 }
 
 /**
- * Characterization of script loading mode, not a browser paint test.
- * Parser-blocking head scripts are executed in this VM. `defer`, `async`,
- * and module scripts stay pending; their tags are not treated as having run.
- * A passing result on a deferred shell explicitly leaves the stored accent
- * and motion preference unapplied. It does not establish the original
- * before-first-paint guarantee.
+ * Characterization of script loading mode. Parser-blocking head scripts are
+ * executed in this VM; `defer`, `async`, and module scripts stay pending.
  */
 function firstPaint(stored) {
   const head = shell.slice(shell.indexOf("<head>"), shell.indexOf("</head>"));
@@ -87,7 +83,7 @@ function firstPaint(stored) {
   };
 }
 
-test("characterization: loading mode leaves a deferred stored accent and motion preference unapplied", () => {
+test("parser-blocking appearance applies stored accent and motion before first paint", () => {
   const stored = JSON.stringify({ accent: "violet", motion: "off", surface: "charcoal" });
   const paint = firstPaint(stored);
   assert.equal(paint.executed.some((src) => src.includes("defer")), false);
@@ -96,19 +92,11 @@ test("characterization: loading mode leaves a deferred stored accent and motion 
   assert.equal(paint.stylesheetAccent, "#b4d1ff", "the default accent is the ice token, available before any script");
   assert.match(shell, /name="color-scheme" content="dark"/);
 
-  if (paint.appearanceBlocksParser) {
-    assert.equal(paint.dataset.accent, "violet", "a parser-blocking appearance script applies the stored accent before first paint");
-    assert.equal(paint.dataset.motion, "off");
-    assert.equal(paint.dataset.surface, "charcoal");
-    assert.equal(paint.jsClass, true, "parser-blocking bootstrap marks the document before first paint");
-    assert.deepEqual(paint.pending, []);
-    return;
-  }
-
-  assert.equal(paint.dataset.accent, undefined, "a deferred appearance script has not applied the stored theme at first paint");
-  assert.equal(paint.dataset.motion, undefined);
-  assert.equal(paint.jsClass, false, "a deferred bootstrap script has not marked the document at first paint");
-  assert.ok(paint.pending.some((src) => src.includes("appearance.js")));
+  assert.equal(paint.appearanceBlocksParser, true, "appearance.js executes before the stylesheet can paint");
+  assert.equal(paint.dataset.accent, "violet");
+  assert.equal(paint.dataset.motion, "off");
+  assert.equal(paint.dataset.surface, "charcoal");
+  assert.equal(paint.jsClass, false, "bootstrap remains deferred and does not delay theme application");
   assert.ok(paint.pending.some((src) => src.includes("bootstrap.js")));
-  assert.equal(paint.executed.length, 0, "deferred scripts stay pending in this parser model and are not treated as having run");
+  assert.deepEqual(paint.executed, ["assets/js/appearance.js?v=0.34.6"]);
 });
