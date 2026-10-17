@@ -181,8 +181,35 @@ prior cleanup evidence). Source import does not resolve or weaken that gate.
 - **Remaining obstacles:** `deploy-music-worker.yml` and
   `analyze-r2-audio.yml` accept runtime `source_commit` inputs. `migrate-music-r2.yml`
   validates the original repository's fixed source run and then executes at a
-  validated dynamic SHA, so its paired flow remains on that origin. The Astra
-  preflight compares reachable `f999581aa979712b4b63a6783b7c56842fedb6a1` with
-  reference-only `4532be6b6842320ed0cc64be973425d9505c7b03`; that latter history
-  is not in destination ancestry. Historical proof identities, publication
+  validated dynamic SHA, so its paired flow remains on that origin. The import
+  inventory had marked Astra commit `4532be6b6842320ed0cc64be973425d9505c7b03`
+  reference-only; a later public comparison confirms it is already behind
+  current destination `main`. Historical proof identities, publication
   endpoints and Daily Board issue #2 remain tied to their existing owners.
+
+## Provenance-gated dynamic checkouts and Astra source: execution checklist
+
+- **Scope:** both runtime `source_commit` checkouts now use destination history
+  and reject unless the checked-out HEAD is the exact input, the input is a
+  40-character SHA, the origin is the surviving repository and the commit is
+  an ancestor of destination `main`. Full history is fetched before this check;
+  existing source tests and manual actions remain in place. Astra's exact
+  `f999581aa979712b4b63a6783b7c56842fedb6a1` source checkout also uses
+  destination history while its original release identity and `4532...`
+  orchestration pin remain unchanged.
+- **Astra history:** public commit inspection showed `4532be6b6842320ed0cc64be973425d9505c7b03`
+  has only one file change: the `jarvis-release.json` source pin moves from
+  `c4d62409a3b67e4e5dac88809c6a4a0290b6e39e` to `f999581aa979712b4b63a6783b7c56842fedb6a1`.
+  GitHub's public comparison shows this commit is already behind current
+  destination `main`; no additional history preservation is needed. The
+  existing Astra release branch is left untouched and its workflow was not run.
+- **Checks / finish:** focused accepted/rejected source, origin-boundary, Astra
+  proof and manual-gate checks passed 29 tests in 0.6 seconds. This patch did
+  not run deployment, analysis, upload, migration or Astra workflows; applicable
+  CI, integration and terminal post-merge checks are recorded on this PR.
+- **Remaining checkout:** `migrate-music-r2.yml` still has two original-repo
+  checkouts, the fixed validation pin `dd0797bd48431ea04354f83663c3df765cc8f5b0`
+  and the validated dynamic `source_sha`. Editing that workflow triggers its
+  main-push validation job, which is explicitly held for this task. Original
+  Actions proof identities, provenance readers and publication destinations
+  also remain on their existing owners.

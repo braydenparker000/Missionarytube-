@@ -261,7 +261,7 @@ test('workflow is reviewed-branch push-only, owner-filtered, pinned and secret-l
   assert.ok(flow.indexOf('npm --prefix')<flow.indexOf('CLOUDFLARE_API_TOKEN:'));
   assert.ok(flow.indexOf('preflight.mjs verify')<flow.indexOf('CLOUDFLARE_API_TOKEN:'));
   assert.match(flow,/ref: 4532be6b6842320ed0cc64be973425d9505c7b03/);
-  assert.match(flow,/ref: f999581aa979712b4b63a6783b7c56842fedb6a1/);
+  assert.match(flow,/repository: braydenparker000\/Missionarytube-\n          ref: f999581aa979712b4b63a6783b7c56842fedb6a1/);
   assert.doesNotMatch(flow,/contents: write|id-token:|upload-artifact|actions\/cache|azure\/login|wrangler-action|continue-on-error|--var|--secrets-file/);
   for(const match of flow.matchAll(/uses: (.+)/g))assert.match(match[1],/^actions\/(checkout|setup-node)@[a-f0-9]{40} # v7\.0\.[01]$/);
   assert.equal([...flow.matchAll(/persist-credentials: false/g)].length,4);

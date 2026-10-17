@@ -46,15 +46,24 @@ test('fixed pinned checkouts use destination history without changing commit ref
   assert.equal(release.workerDeploymentPolicy.recipe.find(x=>x.path==='.github/workflows/qualify-jarvis.yml').sha,blob(Buffer.from(qualification)));
 });
 
-test('checkout migration leaves schedules, manual gates, dynamic inputs and unreachable paired history in place',()=>{
+test('dynamic commits must pass destination-main ancestry and retained migration history stays separate',()=>{
   const deploy=read('.github/workflows/deploy-azure-storage.yml');
   assert.match(deploy,/github\.event_name == 'workflow_dispatch'/);assert.match(deploy,/vars\.AZURE_DEPLOY_ENABLED == 'true'/);
   assert.match(read('.github/workflows/publish-drive-catalog.yml'),/cron: '17 \* \* \* \*'/);
   for(const path of ['deploy-music-worker.yml','analyze-r2-audio.yml']){
-    const flow=read('.github/workflows/'+path);assert.match(flow,new RegExp('repository: '+prior));assert.match(flow,/ref: \$\{\{ inputs\.source_commit \}\}/);
+    const flow=read('.github/workflows/'+path);assert.deepEqual(checkoutRefs('.github/workflows/'+path),['${{ inputs.source_commit }}']);
+    assert.match(flow,/fetch-depth: 0/);assert.match(flow,/node scripts\/check-source-commit-reachable\.mjs \.jarvis-source "\$SOURCE_COMMIT"/);
+    const guard=flow.indexOf('check-source-commit-reachable.mjs');
+    const existingChecks=flow.indexOf(path==='deploy-music-worker.yml'?'npm --prefix .jarvis-source ci':'node --test tests/audio-fidelity.test.js');
+    assert.ok(guard>=0&&existingChecks>guard,'source ancestry must be checked before source tests or install');
   }
   const migration=read('.github/workflows/migrate-music-r2.yml');
-  assert.match(migration,new RegExp('repository: '+prior));assert.match(migration,/ref: \$\{\{ needs\.validate\.outputs\.source_sha \}\}/);
+  assert.equal((migration.match(new RegExp('repository: '+prior,'g'))||[]).length,2);
+  assert.match(migration,/ref: dd0797bd48431ea04354f83663c3df765cc8f5b0/);
+  assert.match(migration,/ref: \$\{\{ needs\.validate\.outputs\.source_sha \}\}/);
   const astra=read('.github/workflows/astra-worker-reuse-preflight.yml');
-  assert.match(astra,/ref: 4532be6b6842320ed0cc64be973425d9505c7b03/);assert.match(astra,/repository: braydenparker999\/jarvis\n          ref: f999581aa979712b4b63a6783b7c56842fedb6a1/);
+  assert.deepEqual(checkoutRefs('.github/workflows/astra-worker-reuse-preflight.yml'),[
+    '4532be6b6842320ed0cc64be973425d9505c7b03','f999581aa979712b4b63a6783b7c56842fedb6a1']);
+  const astraRelease=JSON.parse(read('scripts/release-identities/astra-approved-jarvis-release.json'));
+  assert.equal(astraRelease.repository,prior);assert.equal(astraRelease.commit,'f999581aa979712b4b63a6783b7c56842fedb6a1');
 });
