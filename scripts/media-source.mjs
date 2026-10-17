@@ -23,6 +23,20 @@ export const COMPONENT_SOURCES = {
   }
 };
 
+export const COMPONENT_GROUP_SOURCES = {
+  routeData: {
+    repository: "braydenparker000/Missionarytube-",
+    commit: "2b29ab492af5a68bc49888cdb441fafdd38b5427",
+    components: {
+      content: { path: "jarvis/public/content", tree: "d3855220d2b412feee57054ee31d367806755eef" },
+      portal: { path: "jarvis/public/portal", tree: "f77aad2ee6548e770164a3be447b006a6692a3d0" },
+      quickAi: { path: "jarvis/public/quick-ai", tree: "b003bed5af0c7480f557531ec66f296a6851ca6d" },
+      reader: { path: "jarvis/public/reader", tree: "3e13fa1f294299a11f16a062d9d6328ea1451ca9" },
+      respond: { path: "jarvis/public/respond", tree: "14da00ba05225eddc0ad9d1717660c1f4b2e93c9" }
+    }
+  }
+};
+
 function git(root, ...args) {
   return execFileSync("git", ["-C", root, ...args], {
     encoding: "utf8",
@@ -30,9 +44,8 @@ function git(root, ...args) {
   }).trim();
 }
 
-export function checkedComponentSource(name, source, { root = process.cwd(), head = git(resolve(root), "rev-parse", "HEAD") } = {}) {
+function checkedPathSource(name, expected, source, { root, head }) {
   root = resolve(root);
-  const expected = COMPONENT_SOURCES[name];
   if (!expected || !source || Object.keys(expected).some(key => source[key] !== expected[key])) {
     throw new Error(`Invalid exact Jarvis ${name || "component"} source identity`);
   }
@@ -69,6 +82,34 @@ export function checkedComponentSource(name, source, { root = process.cwd(), hea
   return { ...source, directory };
 }
 
+export function checkedComponentSource(name, source, options = {}) {
+  const root = resolve(options.root || process.cwd());
+  const expected = COMPONENT_SOURCES[name];
+  const head = options.head || git(root, "rev-parse", "HEAD");
+  return checkedPathSource(name, expected, source, { ...options, root, head });
+}
+
+export function checkedComponentGroup(name, source, options = {}) {
+  const root = resolve(options.root || process.cwd());
+  const head = options.head || git(root, "rev-parse", "HEAD");
+  const expected = COMPONENT_GROUP_SOURCES[name];
+  const names = expected && Object.keys(expected.components);
+  if (!expected || !source || source.repository !== expected.repository || source.commit !== expected.commit ||
+      !source.components || Object.keys(source.components).length !== names.length ||
+      names.some(component => !Object.hasOwn(source.components, component))) {
+    throw new Error(`Invalid exact Jarvis ${name || "component"} source group identity`);
+  }
+  const components = Object.fromEntries(names.map(component => {
+    const identity = { repository: expected.repository, commit: expected.commit, ...expected.components[component] };
+    return [component, checkedPathSource(`${name} ${component}`, identity, {
+      repository: source.repository,
+      commit: source.commit,
+      ...source.components[component]
+    }, { ...options, root, head })];
+  }));
+  return { repository: source.repository, commit: source.commit, components };
+}
+
 export function readComponentSource(name, root = process.cwd()) {
   root = resolve(root);
   const source = JSON.parse(readFileSync(join(root, `jarvis-${name}-source.json`), "utf8"));
@@ -78,4 +119,9 @@ export function readComponentSource(name, root = process.cwd()) {
 export const readMediaSource = (root = process.cwd()) => readComponentSource("media", root);
 export const readDailyBoardSource = (root = process.cwd()) => readComponentSource("dailyBoard", root);
 export const readConnectSource = (root = process.cwd()) => readComponentSource("connect", root);
+export const readRouteDataSource = (root = process.cwd()) => {
+  root = resolve(root);
+  const source = JSON.parse(readFileSync(join(root, "jarvis-routeData-source.json"), "utf8"));
+  return checkedComponentGroup("routeData", source, { root });
+};
 export const checkedMediaSource = (source, options) => checkedComponentSource("media", source, options);

@@ -4,12 +4,13 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
-import { checkedComponentSource, checkedMediaSource, readConnectSource, readDailyBoardSource, readMediaSource } from "./media-source.mjs";
+import { checkedComponentGroup, checkedComponentSource, checkedMediaSource, readConnectSource, readDailyBoardSource, readMediaSource, readRouteDataSource } from "./media-source.mjs";
 
 const root = process.cwd();
 const source = JSON.parse(readFileSync(resolve(root, "jarvis-media-source.json"), "utf8"));
 const dailyBoardSource = JSON.parse(readFileSync(resolve(root, "jarvis-dailyBoard-source.json"), "utf8"));
 const connectSource = JSON.parse(readFileSync(resolve(root, "jarvis-connect-source.json"), "utf8"));
+const routeDataSource = JSON.parse(readFileSync(resolve(root, "jarvis-routeData-source.json"), "utf8"));
 
 test("media source resolves only the pinned destination commit, path and tree", () => {
   const checked = readMediaSource(root);
@@ -54,6 +55,25 @@ test("connect source rejects an incorrect destination commit, path or tree", () 
   assert.throws(() => checkedComponentSource("connect", { ...connectSource, commit: "f".repeat(40) }, { root }), /Invalid exact Jarvis connect source identity/);
   assert.throws(() => checkedComponentSource("connect", { ...connectSource, path: "public/connect" }, { root }), /Invalid exact Jarvis connect source identity/);
   assert.throws(() => checkedComponentSource("connect", { ...connectSource, tree: "e".repeat(40) }, { root }), /Invalid exact Jarvis connect source identity/);
+});
+
+test("unchanged route and data sources resolve as one exact destination group", () => {
+  const checked = readRouteDataSource(root);
+  assert.equal(checked.repository, "braydenparker000/Missionarytube-");
+  assert.equal(checked.commit, "2b29ab492af5a68bc49888cdb441fafdd38b5427");
+  assert.deepEqual(Object.keys(checked.components), ["content", "portal", "quickAi", "reader", "respond"]);
+  for (const [name, component] of Object.entries(checked.components)) {
+    assert.equal(component.directory, resolve(root, component.path));
+    assert.equal(component.tree, routeDataSource.components[name].tree);
+  }
+});
+
+test("route and data source group rejects changed pins and incomplete or altered paths", () => {
+  assert.throws(() => checkedComponentGroup("routeData", { ...routeDataSource, commit: "f".repeat(40) }, { root }), /Invalid exact Jarvis routeData source group identity/);
+  assert.throws(() => checkedComponentGroup("routeData", { ...routeDataSource, components: { ...routeDataSource.components, portal: { ...routeDataSource.components.portal, path: "public/portal" } } }, { root }), /Invalid exact Jarvis routeData portal source identity/);
+  assert.throws(() => checkedComponentGroup("routeData", { ...routeDataSource, components: { ...routeDataSource.components, reader: { ...routeDataSource.components.reader, tree: "e".repeat(40) } } }, { root }), /Invalid exact Jarvis routeData reader source identity/);
+  const { respond, ...missing } = routeDataSource.components;
+  assert.throws(() => checkedComponentGroup("routeData", { ...routeDataSource, components: missing }, { root }), /Invalid exact Jarvis routeData source group identity/);
 });
 
 test("the exact reviewed source remains usable in a shallow destination checkout", () => {
