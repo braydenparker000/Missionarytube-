@@ -71,17 +71,30 @@ explicit reviewed boundary update.
 
 ## Media component source
 
-The unchanged media component now has its own exact destination identity in
+The media component has its own exact destination identity in
 [`jarvis-media-source.json`](../jarvis-media-source.json): commit
-`7520eeaea05825ef8edafc5882ef4e053e99f26d`, path `jarvis/public/media`, tree
-`c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7`. Its bytes match the former
-`c28c1b2f70aabb5217b08bf31ffe4c93d0353765:public/media` tree. The build keeps
-the general release source and all other public paths on their existing pin,
-then replaces only `dist/media` with the exact destination subtree. The
-`dist/release.json` keeps the historical general source fields and adds the
-media repository, commit, path and tree. The existing full-file artifact
-manifest seals those bytes; its schema and historical receipt validation stay
-unchanged.
+`bccda52d2c84bdfc2d315c7250cd9efbd8594aff`, path `jarvis/public/media`, tree
+`4a4aceb3661e437471a1d28f6574b9b21b28a343`. This commit is PR247's squash
+merge; the source tree matches the reviewed pre-squash component commit
+`9f0dd2419db9110e3b14365f0e7bb85fb8bb8fd6`. The source pin now names an
+ancestor of main, so a fresh main build can qualify it after the squash merge.
+The build keeps the general release source and all other public paths on their
+existing pin, then replaces only `dist/media` with the exact destination
+subtree. The `dist/release.json` keeps the historical general source fields and
+adds the media repository, commit, path and tree. The existing full-file
+artifact manifest seals those bytes; its schema and historical receipt
+validation stay unchanged.
+
+PR247 changes only `media/index.html` and
+`media/assets/css/obsidian.css`. The guarded publisher proposed with this source
+update writes those two files, `release-component-provenance.json`, and
+`release.json` only. It verifies the existing parent receipts and 22 retained
+override hashes, captures exact blob bytes and properties before writes, uses
+ETag conditions, and places `release.json` last as the release marker. The
+updated sidecar carries the previous active-public proof forward and records
+the media source and file hashes. The parent release byte count is
+`21063258`; the reviewed candidate is `21063373`. The deployment has not run;
+PR247's merge alone is not evidence that either media file is live.
 
 ## Daily Board route source
 

@@ -11,7 +11,7 @@ export const COMPONENT_SOURCES = {
   },
   media: {
     repository: "braydenparker000/Missionarytube-",
-    commit: "9f0dd2419db9110e3b14365f0e7bb85fb8bb8fd6",
+    commit: "bccda52d2c84bdfc2d315c7250cd9efbd8594aff",
     path: "jarvis/public/media",
     tree: "4a4aceb3661e437471a1d28f6574b9b21b28a343"
   },
