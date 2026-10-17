@@ -1,0 +1,123 @@
+name: Publish Daily Board importer candidate
+on:
+  workflow_dispatch:
+    inputs:
+      publish_candidate:
+        description: Publish the pinned importer and cache candidates after exact preflight
+        type: boolean
+        default: false
+      rollback_candidate:
+        description: Restore exact prepublication Worker and cache bytes from a prior run artifact
+        type: boolean
+        default: false
+      rollback_run_id:
+        description: Required prior publication workflow run ID when rollback_candidate is true
+        type: string
+        required: false
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: azure-production
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && vars.AZURE_STORAGE_ACCOUNT == 'missionarytube' && inputs.publish_candidate == true && inputs.rollback_candidate != true }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    concurrency:
+      group: jarvis-worker-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker000/Missionarytube-
+          ref: 62ac633f367250ed21b3ecf7a4627263e9e07d9f
+          path: .daily-board-import-source
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install the pinned source toolchain
+        run: npm ci --ignore-scripts
+        working-directory: .daily-board-import-source
+      - name: Reproduce exact live Worker bytes and candidate hashes
+        run: node scripts/publications-import-release.mjs prepare
+      - name: Sign in using the existing Azure deployment identity
+        id: azure_signin
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Capture pinned Worker and static prepublication state
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publications-import-release.mjs preflight
+      - name: Preserve rollback bytes before either publication
+        uses: actions/upload-artifact@v4
+        with:
+          name: publications-import-rollback-${{ github.run_id }}
+          path: |
+            publications-import-publication/worker-before.js
+            publications-import-publication/cache-before.js
+            publications-import-publication/checkpoint.json
+            publications-import-publication/candidate.json
+          retention-days: 90
+          if-no-files-found: error
+      - name: Publish pinned Worker and one cache asset
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publications-import-release.mjs publish
+      - name: Preserve hashes and publication receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publications-import-evidence-${{ github.run_id }}
+          path: publications-import-publication/
+          retention-days: 90
+          if-no-files-found: warn
+      - name: Sign out
+        if: always() && steps.azure_signin.outcome == 'success'
+        run: az logout
+  rollback:
+    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && vars.AZURE_STORAGE_ACCOUNT == 'missionarytube' && inputs.rollback_candidate == true && inputs.publish_candidate != true && inputs.rollback_run_id != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: jarvis-worker-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+      - uses: actions/download-artifact@v4
+        with:
+          name: publications-import-rollback-${{ inputs.rollback_run_id }}
+          run-id: ${{ inputs.rollback_run_id }}
+          path: publications-import-publication
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Sign in using the existing Azure deployment identity
+        id: azure_signin
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Restore only when both candidate hashes are still live
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/publications-import-release.mjs rollback
+      - name: Sign out
+        if: always() && steps.azure_signin.outcome == 'success'
+        run: az logout
