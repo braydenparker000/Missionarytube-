@@ -93,7 +93,8 @@ identities while retaining the general source fields.
 
 ## Connect notice page source
 
-The one-file static Connect notice now has an exact destination identity in
+The one-file static Connect notice is proposed for cutover in PR225 with an
+exact destination identity in
 [`jarvis-connect-source.json`](../jarvis-connect-source.json): commit
 `41383d9d5154aab3b1d7922d5e7c376376139c07`, path `jarvis/public/connect`, tree
 `14da00ba05225eddc0ad9d1717660c1f4b2e93c9`. Its tree matches the pinned
@@ -101,6 +102,39 @@ The one-file static Connect notice now has an exact destination identity in
 replaces only `dist/connect`; its `/assets/shell.css` dependency remains on the
 general pinned source, and the generated route matches the preserved
 pre-cutover artifact manifest.
+
+## Remaining cutover batches and estimate
+
+The media and Daily Board cutovers are merged; the Connect route is in PR225.
+The remaining byte-identical paths can be reviewed in two compatible batches:
+
+- Shared route/data paths: `content`, `favorites`, root `index.html`, `jarvis`,
+  `notes`, `portal`, `quick-ai`, `reader`, `respond`, `server`, `settings`, and
+  `tools`.
+- Bundled app paths: `mymedia` (8 files), `podcasts` (9), and
+  `youtube-archive` (4).
+
+Each batch still needs exact per-path tree checks, source tests, and built-file
+manifest comparison. The other public differences are not candidates for blind
+copy: `assets` has 13 modified and 32 added files; `drawercast` has 4 modified
+and 2 added files; `guitar` has 2 modified files; `mast` and `muse` each have 1
+modified file; and `staticwebapp.config.json` differs. The added asset files
+include private/security modules. Preserve destination-only `muse-key` and
+`private` files. Review changed behavior and prove any behavior-preserving
+movement before selecting the resulting batches. Keep the held playback and
+security behavior unchanged.
+
+Estimate: 6–8 PRs including PR225, or 5–7 after it, for the bounded remaining
+consolidation, assuming later file-level review does not reveal more split
+boundaries. This includes unchanged batches, non-held semantic reconciliation,
+source/build/qualification/provenance integration, and the final root-media
+cleanup and documentation. PR215 remains a draft on the older deployment base;
+retain its 36-file removal and 4-file/3-module retention inventory, but
+supersede it in the final cleanup rather than merging it independently. The
+final live frontend check requires the guarded Azure deployment path and
+post-deploy receipt/smoke checks. Worker and R2 publications retain their
+separate gates. Static builds, tests, CI, and source-path integration do not
+require a live deployment.
 
 ## Unchanged operational boundaries
 
@@ -203,6 +237,19 @@ prior cleanup evidence). Source import does not resolve or weaken that gate.
 - **Finish / state:** one exact-diff review and terminal draft-PR CI complete
   this patch. It is not merged or deployed. The two existing shipped UI TODOs
   and the live-music release-check failure remain outside this checkout change.
+
+The frontend regression suite also compares the pinned source against
+historical My Media commit `8c4f6de790b3e06cd78b11706dfa2c055174bbf1`, retained
+by original ref `fix/mymedia-count-clarity-qualified-20261010` in the original
+Jarvis repository. That commit is not reachable in destination history. The
+frontend qualification lane fetches only that exact ref into a local legacy
+tracking ref and verifies its SHA without moving the pinned checkout HEAD or
+changing its worktree. This preserves the test's before/after comparison while
+the active source checkout remains in Missionarytube-. The separate live
+thumbnail test in `mymedia-layout-browser.test.js` timed out on the unchanged
+pinned source when this environment's request to `i.ytimg.com` returned 403;
+the assertion is preserved and the network-dependent result is not treated as
+a code regression.
 
 ## Fixed source checkout origins: execution checklist
 

@@ -46,6 +46,20 @@ test('fixed pinned checkouts use destination history without changing commit ref
   assert.equal(release.workerDeploymentPolicy.recipe.find(x=>x.path==='.github/workflows/qualify-jarvis.yml').sha,blob(Buffer.from(qualification)));
 });
 
+test('frontend qualification restores the exact historical My Media baseline without changing its source checkout',()=>{
+  const workflow=read('.github/workflows/qualify-jarvis.yml');
+  const start=workflow.indexOf('name: Fetch exact historical My Media comparison commit');
+  assert.ok(start>=0);
+  const end=workflow.indexOf('\n      - name:',start+1),step=workflow.slice(start,end<0?undefined:end);
+  assert.match(step,/if: \$\{\{ matrix\.component == 'frontend' \}\}/);
+  assert.match(step,/https:\/\/github\.com\/braydenparker999\/jarvis\.git/);
+  assert.match(step,/refs\/heads\/fix\/mymedia-count-clarity-qualified-20261010/);
+  assert.match(step,/8c4f6de790b3e06cd78b11706dfa2c055174bbf1/);
+  assert.match(step,/git -C \.jarvis-source rev-parse HEAD/);
+  assert.match(step,/git -C \.jarvis-source status --porcelain/);
+  assert.doesNotMatch(step,/secrets\.|Authorization:|persist-credentials:\s*true/);
+});
+
 test('dynamic commits must pass destination-main ancestry and retained migration history stays separate',()=>{
   const deploy=read('.github/workflows/deploy-azure-storage.yml');
   assert.match(deploy,/github\.event_name == 'workflow_dispatch'/);assert.match(deploy,/vars\.AZURE_DEPLOY_ENABLED == 'true'/);
