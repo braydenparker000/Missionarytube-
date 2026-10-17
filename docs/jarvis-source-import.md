@@ -59,9 +59,12 @@ all historical source behavior has been security-qualified. Inspection of the
 credential-pattern hits found mock OAuth responses/negative fixtures, not a
 new credential configuration; no secret values are included in the evidence.
 
-The import is frozen for this first patch: do not install dependencies or
-write generated files inside it before updating the boundary in the next
-reviewed source-development patch.
+The original imported source tree remains `9f983eb6a86ddc1989c3d4e7b85fb7c7d2819938`
+as recorded in the inventory and import evidence. PR236 explicitly updates the
+exact maintained-tree guard to `671b9c2f5d7e3f23afdf04cff4c6555c995caf6b` for
+the reviewed Daily Board reader changes. This updates the current allowed tree
+identity; it does not rewrite imported history or the original source snapshot.
+Future edits under `jarvis/` still require an explicit reviewed boundary update.
 
 ## Media component source
 
