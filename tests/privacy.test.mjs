@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { checkJarvisImport } from "../scripts/check-jarvis-import.mjs";
+import { readActivePublicSource } from "../scripts/media-source.mjs";
 
 /**
  * The repository is public. These checks fail the build if a configured add-on
@@ -28,6 +29,11 @@ async function sourceFiles(directory = ".") {
 // fixtures. Accept only the reviewed, exact source tree, not a broad host or
 // credential exemption for future edits. Keep every legacy privacy assertion.
 await checkJarvisImport();
+// This separately reviewed static source is accepted only at its exact
+// destination commit/path/tree. Keep its existing public endpoints out of the
+// legacy media host allowlist while still scanning it for credentials and
+// configured manifest paths below.
+const activePublic = readActivePublicSource();
 const files = await sourceFiles();
 const contents = new Map();
 for (const path of files) contents.set(path, await readFile(path, "utf8"));
@@ -99,6 +105,7 @@ function isAllowed(host) {
 test("no committed file references a non-allowlisted external host", () => {
   const offenders = [];
   for (const [path, source] of contents) {
+    if (path.startsWith(`${activePublic.path}/`)) continue;
     for (const match of source.matchAll(/https?:\/\/([a-z0-9.-]+\.[a-z]{2,})(?::\d+)?/gi)) {
       const host = match[1].toLowerCase();
       if (!isAllowed(host)) offenders.push(`${path}: ${host}`);

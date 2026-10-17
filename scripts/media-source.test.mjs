@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
-import { checkedComponentGroup, checkedComponentSource, checkedMediaSource, readAppBundlesSource, readConnectSource, readDailyBoardSource, readMediaSource, readRouteDataSource } from "./media-source.mjs";
+import { checkedComponentGroup, checkedComponentSource, checkedMediaSource, readActivePublicSource, readAppBundlesSource, readConnectSource, readDailyBoardSource, readMediaSource, readRouteDataSource } from "./media-source.mjs";
 
 const root = process.cwd();
 const source = JSON.parse(readFileSync(resolve(root, "jarvis-media-source.json"), "utf8"));
@@ -12,6 +12,24 @@ const dailyBoardSource = JSON.parse(readFileSync(resolve(root, "jarvis-dailyBoar
 const connectSource = JSON.parse(readFileSync(resolve(root, "jarvis-connect-source.json"), "utf8"));
 const routeDataSource = JSON.parse(readFileSync(resolve(root, "jarvis-routeData-source.json"), "utf8"));
 const appBundlesSource = JSON.parse(readFileSync(resolve(root, "jarvis-appBundles-source.json"), "utf8"));
+const activePublicSource = JSON.parse(readFileSync(resolve(root, "jarvis-activePublic-source.json"), "utf8"));
+
+test("active shared public source resolves to the exact destination-owned c28 snapshot", () => {
+  const checked = readActivePublicSource(root);
+  assert.equal(checked.repository, "braydenparker000/Missionarytube-");
+  assert.equal(checked.commit, "de5d7177a778f4bfa2aa071ab064a8a4fb9b2246");
+  assert.equal(checked.path, "jarvis-active-public-c28/public");
+  assert.equal(checked.tree, "67a47e36414a8ceb4040c9454f64ed1982a9146c");
+  assert.equal(checked.directory, resolve(root, checked.path));
+  assert.equal(execFileSync("git", ["-C", root, "rev-parse", `HEAD:${checked.path}`], { encoding: "utf8" }).trim(), checked.tree);
+  assert.equal(execFileSync("git", ["-C", resolve(root, ".jarvis-source"), "rev-parse", "HEAD:public"], { encoding: "utf8" }).trim(), checked.tree);
+});
+
+test("active public source rejects a changed commit, path or tree", () => {
+  assert.throws(() => checkedComponentSource("activePublic", { ...activePublicSource, commit: "f".repeat(40) }, { root }), /Invalid exact Jarvis activePublic source identity/);
+  assert.throws(() => checkedComponentSource("activePublic", { ...activePublicSource, path: "jarvis/public" }, { root }), /Invalid exact Jarvis activePublic source identity/);
+  assert.throws(() => checkedComponentSource("activePublic", { ...activePublicSource, tree: "e".repeat(40) }, { root }), /Invalid exact Jarvis activePublic source identity/);
+});
 
 test("media source resolves only the pinned destination commit, path and tree", () => {
   const checked = readMediaSource(root);
