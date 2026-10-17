@@ -306,6 +306,11 @@ source commit and current Relay/Mast/Muse behavior. The active checkout origin i
 `braydenparker000/Missionarytube-`; the old `jarvis-release.json` repository
 field remains the historical source identity, not an active checkout origin.
 
+The imported [`jarvis/docs/delivery-plan.md`](../jarvis/docs/delivery-plan.md)
+remains a frozen historical source snapshot; its dated checkpoints are not the
+current closeout. This destination-owned section and its linked acceptance
+record are the current status.
+
 ## Current acceptance and optimization disposition (2026-10-17)
 
 - **Media appearance:** the runtime repair/source change merged in PR247 as
