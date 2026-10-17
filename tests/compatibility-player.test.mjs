@@ -2,11 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {AppendOnlyStreamTarget,AudioSample,Input,BufferSource,BufferTarget,AudioSampleSink,EncodedPacketSink,ALL_FORMATS} from 'mediabunny';
-import { appFileURL } from './helpers/media-root.mjs';
+import { appFileURL, legacySourceURL } from './helpers/media-root.mjs';
 
 let playerModule;
 try {
-  playerModule = await import(appFileURL('src/compatibility-player.js').href);
+  playerModule = await import(legacySourceURL('src/compatibility-player.js').href);
 } catch (error) {
   playerModule = process.env.MEDIA_APP_ROOT
     ? new Error(`Refusing to fall back to the repo-root copy for src/compatibility-player.js. ${error.message}`)

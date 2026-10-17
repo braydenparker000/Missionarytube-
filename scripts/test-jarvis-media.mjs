@@ -1,6 +1,5 @@
-import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -11,12 +10,14 @@ import {
   sourceOnlyPattern,
   verdict
 } from "./media-qualification.mjs";
+import { readMediaSource } from "./media-source.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const release = JSON.parse(readFileSync(resolve(repoRoot, "jarvis-release.json"), "utf8"));
 if (release.repository !== "braydenparker999/jarvis" || !/^[a-f0-9]{40}$/.test(release.commit || "")) {
   throw new Error("jarvis-release.json does not pin an exact braydenparker999/jarvis commit");
 }
+const mediaSource = readMediaSource(repoRoot);
 
 // Source-unit files keep every original assertion. On the pinned tree they
 // still fail when a src module is missing, and that failure stays in this
@@ -79,19 +80,7 @@ if (!MODES.has(mode)) {
   process.exit(2);
 }
 
-const source = mkdtempSync(resolve(tmpdir(), "jarvis-pinned-"));
 let status = 1;
-// Fetch preserved history from the surviving repository; release metadata
-// retains the original source provenance and exact commit.
-const origin = "https://github.com/braydenparker000/Missionarytube-.git";
-
-function git(args, cwd = source) {
-  execFileSync("git", args, { cwd, stdio: "inherit" });
-}
-
-function captured(args) {
-  return execFileSync("git", ["-C", source, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
-}
 
 function runNodeTest(files, { media = null, namePattern = "", skipPattern = "" } = {}) {
   const env = { ...process.env };
@@ -128,31 +117,13 @@ function qualificationVerdict(testsPass) {
   return result.ready ? 0 : 1;
 }
 
-// Fresh clone of the pinned SHA. A reused .jarvis-source checkout is not
-// evidence: qualification may have left it dirty, and HEAD equality alone
-// does not prove the worktree is clean.
 try {
-  execFileSync("git", ["init", source], { stdio: "inherit" });
-  git(["remote", "add", "origin", origin]);
-  git(["fetch", "--depth", "1", "origin", release.commit]);
-  git(["checkout", "--detach", "FETCH_HEAD"]);
-  const head = captured(["rev-parse", "HEAD"]);
-  const porcelain = execFileSync("git", ["-C", source, "status", "--porcelain"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  console.log(`$ git -C ${source} rev-parse HEAD`);
-  console.log(head);
-  console.log(`$ git -C ${source} status --porcelain`);
-  console.log(porcelain.length ? porcelain : "<empty>");
-  if (head !== release.commit) throw new Error(`Jarvis source ${head} is not the pinned release ${release.commit}`);
-  if (porcelain !== "") throw new Error(`Pinned Jarvis checkout is not clean:\n${porcelain}`);
-  console.log(`clean checkout verified: git status --porcelain empty at ${head}`);
-
-  const media = resolve(source, "public/media");
-  if (media === repoRoot) throw new Error("Pinned media path resolved to the repo-root copy");
-  if (!existsSync(resolve(media, "index.html")) || !existsSync(resolve(media, "assets/js/app.js"))) {
-    throw new Error("Pinned Jarvis checkout has no public/media app");
+  const media = mediaSource.directory;
+  if (media === repoRoot) throw new Error("Jarvis media path resolved to the orchestration root");
+  if (!readFileSync(resolve(media, "index.html"), "utf8") || !readFileSync(resolve(media, "assets/js/app.js"), "utf8")) {
+    throw new Error("Exact destination commit has no Jarvis public/media app");
   }
-  const tree = captured(["rev-parse", "HEAD:public/media"]);
-  console.log(`Jarvis media source ${release.commit} public/media ${tree}`);
+  console.log(`Jarvis media ${mediaSource.repository}@${mediaSource.commit}:${mediaSource.path} ${mediaSource.tree}`);
   const pattern = sourceOnlyPattern();
   if (mode === "source") {
     console.log(`media suite: source (${SOURCE_TESTS.length} files)`);
@@ -178,7 +149,8 @@ try {
     console.log(`shipped exit ${shipped}`);
     status = qualificationVerdict(pinned === 0 && sourceOnly === 0 && shipped === 0);
   }
-} finally {
-  rmSync(source, { recursive: true, force: true });
+} catch (error) {
+  console.error(error.message);
+  status = 1;
 }
 process.exit(status);

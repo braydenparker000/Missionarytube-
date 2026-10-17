@@ -2,14 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { appFileURL, appPath, readAppSource } from "./helpers/media-root.mjs";
+import { appPath, legacySourcePath, legacySourceURL, readAppSource } from "./helpers/media-root.mjs";
 import { scriptRunsBefore } from "./helpers/shell-assets.mjs";
 
 const MOTION_BUNDLE_BLOB = "01cb4830d63b1e63b270eeaf2d6752946edc8242";
 
 let logicModule;
 try {
-  logicModule = await import(appFileURL("src/interaction-logic.js").href);
+  logicModule = await import(legacySourceURL("src/interaction-logic.js").href);
 } catch (error) {
   logicModule = process.env.MEDIA_APP_ROOT
     ? new Error(`Refusing to fall back to the repo-root copy for src/interaction-logic.js. Jarvis ships the motion compatibility bundle without src modules. ${error.message}`)
@@ -31,7 +31,7 @@ const css = await readAppSource("assets/css/obsidian.css");
 const bundle = await readAppSource("assets/js/astra-motion.js");
 let motionSourceResult;
 try {
-  motionSourceResult = await readAppSource("src/astra-motion.js");
+  motionSourceResult = await readFile(legacySourcePath("src/astra-motion.js"), "utf8");
 } catch (error) {
   motionSourceResult = error;
 }
