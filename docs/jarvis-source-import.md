@@ -106,8 +106,9 @@ pre-cutover artifact manifest. PR225 is merged at
 
 ## Remaining cutover batches and estimate
 
-The media, Daily Board, and Connect cutovers are merged. The next route/data
-batch is proposed together in PR226:
+The media, Daily Board, Connect, and unchanged route/data cutovers are merged.
+PR226 merged at `54fb839d4efa26af6d4162d65b00e4308dffe274`. The next
+independent bundled-app batch is proposed together in PR227:
 
 - `content`, `portal`, `quick-ai`, `reader`, and `respond` have exact matching
   source/destination trees at the pinned source and current destination main.
@@ -124,8 +125,12 @@ batch is proposed together in PR226:
   `conversation.css` and `relay.css`. Exclude these seven routes until those
   dependencies are separately reconciled.
 
-The unchanged bundled-app batch remains `mymedia` (8 files), `podcasts` (9),
-and `youtube-archive` (4). It is independent of the route/data resolver change.
+`mymedia` (8 files), `podcasts` (9), and `youtube-archive` (4) have matching
+source/destination trees. Their local dependencies also match: My Media's
+`assets/ui.js`, pip diagnostics, Drive config/API, shell/premium/aligned CSS,
+and playback assets; Podcasts' config module and shell/premium CSS; and
+YouTube Archive's internal stylesheet and pages. The bundle group uses the
+same exact source resolver and records each identity in `dist/release.json`.
 
 Each batch still needs exact per-path tree checks, source tests, and built-file
 manifest comparison. The other public differences are not candidates for blind
@@ -137,7 +142,7 @@ include private/security modules. Preserve destination-only `muse-key` and
 movement before selecting the resulting batches. Keep the held playback and
 security behavior unchanged.
 
-Estimate: 7–9 PRs including PR226, or 6–8 after it, for the bounded remaining
+Estimate: 6–8 PRs including PR227, or 5–7 after it, for the bounded remaining
 consolidation, assuming later file-level review does not reveal more split
 boundaries. This includes unchanged batches, reconciliation of the seven routes
 with differing shared assets, non-held semantic reconciliation,
