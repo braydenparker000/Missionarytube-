@@ -12,13 +12,13 @@ hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
 hint: 'development'. The just-created branch can be renamed via this command:
 hint: 
 hint: 	git branch -m <name>
-Initialized empty Git repository in /tmp/jarvis-pinned-2INeRP/.git/
+Initialized empty Git repository in /tmp/jarvis-pinned-dK9fln/.git/
 From https://github.com/braydenparker999/jarvis
  * branch            c28c1b2f70aabb5217b08bf31ffe4c93d0353765 -> FETCH_HEAD
 HEAD is now at c28c1b2 Merge pull request #130 from braydenparker999/release/lucy-oauth-discovery-20261011
-$ git -C /tmp/jarvis-pinned-2INeRP rev-parse HEAD
+$ git -C /tmp/jarvis-pinned-dK9fln rev-parse HEAD
 c28c1b2f70aabb5217b08bf31ffe4c93d0353765
-$ git -C /tmp/jarvis-pinned-2INeRP status --porcelain
+$ git -C /tmp/jarvis-pinned-dK9fln status --porcelain
 <empty>
 clean checkout verified: git status --porcelain empty at c28c1b2f70aabb5217b08bf31ffe4c93d0353765
 Jarvis media source c28c1b2f70aabb5217b08bf31ffe4c93d0353765 public/media c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7
@@ -27,350 +27,350 @@ TAP version 13
 # Subtest: the external app loads after the progress store
 ok 1 - the external app loads after the progress store
   ---
-  duration_ms: 1.932065
+  duration_ms: 5.927888
   ...
 # Subtest: route ownership loads before the app and releases inactive catalog DOM
 ok 2 - route ownership loads before the app and releases inactive catalog DOM
   ---
-  duration_ms: 0.27016
+  duration_ms: 0.374896
   ...
 # Subtest: Home mounts a bounded first catalog batch and progressively reveals the rest
 ok 3 - Home mounts a bounded first catalog batch and progressively reveals the rest
   ---
-  duration_ms: 0.250449
+  duration_ms: 0.276482
   ...
 # Subtest: no progress write embeds add-on metadata any more
 ok 4 - no progress write embeds add-on metadata any more
   ---
-  duration_ms: 0.660506
+  duration_ms: 1.247795
   ...
 # Subtest: localStorage writes cannot throw out of the app
 ok 5 - localStorage writes cannot throw out of the app
   ---
-  duration_ms: 0.290209
+  duration_ms: 0.309498
   ...
 # Subtest: pending progress is flushed when playback or the page ends
 ok 6 - pending progress is flushed when playback or the page ends
   ---
-  duration_ms: 2.317162
+  duration_ms: 2.397505
   ...
 # Subtest: completion is only ever recorded from a real ended event
 ok 7 - completion is only ever recorded from a real ended event
   ---
-  duration_ms: 0.512759
+  duration_ms: 0.580909
   ...
 # Subtest: a continue watching card still opens after a reload
 ok 8 - a continue watching card still opens after a reload
   ---
-  duration_ms: 0.088768
+  duration_ms: 0.111879
   ...
 # Subtest: backups round-trip the normalized progress shape
 ok 9 - backups round-trip the normalized progress shape
   ---
-  duration_ms: 0.329327
+  duration_ms: 0.453604
   ...
 # Subtest: every playback module is loaded before the app script
 ok 10 - every playback module is loaded before the app script
   ---
-  duration_ms: 1.180827
+  duration_ms: 1.972946
   ...
 # Subtest: the v1 playback path is fully removed
 ok 11 - the v1 playback path is fully removed
   ---
-  duration_ms: 0.514048
+  duration_ms: 0.536016
   ...
 # Subtest: settings are migrated through the schema on load, save and import
 ok 12 - settings are migrated through the schema on load, save and import
   ---
-  duration_ms: 0.153001
+  duration_ms: 0.157497
   ...
 # Subtest: the player is driven by engine snapshots, not ad-hoc state
 ok 13 - the player is driven by engine snapshots, not ad-hoc state
   ---
-  duration_ms: 0.233716
+  duration_ms: 0.245317
   ...
 # Subtest: closing the player cancels the session, adapter, scope and countdown
 ok 14 - closing the player cancels the session, adapter, scope and countdown
   ---
-  duration_ms: 0.303361
+  duration_ms: 0.297548
   ...
 # Subtest: the close binding cannot silence the player teardown
 ok 15 - the close binding cannot silence the player teardown
   ---
-  duration_ms: 0.191046
+  duration_ms: 0.193384
   ...
 # Subtest: a next episode always starts from a fresh stream lookup
 ok 16 - a next episode always starts from a fresh stream lookup
   ---
-  duration_ms: 0.210031
+  duration_ms: 0.228881
   ...
 # Subtest: the player offers every required recovery action
 ok 17 - the player offers every required recovery action
   ---
-  duration_ms: 0.272255
+  duration_ms: 0.282689
   ...
 # Subtest: fullscreen is user-initiated and feature-detected
 ok 18 - fullscreen is user-initiated and feature-detected
   ---
-  duration_ms: 0.155016
+  duration_ms: 0.222843
   ...
 # Subtest: the picker surfaces compatibility instead of hiding sources
 ok 19 - the picker surfaces compatibility instead of hiding sources
   ---
-  duration_ms: 0.700411
+  duration_ms: 0.759077
   ...
 # Subtest: the close control can never be faded out or made unclickable
 ok 20 - the close control can never be faded out or made unclickable
   ---
-  duration_ms: 0.363494
+  duration_ms: 0.409486
   ...
 # Subtest: the mobile overlay respects safe areas and reduced motion
 ok 21 - the mobile overlay respects safe areas and reduced motion
   ---
-  duration_ms: 0.526253
+  duration_ms: 0.664795
   ...
 # Subtest: episode ordering is used everywhere videos are listed
 ok 22 - episode ordering is used everywhere videos are listed
   ---
-  duration_ms: 0.162668
+  duration_ms: 0.182677
   ...
 # Subtest: the end of an episode offers the next one and never starts it
 ok 23 - the end of an episode offers the next one and never starts it
   ---
-  duration_ms: 0.392357
+  duration_ms: 0.469839
   ...
 # Subtest: a terminal failure releases the attempt before the error card renders
 ok 24 - a terminal failure releases the attempt before the error card renders
   ---
-  duration_ms: 0.287635
+  duration_ms: 0.316035
   ...
 # Subtest: a stream response is scoped to the lookup that asked for it
 ok 25 - a stream response is scoped to the lookup that asked for it
   ---
-  duration_ms: 0.208349
+  duration_ms: 0.226411
   ...
 # Subtest: switching or dismissing a title cancels the in-flight lookup
 ok 26 - switching or dismissing a title cancels the in-flight lookup
   ---
-  duration_ms: 0.243637
+  duration_ms: 0.27084
   ...
 # Subtest: the subtitle menu selects one specific track, not a language
 ok 27 - the subtitle menu selects one specific track, not a language
   ---
-  duration_ms: 0.223882
+  duration_ms: 0.248136
   ...
 # Subtest: the audio menu offers what it can, and says plainly when it cannot
 ok 28 - the audio menu offers what it can, and says plainly when it cannot
   ---
-  duration_ms: 0.378887
+  duration_ms: 0.562981
   ...
 # Subtest: adaptive audio tracks stay selectable and remember a language preference
 ok 29 - adaptive audio tracks stay selectable and remember a language preference
   ---
-  duration_ms: 0.298567
+  duration_ms: 0.307975
   ...
 # Subtest: stream rows keep the full release and exact series file details inspectable
 ok 30 - stream rows keep the full release and exact series file details inspectable
   ---
-  duration_ms: 0.392862
+  duration_ms: 0.381672
   ...
 # Subtest: the decoding probe refreshes verdicts without reordering the list
 ok 31 - the decoding probe refreshes verdicts without reordering the list
   ---
-  duration_ms: 0.137421
+  duration_ms: 0.141808
   ...
 # Subtest: a deferred metadata response cannot replace another title
 ok 32 - a deferred metadata response cannot replace another title
   ---
-  duration_ms: 0.282637
+  duration_ms: 0.315547
   ...
 # Subtest: the failover notice stays on screen long enough to read
 ok 33 - the failover notice stays on screen long enough to read
   ---
-  duration_ms: 0.726861
+  duration_ms: 0.867473
   ...
 # Subtest: every modal dismissal invalidates pending work
 ok 34 - every modal dismissal invalidates pending work
   ---
-  duration_ms: 4.085386
+  duration_ms: 4.271446
   ...
 # Subtest: an async modal action cannot erase a modal it no longer owns
 ok 35 - an async modal action cannot erase a modal it no longer owns
   ---
-  duration_ms: 0.432004
+  duration_ms: 0.453249
   ...
 # Subtest: appearance restores before rendering and rejects unknown stored values
 ok 36 - appearance restores before rendering and rejects unknown stored values
   ---
-  duration_ms: 1.528803
+  duration_ms: 2.012038
   ...
 # Subtest: corrupted or unavailable storage still paints a usable default interface
 ok 37 - corrupted or unavailable storage still paints a usable default interface
   ---
-  duration_ms: 0.958074
+  duration_ms: 1.336064
   ...
 # Subtest: editing one preference preserves the others across a fresh page load
 ok 38 - editing one preference preserves the others across a fresh page load
   ---
-  duration_ms: 1.017389
+  duration_ms: 1.365358
   ...
 # Subtest: storage failure applies the session preference and reports that it was not saved
 ok 39 - storage failure applies the session preference and reports that it was not saved
   ---
-  duration_ms: 1.119015
+  duration_ms: 1.97542
   ...
 # Subtest: callers cannot mutate the applied preferences through returned snapshots
 ok 40 - callers cannot mutate the applied preferences through returned snapshots
   ---
-  duration_ms: 0.509859
+  duration_ms: 4.764837
   ...
 # Subtest: times read as times, and an unknown position never reads as zero
 ok 41 - times read as times, and an unknown position never reads as zero
   ---
-  duration_ms: 0.669457
+  duration_ms: 0.793176
   ...
 # Subtest: a live stream is recognised from the duration the element reports
 ok 42 - a live stream is recognised from the duration the element reports
   ---
-  duration_ms: 0.104147
+  duration_ms: 0.188978
   ...
 # Subtest: buffered ahead uses the range holding the playhead, not the furthest one
 ok 43 - buffered ahead uses the range holding the playhead, not the furthest one
   ---
-  duration_ms: 0.154967
+  duration_ms: 0.20862
   ...
 # Subtest: progress ratios come from the element and stay inside 0..1
 ok 44 - progress ratios come from the element and stay inside 0..1
   ---
-  duration_ms: 0.182437
+  duration_ms: 0.220725
   ...
 # Subtest: a snapshot reports only what the element reports
 ok 45 - a snapshot reports only what the element reports
   ---
-  duration_ms: 0.148399
+  duration_ms: 0.20944
   ...
 # Subtest: a live snapshot says LIVE instead of inventing a duration or a remaining time
 ok 46 - a live snapshot says LIVE instead of inventing a duration or a remaining time
   ---
-  duration_ms: 0.124655
+  duration_ms: 0.184173
   ...
 # Subtest: with no element at all the snapshot is blank, not zeroed
 ok 47 - with no element at all the snapshot is blank, not zeroed
   ---
-  duration_ms: 0.067661
+  duration_ms: 0.090263
   ...
 # Subtest: seeking clamps to the media and refuses to seek what cannot be seeked
 ok 48 - seeking clamps to the media and refuses to seek what cannot be seeked
   ---
-  duration_ms: 0.13312
+  duration_ms: 0.159119
   ...
 # Subtest: the track line is built from real metadata and never padded with filler
 ok 49 - the track line is built from real metadata and never padded with filler
   ---
-  duration_ms: 0.259945
+  duration_ms: 0.380884
   ...
 # Subtest: the module exposes no waveform or level data it could not truthfully produce
 ok 50 - the module exposes no waveform or level data it could not truthfully produce
   ---
-  duration_ms: 0.296781
+  duration_ms: 0.447278
   ...
 # Subtest: identical catalog names from two providers stay distinct
 ok 51 - identical catalog names from two providers stay distinct
   ---
-  duration_ms: 1.142371
+  duration_ms: 1.457023
   ...
 # Subtest: opaque preference keys never expose a configured add-on URL
 ok 52 - opaque preference keys never expose a configured add-on URL
   ---
-  duration_ms: 0.272581
+  duration_ms: 0.330126
   ...
 # Subtest: catalog identity does not truncate ids that share a long prefix
 ok 53 - catalog identity does not truncate ids that share a long prefix
   ---
-  duration_ms: 0.322016
+  duration_ms: 0.408231
   ...
 # Subtest: saved order, visibility and hero choices reconcile with current manifests
 ok 54 - saved order, visibility and hero choices reconcile with current manifests
   ---
-  duration_ms: 0.380096
+  duration_ms: 0.453066
   ...
 # Subtest: catalog controls change one preference without mutating the input
 ok 55 - catalog controls change one preference without mutating the input
   ---
-  duration_ms: 0.328351
+  duration_ms: 0.418986
   ...
 # Subtest: media references preserve exact identity while separating providers
 ok 56 - media references preserve exact identity while separating providers
   ---
-  duration_ms: 0.126613
+  duration_ms: 0.143849
   ...
 # Subtest: the app wires provider-safe refs through catalog, browse and search
 ok 57 - the app wires provider-safe refs through catalog, browse and search
   ---
-  duration_ms: 5.374163
+  duration_ms: 11.631074
   ...
 # Subtest: Home layout is reachable and exposes mobile-accessible controls
 ok 58 - Home layout is reachable and exposes mobile-accessible controls
   ---
-  duration_ms: 3.315821
+  duration_ms: 6.249831
   ...
 # Subtest: collection matching combines accent-insensitive title words and type without changing source arrays
 ok 59 - collection matching combines accent-insensitive title words and type without changing source arrays
   ---
-  duration_ms: 3.486948
+  duration_ms: 7.424723
   ...
 # Subtest: collection sorts are explicit and preserve original order for equal dates
 ok 60 - collection sorts are explicit and preserve original order for equal dates
   ---
-  duration_ms: 5.541824
+  duration_ms: 12.424781
   ...
 # Subtest: recent searches reject malformed history, deduplicate, and stay bounded
 ok 61 - recent searches reject malformed history, deduplicate, and stay bounded
   ---
-  duration_ms: 0.31373
+  duration_ms: 0.409959
   ...
 # Subtest: backup retains valid content and preferences while deriving official status from the real URL
 ok 62 - backup retains valid content and preferences while deriving official status from the real URL
   ---
-  duration_ms: 0.300031
+  duration_ms: 0.415851
   ...
 # Subtest: backup rejects unsafe addresses and malformed collections before any state is returned
 ok 63 - backup rejects unsafe addresses and malformed collections before any state is returned
   ---
-  duration_ms: 0.437609
+  duration_ms: 0.710741
   ...
 # Subtest: failed backup persistence rolls back earlier writes and preserves unrelated data
 ok 64 - failed backup persistence rolls back earlier writes and preserves unrelated data
   ---
-  duration_ms: 0.284352
+  duration_ms: 0.365602
   ...
 # Subtest: backup serialization errors and unavailable storage leave the original setup untouched
 ok 65 - backup serialization errors and unavailable storage leave the original setup untouched
   ---
-  duration_ms: 0.124691
+  duration_ms: 0.168213
   ...
 # Subtest: Home renders a ready catalog while another is pending, retaining configured slot order
 ok 66 - Home renders a ready catalog while another is pending, retaining configured slot order
   ---
-  duration_ms: 1.837745
+  duration_ms: 2.710093
   ...
 # Subtest: leaving Home prevents late catalog responses from repainting the page
 ok 67 - leaving Home prevents late catalog responses from repainting the page
   ---
-  duration_ms: 1.026813
+  duration_ms: 1.278432
   ...
 # Subtest: the reported MP4 H264/AC3 combination has readable video and decodable audio
 ok 68 - the reported MP4 H264/AC3 combination has readable video and decodable audio
   ---
-  duration_ms: 75.405956
+  duration_ms: 232.988122
   ...
 # Subtest: real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact
 not ok 69 - real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact
   ---
-  duration_ms: 2.747334
+  duration_ms: 8.819728
   location: '/workspace/tests/compatibility-player.test.mjs:46:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -378,10 +378,10 @@ not ok 69 - real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes in
 # Subtest: HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it
 not ok 70 - HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it
   ---
-  duration_ms: 1.714388
+  duration_ms: 6.994707
   location: '/workspace/tests/compatibility-player.test.mjs:63:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -389,10 +389,10 @@ not ok 70 - HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it
 # Subtest: HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes
 not ok 71 - HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes
   ---
-  duration_ms: 4.195791
+  duration_ms: 4.243408
   location: '/workspace/tests/compatibility-player.test.mjs:78:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -400,25 +400,25 @@ not ok 71 - HEVC open-GOP seeking drops unavailable leading pictures and preserv
 # Subtest: real ac3 audio decodes to samples using the bundled decoder
 ok 72 - real ac3 audio decodes to samples using the bundled decoder
   ---
-  duration_ms: 13.270558
+  duration_ms: 59.486342
   ...
 # Subtest: real eac3 audio decodes to samples using the bundled decoder
 ok 73 - real eac3 audio decodes to samples using the bundled decoder
   ---
-  duration_ms: 7.981251
+  duration_ms: 30.798952
   ...
 # Subtest: real dts audio decodes to samples using the bundled decoder
 ok 74 - real dts audio decodes to samples using the bundled decoder
   ---
-  duration_ms: 65.640012
+  duration_ms: 144.911811
   ...
 # Subtest: seeking starts at a preceding keyframe and unsupported video is explicit
 not ok 75 - seeking starts at a preceding keyframe and unsupported video is explicit
   ---
-  duration_ms: 1.056958
+  duration_ms: 0.841548
   location: '/workspace/tests/compatibility-player.test.mjs:110:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -426,10 +426,10 @@ not ok 75 - seeking starts at a preceding keyframe and unsupported video is expl
 # Subtest: surround audio is downmixed to bounded stereo samples
 not ok 76 - surround audio is downmixed to bounded stereo samples
   ---
-  duration_ms: 0.260114
+  duration_ms: 0.266346
   location: '/workspace/tests/compatibility-player.test.mjs:122:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -437,10 +437,10 @@ not ok 76 - surround audio is downmixed to bounded stereo samples
 # Subtest: audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps
 not ok 77 - audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps
   ---
-  duration_ms: 0.33965
+  duration_ms: 0.463973
   location: '/workspace/tests/compatibility-player.test.mjs:131:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -448,10 +448,10 @@ not ok 77 - audio crossing a video keyframe is trimmed before encoding to avoid 
 # Subtest: an unsupported default audio track falls back to usable audio in the same file
 not ok 78 - an unsupported default audio track falls back to usable audio in the same file
   ---
-  duration_ms: 2.616899
+  duration_ms: 2.981404
   location: '/workspace/tests/compatibility-player.test.mjs:139:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -459,10 +459,10 @@ not ok 78 - an unsupported default audio track falls back to usable audio in the
 # Subtest: replacing an in-flight startup reports the old read as cancelled, not a new playback failure
 not ok 79 - replacing an in-flight startup reports the old read as cancelled, not a new playback failure
   ---
-  duration_ms: 2.565215
+  duration_ms: 1.497243
   location: '/workspace/tests/compatibility-player.test.mjs:156:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -470,10 +470,10 @@ not ok 79 - replacing an in-flight startup reports the old read as cancelled, no
 # Subtest: real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks
 not ok 80 - real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks
   ---
-  duration_ms: 3.997557
+  duration_ms: 8.668946
   location: '/workspace/tests/compatibility-player.test.mjs:180:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -481,10 +481,10 @@ not ok 80 - real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, pre
 # Subtest: audio conversion selects AAC when MP4 cannot accept Opus
 not ok 81 - audio conversion selects AAC when MP4 cannot accept Opus
   ---
-  duration_ms: 0.896256
+  duration_ms: 1.13547
   location: '/workspace/tests/compatibility-player.test.mjs:200:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -492,10 +492,10 @@ not ok 81 - audio conversion selects AAC when MP4 cannot accept Opus
 # Subtest: a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window
 not ok 82 - a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window
   ---
-  duration_ms: 0.973412
+  duration_ms: 1.260731
   location: '/workspace/tests/compatibility-player.test.mjs:210:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -503,10 +503,10 @@ not ok 82 - a WebM repair seek retains a preceding keyframe beyond the initial r
 # Subtest: copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer
 not ok 83 - copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer
   ---
-  duration_ms: 0.619671
+  duration_ms: 0.793575
   location: '/workspace/tests/compatibility-player.test.mjs:224:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -514,10 +514,10 @@ not ok 83 - copied AAC audio crossing a seek keyframe keeps its timing and no lo
 # Subtest: compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges
 not ok 84 - compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges
   ---
-  duration_ms: 0.747438
+  duration_ms: 0.862345
   location: '/workspace/tests/compatibility-player.test.mjs:244:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -525,10 +525,10 @@ not ok 84 - compatibility fetch keeps addon headers on their origin and follows 
 # Subtest: compatibility HLS children on another origin never receive addon credentials
 not ok 85 - compatibility HLS children on another origin never receive addon credentials
   ---
-  duration_ms: 0.193789
+  duration_ms: 0.242273
   location: '/workspace/tests/compatibility-player.test.mjs:255:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -536,10 +536,10 @@ not ok 85 - compatibility HLS children on another origin never receive addon cre
 # Subtest: compatibility startup distinguishes blocked access and connection failures
 not ok 86 - compatibility startup distinguishes blocked access and connection failures
   ---
-  duration_ms: 0.137554
+  duration_ms: 0.429619
   location: '/workspace/tests/compatibility-player.test.mjs:275:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -547,10 +547,10 @@ not ok 86 - compatibility startup distinguishes blocked access and connection fa
 # Subtest: audio repair retries a transient request and transfers the real prepared input without rereading
 not ok 87 - audio repair retries a transient request and transfers the real prepared input without rereading
   ---
-  duration_ms: 1.917737
+  duration_ms: 2.063929
   location: '/workspace/tests/compatibility-player.test.mjs:314:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -558,10 +558,10 @@ not ok 87 - audio repair retries a transient request and transfers the real prep
 # Subtest: audio repair bounds persistent fetch failures to one shared retry
 not ok 88 - audio repair bounds persistent fetch failures to one shared retry
   ---
-  duration_ms: 0.234314
+  duration_ms: 0.295587
   location: '/workspace/tests/compatibility-player.test.mjs:337:37'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -569,10 +569,10 @@ not ok 88 - audio repair bounds persistent fetch failures to one shared retry
 # Subtest: audio repair bounds persistent body failures to one shared retry
 not ok 89 - audio repair bounds persistent body failures to one shared retry
   ---
-  duration_ms: 0.14208
+  duration_ms: 0.32212
   location: '/workspace/tests/compatibility-player.test.mjs:337:37'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -580,10 +580,10 @@ not ok 89 - audio repair bounds persistent body failures to one shared retry
 # Subtest: cancelling repair during its retry delay stops it without another request
 not ok 90 - cancelling repair during its retry delay stops it without another request
   ---
-  duration_ms: 0.133635
+  duration_ms: 0.205538
   location: '/workspace/tests/compatibility-player.test.mjs:348:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -591,10 +591,10 @@ not ok 90 - cancelling repair during its retry delay stops it without another re
 # Subtest: repair cancellation promptly rejects a pending metadata fetch
 not ok 91 - repair cancellation promptly rejects a pending metadata fetch
   ---
-  duration_ms: 0.148249
+  duration_ms: 0.202268
   location: '/workspace/tests/compatibility-player.test.mjs:359:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -602,10 +602,10 @@ not ok 91 - repair cancellation promptly rejects a pending metadata fetch
 # Subtest: prepared repair is disposed when abandoned or its adapter is destroyed before attach
 not ok 92 - prepared repair is disposed when abandoned or its adapter is destroyed before attach
   ---
-  duration_ms: 1.90789
+  duration_ms: 2.274663
   location: '/workspace/tests/compatibility-player.test.mjs:369:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -613,10 +613,10 @@ not ok 92 - prepared repair is disposed when abandoned or its adapter is destroy
 # Subtest: aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter
 not ok 93 - aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter
   ---
-  duration_ms: 0.793734
+  duration_ms: 1.093947
   location: '/workspace/tests/compatibility-player.test.mjs:381:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/compatibility-player.js. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/compatibility-player.js' imported from /workspace/tests/compatibility-player.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/compatibility-player.test.mjs:12:7
@@ -624,125 +624,125 @@ not ok 93 - aborting an unconsumed prepared repair invalidates it; abort after t
 # Subtest: no runtime dependency is loaded from a mutable channel
 ok 94 - no runtime dependency is loaded from a mutable channel
   ---
-  duration_ms: 1.826289
+  duration_ms: 12.465839
   ...
 # Subtest: dash.js is pinned to an exact version with an integrity hash
 ok 95 - dash.js is pinned to an exact version with an integrity hash
   ---
-  duration_ms: 0.301077
+  duration_ms: 4.737576
   ...
 # Subtest: hls.js is pinned to an exact version with an integrity hash
 ok 96 - hls.js is pinned to an exact version with an integrity hash
   ---
-  duration_ms: 0.201519
+  duration_ms: 0.301885
   ...
 # Subtest: every remote script is cross-origin and integrity checked at load time
 ok 97 - every remote script is cross-origin and integrity checked at load time
   ---
-  duration_ms: 0.293218
+  duration_ms: 0.565417
   ...
 # Subtest: validation passes on an unmodified checkout
 ok 98 - validation passes on an unmodified checkout
   ---
-  duration_ms: 311.78853
+  duration_ms: 1258.76272
   ...
 # Subtest: validation rejects a mutable /latest/ dependency URL
 ok 99 - validation rejects a mutable /latest/ dependency URL
   ---
-  duration_ms: 159.753958
+  duration_ms: 441.91027
   ...
 # Subtest: validation rejects a remote script without an integrity hash
 ok 100 - validation rejects a remote script without an integrity hash
   ---
-  duration_ms: 155.34947
+  duration_ms: 346.325418
   ...
 # Subtest: validation requires the progress store module to ship
 ok 101 - validation requires the progress store module to ship
   ---
-  duration_ms: 140.305607
+  duration_ms: 363.586517
   ...
 # Subtest: health identity and errors never disclose configured addresses or tokens
 ok 102 - health identity and errors never disclose configured addresses or tokens
   ---
-  duration_ms: 0.887957
+  duration_ms: 1.151681
   ...
 # Subtest: health records preserve channel evidence and classify the latest result
 ok 103 - health records preserve channel evidence and classify the latest result
   ---
-  duration_ms: 0.586268
+  duration_ms: 0.787285
   ...
 # Subtest: health summaries distinguish disabled, unchecked, slow and unavailable providers
 ok 104 - health summaries distinguish disabled, unchecked, slow and unavailable providers
   ---
-  duration_ms: 0.745104
+  duration_ms: 0.92244
   ...
 # Subtest: catalog sampling gives different providers a fair first pass
 ok 105 - catalog sampling gives different providers a fair first pass
   ---
-  duration_ms: 0.286288
+  duration_ms: 0.28881
   ...
 # Subtest: Surprise Me deduplicates identity, respects filters, and excludes future releases
 ok 106 - Surprise Me deduplicates identity, respects filters, and excludes future releases
   ---
-  duration_ms: 0.657611
+  duration_ms: 0.741341
   ...
 # Subtest: the app exposes direct Surprise Me and focused health controls
 ok 107 - the app exposes direct Surprise Me and focused health controls
   ---
-  duration_ms: 1.857645
+  duration_ms: 8.438256
   ...
 # Subtest: exact media identity survives long ids and only deduplicates exact matches
 ok 108 - exact media identity survives long ids and only deduplicates exact matches
   ---
-  duration_ms: 1.316499
+  duration_ms: 5.534226
   ...
 # Subtest: results use stable relevance without rewriting provider order
 ok 109 - results use stable relevance without rewriting provider order
   ---
-  duration_ms: 0.542163
+  duration_ms: 0.599419
   ...
 # Subtest: same-named catalogs from different providers remain separate
 ok 110 - same-named catalogs from different providers remain separate
   ---
-  duration_ms: 0.25005
+  duration_ms: 0.231564
   ...
 # Subtest: local matches and type filters stay deterministic
 ok 111 - local matches and type filters stay deterministic
   ---
-  duration_ms: 0.267877
+  duration_ms: 0.249571
   ...
 # Subtest: the app renders and updates each provider independently
 ok 112 - the app renders and updates each provider independently
   ---
-  duration_ms: 1.521348
+  duration_ms: 1.874343
   ...
 # Subtest: natural-language constraints stay visible, removable, and evidence based
 ok 113 - natural-language constraints stay visible, removable, and evidence based
   ---
-  duration_ms: 0.769436
+  duration_ms: 0.821461
   ...
 # Subtest: a failed provider can retry without replacing successful lanes
 ok 114 - a failed provider can retry without replacing successful lanes
   ---
-  duration_ms: 0.16035
+  duration_ms: 0.180309
   ...
 # Subtest: clearing search invalidates late provider responses without touching playback lookup
 ok 115 - clearing search invalidates late provider responses without touching playback lookup
   ---
-  duration_ms: 0.102725
+  duration_ms: 0.142935
   ...
 # Subtest: characterization: loading mode leaves a deferred stored accent and motion preference unapplied
 ok 116 - characterization: loading mode leaves a deferred stored accent and motion preference unapplied
   ---
-  duration_ms: 1.190095
+  duration_ms: 11.917889
   ...
 # Subtest: gesture thresholds distinguish a tap, a cancelled drag and a committed dismissal
 not ok 117 - gesture thresholds distinguish a tap, a cancelled drag and a committed dismissal
   ---
-  duration_ms: 0.601829
+  duration_ms: 0.722349
   location: '/workspace/tests/interaction-motion.test.mjs:42:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/interaction-logic.js. Jarvis ships the motion compatibility bundle without src modules. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/interaction-logic.js' imported from /workspace/tests/interaction-motion.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/interaction-logic.js. Jarvis ships the motion compatibility bundle without src modules. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/interaction-logic.js' imported from /workspace/tests/interaction-motion.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/interaction-motion.test.mjs:15:7
@@ -750,10 +750,10 @@ not ok 117 - gesture thresholds distinguish a tap, a cancelled drag and a commit
 # Subtest: custom press physics owns touch and pen, not mouse clicks
 not ok 118 - custom press physics owns touch and pen, not mouse clicks
   ---
-  duration_ms: 0.110385
+  duration_ms: 0.097666
   location: '/workspace/tests/interaction-motion.test.mjs:51:1'
   failureType: 'testCodeFailure'
-  error: 'Refusing to fall back to the repo-root copy for src/astra-motion.js. Jarvis-targeted tests require that file in the pinned checkout (/tmp/jarvis-pinned-2INeRP/public/media).'
+  error: 'Refusing to fall back to the repo-root copy for src/astra-motion.js. Jarvis-targeted tests require that file in the pinned checkout (/tmp/jarvis-pinned-dK9fln/public/media).'
   code: 'ERR_MEDIA_ROOT_FALLBACK'
   stack: |-
     readAppSource (file:///workspace/tests/helpers/media-root.mjs:39:23)
@@ -762,10 +762,10 @@ not ok 118 - custom press physics owns touch and pen, not mouse clicks
 # Subtest: navigation direction follows the dock and accepts an explicit back route
 not ok 119 - navigation direction follows the dock and accepts an explicit back route
   ---
-  duration_ms: 0.068541
+  duration_ms: 0.069312
   location: '/workspace/tests/interaction-motion.test.mjs:57:1'
   failureType: 'testCodeFailure'
-  error: "Refusing to fall back to the repo-root copy for src/interaction-logic.js. Jarvis ships the motion compatibility bundle without src modules. Cannot find module '/tmp/jarvis-pinned-2INeRP/public/media/src/interaction-logic.js' imported from /workspace/tests/interaction-motion.test.mjs"
+  error: "Refusing to fall back to the repo-root copy for src/interaction-logic.js. Jarvis ships the motion compatibility bundle without src modules. Cannot find module '/tmp/jarvis-pinned-dK9fln/public/media/src/interaction-logic.js' imported from /workspace/tests/interaction-motion.test.mjs"
   code: 'ERR_TEST_FAILURE'
   stack: |-
     file:///workspace/tests/interaction-motion.test.mjs:15:7
@@ -773,20 +773,20 @@ not ok 119 - navigation direction follows the dock and accepts an explicit back 
 # Subtest: the shipped motion bundle matches the qualified compatibility build
 ok 120 - the shipped motion bundle matches the qualified compatibility build
   ---
-  duration_ms: 7.250828
+  duration_ms: 9.991864
   ...
 # Subtest: navigation, dock and title detail continuity are all wired
 ok 121 - navigation, dock and title detail continuity are all wired
   ---
-  duration_ms: 0.302584
+  duration_ms: 0.299746
   ...
 # Subtest: site-wide content choreography is shared, viewport-aware and bounded
 not ok 122 - site-wide content choreography is shared, viewport-aware and bounded
   ---
-  duration_ms: 0.347506
+  duration_ms: 0.335761
   location: '/workspace/tests/interaction-motion.test.mjs:86:1'
   failureType: 'testCodeFailure'
-  error: 'Refusing to fall back to the repo-root copy for src/astra-motion.js. Jarvis-targeted tests require that file in the pinned checkout (/tmp/jarvis-pinned-2INeRP/public/media).'
+  error: 'Refusing to fall back to the repo-root copy for src/astra-motion.js. Jarvis-targeted tests require that file in the pinned checkout (/tmp/jarvis-pinned-dK9fln/public/media).'
   code: 'ERR_MEDIA_ROOT_FALLBACK'
   stack: |-
     readAppSource (file:///workspace/tests/helpers/media-root.mjs:39:23)
@@ -795,10 +795,10 @@ not ok 122 - site-wide content choreography is shared, viewport-aware and bounde
 # Subtest: mobile motion avoids offscreen GPU layers and costly document snapshots
 not ok 123 - mobile motion avoids offscreen GPU layers and costly document snapshots
   ---
-  duration_ms: 0.131996
+  duration_ms: 0.150914
   location: '/workspace/tests/interaction-motion.test.mjs:98:1'
   failureType: 'testCodeFailure'
-  error: 'Refusing to fall back to the repo-root copy for src/astra-motion.js. Jarvis-targeted tests require that file in the pinned checkout (/tmp/jarvis-pinned-2INeRP/public/media).'
+  error: 'Refusing to fall back to the repo-root copy for src/astra-motion.js. Jarvis-targeted tests require that file in the pinned checkout (/tmp/jarvis-pinned-dK9fln/public/media).'
   code: 'ERR_MEDIA_ROOT_FALLBACK'
   stack: |-
     readAppSource (file:///workspace/tests/helpers/media-root.mjs:39:23)
@@ -807,10 +807,10 @@ not ok 123 - mobile motion avoids offscreen GPU layers and costly document snaps
 # Subtest: direct interaction motion never exceeds the 360ms release budget
 not ok 124 - direct interaction motion never exceeds the 360ms release budget
   ---
-  duration_ms: 0.079435
+  duration_ms: 0.108813
   location: '/workspace/tests/interaction-motion.test.mjs:109:1'
   failureType: 'testCodeFailure'
-  error: 'Refusing to fall back to the repo-root copy for src/astra-motion.js. Jarvis-targeted tests require that file in the pinned checkout (/tmp/jarvis-pinned-2INeRP/public/media).'
+  error: 'Refusing to fall back to the repo-root copy for src/astra-motion.js. Jarvis-targeted tests require that file in the pinned checkout (/tmp/jarvis-pinned-dK9fln/public/media).'
   code: 'ERR_MEDIA_ROOT_FALLBACK'
   stack: |-
     readAppSource (file:///workspace/tests/helpers/media-root.mjs:39:23)
@@ -819,10 +819,10 @@ not ok 124 - direct interaction motion never exceeds the 360ms release budget
 # Subtest: View Transition callbacks cannot reorder or stall visible state
 not ok 125 - View Transition callbacks cannot reorder or stall visible state
   ---
-  duration_ms: 0.225813
+  duration_ms: 0.290229
   location: '/workspace/tests/interaction-motion.test.mjs:117:1'
   failureType: 'testCodeFailure'
-  error: 'Refusing to fall back to the repo-root copy for src/astra-motion.js. Jarvis-targeted tests require that file in the pinned checkout (/tmp/jarvis-pinned-2INeRP/public/media).'
+  error: 'Refusing to fall back to the repo-root copy for src/astra-motion.js. Jarvis-targeted tests require that file in the pinned checkout (/tmp/jarvis-pinned-dK9fln/public/media).'
   code: 'ERR_MEDIA_ROOT_FALLBACK'
   stack: |-
     readAppSource (file:///workspace/tests/helpers/media-root.mjs:39:23)
@@ -831,1937 +831,1937 @@ not ok 125 - View Transition callbacks cannot reorder or stall visible state
 # Subtest: every mobile overlay can be dismissed physically without touching Player V3
 ok 126 - every mobile overlay can be dismissed physically without touching Player V3
   ---
-  duration_ms: 0.567494
+  duration_ms: 0.679564
   ...
 # Subtest: dismissed detail and source surfaces return keyboard focus
 ok 127 - dismissed detail and source surfaces return keyboard focus
   ---
-  duration_ms: 0.388192
+  duration_ms: 0.437098
   ...
 # Subtest: reduced motion removes autonomous choreography and gesture zones
 ok 128 - reduced motion removes autonomous choreography and gesture zones
   ---
-  duration_ms: 4.41838
+  duration_ms: 0.327212
   ...
 # Subtest: Library joins saved titles and bounded local playback shelves
 ok 129 - Library joins saved titles and bounded local playback shelves
   ---
-  duration_ms: 0.907184
+  duration_ms: 1.713047
   ...
 # Subtest: large saved collections reveal another finite batch
 ok 130 - large saved collections reveal another finite batch
   ---
-  duration_ms: 0.177527
+  duration_ms: 0.246806
   ...
 # Subtest: the dossier exposes only real device activity
 ok 131 - the dossier exposes only real device activity
   ---
-  duration_ms: 0.154712
+  duration_ms: 0.177292
   ...
 # Subtest: continuity shelves stay skippable and compact off screen
 ok 132 - continuity shelves stay skippable and compact off screen
   ---
-  duration_ms: 0.345943
+  duration_ms: 0.3552
   ...
 # Subtest: every content type Astra carries has a sector
 ok 133 - every content type Astra carries has a sector
   ---
-  duration_ms: 0.703158
+  duration_ms: 1.054065
   ...
 # Subtest: podcasts and radio are out of product scope everywhere
 ok 134 - podcasts and radio are out of product scope everywhere
   ---
-  duration_ms: 0.512049
+  duration_ms: 0.567628
   ...
 # Subtest: YouTube is a sector Astra provides itself
 ok 135 - YouTube is a sector Astra provides itself
   ---
-  duration_ms: 0.669854
+  duration_ms: 0.886415
   ...
 # Subtest: real-world type spellings map onto the same sector
 ok 136 - real-world type spellings map onto the same sector
   ---
-  duration_ms: 0.092458
+  duration_ms: 0.106789
   ...
 # Subtest: a sector filter keeps every catalog alias it claims
 ok 137 - a sector filter keeps every catalog alias it claims
   ---
-  duration_ms: 0.145045
+  duration_ms: 0.159133
   ...
 # Subtest: a sector is never available unless an add-on actually exposes it
 ok 138 - a sector is never available unless an add-on actually exposes it
   ---
-  duration_ms: 0.152266
+  duration_ms: 0.164717
   ...
 # Subtest: an unavailable sector still explains what to install
 ok 139 - an unavailable sector still explains what to install
   ---
-  duration_ms: 0.151851
+  duration_ms: 0.156899
   ...
 # Subtest: an available sector describes its real catalog and provider counts
 ok 140 - an available sector describes its real catalog and provider counts
   ---
-  duration_ms: 0.136655
+  duration_ms: 0.144051
   ...
 # Subtest: a type no sector claims is appended rather than discarded
 ok 141 - a type no sector claims is appended rather than discarded
   ---
-  duration_ms: 0.351012
+  duration_ms: 0.536224
   ...
 # Subtest: a claimed type is not also emitted as a custom sector
 ok 142 - a claimed type is not also emitted as a custom sector
   ---
-  duration_ms: 0.322601
+  duration_ms: 0.303782
   ...
 # Subtest: episodic and audio sectors are classified, not guessed at the call site
 ok 143 - episodic and audio sectors are classified, not guessed at the call site
   ---
-  duration_ms: 0.904986
+  duration_ms: 0.198233
   ...
 # Subtest: a browsable catalog does not imply a playable one
 ok 144 - a browsable catalog does not imply a playable one
   ---
-  duration_ms: 0.195779
+  duration_ms: 0.219723
   ...
 # Subtest: a stream resource scoped to other types does not cover this one
 ok 145 - a stream resource scoped to other types does not cover this one
   ---
-  duration_ms: 0.068425
+  duration_ms: 0.073471
   ...
 # Subtest: adult catalogs are filtered by the caller, and malformed input never throws
 ok 146 - adult catalogs are filtered by the caller, and malformed input never throws
   ---
-  duration_ms: 0.07058
+  duration_ms: 0.082206
   ...
 # Subtest: availableOnly narrows the hub without changing what availability means
 ok 147 - availableOnly narrows the hub without changing what availability means
   ---
-  duration_ms: 0.066378
+  duration_ms: 0.07088
   ...
 # Subtest: each sector names one of its items without a plural rule
 ok 148 - each sector names one of its items without a plural rule
   ---
-  duration_ms: 0.070369
+  duration_ms: 0.103181
   ...
 # Subtest: native media never silently drops required addon headers
 ok 149 - native media never silently drops required addon headers
   ---
-  duration_ms: 1.423591
+  duration_ms: 2.239326
   ...
 # Subtest: HLS sends scoped headers through its redirect-safe FetchLoader
 ok 150 - HLS sends scoped headers through its redirect-safe FetchLoader
   ---
-  duration_ms: 2.301262
+  duration_ms: 4.424543
   ...
 # Subtest: DASH header fetch extension preserves ranges, response bytes and origin boundaries
 ok 151 - DASH header fetch extension preserves ranges, response bytes and origin boundaries
   ---
-  duration_ms: 3.749651
+  duration_ms: 9.492569
   ...
 # Subtest: DASH cancellation prevents pending fetch and late completion callbacks
 ok 152 - DASH cancellation prevents pending fetch and late completion callbacks
   ---
-  duration_ms: 5.508885
+  duration_ms: 9.009319
   ...
 # Subtest: DASH request failures complete once with an error status for normal engine recovery
 ok 153 - DASH request failures complete once with an error status for normal engine recovery
   ---
-  duration_ms: 0.580032
+  duration_ms: 0.567488
   ...
 # Subtest: DASH low-latency fetch forwards completed fragments before EOF
 ok 154 - DASH low-latency fetch forwards completed fragments before EOF
   ---
-  duration_ms: 0.933805
+  duration_ms: 0.97418
   ...
 # Subtest: a resource scope releases listeners, timers and object URLs exactly once
 ok 155 - a resource scope releases listeners, timers and object URLs exactly once
   ---
-  duration_ms: 0.285618
+  duration_ms: 0.318903
   ...
 # Subtest: resources registered after disposal are released immediately
 ok 156 - resources registered after disposal are released immediately
   ---
-  duration_ms: 0.176219
+  duration_ms: 0.216616
   ...
 # Subtest: the native adapter attaches, reports and cleans up
 ok 157 - the native adapter attaches, reports and cleans up
   ---
-  duration_ms: 0.591746
+  duration_ms: 0.530702
   ...
 # Subtest: native restoration honors paused playback while keeping manual Play available
 ok 158 - native restoration honors paused playback while keeping manual Play available
   ---
-  duration_ms: 0.357489
+  duration_ms: 0.32839
   ...
 # Subtest: the native adapter uses real AudioTrackList entries when Chrome exposes them
 ok 159 - the native adapter uses real AudioTrackList entries when Chrome exposes them
   ---
-  duration_ms: 0.417379
+  duration_ms: 0.414038
   ...
 # Subtest: adapter destroy is idempotent for every kind
 ok 160 - adapter destroy is idempotent for every kind
   ---
-  duration_ms: 0.570761
+  duration_ms: 1.614149
   ...
 # Subtest: the hls adapter surfaces only fatal errors and cleans up its listeners
 ok 161 - the hls adapter surfaces only fatal errors and cleans up its listeners
   ---
-  duration_ms: 0.258119
+  duration_ms: 0.383811
   ...
 # Subtest: a missing playback library is reported as a library failure
 ok 162 - a missing playback library is reported as a library failure
   ---
-  duration_ms: 0.156613
+  duration_ms: 0.183551
   ...
 # Subtest: audio tracks are exposed where the library provides them
 ok 163 - audio tracks are exposed where the library provides them
   ---
-  duration_ms: 0.413148
+  duration_ms: 0.428221
   ...
 # Subtest: adaptive audio menus refresh on manifest changes and stop after destroy
 ok 164 - adaptive audio menus refresh on manifest changes and stop after destroy
   ---
-  duration_ms: 0.328452
+  duration_ms: 0.342539
   ...
 # Subtest: repeated open and close cycles accumulate nothing
 ok 165 - repeated open and close cycles accumulate nothing
   ---
-  duration_ms: 0.837614
+  duration_ms: 1.013894
   ...
 # Subtest: HLS goes through hls.js so audio tracks exist at all
 ok 166 - HLS goes through hls.js so audio tracks exist at all
   ---
-  duration_ms: 0.121348
+  duration_ms: 0.137052
   ...
 # Subtest: a progressive file reports no qualities, because it has none
 ok 167 - a progressive file reports no qualities, because it has none
   ---
-  duration_ms: 0.12516
+  duration_ms: 0.138661
   ...
 # Subtest: dash.js renditions are listed, pinned and handed back to Auto
 ok 168 - dash.js renditions are listed, pinned and handed back to Auto
   ---
-  duration_ms: 0.357893
+  duration_ms: 0.477055
   ...
 # Subtest: the older dash.js quality API is driven just as correctly
 ok 169 - the older dash.js quality API is driven just as correctly
   ---
-  duration_ms: 0.381087
+  duration_ms: 1.089189
   ...
 # Subtest: a rendition that does not exist is refused, and Auto is left alone
 ok 170 - a rendition that does not exist is refused, and Auto is left alone
   ---
-  duration_ms: 0.149826
+  duration_ms: 0.54903
   ...
 # Subtest: hls.js levels are switchable, and -1 is its own Auto
 ok 171 - hls.js levels are switchable, and -1 is its own Auto
   ---
-  duration_ms: 0.192811
+  duration_ms: 3.34967
   ...
 # Subtest: a single-rendition stream offers no choice rather than a menu of one
 ok 172 - a single-rendition stream offers no choice rather than a menu of one
   ---
-  duration_ms: 0.116426
+  duration_ms: 0.193537
   ...
 # Subtest: a track label names a codec, never a MIME type
 ok 173 - a track label names a codec, never a MIME type
   ---
-  duration_ms: 0.2707
+  duration_ms: 0.330338
   ...
 # Subtest: fast addon results appear immediately, final addon and stream order stay intact
 ok 174 - fast addon results appear immediately, final addon and stream order stay intact
   ---
-  duration_ms: 2.887907
+  duration_ms: 6.230568
   ...
 # Subtest: one failing addon leaves working sources available
 ok 175 - one failing addon leaves working sources available
   ---
-  duration_ms: 0.242061
+  duration_ms: 0.317541
   ...
 # Subtest: closing a lookup aborts its requests and suppresses late rendering
 ok 176 - closing a lookup aborts its requests and suppresses late rendering
   ---
-  duration_ms: 0.156693
+  duration_ms: 0.180694
   ...
 # Subtest: TorBox matches the exact hash and file, never treating Torrentio index as TorBox ID
 ok 177 - TorBox matches the exact hash and file, never treating Torrentio index as TorBox ID
   ---
-  duration_ms: 1.610655
+  duration_ms: 2.580628
   ...
 # Subtest: ambiguous TorBox filenames preserve the original URL without requesting a different file
 ok 178 - ambiguous TorBox filenames preserve the original URL without requesting a different file
   ---
-  duration_ms: 0.326052
+  duration_ms: 0.366358
   ...
 # Subtest: TorBox API failure is not a dead end for the original playback path
 ok 179 - TorBox API failure is not a dead end for the original playback path
   ---
-  duration_ms: 0.187801
+  duration_ms: 0.91182
   ...
 # Subtest: lookalike resolver hosts never receive account requests
 ok 180 - lookalike resolver hosts never receive account requests
   ---
-  duration_ms: 0.181221
+  duration_ms: 0.244634
   ...
 # Subtest: cancelled TorBox resolution does not return a stale usable link
 ok 181 - cancelled TorBox resolution does not return a stale usable link
   ---
-  duration_ms: 0.567541
+  duration_ms: 0.651247
   ...
 # Subtest: playback report cannot include source credentials or arbitrary metadata
 ok 182 - playback report cannot include source credentials or arbitrary metadata
   ---
-  duration_ms: 1.067456
+  duration_ms: 1.870194
   ...
 # Subtest: network reports do not pretend to distinguish CORS from connection failures
 ok 183 - network reports do not pretend to distinguish CORS from connection failures
   ---
-  duration_ms: 0.29004
+  duration_ms: 0.341457
   ...
 # Subtest: reports retain exact known codec failures and stages without accepting arbitrary error metadata
 ok 184 - reports retain exact known codec failures and stages without accepting arbitrary error metadata
   ---
-  duration_ms: 0.312693
+  duration_ms: 0.38723
   ...
 # Subtest: a missing frame counter is reported as unavailable, distinct from confirmed zero
 ok 185 - a missing frame counter is reported as unavailable, distinct from confirmed zero
   ---
-  duration_ms: 0.196943
+  duration_ms: 0.214093
   ...
 # Subtest: range-read failures are distinguishable without exposing the provider address
 ok 186 - range-read failures are distinguishable without exposing the provider address
   ---
-  duration_ms: 0.13362
+  duration_ms: 0.152668
   ...
 # Subtest: diagnostics bound repeated buffering events and expose real playback quality
 ok 187 - diagnostics bound repeated buffering events and expose real playback quality
   ---
-  duration_ms: 0.55762
+  duration_ms: 0.59208
   ...
 # Subtest: codec and stage evidence survives a terminal engine failure for the playback report
 ok 188 - codec and stage evidence survives a terminal engine failure for the playback report
   ---
-  duration_ms: 1.231942
+  duration_ms: 1.433633
   ...
 # Subtest: failover advances once per failure and skips ineligible sources
 ok 189 - failover advances once per failure and skips ineligible sources
   ---
-  duration_ms: 0.637256
+  duration_ms: 0.722893
   ...
 # Subtest: automatic failover is capped and can never loop
 ok 190 - automatic failover is capped and can never loop
   ---
-  duration_ms: 0.238931
+  duration_ms: 0.220961
   ...
 # Subtest: a session started the way Astra starts one never advances by itself
 ok 191 - a session started the way Astra starts one never advances by itself
   ---
-  duration_ms: 0.181888
+  duration_ms: 0.194953
   ...
 # Subtest: failover is off unless a caller explicitly opts in
 ok 192 - failover is off unless a caller explicitly opts in
   ---
-  duration_ms: 0.203978
+  duration_ms: 0.25174
   ...
 # Subtest: failover can be turned off
 ok 193 - failover can be turned off
   ---
-  duration_ms: 0.19941
+  duration_ms: 0.218
   ...
 # Subtest: stale events from attempt A cannot fail or mutate attempt B
 ok 194 - stale events from attempt A cannot fail or mutate attempt B
   ---
-  duration_ms: 0.212831
+  duration_ms: 0.232945
   ...
 # Subtest: a startup timeout fails the attempt and moves on
 ok 195 - a startup timeout fails the attempt and moves on
   ---
-  duration_ms: 0.185492
+  duration_ms: 0.197867
   ...
 # Subtest: ready replaces the startup deadline with a bounded playback deadline
 ok 196 - ready replaces the startup deadline with a bounded playback deadline
   ---
-  duration_ms: 0.294639
+  duration_ms: 0.307495
   ...
 # Subtest: after meaningful playback a failure never auto-switches
 ok 197 - after meaningful playback a failure never auto-switches
   ---
-  duration_ms: 0.412265
+  duration_ms: 0.421791
   ...
 # Subtest: the resume position survives an automatic switch
 ok 198 - the resume position survives an automatic switch
   ---
-  duration_ms: 0.171148
+  duration_ms: 0.186474
   ...
 # Subtest: the resume position survives an explicit switch after real playback
 ok 199 - the resume position survives an explicit switch after real playback
   ---
-  duration_ms: 0.122216
+  duration_ms: 0.132735
   ...
 # Subtest: an explicit retry re-runs the source in flight
 ok 200 - an explicit retry re-runs the source in flight
   ---
-  duration_ms: 0.093174
+  duration_ms: 0.106045
   ...
 # Subtest: retry from the error card re-runs the source that failed
 ok 201 - retry from the error card re-runs the source that failed
   ---
-  duration_ms: 0.072698
+  duration_ms: 0.082656
   ...
 # Subtest: the failure that triggered a failover is visible while the next source starts
 ok 202 - the failure that triggered a failover is visible while the next source starts
   ---
-  duration_ms: 0.071996
+  duration_ms: 0.081708
   ...
 # Subtest: choosing a specific source overrides the automatic order
 ok 203 - choosing a specific source overrides the automatic order
   ---
-  duration_ms: 0.104676
+  duration_ms: 0.098214
   ...
 # Subtest: cancel invalidates timers and every pending callback
 ok 204 - cancel invalidates timers and every pending callback
   ---
-  duration_ms: 0.137979
+  duration_ms: 0.164293
   ...
 # Subtest: a session with nothing playable reports exhausted instead of starting
 ok 205 - a session with nothing playable reports exhausted instead of starting
   ---
-  duration_ms: 0.058997
+  duration_ms: 0.070629
   ...
 # Subtest: failures are classified into actionable categories
 ok 206 - failures are classified into actionable categories
   ---
-  duration_ms: 0.148414
+  duration_ms: 0.158167
   ...
 # Subtest: the attempt callback receives the resume position and a unique id
 ok 207 - the attempt callback receives the resume position and a unique id
   ---
-  duration_ms: 0.109901
+  duration_ms: 0.11488
   ...
 # Subtest: an attempt that rejects asynchronously is reported as a failure
 ok 208 - an attempt that rejects asynchronously is reported as a failure
   ---
-  duration_ms: 6.788679
+  duration_ms: 8.414554
   ...
 # Subtest: an explicitly chosen source plays even when it is auto-ineligible
 ok 209 - an explicitly chosen source plays even when it is auto-ineligible
   ---
-  duration_ms: 0.175652
+  duration_ms: 0.179947
   ...
 # Subtest: repeated ready and buffering events cannot hide a frozen source
 ok 210 - repeated ready and buffering events cannot hide a frozen source
   ---
-  duration_ms: 0.333624
+  duration_ms: 0.434776
   ...
 # Subtest: only actual playback advancement renews the stall budget
 ok 211 - only actual playback advancement renews the stall budget
   ---
-  duration_ms: 0.181246
+  duration_ms: 0.210398
   ...
 # Subtest: pausing suspends the watchdog and resuming starts a fresh budget
 ok 212 - pausing suspends the watchdog and resuming starts a fresh budget
   ---
-  duration_ms: 0.097519
+  duration_ms: 0.136619
   ...
 # Subtest: an autoplay-blocked but ready video does not get a false timeout
 ok 213 - an autoplay-blocked but ready video does not get a false timeout
   ---
-  duration_ms: 0.103479
+  duration_ms: 0.097604
   ...
 # Subtest: a seek gets a separate deadline and seek progress cannot reset it
 ok 214 - a seek gets a separate deadline and seek progress cannot reset it
   ---
-  duration_ms: 0.113919
+  duration_ms: 0.108361
   ...
 # Subtest: a completed seek returns to the normal watchdog without a stale deadline
 ok 215 - a completed seek returns to the normal watchdog without a stale deadline
   ---
-  duration_ms: 0.082647
+  duration_ms: 0.088268
   ...
 # Subtest: seeking a paused video waits for the viewer to resume
 ok 216 - seeking a paused video waits for the viewer to resume
   ---
-  duration_ms: 0.073203
+  duration_ms: 0.075712
   ...
 # Subtest: ended and cancelled playback release the watchdog
 ok 217 - ended and cancelled playback release the watchdog
   ---
-  duration_ms: 0.139121
+  duration_ms: 0.129398
   ...
 # Subtest: superseded playback timers and media events cannot fail a replacement
 ok 218 - superseded playback timers and media events cannot fail a replacement
   ---
-  duration_ms: 0.087476
+  duration_ms: 0.09375
   ...
 # Subtest: starting an active session again does not silently pick a different source
 ok 219 - starting an active session again does not silently pick a different source
   ---
-  duration_ms: 0.073584
+  duration_ms: 0.082418
   ...
 # Subtest: delayed timeupdate events do not fail media that continued playing in the background
 ok 220 - delayed timeupdate events do not fail media that continued playing in the background
   ---
-  duration_ms: 0.156812
+  duration_ms: 0.1785
   ...
 # Subtest: a delayed pause or ended event is reconciled before a timeout
 ok 221 - a delayed pause or ended event is reconciled before a timeout
   ---
-  duration_ms: 0.109064
+  duration_ms: 0.120537
   ...
 # Subtest: paused metadata events during attachment cannot cancel the startup deadline
 ok 222 - paused metadata events during attachment cannot cancel the startup deadline
   ---
-  duration_ms: 0.072729
+  duration_ms: 0.084413
   ...
 # Subtest: episodes order by season and episode, not array position
 ok 223 - episodes order by season and episode, not array position
   ---
-  duration_ms: 1.181427
+  duration_ms: 1.272408
   ...
 # Subtest: episode 10 sorts after episode 2, not lexicographically
 ok 224 - episode 10 sorts after episode 2, not lexicographically
   ---
-  duration_ms: 0.240682
+  duration_ms: 0.256936
   ...
 # Subtest: videos with no metadata at all keep their original order
 ok 225 - videos with no metadata at all keep their original order
   ---
-  duration_ms: 0.123481
+  duration_ms: 0.139875
   ...
 # Subtest: ordering tolerates malformed video lists
 ok 226 - ordering tolerates malformed video lists
   ---
-  duration_ms: 0.129798
+  duration_ms: 0.122139
   ...
 # Subtest: next and previous follow chronological order
 ok 227 - next and previous follow chronological order
   ---
-  duration_ms: 0.773298
+  duration_ms: 0.781964
   ...
 # Subtest: continue picks the last incomplete episode
 ok 228 - continue picks the last incomplete episode
   ---
-  duration_ms: 0.218901
+  duration_ms: 0.232762
   ...
 # Subtest: a completed episode advances to the next chronological episode
 ok 229 - a completed episode advances to the next chronological episode
   ---
-  duration_ms: 0.150177
+  duration_ms: 0.192029
   ...
 # Subtest: with no history continue starts at the first episode
 ok 230 - with no history continue starts at the first episode
   ---
-  duration_ms: 0.178134
+  duration_ms: 0.198366
   ...
 # Subtest: finishing the last entry stays put instead of wrapping around
 ok 231 - finishing the last entry stays put instead of wrapping around
   ---
-  duration_ms: 0.346489
+  duration_ms: 0.343139
   ...
 # Subtest: only real series get episode controls
 ok 232 - only real series get episode controls
   ---
-  duration_ms: 0.394755
+  duration_ms: 0.439025
   ...
 # Subtest: episode labels read correctly with partial metadata
 ok 233 - episode labels read correctly with partial metadata
   ---
-  duration_ms: 0.165874
+  duration_ms: 0.177572
   ...
 # Subtest: long series can be searched by title, episode number, or compact code
 ok 234 - long series can be searched by title, episode number, or compact code
   ---
-  duration_ms: 0.395036
+  duration_ms: 0.491403
   ...
 # Subtest: episode search preserves canonical input order and tolerates empty data
 ok 235 - episode search preserves canonical input order and tolerates empty data
   ---
-  duration_ms: 0.144499
+  duration_ms: 0.173977
   ...
 # Subtest: the autoplay countdown ticks down and then fires once
 ok 236 - the autoplay countdown ticks down and then fires once
   ---
-  duration_ms: 0.273358
+  duration_ms: 0.357409
   ...
 # Subtest: cancelling the countdown stops it permanently
 ok 237 - cancelling the countdown stops it permanently
   ---
-  duration_ms: 0.133125
+  duration_ms: 0.16146
   ...
 # Subtest: a cancelled countdown cannot be forced to finish
 ok 238 - a cancelled countdown cannot be forced to finish
   ---
-  duration_ms: 0.083502
+  duration_ms: 0.098268
   ...
 # Subtest: Play now starts the next episode immediately and only once
 ok 239 - Play now starts the next episode immediately and only once
   ---
-  duration_ms: 0.0691
+  duration_ms: 0.085354
   ...
 # Subtest: a finale never advances into specials or unannotated extras
 ok 240 - a finale never advances into specials or unannotated extras
   ---
-  duration_ms: 0.105463
+  duration_ms: 0.149023
   ...
 # Subtest: resume never proposes a special after a completed finale
 ok 241 - resume never proposes a special after a completed finale
   ---
-  duration_ms: 0.096024
+  duration_ms: 0.120476
   ...
 # Subtest: specials are never part of previous or next episode navigation
 ok 242 - specials are never part of previous or next episode navigation
   ---
-  duration_ms: 0.104481
+  duration_ms: 0.099713
   ...
 # Subtest: canonical episodes require an episode number
 ok 243 - canonical episodes require an episode number
   ---
-  duration_ms: 0.080948
+  duration_ms: 0.089763
   ...
 # Subtest: series videos are separated without hiding specials and extras
 ok 244 - series videos are separated without hiding specials and extras
   ---
-  duration_ms: 0.119297
+  duration_ms: 0.13949
   ...
 # Subtest: empty header hints do not require a proxy or fetch player
 ok 245 - empty header hints do not require a proxy or fetch player
   ---
-  duration_ms: 0.550392
+  duration_ms: 0.660827
   ...
 # Subtest: browser-settable addon credentials and custom headers are usable
 ok 246 - browser-settable addon credentials and custom headers are usable
   ---
-  duration_ms: 1.244004
+  duration_ms: 1.182106
   ...
 # Subtest: segment origins never inherit addon credentials, including from earlier init objects
 ok 247 - segment origins never inherit addon credentials, including from earlier init objects
   ---
-  duration_ms: 0.339352
+  duration_ms: 0.3618
   ...
 # Subtest: demuxer range wins over a static addon range
 ok 248 - demuxer range wins over a static addon range
   ---
-  duration_ms: 0.196092
+  duration_ms: 0.221958
   ...
 # Subtest: browser-controlled and response-header requirements explain the server requirement
 ok 249 - browser-controlled and response-header requirements explain the server requirement
   ---
-  duration_ms: 0.453826
+  duration_ms: 0.549865
   ...
 # Subtest: malformed or unsafe headers fail without exposing values
 ok 250 - malformed or unsafe headers fail without exposing values
   ---
-  duration_ms: 0.311659
+  duration_ms: 0.35601
   ...
 # Subtest: defaults are safe and complete
 ok 251 - defaults are safe and complete
   ---
-  duration_ms: 0.904723
+  duration_ms: 0.926791
   ...
 # Subtest: the settings that only ranked or auto-started a source are gone
 ok 252 - the settings that only ranked or auto-started a source are gone
   ---
-  duration_ms: 0.145957
+  duration_ms: 0.153367
   ...
 # Subtest: migration keeps every existing value
 ok 253 - migration keeps every existing value
   ---
-  duration_ms: 0.16446
+  duration_ms: 0.170929
   ...
 # Subtest: invalid values are rejected and reported, not stored
 ok 254 - invalid values are rejected and reported, not stored
   ---
-  duration_ms: 0.137872
+  duration_ms: 0.144452
   ...
 # Subtest: unknown keys from an imported backup are dropped
 ok 255 - unknown keys from an imported backup are dropped
   ---
-  duration_ms: 0.101767
+  duration_ms: 0.109114
   ...
 # Subtest: a valid value next to an invalid one still survives
 ok 256 - a valid value next to an invalid one still survives
   ---
-  duration_ms: 0.068068
+  duration_ms: 0.070834
   ...
 # Subtest: language subtags are normalized and validated
 ok 257 - language subtags are normalized and validated
   ---
-  duration_ms: 0.171178
+  duration_ms: 0.185364
   ...
 # Subtest: non-object input cannot corrupt settings
 ok 258 - non-object input cannot corrupt settings
   ---
-  duration_ms: 0.113036
+  duration_ms: 0.150453
   ...
 # Subtest: migration is idempotent
 ok 259 - migration is idempotent
   ---
-  duration_ms: 0.255489
+  duration_ms: 0.275048
   ...
 # Subtest: extensionless manifest URLs use explicit MIME and filename hints
 ok 260 - extensionless manifest URLs use explicit MIME and filename hints
   ---
-  duration_ms: 4.280101
+  duration_ms: 4.553596
   ...
 # Subtest: usable request headers are attempted with the fetch player, empty hints remain native
 ok 261 - usable request headers are attempted with the fetch player, empty hints remain native
   ---
-  duration_ms: 1.270593
+  duration_ms: 1.487429
   ...
 # Subtest: every supported stream shape normalizes to the right kind
 ok 262 - every supported stream shape normalizes to the right kind
   ---
-  duration_ms: 1.056118
+  duration_ms: 1.130969
   ...
 # Subtest: structured facts are extracted from add-on titles
 ok 263 - structured facts are extracted from add-on titles
   ---
-  duration_ms: 0.276818
+  duration_ms: 0.239111
   ...
 # Subtest: the full release name stays visible instead of a generic provider label
 ok 264 - the full release name stays visible instead of a generic provider label
   ---
-  duration_ms: 0.163646
+  duration_ms: 0.140628
   ...
 # Subtest: anime-style episode numbers are matched conservatively
 ok 265 - anime-style episode numbers are matched conservatively
   ---
-  duration_ms: 0.210676
+  duration_ms: 0.205519
   ...
 # Subtest: series identity preserves exact filenames and distinguishes pack files
 ok 266 - series identity preserves exact filenames and distinguishes pack files
   ---
-  duration_ms: 0.303537
+  duration_ms: 0.260007
   ...
 # Subtest: the add-on's order is the order, exactly
 ok 267 - the add-on's order is the order, exactly
   ---
-  duration_ms: 0.604202
+  duration_ms: 0.787623
   ...
 # Subtest: no ranking surface is exported any more
 ok 268 - no ranking surface is exported any more
   ---
-  duration_ms: 0.609643
+  duration_ms: 0.654154
   ...
 # Subtest: malformed input still prepares without throwing
 ok 269 - malformed input still prepares without throwing
   ---
-  duration_ms: 0.578008
+  duration_ms: 0.739894
   ...
 # Subtest: a series pack mismatch is labelled, never hidden or moved
 ok 270 - a series pack mismatch is labelled, never hidden or moved
   ---
-  duration_ms: 0.252969
+  duration_ms: 0.316795
   ...
 # Subtest: the original stream object is preserved untouched
 ok 271 - the original stream object is preserved untouched
   ---
-  duration_ms: 0.104805
+  duration_ms: 0.132777
   ...
 # Subtest: malformed stream objects never throw and never look playable
 ok 272 - malformed stream objects never throw and never look playable
   ---
-  duration_ms: 1.302184
+  duration_ms: 1.404572
   ...
 # Subtest: unsafe and mixed-content sources are classified, not hidden
 ok 273 - unsafe and mixed-content sources are classified, not hidden
   ---
-  duration_ms: 0.565421
+  duration_ms: 0.144137
   ...
 # Subtest: http media on an http page is not treated as mixed content
 ok 274 - http media on an http page is not treated as mixed content
   ---
-  duration_ms: 0.139967
+  duration_ms: 0.095769
   ...
 # Subtest: sources needing another app or service are marked, not called unsupported
 ok 275 - sources needing another app or service are marked, not called unsupported
   ---
-  duration_ms: 0.190626
+  duration_ms: 0.183496
   ...
 # Subtest: adaptive sources depend on their runtime being available
 ok 276 - adaptive sources depend on their runtime being available
   ---
-  duration_ms: 0.141301
+  duration_ms: 0.134661
   ...
 # Subtest: content types are only built when they are reliable
 ok 277 - content types are only built when they are reliable
   ---
-  duration_ms: 0.113367
+  duration_ms: 0.117967
   ...
 # Subtest: every source carries a short explanation
 ok 278 - every source carries a short explanation
   ---
-  duration_ms: 0.318216
+  duration_ms: 0.316951
   ...
 # Subtest: MediaCapabilities refinement upgrades and downgrades without throwing
 ok 279 - MediaCapabilities refinement upgrades and downgrades without throwing
   ---
-  duration_ms: 0.395058
+  duration_ms: 0.410666
   ...
 # Subtest: evaluation never performs network requests
 ok 280 - evaluation never performs network requests
   ---
-  duration_ms: 0.393427
+  duration_ms: 0.478035
   ...
 # Subtest: a codec that cannot live in the container is not asserted
 ok 281 - a codec that cannot live in the container is not asserted
   ---
-  duration_ms: 0.150409
+  duration_ms: 0.158414
   ...
 # Subtest: a mislabelled but playable source is not declared unsupported
 ok 282 - a mislabelled but playable source is not declared unsupported
   ---
-  duration_ms: 0.109842
+  duration_ms: 0.121712
   ...
 # Subtest: MediaCapabilities is never asked about a bare container type
 ok 283 - MediaCapabilities is never asked about a bare container type
   ---
-  duration_ms: 0.226464
+  duration_ms: 0.246979
   ...
 # Subtest: a decodingInfo downgrade updates the verdict and its explanation, not the order
 ok 284 - a decodingInfo downgrade updates the verdict and its explanation, not the order
   ---
-  duration_ms: 0.205916
+  duration_ms: 0.216594
   ...
 # Subtest: an uppercase DV tag is recognised as Dolby Vision
 ok 285 - an uppercase DV tag is recognised as Dolby Vision
   ---
-  duration_ms: 0.149762
+  duration_ms: 0.158572
   ...
 # Subtest: the device probe describes the source's real workload
 ok 286 - the device probe describes the source's real workload
   ---
-  duration_ms: 0.268377
+  duration_ms: 0.269006
   ...
 # Subtest: workloads are resolution specific and monotonic
 ok 287 - workloads are resolution specific and monotonic
   ---
-  duration_ms: 0.099569
+  duration_ms: 0.095847
   ...
 # Subtest: a source with no known resolution is not probed at all
 ok 288 - a source with no known resolution is not probed at all
   ---
-  duration_ms: 0.12504
+  duration_ms: 0.131448
   ...
 # Subtest: MKV and negative browser hints still permit a real playback attempt
 ok 289 - MKV and negative browser hints still permit a real playback attempt
   ---
-  duration_ms: 0.196889
+  duration_ms: 0.25157
   ...
 # Subtest: tracks are de-duplicated and labelled by language
 ok 290 - tracks are de-duplicated and labelled by language
   ---
-  duration_ms: 1.339391
+  duration_ms: 1.341937
   ...
 # Subtest: three-letter language codes normalize to their two-letter form
 ok 291 - three-letter language codes normalize to their two-letter form
   ---
-  duration_ms: 0.159934
+  duration_ms: 0.159281
   ...
 # Subtest: SRT converts to VTT across the shapes add-ons actually serve
 ok 292 - SRT converts to VTT across the shapes add-ons actually serve
   ---
-  duration_ms: 0.389367
+  duration_ms: 0.393575
   ...
 # Subtest: SRT conversion tolerates junk without throwing
 ok 293 - SRT conversion tolerates junk without throwing
   ---
-  duration_ms: 0.192699
+  duration_ms: 0.209076
   ...
 # Subtest: generated object URLs are tracked and revoked on cleanup
 ok 294 - generated object URLs are tracked and revoked on cleanup
   ---
-  duration_ms: 1.510781
+  duration_ms: 0.932557
   ...
 # Subtest: a non-SRT track is used directly and generates no object URL
 ok 295 - a non-SRT track is used directly and generates no object URL
   ---
-  duration_ms: 0.283902
+  duration_ms: 0.157843
   ...
 # Subtest: a subtitle failure never fails playback
 ok 296 - a subtitle failure never fails playback
   ---
-  duration_ms: 0.411357
+  duration_ms: 0.307847
   ...
 # Subtest: an HTTP error response is treated as a failed subtitle, not a crash
 ok 297 - an HTTP error response is treated as a failed subtitle, not a crash
   ---
-  duration_ms: 0.170924
+  duration_ms: 0.222849
   ...
 # Subtest: tracks are not attached to a cancelled attempt
 ok 298 - tracks are not attached to a cancelled attempt
   ---
-  duration_ms: 0.595421
+  duration_ms: 0.614853
   ...
 # Subtest: the preferred subtitle language decides the default track
 ok 299 - the preferred subtitle language decides the default track
   ---
-  duration_ms: 0.648896
+  duration_ms: 0.354653
   ...
 # Subtest: selecting a text track shows one and disables the rest
 ok 300 - selecting a text track shows one and disables the rest
   ---
-  duration_ms: 0.301015
+  duration_ms: 0.251598
   ...
 # Subtest: track lists are capped so a flood of providers cannot bloat the menu
 ok 301 - track lists are capped so a flood of providers cannot bloat the menu
   ---
-  duration_ms: 1.061907
+  duration_ms: 0.993537
   ...
 # Subtest: two same-language providers stay individually selectable
 ok 302 - two same-language providers stay individually selectable
   ---
-  duration_ms: 0.426154
+  duration_ms: 0.3933
   ...
 # Subtest: language selection enables only the first matching track
 ok 303 - language selection enables only the first matching track
   ---
-  duration_ms: 0.096014
+  duration_ms: 0.083411
   ...
 # Subtest: a cross-origin caption is fetched and attached as a blob, even as WebVTT
 ok 304 - a cross-origin caption is fetched and attached as a blob, even as WebVTT
   ---
-  duration_ms: 0.363039
+  duration_ms: 0.348459
   ...
 # Subtest: a caption the instance will not return loses captions, never the video
 ok 305 - a caption the instance will not return loses captions, never the video
   ---
-  duration_ms: 0.197014
+  duration_ms: 0.180989
   ...
 # Subtest: media evidence distinguishes unavailable metrics from actual zero frames
 ok 306 - media evidence distinguishes unavailable metrics from actual zero frames
   ---
-  duration_ms: 0.84134
+  duration_ms: 0.848349
   ...
 # Subtest: advancing audio with confirmed missing picture produces one advisory and no media mutations
 ok 307 - advancing audio with confirmed missing picture produces one advisory and no media mutations
   ---
-  duration_ms: 0.83711
+  duration_ms: 0.851718
   ...
 # Subtest: missing picture waits for eight seconds of real playback at both supported speed extremes
 ok 308 - missing picture waits for eight seconds of real playback at both supported speed extremes
   ---
-  duration_ms: 0.309029
+  duration_ms: 0.32096
   ...
 # Subtest: paused, seeking, hidden, audio-only and buffering intervals cannot qualify
 ok 309 - paused, seeking, hidden, audio-only and buffering intervals cannot qualify
   ---
-  duration_ms: 2.794709
+  duration_ms: 2.656759
   ...
 # Subtest: unavailable counters or dimensions never become proof of missing picture
 ok 310 - unavailable counters or dimensions never become proof of missing picture
   ---
-  duration_ms: 1.355303
+  duration_ms: 1.339341
   ...
 # Subtest: positive dimensions or frame counts suppress the first-picture warning for the attempt
 ok 311 - positive dimensions or frame counts suppress the first-picture warning for the attempt
   ---
-  duration_ms: 0.553024
+  duration_ms: 0.61406
   ...
 # Subtest: seek jumps, long event gaps, stopped clocks and speed changes reset the observation window
 ok 312 - seek jumps, long event gaps, stopped clocks and speed changes reset the observation window
   ---
-  duration_ms: 1.016123
+  duration_ms: 1.102332
   ...
 # Subtest: a late first picture clears missing status without allowing repeated advisories
 ok 313 - a late first picture clears missing status without allowing repeated advisories
   ---
-  duration_ms: 0.243228
+  duration_ms: 0.24231
   ...
 # Subtest: the rendered failure card retries the same source after the engine has settled
 ok 314 - the rendered failure card retries the same source after the engine has settled
   ---
-  duration_ms: 6.161046
+  duration_ms: 7.51559
   ...
 # Subtest: a timed-out seek offers restarting from zero without repeating the stuck position
 ok 315 - a timed-out seek offers restarting from zero without repeating the stuck position
   ---
-  duration_ms: 3.517489
+  duration_ms: 3.91405
   ...
 # Subtest: expired stream recovery can request a fresh source list for the same episode
 ok 316 - expired stream recovery can request a fresh source list for the same episode
   ---
-  duration_ms: 2.736315
+  duration_ms: 3.218877
   ...
 # Subtest: stream lookups revalidate HTTP cache while catalogs keep normal caching
 ok 317 - stream lookups revalidate HTTP cache while catalogs keep normal caching
   ---
-  duration_ms: 1.31016
+  duration_ms: 1.476254
   ...
 # Subtest: the rendered failure card can return to the source picker
 ok 318 - the rendered failure card can return to the source picker
   ---
-  duration_ms: 2.825033
+  duration_ms: 3.24581
   ...
 # Subtest: the rendered failure card's close button is bound after replacing the media element
 ok 319 - the rendered failure card's close button is bound after replacing the media element
   ---
-  duration_ms: 3.32423
+  duration_ms: 3.735668
   ...
 # Subtest: external playback can read the failed source when the current attempt is gone
 ok 320 - external playback can read the failed source when the current attempt is gone
   ---
-  duration_ms: 2.659233
+  duration_ms: 2.821226
   ...
 # Subtest: a native decode failure repairs the same release automatically
 ok 321 - a native decode failure repairs the same release automatically
   ---
-  duration_ms: 2.719257
+  duration_ms: 2.924264
   ...
 # Subtest: a failed compatibility attempt does not repeatedly reopen itself
 ok 322 - a failed compatibility attempt does not repeatedly reopen itself
   ---
-  duration_ms: 2.857726
+  duration_ms: 3.70146
   ...
 # Subtest: failed audio preparation leaves the original video, playhead, and play state intact
 ok 323 - failed audio preparation leaves the original video, playhead, and play state intact
   ---
-  duration_ms: 3.569626
+  duration_ms: 3.786152
   ...
 # Subtest: successful audio preparation transfers its input once at the current playhead
 ok 324 - successful audio preparation transfers its input once at the current playhead
   ---
-  duration_ms: 2.659981
+  duration_ms: 3.007612
   ...
 # Subtest: seeking cancels pending audio repair and prevents an obsolete switch
 ok 325 - seeking cancels pending audio repair and prevents an obsolete switch
   ---
-  duration_ms: 2.627657
+  duration_ms: 3.024916
   ...
 # Subtest: audio preparation times out without interrupting native playback or trapping the controls
 ok 326 - audio preparation times out without interrupting native playback or trapping the controls
   ---
-  duration_ms: 2.779506
+  duration_ms: 3.011741
   ...
 # Subtest: a manual repair that fails after switching restores the same native source once
 ok 327 - a manual repair that fails after switching restores the same native source once
   ---
-  duration_ms: 2.594299
+  duration_ms: 2.848057
   ...
 # Subtest: readiness without playback does not discard manual repair restoration
 ok 328 - readiness without playback does not discard manual repair restoration
   ---
-  duration_ms: 2.569564
+  duration_ms: 2.619462
   ...
 # Subtest: explicit repair restoration preserves positions near the end while saved history can restart
 ok 329 - explicit repair restoration preserves positions near the end while saved history can restart
   ---
-  duration_ms: 0.762224
+  duration_ms: 0.928846
   ...
 # Subtest: closing before a queued repair prevents the old source from reopening
 ok 330 - closing before a queued repair prevents the old source from reopening
   ---
-  duration_ms: 2.606095
+  duration_ms: 2.665634
   ...
 # Subtest: failure unlocks controls and exposes its recovery state
 ok 331 - failure unlocks controls and exposes its recovery state
   ---
-  duration_ms: 3.134683
+  duration_ms: 3.785715
   ...
 # Subtest: a source connection failure does not start unnecessary format conversion
 ok 332 - a source connection failure does not start unnecessary format conversion
   ---
-  duration_ms: 2.502429
+  duration_ms: 2.704437
   ...
 # Subtest: YouTube keeps its own playback recovery instead of the file converter
 ok 333 - YouTube keeps its own playback recovery instead of the file converter
   ---
-  duration_ms: 2.510755
+  duration_ms: 2.755303
   ...
 # Subtest: a docked audio failure expands to an accessible recovery screen
 ok 334 - a docked audio failure expands to an accessible recovery screen
   ---
-  duration_ms: 2.611461
+  duration_ms: 2.660385
   ...
 # Subtest: a watched episode stores compact timing, never the series metadata
 ok 335 - a watched episode stores compact timing, never the series metadata
   ---
-  duration_ms: 1.74465
+  duration_ms: 1.984132
   ...
 # Subtest: 100 watched episodes of a 200-episode series stay far below the old footprint
 ok 336 - 100 watched episodes of a 200-episode series stay far below the old footprint
   ---
-  duration_ms: 14.568062
+  duration_ms: 18.293538
   ...
 # Subtest: storage stays bounded when a viewer watches more than the entry cap
 ok 337 - storage stays bounded when a viewer watches more than the entry cap
   ---
-  duration_ms: 5.280172
+  duration_ms: 4.246223
   ...
 # Subtest: continue watching survives a reload and keeps ordering
 ok 338 - continue watching survives a reload and keeps ordering
   ---
-  duration_ms: 0.484015
+  duration_ms: 0.515369
   ...
 # Subtest: a title can be removed from Continue Watching without clearing other history
 ok 339 - a title can be removed from Continue Watching without clearing other history
   ---
-  duration_ms: 0.361929
+  duration_ms: 0.376909
   ...
 # Subtest: finished, barely started and nearly finished items are excluded from continue watching
 ok 340 - finished, barely started and nearly finished items are excluded from continue watching
   ---
-  duration_ms: 0.191568
+  duration_ms: 0.173657
   ...
 # Subtest: writes are coalesced instead of serializing on every timeupdate
 ok 341 - writes are coalesced instead of serializing on every timeupdate
   ---
-  duration_ms: 0.368493
+  duration_ms: 0.536499
   ...
 # Subtest: a completed episode is flushed immediately
 ok 342 - a completed episode is flushed immediately
   ---
-  duration_ms: 0.13874
+  duration_ms: 0.238139
   ...
 # Subtest: a quota failure prunes history and retries instead of throwing
 ok 343 - a quota failure prunes history and retries instead of throwing
   ---
-  duration_ms: 1.69497
+  duration_ms: 1.936965
   ...
 # Subtest: an unrecoverable quota failure degrades to in-memory progress
 ok 344 - an unrecoverable quota failure degrades to in-memory progress
   ---
-  duration_ms: 0.505529
+  duration_ms: 0.528731
   ...
 # Subtest: storage blocked by the browser disables writes without breaking playback
 ok 345 - storage blocked by the browser disables writes without breaking playback
   ---
-  duration_ms: 0.250331
+  duration_ms: 0.2596
   ...
 # Subtest: legacy fat records are migrated to the compact shape on load
 ok 346 - legacy fat records are migrated to the compact shape on load
   ---
-  duration_ms: 36.779195
+  duration_ms: 36.313018
   ...
 # Subtest: unreadable or corrupt storage starts from an empty history
 ok 347 - unreadable or corrupt storage starts from an empty history
   ---
-  duration_ms: 0.432631
+  duration_ms: 0.176723
   ...
 # Subtest: compactMeta keeps only poster-card fields
 ok 348 - compactMeta keeps only poster-card fields
   ---
-  duration_ms: 0.152624
+  duration_ms: 0.252401
   ...
 # Subtest: YouTube routing survives a restart without storing delivery data
 ok 349 - YouTube routing survives a restart without storing delivery data
   ---
-  duration_ms: 0.703826
+  duration_ms: 0.370465
   ...
 # Subtest: older compact YouTube history regains provider identity when loaded
 ok 350 - older compact YouTube history regains provider identity when loaded
   ---
-  duration_ms: 0.110298
+  duration_ms: 0.115281
   ...
 # Subtest: a media id longer than the display limit round-trips through storage
 ok 351 - a media id longer than the display limit round-trips through storage
   ---
-  duration_ms: 0.15566
+  duration_ms: 0.186625
   ...
 # Subtest: video ids sharing a long prefix stay distinct
 ok 352 - video ids sharing a long prefix stay distinct
   ---
-  duration_ms: 0.138144
+  duration_ms: 0.187219
   ...
 # Subtest: legacy records with a long id migrate without losing their identity
 ok 353 - legacy records with a long id migrate without losing their identity
   ---
-  duration_ms: 0.112859
+  duration_ms: 0.148222
   ...
 # Subtest: oversized add-on strings cannot inflate stored metadata
 ok 354 - oversized add-on strings cannot inflate stored metadata
   ---
-  duration_ms: 0.049821
+  duration_ms: 0.085375
   ...
 # Subtest: the display-field cap does not apply to identity fields
 ok 355 - the display-field cap does not apply to identity fields
   ---
-  duration_ms: 0.039848
+  duration_ms: 0.055608
   ...
 # Subtest: invalid progress updates are ignored
 ok 356 - invalid progress updates are ignored
   ---
-  duration_ms: 0.10141
+  duration_ms: 0.126432
   ...
 # Subtest: backups round-trip through the store
 ok 357 - backups round-trip through the store
   ---
-  duration_ms: 0.135305
+  duration_ms: 0.232654
   ...
 # Subtest: the active visual tokens are defined once in the Gallery layer
 ok 358 - the active visual tokens are defined once in the Gallery layer
   ---
-  duration_ms: 2.453551
+  duration_ms: 3.293355
   ...
 # Subtest: global search copy names every supported content family
 ok 359 - global search copy names every supported content family
   ---
-  duration_ms: 0.438029
+  duration_ms: 0.549856
   ...
 # Subtest: the Gallery stylesheet cache key matches the visible app version
 ok 360 - the Gallery stylesheet cache key matches the visible app version
   ---
-  duration_ms: 0.326716
+  duration_ms: 0.346134
   ...
 # Subtest: one release placeholder owns every local shell asset cache key
 ok 361 - one release placeholder owns every local shell asset cache key
   ---
-  duration_ms: 0.451249
+  duration_ms: 0.495768
   ...
 # Subtest: the early bootstrap and application are external reviewable files
 ok 362 - the early bootstrap and application are external reviewable files
   ---
-  duration_ms: 0.916591
+  duration_ms: 1.058652
   ...
 # Subtest: Pure Cinema keeps a dark photography-first system with a restrained glass accent
 ok 363 - Pure Cinema keeps a dark photography-first system with a restrained glass accent
   ---
-  duration_ms: 1.82177
+  duration_ms: 2.193768
   ...
 # Subtest: Pure Cinema chrome is compact, icon-only, and visually distinct without labels
 ok 364 - Pure Cinema chrome is compact, icon-only, and visually distinct without labels
   ---
-  duration_ms: 0.342943
+  duration_ms: 0.430052
   ...
 # Subtest: Gallery keeps the supplied mobile-first breakpoint rhythm
 ok 365 - Gallery keeps the supplied mobile-first breakpoint rhythm
   ---
-  duration_ms: 0.272307
+  duration_ms: 0.275853
   ...
 # Subtest: the type ramp meets WCAG AA against the surfaces it is used on
 ok 366 - the type ramp meets WCAG AA against the surfaces it is used on
   ---
-  duration_ms: 0.835755
+  duration_ms: 0.990945
   ...
 # Subtest: the primary button and the signal are legible against each other
 ok 367 - the primary button and the signal are legible against each other
   ---
-  duration_ms: 0.289836
+  duration_ms: 0.334195
   ...
 # Subtest: touch targets are a token, not a per-component guess
 ok 368 - touch targets are a token, not a per-component guess
   ---
-  duration_ms: 0.470136
+  duration_ms: 0.497946
   ...
 # Subtest: keyboard focus is always visible, and never removed anywhere
 ok 369 - keyboard focus is always visible, and never removed anywhere
   ---
-  duration_ms: 0.317129
+  duration_ms: 0.325035
   ...
 # Subtest: the shell uses semantic landmarks, not a stack of divs
 ok 370 - the shell uses semantic landmarks, not a stack of divs
   ---
-  duration_ms: 0.083398
+  duration_ms: 0.086196
   ...
 # Subtest: safe areas are read from the platform once and used through tokens
 ok 371 - safe areas are read from the platform once and used through tokens
   ---
-  duration_ms: 0.182024
+  duration_ms: 0.203907
   ...
 # Subtest: reduced motion disables transitions rather than merely shortening them
 ok 372 - reduced motion disables transitions rather than merely shortening them
   ---
-  duration_ms: 0.140443
+  duration_ms: 0.655403
   ...
 # Subtest: nothing in the UI invents content, availability or telemetry
 ok 373 - nothing in the UI invents content, availability or telemetry
   ---
-  duration_ms: 2.165028
+  duration_ms: 6.154199
   ...
 # Subtest: a sector is only shown as populated when a provider exposes it
 ok 374 - a sector is only shown as populated when a provider exposes it
   ---
-  duration_ms: 0.189979
+  duration_ms: 0.255761
   ...
 # Subtest: podcasts and radio are gone from navigation and product scope
 ok 375 - podcasts and radio are gone from navigation and product scope
   ---
-  duration_ms: 0.415699
+  duration_ms: 0.4355
   ...
 # Subtest: YouTube plays natively, and no iframe or embed survives anywhere
 ok 376 - YouTube plays natively, and no iframe or embed survives anywhere
   ---
-  duration_ms: 1.405779
+  duration_ms: 1.509123
   ...
 # Subtest: this is not a PWA and does not pretend to be installable
 ok 377 - this is not a PWA and does not pretend to be installable
   ---
-  duration_ms: 0.563979
+  duration_ms: 1.139122
   ...
 # Subtest: no runtime framework and no unpinned remote script was introduced
 ok 378 - no runtime framework and no unpinned remote script was introduced
   ---
-  duration_ms: 1.3448
+  duration_ms: 3.101104
   ...
 # Subtest: content coverage reaches every content type, including future ones
 ok 379 - content coverage reaches every content type, including future ones
   ---
-  duration_ms: 0.231613
+  duration_ms: 0.293798
   ...
 # Subtest: settings is an information architecture, not one endless sheet
 ok 380 - settings is an information architecture, not one endless sheet
   ---
-  duration_ms: 0.97738
+  duration_ms: 1.018024
   ...
 # Subtest: every catalog names the add-on that published it
 ok 381 - every catalog names the add-on that published it
   ---
-  duration_ms: 0.171171
+  duration_ms: 0.180525
   ...
 # Subtest: hub rows keep their label and catalog detail on separate lines
 ok 382 - hub rows keep their label and catalog detail on separate lines
   ---
-  duration_ms: 0.079948
+  duration_ms: 0.104587
   ...
 # Subtest: opening a hub sector preserves its complete type mapping
 ok 383 - opening a hub sector preserves its complete type mapping
   ---
-  duration_ms: 0.118219
+  duration_ms: 0.129228
   ...
 # Subtest: the dossier states only fields the add-on actually returned
 ok 384 - the dossier states only fields the add-on actually returned
   ---
-  duration_ms: 0.170749
+  duration_ms: 0.17895
   ...
 # Subtest: the series browser keeps specials and extras out of the episode run
 ok 385 - the series browser keeps specials and extras out of the episode run
   ---
-  duration_ms: 0.415377
+  duration_ms: 0.411206
   ...
 # Subtest: source selection exposes reported audio and subtitle capabilities before playback
 ok 386 - source selection exposes reported audio and subtitle capabilities before playback
   ---
-  duration_ms: 0.266053
+  duration_ms: 0.354839
   ...
 # Subtest: modal icon buttons and switches expose names and live state
 ok 387 - modal icon buttons and switches expose names and live state
   ---
-  duration_ms: 1.169104
+  duration_ms: 1.261545
   ...
 # Subtest: Tonight is one real catalog title rather than a rotating billboard
 ok 388 - Tonight is one real catalog title rather than a rotating billboard
   ---
-  duration_ms: 0.635845
+  duration_ms: 0.673507
   ...
 # Subtest: Home orders Tonight before Continue Watching, then functional browse and provider shelves
 ok 389 - Home orders Tonight before Continue Watching, then functional browse and provider shelves
   ---
-  duration_ms: 0.257849
+  duration_ms: 0.241317
   ...
 # Subtest: every catalog card, including new releases, has resilient artwork
 ok 390 - every catalog card, including new releases, has resilient artwork
   ---
-  duration_ms: 1.857723
+  duration_ms: 1.970451
   ...
 # Subtest: motion is staged, tactile, and removed when the viewer requests it
 ok 391 - motion is staged, tactile, and removed when the viewer requests it
   ---
-  duration_ms: 0.157565
+  duration_ms: 0.163259
   ...
 # Subtest: the source picker leads with the full release name and never truncates the record
 ok 392 - the source picker leads with the full release name and never truncates the record
   ---
-  duration_ms: 0.335898
+  duration_ms: 0.329017
   ...
 # Subtest: the audio surface is a real surface, not a video player with the picture off
 ok 393 - the audio surface is a real surface, not a video player with the picture off
   ---
-  duration_ms: 0.419725
+  duration_ms: 0.405417
   ...
 # Subtest: every dead end offers the same explained way forward
 ok 394 - every dead end offers the same explained way forward
   ---
-  duration_ms: 0.236646
+  duration_ms: 0.23863
   ...
 # Subtest: the stylesheet is the only place raw colours are defined
 ok 395 - the stylesheet is the only place raw colours are defined
   ---
-  duration_ms: 17.456868
+  duration_ms: 21.278958
   ...
 # Subtest: a span used as a line is given the block box its styling assumes
 ok 396 - a span used as a line is given the block box its styling assumes
   ---
-  duration_ms: 7.892209
+  duration_ms: 11.100567
   ...
 # Subtest: the Continue Watching progress bar has a height to draw into
 ok 397 - the Continue Watching progress bar has a height to draw into
   ---
-  duration_ms: 0.125657
+  duration_ms: 0.15858
   ...
 # Subtest: a list operation always goes through the all-elements selector
 ok 398 - a list operation always goes through the all-elements selector
   ---
-  duration_ms: 0.380252
+  duration_ms: 0.452481
   ...
 # Subtest: mobile navigation is a floating capsule with safe-area clearance
 ok 399 - mobile navigation is a floating capsule with safe-area clearance
   ---
-  duration_ms: 0.122477
+  duration_ms: 0.148979
   ...
 # Subtest: episode and movie source selection opens an immediate independent drawer
 ok 400 - episode and movie source selection opens an immediate independent drawer
   ---
-  duration_ms: 0.396466
+  duration_ms: 0.459981
   ...
 # Subtest: a newer route generation invalidates and aborts the older one
 ok 401 - a newer route generation invalidates and aborts the older one
   ---
-  duration_ms: 0.822207
+  duration_ms: 0.897514
   ...
 # Subtest: route cleanup runs once in reverse registration order
 ok 402 - route cleanup runs once in reverse registration order
   ---
-  duration_ms: 0.627278
+  duration_ms: 0.637757
   ...
 # Subtest: cleanup registered after a route is stale runs immediately
 ok 403 - cleanup registered after a route is stale runs immediately
   ---
-  duration_ms: 0.163936
+  duration_ms: 0.165833
   ...
 # Subtest: supported clauses become explicit filters and leave a provider query
 ok 404 - supported clauses become explicit filters and leave a provider query
   ---
-  duration_ms: 1.966382
+  duration_ms: 2.280508
   ...
 # Subtest: genre, type, and runtime filters require evidence on the item
 ok 405 - genre, type, and runtime filters require evidence on the item
   ---
-  duration_ms: 0.708588
+  duration_ms: 0.789348
   ...
 # Subtest: removing a visible filter returns a clean query
 ok 406 - removing a visible filter returns a clean query
   ---
-  duration_ms: 0.222666
+  duration_ms: 0.232101
   ...
 # Subtest: unsupported natural language remains in the provider query
 ok 407 - unsupported natural language remains in the provider query
   ---
-  duration_ms: 0.11537
+  duration_ms: 0.122188
   ...
 # Subtest: a pasted YouTube URL is never rewritten as natural language
 ok 408 - a pasted YouTube URL is never rewritten as natural language
   ---
-  duration_ms: 0.152219
+  duration_ms: 0.150854
   ...
 # Subtest: software playback uses the decoder timeline, preserves pause and restores media properties on close
 ok 409 - software playback uses the decoder timeline, preserves pause and restores media properties on close
   ---
-  duration_ms: 7.238004
+  duration_ms: 5.887752
   ...
 # Subtest: software preparation can be disposed before it ever replaces native playback
 ok 410 - software preparation can be disposed before it ever replaces native playback
   ---
-  duration_ms: 0.782993
+  duration_ms: 0.802676
   ...
 # Subtest: real software test option bypasses WebCodecs as well as MSE
 ok 411 - real software test option bypasses WebCodecs as well as MSE
   ---
-  duration_ms: 0.74286
+  duration_ms: 0.777464
   ...
 # Subtest: range loader supports exact seeks without rereading or mixing bytes
 ok 412 - range loader supports exact seeks without rereading or mixing bytes
   ---
-  duration_ms: 3.485129
+  duration_ms: 3.738141
   ...
 # Subtest: range loader rejects a server returning the wrong bytes
 ok 413 - range loader rejects a server returning the wrong bytes
   ---
-  duration_ms: 0.952689
+  duration_ms: 1.065555
   ...
 # Subtest: a partial response without exposed size does not become a false EOF
 ok 414 - a partial response without exposed size does not become a false EOF
   ---
-  duration_ms: 1.275227
+  duration_ms: 1.263784
   ...
 # Subtest: custom headers stay scoped to their original origin and cannot follow redirects
 ok 415 - custom headers stay scoped to their original origin and cannot follow redirects
   ---
-  duration_ms: 1.620321
+  duration_ms: 1.665044
   ...
 # Subtest: default and reset preserve the exact supplied order without mutation
 ok 416 - default and reset preserve the exact supplied order without mutation
   ---
-  duration_ms: 1.151892
+  duration_ms: 1.575325
   ...
 # Subtest: provider identity survives duplicate names and filters preserve relative order
 ok 417 - provider identity survives duplicate names and filters preserve relative order
   ---
-  duration_ms: 0.225079
+  duration_ms: 0.251047
   ...
 # Subtest: explicit sorts are stable, keep unknown sizes last and never change candidates
 ok 418 - explicit sorts are stable, keep unknown sizes last and never change candidates
   ---
-  duration_ms: 0.245761
+  duration_ms: 0.296435
   ...
 # Subtest: a YouTube item's Astra id is youtube:VIDEO_ID and nothing else
 ok 419 - a YouTube item's Astra id is youtube:VIDEO_ID and nothing else
   ---
-  duration_ms: 1.582819
+  duration_ms: 0.858486
   ...
 # Subtest: a pasted YouTube link resolves to the one video it names
 ok 420 - a pasted YouTube link resolves to the one video it names
   ---
-  duration_ms: 0.509039
+  duration_ms: 0.538518
   ...
 # Subtest: every field is re-derived, and descriptionHtml is never read
 ok 421 - every field is re-derived, and descriptionHtml is never read
   ---
-  duration_ms: 0.440272
+  duration_ms: 0.438173
   ...
 # Subtest: a hostile instance response cannot fake layout or reach a <video src>
 ok 422 - a hostile instance response cannot fake layout or reach a <video src>
   ---
-  duration_ms: 0.198485
+  duration_ms: 0.190794
   ...
 # Subtest: a URL is only trusted for what its origin entitles it to
 ok 423 - a URL is only trusted for what its origin entitles it to
   ---
-  duration_ms: 0.324616
+  duration_ms: 0.408468
   ...
 # Subtest: a result row is classified by what it actually is
 ok 424 - a result row is classified by what it actually is
   ---
-  duration_ms: 0.370068
+  duration_ms: 0.401072
   ...
 # Subtest: a format is read for its codec, height and container, or discarded
 ok 425 - a format is read for its codec, height and container, or discarded
   ---
-  duration_ms: 0.437288
+  duration_ms: 0.454726
   ...
 # Subtest: search returns normalized items and names the instance that answered
 ok 426 - search returns normalized items and names the instance that answered
   ---
-  duration_ms: 2.077393
+  duration_ms: 2.436271
   ...
 # Subtest: an empty query never becomes a request
 ok 427 - an empty query never becomes a request
   ---
-  duration_ms: 0.332095
+  duration_ms: 0.373184
   ...
 # Subtest: video resolution can be pinned to a dedicated playback manager
 ok 428 - video resolution can be pinned to a dedicated playback manager
   ---
-  duration_ms: 1.278803
+  duration_ms: 2.109473
   ...
 # Subtest: a repeated request is served from cache, not from the network
 ok 429 - a repeated request is served from cache, not from the network
   ---
-  duration_ms: 0.545897
+  duration_ms: 0.587102
   ...
 # Subtest: two concurrent callers share one request
 ok 430 - two concurrent callers share one request
   ---
-  duration_ms: 5.249693
+  duration_ms: 5.989571
   ...
 # Subtest: cancelling one caller does not cancel the other
 ok 431 - cancelling one caller does not cancel the other
   ---
-  duration_ms: 1.207559
+  duration_ms: 2.405829
   ...
 # Subtest: cancelling the last caller aborts the request in flight
 ok 432 - cancelling the last caller aborts the request in flight
   ---
-  duration_ms: 1.932794
+  duration_ms: 0.970204
   ...
 # Subtest: a video record carries every format, caption and manifest the plan needs
 ok 433 - a video record carries every format, caption and manifest the plan needs
   ---
-  duration_ms: 0.830879
+  duration_ms: 2.42914
   ...
 # Subtest: an id the API could never answer for is rejected before any request
 ok 434 - an id the API could never answer for is rejected before any request
   ---
-  duration_ms: 0.432418
+  duration_ms: 0.392693
   ...
 # Subtest: a video record with no video id is a malformed response, not a video
 ok 435 - a video record with no video id is a malformed response, not a video
   ---
-  duration_ms: 0.680458
+  duration_ms: 0.694184
   ...
 # Subtest: a forgotten video is resolved again rather than replayed
 ok 436 - a forgotten video is resolved again rather than replayed
   ---
-  duration_ms: 0.734015
+  duration_ms: 0.761365
   ...
 # Subtest: the cache is bounded, so a long session cannot accumulate video records
 ok 437 - the cache is bounded, so a long session cannot accumulate video records
   ---
-  duration_ms: 20.622266
+  duration_ms: 21.479321
   ...
 # Subtest: a search that has to fail over still returns a usable result
 ok 438 - a search that has to fail over still returns a usable result
   ---
-  duration_ms: 0.535633
+  duration_ms: 0.642578
   ...
 # Subtest: a dead primary instance does not break the feature
 ok 439 - a dead primary instance does not break the feature
   ---
-  duration_ms: 0.437389
+  duration_ms: 0.590569
   ...
 # Subtest: the private instance is empty in the repository and validated when set
 ok 440 - the private instance is empty in the repository and validated when set
   ---
-  duration_ms: 1.054748
+  duration_ms: 1.084814
   ...
 # Subtest: configuration is clamped, deduplicated and frozen
 ok 441 - configuration is clamped, deduplicated and frozen
   ---
-  duration_ms: 0.776281
+  duration_ms: 0.756921
   ...
 # Subtest: adaptive playback is on for our own server and off for a stranger's
 ok 442 - adaptive playback is on for our own server and off for a stranger's
   ---
-  duration_ms: 0.475077
+  duration_ms: 0.386048
   ...
 # Subtest: the private instance always leads the candidate list
 ok 443 - the private instance always leads the candidate list
   ---
-  duration_ms: 0.20694
+  duration_ms: 0.183175
   ...
 # Subtest: the shipped pool leads with Piped, because that is what answers
 ok 444 - the shipped pool leads with Piped, because that is what answers
   ---
-  duration_ms: 0.215288
+  duration_ms: 0.218809
   ...
 # Subtest: only the owner's own choices are persisted
 ok 445 - only the owner's own choices are persisted
   ---
-  duration_ms: 0.168446
+  duration_ms: 0.163395
   ...
 # Subtest: a request goes to the private instance first and pins it for the session
 ok 446 - a request goes to the private instance first and pins it for the session
   ---
-  duration_ms: 1.155937
+  duration_ms: 1.321967
   ...
 # Subtest: a failing instance is skipped, rested, and the request retried elsewhere
 ok 447 - a failing instance is skipped, rested, and the request retried elsewhere
   ---
-  duration_ms: 0.699292
+  duration_ms: 0.752711
   ...
 # Subtest: a rested instance recovers by itself once its cooldown elapses
 ok 448 - a rested instance recovers by itself once its cooldown elapses
   ---
-  duration_ms: 0.679808
+  duration_ms: 0.656464
   ...
 # Subtest: repeated failures rest an instance for longer, and a rate limit longest
 ok 449 - repeated failures rest an instance for longer, and a rate limit longest
   ---
-  duration_ms: 1.570067
+  duration_ms: 1.574736
   ...
 # Subtest: the attempt budget bounds a request, so failover cannot loop
 ok 450 - the attempt budget bounds a request, so failover cannot loop
   ---
-  duration_ms: 0.582347
+  duration_ms: 0.677704
   ...
 # Subtest: every instance resting fails fast rather than hammering them
 ok 451 - every instance resting fails fast rather than hammering them
   ---
-  duration_ms: 0.48722
+  duration_ms: 0.478139
   ...
 # Subtest: an owner-initiated reset clears every cooldown
 ok 452 - an owner-initiated reset clears every cooldown
   ---
-  duration_ms: 0.625381
+  duration_ms: 0.626176
   ...
 # Subtest: a timeout abandons the instance and moves on
 ok 453 - a timeout abandons the instance and moves on
   ---
-  duration_ms: 2003.129541
+  duration_ms: 2002.352333
   ...
 # Subtest: malformed JSON and a wrong shape are both the instance's fault
 ok 454 - malformed JSON and a wrong shape are both the instance's fault
   ---
-  duration_ms: 0.834026
+  duration_ms: 0.804317
   ...
 # Subtest: an unplayable video is the video's problem, so no instance is blamed
 ok 455 - an unplayable video is the video's problem, so no instance is blamed
   ---
-  duration_ms: 0.610873
+  duration_ms: 0.588027
   ...
 # Subtest: resolver failures with JSON error bodies still try a healthy fallback
 ok 456 - resolver failures with JSON error bodies still try a healthy fallback
   ---
-  duration_ms: 0.579879
+  duration_ms: 1.137944
   ...
 # Subtest: a caller's cancellation is not an instance failure
 ok 457 - a caller's cancellation is not an instance failure
   ---
-  duration_ms: 4.473824
+  duration_ms: 3.710978
   ...
 # Subtest: every HTTP failure maps onto a category with words behind it
 ok 458 - every HTTP failure maps onto a category with words behind it
   ---
-  duration_ms: 0.187591
+  duration_ms: 0.192199
   ...
 # Subtest: probing measures every instance in parallel without blocking work
 ok 459 - probing measures every instance in parallel without blocking work
   ---
-  duration_ms: 0.574839
+  duration_ms: 2.471438
   ...
 # Subtest: a stats response that is not an Invidious server is rejected
 ok 460 - a stats response that is not an Invidious server is rejected
   ---
-  duration_ms: 0.324742
+  duration_ms: 0.371401
   ...
 # Subtest: instance validation rejects accidentally nested URLs and retains local development hosts
 ok 461 - instance validation rejects accidentally nested URLs and retains local development hosts
   ---
-  duration_ms: 0.090535
+  duration_ms: 0.075464
   ...
 # Subtest: explicit retry tests a cooled server once, while normal requests and rapid retries stay bounded
 ok 462 - explicit retry tests a cooled server once, while normal requests and rapid retries stay bounded
   ---
-  duration_ms: 0.397786
+  duration_ms: 0.390621
   ...
 # Subtest: explicit retries respect a server rate limit
 ok 463 - explicit retries respect a server rate limit
   ---
-  duration_ms: 0.176873
+  duration_ms: 1.094539
   ...
 # Subtest: a video is identified by its watch path, because Piped sends no id
 ok 464 - a video is identified by its watch path, because Piped sends no id
   ---
-  duration_ms: 1.370767
+  duration_ms: 1.58317
   ...
 # Subtest: an HTML description becomes the paragraph, not the tags around it
 ok 465 - an HTML description becomes the paragraph, not the tags around it
   ---
-  duration_ms: 0.481873
+  duration_ms: 0.51117
   ...
 # Subtest: upload time is read in milliseconds and stored in seconds
 ok 466 - upload time is read in milliseconds and stored in seconds
   ---
-  duration_ms: 0.399329
+  duration_ms: 0.412572
   ...
 # Subtest: a Piped row normalizes into exactly the record the app already uses
 ok 467 - a Piped row normalizes into exactly the record the app already uses
   ---
-  duration_ms: 0.651921
+  duration_ms: 0.684254
   ...
 # Subtest: a result row is classified by type, and junk is dropped
 ok 468 - a result row is classified by type, and junk is dropped
   ---
-  duration_ms: 0.415201
+  duration_ms: 0.403988
   ...
 # Subtest: a format's MIME type and codec arrive separately and are rejoined
 ok 469 - a format's MIME type and codec arrive separately and are rejoined
   ---
-  duration_ms: 0.475215
+  duration_ms: 0.446225
   ...
 # Subtest: muxed streams become formatStreams and split ones become adaptiveFormats
 ok 470 - muxed streams become formatStreams and split ones become adaptiveFormats
   ---
-  duration_ms: 0.718201
+  duration_ms: 0.655506
   ...
 # Subtest: a caption or manifest from another origin is refused
 ok 471 - a caption or manifest from another origin is refused
   ---
-  duration_ms: 0.304901
+  duration_ms: 0.303889
   ...
 # Subtest: a Piped record produces a playable plan with no code path of its own
 ok 472 - a Piped record produces a playable plan with no code path of its own
   ---
-  duration_ms: 1.448386
+  duration_ms: 1.658611
   ...
 # Subtest: a live Piped broadcast plans as HLS
 ok 473 - a live Piped broadcast plans as HLS
   ---
-  duration_ms: 0.543108
+  duration_ms: 0.548561
   ...
 # Subtest: search asks each instance in the language that instance speaks
 ok 474 - search asks each instance in the language that instance speaks
   ---
-  duration_ms: 1.408157
+  duration_ms: 1.460013
   ...
 # Subtest: one logical request can cross protocols when an instance fails
 ok 475 - one logical request can cross protocols when an instance fails
   ---
-  duration_ms: 1.887805
+  duration_ms: 1.317232
   ...
 # Subtest: an instance answering with no streams has not resolved the video
 ok 476 - an instance answering with no streams has not resolved the video
   ---
-  duration_ms: 0.562157
+  duration_ms: 0.717245
   ...
 # Subtest: trending is read from the array Piped returns
 ok 477 - trending is read from the array Piped returns
   ---
-  duration_ms: 0.438014
+  duration_ms: 0.431896
   ...
 # Subtest: an operation Piped cannot serve skips it without spending an attempt
 ok 478 - an operation Piped cannot serve skips it without spending an attempt
   ---
-  duration_ms: 0.372842
+  duration_ms: 0.364273
   ...
 # Subtest: a progressive format is offered only when the browser says it can play it
 ok 479 - a progressive format is offered only when the browser says it can play it
   ---
-  duration_ms: 2.802645
+  duration_ms: 2.403148
   ...
 # Subtest: an adaptive rung needs a decodable video codec and a decodable audio one
 ok 480 - an adaptive rung needs a decodable video codec and a decodable audio one
   ---
-  duration_ms: 0.6591
+  duration_ms: 0.63483
   ...
 # Subtest: the quality ceiling is honoured, so a phone is never handed 4K
 ok 481 - the quality ceiling is honoured, so a phone is never handed 4K
   ---
-  duration_ms: 0.373739
+  duration_ms: 0.431456
   ...
 # Subtest: with our own server, adaptive leads and progressive stands behind it
 ok 482 - with our own server, adaptive leads and progressive stands behind it
   ---
-  duration_ms: 1.235536
+  duration_ms: 1.406468
   ...
 # Subtest: with only public fallbacks, nothing is routed through a stranger's server first
 ok 483 - with only public fallbacks, nothing is routed through a stranger's server first
   ---
-  duration_ms: 0.559933
+  duration_ms: 0.639403
   ...
 # Subtest: without Media Source Extensions there is no adaptive stream to offer
 ok 484 - without Media Source Extensions there is no adaptive stream to offer
   ---
-  duration_ms: 0.625189
+  duration_ms: 0.72833
   ...
 # Subtest: a live broadcast is HLS, and it leads unconditionally
 ok 485 - a live broadcast is HLS, and it leads unconditionally
   ---
-  duration_ms: 0.861248
+  duration_ms: 0.459843
   ...
 # Subtest: a video with nothing playable says so instead of offering an empty player
 ok 486 - a video with nothing playable says so instead of offering an empty player
   ---
-  duration_ms: 0.682674
+  duration_ms: 1.346539
   ...
 # Subtest: the ladder offers Auto plus only the heights that will really play
 ok 487 - the ladder offers Auto plus only the heights that will really play
   ---
-  duration_ms: 0.639317
+  duration_ms: 0.76624
   ...
 # Subtest: a quality is never advertised twice, and never below the useful floor
 ok 488 - a quality is never advertised twice, and never below the useful floor
   ---
-  duration_ms: 0.931643
+  duration_ms: 1.183564
   ...
 # Subtest: with no adaptive stream there is no Auto to be automatic about
 ok 489 - with no adaptive stream there is no Auto to be automatic about
   ---
-  duration_ms: 0.434805
+  duration_ms: 0.487714
   ...
 # Subtest: the active rung is identified by its variant and its representation
 ok 490 - the active rung is identified by its variant and its representation
   ---
-  duration_ms: 0.37513
+  duration_ms: 0.38932
   ...
 # Subtest: a signed Google URL is read for when it lapses; an instance URL does not
 ok 491 - a signed Google URL is read for when it lapses; an instance URL does not
   ---
-  duration_ms: 0.145555
+  duration_ms: 0.169054
   ...
 # Subtest: a plan is only called expired when a direct URL is genuinely near lapsing
 ok 492 - a plan is only called expired when a direct URL is genuinely near lapsing
   ---
-  duration_ms: 0.590092
+  duration_ms: 0.662033
   ...
 # Subtest: Astra relay leases expire even though they do not use Google's query key
 ok 493 - Astra relay leases expire even though they do not use Google's query key
   ---
-  duration_ms: 0.813745
+  duration_ms: 0.885511
   ...
 # Subtest: a variant becomes an ordinary Astra stream the existing pipeline understands
 ok 494 - a variant becomes an ordinary Astra stream the existing pipeline understands
   ---
-  duration_ms: 0.784985
+  duration_ms: 0.840684
   ...
 # Subtest: the shared stream normalizer classifies every YouTube variant correctly
 ok 495 - the shared stream normalizer classifies every YouTube variant correctly
   ---
-  duration_ms: 25.631362
+  duration_ms: 28.371779
   ...
 # Subtest: captions are marked for the fetch-and-attach path a cross-origin track needs
 ok 496 - captions are marked for the fetch-and-attach path a cross-origin track needs
   ---
-  duration_ms: 0.405589
+  duration_ms: 0.425092
   ...
 # Subtest: a codec string becomes the word the rest of the app reads
 ok 497 - a codec string becomes the word the rest of the app reads
   ---
-  duration_ms: 0.065926
+  duration_ms: 0.078754
   ...
 # Subtest: the provider modules ship and load before the app that uses them
 ok 498 - the provider modules ship and load before the app that uses them
   ---
-  duration_ms: 1.051167
+  duration_ms: 1.161443
   ...
 # Subtest: a YouTube item's Astra id is youtube:VIDEO_ID and cannot collide
 ok 499 - a YouTube item's Astra id is youtube:VIDEO_ID and cannot collide
   ---
-  duration_ms: 1.12569
+  duration_ms: 1.21015
   ...
 # Subtest: configuration lives in one module and is stored per browser
 ok 500 - configuration lives in one module and is stored per browser
   ---
-  duration_ms: 0.383589
+  duration_ms: 0.43147
   ...
 # Subtest: nothing YouTube-shaped runs during the app's first paint
 ok 501 - nothing YouTube-shaped runs during the app's first paint
   ---
-  duration_ms: 0.568609
+  duration_ms: 0.62918
   ...
 # Subtest: search is debounced, cancelled and answered as its own provider lane
 ok 502 - search is debounced, cancelled and answered as its own provider lane
   ---
-  duration_ms: 0.40119
+  duration_ms: 0.429144
   ...
 # Subtest: thumbnails are lazily loaded, escaped, and shaped like the artwork
 ok 503 - thumbnails are lazily loaded, escaped, and shaped like the artwork
   ---
-  duration_ms: 3.278344
+  duration_ms: 3.487719
   ...
 # Subtest: a YouTube video resolves into ordinary Astra streams, in the same picker
 ok 504 - a YouTube video resolves into ordinary Astra streams, in the same picker
   ---
-  duration_ms: 0.316626
+  duration_ms: 0.362301
   ...
 # Subtest: the ladder is one session, so a failed delivery falls to the next
 ok 505 - the ladder is one session, so a failed delivery falls to the next
   ---
-  duration_ms: 0.205791
+  duration_ms: 0.249647
   ...
 # Subtest: changing quality keeps the position, in place where it can and by seek where it cannot
 ok 506 - changing quality keeps the position, in place where it can and by seek where it cannot
   ---
-  duration_ms: 0.485103
+  duration_ms: 0.633954
   ...
 # Subtest: only qualities that will play are offered, and the active one is marked
 ok 507 - only qualities that will play are offered, and the active one is marked
   ---
-  duration_ms: 0.472916
+  duration_ms: 0.517065
   ...
 # Subtest: captions travel the existing subtitle path, marked for the fetch they need
 ok 508 - captions travel the existing subtitle path, marked for the fetch they need
   ---
-  duration_ms: 0.202478
+  duration_ms: 0.220609
   ...
 # Subtest: progress, Continue Watching and the library work on a YouTube item unchanged
 ok 509 - progress, Continue Watching and the library work on a YouTube item unchanged
   ---
-  duration_ms: 0.248828
+  duration_ms: 0.272213
   ...
 # Subtest: a failed playback link is re-resolved once, never in a loop
 ok 510 - a failed playback link is re-resolved once, never in a loop
   ---
-  duration_ms: 0.16423
+  duration_ms: 0.180096
   ...
 # Subtest: every failure ends in a MissionaryTube error, never a redirect to YouTube
 ok 511 - every failure ends in a MissionaryTube error, never a redirect to YouTube
   ---
-  duration_ms: 0.516399
+  duration_ms: 1.45482
   ...
 # Subtest: the settings screen owns the whole provider and stores no address in the repo
 ok 512 - the settings screen owns the whole provider and stores no address in the repo
   ---
-  duration_ms: 0.292599
+  duration_ms: 0.304792
   ...
 1..512
 # tests 512
@@ -2771,5 +2771,5 @@ ok 512 - the settings screen owns the whole provider and stores no address in th
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 2969.040504
+# duration_ms 3724.997519
 EXIT:1

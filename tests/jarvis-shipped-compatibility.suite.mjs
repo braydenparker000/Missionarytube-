@@ -438,18 +438,24 @@ test("shipped: audio crossing a video keyframe is trimmed before encoding to avo
   assert.ok(sample.numberOfFrames < crossingFrames, `trimmed ${sample.numberOfFrames} frames from ${crossingFrames} at ${sample.timestamp}`);
   encodedSamples.length = 0;
   const dropped = await repairPlan({ bytes, url: "https://media.example.test/trim-drop.mkv", startTime: 1, supports });
+  const capture = useSource({ bytes, supports });
+  const errors = [];
   const dropping = api.createAdapter({
     media: mediaElement(),
     url: "https://media.example.test/trim-drop.mkv",
     startTime: 1,
     autoplay: false,
-    prepared: { take: () => dropped.taken, dispose() {} }
+    prepared: { take: () => dropped.taken, dispose() {} },
+    onError: (error) => errors.push(error)
   });
-  const droppingAttach = dropping.attach();
-  await new Promise((resolve) => setTimeout(resolve, 400));
-  dropping.destroy();
-  await droppingAttach.catch(() => {});
+  await dropping.attach();
+  await Promise.race([
+    capture.completed,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`sample-drop remux did not finish (${errors.map((error) => error.detail).join("; ")})`)), 8000))
+  ]);
+  assert.ok(capture.chunks.length > 0, "processing finished and wrote muxed bytes before the encode count was read");
   assert.equal(encodedSamples.length, 0, "a sample that ends before the seek base is not encoded");
+  dropping.destroy();
 });
 
 test("shipped: an unsupported default audio track falls back to usable audio in the same file", async () => {
@@ -698,7 +704,16 @@ test("shipped: audio repair retries a transient request and transfers the real p
   assert.equal(requests, 2, "the transient failure used exactly one retry");
   const originalTake = prepared.take.bind(prepared);
   let taken;
-  prepared.take = () => { taken = originalTake(); return taken; };
+  let disposals = 0;
+  prepared.take = () => {
+    taken = originalTake();
+    const originalDispose = taken.input.dispose.bind(taken.input);
+    taken.input.dispose = () => {
+      disposals += 1;
+      return originalDispose();
+    };
+    return taken;
+  };
   const adapter = api.createAdapter({ media, url: "https://media.example.test/retry.mkv", startTime: 2.5, prepared, autoplay: false });
   try {
     await adapter.attach();
@@ -710,7 +725,11 @@ test("shipped: audio repair retries a transient request and transfers the real p
     assert.equal(media.plays, 0, "paused repairs stay paused");
     assert.ok(media.currentTime >= 2.5);
     assert.throws(() => prepared.take(), { name: "AbortError" });
+    assert.equal(disposals, 0, "the transferred input stays open while playback is using it");
   } finally { adapter.destroy(); }
+  assert.equal(disposals, 1, "the adapter released the transferred input");
+  adapter.destroy();
+  assert.equal(disposals, 1, "a repeated destroy does not release the transferred input again");
 });
 
 for (const phase of ["fetch", "body"]) {
@@ -761,6 +780,8 @@ test("shipped: prepared repair is disposed when abandoned or its adapter is dest
   assert.throws(() => abandoned.take(), { name: "AbortError" });
   const prepared = await api.prepareRepair({ url: "https://media.example.test/destroy-before.mkv" });
   const adapter = api.createAdapter({ media: mediaElement(), url: "https://media.example.test/destroy-before.mkv", prepared });
+  adapter.destroy();
+  assert.throws(() => prepared.take(), { name: "AbortError" });
   adapter.destroy();
   assert.throws(() => prepared.take(), { name: "AbortError" });
   await adapter.attach();

@@ -282,6 +282,9 @@ test("shipped direct interaction motion stays inside the 360ms release budget", 
         pointerType: "touch", clientX: 8, clientY: 8, bubbles: true, cancelable: true, isPrimary: true, button: 0, pointerId: 1
       }));
       AstraMotion.navigate({ from: "home", to: "library", update() {} });
+      button.dispatchEvent(new PointerEvent("pointerup", {
+        pointerType: "touch", clientX: 8, clientY: 8, bubbles: true, cancelable: true, isPrimary: true, button: 0, pointerId: 1
+      }));
       const seekRule = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules]).find((rule) => rule.selectorText === ".seek-feedback.show");
       const artRule = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules]).find((rule) => rule.selectorText === "::view-transition-group(astra-art)");
       return {
@@ -302,8 +305,8 @@ test("shipped direct interaction motion stays inside the 360ms release budget", 
     const pressScale = /^matrix\(/.test(settled.press) ? Number(settled.press.split(",")[0].slice(7)) : settled.press === "none" ? 1 : NaN;
     assert.ok(settled.page === "none" || Math.abs(translateX(settled.page)) < 0.5, `navigation release finishes within 360ms (${settled.page})`);
     assert.ok(
-      Math.abs(pressScale - 1) < 0.02 || Math.abs(pressScale - 0.972) < 0.02,
-      `the press response does not outlive the release budget (${settled.press})`
+      settled.press === "none" || Math.abs(pressScale - 1) < 0.02,
+      `releasing the pointer returns the control to idle within 360ms (${settled.press})`
     );
     assert.deepEqual(session.errors, []);
   } finally { await session.close(); }
@@ -318,23 +321,93 @@ test("shipped view-transition callbacks cannot reorder or stall visible state", 
   try {
     const result = await session.page.evaluate(async () => {
       const calls = [];
-      document.startViewTransition = (callback) => {
-        calls.push("open");
-        callback();
-        return { updateCallbackDone: new Promise(() => {}), finished: new Promise(() => {}) };
+      const held = [];
+      const hold = (label) => {
+        document.startViewTransition = (callback) => {
+          calls.push(label);
+          let resolveUpdated;
+          let resolveFinished;
+          const entry = {
+            label,
+            released: false,
+            updateCallbackDone: new Promise((resolve) => { resolveUpdated = resolve; }),
+            finished: new Promise((resolve) => { resolveFinished = resolve; }),
+            release() {
+              if (this.released) return;
+              this.released = true;
+              callback();
+              resolveUpdated();
+              resolveFinished();
+            }
+          };
+          held.push(entry);
+          return { updateCallbackDone: entry.updateCallbackDone, finished: entry.finished };
+        };
+      };
+      const waitForCommit = async (read) => {
+        const start = performance.now();
+        while (!read() && performance.now() - start < 1000) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        return read();
       };
       const art = document.createElement("div");
       art.className = "art";
       art.style.cssText = "position:fixed;top:20px;left:20px;width:80px;height:80px";
       document.body.append(art);
-      const opened = AstraMotion.sharedOpen({ source: art, update() { document.body.dataset.opened = "sync"; } });
-      const beforeFallback = document.body.dataset.opened || "";
-      await new Promise((resolve) => setTimeout(resolve, 180));
-      document.startViewTransition = () => { throw new Error("view transition rejected"); };
+
+      hold("open");
+      let opens = 0;
+      AstraMotion.sharedOpen({
+        source: art,
+        update() {
+          opens += 1;
+          document.body.dataset.phase = "open";
+        }
+      });
+      const opensBeforeTimeout = opens;
+      const openCommittedByTimeout = await waitForCommit(() => opens === 1);
+      const phaseAfterOpenTimeout = document.body.dataset.phase || "";
+      document.body.dataset.phase = "newer-than-open";
+      held[0].release();
+      await held[0].finished;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const opensAfterStale = opens;
+      const phaseAfterStaleOpen = document.body.dataset.phase || "";
+
       const poster = document.createElement("div");
       poster.className = "dossier-poster";
       poster.style.cssText = "position:fixed;top:30px;left:30px;width:90px;height:90px";
       document.body.append(poster);
+      hold("close");
+      let closes = 0;
+      const closed = AstraMotion.sharedClose({
+        target: poster,
+        update() {
+          closes += 1;
+          document.body.dataset.phase = "close";
+        }
+      });
+      const closesBeforeTimeout = closes;
+      const closeCommittedByTimeout = await waitForCommit(() => closes === 1);
+      document.body.dataset.phase = "newer-than-close";
+      const closeEntry = held[held.length - 1];
+      closeEntry.release();
+      await closeEntry.finished;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const closesAfterStale = closes;
+      const phaseAfterStaleClose = document.body.dataset.phase || "";
+
+      delete document.body.dataset.opened;
+      document.startViewTransition = (callback) => {
+        calls.push("open");
+        callback();
+        return { updateCallbackDone: new Promise(() => {}), finished: new Promise(() => {}) };
+      };
+      const opened = AstraMotion.sharedOpen({ source: art, update() { document.body.dataset.opened = "sync"; } });
+      const beforeFallback = document.body.dataset.opened || "";
+      await new Promise((resolve) => setTimeout(resolve, 180));
+      document.startViewTransition = () => { calls.push("rejected"); throw new Error("view transition rejected"); };
       let threw = false;
       try {
         AstraMotion.sharedOpen({ source: art, targetSelector: ".dossier-poster", update() { document.body.dataset.fallback = "ran"; } });
@@ -342,17 +415,38 @@ test("shipped view-transition callbacks cannot reorder or stall visible state", 
       AstraMotion.navigate({ from: "library", to: "home", update() { document.body.dataset.nav = "now"; } });
       return {
         calls,
+        opensBeforeTimeout,
+        openCommittedByTimeout,
+        opensAfterStale,
+        phaseAfterOpenTimeout,
+        phaseAfterStaleOpen,
+        closed,
+        closesBeforeTimeout,
+        closeCommittedByTimeout,
+        closesAfterStale,
+        phaseAfterStaleClose,
         beforeFallback,
         opened: await Promise.race([opened, Promise.resolve("pending")]),
-        afterFallback: document.body.dataset.opened || "",
         threw,
         rejectedUpdate: document.body.dataset.fallback || "",
         nav: document.body.dataset.nav || "",
         pointer: getComputedStyle(document.documentElement, "::view-transition").pointerEvents
       };
     });
+    assert.deepEqual(result.calls.slice(0, 2), ["open", "close"], "open and close each hand their callback to the snapshot");
+    assert.equal(result.opensBeforeTimeout, 0, "a held open callback does not commit before the timeout fallback");
+    assert.equal(result.openCommittedByTimeout, true, "the open timeout fallback commits the visible state");
+    assert.equal(result.phaseAfterOpenTimeout, "open");
+    assert.equal(result.opensAfterStale, 1, "open commits exactly once");
+    assert.equal(result.phaseAfterStaleOpen, "newer-than-open", "a stale open callback cannot reorder a newer visible state");
+    assert.equal(result.closed, true, "close starts while its callback is still held");
+    assert.equal(result.closesBeforeTimeout, 0, "a held close callback does not commit before the timeout fallback");
+    assert.equal(result.closeCommittedByTimeout, true, "the close timeout fallback commits the visible state");
+    assert.equal(result.closesAfterStale, 1, "close commits exactly once");
+    assert.equal(result.phaseAfterStaleClose, "newer-than-close", "a stale close callback cannot reorder a newer visible state");
     assert.equal(result.beforeFallback, "sync", "the open update is not left waiting on the snapshot callback");
     assert.ok(result.calls.includes("open"));
+    assert.equal(result.calls.filter((call) => call === "open").length, 2, "the immediate callback is invoked, not skipped because an older snapshot is still held");
     assert.equal(result.threw, false);
     assert.equal(result.rejectedUpdate, "ran", "a rejected view transition still commits the visible state");
     assert.equal(result.nav, "now");

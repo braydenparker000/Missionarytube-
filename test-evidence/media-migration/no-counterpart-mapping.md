@@ -1,5 +1,7 @@
 # 29 source-unit tests and their shipped-bundle status
 
+The qualification sort of these 29 names is `source-only-disposition.md`. Blockers that must clear are in `pending-and-discrepancies.md`. This file keeps the earlier per-clause notes.
+
 These 29 names still fail in `source-unit.txt` (512 tests, 483 pass, 29 fail, 0 skip, 0 todo). None are classified obsolete because the old source file is absent. The source command fails loudly if it would read the repo-root copy. `npm test` (unset `MEDIA_APP_ROOT`) still executes the source units against the root copy: 1117 pass, 0 fail (`npm-test.txt`). The shipped command is separate: 34 tests, 31 pass, 0 fail, 0 skip, 3 todo (`shipped.txt`).
 
 The migration is incomplete. The source-unit names still fail, and the clauses listed as unsupported-documented or pending below are not shipped-bundle passes.

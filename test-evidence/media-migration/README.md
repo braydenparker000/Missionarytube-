@@ -71,7 +71,7 @@ HEAD equality was not the only check. Porcelain was printed and had to be empty.
 | `npm run test:media-jarvis:shipped` (`shipped.txt`) | 34 | 31 | 0 | 0 | 3 |
 | Default `npm test` (root copy, not the migration) | 1117 | 1117 | 0 | 0 | 0 |
 
-The 29 source-unit failures still throw `Refusing to fall back to the repo-root copy`. They are not in the shipped command, so a missing `src/` path does not hide a shipped assertion. The shipped command's 3 todos are the unsupported clauses below. `npm run build` completed against `.jarvis-source` at the pin: 192 frontend files, 20.09 MiB (`npm-build.txt`). Root suite transcript: `npm-test.txt`. `dist/` is not part of this evidence.
+The 29 source-unit failures still throw `Refusing to fall back to the repo-root copy`. They are not in the shipped command, so a missing `src/` path does not hide a shipped assertion. Each of those 29 is sorted in `source-only-disposition.md`: 27 are kept by a named shipped test, and 2 still have a pending gap. The shipped command's 3 todos, the unsupported clauses, and the known discrepancies that block qualification are in `pending-and-discrepancies.md`. `npm run build` completed against `.jarvis-source` at the pin: 192 frontend files, 20.09 MiB (`npm-build.txt`). Root suite transcript: `npm-test.txt`. `dist/` is not part of this evidence.
 
 26 of the original 55 pass after the earlier harness fixes. The same 29 source-unit names still fail on the Jarvis run. Their shipped-bundle status is in `no-counterpart-mapping.md`.
 
@@ -84,6 +84,8 @@ The shipped command passes its runnable assertions. The source-unit command stil
 - At 390px, `.episode-nav-sticky` `backdrop-filter: none` inside `@media (max-width: 419px)` loses to a later rule of the same specificity, `saturate(180%) blur(20px)`. The mobile motion test records that computed blur. The `none` clause is a todo.
 
 `velocity >= 720` now has a shipped behavioral test. A slow 110px touch drag on an 800px-tall surface snaps back. The same distance, released immediately after the jump, dismisses. 110px is under the inlined distance threshold (`min(132, max(72, size * 0.24))`, which is 132 at that height).
+
+Four shipped assertions were tightened in this pass. None of their previous expectations were removed. The view-transition mock holds each callback: the 100ms timeout commits open and close, a later stale callback does not commit again, and each commits exactly once. An immediate callback still commits synchronously, and a rejected snapshot still commits. The press-budget test releases the pointer and requires the control to be idle after 360ms. The sample-drop case waits for `endOfStream` and non-empty muxed bytes before asserting zero encodes. The transferred input's `dispose` count is 1 after destroy and stays 1 after a second destroy.
 
 ## Commands recorded in this pass
 
@@ -118,4 +120,6 @@ npm run build
 - `originally-failing.txt`
 - `before-after.md`
 - `no-counterpart-mapping.md`
+- `source-only-disposition.md`
+- `pending-and-discrepancies.md`
 - `README.md`
