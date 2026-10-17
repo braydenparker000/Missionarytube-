@@ -37,3 +37,28 @@ jobs:
     uses: ./.github/workflows/qualify-jarvis.yml
     permissions:
       contents: read
+
+  daily-board-import-candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+          cache: npm
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker000/Missionarytube-
+          ref: 62ac633f367250ed21b3ecf7a4627263e9e07d9f
+          path: .daily-board-import-source
+          persist-credentials: false
+          fetch-depth: 0
+      - run: npm ci
+      - name: Install the pinned Worker source dependencies
+        run: npm ci
+        working-directory: .daily-board-import-source
+      - name: Reproduce deployed Worker and exact importer/cache candidates
+        run: node scripts/publications-import-release.mjs prepare
