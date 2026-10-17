@@ -17,6 +17,7 @@ on:
 permissions:
   contents: read
   actions: read
+  id-token: write
 concurrency:
   group: azure-production
   cancel-in-progress: false
@@ -59,6 +60,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: node scripts/publications-import-release.mjs preflight
+      - name: Validate every rollback file before preserving the artifact
+        run: node scripts/publications-import-release.mjs verify-backup
       - name: Preserve rollback bytes before either publication
         uses: actions/upload-artifact@v4
         with:

@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {BASELINE,CANDIDATE,SOURCE,checkedBaseline} from './publications-import-release.mjs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {BASELINE,CANDIDATE,SOURCE,checkedBaseline,checkedRollbackIdentity,checkedStaticPrewrite,planRollback,staticIfMatch,verifyRollbackFiles} from './publications-import-release.mjs';
 import {readFileSync} from 'node:fs';
 
 const sha=value=>createHash('sha256').update(value).digest('hex');
@@ -29,7 +31,53 @@ test('publication route is manual, main-only and preserves rollback before write
  assert.match(workflow,/default: false/);assert.match(workflow,/github\.ref == 'refs\/heads\/main'/);
  assert.ok(workflow.indexOf('Preserve rollback bytes before either publication')<workflow.indexOf('Publish pinned Worker and one cache asset'));
  assert.match(workflow,/vars\.AZURE_STORAGE_ACCOUNT == 'missionarytube'/);
+ const permissions=workflow.match(/permissions:\n((?:  [^\n]+\n)+)/)?.[1];
+ assert.equal(permissions,'  contents: read\n  actions: read\n  id-token: write\n');
+ const workspace=readFileSync('.github/workflows/publish-private-workspace.yml','utf8').match(/permissions:\n((?:  [^\n]+\n)+)/)?.[1];
+ assert.equal(permissions,workspace,'Use the existing Azure OIDC permission set');
+ assert.ok(workflow.indexOf('Validate every rollback file before preserving the artifact')<workflow.indexOf('Preserve rollback bytes before either publication'));
  const ci=readFileSync('.github/workflows/ci.yml','utf8');
  assert.match(ci,/daily-board-import-candidate:/);assert.match(ci,/ref: 62ac633f367250ed21b3ecf7a4627263e9e07d9f/);
  assert.match(ci,/node scripts\/publications-import-release\.mjs prepare/);
+});
+
+test('rollback preflight refuses an incomplete artifact before upload',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'publications-import-'));
+ try{
+  await writeFile(join(dir,'candidate.json'),'{}\n');await writeFile(join(dir,'checkpoint.json'),'{}\n');
+  await writeFile(join(dir,'worker-before.js'),'placeholder');
+  await assert.rejects(verifyRollbackFiles(dir));
+  await rm(join(dir,'worker-before.js'));await writeFile(join(dir,'cache-before.js'),'placeholder');
+  await assert.rejects(verifyRollbackFiles(dir));
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('static prewrite rejects changed bytes, changed ETag and missing ETag',()=>{
+ const snapshot={etag:'"etag-a"',bytes:10,sha256:CANDIDATE.cacheBeforeSha256};
+ assert.equal(checkedStaticPrewrite(snapshot,{expectedHash:CANDIDATE.cacheBeforeSha256,expectedEtag:'"etag-a"'}),snapshot);
+ assert.deepEqual(staticIfMatch(snapshot,{expectedHash:CANDIDATE.cacheBeforeSha256,expectedEtag:'"etag-a"'}),['--if-match','"etag-a"']);
+ assert.throws(()=>checkedStaticPrewrite({...snapshot,etag:'"etag-b"'},
+  {expectedHash:CANDIDATE.cacheBeforeSha256,expectedEtag:'"etag-a"'}));
+ assert.throws(()=>staticIfMatch({...snapshot,etag:'"etag-b"'},
+  {expectedHash:CANDIDATE.cacheBeforeSha256,expectedEtag:'"etag-a"'}));
+ assert.throws(()=>checkedStaticPrewrite({...snapshot,sha256:'foreign'},
+  {expectedHash:CANDIDATE.cacheBeforeSha256,expectedEtag:'"etag-a"'}));
+ assert.throws(()=>checkedStaticPrewrite({...snapshot,etag:''},
+  {expectedHash:CANDIDATE.cacheBeforeSha256,expectedEtag:'"etag-a"'}));
+});
+
+test('rollback accepts every baseline/candidate partial-write state and rejects foreign bytes',()=>{
+ for(const codeSha256 of [BASELINE.codeSha256,CANDIDATE.workerSha256]){
+  assert.equal(checkedRollbackIdentity({...BASELINE,codeSha256}).codeSha256,codeSha256);
+  assert.throws(()=>checkedRollbackIdentity({...BASELINE,codeSha256,settingsDigest:'drift'}));
+  assert.throws(()=>checkedRollbackIdentity({...BASELINE,codeSha256,schedulesDigest:'drift'}));
+ }
+ assert.deepEqual(planRollback(BASELINE.codeSha256,CANDIDATE.cacheBeforeSha256),{worker:'keep',cache:'keep'});
+ assert.deepEqual(planRollback(BASELINE.codeSha256,CANDIDATE.cacheSha256),{worker:'keep',cache:'restore'});
+ assert.deepEqual(planRollback(CANDIDATE.workerSha256,CANDIDATE.cacheBeforeSha256),{worker:'restore',cache:'keep'});
+ assert.deepEqual(planRollback(CANDIDATE.workerSha256,CANDIDATE.cacheSha256),{worker:'restore',cache:'restore'});
+ assert.throws(()=>planRollback('foreign',CANDIDATE.cacheSha256));
+ assert.throws(()=>planRollback(BASELINE.codeSha256,'foreign'));
+ // A second rollback attempt after either component was already restored is inert.
+ assert.deepEqual(planRollback(BASELINE.codeSha256,CANDIDATE.cacheBeforeSha256),{worker:'keep',cache:'keep'});
 });
