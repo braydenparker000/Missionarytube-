@@ -91,6 +91,18 @@ jobs:
           path: .jarvis-source
           persist-credentials: false
           fetch-depth: 0
+      - name: Fetch exact historical My Media comparison commit
+        if: ${{ matrix.component == 'frontend' }}
+        env:
+          JARVIS_TEST_BASELINE_SHA: 8c4f6de790b3e06cd78b11706dfa2c055174bbf1
+        run: |
+          checkout_head="$(git -C .jarvis-source rev-parse HEAD)"
+          git -C .jarvis-source fetch --no-tags https://github.com/braydenparker999/jarvis.git \
+            +refs/heads/fix/mymedia-count-clarity-qualified-20261010:refs/remotes/legacy/mymedia-count-clarity-qualified-20261010
+          fetched="$(git -C .jarvis-source rev-parse refs/remotes/legacy/mymedia-count-clarity-qualified-20261010)"
+          test "$fetched" = "$JARVIS_TEST_BASELINE_SHA"
+          test "$(git -C .jarvis-source rev-parse HEAD)" = "$checkout_head"
+          test -z "$(git -C .jarvis-source status --porcelain)"
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
