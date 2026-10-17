@@ -171,7 +171,8 @@ function sourceHasPending(ctx,sourceKey) {
 function sourceHasRecovery(ctx,sourceKey) {
   return rows(ctx,'SELECT comment_id FROM publication_source_recovery WHERE source_key=? LIMIT 1',sourceKey).length>0;
 }
-function sourceLocalWorkDue(ctx,sourceKey,now) {
+function sourceLocalWorkDue(ctx,sourceKey,now,{allowImmediate=false}={}) {
+  if(!allowImmediate&&now<Number(meta(ctx,'publisher-local-next-attempt')||0))return false;
   return sourceHasPending(ctx,sourceKey)&&allowance(ctx,'pending',1,now)>0||
     sourceHasRecovery(ctx,sourceKey)&&allowance(ctx,'conflicts',1,now)>0;
 }
@@ -320,7 +321,8 @@ export function nextPublicationReconciliationAt(ctx,now=Date.now()) {
   const main=Math.max(Number(meta(ctx,'publisher-next-attempt')||now),Number(meta(ctx,'publisher-upstream-not-before')||0));
   const configured=meta(ctx,'publisher-additional-sources');
   const sourceTimes=Array.isArray(configured)?configured.map(key=>meta(ctx,'publisher-source-next-attempt:'+key)).filter(Number.isFinite):[];
-  const sourceLocalDue=Array.isArray(configured)&&configured.some(key=>sourceLocalWorkDue(ctx,key,now));
+  const newGeneration=generation(ctx)!==meta(ctx,'publisher-local-generation');
+  const sourceLocalDue=Array.isArray(configured)&&configured.some(key=>sourceLocalWorkDue(ctx,key,now,{allowImmediate:newGeneration}));
   const times=[main,meta(ctx,'publisher-local-next-attempt'),nextLegacyInboxAt(ctx),...(sourceLocalDue?[now]:[]),...sourceTimes].filter(x=>x!==null);
   return Math.max(blocked,Math.min(...times));
 }
@@ -330,9 +332,10 @@ export function nextPublicationReconciliationAt(ctx,now=Date.now()) {
 export function publicationReadNeedsWake(ctx,now=Date.now(),env=null) {
   if(!meta(ctx,'publisher-reconciliation-enabled')||env?.HUBS&&!meta(ctx,'legacy-inbox-checkpoint'))return true;
   if(now<Number(meta(ctx,'publisher-pass-not-before')||0))return false;
+  const newGeneration=generation(ctx)!==meta(ctx,'publisher-local-generation');
   const configured=meta(ctx,'publisher-additional-sources'),sourceDue=Array.isArray(configured)&&configured.some(key=>
-    now>=Number(meta(ctx,'publisher-source-next-attempt:'+key)||0)||sourceLocalWorkDue(ctx,key,now));
-  return sourceDue||now>=Number(meta(ctx,'publisher-local-next-attempt')||0)||generation(ctx)!==meta(ctx,'publisher-local-generation')||
+    now>=Number(meta(ctx,'publisher-source-next-attempt:'+key)||0)||sourceLocalWorkDue(ctx,key,now,{allowImmediate:newGeneration}));
+  return sourceDue||now>=Number(meta(ctx,'publisher-local-next-attempt')||0)||newGeneration||
     conflictTail(ctx)!==Number(meta(ctx,'publisher-conflict-observed-tail')||0)||
     now>=Math.max(Number(meta(ctx,'publisher-next-attempt')||0),Number(meta(ctx,'publisher-upstream-not-before')||0))||
     !!(env?.HUBS&&now>=Number(nextLegacyInboxAt(ctx)));
@@ -391,7 +394,7 @@ function sourceCheckpoint(ctx,source) {
       !Number.isSafeInteger(value.scan.page)||value.scan.page<1||!validTime(value.scan.newest)))throw Error('Publication source checkpoint unavailable');
   return value;
 }
-async function reconcileAdditionalSources(ctx,fetcher,now,sources,{network=true}={}) {
+async function reconcileAdditionalSources(ctx,fetcher,now,sources,{network=true,allowImmediateLocal=false}={}) {
   for(const source of sources){
     const nextKey='publisher-source-next-attempt:'+source.key;
     const networkDue=network&&now>=Number(meta(ctx,nextKey)||0);
@@ -431,7 +434,7 @@ async function reconcileAdditionalSources(ctx,fetcher,now,sources,{network=true}
         if(complete||now<Number(meta(ctx,'publisher-upstream-not-before')||0))break;
       }
     }
-    if(sourceLocalWorkDue(ctx,source.key,now))await applySourcePending(ctx,source,now,100);
+    if(sourceLocalWorkDue(ctx,source.key,now,{allowImmediate:allowImmediateLocal}))await applySourcePending(ctx,source,now,100);
     if(networkDue){
       const hasLocalWork=sourceHasPending(ctx,source.key)||sourceHasRecovery(ctx,source.key);
       const priorIdle=Number(meta(ctx,'publisher-source-idle:'+source.key)||0);
@@ -446,7 +449,9 @@ async function reconcile(ctx,fetcher,now,env) {
   seedPublicationReconciliation(ctx,now,env);
   const extraSources=publicationSources(env).slice(1);
   putMeta(ctx,'publisher-additional-sources',extraSources.map(source=>source.key));
-  const sourceDue=extraSources.some(source=>now>=Number(meta(ctx,'publisher-source-next-attempt:'+source.key)||0)||sourceLocalWorkDue(ctx,source.key,now));
+  const newGeneration=generation(ctx)!==meta(ctx,'publisher-local-generation');
+  const sourceDue=extraSources.some(source=>now>=Number(meta(ctx,'publisher-source-next-attempt:'+source.key)||0)||
+    sourceLocalWorkDue(ctx,source.key,now,{allowImmediate:newGeneration}));
   const localDue=now>=Number(meta(ctx,'publisher-local-next-attempt')||0)||generation(ctx)!==meta(ctx,'publisher-local-generation')||
     conflictTail(ctx)!==Number(meta(ctx,'publisher-conflict-observed-tail')||0);
   const networkDue=now>=Math.max(Number(meta(ctx,'publisher-next-attempt')||0),Number(meta(ctx,'publisher-upstream-not-before')||0));
@@ -470,7 +475,7 @@ async function reconcile(ctx,fetcher,now,env) {
     localMore=!!meta(ctx,'public-changes-backfill');
     // Source journal retries are local work; process them before a possibly
     // failing upstream request so old/new feed recovery remains independent.
-    if(extraSources.length)await reconcileAdditionalSources(ctx,fetcher,now,extraSources,{network:false});
+    if(extraSources.length)await reconcileAdditionalSources(ctx,fetcher,now,extraSources,{network:false,allowImmediateLocal:localDue||legacyDue});
     if(localDue||legacyDue){
       // Keep capacity for newly verified pages even when old missing originals
       // fill the pending journal. The durable cursor resumes the older tail.
@@ -497,7 +502,10 @@ async function reconcile(ctx,fetcher,now,env) {
           for(const comment of comments){
             if(Number.isFinite(Date.parse(comment?.updated_at))&&(!scan.newest||Date.parse(comment.updated_at)>Date.parse(scan.newest)))scan.newest=comment.updated_at;
             const p=decodePublication(comment);
-            if(p){sql.exec('INSERT OR IGNORE INTO imported_comments(comment_id,publication,imported) VALUES(?,?,?)',comment.id,JSON.stringify(p),pendingDisposition(p));newPublications++;admitted.push(comment.id);}
+            if(p&&!rows(ctx,'SELECT comment_id FROM imported_comments WHERE comment_id=?',comment.id).length){
+              sql.exec('INSERT OR IGNORE INTO imported_comments(comment_id,publication,imported) VALUES(?,?,?)',comment.id,JSON.stringify(p),pendingDisposition(p));
+              newPublications++;admitted.push(comment.id);
+            }
           }
           scan.page++;
           if(comments.length<100){
@@ -528,7 +536,7 @@ async function reconcile(ctx,fetcher,now,env) {
       putMeta(ctx,'publisher-status',{ok:true,lastAttempt:new Date(now).toISOString(),lastSuccessfulSync:new Date(now).toISOString(),
         catchingUp:!complete,...summary(ctx)});
     }
-    if(extraSources.length)await reconcileAdditionalSources(ctx,fetcher,now,extraSources);
+    if(extraSources.length)await reconcileAdditionalSources(ctx,fetcher,now,extraSources,{allowImmediateLocal:localDue||legacyDue});
   }catch(error){
     const retryAt=Math.max(Number(meta(ctx,'publisher-next-attempt')||now+INTERVAL),Number(meta(ctx,'publisher-upstream-not-before')||0));
     putMeta(ctx,'publisher-next-attempt',retryAt);

@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createConversationFixture} from './helpers/relay-conversation-browser-fixture.js';
-import {syncPublications,publicationSources,takePublicationFetch,publicationSchema,DESTINATION_PUBLICATION_ISSUE_ENV,DESTINATION_PUBLICATION_ENABLE_ENV} from '../backend/publications.js';
+import {syncPublications,publicationSources,takePublicationFetch,publicationSchema,nextPublicationReconciliationAt,publicationReadNeedsWake,DESTINATION_PUBLICATION_ISSUE_ENV,DESTINATION_PUBLICATION_ENABLE_ENV} from '../backend/publications.js';
 import {sharedStore} from '../backend/shared.js';
 
 const oldRepo='braydenparker999/jarvis',newRepo='braydenparker000/Missionarytube-';
 const oldIssue=`https://api.github.com/repos/${oldRepo}/issues/2`;
 const stamp='2026-10-17T10:00:00Z';
+const metadata=(h,key)=>JSON.parse(h.rows('SELECT value FROM shared_meta WHERE key=?',key)[0].value);
 const publication=(id,title,date,body)=>({schema:'jarvis-publication-v1',id,type:'briefing',title,date,body});
 const comment=(repo,issue,id,pub,overrides={})=>({id,user:{id:183016859},issue_url:`https://api.github.com/repos/${repo}/issues/${issue}`,
   body:JSON.stringify(pub),created_at:stamp,updated_at:stamp,...overrides});
@@ -126,4 +127,53 @@ test('full-day source polling preserves the old reader share and existing hourly
   const nextDay=start+86400000;
   assert.equal(takePublicationFetch(h.ctx,'source-reconcile',nextDay).ok,true,'The additive allowance resets at the UTC day boundary');
   assert.equal(takePublicationFetch(h.ctx,'reconcile',nextDay).ok,true,'The historical source allowance still remains available');
+});
+
+test('unresolved destination rows follow the persisted local cadence while a new public generation wakes immediately',async t=>{
+  const h=createConversationFixture(t);t.after(()=>h.close());
+  const start=Date.UTC(2026,9,17),requestId=crypto.randomUUID(),reply={schema:'jarvis-publication-v1',id:crypto.randomUUID(),type:'reply',replyTo:requestId,body:'Still waiting'};
+  const env={[DESTINATION_PUBLICATION_ISSUE_ENV]:'93',[DESTINATION_PUBLICATION_ENABLE_ENV]:'true'};
+  await syncPublications(h.ctx,async url=>new URL(url).pathname===`/repos/${newRepo}/issues/93/comments`?
+    Response.json([comment(newRepo,93,906,reply)]):Response.json([]),start,env);
+  const localAt=metadata(h,'publisher-local-next-attempt');
+  assert.ok(localAt>start&&localAt<=start+1800000,'Unresolved local work follows the existing bounded idle cadence');
+  const scheduled=nextPublicationReconciliationAt(h.ctx,start);
+  assert.ok(scheduled>=start+300000&&localAt>start,'A still-missing original must not create an immediate alarm; normal source polling and local retry remain scheduled');
+  assert.equal(publicationReadNeedsWake(h.ctx,start+1000,env),false,'The same unresolved journal row does not retrigger a warm read');
+  sharedStore(h.ctx,'/internal/shared/message',{id:requestId,body:'New original request'});
+  assert.equal(publicationReadNeedsWake(h.ctx,start+1000,env),true,'A new public generation remains an immediate wake');
+  await syncPublications(h.ctx,()=>assert.fail('New-generation local recovery must not require an upstream read'),start+1000,env);
+  assert.equal(h.rows('SELECT imported FROM publication_source_comments WHERE source_key=? AND comment_id=906',`${newRepo}#93`)[0].imported,1);
+});
+
+test('full-day scheduled reconciliation keeps unresolved destination work bounded and the historical source fair under repeated tail comments',async t=>{
+  const h=createConversationFixture(t);t.after(()=>h.close());
+  const start=Date.UTC(2026,9,17),end=start+86400000,requestId=crypto.randomUUID();
+  const oldTail=comment(oldRepo,2,907,publication(crypto.randomUUID(),'Historical tail','2026-10-17','Already-covered historical tail'));
+  const unresolved=comment(newRepo,94,907,{schema:'jarvis-publication-v1',id:crypto.randomUUID(),type:'reply',replyTo:requestId,body:'Waiting for original'});
+  const env={[DESTINATION_PUBLICATION_ISSUE_ENV]:'94',[DESTINATION_PUBLICATION_ENABLE_ENV]:'true'};
+  let oldReads=0,additionalReads=0,passes=0,now=start;
+  const fetcher=async url=>{
+    const path=new URL(url).pathname;
+    if(path===`/repos/${oldRepo}/issues/2/comments`){oldReads++;return Response.json([oldTail]);}
+    if(path===`/repos/${newRepo}/issues/94/comments`){additionalReads++;return Response.json([unresolved]);}
+    assert.fail(`Unexpected source request ${path}`);
+  };
+  while(now<end&&passes<500){
+    await syncPublications(h.ctx,fetcher,now,env);passes++;
+    const next=nextPublicationReconciliationAt(h.ctx,now);
+    assert.ok(next>now,`The next alarm must advance after pass ${passes}`);
+    now=next;
+  }
+  assert.ok(passes<480,`Unresolved journal work consumed ${passes} of the 480 daily pass allowance`);
+  assert.ok(passes<=288,`Normal five-minute local cadence permits at most 288 scheduled passes/day, got ${passes}`);
+  assert.equal(h.rows('SELECT imported FROM publication_source_comments WHERE source_key=? AND comment_id=907',`${newRepo}#94`)[0].imported,0,
+    'The missing original remains pending throughout the simulated day');
+  assert.ok(additionalReads>0&&additionalReads<=144,`The secondary source remains within its half-budget: ${additionalReads}`);
+  assert.ok(oldReads>=40&&oldReads<=60,`Duplicate tail comments must back off instead of forcing five-minute historical reads: ${oldReads}`);
+  const passBudget=metadata(h,'publisher-pass-budget'),egressBudget=metadata(h,'publisher-reconcile-day');
+  assert.equal(passBudget.total,passes);
+  assert.ok(passBudget.total<480);
+  assert.ok(egressBudget.total<=288,`Both sources stay within the existing reconciliation ceiling: ${egressBudget.total}`);
+  assert.ok(egressBudget.additionalSource<=144);
 });

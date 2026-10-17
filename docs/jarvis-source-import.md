@@ -61,8 +61,8 @@ new credential configuration; no secret values are included in the evidence.
 
 The original imported source tree remains `9f983eb6a86ddc1989c3d4e7b85fb7c7d2819938`
 as recorded in the inventory and import evidence. PR236 updated the maintained-
-tree guard for the Daily Board reader; this source-budget change updates that
-guard to `5575aaf924457a22284bf9758ec4143583672883`. Each update changes only the
+tree guard for the Daily Board reader; the source-budget and scheduler fixes
+update that guard to `30fc34ef73f9743cacb8605308f6a5c78fbc964d`. Each update changes only the
 current allowed tree identity; it does not rewrite imported history or the
 original source snapshot. Future edits under `jarvis/` still require an
 explicit reviewed boundary update.
@@ -297,6 +297,10 @@ consolidation:
   locally before network reads, including after an upstream failure. The
   publisher status exposes bounded per-source pending/conflict counts,
   catch-up state and watermark presence; it excludes comment IDs and bodies.
+  Repeated overlapping tail comments count as new activity only on first
+  journal insertion, preserving historical-feed idle backoff. Unresolved
+  destination journal rows use the persisted local retry cadence; new public
+  generations can still wake and recover them immediately.
   A later cutover still requires a unique destination
   issue, source authentication/provenance verification through a watermark,
   switching the single writer only after dual-read validation, and a rollback
