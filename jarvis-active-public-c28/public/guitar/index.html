@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000"><title>Guitar · Jarvis</title>
+  <link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/shell.css">
+  <link rel="stylesheet" href="/guitar/guitar.css"><link rel="stylesheet" href="/assets/premium.css?v=20261003">
+  <link rel="stylesheet" href="/assets/aligned-pages.css?v=20261011"><script type="module" src="/guitar/guitar.js"></script>
+</head>
+<body class="module-page guitar-page">
+  <a href="#content" class="skip-link">Skip to content</a>
+  <div class="workspace">
+    <header class="topbar"><a class="icon-button" href="/" aria-label="Back to Jarvis" data-icon="back"></a><span class="brand">Guitar</span><button class="icon-button" id="guitar-menu" aria-label="Guitar menu" data-icon="more"></button></header>
+    <main id="content">
+      <nav class="module-tabs" aria-label="Tab library"><button type="button" data-guitar-view="recent" aria-selected="true">Recent</button><button type="button" data-guitar-view="saved" aria-selected="false">Saved</button><button type="button" data-guitar-view="search" aria-selected="false">Search</button></nav>
+      <form id="search-form" role="search">
+        <label class="sr-only" for="song-query">Search Songsterr</label>
+        <div class="guitar-search"><input id="song-query" name="q" type="search" placeholder="Song or artist" minlength="2" maxlength="160" autocomplete="off" required><button id="search-button" type="submit" class="icon-button" aria-label="Search Songsterr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button></div>
+      </form>
+      <p id="status" class="guitar-status" role="status" aria-live="polite"></p>
+      <section id="tab-library" aria-label="Your tabs"></section>
+      <section id="song" hidden aria-label="Selected song"></section>
+      <section id="results" aria-label="Songsterr results"></section>
+      <footer class="guitar-footer"><a href="/guitar/credits.html">Credits</a></footer>
+    </main>
+  </div>
+  <noscript><p>Enable JavaScript to search and download tablature.</p></noscript>
+</body>
+</html>
