@@ -49,9 +49,8 @@ export function checkedCandidate(parentRelease,builtRelease,files){
  }
  return true;
 }
-export function checkedParentSidecar(sidecar,releaseBytes){
- assert.equal(sha(releaseBytes),PARENT.releaseSha256,'Parent release bytes changed');
- checkedPublicationProof(sidecar,releaseBytes,sidecar.parentReleaseQualifiedDigest,sidecar.privateWorkspaceReceiptSha256);
+export function checkedParentSidecar(sidecar,releaseSha256){
+ assert.equal(releaseSha256,PARENT.releaseSha256,'Parent release bytes changed');
  assert.equal(sidecar.releaseJsonSha256,PARENT.releaseSha256,'Parent sidecar release identity changed');
  assert.equal(sidecar.preservedOverrides.length,22);
  for(const item of sidecar.preservedOverrides)assert.equal(OVERRIDES[item.path],item.sha256,'Preserved override identity changed');
@@ -143,7 +142,9 @@ async function prepare(){
  const liveRelease=await originGet('release.json');assert.equal(liveRelease.status,200);const parentBytes=Buffer.from(await liveRelease.arrayBuffer());
  const parent=JSON.parse(parentBytes.toString('utf8'));assert.equal(sha(parentBytes),PARENT.releaseSha256);
  const proofResponse=await originGet(PROOF);assert.equal(proofResponse.status,200);const proofBytes=Buffer.from(await proofResponse.arrayBuffer());
- assert.equal(sha(proofBytes),PARENT.sidecarSha256);const proof=JSON.parse(proofBytes.toString('utf8'));checkedParentSidecar(proof,parentBytes);
+ assert.equal(sha(proofBytes),PARENT.sidecarSha256);const proof=JSON.parse(proofBytes.toString('utf8'));
+ checkedPublicationProof(proof,parentBytes,proof.parentReleaseQualifiedDigest,proof.privateWorkspaceReceiptSha256);
+ checkedParentSidecar(proof,sha(parentBytes));
  const [qualifiedResponse,privateResponse]=await Promise.all([originGet('release-qualified.json'),originGet('private-workspace-release.json')]);
  assert.equal(qualifiedResponse.status,200,'Parent qualification receipt unavailable');
  assert.equal(privateResponse.status,200,'Private workspace receipt unavailable');

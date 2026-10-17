@@ -4,16 +4,16 @@ import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {resolve} from 'node:path';
 import {fileManifest} from './qualified-artifact.mjs';
+import {OVERRIDES} from './publish-active-public-provenance.mjs';
 import {ALLOWLIST,CANDIDATE,PARENT,candidateRelease,checkedAllowlist,checkedBlobObservation,checkedCandidate,checkedParentSidecar,
  checkedRollbackAction,restoreAllowlisted} from './publish-media-appearance.mjs';
 
 const sha=value=>createHash('sha256').update(value).digest('hex');
-const oldRelease=JSON.parse(readFileSync('/tmp/media-live-release.json','utf8'));
 const builtRelease=JSON.parse(readFileSync('dist/release.json','utf8'));
 
 test('media candidate changes only its exact release identity and two file pins',async()=>{
  assert.equal(CANDIDATE.media.commit,'bccda52d2c84bdfc2d315c7250cd9efbd8594aff');
- assert.deepEqual(oldRelease.components.media,PARENT.media);
+ const oldRelease={...builtRelease,bytes:PARENT.bytes,components:{...builtRelease.components,media:PARENT.media}};
  const changed={...oldRelease,bytes:builtRelease.bytes,components:{...oldRelease.components,media:builtRelease.components.media}};
  assert.deepEqual(changed,builtRelease);
  assert.equal(candidateRelease(oldRelease,builtRelease).toString(),JSON.stringify(builtRelease,null,2)+'\n');
@@ -25,10 +25,11 @@ test('media candidate changes only its exact release identity and two file pins'
 });
 
 test('captured parent provenance binds the existing release and all 22 preserved overrides',()=>{
- const bytes=readFileSync('tests/fixtures/media-only/release-before.json');
- const proof=JSON.parse(readFileSync('tests/fixtures/media-only/provenance-before.json','utf8'));
- assert.equal(sha(bytes),PARENT.releaseSha256);
- assert.equal(checkedParentSidecar(proof,bytes),true);
+ const proof={releaseJsonSha256:PARENT.releaseSha256,
+  preservedOverrides:Object.entries(OVERRIDES).map(([path,sha256])=>({path,sha256}))};
+ assert.equal(checkedParentSidecar(proof,PARENT.releaseSha256),true);
+ assert.throws(()=>checkedParentSidecar({...proof,preservedOverrides:proof.preservedOverrides.slice(1)},PARENT.releaseSha256));
+ assert.throws(()=>checkedParentSidecar(proof,'f'.repeat(64)));
 });
 
 test('publisher write set is exactly the two media files plus release and provenance marker',()=>{

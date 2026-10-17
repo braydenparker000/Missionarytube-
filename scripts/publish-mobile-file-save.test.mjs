@@ -23,7 +23,7 @@ test('production receipt refuses a synthetic or changed parent identity',()=>{as
 test('scoped dispatch publishes dependency first and cannot deploy Worker or change settings',()=>{
  const workflow=readFileSync(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8'),job=workflow.slice(workflow.indexOf('  mobile-file-save:\n'));
  assert.deepEqual(FILES.map(f=>f.path),['assets/file-save.js','assets/relay-attachment-content.js','guitar/runtime.js','guitar/guitar.js']);
- assert.equal(workflow.slice(workflow.indexOf('jobs:')).split('inputs.publish_mobile_file_save != true').length-1,13);
+ assert.equal(workflow.slice(workflow.indexOf('jobs:')).split('inputs.publish_mobile_file_save != true').length-1,14);
  assert.ok(job.includes('ref: '+SOURCE));assert.ok(job.includes('group: jarvis-worker-production'));assert.doesNotMatch(job,/wrangler deploy|keep-vars|activate-|versions upload/);
  let last=-1;for(const step of ['publish-mobile-file-save.mjs prepare','publish-mobile-file-save.mjs reconcile','name: mobile-file-save-before-','azure/login@v2','publish-mobile-file-save.mjs publish','publish-mobile-file-save.mjs record','publish-mobile-file-save.mjs stamp','--name release-qualified.json','publish-mobile-file-save.mjs published']){const next=job.indexOf(step);assert.ok(next>last,step);last=next;}
 });
