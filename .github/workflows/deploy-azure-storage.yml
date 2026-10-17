@@ -7,6 +7,10 @@ on:
         description: Publish only qualified Relay and Guitar saving modules; retain every setting and unrelated blob
         type: boolean
         default: false
+      publish_active_public_provenance:
+        description: Publish only the destination-owned active-public source receipt; preserve every runtime blob
+        type: boolean
+        default: false
       publish_simple_chat_tasks:
         description: Publish the qualified Relay and Muse Chat and Tasks UI while retaining every setting and unrelated blob
         type: boolean
@@ -91,7 +95,7 @@ jobs:
       contents: read
   deploy:
     needs: qualification
-    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && vars.AZURE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.publish_active_public_provenance != true && vars.AZURE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     concurrency:
@@ -1169,6 +1173,97 @@ jobs:
       - name: Sign out
         if: ${{ always() && steps.azure_signin.outcome == 'success' }}
         run: az logout
+  active-public-provenance:
+    name: deploy
+    needs: qualification
+    if: ${{ inputs.publish_active_public_provenance == true && vars.AZURE_DEPLOY_ENABLED == 'true' && vars.AZURE_STORAGE_ACCOUNT == 'missionarytube' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && needs.qualification.result == 'success' && inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.deploy_mast_chat_only != true && inputs.activate_owner_mast != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && inputs.publish_simple_chat_tasks != true && inputs.publish_mobile_file_save != true }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: jarvis-worker-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ needs.qualification.outputs.node22 }}
+      - name: Read pinned Jarvis revision for artifact identity
+        id: jarvis
+        run: node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: braydenparker000/Missionarytube-
+          ref: ${{ steps.jarvis.outputs.commit }}
+          path: .jarvis-source
+          persist-credentials: false
+      - name: Download this run's exact qualified frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: jarvis-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Verify immutable artifact and live lineage before credentials
+        run: |
+          node scripts/qualified-artifact.mjs verify
+          node scripts/publish-active-public-provenance.mjs preflight
+      - name: Sign in using the existing Azure identity
+        id: azure_signin
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Verify the existing storage target
+        env:
+          STORAGE_ACCOUNT: ${{ vars.AZURE_STORAGE_ACCOUNT }}
+        run: test "$STORAGE_ACCOUNT" = missionarytube
+      - name: Capture exact rollback bytes and complete blob inventory
+        run: node scripts/publish-active-public-provenance.mjs backup
+      - name: Preserve rollback artifact before publication
+        id: rollback
+        uses: actions/upload-artifact@v4
+        with:
+          name: active-public-provenance-rollback-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .active-public-provenance/
+          include-hidden-files: true
+          retention-days: 90
+          if-no-files-found: error
+      - name: Normalize rollback artifact identity for the provenance record
+        id: normalize
+        env:
+          ARTIFACT_ID: ${{ steps.rollback.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.rollback.outputs.artifact-digest }}
+        run: |
+          case "$ARTIFACT_DIGEST" in sha256:*) ;; *) ARTIFACT_DIGEST="sha256:$ARTIFACT_DIGEST" ;; esac
+          printf 'digest=%s\n' "$ARTIFACT_DIGEST" >> "$GITHUB_OUTPUT"
+      - name: Bind source, parent receipts and rollback artifact
+        env:
+          ROLLBACK_ARTIFACT_ID: ${{ steps.rollback.outputs.artifact-id }}
+          ROLLBACK_ARTIFACT_DIGEST: ${{ steps.normalize.outputs.digest }}
+        run: node scripts/publish-active-public-provenance.mjs prepare-proof
+      - name: Publish only release.json and its component provenance sidecar
+        run: node scripts/publish-active-public-provenance.mjs publish
+      - name: Verify published lineage and every preserved live component
+        run: node scripts/publish-active-public-provenance.mjs verify-published
+      - name: Restore the parent release if publication or verification fails
+        if: failure() && steps.azure_signin.outcome == 'success' && steps.rollback.outputs.artifact-id != ''
+        run: node scripts/publish-active-public-provenance.mjs rollback
+      - name: Preserve publication evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: active-public-provenance-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .active-public-provenance/preflight.json
+            .active-public-provenance/provenance.json
+            dist/release.json
+          include-hidden-files: true
+          retention-days: 90
+          if-no-files-found: warn
+      - name: Sign out
+        if: always() && steps.azure_signin.outcome == 'success'
+        run: az logout
+
   mobile-file-save:
     name: deploy
     if: ${{ inputs.publish_owner_progress != true && inputs.publish_muse_relay_design != true && inputs.publish_poweramp_playlists != true && github.event_name == 'workflow_dispatch' && inputs.publish_mobile_file_save == true && inputs.publish_muse_launcher != true && inputs.publish_poweramp_background != true && inputs.activate_owner_mast != true && inputs.deploy_mast_chat_only != true && inputs.deploy_private_wake != true && inputs.activate_lucy_muse != true && inputs.diagnose_lucy_muse != true && inputs.recover_lucy_muse_receipt != true && inputs.replace_muse_fingerprint != true && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && inputs.publish_simple_chat_tasks != true }}

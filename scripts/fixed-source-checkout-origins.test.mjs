@@ -25,6 +25,7 @@ test('fixed pinned checkouts use destination history without changing commit ref
     '${{ steps.jarvis.outputs.commit }}','126d4bc4c792a188b2e86cd334bd4bcd6ab3a74c','95d39031bb7b80f637c969a761e2aff9cc6a1040',
     '0636f664e063278eb93e7b743e89b8b04c20e9e5','42acd57ab44c23db738ee9db8c519d3aec3787ea','550c8395d23d42eea66686cfe21793505606115d',
     'd7daef3d6aa43fdb9d6622843aa50d9de8a075d5','46a26806f123de296d4e50b4ee7b753bbff0304b','fed236966d928a4f8221474e502459e13e82e2a4',
+    '${{ steps.jarvis.outputs.commit }}',
     'd5428cae57e195405afbd140965f9fca16d65110'
   ]);
   for(const [path,ref] of [

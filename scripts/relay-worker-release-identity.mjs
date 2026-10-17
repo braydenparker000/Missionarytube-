@@ -10,7 +10,7 @@ import {readWorkerSettings} from './check-music-worker-bindings.mjs';
 // its finite historical transition stay unchanged and cannot deploy a Worker.
 export const RELAY_SOURCE='c28c1b2f70aabb5217b08bf31ffe4c93d0353765';
 export const RELAY_EXTRA_RECIPES=Object.freeze(['scripts/relay-worker-release-identity.mjs','scripts/stage-relay-core-dependencies.mjs',
-  'scripts/lucy-settings-diagnostic.mjs','scripts/reconcile-lucy-receipt.mjs']);
+  'scripts/lucy-settings-diagnostic.mjs','scripts/reconcile-lucy-receipt.mjs','scripts/publish-active-public-provenance.mjs']);
 export const LUCY_RECEIPT_MODE='reconcile-lucy-discovery';
 const REPO='braydenparker000/Missionarytube-',ORIGIN='https://missionarytube.z13.web.core.windows.net';
 const API='https://jarvis-hub-api.braydenparker999.workers.dev';

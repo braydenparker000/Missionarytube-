@@ -199,10 +199,31 @@ per-source cursors and deduplication can migrate together with rollback.
 Destination issue #2 is already an imported PR and cannot be reused. No
 issue, schedule, writer, or publication endpoint was changed here.
 
-The newest available live-music run, 39003845606, failed in the release check
-before catalog, sample, or browser playback checks ran. The runner log exposes
-only the sanitized stage; its report artifact returned HTTP 403 on download.
-The failed run therefore does not establish a new playback or seeking defect.
+The current `release-qualified.json` digest is
+`c064b89a4734848861d96a2bafc66cd27d359a1b090f9ca099b4a9c41bfc64f5`. Its
+top-level receipt is from successful run `38404971865`; its parent chain is
+mobile-file-save → simple-chat-tasks → owner-progress → the pinned c28 base.
+The owner-progress checker had been applied directly to the latest wrapper and
+rejected a valid chain. PR232 fixed the traversal order and preserved each
+historical layer's existing checker and source pins. Read-only live run
+`39005718644` then passed release lineage, R2 byte/Range/CORS checks, and
+independent playback, seeking and artwork checks. The earlier run
+`39003845606` remains failed at the sanitized release stage; its report
+artifact download returned HTTP 403, so its exact assertion is unavailable.
+
+The destination-owned static artifact is ready for a separate provenance-only
+publication. Its candidate has 194 files; 171 existing public files match
+exactly, and the other 22 are held at their already-live hashes. Those comprise
+private/shared overlay files, drawercast and Guitar behavior, and configured
+keys; none are uploaded by this path. It verifies the 63-file private-workspace
+receipt before and after publication. The operation is limited to `release.json`
+plus an additive `release-component-provenance.json` sidecar. Before either
+write, it stores the previous release bytes and complete blob inventory as a
+90-day rollback artifact. The release file is the final cutover marker; on a
+failed verification the guarded workflow restores it and removes only its own
+sidecar. The existing `release-qualified.json`, private receipt, 22 held files,
+all other blobs, and Worker state remain unchanged. No production publication
+has run yet.
 
 ## Unchanged operational boundaries
 
@@ -210,10 +231,11 @@ The failed run therefore does not establish a new playback or seeking defect.
 `braydenparker999/jarvis@c28c1b2f70aabb5217b08bf31ffe4c93d0353765` for Worker
 qualification and release checks. The workflow checkout origins use
 destination history. This batch changes only the static build's active public
-tree and its frontend provenance; Worker configuration, workflows, schedules,
-credentials, package lock, component pins, qualification gates, Azure endpoint
-and federation, and publication/importer endpoints remain unchanged. No
-imported release workflow runs.
+tree and adds one separate, manually gated provenance-only static-storage
+route. Worker configuration, schedules, credentials, package lock, component
+pins, qualification gates, Azure endpoint and federation, and
+publication/importer endpoints remain unchanged. This route does not run a
+Worker or upload app files.
 
 ## Remaining component-cutover checklist
 
