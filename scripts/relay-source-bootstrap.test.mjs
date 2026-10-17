@@ -16,3 +16,18 @@ test('source qualification is complete once, with locked dependencies on each ex
     assert.doesNotMatch(workflow,/npm run test:jarvis|npm --prefix \.jarvis-source test/);
   }
 });
+
+test('only the qualification build checkout uses destination history at the unchanged source pin', async () => {
+  const { createHash } = await import('node:crypto');
+  const flow = await readFile(new URL('../.github/workflows/qualify-jarvis.yml', import.meta.url), 'utf8');
+  const build = flow.slice(flow.indexOf('\n  build:'), flow.indexOf('\n  qualification:'));
+  assert.match(build, /repository: braydenparker000\/Missionarytube-\n          ref: \$\{\{ needs\.plan\.outputs\.source \}\}\n          path: \.jarvis-source\n          persist-credentials: false\n          fetch-depth: 0/);
+  assert.equal((flow.match(/repository: braydenparker000\/Missionarytube-/g) || []).length, 1);
+  assert.equal((flow.slice(0, flow.indexOf('\n  build:')).match(/repository: braydenparker999\/jarvis/g) || []).length, 2);
+  const release = JSON.parse(await readFile(new URL('../jarvis-release.json', import.meta.url), 'utf8'));
+  assert.equal(release.repository, 'braydenparker999/jarvis');
+  assert.equal(release.commit, 'c28c1b2f70aabb5217b08bf31ffe4c93d0353765');
+  const bytes = Buffer.from(flow);
+  const blob = createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+  assert.equal(release.workerDeploymentPolicy.recipe.find(item => item.path === '.github/workflows/qualify-jarvis.yml').sha, blob);
+});

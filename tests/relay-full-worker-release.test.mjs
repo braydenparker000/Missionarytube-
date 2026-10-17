@@ -193,7 +193,8 @@ test('missing, malformed, dirty policies and unknown flags stop before any provi
   const f=await fixture();try{
     const mock=await hook(f);
     for(const mutate of [r=>{delete r.workerDeploymentPolicy;},r=>{r.workerDeploymentPolicy.mode='reuse-only';},r=>{r.workerDeploymentPolicy.extra=true;},
-      r=>{r.commit='f'.repeat(40);},r=>{r.workerDeploymentPolicy.recipe=[];}]){
+      r=>{r.commit='f'.repeat(40);},r=>{r.workerDeploymentPolicy.recipe=[];},
+      r=>{r.workerDeploymentPolicy.recipe.find(item=>item.path==='.github/workflows/qualify-jarvis.yml').sha='9c0f1cf9fa55b09c3f747c013bb3e1bbecbfa2ce';}]){
       const changed=structuredClone(f.release);mutate(changed);await writeFile(join(f.root,'jarvis-release.json'),JSON.stringify(changed));commit(f.root);
       const result=cli(f,mock,'plan');assert.equal(result.status,1);assert.ok(!result.stderr.includes(SECRET));
       await absent(join(f.root,'reads.json'));await absent(join(f.root,'outputs'));await absent(join(f.root,'worker-identity-before.json'));
