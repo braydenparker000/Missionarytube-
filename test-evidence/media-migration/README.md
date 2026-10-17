@@ -71,10 +71,10 @@ HEAD equality was not the only check. Porcelain was printed and had to be empty.
 | --- | --- | --- | --- | --- | --- |
 | Baseline Jarvis (`baseline.tap`) | 511 | 456 | 55 | 0 | 0 |
 | `npm run test:media-jarvis:source` (`source-unit.txt`) | 512 | 483 | 29 | 0 | 0 |
-| `npm run test:media-jarvis:shipped` (`shipped.txt`) | 34 | 31 | 0 | 0 | 3 |
-| Default `npm test` (root copy, not the migration) | 1117 | 1117 | 0 | 0 | 0 |
+| `npm run test:media-jarvis:shipped` (`shipped.txt`) | 34 | 32 | 0 | 0 | 2 |
+| Default `npm test` (`npm-test.txt`, root copy, not the migration) | 1124 | 1124 | 0 | 0 | 0 |
 
-The 29 source-unit failures still throw `Refusing to fall back to the repo-root copy` when `npm run test:media-jarvis:source` points `MEDIA_APP_ROOT` at the pin. They are not in the pinned command. `npm run test:media-jarvis:pinned` skips those names and runs the other 483 against the shipped bundle. `npm run test:media-jarvis:source-only` runs the 29 where `src/compatibility-player.js`, `src/interaction-logic.js`, and `src/astra-motion.js` exist. Each of those 29 is sorted in `source-only-disposition.md`: 27 are kept by a named shipped test, and 2 still have a pending gap. The shipped command's 3 todos, the unsupported clauses, and the known discrepancies that block qualification are in `pending-and-discrepancies.md`. `npm run test:media-jarvis:qualify` prints `QUALIFICATION: NOT READY` while that list or any todo remains. `npm run build` completed against `.jarvis-source` at the pin: 192 frontend files, 20.09 MiB (`npm-build.txt`). Root suite transcript: `npm-test.txt`. `dist/` is not part of this evidence.
+The 29 source-unit failures still throw `Refusing to fall back to the repo-root copy` when `npm run test:media-jarvis:source` points `MEDIA_APP_ROOT` at the pin. They are not in the pinned command. `npm run test:media-jarvis:pinned` skips those names and runs the other 483 against the shipped bundle. `npm run test:media-jarvis:source-only` runs the 29 where `src/compatibility-player.js`, `src/interaction-logic.js`, and `src/astra-motion.js` exist. Each of those 29 is sorted in `source-only-disposition.md`: 28 are kept by a named shipped test, and 1 still has a pending gap (the 390px backdrop rule). The direct `pumpPipeline` abort is kept as a source-unit contract and is not that gap. The shipped command's 2 todos, the unsupported clauses, and the known discrepancies that block qualification are in `pending-and-discrepancies.md`. `npm run test:media-jarvis:qualify` prints `QUALIFICATION: NOT READY` while that list or any todo remains. `npm run build` completed against `.jarvis-source` at the pin: 192 frontend files, 20.09 MiB (`npm-build.txt`). Root suite transcript: `npm-test.txt`. `dist/` is not part of this evidence.
 
 ## Qualification run
 
@@ -84,15 +84,15 @@ The 29 source-unit failures still throw `Refusing to fall back to the repo-root 
 | --- | --- | --- | --- | --- | --- | --- |
 | Pinned checks (`qualify.txt`, `=== pinned ===`) | 483 | 483 | 0 | 0 | 0 | 0 |
 | Source-only checks (`qualify.txt`, `=== source-only ===`) | 29 | 29 | 0 | 0 | 0 | 0 |
-| Shipped suites (`qualify.txt`, `=== shipped ===`) | 35 | 32 | 0 | 0 | 3 | 0 |
-| `npm run test:media-jarvis:qualify` | — | — | — | — | 3 | 1, `QUALIFICATION: NOT READY` |
+| Shipped suites (`qualify.txt`, `=== shipped ===`) | 34 | 32 | 0 | 0 | 2 | 0 |
+| `npm run test:media-jarvis:qualify` | — | — | — | — | 2 | 1, `QUALIFICATION: NOT READY` |
 | Default `npm test` after the qualification unit tests | 1124 | 1124 | 0 | 0 | 0 | 0 |
 
-The verdict stays `NOT READY` because `pending-and-discrepancies.md` still lists 3 todos and the scanner still finds those 3. Empty todo reasons do not count as ready; that is locked by `tests/media-qualification.test.mjs`.
+The verdict stays `NOT READY` because `pending-and-discrepancies.md` still lists 2 todos and the scanner still finds those 2: stored accent and motion before first paint, and `.episode-nav-sticky` `backdrop-filter: none` at 390px. Empty todo reasons do not count as ready; that is locked by `tests/media-qualification.test.mjs`. The direct `pumpPipeline` abort is absent from the qualification block and from the todo scan. Removing it leaves the two product findings as the blockers. An empty pending list with those todos still present would still be `NOT READY`.
 
 The first-paint re-run served `public/` and opened `/media/`. Held requests included `/assets/pip-diagnostics.js`, and that response was 200 after release. Held script requests were 31. The stored accent and motion were still unapplied at first paint (`beforeFirstPaintGuarantee` false, `--accent` `#b4d1ff`, brand `rgb(180, 209, 255)`, `.page.active` still `page-arrival`) and applied after release (`#cbbaff`, motion off, animation `none`).
 
-Release velocity was measured at a fixed 100px, under the 132px distance threshold, from 600 through 840. The shipped tracker formula dismisses at 720 and snaps back at 719. `dismiss-velocity.json` records that cutoff.
+`dismiss-velocity.json` is an instrumented decision-boundary record (`kind` `instrumented-decision-boundary`). The test replaces the minified decision function and controls ticker time so the tracker formula returns each requested velocity. Distance stays at 100px, under the 132px distance threshold, from 600 through 840. That instrumented boundary snaps at 719 and dismisses at 720. It is separate from the untouched slow-drag and fast-flick gesture.
 
 26 of the original 55 pass after the earlier harness fixes. The same 29 source-unit names still fail on the Jarvis run. Their shipped-bundle status is in `no-counterpart-mapping.md`.
 
@@ -101,12 +101,13 @@ Release velocity was measured at a fixed 100px, under the 132px distance thresho
 The shipped command passes its runnable assertions. The source-unit command still fails the same 29 names. These clauses stay explicit todos, so the root media copy cannot be treated as retired:
 
 - Before-first-paint theme guarantee. `tests/jarvis-shipped-first-paint.suite.mjs` serves the pinned `public/` tree and opens `/media/`, so `/assets/pip-diagnostics.js` resolves at the site root. It seeds `localStorage['astra.v1.appearance']` with violet / motion off / charcoal and holds every `.js` response. At first contentful paint the stored values are present and unapplied: `--accent` is the default `#b4d1ff`, `.brand-orbit` is `rgb(180, 209, 255)`, and `.page.active` is still `page-arrival`. After the responses are released, `appearance.js` sets violet / off / charcoal, `--accent` becomes `#cbbaff`, and the page animation becomes `none`. Evidence: `first-paint/computed-style.json`, `first-paint/held.png`, `first-paint/released.png`. The guarantee itself is `test.todo`, not a pass. `tests/initial-theme.test.mjs` remains the parser/VM characterization in the source command.
-- Aborted `pumpPipeline` `AbortError` is not passed back through `attach()`. `createAdapter` detaches that mux job, and the bundle does not export `pumpPipeline`. Todo in `tests/jarvis-shipped-compatibility.suite.mjs`. The keyframe and explicit unsupported-video clauses stay covered.
 - At 390px, `.episode-nav-sticky` `backdrop-filter: none` inside `@media (max-width: 419px)` loses to a later rule of the same specificity, `saturate(180%) blur(20px)`. The mobile motion test records that computed blur. The `none` clause is a todo.
 
-A slow 110px touch drag on an 800px-tall surface snaps back. The same distance, released as a flick, dismisses. 110px is under the inlined distance threshold (`min(132, max(72, size * 0.24))`, which is 132 at that height). The release-velocity cutoff is measured separately, at a fixed 100px, in `dismiss-velocity.json`.
+The direct `pumpPipeline` `AbortError` stays in `tests/compatibility-player.test.mjs`. The public adapter detaches `run.job` and suppresses `AbortError` as a playback failure, in the source module and in the shipped bundle, so `attach()` rejecting a later pump abort is not a product discrepancy and is not a todo. Public cancellation and disposal assertions stay. Keyframe selection and the explicit unsupported-video error stay covered.
 
-Four shipped assertions were tightened in this pass. None of their previous expectations were removed. The view-transition mock holds each callback: the 100ms timeout commits open and close, a later stale callback does not commit again, and each commits exactly once. An immediate callback still commits synchronously, and a rejected snapshot still commits. The press-budget test releases the pointer and requires the control to be idle after 360ms. The sample-drop case waits for `endOfStream` and non-empty muxed bytes before asserting zero encodes. The transferred input's `dispose` count is 1 after destroy and stays 1 after a second destroy.
+An untouched slow 110px touch drag on an 800px-tall surface snaps back. The same distance, released as a flick, dismisses. 110px is under the inlined distance threshold (`min(132, max(72, size * 0.24))`, which is 132 at that height). That gesture leaves the shipped decision function and ticker unchanged. The 719/720 boundary is measured separately by the instrumented decision-boundary test, which replaces the minified decision function and controls ticker time. `dismiss-velocity.json` records that instrumented cutoff.
+
+The view-transition mock holds each callback. Polling observes the timeout fallback commit open and close. That completion is bounded by the poll (20ms steps, capped at 1000ms) and does not prove the fallback is exactly 100ms. A later stale callback does not commit again, and each commits exactly once. An immediate callback still commits synchronously, and a rejected snapshot still commits. The press-budget test releases the pointer, and the control is idle after a 360ms clock advance. The test does not first establish a visible pressed state. The sample-drop case waits for `endOfStream` and non-empty muxed bytes before asserting zero encodes. The transferred input's `dispose` count is 1 after destroy and stays 1 after a second destroy.
 
 ## Commands recorded in this pass
 

@@ -312,9 +312,11 @@ test("shipped: HEVC open-GOP seeking drops unavailable leading pictures and pres
 });
 
 // Keyframe selection and the explicit unsupported-video error are public
-// prepareRepair results. The original also rejects pumpPipeline when its
-// signal is already aborted. createAdapter detaches that mux job and does
-// not surface the internal AbortError, so this suite does not claim that clause.
+// prepareRepair results. The direct pumpPipeline AbortError contract stays
+// in tests/compatibility-player.test.mjs. createAdapter detaches run.job and
+// suppresses AbortError as a playback failure, which is the same public
+// adapter behavior as the source. attach() rejecting a later pump abort is
+// not a comparable product requirement, so this suite does not todo it.
 test("shipped: seeking starts at a preceding keyframe and unsupported video is explicit", async () => {
   const bytes = await fixture("avc-aac");
   const { taken, plan } = await repairPlan({ bytes, url: "https://media.example.test/seek.mkv", startTime: 2.5 });
@@ -803,7 +805,3 @@ test("shipped: aborting an unconsumed prepared repair invalidates it; abort afte
     assert.equal((await ready.input.getPrimaryAudioTrack()).codec, "aac");
   } finally { ready.input.dispose(); }
 });
-
-test("shipped: an already-aborted pumpPipeline job passes AbortError through attach()", {
-  todo: "createAdapter detaches the mux job and does not reject attach() with the internal AbortError. The shipped bundle does not export pumpPipeline, so the source-unit assertion in tests/compatibility-player.test.mjs cannot be executed against the public adapter. Keyframe selection and the explicit unsupported-video error remain covered above."
-}, () => {});

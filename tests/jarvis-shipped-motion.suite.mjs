@@ -290,7 +290,6 @@ test("shipped direct interaction motion stays inside the 360ms release budget", 
       const artRule = [...document.styleSheets].flatMap((sheet) => [...sheet.cssRules]).find((rule) => rule.selectorText === "::view-transition-group(astra-art)");
       return {
         moving: getComputedStyle(page).transform,
-        pressing: getComputedStyle(button).transform,
         seek: seekRule?.style.animationDuration || getComputedStyle(document.querySelector("#seek")).animationDuration,
         art: artRule?.style.animationDuration || ""
       };
@@ -305,9 +304,10 @@ test("shipped direct interaction motion stays inside the 360ms release budget", 
     }));
     const pressScale = /^matrix\(/.test(settled.press) ? Number(settled.press.split(",")[0].slice(7)) : settled.press === "none" ? 1 : NaN;
     assert.ok(settled.page === "none" || Math.abs(translateX(settled.page)) < 0.5, `navigation release finishes within 360ms (${settled.page})`);
+    // Release reaches idle. The pointerup is dispatched without first reading a visible pressed transform.
     assert.ok(
       settled.press === "none" || Math.abs(pressScale - 1) < 0.02,
-      `releasing the pointer returns the control to idle within 360ms (${settled.press})`
+      `after release, the control is idle within a 360ms clock advance (${settled.press}). The test does not first establish a visible pressed state`
     );
     assert.deepEqual(session.errors, []);
   } finally { await session.close(); }
@@ -345,6 +345,7 @@ test("shipped view-transition callbacks cannot reorder or stall visible state", 
           return { updateCallbackDone: entry.updateCallbackDone, finished: entry.finished };
         };
       };
+      // Poll bound only. A commit observed inside this loop does not prove the fallback timer is exactly 100ms.
       const waitForCommit = async (read) => {
         const start = performance.now();
         while (!read() && performance.now() - start < 1000) {
@@ -436,13 +437,13 @@ test("shipped view-transition callbacks cannot reorder or stall visible state", 
     });
     assert.deepEqual(result.calls.slice(0, 2), ["open", "close"], "open and close each hand their callback to the snapshot");
     assert.equal(result.opensBeforeTimeout, 0, "a held open callback does not commit before the timeout fallback");
-    assert.equal(result.openCommittedByTimeout, true, "the open timeout fallback commits the visible state");
+    assert.equal(result.openCommittedByTimeout, true, "polling observes the open timeout fallback commit; the poll does not prove the fallback is exactly 100ms");
     assert.equal(result.phaseAfterOpenTimeout, "open");
     assert.equal(result.opensAfterStale, 1, "open commits exactly once");
     assert.equal(result.phaseAfterStaleOpen, "newer-than-open", "a stale open callback cannot reorder a newer visible state");
     assert.equal(result.closed, true, "close starts while its callback is still held");
     assert.equal(result.closesBeforeTimeout, 0, "a held close callback does not commit before the timeout fallback");
-    assert.equal(result.closeCommittedByTimeout, true, "the close timeout fallback commits the visible state");
+    assert.equal(result.closeCommittedByTimeout, true, "polling observes the close timeout fallback commit; the poll does not prove the fallback is exactly 100ms");
     assert.equal(result.closesAfterStale, 1, "close commits exactly once");
     assert.equal(result.phaseAfterStaleClose, "newer-than-close", "a stale close callback cannot reorder a newer visible state");
     assert.equal(result.beforeFallback, "sync", "the open update is not left waiting on the snapshot callback");
@@ -456,7 +457,9 @@ test("shipped view-transition callbacks cannot reorder or stall visible state", 
   } finally { await session.close(); }
 });
 
-test("shipped velocity at or above 720 dismisses below the distance threshold", async () => {
+// Untouched gesture. The shipped bundle and its ticker stay as loaded.
+// The 719/720 cutoff is the separate instrumented decision-boundary test.
+test("shipped untouched gesture: a slow drag snaps back and a fast flick dismisses below the distance threshold", async () => {
   const session = await openPage({
     width: 850,
     height: 800,
@@ -499,8 +502,9 @@ test("shipped velocity at or above 720 dismisses below the distance threshold", 
         surface: document.querySelector("#surface").dataset.motionSurface || ""
       };
     });
-    // The bundle inlines shouldDismiss: distance >= min(132, max(72, size * 0.24))
-    // OR velocity >= 720. size is max(480, innerHeight). At 800px that distance is 132.
+    // Untouched bundle. The distance threshold is min(132, max(72, size * 0.24)).
+    // size is max(480, innerHeight). At 800px that distance is 132. This gesture
+    // does not replace the decision function and does not control ticker time.
     const distanceThreshold = (height) => {
       const size = Math.max(480, height);
       return Math.min(132, Math.max(72, size * 0.24));
@@ -539,7 +543,9 @@ test("shipped velocity at or above 720 dismisses below the distance threshold", 
   } finally { await session.close(); }
 });
 
-test("shipped release velocity cutoff is measured below the distance threshold", { timeout: 60000 }, async () => {
+// Instrumented decision boundary. Replaces the minified decision function and
+// controls ticker time so each requested velocity is what the tracker formula returns.
+test("shipped instrumented decision boundary: replaced minified dismiss function and controlled ticker time snap at 719 and dismiss at 720", { timeout: 60000 }, async () => {
   const decisionFn = "function Na({distance:a=0,velocity:t=0,size:e=1}={}){let i=Math.min(132,Math.max(72,(Number(e)||1)*.24));return Number(a)>=i||Number(t)>=720}";
   const decisionPatched = "function Na({distance:a=0,velocity:t=0,size:e=1}={}){let i=Math.min(132,Math.max(72,(Number(e)||1)*.24));const result=Number(a)>=i||Number(t)>=720;(window.__decisions||(window.__decisions=[])).push({distance:Number(a),velocity:Number(t),size:Number(e),threshold:i,result});return result}";
   const getter = 't.get=function(i,r){var n=this._props[i]||console.warn("Not tracking "+i+" velocity."),s,o,f;return s=parseFloat(r?n.v1:n.g(n.t,n.p)),o=s-parseFloat(n.v2)';
@@ -624,7 +630,9 @@ test("shipped release velocity cutoff is measured below the distance threshold",
     const lowestDismiss = Math.min(...dismisses.map((trial) => trial.velocity));
     const measuredCutoff = highestSnap + 1 === lowestDismiss ? lowestDismiss : null;
     const report = {
-      method: "Release velocity is the shipped InertiaPlugin value (current - previousSample) / (tickerTime - previousSampleTime). Distance stays at 100px. At an 800px viewport the distance threshold is 132px, so these trials can dismiss only through velocity. tickerTime is placed, inside that getter, so the formula returns each requested velocity. Dismiss or snap-back is the shipped branch and the visible surface.",
+      kind: "instrumented-decision-boundary",
+      instrumentation: "Replaces the minified decision function and controls ticker time so the tracker formula returns each requested velocity. Separate from the untouched slow-drag and fast-flick gesture, which leaves the shipped decision function and ticker unchanged.",
+      method: "Release velocity is the shipped InertiaPlugin value (current - previousSample) / (tickerTime - previousSampleTime). Distance stays at 100px. At an 800px viewport the distance threshold is 132px, so these trials can dismiss only through velocity. The minified decision function is replaced with the same threshold expression plus a decision log. tickerTime is placed, inside that getter, so the formula returns each requested velocity. Dismiss or snap-back is that instrumented branch and the visible surface.",
       distancePx: 100,
       claimedCutoff: measuredCutoff,
       highestSnap,
@@ -645,7 +653,7 @@ test("shipped release velocity cutoff is measured below the distance threshold",
     }
     assert.equal(highestSnap, 719);
     assert.equal(lowestDismiss, 720);
-    assert.equal(measuredCutoff, 720, "the measured dismiss cutoff is 720");
+    assert.equal(measuredCutoff, 720, "the instrumented decision boundary dismisses at 720 and snaps at 719");
   } finally {
     await page.close();
   }

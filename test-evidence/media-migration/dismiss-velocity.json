@@ -1,5 +1,7 @@
 {
-  "method": "Release velocity is the shipped InertiaPlugin value (current - previousSample) / (tickerTime - previousSampleTime). Distance stays at 100px. At an 800px viewport the distance threshold is 132px, so these trials can dismiss only through velocity. tickerTime is placed, inside that getter, so the formula returns each requested velocity. Dismiss or snap-back is the shipped branch and the visible surface.",
+  "kind": "instrumented-decision-boundary",
+  "instrumentation": "Replaces the minified decision function and controls ticker time so the tracker formula returns each requested velocity. Separate from the untouched slow-drag and fast-flick gesture, which leaves the shipped decision function and ticker unchanged.",
+  "method": "Release velocity is the shipped InertiaPlugin value (current - previousSample) / (tickerTime - previousSampleTime). Distance stays at 100px. At an 800px viewport the distance threshold is 132px, so these trials can dismiss only through velocity. The minified decision function is replaced with the same threshold expression plus a decision log. tickerTime is placed, inside that getter, so the formula returns each requested velocity. Dismiss or snap-back is that instrumented branch and the visible surface.",
   "distancePx": 100,
   "claimedCutoff": 720,
   "highestSnap": 719,

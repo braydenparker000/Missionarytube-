@@ -12,13 +12,13 @@ hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
 hint: 'development'. The just-created branch can be renamed via this command:
 hint: 
 hint: 	git branch -m <name>
-Initialized empty Git repository in /tmp/jarvis-pinned-bg8QtS/.git/
+Initialized empty Git repository in /tmp/jarvis-pinned-NV6OU4/.git/
 From https://github.com/braydenparker999/jarvis
  * branch            c28c1b2f70aabb5217b08bf31ffe4c93d0353765 -> FETCH_HEAD
 HEAD is now at c28c1b2 Merge pull request #130 from braydenparker999/release/lucy-oauth-discovery-20261011
-$ git -C /tmp/jarvis-pinned-bg8QtS rev-parse HEAD
+$ git -C /tmp/jarvis-pinned-NV6OU4 rev-parse HEAD
 c28c1b2f70aabb5217b08bf31ffe4c93d0353765
-$ git -C /tmp/jarvis-pinned-bg8QtS status --porcelain
+$ git -C /tmp/jarvis-pinned-NV6OU4 status --porcelain
 <empty>
 clean checkout verified: git status --porcelain empty at c28c1b2f70aabb5217b08bf31ffe4c93d0353765
 Jarvis media source c28c1b2f70aabb5217b08bf31ffe4c93d0353765 public/media c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7
@@ -28,70 +28,70 @@ TAP version 13
 # Subtest: shipped: real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact
 ok 1 - shipped: real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact
   ---
-  duration_ms: 70.945575
+  duration_ms: 88.337132
   ...
 # Output has already been finalized.
 # Subtest: shipped: HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it
 ok 2 - shipped: HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it
   ---
-  duration_ms: 33.340459
+  duration_ms: 42.849706
   ...
 # Output has already been finalized.
 # Subtest: shipped: HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes
 ok 3 - shipped: HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes
   ---
-  duration_ms: 12.364644
+  duration_ms: 24.385644
   ...
 # Subtest: shipped: seeking starts at a preceding keyframe and unsupported video is explicit
 ok 4 - shipped: seeking starts at a preceding keyframe and unsupported video is explicit
   ---
-  duration_ms: 3.63243
+  duration_ms: 6.894485
   ...
 # Output has already been finalized.
 # Subtest: shipped: surround audio is downmixed to bounded stereo samples
 ok 5 - shipped: surround audio is downmixed to bounded stereo samples
   ---
-  duration_ms: 37.855972
+  duration_ms: 42.695433
   ...
 # Output has already been finalized.
 # Output has already been finalized.
 # Subtest: shipped: audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps
 ok 6 - shipped: audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps
   ---
-  duration_ms: 47.667744
+  duration_ms: 45.969186
   ...
 # Output has already been finalized.
 # Subtest: shipped: an unsupported default audio track falls back to usable audio in the same file
 ok 7 - shipped: an unsupported default audio track falls back to usable audio in the same file
   ---
-  duration_ms: 79.127468
+  duration_ms: 62.510513
   ...
 # Subtest: shipped: replacing an in-flight startup reports the old read as cancelled, not a new playback failure
 ok 8 - shipped: replacing an in-flight startup reports the old read as cancelled, not a new playback failure
   ---
-  duration_ms: 5.566146
+  duration_ms: 6.358228
   ...
 # Output has already been finalized.
 # Subtest: shipped: real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks
 ok 9 - shipped: real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks
   ---
-  duration_ms: 242.180152
+  duration_ms: 320.542368
   ...
 # Subtest: shipped: audio conversion selects AAC when MP4 cannot accept Opus
 ok 10 - shipped: audio conversion selects AAC when MP4 cannot accept Opus
   ---
-  duration_ms: 37.117463
+  duration_ms: 12.675129
   ...
 # Output has already been finalized.
 # Subtest: shipped: a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window
 ok 11 - shipped: a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window
   ---
-  duration_ms: 65.548464
+  duration_ms: 108.135189
   ...
 # Output has already been finalized.
 # HTTP server (origin https://media.example.test) did not respond to a range request with 206 Partial Content, meaning the resource will now be streamed sequentially, with old data being evicted from the cache. Reads into evicted regions will throw. To enable efficient media file streaming across a network, please make sure your server supports range requests. Alternatively, set maxCacheSize to Infinity in the UrlSource options to keep the entire resource in memory.
 # Retrying failed fetch. Error: TypeError: Failed to fetch
-#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:673:54)
+#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:675:54)
 #     at fetchFn (assets/js/playback/compatibility.js:9263:1605)
 #     at jr (assets/js/playback/compatibility.js:8:4121)
 #     at A._runWorker (assets/js/playback/compatibility.js:200:6379)
@@ -104,25 +104,25 @@ ok 11 - shipped: a WebM repair seek retains a preceding keyframe beyond the init
 # Subtest: shipped: copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer
 ok 12 - shipped: copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer
   ---
-  duration_ms: 23.678087
+  duration_ms: 32.448885
   ...
 # Subtest: shipped: compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges
 ok 13 - shipped: compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges
   ---
-  duration_ms: 7.865171
+  duration_ms: 4.405474
   ...
 # Subtest: shipped: compatibility HLS children on another origin never receive addon credentials
 ok 14 - shipped: compatibility HLS children on another origin never receive addon credentials
   ---
-  duration_ms: 8.09295
+  duration_ms: 17.149926
   ...
 # Subtest: shipped: compatibility startup distinguishes blocked access and connection failures
 ok 15 - shipped: compatibility startup distinguishes blocked access and connection failures
   ---
-  duration_ms: 254.473417
+  duration_ms: 258.192567
   ...
 # Retrying failed fetch. Error: TypeError: Failed to fetch
-#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:698:31)
+#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:700:31)
 #     at fetchFn (assets/js/playback/compatibility.js:9263:1605)
 #     at jr (assets/js/playback/compatibility.js:8:4121)
 #     at A._runWorker (assets/js/playback/compatibility.js:200:6379)
@@ -134,7 +134,7 @@ ok 15 - shipped: compatibility startup distinguishes blocked access and connecti
 #     at assets/js/playback/compatibility.js:266:2637
 # Output has already been finalized.
 # Retrying failed fetch. Error: TypeError: Failed to fetch
-#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:740:36)
+#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:742:36)
 #     at fetchFn (assets/js/playback/compatibility.js:9263:1605)
 #     at jr (assets/js/playback/compatibility.js:8:4121)
 #     at A._runWorker (assets/js/playback/compatibility.js:200:6379)
@@ -147,14 +147,14 @@ ok 15 - shipped: compatibility startup distinguishes blocked access and connecti
 # Subtest: shipped: audio repair retries a transient request and transfers the real prepared input without rereading
 ok 16 - shipped: audio repair retries a transient request and transfers the real prepared input without rereading
   ---
-  duration_ms: 276.464015
+  duration_ms: 264.617817
   ...
 # Error while reading response stream. Attempting to resume. TypeError: network interrupted
-#     at Object.start (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:741:85)
+#     at Object.start (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:743:85)
 #     at setupReadableStreamDefaultController (node:internal/webstreams/readablestream:2464:23)
 #     at setupReadableStreamDefaultControllerFromSource (node:internal/webstreams/readablestream:2496:3)
 #     at new ReadableStream (node:internal/webstreams/readablestream:279:7)
-#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:741:27)
+#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:743:27)
 #     at fetchFn (assets/js/playback/compatibility.js:9263:1605)
 #     at jr (assets/js/playback/compatibility.js:8:4121)
 #     at A._runWorker (assets/js/playback/compatibility.js:200:6379)
@@ -163,10 +163,10 @@ ok 16 - shipped: audio repair retries a transient request and transfers the real
 # Subtest: shipped: audio repair bounds persistent fetch failures to one shared retry
 ok 17 - shipped: audio repair bounds persistent fetch failures to one shared retry
   ---
-  duration_ms: 252.235591
+  duration_ms: 251.249716
   ...
 # Retrying failed fetch. Error: TypeError: Failed to fetch
-#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:753:54)
+#     at context.fetch (file:///workspace/tests/jarvis-shipped-compatibility.suite.mjs:755:54)
 #     at fetchFn (assets/js/playback/compatibility.js:9263:1605)
 #     at jr (assets/js/playback/compatibility.js:8:4121)
 #     at A._runWorker (assets/js/playback/compatibility.js:200:6379)
@@ -179,95 +179,95 @@ ok 17 - shipped: audio repair bounds persistent fetch failures to one shared ret
 # Subtest: shipped: audio repair bounds persistent body failures to one shared retry
 ok 18 - shipped: audio repair bounds persistent body failures to one shared retry
   ---
-  duration_ms: 252.963973
+  duration_ms: 251.368528
   ...
 # Subtest: shipped: cancelling repair during its retry delay stops it without another request
 ok 19 - shipped: cancelling repair during its retry delay stops it without another request
   ---
-  duration_ms: 310.19117
+  duration_ms: 312.915559
   ...
 # Subtest: shipped: repair cancellation promptly rejects a pending metadata fetch
 ok 20 - shipped: repair cancellation promptly rejects a pending metadata fetch
   ---
-  duration_ms: 0.877223
+  duration_ms: 0.821807
   ...
 # Subtest: shipped: prepared repair is disposed when abandoned or its adapter is destroyed before attach
 ok 21 - shipped: prepared repair is disposed when abandoned or its adapter is destroyed before attach
   ---
-  duration_ms: 4.619783
+  duration_ms: 4.708988
   ...
 # Subtest: shipped: aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter
 ok 22 - shipped: aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter
   ---
-  duration_ms: 4.142086
-  ...
-# Subtest: shipped: an already-aborted pumpPipeline job passes AbortError through attach()
-ok 23 - shipped: an already-aborted pumpPipeline job passes AbortError through attach() # TODO createAdapter detaches the mux job and does not reject attach() with the internal AbortError. The shipped bundle does not export pumpPipeline, so the source-unit assertion in tests/compatibility-player.test.mjs cannot be executed against the public adapter. Keyframe selection and the explicit unsupported-video error remain covered above.
-  ---
-  duration_ms: 0.159506
+  duration_ms: 3.93594
   ...
 # Subtest: characterization: held scripts leave the stored accent and motion unapplied at first paint
-ok 24 - characterization: held scripts leave the stored accent and motion unapplied at first paint
+ok 23 - characterization: held scripts leave the stored accent and motion unapplied at first paint
   ---
-  duration_ms: 1132.085206
+  duration_ms: 1196.044046
   ...
 # Subtest: stored non-default accent and motion are applied before first paint
-ok 25 - stored non-default accent and motion are applied before first paint # TODO appearance.js and bootstrap.js are deferred. While their responses are held, the first paint uses the stylesheet default ice accent (\#b4d1ff) and .page.active still runs page-arrival. The stored violet accent and motion off are applied only after the scripts run. The characterization in this file records that limitation and does not treat it as a passing guarantee.
+ok 24 - stored non-default accent and motion are applied before first paint # TODO appearance.js and bootstrap.js are deferred. While their responses are held, the first paint uses the stylesheet default ice accent (\#b4d1ff) and .page.active still runs page-arrival. The stored violet accent and motion off are applied only after the scripts run. The characterization in this file records that limitation and does not treat it as a passing guarantee.
   ---
-  duration_ms: 0.233993
+  duration_ms: 0.218035
   ...
 # Subtest: shipped motion distinguishes a tap, a cancelled drag, and a committed dismissal
-ok 26 - shipped motion distinguishes a tap, a cancelled drag, and a committed dismissal
+ok 25 - shipped motion distinguishes a tap, a cancelled drag, and a committed dismissal
   ---
-  duration_ms: 2295.415523
+  duration_ms: 2409.099912
   ...
 # Subtest: shipped custom press physics owns touch and pen, not mouse clicks
-ok 27 - shipped custom press physics owns touch and pen, not mouse clicks
+ok 26 - shipped custom press physics owns touch and pen, not mouse clicks
   ---
-  duration_ms: 848.195673
+  duration_ms: 851.751353
   ...
 # Subtest: shipped navigation direction follows the dock and accepts an explicit back route
-ok 28 - shipped navigation direction follows the dock and accepts an explicit back route
+ok 27 - shipped navigation direction follows the dock and accepts an explicit back route
   ---
-  duration_ms: 180.066953
+  duration_ms: 207.961732
   ...
 # Subtest: shipped content choreography is viewport-aware and bounded
-ok 29 - shipped content choreography is viewport-aware and bounded
+ok 28 - shipped content choreography is viewport-aware and bounded
   ---
-  duration_ms: 168.54732
+  duration_ms: 191.677258
   ...
 # Subtest: shipped mobile motion avoids offscreen GPU layers and costly document snapshots
-ok 30 - shipped mobile motion avoids offscreen GPU layers and costly document snapshots
+ok 29 - shipped mobile motion avoids offscreen GPU layers and costly document snapshots
   ---
-  duration_ms: 148.389142
+  duration_ms: 179.560999
   ...
 # Subtest: shipped direct interaction motion stays inside the 360ms release budget
-ok 31 - shipped direct interaction motion stays inside the 360ms release budget
+ok 30 - shipped direct interaction motion stays inside the 360ms release budget
   ---
-  duration_ms: 159.656586
+  duration_ms: 165.178443
   ...
 # Subtest: shipped view-transition callbacks cannot reorder or stall visible state
-ok 32 - shipped view-transition callbacks cannot reorder or stall visible state
+ok 31 - shipped view-transition callbacks cannot reorder or stall visible state
   ---
-  duration_ms: 579.939111
+  duration_ms: 597.500986
   ...
-# Subtest: shipped velocity at or above 720 dismisses below the distance threshold
-ok 33 - shipped velocity at or above 720 dismisses below the distance threshold
+# Subtest: shipped untouched gesture: a slow drag snaps back and a fast flick dismisses below the distance threshold
+ok 32 - shipped untouched gesture: a slow drag snaps back and a fast flick dismisses below the distance threshold
   ---
-  duration_ms: 2048.232213
+  duration_ms: 2055.990388
+  ...
+# Subtest: shipped instrumented decision boundary: replaced minified dismiss function and controlled ticker time snap at 719 and dismiss at 720
+ok 33 - shipped instrumented decision boundary: replaced minified dismiss function and controlled ticker time snap at 719 and dismiss at 720
+  ---
+  duration_ms: 1296.431233
   ...
 # Subtest: shipped: at 390px .episode-nav-sticky backdrop-filter is none
 ok 34 - shipped: at 390px .episode-nav-sticky backdrop-filter is none # TODO The @media (max-width: 419px) rule sets backdrop-filter: none on .episode-nav-sticky, but a later .episode-nav-sticky rule of the same specificity sets saturate(180%) blur(20px) and wins. The computed style at 390px is that blur, recorded by the mobile motion test. The none clause stays unsupported on the shipped stylesheet.
   ---
-  duration_ms: 0.317096
+  duration_ms: 0.376313
   ...
 1..34
 # tests 34
 # suites 0
-# pass 31
+# pass 32
 # fail 0
 # cancelled 0
 # skipped 0
-# todo 3
-# duration_ms 15796.940367
+# todo 2
+# duration_ms 16010.961724
 EXIT:0

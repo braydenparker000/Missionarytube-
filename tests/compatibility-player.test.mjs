@@ -113,6 +113,8 @@ test('seeking starts at a preceding keyframe and unsupported video is explicit',
   const plan=await preparePipeline(input,{startTime:2.5});
   assert.ok(plan.first.timestamp<=2.5&&plan.first.timestamp>1);
   await assert.rejects(preparePipeline(input,{supports:()=>false}),/cannot decode the video codec/);
+  // Direct pumpPipeline contract. The public adapter detaches run.job and
+  // suppresses AbortError as a playback failure, so this is not an attach() requirement.
   const abort=new AbortController();abort.abort();
   await assert.rejects(pumpPipeline(plan,{target:new BufferTarget(),signal:abort.signal}),{name:'AbortError'});
  }finally{input.dispose();}

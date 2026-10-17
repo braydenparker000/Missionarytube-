@@ -65,7 +65,7 @@ Result on the migrated run: pass, as a characterization. The original first-pain
 
 ## Shipped-bundle pass
 
-`tests/jarvis-shipped-compatibility.suite.mjs` (22) and `tests/jarvis-shipped-motion.suite.mjs` (7) drive the pinned bundles. They pass in `migrated.tap`. The original 29 source-unit names still fail in that same file. Per-test status is in `no-counterpart-mapping.md`. The migration stays incomplete while the pump-abort clause, the `velocity >= 720` branch, the narrow `backdrop-filter: none` cascade, and the first-paint guarantee remain unsupported or pending.
+`tests/jarvis-shipped-compatibility.suite.mjs` (22) and `tests/jarvis-shipped-motion.suite.mjs` (7) drive the pinned bundles. They pass in `migrated.tap`. The original 29 source-unit names still fail in that same file. Per-test status is in `no-counterpart-mapping.md`. The migration stays incomplete while the narrow `backdrop-filter: none` cascade and the before-first-paint theme guarantee remain unsupported. The direct `pumpPipeline` abort stays a source-unit contract: the public adapter detaches `run.job` and suppresses `AbortError`, so it is not an `attach()` product discrepancy. The 719/720 cutoff is an instrumented decision-boundary measurement that replaces the minified decision function and controls ticker time. The untouched slow/fast gesture is separate.
 
 ## Still failing on the Jarvis source-unit names (29)
 

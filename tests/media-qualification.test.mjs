@@ -80,14 +80,16 @@ test("the recorded pending list matches the shipped todos and is not ready", () 
   assert.equal(pending.malformed, false);
   assert.deepEqual(pending.items.map((item) => item.name), [
     "stored non-default accent and motion are applied before first paint",
-    "shipped: an already-aborted pumpPipeline job passes AbortError through attach()",
     "shipped: at 390px .episode-nav-sticky backdrop-filter is none"
   ]);
   const key = (item) => `${item.file} ${item.name}`;
   assert.deepEqual(todos.map(key).sort(), pending.items.map(key).sort());
+  const pumpAttach = "shipped: an already-aborted pumpPipeline job passes AbortError through attach()";
+  assert.equal(pending.items.some((item) => item.name === pumpAttach), false);
+  assert.equal(todos.some((item) => item.name === pumpAttach), false);
   const result = verdict({ testsPass: true, pending, todos });
   assert.equal(result.status, "NOT READY");
-  assert.equal(result.todoCount, 3);
-  assert.equal(result.pendingCount, 3);
+  assert.equal(result.todoCount, 2);
+  assert.equal(result.pendingCount, 2);
   assert.deepEqual(result.reasons, ["pending items remain", "todos remain"]);
 });
