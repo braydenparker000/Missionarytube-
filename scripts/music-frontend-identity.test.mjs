@@ -1,12 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {checkedMusicFrontend} from './music-frontend-identity.mjs';
+import {checkedMusicFrontend,nextMusicReceipt} from './music-frontend-identity.mjs';
 const source='braydenparker999/jarvis';
 test('ordinary releases retain strict exact source pin',()=>{
  assert.equal(checkedMusicFrontend({commit:'a'},{source,commit:'a'}).commit,'a');
  assert.throws(()=>checkedMusicFrontend({commit:'a'},{source,commit:'b'}));
  assert.throws(()=>checkedMusicFrontend({commit:'a'},{source:'fork/repo',commit:'a'}));
+});
+test('receipt lineage follows latest wrappers to their historical component snapshots',()=>{
+ const base={source:'base'},ownerProgress={ownerProgressPatch:{parentReceipt:base}},
+  simpleChat={simpleChatTasksPatch:{parentReceipt:ownerProgress}},
+  mobileSave={mobileFileSavePatch:{parentReceipt:simpleChat},simpleChatTasksPatch:{parentReceipt:ownerProgress}};
+ assert.deepEqual(nextMusicReceipt(mobileSave),{key:'mobileFileSavePatch',parent:simpleChat});
+ assert.deepEqual(nextMusicReceipt(simpleChat),{key:'simpleChatTasksPatch',parent:ownerProgress});
+ assert.deepEqual(nextMusicReceipt(ownerProgress),{key:'ownerProgressPatch',parent:base});
+ assert.equal(nextMusicReceipt(base),null);
+ assert.throws(()=>nextMusicReceipt({mobileFileSavePatch:{parentReceipt:null}}),/verified parent/);
+ assert.throws(()=>nextMusicReceipt({simpleChatTasksPatch:{parentReceipt:[]}}),/verified parent/);
 });
 test('preserved frontend requires the complete pinned verified receipt',()=>{
  const receipt=JSON.parse(readFileSync(new URL('../docs/evidence/lucy-verified-receipt-38168396000.json',import.meta.url)));
