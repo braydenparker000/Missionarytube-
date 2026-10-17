@@ -150,9 +150,12 @@ The source import and root-media cleanup batches are complete: PR228 merged at
 `07f010ae72148cc14e9872fc76373912f0b5a8f3`, PR229 at
 `8a3e45d706c011f7052a66d77147ad47a143d5a3`, and PR230 at
 `cc2a2b0c8693094d0c4dbdddeb8e53e0489fddf7`. PR230 superseded and closed the
-older PR215 after its callers retired. A guarded Azure deployment and actual
-post-deploy receipt/smoke checks are still required before claiming live
-delivery. Worker and R2 publications retain their separate gates.
+older PR215 after its callers retired. PR234 fixed the success logger in the
+guarded provenance publication and merged at
+`217c0a49cb3bf3ba6a62a83388a226dca16456a7`. The provenance-only Azure
+publication and actual post-deploy readback are complete in run
+[39034316137](https://github.com/braydenparker000/Missionarytube-/actions/runs/39034316137).
+Worker and R2 publications retain their separate gates.
 
 ## Active and pending public variants
 
@@ -207,23 +210,30 @@ The owner-progress checker had been applied directly to the latest wrapper and
 rejected a valid chain. PR232 fixed the traversal order and preserved each
 historical layer's existing checker and source pins. Read-only live run
 `39005718644` then passed release lineage, R2 byte/Range/CORS checks, and
-independent playback, seeking and artwork checks. The earlier run
-`39003845606` remains failed at the sanitized release stage; its report
-artifact download returned HTTP 403, so its exact assertion is unavailable.
+independent playback, seeking and artwork checks. This run used the PR232 merge
+commit `bd2853c619bb3123e0761569928cca68d18a0239`. Earlier run
+`39003845606` failed at the summarized step “Verify independent live playback,
+seeking and artwork.” Its report artifact download returned HTTP 403, so the
+exact inner assertion is unavailable. The later successful verifier supersedes
+that historical failure; it is not an outstanding playback failure. The
+provenance-only run below did not rerun the playback verifier.
 
-The destination-owned static artifact is ready for a separate provenance-only
-publication. Its candidate has 194 files; 171 existing public files match
-exactly, and the other 22 are held at their already-live hashes. Those comprise
-private/shared overlay files, drawercast and Guitar behavior, and configured
-keys; none are uploaded by this path. It verifies the 63-file private-workspace
-receipt before and after publication. The operation is limited to `release.json`
-plus an additive `release-component-provenance.json` sidecar. Before either
-write, it stores the previous release bytes and complete blob inventory as a
-90-day rollback artifact. The release file is the final cutover marker; on a
-failed verification the guarded workflow restores it and removes only its own
-sidecar. The existing `release-qualified.json`, private receipt, 22 held files,
-all other blobs, and Worker state remain unchanged. No production publication
-has run yet.
+The destination-owned static artifact was published through the provenance-only
+route in run [39034316137](https://github.com/braydenparker000/Missionarytube-/actions/runs/39034316137)
+on orchestration `217c0a49cb3bf3ba6a62a83388a226dca16456a7`. Its candidate has
+194 files; 171 existing public files matched exactly, and the other 22 were
+held at their already-live hashes. Those comprise private/shared overlay files,
+drawercast and Guitar behavior, and configured keys; none were uploaded by this
+route. The workflow verified the 63-path private-workspace receipt before and
+after publication, bound the rollback artifact, published only `release.json`
+and the additive `release-component-provenance.json` sidecar, then verified
+lineage; rollback was skipped on success. Direct readback confirmed release
+SHA256 `d676c6977fbfc8e44c2017342077273561c895e3b8d1d4e41583bf8601d4ce74`,
+sidecar SHA256 `e0a350db6bf99b3b2a59ae2f6a1ca22303cb8f28d99689dc6cf59ca8884a85e4`,
+all 22 preserved hashes, and HTTP 200 for `/`, `/mymedia/index.html`,
+`/podcasts/index.html`, and `/reader/index.html`. Both published JSON objects
+were served with `no-cache` headers. No application asset or Worker state
+changed.
 
 ## Unchanged operational boundaries
 
@@ -237,32 +247,67 @@ pins, qualification gates, Azure endpoint and federation, and
 publication/importer endpoints remain unchanged. This route does not run a
 Worker or upload app files.
 
-## Remaining component-cutover checklist
+## Consolidation closeout and deferred work
 
-- Reconcile source-main differences (including seven main-only files) and
-  accepted open work by subsystem; keep held work held.
-- Establish component inventories beyond the existing private frontend's
-  18 published files and 45 preserved dependencies. Refresh Worker metadata
-  separately; a public receipt is not a new live Worker observation.
-- Continue reviewing remaining historical provenance fields and component
-  consumers against destination ancestry, preserving artifact hashes, upload
-  ordering, rollback receipts, dependency checks and static-only versus Worker
-  release boundaries.
-- Migrate repository-specific qualification provenance with fresh proofs;
-  preserve historical proof origins. Update workflow path filters and gate
-  recipes together only in that reviewed cutover, not this import.
-- PR230 completed the root-media cleanup; its tests and license files remain.
-- Preserve Daily Board issue #2 and its external writer until a coordinated
-  endpoint, provenance, cursor/deduplication and reader/writer rollback plan
-  is reviewed. Do not change responder schedules.
-- Retain Drive/R2/music, private-board/collaboration, Makima/Muse and egress
-  release paths. Any credential or expanded-access change is separately gated.
-- Complete agent references and archival decisions only after the replacement
-  paths work. No rename, archive, deletion, merge or deployment in this patch.
+The behavior-preserving code consolidation is complete for the agreed active
+frontend and deployment source. PR216 imported the 926-file source history;
+PR217–222 moved active root workflow checkouts to destination history; PR223–227
+cut over the byte-verified component groups; PR228–230 completed import,
+qualification and duplicate-root cleanup; PR231–234 bound and published the
+active public source provenance path. These changes preserve the historical
+source commit and current Relay/Mast/Muse behavior. The active checkout origin is
+`braydenparker000/Missionarytube-`; the old `jarvis-release.json` repository
+field remains the historical source identity, not an active checkout origin.
+
+The following work is explicitly held or belongs to a separately scoped
+operational migration; it is not a blocker to this behavior-preserving
+consolidation:
+
+- **Held source variants:** `favorites`, root `index.html`, `jarvis`, `notes`,
+  `server`, `settings`, and `tools` remain on the active c28 snapshot because
+  their shared dependencies differ. Other reviewed differences include 13
+  modified and 32 added assets, Drawercast storage/playback changes, Guitar
+  save-to-files changes, Mast/Muse UI changes, and `staticwebapp.config.json`.
+  Private/security modules and destination-only `muse-key` and `private` files
+  remain inactive. Activate none without a product/security decision and
+  component-scoped qualification.
+- **Daily Board operational dependency:** the reader still consumes comments
+  from open `braydenparker999/jarvis#2`; external scheduled automation “Publish
+  Jarvis Daily Board” (`6ac854579d1481918af16682c5b5936c`) still targets that
+  issue. No repository writer was identified; `jarvis_publish_briefing` writes
+  to a separate Worker board API. Destination issue #2 is already an imported
+  PR. Preserve the old issue, messages and schedule. If feed migration is
+  separately approved, first create a unique destination issue and implement
+  additive dual-read with composite repository/issue/comment identity,
+  per-source cursors, deduplication, watermark reconciliation, writer cutover
+  and rollback. Do not change access or responder schedules as part of this
+  consolidation.
+- **Historical inventory and separate release paths:**
+  `release-inventory.json` remains the explicitly historical 2026-10-16
+  observation of a limited 18-file/45-dependency private frontend closure and
+  Worker metadata, not a complete current-site inventory. Refreshing broader
+  inventories or Worker metadata is separate from this static provenance
+  publication. Retain Drive/R2/music, private-board/collaboration, Makima/Muse,
+  and egress release paths with their own gates; any credential or expanded
+  access change requires separate authorization.
+- **Legacy refs and media qualification:** preserve original repository refs;
+  no rename, archive, or deletion is part of this plan. Existing media
+  qualification remains NOT READY because of the documented UI TODOs and
+  mobile-motion assertion. Do not weaken that gate. The successful live
+  playback verifier above is distinct from these media qualification items.
+
+No additional application cutover or deployment is required to close this
+behavior-preserving phase. Keep the held variants and Daily Board dependency
+visible in any future plan rather than describing this as full independence
+from the former repository's operational feed.
 
 Existing media qualification remains NOT READY (two documented UI TODOs and
 an additional mobile-motion assertion reproduced on untouched main in the
 prior cleanup evidence). Source import does not resolve or weaken that gate.
+
+The execution checklists below preserve each historical patch's original
+evidence and state; the dated consolidation closeout above is the current
+status.
 
 ## Qualification build consumer: execution checklist
 
