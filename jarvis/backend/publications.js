@@ -11,6 +11,7 @@ const OWNER=183016859, INTERVAL=300000;
 export const PUBLICATION_LIMITS=Object.freeze({intervalMs:INTERVAL,continuationMs:60000,maxIdleMs:1800000,
   pagesPerRun:3,commentsPerPage:100,pendingPerRun:600,conflictsPerRun:100,backfillPerRun:100,
   reconcileFetchesPerHour:36,reconcileFetchesPerDay:288,hintFetchesPerHour:12,totalFetchesPerHour:48,
+  additionalSourceFetchesPerDay:144,
   passesPerDay:480,pendingPerHour:7200,pendingPerDay:28800,conflictsPerHour:1200,conflictsPerDay:4800,
   backfillPerHour:6000,backfillPerDay:12000});
 const schemas=new WeakSet(),sharedMetadata=new WeakSet(),inFlight=new WeakMap();
@@ -84,18 +85,24 @@ export function takePublicationFetch(ctx,kind,now=Date.now()) {
   const hour=Math.floor(now/3600000),minute=Math.floor(now/60000);
   const stored=meta(ctx,'publisher-egress-budget');
   if(stored?.hour>hour)return {ok:false,retryAt:stored.hour*3600000,reason:'clock_backoff'};
-  const budget=stored?.hour===hour?stored:{hour,total:0,hints:0,reconcile:0,minute,burst:0};
+  const budget=stored?.hour===hour?stored:{hour,total:0,hints:0,reconcile:0,additionalSource:0,minute,burst:0};
   budget.reconcile??=budget.total-budget.hints;
+  budget.additionalSource??=0;
   if(budget.minute>minute)return {ok:false,retryAt:budget.minute*60000,reason:'clock_backoff'};
   if(budget.minute!==minute){budget.minute=minute;budget.burst=0;}
-  if(budget.total>=48||kind==='hint'&&budget.hints>=12||kind==='reconcile'&&budget.reconcile>=36)return {ok:false,retryAt:(hour+1)*3600000,reason:'egress_budget'};
+  if(budget.total>=48||kind==='hint'&&budget.hints>=12||['reconcile','source-reconcile'].includes(kind)&&budget.reconcile>=36)
+    return {ok:false,retryAt:(hour+1)*3600000,reason:'egress_budget'};
   if(kind==='hint'&&budget.burst>=2)return {ok:false,retryAt:(minute+1)*60000,reason:'hint_burst'};
-  if(kind==='reconcile'){
+  if(kind==='reconcile'||kind==='source-reconcile'){
     const day=Math.floor(now/86400000),storedDay=meta(ctx,'publisher-reconcile-day');
     if(storedDay?.day>day)return {ok:false,retryAt:storedDay.day*86400000,reason:'clock_backoff'};
-    const daily=storedDay?.day===day?storedDay:{day,total:0};
+    const daily=storedDay?.day===day?storedDay:{day,total:0,additionalSource:0};
+    daily.additionalSource??=0;
     if(daily.total>=288)return {ok:false,retryAt:(day+1)*86400000,reason:'daily_egress_budget'};
-    daily.total++;putMeta(ctx,'publisher-reconcile-day',daily);budget.reconcile++;
+    if(kind==='source-reconcile'&&daily.additionalSource>=PUBLICATION_LIMITS.additionalSourceFetchesPerDay)
+      return {ok:false,retryAt:(day+1)*86400000,reason:'daily_source_egress_budget'};
+    daily.total++;if(kind==='source-reconcile'){daily.additionalSource++;budget.additionalSource++;}
+    putMeta(ctx,'publisher-reconcile-day',daily);budget.reconcile++;
   }
   budget.total++;if(kind==='hint'){budget.hints++;budget.burst++;}putMeta(ctx,'publisher-egress-budget',budget);
   return {ok:true};
@@ -157,6 +164,16 @@ function allowance(ctx,kind,limit,now) {
   if(stored&&(hour<stored.hour||day<stored.day))return 0;
   return Math.max(0,Math.min(limit,PUBLICATION_LIMITS[kind+'PerHour']-(stored?.hour===hour?stored.hourly:0),
     PUBLICATION_LIMITS[kind+'PerDay']-(stored?.day===day?stored.daily:0)));
+}
+function sourceHasPending(ctx,sourceKey) {
+  return rows(ctx,'SELECT comment_id FROM publication_source_comments WHERE source_key=? AND imported IN(0,-1) LIMIT 1',sourceKey).length>0;
+}
+function sourceHasRecovery(ctx,sourceKey) {
+  return rows(ctx,'SELECT comment_id FROM publication_source_recovery WHERE source_key=? LIMIT 1',sourceKey).length>0;
+}
+function sourceLocalWorkDue(ctx,sourceKey,now) {
+  return sourceHasPending(ctx,sourceKey)&&allowance(ctx,'pending',1,now)>0||
+    sourceHasRecovery(ctx,sourceKey)&&allowance(ctx,'conflicts',1,now)>0;
 }
 function charge(ctx,kind,count,now) {
   if(!count)return;
@@ -303,7 +320,8 @@ export function nextPublicationReconciliationAt(ctx,now=Date.now()) {
   const main=Math.max(Number(meta(ctx,'publisher-next-attempt')||now),Number(meta(ctx,'publisher-upstream-not-before')||0));
   const configured=meta(ctx,'publisher-additional-sources');
   const sourceTimes=Array.isArray(configured)?configured.map(key=>meta(ctx,'publisher-source-next-attempt:'+key)).filter(Number.isFinite):[];
-  const times=[main,meta(ctx,'publisher-local-next-attempt'),nextLegacyInboxAt(ctx),...sourceTimes].filter(x=>x!==null);
+  const sourceLocalDue=Array.isArray(configured)&&configured.some(key=>sourceLocalWorkDue(ctx,key,now));
+  const times=[main,meta(ctx,'publisher-local-next-attempt'),nextLegacyInboxAt(ctx),...(sourceLocalDue?[now]:[]),...sourceTimes].filter(x=>x!==null);
   return Math.max(blocked,Math.min(...times));
 }
 // The caller has already validated a shared read and initialized sharedSchema.
@@ -312,7 +330,8 @@ export function nextPublicationReconciliationAt(ctx,now=Date.now()) {
 export function publicationReadNeedsWake(ctx,now=Date.now(),env=null) {
   if(!meta(ctx,'publisher-reconciliation-enabled')||env?.HUBS&&!meta(ctx,'legacy-inbox-checkpoint'))return true;
   if(now<Number(meta(ctx,'publisher-pass-not-before')||0))return false;
-  const configured=meta(ctx,'publisher-additional-sources'),sourceDue=Array.isArray(configured)&&configured.some(key=>now>=Number(meta(ctx,'publisher-source-next-attempt:'+key)||0));
+  const configured=meta(ctx,'publisher-additional-sources'),sourceDue=Array.isArray(configured)&&configured.some(key=>
+    now>=Number(meta(ctx,'publisher-source-next-attempt:'+key)||0)||sourceLocalWorkDue(ctx,key,now));
   return sourceDue||now>=Number(meta(ctx,'publisher-local-next-attempt')||0)||generation(ctx)!==meta(ctx,'publisher-local-generation')||
     conflictTail(ctx)!==Number(meta(ctx,'publisher-conflict-observed-tail')||0)||
     now>=Math.max(Number(meta(ctx,'publisher-next-attempt')||0),Number(meta(ctx,'publisher-upstream-not-before')||0))||
@@ -328,7 +347,15 @@ function takePass(ctx,now) {
 function summary(ctx) {
   const pending=rows(ctx,'SELECT comment_id FROM imported_comments WHERE imported IN(0,-1) LIMIT 601').length;
   const conflicts=rows(ctx,'SELECT comment_id FROM imported_comments WHERE imported=2 LIMIT 101').length;
-  return {pending:Math.min(pending,600),conflicts:Math.min(conflicts,100),morePending:pending>600,moreConflicts:conflicts>100};
+  const configured=meta(ctx,'publisher-additional-sources');
+  const additionalSources=Array.isArray(configured)?configured.map(source=>{
+    const pending=rows(ctx,'SELECT comment_id FROM publication_source_comments WHERE source_key=? AND imported IN(0,-1) LIMIT 601',source).length;
+    const conflicts=rows(ctx,'SELECT comment_id FROM publication_source_comments WHERE source_key=? AND imported=2 LIMIT 101',source).length;
+    const checkpoint=meta(ctx,'publisher-source-scan:'+source);
+    return {source,pending:Math.min(pending,600),conflicts:Math.min(conflicts,100),morePending:pending>600,moreConflicts:conflicts>100,
+      catchingUp:checkpoint?.scan!==null&&checkpoint?.scan!==undefined||pending>0,watermarkEstablished:typeof checkpoint?.since==='string'};
+  }):[];
+  return {pending:Math.min(pending,600),conflicts:Math.min(conflicts,100),morePending:pending>600,moreConflicts:conflicts>100,additionalSources};
 }
 function publicationCoverage(ctx) {
   // c4 advances its since/scan even for v2 comments it cannot decode. Only this
@@ -364,49 +391,62 @@ function sourceCheckpoint(ctx,source) {
       !Number.isSafeInteger(value.scan.page)||value.scan.page<1||!validTime(value.scan.newest)))throw Error('Publication source checkpoint unavailable');
   return value;
 }
-async function reconcileAdditionalSources(ctx,fetcher,now,sources) {
+async function reconcileAdditionalSources(ctx,fetcher,now,sources,{network=true}={}) {
   for(const source of sources){
     const nextKey='publisher-source-next-attempt:'+source.key;
-    if(now<Number(meta(ctx,nextKey)||0))continue;
-    putMeta(ctx,nextKey,now+INTERVAL);
-    let coverage=sourceCheckpoint(ctx,source),scan=coverage.scan||{since:coverage.since,page:1,newest:null},complete=false;
-    for(let page=0;page<PUBLICATION_LIMITS.pagesPerRun;page++){
-      const permit=takePublicationFetch(ctx,'reconcile',now);
-      if(!permit.ok){putMeta(ctx,nextKey,permit.retryAt);throw Object.assign(Error('GitHub publication sync waiting for '+permit.reason),{reason:permit.reason});}
-      const url=new URL(source.commentsUrl);url.searchParams.set('per_page','100');url.searchParams.set('page',String(scan.page));
-      if(scan.since)url.searchParams.set('since',scan.since);
-      const response=await fetcher(url.href,{headers:GITHUB_HEADERS,redirect:'manual',signal:AbortSignal.timeout(3500)});
-      publicationBackoff(ctx,response,now);
-      if(!response.ok)throw Object.assign(Error('GitHub publication sync returned '+response.status),{status:response.status});
-      const comments=await boundedJson(response);
-      if(!Array.isArray(comments)||comments.length>100)throw Error('GitHub returned invalid publication data');
-      ctx.storage.transactionSync(()=>{
-        for(const comment of comments){
-          if(Number.isFinite(Date.parse(comment?.updated_at))&&(!scan.newest||Date.parse(comment.updated_at)>Date.parse(scan.newest)))scan.newest=comment.updated_at;
-          const publication=decodePublication(comment,source);
-          if(publication)ctx.storage.sql.exec(`INSERT OR IGNORE INTO publication_source_comments
-            (source_key,comment_id,publication,raw_body,imported) VALUES(?,?,?,?,?)`,source.key,comment.id,JSON.stringify(publication),comment.body,pendingDisposition(publication));
-        }
-        scan.page++;
-        if(comments.length<100){
-          complete=true;
-          if(scan.newest){const since=new Date(Date.parse(scan.newest)-1000).toISOString();
-            if(coverage.since===null||Date.parse(since)>Date.parse(coverage.since))coverage.since=since;}
-          coverage.scan=null;
-        }else coverage.scan=scan;
-        putMeta(ctx,'publisher-source-scan:'+source.key,coverage);
-      });
-      if(complete||now<Number(meta(ctx,'publisher-upstream-not-before')||0))break;
+    const networkDue=network&&now>=Number(meta(ctx,nextKey)||0);
+    let complete=false,newPublications=0,blockedRetryAt=0;
+    if(networkDue){
+      putMeta(ctx,nextKey,now+INTERVAL);
+      let coverage=sourceCheckpoint(ctx,source),scan=coverage.scan||{since:coverage.since,page:1,newest:null};
+      for(let page=0;page<PUBLICATION_LIMITS.pagesPerRun;page++){
+        const permit=takePublicationFetch(ctx,'source-reconcile',now);
+        if(!permit.ok){blockedRetryAt=permit.retryAt;break;}
+        const url=new URL(source.commentsUrl);url.searchParams.set('per_page','100');url.searchParams.set('page',String(scan.page));
+        if(scan.since)url.searchParams.set('since',scan.since);
+        const response=await fetcher(url.href,{headers:GITHUB_HEADERS,redirect:'manual',signal:AbortSignal.timeout(3500)});
+        publicationBackoff(ctx,response,now);
+        if(!response.ok)throw Object.assign(Error('GitHub publication sync returned '+response.status),{status:response.status});
+        const comments=await boundedJson(response);
+        if(!Array.isArray(comments)||comments.length>100)throw Error('GitHub returned invalid publication data');
+        ctx.storage.transactionSync(()=>{
+          for(const comment of comments){
+            if(Number.isFinite(Date.parse(comment?.updated_at))&&(!scan.newest||Date.parse(comment.updated_at)>Date.parse(scan.newest)))scan.newest=comment.updated_at;
+            const publication=decodePublication(comment,source);
+            if(publication&&!rows(ctx,'SELECT comment_id FROM publication_source_comments WHERE source_key=? AND comment_id=?',source.key,comment.id).length){
+              ctx.storage.sql.exec(`INSERT OR IGNORE INTO publication_source_comments
+                (source_key,comment_id,publication,raw_body,imported) VALUES(?,?,?,?,?)`,source.key,comment.id,JSON.stringify(publication),comment.body,pendingDisposition(publication));
+              newPublications++;
+            }
+          }
+          scan.page++;
+          if(comments.length<100){
+            complete=true;
+            if(scan.newest){const since=new Date(Date.parse(scan.newest)-1000).toISOString();
+              if(coverage.since===null||Date.parse(since)>Date.parse(coverage.since))coverage.since=since;}
+            coverage.scan=null;
+          }else coverage.scan=scan;
+          putMeta(ctx,'publisher-source-scan:'+source.key,coverage);
+        });
+        if(complete||now<Number(meta(ctx,'publisher-upstream-not-before')||0))break;
+      }
     }
-    await applySourcePending(ctx,source,now,100);
-    putMeta(ctx,nextKey,Math.max(now+(complete?INTERVAL:PUBLICATION_LIMITS.continuationMs),Number(meta(ctx,'publisher-upstream-not-before')||0)));
+    if(sourceLocalWorkDue(ctx,source.key,now))await applySourcePending(ctx,source,now,100);
+    if(networkDue){
+      const hasLocalWork=sourceHasPending(ctx,source.key)||sourceHasRecovery(ctx,source.key);
+      const priorIdle=Number(meta(ctx,'publisher-source-idle:'+source.key)||0);
+      const idle=complete&&!newPublications&&!hasLocalWork?Math.min(priorIdle+1,4):0;
+      putMeta(ctx,'publisher-source-idle:'+source.key,idle);
+      const delay=complete?Math.min(PUBLICATION_LIMITS.maxIdleMs,INTERVAL*2**Math.max(0,idle-1)):PUBLICATION_LIMITS.continuationMs;
+      putMeta(ctx,nextKey,Math.max(blockedRetryAt,now+delay,Number(meta(ctx,'publisher-upstream-not-before')||0)));
+    }
   }
 }
 async function reconcile(ctx,fetcher,now,env) {
   seedPublicationReconciliation(ctx,now,env);
   const extraSources=publicationSources(env).slice(1);
   putMeta(ctx,'publisher-additional-sources',extraSources.map(source=>source.key));
-  const sourceDue=extraSources.some(source=>now>=Number(meta(ctx,'publisher-source-next-attempt:'+source.key)||0));
+  const sourceDue=extraSources.some(source=>now>=Number(meta(ctx,'publisher-source-next-attempt:'+source.key)||0)||sourceLocalWorkDue(ctx,source.key,now));
   const localDue=now>=Number(meta(ctx,'publisher-local-next-attempt')||0)||generation(ctx)!==meta(ctx,'publisher-local-generation')||
     conflictTail(ctx)!==Number(meta(ctx,'publisher-conflict-observed-tail')||0);
   const networkDue=now>=Math.max(Number(meta(ctx,'publisher-next-attempt')||0),Number(meta(ctx,'publisher-upstream-not-before')||0));
@@ -428,6 +468,9 @@ async function reconcile(ctx,fetcher,now,env) {
     if(backfillLimit)charge(ctx,'backfill',backfillLimit,now);
     if(backfillLimit)backfillPublicChanges(ctx,backfillLimit);
     localMore=!!meta(ctx,'public-changes-backfill');
+    // Source journal retries are local work; process them before a possibly
+    // failing upstream request so old/new feed recovery remains independent.
+    if(extraSources.length)await reconcileAdditionalSources(ctx,fetcher,now,extraSources,{network:false});
     if(localDue||legacyDue){
       // Keep capacity for newly verified pages even when old missing originals
       // fill the pending journal. The durable cursor resumes the older tail.

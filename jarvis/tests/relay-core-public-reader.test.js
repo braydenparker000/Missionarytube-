@@ -100,7 +100,8 @@ test('publisher health updates at an unchanged cursor survive persistence and a 
 test('bounded public reconciliation metadata stays transport evidence and cannot persist unknown private markers',async t=>{
   const h=fixture(t);seed(h,1);
   const publisher={ok:false,source:'Fictional public importer',lastAttempt:stamp,httpStatus:429,reason:'Fictional public rate limit',retryAt:stamp,
-    pending:600,morePending:true,conflicts:100,moreConflicts:true,reconciliation:{enabled:true,nextAttemptAt:stamp,localCatchingUp:true,
+    pending:600,morePending:true,conflicts:100,moreConflicts:true,additionalSources:[{source:'braydenparker000/Missionarytube-#10',pending:2,
+      conflicts:1,morePending:false,moreConflicts:false,catchingUp:true,watermarkEstablished:false}],reconciliation:{enabled:true,nextAttemptAt:stamp,localCatchingUp:true,
       legacy:{ok:false,lastAttempt:stamp,error:'Fictional legacy migration outage'}}};
   const client=api(h,async({forward})=>{const response=await forward();return Response.json({...await response.json(),publisher,serviceVersion:7});});
   const result=await client.request('/shared/state');assert.deepEqual(result.publisher,publisher);assert.equal(result.execution_authorized,false);
@@ -111,6 +112,12 @@ test('bounded public reconciliation metadata stays transport evidence and cannot
   assert.equal(fresh.publicReader.publisher.reconciliation.localCatchingUp,false);
   const changed=structuredClone(result.publicReader);changed.publisher.reconciliation.legacy.ownerSession='Fictional forbidden private field';
   assert.equal(readPublicReaderCache(changed),null);
+  const privateSource=structuredClone(result.publicReader);privateSource.publisher.additionalSources[0].commentBody='Fictional comment text';
+  assert.equal(readPublicReaderCache(privateSource),null,'Per-source summaries must never carry publication bodies');
+  const wrongSource=structuredClone(result.publicReader);wrongSource.publisher.additionalSources[0].source='attacker/repository#77';
+  assert.equal(readPublicReaderCache(wrongSource),null,'Per-source summaries accept only the destination issue namespace');
+  const tooMany=structuredClone(result.publicReader);tooMany.publisher.additionalSources.push(tooMany.publisher.additionalSources[0]);
+  assert.equal(readPublicReaderCache(tooMany),null,'The public summary is bounded to the single configured destination source');
 });
 
 test('completed cold backfill may index a newer event/reply before its historical original without losing target validation',async t=>{

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createConversationFixture} from './helpers/relay-conversation-browser-fixture.js';
-import {syncPublications,publicationSources,DESTINATION_PUBLICATION_ISSUE_ENV,DESTINATION_PUBLICATION_ENABLE_ENV} from '../backend/publications.js';
+import {syncPublications,publicationSources,takePublicationFetch,publicationSchema,DESTINATION_PUBLICATION_ISSUE_ENV,DESTINATION_PUBLICATION_ENABLE_ENV} from '../backend/publications.js';
 import {sharedStore} from '../backend/shared.js';
 
 const oldRepo='braydenparker999/jarvis',newRepo='braydenparker000/Missionarytube-';
@@ -44,6 +44,9 @@ test('dual-source read keeps same numeric comment IDs separate, exact source bod
   assert.equal(JSON.parse(legacy.publication).id,old.id);
   assert.equal(h.rows('SELECT value FROM shared_meta WHERE key=?','publisher-source-scan:'+`${newRepo}#77`).length,1);
   assert.equal(h.rows('SELECT value FROM shared_meta WHERE key=?','publisher-v2-coverage').length,1,'The established old-source watermark remains in its original namespace');
+  const status=JSON.parse(h.rows('SELECT value FROM shared_meta WHERE key=?','publisher-status')[0].value);
+  assert.deepEqual(status.additionalSources,[{source:`${newRepo}#77`,pending:0,conflicts:0,morePending:false,moreConflicts:false,
+    catchingUp:false,watermarkEstablished:true}]);
   const posts=(await sharedStore(h.ctx,'/internal/shared/state',{},new URLSearchParams({after:'0'})).json()).posts;
   assert.deepEqual(posts.map(post=>post.id),[old.id,next.id]);
   assert.deepEqual(posts.map(post=>post.body),['Exact old-source body','Exact destination body']);
@@ -81,8 +84,46 @@ test('source pending work retries after its missing original arrives without cha
   assert.equal(h.rows('SELECT imported FROM publication_source_comments WHERE source_key=? AND comment_id=905',`${newRepo}#91`)[0].imported,0);
   const legacyCoverage=h.rows('SELECT value FROM shared_meta WHERE key=?','publisher-v2-coverage')[0].value;
   sharedStore(h.ctx,'/internal/shared/message',{id:requestId,body:'Fictional original request'});
-  await syncPublications(h.ctx,fetcher,Date.parse(stamp)+300001,env);
+  await syncPublications(h.ctx,()=>assert.fail('A new original must release journaled source work without upstream success'),Date.parse(stamp)+1000,env);
   assert.equal(h.rows('SELECT imported FROM publication_source_comments WHERE source_key=? AND comment_id=905',`${newRepo}#91`)[0].imported,1);
   assert.equal(h.rows('SELECT value FROM shared_meta WHERE key=?','publisher-v2-coverage')[0].value,legacyCoverage,
     'Destination retries leave the historical issue checkpoint untouched');
+  const status=JSON.parse(h.rows('SELECT value FROM shared_meta WHERE key=?','publisher-status')[0].value);
+  assert.deepEqual(status.additionalSources[0],{source:`${newRepo}#91`,pending:0,conflicts:0,morePending:false,moreConflicts:false,
+    catchingUp:false,watermarkEstablished:true});
+});
+
+test('empty destination feeds use the same adaptive idle backoff instead of polling every five minutes',async t=>{
+  const h=createConversationFixture(t);t.after(()=>h.close());
+  const env={[DESTINATION_PUBLICATION_ISSUE_ENV]:'92',[DESTINATION_PUBLICATION_ENABLE_ENV]:'true'},start=Date.parse(stamp);
+  const calls=[];
+  const fetcher=async url=>{calls.push(new URL(url).pathname);return Response.json([]);};
+  for(const offset of [0,300000,600000])await syncPublications(h.ctx,fetcher,start+offset,env);
+  const destinationPath=`/repos/${newRepo}/issues/92/comments`;
+  assert.equal(calls.filter(path=>path===destinationPath).length,2,'The third five-minute tick is suppressed after two empty reads');
+  await syncPublications(h.ctx,fetcher,start+900000,env);
+  assert.equal(calls.filter(path=>path===destinationPath).length,3);
+  await syncPublications(h.ctx,fetcher,start+2100000,env);
+  assert.equal(calls.filter(path=>path===destinationPath).length,4,'The next empty-source check follows the capped twenty-minute backoff');
+  assert.equal(h.rows('SELECT value FROM shared_meta WHERE key=?','publisher-source-idle:'+`${newRepo}#92`)[0].value,'4');
+});
+
+test('full-day source polling preserves the old reader share and existing hourly/daily ceilings',t=>{
+  const h=createConversationFixture(t);t.after(()=>h.close());publicationSchema(h.ctx);
+  const start=Date.UTC(2026,9,17),step=300000;let sourceReads=0,historicalReads=0;
+  for(let offset=0;offset<86400000;offset+=step){
+    const now=start+offset;
+    if(offset%(30*60000)===0)assert.equal(takePublicationFetch(h.ctx,'reconcile',now).ok,true,'Historical source retains its existing scheduled share');
+    const extra=takePublicationFetch(h.ctx,'source-reconcile',now);
+    if(extra.ok)sourceReads++;else assert.equal(extra.reason,'daily_source_egress_budget');
+    if(offset%(30*60000)===0)historicalReads++;
+  }
+  assert.equal(sourceReads,144,'The additional source uses at most half of the unchanged daily reconciliation budget');
+  assert.equal(historicalReads,48);
+  const daily=JSON.parse(h.rows('SELECT value FROM shared_meta WHERE key=?','publisher-reconcile-day')[0].value);
+  assert.equal(daily.total,192);
+  assert.equal(daily.additionalSource,144);
+  const nextDay=start+86400000;
+  assert.equal(takePublicationFetch(h.ctx,'source-reconcile',nextDay).ok,true,'The additive allowance resets at the UTC day boundary');
+  assert.equal(takePublicationFetch(h.ctx,'reconcile',nextDay).ok,true,'The historical source allowance still remains available');
 });
