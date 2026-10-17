@@ -59,9 +59,12 @@ all historical source behavior has been security-qualified. Inspection of the
 credential-pattern hits found mock OAuth responses/negative fixtures, not a
 new credential configuration; no secret values are included in the evidence.
 
-The import is frozen for this first patch: do not install dependencies or
-write generated files inside it before updating the boundary in the next
-reviewed source-development patch.
+The original imported source tree remains `9f983eb6a86ddc1989c3d4e7b85fb7c7d2819938`
+as recorded in the inventory and import evidence. PR236 explicitly updates the
+exact maintained-tree guard to `671b9c2f5d7e3f23afdf04cff4c6555c995caf6b` for
+the reviewed Daily Board reader changes. This updates the current allowed tree
+identity; it does not rewrite imported history or the original source snapshot.
+Future edits under `jarvis/` still require an explicit reviewed boundary update.
 
 ## Media component source
 
@@ -276,12 +279,19 @@ consolidation:
   Jarvis Daily Board” (`6ac854579d1481918af16682c5b5936c`) still targets that
   issue. No repository writer was identified; `jarvis_publish_briefing` writes
   to a separate Worker board API. Destination issue #2 is already an imported
-  PR. Preserve the old issue, messages and schedule. If feed migration is
-  separately approved, first create a unique destination issue and implement
-  additive dual-read with composite repository/issue/comment identity,
-  per-source cursors, deduplication, watermark reconciliation, writer cutover
-  and rollback. Do not change access or responder schedules as part of this
-  consolidation.
+  PR. Preserve the old issue, messages and schedule. The reader now has a
+  backward-compatible second-source path gated by both
+  `JARVIS_DAILY_BOARD_DESTINATION_ENABLED=true` and an exact
+  `JARVIS_DAILY_BOARD_DESTINATION_ISSUE`; neither is configured here, so the
+  existing issue remains the only active feed. The additive journal keys
+  comments by repository/issue/comment ID, stores exact source comment bodies,
+  and keeps scan/watermark state per issue. Existing global publication-ID and
+  same-date briefing reservations continue to suppress duplicates. No issue was
+  created, feed switched, test content published, schedule/access changed, or
+  deployment activated. A later cutover still requires a unique destination
+  issue, source authentication/provenance verification through a watermark,
+  switching the single writer only after dual-read validation, and a rollback
+  that disables the destination reader while keeping the old feed untouched.
 - **Historical inventory and separate release paths:**
   `release-inventory.json` remains the explicitly historical 2026-10-16
   observation of a limited 18-file/45-dependency private frontend closure and

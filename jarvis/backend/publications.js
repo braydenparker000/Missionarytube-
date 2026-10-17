@@ -4,6 +4,9 @@ import {canonical} from './relay-common.js';
 export const COMMENTS_URL='https://api.github.com/repos/braydenparker999/jarvis/issues/2/comments';
 export const ISSUE_URL='https://api.github.com/repos/braydenparker999/jarvis/issues/2';
 export const COMMENT_URL='https://api.github.com/repos/braydenparker999/jarvis/issues/comments/';
+export const DESTINATION_PUBLICATION_REPOSITORY='braydenparker000/Missionarytube-';
+export const DESTINATION_PUBLICATION_ISSUE_ENV='JARVIS_DAILY_BOARD_DESTINATION_ISSUE';
+export const DESTINATION_PUBLICATION_ENABLE_ENV='JARVIS_DAILY_BOARD_DESTINATION_ENABLED';
 const OWNER=183016859, INTERVAL=300000;
 export const PUBLICATION_LIMITS=Object.freeze({intervalMs:INTERVAL,continuationMs:60000,maxIdleMs:1800000,
   pagesPerRun:3,commentsPerPage:100,pendingPerRun:600,conflictsPerRun:100,backfillPerRun:100,
@@ -14,18 +17,35 @@ const schemas=new WeakSet(),sharedMetadata=new WeakSet(),inFlight=new WeakMap();
 const GITHUB_HEADERS={Accept:'application/vnd.github+json','User-Agent':'Jarvis-publications','X-GitHub-Api-Version':'2022-11-28'};
 const uuid=x=>typeof x==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(x);
 const nonempty=(x,max)=>typeof x==='string'&&x.trim().length>0&&x.length<=max;
-export function decodePublication(comment) {
+const issueSource=(repository,issue)=>({key:repository+'#'+issue,repository,issue,
+  issueUrl:`https://api.github.com/repos/${repository}/issues/${issue}`,
+  commentsUrl:`https://api.github.com/repos/${repository}/issues/${issue}/comments`});
+export function publicationSources(env={}) {
+  const sources=[issueSource('braydenparker999/jarvis',2)];
+  const configured=env?.[DESTINATION_PUBLICATION_ISSUE_ENV];
+  const issue=typeof configured==='number'?configured:typeof configured==='string'&&/^[1-9]\d{0,8}$/.test(configured)?Number(configured):NaN;
+  // Both an explicit opt-in and an exact issue number are required. Issue #2
+  // is occupied by an import PR; unset, invalid or disabled targets are inert.
+  if(env?.[DESTINATION_PUBLICATION_ENABLE_ENV]==='true'&&Number.isSafeInteger(issue)&&issue>2&&issue<=999999999)
+    sources.push(issueSource(DESTINATION_PUBLICATION_REPOSITORY,issue));
+  return sources;
+}
+export function decodePublication(comment,source=issueSource('braydenparker999/jarvis',2)) {
   if(comment?.user?.id!==OWNER||!Number.isSafeInteger(comment.id)||comment.id<1||typeof comment.body!=='string'||comment.body.length>30000)return null;
+  const isHistoricalSource=source.repository==='braydenparker999/jarvis'&&source.issue===2;
+  if((comment.issue_url!==undefined&&comment.issue_url!==source.issueUrl)||(!isHistoricalSource&&comment.issue_url!==source.issueUrl))return null;
   let p;try{p=JSON.parse(comment.body);}catch{return null;}
   if (p?.schema === 'jarvis-coordination-v2') {
     if (!decodeCoordination(p) || !Number.isFinite(Date.parse(comment.created_at))) return null;
-    return {type:'coordination',payload:p,provenance:{source:'github-issue',repository:'braydenparker999/jarvis',issue:2,
+    return {type:'coordination',payload:p,provenance:{source:'github-issue',repository:source.repository,issue:source.issue,
       commentId:comment.id,authorId:OWNER,publishedAt:comment.created_at}};
   }
   if(!p||p.schema!=='jarvis-publication-v1'||!uuid(p.id)||!['reply','briefing'].includes(p.type)||!nonempty(p.body,p.type==='briefing'?20000:6000)||!Number.isFinite(Date.parse(comment.created_at)))return null;
   if(p.type==='reply'&&!uuid(p.replyTo))return null;
   if(p.type==='briefing'&&(!nonempty(p.title,120)||typeof p.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(p.date)||!Number.isFinite(Date.parse(p.date))||new Date(p.date).toISOString().slice(0,10)!==p.date))return null;
   return {id:p.id,body:p.body.trim(),createdAt:comment.created_at,type:p.type,
+    provenance:{source:'github-issue',repository:source.repository,issue:source.issue,
+      commentId:comment.id,authorId:OWNER,publishedAt:comment.created_at},
     ...(p.type==='reply'?{replyTo:p.replyTo}:{title:p.title.trim(),date:p.date})};
 }
 async function boundedJson(response,limit=2000000) {
@@ -42,6 +62,12 @@ export function publicationSchema(ctx) {
   ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS imported_comments (comment_id INTEGER PRIMARY KEY, publication TEXT NOT NULL, imported INTEGER NOT NULL DEFAULT 0, error TEXT)');
   ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS imported_comments_status ON imported_comments(imported,comment_id)');
   ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS publication_recovery (comment_id INTEGER PRIMARY KEY)');
+  ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS publication_source_comments (
+    source_key TEXT NOT NULL, comment_id INTEGER NOT NULL, publication TEXT NOT NULL,
+    raw_body TEXT NOT NULL, imported INTEGER NOT NULL DEFAULT 0, error TEXT,
+    PRIMARY KEY(source_key,comment_id))`);
+  ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS publication_source_comments_status ON publication_source_comments(source_key,imported,comment_id)');
+  ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS publication_source_recovery (source_key TEXT NOT NULL, comment_id INTEGER NOT NULL, PRIMARY KEY(source_key,comment_id))');
   if(!meta(ctx,'publisher-v2-pending-compatibility')){
     const through=rows(ctx,'SELECT COALESCE(MAX(comment_id),0) AS n FROM imported_comments WHERE imported=0')[0].n;
     putMeta(ctx,'publisher-v2-pending-compatibility',{after:0,through,complete:through===0});
@@ -82,10 +108,10 @@ export function publicationBackoff(ctx,response,now=Date.now()) {
   const retryAt=Math.max(now+INTERVAL,Number.isFinite(reset)?reset+1000:0,Number.isFinite(retry)?retry:0);
   putMeta(ctx,'publisher-upstream-not-before',Math.max(Number(meta(ctx,'publisher-upstream-not-before')||0),retryAt));
 }
-function legacyUpdate(p, commentId) {
+function legacyUpdate(p, commentId, sourceKey=null) {
   return {payload:{schema:'jarvis-publication-v1-update',eventId:p.id,requestId:p.replyTo,attemptId:p.id,stage:'final',
-    body:p.body,artifacts:[],resultVersion:1},provenance:{source:'github-issue',repository:'braydenparker999/jarvis',issue:2,
-    commentId,authorId:OWNER,publishedAt:p.createdAt,legacyConflict:true}};
+    body:p.body,artifacts:[],resultVersion:1},provenance:{...(p.provenance||{source:'github-issue',repository:'braydenparker999/jarvis',issue:2,
+    commentId,authorId:OWNER,publishedAt:p.createdAt}),...(sourceKey?{sourceKey}:{}),legacyConflict:true}};
 }
 const rows=(ctx,q,...args)=>[...ctx.storage.sql.exec(q,...args)];
 const pending=item=>item.imported===0||item.imported===-1;
@@ -154,6 +180,54 @@ async function applyItem(ctx,item) {
   }
   if(![404,425].includes(r.status))throw Error('Publication could not be saved');
   return false;
+}
+async function applySourceItem(ctx,source,item) {
+  const p=JSON.parse(item.publication),sql=ctx.storage.sql;
+  const update=(status,error=null)=>sql.exec('UPDATE publication_source_comments SET imported=?,error=? WHERE source_key=? AND comment_id=?',status,error,source.key,item.comment_id);
+  if(p.type==='coordination'&&item.imported===0)update(-1);
+  const path=p.type==='coordination'?'/internal/shared/coordination':p.type==='reply'?'/internal/shared/reply':'/internal/shared/briefing';
+  const result=sharedStore(ctx,path,p);
+  if(result.ok){update(1);return true;}
+  if(result.status===409){
+    let failure=p.type==='coordination'?await result.json():null;
+    if(p.type==='reply'){
+      const coordinated=sharedStore(ctx,'/internal/shared/coordination',legacyUpdate(p,item.comment_id,source.key));
+      if(!coordinated.ok)failure=await coordinated.json();
+      if(coordinated.status===404)sql.exec('INSERT OR IGNORE INTO publication_source_recovery VALUES(?,?)',source.key,item.comment_id);
+    }
+    update(2,failure?.code||'Conflicting publication; original kept');return true;
+  }
+  if(![404,425].includes(result.status))throw Error('Publication could not be saved');
+  return false;
+}
+async function applySourcePending(ctx,source,now,limit=100) {
+  const cursorKey='publisher-source-pending:'+source.key;
+  let after=Number(meta(ctx,cursorKey)||0),count=0,progressed=false;
+  const recoveryKey='publisher-source-recovery:'+source.key;
+  let recoveryAfter=Number(meta(ctx,recoveryKey)||0);
+  const recoveryLimit=allowance(ctx,'conflicts',Math.min(PUBLICATION_LIMITS.conflictsPerRun,limit),now);
+  const recoveries=recoveryLimit?rows(ctx,`SELECT i.* FROM publication_source_recovery r JOIN publication_source_comments i
+    ON i.source_key=r.source_key AND i.comment_id=r.comment_id WHERE r.source_key=? AND r.comment_id>? ORDER BY r.comment_id LIMIT ?`,
+    source.key,recoveryAfter,recoveryLimit):[];
+  if(!recoveries.length&&recoveryAfter){putMeta(ctx,recoveryKey,0);recoveryAfter=0;}
+  charge(ctx,'conflicts',recoveries.length,now);
+  for(const item of recoveries){
+    const result=sharedStore(ctx,'/internal/shared/coordination',legacyUpdate(JSON.parse(item.publication),item.comment_id,source.key));
+    if(result.ok||result.status===409)ctx.storage.sql.exec('DELETE FROM publication_source_recovery WHERE source_key=? AND comment_id=?',source.key,item.comment_id);
+    else if(result.status!==404)throw Error('Publication source recovery unavailable');
+    recoveryAfter=item.comment_id;
+  }
+  if(recoveries.length)putMeta(ctx,recoveryKey,recoveries.length===recoveryLimit?recoveryAfter:0);
+  const rowsPage=rows(ctx,'SELECT * FROM publication_source_comments WHERE source_key=? AND imported IN(0,-1) AND comment_id>? ORDER BY comment_id LIMIT ?',source.key,after,limit);
+  if(!rowsPage.length&&after){putMeta(ctx,cursorKey,0);after=0;}
+  for(const item of rowsPage){
+    if(!allowance(ctx,'pending',1,now))break;
+    charge(ctx,'pending',1,now);count++;
+    if(await applySourceItem(ctx,source,item))progressed=true;
+    after=item.comment_id;
+  }
+  if(rowsPage.length)putMeta(ctx,cursorKey,rowsPage.length===limit?after:0);
+  return {count,progressed,more:!!Number(meta(ctx,cursorKey)||0)};
 }
 export async function applyPendingPublications(ctx,{now=Date.now(),work={pending:600,conflicts:100},commentId=null,recover=true}={}) {
   publicationSchema(ctx);
@@ -227,7 +301,9 @@ export function nextPublicationReconciliationAt(ctx,now=Date.now()) {
   if(!meta(ctx,'publisher-reconciliation-enabled'))return null;
   const blocked=Math.max(Number(meta(ctx,'publisher-pass-not-before')||0),Number(meta(ctx,'publisher-initial-alarm-not-before')||0));
   const main=Math.max(Number(meta(ctx,'publisher-next-attempt')||now),Number(meta(ctx,'publisher-upstream-not-before')||0));
-  const times=[main,meta(ctx,'publisher-local-next-attempt'),nextLegacyInboxAt(ctx)].filter(x=>x!==null);
+  const configured=meta(ctx,'publisher-additional-sources');
+  const sourceTimes=Array.isArray(configured)?configured.map(key=>meta(ctx,'publisher-source-next-attempt:'+key)).filter(Number.isFinite):[];
+  const times=[main,meta(ctx,'publisher-local-next-attempt'),nextLegacyInboxAt(ctx),...sourceTimes].filter(x=>x!==null);
   return Math.max(blocked,Math.min(...times));
 }
 // The caller has already validated a shared read and initialized sharedSchema.
@@ -236,7 +312,8 @@ export function nextPublicationReconciliationAt(ctx,now=Date.now()) {
 export function publicationReadNeedsWake(ctx,now=Date.now(),env=null) {
   if(!meta(ctx,'publisher-reconciliation-enabled')||env?.HUBS&&!meta(ctx,'legacy-inbox-checkpoint'))return true;
   if(now<Number(meta(ctx,'publisher-pass-not-before')||0))return false;
-  return now>=Number(meta(ctx,'publisher-local-next-attempt')||0)||generation(ctx)!==meta(ctx,'publisher-local-generation')||
+  const configured=meta(ctx,'publisher-additional-sources'),sourceDue=Array.isArray(configured)&&configured.some(key=>now>=Number(meta(ctx,'publisher-source-next-attempt:'+key)||0));
+  return sourceDue||now>=Number(meta(ctx,'publisher-local-next-attempt')||0)||generation(ctx)!==meta(ctx,'publisher-local-generation')||
     conflictTail(ctx)!==Number(meta(ctx,'publisher-conflict-observed-tail')||0)||
     now>=Math.max(Number(meta(ctx,'publisher-next-attempt')||0),Number(meta(ctx,'publisher-upstream-not-before')||0))||
     !!(env?.HUBS&&now>=Number(nextLegacyInboxAt(ctx)));
@@ -279,13 +356,62 @@ function savePublicationCoverage(ctx,coverage) {
   if(coverage.scan===null)ctx.storage.sql.exec("DELETE FROM shared_meta WHERE key='publisher-scan'");
   else putMeta(ctx,'publisher-scan',coverage.scan);
 }
+function sourceCheckpoint(ctx,source) {
+  const value=meta(ctx,'publisher-source-scan:'+source.key)??{since:null,scan:null};
+  const validTime=v=>v===null||typeof v==='string'&&v.length<=64&&Number.isFinite(Date.parse(v));
+  if(!value||Object.keys(value).sort().join(',')!=='scan,since'||!validTime(value.since)||value.scan!==null&&
+    (!value.scan||Object.keys(value.scan).sort().join(',')!=='newest,page,since'||value.scan.since!==value.since||
+      !Number.isSafeInteger(value.scan.page)||value.scan.page<1||!validTime(value.scan.newest)))throw Error('Publication source checkpoint unavailable');
+  return value;
+}
+async function reconcileAdditionalSources(ctx,fetcher,now,sources) {
+  for(const source of sources){
+    const nextKey='publisher-source-next-attempt:'+source.key;
+    if(now<Number(meta(ctx,nextKey)||0))continue;
+    putMeta(ctx,nextKey,now+INTERVAL);
+    let coverage=sourceCheckpoint(ctx,source),scan=coverage.scan||{since:coverage.since,page:1,newest:null},complete=false;
+    for(let page=0;page<PUBLICATION_LIMITS.pagesPerRun;page++){
+      const permit=takePublicationFetch(ctx,'reconcile',now);
+      if(!permit.ok){putMeta(ctx,nextKey,permit.retryAt);throw Object.assign(Error('GitHub publication sync waiting for '+permit.reason),{reason:permit.reason});}
+      const url=new URL(source.commentsUrl);url.searchParams.set('per_page','100');url.searchParams.set('page',String(scan.page));
+      if(scan.since)url.searchParams.set('since',scan.since);
+      const response=await fetcher(url.href,{headers:GITHUB_HEADERS,redirect:'manual',signal:AbortSignal.timeout(3500)});
+      publicationBackoff(ctx,response,now);
+      if(!response.ok)throw Object.assign(Error('GitHub publication sync returned '+response.status),{status:response.status});
+      const comments=await boundedJson(response);
+      if(!Array.isArray(comments)||comments.length>100)throw Error('GitHub returned invalid publication data');
+      ctx.storage.transactionSync(()=>{
+        for(const comment of comments){
+          if(Number.isFinite(Date.parse(comment?.updated_at))&&(!scan.newest||Date.parse(comment.updated_at)>Date.parse(scan.newest)))scan.newest=comment.updated_at;
+          const publication=decodePublication(comment,source);
+          if(publication)ctx.storage.sql.exec(`INSERT OR IGNORE INTO publication_source_comments
+            (source_key,comment_id,publication,raw_body,imported) VALUES(?,?,?,?,?)`,source.key,comment.id,JSON.stringify(publication),comment.body,pendingDisposition(publication));
+        }
+        scan.page++;
+        if(comments.length<100){
+          complete=true;
+          if(scan.newest){const since=new Date(Date.parse(scan.newest)-1000).toISOString();
+            if(coverage.since===null||Date.parse(since)>Date.parse(coverage.since))coverage.since=since;}
+          coverage.scan=null;
+        }else coverage.scan=scan;
+        putMeta(ctx,'publisher-source-scan:'+source.key,coverage);
+      });
+      if(complete||now<Number(meta(ctx,'publisher-upstream-not-before')||0))break;
+    }
+    await applySourcePending(ctx,source,now,100);
+    putMeta(ctx,nextKey,Math.max(now+(complete?INTERVAL:PUBLICATION_LIMITS.continuationMs),Number(meta(ctx,'publisher-upstream-not-before')||0)));
+  }
+}
 async function reconcile(ctx,fetcher,now,env) {
   seedPublicationReconciliation(ctx,now,env);
+  const extraSources=publicationSources(env).slice(1);
+  putMeta(ctx,'publisher-additional-sources',extraSources.map(source=>source.key));
+  const sourceDue=extraSources.some(source=>now>=Number(meta(ctx,'publisher-source-next-attempt:'+source.key)||0));
   const localDue=now>=Number(meta(ctx,'publisher-local-next-attempt')||0)||generation(ctx)!==meta(ctx,'publisher-local-generation')||
     conflictTail(ctx)!==Number(meta(ctx,'publisher-conflict-observed-tail')||0);
   const networkDue=now>=Math.max(Number(meta(ctx,'publisher-next-attempt')||0),Number(meta(ctx,'publisher-upstream-not-before')||0));
   const legacyDue=env?.HUBS&&now>=Number(nextLegacyInboxAt(ctx));
-  if(!localDue&&!networkDue&&!legacyDue||now<Number(meta(ctx,'publisher-pass-not-before')||0)||!takePass(ctx,now))return;
+  if(!localDue&&!networkDue&&!legacyDue&&!sourceDue||now<Number(meta(ctx,'publisher-pass-not-before')||0)||!takePass(ctx,now))return;
   const sql=ctx.storage.sql,work={pending:600,conflicts:100};
   if(meta(ctx,'publisher-initial-alarm-not-before')!==null)
     sql.exec("DELETE FROM shared_meta WHERE key='publisher-initial-alarm-not-before'");
@@ -359,6 +485,7 @@ async function reconcile(ctx,fetcher,now,env) {
       putMeta(ctx,'publisher-status',{ok:true,lastAttempt:new Date(now).toISOString(),lastSuccessfulSync:new Date(now).toISOString(),
         catchingUp:!complete,...summary(ctx)});
     }
+    if(extraSources.length)await reconcileAdditionalSources(ctx,fetcher,now,extraSources);
   }catch(error){
     const retryAt=Math.max(Number(meta(ctx,'publisher-next-attempt')||now+INTERVAL),Number(meta(ctx,'publisher-upstream-not-before')||0));
     putMeta(ctx,'publisher-next-attempt',retryAt);
