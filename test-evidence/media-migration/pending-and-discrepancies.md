@@ -25,8 +25,8 @@ that first contentful paint follows its response completion.
 
 This trades deferred loading for one 1,540-byte same-origin script request that
 must finish before HTML parsing can proceed to the stylesheets. The recorded
-local run took 54.5 ms from request start to response end and transferred
-1,840 bytes including headers; first contentful paint was at 244 ms. The JSON
+local run took 33.6 ms from request start to response end and transferred
+1,840 bytes including headers; first contentful paint was at 148 ms. The JSON
 receipt records the request and paint timing. This local measurement does not
 estimate mobile production latency; the real user cost includes the request's
 network round trip plus script execution.

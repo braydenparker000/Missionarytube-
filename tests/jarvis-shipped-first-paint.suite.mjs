@@ -174,6 +174,7 @@ test("stored non-default accent and motion are applied before first paint", { ti
     await page.waitForFunction(() => {
       return document.documentElement.dataset.accent === "violet"
         && document.documentElement.dataset.motion === "off"
+        && document.documentElement.classList.contains("js")
         && typeof AstraAppearance !== "undefined";
     }, null, { timeout: 15000 });
     const released = await readPaint(page);
