@@ -82,7 +82,8 @@ export function assetIndex(shell, assetPath) {
 
 /**
  * True only when `earlier` is guaranteed to execute before `later`.
- * Async scripts and mixed async/defer or blocking/defer pairs return false.
+ * Parser-blocking scripts run before deferred scripts; scripts in the same
+ * ordered group follow document order. Async scripts are unordered.
  */
 export function scriptRunsBefore(shell, earlierPath, laterPath) {
   const earlier = findScript(shell, earlierPath);
@@ -91,7 +92,7 @@ export function scriptRunsBefore(shell, earlierPath, laterPath) {
   const earlierMode = scriptMode(earlier);
   const laterMode = scriptMode(later);
   if (earlierMode === "async" || laterMode === "async") return false;
-  if (earlierMode !== laterMode) return false;
+  if (earlierMode !== laterMode) return earlierMode === "blocking" && laterMode === "defer";
   return earlier.index < later.index;
 }
 

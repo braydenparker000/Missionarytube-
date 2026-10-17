@@ -56,7 +56,7 @@ have not been changed. Only the additive, disabled reader path is deployed.
 
 [Deployment repository PR213](https://github.com/braydenparker000/Missionarytube-/pull/213) merged as `0c521d76b5f1c12ea38d5cc07d96c8ca6f1b725b`. The batch moved media tests toward pinned Jarvis source; it did not change application assets, source pins, workflows or deployment.
 
-DONE for this batch: merge verified and infrastructure evidence retained in the PR. Runtime media qualification is still NOT READY for the existing theme and 390px blur discrepancies. Recorded TODOs are not passing runtime acceptance.
+DONE for this historical infrastructure batch: merge verified and evidence retained in the PR. This media UI repair moves `appearance.js` before the stylesheets and reapplies the 390px backdrop override after the shared rule. The shipped qualification criteria now assert both computed pre-paint appearance and the completed mobile CSS cascade; production remains on its existing artifact until a separately reviewed publication.
 
 ### 2. Retire duplicate application code reversibly
 

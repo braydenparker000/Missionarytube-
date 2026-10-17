@@ -34,9 +34,9 @@ test("active public source rejects a changed commit, path or tree", () => {
 test("media source resolves only the pinned destination commit, path and tree", () => {
   const checked = readMediaSource(root);
   assert.equal(checked.repository, "braydenparker000/Missionarytube-");
-  assert.equal(checked.commit, "7520eeaea05825ef8edafc5882ef4e053e99f26d");
+  assert.equal(checked.commit, "9f0dd2419db9110e3b14365f0e7bb85fb8bb8fd6");
   assert.equal(checked.path, "jarvis/public/media");
-  assert.equal(checked.tree, "c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7");
+  assert.equal(checked.tree, "4a4aceb3661e437471a1d28f6574b9b21b28a343");
   assert.equal(checked.directory, resolve(root, "jarvis/public/media"));
 });
 

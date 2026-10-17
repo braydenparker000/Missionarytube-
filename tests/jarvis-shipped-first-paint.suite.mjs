@@ -96,12 +96,23 @@ async function readPaint(page) {
       pageAnimation: pageStyle ? pageStyle.animationName : null,
       pageAnimationDuration: pageStyle ? pageStyle.animationDuration : null,
       paints: performance.getEntriesByType("paint").map((entry) => entry.name),
+      paintTiming: Object.fromEntries(performance.getEntriesByType("paint").map((entry) => [entry.name, entry.startTime])),
+      appearanceResource: (() => {
+        const entry = performance.getEntriesByType("resource").find((item) => new URL(item.name).pathname === "/media/assets/js/appearance.js");
+        return entry ? {
+          startTime: entry.startTime,
+          responseEnd: entry.responseEnd,
+          duration: entry.duration,
+          transferSize: entry.transferSize,
+          decodedBodySize: entry.decodedBodySize
+        } : null;
+      })(),
       completedScripts: performance.getEntriesByType("resource").filter((entry) => entry.name.includes(".js")).length
     };
   });
 }
 
-test("characterization: held scripts leave the stored accent and motion unapplied at first paint", { timeout: 30000 }, async () => {
+test("stored non-default accent and motion are applied before first paint", { timeout: 30000 }, async () => {
   // public/media/index.html requests /assets/pip-diagnostics.js from the site
   // root, so the server has to be the pinned public/ tree and the page /media/.
   const siteRoot = resolve(mediaRoot, "..");
@@ -116,15 +127,17 @@ test("characterization: held scripts leave the stored accent and motion unapplie
     const heldRoutes = [];
     const heldPaths = [];
     let pipStatus = null;
+    let appearanceStatus = null;
     let releaseScripts = false;
     page.on("response", (response) => {
       const pathname = new URL(response.url()).pathname;
       if (pathname === "/assets/pip-diagnostics.js") pipStatus = response.status();
+      if (pathname === "/media/assets/js/appearance.js") appearanceStatus = response.status();
     });
     await page.route("**/*", (route) => {
       const url = route.request().url();
       if (!url.startsWith(host.origin)) return route.abort();
-      if (!releaseScripts && url.includes(".js")) {
+      if (!releaseScripts && url.includes(".js") && new URL(url).pathname !== "/media/assets/js/appearance.js") {
         heldRoutes.push(route);
         heldPaths.push(new URL(url).pathname);
         return undefined;
@@ -161,12 +174,13 @@ test("characterization: held scripts leave the stored accent and motion unapplie
     await page.waitForFunction(() => {
       return document.documentElement.dataset.accent === "violet"
         && document.documentElement.dataset.motion === "off"
+        && document.documentElement.classList.contains("js")
         && typeof AstraAppearance !== "undefined";
     }, null, { timeout: 15000 });
     const released = await readPaint(page);
     await capture(releasedShot);
 
-    const limitation = "Stored violet accent and motion off were present in localStorage under astra.v1.appearance, and the document had already painted, while every requested script response was still held. appearance.js is deferred, so that paint used the stylesheet default ice accent (#b4d1ff) and .page.active was still running page-arrival. The stored accent, surface, and motion were applied only after the script responses were released.";
+    const guarantee = "The parser-blocking appearance.js response completed before first contentful paint. With violet accent, motion off, and charcoal surface already stored, the first paint used those values while the remaining deferred scripts were still held.";
     const report = {
       jarvisCommit: pin.commit,
       mediaTree,
@@ -182,8 +196,9 @@ test("characterization: held scripts leave the stored accent and motion unapplie
       },
       viewport: { width: 390, height: 844 },
       heldScriptRequestsAtPaint: heldCount,
-      beforeFirstPaintGuarantee: false,
-      limitation,
+      appearanceScriptStatus: appearanceStatus,
+      beforeFirstPaintGuarantee: true,
+      guarantee,
       held,
       released,
       screenshots: {
@@ -196,27 +211,31 @@ test("characterization: held scripts leave the stored accent and motion unapplie
     assert.equal(pin.commit, "c28c1b2f70aabb5217b08bf31ffe4c93d0353765");
     assert.equal(mediaSource.repository, "braydenparker000/Missionarytube-");
     assert.equal(mediaSource.path, "jarvis/public/media");
-    assert.equal(mediaSource.commit, "7520eeaea05825ef8edafc5882ef4e053e99f26d");
-    assert.equal(mediaTree, "c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7");
+    assert.equal(mediaSource.commit, "9f0dd2419db9110e3b14365f0e7bb85fb8bb8fd6");
+    assert.equal(mediaTree, "4a4aceb3661e437471a1d28f6574b9b21b28a343");
     assert.equal(new URL(page.url()).pathname, "/media/");
     assert.ok(heldPaths.includes("/assets/pip-diagnostics.js"), "the page requests /assets/pip-diagnostics.js from the site root");
     assert.equal(pipStatus, 200, "/assets/pip-diagnostics.js is served from public/assets");
+    assert.equal(appearanceStatus, 200, "the parser-blocking appearance script loads before first paint");
     assert.ok(heldCount >= 20, `script responses were held at first paint (${heldCount})`);
-    assert.equal(held.appearanceDefined, false);
-    assert.equal(held.completedScripts, 0);
+    assert.equal(held.appearanceDefined, true);
+    assert.ok(held.completedScripts >= 1, "appearance.js completed while the remaining scripts were held");
+    assert.ok(held.appearanceResource, "the blocking initializer has a resource timing entry");
+    assert.ok(held.paintTiming["first-contentful-paint"] >= held.appearanceResource.responseEnd,
+      "first contentful paint follows completion of the parser-blocking initializer");
     assert.equal(held.readyState, "interactive");
     assert.ok(held.paints.includes("first-contentful-paint"));
     assert.equal(held.stored, JSON.stringify(STORED));
-    assert.equal(held.dataset.accent, undefined);
-    assert.equal(held.dataset.motion, undefined);
-    assert.equal(held.dataset.surface, undefined);
+    assert.equal(held.dataset.accent, "violet");
+    assert.equal(held.dataset.motion, "off");
+    assert.equal(held.dataset.surface, "charcoal");
     assert.equal(held.className, "");
-    assert.equal(held.accent, "#b4d1ff");
-    assert.equal(held.accentFill, "#245dd9");
-    assert.equal(held.brandColor, "rgb(180, 209, 255)");
-    assert.equal(held.pageAnimation, "page-arrival");
-    assert.equal(report.beforeFirstPaintGuarantee, false);
-    assert.match(report.limitation, /were applied only after the script responses were released/);
+    assert.equal(held.accent, "#cbbaff");
+    assert.equal(held.accentFill, "#6748bb");
+    assert.equal(held.brandColor, "rgb(203, 186, 255)");
+    assert.equal(held.pageAnimation, "none");
+    assert.equal(report.beforeFirstPaintGuarantee, true);
+    assert.match(report.guarantee, /completed before first contentful paint/);
 
     assert.equal(released.appearanceDefined, true);
     assert.equal(released.dataset.accent, "violet");
@@ -240,7 +259,3 @@ test("characterization: held scripts leave the stored accent and motion unapplie
     await new Promise((done) => host.server.close(done));
   }
 });
-
-test("stored non-default accent and motion are applied before first paint", {
-  todo: "appearance.js and bootstrap.js are deferred. While their responses are held, the first paint uses the stylesheet default ice accent (#b4d1ff) and .page.active still runs page-arrival. The stored violet accent and motion off are applied only after the scripts run. The characterization in this file records that limitation and does not treat it as a passing guarantee."
-}, () => {});

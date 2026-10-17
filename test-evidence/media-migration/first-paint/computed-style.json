@@ -1,6 +1,12 @@
 {
   "jarvisCommit": "c28c1b2f70aabb5217b08bf31ffe4c93d0353765",
-  "mediaTree": "c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7",
+  "mediaTree": "4a4aceb3661e437471a1d28f6574b9b21b28a343",
+  "mediaSource": {
+    "repository": "braydenparker000/Missionarytube-",
+    "commit": "9f0dd2419db9110e3b14365f0e7bb85fb8bb8fd6",
+    "path": "jarvis/public/media",
+    "tree": "4a4aceb3661e437471a1d28f6574b9b21b28a343"
+  },
   "storageKey": "astra.v1.appearance",
   "stored": {
     "accent": "violet",
@@ -25,27 +31,51 @@
     "width": 390,
     "height": 844
   },
-  "heldScriptRequestsAtPaint": 31,
-  "beforeFirstPaintGuarantee": false,
-  "limitation": "Stored violet accent and motion off were present in localStorage under astra.v1.appearance, and the document had already painted, while every requested script response was still held. appearance.js is deferred, so that paint used the stylesheet default ice accent (#b4d1ff) and .page.active was still running page-arrival. The stored accent, surface, and motion were applied only after the script responses were released.",
+  "heldScriptRequestsAtPaint": 30,
+  "appearanceScriptStatus": 200,
+  "beforeFirstPaintGuarantee": true,
+  "guarantee": "The parser-blocking appearance.js response completed before first contentful paint. With violet accent, motion off, and charcoal surface already stored, the first paint used those values while the remaining deferred scripts were still held.",
   "held": {
     "readyState": "interactive",
-    "appearanceDefined": false,
-    "appearance": null,
+    "appearanceDefined": true,
+    "appearance": {
+      "accent": "violet",
+      "surface": "charcoal",
+      "density": "comfortable",
+      "glass": "glass",
+      "motion": "off"
+    },
     "className": "",
-    "dataset": {},
+    "dataset": {
+      "accent": "violet",
+      "surface": "charcoal",
+      "density": "comfortable",
+      "glass": "glass",
+      "motion": "off"
+    },
     "stored": "{\"accent\":\"violet\",\"motion\":\"off\",\"surface\":\"charcoal\",\"density\":\"comfortable\",\"glass\":\"glass\"}",
-    "accent": "#b4d1ff",
-    "accentFill": "#245dd9",
-    "background": "rgb(5, 6, 7)",
-    "brandColor": "rgb(180, 209, 255)",
-    "pageAnimation": "page-arrival",
-    "pageAnimationDuration": "0.32s",
+    "accent": "#cbbaff",
+    "accentFill": "#6748bb",
+    "background": "rgb(17, 19, 24)",
+    "brandColor": "rgb(203, 186, 255)",
+    "pageAnimation": "none",
+    "pageAnimationDuration": "0s",
     "paints": [
       "first-paint",
       "first-contentful-paint"
     ],
-    "completedScripts": 0
+    "paintTiming": {
+      "first-paint": 148,
+      "first-contentful-paint": 148
+    },
+    "appearanceResource": {
+      "startTime": 45.699999999953434,
+      "responseEnd": 79.30000000004657,
+      "duration": 33.60000000009313,
+      "transferSize": 1840,
+      "decodedBodySize": 1540
+    },
+    "completedScripts": 1
   },
   "released": {
     "readyState": "interactive",
@@ -76,7 +106,18 @@
       "first-paint",
       "first-contentful-paint"
     ],
-    "completedScripts": 11
+    "paintTiming": {
+      "first-paint": 148,
+      "first-contentful-paint": 148
+    },
+    "appearanceResource": {
+      "startTime": 45.699999999953434,
+      "responseEnd": 79.30000000004657,
+      "duration": 33.60000000009313,
+      "transferSize": 1840,
+      "decodedBodySize": 1540
+    },
+    "completedScripts": 6
   },
   "screenshots": {
     "held": "test-evidence/media-migration/first-paint/held.png",
