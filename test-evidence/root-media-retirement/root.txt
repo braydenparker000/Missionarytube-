@@ -1,0 +1,12 @@
+✔ unset MEDIA_APP_ROOT targets the pinned Jarvis media checkout (9.644854ms)
+✔ a Jarvis target cannot resolve to the repo-root copy (30.049246ms)
+✔ missing pinned media checkout fails closed (27.764045ms)
+✔ a checkout at a different release pin fails closed (43.148376ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 160.937668

@@ -1,0 +1,18 @@
+✔ no runtime dependency is loaded from a mutable channel (2.472672ms)
+✔ dash.js is pinned to an exact version with an integrity hash (0.283129ms)
+✔ hls.js is pinned to an exact version with an integrity hash (0.335326ms)
+✔ every remote script is cross-origin and integrity checked at load time (0.556825ms)
+✔ validation passes on an unmodified checkout (404.808822ms)
+✔ validation rejects a mutable /latest/ dependency URL (378.669777ms)
+✔ validation rejects a remote script without an integrity hash (444.551576ms)
+✔ validation requires the progress store module to ship (397.10906ms)
+✔ unset MEDIA_APP_ROOT targets the pinned Jarvis media checkout (13.29385ms)
+✔ a Jarvis target cannot resolve to the repo-root copy (34.180726ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1698.482125

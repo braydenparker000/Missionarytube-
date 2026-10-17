@@ -1,0 +1,276 @@
+
+> missionarytube@0.1.0 test:media-jarvis:source-only
+> node scripts/test-jarvis-media.mjs source-only
+
+Initialized empty Git repository in /tmp/jarvis-pinned-E6WgY7/.git/
+$ git -C /tmp/jarvis-pinned-E6WgY7 rev-parse HEAD
+c28c1b2f70aabb5217b08bf31ffe4c93d0353765
+$ git -C /tmp/jarvis-pinned-E6WgY7 status --porcelain
+<empty>
+clean checkout verified: git status --porcelain empty at c28c1b2f70aabb5217b08bf31ffe4c93d0353765
+Jarvis media source c28c1b2f70aabb5217b08bf31ffe4c93d0353765 public/media c4d89e4aab446f6f79b17b7df911ec3c3f59e4d7
+media suite: source-only (2 files)
+source-only modules are absent from the pinned public/media tree; running them where those sources exist
+TAP version 13
+# Subtest: real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact
+ok 1 - real MKV AVC/AAC is repackaged to fragmented MP4 with video bytes intact
+  ---
+  duration_ms: 37.844577
+  type: 'test'
+  ...
+# Subtest: HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it
+ok 2 - HEVC repair declares hvc1 exactly as the pinned MP4 muxer writes it
+  ---
+  duration_ms: 22.419872
+  type: 'test'
+  ...
+# Subtest: HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes
+ok 3 - HEVC open-GOP seeking drops unavailable leading pictures and preserves retained video and audio bytes
+  ---
+  duration_ms: 15.710158
+  type: 'test'
+  ...
+# Subtest: seeking starts at a preceding keyframe and unsupported video is explicit
+ok 4 - seeking starts at a preceding keyframe and unsupported video is explicit
+  ---
+  duration_ms: 2.684464
+  type: 'test'
+  ...
+# Subtest: surround audio is downmixed to bounded stereo samples
+ok 5 - surround audio is downmixed to bounded stereo samples
+  ---
+  duration_ms: 1.103654
+  type: 'test'
+  ...
+# Subtest: audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps
+ok 6 - audio crossing a video keyframe is trimmed before encoding to avoid negative timestamps
+  ---
+  duration_ms: 0.334626
+  type: 'test'
+  ...
+# Subtest: an unsupported default audio track falls back to usable audio in the same file
+ok 7 - an unsupported default audio track falls back to usable audio in the same file
+  ---
+  duration_ms: 12.298037
+  type: 'test'
+  ...
+# Subtest: replacing an in-flight startup reports the old read as cancelled, not a new playback failure
+ok 8 - replacing an in-flight startup reports the old read as cancelled, not a new playback failure
+  ---
+  duration_ms: 29.842089
+  type: 'test'
+  ...
+# Subtest: real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks
+ok 9 - real 40-second MKV VP8/Vorbis uses WebM when MP4 is unavailable, preserving both tracks
+  ---
+  duration_ms: 60.973829
+  type: 'test'
+  ...
+# Subtest: audio conversion selects AAC when MP4 cannot accept Opus
+ok 10 - audio conversion selects AAC when MP4 cannot accept Opus
+  ---
+  duration_ms: 9.45671
+  type: 'test'
+  ...
+# Subtest: a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window
+ok 11 - a WebM repair seek retains a preceding keyframe beyond the initial read-ahead window
+  ---
+  duration_ms: 8.258185
+  type: 'test'
+  ...
+# HTTP server (origin https://media.example.test) did not respond to a range request with 206 Partial Content, meaning the resource will now be streamed sequentially, with old data being evicted from the cache. Reads into evicted regions will throw. To enable efficient media file streaming across a network, please make sure your server supports range requests. Alternatively, set maxCacheSize to Infinity in the UrlSource options to keep the entire resource in memory.
+# Retrying failed fetch. Error: TypeError: Failed to fetch
+#     at file:///workspace/Missionarytube-/tests/compatibility-player.test.mjs:280:62
+#     at Object.apply (node:internal/test_runner/mock/mock:767:20)
+#     at fetchFn (file:///workspace/Missionarytube-/src/compatibility-player.js:30:14)
+#     at retriedFetch (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/misc.js:456:26)
+#     at UrlSource._runWorker (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:647:36)
+#     at ReadOrchestrator.runWorker (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:1630:27)
+#     at ReadOrchestrator.read (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:1484:22)
+#     at UrlSource._read (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:627:34)
+#     at Reader.requestSlice (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/reader.js:40:36)
+#     at HlsInputFormat._canReadInput (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/input-format.js:569:35)
+# Subtest: copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer
+ok 12 - copied AAC audio crossing a seek keyframe keeps its timing and no longer fails the muxer
+  ---
+  duration_ms: 7.183025
+  type: 'test'
+  ...
+# Subtest: compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges
+ok 13 - compatibility fetch keeps addon headers on their origin and follows demuxer byte ranges
+  ---
+  duration_ms: 3.189101
+  type: 'test'
+  ...
+# Subtest: compatibility HLS children on another origin never receive addon credentials
+ok 14 - compatibility HLS children on another origin never receive addon credentials
+  ---
+  duration_ms: 3.08066
+  type: 'test'
+  ...
+# Subtest: compatibility startup distinguishes blocked access and connection failures
+ok 15 - compatibility startup distinguishes blocked access and connection failures
+  ---
+  duration_ms: 251.674816
+  type: 'test'
+  ...
+# Retrying failed fetch. Error: TypeError: Failed to fetch
+#     at file:///workspace/Missionarytube-/tests/compatibility-player.test.mjs:320:78
+#     at Object.apply (node:internal/test_runner/mock/mock:767:20)
+#     at fetchFn (file:///workspace/Missionarytube-/src/compatibility-player.js:30:14)
+#     at retriedFetch (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/misc.js:456:26)
+#     at UrlSource._runWorker (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:647:36)
+#     at ReadOrchestrator.runWorker (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:1630:27)
+#     at ReadOrchestrator.read (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:1484:22)
+#     at UrlSource._read (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:627:34)
+#     at Reader.requestSlice (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/reader.js:40:36)
+#     at HlsInputFormat._canReadInput (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/input-format.js:569:35)
+# Output has already been finalized.
+# Retrying failed fetch. Error: TypeError: Failed to fetch
+#     at file:///workspace/Missionarytube-/tests/compatibility-player.test.mjs:343:28
+#     at Object.apply (node:internal/test_runner/mock/mock:767:20)
+#     at fetchFn (file:///workspace/Missionarytube-/src/compatibility-player.js:30:14)
+#     at retriedFetch (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/misc.js:456:26)
+#     at UrlSource._runWorker (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:647:36)
+#     at ReadOrchestrator.runWorker (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:1630:27)
+#     at ReadOrchestrator.read (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:1484:22)
+#     at UrlSource._read (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:627:34)
+#     at Reader.requestSlice (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/reader.js:40:36)
+#     at HlsInputFormat._canReadInput (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/input-format.js:569:35)
+# Subtest: audio repair retries a transient request and transfers the real prepared input without rereading
+ok 16 - audio repair retries a transient request and transfers the real prepared input without rereading
+  ---
+  duration_ms: 259.923916
+  type: 'test'
+  ...
+# Error while reading response stream. Attempting to resume. TypeError: network interrupted
+#     at Object.start (file:///workspace/Missionarytube-/tests/compatibility-player.test.mjs:344:78)
+#     at setupReadableStreamDefaultController (node:internal/webstreams/readablestream:2659:23)
+#     at setupReadableStreamDefaultControllerFromSource (node:internal/webstreams/readablestream:2706:3)
+#     at new ReadableStream (node:internal/webstreams/readablestream:275:7)
+#     at file:///workspace/Missionarytube-/tests/compatibility-player.test.mjs:344:23
+#     at Object.apply (node:internal/test_runner/mock/mock:767:20)
+#     at fetchFn (file:///workspace/Missionarytube-/src/compatibility-player.js:30:14)
+#     at retriedFetch (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/misc.js:456:26)
+#     at UrlSource._runWorker (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:647:36)
+#     at ReadOrchestrator.runWorker (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:1630:27)
+# Subtest: audio repair bounds persistent fetch failures to one shared retry
+ok 17 - audio repair bounds persistent fetch failures to one shared retry
+  ---
+  duration_ms: 251.965256
+  type: 'test'
+  ...
+# Retrying failed fetch. Error: TypeError: Failed to fetch
+#     at file:///workspace/Missionarytube-/tests/compatibility-player.test.mjs:352:62
+#     at Object.apply (node:internal/test_runner/mock/mock:767:20)
+#     at fetchFn (file:///workspace/Missionarytube-/src/compatibility-player.js:30:14)
+#     at retriedFetch (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/misc.js:456:26)
+#     at UrlSource._runWorker (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:647:36)
+#     at ReadOrchestrator.runWorker (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:1630:27)
+#     at ReadOrchestrator.read (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:1484:22)
+#     at UrlSource._read (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/source.js:627:34)
+#     at Reader.requestSlice (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/reader.js:40:36)
+#     at HlsInputFormat._canReadInput (file:///workspace/Missionarytube-/node_modules/mediabunny/dist/modules/src/input-format.js:569:35)
+# Subtest: audio repair bounds persistent body failures to one shared retry
+ok 18 - audio repair bounds persistent body failures to one shared retry
+  ---
+  duration_ms: 252.700116
+  type: 'test'
+  ...
+# Subtest: cancelling repair during its retry delay stops it without another request
+ok 19 - cancelling repair during its retry delay stops it without another request
+  ---
+  duration_ms: 312.547207
+  type: 'test'
+  ...
+# Subtest: repair cancellation promptly rejects a pending metadata fetch
+ok 20 - repair cancellation promptly rejects a pending metadata fetch
+  ---
+  duration_ms: 1.531907
+  type: 'test'
+  ...
+# Subtest: prepared repair is disposed when abandoned or its adapter is destroyed before attach
+ok 21 - prepared repair is disposed when abandoned or its adapter is destroyed before attach
+  ---
+  duration_ms: 3.529342
+  type: 'test'
+  ...
+# Subtest: aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter
+ok 22 - aborting an unconsumed prepared repair invalidates it; abort after transfer leaves ownership with the adapter
+  ---
+  duration_ms: 2.603993
+  type: 'test'
+  ...
+# Subtest: gesture thresholds distinguish a tap, a cancelled drag and a committed dismissal
+ok 23 - gesture thresholds distinguish a tap, a cancelled drag and a committed dismissal
+  ---
+  duration_ms: 1.184985
+  type: 'test'
+  ...
+# Subtest: custom press physics owns touch and pen, not mouse clicks
+ok 24 - custom press physics owns touch and pen, not mouse clicks
+  ---
+  duration_ms: 0.250731
+  type: 'test'
+  ...
+# Subtest: navigation direction follows the dock and accepts an explicit back route
+ok 25 - navigation direction follows the dock and accepts an explicit back route
+  ---
+  duration_ms: 0.12836
+  type: 'test'
+  ...
+# Subtest: site-wide content choreography is shared, viewport-aware and bounded
+ok 26 - site-wide content choreography is shared, viewport-aware and bounded
+  ---
+  duration_ms: 0.644364
+  type: 'test'
+  ...
+# Subtest: mobile motion avoids offscreen GPU layers and costly document snapshots
+ok 27 - mobile motion avoids offscreen GPU layers and costly document snapshots
+  ---
+  duration_ms: 0.480321
+  type: 'test'
+  ...
+# Subtest: direct interaction motion never exceeds the 360ms release budget
+ok 28 - direct interaction motion never exceeds the 360ms release budget
+  ---
+  duration_ms: 0.462775
+  type: 'test'
+  ...
+# Subtest: View Transition callbacks cannot reorder or stall visible state
+ok 29 - View Transition callbacks cannot reorder or stall visible state
+  ---
+  duration_ms: 0.185905
+  type: 'test'
+  ...
+1..29
+# tests 29
+# suites 0
+# pass 29
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1910.891269
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: will change to "main" in Git 3.0. To configure the initial branch name
+hint: to use in all of your new repositories, which will suppress this warning,
+hint: call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+hint:
+hint: Disable this message with "git config set advice.defaultBranchName false"
+From https://github.com/braydenparker999/jarvis
+ * branch            c28c1b2f70aabb5217b08bf31ffe4c93d0353765 -> FETCH_HEAD
+HEAD is now at c28c1b2 Merge pull request #130 from braydenparker999/release/lucy-oauth-discovery-20261011
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+elapsed=6.204 exit=0

@@ -1,6 +1,10 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
+import { mediaAppRoot } from "../tests/helpers/media-root.mjs";
+
+const mediaRoot = mediaAppRoot();
+const mediaPath = (path) => join(mediaRoot, path);
 const failures = [];
 const requiredFiles = [
   "index.html",
@@ -34,13 +38,13 @@ const requiredFiles = [
 
 for (const path of requiredFiles) {
   try {
-    await access(path);
+    await access(path === "index.html" || path.startsWith("assets/") ? mediaPath(path) : path);
   } catch {
     failures.push(`Missing required file: ${path}`);
   }
 }
 
-const html = await readFile("index.html", "utf8");
+const html = await readFile(mediaPath("index.html"), "utf8");
 const checks = [
   [/<!doctype html>/i, "index.html must declare an HTML doctype"],
   [/<html[^>]*lang=/i, "index.html must declare a document language"],
@@ -55,7 +59,7 @@ for (const [pattern, message] of checks) {
 
 for (const asset of html.matchAll(/(?:src|href)=["'](assets\/[^"'?#]+)/g)) {
   try {
-    await access(asset[1]);
+    await access(mediaPath(asset[1]));
   } catch {
     failures.push(`Referenced asset does not exist: ${asset[1]}`);
   }
@@ -83,7 +87,7 @@ async function collectSourceFiles(directory) {
   return found;
 }
 
-const sourceFiles = ["index.html", ...(await collectSourceFiles("assets"))];
+const sourceFiles = [mediaPath("index.html"), ...(await collectSourceFiles(mediaPath("assets")))];
 let remoteDependencies = 0;
 
 for (const path of sourceFiles) {
