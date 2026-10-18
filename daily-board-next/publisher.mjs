@@ -3,6 +3,7 @@ import {pathToFileURL} from 'node:url';
 import {validateReport,canonical,encodeReport} from './schema.js';
 export function prepare(report,{reviewedPublic=false}={}) {
   validateReport(report);
+  if(report.title!==report.title.trim())throw Error('Title must not have surrounding whitespace');
   if(!reviewedPublic)throw Error('Explicit public-content review required');
   if(report.synthetic)throw Error('Synthetic fixtures cannot be published');
   const publication = {schema:'jarvis-publication-v1',type:'briefing',id:report.id,date:report.date,title:report.title,body:encodeReport(report)};

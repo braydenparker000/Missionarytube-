@@ -16,6 +16,7 @@ test('reject malformed metadata, private fields, URLs, duplicate IDs, unknown ty
 });
 test('publisher requires review, refuses synthetic content and detects changed readback',()=>{
   const r=fixture('one');assert.throws(()=>prepare(r));assert.throws(()=>prepare(r,{reviewedPublic:true}));r.synthetic=false;
+  assert.throws(()=>prepare({...r,title:' '+r.title},{reviewedPublic:true}));
   assert.equal(prepare(r,{reviewedPublic:true}).id,r.id);assert(verifyReadback(r,JSON.parse(canonical(r))));const other=structuredClone(r);other.title='Different';assert(!verifyReadback(r,other));
 });
 test('existing body envelope round-trips with stable identity and safe unknown fallback',()=>{
