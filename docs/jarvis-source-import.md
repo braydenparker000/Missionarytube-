@@ -340,9 +340,10 @@ record are the current status.
   sign-in gates; the navigation drawer opened and closed. No failure was
   observed in these tested flows.
 - **Acceptance limits:** authenticated Relay conversations, tasks and delivery
-  were not tested; no sign-in or pairing was attempted. Guitar playback was
-  not tested because the unsaved preview has no playback control and no tab was
-  saved. Physical-device testing remains outstanding. Daily Board dynamic
+  were not tested; no sign-in or pairing was attempted. Guitar v1 has no audio
+  playback feature. Live Guitar checks covered search, acoustic-track
+  selection, notation preview and full tab through measure 59. Physical-device
+  testing remains outstanding. Daily Board dynamic
   rendering was not checked because its read path can advance synchronization.
 - **Daily Board:** migration remains pending and unchanged. The reader and
   external writer still use open `braydenparker999/jarvis#2`; Worker health
