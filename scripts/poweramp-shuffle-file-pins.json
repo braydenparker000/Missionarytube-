@@ -3,12 +3,70 @@
     "path": "drawercast/shuffle-worker.js",
     "before": "5b8b8a5cfbf322eacb30baba06ca528e8049a6491313c3a0c99c9984bc417651",
     "sha256": "5b8b8a5cfbf322eacb30baba06ca528e8049a6491313c3a0c99c9984bc417651",
-    "bytes": 13019
+    "bytes": 13019,
+    "cache": "no-cache",
+    "contentType": "application/javascript"
   },
   {
-    "path": "drawercast/player.js",
-    "before": "aede20b8b5785d4719765dc44a0a3c390159bf4fdeb5e11e9d641df83d40901a",
-    "sha256": "f570d5697b275ac96ad2fb7583c54de66a2e35fdb557161ba7c7ec81083db068",
-    "bytes": 977818
+    "path": "drawercast/player.37435a820e8c.js",
+    "logical": "drawercast/player.js",
+    "before": null,
+    "sha256": "37435a820e8c756a3e6d9f6bad82e368211cf2a83afe64d4a8f19409e0a67d07",
+    "bytes": 978027,
+    "cache": "immutable",
+    "contentType": "application/javascript"
+  },
+  {
+    "path": "drawercast/fonts/poweramp-manrope-400.d4d18f92f4bf.woff",
+    "logical": "drawercast/fonts/poweramp-manrope-400.woff",
+    "before": null,
+    "sha256": "d4d18f92f4bf3b8f510e2280bbfe49d1e5e6963e95e979505bb33476b4d61fa8",
+    "bytes": 32648,
+    "cache": "immutable",
+    "contentType": "font/woff"
+  },
+  {
+    "path": "drawercast/fonts/poweramp-manrope-500.71724f433378.woff",
+    "logical": "drawercast/fonts/poweramp-manrope-500.woff",
+    "before": null,
+    "sha256": "71724f433378f1e26d0f91a4212b77b115e98bda58c32b37ada51aabf5c19e7b",
+    "bytes": 34836,
+    "cache": "immutable",
+    "contentType": "font/woff"
+  },
+  {
+    "path": "drawercast/fonts/poweramp-manrope-800.779adf3a8289.woff",
+    "logical": "drawercast/fonts/poweramp-manrope-800.woff",
+    "before": null,
+    "sha256": "779adf3a82892c332266b7931326e6bf66be416dee3600dd0614dac20fae226c",
+    "bytes": 34836,
+    "cache": "immutable",
+    "contentType": "font/woff"
+  },
+  {
+    "path": "drawercast/fonts/poweramp-norms-500.5943712945de.woff",
+    "logical": "drawercast/fonts/poweramp-norms-500.woff",
+    "before": null,
+    "sha256": "5943712945de8106ac0b7c645dac1252626247115ae061df351021634ebd25a2",
+    "bytes": 98712,
+    "cache": "immutable",
+    "contentType": "font/woff"
+  },
+  {
+    "path": "drawercast/fonts/poweramp-norms-700.4488fdc4db26.woff",
+    "logical": "drawercast/fonts/poweramp-norms-700.woff",
+    "before": null,
+    "sha256": "4488fdc4db26b6f7ce5ed8d83f8537eb64841123cfaf5c5d8b2b03a71e4d06cf",
+    "bytes": 94664,
+    "cache": "immutable",
+    "contentType": "font/woff"
+  },
+  {
+    "path": "drawercast/index.html",
+    "before": "fe360100776b4ca0f8cd416a8f929e13f85f5c73cb6cfe48ab5be8b1f6c35faf",
+    "sha256": "dbe78fa9996131c3e07c0908c2c484fc9471180afdbb302e6aebea54a34b3a7b",
+    "bytes": 138529,
+    "cache": "no-cache",
+    "contentType": "text/html"
   }
 ]

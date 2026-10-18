@@ -6,7 +6,7 @@ import {join,dirname} from 'node:path';
 import {tmpdir} from 'node:os';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
-import {checkedShuffleReceipt,patchManifest,unchangedInventory,FILES,SOURCE,PARENT,WORKER_CHECKPOINT,findDestinationProof,destinationPlan,DEST_DEFINITION_PINS,qualifyUploadBytes,verifyUntouchedLive} from './publish-poweramp-shuffle.mjs';
+import {checkedShuffleReceipt,patchManifest,unchangedInventory,FILES,SOURCE,PARENT,WORKER_CHECKPOINT,findDestinationProof,destinationPlan,DEST_DEFINITION_PINS,qualifyUploadBytes,verifyUntouchedLive,fingerprintedPath,isSupersededAsset} from './publish-poweramp-shuffle.mjs';
 import {createHash} from 'node:crypto';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 import {receiptDigest} from './worker-release-identity.mjs';
@@ -50,11 +50,23 @@ test('already-live file is verified hash+size and skipped untouched, never uploa
  assert.notEqual(FILES[1].before,FILES[1].sha256);
 });
 test('whole-store guard rejects unrelated modifications, deletion and additions',()=>{
- const before=[...FILES.filter(f=>f.before!==null).map(f=>({name:f.path,etag:'old',size:1})),{name:'index.html',etag:'same',size:2},{name:'release-qualified.json',etag:'old',size:3}];
- const after=[...before.map(f=>FILES.some(x=>x.path===f.name)||f.name==='release-qualified.json'?{...f,etag:'new'}:f),...FILES.filter(f=>f.before===null).map(f=>({name:f.path,etag:'new',size:f.bytes}))].sort((a,b)=>a.name.localeCompare(b.name));
+ // Superseded managed blobs (legacy unhashed player.js, old fingerprinted
+ // player/font versions) are removed by publish() after the new files verify;
+ // the guard expects them absent, alongside the newly uploaded files.
+ const before=[...FILES.filter(f=>f.before!==null).map(f=>({name:f.path,etag:'old',size:1})),
+  {name:'drawercast/player.js',etag:'old',size:9},
+  {name:'drawercast/player.deadbeef1234.js',etag:'old',size:9},
+  {name:'drawercast/fonts/poweramp-norms-500.deadbeef1234.woff',etag:'old',size:9},
+  {name:'other.html',etag:'same',size:2},{name:'release-qualified.json',etag:'old',size:3}];
+ const supersededGone=n=>n==='drawercast/player.js'||n==='drawercast/player.deadbeef1234.js'||n==='drawercast/fonts/poweramp-norms-500.deadbeef1234.woff';
+ const after=[...before.map(f=>FILES.some(x=>x.path===f.name)||f.name==='release-qualified.json'?{...f,etag:'new'}:f).filter(f=>!supersededGone(f.name)),
+  ...FILES.filter(f=>f.before===null).map(f=>({name:f.path,etag:'new',size:f.bytes}))].sort((a,b)=>a.name.localeCompare(b.name));
  before.sort((a,b)=>a.name.localeCompare(b.name));
  unchangedInventory(before,after);
- for(const bad of [after.filter(f=>f.name!=='index.html'),[...after,{name:'new.js',etag:'new',size:1}],after.map(f=>f.name==='index.html'?{...f,etag:'changed'}:f)])assert.throws(()=>unchangedInventory(before,bad));
+ for(const bad of [after.filter(f=>f.name!=='other.html'),[...after,{name:'new.js',etag:'new',size:1}],
+  after.map(f=>f.name==='other.html'?{...f,etag:'changed'}:f),
+  // A superseded blob left behind by a failed cleanup must fail the guard.
+  [...after,{name:'drawercast/player.js',etag:'old',size:9}]])assert.throws(()=>unchangedInventory(before,bad));
 });
 const DEST_COMPONENT_NAMES=['relay','frontend','poweramp','blankLibrary','podcasts','migration','performance','owner24'];
 // The aggregate inventory mandates these test files; the synthetic trees below
@@ -250,20 +262,67 @@ test('destination plan reproduces the CI plan from the release pin',async()=>{
 });
 test('upload bytes are syntax-checked and carry the reviewed acceptance markers',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'byte-qual-'));
+ const playerSrc='// Waiting for connection\n// If-None-Match\n// auto-resume-armed\n// play-start-retry\n// R2 library not modified\nconsole.log(1);\n';
  try{
-  const player=join(dir,'player.js'),worker=join(dir,'sw.js');
-  await writeFile(player,'// Waiting for connection\n// If-None-Match\n// auto-resume-armed\n// play-start-retry\n// R2 library not modified\nconsole.log(1);\n');
+  const player=join(dir,'player.abc123def456.js'),worker=join(dir,'sw.js');
+  await writeFile(player,playerSrc);
   await writeFile(worker,'console.log(2);\n');
-  assert.equal(qualifyUploadBytes([{path:'drawercast/player.js',absPath:player},{path:'drawercast/shuffle-worker.js',absPath:worker}]),2);
+  assert.equal(qualifyUploadBytes([{path:'drawercast/player.abc123def456.js',absPath:player},{path:'drawercast/shuffle-worker.js',absPath:worker}]),2);
   // Files without markers configured still get the syntax check.
   assert.equal(qualifyUploadBytes([{path:'drawercast/shuffle-worker.js',absPath:worker}]),1);
   // A syntax error in the exact bytes fails closed before upload.
   await writeFile(worker,'console.log(;\n');
   assert.throws(()=>qualifyUploadBytes([{path:'drawercast/shuffle-worker.js',absPath:worker}]));
+  await writeFile(worker,'console.log(2);\n');
   // A missing reviewed marker fails closed.
   await writeFile(player,'console.log(1);\n');
-  assert.throws(()=>qualifyUploadBytes([{path:'drawercast/player.js',absPath:player}]),/acceptance marker/);
+  assert.throws(()=>qualifyUploadBytes([{path:'drawercast/player.abc123def456.js',absPath:player}]),/acceptance marker/);
+  await writeFile(player,playerSrc);
+  // Font files must carry the woff magic, not arbitrary bytes.
+  const font=join(dir,'a.abc123def456.woff');
+  await writeFile(font,Buffer.concat([Buffer.from('wOFF'),Buffer.alloc(10)]));
+  assert.equal(qualifyUploadBytes([{path:'drawercast/fonts/a.abc123def456.woff',absPath:font}]),1);
+  await writeFile(font,Buffer.from('not a font file'));
+  assert.throws(()=>qualifyUploadBytes([{path:'drawercast/fonts/a.abc123def456.woff',absPath:font}]),/wOFF/);
+  await writeFile(font,Buffer.concat([Buffer.from('wOFF'),Buffer.alloc(10)]));
+  // The rewritten index.html must reference the fingerprinted assets, keep
+  // the live CSP meta, and carry no inline font data.
+  const html=join(dir,'index.html');
+  const goodHtml='<meta http-equiv="Content-Security-Policy" content="x"><script src="./player.abc123def456.js"></script><link href="./fonts/a.abc123def456.woff">';
+  await writeFile(html,goodHtml);
+  const htmlFiles=[
+   {path:'drawercast/player.abc123def456.js',absPath:player},
+   {path:'drawercast/fonts/a.abc123def456.woff',absPath:font},
+   {path:'drawercast/index.html',absPath:html}];
+  assert.equal(qualifyUploadBytes(htmlFiles),3);
+  await writeFile(html,'<script src="./player.abc123def456.js"></script><link href="./fonts/a.abc123def456.woff">');
+  assert.throws(()=>qualifyUploadBytes(htmlFiles),/CSP/);
+  await writeFile(html,goodHtml.replace('./player.abc123def456.js','./player.js'));
+  assert.throws(()=>qualifyUploadBytes(htmlFiles),/fingerprinted player/);
  }finally{await rm(dir,{recursive:true,force:true});}
+});
+test('fingerprinted paths derive deterministically from source bytes',async()=>{
+ assert.equal(fingerprintedPath('drawercast/player.js',Buffer.from('x')),'drawercast/player.'+sha256(Buffer.from('x')).slice(0,12)+'.js');
+ assert.equal(fingerprintedPath('drawercast/fonts/a.woff',Buffer.from('y')),'drawercast/fonts/a.'+sha256(Buffer.from('y')).slice(0,12)+'.woff');
+ assert.throws(()=>fingerprintedPath('drawercast/index.html',Buffer.from('z')));
+ // Superseded-asset detection: legacy unhashed player, old hashed versions,
+ // and stale fonts are cleanup candidates; current FILES and unrelated blobs
+ // are never touched.
+ const fps=new Set(FILES.map(f=>f.path));
+ assert.ok(isSupersededAsset('drawercast/player.js',fps));
+ assert.ok(isSupersededAsset('drawercast/player.deadbeef1234.js',fps));
+ assert.ok(isSupersededAsset('drawercast/fonts/old.deadbeef1234.woff',fps));
+ for(const f of FILES) assert.ok(!isSupersededAsset(f.path,fps),'current file flagged superseded: '+f.path);
+ assert.ok(!isSupersededAsset('drawercast/other.js',fps));
+ assert.ok(!isSupersededAsset('index.html',fps));
+ // Cache policy: fingerprinted assets are immutable; the entry point and the
+ // pinned worker stay revalidating.
+ for(const f of FILES){
+  if(/^drawercast\/player\.[0-9a-f]{12}\.js$/.test(f.path)||f.path.startsWith('drawercast/fonts/'))
+   assert.equal(f.cache,'immutable','missing immutable policy: '+f.path);
+  else assert.equal(f.cache,'no-cache','missing no-cache policy: '+f.path);
+ }
+ assert.ok(FILES.some(f=>f.path==='drawercast/index.html'&&f.cache==='no-cache'));
 });
 test('receipt lineage requires this exact successful attempt and stamp before accepting the overlay',async()=>{
  const {verifiedMusicReceipt,nextMusicReceipt}=await import('./music-frontend-identity.mjs');

@@ -32,6 +32,66 @@ const ORIGIN='https://missionarytube.z13.web.core.windows.net',ROOT=resolve('.po
 const JARVIS=resolve(ROOT,'jarvis');
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const gitBlob=bytes=>createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
+// Content fingerprinting for immutable caching (perf overhaul). Hashed blob
+// names are derived deterministically from the exact source bytes: the pins
+// file remains the reviewed snapshot, and source() fail-closes if the derived
+// names ever diverge from it. FP_LEN=12 hex chars (48 bits) is ample for a
+// small static asset set; collisions would fail closed at the pins check.
+const FP_LEN=12;
+const fpFragment=bytes=>hash(bytes).slice(0,FP_LEN);
+// Logical source path -> fingerprinted live path. Only player.js and the font
+// files are fingerprinted; index.html is the fixed entry point (no-cache) and
+// shuffle-worker.js is pinned unhashed (skipped-untouched).
+export function fingerprintedPath(logical,bytes){
+  if(logical==='drawercast/player.js') return `drawercast/player.${fpFragment(bytes)}.js`;
+  const m=logical.match(/^drawercast\/fonts\/(.+)\.woff$/);
+  if(m) return `drawercast/fonts/${m[1]}.${fpFragment(bytes)}.woff`;
+  throw new Error('Not a fingerprinted asset: '+logical);
+}
+// Derive every fingerprinted live path from the exact source bytes.
+export async function expectedFingerprints(){
+  const out={};
+  const {readdir}=await import('node:fs/promises');
+  out['drawercast/player.js']=fingerprintedPath('drawercast/player.js',await readFile(resolve(JARVIS,'public','drawercast/player.js')));
+  for(const f of (await readdir(resolve(JARVIS,'public','drawercast/fonts'))).sort()){
+    if(!f.endsWith('.woff')) continue;
+    const logical=`drawercast/fonts/${f}`;
+    out[logical]=fingerprintedPath(logical,await readFile(resolve(JARVIS,'public',logical)));
+  }
+  return out;
+}
+// Exact upload bytes for a FILES entry. player.js and fonts upload byte-identical
+// to source; index.html is rewritten to reference the fingerprinted asset names.
+export async function uploadBytes(file){
+  const logical=file.logical||file.path;
+  if(file.path==='drawercast/index.html'){
+    const playerFile=FILES.find(f=>/^drawercast\/player\.[0-9a-f]{12}\.js$/.test(f.path));
+    assert.ok(playerFile,'Fingerprinted player missing from FILES');
+    let html=await readFile(resolve(JARVIS,'public',logical),'utf8');
+    html=html.replace(/\.\/player\.js(\?[^"']*)?/,'./'+playerFile.path.split('/').pop());
+    for(const f of FILES){
+      const m=f.path.match(/^drawercast\/fonts\/(.+)\.[0-9a-f]{12}\.woff$/);
+      if(m) html=html.split(`./fonts/${m[1]}.woff`).join('./fonts/'+f.path.split('/').pop());
+    }
+    assert.ok(!html.includes('base64'),'Fingerprinted index.html still carries inline font data');
+    return {bytes:Buffer.from(html,'utf8'),contentType:'text/html'};
+  }
+  const bytes=await readFile(resolve(JARVIS,'public',logical));
+  const contentType=file.contentType||(logical.endsWith('.woff')?'font/woff':logical.endsWith('.html')?'text/html':'application/javascript');
+  return {bytes,contentType};
+}
+// Blob names that are old versions of managed fingerprinted assets: the legacy
+// unhashed player.js, superseded player.<hash>.js blobs, and stale font blobs.
+// Used by the store guard (expected absent after cleanup) and by publish()
+// (deletes them after the new files verify).
+export function isSupersededAsset(name,filePaths){
+  if(filePaths.has(name)) return false;
+  if(name==='drawercast/player.js') return true;
+  if(/^drawercast\/player\.[0-9a-f]{12}\.js$/.test(name)) return true;
+  if(name.startsWith('drawercast/fonts/')) return true;
+  return false;
+}
+const CACHE_IMMUTABLE='public, max-age=31536000, immutable';
 const git=(root,...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8'}).trim();
 const local=async p=>JSON.parse(await readFile(p,'utf8'));
 async function get(path){const r=await fetch(ORIGIN+'/'+path,{redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000)});assert.equal(r.status,200);return r;}
@@ -167,20 +227,38 @@ export function checkedShuffleReceipt(receipt){
 // component lanes qualify the release-pinned tree (c28c1b2f...), not these
 // bytes: no CI run executes jarvis/public/drawercast/player.js at SOURCE, so
 // the publisher qualifies the exact bytes itself, on the SOURCE checkout,
-// before any upload. Each file must parse as valid JavaScript, and the player
-// must carry the reviewed PR #258 acceptance markers (each verified present
-// in the new bytes and absent in the old). This establishes the uploaded bytes
-// are syntactically valid and carry the reviewed feature set; behavioral
-// qualification remains the live-verification step. Fail-closed.
-const BYTE_MARKERS={
- 'drawercast/player.js':['Waiting for connection','If-None-Match','auto-resume-armed','play-start-retry','R2 library not modified'],
-};
+// before any upload. Each JavaScript file must parse, and the player must
+// carry the reviewed PR #258 acceptance markers (each verified present
+// in the new bytes and absent in the old). Font files must carry the woff
+// magic; the rewritten index.html must reference the fingerprinted assets,
+// carry no inline font data, and preserve the live CSP meta. This establishes
+// the uploaded bytes are syntactically valid and carry the reviewed feature
+// set; behavioral qualification remains the live-verification step. Fail-closed.
+const PLAYER_MARKERS=['Waiting for connection','If-None-Match','auto-resume-armed','play-start-retry','R2 library not modified'];
+const isPlayerPath=p=>/^drawercast\/player\.[0-9a-f]{12}\.js$/.test(p);
 export function qualifyUploadBytes(files){
+ const playerFile=files.find(f=>isPlayerPath(f.path));
  for(const file of files){
-  execFileSync(process.execPath,['--check',file.absPath],{stdio:'pipe'});
-  const text=readFileSync(file.absPath,'utf8');
-  for(const marker of BYTE_MARKERS[file.path]||[])
-   assert.ok(text.includes(marker),'Upload bytes missing reviewed acceptance marker '+marker+' in '+file.path);
+  const bytes=readFileSync(file.absPath);
+  if(file.path.endsWith('.js')){
+   execFileSync(process.execPath,['--check',file.absPath],{stdio:'pipe'});
+   if(isPlayerPath(file.path)){
+    const text=bytes.toString('utf8');
+    for(const marker of PLAYER_MARKERS)
+     assert.ok(text.includes(marker),'Upload bytes missing reviewed acceptance marker '+marker+' in '+file.path);
+   }
+  }else if(file.path.endsWith('.woff')){
+   assert.equal(bytes.subarray(0,4).toString('ascii'),'wOFF','Invalid woff magic in '+file.path);
+  }else if(file.path==='drawercast/index.html'){
+   const text=bytes.toString('utf8');
+   assert.ok(text.includes('Content-Security-Policy'),'Rewritten index.html dropped the CSP meta');
+   assert.ok(!text.includes('base64'),'Rewritten index.html still carries inline font data');
+   assert.ok(playerFile&&text.includes('./'+playerFile.path.split('/').pop()),'Rewritten index.html does not reference the fingerprinted player');
+   for(const f of files){
+    const m=f.path.match(/^drawercast\/fonts\/(.+)\.[0-9a-f]{12}\.woff$/);
+    if(m) assert.ok(text.includes('./fonts/'+f.path.split('/').pop()),'Rewritten index.html missing fingerprinted font '+f.path);
+   }
+  }
  }
  return files.length;
 }
@@ -188,9 +266,32 @@ async function source(){
  assert.equal(git(ROOT,'rev-parse','HEAD'),SOURCE);immutableSourceSnapshot(ROOT);assert.ok(recipeAllowed(JARVIS,SHUFFLE_RECIPE));
  const plan=await destinationPlan();
  const proof=await findDestinationProof(SOURCE,plan);assert.equal(proof.qualified,true,'Exact trusted source proof required');
- assert.deepEqual(FILES.map(f=>f.path),['drawercast/shuffle-worker.js','drawercast/player.js']);
- for(const file of FILES){const bytes=await readFile(resolve(JARVIS,'public',file.path));assert.equal(hash(bytes),file.sha256);assert.equal(bytes.length,file.bytes);}
- qualifyUploadBytes(FILES.map(f=>({path:f.path,absPath:resolve(JARVIS,'public',f.path)})));
+ // Fingerprinted live paths are derived deterministically from the exact
+ // source bytes; the pins file is the reviewed snapshot and must match the
+ // derivation, otherwise the publish stops here.
+ const fp=await expectedFingerprints();
+ const expectedPaths=new Set(['drawercast/shuffle-worker.js','drawercast/index.html',...Object.values(fp)]);
+ assert.deepEqual(new Set(FILES.map(f=>f.path)),expectedPaths,'FILES do not match the fingerprinted source derivation');
+ for(const file of FILES){
+  const logical=file.logical||file.path;
+  if(fp[logical]) assert.equal(file.path,fp[logical],'Fingerprinted path does not match source bytes for '+logical);
+  const {bytes,contentType}=await uploadBytes(file);
+  assert.equal(hash(bytes),file.sha256,'Upload bytes hash mismatch for '+file.path);
+  assert.equal(bytes.length,file.bytes,'Upload bytes size mismatch for '+file.path);
+  if(file.contentType) assert.equal(contentType,file.contentType,'Content type mismatch for '+file.path);
+ }
+ // qualifyUploadBytes runs against the exact upload bytes (the rewritten
+ // index.html, not the source template), staged to temp files.
+ const dir=await mkdtemp(join(tmpdir(),'shuffle-upload-bytes-'));
+ try{
+  const staged=[];
+  for(const file of FILES){
+   const {bytes}=await uploadBytes(file);
+   const absPath=resolve(dir,file.path.replace(/\//g,'_'));
+   await writeFile(absPath,bytes);staged.push({path:file.path,absPath});
+  }
+  qualifyUploadBytes(staged);
+ }finally{await rm(dir,{recursive:true,force:true});}
  // The focused Phase 1+2 behavior suite executes the exact upload bytes in a
  // VM harness and must pass before any upload. It asserts the reviewed pins
  // itself, so it cannot pass against substituted bytes.
@@ -205,13 +306,31 @@ async function source(){
 const az=args=>execFileSync('az',['storage','blob',...args,'--account-name','missionarytube','--auth-mode','login','--container-name','$web','--only-show-errors'],{encoding:'utf8',stdio:'pipe',maxBuffer:8*1024*1024});
 function inventory(){const rows=JSON.parse(az(['list','--query','[].{name:name,etag:properties.etag,size:properties.contentLength}','--output','json']));assert.ok(Array.isArray(rows)&&rows.length<5000,'Complete small blob inventory required');return rows.sort((a,b)=>a.name.localeCompare(b.name));}
 export function unchangedInventory(before,after){
- const omitted=new Set([...FILES.map(f=>f.path),'release-qualified.json']);
- assert.deepEqual(after.filter(f=>!omitted.has(f.name)),before.filter(f=>!omitted.has(f.name)),'An unrelated blob changed');
- assert.deepEqual(after.map(f=>f.name),[...before.map(f=>f.name),...FILES.filter(f=>f.before===null).map(f=>f.path)].sort((a,b)=>a.localeCompare(b)),'Blob inventory changed');
+ const filePaths=new Set(FILES.map(f=>f.path));
+ const omitted=new Set([...filePaths,'release-qualified.json']);
+ // Superseded fingerprinted blobs (old player/font versions, the legacy
+ // unhashed player.js) are removed by publish() after the new files verify;
+ // they are expected absent, not "unrelated changes".
+ const beforeKept=before.filter(f=>!omitted.has(f.name)&&!isSupersededAsset(f.name,filePaths));
+ assert.deepEqual(after.filter(f=>!omitted.has(f.name)),beforeKept,'An unrelated blob changed');
+ const expected=new Set(before.map(f=>f.name));
+ for(const f of FILES) if(f.before===null) expected.add(f.path);
+ for(const b of before) if(isSupersededAsset(b.name,filePaths)) expected.delete(b.name);
+ assert.deepEqual(after.map(f=>f.name),[...expected].sort((a,b)=>a.localeCompare(b)),'Blob inventory changed');
 }
 async function retryRead(operation){for(let attempt=0;;attempt++){try{return await operation()}catch(error){if(attempt===2||error.code==='ERR_ASSERTION')throw error;await new Promise(resolve=>setTimeout(resolve,2000));}}}
 async function worker(){assert.match(WORKER_CHECKPOINT.version,/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/);assert.match(WORKER_CHECKPOINT.settingsDigest,/^[a-f0-9]{64}$/);assert.deepEqual(await retryRead(()=>liveIdentity({account:process.env.CLOUDFLARE_ACCOUNT_ID,token:process.env.CLOUDFLARE_API_TOKEN})),{version:WORKER_CHECKPOINT.version,settingsDigest:WORKER_CHECKPOINT.settingsDigest});}
-async function verifyFiles(){for(const file of FILES){const r=await get(file.path);assert.equal(hash(Buffer.from(await r.arrayBuffer())),file.sha256);assert.match(r.headers.get('cache-control')||'',/no-cache|no-store/);}}
+async function verifyFiles(){
+ for(const file of FILES){
+  const r=await get(file.path);
+  assert.equal(hash(Buffer.from(await r.arrayBuffer())),file.sha256,'Live hash mismatch for '+file.path);
+  const cc=r.headers.get('cache-control')||'';
+  // Fingerprinted assets are immutable forever (the name is the version);
+  // the entry point and the pinned worker stay revalidating.
+  if(file.cache==='immutable') assert.match(cc,/immutable/,'Live file missing immutable cache-control: '+file.path);
+  else assert.match(cc,/no-cache|no-store/,'Live file missing no-cache: '+file.path);
+ }
+}
 async function existingFile(file){
  const r=await fetch(ORIGIN+'/'+file.path,{redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000)});
  if(file.before===null){assert.equal(r.status,404,'New shuffle worker must be absent');return null;}
@@ -239,20 +358,40 @@ async function main(command){
  const plan=await local('poweramp-publication/plan.json');assert.equal(receiptDigest(plan.parent),PARENT);assert.deepEqual(plan.files,FILES);await source();await worker();
  if(command==='publish'){
   await parent();const before=inventory();await writeFile('poweramp-publication/storage-before.json',JSON.stringify(before,null,2)+'\n');
-  // Same-origin worker first, player last. The existing player does not load
-  // the new worker if publication stops after the dependency upload.
-  for(const file of FILES){
-   await parent();const live=await existingFile(file);
-   if(file.before===file.sha256){
-    // Smallest release scope (Lucy seq-232): the live bytes are required to
-    // equal the pin, so uploading would be a no-op. Verify hash+size as a
-    // required gate, then leave the blob untouched — never upload it.
-    verifyUntouchedLive(file,live);
-    console.log(JSON.stringify({skippedUntouched:file.path}));continue;
+  const filePaths=new Set(FILES.map(f=>f.path));
+  // Stage the exact upload bytes (the rewritten index.html lives only here).
+  const stage=await mkdtemp(join(tmpdir(),'shuffle-publish-'));
+  try{
+   // Dependency order: worker (skipped), player, fonts, entry point last.
+   // index.html references the fingerprinted names, so it must land after
+   // the assets it points to. Cleanup of superseded blobs happens only
+   // after every new file verifies live.
+   for(const file of FILES){
+    await parent();const live=await existingFile(file);
+    if(file.before===file.sha256){
+     // Smallest release scope (Lucy seq-232): the live bytes are required to
+     // equal the pin, so uploading would be a no-op. Verify hash+size as a
+     // required gate, then leave the blob untouched — never upload it.
+     verifyUntouchedLive(file,live);
+     console.log(JSON.stringify({skippedUntouched:file.path}));continue;
+    }
+    const {bytes,contentType}=await uploadBytes(file);
+    const staged=resolve(stage,file.path.replace(/\//g,'_'));await writeFile(staged,bytes);
+    const cacheControl=file.cache==='immutable'?CACHE_IMMUTABLE:'no-cache';
+    az(['upload','--name',file.path,'--file',staged,'--content-type',contentType,'--content-cache-control',cacheControl,'--overwrite','true']);
+    assert.equal(hash(Buffer.from(await(await get(file.path)).arrayBuffer())),file.sha256,'Uploaded bytes mismatch for '+file.path);
+    console.log(JSON.stringify({uploaded:file.path,cacheControl,contentType}));
    }
-   az(['upload','--name',file.path,'--file',resolve(JARVIS,'public',file.path),'--content-type','application/javascript','--content-cache-control','no-cache','--overwrite','true']);
-   assert.equal(hash(Buffer.from(await(await get(file.path)).arrayBuffer())),file.sha256);
-  }
+   // Remove superseded fingerprinted blobs (old player/font versions and the
+   // legacy unhashed player.js) so immutable caching never accumulates stale
+   // versions. Only blobs matching managed-asset patterns and absent from
+   // FILES are touched; anything else fails the inventory guard below.
+   const superseded=before.map(f=>f.name).filter(name=>isSupersededAsset(name,filePaths));
+   for(const name of superseded){
+    az(['delete','--name',name]);
+    console.log(JSON.stringify({deletedSuperseded:name}));
+   }
+  }finally{await rm(stage,{recursive:true,force:true});}
   await verifyFiles();unchangedInventory(before,inventory());await worker();
  }else if(command==='record'){
   await parent();await verifyFiles();unchangedInventory(await local('poweramp-publication/storage-before.json'),inventory());
