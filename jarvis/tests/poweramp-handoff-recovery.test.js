@@ -492,6 +492,31 @@ test('unavailable next preserves the exact duplicate queue occurrence through ex
   assert.equal(h.Engine.current.id, after.id); assert.equal(h.Engine.pos, 3);
 });
 
+test('unavailable same-ID next occurrence rolls back to the originating occurrence', async () => {
+  const h = harness();
+  h.add(h.selected, h.urls.get(h.selected.id)); // second occurrence of A, same id
+  const after = addTrack(h, 'native-r2', 'after-same-id');
+  // queue = [A, A, after], order = [0,1,2], current = first A, pos = 0.
+  await h.start(198);
+  const restore = unavailableSource(h, 'native-r2', h.selected);
+  const a = h.audio(); naturalEnd(a); await flush();
+  assert.equal(h.Engine.pos, 0, 'failed preflight on the same-ID second occurrence rolls back to the first');
+  assert.equal(h.Engine.current.id, h.selected.id, 'current never left the first occurrence');
+  restore();
+});
+
+test('unavailable same-ID repeat-all wrap rolls back to the ended occurrence', async () => {
+  const h = harness();
+  h.add(h.selected, h.urls.get(h.selected.id)); // queue = [A, A]
+  h.ctx.SET.repeatMode = 'all';
+  h.Engine.pos = 1; // current = second A (the ended occurrence)
+  await h.start(198);
+  const restore = unavailableSource(h, 'native-r2', h.selected);
+  const a = h.audio(); naturalEnd(a); await flush();
+  assert.equal(h.Engine.pos, 1, 'failed preflight on the wrapped same-ID occurrence rolls back to the ended occurrence');
+  restore();
+});
+
 test('completed incoming B with unavailable C stops and later explicit B replay can advance to C', async () => {
   const h = harness(), next = addTrack(h), after = addTrack(h, 'native-r2', 'after'); await h.start(198);
   const restore = unavailableSource(h, 'native-r2', after);

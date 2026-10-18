@@ -3006,18 +3006,27 @@ const Engine = {
     const t=this.queue[qi];
     if(!t||!sourceTrackEnabled(t))return this.selectionUnavailable();
     if(t.source==='drive'&&!DriveSource.api)return this.selectionUnavailable('Google Drive is unavailable. Check Music Sources in Library settings.');
+    // D1 (rev-4 review): the request identity must be allocated BEFORE the
+    // first await. Allocating it after the awaited preflight let a stale,
+    // slow-resolving selection allocate a newer identity and overwrite the
+    // user's newer intent.
+    const request=++this._playRequest || (this._playRequest=1);
     if(t.source==='r2'&&!R2Source.fileFor(t)){
       // E1: the mapping can be momentarily absent while a catalog refresh is
       // mid-flight or just failed on a network blip — give it a bounded
       // chance to appear before failing the selection. E5 picks the message.
-      if(!await this.r2PreflightWithRetry(t))return this.selectionUnavailable(this.r2UnavailableMessage());
+      const preflightOk=await this.r2PreflightWithRetry(t);
+      // D1c1 (rev-4 review): check the request identity BEFORE applying
+      // either the success or the failure effects — a superseded selection
+      // must not clobber the newer selection in either case.
+      if(request!==this._playRequest)return;
+      if(!preflightOk)return this.selectionUnavailable(this.r2UnavailableMessage());
     }
     if(SourceLibrary.kind(t)==='server' && !DrawerCast.canPlay(t))return this.selectionUnavailable('Music server is unavailable. Reconnect in Music Sources.');
     // A deliberate new selection gets its own retry budget. Metadata from a
     // failed retry does not prove the audio ever became playable.
     this.resetSelectionRecovery(t);
     DriveSource.prioritize(t);
-    const request=++this._playRequest || (this._playRequest=1);
     this._playStartRetries={request:this._playRequest,n:0}; // E1: a deliberate new selection gets its own retry budget.
     const wasPlaying = autoplay!==false;
     this._playIntent=wasPlaying;
@@ -3029,6 +3038,11 @@ const Engine = {
     this.playing=false;UI.renderPlayState();
     this._recordShuffle?.(qi);
     this.current=t;
+    // D1c3 (rev-4 review): request-bound evidence that THIS request committed
+    // the target occurrence. ID equality cannot prove it — a same-ID queue
+    // occurrence (e.g. [A,A,B] failing on the second A) shares current's ID
+    // without ever committing.
+    this._playCommitRequest=request;
     this.pos = Math.max(0, this.order.indexOf(qi));
     UI.renderNowPlaying(t);UI.renderProgress();
     let f;
@@ -3191,7 +3205,7 @@ const Engine = {
     this._userInteracted=false;
     const at=Date.now(),self=this;
     this.tracePlayback('auto-resume-armed');
-    this._autoResume={at,reason:'interrupted',timer:setTimeout(()=>self._tryAutoResume(),15000)};
+    this._autoResume={at,reason:'interrupted',timer:setTimeout(()=>self._tryAutoResume(),14000)}; // D2 (rev-4 review): 14s, not 15s — the timer must fire strictly inside the 15s window, or _tryAutoResume's age>=15000 check always suppresses the scheduled fallback
   },
   _disarmAutoResume:function(){
     if(this._autoResume?.timer)clearTimeout(this._autoResume.timer);
@@ -3243,10 +3257,28 @@ const Engine = {
       else { this.pause(); this.el().currentTime=0; UI.renderProgress(); return; }
     }
     this.pos++;
-    const request=this._playRequest,result=this.playIndex(this.order[this.pos], auto || this.wantsPlayback());
-    // Preflight failure creates no new request. Keep the selected occurrence
-    // aligned with current, including duplicate tracks and a repeat-all wrap.
-    if(this._playRequest===request)this.pos=previousPos;
+    const targetQi=this.order[this.pos],target=this.queue[targetQi];
+    const request=this._playRequest,result=this.playIndex(targetQi, auto || this.wantsPlayback()),acceptedRequest=this._playRequest;
+    // A synchronous preflight failure (invalid track, unavailable drive)
+    // allocates no new request: keep the selected occurrence aligned.
+    if(acceptedRequest===request)this.pos=previousPos;
+    else if(result&&typeof result.then==='function'){
+      // D1c2 (rev-4 review): the R2/server preflight settles asynchronously,
+      // so the occurrence rollback must wait for the selection to settle too.
+      // On failure, preserve the originating queue occurrence — but never roll
+      // back a newer selection that superseded this one.
+      Promise.resolve(result).then(()=>{
+        if(acceptedRequest!==this._playRequest)return; // a newer selection took over
+        // D1c3 (rev-4 review): only THIS request's commit counts. ID equality
+        // cannot prove the requested occurrence committed (same-ID queue
+        // duplicates share current's ID without committing).
+        if(this._playCommitRequest===acceptedRequest)return; // committed
+        this.pos=previousPos;
+      },()=>{
+        if(acceptedRequest!==this._playRequest)return;
+        this.pos=previousPos;
+      });
+    }
     return result;
   },
   prev:function(){this._userInteracted=true;this._disarmAutoResume();return commitTrackStep(resolveTrackStep(-1));},
