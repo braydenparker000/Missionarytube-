@@ -6,7 +6,7 @@ import {join,dirname} from 'node:path';
 import {tmpdir} from 'node:os';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
-import {checkedShuffleReceipt,patchManifest,unchangedInventory,FILES,SOURCE,PARENT,findDestinationProof,destinationPlan,DEST_DEFINITION_PINS,qualifyUploadBytes,verifyUntouchedLive} from './publish-poweramp-shuffle.mjs';
+import {checkedShuffleReceipt,patchManifest,unchangedInventory,FILES,SOURCE,PARENT,WORKER_CHECKPOINT,findDestinationProof,destinationPlan,DEST_DEFINITION_PINS,qualifyUploadBytes,verifyUntouchedLive} from './publish-poweramp-shuffle.mjs';
 import {createHash} from 'node:crypto';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 import {receiptDigest} from './worker-release-identity.mjs';
@@ -15,7 +15,7 @@ import {trustedRecipe} from './plan-jarvis-qualification.mjs';
 // exceeds the Git Data API blob size limit; the parts reassemble byte-exactly
 // and receiptDigest() of the parsed receipt must equal PARENT.
 const parent=JSON.parse([1,2,3,4].map(i=>readFileSync(new URL(`../docs/evidence/poweramp-shuffle-parent-receipt-38404971865.part${i}of4.json`,import.meta.url),'utf8')).join(''));
-const receipt=()=>{const artifact=patchManifest(parent);return {...parent,orchestration:'a'.repeat(40),runId:'123',attempt:'1',frontendArtifactDigest:receiptDigest(artifact),shufflePatch:{kind:'poweramp-shuffle',parentReceipt:parent,sourceProof:{qualified:true,sourceSha:SOURCE},artifact}};};
+const receipt=()=>{const artifact=patchManifest(parent);return {...parent,orchestration:'a'.repeat(40),runId:'123',attempt:'1',frontendArtifactDigest:receiptDigest(artifact),shufflePatch:{kind:'poweramp-shuffle',parentReceipt:parent,sourceProof:{qualified:true,sourceSha:SOURCE},artifact},workerCheckpoint:{version:WORKER_CHECKPOINT.version,settingsDigest:WORKER_CHECKPOINT.settingsDigest,acceptedRun:WORKER_CHECKPOINT.acceptedRun,evidenceRun:WORKER_CHECKPOINT.evidenceRun,backendReusable:false}};};
 test('patch receipt allows only the qualified worker/player overlay, preserving Worker and settings',()=>{
  const r=receipt();assert.deepEqual(checkedShuffleReceipt(r),parent);
  // Smallest release scope (Lucy seq-232): the already-live shuffle-worker is
@@ -24,6 +24,10 @@ test('patch receipt allows only the qualified worker/player overlay, preserving 
  assert.equal(r.shufflePatch.artifact.files[1].status,'uploaded');
  for(const bad of [{...r,version:'changed'},{...r,settingsDigest:'a'.repeat(64)},{...r,frontendSource:SOURCE},{...r,frontendArtifactDigest:parent.frontendArtifactDigest},{...r,shufflePatch:{...r.shufflePatch,sourceProof:{qualified:false,sourceSha:SOURCE}}}])assert.throws(()=>checkedShuffleReceipt(bad));
  const changed=structuredClone(r);changed.shufflePatch.artifact.files[0].sha256='f'.repeat(64);changed.frontendArtifactDigest=receiptDigest(changed.shufflePatch.artifact);assert.throws(()=>checkedShuffleReceipt(changed));
+ // Worker checkpoint: tampered version/digest, reusable flag, or dropped
+ // checkpoint must all fail closed.
+ for(const badW of [{...r.workerCheckpoint,version:'0'.repeat(8)+'-0000-4000-8000-'+'0'.repeat(12)},{...r.workerCheckpoint,settingsDigest:'0'.repeat(64)},{...r.workerCheckpoint,backendReusable:true}]){const bad=structuredClone(r);bad.workerCheckpoint=badW;assert.throws(()=>checkedShuffleReceipt(bad));}
+ const noW=structuredClone(r);delete noW.workerCheckpoint;assert.throws(()=>checkedShuffleReceipt(noW));
 });
 test('already-live file is verified hash+size and skipped untouched, never uploaded',()=>{
  // Synthetic already-live file: before==sha256, so the live bytes must equal
