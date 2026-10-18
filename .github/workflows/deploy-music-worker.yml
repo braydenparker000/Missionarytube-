@@ -77,23 +77,23 @@ jobs:
           SOURCE_COMMIT: ${{ inputs.source_commit }}
         run: |
           test "$(git -C .jarvis-source rev-parse HEAD)" = "$SOURCE_COMMIT"
-          test -f .jarvis-source/tests/music-delivery.test.js
-          npm --prefix .jarvis-source ci
-          npm --prefix .jarvis-source test
+          test -f .jarvis-source/jarvis/tests/music-delivery.test.js
+          npm --prefix .jarvis-source/jarvis ci
+          npm --prefix .jarvis-source/jarvis test
           node --test tests/music-worker-workflow.test.mjs
-          node scripts/prepare-music-worker.mjs .jarvis-source
+          node scripts/prepare-music-worker.mjs .jarvis-source/jarvis
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Test migration and partial publication without credentials
-        run: python -m unittest discover -s .jarvis-source/tests -p 'test_r2*.py'
+        run: python -m unittest discover -s .jarvis-source/jarvis/tests -p 'test_r2*.py'
       - name: Prepare native library and temporary upload verification key
         if: ${{ inputs.native_upload_setup == true }}
         env:
           MUSE_PUBLIC_KEY: ${{ inputs.muse_public_key }}
         run: |
-          test -f .jarvis-source/tests/native-r2.test.js
-          node .jarvis-source/scripts/build-r2-library.mjs r2-library-seed.json
+          test -f .jarvis-source/jarvis/tests/native-r2.test.js
+          node .jarvis-source/jarvis/scripts/build-r2-library.mjs r2-library-seed.json
           node --input-type=module <<'JS'
           import {generateKeyPairSync} from 'node:crypto';
           import {writeFileSync} from 'node:fs';
@@ -104,7 +104,7 @@ jobs:
           const publicKey=keys.publicKey.export({type:'spki',format:'der'}).subarray(-32).toString('hex');
           writeFileSync('.music-upload-keys.json',JSON.stringify([...(muse?[muse]:[]),publicKey]));
           JS
-          node scripts/prepare-music-worker.mjs .jarvis-source .music-upload-keys.json
+          node scripts/prepare-music-worker.mjs .jarvis-source/jarvis .music-upload-keys.json
       - name: Install native publication and uploader dependencies
         if: ${{ inputs.native_upload_setup == true }}
         run: python -m pip install --disable-pip-version-check --no-cache-dir 'boto3>=1.35,<2' 'mutagen==1.48.1'
@@ -152,7 +152,7 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET: jarvis-music
           MUSIC_ROOT_ID: 1VlEUztloW5saoM7iF11fodDKSmCGP2ZZ
-        run: python .jarvis-source/scripts/publish-r2-partial.py --report .partial-report/r2-migration-report.json --output r2-partial-playback-report.json
+        run: python .jarvis-source/jarvis/scripts/publish-r2-partial.py --report .partial-report/r2-migration-report.json --output r2-partial-playback-report.json
       - name: Check current Worker bindings before deployment
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -165,7 +165,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.R2_ACCOUNT_ID }}
           wranglerVersion: '4.136.3'
-          workingDirectory: .jarvis-source
+          workingDirectory: .jarvis-source/jarvis
           preCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-before.json
           command: deploy --config backend/wrangler.music.generated.json
           postCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-after.json
@@ -178,7 +178,7 @@ jobs:
           fi
           python scripts/music-upload-canary.py
           node scripts/assert-music-upload-revoked.mjs --enabled
-          python .jarvis-source/scripts/upload-music-r2.py music-verification/native/canary.opus --key .jarvis-source/.music-test-key.pem --report music-verification/native/upload.json
+          python .jarvis-source/jarvis/scripts/upload-music-r2.py music-verification/native/canary.opus --key .jarvis-source/.music-test-key.pem --report music-verification/native/upload.json
           node scripts/verify-native-upload.mjs
       - name: Verify the newly uploaded song in the exact deployed mobile player
         if: ${{ inputs.native_upload_setup == true }}
@@ -205,14 +205,14 @@ jobs:
         env:
           MUSE_PUBLIC_KEY: ${{ inputs.muse_public_key }}
         run: |
-          cp .jarvis-source/worker-versions-after.json .jarvis-source/worker-versions-canary.json
+          cp .jarvis-source/jarvis/worker-versions-after.json .jarvis-source/jarvis/worker-versions-canary.json
           node --input-type=module <<'JS'
           import {writeFileSync} from 'node:fs';
           const key=process.env.MUSE_PUBLIC_KEY;
           if(key && !/^[a-f0-9]{64}$/.test(key))throw Error('Invalid public key');
           writeFileSync('.music-upload-keys.json',JSON.stringify(key?[key]:[]));
           JS
-          node scripts/prepare-music-worker.mjs .jarvis-source .music-upload-keys.json
+          node scripts/prepare-music-worker.mjs .jarvis-source/jarvis .music-upload-keys.json
       - name: Deploy final Worker with temporary upload access revoked
         if: ${{ always() && inputs.native_upload_setup == true && steps.worker_deploy.outcome == 'success' }}
         uses: cloudflare/wrangler-action@v4
@@ -220,7 +220,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.R2_ACCOUNT_ID }}
           wranglerVersion: '4.136.3'
-          workingDirectory: .jarvis-source
+          workingDirectory: .jarvis-source/jarvis
           command: deploy --config backend/wrangler.music.generated.json
           postCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-after.json
       - name: Require live rejection of the revoked temporary upload key
@@ -242,10 +242,10 @@ jobs:
         with:
           name: worker-checkpoint-${{ github.run_id }}
           path: |
-            .jarvis-source/worker-versions-before.json
-            .jarvis-source/worker-versions-after.json
-            .jarvis-source/worker-versions-canary.json
-            .jarvis-source/backend/wrangler.music.generated.json
+            .jarvis-source/jarvis/worker-versions-before.json
+            .jarvis-source/jarvis/worker-versions-after.json
+            .jarvis-source/jarvis/worker-versions-canary.json
+            .jarvis-source/jarvis/backend/wrangler.music.generated.json
             worker-bindings-before.json
             r2-partial-playback-report.json
             music-verification/report.json
