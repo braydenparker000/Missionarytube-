@@ -2425,6 +2425,10 @@ const DriveSource={
 const R2Source={
   helper:null,catalog:null,mapping:null,root:'',manifestURL:'',busy:false,
   status:'Not configured',error:'',controller:null,timer:null,
+  // P1: last library ETag for the conditional refresh poll. E1: recency and
+  // class of the last refresh failure, so the play path can tell a network
+  // blip (worth a short wait) from a genuinely missing mapping (fail fast).
+  _libraryETag:null,_libraryETagFor:'',_lastRefreshFailedAt:0,_lastRefreshNetwork:false,
   prepare(){
     if(this.preparation)return this.preparation;
     this.preparation=(async()=>{
@@ -2477,7 +2481,15 @@ const R2Source={
       // No Google API request or media download is needed to build this library.
       let tracks,mapping,snapshot;
       Engine.tracePlayback('r2-catalog-start');
-      if(this.native)({tracks,mapping,snapshot}=await this.helper.readLibrary({url,signal:controller.signal}));
+      if(this.native){
+        // P1: conditional refresh. A 304 skips the commit entirely and keeps
+        // serving the last good mapping; only a 200 promotes its ETag.
+        try{({tracks,mapping,snapshot}=await this.readLibraryConditional({url,signal:controller.signal}));}
+        catch(e){
+          if(e?.__r2NotModified){Engine.tracePlayback('r2-catalog-not-modified');this.status='Verified R2 library ready';this.error='';return true;}
+          throw e;
+        }
+      }
       else{
         const snapshot=await this.catalog.readCatalog({root,signal:controller.signal});
         tracks=snapshot.records.map(record=>this.catalog.catalogTrack(record,root));
@@ -2490,7 +2502,7 @@ const R2Source={
       if(Engine.current?.source==='r2'&&Engine.wantsPlayback()){this.status='R2 update pending · pause playback to sync';return false;}
       for(const id of gone){LIB.map.delete(id);FILES.delete(id);const i=LIB.ids.indexOf(id);if(i>=0)LIB.ids.splice(i,1);}
       fresh.forEach(libAdd);
-      this.mapping=mapping;this.status='Verified R2 library ready';this.error='';Engine.tracePlayback('r2-catalog-ready');
+      this.mapping=mapping;this.status='Verified R2 library ready';this.error='';this._lastRefreshNetwork=false;Engine.tracePlayback('r2-catalog-ready');
       const selected=Engine.current?.id;
       if(selected&&gone.includes(selected))Engine.stop();
       const order=Engine.order.slice(),currentOrder=Engine.order[Engine.pos],remap=new Map(),queue=[],removed=new Set(gone);
@@ -2505,9 +2517,37 @@ const R2Source={
       if(!quiet)toast('Cloudflare R2 ready · '+fresh.length+' songs');return true;
     }catch(e){
       this.error=e.name==='AbortError'?'R2 refresh canceled or timed out.':e.message;
+      // E1: remember network-caused refresh failures so the play path can
+      // wait out a blip. The last good mapping is deliberately kept here — a
+      // failed background refresh must not take loaded tracks offline.
+      this._lastRefreshFailedAt=Date.now();
+      this._lastRefreshNetwork=e?.name==='AbortError'||e?.name==='TypeError'||(typeof navigator!=='undefined'&&navigator.onLine===false);
       this.status=allTracks(true).some(t=>t.source==='r2')?'Saved R2 library · refresh delayed':'R2 temporarily unavailable';
       if(!quiet)toast(this.error,6000);return false;
     }finally{clearTimeout(timeout);this.busy=false;this.controller=null;this.schedule();MusicSources.refresh();}
+  },
+  // P1: conditional GET for the 5-minute library poll. readLibrary() accepts
+  // a custom fetcher, so the If-None-Match plumbing stays in player.js:
+  // the Worker answers 304 when the library ETag is unchanged, which
+  // readLibrary would fail() on — the fetcher converts it to a sentinel the
+  // caller handles by skipping the commit. 200 responses keep readLibrary's
+  // cache:'no-store' semantic, and the ETag is only promoted after a full
+  // successful parse (a rejected body must never mask itself as current).
+  async readLibraryConditional({url,signal}){
+    if(this._libraryETagFor!==url)this._libraryETag=null;
+    const self=this;let seenETag=null;
+    const fetcher=async(endpoint,init)=>{
+      const headers=new Headers(init?.headers);
+      if(self._libraryETag)headers.set('If-None-Match',self._libraryETag);
+      const r=await fetch(endpoint,{...init,headers});
+      if(r.status===304){try{await r.body?.cancel();}catch(_){}const notModified=Error('R2 library not modified');notModified.__r2NotModified=true;throw notModified;}
+      const etag=r.headers.get('etag');
+      if(typeof etag==='string'&&etag&&etag.length<512)seenETag=etag;
+      return r;
+    };
+    const result=await this.helper.readLibrary({url,signal,fetcher});
+    if(seenETag){this._libraryETag=seenETag;this._libraryETagFor=url;}
+    return result;
   },
   fileFor(t){
     if(t?.source!=='r2')return null;
@@ -2651,6 +2691,13 @@ const Engine = {
     this.tracePlayback('context-held');UI.renderPlayState();return true;
   },
   reconcilePlaybackLifecycle:function(){
+    // E2: the page is visible again after a transient interruption — if the
+    // auto-resume arm is still inside its window and past its initial
+    // settle, offer the early resume instead of waiting out the 15s timer.
+    if(this._autoResume&&!this._userInteracted&&typeof document!=='undefined'&&document.visibilityState==='visible'){
+      const age=Date.now()-this._autoResume.at;
+      if(age>=2000&&age<15000){this._tryAutoResume();return;}
+    }
     if(!this.wantsPlayback()||this._loadingRequest)return;
     if(this.ctx&&this.ctx.state!=='running'){
       if(this.ctx.state==='suspended'&&this._contextResume?.context===this.ctx&&this._contextResume.request===this._playRequest)return;
@@ -2680,6 +2727,34 @@ const Engine = {
     }
     if(message)toast(message);
   },
+  // E1: bounded retry for the R2 preflight. Only waits when a refresh could
+  // still land (one in flight, or a network failure seconds ago); a mapping
+  // that never existed or a genuinely removed track fails fast. Strict
+  // trackMatches validation is untouched — fileFor still decides.
+  r2PreflightWithRetry:async function(t){
+    let f=R2Source.fileFor(t);
+    if(f||t?.source!=='r2')return f;
+    if(!this.r2RefreshMayLand())return null;
+    for(let attempt=1;attempt<=2;attempt++){
+      this.tracePlayback('r2-preflight-retry',{attempt});
+      await new Promise(r=>setTimeout(r,1000));
+      if(t?.source!=='r2')return null;
+      f=R2Source.fileFor(t);
+      if(f)return f;
+    }
+    return null;
+  },
+  r2RefreshMayLand:function(){
+    if(R2Source.busy)return true;
+    return !!R2Source._lastRefreshNetwork&&Date.now()-(R2Source._lastRefreshFailedAt||0)<10000;
+  },
+  // E5: the engine already knows when the network is the problem — say so
+  // instead of blaming the R2 source.
+  r2UnavailableMessage:function(){
+    if(typeof navigator!=='undefined'&&navigator.onLine===false)return 'Waiting for connection…';
+    if(this.r2RefreshMayLand())return 'Waiting for connection…';
+    return 'Cloudflare R2 is unavailable. Refresh its source in Music Sources.';
+  },
   onPause:function(i){
     const a=this.els[i];
     this.tracePlayback(i===this.cur?'element-pause':'spare-pause');
@@ -2693,6 +2768,7 @@ const Engine = {
   },
   onPlaying:function(i){
     if(i!==this.cur||this._loadingRequest)return;
+    this._lastAutoResumeAttemptAt=0; // E2: real output clears the no-rearm suppression — later interruptions may arm again.
     const a=this.els[i];if(!this.wantsPlayback()){if(!a.paused)this.pauseElement(a);return;}
     // A queued playing event or resolved play promise can arrive after a new
     // waiting/error transition. It is not fresh evidence of flowing output.
@@ -2708,18 +2784,40 @@ const Engine = {
     const c=this.ctx;if(!c||!['suspended','interrupted'].includes(c.state))return;
     if(this._playIntent===false&&reason!=='play'&&reason!=='selection')return;
     if(this._contextResume?.context===c&&this._contextResume.request===this._playRequest)return this._contextResume.promise;
-    const token={context:c,request:this._playRequest};this._contextResume=token;this.tracePlayback('context-resume',{reason});
-    let resume;try{resume=c.resume();}catch(e){resume=Promise.reject(e);}
-    token.promise=Promise.resolve(resume).then(()=>{
-      if(this._contextResume===token)this._contextResume=null;
-      if(this.ctx===c){this.tracePlayback('context-resumed',{reason});const active=this._mediaStarted;
-        if(this._playRequest===token.request&&active?.request===this._playRequest&&active.attempt===this._playAttempt&&active.slot===this.cur&&active.source===this.el().src&&this.wantsPlayback())this.onPlaying(this.cur);}
-    },e=>{
-      if(this._contextResume===token)this._contextResume=null;
-      this.tracePlayback('context-resume-failed',{reason,error:e?.name});
-      if(this.ctx!==c||this._playRequest!==token.request||!this.wantsPlayback())return;
-      this.pause('context-failed');toast('Audio could not resume. Tap play to try again.',5000);
-    });return token.promise;
+    const token={context:c,request:this._playRequest,attempt:0};this._contextResume=token;
+    // E4: waking the AudioContext can fail transiently (e.g. the OS audio
+    // pipeline is still settling after an interruption). Retry up to 3 times
+    // with backoff (~500ms, ~1.5s) before declaring the context dead; the
+    // trace carries the attempt count. A superseded token or lost play
+    // intent stops the loop quietly — only the final genuine failure pauses.
+    const waits=[0,500,1500],self=this;
+    token.promise=(async()=>{
+      for(let i=0;i<waits.length;i++){
+        token.attempt=i+1;
+        if(i>0)await new Promise(r=>setTimeout(r,waits[i]));
+        if(self._contextResume!==token)return; // superseded by a newer attempt
+        if(!self.wantsPlayback()){if(self._contextResume===token)self._contextResume=null;return;}
+        self.tracePlayback('context-resume',{reason,attempt:token.attempt});
+        try{await c.resume();}
+        catch(e){
+          self.tracePlayback('context-resume-failed',{reason,attempt:token.attempt,error:e?.name});
+          if(i<waits.length-1)continue; // bounded retry: the token stays live across the backoff
+          if(self._contextResume===token)self._contextResume=null;
+          if(self.ctx===c&&self._playRequest===token.request&&self.wantsPlayback()){
+            self.pause('context-failed');toast('Audio could not resume. Tap play to try again.',5000);
+          }
+          return;
+        }
+        if(self._contextResume===token)self._contextResume=null;
+        if(self.ctx===c){
+          self.tracePlayback('context-resumed',{reason,attempt:token.attempt});
+          const active=self._mediaStarted;
+          if(self._playRequest===token.request&&active?.request===self._playRequest&&active.attempt===self._playAttempt&&active.slot===self.cur&&active.source===self.el().src&&self.wantsPlayback())self.onPlaying(self.cur);
+        }
+        return;
+      }
+    })();
+    return token.promise;
   },
   ensureCtx:function(reason='transport'){
     if(this.ctx){
@@ -2908,13 +3006,19 @@ const Engine = {
     const t=this.queue[qi];
     if(!t||!sourceTrackEnabled(t))return this.selectionUnavailable();
     if(t.source==='drive'&&!DriveSource.api)return this.selectionUnavailable('Google Drive is unavailable. Check Music Sources in Library settings.');
-    if(t.source==='r2'&&!R2Source.fileFor(t))return this.selectionUnavailable('Cloudflare R2 is unavailable. Refresh its source in Music Sources.');
+    if(t.source==='r2'&&!R2Source.fileFor(t)){
+      // E1: the mapping can be momentarily absent while a catalog refresh is
+      // mid-flight or just failed on a network blip — give it a bounded
+      // chance to appear before failing the selection. E5 picks the message.
+      if(!await this.r2PreflightWithRetry(t))return this.selectionUnavailable(this.r2UnavailableMessage());
+    }
     if(SourceLibrary.kind(t)==='server' && !DrawerCast.canPlay(t))return this.selectionUnavailable('Music server is unavailable. Reconnect in Music Sources.');
     // A deliberate new selection gets its own retry budget. Metadata from a
     // failed retry does not prove the audio ever became playable.
     this.resetSelectionRecovery(t);
     DriveSource.prioritize(t);
     const request=++this._playRequest || (this._playRequest=1);
+    this._playStartRetries={request:this._playRequest,n:0}; // E1: a deliberate new selection gets its own retry budget.
     const wasPlaying = autoplay!==false;
     this._playIntent=wasPlaying;
     this._loadingRequest=request;this._loadingAutoplay=wasPlaying;
@@ -3004,6 +3108,17 @@ const Engine = {
     const valid=()=>request===this._playRequest&&attempt===this._playAttempt&&a===this.el()&&source===a.src&&this.wantsPlayback();
     const rejected=e=>{
       if(!valid())return;this.tracePlayback('play-rejected',{error:e?.name});
+      // E1: an AbortError while playback is still wanted is usually a
+      // transient pipeline abort (output switch, media hiccup), not a verdict
+      // on the track. Retry the element start a bounded number of times with
+      // backoff before falling back to the interrupted-pause path. Decode
+      // and policy errors stay terminal.
+      if(e?.name==='AbortError'&&this._playStartRetries?.request===request&&this._playStartRetries.n<2){
+        const n=++this._playStartRetries.n;
+        this.tracePlayback('play-start-retry',{error:e?.name,attempt:n});
+        setTimeout(()=>{if(valid()&&this._playStartRetries?.request===request)this.startElement(a);},n===1?1000:2000);
+        return;
+      }
       if(e?.name==='AbortError'||e?.name==='NotAllowedError'){
         this.pause('interrupted');toast(e?.name==='NotAllowedError'?'Tap play again to start audio':'Playback was interrupted. Tap play to resume.',4000);return;
       }
@@ -3019,6 +3134,10 @@ const Engine = {
   },
   play:function(){
     this.cancelSleepFade();this._contextHold=null;
+    // E1: an explicit play gets a fresh startElement retry budget.
+    this._playStartRetries={request:this._playRequest,n:0};
+    // E2: an explicit play is the user taking control — never auto-resume after it.
+    this._userInteracted=true;this._disarmAutoResume();
     if(this.ctx?.state==='closed'){this.pause('context-failed');toast('Audio output was closed. Reload this page to play again.',6000);return;}
     this._playIntent=true;this.ensureCtx('play');
     clearTimeout(this._driveRetryTimer);clearTimeout(this._serverRetryTimer);this.clearR2Recovery();
@@ -3037,6 +3156,12 @@ const Engine = {
     this.cancelSleepFade();this._contextHold=null;this._r2Progress=null;
     const a=this.el(), self=this;
     this._playIntent=false;this._playAttempt=(this._playAttempt||0)+1;this._mediaStarted=null;this.tracePlayback('pause-request',{reason});
+    // E2: only a system interruption ('interrupted') arms auto-resume, and
+    // only when it isn't the immediate fallout of our own resume attempt.
+    // Every other pause — 'user', 'media-session', 'sleep', 'screen-off',
+    // context failures — is intentional or terminal: never auto-resume.
+    if(reason==='interrupted'&&Date.now()-(this._lastAutoResumeAttemptAt||0)>5000)this._armAutoResume();
+    else{this._userInteracted=true;this._disarmAutoResume();}
     this.clearBuffering();
     clearTimeout(this._driveRetryTimer);
     clearTimeout(this._serverRetryTimer);
@@ -3053,10 +3178,45 @@ const Engine = {
     } else this.pauseElement(a);
     this.saveState();
   },
+  // E2: auto-resume after transient system interruptions (notification
+  // ducking, Bluetooth output switches). Default ON. A resume happens only
+  // when ALL hold: (a) the pause reason was a system interruption — the arm
+  // is set exclusively from pause('interrupted'), never 'user' or
+  // 'media-session' (intentional pauses stay paused, period); (b) the user
+  // hasn't touched any playback control since (play/pause/next/prev/seek set
+  // _userInteracted); (c) the resume lands inside a short,
+  // notification-length window (15s) — never phone-call-length.
+  _armAutoResume:function(){
+    this._disarmAutoResume();
+    this._userInteracted=false;
+    const at=Date.now(),self=this;
+    this.tracePlayback('auto-resume-armed');
+    this._autoResume={at,reason:'interrupted',timer:setTimeout(()=>self._tryAutoResume(),15000)};
+  },
+  _disarmAutoResume:function(){
+    if(this._autoResume?.timer)clearTimeout(this._autoResume.timer);
+    this._autoResume=null;
+  },
+  _tryAutoResume:function(){
+    const arm=this._autoResume;this._autoResume=null;
+    if(!arm)return;
+    if(arm.timer)clearTimeout(arm.timer);
+    const suppress=
+      this._userInteracted?'user-interacted':
+      Date.now()-arm.at>=15000?'window-expired':
+      !this.current||!this.queue.length||this._loadingRequest?'no-selection':
+      this._r2Recovery||this._r2RetryTimer||this._driveRetryTimer||this._serverRetryTimer?'recovery-pending':
+      this.playing?'already-playing':
+      (typeof navigator!=='undefined'&&navigator.onLine===false)?'offline':null;
+    if(suppress){this.tracePlayback('auto-resume-suppressed',{why:suppress});return;}
+    this._lastAutoResumeAttemptAt=Date.now();
+    this.tracePlayback('auto-resume-attempt',{reason:arm.reason,afterMs:Date.now()-arm.at});
+    this.play();
+  },
   wantsPlayback:function(){return this._playIntent===false?false:this._playIntent===true||this.playing||!!(this._loadingRequest&&this._loadingAutoplay);},
   toggle:function(){ this.wantsPlayback() ? this.pause() : this.play(); },
   stop:function(){
-    this.cancelSleepFade();this._contextHold=null;this._r2Progress=null;
+    this.cancelSleepFade();this._contextHold=null;this._r2Progress=null;this._disarmAutoResume(); // E2: a stop is terminal — never auto-resume after it.
     this._playIntent=false;this._playAttempt=(this._playAttempt||0)+1;this._mediaStarted=null;this.tracePlayback('stop-request');
     this.clearBuffering();
     clearTimeout(this._driveRetryTimer);
@@ -3071,6 +3231,8 @@ const Engine = {
     this.saveState();
   },
   next:function(auto){
+    // E2: the user stepping tracks takes control — no auto-resume after this.
+    this._userInteracted=true;this._disarmAutoResume();
     if(!auto)return commitTrackStep(resolveTrackStep(1));
     if(!this.queue.length) return;
     const previousPos=this.pos;
@@ -3087,7 +3249,7 @@ const Engine = {
     if(this._playRequest===request)this.pos=previousPos;
     return result;
   },
-  prev:function(){return commitTrackStep(resolveTrackStep(-1));},
+  prev:function(){this._userInteracted=true;this._disarmAutoResume();return commitTrackStep(resolveTrackStep(-1));},
   seekWhenReady:function(sec){
     if(!Number.isFinite(sec)||sec<0)return;
     const a=this.el();
@@ -3108,6 +3270,7 @@ const Engine = {
   },
   seek:function(sec){
     if(!Number.isFinite(sec))return;
+    this._userInteracted=true;this._disarmAutoResume(); // E2: scrubbing is the user taking control.
     this._r2Progress=null;
     if(this._loadingRequest)this._requestedSeek=Math.max(0,sec);
     else if(!this.el().src&&this.current)this._resumePosition={id:this.current.id,time:Math.max(0,sec)};
@@ -3289,7 +3452,9 @@ const Engine = {
     if(this._stallTimer&&previous?.request===request&&previous.source===source&&previous.slot===i&&(a.currentTime||0)<=this._bufferAt+0.05)return;
     this.clearBuffering();
     const token=this._bufferToken={request,source,slot:i,at:Date.now()};
-    this.tracePlayback('buffering',{reason});
+    // E3: the no-progress deadline scales when the network looks slow.
+    const deadline=this.stallDeadlineMs();
+    this.tracePlayback('buffering',{reason,deadlineMs:deadline});
     this._bufferAt=a.currentTime||0;
     this._stallTimer=setTimeout(()=>{
       if(this._bufferToken!==token||this._playRequest!==request||this.el()!==a||a.src!==source||this.current?.id!==track||!this.wantsPlayback()||a.ended)return;
@@ -3300,7 +3465,23 @@ const Engine = {
       if(a.paused){this.onPause(i);return;}
       if(!this.playing||a.readyState<3||(a.currentTime||0)<=this._bufferAt+0.05)this.onError(i,'stall');
       else this.clearBuffering();
-    },12000);
+    },deadline);
+  },
+  // E3: adaptive stall watchdog. The fixed ~12s no-progress deadline is kept
+  // for normal networks and extended when the Network Information API says
+  // the link is slow (or the user asked to save data). Fully guarded — the
+  // API is absent on several browsers, and the type can change mid-session,
+  // so it is read fresh on every buffering episode.
+  stallDeadlineMs:function(){
+    try{
+      const c=navigator.connection;
+      if(c){
+        if(c.saveData)return 24000;
+        if(c.effectiveType==='slow-2g'||c.effectiveType==='2g')return 24000;
+        if(c.effectiveType==='3g')return 18000;
+      }
+    }catch(e){}
+    return 12000;
   },
   async preloadNext(){
     if(SET_repeat()==='one'||PlaybackQueue.shouldStart())return;
