@@ -49,9 +49,9 @@ test("media source rejects an incorrect commit, path or subtree identity", () =>
 test("daily-board source resolves its exact destination commit, path and tree", () => {
   const checked = readDailyBoardSource(root);
   assert.equal(checked.repository, "braydenparker000/Missionarytube-");
-  assert.equal(checked.commit, "8201af9d10b6c0731f55c2b297b070b7922968d3");
+  assert.equal(checked.commit, "e168cab948fd8a1242c89b94d9036aa7613b8347");
   assert.equal(checked.path, "jarvis/public/daily-board");
-  assert.equal(checked.tree, "b3214e6e8731cc0f3146d79a467c7c48710c3620");
+  assert.equal(checked.tree, "f9a0da32900699670e9611088fad209eb5b5a389");
   assert.equal(checked.directory, resolve(root, "jarvis/public/daily-board"));
 });
 
