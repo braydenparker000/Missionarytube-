@@ -1,0 +1,40 @@
+name: Verify live Worker identity (read-only)
+
+# Read-only diagnostic for the Poweramp worker checkpoint (seq-247 pattern).
+# Captures the true {version, settingsDigest} of the live jarvis-hub-api
+# Worker using the EXACT liveIdentity() gate functions from
+# scripts/worker-release-identity.mjs — the same functions the
+# publish-poweramp-shuffle.mjs worker() gate uses.
+#
+# GET-only Cloudflare API reads. No deployment, no settings mutation, no
+# state change anywhere. The output is two hashes plus a version UUID;
+# no secret values are returned, logged, or persisted.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  read-identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.3'
+      - name: Read live Worker identity (GET-only, no mutation)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: node scripts/read-worker-identity.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worker-identity-${{ github.run_id }}
+          path: worker-identity.json
+          if-no-files-found: error
