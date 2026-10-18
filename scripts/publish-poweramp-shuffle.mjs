@@ -8,8 +8,8 @@ import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {immutableSourceSnapshot,recipeAllowed,trustedRecipe} from './plan-jarvis-qualification.mjs';
 import {liveIdentity,receiptDigest} from './worker-release-identity.mjs';
-export const SOURCE='0636f664e063278eb93e7b743e89b8b04c20e9e5';
-export const PARENT='adcae42174117ff958e5bfb0407468b02cd3c30c0e2596ebd276306ceda9b7bf';
+export const SOURCE='64ac7e70db402a1cd3be73217b46e845762f2981';
+export const PARENT='c064b89a4734848861d96a2bafc66cd27d359a1b090f9ca099b4a9c41bfc64f5';
 export const FILES=JSON.parse(readFileSync(new URL('./poweramp-shuffle-file-pins.json',import.meta.url)));
 // Reviewed finite recipe: adds the mandatory shuffle latency test to the
 // existing serial performance lane; verifier and browser installer stay pinned.
