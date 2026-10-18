@@ -79,7 +79,7 @@ jobs:
           test "$(git -C .jarvis-source rev-parse HEAD)" = "$SOURCE_COMMIT"
           test -f .jarvis-source/jarvis/tests/music-delivery.test.js
           npm --prefix .jarvis-source/jarvis ci
-          node --test .jarvis-source/jarvis/tests/music-delivery.test.js
+          npm --prefix .jarvis-source/jarvis test
           node --test tests/music-worker-workflow.test.mjs
           node scripts/prepare-music-worker.mjs .jarvis-source/jarvis
       - uses: actions/setup-python@v5
