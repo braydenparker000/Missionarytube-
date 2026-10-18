@@ -1,0 +1,87 @@
+{
+  "schema": "jarvis-daily-board-v1",
+  "id": "11111111-1111-4111-8111-111111111111",
+  "date": "2026-10-18",
+  "timezone": "America/Argentina/Cordoba",
+  "title": "Two paths through an idea.",
+  "summary": "Synthetic content for reviewing layout and behavior only. Not a researched Daily Board.",
+  "visibility": "public",
+  "synthetic": true,
+  "stories": [
+    {
+      "id": "comparison",
+      "title": "Compare the decision, then the consequences.",
+      "label": "Composition study",
+      "composition": "split",
+      "claim": "interpretation",
+      "sources": [
+        {
+          "title": "Synthetic fixture documentation",
+          "url": "https://example.com/fixture",
+          "publishedOn": null,
+          "eventOn": null,
+          "note": "Example domain. All names, quantities and events below are synthetic; no real-world claim or recommendation."
+        }
+      ],
+      "blocks": [
+        {
+          "id": "opening",
+          "type": "prose",
+          "text": "A fictional workshop can reserve time for preparation or exploration. This example compares priorities without prescribing an answer."
+        },
+        {
+          "id": "choices",
+          "type": "comparison",
+          "text": "Two approaches to the same fictional workshop.",
+          "items": [
+            {
+              "label": "Prepare first",
+              "text": "Set aside time to rehearse."
+            },
+            {
+              "label": "Explore first",
+              "text": "Set aside time for new ideas."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sequence",
+      "title": "A plan is not an event record.",
+      "label": "Composition study",
+      "composition": "band",
+      "claim": "forecast",
+      "sources": [
+        {
+          "title": "Synthetic fixture documentation",
+          "url": "https://example.com/fixture",
+          "publishedOn": null,
+          "eventOn": null,
+          "note": "Example domain. All names, quantities and events below are synthetic; no real-world claim or recommendation."
+        }
+      ],
+      "blocks": [
+        {
+          "id": "stages",
+          "type": "timeline",
+          "text": "An invented sequence, not an account of history.",
+          "items": [
+            {
+              "label": "Stage one \u00b7 proposed",
+              "text": "Choose a question."
+            },
+            {
+              "label": "Stage two \u00b7 proposed",
+              "text": "Compare possible explanations."
+            },
+            {
+              "label": "Stage three \u00b7 proposed",
+              "text": "Record what remains uncertain."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
