@@ -120,10 +120,13 @@ export async function nativeMusic(request,env){
     if(request.headers.get('If-None-Match')?.split(',').some(v=>v.trim()==='*'||v.trim().replace(/^W\//,'')===head.httpEtag))return response(null,304);
     let range=null;const ifRange=request.headers.get('If-Range');
     if(request.method==='GET'&&(!ifRange||ifRange===head.httpEtag)){try{range=byteRange(request.headers.get('Range'),size);}catch{headers.set('Content-Range','bytes */'+size);return json({error:'Range not satisfiable'},416);}}
+    // W1: audio/art keys embed the content hash; the bytes can never change.
+    // 304/416 paths above keep the default no-store; error bodies reset below.
+    headers.set('Cache-Control','public, max-age=604800, immutable');
     headers.set('Content-Length',String(range?.length??size));if(request.method==='HEAD')return response(null,200);
     const object=await env.MUSIC_R2.get(key,{onlyIf:{etagMatches:head.etag},...(range?{range}:{})});
-    if(!object?.body||!matches(object)){await object?.body?.cancel();headers.delete('Content-Length');return json({error:'Object changed; retry'},503);}
+    if(!object?.body||!matches(object)){await object?.body?.cancel();headers.delete('Content-Length');headers.set('Cache-Control','private, no-store');return json({error:'Object changed; retry'},503);}
     if(range)headers.set('Content-Range',`bytes ${range.offset}-${range.offset+range.length-1}/${size}`);
     return response(object.body,range?206:200);
-  }catch(error){headers.delete('Content-Length');return json({error:error.status===413?'Upload exceeds its size limit':'Music upload or library temporarily unavailable'},error.status===413?413:503);}
+  }catch(error){headers.delete('Content-Length');headers.set('Cache-Control','private, no-store');return json({error:error.status===413?'Upload exceeds its size limit':'Music upload or library temporarily unavailable'},error.status===413?413:503);}
 }
