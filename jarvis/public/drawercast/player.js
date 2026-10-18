@@ -3015,8 +3015,12 @@ const Engine = {
       // E1: the mapping can be momentarily absent while a catalog refresh is
       // mid-flight or just failed on a network blip — give it a bounded
       // chance to appear before failing the selection. E5 picks the message.
-      if(!await this.r2PreflightWithRetry(t))return this.selectionUnavailable(this.r2UnavailableMessage());
-      if(request!==this._playRequest)return; // superseded while the preflight was in flight
+      const preflightOk=await this.r2PreflightWithRetry(t);
+      // D1c1 (rev-4 review): check the request identity BEFORE applying
+      // either the success or the failure effects — a superseded selection
+      // must not clobber the newer selection in either case.
+      if(request!==this._playRequest)return;
+      if(!preflightOk)return this.selectionUnavailable(this.r2UnavailableMessage());
     }
     if(SourceLibrary.kind(t)==='server' && !DrawerCast.canPlay(t))return this.selectionUnavailable('Music server is unavailable. Reconnect in Music Sources.');
     // A deliberate new selection gets its own retry budget. Metadata from a
@@ -3248,10 +3252,25 @@ const Engine = {
       else { this.pause(); this.el().currentTime=0; UI.renderProgress(); return; }
     }
     this.pos++;
-    const request=this._playRequest,result=this.playIndex(this.order[this.pos], auto || this.wantsPlayback());
-    // Preflight failure creates no new request. Keep the selected occurrence
-    // aligned with current, including duplicate tracks and a repeat-all wrap.
-    if(this._playRequest===request)this.pos=previousPos;
+    const targetQi=this.order[this.pos],target=this.queue[targetQi];
+    const request=this._playRequest,result=this.playIndex(targetQi, auto || this.wantsPlayback()),acceptedRequest=this._playRequest;
+    // A synchronous preflight failure (invalid track, unavailable drive)
+    // allocates no new request: keep the selected occurrence aligned.
+    if(acceptedRequest===request)this.pos=previousPos;
+    else if(result&&typeof result.then==='function'){
+      // D1c2 (rev-4 review): the R2/server preflight settles asynchronously,
+      // so the occurrence rollback must wait for the selection to settle too.
+      // On failure, preserve the originating queue occurrence — but never roll
+      // back a newer selection that superseded this one.
+      Promise.resolve(result).then(()=>{
+        if(acceptedRequest!==this._playRequest)return; // a newer selection took over
+        if(target&&this.current&&this.current.id===target.id)return; // committed
+        this.pos=previousPos;
+      },()=>{
+        if(acceptedRequest!==this._playRequest)return;
+        this.pos=previousPos;
+      });
+    }
     return result;
   },
   prev:function(){this._userInteracted=true;this._disarmAutoResume();return commitTrackStep(resolveTrackStep(-1));},
