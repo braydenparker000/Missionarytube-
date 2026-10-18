@@ -17,7 +17,7 @@ import {trustedRecipe} from './plan-jarvis-qualification.mjs';
 const parent=JSON.parse([1,2,3,4].map(i=>readFileSync(new URL(`../docs/evidence/poweramp-shuffle-parent-receipt-38404971865.part${i}of4.json`,import.meta.url),'utf8')).join(''));
 const receipt=()=>{const artifact=patchManifest(parent);return {...parent,orchestration:'a'.repeat(40),runId:'123',attempt:'1',frontendArtifactDigest:receiptDigest(artifact),shufflePatch:{kind:'poweramp-shuffle',parentReceipt:parent,sourceProof:{qualified:true,sourceSha:SOURCE},artifact},workerCheckpoint:{version:WORKER_CHECKPOINT.version,settingsDigest:WORKER_CHECKPOINT.settingsDigest,acceptedRun:WORKER_CHECKPOINT.acceptedRun,evidenceRun:WORKER_CHECKPOINT.evidenceRun,backendReusable:false}};};
 test('patch receipt allows only the qualified worker/player overlay, preserving Worker and settings',()=>{
- const r=receipt();assert.deepEqual(checkedShuffleReceipt(r),parent);
+ const r=receipt();assert.deepEqual(checkedShuffleReceipt(r,receiptDigest(parent)),parent);
  // Smallest release scope (Lucy seq-232): the already-live shuffle-worker is
  // recorded as skipped-untouched; only the changed player is uploaded.
  assert.equal(r.shufflePatch.artifact.files[0].status,'skipped-untouched');

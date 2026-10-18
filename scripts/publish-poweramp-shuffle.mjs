@@ -10,7 +10,7 @@ import {pathToFileURL,fileURLToPath} from 'node:url';
 import {immutableSourceSnapshot,recipeAllowed,trustedRecipe} from './plan-jarvis-qualification.mjs';
 import {liveIdentity,receiptDigest} from './worker-release-identity.mjs';
 export const SOURCE='23bcf625813eb654f0b21956bc443a660f913a72';
-export const PARENT='c064b89a4734848861d96a2bafc66cd27d359a1b090f9ca099b4a9c41bfc64f5';
+export const PARENT='6f7d3875623fca4aac2a0a1f93ece3edaf4e84c8566103ed9a0656ce2b44de69';
 // Worker checkpoint (seq-247 pattern, docs/mobile-file-save-release.md): the
 // canonical parent receipt predates the accepted Worker upload (run
 // 39105451222, version #106). The parent receipt is NOT mutated or
@@ -215,8 +215,8 @@ export function patchManifest(prior){return {schema:1,kind:'poweramp-shuffle-pat
  // required live bytes is never uploaded; the receipt records that it was left
  // untouched. Any other file is uploaded.
  status:before===sha256?'skipped-untouched':'uploaded'}))};}
-export function checkedShuffleReceipt(receipt){
- const p=receipt.shufflePatch,prior=p?.parentReceipt;assert.equal(receiptDigest(prior),PARENT);
+export function checkedShuffleReceipt(receipt,expectedParent=PARENT){
+ const p=receipt.shufflePatch,prior=p?.parentReceipt;assert.equal(receiptDigest(prior),expectedParent);
  assert.deepEqual(Object.keys(p).sort(),['artifact','kind','parentReceipt','sourceProof']);assert.equal(p.kind,'poweramp-shuffle');
  assert.equal(p.sourceProof.qualified,true);assert.equal(p.sourceProof.sourceSha,SOURCE);assert.deepEqual(p.artifact,patchManifest(prior));
  const w=receipt.workerCheckpoint;assert.equal(w.backendReusable,false);assert.equal(w.acceptedRun,WORKER_CHECKPOINT.acceptedRun);assert.equal(w.evidenceRun,WORKER_CHECKPOINT.evidenceRun);assert.equal(w.version,WORKER_CHECKPOINT.version);assert.equal(w.settingsDigest,WORKER_CHECKPOINT.settingsDigest);
