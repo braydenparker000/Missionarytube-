@@ -11,6 +11,16 @@ import {immutableSourceSnapshot,recipeAllowed,trustedRecipe} from './plan-jarvis
 import {liveIdentity,receiptDigest} from './worker-release-identity.mjs';
 export const SOURCE='eef4dac81594749cbd5aaa288791fd324d71ca02';
 export const PARENT='c064b89a4734848861d96a2bafc66cd27d359a1b090f9ca099b4a9c41bfc64f5';
+// Worker checkpoint (seq-247 pattern, docs/mobile-file-save-release.md): the
+// canonical parent receipt predates the accepted Worker upload (run
+// 39105451222, version #106). The parent receipt is NOT mutated or
+// rebaselined. This checkpoint reconciles the current accepted Worker
+// identity. The values below are the true {version, settingsDigest} captured
+// by the exact liveIdentity() gate functions in authorized read-only run
+// 39160117643 (artifact worker-identity-39160117643), stable over two reads.
+// backendReusable:false — checkpoint identity only, never the full-release
+// bundler closure/reuse proof.
+export const WORKER_CHECKPOINT={version:'c0e05a13-f0cb-44a6-995d-7a954aab5930',settingsDigest:'37154ad84e6a3c6596a4e7f5bb1e4b17575976337dc34600bf1632f33238bd01',acceptedRun:39105451222,evidenceRun:39160117643};
 export const FILES=JSON.parse(readFileSync(new URL('./poweramp-shuffle-file-pins.json',import.meta.url)));
 // Reviewed finite recipe: adds the mandatory shuffle latency test to the
 // existing serial performance lane; verifier and browser installer stay pinned.
@@ -149,8 +159,9 @@ export function checkedShuffleReceipt(receipt){
  const p=receipt.shufflePatch,prior=p?.parentReceipt;assert.equal(receiptDigest(prior),PARENT);
  assert.deepEqual(Object.keys(p).sort(),['artifact','kind','parentReceipt','sourceProof']);assert.equal(p.kind,'poweramp-shuffle');
  assert.equal(p.sourceProof.qualified,true);assert.equal(p.sourceProof.sourceSha,SOURCE);assert.deepEqual(p.artifact,patchManifest(prior));
+ const w=receipt.workerCheckpoint;assert.equal(w.backendReusable,false);assert.equal(w.acceptedRun,WORKER_CHECKPOINT.acceptedRun);assert.equal(w.evidenceRun,WORKER_CHECKPOINT.evidenceRun);assert.equal(w.version,WORKER_CHECKPOINT.version);assert.equal(w.settingsDigest,WORKER_CHECKPOINT.settingsDigest);
  assert.match(receipt.orchestration,/^[a-f0-9]{40}$/);assert.match(receipt.runId,/^[1-9][0-9]*$/);assert.match(receipt.attempt,/^[1-9][0-9]*$/);
- assert.equal(canonicalDigest(receipt),canonicalDigest({...prior,orchestration:receipt.orchestration,runId:receipt.runId,attempt:receipt.attempt,frontendArtifactDigest:receiptDigest(p.artifact),shufflePatch:p}));return prior;
+ assert.equal(canonicalDigest(receipt),canonicalDigest({...prior,orchestration:receipt.orchestration,runId:receipt.runId,attempt:receipt.attempt,frontendArtifactDigest:receiptDigest(p.artifact),shufflePatch:p,workerCheckpoint:receipt.workerCheckpoint}));return prior;
 }
 // Byte-qualification of the exact upload bytes (seq-182). The destination
 // component lanes qualify the release-pinned tree (c28c1b2f...), not these
@@ -199,7 +210,7 @@ export function unchangedInventory(before,after){
  assert.deepEqual(after.map(f=>f.name),[...before.map(f=>f.name),...FILES.filter(f=>f.before===null).map(f=>f.path)].sort((a,b)=>a.localeCompare(b)),'Blob inventory changed');
 }
 async function retryRead(operation){for(let attempt=0;;attempt++){try{return await operation()}catch(error){if(attempt===2||error.code==='ERR_ASSERTION')throw error;await new Promise(resolve=>setTimeout(resolve,2000));}}}
-async function worker(prior){assert.deepEqual(await retryRead(()=>liveIdentity({account:process.env.CLOUDFLARE_ACCOUNT_ID,token:process.env.CLOUDFLARE_API_TOKEN})),{version:prior.version,settingsDigest:prior.settingsDigest});}
+async function worker(){assert.match(WORKER_CHECKPOINT.version,/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/);assert.match(WORKER_CHECKPOINT.settingsDigest,/^[a-f0-9]{64}$/);assert.deepEqual(await retryRead(()=>liveIdentity({account:process.env.CLOUDFLARE_ACCOUNT_ID,token:process.env.CLOUDFLARE_API_TOKEN})),{version:WORKER_CHECKPOINT.version,settingsDigest:WORKER_CHECKPOINT.settingsDigest});}
 async function verifyFiles(){for(const file of FILES){const r=await get(file.path);assert.equal(hash(Buffer.from(await r.arrayBuffer())),file.sha256);assert.match(r.headers.get('cache-control')||'',/no-cache|no-store/);}}
 async function existingFile(file){
  const r=await fetch(ORIGIN+'/'+file.path,{redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000)});
@@ -225,7 +236,7 @@ async function main(command){
   await writeFile('poweramp-publication/plan.json',JSON.stringify({source:SOURCE,proof,parent:prior,files:FILES},null,2)+'\n');
   console.log(JSON.stringify({source:SOURCE,proofRun:proof.runId,files:FILES.map(f=>f.path),workerDeployed:false}));return;
  }
- const plan=await local('poweramp-publication/plan.json');assert.equal(receiptDigest(plan.parent),PARENT);assert.deepEqual(plan.files,FILES);await source();await worker(plan.parent);
+ const plan=await local('poweramp-publication/plan.json');assert.equal(receiptDigest(plan.parent),PARENT);assert.deepEqual(plan.files,FILES);await source();await worker();
  if(command==='publish'){
   await parent();const before=inventory();await writeFile('poweramp-publication/storage-before.json',JSON.stringify(before,null,2)+'\n');
   // Same-origin worker first, player last. The existing player does not load
@@ -242,10 +253,10 @@ async function main(command){
    az(['upload','--name',file.path,'--file',resolve(JARVIS,'public',file.path),'--content-type','application/javascript','--content-cache-control','no-cache','--overwrite','true']);
    assert.equal(hash(Buffer.from(await(await get(file.path)).arrayBuffer())),file.sha256);
   }
-  await verifyFiles();unchangedInventory(before,inventory());await worker(plan.parent);
+  await verifyFiles();unchangedInventory(before,inventory());await worker();
  }else if(command==='record'){
   await parent();await verifyFiles();unchangedInventory(await local('poweramp-publication/storage-before.json'),inventory());
-  const artifact=patchManifest(plan.parent),receipt={...plan.parent,orchestration:git(process.cwd(),'rev-parse','HEAD'),runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT,frontendArtifactDigest:receiptDigest(artifact),shufflePatch:{kind:'poweramp-shuffle',parentReceipt:plan.parent,sourceProof:plan.proof,artifact}};
+  const artifact=patchManifest(plan.parent),receipt={...plan.parent,orchestration:git(process.cwd(),'rev-parse','HEAD'),runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT,frontendArtifactDigest:receiptDigest(artifact),shufflePatch:{kind:'poweramp-shuffle',parentReceipt:plan.parent,sourceProof:plan.proof,artifact},workerCheckpoint:{version:WORKER_CHECKPOINT.version,settingsDigest:WORKER_CHECKPOINT.settingsDigest,acceptedRun:WORKER_CHECKPOINT.acceptedRun,evidenceRun:WORKER_CHECKPOINT.evidenceRun,backendReusable:false}};
   checkedShuffleReceipt(receipt);await writeFile('release-qualified.json',JSON.stringify(receipt,null,2)+'\n');await appendFile(process.env.GITHUB_OUTPUT,'digest='+receiptDigest(receipt)+'\n');
   console.log(JSON.stringify({source:SOURCE,receiptDigest:receiptDigest(receipt),workerUnchanged:true,settingsUnchanged:true,unrelatedBlobsUnchanged:true}));
  }else{
