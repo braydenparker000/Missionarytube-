@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {readCatalog,catalogTrack} from '../.jarvis-source/public/drawercast/drive-catalog.js';
-import {validateR2Manifest} from '../.jarvis-source/public/drawercast/r2-api.js';
-import {libraryMapping} from '../.jarvis-source/public/drawercast/r2-library.js';
+import {readCatalog,catalogTrack} from '../.jarvis-source/jarvis/public/drawercast/drive-catalog.js';
+import {validateR2Manifest} from '../.jarvis-source/jarvis/public/drawercast/r2-api.js';
+import {libraryMapping} from '../.jarvis-source/jarvis/public/drawercast/r2-library.js';
 
 const api='https://jarvis-hub-api.braydenparker999.workers.dev';
 const origin='https://missionarytube.z13.web.core.windows.net';
