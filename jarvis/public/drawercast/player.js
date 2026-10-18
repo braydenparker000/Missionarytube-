@@ -3006,18 +3006,23 @@ const Engine = {
     const t=this.queue[qi];
     if(!t||!sourceTrackEnabled(t))return this.selectionUnavailable();
     if(t.source==='drive'&&!DriveSource.api)return this.selectionUnavailable('Google Drive is unavailable. Check Music Sources in Library settings.');
+    // D1 (rev-4 review): the request identity must be allocated BEFORE the
+    // first await. Allocating it after the awaited preflight let a stale,
+    // slow-resolving selection allocate a newer identity and overwrite the
+    // user's newer intent.
+    const request=++this._playRequest || (this._playRequest=1);
     if(t.source==='r2'&&!R2Source.fileFor(t)){
       // E1: the mapping can be momentarily absent while a catalog refresh is
       // mid-flight or just failed on a network blip — give it a bounded
       // chance to appear before failing the selection. E5 picks the message.
       if(!await this.r2PreflightWithRetry(t))return this.selectionUnavailable(this.r2UnavailableMessage());
+      if(request!==this._playRequest)return; // superseded while the preflight was in flight
     }
     if(SourceLibrary.kind(t)==='server' && !DrawerCast.canPlay(t))return this.selectionUnavailable('Music server is unavailable. Reconnect in Music Sources.');
     // A deliberate new selection gets its own retry budget. Metadata from a
     // failed retry does not prove the audio ever became playable.
     this.resetSelectionRecovery(t);
     DriveSource.prioritize(t);
-    const request=++this._playRequest || (this._playRequest=1);
     this._playStartRetries={request:this._playRequest,n:0}; // E1: a deliberate new selection gets its own retry budget.
     const wasPlaying = autoplay!==false;
     this._playIntent=wasPlaying;
@@ -3191,7 +3196,7 @@ const Engine = {
     this._userInteracted=false;
     const at=Date.now(),self=this;
     this.tracePlayback('auto-resume-armed');
-    this._autoResume={at,reason:'interrupted',timer:setTimeout(()=>self._tryAutoResume(),15000)};
+    this._autoResume={at,reason:'interrupted',timer:setTimeout(()=>self._tryAutoResume(),14000)}; // D2 (rev-4 review): 14s, not 15s — the timer must fire strictly inside the 15s window, or _tryAutoResume's age>=15000 check always suppresses the scheduled fallback
   },
   _disarmAutoResume:function(){
     if(this._autoResume?.timer)clearTimeout(this._autoResume.timer);
