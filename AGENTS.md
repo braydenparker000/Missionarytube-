@@ -30,8 +30,10 @@ accidental root discovery. Preserve original repository refs and publication
 history, including legacy `braydenparker999/jarvis#2` and destination
 `braydenparker000/Missionarytube-#250`; destination #2 is an imported PR.
 Dated release maps and import checkpoints do not establish current live or
-external-writer state. Use exact publisher receipts and current readback;
-completed product work is not reopened by a historical hold.
+external-writer state. Use exact publisher receipts and current readback.
+Do not reopen verified completed work based solely on a dated checkpoint.
+Owner holds remain binding regardless of document age unless explicitly lifted
+by the owner or superseded by verified owner instructions.
 
 A merge or successful qualification is not shipment. Production publication
 uses an explicitly authorized manual workflow and its existing identity,
