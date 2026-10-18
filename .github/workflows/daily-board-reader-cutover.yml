@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: Enable the exact destination issue or restore the legacy-only reader
+        description: Inspect live state, enable the exact destination issue, or restore legacy-only
         type: choice
-        options: [enable, rollback]
+        options: [inspect, enable, rollback]
         required: true
       issue_number:
         description: Dedicated Missionarytube- publication issue
@@ -29,7 +29,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24.21.0'
+      - name: Inspect live reader state without writes
+        if: ${{ inputs.action == 'inspect' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          DAILY_BOARD_ISSUE: ${{ inputs.issue_number }}
+        run: node scripts/daily-board-reader-cutover.mjs inspect "$DAILY_BOARD_ISSUE"
       - name: Verify issues and capture the exact Worker rollback state
+        if: ${{ inputs.action != 'inspect' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -37,6 +45,7 @@ jobs:
           DAILY_BOARD_ISSUE: ${{ inputs.issue_number }}
         run: node scripts/daily-board-reader-cutover.mjs prepare "$DAILY_BOARD_ACTION" "$DAILY_BOARD_ISSUE"
       - name: Preserve the exact prewrite Worker bytes and checkpoint
+        if: ${{ inputs.action != 'inspect' }}
         uses: actions/upload-artifact@v4
         with:
           name: daily-board-reader-${{ inputs.action }}-rollback-${{ github.run_id }}
@@ -46,6 +55,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
       - name: Apply the guarded source change and verify the public reader
+        if: ${{ inputs.action != 'inspect' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -53,7 +63,7 @@ jobs:
           DAILY_BOARD_ISSUE: ${{ inputs.issue_number }}
         run: node scripts/daily-board-reader-cutover.mjs apply "$DAILY_BOARD_ACTION" "$DAILY_BOARD_ISSUE"
       - name: Preserve the sanitized readback receipt
-        if: success()
+        if: ${{ success() && inputs.action != 'inspect' }}
         uses: actions/upload-artifact@v4
         with:
           name: daily-board-reader-${{ inputs.action }}-receipt-${{ github.run_id }}
