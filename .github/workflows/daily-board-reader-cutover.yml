@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: Inspect live state, enable the exact destination issue, or restore legacy-only
+        description: Inspect settings, verify the public reader, enable issue #250, or restore legacy-only
         type: choice
-        options: [inspect, enable, rollback]
+        options: [inspect, verify, enable, rollback]
         required: true
       issue_number:
         description: Dedicated Missionarytube- publication issue
@@ -36,8 +36,16 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           DAILY_BOARD_ISSUE: ${{ inputs.issue_number }}
         run: node scripts/daily-board-reader-cutover.mjs inspect "$DAILY_BOARD_ISSUE"
+      - name: Verify the configured public reader without changing Worker settings
+        if: ${{ inputs.action == 'verify' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          DAILY_BOARD_READER_DEBUG: '1'
+          DAILY_BOARD_ISSUE: ${{ inputs.issue_number }}
+        run: node scripts/daily-board-reader-cutover.mjs verify "$DAILY_BOARD_ISSUE"
       - name: Verify issues and capture the exact Worker rollback state
-        if: ${{ inputs.action != 'inspect' }}
+        if: ${{ inputs.action == 'enable' || inputs.action == 'rollback' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -45,7 +53,7 @@ jobs:
           DAILY_BOARD_ISSUE: ${{ inputs.issue_number }}
         run: node scripts/daily-board-reader-cutover.mjs prepare "$DAILY_BOARD_ACTION" "$DAILY_BOARD_ISSUE"
       - name: Preserve the exact prewrite Worker bytes and checkpoint
-        if: ${{ inputs.action != 'inspect' }}
+        if: ${{ inputs.action == 'enable' || inputs.action == 'rollback' }}
         uses: actions/upload-artifact@v4
         with:
           name: daily-board-reader-${{ inputs.action }}-rollback-${{ github.run_id }}
@@ -55,7 +63,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
       - name: Apply the guarded source change and verify the public reader
-        if: ${{ inputs.action != 'inspect' }}
+        if: ${{ inputs.action == 'enable' || inputs.action == 'rollback' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -63,7 +71,7 @@ jobs:
           DAILY_BOARD_ISSUE: ${{ inputs.issue_number }}
         run: node scripts/daily-board-reader-cutover.mjs apply "$DAILY_BOARD_ACTION" "$DAILY_BOARD_ISSUE"
       - name: Preserve the sanitized readback receipt
-        if: ${{ success() && inputs.action != 'inspect' }}
+        if: ${{ success() && (inputs.action == 'enable' || inputs.action == 'rollback') }}
         uses: actions/upload-artifact@v4
         with:
           name: daily-board-reader-${{ inputs.action }}-receipt-${{ github.run_id }}

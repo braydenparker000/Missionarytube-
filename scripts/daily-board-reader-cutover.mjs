@@ -148,6 +148,17 @@ async function inspect(issueNumber){
     legacyIssueOpen:issues.sourceOpen,destinationIssueOpen:issues.destinationOpen,destinationIssue:DESTINATION.issue};
   console.log(JSON.stringify(receipt));return receipt;
 }
+async function verify(issueNumber){
+  assert.equal(issueNumber,String(DESTINATION.issue),'Unexpected Daily Board destination issue');
+  const [issues,current]=await Promise.all([checkIssues(),observe(credentials())]);
+  assert.equal(readerSourceState(current.identity,current.settings),'dual-source','Exact destination reader is not active');
+  const reader=await liveRead();
+  const receipt={verification:'read-only-public-sync',readerSources:'dual-source',issue:DESTINATION.issue,
+    worker:{version:current.identity.version,codeSha256:current.identity.codeSha256,
+      settingsSha256:current.identity.settingsDigest,schedulesSha256:current.identity.schedulesDigest},
+    legacyIssueOpen:issues.sourceOpen,destinationIssueOpen:issues.destinationOpen,reader};
+  console.log(JSON.stringify(receipt));return receipt;
+}
 async function apply(mode,issueNumber){
   assert.ok(['enable','rollback'].includes(mode));const checkpoint=JSON.parse(await readFile(resolve(OUT,'checkpoint.json'),'utf8'));
   assert.equal(issueNumber,String(DESTINATION.issue),'Unexpected Daily Board destination issue');
@@ -170,8 +181,8 @@ async function apply(mode,issueNumber){
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   const [, , action, mode, issueNumber]=process.argv;
-  assert.ok(['prepare','apply','inspect'].includes(action));
-  (action==='prepare'?prepare(mode,issueNumber):action==='apply'?apply(mode,issueNumber):inspect(mode)).catch(error=>{
+  assert.ok(['prepare','apply','inspect','verify'].includes(action));
+  (action==='prepare'?prepare(mode,issueNumber):action==='apply'?apply(mode,issueNumber):action==='inspect'?inspect(mode):verify(mode)).catch(error=>{
     console.error('Daily Board reader update stopped at a guarded step; inspect provider state before retrying.');
     if(process.env.DAILY_BOARD_READER_DEBUG==='1')console.error(String(error.message||error).split('\n')[0]);process.exitCode=1;
   });
