@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {checkedIssue,destinationBindings,readerSourceState,DESTINATION} from './daily-board-reader-cutover.mjs';
+import {checkedIssue,checkedPublicReaderState,destinationBindings,readerSourceState,DESTINATION} from './daily-board-reader-cutover.mjs';
 
 test('destination reader adds only the exact owner-approved issue bindings',()=>{
   const prior=[{type:'plain_text',name:'PUBLIC_FLAG',text:'keep'},
@@ -31,4 +31,11 @@ test('only the open, owner-created dedicated issue is accepted',()=>{
 test('live reader inspection reports unknown when the Worker or schedule identity drifts',()=>{
   const identity={codeSha256:'changed',schedulesDigest:'changed'};
   assert.equal(readerSourceState(identity,{bindings:[]}), 'unknown');
+});
+
+test('public reader verification requires the exact additional source status',()=>{
+  const expected=DESTINATION.repository+'#'+DESTINATION.issue;
+  assert.deepEqual(checkedPublicReaderState({posts:[],publisher:{additionalSources:[{source:expected} ]}}),
+    {postCount:0,additionalSources:[expected]});
+  assert.throws(()=>checkedPublicReaderState({posts:[],publisher:{additionalSources:[{source:'other/repo#2'}]}}));
 });
