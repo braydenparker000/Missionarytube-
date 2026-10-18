@@ -1,4 +1,4 @@
-import {validateReport} from './schema.js';
+import {validateReport,decodeReport,REPORT_MARKER} from './schema.js';
 const el=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
 export function renderBlock(b) {
   const root=el('div',undefined,'board-block'); root.id=`block-${b.id}`;
@@ -36,6 +36,7 @@ export function renderReport(report,target) {
   target.replaceChildren(fragment);
 }
 export function renderEntry(entry,target) {
-  if(entry.report)try{renderReport(entry.report,target);return;}catch{/* Unsupported reports retain readable legacy text. */}
-  const article=el('article',undefined,'story');article.append(el('h2',entry.title||'Daily Board'),el('p',entry.body||'Report unavailable','legacy-copy'));target.replaceChildren(article);
+  const report=entry.report||decodeReport(entry);
+  if(report)try{renderReport(report,target);return;}catch{/* Unsupported reports retain readable legacy text. */}
+  const article=el('article',undefined,'story');article.append(el('h2',entry.title||'Daily Board'),el('p',entry.body?.split(REPORT_MARKER)[0]||'Report unavailable','legacy-copy'));target.replaceChildren(article);
 }

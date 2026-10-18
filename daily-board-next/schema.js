@@ -55,3 +55,20 @@ export function canonical(value) {
   return JSON.stringify(value);
 }
 export const legacyBody = r => [r.summary,...r.stories.flatMap(s=>[s.title,...s.blocks.map(b=>b.text),...s.sources.map(x=>`${x.title}: ${x.url}`)])].join('\n\n');
+
+// An additive data envelope inside the existing immutable briefing body.
+// No Worker schema/API migration is needed; all existing byte/ID/date gates apply.
+export const REPORT_MARKER = '\n\n[Jarvis structured report v1]\n';
+export function encodeReport(report) {
+  validateReport(report);
+  const body=report.summary+REPORT_MARKER+canonical(report);
+  if(new TextEncoder().encode(body).length>MAX_BYTES)throw Error('Encoded report exceeds briefing limit');
+  return body;
+}
+export function decodeReport(entry) {
+  if(typeof entry?.body!=='string'||entry.body.length>MAX_BYTES)return null;
+  const index=entry.body.indexOf(REPORT_MARKER);if(index<0)return null;
+  try {const report=validateReport(JSON.parse(entry.body.slice(index+REPORT_MARKER.length)));
+    return report.id===entry.id&&report.title===entry.title?report:null;
+  } catch {return null;}
+}

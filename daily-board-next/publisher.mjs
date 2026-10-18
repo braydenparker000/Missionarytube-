@@ -1,11 +1,11 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
-import {validateReport,canonical,legacyBody} from './schema.js';
+import {validateReport,canonical,encodeReport} from './schema.js';
 export function prepare(report,{reviewedPublic=false}={}) {
   validateReport(report);
   if(!reviewedPublic)throw Error('Explicit public-content review required');
   if(report.synthetic)throw Error('Synthetic fixtures cannot be published');
-  const publication = {schema:'jarvis-publication-v1',type:'briefing',id:report.id,date:report.date,title:report.title,body:legacyBody(report),report,reviewedPublic:true};
+  const publication = {schema:'jarvis-publication-v1',type:'briefing',id:report.id,date:report.date,title:report.title,body:encodeReport(report)};
   if(JSON.stringify(publication).length>30000)throw Error('Publication envelope exceeds importer limit');
   return publication;
 }

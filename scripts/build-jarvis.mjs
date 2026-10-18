@@ -49,7 +49,8 @@ for(const file of files){
  const match=config.routes.find(r=>route.startsWith(r.route.replace('*','')));
  // Azure Storage cannot apply SWA headers. Retain the supported document
  // policy in HTML; frame-ancestors requires a response header and is omitted.
- const csp=(match?.headers?.['Content-Security-Policy']||config.globalHeaders['Content-Security-Policy']).replace(/frame-ancestors[^;]*(;|$)/g,'');
+ let csp=(match?.headers?.['Content-Security-Policy']||config.globalHeaders['Content-Security-Policy']).replace(/frame-ancestors[^;]*(;|$)/g,'');
+ if(route.startsWith('/daily-board/'))csp+='; font-src data:';
  const metas=`\n<meta http-equiv="Content-Security-Policy" content="${csp.replaceAll('&','&amp;').replaceAll('"','&quot;')}">\n<meta name="referrer" content="strict-origin-when-cross-origin">`;
  let html=await readFile(file,'utf8');
  if(!/<head(?:\s[^>]*)?>/i.test(html))throw Error('No HTML head: '+file);

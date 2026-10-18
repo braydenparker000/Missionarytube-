@@ -5,3 +5,4 @@
 .legacy-copy{white-space:pre-wrap;overflow-wrap:anywhere}.sources a{overflow-wrap:anywhere}
 .topline nav{display:flex;gap:8px}.topline nav a{text-decoration:none;min-height:44px}
 @media(max-width:420px){.identity span{display:none}}
+.report>select{margin-top:24px;min-height:44px;max-width:100%;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit}
