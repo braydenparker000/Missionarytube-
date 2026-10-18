@@ -12,6 +12,11 @@ const KEY = /^audio\/([A-Za-z0-9_-]{10,200})\/([a-f0-9]{32}|[a-f0-9]{64})\.([a-z
 const MIME = /^(audio\/[a-z0-9.+-]+|video\/(mp4|webm)|application\/ogg)$/i;
 const PROOF = 'r2-get-hash-v1';
 const MAX_MANIFEST = 16 * 1024 * 1024;
+// W1: audio and artwork keys embed the content hash, so the bytes under a key
+// can never change and browsers may cache them long. Catalog/manifest JSON
+// changes on every upload and stays no-store.
+const IMMUTABLE_CACHE = 'public, max-age=604800, immutable';
+const NO_STORE_CACHE = 'private, no-store';
 const integer = n => Number.isSafeInteger(n) && n >= 0;
 const fail = () => { throw Error('Invalid music mapping'); };
 
@@ -75,9 +80,9 @@ export function deliveryManifest(data, root, origin, {partial = false} = {}) {
   };
 }
 
-async function readManifest(bucket, root, origin, partial) {
-  const object = await bucket.get(partial ? PARTIAL_CATALOG : CATALOG);
-  if (!object || !integer(object.size) || object.size > MAX_MANIFEST || !object.body) {
+async function readManifestBytes(bucket, key, etag) {
+  const object = await bucket.get(key, {onlyIf: {etagMatches: etag}});
+  if (!object || !integer(object.size) || object.size > MAX_MANIFEST || !object.body || object.etag !== etag) {
     await object?.body?.cancel();
     fail();
   }
@@ -95,7 +100,29 @@ async function readManifest(bucket, root, origin, partial) {
   if (length !== object.size) fail();
   const bytes = new Uint8Array(length); let at = 0;
   for (const part of parts) { bytes.set(part, at); at += part.byteLength; }
-  return deliveryManifest(JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(bytes)), root, origin, {partial});
+  return bytes;
+}
+
+// W2: Worker-global manifest cache keyed by catalog ETag. A cheap R2 HEAD on
+// each request decides whether the parsed manifest + Map index can be reused;
+// bytes are only re-read and re-parsed when the ETag changed. A replacement
+// between HEAD and GET fails closed (no stale bytes) and the next request
+// reloads the latest version. Never retains a request, body, or pending I/O.
+let cachedManifest = null;
+async function readManifest(bucket, root, origin, partial) {
+  const catalog = partial ? PARTIAL_CATALOG : CATALOG;
+  const head = await bucket.head(catalog);
+  if (!head || !integer(head.size) || !head.size || head.size > MAX_MANIFEST ||
+      typeof head.etag !== 'string' || !head.etag) fail();
+  if (cachedManifest && cachedManifest.catalog === catalog && cachedManifest.etag === head.etag) return cachedManifest;
+  cachedManifest = null;
+  // Bind the parsed bytes to the version checked above: the GET only proceeds
+  // for the same ETag, so an intervening catalog replacement fails closed.
+  const bytes = await readManifestBytes(bucket, catalog, head.etag);
+  const manifest = deliveryManifest(JSON.parse(new TextDecoder('utf-8', {fatal: true}).decode(bytes)), root, origin, {partial});
+  const index = new Map(manifest.files.map(item => [item.key, item]));
+  cachedManifest = {catalog, etag: head.etag, manifest, index};
+  return cachedManifest;
 }
 
 // Multiple ranges are deliberately rejected rather than constructing multipart
@@ -168,14 +195,17 @@ export async function handleMusic(request, env, {authorize = async () => false} 
     if (!env.MUSIC_R2 || !ID.test(env.MUSIC_ROOT_ID || '')) return error('Music delivery is not configured', 503);
     const partial = url.pathname.startsWith(PREFIX + 'partial/');
     const routePrefix = partial ? PREFIX + 'partial/' : PREFIX;
-    const manifest = await readManifest(env.MUSIC_R2, env.MUSIC_ROOT_ID, url.origin, partial);
-    if (url.pathname === routePrefix + 'manifest.json') {
-      const body = JSON.stringify(manifest);
+    const key = url.pathname.slice(routePrefix.length);
+    const isManifestRoute = url.pathname === routePrefix + 'manifest.json';
+    // Reject non-catalog paths before any R2 read. Catalog lookups below are
+    // O(1) via the Worker-global Map index (W2).
+    if (!isManifestRoute && !KEY.test(key)) return error('Not found', 404);
+    const cached = await readManifest(env.MUSIC_R2, env.MUSIC_ROOT_ID, url.origin, partial);
+    if (isManifestRoute) {
+      const body = JSON.stringify(cached.manifest);
       return response(body, 200, {'Content-Type': 'application/json; charset=utf-8', 'Content-Length': String(new TextEncoder().encode(body).length)});
     }
-    const key = url.pathname.slice(routePrefix.length);
-    if (!KEY.test(key)) return error('Not found', 404);
-    const file = manifest.files.find(item => item.key === key);
+    const file = cached.index.get(key);
     if (!file) return error('Not found', 404);
     const head = await env.MUSIC_R2.head(key);
     if (!metadataMatches(head, file)) return error('Verified audio is unavailable', 503);
@@ -193,11 +223,15 @@ export async function handleMusic(request, env, {authorize = async () => false} 
       catch { return error('Range not satisfiable', 416, {'Content-Range': 'bytes */' + file.size}); }
     }
     headers.set('Content-Length', String(range?.length ?? file.size));
+    // W1: the audio key embeds the content hash; bytes under it never change.
+    // 304/416 paths above keep the default no-store; error bodies reset below.
+    headers.set('Cache-Control', IMMUTABLE_CACHE);
     if (request.method === 'HEAD') return response(null, 200);
     const object = await env.MUSIC_R2.get(key, {onlyIf: {etagMatches: head.etag}, ...(range ? {range} : {})});
     if (!object?.body || object.etag !== head.etag || !metadataMatches(object, file)) {
       await object?.body?.cancel();
       headers.delete('Content-Length');
+      headers.set('Cache-Control', NO_STORE_CACHE);
       return error('Audio changed; retry', 503);
     }
     if (range) headers.set('Content-Range', `bytes ${range.offset}-${range.offset + range.length - 1}/${file.size}`);
@@ -205,6 +239,7 @@ export async function handleMusic(request, env, {authorize = async () => false} 
   } catch {
     // Never expose SDK errors, request URLs or credentials in a response.
     headers.delete('Content-Length');
+    headers.set('Cache-Control', NO_STORE_CACHE);
     return error('Verified music is unavailable; retry later', 503);
   }
 }

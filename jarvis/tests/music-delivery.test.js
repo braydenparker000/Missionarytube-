@@ -22,15 +22,21 @@ const report = () => ({version:1, mode:'full', complete:true, verification:'r2-g
 const track = {source:'drive', id:'gd_'+id, remoteId:id, driveFolder:root, size:10, md5};
 const audioMetadata = () => ({size:10, etag, httpEtag:'"'+etag+'"', uploaded:new Date('2026-10-01T05:00:00Z'),
   customMetadata:{'source-drive-id':id, 'source-size':'10', 'source-md5':md5, 'source-sha256':sha256}});
+// unique catalog ETag per mapping: the Worker-global cache must never serve a stale parse
+let fixtureSeq = 0;
 function fixture(mapping=report()) {
   const calls=[];
+  const catalogBytes=new TextEncoder().encode(JSON.stringify(mapping)),catalogEtag='ce'+(++fixtureSeq);
   const e={MUSIC_PUBLIC_READ:'true', MUSIC_ROOT_ID:root, MUSIC_R2:{
-    async head(k) { calls.push(['head',k]); return k===key ? audioMetadata() : null; },
+    async head(k) { calls.push(['head',k]);
+      if(k===key) return audioMetadata();
+      if(k==='catalog/drive-r2-map-v1.json'||k==='catalog/drive-r2-partial-v1.json')
+        return {size:catalogBytes.length, etag:catalogEtag, uploaded:new Date('2026-10-01T05:00:00Z')};
+      return null; },
     async get(k, options) {
       calls.push(['get',k,options]);
       if(k==='catalog/drive-r2-map-v1.json'||k==='catalog/drive-r2-partial-v1.json') {
-        const body=new TextEncoder().encode(JSON.stringify(mapping));
-        return {size:body.length, body:new Response(body).body};
+        return {size:catalogBytes.length, etag:catalogEtag, body:new Response(catalogBytes).body};
       }
       if(k!==key) return null;
       const range=options?.range;
@@ -77,7 +83,7 @@ test('rejects partial, smoke, stale-root, invalid-proof, inconsistent and duplic
     x=>x.files[0].verifiedBytes=9,x=>x.files[0].key='catalog/secrets.json',x=>x.files[0].mimeType='text/html',
     x=>x.files.push(structuredClone(x.files[0])),x=>x.copiedCount=0,
   ];
-  for(const change of changes){const map=report();change(map);const {e,calls}=fixture(map);assert.equal((await call(e,key)).status,503);assert.equal(calls.filter(x=>x[0]==='head').length,0);}
+  for(const change of changes){const map=report();change(map);const {e,calls}=fixture(map);assert.equal((await call(e,key)).status,503);assert.equal(calls.filter(x=>x[0]==='head'&&x[1]===key).length,0);}
 });
 test('strict CORS accepts only Azure and exposes the seeking headers',async()=>{
   const {e,calls}=fixture();
@@ -95,7 +101,7 @@ test('uncredentialed direct-link playback works after explicit public policy',as
   const {e}=fixture();
   const response=await worker.fetch(new Request(api+'/music/'+key),e);
   assert.equal(response.status,200);assert.equal(await response.text(),'0123456789');
-  assert.equal(response.headers.get('Cache-Control'),'private, no-store');
+  assert.equal(response.headers.get('Cache-Control'),'public, max-age=604800, immutable');
   assert.equal(response.headers.get('Content-Length'),'10');
   assert.equal(response.headers.get('Content-Type'),'audio/mpeg');
 });
@@ -139,7 +145,7 @@ test('conditional requests respect strong If-Range and weak If-None-Match',async
 test('only catalog-listed immutable audio keys can be read',async()=>{
   for(const path of ['catalog/drive-r2-map-v1.json','incoming/upload.mp3','audio/unknown_123456/'+md5+'.mp3','audio%2F'+id+'/'+md5+'.mp3',key+'?token=not-a-supported-path']){
     const {e,calls}=fixture();assert.ok([400,404].includes((await call(e,path)).status));
-    assert.equal(calls.filter(x=>x[0]==='head').length,0);
+    assert.equal(calls.filter(x=>x[0]==='head'&&x[1]===key).length,0);
   }
 });
 test('no upload, delete or bucket listing API is exposed',async()=>{
@@ -201,4 +207,34 @@ test('partial route rejects full/smoke maps, wrong totals and missing original o
     {...partialReport(),inventoryCount:0}];
   const missing=partialReport();delete missing.files[0].r2Identity;invalid.push(missing);
   for(const map of invalid)assert.equal((await call(fixture(map).e,'partial/'+key)).status,503);
+});
+test('manifest cache: repeated requests reuse the parse; an ETag change re-reads and never serves stale',async()=>{
+  const {e,calls}=fixture();
+  const catalogCalls=()=>[calls.filter(x=>x[0]==='head'&&x[1]==='catalog/drive-r2-map-v1.json').length,
+    calls.filter(x=>x[0]==='get'&&x[1]==='catalog/drive-r2-map-v1.json').length];
+  assert.equal((await call(e,key)).status,200);
+  assert.deepEqual(catalogCalls(),[1,1]);
+  assert.equal((await call(e,key)).status,200);
+  assert.deepEqual(catalogCalls(),[2,1]); // cheap HEAD only; the catalog was not re-read
+  // Publish a new catalog generation with one more track: the old parse must not be served.
+  const mapping2=report(),newId='track_1234567891',newKey=`audio/${newId}/${md5}.mp3`;
+  const added=structuredClone(mapping2.files[0]);
+  Object.assign(added,{driveId:newId,key:newKey});
+  mapping2.files.push(added);
+  Object.assign(mapping2,{inventoryCount:2,inventoryBytes:20,selectedCount:2,verifiedCount:2,copiedCount:2});
+  const bytes2=new TextEncoder().encode(JSON.stringify(mapping2));
+  e.MUSIC_R2.head=async k=>{calls.push(['head',k]);
+    if(k==='catalog/drive-r2-map-v1.json')return{size:bytes2.length,etag:'ce-new',uploaded:new Date('2026-10-01T05:00:00Z')};
+    return k===key?audioMetadata():null;};
+  e.MUSIC_R2.get=async(k,o)=>{calls.push(['get',k,o]);
+    if(k==='catalog/drive-r2-map-v1.json')return{size:bytes2.length,etag:'ce-new',body:new Response(bytes2).body};
+    if(k!==key)return null;
+    const range=o?.range;
+    const body=range?bytes.slice(range.offset,range.offset+range.length):bytes;
+    return{...audioMetadata(),body:new Response(body).body};};
+  // New track is catalog-listed after the ETag change: a stale parse would 404, a fresh one 503 on the missing blob.
+  assert.equal((await call(e,newKey)).status,503);
+  assert.deepEqual(catalogCalls(),[3,2]);
+  assert.equal((await call(e,key)).status,200); // old track still serves from the re-parsed catalog
+  assert.equal((await call(e,'manifest.json')).status,200);
 });
