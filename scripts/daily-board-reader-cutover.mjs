@@ -64,6 +64,12 @@ export function checkedDestinationSettings(settings,enabled){
   assert.equal(settingsDigest(expected),BASELINE.settingsShapeDigest,'Worker resource bindings changed');
   return settings;
 }
+export function readerSourceState(identity,settings){
+  if(identity.codeSha256!==CANDIDATE.workerSha256||identity.schedulesDigest!==BASELINE.schedulesDigest)return 'unknown';
+  try{checkedInactiveSettings(settings);return 'legacy-only';}catch{}
+  try{checkedDestinationSettings(settings,true);return 'dual-source';}catch{}
+  return 'unknown';
+}
 export function checkedIssue(issue){
   assert.equal(issue?.number,DESTINATION.issue);assert.equal(issue?.title,DESTINATION.title);
   assert.equal(issue?.state,'open');assert.equal(issue?.pull_request,undefined,'Destination must be a dedicated issue');
@@ -133,6 +139,15 @@ async function prepare(mode,issueNumber){
   console.log(JSON.stringify({preflight:true,mode,issue:DESTINATION.issue,workerSha256:checkpoint.workerSha256,
     settingsCaptured:true,schedulesUnchanged:true,oldIssueOpen:true,destinationIssueOpen:true}));
 }
+async function inspect(issueNumber){
+  assert.equal(issueNumber,String(DESTINATION.issue),'Unexpected Daily Board destination issue');
+  const [issues,current]=await Promise.all([checkIssues(),observe(credentials())]);
+  const receipt={inspection:'read-only',readerSources:readerSourceState(current.identity,current.settings),
+    worker:{version:current.identity.version,codeSha256:current.identity.codeSha256,
+      settingsSha256:current.identity.settingsDigest,schedulesSha256:current.identity.schedulesDigest},
+    legacyIssueOpen:issues.sourceOpen,destinationIssueOpen:issues.destinationOpen,destinationIssue:DESTINATION.issue};
+  console.log(JSON.stringify(receipt));return receipt;
+}
 async function apply(mode,issueNumber){
   assert.ok(['enable','rollback'].includes(mode));const checkpoint=JSON.parse(await readFile(resolve(OUT,'checkpoint.json'),'utf8'));
   assert.equal(issueNumber,String(DESTINATION.issue),'Unexpected Daily Board destination issue');
@@ -155,8 +170,8 @@ async function apply(mode,issueNumber){
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   const [, , action, mode, issueNumber]=process.argv;
-  assert.ok(['prepare','apply'].includes(action));
-  (action==='prepare'?prepare(mode,issueNumber):apply(mode,issueNumber)).catch(error=>{
+  assert.ok(['prepare','apply','inspect'].includes(action));
+  (action==='prepare'?prepare(mode,issueNumber):action==='apply'?apply(mode,issueNumber):inspect(mode)).catch(error=>{
     console.error('Daily Board reader update stopped at a guarded step; inspect provider state before retrying.');
     if(process.env.DAILY_BOARD_READER_DEBUG==='1')console.error(String(error.message||error).split('\n')[0]);process.exitCode=1;
   });

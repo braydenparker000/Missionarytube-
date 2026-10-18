@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {checkedIssue,destinationBindings,DESTINATION} from './daily-board-reader-cutover.mjs';
+import {checkedIssue,destinationBindings,readerSourceState,DESTINATION} from './daily-board-reader-cutover.mjs';
 
 test('destination reader adds only the exact owner-approved issue bindings',()=>{
   const prior=[{type:'plain_text',name:'PUBLIC_FLAG',text:'keep'},
@@ -26,4 +26,9 @@ test('only the open, owner-created dedicated issue is accepted',()=>{
   for(const change of [{number:2},{title:'Other issue'},{state:'closed'},{user:{id:12}},{pull_request:{url:'x'}}]){
     assert.throws(()=>checkedIssue({...issue,...change}));
   }
+});
+
+test('live reader inspection reports unknown when the Worker or schedule identity drifts',()=>{
+  const identity={codeSha256:'changed',schedulesDigest:'changed'};
+  assert.equal(readerSourceState(identity,{bindings:[]}), 'unknown');
 });
