@@ -46,8 +46,12 @@ const pins = JSON.parse(readFileSync(PINS_PATH, 'utf8'));
 const pinByPath = new Map(pins.map(p => [p.path, p]));
 const playerBytes = readFileSync(PLAYER);
 const workerBytes = readFileSync(SHUFFLE_WORKER);
-for (const [rel, bytes] of [['drawercast/player.js', playerBytes], ['drawercast/shuffle-worker.js', workerBytes]]) {
-  const pin = pinByPath.get(rel);
+// The player pin lives under its fingerprinted live path (perf overhaul);
+// the pinned bytes are identical to the logical source file.
+const playerPinPath = [...pinByPath.keys()].find(p => /^drawercast\/player\.[0-9a-f]{12}\.js$/.test(p));
+assert.ok(playerPinPath, 'no reviewed fingerprinted player pin');
+for (const [rel, bytes, pinRel] of [['drawercast/player.js', playerBytes, playerPinPath], ['drawercast/shuffle-worker.js', workerBytes, 'drawercast/shuffle-worker.js']]) {
+  const pin = pinByPath.get(pinRel);
   assert.ok(pin, 'no reviewed pin for ' + rel);
   assert.equal(bytes.length, pin.bytes, 'byte length drift for ' + rel);
   assert.equal(createHash('sha256').update(bytes).digest('hex'), pin.sha256, 'sha256 drift for ' + rel);
