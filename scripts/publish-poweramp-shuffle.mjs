@@ -215,8 +215,8 @@ export function patchManifest(prior){return {schema:1,kind:'poweramp-shuffle-pat
  // required live bytes is never uploaded; the receipt records that it was left
  // untouched. Any other file is uploaded.
  status:before===sha256?'skipped-untouched':'uploaded'}))};}
-export function checkedShuffleReceipt(receipt){
- const p=receipt.shufflePatch,prior=p?.parentReceipt;assert.equal(receiptDigest(prior),PARENT);
+export function checkedShuffleReceipt(receipt,expectedParent=PARENT){
+ const p=receipt.shufflePatch,prior=p?.parentReceipt;assert.equal(receiptDigest(prior),expectedParent);
  assert.deepEqual(Object.keys(p).sort(),['artifact','kind','parentReceipt','sourceProof']);assert.equal(p.kind,'poweramp-shuffle');
  assert.equal(p.sourceProof.qualified,true);assert.equal(p.sourceProof.sourceSha,SOURCE);assert.deepEqual(p.artifact,patchManifest(prior));
  const w=receipt.workerCheckpoint;assert.equal(w.backendReusable,false);assert.equal(w.acceptedRun,WORKER_CHECKPOINT.acceptedRun);assert.equal(w.evidenceRun,WORKER_CHECKPOINT.evidenceRun);assert.equal(w.version,WORKER_CHECKPOINT.version);assert.equal(w.settingsDigest,WORKER_CHECKPOINT.settingsDigest);
