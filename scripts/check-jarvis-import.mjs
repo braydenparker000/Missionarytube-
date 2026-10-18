@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../jarvis/', import.meta.url));
-export const IMPORT_TREE = 'a93d5e048d51a98dd6d39a79b966b5f1385def75'; // D1+D2 player fixes (PR #267)
+export const IMPORT_TREE = 'c16a0cb2cb99f1045d1e89dff823e3988814b87f'; // D1c1+D1c2 player corrections (PR #267)
 function objectHash(type, bytes) {
   return createHash('sha1').update(`${type} ${bytes.length}\0`).update(bytes).digest();
 }
