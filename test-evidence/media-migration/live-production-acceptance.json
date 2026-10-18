@@ -109,7 +109,7 @@
   },
   "limitations": [
     "Authenticated Relay conversations, tasks, and delivery were not exercised; no sign-in or pairing was attempted.",
-    "Guitar preview was inspected through measure 59, but playback was not tested: the unsaved preview has no playback control and no tab was saved.",
+    "Guitar v1 has no audio playback feature. Live browser acceptance covered search, acoustic-track selection, notation preview, and full tab through measure 59.",
     "Physical-phone/device acceptance remains outstanding.",
     "Daily Board dynamic rendering was not checked because its read path can advance synchronization."
   ],
@@ -217,7 +217,7 @@
     "limits": [
       "HTTP/index readback is not interactive route acceptance.",
       "Daily Board dynamic feed rendering/data was not checked.",
-      "At the time of this route readback, interactive browser acceptance had not yet been recorded; later normal-TLS results are in liveCloudChromeAcceptance. Authenticated Relay conversations/tasks/delivery and Guitar playback remain untested.",
+      "At the time of this route readback, interactive browser acceptance had not yet been recorded; later normal-TLS results are in liveCloudChromeAcceptance. Authenticated Relay conversations/tasks/delivery remain untested.",
       "Quick AI remains a pre-existing unconfigured placeholder.",
       "Physical-device testing remains outstanding."
     ],
@@ -293,7 +293,7 @@
       },
       "dynamicReaderCalled": false
     },
-    "currentGap": "Live cloud-browser acceptance now covers the listed launcher, Podcasts, Guitar preview, and private sign-in-gate interactions. Authenticated Relay behavior, guitar playback, physical-device use, and Daily Board dynamic-feed rendering remain unverified."
+    "currentGap": "Live cloud-browser acceptance now covers the listed launcher, Podcasts, Guitar search and notation preview, and private sign-in-gate interactions. Guitar v1 has no audio playback feature. Authenticated Relay behavior, physical-device use, and Daily Board dynamic-feed rendering remain unverified."
   },
   "liveCloudChromeAcceptance": {
     "checkedOn": "2026-10-17",
@@ -308,7 +308,7 @@
     ],
     "notTested": [
       "Authenticated Relay conversations, tasks, and message delivery; no sign-in or pairing was attempted.",
-      "Guitar playback; the unsaved preview has no playback control and no tab was saved.",
+      "Guitar v1 has no audio playback feature; live checks covered search, acoustic-track selection, notation preview and full tab through measure 59.",
       "Physical-device interaction."
     ],
     "dailyBoard": "No synchronization or state-advancing read endpoint was called."
