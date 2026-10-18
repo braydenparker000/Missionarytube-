@@ -9,7 +9,7 @@ import {tmpdir} from 'node:os';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 import {immutableSourceSnapshot,recipeAllowed,trustedRecipe} from './plan-jarvis-qualification.mjs';
 import {liveIdentity,receiptDigest} from './worker-release-identity.mjs';
-export const SOURCE='eef4dac81594749cbd5aaa288791fd324d71ca02';
+export const SOURCE='23bcf625813eb654f0b21956bc443a660f913a72';
 export const PARENT='c064b89a4734848861d96a2bafc66cd27d359a1b090f9ca099b4a9c41bfc64f5';
 // Worker checkpoint (seq-247 pattern, docs/mobile-file-save-release.md): the
 // canonical parent receipt predates the accepted Worker upload (run
