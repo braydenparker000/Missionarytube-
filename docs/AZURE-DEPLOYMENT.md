@@ -2,11 +2,24 @@
 
 Production URL: https://missionarytube.z13.web.core.windows.net/
 
-The workflow at `.github/workflows/deploy-azure-storage.yml` is committed but safely gated. It runs only when the repository variable `AZURE_DEPLOY_ENABLED` equals `true`. Once enabled, every accepted push to `main` builds `dist/` and uploads it to the Azure Storage static website container.
+The [current workflow](../.github/workflows/deploy-azure-storage.yml) can run
+qualification on matching pushes to `main`; pushes do not automatically upload
+production files. Its general production job requires manual `workflow_dispatch`
+on `main`, `AZURE_DEPLOY_ENABLED=true`, successful qualification and the job's
+input exclusions. Specialized jobs have their own gates. See
+[the current release-path guidance](release-paths.md#trigger-and-deployment-gates)
+before selecting an authorized publication path.
 
 Authentication uses GitHub OpenID Connect (OIDC), which exchanges a GitHub identity token for a short-lived Azure token. No Azure storage key, client secret, connection string, or long-lived credential belongs in the repository.
 
-## One-time setup from a phone
+## Historical one-time setup from a phone
+
+The setup steps below record the original provisioning process, not instructions
+to repeat it for current releases. Preserve the existing Storage account, Entra
+identity, OIDC federation, credentials and access. Historical account names and
+setup-time variable changes below do not authorize identity recreation, access
+changes or reconfiguration. Use the current workflow and release-path guidance
+above for releases; any infrastructure change requires separate authorization.
 
 Use the Azure portal in a mobile browser; desktop-site mode may make the menus easier.
 
@@ -57,13 +70,13 @@ Create repository variables:
 
 These values are settings, never repository file contents.
 
-### 5. Test, then enable automatic deployment
+### 5. Historical setup test; current releases use manual dispatch
 
 1. Temporarily set `AZURE_DEPLOY_ENABLED` to `true`.
 2. Open **Actions** → **Deploy to Azure Storage** → **Run workflow** on `main`.
 3. Confirm the login, build, and upload steps succeed.
 4. Open the production URL in a private tab and verify the expected site.
-5. Keep `AZURE_DEPLOY_ENABLED=true`; future pushes to `main` deploy automatically.
+5. `AZURE_DEPLOY_ENABLED=true` is only one prerequisite; current production uploads require an authorized manual dispatch and the applicable workflow gates. Future pushes do not deploy automatically.
 6. If the test fails or the wrong storage account was selected, immediately set the variable to `false` or delete it before troubleshooting.
 
 The upload overwrites matching files but intentionally does not delete unrelated blobs. This avoids destructive cleanup during early setup. Once the repository layout is stable, a separately reviewed cleanup strategy can be added.

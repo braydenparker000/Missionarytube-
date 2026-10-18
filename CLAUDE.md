@@ -9,26 +9,62 @@ Maintain MissionaryTube as a fast, reliable, mobile-first static web app whose d
 `braydenparker000/Missionarytube-` is the surviving repository. Authoritative
 Jarvis application source is imported under `jarvis/`; use its canonical
 [delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
-This root guidance supersedes the imported delivery plan's former two-repository
-destination. Keep the imported snapshot exact until the component-cutover patch
-is reviewed; the import guard fails on byte, mode, or file-set changes.
+This root guidance supersedes dated checkpoints in the frozen imported
+[delivery plan](jarvis/docs/delivery-plan.md). Preserve the import integrity
+boundary; maintained component changes must use the existing exact-source
+manifests and guards, not a wholesale snapshot replacement.
 
-The deployed build still uses the external checkout selected by
-`jarvis-release.json`. Importing source does not switch production or authorize
-running nested workflows. Root `npm test` is the deployment suite; imported
-application tests remain a separately qualified component. Do not run them as
-an accidental part of root discovery. Preserve Daily Board issue #2, current
-release paths and all original repository refs. See
-[the import record](docs/jarvis-source-import.md) for remaining cutover work.
+The current static build uses `jarvis-active-public-c28/public` plus exact
+component overlays resolved by `scripts/media-source.mjs` and the explicit
+navigation/configuration transforms in `scripts/build-jarvis.mjs`.
+`.jarvis-source` is still required at the `jarvis-release.json` commit for
+qualification and retained release consumers, but active workflow checkouts
+use destination history in `braydenparker000/Missionarytube-`. The manifest's
+old repository field is historical identity, not the current checkout origin.
+See [the import record](docs/jarvis-source-import.md) and the actual selected
+publisher for component-specific source, preservation and rollback boundaries.
+
+Root `npm test` is the deployment suite; imported application tests remain
+separately qualified. Run relevant imported tests explicitly, not through
+accidental root discovery. Preserve original repository refs and publication
+history, including legacy `braydenparker999/jarvis#2` and destination
+`braydenparker000/Missionarytube-#250`; destination #2 is an imported PR.
+Dated release maps and import checkpoints do not establish current live or
+external-writer state. Use exact publisher receipts and current readback.
+Do not reopen verified completed work based solely on a dated checkpoint.
+Owner holds remain binding regardless of document age unless explicitly lifted
+by the owner or superseded by verified owner instructions.
+
+A merge or successful qualification is not shipment. Production publication
+uses an explicitly authorized manual workflow and its existing identity,
+qualification, backup and readback gates. Do not run nested workflows or
+change schedules, credentials or access as an implied part of source work.
 
 ## Required checks
 
-Before proposing changes:
+Choose validation by affected behavior, dependencies and release risk, following
+the canonical SOP. This section replaces the former blanket requirement to run
+`npm test` and `npm run build` for every proposed change.
 
-1. Run `npm test`.
-2. Run `npm run build`.
-3. Inspect the diff for accidental credentials, private addon URLs, user data, and unrelated edits.
-4. Put acceptance-criteria evidence in the pull request.
+- For every change, inspect the complete diff for credentials, private addon
+  URLs, user data and unrelated edits. Report verified acceptance criteria,
+  commands/results and remaining uncertainty.
+- Routine documentation-only changes require diff/privacy review, relative-link
+  validation and factual checks against the relevant source or workflow. Do not
+  rerun application tests or builds solely for prose changes. Executable
+  examples and documentation governing release or security behavior also need
+  verification against the affected contracts; a Markdown extension alone does
+  not establish low risk.
+- For behavioral changes, run focused regressions first, then affected-component
+  and integration checks based on dependency impact. For shared infrastructure,
+  security or release changes, run the full applicable qualification, including
+  root `npm test` and `npm run build` where the deployment suite/build is affected.
+  Preserve authentication, negative-case, artifact-identity and rollback checks.
+- Actual required CI checks and publisher qualification remain mandatory before
+  merge/publication. This local validation policy does not change workflow
+  triggers, branch protections or release gates. Reuse existing evidence only
+  when its revision, dependencies, configuration and environment assumptions
+  remain valid; do not treat an unrun required check as passed.
 
 ## Engineering constraints
 
@@ -41,6 +77,13 @@ Before proposing changes:
 
 ## Collaboration modes
 
-For normal work, Claude produces the first implementation. Leave a clear handoff containing changed files, test results, tradeoffs, and remaining uncertainty so Codex can review adversarially.
+Use one assigned delivery owner for implementation, evidence and completion.
+Choose review depth by risk, not model/provider identity. Small isolated changes
+need a complete diff review and relevant checks, without a mandatory second
+agent or serial handoff. Shared infrastructure, security and release changes
+need adversarial review of affected contracts and failure paths, with independent
+review where required by the task or existing release process. Review once
+comprehensively, then verify fixes and their impact; reopen unchanged code only
+for new evidence or material risk. See [collaboration guidance](docs/AI-COLLABORATION.md).
 
 For an arena task, follow [docs/EVALUATION.md](docs/EVALUATION.md). Start from the exact recorded base commit, do not inspect the Codex branch before submission, and do not self-score.

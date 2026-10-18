@@ -1,6 +1,9 @@
 # Phone-first development workflow
 
-GitHub is the source of truth. The live Azure site is a deployment target, not a place to edit independently.
+Use the canonical [delivery SOP](../jarvis/.agents/skills/deliver-software-efficiently/SKILL.md)
+with the repository-required checks. GitHub holds source and release tooling;
+exact publisher receipts and readback establish live state. The live Azure site
+is a deployment target, not a place to edit independently.
 
 ## Standard feature or fix
 
@@ -9,12 +12,20 @@ GitHub is the source of truth. The live Azure site is a deployment target, not a
    - `feature/<short-name>`
    - `fix/<short-name>`
    - `refactor/<short-name>`
-3. Ask Claude for the first implementation using the issue and exact starting commit.
-4. Open a pull request. CI runs dependency-free validation and a production build.
-5. Ask ChatGPT/Codex to review the pull request adversarially.
+3. Use one assigned delivery owner and the exact starting commit; choose review depth by risk using [the collaboration guidance](AI-COLLABORATION.md).
+4. Open a pull request when authorized. CI runs the existing qualification and build checks. A draft PR is an intermediate artifact when the requested outcome is verified shipment.
+5. Review the complete bounded diff at the depth its risk requires. Small isolated changes do not require a second agent or serial handoff. Verify subsequent fixes and their impact; reopen unchanged code only for new evidence or material risk.
 6. Apply fixes only when the finding is reproducible or tied to an acceptance criterion.
-7. Wait for green CI and squash-merge.
-8. Once Azure deployment is enabled, merging to `main` deploys automatically.
+7. Require applicable green checks and authorization before merge.
+8. For an authorized shipment, select the existing component publisher and exact
+   reviewed revision. The general Azure workflow's production job requires
+   manual `workflow_dispatch`, main, `AZURE_DEPLOY_ENABLED`, qualification
+   success and its input exclusions. Specialized jobs have their own gates.
+   Matching main pushes can qualify code; merge does not deploy automatically.
+9. Verify the actual target with the publisher's readback and relevant runtime
+   acceptance. Report implementation, review, merge, deployment and live
+   verification separately. If publication is outside the task's authorization,
+   deliver the tested local candidate and state that boundary.
 
 The repository owner can do issue and PR approval from GitHub's Android app. The AIs should perform file, branch, commit, diff, review, merge, and Actions work whenever their GitHub connections allow it.
 
@@ -36,10 +47,31 @@ Use a `fix/` branch and the normal PR checks. If production is unusable, a fast 
 
 ## Frontend source and checks
 
-The current build reads the Jarvis checkout pinned by `jarvis-release.json`.
-Media HTML and assets live under that checkout's `public/media/`; the former
-root `index.html` and `assets/` app copy have been retired. Do not recreate them
-for frontend changes. See [README.md](../README.md#media-regression-checks) for
-checkout preparation and regression checks. Run `npm test` and `npm run build`
-with that exact checkout, then inspect `dist/` and test on Android Chrome when
-changing user-visible behavior.
+The static build starts with the destination-owned active snapshot and exact
+component overlays in `scripts/media-source.mjs`; `scripts/build-jarvis.mjs`
+also applies explicit navigation/configuration transforms. The pinned
+`.jarvis-source` checkout remains required for qualification and retained
+release consumers and comes from destination repository history. The old
+repository field in `jarvis-release.json` is historical identity. Do not
+recreate retired root `index.html` or `assets/` copies. See
+[the import record](jarvis-source-import.md) and [README.md](../README.md#media-regression-checks)
+for component boundaries and checkout preparation.
+
+Use the [root validation policy](../AGENTS.md#required-checks): routine prose
+changes need diff/privacy, link and factual checks without application reruns.
+Behavioral changes need focused regressions and affected-component/integration
+checks; shared infrastructure, security and release changes need full applicable
+qualification. Root `npm test` and `npm run build` apply when the deployment
+suite/build is affected or actual CI/release requirements demand them. Required
+CI and publisher gates remain intact. Inspect `dist/` and test changed
+user-visible behavior on Android Chrome when applicable.
+
+## Interruption and completion
+
+Use existing request IDs, immutable results and supported job reads to recover
+recorded progress. Callback acceptance is not execution; lease expiry indicates
+uncertainty, not permission to repeat consequential work. Persist a concrete
+artifact or handoff before ending a turn. Report a job as running only with
+current execution evidence. Continue independent approved work when an optional
+item is blocked. Repository state can expose incomplete work and preserve
+recorded evidence; it cannot make a hosted assistant resume after its job ends.

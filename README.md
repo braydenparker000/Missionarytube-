@@ -55,17 +55,21 @@ shared UI, security, storage, playback and device variants remain held; see
 component map. Root `npm test` explicitly selects the orchestration tests. See
 also the [canonical delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
 
-The additive Daily Board destination-reader code was published to the existing
-Worker in [run 39040982427](https://github.com/braydenparker000/Missionarytube-/actions/runs/39040982427)
-(code SHA-256 `74c8bf880a674b19bfeab74f65cf87e069b9f88233c4e65eba37393b13d0064d`),
-but the destination-feed path remains disabled: no destination issue or
-enabling configuration is present. The current reader and scheduled automation still use the open
-[`braydenparker999/jarvis#2`](https://github.com/braydenparker999/jarvis/issues/2),
-“Jarvis publications — replies and Daily Board.” Destination issue #2 is
-already an imported PR and must not be reused. Keep the old feed intact until a
-separately approved migration has a unique destination issue, dual-read
-reconciliation, writer switch and rollback. This consolidation has not changed
-the publication schedule or writer.
+The recorded Daily Board reader activation enabled both the legacy
+[`braydenparker999/jarvis#2`](https://github.com/braydenparker999/jarvis/issues/2)
+and destination
+[`braydenparker000/Missionarytube-#250`](https://github.com/braydenparker000/Missionarytube-/issues/250).
+The [release-path record](docs/release-paths.md) documents activation attempt
+39084315952 (failed overall) and successful dual-source readback run 39084979917; the
+[publishing contract](daily-board-next/PUBLISHING.md) records a later read-only
+verification in run 39097771082. These recorded activations supersede the
+earlier disabled-reader checkpoint.
+
+Reader activation does not establish cutover of the separate scheduled writer.
+Verify that writer's destination from its own configuration and publication
+readback before claiming a cutover; no fresh writer status is established here.
+Preserve both issues and their history for reconciliation and rollback.
+Destination issue #2 is an imported PR and must not be reused.
 
 ## Media regression checks
 
