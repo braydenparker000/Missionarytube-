@@ -1,0 +1,114 @@
+{
+  "schema": "jarvis-daily-board-v1",
+  "id": "22222222-2222-4222-8222-222222222222",
+  "date": "2026-10-19",
+  "timezone": "America/Argentina/Cordoba",
+  "title": "Make the explanation visible.",
+  "summary": "Synthetic content for reviewing layout and behavior only. Not a researched Daily Board.",
+  "visibility": "public",
+  "synthetic": true,
+  "stories": [
+    {
+      "id": "quantities",
+      "title": "Numbers need a unit and a boundary.",
+      "label": "Composition study",
+      "composition": "flow",
+      "claim": "interpretation",
+      "sources": [
+        {
+          "title": "Synthetic fixture documentation",
+          "url": "https://example.com/fixture",
+          "publishedOn": null,
+          "eventOn": null,
+          "note": "Example domain. All names, quantities and events below are synthetic; no real-world claim or recommendation."
+        }
+      ],
+      "blocks": [
+        {
+          "id": "bars",
+          "type": "chart",
+          "text": "Invented counters illustrate a shared zero baseline. These are not observed statistics.",
+          "unit": "synthetic counters",
+          "items": [
+            {
+              "label": "Example A",
+              "value": 3
+            },
+            {
+              "label": "Example B",
+              "value": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "steps",
+      "title": "Explore one step at a time.",
+      "label": "Composition study",
+      "composition": "split",
+      "claim": "interpretation",
+      "sources": [
+        {
+          "title": "Synthetic fixture documentation",
+          "url": "https://example.com/fixture",
+          "publishedOn": null,
+          "eventOn": null,
+          "note": "Example domain. All names, quantities and events below are synthetic; no real-world claim or recommendation."
+        }
+      ],
+      "blocks": [
+        {
+          "id": "explore",
+          "type": "explanation",
+          "text": "Move the control or open the complete text below.",
+          "steps": [
+            "Choose a question.",
+            "Change one assumption.",
+            "Explain what changed and what did not."
+          ]
+        },
+        {
+          "id": "closing",
+          "type": "prose",
+          "text": "A prose-only block is a complete component; a daily report does not need a chart, local listing or experiment."
+        }
+      ]
+    },
+    {
+      "id": "annotation",
+      "title": "Point to the part that matters.",
+      "label": "Annotated schematic",
+      "composition": "band",
+      "claim": "interpretation",
+      "sources": [
+        {
+          "title": "Synthetic fixture documentation",
+          "url": "https://example.com/fixture",
+          "publishedOn": null,
+          "eventOn": null,
+          "note": "Example domain. All names, quantities and events below are synthetic; no real-world claim or recommendation."
+        }
+      ],
+      "blocks": [
+        {
+          "id": "diagram",
+          "type": "image",
+          "text": "Synthetic process sketch. Shapes represent two steps, not measured quantities.",
+          "asset": "assets/synthetic-process.png",
+          "alt": "A rectangle labeled 1 connected to a circle labeled 2.",
+          "annotations": [
+            {
+              "label": "1 \u00b7 Starting point",
+              "text": "Define the question before comparing answers."
+            },
+            {
+              "label": "2 \u00b7 Next step",
+              "text": "Describe the evidence still needed."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

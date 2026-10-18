@@ -1,0 +1,83 @@
+[
+  {
+    "name": "reference",
+    "width": 360,
+    "overflow": false,
+    "background": "rgb(0, 0, 0)",
+    "font": "\"Instrument Sans\", Arial, sans-serif",
+    "articles": 6,
+    "errors": []
+  },
+  {
+    "name": "one",
+    "width": 360,
+    "overflow": false,
+    "background": "rgb(0, 0, 0)",
+    "font": "\"Instrument Sans\", Arial, sans-serif",
+    "articles": 2,
+    "errors": []
+  },
+  {
+    "name": "two",
+    "width": 360,
+    "overflow": false,
+    "background": "rgb(0, 0, 0)",
+    "font": "\"Instrument Sans\", Arial, sans-serif",
+    "articles": 3,
+    "errors": []
+  },
+  {
+    "name": "reference",
+    "width": 390,
+    "overflow": false,
+    "background": "rgb(0, 0, 0)",
+    "font": "\"Instrument Sans\", Arial, sans-serif",
+    "articles": 6,
+    "errors": []
+  },
+  {
+    "name": "one",
+    "width": 390,
+    "overflow": false,
+    "background": "rgb(0, 0, 0)",
+    "font": "\"Instrument Sans\", Arial, sans-serif",
+    "articles": 2,
+    "errors": []
+  },
+  {
+    "name": "two",
+    "width": 390,
+    "overflow": false,
+    "background": "rgb(0, 0, 0)",
+    "font": "\"Instrument Sans\", Arial, sans-serif",
+    "articles": 3,
+    "errors": []
+  },
+  {
+    "name": "reference",
+    "width": 1200,
+    "overflow": false,
+    "background": "rgb(0, 0, 0)",
+    "font": "\"Instrument Sans\", Arial, sans-serif",
+    "articles": 6,
+    "errors": []
+  },
+  {
+    "name": "one",
+    "width": 1200,
+    "overflow": false,
+    "background": "rgb(0, 0, 0)",
+    "font": "\"Instrument Sans\", Arial, sans-serif",
+    "articles": 2,
+    "errors": []
+  },
+  {
+    "name": "two",
+    "width": 1200,
+    "overflow": false,
+    "background": "rgb(0, 0, 0)",
+    "font": "\"Instrument Sans\", Arial, sans-serif",
+    "articles": 3,
+    "errors": []
+  }
+]

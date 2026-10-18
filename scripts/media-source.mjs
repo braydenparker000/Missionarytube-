@@ -17,9 +17,9 @@ export const COMPONENT_SOURCES = {
   },
   dailyBoard: {
     repository: "braydenparker000/Missionarytube-",
-    commit: "8201af9d10b6c0731f55c2b297b070b7922968d3",
+    commit: "e168cab948fd8a1242c89b94d9036aa7613b8347",
     path: "jarvis/public/daily-board",
-    tree: "b3214e6e8731cc0f3146d79a467c7c48710c3620"
+    tree: "f9a0da32900699670e9611088fad209eb5b5a389"
   },
   connect: {
     repository: "braydenparker000/Missionarytube-",

@@ -1,3 +1,4 @@
+import {dailyBoardNavigation} from './daily-board-navigation.mjs';
 import {cp,mkdir,readFile,readdir,rm,writeFile,stat} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {join,extname} from 'node:path';
@@ -16,6 +17,7 @@ if(head!==release.commit)throw Error('Jarvis source must match the pinned releas
 await rm('dist',{recursive:true,force:true});
 await mkdir('dist',{recursive:true});
 await cp(activePublicSource.directory,'dist',{recursive:true});
+await writeFile('dist/assets/app.js',dailyBoardNavigation(await readFile('jarvis/public/assets/app.js','utf8')));
 await rm('dist/media',{recursive:true,force:true});
 await cp(mediaSource.directory,'dist/media',{recursive:true});
 await rm('dist/daily-board',{recursive:true,force:true});
@@ -49,7 +51,8 @@ for(const file of files){
  const match=config.routes.find(r=>route.startsWith(r.route.replace('*','')));
  // Azure Storage cannot apply SWA headers. Retain the supported document
  // policy in HTML; frame-ancestors requires a response header and is omitted.
- const csp=(match?.headers?.['Content-Security-Policy']||config.globalHeaders['Content-Security-Policy']).replace(/frame-ancestors[^;]*(;|$)/g,'');
+ let csp=(match?.headers?.['Content-Security-Policy']||config.globalHeaders['Content-Security-Policy']).replace(/frame-ancestors[^;]*(;|$)/g,'');
+ if(route.startsWith('/daily-board/'))csp+='; font-src data:';
  const metas=`\n<meta http-equiv="Content-Security-Policy" content="${csp.replaceAll('&','&amp;').replaceAll('"','&quot;')}">\n<meta name="referrer" content="strict-origin-when-cross-origin">`;
  let html=await readFile(file,'utf8');
  if(!/<head(?:\s[^>]*)?>/i.test(html))throw Error('No HTML head: '+file);
