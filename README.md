@@ -59,8 +59,8 @@ The recorded Daily Board reader activation enabled both the legacy
 [`braydenparker999/jarvis#2`](https://github.com/braydenparker999/jarvis/issues/2)
 and destination
 [`braydenparker000/Missionarytube-#250`](https://github.com/braydenparker000/Missionarytube-/issues/250).
-The [release-path record](docs/release-paths.md) documents activation run
-39084315952 and dual-source readback run 39084979917; the
+The [release-path record](docs/release-paths.md) documents activation attempt
+39084315952 (failed overall) and successful dual-source readback run 39084979917; the
 [publishing contract](daily-board-next/PUBLISHING.md) records a later read-only
 verification in run 39097771082. These recorded activations supersede the
 earlier disabled-reader checkpoint.
