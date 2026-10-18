@@ -3038,6 +3038,11 @@ const Engine = {
     this.playing=false;UI.renderPlayState();
     this._recordShuffle?.(qi);
     this.current=t;
+    // D1c3 (rev-4 review): request-bound evidence that THIS request committed
+    // the target occurrence. ID equality cannot prove it — a same-ID queue
+    // occurrence (e.g. [A,A,B] failing on the second A) shares current's ID
+    // without ever committing.
+    this._playCommitRequest=request;
     this.pos = Math.max(0, this.order.indexOf(qi));
     UI.renderNowPlaying(t);UI.renderProgress();
     let f;
@@ -3264,7 +3269,10 @@ const Engine = {
       // back a newer selection that superseded this one.
       Promise.resolve(result).then(()=>{
         if(acceptedRequest!==this._playRequest)return; // a newer selection took over
-        if(target&&this.current&&this.current.id===target.id)return; // committed
+        // D1c3 (rev-4 review): only THIS request's commit counts. ID equality
+        // cannot prove the requested occurrence committed (same-ID queue
+        // duplicates share current's ID without committing).
+        if(this._playCommitRequest===acceptedRequest)return; // committed
         this.pos=previousPos;
       },()=>{
         if(acceptedRequest!==this._playRequest)return;
