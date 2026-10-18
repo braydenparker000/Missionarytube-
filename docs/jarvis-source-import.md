@@ -237,15 +237,19 @@ and leave held variants dormant. Consolidation is repository/deployment
 ownership; adopting optional Tasks history, private routes, file saving, or
 playback changes is a separate product or security change.
 
-The Daily Board reader still imports owner-authored publication comments from
-the open `braydenparker999/jarvis#2` issue. The external scheduled writer
-“Publish Jarvis Daily Board” still targets that issue. No repository writer
-was identified; `jarvis_publish_briefing` is a separate Worker board API.
-Treat the issue and automation as an operational dependency. Preserve the
-original issue and messages until the reader, external writer, provenance,
-  per-source cursors and deduplication can migrate together with rollback.
-Destination issue #2 is already an imported PR and cannot be reused. No
-issue, schedule, writer, or publication endpoint was changed here.
+The Daily Board reader imports owner-authored publication comments from the
+open `braydenparker999/jarvis#2` issue. Dedicated destination issue
+`braydenparker000/Missionarytube-#250` is open, owner-created, and reserved for
+the additive reader. The guarded manual reader-cutover workflow
+(`.github/workflows/daily-board-reader-cutover.yml`) enables both sources while
+preserving the exact Worker bytes and schedules, and its rollback mode removes
+the destination variables. The external scheduled writer “Publish Jarvis
+Daily Board” remains managed outside this repository and still targets the
+legacy issue. Preserve its schedule and briefing instructions; after source
+verification, change only its issue destination to #250. The separate
+`jarvis_publish_briefing` Worker API writer is unchanged. Keep issue #2 and all
+its messages open as the rollback source. Destination issue #2 is already an
+imported PR and cannot be reused.
 
 The current `release-qualified.json` digest is
 `c064b89a4734848861d96a2bafc66cd27d359a1b090f9ca099b4a9c41bfc64f5`. Its
@@ -370,21 +374,23 @@ consolidation:
   Private/security modules and destination-only `muse-key` and `private` files
   remain inactive. Activate none without a product/security decision and
   component-scoped qualification.
-- **Daily Board operational dependency:** the reader still consumes comments
-  from open `braydenparker999/jarvis#2`; external scheduled automation “Publish
-  Jarvis Daily Board” (`6ac854579d1481918af16682c5b5936c`) still targets that
-  issue. No repository writer was identified; `jarvis_publish_briefing` writes
-  to a separate Worker board API. Destination issue #2 is already an imported
-  PR. Preserve the old issue, messages and schedule. The reader now has a
-  backward-compatible second-source path gated by both
-  `JARVIS_DAILY_BOARD_DESTINATION_ENABLED=true` and an exact
-  `JARVIS_DAILY_BOARD_DESTINATION_ISSUE`; neither is configured here, so the
-  existing issue remains the only active feed. The additive journal keys
-  comments by repository/issue/comment ID, stores exact source comment bodies,
-  and keeps scan/watermark state per issue. Existing global publication-ID and
-  same-date briefing reservations continue to suppress duplicates. No issue was
-  created, feed switched, test content published, schedule/access changed, or
-  deployment activated. The additive source has a separate ceiling of 144
+- **Daily Board operational dependency:** open `braydenparker999/jarvis#2` is
+  the retained legacy source. Dedicated owner-created destination
+  `braydenparker000/Missionarytube-#250` is reserved for the additive reader.
+  The external scheduled automation “Publish Jarvis Daily Board”
+  (`6ac854579d1481918af16682c5b5936c`) still targets the legacy issue; the
+  separate `jarvis_publish_briefing` Worker API writer is unchanged. Destination
+  issue #2 is already an imported PR. The manual
+  `.github/workflows/daily-board-reader-cutover.yml` workflow pins the exact
+  destination, captures prewrite Worker bytes and verifies the live reader;
+  rollback removes both destination bindings and returns to legacy-only. The
+  per-source journal keys comments by repository/issue/comment ID, stores exact
+  source comment bodies, and keeps scan/watermark state per issue. Existing
+  global publication-ID and same-date briefing reservations continue to
+  suppress duplicates. After reader verification, change only the scheduled
+  automation's issue destination, preserving its cadence and briefing prompt.
+  No test publication or schedule/access change is part of this workflow. The
+  additive source has a separate ceiling of 144
   GitHub reads per UTC day, half of the unchanged 288-read reconciliation
   budget; both readers still share the existing 36-per-hour and 48-total-per-
   hour ceilings, with the historical feed processed first. Empty destination
