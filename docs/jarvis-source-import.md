@@ -601,5 +601,5 @@ Structured content is encoded inside the existing bounded briefing body, retaini
 owner-authenticated issue import, SQLite entries, immutable history, date
 reservations and both source readers. No Worker or database migration is needed.
 See `daily-board-next/PUBLISHING.md` for the contract. A separate manual static
-publisher captures rollback state and changes only the six Daily Board blobs;
+publisher captures rollback state and changes only the Daily Board blobs and the exact shared-app navigation hook plus the one-line shared-app navigation change;
 merge alone is not deployment evidence. The parent owns scheduled writer cutover.

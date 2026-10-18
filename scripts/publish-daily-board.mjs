@@ -5,9 +5,10 @@ import {execFileSync} from 'node:child_process';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {APP_BEFORE} from './daily-board-navigation.mjs';
 import {readDailyBoardSource} from './media-source.mjs';
 export const BEFORE='68aafa41562628ad87a93557ff5ab5afeecba83874b2b4abe142b953fd4b9454';
-export const PATHS=['daily-board/v1/design.css','daily-board/v1/components.css','daily-board/v1/schema.js','daily-board/v1/render.js','daily-board/v1/live.js','daily-board/index.html'];
+export const PATHS=['daily-board/v1/design.css','daily-board/v1/components.css','daily-board/v1/schema.js','daily-board/v1/render.js','daily-board/v1/live.js','daily-board/index.html','assets/app.js'];
 const OUT='daily-board-publication',ORIGIN='https://missionarytube.z13.web.core.windows.net';
 export const sha=b=>createHash('sha256').update(b).digest('hex');
 const az=args=>execFileSync('az',['storage','blob',...args,'--account-name','missionarytube','--auth-mode','login','--container-name','$web','--only-show-errors'],{encoding:'utf8',stdio:'pipe',timeout:60000});
@@ -31,9 +32,10 @@ async function candidate(){
 async function prepare(){
  await mkdir(OUT,{recursive:true});const plan=await candidate();const before=[];
  for(const [i,file] of plan.files.entries())before.push(await snapshot(file.path,`before-${i}`));
- const route=before.at(-1);assert.equal(route.hash,BEFORE,'Daily Board route changed; review new baseline before publishing');
+ const route=before.find(f=>f.path==='daily-board/index.html');assert.equal(route.hash,BEFORE,'Daily Board route changed; review new baseline before publishing');
  // Versioned paths must be new or already exactly this candidate. Never replace an unknown dependency.
- for(const old of before.slice(0,-1))if(old.exists)assert.equal(old.hash,plan.files.find(f=>f.path===old.path).hash,'Versioned dependency already has different bytes');
+ assert.equal(before.at(-1).hash,APP_BEFORE,'Shared app changed; review the retained variant');
+ for(const old of before.slice(0,-2))if(old.exists)assert.equal(old.hash,plan.files.find(f=>f.path===old.path).hash,'Versioned dependency already has different bytes');
  await writeFile(`${OUT}/checkpoint.json`,JSON.stringify({plan,before},null,2)+'\n');console.log('Captured exact static rollback bytes and ETags; no writes.');
 }
 async function publish(){
@@ -51,11 +53,17 @@ async function publish(){
  await writeFile(`${OUT}/receipt.json`,JSON.stringify(receipt,null,2)+'\n');console.log(JSON.stringify(receipt));
 }
 async function rollback(){
- const {plan,before}=JSON.parse(await readFile(`${OUT}/checkpoint.json`));const old=before.at(-1),file=plan.files.at(-1);
- assert.equal(old.path,'daily-board/index.html');assert.equal(old.hash,BEFORE);assert.equal(sha(await readFile(`${OUT}/${old.file}`)),BEFORE);
- const current=await snapshot(old.path,'rollback-current');assert.equal(current.hash,file.hash,'Current route is not this candidate');
- az(['upload','--name',old.path,'--file',resolve(OUT,old.file),'--content-type',old.properties.contentSettings.contentType,'--content-cache-control',old.properties.contentSettings.cacheControl||'no-cache','--overwrite','true','--if-match',current.etag]);
- assert.equal((await snapshot(old.path,'rollback-readback')).hash,BEFORE);console.log('Original route restored; all new assets and all reports retained.');
+ const {plan,before}=JSON.parse(await readFile(`${OUT}/checkpoint.json`));
+ for(const path of ['assets/app.js','daily-board/index.html']){
+  const old=before.find(f=>f.path===path),file=plan.files.find(f=>f.path===path),hash=path==='assets/app.js'?APP_BEFORE:BEFORE;
+  assert.equal(old.hash,hash);assert.equal(sha(await readFile(`${OUT}/${old.file}`)),hash);
+  const current=await snapshot(path,'rollback-current');
+  if(current.hash===hash)continue;
+  assert.equal(current.hash,file.hash,'Current bytes are not this candidate');
+  az(['upload','--name',path,'--file',resolve(OUT,old.file),'--content-type',old.properties.contentSettings.contentType,'--content-cache-control',old.properties.contentSettings.cacheControl||'no-cache','--overwrite','true','--if-match',current.etag]);
+  assert.equal((await snapshot(path,'rollback-readback')).hash,hash);
+ }
+ console.log('Original navigation and route restored; all new assets and all reports retained.');
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  try{const mode=process.argv[2];assert.ok(['prepare','publish','rollback'].includes(mode));await ({prepare,publish,rollback}[mode])();}

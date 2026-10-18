@@ -66,7 +66,7 @@ User approval now permits this Daily Board merge/deployment. The new manual
 `publish-daily-board.yml` uses existing Azure federation, preserves rollback bytes
 before writing, compares blob ETags immediately before upload, verifies every
 new dependency before publishing the route last, and verifies public readback.
-Only the six named Daily Board blobs are writable; no Worker, private frontend,
+Only the six Daily Board blobs plus the one-line shared-app navigation change are writable; no Worker, private frontend,
 Poweramp, schedule, credential, database, release.json or access setting changes.
 The existing azure-production concurrency group serializes against other
 publishers. Unknown route/dependency state fails closed. Artifact receipts retain

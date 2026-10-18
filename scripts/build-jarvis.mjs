@@ -1,3 +1,4 @@
+import {dailyBoardNavigation} from './daily-board-navigation.mjs';
 import {cp,mkdir,readFile,readdir,rm,writeFile,stat} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {join,extname} from 'node:path';
@@ -16,6 +17,7 @@ if(head!==release.commit)throw Error('Jarvis source must match the pinned releas
 await rm('dist',{recursive:true,force:true});
 await mkdir('dist',{recursive:true});
 await cp(activePublicSource.directory,'dist',{recursive:true});
+await writeFile('dist/assets/app.js',dailyBoardNavigation(await readFile('jarvis/public/assets/app.js','utf8')));
 await rm('dist/media',{recursive:true,force:true});
 await cp(mediaSource.directory,'dist/media',{recursive:true});
 await rm('dist/daily-board',{recursive:true,force:true});
