@@ -140,7 +140,11 @@ export async function findDestinationProof(sourceSha,plan,fetcher){
  return {qualified:true,runId:run.id,attempt:run.run_attempt,sourceSha:run.head_sha,planDigest:plan.digest,url:run.html_url,repository:DEST_REPOSITORY,workflow:DEST_WORKFLOW};
 }
 async function parent(){const receipt=await(await get('release-qualified.json')).json();assert.equal(receiptDigest(receipt),PARENT,'Production receipt changed');return receipt;}
-export function patchManifest(prior){return {schema:1,kind:'poweramp-shuffle-patch',baseArtifactDigest:prior.frontendArtifactDigest,source:SOURCE,files:FILES.map(({path,sha256,bytes})=>({path,sha256,bytes}))};}
+export function patchManifest(prior){return {schema:1,kind:'poweramp-shuffle-patch',baseArtifactDigest:prior.frontendArtifactDigest,source:SOURCE,files:FILES.map(({path,sha256,bytes,before})=>({path,sha256,bytes,
+ // Smallest release scope (Lucy seq-232): a file whose pin already equals its
+ // required live bytes is never uploaded; the receipt records that it was left
+ // untouched. Any other file is uploaded.
+ status:before===sha256?'skipped-untouched':'uploaded'}))};}
 export function checkedShuffleReceipt(receipt){
  const p=receipt.shufflePatch,prior=p?.parentReceipt;assert.equal(receiptDigest(prior),PARENT);
  assert.deepEqual(Object.keys(p).sort(),['artifact','kind','parentReceipt','sourceProof']);assert.equal(p.kind,'poweramp-shuffle');
@@ -202,6 +206,17 @@ async function existingFile(file){
  if(file.before===null){assert.equal(r.status,404,'New shuffle worker must be absent');return null;}
  assert.equal(r.status,200);const bytes=Buffer.from(await r.arrayBuffer());assert.equal(hash(bytes),file.before,'Unexpected existing Poweramp bytes');return bytes;
 }
+// Smallest release scope (Lucy seq-232): when the pin already equals the
+// required live bytes, the blob must be left untouched. The exact hash AND
+// byte size are verified as a required dependency before skipping; any
+// mismatch fails closed. Returns 'skipped-untouched'.
+export function verifyUntouchedLive(file,liveBytes){
+ assert.equal(file.before,file.sha256,'Untouched skip requires before==sha256 for '+file.path);
+ assert.ok(liveBytes,'Live bytes required for '+file.path);
+ assert.equal(liveBytes.length,file.bytes,'Live byte size mismatch for '+file.path);
+ assert.equal(hash(liveBytes),file.sha256,'Live hash mismatch for '+file.path);
+ return 'skipped-untouched';
+}
 async function main(command){
  assert.ok(['prepare','publish','record','stamp','published'].includes(command));
  if(command==='prepare'){
@@ -216,7 +231,14 @@ async function main(command){
   // Same-origin worker first, player last. The existing player does not load
   // the new worker if publication stops after the dependency upload.
   for(const file of FILES){
-   await parent();await existingFile(file);
+   await parent();const live=await existingFile(file);
+   if(file.before===file.sha256){
+    // Smallest release scope (Lucy seq-232): the live bytes are required to
+    // equal the pin, so uploading would be a no-op. Verify hash+size as a
+    // required gate, then leave the blob untouched — never upload it.
+    verifyUntouchedLive(file,live);
+    console.log(JSON.stringify({skippedUntouched:file.path}));continue;
+   }
    az(['upload','--name',file.path,'--file',resolve(JARVIS,'public',file.path),'--content-type','application/javascript','--content-cache-control','no-cache','--overwrite','true']);
    assert.equal(hash(Buffer.from(await(await get(file.path)).arrayBuffer())),file.sha256);
   }

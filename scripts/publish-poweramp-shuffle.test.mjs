@@ -6,7 +6,9 @@ import {join,dirname} from 'node:path';
 import {tmpdir} from 'node:os';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
-import {checkedShuffleReceipt,patchManifest,unchangedInventory,FILES,SOURCE,PARENT,findDestinationProof,destinationPlan,DEST_DEFINITION_PINS,qualifyUploadBytes} from './publish-poweramp-shuffle.mjs';
+import {checkedShuffleReceipt,patchManifest,unchangedInventory,FILES,SOURCE,PARENT,findDestinationProof,destinationPlan,DEST_DEFINITION_PINS,qualifyUploadBytes,verifyUntouchedLive} from './publish-poweramp-shuffle.mjs';
+import {createHash} from 'node:crypto';
+const sha256=b=>createHash('sha256').update(b).digest('hex');
 import {receiptDigest} from './worker-release-identity.mjs';
 import {trustedRecipe} from './plan-jarvis-qualification.mjs';
 // Parent receipt fixture is sharded (4x ~18MB) because the 75MB live receipt
@@ -16,8 +18,32 @@ const parent=JSON.parse([1,2,3,4].map(i=>readFileSync(new URL(`../docs/evidence/
 const receipt=()=>{const artifact=patchManifest(parent);return {...parent,orchestration:'a'.repeat(40),runId:'123',attempt:'1',frontendArtifactDigest:receiptDigest(artifact),shufflePatch:{kind:'poweramp-shuffle',parentReceipt:parent,sourceProof:{qualified:true,sourceSha:SOURCE},artifact}};};
 test('patch receipt allows only the qualified worker/player overlay, preserving Worker and settings',()=>{
  const r=receipt();assert.deepEqual(checkedShuffleReceipt(r),parent);
+ // Smallest release scope (Lucy seq-232): the already-live shuffle-worker is
+ // recorded as skipped-untouched; only the changed player is uploaded.
+ assert.equal(r.shufflePatch.artifact.files[0].status,'skipped-untouched');
+ assert.equal(r.shufflePatch.artifact.files[1].status,'uploaded');
  for(const bad of [{...r,version:'changed'},{...r,settingsDigest:'a'.repeat(64)},{...r,frontendSource:SOURCE},{...r,frontendArtifactDigest:parent.frontendArtifactDigest},{...r,shufflePatch:{...r.shufflePatch,sourceProof:{qualified:false,sourceSha:SOURCE}}}])assert.throws(()=>checkedShuffleReceipt(bad));
  const changed=structuredClone(r);changed.shufflePatch.artifact.files[0].sha256='f'.repeat(64);changed.frontendArtifactDigest=receiptDigest(changed.shufflePatch.artifact);assert.throws(()=>checkedShuffleReceipt(changed));
+});
+test('already-live file is verified hash+size and skipped untouched, never uploaded',()=>{
+ // Synthetic already-live file: before==sha256, so the live bytes must equal
+ // the pin exactly. The skip decision never reaches the network in this test;
+ // the publish loop calls this gate with the live bytes existingFile fetched.
+ const live=Buffer.from('already-live shuffle worker bytes\n');
+ const file={path:'drawercast/shuffle-worker.js',before:sha256(live),sha256:sha256(live),bytes:live.length};
+ assert.equal(verifyUntouchedLive(file,live),'skipped-untouched');
+ // Fail closed: any hash or size mismatch, or missing live bytes, refuses.
+ const sameLength=Buffer.from(live);sameLength[0]^=0xff; // same size, different hash
+ assert.throws(()=>verifyUntouchedLive(file,sameLength),/hash mismatch/);
+ assert.throws(()=>verifyUntouchedLive(file,Buffer.concat([live,Buffer.from('x')])),/size mismatch/);
+ assert.throws(()=>verifyUntouchedLive(file,null),/Live bytes required/);
+ // The skip path is only valid for already-live files (before==sha256).
+ const changed={...file,before:'0'.repeat(64)};
+ assert.throws(()=>verifyUntouchedLive(changed,live),/before==sha256/);
+ // The real pins carry the same invariant: the shuffle-worker pin equals its
+ // required live bytes, the player pin does not.
+ assert.equal(FILES[0].before,FILES[0].sha256);
+ assert.notEqual(FILES[1].before,FILES[1].sha256);
 });
 test('whole-store guard rejects unrelated modifications, deletion and additions',()=>{
  const before=[...FILES.filter(f=>f.before!==null).map(f=>({name:f.path,etag:'old',size:1})),{name:'index.html',etag:'same',size:2},{name:'release-qualified.json',etag:'old',size:3}];
