@@ -70,6 +70,14 @@ export function readerSourceState(identity,settings){
   try{checkedDestinationSettings(settings,true);return 'dual-source';}catch{}
   return 'unknown';
 }
+export function checkedPublicReaderState(state){
+  assert.ok(Array.isArray(state?.posts),'Public reader response has no posts collection');
+  const expected=DESTINATION.repository+'#'+DESTINATION.issue;
+  assert.ok(Array.isArray(state.publisher?.additionalSources),'Public reader omitted per-source status');
+  assert.ok(state.publisher.additionalSources.some(source=>source?.source===expected),
+    'Public reader did not report the exact destination source');
+  return {postCount:state.posts.length,additionalSources:state.publisher.additionalSources.map(source=>source.source)};
+}
 export function checkedIssue(issue){
   assert.equal(issue?.number,DESTINATION.issue);assert.equal(issue?.title,DESTINATION.title);
   assert.equal(issue?.state,'open');assert.equal(issue?.pull_request,undefined,'Destination must be a dedicated issue');
@@ -119,10 +127,10 @@ async function liveRead(fetcher=fetch){
   const health=await fetcher(origin+'/health',{method:'GET',redirect:'error',signal:AbortSignal.timeout(30000)});
   assert.equal(health.status,200,'Live Worker health check failed');
   const h=await health.json();assert.equal(h.ok,true);assert.equal(h.mode,'github-publications');
-  const response=await fetcher(origin+'/v1/state',{method:'GET',redirect:'error',signal:AbortSignal.timeout(30000)});
-  assert.equal(response.status,200,'Public reader sync failed');const state=await response.json();
-  assert.ok(Array.isArray(state.posts),'Public reader response has no posts collection');
-  return {health:true,readerSync:true,postCount:state.posts.length};
+  const response=await fetcher(origin+'/shared/state?after=0',{method:'GET',redirect:'error',signal:AbortSignal.timeout(30000)});
+  assert.equal(response.status,200,`Public reader sync failed (HTTP ${response.status})`);const state=await response.json();
+  const reader=checkedPublicReaderState(state);
+  return {health:true,readerSync:true,...reader};
 }
 async function prepare(mode,issueNumber){
   assert.ok(['enable','rollback'].includes(mode));const {account,token}=credentials();
