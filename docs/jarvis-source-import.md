@@ -587,3 +587,19 @@ preserved and the network-dependent result is not treated as a code regression.
   `source_sha`. The push-path validation remains separate from its manual
   migration job. Original Actions proof identities, provenance readers and
   publication destinations remain on their existing owners.
+
+## Composable Daily Board activation (2026-10-18)
+
+The Daily Board-only source boundary now includes its approved design stylesheet,
+embedded font and validated data renderer under `jarvis/public/daily-board/v1`.
+Its exact commit/tree are recorded in `jarvis-dailyBoard-source.json`; the import
+integrity guard is explicitly advanced for this route-only change. Other
+component sources, including Poweramp, remain unchanged. The static build adds
+only the route-specific `font-src data:` policy needed by the embedded font.
+
+Structured content is encoded inside the existing bounded briefing body, retaining
+owner-authenticated issue import, SQLite entries, immutable history, date
+reservations and both source readers. No Worker or database migration is needed.
+See `daily-board-next/PUBLISHING.md` for the contract. A separate manual static
+publisher captures rollback state and changes only the six Daily Board blobs;
+merge alone is not deployment evidence. The parent owns scheduled writer cutover.

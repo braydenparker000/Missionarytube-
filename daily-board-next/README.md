@@ -81,3 +81,11 @@ the activated reader displays it as reviewed components.
 
 The parent owns automation cutover and real researched content. Preserve the
 07:00 Rosario cadence. Never publish synthetic fixtures as a real edition.
+
+Activation verification before deployment: 1186 root tests passed in the isolated
+exact-pin checkout; production build passed with 197 files / 20.23 MiB. Seven
+focused checks pass after adding byte-equality coverage for maintained modules.
+`check-live-reader.mjs <dist-directory>` also passed against the built route under
+its actual CSP: embedded font loads, an encoded synthetic API response renders,
+and selection of a historical plain-text report works at 390px without overflow.
+This controlled response was never published to production.

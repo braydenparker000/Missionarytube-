@@ -25,3 +25,6 @@ test('existing body envelope round-trips with stable identity and safe unknown f
   assert.equal(decodeReport({...entry,body:entry.body.replace('jarvis-daily-board-v1','unknown')}),null);
   assert.equal(decodeReport({body:'Legacy prose'}),null);
 });
+test('maintained production modules exactly match qualified component sources',()=>{
+  for(const file of ['schema.js','render.js','live.js','design.css','components.css'])assert.equal(readFileSync(new URL('../jarvis/public/daily-board/v1/'+file,import.meta.url),'utf8'),readFileSync(new URL('../daily-board-next/'+file,import.meta.url),'utf8'));
+});
