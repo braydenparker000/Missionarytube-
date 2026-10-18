@@ -40,12 +40,29 @@ change schedules, credentials or access as an implied part of source work.
 
 ## Required checks
 
-Before proposing changes:
+Choose validation by affected behavior, dependencies and release risk, following
+the canonical SOP. This section replaces the former blanket requirement to run
+`npm test` and `npm run build` for every proposed change.
 
-1. Run `npm test`.
-2. Run `npm run build`.
-3. Inspect the diff for accidental credentials, private addon URLs, user data, and unrelated edits.
-4. Put acceptance-criteria evidence in the pull request.
+- For every change, inspect the complete diff for credentials, private addon
+  URLs, user data and unrelated edits. Report verified acceptance criteria,
+  commands/results and remaining uncertainty.
+- Routine documentation-only changes require diff/privacy review, relative-link
+  validation and factual checks against the relevant source or workflow. Do not
+  rerun application tests or builds solely for prose changes. Executable
+  examples and documentation governing release or security behavior also need
+  verification against the affected contracts; a Markdown extension alone does
+  not establish low risk.
+- For behavioral changes, run focused regressions first, then affected-component
+  and integration checks based on dependency impact. For shared infrastructure,
+  security or release changes, run the full applicable qualification, including
+  root `npm test` and `npm run build` where the deployment suite/build is affected.
+  Preserve authentication, negative-case, artifact-identity and rollback checks.
+- Actual required CI checks and publisher qualification remain mandatory before
+  merge/publication. This local validation policy does not change workflow
+  triggers, branch protections or release gates. Reuse existing evidence only
+  when its revision, dependencies, configuration and environment assumptions
+  remain valid; do not treat an unrun required check as passed.
 
 ## Engineering constraints
 
@@ -58,6 +75,13 @@ Before proposing changes:
 
 ## Collaboration modes
 
-For normal work, Claude produces the first implementation. Leave a clear handoff containing changed files, test results, tradeoffs, and remaining uncertainty so Codex can review adversarially.
+Use one assigned delivery owner for implementation, evidence and completion.
+Choose review depth by risk, not model/provider identity. Small isolated changes
+need a complete diff review and relevant checks, without a mandatory second
+agent or serial handoff. Shared infrastructure, security and release changes
+need adversarial review of affected contracts and failure paths, with independent
+review where required by the task or existing release process. Review once
+comprehensively, then verify fixes and their impact; reopen unchanged code only
+for new evidence or material risk. See [collaboration guidance](docs/AI-COLLABORATION.md).
 
 For an arena task, follow [docs/EVALUATION.md](docs/EVALUATION.md). Start from the exact recorded base commit, do not inspect the Codex branch before submission, and do not self-score.

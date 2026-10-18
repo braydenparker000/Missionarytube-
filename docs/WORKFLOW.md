@@ -12,9 +12,9 @@ is a deployment target, not a place to edit independently.
    - `feature/<short-name>`
    - `fix/<short-name>`
    - `refactor/<short-name>`
-3. Use the assigned delivery owner and exact starting commit. The default Claude implementation / Codex review lane applies when no task-specific assignment supersedes it.
+3. Use one assigned delivery owner and the exact starting commit; choose review depth by risk using [the collaboration guidance](AI-COLLABORATION.md).
 4. Open a pull request when authorized. CI runs the existing qualification and build checks. A draft PR is an intermediate artifact when the requested outcome is verified shipment.
-5. Review the complete bounded diff adversarially using the assigned reviewer. Verify subsequent fixes and their impact; reopen unchanged code only for new evidence or material risk.
+5. Review the complete bounded diff at the depth its risk requires. Small isolated changes do not require a second agent or serial handoff. Verify subsequent fixes and their impact; reopen unchanged code only for new evidence or material risk.
 6. Apply fixes only when the finding is reproducible or tied to an acceptance criterion.
 7. Require applicable green checks and authorization before merge.
 8. For an authorized shipment, select the existing component publisher and exact
@@ -57,11 +57,14 @@ recreate retired root `index.html` or `assets/` copies. See
 [the import record](jarvis-source-import.md) and [README.md](../README.md#media-regression-checks)
 for component boundaries and checkout preparation.
 
-Run focused checks first, then required `npm test` and `npm run build`. Current
-repository and CI requirements remain mandatory; risk-scoped checks guide
-iteration and additional acceptance, not bypassing release qualification.
-Inspect `dist/` and test the changed user-visible behavior on Android Chrome
-when applicable.
+Use the [root validation policy](../AGENTS.md#required-checks): routine prose
+changes need diff/privacy, link and factual checks without application reruns.
+Behavioral changes need focused regressions and affected-component/integration
+checks; shared infrastructure, security and release changes need full applicable
+qualification. Root `npm test` and `npm run build` apply when the deployment
+suite/build is affected or actual CI/release requirements demand them. Required
+CI and publisher gates remain intact. Inspect `dist/` and test changed
+user-visible behavior on Android Chrome when applicable.
 
 ## Interruption and completion
 

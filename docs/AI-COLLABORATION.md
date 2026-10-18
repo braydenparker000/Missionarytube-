@@ -1,32 +1,34 @@
-# Claude and Codex collaboration
+# Delivery ownership and review
 
-The default production lane uses different strengths without giving either model unchecked authority.
+Use the canonical [delivery SOP](../jarvis/.agents/skills/deliver-software-efficiently/SKILL.md)
+and [root validation policy](../AGENTS.md#required-checks). These rules replace
+the former provider-named serial implementation/review lane.
 
 ## Production lane
 
-### 1. Claude implements
+One assigned delivery owner carries the requested result, acceptance criteria,
+exact revision, implementation and evidence through the authorized finish line.
+Assign reviewers by affected risk and expertise, not model/provider identity.
+A handoff is useful only when it resolves a real dependency or review need.
 
-Claude receives the issue, acceptance criteria, current `main` commit, repository instructions, and relevant files. It creates the first implementation and a pull request.
+Small isolated changes require a complete diff review and relevant checks, not
+a mandatory second agent or serial handoff. Routine documentation-only work
+uses diff/privacy, link and factual checks. Behavioral changes require affected
+regression and integration evidence. Shared infrastructure, security and release
+changes require adversarial review of contracts, negative cases, recovery and
+rollback, with independent review where required by the task or existing
+release process. Required CI and publisher qualification remain mandatory.
 
-### 2. Codex reviews adversarially
+Reviewers distinguish reproducible defects and acceptance gaps from hypotheses
+and unrelated improvements. Review the complete bounded change once, then
+verify fixes and their impact. New evidence or material risk can reopen review;
+unchanged code does not require another round merely because another agent is
+available. Do not ship a known serious defect to satisfy a round or time limit.
 
-Codex reviews the actual diff and checks:
-
-- acceptance-criteria gaps
-- reproducible functional bugs
-- Android Chrome and touch behavior
-- accessibility regressions
-- performance and unnecessary work
-- unsafe credential or data handling
-- error handling and recovery
-- architecture complexity
-- missing or weak tests
-
-Codex should distinguish proven issues from hypotheses. It may push focused fixes to the same branch after documenting evidence.
-
-### 3. CI and owner decide
-
-Automated checks are the floor. Brayden decides product taste and unresolved tradeoffs. Green CI does not prove the feature is correct, and model confidence is not evidence.
+The delivery owner reports the revision, changes, checks, acceptance evidence,
+remaining uncertainty and actual delivery state. Brayden decides product taste
+and unresolved tradeoffs. Green CI does not prove runtime acceptance or authorize
+publication, and model confidence is not evidence.
 
 ## Fair arena lane
 
@@ -37,7 +39,7 @@ When comparing models, both receive the same task specification and exact base c
 Use the same packet for both models in an arena:
 
 ```text
-Repository: braydenparker999/Missionarytube-
+Repository: braydenparker000/Missionarytube-
 Task spec: evals/tasks/<task-id>.md
 Base commit: <full SHA>
 Work only from that commit.
