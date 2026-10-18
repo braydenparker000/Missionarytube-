@@ -672,7 +672,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: braydenparker000/Missionarytube-
-          ref: 64ac7e70db402a1cd3be73217b46e845762f2981
+          ref: eef4dac81594749cbd5aaa288791fd324d71ca02
           path: .poweramp-source
           persist-credentials: false
       - name: Verify trusted source and back up exact existing files

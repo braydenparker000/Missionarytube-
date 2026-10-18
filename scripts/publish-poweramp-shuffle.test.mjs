@@ -1,8 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {checkedShuffleReceipt,patchManifest,unchangedInventory,FILES,SOURCE,PARENT} from './publish-poweramp-shuffle.mjs';
+import {readFile,writeFile,mkdir,mkdtemp,rm} from 'node:fs/promises';
+import {join,dirname} from 'node:path';
+import {tmpdir} from 'node:os';
+import {pathToFileURL,fileURLToPath} from 'node:url';
+import {execFileSync} from 'node:child_process';
+import {checkedShuffleReceipt,patchManifest,unchangedInventory,FILES,SOURCE,PARENT,findDestinationProof,destinationPlan,DEST_DEFINITION_PINS,qualifyUploadBytes} from './publish-poweramp-shuffle.mjs';
 import {receiptDigest} from './worker-release-identity.mjs';
+import {trustedRecipe} from './plan-jarvis-qualification.mjs';
 // Parent receipt fixture is sharded (4x ~18MB) because the 75MB live receipt
 // exceeds the Git Data API blob size limit; the parts reassemble byte-exactly
 // and receiptDigest() of the parsed receipt must equal PARENT.
@@ -19,6 +25,203 @@ test('whole-store guard rejects unrelated modifications, deletion and additions'
  before.sort((a,b)=>a.name.localeCompare(b.name));
  unchangedInventory(before,after);
  for(const bad of [after.filter(f=>f.name!=='index.html'),[...after,{name:'new.js',etag:'new',size:1}],after.map(f=>f.name==='index.html'?{...f,etag:'changed'}:f)])assert.throws(()=>unchangedInventory(before,bad));
+});
+const DEST_COMPONENT_NAMES=['relay','frontend','poweramp','blankLibrary','podcasts','migration','performance','owner24'];
+// The aggregate inventory mandates these test files; the synthetic trees below
+// carry them so the real makePlan runs exactly as it does in CI.
+const SYNTHETIC_TESTS=['tests/poweramp-blank-library-browser.test.js','tests/podcasts-browser.test.js',
+ 'tests/ci-workflow.test.js','tests/oauth-consent-browser.test.js','tests/shared.test.js',
+ 'tests/publications.test.js','tests/origins.test.js','tests/hub.test.js'];
+// A genuine plan built by the real frozen module over synthetic entries, so the
+// lane binding is tested against real digests rather than canned strings.
+async function fixturePlan(envOverrides={}){
+ const q=await import('../jarvis/scripts/qualification-proof.mjs');
+ const entries=[
+  ...Object.entries(trustedRecipe).map(([path,sha])=>({path,sha,mode:'100644'})),
+  ...SYNTHETIC_TESTS.map((path,i)=>({path,sha:(i+10).toString(16).padStart(40,'0'),mode:'100644'})),
+  {path:'backend/worker.js',sha:'a'.repeat(40),mode:'100644'},
+ ];
+ const env=q.declaredEnvironment('.',Object.assign(
+  {QUALIFICATION_NODE22:'v22.23.3',QUALIFICATION_NODE24:'v24.21.0',QUALIFICATION_PYTHON:'Python 3.12.15'},envOverrides));
+ return q.makePlan(entries,env);
+}
+function fixtureRun(overrides={}){
+ return Object.assign({id:39095142361,repository:{full_name:'braydenparker000/Missionarytube-'},
+  head_repository:{full_name:'braydenparker000/Missionarytube-',fork:false},
+  event:'push',head_branch:'main',path:'.github/workflows/ci.yml',head_sha:SOURCE,
+  status:'completed',conclusion:'success',run_attempt:1,html_url:'https://example.invalid/run'},overrides);
+}
+function fixtureJobs(plan,run,jobOverrides={}){
+ const lane=c=>`static-checks / component (${c}, ${plan.components[c].digest}, 22.23.3, false)`;
+ return ['static-checks / plan','static-checks / build','static-checks / qualification',
+  ...DEST_COMPONENT_NAMES.map(lane)]
+  .map(name=>Object.assign({name,run_id:run.id,run_attempt:run.run_attempt,head_sha:run.head_sha,
+   status:'completed',conclusion:'success'},jobOverrides));
+}
+function proofFetcher(run,jobs,definitionShas=DEST_DEFINITION_PINS){
+ return async url=>{
+  if(url.includes('/contents/')){
+   const path=url.split('/contents/')[1].split('?')[0];
+   if(!(path in definitionShas))throw Error('unexpected definition file: '+path);
+   return Response.json({sha:definitionShas[path],encoding:'base64',content:''});
+  }
+  return Response.json(url.includes('/jobs?')
+   ?{total_count:jobs.length,jobs}
+   :{total_count:1,workflow_runs:[run]});
+ };
+}
+test('destination proof binds the reproduced plan digests to the exact-source run',async()=>{
+ const plan=await fixturePlan();
+ const run=fixtureRun();
+ const jobs=fixtureJobs(plan,run);
+ const proof=await findDestinationProof(SOURCE,plan,proofFetcher(run,jobs));
+ assert.equal(proof.qualified,true);assert.equal(proof.runId,run.id);assert.equal(proof.sourceSha,SOURCE);
+ assert.equal(proof.planDigest,plan.digest);
+ assert.equal(proof.repository,'braydenparker000/Missionarytube-');
+ // A plan is mandatory and an exact source SHA is mandatory; neither is skipped.
+ await assert.rejects(findDestinationProof(SOURCE,null,proofFetcher(run,jobs)),/reproduced destination qualification plan/);
+ await assert.rejects(findDestinationProof('not-a-sha',plan,async()=>{throw Error('must not fetch');}));
+ // Run-level negatives: no runs, wrong SHA, failed conclusion, PR event, fork,
+ // non-integer id/attempt. None reach the definition or job checks.
+ for(const overrides of [
+  {},
+  {head_sha:'0'.repeat(40)},
+  {conclusion:'failure'},
+  {event:'pull_request'},
+  {head_repository:{full_name:'braydenparker000/Missionarytube-',fork:true}},
+  {id:'39095142361'},
+  {run_attempt:0},
+ ]){
+  const runs=overrides&&Object.keys(overrides).length?{total_count:1,workflow_runs:[fixtureRun(overrides)]}:{total_count:0,workflow_runs:[]};
+  await assert.rejects(findDestinationProof(SOURCE,plan,async()=>Response.json(runs)),/No successful destination qualification run/);
+ }
+});
+test('destination proof pins the reviewed CI definition bytes',async()=>{
+ const plan=await fixturePlan();
+ const run=fixtureRun();
+ const jobs=fixtureJobs(plan,run);
+ // A single changed definition file is rejected, naming the file.
+ const tampered=Object.assign({},DEST_DEFINITION_PINS,{'.github/workflows/qualify-jarvis.yml':'0'.repeat(40)});
+ await assert.rejects(findDestinationProof(SOURCE,plan,proofFetcher(run,jobs,tampered)),/Destination CI definition differs.*qualify-jarvis\.yml/);
+});
+test('destination proof rejects stale plans, wrong attempts, and bad job pages',async()=>{
+ const plan=await fixturePlan();
+ const run=fixtureRun();
+ const jobs=fixtureJobs(plan,run);
+ // Stale plan: a plan computed with a different runtime has different digests,
+ // so the CI's lanes no longer bind to it.
+ const stalePlan=await fixturePlan({QUALIFICATION_NODE22:'v22.99.0'});
+ assert.notEqual(stalePlan.components.relay.digest,plan.components.relay.digest);
+ await assert.rejects(findDestinationProof(SOURCE,stalePlan,proofFetcher(run,jobs)),/plan-mismatched/);
+ // Tampered component digest is rejected the same way.
+ const tamperedPlan={...plan,components:{...plan.components,relay:{digest:'0'.repeat(64)}}};
+ await assert.rejects(findDestinationProof(SOURCE,tamperedPlan,proofFetcher(run,jobs)),/plan-mismatched/);
+ // Wrong attempt: jobs bound to a different attempt than the run.
+ const wrongAttempt=jobs.map(j=>({...j,run_attempt:2}));
+ await assert.rejects(findDestinationProof(SOURCE,plan,proofFetcher(run,wrongAttempt)),/another attempt/);
+ // Incomplete job page.
+ await assert.rejects(findDestinationProof(SOURCE,plan,async url=>{
+  if(url.includes('/contents/')){
+   const path=url.split('/contents/')[1].split('?')[0];
+   return Response.json({sha:DEST_DEFINITION_PINS[path],encoding:'base64',content:''});
+  }
+  return Response.json(url.includes('/jobs?')
+   ?{total_count:jobs.length,jobs:jobs.slice(1)}
+   :{total_count:1,workflow_runs:[run]});
+ }),/Incomplete destination qualification job page/);
+ // Missing lane.
+ const missing=jobs.filter(j=>!j.name.includes('(poweramp,'));
+ await assert.rejects(findDestinationProof(SOURCE,plan,proofFetcher(run,missing)),/plan-mismatched.*poweramp/);
+ // Duplicated lane.
+ const duplicated=[...jobs,jobs.find(j=>j.name.includes('(relay,'))];
+ await assert.rejects(findDestinationProof(SOURCE,plan,proofFetcher(run,duplicated)),/plan-mismatched.*relay/);
+ // Failed lane conclusion.
+ const failedLane=jobs.map(j=>j.name.includes('(frontend,')?{...j,conclusion:'failure'}:j);
+ await assert.rejects(findDestinationProof(SOURCE,plan,proofFetcher(run,failedLane)),/not successful.*frontend/);
+ // Job from another source SHA mixed into the page.
+ const mixedSha=jobs.map((j,i)=>i===0?{...j,head_sha:'0'.repeat(40)}:j);
+ await assert.rejects(findDestinationProof(SOURCE,plan,proofFetcher(run,mixedSha)),/another source/);
+});
+test('destination plan reproduces the CI plan from the release pin',async()=>{
+ const root=await mkdtemp(join(tmpdir(),'dest-plan-fixture-'));
+ try{
+  const commit='c28c1b2f70aabb5217b08bf31ffe4c93d0353765';
+  await writeFile(join(root,'jarvis-release.json'),JSON.stringify({repository:'braydenparker999/jarvis',commit}));
+  const treeEntries=[
+   ...Object.entries(trustedRecipe).map(([path,sha])=>({path,mode:'100644',type:'blob',sha})),
+   ...SYNTHETIC_TESTS.map((path,i)=>({path,mode:'100644',type:'blob',sha:(i+20).toString(16).padStart(40,'0')})),
+   {path:'backend/worker.js',mode:'100644',type:'blob',sha:'b'.repeat(40)},
+  ];
+  const moduleBytes={};
+  // Serve the true release-commit bytes from local history: the recompute
+  // check requires content that hashes to the trusted pins, and only the
+  // release commit's own bytes do.
+  const repoRoot=fileURLToPath(new URL('..',import.meta.url));
+  for(const p of ['scripts/qualification-proof.mjs','scripts/install-qualification-browser.mjs','tests/helpers/ci-test-inventory.mjs'])
+   moduleBytes[p]=execFileSync('git',['cat-file','-p',`${commit}:${p}`],{cwd:repoRoot});
+  const fetcher=async url=>{
+   if(url.includes('/git/trees/'))return Response.json({truncated:false,tree:treeEntries});
+   const path=url.split('/contents/')[1].split('?')[0];
+   return Response.json({sha:trustedRecipe[path],encoding:'base64',content:moduleBytes[path].toString('base64')});
+  };
+  const plan=await destinationPlan(fetcher,root);
+  assert.equal(plan.schema,1);
+  for(const c of DEST_COMPONENT_NAMES)assert.match(plan.components[c].digest,/^[a-f0-9]{64}$/);
+  // The API path reproduces a direct local computation over the same inputs:
+  // materialize the served bytes and run makePlan on them directly.
+  const directDir=await mkdtemp(join(tmpdir(),'dest-plan-direct-'));
+  let direct;
+  try{
+   for(const p of Object.keys(moduleBytes)){const t=join(directDir,p);await mkdir(dirname(t),{recursive:true});await writeFile(t,moduleBytes[p]);}
+   const q=await import(pathToFileURL(join(directDir,'scripts/qualification-proof.mjs')));
+   direct=q.makePlan(treeEntries.map(({path,sha,mode})=>({path,sha,mode})),
+    q.declaredEnvironment('.',{QUALIFICATION_NODE22:'v22.23.3',QUALIFICATION_NODE24:'v24.21.0',QUALIFICATION_PYTHON:'Python 3.12.15'}));
+  }finally{await rm(directDir,{recursive:true,force:true});}
+  assert.equal(plan.digest,direct.digest);
+  // The reproduced plan binds end to end against lanes carrying its digests.
+  const run=fixtureRun();
+  const jobs=fixtureJobs(plan,run);
+  const proof=await findDestinationProof(SOURCE,plan,proofFetcher(run,jobs));
+  assert.equal(proof.qualified,true);assert.equal(proof.planDigest,plan.digest);
+  // Stale recipe evidence: a recipe blob that no longer matches the trusted pins.
+  const staleTree=treeEntries.map(e=>e.path==='scripts/qualification-proof.mjs'?{...e,sha:'0'.repeat(40)}:e);
+  await assert.rejects(destinationPlan(async url=>url.includes('/git/trees/')
+   ?Response.json({truncated:false,tree:staleTree}):fetcher(url),root),/trusted pins/);
+  // Tampered module content: the API reports the trusted sha but the decoded
+  // bytes do not hash to it. The recompute check rejects this even though the
+  // sha field matches.
+  const tamperedBytes=Buffer.from('export const tampered=true;\n');
+  await assert.rejects(destinationPlan(async url=>{
+   if(url.includes('/git/trees/'))return Response.json({truncated:false,tree:treeEntries});
+   const path=url.split('/contents/')[1].split('?')[0];
+   return Response.json({sha:trustedRecipe[path],encoding:'base64',content:tamperedBytes.toString('base64')});
+  },root),/do not hash to the trusted pin/);
+  // Truncated tree is rejected.
+  await assert.rejects(destinationPlan(async ()=>Response.json({truncated:true,tree:treeEntries}),root),/Incomplete release source tree/);
+  // Submodule in the release tree is rejected.
+  const withSubmodule=[...treeEntries,{path:'vendor/lib',mode:'160000',type:'commit',sha:'c'.repeat(40)}];
+  await assert.rejects(destinationPlan(async ()=>Response.json({truncated:false,tree:withSubmodule}),root),/submodule/);
+  // A non-SHA release pin never reaches the network.
+  await writeFile(join(root,'jarvis-release.json'),JSON.stringify({repository:'braydenparker999/jarvis',commit:'nope'}));
+  await assert.rejects(destinationPlan(async()=>{throw Error('must not fetch');},root),/exact commit/);
+ }finally{await rm(root,{recursive:true,force:true});}
+});
+test('upload bytes are syntax-checked and carry the reviewed acceptance markers',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'byte-qual-'));
+ try{
+  const player=join(dir,'player.js'),worker=join(dir,'sw.js');
+  await writeFile(player,'// Waiting for connection\n// If-None-Match\n// auto-resume-armed\n// play-start-retry\n// R2 library not modified\nconsole.log(1);\n');
+  await writeFile(worker,'console.log(2);\n');
+  assert.equal(qualifyUploadBytes([{path:'drawercast/player.js',absPath:player},{path:'drawercast/shuffle-worker.js',absPath:worker}]),2);
+  // Files without markers configured still get the syntax check.
+  assert.equal(qualifyUploadBytes([{path:'drawercast/shuffle-worker.js',absPath:worker}]),1);
+  // A syntax error in the exact bytes fails closed before upload.
+  await writeFile(worker,'console.log(;\n');
+  assert.throws(()=>qualifyUploadBytes([{path:'drawercast/shuffle-worker.js',absPath:worker}]));
+  // A missing reviewed marker fails closed.
+  await writeFile(player,'console.log(1);\n');
+  assert.throws(()=>qualifyUploadBytes([{path:'drawercast/player.js',absPath:player}]),/acceptance marker/);
+ }finally{await rm(dir,{recursive:true,force:true});}
 });
 test('receipt lineage requires this exact successful attempt and stamp before accepting the overlay',async()=>{
  const {verifiedMusicReceipt,nextMusicReceipt}=await import('./music-frontend-identity.mjs');
