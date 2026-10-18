@@ -155,10 +155,22 @@ test('destination plan reproduces the CI plan from the release pin',async()=>{
   const moduleBytes={};
   // Serve the true release-commit bytes from local history: the recompute
   // check requires content that hashes to the trusted pins, and only the
-  // release commit's own bytes do.
+  // release commit's own bytes do. CI runs this suite from a shallow
+  // checkout whose object store cannot resolve the release commit's tree
+  // (git reports the misleading "path does not exist"); the build job
+  // always provides the full-history release checkout at .jarvis-source,
+  // so fall back to it before failing closed.
   const repoRoot=fileURLToPath(new URL('..',import.meta.url));
-  for(const p of ['scripts/qualification-proof.mjs','scripts/install-qualification-browser.mjs','tests/helpers/ci-test-inventory.mjs'])
-   moduleBytes[p]=execFileSync('git',['cat-file','-p',`${commit}:${p}`],{cwd:repoRoot});
+  const historyRoots=[repoRoot,join(repoRoot,'.jarvis-source')];
+  for(const p of ['scripts/qualification-proof.mjs','scripts/install-qualification-browser.mjs','tests/helpers/ci-test-inventory.mjs']){
+   let bytes=null;
+   for(const cwd of historyRoots){
+    try{bytes=execFileSync('git',['cat-file','-p',`${commit}:${p}`],{cwd});break;}
+    catch{/* try the next object store */}
+   }
+   assert.ok(bytes,`cannot resolve ${commit}:${p} from local git history (tried ${historyRoots.join(', ')})`);
+   moduleBytes[p]=bytes;
+  }
   const fetcher=async url=>{
    if(url.includes('/git/trees/'))return Response.json({truncated:false,tree:treeEntries});
    const path=url.split('/contents/')[1].split('?')[0];
