@@ -9,17 +9,34 @@ Maintain MissionaryTube as a fast, reliable, mobile-first static web app whose d
 `braydenparker000/Missionarytube-` is the surviving repository. Authoritative
 Jarvis application source is imported under `jarvis/`; use its canonical
 [delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
-This root guidance supersedes the imported delivery plan's former two-repository
-destination. Keep the imported snapshot exact until the component-cutover patch
-is reviewed; the import guard fails on byte, mode, or file-set changes.
+This root guidance supersedes dated checkpoints in the frozen imported
+[delivery plan](jarvis/docs/delivery-plan.md). Preserve the import integrity
+boundary; maintained component changes must use the existing exact-source
+manifests and guards, not a wholesale snapshot replacement.
 
-The deployed build still uses the external checkout selected by
-`jarvis-release.json`. Importing source does not switch production or authorize
-running nested workflows. Root `npm test` is the deployment suite; imported
-application tests remain a separately qualified component. Do not run them as
-an accidental part of root discovery. Preserve Daily Board issue #2, current
-release paths and all original repository refs. See
-[the import record](docs/jarvis-source-import.md) for remaining cutover work.
+The current static build uses `jarvis-active-public-c28/public` plus exact
+component overlays resolved by `scripts/media-source.mjs` and the explicit
+navigation/configuration transforms in `scripts/build-jarvis.mjs`.
+`.jarvis-source` is still required at the `jarvis-release.json` commit for
+qualification and retained release consumers, but active workflow checkouts
+use destination history in `braydenparker000/Missionarytube-`. The manifest's
+old repository field is historical identity, not the current checkout origin.
+See [the import record](docs/jarvis-source-import.md) and the actual selected
+publisher for component-specific source, preservation and rollback boundaries.
+
+Root `npm test` is the deployment suite; imported application tests remain
+separately qualified. Run relevant imported tests explicitly, not through
+accidental root discovery. Preserve original repository refs and publication
+history, including legacy `braydenparker999/jarvis#2` and destination
+`braydenparker000/Missionarytube-#250`; destination #2 is an imported PR.
+Dated release maps and import checkpoints do not establish current live or
+external-writer state. Use exact publisher receipts and current readback;
+completed product work is not reopened by a historical hold.
+
+A merge or successful qualification is not shipment. Production publication
+uses an explicitly authorized manual workflow and its existing identity,
+qualification, backup and readback gates. Do not run nested workflows or
+change schedules, credentials or access as an implied part of source work.
 
 ## Required checks
 
