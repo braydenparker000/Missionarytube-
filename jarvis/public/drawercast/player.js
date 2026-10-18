@@ -10594,9 +10594,10 @@ async function boot(){
   Search.init();
   installListDelegation($('#list-body'));
   installListDelegation($('#q-body'));
-  await Playlists.load();
-  await Bookmarks.load();
-  await loadLibrary();
+  // The three boot loads are independent IndexedDB reads; run them
+  // concurrently instead of sequentially so first paint isn't gated on
+  // their sum. None of the render calls below run until all resolve.
+  await Promise.all([Playlists.load(), Bookmarks.load(), loadLibrary()]);
   DrawerCast.install();
   const serverConnection=DrawerCast.restoreConfig();
   await loadRoots();
