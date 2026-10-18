@@ -69,7 +69,7 @@ test('dynamic commits must pass destination-main ancestry and retained migration
     const flow=read('.github/workflows/'+path);assert.deepEqual(checkoutRefs('.github/workflows/'+path),['${{ inputs.source_commit }}']);
     assert.match(flow,/fetch-depth: 0/);assert.match(flow,/node scripts\/check-source-commit-reachable\.mjs \.jarvis-source "\$SOURCE_COMMIT"/);
     const guard=flow.indexOf('check-source-commit-reachable.mjs');
-    const existingChecks=flow.indexOf(path==='deploy-music-worker.yml'?'npm --prefix .jarvis-source ci':'node --test tests/audio-fidelity.test.js');
+    const existingChecks=flow.indexOf(path==='deploy-music-worker.yml'?'npm --prefix .jarvis-source/jarvis ci':'node --test tests/audio-fidelity.test.js');
     assert.ok(guard>=0&&existingChecks>guard,'source ancestry must be checked before source tests or install');
   }
   const migration=read('.github/workflows/migrate-music-r2.yml');
