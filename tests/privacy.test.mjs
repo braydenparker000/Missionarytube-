@@ -112,7 +112,8 @@ const FRONTEND_PUBLIC_HOSTS = {
   'frontend/mymedia/library.js': ['i.ytimg.com'],
   'frontend/podcasts/directory.js': ['itunes.apple.com'], // existing public podcast directory
   'frontend/portal/index.html': ['cdnjs.cloudflare.com'], // existing portal runtime
-  'frontend/staticwebapp.config.json': ['generativelanguage.googleapis.com', 'api.groq.com', 'api.tavily.com', 'i.ytimg.com'], // existing document policy
+  'frontend/quick-ai/index.html': ['generativelanguage.googleapis.com', 'api.groq.com', 'api.tavily.com'], // unchanged deployed document policy
+  'frontend/mymedia/index.html': ['i.ytimg.com'], // unchanged deployed document policy
   'frontend/youtube-archive/privacy.html': ['myaccount.google.com'] // existing account-management link
 };
 

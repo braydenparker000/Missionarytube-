@@ -1,6 +1,6 @@
 import {validateAnalysis} from './audio-analysis.js';
 // Native R2 discovery. Audio, tags and identities no longer require a Drive catalog.
-import {commitR2Catalog} from './r2-api.js';
+import {commitR2Catalog} from './r2-api.js?v=snapshot-v1';
 export {commitR2Catalog};
 export const LIBRARY_KEY='catalog/r2-library-v1.json';
 export const MAX_LIBRARY_BYTES=16*1024*1024;
@@ -85,10 +85,16 @@ export function libraryMapping(data,url){
   const tracks=[...files.values()].map(t=>({...t.metadata,id:t.id,remoteId:t.id.slice(3),source:'r2',remote:false,
     path:t.path,folder:t.folder,size:t.size,sha256:t.sha256,md5:t.md5||'',mimeType:t.mimeType,
     ext:t.path.split('.').at(-1).toLowerCase(),missing:false,needsPerm:false,errored:false,
-    coverURL:t.coverKey?base+'art/'+t.id:t.coverURL||null,added:Date.now(),rating:0,plays:0,lastPlayed:0}));
-  return {tracks,mapping:Object.freeze({native:true,count:files.size,mode:'library',complete:true,
+    coverURL:t.coverKey?base+'art/'+t.id:t.coverURL||null,added:Math.max(0,Date.parse(t.r2Identity.lastModified))||0,addedSource:'r2-upload',rating:0,plays:0,lastPlayed:0}));
+  return {tracks,snapshot:{version:1,endpoint:endpoint.href,data:structuredClone(data)},mapping:Object.freeze({native:true,count:files.size,mode:'library',complete:true,
     matches:list=>Array.isArray(list)&&list.length===files.size&&new Set(list.map(t=>t.id)).size===files.size&&list.every(matches),
     mediaURL:t=>matches(t)?base+'audio/'+t.id:null})};
+}
+// Cached discovery is a previously validated snapshot, never a saved arbitrary
+// media URL. The Worker still authorizes and validates every object read.
+export function restoreLibrarySnapshot(saved,url,tracks){
+  if(saved?.version!==1||saved.endpoint!==url)return null;
+  try{const result=libraryMapping(structuredClone(saved.data),url);return result.mapping.matches(tracks)?result:null;}catch(_){return null;}
 }
 export async function readLibrary({url,signal,fetcher=fetch}){
   const endpoint=new URL(url);

@@ -5,8 +5,20 @@ editable directory; component commit/tree provenance is generated, and the six
 manual frontend source manifests have been retired. The exact selected artifact
 was preserved during consolidation (199 paths, only generated `release.json`
 changed). `jarvis/` remains frozen and guarded, with no dormant variant activated.
-The historical backend checkout and specialized live overlays retain their
-existing release and rollback checks. See [README](../README.md) for current commands.
+The remaining accepted private/shared/cache/music inputs have also been selected
+into `frontend/`, from private publication 38946691555, cache publication
+39040982427 and music publication 39169201572. The migration reproduced all 63
+private closure hashes and all eight current music upload hashes; newer cache,
+shared assets and Daily Board bytes supersede older receipt entries. It imports
+no configured values or dormant public variants. Music player/font output names
+are generated from their bytes, with ordinary logical filenames for editing.
+Deployed document policies are explicit in HTML; the obsolete SWA configuration
+conversion has been removed. Historical pins remain receipt/rollback evidence,
+not editable source selection for the normal build.
+
+The historical backend checkout and specialized publishers still retain their
+existing release and rollback checks during the remaining publisher migration.
+See [README](../README.md) for current commands.
 The dated source-selection and publication records below describe earlier states.
 
 

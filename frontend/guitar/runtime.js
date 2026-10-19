@@ -3,49 +3,11 @@ export function filename(title, track) {
   const name = `${clean(title).slice(0, 110)} - ${clean(track).slice(0, 60)}`.trim();
   return `${name || 'Guitar tab'}.pdf`;
 }
+import { createFileDownload } from '../assets/file-save.js';
+export { nativeSaveMode, saveToDevice, triggerDownload } from '../assets/file-save.js';
 export function createDownload(blob, name, urlApi = URL) {
   if (!(blob instanceof Blob) || blob.size < 100) throw Error('Empty PDF');
-  const url = urlApi.createObjectURL(blob);
-  let active = true;
-  return {
-    blob,
-    url,
-    name,
-    revoke() {
-      if (!active) return;
-      active = false;
-      urlApi.revokeObjectURL(url);
-    }
-  };
-}
-export function nativeSaveMode(download, env = globalThis) {
-  if (typeof env.showSaveFilePicker === 'function') return 'file-picker';
-  if (typeof env.File !== 'function' || typeof env.navigator?.share !== 'function' || typeof env.navigator?.canShare !== 'function') return null;
-  const file = new env.File([download.blob], download.name, { type: 'application/pdf' });
-  return env.navigator.canShare({ files: [file] }) ? 'share' : null;
-}
-export async function saveToDevice(download, env = globalThis) {
-  const mode = nativeSaveMode(download, env);
-  if (mode === 'file-picker') {
-    const handle = await env.showSaveFilePicker({
-      suggestedName: download.name,
-      types: [{ description: 'PDF document', accept: { 'application/pdf': ['.pdf'] } }]
-    });
-    const writable = await handle.createWritable();
-    try { await writable.write(download.blob); } finally { await writable.close(); }
-    return mode;
-  }
-  if (mode === 'share') {
-    const file = new env.File([download.blob], download.name, { type: 'application/pdf' });
-    await env.navigator.share({ files: [file], title: download.name });
-    return mode;
-  }
-  return null;
-}
-export function triggerDownload(download, documentApi = document) {
-  const link = documentApi.createElement('a');
-  link.href = download.url; link.download = download.name; link.hidden = true;
-  documentApi.body.append(link); link.click(); link.remove();
+  return createFileDownload(blob, name, urlApi);
 }
 export async function withDeadline(work, ms) {
   const controller = new AbortController(); let timer;
