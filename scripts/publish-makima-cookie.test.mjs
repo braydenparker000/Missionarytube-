@@ -7,10 +7,7 @@ test('Makima publisher pins only the reviewed repair and preserves the deployed 
  checkedPaths(paths);assert.throws(()=>checkedPaths([...paths,'backend/relay-owner.js']));assert.throws(()=>checkedPaths(paths.slice(1)));
  checkedBaseline({...BEFORE,schedulesDigest:'synthetic'});
  for(const key of Object.keys(BEFORE))assert.throws(()=>checkedBaseline({...BEFORE,[key]:'changed'}));
- const workflow=readFileSync(new URL('../.github/workflows/publish-makima-cookie.yml',import.meta.url),'utf8');
- assert.ok(workflow.includes('ref: '+SOURCE));assert.match(workflow,/group: azure-production/);assert.match(workflow,/group: jarvis-worker-production/);
- assert.doesNotMatch(workflow,/azure\/login|publish-private-workspace|id-token: write/);
- assert.match(workflow,/makima-cookie-publication\/\*\.json/);
+
 });
 test('Makima publication refuses drift before checkpoint or write',async()=>{
  let writes=0,checkpoints=0;

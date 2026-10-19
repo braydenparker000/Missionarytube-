@@ -1,9 +1,10 @@
-import {createMastWork} from './mast-work.js';
+import {museShell,museSheet as sheet} from './muse-shell-simple-chat-tasks-v1.js';
+import {createMastWork} from './mast-work-simple-chat-tasks-v1.js';
 import {createRelayOwnerApi} from './relay-owner-api.js';
 import {createAttachmentDraft,RELAY_ATTACHMENT_TYPES} from './relay-attachments.js';
 import {createPrivateAttachmentContent} from './relay-attachment-content.js';
 import {createMastDraftStore} from './mast-draft.js';
-import {richText,copyText,autosize,messageDay} from './ui.js';
+import {richText,copyText,autosize,messageDay,icon} from './ui.js';
 let storage,tab;try{storage=localStorage;tab=sessionStorage;}catch{}
 const api=createRelayOwnerApi({storage,attachmentDestination:'mast'}),journal=createMastDraftStore(tab);
 const $=id=>document.getElementById(id),status=$('status'),login=$('login'),messages=$('messages');
@@ -11,14 +12,14 @@ const composer=$('composer'),input=$('message'),send=$('send'),picker=$('files')
 let enabled=false,busy=false,pending=null,history=new Map(),loading=false,epoch=0,after='0',restored=false,adapter=null,draftError=false;
 const content=createPrivateAttachmentContent({document,read:async(item,options)=>{try{return await api.attachmentContent(item,options);}catch(error){accessError(error);throw error;}}});
 const previews=new IntersectionObserver(entries=>{for(const e of entries)if(e.isIntersecting){previews.unobserve(e.target);e.target.querySelector('button[aria-label^="Preview "]')?.click();}},{root:messages});
-const work=createMastWork({api,storage:tab,panel:$('work-panel'),status,onCreated:()=>refresh(),onError:accessError});
-let workOpen=false;
-function destination(open){workOpen=open;$('work-panel').hidden=!open;messages.hidden=open;composer.hidden=open||!enabled;document.querySelector('.mast-tools').hidden=open;$('chat-tab').setAttribute('aria-pressed',String(!open));$('work-tab').setAttribute('aria-pressed',String(open));if(open)work.refresh();}
+const work=createMastWork({api,storage:tab,panel:$('work-panel'),status,onCreated:()=>refresh(),onError:accessError,onConversation:id=>{destination(false);const row=[...messages.children].find(n=>n.dataset.id===id);row?.scrollIntoView({block:'center'});input.focus({preventScroll:true});}});
+let workOpen=false,shell;
+function destination(open,historyWrite=true){if(historyWrite&&open!==workOpen){if(open)window.history.pushState({...window.history.state,mastTasks:true},'','#tasks');else if(window.history.state?.mastTasks&&location.hash==='#tasks')window.history.back();else if(location.hash)window.history.replaceState(window.history.state,'',location.pathname);}workOpen=open;$('work-panel').hidden=!open;messages.hidden=open;composer.hidden=open||!enabled;document.querySelector('.mast-tools').hidden=true;shell?.setWork(open);$('chat-tab').setAttribute('aria-pressed',String(!open));$('work-tab').setAttribute('aria-pressed',String(open));if(open)work.refresh();else render();}
 $('chat-tab').onclick=()=>destination(false);$('work-tab').onclick=()=>destination(true);
 const draft=createAttachmentDraft({enabled:()=>enabled&&api.hasCredential,upload:(file,{id,messageId,signal})=>api.uploadAttachment(messageId,id,file,{signal}),discard:(messageId,id)=>api.discardAttachment(messageId,id),onChange:renderDraft});
 picker.accept=RELAY_ATTACHMENT_TYPES.join(',');
 function renderDraft(){
-  const state=draft.snapshot();selected.replaceChildren();choose.disabled=busy||state.locked||!!pending;input.required=!state.items.length&&!pending?.files.length;
+  const state=draft.snapshot();send.disabled=busy||(!pending&&!input.value.trim()&&!state.items.length);selected.replaceChildren();choose.disabled=busy||state.locked||!!pending;input.required=!state.items.length&&!pending?.files.length;
   for(const item of state.items){const row=document.createElement('div');row.className='mast-selected-file';
     const text=document.createElement('span');text.textContent=item.name+' · '+({selected:'Ready to send',uploading:'Uploading…',ready:'Uploaded',error:item.error}[item.status]);
     const remove=document.createElement('button');remove.type='button';remove.textContent='Remove';remove.setAttribute('aria-label','Remove '+item.name);remove.disabled=state.locked;remove.onclick=()=>draft.remove(item.id);row.append(text,remove);selected.append(row);
@@ -28,10 +29,10 @@ function renderDraft(){
   $('discard-pending').hidden=!pending&&!draftError;$('discard-pending').textContent=draftError?'Clear local draft':'Stop retrying';$('discard-pending').disabled=busy;
 }
 function save(){journal.save(api.deviceId,pending?.body??input.value,pending);}
-input.addEventListener('input',()=>{autosize(input);try{save();}catch(e){accessError(e);}});
+input.addEventListener('input',()=>{autosize(input);renderDraft();try{save();}catch(e){accessError(e);}});
 choose.addEventListener('click',()=>picker.click());
 picker.addEventListener('change',()=>{if(enabled&&!busy&&!pending)draft.add([...picker.files]);picker.value='';});
-function sent(){journal.clear();draftError=false;pending=null;input.value='';input.readOnly=false;send.textContent='Send';draft.clear();autosize(input);}
+function sent(){journal.clear();draftError=false;pending=null;input.value='';input.readOnly=false;sendLabel('Send');draft.clear();autosize(input);}
 function render(){
   const bottom=messages.scrollHeight-messages.scrollTop-messages.clientHeight<80,position=messages.scrollTop;
   const query=$('search').value.trim().toLocaleLowerCase(),list=[...history.values()].sort((a,b)=>a.sequence-b.sequence);
@@ -39,22 +40,22 @@ function render(){
   previews.disconnect();messages.replaceChildren();let day='';
   for(const message of list){
     if(query&&!((message.body+' '+message.attachments.map(a=>a.name).join(' ')).toLocaleLowerCase().includes(query)))continue;
-    const date=messageDay(message.createdAt);if(date.key!==day){day=date.key;const label=document.createElement('p');label.className='mast-day';label.textContent=date.label;messages.append(label);}
-    const row=document.createElement('article');row.className='message-row'+(message.role==='owner'?' outgoing':'');row.dataset.id=message.id;
-    const author=document.createElement('span');author.className='message-author';author.textContent=message.role==='owner'?'You':'Muse';
-    const body=document.createElement('div');body.className='bubble rich-body';richText(body,message.body);
-    const time=document.createElement('span');time.className='message-time';time.textContent=new Date(message.createdAt).toLocaleString()+(message.role==='owner'?(replied.has(message.id)?' · Replied':adapter?.fetchedSequence>=message.sequence?' · Fetch served · Awaiting reply':' · Saved · Awaiting Muse'):'');
-    row.append(author,body);
-    for(const file of message.attachments){const node=content.row(file);row.append(node);if(file.mimeType.startsWith('image/'))previews.observe(node);}
-    const copy=document.createElement('button');copy.type='button';copy.className='mast-copy';copy.textContent='Copy';copy.setAttribute('aria-label','Copy message');copy.onclick=async()=>{try{status.textContent=await copyText(message.body)?'Message copied.':'Copy unavailable. Select the message text to copy it.';}catch{status.textContent='Copy unavailable. Select the message text to copy it.';}};
-    row.append(time,copy);if(message.role==='owner'){const request=document.createElement('button');request.type='button';request.textContent='Work from this message';request.onclick=()=>{work.prepare(message);destination(true);};row.append(request);}messages.append(row);
+    const date=messageDay(message.createdAt);
+    const row=document.createElement('article');row.className='message-row'+(message.role==='owner'?' outgoing':' incoming');row.dataset.id=message.id;if(date.key!==day){day=date.key;const label=document.createElement('p');label.className='message-day';label.textContent=date.label;row.append(label);}
+    const author=document.createElement('span');author.className='message-author';author.textContent=message.role==='owner'?'You':'Mast';
+    const body=document.createElement('div');body.className='bubble';const text=document.createElement('div');text.className='message-body rich-body';richText(text,message.body);body.append(text);
+    const time=document.createElement('span');time.className='message-time';time.textContent=new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(new Date(message.createdAt))+(message.role==='owner'?(replied.has(message.id)?' · Replied':adapter?.fetchedSequence>=message.sequence?' · Fetch served · Awaiting reply':' · Saved · Awaiting Muse'):'');
+    const heading=document.createElement('div');heading.className='message-heading';heading.append(author);row.append(heading,body);
+    for(const file of message.attachments){const node=content.row(file);body.append(node);if(file.mimeType.startsWith('image/'))previews.observe(node);}
+    const copy=document.createElement('button');copy.type='button';copy.className='message-actions';copy.innerHTML=icon('more');copy.setAttribute('aria-label','Message actions');copy.onclick=()=>sheet('Message',[{label:'Copy message',icon:'copy',action:async()=>{status.textContent=await copyText(message.body)?'Message copied.':'Copy unavailable.';}},...(work.lookup(message.id)?[{label:'View task',icon:'check',action:()=>work.show(work.lookup(message.id))}]:[])]);
+    const footer=document.createElement('div');footer.className='message-footer';footer.append(time,copy);body.append(footer);messages.append(row);
   }
   content.prune();
-  if(!messages.children.length){const p=document.createElement('p');p.className='mast-empty';p.textContent=query?'No matching messages.':enabled?'Start your private conversation with Muse.':'Muse is not connected yet. Your private messages never go to the public Muse inbox.';messages.append(p);}
+  if(!messages.children.length){const p=document.createElement('div');p.className='chat-empty';const title=document.createElement('h2');title.textContent=query?'No matching messages.':'Your private conversation.';const note=document.createElement('p');note.textContent=enabled?'Write to Mast. Only messages sent here are shared.':'Muse is not connected yet. Your private messages never go to the public Muse inbox.';p.append(title,note);messages.append(p);}
   messages.scrollTop=bottom?messages.scrollHeight:position;
   $('latest').hidden=bottom;$('export').disabled=!history.size;
 }
-function reset(){try{work.reset();}catch{}destination(false);++epoch;enabled=false;history.clear();after='0';adapter=null;content.clear();previews.disconnect();draft.clear();pending=null;input.value='';input.readOnly=false;restored=false;try{journal.clear();}catch(e){status.textContent=e.message;}render();composer.hidden=true;login.hidden=false;}
+function reset(){try{work.reset();}catch{}destination(false);++epoch;enabled=false;history.clear();after='0';adapter=null;content.clear();previews.disconnect();draft.clear();pending=null;input.value='';input.readOnly=false;restored=false;try{journal.clear();}catch(e){status.textContent=e.message;}render();composer.hidden=true;login.hidden=false;$('login-heading').hidden=false;login.after(status.parentElement);$('private-chat').classList.remove('relay-owner-chat');}
 function accessError(error){status.textContent=error.message;if(error.name==='MastDraftError'){draftError=true;renderDraft();}if(!api.hasCredential)reset();}
 function connection(){
   $('connection-detail').textContent=!enabled?'Secure adapter setup is incomplete. No connected agent is claimed.':!adapter?'Access is configured; no Muse fetch has been observed.':
@@ -63,18 +64,18 @@ function connection(){
 async function refresh(){
   if(loading||busy)return;loading=true;const generation=epoch;$('refresh').disabled=true;
   try{
-    if(!api.hasCredential){login.hidden=false;status.textContent='Sign in to open your private Muse conversation.';return;}
+    if(!api.hasCredential){login.hidden=false;login.after(status.parentElement);status.textContent='Sign in to open your private Muse conversation.';return;}
     const additions=[];let cursor=after,data;
     do{data=await api.mastMessages(cursor);if(generation!==epoch)return;additions.push(...data.messages);cursor=data.nextCursor;}while(cursor);
     if(generation!==epoch)return;
-    enabled=data.enabled;adapter=data.adapter;login.hidden=true;composer.hidden=!enabled||workOpen;
+    enabled=data.enabled;adapter=data.adapter;login.hidden=true;composer.append(status.parentElement);composer.hidden=!enabled||workOpen;
     if(!enabled){history.clear();after='0';content.clear();}
     else for(const m of additions){history.set(m.id,m);after=String(Math.max(Number(after),m.sequence));}
-    if(!restored){const saved=journal.read(api.deviceId);if(saved){pending=saved.pending;input.value=saved.body;input.readOnly=!!pending;send.textContent=pending?'Retry':'Send';}restored=true;autosize(input);}
+    if(!restored){const saved=journal.read(api.deviceId);if(saved){pending=saved.pending;input.value=saved.body;input.readOnly=!!pending;sendLabel(pending?'Retry':'Send');}restored=true;autosize(input);}
     if(pending&&history.has(pending.id))sent();
     status.textContent=pending?'Send not confirmed. Retry keeps the original message and file IDs.':enabled?'Only this conversation is shared with Muse.':'Muse adapter is not connected. Secure setup is still required.';
-    connection();render();renderDraft();if(workOpen)work.refresh();
-  }catch(error){accessError(error);}finally{loading=false;$('refresh').disabled=false;}
+    if(!enabled)composer.before(status.parentElement);connection();render();renderDraft();if(workOpen)work.refresh();
+  }catch(error){accessError(error);}finally{$('login-heading').hidden=login.hidden;$('private-chat').classList.toggle('relay-owner-chat',login.hidden);loading=false;$('refresh').disabled=false;}
 }
 login.addEventListener('submit',async event=>{
   event.preventDefault();const button=login.querySelector('button');button.disabled=true;
@@ -94,7 +95,7 @@ composer.addEventListener('submit',async event=>{
     }
     save();status.textContent='Sending to Muse…';const data=await api.mastSend(pending.id,pending.body,pending.files);history.set(data.entry.id,data.entry);sent();
     status.textContent='Saved · Awaiting Muse';render();messages.scrollTop=messages.scrollHeight;input.focus();
-  }catch(error){accessError(error);if(api.hasCredential)status.textContent=error.message+' Send not confirmed. Retry checks the same message safely.';send.textContent='Retry';}
+  }catch(error){accessError(error);if(api.hasCredential)status.textContent=error.message+' Send not confirmed. Retry checks the same message safely.';sendLabel('Retry');}
   finally{busy=false;send.disabled=false;renderDraft();}
 });
 $('discard-pending').onclick=()=>{if(!busy&&confirm('This message may already be saved. Stop retrying it? Check history before sending the same message again.')){try{sent();status.textContent='Retry cleared. Check history before resending.';}catch(e){status.textContent=e.message;}}};
@@ -104,9 +105,17 @@ window.addEventListener('storage',event=>{if(event.key==='jarvis.relay.owner-ses
 window.addEventListener('online',refresh);
 $('refresh').onclick=refresh;$('search').oninput=render;$('latest').onclick=()=>{messages.scrollTop=messages.scrollHeight;$('latest').hidden=true;};
 messages.addEventListener('scroll',()=>{$('latest').hidden=messages.scrollHeight-messages.scrollTop-messages.clientHeight<80;});
-$('export').onclick=()=>{const text=[...history.values()].sort((a,b)=>a.sequence-b.sequence).map(m=>`${m.role==='owner'?'You':'Muse'} · ${m.createdAt}\n${m.body}\n${m.attachments.map(a=>a.name).join('\n')}`).join('\n\n');const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='private-muse-conversation.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('export').onclick=()=>{const text=[...history.values()].sort((a,b)=>a.sequence-b.sequence).map(m=>`${m.role==='owner'?'You':'Mast'} · ${m.createdAt}\n${m.body}\n${m.attachments.map(a=>a.name).join('\n')}`).join('\n\n');const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download='private-muse-conversation.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
 function viewport(){document.documentElement.style.setProperty('--mast-height',(window.visualViewport?.height||innerHeight)+'px');}
 window.visualViewport?.addEventListener('resize',viewport);viewport();
 setInterval(()=>{if(!document.hidden&&enabled)refresh();},15000);
 refresh();
+
+function sendLabel(label){send.innerHTML=icon('send');send.setAttribute('aria-label',label);}
+sendLabel('Send');
+function search(){const bar=document.querySelector('.mast-tools');bar.hidden=!bar.hidden;if(!bar.hidden)$('search').focus();else{$('search').value='';render();}}
+$('search-close').onclick=search;
+shell=museShell({privateView:true,search,work:(open=true)=>destination(open),attach:()=>picker.click(),saved:()=>sheet('Saved conversation',[{label:'Export text',icon:'copy',disabled:!history.size,action:()=>$('export').click()}]),settings:()=>{const d=sheet('Settings',[{label:'Refresh private inbox',icon:'refresh',action:refresh},{label:'Connection details',icon:'info',action:()=>{const info=sheet('Muse connection',[]);const p=document.createElement('p');p.className='sheet-context';p.textContent=$('connection-detail').textContent;info.append(p);}}]);return d;}});
+addEventListener('popstate',()=>destination(['#tasks','#work'].includes(location.hash),false));
+if(['#tasks','#work'].includes(location.hash))destination(true,false);

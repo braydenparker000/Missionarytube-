@@ -1,0 +1,44 @@
+:root{--private-accent:#d6d6d6;--private-accent-ink:#000}
+:root[data-accent=blue]{--private-accent:#8ab4ff}:root[data-accent=mint]{--private-accent:#85d8b2}:root[data-accent=rose]{--private-accent:#f5a9cc}:root[data-accent=amber]{--private-accent:#efc477}
+:root :is(button,a,input,textarea,summary):focus-visible{outline:2px solid var(--private-accent);outline-offset:2px}
+:root #destinations a[aria-current]{border-color:var(--private-accent)}
+:root .agent-options [aria-pressed=true]{box-shadow:inset 0 0 0 1px var(--private-accent);color:var(--private-accent)}
+:root .task-card a{color:var(--private-accent)}
+body.relay-page main#content .composer-input:focus-within{border-color:var(--private-accent);box-shadow:0 0 0 1px var(--private-accent)}
+body.relay-page main#content .composer-input .send-icon:not(:disabled){background:var(--private-accent);color:var(--private-accent-ink);border-color:var(--private-accent)}
+body.relay-page main#content .composer-input .send-icon:not(:disabled):hover{background:var(--private-accent);filter:brightness(1.08)}
+body.relay-page :is(button,a,input,select,summary):focus-visible{outline-color:var(--private-accent)}
+body.relay-page .rich-body a{color:var(--private-accent)}
+/* Approved conversation palette; all custom colors select their own readable ink. */
+:root{--private-agent-fill:#1b1b1b;--private-agent-line:#3c3c3c;--private-accent-soft:#222;--private-accent-border:#666}
+@supports(background:color-mix(in srgb,white 10%,black)){:root{--private-agent-fill:color-mix(in srgb,var(--private-accent) 13%,#151515);--private-agent-line:color-mix(in srgb,var(--private-accent) 28%,#444);--private-accent-soft:color-mix(in srgb,var(--private-accent) 16%,#171717);--private-accent-border:color-mix(in srgb,var(--private-accent) 48%,#777)}}
+.private-avatar{display:inline-grid;place-items:center;flex:none;width:26px;height:26px;border-radius:8px;background:var(--private-accent-soft);border:1px solid var(--private-accent-border);color:#ececec;font-size:11px;overflow:hidden}.private-avatar img{display:block;width:100%;height:100%;object-fit:cover}
+body.relay-page main#content .message-heading{display:flex;align-items:center;gap:8px;min-height:28px;margin-bottom:8px}.message-heading .message-author{font-size:14px;font-weight:550;color:#ececec!important}body.relay-page main#content .message-group-continuation .message-heading{display:none}
+body.relay-page main#content .message-row .bubble,.shared-board .board-body,.makima-chat .makima-body{width:fit-content;max-width:100%;background:var(--private-agent-fill);border:1px solid var(--private-agent-line);border-radius:22px;padding:12px 16px;color:#ececec;font-size:16px;line-height:1.65;overflow-wrap:anywhere}
+body.relay-page main#content .message-row.outgoing .bubble,.shared-board .board-message[data-identity=owner] .board-body,.makima-chat .makima-message[data-identity=owner] .makima-body{background:var(--private-accent);border-color:var(--private-accent);color:var(--private-accent-ink)}
+body.relay-page main#content .outgoing .bubble :is(.message-body,.message-time,.message-actions,.rich-body,p,li,a){color:inherit}body.relay-page main#content .outgoing .bubble a{text-decoration:underline}body.relay-page main#content .outgoing .message-footer{color:var(--private-accent-ink)}
+body.relay-page main#content .composer-input{border-color:var(--private-accent-border)}body.relay-page main#content .composer-input .relay-composer-plus{color:#ddd}body.relay-page main#content .composer-input .send-icon:not(:disabled){background:var(--private-accent);color:var(--private-accent-ink)}
+:root .agent-options [aria-pressed=true]{background:var(--private-accent);color:var(--private-accent-ink);box-shadow:none}:root .agent-options [aria-pressed=true] small{color:inherit}#destinations a[aria-current]{background:var(--private-accent);color:var(--private-accent-ink)}#destinations a[aria-current] small{color:inherit}
+.private-settings{padding:0 12px}.private-settings>summary{min-height:48px;padding:12px 2px;cursor:pointer}.spectrum-row{display:flex;gap:8px;align-items:center;padding:8px 0}.spectrum-row input[type=color]{width:52px;height:44px;padding:3px;background:#000;border:1px solid #666;border-radius:10px;cursor:pointer}.spectrum-row input[type=text]{width:100%;min-width:0;min-height:44px;border:1px solid #666;border-radius:10px;background:#111;color:#eee;padding:8px;font:inherit}.spectrum-row button{min-height:44px;padding:8px;border:1px solid #555;border-radius:10px}.private-settings label{font-size:13px}.appearance-note{font-size:12px;color:#aaa;line-height:1.5}.avatar-setting{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}.avatar-setting button{min-height:44px;padding:8px;border:1px solid #555;border-radius:10px;font-size:12px}.avatar-setting .avatar-label{flex:1;font-size:13px}.private-settings [role=status]{font-size:12px;overflow-wrap:anywhere}
+#agent-panel{transform-origin:var(--menu-origin-x,0px) var(--menu-origin-y,0px)}#agent-panel[open],#agent-panel[open] .agent-options{animation:none}
+.workspace-header{display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:10px}.agent-picker{min-width:0}.agent-picker button{max-width:100%;min-width:0;justify-content:flex-start}.agent-picker #view-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.agent-picker svg{flex:none}
+
+/* Raw custom accents are fills; readable variants are used on dark backgrounds. */
+:root{--private-accent-readable:#d6d6d6}
+:root :is(button,a,input,textarea,summary):focus-visible{outline-color:var(--private-accent-readable)}
+:root .task-card a,body.relay-page .rich-body a,.shared-board .board-messages a{color:var(--private-accent-readable)}
+body.relay-page main#content .composer-input:focus-within{border-color:var(--private-accent-readable);box-shadow:0 0 0 1px var(--private-accent-readable)}
+.shared-board .board-actions button[type=submit]{color:var(--private-accent-ink)}
+.accent-choices label:has(:checked){color:var(--private-accent-readable)}
+.makima-chat .makima-composer{border-color:var(--private-accent-border)}.makima-chat .makima-composer:focus-within{border-color:var(--private-accent-readable)}.makima-chat .makima-message-byline h3{font-size:14px;font-weight:550;color:#ececec}.makima-chat .makima-composer button[type=submit]{background:var(--private-accent);color:var(--private-accent-ink)}.makima-chat .makima-message[data-identity=owner] .makima-message-byline{justify-content:flex-end}
+.shared-board .board-composer-row:focus-within{border-color:var(--private-accent-readable);box-shadow:0 0 0 1px var(--private-accent-readable)}
+
+/* Keep device settings controls aligned in the narrow navigation drawer. */
+#navigation-drawer{width:min(336px,calc(100vw - 24px));scroll-padding-top:64px}
+#navigation-drawer .drawer-heading{position:sticky;top:-12px;z-index:1;background:#000;padding-top:12px}
+.spectrum-row input[type=color]{flex:0 0 44px;width:44px}
+.spectrum-row input[type=text]{flex:1;width:0}
+#navigation-drawer .spectrum-row button{flex:none;min-width:52px;white-space:nowrap;overflow-wrap:normal}
+.avatar-setting{display:grid;grid-template-columns:26px minmax(0,1fr) max-content max-content;gap:6px}
+#navigation-drawer .avatar-setting button{padding:8px 6px;white-space:nowrap;overflow-wrap:normal}
+.avatar-setting .avatar-label{min-width:0}

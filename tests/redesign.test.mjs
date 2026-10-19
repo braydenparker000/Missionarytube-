@@ -279,7 +279,11 @@ test("YouTube plays natively, and no iframe or embed survives anywhere", () => {
   assert.equal(/googleapis\.com/.test(html), false);
   // Instance URLs live in one configuration module, never in the app shell.
   // The only address index.html may contain is the field's own placeholder.
-  const hosts = [...html.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1].toLowerCase());
+  // CSP allow rules are document policy, not runtime endpoints. They now live
+  // in the editable HTML instead of being injected by the build. Privacy tests
+  // still scan the full document, including this policy.
+  const runtime = html.replace(/<meta\b[^>]*http-equiv="Content-Security-Policy"[^>]*>/gi, '');
+  const hosts = [...runtime.matchAll(/https?:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1].toLowerCase());
   // images.metahub.space is the poster CDN preconnect, not a YouTube instance.
   assert.deepEqual(
     hosts.filter(

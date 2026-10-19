@@ -106,19 +106,14 @@ test('current branch pin, recipes, cleanliness and exact three-file scope are ch
   const directory=await mkdtemp(join(tmpdir(),'astra-preflight-current-')),root=join(directory,'checkout');
   const run=(...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8',stdio:'pipe'}).trim();
   try{
-    // Build an independent fictional graph. Hosted Validate intentionally has
-    // only the current commit, so fixtures cannot depend on release ancestry.
+    // Build an independent fictional graph from the retained immutable recipe
+    // objects. Current application edits cannot replace a historical proof.
     await mkdir(root);run('init');
     const historicalBytes=await readFile(historicalBindings);
     assert.equal(createHash('sha1').update('blob '+historicalBytes.length+'\0').update(historicalBytes).digest('hex'),'3ef4f486a24037b8f8821e6e593a98b7cb902a78');
     for(const path of ['jarvis-release.json',...RECIPES.map(([path])=>path)]){
       await mkdir(dirname(join(root,path)),{recursive:true});
-      await writeFile(join(root,path),await readFile(path==='jarvis-release.json'?historicalPin:
-        path==='scripts/worker-release-identity.mjs'?historicalIdentity:
-        path==='.github/workflows/deploy-azure-storage.yml'?historicalWorkflow:
-        path==='.github/workflows/qualify-jarvis.yml'?join(repository,'scripts/release-identities/relay-client-approved-qualify-jarvis.yml'):
-        path==='scripts/check-music-worker-bindings.mjs'?historicalBindings:
-        path==='scripts/plan-jarvis-qualification.mjs'?join(repository,'scripts/release-identities/relay-client-approved-plan-jarvis-qualification.mjs'):join(repository,path)));
+      await writeFile(join(root,path),path==='jarvis-release.json'?await readFile(historicalPin):execFileSync('git',['-C',repository,'cat-file','blob',RECIPES.find(([name])=>name===path)[1]],{stdio:'pipe'}));
     }
     run('add','.');run('-c','user.name=Fictional fixture','-c','user.email=fixture@example.test','commit','-m','fictional predecessor');
     const predecessor=run('rev-parse','HEAD');

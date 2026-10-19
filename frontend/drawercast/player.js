@@ -105,6 +105,24 @@ function toast(msg,ms){
 /* =====================================================================
    INDEXEDDB
    ===================================================================== */
+// Playlist payload and one-time seed receipt commit together. Request success
+// alone is not durability: publish to the UI only after transaction completion.
+function commitPlaylistState(db,expected,next,marker=null,valid=()=>true){
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('kv','readwrite'),store=tx.objectStore('kv');
+    let remaining=marker?2:1,stored,seeded=false,applied=false,failure=null;
+    const finish=()=>{
+      if(--remaining)return;
+      if(seeded)return;
+      if(!valid()||JSON.stringify(stored||[])!==JSON.stringify(expected)){failure=Error('Playlists or music library changed. Try again.');tx.abort();return;}
+      store.put(next,'playlists');if(marker)store.put(true,marker);applied=true;
+    };
+    const read=store.get('playlists');read.onsuccess=()=>{stored=read.result;finish();};
+    if(marker){const receipt=store.get(marker);receipt.onsuccess=()=>{seeded=receipt.result===true;finish();};}
+    tx.oncomplete=()=>resolve(applied);
+    tx.onabort=tx.onerror=()=>reject(failure||tx.error||Error('Playlists could not be saved.'));
+  });
+}
 const IDB = (function(){
   let dbp=null;
   const STORES=['tracks','blobs','art','kv','handles'];
@@ -128,8 +146,9 @@ const IDB = (function(){
   function tx(store,mode){ return open().then(db=>db.transaction(store,mode).objectStore(store)); }
   function wrap(req){ return new Promise((res,rej)=>{ req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); }
   return {
+    playlists:(expected,next,marker,valid)=>open().then(db=>commitPlaylistState(db,expected,next,marker,valid)),
     catalog:(module,snapshot)=>open().then(db=>module.commitCatalog(db,snapshot)),
-    r2Catalog:(module,mapping,tracks)=>open().then(db=>module.commitR2Catalog(db,mapping,tracks)),
+    r2Catalog:(module,mapping,tracks,options)=>open().then(db=>module.commitR2Catalog(db,mapping,tracks,options)),
     get:(s,k)=>tx(s,'readonly').then(o=>wrap(o.get(k))),
     set:(s,k,v)=>tx(s,'readwrite').then(o=>wrap(o.put(v,k))),
     del:(s,k)=>tx(s,'readwrite').then(o=>wrap(o.delete(k))),
@@ -2406,8 +2425,13 @@ const DriveSource={
 const R2Source={
   helper:null,catalog:null,mapping:null,root:'',manifestURL:'',busy:false,
   status:'Not configured',error:'',controller:null,timer:null,
-  async install(){
-    try{
+  // P1: last library ETag for the conditional refresh poll. E1: recency and
+  // class of the last refresh failure, so the play path can tell a network
+  // blip (worth a short wait) from a genuinely missing mapping (fail fast).
+  _libraryETag:null,_libraryETagFor:'',_lastRefreshFailedAt:0,_lastRefreshNetwork:false,
+  prepare(){
+    if(this.preparation)return this.preparation;
+    this.preparation=(async()=>{
       const response=await fetch('/assets/r2-config.json',{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(15000)});
       if(!response.ok)throw Error('R2 configuration could not be loaded.');
       const config=await response.json();
@@ -2415,10 +2439,29 @@ const R2Source={
       this.manifestURL=typeof config.manifestURL==='string'?config.manifestURL:'';
       this.native=this.manifestURL.endsWith('/music/library.json');
       if(!this.manifestURL||(!this.native&&!this.root)){this.status='Not configured';return;}
-      this.helper=await import(this.native?'./r2-library.js?v=native-v1':'./r2-api.js?v=separate-source-v1');
+      this.helper=await import(this.native?'./r2-library.js?v=native-snapshot-v2':'./r2-api.js?v=separate-source-v1');
       if(!this.native)this.catalog=await import('./drive-catalog.js?v=catalog-v2');
+      Engine.tracePlayback('r2-config-ready');
+    })();
+    this.preparation.catch(()=>{});return this.preparation;
+  },
+  async install(){
+    try{
+      await this.prepare();
+      if(this.native&&SourceLibrary.enabled('r2')&&this.helper){
+        try{
+          const saved=await IDB.get('kv','r2-native-snapshot');
+          const restored=this.helper.restoreLibrarySnapshot(saved,this.manifestURL,allTracks(true).filter(t=>t.source==='r2'));
+          if(restored&&SourceLibrary.enabled('r2')&&!this.mapping){
+            // Repair legacy import-time dates even when the network is offline.
+            const repaired=[];
+            for(const fresh of restored.tracks){const old=LIB.map.get(fresh.id);if(old&&(old.added!==fresh.added||old.addedSource!==fresh.addedSource)){old.added=fresh.added;old.addedSource=fresh.addedSource;repaired.push(old);}}
+            if(repaired.length){void persistTracks(repaired).catch(()=>{});Views.refreshAll();}
+            this.mapping=restored.mapping;this.status='Saved R2 library ready';Engine.tracePlayback('r2-cache-restored');void PlaylistFiles.seed();}
+        }catch(_){}
+      }
       await this.connect(true);
-    }catch(e){this.error=e.message;this.status='R2 unavailable';}
+    }catch(e){this.preparation=null;this.error=e.message;this.status='R2 unavailable';}
     finally{MusicSources.refresh();}
   },
   suspend(){this.controller?.abort();clearTimeout(this.timer);},
@@ -2436,8 +2479,17 @@ const R2Source={
     try{
       // Read the static, hashed metadata snapshot independently of DriveSource.
       // No Google API request or media download is needed to build this library.
-      let tracks,mapping;
-      if(this.native)({tracks,mapping}=await this.helper.readLibrary({url,signal:controller.signal}));
+      let tracks,mapping,snapshot;
+      Engine.tracePlayback('r2-catalog-start');
+      if(this.native){
+        // P1: conditional refresh. A 304 skips the commit entirely and keeps
+        // serving the last good mapping; only a 200 promotes its ETag.
+        try{({tracks,mapping,snapshot}=await this.readLibraryConditional({url,signal:controller.signal}));}
+        catch(e){
+          if(e?.__r2NotModified){Engine.tracePlayback('r2-catalog-not-modified');this.status='Verified R2 library ready';this.error='';return true;}
+          throw e;
+        }
+      }
       else{
         const snapshot=await this.catalog.readCatalog({root,signal:controller.signal});
         tracks=snapshot.records.map(record=>this.catalog.catalogTrack(record,root));
@@ -2445,12 +2497,12 @@ const R2Source={
       }
       if(controller.signal.aborted||!SourceLibrary.enabled('r2')||root!==this.root||url!==this.manifestURL)return false;
       if(Engine.current?.source==='r2'&&Engine.wantsPlayback()){this.status='R2 update pending · pause playback to sync';return false;}
-      const {fresh,gone}=await IDB.r2Catalog(this.helper,mapping,tracks);
+      const {fresh,gone}=await IDB.r2Catalog(this.helper,mapping,tracks,{snapshot,valid:()=>!controller.signal.aborted&&SourceLibrary.enabled('r2')&&root===this.root&&url===this.manifestURL&&!(Engine.current?.source==='r2'&&Engine.wantsPlayback())});
       if(controller.signal.aborted||!SourceLibrary.enabled('r2')||root!==this.root||url!==this.manifestURL)return false;
       if(Engine.current?.source==='r2'&&Engine.wantsPlayback()){this.status='R2 update pending · pause playback to sync';return false;}
       for(const id of gone){LIB.map.delete(id);FILES.delete(id);const i=LIB.ids.indexOf(id);if(i>=0)LIB.ids.splice(i,1);}
       fresh.forEach(libAdd);
-      this.mapping=mapping;this.status='Verified R2 library ready';this.error='';
+      this.mapping=mapping;this.status='Verified R2 library ready';this.error='';this._lastRefreshNetwork=false;Engine.tracePlayback('r2-catalog-ready');
       const selected=Engine.current?.id;
       if(selected&&gone.includes(selected))Engine.stop();
       const order=Engine.order.slice(),currentOrder=Engine.order[Engine.pos],remap=new Map(),queue=[],removed=new Set(gone);
@@ -2461,12 +2513,41 @@ const R2Source={
       if(Engine.current?.source==='r2')Engine.current=LIB.map.get(selected)||null;
       if(!Engine.current&&allTracks().length){Engine.queue=allTracks();Engine.buildOrder();Engine.pos=0;Engine.current=Engine.queue[Engine.order[0]];}
       Engine.saveState();UI.renderNowPlaying(Engine.current);UI.renderPlayState();Views.refreshAll();
+      void PlaylistFiles.seed();
       if(!quiet)toast('Cloudflare R2 ready · '+fresh.length+' songs');return true;
     }catch(e){
       this.error=e.name==='AbortError'?'R2 refresh canceled or timed out.':e.message;
+      // E1: remember network-caused refresh failures so the play path can
+      // wait out a blip. The last good mapping is deliberately kept here — a
+      // failed background refresh must not take loaded tracks offline.
+      this._lastRefreshFailedAt=Date.now();
+      this._lastRefreshNetwork=e?.name==='AbortError'||e?.name==='TypeError'||(typeof navigator!=='undefined'&&navigator.onLine===false);
       this.status=allTracks(true).some(t=>t.source==='r2')?'Saved R2 library · refresh delayed':'R2 temporarily unavailable';
       if(!quiet)toast(this.error,6000);return false;
     }finally{clearTimeout(timeout);this.busy=false;this.controller=null;this.schedule();MusicSources.refresh();}
+  },
+  // P1: conditional GET for the 5-minute library poll. readLibrary() accepts
+  // a custom fetcher, so the If-None-Match plumbing stays in player.js:
+  // the Worker answers 304 when the library ETag is unchanged, which
+  // readLibrary would fail() on — the fetcher converts it to a sentinel the
+  // caller handles by skipping the commit. 200 responses keep readLibrary's
+  // cache:'no-store' semantic, and the ETag is only promoted after a full
+  // successful parse (a rejected body must never mask itself as current).
+  async readLibraryConditional({url,signal}){
+    if(this._libraryETagFor!==url)this._libraryETag=null;
+    const self=this;let seenETag=null;
+    const fetcher=async(endpoint,init)=>{
+      const headers=new Headers(init?.headers);
+      if(self._libraryETag)headers.set('If-None-Match',self._libraryETag);
+      const r=await fetch(endpoint,{...init,headers});
+      if(r.status===304){try{await r.body?.cancel();}catch(_){}const notModified=Error('R2 library not modified');notModified.__r2NotModified=true;throw notModified;}
+      const etag=r.headers.get('etag');
+      if(typeof etag==='string'&&etag&&etag.length<512)seenETag=etag;
+      return r;
+    };
+    const result=await this.helper.readLibrary({url,signal,fetcher});
+    if(seenETag){this._libraryETag=seenETag;this._libraryETagFor=url;}
+    return result;
   },
   fileFor(t){
     if(t?.source!=='r2')return null;
@@ -2479,9 +2560,10 @@ const R2Source={
       '<p role="status">'+esc(this.error||this.status)+'</p>'+
       '<p class="note">'+allTracks(true).filter(t=>t.source==='r2').length+' verified songs. Registered uploads appear on refresh; the library also checks for updates every five minutes.</p>'+
       '<p class="note">This source has its own track entries, ratings and playlists. Turning it off keeps its saved library.</p>',
-      [{label:'Refresh R2',pri:true},{label:'Close'}]);
+      [{label:'Refresh R2',pri:true},{label:'Copy playback diagnostics'},{label:'Close'}]);
+    $$('#sheet .actions .btn')[1].onclick=()=>PlaybackDiagnostics.copy();
     const refresh=$$('#sheet .actions .btn')[0];
-    refresh.onclick=async()=>{refresh.disabled=true;if(!SourceLibrary.enabled('r2'))MusicSources.setEnabled('r2',true,false);await this.connect();refresh.disabled=false;};
+    refresh.onclick=async()=>{refresh.disabled=true;if(!SourceLibrary.enabled('r2'))MusicSources.setEnabled('r2',true,false);if(!this.helper)await this.install();else await this.connect();refresh.disabled=false;};
   },
   exportRemote(t){
     const file=this.fileFor(t);if(!file)return this.show();
@@ -2511,7 +2593,12 @@ const PlaybackDiagnostics={limit:80,maxBytes:31000,entries:[],sizes:[],bytes:0,
     const size=JSON.stringify(entry).length+1;this.entries.push(entry);this.sizes.push(size);this.bytes+=size;
     while(this.entries.length>this.limit||this.bytes>this.maxBytes){this.entries.shift();this.bytes-=this.sizes.shift();}
   },
-  report(){return {schema:'poweramp-playback-v1',events:this.entries.map(entry=>({...entry}))};}
+  report(){return {schema:'poweramp-playback-v1',events:this.entries.map(entry=>({...entry}))};},
+  async copy(){
+    const text=JSON.stringify(this.report(),null,2);
+    try{await navigator.clipboard.writeText(text);toast('Playback diagnostics copied. No song details or URLs included.');}
+    catch(_){dialog('Playback diagnostics','<p>Copy this report to share it.</p><textarea readonly aria-label="Playback diagnostics" rows="12">'+esc(text)+'</textarea>',[{label:'Close'}]);const field=$('#sheet textarea');field?.focus();field?.select();}
+  }
 };
 const Engine = {
   ctx:null, nodes:null, ready:false,
@@ -2554,7 +2641,7 @@ const Engine = {
   resetSelectionRecovery:function(track){
     this._driveRetryId=this._driveErrorReportedId=null;
     this._serverRetryId=this._serverErrorReportedId=null;
-    this._r2RetryId=this._r2ErrorReportedId=null;
+    this._r2RetryId=this._r2ErrorReportedId=null;this._r2Progress=null;this._contextHold=null;
     clearTimeout(this._driveRetryTimer);clearTimeout(this._serverRetryTimer);this.clearR2Recovery();
     this._driveRetryTimer=this._serverRetryTimer=this._r2RetryTimer=null;
     this.clearBuffering();this._mediaStarted=null;
@@ -2584,7 +2671,7 @@ const Engine = {
     const token=this._r2Recovery;
     if(!this.r2RecoveryValid(token)){if(token)this.clearR2Recovery();return;}
     if(navigator.onLine===false)return;
-    if(this.ctx&&this.ctx.state!=='running'){this.pause('context-interrupted');return;}
+    if(this.ctx&&this.ctx.state!=='running'){this.holdContextSuspension();return;}
     const a=token.audio,position=this.time(),at=Number.isFinite(position)?Math.max(0,position):token.position;
     clearTimeout(this._r2RetryTimer);this._r2RetryTimer=null;this._r2OfflineSource=null;token.phase='reload';
     // Delay the one clean-URL reload until it can use the network. Keep any
@@ -2593,19 +2680,39 @@ const Engine = {
     this.tracePlayback('r2-retry-start');this.startElement(a);
     if(this._r2Recovery===token)this._r2Recovery=null;
   },
+  holdContextSuspension:function(){
+    const a=this.el(),c=this.ctx;
+    // A context-only suspension is not an instruction to pause the element.
+    // Never resume a context here. Native focus pauses and interrupted/closed
+    // contexts remain terminal until an explicit Play.
+    if(c?.state!=='suspended'||!a||a.paused&&!a.ended){this.pause('context-interrupted');return false;}
+    this._contextHold={context:c,request:this._playRequest,audio:a,source:a.src};
+    this._r2Progress=null;this.clearBuffering();this.playing=false;
+    this.tracePlayback('context-held');UI.renderPlayState();return true;
+  },
   reconcilePlaybackLifecycle:function(){
+    // E2: the page is visible again after a transient interruption — if the
+    // auto-resume arm is still inside its window and past its initial
+    // settle, offer the early resume instead of waiting out the 15s timer.
+    if(this._autoResume&&!this._userInteracted&&typeof document!=='undefined'&&document.visibilityState==='visible'){
+      const age=Date.now()-this._autoResume.at;
+      if(age>=2000&&age<15000){this._tryAutoResume();return;}
+    }
     if(!this.wantsPlayback()||this._loadingRequest)return;
     if(this.ctx&&this.ctx.state!=='running'){
       if(this.ctx.state==='suspended'&&this._contextResume?.context===this.ctx&&this._contextResume.request===this._playRequest)return;
-      this.pause('context-interrupted');return;
+      this.holdContextSuspension();return;
     }
     const a=this.el();if(!a)return;
+    const held=this._contextHold;this._contextHold=null;
+    const continuing=held&&held.context===this.ctx&&held.request===this._playRequest&&held.audio===a&&held.source===a.src;
     // Read native state after a renderer freeze. Reuse the ordinary end
     // handler's request fence, silence setting, repeat and queue policy.
     if(a.ended){this.tracePlayback('lifecycle-ended');this.onEnded(this.cur);return;}
-    if(this._r2Recovery?.phase==='offline'&&navigator.onLine!==false){this.beginR2Recovery();return;}
+    if(this._r2Recovery&&(this._r2Recovery.phase==='offline'||continuing)&&navigator.onLine!==false){this.beginR2Recovery();return;}
     // A missing pause event is still an interruption, never a reason to play.
     if(a.paused)this.onPause(this.cur);
+    else if(continuing){if(a.error)this.onError(this.cur);else if(a.readyState>=3)this.onPlaying(this.cur);else this.onBuffering(this.cur,'initial');}
   },
   cancelTransitionForFailure:function(){
     if(typeof PlaybackTransitions!=='undefined'&&(PlaybackTransitions.pending||this.xfading))PlaybackTransitions.cancel();
@@ -2620,6 +2727,34 @@ const Engine = {
     }
     if(message)toast(message);
   },
+  // E1: bounded retry for the R2 preflight. Only waits when a refresh could
+  // still land (one in flight, or a network failure seconds ago); a mapping
+  // that never existed or a genuinely removed track fails fast. Strict
+  // trackMatches validation is untouched — fileFor still decides.
+  r2PreflightWithRetry:async function(t){
+    let f=R2Source.fileFor(t);
+    if(f||t?.source!=='r2')return f;
+    if(!this.r2RefreshMayLand())return null;
+    for(let attempt=1;attempt<=2;attempt++){
+      this.tracePlayback('r2-preflight-retry',{attempt});
+      await new Promise(r=>setTimeout(r,1000));
+      if(t?.source!=='r2')return null;
+      f=R2Source.fileFor(t);
+      if(f)return f;
+    }
+    return null;
+  },
+  r2RefreshMayLand:function(){
+    if(R2Source.busy)return true;
+    return !!R2Source._lastRefreshNetwork&&Date.now()-(R2Source._lastRefreshFailedAt||0)<10000;
+  },
+  // E5: the engine already knows when the network is the problem — say so
+  // instead of blaming the R2 source.
+  r2UnavailableMessage:function(){
+    if(typeof navigator!=='undefined'&&navigator.onLine===false)return 'Waiting for connection…';
+    if(this.r2RefreshMayLand())return 'Waiting for connection…';
+    return 'Cloudflare R2 is unavailable. Refresh its source in Music Sources.';
+  },
   onPause:function(i){
     const a=this.els[i];
     this.tracePlayback(i===this.cur?'element-pause':'spare-pause');
@@ -2633,6 +2768,7 @@ const Engine = {
   },
   onPlaying:function(i){
     if(i!==this.cur||this._loadingRequest)return;
+    this._lastAutoResumeAttemptAt=0; // E2: real output clears the no-rearm suppression — later interruptions may arm again.
     const a=this.els[i];if(!this.wantsPlayback()){if(!a.paused)this.pauseElement(a);return;}
     // A queued playing event or resolved play promise can arrive after a new
     // waiting/error transition. It is not fresh evidence of flowing output.
@@ -2640,7 +2776,7 @@ const Engine = {
     if(a.paused||a.ended||a.error||a.readyState<3)return;
     this._r2OfflineSource=null;
     this._mediaStarted={request:this._playRequest,attempt:this._playAttempt,slot:i,source:a.src};
-    if(this.ctx&&this.ctx.state!=='running'){this.tracePlayback('element-awaits-context');return;}
+    if(this.ctx&&this.ctx.state!=='running'){this.tracePlayback('element-awaits-context');if(!(this._contextResume?.context===this.ctx&&this._contextResume.request===this._playRequest))this.holdContextSuspension();return;}
     this.playing=true;this._playIntent=true;this.clearBuffering();this.tracePlayback('element-playing');
     UI.renderPlayState();this.updateMediaSession();
   },
@@ -2648,18 +2784,40 @@ const Engine = {
     const c=this.ctx;if(!c||!['suspended','interrupted'].includes(c.state))return;
     if(this._playIntent===false&&reason!=='play'&&reason!=='selection')return;
     if(this._contextResume?.context===c&&this._contextResume.request===this._playRequest)return this._contextResume.promise;
-    const token={context:c,request:this._playRequest};this._contextResume=token;this.tracePlayback('context-resume',{reason});
-    let resume;try{resume=c.resume();}catch(e){resume=Promise.reject(e);}
-    token.promise=Promise.resolve(resume).then(()=>{
-      if(this._contextResume===token)this._contextResume=null;
-      if(this.ctx===c){this.tracePlayback('context-resumed',{reason});const active=this._mediaStarted;
-        if(this._playRequest===token.request&&active?.request===this._playRequest&&active.attempt===this._playAttempt&&active.slot===this.cur&&active.source===this.el().src&&this.wantsPlayback())this.onPlaying(this.cur);}
-    },e=>{
-      if(this._contextResume===token)this._contextResume=null;
-      this.tracePlayback('context-resume-failed',{reason,error:e?.name});
-      if(this.ctx!==c||this._playRequest!==token.request||!this.wantsPlayback())return;
-      this.pause('context-failed');toast('Audio could not resume. Tap play to try again.',5000);
-    });return token.promise;
+    const token={context:c,request:this._playRequest,attempt:0};this._contextResume=token;
+    // E4: waking the AudioContext can fail transiently (e.g. the OS audio
+    // pipeline is still settling after an interruption). Retry up to 3 times
+    // with backoff (~500ms, ~1.5s) before declaring the context dead; the
+    // trace carries the attempt count. A superseded token or lost play
+    // intent stops the loop quietly — only the final genuine failure pauses.
+    const waits=[0,500,1500],self=this;
+    token.promise=(async()=>{
+      for(let i=0;i<waits.length;i++){
+        token.attempt=i+1;
+        if(i>0)await new Promise(r=>setTimeout(r,waits[i]));
+        if(self._contextResume!==token)return; // superseded by a newer attempt
+        if(!self.wantsPlayback()){if(self._contextResume===token)self._contextResume=null;return;}
+        self.tracePlayback('context-resume',{reason,attempt:token.attempt});
+        try{await c.resume();}
+        catch(e){
+          self.tracePlayback('context-resume-failed',{reason,attempt:token.attempt,error:e?.name});
+          if(i<waits.length-1)continue; // bounded retry: the token stays live across the backoff
+          if(self._contextResume===token)self._contextResume=null;
+          if(self.ctx===c&&self._playRequest===token.request&&self.wantsPlayback()){
+            self.pause('context-failed');toast('Audio could not resume. Tap play to try again.',5000);
+          }
+          return;
+        }
+        if(self._contextResume===token)self._contextResume=null;
+        if(self.ctx===c){
+          self.tracePlayback('context-resumed',{reason,attempt:token.attempt});
+          const active=self._mediaStarted;
+          if(self._playRequest===token.request&&active?.request===self._playRequest&&active.attempt===self._playAttempt&&active.slot===self.cur&&active.source===self.el().src&&self.wantsPlayback())self.onPlaying(self.cur);
+        }
+        return;
+      }
+    })();
+    return token.promise;
   },
   ensureCtx:function(reason='transport'){
     if(this.ctx){
@@ -2674,7 +2832,9 @@ const Engine = {
       ctx.addEventListener?.('statechange',()=>{
         this.tracePlayback('context-state');
         const expectedSuspend=ctx.state==='suspended'&&this._contextResume?.context===ctx&&this._contextResume.request===this._playRequest;
-        if(['suspended','interrupted','closed'].includes(ctx.state)&&!expectedSuspend&&this.wantsPlayback())this.pause('context-interrupted');
+        if(!this.wantsPlayback())return;
+        if(['suspended','interrupted','closed'].includes(ctx.state)&&!expectedSuspend)this.holdContextSuspension();
+        else if(ctx.state==='running'&&this._contextHold)this.reconcilePlaybackLifecycle();
       });
       const n={};
       n.preamp = ctx.createGain();
@@ -2846,13 +3006,28 @@ const Engine = {
     const t=this.queue[qi];
     if(!t||!sourceTrackEnabled(t))return this.selectionUnavailable();
     if(t.source==='drive'&&!DriveSource.api)return this.selectionUnavailable('Google Drive is unavailable. Check Music Sources in Library settings.');
-    if(t.source==='r2'&&!R2Source.fileFor(t))return this.selectionUnavailable('Cloudflare R2 is unavailable. Refresh its source in Music Sources.');
+    // D1 (rev-4 review): the request identity must be allocated BEFORE the
+    // first await. Allocating it after the awaited preflight let a stale,
+    // slow-resolving selection allocate a newer identity and overwrite the
+    // user's newer intent.
+    const request=++this._playRequest || (this._playRequest=1);
+    if(t.source==='r2'&&!R2Source.fileFor(t)){
+      // E1: the mapping can be momentarily absent while a catalog refresh is
+      // mid-flight or just failed on a network blip — give it a bounded
+      // chance to appear before failing the selection. E5 picks the message.
+      const preflightOk=await this.r2PreflightWithRetry(t);
+      // D1c1 (rev-4 review): check the request identity BEFORE applying
+      // either the success or the failure effects — a superseded selection
+      // must not clobber the newer selection in either case.
+      if(request!==this._playRequest)return;
+      if(!preflightOk)return this.selectionUnavailable(this.r2UnavailableMessage());
+    }
     if(SourceLibrary.kind(t)==='server' && !DrawerCast.canPlay(t))return this.selectionUnavailable('Music server is unavailable. Reconnect in Music Sources.');
     // A deliberate new selection gets its own retry budget. Metadata from a
     // failed retry does not prove the audio ever became playable.
     this.resetSelectionRecovery(t);
     DriveSource.prioritize(t);
-    const request=++this._playRequest || (this._playRequest=1);
+    this._playStartRetries={request:this._playRequest,n:0}; // E1: a deliberate new selection gets its own retry budget.
     const wasPlaying = autoplay!==false;
     this._playIntent=wasPlaying;
     this._loadingRequest=request;this._loadingAutoplay=wasPlaying;
@@ -2861,7 +3036,13 @@ const Engine = {
     this.dur=t.dur||0;
     this.releaseSlot(this.cur);
     this.playing=false;UI.renderPlayState();
+    this._recordShuffle?.(qi);
     this.current=t;
+    // D1c3 (rev-4 review): request-bound evidence that THIS request committed
+    // the target occurrence. ID equality cannot prove it — a same-ID queue
+    // occurrence (e.g. [A,A,B] failing on the second A) shares current's ID
+    // without ever committing.
+    this._playCommitRequest=request;
     this.pos = Math.max(0, this.order.indexOf(qi));
     UI.renderNowPlaying(t);UI.renderProgress();
     let f;
@@ -2941,6 +3122,17 @@ const Engine = {
     const valid=()=>request===this._playRequest&&attempt===this._playAttempt&&a===this.el()&&source===a.src&&this.wantsPlayback();
     const rejected=e=>{
       if(!valid())return;this.tracePlayback('play-rejected',{error:e?.name});
+      // E1: an AbortError while playback is still wanted is usually a
+      // transient pipeline abort (output switch, media hiccup), not a verdict
+      // on the track. Retry the element start a bounded number of times with
+      // backoff before falling back to the interrupted-pause path. Decode
+      // and policy errors stay terminal.
+      if(e?.name==='AbortError'&&this._playStartRetries?.request===request&&this._playStartRetries.n<2){
+        const n=++this._playStartRetries.n;
+        this.tracePlayback('play-start-retry',{error:e?.name,attempt:n});
+        setTimeout(()=>{if(valid()&&this._playStartRetries?.request===request)this.startElement(a);},n===1?1000:2000);
+        return;
+      }
       if(e?.name==='AbortError'||e?.name==='NotAllowedError'){
         this.pause('interrupted');toast(e?.name==='NotAllowedError'?'Tap play again to start audio':'Playback was interrupted. Tap play to resume.',4000);return;
       }
@@ -2955,7 +3147,11 @@ const Engine = {
     return p;
   },
   play:function(){
-    this.cancelSleepFade();
+    this.cancelSleepFade();this._contextHold=null;
+    // E1: an explicit play gets a fresh startElement retry budget.
+    this._playStartRetries={request:this._playRequest,n:0};
+    // E2: an explicit play is the user taking control — never auto-resume after it.
+    this._userInteracted=true;this._disarmAutoResume();
     if(this.ctx?.state==='closed'){this.pause('context-failed');toast('Audio output was closed. Reload this page to play again.',6000);return;}
     this._playIntent=true;this.ensureCtx('play');
     clearTimeout(this._driveRetryTimer);clearTimeout(this._serverRetryTimer);this.clearR2Recovery();
@@ -2971,9 +3167,15 @@ const Engine = {
     return this.startElement(a);
   },
   pause:function(reason='user'){
-    this.cancelSleepFade();
+    this.cancelSleepFade();this._contextHold=null;this._r2Progress=null;
     const a=this.el(), self=this;
     this._playIntent=false;this._playAttempt=(this._playAttempt||0)+1;this._mediaStarted=null;this.tracePlayback('pause-request',{reason});
+    // E2: only a system interruption ('interrupted') arms auto-resume, and
+    // only when it isn't the immediate fallout of our own resume attempt.
+    // Every other pause — 'user', 'media-session', 'sleep', 'screen-off',
+    // context failures — is intentional or terminal: never auto-resume.
+    if(reason==='interrupted'&&Date.now()-(this._lastAutoResumeAttemptAt||0)>5000)this._armAutoResume();
+    else{this._userInteracted=true;this._disarmAutoResume();}
     this.clearBuffering();
     clearTimeout(this._driveRetryTimer);
     clearTimeout(this._serverRetryTimer);
@@ -2990,10 +3192,45 @@ const Engine = {
     } else this.pauseElement(a);
     this.saveState();
   },
+  // E2: auto-resume after transient system interruptions (notification
+  // ducking, Bluetooth output switches). Default ON. A resume happens only
+  // when ALL hold: (a) the pause reason was a system interruption — the arm
+  // is set exclusively from pause('interrupted'), never 'user' or
+  // 'media-session' (intentional pauses stay paused, period); (b) the user
+  // hasn't touched any playback control since (play/pause/next/prev/seek set
+  // _userInteracted); (c) the resume lands inside a short,
+  // notification-length window (15s) — never phone-call-length.
+  _armAutoResume:function(){
+    this._disarmAutoResume();
+    this._userInteracted=false;
+    const at=Date.now(),self=this;
+    this.tracePlayback('auto-resume-armed');
+    this._autoResume={at,reason:'interrupted',timer:setTimeout(()=>self._tryAutoResume(),14000)}; // D2 (rev-4 review): 14s, not 15s — the timer must fire strictly inside the 15s window, or _tryAutoResume's age>=15000 check always suppresses the scheduled fallback
+  },
+  _disarmAutoResume:function(){
+    if(this._autoResume?.timer)clearTimeout(this._autoResume.timer);
+    this._autoResume=null;
+  },
+  _tryAutoResume:function(){
+    const arm=this._autoResume;this._autoResume=null;
+    if(!arm)return;
+    if(arm.timer)clearTimeout(arm.timer);
+    const suppress=
+      this._userInteracted?'user-interacted':
+      Date.now()-arm.at>=15000?'window-expired':
+      !this.current||!this.queue.length||this._loadingRequest?'no-selection':
+      this._r2Recovery||this._r2RetryTimer||this._driveRetryTimer||this._serverRetryTimer?'recovery-pending':
+      this.playing?'already-playing':
+      (typeof navigator!=='undefined'&&navigator.onLine===false)?'offline':null;
+    if(suppress){this.tracePlayback('auto-resume-suppressed',{why:suppress});return;}
+    this._lastAutoResumeAttemptAt=Date.now();
+    this.tracePlayback('auto-resume-attempt',{reason:arm.reason,afterMs:Date.now()-arm.at});
+    this.play();
+  },
   wantsPlayback:function(){return this._playIntent===false?false:this._playIntent===true||this.playing||!!(this._loadingRequest&&this._loadingAutoplay);},
   toggle:function(){ this.wantsPlayback() ? this.pause() : this.play(); },
   stop:function(){
-    this.cancelSleepFade();
+    this.cancelSleepFade();this._contextHold=null;this._r2Progress=null;this._disarmAutoResume(); // E2: a stop is terminal — never auto-resume after it.
     this._playIntent=false;this._playAttempt=(this._playAttempt||0)+1;this._mediaStarted=null;this.tracePlayback('stop-request');
     this.clearBuffering();
     clearTimeout(this._driveRetryTimer);
@@ -3008,6 +3245,8 @@ const Engine = {
     this.saveState();
   },
   next:function(auto){
+    // E2: the user stepping tracks takes control — no auto-resume after this.
+    this._userInteracted=true;this._disarmAutoResume();
     if(!auto)return commitTrackStep(resolveTrackStep(1));
     if(!this.queue.length) return;
     const previousPos=this.pos;
@@ -3018,13 +3257,31 @@ const Engine = {
       else { this.pause(); this.el().currentTime=0; UI.renderProgress(); return; }
     }
     this.pos++;
-    const request=this._playRequest,result=this.playIndex(this.order[this.pos], auto || this.wantsPlayback());
-    // Preflight failure creates no new request. Keep the selected occurrence
-    // aligned with current, including duplicate tracks and a repeat-all wrap.
-    if(this._playRequest===request)this.pos=previousPos;
+    const targetQi=this.order[this.pos],target=this.queue[targetQi];
+    const request=this._playRequest,result=this.playIndex(targetQi, auto || this.wantsPlayback()),acceptedRequest=this._playRequest;
+    // A synchronous preflight failure (invalid track, unavailable drive)
+    // allocates no new request: keep the selected occurrence aligned.
+    if(acceptedRequest===request)this.pos=previousPos;
+    else if(result&&typeof result.then==='function'){
+      // D1c2 (rev-4 review): the R2/server preflight settles asynchronously,
+      // so the occurrence rollback must wait for the selection to settle too.
+      // On failure, preserve the originating queue occurrence — but never roll
+      // back a newer selection that superseded this one.
+      Promise.resolve(result).then(()=>{
+        if(acceptedRequest!==this._playRequest)return; // a newer selection took over
+        // D1c3 (rev-4 review): only THIS request's commit counts. ID equality
+        // cannot prove the requested occurrence committed (same-ID queue
+        // duplicates share current's ID without committing).
+        if(this._playCommitRequest===acceptedRequest)return; // committed
+        this.pos=previousPos;
+      },()=>{
+        if(acceptedRequest!==this._playRequest)return;
+        this.pos=previousPos;
+      });
+    }
     return result;
   },
-  prev:function(){return commitTrackStep(resolveTrackStep(-1));},
+  prev:function(){this._userInteracted=true;this._disarmAutoResume();return commitTrackStep(resolveTrackStep(-1));},
   seekWhenReady:function(sec){
     if(!Number.isFinite(sec)||sec<0)return;
     const a=this.el();
@@ -3045,6 +3302,8 @@ const Engine = {
   },
   seek:function(sec){
     if(!Number.isFinite(sec))return;
+    this._userInteracted=true;this._disarmAutoResume(); // E2: scrubbing is the user taking control.
+    this._r2Progress=null;
     if(this._loadingRequest)this._requestedSeek=Math.max(0,sec);
     else if(!this.el().src&&this.current)this._resumePosition={id:this.current.id,time:Math.max(0,sec)};
     else this.seekWhenReady(sec);
@@ -3105,7 +3364,7 @@ const Engine = {
       if(retryable&&this.r2RecoveryValid(this._r2Recovery)&&this._r2Recovery.phase!=='reload'){this.tracePlayback('r2-retry-already-pending');return;}
       if(retryable&&this._r2RetryId!==t.id){
         if(offlineSource)this.tracePlayback('r2-source-rejected-offline');
-        this._r2RetryId=t.id;this._playIntent=true;this.playing=false;this._mediaStarted=null;UI.renderPlayState();
+        this._r2RetryId=t.id;this._r2Progress=null;this._playIntent=true;this.playing=false;this._mediaStarted=null;UI.renderPlayState();
         const position=this.time(),at=Number.isFinite(position)?Math.max(0,position):0,source=a.src,request=this._playRequest;
         // Same-URL reload aborts old pending play promises. Retire that attempt,
         // but keep this selection's one-retry budget and original clean URL.
@@ -3192,10 +3451,22 @@ const Engine = {
     UI.renderProgress();
     UI.renderMeta();
   },
+  noteR2Progress:function(a){
+    if(this.current?.source!=='r2'||this._r2RetryId!==this.current.id||!this.playing||!this.wantsPlayback()||a.paused||a.ended||a.error||a.readyState<3||this.ctx&&this.ctx.state!=='running'){this._r2Progress=null;return;}
+    const now=Date.now(),time=a.currentTime,p=this._r2Progress;
+    if(!p||p.request!==this._playRequest||p.audio!==a||p.source!==a.src){this._r2Progress={request:this._playRequest,audio:a,source:a.src,time,at:now,seconds:0};return;}
+    const dt=now-p.at,delta=time-p.time;if(dt<=0||delta===0)return;
+    // Thirty seconds of observed output, not bytes, readiness, seek jumps or
+    // elapsed background time. A relapse before that remains terminal.
+    if(dt>5000||delta<0||delta>Math.max(.25,dt/1000*Math.max(1,SET.speed)*1.5))p.seconds=0;
+    else p.seconds+=Math.min(delta,dt/1000);
+    p.time=time;p.at=now;
+    if(p.seconds>=30){this._r2RetryId=null;this._r2Progress=null;this.tracePlayback('r2-retry-rearmed');}
+  },
   onTime:function(i){
     if(i!==this.cur||this._loadingRequest) return;
     if(this.playing&&Date.now()-(this._lastCheckpoint||0)>=10000)this.checkpoint();
-    const a=this.el();
+    const a=this.el();this.noteR2Progress(a);
     if(this.playing&&!a.paused&&!a.ended&&!a.error&&a.readyState>=3&&this._bufferAt!=null&&a.currentTime>this._bufferAt+0.05)this.clearBuffering();
     if(SET.gapless && !SET.crossfade && this.playing) this.preloadNext();
     if(SET.crossfade && this.playing){
@@ -3207,23 +3478,42 @@ const Engine = {
   clearBuffering:function(){clearTimeout(this._stallTimer);this._stallTimer=null;this._bufferAt=null;this._bufferToken=null;},
   onBuffering:function(i,reason){
     if(i!==this.cur||this._loadingRequest||!this.wantsPlayback()||!this.transportCapabilities().network)return;
+    this._r2Progress=null;
     const a=this.el(),request=this._playRequest,source=a.src,track=this.current.id;
     const previous=this._bufferToken;
     if(this._stallTimer&&previous?.request===request&&previous.source===source&&previous.slot===i&&(a.currentTime||0)<=this._bufferAt+0.05)return;
     this.clearBuffering();
     const token=this._bufferToken={request,source,slot:i,at:Date.now()};
-    this.tracePlayback('buffering',{reason});
+    // E3: the no-progress deadline scales when the network looks slow.
+    const deadline=this.stallDeadlineMs();
+    this.tracePlayback('buffering',{reason,deadlineMs:deadline});
     this._bufferAt=a.currentTime||0;
     this._stallTimer=setTimeout(()=>{
       if(this._bufferToken!==token||this._playRequest!==request||this.el()!==a||a.src!==source||this.current?.id!==track||!this.wantsPlayback()||a.ended)return;
-      if(this.ctx&&this.ctx.state!=='running'){this.pause('context-interrupted');return;}
+      if(this.ctx&&this.ctx.state!=='running'){if(this._contextResume?.context===this.ctx&&this._contextResume.request===request)this.pause('context-interrupted');else this.holdContextSuspension();return;}
       // Timers can resume before queued native events after suspension. A
       // paused element yields focus; a few final buffered frames do not prove
       // that a stream with no future data has recovered.
       if(a.paused){this.onPause(i);return;}
       if(!this.playing||a.readyState<3||(a.currentTime||0)<=this._bufferAt+0.05)this.onError(i,'stall');
       else this.clearBuffering();
-    },12000);
+    },deadline);
+  },
+  // E3: adaptive stall watchdog. The fixed ~12s no-progress deadline is kept
+  // for normal networks and extended when the Network Information API says
+  // the link is slow (or the user asked to save data). Fully guarded — the
+  // API is absent on several browsers, and the type can change mid-session,
+  // so it is read fresh on every buffering episode.
+  stallDeadlineMs:function(){
+    try{
+      const c=navigator.connection;
+      if(c){
+        if(c.saveData)return 24000;
+        if(c.effectiveType==='slow-2g'||c.effectiveType==='2g')return 24000;
+        if(c.effectiveType==='3g')return 18000;
+      }
+    }catch(e){}
+    return 12000;
   },
   async preloadNext(){
     if(SET_repeat()==='one'||PlaybackQueue.shouldStart())return;
@@ -3334,12 +3624,21 @@ const Engine = {
     },min*60000);
     UI.renderToggles();toast('Sleeping in '+min+' min');
   },
-  checkpoint:function(){
+  checkpoint:function(force=false){
+    const preparing=this._shuffleBuild;
+    if(!force&&preparing&&!preparing.cycle&&!preparing.transport&&(typeof document==='undefined'||document.visibilityState!=='hidden')){
+      if(!preparing.checkpointPending){preparing.checkpointPending=true;(preparing.transportPromise||preparing.promise).then(result=>{preparing.checkpointPending=false;if(result&&(!this._shuffleBuild||this._shuffleBuild===preparing))this.checkpoint();}).catch(()=>{});}
+      return;
+    }
     const state={ids:this.queue.map(t=>t.id),pos:this.pos,order:this.order.slice(),curId:this.current?.id||null,time:this.time(),savedAt:Date.now()};
+    const shuffle=this._syncShuffle?.();if(shuffle){state.shuffle=shuffle.compactSnapshot(false);if(SET.shuffleOn){delete state.shuffle.ranks;state.shuffle.orderBased=true;}}
+    else if(this._shuffleBuild)state.shuffle=this._shuffleBuild.saved||this._shuffle?.compactSnapshot()||this._shuffleState;
     if(typeof PlaybackQueue!=='undefined')state.explicitQueue={pending:PlaybackQueue.pending.slice(),active:PlaybackQueue.active,resume:PlaybackQueue.resume,forced:PlaybackQueue.forced};
     // The synchronous copy survives a reload before an IndexedDB write commits.
-    try{localStorage.setItem('dc.playback-checkpoint',JSON.stringify(state));}catch(e){}
-    try{IDB.set('kv','state',state).catch(()=>{});}catch(e){}
+    const serialized=this.queue.length>1024&&this._encodeShuffleCheckpoint?this._encodeShuffleCheckpoint(state):JSON.stringify(state);
+    try{localStorage.setItem('dc.playback-checkpoint',serialized);}catch(e){}
+    const stored=this.queue.length>1024?{savedAt:state.savedAt,encoded:serialized}:state;
+    const write=()=>{try{IDB.set('kv','state',stored).catch(()=>{});}catch(e){}};if(this.queue.length>1024)setTimeout(write,0);else write();
     this._lastCheckpoint=Date.now();
   },
   saveState:debounce(function(){Engine.checkpoint();},700),
@@ -3348,16 +3647,20 @@ const Engine = {
     try{
       const request=this._playRequest;
       let s=await IDB.get('kv','state').catch(()=>null);
-      try{const checkpoint=JSON.parse(localStorage.getItem('dc.playback-checkpoint')||'null');if(checkpoint&&Number.isFinite(checkpoint.savedAt)&&(!s||checkpoint.savedAt>(s.savedAt||0)))s=checkpoint;}catch(e){}
+      try{const checkpoint=JSON.parse(localStorage.getItem('dc.playback-checkpoint')||'null');if(checkpoint&&Number.isFinite(checkpoint.savedAt)&&(!s||checkpoint.savedAt>=(s.savedAt||0)))s=checkpoint;}catch(e){}
+      if(s?.encoded){await new Promise(resolve=>setTimeout(resolve,0));s=JSON.parse(s.encoded);}
       if(request!==this._playRequest)return false;
       if(!s || !Array.isArray(s.ids) || !s.ids.length) return false;
-      const q=[],remap=new Map();
-      s.ids.slice(0,50000).forEach((id,i)=>{const t=typeof id==='string'?LIB.map.get(id):null;if(sourceTrackEnabled(t)){remap.set(i,q.length);q.push(t);}});
-      if(!q.length) return false;
-      if(request!==this._playRequest)return false;
-      this.queue=q;this._restoredQueueState=s.explicitQueue;
-      const validOrder=Array.isArray(s.order)&&s.order.length===s.ids.length&&new Set(s.order).size===s.ids.length&&s.order.every(i=>Number.isInteger(i)&&i>=0&&i<s.ids.length);
-      this.order=validOrder?s.order.filter(i=>remap.has(i)).map(i=>remap.get(i)):q.map((_,i)=>i);
+      let q,remap,validOrder,order;
+      if(s.ids.length>1024&&this._restoreShuffleQueue){
+        const restored=await this._restoreShuffleQueue(s,()=>request===this._playRequest);if(!restored)return false;({q,remap,validOrder,order}=restored);
+      }else{
+        q=[];remap=new Map();s.ids.slice(0,50000).forEach((id,i)=>{const t=typeof id==='string'?LIB.map.get(id):null;if(sourceTrackEnabled(t)){remap.set(i,q.length);q.push(t);}});
+        validOrder=Array.isArray(s.order)&&s.order.length===s.ids.length&&new Set(s.order).size===s.ids.length&&s.order.every(i=>Number.isInteger(i)&&i>=0&&i<s.ids.length);
+        order=validOrder?s.order.filter(i=>remap.has(i)).map(i=>remap.get(i)):q.map((_,i)=>i);
+      }
+      if(!q.length||request!==this._playRequest)return false;
+      this.queue=q;this.order=order;this._restoredQueueState=s.explicitQueue;this._shuffle=null;this._shuffleBuild=null;this._shuffleState=[3,4].includes(s.shuffle?.version)?{...s.shuffle,ids:s.shuffle.ids||s.ids,ranks:s.shuffle.orderBased?s.order:s.shuffle.ranks}:s.shuffle;
       const savedIndex=validOrder?remap.get(s.order[s.pos]):-1;
       const restoredIndex=q[savedIndex]?.id===s.curId?savedIndex:q.findIndex(t=>t.id===s.curId);
       this.pos=restoredIndex>=0?Math.max(0,this.order.indexOf(restoredIndex)):0;
@@ -3469,7 +3772,7 @@ const UI = {
   refreshEmpty:function(){
     const cta=$('#art-cta');
     if(!cta) return;
-    const empty = !(allTracks().length || Engine.current);
+    const empty = !(Engine.current || allTracks().length);
     cta.hidden = !empty;
     document.body.classList.toggle('empty-lib', empty);
   },
@@ -3866,7 +4169,7 @@ const InputLifecycle={
   cancel(options={}){
     this.version++;if(!options.keepContacts)this.contacts.clear();this.gesture=null;this.motionSettle=null;
     const rebasing=this.rebasing;this.rebasing=rebasing||!!options.preserveScene;
-    try{for(const [reset,node] of this.resets){reset();if(node?.isConnected===false)this.resets.delete(reset);}}finally{this.rebasing=rebasing;}
+    try{for(const [reset,node] of this.resets){reset(options);if(node?.isConnected===false)this.resets.delete(reset);}}finally{this.rebasing=rebasing;}
   },
   watchSettle(node,cancel,accepts=e=>node.contains(e.target)){this.motionSettle={node,cancel,accepts};},
   unwatchSettle(node){if(this.motionSettle?.node===node)this.motionSettle=null;},
@@ -4149,7 +4452,7 @@ const Views={
     return {type:'tree', dirs:Array.from(dirs).sort(sortNat), counts:counts, items:files.sort(function(a,b){ return (a.track-b.track)||sortNat(a.title,b.title); }), path:path};
   },
   render:function(spec, keepScroll){
-    InputLifecycle.cancel();
+    InputLifecycle.cancel({preserveMiniSeek:true});
     if(Selection.mode)Selection.exit();
     const body=$('#list-body');
     const st=keepScroll?body.scrollTop:0;
@@ -4835,9 +5138,10 @@ const Selection={
    PLAYLISTS / BOOKMARKS
    ===================================================================== */
 const Playlists={
-  data:[],
-  load:async function(){ try{ this.data = (await IDB.get('kv','playlists'))||[]; }catch(e){ this.data=[]; } },
-  save:function(){ IDB.set('kv','playlists',this.data).catch(function(){}); },
+  data:[],persisted:[],writes:Promise.resolve(),
+  load:async function(){ try{ this.data = structuredClone((await IDB.get('kv','playlists'))||[]); }catch(e){ this.data=[]; }this.persisted=structuredClone(this.data); },
+  enqueue(task){const work=this.writes.then(task);this.writes=work.catch(()=>{});return work;},
+  save:function(){return this.enqueue(async()=>{const next=structuredClone(this.data);await IDB.playlists(this.persisted,next);this.persisted=next;}).catch(()=>toast('Playlists could not be saved. Try again.'));},
   all:function(){ return this.data; },
   get:function(id){ return this.data.filter(function(p){ return p.id===id; })[0]; },
   create:function(name){ const p={id:hash(name+Date.now()), name:name, ids:[]}; this.data.push(p); this.save(); return p; },
@@ -5958,6 +6262,9 @@ function resolveTrackStep(delta){
     const next=resume?.order.slice(resume.pos).map(i=>LIB.map.get(resume.ids[i])).find(sourceTrackEnabled)||null;
     return {...step,kind:'queue-finish',queueEnd:nativeValues().queue_end,track:next};
   }
+  const shuffled=Engine._shuffleStep?.(direction,true);
+  if(shuffled?.pending)return null;
+  if(shuffled&&!shuffled.exhausted)return {...step,kind:'track',pos:Engine.order.indexOf(shuffled.index),index:shuffled.index,track:Engine.queue[shuffled.index],shuffle:shuffled};
   const pos=direction<0?(Engine.pos<=0?Engine.order.length-1:Engine.pos-1):(Engine.pos+1)%Engine.order.length;
   return {...step,kind:'track',pos,index:Engine.order[pos],track:Engine.queue[Engine.order[pos]]||null};
 }
@@ -5982,7 +6289,8 @@ function commitTrackStep(step){
     // another deliberate Next continues from this requested target, not from
     // the still-audible outgoing song.
     const request=Engine._playRequest;Engine.pos=step.pos;
-    const result=Engine.playIndex(step.index,autoplay),acceptedRequest=Engine._playRequest;
+    Engine._shuffleNavigation=step.shuffle;
+    const result=Engine.playIndex(step.index,autoplay),acceptedRequest=Engine._playRequest;Engine._shuffleNavigation=null;
     if(acceptedRequest===request&&Engine.current?.id!==step.track.id){Engine.pos=step.originPos;UI.artDir=0;return false;}
     if(Engine.current?.id!==step.track.id)Engine._manualStepOrigin={currentId:step.currentId,queue:step.queue,order:step.order,pos:step.originPos};
     else Engine._manualStepOrigin=null;
@@ -7179,7 +7487,9 @@ function setupSeekGestures(){
     e.preventDefault();e.stopPropagation();InputLifecycle.cancelMotionSettle();cancel();
     const current=Engine.time();Engine.seek(e.key==='Home'?0:e.key==='End'?duration:clamp(current+(e.key==='ArrowRight'?5:-5),0,duration));UI.renderProgress();
   });
-  InputLifecycle.register(()=>{cancel();UI.seekWidth=0;});
+  // Rebuilding list rows must not cancel a scrub on the unchanged mini rail.
+  // Selection changes, navigation, backgrounding and additional contacts still cancel.
+  InputLifecycle.register(options=>{if(options?.preserveMiniSeek&&owner?.node===miniSeek&&valid(owner))return;cancel();UI.seekWidth=0;});
 }
 function setupVizGestures(){
   const v=$('#vizfull');
@@ -7293,7 +7603,7 @@ function bindStatic(){
   $('#t-shuffle').onclick=function(){
     SET.shuffleOn=!SET_shuffleOn();
     saveSet();
-    Engine.buildOrder();
+    Engine.buildOrder();Engine.saveState();
     UI.renderToggles();
     toast('Shuffle '+(SET.shuffleOn?'on':'off'));
   };
@@ -8127,7 +8437,12 @@ const ListOptions={
     const found=data.items.some(t=>numeric?Number.isFinite(Number(t[field]))&&t[field]!=null&&t[field]!==''&&(!['track','year','dur','added','mtime','lastPlayed'].includes(field)||Number(t[field])>0):!!t[field]);
     return found?'':'No '+({mtime:'filesystem date',added:'date added',lastPlayed:'last-played time',plays:'play-count',track:'track-number',dur:'duration'}[field]||field)+' data in this category';
   },
-  comparator(id){
+  comparator(id,reverse=false){
+    // Unknown dates stay last in either direction; equal dates retain source order.
+    if(id==='added')return (a,b)=>{
+      const av=Number(a.added),bv=Number(b.added),ak=Number.isFinite(av)&&av>0,bk=Number.isFinite(bv)&&bv>0;
+      return ak!==bk?(ak?-1:1):ak?(av-bv)*(reverse?1:-1):0;
+    };
     const text=fn=>(a,b)=>sortNat(fn(a)||'',fn(b)||'');
     const number=(field,desc=false)=>(a,b)=>{
       const av=Number(a[field]),bv=Number(b[field]),positive=['track','disc','year','dur','added','mtime','lastPlayed'].includes(field),ak=a[field]!=null&&a[field]!==''&&Number.isFinite(av)&&(!positive||av>0),bk=b[field]!=null&&b[field]!==''&&Number.isFinite(bv)&&(!positive||bv>0);
@@ -8144,7 +8459,13 @@ const ListOptions={
   },
   prepare(data,spec){
     if(spec.kind==='queue')return data;
-    const options=this.get(spec),items=data.items;if(!Array.isArray(items))return data;
+    const options=this.get(spec);let items=data.items;if(!Array.isArray(items))return data;
+    if(options.sort==='added'&&data.type==='tracks'&&!['playlist','bookmarks','search'].includes(spec.kind)&&typeof LIB!=='undefined'){
+      // Legacy category builders pre-sort by title/album. Recover library order
+      // before the stable date sort so ties do not inherit that alphabetization.
+      const ranks=new Map(LIB.ids.map((id,i)=>[id,i]));
+      items=items.slice().sort((a,b)=>(ranks.get(a.id)??Infinity)-(ranks.get(b.id)??Infinity));data=Object.assign({},data,{items});
+    }
     if(data.type==='tracks'){
       if(options.sort==='shuffle'){
         const indices=this.shuffleMap(items);
@@ -8152,9 +8473,9 @@ const ListOptions={
         // A saved unavailable choice is retained, but its fallback is explicit.
         data=Object.assign({},data,{sortNotice:'Shuffle order is unavailable for this category. Showing its library order.'});
       }else if(options.sort!=='original'&&!this.availability(options.sort,data,spec)){
-        data=Object.assign({},data,{items:items.slice().sort(this.comparator(options.sort))});
+        data=Object.assign({},data,{items:items.slice().sort(this.comparator(options.sort,options.reverse))});
       }else if(options.sort!=='original')data=Object.assign({},data,{sortNotice:this.availability(options.sort,data,spec)});
-      if(options.reverse)data=Object.assign({},data,{items:data.items.slice().reverse()});
+      if(options.reverse&&options.sort!=='added')data=Object.assign({},data,{items:data.items.slice().reverse()});
       const alphaField={filename:'filename',path:'path',artist:'artist',album:'album'}[options.sort]||'title';
       return Object.assign({},data,{alphaField});
     }
@@ -8165,7 +8486,8 @@ const ListOptions={
   show(box){
     if(!box)return;
     const spec=box.__spec||Views.currentSpec||{kind:'all'},data=Views.currentData||{type:'tracks',items:box.__items||[]},options=this.get(spec),s=$('#sheet');
-    s.innerHTML='<div class="list-options-content"><header class="list-options-head"><h3>'+esc('List Options: '+(spec.title||spec.key||Views.title(spec)))+'</h3><button class="iconbtn" data-list-settings aria-label="Open library settings">'+icoHTML('settings')+'</button></header><div class="list-options-body"><h4>Sort</h4><div class="list-sort-options"></div><label class="list-choice"><input type="checkbox" data-list-reverse '+(options.reverse?'checked ':'')+(spec.kind==='queue'?'disabled':'')+'><span>Reverse</span></label><h4>Layout</h4><label class="list-choice"><input type="checkbox" data-list-titles '+(options.titlesOnly?'checked':'')+'><span>Show titles only</span></label><h4>View As</h4><p class="list-pinch-hint">'+icoHTML('info')+' Pinch-to-zoom for zooming</p><div class="list-view-options"></div></div><footer class="list-options-footer"><button class="btn" data-list-close>Close</button></footer></div>';
+    const hasR2Dates=options.sort==='added'&&data.type==='tracks'&&data.items.some(t=>t.addedSource==='r2-upload');
+    s.innerHTML='<div class="list-options-content"><header class="list-options-head"><h3>'+esc('List Options: '+(spec.title||spec.key||Views.title(spec)))+'</h3><button class="iconbtn" data-list-settings aria-label="Open library settings">'+icoHTML('settings')+'</button></header><div class="list-options-body"><div class="list-sort-heading"><h4>Sort</h4>'+(hasR2Dates?'<button type="button" class="date-added-info-button" data-date-added-info aria-label="Date Added information" aria-expanded="false" aria-controls="date-added-info">'+icoHTML('info')+'</button>':'')+'</div>'+(hasR2Dates?'<p class="date-added-info" id="date-added-info" hidden>R2 dates use verified upload time; original library-add dates are unavailable.</p>':'')+'<div class="list-sort-options"></div><label class="list-choice"><input type="checkbox" data-list-reverse '+(options.reverse?'checked ':'')+(spec.kind==='queue'?'disabled':'')+'><span>Reverse</span></label><h4>Layout</h4><label class="list-choice"><input type="checkbox" data-list-titles '+(options.titlesOnly?'checked':'')+'><span>Show titles only</span></label><h4>View As</h4><p class="list-pinch-hint">'+icoHTML('info')+' Pinch-to-zoom for zooming</p><div class="list-view-options"></div></div><footer class="list-options-footer"><button class="btn" data-list-close>Close</button></footer></div>';
     const activeBox=()=>{const live=$('#list-body .zoom-list');return live&&this.key(live.__spec||Views.currentSpec)===this.key(spec)?live:null;};
     const change=value=>{if(!activeBox())return;this.save(spec,value);const scroll=s.querySelector('.list-options-body').scrollTop;Views.render(Views.currentSpec||spec,true);this.show($('#list-body .zoom-list'));s.querySelector('.list-options-body').scrollTop=scroll;};
     const sorts=s.querySelector('.list-sort-options');
@@ -8175,6 +8497,8 @@ const ListOptions={
       row.querySelector('input').onchange=()=>change({sort:id});sorts.append(row);
     }
     if(spec.kind==='queue'||options.sort==='original')sorts.prepend(el('p','list-options-note',spec.kind==='queue'?'Queue order follows its Added queue or Playback order tab. Sorting and reversing are disabled.':'Current order is preserved until you choose a sort.'));
+    const dateInfoButton=s.querySelector('[data-date-added-info]');
+    if(dateInfoButton)dateInfoButton.onclick=()=>{const info=s.querySelector('.date-added-info'),expanded=dateInfoButton.getAttribute('aria-expanded')==='true';dateInfoButton.setAttribute('aria-expanded',String(!expanded));info.hidden=expanded;};
     const layoutLabels={[-4]:'Grid - 1 line small',[-3]:'1 line extra small',[-2]:'1 line',[-1]:'List - no images',0:'List - compact',3:'List - small',4:'List',1:'Grid - extra small',2:'Grid - small',5:'Grid'};
     for(const id of [-4,-3,-2,-1,0,3,4,1,2,5]){
       const row=el('label','list-choice');row.innerHTML='<input type="radio" name="list-view" value="'+id+'" '+(+box.dataset.zoom===id?'checked':'')+'><span>'+layoutLabels[id]+'</span>';
@@ -9049,8 +9373,82 @@ const LibraryPresentation={
 Views.render=function(spec,keep){renderListBeforeRework.call(this,spec,keep);LibraryPresentation.render(spec,this.currentData);};
 
 const PlaylistFiles={
-  export(){downloadText('DrawerCast-playlists.json',JSON.stringify({format:'DrawerCast-playlists',playlists:Playlists.data.map(p=>({name:p.name,tracks:p.ids.map(id=>LIB.map.get(id)).filter(Boolean).map(t=>({id:t.id,path:t.path,title:t.title,artist:trackArtist(t)}))}))},null,2),'application/json');},
-  import(){const input=el('input');input.type='file';input.accept='.json,.m3u,.m3u8';input.onchange=async()=>{const file=input.files?.[0];if(!file)return;try{const text=await file.text(),all=allTracks(true),lists=file.name.toLowerCase().endsWith('.json')?JSON.parse(text).playlists:[{name:file.name.replace(/\.m3u8?$/i,''),tracks:text.split(/\r?\n/).filter(s=>s.trim()&&!s.startsWith('#')).map(path=>({path:path.trim()}))}];if(!Array.isArray(lists)||lists.length>1000)throw Error('Invalid playlist file');let count=0,missing=0;const resolved=lists.map(p=>{if(typeof p.name!=='string'||!Array.isArray(p.tracks))throw Error('Invalid playlist');return {name:p.name,ids:p.tracks.map(ref=>{const t=all.find(t=>t.id===ref.id||ref.path&&t.path===ref.path)||((matches)=>matches.length===1?matches[0]:null)(all.filter(t=>ref.path&&baseName(t.path||'')===baseName(ref.path)||ref.title&&t.title===ref.title&&trackArtist(t)===ref.artist));if(t){count++;return t.id;}missing++;return null;}).filter(Boolean)};});for(const p of resolved){const list=Playlists.create(p.name);list.ids=p.ids;}Playlists.save();Views.refreshAll();toast('Imported '+count+' tracks'+(missing?' · '+missing+' unavailable':''));}catch(e){toast(e.message||'Could not import playlists');}};input.click();}
+  seedURL:'./curated-playlists.json?v=86bc49aa',seedMarker:'playlist-seed:curated-v1',
+  maxBytes:5*1024*1024,maxTracks:50000,
+  export(){downloadText('DrawerCast-playlists.json',JSON.stringify({format:'DrawerCast-playlists',playlists:Playlists.data.map(p=>({name:p.name,tracks:p.ids.map(id=>LIB.map.get(id)).filter(Boolean).map(t=>({id:t.id,path:t.path,title:t.title,artist:trackArtist(t),source:SourceLibrary.kind(t)}))}))},null,2),'application/json');},
+  parse(text,name){
+    if(typeof text!=='string'||text.length>this.maxBytes)throw Error('Playlist file is too large.');
+    const json=/\.json$/i.test(name),data=json?JSON.parse(text):{playlists:[{name:name.replace(/\.m3u8?$/i,''),tracks:text.split(/\r?\n/).map(s=>s.trim()).filter(s=>s&&!s.startsWith('#')).map(path=>({path}))}]};
+    if(json&&data?.format!=='DrawerCast-playlists')throw Error('That file is not a playlist export.');
+    if(!Array.isArray(data?.playlists)||data.playlists.length>1000)throw Error('Invalid playlist file.');
+    let total=0;
+    return data.playlists.map(p=>{
+      if(!p||typeof p.name!=='string'||!p.name.trim()||p.name.length>256||/[\x00-\x1f\x7f]/.test(p.name)||!Array.isArray(p.tracks)||(total+=p.tracks.length)>this.maxTracks)throw Error('Invalid playlist.');
+      const tracks=p.tracks.map(ref=>{
+        if(!ref||typeof ref!=='object'||Array.isArray(ref)||!['id','path'].some(k=>typeof ref[k]==='string'&&ref[k].length))throw Error('Invalid playlist track.');
+        for(const k of ['id','path','title','artist','source'])if(ref[k]!=null&&(typeof ref[k]!=='string'||ref[k].length>4096||/[\x00-\x1f\x7f]/.test(ref[k])))throw Error('Invalid playlist track.');
+        if(ref.source!=null&&!['r2','drive','local','server'].includes(ref.source))throw Error('Invalid playlist source.');
+        return {...ref};
+      });return {name:p.name.trim(),tracks};
+    });
+  },
+  resolve(lists,{r2Only=false}={}){
+    const all=allTracks(true),paths=new Map(),owners=new Map();let matched=0,missing=0,ambiguous=0;
+    for(const t of all){if(!paths.has(t.path))paths.set(t.path,[]);paths.get(t.path).push(t);}
+    const resolved=lists.map(p=>({name:p.name,ids:p.tracks.map(ref=>{
+      // ID wins independently of library order. Never guess by basename/title.
+      const source=ref.source||(ref.id?.startsWith('r2_')?'r2':ref.id?.startsWith('gd_')?'drive':null);
+      const eligible=t=>!!t&&(!source||SourceLibrary.kind(t)===source)&&(!r2Only||t.source==='r2'&&!!R2Source.fileFor(t));
+      let t=LIB.map.get(ref.id);
+      if(t&&!eligible(t)){missing++;return null;}
+      if(!t){const candidates=(paths.get(ref.path)||[]).filter(eligible);if(candidates.length>1){ambiguous++;return null;}t=candidates[0];}
+      if(!t){missing++;return null;}matched++;owners.set(t.id,t);return t.id;
+    }).filter(Boolean)}));
+    return {lists:resolved,matched,missing,ambiguous,valid:()=>[...owners].every(([id,t])=>LIB.map.get(id)===t&&(!r2Only||SourceLibrary.enabled('r2')&&!!R2Source.fileFor(t)))};
+  },
+  apply(lists,{marker=null,r2Only=false}={}){
+    return Playlists.enqueue(async()=>{
+      const result=this.resolve(lists,{r2Only});
+      if(r2Only&&(result.missing||result.ambiguous))return {...result,pending:true,created:0};
+      const existing=new Set([...Playlists.data,...Playlists.persisted].map(p=>p.name));
+      const created=result.lists.filter(p=>!marker||!existing.has(p.name)).map(p=>({id:crypto.randomUUID(),name:p.name,ids:p.ids}));
+      const next=[...structuredClone(Playlists.persisted),...created];
+      const applied=await IDB.playlists(Playlists.persisted,next,marker,result.valid);
+      if(applied){
+        Playlists.persisted=structuredClone(next);
+        // Imports only append new lists. Edits/deletions made while storage was
+        // committing stay in memory and queued saves include the new lists.
+        Playlists.data.push(...created);Views.refreshAll();
+      }
+      return {...result,created:applied?created.length:0,pending:false};
+    });
+  },
+  async seed(){
+    if(!this.seedURL||this.seedDone||!SourceLibrary.enabled('r2')||!R2Source.native||!R2Source.mapping)return;
+    if(this.seeding){this.seedAgain=true;return;}
+    this.seeding=true;
+    try{
+      if(await IDB.get('kv',this.seedMarker)===true){this.seedDone=true;return;}
+      const response=await fetch(this.seedURL,{credentials:'omit',signal:AbortSignal.timeout(15000)});
+      if(!response.ok)throw Error('Curated playlists unavailable');
+      const lists=this.parse(await response.text(),'curated.json');
+      if(lists.length!==8||new Set(lists.map(p=>p.name)).size!==8||lists.some(p=>!p.tracks.length))throw Error('Invalid curated playlists');
+      if(!SourceLibrary.enabled('r2')||!R2Source.native||!R2Source.mapping)return;
+      const result=await this.apply(lists,{marker:this.seedMarker,r2Only:true});
+      this.seedDone=!result.pending;
+    }catch(_){Engine.tracePlayback('playlist-seed-deferred');}
+    finally{this.seeding=false;if(this.seedAgain){this.seedAgain=false;void this.seed();}}
+  },
+  import(){
+    const input=el('input');input.type='file';input.accept='.json,.m3u,.m3u8';
+    input.onchange=async()=>{const file=input.files?.[0];if(!file)return;
+      try{
+        if(file.size>this.maxBytes)throw Error('Playlist file is too large.');
+        const result=await this.apply(this.parse(await file.text(),file.name));
+        toast('Imported '+result.created+' playlists · '+result.matched+' tracks'+(result.missing?' · '+result.missing+' unavailable':'')+(result.ambiguous?' · '+result.ambiguous+' ambiguous':''));
+      }catch(e){toast(e.message||'Could not import playlists');}
+    };input.click();
+  }
 };
 Playlists.addTo=function(id,ids){const list=this.get(id);if(!list)return;let add=nativeValues().pl_no_dups===false?ids.slice():ids.filter(i=>!list.ids.includes(i));if(nativeValues().playlist_insert_pos===2)add=shuffleArray(add);if(nativeValues().playlist_insert_pos===1)list.ids.unshift(...add);else list.ids.push(...add);this.save();toast('Added to '+list.name);};
 function shuffleArray(items){const a=items.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -9097,9 +9495,9 @@ function setupRework(){
   const sync=EQ.sync;EQ.sync=function(){sync.call(this);const v=nativeValues();if(v.eq_labels===2){$$('#bands [data-gain-label]').forEach(b=>b.textContent=Math.round((Math.pow(10,SET.eqGains[+b.dataset.gainLabel]/20)-1)*100)+'%');if($('#pv'))$('#pv').textContent=Math.round((Math.pow(10,SET.preamp/20)-1)*100)+'%';}if(v.tone_labels===1){$('#bass-v').textContent=(SET.bass*15).toFixed(1)+' dB';$('#treble-v').textContent=(SET.treble*15).toFixed(1)+' dB';}};
   const item=PAGES.skin.items.find(i=>i.key==='skin_seekbar');if(item)item.desc='Waveform scrolls beneath a fixed center marker. Drag left to seek forward, right to go back. Static mode shows the whole track.';
   const nav=Nav.go;Nav.go=function(...args){nav.apply(Nav,args);NativeSettings.syncNavigation();wakeLock(SET.keepScreenOn||Nav.cur==='lyrics'&&nativeValues().lyrics_keep_screen);};
-  window.addEventListener('pagehide',()=>{Engine.tracePlayback('pagehide');Engine.checkpoint();});
+  window.addEventListener('pagehide',()=>{Engine.tracePlayback('pagehide');Engine.checkpoint(true);});
   window.addEventListener('pageshow',()=>{Engine.tracePlayback('pageshow');Engine.reconcilePlaybackLifecycle();});
-  document.addEventListener('freeze',()=>{Engine.tracePlayback('freeze');Engine.checkpoint();});
+  document.addEventListener('freeze',()=>{Engine.tracePlayback('freeze');Engine.checkpoint(true);});
   document.addEventListener('resume',()=>{Engine.tracePlayback('page-resume');Engine.reconcilePlaybackLifecycle();});
   window.addEventListener('offline',()=>{Engine.tracePlayback('offline');Engine.noteR2OfflineSource();});
   window.addEventListener('online',()=>{Engine.tracePlayback('online');if(Engine._r2Recovery?.phase==='offline')Engine.beginR2Recovery();});
@@ -9124,14 +9522,17 @@ const PlaybackQueue={
     this.save();Engine.saveState();Views.refreshAll();toast(next?'Playing next':'Added to queue');
   },
   shouldStart(){
-    if(this.active||!this.pending.some(id=>sourceTrackEnabled(LIB.map.get(id))))return false;const v=nativeValues(),next=Engine.queue[Engine.order[Engine.pos+1]];
+    if(this.active||!this.pending.some(id=>sourceTrackEnabled(LIB.map.get(id))))return false;const v=nativeValues(),step=Engine._shuffleStep?.(1,SET.repeatMode==='all'),next=Engine.queue[step?(step.exhausted?-1:step.index):Engine.order[Engine.pos+1]];
     return this.forced||v.queue_start!==3||!next||trackAlbum(next)!==trackAlbum(Engine.current);
   },
   play(index=0){if(this.active)return Engine.playIndex(Engine.order[index],true);return this.begin(true,index);},
   clear(){this.pending=[];this.forced=false;if(this.active&&this.resume){const value=nativeValues().queue_end;nativeValues().queue_end=1;this.finish(Engine.wantsPlayback());nativeValues().queue_end=value;}else if(this.active){this.active=false;this.resume=null;Engine.stop();}this.save();Views.refreshAll();},
   begin(immediate=false,index=0,autoplay=true){
+    if(Engine._shuffleBuild)return Engine._deferShuffleNavigation(()=>this.begin(immediate,index,autoplay));
     const tracks=this.pending.map(id=>LIB.map.get(id)).filter(sourceTrackEnabled);if(!tracks.length)return false;
-    this.resume=Engine.current?{ids:Engine.queue.map(t=>t.id),order:Engine.order.slice(),pos:Engine.pos+(immediate?0:1),time:immediate?Engine.time():0}:null;
+    const shuffle=Engine._syncShuffle?.(),next=shuffle&&SET.shuffleOn&&!immediate?Engine._shuffleStep(1,SET.repeatMode==='all'):null;
+    if(next?.pending)return Engine._deferShuffleNavigation(()=>this.begin(immediate,index,autoplay));
+    this.resume=Engine.current?{ids:Engine.queue.map(t=>t.id),order:Engine.order.slice(),pos:next?(next.exhausted?Engine.order.length:Engine.order.indexOf(next.index)):Engine.pos+(immediate?0:1),time:immediate?Engine.time():0,shuffle:shuffle?.compactSnapshot(false),shuffleCycle:next?.cycle?(shuffle.pendingIndices||next.cycle):null}:null;
     this.active=true;this.pending=this.pending.filter(id=>!sourceTrackEnabled(LIB.map.get(id)));this.forced=false;this.starting=true;try{Engine.setQueue(tracks,index,autoplay);}finally{this.starting=false;}this.save();return true;
   },
   finish(autoplay=true){
@@ -9142,18 +9543,19 @@ const PlaybackQueue={
     resume.ids.forEach((id,i)=>{const t=LIB.map.get(id);if(sourceTrackEnabled(t)){remap.set(i,tracks.length);tracks.push(t);}});
     const surviving=resume.order.map((i,pos)=>({i:remap.get(i),pos})).filter(x=>x.i!=null);
     const order=surviving.map(x=>x.i),pos=surviving.findIndex(x=>x.pos>=resume.pos);
-    Engine.queue=tracks;Engine.order=order;
+    Engine.queue=tracks;Engine.order=order;Engine._shuffle=null;Engine._shuffleState=[3,4].includes(resume.shuffle?.version)?{...resume.shuffle,ids:resume.ids}:resume.shuffle;
     if(pos<0){Engine.stop();Views.refreshAll();return;}
     Engine.pos=pos;
+    if(resume.shuffleCycle&&Engine._shuffleState){Engine._shuffleState.ranks=resume.shuffleCycle;Engine._shuffleState.consumed=[];Engine.buildOrder(order[pos]);}
     Engine.playIndex(order[pos],autoplay,surviving[pos].pos===resume.pos?resume.time:0);Views.refreshAll();
   }
 
 };
 const PlaybackTransitions={token:0,finish:null,pending:false,
-  cancel(pauseOther=true,keepPreload=null){this.token++;clearTimeout(this.finish);this.finish=null;this.pending=false;Engine.xfading=false;Engine._overlapTrack=null;AudioQuality.refreshGain();if(pauseOther&&Engine.els.length===2){if(keepPreload&&Engine.preloadId===keepPreload)Engine.pauseElement(Engine.other());else Engine.releaseSlot(1-Engine.cur);Engine.setGain(1-Engine.cur,0,0);}},
-  async to(index,ms){
+  cancel(pauseOther=true,keepPreload=null){this.token++;clearTimeout(this.finish);this.finish=null;this.pending=false;Engine._shufflePending=null;Engine.xfading=false;Engine._overlapTrack=null;AudioQuality.refreshGain();if(pauseOther&&Engine.els.length===2){if(keepPreload&&Engine.preloadId===keepPreload)Engine.pauseElement(Engine.other());else Engine.releaseSlot(1-Engine.cur);Engine.setGain(1-Engine.cur,0,0);}},
+  async to(index,ms,shuffleStep){
     const track=Engine.queue[index];if(!track)return;
-    this.cancel();this.pending=true;Engine._playRequest=(Engine._playRequest||0)+1;const token=this.token,old=Engine.cur,next=1-old;let file;try{file=await getFileFor(track);}catch(e){if(token===this.token){this.pending=false;toast('Could not load the next track');}return;}if(token!==this.token)return;if(!file){this.pending=false;return;}
+    const pending=this.pending?Engine._shufflePending:null;this.cancel();Engine._shufflePending=[...(pending||[]),index];this.pending=true;Engine._playRequest=(Engine._playRequest||0)+1;const token=this.token,old=Engine.cur,next=1-old;let file;try{file=await getFileFor(track);}catch(e){if(token===this.token){this.pending=false;toast('Could not load the next track');}return;}if(token!==this.token)return;if(!file){this.pending=false;return;}
     if(Engine.ctx?.state==='closed'){this.pending=false;Engine.pause('context-failed');toast('Audio output was closed. Reload this page to play again.',6000);return;}
     Engine.ensureCtx('selection');const audio=Engine.els[next],url=audioSource(file),oldURL=audio.src;
     const owner={token,request:Engine._playRequest};audio._transitionOwner=owner;
@@ -9162,7 +9564,7 @@ const PlaybackTransitions={token:0,finish:null,pending:false,
     try{await audio.play();}catch(e){if(token===this.token&&ownsSlot()){this.pending=false;Engine.pauseElement(audio);toast('Could not start the next track');}return;}
     if(token!==this.token||!Engine.wantsPlayback()||!ownsSlot()){if(ownsSlot()&&Engine.cur!==next)Engine.pauseElement(audio);return;}
     if(!audio.ended&&audio.paused){this.cancel();Engine.pause('interrupted');return;}
-    Engine.resetSelectionRecovery(track);
+    Engine.resetSelectionRecovery(track);Engine._recordShuffle?.(index,shuffleStep);
     if(audio.ended){
       // The renderer can receive play completion after this spare has finished.
       // Consume its real end through queue policy, never call it active output.
@@ -9183,56 +9585,387 @@ function upcomingTracks(){
 }
 function upcomingIndices(){
   if(SET.repeatMode==='one')return Engine.current?[Engine.order[Engine.pos]]:[];
+  const state=SET.shuffleOn&&!PlaybackQueue.active?Engine._syncShuffle?.():null;
+  if(state){const remaining=[...state.history.slice(state.cursor+1),...state.ranks.filter(k=>!state.consumed.has(k))];if(!remaining.length&&SET.repeatMode==='all'){const next=Engine._shuffleStep(1,true);if(next?.cycle)remaining.push(...next.cycle);}return remaining.map(k=>state.indices.get(k)).filter(i=>sourceTrackEnabled(Engine.queue[i]));}
+  if(SET.shuffleOn&&Engine._shuffleBuild)return [];
   const order=Engine.order.slice(Engine.current?Engine.pos+1:0);
   const loops=PlaybackQueue.active?nativeValues().queue_end===0:SET.repeatMode==='all';
   if(loops&&Engine.current)order.push(...Engine.order.slice(0,Engine.pos+1));
   return order.filter(i=>sourceTrackEnabled(Engine.queue[i]));
 }
 function installPlaybackRework(){
+  // Occurrence keys preserve duplicate playlist entries. History is independent
+  // of the no-replacement bag: revisiting history never spends another entry.
+  class ShuffleCycle{
+    constructor(queue,mode,saved,{defer=false}={}){
+      this.mode=mode||1;this.keys=[];this.ranks=[];this.consumed=new Set();this.history=[];this.cursor=-1;this.recent=[];this.saved=saved;this.bagAt=0;this.ids=[];this.numericRanks=[];this.numericConsumed=new Set();this.numericHistory=[];this.packedConsumed='';this.packedHistory='';
+      if(!defer)this.sync(queue,mode);
+    }
+    *restoreWork(){
+      let s=this.saved;this.saved=null;
+      if(s?.version===4){
+        if(typeof s.consumed!=='string'||s.consumed.length>50000||typeof s.history!=='string'||s.history.length>50000)return;
+        const decode=function*(text){const out=[];for(let i=0;i<text.length;i++){out.push(text.charCodeAt(i)-256);if(i%128===127)yield;}return out;};
+        s={...s,version:3,consumed:yield* decode(s.consumed),history:yield* decode(s.history)};
+      }
+      if(s?.version===3){
+        if(!Array.isArray(s.ids)||s.ids.length>50000||!Array.isArray(s.ranks)||s.ranks.length!==s.ids.length||!Array.isArray(s.consumed)||s.consumed.length>50000||!Array.isArray(s.history)||s.history.length>50000)return;
+        const keys=[],counts=new Map();let count=0;
+        for(const id of s.ids){if(typeof id!=='string')return;const n=counts.get(id)||0;counts.set(id,n+1);keys.push(JSON.stringify([id,n]));if(++count%128===0)yield;}
+        const convert=function*(items){const out=[];for(const i of items){if(!Number.isInteger(i)||i<0||i>=keys.length)return null;out.push(keys[i]);if(++count%128===0)yield;}return out;};
+        const ranks=yield* convert(s.ranks),consumed=yield* convert(s.consumed),history=yield* convert(s.history);if(!ranks||!consumed||!history)return;
+        s={...s,version:2,keys,ranks,consumed,history};
+      }
+
+      if(!s||![1,2].includes(s.version)||![1,2,3,4].includes(s.mode)||!Array.isArray(s.keys)||s.keys.length>50000||!Array.isArray(s.ranks)||s.ranks.length!==s.keys.length||!Array.isArray(s.consumed)||s.consumed.length>50000||!Array.isArray(s.history)||s.history.length>50000||!Number.isInteger(s.cursor)||s.cursor< -1||s.cursor>=s.history.length)return;
+      const valid=new Set(),ranks=new Set(),consumed=new Set();let count=0;
+      for(const k of s.keys){if(typeof k!=='string'||valid.has(k))return;valid.add(k);if(++count%128===0)yield;}
+      for(const k of s.ranks){if(!valid.has(k)||ranks.has(k))return;ranks.add(k);if(++count%128===0)yield;}
+      for(const k of s.consumed){if(!valid.has(k))return;consumed.add(k);if(++count%128===0)yield;}
+      for(const k of s.history){if(!valid.has(k))return;if(++count%128===0)yield;}
+      // v1 recorded selections, including failed loads. Never migrate those
+      // selections into successful-listening recency.
+      if(s.version===2&&(!Array.isArray(s.recent)||s.recent.length>64||s.recent.some(id=>typeof id!=='string')))return;
+      this.keys=s.keys;this.ranks=s.ranks;this.consumed=consumed;this.history=s.history;this.cursor=s.cursor;this.mode=s.mode;this.recent=s.version===2?s.recent.slice():[];
+    }
+    *syncWork(queue,mode,force=false){
+      if(!force&&this.queue===queue&&this.length===queue.length&&(!mode||mode===this.mode))return;
+      if(this.saved)yield* this.restoreWork();
+      const counts=new Map(),keys=[],ids=[],idJSON=[],canonicalJSON=[],valid=new Set(),old=new Set(),indices=new Map();let count=0;
+      for(const k of this.keys){old.add(k);if(++count%128===0)yield;}
+      for(let i=0;i<queue.length;i++){const t=queue[i],n=counts.get(t.id)||0;counts.set(t.id,n+1);const k=JSON.stringify([t.id,n]);keys.push(k);ids.push(t.id);idJSON.push(JSON.stringify(t.id));canonicalJSON.push(String(i));valid.add(k);indices.set(k,i);if(++count%128===0)yield;}
+      const history=[];let before=0;
+      for(let i=0;i<this.history.length;i++){const k=this.history[i];if(valid.has(k)){history.push(k);if(i<=this.cursor)before++;}if(++count%128===0)yield;}
+      const consumed=new Set(),ranks=[],additions=[];
+      for(const k of this.consumed){if(valid.has(k))consumed.add(k);if(++count%128===0)yield;}
+      for(const k of this.ranks){if(valid.has(k))ranks.push(k);if(++count%128===0)yield;}
+      for(const k of keys){if(!old.has(k))additions.push(k);if(++count%128===0)yield;}
+      this.history=history;this.cursor=Math.min(before-1,history.length-1);this.consumed=consumed;this.keys=keys;this.queue=queue;this.length=queue.length;this.indices=indices;
+      if(mode&&mode!==this.mode){this.mode=mode;this.ranks=yield* this.rankWork(keys);}
+      else{const added=yield* this.rankWork(additions);for(const k of added){ranks.push(k);if(++count%128===0)yield;}this.ranks=ranks;}
+      this.ids=ids;this.numericRanks=[];this.numericConsumed=new Set();this.numericHistory=[];const packedConsumed=[],packedHistory=[],rankJSON=[];
+      for(const k of this.ranks){this.numericRanks.push(indices.get(k));rankJSON.push(String(indices.get(k)));if(++count%128===0)yield;}
+      for(const k of consumed){this.numericConsumed.add(indices.get(k));packedConsumed.push(String.fromCharCode(indices.get(k)+256));if(++count%128===0)yield;}
+      for(const k of history){this.numericHistory.push(indices.get(k));packedHistory.push(String.fromCharCode(indices.get(k)+256));if(++count%128===0)yield;}
+      this.packedConsumed=packedConsumed.join('');this.packedHistory=packedHistory.join('');this.idsJSON='['+idJSON.join(',')+']';this.rankJSON='['+rankJSON.join(',')+']';this.canonicalJSON='['+canonicalJSON.join(',')+']';
+      this.pendingCycle=null;this.pendingIndices=null;this.bagAt=0;
+    }
+    sync(queue,mode,force=false){const work=this.syncWork(queue,mode,force);while(!work.next().done){};}
+    *permutationWork(items){
+      if(items.length<=128)return shuffleArray(items);
+      const a=[];let count=0;for(const k of items){a.push(k);if(++count%128===0)yield;}
+      for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];if(++count%128===0)yield;}return a;
+    }
+    *rankWork(keys){
+      if(!keys.length)return [];
+      if(this.mode!==1){
+        const groups=new Map();let count=0;
+        for(const key of keys){const t=this.queue[this.indices.get(key)],group=JSON.stringify([t.albumArtist||t.artist||'',t.album||'']);if(!groups.has(group))groups.set(group,[]);groups.get(group).push(key);if(++count%128===0)yield;}
+        let values=[];for(const group of groups.values()){values.push(group);if(++count%128===0)yield;}
+        if(this.mode!==2)values=yield* this.permutationWork(values);
+        const result=[];for(let group of values){if(this.mode!==3)group=yield* this.permutationWork(group);for(const key of group){result.push(key);if(++count%128===0)yield;}}return result;
+      }
+      const candidates=Math.max(1,Math.min(8,Math.floor(16000/keys.length)));
+      if(candidates===1)return yield* this.permutationWork(keys);
+      const known=v=>{const s=String(v||'').trim().toLowerCase();return !s||/^(unknown(?: artist| album)?|<unknown>)$/.test(s)?null:s;};
+      const recent=new Map(this.recent.map((id,i,a)=>[id,(i+1)/a.length])),metadata=new Map(),now=Date.now();let last=null,count=0;
+      const heard=this.recent.at(-1);
+      for(const key of keys){const t=this.queue[this.indices.get(key)];if(t.id===heard)last=t;metadata.set(key,{artist:known(t.albumArtist||t.artist),album:known(t.album),recent:Math.max(recent.get(t.id)||0,t.lastPlayed>0?Math.max(0,1-(now-t.lastPlayed)/604800000):0)});if(++count%128===0)yield;}
+      const boundary=known(last?.albumArtist||last?.artist);
+      const score=function*(order){let total=0,artist=boundary,album=known(last?.album),run=1;
+        for(let i=0;i<order.length;i++){const m=metadata.get(order[i]);run=m.artist&&m.artist===artist?run+1:1;if(run>1)total+=4+run*run;if(m.artist&&m.artist===artist&&m.album&&m.album===album)total+=2;if(i<128)total+=m.recent*(128-i)/16;artist=m.artist;album=m.album;if(i%128===127)yield;}return total;};
+      let best=yield* this.permutationWork(keys),cost=yield* score(best);
+      // Bounded Fisher–Yates candidate selection remains a nonuniform heuristic.
+      for(let i=1;i<candidates;i++){const candidate=yield* this.permutationWork(keys),value=yield* score(candidate);if(value<cost){best=candidate;cost=value;}}
+      return best;
+    }
+    rank(keys){const work=this.rankWork(keys);let step;while(!(step=work.next()).done){}return step.value;}
+    *cycleWork(){
+      const ranks=yield* this.rankWork(this.keys),current=this.history[this.cursor];
+      if(ranks.length>1&&ranks[0]===current)ranks.push(ranks.shift());return ranks;
+    }
+    peek(direction,loop=false){
+      const cursor=this.cursor+(direction<0?-1:1);
+      if(cursor>=0&&cursor<this.history.length)return {key:this.history[cursor],cursor};
+      if(direction<0)return this.cursor>=0?{key:this.history[this.cursor],cursor:this.cursor}:null;
+      while(this.bagAt<this.ranks.length&&this.consumed.has(this.ranks[this.bagAt]))this.bagAt++;
+      const key=this.ranks[this.bagAt];if(key)return {key};
+      if(!loop||!this.keys.length)return null;
+      if(!this.pendingCycle){if(this.cooperative)return {pending:true};const work=this.cycleWork();let step;while(!(step=work.next()).done){}this.pendingCycle=step.value;this.pendingIndices=this.pendingCycle.map(k=>this.indices.get(k));this.pendingRankJSON=JSON.stringify(this.pendingIndices);}
+      return {key:this.pendingCycle[0],cycle:this.pendingCycle};
+    }
+    select(index,step){
+      const key=this.keys[index];if(key==null)return;
+      if(step?.key===key&&Number.isInteger(step.cursor)&&this.history[step.cursor]===key){this.cursor=step.cursor;return;}
+      if(step?.key===key&&step.cycle&&step.cycle===this.pendingCycle){this.ranks=this.pendingCycle;this.numericRanks=this.pendingIndices;this.rankJSON=this.pendingRankJSON||JSON.stringify(this.numericRanks);this.pendingRankJSON=null;this.pendingCycle=null;this.pendingIndices=null;this.consumed.clear();this.numericConsumed.clear();this.packedConsumed='';this.bagAt=0;}
+      if(!this.consumed.has(key))this.packedConsumed+=String.fromCharCode(index+256);this.consumed.add(key);this.numericConsumed.add(index);
+      if(this.history[this.cursor]===key)return;
+      this.history.splice(this.cursor+1);this.numericHistory.splice(this.cursor+1);this.history.push(key);this.numericHistory.push(index);this.packedHistory=this.packedHistory.slice(0,this.cursor+1)+String.fromCharCode(index+256);if(this.history.length>50000){this.history.shift();this.numericHistory.shift();this.packedHistory=this.packedHistory.slice(1);}this.cursor=this.history.length-1;
+    }
+    heard(id){this.recent.push(id);if(this.recent.length>64)this.recent.shift();}
+    compactSnapshot(withIds=true){return {version:4,mode:this.mode,...(withIds?{ids:this.ids}:{}),ranks:this.numericRanks,consumed:this.packedConsumed,history:this.packedHistory,cursor:this.cursor,recent:this.recent.slice()};}
+    snapshot(){return {version:2,mode:this.mode,keys:this.keys,ranks:this.ranks,consumed:[...this.consumed],history:this.history,cursor:this.cursor,recent:this.recent.slice()};}
+  }
+  const largeShuffle=queue=>queue.length>1024;
+  const shuffleNow=()=>globalThis.performance?.now?.()??Date.now();
+  const shuffleYield=()=>new Promise(resolve=>setTimeout(resolve,0));
+  Engine._runShuffleWork=async function(work,valid=()=>true){
+    const stats={slices:0,maxSliceMs:0};let step;
+    await shuffleYield();
+    while(valid()){
+      const started=shuffleNow();let checkpoints=0;
+      do{step=work.next();checkpoints++;}while(!step.done&&checkpoints<4&&shuffleNow()-started<2);
+      stats.slices++;stats.maxSliceMs=Math.max(stats.maxSliceMs,shuffleNow()-started);
+      if(step.done){this._shuffleWorkStats=stats;return {value:step.value,stats};}
+      await shuffleYield();
+    }
+    return null;
+  };
+  Engine._encodeShuffleCheckpoint=function(state){
+    const cached=this._shuffle,job=this._shuffleBuild,ready=cached?.queue===this.queue&&(!job||job.cycle);
+    const ids=ready?cached.idsJSON:job?.transport?.idsJSON||JSON.stringify(state.ids),order=ready?(SET.shuffleOn?cached.rankJSON:cached.canonicalJSON):job?.transport?.orderJSON||JSON.stringify(state.order);
+    const rest={...state};delete rest.ids;delete rest.order;delete rest.shuffle;
+    let encoded=JSON.stringify(rest).slice(0,-1)+',"ids":'+ids+',"order":'+order;
+    if(state.shuffle){
+      const saved={...state.shuffle},rank=saved.ranks,savedIDs=saved.ids;delete saved.ranks;delete saved.ids;
+      encoded+=',"shuffle":'+JSON.stringify(saved).slice(0,-1);
+      if(rank)encoded+=',"ranks":'+(rank===cached?.numericRanks?cached.rankJSON:job?.transport&&rank.length===state.order.length&&rank.every((i,pos)=>i===state.order[pos])?job.transport.orderJSON:JSON.stringify(rank));
+      if(savedIDs)encoded+=',"ids":'+(savedIDs===cached?.ids?cached.idsJSON:job?.transport&&savedIDs.length===state.ids.length&&savedIDs.every((id,i)=>id===state.ids[i])?job.transport.idsJSON:JSON.stringify(savedIDs));
+      encoded+='}';
+    }
+    return encoded+'}';
+  };
+  Engine._restoreShuffleQueue=async function(saved,valid){
+    const origin=this.queue;
+    const work=function*(){
+      const q=[],remap=new Map(),seen=new Set();let count=0;
+      for(let i=0;i<Math.min(50000,saved.ids.length);i++){const id=saved.ids[i],t=typeof id==='string'?LIB.map.get(id):null;if(sourceTrackEnabled(t)){remap.set(i,q.length);q.push(t);}if(++count%128===0)yield;}
+      let validOrder=Array.isArray(saved.order)&&saved.order.length===saved.ids.length;
+      if(validOrder)for(const i of saved.order){if(!Number.isInteger(i)||i<0||i>=saved.ids.length||seen.has(i)){validOrder=false;break;}seen.add(i);if(++count%128===0)yield;}
+      const order=[];if(validOrder){for(const i of saved.order){if(remap.has(i))order.push(remap.get(i));if(++count%128===0)yield;}}
+      else for(let i=0;i<q.length;i++){order.push(i);if(++count%128===0)yield;}
+      return {q,remap,validOrder,order};
+    };
+    const result=await this._runShuffleWork(work(),()=>valid()&&this.queue===origin);return result?.value;
+  };
+  Engine._workerShuffle=async function(queue,mode,saved,options,valid){
+    if(typeof Worker==='undefined')return null;
+    let worker;try{worker=new Worker('./shuffle-worker.js?v=20261012');}catch(_){return null;}
+    const ranks=[],json={idsJSON:[],rankJSON:[],canonicalJSON:[]};let finish;
+    const result=new Promise(resolve=>{finish=resolve;});
+    worker.onmessage=({data})=>{
+      if(!valid()){worker.terminate();finish(null);return;}
+      if(data.type==='ranks')ranks.push(...data.value);
+      else if(data.type==='json')json[data.field].push(data.value);
+      else if(data.type==='done'){worker.terminate();finish({...data,ranks,json});}
+      else if(data.type==='failed'){worker.terminate();finish(null);}
+    };
+    worker.onerror=event=>{event.preventDefault();worker.terminate();finish(null);};
+    const header=saved?{...saved}:null;
+    if(header)for(const field of ['ids','keys','ranks','consumed','history'])if(Array.isArray(header[field]))delete header[field];
+    worker.postMessage({type:'start',mode,saved:header,...options});
+    const upload=function*(){
+      for(let i=0;i<queue.length;i+=128){const value=[];for(let j=i;j<Math.min(queue.length,i+128);j++){const t=queue[j];value.push({id:t.id,artist:t.artist,albumArtist:t.albumArtist,album:t.album,lastPlayed:t.lastPlayed});}worker.postMessage({type:'tracks',value});yield;}
+      if(saved)for(const field of ['ids','keys','ranks','consumed','history'])if(Array.isArray(saved[field]))for(let i=0;i<saved[field].length;i+=128){worker.postMessage({type:'saved',field,value:saved[field].slice(i,i+128)});yield;}
+    };
+    const sent=await this._runShuffleWork(upload(),valid);
+    if(!sent||!valid()){worker.terminate();finish(null);return null;}
+    worker.postMessage({type:'finish'});const built=await result;
+    return built?{...built,upload:sent.stats}:null;
+  };
+  Engine._workerShuffleState=async function(queue,built,valid){
+    const state=Object.create(ShuffleCycle.prototype);
+    Object.assign(state,{mode:built.mode,queue,length:queue.length,largeProxy:true,cooperative:true,ids:[],keys:[],indices:{get:index=>index},ranks:built.ranks,numericRanks:built.ranks,consumed:new Set(),numericConsumed:new Set(),history:[],numericHistory:[],cursor:built.cursor,recent:built.recent,packedConsumed:built.consumed,packedHistory:built.history,bagAt:0,pendingCycle:null,pendingIndices:null});
+    const hydrate=function*(){
+      for(let i=0;i<queue.length;i++){state.ids.push(queue[i].id);state.keys.push(i);if(i%128===127)yield;}
+      for(let i=0;i<built.consumed.length;i++){const index=built.consumed.charCodeAt(i)-256;state.consumed.add(index);state.numericConsumed.add(index);if(i%128===127)yield;}
+      for(let i=0;i<built.history.length;i++){const index=built.history.charCodeAt(i)-256;state.history.push(index);state.numericHistory.push(index);if(i%128===127)yield;}
+      for(const field of ['idsJSON','rankJSON','canonicalJSON']){state[field]=built.json[field].join('');yield;}
+      return state;
+    };
+    const hydrated=await this._runShuffleWork(hydrate(),valid);if(!hydrated)return null;
+    state.sync=function(){};
+    state.snapshot=function(){return this.compactSnapshot();};
+    state.peek=function(direction,loop=false){
+      const cursor=this.cursor+(direction<0?-1:1);
+      if(cursor>=0&&cursor<this.history.length)return {key:this.history[cursor],cursor};
+      if(direction<0)return this.cursor>=0?{key:this.history[this.cursor],cursor:this.cursor}:null;
+      while(this.bagAt<this.ranks.length&&this.consumed.has(this.ranks[this.bagAt]))this.bagAt++;
+      const key=this.ranks[this.bagAt];if(key!=null)return {key};
+      if(!loop||!this.keys.length)return null;if(!this.pendingCycle)return {pending:true};
+      return {key:this.pendingCycle[0],cycle:this.pendingCycle};
+    };
+    return {state,stats:hydrated.stats};
+  };
+  Engine._deferShuffleNavigation=function(action){
+    const job=this._shuffleBuild,queue=this.queue,intent=this._shuffleIntent||0;
+    if(!job)return action();
+    return job.promise.then(()=>{
+      if(this.queue!==queue||(this._shuffleIntent||0)!==intent)return;
+      const previous=this._shuffleDeferred;this._shuffleDeferred=true;
+      try{return action();}finally{this._shuffleDeferred=previous;}
+    });
+  };
+  Engine._prepareShuffle=function(mode,anchor){
+    const queue=this.queue;
+    if(this._shuffleBuild?.queue===queue&&this._shuffleBuild.mode===mode)return this._shuffleBuild.promise;
+    const saved=this._shuffle?.compactSnapshot()||this._shuffleState;
+    const selected=this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id);
+    const seed=!this._shuffleFresh;this._shuffleFresh=false;
+    const job={queue,mode,saved,events:[],anchor,order:this.order};this._shuffleBuild=job;
+    let state=new ShuffleCycle(queue,mode,saved,{defer:true});state.cooperative=true;
+    const valid=()=>this._shuffleBuild===job&&this.queue===queue;
+    job.promise=(async()=>{
+      const built=typeof Worker==='undefined'?null:await this._workerShuffle(queue,mode,saved,{anchor,seedIndex:seed?selected:-1},valid);
+      if(!valid())return;
+      if(built){
+        const hydrated=await this._workerShuffleState(queue,built,valid);if(!hydrated||!valid())return;state=hydrated.state;
+        for(const event of job.events){if(event.heard)state.heard(event.heard);else state.select(event.index,event.step);}
+        const current=this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id);
+        this._shuffle=state;this._shuffleState=null;this._shuffleBuild=null;
+        if(SET.shuffleOn){this.order=state.numericRanks.slice();this.pos=Math.max(0,this.order.indexOf(current));}
+        this._shuffleGenerationStats={worker:true,upload:built.upload,generation:hydrated.stats};Views.refreshQueueOrder?.();this.saveState();return state;
+      }
+      const prepareJSON=function*(){const ids=[],order=[];for(let i=0;i<queue.length;i++){ids.push(JSON.stringify(queue[i].id));order.push(String(job.order[i]??i));if(i%128===127)yield;}return {idsJSON:'['+ids.join(',')+']',orderJSON:'['+order.join(',')+']'};};
+      job.transportPromise=this._runShuffleWork(prepareJSON(),valid);const transport=await job.transportPromise;if(!transport||!valid())return;
+      job.transport=transport.value;
+      const result=await this._runShuffleWork(state.syncWork(queue,mode,true),valid);if(!result||!valid())return;
+      if(seed&&state.cursor<0&&selected>=0)state.select(selected);
+      if(Number.isInteger(anchor)){const at=state.ranks.indexOf(state.keys[anchor]);if(at>=0){if(mode===1)state.ranks.unshift(...state.ranks.splice(at,1));else state.ranks.push(...state.ranks.splice(0,at));if(mode===1)state.numericRanks.unshift(...state.numericRanks.splice(at,1));else state.numericRanks.push(...state.numericRanks.splice(0,at));}}
+      const project=function*(){const order=[],parts=[];for(let i=0;i<state.ranks.length;i++){const index=state.indices.get(state.ranks[i]);order.push(index);parts.push(String(index));if(i%128===127)yield;}state.rankJSON='['+parts.join(',')+']';return order;};
+      const projected=await this._runShuffleWork(project(),valid);if(!projected||!valid())return;
+      for(const event of job.events){if(event.heard)state.heard(event.heard);else state.select(event.index,event.step);}
+      const current=this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id);
+      this._shuffle=state;this._shuffleState=null;this._shuffleBuild=null;
+      if(SET.shuffleOn){this.order=projected.value;this.pos=Math.max(0,this.order.indexOf(current));}
+      this._shuffleGenerationStats={generation:result.stats,projection:projected.stats};
+      Views.refreshQueueOrder?.();this.saveState();return state;
+    })();
+    // Cancellation is an ordinary state change; unexpected failures retire the
+    // pending job so transport cannot remain stuck waiting for an old queue.
+    job.promise.catch(()=>{if(this._shuffleBuild===job)this._shuffleBuild=null;});
+    return job.promise;
+  };
+  Engine._prepareShuffleCycle=function(state){
+    if(this._shuffleBuild)return this._shuffleBuild.promise;
+    const queue=this.queue,job={queue,mode:state.mode,events:[],cycle:true};this._shuffleBuild=job;
+    job.promise=(async()=>{
+      const valid=()=>this._shuffleBuild===job&&this.queue===queue&&this._shuffle===state;
+      if(state.largeProxy){
+        const built=await this._workerShuffle(queue,state.mode,state.compactSnapshot(),{cycle:true,seedIndex:-1},valid);if(!built||!valid())return;
+        state.pendingCycle=built.ranks;state.pendingIndices=built.ranks;state.pendingRankJSON=built.json.rankJSON.join('');this._shuffleCycleStats={worker:true,upload:built.upload};this._shuffleBuild=null;return state;
+      }
+      const result=await this._runShuffleWork(state.cycleWork(),valid);if(!result||!valid())return;
+      const project=function*(){const indices=[],parts=[];for(let i=0;i<result.value.length;i++){const index=state.indices.get(result.value[i]);indices.push(index);parts.push(String(index));if(i%128===127)yield;}state.pendingRankJSON='['+parts.join(',')+']';return indices;};
+      const projected=await this._runShuffleWork(project(),valid);if(!projected||!valid())return;
+      state.pendingCycle=result.value;state.pendingIndices=projected.value;this._shuffleCycleStats={generation:result.stats,projection:projected.stats};this._shuffleBuild=null;return state;
+    })();
+    job.promise.catch(()=>{if(this._shuffleBuild===job)this._shuffleBuild=null;});return job.promise;
+  };
+  Engine._syncShuffle=function(force=false){
+    if(PlaybackQueue.active)return null;
+    const mode=SET.shuffleOn?(SET.shuffleMode||1):0;
+    if(this._shuffleBuild){
+      if(this._shuffleBuild.queue===this.queue&&(!mode||this._shuffleBuild.mode===mode))return this._shuffleBuild.cycle?this._shuffle:null;
+      this._shuffleBuild=null;
+    }
+    if(!mode&&!this._shuffle&&!this._shuffleState)return null;
+    if((largeShuffle(this.queue)||this._shuffle?.largeProxy)&&(!this._shuffle||force||this._shuffle.queue!==this.queue||mode&&mode!==this._shuffle.mode)){
+      this._prepareShuffle(mode||this._shuffle?.mode||1);return null;
+    }
+    if(!this._shuffle){this._shuffle=new ShuffleCycle(this.queue,mode,this._shuffleState);this._shuffleState=null;const selected=this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id);if(!this._shuffleFresh&&this._shuffle.cursor<0&&selected>=0)this._shuffle.select(selected);this._shuffleFresh=false;}
+    else this._shuffle.sync(this.queue,mode,force);
+    return this._shuffle;
+  };
+  Engine._shuffleStep=function(direction,loop){
+    const state=this._syncShuffle();if(!SET.shuffleOn)return null;if(!state)return this._shuffleBuild?{pending:true}:null;
+    if(PlaybackTransitions.pending&&this._shufflePending?.length){
+      if(direction<0)return {key:state.history[state.cursor],cursor:state.cursor,index:state.indices.get(state.history[state.cursor])};
+      const pending=new Set(this._shufflePending.map(i=>state.keys[i]));
+      const key=state.ranks.find(k=>!state.consumed.has(k)&&!pending.has(k));
+      if(key)return {key,index:state.indices.get(key)};
+    }
+    const step=state.peek(direction,loop);
+    if(step?.pending){this._prepareShuffleCycle(state);return step;}
+    return step?{...step,index:state.indices.get(step.key)}:{exhausted:true};
+  };
+  Engine._recordShuffle=function(index,step=this._shuffleNavigation){
+    const state=this._syncShuffle();
+    if(state){state.select(index,step);if(SET.shuffleOn&&step?.cycle)this.order=state.numericRanks.slice();}
+    else if(!PlaybackQueue.active&&this._shuffleBuild?.queue===this.queue)this._shuffleBuild.events.push({index,step});
+    this._shuffleNavigation=null;
+  };
+  Engine._recordShuffleListening=function(){
+    const id=this.current?.id;if(!id||this._shuffleHeardRequest===this._playRequest)return;
+    const saved=PlaybackQueue.active?PlaybackQueue.resume?.shuffle:null,state=PlaybackQueue.active?null:this._syncShuffle(),job=!PlaybackQueue.active&&this._shuffleBuild?.queue===this.queue?this._shuffleBuild:null;
+    if(!saved&&!state&&!job)return;this._shuffleHeardRequest=this._playRequest;
+    if(saved){saved.recent=[...(saved.recent||[]),id].slice(-64);if(saved.version===1)saved.version=2;}
+    else if(state)state.heard(id);else job.events.push({heard:id});
+    this.saveState();
+  };
+  const onPlaying=Engine.onPlaying;
+  Engine.onPlaying=function(i){
+    const result=onPlaying.call(this,i),started=this._mediaStarted;
+    if(i===this.cur&&this.playing&&started?.request===this._playRequest&&started.slot===i&&started.source===this.el().src)this._recordShuffleListening();
+    return result;
+  };
+
   Engine.buildOrder=function(anchor){
     const mode=SET.shuffleOn?(SET.shuffleMode||1):0;
     const selected=Number.isInteger(anchor)?anchor:(this.queue[this.order[this.pos]]?.id===this.current?.id?this.order[this.pos]:this.queue.findIndex(t=>t.id===this.current?.id));
     if(PlaybackQueue.active&&nativeValues().queue_no_shuffle||!mode){this.order=this.queue.map((_,i)=>i);this.pos=Math.max(0,this.order.indexOf(selected));return;}
-    const groups=new Map();this.queue.forEach((t,i)=>{const key=JSON.stringify([t.albumArtist||trackArtist(t),trackAlbum(t)]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i);});
-    this.order=mode===1?shuffleArray(this.queue.map((_,i)=>i)):(mode===2?Array.from(groups.values()).map(shuffleArray):mode===3?shuffleArray(Array.from(groups.values())):shuffleArray(Array.from(groups.values())).map(shuffleArray)).flat();
-    const index=this.order.indexOf(selected);
-    if(index>=0){if(mode===1)this.order.unshift(...this.order.splice(index,1));else this.order.push(...this.order.splice(0,index));}
-    this.pos=0;
+    if(!PlaybackQueue.active){
+      if(largeShuffle(this.queue)||this._shuffle?.largeProxy){
+        if(!this.order.length||this.order.length!==this.queue.length)this.order=this.queue.map((_,i)=>i);
+        this.pos=Math.max(0,this.order.indexOf(selected));return this._prepareShuffle(mode,Number.isInteger(anchor)?anchor:undefined);
+      }
+      const state=this._syncShuffle(true);
+      // An explicit starting occurrence anchors a new category/mode. Ordinary
+      // toggles have no anchor and must retain every saved rank.
+      if(Number.isInteger(anchor)){const at=state.ranks.indexOf(state.keys[selected]);if(at>=0){if(mode===1)state.ranks.unshift(...state.ranks.splice(at,1));else state.ranks.push(...state.ranks.splice(0,at));if(mode===1)state.numericRanks.unshift(...state.numericRanks.splice(at,1));else state.numericRanks.push(...state.numericRanks.splice(0,at));state.rankJSON=JSON.stringify(state.numericRanks);state.bagAt=0;}}
+      this.order=state.numericRanks.slice();this.pos=Math.max(0,this.order.indexOf(selected));return;
+    }
+    this.order=shuffleArray(this.queue.map((_,i)=>i));this.pos=Math.max(0,this.order.indexOf(selected));
   };
-  const setQueue=Engine.setQueue;Engine.setQueue=function(list,index,autoplay){if(PlaybackQueue.active&&!PlaybackQueue.starting){PlaybackQueue.active=false;PlaybackQueue.resume=null;PlaybackQueue.save();}return setQueue.call(this,list,index,autoplay);};
+  const setQueue=Engine.setQueue;Engine.setQueue=function(list,index,autoplay){this._shuffleIntent=(this._shuffleIntent||0)+1;this._shuffleBuild=null;this.order=[];this._shuffleFresh=true;this._shuffle=null;this._shuffleState=null;if(PlaybackQueue.active&&!PlaybackQueue.starting){PlaybackQueue.active=false;PlaybackQueue.resume=null;PlaybackQueue.save();}return setQueue.call(this,list,index,autoplay);};
   const playIndex=Engine.playIndex;
   Engine.playIndex=function(index,autoplay,position){
     const t=this.queue[index];if(!sourceTrackEnabled(t))return this.selectionUnavailable();
+    if(this._shuffleBuild&&!this._shuffleDeferred)this._shuffleIntent=(this._shuffleIntent||0)+1;
     this.cancelSleepFade();
     const outgoing=this.current;if(outgoing&&!this._autoAdvance&&!this.el().ended&&nativeValues().restore_pos){outgoing.resumeAt=this.time();persistTrack(outgoing);}
     const mode=nativeValues().fade_manual_advance||0;
     // Cloud media can take seconds to become playable. Manual cloud selection
     // must update immediately, rather than leaving the old song on screen.
     const cloudSwitch=['drive','r2'].includes(t.source)||['drive','r2'].includes(outgoing?.source);
-    if(position==null&&!cloudSwitch&&autoplay!==false&&this.playing&&outgoing?.id!==t.id&&mode&&SET.audioMode!=='transparent'&&!this._autoAdvance)return PlaybackTransitions.to(index,mode===1?nativeValues().fade_short_xfade_ms||400:SET.crossfadeLen*1000);
+    if(position==null&&!cloudSwitch&&autoplay!==false&&this.playing&&outgoing?.id!==t.id&&mode&&SET.audioMode!=='transparent'&&!this._autoAdvance)return PlaybackTransitions.to(index,mode===1?nativeValues().fade_short_xfade_ms||400:SET.crossfadeLen*1000,this._shuffleNavigation);
     PlaybackTransitions.cancel(true,t.id);if(!this._autoAdvance)AudioQuality.reset();this.listened=0;this.listenedLast=0;this.counted=false;clearTimeout(this.silenceTimer);clearTimeout(this.fadeTimer);
     if(position==null&&nativeValues().restore_pos&&t.resumeAt>0&&t.resumeAt<(t.dur||0)-3&&(t.dur||0)>=(nativeValues().restore_pos_min_dur||45)*60)position=t.resumeAt;
     return playIndex.call(this,index,autoplay,position||0);
   };
   Engine.setGain=function(i,value,ms){const node=this.gains[i];if(node&&this.ctx){const now=this.ctx.currentTime;node.gain.cancelScheduledValues(now);node.gain.setValueAtTime(Math.max(0,node.gain.value),now);ms>0?node.gain.linearRampToValueAtTime(Math.max(0,value),now+ms/1000):node.gain.setValueAtTime(Math.max(0,value),now);}else if(this.els[i])this.els[i].volume=clamp(value,0,1)*SET.volume*SET.volume;};
-  const pause=Engine.pause;Engine.pause=function(reason){restoreTrackStepOrigin();this._playRequest=(this._playRequest||0)+1;this._loadingRequest=null;if(this._pendingSeek)this._pendingSeek.request=this._playRequest;PlaybackTransitions.cancel();clearTimeout(this.silenceTimer);return pause.call(this,reason);};
+  const pause=Engine.pause;Engine.pause=function(reason){this._shuffleIntent=(this._shuffleIntent||0)+1;restoreTrackStepOrigin();this._playRequest=(this._playRequest||0)+1;this._loadingRequest=null;if(this._pendingSeek)this._pendingSeek.request=this._playRequest;PlaybackTransitions.cancel();clearTimeout(this.silenceTimer);return pause.call(this,reason);};
   const play=Engine.play;Engine.play=function(){clearTimeout(this.fadeTimer);clearTimeout(this.silenceTimer);return play.call(this);};
-  const stop=Engine.stop;Engine.stop=function(){restoreTrackStepOrigin();AudioQuality.reset();this._playRequest=(this._playRequest||0)+1;this._loadingRequest=null;this._pendingSeek=null;this._resumePosition=null;PlaybackTransitions.cancel();clearTimeout(this.silenceTimer);return stop.call(this);};
+  const stop=Engine.stop;Engine.stop=function(){this._shuffleIntent=(this._shuffleIntent||0)+1;this._shuffleBuild=null;restoreTrackStepOrigin();AudioQuality.reset();this._playRequest=(this._playRequest||0)+1;this._loadingRequest=null;this._pendingSeek=null;this._resumePosition=null;PlaybackTransitions.cancel();clearTimeout(this.silenceTimer);return stop.call(this);};
   const seek=Engine.seek;Engine.seek=function(seconds){restoreTrackStepOrigin();PlaybackTransitions.cancel();AudioQuality.reset();const result=seek.call(this,seconds);this.listenedLast=this.time();if(this.playing&&SET.audioMode!=='transparent'&&nativeValues().fade_seek){this.setGain(this.cur,0,0);this.setGain(this.cur,this.rgGain(this.current),nativeValues().fade_seek_ms||100);}return result;};
   const next=Engine.next;
   Engine.next=function(auto){
+    if(this._shuffleBuild)return this._deferShuffleNavigation(()=>this.next(auto));
     const previous=this._autoAdvance;this._autoAdvance=!!auto;
     try{
-      if(!auto)return next.call(this,auto);
+      if(!auto){if(!PlaybackQueue.active&&!PlaybackQueue.shouldStart()){const step=this._shuffleStep(1,true);if(step?.pending)return this._deferShuffleNavigation(()=>this.next(false));}return next.call(this,auto);}
       if(SET.repeatMode==='one')return next.call(this,true);
       if(PlaybackQueue.shouldStart()){PlaybackQueue.begin(false,0,!!auto||this.wantsPlayback());return;}
       if(PlaybackQueue.active&&this.pos+1>=this.order.length){PlaybackQueue.finish(!!auto||this.wantsPlayback());return;}
+      const step=this._shuffleStep(1,SET.repeatMode==='all');
+      if(step){if(step.pending)return this._deferShuffleNavigation(()=>this.next(auto));if(step.exhausted){this.pause();this.el().currentTime=0;UI.renderProgress();return;}this._shuffleNavigation=step;return this.playIndex(step.index,true);}
       return next.call(this,auto);
-    }finally{this._autoAdvance=previous;}
+    }finally{this._autoAdvance=previous;this._shuffleNavigation=null;}
   };
+  const prev=Engine.prev;Engine.prev=function(){if(this._shuffleBuild)return this._deferShuffleNavigation(()=>this.prev());const step=this._shuffleStep(-1,false);if(step?.pending)return this._deferShuffleNavigation(()=>this.prev());return prev.call(this);};
   Engine.countPlayed=function(){if(!this.current||this.counted)return;this.counted=true;this.current.plays=(this.current.plays||0)+1;this.current.lastPlayed=Date.now();persistTrack(this.current);};
-  Engine.onEnded=function(i){this.tracePlayback('ended-received');if(i!==this.cur||this._loadingRequest||!this.wantsPlayback()||!this.el().ended||this._endedRequest===this._playRequest)return;this._endedRequest=this._playRequest;this.playing=false;UI.renderPlayState();if(this.current){this.current.resumeAt=0;this.countPlayed();persistTrack(this.current);}if(this._sleepFade){this.pause('sleep');return;}const request=this._playRequest;const advance=()=>{if(request!==this._playRequest||!this.wantsPlayback())return;this.listened=0;this.counted=false;this.next(true);};const gap=nativeValues().track_end_silence_ms||0;if(gap){clearTimeout(this.silenceTimer);this.silenceTimer=setTimeout(advance,gap);}else advance();};
-  Engine.startCrossfade=function(){if(this._sleepFade||SET.audioMode==='transparent')return;if(PlaybackQueue.active&&this.pos+1>=this.order.length)return;if(this.xfading||PlaybackTransitions.pending||!this.playing||PlaybackQueue.shouldStart()||SET.repeatMode==='one')return;let pos=this.pos+1;if(pos>=this.order.length){if(SET.repeatMode==='all')pos=0;else return;}return PlaybackTransitions.to(this.order[pos],Math.max(50,SET.crossfadeLen*1000));};
+  Engine.onEnded=function(i){this.tracePlayback('ended-received');if(i!==this.cur||this._loadingRequest||!this.wantsPlayback()||!this.el().ended||this._endedRequest===this._playRequest)return;if(this.ctx&&this.ctx.state!=='running'){this.holdContextSuspension();return;}this._endedRequest=this._playRequest;this._recordShuffleListening?.();this.playing=false;UI.renderPlayState();if(this.current){this.current.resumeAt=0;this.countPlayed();persistTrack(this.current);}if(this._sleepFade){this.pause('sleep');return;}const request=this._playRequest;const advance=()=>{if(request!==this._playRequest||!this.wantsPlayback())return;if(this.ctx&&this.ctx.state!=='running'){this._endedRequest=null;this.holdContextSuspension();return;}this.listened=0;this.counted=false;this.next(true);};const gap=nativeValues().track_end_silence_ms||0;if(gap){clearTimeout(this.silenceTimer);this.silenceTimer=setTimeout(advance,gap);}else advance();};
+  Engine.startCrossfade=function(){if(this._sleepFade||SET.audioMode==='transparent')return;if(PlaybackQueue.active&&this.pos+1>=this.order.length)return;if(this.xfading||PlaybackTransitions.pending||!this.playing||PlaybackQueue.shouldStart()||SET.repeatMode==='one')return;const step=this._shuffleStep(1,SET.repeatMode==='all');if(step){if(!step.pending&&!step.exhausted)return PlaybackTransitions.to(step.index,Math.max(50,SET.crossfadeLen*1000),step);return;}let pos=this.pos+1;if(pos>=this.order.length){if(SET.repeatMode==='all')pos=0;else return;}return PlaybackTransitions.to(this.order[pos],Math.max(50,SET.crossfadeLen*1000));};
   const time=Engine.onTime;Engine.onTime=function(i){
     if(i!==this.cur||this._loadingRequest)return;
     if(this.playing){const now=this.time(),delta=now-(this.listenedLast||0);if(delta>0&&delta<3*Math.max(1,SET.speed))this.listened=(this.listened||0)+delta;this.listenedLast=now;const threshold=this.duration()*(nativeValues().played_dur??14)/100;if(this.listened>=Math.max(1,threshold))this.countPlayed();}
@@ -9240,7 +9973,7 @@ function installPlaybackRework(){
     SET.crossfade=enabled&&mode!==0&&(mode!==3||SET.shuffleOn)&&(mode!==1||!sameAlbum);
     try{return time.call(this,i);}finally{SET.crossfade=enabled;}
   };
-  const restore=Engine.restoreState;Engine.restoreState=async function(){const result=await restore.call(this);try{const saved=this._restoredQueueState||JSON.parse(localStorage.getItem('dc.explicit-queue')||'null');if(saved&&Array.isArray(saved.pending)){PlaybackQueue.pending=saved.pending.filter(id=>LIB.map.has(id));PlaybackQueue.active=!!saved.active&&result;PlaybackQueue.resume=saved.resume&&Array.isArray(saved.resume.ids)&&Array.isArray(saved.resume.order)&&Number.isInteger(saved.resume.pos)&&saved.resume.pos>=0&&saved.resume.pos<=saved.resume.order.length&&saved.resume.order.every(i=>Number.isInteger(i)&&i>=0&&i<saved.resume.ids.length)?saved.resume:null;PlaybackQueue.forced=!!saved.forced;}}catch(e){}return result;};
+  const restore=Engine.restoreState;Engine.restoreState=async function(){const result=await restore.call(this);try{const saved=this._restoredQueueState||JSON.parse(localStorage.getItem('dc.explicit-queue')||'null');if(saved&&Array.isArray(saved.pending)){PlaybackQueue.pending=saved.pending.filter(id=>LIB.map.has(id));PlaybackQueue.active=!!saved.active&&result;PlaybackQueue.resume=saved.resume&&Array.isArray(saved.resume.ids)&&Array.isArray(saved.resume.order)&&Number.isInteger(saved.resume.pos)&&saved.resume.pos>=0&&saved.resume.pos<=saved.resume.order.length&&saved.resume.order.every(i=>Number.isInteger(i)&&i>=0&&i<saved.resume.ids.length)?saved.resume:null;PlaybackQueue.forced=!!saved.forced;}}catch(e){}this._syncShuffle();if(this._shuffleBuild)await this._shuffleBuild.promise;return result;};
   const items=Views.buildItems;Views.buildItems=function(spec){if(spec.kind==='queue'){const indices=spec.queueView==='upcoming'?upcomingIndices():null;return {type:'tracks',items:indices?indices.map(i=>Engine.queue[i]):PlaybackQueue.tracks(),indices};}return items.call(this,spec);};
   const counts=Views.counts;Views.counts=function(){const result=counts.call(this);result.queue=PlaybackQueue.tracks().length;return result;};
   const playFirstUpcoming=data=>{const index=data.indices?.[0];if(Engine.queue[index]?.id===data.items[0]?.id&&index!=null)Engine.playIndex(index,true);};
@@ -9849,6 +10582,7 @@ async function boot(){
   DockLayout.install();
   applySettings();
   Engine.init();
+  R2Source.prepare(); // Overlap configuration/modules with local library restoration.
   Engine.applySpeed();
   setupArtGestures();
   setupSeekGestures();
@@ -9860,9 +10594,10 @@ async function boot(){
   Search.init();
   installListDelegation($('#list-body'));
   installListDelegation($('#q-body'));
-  await Playlists.load();
-  await Bookmarks.load();
-  await loadLibrary();
+  // The three boot loads are independent IndexedDB reads; run them
+  // concurrently instead of sequentially so first paint isn't gated on
+  // their sum. None of the render calls below run until all resolve.
+  await Promise.all([Playlists.load(), Bookmarks.load(), loadLibrary()]);
   DrawerCast.install();
   const serverConnection=DrawerCast.restoreConfig();
   await loadRoots();

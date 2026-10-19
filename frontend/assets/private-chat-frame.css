@@ -1,0 +1,92 @@
+/* Embedded chats have their own bounded viewport; standalone header space does not apply. */
+html,body{height:100%;min-height:0;overflow:hidden}
+body.relay-page .workspace{display:flex;flex-direction:column;height:min(var(--app-height,100dvh),100dvh);min-height:0;width:100%;max-width:none;margin:0;padding:0}
+body.relay-page .topbar{display:none!important}
+body.relay-page main#content{padding:0!important;min-height:0;height:auto;flex:1;overflow:hidden}
+body.relay-page .relay-owner-content .relay-owner-panel:not(.relay-owner-chat){padding:16px;overflow:auto}
+body.relay-page .relay-owner-content .relay-owner-chat{height:100%;min-height:0}
+body.relay-page main#content .messages{padding:16px 12px;scroll-padding-top:16px;min-height:0;overscroll-behavior:contain}
+body.relay-page .conversation-search{margin-top:0;flex-shrink:0}
+.private-tools{display:flex;justify-content:flex-end;gap:6px;padding:2px 8px;flex-shrink:0;border-bottom:1px solid #ffffff0d}
+.private-tools button{font-size:11px;min-height:40px;padding:6px 12px;background:transparent;color:#aaa;border:0}
+#notice:empty{display:none}#notice{font-size:12px;margin:4px 12px;flex-shrink:0}
+body.relay-page .composer{padding:8px 12px max(8px,env(safe-area-inset-bottom));flex-shrink:0}
+body.relay-page .composer-input textarea{font-size:16px;max-height:min(120px,25dvh);min-width:0}
+body.relay-page main#content .message-row .bubble{max-width:88%;font-size:16px;line-height:1.45;overflow-wrap:anywhere}
+body.relay-page .app-sheet{max-height:calc(100dvh - 12px);overflow:auto;padding:16px}
+body.relay-page .relay-attachment-summary,#selected-files{max-height:28dvh;overflow:auto;overscroll-behavior:contain}
+body.relay-page .chat-empty{padding:16px 12px}
+body.relay-page .chat-empty h2{font-size:22px}
+@media(max-height:420px){.private-tools{padding:0 6px}.private-tools button{min-height:32px;padding:2px 10px}body.relay-page .composer-bottom{padding-top:2px}body.relay-page .composer-bottom>span{font-size:9px}body.relay-page main#content .messages{padding-top:8px}body.relay-page .chat-empty h2{font-size:18px}}
+
+.private-embedded .private-tools{display:none}
+body.relay-page main#content .messages{padding:8px 12px;scroll-padding-top:8px}
+body.relay-page .composer{padding:6px 10px max(6px,env(safe-area-inset-bottom))}
+body.relay-page .composer-bottom{padding-top:2px;font-size:11px;line-height:16px}
+
+/* Quiet reading surface and composer, inspired by ChatGPT's dark conversation UI. */
+body.relay-page{--bg:#212121;--surface:#2f2f2f;--raised:#383838;--text:#ececec;--muted:#b4b4b4;--label:#b4b4b4;--accent:#ededed;--line:#424242;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;color-scheme:dark}
+body.relay-page .workspace,body.relay-page main#content,body.relay-page .relay-owner-chat,body.relay-page .composer{background:var(--bg)}
+body.relay-page main#content .messages{background:var(--bg);scrollbar-width:thin;scrollbar-color:#555 transparent}
+body.relay-page main#content .messages>.message-row{max-width:760px;margin-bottom:24px}
+body.relay-page main#content .message-row .bubble{font-size:16px;line-height:1.65;letter-spacing:0;max-width:100%;color:var(--text)}
+body.relay-page main#content .message-row.outgoing .bubble{max-width:85%;background:#303030;color:#ececec;border:1px solid #ffffff04;border-radius:22px;padding:10px 16px}
+body.relay-page main#content .message-row:not(.outgoing) .bubble{background:transparent;border:0;padding:0}
+body.relay-page .message-time{font-size:11px;line-height:17px;color:#aaa}
+body.relay-page main#content .composer-input{max-width:760px;border:1px solid #414141;background:#303030;border-radius:26px;padding:4px;gap:6px;box-shadow:0 2px 8px #00000014;transition:border-color .15s,box-shadow .15s}
+body.relay-page main#content .composer-input:focus-within{border-color:#888;box-shadow:0 0 0 1px #888}
+body.relay-page main#content .composer-input textarea{font-family:inherit;font-size:16px;line-height:24px;padding:10px 0;min-height:44px;color:#ececec;caret-color:#fff}
+body.relay-page main#content .composer-input textarea::placeholder{color:#b4b4b4}
+body.relay-page main#content .composer-input .send-icon{width:44px;min-width:44px;max-width:44px;height:44px;min-height:44px;background:#eee;color:#212121;border:0;border-radius:50%;align-self:flex-end;opacity:1}
+body.relay-page main#content .composer-input .send-icon:disabled{background:#444;color:#a0a0a0;opacity:1;cursor:default}
+body.relay-page main#content .composer-input .send-icon:not(:disabled):hover{background:#fff}
+body.relay-page main#content .composer-input .relay-composer-plus{width:44px;min-width:44px;height:44px;min-height:44px;margin:0;border-radius:50%;font-size:25px;font-weight:300;color:#ddd;align-self:flex-end}
+body.relay-page main#content .composer-input .relay-composer-plus:hover{background:#444}
+body.relay-page .composer-bottom{max-width:760px;margin-inline:auto;color:#a8a8a8;text-align:center}
+body.relay-page :is(button,a,input,select,summary):focus-visible{outline:2px solid #e0e0e0;outline-offset:3px}
+body.relay-page .app-sheet{background:#282828;border:1px solid #484848;box-shadow:0 16px 60px #0006;border-radius:20px}
+body.relay-page .app-sheet::backdrop{background:#0008}
+body.relay-page .sheet-action:hover{background:#383838}
+body.relay-page .relay-attachment-chip{background:#333;border-color:#555;border-radius:14px}
+body.relay-page .chat-empty h2{font-weight:550;letter-spacing:-.5px;color:#ececec}
+body.relay-page .conversation-search{background:#212121;padding:8px 12px;border-bottom:1px solid #363636}
+body.relay-page .conversation-search input{background:#2f2f2f;border:1px solid #4a4a4a;border-radius:12px;color:#ececec}
+@media(min-width:701px){body.relay-page main#content .messages{padding:24px max(24px,calc((100% - 760px)/2)) 12px}body.relay-page .composer{padding-inline:24px;padding-bottom:12px}}
+@media(prefers-reduced-motion:reduce){body.relay-page main#content .composer-input{transition:none}}
+
+/* Black canvas: the header and drawer carry navigation, not the transcript. */
+body.relay-page{--bg:#000;--surface:#000;--raised:#000;--line:#333;background:#000}
+body.relay-page .workspace,body.relay-page main#content,body.relay-page main#content .messages,body.relay-page .relay-owner-chat,body.relay-page .composer,body.relay-page .conversation-search{background:#000}
+body.relay-page main#content .message-row.outgoing .bubble{background:#000;border:1px solid #303030}
+body.relay-page main#content .composer-input{background:#000;border-color:#555;box-shadow:none}
+body.relay-page main#content .composer-input:focus-within{border-color:#bbb;box-shadow:0 0 0 1px #777}
+body.relay-page main#content .composer-input .send-icon{background:#000;color:#fff;border:1px solid #777}
+body.relay-page main#content .composer-input .send-icon:disabled{background:#000;color:#777;border-color:#333}
+body.relay-page main#content .composer-input .send-icon:not(:disabled):hover{background:#171717}
+body.relay-page .app-sheet,body.relay-page .app-sheet .dialog-heading,body.relay-page .relay-attachment-chip{background:#000}
+body.relay-page .composer-bottom:has([data-quiet=true]){display:none}
+
+body.relay-page .chat-empty h2{font-size:22px}
+body.relay-page .message-actions{background:#000;border-color:#444}
+
+/* Actions participate in bubble layout instead of extending 52px beyond it. */
+body.relay-page main#content .message-row .message-actions{position:static;inset:auto;display:inline-flex;align-items:center;justify-content:center;margin:8px 0 0;width:44px;min-width:44px;height:44px;min-height:44px;opacity:1;vertical-align:middle}
+body.relay-page :is(.workspace,#content,.relay-owner-chat,.messages,.message-row,.bubble,.message-body,.composer,.composer-input,.relay-attachment-summary,.relay-attachment-chip){min-width:0;max-width:100%}
+body.relay-page .message-body{overflow-wrap:anywhere}
+body.relay-page .rich-body :is(.code-block,pre){min-width:0;max-width:100%}
+body.relay-page .rich-body pre{overflow:auto;white-space:pre;overscroll-behavior-x:contain}
+body.relay-page :is(.bubble,.app-sheet) :is(img,video,canvas,iframe){max-width:100%;object-fit:contain}
+body.relay-page :is(.bubble,.app-sheet) img{height:auto}
+body.relay-page .composer-input textarea{width:0;flex:1 1 0;min-width:0}
+body.relay-page :is(.relay-attachment-chip,.relay-attachment-item) :is(span,div){min-width:0;overflow-wrap:anywhere}
+body.relay-page .app-sheet :is(input,textarea){max-width:100%;min-width:0}
+/* Compact message tools share the timestamp centerline without a large circle. */
+body.relay-page main#content .message-footer{display:flex;align-items:center;gap:4px;margin-top:4px;min-height:44px}
+body.relay-page main#content .message-row .message-actions{display:flex;align-items:center;justify-content:center;margin:0;padding:0;flex:0 0 44px;width:44px;height:44px;min-height:44px;line-height:1;border:0;border-radius:8px;background:transparent;color:#aaa}
+body.relay-page main#content .message-actions svg{width:16px;height:16px;display:block;flex:none}
+body.relay-page main#content .message-footer .message-time{line-height:16px;margin:0}
+/* Center equal-sized controls beside a comfortably padded multiline editor. */
+body.relay-page main#content .composer-input{display:flex;align-items:center;padding:6px;gap:6px}
+body.relay-page main#content .composer-input textarea{padding:10px 2px;line-height:24px;min-height:44px;max-height:min(140px,25dvh);margin:0}
+body.relay-page main#content .composer-input :is(.relay-composer-plus,.send-icon){display:flex;align-items:center;justify-content:center;align-self:center;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;margin:0;line-height:1}
+body.relay-page main#content .composer-input :is(.relay-composer-plus,.send-icon) svg{display:block;width:20px;height:20px;flex:none}

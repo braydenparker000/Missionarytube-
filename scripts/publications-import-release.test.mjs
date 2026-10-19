@@ -37,8 +37,8 @@ test('publication route is manual, main-only and preserves rollback before write
  assert.match(workflow,/vars\.AZURE_STORAGE_ACCOUNT == 'missionarytube'/);
  const permissions=workflow.match(/permissions:\n((?:  [^\n]+\n)+)/)?.[1];
  assert.equal(permissions,'  contents: read\n  actions: read\n  id-token: write\n');
- const workspace=readFileSync('.github/workflows/publish-private-workspace.yml','utf8').match(/permissions:\n((?:  [^\n]+\n)+)/)?.[1];
- assert.equal(permissions,workspace,'Use the existing Azure OIDC permission set');
+ const application=readFileSync('.github/workflows/deploy-azure-storage.yml','utf8').match(/permissions:\n((?:  [^\n]+\n)+)/)?.[1];
+ assert.equal(permissions,application,'Use the existing Azure OIDC permission set');
  assert.ok(workflow.indexOf('Validate every rollback file before preserving the artifact')<workflow.indexOf('Preserve rollback bytes before either publication'));
  const ci=readFileSync('.github/workflows/ci.yml','utf8');
  assert.match(ci,/daily-board-import-candidate:/);assert.match(ci,/ref: 62ac633f367250ed21b3ecf7a4627263e9e07d9f/);

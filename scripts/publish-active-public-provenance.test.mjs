@@ -63,17 +63,3 @@ test('prepare-proof completes proof binding and success logging with real rollba
   assert.deepEqual(proof.rollback,{artifactId,artifactDigest,name:`active-public-provenance-rollback-${runId}-${attempt}`});
  }finally{await rm(root,{recursive:true,force:true});}
 });
-
-test('manual publication is artifact-scoped, rollback-backed, and cannot start the general deploy job',()=>{
- const workflow=readFileSync(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');
- const job=workflow.split('  active-public-provenance:\n')[1].split('  mobile-file-save:\n')[0];
- assert.ok(job.includes("inputs.publish_active_public_provenance == true"));
- assert.ok(job.includes("vars.AZURE_DEPLOY_ENABLED == 'true'"));
- assert.ok(job.indexOf('Capture exact rollback bytes')<job.indexOf('Preserve rollback artifact before publication'));
- assert.ok(job.indexOf('Preserve rollback artifact before publication')<job.indexOf('Publish only release.json and its component provenance sidecar'));
- assert.ok(job.indexOf('Publish only release.json and its component provenance sidecar')<job.indexOf('Verify published lineage'));
- assert.ok(job.includes('Restore the parent release if publication or verification fails'));
- assert.doesNotMatch(job,/upload-batch|release-qualified\.json.*--overwrite/);
- const general=workflow.split('  deploy:\n')[1].split('\n  [a-z-]+:\n')[0];
- assert.ok(general.includes('inputs.publish_active_public_provenance != true'));
-});

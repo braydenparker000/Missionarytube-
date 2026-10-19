@@ -146,15 +146,16 @@ test('rollback stops before writes if a newer writer changed headers or metadata
  }
 });
 
-test('Daily Board workflow keeps explicit dispatch, identity, backup-before-write and live behavior checks',()=>{
+test('historical Daily Board rollback retains trusted-run checks, original identity and protected restore',()=>{
  const workflow=readFileSync(new URL('../.github/workflows/publish-daily-board.yml',import.meta.url),'utf8');
  assert.match(workflow,/workflow_dispatch:/);assert.doesNotMatch(workflow,/\n  (?:push|schedule|workflow_run):/);
  assert.match(workflow,/github.ref == 'refs\/heads\/main'/);assert.match(workflow,/group: azure-production/);assert.match(workflow,/cancel-in-progress: false/);
  for(const name of ['AZURE_CLIENT_ID','AZURE_TENANT_ID','AZURE_SUBSCRIPTION_ID'])assert.match(workflow,new RegExp('secrets\\.'+name));
  assert.ok(workflow.indexOf('mjs parent')<workflow.indexOf('azure/login@v2'));
- assert.ok(workflow.indexOf('name: daily-board-rollback-${{ github.run_id }}')<workflow.indexOf('mjs publish'));
- assert.match(workflow,/DAILY_BOARD_ARTIFACT_ROOT=dist node --test tests\/daily-board-browser.test.mjs/);
- assert.match(workflow,/DAILY_BOARD_ORIGIN: https:\/\/missionarytube.z13.web.core.windows.net/);
+ assert.doesNotMatch(workflow,/mjs publish|action=publish|parent_run_id:/);
+ assert.match(workflow,/name: daily-board-rollback-\$\{\{ steps.parent.outputs.run_id \}\}/);
+ assert.ok(workflow.indexOf('actions/download-artifact@v4')<workflow.indexOf('mjs rollback'));
+ assert.match(workflow,/DAILY_BOARD_ROLLBACK: 'true'/);
  assert.match(workflow,/DAILY_BOARD_EXPECTED_COMMIT: \$\{\{ inputs.expected_commit \}\}/);
  assert.doesNotMatch(workflow,/path: \.jarvis-source|media-source\.mjs/,'a frontend publication needs no historical source checkout or manual pin resolver');
 });

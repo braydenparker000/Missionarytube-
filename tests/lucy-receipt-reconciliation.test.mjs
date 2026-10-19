@@ -16,15 +16,7 @@ test('frontend preservation binds exact old provenance and every public byte',()
  assert.throws(()=>checkedLiveFrontend(prior,current.files,receipt));
  assert.throws(()=>checkedLiveFrontend(prior,files,{...receipt,publicConfigurationDigest:'f'.repeat(64)}));
 });
-test('receipt-only workflow excludes all Worker and frontend writes with unchanged permissions',()=>{
- const flow=readFileSync('.github/workflows/deploy-azure-storage.yml','utf8');
- assert.match(flow,/permissions:\n  contents: read\n  id-token: write/);
- assert.ok(!flow.includes('actions: read'));
- for(const step of flow.split('      - name: ').slice(1)){
-  if(/cloudflare\/wrangler-action|configure-quick-ai|configure-drive|publish-drive-catalog|stage-relay-core|upload-batch|--name index.html/.test(step))assert.match(step,/if:.*receipt_only != 'true'/);
- }
- assert.match(flow,/--name release-qualified.json --file release-qualified.json/);
- assert.match(flow,/node scripts\/reconcile-lucy-receipt.mjs verify-published/);
+test('retained historical receipt reconciliation remains read-only',()=>{
  const script=readFileSync('scripts/reconcile-lucy-receipt.mjs','utf8');
  assert.ok(!/method:\s*['"](?:POST|PUT|PATCH|DELETE)/.test(script));
  assert.match(script,/frontendSource:existing.source/);

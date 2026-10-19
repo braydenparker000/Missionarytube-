@@ -123,7 +123,7 @@ test('source and generated Worker configuration do not activate project features
     for(const name of flags)assert.equal(Object.hasOwn(config.vars||{},name),false);
   }
   const flow=await readFile(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');
-  assert.ok(flow.indexOf('node scripts/check-music-worker-bindings.mjs')<flow.indexOf('Deploy the exact qualified changed Worker'));
+  assert.doesNotMatch(flow,/cloudflare\/wrangler-action|CLOUDFLARE_API_TOKEN|Deploy the exact qualified changed Worker/);
   const identity=await readFile(new URL('../scripts/relay-worker-release-identity.mjs',import.meta.url),'utf8');
   assert.ok(identity.indexOf('live=await liveIdentity')<identity.indexOf("if(command==='plan')"));
   assert.doesNotMatch(flow,/RELAY_PROJECT_(?:ADMIN_|EVENTS_)?ENABLED/);

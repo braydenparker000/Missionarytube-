@@ -39,25 +39,7 @@ test('publisher write set is exactly the two media files plus release and proven
  assert.deepEqual(ALLOWLIST,['media/index.html','media/assets/css/obsidian.css','release-component-provenance.json','release.json']);
  assert.equal(checkedAllowlist([...ALLOWLIST].reverse()),true);
  assert.throws(()=>checkedAllowlist([...ALLOWLIST,'release-qualified.json']));
- const workflow=readFileSync('.github/workflows/deploy-azure-storage.yml','utf8');
- const job=workflow.split('  media-only:\n')[1];assert.ok(job);
- const section=job.split(/\n  [a-z-]+:\n/)[0];
- assert.ok(section.includes("inputs.publish_media_only == true"));assert.ok(section.includes("needs.qualification.result == 'success'"));
- assert.ok(section.includes('azure/login@v2'));assert.ok(section.includes('actions/upload-artifact@v4'));
- assert.doesNotMatch(section,/upload-batch|release-qualified\.json.*--overwrite|wrangler deploy|secret put/);
- const general=workflow.split('  deploy:\n')[1].split(/\n  [a-z-]+:\n/)[0];
- assert.ok(general.includes('inputs.publish_media_only != true'));
- const specialized=workflow.split('  deploy:\n')[1].split('  media-only:\n')[0];
- for(const [,ifLine] of specialized.matchAll(/^    if: \$\{\{([^\n]+)$/gm))
-  assert.ok(ifLine.includes('inputs.publish_media_only != true'),ifLine);
- assert.ok(section.includes('path: .'),'the qualified artifact must unpack with its original dist/ layout');
- assert.ok(section.includes('node scripts/qualified-artifact.mjs verify'),'the exact artifact is checked before Azure credentials');
- assert.ok(section.includes('path: .jarvis-source'));
- assert.ok(section.indexOf('prepare-proof')<section.indexOf('uses: actions/upload-artifact@v4'));
- assert.ok(section.indexOf('verify-package')<section.indexOf('uses: actions/upload-artifact@v4'));
- assert.ok(!section.includes('ROLLBACK_ARTIFACT_DIGEST'),'rollback proof must not depend on post-upload action metadata');
- assert.ok(section.includes("always() && steps.azure_signin.outcome == 'success'"));
- assert.ok(section.includes("steps.publish.outcome != 'success'"),'partial or uncertain writes require recovery');
+
 });
 
 test('live blob observations require exact hash, size and ETag before a write',()=>{

@@ -169,6 +169,8 @@ jobs:
         run: npm test
       - name: Build the exact immutable frontend once
         run: npm run build
+      - name: Inspect public runtime bytes without credentials or writes
+        run: node scripts/inspect-frontend.mjs dist
       - name: Bind source, orchestration, dependencies, configuration and every artifact byte
         run: node scripts/qualified-artifact.mjs create
       - uses: actions/upload-artifact@v4
@@ -177,11 +179,60 @@ jobs:
           path: |
             dist
             qualified-artifact.json
+            frontend-live-comparison.json
+            .backend-release/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
 
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/install-jarvis-browser.mjs
+      - name: Qualify the editable Worker and selected frontend with real isolated browser and SQLite fixtures
+        env:
+          REQUIRE_RELAY_OWNER_BROWSER: '1'
+          REQUIRE_PRIVATE_BOARD_BROWSER: '1'
+          PRIVATE_WORKSPACE_ROOT: ${{ github.workspace }}/frontend
+          PRIVATE_CHAT_SCREENSHOT_DIR: ${{ runner.temp }}/private-board
+        run: |
+          test -x "$JARVIS_CHROME"
+          export PRIVATE_WORKSPACE_CHROME="$JARVIS_CHROME"
+          export CHROMIUM_PATH="$JARVIS_CHROME"
+          export PLAYWRIGHT_CHROMIUM_EXECUTABLE="$JARVIS_CHROME"
+          npm run test:backend
+      - name: Require the retained private mobile visual evidence
+        env:
+          SCREENSHOTS: ${{ runner.temp }}/private-board
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          for(const name of ['group-normal.png','group-menu.png','group-spectrum.png','makima.png']){
+            const bytes=readFileSync(process.env.SCREENSHOTS+'/'+name);
+            assert.equal(bytes.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+            assert.equal(bytes.readUInt32BE(16),390);assert.equal(bytes.readUInt32BE(20),844);
+          }
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selected-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/private-board
+          retention-days: 14
+          if-no-files-found: error
+
   qualification:
-    needs: [plan, component, build]
+    needs: [plan, component, build, runtime]
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 2
@@ -191,7 +242,9 @@ jobs:
           PLAN_RESULT: ${{ needs.plan.result }}
           COMPONENT_RESULT: ${{ needs.component.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          RUNTIME_RESULT: ${{ needs.runtime.result }}
         run: |
           test "$PLAN_RESULT" = success
           test "$COMPONENT_RESULT" = success
           test "$BUILD_RESULT" = success
+          test "$RUNTIME_RESULT" = success

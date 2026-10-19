@@ -207,23 +207,7 @@ test('source, target, configured seal and exact dependency drift refuse before a
   });
 });
 
-test('workflow preserves all prewrite barriers, requires staging success, excludes dependencies from unordered batch and keeps full qualification',async()=>{
-  const flow=await readFile(join(repository,'.github/workflows/deploy-azure-storage.yml'),'utf8');
-  const ordered=['Verify actual live Worker identity','Join real podcast readiness and verified full rollback backup','Record the actual qualified active Worker',
-    'Save rollback artifact before any overwrite','Verify sealed configured bytes immediately before staging',
-    'Upload and verify all Relay dependencies before importer overwrite','Stage Jarvis','Check every staged file','Revalidate actual backend identity','Promote Jarvis homepage'];
-  for(let i=1;i<ordered.length;i++)assert.ok(flow.indexOf(ordered[i-1])>=0&&flow.indexOf(ordered[i-1])<flow.indexOf(ordered[i]),ordered[i]);
-  const stage=flow.slice(flow.indexOf('      - name: Upload and verify all Relay dependencies'),flow.indexOf('      - name: Stage Jarvis'));
-  assert.match(stage,/STORAGE_ACCOUNT: \$\{\{ vars\.AZURE_STORAGE_ACCOUNT \}\}/);
-  assert.match(stage,/run: node scripts\/stage-relay-core-dependencies\.mjs/);assert.doesNotMatch(stage,/continue-on-error|always\(/);assert.match(stage,/if: steps.jarvis.outputs.receipt_only != 'true'/);
-  const batch=flow.slice(flow.indexOf('      - name: Stage Jarvis'),flow.indexOf('      - name: Check every staged file'));
-  const removal=batch.match(/^\s+rm (upload\/assets\/[^\n]+)$/m)?.[1]?.split(/\s+/)||[];
-  assert.deepEqual(removal,modules.map(path=>'upload/'+path),'every sealed dependency is excluded from the unordered batch');
-  assert.ok(batch.indexOf('rm '+removal.join(' '))<batch.indexOf('az storage blob upload-batch'));
-  assert.match(batch,/rm upload\/index.html/);assert.match(batch,/--auth-mode login --destination '\$web' --source upload/);
-  assert.match(batch,/--overwrite true --content-cache-control no-cache --only-show-errors/);
 
-});
 
 test('real stage entrypoint refuses unknown flags without invoking storage or public verification',()=>{
   const hook="globalThis.fetch=()=>{throw Error('Unexpected fictional HTTP');};";

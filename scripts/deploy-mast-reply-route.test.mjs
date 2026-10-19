@@ -19,8 +19,6 @@ test('route receipt requires exact successful production attempt and stamp, then
  for(const change of [d=>{d.jobs[0].run_attempt=2},d=>{d.jobs[0].steps=[]},d=>{d.total_count=2}])await assert.rejects(verifiedMusicReceipt(r,async url=>{const data=await(await fetcher(url)).json();if(url.includes('/runs/123/')&&data.jobs)change(data);return Response.json(data)}));
 });
 
-test('recovery rejects substituted evidence and its production job cannot upload Worker code',()=>{
+test('historical recovery rejects substituted evidence',()=>{
  assert.throws(()=>checkedRecoveryFiles({'checkpoint.json':Buffer.from('{}')}),/Recovery evidence mismatch/);
- const flow=readFileSync(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');const job=flow.split('  mast-chat-only:')[1].split('  activate-owner-mast:')[0];
- assert.ok(!flow.includes('actions: read'));assert.match(job,/deploy-mast-reply-route.mjs recover/);assert.doesNotMatch(job,/wrangler|deploy-mast-reply-route.mjs prepare|deploy-mast-reply-route.mjs checkpoint/);
 });

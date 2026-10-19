@@ -5,7 +5,7 @@ import {pathToFileURL} from 'node:url';
 
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 export function sourceDependencyIdentity(root=process.cwd()){
-  return Object.fromEntries(['package.json','package-lock.json'].map(file=>[file,hash(readFileSync(resolve(root,'.jarvis-source',file)))]));
+  return Object.fromEntries(['package.json','package-lock.json','backend/package.json'].map(file=>[file,hash(readFileSync(resolve(root,file)))]));
 }
 export function prepareWorkerTools(root=process.cwd()){
   const before=sourceDependencyIdentity(root),directory=resolve(root,'.worker-tools');

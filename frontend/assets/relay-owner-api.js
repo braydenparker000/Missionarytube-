@@ -1,3 +1,5 @@
+import {createMakimaApi} from './private-makima-api.js';
+import {createBoardApi} from './private-board-api.js';
 import {RELAY_ATTACHMENT_TYPES,RELAY_ATTACHMENT_MAX_BYTES,attachmentUuid,attachmentMetadata,messageAttachments,assistantDeliverable} from './relay-attachment-contract.js';
 import { API_ORIGIN } from './config.js';
 
@@ -235,6 +237,7 @@ export function createRelayOwnerApi({ fetcher = globalThis.fetch, origin = API_O
         : unauthenticated
         ? reported === 'session_expired' ? 'expired' : reported === 'session_revoked' ? 'revoked' : 'unauthorized'
         : reported === 'owner_not_enabled' ? 'disabled' : response.status >= 500 ? 'unavailable' : response.status === 409 ? 'conflict' : 'rejected';
+      if(path.startsWith('/relay/owner/board/message?')&&response.status===404&&data?.error==='Board message not found')throw new OwnerApiError('board_message_missing',404);
       throw new OwnerApiError(kind, response.status);
     }
     if (!data || typeof data !== 'object') throw new OwnerApiError('invalid');
@@ -261,6 +264,17 @@ export function createRelayOwnerApi({ fetcher = globalThis.fetch, origin = API_O
   }
   function parseAttachments(entry){try{return messageAttachments(entry);}catch{throw new OwnerApiError('invalid');}}
   return {
+    board: createBoardApi(attachmentCall),
+    makima: createMakimaApi(attachmentCall),
+    async collaboration(after='0'){
+      if(!/^\d{1,15}$/.test(String(after)))throw new OwnerApiError('invalid');
+      const data=await attachmentCall('/relay/owner/collaboration?after='+encodeURIComponent(after));
+      if(data.destination!=='lucy-muse'||data.visibility!=='private'||data.readOnly!==true||!Array.isArray(data.messages)||data.messages.length>50)throw new OwnerApiError('invalid');
+      const messages=data.messages.map((m,i)=>{if(!identifier(m.id)||!['lucy','muse'].includes(m.role)||m.destination!=='lucy-muse'||m.visibility!=='private'||typeof m.body!=='string'||m.body.length>6000||!Number.isSafeInteger(m.sequence)||m.sequence<=Number(after)||(i&&m.sequence<=data.messages[i-1].sequence)||!validDate(m.createdAt)||!(m.replyTo===null||identifier(m.replyTo)))throw new OwnerApiError('invalid');if(!Array.isArray(m.attachments)||m.attachments.length>4)throw new OwnerApiError('invalid');let attachments;try{attachments=m.attachments.map(f=>attachmentMetadata(f,{messageId:m.id,state:'linked'}));}catch{throw new OwnerApiError('invalid');}if(new Set(attachments.map(f=>f.id)).size!==attachments.length)throw new OwnerApiError('invalid');return {...m,attachments};});
+      if(new Set(messages.map(m=>m.id)).size!==messages.length||!(data.nextCursor===null||messages.length&&String(messages.at(-1).sequence)===data.nextCursor))throw new OwnerApiError('invalid');
+      return {messages,nextCursor:data.nextCursor};
+    },
+    collaborationFile(messageId,attachmentId){if(!identifier(messageId)||!identifier(attachmentId))throw new OwnerApiError('invalid');return attachmentCall('/relay/owner/collaboration/files/content?message_id='+encodeURIComponent(messageId)+'&attachment_id='+encodeURIComponent(attachmentId),{binary:true});},
     get hasCredential() { return !!credential; },
     get deviceId() { return credential?.device_id || null; },
     get storageWarning() { return storageWarning; },
@@ -366,6 +380,19 @@ export function createRelayOwnerApi({ fetcher = globalThis.fetch, origin = API_O
         || m.delivery!==undefined&&!validDelivery(m.delivery))
         || !(data.nextCursor === null || /^\d{1,15}$/.test(String(data.nextCursor)))) throw new OwnerApiError('invalid');
       return {...data,messages:data.messages.map(entry=>({...entry,attachments:parseAttachments(entry)}))};
+    },
+    async chatUpdates(after='0'){
+      if(!/^\d{1,15}$/.test(String(after)))throw new OwnerApiError('invalid');
+      const data=await authenticated('/relay/owner/updates?after='+encodeURIComponent(after));
+      if(data.visibility!=='private'||!Array.isArray(data.updates)||data.updates.length>50
+        ||!(data.nextCursor===null||/^\d{1,15}$/.test(data.nextCursor)&&Number(data.nextCursor)>Number(after)))throw new OwnerApiError('invalid');
+      let previous=Number(after);const updates=data.updates.map(item=>{
+        if(!Number.isSafeInteger(item.sequence)||item.sequence<=previous)throw new OwnerApiError('invalid');previous=item.sequence;
+        let parsed;try{parsed=assistantDeliverable(item,item.messageId);}catch{throw new OwnerApiError('invalid');}
+        return {...parsed,replyTo:item.messageId,sequence:item.sequence};
+      });
+      if(new Set(updates.map(x=>x.id)).size!==updates.length||data.nextCursor!==null&&(!updates.length||Number(data.nextCursor)!==previous))throw new OwnerApiError('invalid');
+      return {updates,nextCursor:data.nextCursor};
     },
     async deliverables(messageId,after='0',{signal}={}){
       if(!attachmentUuid(messageId)||!/^\d{1,15}$/.test(String(after)))throw new OwnerApiError('invalid');

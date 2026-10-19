@@ -2,26 +2,38 @@
 
 This extends the [historical component inventory](release-inventory.md) with the current source-to-build-to-publisher map and its live-evidence limits. Reviewed against main `35ea3d8766ea6412a712f46bd180e6ac9e69d61b` on 2026-10-17. It is documentation only, is not consumed by a publisher, and authorizes no deployment or retirement. It separates maintained source identity, produced artifact identity and provider readback; successful CI is not live evidence.
 
-## Current editable frontend
+## Current application source and release path
 
-Edit `frontend/<route>/` and `frontend/assets/`. The static build reads only this
-directory and generates frontend/component provenance in `dist/release.json`.
-It no longer checks out snapshots or reads manually maintained component pins.
-The complete consolidation artifact retained 199 paths and every deployable byte;
-only generated provenance changed. Frozen imported variants remain unselected.
+Edit `frontend/<route>/`, shared `frontend/assets/`, and the Worker in
+`backend/`. The build generates actual frontend/component trees and the Worker
+input closure. Music output filenames follow their bytes automatically. There
+are no manually updated component pins in the normal application path.
 
-The Daily Board uses `publish-daily-board.yml` after an authorized merge/release.
-A normal publication selects its latest successful parent automatically, checks
-the archived receipt against all live Board paths, saves rollback before writes,
-and verifies public bytes and live Chrome behavior. Source and built provenance
-must match the reviewed commit. See [README](../README.md) for exact inputs.
-Run [39185533893](https://github.com/braydenparker000/Missionarytube-/actions/runs/39185533893)
-verified the preceding retry improvement in production with all four browser checks.
+The accepted private, cache, music and shared application files have been
+adopted into `frontend/`. Validate 39196981677 compared all 237 selected runtime
+files to production exactly. The current candidate additionally includes the
+accepted Muse key helper and the reviewed Mast Blob-preview CSP repair; it must
+not be described as deployed until its production run and checks succeed.
 
-Private frontend, music, catalogs, public cache, backend and settings retain their
-separate live receipts and guarded publishers. This consolidation does not make
-a full static artifact equivalent to those independently published live overlays.
-The dated map below remains a historical record of those ownership boundaries.
+Normal frontend releases use **Deploy to Azure Storage** with `action=publish`
+and `expected_commit=<reviewed full main SHA>`, after explicit owner approval.
+The workflow requires that exact main Validate result and reuses its artifact.
+It preserves data/configuration, captures 90-day rollback before writes, uses
+conditional uploads and verifies public bytes plus actual-origin browser
+behavior. Historical Daily Board publication is now restore-only. The private,
+Makima and Muse key forward workflows are retired. Worker changes use current
+`backend/` in the existing music Worker publisher with separate authorization;
+catalog data remains owned by its unchanged hourly publisher, now using accepted
+current-workspace helpers. See [README](../README.md) for exact release inputs.
+
+Both preceding Daily Board improvements are live and verified: retry in run
+[39185533893](https://github.com/braydenparker000/Missionarytube-/actions/runs/39185533893)
+and refresh preserving edition/focus/scroll in run
+[39192138765](https://github.com/braydenparker000/Missionarytube-/actions/runs/39192138765).
+The second shipped through one PR, one approved release and no manual pin edits.
+This is production evidence for those improvements, not for the architecture
+cleanup. Historical records below retain their original observation dates and
+are not current source-selection instructions.
 
 ## Historical component map (2026-10-17)
 

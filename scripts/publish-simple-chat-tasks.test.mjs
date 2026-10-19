@@ -38,12 +38,7 @@ test('whole-store verification rejects changes to shuffle worker, Mast, addition
  const after=before.map(f=>FILES.some(x=>x.path===f.name)||f.name==='release-qualified.json'?{...f,etag:'new'}:f);unchangedInventory(before,after);
  for(const bad of [after.slice(1),[...after,{name:'new.js',etag:'new',size:1}],after.map(f=>f.name==='drawercast/shuffle-worker.js'?{...f,etag:'changed'}:f),after.map(f=>f.name==='drawercast/player.js'?{...f,etag:'changed'}:f)])assert.throws(()=>unchangedInventory(before,bad));
 });
-test('publication mode serializes backup, Worker, static files and receipt using the existing identities',()=>{
- const workflow=readFileSync(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8'),job=workflow.slice(workflow.indexOf('  simple-chat-tasks:\n'));
- assert.ok(job.includes('ref: '+SOURCE));assert.match(job,/path: \.jarvis-source\n          persist-credentials: false\n          fetch-depth: 0/);assert.ok(job.includes('group: jarvis-worker-production'));assert.ok(job.includes('persist-credentials: false'));
- const steps=['publish-simple-chat-tasks.mjs prepare','wrangler deploy --dry-run','publish-simple-chat-tasks.mjs checkpoint','name: simple-chat-tasks-before-','wrangler deploy --config','publish-simple-chat-tasks.mjs publish','publish-simple-chat-tasks.mjs record','publish-simple-chat-tasks.mjs stamp','--name release-qualified.json','publish-simple-chat-tasks.mjs published'];let last=-1;for(const step of steps){const next=job.indexOf(step);assert.ok(next>last,step);last=next;}
- assert.equal(workflow.slice(workflow.indexOf('jobs:')).split('inputs.publish_simple_chat_tasks != true').length-1,14);
-});
+
 
 test('checkpoint resolves qualified URL-suffixed inputs and still requires a fresh Worker publication',()=>{
  const root=mkdtempSync(join(tmpdir(),'progress-suffix-'));

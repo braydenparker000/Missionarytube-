@@ -10,6 +10,11 @@ Maintain Jarvis as the primary frontend on the existing MissionaryTube Storage e
 frontend components only in `frontend/`; this is the complete selected input to
 `scripts/build-jarvis.mjs`. The build generates frontend/component commit and
 byte/mode tree provenance. Do not maintain component commit or tree pins.
+Worker code is editable in `backend/`, with its existing behavior/security tests
+in `backend/tests/`. The backend imports shared modules from `frontend/`, not
+from the archived public tree. Root `npm ci` installs both workspace dependency
+sets; `npm run test:backend` runs the current application suite. CI requires it
+with the approved Node/Chrome runtimes and isolated fixtures.
 Local edits can build and test; publication requires a committed checkout and
 matching generated provenance. Never replace this source with an imported variant.
 
@@ -18,14 +23,25 @@ backend inputs and the canonical
 [delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
 Its exact import guard remains intact. This root guidance supersedes dated
 checkpoints in the imported [delivery plan](jarvis/docs/delivery-plan.md).
-`.jarvis-source` at the `jarvis-release.json` commit is still required by
-historical backend qualification and retained release consumers; it is not a
-frontend build input. Its old repository field records historical identity;
+`.jarvis-source` at the `jarvis-release.json` commit remains a read-only fixture
+for historical qualification and rollback contracts; normal application builds
+and publishers use the current frontend/backend workspaces. Its old repository field records historical identity;
 checkouts use destination history in `braydenparker000/Missionarytube-`.
 See [the source import record](docs/jarvis-source-import.md) and the selected
 publisher for component-specific live preservation and rollback boundaries.
-The general artifact is not a replacement for independently published live
-private, music, cache or configured assets. Preserve those publishers' guards.
+The build now reproduces the accepted public/private/music/cache application
+bytes, including automatically fingerprinted music URLs. Configured assets and
+content remain provider-owned and excluded from application publishing. The
+normal Azure workflow publishes the whole selected frontend with generated
+provenance and trusted prior-run evidence. Initial adoption requires every
+runtime path already exist and match candidate bytes or immutable accepted
+publication evidence; it cannot activate an imported variant. Subsequent
+releases use generated receipts. Normal publishers reuse the exact successful
+main Validate artifact, not another qualification run. Never update historical
+pins for a new feature or release. The former specialized forward publishers
+are retired; historical Daily Board restore remains available. The Drive
+catalog publisher uses accepted current-workspace helpers with its existing
+OAuth guard, parser, hourly schedule and identity.
 
 Root `npm test` is the deployment suite; imported application tests remain
 separately qualified. Run relevant imported tests explicitly, not through

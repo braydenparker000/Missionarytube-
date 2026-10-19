@@ -3,6 +3,7 @@ import {readFile,writeFile,readdir,lstat} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {resolve,join} from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {checkedFrontendBuild} from './frontend-source.mjs';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 export async function fileManifest(root) {
   const files=[];
@@ -26,6 +27,19 @@ export async function artifactIdentity({root=process.cwd(),source='.jarvis-sourc
     buildRecipe:hash(await readFile(resolve(root,'scripts/build-jarvis.mjs'))),
     runId:String(env.GITHUB_RUN_ID||''),attempt:String(env.GITHUB_RUN_ATTEMPT||'')};
 }
+// Normal frontend releases bind the actual editable source and the reviewed
+// checkout. The legacy identity above remains only for retained rollback proofs.
+export async function currentArtifactIdentity({root=process.cwd(),env=process.env}={}){
+  const revision=execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim();
+  execFileSync('git',['-C',root,'diff','--quiet','HEAD','--'],{stdio:'pipe'});
+  const untracked=execFileSync('git',['-C',root,'ls-files','--others','--exclude-standard'],{encoding:'utf8'}).trim();
+  if(untracked)throw Error('Uncommitted publication inputs');
+  const provenance=await checkedFrontendBuild(JSON.parse(await readFile(resolve(root,'dist/release.json'),'utf8')),{root});
+  return {schema:2,repository:'braydenparker000/Missionarytube-',orchestration:revision,...provenance,
+    releaseDigest:hash(await readFile(resolve(root,'jarvis-release.json'))),dependencies:hash(await readFile(resolve(root,'package-lock.json'))),
+    buildRecipe:hash(await readFile(resolve(root,'scripts/build-jarvis.mjs'))),
+    runId:String(env.QUALIFIED_RUN_ID||env.GITHUB_RUN_ID||''),attempt:String(env.QUALIFIED_ATTEMPT||env.GITHUB_RUN_ATTEMPT||'')};
+}
 export function checkedManifest(manifest,identity,files) {
   if(!manifest||JSON.stringify(manifest.identity)!==JSON.stringify(identity)||JSON.stringify(manifest.files)!==JSON.stringify(files)||
     !Array.isArray(files)||!files.length||!files.some(f=>f.path==='index.html')||files.some(f=>!/^[a-f0-9]{64}$/.test(f.sha256)||f.path.startsWith('/')||f.path.split('/').includes('..')))
@@ -45,7 +59,7 @@ export function checkedConfigurationDelta(before,after){
   return true;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
-  const identity=await artifactIdentity(),files=await fileManifest(resolve('dist'));
+  const identity=await currentArtifactIdentity(),files=await fileManifest(resolve('dist'));
   if(process.argv[2]==='create')await writeFile('qualified-artifact.json',JSON.stringify({identity,files},null,2)+'\n');
   else if(process.argv[2]==='verify')checkedManifest(JSON.parse(await readFile('qualified-artifact.json','utf8')),identity,files);
   else if(['configure','verify-configured'].includes(process.argv[2])){

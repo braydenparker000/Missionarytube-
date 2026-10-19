@@ -31,7 +31,7 @@ export function r2Tracks(mapping, tracks, existing = []) {
   const saved = new Map(existing.filter(t => t.source === 'r2').map(t => [t.id, t]));
   if(mapping.native)return tracks.map(t=>{const old=saved.get(t.id)||{},same=old.size===t.size&&(old.sha256?old.sha256===t.sha256:!!old.md5&&old.md5===t.md5);
     return {...t,rating:old.rating||0,plays:old.plays||0,lastPlayed:old.lastPlayed||0,resumeAt:old.resumeAt||0,
-      added:old.added||t.added,artKey:same?old.artKey||null:null,customArt:same?old.customArt||false:false};});
+      added:t.added,artKey:same?old.artKey||null:null,customArt:same?old.customArt||false:false};});
   return tracks.filter(t => mapping.mediaURL(t)).map(t => {
     const id = 'r2_' + t.remoteId, old = saved.get(id) || {};
     const same = old.md5 === t.md5 && old.size === t.size;
@@ -42,15 +42,22 @@ export function r2Tracks(mapping, tracks, existing = []) {
   });
 }
 
+function sameRecord(a,b){
+  if(a===b)return true;
+  if(!a||!b||typeof a!=='object'||typeof b!=='object'||Array.isArray(a)!==Array.isArray(b))return false;
+  const keys=Object.keys(a);return keys.length===Object.keys(b).length&&keys.every(k=>Object.prototype.hasOwnProperty.call(b,k)&&sameRecord(a[k],b[k]));
+}
+
 // Commit only R2 records in one transaction. Drive, local files and server
 // records, and their playlist identities, remain independent.
-export function commitR2Catalog(db, mapping, tracks) {
+export function commitR2Catalog(db, mapping, tracks, {snapshot,valid=()=>true}={}) {
   if (!mapping.matches(tracks)) fail();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('tracks', 'readwrite'), store = tx.objectStore('tracks');
+    const tx = db.transaction(snapshot?['tracks','kv']:'tracks', 'readwrite'), store = tx.objectStore('tracks');
     const pending = new Map(r2Tracks(mapping, tracks).map(t => [t.id, t]));
     const fresh = [], gone = [], request = store.openCursor();
     request.onsuccess = () => {
+      if(!valid()){tx.abort();return;}
       const cursor = request.result;
       if (cursor) {
         const next = pending.get(cursor.key), old = cursor.value;
@@ -59,12 +66,15 @@ export function commitR2Catalog(db, mapping, tracks) {
           const same = old.size === next.size && (mapping.native ? (old.sha256 ? old.sha256===next.sha256 : !!old.md5&&old.md5===next.md5) : old.md5 === next.md5);
           const t = {...next, rating:old.rating || 0, plays:old.plays || 0,
             lastPlayed:old.lastPlayed || 0, resumeAt:old.resumeAt || 0,
-            dur:next.dur || (same ? old.dur || 0 : 0), added:old.added || next.added,
+            dur:next.dur || (same ? old.dur || 0 : 0), added:mapping.native?next.added:old.added || next.added,
             artKey:same ? old.artKey || null : null, customArt:same ? old.customArt || false : false};
-          cursor.update(t); fresh.push(t); pending.delete(cursor.key);
+          if(!sameRecord(old,t))cursor.update(t); fresh.push(t); pending.delete(cursor.key);
         } else if (old.source === 'r2') { cursor.delete(); gone.push(cursor.key); }
         cursor.continue();
-      } else for (const t of pending.values()) { store.put(t, t.id); fresh.push(t); }
+      } else {
+        for (const t of pending.values()) { store.put(t, t.id); fresh.push(t); }
+        if(snapshot)tx.objectStore('kv').put(snapshot,'r2-native-snapshot');
+      }
     };
     tx.oncomplete = () => resolve({fresh, gone});
     tx.onabort = tx.onerror = () => reject(tx.error || Error('R2 library could not be saved.'));
