@@ -80,8 +80,11 @@ export function checkedBaseline(candidate,before,parent){
 }
 export function guard(before,now){
  assert.equal(now.exists,before.exists,'Blob existence changed');
- if(before.exists){assert.equal(now.etag,before.etag,'Blob ETag changed');assert.equal(now.sha256,before.sha256,'Blob bytes changed');assert.equal(now.bytes,before.bytes);}
+ if(before.exists){assert.equal(etag(now.etag),etag(before.etag),'Blob ETag changed');assert.equal(now.sha256,before.sha256,'Blob bytes changed');assert.equal(now.bytes,before.bytes);}
 }
+// Azure list XML omits the quotes present in show/HTTP ETags. Strip only
+// that representation difference; a changed version must still fail closed.
+const etag=value=>typeof value==='string'&&/^"0x[0-9a-f]+"$/i.test(value)?value.slice(1,-1):value;
 function sameProperties(old,now){
  for(const key of ['contentType','cacheControl','contentDisposition','contentEncoding','contentLanguage'])assert.equal(now.properties.contentSettings[key]||'',old.properties.contentSettings[key]||'','Blob header changed');
  assert.deepEqual(now.metadata||{},old.metadata||{},'Blob metadata changed');
@@ -156,7 +159,7 @@ async function snapshots(before){
   const current=store.get(old.path);
   if(!current)return {path:old.path,exists:false};
   // Azure ETags bind bytes and properties. Re-download only changed versions.
-  if(old.exists&&current.etag===old.etag)return {...old,bytes:current.bytes};
+  if(old.exists&&etag(current.etag)===etag(old.etag))return {...old,bytes:current.bytes};
   return snapshot(old.path,`current-${i}`);
  });
 }

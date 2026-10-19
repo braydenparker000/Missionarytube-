@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {checkedFiles,checkedRun,checkedReceipt,checkedBaseline,publish,restore,sha} from './publish-frontend.mjs';
+import {checkedFiles,checkedRun,checkedReceipt,checkedBaseline,publish,restore,guard,sha} from './publish-frontend.mjs';
 import {mkdtemp,mkdir,writeFile,readFile,cp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
@@ -10,6 +10,12 @@ import {fileManifest} from './qualified-artifact.mjs';
 const bytes=path=>Buffer.from(path);
 const file=(path,text=path)=>({path,sha256:sha(bytes(text)),bytes:bytes(text).length});
 const properties={contentSettings:{contentType:'text/plain',cacheControl:'no-cache',contentMd5:'retained-md5'}};
+test('Azure list and HTTP ETag quoting identifies the same version while drift still refuses',()=>{
+ const before={...file('mast/index.html'),exists:true,etag:'0x8DA3ECAC383A75A'};
+ assert.doesNotThrow(()=>guard(before,{...before,etag:'"0x8DA3ECAC383A75A"'}));
+ assert.doesNotThrow(()=>guard({...before,etag:'"0x8DA3ECAC383A75A"'},before));
+ for(const change of [{etag:'"0x8DA3ECAC383A75B"'},{etag:'W/"0x8DA3ECAC383A75A"'},{etag:'*'},{etag:'"0x8DA3ECAC383A75A'},{sha256:'0'.repeat(64)},{bytes:before.bytes+1},{exists:false}])assert.throws(()=>guard(before,{...before,...change}));
+});
 function fixture({adoption=false}={}){
  const old=[file('assets/app.js','old app'),file('index.html','old page'),file('release.json','old release')];
  const next=[file('index.html','new page'),file('assets/app.js','new app'),file('assets/new.js','dependency'),file('release.json','new release')];
@@ -108,7 +114,7 @@ test('the actual CLI adopts, updates and rolls back through conditional Azure co
  const run=(script,args=[],env={})=>execFileSync(process.execPath,[script,...args],{cwd:root,encoding:'utf8',stdio:'pipe',env:{...process.env,...env}});
  run('scripts/build-jarvis.mjs');
  const store={};
- for(const f of await fileManifest(join(root,'dist'))){const data=f.path==='release.json'?Buffer.from('historical release'):await readFile(join(root,'dist',f.path));store[f.path]={body:data.toString('base64'),etag:'original-'+f.path,properties:{contentSettings:{contentType:'text/plain',cacheControl:'no-cache'}},metadata:{retained:'yes'}};}
+ for(const f of await fileManifest(join(root,'dist'))){const data=f.path==='release.json'?Buffer.from('historical release'):await readFile(join(root,'dist',f.path));store[f.path]={body:data.toString('base64'),etag:'0x'+(4096+Object.keys(store).length).toString(16),properties:{contentSettings:{contentType:'text/plain',cacheControl:'no-cache'}},metadata:{retained:'yes'}};}
  store['assets/drive-config.json'].body=Buffer.from('provider-owned configuration').toString('base64');
  await writeFile(join(root,'store.json'),JSON.stringify(store));await writeFile(join(root,'trace.json'),'[]');
  await writeFile(join(root,'bin/az'),`#!/usr/bin/env node
@@ -117,23 +123,25 @@ import {createHash} from 'node:crypto';
 const args=process.argv.slice(2),op=args[2],get=k=>args[args.indexOf(k)+1],has=k=>args.includes(k);
 const store=JSON.parse(readFileSync('store.json')),trace=JSON.parse(readFileSync('trace.json')),path=has('--name')?get('--name'):null,old=store[path];
 const fail=()=>{process.exitCode=1;throw Error('Fixture conditional request refused');};
+ // Azure accepts the same conditional version from list XML or an HTTP header.
+ const matches=()=>get('--if-match')===old.etag||get('--if-match')==='"'+old.etag+'"';
 const row=(path,v)=>({path,etag:v.etag,bytes:Buffer.from(v.body,'base64').length,properties:v.properties,metadata:v.metadata});
 let result={};
 if(op==='list')result=Object.entries(store).map(([p,v])=>row(p,v)).map(v=>get('--query').includes('properties:properties')?v:({path:v.path,etag:v.etag,bytes:v.bytes}));
 else if(op==='exists')result={exists:!!old};
-else if(op==='show'){if(!old)fail();result={properties:{...old.properties,etag:old.etag,contentLength:Buffer.from(old.body,'base64').length},metadata:old.metadata};}
-else if(op==='download'){if(!old||get('--if-match')!==old.etag)fail();writeFileSync(get('--file'),Buffer.from(old.body,'base64'));}
+else if(op==='show'){if(!old)fail();result={properties:{...old.properties,etag:'"'+old.etag+'"',contentLength:Buffer.from(old.body,'base64').length},metadata:old.metadata};}
+else if(op==='download'){if(!old||!matches())fail();writeFileSync(get('--file'),Buffer.from(old.body,'base64'));}
 else if(op==='upload'){
- if(old?get('--if-match')!==old.etag:!has('--if-none-match')||get('--if-none-match')!=='*')fail();
+ if(old?!matches():!has('--if-none-match')||get('--if-none-match')!=='*')fail();
  const bytes=readFileSync(get('--file')),settings={};
  for(const [key,flag] of Object.entries({contentType:'--content-type',cacheControl:'--content-cache-control',contentDisposition:'--content-disposition',contentEncoding:'--content-encoding',contentLanguage:'--content-language'}))settings[key]=has(flag)?get(flag):'';
  settings.contentMd5=createHash('md5').update(bytes).digest('base64');if(has('--content-md5')&&get('--content-md5')!==settings.contentMd5)fail();
  const metadata={};if(has('--metadata'))for(let i=args.indexOf('--metadata')+1;i<args.length&&!args[i].startsWith('--');i++){const [k,...v]=args[i].split('=');metadata[k]=v.join('=');}
- store[path]={body:bytes.toString('base64'),etag:'written-'+(trace.length+1),properties:{contentSettings:settings},metadata};trace.push(path);
- writeFileSync('store.json',JSON.stringify(store));writeFileSync('trace.json',JSON.stringify(trace));result={etag:store[path].etag};
+ store[path]={body:bytes.toString('base64'),etag:'0x'+(8192+trace.length).toString(16),properties:{contentSettings:settings},metadata};trace.push(path);
+ writeFileSync('store.json',JSON.stringify(store));writeFileSync('trace.json',JSON.stringify(trace));result={etag:'"'+store[path].etag+'"'};
 }else if(op==='update'){
- if(!old||get('--if-match')!==old.etag)fail();
- delete old.properties.contentSettings.contentMd5;old.etag+='-properties';writeFileSync('store.json',JSON.stringify(store));
+ if(!old||!matches())fail();
+ delete old.properties.contentSettings.contentMd5;old.etag='0x'+(12288+trace.length).toString(16);writeFileSync('store.json',JSON.stringify(store));
 }else fail();
 process.stdout.write(JSON.stringify(result));
 `,{mode:0o755});
