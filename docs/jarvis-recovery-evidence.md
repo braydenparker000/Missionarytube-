@@ -90,9 +90,13 @@ Observed locally on Node `v24.19.0`, npm `11.9.0`, Chromium `154.0.8037.57`:
 - New browser regression against baseline: fails waiting for the absent retry
   control. With the fix, all three cases pass at 320px/390px, including
   repeated errors, pending clicks, report recovery, empty state and focus.
-- Candidate `npm test`: **1,207 passed**, zero skipped, including trusted-run
+- Candidate `npm test`: **1,208 passed**, zero skipped, including trusted-run
   rejection, candidate/baseline drift, conditional-write races, interrupted
   publication, damaged backups and complete rollback.
+- Pre-merge review replaced an ineffective navigation-count assertion with an
+  original-document identity check. A reproduced rollback regression now checks
+  headers and metadata before any restoration, and restoration explicitly
+  retains the captured content digest.
 - `DAILY_BOARD_ARTIFACT_ROOT=dist node --test tests/daily-board-browser.test.mjs`:
   **3 passed** against built files using the real selected API client and
   isolated synthetic HTTP responses.

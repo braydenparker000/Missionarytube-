@@ -109,6 +109,19 @@ test('publication and rollback retain blob headers and metadata without reusing 
  const old=fixture().before[0],args=retainedProperties(old);
  assert.deepEqual(args,['--content-type',old.properties.contentSettings.contentType,'--content-cache-control','no-cache','--content-disposition','','--content-encoding','','--content-language','','--metadata','owner=synthetic-publication']);
  assert.equal(args.includes('--content-md5'),false);
+ old.properties.contentSettings.contentMd5=Buffer.from('0123456789abcdef').toString('base64');
+ assert.equal(retainedProperties(old).includes('--content-md5'),false,'new bytes must not inherit the old digest');
+ const restoration=retainedProperties(old,{restoreDigest:true});
+ assert.equal(restoration[restoration.indexOf('--content-md5')+1],old.properties.contentSettings.contentMd5,'restored bytes retain the captured digest');
+});
+
+test('rollback stops before writes if a newer writer changed headers or metadata',async()=>{
+ for(const change of [blob=>blob.properties.contentSettings.cacheControl='public, max-age=3600',blob=>blob.metadata.owner='another-writer']){
+  const f=fixture(),h=storage(f);await publishUpdate(f,h);h.writes.length=0;
+  change(h.blobs.get('daily-board/v1/live.js'));
+  h.upload=async(old,current)=>{assert.equal(h.blobs.get(old.path).etag,current.etag);h.writes.push(old.path);h.blobs.set(old.path,{...structuredClone(old),bytes:f.beforeBytes.get(old.path)});};
+  await assert.rejects(rollbackUpdate(f,h));assert.deepEqual(h.writes,[]);
+ }
 });
 
 test('Daily Board workflow keeps explicit dispatch, identity, backup-before-write and live behavior checks',()=>{

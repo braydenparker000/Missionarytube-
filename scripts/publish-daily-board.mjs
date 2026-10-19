@@ -14,6 +14,11 @@ const PARENT='.daily-board-parent',REPOSITORY='braydenparker000/Missionarytube-'
 export const sha=b=>createHash('sha256').update(b).digest('hex');
 const az=args=>execFileSync('az',['storage','blob',...args,'--account-name','missionarytube','--auth-mode','login','--container-name','$web','--only-show-errors'],{encoding:'utf8',stdio:'pipe',timeout:60000});
 const mime=path=>path.endsWith('.html')?'text/html; charset=utf-8':path.endsWith('.css')?'text/css; charset=utf-8':'application/javascript; charset=utf-8';
+const CONTENT_HEADERS={contentType:'--content-type',cacheControl:'--content-cache-control',contentDisposition:'--content-disposition',contentEncoding:'--content-encoding',contentLanguage:'--content-language'};
+function checkedRetainedProperties(expected,current){
+ for(const key of Object.keys(CONTENT_HEADERS))assert.equal(current.properties.contentSettings[key]||'',expected.properties.contentSettings[key]||'','Blob header changed: '+key);
+ assert.deepEqual(current.metadata||{},expected.metadata||{},'Blob metadata changed');
+}
 export function guardSnapshot(expected,current){assert.equal(current.exists,expected.exists,'Blob existence changed');if(expected.exists){assert.equal(current.etag,expected.etag,'Blob ETag changed');assert.equal(current.hash,expected.hash,'Blob bytes changed');}}
 export function publicationOrder(paths){assert.deepEqual([...paths].sort(),[...PATHS].sort());return PATHS;}
 export function checkedParentRun(run,id,{rollback=false}={}){
@@ -55,14 +60,15 @@ export function checkedRestoration(saved,current){
   const old=saved.before.find(f=>f.path===path),now=current.find(f=>f.path===path),file=saved.plan.files.find(f=>f.path===path);
   assert.equal(old.exists,true);assert.equal(now.exists,true);assert.match(old.hash,/^[a-f0-9]{64}$/);
   assert.equal(old.file,`before-${PATHS.indexOf(path)}`,'Unexpected rollback file');
+  checkedRetainedProperties(old,now);
   if(now.hash===old.hash)return [];
   assert.equal(now.hash,file.hash,'Current bytes are not this candidate');return [{old,now}];
  });
 }
-export function retainedProperties(snapshot){
+export function retainedProperties(snapshot,{restoreDigest=false}={}){
  const settings=snapshot.properties.contentSettings;
- const names={contentType:'--content-type',cacheControl:'--content-cache-control',contentDisposition:'--content-disposition',contentEncoding:'--content-encoding',contentLanguage:'--content-language'};
- const args=Object.entries(names).flatMap(([name,flag])=>[flag,settings[name]||'']);
+ const args=Object.entries(CONTENT_HEADERS).flatMap(([name,flag])=>[flag,settings[name]||'']);
+ if(restoreDigest&&settings.contentMd5)args.push('--content-md5',settings.contentMd5);
  if(Object.keys(snapshot.metadata||{}).length)args.push('--metadata',...Object.entries(snapshot.metadata).map(([key,value])=>`${key}=${value}`));
  return args;
 }
@@ -121,6 +127,7 @@ export async function publishUpdate(saved,{currentCandidate,snapshot,upload,read
      await upload(file,expected);
    }
    const after=await snapshot(path,`after-${i}`);assert.equal(after.hash,file.hash,'Blob readback mismatch');
+   checkedRetainedProperties(expected,after);
    await verifyPublic(path,file.hash,readPublic);
  }
 }
@@ -136,7 +143,7 @@ export async function rollbackUpdate(saved,{readBefore,snapshot,upload,readPubli
  const current=[];for(const [i,path] of PATHS.entries())current.push(await snapshot(path,`rollback-check-${i}`));
  for(const {old,now} of checkedRestoration(saved,current)){
   await upload(old,now);
-  const after=await snapshot(old.path,'rollback-readback');assert.equal(after.hash,old.hash);assert.deepEqual(after.properties.contentSettings,old.properties.contentSettings);assert.deepEqual(after.metadata,old.metadata);
+  const after=await snapshot(old.path,'rollback-readback');assert.equal(after.hash,old.hash);checkedRetainedProperties(old,after);assert.equal(after.properties.contentSettings.contentMd5||'',old.properties.contentSettings.contentMd5||'','Blob digest was not restored');
   await verifyPublic(old.path,old.hash,readPublic);
  }
 }
@@ -145,7 +152,7 @@ async function rollback(){
  const run=checkedParentRun(JSON.parse(await readFile(`${PARENT}/run.json`)),process.env.DAILY_BOARD_PARENT_RUN_ID,{rollback:true});
  assert.equal(saved.plan.commit,run.head_sha,'Rollback checkpoint does not belong to the selected trusted run');
  if(saved.schema===2){
-  await rollbackUpdate(saved,{readBefore:old=>readFile(`${OUT}/${old.file}`),snapshot,readPublic,upload:(old,now)=>az(['upload','--name',old.path,'--file',resolve(OUT,old.file),...retainedProperties(old),'--overwrite','true','--if-match',now.etag])});
+  await rollbackUpdate(saved,{readBefore:old=>readFile(`${OUT}/${old.file}`),snapshot,readPublic,upload:(old,now)=>az(['upload','--name',old.path,'--file',resolve(OUT,old.file),...retainedProperties(old,{restoreDigest:true}),'--overwrite','true','--if-match',now.etag])});
   console.log('Captured Daily Board bytes and properties restored; all reports and unrelated blobs retained.');return;
  }
  // Retain compatibility with the original migration's archived checkpoint.

@@ -52,7 +52,7 @@ for(const width of [320,390])test(`Daily Board retries a failed read in place at
  const h=await openBoard(t,width),{page}=h;
  await page.goto(h.origin+'/daily-board/');
  const retry=page.getByRole('button',{name:'Try again',exact:true});await retry.waitFor();
- const navigation=await page.evaluate(()=>performance.getEntriesByType('navigation').length);
+ const documentId=await page.evaluate(()=>{window.dailyBoardTestDocument=crypto.randomUUID();return window.dailyBoardTestDocument;});
  const bounds=await retry.boundingBox();assert.ok(bounds.height>=44&&bounds.width>=44);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  await retry.focus();await page.keyboard.press('Enter');
@@ -67,7 +67,7 @@ for(const width of [320,390])test(`Daily Board retries a failed read in place at
  h.release();
  await page.getByRole('heading',{name:report.title,exact:true}).waitFor();
  assert.equal(await page.getByRole('combobox',{name:'Report edition'}).evaluate(n=>n===document.activeElement),true);
- assert.equal(await page.evaluate(()=>performance.getEntriesByType('navigation').length),navigation,'retry does not reload the page');
+ assert.equal(await page.evaluate(()=>window.dailyBoardTestDocument),documentId,'retry preserves the original document');
  assert.equal(await retry.count(),0);assert.deepEqual(h.errors,[]);
 });
 
