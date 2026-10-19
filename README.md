@@ -27,6 +27,12 @@ provenance; publication requires committed source and a matching rebuild.
 
 ## Release
 
+Validate is the sole owner of PR and main-push qualification. The Azure deployment
+workflow is manual; it no longer starts a duplicate qualification run on pushes.
+Release recipe hashes are generated from the reviewed checkout and checked
+against HEAD, rather than copied into a policy manifest. Dirty recipes and
+mismatched production receipts still fail their identity checks.
+
 For a Daily Board update, review one PR and merge it, wait for required checks,
 then authorize one **Publish composable Daily Board** workflow on `main` with
 `action=publish` and `expected_commit=<reviewed full main SHA>`. Leave the parent

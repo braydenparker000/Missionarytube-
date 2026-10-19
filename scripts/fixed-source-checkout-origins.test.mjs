@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
+import {recipeIdentity} from './worker-release-identity.mjs';
 
 const origin='braydenparker000/Missionarytube-';
 const prior='braydenparker999/jarvis';
@@ -42,9 +43,11 @@ test('fixed pinned checkouts use destination history without changing commit ref
     assert.equal(JSON.parse(read(pinsPath)).source,path.includes('board')?'324d4c4196dc7ee602a23210c62cc92238c7da96':'72f86e00b0c8b4f7e1fdb41e1ab2601b50fb365c');
   }
   const deploy=read('.github/workflows/deploy-azure-storage.yml'),workflowBlob=blob(Buffer.from(deploy));
-  assert.equal(release.workerDeploymentPolicy.recipe.find(x=>x.path==='.github/workflows/deploy-azure-storage.yml').sha,workflowBlob);
+  const recipe=recipeIdentity();
+  assert.deepEqual(release.workerDeploymentPolicy,{schema:2,mode:'reconcile-lucy-discovery'});
+  assert.equal(recipe.find(x=>x.path==='.github/workflows/deploy-azure-storage.yml').sha,workflowBlob);
   const qualification=read('.github/workflows/qualify-jarvis.yml');
-  assert.equal(release.workerDeploymentPolicy.recipe.find(x=>x.path==='.github/workflows/qualify-jarvis.yml').sha,blob(Buffer.from(qualification)));
+  assert.equal(recipe.find(x=>x.path==='.github/workflows/qualify-jarvis.yml').sha,blob(Buffer.from(qualification)));
 });
 
 test('frontend qualification restores the exact historical My Media baseline without changing its source checkout',()=>{

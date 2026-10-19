@@ -7,77 +7,7 @@
   "preserveDriveCatalog": true,
   "deployPodcastWorker": true,
   "workerDeploymentPolicy": {
-    "schema": 1,
-    "mode": "reconcile-lucy-discovery",
-    "recipe": [
-      {
-        "path": ".github/workflows/deploy-azure-storage.yml",
-        "sha": "d8ebb9d7379d35e23ec3a9175f1023848d1b3274"
-      },
-      {
-        "path": ".github/workflows/qualify-jarvis.yml",
-        "sha": "8acf49862de98777d5efda625fc39b666190caea"
-      },
-      {
-        "path": "scripts/plan-jarvis-qualification.mjs",
-        "sha": "eee6f0e67f2fab11c650dbf80cb8b60d5f7e3a23"
-      },
-      {
-        "path": "scripts/install-jarvis-browser.mjs",
-        "sha": "6c409f044097fc6ad2460d48efa4d2a4c95685cc"
-      },
-      {
-        "path": "scripts/worker-release-identity.mjs",
-        "sha": "aa67ad98bc4df1bfabac987ae04d123582f1a545"
-      },
-      {
-        "path": "scripts/prepare-music-worker.mjs",
-        "sha": "825fee647eed7d583e77e02a6dbdf3fbc41d5887"
-      },
-      {
-        "path": "scripts/prepare-worker-tools.mjs",
-        "sha": "aab50340494d89066dcab9dda1a51a6b643e848b"
-      },
-      {
-        "path": "scripts/check-music-worker-bindings.mjs",
-        "sha": "79a85d5b4c5ec5dc43f5f613588767960fd87580"
-      },
-      {
-        "path": "scripts/qualified-artifact.mjs",
-        "sha": "b1579ef43ecadb1a06577e0f13949450169090e7"
-      },
-      {
-        "path": "scripts/backup-jarvis-storage.mjs",
-        "sha": "6ab19a7dcb4966d3946332a950a46a103b240cee"
-      },
-      {
-        "path": "scripts/overlap-jarvis-prewrite.mjs",
-        "sha": "f9c52feacb60bd5f0894f90f741bd08075a2fe84"
-      },
-      {
-        "path": "scripts/stage-relay-client-dependencies.mjs",
-        "sha": "9042927b9373dcec2c76a9be6e66e612a492f1fd"
-      },
-      {
-        "path": "scripts/relay-worker-release-identity.mjs",
-        "sha": "c3ddab6a66fb70b83a82c5360ea7fe1c767c2dfe"
-      },
-      {
-        "path": "scripts/stage-relay-core-dependencies.mjs",
-        "sha": "145383d9dacf11854c3b50615e90ee6aed6f71e9"
-      },
-      {
-        "path": "scripts/lucy-settings-diagnostic.mjs",
-        "sha": "d913e7e924fde0c380c7ff726210da0ba0ff8c9f"
-      },
-      {
-        "path": "scripts/reconcile-lucy-receipt.mjs",
-        "sha": "47346908dee81b548625ee1b654373473f1f3e77"
-      },
-      {
-        "path": "scripts/publish-active-public-provenance.mjs",
-        "sha": "b996a4dcfc5283e652164060ae4dfdee298c43cd"
-      }
-    ]
+    "schema": 2,
+    "mode": "reconcile-lucy-discovery"
   }
 }

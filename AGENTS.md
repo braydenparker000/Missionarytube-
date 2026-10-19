@@ -2,7 +2,7 @@
 
 ## Mission
 
-Maintain Jarvis as the primary frontend on the existing MissionaryTube Storage endpoint. Keep the repository name, main branch, and Entra deployment identity unchanged. `jarvis-release.json` pins the Jarvis source; legacy MissionaryTube source remains available in Git history and the documented backup branch for rollback.
+Maintain Jarvis as the primary frontend on the existing MissionaryTube Storage endpoint. Keep the repository name, main branch, and Entra deployment identity unchanged. `jarvis-release.json` retains the historical backend source and release configuration; editable frontend source lives in `frontend/`; legacy MissionaryTube source remains available in Git history and the documented backup branch for rollback.
 
 ## Consolidation destination
 

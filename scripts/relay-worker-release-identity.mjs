@@ -3,7 +3,7 @@ import {readFileSync,writeFileSync,appendFileSync,lstatSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {candidateIdentity,findWorkerReuse,liveIdentity,newlyDeployedVersion,receiptDigest,settingsDigest} from './worker-release-identity.mjs';
+import {RECIPES,candidateIdentity,findWorkerReuse,liveIdentity,newlyDeployedVersion,receiptDigest,settingsDigest} from './worker-release-identity.mjs';
 import {readWorkerSettings} from './check-music-worker-bindings.mjs';
 
 // This is the full-release entrypoint. The preceding client-only entrypoint and
@@ -99,9 +99,9 @@ function checkedRelease(root){
     release.r2ManifestURL!==API+'/music/library.json'||release.preserveDriveCatalog!==true||release.deployPodcastWorker!==true)
     throw refusal('recipe_mismatch');
   const policy=release.workerDeploymentPolicy;
-  if(!policy||!equal(Object.keys(policy).sort(),['mode','recipe','schema'])||policy.schema!==1||!['full-release',LUCY_RECEIPT_MODE].includes(policy.mode)||
-    !Array.isArray(policy.recipe)||policy.recipe.length!==12+RELAY_EXTRA_RECIPES.length)throw refusal('recipe_mismatch');
-  const paths=['jarvis-release.json',...policy.recipe.map(item=>item.path)];
+  if(!policy||!equal(Object.keys(policy).sort(),['mode','schema'])||policy.schema!==2||!['full-release',LUCY_RECEIPT_MODE].includes(policy.mode))throw refusal('recipe_mismatch');
+  // Recipe identities come from the reviewed HEAD, not duplicated manifest hashes.
+  const paths=['jarvis-release.json',...RECIPES,...RELAY_EXTRA_RECIPES];
   if(new Set(paths).size!==paths.length)throw refusal('recipe_mismatch');
   const tree=git(root,'ls-tree','-rz',head,'--',...paths);
   const committed=new Map(tree.split('\0').filter(Boolean).map(row=>{
@@ -117,11 +117,11 @@ function checkedRelease(root){
   return {head,release};
 }
 export function checkedRelayFullReleasePolicy(root=process.cwd(),candidate=relayCandidateIdentity(root)){
-  root=resolve(root);const {head,release}=checkedRelease(root);
+  root=resolve(root);const {head}=checkedRelease(root);
   const current=relayCandidateIdentity(root);
   if(!equal(candidate,current)||candidate.schema!==1||candidate.source!==RELAY_SOURCE||candidate.orchestration!==head||
     git(resolve(root,'.jarvis-source'),'rev-parse','HEAD')!==RELAY_SOURCE||!DIGEST.test(candidate.backendDigest)||
-    !equal(candidate.recipe,release.workerDeploymentPolicy.recipe))throw refusal('recipe_mismatch');
+    !equal(candidate.recipe.map(item=>item.path),[...RECIPES,...RELAY_EXTRA_RECIPES]))throw refusal('recipe_mismatch');
   const policy=Object.freeze({});policies.set(policy,JSON.stringify(candidate));return policy;
 }
 export async function planRelayFullRelease(candidate,live,{policy,fetcher=globalThis.fetch}={}){
