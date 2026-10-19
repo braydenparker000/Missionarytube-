@@ -26,3 +26,14 @@ test('component inspection keeps the fixed public origin and refuses escaping pr
  assert.equal(report.matched,1);assert.equal(report.files[0].path,'drawercast/player.js');
  for(const prefix of ['../','/drawercast/','https://wrong.invalid/'])await assert.rejects(inspectFrontend(root,{prefix}),/Invalid runtime path prefix/);
 });
+
+test('publication inspection verifies restored bytes independently of newer editable filenames',async()=>{
+ const {inspectRuntimeFiles}=await import('../scripts/inspect-frontend.mjs');
+ const {createHash}=await import('node:crypto');
+ const f={path:'drawercast/player.previous.js',bytes:8,sha256:createHash('sha256').update('restored').digest('hex')};
+ const result=await inspectRuntimeFiles([f],{fetcher:async url=>{assert.equal(url,ORIGIN+'/'+f.path);return new Response('restored');}});
+ assert.equal(result.matched,1);
+ for(const path of ['../escape.js','https://wrong.invalid/','assets/drive-config.json','drawercast/catalog/owner.json'])await assert.rejects(inspectRuntimeFiles([{...f,path}]),/Invalid runtime file/);
+ const flow=await import('node:fs/promises').then(fs=>fs.readFile('.github/workflows/verify-music-sources.yml','utf8'));
+ assert.doesNotMatch(flow,/\n  push:/);assert.match(flow,/MUSIC_PUBLICATION_RECEIPT:/);assert.match(flow,/frontend-evidence-/);
+});

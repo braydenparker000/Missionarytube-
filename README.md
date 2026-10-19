@@ -46,6 +46,8 @@ same publisher.
    `action=publish`, `expected_commit=<full reviewed main SHA>`, and leave
    `rollback_run_id` blank. If main moved, review the new revision first.
 4. Inspect the production job and its `frontend-evidence-<run-id>` artifact.
+   Music playback verification follows successful publication and uses that run's
+   receipt, including restored bytes after rollback.
    Qualification, merge, publication and live behavior verification are separate
    results; a green PR does not mean the change is live.
 

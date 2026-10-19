@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
-import {inspectFrontend} from './inspect-frontend.mjs';
+import {inspectFrontend,inspectRuntimeFiles} from './inspect-frontend.mjs';
+import {checkedReceipt} from './publish-frontend.mjs';
 
 const release=JSON.parse(await readFile('jarvis-release.json','utf8'));
 const expectedPartial=new URL(release.r2ManifestURL).pathname==='/music/partial/manifest.json';
@@ -9,7 +10,7 @@ const expectedNative=new URL(release.r2ManifestURL).pathname==='/music/library.j
 const player=release.storageOrigin+'/drawercast/';
 const folder='music-verification/browser';
 await mkdir(folder,{recursive:true});
-const report={checkedAt:new Date().toISOString(),sourceCommit:release.commit,checks:[],passed:false};
+const report={checkedAt:new Date().toISOString(),sourceCommit:null,checks:[],passed:false};
 let browser,page,touchSession,sample,stage='release';
 const sanitize=s=>String(s).replace(/https?:\/\/[^\s<>"']+/g,value=>{
   try{const u=new URL(value);return u.origin+u.pathname;}catch{return '[URL omitted]';}
@@ -152,9 +153,13 @@ async function restoredTouch(){
   await page.screenshot({path:folder+'/r2-touch-scroll.png'});
 }
 try{
-  const runtime=await inspectFrontend('dist/drawercast',{prefix:'drawercast/'});
+  const receipt=process.env.MUSIC_PUBLICATION_RECEIPT?checkedReceipt(
+    JSON.parse(await readFile(process.env.MUSIC_PUBLICATION_RECEIPT,'utf8')),
+    JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH,'utf8')).workflow_run):null;
+  const runtime=receipt?await inspectRuntimeFiles(receipt.files.filter(f=>f.path.startsWith('drawercast/'))):await inspectFrontend('dist/drawercast',{prefix:'drawercast/'});
   assert.ok(runtime.files.length>0);assert.equal(runtime.matched,runtime.files.length,'Live music application differs from reviewed build');
-  report.sourceCommit=JSON.parse(await readFile('dist/release.json','utf8')).frontend.commit;
+  report.sourceCommit=receipt?receipt.frontend?.commit||null:JSON.parse(await readFile('dist/release.json','utf8')).frontend.commit;
+  if(receipt)report.publicationRun=receipt.runId;
   check('exact live music bytes',{files:runtime.files.length});
   const [catalog,mapping]=await Promise.all([release.storageOrigin+'/assets/drive-catalog-v2.json',release.r2ManifestURL].map(async url=>{
     const response=await fetch(url,{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(15000)});

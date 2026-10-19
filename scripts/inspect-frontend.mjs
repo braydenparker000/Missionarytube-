@@ -12,6 +12,12 @@ export const preservedPath=path=>CONFIGURATION_FILES.includes(path)||DATA_FILES.
 export async function inspectFrontend(root,{fetcher=fetch,prefix=''}={}){
  if(prefix&&!/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*\/$/.test(prefix))throw Error('Invalid runtime path prefix');
  const files=(await fileManifest(resolve(root))).map(f=>({...f,path:prefix+f.path})).filter(f=>f.path!=='release.json'&&!preservedPath(f.path));
+ return inspectRuntimeFiles(files,{fetcher});
+}
+export async function inspectRuntimeFiles(files,{fetcher=fetch}={}){
+ for(const f of files){
+  if(!/^[a-zA-Z0-9_./-]+$/.test(f.path)||f.path.startsWith('/')||f.path.split('/').some(p=>!p||p==='.'||p==='..')||preservedPath(f.path)||f.path==='release.json'||!/^[a-f0-9]{64}$/.test(f.sha256)||!Number.isSafeInteger(f.bytes)||f.bytes<0)throw Error('Invalid runtime file');
+ }
  const rows=new Array(files.length);let cursor=0;
  await Promise.all(Array.from({length:8},async()=>{
   while(cursor<files.length){const i=cursor++,file=files[i];
