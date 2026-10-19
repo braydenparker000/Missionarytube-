@@ -14,7 +14,7 @@ const root=resolve(artifact||'jarvis/public');
 const assets=resolve(artifact||'jarvis-active-public-c28/public');
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css'};
 
-async function openBoard(t,width=390){
+async function openBoard(t,width=390,{live=false}={}){
  const server=createServer(async(req,res)=>{
   try{
    const path=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
@@ -30,15 +30,16 @@ async function openBoard(t,width=390){
  const browser=await chromium.launch({executablePath:chrome,headless:true,args:['--no-sandbox']});
  t.after(()=>browser.close());
  const page=await browser.newPage({viewport:{width,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});
- const origin=`http://127.0.0.1:${server.address().port}`,errors=[];
+ const origin=process.env.DAILY_BOARD_ORIGIN||`http://127.0.0.1:${server.address().port}`,errors=[];
  page.on('pageerror',error=>errors.push(error.message));
- // Every external request is fulfilled locally; never read or write live data.
+ // Synthetic cases fulfill API reads locally. The live smoke permits GETs only.
  let reply={status:503,body:{error:'Synthetic unavailable response'}},requests=0,release;
  await page.route('**/*',async route=>{
   const url=new URL(route.request().url());
-  if(url.origin===origin)return route.continue();
   assert.equal(route.request().method(),'GET');
+  if(url.origin===origin)return route.continue();
   assert.equal(url.origin,'https://jarvis-hub-api.braydenparker999.workers.dev');
+  if(live)return route.continue();
   requests++;
   if(reply.hold)await new Promise(done=>{release=done;});
   await route.fulfill({status:reply.status,contentType:'application/json',body:JSON.stringify(reply.body)});
@@ -76,5 +77,12 @@ test('Daily Board can recover to the empty state and transfers keyboard focus',a
  h.setReply(legacy([]));await retry.click();
  await h.page.getByText('Your briefing will appear here.',{exact:true}).waitFor();
  assert.equal(await h.page.locator('#report').evaluate(n=>n===document.activeElement),true);
+ assert.deepEqual(h.errors,[]);
+});
+
+if(process.env.DAILY_BOARD_ORIGIN)test('delivered Daily Board reads the real public feed',async t=>{
+ const h=await openBoard(t,390,{live:true});await h.page.goto(h.origin+'/daily-board/');
+ await h.page.waitForFunction(()=>document.querySelector('[aria-label="Report edition"]')||document.querySelector('#report')?.textContent==='Your briefing will appear here.');
+ assert.equal(await h.page.getByRole('button',{name:'Try again',exact:true}).count(),0);
  assert.deepEqual(h.errors,[]);
 });

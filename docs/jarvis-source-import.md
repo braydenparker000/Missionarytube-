@@ -603,3 +603,8 @@ reservations and both source readers. No Worker or database migration is needed.
 See `daily-board-next/PUBLISHING.md` for the contract. A separate manual static
 publisher captures rollback state and changes only the Daily Board blobs and the exact shared-app navigation hook plus the one-line shared-app navigation change;
 merge alone is not deployment evidence. The parent owns scheduled writer cutover.
+
+The [2026-10-19 recovery evidence](jarvis-recovery-evidence.md) records the
+reproduced source/build map, exact successful Board publication, route-only
+load-retry candidate, reviewed import boundary and repeatable rollback-backed
+release procedure. Its candidate is not a production publication.
