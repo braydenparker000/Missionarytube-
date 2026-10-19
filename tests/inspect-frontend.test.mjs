@@ -6,7 +6,7 @@ import{inspectFrontend,ORIGIN}from'../scripts/inspect-frontend.mjs';
 
 test('runtime inspection is GET-only, records actual differences and never fetches configured values or data',async t=>{
  const root=await mkdtemp(join(tmpdir(),'frontend-inspection-'));t.after(()=>rm(root,{recursive:true,force:true}));
- for(const path of ['assets/drive-config.json','assets/quick-ai-config.json','content/jarvis.json','drawercast/catalog/current.json','release.json','same.js','changed.js','missing.js','unavailable.js']){await mkdir(join(root,path,'..'),{recursive:true});await writeFile(join(root,path),'candidate');}
+ for(const path of ['assets/drive-config.json','assets/quick-ai-config.json','content/jarvis.json','drawercast/catalog/current.json','assets/drive-catalog-v2.json','assets/drive-catalog-v2/covers/cover.webp','release.json','same.js','changed.js','missing.js','unavailable.js']){await mkdir(join(root,path,'..'),{recursive:true});await writeFile(join(root,path),'candidate');}
  const reads=[];
  const report=await inspectFrontend(root,{fetcher:async(url,options)=>{
   reads.push(url);assert.equal(options.method,'GET');assert.equal(options.redirect,'error');assert.equal(options.cache,'no-store');assert.ok(!options.headers);
@@ -19,4 +19,10 @@ test('runtime inspection is GET-only, records actual differences and never fetch
  assert.equal(report.files.find(f=>f.path==='missing.js').status,404);assert.equal(report.files.find(f=>f.path==='unavailable.js').status,'unavailable');
  assert.ok(!JSON.stringify(report).includes('sensitive provider response'));assert.ok(!JSON.stringify(report).includes('not retained'));
  await symlink(join(root,'same.js'),join(root,'alias.js'));await assert.rejects(()=>inspectFrontend(root),/symlinks/);
+});
+test('component inspection keeps the fixed public origin and refuses escaping prefixes',async t=>{
+ const root=await mkdtemp(join(tmpdir(),'music-inspection-'));t.after(()=>rm(root,{recursive:true,force:true}));await writeFile(join(root,'player.js'),'candidate');
+ const report=await inspectFrontend(root,{prefix:'drawercast/',fetcher:async url=>{assert.equal(url,ORIGIN+'/drawercast/player.js');return new Response('candidate');}});
+ assert.equal(report.matched,1);assert.equal(report.files[0].path,'drawercast/player.js');
+ for(const prefix of ['../','/drawercast/','https://wrong.invalid/'])await assert.rejects(inspectFrontend(root,{prefix}),/Invalid runtime path prefix/);
 });

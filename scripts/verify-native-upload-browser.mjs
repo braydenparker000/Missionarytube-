@@ -1,22 +1,17 @@
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
+import {inspectFrontend} from './inspect-frontend.mjs';
 const origin='https://missionarytube.z13.web.core.windows.net',api='https://jarvis-hub-api.braydenparker999.workers.dev';
 const upload=JSON.parse(await readFile('music-verification/native/upload.json','utf8'));
 const folder='music-verification/native/browser';await mkdir(folder,{recursive:true});
 const report={checkedAt:new Date().toISOString(),sourceCommit:process.env.SOURCE_COMMIT,id:upload.id,passed:false};
 let browser,page;
 try{
-  console.log('Waiting for the exact tested frontend and native R2 configuration.');
-  const deadline=Date.now()+15*60000;let ready=false;
-  while(Date.now()<deadline){
-    const [release,config]=await Promise.all(['/release.json','/assets/r2-config.json'].map(async path=>{
-      const r=await fetch(origin+path,{cache:'no-store',signal:AbortSignal.timeout(15000)});return r.json();
-    }));
-    if(release.commit===process.env.SOURCE_COMMIT&&config.manifestURL===api+'/music/library.json'){ready=true;break;}
-    await new Promise(r=>setTimeout(r,10000));
-  }
-  assert.ok(ready,'The exact tested native frontend was not deployed within 15 minutes');
+  const runtime=await inspectFrontend('dist/drawercast',{prefix:'drawercast/'});
+  assert.ok(runtime.files.length>0);assert.equal(runtime.matched,runtime.files.length,'Current music application differs from the reviewed frontend bytes');
+  const config=await fetch(origin+'/assets/r2-config.json',{cache:'no-store',redirect:'error',signal:AbortSignal.timeout(15000)}).then(r=>{assert.equal(r.status,200);return r.json();});
+  assert.equal(config.manifestURL,api+'/music/library.json');
   browser=await chromium.launch({headless:true,executablePath:process.env.MUSIC_BROWSER_EXECUTABLE,args:['--no-sandbox']});
   page=await browser.newPage({viewport:{width:393,height:852},isMobile:true,hasTouch:true});page.setDefaultTimeout(20000);
   await page.goto(origin+'/drawercast/',{waitUntil:'domcontentloaded'});

@@ -2,14 +2,11 @@ import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {readCatalog,catalogTrack} from '../.jarvis-source/public/drawercast/drive-catalog.js';
-import {validateR2Manifest} from '../.jarvis-source/public/drawercast/r2-api.js';
-import {libraryMapping} from '../.jarvis-source/public/drawercast/r2-library.js';
-// NOTE: .jarvis-source is checked out at jarvis-release.json's pinned commit
-// (c28c1b2f), which predates the Jarvis source/history import (PR #216) and
-// keeps the pre-import layout: drawercast modules live at public/, NOT
-// jarvis/public/. Do not add the jarvis/ prefix here (fd9708a did, and broke
-// this verifier with ERR_MODULE_NOT_FOUND).
+import {readCatalog,catalogTrack} from '../frontend/drawercast/drive-catalog.js';
+import {validateR2Manifest} from '../frontend/drawercast/r2-api.js';
+import {libraryMapping} from '../frontend/drawercast/r2-library.js';
+// Verify against the same canonical frontend modules as the normal build.
+// Historical checkout layouts are not runtime inputs.
 
 const api='https://jarvis-hub-api.braydenparker999.workers.dev';
 const origin='https://missionarytube.z13.web.core.windows.net';

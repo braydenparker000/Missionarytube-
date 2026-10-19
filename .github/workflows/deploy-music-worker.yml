@@ -8,8 +8,8 @@ on:
         required: false
         type: boolean
         default: false
-      source_commit:
-        description: 'Exact tested Jarvis source commit (40-character SHA)'
+      expected_commit:
+        description: 'Full reviewed main SHA; the current backend workspace is the only source'
         required: true
         type: string
       confirm_public_music:
@@ -42,69 +42,96 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    if: ${{ inputs.confirm_public_music == true && inputs.verify_lucy_discovery_only != true }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
+  validation:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm_public_music == true && inputs.verify_lucy_discovery_only != true }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      run_id: ${{ steps.validation.outputs.run_id }}
+      attempt: ${{ steps.validation.outputs.attempt }}
+      artifact_name: ${{ steps.validation.outputs.artifact_name }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '24.21.0'
+      - id: validation
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: node scripts/guard-validation.mjs
+  deploy:
+    needs: validation
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirm_public_music == true && inputs.verify_lucy_discovery_only != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      QUALIFIED_RUN_ID: ${{ needs.validation.outputs.run_id }}
+      QUALIFIED_ATTEMPT: ${{ needs.validation.outputs.attempt }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
       - name: Require an immutable source revision
         env:
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          SOURCE_COMMIT: ${{ inputs.expected_commit }}
         run: |
           if ! [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]; then
             echo 'An exact 40-character Jarvis commit is required' >&2
             exit 1
           fi
-      - uses: actions/checkout@v4
-        with:
-          repository: braydenparker000/Missionarytube-
-          ref: ${{ inputs.source_commit }}
-          path: .jarvis-source
-          persist-credentials: false
-          fetch-depth: 0
       - name: Require the exact source commit in approved destination history
         env:
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
-        run: node scripts/check-source-commit-reachable.mjs .jarvis-source "$SOURCE_COMMIT"
+          SOURCE_COMMIT: ${{ inputs.expected_commit }}
+        run: node scripts/check-source-commit-reachable.mjs . "$SOURCE_COMMIT"
+      - name: Download the exact successful main application artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.validation.outputs.artifact_name }}
+          run-id: ${{ needs.validation.outputs.run_id }}
+          github-token: ${{ github.token }}
       - name: Verify the checkout and run regression tests without deployment secrets
         env:
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          SOURCE_COMMIT: ${{ inputs.expected_commit }}
         run: |
-          test "$(git -C .jarvis-source rev-parse HEAD)" = "$SOURCE_COMMIT"
-          test -f .jarvis-source/jarvis/tests/music-delivery.test.js
-          npm --prefix .jarvis-source/jarvis ci
-          node --test .jarvis-source/jarvis/tests/music-delivery.test.js
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test "$GITHUB_SHA" = "$SOURCE_COMMIT"
+          test -f backend/tests/music-delivery.test.js
+          npm ci
+          node --test backend/tests/music-delivery.test.js
+          node scripts/qualified-artifact.mjs verify
           node --test tests/music-worker-workflow.test.mjs
-          node scripts/prepare-music-worker.mjs .jarvis-source/jarvis
+          node scripts/prepare-music-worker.mjs .
+          node scripts/build-backend.mjs verify
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Test migration and partial publication without credentials
-        run: python -m unittest discover -s .jarvis-source/jarvis/tests -p 'test_r2*.py'
+        run: python -m unittest discover -s jarvis/tests -p 'test_r2*.py'
       - name: Prepare native library and temporary upload verification key
         if: ${{ inputs.native_upload_setup == true }}
         env:
           MUSE_PUBLIC_KEY: ${{ inputs.muse_public_key }}
         run: |
-          test -f .jarvis-source/jarvis/tests/native-r2.test.js
-          node .jarvis-source/jarvis/scripts/build-r2-library.mjs r2-library-seed.json
+          test -f backend/tests/native-r2.test.js
+          node jarvis/scripts/build-r2-library.mjs r2-library-seed.json
           node --input-type=module <<'JS'
           import {generateKeyPairSync} from 'node:crypto';
           import {writeFileSync} from 'node:fs';
           const muse=process.env.MUSE_PUBLIC_KEY;
           if(muse && !/^[a-f0-9]{64}$/.test(muse))throw Error('Only a nonsecret raw Ed25519 public key is accepted');
           const keys=generateKeyPairSync('ed25519');
-          writeFileSync('.jarvis-source/.music-test-key.pem',keys.privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600});
+          writeFileSync('.music-test-key.pem',keys.privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600});
           const publicKey=keys.publicKey.export({type:'spki',format:'der'}).subarray(-32).toString('hex');
           writeFileSync('.music-upload-keys.json',JSON.stringify([...(muse?[muse]:[]),publicKey]));
           JS
-          node scripts/prepare-music-worker.mjs .jarvis-source/jarvis .music-upload-keys.json
+          node scripts/prepare-music-worker.mjs . .music-upload-keys.json
       - name: Install native publication and uploader dependencies
         if: ${{ inputs.native_upload_setup == true }}
         run: python -m pip install --disable-pip-version-check --no-cache-dir 'boto3>=1.35,<2' 'mutagen==1.48.1'
@@ -152,12 +179,14 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET: jarvis-music
           MUSIC_ROOT_ID: 1VlEUztloW5saoM7iF11fodDKSmCGP2ZZ
-        run: python .jarvis-source/jarvis/scripts/publish-r2-partial.py --report .partial-report/r2-migration-report.json --output r2-partial-playback-report.json
+        run: python jarvis/scripts/publish-r2-partial.py --report .partial-report/r2-migration-report.json --output r2-partial-playback-report.json
       - name: Check current Worker bindings before deployment
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: node scripts/check-music-worker-bindings.mjs
+      - name: Isolate Wrangler installation from the qualified workspace dependencies
+        run: node scripts/prepare-worker-tools.mjs prepare
       - name: Record current Worker versions for rollback and deploy
         id: worker_deploy
         uses: cloudflare/wrangler-action@v4
@@ -165,10 +194,17 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.R2_ACCOUNT_ID }}
           wranglerVersion: '4.136.3'
-          workingDirectory: .jarvis-source/jarvis
-          preCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-before.json
-          command: deploy --config backend/wrangler.music.generated.json
-          postCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-after.json
+          workingDirectory: .worker-tools
+          preCommands: |
+            set -e
+            (cd "$GITHUB_WORKSPACE" && node scripts/prepare-worker-tools.mjs verify && node scripts/build-backend.mjs verify)
+            npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/backend/worker-versions-before.json"
+          command: deploy --config "${{ github.workspace }}/backend/wrangler.music.generated.json"
+          postCommands: npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/backend/worker-versions-after.json"
+      - name: Require unchanged qualified workspace dependencies
+        run: |
+          node scripts/prepare-worker-tools.mjs verify
+          node scripts/build-backend.mjs verify
       - name: Verify real signed native upload, artwork, hashes, decode, Range and CORS
         if: ${{ inputs.native_upload_setup == true }}
         run: |
@@ -178,12 +214,12 @@ jobs:
           fi
           python scripts/music-upload-canary.py
           node scripts/assert-music-upload-revoked.mjs --enabled
-          python .jarvis-source/jarvis/scripts/upload-music-r2.py music-verification/native/canary.opus --key .jarvis-source/.music-test-key.pem --report music-verification/native/upload.json
+          python jarvis/scripts/upload-music-r2.py music-verification/native/canary.opus --key .music-test-key.pem --report music-verification/native/upload.json
           node scripts/verify-native-upload.mjs
       - name: Verify the newly uploaded song in the exact deployed mobile player
         if: ${{ inputs.native_upload_setup == true }}
         env:
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          SOURCE_COMMIT: ${{ inputs.expected_commit }}
         run: |
           npm ci
           chrome_path=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
@@ -205,14 +241,14 @@ jobs:
         env:
           MUSE_PUBLIC_KEY: ${{ inputs.muse_public_key }}
         run: |
-          cp .jarvis-source/jarvis/worker-versions-after.json .jarvis-source/jarvis/worker-versions-canary.json
+          cp backend/worker-versions-after.json backend/worker-versions-canary.json
           node --input-type=module <<'JS'
           import {writeFileSync} from 'node:fs';
           const key=process.env.MUSE_PUBLIC_KEY;
           if(key && !/^[a-f0-9]{64}$/.test(key))throw Error('Invalid public key');
           writeFileSync('.music-upload-keys.json',JSON.stringify(key?[key]:[]));
           JS
-          node scripts/prepare-music-worker.mjs .jarvis-source/jarvis .music-upload-keys.json
+          node scripts/prepare-music-worker.mjs . .music-upload-keys.json
       - name: Deploy final Worker with temporary upload access revoked
         if: ${{ always() && inputs.native_upload_setup == true && steps.worker_deploy.outcome == 'success' }}
         uses: cloudflare/wrangler-action@v4
@@ -220,15 +256,16 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.R2_ACCOUNT_ID }}
           wranglerVersion: '4.136.3'
-          workingDirectory: .jarvis-source/jarvis
-          command: deploy --config backend/wrangler.music.generated.json
-          postCommands: npx wrangler versions list --name jarvis-hub-api --json > worker-versions-after.json
+          workingDirectory: .worker-tools
+          preCommands: (cd "$GITHUB_WORKSPACE" && node scripts/prepare-worker-tools.mjs verify && node scripts/build-backend.mjs verify)
+          command: deploy --config "${{ github.workspace }}/backend/wrangler.music.generated.json"
+          postCommands: npx wrangler versions list --name jarvis-hub-api --json > "$GITHUB_WORKSPACE/backend/worker-versions-after.json"
       - name: Require live rejection of the revoked temporary upload key
         if: ${{ always() && inputs.native_upload_setup == true && steps.worker_deploy.outcome == 'success' }}
         run: node scripts/assert-music-upload-revoked.mjs
       - name: Delete temporary private signing material
         if: always()
-        run: rm -f .jarvis-source/.music-test-key.pem
+        run: rm -f .music-test-key.pem
       - name: Verify live music bytes, decoding, Range, CORS and catalog matching
         run: |
           if ! command -v ffmpeg > /dev/null; then
@@ -242,10 +279,11 @@ jobs:
         with:
           name: worker-checkpoint-${{ github.run_id }}
           path: |
-            .jarvis-source/jarvis/worker-versions-before.json
-            .jarvis-source/jarvis/worker-versions-after.json
-            .jarvis-source/jarvis/worker-versions-canary.json
-            .jarvis-source/jarvis/backend/wrangler.music.generated.json
+            backend/worker-versions-before.json
+            backend/worker-versions-after.json
+            backend/worker-versions-canary.json
+            backend/wrangler.music.generated.json
+            .backend-release/provenance.json
             worker-bindings-before.json
             r2-partial-playback-report.json
             music-verification/report.json
@@ -263,13 +301,13 @@ jobs:
     steps:
       - name: Require the bounded read-only request
         env:
-          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          SOURCE_COMMIT: ${{ inputs.expected_commit }}
           CONFIRM_PUBLIC_MUSIC: ${{ inputs.confirm_public_music }}
           NATIVE_UPLOAD_SETUP: ${{ inputs.native_upload_setup }}
           PARTIAL_REPORT: ${{ inputs.partial_report_run_id }}
           MUSE_PUBLIC_KEY: ${{ inputs.muse_public_key }}
         run: |
-          test "$SOURCE_COMMIT" = c28c1b2f70aabb5217b08bf31ffe4c93d0353765
+          test "$SOURCE_COMMIT" = "$GITHUB_SHA"
           test "$CONFIRM_PUBLIC_MUSIC" = false
           test "$NATIVE_UPLOAD_SETUP" != true
           test -z "$PARTIAL_REPORT"
@@ -277,6 +315,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22.23.3'

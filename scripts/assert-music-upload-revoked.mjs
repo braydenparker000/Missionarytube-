@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createPrivateKey,createPublicKey,createHash,sign} from 'node:crypto';
-import {signatureMessage} from '../.jarvis-source/jarvis/public/drawercast/r2-library.js';
+import {signatureMessage} from '../frontend/drawercast/r2-library.js';
 const api='https://jarvis-hub-api.braydenparker999.workers.dev',path='/music/uploads/register',type='application/json';
-const privateKey=createPrivateKey(await readFile('.jarvis-source/.music-test-key.pem'));
+const privateKey=createPrivateKey(await readFile('.music-test-key.pem'));
 const key=createPublicKey(privateKey).export({type:'spki',format:'der'}).subarray(-32).toString('hex');
 const bytes=Buffer.from('{}'),hash=createHash('sha256').update(bytes).digest('hex'),size=String(bytes.length);
 const enabled=process.argv.includes('--enabled'),expected=enabled?422:401;

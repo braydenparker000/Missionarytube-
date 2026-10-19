@@ -41,3 +41,6 @@ daily-board-publication/
 frontend-live-comparison.json
 .runtime-release/
 .runtime-parent/
+.backend-release/
+backend/wrangler.music.generated.json
+backend/worker-versions-*.json

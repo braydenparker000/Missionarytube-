@@ -29,7 +29,7 @@ test('first adoption accepts only already deployed runtime bytes; protected path
  for(const mutation of [h=>h.saved.before[0].sha256='0'.repeat(64),h=>h.saved.before[0].exists=false]){
   const h=fixture({adoption:true});mutation(h);assert.throws(()=>checkedBaseline(h.saved.candidate,h.saved.before,null));
  }
- for(const path of ['../escape','/index.html','a//b','assets/drive-config.json','assets/quick-ai-config.json','content/jarvis.json','drawercast/catalog/current.json'])assert.throws(()=>checkedFiles([file(path)]));
+ for(const path of ['../escape','/index.html','a//b','assets/drive-config.json','assets/quick-ai-config.json','content/jarvis.json','drawercast/catalog/current.json','assets/drive-catalog-v2.json','assets/drive-catalog-v2/covers/cover.webp'])assert.throws(()=>checkedFiles([file(path)]));
  assert.throws(()=>checkedFiles([file('index.html'),file('index.html')]));
 });
 test('only trusted successful main workflow receipts establish a baseline',()=>{
@@ -98,7 +98,7 @@ test('the actual CLI adopts, updates and rolls back through conditional Azure co
  for(const name of ['publish-frontend.mjs','publish-daily-board.mjs','daily-board-navigation.mjs','frontend-source.mjs','qualified-artifact.mjs','inspect-frontend.mjs','check-jarvis-import.mjs','build-jarvis.mjs','r2-player-config.mjs','private-board-pins.json'])await cp(new URL(name,import.meta.url),join(root,'scripts',name));
  await writeFile(join(root,'package.json'),'{"type":"module"}');
  await writeFile(join(root,'jarvis-release.json'),JSON.stringify({repository:'braydenparker999/jarvis',commit:'a'.repeat(40)}));
- await writeFile(join(root,'frontend/index.html'),'<html><head></head><body>Fixture</body></html>');
+ await writeFile(join(root,'frontend/index.html'),`<html><head><meta http-equiv="Content-Security-Policy" content="default-src 'self'"></head><body>Fixture</body></html>`);
  await writeFile(join(root,'frontend/assets/app.js'),'old application');
  await writeFile(join(root,'frontend/assets/drive-config.json'),'placeholder');
  await writeFile(join(root,'.gitignore'),'dist/\n.runtime-parent/\n.runtime-release/\nstore.json\ntrace.json\nmock.mjs\nbin/\n');

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
-import {checkedMusicFrontend,verifiedMusicReceipt} from './music-frontend-identity.mjs';
+import {inspectFrontend} from './inspect-frontend.mjs';
 
 const release=JSON.parse(await readFile('jarvis-release.json','utf8'));
 const expectedPartial=new URL(release.r2ManifestURL).pathname==='/music/partial/manifest.json';
@@ -152,22 +152,10 @@ async function restoredTouch(){
   await page.screenshot({path:folder+'/r2-touch-scroll.png'});
 }
 try{
-  const current=await fetch(release.storageOrigin+'/release.json',{cache:'no-store',signal:AbortSignal.timeout(15000)}).then(r=>r.json());
-  let receipt,actualWorkerSource,frontendPatchSource,launcherPatchSource,playlistPatchSource,museDesignSource,sortPatchSource,shufflePatchSource;
-  if(release.workerDeploymentPolicy?.mode==='reconcile-lucy-discovery'){
-    const response=await fetch(release.storageOrigin+'/release-qualified.json',{cache:'no-store',signal:AbortSignal.timeout(15000)});
-    assert.equal(response.status,200);const actual=await response.json();receipt=await verifiedMusicReceipt(actual);actualWorkerSource=actual.source;frontendPatchSource=actual.frontendPatch?.artifact?.source;launcherPatchSource=actual.launcherPatch?.artifact?.source;playlistPatchSource=actual.playlistPatch?.artifact?.source;museDesignSource=actual.museDesignPatch?.artifact?.source;sortPatchSource=actual.sortPatch?.artifact?.source;shufflePatchSource=actual.shufflePatch?.artifact?.source;
-  }
-  const identity=checkedMusicFrontend(release,current,receipt);
-  if(actualWorkerSource)identity.workerSource=actualWorkerSource;
-  report.sourceCommit=identity.commit;report.workerSourceCommit=identity.workerSource;
-  if(frontendPatchSource)report.frontendPatchSource=frontendPatchSource;
-  if(launcherPatchSource)report.launcherPatchSource=launcherPatchSource;
-  if(playlistPatchSource)report.playlistPatchSource=playlistPatchSource;
-  if(museDesignSource)report.museDesignSource=museDesignSource;
-  if(sortPatchSource)report.sortPatchSource=sortPatchSource;
-  if(shufflePatchSource)report.shufflePatchSource=shufflePatchSource;
-  check('live source pin',identity);
+  const runtime=await inspectFrontend('dist/drawercast',{prefix:'drawercast/'});
+  assert.ok(runtime.files.length>0);assert.equal(runtime.matched,runtime.files.length,'Live music application differs from reviewed build');
+  report.sourceCommit=JSON.parse(await readFile('dist/release.json','utf8')).frontend.commit;
+  check('exact live music bytes',{files:runtime.files.length});
   const [catalog,mapping]=await Promise.all([release.storageOrigin+'/assets/drive-catalog-v2.json',release.r2ManifestURL].map(async url=>{
     const response=await fetch(url,{credentials:'omit',cache:'no-store',signal:AbortSignal.timeout(15000)});
     assert.equal(response.status,200);return response.json();

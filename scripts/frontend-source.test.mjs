@@ -6,18 +6,21 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {readFrontendSource, frontendDirectory, checkedFrontendBuild} from './frontend-source.mjs';
+import {currentArtifactIdentity,checkedManifest,fileManifest} from './qualified-artifact.mjs';
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'jarvis-frontend-'));
   t.after(() => rm(root, {recursive: true, force: true}));
   const git = (...args) => execFileSync('git', ['-C', root, ...args], {encoding: 'utf8', stdio: 'pipe'}).trim();
   for (const path of ['frontend/assets', 'frontend/daily-board/v1', 'scripts']) await mkdir(join(root, path), {recursive: true});
-  await writeFile(join(root, 'frontend/index.html'), '<!doctype html><html><head><title>Fixture</title></head><body></body></html>');
+  await writeFile(join(root, 'frontend/index.html'), `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'self'"><title>Fixture</title></head><body></body></html>`);
   await writeFile(join(root, 'frontend/assets/hub.js'), 'export const fixture = true;');
   await writeFile(join(root, 'frontend/daily-board/v1/live.js'), 'export const version = 1;');
   await writeFile(join(root, 'jarvis-release.json'), JSON.stringify({repository: 'braydenparker999/jarvis', commit: 'a'.repeat(40)}));
   await writeFile(join(root, 'package.json'), '{"type":"module"}');
-  for (const name of ['build-jarvis.mjs', 'frontend-source.mjs', 'check-jarvis-import.mjs', 'r2-player-config.mjs']) await cp(new URL(name, import.meta.url), join(root, 'scripts', name));
+  await writeFile(join(root, 'package-lock.json'), '{"lockfileVersion":3}');
+  await writeFile(join(root, '.gitignore'), 'dist/\n');
+  for (const name of ['build-jarvis.mjs', 'frontend-source.mjs', 'check-jarvis-import.mjs', 'r2-player-config.mjs', 'private-board-pins.json']) await cp(new URL(name, import.meta.url), join(root, 'scripts', name));
   git('init'); git('add', '.');
   const commit = () => git('-c', 'user.name=Frontend fixture', '-c', 'user.email=fixture@example.test', 'commit', '-am', 'fixture');
   commit();
@@ -35,6 +38,19 @@ test('provenance derives the reviewed commit and exact Git tree without componen
   assert.equal(release.components['daily-board'].path, 'frontend/daily-board');
   assert.equal(release.components['daily-board'].tree, h.git('rev-parse', 'HEAD:frontend/daily-board'));
   await checkedFrontendBuild(release, {root: h.root});
+});
+
+test('normal artifact verification binds current source and its successful CI run without a historical checkout',async t=>{
+  const h=await fixture(t);h.build();
+  const options={root:h.root,env:{GITHUB_RUN_ID:'10',GITHUB_RUN_ATTEMPT:'1',QUALIFIED_RUN_ID:'9',QUALIFIED_ATTEMPT:'2'}};
+  const identity=await currentArtifactIdentity(options),files=await fileManifest(join(h.root,'dist'));
+  assert.equal(identity.schema,2);assert.equal(identity.runId,'9');assert.equal(identity.attempt,'2');assert.equal(identity.frontend.tree,h.git('rev-parse','HEAD:frontend'));
+  assert.ok(!Object.hasOwn(identity,'sourceDependencies'));
+  checkedManifest({identity,files},identity,files);
+  await writeFile(join(h.root,'dist/assets/hub.js'),'substituted artifact');
+  assert.throws(()=>checkedManifest({identity,files},identity,[]));
+  const changed=await fileManifest(join(h.root,'dist'));assert.throws(()=>checkedManifest({identity,files},identity,changed));
+  await writeFile(join(h.root,'scripts/build-jarvis.mjs'),'uncommitted recipe');await assert.rejects(currentArtifactIdentity(options));
 });
 
 test('a source edit builds immediately, but publication requires that edit committed and rebuilt', async t => {
@@ -57,7 +73,7 @@ test('added routes and changed modes enter generated provenance and cannot borro
   const h = await fixture(t);
   h.build(); const before = await h.release();
   await mkdir(join(h.root, 'frontend/new-route'));
-  await writeFile(join(h.root, 'frontend/new-route/index.html'), '<html><head></head><body>New route</body></html>');
+  await writeFile(join(h.root, 'frontend/new-route/index.html'), `<html><head><meta http-equiv="Content-Security-Policy" content="default-src 'self'"></head><body>New route</body></html>`);
   h.build(); const added = await h.release();
   assert.ok(added.components['new-route']);
   assert.equal(added.components['new-route'].dirty, true);
@@ -97,4 +113,10 @@ test('music URLs follow editable bytes automatically and document policies remai
   assert.ok((await output()).includes(`./player.${hash('version two')}.js`));
   await assert.rejects(readFile(join(h.root, `dist/drawercast/player.${hash('version one')}.js`)), {code: 'ENOENT'});
   assert.equal(await readFile(join(h.root, `dist/drawercast/player.${hash('version two')}.js`), 'utf8'), 'version two');
+});
+
+ test('new HTML cannot silently omit its document security policy', async t => {
+  const h=await fixture(t);
+  await writeFile(join(h.root,'frontend/index.html'),'<html><head></head><body>Missing policy</body></html>');
+  assert.throws(h.build,/HTML requires an explicit CSP/);
 });

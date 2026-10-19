@@ -13,15 +13,16 @@ test('identity failure diagnostics identify changed fields without exposing thei
 test('installer writes are isolated from both qualified source dependency files',async()=>{
   const root=await mkdtemp(join(tmpdir(),'worker-tools-'));
   try{
-    await mkdir(join(root,'.jarvis-source'));await writeFile(join(root,'.jarvis-source/package.json'),'{"private":true,"type":"module"}');
-    await writeFile(join(root,'.jarvis-source/package-lock.json'),'{"lockfileVersion":3}');
+    await mkdir(join(root,'backend'));await writeFile(join(root,'package.json'),'{"private":true,"type":"module"}');
+    await writeFile(join(root,'backend/package.json'),'{"private":true,"type":"module"}');
+    await writeFile(join(root,'package-lock.json'),'{"lockfileVersion":3}');
     const before=sourceDependencyIdentity(root),prepared=prepareWorkerTools(root);
     assert.equal(prepared.directory,join(root,'.worker-tools'));
     // Reproduce the installer's intended mutation, in its isolated cwd.
     await writeFile(join(root,'.worker-tools/package.json'),'{"dependencies":{"wrangler":"4.136.3"}}');
     await writeFile(join(root,'.worker-tools/package-lock.json'),'{"packages":{"node_modules/wrangler":{"version":"4.136.3"}}}');
     assert.deepEqual(sourceDependencyIdentity(root),before);assert.equal(verifyWorkerTools(root),true);
-    await writeFile(join(root,'.jarvis-source/package-lock.json'),'{"unexpected":"installer mutation"}');
+    await writeFile(join(root,'package-lock.json'),'{"unexpected":"installer mutation"}');
     assert.throws(()=>verifyWorkerTools(root),/mutated/);
   }finally{await rm(root,{recursive:true,force:true});}
 });

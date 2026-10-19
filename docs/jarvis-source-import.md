@@ -1,4 +1,4 @@
-# Jarvis source import: first consolidation patch
+# Jarvis source and import history
 
 Current frontend source: [`frontend/`](../frontend/). The build reads that single
 editable directory; component commit/tree provenance is generated, and the six
@@ -16,9 +16,23 @@ Deployed document policies are explicit in HTML; the obsolete SWA configuration
 conversion has been removed. Historical pins remain receipt/rollback evidence,
 not editable source selection for the normal build.
 
-The historical backend checkout and specialized publishers still retain their
-existing release and rollback checks during the remaining publisher migration.
-See [README](../README.md) for current commands.
+Current Worker code and its existing tests live in `backend/`. It shares selected
+modules with `frontend/`; generated provenance discovers the actual input
+closure. Its normalized bundle matches accepted Worker source ed1ecdd1a1eee0226fe2f2422701739837ae2c05.
+Normal frontend/Worker publishers use the exact successful main CI artifact and
+current reviewed checkout, with no source-pin edits or extra source checkouts.
+The normal Azure publisher replaces the overlapping Board/private/Makima/Muse
+forward publishers, retaining their historical receipts and Board restore path.
+Configured assets and feed/catalog data remain excluded. The Drive catalog
+publisher retains the accepted 9f65e014f578d7947b97a88fd8a32b0b2e8e693d parser and
+OAuth behavior in current `scripts/`, with its existing hourly schedule.
+
+The accepted Muse key helper is selected from
+833b97c4264c364dcce0789a6d64f938176a9057, not an imported variant. CI readback
+must confirm those existing public paths before the first consolidated release.
+The Mast document's `img-src` now permits its existing Blob image preview; this
+is a reviewed behavior fix, not a claim that the candidate is already deployed.
+See [README](../README.md) for the exact release and rollback commands.
 The dated source-selection and publication records below describe earlier states.
 
 

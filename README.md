@@ -8,87 +8,145 @@ Missionarytube- (repository ID `1350047370`) is the surviving source and deploym
 
 ## Develop
 
-`frontend/` is the authoritative editable static frontend. Routes live in
-`frontend/<route>/`; shared code lives in `frontend/assets/`. The build reads
-this directory directly, with no source overlays or component pin files.
+Edit static application code in `frontend/`, with routes in `frontend/<route>/`
+and shared modules in `frontend/assets/`. Edit the Worker in `backend/`; it
+imports shared browser modules directly from `frontend/`. There are no manual
+component commit or tree pins in the normal build.
 
 ```sh
 npm ci
 npm run build
 npm run test:daily-board
+# When Worker behavior changes:
+npm run test:backend
 ```
 
-The focused Daily Board command needs Chrome (`JARVIS_CHROME` may select it).
-Run affected tests for other components and the full required CI before merge.
-`npm test` also covers historical backend/release contracts and still requires
-its existing `.jarvis-source` checkout. `npm run build` and the focused Board
-command do not require that checkout. Local edits produce accurately marked
-provenance; publication requires committed source and a matching rebuild.
+One install covers both workspaces. The build writes `dist/` and
+`.backend-release/`, including generated source/input provenance. Music player
+and font URLs are fingerprinted automatically from their bytes. Local edits can
+build immediately; publication requires a committed checkout and matching
+provenance. Generated files are ignored and do not belong in feature commits.
+
+Browser checks require Chrome (`JARVIS_CHROME` selects it). Required CI installs
+the exact qualified Node/Chrome versions and runs existing application tests with
+isolated fixtures. `npm test` is the root deployment/security suite; its retained
+historical qualification tests still use `.jarvis-source`. Ordinary build,
+focused Board tests and current Worker tests do not need that checkout.
 
 ## Release
 
-Validate is the sole owner of PR and main-push qualification. The Azure deployment
-workflow is manual; it no longer starts a duplicate qualification run on pushes.
-Release recipe hashes are generated from the reviewed checkout and checked
-against HEAD, rather than copied into a policy manifest. Dirty recipes and
-mismatched production receipts still fail their identity checks.
+The normal frontend path is one PR and one authorized **Deploy to Azure Storage**
+run. Changes to Daily Board, private pages, music UI and shared assets use this
+same publisher.
 
-For a Daily Board update, review one PR and merge it, wait for required checks,
-then authorize one **Publish composable Daily Board** workflow on `main` with
-`action=publish` and `expected_commit=<reviewed full main SHA>`. Leave the parent
-and rollback fields blank for a normal publish. The workflow finds the latest
-successful publication, validates its receipt and current live bytes, backs up
-before writing, publishes only changed Board files and runs actual-origin
-Chrome checks. Rollback uses the same workflow with `action=rollback`, that
-publication's run ID in `rollback_run_id`, and the reviewed orchestration SHA.
-No source-pin edits or follow-up publication PR are needed.
+1. Review the PR and required validation. With explicit owner approval, merge
+   using a merge commit.
+2. Wait for successful **Validate** on that exact `main` commit.
+3. With explicit release approval, run **Deploy to Azure Storage** on `main`:
+   `action=publish`, `expected_commit=<full reviewed main SHA>`, and leave
+   `rollback_run_id` blank. If main moved, review the new revision first.
+4. Inspect the production job and its `frontend-evidence-<run-id>` artifact.
+   Qualification, merge, publication and live behavior verification are separate
+   results; a green PR does not mean the change is live.
 
-Other component publishers retain their existing live-configuration and rollback
-boundaries. The general Azure workflow is not a shortcut for publishing a
-component; it cannot overwrite independently published assets safely without
-its existing guards. Its retained historical full-site path is described below.
+The publisher reuses the exact successful main CI artifact; it does not repeat
+full qualification or select another source snapshot. Before credentials it
+checks the artifact identity, built Board behavior and existing Storage-origin
+API health/CORS/public inbox. It discovers trusted
+publication history, checks current live bytes, captures application bytes and
+properties, and saves `frontend-rollback-<run-id>` for 90 days **before writing**.
+Writes are conditional on unchanged ETags. Only changed application files are
+uploaded; every managed file is read back publicly. Actual-origin Chrome checks
+exercise Daily Board and private image previews, using synthetic owner API
+responses for the private journey. Unrelated storage inventory must remain
+unchanged.
 
-Use reviewed source and component identities recorded by the build and release manifests. The general historical source pin in `jarvis-release.json` is still used by remaining qualification and release consumers; it does not establish that every live component comes from one checkout. The existing Azure Storage route and its identity remain in place. Push checks can qualify a commit while production upload jobs are skipped; inspect the actual job results before describing a release as deployed. Keep the existing `AZURE_DEPLOY_ENABLED=true`, `AZURE_STORAGE_ACCOUNT=missionarytube`, and three `AZURE_*` identity secrets unchanged.
+The first consolidated release accepts only already-existing application paths
+with matching candidate bytes or immutable accepted-publication evidence. It
+cannot activate a missing imported route. Subsequent releases use the generated
+normal receipt as their baseline. Historical pin files are read-only evidence,
+not fields to update for a feature or release.
 
-The workflow:
-1. Runs existing repository checks, all Jarvis tests, and the static build.
-2. Logs in with the unchanged Entra OIDC identity.
-3. Saves every existing `$web` blob and its properties to the `storage-before-<run-id>-<attempt>` GitHub artifact (90-day retention) before overwriting anything.
-4. Uploads Jarvis files, excluding the root `index.html`; the new launcher is available temporarily at `/jarvis-preview.html`.
-5. Verifies every deployed file by SHA-256 and MIME type and checks all 14 folder routes.
-6. Requires successful API preflight, health and shared-inbox responses for the Storage origin.
-7. Overwrites the homepage only after those gates pass, then verifies root and all files again.
+Configured values, publication feeds and Drive catalog data are excluded from
+application writes. Keep `AZURE_DEPLOY_ENABLED=true`,
+`AZURE_STORAGE_ACCOUNT=missionarytube` and the existing three Azure identity
+secrets unchanged. No credential rotation, new identity or settings change is
+part of an application release.
 
-If the Cloudflare gate fails, the current homepage remains intact. Deploy the committed backend CORS change in the existing `jarvis-hub-api` Worker, then rerun this workflow. The Worker must run v7 or later. Since Jarvis `ebf433d` the Worker accepts only the exact Storage origin; the retired Static Web App origin is rejected. API CORS is not unrestricted.
+Worker changes use the existing **Deploy verified music Worker** workflow with
+`expected_commit=<full reviewed main SHA>` and its explicit music confirmation.
+It consumes that commit's successful CI artifacts, verifies the `backend/`
+input closure, preserves existing bindings/variables and uses the existing
+Wrangler version and scoped credentials. Existing optional data/setup controls
+remain explicit; ordinary code changes leave them off. This is a separate
+provider deployment and requires explicit authorization. Frontend publication
+never deploys a Worker.
 
 ## Rollback
 
-Permanent source checkpoints:
-- This repository: branch `backup/missionarytube-before-jarvis-20260920`, commit `dc5423d1a1c8923983db54b94693cedda772d68b`.
-- Original Jarvis: branch `backup/before-storage-migration-20260920`, commit `bb025c749932dd08847e1dc6cf97e8d0e638dab4`.
+With explicit approval, run **Deploy to Azure Storage** on reviewed current
+`main` with `action=rollback`, `expected_commit=<full reviewed main SHA>` and
+`rollback_run_id=<the original publication run>`. The publisher validates the
+original run and backup before restoring captured application bytes, headers and
+metadata. It refuses to overwrite a later writer, preserves additive assets
+needed by cached pages, and never restores configuration or content over live
+data. An interrupted publication can use its saved backup too.
 
-For an exact website rollback, download `storage-before-<first-migration-run-id>`, then upload its `files/` directory to the same `$web` container using `--auth-mode login --overwrite true`. Its `manifest.json` records original content headers and properties. The migration does not delete old assets, so restoring the original `index.html` also immediately restores the original Astra entry point. The saved repository revision can rebuild the old artifact with `npm ci && npm run build` if an artifact has expired. Never change the federation or rotate credentials to roll back frontend files.
+**Restore historical Daily Board** remains only for backups produced by the old
+Board publisher, including the two verified recovery releases. Retained Worker
+version checkpoints and historical specialist receipts remain available; they
+are not alternative editable sources or routine forward release paths.
+
+Permanent source checkpoints remain:
+
+- Destination: `backup/missionarytube-before-jarvis-20260920`, commit
+  `dc5423d1a1c8923983db54b94693cedda772d68b`.
+- Original Jarvis: `backup/before-storage-migration-20260920`, commit
+  `bb025c749932dd08847e1dc6cf97e8d0e638dab4`.
+
+Keep original repositories, refs and saved rollback artifacts. Historical
+whole-site migration backups need review before use against today's storage;
+normal application rollback uses the guarded workflow above.
 
 ## Static compatibility and browser data
 
-The artifact contains only frontend files and existing player code/decoders (about 17 MiB); no music or movie files, backend source, Azure credentials or tests are uploaded. Media remains on external providers or the A15 DrawerCast server. All modules, folders, CSS and assets retain their existing paths. Lazy player decoders are loaded when needed, not by the launcher.
+The frontend is about 20 MiB of static application code, assets and existing
+player decoders. It contains no media library payload, backend source, credentials
+or tests. Media remains on existing providers. Azure Storage does not interpret
+SWA configuration: deployed CSP/referrer policies are explicit in document
+source. New or edited HTML must declare its CSP; the accepted unchanged legacy
+Muse document retains its existing policy behavior. Header-only policies such
+as `frame-ancestors` cannot be supplied through HTML meta tags.
 
-Storage does not process `staticwebapp.config.json`. The build converts the applicable CSP and referrer policy to HTML meta tags and the upload sets revalidation caching. Header-only policies such as `frame-ancestors` and `X-Content-Type-Options` cannot be replicated by that conversion. No CDN or extra Azure service is introduced to supply headers.
+Shared messages, notes and briefings retain their existing stores and origin.
+Browser data from the retired SWA hostname still needs the product's supported
+export/import paths; no storage migration is performed here. Real A15 playback
+and restricted-device behavior require device verification.
 
-Shared messages and briefings remain in the same Cloudflare store and publication issue. A hostname change creates separate browser storage: unsent drafts, hub preferences, notes, DrawerCast settings/pairing and Ianua files do not automatically transfer from the SWA hostname. Export/import supported data on the device before abandoning the old site. Astra settings already saved on this Storage hostname remain on the same origin when Astra moves to `/media/`. Real A15 playback and restricted-device behavior require a device check.
-
-Quick AI at `/quick-ai/` calls Gemini, Groq, and Tavily directly from the browser. The deployment workflow uses `QUICK_AI_GEMINI_KEY`, the existing `GROQ_API_KEY`, and `QUICK_AI_TAVILY_KEY` Actions secrets to generate the owner's intentionally public free-plan configuration in the built artifact. It requires all three values before logging into Azure or touching blobs. The legacy public config blob is replaced during staging. Main Jarvis chat and Muse keep their existing Worker and check-based delivery paths.
+Quick AI keeps its existing browser calls to Gemini, Groq and Tavily. Its live
+configuration and Drive's live configuration are preserved, not regenerated by
+an application release. Main chat and Muse retain their existing Worker APIs.
 
 ## Source and provenance
 
-`scripts/build-jarvis.mjs` packages only `frontend/`, generates public configuration
-from the unchanged release configuration, and translates the existing document
-CSP for Azure Storage. `dist/release.json` records the checkout SHA and actual
-frontend/component trees automatically. Its legacy top-level `source`/`commit`
-fields retain the historical backend baseline; `frontend` and `components`
-identify the real frontend build inputs. The frozen `jarvis/` archive, external
-qualification checkout and historical publication receipts are not editable
-frontend alternatives. Dormant variants remain unselected.
+`frontend/` and `backend/` are the editable application sources.
+`dist/release.json` records the actual checkout SHA and frontend/component trees;
+`.backend-release/provenance.json` records the discovered Worker input graph,
+compiler, dependency files and bundle digest. CI binds the qualified frontend
+artifact to the reviewed checkout and its run/attempt. The Worker qualification
+bundle verifies inputs; the existing Wrangler publisher still produces the
+provider deployment.
+
+`jarvis/` is a frozen guarded archive. Historical qualification snapshots,
+receipts and `jarvis-release.json`'s old commit are retained for compatibility,
+negative tests and rollback; they are not source selectors for normal releases.
+Dormant variants stay unselected. The hourly Drive catalog publisher now reads
+its accepted helpers from `scripts/` and `frontend/`, preserving its OAuth guard,
+accepted tag parser, schedule, Azure identity and pointer-last publication.
+
+New Daily Board reports using existing report types use the existing content
+writer; they do not require an application PR, source pins or code deployment.
+This cleanup does not change its schedule, issue destination or authorization.
 See [the source import record](docs/jarvis-source-import.md) for history and
 [the delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md)
 for validation and authorization requirements.

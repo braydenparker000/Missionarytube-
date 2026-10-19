@@ -13,7 +13,7 @@ import { checkJarvisImport } from "../scripts/check-jarvis-import.mjs";
  */
 
 // External pinned checkouts and deployment/rollback artifacts are not committed source.
-const SKIP_DIRS = new Set([".git", "node_modules", "dist", ".github", ".jarvis-source", "rollback", "upload"]);
+const SKIP_DIRS = new Set([".git", "node_modules", "dist", ".github", ".jarvis-source", "rollback", "upload", ".backend-release", ".runtime-release", ".runtime-parent"]);
 const TEXT = /\.(?:js|mjs|cjs|html|css|json|jsonc|md|yml|yaml)$/;
 
 async function sourceFiles(directory = ".") {
@@ -99,6 +99,7 @@ const ALLOWED_HOSTS = [
 // Public references already present in the selected frontend. Scope these to
 // their actual consumers instead of exempting an editable source snapshot.
 const FRONTEND_PUBLIC_HOSTS = {
+  'scripts/drive-publisher-auth.mjs': ['oauth2.googleapis.com'], // unchanged scheduled publisher token endpoint
   'backend/connector.js': ['chatgpt.com'], // existing OAuth client policy
   'backend/wrangler.jsonc': ['jarvis-relay-egress.vercel.app'], // unchanged configured public relay endpoint
   'backend/relay-common.js': ['chatgpt.com'],

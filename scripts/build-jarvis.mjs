@@ -35,13 +35,19 @@ async function walk(dir){for(const e of await readdir(dir,{withFileTypes:true}))
 await walk('dist');
 let total=0;
 for(const file of files){
- total+=(await stat(file)).size;
+ const bytes=await readFile(file);total+=bytes.length;
+ if(file.endsWith('.html')&&!/http-equiv=["']Content-Security-Policy["']/i.test(bytes.toString())){
+  // Preserve the accepted legacy document exactly. New or edited documents
+  // must declare their policy explicitly instead of silently losing the gate.
+  const legacy=JSON.parse(await readFile('scripts/private-board-pins.json','utf8'));
+  const accepted=[...legacy.files,...legacy.dependencies].find(f=>f.path===file.slice(5));
+  assert.equal(createHash('sha256').update(bytes).digest('hex'),accepted?.sha256,'HTML requires an explicit CSP: '+file);
+ }
  if(/\.(mp4|mkv|webm|mp3|opus|flac|wav)$/i.test(file))throw Error('Media payload is not allowed in the frontend artifact: '+file);
 }
 if(total>25*1024*1024)throw Error('Frontend exceeds the 25 MiB budget');
 await cp('dist/index.html','dist/jarvis-preview.html');
 assert.deepEqual(await frontendProvenance(),provenance,'Frontend source changed during the build');
-// source/commit retain the historical backend baseline for remaining release consumers.
-// frontend/components identify the actual editable frontend, generated from this checkout.
-await writeFile('dist/release.json',JSON.stringify({source:release.repository,commit:release.commit,bytes:total,...provenance},null,2)+'\n');
+// Public release metadata names the actual frontend input, not a historical fixture.
+await writeFile('dist/release.json',JSON.stringify({schema:2,source:provenance.frontend.repository,commit:provenance.frontend.commit,bytes:total,...provenance},null,2)+'\n');
 console.log(`Built frontend ${provenance.frontend.commit}${provenance.frontend.dirty?' (local edits)':''}: ${files.length} frontend files, ${(total/1024/1024).toFixed(2)} MiB; no media payloads.`);

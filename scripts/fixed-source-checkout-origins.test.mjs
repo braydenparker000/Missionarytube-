@@ -22,20 +22,14 @@ function checkoutRefs(path){
 const blob=bytes=>createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
 
 test('fixed pinned checkouts use destination history without changing commit refs or source provenance',()=>{
-  assert.deepEqual(checkoutRefs('.github/workflows/deploy-azure-storage.yml'),['${{ steps.source.outputs.commit }}']);
-  for(const [path,ref] of [
-    ['.github/workflows/publish-makima-cookie.yml','dcb111b7bc15642cabddbb8a8651fd4f918fe608'],
-    ['.github/workflows/publish-muse-key.yml','833b97c4264c364dcce0789a6d64f938176a9057'],
-    ['.github/workflows/publish-drive-catalog.yml','9f65e014f578d7947b97a88fd8a32b0b2e8e693d'],
-    ['.github/workflows/verify-music-sources.yml','${{ steps.jarvis.outputs.commit }}'],
-    ['.github/workflows/publish-private-board.yml','${{ steps.source.outputs.sha }}'],
-    ['.github/workflows/publish-private-workspace.yml','${{ steps.source.outputs.sha }}']
-  ])assert.deepEqual(checkoutRefs(path),[ref]);
+  assert.deepEqual(checkoutRefs('.github/workflows/deploy-azure-storage.yml'),[]);
+  assert.deepEqual(checkoutRefs('.github/workflows/verify-music-sources.yml'),[]);
+  assert.deepEqual(checkoutRefs('.github/workflows/publish-drive-catalog.yml'),[]);
   const release=JSON.parse(read('jarvis-release.json'));
   assert.equal(release.repository,prior);assert.equal(release.commit,'c28c1b2f70aabb5217b08bf31ffe4c93d0353765');
-  for(const [path,pinsPath] of [['.github/workflows/publish-private-board.yml','scripts/private-board-pins.json'],['.github/workflows/publish-private-workspace.yml','scripts/private-workspace-pins.json']]){
-    assert.equal(JSON.parse(read(pinsPath)).source,path.includes('board')?'324d4c4196dc7ee602a23210c62cc92238c7da96':'72f86e00b0c8b4f7e1fdb41e1ab2601b50fb365c');
-  }
+  // Historical publication records are retained, never source selectors for normal releases.
+  assert.equal(JSON.parse(read('scripts/private-board-pins.json')).source,'324d4c4196dc7ee602a23210c62cc92238c7da96');
+  assert.equal(JSON.parse(read('scripts/private-workspace-pins.json')).source,'72f86e00b0c8b4f7e1fdb41e1ab2601b50fb365c');
   const deploy=read('.github/workflows/deploy-azure-storage.yml'),workflowBlob=blob(Buffer.from(deploy));
   const recipe=recipeIdentity();
   assert.deepEqual(release.workerDeploymentPolicy,{schema:2,mode:'reconcile-lucy-discovery'});
@@ -62,13 +56,18 @@ test('dynamic commits must pass destination-main ancestry and retained migration
   const deploy=read('.github/workflows/deploy-azure-storage.yml');
   assert.match(deploy,/github\.event_name == 'workflow_dispatch'/);assert.match(deploy,/vars\.AZURE_DEPLOY_ENABLED == 'true'/);
   assert.match(read('.github/workflows/publish-drive-catalog.yml'),/cron: '17 \* \* \* \*'/);
-  for(const path of ['deploy-music-worker.yml','analyze-r2-audio.yml']){
+  for(const path of ['analyze-r2-audio.yml']){
     const flow=read('.github/workflows/'+path);assert.deepEqual(checkoutRefs('.github/workflows/'+path),['${{ inputs.source_commit }}']);
     assert.match(flow,/fetch-depth: 0/);assert.match(flow,/node scripts\/check-source-commit-reachable\.mjs \.jarvis-source "\$SOURCE_COMMIT"/);
     const guard=flow.indexOf('check-source-commit-reachable.mjs');
     const existingChecks=flow.indexOf(path==='deploy-music-worker.yml'?'npm --prefix .jarvis-source/jarvis ci':'node --test tests/audio-fidelity.test.js');
     assert.ok(guard>=0&&existingChecks>guard,'source ancestry must be checked before source tests or install');
   }
+  const worker=read('.github/workflows/deploy-music-worker.yml');
+  assert.deepEqual(checkoutRefs('.github/workflows/deploy-music-worker.yml'),[]);
+  assert.match(worker,/check-source-commit-reachable.mjs \. "\$SOURCE_COMMIT"/);
+  assert.match(worker,/test "\$GITHUB_SHA" = "\$SOURCE_COMMIT"/);
+  assert.match(worker,/node scripts\/build-backend\.mjs verify/);
   const migration=read('.github/workflows/migrate-music-r2.yml');
   assert.deepEqual(checkoutRefs('.github/workflows/migrate-music-r2.yml'),[
     'dd0797bd48431ea04354f83663c3df765cc8f5b0','${{ needs.validate.outputs.source_sha }}']);

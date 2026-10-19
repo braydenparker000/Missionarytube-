@@ -34,15 +34,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Read exact player source revision
-        id: jarvis
-        run: node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
-        with:
-          repository: braydenparker000/Missionarytube-
-          ref: ${{ steps.jarvis.outputs.commit }}
-          path: .jarvis-source
-          persist-credentials: false
+      - run: npm run build
       - name: Verify delivered R2 bytes, decoding, Range and CORS
         run: |
           if ! command -v ffmpeg > /dev/null; then

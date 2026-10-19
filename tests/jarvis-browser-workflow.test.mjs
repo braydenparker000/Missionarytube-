@@ -4,8 +4,9 @@ import {readFileSync} from 'node:fs';
 const read=file=>readFileSync(new URL('../.github/workflows/'+file,import.meta.url),'utf8');
 const qualification=read('qualify-jarvis.yml'),production=read('deploy-azure-storage.yml');
 
-test('PR and production qualification share one complete reusable pipeline',()=>{
-  for(const file of ['ci.yml','deploy-azure-storage.yml'])assert.match(read(file),/uses: \.\/\.github\/workflows\/qualify-jarvis\.yml/);
+test('CI qualifies once and publication requires its exact successful main artifact',()=>{
+  assert.match(read('ci.yml'),/uses: \.\/\.github\/workflows\/qualify-jarvis\.yml/);
+  assert.match(production,/node scripts\/guard-validation\.mjs/);
   assert.doesNotMatch(production,/npm run test:jarvis|npm --prefix \.jarvis-source test|run: npm test|run: npm run build/);
   assert.match(qualification,/fail-fast: false/);
   assert.match(qualification,/needs: \[plan, component, build, runtime\]/);
@@ -29,8 +30,12 @@ test('immutable artifact is built once and verified before any provider credenti
   assert.match(qualification,/node scripts\/qualified-artifact\.mjs create/);
   const verification=production.indexOf('node scripts/qualified-artifact.mjs verify');
   assert.ok(verification>0&&verification<production.indexOf('azure/login@v2'));
-  assert.match(production,/name: jarvis-\$\{\{ github.sha \}\}-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}/);
-  assert.match(production,/needs: qualification/);assert.match(production,/github.ref == 'refs\/heads\/main'/);
+  assert.ok(production.indexOf('node scripts/check-jarvis-api.mjs')>verification);
+  assert.ok(production.indexOf('node scripts/check-jarvis-api.mjs')<production.indexOf('azure/login@v2'));
+  assert.match(production,/name: \$\{\{ needs.validation.outputs.artifact_name \}\}/);
+  assert.match(production,/run-id: \$\{\{ needs.validation.outputs.run_id \}\}/);
+  assert.match(production,/needs: validation/);assert.match(production,/github.ref == 'refs\/heads\/main'/);
+  assert.doesNotMatch(production,/path: \.jarvis-source|source_commit|Read historical qualification identity/);
 });
 test('static releases cannot write Worker settings or data, and backup precedes publication',()=>{
   assert.doesNotMatch(production,/CLOUDFLARE|wrangler|configure-drive|configure-quick-ai|upload-batch|activate-|continue-on-error/);
@@ -39,7 +44,8 @@ test('static releases cannot write Worker settings or data, and backup precedes 
   assert.ok(backup>0&&backup<publish);
   assert.match(production,/retention-days: 90/);
   assert.match(production,/FRONTEND_EXPECTED_COMMIT: \$\{\{ inputs.expected_commit \}\}/);
-  assert.match(production,/needs.qualification.result == 'success'/);
+  assert.match(production,/needs.validation.result == 'success'/);
+  assert.match(production,/group: jarvis-worker-production/);
   assert.match(production,/DAILY_BOARD_ORIGIN: https:\/\/missionarytube.z13.web.core.windows.net/);
   assert.match(production,/inputs.action == 'rollback' && inputs.rollback_run_id != ''/);
   for(const mode of ['publish_poweramp_background','publish_simple_chat_tasks','publish_media_only','activate_lucy_muse'])assert.ok(!production.includes(mode));

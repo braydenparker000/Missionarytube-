@@ -46,7 +46,9 @@ test('deployment is manual, immutable, serialized and tested before scoped secre
   assert.match(workflow,/confirm_public_music == true/);
   assert.match(workflow,/\^\[a-f0-9\]\{40\}\$/);
   assert.match(workflow,/cancel-in-progress: false/);
-  assert.ok(workflow.indexOf('npm --prefix .jarvis-source test')<workflow.indexOf('secrets.CLOUDFLARE_API_TOKEN'));
+  assert.ok(workflow.indexOf('node scripts/guard-validation.mjs')<workflow.indexOf('secrets.CLOUDFLARE_API_TOKEN'));
+  assert.ok(workflow.indexOf('node scripts/build-backend.mjs verify')<workflow.indexOf('secrets.CLOUDFLARE_API_TOKEN'));
+  assert.match(workflow,/needs: validation/);assert.doesNotMatch(workflow,/path: \.jarvis-source|inputs.source_commit/);
   assert.match(workflow,/secrets.R2_ACCOUNT_ID/);
   assert.match(workflow,/partial_report_run_id:/);
   assert.match(workflow,/actions: read/);

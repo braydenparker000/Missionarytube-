@@ -6,9 +6,12 @@ import {fileManifest,CONFIGURATION_FILES} from './qualified-artifact.mjs';
 
 export const ORIGIN='https://missionarytube.z13.web.core.windows.net';
 // Configured values and independently published data remain provider-owned.
-export const preservedPath=path=>CONFIGURATION_FILES.includes(path)||path==='content/jarvis.json'||path.startsWith('drawercast/catalog/');
-export async function inspectFrontend(root,{fetcher=fetch}={}){
- const files=(await fileManifest(resolve(root))).filter(f=>f.path!=='release.json'&&!preservedPath(f.path));
+const DATA_FILES=['content/jarvis.json','assets/drive-catalog-v2.json'];
+const DATA_DIRECTORIES=['drawercast/catalog/','assets/drive-catalog-v2/'];
+export const preservedPath=path=>CONFIGURATION_FILES.includes(path)||DATA_FILES.includes(path)||DATA_DIRECTORIES.some(prefix=>path.startsWith(prefix));
+export async function inspectFrontend(root,{fetcher=fetch,prefix=''}={}){
+ if(prefix&&!/^[a-zA-Z0-9_-]+(?:\/[a-zA-Z0-9_-]+)*\/$/.test(prefix))throw Error('Invalid runtime path prefix');
+ const files=(await fileManifest(resolve(root))).map(f=>({...f,path:prefix+f.path})).filter(f=>f.path!=='release.json'&&!preservedPath(f.path));
  const rows=new Array(files.length);let cursor=0;
  await Promise.all(Array.from({length:8},async()=>{
   while(cursor<files.length){const i=cursor++,file=files[i];
@@ -21,7 +24,7 @@ export async function inspectFrontend(root,{fetcher=fetch}={}){
    }catch{rows[i]={...file,status:'unavailable'};}
   }
  }));
- return {schema:1,origin:ORIGIN,files:rows,preserved:CONFIGURATION_FILES.concat('content/jarvis.json','drawercast/catalog/'),matched:rows.filter(f=>f.matched).length};
+ return {schema:1,origin:ORIGIN,files:rows,preserved:CONFIGURATION_FILES.concat(DATA_FILES,DATA_DIRECTORIES),matched:rows.filter(f=>f.matched).length};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  const report=await inspectFrontend(process.argv[2]||'dist');

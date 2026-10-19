@@ -23,17 +23,40 @@ concurrency:
   group: azure-production
   cancel-in-progress: false
 jobs:
-  qualification:
+  validation:
     if: ${{ inputs.action == 'publish' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/qualify-jarvis.yml
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions:
       contents: read
+      actions: read
+    outputs:
+      run_id: ${{ steps.validation.outputs.run_id }}
+      attempt: ${{ steps.validation.outputs.attempt }}
+      artifact_name: ${{ steps.validation.outputs.artifact_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+      - id: validation
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: node scripts/guard-validation.mjs
   deploy:
-    needs: qualification
-    if: ${{ always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && vars.AZURE_STORAGE_ACCOUNT == 'missionarytube' && ((inputs.action == 'publish' && needs.qualification.result == 'success') || (inputs.action == 'rollback' && inputs.rollback_run_id != '')) }}
+    needs: validation
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true' && vars.AZURE_STORAGE_ACCOUNT == 'missionarytube' && ((inputs.action == 'publish' && needs.validation.result == 'success') || (inputs.action == 'rollback' && inputs.rollback_run_id != '')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    concurrency:
+      group: jarvis-worker-production
+      cancel-in-progress: false
     env:
+      QUALIFIED_RUN_ID: ${{ needs.validation.outputs.run_id }}
+      QUALIFIED_ATTEMPT: ${{ needs.validation.outputs.attempt }}
       FRONTEND_EXPECTED_COMMIT: ${{ inputs.expected_commit }}
       FRONTEND_ROLLBACK_RUN_ID: ${{ inputs.action == 'rollback' && inputs.rollback_run_id || '' }}
     steps:
@@ -57,22 +80,13 @@ jobs:
           run-id: ${{ steps.parent.outputs.run_id }}
           github-token: ${{ github.token }}
           path: .runtime-parent/evidence/
-      - name: Read historical qualification identity
-        if: ${{ inputs.action == 'publish' }}
-        id: source
-        run: node -p "'commit=' + require('./jarvis-release.json').commit" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
-        if: ${{ inputs.action == 'publish' }}
-        with:
-          repository: braydenparker000/Missionarytube-
-          ref: ${{ steps.source.outputs.commit }}
-          path: .jarvis-source
-          persist-credentials: false
       - name: Download this run's exact qualified frontend
         if: ${{ inputs.action == 'publish' }}
         uses: actions/download-artifact@v4
         with:
-          name: jarvis-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ needs.validation.outputs.artifact_name }}
+          run-id: ${{ needs.validation.outputs.run_id }}
+          github-token: ${{ github.token }}
       - name: Verify immutable artifact before provider credentials or changes
         if: ${{ inputs.action == 'publish' }}
         run: node scripts/qualified-artifact.mjs verify
@@ -82,6 +96,9 @@ jobs:
           npm ci
           node scripts/install-jarvis-browser.mjs
           DAILY_BOARD_ARTIFACT_ROOT=dist node --test tests/daily-board-browser.test.mjs
+      - name: Require existing Storage-origin API health, CORS and public inbox before writes
+        if: ${{ inputs.action == 'publish' }}
+        run: node scripts/check-jarvis-api.mjs
       - uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}

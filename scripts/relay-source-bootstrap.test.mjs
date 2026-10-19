@@ -11,11 +11,10 @@ test('source qualification is complete once, with locked dependencies on each ex
   assert.doesNotMatch(component.slice(install,execute),/--ignore-scripts|--omit(?:=|\s)|NODE_ENV:\s*production/);
   assert.match(source,/needs: \[plan, component, build, runtime\]/);
   assert.match(source,/test "\$COMPONENT_RESULT" = success/);
-  for(const file of ['ci.yml','deploy-azure-storage.yml']){
-    const workflow=await readFile(new URL('../.github/workflows/'+file,import.meta.url),'utf8');
-    assert.match(workflow,/uses: \.\/\.github\/workflows\/qualify-jarvis\.yml/);
-    assert.doesNotMatch(workflow,/npm run test:jarvis|npm --prefix \.jarvis-source test/);
-  }
+  assert.match(await readFile(new URL('../.github/workflows/ci.yml',import.meta.url),'utf8'),/uses: \.\/\.github\/workflows\/qualify-jarvis\.yml/);
+  const deploy=await readFile(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');
+  assert.match(deploy,/node scripts\/guard-validation\.mjs/);
+  assert.doesNotMatch(deploy,/npm run test:jarvis|npm --prefix \.jarvis-source test|uses: \.\/\.github\/workflows\/qualify-jarvis\.yml/);
 });
 
 test('qualification checkouts use destination history at the unchanged source pin while retaining provenance', async () => {
@@ -47,7 +46,7 @@ test('Validate owns push and PR qualification unconditionally and Azure publicat
   const deploy=await readFile(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');
   assert.match(deploy,/\n  workflow_dispatch:/);
   assert.doesNotMatch(deploy,/\n  (?:push|pull_request|schedule|workflow_run):/,'deployment cannot start a second qualification on main pushes');
-  assert.match(deploy,/uses: \.\/\.github\/workflows\/qualify-jarvis\.yml/,'authorized publication still qualifies its exact commit');
+  assert.match(deploy,/node scripts\/guard-validation\.mjs/,'authorized publication still requires its exact successful main validation');
   assert.match(deploy,/github\.event_name == 'workflow_dispatch'/);
   assert.match(deploy,/github\.ref == 'refs\/heads\/main'/);
 });
