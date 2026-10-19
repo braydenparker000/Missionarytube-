@@ -8,8 +8,8 @@ test('PR and production qualification share one complete reusable pipeline',()=>
   for(const file of ['ci.yml','deploy-azure-storage.yml'])assert.match(read(file),/uses: \.\/\.github\/workflows\/qualify-jarvis\.yml/);
   assert.doesNotMatch(production,/npm run test:jarvis|npm --prefix \.jarvis-source test|run: npm test|run: npm run build/);
   assert.match(qualification,/fail-fast: false/);
-  assert.match(qualification,/needs: \[plan, component, build\]/);
-  for(const name of ['PLAN','COMPONENT','BUILD'])assert.match(qualification,new RegExp('test "\\$'+name+'_RESULT" = success'));
+  assert.match(qualification,/needs: \[plan, component, build, runtime\]/);
+  for(const name of ['PLAN','COMPONENT','BUILD','RUNTIME'])assert.match(qualification,new RegExp('test "\\$'+name+'_RESULT" = success'));
   assert.doesNotMatch(qualification,/continue-on-error|secrets\.|azure\/login|wrangler-action/);
 });
 test('every source lane has its own exact checkout dependencies and mandatory locked browser',()=>{
@@ -28,15 +28,19 @@ test('immutable artifact is built once and verified before any provider credenti
   assert.equal((qualification.match(/run: npm run build/g)||[]).length,1);
   assert.match(qualification,/node scripts\/qualified-artifact\.mjs create/);
   const verification=production.indexOf('node scripts/qualified-artifact.mjs verify');
-  assert.ok(verification>0&&verification<production.indexOf('secrets.CLOUDFLARE_API_TOKEN'));
+  assert.ok(verification>0&&verification<production.indexOf('azure/login@v2'));
   assert.match(production,/name: jarvis-\$\{\{ github.sha \}\}-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}/);
   assert.match(production,/needs: qualification/);assert.match(production,/github.ref == 'refs\/heads\/main'/);
 });
-test('backend stays serialized and its actual identity is rechecked before homepage promotion',()=>{
-  assert.match(production,/group: jarvis-worker-production\n      cancel-in-progress: false/);
-  const backend=production.indexOf('node scripts/relay-worker-release-identity.mjs verify'),promotion=production.indexOf('name: Promote Jarvis homepage');
-  assert.ok(backend>0&&backend<promotion);
-  assert.ok(production.indexOf('Save rollback artifact before any overwrite')<production.indexOf('Stage Jarvis'));
-  assert.ok(production.indexOf('Check every staged file')<promotion);
-  assert.ok(production.indexOf('node scripts/relay-worker-release-identity.mjs receipt')>production.indexOf("--test-name-pattern='live podcast discovery'"));
+test('static releases cannot write Worker settings or data, and backup precedes publication',()=>{
+  assert.doesNotMatch(production,/CLOUDFLARE|wrangler|configure-drive|configure-quick-ai|upload-batch|activate-|continue-on-error/);
+  assert.match(production,/group: azure-production\n  cancel-in-progress: false/);
+  const backup=production.indexOf('name: Save rollback artifact before any overwrite'),publish=production.indexOf('run: node scripts/publish-frontend.mjs publish');
+  assert.ok(backup>0&&backup<publish);
+  assert.match(production,/retention-days: 90/);
+  assert.match(production,/FRONTEND_EXPECTED_COMMIT: \$\{\{ inputs.expected_commit \}\}/);
+  assert.match(production,/needs.qualification.result == 'success'/);
+  assert.match(production,/DAILY_BOARD_ORIGIN: https:\/\/missionarytube.z13.web.core.windows.net/);
+  assert.match(production,/inputs.action == 'rollback' && inputs.rollback_run_id != ''/);
+  for(const mode of ['publish_poweramp_background','publish_simple_chat_tasks','publish_media_only','activate_lucy_muse'])assert.ok(!production.includes(mode));
 });

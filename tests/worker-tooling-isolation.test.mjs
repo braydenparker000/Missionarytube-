@@ -25,12 +25,3 @@ test('installer writes are isolated from both qualified source dependency files'
     assert.throws(()=>verifyWorkerTools(root),/mutated/);
   }finally{await rm(root,{recursive:true,force:true});}
 });
-test('production action uses an isolated installer cwd and the same absolute qualified source config',async()=>{
-  const flow=await readFile(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');
-  const action=flow.slice(flow.indexOf('      - name: Deploy the exact qualified changed Worker'),flow.indexOf('      - name: Verify real podcast search'));
-  assert.match(action,/workingDirectory: \.worker-tools/);
-  assert.match(action,/command: deploy --config "\$\{\{ github.workspace \}\}\/\.jarvis-source\/backend\/wrangler.music.generated.json"/);
-  assert.doesNotMatch(action,/workingDirectory: \.jarvis-source/);
-  assert.match(action,/node scripts\/prepare-worker-tools\.mjs verify/);
-  assert.ok(flow.indexOf('node scripts/prepare-worker-tools.mjs prepare')<flow.indexOf('uses: cloudflare/wrangler-action@v4'));
-});

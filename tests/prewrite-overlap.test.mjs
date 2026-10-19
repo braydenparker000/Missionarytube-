@@ -229,20 +229,3 @@ test('real backup helper inventory/authentication/corruption failures stop readi
     }finally{await f.cleanup();}
   }
 });
-test('workflow preserves credential, join, Worker recording and rollback upload barriers before all writes',async()=>{
-  const flow=await readFile(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');
-  const ordered=['Verify immutable artifact before provider credentials or changes','Preserve current bindings','Seal the final configured artifact','Require existing backend before changing live blobs','Sign in to Azure with OIDC','Verify the existing deployment target','Join real podcast readiness and verified full rollback backup','Record the actual qualified active Worker','Preserve podcast Worker rollback','Save rollback artifact before any overwrite','Publish a verified catalog','Verify sealed configured bytes immediately before staging','Stage Jarvis','Check every staged file','Require working backend for the Storage origin','Revalidate sealed configured bytes before homepage promotion','Revalidate actual backend identity','Promote Jarvis homepage','Verify the final root','Verify real podcast discovery and playback','Record a digest-bound production receipt','Publish the verified production receipt'];
-  for(let index=1;index<ordered.length;index++)assert.ok(flow.indexOf(ordered[index-1])>=0&&flow.indexOf(ordered[index-1])<flow.indexOf(ordered[index]),ordered[index]);
-  const workerArchive=flow.slice(flow.indexOf('      - name: Preserve podcast Worker rollback'),flow.indexOf('      - name: Save rollback artifact'));
-  assert.match(workerArchive,/if: \$\{\{ steps.jarvis.outputs.receipt_only != 'true' && \(always\(\) && steps.jarvis.outputs.podcasts_enabled == 'true'\) \}\}/);
-  for(const file of ['worker-versions-before.json','worker-versions-after.json','wrangler.music.generated.json','worker-bindings-before.json','worker-identity-before.json','worker-identity-current.json'])assert.ok(workerArchive.includes(file));
-  const joinStep=flow.slice(flow.indexOf('      - name: Join real podcast readiness'),flow.indexOf('      - name: Record the actual qualified active Worker'));
-  assert.match(joinStep,/run: node scripts\/overlap-jarvis-prewrite.mjs/);assert.doesNotMatch(joinStep,/CLOUDFLARE_API_TOKEN|continue-on-error|always\(\)/);
-  const storageArchive=flow.slice(flow.indexOf('      - name: Save rollback artifact'),flow.indexOf('      - name: Install media preparation'));
-  assert.match(storageArchive,/path: rollback\//);assert.match(storageArchive,/if-no-files-found: error/);assert.doesNotMatch(storageArchive,/continue-on-error|always\(\)/);
-  assert.doesNotMatch(flow,/continue-on-error|\n\s+run:.*&\s*$/m);
-  assert.match(flow,/group: azure-production\n  cancel-in-progress: false/);
-  assert.match(flow,/group: jarvis-worker-production\n      cancel-in-progress: false/);
-  const recipe=await readFile(new URL('../scripts/worker-release-identity.mjs',import.meta.url),'utf8');
-  assert.match(recipe,/const RECIPES=.*'scripts\/overlap-jarvis-prewrite.mjs'/);
-});

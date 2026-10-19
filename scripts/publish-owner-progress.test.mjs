@@ -25,12 +25,7 @@ test('whole-store verification rejects changes to shuffle worker, Mast, addition
  const after=before.map(f=>FILES.some(x=>x.path===f.name)||f.name==='release-qualified.json'?{...f,etag:'new'}:f);unchangedInventory(before,after);
  for(const bad of [after.slice(1),[...after,{name:'new.js',etag:'new',size:1}],after.map(f=>f.name==='drawercast/shuffle-worker.js'?{...f,etag:'changed'}:f),after.map(f=>f.name==='mast/index.html'?{...f,etag:'changed'}:f)])assert.throws(()=>unchangedInventory(before,bad));
 });
-test('publication mode serializes backup, Worker, static files and receipt using the existing identities',()=>{
- const workflow=readFileSync(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8'),job=workflow.slice(workflow.indexOf('  owner-progress:\n'));
- assert.ok(job.includes('ref: '+SOURCE));assert.match(job,/path: \.jarvis-source\n          persist-credentials: false\n          fetch-depth: 0/);assert.ok(job.includes('group: jarvis-worker-production'));assert.ok(job.includes('persist-credentials: false'));
- const steps=['publish-owner-progress.mjs prepare','wrangler deploy --dry-run','publish-owner-progress.mjs checkpoint','name: owner-progress-before-','wrangler deploy --config','publish-owner-progress.mjs publish','publish-owner-progress.mjs record','publish-owner-progress.mjs stamp','--name release-qualified.json','publish-owner-progress.mjs published'];let last=-1;for(const step of steps){const next=job.indexOf(step);assert.ok(next>last,step);last=next;}
- assert.ok(workflow.slice(0,workflow.indexOf('  owner-progress:\n')).match(/if: \$\{\{ inputs.publish_owner_progress != true/g).length>=10);
-});
+
 
 test('checkpoint resolves qualified URL-suffixed inputs and still requires a fresh Worker publication',()=>{
  const root=mkdtempSync(join(tmpdir(),'progress-suffix-'));

@@ -14,7 +14,7 @@ import { checkJarvisImport } from "../scripts/check-jarvis-import.mjs";
 
 // External pinned checkouts and deployment/rollback artifacts are not committed source.
 const SKIP_DIRS = new Set([".git", "node_modules", "dist", ".github", ".jarvis-source", "rollback", "upload"]);
-const TEXT = /\.(?:js|mjs|cjs|html|css|json|md|yml|yaml)$/;
+const TEXT = /\.(?:js|mjs|cjs|html|css|json|jsonc|md|yml|yaml)$/;
 
 async function sourceFiles(directory = ".") {
   const found = [];
@@ -99,6 +99,33 @@ const ALLOWED_HOSTS = [
 // Public references already present in the selected frontend. Scope these to
 // their actual consumers instead of exempting an editable source snapshot.
 const FRONTEND_PUBLIC_HOSTS = {
+  'backend/connector.js': ['chatgpt.com'], // existing OAuth client policy
+  'backend/wrangler.jsonc': ['jarvis-relay-egress.vercel.app'], // unchanged configured public relay endpoint
+  'backend/relay-common.js': ['chatgpt.com'],
+  'backend/relay-connector.js': ['chatgpt.com'],
+  'backend/relay-makima-policy.js': ['cursor.com', 'www.cursor.com'], // existing client policy
+  'backend/relay-makima.js': ['www.cursor.com'],
+  'backend/relay-core-alarm.js': ['developers.cloudflare.com'], // API documentation reference
+  'backend/podcasts.js': ['gpodder.net'], // existing fallback directory
+  'backend/songsterr.js': ['www.songsterr.com', 'dqsljvtekg760.cloudfront.net', 'd3d3l6a6rcgkaf.cloudfront.net'], // existing score provider
+  'package-lock.json': ['opencollective.com'], // locked package funding metadata
+  'backend/tests/hub.test.js': ['chatgpt.com'], // synthetic tests of actual client policy
+  'backend/tests/oauth-consent-browser.test.js': ['chatgpt.com', 'chromedevtools.github.io'],
+  'backend/tests/podcast-directory-contract.test.js': ['itunes.apple.com'],
+  // Captured public provider contracts, not synthetic account fixtures. Requests
+  // are mocked; retaining these public URLs also exercises the SSRF validator.
+  'backend/tests/contracts/podcasts/apple-search.json': ['itunes.apple.com', 'podcasts.apple.com', 'rss.amperwave.net', 'is1-ssl.mzstatic.com', 'feeds.megaphone.fm'],
+  'backend/tests/contracts/podcasts/apple-alternate.json': ['itunes.apple.com', 'www.itunes.com', 'podcasts.apple.com', 'rss.amperwave.net', 'is1-ssl.mzstatic.com', 'feeds.megaphone.fm'],
+  'backend/tests/podcasts.test.js': ['www.itunes.com', 'a.internal', '127.0.0.1.nip.io', 'metadata.google.internal', 'itunes.apple.com', 'gpodder.net'], // SSRF refusals and mocked directory calls
+  'backend/tests/publications.test.js': ['chatgpt.com'],
+  'backend/tests/relay-oauth.test.js': ['chatgpt.com'],
+  'backend/tests/relay-owner-assistant-attachments-runtime.test.js': ['chatgpt.com'],
+  'backend/tests/relay-makima.test.js': ['cursor.com', 'www.cursor.com'],
+  'backend/tests/relay-makima-callback-redirect-browser.test.js': ['cursor.com'],
+  'backend/tests/relay-makima-cookie-browser.test.js': ['cursor.com'],
+  'backend/tests/relay-makima-diagnostics.test.js': ['cursor.com'],
+  'backend/tests/relay-makima-double-submit-browser.test.js': ['cursor.com'],
+  'backend/tests/relay-makima-token-diagnostics.test.js': ['www.cursor.com'],
   'frontend/assets/app.js': ['scripts.sil.org'], // embedded font license
   'frontend/assets/relay.css': ['scripts.sil.org'], // embedded font license
   'frontend/assets/connect.js': ['chatgpt.com'], // existing user-facing link
@@ -121,7 +148,7 @@ function isAllowed(host, path) {
   if (ALLOWED_HOSTS.includes(host)) return true;
   if (FRONTEND_PUBLIC_HOSTS[path]?.includes(host)) return true;
   // Reserved documentation/test names can never resolve to a real service.
-  return /(?:^|\.)(?:example\.(?:test|com|org|net)|test|invalid|localhost)$/.test(host);
+  return /(?:^|\.)(?:example\.(?:test|com|org|net)|example|test|invalid|localhost)$/.test(host);
 }
 
 test("no committed file references a non-allowlisted external host", () => {
@@ -201,7 +228,7 @@ test("test fixtures use only reserved, non-resolvable hosts", async () => {
       const host = match[1].toLowerCase();
       assert.match(
         host,
-        /(?:^|\.)(?:example\.(?:test|com|org|net)|test|invalid|localhost)$/,
+        /(?:^|\.)(?:example\.(?:test|com|org|net)|example|test|invalid|localhost)$/,
         `${path} references ${host}, which is not a reserved test name`
       );
     }

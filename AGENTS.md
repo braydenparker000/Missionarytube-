@@ -10,6 +10,11 @@ Maintain Jarvis as the primary frontend on the existing MissionaryTube Storage e
 frontend components only in `frontend/`; this is the complete selected input to
 `scripts/build-jarvis.mjs`. The build generates frontend/component commit and
 byte/mode tree provenance. Do not maintain component commit or tree pins.
+Worker code is editable in `backend/`, with its existing behavior/security tests
+in `backend/tests/`. The backend imports shared modules from `frontend/`, not
+from the archived public tree. Root `npm ci` installs both workspace dependency
+sets; `npm run test:backend` runs the current application suite. CI requires it
+with the approved Node/Chrome runtimes and isolated fixtures.
 Local edits can build and test; publication requires a committed checkout and
 matching generated provenance. Never replace this source with an imported variant.
 
@@ -24,8 +29,12 @@ frontend build input. Its old repository field records historical identity;
 checkouts use destination history in `braydenparker000/Missionarytube-`.
 See [the source import record](docs/jarvis-source-import.md) and the selected
 publisher for component-specific live preservation and rollback boundaries.
-The general artifact is not a replacement for independently published live
-private, music, cache or configured assets. Preserve those publishers' guards.
+The build now reproduces the accepted public/private/music/cache application
+bytes, including automatically fingerprinted music URLs. Configured assets and
+content remain provider-owned and excluded from application publishing. The
+normal Azure workflow publishes the whole selected frontend with generated
+provenance and trusted prior-run evidence. Initial adoption requires every
+runtime byte already match live; it cannot activate an imported variant.
 
 Root `npm test` is the deployment suite; imported application tests remain
 separately qualified. Run relevant imported tests explicitly, not through

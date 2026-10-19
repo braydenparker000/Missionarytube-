@@ -9,7 +9,7 @@ test('source qualification is complete once, with locked dependencies on each ex
   const checkout=component.indexOf('path: .jarvis-source'),install=component.indexOf('run: npm --prefix .jarvis-source ci'),execute=component.indexOf('node scripts/plan-jarvis-qualification.mjs run');
   assert.ok(checkout>=0&&checkout<install&&install<execute);
   assert.doesNotMatch(component.slice(install,execute),/--ignore-scripts|--omit(?:=|\s)|NODE_ENV:\s*production/);
-  assert.match(source,/needs: \[plan, component, build\]/);
+  assert.match(source,/needs: \[plan, component, build, runtime\]/);
   assert.match(source,/test "\$COMPONENT_RESULT" = success/);
   for(const file of ['ci.yml','deploy-azure-storage.yml']){
     const workflow=await readFile(new URL('../.github/workflows/'+file,import.meta.url),'utf8');
