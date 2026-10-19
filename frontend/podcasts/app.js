@@ -1,6 +1,7 @@
 import {API_ORIGIN} from '/assets/config.js';
 import {STORAGE_KEY,AUDIO_CACHE,MAX_DOWNLOAD,categories,readState,keyOf,offlinePath,clock,positionText,minutes,size,resumePosition,nextQueued,shouldSleep,progressEntry,compactProgress,storedFeed,saveFeed} from './core.js';
 import {clientDirectory} from './directory.js';
+import {surfaceMotion,episodeHolds} from './motion.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s || '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -57,44 +58,71 @@ function playbackStatus(message='',error=false) {
 }
 // Dialogs occupy same-URL history entries: Android/browser Back dismisses one
 // layer before leaving the show. Actions wait for that traversal before routing.
-let dialogStack=[], closingDialog=null;
+let dialogStack=[], closingDialog=null, dialogSerial=0, historyEpoch=0, overlayScroll=0;
+const motions=new Map(),dialogOpeners=new WeakMap();
+for(const d of [$('player'),$('sheet')])motions.set(d,surfaceMotion(d,{
+  ...(d.id==='player'?{miniArt:$('mini-art'),art:$('player-art')}:{}),
+  onDismiss:()=>closeDialog(d),onResume:()=>openDialog(d,dialogOpeners.get(d))
+}));
 history.replaceState({...history.state,podcastIndex:historyIndex,podcastDialogs:[]},'');
 function pushHistory(state,url=location.href) {history.pushState({...state,podcastIndex:++historyIndex},'',url);}
-function openDialog(d) {
-  if(d.open)return;
-  dialogStack.push(d.id);pushHistory({...history.state,podcastDialogs:[...dialogStack]});d.showModal();
+function prepareSheet(){
+  const parent=dialogStack.at(-1);
+  if(parent?.dialog===$('sheet')){parent.nodes=[...$('sheet').childNodes];parent.scroll=$('sheet').scrollTop;}
+}
+function openDialog(d,opener=document.activeElement) {
+  if(d.id==='player'&&dialogStack.some(frame=>frame.dialog===d))return;
+  if(!dialogStack.length)overlayScroll=scrollY;
+  const frame={key:++dialogSerial,dialog:d,opener};dialogOpeners.set(d,opener);
+  dialogStack.push(frame);pushHistory({...history.state,podcastDialogs:dialogStack.map(f=>f.key)});
+  document.documentElement.classList.add('podcast-overlay-open');
+  if(!d.open)d.showModal();
+  d.scrollTop=0;
+  d.querySelector('button,input,select')?.focus({preventScroll:true});
+  motions.get(d).enter();
 }
 function closeDialog(d) {
   if(closingDialog)return closingDialog.promise;
-  if(!d.open)return Promise.resolve();
+  if(!d.open||dialogStack.at(-1)?.dialog!==d)return Promise.resolve();
   let resolve;const promise=new Promise(done=>resolve=done);closingDialog={promise,resolve};
   history.back();return promise;
 }
 function closeSheet() { return closeDialog($('sheet')); }
-function onHistory() {
-  const previousIndex=historyIndex,hadDialogs=dialogStack.length>0;
+async function onHistory() {
+  const serial=++historyEpoch,previousIndex=historyIndex,hadDialogs=dialogStack.length>0;
   historyIndex=Number.isSafeInteger(history.state?.podcastIndex)?history.state.podcastIndex:previousIndex+1;
   if(!Number.isSafeInteger(history.state?.podcastIndex))history.replaceState({...history.state,podcastIndex:historyIndex},'');
-  const route=location.hash || '#discover',target=route===activeRoute?(history.state?.podcastDialogs || []):[];
-  while(dialogStack.length>target.length || (dialogStack.length && dialogStack.some((id,i)=>target[i]!==id)))$(dialogStack.pop()).close();
-  // Forward must not resurrect an old menu with actions for a different episode.
-  if(target.length>dialogStack.length)history.replaceState({...history.state,podcastDialogs:[...dialogStack]},'');
-  // Reload and Forward can leave dismissed same-URL dialog entries. A normal
-  // Back with no open dialog must traverse those entries, not appear inert.
-  if(route===activeRoute&&!hadDialogs&&historyIndex<previousIndex){history.back();return;}
-  const pending=closingDialog;closingDialog=null;
-  if(route!==activeRoute){rememberView();renderRoute();}
+  const route=location.hash || '#discover',sameRoute=route===activeRoute,target=sameRoute?(history.state?.podcastDialogs || []):[];
+  const pending=closingDialog;closingDialog=null;let restore;
+  const exits=[];
+  while(dialogStack.length>target.length || (dialogStack.length && dialogStack.some((f,i)=>target[i]!==f.key))){
+    const frame=dialogStack.pop(),d=frame.dialog;restore=frame.opener;dialogOpeners.set(d,frame.opener);
+    const parent=dialogStack.at(-1);
+    if(parent?.dialog===d){
+      motions.get(d).reset();d.replaceChildren(...parent.nodes);d.scrollTop=parent.scroll;motions.get(d).enter();
+    }else exits.push(motions.get(d).exit().then(finished=>{if(finished&&!dialogStack.some(f=>f.dialog===d))d.close();}));
+  }
+  // Forward never resurrects stale actions for another episode.
+  if(target.length>dialogStack.length)history.replaceState({...history.state,podcastDialogs:dialogStack.map(f=>f.key)},'');
+  if(route===activeRoute&&!hadDialogs&&historyIndex<previousIndex){pending?.resolve();history.back();return;}
+  if(route!==activeRoute){cancelHolds();rememberView();renderRoute();}
+  await Promise.all(exits);
+  if(serial===historyEpoch){
+    if(!dialogStack.length){document.documentElement.classList.remove('podcast-overlay-open');if(sameRoute)window.scrollTo({top:overlayScroll,behavior:'instant'});}
+    const top=dialogStack.at(-1)?.dialog,fallback=top?.querySelector('button')||$('content');
+    (restore?.isConnected&&!restore.closest('dialog:not([open])')&&(!top||top.contains(restore))?restore:fallback)?.focus({preventScroll:true});
+  }
   pending?.resolve();
 }
 
-function sheet(title,actions) {
-  const d=$('sheet');d.innerHTML=`<div class="dialog-heading"><h2 id="sheet-heading">${esc(title)}</h2><button class="close" aria-label="Close menu">×</button></div>${actions.map((a,i)=>`<button class="sheet-action" data-action="${i}">${icon(a.icon || 'podcast')}<span>${esc(a.label)}</span></button>`).join('')}`;
+function sheet(title,actions,opener=document.activeElement) {
+  prepareSheet();const d=$('sheet');d.innerHTML=`<div class="dialog-heading" data-drag-handle><h2 id="sheet-heading">${esc(title)}</h2><button class="icon-button close" aria-label="Close menu">${icon('down')}</button></div>${actions.map((a,i)=>`<button class="sheet-action" data-action="${i}">${icon(a.icon || 'podcast')}<span>${esc(a.label)}</span></button>`).join('')}`;
   d.querySelector('.close').onclick=closeSheet;
-  d.querySelectorAll('[data-action]').forEach(b=>b.onclick=async()=>{if(b.disabled)return;b.disabled=true;await closeSheet();try{await actions[Number(b.dataset.action)].action();}catch(e){notify(e.message || 'Please try again.');}});
-  openDialog(d);
+  d.querySelectorAll('[data-action]').forEach(b=>b.onclick=async()=>{if(b.disabled)return;b.disabled=true;const action=actions[Number(b.dataset.action)];try{if(action.immediate){action.action();await closeSheet();}else{await closeSheet();await action.action();}}catch(e){notify(e.message || 'Please try again.');}});
+  openDialog(d,opener);
 }
 function formSheet(title,html,submit) {
-  const d=$('sheet');d.innerHTML=`<div class="dialog-heading"><h2 id="sheet-heading">${esc(title)}</h2><button class="close" aria-label="Close menu">×</button></div><form class="sheet-form">${html}<button class="primary" type="submit">Save</button><p class="status" role="status" id="form-status"></p></form>`;
+  prepareSheet();const d=$('sheet');d.innerHTML=`<div class="dialog-heading" data-drag-handle><h2 id="sheet-heading">${esc(title)}</h2><button class="icon-button close" aria-label="Close menu">${icon('down')}</button></div><form class="sheet-form">${html}<button class="primary" type="submit">Save</button><p class="status" role="status" id="form-status"></p></form>`;
   d.querySelector('.close').onclick=closeSheet;
   d.querySelector('form').onsubmit=async e=>{e.preventDefault();const form=e.target,button=form.querySelector('[type=submit]');if(button.disabled)return;button.disabled=true;try{await submit(new FormData(form));}catch(err){form.querySelector('#form-status').textContent=err.message;}finally{button.disabled=false;}};
   openDialog(d);d.querySelector('input,select')?.focus();
@@ -146,13 +174,13 @@ function rows(list,{thumbs=false,queue=false}={}) {
 const empty = (title,body) => `<div class="empty-state"><h2>${esc(title)}</h2><p>${esc(body)}</p></div>`;
 function setNav() { const selected=view==='search'?'discover':view==='show'?(state.follows.some(s=>s.feedUrl===feedData?.show.feedUrl)?'library':'discover'):view;document.querySelectorAll('[data-view]').forEach(a=>{if(a.dataset.view===selected)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}); }
 function setRoute(hash) {
-  rememberView();
+  cancelHolds();rememberView();
   if(location.hash!==hash)pushHistory(hash.startsWith('#show=')?{podcastReturn:activeRoute,podcastReturnIndex:historyIndex}:{},hash);
   renderRoute();
 }
 const skeleton = () => '<div class="show-grid loading-grid" aria-hidden="true">'+Array.from({length:6},()=>'<div class="skeleton-tile"><div></div><span></span><span></span></div>').join('')+'</div>';
 async function renderRoute() {
-  requestController?.abort();requestController=new AbortController();const token=++renderToken;const signal=requestController.signal;
+  cancelHolds();requestController?.abort();requestController=new AbortController();const token=++renderToken;const signal=requestController.signal;
   activeRoute=location.hash || '#discover';paintEpisodes=null;
   const params=new URLSearchParams(location.hash.slice(1)), raw=location.hash.slice(1), showURL=params.get('show'), query=params.get('search');
   category=categories.some(c=>c[0]===params.get('category'))?params.get('category'):'popular';
@@ -224,27 +252,44 @@ async function loadLatest(e) {
 }
 function toggleFollow(show) {const i=state.follows.findIndex(s=>s.feedUrl===show.feedUrl);if(i<0){if(state.follows.length>=100){notify('Your library has reached 100 shows. Unfollow one first.');return;}state.follows.push(normalizedShow(show));notify('Added to your library');}else{state.follows.splice(i,1);notify('Show unfollowed');}commit();setNav();}
 
-function episodeMenu(e) {
+function episodeMenu(e,opener) {
   const key=keyOf(e), queued=state.queue.some(x=>keyOf(x)===key), downloaded=!!state.downloads[key], downloading=downloads.has(key);
-  const actions=[{label:'Play episode',icon:'play',action:()=>playEpisode(e)},
+  const active=current&&keyOf(current)===key&&(sourceLoading?wantPlay:!audio.paused);
+  const actions=[{label:active?'Pause episode':state.progress[key]?.position>0&&!state.progress[key]?.played?'Resume episode':'Play episode',icon:active?'pause':'play',immediate:true,action:()=>playEpisode(e)},
     {label:queued?'Remove from queue':'Add to queue',icon:'queue',action:()=>{if(queued)state.queue=nextQueued(state.queue,e);else if(state.queue.length<100)state.queue.push(e);else{notify('Queue is full. Remove an episode first.');return;}commit();notify(queued?'Removed from queue':'Added to queue');repaintLocal();}},
-    {label:downloading?'Cancel download':downloaded?'Remove download':'Download for offline listening',icon:downloaded?'trash':'download',action:()=>downloading?downloads.get(key).controller.abort():downloaded?removeDownload(e):downloadEpisode(e)},
-    {label:state.progress[key]?.played?'Mark unplayed':'Mark played',icon:'check',action:()=>{const played=!state.progress[key]?.played;state.progress[key]=progressEntry(e,0,e.duration,played);commit();notify(played?'Marked played':'Marked unplayed');repaintLocal();}}];
-  if(view==='queue' && queued)actions.push({label:'Move to top of queue',icon:'up',action:()=>{state.queue=[e,...nextQueued(state.queue,e)];commit();renderLocal();}});
+    {label:downloading?'Cancel download':downloaded?'Remove download':'Download for offline listening',icon:downloaded?'trash':'download',action:()=>downloading?downloads.get(key).controller.abort():downloaded?confirmRemove(e):downloadEpisode(e)},
+    {label:state.progress[key]?.played?'Mark unplayed':'Mark played',icon:'check',action:()=>{const played=!state.progress[key]?.played;state.progress[key]=progressEntry(e,0,e.duration,played);commit();notify(played?'Marked played':'Marked unplayed');repaintLocal({playedChanged:true});}}];
+  if(view==='queue' && queued)actions.push({label:'Move to top of queue',icon:'up',action:()=>{state.queue=[e,...nextQueued(state.queue,e)];commit();repaintLocal();}});
   if(view!=='show')actions.push({label:'Open show',icon:'podcast',action:async()=>{showRefs.set(e.show.feedUrl,e.show);if($('player').open)await closeDialog($('player'));setRoute('#show='+encodeURIComponent(e.show.feedUrl));}});
-  if(safeURL(e.audioUrl))actions.push({label:'Open original audio',icon:'link',action:()=>window.open(safeURL(e.audioUrl),'_blank','noopener')});
-  sheet(e.title,actions);
+  if(safeURL(e.audioUrl))actions.push({label:'Open original audio',icon:'link',immediate:true,action:()=>window.open(safeURL(e.audioUrl),'_blank','noopener')});
+  sheet(e.title,actions,opener);
 }
-function repaintLocal() {
-  if(['library','downloads','queue'].includes(view))renderLocal();
-  else if(view==='show'){const target=document.activeElement,action=['play','download','options','details'].find(name=>target?.dataset?.[name]);paintEpisodes?.();if(action)document.querySelector(`[data-${action}="${CSS.escape(target.dataset[action])}"]`)?.focus({preventScroll:true});}
+function repaintLocal({playedChanged=false}={}) {
+  const target=document.activeElement,action=['play','download','options','details'].find(name=>target?.dataset?.[name]),key=action?target.dataset[action]:null,position=scrollY;
+  let rebuilt=false;
+  if(['library','downloads','queue'].includes(view)){renderLocal();rebuilt=true;}
+  else if(view==='show'&&playedChanged&&$('episode-sort').value==='unplayed'){paintEpisodes?.();rebuilt=true;}
+  else if(view==='show'){
+    for(const row of document.querySelectorAll('.episode-row')){
+      const key=row.dataset.episode,p=state.progress[key],saved=!!state.downloads[key],pending=downloads.has(key);
+      const e=episodeRefs.get(key);if(!e)continue;
+      row.classList.toggle('playing',current&&keyOf(current)===key);
+      row.classList.toggle('played',!!p?.played);
+      const download=row.querySelector('[data-download]');download.classList.toggle('is-saved',saved);
+      download.innerHTML=icon(saved?'check':'download');download.setAttribute('aria-label',(pending?'Cancel download':saved?'Manage download':'Download')+' '+e.title);
+      row.querySelector('.episode-copy small').textContent=[date(e.publishedAt),minutes(e.duration),p?.played?'Played':p?.position>0?'Resume '+clock(p.position):'',saved?'Downloaded':'',pending?'Downloading…':''].filter(Boolean).join(' · ');
+    }
+  }
+  if(rebuilt){if(action)(document.querySelector(`[data-${action}="${CSS.escape(key)}"]`)||document.querySelector(`[data-${action}]`)||$('content')).focus({preventScroll:true});window.scrollTo({top:position,behavior:'instant'});}
   setPlayIcons();
 }
-function episodeDetails(e) {current&&keyOf(current)===keyOf(e)?openPlayer():formDetails(e);}
+
+function episodeDetails(e) {formDetails(e);}
 function formDetails(e) {
-  const d=$('sheet');d.innerHTML=`<div class="dialog-heading"><h2 id="sheet-heading">Episode</h2><button class="close" aria-label="Close episode">×</button></div><h3>${esc(e.title)}</h3><p>${esc(e.show.title)} · ${esc(minutes(e.duration))}</p><button class="primary" id="details-play">${icon('play')}Play episode</button><button class="text-button" id="details-options">More options</button><div class="episode-notes">${esc(e.description || 'No episode notes provided.')}</div>`;
-  d.querySelector('.close').onclick=closeSheet;$('details-play').onclick=async()=>{await closeSheet();playEpisode(e);};$('details-options').onclick=()=>episodeMenu(e);openDialog(d);
+  prepareSheet();const d=$('sheet');d.innerHTML=`<div class="dialog-heading" data-drag-handle><h2 id="sheet-heading">Episode</h2><button class="icon-button close" aria-label="Close episode">${icon('down')}</button></div><h3>${esc(e.title)}</h3><p>${esc(e.show.title)} · ${esc(minutes(e.duration))}</p><button class="primary" id="details-play" data-episode-key="${esc(keyOf(e))}">${icon('play')}Play episode</button><button class="text-button" id="details-options">More options</button><div class="episode-notes">${esc(e.description || 'No episode notes provided.')}</div>`;
+  d.querySelector('.close').onclick=closeSheet;$('details-play').onclick=()=>{playEpisode(e);closeSheet();};$('details-options').onclick=()=>episodeMenu(e);setPlayIcons();openDialog(d);
 }
+const cancelHolds=episodeHolds($('results'),(key,opener)=>{const e=episodeRefs.get(key);if(e)episodeMenu(e,opener);});
 document.querySelector('.skip-link').onclick=e=>{e.preventDefault();$('content').focus();};
 document.addEventListener('click',e=>{
   const node=e.target.closest('[data-feed],[data-play],[data-options],[data-details],[data-category],[data-retry],[data-search],[data-download],[data-view]');if(!node)return;
@@ -302,6 +347,7 @@ async function downloadEpisode(e) {
   } catch(err) {notify(controller.signal.aborted?'Download cancelled':err.name==='QuotaExceededError'?'Device storage is full. Remove a download first.':err.message || 'Download failed. Please try again.');}
   finally{downloads.delete(key);repaintLocal();updateDownloadButton();}
 }
+function confirmRemove(e){sheet('Remove this download?',[{label:'Remove download from this device',icon:'trash',action:()=>removeDownload(e)},{label:'Keep download',icon:'check',action:()=>{}}]);}
 async function removeDownload(e) {await (await caches.open(AUDIO_CACHE)).delete(new URL(offlinePath(e),location.origin).href);delete state.downloads[keyOf(e)];commit();notify('Download removed');repaintLocal();updateDownloadButton();}
 async function reconcileDownloads() {
   if(!('caches' in window))return;
@@ -313,6 +359,7 @@ async function reconcileDownloads() {
 function saveProgress(played=audio.ended) {if(!current||!loadedKey||sourceLoading||audio.readyState<1)return;const key=keyOf(current);state.progress[key]=progressEntry(current,audio.currentTime,audio.duration,played);state.current=current;commit();lastSaved=Date.now();}
 function setPlayIcons() {
   const playing=sourceLoading?wantPlay:!audio.paused&&!audio.ended,name=playing?'pause':'play';for(const id of ['play','mini-play']){$(id).innerHTML=icon(name);$(id).setAttribute('aria-label',playing?'Pause episode':'Play episode');}
+  const detail=$('details-play');if(detail){const active=playing&&current&&detail.dataset.episodeKey===keyOf(current),label=active?'Pause':state.progress[detail.dataset.episodeKey]?.position>0&&!state.progress[detail.dataset.episodeKey]?.played?'Resume':'Play';detail.innerHTML=icon(active?'pause':'play')+label+' episode';}
   for(const id of ['mini-back','back-15','forward-30'])$(id).disabled=sourceLoading||!loadedKey;
   document.querySelectorAll('[data-play]').forEach(b=>{const active=playing&&current&&b.dataset.play===keyOf(current),p=state.progress[b.dataset.play],label=active?'Pause':b.classList.contains('episode-play')?(p?.position>0&&!p.played?'Resume':'Play'):'Play latest';b.innerHTML=icon(active?'pause':'play')+'<span class="play-label">'+label+'</span>';const e=episodeRefs.get(b.dataset.play);b.setAttribute('aria-label',b.classList.contains('episode-play')?label+' '+(e?.title||'episode'):active?'Pause latest episode':'Play latest episode');});
 }
@@ -320,7 +367,7 @@ function updateDownloadButton() {if(!current)return;const key=keyOf(current),pen
 function downloadAction(e) {
   const key=keyOf(e);
   if(downloads.has(key)){downloads.get(key).controller.abort();return;}
-  if(state.downloads[key]){sheet('Downloaded on this device',[{label:'Remove download',icon:'trash',action:()=>removeDownload(e)}]);return;}
+  if(state.downloads[key]){confirmRemove(e);return;}
   downloadEpisode(e);
 }
 function updateCurrent() {
@@ -376,7 +423,7 @@ async function togglePlay() {
   if(!loadedKey){await playEpisode(current);return;}
   if(audio.paused){wantPlay=true;try{await audio.play();}catch{playbackStatus('Audio could not start. Try opening this episode again.',true);}}else{wantPlay=false;audio.pause();saveProgress();}setPlayIcons();
 }
-function openPlayer() {if(!current)return;updateCurrent();updatePosition();openDialog($('player'));}
+function openPlayer() {if(!current)return;updatePosition();openDialog($('player'));}
 const skip = n => {if(!loadedKey)return;audio.currentTime=Math.max(0,Math.min(Number.isFinite(audio.duration)?audio.duration:Infinity,audio.currentTime+n));updatePosition();saveProgress();};
 $('open-player').onclick=openPlayer;$('close-player').onclick=()=>closeDialog($('player'));
 for(const id of ['play','mini-play'])$(id).onclick=togglePlay;
@@ -429,5 +476,7 @@ addEventListener('popstate',onHistory);
 addEventListener('offline',()=>{connectionStatus();notify('You’re offline. Downloaded episodes still play.');});
 addEventListener('online',connectionStatus);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/podcasts/sw.js',{scope:'/podcasts/',type:'module'}).catch(()=>notify('Offline mode could not start. Streaming still works.'));
+const measureChrome=()=>{const nav=document.querySelector('.podcast-nav').getBoundingClientRect().height;const mini=$('mini-player').hidden?0:$('mini-player').getBoundingClientRect().height+12;document.body.style.setProperty('--nav-clearance',nav+'px');document.body.style.setProperty('--bottom-clearance',(nav+mini+24)+'px');};
+const chromeObserver=new ResizeObserver(measureChrome);chromeObserver.observe(document.querySelector('.podcast-nav'));chromeObserver.observe($('mini-player'));measureChrome();
 if(current){updateCurrent();updatePosition();}
 renderRoute();reconcileDownloads().catch(()=>{});

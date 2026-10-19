@@ -1,0 +1,50 @@
+[
+  {
+    "name": "before",
+    "browser": "154.0.8037.57",
+    "viewport": "390x844",
+    "cpuSlowdown": 4,
+    "cycles": 3,
+    "durationMs": 3340.600000000559,
+    "longTasksOver50ms": [
+      {
+        "start": 1391.300000000745,
+        "duration": 56
+      }
+    ],
+    "frameIntervalP95Ms": 16.800000000000182,
+    "sampledFrames": 191,
+    "rawJsCssBytes": 75178,
+    "gzipJsCssBytes": 21120,
+    "audio": {
+      "time": 3.567051,
+      "paused": false
+    }
+  },
+  {
+    "name": "after",
+    "browser": "154.0.8037.57",
+    "viewport": "390x844",
+    "cpuSlowdown": 4,
+    "cycles": 3,
+    "durationMs": 5276.199999999255,
+    "longTasksOver50ms": [
+      {
+        "start": 1370,
+        "duration": 61
+      },
+      {
+        "start": 5150.100000000559,
+        "duration": 52
+      }
+    ],
+    "frameIntervalP95Ms": 16.800000000000182,
+    "sampledFrames": 304,
+    "rawJsCssBytes": 84863,
+    "gzipJsCssBytes": 24131,
+    "audio": {
+      "time": 5.497779,
+      "paused": false
+    }
+  }
+]
