@@ -71,9 +71,9 @@ test("validation passes on an unmodified checkout", async () => {
   assert.match(result.output, /Validation passed/);
 });
 
-test("validation rejects a modified pinned source containing a mutable /latest/ dependency URL", async () => {
+test("validation rejects an editable source containing a mutable /latest/ dependency URL", async () => {
   const result = await checkFixture(async (directory) => {
-    const path = join(directory, "jarvis/public/media/assets/js/app.js");
+    const path = join(directory, "frontend/media/assets/js/app.js");
     const source = await readFile(path, "utf8");
     await writeFile(
       path,
@@ -85,25 +85,25 @@ test("validation rejects a modified pinned source containing a mutable /latest/ 
   });
 
   assert.equal(result.code, 1, "check.mjs must fail the build");
-  assert.match(result.output, /source worktree differs from its exact destination commit/);
+  assert.match(result.output, /loads a mutable dependency channel/);
 });
 
-test("validation rejects a modified pinned source missing a remote script integrity hash", async () => {
+test("validation rejects an editable source missing a remote script integrity hash", async () => {
   const result = await checkFixture(async (directory) => {
-    const path = join(directory, "jarvis/public/media/assets/js/app.js");
+    const path = join(directory, "frontend/media/assets/js/app.js");
     const source = await readFile(path, "utf8");
     await writeFile(path, source.replace(/,integrity:'sha384-[^']+'/, ""));
   });
 
   assert.equal(result.code, 1, "check.mjs must fail the build");
-  assert.match(result.output, /source worktree differs from its exact destination commit/);
+  assert.match(result.output, /without a subresource integrity hash/);
 });
 
 test("validation requires the progress store module to ship", async () => {
   const result = await checkFixture(async (directory) => {
-    await rm(join(directory, "jarvis/public/media/assets/js/progress-store.js"));
+    await rm(join(directory, "frontend/media/assets/js/progress-store.js"));
   });
 
   assert.equal(result.code, 1);
-  assert.match(result.output, /source worktree differs from its exact destination commit/);
+  assert.match(result.output, /Required Jarvis media source file is absent|Missing required file/);
 });

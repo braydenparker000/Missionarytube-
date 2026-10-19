@@ -6,23 +6,26 @@ Maintain Jarvis as the primary frontend on the existing MissionaryTube Storage e
 
 ## Consolidation destination
 
-`braydenparker000/Missionarytube-` is the surviving repository. Authoritative
-Jarvis application source is imported under `jarvis/`; use its canonical
-[delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
-This root guidance supersedes dated checkpoints in the frozen imported
-[delivery plan](jarvis/docs/delivery-plan.md). Preserve the import integrity
-boundary; maintained component changes must use the existing exact-source
-manifests and guards, not a wholesale snapshot replacement.
+`braydenparker000/Missionarytube-` is the surviving repository. Edit static
+frontend components only in `frontend/`; this is the complete selected input to
+`scripts/build-jarvis.mjs`. The build generates frontend/component commit and
+byte/mode tree provenance. Do not maintain component commit or tree pins.
+Local edits can build and test; publication requires a committed checkout and
+matching generated provenance. Never replace this source with an imported variant.
 
-The current static build uses `jarvis-active-public-c28/public` plus exact
-component overlays resolved by `scripts/media-source.mjs` and the explicit
-navigation/configuration transforms in `scripts/build-jarvis.mjs`.
-`.jarvis-source` is still required at the `jarvis-release.json` commit for
-qualification and retained release consumers, but active workflow checkouts
-use destination history in `braydenparker000/Missionarytube-`. The manifest's
-old repository field is historical identity, not the current checkout origin.
-See [the import record](docs/jarvis-source-import.md) and the actual selected
-publisher for component-specific source, preservation and rollback boundaries.
+`jarvis/` is a frozen imported archive, including dormant variants, retained
+backend inputs and the canonical
+[delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
+Its exact import guard remains intact. This root guidance supersedes dated
+checkpoints in the imported [delivery plan](jarvis/docs/delivery-plan.md).
+`.jarvis-source` at the `jarvis-release.json` commit is still required by
+historical backend qualification and retained release consumers; it is not a
+frontend build input. Its old repository field records historical identity;
+checkouts use destination history in `braydenparker000/Missionarytube-`.
+See [the source import record](docs/jarvis-source-import.md) and the selected
+publisher for component-specific live preservation and rollback boundaries.
+The general artifact is not a replacement for independently published live
+private, music, cache or configured assets. Preserve those publishers' guards.
 
 Root `npm test` is the deployment suite; imported application tests remain
 separately qualified. Run relevant imported tests explicitly, not through

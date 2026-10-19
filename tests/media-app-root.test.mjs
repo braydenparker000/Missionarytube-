@@ -5,10 +5,10 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { mediaAppRoot, readAppSource, repoRoot } from "./helpers/media-root.mjs";
 
-test("unset MEDIA_APP_ROOT selects the exact destination Jarvis media path", async () => {
+test("unset MEDIA_APP_ROOT selects the authoritative editable frontend media path", async () => {
   assert.equal(process.env.MEDIA_APP_ROOT, undefined);
-  assert.equal(mediaAppRoot(), new URL("../jarvis/public/media", import.meta.url).pathname);
-  assert.equal(await readAppSource("index.html"), await readFile(new URL("../jarvis/public/media/index.html", import.meta.url), "utf8"));
+  assert.equal(mediaAppRoot(), new URL("../frontend/media", import.meta.url).pathname);
+  assert.equal(await readAppSource("index.html"), await readFile(new URL("../frontend/media/index.html", import.meta.url), "utf8"));
 });
 
 test("a Jarvis target cannot resolve to the repo-root copy", () => {

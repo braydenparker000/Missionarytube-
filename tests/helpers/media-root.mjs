@@ -1,7 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isAbsolute, join, resolve } from "node:path";
-import { readMediaSource } from "../../scripts/media-source.mjs";
+import { frontendDirectory } from "../../scripts/frontend-source.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const LEGACY_SOURCES = new Set([
@@ -14,17 +14,17 @@ export function repoRoot() {
   return REPO_ROOT;
 }
 
-/** Media tests use the exact destination commit/path/tree recorded in the source manifest. */
+/** Media tests use the same editable directory as the static build. */
 export function mediaAppRoot() {
-  const source = readMediaSource(REPO_ROOT);
+  const directory = frontendDirectory("media", REPO_ROOT);
   const override = process.env.MEDIA_APP_ROOT;
   if (override) {
     const requested = resolve(isAbsolute(override) ? override : resolve(REPO_ROOT, override));
-    if (requested !== source.directory) {
-      throw new Error(`MEDIA_APP_ROOT must resolve to the exact Jarvis media source (${source.directory})`);
+    if (requested !== directory) {
+      throw new Error(`MEDIA_APP_ROOT must resolve to the exact Jarvis media source (${directory})`);
     }
   }
-  return source.directory;
+  return directory;
 }
 
 /** Three retained root modules keep source-only legacy assertions runnable. */

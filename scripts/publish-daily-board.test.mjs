@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {guardSnapshot,publicationOrder,PATHS,sha,checkedParentRun,checkedParentReceipt,checkedUpdateBaseline,checkedRestoration,retainedProperties,checkedReviewedCommit,publishUpdate,rollbackUpdate} from './publish-daily-board.mjs';
+import {guardSnapshot,publicationOrder,PATHS,sha,checkedParentRun,checkedParentReceipt,checkedUpdateBaseline,checkedRestoration,retainedProperties,checkedReviewedCommit,publishUpdate,rollbackUpdate,resolveParentRun} from './publish-daily-board.mjs';
 test('Daily Board upload publishes dependencies before the sole route',()=>{assert.equal(publicationOrder(PATHS).at(-2),'daily-board/index.html');assert.equal(publicationOrder(PATHS).at(-1),'assets/app.js');assert.throws(()=>publicationOrder([...PATHS,'drawercast/player.js']));});
 test('Daily Board prewrite guard refuses existence, ETag and byte drift',()=>{const prior={exists:true,etag:'one',hash:'a'};guardSnapshot(prior,{...prior});for(const next of [{...prior,exists:false},{...prior,etag:'two'},{...prior,hash:'b'}])assert.throws(()=>guardSnapshot(prior,next));guardSnapshot({exists:false},{exists:false});});
 
@@ -10,6 +10,19 @@ test('navigation changes only the Daily Board link on the exact retained app',()
 
 const repository='braydenparker000/Missionarytube-';
 const run={id:42,repository:{full_name:repository},head_repository:{full_name:repository},path:'.github/workflows/publish-daily-board.yml',head_branch:'main',event:'workflow_dispatch',status:'completed',conclusion:'success',head_sha:'a'.repeat(40)};
+test('normal publication discovers its trusted parent while rollback still requires an explicit run',async()=>{
+ const latest={...run,id:43,display_title:'Daily Board publish at '+'b'.repeat(40)};
+ const history={workflow_runs:[{...run,id:44,display_title:'Daily Board rollback at '+'c'.repeat(40)},latest,{...run,display_title:'Publish composable Daily Board'}]};
+ const get=async path=>{assert.match(path,/branch=main&event=workflow_dispatch&status=success/);return history;};
+ assert.equal(await resolveParentRun({get}),latest);
+ assert.equal(await resolveParentRun({get:async()=>({workflow_runs:[{...run,display_title:'Publish composable Daily Board'}]})}).then(r=>r.id),42);
+ await assert.rejects(resolveParentRun({rollback:true,get}),/explicit publication run/);
+ await assert.rejects(resolveParentRun({get:async()=>({workflow_runs:[]})}),/No successful/);
+ await assert.rejects(resolveParentRun({get:async()=>({workflow_runs:[{...latest,head_branch:'feature'}]})}));
+ await assert.rejects(resolveParentRun({get:async()=>({workflow_runs:[{...latest,conclusion:'failure'}]})}));
+ assert.equal(await resolveParentRun({id:'42',get:async path=>{assert.equal(path,'/actions/runs/42');return run;}}),run);
+ await assert.rejects(resolveParentRun({id:'main',get:async()=>run}),/Invalid publication run/);
+});
 test('publication requires the reviewed commit even if main or the checked-out revision moves',()=>{
  checkedReviewedCommit(run.head_sha,run.head_sha,run.head_sha);
  for(const expected of ['',undefined,'main'])assert.throws(()=>checkedReviewedCommit(expected,run.head_sha,run.head_sha));
@@ -35,6 +48,15 @@ test('only a completed successful main publication from the same repository supp
  assert.equal(checkedParentRun({...run,conclusion:'failure'},'42',{rollback:true}).conclusion,'failure','failed partial publications retain rollback access');
  for(const change of [r=>r.runId='43',r=>r.commit='f'.repeat(40),r=>r.workerChanged=true,r=>r.databaseChanged=true,r=>r.source.path='jarvis/public',r=>r.source.repository='example/other',r=>r.files.pop(),r=>r.files[0].hash='invalid',r=>r.files[0].bytes=-1,r=>r.files[0].type='text/html']){
   const copy=structuredClone(parent);change(copy);assert.throws(()=>checkedParentReceipt(run,copy,'42'));
+ }
+});
+
+test('generated Daily Board provenance accepts the consolidated source and rejects dirty or unrelated source identities',()=>{
+ const {parent}=fixture();
+ parent.source={...parent.source,path:'frontend/daily-board',commit:run.head_sha,dirty:false};
+ assert.equal(checkedParentReceipt(run,parent,'42'),parent);
+ for(const source of [{...parent.source,dirty:true},{...parent.source,commit:'c'.repeat(40)},{...parent.source,path:'frontend/media'}]){
+  assert.throws(()=>checkedParentReceipt(run,{...parent,source},'42'));
  }
 });
 
@@ -134,4 +156,5 @@ test('Daily Board workflow keeps explicit dispatch, identity, backup-before-writ
  assert.match(workflow,/DAILY_BOARD_ARTIFACT_ROOT=dist node --test tests\/daily-board-browser.test.mjs/);
  assert.match(workflow,/DAILY_BOARD_ORIGIN: https:\/\/missionarytube.z13.web.core.windows.net/);
  assert.match(workflow,/DAILY_BOARD_EXPECTED_COMMIT: \$\{\{ inputs.expected_commit \}\}/);
+ assert.doesNotMatch(workflow,/path: \.jarvis-source|media-source\.mjs/,'a frontend publication needs no historical source checkout or manual pin resolver');
 });

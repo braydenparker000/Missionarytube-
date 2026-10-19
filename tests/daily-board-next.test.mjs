@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validateReport,safeURL,canonical} from '../daily-board-next/schema.js';
+import {validateReport,safeURL,canonical} from '../frontend/daily-board/v1/schema.js';
 import {prepare,verifyReadback} from '../daily-board-next/publisher.mjs';
-import {encodeReport,decodeReport} from '../daily-board-next/schema.js';
+import {encodeReport,decodeReport} from '../frontend/daily-board/v1/schema.js';
 const fixture=name=>JSON.parse(readFileSync(new URL(`../daily-board-next/fixtures/${name}.json`,import.meta.url)));
 test('two independent compositions validate, including prose only',()=>{
   for(const name of ['one','two'])assert.equal(validateReport(fixture(name)).synthetic,true);
@@ -25,7 +25,4 @@ test('existing body envelope round-trips with stable identity and safe unknown f
   assert.equal(decodeReport({...entry,id:'other'}),null);
   assert.equal(decodeReport({...entry,body:entry.body.replace('jarvis-daily-board-v1','unknown')}),null);
   assert.equal(decodeReport({body:'Legacy prose'}),null);
-});
-test('maintained production modules exactly match qualified component sources',()=>{
-  for(const file of ['schema.js','render.js','live.js','design.css','components.css'])assert.equal(readFileSync(new URL('../jarvis/public/daily-board/v1/'+file,import.meta.url),'utf8'),readFileSync(new URL('../daily-board-next/'+file,import.meta.url),'utf8'));
 });

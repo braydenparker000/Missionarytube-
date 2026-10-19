@@ -6,7 +6,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {APP_BEFORE} from './daily-board-navigation.mjs';
-import {readDailyBoardSource} from './media-source.mjs';
+import {checkedFrontendBuild} from './frontend-source.mjs';
 export const BEFORE='68aafa41562628ad87a93557ff5ab5afeecba83874b2b4abe142b953fd4b9454';
 export const PATHS=['daily-board/v1/design.css','daily-board/v1/components.css','daily-board/v1/schema.js','daily-board/v1/render.js','daily-board/v1/live.js','daily-board/index.html','assets/app.js'];
 const OUT='daily-board-publication',ORIGIN='https://missionarytube.z13.web.core.windows.net';
@@ -33,11 +33,27 @@ export function checkedParentRun(run,id,{rollback=false}={}){
  assert.match(run.head_sha,/^[a-f0-9]{40}$/);
  return run;
 }
+export async function resolveParentRun({id,rollback=false,get}){
+ if(id){assert.match(id,/^[1-9][0-9]*$/,'Invalid publication run');return checkedParentRun(await get('/actions/runs/'+id),id,{rollback});}
+ assert.equal(rollback,false,'Rollback requires an explicit publication run');
+ const page=await get('/actions/workflows/publish-daily-board.yml/runs?branch=main&event=workflow_dispatch&status=success&per_page=100');
+ assert.ok(Array.isArray(page.workflow_runs),'Publication history unavailable');
+ // New runs name the action. Retain the pre-consolidation publication name;
+ // the downloaded receipt and complete live baseline must still validate.
+ const run=page.workflow_runs.find(run=>run.display_title==='Publish composable Daily Board'||run.display_title?.startsWith('Daily Board publish at '));
+ assert.ok(run,'No successful Daily Board publication found; select its run explicitly');
+ return checkedParentRun(run,String(run.id));
+}
 export function checkedParentReceipt(run,receipt,id){
  checkedParentRun(run,id);assert.equal(receipt.schema,1);
  assert.equal(String(receipt.runId),String(id));assert.equal(receipt.commit,run.head_sha);
  assert.equal(receipt.workerChanged,false);assert.equal(receipt.databaseChanged,false);
- assert.equal(receipt.source?.repository,REPOSITORY);assert.equal(receipt.source.path,'jarvis/public/daily-board');
+ assert.equal(receipt.source?.repository,REPOSITORY);
+ assert.ok(['jarvis/public/daily-board','frontend/daily-board'].includes(receipt.source.path),'Unexpected Daily Board source path');
+ if(receipt.source.path==='frontend/daily-board'){
+  assert.equal(receipt.source.commit,run.head_sha,'Generated source must belong to the published commit');
+  assert.equal(receipt.source.dirty,false,'Published source must be committed');
+ }
  for(const key of ['commit','tree'])assert.match(receipt.source[key],/^[a-f0-9]{40}$/);
  publicationOrder(receipt.files.map(f=>f.path));
  for(const file of receipt.files){assert.match(file.hash,/^[a-f0-9]{64}$/);assert.ok(Number.isSafeInteger(file.bytes)&&file.bytes>0);assert.equal(file.type,mime(file.path));}
@@ -79,14 +95,15 @@ export function checkedReviewedCommit(expected,checkout,dispatched=checkout){
 }
 async function parentRun(){
  checkedReviewedCommit(process.env.DAILY_BOARD_EXPECTED_COMMIT,execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),process.env.GITHUB_SHA);
- const id=process.env.DAILY_BOARD_PARENT_RUN_ID;assert.match(id||'',/^[1-9][0-9]*$/);
- const response=await fetch(`https://api.github.com/repos/${REPOSITORY}/actions/runs/${id}`,{headers:{Authorization:`Bearer ${process.env.GITHUB_TOKEN}`,Accept:'application/vnd.github+json'},signal:AbortSignal.timeout(30000)});
- assert.equal(response.status,200,'Parent publication run unavailable');
- const run=checkedParentRun(await response.json(),id,{rollback:process.env.DAILY_BOARD_ROLLBACK==='true'});
+ const run=await resolveParentRun({id:process.env.DAILY_BOARD_PARENT_RUN_ID,rollback:process.env.DAILY_BOARD_ROLLBACK==='true',get:async path=>{
+  const response=await fetch(`https://api.github.com/repos/${REPOSITORY}${path}`,{headers:{Authorization:`Bearer ${process.env.GITHUB_TOKEN}`,Accept:'application/vnd.github+json'},redirect:'error',signal:AbortSignal.timeout(30000)});
+  assert.equal(response.status,200,'Parent publication run unavailable');return response.json();
+ }});
  // An older trusted main publication must be in this checkout's history.
  execFileSync('git',['merge-base','--is-ancestor',run.head_sha,'HEAD'],{stdio:'pipe'});
  await mkdir(PARENT,{recursive:true});await writeFile(`${PARENT}/run.json`,JSON.stringify(run)+'\n');
- console.log(`Verified main Daily Board publication run ${id}; no provider changes.`);
+ if(process.env.GITHUB_OUTPUT)await writeFile(process.env.GITHUB_OUTPUT,`run_id=${run.id}\n`,{flag:'a'});
+ console.log(`Verified main Daily Board publication run ${run.id}; no provider changes.`);
 }
 async function snapshot(path,name){
   const exists=JSON.parse(az(['exists','--name',path,'--output','json'])).exists;
@@ -98,12 +115,13 @@ async function snapshot(path,name){
   assert.equal(bytes.length,after.properties.contentLength);return {path,exists:true,etag:after.properties.etag,hash:sha(bytes),properties:after.properties,metadata:after.metadata||{},file:name};
 }
 async function candidate(){
- const source=readDailyBoardSource(),files=[];
+ const provenance=await checkedFrontendBuild(JSON.parse(await readFile('dist/release.json','utf8')));
+ const source=provenance.components['daily-board'],files=[];
  for(const path of PATHS){const data=await readFile('dist/'+path);files.push({path,hash:sha(data),bytes:data.length,type:mime(path)});}
  return {schema:1,source,commit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),files};
 }
 async function prepare(){
- const run=JSON.parse(await readFile(`${PARENT}/run.json`)),parent=checkedParentReceipt(run,JSON.parse(await readFile(`${PARENT}/receipt.json`)),process.env.DAILY_BOARD_PARENT_RUN_ID);
+ const run=JSON.parse(await readFile(`${PARENT}/run.json`)),parent=checkedParentReceipt(run,JSON.parse(await readFile(`${PARENT}/receipt.json`)),String(run.id));
  await mkdir(OUT,{recursive:true});const plan=await candidate();const before=[];
  for(const [i,file] of plan.files.entries())before.push(await snapshot(file.path,`before-${i}`));
  checkedUpdateBaseline(plan,before,parent);

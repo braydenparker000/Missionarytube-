@@ -4,9 +4,43 @@ Primary destination: https://missionarytube.z13.web.core.windows.net/
 
 This repository now controls Jarvis's frontend deployment using the **existing** MissionaryTube Storage account, `$web` container, Entra app and GitHub OIDC federation. The repository name and `main` branch remain unchanged deliberately. No Azure service, identity, credential or permission is created.
 
-Missionarytube- (repository ID `1350047370`) is the surviving source and deployment repository. The imported Jarvis history is maintained under `jarvis/`; the original `braydenparker999/jarvis` repository remains intact as historical provenance and for the Daily Board publication dependency described below. The original Static Web App frontend at https://gray-meadow-09216fd10.1.azurestaticapps.net/ is retired; the existing Azure Storage route remains the frontend deployment path.
+Missionarytube- (repository ID `1350047370`) is the surviving source and deployment repository. Edit frontend code in `frontend/`. The frozen imported Jarvis history is retained under `jarvis/`; the original `braydenparker999/jarvis` repository remains intact as historical provenance and for the Daily Board publication dependency described below. The original Static Web App frontend at https://gray-meadow-09216fd10.1.azurestaticapps.net/ is retired; the existing Azure Storage route remains the frontend deployment path.
+
+## Develop
+
+`frontend/` is the authoritative editable static frontend. Routes live in
+`frontend/<route>/`; shared code lives in `frontend/assets/`. The build reads
+this directory directly, with no source overlays or component pin files.
+
+```sh
+npm ci
+npm run build
+npm run test:daily-board
+```
+
+The focused Daily Board command needs Chrome (`JARVIS_CHROME` may select it).
+Run affected tests for other components and the full required CI before merge.
+`npm test` also covers historical backend/release contracts and still requires
+its existing `.jarvis-source` checkout. `npm run build` and the focused Board
+command do not require that checkout. Local edits produce accurately marked
+provenance; publication requires committed source and a matching rebuild.
 
 ## Release
+
+For a Daily Board update, review one PR and merge it, wait for required checks,
+then authorize one **Publish composable Daily Board** workflow on `main` with
+`action=publish` and `expected_commit=<reviewed full main SHA>`. Leave the parent
+and rollback fields blank for a normal publish. The workflow finds the latest
+successful publication, validates its receipt and current live bytes, backs up
+before writing, publishes only changed Board files and runs actual-origin
+Chrome checks. Rollback uses the same workflow with `action=rollback`, that
+publication's run ID in `rollback_run_id`, and the reviewed orchestration SHA.
+No source-pin edits or follow-up publication PR are needed.
+
+Other component publishers retain their existing live-configuration and rollback
+boundaries. The general Azure workflow is not a shortcut for publishing a
+component; it cannot overwrite independently published assets safely without
+its existing guards. Its retained historical full-site path is described below.
 
 Use reviewed source and component identities recorded by the build and release manifests. The general historical source pin in `jarvis-release.json` is still used by remaining qualification and release consumers; it does not establish that every live component comes from one checkout. The existing Azure Storage route and its identity remain in place. Push checks can qualify a commit while production upload jobs are skipped; inspect the actual job results before describing a release as deployed. Keep the existing `AZURE_DEPLOY_ENABLED=true`, `AZURE_STORAGE_ACCOUNT=missionarytube`, and three `AZURE_*` identity secrets unchanged.
 
@@ -39,21 +73,19 @@ Shared messages and briefings remain in the same Cloudflare store and publicatio
 
 Quick AI at `/quick-ai/` calls Gemini, Groq, and Tavily directly from the browser. The deployment workflow uses `QUICK_AI_GEMINI_KEY`, the existing `GROQ_API_KEY`, and `QUICK_AI_TAVILY_KEY` Actions secrets to generate the owner's intentionally public free-plan configuration in the built artifact. It requires all three values before logging into Azure or touching blobs. The legacy public config blob is replaced during staging. Main Jarvis chat and Muse keep their existing Worker and check-based delivery paths.
 
-## Source consolidation in progress
+## Source and provenance
 
-The authoritative Jarvis source snapshot is now imported at `jarvis/`, preserving
-its original Git ancestry. Missionarytube- is the surviving repository. The
-active frontend build starts from destination commit
-`de5d7177a778f4bfa2aa071ab064a8a4fb9b2246`, path
-`jarvis-active-public-c28/public`, tree
-`67a47e36414a8ceb4040c9454f64ed1982a9146c`, byte- and mode-identical to the
-former c28 public tree, and overlays only component paths with exact
-destination identities. The full imported
-variant at `jarvis/public` is preserved but not wholesale activated. Divergent
-shared UI, security, storage, playback and device variants remain held; see
-[the import and release record](docs/jarvis-source-import.md) for the exact
-component map. Root `npm test` explicitly selects the orchestration tests. See
-also the [canonical delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
+`scripts/build-jarvis.mjs` packages only `frontend/`, generates public configuration
+from the unchanged release configuration, and translates the existing document
+CSP for Azure Storage. `dist/release.json` records the checkout SHA and actual
+frontend/component trees automatically. Its legacy top-level `source`/`commit`
+fields retain the historical backend baseline; `frontend` and `components`
+identify the real frontend build inputs. The frozen `jarvis/` archive, external
+qualification checkout and historical publication receipts are not editable
+frontend alternatives. Dormant variants remain unselected.
+See [the source import record](docs/jarvis-source-import.md) for history and
+[the delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md)
+for validation and authorization requirements.
 
 The recorded Daily Board reader activation enabled both the legacy
 [`braydenparker999/jarvis#2`](https://github.com/braydenparker999/jarvis/issues/2)
@@ -74,10 +106,8 @@ Destination issue #2 is an imported PR and must not be reused.
 ## Media regression checks
 
 The duplicate root media app and its legacy build/browser commands have been
-retired. Media source checks read `jarvis/public/media` from the imported source
-snapshot, and the built route uses its exact destination component identity.
-Other paths stay on their active source identities until their own cutover is
-reviewed. The three retained `src/` modules support 29 legacy source-only
+retired. Media source checks and the build read `frontend/media`.
+Generated provenance records its actual tree and checkout commit. The three retained `src/` modules support 29 legacy source-only
 contracts and are not built or shipped. Fixtures and licenses remain. The media
 qualification command retains its documented shipped UI TODOs and can report
 not ready; see [migration evidence](test-evidence/media-migration/README.md).
