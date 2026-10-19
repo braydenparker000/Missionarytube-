@@ -169,6 +169,8 @@ jobs:
         run: npm test
       - name: Build the exact immutable frontend once
         run: npm run build
+      - name: Inspect public runtime bytes without credentials or writes
+        run: node scripts/inspect-frontend.mjs dist
       - name: Bind source, orchestration, dependencies, configuration and every artifact byte
         run: node scripts/qualified-artifact.mjs create
       - uses: actions/upload-artifact@v4
@@ -177,6 +179,7 @@ jobs:
           path: |
             dist
             qualified-artifact.json
+            frontend-live-comparison.json
           if-no-files-found: error
           retention-days: 14
 
