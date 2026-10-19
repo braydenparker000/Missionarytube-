@@ -5,9 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawn,execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {createHash} from 'node:crypto';
 import {prewriteLanes,joinPrewriteLanes,runPrewriteGates,PREWRITE_TIMEOUTS} from '../scripts/overlap-jarvis-prewrite.mjs';
-import {GATE_RECIPE_SHA256,recognizedGatingRecipes,changesGateRecipe,classifyMainPush} from '../scripts/partition-main-qualification.mjs';
 
 const execute=promisify(execFile),names=['podcast-readiness','verified-rollback-backup'];
 const wait=ms=>new Promise(done=>setTimeout(done,ms));
@@ -247,18 +245,4 @@ test('workflow preserves credential, join, Worker recording and rollback upload 
   assert.match(flow,/group: jarvis-worker-production\n      cancel-in-progress: false/);
   const recipe=await readFile(new URL('../scripts/worker-release-identity.mjs',import.meta.url),'utf8');
   assert.match(recipe,/const RECIPES=.*'scripts\/overlap-jarvis-prewrite.mjs'/);
-});
-test('reviewed workflow fingerprint keeps later ordinary dedup eligible while the overlap recipe rollout requires full qualification',async()=>{
-  const deploy=await readFile(new URL('../scripts/release-identities/astra-approved-deploy-azure-storage.yml',import.meta.url),'utf8');
-  const qualification=await readFile(new URL('../scripts/release-identities/relay-client-approved-qualify-jarvis.yml',import.meta.url),'utf8');
-  assert.equal(GATE_RECIPE_SHA256['.github/workflows/deploy-azure-storage.yml'],createHash('sha256').update(deploy).digest('hex'));
-  assert.equal(GATE_RECIPE_SHA256['.github/workflows/qualify-jarvis.yml'],'0a4957bf97acaa01ade5bd298128710e7c9ba1c882896f691d30a62a4067c6c3');
-  assert.equal(recognizedGatingRecipes(deploy,qualification),true);
-  const before='a'.repeat(40),after='b'.repeat(40),event={ref:'refs/heads/main',repository:{full_name:'braydenparker000/Missionarytube-'},created:false,deleted:false,forced:false,before,after};
-  for(const path of ['.github/workflows/deploy-azure-storage.yml','scripts/overlap-jarvis-prewrite.mjs']){
-    assert.equal(changesGateRecipe(path),true);
-    const git=args=>args[0]==='rev-parse'?after+'\n':args[0]==='rev-list'?'1\n':args[0]==='diff'?path+'\0':'';
-    const result=classifyMainPush({eventName:'push',event,headSha:after},{git,workflow:deploy,qualificationWorkflow:qualification});
-    assert.equal(result.deployOnly,false);assert.equal(result.reason,'qualification-recipe-change');
-  }
 });

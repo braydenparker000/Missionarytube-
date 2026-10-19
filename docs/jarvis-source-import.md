@@ -1,5 +1,15 @@
 # Jarvis source import: first consolidation patch
 
+Current frontend source: [`frontend/`](../frontend/). The build reads that single
+editable directory; component commit/tree provenance is generated, and the six
+manual frontend source manifests have been retired. The exact selected artifact
+was preserved during consolidation (199 paths, only generated `release.json`
+changed). `jarvis/` remains frozen and guarded, with no dormant variant activated.
+The historical backend checkout and specialized live overlays retain their
+existing release and rollback checks. See [README](../README.md) for current commands.
+The dated source-selection and publication records below describe earlier states.
+
+
 Missionarytube- is the surviving repository. This patch imports application
 source; it does not switch any release consumer or deploy a component.
 
@@ -72,7 +82,7 @@ explicit reviewed boundary update.
 ## Media component source
 
 The media component has its own exact destination identity in
-[`jarvis-media-source.json`](../jarvis-media-source.json): commit
+[`jarvis-media-source.json`](https://github.com/braydenparker000/Missionarytube-/blob/12bd4280c0f7a90bef90a582c1afafbb8c78cdd6/jarvis-media-source.json): commit
 `bccda52d2c84bdfc2d315c7250cd9efbd8594aff`, path `jarvis/public/media`, tree
 `4a4aceb3661e437471a1d28f6574b9b21b28a343`. This commit is PR247's squash
 merge; the source tree matches the reviewed pre-squash component commit
@@ -99,7 +109,7 @@ readback; PR247's merge alone was not evidence that either media file was live.
 ## Daily Board route source
 
 The byte-identical `daily-board` route now has an exact destination identity in
-[`jarvis-dailyBoard-source.json`](../jarvis-dailyBoard-source.json): commit
+[`jarvis-dailyBoard-source.json`](https://github.com/braydenparker000/Missionarytube-/blob/12bd4280c0f7a90bef90a582c1afafbb8c78cdd6/jarvis-dailyBoard-source.json): commit
 `8201af9d10b6c0731f55c2b297b070b7922968d3`, path
 `jarvis/public/daily-board`, tree
 `b3214e6e8731cc0f3146d79a467c7c48710c3620`. Its tree matches the pinned
@@ -114,7 +124,7 @@ identities while retaining the general source fields.
 
 The one-file static Connect notice was cut over in PR225 with an exact
 destination identity in
-[`jarvis-connect-source.json`](../jarvis-connect-source.json): commit
+[`jarvis-connect-source.json`](https://github.com/braydenparker000/Missionarytube-/blob/12bd4280c0f7a90bef90a582c1afafbb8c78cdd6/jarvis-connect-source.json): commit
 `41383d9d5154aab3b1d7922d5e7c376376139c07`, path `jarvis/public/connect`, tree
 `14da00ba05225eddc0ad9d1717660c1f4b2e93c9`. Its tree matches the pinned
 `c28c1b2f70aabb5217b08bf31ffe4c93d0353765:public/connect` tree. The build
@@ -138,7 +148,7 @@ bundled-app batch is also merged: PR227 at
   external font and icon stylesheets. The source resolver validates these five
   subtrees together at destination commit
   `2b29ab492af5a68bc49888cdb441fafdd38b5427`, recorded in
-  [`jarvis-routeData-source.json`](../jarvis-routeData-source.json).
+  [`jarvis-routeData-source.json`](https://github.com/braydenparker000/Missionarytube-/blob/12bd4280c0f7a90bef90a582c1afafbb8c78cdd6/jarvis-routeData-source.json).
 - `favorites`, root `index.html`, `jarvis`, `notes`, `server`, `settings`, and
   `tools` have matching route trees, but load shared assets whose imported
   source differs. These seven routes remain on the exact active c28 public
@@ -151,7 +161,7 @@ My Media's `assets/ui.js`, pip diagnostics, Drive config/API,
 shell/premium/aligned CSS, and playback assets; Podcasts' config module and
 shell/premium CSS; and YouTube Archive's internal stylesheet and pages. The
 exact group is recorded in
-[`jarvis-appBundles-source.json`](../jarvis-appBundles-source.json), and the
+[`jarvis-appBundles-source.json`](https://github.com/braydenparker000/Missionarytube-/blob/12bd4280c0f7a90bef90a582c1afafbb8c78cdd6/jarvis-appBundles-source.json), and the
 build records each identity in `dist/release.json`.
 
 For future changed or dependency-sensitive paths, require exact per-path tree
@@ -178,7 +188,7 @@ Worker and R2 publications retain their separate gates.
 
 The static build now starts from the exact pinned public tree at
 `jarvis-active-public-c28/public`, recorded in
-[`jarvis-activePublic-source.json`](../jarvis-activePublic-source.json):
+[`jarvis-activePublic-source.json`](https://github.com/braydenparker000/Missionarytube-/blob/12bd4280c0f7a90bef90a582c1afafbb8c78cdd6/jarvis-activePublic-source.json):
 destination repository `braydenparker000/Missionarytube-`, source commit
 `de5d7177a778f4bfa2aa071ab064a8a4fb9b2246`, path
 `jarvis-active-public-c28/public`, tree

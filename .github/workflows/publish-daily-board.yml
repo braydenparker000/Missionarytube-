@@ -1,4 +1,5 @@
 name: Publish composable Daily Board
+run-name: Daily Board ${{ inputs.action }} at ${{ inputs.expected_commit }}
 on:
   workflow_dispatch:
     inputs:
@@ -10,7 +11,7 @@ on:
         type: string
         required: false
       parent_run_id:
-        description: Successful Daily Board publication whose receipt matches the current live files
+        description: Optional recovery override; normally the latest successful publication is selected automatically
         type: string
         required: false
       expected_commit:
@@ -42,6 +43,7 @@ jobs:
         with:
           node-version: '24.21.0'
       - name: Verify the selected publication belongs to this trusted main workflow
+        id: parent
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/publish-daily-board.mjs parent
@@ -49,27 +51,19 @@ jobs:
         if: ${{ inputs.action == 'publish' }}
         uses: actions/download-artifact@v4
         with:
-          name: daily-board-evidence-${{ inputs.parent_run_id }}
-          run-id: ${{ inputs.parent_run_id }}
+          name: daily-board-evidence-${{ steps.parent.outputs.run_id }}
+          run-id: ${{ steps.parent.outputs.run_id }}
           github-token: ${{ github.token }}
           path: .daily-board-parent/evidence/
       - name: Select only the parent receipt
         if: ${{ inputs.action == 'publish' }}
         run: cp .daily-board-parent/evidence/receipt.json .daily-board-parent/receipt.json
-      - uses: actions/checkout@v4
-        if: ${{ inputs.action == 'publish' }}
-        with:
-          repository: braydenparker000/Missionarytube-
-          ref: c28c1b2f70aabb5217b08bf31ffe4c93d0353765
-          path: .jarvis-source
-          fetch-depth: 0
-          persist-credentials: false
       - name: Build exact static candidate and run focused checks
         if: ${{ inputs.action == 'publish' }}
         run: |
           npm ci
           node scripts/check-jarvis-import.mjs
-          node --test tests/daily-board-next.test.mjs scripts/publish-daily-board.test.mjs scripts/media-source.test.mjs
+          node --test tests/daily-board-next.test.mjs scripts/publish-daily-board.test.mjs scripts/frontend-source.test.mjs tests/privacy.test.mjs
           npm run build
           DAILY_BOARD_ARTIFACT_ROOT=dist node --test tests/daily-board-browser.test.mjs
       - uses: azure/login@v2

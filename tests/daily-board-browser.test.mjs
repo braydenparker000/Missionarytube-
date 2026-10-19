@@ -5,13 +5,13 @@ import {readFile,stat} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {extname,resolve,sep} from 'node:path';
 import {chromium} from 'playwright-core';
-import {encodeReport} from '../daily-board-next/schema.js';
+import {encodeReport} from '../frontend/daily-board/v1/schema.js';
 
 const chrome=[process.env.JARVIS_CHROME,process.env.CHROME_PATH,'/usr/bin/google-chrome','/usr/bin/chromium'].find(p=>p&&existsSync(p));
 if(!chrome)throw Error('Daily Board browser checks require Chrome. Set JARVIS_CHROME.');
 const artifact=process.env.DAILY_BOARD_ARTIFACT_ROOT;
-const root=resolve(artifact||'jarvis/public');
-const assets=resolve(artifact||'jarvis-active-public-c28/public');
+const root=resolve(artifact||'frontend');
+const assets=resolve(artifact||'frontend');
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css'};
 
 async function openBoard(t,width=390,{live=false}={}){

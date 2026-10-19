@@ -121,12 +121,8 @@ test('validation workflow is branch/PR-only, pinned, dependency-free and GET-onl
   assert.doesNotMatch(flow,/group: (?:jarvis-worker-production|azure-production)/);
 });
 
-test('guard files avoid the existing Azure production push paths', async () => {
+test('guard changes cannot start an Azure production workflow on push', async () => {
   const flow = await readFile(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');
-  const push = flow.slice(flow.indexOf('  push:'),flow.indexOf('\npermissions:'));
-  const globs = [...push.matchAll(/^      - "([^"]+)"$/gm)].map(match => match[1]);
-  assert.ok(globs.includes('tests/**'));assert.ok(globs.includes('jarvis-release.json'));
-  const pattern = glob => new RegExp('^'+glob.split(/(\*\*|\*)/).map(part => part === '**' ? '.*' : part === '*' ? '[^/]*' : part.replace(/[.+?^${}()|[\]\\]/g,'\\$&')).join('')+'$');
-  for (const path of ['scripts/check-music-worker-bindings.mjs','scripts/relay-owner-gate.mjs','scripts/relay-owner-gate.test.mjs','.github/workflows/validate-relay-owner-gate.yml'])
-    for (const glob of globs) assert.ok(!pattern(glob).test(path),`${path} must not match ${glob}`);
+  assert.match(flow,/\n  workflow_dispatch:/);
+  assert.doesNotMatch(flow,/\n  (?:push|pull_request|workflow_run|schedule):/);
 });

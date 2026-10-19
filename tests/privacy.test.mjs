@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { checkJarvisImport } from "../scripts/check-jarvis-import.mjs";
-import { readActivePublicSource } from "../scripts/media-source.mjs";
 
 /**
  * The repository is public. These checks fail the build if a configured add-on
@@ -17,7 +19,8 @@ const TEXT = /\.(?:js|mjs|cjs|html|css|json|md|yml|yaml)$/;
 async function sourceFiles(directory = ".") {
   const found = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
-    if (SKIP_DIRS.has(entry.name) || (directory === "." && entry.name === "jarvis")) continue;
+    const editable = directory === 'frontend' || directory.startsWith('frontend/');
+    if ((!editable && SKIP_DIRS.has(entry.name)) || (directory === "." && entry.name === "jarvis")) continue;
     const path = join(directory, entry.name);
     if (entry.isDirectory()) found.push(...(await sourceFiles(path)));
     else if (TEXT.test(entry.name)) found.push(path);
@@ -29,11 +32,8 @@ async function sourceFiles(directory = ".") {
 // fixtures. Accept only the reviewed, exact source tree, not a broad host or
 // credential exemption for future edits. Keep every legacy privacy assertion.
 await checkJarvisImport();
-// This separately reviewed static source is accepted only at its exact
-// destination commit/path/tree. Keep its existing public endpoints out of the
-// legacy media host allowlist while still scanning it for credentials and
-// configured manifest paths below.
-const activePublic = readActivePublicSource();
+// Every editable frontend file is scanned below. Only the frozen imported
+// archive retains the exact-tree exemption; builds never read that archive.
 const files = await sourceFiles();
 const contents = new Map();
 for (const path of files) contents.set(path, await readFile(path, "utf8"));
@@ -96,8 +96,29 @@ const ALLOWED_HOSTS = [
   "cdn.dashjs.org" // negative fixture only: proves validation rejects the mutable /latest/ URL
 ];
 
-function isAllowed(host) {
+// Public references already present in the selected frontend. Scope these to
+// their actual consumers instead of exempting an editable source snapshot.
+const FRONTEND_PUBLIC_HOSTS = {
+  'frontend/assets/app.js': ['scripts.sil.org'], // embedded font license
+  'frontend/assets/relay.css': ['scripts.sil.org'], // embedded font license
+  'frontend/assets/connect.js': ['chatgpt.com'], // existing user-facing link
+  'frontend/assets/quick-ai-providers.js': ['api.tavily.com', 'generativelanguage.googleapis.com', 'api.groq.com'], // existing direct providers
+  'frontend/drawercast/player.js': ['drive.google.com', 'play.google.com', 'www.google.com', 'www.sqlite.org'], // existing Drive links and bundled license notices
+  'frontend/guitar/pdf.js': ['cdnjs.cloudflare.com', 'jspdf.default.namespaceuri'], // bundled PDF loader and XML namespace, not a service
+  'frontend/guitar/render-worker.js': ['www.alphatab.net'], // bundled renderer license
+  'frontend/media/assets/js/playback/compatibility.js': ['mozilla.org', 'www.webmproject.org', 'aomediacodec.github.io', 'streams.videolan.org'], // bundled decoder notices and upstream samples
+  'frontend/media/index.html': ['images.metahub.space'], // existing artwork origin
+  'frontend/mymedia/app.js': ['i.ytimg.com'], // existing thumbnails
+  'frontend/mymedia/library.js': ['i.ytimg.com'],
+  'frontend/podcasts/directory.js': ['itunes.apple.com'], // existing public podcast directory
+  'frontend/portal/index.html': ['cdnjs.cloudflare.com'], // existing portal runtime
+  'frontend/staticwebapp.config.json': ['generativelanguage.googleapis.com', 'api.groq.com', 'api.tavily.com', 'i.ytimg.com'], // existing document policy
+  'frontend/youtube-archive/privacy.html': ['myaccount.google.com'] // existing account-management link
+};
+
+function isAllowed(host, path) {
   if (ALLOWED_HOSTS.includes(host)) return true;
+  if (FRONTEND_PUBLIC_HOSTS[path]?.includes(host)) return true;
   // Reserved documentation/test names can never resolve to a real service.
   return /(?:^|\.)(?:example\.(?:test|com|org|net)|test|invalid|localhost)$/.test(host);
 }
@@ -105,13 +126,39 @@ function isAllowed(host) {
 test("no committed file references a non-allowlisted external host", () => {
   const offenders = [];
   for (const [path, source] of contents) {
-    if (path.startsWith(`${activePublic.path}/`)) continue;
     for (const match of source.matchAll(/https?:\/\/([a-z0-9.-]+\.[a-z]{2,})(?::\d+)?/gi)) {
       const host = match[1].toLowerCase();
-      if (!isAllowed(host)) offenders.push(`${path}: ${host}`);
+      if (!isAllowed(host, path)) offenders.push(`${path}: ${host}`);
     }
   }
   assert.deepEqual(offenders, [], "an unexpected host may be a configured add-on or personal stream URL");
+});
+
+test('editable frontend files are privacy-scanned and archived endpoint allowances cannot authorize a new consumer', () => {
+  assert.ok(files.includes('frontend/daily-board/v1/live.js'));
+  assert.ok(files.includes('frontend/media/assets/js/app.js'));
+  assert.ok(files.includes('frontend/assets/app.js'));
+  assert.equal(isAllowed('api.tavily.com', 'frontend/assets/quick-ai-providers.js'), true);
+  assert.equal(isAllowed('api.tavily.com', 'frontend/daily-board/v1/live.js'), false);
+  assert.equal(isAllowed('private-addon.invalid-provider.com', 'frontend/daily-board/v1/live.js'), false);
+});
+
+test('editable frontend rejects configured URLs, credential literals and unknown hosts through the actual privacy gate', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'frontend-privacy-'));
+  t.after(() => rm(root, {recursive: true, force: true}));
+  await mkdir(join(root, 'frontend/daily-board/v1'), {recursive: true});
+  const childEnv = {...process.env};
+  delete childEnv.NODE_TEST_CONTEXT;
+  for (const source of [
+    `const url = "https://example.invalid/${'x'.repeat(28)}/manifest.json";`,
+    `const client_${'secret'} = "${'synthetic-placeholder-value'}";`,
+    'const url = "https://private-service.' + 'example-provider.com/data";'
+  ]) {
+    await writeFile(join(root, 'frontend/daily-board/v1/live.js'), source);
+    const result = spawnSync(process.execPath, ['--test', '--test-reporter=tap', '--test-name-pattern=^no committed file', fileURLToPath(import.meta.url)], {cwd: root, encoding: 'utf8', env: childEnv});
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /not ok .*no committed file/);
+  }
 });
 
 test("no committed file contains a Stremio-style configured manifest path", () => {

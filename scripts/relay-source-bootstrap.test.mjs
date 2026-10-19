@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {recipeIdentity} from './worker-release-identity.mjs';
 
 test('source qualification is complete once, with locked dependencies on each executing runner',async()=>{
   const source=await readFile(new URL('../.github/workflows/qualify-jarvis.yml',import.meta.url),'utf8');
@@ -21,6 +22,7 @@ test('qualification checkouts use destination history at the unchanged source pi
   const { createHash } = await import('node:crypto');
   const flow = await readFile(new URL('../.github/workflows/qualify-jarvis.yml', import.meta.url), 'utf8');
   const build = flow.slice(flow.indexOf('\n  build:'), flow.indexOf('\n  qualification:'));
+  assert.match(build,/uses: actions\/checkout@v4\n        with:\n          persist-credentials: false\n          fetch-depth: 0/,'historical receipt tests need retained destination Git blobs');
   assert.match(build, /repository: braydenparker000\/Missionarytube-\n          ref: \$\{\{ needs\.plan\.outputs\.source \}\}\n          path: \.jarvis-source\n          persist-credentials: false\n          fetch-depth: 0/);
   const plan = flow.slice(flow.indexOf('\n  plan:'), flow.indexOf('\n  component:'));
   const component = flow.slice(flow.indexOf('\n  component:'), flow.indexOf('\n  build:'));
@@ -32,5 +34,20 @@ test('qualification checkouts use destination history at the unchanged source pi
   assert.equal(release.commit, 'c28c1b2f70aabb5217b08bf31ffe4c93d0353765');
   const bytes = Buffer.from(flow);
   const blob = createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
-  assert.equal(release.workerDeploymentPolicy.recipe.find(item => item.path === '.github/workflows/qualify-jarvis.yml').sha, blob);
+  assert.equal(recipeIdentity().find(item => item.path === '.github/workflows/qualify-jarvis.yml').sha, blob);
+});
+
+test('Validate owns push and PR qualification unconditionally and Azure publication stays manual',async()=>{
+  const ci=await readFile(new URL('../.github/workflows/ci.yml',import.meta.url),'utf8');
+  assert.match(ci,/on:\n  pull_request:\n  push:\n    branches: \[main\]/);
+  const gate=ci.slice(ci.indexOf('  static-checks:'),ci.indexOf('  daily-board-import-candidate:'));
+  assert.match(gate,/uses: \.\/\.github\/workflows\/qualify-jarvis\.yml/);
+  assert.doesNotMatch(gate,/\b(?:if|needs):/,'no classifier or producer proof can skip the complete qualification');
+  assert.doesNotMatch(ci,/gate-owner|partition-main-qualification|verify-main-qualification-producer/);
+  const deploy=await readFile(new URL('../.github/workflows/deploy-azure-storage.yml',import.meta.url),'utf8');
+  assert.match(deploy,/\n  workflow_dispatch:/);
+  assert.doesNotMatch(deploy,/\n  (?:push|pull_request|schedule|workflow_run):/,'deployment cannot start a second qualification on main pushes');
+  assert.match(deploy,/uses: \.\/\.github\/workflows\/qualify-jarvis\.yml/,'authorized publication still qualifies its exact commit');
+  assert.match(deploy,/github\.event_name == 'workflow_dispatch'/);
+  assert.match(deploy,/github\.ref == 'refs\/heads\/main'/);
 });

@@ -1,9 +1,10 @@
 # Composable Daily Board
 
-The approved design, reusable renderer and daily structured content are separate:
-`design.css`, `render.js`/`components.css`, and `schema.js` with two synthetic
-fixtures. The maintained production route is `jarvis/public/daily-board`; its
-component pin and full imported-source tree guard are updated explicitly.
+Editable production modules live only in `frontend/daily-board/v1/`; the route
+is `frontend/daily-board/index.html`. This directory contains synthetic fixtures,
+local preview tools and the content-publication adapter. They import the same
+schema and renderer as production. There are no mirrored production modules or
+component source pins to maintain. Use `npm run test:daily-board` and `npm run build`.
 
 Approved reference: Library `libfile_c72e6df1f9f08191970a2b6961c56dc5`, version 3,
 `Jarvis-Daily-Board.html`, 186193 bytes, SHA256
@@ -34,7 +35,7 @@ ordinary prose contains sensitive information.
 ```sh
 node --test tests/daily-board-next.test.mjs scripts/publish-daily-board.test.mjs
 node daily-board-next/check-integration.mjs
-node daily-board-next/check-browser.mjs /workspace/reference/Jarvis-Daily-Board.html
+node daily-board-next/check-browser.mjs
 npm test
 npm run build
 ```
@@ -42,7 +43,7 @@ npm run build
 `check-integration.mjs` exercises the actual unchanged importer and sharedStore
 in a disposable copy with Node SQLite, including owner/source rejection, exact
 structured readback, identical retries and ID/date conflicts. It never contacts
-production. `check-browser.mjs` serves the original reference and both fixtures,
+production. `check-browser.mjs` serves both fixtures (and an optional original reference file),
 checks 360/390/1200 CSS pixel widths, keyboard interaction and inert text fallback.
 
 Evidence in `evidence/`: nine browser cases without overflow or page errors,
@@ -60,32 +61,31 @@ candidate passed 1184 root tests and a 192-file/20.09 MiB retained-production bu
 Final activation checks and deployment receipt are recorded in the PR/Actions;
 these earlier counts alone are not activation evidence.
 
-## Publication and rollback
+## Frontend publication and rollback
 
-User approval now permits this Daily Board merge/deployment. The new manual
-`publish-daily-board.yml` uses existing Azure federation, preserves rollback bytes
-before writing, compares blob ETags immediately before upload, verifies every
-new dependency before publishing the route last, and verifies public readback.
-Only the six Daily Board blobs plus the one-line shared-app navigation change are writable; no Worker, private frontend,
-Poweramp, schedule, credential, database, release.json or access setting changes.
-The existing azure-production concurrency group serializes against other
-publishers. Unknown route/dependency state fails closed. Artifact receipts retain
-exact commit, component tree and file hashes.
+The existing `publish-daily-board.yml` workflow uses the unchanged Azure OIDC
+identity and serial production lock. After PR review, merge and required checks,
+authorized publication needs `action=publish` and the reviewed main SHA in
+`expected_commit`. Leave `parent_run_id` blank: the workflow discovers the latest
+successful publication and verifies its archived receipt against every live
+Board file. The optional parent field is a recovery override, not source bookkeeping.
 
-Rollback runs the same workflow with the original run ID. It verifies the current
-route is the exact candidate and restores only captured previous route bytes and
-content properties with an ETag condition. New assets and all reports remain; no
-permanent deletion is performed. Revert the component source pin before any later
-full-site publication. Historical clients may display the structured body as text;
-the activated reader displays it as reviewed components.
+Committed source and generated build provenance must agree. The publisher saves
+rollback bytes, properties and ETags before changing anything, writes only changed
+Board files, preserves shared navigation, and verifies storage/public hashes plus
+actual-origin Chrome behavior. Its seven-path allowlist is unchanged. Worker,
+data, private frontend, music, schedules, credentials and settings are separate.
 
-The parent owns automation cutover and real researched content. Preserve the
-07:00 Rosario cadence. Never publish synthetic fixtures as a real edition.
+Rollback uses `action=rollback`, the publication run in `rollback_run_id`, and the
+reviewed orchestration SHA. It validates all saved bytes and current state before
+conditionally restoring changed files and their properties. A newer writer's
+bytes, headers or metadata stop restoration. Reports and unrelated blobs stay intact.
 
-Activation verification before deployment: 1186 root tests passed in the isolated
-exact-pin checkout; production build passed with 197 files / 20.23 MiB. Seven
-focused checks pass after adding byte-equality coverage for maintained modules.
-`check-live-reader.mjs <dist-directory>` also passed against the built route under
-its actual CSP: embedded font loads, an encoded synthetic API response renders,
-and selection of a historical plain-text report works at 390px without overflow.
-This controlled response was never published to production.
+Production run [39185533893](https://github.com/braydenparker000/Missionarytube-/actions/runs/39185533893)
+verified the load-retry improvement: all seven public hashes matched, and Chrome
+passed retry at 320/390px, empty-state focus recovery and a real public-feed read.
+Its rollback artifact remains retained for 90 days. That run used the source
+selection preceding consolidation; source consolidation is a separate review.
+
+Preserve the existing report writer, public-content review and 07:00 Rosario cadence.
+Never publish synthetic fixtures as a real edition.

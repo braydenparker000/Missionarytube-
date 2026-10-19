@@ -10,14 +10,14 @@ import {
   sourceOnlyPattern,
   verdict
 } from "./media-qualification.mjs";
-import { readMediaSource } from "./media-source.mjs";
+import { readFrontendSource, frontendDirectory } from "./frontend-source.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const release = JSON.parse(readFileSync(resolve(repoRoot, "jarvis-release.json"), "utf8"));
 if (release.repository !== "braydenparker999/jarvis" || !/^[a-f0-9]{40}$/.test(release.commit || "")) {
   throw new Error("jarvis-release.json does not pin an exact braydenparker999/jarvis commit");
 }
-const mediaSource = readMediaSource(repoRoot);
+const mediaSource = await readFrontendSource("media", {root: repoRoot});
 
 // Source-unit files keep every original assertion. On the pinned tree they
 // still fail when a src module is missing, and that failure stays in this
@@ -119,7 +119,7 @@ function qualificationVerdict(testsPass) {
 }
 
 try {
-  const media = mediaSource.directory;
+  const media = frontendDirectory("media", repoRoot);
   if (media === repoRoot) throw new Error("Jarvis media path resolved to the orchestration root");
   if (!readFileSync(resolve(media, "index.html"), "utf8") || !readFileSync(resolve(media, "assets/js/app.js"), "utf8")) {
     throw new Error("Exact destination commit has no Jarvis public/media app");

@@ -1,13 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { execFileSync } from "node:child_process";
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mediaAppRoot } from "./helpers/media-root.mjs";
-import { readMediaSource } from "../scripts/media-source.mjs";
+import { readFrontendSource } from "../scripts/frontend-source.mjs";
 
 if (!process.env.MEDIA_APP_ROOT) {
   throw new Error("Refusing to read the repo-root media copy. This suite requires MEDIA_APP_ROOT set to the exact Jarvis media source.");
@@ -15,9 +14,8 @@ if (!process.env.MEDIA_APP_ROOT) {
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const mediaRoot = mediaAppRoot();
-const mediaSource = readMediaSource(repoRoot);
-const mediaTree = execFileSync("git", ["-C", repoRoot, "rev-parse", `${mediaSource.commit}:${mediaSource.path}`], { encoding: "utf8" }).trim();
-const pin = JSON.parse(readFileSync(resolve(repoRoot, "jarvis-release.json"), "utf8"));
+const mediaSource = await readFrontendSource("media", {root: repoRoot});
+const mediaTree = mediaSource.tree;
 
 const chrome = [process.env.CHROME_PATH, "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable"].find((path) => path && existsSync(path));
 if (!chrome) throw new Error("Chrome is required to characterize the shipped Jarvis first paint. Set CHROME_PATH.");
@@ -182,14 +180,14 @@ test("stored non-default accent and motion are applied before first paint", { ti
 
     const guarantee = "The parser-blocking appearance.js response completed before first contentful paint. With violet accent, motion off, and charcoal surface already stored, the first paint used those values while the remaining deferred scripts were still held.";
     const report = {
-      jarvisCommit: pin.commit,
+      jarvisCommit: mediaSource.commit,
       mediaTree,
       mediaSource: {repository:mediaSource.repository,commit:mediaSource.commit,path:mediaSource.path,tree:mediaSource.tree},
       storageKey: STORAGE_KEY,
       stored: STORED,
       defaults: { accent: "ice", accentColor: "#b4d1ff", motion: "full", surface: "black" },
       layout: {
-        siteRoot: "public",
+        siteRoot: "frontend",
         pagePath: "/media/",
         pipDiagnostics: "/assets/pip-diagnostics.js",
         pipDiagnosticsStatus: pipStatus
@@ -208,11 +206,9 @@ test("stored non-default accent and motion are applied before first paint", { ti
     };
     writeFileSync(resolve(EVIDENCE, "computed-style.json"), `${JSON.stringify(report, null, 2)}\n`);
 
-    assert.equal(pin.commit, "c28c1b2f70aabb5217b08bf31ffe4c93d0353765");
     assert.equal(mediaSource.repository, "braydenparker000/Missionarytube-");
-    assert.equal(mediaSource.path, "jarvis/public/media");
-    assert.equal(mediaSource.commit, "bccda52d2c84bdfc2d315c7250cd9efbd8594aff");
-    assert.equal(mediaTree, "4a4aceb3661e437471a1d28f6574b9b21b28a343");
+    assert.equal(mediaSource.path, "frontend/media");
+    assert.deepEqual(await readFrontendSource("media", {root: repoRoot}), mediaSource, "the characterized editable source remained unchanged during the browser check");
     assert.equal(new URL(page.url()).pathname, "/media/");
     assert.ok(heldPaths.includes("/assets/pip-diagnostics.js"), "the page requests /assets/pip-diagnostics.js from the site root");
     assert.equal(pipStatus, 200, "/assets/pip-diagnostics.js is served from public/assets");

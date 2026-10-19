@@ -1,6 +1,6 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
-import {validateReport,canonical,encodeReport} from './schema.js';
+import {validateReport,canonical,encodeReport} from '../frontend/daily-board/v1/schema.js';
 export function prepare(report,{reviewedPublic=false}={}) {
   validateReport(report);
   if(report.title!==report.title.trim())throw Error('Title must not have surrounding whitespace');

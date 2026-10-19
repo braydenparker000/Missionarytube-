@@ -1,5 +1,23 @@
 # Jarvis recovery evidence — 2026-10-19
 
+2026-10-19 update: PR #277 merged as
+`12bd4280c0f7a90bef90a582c1afafbb8c78cdd6`. Production run
+[39185533893](https://github.com/braydenparker000/Missionarytube-/actions/runs/39185533893)
+verified all seven public Board hashes, retry at 320/390px, empty-state focus and
+an actual public-feed read (4/4 Chrome checks). The rollback artifact was uploaded
+before writes and retained for 90 days. The first improvement is merged,
+deployed and behavior-verified.
+
+The next source-consolidation branch moves the exact selected build inputs to
+`frontend/`, deletes the six manual component manifests and duplicate Board
+modules, and generates provenance from the working tree and current commit.
+Its artifact comparison against this merged baseline retains all 199 paths and
+every deployable byte; only generated `release.json` differs. The frozen import,
+Worker policy, identity, live settings and rollback protections remain intact.
+Source-consolidation implementation is separate from merge/deployment approval.
+The detailed earlier source map and first-release procedure below are historical.
+
+
 Baseline: destination `main` at `998dc6b468e86d09e1b020bd714658b2b8a694ef`.
 The remote main ref matched the clean local checkout. Work is on
 `recovery/daily-board-retry`; nothing was merged or published during recovery.

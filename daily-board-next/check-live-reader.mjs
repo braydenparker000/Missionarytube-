@@ -5,7 +5,7 @@ import {createServer} from 'node:http';
 import {readFile,writeFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 import assert from 'node:assert/strict';
-import {encodeReport} from './schema.js';
+import {encodeReport} from '../frontend/daily-board/v1/schema.js';
 const root=resolve(process.argv[2]||'dist'),report=JSON.parse(await readFile(new URL('fixtures/one.json',import.meta.url)));
 const entry={id:report.id,title:report.title,body:encodeReport(report),createdAt:'2026-10-18T12:00:00Z'};
 const server=createServer(async(req,res)=>{try{const path=resolve(root,'.'+new URL(req.url,'http://local').pathname);if(!path.startsWith(root+'/'))throw Error();res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css'})[extname(path)]||'application/octet-stream');res.end(await readFile(path));}catch{res.writeHead(404);res.end();}});

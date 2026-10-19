@@ -18,7 +18,12 @@ const commit=root=>{git(root,'add','.');git(root,'-c','user.name=Fictional fixtu
 async function fixture(){
   const root=await mkdtemp(join(tmpdir(),'relay-reuse-only-'));
   const release=JSON.parse(await readFile(join(repository,relayClientRecipePath('jarvis-release.json')),'utf8'));
-  for(const {path} of release.workerReusePolicy.recipe){await mkdir(dirname(join(root,path)),{recursive:true});await copyFile(join(repository,relayClientRecipePath(path)),join(root,path));}
+  // Exercise the finite historical transition using its actual retained blobs.
+  // Current release code can evolve without rewriting that historical proof.
+  for(const {path,sha} of release.workerReusePolicy.recipe){
+    await mkdir(dirname(join(root,path)),{recursive:true});
+    await writeFile(join(root,path),execFileSync('git',['-C',repository,'cat-file','blob',sha],{stdio:'pipe'}));
+  }
   await copyFile(join(repository,'scripts/relay-owner-gate.mjs'),join(root,'scripts/relay-owner-gate.mjs'));
   await writeFile(join(root,'jarvis-release.json'),JSON.stringify(release,null,2)+'\n');
   await writeFile(join(root,'.gitignore'),'.jarvis-source/\nworker-identity-before.json\noutputs\nmock-fetch.mjs\nreads.json\n');
@@ -116,7 +121,7 @@ test('policy cannot mint from declared guard working bytes when immutable HEAD c
   }finally{await rm(f.root,{recursive:true,force:true});}
 });
 
-test('current workflow and dependency helper are HEAD-bound while the historical receipt stays exactly eleven recipes',async()=>{
+test('retained transition workflow and dependency helper are HEAD-bound while its receipt stays exactly eleven recipes',async()=>{
   const f=await fixture();try{
     assert.equal(f.candidate.recipe.length,12);assert.equal(f.receipt.recipe.length,11);
     assert.ok(!f.receipt.recipe.some(entry=>entry.path==='scripts/stage-relay-client-dependencies.mjs'));
@@ -134,7 +139,7 @@ test('current workflow and dependency helper are HEAD-bound while the historical
   }finally{await rm(f.root,{recursive:true,force:true});}
 });
 
-test('actual production entrypoint refuses missing/malformed policy and unknown flags before any fetch or checkpoint',async()=>{
+test('retained reuse-only entrypoint refuses malformed policy and unknown flags before any fetch or checkpoint',async()=>{
   const f=await fixture();try{
     const mock=join(f.root,'mock-fetch.mjs');await writeFile(mock,"import{writeFileSync}from'node:fs';globalThis.fetch=async()=>{writeFileSync('reads.json','unexpected');throw Error('FICTIONAL_SECRET');};\n");
     for(const mutate of [r=>{delete r.workerReusePolicy;},r=>{r.workerReusePolicy.mode='deploy';},r=>{r.workerReusePolicy.extra=true;},r=>{r.commit='f'.repeat(40);},r=>{r.workerReusePolicy.recipe=[];}]){

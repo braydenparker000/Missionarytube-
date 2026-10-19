@@ -10,6 +10,7 @@ try {
   await cp(new URL('jarvis/public/content',root),join(dir,'jarvis/public/content'),{recursive:true});
   for(const path of ['drawercast','podcasts'])await cp(new URL('jarvis/public/'+path,root),join(dir,'jarvis/public',path),{recursive:true});
   await cp(new URL('daily-board-next',root),join(dir,'daily-board-next'),{recursive:true});
+  await cp(new URL('frontend/daily-board',root),join(dir,'frontend/daily-board'),{recursive:true});
   await writeFile(join(dir,'package.json'),'{"type":"module"}');
   execFileSync(new URL('node_modules/.bin/esbuild',root).pathname,['jarvis/backend/worker.js','--bundle','--format=esm','--platform=browser','--external:node:crypto','--outfile='+join(dir,'worker.bundle.js')],{cwd:dir,stdio:'pipe'});
   console.log('Unchanged Worker bundle compiled.');
@@ -20,7 +21,7 @@ import {readFileSync} from 'node:fs';
 import {sharedStore,sharedSchema} from './jarvis/backend/shared.js';
 import {decodePublication} from './jarvis/backend/publications.js';
 import {prepare} from './daily-board-next/publisher.mjs';
-import {decodeReport,encodeReport} from './daily-board-next/schema.js';
+import {decodeReport,encodeReport} from './frontend/daily-board/v1/schema.js';
 const db=new DatabaseSync(':memory:');let depth=0;
 const ctx={storage:{sql:{exec:(q,...v)=>db.prepare(q).all(...v)},transactionSync:fn=>{const name='s'+depth++;db.exec('SAVEPOINT '+name);try{const result=fn();db.exec('RELEASE '+name);depth--;return result;}catch(e){db.exec('ROLLBACK TO '+name);db.exec('RELEASE '+name);depth--;throw e;}}}};
 sharedSchema(ctx);

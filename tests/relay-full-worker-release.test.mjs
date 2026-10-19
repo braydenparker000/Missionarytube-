@@ -5,8 +5,8 @@ import {execFileSync,spawnSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {canonicalSettingsDigest,relayCandidateIdentity,checkedRelayFullReleasePolicy,planRelayFullRelease,RELAY_SOURCE,LUCY_DISCOVERY_BASELINE} from '../scripts/relay-worker-release-identity.mjs';
-import {settingsDigest,receiptDigest,backendInputIdentity} from '../scripts/worker-release-identity.mjs';
+import {canonicalSettingsDigest,relayCandidateIdentity,checkedRelayFullReleasePolicy,planRelayFullRelease,RELAY_EXTRA_RECIPES,RELAY_SOURCE,LUCY_DISCOVERY_BASELINE} from '../scripts/relay-worker-release-identity.mjs';
+import {RECIPES,settingsDigest,receiptDigest,backendInputIdentity} from '../scripts/worker-release-identity.mjs';
 import {musicWorkerConfig} from '../scripts/prepare-music-worker.mjs';
 import * as esbuild from 'esbuild';
 import {relayClientSource} from './helpers/relay-client-release-fixture.mjs';
@@ -36,7 +36,7 @@ async function fixture(){
   const root=await mkdtemp(join(tmpdir(),'relay-full-release-'));
   const release=JSON.parse(await readFile(join(repository,'jarvis-release.json'),'utf8'));
   release.workerDeploymentPolicy.mode='full-release';
-  for(const {path} of release.workerDeploymentPolicy.recipe){await mkdir(dirname(join(root,path)),{recursive:true});await copyFile(join(repository,path),join(root,path));}
+  for(const path of [...RECIPES,...RELAY_EXTRA_RECIPES]){await mkdir(dirname(join(root,path)),{recursive:true});await copyFile(join(repository,path),join(root,path));}
   await copyFile(join(repository,'scripts/relay-owner-gate.mjs'),join(root,'scripts/relay-owner-gate.mjs'));
   await writeFile(join(root,'jarvis-release.json'),JSON.stringify(release,null,2)+'\n');
   await writeFile(join(root,'.gitignore'),'.jarvis-source/\nworker-identity-*.json\noutputs*\nmock-fetch.mjs\nreads.json\nrelease-qualified.json\nconfigured-artifact.json\n');
@@ -102,6 +102,22 @@ test('genuine live c85 backend closure differs from the new qualified Relay back
   assert.ok(current.inputs.some(input=>input.path==='backend/relay-core-alarm.js'));
   assert.ok(current.inputs.some(input=>input.path==='backend/public-coordination.js'));
   assert.ok(!old.inputs.some(input=>input.path==='backend/relay-core-alarm.js'));
+});
+
+test('committed recipe changes generate provenance without pin edits and cannot reuse an older production receipt',async()=>{
+  const f=await fixture();try{
+    const path='.github/workflows/deploy-azure-storage.yml';
+    const before=await readFile(join(f.root,'jarvis-release.json'),'utf8');
+    await writeFile(join(f.root,path),(await readFile(join(f.root,path),'utf8'))+'\n# Reviewed fixture change\n');
+    assert.throws(()=>checkedRelayFullReleasePolicy(f.root,relayCandidateIdentity(f.root)),/Relay release refused/,'uncommitted recipe changes remain forbidden');
+    commit(f.root);
+    assert.equal(await readFile(join(f.root,'jarvis-release.json'),'utf8'),before,'no release manifest hash update is needed');
+    const candidate=relayCandidateIdentity(f.root),policy=checkedRelayFullReleasePolicy(f.root,candidate);
+    assert.notEqual(candidate.recipe.find(item=>item.path===path).sha,f.candidate.recipe.find(item=>item.path===path).sha);
+    const proof=await planRelayFullRelease(candidate,f.live,{policy,fetcher:f.fetcher});
+    assert.equal(proof.reuse,false,'the generated current recipe cannot borrow old production evidence');
+    assert.equal(proof.reason,'recipe_mismatch');
+  }finally{await rm(f.root,{recursive:true,force:true});}
 });
 
 test('original sanitized refusals retain qualified deploy fallback but never authorize Worker reuse',async()=>{
@@ -193,8 +209,8 @@ test('missing, malformed, dirty policies and unknown flags stop before any provi
   const f=await fixture();try{
     const mock=await hook(f);
     for(const mutate of [r=>{delete r.workerDeploymentPolicy;},r=>{r.workerDeploymentPolicy.mode='reuse-only';},r=>{r.workerDeploymentPolicy.extra=true;},
-      r=>{r.commit='f'.repeat(40);},r=>{r.workerDeploymentPolicy.recipe=[];},
-      r=>{r.workerDeploymentPolicy.recipe.find(item=>item.path==='.github/workflows/qualify-jarvis.yml').sha='9c0f1cf9fa55b09c3f747c013bb3e1bbecbfa2ce';}]){
+      r=>{r.commit='f'.repeat(40);},r=>{r.workerDeploymentPolicy.schema=1;},
+      r=>{r.workerDeploymentPolicy.recipe=[];}]){
       const changed=structuredClone(f.release);mutate(changed);await writeFile(join(f.root,'jarvis-release.json'),JSON.stringify(changed));commit(f.root);
       const result=cli(f,mock,'plan');assert.equal(result.status,1);assert.ok(!result.stderr.includes(SECRET));
       await absent(join(f.root,'reads.json'));await absent(join(f.root,'outputs'));await absent(join(f.root,'worker-identity-before.json'));

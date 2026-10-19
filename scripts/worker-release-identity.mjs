@@ -7,7 +7,7 @@ import {pathToFileURL} from 'node:url';
 import {checkedBindings,readWorkerSettings} from './check-music-worker-bindings.mjs';
 
 const REPO='braydenparker000/Missionarytube-',WORKFLOW='.github/workflows/deploy-azure-storage.yml';
-const RECIPES=[WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs','scripts/overlap-jarvis-prewrite.mjs','scripts/stage-relay-client-dependencies.mjs'];
+export const RECIPES=Object.freeze([WORKFLOW,'.github/workflows/qualify-jarvis.yml','scripts/plan-jarvis-qualification.mjs','scripts/install-jarvis-browser.mjs','scripts/worker-release-identity.mjs','scripts/prepare-music-worker.mjs','scripts/prepare-worker-tools.mjs','scripts/check-music-worker-bindings.mjs','scripts/qualified-artifact.mjs','scripts/backup-jarvis-storage.mjs','scripts/overlap-jarvis-prewrite.mjs','scripts/stage-relay-client-dependencies.mjs']);
 const SHA=/^[a-f0-9]{40}$/,DIGEST=/^[a-f0-9]{64}$/,UUID=/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/;
 const REASONS=new Set(['receipt_missing','receipt_unavailable','receipt_invalid','origin_mismatch','backend_not_reusable',
   'backend_digest_mismatch','identity_mismatch','settings_mismatch','qualification_unavailable','qualification_mismatch',
@@ -21,6 +21,7 @@ const refusal=(reason,message)=>new IdentityDiagnostic(reason,message);
 const diagnosticReason=error=>error instanceof IdentityDiagnostic&&REASONS.has(error.reason)?error.reason:'unexpected_error';
 const hash=value=>createHash('sha256').update(typeof value==='string'||Buffer.isBuffer(value)?value:JSON.stringify(value)).digest('hex');
 const blob=bytes=>createHash('sha1').update('blob '+bytes.length+'\0').update(bytes).digest('hex');
+export const recipeIdentity=(root=process.cwd())=>RECIPES.map(path=>({path,sha:blob(readFileSync(resolve(root,path)))}));
 const REUSE_SOURCE='c85a42d2bea5d12d576ac84080660a34f11732c4';
 const REUSE_REFERENCE=Object.freeze({source:'f999581aa979712b4b63a6783b7c56842fedb6a1',
   orchestration:'9c01243ad03b921a0b0614d5eb003944a2807a6c',
@@ -169,7 +170,7 @@ export function backendInputIdentity(source,{bundler,workerConfig}={}){
 export function candidateIdentity(root=process.cwd()){
   const source=resolve(root,'.jarvis-source'),release=JSON.parse(readFileSync(resolve(root,'jarvis-release.json'),'utf8'));
   const closure=backendInputIdentity(source);
-  const recipe=RECIPES.map(path=>({path,sha:blob(readFileSync(resolve(root,path)))}));
+  const recipe=recipeIdentity(root);
   const backendDigest=hash({schema:2,closure,preparer:recipe.find(x=>x.path==='scripts/prepare-music-worker.mjs').sha,
     generatedConfig:hash(readFileSync(resolve(source,'backend/wrangler.music.generated.json'))),wrangler:'4.136.3'});
   return {schema:1,source:release.commit,orchestration:execFileSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'}).trim(),backendDigest,backendReusable:closure.reusable,recipe,

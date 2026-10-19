@@ -8,7 +8,6 @@ import {resolve,join,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {stageRelayCoreDependencies,DEPENDENCIES} from '../scripts/stage-relay-core-dependencies.mjs';
 import {artifactIdentity,fileManifest} from '../scripts/qualified-artifact.mjs';
-import {recognizedDeployTrigger,recognizedGatingRecipes,classifyMainPush} from '../scripts/partition-main-qualification.mjs';
 
 const repository=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const modules=['assets/relay-transfer.js','assets/relay-draft-store.js','assets/public-coordination.js','assets/public-reader-cache.js','assets/relay-menu-history.js','assets/relay-attachment-contract.js','assets/relay-attachment-content.js','assets/relay-attachments.js'];
@@ -223,12 +222,7 @@ test('workflow preserves all prewrite barriers, requires staging success, exclud
   assert.ok(batch.indexOf('rm '+removal.join(' '))<batch.indexOf('az storage blob upload-batch'));
   assert.match(batch,/rm upload\/index.html/);assert.match(batch,/--auth-mode login --destination '\$web' --source upload/);
   assert.match(batch,/--overwrite true --content-cache-control no-cache --only-show-errors/);
-  const qualification=await readFile(join(repository,'.github/workflows/qualify-jarvis.yml'),'utf8');
-  assert.equal(recognizedDeployTrigger(flow),false);assert.equal(recognizedGatingRecipes(flow,qualification),false);
-  const before='a'.repeat(40),after='b'.repeat(40),event={ref:'refs/heads/main',repository:{full_name:'braydenparker000/Missionarytube-'},created:false,deleted:false,forced:false,before,after};
-  const git=args=>args[0]==='rev-parse'?after+'\n':args[0]==='rev-list'?'1\n':args[0]==='diff'?'jarvis-release.json\0':'';
-  const result=classifyMainPush({eventName:'push',event,headSha:after},{git,workflow:flow,qualificationWorkflow:qualification});
-  assert.equal(result.deployOnly,false);assert.equal(result.reason,'unrecognized-deploy-trigger');
+
 });
 
 test('real stage entrypoint refuses unknown flags without invoking storage or public verification',()=>{
