@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../jarvis/', import.meta.url));
-export const IMPORT_TREE = '9e3582e82a0b7fd276878058784af4bd7b9cbe3e'; // Perf: font extraction to drawercast/fonts, CSP meta in index.html, Promise.all boot loads (PR #271)
+export const IMPORT_TREE = '8bff5a95771a25368f46bd617d2afdde7749b3ca'; // Reviewed Daily Board load-retry change; all other imported bytes retained.
 function objectHash(type, bytes) {
   return createHash('sha1').update(`${type} ${bytes.length}\0`).update(bytes).digest();
 }
