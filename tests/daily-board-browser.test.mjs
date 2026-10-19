@@ -61,7 +61,7 @@ for(const width of [320,390])test(`Daily Board retries a failed read in place at
  const report=JSON.parse(await readFile(new URL('../daily-board-next/fixtures/one.json',import.meta.url)));
  h.setReply({...legacy([{id:report.id,title:report.title,body:encodeReport(report),createdAt:'2026-10-18T09:00:00Z'}]),hold:true});
  await page.keyboard.press('Enter');
- await page.waitForFunction(()=>document.querySelector('button')?.disabled);
+ await page.waitForFunction(()=>document.querySelector('#report button')?.disabled);
  assert.equal(await page.getByText('Opening your Daily Board…',{exact:true}).count(),1);
  await page.keyboard.press('Enter');assert.equal(h.count(),3,'pending retry cannot submit twice');
  h.release();
@@ -84,5 +84,71 @@ if(process.env.DAILY_BOARD_ORIGIN)test('delivered Daily Board reads the real pub
  const h=await openBoard(t,390,{live:true});await h.page.goto(h.origin+'/daily-board/');
  await h.page.waitForFunction(()=>document.querySelector('[aria-label="Report edition"]')||document.querySelector('#report')?.textContent==='Your briefing will appear here.');
  assert.equal(await h.page.getByRole('button',{name:'Try again',exact:true}).count(),0);
+ assert.deepEqual(h.errors,[]);
+});
+
+async function openReports(t,width=390){
+ const h=await openBoard(t,width);
+ const report=JSON.parse(await readFile(new URL('../daily-board-next/fixtures/one.json',import.meta.url)));
+ const post={id:report.id,title:report.title,body:encodeReport(report),createdAt:'2026-10-18T09:00:00Z'};
+ const older={...post,id:'22222222-2222-4222-8222-222222222222',title:'Previous edition',body:'A previous briefing.\n'.repeat(100),createdAt:'2026-10-17T09:00:00Z'};
+ h.setReply(legacy([post,older]));await h.page.goto(h.origin+'/daily-board/');
+ await h.page.getByRole('heading',{name:report.title,exact:true}).waitFor();
+ return {...h,post,older};
+}
+
+for(const width of [320,390])test(`Daily Board refresh retains the selected edition, reading position and focus at ${width}px`,async t=>{
+ const h=await openReports(t,width),{page}=h;
+ const editions=page.getByRole('combobox',{name:'Report edition'});
+ await editions.selectOption(h.older.id);
+ const refresh=page.getByRole('button',{name:'Refresh reports',exact:true});
+ assert.equal(await refresh.isVisible(),true,'Manual refresh is available after the initial read');
+ await refresh.scrollIntoViewIfNeeded();await refresh.focus();
+ await page.evaluate(()=>{document.querySelector('#report>div').dataset.retained='yes';window.scrollTo(0,200);});
+ const y=await page.evaluate(()=>scrollY);
+ const newPost={...h.post,id:'33333333-3333-4333-8333-333333333333',title:'New edition',createdAt:'2026-10-19T09:00:00Z'};
+ h.setReply({...legacy([newPost,h.post,h.older]),hold:true});
+ await page.keyboard.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#refresh')?.getAttribute('aria-disabled')==='true');
+ assert.equal(await editions.inputValue(),h.older.id,'current edition remains visible while loading');
+ await page.keyboard.press('Enter');assert.equal(h.count(),2,'pending refresh cannot submit twice');
+ h.release();
+ await page.getByRole('status').filter({hasText:'Reports refreshed.'}).waitFor();
+ assert.equal(await editions.inputValue(),h.older.id,'a newer report does not replace the selected edition');
+ assert.equal(await page.locator('#report>div').getAttribute('data-retained'),'yes','unchanged content is not rebuilt');
+ assert.equal(await page.evaluate(()=>scrollY),y);
+ assert.equal(await refresh.evaluate(n=>n===document.activeElement),true);
+ assert.equal(await editions.locator('option').count(),3);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ assert.deepEqual(h.errors,[]);
+});
+
+test('Daily Board refresh failure retains the report and supports another refresh',async t=>{
+ const h=await openReports(t),{page}=h;
+ const refresh=page.getByRole('button',{name:'Refresh reports',exact:true});
+ h.setReply({status:503,body:{error:'Synthetic unavailable response'}});
+ await refresh.focus();await page.keyboard.press('Enter');
+ await page.getByRole('status').filter({hasText:'Could not refresh.'}).waitFor();
+ await page.getByRole('heading',{name:h.post.title,exact:true}).waitFor();
+ assert.equal(await refresh.evaluate(n=>n===document.activeElement),true);
+ h.setReply(legacy([h.older]));await page.keyboard.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('[aria-label="Report edition"]')?.value==='22222222-2222-4222-8222-222222222222');
+ assert.equal(await refresh.getAttribute('aria-disabled'),'false');
+ assert.equal(await refresh.evaluate(n=>n===document.activeElement),true);
+ assert.deepEqual(h.errors,[]);
+});
+
+test('Daily Board preserves an edition chosen while refresh is pending and recovers from an empty feed',async t=>{
+ const h=await openReports(t),{page}=h,editions=page.getByRole('combobox',{name:'Report edition'});
+ h.setReply({...legacy([h.post,h.older]),hold:true});
+ await page.getByRole('button',{name:'Refresh reports',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('#refresh')?.getAttribute('aria-disabled')==='true');
+ await editions.selectOption(h.older.id);h.release();
+ await page.getByRole('status').filter({hasText:'Reports refreshed.'}).waitFor();
+ assert.equal(await editions.inputValue(),h.older.id);
+ h.setReply(legacy([]));await page.getByRole('button',{name:'Refresh reports',exact:true}).click();
+ await page.getByText('Your briefing will appear here.',{exact:true}).waitFor();
+ h.setReply(legacy([h.post]));await page.getByRole('button',{name:'Refresh reports',exact:true}).click();
+ await page.getByRole('heading',{name:h.post.title,exact:true}).waitFor();
  assert.deepEqual(h.errors,[]);
 });
