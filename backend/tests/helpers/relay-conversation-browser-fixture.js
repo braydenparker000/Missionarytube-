@@ -116,7 +116,8 @@ export async function launchQualifiedBrowser(t) {
 }
 
 export async function openConversationPage(browser, harness, {width = 390, height = 844, mobile = true, root = publicRoot, owner, clock = true, context: sharedContext} = {}) {
-  const context = sharedContext || await browser.newContext({viewport: {width, height}, isMobile: mobile, hasTouch: mobile, serviceWorkers: 'block', offline: true});
+  const liveAssets = process.env.JARVIS_LIVE_ASSETS === '1';
+  const context = sharedContext || await browser.newContext({viewport: {width, height}, isMobile: mobile, hasTouch: mobile, serviceWorkers: 'block', offline: !liveAssets});
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
   if (clock) await page.clock.install();
@@ -167,6 +168,9 @@ export async function openConversationPage(browser, harness, {width = 390, heigh
       if (body !== undefined) record.body = body;
       if (url.origin === SITE) {
         assert.equal(request.method, 'GET', 'Unexpected static-site write');
+        // Release verification reads only public application assets from Azure.
+        // Every Worker request still goes to the isolated fixture below.
+        if (liveAssets) return await cdp.send('Fetch.continueRequest', {requestId: event.requestId});
         const pathname = decodeURIComponent(url.pathname);
         const filename = resolve(root, '.' + pathname + (pathname.endsWith('/') ? 'index.html' : ''));
         assert.ok(filename.startsWith(resolve(root) + sep), 'Fixture asset escaped its public root');

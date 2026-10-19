@@ -107,6 +107,13 @@ jobs:
         env:
           DAILY_BOARD_ORIGIN: https://missionarytube.z13.web.core.windows.net
         run: node --test tests/daily-board-browser.test.mjs
+      - name: Verify delivered private image previews with synthetic owner requests only
+        if: ${{ inputs.action == 'publish' }}
+        env:
+          REQUIRE_RELAY_OWNER_BROWSER: '1'
+          JARVIS_LIVE_ASSETS: '1'
+        working-directory: backend
+        run: node --test tests/relay-mast-files-browser.test.js
       - name: Retrieve rollback saved before publication
         if: ${{ inputs.action == 'rollback' }}
         uses: actions/download-artifact@v4
