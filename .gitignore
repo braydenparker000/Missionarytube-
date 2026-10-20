@@ -44,3 +44,6 @@ frontend-live-comparison.json
 .backend-release/
 backend/wrangler.music.generated.json
 backend/worker-versions-*.json
+
+__pycache__/
+*.py[cod]

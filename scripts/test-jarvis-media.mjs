@@ -10,6 +10,7 @@ import {
   sourceOnlyPattern,
   verdict
 } from "./media-qualification.mjs";
+import {historicalModulePath} from "../tests/helpers/historical-source.mjs";
 import { readFrontendSource, frontendDirectory } from "./frontend-source.mjs";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -96,14 +97,14 @@ function runNodeTest(files, { media = null, namePattern = "", skipPattern = "" }
 
 // The 29 names run against the tree that actually contains their src modules.
 // The pin does not, so they use explicit test-only legacy sources. MEDIA_APP_ROOT is removed
-// so legacySourcePath selects only the three retained modules; media assets
-// still resolve to the default pinned checkout, never the repo root.
+// so legacySourcePath selects only the frozen historical modules; media assets
+// still resolve to frontend/media, never to a historical app variant.
 function sourceOnlyEnv(media) {
   if (sourceModulesPresent(media)) return media;
-  if (!sourceModulesPresent(repoRoot)) {
-    throw new Error("source-only tests have no src/compatibility-player.js, src/interaction-logic.js, or src/astra-motion.js");
+  for (const name of ["src/compatibility-player.js", "src/interaction-logic.js", "src/astra-motion.js"]) {
+    readFileSync(historicalModulePath(name));
   }
-  console.log("source-only modules are absent from the pinned public/media tree; running them where those sources exist");
+  console.log("source-only contracts use frozen Git fixtures; current media tests still read frontend/media");
   return null;
 }
 

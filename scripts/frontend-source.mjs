@@ -3,7 +3,7 @@ import {execFileSync} from 'node:child_process';
 import {lstatSync} from 'node:fs';
 import {readdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
-import {importedTree as sourceTree} from './check-jarvis-import.mjs';
+import {gitTree as sourceTree} from './source-tree.mjs';
 
 const repository = 'braydenparker000/Missionarytube-';
 const git = (root, ...args) => execFileSync('git', ['-C', root, ...args], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}).trim();

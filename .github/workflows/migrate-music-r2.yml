@@ -8,6 +8,10 @@ on:
       - '.github/workflows/migrate-music-r2.yml'
   workflow_dispatch:
     inputs:
+      expected_commit:
+        description: Full reviewed main SHA; current scripts are the only migration source
+        required: true
+        type: string
       limit:
         description: 'Tracks to verify/copy (5 = smoke test, 0 = full library)'
         required: true
@@ -44,43 +48,39 @@ jobs:
     outputs:
       source_sha: ${{ steps.source.outputs.sha }}
     steps:
-      - name: Check out pinned Jarvis migration code
+      - name: Check out current migration tools
         uses: actions/checkout@v4
         with:
-          repository: braydenparker000/Missionarytube-
-          ref: dd0797bd48431ea04354f83663c3df765cc8f5b0
-          path: .jarvis-source
           persist-credentials: false
       - name: Record exact tested source
         id: source
-        run: echo "sha=$(git -C .jarvis-source rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Test migration integrity and refusal guards
-        working-directory: .jarvis-source
         run: |
           python -m py_compile scripts/migrate-drive-to-r2.py
-          python -m unittest discover -s tests -p 'test_r2*.py' -v
+          python -m unittest discover -s tests/python -p 'test_r2*.py' -v
 
   migrate:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - name: Check out orchestration repository
-        uses: actions/checkout@v4
-
-      - name: Check out exact validated migration code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          repository: braydenparker000/Missionarytube-
           ref: ${{ needs.validate.outputs.source_sha }}
-          path: .jarvis-source
           persist-credentials: false
-
+      - name: Require the reviewed main revision before provider access
+        env:
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: |
+          [[ "$EXPECTED_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          test "$EXPECTED_COMMIT" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -113,13 +113,13 @@ jobs:
           import importlib.util, json, os, tempfile
           from datetime import datetime, timezone
           from pathlib import Path
-          root = Path('.jarvis-source')
+          root = Path('.')
           spec = importlib.util.spec_from_file_location('migration', root / 'scripts/migrate-drive-to-r2.py')
           m = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(m)
           try:
               auth = m.drive_auth_from_env()
-              config = json.loads((root / 'public/assets/drive-config.json').read_text())
+              config = json.loads((root / 'frontend/assets/drive-config.json').read_text())
               _, files = m.list_music(config['folderId'], auth)
               if not files:
                   raise m.MigrationError('Drive music inventory is empty.')
@@ -132,10 +132,10 @@ jobs:
               raise SystemExit(m.safe_error(exc)) from None
           PYTHON
           elif [ "$MIGRATION_MODE" = copy ]; then
-            python .jarvis-source/scripts/migrate-drive-to-r2.py --limit "$MIGRATION_LIMIT" --concurrency "$MIGRATION_CONCURRENCY"
+            python scripts/migrate-drive-to-r2.py --limit "$MIGRATION_LIMIT" --concurrency "$MIGRATION_CONCURRENCY"
           elif [ "$MIGRATION_MODE" = incremental ]; then
             test "$MIGRATION_LIMIT" = 0 || { echo 'Incremental mode requires limit=0.'; exit 1; }
-            python .jarvis-source/scripts/migrate-drive-to-r2.py --limit 0 --concurrency "$MIGRATION_CONCURRENCY" --incremental
+            python scripts/migrate-drive-to-r2.py --limit 0 --concurrency "$MIGRATION_CONCURRENCY" --incremental
           else
             echo 'Invalid migration mode.'; exit 1
           fi
@@ -146,7 +146,7 @@ jobs:
         with:
           name: r2-migration-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            .jarvis-source/r2-migration-report.json
-            .jarvis-source/drive-probe-report.json
+            r2-migration-report.json
+            drive-probe-report.json
           if-no-files-found: ignore
           retention-days: 30

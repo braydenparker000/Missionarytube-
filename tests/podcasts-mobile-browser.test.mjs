@@ -17,7 +17,7 @@ before(async()=>{
   directory=await mkdtemp(join(tmpdir(),'podcasts-built-'));
   await mkdir(join(directory,'scripts'));
   await cp('frontend',join(directory,'frontend'),{recursive:true});
-  for(const file of ['build-jarvis.mjs','frontend-source.mjs','check-jarvis-import.mjs','r2-player-config.mjs','private-board-pins.json'])await cp('scripts/'+file,join(directory,'scripts',file));
+  for(const file of ['build-jarvis.mjs','frontend-source.mjs','source-tree.mjs','r2-player-config.mjs','private-board-pins.json'])await cp('scripts/'+file,join(directory,'scripts',file));
   await cp('jarvis-release.json',join(directory,'jarvis-release.json'));
   await writeFile(join(directory,'package.json'),'{"type":"module"}');
   const git=(...args)=>execFileSync('git',args,{cwd:directory,stdio:'pipe'});

@@ -21,7 +21,8 @@ test("a Jarvis target cannot resolve to the repo-root copy", () => {
   assert.match(`${result.stderr}\n${result.stdout}`, /exact Jarvis media source/);
 });
 
-test("retained source-only modules stay explicitly rooted at the orchestration checkout", async () => {
+test("source-only fixtures come from immutable history, outside the editable checkout", async () => {
   const { legacySourcePath } = await import("./helpers/media-root.mjs");
-  assert.equal(legacySourcePath("src/compatibility-player.js"), resolve(repoRoot(), "src/compatibility-player.js"));
+  assert.ok(!legacySourcePath("src/compatibility-player.js").startsWith(repoRoot()));
+  assert.match(await readFile(legacySourcePath("src/compatibility-player.js"), "utf8"), /export/);
 });

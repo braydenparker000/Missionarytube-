@@ -4,7 +4,7 @@ Primary destination: https://missionarytube.z13.web.core.windows.net/
 
 This repository now controls Jarvis's frontend deployment using the **existing** MissionaryTube Storage account, `$web` container, Entra app and GitHub OIDC federation. The repository name and `main` branch remain unchanged deliberately. No Azure service, identity, credential or permission is created.
 
-Missionarytube- (repository ID `1350047370`) is the surviving source and deployment repository. Edit frontend code in `frontend/`. The frozen imported Jarvis history is retained under `jarvis/`; the original `braydenparker999/jarvis` repository remains intact as historical provenance and for the Daily Board publication dependency described below. The original Static Web App frontend at https://gray-meadow-09216fd10.1.azurestaticapps.net/ is retired; the existing Azure Storage route remains the frontend deployment path.
+Missionarytube- (repository ID `1350047370`) is the surviving source and deployment repository. Edit frontend code in `frontend/`. Imported application versions remain in Git history; the original `braydenparker999/jarvis` repository remains intact as historical provenance and for the Daily Board publication dependency described below. The original Static Web App frontend at https://gray-meadow-09216fd10.1.azurestaticapps.net/ is retired; the existing Azure Storage route remains the frontend deployment path.
 
 ## Develop
 
@@ -139,18 +139,40 @@ artifact to the reviewed checkout and its run/attempt. The Worker qualification
 bundle verifies inputs; the existing Wrangler publisher still produces the
 provider deployment.
 
-`jarvis/` is a frozen guarded archive. Historical qualification snapshots,
-receipts and `jarvis-release.json`'s old commit are retained for compatibility,
-negative tests and rollback; they are not source selectors for normal releases.
-Dormant variants stay unselected. The hourly Drive catalog publisher now reads
-its accepted helpers from `scripts/` and `frontend/`, preserving its OAuth guard,
-accepted tag parser, schedule, Azure identity and pointer-last publication.
+The duplicate imported `jarvis/` tree and unshipped root application prototypes
+have been removed. Normal tools read `frontend/`, `backend/` and `scripts/`.
+R2 migration, initialization, upload and analysis use reviewed current main code;
+none checks out a different application variant. The hourly Drive publisher
+keeps its existing OAuth guard, tag parser, schedule, identity and pointer-last
+publication.
+
+| Directory | Purpose |
+| --- | --- |
+| `frontend/` | Authoritative editable static application, including shared browser/Worker helpers |
+| `backend/` | Authoritative Worker and its application tests |
+| `scripts/` | Build, current publishing, data and verification tools; historical receipt/restore contracts |
+| `tests/` | Deployment regressions, synthetic fixtures and current Python tool tests |
+| `docs/` | Current guides, licenses and dated release evidence |
+| `.agents/` | The existing delivery skill |
+
+Historical application versions remain in Git. The small test-only history
+reader materializes exact frozen compatibility inputs in temporary directories;
+it is never used by a build or publisher. Existing `.jarvis-source` CI fixtures
+are ignored historical qualification inputs, not source selectors. Use a full
+clone (or `git fetch --unshallow`) for those legacy checks. No history rewrite or
+rollback-artifact deletion is part of this cleanup.
+
+Run `npm run test:backend` for current Worker behavior and `npm run test:tools`
+for the preserved R2 integrity, OAuth, retry, conditional-write and upload-receipt
+guards. `npm test` remains the required deployment suite. Daily Board report
+preparation uses `node scripts/daily-board-report.mjs`; its optional local SQLite
+integration check is `node scripts/check-daily-board-integration.mjs`.
 
 New Daily Board reports using existing report types use the existing content
 writer; they do not require an application PR, source pins or code deployment.
 This cleanup does not change its schedule, issue destination or authorization.
 See [the source import record](docs/jarvis-source-import.md) for history and
-[the delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md)
+[the delivery SOP](.agents/skills/deliver-software-efficiently/SKILL.md)
 for validation and authorization requirements.
 
 The recorded Daily Board reader activation enabled both the legacy
@@ -159,7 +181,7 @@ and destination
 [`braydenparker000/Missionarytube-#250`](https://github.com/braydenparker000/Missionarytube-/issues/250).
 The [release-path record](docs/release-paths.md) documents activation attempt
 39084315952 (failed overall) and successful dual-source readback run 39084979917; the
-[publishing contract](daily-board-next/PUBLISHING.md) records a later read-only
+[publishing contract](docs/daily-board-publishing.md) records a later read-only
 verification in run 39097771082. These recorded activations supersede the
 earlier disabled-reader checkpoint.
 
@@ -173,7 +195,8 @@ Destination issue #2 is an imported PR and must not be reused.
 
 The duplicate root media app and its legacy build/browser commands have been
 retired. Media source checks and the build read `frontend/media`.
-Generated provenance records its actual tree and checkout commit. The three retained `src/` modules support 29 legacy source-only
-contracts and are not built or shipped. Fixtures and licenses remain. The media
+Generated provenance records its actual tree and checkout commit. Legacy
+source-only contracts read immutable Git fixtures, with no editable `src/` copy.
+Fixtures and licenses remain. The media
 qualification command retains its documented shipped UI TODOs and can report
 not ready; see [migration evidence](test-evidence/media-migration/README.md).

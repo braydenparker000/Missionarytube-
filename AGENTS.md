@@ -18,17 +18,20 @@ with the approved Node/Chrome runtimes and isolated fixtures.
 Local edits can build and test; publication requires a committed checkout and
 matching generated provenance. Never replace this source with an imported variant.
 
-`jarvis/` is a frozen imported archive, including dormant variants, retained
-backend inputs and the canonical
-[delivery SOP](jarvis/.agents/skills/deliver-software-efficiently/SKILL.md).
-Its exact import guard remains intact. This root guidance supersedes dated
-checkpoints in the imported [delivery plan](jarvis/docs/delivery-plan.md).
-`.jarvis-source` at the `jarvis-release.json` commit remains a read-only fixture
-for historical qualification and rollback contracts; normal application builds
-and publishers use the current frontend/backend workspaces. Its old repository field records historical identity;
-checkouts use destination history in `braydenparker000/Missionarytube-`.
-See [the source import record](docs/jarvis-source-import.md) and the selected
-publisher for component-specific live preservation and rollback boundaries.
+There is no checked-in application archive. `frontend/` is the only editable UI,
+`backend/` the only Worker, and `scripts/` the only maintained tooling source.
+Active catalogs, migration, audio analysis and native-upload tools import the
+shared modules in `frontend/`. Do not recreate root app copies, source snapshots,
+or manual component pins. Generated build outputs are ignored.
+
+The [delivery SOP](.agents/skills/deliver-software-efficiently/SKILL.md) is canonical.
+Historical compatibility tests use immutable Git fixtures through
+`tests/helpers/historical-source.mjs`; the fixture commit never advances for
+features. CI's ignored `.jarvis-source` checkout at the historical
+`jarvis-release.json` commit remains only for preserved qualification/rollback
+contracts. Neither is an application build input or a source fallback. Keep
+history and original refs; a shallow clone needs history for legacy checks.
+
 The build now reproduces the accepted public/private/music/cache application
 bytes, including automatically fingerprinted music URLs. Configured assets and
 content remain provider-owned and excluded from application publishing. The
@@ -39,7 +42,7 @@ publication evidence; it cannot activate an imported variant. Subsequent
 releases use generated receipts. Normal publishers reuse the exact successful
 main Validate artifact, not another qualification run. Never update historical
 pins for a new feature or release. The former specialized forward publishers
-are retired; historical Daily Board restore remains available. The Drive
+are retired; historical Daily Board and importer restores remain available. The Drive
 catalog publisher uses accepted current-workspace helpers with its existing
 OAuth guard, parser, hourly schedule and identity.
 

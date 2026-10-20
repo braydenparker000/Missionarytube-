@@ -58,7 +58,7 @@ for(const width of [320,390])test(`Daily Board retries a failed read in place at
  await retry.focus();await page.keyboard.press('Enter');
  await page.waitForFunction(()=>document.activeElement?.textContent==='Try again'&&!document.activeElement.disabled);
  assert.equal(h.count(),2,'a repeated failure remains retryable');
- const report=JSON.parse(await readFile(new URL('../daily-board-next/fixtures/one.json',import.meta.url)));
+ const report=JSON.parse(await readFile(new URL('./fixtures/daily-board/one.json',import.meta.url)));
  h.setReply({...legacy([{id:report.id,title:report.title,body:encodeReport(report),createdAt:'2026-10-18T09:00:00Z'}]),hold:true});
  await page.keyboard.press('Enter');
  await page.waitForFunction(()=>document.querySelector('#report button')?.disabled);
@@ -89,7 +89,7 @@ if(process.env.DAILY_BOARD_ORIGIN)test('delivered Daily Board reads the real pub
 
 async function openReports(t,width=390){
  const h=await openBoard(t,width);
- const report=JSON.parse(await readFile(new URL('../daily-board-next/fixtures/one.json',import.meta.url)));
+ const report=JSON.parse(await readFile(new URL('./fixtures/daily-board/one.json',import.meta.url)));
  const post={id:report.id,title:report.title,body:encodeReport(report),createdAt:'2026-10-18T09:00:00Z'};
  const older={...post,id:'22222222-2222-4222-8222-222222222222',title:'Previous edition',body:'A previous briefing.\n'.repeat(100),createdAt:'2026-10-17T09:00:00Z'};
  h.setReply(legacy([post,older]));await h.page.goto(h.origin+'/daily-board/');

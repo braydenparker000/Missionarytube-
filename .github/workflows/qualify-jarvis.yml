@@ -210,6 +210,11 @@ jobs:
           export CHROMIUM_PATH="$JARVIS_CHROME"
           export PLAYWRIGHT_CHROMIUM_EXECUTABLE="$JARVIS_CHROME"
           npm run test:backend
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.15'
+      - name: Test current R2 tools and migration guards without credentials
+        run: npm run test:tools
       - name: Require the retained private mobile visual evidence
         env:
           SCREENSHOTS: ${{ runner.temp }}/private-board
