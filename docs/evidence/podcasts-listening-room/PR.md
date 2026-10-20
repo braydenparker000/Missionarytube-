@@ -1,0 +1,5 @@
+Podcasts now uses The Listening Room: local Instrument Sans, artwork-led Discover/Library/show layouts, a focused responsive player, and measured artwork/title transitions between the persistent mini-player and full player. Dedicated touch queue handles support cancellation, edge scrolling, one committed storage write, keyboard moves and menu fallback. Download progress/failure states and navigation context remain accurate during playback.
+
+The single audio element, provider URLs, localStorage/IndexedDB formats and audio/art caches are preserved. The offline shell advances to v6; the previous shell upgrade is tested with real downloaded audio and offline resume. No framework, dependency, backend or hosting changes.
+
+Validation: 1,084 repository tests and 41 affected podcast tests passed; build passed. Before/after screenshots, player/queue traces, raw lab performance and exact source hashes are in `docs/evidence/podcasts-listening-room/README.md` and `gallery.html`. Physical Galaxy A15 verification and required pinned-runtime CI remain pending. Do not merge or deploy without owner authorization.

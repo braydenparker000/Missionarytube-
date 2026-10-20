@@ -1,0 +1,361 @@
+{
+  "revision": "0dfa38c9dfc1f2130e684652fa35d53769bb7fce",
+  "workingTree": false,
+  "environment": {
+    "browser": "154.0.8037.57",
+    "node": "v24.19.0",
+    "platform": "linux",
+    "kernel": "6.18.55",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCPUs": 5,
+    "headless": true,
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "deviceScaleFactor": 1,
+    "cpuThrottling": false,
+    "physicalPhoneVerified": false
+  },
+  "measurementNotes": "Local deterministic data providers; real 180-second PCM audio. Timing run excludes screenshots/tracing. Event Timing entries under 16ms are not reported by Chromium. rAF gaps are lab scheduling evidence, not physical-phone smoothness or field INP.",
+  "measurements": [
+    {
+      "name": "open-player",
+      "start": 28505.79999999999,
+      "end": 29252.29999999999,
+      "frameCount": 44,
+      "frameIntervalMedianMs": 16.700000000000728,
+      "frameIntervalP95Ms": 16.700000000000728,
+      "frameIntervalMaxMs": 16.799999999999272,
+      "framesOver25ms": 0,
+      "longTasks": [],
+      "events": [
+        {
+          "name": "pointerdown",
+          "start": 28534.400000000023,
+          "duration": 32,
+          "processing": 0.5,
+          "interactionId": 6210
+        },
+        {
+          "name": "pointerup",
+          "start": 28534.400000000023,
+          "duration": 32,
+          "processing": 0,
+          "interactionId": 6210
+        },
+        {
+          "name": "click",
+          "start": 28534.400000000023,
+          "duration": 32,
+          "processing": 6,
+          "interactionId": 6210
+        }
+      ]
+    },
+    {
+      "name": "close-player",
+      "start": 29253.79999999999,
+      "end": 29977.79999999999,
+      "frameCount": 42,
+      "frameIntervalMedianMs": 16.700000000000728,
+      "frameIntervalP95Ms": 16.80000000000291,
+      "frameIntervalMaxMs": 16.80000000000291,
+      "framesOver25ms": 0,
+      "longTasks": [],
+      "events": [
+        {
+          "name": "pointerdown",
+          "start": 29284.400000000023,
+          "duration": 16,
+          "processing": 0.5,
+          "interactionId": 6217
+        },
+        {
+          "name": "pointerup",
+          "start": 29284.400000000023,
+          "duration": 16,
+          "processing": 0.09999999997671694,
+          "interactionId": 6217
+        },
+        {
+          "name": "click",
+          "start": 29284.400000000023,
+          "duration": 16,
+          "processing": 0.09999999997671694,
+          "interactionId": 6217
+        }
+      ]
+    },
+    {
+      "name": "library-tab",
+      "start": 29979.100000000035,
+      "end": 30433.900000000023,
+      "frameCount": 27,
+      "frameIntervalMedianMs": 16.700000000000728,
+      "frameIntervalP95Ms": 16.799999999999272,
+      "frameIntervalMaxMs": 16.799999999999272,
+      "framesOver25ms": 0,
+      "longTasks": [],
+      "events": [
+        {
+          "name": "pointerdown",
+          "start": 30017.600000000035,
+          "duration": 24,
+          "processing": 0.20000000001164153,
+          "interactionId": 6224
+        },
+        {
+          "name": "pointerup",
+          "start": 30017.70000000001,
+          "duration": 16,
+          "processing": 0,
+          "interactionId": 6224
+        },
+        {
+          "name": "click",
+          "start": 30017.70000000001,
+          "duration": 16,
+          "processing": 1.7000000000116415,
+          "interactionId": 6224
+        }
+      ]
+    },
+    {
+      "name": "show-entry",
+      "start": 30435.70000000001,
+      "end": 30894.400000000023,
+      "frameCount": 26,
+      "frameIntervalMedianMs": 16.69999999999709,
+      "frameIntervalP95Ms": 16.799999999999272,
+      "frameIntervalMaxMs": 16.799999999999272,
+      "framesOver25ms": 0,
+      "longTasks": [],
+      "events": [
+        {
+          "name": "pointerdown",
+          "start": 30469.100000000035,
+          "duration": 24,
+          "processing": 0.5,
+          "interactionId": 6231
+        },
+        {
+          "name": "pointerup",
+          "start": 30469.20000000001,
+          "duration": 24,
+          "processing": 0,
+          "interactionId": 6231
+        },
+        {
+          "name": "click",
+          "start": 30469.20000000001,
+          "duration": 24,
+          "processing": 7.099999999976717,
+          "interactionId": 6231
+        }
+      ]
+    }
+  ],
+  "audio": {
+    "before": {
+      "same": true,
+      "count": 1,
+      "source": "/podcasts/audio",
+      "position": 41.959031,
+      "paused": false,
+      "loads": 1
+    },
+    "after": {
+      "same": true,
+      "count": 1,
+      "source": "/podcasts/audio",
+      "position": 46.607773,
+      "paused": false,
+      "loads": 1
+    }
+  },
+  "queue": {
+    "method": "existing menu fallback",
+    "before": [
+      "The Listening Room · 3 min · DownloadedA little room to listen · 2",
+      "The Listening Room · 3 minA little room to listen · 3",
+      "The Listening Room · 3 minA little room to listen · 4"
+    ],
+    "after": [
+      "The Listening Room · 3 minA little room to listen · 4",
+      "The Listening Room · 3 min · DownloadedA little room to listen · 2",
+      "The Listening Room · 3 minA little room to listen · 3"
+    ]
+  },
+  "screens": [
+    {
+      "name": "discover-loading",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "search",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "show",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "queue",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "downloads-active",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "downloads",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "player",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "options",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-with-progress",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-320x568",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "overflow": false
+    },
+    {
+      "name": "player-320x568",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-360x640",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "overflow": false
+    },
+    {
+      "name": "player-360x640",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-412x915",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "overflow": false
+    },
+    {
+      "name": "player-412x915",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-740x360",
+      "viewport": {
+        "width": 740,
+        "height": 360
+      },
+      "overflow": false
+    },
+    {
+      "name": "player-740x360",
+      "viewport": {
+        "width": 740,
+        "height": 360
+      },
+      "overflow": false
+    },
+    {
+      "name": "queue-reordered",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    }
+  ],
+  "errors": []
+}

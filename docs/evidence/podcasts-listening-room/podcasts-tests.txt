@@ -1,0 +1,53 @@
+
+> missionarytube@0.1.0 test:podcasts
+> node --test tests/podcasts-mobile-browser.test.mjs backend/tests/podcasts.test.js backend/tests/podcast-directory-contract.test.js
+
+✔ captured Apple search contract parses as JSON on client and Worker (48.822146ms)
+✔ captured Apple alternate contract parses as JSON on client and Worker (4.601987ms)
+✔ client never evaluates callback or executable text, and keeps using the alternate JSON provider (1.069044ms)
+✔ provider metadata is type checked, bounded, escaped by the view, and credential URLs are rejected (0.586716ms)
+✔ data-only fallback preserves genuine empty results, bounded response size and abort semantics (6.551009ms)
+✔ only the two existing Apple endpoints are used; query text cannot add callback or credentials (0.320895ms)
+✔ public URLs reject credentials, local addresses, numeric tricks and unsafe protocols (2.075052ms)
+✔ RSS uses stable GUIDs, text-only notes, valid dates, publisher audio and deduplicated episodes (7.534359ms)
+✔ all redirects are revalidated before fetching; private redirects are refused (24.924164ms)
+✔ long publisher measurement chains resolve audio and forward byte ranges at every hop (3.679715ms)
+✔ redirect loops stop immediately; the larger hop budget still rejects private targets (1.282837ms)
+✔ streamed feed byte cap is enforced even without Content-Length (5.118977ms)
+✔ large archives retain complete playable episodes within the feed budget (17.219874ms)
+✔ feed pages retain stable episode IDs and audio lookup reaches older loaded items (6.255302ms)
+✔ directory search returns playable shows and uses bounded podcast-specific queries (2.134021ms)
+✔ directory host rejection falls back to an independent public podcast index (1.166081ms)
+✔ an empty first directory cannot hide a matching popular show from another provider (0.734589ms)
+✔ audio is resolved from an RSS enclosure, preserves range headers and rejects non-audio bodies (2.883874ms)
+✔ missing episodes cannot turn the audio route into an arbitrary URL proxy (0.451471ms)
+✔ existing Worker routes retain origin enforcement and expose podcast health (3.849842ms)
+✔ resume, ordered queue, progress bounds and timer transitions preserve listening semantics (0.637903ms)
+✔ accessible episode positions include spoken units, total duration and honest unknown duration (0.164859ms)
+✔ shared cover survives outside second contact, viewport rotation and lifecycle suspension without orphan layers (4389.676881ms)
+✔ built browse/details/play/player/nested Back journey preserves audio, focus and browsing state (5903.891227ms)
+✔ touch holds share visible options, cancel for scrolling/second contact, and never activate through a sheet (3312.473524ms)
+✔ interrupted expansion, header drag reversal/cancellation and dismissal leave controls and audio live (3779.120003ms)
+✔ built controls fit 320×568, with reduced motion and independent mini-player actions (1099.314768ms)
+✔ built controls fit 360×640, with reduced motion and independent mini-player actions (1122.294288ms)
+✔ built controls fit 412×915, with reduced motion and independent mini-player actions (1092.636803ms)
+✔ built controls fit 740×360, with reduced motion and independent mini-player actions (1135.898348ms)
+✔ previous controlled shell upgrades during playback; real downloaded audio, artwork and saved state survive offline reopen (2228.436371ms)
+✔ new search intent wins and unavailable providers preserve retry input (1048.908494ms)
+✔ fallback without Web Animations and a mid-transition reduced-motion change retain operable layers (1032.156664ms)
+✔ library, queue ordering/played state, and cancelled/failed downloads retain existing actions (1433.131871ms)
+✔ queue touch order commits once, cancellation restores order, keyboard moves and reload preserve it (3936.255784ms)
+✔ genuine listening history and Discover search context survive tab changes (1315.291486ms)
+✔ queue edge scrolling and interrupted navigation never persist a tentative drag (1193.619107ms)
+✔ large feeds, missing art, long multilingual titles and failed downloads remain readable and independent (5125.469807ms)
+✔ topic selection retains the native rail position while loading and after results (1303.275805ms)
+✔ Discover resume rows refresh download and played state without rebuilding the directory (1165.217833ms)
+✔ queue menu uses current order after real audio autoplay advances behind the sheet (1551.242928ms)
+ℹ tests 41
+ℹ suites 0
+ℹ pass 41
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43588.696365
