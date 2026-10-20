@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { QueueOrder } from '../../frontend/poweramp-v2/queue.js';
+import { QueueOrder } from '../frontend/poweramp-v2/queue.js';
 
 function random(seed = 42) {
   return () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);

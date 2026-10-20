@@ -8,7 +8,7 @@
 - Working implementation commit on GitHub: **`ff204c42093eed9c14fb8bf1814caef745348c47`**.
 - Local verification commit: `588fb13007b48eb86c1fa150655e0dfec28df3d5`. Both commits have the exact Git tree `9787efa942130abc821fa507648012f45fe8e700`. The connected GitHub API saved the source because shell Git credentials were unavailable; blob and complete tree identities were verified.
 - Subsequent documentation/evidence commit(s) preserve this implementation and its captures; use `git log -3 --oneline` to see branch HEAD.
-- New route source: `frontend/poweramp-v2/`. Test ownership: `tests/poweramp-v2/` with root discovery wrapper.
+- New route source: `frontend/poweramp-v2/`. Test ownership: `tests/poweramp-v2-*.test.mjs` with a distinct ownership prefix.
 
 ## State of delivery
 
@@ -16,8 +16,9 @@
 |---|---|
 | Implemented | First player/library/mini-player/audio vertical slice, plus basic grouping/search/local import |
 | APK analyzed | Hash matched; Apktool3.0.3 decode; focused JADX1.5.6 and smali cross-checks;23 evidence claims |
-| Locally tested |48 V2 checks passed, including actual built-artifact browser execution;14 privacy/provenance checks passed |
+| Locally tested |48 V2 checks passed, including actual built-artifact browser execution;18 privacy/provenance/test-discovery checks passed |
 | Source committed |Implementation commit above, isolated feature branch; findings/captures committed separately |
+| PR opened |[Draft PR #285](https://github.com/braydenparker000/Missionarytube-/pull/285); no merge authorized |
 | Full required CI |Not established by local tests; inspect the PR's exact revision checks before merge |
 | Original/A15 comparison |Not performed; original runtime/settings capture unavailable |
 | Remote personal playback |Not activated; adapter has synthetic contract checks only |
@@ -37,12 +38,14 @@
 
 ```sh
 npm run build
-V2_ROOT=dist/poweramp-v2 node --test tests/poweramp-v2.test.mjs
-node --test scripts/frontend-source.test.mjs tests/privacy.test.mjs
+V2_ROOT=dist/poweramp-v2 node --test tests/poweramp-v2-*.test.mjs
+node --test tests/source-layout.test.mjs scripts/frontend-source.test.mjs tests/privacy.test.mjs
 git diff --check
 ```
 
-V2:48 pass,0 fail,0 skipped. Host checks:14 pass,0 fail. The source suite also passed before the final artifact run. Local runtime: Node24.19.0, Playwright-core1.56.1, Chromium headless shell141.0.7390.37. No required full root/Worker/CI suite is falsely marked as run; Worker behavior was not edited. The normal build did produce both frontend and backend artifacts.
+V2:48 pass,0 fail,0 skipped. Host checks:18 pass,0 fail. The source suite also passed before the final artifact run. Local runtime: Node24.19.0, Playwright-core1.56.1, Chromium headless shell141.0.7390.37. The normal build produced both frontend and backend artifacts.
+
+The first PR CI run,39477697163, passed all V2 cases and all component/Worker lanes. The root suite passed1,142 of1,143 checks; its sole failure rejected nested test filenames, even though the wrapper executed them. V2 tests were moved to the repository's required top-level naming scheme with their own `poweramp-v2-` prefix; the wrapper was removed. No test-discovery guard was relaxed. All48 V2 cases and18 host checks passed again after the move. Inspect the draft PR's exact revision checks for the subsequent full CI result.
 
 Actual decoded18s audio had a nonzero monitored sample peak≈0.266. Browser checks exercised touch drags/reversal/cancel, a second finger on another control, waveform mapping/cancel, mini seeking, long-press Stop, track change during seek, autoplay/error races, reload, storage denial, real local-file import, keyboard focus, empty catalog and5,000 rows. Viewports320×568,360×780,430×932 and780×360 were captured. Full Android font-scaling and background/locked-screen tests remain open.
 

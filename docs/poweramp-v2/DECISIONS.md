@@ -36,7 +36,7 @@ Small preferences use only `poweramp-v2:preferences:1`. Stored fields are schema
 
 ## Static integration and evidence
 
-The route is wholly under `frontend/poweramp-v2/`, research under `docs/poweramp-v2/`, tests under `tests/poweramp-v2/`, and the development server under `scripts/`. No build/release machinery or service configuration was changed. Runtime is **69,825 bytes before compression** at the implementation checkpoint, with no third-party runtime imports. The complete host build remains about 20.60 MiB, below its 25 MiB ceiling.
+The route is wholly under `frontend/poweramp-v2/`, research under `docs/poweramp-v2/`, tests named `tests/poweramp-v2-*.test.mjs`, and the development server under `scripts/`. No build/release machinery or service configuration was changed. Runtime is **69,825 bytes before compression** at the implementation checkpoint, with no third-party runtime imports. The complete host build remains about 20.60 MiB, below its 25 MiB ceiling.
 
 The first modules used `.mjs`; inspection found that the existing publisher maps `.js` but not `.mjs` to JavaScript MIME. Modules were renamed to `.js`. This avoids a needless hosting change. Build output was exercised at the actual `/poweramp-v2/` subpath, under the document's unmodified CSP.
 

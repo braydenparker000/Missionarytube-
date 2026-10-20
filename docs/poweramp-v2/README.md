@@ -23,11 +23,11 @@ Open Menu → Open audio files to play selected device files. They remain local 
 node node_modules/playwright-core/cli.js install chromium --only-shell
 npm run test:poweramp-v2
 npm run build
-V2_ROOT=dist/poweramp-v2 node --test tests/poweramp-v2.test.mjs
-node --test scripts/frontend-source.test.mjs tests/privacy.test.mjs
+V2_ROOT=dist/poweramp-v2 node --test tests/poweramp-v2-*.test.mjs
+node --test tests/source-layout.test.mjs scripts/frontend-source.test.mjs tests/privacy.test.mjs
 ```
 
-The browser suite prefers `JARVIS_CHROME`, `CHROME_PATH`, or an installed system Chrome, then the Playwright headless shell. It fails if no usable browser exists. Root `npm test` discovers `tests/poweramp-v2.test.mjs`; no V1 tests were ported. Full existing CI qualification still applies before any merge or publication.
+The browser suite prefers `JARVIS_CHROME`, `CHROME_PATH`, or an installed system Chrome, then the Playwright headless shell. It fails if no usable browser exists. Root `npm test` discovers `tests/poweramp-v2-*.test.mjs`; no V1 tests were ported. Full existing CI qualification still applies before any merge or publication.
 
 Evidence defaults to ignored `.browser-check/poweramp-v2/`. Set `V2_EVIDENCE_DIR` to another directory if needed. Captures in [evidence](evidence/) are synthetic V2 output, not images of the original app.
 

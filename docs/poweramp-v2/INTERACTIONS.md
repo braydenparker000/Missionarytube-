@@ -37,6 +37,6 @@ Progress comes from actual media time. Demo waveform peaks come from the same ge
 
 ## Verification boundaries
 
-`tests/poweramp-v2/browser.test.mjs` uses real browser touch inputs for drag, reversal, cancellation, two contacts, long press, seeking and clicks. Controlled motion samples at0/25/50/75/100% and the settle replacement check additionally inspect the scene controller directly; those are rendering/continuity evidence, not measured native gesture feel. Audio tests use actual decoded media for playback and causal mocks for promise/error races.
+`tests/poweramp-v2-browser.test.mjs` uses real browser touch inputs for drag, reversal, cancellation, two contacts, long press, seeking and clicks. Controlled motion samples at0/25/50/75/100% and the settle replacement check additionally inspect the scene controller directly; those are rendering/continuity evidence, not measured native gesture feel. Audio tests use actual decoded media for playback and causal mocks for promise/error races.
 
 The peer review found cross-target multi-touch, centered seek mapping, synchronous Search focus and storage-getter failure. Each was corrected and covered by a regression. Root review additionally guarded a track changing during an active seek.

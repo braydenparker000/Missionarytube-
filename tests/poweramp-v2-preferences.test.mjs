@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readPreferences,savePreferences} from '../../frontend/poweramp-v2/preferences.js';
+import {readPreferences,savePreferences} from '../frontend/poweramp-v2/preferences.js';
 test('corrupt, future and inaccessible preferences fall back without reading another namespace',()=>{
   for(const value of ['{broken','{"schema":999}','null'])assert.equal(readPreferences({getItem:()=>value}).repeat,'off');
   const storage={getItem:key=>{assert.equal(key,'poweramp-v2:preferences:1');throw Error('Denied');},setItem(){throw Error('Denied');}};

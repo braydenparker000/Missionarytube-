@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PlaybackEngine } from '../../frontend/poweramp-v2/audio.js';
-import { createDemoCatalog, createLocalCatalog } from '../../frontend/poweramp-v2/sources.js';
+import { PlaybackEngine } from '../frontend/poweramp-v2/audio.js';
+import { createDemoCatalog, createLocalCatalog } from '../frontend/poweramp-v2/sources.js';
 
 const tracks = Array.from({ length: 3 }, (_, i) => ({
   id: `fixture-${i}`, title: `Track ${i}`, artist: 'Synthetic test', album: 'Fixtures',

@@ -4,7 +4,7 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {chromium} from 'playwright-core';
-import {serveV2} from '../../scripts/serve-poweramp-v2.mjs';
+import {serveV2} from '../scripts/serve-poweramp-v2.mjs';
 
 const evidence=resolve(process.env.V2_EVIDENCE_DIR||'.browser-check/poweramp-v2');
 let browser,server;const measurements={};

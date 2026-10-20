@@ -149,7 +149,7 @@ No V2 was merged, deployed, or live-tested by this investigation.
 
 New independent files:
 - `frontend/poweramp-v2/remote-source.js`
-- `tests/poweramp-v2/remote-source.test.mjs`
+- `tests/poweramp-v2-remote-source.test.mjs`
 
 Interface: `loadRemoteCatalog({apiOrigin, fetcher = fetch, signal})` resolves to
 `{tracks, dispose()}`. No automatic configuration lookup or source activation;
@@ -169,7 +169,7 @@ No credentials, redirect following, mutation requests, cache writes, logging,
 or personal media fetching were introduced. A rejected source is an error;
 there is no cross-source fallback.
 
-Validation: `node --test tests/poweramp-v2/remote-source.test.mjs` passed **9/9**
+Validation: `node --test tests/poweramp-v2-remote-source.test.mjs` passed **9/9**
 with Node24.19.0. Cases include exact requests and URLs, empty library,
 untrusted URLs/credentials, duplicate or malformed records, metadata bounds,
 size-bound chunked bodies, wrong MIME/invalid UTF-8/JSON, safe HTTP/network

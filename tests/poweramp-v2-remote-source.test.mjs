@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {loadRemoteCatalog, REMOTE_CATALOG_LIMIT} from '../../frontend/poweramp-v2/remote-source.js';
+import {loadRemoteCatalog, REMOTE_CATALOG_LIMIT} from '../frontend/poweramp-v2/remote-source.js';
 
 const apiOrigin = 'https://music.example.test';
 const sha256 = 'a'.repeat(64);

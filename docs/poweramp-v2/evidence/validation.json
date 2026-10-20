@@ -67,14 +67,14 @@
   "v2SourceTree": "01c01886a9334f8324fbc65a9349c5ba8e1b0642",
   "checks": [
     {
-      "command": "V2_ROOT=dist/poweramp-v2 node --test tests/poweramp-v2.test.mjs",
+      "command": "V2_ROOT=dist/poweramp-v2 node --test tests/poweramp-v2-*.test.mjs",
       "pass": 48,
       "fail": 0,
       "skipped": 0
     },
     {
-      "command": "node --test scripts/frontend-source.test.mjs tests/privacy.test.mjs",
-      "pass": 14,
+      "command": "node --test tests/source-layout.test.mjs scripts/frontend-source.test.mjs tests/privacy.test.mjs",
+      "pass": 18,
       "fail": 0,
       "skipped": 0
     },
