@@ -294,3 +294,4 @@ html.podcast-overlay-open{overflow:hidden}
 .podcast-page #search-history{position:absolute;top:56px;left:0;right:0;z-index:3;padding:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 24px #0006}
 .podcast-page #search-history:empty{display:none}
 .podcast-page #search-history .recent-searches{margin:0}
+.podcast-page input::placeholder{color:var(--muted);opacity:1}
