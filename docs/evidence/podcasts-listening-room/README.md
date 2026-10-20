@@ -99,3 +99,9 @@ tests/podcasts-mobile-browser.test.mjs
 ```
 
 The separate evidence commit contains this report, gallery, screenshots, traces, logs and source hashes. The capture tool marks its default source mode `workingTree: true`; this final run used the committed build. The revision and byte manifest identify the measured source precisely.
+
+## Delivery status
+
+The implementation and evidence are pushed to [`feat/podcasts-listening-room`](https://github.com/braydenparker000/Missionarytube-/tree/feat/podcasts-listening-room). [Review the branch diff](https://github.com/braydenparker000/Missionarytube-/compare/main...feat/podcasts-listening-room). Evidence commit: `900d760`; source commits are recorded above.
+
+A draft PR was attempted using the prepared [PR description](PR.md), but GitHub rejected `POST https://api.github.com/graphql` with `Forbidden`. No live PR was created. The repository-provided [create-PR link](https://github.com/braydenparker000/Missionarytube-/pull/new/feat/podcasts-listening-room) targets the pushed branch. Remote CI, owner review and release authorization remain outstanding. No merge or deployment was attempted.
