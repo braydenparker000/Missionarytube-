@@ -2,42 +2,79 @@
 // this module. Native dialogs retain modal semantics throughout an exit.
 export function surfaceMotion(dialog,{miniArt,art,onDismiss,onResume}={}) {
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
-  let phase='closed',animations=[],epoch=0,contact=null,blockClick=false;
+  const content=art?.closest('.player-content'), title=content?.querySelector('h3'), header=art?dialog.querySelector('.dialog-heading'):null;
+  const miniTitle=miniArt?.closest('button')?.querySelector('strong');
+  let phase='closed',animations=[],epoch=0,contact=null,blockClick=false,shared=null;
   const y=()=>{const transform=getComputedStyle(dialog).transform;return transform==='none'?0:new DOMMatrixReadOnly(transform).m42;};
+  const setPhase=value=>{phase=value;dialog.dataset.motion=value;};
   function freeze(){
+    // Preserve the current composited frame before cancelling. Reversals and
+    // re-grabs therefore begin at the visible position, not an old keyframe.
     for(const animation of animations){const target=animation.effect.target,style=getComputedStyle(target);
       target.style.transform=style.transform;target.style.opacity=style.opacity;animation.cancel();}
     animations=[];epoch++;
   }
-  function clear(){dialog.style.transform='';dialog.style.opacity='';if(art){art.style.transform='';art.style.opacity='';}}
+  function clear(open=false){
+    dialog.style.transform='';dialog.style.opacity='';
+    for(const node of [content,header])if(node){node.style.transform='';node.style.opacity='';}
+    if(shared){shared.layer.remove();shared=null;}
+    if(art)art.style.visibility='';if(title)title.style.visibility='';
+    if(miniArt)miniArt.style.visibility=open?'hidden':'';
+    if(miniTitle)miniTitle.style.visibility=open?'hidden':'';
+  }
+  function makeShared(bounds,offset,distance){
+    if(!art||!miniArt?.isConnected||!art.complete||!art.naturalWidth)return;
+    const destination=art.getBoundingClientRect(),source=miniArt.getBoundingClientRect();
+    // Notes may have scrolled the full cover off-screen. Use the ordinary sheet
+    // fallback then, rather than flying an unrelated or invisible rectangle.
+    if(!source.width||destination.bottom<=bounds.top||destination.top>=bounds.bottom)return;
+    const layer=document.createElement('div');layer.setAttribute('aria-hidden','true');
+    Object.assign(layer.style,{position:'absolute',inset:'0',pointerEvents:'none',zIndex:'4',overflow:'visible'});
+    const image=art.cloneNode(false);image.removeAttribute('id');image.removeAttribute('class');image.alt='';
+    const artStyle=getComputedStyle(art);
+    Object.assign(image.style,{position:'absolute',left:(destination.left-bounds.left-dialog.clientLeft)+'px',top:(destination.top-bounds.top-dialog.clientTop+dialog.scrollTop)+'px',width:destination.width+'px',height:destination.height+'px',maxWidth:'none',margin:'0',objectFit:'cover',borderRadius:artStyle.borderRadius,transformOrigin:'top left'});
+    const small=`translate(${source.left-destination.left}px,${source.top-destination.top-distance+offset}px) scale(${source.width/destination.width})`;
+    layer.append(image);const items=[{node:image,small}];
+    if(title&&miniTitle){
+      const end=title.getBoundingClientRect(),start=miniTitle.getBoundingClientRect(),style=getComputedStyle(title),miniStyle=getComputedStyle(miniTitle);
+      const label=document.createElement('div');label.textContent=title.textContent;
+      Object.assign(label.style,{position:'absolute',left:(end.left-bounds.left-dialog.clientLeft)+'px',top:(end.top-bounds.top-dialog.clientTop+dialog.scrollTop)+'px',width:end.width+'px',fontFamily:style.fontFamily,fontSize:style.fontSize,fontWeight:style.fontWeight,lineHeight:style.lineHeight,letterSpacing:style.letterSpacing,color:style.color,overflowWrap:'anywhere',display:'-webkit-box',webkitBoxOrient:'vertical',webkitLineClamp:style.webkitLineClamp,overflow:'hidden',transformOrigin:'top left'});
+      const scale=parseFloat(miniStyle.fontSize)/parseFloat(style.fontSize);
+      items.push({node:label,small:`translate(${start.left-end.left}px,${start.top-end.top-distance+offset}px) scale(${scale})`});layer.append(label);
+    }
+    dialog.append(layer);art.style.visibility='hidden';if(title)title.style.visibility='hidden';
+    miniArt.style.visibility='hidden';if(miniTitle)miniTitle.style.visibility='hidden';
+    shared={layer,items};
+  }
   async function travel(open){
     const fresh=phase==='closed',offset=y();freeze();const serial=epoch;
-    phase=open?'opening':'closing';dialog.dataset.motion=phase;
+    if(fresh)blockClick=false;
+    setPhase(open?'opening':'closing');
     const bounds=dialog.getBoundingClientRect(),mini=miniArt?.getBoundingClientRect();
-    const distance=mini&&mini.height?Math.max(24,mini.top-(bounds.top-offset)):Math.min(bounds.height,96);
+    const distance=mini?.height?Math.max(24,mini.top-(bounds.top-offset)-12):Math.min(bounds.height,96);
     if(reduced.matches||typeof dialog.animate!=='function'){
-      clear();phase=open?'open':'closed';dialog.dataset.motion=phase;return true;
+      clear(open);setPhase(open?'open':'closed');return true;
     }
+    if(art&&!shared)makeShared(bounds,offset,distance);
     const from=fresh?distance:offset,to=open?0:distance;
-    const opacity=fresh ? 0.4 : Number(getComputedStyle(dialog).opacity);
-    const artTransform=art?getComputedStyle(art).transform:'none';
-    if(art)art.style.transform='none';const image=art?.getBoundingClientRect();if(art)art.style.transform=artTransform;
-    animations.push(dialog.animate([{transform:`translateY(${from}px)`,opacity},{transform:`translateY(${to}px)`,opacity:open?1:0}],{duration:open?280:220,easing:'cubic-bezier(.22,.75,.2,1)',fill:'both'}));
-    if(art&&mini?.width&&art.complete&&art.naturalWidth&&image.bottom>bounds.top&&image.top<bounds.bottom){
-      const r=image,baseTop=r.top-offset,tx=mini.left-r.left;
-      const small=`translate(${tx}px,${mini.top-baseTop-distance}px) scale(${mini.width/r.width})`;
-      const current=fresh?small:artTransform;
-      art.style.transformOrigin='top left';
-      animations.push(art.animate([{transform:current},{transform:open?'none':small}],{duration:open?280:220,easing:'cubic-bezier(.22,.75,.2,1)',fill:'both'}));
+    const options={duration:open?300:260,easing:'cubic-bezier(.22,.75,.2,1)',fill:'both'};
+    // The surface is opaque: shared artwork must never fade through a second
+    // cover underneath. Only controls fade, independently of the image layer.
+    animations.push(dialog.animate([{transform:`translateY(${from}px)`,opacity:art?1:(fresh?0.4:Number(getComputedStyle(dialog).opacity))},{transform:`translateY(${to}px)`,opacity:art?1:open?1:0}],options));
+    for(const node of [content,header])if(node)animations.push(node.animate([{opacity:fresh?0:Number(getComputedStyle(node).opacity)},{opacity:open?1:0}],options));
+    for(const item of shared?.items||[]){
+      const style=getComputedStyle(item.node);
+      animations.push(item.node.animate([{transform:fresh?item.small:style.transform,opacity:Number(style.opacity)},{transform:open?'none':item.small,opacity:1}],options));
     }
-    await Promise.all(animations.map(a=>a.finished.catch(()=>{})));
+    const pending=animations.slice();await Promise.all(pending.map(a=>a.finished.catch(()=>{})));
     if(serial!==epoch)return false;
-    for(const a of animations)a.cancel();animations=[];clear();
-    phase=open?'open':'closed';dialog.dataset.motion=phase;return true;
+    for(const a of animations)a.cancel();animations=[];clear(open);
+    setPhase(open?'open':'closed');return true;
   }
   function settle(){return travel(true);}
+  function release(c){if(c&&dialog.hasPointerCapture(c.id))try{dialog.releasePointerCapture(c.id);}catch{}}
   function cancelContact(){
-    if(!contact)return;contact=null;blockClick=true;settle();
+    if(!contact)return;const c=contact;contact=null;release(c);blockClick=true;settle();
   }
   dialog.addEventListener('pointerdown',event=>{
     if(contact){if(contact.id!==event.pointerId)cancelContact();return;}
@@ -52,33 +89,34 @@ export function surfaceMotion(dialog,{miniArt,art,onDismiss,onResume}={}) {
     if(!c.claimed){
       if(Math.abs(dx)>10&&Math.abs(dx)>Math.abs(dy)){cancelContact();return;}
       if(Math.abs(dy)<10)return;
-      c.claimed=true;blockClick=true;phase='dragging';dialog.dataset.motion=phase;
+      c.claimed=true;blockClick=true;setPhase('dragging');
       try{dialog.setPointerCapture(event.pointerId);}catch{}
     }
     const dt=event.timeStamp-c.lastTime;
     if(dt>0)c.velocity=(event.clientY-c.lastY)/dt;
     c.lastTime=event.timeStamp;c.lastY=event.clientY;c.distance=Math.max(0,c.offset+dy);
-    // Direct transform avoids inherited-variable recalculation in long notes.
+    // No layout reads or inherited variables on the pointer path.
     dialog.style.transform=`translateY(${c.distance}px)`;event.preventDefault();
   });
   dialog.addEventListener('pointerup',event=>{
-    const c=contact;if(!c||c.id!==event.pointerId)return;contact=null;
+    const c=contact;if(!c||c.id!==event.pointerId)return;contact=null;release(c);
     if(!c.claimed){settle();return;}
     const recent=event.timeStamp-c.lastTime<100,fling=recent&&c.velocity>.8&&c.distance>40;
-    // A newly grabbed closing surface can already be beyond the threshold.
-    // An upward reversal is new intent to reopen, not a completed down-drag.
     if(c.reopening&&event.clientY<c.y)settle();
     else if(c.distance>dialog.offsetHeight*.25||fling)onDismiss?.();else settle();
   });
   dialog.addEventListener('pointercancel',cancelContact);
   dialog.addEventListener('lostpointercapture',event=>{if(event.target===dialog&&!dialog.hasPointerCapture(event.pointerId))cancelContact();});
-  // A drag's compatibility click cannot hit a control in the exposed view.
   dialog.addEventListener('click',event=>{if(blockClick){event.preventDefault();event.stopImmediatePropagation();blockClick=false;}},true);
   dialog.addEventListener('pointerdown',()=>{if(!contact)blockClick=false;},true);
-  const finishReduced=()=>{if(!reduced.matches)return;const pending=animations.slice();for(const a of pending)a.finish();if(contact)cancelContact();};
-  reduced.addEventListener('change',finishReduced);
-  addEventListener('visibilitychange',()=>{if(document.hidden)cancelContact();});
-  return {enter:()=>travel(true),exit:()=>{contact=null;return travel(false);},reset:()=>{contact=null;freeze();clear();phase='closed';dialog.dataset.motion=phase;}};
+  document.addEventListener('pointerdown',event=>{if(contact&&contact.id!==event.pointerId)cancelContact();},true);
+  // Finishing a transition keeps its intended history outcome. Cancelling a
+  // held gesture returns to the open state; background/resizing cannot strand it.
+  const finish=()=>{if(contact)cancelContact();for(const a of animations.slice())a.finish();};
+  reduced.addEventListener('change',()=>{if(reduced.matches)finish();});
+  addEventListener('visibilitychange',()=>{if(document.hidden)finish();});
+  addEventListener('resize',finish);
+  return {enter:()=>travel(true),exit:()=>{const c=contact;contact=null;release(c);return travel(false);},reset:()=>{const c=contact;contact=null;release(c);freeze();clear();setPhase('closed');}};
 }
 
 export function episodeHolds(root,openOptions){
