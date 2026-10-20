@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { checkJarvisImport } from "../scripts/check-jarvis-import.mjs";
 
 /**
  * The repository is public. These checks fail the build if a configured add-on
@@ -14,13 +13,13 @@ import { checkJarvisImport } from "../scripts/check-jarvis-import.mjs";
 
 // External pinned checkouts and deployment/rollback artifacts are not committed source.
 const SKIP_DIRS = new Set([".git", "node_modules", "dist", ".github", ".jarvis-source", "rollback", "upload", ".backend-release", ".runtime-release", ".runtime-parent"]);
-const TEXT = /\.(?:js|mjs|cjs|html|css|json|jsonc|md|yml|yaml)$/;
+const TEXT = /\.(?:js|mjs|cjs|html|css|json|jsonc|md|yml|yaml|py)$/;
 
 async function sourceFiles(directory = ".") {
   const found = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const editable = directory === 'frontend' || directory.startsWith('frontend/');
-    if ((!editable && SKIP_DIRS.has(entry.name)) || (directory === "." && entry.name === "jarvis")) continue;
+    if ((!editable && SKIP_DIRS.has(entry.name))) continue;
     const path = join(directory, entry.name);
     if (entry.isDirectory()) found.push(...(await sourceFiles(path)));
     else if (TEXT.test(entry.name)) found.push(path);
@@ -28,12 +27,7 @@ async function sourceFiles(directory = ".") {
   return found;
 }
 
-// The imported application has its own public services and synthetic OAuth
-// fixtures. Accept only the reviewed, exact source tree, not a broad host or
-// credential exemption for future edits. Keep every legacy privacy assertion.
-await checkJarvisImport();
-// Every editable frontend file is scanned below. Only the frozen imported
-// archive retains the exact-tree exemption; builds never read that archive.
+// All current source is scanned; there is no exempt archive tree.
 const files = await sourceFiles();
 const contents = new Map();
 for (const path of files) contents.set(path, await readFile(path, "utf8"));
@@ -99,6 +93,8 @@ const ALLOWED_HOSTS = [
 // Public references already present in the selected frontend. Scope these to
 // their actual consumers instead of exempting an editable source snapshot.
 const FRONTEND_PUBLIC_HOSTS = {
+  'scripts/migrate-drive-to-r2.py': ['oauth2.googleapis.com'], // existing owner OAuth token endpoint
+  'tests/python/test_r2_oauth.py': ['oauth2.googleapis.com'], // mocked token endpoint
   'scripts/drive-publisher-auth.mjs': ['oauth2.googleapis.com'], // unchanged scheduled publisher token endpoint
   'backend/connector.js': ['chatgpt.com'], // existing OAuth client policy
   'backend/wrangler.jsonc': ['jarvis-relay-egress.vercel.app'], // unchanged configured public relay endpoint

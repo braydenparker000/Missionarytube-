@@ -1,6 +1,6 @@
 # Delivery ownership and review
 
-Use the canonical [delivery SOP](../jarvis/.agents/skills/deliver-software-efficiently/SKILL.md)
+Use the canonical [delivery SOP](../.agents/skills/deliver-software-efficiently/SKILL.md)
 and [root validation policy](../AGENTS.md#required-checks). These rules replace
 the former provider-named serial implementation/review lane.
 

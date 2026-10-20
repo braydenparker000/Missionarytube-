@@ -56,25 +56,31 @@ test('dynamic commits must pass destination-main ancestry and retained migration
   const deploy=read('.github/workflows/deploy-azure-storage.yml');
   assert.match(deploy,/github\.event_name == 'workflow_dispatch'/);assert.match(deploy,/vars\.AZURE_DEPLOY_ENABLED == 'true'/);
   assert.match(read('.github/workflows/publish-drive-catalog.yml'),/cron: '17 \* \* \* \*'/);
-  for(const path of ['analyze-r2-audio.yml']){
-    const flow=read('.github/workflows/'+path);assert.deepEqual(checkoutRefs('.github/workflows/'+path),['${{ inputs.source_commit }}']);
-    assert.match(flow,/fetch-depth: 0/);assert.match(flow,/node scripts\/check-source-commit-reachable\.mjs \.jarvis-source "\$SOURCE_COMMIT"/);
-    const guard=flow.indexOf('check-source-commit-reachable.mjs');
-    const existingChecks=flow.indexOf(path==='deploy-music-worker.yml'?'npm --prefix .jarvis-source/jarvis ci':'node --test tests/audio-fidelity.test.js');
-    assert.ok(guard>=0&&existingChecks>guard,'source ancestry must be checked before source tests or install');
-  }
+  const analysis=read('.github/workflows/analyze-r2-audio.yml');
+  assert.deepEqual(checkoutRefs('.github/workflows/analyze-r2-audio.yml'),[]);
+  assert.doesNotMatch(analysis,/path: \.jarvis-source|inputs.source_commit/);
+  assert.match(analysis,/github\.ref == 'refs\/heads\/main'/);
+  assert.match(analysis,/test "\$SOURCE_COMMIT" = "\$GITHUB_SHA"/);
+  assert.match(analysis,/check-source-commit-reachable\.mjs \. "\$SOURCE_COMMIT"/);
+  const guard=analysis.indexOf('check-source-commit-reachable.mjs');
+  assert.ok(guard>=0&&analysis.indexOf('npm ci')>guard,'source ancestry must be checked before source tests or install');
+  assert.match(analysis,/node --test tests\/audio-fidelity.test.mjs backend\/tests\/native-r2.test.js/);
+  assert.ok(analysis.indexOf('node --test')<analysis.indexOf('secrets.R2_ACCESS_KEY_ID'));
   const worker=read('.github/workflows/deploy-music-worker.yml');
   assert.deepEqual(checkoutRefs('.github/workflows/deploy-music-worker.yml'),[]);
   assert.match(worker,/check-source-commit-reachable.mjs \. "\$SOURCE_COMMIT"/);
   assert.match(worker,/test "\$GITHUB_SHA" = "\$SOURCE_COMMIT"/);
   assert.match(worker,/node scripts\/build-backend\.mjs verify/);
   const migration=read('.github/workflows/migrate-music-r2.yml');
-  assert.deepEqual(checkoutRefs('.github/workflows/migrate-music-r2.yml'),[
-    'dd0797bd48431ea04354f83663c3df765cc8f5b0','${{ needs.validate.outputs.source_sha }}']);
+  assert.deepEqual(checkoutRefs('.github/workflows/migrate-music-r2.yml'),[]);
+  assert.doesNotMatch(migration,/path: \.jarvis-source|dd0797bd/);
+  assert.match(migration,/ref: \$\{\{ needs.validate.outputs.source_sha \}\}/);
   assert.match(migration,/permissions:\s+contents: read/);
   assert.match(migration,/workflow_dispatch:/);
-  assert.match(migration,/if: \$\{\{ github\.event_name == 'workflow_dispatch' \}\}/);
-  assert.match(migration,/python -m unittest discover -s tests -p 'test_r2\*\.py' -v/);
+  assert.match(migration,/github.event_name == 'workflow_dispatch' && github.ref == 'refs\/heads\/main'/);
+  assert.match(migration,/test "\$EXPECTED_COMMIT" = "\$GITHUB_SHA"/);
+  assert.ok(migration.indexOf('test "\$EXPECTED_COMMIT" = "\$GITHUB_SHA"')<migration.indexOf('secrets.GOOGLE_DRIVE_CLIENT_SECRET'));
+  assert.match(migration,/python -m unittest discover -s tests\/python -p 'test_r2\*\.py' -v/);
   const inventory=JSON.parse(read('docs/jarvis-source-import-inventory.json'));
   const astraComparison=inventory.components.find(identity=>identity.commit==='4532be6b6842320ed0cc64be973425d9505c7b03');
   assert.ok(astraComparison);
@@ -89,4 +95,27 @@ test('dynamic commits must pass destination-main ancestry and retained migration
     '4532be6b6842320ed0cc64be973425d9505c7b03','f999581aa979712b4b63a6783b7c56842fedb6a1']);
   const astraRelease=JSON.parse(read('scripts/release-identities/astra-approved-jarvis-release.json'));
   assert.equal(astraRelease.repository,prior);assert.equal(astraRelease.commit,'f999581aa979712b4b63a6783b7c56842fedb6a1');
+});
+
+// Execute the actual workflow validator: an artifact from another source must
+// fail before it can be downloaded or supplied to the conditional R2 writer.
+test('audio metadata apply accepts only successful analysis from the same reviewed main source',async()=>{
+  const workflow=read('.github/workflows/analyze-r2-audio.yml');
+  const block=workflow.match(/name: Validate reviewed analysis artifact[\s\S]*?script: \|\n((?: {12}[^\n]*\n)+)/)?.[1];
+  assert.ok(block,'actual artifact validation script is present');
+  const validate=new Function('github','context','core','process','return (async()=>{'+block+'})();');
+  const source='a'.repeat(40),repo={owner:'braydenparker000',repo:'Missionarytube-'};
+  const accepted={status:'completed',conclusion:'success',path:'.github/workflows/analyze-r2-audio.yml',
+    event:'workflow_dispatch',head_branch:'main',head_sha:source,head_repository:{full_name:origin}};
+  const run=async(candidate)=>{
+    const outputs=[],reads=[];
+    const github={rest:{actions:{getWorkflowRun:async()=>({data:candidate}),
+      listWorkflowRunArtifacts:async()=>{reads.push('artifacts');return {data:{artifacts:[{name:'audio-analysis-42',expired:false}]}};}}}};
+    await validate(github,{repo},{setOutput:(...v)=>outputs.push(v)},{env:{ANALYSIS_RUN_ID:'42',SOURCE_COMMIT:source}});
+    assert.deepEqual(reads,['artifacts']);assert.deepEqual(outputs,[['name','audio-analysis-42']]);
+  };
+  await run(accepted);
+  for(const mutation of [{head_sha:'b'.repeat(40)},{head_branch:'unreviewed'},{event:'pull_request'},
+    {head_repository:{full_name:'example/fork'}},{conclusion:'failure'},{status:'in_progress'},
+    {path:'.github/workflows/another.yml'}])await assert.rejects(run({...accepted,...mutation}),/Unexpected analysis run/);
 });

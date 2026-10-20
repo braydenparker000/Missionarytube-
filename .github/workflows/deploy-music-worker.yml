@@ -113,14 +113,14 @@ jobs:
         with:
           python-version: '3.12'
       - name: Test migration and partial publication without credentials
-        run: python -m unittest discover -s jarvis/tests -p 'test_r2*.py'
+        run: python -m unittest discover -s tests/python -p 'test_r2*.py'
       - name: Prepare native library and temporary upload verification key
         if: ${{ inputs.native_upload_setup == true }}
         env:
           MUSE_PUBLIC_KEY: ${{ inputs.muse_public_key }}
         run: |
           test -f backend/tests/native-r2.test.js
-          node jarvis/scripts/build-r2-library.mjs r2-library-seed.json
+          node scripts/build-r2-library.mjs r2-library-seed.json
           node --input-type=module <<'JS'
           import {generateKeyPairSync} from 'node:crypto';
           import {writeFileSync} from 'node:fs';
@@ -179,7 +179,7 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET: jarvis-music
           MUSIC_ROOT_ID: 1VlEUztloW5saoM7iF11fodDKSmCGP2ZZ
-        run: python jarvis/scripts/publish-r2-partial.py --report .partial-report/r2-migration-report.json --output r2-partial-playback-report.json
+        run: python scripts/publish-r2-partial.py --report .partial-report/r2-migration-report.json --output r2-partial-playback-report.json
       - name: Check current Worker bindings before deployment
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -214,7 +214,7 @@ jobs:
           fi
           python scripts/music-upload-canary.py
           node scripts/assert-music-upload-revoked.mjs --enabled
-          python jarvis/scripts/upload-music-r2.py music-verification/native/canary.opus --key .music-test-key.pem --report music-verification/native/upload.json
+          python scripts/upload-music-r2.py music-verification/native/canary.opus --key .music-test-key.pem --report music-verification/native/upload.json
           node scripts/verify-native-upload.mjs
       - name: Verify the newly uploaded song in the exact deployed mobile player
         if: ${{ inputs.native_upload_setup == true }}

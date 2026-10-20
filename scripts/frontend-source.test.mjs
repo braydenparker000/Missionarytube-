@@ -20,7 +20,7 @@ async function fixture(t) {
   await writeFile(join(root, 'package.json'), '{"type":"module"}');
   await writeFile(join(root, 'package-lock.json'), '{"lockfileVersion":3}');
   await writeFile(join(root, '.gitignore'), 'dist/\n');
-  for (const name of ['build-jarvis.mjs', 'frontend-source.mjs', 'check-jarvis-import.mjs', 'r2-player-config.mjs', 'private-board-pins.json']) await cp(new URL(name, import.meta.url), join(root, 'scripts', name));
+  for (const name of ['build-jarvis.mjs', 'frontend-source.mjs', 'source-tree.mjs', 'r2-player-config.mjs', 'private-board-pins.json']) await cp(new URL(name, import.meta.url), join(root, 'scripts', name));
   git('init'); git('add', '.');
   const commit = () => git('-c', 'user.name=Frontend fixture', '-c', 'user.email=fixture@example.test', 'commit', '-am', 'fixture');
   commit();
@@ -92,8 +92,8 @@ test('source selection rejects traversal, symbolic links and missing components 
   assert.throws(() => frontendDirectory('daily-board', h.root), /ENOENT/);
   await symlink(join(h.root, 'jarvis/public/daily-board'), join(h.root, 'frontend/daily-board'));
   assert.throws(() => frontendDirectory('daily-board', h.root), /real directory/);
-  await assert.rejects(readFrontendSource('', {root: h.root}), /Unexpected imported entry type/);
-  assert.throws(h.build, /Unexpected imported entry type/);
+  await assert.rejects(readFrontendSource('', {root: h.root}), /Unexpected source entry type/);
+  assert.throws(h.build, /Unexpected source entry type/);
 });
 
 test('music URLs follow editable bytes automatically and document policies remain byte-identical', async t => {

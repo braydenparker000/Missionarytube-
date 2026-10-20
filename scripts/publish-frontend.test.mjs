@@ -101,7 +101,7 @@ test('an interrupted publication can restore accepted files without requiring ab
 test('the actual CLI adopts, updates and rolls back through conditional Azure commands without touching configured values',async t=>{
  const root=await mkdtemp(join(tmpdir(),'frontend-publisher-cli-'));t.after(()=>rm(root,{recursive:true,force:true}));
  for(const p of ['scripts','frontend/assets','.runtime-parent','bin'])await mkdir(join(root,p),{recursive:true});
- for(const name of ['publish-frontend.mjs','publish-daily-board.mjs','daily-board-navigation.mjs','frontend-source.mjs','qualified-artifact.mjs','inspect-frontend.mjs','check-jarvis-import.mjs','build-jarvis.mjs','r2-player-config.mjs','private-board-pins.json'])await cp(new URL(name,import.meta.url),join(root,'scripts',name));
+ for(const name of ['publish-frontend.mjs','publish-daily-board.mjs','daily-board-navigation.mjs','frontend-source.mjs','qualified-artifact.mjs','inspect-frontend.mjs','source-tree.mjs','build-jarvis.mjs','r2-player-config.mjs','private-board-pins.json'])await cp(new URL(name,import.meta.url),join(root,'scripts',name));
  await writeFile(join(root,'package.json'),'{"type":"module"}');
  await writeFile(join(root,'jarvis-release.json'),JSON.stringify({repository:'braydenparker999/jarvis',commit:'a'.repeat(40)}));
  await writeFile(join(root,'frontend/index.html'),`<html><head><meta http-equiv="Content-Security-Policy" content="default-src 'self'"></head><body>Fixture</body></html>`);
