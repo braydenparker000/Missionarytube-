@@ -4,7 +4,8 @@ Current frontend source: [`frontend/`](../frontend/). The build reads that singl
 editable directory; component commit/tree provenance is generated, and the six
 manual frontend source manifests have been retired. The exact selected artifact
 was preserved during consolidation (199 paths, only generated `release.json`
-changed). `jarvis/` remains frozen and guarded, with no dormant variant activated.
+changed). The duplicate `jarvis/` working tree has since been removed; exact
+historical versions remain in Git, with no dormant variant activated.
 The remaining accepted private/shared/cache/music inputs have also been selected
 into `frontend/`, from private publication 38946691555, cache publication
 39040982427 and music publication 39169201572. The migration reproduced all 63
@@ -48,7 +49,7 @@ source; it does not switch any release consumer or deploy a component.
   two parents. It preserves original source ancestry without squashing,
   rewriting commits, or merging unrelated branch behavior into the subtree.
 
-The canonical [delivery SOP](../jarvis/.agents/skills/deliver-software-efficiently/SKILL.md)
+The canonical [delivery SOP](../.agents/skills/deliver-software-efficiently/SKILL.md)
 is included unchanged. Root AGENTS.md and CLAUDE.md identify the new destination
 and override older destination guidance in the exact imported snapshot.
 Nested `jarvis/.github/workflows` are source files, not active root workflows.
@@ -346,7 +347,7 @@ source commit and current Relay/Mast/Muse behavior. The active checkout origin i
 `braydenparker000/Missionarytube-`; the old `jarvis-release.json` repository
 field remains the historical source identity, not an active checkout origin.
 
-The imported [`jarvis/docs/delivery-plan.md`](../jarvis/docs/delivery-plan.md)
+The imported [`jarvis/docs/delivery-plan.md`](https://github.com/braydenparker000/Missionarytube-/blob/0dfa38c9dfc1f2130e684652fa35d53769bb7fce/jarvis/docs/delivery-plan.md)
 remains a frozen historical source snapshot; its dated checkpoints are not the
 current closeout. This destination-owned section and its linked acceptance
 record are the current status.

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {historicalModulePath} from '../tests/helpers/historical-source.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {readFile,writeFile,mkdir,mkdtemp,rm} from 'node:fs/promises';
@@ -77,7 +78,7 @@ const SYNTHETIC_TESTS=['tests/poweramp-blank-library-browser.test.js','tests/pod
 // A genuine plan built by the real frozen module over synthetic entries, so the
 // lane binding is tested against real digests rather than canned strings.
 async function fixturePlan(envOverrides={}){
- const q=await import('../jarvis/scripts/qualification-proof.mjs');
+ const q=await import(pathToFileURL(historicalModulePath('jarvis/scripts/qualification-proof.mjs')).href);
  const entries=[
   ...Object.entries(trustedRecipe).map(([path,sha])=>({path,sha,mode:'100644'})),
   ...SYNTHETIC_TESTS.map((path,i)=>({path,sha:(i+10).toString(16).padStart(40,'0'),mode:'100644'})),

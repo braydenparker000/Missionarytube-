@@ -1,9 +1,0 @@
-.env
-.env.*
-!.env.example
-.DS_Store
-node_modules/
-__pycache__/
-*.pyc
-r2-migration-report.json
-backend/wrangler.music.generated.json
