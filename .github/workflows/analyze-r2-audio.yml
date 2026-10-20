@@ -74,7 +74,9 @@ jobs:
             const id=process.env.ANALYSIS_RUN_ID;
             if(!/^[1-9][0-9]{0,14}$/.test(id))throw Error('Completed analysis run ID required');
             const {data:run}=await github.rest.actions.getWorkflowRun({...context.repo,run_id:Number(id)});
-            if(run.status!=='completed'||run.conclusion!=='success'||run.path!=='.github/workflows/analyze-r2-audio.yml')throw Error('Unexpected analysis run');
+            if(run.status!=='completed'||run.conclusion!=='success'||run.path!=='.github/workflows/analyze-r2-audio.yml'||
+              run.event!=='workflow_dispatch'||run.head_branch!=='main'||run.head_sha!==process.env.SOURCE_COMMIT||
+              run.head_repository?.full_name!==`${context.repo.owner}/${context.repo.repo}`)throw Error('Unexpected analysis run');
             const {data}=await github.rest.actions.listWorkflowRunArtifacts({...context.repo,run_id:Number(id)});
             const name=`audio-analysis-${id}`;
             if(data.artifacts.filter(a=>a.name===name&&!a.expired).length!==1)throw Error('One retained analysis artifact required');

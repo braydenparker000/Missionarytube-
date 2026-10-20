@@ -96,3 +96,26 @@ test('dynamic commits must pass destination-main ancestry and retained migration
   const astraRelease=JSON.parse(read('scripts/release-identities/astra-approved-jarvis-release.json'));
   assert.equal(astraRelease.repository,prior);assert.equal(astraRelease.commit,'f999581aa979712b4b63a6783b7c56842fedb6a1');
 });
+
+// Execute the actual workflow validator: an artifact from another source must
+// fail before it can be downloaded or supplied to the conditional R2 writer.
+test('audio metadata apply accepts only successful analysis from the same reviewed main source',async()=>{
+  const workflow=read('.github/workflows/analyze-r2-audio.yml');
+  const block=workflow.match(/name: Validate reviewed analysis artifact[\s\S]*?script: \|\n((?: {12}[^\n]*\n)+)/)?.[1];
+  assert.ok(block,'actual artifact validation script is present');
+  const validate=new Function('github','context','core','process','return (async()=>{'+block+'})();');
+  const source='a'.repeat(40),repo={owner:'braydenparker000',repo:'Missionarytube-'};
+  const accepted={status:'completed',conclusion:'success',path:'.github/workflows/analyze-r2-audio.yml',
+    event:'workflow_dispatch',head_branch:'main',head_sha:source,head_repository:{full_name:origin}};
+  const run=async(candidate)=>{
+    const outputs=[],reads=[];
+    const github={rest:{actions:{getWorkflowRun:async()=>({data:candidate}),
+      listWorkflowRunArtifacts:async()=>{reads.push('artifacts');return {data:{artifacts:[{name:'audio-analysis-42',expired:false}]}};}}}};
+    await validate(github,{repo},{setOutput:(...v)=>outputs.push(v)},{env:{ANALYSIS_RUN_ID:'42',SOURCE_COMMIT:source}});
+    assert.deepEqual(reads,['artifacts']);assert.deepEqual(outputs,[['name','audio-analysis-42']]);
+  };
+  await run(accepted);
+  for(const mutation of [{head_sha:'b'.repeat(40)},{head_branch:'unreviewed'},{event:'pull_request'},
+    {head_repository:{full_name:'example/fork'}},{conclusion:'failure'},{status:'in_progress'},
+    {path:'.github/workflows/another.yml'}])await assert.rejects(run({...accepted,...mutation}),/Unexpected analysis run/);
+});
