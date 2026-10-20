@@ -1,0 +1,34 @@
+Local validation, 2026-10-20 UTC
+
+npm test — exit 0
+ℹ tests 1084
+ℹ suites 0
+ℹ pass 1084
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 58680.956896
+
+npm run test:podcasts — exit 0
+ℹ tests 41
+ℹ suites 0
+ℹ pass 41
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43588.696365
+
+npm run build — exit 0
+
+> missionarytube@0.1.0 build
+> node scripts/build-jarvis.mjs && node scripts/build-backend.mjs
+
+Built frontend 5ef8611b604f96e1bf50779e6b3cb7615edb104b: 247 frontend files, 20.53 MiB; no media payloads.
+Built Worker 5ef8611b604f96e1bf50779e6b3cb7615edb104b: 51 discovered inputs; settings untouched.
+
+node scripts/podcasts-review.mjs --root dist --out docs/evidence/podcasts-listening-room/after — exit 0
+21 screenshots, 2 traces; no page errors/overflow; persistent real audio preserved.
+
+git diff --check — exit 0

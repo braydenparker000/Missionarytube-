@@ -1,7 +1,7 @@
-const SHELL = 'jarvis-podcast-shell-v5';
+const SHELL = 'jarvis-podcast-shell-v6';
 const AUDIO = 'jarvis-podcast-audio-v1';
 const ART = 'jarvis-podcast-art-v1';
-const FILES = ['/podcasts/','/podcasts/index.html','/podcasts/app.js?v=20261019-p1','/podcasts/motion.js','/podcasts/core.js','/podcasts/fonts/manrope-latin.woff','/podcasts/directory.js','/podcasts/style.css?v=20261019-p1','/assets/shell.css','/assets/premium.css?v=20261003','/assets/config.js'];
+const FILES = ['/podcasts/','/podcasts/index.html','/podcasts/app.js?v=20261020-room','/podcasts/motion.js','/podcasts/queue-motion.js','/podcasts/navigation-motion.js','/podcasts/fonts/instrument-sans-latin.woff','/podcasts/core.js','/podcasts/fonts/manrope-latin.woff','/podcasts/directory.js','/podcasts/style.css?v=20261020-room','/assets/shell.css','/assets/premium.css?v=20261003','/assets/config.js'];
 self.addEventListener('install', event => event.waitUntil(caches.open(SHELL).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate', event => event.waitUntil((async()=>{for(const key of await caches.keys())if(key.startsWith('jarvis-podcast-shell-')&&key!==SHELL)await caches.delete(key);await self.clients.claim();})()));
 export async function ranged(response, range) {

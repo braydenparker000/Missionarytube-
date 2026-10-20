@@ -1,0 +1,526 @@
+{
+  "revision": "5ef8611b604f96e1bf50779e6b3cb7615edb104b",
+  "workingTree": true,
+  "environment": {
+    "browser": "154.0.8037.57",
+    "node": "v24.19.0",
+    "platform": "linux",
+    "kernel": "6.18.55",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCPUs": 5,
+    "headless": true,
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "deviceScaleFactor": 1,
+    "cpuThrottling": false,
+    "physicalPhoneVerified": false
+  },
+  "measurementNotes": "Local deterministic data providers; real 180-second PCM audio. Timing run excludes screenshots/tracing. Event Timing entries under 16ms are not reported by Chromium. rAF gaps are lab scheduling evidence, not physical-phone smoothness or field INP.",
+  "measurements": [
+    {
+      "name": "open-player",
+      "start": 29210,
+      "end": 29979.90000000014,
+      "frameCount": 46,
+      "frameIntervalMedianMs": 16.69999999999709,
+      "frameIntervalP95Ms": 16.700000000000728,
+      "frameIntervalMaxMs": 16.799999999999272,
+      "framesOver25ms": 0,
+      "longTasks": [],
+      "events": [
+        {
+          "name": "pointerdown",
+          "start": 29246.40000000014,
+          "duration": 16,
+          "processing": 0.7000000001862645,
+          "interactionId": 6905
+        },
+        {
+          "name": "pointerup",
+          "start": 29246.5,
+          "duration": 16,
+          "processing": 0,
+          "interactionId": 6905
+        },
+        {
+          "name": "click",
+          "start": 29246.5,
+          "duration": 16,
+          "processing": 6.800000000046566,
+          "interactionId": 6905
+        }
+      ]
+    },
+    {
+      "name": "close-player",
+      "start": 29981.5,
+      "end": 30717,
+      "frameCount": 43,
+      "frameIntervalMedianMs": 16.700000000000728,
+      "frameIntervalP95Ms": 16.700000000000728,
+      "frameIntervalMaxMs": 16.799999999999272,
+      "framesOver25ms": 0,
+      "longTasks": [],
+      "events": [
+        {
+          "name": "pointerdown",
+          "start": 30012.600000000093,
+          "duration": 24,
+          "processing": 0.8000000000465661,
+          "interactionId": 6912
+        },
+        {
+          "name": "pointerup",
+          "start": 30013,
+          "duration": 16,
+          "processing": 0,
+          "interactionId": 6912
+        },
+        {
+          "name": "click",
+          "start": 30013,
+          "duration": 16,
+          "processing": 0.19999999995343387,
+          "interactionId": 6912
+        }
+      ]
+    },
+    {
+      "name": "library-tab",
+      "start": 30718.40000000014,
+      "end": 31166.800000000047,
+      "frameCount": 26,
+      "frameIntervalMedianMs": 16.700000000000728,
+      "frameIntervalP95Ms": 16.700000000000728,
+      "frameIntervalMaxMs": 16.80000000000291,
+      "framesOver25ms": 0,
+      "longTasks": [],
+      "events": [
+        {
+          "name": "pointerdown",
+          "start": 30747.300000000047,
+          "duration": 16,
+          "processing": 0.4000000001396984,
+          "interactionId": 6919
+        },
+        {
+          "name": "pointerup",
+          "start": 30747.300000000047,
+          "duration": 16,
+          "processing": 0,
+          "interactionId": 6919
+        },
+        {
+          "name": "click",
+          "start": 30747.300000000047,
+          "duration": 16,
+          "processing": 2.7000000001862645,
+          "interactionId": 6919
+        }
+      ]
+    },
+    {
+      "name": "show-entry",
+      "start": 31168.40000000014,
+      "end": 31626.40000000014,
+      "frameCount": 27,
+      "frameIntervalMedianMs": 16.700000000000728,
+      "frameIntervalP95Ms": 16.700000000000728,
+      "frameIntervalMaxMs": 16.700000000000728,
+      "framesOver25ms": 0,
+      "longTasks": [],
+      "events": [
+        {
+          "name": "pointerdown",
+          "start": 31196.100000000093,
+          "duration": 24,
+          "processing": 0.5,
+          "interactionId": 6926
+        },
+        {
+          "name": "pointerup",
+          "start": 31196.199999999953,
+          "duration": 24,
+          "processing": 0.19999999995343387,
+          "interactionId": 6926
+        },
+        {
+          "name": "click",
+          "start": 31196.199999999953,
+          "duration": 24,
+          "processing": 11.600000000093132,
+          "interactionId": 6926
+        }
+      ]
+    },
+    {
+      "name": "queue-drag",
+      "start": 34046.80000000005,
+      "end": 34649.10000000009,
+      "frameCount": 35,
+      "frameIntervalMedianMs": 16.69999999999709,
+      "frameIntervalP95Ms": 16.799999999995634,
+      "frameIntervalMaxMs": 16.80000000000291,
+      "framesOver25ms": 0,
+      "longTasks": [],
+      "events": [
+        {
+          "name": "pointerdown",
+          "start": 34099.10000000009,
+          "duration": 32,
+          "processing": 0.30000000004656613,
+          "interactionId": 6968
+        },
+        {
+          "name": "pointerup",
+          "start": 34236.40000000014,
+          "duration": 24,
+          "processing": 1.5,
+          "interactionId": 6968
+        }
+      ]
+    }
+  ],
+  "pressFrameSamples": [
+    {
+      "latencyMs": 7.2999999998137355,
+      "target": "show-tile"
+    },
+    {
+      "latencyMs": 11.199999999953434,
+      "target": "follow-show"
+    },
+    {
+      "latencyMs": 11.899999999906868,
+      "target": "icon-button"
+    },
+    {
+      "latencyMs": 11,
+      "target": "sheet-action"
+    },
+    {
+      "latencyMs": 12.899999999906868,
+      "target": "icon-button"
+    },
+    {
+      "latencyMs": 12.600000000093132,
+      "target": "sheet-action"
+    },
+    {
+      "latencyMs": 11.699999999953434,
+      "target": "icon-button"
+    },
+    {
+      "latencyMs": 12.200000000186265,
+      "target": "sheet-action"
+    },
+    {
+      "latencyMs": 12.5,
+      "target": "primary"
+    },
+    {
+      "latencyMs": 12.399999999906868,
+      "target": ""
+    },
+    {
+      "latencyMs": 13.5,
+      "target": ""
+    },
+    {
+      "latencyMs": 13.100000000093132,
+      "target": ""
+    },
+    {
+      "latencyMs": 14.200000000186265,
+      "target": "show-tile"
+    },
+    {
+      "latencyMs": 11.600000000093132,
+      "target": "icon-button episode-download"
+    },
+    {
+      "latencyMs": 13.399999999906868,
+      "target": "icon-button episode-download"
+    },
+    {
+      "latencyMs": 14.899999999906868,
+      "target": ""
+    },
+    {
+      "latencyMs": 11.900000000139698,
+      "target": "open-player"
+    },
+    {
+      "latencyMs": 12.899999999906868,
+      "target": "player-menu"
+    },
+    {
+      "latencyMs": 12.900000000139698,
+      "target": ""
+    },
+    {
+      "latencyMs": 12.5,
+      "target": "clear-search"
+    },
+    {
+      "latencyMs": 12.100000000093132,
+      "target": "open-player"
+    },
+    {
+      "latencyMs": 13,
+      "target": "open-player"
+    },
+    {
+      "latencyMs": 13.300000000046566,
+      "target": "open-player"
+    },
+    {
+      "latencyMs": 11.400000000139698,
+      "target": "open-player"
+    },
+    {
+      "latencyMs": 11.899999999906868,
+      "target": "open-player"
+    },
+    {
+      "latencyMs": 12.700000000186265,
+      "target": "close-player"
+    },
+    {
+      "latencyMs": 11.300000000046566,
+      "target": ""
+    },
+    {
+      "latencyMs": 13.099999999860302,
+      "target": "show-tile"
+    },
+    {
+      "latencyMs": 7.699999999953434,
+      "target": "open-player"
+    },
+    {
+      "latencyMs": 15.599999999860302,
+      "target": "open-player"
+    },
+    {
+      "latencyMs": 13.699999999953434,
+      "target": "close-player"
+    },
+    {
+      "latencyMs": 14.399999999906868,
+      "target": ""
+    },
+    {
+      "latencyMs": 14.800000000046566,
+      "target": "icon-button queue-handle"
+    },
+    {
+      "latencyMs": 16.699999999953434,
+      "target": "icon-button queue-handle"
+    }
+  ],
+  "audio": {
+    "before": {
+      "same": true,
+      "count": 1,
+      "source": "/podcasts/audio",
+      "position": 42.377122,
+      "paused": false,
+      "loads": 1
+    },
+    "after": {
+      "same": true,
+      "count": 1,
+      "source": "/podcasts/audio",
+      "position": 47.182406,
+      "paused": false,
+      "loads": 1
+    }
+  },
+  "queue": {
+    "method": "touch handle",
+    "before": [
+      "The Listening Room · 3 minA little room to listen · 3",
+      "The Listening Room · 3 minA little room to listen · 4",
+      "The Listening Room · 3 min · DownloadedA little room to listen · 2"
+    ],
+    "after": [
+      "The Listening Room · 3 minA little room to listen · 4",
+      "The Listening Room · 3 minA little room to listen · 3",
+      "The Listening Room · 3 min · DownloadedA little room to listen · 2"
+    ]
+  },
+  "screens": [
+    {
+      "name": "discover-loading",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-empty",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "search",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "show",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "library",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "queue",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "downloads-active",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "downloads",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "player",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "options",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-with-progress",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-320x568",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "overflow": false
+    },
+    {
+      "name": "player-320x568",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-360x640",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "overflow": false
+    },
+    {
+      "name": "player-360x640",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-412x915",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "overflow": false
+    },
+    {
+      "name": "player-412x915",
+      "viewport": {
+        "width": 412,
+        "height": 915
+      },
+      "overflow": false
+    },
+    {
+      "name": "discover-740x360",
+      "viewport": {
+        "width": 740,
+        "height": 360
+      },
+      "overflow": false
+    },
+    {
+      "name": "player-740x360",
+      "viewport": {
+        "width": 740,
+        "height": 360
+      },
+      "overflow": false
+    },
+    {
+      "name": "queue-reordered",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false
+    }
+  ],
+  "errors": []
+}

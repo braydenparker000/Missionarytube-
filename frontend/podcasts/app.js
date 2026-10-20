@@ -2,6 +2,8 @@ import {API_ORIGIN} from '/assets/config.js';
 import {STORAGE_KEY,AUDIO_CACHE,MAX_DOWNLOAD,categories,readState,keyOf,offlinePath,clock,positionText,minutes,size,resumePosition,nextQueued,shouldSleep,progressEntry,compactProgress,storedFeed,saveFeed} from './core.js';
 import {clientDirectory} from './directory.js';
 import {surfaceMotion,episodeHolds} from './motion.js';
+import {queueReorder} from './queue-motion.js';
+import {coverNavigation} from './navigation-motion.js';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s || '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -14,6 +16,8 @@ const paths = {
   refresh:'<path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/>',settings:'<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/>',
   check:'<path d="m5 12 4 4L20 5"/>',trash:'<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>',
   up:'<path d="m5 15 7-7 7 7"/>',link:'<path d="m10 13 4-4M8 16l-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0"/>',
+  cancel:'<path d="m6 6 12 12M6 18 18 6"/>',
+  grip:'<path d="M8 6h8M8 12h8M8 18h8"/>',
   podcast:'<circle cx="12" cy="10" r="3"/><path d="M8 21v-4a4 4 0 0 1 8 0v4M6 14a8 8 0 1 1 12 0"/>'
 };
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.podcast}</svg>`;
@@ -28,16 +32,28 @@ let current = state.current, currentBlob, loadToken = 0, loadedKey = '', timer =
 let sourceLoading=false, sourceURLs=[], sourceIndex=0, pendingPosition=0;
 const directoryCache=new Map(), routeViews=new Map();
 let activeRoute=location.hash || '#discover', paintEpisodes=null;
+const cover=coverNavigation();
+let returnCover='',topicScroll=0;
+const tabRoutes=new Map();
 let historyIndex=Number.isSafeInteger(history.state?.podcastIndex)?history.state.podcastIndex:0;
 if ('scrollRestoration' in history) history.scrollRestoration='manual';
 function rememberView() {
+  const rail=document.querySelector('.browse-topics');if(rail)topicScroll=rail.scrollLeft;
+  if(['discover','search'].includes(view))tabRoutes.set('discover',activeRoute);
   routeViews.set(activeRoute,{scroll:scrollY,query:$('episode-query')?.value || '',sort:$('episode-sort')?.value || 'newest',count:Number($('episodes')?.dataset.visibleCount)||40});
   if(routeViews.size>40)routeViews.delete(routeViews.keys().next().value);
 }
-function restoreView(token) {requestAnimationFrame(()=>{if(token===renderToken)window.scrollTo({top:routeViews.get(activeRoute)?.scroll || 0,behavior:'instant'});});}
+// Restore in the render transaction: a deferred frame could overwrite a new
+// user scroll that starts immediately after cached results become visible.
+function restoreView(token) {
+  if(token!==renderToken)return;
+  window.scrollTo({top:routeViews.get(activeRoute)?.scroll || 0,behavior:'instant'});
+  if(view==='show')cover.connect(document.querySelector('.show-header>.artwork'),feedData?.show.feedUrl);
+  else if(returnCover){cover.connect(document.querySelector(`[data-feed="${CSS.escape(returnCover)}"] img`),returnCover);returnCover='';}
+}
 function searchHistory() {
   const recent=Array.isArray(state.recentSearches)?state.recentSearches:[];
-  $('search-history').innerHTML=view==='discover'&&recent.length?'<div class="recent-searches"><span>Recent searches</span><button id="clear-history">Clear history</button><div>'+recent.map(q=>`<button data-search="${esc(q)}">${icon('search')}${esc(q)}</button>`).join('')+'</div></div>':'';
+  $('search-history').innerHTML=view==='discover'&&recent.length?'<div class="recent-searches"><span>Recent searches</span><button type="button" id="clear-history">Clear history</button><div>'+recent.map(q=>`<button type="button" data-search="${esc(q)}">${icon('search')}${esc(q)}</button>`).join('')+'</div></div>':'';
   $('clear-history')?.addEventListener('click',()=>{state.recentSearches=[];commit();searchHistory();});
 }
 function submitSearch(q) {
@@ -46,7 +62,7 @@ function submitSearch(q) {
 }
 function connectionStatus() {$('offline-status').hidden=navigator.onLine;}
 
-const audio = $('audio'), downloads = new Map(), feeds = new Map();
+const audio = $('audio'), downloads = new Map(), feeds = new Map(), downloadFailures=new Map();
 const episodeRefs = new Map(), showRefs = new Map();
 const commit = () => {state.progress=compactProgress(state.progress);try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));return true;}catch{notify('Could not save listening data. Device storage may be full.');return false;}};
 function notify(message) { $('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4000); }
@@ -105,7 +121,7 @@ async function onHistory() {
   // Forward never resurrects stale actions for another episode.
   if(target.length>dialogStack.length)history.replaceState({...history.state,podcastDialogs:dialogStack.map(f=>f.key)},'');
   if(route===activeRoute&&!hadDialogs&&historyIndex<previousIndex){pending?.resolve();history.back();return;}
-  if(route!==activeRoute){cancelHolds();rememberView();renderRoute();}
+  if(route!==activeRoute){if(view==='show'){returnCover=feedData?.show.feedUrl;cover.capture(document.querySelector('.show-header>.artwork'),returnCover);}cancelHolds();rememberView();renderRoute();}
   await Promise.all(exits);
   if(serial===historyEpoch){
     if(!dialogStack.length){document.documentElement.classList.remove('podcast-overlay-open');if(sameRoute)window.scrollTo({top:overlayScroll,behavior:'instant'});}
@@ -161,33 +177,50 @@ const normalizedShow = show => ({...show,feedUrl:safeURL(show.feedUrl),artwork:s
 const episode = (e,show) => ({...e,show:normalizedShow(show)});
 const date = value => value ? new Date(value).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}) : '';
 function showTiles(shows,{featured=false}={}) {
-  return `<div class="show-grid${view==='search'?' search-results':''}">${shows.map((s,i)=>{showRefs.set(s.feedUrl,s);const feature=featured&&view!=='search'&&i===0;return `<button class="show-tile${feature?' featured-tile':''}" data-feed="${esc(s.feedUrl)}">${art(s.artwork,'artwork',i<2)}<span class="tile-copy">${feature?`<span class="feature-label">${view==='search'?'Top result':categories.find(c=>c[0]===category)?.[1] || 'Explore'}</span>`:''}<strong>${esc(s.title)}</strong><small>${esc(s.author || s.genres?.[0] || 'Podcast')}</small>${state.follows.some(f=>f.feedUrl===s.feedUrl)?'<span class="followed-label">Following</span>':''}${feature?'<span class="feature-action">View episodes</span>':''}</span></button>`;}).join('')}</div>`;
+  return `<div class="show-grid${view==='search'?' search-results':''}">${shows.map((s,i)=>{showRefs.set(s.feedUrl,s);const feature=featured&&view!=='search'&&i===0;return `<button class="show-tile${feature?' featured-tile':''}" data-feed="${esc(s.feedUrl)}">${art(s.artwork,'artwork',i<2)}<span class="tile-copy">${feature?`<span class="feature-label">${view==='search'?'Top result':categories.find(c=>c[0]===category)?.[1] || 'Explore'}</span>`:''}<strong>${esc(s.title)}</strong><small>${esc(s.author || s.genres?.[0] || 'Podcast')}</small>${state.follows.some(f=>f.feedUrl===s.feedUrl)?'<span class="followed-label">Following</span>':''}${feature&&s.description?`<span class="feature-description">${esc(s.description)}</span>`:''}${feature?'<span class="feature-action">View episodes →</span>':''}</span></button>`;}).join('')}</div>`;
 }
 function rows(list,{thumbs=false,queue=false}={}) {
   return `<div class="episode-list">${list.map(e=>{
     const key=keyOf(e), p=state.progress[key], stored=state.downloads[key];episodeRefs.set(key,e);
     const detail=[thumbs?e.show.title:date(e.publishedAt),minutes(e.duration),p?.played?'Played':p?.position>0?'Resume '+clock(p.position):'',stored?'Downloaded':'',downloads.has(key)?'Downloading…':''].filter(Boolean).join(' · ');
     const playing=current && keyOf(current)===key && !audio.paused;
-    return `<article class="episode-row${thumbs?' with-thumb':''}${current && keyOf(current)===key?' playing':''}${p?.played?' played':''}" data-episode="${esc(key)}">${thumbs?art(e.artwork || e.show.artwork,'episode-thumb'):''}<div class="episode-body"><button class="episode-copy" data-details="${esc(key)}"><small>${esc(detail)}</small><strong>${esc(e.title)}</strong>${!thumbs&&e.description?`<span class="episode-description">${esc(e.description.slice(0,350))}</span>`:''}</button><div class="episode-actions"><button class="episode-play" data-play="${esc(key)}" aria-label="Play ${esc(e.title)}">${icon(playing?'pause':'play')}<span class="play-label">${playing?'Pause':p?.position>0&&!p.played?'Resume':'Play'}</span></button>${p?.position>0&&!p.played?`<progress class="episode-progress" aria-label="Listening progress" value="${Math.max(0,p.position)}" max="${Math.max(p.position,p.duration||e.duration||1)}"></progress>`:''}<button class="icon-button episode-download${stored?' is-saved':''}" data-download="${esc(key)}" aria-label="${downloads.has(key)?'Cancel download':stored?'Manage download':'Download'} ${esc(e.title)}">${icon(stored?'check':'download')}</button><button class="icon-button" data-options="${esc(key)}" aria-label="Options for ${esc(e.title)}">${icon('more')}</button></div></div></article>`;
+    return `<article class="episode-row${thumbs?' with-thumb':''}${queue?' queue-row':''}${current && keyOf(current)===key?' playing':''}${p?.played?' played':''}" data-episode="${esc(key)}">${thumbs?art(e.artwork || e.show.artwork,'episode-thumb'):''}<div class="episode-body"><button class="episode-copy" data-details="${esc(key)}"><small>${esc(detail)}</small><strong>${esc(e.title)}</strong>${!thumbs&&e.description?`<span class="episode-description">${esc(e.description.slice(0,350))}</span>`:''}</button><div class="episode-actions"><button class="episode-play" data-play="${esc(key)}" aria-label="Play ${esc(e.title)}">${icon(playing?'pause':'play')}<span class="play-label">${playing?'Pause':p?.position>0&&!p.played?'Resume':'Play'}</span></button>${p?.position>0&&!p.played?`<progress class="episode-progress" aria-label="Listening progress" value="${Math.max(0,p.position)}" max="${Math.max(p.position,p.duration||e.duration||1)}"></progress>`:''}<button class="icon-button episode-download${stored?' is-saved':''}" data-download="${esc(key)}" aria-label="${downloads.has(key)?'Cancel download':stored?'Manage download':'Download'} ${esc(e.title)}">${icon(downloads.has(key)?'cancel':stored?'check':'download')}</button><button class="icon-button" data-options="${esc(key)}" aria-label="Options for ${esc(e.title)}">${icon('more')}</button></div>${downloadState(key)}</div>${queue?`<button class="icon-button queue-handle" data-reorder="${esc(key)}" aria-label="Reorder ${esc(e.title)}" aria-describedby="queue-help" aria-pressed="false">${icon('grip')}</button>`:''}</article>`;
   }).join('')}</div>`;
 }
+function downloadState(key) {
+  const saved=state.downloads[key],pending=downloads.get(key),failure=downloadFailures.get(key);
+  if(!saved&&!pending&&!failure)return '';
+  const text=saved?'Saved · '+size(saved.bytes):pending?downloadLabel(pending):'Download failed · Try again';
+  return `<div class="download-state${failure?' failed':''}" data-download-state="${esc(key)}" role="status">${pending?`<progress aria-label="Download progress" ${pending.total?`max="${pending.total}" value="${pending.bytes||0}"`:''}></progress>`:''}<span>${esc(text)}</span></div>`;
+}
+function downloadLabel(d){return d.total?`${Math.min(100,Math.floor((d.bytes||0)/d.total*100))}% · ${size(d.bytes||0)} of ${size(d.total)}`:d.bytes?size(d.bytes)+' downloaded':'Starting download…';}
+function paintDownloadProgress(key){
+  const d=downloads.get(key);if(!d)return;
+  for(const node of document.querySelectorAll(`[data-download-state="${CSS.escape(key)}"]`)){
+    node.querySelector('span').textContent=downloadLabel(d);const bar=node.querySelector('progress');if(bar&&d.total){bar.max=d.total;bar.value=d.bytes;}
+  }
+}
+function continuing(title='Keep listening'){
+  const recent=Object.values(state.progress).filter(p=>p.episode&&!p.played&&p.position>0).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,3).map(p=>p.episode);
+  return recent.length?`<section class="continue-listening"><div class="section-title"><h2>${title}</h2></div>${rows(recent,{thumbs:true})}</section>`:'';
+}
 const empty = (title,body) => `<div class="empty-state"><h2>${esc(title)}</h2><p>${esc(body)}</p></div>`;
-function setNav() { const selected=view==='search'?'discover':view==='show'?(state.follows.some(s=>s.feedUrl===feedData?.show.feedUrl)?'library':'discover'):view;document.querySelectorAll('[data-view]').forEach(a=>{if(a.dataset.view===selected)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}); }
+function setNav() { const selected=view==='search'?'discover':view==='show'?(['#library','#downloads','#queue'].includes(history.state?.podcastReturn)?history.state.podcastReturn.slice(1):'discover'):view;document.querySelectorAll('[data-view]').forEach(a=>{if(a.dataset.view===selected)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');}); }
 function setRoute(hash) {
-  cancelHolds();rememberView();
+  cancelHolds();cancelQueue();rememberView();
   if(location.hash!==hash)pushHistory(hash.startsWith('#show=')?{podcastReturn:activeRoute,podcastReturnIndex:historyIndex}:{},hash);
   renderRoute();
 }
 const skeleton = () => '<div class="show-grid loading-grid" aria-hidden="true">'+Array.from({length:6},()=>'<div class="skeleton-tile"><div></div><span></span><span></span></div>').join('')+'</div>';
 async function renderRoute() {
-  cancelHolds();requestController?.abort();requestController=new AbortController();const token=++renderToken;const signal=requestController.signal;
+  cancelHolds();cancelQueue();requestController?.abort();requestController=new AbortController();const token=++renderToken;const signal=requestController.signal;
   activeRoute=location.hash || '#discover';paintEpisodes=null;
   const params=new URLSearchParams(location.hash.slice(1)), raw=location.hash.slice(1), showURL=params.get('show'), query=params.get('search');
   category=categories.some(c=>c[0]===params.get('category'))?params.get('category'):'popular';
   view=showURL?'show':query!==null?'search':['library','downloads','queue'].includes(raw)?raw:'discover';
-  $('heading').textContent=({discover:'Discover',search:'Search',show:'Episodes',library:'Your library',downloads:'Downloads',queue:'Up next'})[view];
-  document.body.classList.toggle('show-view',view==='show');
-  $('view-description').textContent=({discover:'A good story is just a search away.',search:'Find a show, a familiar voice, or something new.',library:'Your shows and unfinished stories, all together.',downloads:'Saved on this device. Ready when you’re offline.',queue:'A little planning. A lot of good listening.'})[view] || '';
+  $('heading').textContent=({discover:'Discover',search:'Search',show:'Episodes',library:'Library',downloads:'Downloads',queue:'Up Next'})[view];
+  document.body.classList.toggle('show-view',view==='show');document.body.dataset.screen=view;
+  $('view-description').textContent=({discover:'',search:'',library:'',downloads:'Saved on this device. Ready when you’re offline.',queue:''})[view] || '';
   $('view-description').hidden=view==='show';
   $('search-form').hidden=!['discover','search'].includes(view);$('query').value=query || '';$('clear-search').hidden=!query;status();setNav();connectionStatus();searchHistory();
   const root=$('results');root.innerHTML='';root.setAttribute('aria-busy','true');
@@ -195,9 +228,10 @@ async function renderRoute() {
     if(view==='discover' || view==='search') {
       const topics=view==='discover'?`<div class="browse-topics" aria-label="Browse topics">${categories.map(([id,name])=>`<button data-category="${id}" aria-pressed="${category===id}">${name}</button>`).join('')}</div>`:'';
       if(view==='search' && (query.trim().length<2 || query.length>120)){root.innerHTML=empty('What would you like to hear?','Enter 2–120 characters: a show, host, or topic.');return;}
-      root.innerHTML=topics+skeleton();status('Finding shows…');
+      const resume=view==='discover'?continuing('Continue listening'):'';
+      root.innerHTML=resume+topics+skeleton();if(topics)root.querySelector('.browse-topics').scrollLeft=topicScroll;status('Finding shows…');
       const result=await searchDirectory(view==='search'?'search':'browse',view==='search'?{q:query,country:state.country}:{category,country:state.country},signal);
-      if(token!==renderToken)return;status();root.innerHTML=topics+(result.shows.length?`<div class="section-title result-heading"><h2>${view==='search'?'Results for “'+esc(query)+'”':category==='popular'?'Explore shows':esc(categories.find(c=>c[0]===category)?.[1])+' shows'}</h2><span>${result.shows.length} shows</span></div>`+(view==='discover'?`<p class="directory-caption">Browse by topic</p>`:'')+showTiles(result.shows,{featured:true}):empty('No shows found','Try a show title, host, or a broader topic. You can also add an RSS feed with the + button.'));restoreView(token);return;
+      if(token!==renderToken)return;status();root.innerHTML=resume+topics+(result.shows.length?`<div class="section-title result-heading"><h2>${view==='search'?'Results for “'+esc(query)+'”':category==='popular'?'Explore shows':esc(categories.find(c=>c[0]===category)?.[1])+' shows'}</h2><span>${result.shows.length} shows</span></div>`+showTiles(result.shows,{featured:true}):empty('No shows found','Try a show title, host, or a broader topic. You can also add an RSS feed with the + button.'));if(topics)root.querySelector('.browse-topics').scrollLeft=topicScroll;restoreView(token);return;
     }
     if(view==='show') {
       window.scrollTo({top:0});status('Opening the podcast…');root.innerHTML='<div class="show-loading" aria-hidden="true"><div></div><span></span><span></span></div>';const data=await feed(showURL,{signal});if(token!==renderToken)return;feedData=data;
@@ -211,8 +245,9 @@ async function renderRoute() {
 function renderShow() {
   const {show,episodes}=feedData;const followed=state.follows.some(s=>s.feedUrl===show.feedUrl);
   if(episodes[0])episodeRefs.set(keyOf(episode(episodes[0],show)),episode(episodes[0],show));
-  $('results').innerHTML=`<div class="show-toolbar"><button class="show-back" id="show-back">${icon('back')}Back to browsing</button><button id="show-refresh" class="icon-button" aria-label="Refresh episodes">${icon('refresh')}</button></div><section class="show-header">${art(show.artwork,'artwork',true)}<div class="show-copy"><h1>${esc(show.title)}</h1><p>${esc(show.author)}</p></div><div class="show-actions">${episodes[0]?`<button class="primary" data-play="${esc(keyOf(episode(episodes[0],show)))}" aria-label="Play latest episode">${icon('play')}<span>Play latest</span></button>`:''}<button id="follow-show" class="secondary" aria-pressed="${followed}">${icon(followed?'check':'plus')}<span>${followed?'Following':'Follow show'}</span></button></div></section><details class="show-description"><summary>About this show</summary>${esc(show.description || 'No show description provided.')}<div class="show-links">${safeURL(show.directoryUrl)?`<a href="${esc(show.directoryUrl)}" target="_blank" rel="noopener">Apple Podcasts</a>`:''}${safeURL(show.website)?`<a href="${esc(show.website)}" target="_blank" rel="noopener">Show website</a>`:''}</div></details><div class="section-title"><h2>Episodes</h2><span id="episode-count">${episodes.length}${feedData.nextOffset!=null?'+':''}</span></div><div class="episode-filter"><label class="sr-only" for="episode-query">Search this show’s episodes</label><input id="episode-query" type="search" placeholder="Search episodes"><label class="sr-only" for="episode-sort">Episode order</label><select id="episode-sort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="unplayed">Unplayed</option></select></div><p class="episode-scope">Search and sort apply to the episodes loaded below.</p><div id="episodes"></div><button id="more-episodes" class="secondary" hidden>Show more episodes</button>`;
-  $('show-back').textContent=history.state?.podcastReturn?.startsWith('#search=')?'← Back to search':history.state?.podcastReturn==='#library'?'← Back to library':'← Back to browsing';
+  $('results').innerHTML=`<div class="show-toolbar"><button class="show-back" id="show-back">${icon('back')}Back to browsing</button><button id="show-refresh" class="icon-button" aria-label="Refresh episodes">${icon('refresh')}</button></div><section class="show-header">${art(show.artwork,'artwork',true)}<div class="show-copy"><h1>${esc(show.title)}</h1><p>${esc(show.author)}</p></div><div class="show-actions">${episodes[0]?`<button class="primary" data-play="${esc(keyOf(episode(episodes[0],show)))}" aria-label="Play latest episode">${icon('play')}<span>Play latest</span></button>`:''}<button id="follow-show" class="secondary" aria-pressed="${followed}">${icon(followed?'check':'plus')}<span>${followed?'Following':'Follow show'}</span></button></div></section><details class="show-description"><summary>About this show</summary><p>${esc(show.description || 'No show description provided.')}</p><div class="show-links">${safeURL(show.directoryUrl)?`<a href="${esc(show.directoryUrl)}" target="_blank" rel="noopener">Apple Podcasts</a>`:''}${safeURL(show.website)?`<a href="${esc(show.website)}" target="_blank" rel="noopener">Show website</a>`:''}</div></details><div class="section-title"><h2>Episodes</h2><span id="episode-count">${episodes.length}${feedData.nextOffset!=null?'+':''}</span></div><div class="episode-filter"><label class="sr-only" for="episode-query">Search this show’s episodes</label><input id="episode-query" type="search" placeholder="Search episodes"><label class="sr-only" for="episode-sort">Episode order</label><select id="episode-sort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="unplayed">Unplayed</option></select></div><p class="episode-scope">Search and sort apply to the episodes loaded below.</p><div id="episodes"></div><button id="more-episodes" class="secondary" hidden>Show more episodes</button>`;
+  const originLabel=history.state?.podcastReturn?.startsWith('#search=')?'search':({'#library':'library','#downloads':'downloads','#queue':'queue'})[history.state?.podcastReturn]||'browsing';
+  $('show-back').innerHTML=icon('back')+'Back to '+originLabel;
   $('show-back').onclick=()=>{const origin=history.state?.podcastReturnIndex;if(Number.isSafeInteger(origin)&&origin<historyIndex)history.go(origin-historyIndex);else setRoute(history.state?.podcastReturn || '#discover');};$('show-refresh').onclick=refreshView;$('follow-show').onclick=()=>{toggleFollow(show);const active=state.follows.some(s=>s.feedUrl===show.feedUrl);$('follow-show').innerHTML=icon(active?'check':'plus')+'<span>'+(active?'Following':'Follow show')+'</span>';$('follow-show').setAttribute('aria-pressed',String(active));};
   const savedView=routeViews.get(activeRoute);$('episode-query').value=savedView?.query || '';$('episode-sort').value=savedView?.sort || 'newest';
   let count=savedView?.count || 40;
@@ -227,17 +262,17 @@ function renderShow() {
     if(token!==renderToken)return;count+=40;paint();};paintEpisodes=paint;paint();setPlayIcons();
 }
 function renderLocal() {
+  cancelQueue();
   const root=$('results');
   if(view==='library') {
-    const recent=Object.values(state.progress).filter(p=>!p.played&&p.position>0).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,3).map(p=>p.episode);
-    root.innerHTML=(recent.length?`<div class="section-title"><h2>Keep listening</h2></div>${rows(recent,{thumbs:true})}`:'')+'<div class="section-title"><h2>Followed shows</h2><span>'+state.follows.length+'</span></div>'+(state.follows.length?showTiles(state.follows):empty('Make this your library','Follow a show to keep it here. Your progress, queue, and follows are saved on this device.'));
+    root.innerHTML=continuing()+'<div class="section-title"><h2>Your shows</h2>'+(state.follows.length?'<span>'+state.follows.length+'</span>':'')+'</div>'+(state.follows.length?showTiles(state.follows):empty('Make this your library','Follow a show to keep it here. Your progress, queue, and follows are saved on this device.'));
     if(state.follows.length)root.innerHTML+='<button class="secondary" id="latest-episodes">Latest from your shows</button><div id="latest-results"></div>';
     $('latest-episodes')?.addEventListener('click',loadLatest);
   } else if(view==='downloads') {
-    const records=Object.values(state.downloads).sort((a,b)=>b.downloadedAt-a.downloadedAt), pending=[...downloads.values()].map(d=>d.episode);
-    root.innerHTML=`<p class="download-meta">${records.length} episodes · ${size(records.reduce((n,d)=>n+d.bytes,0))} on this device</p>`+(pending.length?rows(pending,{thumbs:true}):'')+(records.length?rows(records.map(d=>d.episode),{thumbs:true}):pending.length?'':empty('Take an episode with you','Use the download arrow beside an episode. Finished downloads play here without internet, including seeking.'));
+    const records=Object.values(state.downloads).sort((a,b)=>b.downloadedAt-a.downloadedAt), pending=[...downloads.values()].map(d=>d.episode),failed=[...downloadFailures.values()].filter(e=>!downloads.has(keyOf(e))&&!state.downloads[keyOf(e)]);
+    root.innerHTML=`<p class="download-meta">${records.length} ${records.length===1?'episode':'episodes'} · ${size(records.reduce((n,d)=>n+d.bytes,0))} on this device</p>`+(pending.length?rows(pending,{thumbs:true}):'')+(failed.length?rows(failed,{thumbs:true}):'')+(records.length?rows(records.map(d=>d.episode),{thumbs:true}):pending.length||failed.length?'':empty('Take an episode with you','Use the download arrow beside an episode. Finished downloads play here without internet, including seeking.'));
   } else {
-    root.innerHTML=(state.queue.length?`<p class="download-meta">${state.queue.length} episodes · ${state.autoplay?'Plays automatically':'Autoplay off'}</p>${rows(state.queue,{thumbs:true,queue:true})}`:empty('Your next listen','Add episodes to the queue from their menu. They play in order when the current episode finishes.'));
+    root.innerHTML=(state.queue.length?`<p class="download-meta">${state.queue.length} ${state.queue.length===1?'episode':'episodes'} · ${state.autoplay?'Plays automatically':'Autoplay off'}</p><p id="queue-help" class="sr-only">Drag a handle to reorder. With a keyboard, use Up, Down, Home or End. Episode options also include move actions.</p>${rows(state.queue,{thumbs:true,queue:true})}`:empty('Your next listen','Add episodes to the queue from their menu. They play in order when the current episode finishes.'));
   }
 }
 async function loadLatest(e) {
@@ -259,7 +294,13 @@ function episodeMenu(e,opener) {
     {label:queued?'Remove from queue':'Add to queue',icon:'queue',action:()=>{if(queued)state.queue=nextQueued(state.queue,e);else if(state.queue.length<100)state.queue.push(e);else{notify('Queue is full. Remove an episode first.');return;}commit();notify(queued?'Removed from queue':'Added to queue');repaintLocal();}},
     {label:downloading?'Cancel download':downloaded?'Remove download':'Download for offline listening',icon:downloaded?'trash':'download',action:()=>downloading?downloads.get(key).controller.abort():downloaded?confirmRemove(e):downloadEpisode(e)},
     {label:state.progress[key]?.played?'Mark unplayed':'Mark played',icon:'check',action:()=>{const played=!state.progress[key]?.played;state.progress[key]=progressEntry(e,0,e.duration,played);commit();notify(played?'Marked played':'Marked unplayed');repaintLocal({playedChanged:true});}}];
-  if(view==='queue' && queued)actions.push({label:'Move to top of queue',icon:'up',action:()=>{state.queue=[e,...nextQueued(state.queue,e)];commit();repaintLocal();}});
+  if(view==='queue' && queued){
+    const move=direction=>{const from=state.queue.findIndex(x=>keyOf(x)===key);if(from<0){notify('This episode has left the queue.');return;}const target=direction==='top'?0:Math.max(0,Math.min(from+direction,state.queue.length-1));state.queue.splice(target,0,state.queue.splice(from,1)[0]);commit();repaintLocal();};
+    const index=state.queue.findIndex(x=>keyOf(x)===key);
+    actions.push({label:'Move to top of queue',icon:'up',action:()=>move('top')});
+    if(index>0)actions.push({label:'Move up in queue',icon:'up',action:()=>move(-1)});
+    if(index<state.queue.length-1)actions.push({label:'Move down in queue',icon:'down',action:()=>move(1)});
+  }
   if(view!=='show')actions.push({label:'Open show',icon:'podcast',action:async()=>{showRefs.set(e.show.feedUrl,e.show);if($('player').open)await closeDialog($('player'));setRoute('#show='+encodeURIComponent(e.show.feedUrl));}});
   if(safeURL(e.audioUrl))actions.push({label:'Open original audio',icon:'link',immediate:true,action:()=>window.open(safeURL(e.audioUrl),'_blank','noopener')});
   sheet(e.title,actions,opener);
@@ -268,6 +309,7 @@ function repaintLocal({playedChanged=false}={}) {
   const target=document.activeElement,action=['play','download','options','details'].find(name=>target?.dataset?.[name]),key=action?target.dataset[action]:null,position=scrollY;
   let rebuilt=false;
   if(['library','downloads','queue'].includes(view)){renderLocal();rebuilt=true;}
+  else if(view==='discover'){const section=document.querySelector('.continue-listening');if(section){section.outerHTML=continuing('Continue listening');rebuilt=true;}}
   else if(view==='show'&&playedChanged&&$('episode-sort').value==='unplayed'){paintEpisodes?.();rebuilt=true;}
   else if(view==='show'){
     for(const row of document.querySelectorAll('.episode-row')){
@@ -276,7 +318,8 @@ function repaintLocal({playedChanged=false}={}) {
       row.classList.toggle('playing',current&&keyOf(current)===key);
       row.classList.toggle('played',!!p?.played);
       const download=row.querySelector('[data-download]');download.classList.toggle('is-saved',saved);
-      download.innerHTML=icon(saved?'check':'download');download.setAttribute('aria-label',(pending?'Cancel download':saved?'Manage download':'Download')+' '+e.title);
+      download.innerHTML=icon(pending?'cancel':saved?'check':'download');download.setAttribute('aria-label',(pending?'Cancel download':saved?'Manage download':'Download')+' '+e.title);
+      row.querySelector('[data-download-state]')?.remove();row.querySelector('.episode-body').insertAdjacentHTML('beforeend',downloadState(key));
       row.querySelector('.episode-copy small').textContent=[date(e.publishedAt),minutes(e.duration),p?.played?'Played':p?.position>0?'Resume '+clock(p.position):'',saved?'Downloaded':'',pending?'Downloading…':''].filter(Boolean).join(' · ');
     }
   }
@@ -289,14 +332,19 @@ function formDetails(e) {
   prepareSheet();const d=$('sheet');d.innerHTML=`<div class="dialog-heading" data-drag-handle><h2 id="sheet-heading">Episode</h2><button class="icon-button close" aria-label="Close episode">${icon('down')}</button></div><h3>${esc(e.title)}</h3><p>${esc(e.show.title)} · ${esc(minutes(e.duration))}</p><button class="primary" id="details-play" data-episode-key="${esc(keyOf(e))}">${icon('play')}Play episode</button><button class="text-button" id="details-options">More options</button><div class="episode-notes">${esc(e.description || 'No episode notes provided.')}</div>`;
   d.querySelector('.close').onclick=closeSheet;$('details-play').onclick=()=>{playEpisode(e);closeSheet();};$('details-options').onclick=()=>episodeMenu(e);setPlayIcons();openDialog(d);
 }
+const cancelQueue=queueReorder($('results'),{commit:keys=>{
+  const episodes=new Map(state.queue.map(e=>[keyOf(e),e]));
+  if(keys.length!==episodes.size||new Set(keys).size!==keys.length||keys.some(key=>!episodes.has(key)))return;
+  state.queue=keys.map(key=>episodes.get(key));commit();
+},announce:notify});
 const cancelHolds=episodeHolds($('results'),(key,opener)=>{const e=episodeRefs.get(key);if(e)episodeMenu(e,opener);});
 document.querySelector('.skip-link').onclick=e=>{e.preventDefault();$('content').focus();};
 document.addEventListener('click',e=>{
   const node=e.target.closest('[data-feed],[data-play],[data-options],[data-details],[data-category],[data-retry],[data-search],[data-download],[data-view]');if(!node)return;
-  if(node.dataset.view){e.preventDefault();setRoute(node.getAttribute('href'));}
+  if(node.dataset.view){e.preventDefault();cover.cancel();setRoute(node.dataset.view==='discover'?(tabRoutes.get('discover')||'#discover'):node.getAttribute('href'));}
   else if(node.dataset.search)submitSearch(node.dataset.search);
   else if(node.dataset.download){const ep=episodeRefs.get(node.dataset.download);if(ep)downloadAction(ep);}
-  else if(node.dataset.feed)setRoute('#show='+encodeURIComponent(node.dataset.feed));
+  else if(node.dataset.feed){cover.capture(node.querySelector('img'),node.dataset.feed);setRoute('#show='+encodeURIComponent(node.dataset.feed));}
   else if(node.dataset.play){const ep=episodeRefs.get(node.dataset.play);if(ep)playEpisode(ep);}
   else if(node.dataset.options){const ep=episodeRefs.get(node.dataset.options);if(ep)episodeMenu(ep);}
   else if(node.dataset.details){const ep=episodeRefs.get(node.dataset.details);if(ep)episodeDetails(ep);}
@@ -321,7 +369,7 @@ async function downloadEpisode(e) {
   if(!('caches' in window) || !('serviceWorker' in navigator)){notify('Offline downloads require a browser that supports offline storage.');return;}
   if(state.downloads[key]){notify('Episode is already downloaded.');return;}
   if(e.bytes>MAX_DOWNLOAD){notify('This episode exceeds the 250 MB download limit. You can still stream it.');return;}
-  const controller=new AbortController();downloads.set(key,{controller,episode:e});notify('Downloading '+e.title);repaintLocal();updateDownloadButton();
+  const controller=new AbortController();downloadFailures.delete(key);downloads.set(key,{controller,episode:e,bytes:0,total:e.bytes||0});notify('Downloading '+e.title);repaintLocal();updateDownloadButton();
   let saved=false;
   try {
     await Promise.race([navigator.serviceWorker.ready,new Promise((_,reject)=>setTimeout(()=>reject(Error('Offline storage could not start. Reload this page and try again.')),10000))]);await navigator.storage?.persist?.().catch(()=>false);
@@ -336,15 +384,16 @@ async function downloadEpisode(e) {
     if(Number(r.headers.get('Content-Length'))>MAX_DOWNLOAD){await r.body?.cancel();throw Error('This episode exceeds the 250 MB download limit.');}
     const estimate=await navigator.storage?.estimate().catch(()=>null),expected=Number(r.headers.get('Content-Length'))||e.bytes;
     if(estimate && expected>0 && estimate.quota-estimate.usage<expected+8*1024*1024){await r.body?.cancel();throw Error('Not enough device storage. Remove a download first.');}
+    const pending=downloads.get(key);pending.total=expected||0;let progressPaint=0;
     let bytes=0;
-    const stream=r.body.pipeThrough(new TransformStream({transform(chunk,ctrl){bytes+=chunk.length;if(bytes>MAX_DOWNLOAD){ctrl.error(Error('This episode exceeds the 250 MB download limit.'));controller.abort();return;}ctrl.enqueue(chunk);}}));
+    const stream=r.body.pipeThrough(new TransformStream({transform(chunk,ctrl){bytes+=chunk.length;pending.bytes=bytes;if(performance.now()-progressPaint>200){paintDownloadProgress(key);progressPaint=performance.now();}if(bytes>MAX_DOWNLOAD){ctrl.error(Error('This episode exceeds the 250 MB download limit.'));controller.abort();return;}ctrl.enqueue(chunk);}}));
     const cache=await caches.open(AUDIO_CACHE),url=new URL(offlinePath(e),location.origin).href;
     await cache.put(url,new Response(stream,{headers:{'Content-Type':r.headers.get('Content-Type')||e.type||'audio/mpeg','Accept-Ranges':'bytes'}}));
     if(controller.signal.aborted){await cache.delete(url);throw new DOMException('Cancelled','AbortError');}
     state.downloads[key]={episode:e,bytes,downloadedAt:Date.now()};saved=commit();
     if(!saved){delete state.downloads[key];await cache.delete(url);throw Error('Could not save the download. Free up some browser storage.');}
     notify('Downloaded · '+size(bytes));
-  } catch(err) {notify(controller.signal.aborted?'Download cancelled':err.name==='QuotaExceededError'?'Device storage is full. Remove a download first.':err.message || 'Download failed. Please try again.');}
+  } catch(err) {if(!controller.signal.aborted)downloadFailures.set(key,e);notify(controller.signal.aborted?'Download cancelled':err.name==='QuotaExceededError'?'Device storage is full. Remove a download first.':err.message || 'Download failed. Please try again.');}
   finally{downloads.delete(key);repaintLocal();updateDownloadButton();}
 }
 function confirmRemove(e){sheet('Remove this download?',[{label:'Remove download from this device',icon:'trash',action:()=>removeDownload(e)},{label:'Keep download',icon:'check',action:()=>{}}]);}
@@ -363,7 +412,7 @@ function setPlayIcons() {
   for(const id of ['mini-back','back-15','forward-30'])$(id).disabled=sourceLoading||!loadedKey;
   document.querySelectorAll('[data-play]').forEach(b=>{const active=playing&&current&&b.dataset.play===keyOf(current),p=state.progress[b.dataset.play],label=active?'Pause':b.classList.contains('episode-play')?(p?.position>0&&!p.played?'Resume':'Play'):'Play latest';b.innerHTML=icon(active?'pause':'play')+'<span class="play-label">'+label+'</span>';const e=episodeRefs.get(b.dataset.play);b.setAttribute('aria-label',b.classList.contains('episode-play')?label+' '+(e?.title||'episode'):active?'Pause latest episode':'Play latest episode');});
 }
-function updateDownloadButton() {if(!current)return;const key=keyOf(current),pending=downloads.has(key),saved=!!state.downloads[key];$('player-download').innerHTML=icon(pending?'down':saved?'check':'download');$('player-download').setAttribute('aria-label',pending?'Cancel download':saved?'Manage downloaded episode':'Download episode');$('player-download').classList.toggle('is-saved',saved);}
+function updateDownloadButton() {if(!current)return;const key=keyOf(current),pending=downloads.has(key),saved=!!state.downloads[key];$('player-download').innerHTML=icon(pending?'cancel':saved?'check':'download');$('player-download').setAttribute('aria-label',pending?'Cancel download':saved?'Manage downloaded episode':'Download episode');$('player-download').classList.toggle('is-saved',saved);}
 function downloadAction(e) {
   const key=keyOf(e);
   if(downloads.has(key)){downloads.get(key).controller.abort();return;}
@@ -373,7 +422,7 @@ function downloadAction(e) {
 function updateCurrent() {
   if(!current)return;$('mini-player').hidden=false;document.title=current.title+' · Podcasts';
   for(const id of ['mini-art','player-art'])$(id).src=safeURL(current.artwork||current.show.artwork)||placeholder;
-  $('mini-title').textContent=current.title;$('player-title').textContent=current.title;$('mini-show').textContent=$('playback-status').hidden?current.show.title:$('playback-status').textContent;$('player-show').textContent=current.show.title;$('player-notes').textContent=current.description || 'No episode notes provided.';
+  $('mini-title').textContent=current.title;$('player-title').textContent=current.title;$('player-title').title=current.title;$('mini-show').textContent=$('playback-status').hidden?current.show.title:$('playback-status').textContent;$('player-show').textContent=current.show.title;$('player-notes').textContent=current.description || 'No episode notes provided.';document.querySelector('.player-notes-disclosure').hidden=!current.description;
   $('speed').textContent=state.speed+'× speed';updateDownloadButton();setPlayIcons();
 }
 function updatePosition() {
@@ -448,7 +497,7 @@ $('player-download').onclick=()=>current&&downloadAction(current);$('player-menu
 audio.addEventListener('loadedmetadata',()=>{audio.playbackRate=state.speed;audio.preservesPitch=true;const start=resumePosition({position:pendingPosition},audio.duration);if(start>0&&audio.currentTime<1)audio.currentTime=start;updatePosition();updateMediaSession();});
 audio.addEventListener('timeupdate',()=>{updatePosition();updateMediaPosition();if(Date.now()-lastSaved>10000)saveProgress();});
 audio.addEventListener('play',()=>{wantPlay=true;setPlayIcons();updateMediaSession();});
-audio.addEventListener('playing',()=>{if(wantPlay){playbackStatus();if(current&&state.queue.some(e=>keyOf(e)===keyOf(current))){state.queue=nextQueued(state.queue,current);commit();}}});
+audio.addEventListener('playing',()=>{if(wantPlay){playbackStatus();if(current&&state.queue.some(e=>keyOf(e)===keyOf(current))){state.queue=nextQueued(state.queue,current);commit();if(view==='queue')repaintLocal();}}});
 audio.addEventListener('pause',()=>{setPlayIcons();if(loadedKey)saveProgress(audio.ended);updateMediaSession();});
 audio.addEventListener('waiting',()=>{if(wantPlay)playbackStatus('Buffering…');});
 audio.addEventListener('error',()=>{

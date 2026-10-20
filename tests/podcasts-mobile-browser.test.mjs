@@ -24,14 +24,14 @@ before(async()=>{
   git('init');git('add','.');git('-c','user.name=Podcast fixture','-c','user.email=fixture@example.test','commit','-m','Isolated current frontend input');
   execFileSync(process.execPath,['scripts/build-jarvis.mjs'],{cwd:directory,stdio:'pipe'});built=join(directory,'dist');
   assert.equal(await readFile(join(built,'podcasts/app.js'),'utf8'),await readFile('frontend/podcasts/app.js','utf8'));
-  // The previous v4 shell is test input from Git history, never an editable app
+  // The previous v5 shell is test input from Git history, never an editable app
   // selector or a new manual release pin. CI's build checkout retains history.
   const commits=execFileSync('git',['log','-15','--format=%H','--','frontend/podcasts/sw.js'],{encoding:'utf8'}).trim().split('\n');
   let previous;
-  for(const commit of commits){const sw=execFileSync('git',['show',commit+':frontend/podcasts/sw.js'],{encoding:'utf8'});if(sw.includes('jarvis-podcast-shell-v4')){previous=commit;break;}}
+  for(const commit of commits){const sw=execFileSync('git',['show',commit+':frontend/podcasts/sw.js'],{encoding:'utf8'});if(sw.includes('jarvis-podcast-shell-v5')){previous=commit;break;}}
   assert.ok(previous,'Retain history for the actual previous offline shell');
   baseline=join(directory,'previous');await cp(built,baseline,{recursive:true});
-  for(const name of ['index.html','app.js','style.css','sw.js'])await writeFile(join(baseline,'podcasts',name),execFileSync('git',['show',previous+':frontend/podcasts/'+name]));
+  for(const name of ['index.html','app.js','style.css','sw.js','motion.js','core.js','directory.js'])await writeFile(join(baseline,'podcasts',name),execFileSync('git',['show',previous+':frontend/podcasts/'+name]));
   if(evidence)await mkdir(evidence,{recursive:true});
   browser=await chromium.launch({executablePath:chrome,headless:true,args:['--no-sandbox','--disable-background-networking']});
 });
@@ -66,6 +66,54 @@ async function touch(page,selector,steps,{hold=0,cancel=false}={}){
   for(const [dx,dy] of steps){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+dx,y:y+dy,id:1}]});await page.waitForTimeout(25);samples.push(await page.locator('#player').evaluate(n=>({motion:n.dataset.motion,y:getComputedStyle(n).transform==='none'?0:new DOMMatrixReadOnly(getComputedStyle(n).transform).m42})));}
   await cdp.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});await cdp.detach();return samples;
 }
+
+test('shared cover survives outside second contact, viewport rotation and lifecycle suspension without orphan layers',async t=>{
+  const {page,errors}=await harness(t,{motion:'no-preference'});await show(page);await listen(page);
+  const initial=await audioSnapshot(page),cdp=await page.context().newCDPSession(page);
+  // Pause the real animations to inspect the precise starting frame, not a
+  // screenshot taken at an arbitrary point after an automation round trip.
+  const start=await page.evaluate(()=>{
+    const mini=document.querySelector('#mini-art').getBoundingClientRect();
+    document.querySelector('#open-player').click();const player=document.querySelector('#player');
+    for(const animation of player.getAnimations({subtree:true})){animation.pause();animation.currentTime=0;}
+    const covers=[...player.querySelectorAll('img')].filter(n=>getComputedStyle(n).visibility==='visible');
+    return {mini:{x:mini.x,y:mini.y,width:mini.width},cover:covers[0]?.getBoundingClientRect().toJSON(),count:covers.length,miniVisible:getComputedStyle(document.querySelector('#mini-art')).visibility};
+  });
+  assert.equal(start.count,1);assert.equal(start.miniVisible,'hidden');
+  for(const key of ['x','y','width'])assert.ok(Math.abs(start.cover[key]-start.mini[key])<1,'Shared cover begins at the actual mini '+key);
+  await page.evaluate(()=>{for(const a of document.querySelector('#player').getAnimations({subtree:true}))a.play();});await settle(page);
+  const clean=async()=>{
+    assert.equal(await page.locator('#player img').count(),1,'Temporary shared cover is removed');
+    assert.deepEqual(await page.locator('#player').evaluate(n=>n.getAnimations({subtree:true}).filter(a=>!(a instanceof CSSTransition)).map(a=>({target:a.effect.target.id,state:a.playState}))),[],'No orphan presentation animation');
+    assert.equal(await page.locator('#player-art').evaluate(n=>getComputedStyle(n).visibility),'visible');
+  };
+  await clean();
+  const grip=await page.locator('#player-heading').boundingBox();
+  const first={id:1,x:grip.x+70,y:grip.y+12};
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[first]});
+  first.y+=80;await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[first]});
+  assert.equal(await page.locator('#player').getAttribute('data-motion'),'dragging');
+  // The second contact is above the translated modal, on its backdrop.
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[first,{id:2,x:300,y:20}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await settle(page);await clean();
+  assert.equal(await page.locator('dialog[open]').count(),1);
+  const nextGrip=await page.locator('#player-heading').boundingBox();
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:3,x:nextGrip.x+70,y:nextGrip.y+12}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{id:3,x:nextGrip.x+70,y:nextGrip.y+92}]});
+  await page.setViewportSize({width:844,height:390});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await settle(page);await clean();
+  await page.setViewportSize({width:390,height:844});await backLayer(page,'player');
+  // Chromium lifecycle suspension is real browser behavior. It exercises
+  // resume cleanup, but does not substitute for Android background/device QA.
+  await page.locator('#open-player').click();
+  await cdp.send('Page.setWebLifecycleState',{state:'frozen'});
+  await cdp.send('Page.setWebLifecycleState',{state:'active'});await settle(page);await clean();
+  await backLayer(page,'player');
+  assert.equal(await page.locator('#mini-art').evaluate(n=>getComputedStyle(n).visibility),'visible');
+  const final=await audioSnapshot(page);
+  assert.equal(final.same,true);assert.equal(final.count,1);assert.equal(final.src,initial.src);assert.equal(final.loads,initial.loads);assert.equal(final.paused,false);assert.ok(final.time>initial.time);
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'open-player');assert.deepEqual(errors,[]);await cdp.detach();
+});
 
 test('built browse/details/play/player/nested Back journey preserves audio, focus and browsing state',async t=>{
   const h=await harness(t,{motion:'no-preference',record:true}),{page}=h;
@@ -175,14 +223,14 @@ test('previous controlled shell upgrades during playback; real downloaded audio,
   await page.evaluate(async()=>{const c=await caches.open('jarvis-podcast-art-v1');await c.put('/podcasts-fixture/saved-art.svg',new Response('existing synthetic artwork'));});
   const before=await audioSnapshot(page);controls.old=false;
   await page.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update();});
-  await page.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('jarvis-podcast-shell-v5')&&!keys.includes('jarvis-podcast-shell-v4');});
+  await page.waitForFunction(async()=>{const keys=await caches.keys();return keys.includes('jarvis-podcast-shell-v6')&&!keys.includes('jarvis-podcast-shell-v5');});
   const after=await audioSnapshot(page);assert.equal(after.same,true);assert.equal(after.src,before.src);assert.equal(after.loads,before.loads);assert.equal(after.paused,false);assert.ok(after.time>=before.time);
   await page.locator('#mini-seek').focus();await page.keyboard.press('Home');await page.keyboard.press('PageUp');await page.keyboard.press('PageUp');
   await page.waitForFunction(()=>document.querySelector('audio').currentTime>30);
   await page.locator('#mini-play').click();
   const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('jarvis.podcasts.v1')));
   await context.setOffline(true);await page.goto(page.url().split('#')[0]+'#downloads');await page.reload();
-  await page.locator('[data-play]').first().waitFor();assert.equal(await page.locator('meta[name="podcasts-release"]').getAttribute('content'),'1.3.0');
+  await page.locator('[data-play]').first().waitFor();assert.equal(await page.locator('meta[name="podcasts-release"]').getAttribute('content'),'1.4.0');
   await page.locator('[data-play]').first().click();await page.waitForFunction(()=>document.querySelector('audio').currentTime>.15&&!document.querySelector('audio').paused);
   const position=Object.values(saved.progress)[0].position;assert.ok((await audioSnapshot(page)).time>=position,'Offline reopen resumes saved progress');
   await page.locator('#mini-seek').focus();await page.keyboard.press('ArrowRight');
@@ -236,4 +284,110 @@ test('library, queue ordering/played state, and cancelled/failed downloads retai
   await page.waitForFunction(()=>document.querySelector('#toast').textContent.includes('could not download'));
   assert.equal(await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('jarvis.podcasts.v1')).downloads).length),0);
   assert.equal((await audioSnapshot(page)).paused,true);assert.deepEqual(errors,[]);
+});
+
+test('queue touch order commits once, cancellation restores order, keyboard moves and reload preserve it',async t=>{
+  const {page,context,errors}=await harness(t,{motion:'no-preference'});await show(page);
+  for(const index of [1,2,3]){await page.locator('[data-options]').nth(index).click();await settle(page,'sheet');await page.getByRole('button',{name:'Add to queue',exact:true}).click();await page.locator('#sheet').waitFor({state:'hidden'});}
+  await page.locator('[data-view="queue"]').click();
+  await page.evaluate(()=>{window.queueWrites=0;const original=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='jarvis.podcasts.v1')window.queueWrites++;return original.call(this,key,value);};});
+  const keys=()=>page.locator('.queue-row').evaluateAll(rows=>rows.map(row=>row.dataset.episode));
+  const original=await keys();
+  const drag=async({cancel=false,second=false}={})=>{
+    const handles=page.locator('[data-reorder]'),first=await handles.first().boundingBox(),last=await handles.last().boundingBox(),x=first.x+24,y=first.y+24;
+    const cdp=await context.newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:1,x,y}]});
+    for(const dy of [20,80,last.y-first.y]){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{id:1,x,y:y+dy}]});await page.waitForTimeout(25);}
+    assert.equal(await page.locator('.queue-dragging').count(),1);
+    if(second)await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:1,x,y:last.y+24},{id:2,x:60,y:100}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:cancel?'touchCancel':'touchEnd',touchPoints:[]});await cdp.detach();await page.waitForTimeout(180);
+  };
+  await drag({cancel:true});assert.deepEqual(await keys(),original);assert.equal(await page.evaluate(()=>window.queueWrites),0);
+  await drag({second:true});assert.deepEqual(await keys(),original);assert.equal(await page.evaluate(()=>window.queueWrites),0);
+  await drag();const moved=[original[1],original[2],original[0]];assert.deepEqual(await keys(),moved);assert.equal(await page.evaluate(()=>window.queueWrites),1);
+  assert.equal(await page.locator('dialog[open]').count(),0);assert.equal((await audioSnapshot(page)).paused,true);
+  await page.locator('[data-reorder]').last().focus();await page.keyboard.press('Home');assert.deepEqual(await keys(),original);assert.equal(await page.evaluate(()=>window.queueWrites),2);
+  await page.reload();await page.locator('.queue-row').first().waitFor();assert.deepEqual(await keys(),original);assert.equal(await page.locator('.queue-dragging').count(),0);assert.deepEqual(errors,[]);
+});
+
+test('genuine listening history and Discover search context survive tab changes',async t=>{
+  const {page,errors}=await harness(t);
+  assert.equal(await page.locator('.continue-listening').count(),0);
+  await page.locator('#query').fill('Listening');await page.locator('#search-form').evaluate(n=>n.requestSubmit());await page.locator('.search-results').waitFor();
+  await page.evaluate(()=>scrollTo(0,200));const saved=await page.evaluate(()=>scrollY);
+  await page.locator('[data-view="library"]').click();await page.locator('[data-view="discover"]').click();await page.locator('.search-results').waitFor();
+  assert.equal(await page.locator('#query').inputValue(),'Listening');await page.waitForFunction(y=>Math.abs(scrollY-y)<3,saved);
+  await show(page);await listen(page);await page.locator('#mini-play').click();
+  await page.locator('[data-view="discover"]').click();await page.locator('#clear-search').click();
+  await page.getByRole('heading',{name:'Continue listening',exact:true}).waitFor();assert.equal(await page.locator('.continue-listening [data-play]').count(),1);
+  await page.locator('#heading').click(); // Dismiss contextual search suggestions before choosing a result.
+  await page.locator('.continue-listening [data-play]').click();await page.waitForFunction(()=>!document.querySelector('audio').paused);
+  assert.equal(await page.locator('#search-history').isVisible(),false);
+  await page.locator('#query').focus();await page.locator('[data-search]').first().click();await page.locator('.search-results').waitFor();
+  assert.equal(await page.locator('#query').inputValue(),'Listening');
+  assert.deepEqual(errors,[]);
+});
+
+test('queue edge scrolling and interrupted navigation never persist a tentative drag',async t=>{
+  const {page,context,origin,errors}=await harness(t,{motion:'no-preference'});await show(page);
+  await page.evaluate(async()=>{
+    const data=await (await fetch('/podcasts/feed?url=https%3A%2F%2Fpodcast.fixture.test%2Fsignal.xml')).json();
+    const state=JSON.parse(localStorage.getItem('jarvis.podcasts.v1')||'{"version":1}');state.queue=data.episodes.slice(0,12).map(e=>({...e,show:data.show}));localStorage.setItem('jarvis.podcasts.v1',JSON.stringify(state));
+  });
+  await page.goto(page.url().split('#')[0]+'#queue');await page.reload();await page.locator('[data-reorder]').first().waitFor();
+  const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('jarvis.podcasts.v1')).queue.map(e=>e.id));
+  const rect=await page.locator('[data-reorder]').first().boundingBox(),cdp=await context.newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{id:1,x:rect.x+24,y:rect.y+24}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{id:1,x:rect.x+24,y:720}]});
+  await page.waitForFunction(()=>scrollY>100);await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+  assert.deepEqual(await page.locator('.queue-row').evaluateAll(nodes=>nodes.map(n=>n.dataset.episode.split('#').at(-1))),stored);
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('jarvis.podcasts.v1')).queue.map(e=>e.id)),stored);
+  await page.locator('[data-view="library"]').click();assert.equal(await page.locator('.queue-dragging').count(),0);assert.deepEqual(errors,[]);await cdp.detach();
+});
+
+test('large feeds, missing art, long multilingual titles and failed downloads remain readable and independent',async t=>{
+  const {page,controls,errors}=await harness(t,{width:320,height:568});
+  const title='Una conversación sobre el mundo · 世界の物語 · '+('A much longer episode title with something to say. ').repeat(8);
+  await page.route('**/podcasts/feed?*',async route=>{
+    const response=await route.fetch(),data=await response.json();data.show.artwork='';data.show.title='Historias del mundo · 世界の物語';
+    data.episodes=Array.from({length:500},(_,i)=>({...data.episodes[i%65],id:'large-'+i,title:i?data.episodes[i%65].title:title,description:i?'':null}));await route.fulfill({json:data});
+  });
+  await show(page);assert.equal(await page.locator('.episode-row').count(),40);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.locator('[data-details]').first().click();await settle(page,'sheet');assert.equal(await page.locator('#sheet h3').textContent(),title);assert.equal((await audioSnapshot(page)).paused,true);await backLayer(page,'sheet');
+  await page.locator('#more-episodes').click();assert.equal(await page.locator('.episode-row').count(),80);
+  controls.failAudio=true;await page.locator('[data-download]').first().click();await page.locator('.download-state.failed').waitFor();
+  await page.locator('[data-view="downloads"]').click();await page.locator('.download-state.failed').waitFor();
+  assert.equal(await page.locator('.is-saved').count(),0);assert.equal(await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('jarvis.podcasts.v1')||'{"downloads":{}}').downloads).length),0);
+  controls.failAudio=false;await page.locator('[data-download]').first().click();await page.locator('.is-saved').waitFor();assert.match(await page.locator('.download-state').textContent(),/Saved · 2.7 MB/);assert.deepEqual(errors,[]);
+});
+
+test('topic selection retains the native rail position while loading and after results',async t=>{
+  const {page,controls,errors}=await harness(t);const rail=page.locator('.browse-topics');
+  await rail.evaluate(n=>n.scrollLeft=300);const offset=await rail.evaluate(n=>n.scrollLeft);controls.delay=350;
+  await page.locator('[data-category="culture"]').click();await page.locator('.loading-grid').waitFor();
+  assert.equal(await page.locator('[data-category="culture"]').getAttribute('aria-pressed'),'true');
+  assert.ok(Math.abs(await rail.evaluate(n=>n.scrollLeft)-offset)<3);
+  await page.locator('[data-feed]').first().waitFor();assert.ok(Math.abs(await rail.evaluate(n=>n.scrollLeft)-offset)<3);assert.deepEqual(errors,[]);
+});
+
+test('Discover resume rows refresh download and played state without rebuilding the directory',async t=>{
+  const {page,controls,errors}=await harness(t);await show(page);await listen(page);await page.locator('#mini-play').click();
+  await page.locator('[data-view="discover"]').click();await page.locator('.continue-listening [data-play]').waitFor();
+  await page.evaluate(()=>window.savedDirectory=document.querySelector('.show-grid'));
+  controls.audioDelay=100;await page.locator('.continue-listening [data-download]').click();
+  await page.waitForFunction(()=>document.querySelector('.continue-listening [data-download]').getAttribute('aria-label').startsWith('Cancel'));
+  await page.locator('.continue-listening [data-download]').click();await page.waitForFunction(()=>!document.querySelector('.continue-listening [data-download-state]'));
+  controls.audioDelay=0;await page.locator('.continue-listening [data-download]').click();await page.locator('.continue-listening .is-saved').waitFor();
+  await page.locator('.continue-listening [data-options]').click();await page.getByRole('button',{name:'Mark played',exact:true}).click();await page.locator('#sheet').waitFor({state:'hidden'});
+  assert.equal(await page.locator('.continue-listening').count(),0);assert.equal(await page.evaluate(()=>window.savedDirectory===document.querySelector('.show-grid')),true);assert.deepEqual(errors,[]);
+});
+
+test('queue menu uses current order after real audio autoplay advances behind the sheet',async t=>{
+  const {page,errors}=await harness(t);await show(page);
+  for(const index of [1,2,3]){await page.locator('[data-options]').nth(index).click();await page.getByRole('button',{name:'Add to queue',exact:true}).click();await page.locator('#sheet').waitFor({state:'hidden'});}
+  await listen(page);await page.locator('[data-view="queue"]').click();await page.locator('[data-options]').last().click();await settle(page,'sheet');
+  await page.locator('#audio').evaluate(audio=>audio.currentTime=audio.duration-.05);
+  await page.waitForFunction(()=>{const state=JSON.parse(localStorage.getItem('jarvis.podcasts.v1'));return state.current.id==='episode-1'&&state.queue.length===2;});
+  await page.getByRole('button',{name:'Move up in queue',exact:true}).click();await page.locator('#sheet').waitFor({state:'hidden'});
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('jarvis.podcasts.v1')).queue.map(e=>e.id)),['episode-3','episode-2']);assert.deepEqual(errors,[]);
 });

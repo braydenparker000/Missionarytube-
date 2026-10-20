@@ -5,14 +5,14 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#080a0d">
-  <meta name="podcasts-release" content="1.3.0">
+  <meta name="theme-color" content="#08090B">
+  <meta name="podcasts-release" content="1.4.0">
   <title>Podcasts · Jarvis</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/assets/shell.css">
   <link rel="stylesheet" href="/assets/premium.css?v=20261003">
-  <link rel="stylesheet" href="/podcasts/style.css?v=20261019-p1">
-  <script type="module" src="/podcasts/app.js?v=20261019-p1"></script>
+  <link rel="stylesheet" href="/podcasts/style.css?v=20261020-room">
+  <script type="module" src="/podcasts/app.js?v=20261020-room"></script>
 </head>
 <body class="module-page podcast-page">
   <a class="skip-link" href="#content">Skip to content</a>
@@ -27,9 +27,8 @@
       <div class="page-heading"><div><h1 id="heading">Discover</h1></div><button class="text-button" id="refresh" aria-label="Refresh podcasts" data-icon="refresh"></button></div>
       <p id="view-description" class="view-description">A good story is just a search away.</p>
       <p id="offline-status" class="offline-status" role="status" hidden>You’re offline. <a href="#downloads">Open downloads</a></p>
-      <form id="search-form" role="search"><label class="sr-only" for="query">Search podcasts</label><div class="search-box"><span data-icon="search"></span><input id="query" type="search" placeholder="Shows, people, or topics" maxlength="120" autocomplete="off" enterkeyhint="search"><button id="clear-search" type="button" aria-label="Clear search" hidden>×</button><button type="submit" aria-label="Search">Find</button></div></form>
+      <form id="search-form" role="search"><label class="sr-only" for="query">Search podcasts</label><div class="search-box"><span data-icon="search"></span><input id="query" type="search" placeholder="Shows, people, or topics" maxlength="120" autocomplete="off" enterkeyhint="search"><button id="clear-search" type="button" aria-label="Clear search" hidden>×</button><button type="submit" aria-label="Search">Find</button></div><div id="search-history"></div></form>
       <p id="status" class="status" role="status" hidden></p>
-      <div id="search-history"></div>
       <div id="results"></div>
     </main>
     <section id="mini-player" class="mini-player" aria-label="Now playing" hidden>

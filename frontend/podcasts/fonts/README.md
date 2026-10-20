@@ -1,4 +1,15 @@
-# Local Manrope font
+# Locally hosted podcast fonts
+
+Instrument Sans is the primary typeface. Source: Google Fonts,
+`ofl/instrumentsans/InstrumentSans[wdth,wght].ttf`, retrieved 2026-10-20 from
+https://github.com/google/fonts/tree/main/ofl/instrumentsans.
+Redistributed under SIL Open Font License 1.1; see InstrumentSans-OFL.txt.
+`instrument-sans-latin.woff` retains variable weight/width axes and the same
+Unicode ranges as the Manrope subset below. Reproduce with the same command,
+substituting the Instrument Sans input and output filenames. Both fonts are
+served locally; no external font requests are made. Other scripts use system fonts.
+
+## Manrope fallback
 
 Source: Google Fonts, `ofl/manrope/Manrope[wght].ttf`, retrieved 2026-10-10 from https://github.com/google/fonts/tree/main/ofl/manrope.
 License: SIL Open Font License 1.1; see OFL.txt.
