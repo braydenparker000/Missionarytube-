@@ -712,7 +712,11 @@ export class FastLayout extends ViewGroup {
       used += horizontal ? c.measuredWidth + lp.leftMargin + lp.rightMargin : c.measuredHeight + lp.topMargin + lp.bottomMargin;
       if (lp.flexWeight) weights += 1;
     }
-    const extra = Math.max(0, total - used);
+    // Spare space goes to the weighted children only at an exact size; content
+    // over the limit (wrap_content up to a maximum) shrinks them instead.
+    const spec = horizontal ? s.wSpec : s.hSpec;
+    const exact = spec !== undefined && MeasureSpec.getMode(spec) === MeasureSpec.EXACTLY;
+    const extra = exact ? total - used : Math.min(0, total - used);
     let reverse = false;
     let pos = horizontal ? s.cL : s.cT;
     let posEnd = horizontal ? s.cR : s.cB;
@@ -724,7 +728,7 @@ export class FastLayout extends ViewGroup {
       let w = c.measuredWidth, h = c.measuredHeight;
       if (lp.flexWeight && weights) {
         const add = Math.trunc(extra * lp.flexWeight / weights);
-        if (horizontal) w += add; else h += add;
+        if (horizontal) w = Math.max(0, w + add); else h = Math.max(0, h + add);
         c.measure(MeasureSpec.make(w, MeasureSpec.EXACTLY), MeasureSpec.make(h, MeasureSpec.EXACTLY));
       }
       if (horizontal) {

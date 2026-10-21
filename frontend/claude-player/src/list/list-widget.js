@@ -15,6 +15,7 @@ import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
 import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource} from './sources.js';
 import {openAddToPlaylist} from '../widgets/playlist-dialog.js';
+import {alertDialog, editNameDialog} from '../widgets/dialog.js';
 import {LyricsPage} from './lyrics.js';
 import {elevationShadow} from '../view/drawables.js';
 
@@ -368,8 +369,15 @@ export class ListWidget extends FastLayout {
         else if (current[msg]) this.openCurrent(current[msg]);
         else if (msg === 'cmd_list_play' || msg === 'cmd_list_shuffle') this.playList(msg === 'cmd_list_shuffle');
         else if (msg === 'cmd_list_add_to_pl_dialog') this.addToPlaylist();
+        else this.listAction(msg, d);
       });
     }
+    ctx.bus.subscribe('bus_data', msg => {
+      if (msg !== 'msg_playlists_changed') return;
+      const top = this.stack[this.stack.length - 1];
+      if (top?.isPlaylists) this.replaceTop(playlistsSource(ctx, this.libList, this.nav));
+      else if (top?.playlist) this.replaceTop(playlistSource(ctx, this.libList, this.nav, top.playlist));
+    });
     ctx.bus.subscribe('bus_library', () => {
       if (this.stack.length) {
         this.stack = [];
@@ -384,6 +392,77 @@ export class ListWidget extends FastLayout {
     const tracks = list.selection?.size ? list.selectedTracks() : [this.ctx.player?.track].filter(Boolean);
     if (list.selection) list.endSelection();
     openAddToPlaylist(this.ctx, tracks);
+  }
+
+  /** Header menu and selection actions (lists, playlists, queue). */
+  listAction(msg) {
+    const ctx = this.ctx, P = ctx.playlists, list = this.libList;
+    const src = this.stack[this.stack.length - 1];
+    const str = (k, f = k) => ctx.res.stringByName(k) ?? f;
+    const selected = () => [...(list.selection ?? [])].sort((a, b) => a - b);
+    switch (msg) {
+      case 'cmd_data_add_playlist': P?.create(); break;
+      case 'cmd_list_rescan':
+        ctx.library.refreshR2?.();
+        ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: str('pref_rescan_folders', 'Rescan')});
+        break;
+      case 'cmd_data_clear_q':
+        ctx.player.userQueue = [];
+        ctx.bus.post('bus_player', 'msg_player_queue_changed', this);
+        if (src?.kind === 'queue') this.replaceTop(src.rebuild?.());
+        break;
+      case 'cmd_list_clear_list':
+        if (src?.playlist) alertDialog(ctx, {title: src.playlist.name, message: str('clear') + '?', positive: str('clear'), onPositive: () => P.removeAt(src.playlist, src.playlist.ids.map((_, i) => i))});
+        break;
+      case 'cmd_list_rename_dialog': {
+        const g = src?.isPlaylists ? src.groups[selected()[0]] : null;
+        if (!g) break;
+        list.endSelection();
+        editNameDialog(ctx, {title: str('rename'), value: g.pl.name, onDone: name => P.rename(g.pl, name)});
+        break;
+      }
+      case 'cmd_list_delete_dialog': {
+        const idx = selected();
+        if (!idx.length) break;
+        if (src?.isPlaylists) {
+          const pls = idx.map(i => src.groups[i].pl);
+          list.endSelection();
+          alertDialog(ctx, {title: str('delete'), message: pls.map(p => p.name).join(', '), positive: str('delete'), onPositive: () => pls.forEach(p => P.remove(p))});
+        } else if (src?.playlist) {
+          // In a playlist, Delete removes the entries (the music stays).
+          const pl = src.playlist, pos = idx.map(i => src.entryIndex?.[i] ?? i);
+          list.endSelection();
+          P.removeAt(pl, pos);
+        }
+        break;
+      }
+    }
+  }
+
+  /**
+   * List header menu entries: launcher shortcuts, duplicate deletion, stream
+   * URLs and hidden-item restore have no counterpart here (hidden); Select
+   * Folders opens the import panel; Export saves the playlists as .m3u8.
+   */
+  prepareListMenu(items) {
+    const src = this.stack[this.stack.length - 1];
+    const hide = new Set(['add_to_home', 'delete_dups', 'add_url', 'show_all', 'resort']);
+    if (!src?.playlist) hide.add('clear');
+    if (src?.kind !== 'queue') hide.add('clear_q');
+    const exportText = this.ctx.res.stringByName('pref_export');
+    for (const c of [...items.children]) {
+      if (hide.has(c.id)) { c.setVisibility(GONE); continue; }
+      if (c.id === 'folders') c.onClick = () => this.ctx.importUi?.show();
+      else if (!c.id && c.text === exportText) c.onClick = () => exportPlaylists(this.ctx);
+    }
+  }
+
+  /** Replaces the shown source (after its data changed), keeping the scroll position. */
+  replaceTop(src) {
+    if (!src || !this.stack.length) return;
+    const y = this.libList.scrollY;
+    this.stack[this.stack.length - 1] = src;
+    if (this.mode === 'list' && !this.searchShown) { this.libList.setSource(src); this.libList.scrollTo(y); }
   }
 
   /** Opens a playlist's tracks (Open after adding). */
@@ -671,17 +750,24 @@ export class ListWidget extends FastLayout {
  */
 const ITEM_MENU = 'scene_item_menu';
 
-ListWidget.prototype.openItemMenu = function (v) {
-  if (this.mode !== 'aa' || v.inMenu || this.items.get(0) !== v) return;
+/**
+ * Opens an item's menu: the cover item (merge_menu_items_aa) or a list
+ * header (the source's menu items: lib, tracks or playlists), whose popup
+ * part loads into the item (merge_item_popup_menu / merge_item_text_popup_menu).
+ */
+ListWidget.prototype.openItemMenu = function (v, itemsLayout = 'merge_menu_items_aa') {
+  if (v.inMenu || this.menuItem) return;
+  if (itemsLayout === 'merge_menu_items_aa' && (this.mode !== 'aa' || this.items.get(0) !== v)) return;
   let root = this;
   while (root.parent) root = root.parent;
   const ph = root.findViewById('menu_placeholder');
   if (!ph || ph.popup) return;
   const a = v.getLocationIn(null), b = ph.getLocationIn(null);
   const x = Math.round(a.x - b.x), y = Math.round(a.y - b.y), w = v.width, h = v.height;
-  this.menuItem = {v, prevScene: v.itemScene, saved: new Map()};
+  const home = v.parent;
+  this.menuItem = {v, home, prevScene: v.itemScene, saved: new Map(), tx: v.translationX, ty: v.translationY};
   v.inMenu = true;
-  this.removeView(v);
+  home.removeView(v);
   v.translationX = v.translationY = 0;
   v.scaleX = v.scaleY = 1;
   v.rotation = v.rotationX = v.rotationY = 0;
@@ -693,16 +779,20 @@ ListWidget.prototype.openItemMenu = function (v) {
   // The popup part loads into the item now, so its records use the placeholder's params.
   if (!v.menuLoaded) {
     v.menuLoaded = true;
-    v.walk(c => { if (c.layoutName === 'merge_item_popup_menu' && !c.loaded) c.load(); });
-    const items = v.findViewById('menu_items');
-    if (items) {
-      this.ctx.inflater.inflate('merge_menu_items_aa', items);
-      items.walk(c => {
-        if (c === items || !c.clickable) return;
-        const click = c.onClick?.bind(c);
-        c.onClick = () => { click?.(); this.closeItemMenu(); };
-      });
-    }
+    v.walk(c => { if (/popup_menu$/.test(c.layoutName ?? '') && !c.loaded) c.load(); });
+  }
+  const items = v.findViewById('menu_items');
+  if (items && v.menuItemsLayout !== itemsLayout) {
+    // Recycled headers change category: replace the previous items.
+    for (const c of [...items.children]) if (c.id !== 'separator') items.removeView(c);
+    v.menuItemsLayout = itemsLayout;
+    this.ctx.inflater.inflate(itemsLayout, items);
+    if (itemsLayout !== 'merge_menu_items_aa') this.prepareListMenu(items);
+    items.walk(c => {
+      if (c === items || !c.clickable) return;
+      const click = c.onClick?.bind(c);
+      c.onClick = () => { click?.(); this.closeItemMenu(); };
+    });
   }
   // Item backgrounds are level-lists: the popup level shows the menu surface.
   const popupLevel = this.ctx.res.integer('@integer/ITEM_BG_LEVEL_POPUP', this.ctx.theme) ?? 16;
@@ -711,7 +801,9 @@ ListWidget.prototype.openItemMenu = function (v) {
   const rec = new SceneRecord();
   rec.visibility = VISIBLE; rec.alpha = 1; rec.scale = 1; rec.recalc = 2; rec.lp = abs;
   this.menuItem.saved.set('defaultScene', map.get('defaultScene'));
+  this.menuItem.saved.set(v.itemScene, map.get(v.itemScene));
   map.set('defaultScene', rec);
+  if (v.itemScene && v.itemScene !== 'defaultScene') map.set(v.itemScene, rec);
   if (map.get(ITEM_MENU)) map.get(ITEM_MENU).recalc = 2;
   ph.popup = {modal: true, close: () => this.closeItemMenu()};
   ph.clickable = true;
@@ -743,15 +835,22 @@ ListWidget.prototype.closeItemMenu = function () {
   ph.scenes.go('defaultScene', {duration: dur, onEnd: () => {
     ph.removeView(v);
     ph.popup = null;
-    for (const [s, r] of m.saved) { if (r) v.sceneParams.set(s, r); else v.sceneParams.delete(s); }
-    v.lp = this.generateLayoutParams(null);
+    for (const [s, r] of m.saved) { if (!s) continue; if (r) v.sceneParams.set(s, r); else v.sceneParams.delete(s); }
+    const home = m.home ?? this;
+    v.lp = home.generateLayoutParams(null);
     if (v.background) { v.background.level = m.bgLevel ?? 0; v._dom.bg = null; v.invalidate(); }
     v.inMenu = false;
-    v.visibility = this.mode === 'list' ? GONE : VISIBLE;
-    v.parent = this;
-    this.children.push(v);
-    this.el.appendChild(v.el);
+    v.parent = home;
+    home.children.push(v);
+    home.el.appendChild(v.el);
     this.menuItem = null;
+    if (home === this) v.visibility = this.mode === 'list' ? GONE : VISIBLE;
+    else {
+      // A list header goes back to its slot.
+      v.translationX = m.tx; v.translationY = m.ty;
+      v.itemScene = null;
+      home.placeItems?.();
+    }
     this.requestLayout();
     this.ctx.scheduleLayout();
   }});
@@ -772,3 +871,20 @@ export class PlayingMark extends View {
 }
 register(['PlayingMark'], PlayingMark);
 register(['ListWidget'], ListWidget);
+
+/** Saves each playlist as an .m3u8 file (track paths, extended info). */
+export function exportPlaylists(ctx) {
+  const P = ctx.playlists;
+  for (const pl of P?.items ?? []) {
+    const lines = ['#EXTM3U'];
+    for (const t of P.tracksOf(pl)) {
+      lines.push(`#EXTINF:${Math.round((t.durationMs || 0) / 1000)},${[t.artist, t.title].filter(Boolean).join(' - ')}`);
+      lines.push(t.path || t.fileName || t.title);
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([lines.join('\n') + '\n'], {type: 'audio/x-mpegurl'}));
+    a.download = pl.name.replace(/[\\/:*?"<>|]/g, '_') + '.m3u8';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+}

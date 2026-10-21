@@ -66,6 +66,8 @@ export class HomeSource {
 
   get count() { return this.items.length; }
 
+  get menuLayout() { return 'merge_menu_items_lib'; }
+
   bindHeader(v) {
     v.findViewById('title')?.setText(this.title);
     v.findViewById('line2')?.setText('');
@@ -125,7 +127,11 @@ function categorySource(ctx, list, nav, cat) {
     src.sortedByName = true;
   }
   else if (cat.kind === 'recent') src = new TrackSource(ctx, list, nav, title, [...lib.tracks].sort((a, b) => (b.added ?? 0) - (a.added ?? 0)));
-  else if (cat.kind === 'queue') src = new TrackSource(ctx, list, nav, title, ctx.player?.userQueue ?? []);
+  else if (cat.kind === 'queue') {
+    src = new TrackSource(ctx, list, nav, title, [...(ctx.player?.userQueue ?? [])]);
+    src.kind = 'queue';
+    src.rebuild = () => categorySource(ctx, list, nav, cat);
+  }
   else if (STAT_LISTS[cat.kind]) {
     const {keep, order} = STAT_LISTS[cat.kind];
     src = new TrackSource(ctx, list, nav, title, lib.tracks.filter(keep).sort(order));
@@ -165,7 +171,9 @@ export class GroupSource {
 
   get count() { return this.groups.length; }
 
-  get selectionLayout() { return 'merge_selection_menu_list_items_w_aa'; }
+  get menuLayout() { return this.isPlaylists ? 'merge_menu_items_playlists' : 'merge_menu_items_lib'; }
+
+  get selectionLayout() { return this.isPlaylists ? 'merge_selection_menu_playlist_items' : 'merge_selection_menu_list_items_w_aa'; }
   tracksAt(i) { return this.groups[i]?.tracks ?? []; }
 
   // Groups are sorted by name: the scroller shows A–Z.
@@ -207,6 +215,8 @@ export class TrackSource {
   }
 
   get count() { return this.tracks.length; }
+
+  get menuLayout() { return 'merge_menu_items_tracks'; }
 
   sectionTitle(i) { return this.tracks[i]?.title; }
 
@@ -281,6 +291,7 @@ export function playlistsSource(ctx, list, nav) {
   const groups = (P?.sorted() ?? []).map(pl => ({kind: 'playlist', title: pl.name, tracks: P.tracksOf(pl), pl}));
   const src = new GroupSource(ctx, list, nav, str(ctx, 'playlists'), groups);
   src.icon = '?playlists';
+  src.isPlaylists = true;
   src.onItemClick = i => { const s2 = playlistSource(ctx, list, nav, groups[i].pl); if (s2) nav.open(s2); };
   return src;
 }
@@ -289,8 +300,12 @@ export function playlistsSource(ctx, list, nav) {
 export function playlistSource(ctx, list, nav, pl) {
   const P = ctx.playlists;
   if (!P || !pl) return null;
-  const src = new TrackSource(ctx, list, nav, pl.name, P.tracksOf(pl));
+  // Entries whose track left the library are skipped; entryIndex maps rows to entries.
+  const tracks = [], entryIndex = [];
+  pl.ids.forEach((id, i) => { const t = ctx.library.byId.get(id); if (t) { tracks.push(t); entryIndex.push(i); } });
+  const src = new TrackSource(ctx, list, nav, pl.name, tracks);
   src.icon = '?playlists';
   src.playlist = pl;
+  src.entryIndex = entryIndex;
   return src;
 }

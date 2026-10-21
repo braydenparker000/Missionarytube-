@@ -131,6 +131,8 @@ export class PowerList extends FastLayout {
       this.el.appendChild(v.el);
       v.onClick = () => this.onItemClick(v);
       v.clickable = true;
+      const menu = v.findViewById('menu');
+      if (menu) menu.onClick = () => { if (v.listIndex === -1 && this.source?.menuLayout) this.host?.openItemMenu?.(v, this.source.menuLayout); };
     }
     v.visibility = VISIBLE;
     return v;
@@ -176,9 +178,10 @@ export class PowerList extends FastLayout {
       }
     }
     for (const [i, v] of this.active) {
-      if (!want.has(i)) { this.recycle(i, v); this.active.delete(i); }
+      if (!want.has(i) && !v.inMenu) { this.recycle(i, v); this.active.delete(i); }
     }
     for (const i of want) {
+      if (this.active.get(i)?.inMenu) continue;
       let v = this.active.get(i);
       const fresh = !v;
       if (fresh) {
@@ -268,7 +271,8 @@ export class PowerList extends FastLayout {
       state_list_one_item_selected: n === 1,
       state_list_one_track_selected: n === 1 && tracks.length === 1,
       state_list_range_avail: n > 1 && Math.max(...sel) - Math.min(...sel) + 1 > n,
-      state_list_can_delete: false,
+      // Delete only removes playlists or playlist entries (music files stay).
+      state_list_can_delete: n > 0 && !!(this.source?.isPlaylists || this.source?.playlist),
       state_list_aa_selectable_selected: false,
     });
     this.ctx.bus.post('list', 'state_list_selection_count', this, {arg1: n, state: st});

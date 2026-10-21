@@ -167,12 +167,12 @@ export class PlaylistSelectAndAddToListLayout extends FastLayout {
 /** Opens Add to Playlist for tracks. */
 export function openAddToPlaylist(ctx, tracks) {
   if (!tracks?.length || !ctx.playlists) return null;
+  let content = null;
   const dialog = openDialog(ctx, {
     style: 'dialog_PlaylistSelectActivity', title: ctx.res.stringByName('add_to_playlist') ?? 'Add to Playlist',
     onClosed: () => content?.unsub.forEach(u => u()),
+    setup: d => { content = d.find('playlist_list_layout'); content?.setup(d, tracks); },
   });
-  const content = dialog.find('playlist_list_layout');
-  content?.setup(dialog, tracks);
   return dialog;
 }
 

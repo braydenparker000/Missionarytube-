@@ -25,7 +25,7 @@ let keysInstalled = false;
  * buttons: {positive, negative, neutral} labels (absent ones hide);
  * onButton(which: 1 positive, 2 negative, 3 neutral) returns false to keep it open.
  */
-export function openDialog(ctx, {style, title = '', buttons = {}, onButton = null, onCancel = null, onClosed = null} = {}) {
+export function openDialog(ctx, {style, title = '', buttons = {}, onButton = null, onCancel = null, onClosed = null, setup = null} = {}) {
   const decor = ctx.root;
   const theme = ctx.inflater.overlayTheme(ctx.theme, style);
   const host = new DialogHost(ctx);
@@ -103,10 +103,58 @@ export function openDialog(ctx, {style, title = '', buttons = {}, onButton = nul
       if (e.key === 'Escape' && top) { e.preventDefault(); top.cancel(); }
     });
   }
+  // Content is filled in before the first layout so the enter scene sees it.
+  setup?.(dialog);
   // Lay out in the out state, then enter.
   ctx.layoutRoot();
   if (shim) { shim.alpha = 0; ctx.tween(shim, {alpha: 1}, animMs / 1000); }
   host.scenes.go('scene_dialog_in', {duration: animMs / 1000});
   ctx.scheduleLayout();
   return dialog;
+}
+
+const str = (ctx, name, fallback = name) => ctx.res.stringByName(name) ?? fallback;
+
+/** Message dialog (BottomsheetAlertDialog): title, message, OK/Cancel style buttons. */
+export function alertDialog(ctx, {title = '', message = '', positive = null, negative = null, onPositive = null} = {}) {
+  const d = openDialog(ctx, {
+    style: 'BottomsheetAlertDialog', title,
+    buttons: {positive: positive ?? str(ctx, 'ok', 'OK'), negative: negative === false ? null : negative ?? str(ctx, 'cancel', 'Cancel')},
+    onButton: which => { if (which === 1) onPositive?.(); },
+    setup: dd => {
+      const content = dd.find('content');
+      if (!content) return;
+      ctx.inflater.inflate('dialog_content_alert_dialog_msg', content);
+      const msg = dd.find('message');
+      msg?.setText(message);
+      msg?.setVisibility(message ? VISIBLE : GONE); // layout_goneWhenEmpty
+      dd.find('message_hint')?.setVisibility(GONE);
+    },
+  });
+  return d;
+}
+
+/** Name input (dialog_EditNameActivity): returns the trimmed text through onDone. */
+export function editNameDialog(ctx, {title = '', value = '', onDone} = {}) {
+  let input = null;
+  const d = openDialog(ctx, {
+    style: 'dialog_EditNameActivity', title,
+    setup: dd => dd.find('edit_text')?.setValue?.(value),
+    buttons: {positive: str(ctx, 'ok', 'OK'), negative: str(ctx, 'cancel', 'Cancel')},
+    onButton: which => {
+      if (which !== 1) return true;
+      const v = (input?.value ?? '').trim();
+      if (!v) return false;
+      onDone?.(v);
+      return true;
+    },
+  });
+  input = d.find('edit_text');
+  if (input?.setValue) {
+    input.input.addEventListener('keydown', e => { if (e.key === 'Enter') d.find('button1')?.onClick?.(); });
+    // Focus once the frame has entered (a hidden input cannot take focus).
+    const focus = () => { input.input.focus({preventScroll: true}); input.input.select(); };
+    setTimeout(focus, (ctx.res.integer('?animTime', d.theme) ?? 350) + 30);
+  }
+  return d;
 }

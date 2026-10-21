@@ -122,6 +122,7 @@ export async function boot() {
   const library = await new Library(ctx).open();
   installHelp(ctx);
   const importUi = installImport(ctx, document.body);
+  ctx.importUi = importUi;
   const params = new URLSearchParams(location.search);
   if (params.has('demo')) {
     const {demoTracks} = await import('./dev/demo.js');

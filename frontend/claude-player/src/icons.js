@@ -186,6 +186,7 @@ const RULES = [
   [/^pl_add/, () => 'add'],
   [/^pl_toggle/, () => 'check'],
   [/^add_to_pl/, () => 'add'],
+  [/^list_options/, () => 'equ'],
   [/^(vis_)?advance_by_time/, () => 'timer'],
   [/^(vis_)?advance_24dp/, () => 'skip_next'],
   [/^vis_shuffle/, () => 'shuffle'],
