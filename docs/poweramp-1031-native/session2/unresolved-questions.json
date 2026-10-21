@@ -1,0 +1,165 @@
+{
+  "scope": "Prioritized bounded investigations; OPEN is unfinished static work, BLOCKED requires unavailable runtime. No claim of exhaustive unknowns.",
+  "questions": [
+    {
+      "id": "PA1031-S2-G01",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "Remaining Settings effect chains",
+      "known_boundary": "Many XML controls have declarations, typed registration and candidate field references, but no proven end-to-end consumer/apply chain.",
+      "source_targets": "settings-registry.json rows without effect_trace_refs; page_helpers in settings-persistence-map.json",
+      "next_investigation": "Trace helpers, listener discriminators, typed wrappers and actual consumers; use smali when Java branches are damaged.",
+      "implementation_impact": "Blocks a claim of complete configurable parity; not schema architecture."
+    },
+    {
+      "id": "PA1031-S2-G02",
+      "priority": "P0",
+      "status": "BLOCKED",
+      "title": "Original Android runtime validation",
+      "known_boundary": "No Android runtime or connected phone; zero runtime-confirmed records.",
+      "source_targets": "runtime-recheck.json; original build APK identity",
+      "next_investigation": "Run original build across explicit configurations and event sequences, recording API, density, font scale, insets and capability inputs. No owner export is required.",
+      "implementation_impact": "Blocks native pixel/motion/capability confirmation."
+    },
+    {
+      "id": "PA1031-S2-G03",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "Grouped reorder and mutation races",
+      "known_boundary": "Grouped selection packing, crossover geometry, provider failures and concurrent replacement are not fully resolved.",
+      "source_targets": "kw0.\u0410/y/X, iw0.\u0412, bi1.\u0440, x8, yf0.K, om0.m0",
+      "next_investigation": "Trace remaining bytecode around candidate map and data callback ownership; verify reversal/cancel during asynchronous reload.",
+      "implementation_impact": "Blocks faithful grouped-reorder implementation."
+    },
+    {
+      "id": "PA1031-S2-G04",
+      "priority": "P0",
+      "status": "OPEN",
+      "title": "Output hardware initialization",
+      "known_boundary": "j30 constructor/profile initialization/runtime request are distinct; entire vendor/device matrix is not normalized.",
+      "source_targets": "u01.P/\u0425, nr1.M, NativePluginManager",
+      "next_investigation": "Trace each capability and initialization branch into structured conditional defaults; keep native support queries external.",
+      "implementation_impact": "Blocks universal audio option/default parity; UI interface contracts are available."
+    },
+    {
+      "id": "PA1031-S2-G05",
+      "priority": "P1",
+      "status": "OPEN",
+      "title": "Search and library asynchronous history",
+      "known_boundary": "Entry/history ownership is mapped; old-result replacement, loader coalescing and some transition precedence remain bounded.",
+      "source_targets": "vo1.S0\u2192sd.q0/I; p31.Z/P/\u0443; y71; provider workers",
+      "next_investigation": "Follow request generation, completion and history updates through worker/bus boundaries.",
+      "implementation_impact": "Needed before claiming race-safe complete navigation."
+    },
+    {
+      "id": "PA1031-S2-G06",
+      "priority": "P1",
+      "status": "OPEN",
+      "title": "Native final geometry and text",
+      "known_boundary": "Resolved resources do not supply Android glyph metrics or every state rectangle.",
+      "source_targets": "FastLayout/r40; FastTextView; AAItemView; SceneParams/do1; Android Paint",
+      "next_investigation": "Complete remaining measure/layout branches and obtain actual font/shape metrics; compare selected native configurations.",
+      "implementation_impact": "Blocks final pixel parity; effective style resolver is usable."
+    },
+    {
+      "id": "PA1031-S2-G07",
+      "priority": "P1",
+      "status": "OPEN",
+      "title": "Notification renderer variants",
+      "known_boundary": "Renderer selection and API/vendor gates are traced, not all renderer output and media-host behavior.",
+      "source_targets": "py0 and alternate notification implementations; ui_notify helper",
+      "next_investigation": "Trace each renderer and PendingIntent/state path, then validate platform host behavior.",
+      "implementation_impact": "Needed for platform integration parity."
+    },
+    {
+      "id": "PA1031-S2-G08",
+      "priority": "P1",
+      "status": "OPEN",
+      "title": "Widget host and preview lifecycle",
+      "known_boundary": "Widget configuration/control contract is bounded; host sizing, preview races and every RemoteViews state are not observed.",
+      "source_targets": "BaseWidgetConfigureActivity; da2/ia2; widget providers; RemoteViews callbacks",
+      "next_investigation": "Trace per-size visibility and update paths; validate host resizing, artwork load and process restart.",
+      "implementation_impact": "Needed for widgets beyond reusable configuration architecture."
+    },
+    {
+      "id": "PA1031-S2-G09",
+      "priority": "P1",
+      "status": "OPEN",
+      "title": "Unproven resource-only button editor",
+      "known_boundary": "An EQ button-editor layout/style exists without proven installation/entry.",
+      "source_targets": "merge_eqbuttons_edit; behavior_eqbuttons_edit; actual merge_eqtab; SubAAButtonsLayout.F1",
+      "next_investigation": "Find actual loader/consumer and eligible class, or document dormant resource with bounded negative search.",
+      "implementation_impact": "Do not invent a reachable screen."
+    },
+    {
+      "id": "PA1031-S2-G10",
+      "priority": "P1",
+      "status": "OPEN",
+      "title": "Bit-perfect warning cancellation",
+      "known_boundary": "Listener returns true while confirmation requests reload; checked/saved state may survive cancel.",
+      "source_targets": "cq1, FixedTwoStatePreference, next pipeline reload",
+      "next_investigation": "Verify listener/state sequence and original Android cancellation behavior.",
+      "implementation_impact": "Blocks reproducing this exact interaction edge."
+    },
+    {
+      "id": "PA1031-S2-G11",
+      "priority": "P1",
+      "status": "OPEN",
+      "title": "Short crossfade immediate apply",
+      "known_boundary": "Consumer reads saved fade_short_xfade_ms but equivalent page listener is absent.",
+      "source_targets": "fade helper; js1 callbacks; v11.\u0412",
+      "next_investigation": "Locate another observer/lifecycle application route or confirm deferred effect.",
+      "implementation_impact": "One setting apply-timing gap."
+    },
+    {
+      "id": "PA1031-S2-G12",
+      "priority": "P1",
+      "status": "OPEN",
+      "title": "Secondary graphic precision",
+      "known_boundary": "Response sampling is known; full miniature reduction, alphabet transitions, search highlighting and preview rounding remain bounded.",
+      "source_targets": "rendering-components.json uncertainties; FrequencyResponseScroller/MilkFRS; native rendering interfaces",
+      "next_investigation": "Trace the smallest named Java/smali/native functions; avoid full DSP reverse engineering.",
+      "implementation_impact": "Blocks pixel-perfect secondary rendering."
+    },
+    {
+      "id": "PA1031-S2-G13",
+      "priority": "P2",
+      "status": "OPEN",
+      "title": "All migration histories and resets",
+      "known_boundary": "Fresh initialization and representative scoped resets are traced; not every upgrade path or named-store notification is proven.",
+      "source_targets": "Application.\u0441; store x(version); o30/x30/p30; reset callbacks",
+      "next_investigation": "Model relevant previous-build states and test independent default/reset contracts.",
+      "implementation_impact": "Needed for historical import compatibility, not clean new architecture."
+    },
+    {
+      "id": "PA1031-S2-G14",
+      "priority": "P2",
+      "status": "OPEN",
+      "title": "External skins and plugins",
+      "known_boundary": "Built-in skin and plugin UI boundaries are mapped; arbitrary external packages and plugin behavior are not reconstructed.",
+      "source_targets": "SkinInfo/SkinManager; native output plugins; lyrics/visualizer interfaces",
+      "next_investigation": "Define supported interface subset from concrete external consumers before claiming compatibility.",
+      "implementation_impact": "Separate compatibility scope."
+    },
+    {
+      "id": "PA1031-S2-G15",
+      "priority": "P2",
+      "status": "OPEN",
+      "title": "Import/export archive interoperability",
+      "known_boundary": "Typed domain rows are traced; original archive wrapper not examined.",
+      "source_targets": "Settings import/export helpers and native archive boundary",
+      "next_investigation": "Inspect archive format only if interoperability becomes an explicit implementation requirement.",
+      "implementation_impact": "Does not justify requesting owner settings."
+    },
+    {
+      "id": "PA1031-S2-G16",
+      "priority": "P2",
+      "status": "OPEN",
+      "title": "Startup/SDK conditional screens",
+      "known_boundary": "Some manifest activities have proven construction but unproved app-level guard/route.",
+      "source_targets": "screen-registry.json OPEN entries; Welcome/Expired; SDK conditional families",
+      "next_investigation": "Trace only app-level construction/entry conditions; leave license enforcement and third-party service internals out of scope.",
+      "implementation_impact": "Inventory is complete for enumerated manifest/factories, not every runtime condition."
+    }
+  ]
+}

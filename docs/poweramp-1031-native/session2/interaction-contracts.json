@@ -1,0 +1,1343 @@
+{
+  "schema_version": "poweramp1031-session2-interaction-contracts-v1",
+  "source_root_private": "/workspace/work/poweramp",
+  "apk_sha256": "27cfde3fc8e55b2effffe88c7e80ec3a1b1f69ec37a09ef86d9a34aafe8ebb9e",
+  "scope": "Original Poweramp1031 app-wide input additions; no implementation or runtime claim",
+  "reused_session1_evidence": [
+    "PA1031-GESTURE-001",
+    "PA1031-GESTURE-002",
+    "PA1031-GESTURE-003",
+    "PA1031-GESTURE-013",
+    "PA1031-GESTURE-033",
+    "PA1031-GESTURE-034"
+  ],
+  "contracts": [
+    {
+      "id": "PA1031-S2-INPUT-001",
+      "topic": "library.selection.enter",
+      "claim": "Selection is jp1 state owned by PowerList. Entry requires list.d(), no selection transition, mode0 and pj0 model; allocates flags, switches mode, shows selection affordances and opens the originating list menu. A normal click in selection mode toggles instead of navigating; library long press can request range toggle.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "Selectable PowerList/om0 with compatible model"
+      ],
+      "value": {
+        "affordance_duration_when_animated": 250
+      },
+      "units": "ms",
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/jp1.java",
+          "symbol": "A/В/y",
+          "locator": "lines25–78,196–224"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/p31.java",
+          "symbol": "K",
+          "locator": "lines472–485 selection-mode branch"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/om0.java",
+          "symbol": "z",
+          "locator": "lines1140–1166 long-press selection branch"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-002",
+      "topic": "library.selection.range",
+      "claim": "Selection range works on exclusive interior indices. If all interior items are already selected, clears the interior; otherwise fills missing selections. Endpoint order is sorted; normal click toggles one flag, long-press range needs a newly selected endpoint and prior anchor.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "mode1; transitionХ=0; valid nontransient item; selected array present"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/ׅ/jp1.smali",
+          "symbol": "К(x61,ZZZ)/Н(II)",
+          "locator": "lines1020–1640; К :cond_f/:cond_10/:goto_3; Н :cond_2/:cond_3"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/jp1.java",
+          "symbol": "K",
+          "locator": "lines80–119"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-003",
+      "topic": "library.selection.identity_exit",
+      "claim": "Selected indices and operation IDs are distinct: jp1.x returns indices; jp1.X translates indices through b71.B into IDs. Exit hides check/drag affordances, closes menu, clears counts/anchor; an active list transition routes through list.b first.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "Selection mode with selected items; model implements b71 for IDs"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/jp1.java",
+          "symbol": "X/x/у/х",
+          "locator": "lines121–163,400–439"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-004",
+      "topic": "selection.modal",
+      "claim": "Selection menu preserves originating list bus ID; open inflates menu and retargets actions, registers Back and modal state. Same layout while opening/open does not replay entry; replacing active layout closes instantly before replacement. Back closes and sends cmd_end_selection_mode; modal removal waits for scene0 completion.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "SelectionMenuBehavior attached to parent SceneFastLayout"
+      ],
+      "value": {
+        "entry_base_ms": 500,
+        "exit_base_ms": 200,
+        "effective": "AnimTimeHelper.calcAnimTime(base)"
+      },
+      "units": "ms",
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/com/maxmpz/widget/player/SelectionMenuBehavior.smali",
+          "symbol": "onBusMsg",
+          "locator": "lines496–1290, :cond_3–:cond_16"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/SelectionMenuBehavior.java",
+          "symbol": "F/r0/В",
+          "locator": "lines65–99,263–302"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/merge_selection_menu.xml",
+          "symbol": "selection_menu_subcontainer",
+          "locator": "line5"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "SelectionMenuSubcontainer",
+          "locator": "lines7971–7986"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-005",
+      "topic": "library.reorder.acquire",
+      "claim": "Dedicated DragHandler starts reorder on DOWN, resolving its parent item; performClick returns false. om0 acquisition requires valid item index, (list.О & ~32)==0, mode0/1, ax model, m22 controller and yu0.Н reorder eligibility. Success sets drag owner, haptic0, update flag41 and Q=true.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "Reorder-capable list and visible handle; not a global long-press-to-drag rule"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/list/DragHandler.java",
+          "symbol": "onTouchEvent/performClick",
+          "locator": "lines73–96"
+        },
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/ׅ/om0.smali",
+          "symbol": "К(x61)",
+          "locator": "lines6730–6930"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/kw0.java",
+          "symbol": "А",
+          "locator": "lines652–970"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Full kw0.А multi-selection packing and every model eligibility branch remain unverified in smali."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-006",
+      "topic": "library.reorder.preview",
+      "claim": "Reorder uses an iw0 preview position mapping separate from provider persistence. m22 routes drag movement through ip1.C to kw0.y; view follows drag, candidate change updates mapping, then x32 interpolates item rearrangement. Single-column movement constrains the cross axis.",
+      "status": "PARTIAL_STATIC",
+      "conditions": [
+        "Successful kw0 acquisition; preview state1/2/3"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/m22.java",
+          "symbol": "y",
+          "locator": "lines25–56"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/ip1.java",
+          "symbol": "C",
+          "locator": "line65 onward"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/iw0.java",
+          "symbol": "constructor/В",
+          "locator": "lines50–184"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/kw0.java",
+          "symbol": "y/В",
+          "locator": "lines440–650,972–975"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "kw0.y candidate hit tests, reverse crossover and grouped geometry have damaged decompilation; this record establishes ownership, not authoritative per-frame geometry."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-007",
+      "topic": "library.reorder.release",
+      "claim": "Both UP and ACTION_CANCEL reach reorder release without rollback through the shared j0 terminal route; CANCEL contributes zero velocity. ip1.Р and m22.К call kw0.x(true); interrupt cleanup ip1.c calls x(false). x marks touch inactive and stops autoscroll; state3 finishes rearrangement, other states animate250ms to final position then restore scale150ms before finalization.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "A captured reorder gesture; active layout index remains valid"
+      ],
+      "value": {
+        "settle_position_ms": 250,
+        "restore_scale_ms": 150,
+        "lift_scale_ms": 350
+      },
+      "units": "ms",
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/ׅ/j0.smali",
+          "symbol": "х(MotionEvent)",
+          "locator": "terminal paths lines3020–3190; see PA1031-GESTURE-003"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/ip1.java",
+          "symbol": "c/Р",
+          "locator": "lines222–229,569–576"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/m22.java",
+          "symbol": "К",
+          "locator": "lines59–73"
+        },
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/ׅ/kw0.smali",
+          "symbol": "x(Z)",
+          "locator": "lines2100–2437"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/gw0.java",
+          "symbol": "А",
+          "locator": "lines41–59"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/hw0.java",
+          "symbol": "А",
+          "locator": "lines59–63"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/kw0.java",
+          "symbol": "K",
+          "locator": "lines50–60"
+        },
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/ׅ/fw0.smali",
+          "symbol": "constructors/invoke",
+          "locator": "lines18–115; synthetic selector0 vs1"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Grouped rearrangements may add x32 transitions; no single end-to-end release duration is asserted.",
+        "OS cancellation during provider/model replacement needs runtime validation."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-008",
+      "topic": "library.reorder.persist",
+      "claim": "Finalization invokes cx.K. yf0.K submits a changed mapping only when current provider implements y21 and no p31.O pending provider exists. Successful g32 reorder sends cmd_data_reorder with URI and poses. x8 invokes bi1.р, posts data changed, and queue additionally posts cmd_player_on_queue_updated. Successful submission defers helper teardown using ListWidget.R; om0.m0 later clears it.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "Changed mapping length>1; ListWidget provider stable; g32/y21 route includes queue and playlist-file c32"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/ׅ/kw0.smali",
+          "symbol": "Х(iw0)",
+          "locator": "lines5941–6030"
+        },
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/ׅ/yf0.smali",
+          "symbol": "K(kw0)",
+          "locator": "lines1100–1248, success :goto_2 skips teardown"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/g32.java",
+          "symbol": "х(int[])",
+          "locator": "lines247–253"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/c32.java",
+          "symbol": "х(int[])",
+          "locator": "lines183–187"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/x8.java",
+          "symbol": "handleMessage cmd_data_reorder",
+          "locator": "lines653–677"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/om0.java",
+          "symbol": "m0",
+          "locator": "lines568–576"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Provider failure/concurrent mutation acknowledgement and exact persistence SQL are not fully traced.",
+        "JADX falsely shows unconditional successful teardown; smali is authoritative."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-009",
+      "topic": "library.reorder.autoscroll",
+      "claim": "Reorder edge autoscroll is owned by kw0.х→sa0.о: only valid geometry with available directional layout flags starts motion; direction and speed depend on edge overrun, density, orientation and configured edge span. The sa0 animation loop stops at release. It is not ordinary fling.",
+      "status": "PARTIAL_STATIC",
+      "conditions": [
+        "iw0 has sa0 scroller; item exceeds edge; start/end flags4/64 allow scroll"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/kw0.java",
+          "symbol": "х(sj0)",
+          "locator": "lines1031–1073"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/sa0.java",
+          "symbol": "о",
+          "locator": "lines135–164"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Edge-span derivation and per-frame speed units remain unverified; no invented px/s threshold is supplied."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-010",
+      "topic": "search.entry_focus",
+      "claim": "Search activation subscribes to list state and synchronizes text; nav_search requests keyboard only for arg1=1, explicit cmd_nav_to_search focuses/selects all. If window lacks focus, keyboard show is deferred through a posted callback. LocalListSearchEditText activates without forcing keyboard.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "ListSearchEditText and jm0; local preset search has a separate list bus"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/widget/ListSearchEditText.java",
+          "symbol": "onBusMsg/х",
+          "locator": "lines28–77"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/widget/LocalListSearchEditText.java",
+          "symbol": "onAttachedToWindow",
+          "locator": "lines15–21 complete method"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/jm0.java",
+          "symbol": "A/B/onWindowFocusChanged",
+          "locator": "lines46–84,175–181"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-011",
+      "topic": "search.query_mutation",
+      "claim": "User text changes deduplicate against cached string and immediately send cmd_list_search_text. om0 routes to vo1.X0; X0 deduplicates then S0 rebuilds the search URI and schedules/requests data loading. State-to-text synchronization disables the listener to prevent feedback.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "Main search provider vo1 active; local preset receivers differ"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/jm0.java",
+          "symbol": "onTextChanged/A",
+          "locator": "lines46–67,159–173"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/om0.java",
+          "symbol": "onBusMsg cmd_list_search_text",
+          "locator": "lines792–804"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/vo1.java",
+          "symbol": "X0/S0/R0",
+          "locator": "lines127–159,316–322"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "No debounce in this traced UI chain; downstream worker scheduling/coalescing and result-order races are not fully traced."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-012",
+      "topic": "search.exit_back",
+      "claim": "Navigation to EQ/library/lyrics/main, selection-mode entry and detach hide the keyboard and clear focus. Focus registers editor with ac, but jm0.r0 returns false, so app Back falls through to later eligible controllers. No custom submit-on-IME action is present in jm0/EditText.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "Active search editor; platform keyboard may consume Back before app callback"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/widget/ListSearchEditText.java",
+          "symbol": "onBusMsg",
+          "locator": "lines38–73"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/jm0.java",
+          "symbol": "onFocusChanged/r0/А/onDetachedFromWindow",
+          "locator": "lines118–157,195–214"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/base/EditText.java",
+          "symbol": "class",
+          "locator": "lines1–141 complete class"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "IME Back precedence, OEM keyboard animation and hardware-enter behavior require authentic runtime validation."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-013",
+      "topic": "popup.dismiss_inputs",
+      "claim": "Popup scrim DOWN requests animated close outside system-gesture exclusion edges. Back closes opening/open popup; clickable child click or long-click posts close after50ms. The popup owner may veto animated close through base.В.t1. System-gesture insets and raw screen coordinates determine scrim exclusion.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "t61 MenuPlaceholderLayout popup; states1 opening/2 open/3 closing"
+      ],
+      "value": {
+        "child_close_post_delay": 50
+      },
+      "units": "ms",
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/t61.java",
+          "symbol": "B/I0/l/r0",
+          "locator": "lines76–211"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/r61.java",
+          "symbol": "onTouch case0",
+          "locator": "lines20–35"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/q61.java",
+          "symbol": "run case0",
+          "locator": "lines21–25"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/r90.java",
+          "symbol": "B/В",
+          "locator": "lines22–60"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-014",
+      "topic": "popup.lifecycle",
+      "claim": "t61 adds a full-size scrim, moves/inserts popup content into the placeholder, and runs a do1 scene. Entry completion changes state1→2 and restores focus. Close changes to3 and follows scene completion cleanup; redundant animated close while closing returns, immediate close can force finish.",
+      "status": "PARTIAL_STATIC",
+      "conditions": [
+        "t61 popup successfully accepted by А/В guards"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/t61.java",
+          "symbol": "А/B/В",
+          "locator": "lines76–168,223 onward"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/yf0.java",
+          "symbol": "F",
+          "locator": "lines137–176"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Exact per-popup entry/exit geometries and duration arguments vary by caller; do not use a universal150/250ms.",
+        "t61.А damaged insertion branches were not exhaustively smali-verified."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-015",
+      "topic": "dialog.dismiss_guards",
+      "claim": "DialogBehavior distinguishes Back d(false,true) from scrim d(true,true). Progress state2 rejects scrim collapse but permits Back subject to cv.canCollapseDialog; outgoing inactive scene rejects repeat collapse. Collapse hides IME, runs appropriate outgoing scene, checks canCollapseDialog again at completion, then onDialogCollapsed and Activity.finish.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "DialogBehavior-managed activity; cv can veto"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/base/DialogBehavior.java",
+          "symbol": "d/l0/r0/F/Р",
+          "locator": "lines178–218,359–423,505–512,574–585"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/base/Shim.java",
+          "symbol": "onTouchEvent/performClick/setAlpha",
+          "locator": "lines36–63"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Per-activity cv veto/business rules are not enumerated here; use activity inventory."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-016",
+      "topic": "dialog.drag_mapping",
+      "claim": "When collapseDragDirection!=none DialogBehavior installs wm/j0 and vm. Direct acquisition requires contact inside dialog frame and an available outgoing scene. Motion normalizes signed vertical displacement by dialog height/bottom and adds existing progress; out-of-range progress uses logarithmic resistance 0.05*ln(1+abs(overshoot)/0.05).",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "Direct dialog drag through wm; down/up configured; collapsibility may force resistance for all movement"
+      ],
+      "value": {
+        "rubberband_scale": 0.05
+      },
+      "units": "normalized progress",
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/base/DialogBehavior.java",
+          "symbol": "onViewAttachedToWindow/Z0",
+          "locator": "lines284–295,438–484"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/wm.java",
+          "symbol": "H",
+          "locator": "lines23–40"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/vm.java",
+          "symbol": "О",
+          "locator": "lines140–179"
+        },
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/ׅ/vm.smali",
+          "symbol": "C",
+          "locator": "lines114–364"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-017",
+      "topic": "dialog.drag_release",
+      "claim": "Dialog release uses its own threshold: down commits above +velocity threshold, cancels below negative threshold, otherwise commits only progress>ratio; up reverses velocity sign. At exact velocity threshold progress decides. Completion uses abs(velocity)/extent; cancellation uses zero. Duration is dragAnimTime times remaining normalized distance with minimum distance0.25; interruption sets duration0. Shared j0 CANCEL passes zero velocity, so progress can still commit.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "vm direct drag; do1.B==1; velocity zeroed when disallowed/nested flagО/explicit interrupt"
+      ],
+      "value": {
+        "BaseDialog_ratio": 0.5,
+        "BaseDialog_velocity": 1800,
+        "BaseDialog_drag_ms": 1000,
+        "BaseDialog_automatic_ms": 350,
+        "CenteredDialog_automatic_ms": 450
+      },
+      "units": "velocity resource dp converted to density-scaled px/s comparator; ms; ratio",
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/ׅ/vm.smali",
+          "symbol": "В(FZ)",
+          "locator": "lines408–777"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/vm.java",
+          "symbol": "c/Р",
+          "locator": "lines68–70,182–184"
+        },
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/ׅ/j0.smali",
+          "symbol": "х(MotionEvent)",
+          "locator": "lines3046–3068 terminal zero-velocity route; see PA1031-GESTURE-003"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/um.java",
+          "symbol": "constructor",
+          "locator": "lines25–54"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/wa1.java",
+          "symbol": "О",
+          "locator": "line25"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "BaseDialog/BottomsheetDialog/TopsheetDialog/CenteredDialog",
+          "locator": "lines3392–3401,3448–3473"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Conditional inherited BaseDialog values; activity/style overrides must be resolved.",
+        "Nested handoff and velocity suppression are resolved separately in PA1031-S2-INPUT-032; runtime dispatch remains unobserved."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-018",
+      "topic": "back.registration",
+      "claim": "App Back handlers are ordered by reverse registration; first accepting r0 wins. API33 uses OnBackInvokedCallback, API34 adds progressive V→g0→T and cancellation T(...,false). Legacy BasePowerWidgetActivity uses the same reverse order. Editor registration alone does not imply Back consumption.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "ac managed Activity; platform version conditions"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/ac.java",
+          "symbol": "constructor/B/х",
+          "locator": "lines26–91"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/p6.java",
+          "symbol": "onBackInvoked case1",
+          "locator": "lines25–39"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/zb.java",
+          "symbol": "onBackStarted/onBackProgressed/onBackInvoked/onBackCancelled",
+          "locator": "lines25–191"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/app/BasePowerWidgetActivity.java",
+          "symbol": "onBackPressed",
+          "locator": "lines235–253"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Predictive-back coordinate quirks in zb and OEM priority require runtime; do not replace application progress with raw OS progress."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-019",
+      "topic": "eq.round.capture_move",
+      "claim": "RoundKnob captures enabled unlocked DOWN only inside inclusive inner/outer annulus and if f() guard permits. Parent interception is disallowed. MOVE while captured ignores the outer radius but must remain outside inner radius, computes signed angular delta with atan2(cross,dot), clamps each event to±30 degrees, and adds delta/(arcEnd−arcStart).",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "RoundKnob drawables present, normal unlocked mode; bs.f additionally gates GUI navigation animation"
+      ],
+      "value": {
+        "per_event_delta_limit": 30
+      },
+      "units": "degrees",
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/com/maxmpz/widget/player/RoundKnob.smali",
+          "symbol": "onTouchEvent",
+          "locator": "lines5017–5944"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/bs.java",
+          "symbol": "f",
+          "locator": "lines43–60"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/x82.java",
+          "symbol": "о",
+          "locator": "lines37–44"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-020",
+      "topic": "eq.round.value_detent",
+      "claim": "Round knob stores raw clamped normalized O separately from painted C. With center snapping enabled and candidate within default±.01, C uses default; movement still advances raw O. DSP round and parametric EQ callbacks use transformed C when snap enabled, otherwise O. Endpoint/detent haptics are guarded by a last-detent sentinel.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "RoundKnob; center snap o or configured detent countu"
+      ],
+      "value": {
+        "default_snap_half_width": 0.01
+      },
+      "units": "normalized value",
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/com/maxmpz/widget/player/RoundKnob.smali",
+          "symbol": "onTouchEvent",
+          "locator": "lines5017–5944 MOVE branches"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/RoundKnob.java",
+          "symbol": "e",
+          "locator": "lines264–303"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/bs.java",
+          "symbol": "o",
+          "locator": "lines78–92"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/c10.java",
+          "symbol": "onValueChanged",
+          "locator": "lines227–242"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-021",
+      "topic": "eq.round.release_animation",
+      "claim": "Round UP/CANCEL both release pressed/captured state, allow parent interception and notify onChangesEnded; they do not roll back MOVE values. Animated programmatic value changes use120ms for abs(delta)<=.05,400ms otherwise, direct for<=.001; numeric-dialog notify can publish target before visual animation.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "Normal captured RoundKnob; d mode2 or mode1 while attached/shown; not all updates animate"
+      ],
+      "value": {
+        "small_delta_ms": 120,
+        "large_delta_ms": 400,
+        "small_delta_max": 0.05,
+        "direct_delta_max": 0.001
+      },
+      "units": "ms; normalized delta; DecelerateInterpolator(2)",
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/com/maxmpz/widget/player/RoundKnob.smali",
+          "symbol": "onTouchEvent",
+          "locator": "lines5017–5944 UP/CANCEL branch"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/RoundKnob.java",
+          "symbol": "d/setPressed",
+          "locator": "lines173–229,875–889"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/c10.java",
+          "symbol": "onChangesEnded",
+          "locator": "lines369–370 empty method"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-022",
+      "topic": "eq.dsp_round.live",
+      "claim": "DSP RoundKnob bs sends cmd_dsp_set_param on user value change using configured parameter ID and float bits. Matching incoming param changes are ignored while pressed. Parameter enable state1 enables, state−1 sets special locked presentation; navigation-animation guard prevents capture.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "bs subclass created by DSPRoundKnobLayout; i0 parameter nonzero"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/bs.java",
+          "symbol": "f/i/o/onBusMsg",
+          "locator": "lines43–92,115–143"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/DSPRoundKnobLayout.java",
+          "symbol": "constructor/onBusMsg",
+          "locator": "lines48–70,93–99 construction and bus forwarding"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-023",
+      "topic": "eq.linear.capture_move",
+      "claim": "LinearKnob uses states0 idle,1 thumb-drag,2 track-step pending,3 label/default click. DOWN captures thumb bounds or min-touch span. Drag is relative from start value: vertical subtracts dy/(usableLength−thumbHeight), horizontal adds dx/(usableLength−thumbWidth). MOVE clamps0..1 and publishes continuously. Any event cancels active value animator and rebases target to painted J.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "Enabled LinearKnob with thumb drawable; unlocked; u() guard permits"
+      ],
+      "value": {
+        "min_touch_fallback_dp": 24
+      },
+      "units": "dp fallback; effective attr may override",
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/com/maxmpz/widget/player/LinearKnob.smali",
+          "symbol": "onTouchEvent",
+          "locator": "lines3747–4927"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/LinearKnob.java",
+          "symbol": "f/k/t/constructor",
+          "locator": "lines133–155,238–275,827–849,minimum-touch fallback lines990–995"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Vertical DOWN does not request parent-disallow immediately; EqKnobsList independently disallows parent on DOWN.",
+        "Pointer IDs are not tracked; multi-pointer native sequence requires validation."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-024",
+      "topic": "eq.linear.release_step",
+      "claim": "Thumb drag UP/CANCEL clears gesture state without rollback. Track-step state2 changes only on UP, toward release side by±.05 rounded to twentieth; literal zero target is skipped. CANCEL skips track step. UP explicitly releases parent interception; CANCEL has no equivalent explicit release in this method.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "LinearKnob states1/2; unlocked normal route"
+      ],
+      "value": {
+        "step": 0.05,
+        "quantization_divisor": 20
+      },
+      "units": "normalized value",
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/com/maxmpz/widget/player/LinearKnob.smali",
+          "symbol": "onTouchEvent",
+          "locator": "lines3747–4927 terminal branches"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Zero-result skip is observed bytecode behavior; edge outcome should be included in runtime tests."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-025",
+      "topic": "eq.linear.animation",
+      "claim": "Animated LinearKnob.k publishes target before visual interpolation and animates painted J with a linear h5/К controller. Duration scales with normalized travel:500ms full span,minimum100ms; this is not a100ms start delay. Direct/hidden/unattached/sufficiently tiny updates bypass animation.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "k mode2 or mode1 attached and shown; abs(target−L)>.001"
+      ],
+      "value": {
+        "full_span_ms": 500,
+        "minimum_ms": 100,
+        "formula": "max(100,round(abs(target−paintedJ)*500)) except exact full span500"
+      },
+      "units": "ms",
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/LinearKnob.java",
+          "symbol": "k",
+          "locator": "lines238–275"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/h5.java",
+          "symbol": "Х",
+          "locator": "lines108–169"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/К.java",
+          "symbol": "constructor/P case5",
+          "locator": "lines23–27,126–128"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-026",
+      "topic": "eq.linear_bus",
+      "claim": "DSPLinearKnob routes normalized value (optionally transformed to−1..1) to configured DSP parameter and suppresses matching echoes while pressed. EQ gain f10 sends cmd_dsp_set_eq_gain only on user change, using band indexM. Plain f10 does not inherit DSPLinearKnob navigation guard.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "DSPLinearKnob versus f10 are different subclasses"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/DSPLinearKnob.java",
+          "symbol": "i/onBusMsg/u",
+          "locator": "lines35–107"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/f10.java",
+          "symbol": "i/С/р",
+          "locator": "lines39–69"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/LinearKnob.java",
+          "symbol": "u",
+          "locator": "line854"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-027",
+      "topic": "eq.parametric_selection_reorder",
+      "claim": "Parametric band rows c10 combine gain,frequency,Q,type,channel,color,lock,selection and drag controls. Frequency/Q callbacks issue specific DSP commands; lock sets locked states and disables type/channel. EqKnobsList selection uses jp1; band reorder uses same kw0 but c5 strips first/last utility items and subtracts1 before cmd_dsp_reorder_eq_bands.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "Parametric EQ row c10 and EqKnobsList; selected/current band valid; list selection capabilityL"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/c10.java",
+          "symbol": "constructor/onValueChanged/u1/H",
+          "locator": "lines44–149,154–165,227–242,271–287"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/EqKnobsList.java",
+          "symbol": "N/h/onInterceptTouchEvent/z/К",
+          "locator": "lines98–102,133–139,342–348,423–459"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/c5.java",
+          "symbol": "K",
+          "locator": "lines62–87"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Band reorder endpoint mapping/disallowed locked-band movements need further model-level verification."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-028",
+      "topic": "eq.overview_scroll",
+      "claim": "FrequencyResponseScroller adjusts horizontal viewport, not EQ gain. Active viewport DOWN stops prior animation/inertia and captures; inside rectangle drags q+int(dx/k). Outside rectangle starts350ms DecelerateInterpolator(2) scroll to rounded ratio*(content−viewport), snapping x/width<.1 tostart and>.9 toend. During that animation MOVE≥4dp forces completion then rebases. UP/CANCEL release pressed state and parent interception but do not undo scroll or cancel the outside-tap animator.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "FrequencyResponseScroller !l and z viewport present; otherwise super touch"
+      ],
+      "value": {
+        "outside_tap_ms": 350,
+        "rebase_movement_dp": 4,
+        "edge_snap_ratios": [
+          0.1,
+          0.9
+        ],
+        "interpolator": "DecelerateInterpolator(2)"
+      },
+      "units": "ms; dp; ratio",
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/com/maxmpz/widget/player/FrequencyResponseScroller.smali",
+          "symbol": "onTouchEvent",
+          "locator": "lines3888–4652"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/FrequencyResponseScroller.java",
+          "symbol": "B/В",
+          "locator": "lines298–319,1098–1152"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/d90.java",
+          "symbol": "P",
+          "locator": "lines23–27"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-029",
+      "topic": "eq.numeric_entry",
+      "claim": "Knob labels/values support long-press numeric edit via KnobLabelAndValue.e when unlocked and visible; uses PseudoAlertDialog with OK applying yi0.setValueFromDialog and Cancel with no callback. Values accept comma decimal replacement, ignore invalid parses, normalize/clamp through knob range and reject nonfinite mapped results and use normal animated value publishing.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "KnobLabelAndValue.s provider and title exist; activity supports t91; DSP label listener enabled"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/KnobLabelAndValue.java",
+          "symbol": "e/performLongClick",
+          "locator": "lines94–109,422–434"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/xf.java",
+          "symbol": "onClick case4",
+          "locator": "lines102–106"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/RoundKnob.java",
+          "symbol": "setValueFromDialog",
+          "locator": "lines892–906"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/LinearKnob.java",
+          "symbol": "setValueFromDialog",
+          "locator": "lines804–826"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/DSPRoundKnobLayout.java",
+          "symbol": "onLongClick",
+          "locator": "lines109–114"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "Native runtime behavior not observed."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-030",
+      "topic": "input.runtime_limits",
+      "claim": "App-wide source ownership is broad enough to define separate gesture implementations, but no authentic native input/motion session has validated them. Exact runtime multitouch, IME arbitration, cancellation during async data replacement, native fling feel and predictive Back remain blocked; grouped-reorder geometry remains an additional static gap.",
+      "status": "RUNTIME_BLOCKED",
+      "conditions": [
+        "Session2 source research; preserve Session1 findings"
+      ],
+      "value": null,
+      "units": null,
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/kw0.java",
+          "symbol": "А/y/X",
+          "locator": "lines80–378,440–970"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/vm.java",
+          "symbol": "О/В",
+          "locator": "lines89–179"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/zb.java",
+          "symbol": "onBackProgressed",
+          "locator": "lines91–171"
+        }
+      ],
+      "verification": "Read the stated original APK source/resource chain; no native runtime observation.",
+      "uncertainties": [
+        "This is not implementation-ready evidence for every app-wide interaction."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-031",
+      "topic": "navbar.more_modal",
+      "claim": "More toggles gx0.v, activated button, Back registration and navbar modal. Back/reset-modal clears those immediately and requests NavbarExtension collapse. Extension child click/long-click collapses; scrim uses wm.H; sheet scenes map1→0,2→2lines,3→3lines. Extension direct drag uses wm/j0/vm. Completion clears shim listener and closes gx0 state.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "NavbarExtension attached to navbar private scene; this is the More sheet, not mini-player expansion",
+        "Quantified fallback: API36 portrait360×640dp,sw360,density320; Black/Light × Default/Alternative/FullCover; other registry defaults"
+      ],
+      "value": {
+        "sheet_enter_base_ms": 500,
+        "sheet_exit_ms": 200,
+        "two_three_line_enter_exit_base_ms": 500,
+        "drag_ratio": 0.8,
+        "drag_velocity_raw_px_per_s": 1000,
+        "drag_ms": 500,
+        "drag_direction": "down1",
+        "entry_time_helper": "AnimTimeHelper.calcAnimTime(f,false)"
+      },
+      "units": "ms",
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/gx0.java",
+          "symbol": "I0/onBusMsg/r0/t1/v1",
+          "locator": "lines118–137,301–320,380–387,402–420,508–538"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/widget/player/NavbarExtension.java",
+          "symbol": "H0/N/d/onInterceptTouchEvent/t1/a0",
+          "locator": "lines60–100,116–147,197–241"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/merge_navbar.xml",
+          "symbol": "NavbarExtension/NavbarList siblings",
+          "locator": "lines4–22"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "NavbarExtension",
+          "locator": "lines6242–6256"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/um.java",
+          "symbol": "constructor",
+          "locator": "lines25–54"
+        },
+        {
+          "kind": "derived-static-fixture",
+          "path": "session2/logs/input-navbar-default-proof.json",
+          "symbol": "fixtures[*].component.properties",
+          "locator": "six fixtures; origin=caller_supplied_constructor_default; private original-derived metadata"
+        }
+      ],
+      "verification": "Re-ran ui_atlas style_resolver.consumed for six named configurations; all four attrs absent from component and final theme. um constructor supplies values. No runtime execution.",
+      "uncertainties": [
+        "Fallback values verified for six API36 portrait Black/Light × Default/Alternative/FullCover registry-default fixtures; other configurations and external skins require their own resolution."
+      ]
+    },
+    {
+      "id": "PA1031-S2-INPUT-032",
+      "topic": "dialog.nested_scroll",
+      "claim": "DialogOuterFastLayout accepts vertical nested scrolling, marks DialogBehavior.c to block parallel direct interception, and synthesizes wm DOWN/MOVE/UP when dragByNestedScroll enabled. Unconsumeddy feeds drag; pre-scroll consumes all dy when sceneprogress>.025 with childscrollY>=0 or progress<−.025. Stop temporarily suppresses velocity when target is not a fitting android.widget.ScrollView and dragUseNestedScrollVelocity=false.",
+      "status": "CONFIRMED_STATIC",
+      "conditions": [
+        "DialogBehavior exists; vertical axis2; wm installed for collapse direction; nested dragging enabled"
+      ],
+      "value": {
+        "pre_scroll_progress_margin": 0.025,
+        "BaseDialog_dragByNestedScroll": true,
+        "BaseDialog_useNestedVelocity": false
+      },
+      "units": "normalized progress; booleans",
+      "sources": [
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/com/maxmpz/widget/base/DialogOuterFastLayout.smali",
+          "symbol": "onStartNestedScroll/onNestedPreScroll/onNestedScroll/onStopNestedScroll",
+          "locator": "lines52–710; start :cond_2/:goto_0"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/c5.java",
+          "symbol": "y case23",
+          "locator": "lines218–222"
+        },
+        {
+          "kind": "apk-smali",
+          "path": "decoded/smali/ׅ/vm.smali",
+          "symbol": "В(FZ)",
+          "locator": "lines427–448 velocity suppression"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "BaseDialog",
+          "locator": "lines3392–3400"
+        }
+      ],
+      "verification": "Smali checked against decompiled control flow; no native runtime observation.",
+      "uncertainties": [
+        "Source checks exact android.widget.ScrollView, not every possible nested-scrolling child.",
+        "Synthetic DOWN uses(0,0), stored movement accumulator starts(2,childHeight/2); runtime event timing and fitting-child edge behavior need observation."
+      ]
+    }
+  ],
+  "cancellation_matrix": [
+    {
+      "owner": "RoundKnob",
+      "captured_cancel": "end gesture; keep continuously applied value",
+      "evidence": [
+        "PA1031-S2-INPUT-021"
+      ]
+    },
+    {
+      "owner": "LinearKnob",
+      "captured_cancel": "thumb drag keeps value; pending track step skipped",
+      "evidence": [
+        "PA1031-S2-INPUT-024"
+      ]
+    },
+    {
+      "owner": "FrequencyResponseScroller",
+      "captured_cancel": "clear pressed/disallow; retain scroll and existing tap animation",
+      "evidence": [
+        "PA1031-S2-INPUT-028"
+      ]
+    },
+    {
+      "owner": "kw0 reorder via j0",
+      "captured_cancel": "same release path with zero velocity; no rollback transaction",
+      "evidence": [
+        "PA1031-S2-INPUT-007",
+        "PA1031-S2-INPUT-008"
+      ]
+    },
+    {
+      "owner": "vm dialog via j0",
+      "captured_cancel": "zero velocity still applies progress decision; may commit",
+      "evidence": [
+        "PA1031-S2-INPUT-017"
+      ]
+    },
+    {
+      "owner": "API34 Back",
+      "captured_cancel": "selected handler T(0,0,false)",
+      "evidence": [
+        "PA1031-S2-INPUT-018"
+      ]
+    }
+  ],
+  "open_static_targets": [
+    {
+      "target": "kw0.А/y/X + iw0.В",
+      "reason": "full grouped drag packing,candidate geometry,reverse crossover,group completion"
+    },
+    {
+      "target": "bi1.р provider implementations + x8 concurrent-data paths",
+      "reason": "persist-failure/reload/drag race and stable-ID safety"
+    },
+    {
+      "target": "vo1.S0→sd.q0/I and query workers",
+      "reason": "result replacement ordering and data-loader coalescing"
+    },
+    {
+      "target": "t61.А + r61/X cleanup callbacks",
+      "reason": "all detached/reparented menu teardown branches and rapid reopen"
+    }
+  ]
+}

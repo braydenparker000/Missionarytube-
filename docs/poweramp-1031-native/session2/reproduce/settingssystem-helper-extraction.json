@@ -1,0 +1,317 @@
+[
+  {
+    "page": "singlepane",
+    "helper": "qt1",
+    "source_line": 408,
+    "comparison_line": 403,
+    "comparison_target": ":cond_5"
+  },
+  {
+    "page": "general",
+    "helper": "ns1",
+    "source_line": 443,
+    "comparison_line": 439,
+    "comparison_target": ":cond_6"
+  },
+  {
+    "page": "already_purchased",
+    "helper": "yp1",
+    "source_line": 465,
+    "comparison_line": 461,
+    "comparison_target": ":cond_7"
+  },
+  {
+    "page": "buy_methods",
+    "helper": "yp1",
+    "source_line": 493,
+    "comparison_line": 489,
+    "comparison_target": ":cond_8"
+  },
+  {
+    "page": "feature_packages",
+    "helper": "ls1",
+    "source_line": 521,
+    "comparison_line": 517,
+    "comparison_target": ":cond_9"
+  },
+  {
+    "page": "ui",
+    "helper": "yp1",
+    "source_line": 548,
+    "comparison_line": 544,
+    "comparison_target": ":cond_a"
+  },
+  {
+    "page": "ui_theme",
+    "helper": "yp1",
+    "source_line": 585,
+    "comparison_line": 580,
+    "comparison_target": ":cond_b"
+  },
+  {
+    "page": "ui_theme_opts",
+    "helper": "ur1",
+    "source_line": 647,
+    "comparison_line": 642,
+    "comparison_target": ":cond_c"
+  },
+  {
+    "page": "ui_icon",
+    "helper": "vt1",
+    "source_line": 688,
+    "comparison_line": 684,
+    "comparison_target": ":cond_d"
+  },
+  {
+    "page": "ui_player",
+    "helper": "yp1",
+    "source_line": 710,
+    "comparison_line": 706,
+    "comparison_target": ":cond_e"
+  },
+  {
+    "page": "ui_lyrics",
+    "helper": "xp1",
+    "source_line": 759,
+    "comparison_line": 755,
+    "comparison_target": ":cond_f"
+  },
+  {
+    "page": "ui_notify",
+    "helper": "yp1",
+    "source_line": 786,
+    "comparison_line": 782,
+    "comparison_target": ":cond_10"
+  },
+  {
+    "page": "ui_mediaactions",
+    "helper": "xp1",
+    "source_line": 816,
+    "comparison_line": 812,
+    "comparison_target": ":cond_11"
+  },
+  {
+    "page": "vis",
+    "helper": "vr1",
+    "source_line": 839,
+    "comparison_line": 835,
+    "comparison_target": ":cond_12"
+  },
+  {
+    "page": "lockscreen",
+    "helper": "ht1",
+    "source_line": 861,
+    "comparison_line": 857,
+    "comparison_target": ":cond_13"
+  },
+  {
+    "page": "aa_bg",
+    "helper": "xp1",
+    "source_line": 884,
+    "comparison_line": 880,
+    "comparison_target": ":cond_14"
+  },
+  {
+    "page": "aa",
+    "helper": "wp1",
+    "source_line": 906,
+    "comparison_line": 902,
+    "comparison_target": ":cond_15"
+  },
+  {
+    "page": "audio",
+    "helper": "yp1",
+    "source_line": 929,
+    "comparison_line": 925,
+    "comparison_target": ":cond_16"
+  },
+  {
+    "page": "fade",
+    "helper": "yp1",
+    "source_line": 963,
+    "comparison_line": 959,
+    "comparison_target": ":cond_17"
+  },
+  {
+    "page": "audio_focus",
+    "helper": "yp1",
+    "source_line": 992,
+    "comparison_line": 988,
+    "comparison_target": ":cond_18"
+  },
+  {
+    "page": "audio_dvc",
+    "helper": "nq1",
+    "source_line": 1021,
+    "comparison_line": 1017,
+    "comparison_target": ":cond_19"
+  },
+  {
+    "page": "audio_tweaks",
+    "helper": "yp1",
+    "source_line": 1051,
+    "comparison_line": 1046,
+    "comparison_target": ":cond_1a"
+  },
+  {
+    "page": "rg",
+    "helper": "yp1",
+    "source_line": 1104,
+    "comparison_line": 1100,
+    "comparison_target": ":cond_1b"
+  },
+  {
+    "page": "audio_resampler",
+    "helper": "yp1",
+    "source_line": 1134,
+    "comparison_line": 1130,
+    "comparison_target": ":cond_1c"
+  },
+  {
+    "page": "audio_equ",
+    "helper": "pq1",
+    "source_line": 1164,
+    "comparison_line": 1160,
+    "comparison_target": ":cond_1d"
+  },
+  {
+    "page": "peq_equ_bands",
+    "helper": "yp1",
+    "source_line": 1192,
+    "comparison_line": 1183,
+    "comparison_target": ":cond_1e"
+  },
+  {
+    "page": "peq_equ_tone",
+    "helper": "ur1",
+    "source_line": 1221,
+    "comparison_line": 1217,
+    "comparison_target": ":cond_1f"
+  },
+  {
+    "page": "audio_outputs2",
+    "helper": "qr1",
+    "source_line": 1244,
+    "comparison_line": 1240,
+    "comparison_target": ":cond_20"
+  },
+  {
+    "page": "audio_output_device_opts",
+    "helper": "nr1",
+    "source_line": 1267,
+    "comparison_line": 1263,
+    "comparison_target": ":cond_21"
+  },
+  {
+    "page": "audio_outputs_tweaks",
+    "helper": "yp1",
+    "source_line": 1290,
+    "comparison_line": 1286,
+    "comparison_target": ":cond_22"
+  },
+  {
+    "page": "audio_bit_perfect",
+    "helper": "gq1",
+    "source_line": 1343,
+    "comparison_line": 1339,
+    "comparison_target": ":cond_23"
+  },
+  {
+    "page": "headset",
+    "helper": "qs1",
+    "source_line": 1366,
+    "comparison_line": 1362,
+    "comparison_target": ":cond_24"
+  },
+  {
+    "page": "library",
+    "helper": "xs1",
+    "source_line": 1389,
+    "comparison_line": 1385,
+    "comparison_target": ":cond_25"
+  },
+  {
+    "page": "library_lists",
+    "helper": "yp1",
+    "source_line": 1412,
+    "comparison_line": 1408,
+    "comparison_target": ":cond_26"
+  },
+  {
+    "page": "library_search",
+    "helper": "yp1",
+    "source_line": 1442,
+    "comparison_line": 1438,
+    "comparison_target": ":cond_27"
+  },
+  {
+    "page": "library_queue",
+    "helper": "yp1",
+    "source_line": 1472,
+    "comparison_line": 1468,
+    "comparison_target": ":cond_28"
+  },
+  {
+    "page": "library_playlists",
+    "helper": "ct1",
+    "source_line": 1502,
+    "comparison_line": 1498,
+    "comparison_target": ":cond_29"
+  },
+  {
+    "page": "library_shuffle",
+    "helper": "yp1",
+    "source_line": 1525,
+    "comparison_line": 1521,
+    "comparison_target": ":cond_2a"
+  },
+  {
+    "page": "library_scanner",
+    "helper": "yp1",
+    "source_line": 1555,
+    "comparison_line": 1551,
+    "comparison_target": ":cond_2b"
+  },
+  {
+    "page": "misc",
+    "helper": "nt1",
+    "source_line": 1585,
+    "comparison_line": 1581,
+    "comparison_target": ":cond_2c"
+  },
+  {
+    "page": "translations",
+    "helper": "yp1",
+    "source_line": 1608,
+    "comparison_line": 1604,
+    "comparison_target": ":cond_2d"
+  },
+  {
+    "page": "commands_history",
+    "helper": "ks1",
+    "source_line": 1643,
+    "comparison_line": 1639,
+    "comparison_target": ":cond_2e"
+  },
+  {
+    "page": "audio_platform_log",
+    "helper": "vr1",
+    "source_line": 1666,
+    "comparison_line": 1662,
+    "comparison_target": ":cond_2f"
+  },
+  {
+    "page": "support",
+    "helper": "st1",
+    "source_line": 1689,
+    "comparison_line": 1685,
+    "comparison_target": ":cond_30"
+  },
+  {
+    "page": "space",
+    "helper": "yp1",
+    "source_line": 1712,
+    "comparison_line": 1708,
+    "comparison_target": ":cond_31"
+  }
+]

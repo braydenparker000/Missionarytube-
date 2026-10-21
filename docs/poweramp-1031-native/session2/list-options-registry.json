@@ -1,0 +1,1653 @@
+{
+  "scope": "Dynamic List Options contracts and bounded All Songs end-to-end traces. Per-provider registration inventory is discovery, not proof every key is deeply traced.",
+  "records": [
+    {
+      "id": "list-options.category-home",
+      "native_keys": [
+        "library_lists",
+        "library_home"
+      ],
+      "control": "Dynamically generated category checkbox and long-press home affordance",
+      "values": {
+        "visibility": "one bit per gi1/fi1 category",
+        "home": "fi1.В category id; -1 means category home",
+        "home_alpha": [
+          0.1,
+          1.0
+        ],
+        "alpha_ms": 250
+      },
+      "persistence": "b40.H0 / b40.I0 in ftp; registration values are NOT fresh-install defaults.",
+      "dependencies": [
+        "List entity implements mg1; categories supplied by gi1/ei1; feature-dependent category availability remains in provider."
+      ],
+      "consumers": "Category checkbox changes the visibility mask; hiding the selected home clears home. Long press toggles the category home id and checks its category. Home affordance animates alpha over 250ms. Fresh migration sets library_home=-1; choosing id0 intentionally targets All Songs.",
+      "apply": "Changes mutate the model/store and send the indicated bus event; no Apply button. onStop flushes global n3 stores and search z30.",
+      "status": "CONFIRMED_STATIC",
+      "coverage": "shared_mechanism_and_named_chains",
+      "evidence_ids": [
+        "PA1031-S2-LIST-001"
+      ],
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/dialogs/ListOptsActivity.java",
+          "symbol": "onCreate/у",
+          "locator": "lines125–171,389–418"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/pl0.java",
+          "symbol": "onCheckedChanged",
+          "locator": "library mask branch"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/rl0.java",
+          "symbol": "onLongClick",
+          "locator": "home selection"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/b40.java",
+          "symbol": "H0/I0",
+          "locator": "registration"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/Application.java",
+          "symbol": "с",
+          "locator": "pre-810 migration"
+        }
+      ],
+      "uncertainties": [
+        "Static code only; no native runtime observation."
+      ]
+    },
+    {
+      "id": "list-options.search-categories",
+      "native_keys": [],
+      "control": "Dynamic checkbox per search.v1 category",
+      "values": {
+        "mask": "1 << index",
+        "registered_default": -1
+      },
+      "persistence": "z30.Н unnamed integer slot in search store; not a globally registered key.",
+      "dependencies": [
+        "Current entity implements jj1."
+      ],
+      "consumers": "Toggles z30.Н category mask and emits msg_app_data_changed flag4; search provider determines available category rows.",
+      "apply": "Changes mutate the model/store and send the indicated bus event; no Apply button. onStop flushes global n3 stores and search z30.",
+      "status": "CONFIRMED_STATIC",
+      "coverage": "shared_mechanism_and_named_chains",
+      "evidence_ids": [
+        "PA1031-S2-LIST-002"
+      ],
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/dialogs/ListOptsActivity.java",
+          "symbol": "onCreate",
+          "locator": "lines175–197"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/pl0.java",
+          "symbol": "onCheckedChanged",
+          "locator": "search branch"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/z30.java",
+          "symbol": "constructor",
+          "locator": "Н slot"
+        }
+      ],
+      "uncertainties": [
+        "Static code only; no native runtime observation."
+      ]
+    },
+    {
+      "id": "list-options.sort",
+      "native_keys": [
+        "files_sort"
+      ],
+      "control": "Provider-generated radio group plus Reverse checkbox",
+      "values": {
+        "file_provider_options": [
+          {
+            "value": 0,
+            "meaning": "track"
+          },
+          {
+            "value": 13,
+            "meaning": "disc/track"
+          },
+          {
+            "value": 1,
+            "meaning": "title"
+          },
+          {
+            "value": 2,
+            "meaning": "filename"
+          },
+          {
+            "value": 14,
+            "meaning": "path"
+          },
+          {
+            "value": 8,
+            "meaning": "artist"
+          },
+          {
+            "value": 9,
+            "meaning": "album"
+          },
+          {
+            "value": 3,
+            "meaning": "year"
+          },
+          {
+            "value": 15,
+            "meaning": "year/album"
+          },
+          {
+            "value": 12,
+            "meaning": "date added to library"
+          },
+          {
+            "value": 4,
+            "meaning": "date added/modified"
+          },
+          {
+            "value": 5,
+            "meaning": "rating"
+          },
+          {
+            "value": 10,
+            "meaning": "duration"
+          },
+          {
+            "value": 7,
+            "meaning": "last played"
+          },
+          {
+            "value": 6,
+            "meaning": "play count"
+          },
+          {
+            "value": 11,
+            "meaning": "shuffle"
+          }
+        ],
+        "reverse_bit": "0x40000000",
+        "registered_default": 0
+      },
+      "persistence": "rh1.I writes provider-specific m30 slot; All Songs sf1.I→m30.l (files_sort) in frp.",
+      "dependencies": [
+        "Entity implements rh1, b()!=-1 and f()!=cm2.X; arrays are label/value/hint triples. Other providers can expose different sorts."
+      ],
+      "consumers": "Selecting a checked radio preserves the reverse bit; Reverse preserves the low sort value. Listener posts data-changed flag1. sf1 query builders consume m30.l to choose SQL ordering; p31 reloads matching lists.",
+      "apply": "Changes mutate the model/store and send the indicated bus event; no Apply button. onStop flushes global n3 stores and search z30.",
+      "status": "CONFIRMED_STATIC",
+      "coverage": "shared_mechanism_and_named_chains",
+      "evidence_ids": [
+        "PA1031-S2-LIST-003"
+      ],
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/dialogs/ListOptsActivity.java",
+          "symbol": "onCreate",
+          "locator": "lines201–239"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/tl0.java",
+          "symbol": "onCheckedChanged",
+          "locator": "entire method"
+        },
+        {
+          "kind": "smali",
+          "path": "decoded/smali/ׅ/tl0.smali",
+          "symbol": "onCheckedChanged",
+          "locator": "lines44–188"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/uf1.java",
+          "symbol": "f",
+          "locator": "file sort option triples"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/sf1.java",
+          "symbol": "I/b/Q0/X0",
+          "locator": "store and SQL ordering"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/p31.java",
+          "symbol": "onBusMsg/у",
+          "locator": "data-changed handling"
+        }
+      ],
+      "uncertainties": [
+        "Static code only; no native runtime observation."
+      ]
+    },
+    {
+      "id": "list-options.limit",
+      "native_keys": [],
+      "control": "Radio group",
+      "values": {
+        "values": [
+          200,
+          500,
+          1000,
+          2147483647
+        ],
+        "unlimited": 2147483647
+      },
+      "persistence": "ih1.a0(value) per-provider slot; registration defaults and migrations are provider-specific.",
+      "dependencies": [
+        "Entity implements ih1."
+      ],
+      "consumers": "Checked radio parses tag and writes ih1.a0 then emits data-changed flag0. The original compiled XML unlimited tag is exactly 2147483647; Apktool escaping must not be treated as a literal leading-backslash bug.",
+      "apply": "Changes mutate the model/store and send the indicated bus event; no Apply button. onStop flushes global n3 stores and search z30.",
+      "status": "CONFIRMED_STATIC",
+      "coverage": "shared_mechanism_and_named_chains",
+      "evidence_ids": [
+        "PA1031-S2-LIST-004"
+      ],
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/dialogs/ListOptsActivity.java",
+          "symbol": "onCreate",
+          "locator": "lines241–255"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/ql0.java",
+          "symbol": "onCheckedChanged",
+          "locator": "limit branch"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout/dialog_content_list_opts.xml",
+          "symbol": "limit_group",
+          "locator": "radio tags"
+        },
+        {
+          "kind": "compiled-xml",
+          "path": "bundle/Poweramp-build-1031-uni.apk",
+          "symbol": "res/jZ.xml",
+          "locator": "aapt2 dump xmltree; radio tag at original XML line234"
+        }
+      ],
+      "uncertainties": [
+        "Shared setter and UI values verified; every provider limit consumer/default not deeply traced.",
+        "Static code only."
+      ]
+    },
+    {
+      "id": "list-options.duration",
+      "native_keys": [
+        "long_files_min_duration"
+      ],
+      "control": "SeekBar",
+      "values": {
+        "progress_min": 0,
+        "progress_max": 119,
+        "value_ms": "(progress+1)*60000",
+        "display_minutes": [
+          1,
+          120
+        ],
+        "initial_progress": "max(1, stored_ms/60000 - 1)"
+      },
+      "persistence": "m30.a1 in frp; current preference initialized separately by migrations.",
+      "dependencies": [
+        "Entity implements hi1."
+      ],
+      "consumers": "Dragging changes the duration label. onStopTrackingTouch commits integer milliseconds and emits data-changed flag0. The minimum initial thumb is progress1 although interactive range includes progress0; preserve this distinction.",
+      "apply": "Changes mutate the model/store and send the indicated bus event; no Apply button. onStop flushes global n3 stores and search z30.",
+      "status": "CONFIRMED_STATIC",
+      "coverage": "shared_mechanism_and_named_chains",
+      "evidence_ids": [
+        "PA1031-S2-LIST-005"
+      ],
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/dialogs/ListOptsActivity.java",
+          "symbol": "onCreate",
+          "locator": "lines257–268"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/vl0.java",
+          "symbol": "onProgressChanged/onStopTrackingTouch",
+          "locator": "entire methods"
+        },
+        {
+          "kind": "smali",
+          "path": "decoded/smali/ׅ/vl0.smali",
+          "symbol": "onStopTrackingTouch",
+          "locator": "lines108–157"
+        }
+      ],
+      "uncertainties": [
+        "Static code only; no native runtime observation."
+      ]
+    },
+    {
+      "id": "list-options.memory",
+      "native_keys": [
+        "keep_list_pos",
+        "keep_track_pos"
+      ],
+      "control": "Two checkboxes populated asynchronously",
+      "values": {
+        "values": [
+          0,
+          1
+        ]
+      },
+      "persistence": "Per-entity database metadata through cmd_data_set_list_meta, UriAndIds, ContentValues; not n3 global preferences.",
+      "dependencies": [
+        "Parent entity implements jh1 and URI resolves to nonzero entity id.",
+        "Listeners require isPressed to exclude asynchronous population."
+      ],
+      "consumers": "p10 reads persisted list metadata; sl0 sends per-list or per-track progress changes via cmd_data_set_list_meta. These controls are instance-scoped, so one global boolean would lose native behavior.",
+      "apply": "Changes mutate the model/store and send the indicated bus event; no Apply button. onStop flushes global n3 stores and search z30.",
+      "status": "CONFIRMED_STATIC",
+      "coverage": "shared_mechanism_and_named_chains",
+      "evidence_ids": [
+        "PA1031-S2-LIST-006"
+      ],
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/dialogs/ListOptsActivity.java",
+          "symbol": "onCreate",
+          "locator": "lines270–290"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/p10.java",
+          "symbol": "database read",
+          "locator": "metadata query"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/sl0.java",
+          "symbol": "onCheckedChanged",
+          "locator": "ContentValues fields and command"
+        }
+      ],
+      "uncertainties": [
+        "Construction/write contract confirmed; downstream playback-resume implementation is not fully traced here."
+      ]
+    },
+    {
+      "id": "list-options.zoom",
+      "native_keys": [
+        "list_zoom_files"
+      ],
+      "control": "Provider-generated layout radio group",
+      "values": {
+        "range_for_ie": [
+          -4,
+          5
+        ],
+        "registered_default": 0,
+        "options": [
+          {
+            "value": -4,
+            "label": "grid_1_no_aa_extra_small"
+          },
+          {
+            "value": -3,
+            "label": "list_1_no_aa_extra_small"
+          },
+          {
+            "value": -2,
+            "label": "list_1_no_aa"
+          },
+          {
+            "value": -1,
+            "label": "list_no_aa"
+          },
+          {
+            "value": 0,
+            "label": "list_compact"
+          },
+          {
+            "value": 3,
+            "label": "list_small"
+          },
+          {
+            "value": 4,
+            "label": "list"
+          },
+          {
+            "value": 1,
+            "label": "grid_extra_small"
+          },
+          {
+            "value": 2,
+            "label": "grid_small"
+          },
+          {
+            "value": 5,
+            "label": "grid"
+          }
+        ]
+      },
+      "persistence": "wh1.F setter; All Songs sf1.F→m30.m0 list_zoom_files in frp.",
+      "dependencies": [
+        "Entity implements wh1; folder hierarchy only_files=1 substitutes ag1 file provider.",
+        "Each provider supplies its own A option triples and u clamp range."
+      ],
+      "consumers": "Radio stores the semantic zoom integer, posts cmd_list_update_zoom with entity id, updates Titles Only availability. p31.P defers while list/transition not ready; otherwise clamps via sd.E, prepares target layout and PowerListZoomWithTargetZoomTransition. pd.N0/P0 maps zoom to row scene, columns, row-height source and bottom-height source.",
+      "apply": "Changes mutate the model/store and send the indicated bus event; no Apply button. onStop flushes global n3 stores and search z30.",
+      "status": "CONFIRMED_STATIC",
+      "coverage": "shared_mechanism_and_named_chains",
+      "evidence_ids": [
+        "PA1031-S2-LIST-007"
+      ],
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/dialogs/ListOptsActivity.java",
+          "symbol": "onCreate",
+          "locator": "lines293–327"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/ql0.java",
+          "symbol": "onCheckedChanged",
+          "locator": "zoom branch"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/ie.java",
+          "symbol": "A/u/Х",
+          "locator": "zoom schema and intrinsic one-line modes"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/sf1.java",
+          "symbol": "F/q0",
+          "locator": "zoom preference"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/p31.java",
+          "symbol": "P",
+          "locator": "lines507–535"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/pd.java",
+          "symbol": "E/N0/P0",
+          "locator": "clamp and effective scene selection"
+        }
+      ],
+      "uncertainties": [
+        "Static code only; no native runtime observation."
+      ]
+    },
+    {
+      "id": "list-options.titles-only",
+      "native_keys": [
+        "layout_1_line"
+      ],
+      "control": "Checkbox",
+      "values": {
+        "stored": "bit 1 << entity.C()",
+        "intrinsically_single_line_zoom": [
+          -4,
+          -3,
+          -2
+        ],
+        "registered_default": 0
+      },
+      "persistence": "m30.i bitmask in frp.",
+      "dependencies": [
+        "Entity implements vh1; disabled for intrinsic one-line zoom.",
+        "Listener isPressed guard."
+      ],
+      "consumers": "Checkbox updates only this category bit, sends forced zoom update arg1=1, and pd.N0/P0 selects corresponding single-line scene while retaining independent zoom geometry.",
+      "apply": "Changes mutate the model/store and send the indicated bus event; no Apply button. onStop flushes global n3 stores and search z30.",
+      "status": "CONFIRMED_STATIC",
+      "coverage": "shared_mechanism_and_named_chains",
+      "evidence_ids": [
+        "PA1031-S2-LIST-008"
+      ],
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/dialogs/ListOptsActivity.java",
+          "symbol": "onCreate",
+          "locator": "lines321–332"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/ql0.java",
+          "symbol": "onCheckedChanged",
+          "locator": "titles-only branch"
+        },
+        {
+          "kind": "smali",
+          "path": "decoded/smali/ׅ/ql0.smali",
+          "symbol": "onCheckedChanged",
+          "locator": "lines172–321"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/pd.java",
+          "symbol": "N0/P0",
+          "locator": "title bit consumption"
+        }
+      ],
+      "uncertainties": [
+        "Static code only; no native runtime observation."
+      ]
+    },
+    {
+      "id": "list-options.compact-header",
+      "native_keys": [
+        "layout_header_compact"
+      ],
+      "control": "Checkbox",
+      "values": {
+        "stored": "bit 1 << entity.C()",
+        "registered_default": 0
+      },
+      "persistence": "m30.j bitmask in frp.",
+      "dependencies": [
+        "Entity implements xh1; hl0.u font-scale eligibility must hold for editable control."
+      ],
+      "consumers": "Control emits forced zoom update. g32.F0 selects compact header dimensions only when xh1.W0 is true; specialized gh1/tg1 headers choose hl0.w or hl0.l, other compact headers hl0.v, ordinary headers hl0.k. Unsupported type defaults compact=false (smali resolves damaged Java).",
+      "apply": "Changes mutate the model/store and send the indicated bus event; no Apply button. onStop flushes global n3 stores and search z30.",
+      "status": "CONFIRMED_STATIC",
+      "coverage": "shared_mechanism_and_named_chains",
+      "evidence_ids": [
+        "PA1031-S2-LIST-009"
+      ],
+      "sources": [
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/com/maxmpz/audioplayer/dialogs/ListOptsActivity.java",
+          "symbol": "onCreate",
+          "locator": "lines333–350"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/ql0.java",
+          "symbol": "onCheckedChanged",
+          "locator": "compact-header branch"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/ie.java",
+          "symbol": "W0",
+          "locator": "bit read"
+        },
+        {
+          "kind": "apk-decompiled-code",
+          "path": "jadx/sources/ׅ/g32.java",
+          "symbol": "F0",
+          "locator": "header height selection"
+        },
+        {
+          "kind": "smali",
+          "path": "decoded/smali/ׅ/g32.smali",
+          "symbol": "F0",
+          "locator": "lines473–618"
+        }
+      ],
+      "uncertainties": [
+        "Static code only; no native runtime observation."
+      ]
+    }
+  ],
+  "scene_resolution": {
+    "orientation_increment": "portrait 0; landscape widthPixels/heightPixels <1.8 →1, otherwise2; FLOAT division verified",
+    "rows": [
+      {
+        "zoom": -4,
+        "normal_scene": "scene_1_small_no_aa",
+        "titles_scene": "scene_1_small_no_aa",
+        "columns": "2",
+        "row_height_source": "hl0.e",
+        "bottom_height_source": "0"
+      },
+      {
+        "zoom": -3,
+        "normal_scene": "scene_1_small_no_aa",
+        "titles_scene": "scene_1_small_no_aa",
+        "columns": "1",
+        "row_height_source": "hl0.e",
+        "bottom_height_source": "0"
+      },
+      {
+        "zoom": -2,
+        "normal_scene": "scene_1_small_no_aa",
+        "titles_scene": "scene_1_small_no_aa",
+        "columns": "1",
+        "row_height_source": "hl0.d",
+        "bottom_height_source": "0"
+      },
+      {
+        "zoom": -1,
+        "normal_scene": "scene_small_no_aa",
+        "titles_scene": "scene_1_small_no_aa",
+        "columns": "1",
+        "row_height_source": "hl0.b",
+        "bottom_height_source": "0"
+      },
+      {
+        "zoom": 0,
+        "normal_scene": "scene_small",
+        "titles_scene": "scene_1_small",
+        "columns": "1",
+        "row_height_source": "hl0.a",
+        "bottom_height_source": "0"
+      },
+      {
+        "zoom": 1,
+        "normal_scene": "scene_grid",
+        "titles_scene": "scene_grid_1",
+        "columns": "orientation_increment+4",
+        "row_height_source": "-1",
+        "bottom_height_source": "titles?hl0.Q:hl0.S"
+      },
+      {
+        "zoom": 2,
+        "normal_scene": "scene_grid",
+        "titles_scene": "scene_grid_1",
+        "columns": "orientation_increment+3",
+        "row_height_source": "-1",
+        "bottom_height_source": "titles?hl0.Q:hl0.S"
+      },
+      {
+        "zoom": 3,
+        "normal_scene": "0 (default scene)",
+        "titles_scene": "scene_1",
+        "columns": "1",
+        "row_height_source": "hl0.с",
+        "bottom_height_source": "0"
+      },
+      {
+        "zoom": 4,
+        "normal_scene": "scene_zoomed",
+        "titles_scene": "scene_1_zoomed",
+        "columns": "1",
+        "row_height_source": "hl0.f",
+        "bottom_height_source": "0"
+      },
+      {
+        "zoom": 5,
+        "normal_scene": "scene_grid_zoomed",
+        "titles_scene": "scene_grid_1_zoomed",
+        "columns": "orientation_increment+2",
+        "row_height_source": "-1",
+        "bottom_height_source": "titles?hl0.R:hl0.T"
+      }
+    ]
+  },
+  "provider_registration_inventory": [
+    {
+      "id": "m30:layout_1_line",
+      "native_key": "layout_1_line",
+      "field": "i",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.i registration layout_1_line",
+        "locator": "line 149"
+      }
+    },
+    {
+      "id": "m30:layout_header_compact",
+      "native_key": "layout_header_compact",
+      "field": "j",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.j registration layout_header_compact",
+        "locator": "line 150"
+      }
+    },
+    {
+      "id": "m30:files_sort",
+      "native_key": "files_sort",
+      "field": "l",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.l registration files_sort",
+        "locator": "line 152"
+      }
+    },
+    {
+      "id": "m30:folders_sort",
+      "native_key": "folders_sort",
+      "field": "m",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.m registration folders_sort",
+        "locator": "line 153"
+      }
+    },
+    {
+      "id": "m30:folders_files_sort",
+      "native_key": "folders_files_sort",
+      "field": "n",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.n registration folders_files_sort",
+        "locator": "line 154"
+      }
+    },
+    {
+      "id": "m30:folders_hier_files_sort",
+      "native_key": "folders_hier_files_sort",
+      "field": "q",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.q registration folders_hier_files_sort",
+        "locator": "line 155"
+      }
+    },
+    {
+      "id": "m30:albums_sort",
+      "native_key": "albums_sort",
+      "field": "r",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.r registration albums_sort",
+        "locator": "line 156"
+      }
+    },
+    {
+      "id": "m30:album_files_sort",
+      "native_key": "album_files_sort",
+      "field": "s",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.s registration album_files_sort",
+        "locator": "line 157"
+      }
+    },
+    {
+      "id": "m30:artists_sort",
+      "native_key": "artists_sort",
+      "field": "t",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.t registration artists_sort",
+        "locator": "line 158"
+      }
+    },
+    {
+      "id": "m30:artists_files_sort",
+      "native_key": "artists_files_sort",
+      "field": "u",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.u registration artists_files_sort",
+        "locator": "line 159"
+      }
+    },
+    {
+      "id": "m30:artists_albums_sort",
+      "native_key": "artists_albums_sort",
+      "field": "v",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.v registration artists_albums_sort",
+        "locator": "line 160"
+      }
+    },
+    {
+      "id": "m30:artists_albums_files_sort",
+      "native_key": "artists_albums_files_sort",
+      "field": "w",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.w registration artists_albums_files_sort",
+        "locator": "line 161"
+      }
+    },
+    {
+      "id": "m30:album_artists_sort",
+      "native_key": "album_artists_sort",
+      "field": "z",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.z registration album_artists_sort",
+        "locator": "line 162"
+      }
+    },
+    {
+      "id": "m30:album_artists_files_sort",
+      "native_key": "album_artists_files_sort",
+      "field": "D",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.D registration album_artists_files_sort",
+        "locator": "line 163"
+      }
+    },
+    {
+      "id": "m30:album_artists_albums_sort",
+      "native_key": "album_artists_albums_sort",
+      "field": "E",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.E registration album_artists_albums_sort",
+        "locator": "line 164"
+      }
+    },
+    {
+      "id": "m30:album_artists_albums_files_sort",
+      "native_key": "album_artists_albums_files_sort",
+      "field": "F",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.F registration album_artists_albums_files_sort",
+        "locator": "line 165"
+      }
+    },
+    {
+      "id": "m30:albums_by_artist_sort",
+      "native_key": "albums_by_artist_sort",
+      "field": "G",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.G registration albums_by_artist_sort",
+        "locator": "line 166"
+      }
+    },
+    {
+      "id": "m30:albums_by_artist_files_sort",
+      "native_key": "albums_by_artist_files_sort",
+      "field": "I",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.I registration albums_by_artist_files_sort",
+        "locator": "line 167"
+      }
+    },
+    {
+      "id": "m30:genres_sort",
+      "native_key": "genres_sort",
+      "field": "J",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.J registration genres_sort",
+        "locator": "line 168"
+      }
+    },
+    {
+      "id": "m30:genres_files_sort",
+      "native_key": "genres_files_sort",
+      "field": "L",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.L registration genres_files_sort",
+        "locator": "line 169"
+      }
+    },
+    {
+      "id": "m30:genres_albums_sort",
+      "native_key": "genres_albums_sort",
+      "field": "M",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.M registration genres_albums_sort",
+        "locator": "line 170"
+      }
+    },
+    {
+      "id": "m30:genres_albums_files_sort",
+      "native_key": "genres_albums_files_sort",
+      "field": "N",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.N registration genres_albums_files_sort",
+        "locator": "line 171"
+      }
+    },
+    {
+      "id": "m30:composers_sort",
+      "native_key": "composers_sort",
+      "field": "Q",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.Q registration composers_sort",
+        "locator": "line 172"
+      }
+    },
+    {
+      "id": "m30:composers_files_sort",
+      "native_key": "composers_files_sort",
+      "field": "R",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.R registration composers_files_sort",
+        "locator": "line 173"
+      }
+    },
+    {
+      "id": "m30:composers_albums_sort",
+      "native_key": "composers_albums_sort",
+      "field": "S",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.S registration composers_albums_sort",
+        "locator": "line 174"
+      }
+    },
+    {
+      "id": "m30:composers_albums_files_sort",
+      "native_key": "composers_albums_files_sort",
+      "field": "T",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.T registration composers_albums_files_sort",
+        "locator": "line 175"
+      }
+    },
+    {
+      "id": "m30:playlists_sort",
+      "native_key": "playlists_sort",
+      "field": "U",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.U registration playlists_sort",
+        "locator": "line 176"
+      }
+    },
+    {
+      "id": "m30:most_played_files_sort",
+      "native_key": "most_played_files_sort",
+      "field": "V",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.V registration most_played_files_sort",
+        "locator": "line 177"
+      }
+    },
+    {
+      "id": "m30:recently_added_files_sort",
+      "native_key": "recently_added_files_sort",
+      "field": "W",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.W registration recently_added_files_sort",
+        "locator": "line 178"
+      }
+    },
+    {
+      "id": "m30:recently_played_files_sort",
+      "native_key": "recently_played_files_sort",
+      "field": "Y",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.Y registration recently_played_files_sort",
+        "locator": "line 179"
+      }
+    },
+    {
+      "id": "m30:long_files_sort",
+      "native_key": "long_files_sort",
+      "field": "Z",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.Z registration long_files_sort",
+        "locator": "line 180"
+      }
+    },
+    {
+      "id": "m30:years_sort",
+      "native_key": "years_sort",
+      "field": "a0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.a0 registration years_sort",
+        "locator": "line 181"
+      }
+    },
+    {
+      "id": "m30:years_files_sort",
+      "native_key": "years_files_sort",
+      "field": "b0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.b0 registration years_files_sort",
+        "locator": "line 182"
+      }
+    },
+    {
+      "id": "m30:years_albums_sort",
+      "native_key": "years_albums_sort",
+      "field": "c0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.c0 registration years_albums_sort",
+        "locator": "line 183"
+      }
+    },
+    {
+      "id": "m30:years_albums_files_sort",
+      "native_key": "years_albums_files_sort",
+      "field": "d0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.d0 registration years_albums_files_sort",
+        "locator": "line 184"
+      }
+    },
+    {
+      "id": "m30:streams_sort",
+      "native_key": "streams_sort",
+      "field": "e0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.e0 registration streams_sort",
+        "locator": "line 185"
+      }
+    },
+    {
+      "id": "m30:list_zoom_library",
+      "native_key": "list_zoom_library",
+      "field": "l0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.l0 registration list_zoom_library",
+        "locator": "line 192"
+      }
+    },
+    {
+      "id": "m30:list_zoom_files",
+      "native_key": "list_zoom_files",
+      "field": "m0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.m0 registration list_zoom_files",
+        "locator": "line 193"
+      }
+    },
+    {
+      "id": "m30:list_zoom_folders",
+      "native_key": "list_zoom_folders",
+      "field": "n0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.n0 registration list_zoom_folders",
+        "locator": "line 194"
+      }
+    },
+    {
+      "id": "m30:list_zoom_folder_files",
+      "native_key": "list_zoom_folder_files",
+      "field": "o0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.o0 registration list_zoom_folder_files",
+        "locator": "line 195"
+      }
+    },
+    {
+      "id": "m30:list_zoom_folders_hier",
+      "native_key": "list_zoom_folders_hier",
+      "field": "p0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.p0 registration list_zoom_folders_hier",
+        "locator": "line 196"
+      }
+    },
+    {
+      "id": "m30:list_zoom_albums",
+      "native_key": "list_zoom_albums",
+      "field": "q0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.q0 registration list_zoom_albums",
+        "locator": "line 197"
+      }
+    },
+    {
+      "id": "m30:list_zoom_album_files",
+      "native_key": "list_zoom_album_files",
+      "field": "r0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.r0 registration list_zoom_album_files",
+        "locator": "line 198"
+      }
+    },
+    {
+      "id": "m30:list_zoom_albums_by_artist",
+      "native_key": "list_zoom_albums_by_artist",
+      "field": "s0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.s0 registration list_zoom_albums_by_artist",
+        "locator": "line 199"
+      }
+    },
+    {
+      "id": "m30:list_zoom_albums_by_artist_files",
+      "native_key": "list_zoom_albums_by_artist_files",
+      "field": "t0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.t0 registration list_zoom_albums_by_artist_files",
+        "locator": "line 200"
+      }
+    },
+    {
+      "id": "m30:list_zoom_album_artists",
+      "native_key": "list_zoom_album_artists",
+      "field": "u0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.u0 registration list_zoom_album_artists",
+        "locator": "line 201"
+      }
+    },
+    {
+      "id": "m30:list_zoom_album_artists_files",
+      "native_key": "list_zoom_album_artists_files",
+      "field": "v0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.v0 registration list_zoom_album_artists_files",
+        "locator": "line 202"
+      }
+    },
+    {
+      "id": "m30:list_zoom_album_artists_albums",
+      "native_key": "list_zoom_album_artists_albums",
+      "field": "w0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.w0 registration list_zoom_album_artists_albums",
+        "locator": "line 203"
+      }
+    },
+    {
+      "id": "m30:list_zoom_album_artists_albums_files",
+      "native_key": "list_zoom_album_artists_albums_files",
+      "field": "x0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.x0 registration list_zoom_album_artists_albums_files",
+        "locator": "line 204"
+      }
+    },
+    {
+      "id": "m30:list_zoom_artists",
+      "native_key": "list_zoom_artists",
+      "field": "y0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.y0 registration list_zoom_artists",
+        "locator": "line 205"
+      }
+    },
+    {
+      "id": "m30:list_zoom_artist_files",
+      "native_key": "list_zoom_artist_files",
+      "field": "z0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.z0 registration list_zoom_artist_files",
+        "locator": "line 206"
+      }
+    },
+    {
+      "id": "m30:list_zoom_artists_albums",
+      "native_key": "list_zoom_artists_albums",
+      "field": "A0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.A0 registration list_zoom_artists_albums",
+        "locator": "line 207"
+      }
+    },
+    {
+      "id": "m30:list_zoom_artists_albums_files",
+      "native_key": "list_zoom_artists_albums_files",
+      "field": "B0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.B0 registration list_zoom_artists_albums_files",
+        "locator": "line 208"
+      }
+    },
+    {
+      "id": "m30:list_zoom_genres",
+      "native_key": "list_zoom_genres",
+      "field": "C0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.C0 registration list_zoom_genres",
+        "locator": "line 209"
+      }
+    },
+    {
+      "id": "m30:list_zoom_genres_files",
+      "native_key": "list_zoom_genres_files",
+      "field": "D0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.D0 registration list_zoom_genres_files",
+        "locator": "line 210"
+      }
+    },
+    {
+      "id": "m30:list_zoom_genres_albums",
+      "native_key": "list_zoom_genres_albums",
+      "field": "E0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.E0 registration list_zoom_genres_albums",
+        "locator": "line 211"
+      }
+    },
+    {
+      "id": "m30:list_zoom_genres_albums_files",
+      "native_key": "list_zoom_genres_albums_files",
+      "field": "F0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.F0 registration list_zoom_genres_albums_files",
+        "locator": "line 212"
+      }
+    },
+    {
+      "id": "m30:list_zoom_composers",
+      "native_key": "list_zoom_composers",
+      "field": "G0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.G0 registration list_zoom_composers",
+        "locator": "line 213"
+      }
+    },
+    {
+      "id": "m30:list_zoom_composers_files",
+      "native_key": "list_zoom_composers_files",
+      "field": "H0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.H0 registration list_zoom_composers_files",
+        "locator": "line 214"
+      }
+    },
+    {
+      "id": "m30:list_zoom_composers_albums",
+      "native_key": "list_zoom_composers_albums",
+      "field": "I0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.I0 registration list_zoom_composers_albums",
+        "locator": "line 215"
+      }
+    },
+    {
+      "id": "m30:list_zoom_composers_albums_files",
+      "native_key": "list_zoom_composers_albums_files",
+      "field": "J0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.J0 registration list_zoom_composers_albums_files",
+        "locator": "line 216"
+      }
+    },
+    {
+      "id": "m30:list_zoom_playlists",
+      "native_key": "list_zoom_playlists",
+      "field": "K0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.K0 registration list_zoom_playlists",
+        "locator": "line 217"
+      }
+    },
+    {
+      "id": "m30:list_zoom_playlists_files",
+      "native_key": "list_zoom_playlists_files",
+      "field": "L0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.L0 registration list_zoom_playlists_files",
+        "locator": "line 218"
+      }
+    },
+    {
+      "id": "m30:list_zoom_queue",
+      "native_key": "list_zoom_queue",
+      "field": "M0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.M0 registration list_zoom_queue",
+        "locator": "line 219"
+      }
+    },
+    {
+      "id": "m30:list_zoom_most_played_files",
+      "native_key": "list_zoom_most_played_files",
+      "field": "N0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.N0 registration list_zoom_most_played_files",
+        "locator": "line 220"
+      }
+    },
+    {
+      "id": "m30:list_zoom_top_rated_files",
+      "native_key": "list_zoom_top_rated_files",
+      "field": "O0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.O0 registration list_zoom_top_rated_files",
+        "locator": "line 221"
+      }
+    },
+    {
+      "id": "m30:list_zoom_low_rated_files",
+      "native_key": "list_zoom_low_rated_files",
+      "field": "P0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.P0 registration list_zoom_low_rated_files",
+        "locator": "line 222"
+      }
+    },
+    {
+      "id": "m30:list_zoom_recently_added_files",
+      "native_key": "list_zoom_recently_added_files",
+      "field": "Q0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.Q0 registration list_zoom_recently_added_files",
+        "locator": "line 223"
+      }
+    },
+    {
+      "id": "m30:list_zoom_recently_played_files",
+      "native_key": "list_zoom_recently_played_files",
+      "field": "R0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.R0 registration list_zoom_recently_played_files",
+        "locator": "line 224"
+      }
+    },
+    {
+      "id": "m30:list_zoom_long_files",
+      "native_key": "list_zoom_long_files",
+      "field": "S0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.S0 registration list_zoom_long_files",
+        "locator": "line 225"
+      }
+    },
+    {
+      "id": "m30:list_zoom_years",
+      "native_key": "list_zoom_years",
+      "field": "T0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.T0 registration list_zoom_years",
+        "locator": "line 226"
+      }
+    },
+    {
+      "id": "m30:list_zoom_years_files",
+      "native_key": "list_zoom_years_files",
+      "field": "U0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.U0 registration list_zoom_years_files",
+        "locator": "line 227"
+      }
+    },
+    {
+      "id": "m30:list_zoom_years_albums",
+      "native_key": "list_zoom_years_albums",
+      "field": "V0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.V0 registration list_zoom_years_albums",
+        "locator": "line 228"
+      }
+    },
+    {
+      "id": "m30:list_zoom_years_albums_files",
+      "native_key": "list_zoom_years_albums_files",
+      "field": "W0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.W0 registration list_zoom_years_albums_files",
+        "locator": "line 229"
+      }
+    },
+    {
+      "id": "m30:list_zoom_streams",
+      "native_key": "list_zoom_streams",
+      "field": "X0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.X0 registration list_zoom_streams",
+        "locator": "line 230"
+      }
+    },
+    {
+      "id": "m30:list_zoom_bookmarks",
+      "native_key": "list_zoom_bookmarks",
+      "field": "Y0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.Y0 registration list_zoom_bookmarks",
+        "locator": "line 231"
+      }
+    },
+    {
+      "id": "m30:list_zoom_search",
+      "native_key": "list_zoom_search",
+      "field": "Z0",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.Z0 registration list_zoom_search",
+        "locator": "line 232"
+      }
+    },
+    {
+      "id": "m30:long_files_min_duration",
+      "native_key": "long_files_min_duration",
+      "field": "a1",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.a1 registration long_files_min_duration",
+        "locator": "line 233"
+      }
+    },
+    {
+      "id": "m30:list_zoom_lyrics",
+      "native_key": "list_zoom_lyrics",
+      "field": "h1",
+      "registered_default": 0,
+      "source": {
+        "kind": "jadx",
+        "path": "jadx/sources/ׅ/m30.java",
+        "symbol": "m30.h1 registration list_zoom_lyrics",
+        "locator": "line 240"
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "architecture": "x86_64",
+  "adb": null,
+  "emulator": null,
+  "kvm": false,
+  "binder": false,
+  "usb_bus": false,
+  "status": "Native Android execution unavailable in this workspace; static work continues.",
+  "workdroid": {
+    "phone_connected": false,
+    "session_id": null,
+    "bridge_version": null
+  }
+}

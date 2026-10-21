@@ -1,0 +1,1899 @@
+{
+  "source_apk_sha256": "27cfde3fc8e55b2effffe88c7e80ec3a1b1f69ec37a09ef86d9a34aafe8ebb9e",
+  "scope": "All keyed built-in skin option declarations, maintaining separate Light and Black schema order.",
+  "settings": [
+    {
+      "id": "skin.0.alt_layout",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "alt_layout",
+      "control_type": "radio",
+      "order": 2,
+      "title": {
+        "reference": "@string/layout",
+        "base_label": "Layout"
+      },
+      "declarations": {
+        "key": "alt_layout",
+        "name": "@string/layout"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/_default",
+            "base_label": "Default"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "alt_layout option 0",
+            "locator": "line 8"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/skin_alt_layout",
+            "base_label": "Alternative layout"
+          },
+          "selected_resource": "@attr/overlap_alt_layout",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "alt_layout option 1",
+            "locator": "line 9"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/skin_alt_layout2",
+            "base_label": "Full cover"
+          },
+          "selected_resource": "@attr/overlap_alt_layout2",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "alt_layout option 2",
+            "locator": "line 10"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "alt_layout",
+        "locator": "line 7"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.track_labels_align",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "track_labels_align",
+      "control_type": "multiSwitch",
+      "order": 4,
+      "title": {
+        "reference": "@string/track_labels",
+        "base_label": "Track Labels"
+      },
+      "declarations": {
+        "dependency": "alt_layout",
+        "key": "track_labels_align",
+        "name": "@string/track_labels"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/_default",
+            "base_label": "Default"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "track_labels_align option 0",
+            "locator": "line 14"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/centered",
+            "base_label": "Centered"
+          },
+          "selected_resource": "@attr/overlap_track_labels_centered",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "track_labels_align option 1",
+            "locator": "line 15"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "track_labels_align",
+        "locator": "line 13"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.labels_bg",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "labels_bg",
+      "control_type": "multiSwitch",
+      "order": 6,
+      "title": {
+        "reference": "@string/labels_bg",
+        "base_label": "Labels Background"
+      },
+      "declarations": {
+        "dependency": "alt_layout",
+        "key": "labels_bg",
+        "name": "@string/labels_bg"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/enabled",
+            "base_label": "Enabled"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "labels_bg option 0",
+            "locator": "line 19"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/hidden",
+            "base_label": "Hidden"
+          },
+          "selected_resource": "@attr/overlap_track_labels_no_bg",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "labels_bg option 1",
+            "locator": "line 20"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "labels_bg",
+        "locator": "line 18"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.player_buttons_bg",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "player_buttons_bg",
+      "control_type": "multiSwitch",
+      "order": 8,
+      "title": {
+        "reference": "@string/player_buttons_bg",
+        "base_label": "Player Buttons Background"
+      },
+      "declarations": {
+        "key": "player_buttons_bg",
+        "name": "@string/player_buttons_bg"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/enabled",
+            "base_label": "Enabled"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "player_buttons_bg option 0",
+            "locator": "line 24"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/hidden",
+            "base_label": "Hidden"
+          },
+          "selected_resource": "@attr/overlap_player_buttons_no_bg",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "player_buttons_bg option 1",
+            "locator": "line 25"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "player_buttons_bg",
+        "locator": "line 23"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.mu_colors",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "mu_colors",
+      "control_type": "multiSwitch",
+      "order": 10,
+      "title": {
+        "reference": "@string/mu_colors",
+        "base_label": "Material You colors"
+      },
+      "declarations": {
+        "key": "mu_colors",
+        "minSdk": "31",
+        "name": "@string/mu_colors"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/disabled",
+            "base_label": "Disabled"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "mu_colors option 0",
+            "locator": "line 29"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/more_pronounced",
+            "base_label": "More pronounced"
+          },
+          "selected_resource": "@style/ActivityTheme_White_Mu_More",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "mu_colors option 1",
+            "locator": "line 30"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/less_pronounced",
+            "base_label": "Less pronounced"
+          },
+          "selected_resource": "@style/ActivityTheme_White_Mu_Less",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "mu_colors option 2",
+            "locator": "line 31"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "mu_colors",
+        "locator": "line 28"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.font_variant",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "font_variant",
+      "control_type": "multiSwitch",
+      "order": 11,
+      "title": {
+        "reference": "@string/font",
+        "base_label": "Font"
+      },
+      "declarations": {
+        "defaultValue": "@style/ActivityTheme_BoldFont",
+        "key": "font_variant",
+        "name": "@string/font"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/_default",
+            "base_label": "Default"
+          },
+          "selected_resource": "@style/ActivityTheme_SystemFont",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "font_variant option 0",
+            "locator": "line 34"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/skin_alt_font",
+            "base_label": "Alternative font"
+          },
+          "selected_resource": "@style/ActivityTheme_Whitepro_AltFont",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "font_variant option 1",
+            "locator": "line 35"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/bold",
+            "base_label": "Bold"
+          },
+          "selected_resource": "@style/ActivityTheme_BoldFont",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "font_variant option 2",
+            "locator": "line 36"
+          }
+        }
+      ],
+      "default_declared": "@style/ActivityTheme_BoldFont",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "font_variant",
+        "locator": "line 33"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.rounding",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "rounding",
+      "control_type": "multiSwitch",
+      "order": 12,
+      "title": {
+        "reference": "@string/skin_rounded_corners",
+        "base_label": "Rounded Corners"
+      },
+      "declarations": {
+        "key": "rounding",
+        "name": "@string/skin_rounded_corners"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/skin_more_rounded",
+            "base_label": "More rounded"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "rounding option 0",
+            "locator": "line 39"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/skin_less_rounded",
+            "base_label": "Less rounded"
+          },
+          "selected_resource": "@attr/overlap_less_rounding",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "rounding option 1",
+            "locator": "line 40"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "rounding",
+        "locator": "line 38"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.seekbar",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "seekbar",
+      "control_type": "multiSwitch",
+      "order": 13,
+      "title": {
+        "reference": "@string/skin_seekbar_style",
+        "base_label": "Seekbar Style"
+      },
+      "declarations": {
+        "defaultValue": "",
+        "key": "seekbar",
+        "name": "@string/skin_seekbar_style"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/default_string",
+            "base_label": "Default"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "seekbar option 0",
+            "locator": "line 43"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/skin_static_seekbar",
+            "base_label": "Static Seekbar"
+          },
+          "selected_resource": "@style/ActivityTheme_Whitepro_StaticSeekbar",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "seekbar option 1",
+            "locator": "line 44"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/pref_plain_seekbar_with_buttons",
+            "base_label": "Simple Seekbar (with Pro Buttons)"
+          },
+          "selected_resource": "@attr/overlap_plain_seekbar",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "seekbar option 2",
+            "locator": "line 45"
+          }
+        }
+      ],
+      "default_declared": "",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "seekbar",
+        "locator": "line 42"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.more_buttons",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "more_buttons",
+      "control_type": "option",
+      "order": 14,
+      "title": {
+        "reference": "@string/skin_more_buttons",
+        "base_label": "Pro Buttons"
+      },
+      "declarations": {
+        "checkedByDefault": "true",
+        "key": "more_buttons",
+        "name": "@string/skin_more_buttons",
+        "overlapAttr": "@attr/overlap_more_buttons",
+        "summary": "@string/skin_summary_more_buttons"
+      },
+      "choices": [],
+      "default_declared": "true",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "more_buttons",
+        "locator": "line 47"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.light_buttons",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "light_buttons",
+      "control_type": "option",
+      "order": 15,
+      "title": {
+        "reference": "@string/skin_light_buttons",
+        "base_label": "More Light"
+      },
+      "declarations": {
+        "checkedByDefault": "false",
+        "key": "light_buttons",
+        "name": "@string/skin_light_buttons",
+        "overlapAttr": "@attr/overlap_light_buttons",
+        "summary": "@string/skin_summary_light_buttons"
+      },
+      "choices": [],
+      "default_declared": "false",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "light_buttons",
+        "locator": "line 48"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.knob_hilite",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "knob_hilite",
+      "control_type": "multiSwitch",
+      "order": 16,
+      "title": {
+        "reference": "@string/skin_knob_hilite",
+        "base_label": "Knob Highlight"
+      },
+      "declarations": {
+        "defaultValue": "@attr/overlap_knobs_hilite_color",
+        "key": "knob_hilite",
+        "name": "@string/skin_knob_hilite"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/none",
+            "base_label": "None"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "knob_hilite option 0",
+            "locator": "line 50"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/monochromatic",
+            "base_label": "Monochromatic"
+          },
+          "selected_resource": "@attr/overlap_knobs_hilite_mono",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "knob_hilite option 1",
+            "locator": "line 51"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/colorful",
+            "base_label": "Colorful"
+          },
+          "selected_resource": "@attr/overlap_knobs_hilite_color",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "knob_hilite option 2",
+            "locator": "line 52"
+          }
+        }
+      ],
+      "default_declared": "@attr/overlap_knobs_hilite_color",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "knob_hilite",
+        "locator": "line 49"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.graphic_frs_color",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "graphic_frs_color",
+      "control_type": "multiSwitch",
+      "order": 17,
+      "title": {
+        "reference": "@string/skin_graphic_mode_frequency_curve",
+        "base_label": "Eq. Graphic Mode Curve"
+      },
+      "declarations": {
+        "defaultValue": "@attr/overlap_graphic_frs_color",
+        "key": "graphic_frs_color",
+        "name": "@string/skin_graphic_mode_frequency_curve"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/monochromatic",
+            "base_label": "Monochromatic"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "graphic_frs_color option 0",
+            "locator": "line 55"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/colorful",
+            "base_label": "Colorful"
+          },
+          "selected_resource": "@attr/overlap_graphic_frs_color",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "graphic_frs_color option 1",
+            "locator": "line 56"
+          }
+        }
+      ],
+      "default_declared": "@attr/overlap_graphic_frs_color",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "graphic_frs_color",
+        "locator": "line 54"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.force_light_navbar",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "force_light_navbar",
+      "control_type": "option",
+      "order": 18,
+      "title": {
+        "reference": "@string/skin_force_light_navbar",
+        "base_label": "Force Light Nav. Bar"
+      },
+      "declarations": {
+        "checkedByDefault": "false",
+        "key": "force_light_navbar",
+        "name": "@string/skin_force_light_navbar",
+        "overlapStyle": "@style/ActivityTheme_Whitepro_ForceLightNavbar",
+        "summary": "@string/skin_summary_force_light_navbar"
+      },
+      "choices": [],
+      "default_declared": "false",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "force_light_navbar",
+        "locator": "line 58"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.navbar_bg",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "navbar_bg",
+      "control_type": "multiSwitch",
+      "order": 20,
+      "title": {
+        "reference": "@string/skin_transparent_navbar",
+        "base_label": "Transparent Navbar"
+      },
+      "declarations": {
+        "defaultValue": "",
+        "key": "navbar_bg",
+        "name": "@string/skin_transparent_navbar",
+        "summary": "@string/applied_on_main_screen"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/default_string",
+            "base_label": "Default"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "navbar_bg option 0",
+            "locator": "line 61"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/semi_transparent",
+            "base_label": "Semi-transparent"
+          },
+          "selected_resource": "@attr/overlap_transparent_navbar",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "navbar_bg option 1",
+            "locator": "line 62"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/no_background",
+            "base_label": "No Background"
+          },
+          "selected_resource": "@style/ActivityTheme_Whitepro_NoMainNavbarBg",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "navbar_bg option 2",
+            "locator": "line 63"
+          }
+        }
+      ],
+      "default_declared": "",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "navbar_bg",
+        "locator": "line 60"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.navbar_offset",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "navbar_offset",
+      "control_type": "option",
+      "order": 21,
+      "title": {
+        "reference": "@string/skin_navbar_offset",
+        "base_label": "Offset Navbar"
+      },
+      "declarations": {
+        "checkedByDefault": "false",
+        "key": "navbar_offset",
+        "name": "@string/skin_navbar_offset",
+        "overlapAttr": "@attr/overlap_navbar_offset",
+        "summary": "@string/skin_summary_navbar_offset"
+      },
+      "choices": [],
+      "default_declared": "false",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "navbar_offset",
+        "locator": "line 65"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.0.android_navbar_bg",
+      "skin_style": "@style/ActivityTheme_White",
+      "skin_name": {
+        "reference": "@string/skin_light",
+        "base_label": "Light"
+      },
+      "native_key": "android_navbar_bg",
+      "control_type": "multiSwitch",
+      "order": 22,
+      "title": {
+        "reference": "@string/android_navbar",
+        "base_label": "Android Navigation Bar"
+      },
+      "declarations": {
+        "defaultValue": "",
+        "key": "android_navbar_bg",
+        "name": "@string/android_navbar"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/default_string",
+            "base_label": "Default"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "android_navbar_bg option 0",
+            "locator": "line 67"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/no_background",
+            "base_label": "No Background"
+          },
+          "selected_resource": "@style/ActivityTheme_NoAndroidNavbarBg",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "android_navbar_bg option 1",
+            "locator": "line 68"
+          }
+        }
+      ],
+      "default_declared": "",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "android_navbar_bg",
+        "locator": "line 66"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.alt_layout",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "alt_layout",
+      "control_type": "radio",
+      "order": 2,
+      "title": {
+        "reference": "@string/layout",
+        "base_label": "Layout"
+      },
+      "declarations": {
+        "key": "alt_layout",
+        "name": "@string/layout"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/_default",
+            "base_label": "Default"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "alt_layout option 0",
+            "locator": "line 75"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/skin_alt_layout",
+            "base_label": "Alternative layout"
+          },
+          "selected_resource": "@attr/overlap_alt_layout",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "alt_layout option 1",
+            "locator": "line 76"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/skin_alt_layout2",
+            "base_label": "Full cover"
+          },
+          "selected_resource": "@attr/overlap_alt_layout2",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "alt_layout option 2",
+            "locator": "line 77"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "alt_layout",
+        "locator": "line 74"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.track_labels_align",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "track_labels_align",
+      "control_type": "multiSwitch",
+      "order": 4,
+      "title": {
+        "reference": "@string/track_labels",
+        "base_label": "Track Labels"
+      },
+      "declarations": {
+        "dependency": "alt_layout",
+        "key": "track_labels_align",
+        "name": "@string/track_labels"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/_default",
+            "base_label": "Default"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "track_labels_align option 0",
+            "locator": "line 81"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/centered",
+            "base_label": "Centered"
+          },
+          "selected_resource": "@attr/overlap_track_labels_centered",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "track_labels_align option 1",
+            "locator": "line 82"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "track_labels_align",
+        "locator": "line 80"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.labels_bg",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "labels_bg",
+      "control_type": "multiSwitch",
+      "order": 6,
+      "title": {
+        "reference": "@string/labels_bg",
+        "base_label": "Labels Background"
+      },
+      "declarations": {
+        "dependency": "alt_layout",
+        "key": "labels_bg",
+        "name": "@string/labels_bg"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/enabled",
+            "base_label": "Enabled"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "labels_bg option 0",
+            "locator": "line 86"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/hidden",
+            "base_label": "Hidden"
+          },
+          "selected_resource": "@attr/overlap_track_labels_no_bg",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "labels_bg option 1",
+            "locator": "line 87"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "labels_bg",
+        "locator": "line 85"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.player_buttons_bg",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "player_buttons_bg",
+      "control_type": "multiSwitch",
+      "order": 8,
+      "title": {
+        "reference": "@string/player_buttons_bg",
+        "base_label": "Player Buttons Background"
+      },
+      "declarations": {
+        "key": "player_buttons_bg",
+        "name": "@string/player_buttons_bg"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/enabled",
+            "base_label": "Enabled"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "player_buttons_bg option 0",
+            "locator": "line 91"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/hidden",
+            "base_label": "Hidden"
+          },
+          "selected_resource": "@attr/overlap_player_buttons_no_bg",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "player_buttons_bg option 1",
+            "locator": "line 92"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "player_buttons_bg",
+        "locator": "line 90"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.mu_colors",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "mu_colors",
+      "control_type": "multiSwitch",
+      "order": 10,
+      "title": {
+        "reference": "@string/mu_colors",
+        "base_label": "Material You colors"
+      },
+      "declarations": {
+        "key": "mu_colors",
+        "minSdk": "31",
+        "name": "@string/mu_colors"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/disabled",
+            "base_label": "Disabled"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "mu_colors option 0",
+            "locator": "line 96"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/more_pronounced",
+            "base_label": "More pronounced"
+          },
+          "selected_resource": "@style/ActivityTheme_Black_Mu_More",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "mu_colors option 1",
+            "locator": "line 97"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/less_pronounced",
+            "base_label": "Less pronounced"
+          },
+          "selected_resource": "@style/ActivityTheme_Black_Mu_Less",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "mu_colors option 2",
+            "locator": "line 98"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "mu_colors",
+        "locator": "line 95"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.font_variant",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "font_variant",
+      "control_type": "multiSwitch",
+      "order": 11,
+      "title": {
+        "reference": "@string/font",
+        "base_label": "Font"
+      },
+      "declarations": {
+        "defaultValue": "@style/ActivityTheme_BoldFont",
+        "key": "font_variant",
+        "name": "@string/font"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/_default",
+            "base_label": "Default"
+          },
+          "selected_resource": "@style/ActivityTheme_SystemFont",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "font_variant option 0",
+            "locator": "line 101"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/skin_alt_font",
+            "base_label": "Alternative font"
+          },
+          "selected_resource": "@style/ActivityTheme_Whitepro_AltFont",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "font_variant option 1",
+            "locator": "line 102"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/bold",
+            "base_label": "Bold"
+          },
+          "selected_resource": "@style/ActivityTheme_BoldFont",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "font_variant option 2",
+            "locator": "line 103"
+          }
+        }
+      ],
+      "default_declared": "@style/ActivityTheme_BoldFont",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "font_variant",
+        "locator": "line 100"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.rounding",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "rounding",
+      "control_type": "multiSwitch",
+      "order": 12,
+      "title": {
+        "reference": "@string/skin_rounded_corners",
+        "base_label": "Rounded Corners"
+      },
+      "declarations": {
+        "key": "rounding",
+        "name": "@string/skin_rounded_corners"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/skin_more_rounded",
+            "base_label": "More rounded"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "rounding option 0",
+            "locator": "line 106"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/skin_less_rounded",
+            "base_label": "Less rounded"
+          },
+          "selected_resource": "@attr/overlap_less_rounding",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "rounding option 1",
+            "locator": "line 107"
+          }
+        }
+      ],
+      "default_declared": null,
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "rounding",
+        "locator": "line 105"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.seekbar",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "seekbar",
+      "control_type": "multiSwitch",
+      "order": 13,
+      "title": {
+        "reference": "@string/skin_seekbar_style",
+        "base_label": "Seekbar Style"
+      },
+      "declarations": {
+        "defaultValue": "",
+        "key": "seekbar",
+        "name": "@string/skin_seekbar_style"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/default_string",
+            "base_label": "Default"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "seekbar option 0",
+            "locator": "line 110"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/skin_static_seekbar",
+            "base_label": "Static Seekbar"
+          },
+          "selected_resource": "@style/ActivityTheme_Blackpro_StaticSeekbar",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "seekbar option 1",
+            "locator": "line 111"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/pref_plain_seekbar_with_buttons",
+            "base_label": "Simple Seekbar (with Pro Buttons)"
+          },
+          "selected_resource": "@attr/overlap_plain_seekbar",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "seekbar option 2",
+            "locator": "line 112"
+          }
+        }
+      ],
+      "default_declared": "",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "seekbar",
+        "locator": "line 109"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.more_buttons",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "more_buttons",
+      "control_type": "option",
+      "order": 14,
+      "title": {
+        "reference": "@string/skin_more_buttons",
+        "base_label": "Pro Buttons"
+      },
+      "declarations": {
+        "checkedByDefault": "true",
+        "key": "more_buttons",
+        "name": "@string/skin_more_buttons",
+        "overlapAttr": "@attr/overlap_more_buttons",
+        "summary": "@string/skin_summary_more_buttons"
+      },
+      "choices": [],
+      "default_declared": "true",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "more_buttons",
+        "locator": "line 114"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.knob_hilite",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "knob_hilite",
+      "control_type": "multiSwitch",
+      "order": 15,
+      "title": {
+        "reference": "@string/skin_knob_hilite",
+        "base_label": "Knob Highlight"
+      },
+      "declarations": {
+        "defaultValue": "@attr/overlap_knobs_hilite_color",
+        "key": "knob_hilite",
+        "name": "@string/skin_knob_hilite"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/none",
+            "base_label": "None"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "knob_hilite option 0",
+            "locator": "line 116"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/monochromatic",
+            "base_label": "Monochromatic"
+          },
+          "selected_resource": "@attr/overlap_knobs_hilite_mono",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "knob_hilite option 1",
+            "locator": "line 117"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/colorful",
+            "base_label": "Colorful"
+          },
+          "selected_resource": "@attr/overlap_knobs_hilite_color",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "knob_hilite option 2",
+            "locator": "line 118"
+          }
+        }
+      ],
+      "default_declared": "@attr/overlap_knobs_hilite_color",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "knob_hilite",
+        "locator": "line 115"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.graphic_frs_color",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "graphic_frs_color",
+      "control_type": "multiSwitch",
+      "order": 16,
+      "title": {
+        "reference": "@string/skin_graphic_mode_frequency_curve",
+        "base_label": "Eq. Graphic Mode Curve"
+      },
+      "declarations": {
+        "defaultValue": "@attr/overlap_graphic_frs_color",
+        "key": "graphic_frs_color",
+        "name": "@string/skin_graphic_mode_frequency_curve"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/monochromatic",
+            "base_label": "Monochromatic"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "graphic_frs_color option 0",
+            "locator": "line 121"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/colorful",
+            "base_label": "Colorful"
+          },
+          "selected_resource": "@attr/overlap_graphic_frs_color",
+          "overlay_kind": "attribute",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "graphic_frs_color option 1",
+            "locator": "line 122"
+          }
+        }
+      ],
+      "default_declared": "@attr/overlap_graphic_frs_color",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "graphic_frs_color",
+        "locator": "line 120"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.statusbar_bg",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "statusbar_bg",
+      "control_type": "multiSwitch",
+      "order": 17,
+      "title": {
+        "reference": "@string/skin_transparent_statusbar",
+        "base_label": "Transparent Status Bar"
+      },
+      "declarations": {
+        "defaultValue": "",
+        "key": "statusbar_bg",
+        "name": "@string/skin_transparent_statusbar"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/default_string",
+            "base_label": "Default"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "statusbar_bg option 0",
+            "locator": "line 125"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/no_background",
+            "base_label": "No Background"
+          },
+          "selected_resource": "@style/ActivityTheme_Black_NoStatusBar",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "statusbar_bg option 1",
+            "locator": "line 126"
+          }
+        }
+      ],
+      "default_declared": "",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "statusbar_bg",
+        "locator": "line 124"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.navbar_bg",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "navbar_bg",
+      "control_type": "multiSwitch",
+      "order": 19,
+      "title": {
+        "reference": "@string/skin_transparent_navbar",
+        "base_label": "Transparent Navbar"
+      },
+      "declarations": {
+        "defaultValue": "",
+        "key": "navbar_bg",
+        "name": "@string/skin_transparent_navbar",
+        "summary": "@string/applied_on_main_screen"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/default_string",
+            "base_label": "Default"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "navbar_bg option 0",
+            "locator": "line 130"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/semi_transparent",
+            "base_label": "Semi-transparent"
+          },
+          "selected_resource": "@style/ActivityTheme_Blackpro_TransparentNavbar",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "navbar_bg option 1",
+            "locator": "line 131"
+          }
+        },
+        {
+          "index_for_display_only": 2,
+          "label": {
+            "reference": "@string/no_background",
+            "base_label": "No Background"
+          },
+          "selected_resource": "@style/ActivityTheme_Blackpro_NoMainNavbarBg",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "navbar_bg option 2",
+            "locator": "line 132"
+          }
+        }
+      ],
+      "default_declared": "",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "navbar_bg",
+        "locator": "line 129"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.navbar_offset",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "navbar_offset",
+      "control_type": "option",
+      "order": 21,
+      "title": {
+        "reference": "@string/skin_navbar_offset",
+        "base_label": "Offset Navbar"
+      },
+      "declarations": {
+        "checkedByDefault": "false",
+        "key": "navbar_offset",
+        "name": "@string/skin_navbar_offset",
+        "overlapAttr": "@attr/overlap_navbar_offset",
+        "summary": "@string/skin_summary_navbar_offset"
+      },
+      "choices": [],
+      "default_declared": "false",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "navbar_offset",
+        "locator": "line 135"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    },
+    {
+      "id": "skin.1.android_navbar_bg",
+      "skin_style": "@style/ActivityTheme_Black",
+      "skin_name": {
+        "reference": "@string/skin_black",
+        "base_label": "Dark"
+      },
+      "native_key": "android_navbar_bg",
+      "control_type": "multiSwitch",
+      "order": 22,
+      "title": {
+        "reference": "@string/android_navbar",
+        "base_label": "Android Navigation Bar"
+      },
+      "declarations": {
+        "defaultValue": "",
+        "key": "android_navbar_bg",
+        "name": "@string/android_navbar"
+      },
+      "choices": [
+        {
+          "index_for_display_only": 0,
+          "label": {
+            "reference": "@string/default_string",
+            "base_label": "Default"
+          },
+          "selected_resource": 0,
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "android_navbar_bg option 0",
+            "locator": "line 137"
+          }
+        },
+        {
+          "index_for_display_only": 1,
+          "label": {
+            "reference": "@string/no_background",
+            "base_label": "No Background"
+          },
+          "selected_resource": "@style/ActivityTheme_NoAndroidNavbarBg",
+          "overlay_kind": "style",
+          "source": {
+            "kind": "apk-resource",
+            "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+            "symbol": "android_navbar_bg option 1",
+            "locator": "line 138"
+          }
+        }
+      ],
+      "default_declared": "",
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+        "symbol": "android_navbar_bg",
+        "locator": "line 136"
+      },
+      "status": "CONFIRMED_STATIC",
+      "scope": "Built-in skin schema; persisted identifiers and effective style resolution are specified separately."
+    }
+  ]
+}

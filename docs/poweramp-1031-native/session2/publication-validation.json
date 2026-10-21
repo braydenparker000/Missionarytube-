@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "reviewed_files": 56,
+  "reviewed_bytes": 6200251,
+  "relative_links_checked": 38,
+  "application_checkout": "clean",
+  "scope": "docs/poweramp-1031-native/session2/",
+  "allowed_payloads": "Original technical reports, bounded metadata, source hashes and original analysis scripts only. No APK, DEX, smali/Java dump, fonts, images, native binaries or credentials.",
+  "errors": []
+}

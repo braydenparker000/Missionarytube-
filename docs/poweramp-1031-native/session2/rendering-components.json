@@ -1,0 +1,1489 @@
+{
+  "schema": "poweramp1031-session2-rendering-components-v1",
+  "apk_sha256": "27cfde3fc8e55b2effffe88c7e80ec3a1b1f69ec37a09ef86d9a34aafe8ebb9e",
+  "evidence_scope": "static only; no native runtime observations",
+  "component_count": 23,
+  "components": [
+    {
+      "component_id": "eq.composition",
+      "title": "EQ construction and shared data input",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "EqKnobsList",
+        "com.maxmpz.widget.player.В",
+        "DSPRoundKnobLayout",
+        "FrequencyResponseScroller",
+        "MilkFRS"
+      ],
+      "reachable_construction": "merge_eq_equalizer_tab_common.xml constructs three distinct surfaces: EqKnobsList, MilkFRS and FrequencyResponseScroller. EqKnobsList creates its own adapter В; adapter о constructs preamp, graphic-band or parametric-card Views from live Band[] data.",
+      "rendering_contract": [
+        "EQ is a composition of dynamically constructed band controls, a native audio-reactive MilkFRS texture, and a separate Canvas response/scroll-overview widget. The native texture does not own the response curve.",
+        "EqKnobsList.m0 reads dsp_eq_live_bands_snapshot, dsp_enabled and dsp_eq_enabled. On attachment it subscribes to bus_dsp and loads that state; msg_dsp_started and structural msg_dsp_eq_changed reload it. The adapter sets its parametric-presentation flag when Band[] is nonnull and either empty or its first Band.х is true; it creates f10 for graphic gain, c10 for a parametric card, as for preamp, and add/select controls for parametric lists. Its dispatchDraw clips children to [0,0,width,height].",
+        "Bass/treble, stereo/balance/tempo/volume and reverb XML create DSPRoundKnobLayout variants with explicit DSP parameter and enabling-parameter IDs. DSPRoundKnobLayout constructs bs (RoundKnob subclass), labels and optional lock controls from style references. These are actual construction routes, not class-name inventories."
+      ],
+      "values_and_units": {},
+      "conditions": [],
+      "uncertainties": [
+        "No runtime rendering was observed; effective results require explicit configuration and device metric inputs."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-001"
+      ],
+      "sources": [
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/merge_eq_equalizer_tab_common.xml",
+          "symbol": "EqKnobsList,MilkFRS,FrequencyResponseScroller,tone_panel",
+          "locator": "lines4-6,27-30"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/EqKnobsList.java",
+          "symbol": "constructor,m0,onAttachedToWindow,onBusMsg,dispatchDraw",
+          "locator": "lines69-89,115-121,167-175,201-235"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/В.java",
+          "symbol": "o,о,О",
+          "locator": "lines188-201,220 onward,333 onward"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/DSPRoundKnobLayout.java",
+          "symbol": "constructor,t1,u1",
+          "locator": "lines50-82,117-172"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/merge_eq_vol_tab.xml",
+          "symbol": "DSPRoundKnobLayout parameter bindings",
+          "locator": "balance,sfx,tempo,volume"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/merge_eq_reverb_tab.xml",
+          "symbol": "DSPRoundKnobLayout",
+          "locator": "reverb parameter children"
+        }
+      ]
+    },
+    {
+      "component_id": "eq.round_knob.geometry",
+      "title": "Round knob drawing and angle model",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "RoundKnob",
+        "bs",
+        "rk1"
+      ],
+      "reachable_construction": "DSPRoundKnobLayout constructs bs; c10 constructs plain RoundKnob for frequency and Q; preference_roundknob and the sleep timer instantiate the same RoundKnob class.",
+      "rendering_contract": [
+        "RoundKnob draws a stateful knob Drawable, an optional stroked arc and a separately rotated indicator Drawable; it is not a single rotated bitmap.",
+        "For painted normalized value C, indicator angle is minDegree+C*(maxDegree-minDegree). Constructor fallbacks are30° and330°, subject to style. rotateKnob=true rotates the knob body by angle−minDegree; the indicator rotates by the full angle. Canvas is translated by padding, arc inset G and gravity offsets; drawable bounds and pivot are set on size changes.",
+        "The arc requires arcStartColor and positive arcWidth. Its signed sweep is (maxDegree−minDegree)*(C−arcStartPoint). It is a ROUND-cap stroked Path outside the knob bounds, with arcOffset, cap-end angular correction and support for additional revolutions. Glow is conditional on API>=29 and s41.B(), plus positive glow width/color. Shape, indicator scale, offsets and state lists remain theme inputs.",
+        "Critical angle calculation was read in smali because JADX shows an undefined temporary in onDraw. Source coordinates are resolved Android pixels; constructor angle values are degrees."
+      ],
+      "values_and_units": {
+        "constructor_min_degrees": 30,
+        "constructor_max_degrees": 330,
+        "painted_value_domain": [
+          0,
+          1
+        ],
+        "angle_formula": "min+C*(max-min)"
+      },
+      "conditions": [],
+      "uncertainties": [
+        "No runtime rendering was observed; effective results require explicit configuration and device metric inputs."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-002"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/RoundKnob.java",
+          "symbol": "onDraw,onSizeChanged,constructor",
+          "locator": "lines432-506,582-663,935-1066"
+        },
+        {
+          "kind": "smali",
+          "path": "decoded/smali/com/maxmpz/widget/player/RoundKnob.smali",
+          "symbol": "onDraw",
+          "locator": "file2640 onward, angle sub/mul/add instructions"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/wa1.java",
+          "symbol": "r0",
+          "locator": "line89 attribute order"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "EqRoundKnob,EqToneRoundKnob",
+          "locator": "lines4027-4050"
+        }
+      ]
+    },
+    {
+      "component_id": "eq.knob.value_color_animation",
+      "title": "Knob values and colors have separate animation paths",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "RoundKnob.d",
+        "LinearKnob.k",
+        "ׅ/in",
+        "AUtils"
+      ],
+      "reachable_construction": "RoundKnob and LinearKnob instantiate color animator in for start/mid/end color-state lists; their own value animators update painted values independently.",
+      "rendering_contract": [
+        "Knob highlight colors interpolate HSV channels and alpha, while painted value animation and state-color animation are separate mechanisms.",
+        "in.p resolves disabled/pressed/default ColorStateLists. AUtils.Х converts color to HSV+alpha; AUtils.l linearly interpolates all four components, with an optional midpoint at normalized.5, and AUtils.j converts back. Hue follows literal numeric interpolation; no shortest-hue wrapping is present in that method. in requests300ms for animated state-color changes; direct value changes can update color immediately.",
+        "RoundKnob.d clamps target to0..1 and requests120ms when absolute delta<=.05, otherwise400ms, using DecelerateInterpolator(2). Changes<=.001 or ineligible attachment/show modes apply immediately. LinearKnob.k requests a linear animator with base500ms, distance scaling and minimum100ms; h5 computes the final duration. These code paths do not establish measured frame cadence.",
+        "The registered built-in knob_hilite option selects colorful start/end lists. Their disabled alpha can be zero; pressed colors differ. A constructor consumed attribute may come directly from the final theme even when the component style bag omits it. Therefore an absent arcStartColor/holeStartColor in a component bag does not establish that highlighting is disabled."
+      ],
+      "values_and_units": {
+        "state_color_ms": 300,
+        "round_small_change_ms": 120,
+        "round_large_change_ms": 400,
+        "linear_base_ms": 500,
+        "linear_min_ms": 100,
+        "color_space": "HSV plus alpha"
+      },
+      "conditions": [],
+      "uncertainties": [
+        "Effective animation eligibility depends on widget state and update call.",
+        "No color rasterization comparison; state ColorStateList resources and custom animator timing must be distinguished."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-003"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/in.java",
+          "symbol": "constructor,p,р,P",
+          "locator": "lines25-135"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/utils/AUtils.java",
+          "symbol": "Х,l,j",
+          "locator": "lines810-813,449-455,425-427"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/RoundKnob.java",
+          "symbol": "d,constructor",
+          "locator": "lines178-230,1054"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/LinearKnob.java",
+          "symbol": "k",
+          "locator": "lines238-273"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/h5.java",
+          "symbol": "Х",
+          "locator": "duration scaling/minimum branch"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+          "symbol": "knob_hilite",
+          "locator": "lines49-53,115-119"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/color-sw2dp/eq_arc_start_colorful_selector.xml",
+          "symbol": "selector",
+          "locator": "disabled,pressed,default"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "ActivityTheme_Whitepro_EqKnobsHiliteColorful",
+          "locator": "lines11677 onward"
+        }
+      ]
+    },
+    {
+      "component_id": "eq.linear_knob.geometry",
+      "title": "Linear knob: track, fill, label and thumb",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "LinearKnob",
+        "KnobLabelAndValue",
+        "b10"
+      ],
+      "reachable_construction": "EqKnobsList adapter constructs f10(context,EqLinearKnob) and as(context,EqPreampLinearKnob); parametric c10 constructs f10 with EqParamGainLinearKnob.",
+      "rendering_contract": [
+        "LinearKnob draws the hole Drawable, optional rounded highlight rectangle, KnobLabelAndValue contents and thumb Drawable in that order. Dashed reference lines are a separate b10 background Drawable.",
+        "Thumb bounds depend on orientation, available length f(), drawable padding and intrinsic/overridden thumb width/height. Vertical painted value J moves upward as J increases; horizontal J moves rightward. Highlight start fraction h0 is independent of J. The smali-confirmed vertical rectangle uses y endpoints g0 and hole.bottom−h0*(hole.bottom−hole.top); horizontal endpoints are hole.left+h0*hole.width and g0. The code does not explicitly sort those endpoints; do not silently substitute a different negative-gain fill rule.",
+        "b10 draws three translated reference strokes, with distinct center and outer colors and a density-scaled dash pattern. EqLinearKnob declares dashes0,8,3,18,3,8; stroke1dp; a thumb/hole selector; explicit thumb dimension resources; minimum touch size48dp. The class fallback touch size24dp is therefore not the EQ effective declaration.",
+        "KnobLabelAndValue owns two Paints, label/value text, label background and state/pressed handling. Its draw and measure paths reserve text extents before knob geometry; treating labels as a fixed separate caption can alter usable travel."
+      ],
+      "values_and_units": {
+        "eq_min_touch_dp": 48,
+        "constructor_min_touch_dp": 24,
+        "reference_stroke_dp": 1,
+        "reference_dash_dp": [
+          0,
+          8,
+          3,
+          18,
+          3,
+          8
+        ]
+      },
+      "conditions": [],
+      "uncertainties": [
+        "Inverted highlight endpoint rasterization requires native pixel observation; report preserves literal source order.",
+        "Actual thumb/hole bitmap shapes remain proprietary resources; effective sizes require configuration resolver."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-004"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/LinearKnob.java",
+          "symbol": "f,g,h,onDraw,onMeasure,constructor",
+          "locator": "lines133-191,294-337,462-575,886-1008"
+        },
+        {
+          "kind": "smali",
+          "path": "decoded/smali/com/maxmpz/widget/player/LinearKnob.smali",
+          "symbol": "onDraw",
+          "locator": "file2099-2370; :cond_0,:cond_1,:goto_0"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/KnobLabelAndValue.java",
+          "symbol": "onDraw,onMeasure",
+          "locator": "lines232-353"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/b10.java",
+          "symbol": "constructor,draw,onBoundsChange",
+          "locator": "lines28-131"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "EqLinearKnob,EqPreampLinearKnob",
+          "locator": "lines3775-3810"
+        }
+      ]
+    },
+    {
+      "component_id": "eq.value_labels",
+      "title": "EQ labels, tone labels and unit conversion",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "f10",
+        "LinearKnob.q",
+        "DSPToneRoundKnobLayout",
+        "c40"
+      ],
+      "reachable_construction": "f10 constructor and preamp adapter call LinearKnob.q with label preference; DSPToneRoundKnobLayout configures its child RoundKnob after construction.",
+      "rendering_contract": [
+        "Graphic-band and preamp control progress is normalized; numeric text is a separate formatter selected by eq_labels or tone_labels.",
+        "f10 uses q(-15,+15,c40.R); preamp uses q(-24,+24,c40.R). LinearKnob.q option1 uses %.1f with midpoint0 at normalized.5; option2 uses localized percentage−100..100; other options suppress numeric formatting. Registered eq_labels default is1. Band.X is normalized from−1..1 to0..1 on binding.",
+        "DSPToneRoundKnobLayout reads tone_labels:0 suppresses numerical format;1 displays0..15 with one decimal; other values use0..100 percent with zero decimals. Registered tone_labels default is2. Frequency and Q use Band-provided cs format/conversion objects; their units and nonlinear mappings must not be inferred from the common normalized knob angle.",
+        "Registered defaults are evidence about initial preference declarations. Migration or existing preferences can produce a different active value even on a newly installed update."
+      ],
+      "values_and_units": {
+        "registered_eq_labels": 1,
+        "registered_tone_labels": 2,
+        "band_numeric_range": [
+          -15,
+          15
+        ],
+        "preamp_numeric_range": [
+          -24,
+          24
+        ],
+        "tone_percent_range": [
+          0,
+          100
+        ]
+      },
+      "conditions": [],
+      "uncertainties": [
+        "Active configuration must be supplied; relevant fresh initialization is documented by the settings-system reference.",
+        "Full frequency/Q DSP-value conversion model belongs to DSP parameter definitions; not assumed linear."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-005"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/f10.java",
+          "symbol": "constructor,С,р",
+          "locator": "lines17-21,52-68"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/В.java",
+          "symbol": "о preamp",
+          "locator": "preamp q(-24,24,c40.R)"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/LinearKnob.java",
+          "symbol": "q",
+          "locator": "lines790-801"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/DSPToneRoundKnobLayout.java",
+          "symbol": "constructor,v1",
+          "locator": "lines18-65"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/c40.java",
+          "symbol": "R,S",
+          "locator": "lines162-163"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/c10.java",
+          "symbol": "С",
+          "locator": "lines305-354"
+        }
+      ]
+    },
+    {
+      "component_id": "eq.parametric_card",
+      "title": "Parametric band composition and color background",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "c10",
+        "h10",
+        "RoundKnob",
+        "f10"
+      ],
+      "reachable_construction": "EqKnobsList adapter chooses _param→new c10(context) when Band.х marks parametric bands.",
+      "rendering_contract": [
+        "A parametric band card contains gain slider, frequency/Q round knobs, type and channel popup buttons, color popup, edit/lock controls, selection box and drag handle.",
+        "c10 builds these children programmatically with individual EqParam* style attributes. h10 draws either an inset rounded filled card using the band color, or a vertical dashed separator when fill color is zero and the card is not last. The color popup uses ColorCircleSelector.",
+        "c10.z animates old/new band background color for250ms via AUtils.X, К case3 and AUtils.m. That conversion is CIELAB plus alpha (sRGB transfer function, XYZ D65 reference95.047/100/108.883, Lab interpolation, inverse conversion). This is distinct from the HSV interpolation used for knob arcs.",
+        "Binding sets gain, frequency, Q, band type, channel selection, lock state and fill color from Band. It supplies frequency/Q-specific conversion/format objects to their RoundKnobs. Lock state changes enabled/locked visual state; it is not represented by one global opacity."
+      ],
+      "values_and_units": {
+        "color_animation_ms": 250,
+        "color_animation_space": "CIELAB D65 plus alpha"
+      },
+      "conditions": [],
+      "uncertainties": [
+        "No observed runtime card color frames.",
+        "Theme controls card insets, radius, separator width and dash spacing."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-006"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/c10.java",
+          "symbol": "constructor,z,С,u1",
+          "locator": "lines44-171,271-354"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/h10.java",
+          "symbol": "draw",
+          "locator": "lines43-67"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/К.java",
+          "symbol": "P case3",
+          "locator": "lines100-115"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/utils/AUtils.java",
+          "symbol": "X,m",
+          "locator": "lines262-286,458-480"
+        }
+      ]
+    },
+    {
+      "component_id": "eq.graphic_response",
+      "title": "Graphic EQ response curve and tone lobes",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "FrequencyResponseScroller"
+      ],
+      "reachable_construction": "merge_eq_equalizer_tab_common creates FrequencyResponseScroller with useDSPBus=true; it subscribes to DSP state and receives live bands. Preset rows create the same class in miniMode.",
+      "rendering_contract": [
+        "Graphic EQ display is a smoothed illustrative curve through normalized band gain points; its Canvas path does not call the native filter evaluator.",
+        "р maps each graphic Band.X from−1..1 to vertical fraction1−((X+1)/2). А spaces points uniformly across content width and joins consecutive points by cubic Beziers whose two control points share the segment midpoint X and use the old/new Y values. Vertical orientation uses the corresponding axis-swapped path.",
+        "The background centerline is separate. Bass/treble tone paths are separate cubic lobes near left/right edges, using width fractions.3 normally or.4 in miniMode, plus fill, line and optional glow Paints. The response curve uses lineWidth2dp in the ordinary base style; tone line1.5dp. An optional vertical five-stop gradient uses stops0,.25,.5,.75,1 and graphicColorMax/75/lineColor/25/Min.",
+        "The built-in graphic_frs_color selector declares the colorful overlap by default. The precise theme result and constructor theme fallbacks must be included; do not treat the lineColor bag item as the only source of curve color."
+      ],
+      "values_and_units": {
+        "graphic_line_dp": 2,
+        "tone_line_dp": 1.5,
+        "gradient_stops": [
+          0,
+          0.25,
+          0.5,
+          0.75,
+          1
+        ],
+        "tone_edge_width_fraction": {
+          "ordinary": 0.3,
+          "mini": 0.4
+        }
+      },
+      "conditions": [],
+      "uncertainties": [
+        "This path is not proof of the exact combined acoustic transfer function.",
+        "Theme/configuration options and native antialiasing output remain unmeasured."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-007"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/FrequencyResponseScroller.java",
+          "symbol": "c,onBusMsg,А,р",
+          "locator": "lines435-445,522-590,891-1096,1250-1309"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/wa1.java",
+          "symbol": "t",
+          "locator": "line49"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "EqFrequencyResponseScrollerBase",
+          "locator": "lines3811-3824"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+          "symbol": "graphic_frs_color",
+          "locator": "lines54-56,120-122"
+        }
+      ]
+    },
+    {
+      "component_id": "eq.parametric_response",
+      "title": "Parametric response curves and the native boundary",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "FrequencyResponseScroller.Р",
+        "Coefs.native_filter_evaluate_freqs"
+      ],
+      "reachable_construction": "FrequencyResponseScroller.р selects parametric mode from Band.х and builds one c90 path cache per band ID/version; А invokes Р when a curve is stale.",
+      "rendering_contract": [
+        "Parametric curves call a native filter evaluator, then build Canvas paths from the returned values; the native call is the unresolved numerical-response boundary.",
+        "The call supplies48000 sample rate, Band frequency/type/Q, evaluation endpoints20Hz and24000Hz, count=floor(contentWidth/step), and gain=Band.X*15. Step is2 resolved pixels for ordinary mode and4 for miniMode. Y maps returned response r to midY−r*(usableHeight/30), where usableHeight subtracts parametric stroke width.",
+        "The path treats |r|<=.08 as a baseline segment/gap optimization after the first point. Each parametric band has its own stroke/fill color and path. A different per-band stroke width (base1dp) is used; no generic graphic gradient is applied in this mode.",
+        "Coefs.java declares native_filter_evaluate_freqs. No attempt was made to reverse the audio DSP, coefficient algorithms or licensing. A faithful rendering experiment can first supply known response arrays; claiming numeric parity requires this boundary or captured reference curves."
+      ],
+      "values_and_units": {
+        "sample_rate_hz": 48000,
+        "frequency_endpoints_hz": [
+          20,
+          24000
+        ],
+        "sample_step_resolved_px": {
+          "ordinary": 2,
+          "mini": 4
+        },
+        "gain_argument": "Band.X*15",
+        "response_vertical_span": 30,
+        "near_zero_threshold": 0.08
+      },
+      "conditions": [],
+      "uncertainties": [
+        "Native numerical evaluation algorithm and frequency sample spacing are not established solely by this JNI signature.",
+        "Returned response units are used with gain/dB-style scaling, but no audio transfer-function verification occurred."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-008"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/FrequencyResponseScroller.java",
+          "symbol": "Р,р,А parametric branch",
+          "locator": "lines1164-1214,1250-1309,902-925"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/equalizer/Coefs.java",
+          "symbol": "native_filter_evaluate_freqs",
+          "locator": "native declaration"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "EqFrequencyResponseScrollerBase.parametricLineWidth",
+          "locator": "line3821"
+        }
+      ]
+    },
+    {
+      "component_id": "eq.response_layers_clipping",
+      "title": "Response curves: Canvas layers, clipping and preset miniatures",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "FrequencyResponseScroller",
+        "b90",
+        "e90",
+        "m10"
+      ],
+      "reachable_construction": "EqPresetPopupListLayout provider factory returns m10; m10.o selects item_eq_preset/2line/3line, each containing FrequencyResponseScroller under id frs.",
+      "rendering_contract": [
+        "Ordinary response drawing uses a software-layer child b90 while miniMode draws directly in a hardware-layer FrequencyResponseScroller. Their rendering paths and data reduction are not identical.",
+        "Constructor ordinary mode adds selection Drawable via e90 and adds b90(layerType1), setting parent willNotDraw=true. miniMode sets layerType2 and draws directly. b90.onDraw delegates to owner.А. Optional cornerRadius1 builds a clipping Path on size changes; draw clips before translating by padding. The selected scroll viewport is a separate Drawable rectangle and can animate its bounds for250ms.",
+        "Preset miniatures are80dp×36dp in ItemPopupListFrs, graphic stroke1.5dp, tone.5dp, parametric1dp. m10 binds either a decoded band blob or legacy textual preset data and caches the input in the View tag. Miniatures have bounded-band reduction branches (including32-band intermediate handling and a separate >10-band curve-update branch); they must not be assumed to be a lossless scaled full EQ plot.",
+        "Exact mini-mode reduction semantics beyond the traced branches and all filter serialization variants remain limited. The verified statement is that miniature curves are computed/drawn from preset data rather than stored screenshot thumbnails."
+      ],
+      "values_and_units": {
+        "mini_width_dp": 80,
+        "mini_height_dp": 36,
+        "mini_graphic_stroke_dp": 1.5,
+        "mini_tone_stroke_dp": 0.5,
+        "mini_parametric_stroke_dp": 1,
+        "viewport_resize_animation_ms": 250
+      },
+      "conditions": [],
+      "uncertainties": [
+        "Miniature reduction control flow not fully certified across all data encodings.",
+        "Software/hardware antialiasing difference requires runtime pixel comparison."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-009"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/FrequencyResponseScroller.java",
+          "symbol": "constructor,P,onSizeChanged,В,А",
+          "locator": "lines123-251,360-403,703-716,1098-1150,891-1096"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/b90.java",
+          "symbol": "onDraw",
+          "locator": "lines20-23"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/EqPresetPopupListLayout.java",
+          "symbol": "provider factory",
+          "locator": "line101"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/m10.java",
+          "symbol": "o,О",
+          "locator": "lines119-142,200-340"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/item_eq_preset.xml",
+          "symbol": "frs",
+          "locator": "line4"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "ItemPopupListFrs",
+          "locator": "lines6190-6206"
+        }
+      ]
+    },
+    {
+      "component_id": "eq.native_spectrum",
+      "title": "MilkFRS: native audio visualization texture",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_REACHABILITY_AND_STATE_WITH_SESSION1_RENDERER_REUSE",
+      "owners": [
+        "MilkFRS",
+        "mv0",
+        "MilkRenderer",
+        "MilkLoader"
+      ],
+      "reachable_construction": "merge_eq_equalizer_tab_common places MilkFRS before the Canvas response widget, with its bounds attached to that widget; poweramp_logo_pref_milk reuses the class for settings decoration.",
+      "rendering_contract": [
+        "MilkFRS is a TextureView-backed native visualization component, distinct from main-player SurfaceView MilkWidget and from the Canvas EQ response graph.",
+        "It constructs MilkRenderer with mode arguments1,2, reads presetUri and rounded outline radius, sets opaque=false when either initial background integer is exactly0 (transparent black), subscribes to player audio-source FD/serial state and controls renderer resume/pause with activity lifecycle. mv0 owns SurfaceTexture→Surface attachment and size-change messages; dimensions<=0 or>4000 are rejected by its size-change callback.",
+        "Class fallback preset is internal://#fft2inv, but effective themed EQ values differ. Registered vis_frs_type=2 applies rounded FRS options; the static API36 fixture resolves Black to internal://#fft2rounded and Light to internal://#fft2invrounded. API28+ EqMilkFrsBase reads outline radius from corners_equ_frs; older base declares0px. A default API36 fixture resolves16dp, Less Rounding8dp. These are conditional resolver results, not observed runtime states.",
+        "Native preset frame math, FFT feed shape and exact raster output remain inside MilkLoader/MilkRenderer native functions. Session1 backdrop blur evidence is reused only for shared renderer ownership/lifecycle, not as a claim that this spectrum is that blur algorithm."
+      ],
+      "values_and_units": {
+        "class_fallback_preset": "internal://#fft2inv",
+        "registered_vis_frs_type": 2,
+        "api36_fixture_presets": {
+          "Black": "internal://#fft2rounded",
+          "Light": "internal://#fft2invrounded"
+        },
+        "size_callback_max_px": 4000
+      },
+      "conditions": [
+        "Conditional fixtures: API36, built-in Black/Light, registered options, no owner override"
+      ],
+      "uncertainties": [
+        "No native spectrum frames or audio feed captured.",
+        "Exact frame math/FFT implementation not reversed.",
+        "Configuration fixture is a static model, not Android runtime execution."
+      ],
+      "reused_session1_evidence": [
+        "PA1031-RENDER-001",
+        "PA1031-RENDER-010"
+      ],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-010"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/MilkFRS.java",
+          "symbol": "constructor,onAttachedToWindow,onBusMsg",
+          "locator": "lines40-79,104-136,139-185"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/mv0.java",
+          "symbol": "SurfaceTexture callbacks",
+          "locator": "lines57-95"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "EqMilkFrsBase,OptionEquFRSRounded",
+          "locator": "lines3833-3845,12487-12490"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values-v28/styles.xml",
+          "symbol": "EqMilkFrsBase; ActivityTheme_White_LessRounding",
+          "locator": "lines24-27; line4"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values-v33/styles.xml",
+          "symbol": "Base_ActivityTheme_Default.corners_equ_frs",
+          "locator": "line13"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/c40.java",
+          "symbol": "d vis_frs_type",
+          "locator": "line133"
+        }
+      ]
+    },
+    {
+      "component_id": "visualizer.preset_pipeline",
+      "title": "Main visualizer preset loading and panel rendering",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_REACHABILITY_AND_STATE_WITH_SESSION1_RENDERER_REUSE",
+      "owners": [
+        "MilkWidget",
+        "MilkRenderer",
+        "MilkLoader",
+        "VisPanelFrame",
+        "a92",
+        "VisPanelItemView"
+      ],
+      "reachable_construction": "Main activity constructs MilkWidget. MilkWidget consumes state_player_milk_preset; VisPanelFrame attaches a92 providers to its PowerList and a92 selects item_vis.",
+      "rendering_contract": [
+        "Visualizer output and preset chooser rows have separate rendering pipelines: native loaded presets produce frames, while the chooser is a PowerList of icon/text/like Views.",
+        "MilkWidget routes changed cv0 preset URI/fragment through MilkRenderer.C. Loader message1 calls MilkLoader.х→native_load_preset_by_uri, returns MilkPresetRef, then renderer message8/native_set_preset or stores a pending reference until native context exists. A failed preset has a one-attempt fallback builtin: / Poweramp - spectrum-centered in jv0. Frame rendering ends at native_render_frame; no independent browser shader equivalent is proven.",
+        "The API22+ vis panel layout contains close/settings/sort/filter controls, a PowerList and advance/lock popup. item_vis contains IconView, tristate FastCheckBoxOnly, title/subtitle FastTextViews and activated check decoration. Its expanded row scene changes visibility; top panel scenes declare alpha1 for temporary UI and.5 for vis-with-UI. The scene report covers timing/gesture transitions.",
+        "Preset identifiers, selection/like state and labels are inputs. No proprietary preset/shader/image payload is reproduced in the deliverables."
+      ],
+      "values_and_units": {},
+      "conditions": [],
+      "uncertainties": [
+        "Native visualizer preset interpreter and frame output unverified.",
+        "Actual preset selection is unknown."
+      ],
+      "reused_session1_evidence": [
+        "PA1031-RENDER-001",
+        "PA1031-RENDER-010"
+      ],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-011"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/MilkWidget.java",
+          "symbol": "preset update methods,onBusMsg",
+          "locator": "lines109-126,164 onward"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/milk/MilkRenderer.java",
+          "symbol": "C,K,native declarations",
+          "locator": "lines194-239,128-162"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/milk/MilkLoader.java",
+          "symbol": "native_load_preset_by_uri,х",
+          "locator": "lines87,526-535"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/jv0.java",
+          "symbol": "handleMessage case1",
+          "locator": "lines70-101"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/widget/VisPanelFrame.java",
+          "symbol": "onAttachedToWindow",
+          "locator": "lines316-343"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/a92.java",
+          "symbol": "o,О",
+          "locator": "lines85-130"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp-v22/merge_vis_panel.xml",
+          "symbol": "vis_panel frame/list/control children",
+          "locator": "entire layout"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/item_vis.xml",
+          "symbol": "VisPanelItemView children",
+          "locator": "lines2-13"
+        }
+      ]
+    },
+    {
+      "component_id": "library.shared_item_rendering",
+      "title": "Library list/grid/header item rendering",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_REACHABILITY_AND_STATE_WITH_SESSION1_RENDERER_REUSE",
+      "owners": [
+        "e4",
+        "AAItemView",
+        "AAImageView",
+        "TextItemView",
+        "FastTextView"
+      ],
+      "reachable_construction": "e4.K obtains/recycles a View by item type; e4.о maps track→item_track, text→item_text and separator→item_separator_button. The shared item_track XML declares list, grid, header and player scenes on the same child Views.",
+      "rendering_contract": [
+        "Library rows, grids and artwork headers reuse the custom artwork/text renderers proven in Session1; switching geometry does not imply a new stock GridView/ImageView renderer.",
+        "The factory reuses Views by type, then binds data through provider О. item_track contains PlayingMark, number, AAImageView, category image, title/subtitle/meta/rating/menu/selection children and lazy behaviors. Different SceneParams select list, grid, header and full-art states on these children. item_text similarly has lazy header/subheader/menu children.",
+        "AAItemView.m binds text, count/metadata, artwork provider, category icon and activation. It clears background level to0 during rebinding and calls jumpDrawablesToCurrentState unless its update flag allows transition. This reset matters to recycled rows. Actual list zoom/column choices and header factories are in the scene and per-category configuration reports.",
+        "Session1 AAImageView matrix, shader, clipping and replacement fade, and FastTextView typography remain applicable. Effective artwork radius/text color/bounds must be re-resolved for each library scene; main-player dimensions are not transferred wholesale."
+      ],
+      "values_and_units": {},
+      "conditions": [],
+      "uncertainties": [
+        "Per-category sort/zoom/current configuration not known; root configuration report owns those branches.",
+        "Recycling/scene composition has not been observed on Android."
+      ],
+      "reused_session1_evidence": [
+        "PA1031-RENDER-002",
+        "PA1031-RENDER-003",
+        "PA1031-RENDER-004",
+        "PA1031-RENDER-022"
+      ],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-012"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/e4.java",
+          "symbol": "K,о",
+          "locator": "lines61-90,149-168"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/item_track.xml",
+          "symbol": "AAItemView and scene child declarations",
+          "locator": "whole layout, notably aa_image"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/item_text.xml",
+          "symbol": "TextItemView/loadable header children",
+          "locator": "whole layout"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/list/AAItemView.java",
+          "symbol": "m",
+          "locator": "lines324-416"
+        }
+      ]
+    },
+    {
+      "component_id": "library.selection",
+      "title": "Library selection and checkbox graphics",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_REACHABILITY_AND_STATE_WITH_SESSION1_RENDERER_REUSE",
+      "owners": [
+        "AAItemView",
+        "FastCheckBoxOnly",
+        "gc",
+        "DragHandler"
+      ],
+      "reachable_construction": "item_track and item_text expose select_box; AAItemView discovers it on inflate. EQ parametric cards and visualizer rows reuse FastCheckBoxOnly directly.",
+      "rendering_contract": [
+        "Selection mode, checked state and playing/activated state are distinct inputs; they must not be collapsed into one row highlight flag.",
+        "AAItemView.H shows/hides the checkbox and eligible drag handle for selection mode; leaving selection mode clears checked state. P0 changes the checkbox checked state and can skip state animation through jumpDrawablesToCurrentState. AAItemView.m separately calls setActivated for its bound item.",
+        "FastCheckBoxOnly draws its own supplied Drawable within padding bounds, applies optional ColorStateList tint, and supplies checked or intermediate drawable states. Its internal y=1 emits Android state_checked16842912; y=2 emits16842918. The component can animate its visibility via gc, separate from the check Drawable state animation. A visualizer like control requests tristate=true; a normal library selection checkbox need not.",
+        "AAItemView.draw optionally adds b82/so1 overscroll decoration after normal child drawing; this is not its selection fill. API-dependent layer handling exists for item alpha transitions. Full gesture ownership stays in the gesture report."
+      ],
+      "values_and_units": {},
+      "conditions": [],
+      "uncertainties": [
+        "Drawable payload state transitions and actual timing require active theme/runtime capture.",
+        "Android state16842918 should be preserved as literal state mapping, not renamed to an unsupported semantic."
+      ],
+      "reused_session1_evidence": [
+        "PA1031-RENDER-002"
+      ],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-013"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/list/AAItemView.java",
+          "symbol": "H,P0,m,draw",
+          "locator": "lines154-173,191-209,410,283-289"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/base/FastCheckBoxOnly.java",
+          "symbol": "constructor,o,onCreateDrawableState,onDraw,onLayout",
+          "locator": "lines31-88,131-210"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/b82.java",
+          "symbol": "constructor",
+          "locator": "lines11-19"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/item_vis.xml",
+          "symbol": "like.tristate",
+          "locator": "line5"
+        }
+      ]
+    },
+    {
+      "component_id": "library.indexer",
+      "title": "Alphabet scroller and index popup",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_REACHABILITY_AND_STATE_WITH_SESSION1_RENDERER_REUSE",
+      "owners": [
+        "ListScrollerView",
+        "ListIndexerPopupView"
+      ],
+      "reachable_construction": "ListScrollerView is attached by the library layout; ListIndexerPopupView extends FastTextView and is connected as its index-label display through the list scroller plumbing.",
+      "rendering_contract": [
+        "The alphabet scroller is a custom Canvas renderer with separate thumb/track Drawables, per-character text, row dividers and selected-character decoration; the floating index popup reuses FastTextView.",
+        "ListScrollerView.onDraw translates the scrollbar thumb independently of the alphabet column, draws optional alphabet background and selected-cell Drawable, then draws one character at a time with a Paint and optional horizontal separators. Paint alpha controls whether the alphabet is drawn. Some index/draw branches are malformed in JADX, so exact per-letter state restoration is not certified here.",
+        "ListIndexerPopupView.V sends anim_scrollbar_pressed to its containing do1 with requested.25seconds and can preserve current translation before hiding. Content is a one-character CharArrayBuffer. Exact effective font/column dimensions and gesture mapping belong to the style/input traces."
+      ],
+      "values_and_units": {
+        "popup_state_request_seconds": 0.25
+      },
+      "conditions": [],
+      "uncertainties": [
+        "Malformed ListScrollerView.onDraw branch was not exhaustively reconstructed in smali.",
+        "Alphabet content/localization, active typography and column bounds unknown."
+      ],
+      "reused_session1_evidence": [
+        "PA1031-RENDER-022"
+      ],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-014"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/list/ListScrollerView.java",
+          "symbol": "constructor,onDraw",
+          "locator": "lines99-184,681-830"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/list/ListIndexerPopupView.java",
+          "symbol": "constructor,V",
+          "locator": "lines29-64"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/activity_main.xml",
+          "symbol": "scroller/indexer constructions",
+          "locator": "ListScrollerView and ListIndexerPopupView elements"
+        }
+      ]
+    },
+    {
+      "component_id": "lyrics.rendering",
+      "title": "Lyrics line states and stable text wrapping",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_REACHABILITY_AND_STATE_WITH_SESSION1_RENDERER_REUSE",
+      "owners": [
+        "xo0",
+        "LyricsItemView",
+        "LyricsFastTextView",
+        "ap0"
+      ],
+      "reachable_construction": "xo0.o chooses item_lyrics for line rows and item_lyrics_last_item for the trailing row. item_lyrics constructs LyricsItemView with LyricsFastTextView and active/small/zoomed/unsynced SceneParams.",
+      "rendering_contract": [
+        "Lyrics render as custom multiline text rows with line-level scene changes; the traced renderer does not establish a word-by-word karaoke fill.",
+        "xo0 binds lyric line text into the title child; ap0.h0 maps base/small/zoomed to their active scenes. LyricsFastTextView.H0 recognizes transitions between each inactive/active pair. During those transitions it preserves the earlier o(int) text-layout width input; text replacement, nonpaired scene completion and detach clear the cached value. This avoids reflow during active-line scale transitions.",
+        "Base lyric text appearance is22sp before variant and scale. Ordinary active style declares scale1.1, small active.85, zoomed active1.3, with layout_compensateScale matching, recalcChildren50% and primary text color. Inactive styles use colorIconDisabled and differing margins/scales. These declarations require final theme and scene resolution; they are not measured physical text sizes.",
+        "LyricsItemView resets background level on scene changes, records touch hotspot, and uses level8 plus a temporary pressed state for its explicit feedback path. Unsynced modes are separate scene declarations."
+      ],
+      "values_and_units": {
+        "base_text_sp": 22,
+        "active_scale": {
+          "ordinary": 1.1,
+          "small": 0.85,
+          "zoomed": 1.3
+        }
+      },
+      "conditions": [],
+      "uncertainties": [
+        "No synchronized runtime lyric recording or per-word highlight evidence.",
+        "Exact text layout remains dependent on font metrics, viewport and the main FastTextView measurement model."
+      ],
+      "reused_session1_evidence": [
+        "PA1031-RENDER-022"
+      ],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-015"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/xo0.java",
+          "symbol": "o,О",
+          "locator": "lines37-39,81-102"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/ap0.java",
+          "symbol": "h0",
+          "locator": "lines221-224"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/item_lyrics.xml",
+          "symbol": "LyricsFastTextView and scene mappings",
+          "locator": "whole layout"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/list/LyricsFastTextView.java",
+          "symbol": "H0,N,T,o,onDetachedFromWindow",
+          "locator": "lines27-80"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/list/LyricsItemView.java",
+          "symbol": "G0,w0",
+          "locator": "lines37-44,109-122"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "ItemLyricsTitle_Text and active styles",
+          "locator": "lines13091-13169"
+        }
+      ]
+    },
+    {
+      "component_id": "settings.round_knob",
+      "title": "Settings round knob uses the player renderer",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "RoundKnobPreference",
+        "RoundKnob",
+        "KnobLabelAndValue"
+      ],
+      "reachable_construction": "RoundKnobPreference constructor selects preference_roundknob unless overridden; that layout explicitly contains RoundKnob id seekbar and KnobLabelAndValue id _value.",
+      "rendering_contract": [
+        "Settings round controls reuse RoundKnob geometry and state drawing, with preference-specific mapping and labels rather than a separate platform dial.",
+        "The default layout declares a70dp square knob with settings_round_knob/settings_round_knob_indicator Drawables. onBindView loads the stored value, uses range/midpoint/scale or supplied cs converter to obtain normalized progress, assigns rounding/snap behavior and formatting, updates enabled state, then routes the value label through KnobLabelAndValue. Preference ranges and units are data, not determined by70dp geometry.",
+        "RoundKnobPreference persistence distinguishes integer and float modes. The settings-effects report owns which preference updates which subsystem; this rendering reference records that dynamic summary, enabled state and numeric value label are separate surfaces."
+      ],
+      "values_and_units": {
+        "default_layout_knob_dp": [
+          70,
+          70
+        ]
+      },
+      "conditions": [],
+      "uncertainties": [
+        "Each preference may override layout, range, scale, midpoint, rounding and converter.",
+        "No live settings capture."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-016"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/preference/RoundKnobPreference.java",
+          "symbol": "constructor,onBindView",
+          "locator": "lines94-192,428 onward"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout/preference_roundknob.xml",
+          "symbol": "RoundKnob,_value",
+          "locator": "line8 and value child"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/RoundKnob.java",
+          "symbol": "h",
+          "locator": "lines334-352"
+        }
+      ]
+    },
+    {
+      "component_id": "settings.seekbar_ticks",
+      "title": "Settings SeekBar and custom tick pass",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "SeekbarPreference",
+        "TickSeekBar"
+      ],
+      "reachable_construction": "SeekbarPreference default preference_seekbar layout contains TickSeekBar. onBindView sets max/progress/enabled and a configured tick Drawable.",
+      "rendering_contract": [
+        "Settings sliders use a platform SeekBar with an additional custom tick-render pass, not the player LinearKnob class.",
+        "SeekbarPreference maps range and increment to max=(maximum−minimum)/step, supplies progress and optional tick Drawable, and updates side/summary labels. TickSeekBar draws ticks before super.onDraw. If max>1, it spaces tick positions over width minus left/right padding and iterates0..max inclusive.",
+        "The current-progress tick is deliberately skipped. Before that point a stateful tick Drawable uses ENABLED_SELECTED_STATE_SET; at the progress index it restores the original state and sets theme disabledAlpha, so subsequent ticks use that state/alpha. The method restores original state/alpha at end for stateful Drawables. This is a literal code rendering contract, not a claim that all settings have ticks.",
+        "Thumb/track drawing and system widget state remain Android-owned; theme styles and API can change them."
+      ],
+      "values_and_units": {
+        "tick_positions": "0..max inclusive",
+        "tick_spacing": "(width-paddingLeft-paddingRight)/max",
+        "current_progress_tick": "skipped"
+      },
+      "conditions": [],
+      "uncertainties": [
+        "Actual preference tick resource and Android native SeekBar rasterization unknown.",
+        "Nonstateful custom tick drawables do not enter the final state/alpha-restoration branch."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-017"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/preference/SeekbarPreference.java",
+          "symbol": "onBindView,constructor",
+          "locator": "lines151-200,522 onward"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/widget/TickSeekBar.java",
+          "symbol": "constructor,onDraw,В",
+          "locator": "lines25-37,71-75,102-161"
+        },
+        {
+          "kind": "smali",
+          "path": "decoded/smali/com/maxmpz/audioplayer/widget/TickSeekBar.smali",
+          "symbol": "В",
+          "locator": "file405 onward; float conversion/div-float at476"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout/preference_seekbar.xml",
+          "symbol": "seekbar child",
+          "locator": "TickSeekBar element"
+        }
+      ]
+    },
+    {
+      "component_id": "settings.color_picker",
+      "title": "Color dialog HSV plane and preview markers",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "ColorPreference",
+        "AmbilwarnaLayout",
+        "AmbilWarnaKotak"
+      ],
+      "reachable_construction": "ColorPreference.onCreateDialogView loads ambilwarna_layout and locates AmbilwarnaLayout; its XML constructs hue ImageView, AmbilWarnaKotak, cursor/target ImageViews, color preview and six-digit EditText.",
+      "rendering_contract": [
+        "The color picker renders a software-layer saturation/value plane by multiplying a vertical white-to-black gradient with a horizontal white-to-full-hue gradient.",
+        "AmbilWarnaKotak sets layerType1 and draws the ComposeShader(MULTIPLY) rectangle. The vertical gradient is cached on initial Paint creation; the horizontal gradient uses the current hue each draw. Hue is supplied by AmbilwarnaLayout, not inferred from RGB cursor position.",
+        "Marker positions are explicit: hue marker Y=height−hue*height/360, wrapping hue0 to top, minus half marker height; plane target X=saturation*width−half target width and Y=(1−value)*height−half target height. The base layout declares280dp plane/hue height,14dp hue cursor,15dp target,60×30dp preview; resource qualifiers may override.",
+        "ColorPreference binds its swatch to the resolved color and clips it via an outline. Positive close serializes HSVToColor as eight-digit hex plus a |@resource-id suffix. Manual input accepts six hexadecimal digits and forces opaque RGB. This traced UI exposes no alpha slider; do not invent one because the stored string has eight hex digits."
+      ],
+      "values_and_units": {
+        "base_plane_height_dp": 280,
+        "hue_cursor_dp": 14,
+        "plane_target_dp": 15,
+        "preview_dp": [
+          60,
+          30
+        ],
+        "manual_hex_digits": 6
+      },
+      "conditions": [],
+      "uncertainties": [
+        "Color plane behavior after resize requires runtime confirmation because vertical shader is cached.",
+        "Material You resource-linked colors depend on API/theme; active resource selection unknown."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-018"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/preference/ColorPreference.java",
+          "symbol": "onBindView,onCreateDialogView,onDialogClosed",
+          "locator": "lines54-115"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout/ambilwarna_layout.xml",
+          "symbol": "plane,hue,cursor,target,preview,edit_text",
+          "locator": "lines5-14"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/widget/AmbilwarnaLayout.java",
+          "symbol": "onFinishInflate,t1,u1,v1,onTextChanged",
+          "locator": "lines48-192"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/yuku/ambilwarna/AmbilWarnaKotak.java",
+          "symbol": "constructor,onDraw",
+          "locator": "lines20-40"
+        }
+      ]
+    },
+    {
+      "component_id": "settings.color_palette",
+      "title": "Shared color-circle palette",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "ColorCircleSelector",
+        "c10",
+        "AmbilwarnaLayout"
+      ],
+      "reachable_construction": "merge_eq_param_colors constructs ColorCircleSelector for band-color popup; API31 merge_widget_mu_colors adds it inside AmbilwarnaLayout for resource-linked palette choices.",
+      "rendering_contract": [
+        "ColorCircleSelector draws palette circles plus a selected/unselected outline, and distinguishes resource-linked selection from raw color equality.",
+        "The integer array is a layout grammar:0 breaks a row,1 draws an outline-only sentinel, other entries draw a filled circle; an entry with zero alpha is forced opaque for display. Selection compares resource ID when one is active, otherwise raw color. onMeasure shrinks circle diameter if needed and distributes spacing across the maximum row length.",
+        "Diameter, padding, normal/selected stroke widths and colors are constructor-consumed dimensions/state values. The same class therefore serves parametric EQ colors and Android theme palette choices with different styles and callback owners."
+      ],
+      "values_and_units": {
+        "sentinel_zero": "row break",
+        "sentinel_one": "outline-only"
+      },
+      "conditions": [],
+      "uncertainties": [
+        "Palette arrays and callbacks vary by consumer; no one universal color set.",
+        "Actual runtime theme-linked colors unknown."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-019"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/player/ColorCircleSelector.java",
+          "symbol": "constructor,onAttachedToWindow,onDraw,onMeasure",
+          "locator": "lines36-193"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/merge_eq_param_colors.xml",
+          "symbol": "ColorCircleSelector",
+          "locator": "line4"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-v31/merge_widget_mu_colors.xml",
+          "symbol": "ColorCircleSelector",
+          "locator": "line5"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/ׅ/c10.java",
+          "symbol": "z",
+          "locator": "lines291-303"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/widget/AmbilwarnaLayout.java",
+          "symbol": "onFinishInflate,v1",
+          "locator": "lines64-75,166 onward"
+        }
+      ]
+    },
+    {
+      "component_id": "settings.preview_decoration",
+      "title": "Settings logo native decoration and preview limits",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "PowerampLogoPreference",
+        "PreferenceMilkViewWrapper",
+        "MilkFRS"
+      ],
+      "reachable_construction": "PowerampLogoPreference selects poweramp_logo_pref, binds image and wrapper; PreferenceMilkViewWrapper.onAttachedToWindow inflates poweramp_logo_pref_milk.",
+      "rendering_contract": [
+        "The settings logo preference contains an actual native MilkFRS visualization decoration; this trace does not establish a whole-player skin-preview renderer.",
+        "The wrapper creates the MilkFRS layout on attachment. That layout declares transparent background and presetUri=?settings_milk_preset_uri. Theme resources choose poweramp1inv/poweramp1 or PEQ variants, with night/theme branches. The class shares native renderer/audio-source lifecycle with the EQ texture.",
+        "No dedicated full-player preview graphics path was established in this rendering investigation. If another report identifies a live preview route, it should be linked explicitly rather than relabeling the logo surface as that preview."
+      ],
+      "values_and_units": {},
+      "conditions": [],
+      "uncertainties": [
+        "Whole-player skin preview route remains unestablished here.",
+        "No logo visualization frames captured; native preset behavior remains open."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-020"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/preference/PowerampLogoPreference.java",
+          "symbol": "constructor,onBindView",
+          "locator": "lines22-44"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/preference/PreferenceMilkViewWrapper.java",
+          "symbol": "onAttachedToWindow",
+          "locator": "lines22-31"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout/poweramp_logo_pref_milk.xml",
+          "symbol": "MilkFRS",
+          "locator": "line2"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values/styles.xml",
+          "symbol": "settings_milk_preset_uri",
+          "locator": "lines11308,11812-11846"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/values-night/styles.xml",
+          "symbol": "settings_milk_preset_uri",
+          "locator": "line4"
+        }
+      ]
+    },
+    {
+      "component_id": "search.rendering",
+      "title": "Search fields and results reuse distinct widget families",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_REACHABILITY_AND_STATE_WITH_SESSION1_RENDERER_REUSE",
+      "owners": [
+        "ListSearchEditText",
+        "SearchEditText",
+        "SearchItemView",
+        "FastTextView",
+        "EditText"
+      ],
+      "reachable_construction": "merge_search_layout creates the player/library ListSearchEditText and search category/target children; item_settings_search creates SearchItemView with nested image/text children.",
+      "rendering_contract": [
+        "Player/library search and settings search have separate shells; result rows reuse FastTextView while editable fields use EditText-derived widgets.",
+        "SearchItemView.onFinishInflate binds image, title, line2 and line3 from its actual nested FastLayout hierarchy; it has no custom Canvas onDraw. Its graphics therefore come from FastTextView text/drawable behavior and the selected item styles.",
+        "The player search merge has close, input, category layout and target button. Scene_search shows its search layout while several player/library/EQ/visualizer/lyrics scenes hide it. These visibility declarations are separate from query/filter behavior.",
+        "No search-match highlight-span algorithm was established in this renderer scope. A future implementation must take text decoration from the actual search binder, not assume browser mark tags or a universal accent."
+      ],
+      "values_and_units": {},
+      "conditions": [],
+      "uncertainties": [
+        "Query matching/highlight binding remains outside this rendering trace.",
+        "IME/font/platform EditText pixels have not been observed."
+      ],
+      "reused_session1_evidence": [
+        "PA1031-RENDER-022"
+      ],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-021"
+      ],
+      "sources": [
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/merge_search_layout.xml",
+          "symbol": "search children and SceneParams",
+          "locator": "whole layout"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw2dp/item_settings_search.xml",
+          "symbol": "SearchItemView",
+          "locator": "whole layout"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/preference/SearchItemView.java",
+          "symbol": "onFinishInflate",
+          "locator": "lines41-63"
+        }
+      ]
+    },
+    {
+      "component_id": "dialogs.rendering",
+      "title": "Dialog shell, scrim and inserted content",
+      "status": "CONFIRMED_STATIC",
+      "investigation": "NEW_REACHABILITY_AND_STATE_WITH_SESSION1_RENDERER_REUSE",
+      "owners": [
+        "BaseDialogActivity",
+        "AlertDialogActivity",
+        "DialogOuterFastLayout",
+        "Shim",
+        "FastLayout"
+      ],
+      "reachable_construction": "BaseDialogActivity chooses theme dialogLayout; AlertDialogActivity explicitly loads R.layout.dialog. The shared dialog merge creates a Shim, DialogOuterFastLayout, frame/title/progress/toast, theme-selected content and button includes.",
+      "rendering_contract": [
+        "Poweramp dialog graphics are built from a custom scene/layout shell with theme-selected content, rather than one universal platform AlertDialog appearance.",
+        "The shared dialog layout places a separate scrim View outside the frame, uses FastTextView/FastButton title/actions, inserts ?dialogContentLayout and ?dialogButtonsLayout, and declares loading/progress/toast/in/out scene variants. Different activities and preference dialogs can therefore share a shell while using different content widgets.",
+        "Shim extends NonOverlappingView, uses a hardware layer, and relies on its background/alpha for drawing. Its setAlpha toggles clickability only at alpha1; it does not implement a custom blur painter. AlertDialogActivity can clear the scrim background when EXTRA_BG=false. DialogOuterFastLayout and AdjustToSoftKeyboardBehavior own layout/inset adaptation, covered by the layout/scene report.",
+        "Android progress widgets, editable fields and selector/ripple Drawables remain native rendering dependencies. No universal corner radius, shadow, dim percentage or timing is asserted without the resolved DialogFrame/DialogShim styles and actual scene."
+      ],
+      "values_and_units": {},
+      "conditions": [],
+      "uncertainties": [
+        "Exact activity/theme/dialog variant and runtime insets unknown.",
+        "No measured dialog blur, elevation shadow or transition frames."
+      ],
+      "reused_session1_evidence": [
+        "PA1031-RENDER-022"
+      ],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-022"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/BaseDialogActivity.java",
+          "symbol": "onCreate",
+          "locator": "lines69-82"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/app/AlertDialogActivity.java",
+          "symbol": "onCreate",
+          "locator": "lines403-432"
+        },
+        {
+          "kind": "apk-resource",
+          "path": "decoded/res/layout-sw1dp/dialog.xml",
+          "symbol": "dialog_shim,dialog_outer_layout,dialog_frame,includes",
+          "locator": "whole layout"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/base/Shim.java",
+          "symbol": "constructor,setAlpha",
+          "locator": "lines17-25,58-66"
+        }
+      ]
+    },
+    {
+      "component_id": "rendering.readiness",
+      "title": "Known rendering contracts and remaining parity boundaries",
+      "status": "OPEN",
+      "investigation": "NEW_SESSION2",
+      "owners": [
+        "All traced renderer families"
+      ],
+      "reachable_construction": "This record summarizes the explicit boundaries of the constructed widgets above.",
+      "rendering_contract": [
+        "Secondary-screen rendering owners, construction paths, data inputs and several pixel/angle algorithms are now established statically; faithful final rendering remains unverified.",
+        "Reusable facts: artwork/text primitives from Session1; new round/linear knob geometry and color spaces; dynamic EQ construction; graphic curve paths; parametric JNI input/output boundary; native texture separation; preset-miniature construction; selection state separation; lyrics layout caching; HSV picker; shared dialog shell.",
+        "Remaining work: owner effective configuration and migration state; authentic Android screenshots/video at known density/font/insets; native visualization frame output; native parametric evaluator numerical parity; complete mini-preset reduction semantics; exact malformed alphabet-scroller draw branches; search highlighting binder; any separate live skin-preview renderer. No reference bitmap, font, shader, native code payload or app implementation is shipped."
+      ],
+      "values_and_units": {},
+      "conditions": [],
+      "uncertainties": [
+        "These gaps prevent a claim of implementation-ready pixel parity across all secondary screens."
+      ],
+      "reused_session1_evidence": [],
+      "evidence_ids": [
+        "PA1031-S2-RENDER-023"
+      ],
+      "sources": [
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/audioplayer/equalizer/Coefs.java",
+          "symbol": "native_filter_evaluate_freqs",
+          "locator": "native declaration"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/milk/MilkRenderer.java",
+          "symbol": "native_render_frame",
+          "locator": "line148"
+        },
+        {
+          "kind": "decompiled-source",
+          "path": "jadx/sources/com/maxmpz/widget/list/ListScrollerView.java",
+          "symbol": "onDraw",
+          "locator": "lines681-830"
+        }
+      ]
+    }
+  ]
+}

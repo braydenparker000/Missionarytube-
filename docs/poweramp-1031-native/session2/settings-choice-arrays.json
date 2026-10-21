@@ -1,0 +1,2460 @@
+{
+  "source_apk_sha256": "27cfde3fc8e55b2effffe88c7e80ec3a1b1f69ec37a09ef86d9a34aafe8ebb9e",
+  "scope": "Base values for arrays referenced by inventoried controls; dynamic helper replacements and localized labels require their own conditions.",
+  "arrays": [
+    {
+      "reference": "@array/pref_aa_aspect_entries",
+      "base_items": [
+        {
+          "raw": "@string/_default",
+          "base_label": "Default"
+        },
+        {
+          "raw": "@string/pref_aa_keep_aspect",
+          "base_label": "Keep Aspect Ratio"
+        },
+        {
+          "raw": "@string/pref_aa_crop",
+          "base_label": "Square"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_aa_aspect_entries",
+        "locator": "line 477"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_eq_labels_entries",
+      "base_items": [
+        {
+          "raw": "@string/hidden",
+          "base_label": "Hidden"
+        },
+        {
+          "raw": "@string/db",
+          "base_label": "dB"
+        },
+        {
+          "raw": "%",
+          "base_label": "%"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_eq_labels_entries",
+        "locator": "line 550"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_tristate",
+      "base_items": [
+        {
+          "raw": "@string/pref_auto",
+          "base_label": "Auto"
+        },
+        {
+          "raw": "@string/enable",
+          "base_label": "Enable"
+        },
+        {
+          "raw": "@string/disable",
+          "base_label": "Disable"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_tristate",
+        "locator": "line 964"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_tristate_values",
+      "base_items": [
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "-1",
+          "base_label": "-1"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_tristate_values",
+        "locator": "line 969"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_volume_type",
+      "base_items": [
+        {
+          "raw": "@string/auto_hardware",
+          "base_label": "Auto/Hardware"
+        },
+        {
+          "raw": "@string/software_vol",
+          "base_label": "Software"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_volume_type",
+        "locator": "line 993"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_volume_type_values",
+      "base_items": [
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "1",
+          "base_label": "1"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_volume_type_values",
+        "locator": "line 1001"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_default_delay_at_0",
+      "base_items": [
+        {
+          "raw": "@string/default_delay",
+          "base_label": "Default delay"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_default_delay_at_0",
+        "locator": "line 536"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_resampler_type_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_resampler_swr",
+          "base_label": "SW - high quality"
+        },
+        {
+          "raw": "@string/pref_resampler_sox",
+          "base_label": "SoX - very high quality"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_resampler_type_entries",
+        "locator": "line 851"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_dither_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_dither_none",
+          "base_label": "None (fastest)"
+        },
+        {
+          "raw": "@string/pref_dither_rectangular",
+          "base_label": "Rectangular (fast)"
+        },
+        {
+          "raw": "@string/pref_dither_triangular",
+          "base_label": "Triangular (fast)"
+        },
+        {
+          "raw": "@string/pref_dither_triangular_highpass",
+          "base_label": "Triangular with high pass (fast)"
+        },
+        {
+          "raw": "@string/pref_dither_ns_f_weighted",
+          "base_label": "F-weighted noise shaping (slow)"
+        },
+        {
+          "raw": "@string/pref_dither_ns_modified_e_weighted",
+          "base_label": "Modified-e-weighted noise shaping (slow)"
+        },
+        {
+          "raw": "@string/pref_dither_ns_improved_e_weighted",
+          "base_label": "Improved-e-weighted noise shaping (slow)"
+        },
+        {
+          "raw": "@string/pref_dither_ns_shibata",
+          "base_label": "Shibata noise shaping (slow)"
+        },
+        {
+          "raw": "@string/pref_dither_ns_low_shibata",
+          "base_label": "Low shibata noise shaping (slow)"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_dither_entries",
+        "locator": "line 539"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_volume_levels_entries",
+      "base_items": [
+        {
+          "raw": "@string/system_default",
+          "base_label": "System Default"
+        },
+        {
+          "raw": "30",
+          "base_label": "30"
+        },
+        {
+          "raw": "50",
+          "base_label": "50"
+        },
+        {
+          "raw": "75",
+          "base_label": "75"
+        },
+        {
+          "raw": "100",
+          "base_label": "100"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_volume_levels_entries",
+        "locator": "line 979"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_volume_levels_values",
+      "base_items": [
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "30",
+          "base_label": "30"
+        },
+        {
+          "raw": "51",
+          "base_label": "51"
+        },
+        {
+          "raw": "76",
+          "base_label": "76"
+        },
+        {
+          "raw": "101",
+          "base_label": "101"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_volume_levels_values",
+        "locator": "line 986"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_auto_fading_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_no_fading",
+          "base_label": "No fading"
+        },
+        {
+          "raw": "@string/pref_xfade_non_gapless",
+          "base_label": "Non-gapless/cue"
+        },
+        {
+          "raw": "@string/pref_xfade_all",
+          "base_label": "All songs"
+        },
+        {
+          "raw": "@string/pref_xfade_shuffle",
+          "base_label": "Shuffled songs"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_auto_fading_entries",
+        "locator": "line 487"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_fading_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_no_fading",
+          "base_label": "No fading"
+        },
+        {
+          "raw": "@string/pref_short_fading",
+          "base_label": "Short crossfade"
+        },
+        {
+          "raw": "@string/pref_crossfade",
+          "base_label": "Crossfade"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_fading_entries",
+        "locator": "line 555"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_headset_controls_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_controls_single",
+          "base_label": "Single press"
+        },
+        {
+          "raw": "@string/pref_controls_double_triple",
+          "base_label": "Double/triple press for next/prev. track"
+        },
+        {
+          "raw": "@string/pref_controls_long",
+          "base_label": "Long press for next track (when playing)"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_headset_controls_entries",
+        "locator": "line 560"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_scan_min_track_duration_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_dont_ignore",
+          "base_label": "\"Don't ignore - include all\""
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        },
+        {
+          "raw": "6",
+          "base_label": "6"
+        },
+        {
+          "raw": "10",
+          "base_label": "10"
+        },
+        {
+          "raw": "15",
+          "base_label": "15"
+        },
+        {
+          "raw": "30",
+          "base_label": "30"
+        },
+        {
+          "raw": "45",
+          "base_label": "45"
+        },
+        {
+          "raw": "60",
+          "base_label": "60"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_scan_min_track_duration_entries",
+        "locator": "line 864"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_scan_min_track_duration_values",
+      "base_items": [
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        },
+        {
+          "raw": "6",
+          "base_label": "6"
+        },
+        {
+          "raw": "10",
+          "base_label": "10"
+        },
+        {
+          "raw": "15",
+          "base_label": "15"
+        },
+        {
+          "raw": "30",
+          "base_label": "30"
+        },
+        {
+          "raw": "45",
+          "base_label": "45"
+        },
+        {
+          "raw": "60",
+          "base_label": "60"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_scan_min_track_duration_values",
+        "locator": "line 874"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_list_header_buttons",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        },
+        {
+          "raw": "@string/enabled",
+          "base_label": "Enabled"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_list_header_buttons",
+        "locator": "line 665"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_list_bottom_toolbar",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        },
+        {
+          "raw": "@string/semi_transparent",
+          "base_label": "Semi-transparent"
+        },
+        {
+          "raw": "@string/enabled",
+          "base_label": "Enabled"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_list_bottom_toolbar",
+        "locator": "line 660"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_track_num_type_entries",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        },
+        {
+          "raw": "@string/pref_track_num_separate_relevant",
+          "base_label": "Separate number - relevant categories"
+        },
+        {
+          "raw": "@string/pref_track_num_in_meta_relevant",
+          "base_label": "In the meta - relevant categories"
+        },
+        {
+          "raw": "@string/pref_track_num_in_title_everywhere",
+          "base_label": "In the title - everywhere"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_track_num_type_entries",
+        "locator": "line 958"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_playlist_item_action_entries",
+      "base_items": [
+        {
+          "raw": "@string/play_and_go_to_main_ui",
+          "base_label": "Play and go to Main UI"
+        },
+        {
+          "raw": "@string/play_and_stay_in_list",
+          "base_label": "Play and stay in the list"
+        },
+        {
+          "raw": "@string/enqueue_and_stay",
+          "base_label": "Enqueue and stay in the list"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_playlist_item_action_entries",
+        "locator": "line 817"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_playlist_item_action_values",
+      "base_items": [
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        },
+        {
+          "raw": "3",
+          "base_label": "3"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_playlist_item_action_values",
+        "locator": "line 822"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/playlist_insert_modes",
+      "base_items": [
+        {
+          "raw": "@string/insert_at_top",
+          "base_label": "Insert at start"
+        },
+        {
+          "raw": "@string/insert_at_bottom",
+          "base_label": "Add to end"
+        },
+        {
+          "raw": "@string/shuffled",
+          "base_label": "Shuffled"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "playlist_insert_modes",
+        "locator": "line 440"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/playlist_insert_args1",
+      "base_items": [
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "playlist_insert_args1",
+        "locator": "line 430"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_queue_start_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_immediately",
+          "base_label": "Immediately"
+        },
+        {
+          "raw": "@string/pref_after_current_song",
+          "base_label": "After the current song"
+        },
+        {
+          "raw": "@string/pref_after_current_list",
+          "base_label": "After the current category/folder/album/..."
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_queue_start_entries",
+        "locator": "line 835"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_queue_start_values",
+      "base_items": [
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        },
+        {
+          "raw": "3",
+          "base_label": "3"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_queue_start_values",
+        "locator": "line 840"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_queue_advance_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_queue_end_stay",
+          "base_label": "Stay in Queue / repeat Queue"
+        },
+        {
+          "raw": "@string/pref_queue_end_exit",
+          "base_label": "Return to previous category"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_queue_advance_entries",
+        "locator": "line 827"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_queue_insert_pos_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_preload_normal",
+          "base_label": "Normal"
+        },
+        {
+          "raw": "@string/shuffled",
+          "base_label": "Shuffled"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_queue_insert_pos_entries",
+        "locator": "line 831"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/enqueue_modes_args1",
+      "base_items": [
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "enqueue_modes_args1",
+        "locator": "line 111"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_tag_encoding_entries",
+      "base_items": [
+        {
+          "raw": "@string/_default",
+          "base_label": "Default"
+        },
+        {
+          "raw": "Chinese Traditional (Big5)",
+          "base_label": "Chinese Traditional (Big5)"
+        },
+        {
+          "raw": "Chinese Simplified (GB2312)",
+          "base_label": "Chinese Simplified (GB2312)"
+        },
+        {
+          "raw": "Chinese Simplified (GBK)",
+          "base_label": "Chinese Simplified (GBK)"
+        },
+        {
+          "raw": "Eastern European (ISO-8859-2)",
+          "base_label": "Eastern European (ISO-8859-2)"
+        },
+        {
+          "raw": "Eastern European (Win-1250)",
+          "base_label": "Eastern European (Win-1250)"
+        },
+        {
+          "raw": "Greek (ISO-8859-7)",
+          "base_label": "Greek (ISO-8859-7)"
+        },
+        {
+          "raw": "Greek (Windows-1253)",
+          "base_label": "Greek (Windows-1253)"
+        },
+        {
+          "raw": "Hebrew (ISO-8859-8)",
+          "base_label": "Hebrew (ISO-8859-8)"
+        },
+        {
+          "raw": "Hebrew (Win-1255)",
+          "base_label": "Hebrew (Win-1255)"
+        },
+        {
+          "raw": "Japanese (Shift_JIS)",
+          "base_label": "Japanese (Shift_JIS)"
+        },
+        {
+          "raw": "Japanese (ISO-2022-JP)",
+          "base_label": "Japanese (ISO-2022-JP)"
+        },
+        {
+          "raw": "Japanese (EUC-JP)",
+          "base_label": "Japanese (EUC-JP)"
+        },
+        {
+          "raw": "Korean (EUC-KR)",
+          "base_label": "Korean (EUC-KR)"
+        },
+        {
+          "raw": "Russian (Win-1251)",
+          "base_label": "Russian (Win-1251)"
+        },
+        {
+          "raw": "Thai (Win-874)",
+          "base_label": "Thai (Win-874)"
+        },
+        {
+          "raw": "Western (Win-1252)",
+          "base_label": "Western (Win-1252)"
+        },
+        {
+          "raw": "Western (ISO-8859-1)",
+          "base_label": "Western (ISO-8859-1)"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_tag_encoding_entries",
+        "locator": "line 918"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_tag_encoding_values",
+      "base_items": [
+        {
+          "raw": "_default_",
+          "base_label": "_default_"
+        },
+        {
+          "raw": "Big5",
+          "base_label": "Big5"
+        },
+        {
+          "raw": "GB2312",
+          "base_label": "GB2312"
+        },
+        {
+          "raw": "GBK",
+          "base_label": "GBK"
+        },
+        {
+          "raw": "ISO-8859-2",
+          "base_label": "ISO-8859-2"
+        },
+        {
+          "raw": "Windows-1250",
+          "base_label": "Windows-1250"
+        },
+        {
+          "raw": "ISO-8859-7",
+          "base_label": "ISO-8859-7"
+        },
+        {
+          "raw": "Windows-1253",
+          "base_label": "Windows-1253"
+        },
+        {
+          "raw": "ISO-8859-8",
+          "base_label": "ISO-8859-8"
+        },
+        {
+          "raw": "Windows-1255",
+          "base_label": "Windows-1255"
+        },
+        {
+          "raw": "SJIS",
+          "base_label": "SJIS"
+        },
+        {
+          "raw": "ISO-2022-JP",
+          "base_label": "ISO-2022-JP"
+        },
+        {
+          "raw": "EUC-JP",
+          "base_label": "EUC-JP"
+        },
+        {
+          "raw": "EUC-KR",
+          "base_label": "EUC-KR"
+        },
+        {
+          "raw": "Windows-1251",
+          "base_label": "Windows-1251"
+        },
+        {
+          "raw": "TIS-620",
+          "base_label": "TIS-620"
+        },
+        {
+          "raw": "Windows-1252",
+          "base_label": "Windows-1252"
+        },
+        {
+          "raw": "ISO-8859-1",
+          "base_label": "ISO-8859-1"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_tag_encoding_values",
+        "locator": "line 938"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_category_shuffle_entries",
+      "base_items": [
+        {
+          "raw": "@string/shuffle_songs_and_cats",
+          "base_label": "Shuffle Songs/Categories"
+        },
+        {
+          "raw": "@string/shuffle_cats",
+          "base_label": "Shuffle Categories"
+        },
+        {
+          "raw": "@string/shuffle_songs",
+          "base_label": "Shuffle Songs"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_category_shuffle_entries",
+        "locator": "line 507"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_category_shuffle_values",
+      "base_items": [
+        {
+          "raw": "4",
+          "base_label": "4"
+        },
+        {
+          "raw": "3",
+          "base_label": "3"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_category_shuffle_values",
+        "locator": "line 517"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_stream_timeout_entries",
+      "base_items": [
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "5",
+          "base_label": "5"
+        },
+        {
+          "raw": "10",
+          "base_label": "10"
+        },
+        {
+          "raw": "15",
+          "base_label": "15"
+        },
+        {
+          "raw": "30",
+          "base_label": "30"
+        },
+        {
+          "raw": "60",
+          "base_label": "60"
+        },
+        {
+          "raw": "120",
+          "base_label": "120"
+        },
+        {
+          "raw": "300",
+          "base_label": "300"
+        },
+        {
+          "raw": "@string/never",
+          "base_label": "Never"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_stream_timeout_entries",
+        "locator": "line 896"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_stream_timeout_values",
+      "base_items": [
+        {
+          "raw": "1000",
+          "base_label": "1000"
+        },
+        {
+          "raw": "5000",
+          "base_label": "5000"
+        },
+        {
+          "raw": "10000",
+          "base_label": "10000"
+        },
+        {
+          "raw": "15000",
+          "base_label": "15000"
+        },
+        {
+          "raw": "30000",
+          "base_label": "30000"
+        },
+        {
+          "raw": "60000",
+          "base_label": "60000"
+        },
+        {
+          "raw": "120000",
+          "base_label": "120000"
+        },
+        {
+          "raw": "300000",
+          "base_label": "300000"
+        },
+        {
+          "raw": "2147483647",
+          "base_label": "2147483647"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_stream_timeout_values",
+        "locator": "line 907"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_peq_equ_bands_entries",
+      "base_items": [
+        {
+          "raw": "5",
+          "base_label": "5"
+        },
+        {
+          "raw": "10 (ISO)",
+          "base_label": "10 (ISO)"
+        },
+        {
+          "raw": "12",
+          "base_label": "12"
+        },
+        {
+          "raw": "15 (ISO)",
+          "base_label": "15 (ISO)"
+        },
+        {
+          "raw": "16",
+          "base_label": "16"
+        },
+        {
+          "raw": "24",
+          "base_label": "24"
+        },
+        {
+          "raw": "31 (ISO)",
+          "base_label": "31 (ISO)"
+        },
+        {
+          "raw": "32",
+          "base_label": "32"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_peq_equ_bands_entries",
+        "locator": "line 807"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_peq_equ_bands",
+      "base_items": [
+        {
+          "raw": "5",
+          "base_label": "5"
+        },
+        {
+          "raw": "10",
+          "base_label": "10"
+        },
+        {
+          "raw": "12",
+          "base_label": "12"
+        },
+        {
+          "raw": "15",
+          "base_label": "15"
+        },
+        {
+          "raw": "16",
+          "base_label": "16"
+        },
+        {
+          "raw": "24",
+          "base_label": "24"
+        },
+        {
+          "raw": "31",
+          "base_label": "31"
+        },
+        {
+          "raw": "32",
+          "base_label": "32"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_peq_equ_bands",
+        "locator": "line 797"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_rg_type_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_rg_type_none",
+          "base_label": "\"Don't apply\""
+        },
+        {
+          "raw": "@string/pref_rg_type_apply",
+          "base_label": "Apply Gain"
+        },
+        {
+          "raw": "@string/pref_rg_type_apply_peak",
+          "base_label": "Apply Gain/prevent clipping according to Peak"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_rg_type_entries",
+        "locator": "line 859"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_rg_source_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_rg_source_album",
+          "base_label": "Album"
+        },
+        {
+          "raw": "@string/pref_rg_source_track",
+          "base_label": "Track"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_rg_source_entries",
+        "locator": "line 855"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_settings_theme_labels",
+      "base_items": [
+        {
+          "raw": "@string/_default",
+          "base_label": "Default"
+        },
+        {
+          "raw": "@string/pref_settings_theme_light",
+          "base_label": "Light"
+        },
+        {
+          "raw": "@string/pref_settings_theme_dark",
+          "base_label": "Dark"
+        },
+        {
+          "raw": "@string/pref_follow_night_mode",
+          "base_label": "Follow Day/Night Mode"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_settings_theme_labels",
+        "locator": "line 890"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_settings_font_labels",
+      "base_items": [
+        {
+          "raw": "@string/_default",
+          "base_label": "Default"
+        },
+        {
+          "raw": "@string/skin_alt_font",
+          "base_label": "Alternative font"
+        },
+        {
+          "raw": "@string/bold",
+          "base_label": "Bold"
+        },
+        {
+          "raw": "@string/bold_plus",
+          "base_label": "Bold+"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_settings_font_labels",
+        "locator": "line 884"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_language_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_auto",
+          "base_label": "Auto"
+        },
+        {
+          "raw": "العربية",
+          "base_label": "العربية"
+        },
+        {
+          "raw": "বাংলা",
+          "base_label": "বাংলা"
+        },
+        {
+          "raw": "Bahasa Indonesia",
+          "base_label": "Bahasa Indonesia"
+        },
+        {
+          "raw": "Čeština",
+          "base_label": "Čeština"
+        },
+        {
+          "raw": "中文(简体)",
+          "base_label": "中文(简体)"
+        },
+        {
+          "raw": "中文(繁體)",
+          "base_label": "中文(繁體)"
+        },
+        {
+          "raw": "Dansk",
+          "base_label": "Dansk"
+        },
+        {
+          "raw": "Deutsch",
+          "base_label": "Deutsch"
+        },
+        {
+          "raw": "English",
+          "base_label": "English"
+        },
+        {
+          "raw": "Español",
+          "base_label": "Español"
+        },
+        {
+          "raw": "فارسی",
+          "base_label": "فارسی"
+        },
+        {
+          "raw": "Français",
+          "base_label": "Français"
+        },
+        {
+          "raw": "ελληνικά",
+          "base_label": "ελληνικά"
+        },
+        {
+          "raw": "עברית",
+          "base_label": "עברית"
+        },
+        {
+          "raw": "हिन्दी",
+          "base_label": "हिन्दी"
+        },
+        {
+          "raw": "Italiano",
+          "base_label": "Italiano"
+        },
+        {
+          "raw": "Limba română",
+          "base_label": "Limba română"
+        },
+        {
+          "raw": "Magyar",
+          "base_label": "Magyar"
+        },
+        {
+          "raw": "Nederlands",
+          "base_label": "Nederlands"
+        },
+        {
+          "raw": "日本語",
+          "base_label": "日本語"
+        },
+        {
+          "raw": "한국어",
+          "base_label": "한국어"
+        },
+        {
+          "raw": "Polski",
+          "base_label": "Polski"
+        },
+        {
+          "raw": "Português brasileiro",
+          "base_label": "Português brasileiro"
+        },
+        {
+          "raw": "Русский",
+          "base_label": "Русский"
+        },
+        {
+          "raw": "Slovenčina",
+          "base_label": "Slovenčina"
+        },
+        {
+          "raw": "Cрпски",
+          "base_label": "Cрпски"
+        },
+        {
+          "raw": "ไทย",
+          "base_label": "ไทย"
+        },
+        {
+          "raw": "Tiếng Việt",
+          "base_label": "Tiếng Việt"
+        },
+        {
+          "raw": "Türkçe",
+          "base_label": "Türkçe"
+        },
+        {
+          "raw": "Українська мова",
+          "base_label": "Українська мова"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_language_entries",
+        "locator": "line 573"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_language_values",
+      "base_items": [
+        {
+          "raw": "",
+          "base_label": ""
+        },
+        {
+          "raw": "ar",
+          "base_label": "ar"
+        },
+        {
+          "raw": "bn",
+          "base_label": "bn"
+        },
+        {
+          "raw": "in",
+          "base_label": "in"
+        },
+        {
+          "raw": "cs",
+          "base_label": "cs"
+        },
+        {
+          "raw": "zh_CN",
+          "base_label": "zh_CN"
+        },
+        {
+          "raw": "zh_TW",
+          "base_label": "zh_TW"
+        },
+        {
+          "raw": "da",
+          "base_label": "da"
+        },
+        {
+          "raw": "de",
+          "base_label": "de"
+        },
+        {
+          "raw": "en_US",
+          "base_label": "en_US"
+        },
+        {
+          "raw": "es",
+          "base_label": "es"
+        },
+        {
+          "raw": "fa",
+          "base_label": "fa"
+        },
+        {
+          "raw": "fr",
+          "base_label": "fr"
+        },
+        {
+          "raw": "el",
+          "base_label": "el"
+        },
+        {
+          "raw": "iw",
+          "base_label": "iw"
+        },
+        {
+          "raw": "hi",
+          "base_label": "hi"
+        },
+        {
+          "raw": "it",
+          "base_label": "it"
+        },
+        {
+          "raw": "ro",
+          "base_label": "ro"
+        },
+        {
+          "raw": "hu",
+          "base_label": "hu"
+        },
+        {
+          "raw": "nl",
+          "base_label": "nl"
+        },
+        {
+          "raw": "ja",
+          "base_label": "ja"
+        },
+        {
+          "raw": "ko",
+          "base_label": "ko"
+        },
+        {
+          "raw": "pl",
+          "base_label": "pl"
+        },
+        {
+          "raw": "pt_BR",
+          "base_label": "pt_BR"
+        },
+        {
+          "raw": "ru",
+          "base_label": "ru"
+        },
+        {
+          "raw": "sk",
+          "base_label": "sk"
+        },
+        {
+          "raw": "sr",
+          "base_label": "sr"
+        },
+        {
+          "raw": "th",
+          "base_label": "th"
+        },
+        {
+          "raw": "vi",
+          "base_label": "vi"
+        },
+        {
+          "raw": "tr",
+          "base_label": "tr"
+        },
+        {
+          "raw": "uk",
+          "base_label": "uk"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_language_values",
+        "locator": "line 606"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_orientation_entries",
+      "base_items": [
+        {
+          "raw": "@string/sensor",
+          "base_label": "Default"
+        },
+        {
+          "raw": "@string/vertical",
+          "base_label": "Portrait (Vertical)"
+        },
+        {
+          "raw": "@string/horizontal",
+          "base_label": "Landscape (Horizontal)"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_orientation_entries",
+        "locator": "line 792"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/anim_speed_entries",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        },
+        {
+          "raw": "@string/fast",
+          "base_label": "Fast"
+        },
+        {
+          "raw": "@string/_default",
+          "base_label": "Default"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "anim_speed_entries",
+        "locator": "line 67"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/anim_speed_values",
+      "base_items": [
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        },
+        {
+          "raw": "1",
+          "base_label": "1"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "anim_speed_values",
+        "locator": "line 72"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/zero_index_disabled_entries",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "zero_index_disabled_entries",
+        "locator": "line 1167"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_main_lyrics_button_entries",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        },
+        {
+          "raw": "@string/when_lyrics_avail",
+          "base_label": "When local lyrics available"
+        },
+        {
+          "raw": "@string/always",
+          "base_label": "Always"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_main_lyrics_button_entries",
+        "locator": "line 707"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_main_lyrics_button_values",
+      "base_items": [
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_main_lyrics_button_values",
+        "locator": "line 712"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_lyrics_in_menu_entries",
+      "base_items": [
+        {
+          "raw": "@string/open_lyrics_ui",
+          "base_label": "Open lyrics UI"
+        },
+        {
+          "raw": "@string/open_3rd_party_app",
+          "base_label": "Open 3rd party app"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_lyrics_in_menu_entries",
+        "locator": "line 679"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_lyrics_in_menu_values",
+      "base_items": [
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "1",
+          "base_label": "1"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_lyrics_in_menu_values",
+        "locator": "line 683"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_list_zoom_lyrics_entries",
+      "base_items": [
+        {
+          "raw": "@string/small_font",
+          "base_label": "Small Font"
+        },
+        {
+          "raw": "@string/_default",
+          "base_label": "Default"
+        },
+        {
+          "raw": "@string/large_font",
+          "base_label": "Large Font"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_list_zoom_lyrics_entries",
+        "locator": "line 669"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_list_zoom_lyrics_values",
+      "base_items": [
+        {
+          "raw": "-1",
+          "base_label": "-1"
+        },
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "1",
+          "base_label": "1"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_list_zoom_lyrics_values",
+        "locator": "line 674"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_lyrics_plugin_labels",
+      "base_items": [
+        {
+          "raw": "@string/none",
+          "base_label": "None"
+        },
+        {
+          "raw": "@string/lyrics_custom_url",
+          "base_label": "Browser via custom URL"
+        },
+        {
+          "raw": "@string/lyrics_google",
+          "base_label": "Google"
+        },
+        {
+          "raw": "@string/lyrics_google_web",
+          "base_label": "Google (Web)"
+        },
+        {
+          "raw": "@string/lyrics_musixmatch",
+          "base_label": "MusiXmatch"
+        },
+        {
+          "raw": "@string/lyrics_genius",
+          "base_label": "Genius"
+        },
+        {
+          "raw": "@string/lyrics_quicklyric",
+          "base_label": "QuickLyric"
+        },
+        {
+          "raw": "@string/lyrics_walkmanlyrics",
+          "base_label": "Walkman Lyrics Extension"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_lyrics_plugin_labels",
+        "locator": "line 687"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_lyrics_plugin_values",
+      "base_items": [
+        {
+          "raw": "-1",
+          "base_label": "-1"
+        },
+        {
+          "raw": "6",
+          "base_label": "6"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        },
+        {
+          "raw": "3",
+          "base_label": "3"
+        },
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "4",
+          "base_label": "4"
+        },
+        {
+          "raw": "5",
+          "base_label": "5"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_lyrics_plugin_values",
+        "locator": "line 697"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_notify_actions_entries",
+      "base_items": [
+        {
+          "raw": "@string/none",
+          "base_label": "None"
+        },
+        {
+          "raw": "@string/repeat",
+          "base_label": "Repeat"
+        },
+        {
+          "raw": "@string/shuffle",
+          "base_label": "Shuffle"
+        },
+        {
+          "raw": "@string/close",
+          "base_label": "Close"
+        },
+        {
+          "raw": "@string/like",
+          "base_label": "Like"
+        },
+        {
+          "raw": "@string/unlike",
+          "base_label": "Unlike"
+        },
+        {
+          "raw": "@string/rating",
+          "base_label": "Rating"
+        },
+        {
+          "raw": "@string/minus_10",
+          "base_label": "-10"
+        },
+        {
+          "raw": "@string/plus_10",
+          "base_label": "+10"
+        },
+        {
+          "raw": "@string/h_prev_list",
+          "base_label": "Prev. category"
+        },
+        {
+          "raw": "@string/h_next_list",
+          "base_label": "Next category"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_notify_actions_entries",
+        "locator": "line 728"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_notify_actions_values",
+      "base_items": [
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        },
+        {
+          "raw": "3",
+          "base_label": "3"
+        },
+        {
+          "raw": "4",
+          "base_label": "4"
+        },
+        {
+          "raw": "5",
+          "base_label": "5"
+        },
+        {
+          "raw": "6",
+          "base_label": "6"
+        },
+        {
+          "raw": "8",
+          "base_label": "8"
+        },
+        {
+          "raw": "7",
+          "base_label": "7"
+        },
+        {
+          "raw": "10",
+          "base_label": "10"
+        },
+        {
+          "raw": "9",
+          "base_label": "9"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_notify_actions_values",
+        "locator": "line 765"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_notification_type_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_auto",
+          "base_label": "Auto"
+        },
+        {
+          "raw": "@string/pref_media_style",
+          "base_label": "Media / Colorized"
+        },
+        {
+          "raw": "@string/pref_media_custom",
+          "base_label": "Media with the custom cover"
+        },
+        {
+          "raw": "@string/pref_legacy",
+          "base_label": "Legacy"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_notification_type_entries",
+        "locator": "line 722"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_notification_colors_entries",
+      "base_items": [
+        {
+          "raw": "@string/pref_auto",
+          "base_label": "Auto"
+        },
+        {
+          "raw": "@string/pref_black",
+          "base_label": "Black"
+        },
+        {
+          "raw": "@string/pref_white",
+          "base_label": "White"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_notification_colors_entries",
+        "locator": "line 717"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_notify_prio_entries",
+      "base_items": [
+        {
+          "raw": "@string/maximum_short",
+          "base_label": "Max"
+        },
+        {
+          "raw": "@string/high",
+          "base_label": "High"
+        },
+        {
+          "raw": "@string/default_string",
+          "base_label": "Default"
+        },
+        {
+          "raw": "@string/low",
+          "base_label": "Low"
+        },
+        {
+          "raw": "@string/minimum_short",
+          "base_label": "Min"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_notify_prio_entries",
+        "locator": "line 778"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_notify_prio_values",
+      "base_items": [
+        {
+          "raw": "2",
+          "base_label": "2"
+        },
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "-1",
+          "base_label": "-1"
+        },
+        {
+          "raw": "-2",
+          "base_label": "-2"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_notify_prio_values",
+        "locator": "line 785"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_cc_button_entries",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        },
+        {
+          "raw": "@string/pref_main_screen",
+          "base_label": "Player Screen"
+        },
+        {
+          "raw": "@string/pref_main_screen_button",
+          "base_label": "Player Screen Button"
+        },
+        {
+          "raw": "@string/pref_main_menu",
+          "base_label": "Main Menu"
+        },
+        {
+          "raw": "@string/pref_main_screen_and_main_menu",
+          "base_label": "Player Screen and Main Menu"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_cc_button_entries",
+        "locator": "line 522"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_cc_button_values",
+      "base_items": [
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "4",
+          "base_label": "4"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        },
+        {
+          "raw": "3",
+          "base_label": "3"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_cc_button_values",
+        "locator": "line 529"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_rating_type_entries",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        },
+        {
+          "raw": "@string/pref_like_unlike_thumbs",
+          "base_label": "Like/unlike thumbs"
+        },
+        {
+          "raw": "@string/pref_5_stars",
+          "base_label": "5 stars"
+        },
+        {
+          "raw": "@string/pref_5_stars_menu",
+          "base_label": "5 stars (menu/lists only)"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_rating_type_entries",
+        "locator": "line 845"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_hide_menu_entries",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        },
+        {
+          "raw": "@string/enabled",
+          "base_label": "Enabled"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_hide_menu_entries",
+        "locator": "line 565"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_hide_menu_values",
+      "base_items": [
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "0",
+          "base_label": "0"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_hide_menu_values",
+        "locator": "line 569"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/menu_button_long_press_entries",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        },
+        {
+          "raw": "@string/delete",
+          "base_label": "Delete"
+        },
+        {
+          "raw": "@string/add_to_playlist",
+          "base_label": "Add to Playlist"
+        },
+        {
+          "raw": "@string/info_short",
+          "base_label": "Info/Tags"
+        },
+        {
+          "raw": "@string/album_art",
+          "base_label": "Album Art"
+        },
+        {
+          "raw": "@string/artist",
+          "base_label": "Artist"
+        },
+        {
+          "raw": "@string/album",
+          "base_label": "Album"
+        },
+        {
+          "raw": "@string/folder",
+          "base_label": "Folder"
+        },
+        {
+          "raw": "@string/genre",
+          "base_label": "Genre"
+        },
+        {
+          "raw": "@string/share",
+          "base_label": "Share"
+        },
+        {
+          "raw": "@string/like",
+          "base_label": "Like"
+        },
+        {
+          "raw": "@string/unlike",
+          "base_label": "Unlike"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "menu_button_long_press_entries",
+        "locator": "line 386"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_line2_click_entries",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        },
+        {
+          "raw": "@string/artist",
+          "base_label": "Artist"
+        },
+        {
+          "raw": "@string/album",
+          "base_label": "Album"
+        },
+        {
+          "raw": "@string/folder",
+          "base_label": "Folder"
+        },
+        {
+          "raw": "@string/genre",
+          "base_label": "Genre"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_line2_click_entries",
+        "locator": "line 639"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_line2_click_values",
+      "base_items": [
+        {
+          "raw": "0",
+          "base_label": "0"
+        },
+        {
+          "raw": "1",
+          "base_label": "1"
+        },
+        {
+          "raw": "2",
+          "base_label": "2"
+        },
+        {
+          "raw": "3",
+          "base_label": "3"
+        },
+        {
+          "raw": "4",
+          "base_label": "4"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_line2_click_values",
+        "locator": "line 653"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    },
+    {
+      "reference": "@array/pref_vis_frs_type_labels",
+      "base_items": [
+        {
+          "raw": "@string/disabled",
+          "base_label": "Disabled"
+        },
+        {
+          "raw": "@string/classic",
+          "base_label": "Classic"
+        },
+        {
+          "raw": "@string/rounded",
+          "base_label": "Rounded"
+        }
+      ],
+      "source": {
+        "kind": "apk-resource",
+        "path": "decoded/res/values/arrays.xml",
+        "symbol": "pref_vis_frs_type_labels",
+        "locator": "line 974"
+      },
+      "conditions": [
+        "Base resource declaration; localized/qualified resources and helper replacements may differ."
+      ]
+    }
+  ]
+}

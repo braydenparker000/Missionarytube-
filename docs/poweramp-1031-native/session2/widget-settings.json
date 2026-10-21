@@ -1,0 +1,1692 @@
+{
+  "schema_version": 1,
+  "scope": "Bounded deep trace of37 unique controls in4 shared option tabs, size/API conditions, style storage and preview/completion; no runtime widget host.",
+  "controls": [
+    {
+      "id": "bg_color_button",
+      "tab": "Background",
+      "control": "Button",
+      "value_kind": "color",
+      "model_field": "x/y",
+      "persistence_key_suffix": "colors/color_reses",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_bg.xml",
+          "symbol": "@id/bg_color_button",
+          "locator": "line:4"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "bg_style_spinner",
+      "tab": "Background",
+      "control": "Spinner",
+      "value_kind": "style-index",
+      "model_field": "X",
+      "persistence_key_suffix": "style_bits[0:3]",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_bg.xml",
+          "symbol": "@id/bg_style_spinner",
+          "locator": "line:5"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "padding_hor",
+      "tab": "Background",
+      "control": "SeekBar",
+      "value_kind": "padding",
+      "model_field": "С",
+      "persistence_key_suffix": "padding_hor",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_bg.xml",
+          "symbol": "@id/padding_hor",
+          "locator": "line:7"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "mapping": "Math.round(progress*0.5)+minimum; maxProgress=Math.round((maximum-minimum)/0.5)"
+    },
+    {
+      "id": "padding_ver",
+      "tab": "Background",
+      "control": "SeekBar",
+      "value_kind": "padding",
+      "model_field": "c",
+      "persistence_key_suffix": "padding_ver",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_bg.xml",
+          "symbol": "@id/padding_ver",
+          "locator": "line:9"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "mapping": "Math.round(progress*0.5)+minimum; maxProgress=Math.round((maximum-minimum)/0.5)"
+    },
+    {
+      "id": "padding_ver2",
+      "tab": "Background",
+      "control": "SeekBar",
+      "value_kind": "padding",
+      "model_field": "с",
+      "persistence_key_suffix": "padding_ver2",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Hidden when subclass maximum is0 (4x4)",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_bg.xml",
+          "symbol": "@id/padding_ver2",
+          "locator": "line:11"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "mapping": "Math.round(progress*0.5)+minimum; maxProgress=Math.round((maximum-minimum)/0.5)"
+    },
+    {
+      "id": "bg_alpha",
+      "tab": "Background",
+      "control": "SeekBar",
+      "value_kind": "alpha",
+      "model_field": "alpha(x)",
+      "persistence_key_suffix": "colors",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Enabled only for nonzero background style",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_bg.xml",
+          "symbol": "@id/bg_alpha",
+          "locator": "line:13"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "range": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "corner_radius",
+      "tab": "Background",
+      "control": "SeekBar",
+      "value_kind": "radius-index",
+      "model_field": "o",
+      "persistence_key_suffix": "style_bits2[0:5]",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Enabled only when provider.A(style) allows it",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_bg.xml",
+          "symbol": "@id/corner_radius",
+          "locator": "line:15"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "bg_shadow",
+      "tab": "Background",
+      "control": "CheckBox",
+      "value_kind": "boolean-shadow",
+      "model_field": "р",
+      "persistence_key_suffix": "style_bits[16:23]",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "API>=31; enabled only for nonzero background style",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_bg.xml",
+          "symbol": "@id/bg_shadow",
+          "locator": "line:17"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "shadow_alpha",
+      "tab": "Background",
+      "control": "SeekBar",
+      "value_kind": "alpha",
+      "model_field": "р",
+      "persistence_key_suffix": "style_bits[16:23]",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "API<31; enabled only for nonzero background style",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_bg.xml",
+          "symbol": "@id/shadow_alpha",
+          "locator": "line:18"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "range": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "text_color_button",
+      "tab": "Text",
+      "control": "Button",
+      "value_kind": "color",
+      "model_field": "K/H",
+      "persistence_key_suffix": "colors/color_reses",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/text_color_button",
+          "locator": "line:4"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "font_family_spinner",
+      "tab": "Text",
+      "control": "Spinner",
+      "value_kind": "font-index",
+      "model_field": "О",
+      "persistence_key_suffix": "font_family",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/font_family_spinner",
+          "locator": "line:5"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "title",
+      "tab": "Text",
+      "control": "CheckBox",
+      "value_kind": "inverted-boolean",
+      "model_field": "A:1024",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/title",
+          "locator": "line:8"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "title_font_style_bold",
+      "tab": "Text",
+      "control": "FastCheckBox",
+      "value_kind": "boolean",
+      "model_field": "A:128",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Enabled when Title is checked",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/title_font_style_bold",
+          "locator": "line:9"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "title_font_style_italic",
+      "tab": "Text",
+      "control": "FastCheckBox",
+      "value_kind": "boolean",
+      "model_field": "A:256",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Enabled when Title is checked",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/title_font_style_italic",
+          "locator": "line:10"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "text_align_left",
+      "tab": "Text",
+      "control": "FastCheckBox",
+      "value_kind": "alignment",
+      "model_field": "a=1",
+      "persistence_key_suffix": "style_bits2[8:9]",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/text_align_left",
+          "locator": "line:11"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "text_align_center",
+      "tab": "Text",
+      "control": "FastCheckBox",
+      "value_kind": "alignment",
+      "model_field": "a=2",
+      "persistence_key_suffix": "style_bits2[8:9]",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/text_align_center",
+          "locator": "line:12"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "text_align_right",
+      "tab": "Text",
+      "control": "FastCheckBox",
+      "value_kind": "alignment",
+      "model_field": "a=3",
+      "persistence_key_suffix": "style_bits2[8:9]",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/text_align_right",
+          "locator": "line:13"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "title_font_size",
+      "tab": "Text",
+      "control": "SeekBar",
+      "value_kind": "font-size-index",
+      "model_field": "о",
+      "persistence_key_suffix": "style_bits[8:11]",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Enabled when Title is checked",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/title_font_size",
+          "locator": "line:15"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "range": [
+        0,
+        10
+      ]
+    },
+    {
+      "id": "other_text",
+      "tab": "Text",
+      "control": "CheckBox",
+      "value_kind": "inverted-boolean",
+      "model_field": "A:2048",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/other_text",
+          "locator": "line:18"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "font_style_bold",
+      "tab": "Text",
+      "control": "FastCheckBox",
+      "value_kind": "boolean",
+      "model_field": "A:32",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Enabled when Other text is checked",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/font_style_bold",
+          "locator": "line:19"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "font_style_italic",
+      "tab": "Text",
+      "control": "FastCheckBox",
+      "value_kind": "boolean",
+      "model_field": "A:64",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Enabled when Other text is checked",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/font_style_italic",
+          "locator": "line:20"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "font_size",
+      "tab": "Text",
+      "control": "SeekBar",
+      "value_kind": "font-size-index",
+      "model_field": "O",
+      "persistence_key_suffix": "style_bits[4:7]",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Enabled when Other text is checked",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_text.xml",
+          "symbol": "@id/font_size",
+          "locator": "line:22"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "range": [
+        0,
+        10
+      ]
+    },
+    {
+      "id": "buttons_color_button",
+      "tab": "Buttons",
+      "control": "Button",
+      "value_kind": "color",
+      "model_field": "d/e",
+      "persistence_key_suffix": "button_color/button_color_res",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "API>=31 and theme index1,2,3,4 enabled",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_buttons.xml",
+          "symbol": "@id/buttons_color_button",
+          "locator": "line:4"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "icons_color_button",
+      "tab": "Buttons",
+      "control": "Button",
+      "value_kind": "color",
+      "model_field": "Р/P",
+      "persistence_key_suffix": "colors/color_reses",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_buttons.xml",
+          "symbol": "@id/icons_color_button",
+          "locator": "line:5"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "theme_spinner",
+      "tab": "Buttons",
+      "control": "Spinner",
+      "value_kind": "theme-index",
+      "model_field": "b",
+      "persistence_key_suffix": "theme",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_buttons.xml",
+          "symbol": "@id/theme_spinner",
+          "locator": "line:6"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    },
+    {
+      "id": "cat_change",
+      "tab": "Buttons",
+      "control": "CheckBox",
+      "value_kind": "inverted-boolean",
+      "model_field": "A:2",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Hidden2x2",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_buttons.xml",
+          "symbol": "@id/cat_change",
+          "locator": "line:8"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "playing_mode",
+      "tab": "Buttons",
+      "control": "CheckBox",
+      "value_kind": "inverted-boolean",
+      "model_field": "A:4",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_buttons.xml",
+          "symbol": "@id/playing_mode",
+          "locator": "line:9"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "icons_alpha",
+      "tab": "Buttons",
+      "control": "SeekBar",
+      "value_kind": "alpha",
+      "model_field": "alpha(Р)",
+      "persistence_key_suffix": "colors",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_buttons.xml",
+          "symbol": "@id/icons_alpha",
+          "locator": "line:11"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "range": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "aa_cb",
+      "tab": "Other",
+      "control": "CheckBox",
+      "value_kind": "boolean",
+      "model_field": "A:4096",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "2x2/4x1/4x2; hidden4x4",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_other.xml",
+          "symbol": "@id/aa_cb",
+          "locator": "line:4"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "alt_scale_cb",
+      "tab": "Other",
+      "control": "CheckBox",
+      "value_kind": "boolean",
+      "model_field": "A:4096",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "4x4 only",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_other.xml",
+          "symbol": "@id/alt_scale_cb",
+          "locator": "line:5"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "aa_shadow_cb",
+      "tab": "Other",
+      "control": "CheckBox",
+      "value_kind": "boolean",
+      "model_field": "A:8192",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_other.xml",
+          "symbol": "@id/aa_shadow_cb",
+          "locator": "line:6"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "meta_cb",
+      "tab": "Other",
+      "control": "CheckBox",
+      "value_kind": "boolean",
+      "model_field": "A:16",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_other.xml",
+          "symbol": "@id/meta_cb",
+          "locator": "line:7"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "meta_bg",
+      "tab": "Other",
+      "control": "CheckBox",
+      "value_kind": "boolean",
+      "model_field": "A:512",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_other.xml",
+          "symbol": "@id/meta_bg",
+          "locator": "line:8"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "animate_aa",
+      "tab": "Other",
+      "control": "CheckBox",
+      "value_kind": "global-boolean",
+      "model_field": "c40.l0",
+      "persistence_key_suffix": "animate_widget_aa",
+      "scope": "global:c40",
+      "default": "c40 constructor true, subject to Application.с device/API startup overrides.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_other.xml",
+          "symbol": "@id/animate_aa",
+          "locator": "line:9"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003",
+        "PA1031-S2-WIDGET-006"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "fixed_size",
+      "tab": "Other",
+      "control": "CheckBox",
+      "value_kind": "inverted-boolean",
+      "model_field": "A:16384",
+      "persistence_key_suffix": "flags",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "2x2 only",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_other.xml",
+          "symbol": "@id/fixed_size",
+          "locator": "line:10"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "values": [
+        false,
+        true
+      ]
+    },
+    {
+      "id": "aa_alpha",
+      "tab": "Other",
+      "control": "SeekBar",
+      "value_kind": "alpha",
+      "model_field": "p",
+      "persistence_key_suffix": "style_bits[24:31]",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "Present in base page; active style and host may add further guards.",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_other.xml",
+          "symbol": "@id/aa_alpha",
+          "locator": "line:13"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ],
+      "range": [
+        0,
+        255
+      ]
+    },
+    {
+      "id": "aa_corner_radius",
+      "tab": "Other",
+      "control": "SeekBar",
+      "value_kind": "radius-index",
+      "model_field": "C",
+      "persistence_key_suffix": "aa_corner_radius",
+      "scope": "appwidgets:<decimal widget id>",
+      "default": "Selected bundled/saved/reconfigured style; no universal control default.",
+      "availability": "API>=31",
+      "sources": [
+        {
+          "kind": "xml",
+          "path": "decoded/res/layout/widget_conf_other.xml",
+          "symbol": "@id/aa_corner_radius",
+          "locator": "line:14"
+        }
+      ],
+      "evidence": [
+        "PA1031-S2-WIDGET-001",
+        "PA1031-S2-WIDGET-002",
+        "PA1031-S2-WIDGET-003"
+      ]
+    }
+  ],
+  "size_ranges": {
+    "2x2": {
+      "padding_hor": [
+        -24,
+        96
+      ],
+      "padding_ver": [
+        -16,
+        256
+      ],
+      "padding_ver2": [
+        -64,
+        256
+      ],
+      "background_style": [
+        0,
+        6
+      ],
+      "corner_max": "8 beforeAPI31;16 fromAPI31"
+    },
+    "4x1": {
+      "padding_hor": [
+        -32,
+        36
+      ],
+      "padding_ver": [
+        -16,
+        18
+      ],
+      "padding_ver2": [
+        -16,
+        32
+      ],
+      "background_style": [
+        0,
+        7
+      ],
+      "corner_max": "8 beforeAPI31;16 fromAPI31"
+    },
+    "4x2": {
+      "padding_hor": [
+        -50,
+        72
+      ],
+      "padding_ver": [
+        -16,
+        32
+      ],
+      "padding_ver2": [
+        -8,
+        40
+      ],
+      "background_style": [
+        0,
+        7
+      ],
+      "corner_max": "8 beforeAPI31;16 fromAPI31"
+    },
+    "4x4": {
+      "padding_hor": [
+        0,
+        32
+      ],
+      "padding_ver": [
+        0,
+        64
+      ],
+      "padding_ver2": null,
+      "background_style": [
+        0,
+        6
+      ],
+      "corner_max": 16
+    }
+  },
+  "array_declarations": [
+    {
+      "name": "pref_widget_font_families",
+      "qualifier": "values",
+      "values": [
+        "Sans-serif",
+        "Serif",
+        "Monospace",
+        "Light",
+        "Thin",
+        "Condensed",
+        "Condensed Medium",
+        "Medium",
+        "Black",
+        "Smallcaps",
+        "Serif Monospace",
+        "Casual",
+        "Cursive"
+      ],
+      "source": "decoded/res/values/arrays.xml"
+    },
+    {
+      "name": "pref_widget_font_families_extra",
+      "qualifier": "values",
+      "values": [],
+      "source": "decoded/res/values/arrays.xml"
+    },
+    {
+      "name": "widget_theme_entries",
+      "qualifier": "values",
+      "values": [
+        "@string/none",
+        "@string/default_string",
+        "@string/widget_circle",
+        "@string/play"
+      ],
+      "source": "decoded/res/values/arrays.xml"
+    },
+    {
+      "name": "pref_widget_font_families_extra",
+      "qualifier": "values-v26",
+      "values": [
+        "@string/skin_alt_font",
+        "@string/bold"
+      ],
+      "source": "decoded/res/values-v26/arrays.xml"
+    },
+    {
+      "name": "pref_widget_font_families_extra",
+      "qualifier": "values-v31",
+      "values": [
+        "@string/skin_alt_font",
+        "@string/bold",
+        "Google Sans",
+        "Google Sans Text",
+        "Google Sans Text Medium",
+        "Google Sans Regular"
+      ],
+      "source": "decoded/res/values-v31/arrays.xml"
+    },
+    {
+      "name": "widget_theme_entries",
+      "qualifier": "values-v31",
+      "values": [
+        "@string/none",
+        "@string/default_string",
+        "@string/widget_circle",
+        "@string/play",
+        "@string/shadow"
+      ],
+      "source": "decoded/res/values-v31/arrays.xml"
+    }
+  ],
+  "font_dimension_declarations": [
+    {
+      "name": "widget2x2_font_size1",
+      "value": "6.5dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size10",
+      "value": "19.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size11",
+      "value": "22.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size2",
+      "value": "7.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size3",
+      "value": "8.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size4",
+      "value": "9.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size5",
+      "value": "10.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size6",
+      "value": "11.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size7",
+      "value": "12.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size8",
+      "value": "14.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size9",
+      "value": "16.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size1",
+      "value": "6.5dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size10",
+      "value": "19.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size11",
+      "value": "22.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size2",
+      "value": "7.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size3",
+      "value": "8.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size4",
+      "value": "9.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size5",
+      "value": "10.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size6",
+      "value": "11.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size7",
+      "value": "12.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size8",
+      "value": "14.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size9",
+      "value": "16.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size1",
+      "value": "9.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size10",
+      "value": "31.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size11",
+      "value": "34.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size2",
+      "value": "10.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size3",
+      "value": "11.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size4",
+      "value": "12.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size5",
+      "value": "15.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size6",
+      "value": "17.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size7",
+      "value": "22.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size8",
+      "value": "25.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size9",
+      "value": "28.0dip",
+      "qualifier": "values",
+      "source": "decoded/res/values/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size1",
+      "value": "10.5dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size10",
+      "value": "24.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size11",
+      "value": "28.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size2",
+      "value": "10.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size3",
+      "value": "11.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size4",
+      "value": "12.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size5",
+      "value": "13.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size6",
+      "value": "16.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size7",
+      "value": "18.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size8",
+      "value": "20.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget2x2_font_size9",
+      "value": "22.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size1",
+      "value": "10.5dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size10",
+      "value": "24.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size11",
+      "value": "28.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size2",
+      "value": "10.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size3",
+      "value": "11.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size4",
+      "value": "12.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size5",
+      "value": "13.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size6",
+      "value": "16.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size7",
+      "value": "18.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size8",
+      "value": "20.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size9",
+      "value": "22.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size1",
+      "value": "12.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size10",
+      "value": "34.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size11",
+      "value": "37.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size2",
+      "value": "13.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size3",
+      "value": "14.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size4",
+      "value": "15.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size5",
+      "value": "18.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size6",
+      "value": "21.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size7",
+      "value": "25.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size8",
+      "value": "28.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x2_font_size9",
+      "value": "31.0dip",
+      "qualifier": "values-sw380dp",
+      "source": "decoded/res/values-sw380dp/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size1",
+      "value": "14.0sp",
+      "qualifier": "values-sw600dp-large",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size10",
+      "value": "31.0sp",
+      "qualifier": "values-sw600dp-large",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size11",
+      "value": "34.0sp",
+      "qualifier": "values-sw600dp-large",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size2",
+      "value": "16.0sp",
+      "qualifier": "values-sw600dp-large",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size3",
+      "value": "18.0sp",
+      "qualifier": "values-sw600dp-large",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size4",
+      "value": "19.0sp",
+      "qualifier": "values-sw600dp-large",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size5",
+      "value": "20.0sp",
+      "qualifier": "values-sw600dp-large",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size6",
+      "value": "22.0sp",
+      "qualifier": "values-sw600dp-large",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size7",
+      "value": "25.0sp",
+      "qualifier": "values-sw600dp-large",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size8",
+      "value": "27.0sp",
+      "qualifier": "values-sw600dp-large",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml"
+    },
+    {
+      "name": "widget4x1_font_size9",
+      "value": "29.0sp",
+      "qualifier": "values-sw600dp-large",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml"
+    }
+  ],
+  "preset_source_counts": [
+    {
+      "source": "decoded/res/raw/small_widget_styles.json",
+      "entries": 16,
+      "all_objects": true,
+      "evidence": [
+        "PA1031-S2-WIDGET-008"
+      ]
+    },
+    {
+      "source": "decoded/res/raw/widget_2x2_styles.json",
+      "entries": 11,
+      "all_objects": true,
+      "evidence": [
+        "PA1031-S2-WIDGET-008"
+      ]
+    },
+    {
+      "source": "decoded/res/raw/widget_4x4_styles.json",
+      "entries": 13,
+      "all_objects": true,
+      "evidence": [
+        "PA1031-S2-WIDGET-008"
+      ]
+    },
+    {
+      "source": "decoded/res/raw-v31/small_widget_styles.json",
+      "entries": 26,
+      "all_objects": true,
+      "evidence": [
+        "PA1031-S2-WIDGET-008"
+      ]
+    },
+    {
+      "source": "decoded/res/raw-v31/widget_2x2_styles.json",
+      "entries": 35,
+      "all_objects": true,
+      "evidence": [
+        "PA1031-S2-WIDGET-008"
+      ]
+    },
+    {
+      "source": "decoded/res/raw-v31/widget_4x2_styles.json",
+      "entries": 26,
+      "all_objects": true,
+      "evidence": [
+        "PA1031-S2-WIDGET-008"
+      ]
+    },
+    {
+      "source": "decoded/res/raw-v31/widget_4x4_styles.json",
+      "entries": 19,
+      "all_objects": true,
+      "evidence": [
+        "PA1031-S2-WIDGET-008"
+      ]
+    }
+  ],
+  "style_source_selection": {
+    "4x1": "small_widget_styles",
+    "4x2": "widget_4x2_styles at API>=31, otherwise small_widget_styles",
+    "2x2": "widget_2x2_styles",
+    "4x4": "widget_4x4_styles"
+  },
+  "persistence": {
+    "named_store": "appwidgets",
+    "key_prefix": "decimal appWidgetId with no separator",
+    "shared_ui_state": {
+      "pane": 0,
+      "advanced": false
+    },
+    "style_bits": {
+      "0..3": "background style",
+      "4..7": "other-text size index",
+      "8..11": "title size index",
+      "16..23": "shadow alpha",
+      "24..31": "art alpha"
+    },
+    "style_bits2": {
+      "0..5": "corner index",
+      "8..9": "text alignment"
+    },
+    "legacy_read": "font family can be read from style_bits bits12..15 then overridden by separate font_family key",
+    "evidence": [
+      "PA1031-S2-WIDGET-002"
+    ]
+  },
+  "consumer_contracts": [
+    "Provider.Р radius mapping index<=10→4*index, otherwise40+8*(index-10); when circle mode enabled and index16→10240 sentinel.",
+    "Provider font-index resolver reads getDimensionPixelSize of per-size dimen; declared font dimensions here are dip, not automatically sp.",
+    "Provider consumes flags for visibility, colors/opacity, layout/theme, padding, and typography; exact final pixel geometry remains unmeasured."
+  ],
+  "open_questions": [
+    "Complete per-preset effective widget geometry and qualifier/font fallbacks.",
+    "Live widget-host sizing and resize behavior, platform differences and interruption cases.",
+    "All named-file persistence errors and host rendering outcomes.",
+    "Menu style import/export loops and legacy style conversion need additional smali validation for full compatibility."
+  ]
+}

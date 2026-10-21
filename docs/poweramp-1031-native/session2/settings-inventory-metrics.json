@@ -1,0 +1,21 @@
+{
+  "preference_xml_files": 76,
+  "preference_xml_resource_names": 45,
+  "control_occurrences_all_qualifiers": 1119,
+  "control_declarations_after_equivalent_qualifier_merge": 648,
+  "keyed_unique_controls": 452,
+  "unique_value_control_keys": 290,
+  "literal_registrations": 418,
+  "global_registrations": 275,
+  "xml_keys_with_registration_match": 287,
+  "keyed_skin_controls": 31,
+  "distinct_skin_keys": 17,
+  "xml_registered_raw_default_difference_keys": 9,
+  "roles": {
+    "container": 47,
+    "value_control": 303,
+    "action_or_dynamic": 147,
+    "information_or_status": 95,
+    "navigation": 56
+  }
+}

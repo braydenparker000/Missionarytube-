@@ -1,0 +1,113 @@
+{
+  "scope": "Literal comparison of XML defaults versus registered global defaults; does not declare a bug or a runtime observation.",
+  "differences": [
+    {
+      "native_key": "aa_aspect",
+      "registration_id": "c40:aa_aspect",
+      "classification": "raw_default_difference",
+      "differences": [
+        {
+          "control": "aa:xml:1.7",
+          "xml": "0",
+          "registered": 1
+        }
+      ]
+    },
+    {
+      "native_key": "anim_long_labels_in_lists",
+      "registration_id": "c40:anim_long_labels_in_lists",
+      "classification": "raw_default_difference",
+      "differences": [
+        {
+          "control": "ui_player:xml:3",
+          "xml": "true",
+          "registered": false
+        }
+      ]
+    },
+    {
+      "native_key": "anim_speed",
+      "registration_id": "c40:anim_speed",
+      "classification": "raw_default_difference",
+      "differences": [
+        {
+          "control": "ui:xml:5.3",
+          "xml": "false",
+          "registered": 1
+        }
+      ]
+    },
+    {
+      "native_key": "navbar_seekbar",
+      "registration_id": "c40:navbar_seekbar",
+      "classification": "raw_default_difference",
+      "differences": [
+        {
+          "control": "library_lists:xml:0.2",
+          "xml": "false",
+          "registered": true
+        }
+      ]
+    },
+    {
+      "native_key": "pl_import_ratings",
+      "registration_id": "b40:pl_import_ratings",
+      "classification": "raw_default_difference",
+      "differences": [
+        {
+          "control": "library_playlists:xml:3",
+          "xml": "true",
+          "registered": false
+        }
+      ]
+    },
+    {
+      "native_key": "resume_on_resume",
+      "registration_id": "b40:resume_on_resume",
+      "classification": "raw_default_difference",
+      "differences": [
+        {
+          "control": "audio_focus:xml:2",
+          "xml": "true",
+          "registered": false
+        }
+      ]
+    },
+    {
+      "native_key": "shutdown_intent",
+      "registration_id": "b40:shutdown_intent",
+      "classification": "null_string_getter_fallback",
+      "differences": [
+        {
+          "control": "misc:xml:2.4",
+          "xml": "",
+          "registered": null
+        }
+      ]
+    },
+    {
+      "native_key": "vis_list_faded_alpha",
+      "registration_id": "c40:vis_list_faded_alpha",
+      "classification": "display_unit_conversion",
+      "differences": [
+        {
+          "control": "vis:xml:9",
+          "xml": "25",
+          "registered": 0.25
+        }
+      ]
+    },
+    {
+      "native_key": "vis_preset_change_sec",
+      "registration_id": "c40:vis_preset_change_sec",
+      "classification": "raw_default_difference",
+      "differences": [
+        {
+          "control": "vis:xml:3",
+          "xml": "15",
+          "registered": 10
+        }
+      ]
+    }
+  ]
+}

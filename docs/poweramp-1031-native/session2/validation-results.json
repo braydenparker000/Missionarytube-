@@ -1,0 +1,13 @@
+{
+  "parsed_json_artifacts": 17,
+  "evidence_unique_ids": 304,
+  "missing_source_paths": [],
+  "invalid_primary_source_lines": [],
+  "unresolved_evidence_ids": [],
+  "navigation_integrity": "pass",
+  "settings_xml_helper_set_equality": "pass",
+  "fixture_reference_integrity": "pass",
+  "runtime_observations": 0,
+  "application_tests": "Not applicable: research-only documents and analysis scripts; application checkout unchanged.",
+  "overall": "pass"
+}
