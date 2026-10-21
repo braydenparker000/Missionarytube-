@@ -172,6 +172,7 @@ function round(glyph, scale = 0.5) {
 
 // Reference drawable name -> glyph mapping (ordered; first match wins).
 const RULES = [
+  [/^settings_close/, () => 'close'],
   [/^cp_check_on$/, () => 'check_on'],
   [/^cp_check_off$/, () => 'check_off'],
   [/^support/, () => 'support'],

@@ -25,6 +25,7 @@ import './widgets/popup.js';
 import './widgets/search.js';
 import './widgets/toast.js';
 import './widgets/sleeptimer.js';
+import {installHelp} from './widgets/help.js';
 import './list/list-widget.js';
 import './list/selection.js';
 
@@ -117,6 +118,7 @@ export async function boot() {
   installInput(ctx, container);
   player.installMediaSession();
   const library = await new Library(ctx).open();
+  installHelp(ctx);
   const importUi = installImport(ctx, document.body);
   const params = new URLSearchParams(location.search);
   if (params.has('demo')) {

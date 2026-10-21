@@ -550,7 +550,9 @@ export class BusActionButton extends FastButton {
     this.longPressMsgId = idName(a?.raw('longPressMsgId'));
     if (this.longPressMsgId) this.longClickable = true;
     const arg1 = a?.raw('arg1');
-    this.arg1 = arg1 === undefined || !/^(@integer\/|-?\d)/.test(arg1) ? undefined : a.int('arg1', 0);
+    // A layout argument (e.g. a help layout) passes its name.
+    const layout = typeof arg1 === 'string' ? /^@layout\/(.+)$/.exec(arg1)?.[1] : null;
+    this.arg1 = layout ?? (arg1 === undefined || !/^(@integer\/|-?\d)/.test(arg1) ? undefined : a.int('arg1', 0));
   }
 
   onClick() {

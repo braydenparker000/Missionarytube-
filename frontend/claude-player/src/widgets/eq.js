@@ -1104,6 +1104,7 @@ export class PagesScrollingBehavior extends View {
     page = Math.max(0, Math.min(n - 1, page | 0));
     const changed = page !== this.page;
     this.page = page;
+    this.ctx.eqPage = page;
     this.ctx.eqTab = page;
     const host = this.parent;
     if (!host) return;
