@@ -396,17 +396,19 @@ export class Drawables {
       case 'ripple': {
         const color = attrs['android:color'] ? this.res.colorValue(attrs['android:color'], theme) : null;
         const layers = [];
+        let mask = null;
         for (const it of children) {
           if (it[0] !== 'item') continue;
           const L = this.layer(it, theme, name);
-          if ((it[1] || {})['android:id'] === '@android:id/mask') continue;
+          if ((it[1] || {})['android:id'] === '@android:id/mask') { mask = L; continue; }
           layers.push(L);
         }
-        const content = new LayerDrawable(layers);
-        // Press feedback: the ripple colour as an overlay while pressed.
-        const pressed = color ? new LayerDrawable([...layers, {d: new ColorDrawable(color), l: 0, t: 0, r: 0, b: 0}]) : content;
-        const sl = new StateListDrawable([{states: {pressed: true}, d: pressed}, {states: {}, d: content}]);
+        // The content draws in every state; presses animate a ripple (paintRipple)
+        // clipped to the mask, else to the content, else unbounded.
+        const sl = new StateListDrawable([{states: {}, d: new LayerDrawable(layers)}]);
         sl.ripple = true;
+        sl.rippleColor = color;
+        sl.rippleMask = mask ? new LayerDrawable([mask]) : layers.length ? new LayerDrawable(layers) : null;
         sl.radius = attrs['android:radius'] ? this.dim(attrs['android:radius'], theme) : undefined;
         return sl;
       }
@@ -534,7 +536,65 @@ export class Drawables {
     }
     const ops = [];
     drawable.ops(view.width, view.height, view.state, ops, 0, 0);
-    renderOps(layer, ops, this.ctx.px, view.state.pressed && drawable.ripple);
+    renderOps(layer, ops, this.ctx.px);
+  }
+
+  /**
+   * RippleDrawable press feedback: a circle of the ripple colour grows from
+   * the hotspot to the farthest corner (225 ms, decelerate) while moving to
+   * the centre, fades in over 75 ms and out over 150 ms after release. It is
+   * clipped to the mask (or content) outline; without either it is unbounded
+   * with android:radius (else half the larger side) around the centre.
+   */
+  paintRipple(view, pressed) {
+    const d = view.background;
+    if (!d?.ripple || !d.rippleColor) return;
+    const px = this.ctx.px, w = view.width, h = view.height;
+    if (pressed) {
+      let host = view._rippleHost;
+      if (!host) {
+        host = view._rippleHost = document.createElement('div');
+        host.className = 'rpl';
+        const bg = view._bgLayer;
+        view.el.insertBefore(host, bg ? bg.nextSibling : view.el.firstChild);
+      }
+      const st = host.style;
+      st.width = px(w) + 'px';
+      st.height = px(h) + 'px';
+      const bounded = !!d.rippleMask;
+      if (bounded) {
+        const ops = [];
+        d.rippleMask.ops(w, h, view.state, ops, 0, 0);
+        const o = ops[0];
+        st.overflow = 'hidden';
+        st.borderRadius = o?.radius ?? (o?.radii ? o.radii.map(r => px(r) + 'px').join(' ') : '');
+      } else { st.overflow = ''; st.borderRadius = ''; }
+      const hs = view.hotspot ?? {x: w / 2, y: h / 2};
+      const R = bounded ? Math.hypot(Math.max(hs.x, w - hs.x), Math.max(hs.y, h - hs.y)) : (d.radius ?? Math.max(w, h) / 2);
+      const c = document.createElement('div');
+      c.className = 'rpl-c';
+      const cs = c.style;
+      // The platform halves the ripple colour's alpha (ripple + background = full alpha).
+      const color = colorForState(d.rippleColor, {...view.state, pressed: true});
+      cs.background = color === null ? '' : colorToCss(((((color >>> 24) >> 1) << 24) | (color & 0xffffff)) >>> 0);
+      cs.width = cs.height = px(2 * R) + 'px';
+      const fromX = bounded ? hs.x : w / 2, fromY = bounded ? hs.y : h / 2;
+      cs.left = px(w / 2 - R) + 'px';
+      cs.top = px(h / 2 - R) + 'px';
+      host.appendChild(c);
+      c.animate([
+        {transform: `translate(${px(fromX - w / 2)}px,${px(fromY - h / 2)}px) scale(0.1)`},
+        {transform: 'translate(0,0) scale(1)'},
+      ], {duration: 225 * (this.ctx.animScale ?? 1), easing: 'cubic-bezier(0,0,0.2,1)', fill: 'forwards'});
+      c.animate([{opacity: 0}, {opacity: 1}], {duration: 75, fill: 'forwards'});
+      view._ripple = c;
+    } else {
+      const c = view._ripple;
+      view._ripple = null;
+      if (!c) return;
+      // Short taps still show the ripple growing while it fades.
+      c.animate([{opacity: 1}, {opacity: 0}], {duration: 150, delay: 60, fill: 'forwards'}).onfinish = () => c.remove();
+    }
   }
 }
 

@@ -147,7 +147,12 @@ export class View {
   setScale(s) { if (this.scaleX !== s || this.scaleY !== s) { this.scaleX = this.scaleY = s; this.invalidate(); } }
   setTranslation(x, y) { if (this.translationX !== x || this.translationY !== y) { this.translationX = x; this.translationY = y; this.invalidate(); } }
 
-  setPressed(p) { if (this.state.pressed !== p) { this.state.pressed = p; this.onStateChanged(); } }
+  setPressed(p) {
+    if (this.state.pressed === p) return;
+    this.state.pressed = p;
+    if (this.background?.ripple) this.ctx.drawables?.paintRipple(this, p);
+    this.onStateChanged();
+  }
   setSelected(p) { if (this.state.selected !== p) { this.state.selected = p; this.onStateChanged(); } }
   setChecked(p) { if (this.state.checked !== p) { this.state.checked = p; this.onStateChanged(); } }
   setActivated(p) { if (this.state.activated !== p) { this.state.activated = p; this.onStateChanged(); } }
