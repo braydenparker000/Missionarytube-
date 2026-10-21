@@ -304,6 +304,24 @@ list (`popupListStyle`, rows `listItemSize`). The interpolation curve and oversh
 (`maxOvershoot`) are not yet traced; the scene engine's curve is used. Preset rows' titles are
 bottom-attached with `center_vertical` gravity — same open family as F31/F32.
 
+### F35 — Marquee labels — `CS`
+
+`MarqueeFastTextView`: with `anim_long_labels` on, a single-line label whose ellipsize is `marquee` lays out at 3000 dp. When the line overflows the available width by more than 10 px, it is clipped to the text box and scrolled: the first wait is 1500 ms and later waits are 3000 ms. It scrolls left by the overflow at 42.5 dp/s, using accelerate-decelerate when the overflow exceeds 50 px and linear otherwise, then waits, scrolls back and repeats while shown. With the option off, marquee labels ellipsize at the end. `OptionAnimLongLabelsInLists` (list and mini-player labels) defaults on as in `ui_player.xml`.
+
+### F36 — Sleep timer — `CS` (UI) / `INF` (expiry)
+
+The sub-AA button is `sleep_timer_layout`, a popup over `merge_sleep_timer_popup_layout`. `SleepTimerBehavior` gives the knob a range of 180°–1620° (four turns, 60 min per turn, 0–240 min). Past one turn, `RoundKnob` draws a ring per turn, each one stroke plus arcOffset further out, and only the partial ring gets the cap trim.
+
+- **Title:** "Sleep Timer: " followed by the abbreviated relative span, with periods removed and lowercased. Past 3660 s, the remaining minutes are appended. Without a timer the title reads "disabled".
+- **Value:** "%d min", or "Disabled".
+- **OK:** posts `cmd_player_set_sleep_timer` with arg1 = minutes × 60 and arg2 = play-to-end, and stores the minutes and `sleep_play_to_end`.
+- **Disable:** posts 0.
+- **Cancel:** closes the popup.
+- **Refresh:** the labels update every 500 ms.
+- **Button state:** the button is activated while the timer runs.
+
+How the reference stops playback (fade or immediate) is not verified, so a plain pause is used. The frame is ?TopSleepTimerButtonLayout_scene_item_menu (centred, up to 340 dp). The icon stays at the top left (?SleepTimerButton_scene_button_menu).
+
 ## Open questions, prioritised by fidelity impact
 
 1. F15 gesture thresholds, fling velocity mapping into `v` (F05), track-swipe paging physics.
