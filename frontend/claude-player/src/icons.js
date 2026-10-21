@@ -59,6 +59,8 @@ G.next_cat_rounded = tri(1.5, 7.2, 7.1, 9.6, 1) + tri(8.5, 7.2, 7.1, 9.6, 1) + t
 G.prev_cat = poly([[8.5, 7], [1.5, 12], [8.5, 17]]) + poly([[15.5, 7], [8.5, 12], [15.5, 17]]) + poly([[22.5, 7], [15.5, 12], [22.5, 17]]);
 G.stop = rect(5, 5, 14, 14, 1.2);
 G.menu = circle(12, 5, 2.1) + circle(12, 12, 2.1) + circle(12, 19, 2.1);
+// Help: a question mark in a ring.
+G.support = arc(12, 12, 8.6, 2.4, 0, 359.99) + arc(12, 10.2, 2.7, 2.2, -175, 60) + rect(10.9, 12.2, 2.2, 2.6, 0.6) + circle(12, 16.7, 1.35);
 G.hamburger = rect(3, 4.5, 18, 3) + rect(3, 10.5, 18, 3) + rect(3, 16.5, 18, 3);
 G.hamburger_rounded = rect(3, 4.4, 18, 3.4, 1.7) + rect(3, 10.3, 18, 3.4, 1.7) + rect(3, 16.2, 18, 3.4, 1.7);
 G.lyrics = rect(5, 6, 14, 2.6, 1.3) + rect(3.5, 10.7, 17, 2.6, 1.3) + rect(6.5, 15.4, 11, 2.6, 1.3);
@@ -165,6 +167,7 @@ function round(glyph, scale = 0.5) {
 
 // Reference drawable name -> glyph mapping (ordered; first match wins).
 const RULES = [
+  [/^support/, () => 'support'],
   [/^play_round(_inv)?(_rounded)?/, m => round(m[2] ? 'play_rounded' : 'play', 0.52)],
   [/^pause_round(_inv)?(_rounded)?/, m => round(m[2] ? 'pause_rounded' : 'pause', 0.44)],
   [/^ff_round(_inv)?(_rounded)?/, m => round(m[2] ? 'ff_rounded' : 'ff', 0.46)],

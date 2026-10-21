@@ -300,10 +300,15 @@ export class SceneController {
     root.forceLayoutTree();
     root.measure(MeasureSpec.make(root.width, MeasureSpec.EXACTLY), MeasureSpec.make(root.height, MeasureSpec.EXACTLY));
     root.layout(root.left, root.top, root.right, root.bottom);
+    // Target frames of all participants first: restoring one view below
+    // re-lays out its subtree and would disturb nested participants.
     for (const it of this.items) {
       const v = it.view;
       it.to = v.visibility === GONE ? it.from : frameOf(v);
       if (it.fromVisibility === GONE) it.from = it.to;
+    }
+    for (const it of this.items) {
+      const v = it.view;
       // Restore the start presentation.
       v.visibility = it.fade || it.toVisibility === GONE ? (it.fromVisibility === GONE ? it.toVisibility : it.fromVisibility) : it.toVisibility;
       if (it.toVisibility === GONE && it.fromVisibility === GONE) v.visibility = GONE;

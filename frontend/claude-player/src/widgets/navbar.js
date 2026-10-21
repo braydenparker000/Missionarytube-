@@ -17,9 +17,32 @@ export class Navbar extends FastLayout {
   constructor(ctx, a) {
     super(ctx, a);
     this.lines = 1;
+    this.sheet = false;
+    this.nav = 'nav_main';
     ctx.bus.subscribe('bus_gui', (msg, src, d) => {
-      if (msg === 'msg_nav_changed') this.onNav(d.nav);
+      if (msg === 'msg_nav_changed') { this.nav = d.nav; this.setSheet(false, false); this.onNav(d.nav); }
+      else if (msg === 'cmd_nav_more') this.setSheet(!this.sheet, true);
+      else if (msg === 'cmd_navbar_sheet_close' || msg === 'cmd_app_open_settings') this.setSheet(false, true);
     });
+  }
+
+  /**
+   * The navbar menu sheet (hamburger): NavbarExtension expands above the
+   * lines, the shim dims the screen (scene_navbar_*_sheet, animTime /
+   * animExitTime of NavbarExtension).
+   */
+  setSheet(open, animate) {
+    if (this.sheet === open) return;
+    this.sheet = open;
+    const more = this.buttons?.findViewById('cmd_nav_more');
+    more?.setActivated(open);
+    const c = this.container();
+    if (!c) return;
+    const base = this.lines === 3 ? 'scene_navbar_3lines' : this.lines === 2 ? 'scene_navbar_2lines' : 'defaultScene';
+    const scene = open ? (this.lines === 3 ? 'scene_navbar_3lines_sheet' : this.lines === 2 ? 'scene_navbar_2lines_sheet' : 'scene_navbar_1line_sheet') : base;
+    const ext = this.ext?._attrs;
+    const ms = open ? ext?.int('animTime', 500) ?? 500 : ext?.int('animExitTime', 200) ?? 200;
+    c.scenes.go(scene, {duration: animate ? animTime(this.ctx, ms / 1000) : 0});
   }
 
   onFinishInflate() {
@@ -180,4 +203,16 @@ register(['com.maxmpz.widget.list.PowerList'], MiniPlayerList);
 register(['PlayPauseButton'], PlayPauseButton);
 register(['Seek'], Seek);
 register(['NavbarExtension'], FastLayout);
+
+/** Dimming shim behind modal sheets: a tap closes the sheet. */
+export class Shim extends View {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.clickable = true;
+  }
+  onClick() {
+    this.ctx.bus.post('bus_gui', 'cmd_navbar_sheet_close', this);
+  }
+}
+register(['Shim'], Shim);
 register(['NavExtSettingsTags'], View);
