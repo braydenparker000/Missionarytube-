@@ -313,11 +313,13 @@ export class Library {
    */
   async waveFor(t, bars = 100) {
     if (t.wave) return t.wave;
-    if (!this.byId.has(t.id)) return null;
-    const file = t.remote ? null : await this.db?.file(t.id);
-    if ((!file && !t.remote) || typeof OfflineAudioContext !== 'function') return null;
+    // Remote tracks only use the index's pre-generated waveform: decoding
+    // would download the whole file.
+    if (t.remote || !this.byId.has(t.id)) return null;
+    const file = await this.db?.file(t.id);
+    if (!file || typeof OfflineAudioContext !== 'function') return null;
     try {
-      const buf = t.remote ? await (await fetch(t.src, {credentials: 'omit'})).arrayBuffer() : await file.arrayBuffer();
+      const buf = await file.arrayBuffer();
       const ac = new OfflineAudioContext(1, 8000, 8000);
       const audio = await ac.decodeAudioData(buf);
       const n = audio.length, chans = audio.numberOfChannels;
