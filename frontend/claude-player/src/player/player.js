@@ -248,6 +248,26 @@ export class Player {
   }
 
   /**
+   * Adds tracks to the play queue: after the current track (play next) or at
+   * the end; insert mode 2 shuffles them first (enqueue_modes_args1).
+   */
+  enqueue(tracks, next = false, mode = 0) {
+    if (!tracks.length) return;
+    const add = [...tracks];
+    if (mode === 2) {
+      for (let i = add.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [add[i], add[j]] = [add[j], add[i]];
+      }
+    }
+    if (!this.queue.length) { this.setQueue(add, 0); return; }
+    const at = next ? this.index + 1 : this.queue.length;
+    this.queue = [...this.queue.slice(0, at), ...add, ...this.queue.slice(at)];
+    this.order = null;
+    this.post('msg_player_queue_changed', {arg1: add.length});
+  }
+
+  /**
    * Sleep timer (cmd_player_set_sleep_timer: arg1 seconds, arg2 play the last
    * song to its end). state_player_sleep_timer is the seconds and the end
    * time; it counts in real time and pauses playback when it expires.

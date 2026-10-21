@@ -150,6 +150,9 @@ export class GroupSource {
 
   get count() { return this.groups.length; }
 
+  get selectionLayout() { return 'merge_selection_menu_list_items_w_aa'; }
+  tracksAt(i) { return this.groups[i]?.tracks ?? []; }
+
   // Groups are sorted by name: the scroller shows A–Z.
   get sortedByName() { return true; }
   sectionTitle(i) { return this.groups[i]?.title; }
@@ -191,6 +194,9 @@ export class TrackSource {
   get count() { return this.tracks.length; }
 
   sectionTitle(i) { return this.tracks[i]?.title; }
+
+  get selectionLayout() { return 'merge_selection_menu_list_tracks_items'; }
+  tracksAt(i) { return this.tracks[i] ? [this.tracks[i]] : []; }
 
   bindHeader(v) {
     bindCategoryHeader(this, v, String(this.tracks.length));

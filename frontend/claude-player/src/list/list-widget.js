@@ -43,6 +43,21 @@ export class AAItemView extends SceneFastLayout {
     }
   }
 
+  /** Selection mode: the select box shows over the art, checked when selected. */
+  setSelection(mode, checked) {
+    const box = this.selectBox ??= this.findViewById('select_box');
+    if (!box) return;
+    const vis = mode ? VISIBLE : GONE;
+    if (box.visibility !== vis) {
+      box.setVisibility(vis);
+      // The box fades in on entering selection mode (duration inferred).
+      if (mode) { box.alpha = 0; this.ctx.tween(box, {alpha: 1}, 0.15); }
+      this.forceLayoutTree?.();
+      this.requestLayout();
+    } else if (mode && box.alpha === 0 && !this.ctx.tweens?.has(box)) box.alpha = 1;
+    box.setChecked(checked);
+  }
+
   bind(track) {
     if (this.track === track) return;
     this.track = track;

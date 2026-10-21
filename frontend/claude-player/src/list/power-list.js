@@ -22,9 +22,12 @@ export class PowerList extends FastLayout {
     this.active = new Map(); // index -> view (-1 header)
     this.velocity = 0;
     this._fling = null;
+    this.selection = null; // Set of selected indices while in selection mode
+    for (const bus of ['list', 'bus_gui']) ctx.bus.subscribe(bus, (msg, src, d) => this.onListCmd(msg, d ?? {}));
   }
 
   setSource(source) {
+    if (this.selection) this.setSelectionMode(false);
     for (const [i, v] of this.active) this.recycle(i, v);
     this.active.clear();
     this.source = source;
@@ -130,6 +133,7 @@ export class PowerList extends FastLayout {
 
   onItemClick(v) {
     if (Math.abs(this.velocity) > 0.05) return;
+    if (this.selection && v.listIndex >= 0) { this.toggleSelected(v.listIndex); return; }
     if (v.listIndex === -1) this.source.onHeaderClick?.();
     else this.source.onItemClick?.(v.listIndex);
   }
@@ -179,6 +183,7 @@ export class PowerList extends FastLayout {
         const r = Math.floor(i / g.cols), c = i % g.cols;
         x = g.left + c * (g.colW + g.gap); y = y0 + r * g.itemH; w = g.colW; h = g.itemH; scene = s.itemScene;
         if (fresh || v._boundKey !== i) { s.bindItem(v, i); v._boundKey = i; }
+        v.setSelection?.(!!this.selection, !!this.selection?.has(i));
       }
       v.left = 0; v.top = 0;
       v.setItemScene(scene, w, h);
@@ -186,6 +191,76 @@ export class PowerList extends FastLayout {
       v.translationY = y;
       v.invalidate();
     }
+  }
+
+  // Selection mode (cmd_list_toggle_selection_mode): items show their select
+  // box, taps toggle items, and the selection menu opens with the source's
+  // actions layout (sd.t()). States go out on the list bus.
+  onListCmd(msg, d) {
+    if (this.visibility === GONE && msg !== 'cmd_end_selection_mode') return;
+    const sel = this.selection;
+    switch (msg) {
+      case 'cmd_list_toggle_selection_mode': this.setSelectionMode(!sel); break;
+      case 'cmd_end_selection_mode': if (sel) this.setSelectionMode(false, false); break;
+      case 'cmd_list_select_all': if (sel) { for (let i = 0; i < this.source.count; i++) sel.add(i); this.selectionChanged(); } break;
+      case 'cmd_list_select_none': if (sel) { sel.clear(); this.selectionChanged(); } break;
+      case 'cmd_list_select_range': if (sel?.size) {
+        const lo = Math.min(...sel), hi = Math.max(...sel);
+        for (let i = lo; i <= hi; i++) sel.add(i);
+        this.selectionChanged();
+      } break;
+      case 'cmd_list_add_to_q': case 'cmd_list_add_as_next_to_q': if (sel?.size) {
+        this.ctx.player?.enqueue?.(this.selectedTracks(), msg === 'cmd_list_add_as_next_to_q', this.ctx.listState?.[msg === 'cmd_list_add_to_q' ? 'state_queue_insert_pos' : 'state_play_next_insert_pos'] ?? 0);
+        this.endSelection();
+      } break;
+      case 'cmd_list_send_dialog': if (sel?.size && navigator.share) {
+        // The platform share sheet's web counterpart: the selected titles as text.
+        const text = this.selectedTracks().map(t => [t.artist, t.title].filter(Boolean).join(' – ')).join('\n');
+        navigator.share({text}).catch(() => {});
+      } break;
+    }
+  }
+
+  endSelection() {
+    this.ctx.bus.post('bus_gui', 'cmd_selection_menu_close', this);
+  }
+
+  setSelectionMode(on, closeMenu = true) {
+    if (!!this.selection === on) return;
+    this.selection = on ? new Set() : null;
+    if (on) this.ctx.bus.post('bus_gui', 'cmd_selection_menu_open', this, {arg1: this.source?.selectionLayout ?? 'merge_selection_menu_list_base_items'});
+    else if (closeMenu) this.endSelection();
+    this.selectionChanged();
+  }
+
+  toggleSelected(i) {
+    const sel = this.selection;
+    if (sel.has(i)) sel.delete(i); else sel.add(i);
+    this.selectionChanged();
+  }
+
+  selectedTracks() {
+    const s = this.source;
+    return [...(this.selection ?? [])].sort((a, b) => a - b).flatMap(i => s.tracksAt?.(i) ?? []);
+  }
+
+  selectionChanged() {
+    const sel = this.selection, n = sel?.size ?? 0, total = this.source?.count ?? 0;
+    const tracks = n ? this.selectedTracks() : [];
+    const st = this.ctx.listState = Object.assign(this.ctx.listState ?? {}, {
+      state_list_selection_mode: !!sel,
+      state_list_selection_count: n,
+      state_list_selectable_item_count: total,
+      state_list_all_selected: n > 0 && n === total,
+      state_list_something_selected: n > 0,
+      state_list_one_item_selected: n === 1,
+      state_list_one_track_selected: n === 1 && tracks.length === 1,
+      state_list_range_avail: n > 1 && Math.max(...sel) - Math.min(...sel) + 1 > n,
+      state_list_can_delete: false,
+      state_list_aa_selectable_selected: false,
+    });
+    this.ctx.bus.post('list', 'state_list_selection_count', this, {arg1: n, state: st});
+    this.placeItems();
   }
 
   // Scrolling: drag with the finger, fling with decaying velocity, clamp at the ends.

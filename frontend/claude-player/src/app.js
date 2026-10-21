@@ -26,6 +26,7 @@ import './widgets/search.js';
 import './widgets/toast.js';
 import './widgets/sleeptimer.js';
 import './list/list-widget.js';
+import './list/selection.js';
 
 export async function loadModel(url) {
   const resp = await fetch(url);
