@@ -120,6 +120,14 @@ export async function boot({skinIndex = 1, prefs = {}} = {}) {
   };
   ctx.bus.subscribe('bus_player', m => { if (m === 'msg_player_track_changed' || m === 'msg_player_playing_state_changed') saveState(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveState(); });
+  // System back (browser history): library levels first, then back to the player.
+  ctx.bus.subscribe('bus_gui', (m, src, d) => {
+    if (m === 'msg_nav_changed' && d.nav !== 'nav_main' && !history.state?.cpNav) history.pushState({cpNav: d.nav}, '');
+  });
+  window.addEventListener('popstate', () => {
+    if (ctx.listWidget?.back()) return;
+    if (ctx.topNav && ctx.topNav.nav !== 'nav_main') ctx.topNav.navigate('nav_main');
+  });
   ctx.scheduleLayout();
   window.addEventListener('resize', () => {
     applyViewport();

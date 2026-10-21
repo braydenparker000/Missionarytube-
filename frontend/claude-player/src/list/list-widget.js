@@ -10,6 +10,8 @@ import {AAGeometry, geometryParams, dynamicDimensionReader} from './aa-geometry.
 import {StyledAttributes} from '../res/resources.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
+import {PowerList} from './power-list.js';
+import {HomeSource} from './sources.js';
 
 const OFFSET_STATUS_BAR = 1, OFFSET_NAVIGATION_BAR = 2;
 
@@ -177,6 +179,56 @@ export class ListWidget extends FastLayout {
       else if (msg === 'msg_player_playing_state_changed') this.setPlayingMode(d.arg1 === STATE_PLAYING);
     });
     ctx.listWidget = this;
+    this.mode = 'aa';
+    // Library mode: a PowerList over the same area, with a navigation stack.
+    this.libList = new PowerList(ctx, this);
+    this.libList.visibility = GONE;
+    this.libList.lp = this.generateLayoutParams(null);
+    this.addView(this.libList);
+    this.stack = [];
+    ctx.bus.subscribe('bus_gui', (msg, src, d) => {
+      if (msg === 'msg_nav_changed') this.setMode(d.nav === 'nav_lib' ? 'list' : 'aa');
+    });
+    ctx.bus.subscribe('bus_library', () => {
+      if (this.stack.length) {
+        this.stack = [];
+        if (this.mode === 'list') this.openHome();
+      }
+    });
+  }
+
+  get nav() {
+    return {list: this.libList, open: src => this.open(src)};
+  }
+
+  openHome() {
+    this.stack = [];
+    this.open(new HomeSource(this.ctx, this.libList, this.nav));
+  }
+
+  open(src) {
+    this.stack.push(src);
+    this.libList.setSource(src);
+    if (this.stack.length > 1) history.pushState({cpList: this.stack.length}, '');
+  }
+
+  /** Back inside the library; returns false at the library home. */
+  back() {
+    if (this.mode !== 'list' || this.stack.length <= 1) return false;
+    this.stack.pop();
+    this.libList.setSource(this.stack[this.stack.length - 1]);
+    return true;
+  }
+
+  setMode(mode) {
+    if (this.mode === mode) return;
+    this.mode = mode;
+    const list = mode === 'list';
+    this.libList.visibility = list ? VISIBLE : GONE;
+    for (const v of this.items.values()) v.visibility = list ? GONE : VISIBLE;
+    if (list && !this.stack.length) this.openHome();
+    this.requestLayout();
+    this.invalidate();
   }
 
   setPlayingMode(playing) {
@@ -208,7 +260,7 @@ export class ListWidget extends FastLayout {
         this.children.push(v);
         this.el.appendChild(v.el);
       }
-      v.visibility = VISIBLE;
+      v.visibility = this.mode === 'list' ? GONE : VISIBLE;
       this.items.set(rel, v);
     }
     return v;
@@ -234,12 +286,14 @@ export class ListWidget extends FastLayout {
   // Art pager gestures: a horizontal drag moves the pages; release commits to
   // the neighbour past half a page or on a fling, else springs back.
   onPointerDown(e) {
+    if (this.mode !== 'aa') return false;
     this.pageDrag = {x0: e.rootX, y0: e.rootY, offset0: this.geometry.offset, started: false, samples: [[e.time, e.rootX]]};
     this.stopPageAnim();
     return true;
   }
 
   onInterceptStart(start, now) {
+    if (this.mode !== 'aa') return false;
     if (Math.abs(now.rootX - start.rootX) <= Math.abs(now.rootY - start.rootY)) return false;
     this.pageDrag = {x0: start.rootX, y0: start.rootY, offset0: this.geometry.offset, started: true, samples: [[start.time, start.rootX]]};
     this.stopPageAnim();
@@ -314,6 +368,16 @@ export class ListWidget extends FastLayout {
   onLayout() {
     if (!this.items.size) this.rebind();
     this.applyInsets();
+    const ll = this.libList;
+    if (ll.visibility !== GONE) {
+      // Rows scroll above the navbar (bottomReservedSpace) and the bottom inset.
+      ll.paddingTop = 0;
+      ll.paddingBottom = this.ctx.dynamicDimension(this.bottomReservedId ?? 'navbar_bounds_2lines_size') + this.ctx.windowInsets.bottom;
+      ll.paddingLeft = this.ctx.windowInsets.left;
+      ll.paddingRight = this.ctx.windowInsets.right;
+      ll.measure(MeasureSpec.make(this.width, MeasureSpec.EXACTLY), MeasureSpec.make(this.height, MeasureSpec.EXACTLY));
+      ll.layout(0, 0, this.width, this.height);
+    }
     const g = this.geometry;
     g.marginL = this.readMargins('aaMarginLeft');
     g.marginT = this.readMargins('aaMarginTop');
@@ -342,7 +406,12 @@ export class ListWidget extends FastLayout {
   }
 }
 
+/** Text list item (categories, headers): item scenes like the track item. */
+export class TextItemView extends AAItemView {}
+
 register(['AAItemView'], AAItemView);
+register(['TextItemView'], TextItemView);
+register(['IconView'], FastTextView);
 register(['AAImageView'], AAImageView);
 register(['MarqueeFastTextView'], MarqueeFastTextView);
 register(['CatImage'], FastTextView);
