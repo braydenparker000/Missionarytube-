@@ -288,9 +288,21 @@ geometry (travel, thumb, hole, dashed guide ticks, value-blended fill) and Round
 (30°–330° from the bottom, arc ring outside the knob with round-cap trimming, rotating indicator)
 come from their `onSizeChanged`/`onDraw`. The FRS in graphic mode draws one point per band, evenly
 spaced, joined by cubics with horizontal tangents, over a centre backline, with tone humps and a
-vertical five-stop gradient. Band frequencies and labels come from the native DSP (not in the APK):
-the ten-band 31 Hz–16 kHz set is inferred, as are tone shelf corners, the reverb impulse, limiter
-settings and the tempo stepping. Tone knobs are boost-only (0–100%), matching the FRS humps.
+vertical five-stop gradient. The built-in presets, seeded from code as parameter strings
+(`31=0.39;…;16K=0;preamp=1`, plus `bass`/`treble`), confirm the ten-band 31 Hz–16 kHz set and its
+labels (`1K` …), normalised band gains (±1 = ±15 dB, the band knob range) and a linear preamp; the
+extractor captures them. Tone shelf corners, the reverb impulse, limiter settings, tempo stepping
+and the preamp knob scale remain inferred (native DSP). Tone knobs are boost-only (0–100%), matching the FRS humps.
+
+### F34 — Popups — `CS` (mechanism) / `INF` (timing curve)
+Popup button layouts (`BusActionPopupLayout`, preset list buttons) open in place: the menu
+placeholder helper takes the button out of its parent (an `InvisibleView` keeps the slot when
+`keepLayoutForPopup`), adds it to `menu_placeholder` (a private-scene layout with `shadeColor`) and
+runs `scene_button_menu` over `popupEnterAnimTime` (350 ms); closing runs `scene_button_menu_closed`
+over `popupExitAnimTime` (200 ms). Menu items come from `menuItemsLayout`; preset buttons show a
+list (`popupListStyle`, rows `listItemSize`). The interpolation curve and overshoot handling
+(`maxOvershoot`) are not yet traced; the scene engine's curve is used. Preset rows' titles are
+bottom-attached with `center_vertical` gravity — same open family as F31/F32.
 
 ## Open questions, prioritised by fidelity impact
 
