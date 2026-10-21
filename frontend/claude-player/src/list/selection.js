@@ -132,6 +132,10 @@ export class SelectionContextPopupButton extends PopupLayout {
     this.labels2 = arr('buttonsLabels2').map(v => res.string(v, th) ?? '');
     this.icons = arr('buttonsDrawables');
     this.args = arr('buttonsArg1').map(v => res.integer(v, th) ?? 0);
+    // Without an enum (buttonsArg1 @null) the modes are the indices.
+    if (!this.args.length) this.args = this.labels.map((_, i) => i);
+    this.toastOnPress = a.string('toastOnPress', '') ?? '';
+    this.crossFadeMs = a.int('selectAnimTime', 350);
     this.modeStateId = idOf(a.raw('stateId'));
     this.enableStateId = idOf(a.raw('enableForStateId'));
     this.buttonsMsg = idOf(a.raw('buttonsMsgId'));
@@ -139,6 +143,7 @@ export class SelectionContextPopupButton extends PopupLayout {
     this.clickMsg = idOf(a.raw('clickMsgId'));
     this.clickBus = idOf(a.raw('clickBusId')) ?? 'list';
     this.longClickable = true;
+    this.openOnClickAttr = a.bool('openOnClick', false);
     this.menuMinWidth = Math.round(260 * ctx.dpr);
     const bstyle = th.styleName(a.raw('buttonStyle'));
     const ba = bstyle ? new StyledAttributes(res, th, {}, bstyle) : null;
@@ -150,11 +155,53 @@ export class SelectionContextPopupButton extends PopupLayout {
       this.addView(v);
       return v;
     };
-    this.icon = sub('dynamicIconStyle');
-    this.label = sub('dynamicLabelStyle');
+    // Dynamic buttons (dynamicIconStyle) draw the mode's icon and label in
+    // their own views; the others show the selected menu row itself (fp1.O1).
+    this.dynamic = !!ba?.raw('dynamicIconStyle');
     this.menuButtonStyle = th.styleName(a.raw('menuButtonStyle')) ?? th.styleName('?PopupButton_scene_button_menu');
     this.rowStyle = bstyle;
+    if (this.dynamic) {
+      this.icon = sub('dynamicIconStyle');
+      this.label = sub('dynamicLabelStyle');
+    } else this.buildRows(bstyle ?? th.styleName('?PopupButton'));
+    // State changes from elsewhere (msgId on stateBusId) resync the mode.
+    const stateMsg = idOf(a.raw('msgId'));
+    const stateBus = idOf(a.raw('stateBusId'));
+    if (stateMsg && stateBus) ctx.bus.subscribe(stateBus, msg => { if (msg === stateMsg) this.syncMode(); });
     this.syncMode();
+  }
+
+  buildRows(rowStyle) {
+    const ctx = this.ctx, th = ctx.theme;
+    this.rows = this.args.map((arg, i) => {
+      const sa = new StyledAttributes(ctx.res, th, {}, null, rowStyle);
+      const b = new FastButton(ctx, sa);
+      b._attrs = sa;
+      b.setText(this.labels2[i] ?? this.labels[i] ?? '');
+      b.setDrawable(this.icons[i] ? ctx.drawables.fromValue(this.icons[i], th) : null);
+      b.lp = this.generateLayoutParams(sa);
+      this.addView(b);
+      if (this.menuButtonStyle) attachSceneParams(b, new StyledAttributes(ctx.res, th, {}, this.menuButtonStyle), s2 => this.generateLayoutParams(s2));
+      const map = b.sceneParams ??= new Map();
+      if (!map.has('scene_button_menu')) map.set('scene_button_menu', Object.assign(new SceneRecord(), {visibility: VISIBLE, alpha: 1, scale: 1, recalc: 0, lp: b.lp}));
+      b.mode = arg;
+      b.clickable = false;
+      b.onClick = () => this.select(arg, true);
+      return b;
+    });
+  }
+
+  /** Selects a mode: state, command, toast (from a press) and the cross-fade of the shown row. */
+  select(arg, fromMenu) {
+    const ctx = this.ctx;
+    ctx.listState = Object.assign(ctx.listState ?? {}, {[this.stateKey]: arg});
+    if (this.buttonsMsg) ctx.bus.post(this.buttonsBus, this.buttonsMsg, this, {arg1: arg});
+    this.syncMode(!fromMenu);
+    if (fromMenu) this.close();
+    else if (this.toastOnPress) {
+      const i = this.args.indexOf(arg);
+      ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: this.labels[i] ?? '', line2: this.toastOnPress, icon: this.icons[i] ?? null});
+    }
   }
 
   get stateKey() {
@@ -166,21 +213,49 @@ export class SelectionContextPopupButton extends PopupLayout {
     return Math.max(0, this.args.indexOf(cur));
   }
 
-  syncMode() {
+  syncMode(fade = false) {
     const i = this.modeIndex();
-    this.icon.setDrawable(this.icons[i] ? this.ctx.drawables.fromValue(this.icons[i], this.ctx.theme) : null);
-    this.label.setText(this.labels[i] ?? '');
+    if (this.dynamic) {
+      this.icon.setDrawable(this.icons[i] ? this.ctx.drawables.fromValue(this.icons[i], this.ctx.theme) : null);
+      this.label.setText(this.labels[i] ?? '');
+      return;
+    }
+    // Closed, only the selected row shows (activated); the menu shows all.
+    this.rows.forEach((b, k) => {
+      const on = k === i, vis = on ? VISIBLE : GONE;
+      const map = b.sceneParams;
+      for (const sc of ['defaultScene', 'scene_button_menu_closed']) {
+        const r = map.get(sc) ?? Object.assign(new SceneRecord(), {alpha: 1, scale: 1, recalc: 0, lp: b.lp});
+        r.visibility = vis;
+        map.set(sc, r);
+      }
+      b.setActivated(on);
+      if (this.isOpen) return;
+      if (b.visibility !== vis) {
+        b.setVisibility(vis);
+        if (on && fade) { b.alpha = 0; this.ctx.tween(b, {alpha: 1}, this.crossFadeMs / 1000); }
+      }
+    });
+    this.requestLayout();
   }
 
   setEnabled(on) {
     super.setEnabled?.(on);
-    this.icon.setEnabled?.(on);
-    this.label.setEnabled?.(on);
+    this.icon?.setEnabled?.(on);
+    this.label?.setEnabled?.(on);
+    for (const r of this.rows ?? []) r.setEnabled?.(on);
   }
 
   onClick() {
     if (this.isOpen || !this.state.enabled) return;
-    if (this.clickMsg) this.ctx.bus.post(this.clickBus, this.clickMsg, this);
+    if (this.dynamic) {
+      if (this.clickMsg) this.ctx.bus.post(this.clickBus, this.clickMsg, this);
+      return;
+    }
+    // A press opens the menu (openOnClick) or advances to the next mode.
+    if (this.openOnClickAttr) { this.open(); return; }
+    const i = this.modeIndex();
+    this.select(this.args[(i + 1) % this.args.length], false);
   }
 
   onLongClick() {
@@ -190,7 +265,10 @@ export class SelectionContextPopupButton extends PopupLayout {
   }
 
   populate() {
-    if (this.rows) return;
+    if (this.rows) {
+      for (const r of this.rows) r.clickable = true;
+      return;
+    }
     const ctx = this.ctx, th = ctx.theme;
     this.rows = this.args.map((arg, i) => {
       const sa = new StyledAttributes(ctx.res, th, {}, null, th.styleName('?PopupButton'));
@@ -228,6 +306,12 @@ export class SelectionContextPopupButton extends PopupLayout {
   onOpen() {
     const cur = this.ctx.listState?.[this.stateKey] ?? this.args[0];
     for (const r of this.rows) { r.setChecked(r.mode === cur); r.setActivated(r.mode === cur); }
+  }
+
+  onClosed() {
+    if (this.dynamic) return;
+    for (const r of this.rows) r.clickable = false;
+    this.syncMode();
   }
 }
 

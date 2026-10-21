@@ -6,14 +6,14 @@ import {MeasureSpec} from '../view/view.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {sectionChar} from './scroller.js';
 
-const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text'};
+export const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text'};
 
 /** Android-like fling: exponential velocity decay (ViewConfiguration scroll friction). */
 const FRICTION = 0.0045; // per ms, tuned to the platform's default fling feel
 
 export class PowerList extends FastLayout {
-  constructor(ctx, host) {
-    super(ctx, null);
+  constructor(ctx, host, a = null) {
+    super(ctx, a);
     this.host = host;
     this.clipChildren = false;
     this.source = null;
@@ -23,6 +23,8 @@ export class PowerList extends FastLayout {
     this.velocity = 0;
     this._fling = null;
     this.selection = null; // Set of selected indices while in selection mode
+    this.selectable = true;
+    this.noScroller = false;
     for (const bus of ['list', 'bus_gui']) ctx.bus.subscribe(bus, (msg, src, d) => this.onListCmd(msg, d ?? {}));
   }
 
@@ -49,7 +51,7 @@ export class PowerList extends FastLayout {
 
   syncScroller() {
     const sc = this.ctx.listScroller;
-    if (!sc || this.visibility === GONE) return;
+    if (!sc || this.noScroller || this.visibility === GONE) return;
     if (sc.list !== this) sc.attachList(this, this.scrollerMode());
     else { sc.setMode(this.scrollerMode()); sc.syncThumb(); }
   }
@@ -206,6 +208,7 @@ export class PowerList extends FastLayout {
   // box, taps toggle items, and the selection menu opens with the source's
   // actions layout (sd.t()). States go out on the list bus.
   onListCmd(msg, d) {
+    if (!this.selectable) return;
     if (this.visibility === GONE && msg !== 'cmd_end_selection_mode') return;
     const sel = this.selection;
     switch (msg) {

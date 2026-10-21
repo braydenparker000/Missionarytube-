@@ -5,6 +5,9 @@
 // the coverage matrix). It listens to the DSP output, changes preset every
 // vis_preset_change_sec (15 s) with a blend, and renders at the view's CSS
 // resolution (milk_hd: device pixels) and up to 60 fps (milk_30_fps: 30).
+// MilkPresets holds the preset state the vis panel shows: the advance mode
+// (lock, change with track, change by time, shuffle by time), sort mode,
+// likes/unlikes and the current preset.
 
 const BUTTERCHURN = {
   src: 'https://cdn.jsdelivr.net/npm/butterchurn@2.6.7/lib/butterchurn.min.js',
@@ -15,6 +18,9 @@ const PRESETS = {
   integrity: 'sha384-uq6Hlgqutu/LNpq0SfYtLrftx2ck92d4pFaTwYfCNqQiPZHaqi9aZRQU+u+80/k9',
 };
 const BLEND_S = 2.7;
+const STORE = 'cp-milk';
+export const ADVANCE_LOCK = 0, ADVANCE_WITH_TRACK = 1, ADVANCE_BY_TIME = 2, ADVANCE_SHUFFLE = 3;
+export const SORT_TYPE = 0, SORT_NAME = 1, SORT_AUTHOR = 2, SORT_SOURCE = 3, SORT_RATING = 4;
 
 let loading = null;
 
@@ -41,6 +47,141 @@ export function loadButterchurn() {
   return loading;
 }
 
+/** Preset name parts: butterchurn names read "Author - Title" (some carry no author). */
+export function presetParts(name) {
+  const i = name.indexOf(' - ');
+  return i > 0 ? {author: name.slice(0, i).trim(), title: name.slice(i + 3).trim() || name} : {author: '', title: name.trim()};
+}
+
+/** The visualization's preset state, shared by the renderer and the vis panel. */
+export class MilkPresets {
+  constructor(ctx) {
+    this.ctx = ctx;
+    this.names = [];
+    this.presets = null;
+    this.current = null;
+    let st = {};
+    try { st = JSON.parse(localStorage.getItem(STORE) ?? '{}') ?? {}; } catch { /* storage unavailable */ }
+    this.advance = [0, 1, 2, 3].includes(st.advance) ? st.advance : ADVANCE_BY_TIME;
+    this.sort = [0, 1, 2, 3, 4].includes(st.sort) ? st.sort : SORT_TYPE;
+    this.ratings = new Map(Array.isArray(st.ratings) ? st.ratings : []);
+    this.lastPreset = typeof st.preset === 'string' ? st.preset : null;
+    this.lastChange = performance.now();
+    this.publishState();
+    const bus = ctx.bus;
+    bus.subscribe('bus_player_cmd', (msg, src, d) => {
+      if (msg === 'cmd_player_set_milk_advance') this.setAdvance(d?.arg1 ?? 0);
+      else if (msg === 'cmd_player_set_milk_sort') this.setSort(d?.arg1 ?? 0);
+      else if (msg === 'cmd_player_load_milk_preset_id') this.load(d?.name);
+      else if (msg === 'cmd_player_load_next_milk_preset') this.step(1);
+      else if (msg === 'cmd_player_load_prev_milk_preset') this.step(-1);
+    });
+    bus.subscribe('bus_data_cmd', (msg, src, d) => {
+      if (msg === 'cmd_data_set_milk_preset_rating') this.rate(d?.name, d?.arg1 ?? 0);
+    });
+    bus.subscribe('bus_player', (msg, src, d) => {
+      if (msg === 'msg_player_track_changed' && !d?.meta && this.advance === ADVANCE_WITH_TRACK && this.renderer?.running) this.step(1);
+    });
+  }
+
+  save() {
+    try {
+      localStorage.setItem(STORE, JSON.stringify({advance: this.advance, sort: this.sort, ratings: [...this.ratings], preset: this.current}));
+    } catch { /* storage unavailable */ }
+  }
+
+  /** States the panel's buttons read (state_player_milk_advance / _sort). */
+  publishState() {
+    this.ctx.listState = Object.assign(this.ctx.listState ?? {}, {state_player_milk_advance: this.advance, state_player_milk_sort: this.sort});
+  }
+
+  setPresets(presets) {
+    this.presets = presets;
+    this.names = Object.keys(presets).sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}));
+    this.ctx.bus.post('bus_app', 'msg_app_milk_data_changed', this);
+  }
+
+  setAdvance(mode) {
+    this.advance = mode;
+    this.lastChange = performance.now();
+    this.publishState();
+    this.save();
+    this.ctx.bus.post('bus_player', 'msg_player_milk_preset_changed', this, {name: this.current});
+  }
+
+  setSort(mode) {
+    this.sort = mode;
+    this.publishState();
+    this.save();
+    this.ctx.bus.post('bus_app', 'msg_app_milk_data_changed', this);
+  }
+
+  /** 1 liked, -1 unliked, 0 neither. */
+  rating(name) {
+    return this.ratings.get(name) ?? 0;
+  }
+
+  rate(name, r) {
+    if (!name) return;
+    if (r) this.ratings.set(name, r); else this.ratings.delete(name);
+    this.save();
+    this.ctx.bus.post('bus_app', 'msg_app_milk_data_changed', this, {name});
+  }
+
+  /** Presets in the sort mode's order; unliked ones drop out with milk_hide_unliked. */
+  ordered(filter = '') {
+    const hide = this.ctx.settings?.milk_hide_unliked === true;
+    const q = filter.trim().toLowerCase();
+    let list = this.names.filter(n => (!hide || this.rating(n) >= 0 || n === this.current) && (!q || n.toLowerCase().includes(q)));
+    const cmp = (a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'});
+    if (this.sort === SORT_NAME) list = list.sort((a, b) => cmp(presetParts(a).title, presetParts(b).title));
+    else if (this.sort === SORT_AUTHOR) list = list.sort((a, b) => cmp(presetParts(a).author, presetParts(b).author) || cmp(a, b));
+    else if (this.sort === SORT_RATING) list = list.sort((a, b) => this.rating(b) - this.rating(a) || cmp(a, b));
+    // By type and by source: all presets are the built-in pack, so file order (name).
+    return list;
+  }
+
+  /** Loads a preset by name (blended unless it is the first). */
+  load(name, blend = BLEND_S) {
+    if (!name || !this.presets?.[name]) return;
+    this.current = name;
+    this.lastChange = performance.now();
+    this.renderer?.loadPreset(this.presets[name], this.renderer.started ? blend : 0);
+    this.save();
+    this.ctx.bus.post('bus_player', 'msg_player_milk_preset_changed', this, {name});
+  }
+
+  step(dir) {
+    const list = this.ordered();
+    if (!list.length) return;
+    const i = list.indexOf(this.current);
+    this.load(list[((i < 0 ? 0 : i + dir) % list.length + list.length) % list.length]);
+  }
+
+  random() {
+    const list = this.ordered();
+    if (!list.length) return;
+    let i = Math.floor(Math.random() * list.length);
+    if (list[i] === this.current && list.length > 1) i = (i + 1) % list.length;
+    this.load(list[i]);
+  }
+
+  /** First preset: the last one shown, else a random one. */
+  start() {
+    if (this.current && this.presets?.[this.current]) { this.load(this.current, 0); return; }
+    if (this.lastPreset && this.presets?.[this.lastPreset]) this.load(this.lastPreset, 0);
+    else this.random();
+  }
+
+  /** Time-based advance: next (change by time) or random (shuffle by time) every vis_preset_change_sec. */
+  tick(now) {
+    if (this.advance !== ADVANCE_BY_TIME && this.advance !== ADVANCE_SHUFFLE) return;
+    const every = (+this.ctx.settings?.vis_preset_change_sec || 15) * 1000;
+    if (now - this.lastChange < every) return;
+    if (this.advance === ADVANCE_SHUFFLE) this.random(); else this.step(1);
+  }
+}
+
 /** A butterchurn renderer on a canvas, fed by the DSP graph. */
 export class MilkRenderer {
   constructor(ctx, canvas) {
@@ -49,6 +190,9 @@ export class MilkRenderer {
     this.running = false;
     this.viz = null;
     this.failed = false;
+    this.started = false;
+    this.presets = ctx.milk ??= new MilkPresets(ctx);
+    this.presets.renderer = this;
   }
 
   async start() {
@@ -59,12 +203,12 @@ export class MilkRenderer {
     if (!this.viz) {
       try {
         const {bc, presets} = await loadButterchurn();
-        this.presets = presets;
-        this.names = Object.keys(presets);
         const {w, h} = this.size();
         this.viz = bc.createVisualizer(dsp.ac, this.canvas, {width: w, height: h, pixelRatio: 1, textureRatio: 1});
         this.viz.connectAudio(dsp.nodes.volume);
-        this.nextPreset(0);
+        this.presets.setPresets(presets);
+        this.presets.start();
+        this.started = true;
       } catch (e) {
         this.failed = true;
         this.running = false;
@@ -74,15 +218,13 @@ export class MilkRenderer {
     }
     if (!this.running) return;
     this.lastFrame = 0;
-    this.lastChange = performance.now();
     const loop = now => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
       const fps30 = this.ctx.settings?.milk_30_fps === true;
       if (fps30 && now - this.lastFrame < 31) return;
       this.lastFrame = now;
-      const every = (+this.ctx.settings?.vis_preset_change_sec || 15) * 1000;
-      if (now - this.lastChange > every) { this.lastChange = now; this.nextPreset(BLEND_S); }
+      this.presets.tick(now);
       this.resize();
       this.viz.render();
     };
@@ -109,11 +251,7 @@ export class MilkRenderer {
     this.viz.setRendererSize(w, h);
   }
 
-  nextPreset(blend) {
-    if (!this.names?.length) return;
-    let i = Math.floor(Math.random() * this.names.length);
-    if (this.names[i] === this.current && this.names.length > 1) i = (i + 1) % this.names.length;
-    this.current = this.names[i];
-    this.viz.loadPreset(this.presets[this.current], blend);
+  loadPreset(preset, blend) {
+    this.viz?.loadPreset(preset, blend);
   }
 }

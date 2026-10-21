@@ -22,6 +22,8 @@ export const SEARCH_CATS = [
 ];
 
 export class ListSearchEditText extends FastTextView {
+  static listBound = true;
+
   constructor(ctx, a) {
     super(ctx, a);
     this.hint = a.string('android:hint', '') ?? '';
@@ -40,6 +42,7 @@ export class ListSearchEditText extends FastTextView {
     input.addEventListener('input', () => this.onQuery(input.value));
     input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
     this.showHint();
+    if (!new.target.listBound) return;
     ctx.bus.subscribe('list', (msg, src, d) => {
       if (msg === 'cmd_list_search_text' && src !== this) { input.value = d?.string ?? ''; this.onQuery(input.value); }
     });
@@ -118,5 +121,32 @@ export class ListSearchCatsLayout extends FastLayout {
   }
 }
 
+/**
+ * Plain edit text (EditText): the same drawn text and native input, without
+ * the list search binding; onTextChanged(text) reports edits.
+ */
+export class EditTextView extends ListSearchEditText {
+  static listBound = false;
+
+  onQuery(q) {
+    this.query = q;
+    this.showHint();
+    this.invalidate();
+    this.onTextChanged?.(q);
+  }
+
+  get value() { return this.input.value; }
+
+  setValue(v) {
+    this.input.value = v;
+    this.onQuery(v);
+  }
+
+  clear() {
+    this.setValue('');
+  }
+}
+
 register(['ListSearchEditText'], ListSearchEditText);
+register(['EditText', 'AppCompatEditText'], EditTextView);
 register(['ListSearchCatsLayout'], ListSearchCatsLayout);
