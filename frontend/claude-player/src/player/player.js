@@ -27,6 +27,9 @@ export class Player {
     this.ctx = ctx;
     this.queue = [];
     this.index = -1;
+    // The Queue: tracks that play after the current one, before the list goes on.
+    this.userQueue = [];
+    this.override = null; // the queued track now playing (outside the list)
     this.state = STATE_STOPPED;
     this.shuffle = 0;
     this.repeat = 1;
@@ -52,7 +55,7 @@ export class Player {
   }
 
   get track() {
-    return this.queue[this.index] ?? null;
+    return this.override ?? this.queue[this.index] ?? null;
   }
 
   /** Repeat modes that wrap the list (repeat on, advance categories). */
@@ -87,9 +90,16 @@ export class Player {
     return this.order[pos];
   }
 
+  /** Track rel steps away in play order: queued tracks come right after the current one. */
   trackAt(rel) {
-    const i = this.indexAt(rel);
-    return i === null ? null : this.queue[i];
+    if (rel === 0) return this.track;
+    const at = i => (i === null ? null : this.queue[i] ?? null);
+    if (rel > 0) {
+      if (rel <= this.userQueue.length) return this.userQueue[rel - 1];
+      return at(this.indexAt(rel - this.userQueue.length));
+    }
+    // While a queued track plays, the list's current track is the previous one.
+    return this.override ? at(this.indexAt(rel + 1)) : at(this.indexAt(rel));
   }
 
   post(msg, data) {
@@ -99,11 +109,13 @@ export class Player {
   setQueue(tracks, index = 0) {
     this.queue = tracks;
     this.order = null;
+    this.override = null;
     this.load(Math.max(0, Math.min(index, tracks.length - 1)), false);
   }
 
-  load(index, autoplay) {
-    this.index = index;
+  load(index, autoplay, override = null) {
+    this.override = override;
+    if (!override) this.index = index;
     this.virtualPos = 0;
     this.virtualStart = performance.now();
     const t = this.track;
@@ -196,10 +208,18 @@ export class Player {
   }
 
   step(dir) {
+    const playing = this.state === STATE_PLAYING;
+    // Forward: queued tracks first; back from a queued track: the list's track.
+    if (dir > 0 && this.userQueue.length) {
+      const t = this.userQueue.shift();
+      this.post('msg_player_queue_changed', {arg1: -1});
+      this.load(this.index, playing, t);
+      return;
+    }
+    if (this.override) { this.load(dir > 0 ? (this.indexAt(1) ?? this.index) : this.index, playing); return; }
     if (!this.queue.length) return;
     let i = this.indexAt(dir);
     if (i === null) i = this.indexAt(0);
-    const playing = this.state === STATE_PLAYING;
     this.load(i, playing);
   }
 
@@ -215,7 +235,7 @@ export class Player {
     }
     if (this.repeat === REPEAT_SONG) { this.seek(0); return; }
     // Single song: play one and pause; otherwise stop at the end unless the mode wraps.
-    if (this.repeat === SINGLE_SONG || this.indexAt(1) === null) {
+    if (this.repeat === SINGLE_SONG || (this.indexAt(1) === null && !this.userQueue.length && !this.override)) {
       this.pause();
       if (this.repeat !== SINGLE_SONG) this.seek(0);
       else this.step(1);
@@ -248,8 +268,8 @@ export class Player {
   }
 
   /**
-   * Adds tracks to the play queue: after the current track (play next) or at
-   * the end; insert mode 2 shuffles them first (enqueue_modes_args1).
+   * Adds tracks to the Queue: at its head (play next) or its end; insert
+   * mode 2 shuffles them first (enqueue_modes_args1).
    */
   enqueue(tracks, next = false, mode = 0) {
     if (!tracks.length) return;
@@ -260,10 +280,8 @@ export class Player {
         [add[i], add[j]] = [add[j], add[i]];
       }
     }
-    if (!this.queue.length) { this.setQueue(add, 0); return; }
-    const at = next ? this.index + 1 : this.queue.length;
-    this.queue = [...this.queue.slice(0, at), ...add, ...this.queue.slice(at)];
-    this.order = null;
+    if (!this.track) { this.setQueue(add, 0); return; }
+    this.userQueue = next ? [...add, ...this.userQueue] : [...this.userQueue, ...add];
     this.post('msg_player_queue_changed', {arg1: add.length});
   }
 

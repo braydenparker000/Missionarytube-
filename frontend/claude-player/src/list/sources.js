@@ -18,7 +18,7 @@ const HOME = [
   {id: 8, title: 'composers', icon: '?composers', kind: 'composers'},
   {id: 9, title: 'playlists', icon: '?playlists', kind: 'empty'},
   {id: 18, title: 'streams', icon: '?streams', kind: 'empty'},
-  {id: 10, title: 'queue', icon: '?queue', kind: 'empty'},
+  {id: 10, title: 'queue', icon: '?queue', kind: 'queue'},
   {id: 19, title: 'bookmarks', icon: '?bookmarks', kind: 'empty'},
   {id: 11, title: 'most_played', icon: '?most_played', kind: 'empty'},
   {id: 13, title: 'top_rated', icon: '?top_rated', kind: 'empty'},
@@ -116,6 +116,7 @@ function categorySource(ctx, list, nav, cat) {
     src.sortedByName = true;
   }
   else if (cat.kind === 'recent') src = new TrackSource(ctx, list, nav, title, [...lib.tracks].sort((a, b) => (b.added ?? 0) - (a.added ?? 0)));
+  else if (cat.kind === 'queue') src = new TrackSource(ctx, list, nav, title, ctx.player?.userQueue ?? []);
   else if (cat.kind === 'long') src = new TrackSource(ctx, list, nav, title, lib.tracks.filter(t => t.durationMs >= 20 * 60000));
   else {
     const groups = groupsFor(lib, cat.kind);
