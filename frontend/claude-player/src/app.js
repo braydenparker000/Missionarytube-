@@ -26,6 +26,7 @@ import './widgets/search.js';
 import './widgets/toast.js';
 import './widgets/sleeptimer.js';
 import './widgets/vispanel.js';
+import './widgets/rating.js';
 import {installHelp} from './widgets/help.js';
 import './list/list-widget.js';
 import './list/selection.js';

@@ -41,7 +41,8 @@ export class Player {
       this.audio.preload = 'auto';
       // CORS media so the DSP and visualization can process remote streams.
       this.audio.crossOrigin = 'anonymous';
-      this.audio.addEventListener('ended', () => this.onEnded());
+      this.audio.addEventListener('ended', () => { this.checkPlayed(true); this.onEnded(); });
+      this.audio.addEventListener('timeupdate', () => this.checkPlayed());
       this.audio.addEventListener('loadedmetadata', () => {
         const t = this.track;
         const ms = Number.isFinite(this.audio.duration) ? Math.round(this.audio.duration * 1000) : 0;
@@ -161,6 +162,20 @@ export class Player {
       return t.durationMs;
     }
     return Math.round(pos);
+  }
+
+  /**
+   * Play statistics: a track counts as played once played_dur percent of it
+   * (default 50) has played, once per load.
+   */
+  checkPlayed(ended = false) {
+    const t = this.track;
+    if (!t || this.playedToken === this.loadToken || this.state !== STATE_PLAYING && !ended) return;
+    const pct = Math.max(0, Math.min(100, +(this.ctx.settings?.played_dur ?? 50)));
+    const dur = t.durationMs || 0;
+    if (!ended && (!dur || this.positionMs() < (dur * pct) / 100)) return;
+    this.playedToken = this.loadToken;
+    this.ctx.library?.markPlayed(t);
   }
 
   /** True when the track plays through the media element (not the demo clock). */

@@ -51,6 +51,9 @@ export class Library {
     this.remoteTracks = [];
     this.userData = new Map();
     ctx.library = this;
+    ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => {
+      if (msg === 'cmd_data_track_rating' && d?.track) this.setRating(d.track, d.arg1 ?? 0);
+    });
   }
 
   /**
@@ -103,7 +106,12 @@ export class Library {
   /** Persists a track's changed data (imports: the record; R2 tracks: listening data). */
   saveTrack(t) {
     if (!this.db) return Promise.resolve();
-    if (!t.remote) return this.db.updateTrack(t);
+    if (!t.remote) {
+      // Runtime fields (images, object URLs) stay out of the stored record.
+      const {art, thumb, ...rec} = t;
+      if (typeof rec.src === 'string' && rec.src.startsWith('blob:')) delete rec.src;
+      return this.db.updateTrack(rec).catch(e => console.warn('[claude-player] save track', e));
+    }
     const u = {};
     for (const k of USER_FIELDS) if (t[k] !== undefined) u[k] = t[k];
     this.userData.set(t.id, u);
@@ -350,6 +358,24 @@ export class Library {
       console.warn('[claude-player] waveform', e);
       return null;
     }
+  }
+
+  /** Track rating 0..5 (like 5, unlike 1); items follow msg_data_track_rating_changed. */
+  setRating(t0, rating) {
+    const t = this.byId.get(t0.id) ?? t0;
+    t.rating = Math.max(0, Math.min(5, rating | 0));
+    if (t0 !== t) t0.rating = t.rating;
+    if (this.byId.has(t.id)) this.saveTrack(t);
+    this.ctx.bus.post('bus_data', 'msg_data_track_rating_changed', this, {track: t, arg1: t.rating});
+  }
+
+  /** A completed play (played_dur of the track): count and time. */
+  markPlayed(t0) {
+    const t = this.byId.get(t0.id) ?? t0;
+    t.plays = (t.plays ?? 0) + 1;
+    t.lastPlayed = Date.now();
+    if (this.byId.has(t.id)) this.saveTrack(t);
+    this.ctx.bus.post('bus_data', 'msg_data_track_played', this, {track: t});
   }
 
   async rememberDuration(t, ms) {

@@ -26,6 +26,13 @@ export class AAItemView extends SceneFastLayout {
     this.privateScene = true;
     this.itemScene = null;
     this.track = undefined;
+    ctx.bus.subscribe('bus_data', (msg, src, d) => {
+      if (msg === 'msg_data_track_rating_changed' && this.track && d?.track?.id === this.track.id) this.syncRating();
+    });
+  }
+
+  syncRating() {
+    (this.ratingView ??= this.findViewById('rating'))?.setRating?.(this.track?.rating ?? 0);
   }
 
   onFinishInflate() {
@@ -67,6 +74,7 @@ export class AAItemView extends SceneFastLayout {
     if (this.track === track) return;
     this.track = track;
     this.syncLyricsButton();
+    this.syncRating();
     this.title?.setText(track?.title ?? '');
     this.line2?.setText(track?.artist ?? '');
     this.meta?.setText(track?.meta ?? '');

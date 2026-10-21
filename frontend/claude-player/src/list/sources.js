@@ -20,10 +20,10 @@ const HOME = [
   {id: 18, title: 'streams', icon: '?streams', kind: 'empty'},
   {id: 10, title: 'queue', icon: '?queue', kind: 'queue'},
   {id: 19, title: 'bookmarks', icon: '?bookmarks', kind: 'empty'},
-  {id: 11, title: 'most_played', icon: '?most_played', kind: 'empty'},
-  {id: 13, title: 'top_rated', icon: '?top_rated', kind: 'empty'},
-  {id: 15, title: 'low_rated', icon: '?low_rated', kind: 'empty'},
-  {id: 12, title: 'recently_played', icon: '?recently_played', kind: 'empty'},
+  {id: 11, title: 'most_played', icon: '?most_played', kind: 'mostPlayed'},
+  {id: 13, title: 'top_rated', icon: '?top_rated', kind: 'topRated'},
+  {id: 15, title: 'low_rated', icon: '?low_rated', kind: 'lowRated'},
+  {id: 12, title: 'recently_played', icon: '?recently_played', kind: 'recentlyPlayed'},
   {id: 14, title: 'recently_added', icon: '?recently_added', kind: 'recent'},
   {id: 16, title: 'long_files', icon: '?long_files', kind: 'long'},
 ];
@@ -107,6 +107,15 @@ function group(tracks, keyOf, kind) {
   return [...map.values()].sort((a, b) => a.title.localeCompare(b.title));
 }
 
+// Statistics lists (from play counts, play times and ratings; like = 5, unlike = 1).
+const byTitle = (a, b) => (a.title ?? '').localeCompare(b.title ?? '');
+const STAT_LISTS = {
+  mostPlayed: {keep: t => t.plays > 0, order: (a, b) => b.plays - a.plays || (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0)},
+  recentlyPlayed: {keep: t => t.lastPlayed > 0, order: (a, b) => b.lastPlayed - a.lastPlayed},
+  topRated: {keep: t => t.rating >= 4, order: (a, b) => b.rating - a.rating || byTitle(a, b)},
+  lowRated: {keep: t => t.rating > 0 && t.rating <= 2, order: (a, b) => a.rating - b.rating || byTitle(a, b)},
+};
+
 function categorySource(ctx, list, nav, cat) {
   const lib = ctx.library;
   const title = str(ctx, cat.title);
@@ -117,6 +126,10 @@ function categorySource(ctx, list, nav, cat) {
   }
   else if (cat.kind === 'recent') src = new TrackSource(ctx, list, nav, title, [...lib.tracks].sort((a, b) => (b.added ?? 0) - (a.added ?? 0)));
   else if (cat.kind === 'queue') src = new TrackSource(ctx, list, nav, title, ctx.player?.userQueue ?? []);
+  else if (STAT_LISTS[cat.kind]) {
+    const {keep, order} = STAT_LISTS[cat.kind];
+    src = new TrackSource(ctx, list, nav, title, lib.tracks.filter(keep).sort(order));
+  }
   else if (cat.kind === 'long') src = new TrackSource(ctx, list, nav, title, lib.tracks.filter(t => t.durationMs >= 20 * 60000));
   else {
     const groups = groupsFor(lib, cat.kind);
