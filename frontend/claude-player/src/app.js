@@ -125,7 +125,11 @@ export async function boot() {
     const {demoTracks} = await import('./dev/demo.js');
     player.setQueue(await demoTracks(), +(params.get('demo') || 0));
     if (params.has('playing')) player.play();
-  } else if (library.tracks.length) {
+  } else {
+    // First start without a snapshot: wait for the R2 index before choosing.
+    if (!library.tracks.length) await library.r2Ready;
+  }
+  if (params.has('demo')) { /* demo queue set above */ } else if (library.tracks.length) {
     const saved = await library.db?.getState('queue').catch(() => null);
     const index = Math.max(0, library.tracks.findIndex(t => t.id === saved?.trackId));
     if (saved?.shuffle !== undefined) player.shuffle = saved.shuffle;
@@ -134,6 +138,10 @@ export async function boot() {
     player.userQueue = (saved?.userQueue ?? []).map(id => library.byId.get(id)).filter(Boolean);
     if (saved?.positionMs) player.seek(saved.positionMs);
   } else importUi.show();
+  // A library that arrives later (R2 index refresh) fills an empty player.
+  ctx.bus.subscribe('bus_library', () => {
+    if (!player.queue.length && library.tracks.length) { importUi.hide(); player.setQueue(library.tracks, 0); }
+  });
   // Remember the current track and position (reference: resume where left off).
   const saveState = () => {
     const t = player.track;

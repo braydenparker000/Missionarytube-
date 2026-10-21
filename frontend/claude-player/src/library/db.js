@@ -66,4 +66,12 @@ export class LibraryDb {
   setState(key, value) {
     return req(this.store('state', 'readwrite').put(value, key));
   }
+
+  /** State entries whose keys start with prefix, as [key, value] pairs. */
+  async stateEntries(prefix) {
+    const range = IDBKeyRange.bound(prefix, prefix + '\uffff');
+    const store = this.store('state');
+    const [keys, values] = await Promise.all([req(store.getAllKeys(range)), req(store.getAll(range))]);
+    return keys.map((k, i) => [k, values[i]]);
+  }
 }

@@ -39,6 +39,8 @@ export class Player {
     this.virtualPos = 0;
     if (this.audio) {
       this.audio.preload = 'auto';
+      // CORS media so the DSP and visualization can process remote streams.
+      this.audio.crossOrigin = 'anonymous';
       this.audio.addEventListener('ended', () => this.onEnded());
       this.audio.addEventListener('loadedmetadata', () => {
         const t = this.track;

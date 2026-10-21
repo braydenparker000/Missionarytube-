@@ -54,5 +54,5 @@ export function installImport(ctx, root) {
   panel.append(title, msg, row, close);
   root.appendChild(panel);
   ctx.bus.subscribe('bus_gui', m => { if (m === 'cmd_library_import') panel.hidden = false; });
-  return {show: () => { panel.hidden = false; }};
+  return {show: () => { panel.hidden = false; }, hide: () => { panel.hidden = true; }};
 }
