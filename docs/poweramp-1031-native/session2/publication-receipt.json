@@ -1,0 +1,264 @@
+{
+  "schema_version": 1,
+  "repository": "braydenparker000/Missionarytube-",
+  "branch": "research/poweramp-1031-ui-settings-session2",
+  "research_commit": "0a78ca83326fe72df2beae014c15b1757185a6c2",
+  "research_tree": "babf32c6bf50ec9603e0e4936836bbf34183bab5",
+  "parent_session1_commit": "0f4276fe556560c027497a70b76b0bd2bf3a361f",
+  "verified_at_utc": "2026-10-21 03:55:39 UTC",
+  "source_apk_sha256": "27cfde3fc8e55b2effffe88c7e80ec3a1b1f69ec37a09ef86d9a34aafe8ebb9e",
+  "verification": {
+    "full_content_readback_files": 58,
+    "all_readback_equal_to_reviewed_staging": true,
+    "research_diff": "58 added files exclusively under docs/poweramp-1031-native/session2; no deletions or modifications to Session1/application files",
+    "static_artifact_validation": "PASS",
+    "native_runtime_observations": 0,
+    "application_checkout": "Unmodified; original local work branch retained",
+    "merge": false,
+    "deployment": false
+  },
+  "evidence": {
+    "new_records": 304,
+    "confirmed_static": 292,
+    "conditional_inference": 4,
+    "open": 7,
+    "blocked": 1,
+    "cited_private_source_files": 746,
+    "configuration_fixtures": 279
+  },
+  "identity_note": "This receipt names the complete reviewed research snapshot. The containing commit adds this receipt only; its final SHA is reported in the Session2 final response and branch ref.",
+  "files": [
+    {
+      "path": "docs/poweramp-1031-native/session2/artifact-manifest.json",
+      "git_blob_sha": "e499ce7edec343ce433f95db164311315cf1c978"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/configuration-fixtures.json",
+      "git_blob_sha": "c9afb78fa66a7e387f270e819c60b4493dd0058a"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/continuation-checkpoint.md",
+      "git_blob_sha": "648246ab3c2ea420635f021d3edea0a4c0343b84"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/coverage-metrics.json",
+      "git_blob_sha": "851226cb4f9906b046ceab68fd8ef5d4b291fe0a"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/coverage-report.md",
+      "git_blob_sha": "5b170b1761e45bfc818494705fc5cd84364e0438"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/evidence-ledger.jsonl",
+      "git_blob_sha": "a04975bf2185644cc897d39a956d0cf04f76f5ee"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/interaction-contracts.json",
+      "git_blob_sha": "b83daa7d2076d63fc01a5e292b95e4e4c1825408"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/interactions.md",
+      "git_blob_sha": "2d844cc09a807a974db4f8b639dc188c6fcaaf5e"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/list-options-registry.json",
+      "git_blob_sha": "93f8c4e58b312a7b4707a3d425b4905daef5b04b"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/list-options.md",
+      "git_blob_sha": "32e3752a1d1ad76ce8837d7023b123ca86b7d8c5"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/navigation-graph.json",
+      "git_blob_sha": "2d160fd1460d2565190162b514249554f7610cc5"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/preference-registrations.json",
+      "git_blob_sha": "af4784fce3ce6691c830bf36a84b432f52f95a88"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/publication-validation.json",
+      "git_blob_sha": "042d34d3095dc26d35339a60b04366e217df94c3"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/README.md",
+      "git_blob_sha": "0e13390c0816ae1c0d82a5633cccc860af36577a"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/rendering-components.json",
+      "git_blob_sha": "4d24c8e0a948bdfc2787d93b4b8e781ba87c1fa8"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/rendering-components.md",
+      "git_blob_sha": "95eadc6f65c42e95cfd8a75072df9ff3044c1442"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/build_interactions.py",
+      "git_blob_sha": "02410d7ffd499d11895f4fc5b3b620bbb23a8609"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/build_list_options.py",
+      "git_blob_sha": "35695c2e103bac5ad9517cccfa9aacd89e2e493e"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/build_rendering_components.py",
+      "git_blob_sha": "b3760b1342f22c36bfcdf6da36dfc0b69546b776"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/build_screen_registry.py",
+      "git_blob_sha": "145d9fe283707dcbe6d65e494f964003d0fbb26c"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/effects_build.py",
+      "git_blob_sha": "a44eaf7ec53a07516370e0fc786e8fd5f2689f72"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/effects_validate.py",
+      "git_blob_sha": "641f5d38e5cf7ac5f287ab728b8f76d427791b7b"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/extract_settings_inventory.py",
+      "git_blob_sha": "12f121aeec107bf08801352f08ad17b8702d3dda"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/integrate_research.py",
+      "git_blob_sha": "bee1c92ff6ed47d55e12166b66b79a020ea69ee0"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/inventory-ledger.jsonl",
+      "git_blob_sha": "f48e17492a59784b1f4fbeee686039e5bb69b776"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/settingssystem_build.py",
+      "git_blob_sha": "5f252551a3eacf2a1f8689edec5d5c18b3e2c893"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/settingssystem_widget_build.py",
+      "git_blob_sha": "4bc2265f1311c27b175c7c7d185412c032971bcf"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/settingssystem-helper-extraction.json",
+      "git_blob_sha": "a74e486c08e6aff2ec0e6c6666aeb8351b0fbe62"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/style_build_fixtures.py",
+      "git_blob_sha": "bc001507a426098e3bace2084b42e78819a1454b"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/style_resolver.py",
+      "git_blob_sha": "ba2170378f7db893d860d7218d0c4e1254763062"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/style_verify.py",
+      "git_blob_sha": "55597b096741cdcc5168b506bb5552449e499e32"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/style-ledger.jsonl",
+      "git_blob_sha": "3a75a50c1fb792d3ea2fae8932184d267fd7baef"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/validate_publication.py",
+      "git_blob_sha": "175732d5aa161ad83f829e9a37ea804e9f838232"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/validate_screen_artifacts.py",
+      "git_blob_sha": "a68f6cbae1446179ac0c15b87a4efc7f71745a97"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/write_screen_atlas.py",
+      "git_blob_sha": "cea1a583789cd42c7ca2b863dbd19a48473d1b5c"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/reproduce/write_session_report.py",
+      "git_blob_sha": "815c8a91e298e504d8e8a90e773a0a63b2ffbb2d"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/runtime-recheck.json",
+      "git_blob_sha": "6f6da6d1df2142856ef4cfc69f7d75005cd316b8"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/screen-atlas.md",
+      "git_blob_sha": "302f2a1a8f94240a364436a909e64203e3fe96c2"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/screen-registry.json",
+      "git_blob_sha": "c54bf0810d9e4bb45746a4853d2bdf910c0f2b0d"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/session1-qualifications.md",
+      "git_blob_sha": "4ed6b46184125faa4ab798c0a778419cdd969772"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/session3-entry.md",
+      "git_blob_sha": "ba7a5c835583f87579dcc20543bb98a5120181ba"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/setting-deep-traces.json",
+      "git_blob_sha": "3f9499719aed963408766840d889e71aecf90e2c"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/settings-choice-arrays.json",
+      "git_blob_sha": "37a246a561f104a1a17d7bb1d1047e585899ecf1"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/settings-controls.json",
+      "git_blob_sha": "4eee31da639cab45a1a7fdbe090525f8a73a19c3"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/settings-default-differences.json",
+      "git_blob_sha": "b4937eed323a7dedc9834e7bc4dd60d4fba6c458"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/settings-effects.md",
+      "git_blob_sha": "a2bfe98b23320664a2363b825087b7ac601ad538"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/settings-inventory-metrics.json",
+      "git_blob_sha": "f617356428f5b2af1acd17e5ad91e810da685903"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/settings-persistence-map.json",
+      "git_blob_sha": "7d4ba6d746c3d8cb9ac32440af5ad9752f6b118f"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/settings-registry-guide.md",
+      "git_blob_sha": "cea1bc29c20aa4010c4fd07c4ae7dab663272560"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/settings-registry.json",
+      "git_blob_sha": "0ecb41479779d89cb887b5e5eace4ec376840ee2"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/settings-system.md",
+      "git_blob_sha": "bd65d88827cbe260a0e7efde47176acb44828da1"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/skin-settings-registry.json",
+      "git_blob_sha": "29109f0bfa8b5e352c0a4d067f2bf1edaaf5b038"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/source-citation-index.json",
+      "git_blob_sha": "e692b028e4b41e0f137b513f87954c04279c52a1"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/style-resolution.md",
+      "git_blob_sha": "a73f488933a444dc94426a409fd52c7cca90ee7e"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/unresolved-questions.json",
+      "git_blob_sha": "9734ee9c7d6c33fce277a8c57192e49578073adf"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/validation-results.json",
+      "git_blob_sha": "f131a51a1e4db9abaf2be72fd22c29fafa1b3e39"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/widget-settings.json",
+      "git_blob_sha": "ac19625cb7322353493a8c8a0291d1ede3a9a25d"
+    },
+    {
+      "path": "docs/poweramp-1031-native/session2/widget-settings.md",
+      "git_blob_sha": "13acbcce5def6b8ff94077a9824a1385c61cc9fc"
+    }
+  ]
+}
