@@ -13,7 +13,7 @@ import {StyledAttributes} from '../res/resources.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
-import {HomeSource} from './sources.js';
+import {HomeSource, currentCategorySource} from './sources.js';
 
 const OFFSET_STATUS_BAR = 1, OFFSET_NAVIGATION_BAR = 2;
 
@@ -191,6 +191,11 @@ export class ListWidget extends FastLayout {
     ctx.bus.subscribe('bus_gui', (msg, src, d) => {
       if (msg === 'msg_nav_changed') this.setMode(d.nav === 'nav_lib' ? 'list' : 'aa');
     });
+    // Track menu: jump to the current track's artist / album / folder / genre.
+    const current = {cmd_request_current_artist: 'artist', cmd_list_current_album: 'album', cmd_list_current_folder: 'folder', cmd_request_current_genre: 'genre'};
+    for (const bus of ['list', 'bus_data_cmd']) {
+      ctx.bus.subscribe(bus, msg => { if (current[msg]) this.openCurrent(current[msg]); });
+    }
     ctx.bus.subscribe('bus_library', () => {
       if (this.stack.length) {
         this.stack = [];
@@ -201,6 +206,15 @@ export class ListWidget extends FastLayout {
 
   get nav() {
     return {list: this.libList, open: src => this.open(src)};
+  }
+
+  openCurrent(kind) {
+    const src = currentCategorySource(this.ctx, this.libList, this.nav, kind);
+    if (!src) return;
+    this.ctx.bus.post('bus_gui', 'cmd_nav_to_lib', this);
+    if (!this.stack.length) this.openHome();
+    this.stack.length = 1;
+    this.open(src);
   }
 
   openHome() {
@@ -499,6 +513,7 @@ ListWidget.prototype.closeItemMenu = function () {
     v.lp = this.generateLayoutParams(null);
     if (v.background) { v.background.level = m.bgLevel ?? 0; v._dom.bg = null; v.invalidate(); }
     v.inMenu = false;
+    v.visibility = this.mode === 'list' ? GONE : VISIBLE;
     v.parent = this;
     this.children.push(v);
     this.el.appendChild(v.el);

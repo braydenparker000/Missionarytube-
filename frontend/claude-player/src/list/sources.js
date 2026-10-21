@@ -198,3 +198,27 @@ export class TrackSource {
     if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
   }
 }
+
+/**
+ * The current track's artist / album / folder / genre as a track list
+ * (track menu actions; the library's own tracks, else the play queue).
+ */
+export function currentCategorySource(ctx, list, nav, kind) {
+  const t = ctx.player?.track;
+  if (!t) return null;
+  const lib = ctx.library;
+  const pool = lib?.tracks?.length ? lib.tracks : ctx.player.queue;
+  const key = {
+    artist: x => x.artist || 'Unknown artist',
+    album: x => (x.album || '') + '\u0000' + (x.albumArtist || x.artist || ''),
+    folder: x => x.folder || '/',
+    genre: x => x.genre || 'Unknown genre',
+  }[kind];
+  if (!key) return null;
+  const k = key(t);
+  const tracks = pool.filter(x => key(x) === k);
+  const title = kind === 'album' ? t.album || 'Unknown album' : kind === 'folder' ? (k.split('/').pop() || k) : k;
+  const src = new TrackSource(ctx, list, nav, title, tracks);
+  src.icon = {artist: '?artists', album: '?albums', folder: '?folders', genre: '?genres'}[kind];
+  return src;
+}
