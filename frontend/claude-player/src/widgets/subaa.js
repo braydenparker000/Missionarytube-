@@ -14,6 +14,12 @@ import {FastButton} from '../view/text.js';
 import {attachSceneParams, SceneRecord, DEFAULT_SCENE} from '../view/scene.js';
 
 const DEFAULT_BUTTONS = ['vis', 'sleeptimer', null, 'shuffle', 'repeat'];
+// Selectable popup buttons: [values, labels, icons] arrays per kind.
+const MODE_ARRAYS = {
+  shuffle: ['shuffle_modes_enum', 'shuffle_modes', 'shuffle_icons_32dp'],
+  repeat: ['repeat_modes_enum', 'repeat_modes', 'repeat_icons_reordered_32dp'],
+  vis: ['vis_modes_enum', 'vis_modes', 'vis_icons_32dp'],
+};
 
 /** Mode button: a slot container (background, press state) with the mode icon. */
 class SubAAButton extends FastLayout {
@@ -72,11 +78,16 @@ class SubAAModeButton extends PopupLayout {
   modes() {
     const res = this.ctx.res, th = this.ctx.theme;
     const arr = name => res.entry('array', name) ?? [];
-    const repeat = this.kind === 'repeat';
-    const values = arr(repeat ? 'repeat_modes_enum' : 'shuffle_modes_enum').map(v => res.integer(v, th));
-    const labels = arr(repeat ? 'repeat_modes' : 'shuffle_modes').map(v => res.string(v, th));
-    const icons = arr(repeat ? 'repeat_icons_reordered_32dp' : 'shuffle_icons_32dp');
+    const [enumName, labelsName, iconsName] = MODE_ARRAYS[this.kind];
+    const values = arr(enumName).map(v => res.integer(v, th));
+    const labels = arr(labelsName).map(v => res.string(v, th));
+    const icons = arr(iconsName);
     return values.map((v, i) => ({value: v, label: labels[i] ?? '', icon: icons[i] ?? null}));
+  }
+
+  current() {
+    if (this.kind === 'vis') return this.ctx.gui?.visMode ?? 0;
+    return this.kind === 'repeat' ? this.ctx.player?.repeat : this.ctx.player?.shuffle;
   }
 
   populate() {
@@ -94,8 +105,8 @@ class SubAAModeButton extends PopupLayout {
       attachSceneParams(b, new StyledAttributes(ctx.res, th, {}, menuStyle), s2 => this.generateLayoutParams(s2));
       this.hideUntilOpen(b);
       b.onClick = () => {
-        const cmd = this.kind === 'repeat' ? 'cmd_player_set_repeat' : 'cmd_player_set_shuffle';
-        ctx.bus.post('bus_player_cmd', cmd, this, {arg1: m.value});
+        if (this.kind === 'vis') ctx.bus.post('bus_gui', 'cmd_gui_set_vis_mode', this, {arg1: m.value});
+        else ctx.bus.post('bus_player_cmd', this.kind === 'repeat' ? 'cmd_player_set_repeat' : 'cmd_player_set_shuffle', this, {arg1: m.value});
         this.close();
       };
       b.mode = m.value;
@@ -104,7 +115,7 @@ class SubAAModeButton extends PopupLayout {
   }
 
   onOpen() {
-    const cur = this.kind === 'repeat' ? this.ctx.player?.repeat : this.ctx.player?.shuffle;
+    const cur = this.current();
     for (const r of this.rows) { r.setChecked(r.mode === cur); r.setActivated(r.mode === cur); }
   }
 
@@ -198,6 +209,7 @@ export class SubAAButtonsLayout extends SceneFastLayout {
     ctx.bus.subscribe('bus_player', msg => {
       if (msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed') this.updateIcons();
     });
+    ctx.bus.subscribe('bus_gui', msg => { if (msg === 'msg_gui_vis_mode_changed') this.updateIcons(); });
     this.updateIcons();
   }
 
@@ -208,7 +220,7 @@ export class SubAAButtonsLayout extends SceneFastLayout {
     else if (kind === 'sleeptimer') { layoutStyle = th.styleName('?TopEditableSleepTimerButtonLayout'); iconStyle = th.styleName('?TopSleepTimerButton'); }
     else { layoutStyle = th.styleName('?TopEditableDynamicButtonLayout'); iconStyle = 'DynamicPopupButtonIconNoTint'; }
     const a = new StyledAttributes(ctx.res, th, {}, null, layoutStyle);
-    const Cls = kind === 'shuffle' || kind === 'repeat' ? SubAAModeButton : kind === 'sleeptimer' ? SubAASleepTimerButton : SubAAButton;
+    const Cls = MODE_ARRAYS[kind] ? SubAAModeButton : kind === 'sleeptimer' ? SubAASleepTimerButton : SubAAButton;
     const b = new Cls(ctx, a, kind, iconStyle);
     b.id = kind === 'sleeptimer' ? 'sleep_timer_layout' : kind + '_button_layout';
     b.lp = this.generateLayoutParams(a);
@@ -218,21 +230,16 @@ export class SubAAButtonsLayout extends SceneFastLayout {
 
   /** Mode icons from the reference's icon arrays (theme attributes per mode). */
   updateIcons() {
-    const p = this.ctx.player, res = this.ctx.res;
+    const res = this.ctx.res;
     const arr = name => res.entry('array', name) ?? [];
     for (const b of this.slotViews) {
       if (!b) continue;
-      if (b.kind === 'vis') b.setIcon(arr('vis_icons_32dp')[0] ?? null);
-      else if (b.kind === 'sleeptimer') b.setIcon('?sleep_timer_32dp');
-      else if (b.kind === 'shuffle') {
-        const modes = arr('shuffle_modes_enum').map(v => res.integer(v, this.ctx.theme));
-        const i = Math.max(0, modes.indexOf(p?.shuffle ?? 0));
-        b.setIcon(arr('shuffle_icons_32dp')[i] ?? null);
-      } else if (b.kind === 'repeat') {
-        const modes = arr('repeat_modes_enum').map(v => res.integer(v, this.ctx.theme));
-        const i = Math.max(0, modes.indexOf(p?.repeat ?? 0));
-        b.setIcon(arr('repeat_icons_reordered_32dp')[i] ?? null);
-      }
+      if (b.kind === 'sleeptimer') { b.setIcon('?sleep_timer_32dp'); continue; }
+      const [enumName, , iconsName] = MODE_ARRAYS[b.kind] ?? [];
+      if (!enumName) continue;
+      const modes = arr(enumName).map(v => res.integer(v, this.ctx.theme));
+      const i = Math.max(0, modes.indexOf(b.current()));
+      b.setIcon(arr(iconsName)[i] ?? null);
     }
   }
 

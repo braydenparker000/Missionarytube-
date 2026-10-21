@@ -5,6 +5,8 @@ import {register} from '../view/inflater.js';
 
 const PLAYING_FAMILY = new Set(['scene_playing', 'scene_vis', 'scene_vis_temp_ui', 'scene_vis_w_ui']);
 const VIS_FAMILY = new Set(['scene_vis', 'scene_vis_temp_ui', 'scene_vis_w_ui']);
+const VIS_NONE = 0, VIS_W_UI = 1, VIS_FULL_SCREEN = 2;
+const VIS_KEY = 'cp-vis-mode';
 const NAV_SCENES = {nav_lib: 'scene_lib', nav_lyrics: 'scene_lib', nav_search: 'scene_search', nav_eq: 'scene_eq'};
 
 /** Duration scaling from the Animations setting (normal, fast, disabled). */
@@ -27,25 +29,56 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
     this.nav = 'nav_main';
     this.firstAnimationDone = false;
     this.playing = false;
+    let vis = VIS_NONE;
+    try { vis = +(localStorage.getItem(VIS_KEY) ?? VIS_NONE) || VIS_NONE; } catch { /* storage unavailable */ }
+    ctx.gui = Object.assign(ctx.gui ?? {}, {visMode: vis});
     ctx.topNav = this;
   }
 
   onFinishInflate() {
     const bus = this.ctx.bus;
-    bus.subscribe('bus_gui', msg => {
+    bus.subscribe('bus_gui', (msg, src, d) => {
       if (msg === 'cmd_nav_to_lib') this.navigate('nav_lib');
       else if (msg === 'cmd_nav_to_search') this.navigate('nav_search');
       else if (msg === 'cmd_nav_to_eq') this.navigate('nav_eq');
       else if (msg === 'cmd_nav_to_main' || msg === 'cmd_gui_back') this.navigate('nav_main');
+      else if (msg === 'cmd_gui_set_vis_mode') this.setVisMode(d?.arg1 ?? 0);
     });
+    // Full-screen visualisation: a tap shows the UI for tempUITime.
+    this.el.addEventListener('pointerdown', () => {
+      const s = this.scenes.scene;
+      if (s === 'scene_vis' || s === 'scene_vis_temp_ui') this.showTempUI();
+    }, true);
     bus.subscribe('bus_player', (msg, src, data) => {
       if (msg === 'msg_player_status_changed') this.setPlaying(!!data?.playing, true);
     });
   }
 
-  /** Scene for the main (player) screen in the current play state. */
+  /**
+   * Scene for the main (player) screen: while playing, the visualisation mode
+   * picks scene_vis_w_ui (with UI) or scene_vis (full screen), else
+   * scene_playing; paused is the default scene.
+   */
   mainScene() {
-    return this.playing ? 'scene_playing' : DEFAULT_SCENE;
+    if (!this.playing) return DEFAULT_SCENE;
+    const vis = this.ctx.gui.visMode;
+    return vis === VIS_FULL_SCREEN ? 'scene_vis' : vis === VIS_W_UI ? 'scene_vis_w_ui' : 'scene_playing';
+  }
+
+  setVisMode(mode) {
+    this.ctx.gui.visMode = mode;
+    try { localStorage.setItem(VIS_KEY, String(mode)); } catch { /* storage unavailable */ }
+    this.ctx.bus.post('bus_gui', 'msg_gui_vis_mode_changed', this, {arg1: mode});
+    if (this.nav === 'nav_main') this.go(this.mainScene(), 'nav_main', true);
+  }
+
+  /** Temporary UI over the full-screen visualisation: tempUITime + vis_temp_ui_ms (1500). */
+  showTempUI() {
+    clearTimeout(this.tempTimer);
+    if (this.scenes.scene !== 'scene_vis_temp_ui') this.go('scene_vis_temp_ui', 'nav_main', true);
+    this.tempTimer = setTimeout(() => {
+      if (this.scenes.scene === 'scene_vis_temp_ui' && this.nav === 'nav_main') this.go(this.mainScene(), 'nav_main', true);
+    }, this.times.tempUI * 1000 + (+this.ctx.settings?.vis_temp_ui_ms || 1500));
   }
 
   setPlaying(playing, animate) {
