@@ -222,7 +222,8 @@ export class FastTextView extends View {
           break;
         }
         // Break at the last space that fits; otherwise by character.
-        let cut = fitChars(rest, avail, font, size, ls);
+        // At least one character per line, as the platform's line breaker.
+        let cut = Math.max(1, fitChars(rest, avail, font, size, ls));
         const sp = rest.lastIndexOf(' ', cut);
         if (sp > 0) cut = sp;
         out.push(rest.slice(0, cut));
@@ -527,6 +528,16 @@ export class FastButton extends FastTextView {
 
   onLongClick() {
     return this.ctx.onViewLongClick?.(this) ?? false;
+  }
+}
+
+/** Check box: a button that toggles its checked state on click (FastCheckBox). */
+export class FastCheckBox extends FastButton {
+  get isChecked() { return !!this.state.checked; }
+
+  onClick() {
+    this.setChecked(!this.state.checked);
+    this.onCheckedChanged?.(this.state.checked);
   }
 }
 

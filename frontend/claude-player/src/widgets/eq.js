@@ -17,7 +17,7 @@ import {View, ViewGroup, MeasureSpec} from '../view/view.js';
 import {FastTextView, FastButton} from '../view/text.js';
 import {FastLayout} from '../view/fast-layout.js';
 import {register} from '../view/inflater.js';
-import {renderOps} from '../view/drawables.js';
+import {renderOps, elevationShadow} from '../view/drawables.js';
 import {colorForState} from '../res/resources.js';
 import {colorToCss} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
@@ -772,7 +772,12 @@ export class RoundKnob extends View {
     super.draw();
     const px = this.ctx.px, g = this.geometry();
     const ops = [];
-    if (this.knob && g.s > 0) this.knob.ops(g.s, g.s, this.state, ops, g.kx, g.ky);
+    if (this.knob && g.s > 0) {
+      const n = ops.length;
+      this.knob.ops(g.s, g.s, this.state, ops, g.kx, g.ky);
+      // The elevation shadow follows the knob's oval outline.
+      if (this.elevation > 0 && ops[n]) ops[n].shadow = elevationShadow(px(this.elevation));
+    }
     if (this.indicator && g.s > 0) {
       const sc = this.indicatorScale;
       const iw = this.indicator.intrinsicWidth * sc, ih = this.indicator.intrinsicHeight * sc;
@@ -799,27 +804,36 @@ export class RoundKnob extends View {
     const color = this.arcColor();
     if (!color || !this.arcWidth || g.s <= 0) return;
     const range = this.maxDeg - this.minDeg;
-    let sweep = range * (this.value - this.arcStartPoint);
-    if (Math.abs(sweep) < 0.01) return;
-    let start = this.minDeg + this.arcStartPoint * range + 90;
+    const total = range * (this.value - this.arcStartPoint);
+    if (Math.abs(total) < 0.01) return;
+    const start0 = this.minDeg + this.arcStartPoint * range + 90;
     const half = this.arcWidth / 2;
-    const r = g.s / 2 + half + this.arcOffset;
+    const r0 = g.s / 2 + half + this.arcOffset;
     // Round caps would overshoot the value: trim by the cap angle (scaled down for short arcs).
-    let cap = (180 * half) / (Math.PI * r);
-    if (sweep > 0) {
-      start += cap;
-      sweep -= sweep < 15 ? (2 * cap * sweep) / 15 : 2 * cap;
-    } else {
-      start -= cap;
-      sweep += sweep > -15 ? (2 * cap * sweep) / -15 : 2 * cap;
-    }
+    const cap = (180 * half) / (Math.PI * r0);
     const rad = d => (d * Math.PI) / 180;
-    c2.beginPath();
-    c2.arc(g.cx, g.cy, r, rad(start), rad(start + sweep), sweep < 0);
     c2.strokeStyle = colorToCss(color);
     c2.lineWidth = this.arcWidth;
     c2.lineCap = 'round';
-    c2.stroke();
+    // Ranges past one turn draw a ring per turn, each one stroke + offset further out;
+    // completed turns are closed rings without the cap trim.
+    const turns = Math.ceil(Math.abs(total) / 360);
+    for (let i = 0; i < turns; i++) {
+      let start = start0, sweep = Math.min(359.999, total - i * 360);
+      if (sweep < 359.999) {
+        if (sweep > 0) {
+          start += cap;
+          sweep -= sweep < 15 ? (2 * cap * sweep) / 15 : 2 * cap;
+        } else {
+          start -= cap;
+          sweep += sweep > -15 ? (2 * cap * sweep) / -15 : 2 * cap;
+        }
+      }
+      const r = r0 + i * (this.arcWidth + this.arcOffset);
+      c2.beginPath();
+      c2.arc(g.cx, g.cy, r, rad(start), rad(start + sweep), sweep < 0);
+      c2.stroke();
+    }
   }
 
   // Rotary drag: the value follows the finger's angle change around the centre.

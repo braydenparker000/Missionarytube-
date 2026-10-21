@@ -88,9 +88,10 @@ function parseRecalc(sa, rec) {
  * Parses a <SceneParams> element into records attached to its target view.
  * @param sa StyledAttributes for the element (xml attrs + style)
  */
-export function attachSceneParams(view, sa, generateLp) {
-  const scenes = [];
-  for (const k of ['scene', 'scene_2', 'scene_3', 'scene_4', 'scene_5', 'scene_6']) {
+export function attachSceneParams(view, sa, generateLp, forScenes = null) {
+  // Code-built views may name the scenes for a style that has no scene attribute.
+  const scenes = forScenes ? [...forScenes] : [];
+  for (const k of forScenes ? [] : ['scene', 'scene_2', 'scene_3', 'scene_4', 'scene_5', 'scene_6']) {
     const v = idName(sa.local(k));
     if (!v) break;
     scenes.push(v);

@@ -205,6 +205,14 @@ export class Player {
 
   onEnded() {
     if (this.state !== STATE_PLAYING) return;
+    if (this.sleepWaitsForEnd) {
+      this.sleepWaitsForEnd = false;
+      this.sleep = null;
+      this.pause();
+      this.step(1);
+      this.post('msg_player_sleep_timer', {arg1: 0});
+      return;
+    }
     if (this.repeat === REPEAT_SONG) { this.seek(0); return; }
     // Single song: play one and pause; otherwise stop at the end unless the mode wraps.
     if (this.repeat === SINGLE_SONG || this.indexAt(1) === null) {
@@ -235,7 +243,34 @@ export class Player {
       case 'cmd_player_seek_jump': this.seek(this.positionMs() + (d.arg1 ? 10000 : -10000)); break;
       case 'cmd_player_set_shuffle': this.shuffle = d.arg1 ?? 0; this.order = null; this.post('msg_player_shuffle_mode_changed', {arg1: this.shuffle}); break;
       case 'cmd_player_set_repeat': this.repeat = d.arg1 ?? 0; this.post('msg_player_repeat_mode_changed', {arg1: this.repeat}); break;
+      case 'cmd_player_set_sleep_timer': this.setSleepTimer(d.arg1 ?? 0, !!d.arg2); break;
     }
+  }
+
+  /**
+   * Sleep timer (cmd_player_set_sleep_timer: arg1 seconds, arg2 play the last
+   * song to its end). state_player_sleep_timer is the seconds and the end
+   * time; it counts in real time and pauses playback when it expires.
+   */
+  setSleepTimer(seconds, playToEnd) {
+    clearTimeout(this.sleepTimeout);
+    this.sleepWaitsForEnd = false;
+    this.sleep = seconds > 0 ? {seconds, end: performance.now() + seconds * 1000, playToEnd} : null;
+    if (this.sleep) this.sleepTimeout = setTimeout(() => this.onSleepTimer(), seconds * 1000);
+    this.post('msg_player_sleep_timer', {arg1: seconds});
+  }
+
+  onSleepTimer() {
+    const s = this.sleep;
+    if (!s) return;
+    if (s.playToEnd && this.state === STATE_PLAYING) {
+      // Waits for the current track to end (onEnded pauses).
+      this.sleepWaitsForEnd = true;
+      return;
+    }
+    this.sleep = null;
+    if (this.state === STATE_PLAYING) this.pause();
+    this.post('msg_player_sleep_timer', {arg1: 0});
   }
 
   /** Lock screen / headset controls through the Media Session API. */

@@ -14,6 +14,7 @@ import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
 import {HomeSource, currentCategorySource, searchSource} from './sources.js';
+import {elevationShadow} from '../view/drawables.js';
 
 const OFFSET_STATUS_BAR = 1, OFFSET_NAVIGATION_BAR = 2;
 
@@ -150,12 +151,7 @@ export class AAImageView extends View {
   }
 }
 
-/** Approximation of the platform's ambient + key light shadows for an elevation in dp. */
-export function elevationShadow(dp) {
-  const key = `0 ${(dp * 0.5).toFixed(2)}px ${(dp * 1.0).toFixed(2)}px rgba(0,0,0,0.24)`;
-  const ambient = `0 0 ${(dp * 0.75).toFixed(2)}px rgba(0,0,0,0.12)`;
-  return key + ',' + ambient;
-}
+export {elevationShadow};
 
 /**
  * Labels that scroll (marquee) when the text does not fit; clipped meanwhile

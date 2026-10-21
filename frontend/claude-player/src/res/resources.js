@@ -16,6 +16,8 @@ const FRAMEWORK_THEME = {
   'android:colorControlHighlight': '#1f000000',
   'android:colorAccent': '#ff009688',
   'android:disabledAlpha': '0.3',
+  'android:colorControlActivated': '?android:colorAccent',
+  'android:listChoiceIndicatorMultiple': '@android:drawable/btn_check_material',
 };
 
 const RESOLVE_DEPTH = 24;

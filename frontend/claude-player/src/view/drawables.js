@@ -287,7 +287,7 @@ export class Drawables {
   /** From a StyledAttributes.ref() result. */
   fromRef(ref, theme) {
     if (!ref) return null;
-    if (ref.type === 'drawable' || ref.type === 'mipmap') return ref.android ? this.framework(ref.name) : this.byName(ref.name, theme);
+    if (ref.type === 'drawable' || ref.type === 'mipmap') return ref.android ? this.framework(ref.name, theme) : this.byName(ref.name, theme);
     if (ref.type === 'color') {
       const cv = this.res.colorValue(ref.value ?? `@color/${ref.name}`, theme);
       return cv ? new ColorDrawable(cv) : null;
@@ -299,8 +299,21 @@ export class Drawables {
     return null;
   }
 
-  framework(name) {
-    if (name === 'transparent') return null;
+  /** Platform drawables the reference relies on, as original stand-ins. */
+  framework(name, theme) {
+    if (name === 'btn_check_material') {
+      const size = Math.round(32 * this.ctx.dpr);
+      const tinted = (icon, raw) => {
+        const d = new IconDrawable(icon, {mono: true}, size, size);
+        d.gravity = 17;
+        d.tint = this.res.colorValue(raw, theme);
+        return d;
+      };
+      return new StateListDrawable([
+        {states: {checked: true}, d: tinted('cp_check_on', '?android:colorControlActivated')},
+        {states: {}, d: tinted('cp_check_off', '?android:colorControlNormal')},
+      ]);
+    }
     return null;
   }
 
@@ -526,6 +539,13 @@ export class Drawables {
 }
 
 /** Reconciles absolutely positioned paint-op elements inside a container. */
+/** Approximation of the platform's ambient + key light shadows for an elevation in dp. */
+export function elevationShadow(dp) {
+  const key = `0 ${(dp * 0.5).toFixed(2)}px ${(dp * 1.0).toFixed(2)}px rgba(0,0,0,0.24)`;
+  const ambient = `0 0 ${(dp * 0.75).toFixed(2)}px rgba(0,0,0,0.12)`;
+  return key + ',' + ambient;
+}
+
 export function renderOps(container, ops, px) {
   const els = container.children;
   for (let i = 0; i < ops.length; i++) {
@@ -545,6 +565,7 @@ export function renderOps(container, ops, px) {
     st.height = px(op.h) + 'px';
     st.background = op.bgImage ?? op.bg ?? '';
     st.borderRadius = op.radius ?? (op.radii ? op.radii.map(r => px(r) + 'px').join(' ') : '');
+    st.boxShadow = op.shadow ?? '';
     if (op.ring) {
       st.background = '';
       st.border = `${px(op.ring)}px solid ${op.bg ?? 'currentColor'}`;

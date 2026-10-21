@@ -24,6 +24,7 @@ import './widgets/eq.js';
 import './widgets/popup.js';
 import './widgets/search.js';
 import './widgets/toast.js';
+import './widgets/sleeptimer.js';
 import './list/list-widget.js';
 
 export async function loadModel(url) {

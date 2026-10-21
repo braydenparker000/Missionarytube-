@@ -57,6 +57,9 @@ G.rw_rounded = poly([[21.5, 5.2], [11.9, 12], [21.5, 18.8]], 1.3) + poly([[12.1,
 G.next_cat = tri(1.5, 7, 7, 10, 0) + tri(8.5, 7, 7, 10, 0) + tri(15.5, 7, 7, 10, 0);
 G.next_cat_rounded = tri(1.5, 7.2, 7.1, 9.6, 1) + tri(8.5, 7.2, 7.1, 9.6, 1) + tri(15.5, 7.2, 7.1, 9.6, 1);
 G.prev_cat = poly([[8.5, 7], [1.5, 12], [8.5, 17]]) + poly([[15.5, 7], [8.5, 12], [15.5, 17]]) + poly([[22.5, 7], [15.5, 12], [22.5, 17]]);
+// Platform check box stand-in (32 dp drawable, 18 dp box, 2 dp stroke, scaled to 24).
+G.check_off = 'M5.25 6.75a1.5 1.5 0 0 1 1.5-1.5h10.5a1.5 1.5 0 0 1 1.5 1.5v10.5a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5ZM6.75 6.75v10.5h10.5V6.75Z';
+G.check_on = 'M5.25 6.75a1.5 1.5 0 0 1 1.5-1.5h10.5a1.5 1.5 0 0 1 1.5 1.5v10.5a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5ZM7.6 12.1L10.5 15L16.4 9.1L15.3 8L10.5 12.8L8.7 11Z';
 G.stop = rect(5, 5, 14, 14, 1.2);
 G.menu = circle(12, 5, 2.1) + circle(12, 12, 2.1) + circle(12, 19, 2.1);
 // Help: a question mark in a ring.
@@ -169,6 +172,8 @@ function round(glyph, scale = 0.5) {
 
 // Reference drawable name -> glyph mapping (ordered; first match wins).
 const RULES = [
+  [/^cp_check_on$/, () => 'check_on'],
+  [/^cp_check_off$/, () => 'check_off'],
   [/^support/, () => 'support'],
   [/^play_round(_inv)?(_rounded)?/, m => round(m[2] ? 'play_rounded' : 'play', 0.52)],
   [/^pause_round(_inv)?(_rounded)?/, m => round(m[2] ? 'pause_rounded' : 'pause', 0.44)],

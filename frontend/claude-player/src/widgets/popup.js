@@ -93,7 +93,7 @@ export class PopupLayout extends FastLayout {
     if (this.menuItemsLayout && !this.itemsInflated) {
       this.itemsInflated = true;
       const made = this.ctx.inflater.inflate(this.menuItemsLayout, this);
-      for (const v of made) this.hideUntilOpen(v);
+      for (const v of made) if (!v.isBehavior) this.hideUntilOpen(v);
       this.wireItems(this);
     }
   }

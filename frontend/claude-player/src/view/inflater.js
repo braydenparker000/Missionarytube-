@@ -5,7 +5,7 @@ import {StyledAttributes} from '../res/resources.js';
 import {View, ViewGroup} from './view.js';
 import {FastLayout} from './fast-layout.js';
 import {SceneFastLayout, attachSceneParams, attachStateAnim} from './scene.js';
-import {FastTextView, FastButton, BusActionButton} from './text.js';
+import {FastTextView, FastButton, FastCheckBox, BusActionButton} from './text.js';
 import {GONE} from '../res/values.js';
 
 const registry = new Map();
@@ -40,6 +40,7 @@ export class BehaviorView extends View {
   constructor(ctx, a) {
     super(ctx, a);
     this.visibility = GONE;
+    this.isBehavior = true;
     this.className = a?.raw('class') ?? '';
   }
 }
@@ -143,7 +144,7 @@ export class Inflater {
     if (short === 'SceneParams' || short === 'StateAnimParams') {
       const target = this.pseudoTarget(parent, attrs, pos);
       if (!target) return [];
-      const sa = this.styledAttributes(attrs);
+      const sa = this.styledAttributes(attrs, target.viewTheme ?? parent?.viewTheme ?? this.ctx.theme);
       if (short === 'SceneParams') {
         const lpParent = target.parent ?? parent;
         attachSceneParams(target, sa, s => (lpParent.generateLayoutParams ? lpParent.generateLayoutParams(s) : null));
@@ -154,10 +155,16 @@ export class Inflater {
     if (overrides) attrs = {...attrs, ...overrides};
     let className = tag;
     if (tag === 'view') className = attrs.class ?? 'View';
-    const sa = this.styledAttributes(attrs);
+    // android:theme (from the element or its style) overlays the parent's theme
+    // for the view and its children (ContextThemeWrapper).
+    const parentTheme = parent?.viewTheme ?? this.ctx.theme;
+    let sa = this.styledAttributes(attrs, parentTheme);
+    const overlay = parentTheme.styleName(sa.raw('android:theme'));
+    if (overlay) sa = this.styledAttributes(attrs, this.overlayTheme(parentTheme, overlay));
     const view = this.create(className, sa, children);
     view._attrs = sa;
     view._xmlTag = className;
+    if (sa.theme !== this.ctx.theme) view.viewTheme = sa.theme;
     if (parent) {
       view.lp = parent.generateLayoutParams ? parent.generateLayoutParams(sa) : null;
       if (pos && pos.at >= 0) parent.addView(view, pos.at++);
@@ -169,6 +176,14 @@ export class Inflater {
     }
     view.onFinishInflate?.();
     return [view];
+  }
+
+  overlayTheme(base, style) {
+    const cache = this.overlays ??= new WeakMap();
+    let m = cache.get(base);
+    if (!m) cache.set(base, m = new Map());
+    if (!m.has(style)) m.set(style, base.clone().applyStyle(style));
+    return m.get(style);
   }
 
   /** The view a pseudo-tag applies to: forId, the parent, or the preceding sibling. */
@@ -199,6 +214,7 @@ export class Inflater {
 register(['FastLayout', 'FastLayoutWithViewCacheOpt', 'ClickableFastLayout', 'PrivateNonSceneFastLayout', 'LikeUnlikeLayout', 'DialogOuterFastLayout', 'FrameLayout', 'LinearLayout', 'RelativeLayout'], FastLayout);
 register(['SceneFastLayout', 'MenuPlaceholderLayout', 'ItemSceneFastLayout'], SceneFastLayout);
 register(['FastTextView', 'TextView', 'ListIndexerPopupView', 'BusStatusText', 'HtmlTextView', 'LyricsFastTextView', 'InfoTextView', 'KnobLabelAndValue'], FastTextView);
-register(['FastButton', 'DragHandler', 'FastCheckBoxOnly', 'Button', 'ImageButton', 'FastCheckBox', 'FastCheckBoxOnly', 'CheckBox', 'RadioButton', 'LyricsButton', 'BusStatusTextButton', 'IntentActionButton', 'MediaRouteButton'], FastButton);
+register(['FastCheckBox', 'FastCheckBoxOnly', 'CheckBox'], FastCheckBox);
+register(['FastButton', 'DragHandler', 'Button', 'ImageButton', 'RadioButton', 'LyricsButton', 'BusStatusTextButton', 'IntentActionButton', 'MediaRouteButton'], FastButton);
 register(['BusActionButton', 'MorphableBusActionButton', 'BusStateEnabledActionButton', 'BusCheckBox'], BusActionButton);
 register(['View', 'NonOverlappingView', 'Space', 'android.widget.Space', 'SmartSpacer', 'AlphaDisabledView'], View);

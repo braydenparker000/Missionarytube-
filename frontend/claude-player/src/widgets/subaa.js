@@ -120,6 +120,60 @@ class SubAAModeButton extends PopupLayout {
   }
 }
 
+/**
+ * Sleep timer button (sleep_timer_layout): a popup whose content is
+ * merge_sleep_timer_popup_layout with SleepTimerBehavior. Open, the frame is
+ * centred (?TopSleepTimerButtonLayout_scene_item_menu, up to 340 dp wide) and
+ * the icon stays at the top left (?SleepTimerButton_scene_button_menu) with
+ * the title beside it. Activated while the timer runs; the state is not
+ * refreshed while the popup is open.
+ */
+class SubAASleepTimerButton extends PopupLayout {
+  constructor(ctx, a, kind, iconStyle) {
+    super(ctx, a);
+    this.kind = kind;
+    this.longClickable = true;
+    const th = ctx.theme, res = ctx.res;
+    const ia = new StyledAttributes(res, th, {}, null, iconStyle);
+    this.icon = new FastTextView(ctx, ia);
+    this.icon.lp = this.generateLayoutParams(ia);
+    this.addView(this.icon);
+    const gen = sa => this.generateLayoutParams(sa);
+    attachSceneParams(this.icon, new StyledAttributes(res, th, {}, th.styleName('?SleepTimerButton_scene_button_menu')), gen, ['scene_button_menu']);
+    attachSceneParams(this.icon, new StyledAttributes(res, th, {}, iconStyle), gen, ['scene_button_menu_closed']);
+    attachSceneParams(this, new StyledAttributes(res, th, {}, th.styleName('?TopSleepTimerButtonLayout_scene_item_menu')), gen, ['scene_button_menu']);
+    ctx.bus.subscribe('bus_player', msg => {
+      if (msg === 'msg_player_sleep_timer' && !this.isOpen) this.syncActivated();
+    });
+    this.syncActivated();
+  }
+
+  syncActivated() {
+    this.setActivated(!!this.ctx.player?.sleep);
+  }
+
+  onOpen() {
+    queueMicrotask(() => this.sleepBehavior?.start());
+  }
+
+  onClosed() {
+    this.sleepBehavior?.stop();
+    this.syncActivated();
+  }
+
+  setIcon(attrName) {
+    const d = attrName ? this.ctx.drawables.fromValue(attrName, this.ctx.theme) : null;
+    this.icon.setDrawable(d);
+  }
+
+  onStateChanged() {
+    super.onStateChanged();
+    this.icon.state.pressed = this.state.pressed;
+    this.icon.state.activated = this.state.activated;
+    this.icon.invalidate();
+  }
+}
+
 export class SubAAButtonsLayout extends SceneFastLayout {
   constructor(ctx, a) {
     super(ctx, a);
@@ -154,9 +208,9 @@ export class SubAAButtonsLayout extends SceneFastLayout {
     else if (kind === 'sleeptimer') { layoutStyle = th.styleName('?TopEditableSleepTimerButtonLayout'); iconStyle = th.styleName('?TopSleepTimerButton'); }
     else { layoutStyle = th.styleName('?TopEditableDynamicButtonLayout'); iconStyle = 'DynamicPopupButtonIconNoTint'; }
     const a = new StyledAttributes(ctx.res, th, {}, null, layoutStyle);
-    const Cls = kind === 'shuffle' || kind === 'repeat' ? SubAAModeButton : SubAAButton;
+    const Cls = kind === 'shuffle' || kind === 'repeat' ? SubAAModeButton : kind === 'sleeptimer' ? SubAASleepTimerButton : SubAAButton;
     const b = new Cls(ctx, a, kind, iconStyle);
-    b.id = kind + '_button_layout';
+    b.id = kind === 'sleeptimer' ? 'sleep_timer_layout' : kind + '_button_layout';
     b.lp = this.generateLayoutParams(a);
     this.addView(b);
     return b;
