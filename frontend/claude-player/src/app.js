@@ -21,6 +21,7 @@ import './widgets/subaa.js';
 import './widgets/milk.js';
 import './widgets/navbar.js';
 import './widgets/eq.js';
+import './widgets/popup.js';
 import './list/list-widget.js';
 
 export async function loadModel(url) {

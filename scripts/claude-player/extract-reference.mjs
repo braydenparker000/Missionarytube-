@@ -314,6 +314,42 @@ export function codeRoots(decodedDir, smaliDirs) {
   return roots;
 }
 
+/**
+ * Built-in equalizer presets: the reference seeds them from code as
+ * parameter strings ("31=0.39;...;preamp=1") followed by the preset id and
+ * its name string id. Returns [{id, name, params}] in seeding order.
+ */
+export function codePresets(decodedDir, smaliDirs) {
+  const pub = readFileSync(join(decodedDir, 'res/values/public.xml'), 'utf8');
+  const byId = new Map();
+  for (const m of pub.matchAll(/<public type="([^"]+)" name="([^"]+)" id="(0x[0-9a-f]+)"/g)) byId.set(m[3], [m[1], m[2]]);
+  const presets = [];
+  const walk = d => {
+    for (const f of readdirSync(d).sort()) {
+      const p = join(d, f);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (f.endsWith('.smali')) {
+        const text = readFileSync(p, 'utf8');
+        if (!text.includes(';preamp=')) continue;
+        const re = /const-string v\d+, "((?:[a-zA-Z0-9]+=-?[0-9.]+;)+preamp=-?[0-9.]+)"([\s\S]*?)invoke-static/g;
+        for (const m of text.matchAll(re)) {
+          const id = /const(?:\/4|\/16)? v3, (-?0x[0-9a-f]+)/.exec(m[2]);
+          const name = /const v4, (0x7f[0-9a-f]{6})/.exec(m[2]);
+          const params = Object.fromEntries(m[1].split(';').map(kv => kv.split('=')).map(([k, v]) => [k, +v]));
+          presets.push({id: id ? parseInt(id[1], 16) : null, name: name ? byId.get(name[1])?.[1] ?? null : null, params});
+        }
+      }
+    }
+  };
+  for (const d of smaliDirs) walk(d);
+  // A preset without its own name/id line reuses the previous ones (registers carry over).
+  for (let i = 1; i < presets.length; i++) {
+    presets[i].id ??= presets[i - 1].id;
+    presets[i].name ??= presets[i - 1].name;
+  }
+  return presets;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const code = [];
@@ -329,7 +365,10 @@ function main() {
   const full = extract(dir);
   const roots = defaultRoots(full);
   if (code.length) roots.push(...codeRoots(dir, code));
+  const eqPresets = code.length ? codePresets(dir, code) : [];
+  for (const p of eqPresets) if (p.name) roots.push(['string', p.name]);
   const model = prune(full, roots);
+  if (eqPresets.length) model.eqPresets = eqPresets;
   model.meta = {
     extractorVersion: EXTRACTOR_VERSION,
     reference: {versionCode, versionName},

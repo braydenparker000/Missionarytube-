@@ -469,7 +469,7 @@ export class FrequencyResponseScroller extends View {
     const dsp = this.ctx.dsp;
     if (!dsp) { g.restore(); return; }
     // Tone humps (bass from the left, treble from the right).
-    if (dsp.get('dsp_enabled') && dsp.get('dsp_tone_enabled')) {
+    if (!this.presetBands && dsp.get('dsp_enabled') && dsp.get('dsp_tone_enabled')) {
       const hh = H - this.toneLineWidth;
       g.save();
       g.translate(0, this.toneLineWidth / 2);
@@ -495,14 +495,17 @@ export class FrequencyResponseScroller extends View {
     }
     // Band curve.
     const bands = dsp.bands;
-    const eqOn = dsp.get('dsp_enabled') && dsp.get('dsp_eq_enabled');
+    // A preset row's mini curve draws that preset; otherwise the live bands.
+    const preset = this.presetBands;
+    const eqOn = preset ? true : dsp.get('dsp_enabled') && dsp.get('dsp_eq_enabled');
+    const gainOf = b => (preset ? preset[b.label] ?? 0 : b.gain);
     const n = bands.length;
     if (n > 1) {
       const lw = this.lineWidth, hh = H - lw;
       g.save();
       g.translate(0, lw / 2);
       const step = W / (n - 1);
-      const ys = bands.map(b => (1 - ((eqOn ? b.gain : 0) + 1) / 2) * hh);
+      const ys = bands.map(b => (1 - ((eqOn ? gainOf(b) : 0) + 1) / 2) * hh);
       g.beginPath();
       g.moveTo(0, ys[0]);
       for (let i = 1; i < n; i++) {

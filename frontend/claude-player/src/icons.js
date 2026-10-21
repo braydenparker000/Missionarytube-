@@ -156,6 +156,8 @@ G.equ_thumbs = rect(5, 4, 2.4, 16, 1) + rect(10.8, 4, 2.4, 16, 1) + rect(16.6, 4
 G.sine = 'M2 12c2-6 4-6 6 0s4 6 6 0 4-6 6 0l2 0v2.2h-2.6c-1.8 5-5 5-6.8-.2-1.8-5.2-2.8-5.2-4.6 0s-5 5.2-6.8 0H2Z';
 G.eq_band = 'M2 17c4 0 5-9 10-9s6 9 10 9v2.4c-5 0-6-8.8-10-8.8S7 19.4 2 19.4Z';
 G.percent = circle(7, 7, 3) + circle(17, 17, 3) + poly([[16.5, 3], [19, 4.5], [7.5, 21], [5, 19.5]], 0.3);
+G.save = poly([[3.5, 3.5], [17, 3.5], [20.5, 7], [20.5, 20.5], [3.5, 20.5]], 1.4) + rect(7, 3.5, 9, 5.5, 0.6) + circle(12, 14.5, 2.8);
+G.autosave = G.save + arc(19, 19, 3.4, 1.6, 200, 470);
 G.dot = circle(12, 12, 4);
 G.placeholder = rect(4, 4, 16, 16, 3);
 
@@ -276,6 +278,8 @@ const RULES = [
   [/^account/, () => 'account'],
   [/^zap/, () => 'zap'],
   [/^(pak|package|box_badge|app_unlock|unlock_badge)/, () => 'pak'],
+  [/^autosave/, () => 'autosave'],
+  [/^save/, () => 'save'],
   [/^export/, () => 'export'],
   [/^import/, () => 'import'],
   [/^sine/, () => 'sine'],

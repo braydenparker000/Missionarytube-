@@ -127,9 +127,20 @@ export class DSP {
     this.ctx.bus.post('bus_dsp', 'msg_dsp_eq_changed', this, {band: i});
   }
 
-  /** Applies a preset: band gains (dB) plus optional preamp/tone. */
+  /**
+   * Applies a built-in preset (reference parameter strings): band gains are
+   * normalised (-1..1, keyed by band label), preamp is a linear gain (1 = 0 dB),
+   * bass/treble are tone amounts (0..1).
+   */
   applyPreset(p) {
-    p.bands.forEach((db, i) => { if (this.bands[i]) this.bands[i].gain = Math.max(-1, Math.min(1, db / BAND_RANGE_DB)); });
+    const q = p.params ?? {};
+    this.bands.forEach(b => { b.gain = Math.max(-1, Math.min(1, q[b.label] ?? 0)); });
+    const pre = q.preamp > 0 ? 20 * Math.log10(q.preamp) : 0;
+    this.values.dsp_preamp = Math.max(0, Math.min(1, 0.5 + pre / (2 * BAND_RANGE_DB)));
+    const tone = q.bass !== undefined || q.treble !== undefined;
+    this.values.dsp_bass_gain = q.bass ?? 0;
+    this.values.dsp_treble_gain = q.treble ?? 0;
+    if (tone) this.values.dsp_tone_enabled = true;
     this.values.dsp_eq_preset_name = p.name;
     this.values.dsp_eq_enabled = true;
     this.save();
