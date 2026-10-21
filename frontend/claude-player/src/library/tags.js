@@ -176,13 +176,74 @@ function readFlac(b, o, out) {
   return true;
 }
 
-function readOgg(b, out) {
-  // Comment header packet: "\x03vorbis" or "OpusTags".
-  const vorbis = findBytes(b, [0x03, 0x76, 0x6f, 0x72, 0x62, 0x69, 0x73]);
-  if (vorbis >= 0) { readVorbisComments(b, vorbis + 7, out); out.format = 'OGG'; return true; }
-  const opus = findBytes(b, [0x4f, 0x70, 0x75, 0x73, 0x54, 0x61, 0x67, 0x73]);
-  if (opus >= 0) { readVorbisComments(b, opus + 8, out); out.format = 'OPUS'; return true; }
-  return false;
+/**
+ * Ogg (Opus / Vorbis): pages reassembled into the first stream's packets —
+ * the identification header (sample rate, Opus pre-skip) and the comment
+ * header, which may span many pages when it carries a cover picture.
+ * Returns the bytes still needed when the comment packet runs past `b`.
+ */
+function readOggPackets(b, out) {
+  let o = 0, serial = null;
+  const packets = [];
+  let cur = [];
+  while (o + 27 <= b.length && packets.length < 2) {
+    if (b[o] !== 0x4f || b[o + 1] !== 0x67 || b[o + 2] !== 0x67 || b[o + 3] !== 0x53) return -1;
+    const pageSerial = le32(b, o + 14);
+    const nseg = b[o + 26];
+    if (o + 27 + nseg > b.length) return o + 27 + nseg + 65536;
+    let data = o + 27 + nseg, len = 0;
+    for (let i = 0; i < nseg; i++) len += b[o + 27 + i];
+    if (data + len > b.length) return data + len + 65536;
+    serial ??= pageSerial;
+    if (pageSerial === serial) {
+      for (let i = 0; i < nseg && packets.length < 2; i++) {
+        const l = b[o + 27 + i];
+        cur.push(b.subarray(data, data + l));
+        data += l;
+        if (l < 255) {
+          const total = cur.reduce((n, c) => n + c.length, 0), pk = new Uint8Array(total);
+          let at = 0;
+          for (const c of cur) { pk.set(c, at); at += c.length; }
+          packets.push(pk);
+          cur = [];
+        }
+      }
+    }
+    o = o + 27 + nseg + len;
+  }
+  if (packets.length < 2) return o + 65536;
+  const [id, comment] = packets;
+  const tag = latin1.decode(id.subarray(0, 8));
+  if (tag === 'OpusHead') {
+    out.format = 'OPUS';
+    out.preSkip = id[10] | (id[11] << 8);
+    out.sampleRate = 48000; // Opus always decodes at 48 kHz
+    out.channels = id[9];
+    if (latin1.decode(comment.subarray(0, 8)) === 'OpusTags') readVorbisComments(comment, 8, out);
+  } else if (id[0] === 1 && latin1.decode(id.subarray(1, 7)) === 'vorbis') {
+    out.format = 'OGG';
+    out.channels = id[11];
+    out.sampleRate = le32(id, 12);
+    out.bitrate = le32(id, 20) ? Math.round(le32(id, 20) / 1000) : 0;
+    if (comment[0] === 3 && latin1.decode(comment.subarray(1, 7)) === 'vorbis') readVorbisComments(comment, 7, out);
+  }
+  return 0;
+}
+
+/** Duration from the last page's granule position (Opus: minus pre-skip, at 48 kHz). */
+async function oggDuration(file, out) {
+  const tail = new Uint8Array(await file.slice(Math.max(0, file.size - 65536)).arrayBuffer());
+  for (let i = tail.length - 27; i >= 0; i--) {
+    if (tail[i] !== 0x4f || tail[i + 1] !== 0x67 || tail[i + 2] !== 0x67 || tail[i + 3] !== 0x53) continue;
+    const lo = le32(tail, i + 6), hi = le32(tail, i + 10);
+    const granule = hi * 4294967296 + lo;
+    if (!granule || hi === 0xffffffff) continue;
+    const rate = out.sampleRate || 48000;
+    const samples = granule - (out.format === 'OPUS' ? out.preSkip ?? 0 : 0);
+    if (samples > 0) out.durationMs = Math.round(samples / rate * 1000);
+    break;
+  }
+  if (out.durationMs && !out.bitrate) out.bitrate = Math.round(file.size * 8 / out.durationMs);
 }
 
 function findBytes(b, pat, from = 0) {
@@ -279,8 +340,14 @@ export async function readTags(file) {
     const end = readId3(head, out);
     if (!readFlac(head, end, out)) readMp3Duration(head, end, file.size, out);
   } else if (!readFlac(head, 0, out) && !readMp4(head, out)) {
-    if (latin1.decode(head.subarray(0, 4)) === 'OggS') readOgg(head, out);
-    else readMp3Duration(head, 0, file.size, out);
+    if (latin1.decode(head.subarray(0, 4)) === 'OggS') {
+      let need = readOggPackets(head, out);
+      if (need > head.length && need < 64 << 20) {
+        head = new Uint8Array(await file.slice(0, Math.min(file.size, need)).arrayBuffer());
+        need = readOggPackets(head, out);
+      }
+      await oggDuration(file, out);
+    } else readMp3Duration(head, 0, file.size, out);
   }
   if (!out.title) out.title = (file.name ?? '').replace(/\.[^.]+$/, '');
   return out;
