@@ -8,6 +8,8 @@
 import {View} from '../view/view.js';
 import {register} from '../view/inflater.js';
 import {colorToCss, parseColor} from '../res/values.js';
+import {MilkRenderer} from './vis.js';
+import {STATE_PLAYING} from '../player/player.js';
 
 export class MilkWidget extends View {
   constructor(ctx, a) {
@@ -20,11 +22,17 @@ export class MilkWidget extends View {
     this.layer.className = 'milk-art';
     this.shade = document.createElement('div');
     this.shade.className = 'milk-shade';
-    this.el.append(this.layer, this.shade);
+    // The visualization draws over the backdrop while a vis mode is on and music plays.
+    this.visCanvas = document.createElement('canvas');
+    this.visCanvas.className = 'milk-vis';
+    this.el.append(this.layer, this.shade, this.visCanvas);
+    this.renderer = new MilkRenderer(ctx, this.visCanvas);
+    ctx.bus.subscribe('bus_gui', msg => { if (msg === 'msg_gui_vis_mode_changed') this.syncVis(); });
     this.el.style.background = colorToCss(this.bgColor);
     this.art = null;
     ctx.bus.subscribe('bus_player', msg => {
       if (msg === 'msg_player_track_changed') this.setArt(ctx.player?.track?.art ?? null);
+      else if (msg === 'msg_player_playing_state_changed') this.syncVis();
     });
   }
 
@@ -39,6 +47,13 @@ export class MilkWidget extends View {
       gradient: Math.max(0, Math.min(10, s.aa_bg_gradient ?? 4)),
       gradientColor: parseColor(s.aa_bg_gradient_color ?? '#FF000000') ?? 0xff000000,
     };
+  }
+
+  syncVis() {
+    const ctx = this.ctx;
+    const on = ctx.settings?.enable_vis !== false && (ctx.gui?.visMode ?? 0) !== 0 && ctx.player?.state === STATE_PLAYING && !!ctx.dsp?.nodes;
+    this.visCanvas.style.display = on ? '' : 'none';
+    if (on) this.renderer.start(); else this.renderer.stop();
   }
 
   setArt(art) {
