@@ -239,6 +239,7 @@ export function prune(model, roots) {
           scanString(v);
         }
       } else if (typeof value === 'string') scanString(value);
+      else if (type === 'array') value.forEach(scanString);
       else scanTree(value);
     }
   }

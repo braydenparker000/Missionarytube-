@@ -11,6 +11,7 @@ import {Player} from './player/player.js';
 import {installInput} from './input.js';
 import {Library} from './library/library.js';
 import {installImport} from './library/import-ui.js';
+import {Settings, loadStoredSettings, runtimeSettings} from './settings/settings.js';
 import './widgets/basic.js';
 import './widgets/topnav.js';
 import './widgets/time.js';
@@ -72,14 +73,19 @@ function installDynamicDimensions(ctx) {
   });
 }
 
-export async function boot({skinIndex = 1, prefs = {}} = {}) {
+export async function boot() {
+  const stored = loadStoredSettings();
+  const skinIndex = +(stored.skin ?? 1);
+  const prefs = stored['skin_prefs_' + skinIndex] ?? {};
+  const settings = runtimeSettings(stored);
   const [model] = await Promise.all([loadModel(new URL('../model/reference.json.gz', import.meta.url)), loadFonts()]);
   const {dpr, config} = deviceConfig();
   const res = new Resources(model, config, {density: dpr, scaledDensity: dpr, xdpi: 160 * dpr});
   const skins = parseSkins(res);
   const skin = skins[skinIndex] ?? skins[0];
-  const {theme, applied} = composeTheme(res, skin, prefs);
+  const {theme, applied} = composeTheme(res, skin, prefs, {settings});
   const ctx = new Context({res, theme, dpr});
+  Object.assign(ctx.settings, settings);
   const applyViewport = () => {
     const vp = measureViewport();
     ctx.viewportWidth = window.innerWidth;
@@ -92,6 +98,7 @@ export async function boot({skinIndex = 1, prefs = {}} = {}) {
   const inflater = new Inflater(ctx);
   ctx.inflater = inflater;
   const player = new Player(ctx);
+  new Settings(ctx);
   // Window decor: a plain FastLayout filling the viewport hosts the main layout.
   const decor = new FastLayout(ctx, null);
   decor.id = 'decor';
@@ -126,6 +133,7 @@ export async function boot({skinIndex = 1, prefs = {}} = {}) {
     if (m === 'msg_nav_changed' && d.nav !== 'nav_main' && !history.state?.cpNav) history.pushState({cpNav: d.nav}, '');
   });
   window.addEventListener('popstate', () => {
+    if (ctx.settingsUi?.isOpen) return;
     if (ctx.listWidget?.back()) return;
     if (ctx.topNav && ctx.topNav.nav !== 'nav_main') ctx.topNav.navigate('nav_main');
   });

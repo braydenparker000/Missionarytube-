@@ -2,8 +2,8 @@
 
 Reference: Poweramp build 1031. Evidence IDs (`F..`) refer to the
 [research notebook](research-notebook.md). Every planned component maps to a reference component or to
-a named technical necessity (`TN`). The status describes **reference knowledge**, not code: nothing
-is implemented yet.
+a named technical necessity (`TN`). The status columns describe **reference knowledge**; section 5 records what the
+code implements so far.
 
 Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred · `OPEN` unknown ·
 `UW` unsupported on the web · `LEGAL` exact reproduction blocked by rights; a substitute is labelled as one.
@@ -88,3 +88,15 @@ Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred ·
 | Persistence namespace `claude-player:` | No reads or writes to other routes' storage (handoff §5) |
 | Original icon set, licensed fonts | Proprietary drawables/fonts cannot ship (F19) |
 | CSP meta, route budget | Repo build gates (F25) |
+
+## 5. Implementation status
+
+| Area | Implemented | Substitutes and gaps |
+| --- | --- | --- |
+| Engine | Resources/qualifiers, theme composition, inflater, FastLayout, SceneParams scenes, FastTextView metrics, drawables as DOM ops | — |
+| Player screen | Art pager (tilt, swipe, playing scale), labels, rating/menu buttons, sub-art buttons, waveseek, transport, playing/paused scenes, blurred backdrop | Elapsed/duration pills (F31) and tilt signs `OPEN`; waveform analysis provisional; marquee not yet |
+| Library | Home grid (reference order and mask), category lists, track lists, back stack, list item action | Sort/zoom menus, search, selection menu, A–Z scroller not yet |
+| Navbar | 1/2/3-line scenes, mini player, seek bar, menu sheet | Logo slot shows the hamburger glyph (trademark logo `LEGAL`) |
+| Playback | Local import (folder/files), tags, covers, waveforms, Media Session, resume | m4a/AAC depends on the browser's codecs |
+| Settings | Every preference screen from the reference XML: redirects, switches, tag lists, list dialogs, seek bars, notes; skin picker with skin options; settings font option; restore defaults; export/import (own JSON) | Platform Material colours (background, accent, switch) are inferred, not extracted. Purchase/feature-pack rows hidden (no commerce). Colour, knob, tags and text-entry preferences show as plain rows. Settings that change the player theme reload it when settings close (the reference recreates the activity). |
+| Not yet | Equalizer screen, search, lyrics, popups (shuffle/repeat/item menus), toasts, ripple masks | Visualization renderer `UW`/`LEGAL` (see §3) |
