@@ -1,0 +1,1508 @@
+{
+  "description": "Focused dimension variant inventory; not a resolved device screenshot. Generated from supplied verified APK; no drawable/font payloads. These records are declarations, not claims of owner-active values.",
+  "records": [
+    {
+      "name": "NavbarBounds_height_more_rounded",
+      "qualifier": "values",
+      "value": "40.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 4,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Navbar_marginB_more_rounded",
+      "qualifier": "values",
+      "value": "4.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 15,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "ItemMiniplayerAAImage_size",
+      "qualifier": "values",
+      "value": "28.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 25,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt2_TopAABounds_marginBottom",
+      "qualifier": "values",
+      "value": "92.0sp",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 29,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSubAAButtons_marginTop",
+      "qualifier": "values",
+      "value": "0.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 140,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseekLayout_paddingTop",
+      "qualifier": "values",
+      "value": "16.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 142,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values",
+      "value": "64.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 143,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values",
+      "value": "36.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 144,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values",
+      "value": "46.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 145,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_width",
+      "qualifier": "values",
+      "value": "58.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 153,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_height",
+      "qualifier": "values",
+      "value": "30.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 154,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseek_maxHeight",
+      "qualifier": "values",
+      "value": "128.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 157,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopTrackElapsedMoreButtons_marginBottom",
+      "qualifier": "values",
+      "value": "-8.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 158,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Navbar_height",
+      "qualifier": "values",
+      "value": "40.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 164,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "NavBarButton_drawableSize",
+      "qualifier": "values",
+      "value": "28.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 165,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values",
+      "value": "56.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 166,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMetaInfoLayout_marginBottom",
+      "qualifier": "values",
+      "value": "4.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 167,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt_TopAABounds_marginBottom",
+      "qualifier": "values",
+      "value": "50.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 198,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "corners_miniplayer_aa",
+      "qualifier": "values",
+      "value": "8.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 222,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "track_children_scene_aa_margin",
+      "qualifier": "values",
+      "value": "18.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 228,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "corners_navbar",
+      "qualifier": "values",
+      "value": "22.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 233,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt_TopListSubstyle_aaMarginBottom",
+      "qualifier": "values",
+      "value": "222.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 252,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "ListSubstyleBase2_aaMarginBottom",
+      "qualifier": "values",
+      "value": "200.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 279,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopTrackElapsedDuration_height",
+      "qualifier": "values",
+      "value": "25.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 281,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Navbar_normal_marginB",
+      "qualifier": "values",
+      "value": "4.0dip",
+      "source": "decoded/res/values/dimens.xml",
+      "line": 296,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "NavbarBounds_height_more_rounded",
+      "qualifier": "values-land",
+      "value": "40.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 3,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "ItemMiniplayerAAImage_size",
+      "qualifier": "values-land",
+      "value": "28.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 6,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSubAAButtons_marginTop",
+      "qualifier": "values-land",
+      "value": "0.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 30,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseekLayout_paddingTop",
+      "qualifier": "values-land",
+      "value": "8.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 31,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-land",
+      "value": "72.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 32,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_width",
+      "qualifier": "values-land",
+      "value": "50.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 33,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_height",
+      "qualifier": "values-land",
+      "value": "30.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 34,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Navbar_height",
+      "qualifier": "values-land",
+      "value": "36.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 37,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "NavBarButton_drawableSize",
+      "qualifier": "values-land",
+      "value": "24.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 38,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-land",
+      "value": "56.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 39,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMetaInfoLayout_marginBottom",
+      "qualifier": "values-land",
+      "value": "0.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 40,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "corners_miniplayer_aa",
+      "qualifier": "values-land",
+      "value": "8.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 46,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "corners_navbar",
+      "qualifier": "values-land",
+      "value": "24.0dip",
+      "source": "decoded/res/values-land/dimens.xml",
+      "line": 47,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseek_maxHeight",
+      "qualifier": "values-sw320dp-h630dp-port",
+      "value": "112.0dip",
+      "source": "decoded/res/values-sw320dp-h630dp-port/dimens.xml",
+      "line": 6,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw320dp-h659dp-long-highdr-widecg-port-v26",
+      "value": "94.0dip",
+      "source": "decoded/res/values-sw320dp-h659dp-long-highdr-widecg-port-v26/dimens.xml",
+      "line": 4,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw320dp-h659dp-long-highdr-widecg-port-v26",
+      "value": "40.0dip",
+      "source": "decoded/res/values-sw320dp-h659dp-long-highdr-widecg-port-v26/dimens.xml",
+      "line": 5,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw320dp-h659dp-long-highdr-widecg-port-v26",
+      "value": "64.0dip",
+      "source": "decoded/res/values-sw320dp-h659dp-long-highdr-widecg-port-v26/dimens.xml",
+      "line": 6,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw320dp-h659dp-long-highdr-widecg-port-v26",
+      "value": "72.0dip",
+      "source": "decoded/res/values-sw320dp-h659dp-long-highdr-widecg-port-v26/dimens.xml",
+      "line": 8,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw360dp-h1dp-land",
+      "value": "80.0dip",
+      "source": "decoded/res/values-sw360dp-h1dp-land/dimens.xml",
+      "line": 7,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw360dp-h1dp-land",
+      "value": "48.0dip",
+      "source": "decoded/res/values-sw360dp-h1dp-land/dimens.xml",
+      "line": 8,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw360dp-h1dp-land",
+      "value": "56.0dip",
+      "source": "decoded/res/values-sw360dp-h1dp-land/dimens.xml",
+      "line": 9,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw360dp-h1dp-land",
+      "value": "70.0dip",
+      "source": "decoded/res/values-sw360dp-h1dp-land/dimens.xml",
+      "line": 10,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw360dp-h530dp-port",
+      "value": "76.0dip",
+      "source": "decoded/res/values-sw360dp-h530dp-port/dimens.xml",
+      "line": 6,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw360dp-h530dp-port",
+      "value": "40.0dip",
+      "source": "decoded/res/values-sw360dp-h530dp-port/dimens.xml",
+      "line": 7,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw360dp-h530dp-port",
+      "value": "50.0dip",
+      "source": "decoded/res/values-sw360dp-h530dp-port/dimens.xml",
+      "line": 8,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw360dp-h530dp-port",
+      "value": "70.0dip",
+      "source": "decoded/res/values-sw360dp-h530dp-port/dimens.xml",
+      "line": 9,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSubAAButtons_marginTop",
+      "qualifier": "values-sw360dp-h567dp-port",
+      "value": "0.0dip",
+      "source": "decoded/res/values-sw360dp-h567dp-port/dimens.xml",
+      "line": 10,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseekLayout_paddingTop",
+      "qualifier": "values-sw360dp-h567dp-port",
+      "value": "16.0dip",
+      "source": "decoded/res/values-sw360dp-h567dp-port/dimens.xml",
+      "line": 11,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopTrackElapsedMoreButtons_marginBottom",
+      "qualifier": "values-sw360dp-h567dp-port",
+      "value": "0.0dip",
+      "source": "decoded/res/values-sw360dp-h567dp-port/dimens.xml",
+      "line": 15,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "NavbarBounds_height_more_rounded",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "58.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 3,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Navbar_marginB_more_rounded",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "8.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 5,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "ItemMiniplayerAAImage_size",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "36.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 6,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "82.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 9,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "42.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 10,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "58.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 11,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Navbar_height",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "48.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 12,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "NavBarButton_drawableSize",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "32.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 13,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "80.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 14,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt_TopAABounds_marginBottom",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "64.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 15,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "corners_miniplayer_aa",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "12.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 16,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "corners_navbar",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "28.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 17,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt_TopListSubstyle_aaMarginBottom",
+      "qualifier": "values-sw360dp-h610dp-port",
+      "value": "208.0dip",
+      "source": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "line": 18,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt2_TopAABounds_marginBottom",
+      "qualifier": "values-sw360dp-h660dp-port",
+      "value": "110.0sp",
+      "source": "decoded/res/values-sw360dp-h660dp-port/dimens.xml",
+      "line": 4,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseek_maxHeight",
+      "qualifier": "values-sw360dp-h660dp-port",
+      "value": "152.0dip",
+      "source": "decoded/res/values-sw360dp-h660dp-port/dimens.xml",
+      "line": 6,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt_TopAABounds_marginBottom",
+      "qualifier": "values-sw360dp-h660dp-port",
+      "value": "72.0dip",
+      "source": "decoded/res/values-sw360dp-h660dp-port/dimens.xml",
+      "line": 7,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt_TopListSubstyle_aaMarginBottom",
+      "qualifier": "values-sw360dp-h660dp-port",
+      "value": "280.0dip",
+      "source": "decoded/res/values-sw360dp-h660dp-port/dimens.xml",
+      "line": 17,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseek_maxHeight",
+      "qualifier": "values-sw360dp-h708dp-port",
+      "value": "160.0dip",
+      "source": "decoded/res/values-sw360dp-h708dp-port/dimens.xml",
+      "line": 4,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw360dp-h730dp-port",
+      "value": "90.0dip",
+      "source": "decoded/res/values-sw360dp-h730dp-port/dimens.xml",
+      "line": 5,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw360dp-h730dp-port",
+      "value": "60.0dip",
+      "source": "decoded/res/values-sw360dp-h730dp-port/dimens.xml",
+      "line": 6,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseek_maxHeight",
+      "qualifier": "values-sw360dp-h730dp-port",
+      "value": "164.0dip",
+      "source": "decoded/res/values-sw360dp-h730dp-port/dimens.xml",
+      "line": 8,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Navbar_height",
+      "qualifier": "values-sw360dp-h730dp-port",
+      "value": "52.0dip",
+      "source": "decoded/res/values-sw360dp-h730dp-port/dimens.xml",
+      "line": 9,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "NavBarButton_drawableSize",
+      "qualifier": "values-sw360dp-h730dp-port",
+      "value": "36.0dip",
+      "source": "decoded/res/values-sw360dp-h730dp-port/dimens.xml",
+      "line": 10,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw360dp-h730dp-port",
+      "value": "84.0dip",
+      "source": "decoded/res/values-sw360dp-h730dp-port/dimens.xml",
+      "line": 11,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw360dp-w600dp-land",
+      "value": "80.0dip",
+      "source": "decoded/res/values-sw360dp-w600dp-land/dimens.xml",
+      "line": 11,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw360dp-w600dp-land",
+      "value": "52.0dip",
+      "source": "decoded/res/values-sw360dp-w600dp-land/dimens.xml",
+      "line": 12,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw360dp-w600dp-land",
+      "value": "64.0dip",
+      "source": "decoded/res/values-sw360dp-w600dp-land/dimens.xml",
+      "line": 13,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopTrackElapsedMoreButtons_marginBottom",
+      "qualifier": "values-sw360dp-w600dp-land",
+      "value": "0.0dip",
+      "source": "decoded/res/values-sw360dp-w600dp-land/dimens.xml",
+      "line": 16,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw360dp-w600dp-land",
+      "value": "74.0dip",
+      "source": "decoded/res/values-sw360dp-w600dp-land/dimens.xml",
+      "line": 20,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw380dp-h670dp-port",
+      "value": "90.0dip",
+      "source": "decoded/res/values-sw380dp-h670dp-port/dimens.xml",
+      "line": 11,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw380dp-h670dp-port",
+      "value": "60.0dip",
+      "source": "decoded/res/values-sw380dp-h670dp-port/dimens.xml",
+      "line": 12,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_width",
+      "qualifier": "values-sw380dp-h670dp-port",
+      "value": "68.0dip",
+      "source": "decoded/res/values-sw380dp-h670dp-port/dimens.xml",
+      "line": 14,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_height",
+      "qualifier": "values-sw380dp-h670dp-port",
+      "value": "36.0dip",
+      "source": "decoded/res/values-sw380dp-h670dp-port/dimens.xml",
+      "line": 15,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseek_maxHeight",
+      "qualifier": "values-sw380dp-h670dp-port",
+      "value": "164.0dip",
+      "source": "decoded/res/values-sw380dp-h670dp-port/dimens.xml",
+      "line": 17,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw380dp-h670dp-port",
+      "value": "84.0dip",
+      "source": "decoded/res/values-sw380dp-h670dp-port/dimens.xml",
+      "line": 19,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw380dp-h750dp-port",
+      "value": "100.0dip",
+      "source": "decoded/res/values-sw380dp-h750dp-port/dimens.xml",
+      "line": 5,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw380dp-h750dp-port",
+      "value": "48.0dip",
+      "source": "decoded/res/values-sw380dp-h750dp-port/dimens.xml",
+      "line": 6,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw380dp-h750dp-port",
+      "value": "64.0dip",
+      "source": "decoded/res/values-sw380dp-h750dp-port/dimens.xml",
+      "line": 7,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseek_maxHeight",
+      "qualifier": "values-sw380dp-h750dp-port",
+      "value": "184.0dip",
+      "source": "decoded/res/values-sw380dp-h750dp-port/dimens.xml",
+      "line": 9,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw380dp-h750dp-port",
+      "value": "92.0dip",
+      "source": "decoded/res/values-sw380dp-h750dp-port/dimens.xml",
+      "line": 10,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMetaInfoLayout_marginBottom",
+      "qualifier": "values-sw380dp-h750dp-port",
+      "value": "8.0dip",
+      "source": "decoded/res/values-sw380dp-h750dp-port/dimens.xml",
+      "line": 11,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt_TopAABounds_marginBottom",
+      "qualifier": "values-sw380dp-h800dp-port",
+      "value": "80.0dip",
+      "source": "decoded/res/values-sw380dp-h800dp-port/dimens.xml",
+      "line": 3,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Navbar_height",
+      "qualifier": "values-sw380dp-land",
+      "value": "40.0dip",
+      "source": "decoded/res/values-sw380dp-land/dimens.xml",
+      "line": 3,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "NavBarButton_drawableSize",
+      "qualifier": "values-sw380dp-land",
+      "value": "28.0dip",
+      "source": "decoded/res/values-sw380dp-land/dimens.xml",
+      "line": 4,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw380dp-w720dp-land",
+      "value": "104.0dip",
+      "source": "decoded/res/values-sw380dp-w720dp-land/dimens.xml",
+      "line": 8,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_width",
+      "qualifier": "values-sw380dp-w720dp-land",
+      "value": "72.0dip",
+      "source": "decoded/res/values-sw380dp-w720dp-land/dimens.xml",
+      "line": 10,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_height",
+      "qualifier": "values-sw380dp-w720dp-land",
+      "value": "36.0dip",
+      "source": "decoded/res/values-sw380dp-w720dp-land/dimens.xml",
+      "line": 11,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseek_maxHeight",
+      "qualifier": "values-sw380dp-w720dp-land",
+      "value": "184.0dip",
+      "source": "decoded/res/values-sw380dp-w720dp-land/dimens.xml",
+      "line": 13,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw380dp-w720dp-land",
+      "value": "90.0dip",
+      "source": "decoded/res/values-sw380dp-w720dp-land/dimens.xml",
+      "line": 15,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw390dp-h710dp-port",
+      "value": "100.0dip",
+      "source": "decoded/res/values-sw390dp-h710dp-port/dimens.xml",
+      "line": 3,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw390dp-h710dp-port",
+      "value": "48.0dip",
+      "source": "decoded/res/values-sw390dp-h710dp-port/dimens.xml",
+      "line": 4,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw390dp-h710dp-port",
+      "value": "64.0dip",
+      "source": "decoded/res/values-sw390dp-h710dp-port/dimens.xml",
+      "line": 5,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw390dp-h710dp-port",
+      "value": "88.0dip",
+      "source": "decoded/res/values-sw390dp-h710dp-port/dimens.xml",
+      "line": 7,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw390dp-h730dp-port",
+      "value": "100.0dip",
+      "source": "decoded/res/values-sw390dp-h730dp-port/dimens.xml",
+      "line": 3,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw390dp-h730dp-port",
+      "value": "48.0dip",
+      "source": "decoded/res/values-sw390dp-h730dp-port/dimens.xml",
+      "line": 4,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw390dp-h730dp-port",
+      "value": "64.0dip",
+      "source": "decoded/res/values-sw390dp-h730dp-port/dimens.xml",
+      "line": 5,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw390dp-h730dp-port",
+      "value": "88.0dip",
+      "source": "decoded/res/values-sw390dp-h730dp-port/dimens.xml",
+      "line": 7,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt2_TopAABounds_marginBottom",
+      "qualifier": "values-sw400dp-h746dp-port",
+      "value": "104.0sp",
+      "source": "decoded/res/values-sw400dp-h746dp-port/dimens.xml",
+      "line": 3,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt2_TopAABounds_marginBottom",
+      "qualifier": "values-sw580dp-h710dp-large-notlong-port-xxxhdpi",
+      "value": "104.0sp",
+      "source": "decoded/res/values-sw580dp-h710dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 3,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw580dp-h710dp-large-notlong-port-xxxhdpi",
+      "value": "91.0dip",
+      "source": "decoded/res/values-sw580dp-h710dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 6,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw580dp-h710dp-large-notlong-port-xxxhdpi",
+      "value": "44.0dip",
+      "source": "decoded/res/values-sw580dp-h710dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 7,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw580dp-h710dp-large-notlong-port-xxxhdpi",
+      "value": "60.0dip",
+      "source": "decoded/res/values-sw580dp-h710dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 8,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt_TopListSubstyle_aaMarginBottom",
+      "qualifier": "values-sw580dp-h710dp-large-notlong-port-xxxhdpi",
+      "value": "248.0dip",
+      "source": "decoded/res/values-sw580dp-h710dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 19,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "ListSubstyleBase2_aaMarginBottom",
+      "qualifier": "values-sw580dp-h710dp-large-notlong-port-xxxhdpi",
+      "value": "248.0dip",
+      "source": "decoded/res/values-sw580dp-h710dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 20,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw580dp-w710dp-large-notlong-land-xxxhdpi",
+      "value": "76.0dip",
+      "source": "decoded/res/values-sw580dp-w710dp-large-notlong-land-xxxhdpi/dimens.xml",
+      "line": 4,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw580dp-w710dp-large-notlong-land-xxxhdpi",
+      "value": "40.0dip",
+      "source": "decoded/res/values-sw580dp-w710dp-large-notlong-land-xxxhdpi/dimens.xml",
+      "line": 5,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw580dp-w710dp-large-notlong-land-xxxhdpi",
+      "value": "50.0dip",
+      "source": "decoded/res/values-sw580dp-w710dp-large-notlong-land-xxxhdpi/dimens.xml",
+      "line": 6,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw580dp-w710dp-large-notlong-land-xxxhdpi",
+      "value": "70.0dip",
+      "source": "decoded/res/values-sw580dp-w710dp-large-notlong-land-xxxhdpi/dimens.xml",
+      "line": 7,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMetaInfoLayout_marginBottom",
+      "qualifier": "values-sw580dp-w710dp-large-notlong-land-xxxhdpi",
+      "value": "24.0dip",
+      "source": "decoded/res/values-sw580dp-w710dp-large-notlong-land-xxxhdpi/dimens.xml",
+      "line": 8,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "NavbarBounds_height_more_rounded",
+      "qualifier": "values-sw600dp-large",
+      "value": "58.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 3,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "ItemMiniplayerAAImage_size",
+      "qualifier": "values-sw600dp-large",
+      "value": "36.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 11,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSubAAButtons_marginTop",
+      "qualifier": "values-sw600dp-large",
+      "value": "8.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 39,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseekLayout_paddingTop",
+      "qualifier": "values-sw600dp-large",
+      "value": "4.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 41,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw600dp-large",
+      "value": "90.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 42,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw600dp-large",
+      "value": "40.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 43,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw600dp-large",
+      "value": "60.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 44,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_width",
+      "qualifier": "values-sw600dp-large",
+      "value": "68.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 48,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_height",
+      "qualifier": "values-sw600dp-large",
+      "value": "36.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 49,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseek_maxHeight",
+      "qualifier": "values-sw600dp-large",
+      "value": "160.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 51,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopTrackElapsedMoreButtons_marginBottom",
+      "qualifier": "values-sw600dp-large",
+      "value": "0.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 52,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Navbar_height",
+      "qualifier": "values-sw600dp-large",
+      "value": "48.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 56,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "NavBarButton_drawableSize",
+      "qualifier": "values-sw600dp-large",
+      "value": "32.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 57,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw600dp-large",
+      "value": "72.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 58,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMetaInfoLayout_marginBottom",
+      "qualifier": "values-sw600dp-large",
+      "value": "8.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 59,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "corners_miniplayer_aa",
+      "qualifier": "values-sw600dp-large",
+      "value": "12.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 78,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "track_children_scene_aa_margin",
+      "qualifier": "values-sw600dp-large",
+      "value": "32.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 79,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "corners_navbar",
+      "qualifier": "values-sw600dp-large",
+      "value": "28.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 80,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt_TopListSubstyle_aaMarginBottom",
+      "qualifier": "values-sw600dp-large",
+      "value": "280.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 89,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "ListSubstyleBase2_aaMarginBottom",
+      "qualifier": "values-sw600dp-large",
+      "value": "280.0dip",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 94,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopTrackElapsedDuration_height",
+      "qualifier": "values-sw600dp-large",
+      "value": "32.0sp",
+      "source": "decoded/res/values-sw600dp-large/dimens.xml",
+      "line": 96,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "NavbarBounds_height_more_rounded",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "60.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 3,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "ItemMiniplayerAAImage_size",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "48.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 11,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "154.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 36,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "80.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 37,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "100.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 38,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_width",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "104.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 43,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopBaseButtonLayout_height",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "48.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 44,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopWaveseek_maxHeight",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "200.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 46,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Navbar_height",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "64.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 49,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "NavBarButton_drawableSize",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "48.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 50,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "140.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 51,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "corners_miniplayer_aa",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "16.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 61,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "corners_navbar",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "34.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 62,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "ListSubstyleBase2_aaMarginBottom",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "400.0dip",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 93,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopTrackElapsedDuration_height",
+      "qualifier": "values-sw800dp-h800dp-xlarge",
+      "value": "40.0sp",
+      "source": "decoded/res/values-sw800dp-h800dp-xlarge/dimens.xml",
+      "line": 95,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSubAAButtons_marginTop",
+      "qualifier": "values-sw800dp-large-notlong-port-xxxhdpi",
+      "value": "16.0dip",
+      "source": "decoded/res/values-sw800dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 11,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPlay_maxSize",
+      "qualifier": "values-sw800dp-large-notlong-port-xxxhdpi",
+      "value": "100.0dip",
+      "source": "decoded/res/values-sw800dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 12,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopSmallButton_size",
+      "qualifier": "values-sw800dp-large-notlong-port-xxxhdpi",
+      "value": "48.0dip",
+      "source": "decoded/res/values-sw800dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 13,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopMediumButton_size",
+      "qualifier": "values-sw800dp-large-notlong-port-xxxhdpi",
+      "value": "72.0dip",
+      "source": "decoded/res/values-sw800dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 14,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "TopPauseMoreButtons_maxSize_scene_playing",
+      "qualifier": "values-sw800dp-large-notlong-port-xxxhdpi",
+      "value": "72.0dip",
+      "source": "decoded/res/values-sw800dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 16,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt_TopAABounds_marginBottom",
+      "qualifier": "values-sw800dp-large-notlong-port-xxxhdpi",
+      "value": "74.0dip",
+      "source": "decoded/res/values-sw800dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 18,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "Alt_TopListSubstyle_aaMarginBottom",
+      "qualifier": "values-sw800dp-large-notlong-port-xxxhdpi",
+      "value": "300.0dip",
+      "source": "decoded/res/values-sw800dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 27,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    },
+    {
+      "name": "ListSubstyleBase2_aaMarginBottom",
+      "qualifier": "values-sw800dp-large-notlong-port-xxxhdpi",
+      "value": "300.0dip",
+      "source": "decoded/res/values-sw800dp-large-notlong-port-xxxhdpi/dimens.xml",
+      "line": 28,
+      "status": "CONFIRMED_STATIC",
+      "scope": "resource declaration; choose matching configuration and active style before use"
+    }
+  ]
+}

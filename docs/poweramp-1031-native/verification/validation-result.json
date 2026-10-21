@@ -1,0 +1,17 @@
+{
+  "checks": "PASS",
+  "meaning": "Schema, unique IDs, indexed-source hashes, relative links, dimension source records and allowed artifact types; not runtime or semantic parity proof.",
+  "records": 151,
+  "status_counts": {
+    "CONFIRMED_STATIC": 144,
+    "BLOCKED": 3,
+    "OPEN": 4
+  },
+  "source_references": 420,
+  "indexed_source_files": 173,
+  "source_hashes_checked": 173,
+  "private_source_files_skipped": 0,
+  "relative_links_checked": 36,
+  "dimension_declarations": 167,
+  "runtime_observation_records": 0
+}

@@ -1,0 +1,33 @@
+{
+  "timestamp_utc": "2026-10-21T01:52:05.343703+00:00",
+  "initial_install_command": "python -m pip install --target /workspace/work/poweramp/tools/native-python pyelftools==0.32 capstone==5.0.6",
+  "initial_install_log": "logs/native-python-install.log",
+  "initial_index_host_in_log": false,
+  "verification": "Independently downloaded official PyPI wheels; matched metadata SHA-256 and byte-compared every package payload member to installation. Did not execute any APK code.",
+  "installation_path": "/workspace/work/poweramp/tools/native-python",
+  "reproduce": "python work/poweramp/scripts/native_tool_provenance.py",
+  "packages": [
+    {
+      "package": "pyelftools",
+      "version": "0.32",
+      "metadata_url": "https://pypi.org/pypi/pyelftools/0.32/json",
+      "official_project_page": "https://pypi.org/project/pyelftools/0.32/",
+      "wheel_url": "https://files.pythonhosted.org/packages/af/43/700932c4f0638c3421177144a2e86448c0d75dbaee2c7936bda3f9fd0878/pyelftools-0.32-py3-none-any.whl",
+      "wheel_sha256": "013df952a006db5e138b1edf6d8a68ecc50630adbd0d83a2d41e7f846163d738",
+      "wheel_bytes": 188525,
+      "installed_package_files_verified": 54,
+      "all_compared_files_match": true
+    },
+    {
+      "package": "capstone",
+      "version": "5.0.6",
+      "metadata_url": "https://pypi.org/pypi/capstone/5.0.6/json",
+      "official_project_page": "https://pypi.org/project/capstone/5.0.6/",
+      "wheel_url": "https://files.pythonhosted.org/packages/78/7f/ec0687bbe8f6b128f1d41d90ec7cedfd1aaaa4ecb1ae8d334acc7dad8013/capstone-5.0.6-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "wheel_sha256": "0358855773100bb91ae6681fabce7299df83156945ba943f6211061a592c54a6",
+      "wheel_bytes": 1481605,
+      "installed_package_files_verified": 58,
+      "all_compared_files_match": true
+    }
+  ]
+}

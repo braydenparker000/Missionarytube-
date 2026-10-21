@@ -1,0 +1,119 @@
+{
+  "tool": "Pillow",
+  "version": "12.3.0",
+  "reproducer": "scripts/rendering_ledger.py",
+  "bitmaps": [
+    {
+      "path": "decoded/res/drawable-sw2dp-xxxhdpi/bar.png",
+      "sha256": "8eb74f2829f2e10aa069ea5138a015570d9f1ed5a561db48bb7beded9f563eac",
+      "width_source_px": 32,
+      "height_source_px": 68,
+      "dominant_rgba": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "dominant_pixel_count": 1740,
+      "measurement": "Source pixel histogram; not rendered output"
+    },
+    {
+      "path": "decoded/res/drawable-sw2dp-xxxhdpi/elapsedbar.png",
+      "sha256": "5afdb3ec8ba07769f8a731d99735381ba1ae8172781d1dfbe65d491792a673d7",
+      "width_source_px": 32,
+      "height_source_px": 68,
+      "dominant_rgba": [
+        255,
+        255,
+        255,
+        161
+      ],
+      "dominant_pixel_count": 1740,
+      "measurement": "Source pixel histogram; not rendered output"
+    },
+    {
+      "path": "decoded/res/drawable-sw2dp-xxxhdpi/inverse_bar.png",
+      "sha256": "ab38b71818045cb3db8f1aec2840afec17fd27b8a25992b5d41b53d7b28007bd",
+      "width_source_px": 32,
+      "height_source_px": 68,
+      "dominant_rgba": [
+        255,
+        255,
+        255,
+        168
+      ],
+      "dominant_pixel_count": 1740,
+      "measurement": "Source pixel histogram; not rendered output"
+    },
+    {
+      "path": "decoded/res/drawable-sw2dp-xxxhdpi/inverse_elapsedbar.png",
+      "sha256": "ea3f9ac29af450c97847ad3a28c88d91517b37c1cb6d8e5f0a9b2433afe1d52d",
+      "width_source_px": 32,
+      "height_source_px": 68,
+      "dominant_rgba": [
+        126,
+        126,
+        126,
+        64
+      ],
+      "dominant_pixel_count": 1904,
+      "measurement": "Source pixel histogram; not rendered output"
+    },
+    {
+      "path": "decoded/res/drawable-sw2dp-xxxhdpi/narrow_bar.png",
+      "sha256": "a588e5898544b99e0572bcd607eabdaf4d1b0fac7ed31fee79d9f9d41c534d06",
+      "width_source_px": 22,
+      "height_source_px": 90,
+      "dominant_rgba": [
+        255,
+        255,
+        255,
+        217
+      ],
+      "dominant_pixel_count": 1464,
+      "measurement": "Source pixel histogram; not rendered output"
+    },
+    {
+      "path": "decoded/res/drawable-sw2dp-xxxhdpi/narrow_elapsedbar.png",
+      "sha256": "34ffd4572637d4078e767f27db4854c9795c53236780173c14529dc75213690e",
+      "width_source_px": 22,
+      "height_source_px": 90,
+      "dominant_rgba": [
+        126,
+        126,
+        126,
+        102
+      ],
+      "dominant_pixel_count": 1856,
+      "measurement": "Source pixel histogram; not rendered output"
+    },
+    {
+      "path": "decoded/res/drawable-sw2dp-xxxhdpi/inverse_narrow_bar.png",
+      "sha256": "7934d829fe1af175d3b230e321f13965a8aae5453ec96a0d4d416d27858836c4",
+      "width_source_px": 22,
+      "height_source_px": 90,
+      "dominant_rgba": [
+        255,
+        255,
+        255,
+        168
+      ],
+      "dominant_pixel_count": 1652,
+      "measurement": "Source pixel histogram; not rendered output"
+    },
+    {
+      "path": "decoded/res/drawable-sw2dp-xxxhdpi/inverse_narrow_elapsedbar.png",
+      "sha256": "c6aa7cc2b61cdad3014ccff8d88f0e2e9ef5b304731b92413c071629257a0211",
+      "width_source_px": 22,
+      "height_source_px": 90,
+      "dominant_rgba": [
+        126,
+        126,
+        126,
+        64
+      ],
+      "dominant_pixel_count": 1856,
+      "measurement": "Source pixel histogram; not rendered output"
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "source_apk_sha256": "27cfde3fc8e55b2effffe88c7e80ec3a1b1f69ec37a09ef86d9a34aafe8ebb9e",
+  "scope": "Original Session1 research documentation and structured metadata only; no proprietary payload or investigation scripts.",
+  "base_commit": "4fd9547d37d5845fbafb3f0edad53b6150a8cedd",
+  "files": [
+    {
+      "path": "00-SESSION1-STATUS.md",
+      "bytes": 7955,
+      "sha256": "e312ab8c64988d5d894cf0ee2cb1e1774e43e6adf9ee59a76ceac811afdf2a28"
+    },
+    {
+      "path": "01-APK-AND-TOOLING.md",
+      "bytes": 6931,
+      "sha256": "1bd584d7e6956032139806e4994ffbaa9e9f528a3e9b929c12ef65d05ea99569"
+    },
+    {
+      "path": "02-RESOLVED-PLAYER-UI.md",
+      "bytes": 21952,
+      "sha256": "794dc53c679d36c1713b049549d739b5be18472a31934ec6caf2328d567f42c1"
+    },
+    {
+      "path": "03-STYLE-THEME-AND-QUALIFIERS.md",
+      "bytes": 20888,
+      "sha256": "a38ee3ff37bbaa92bd9d5ff15c673bd9811575da735602825b37068ea28f06ac"
+    },
+    {
+      "path": "04-SCENE-ANIMATION-ENGINE.md",
+      "bytes": 42001,
+      "sha256": "854b5f6391f1ed3979b918ff96c943122b1e9b1139b5407d975000467f8d58f7"
+    },
+    {
+      "path": "05-GESTURE-STATE-MACHINES.md",
+      "bytes": 45638,
+      "sha256": "1eefa4d38b84ca6287ac3bd3b13baf611d0d578f80d1dee0563b3957e5eb2c5e"
+    },
+    {
+      "path": "06-DRAWING-AND-WAVEFORM.md",
+      "bytes": 26480,
+      "sha256": "98381de9ee7114930e8f071385421a698c02cf5964ce6b0c4e61c97d04a22758"
+    },
+    {
+      "path": "07-RUNTIME-OBSERVATIONS.md",
+      "bytes": 3744,
+      "sha256": "2a341145dbaf6b129001984c17e9f2be1a4b2660038c2129732865ca6f64d774"
+    },
+    {
+      "path": "08-EVIDENCE-LEDGER.jsonl",
+      "bytes": 157925,
+      "sha256": "92c759b762c2bd047e904352537ec16e75ec22a40380206d6455b364cabc69c5"
+    },
+    {
+      "path": "09-GAPS-AND-CAPTURE-REQUEST.md",
+      "bytes": 6192,
+      "sha256": "6f1df29246781c1527e4d359d628781370114b77d41daeec415461eb69d1461a"
+    },
+    {
+      "path": "10-IMPLEMENTATION-READINESS.md",
+      "bytes": 3534,
+      "sha256": "c4921cbf24926c10634d2279b21a5bdd58817b46b285c4c957eed60047604dcb"
+    },
+    {
+      "path": "11-CONTINUATION-CHECKPOINT.md",
+      "bytes": 4063,
+      "sha256": "cdec5cba4233d9bd31de03624274b268071f7ff5348cdb5493146c0d7aebde55"
+    },
+    {
+      "path": "12-APK-RESOURCE-INVENTORY.json",
+      "bytes": 12763,
+      "sha256": "6ea288fa083f4616b3ae1a4dd172c75ef44ea4ff29ba6d36d753d9dc28011dd2"
+    },
+    {
+      "path": "13-SOURCE-CITATION-INDEX.json",
+      "bytes": 107810,
+      "sha256": "356c4a12234855d7a7e6eb0fe211d8e71c1f84cb7b92179954c9cc72e6034a4f"
+    },
+    {
+      "path": "README.md",
+      "bytes": 3462,
+      "sha256": "9407473940529d30e0f8e6a1298399d85e31df1eb0fe60a727f8207063fcf9b0"
+    },
+    {
+      "path": "UI-DIMENSION-VARIANTS.json",
+      "bytes": 58132,
+      "sha256": "6af66903f1c7de6b0634ee5186c1c079f18bfca9b9a2d96615286ffe1730f1be"
+    },
+    {
+      "path": "verification/aapt2-configurations.txt",
+      "bytes": 1520,
+      "sha256": "9bd03565a9d97ad8afa5e336be39ab00b9dafafb47afc4ef2df260f0c4011fbe"
+    },
+    {
+      "path": "verification/apksigner-verify.txt",
+      "bytes": 13478,
+      "sha256": "5c8f9ea5fd440075aca13a1c5ca3c57fad47d22bb98d6adfe8832ea3e7e45988"
+    },
+    {
+      "path": "verification/apktool.log",
+      "bytes": 469,
+      "sha256": "e960876959819a175a4816c6c423a1f88f8fb3b337f8dc974fe721ca2d6bf8ce"
+    },
+    {
+      "path": "verification/jadx-result.txt",
+      "bytes": 399,
+      "sha256": "94f72b60015b48fbb1507fa5153df55d4ff66d79ef97e30fd17f3d0636eb898d"
+    },
+    {
+      "path": "verification/native-python-provenance.json",
+      "bytes": 1841,
+      "sha256": "8c653a6e065393a98722dbfebf45e468674fb08c2bc6b6c1ab424e45a653c7ca"
+    },
+    {
+      "path": "verification/native-ui-mapping.json",
+      "bytes": 2918,
+      "sha256": "abc77969f81e69a4189812cb9eb8a028c3ceed332c762d94f753be381c1d3cd0"
+    },
+    {
+      "path": "verification/rendering-resource-measurements.json",
+      "bytes": 3430,
+      "sha256": "745de0789fe2de39227a4e39c594acc13b0f82d105ba6469c71ab575dddfb161"
+    },
+    {
+      "path": "verification/runtime-preflight.json",
+      "bytes": 1100,
+      "sha256": "8da7115d23a0eb1bae20a005431652cdc29a5f8a88ffff368d1d5996c1d0f9b6"
+    },
+    {
+      "path": "verification/validation-result.json",
+      "bytes": 523,
+      "sha256": "1551107cb30c4598021246c98587989fc55dfa156ecf891fba0fcfd9cc3fb6cf"
+    }
+  ]
+}

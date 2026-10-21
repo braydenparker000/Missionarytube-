@@ -1,0 +1,36 @@
+{
+  "status": "NATIVE_RUNTIME_UNAVAILABLE",
+  "host_arch": "x86_64",
+  "os": "Linux 6.18.55",
+  "initial_tools": {
+    "java": "OpenJDK 21.0.12.1",
+    "adb": null,
+    "emulator": null,
+    "apkanalyzer": null,
+    "android_sdk": null,
+    "apktool": null,
+    "jadx": null
+  },
+  "capabilities": {
+    "/dev/kvm": false,
+    "/dev/bus/usb": false,
+    "/dev/binder": false,
+    "/dev/binderfs": false,
+    "WorkDroid_phone_connected": false
+  },
+  "apk_abis": [
+    "arm64-v8a",
+    "armeabi-v7a"
+  ],
+  "installed_for_static_analysis": [
+    "Apktool 2.11.1",
+    "JADX 1.5.3",
+    "Android Build Tools 35.0.0 (aapt2, apksigner only)"
+  ],
+  "android_system_image_installed": false,
+  "apk_installed": false,
+  "screenshots": [],
+  "recordings": [],
+  "runtime_claims": 0,
+  "reason": "No connected Android device, Android OS/system image, emulator executable or hardware-virtualization device; supplied app has ARM native libraries, while host is x86_64. No compatible native runtime was provisioned. This is an observed capability gap, not proof Android could never be provisioned elsewhere."
+}

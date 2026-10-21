@@ -1,0 +1,4 @@
+JADX 1.5.3 run with -r -j 3 --rename-flags none --no-inline-methods --no-inline-anonymous --show-bad-code.
+4060 top-level processing units; finished with errors, count: 9.
+Full log remains at /workspace/work/poweramp/logs/jadx.log.
+Five source files contain explicit JADX ERROR comments; malformed control flow is also present in methods not counted as errors. See inventory and smali cross-checks.

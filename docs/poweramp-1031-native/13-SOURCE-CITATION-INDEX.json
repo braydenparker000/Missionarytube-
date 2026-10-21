@@ -1,0 +1,3490 @@
+{
+  "source_apk_sha256": "27cfde3fc8e55b2effffe88c7e80ec3a1b1f69ec37a09ef86d9a34aafe8ebb9e",
+  "citation_convention": "decoded/ and jadx/ refer to private scratch reconstructed with report01; exact names/labels preserved; file hashes bind this extraction. Deliverable entries are tool-result metadata. No source payload included.",
+  "files": [
+    {
+      "path": "12-APK-RESOURCE-INVENTORY.json",
+      "source_root": "deliverable",
+      "bytes": 12763,
+      "sha256": "6ea288fa083f4616b3ae1a4dd172c75ef44ea4ff29ba6d36d753d9dc28011dd2",
+      "references": [
+        {
+          "evidence_id": "PA1031-APK-001",
+          "symbol": "source_apk",
+          "locator": "source_apk"
+        },
+        {
+          "evidence_id": "PA1031-APK-004",
+          "symbol": "dex,native_libraries",
+          "locator": "top-level fields"
+        },
+        {
+          "evidence_id": "PA1031-TOOLS-001",
+          "symbol": "decompiler_result",
+          "locator": "top-level field"
+        }
+      ]
+    },
+    {
+      "path": "decoded/AndroidManifest.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 62635,
+      "sha256": "c367dae4cdc1557de9c9d812a19fe9fe46de02e2ba6e5dc71acf231764f1f52a",
+      "references": [
+        {
+          "evidence_id": "PA1031-APK-002",
+          "symbol": "manifest",
+          "locator": "line2"
+        }
+      ]
+    },
+    {
+      "path": "decoded/apktool.yml",
+      "source_root": "private-reconstruction",
+      "bytes": 471,
+      "sha256": "e5231f7fc8f94656d5e891bde883bd5705d95347ab258808c120d53d6618d87a",
+      "references": [
+        {
+          "evidence_id": "PA1031-APK-002",
+          "symbol": "sdkInfo,versionInfo",
+          "locator": "lines9-20"
+        }
+      ]
+    },
+    {
+      "path": "decoded/assets/milk/shaders/blur_aa_fs.glsl",
+      "source_root": "private-reconstruction",
+      "bytes": 1068,
+      "sha256": "4cbd580d16f1bed8a0fd8bcde8867a6bef560eefb95a760d1267becb4911e7e8",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-009",
+          "symbol": "main",
+          "locator": "four samples, u_mult, saturation and apply_light branches"
+        }
+      ]
+    },
+    {
+      "path": "decoded/assets/milk/shaders/blur_vs.glsl",
+      "source_root": "private-reconstruction",
+      "bytes": 642,
+      "sha256": "58edc6f7056720a66f59a62a615e5ba06e6c183721c8e241e438bebf588385c0",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-009",
+          "symbol": "main",
+          "locator": "four displaced texture coordinates"
+        }
+      ]
+    },
+    {
+      "path": "decoded/lib/arm64-v8a/libpowerampcore.so",
+      "source_root": "private-reconstruction",
+      "bytes": 4664344,
+      "sha256": "c22a29d4e71723b1f7e8cb5dc6cd7e461aa5133b65e73ca4115928fa980f9d9e",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-008",
+          "symbol": "MilkLoader native_load_aa registration",
+          "locator": "name-field VA0x4662f8; fn-field0x466308 ->0x139f00; registration0x1397f0"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-008",
+          "symbol": "blur-pass helper",
+          "locator": "0x13f3e0; clamp0x13f408-0x13f418; first-pass0x13f49c; loop0x13f4dc-0x13f554"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-009",
+          "symbol": "shader initialization and color uniforms",
+          "locator": "0x13f100; shader paths0x47b6a,0x4aad3,0x690b0; uniform lookup0x13f1c0-0x13f220; values0x13f2dc-0x13f3c0"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-009",
+          "symbol": "intensity quarter and shared upload",
+          "locator": "0x13f308-0x13f310;0x155688"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-010",
+          "symbol": "ratio clamp and commit",
+          "locator": "0x15c40c clamps0..1;0x15c42c slot toggle and1-ratio; JNI commit0x148744"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-028",
+          "symbol": "blur texture setup continuation",
+          "locator": "0x13f3e0,0x155704"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/color-sw2dp/navbar_icons_selector.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 359,
+      "sha256": "470d7dbca107f036d8e56b06f4c798a4443879cc2677040d318b4445fa0ddefa",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-026",
+          "symbol": "selector",
+          "locator": "activated/pressed primary,default lesscontrast;exitFadeDuration300"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/drawable-sw2dp/lists_rounded_stroke_selector.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 550,
+      "sha256": "0df6ae705a627c5c59a1959ba30ff4a05ff12b9641645ac2fe66b101abd290e3",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-026",
+          "symbol": "selector",
+          "locator": "state_toolbar_in_header,activated,pressed,default"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/drawable-sw2dp/navbar_bg.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 211,
+      "sha256": "a021883b2e7a9e94c3bc74b09c929e4c2029b256ce4f8147970940560bfb4f5f",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-027",
+          "symbol": "shape",
+          "locator": "corners_navbar,colorBgNavbar"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/drawable-sw2dp/ripple_play_round_100dp.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 200,
+      "sha256": "26ab39485cf4f9ae9f3f5a30595769f7a3a0e9e564cf6f0586f31d3b73afbcf3",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-025",
+          "symbol": "ripple,item",
+          "locator": "colorPlaybackRipple,play_round"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/drawable-sw2dp/text_bg_alpha_rounded.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 215,
+      "sha256": "be624f1bc3409a29b1030c583694d59826fef60852e80ef4f1c44428138095ba",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-023",
+          "symbol": "shape",
+          "locator": "corners_text_bg,colorTextBgAlpha"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/layout-sw2dp/activity_main.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 10995,
+      "sha256": "70569aad2f60b7b5e02f52fe4857eeb8e96b4dce01d478da3409385573e1f5d7",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-001",
+          "symbol": "activity_main / #top_container",
+          "locator": "lines1–96"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-015",
+          "symbol": "waveseek_layout",
+          "locator": "22–58"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-027",
+          "symbol": "play_pause_behind/pause/play",
+          "locator": "lines25,26,30"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-001",
+          "symbol": "milk, top_container",
+          "locator": "MilkWidget before ListWidget"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/layout-sw2dp/item_miniplayer.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 801,
+      "sha256": "41389bb71580a894044baf258fadca7575675b12ae8dbc02bf8a700471895134",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-025",
+          "symbol": "AAItemView children",
+          "locator": "whole layout"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/layout-sw2dp/item_track.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 15133,
+      "sha256": "63e4785ac3109062c9d8d5525c47cb4d4253f302f1c6362b46e550e1947088e7",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-002",
+          "symbol": "AAItemView and its child IDs",
+          "locator": "lines1–93"
+        },
+        {
+          "evidence_id": "PA1031-UI-018",
+          "symbol": "title,line2,meta and loadable header",
+          "locator": "whole layout"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/layout-sw2dp/merge_item_aa_rating_thumbs.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 2382,
+      "sha256": "a9f2382990e3fee17977effb9ac1fc235a7c87ca39decccb562a44a48d1eb3c1",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-017",
+          "symbol": "LikeUnlikeLayout",
+          "locator": "whole small layout"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/layout-sw2dp/merge_meta_info_layout.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 2386,
+      "sha256": "80c422695fe9ba21d01d59988fb4192673b8d6e8f798c8c96d45c1f9b81c1cb8",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-018",
+          "symbol": "root metadata include",
+          "locator": "whole small layout"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/layout-sw2dp/merge_navbar.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 6192,
+      "sha256": "b68bc2d6a2a6784a731077f5d05fcece5613acdf558ea58c5e07de696e74e732",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-024",
+          "symbol": "navbar_list and navbar_seekbar private SceneParams",
+          "locator": "whole layout"
+        },
+        {
+          "evidence_id": "PA1031-UI-025",
+          "symbol": "Navbar / navbar_list / navbar_extension / navbar_seekbar",
+          "locator": "whole layout"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-015",
+          "symbol": "navbar_container/privateScene/navbar_list/navbar_seekbar",
+          "locator": "4–37"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-025",
+          "symbol": "navbar_list ancestor tree",
+          "locator": "lines4–40"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-026",
+          "symbol": "navbar_seekbar",
+          "locator": "line23"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values-land/styles.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 49040,
+      "sha256": "0426bd92cc071c09857eb09442ed007ebf84ffd9c8b8e9d437053c67b4cc7422",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-028",
+          "symbol": "TopAABounds2/ListSubstyle2; TopWaveseekLayout; TopSubAAButtons",
+          "locator": "lines656–675,479–502"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values-sw320dp-h630dp-port/dimens.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 442,
+      "sha256": "b5e53e2f56e9195bebfeabe566a0cf2404d6c483ae572e8e99a39070941e77ff",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-029",
+          "symbol": "TopWaveseek_maxHeight",
+          "locator": "line6"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values-sw360dp-h567dp-port/dimens.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 2236,
+      "sha256": "560885a7d57989bf213066b08c8232741e912b4a341acc79560503a595108a8b",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-029",
+          "symbol": "TopSubAAButtons_marginTop,TopWaveseekLayout_paddingTop",
+          "locator": "lines10–11"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values-sw360dp-h610dp-port/dimens.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 1146,
+      "sha256": "4c13e25f999b37c0118182d0b8515023df8c5011b95a26520de234450473021e",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-026",
+          "symbol": "ItemMiniplayerAAImage_size",
+          "locator": "line6"
+        },
+        {
+          "evidence_id": "PA1031-UI-029",
+          "symbol": "TopPlay_maxSize,TopPauseMoreButtons_maxSize_scene_playing,TopSmallButton_size,TopMediumButton_size,Navbar_height,NavBarButton_drawableSize,ItemMiniplayerAAImage_size",
+          "locator": "lines6,9–14"
+        },
+        {
+          "evidence_id": "PA1031-UI-033",
+          "symbol": "Navbar_marginB_more_rounded,Navbar_height",
+          "locator": "lines5,12"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values-v23/styles.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 17456,
+      "sha256": "2ae5a5e4b73c3194a2e97c3fefa6f9f84728cd86231bc276a3e245d4f54c6c1d",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-005",
+          "symbol": "Base_ActivityTheme_Black",
+          "locator": "line7"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values-v25/styles.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 42887,
+      "sha256": "edd3ecaa961804bc8abeabc866f570cb9589d1d9000ad313e5878a2a8eceba7b",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-005",
+          "symbol": "Base_ActivityTheme_Core",
+          "locator": "line3"
+        },
+        {
+          "evidence_id": "PA1031-UI-014",
+          "symbol": "aa_elevation, over_aa_elevation, corners_aa_scene_aa",
+          "locator": "lines126–145"
+        },
+        {
+          "evidence_id": "PA1031-UI-033",
+          "symbol": "navbar dimensions",
+          "locator": "lines275–276,313,322,454,507,587"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values-v33/styles.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 1795,
+      "sha256": "fac593aed87f60b8ad0ee282fe4715b3b6b0f9c988fdb66a50f66624a0f1bbf1",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-005",
+          "symbol": "ActivityTheme_Black, Base_ActivityTheme_Default",
+          "locator": "lines3–12"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values/arrays.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 41353,
+      "sha256": "9a427c5c0210b580596728c15d1c752dc32c361690fe4621302fd21f5d26e0ba",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-004",
+          "symbol": "pref_orientation_entries",
+          "locator": "lines792-796"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-031",
+          "symbol": "repeat_modes/repeat_modes_enum/shuffle_modes/shuffle_modes_enum",
+          "locator": "lines1037–1052 and1086–1099"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values/dimens.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 56473,
+      "sha256": "e44ffb9142dc14b77ad95e5b93f60788422b8f156c71cac00233135962a97b9f",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-001",
+          "symbol": "Navbar_normal_marginB",
+          "locator": "line296"
+        },
+        {
+          "evidence_id": "PA1031-UI-007",
+          "symbol": "ListSubstyleBase2_aaMarginBottom",
+          "locator": "line279"
+        },
+        {
+          "evidence_id": "PA1031-UI-026",
+          "symbol": "ItemMiniplayerAAImage_size",
+          "locator": "line25"
+        },
+        {
+          "evidence_id": "PA1031-UI-030",
+          "symbol": "ListSubstyleBase2_aaMarginBottom",
+          "locator": "line279"
+        },
+        {
+          "evidence_id": "PA1031-UI-033",
+          "symbol": "NavbarList_marginBottom,NavbarSeekbar_height/marginBottom/marginTop",
+          "locator": "lines7,30–31,37"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-021",
+          "symbol": "large4_AltFont_textSize,medium2_AltFont_textSize",
+          "locator": "lines274,268"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values/public.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 1068649,
+      "sha256": "9bed848ded57846a25313f166d4ee246fac608fe3bbe05021f66f204f511205e",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-012",
+          "symbol": "scene_aa / scene_aa_playing / scene_aa_vis",
+          "locator": "IDs0x7f0d028d,0x7f0d0295,0x7f0d0294"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values/strings.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 209079,
+      "sha256": "e090db3fe30b459f4cfff73b2124a573cb6375d631c9e3b24c4e48940a0bcfc9",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-027",
+          "symbol": "skin_summary_default,skin_summary_alt_layout,skin_summary_alt_layout2",
+          "locator": "lines2078–2080"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/values/styles.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 1265431,
+      "sha256": "4e5caf235b059b13778d0f4eefec39e083facdcfdef3575ddbc65356291ff92a",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-001",
+          "symbol": "TopContainer.reduceBottomInset",
+          "locator": "line7412"
+        },
+        {
+          "evidence_id": "PA1031-UI-006",
+          "symbol": "TopPoweruiStyles.TopAABounds",
+          "locator": "line6836"
+        },
+        {
+          "evidence_id": "PA1031-UI-006",
+          "symbol": "TopListWidget.listSubstyle",
+          "locator": "lines7441–7450"
+        },
+        {
+          "evidence_id": "PA1031-UI-006",
+          "symbol": "TopAABounds2, ListSubstyle2, ListSubstyleBase2",
+          "locator": "lines11251–11292"
+        },
+        {
+          "evidence_id": "PA1031-UI-007",
+          "symbol": "ListSubstyleBase2",
+          "locator": "lines11260–11292"
+        },
+        {
+          "evidence_id": "PA1031-UI-011",
+          "symbol": "TopAABounds2",
+          "locator": "lines11251–11259"
+        },
+        {
+          "evidence_id": "PA1031-UI-013",
+          "symbol": "ItemTrackAAImage_scene_aa / _scene_aa_playing",
+          "locator": "lines4410–4437"
+        },
+        {
+          "evidence_id": "PA1031-UI-014",
+          "symbol": "ItemTrackAAImage_scene_aa, ItemTrackTitle, ItemTrackLine2",
+          "locator": "lines4410–4437,4594–4615,4777–4800"
+        },
+        {
+          "evidence_id": "PA1031-UI-015",
+          "symbol": "OptionAAKeepAspect, OptionAACrop",
+          "locator": "lines11355–11357,11554–11556"
+        },
+        {
+          "evidence_id": "PA1031-UI-016",
+          "symbol": "ActivityTheme_BoldFont",
+          "locator": "lines12124,12150–12151,12207–12209"
+        },
+        {
+          "evidence_id": "PA1031-UI-016",
+          "symbol": "ItemTrackTitle_Text_BoldFont, ItemTrackLine2_Text_BoldFont",
+          "locator": "lines12331–12338"
+        },
+        {
+          "evidence_id": "PA1031-UI-017",
+          "symbol": "OptionRatingLikeUnlike",
+          "locator": "lines8610–8619"
+        },
+        {
+          "evidence_id": "PA1031-UI-017",
+          "symbol": "ItemTrackTitle_scene_aa_w_rating, ItemTrackLine2_scene_aa_w_rating",
+          "locator": "lines1006–1010,9644–9648"
+        },
+        {
+          "evidence_id": "PA1031-UI-018",
+          "symbol": "ItemTrackTitle_scene_aa, ItemTrackLine2_scene_aa, ItemTrackRating_scene_aa",
+          "locator": "lines4731–4746,4910–4925,5177–5190"
+        },
+        {
+          "evidence_id": "PA1031-UI-018",
+          "symbol": "ItemTrackMeta_scene_aa",
+          "locator": "lines5073–5080"
+        },
+        {
+          "evidence_id": "PA1031-UI-019",
+          "symbol": "ActivityTheme_Whitepro_MoreButtons, ActivityTheme_Blackpro_MoreButtons",
+          "locator": "lines3092–3101,3289–3298"
+        },
+        {
+          "evidence_id": "PA1031-UI-020",
+          "symbol": "TopWaveseek / TopWaveseekStatic",
+          "locator": "lines7473–7480"
+        },
+        {
+          "evidence_id": "PA1031-UI-020",
+          "symbol": "TopWaveseekBase",
+          "locator": "lines16628–16651"
+        },
+        {
+          "evidence_id": "PA1031-UI-020",
+          "symbol": "built-in StaticSeekbar overlaps",
+          "locator": "lines3087–3091,3284–3288"
+        },
+        {
+          "evidence_id": "PA1031-UI-021",
+          "symbol": "TopSubAAButtons",
+          "locator": "lines7823–7840"
+        },
+        {
+          "evidence_id": "PA1031-UI-021",
+          "symbol": "TopWaveseekLayout",
+          "locator": "lines7451–7468"
+        },
+        {
+          "evidence_id": "PA1031-UI-021",
+          "symbol": "TopMetaInfoLayout",
+          "locator": "lines8203–8228"
+        },
+        {
+          "evidence_id": "PA1031-UI-022",
+          "symbol": "TopTrackElapsedMoreButtons, TopTrackDurationMoreButtons",
+          "locator": "lines7785–7821"
+        },
+        {
+          "evidence_id": "PA1031-UI-022",
+          "symbol": "TopTrackElapsed, TopTrackDuration",
+          "locator": "lines7495–7544"
+        },
+        {
+          "evidence_id": "PA1031-UI-024",
+          "symbol": "TopWaveseekLayout_scene_lib, TopSubAAButtons_scene_lib, TopMetaInfoLayout scenes",
+          "locator": "lines7458–7462,7835–7839,8220–8223"
+        },
+        {
+          "evidence_id": "PA1031-UI-026",
+          "symbol": "ItemMiniplayer family",
+          "locator": "lines5990–6046"
+        },
+        {
+          "evidence_id": "PA1031-UI-026",
+          "symbol": "ItemMiniplayer_paddingLeft",
+          "locator": "line10360"
+        },
+        {
+          "evidence_id": "PA1031-UI-027",
+          "symbol": "ActivityTheme_Whitepro_AltLayout; Alt_ItemTrackAAImage_scene_aa",
+          "locator": "lines3113–3198"
+        },
+        {
+          "evidence_id": "PA1031-UI-027",
+          "symbol": "Base_AltItemTrackLine2_scene_aa, Base_AltItemTrackTitle_scene_aa",
+          "locator": "lines970–1003"
+        },
+        {
+          "evidence_id": "PA1031-UI-027",
+          "symbol": "Alt_ListSubstyle_Base / Alt_TopAABounds",
+          "locator": "lines8807–8822"
+        },
+        {
+          "evidence_id": "PA1031-UI-027",
+          "symbol": "Base_ActivityTheme_AltLayout2 and Alt2 art styles",
+          "locator": "lines11893–11915,124–190"
+        },
+        {
+          "evidence_id": "PA1031-UI-031",
+          "symbol": "label and control scene declarations",
+          "locator": "lines4731–4746,4910–4925,7451–7468,7785–7821"
+        },
+        {
+          "evidence_id": "PA1031-UI-033",
+          "symbol": "TopNavbarBounds.layout_heightRef",
+          "locator": "lines7950–7955"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-012",
+          "symbol": "TopContainer",
+          "locator": "7387–7413"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-013",
+          "symbol": "playStateAnimTime,visAnimTime",
+          "locator": "7401–7403"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-017",
+          "symbol": "NavbarExtension",
+          "locator": "6242–6256"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-036",
+          "symbol": "ListSubstyleBase2.pageAnimTime",
+          "locator": "11269"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-037",
+          "symbol": "ListSubstyleBase2 times",
+          "locator": "11269–11274"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-039",
+          "symbol": "TopContainer,NavbarExtension,ListSubstyleBase2",
+          "locator": "7387–7413,6242–6256,11269"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-014",
+          "symbol": "TopWaveseek/TopWaveseekStatic/TopWaveseekBase",
+          "locator": "lines7473,7474,16628"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-027",
+          "symbol": "TopRw/TopFf",
+          "locator": "lines7704 and7720"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-028",
+          "symbol": "TopPrevCat/TopNextCat",
+          "locator": "lines7680 and7737"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-030",
+          "symbol": "TopEditableDynamicButtonLayout/TopBaseButtonLayout",
+          "locator": "lines16554 and8150"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-032",
+          "symbol": "PopupButton",
+          "locator": "line6374 clickable false"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-038",
+          "symbol": "TopPrevCat/TopNextCat",
+          "locator": "lines7680/7737 morphArg2=2"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-003",
+          "symbol": "OptionAAKeepAspect",
+          "locator": "AAImage_scaleType fitCenter"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-005",
+          "symbol": "TopMilk",
+          "locator": "line7415 onward"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-006",
+          "symbol": "ActivityTheme_Black_MilkViewEffect_List,White_MilkViewEffect_List",
+          "locator": "lines54-90"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-011",
+          "symbol": "TopWaveseekBase,TopWaveseekStatic,Blackpro_StaticSeekbar,Whitepro_StaticSeekbar,MoreButtons",
+          "locator": "lines16628 onward,7473-7480,3087-3100,3284-3302"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-012",
+          "symbol": "TopWaveseekBase",
+          "locator": "waveBarWidth auto"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-014",
+          "symbol": "TopWaveseekBase",
+          "locator": "waveDivisorSize only; absent divisor fraction"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-015",
+          "symbol": "waveBarBitmap,waveElapsedBarBitmap,colorWaveseekTint",
+          "locator": "lines2997-2998,10210-10211,10586"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-020",
+          "symbol": "TopWaveseekCursor,anim_waveseek_pressed",
+          "locator": "lines7481-7496"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-021",
+          "symbol": "ActivityTheme_BoldFont,BoldFont_font,ItemTrackTitle_Text_BoldFont,ItemTrackLine2_Text_BoldFont",
+          "locator": "lines12150,12207-12209,12331-12339"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-023",
+          "symbol": "ItemTrackTitle_scene_aa,ItemTrackLine2_scene_aa,colorTextBgAlpha",
+          "locator": "lines4731 onward,4910 onward,3060,10585"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-025",
+          "symbol": "TopPlay,TopPauseMoreButtons,TopPause,main_play,main_pro_pause",
+          "locator": "lines7616,7759,7577,10687-10689"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-026",
+          "symbol": "NavBarButton,colorNavbarIcons",
+          "locator": "lines6331 onward,3022,10317"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/xml-v22/aa_bg.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 3499,
+      "sha256": "a618ac892d434d5deba98118d84517d0dfd30ca4bf9c6af62a8b1b3c33ffa2fc",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-005",
+          "symbol": "blur/saturation/intensity/gradient preferences",
+          "locator": "preference elements"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/xml-v22/ui.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 4220,
+      "sha256": "2c24ea9a9cf20b2aa96b3acba392b496ef664e9bf23961f73a623c145a2fac08",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-004",
+          "symbol": "orientation preference",
+          "locator": "line17"
+        }
+      ]
+    },
+    {
+      "path": "decoded/res/xml/poweramp_builtin_skins.xml",
+      "source_root": "private-reconstruction",
+      "bytes": 12095,
+      "sha256": "110f31e33815fc195f6dabde994c79d333de652a61a5bcf0f7e51d1a9f5dc905",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-016",
+          "symbol": "font_variant",
+          "locator": "lines33–37,100–104"
+        },
+        {
+          "evidence_id": "PA1031-UI-019",
+          "symbol": "more_buttons",
+          "locator": "lines47,114"
+        },
+        {
+          "evidence_id": "PA1031-UI-020",
+          "symbol": "seekbar choices",
+          "locator": "lines42–46,109–113"
+        },
+        {
+          "evidence_id": "PA1031-UI-032",
+          "symbol": "built-in selectable/boolean options",
+          "locator": "whole registry"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-014",
+          "symbol": "seekbar multiSwitch",
+          "locator": "lines42 and109"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-011",
+          "symbol": "seekbar, more_buttons",
+          "locator": "lines42-47,109-114"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-021",
+          "symbol": "font_variant",
+          "locator": "lines33,100"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/audioplayer/common/BaseActivity.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 79386,
+      "sha256": "2e860adaf99cf04abb0930fce6c542cef523d18d37d280a02af90ef72dfbf5a9",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-004",
+          "symbol": "setOrientationFromPrefs()V",
+          "locator": "file lines4073-4133"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/audioplayer/list/ListWidget.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 61908,
+      "sha256": "36aa83a9c4f9d2405ae757566e8a8406d0e34925ffa1494ada4602ce70f667d7",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-036",
+          "symbol": "s0; leaves class unchanged",
+          "locator": "3184–3271"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/audioplayer/player/PlayerServiceCore.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 265968,
+      "sha256": "72abfe5c712cbd10cf9aced1b50a0afa53709a90e5827b2534aa4a680ee12c7f",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-037",
+          "symbol": "A(II)",
+          "locator": "line1031"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-037",
+          "symbol": "О(IZZ)",
+          "locator": "line11441"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-038",
+          "symbol": "О(IZZ)",
+          "locator": "line11441; :cond_0 small-step scale, :cond_4 seek, :cond_6 backward boundary"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/audioplayer/widget/Navbar.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 48809,
+      "sha256": "9028312afc92ded8943c94aae445589a61ea7a9d7ddfe2caceeebb2067f489e2",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-038",
+          "symbol": "onItemClick",
+          "locator": "1249–1484"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-021",
+          "symbol": "onItemClick",
+          "locator": "method; cmd_nav_to_main dispatch"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/audioplayer/widget/TopNavSceneFastLayout.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 8956,
+      "sha256": "3f1639b61183974bad11843a459d2b6399c46e3ac6665490eb079ced22faa0db",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-003",
+          "symbol": "onApplyWindowInsets",
+          "locator": "file line93"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/milk/MilkLoader.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 53296,
+      "sha256": "ece161570ee8d3beb12af96e53ad75aafd8c10e87eb5817c3dceb8e80ffe2c52",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-006",
+          "symbol": "A",
+          "locator": "line251 onward; :goto_1, :cond_5, :cond_7, :cond_c, :goto_8, :cond_13"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-007",
+          "symbol": "A",
+          "locator": "gradient application :goto_8 through native_load_aa call"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/widget/base/BusActionBehavior.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 44759,
+      "sha256": "48f261c945784e2c96c2c12b44cf4ccd16a91934d44b65f5d04f66370187f30c",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-029",
+          "symbol": "В(ZZIZIZLjava/lang/Object;III)Z",
+          "locator": "line1410; early :cond_2; direct branch :cond_12 near1980"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/widget/list/PowerList.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 137056,
+      "sha256": "39543080901c545f2deb76000559d080bcbe3f38baf294d0525a502ce1e9f99c",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-004",
+          "symbol": "I0(View)I",
+          "locator": "line810; :goto_0/:goto_1/:cond_5"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/widget/list/PowerListSharedItemTransition.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 24443,
+      "sha256": "79e43d603055d6867b5db9cbb1c7476ccc94b4afd99d52c7f98d6613255fd218",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-040",
+          "symbol": "В and Х",
+          "locator": "700–900,1309–1478"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/widget/list/PowerListTransitionBase.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 5896,
+      "sha256": "1bceb752ccd8b69b7262a70ada1293397d0196c2ff72fbe802becf52349d4fde",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-018",
+          "symbol": "A(PowerList,FF); :cond_0–:cond_3",
+          "locator": "32–155"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-019",
+          "symbol": "A; :goto_3 versus :cond_5",
+          "locator": "155–205"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-013",
+          "symbol": "A(PowerList,FF)V",
+          "locator": "line29 method; lines155–205 :goto_3 zero, :cond_5 retain"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/widget/player/AnimTimeHelper.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 3684,
+      "sha256": "9062ad02caf65fd5cfb3881b8908ac7f7dfa9e626f5306716f012e315a702862",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-014",
+          "symbol": "В(I),calcAnimTime(FZ)",
+          "locator": "method signatures"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/widget/player/NavbarExtension.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 20805,
+      "sha256": "a14aa35ee2fe20b44dbd8bda8325592e8f8c952816330c48176347d66b43161c",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-016",
+          "symbol": "t1(ZZZZ)V",
+          "locator": "1009–1177"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-017",
+          "symbol": "t1; call calcAnimTime(FZ) with false",
+          "locator": "1009–1177"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-039",
+          "symbol": "t1",
+          "locator": "1009–1177"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/widget/player/Seek.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 18767,
+      "sha256": "38eba38bc2bcdfdb0658f2b972ab59ba76e085876a4e4eece2517a332967525f",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-026",
+          "symbol": "B(MotionEvent)V",
+          "locator": "int-to-float/div-float in :cond_1"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/widget/player/SubAAButtonsLayout.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 123199,
+      "sha256": "ccedcd71d5f1a3440d1a70bcc554325d66a30ec31150ca0811438cbc2baa4e8f",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-032",
+          "symbol": "performLongClick()Z",
+          "locator": "line5771; :cond_0 allows N=null, :cond_4 fallback, :cond_5 reject"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/com/maxmpz/widget/player/list/AAImageView.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 97697,
+      "sha256": "5431eebfe399e356630b5e7c6fd009576325763f6cdc32d439f81af4b1245239",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-003",
+          "symbol": "К",
+          "locator": "file lines882-1050; :pswitch_0, :cond_1"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-004",
+          "symbol": "Х",
+          "locator": "line4654 onward; duration constants0xc8/0x12c"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/P.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 56223,
+      "sha256": "97670e753dda277255879b2a15dc696c504937177158bbb984914c2745c5fab2",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-008",
+          "symbol": "v()Z",
+          "locator": "file line2121 onward"
+        },
+        {
+          "evidence_id": "PA1031-UI-009",
+          "symbol": "s(IIIIII)V; w(IILׅ/sj0;)F",
+          "locator": "file lines1807,2488 onward"
+        },
+        {
+          "evidence_id": "PA1031-UI-010",
+          "symbol": "w(IILׅ/sj0;)F",
+          "locator": "file line2488 onward; DEX .line87–106"
+        },
+        {
+          "evidence_id": "PA1031-UI-012",
+          "symbol": "w(IILׅ/sj0;)F",
+          "locator": "file line2488 onward; DEX .line178–204"
+        },
+        {
+          "evidence_id": "PA1031-UI-030",
+          "symbol": "v()Z; w(IILׅ/sj0;)F",
+          "locator": "file lines2121,2488 onward"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/bw0.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 28738,
+      "sha256": "94a1392d15edd8df2fc5acf8f8d082828c01c9fe2cd0548a232e9b82feb464f4",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-038",
+          "symbol": "В direct subscriber dispatch",
+          "locator": "1407–1526"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/dc0.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 34797,
+      "sha256": "9ef16a5f05ce82a6d6a3a25fa6c60f5bfe33b13dbae8d28bfd3e7e83c782178a",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-033",
+          "symbol": "В(I)I; у()I",
+          "locator": "file lines1577,1217 onward"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/do1.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 178004,
+      "sha256": "cd00ecdb9bc1745dc22641a30ceed38c6c8a2784cc209d5f40eb9984c0e24df8",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-004",
+          "symbol": "p(IZZIIZ)I",
+          "locator": "file6622 onward; fields X/x/B"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-005",
+          "symbol": "r(FZIF)V; :cond_4–:goto_2",
+          "locator": "8336–8490"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-006",
+          "symbol": "r(FZIF)V",
+          "locator": "file8336 onward"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-007",
+          "symbol": "у(ZFFIFLׅ/sn1;)V",
+          "locator": "11152–11210"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-008",
+          "symbol": "у(ZFFIFLׅ/sn1;)V",
+          "locator": "11152–11401"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-025",
+          "symbol": "p(IZZIIZ)I",
+          "locator": "6622 onward"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/h0.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 87159,
+      "sha256": "7c8b17051119e67dc828b597ed0de8f5f872f30ba1cc105507e6302d1fa400b1",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-040",
+          "symbol": "j mode4 :cond_1",
+          "locator": "4011–4242"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/h5.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 18099,
+      "sha256": "ce0d32648d1af40b2a98155539c57ecd26440098194681188508441ebda9190f",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-009",
+          "symbol": "doFrame(J), В(J)",
+          "locator": "164–183,402–482"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-010",
+          "symbol": "В(J)",
+          "locator": "file500–601"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-010",
+          "symbol": "х(D)",
+          "locator": "1145 onward"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-020",
+          "symbol": "Х(JZZDDZJ)",
+          "locator": "715–1020"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-032",
+          "symbol": "Н(ZZ)Lׅ/h5; :goto_0–:cond_3",
+          "locator": "610–706"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/i22.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 177277,
+      "sha256": "e6c2798536491eebde4cfecebb4d4872b9943583b090aeefbbf7d077ded552ac",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-002",
+          "symbol": "onBusMsg; :cond_67",
+          "locator": "file 7780 onward; method .line1355–1372"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-011",
+          "symbol": "O(IIIZZ); :cond_e–:cond_f",
+          "locator": "file1120–1155"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-012",
+          "symbol": "O(IIIZZ); :cond_9–:cond_d",
+          "locator": "810–1120"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-013",
+          "symbol": "O; :cond_4,:cond_d,:goto_2",
+          "locator": "810–1120"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-024",
+          "symbol": "onBusMsg; :cond_4d–:cond_66",
+          "locator": "file7240–7790"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-038",
+          "symbol": "onBusMsg :cond_4d–:cond_56",
+          "locator": "7250–7500"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-039",
+          "symbol": "O",
+          "locator": "810–1218"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-025",
+          "symbol": "y(MotionEvent)Z",
+          "locator": "line9028; p2/3/4 guard, DOWN/UP/CANCEL switch, :cond_8"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/i51.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 37496,
+      "sha256": "9b2e2485fc8ba8a13260452acdda04caed31155b1fdf2faadea2b9a34e079a3b",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-017",
+          "symbol": "X()/Х(FZ)",
+          "locator": "lines699 and2074"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-018",
+          "symbol": "X()V",
+          "locator": "line699"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/j0.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 51799,
+      "sha256": "7bb1978ee1f1fb7877f1c77f486f138f710d14fd93ba78a2f2e5cb2bcfa442a0",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-001",
+          "symbol": "х(MotionEvent)I",
+          "locator": "method line1242; armed MOVE return lines2952–2983"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-003",
+          "symbol": "х(MotionEvent)I",
+          "locator": "method line1242; pointer branches and terminal branches after line3068"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-011",
+          "symbol": "х(MotionEvent)I",
+          "locator": "terminal cancellation branch"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-020",
+          "symbol": "х(MotionEvent)I",
+          "locator": "pointer branches"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/j22.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 20687,
+      "sha256": "64557466ecce3764ff8cea1ab0e2f51a751a0994e09ced2ac21d52249f299013",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-001",
+          "symbol": "X(Landroid/view/WindowInsets;)Landroid/view/WindowInsets;",
+          "locator": "file lines501-792; :cond_0,:cond_2"
+        },
+        {
+          "evidence_id": "PA1031-INSET-002",
+          "symbol": "Х(Landroid/view/WindowInsets$Builder;Landroid/view/WindowInsets;)V",
+          "locator": "file line191"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/l2.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 99804,
+      "sha256": "ac6646507de4b7580a83a22da854c323062100d03902631b755ff633398c5541",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-035",
+          "symbol": "f(Cursor,I,IdsAndPosesMap,J,III,ZZ)",
+          "locator": "2824–3306"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/m92.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 104155,
+      "sha256": "8cc7616a28f4fd9d97c4a30286db4bff39b43954de9b42dbf0783e8db1db643b",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-015",
+          "symbol": "onTouchEvent(MotionEvent)Z",
+          "locator": "line5093; :cond_5–:cond_10 controller/no-controller split"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-016",
+          "symbol": "onTouchEvent/d(F)",
+          "locator": "lines5093 and2567"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-017",
+          "symbol": "setPressed(Z)V",
+          "locator": "line5617"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-018",
+          "symbol": "onTouchEvent/setPressed",
+          "locator": "lines5093 and5617"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-020",
+          "symbol": "onTouchEvent",
+          "locator": "line5093"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/om0.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 117123,
+      "sha256": "41ad420843287aa3beb33af7ff446e7e06a7d83f6b29655aaef04e81309f1cb4",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-004",
+          "symbol": "I0(View)I",
+          "locator": "line1119"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/p31.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 279625,
+      "sha256": "655c5adcf2943fa887f6da3ef7c6db03a74ff7be567d5c29419f722027882d15",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-028",
+          "symbol": "Z(Lׅ/sd;)V",
+          "locator": "3697–5270"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-034",
+          "symbol": "A,В",
+          "locator": "830–1240"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-036",
+          "symbol": "Z; :cond_16,:cond_21,:goto_9,:goto_f",
+          "locator": "3697–5270"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-037",
+          "symbol": "Z; :cond_15,:cond_1a,:cond_1b,:goto_6",
+          "locator": "3697–5270"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-039",
+          "symbol": "Z matched branches",
+          "locator": "3697–5270"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/uf1.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 98061,
+      "sha256": "3416c8077eb115564e626c3eed76348fbb6fc6d560681ff0662ff37a1b58a27c",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-001",
+          "symbol": "e1()Ljava/lang/String;",
+          "locator": "file line1938; :cond_0"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/w.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 37580,
+      "sha256": "bb66f51cc3c8be026a50cd28baac9fd137094bf8df0b6d3a0addcff84bc173ac",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-007",
+          "symbol": "О(FFFFPointFFF)Z",
+          "locator": "line1883 through2129"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-008",
+          "symbol": "у(FLׅ/q71;Z)V",
+          "locator": "line2317; :goto_0 and :cond_1/:cond_2; constructor line80"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/w32.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 11283,
+      "sha256": "a2fedc1269894197f7ef2595992d426feee5d4ff4d49349233000fbd94720a84",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-022",
+          "symbol": "В(J)",
+          "locator": "420–698"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/x32.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 39950,
+      "sha256": "f946b2456d8abce4d58bb13d5d788f0b976608a6a74b82d38da1fe9cd2dd0749",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-020",
+          "symbol": "х(ZZZZFF)V",
+          "locator": "1947–2468"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-021",
+          "symbol": "х; constructor branches",
+          "locator": "1947–2468"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/y01.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 113013,
+      "sha256": "b55b59039aeebfd4f7c0aaa0dc3bf53f300ebd47707926860790d7542b0086c4",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-037",
+          "symbol": "B(Message,PlayerServiceCore)",
+          "locator": "lines1051–1140 command routing;2430–2580 :cond_50–:cond_54 repeated step/delay"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/К.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 18532,
+      "sha256": "30ef249ba046a07c7cf327c65746174f9625a634e74ed34889360ff2a0a132e7",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-004",
+          "symbol": "P",
+          "locator": "lines717-820; setAlpha before getAlpha"
+        }
+      ]
+    },
+    {
+      "path": "decoded/smali/ׅ/С.smali",
+      "source_root": "private-reconstruction",
+      "bytes": 43247,
+      "sha256": "30874fa96ea8cc94ccbbcf06ac652ba99883d4eb4583a85497323e1cf9337ebf",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-034",
+          "symbol": "y0(Lׅ/sd;)Z",
+          "locator": "2220–2341"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-005",
+          "symbol": "f(I)Uri/z0(IJ)Uri",
+          "locator": "lines1298 and2346; f :cond_0–:cond_8"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/app/base/BaseApplication.java",
+      "source_root": "private-reconstruction",
+      "bytes": 31718,
+      "sha256": "c9d21f88c70278cf90b6db99c0d91c0eec2ec4d4c8dadc19e67acaed188108dd",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-033",
+          "symbol": "c theme registration",
+          "locator": "lines181–185"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/audioplayer/MainActivity.java",
+      "source_root": "private-reconstruction",
+      "bytes": 6750,
+      "sha256": "bafe0d6104c8f93bf028b17dc9724256ea73f15e587def00ff4b8db66e71b75b",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-001",
+          "symbol": "onCreate",
+          "locator": "line86"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/audioplayer/common/BaseActivity.java",
+      "source_root": "private-reconstruction",
+      "bytes": 25539,
+      "sha256": "3990c4f31d4ea7b5fc1dc7b96aafcff44ffa59d88658cd7331ec0a4d677f7ea9",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-004",
+          "symbol": "setOrientationFromPrefs",
+          "locator": "lines582-592"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/audioplayer/decoder/ScanDecode.java",
+      "source_root": "private-reconstruction",
+      "bytes": 840,
+      "sha256": "2d86c6cd98da8b1ac1f9c33d88b1da02664b092065453afc3f54b9b7061a2a39",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-018",
+          "symbol": "native_scan,B",
+          "locator": "lines13-26"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-028",
+          "symbol": "native_scan",
+          "locator": "line13"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/audioplayer/list/ListWidget.java",
+      "source_root": "private-reconstruction",
+      "bytes": 21971,
+      "sha256": "ed1366eaab0238259584294a2f77716311b4ed3f5159cc7862294fe004f92de9",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-003",
+          "symbol": "K0(k32,boolean,boolean,boolean)",
+          "locator": "99–116"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-009",
+          "symbol": "X0(int,boolean)",
+          "locator": "line158"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-010",
+          "symbol": "X0",
+          "locator": "line158"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-012",
+          "symbol": "b1",
+          "locator": "line206 onward"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-025",
+          "symbol": "P(Class)",
+          "locator": "line115"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/audioplayer/plugin/SkinInfo.java",
+      "source_root": "private-reconstruction",
+      "bytes": 68294,
+      "sha256": "f661e110459c157401d7d64ab5a837d8178da602c32021f78474ca2df648e509",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-004",
+          "symbol": "XML option parser",
+          "locator": "lines674–675,940–941"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/audioplayer/plugin/SkinSelectableSkinOptions.java",
+      "source_root": "private-reconstruction",
+      "bytes": 692,
+      "sha256": "875434b25c6c7172149303fbb8dc86b4066f3702ff537823213ebc3ff6a4db99",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-004",
+          "symbol": "О field/default",
+          "locator": "class fields"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/audioplayer/scanner/TagReader.java",
+      "source_root": "private-reconstruction",
+      "bytes": 27092,
+      "sha256": "2c9bafa1b2c0ab0d24672dc35013dd85d0dcd8f3a518fd410ed8390516660fe8",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-018",
+          "symbol": "wave blob read",
+          "locator": "lines210-230"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/audioplayer/widget/MarqueeFastTextView.java",
+      "source_root": "private-reconstruction",
+      "bytes": 421,
+      "sha256": "875ef7b4a54965393614650d433c6aee9b4479ca96904d49a713cee207903f2d",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-024",
+          "symbol": "C0",
+          "locator": "preference check"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/audioplayer/widget/Navbar.java",
+      "source_root": "private-reconstruction",
+      "bytes": 15317,
+      "sha256": "f99e9e07d07c160c7908ce62af134aee77d9f45eed7c2fc4c59f672d08f63e12",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-030",
+          "symbol": "onBusMsg,y1",
+          "locator": "216–226,405–450"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-021",
+          "symbol": "onItemClick",
+          "locator": "line280"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-022",
+          "symbol": "N0(x61)",
+          "locator": "line108"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-024",
+          "symbol": "t0",
+          "locator": "line308"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/audioplayer/widget/TopNavSceneFastLayout.java",
+      "source_root": "private-reconstruction",
+      "bytes": 3836,
+      "sha256": "f92bb88a10b3db5d705f69b23dd828df3dd497f31bd9dc76c1ad80ba74b0493f",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-003",
+          "symbol": "onApplyWindowInsets",
+          "locator": "lines48-54"
+        },
+        {
+          "evidence_id": "PA1031-UI-033",
+          "symbol": "implements mv",
+          "locator": "line23"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-001",
+          "symbol": "<init>",
+          "locator": "24–29"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/milk/B.java",
+      "source_root": "private-reconstruction",
+      "bytes": 5170,
+      "sha256": "611633a7de2b0934b83cd0f057f48422cb95de69c9e23a3456e90c7aea34017e",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-010",
+          "symbol": "handleMessage",
+          "locator": "cases14,15,17,18"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/milk/MilkLoader.java",
+      "source_root": "private-reconstruction",
+      "bytes": 20359,
+      "sha256": "2b4ac87043c98146a6a5e3083e37039a938d598e5df4b30dac3c200d52d14e78",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-006",
+          "symbol": "A, B, X",
+          "locator": "lines100-224,231 onward,397 onward"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-007",
+          "symbol": "В",
+          "locator": "lines456-515"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/milk/MilkRenderer.java",
+      "source_root": "private-reconstruction",
+      "bytes": 22302,
+      "sha256": "92a29fe97b30eeeac7b8f82de5aa0bca1d68c70713bff14684a56f0588050837",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-010",
+          "symbol": "constructor,c,P,x,Р",
+          "locator": "lines90-126,260 onward,300 onward,352 onward,632 onward"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/utils/AUtils.java",
+      "source_root": "private-reconstruction",
+      "bytes": 34198,
+      "sha256": "40c33e372bcb7d5cc794604459ac45c0d4f94735859146640ee8a749a76bafea",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-033",
+          "symbol": "w pixel-offset conversion",
+          "locator": "lines629–641"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/utils/Utils.java",
+      "source_root": "private-reconstruction",
+      "bytes": 8917,
+      "sha256": "2d57a52c15b5e6636232656a8576587c7bd38cca831c38d64147e72d838f581a",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-007",
+          "symbol": "H, p, X",
+          "locator": "lines26-32,134-140"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/app/BasePowerWidgetActivity.java",
+      "source_root": "private-reconstruction",
+      "bytes": 19825,
+      "sha256": "2cbbed5e8fdbf112c821570e7f39852b533f3882fcaae47f7b4cd70ede93d5bf",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-003",
+          "symbol": "А(Resources.Theme)",
+          "locator": "lines377–397"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/base/BusActionButton.java",
+      "source_root": "private-reconstruction",
+      "bytes": 6728,
+      "sha256": "f1a96043870ee83ad2410f73ca29c32667899c00da714f09b9cf849c6ddd269e",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-027",
+          "symbol": "performClick/performLongClick/onTouchEvent",
+          "locator": "short/long/end dispatch"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/base/BusSelectablePopupButtonLayout.java",
+      "source_root": "private-reconstruction",
+      "bytes": 21477,
+      "sha256": "89336932c4dc78e1fdf3c858cc42447fc8f71df141caaa057ffd059762a6ac68",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-031",
+          "symbol": "R1",
+          "locator": "line286"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/base/FastButton.java",
+      "source_root": "private-reconstruction",
+      "bytes": 3105,
+      "sha256": "2829514c1e83cb07303a8ca9ddd5a6d12c9c4cd9735801fef6f019d1f8aa475a",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-023",
+          "symbol": "performClick",
+          "locator": "line36 short-circuit"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/base/FastLayout.java",
+      "source_root": "private-reconstruction",
+      "bytes": 108106,
+      "sha256": "aab1de72800b30f0bbd1a4c2c23149bb914b4dcba5d1b9f22f068b71f80a4bac",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-003",
+          "symbol": "S(),e1()",
+          "locator": "lines170-181,555-589"
+        },
+        {
+          "evidence_id": "PA1031-UI-031",
+          "symbol": "measure/layout solver",
+          "locator": "class custom layout methods"
+        },
+        {
+          "evidence_id": "PA1031-UI-033",
+          "symbol": "o1 reference resolver",
+          "locator": "lines782–792"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-025",
+          "symbol": "onInterceptTouchEvent",
+          "locator": "line809 optional a01 field"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/base/FastTextView.java",
+      "source_root": "private-reconstruction",
+      "bytes": 86099,
+      "sha256": "b6be42db91a41a0d09f29741d1e53fb41e9c76802cdd3cc7b6f4d3a0d0ddb314",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-001",
+          "symbol": "onDraw",
+          "locator": "line1728 onward"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-022",
+          "symbol": "constructor,c,onDraw,с",
+          "locator": "lines149-300,1728 onward,2447 onward"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-023",
+          "symbol": "c",
+          "locator": "line248 onward"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/base/MarqueeFastTextView.java",
+      "source_root": "private-reconstruction",
+      "bytes": 11332,
+      "sha256": "943f18840033d76c63311dc9bf78920f88d4caa2a81083106d1e1c6fbf6700ae",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-024",
+          "symbol": "V,Z",
+          "locator": "lines60 onward,165 onward"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/base/SceneFastLayout.java",
+      "source_root": "private-reconstruction",
+      "bytes": 2554,
+      "sha256": "2459ea05b1626961fefec22d62a32b1b7e11024d3c22bd70560487325241a5aa",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-001",
+          "symbol": "<init>",
+          "locator": "79–82"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-026",
+          "symbol": "onLayout/requestLayout",
+          "locator": "60–76"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/base/В.java",
+      "source_root": "private-reconstruction",
+      "bytes": 17536,
+      "sha256": "782a020d4cb08df4dc0e6080387824f1b1d23f319edf644c50245d9192d1dbf8",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-030",
+          "symbol": "performLongClick",
+          "locator": "line438"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/list/PowerList.java",
+      "source_root": "private-reconstruction",
+      "bytes": 46776,
+      "sha256": "26e145e0b2b771b4ff8b3107c54161eb6ba75df8ec412b4b861b168b2e651fd3",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-027",
+          "symbol": "onDetachedFromWindow,onLayout,onSizeChanged,p",
+          "locator": "1024–1040,1110–1158,1171–1217"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-001",
+          "symbol": "dispatchTouchEvent/onInterceptTouchEvent/onTouchEvent",
+          "locator": "lines646,1098,1167"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-025",
+          "symbol": "P(Class)",
+          "locator": "line354"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/list/А.java",
+      "source_root": "private-reconstruction",
+      "bytes": 6433,
+      "sha256": "05ec3affeb4a94903fbe061e464c83416dfd4f1e0f7cadf87c371569c0b39af2",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-012",
+          "symbol": "Р/О/p/у",
+          "locator": "vertical shared adapter"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/player/AABounds.java",
+      "source_root": "private-reconstruction",
+      "bytes": 5378,
+      "sha256": "80cdcaa2c124077a77d5f8f7f600942acc1df56aaaa4d660e8a78824a2298c20",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-007",
+          "symbol": "constructor",
+          "locator": "lines30–43"
+        },
+        {
+          "evidence_id": "PA1031-UI-011",
+          "symbol": "class declaration; onMeasure",
+          "locator": "lines18,98–114"
+        },
+        {
+          "evidence_id": "PA1031-UI-030",
+          "symbol": "onMeasure",
+          "locator": "lines98–114"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/player/AnimTimeHelper.java",
+      "source_root": "private-reconstruction",
+      "bytes": 1409,
+      "sha256": "8cfe0a36b92e12a88bb6922962af15c3a44fb44080cabc95cafedfa56856a056",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-014",
+          "symbol": "В(int),calcAnimTime(float,boolean)",
+          "locator": "22–58"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/player/MilkWidget.java",
+      "source_root": "private-reconstruction",
+      "bytes": 11539,
+      "sha256": "14212a6dc590f5b23d1aa7f6be2cf9ce2e6ba80db695b56ffa75f8858f9b113f",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-001",
+          "symbol": "class, constructor",
+          "locator": "lines26,52-82"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-005",
+          "symbol": "constructor, Х",
+          "locator": "lines52-82,324-343"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/player/NavbarExtension.java",
+      "source_root": "private-reconstruction",
+      "bytes": 8176,
+      "sha256": "17fe7115b26fcb231e8b009c60aabb6e2d4842632d43c85ed237b8437509a0cd",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-025",
+          "symbol": "onInterceptTouchEvent/u/y",
+          "locator": "lines194,244,255; own sheet subtree/shim"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/player/PlayPauseButton.java",
+      "source_root": "private-reconstruction",
+      "bytes": 2684,
+      "sha256": "5fa5ab31ac51b7aed0977f9eb4b4f0f40f0c1b7448064debd313103eba8f2216",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-023",
+          "symbol": "constructor/performClick",
+          "locator": "lines20 and70"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/player/Seek.java",
+      "source_root": "private-reconstruction",
+      "bytes": 6087,
+      "sha256": "7cb85c9c7248d46469ef784ebe7b1697ed0cb8fbdae164a6b3a59daaeddf70b3",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-026",
+          "symbol": "onTouchEvent",
+          "locator": "line82"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/player/SubAAButtonsLayout.java",
+      "source_root": "private-reconstruction",
+      "bytes": 40934,
+      "sha256": "4f96ec438ddd59f7c020468e82a28f5317184ad457559235133d162143ad6bfe",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-023",
+          "symbol": "constructor/preferences",
+          "locator": "lines128–210"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-032",
+          "symbol": "performLongClick/F1",
+          "locator": "line932 and edit entry"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/player/Waveseek.java",
+      "source_root": "private-reconstruction",
+      "bytes": 5322,
+      "sha256": "a3ea22ecdc8a72a9dab5b15898310ba35c43a4625e0ff064c0c907a8b5adf948",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-001",
+          "symbol": "class",
+          "locator": "class declaration"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-017",
+          "symbol": "y",
+          "locator": "lines127-181"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-019",
+          "symbol": "a0,y",
+          "locator": "initial flag and data application"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/player/list/AAImageView.java",
+      "source_root": "private-reconstruction",
+      "bytes": 29521,
+      "sha256": "3203223d57d78652ff11f90eb4629525fef24d9eb1ac95424db41724c5ac6426",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-001",
+          "symbol": "class, onDraw",
+          "locator": "class declaration; lines688-743"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-002",
+          "symbol": "constructor, A, х, onDraw, Х",
+          "locator": "lines100-146,321-386,688-743,869-936"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-003",
+          "symbol": "К(RectF,RectF,Matrix,float,float,int,boolean)",
+          "locator": "lines181-319"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-004",
+          "symbol": "Х, у, y, static I",
+          "locator": "lines96,828,869-954"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-028",
+          "symbol": "bitmap acquisition/release",
+          "locator": "Х,y,у"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/com/maxmpz/widget/player/list/AAItemView.java",
+      "source_root": "private-reconstruction",
+      "bytes": 25609,
+      "sha256": "9b0b31df37d12a3746d9974a21a355ae290e2f1be72c9e992fd1fa6aedf37cf7",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-001",
+          "symbol": "m",
+          "locator": "lines324-345"
+        },
+        {
+          "evidence_id": "PA1031-TEXT-002",
+          "symbol": "m",
+          "locator": "lines324-345"
+        },
+        {
+          "evidence_id": "PA1031-UI-002",
+          "symbol": "onFinishInflate",
+          "locator": "lines443–454"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/kotlin/math/MathKt.java",
+      "source_root": "private-reconstruction",
+      "bytes": 732,
+      "sha256": "64f59d502167cc55677abeb061e5b54834ebcfed1e7e8fc1bea57e891c2b2207",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-009",
+          "symbol": "А(float)",
+          "locator": "lines18–22"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/C.java",
+      "source_root": "private-reconstruction",
+      "bytes": 780,
+      "sha256": "69dbcabd78fa73197a49bb98ebbd1c088a51ee40dcc479bd704d4155842866d5",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-006",
+          "symbol": "extends P",
+          "locator": "line13"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/P.java",
+      "source_root": "private-reconstruction",
+      "bytes": 20209,
+      "sha256": "c2c68341b932697553b8e49a16c1aaba0d900ba6d93cdf86e1add30ab7037e9c",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-008",
+          "symbol": "v()",
+          "locator": "lines408–455"
+        },
+        {
+          "evidence_id": "PA1031-UI-009",
+          "symbol": "s, w",
+          "locator": "lines361–396,470–510"
+        },
+        {
+          "evidence_id": "PA1031-UI-010",
+          "symbol": "w incorrectly decompiled height conditional",
+          "locator": "line504"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/a0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 1270,
+      "sha256": "a2b6c2fb99c52eff5693478ef35df0bbff0a5db0e319f3f438b0538e3c7b7747",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-009",
+          "symbol": "у/К",
+          "locator": "whole small class"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-011",
+          "symbol": "К",
+          "locator": "terminal index comparison"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-035",
+          "symbol": "у",
+          "locator": "DOWN snapshot"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/ao1.java",
+      "source_root": "private-reconstruction",
+      "bytes": 1051,
+      "sha256": "411afb04948c078717341810f59e72070618aea1a214f9a10dacfa9b321db385",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-008",
+          "symbol": "P(double)",
+          "locator": "29–32"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/b40.java",
+      "source_root": "private-reconstruction",
+      "bytes": 15333,
+      "sha256": "fbc3a0ba46de5c508a0b73d64335b3e87bb7d1f914e853ad981bbc0078ef00ab",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-029",
+          "symbol": "aa_anim",
+          "locator": "235"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-033",
+          "symbol": "library_home",
+          "locator": "288"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/bk0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 4238,
+      "sha256": "a6526f791d7b2e7152f382d3619268addb84d9b9568aa173291b282d8de84bf0",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-033",
+          "symbol": "C0",
+          "locator": "line16"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/c22.java",
+      "source_root": "private-reconstruction",
+      "bytes": 6074,
+      "sha256": "8a77cd79f94969773d64d5a6187401d361aa389098b15c8583b5fb06a4ee6eb7",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-016",
+          "symbol": "A,х",
+          "locator": "lines33 onward,157 onward"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/c40.java",
+      "source_root": "private-reconstruction",
+      "bytes": 11075,
+      "sha256": "3a05e462225880a6e70f057d7b7a99e3b042de9169bf1ee1332b5967d4047062",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-002",
+          "symbol": "static initializer р",
+          "locator": "line121"
+        },
+        {
+          "evidence_id": "PA1031-UI-015",
+          "symbol": "aa_aspect registration",
+          "locator": "line147"
+        },
+        {
+          "evidence_id": "PA1031-UI-017",
+          "symbol": "rating_type registration",
+          "locator": "line129"
+        },
+        {
+          "evidence_id": "PA1031-UI-023",
+          "symbol": "C0 initialization; e()",
+          "locator": "lines130,220–243,255–260"
+        },
+        {
+          "evidence_id": "PA1031-UI-032",
+          "symbol": "appearance preference registrations",
+          "locator": "lines118–179,220–243"
+        },
+        {
+          "evidence_id": "PA1031-UI-033",
+          "symbol": "navbar_seekbar default",
+          "locator": "line180"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-014",
+          "symbol": "static initializer anim_speed",
+          "locator": "184–188"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-012",
+          "symbol": "main_lyrics_swipe",
+          "locator": "line176"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-026",
+          "symbol": "navbar_seekbar",
+          "locator": "line180"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-032",
+          "symbol": "G0/C0",
+          "locator": "preferences nearline220"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-003",
+          "symbol": "static initializer aa_aspect",
+          "locator": "line147"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-005",
+          "symbol": "aa_blur_enabled, aa_blur, aa_blur_intensity, aa_blur_scale, aa_blur_saturation, aa_bg_gradient",
+          "locator": "lines142-146,178-179,202-204"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-024",
+          "symbol": "anim_long_labels",
+          "locator": "line159"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/cm2.java",
+      "source_root": "private-reconstruction",
+      "bytes": 135851,
+      "sha256": "f3e50bbe791ffba7113bcb6e7c271a084e2bd75efc17bac7ef1c1eca35194ca0",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-031",
+          "symbol": "Р dynamic button builder",
+          "locator": "lines1610–1690"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/dc0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 13131,
+      "sha256": "7ddefc326632eece912d0866f6c4e0f5ea677d2733315a101763b4e9ffec37cf",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-033",
+          "symbol": "В(int) and у()",
+          "locator": "lines194–235,267–333"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/do1.java",
+      "source_root": "private-reconstruction",
+      "bytes": 66812,
+      "sha256": "c5af6cdf644163346fd7e43b065876a3de46db39beb2b670b4fe563c70a660f7",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-004",
+          "symbol": "p(...)",
+          "locator": "1170–1202,1322"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-006",
+          "symbol": "r(FZIF)",
+          "locator": "1379–1498"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-025",
+          "symbol": "O(...) source snapshot",
+          "locator": "624–733"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-026",
+          "symbol": "b(boolean,boolean)",
+          "locator": "899–908"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/e4.java",
+      "source_root": "private-reconstruction",
+      "bytes": 6350,
+      "sha256": "92af9d68dffcca4cbd587e1b31e1011553dd0e0a9f68a8a5c19c5c90eb71ad68",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-002",
+          "symbol": "item layout selection",
+          "locator": "line152"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/eh0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 1364,
+      "sha256": "5f0b72701765ab67c7caef379129603189da1ab1da720508bdddff4175cab237",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-019",
+          "symbol": "B/В",
+          "locator": "duration and velocity interpolation"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/ei1.java",
+      "source_root": "private-reconstruction",
+      "bytes": 2075,
+      "sha256": "d235cbbda810be3d2fb450d97cacaee2fd728c0c38d402b083b8eae9678c344f",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-033",
+          "symbol": "get;case0",
+          "locator": "23–25"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/f0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 242,
+      "sha256": "ee11c1540a6725d27e0902cd41d1578f8cc3bd49f3b26f2a24a75b2477ad47fc",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-006",
+          "symbol": "field initializers",
+          "locator": "class body"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/fc.java",
+      "source_root": "private-reconstruction",
+      "bytes": 6683,
+      "sha256": "1ee5db32b90507f8c56af296980a237811aa45e28511f04621fcd48c7db11e0e",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-019",
+          "symbol": "run",
+          "locator": "physics frame loop"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/fp1.java",
+      "source_root": "private-reconstruction",
+      "bytes": 17838,
+      "sha256": "909842e086af7a5fdd1885ce4e3fb693098c8baa0b0d5208cd2ac5df211dd368",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-030",
+          "symbol": "constructor/performClick/R1/x1/y1",
+          "locator": "lines43,490,393,516,521"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-032",
+          "symbol": "T1(boolean)",
+          "locator": "line445 popup option clickability"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/fw1.java",
+      "source_root": "private-reconstruction",
+      "bytes": 4613,
+      "sha256": "36de2ea94b057beb3edeb0579a8b4ba41638b42629ab7c707619912726930d53",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-040",
+          "symbol": "А(float,float,float,float)",
+          "locator": "99–101"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/gh0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 897,
+      "sha256": "91ba93b138cd16fa71c27da5c26b6a0e7a9c5a857e00d277e0f708293d3769da",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-019",
+          "symbol": "B,В",
+          "locator": "duration and interpolation methods"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/gi1.java",
+      "source_root": "private-reconstruction",
+      "bytes": 846,
+      "sha256": "fcb1fca955d8b5bf3045c31f8be47a1e6e060051b38dc300e9427f1f185e515f",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-033",
+          "symbol": "<init>",
+          "locator": "9"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/gx0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 19591,
+      "sha256": "de3b02844895704f65ac84564084dde07188c317054b3c6ab055ba25a44b4275",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-016",
+          "symbol": "u1(...)",
+          "locator": "422–518"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-025",
+          "symbol": "Navbar superclass",
+          "locator": "complete class no touch override/installer"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-001",
+          "symbol": "onDraw",
+          "locator": "line340 onward"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-027",
+          "symbol": "H0,V0,onDraw,N",
+          "locator": "setup;progress;line340 onward;line147 onward"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/h0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 40424,
+      "sha256": "2223d9e046c6821c75405e1cdd50569737d639f126e0f8cecfd5e99c5354b2e4",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-040",
+          "symbol": "c,А",
+          "locator": "247–252,1183–1198"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/h5.java",
+      "source_root": "private-reconstruction",
+      "bytes": 4639,
+      "sha256": "6471e49c42a8100855c1a90201747da4f20fccc0f06274984199859ed1d2057a",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-004",
+          "symbol": "constructor, X, В",
+          "locator": "lines22-108"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/hc.java",
+      "source_root": "private-reconstruction",
+      "bytes": 11796,
+      "sha256": "bd8c47210507e2be3342be61f47cf2e2d98a82d1415d301883e8f70f7a90fa23",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-002",
+          "symbol": "constructor",
+          "locator": "line40 onward"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-019",
+          "symbol": "constructor/H/Р",
+          "locator": "line40 and432 defaults"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-034",
+          "symbol": "constructor/h",
+          "locator": "c=13.75*density; line241"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/hl0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 8837,
+      "sha256": "ad89704dd60bdf8d788c4a83125d64ff3c329523ef2d0a973415ec3076cb68e0",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-006",
+          "symbol": "constructor",
+          "locator": "lines96–121"
+        },
+        {
+          "evidence_id": "PA1031-UI-007",
+          "symbol": "constructor",
+          "locator": "lines96–121"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-023",
+          "symbol": "<init> indices18/19",
+          "locator": "constructor"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-037",
+          "symbol": "<init>",
+          "locator": "155–167"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/hx0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 3929,
+      "sha256": "c20e212cff25d3c19ca87225633d7eee2fe3f441e01b9638670161ec24f430ad",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-002",
+          "symbol": "О",
+          "locator": "lines77-99"
+        },
+        {
+          "evidence_id": "PA1031-UI-025",
+          "symbol": "o",
+          "locator": "lines72–73"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/i22.java",
+      "source_root": "private-reconstruction",
+      "bytes": 62990,
+      "sha256": "9bfbb590e8191ece8957c70cd1b7b2fb637d2d95fd12d589ed9358410c282508",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-001",
+          "symbol": "constructor wa1.N0 index15",
+          "locator": "lines126-132"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-031",
+          "symbol": "onBusMsg/O",
+          "locator": "trace targets"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-038",
+          "symbol": "O,j,с",
+          "locator": "159–215,617–634,1627–1666"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/i51.java",
+      "source_root": "private-reconstruction",
+      "bytes": 12254,
+      "sha256": "9cf71261eaf87c13b4e884774d87ef413c8c0fa63667fed422acdf344b87949b",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-017",
+          "symbol": "constructor",
+          "locator": "с=true"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-020",
+          "symbol": "subscription and seek messages",
+          "locator": "mask64 and seek start/end handling"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/j0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 24052,
+      "sha256": "5570bd677f6e08239c83c16068a6d24757ebc1741b69cbd27ece5e6b11354c8b",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-002",
+          "symbol": "constructor",
+          "locator": "lines37–42"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-003",
+          "symbol": "K/B/А",
+          "locator": "initial pointer assignment, teardown and nested-stop"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-035",
+          "symbol": "K",
+          "locator": "DOWN scroller f call"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-036",
+          "symbol": "constructor",
+          "locator": "platform-dependent thresholds"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/j22.java",
+      "source_root": "private-reconstruction",
+      "bytes": 6977,
+      "sha256": "c0314cf9bcc2c4459ed21a8413fe1ba4bb7cbd034cfd64a545b65c586cd16941",
+      "references": [
+        {
+          "evidence_id": "PA1031-INSET-001",
+          "symbol": "constructor, X(WindowInsets)",
+          "locator": "lines27-121"
+        },
+        {
+          "evidence_id": "PA1031-INSET-002",
+          "symbol": "Х(WindowInsets.Builder,WindowInsets),X",
+          "locator": "lines44-52,104-121"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/jv0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 6217,
+      "sha256": "9bebf2fd0557b72f7755190d260272bc5e0b8247e5fb1b5620869f9f79473ecf",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-010",
+          "symbol": "handleMessage",
+          "locator": "loader dispatch cases4/5"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/jx0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 5234,
+      "sha256": "3e1d81414b0c7d6a2c435b9856e4549cb304b0d1164d36e59e6b74f0be5cadd4",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-002",
+          "symbol": "Н(int)",
+          "locator": "lines180-193"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-024",
+          "symbol": "р(Object)",
+          "locator": "line209"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-025",
+          "symbol": "р",
+          "locator": "line209"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/l22.java",
+      "source_root": "private-reconstruction",
+      "bytes": 6491,
+      "sha256": "f1d5b7c3d116377f015ac16774d51216966fb2a30971b922dc4e171ba21ed0eb",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-033",
+          "symbol": "О/C/Р",
+          "locator": "lines143,45,164"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/m22.java",
+      "source_root": "private-reconstruction",
+      "bytes": 2555,
+      "sha256": "604f477678bddbbf0c2d6a31350a82d48900a2c4a22bd6907e3eeecbb06d1487",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-033",
+          "symbol": "y",
+          "locator": "line25"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-034",
+          "symbol": "у(MotionEvent)",
+          "locator": "line75"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/m30.java",
+      "source_root": "private-reconstruction",
+      "bytes": 11708,
+      "sha256": "168577cd2305c048c48cb06a16e6aca401a8f76190e6ed2fe18b79729c561f0e",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-001",
+          "symbol": "defaults",
+          "locator": "lines135-142,241"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/m92.java",
+      "source_root": "private-reconstruction",
+      "bytes": 37994,
+      "sha256": "2d0b011b071bfe0c05eba7ce76c4d1b6353f17af865664734e7971fff652028e",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-014",
+          "symbol": "constructor",
+          "locator": "waveType index1 and controller creation"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-015",
+          "symbol": "constructor/e/H",
+          "locator": "controller creation and negative dx offset"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-018",
+          "symbol": "J()",
+          "locator": "physics completion"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-019",
+          "symbol": "constructor",
+          "locator": "line139"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-036",
+          "symbol": "onTouchEvent/J",
+          "locator": "requires native event sequence to validate visuals"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-011",
+          "symbol": "constructor",
+          "locator": "lines85-225"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-012",
+          "symbol": "constructor bitmap decoding and width",
+          "locator": "lines116-184"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-013",
+          "symbol": "onDraw,onLayout",
+          "locator": "lines558-796,811-884"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-014",
+          "symbol": "O, р, constructor divisor",
+          "locator": "lines306-334,1124 onward,85-225"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-015",
+          "symbol": "constructor tint,onDraw",
+          "locator": "lines85-225,558-796"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-016",
+          "symbol": "c",
+          "locator": "lines377-442"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-019",
+          "symbol": "constructor,c",
+          "locator": "lines85-225,377-442"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-020",
+          "symbol": "setPressed",
+          "locator": "line1006 onward"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/om0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 40706,
+      "sha256": "4bb38a61eeed3c5242b3e7452b394080493f1b1dacafcb04afdc89c971a80d9d",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-006",
+          "symbol": "constructor listSubstyle resolution",
+          "locator": "lines100–125"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-002",
+          "symbol": "Q()",
+          "locator": "262–269"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-023",
+          "symbol": "a(),с()",
+          "locator": "277–279,1242–1244"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-005",
+          "symbol": "w(x61)",
+          "locator": "item callback"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-006",
+          "symbol": "z(x61)/l0(x61)",
+          "locator": "lines1140 and506"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-034",
+          "symbol": "Н(MotionEvent)",
+          "locator": "line1211"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/p31.java",
+      "source_root": "private-reconstruction",
+      "bytes": 93464,
+      "sha256": "6205f4499810ca622af37faad0846637c1010b5d42cd5dc6a226fb844078ecc6",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-002",
+          "symbol": "у(boolean,Object,int,int)",
+          "locator": "lines2270-2300"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-028",
+          "symbol": "Z(sd)",
+          "locator": "613–846"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-029",
+          "symbol": "onBusMsg,Н",
+          "locator": "1139–1141,2028–2090"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-033",
+          "symbol": "<init>,B factory15",
+          "locator": "132,377–394"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-038",
+          "symbol": "Z calls f before x32.X; f emits nav_lib",
+          "locator": "813–839,1011–1020"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-005",
+          "symbol": "K(x61)",
+          "locator": "line472"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/pd.java",
+      "source_root": "private-reconstruction",
+      "bytes": 15974,
+      "sha256": "d8990f8e7b0d286b9151221365cc2386ee1b9d4ef07ea04399f51728a3025476",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-033",
+          "symbol": "R()",
+          "locator": "341–343"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-033",
+          "symbol": "C0",
+          "locator": "line61"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/pv0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 201,
+      "sha256": "b2ecc9247841b693ea04aed6c40e2aef3de3f149c25593df6e5c2500a13ba52a",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-024",
+          "symbol": "constructor/A",
+          "locator": "whole small class"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/q0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 18050,
+      "sha256": "7793292cc7619323870590ab4a4729dcebd05831bc403b01b639d5075a1e9070",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-019",
+          "symbol": "run case28",
+          "locator": "lines408-423"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/qg0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 1142,
+      "sha256": "560ad3610ba34e8a365636ba3ec780ccc0453e00f000d4a75bae7c52d4ab5f62",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-014",
+          "symbol": "<init>,у(int)",
+          "locator": "10–23,46–50"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/sf1.java",
+      "source_root": "private-reconstruction",
+      "bytes": 6062,
+      "sha256": "1c4b94ffe03962d9f54bf24885ba777b063208d933c67129c7de31221298dc2a",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-001",
+          "symbol": "class and F0",
+          "locator": "lines11-32"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-033",
+          "symbol": "F0,g,j0",
+          "locator": "29–31,116–129"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/u12.java",
+      "source_root": "private-reconstruction",
+      "bytes": 9795,
+      "sha256": "69520319041ac854fa211ffb3f0e85614f41ec426a390d322cd480d58f095198",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-001",
+          "symbol": "В(uf1) projection",
+          "locator": "lines114-123"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/uf1.java",
+      "source_root": "private-reconstruction",
+      "bytes": 31386,
+      "sha256": "d5ec60a8e563e73ef75dca9833b03151648954e71c85cd5891e0affef6af2631",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-001",
+          "symbol": "C0,e,e1",
+          "locator": "lines128-130,313-325"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/uh.java",
+      "source_root": "private-reconstruction",
+      "bytes": 90376,
+      "sha256": "287afbf7af33d64053219386101cf45691da6924f74845e7121edca47c64dae7",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-006",
+          "symbol": "О",
+          "locator": "line1660 onward"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/w.java",
+      "source_root": "private-reconstruction",
+      "bytes": 13339,
+      "sha256": "a2366f13ac8006c06d4403ed0ad35071062fac6815682d7b24f1b2426c265f09",
+      "references": [
+        {
+          "evidence_id": "PA1031-GESTURE-010",
+          "symbol": "Н()",
+          "locator": "line309; constructor P=.6"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-011",
+          "symbol": "Р/К/у",
+          "locator": "lines362,55,405"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-035",
+          "symbol": "f/x",
+          "locator": "lines211 and220"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/w02.java",
+      "source_root": "private-reconstruction",
+      "bytes": 18648,
+      "sha256": "5b66b4161a2a5912b730e37753143e26b51fcf5ab1b19baa8077c037b4e73fe1",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-022",
+          "symbol": "x,y",
+          "locator": "lines99-225"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/w32.java",
+      "source_root": "private-reconstruction",
+      "bytes": 2940,
+      "sha256": "7be00fc997b7b0169f029d0698b2af0e386b963d32c23d28244aa15ecd238f7d",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-022",
+          "symbol": "p(float,float,float,boolean)",
+          "locator": "28–62"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/wa1.java",
+      "source_root": "private-reconstruction",
+      "bytes": 28201,
+      "sha256": "14d6f0e8e800586e0470703061195b0f987bf61fcac849665dcd554bff4be84e",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-007",
+          "symbol": "В / T attribute arrays",
+          "locator": "lines7,66"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-012",
+          "symbol": "N0",
+          "locator": "111"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-023",
+          "symbol": "T",
+          "locator": "66"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-037",
+          "symbol": "T",
+          "locator": "66"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-030",
+          "symbol": "d0",
+          "locator": "line75 openOnClick attr index6"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-022",
+          "symbol": "q,G0 attribute arrays",
+          "locator": "line46 onward"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/wu0.java",
+      "source_root": "private-reconstruction",
+      "bytes": 202,
+      "sha256": "ae048de8b27cf64e4858fdd7d6021c13810d79a9ec3a461a5e0e192f264630a0",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-006",
+          "symbol": "A,X,x",
+          "locator": "enum constants"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/wv1.java",
+      "source_root": "private-reconstruction",
+      "bytes": 54165,
+      "sha256": "7af0ea20a30b6446333398a8f76501dd8955b275d56becba7b443c3e826a52be",
+      "references": [
+        {
+          "evidence_id": "PA1031-UI-003",
+          "symbol": "К(Resources,SkinInfo), x, X",
+          "locator": "lines360–455,487–520"
+        },
+        {
+          "evidence_id": "PA1031-UI-004",
+          "symbol": "x",
+          "locator": "lines360–455"
+        },
+        {
+          "evidence_id": "PA1031-UI-015",
+          "symbol": "X aspect option application",
+          "locator": "lines142–149"
+        },
+        {
+          "evidence_id": "PA1031-UI-017",
+          "symbol": "X rating option application",
+          "locator": "lines111–135"
+        },
+        {
+          "evidence_id": "PA1031-UI-032",
+          "symbol": "x persisted-value/default application",
+          "locator": "lines360–455"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-003",
+          "symbol": "X",
+          "locator": "line142 onward"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/x32.java",
+      "source_root": "private-reconstruction",
+      "bytes": 15193,
+      "sha256": "552230524bceb44c27077bda0901b0203be99f672dda7097c489d40371b1035a",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-031",
+          "symbol": "х",
+          "locator": "trace target"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/x8.java",
+      "source_root": "private-reconstruction",
+      "bytes": 86135,
+      "sha256": "72ac3d20b8d82de2c85fe93e04c1e6806a139fa6d54ae9afc59d6d54231e2fb0",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-018",
+          "symbol": "handleMessage case15",
+          "locator": "lines1576-1605"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/xc.java",
+      "source_root": "private-reconstruction",
+      "bytes": 11020,
+      "sha256": "a13dde8f01ba0b5eec0e959ae820bfe769a7ce09540a495dc59deaebaf48936a",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-001",
+          "symbol": "e",
+          "locator": "lines72-76,102-116"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-035",
+          "symbol": "В(long,int,int,int,boolean)",
+          "locator": "274–280"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/yc.java",
+      "source_root": "private-reconstruction",
+      "bytes": 2218,
+      "sha256": "12e6b1a1a4da33501e3df2971523df8be46a8b94ed1f589005761b50e6f0106a",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-034",
+          "symbol": "n0",
+          "locator": "19–30"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-035",
+          "symbol": "n0",
+          "locator": "19–30"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/yz1.java",
+      "source_root": "private-reconstruction",
+      "bytes": 3793,
+      "sha256": "a0d745b127e55d1928fb315581501b2d36a6627d6a1bd252936323e761512a34",
+      "references": [
+        {
+          "evidence_id": "PA1031-MOTION-013",
+          "symbol": "y(int),у(int)",
+          "locator": "44–46,81–83"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/z11.java",
+      "source_root": "private-reconstruction",
+      "bytes": 4395,
+      "sha256": "94ab5713f7f621f3eaf6d06d1f8065e1bf843cd0df66a3422d61b6ac1a7c8d1e",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-018",
+          "symbol": "B,В",
+          "locator": "lines45-95"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/ze.java",
+      "source_root": "private-reconstruction",
+      "bytes": 3694,
+      "sha256": "6752fc3ded898ab006d7f2e91f8d4ab471e158e47ea4d4915e2b043bbc87b85c",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-001",
+          "symbol": "l,r",
+          "locator": "lines102-105,124-127"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/К.java",
+      "source_root": "private-reconstruction",
+      "bytes": 7407,
+      "sha256": "a341029aafc429633123606d137bc8ba91a3da9eb07fe150366e814cc9415840",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-004",
+          "symbol": "P, А",
+          "locator": "lines55-76,164 onward"
+        }
+      ]
+    },
+    {
+      "path": "jadx/sources/ׅ/С.java",
+      "source_root": "private-reconstruction",
+      "bytes": 11773,
+      "sha256": "46e262768f771fe3f57feea3f5e4aae733eb1cb1fce992d985d1f759925d7ac2",
+      "references": [
+        {
+          "evidence_id": "PA1031-TEXT-001",
+          "symbol": "P(Object),Н(int)",
+          "locator": "lines129-137,360-373"
+        },
+        {
+          "evidence_id": "PA1031-UI-006",
+          "symbol": "P",
+          "locator": "line122"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-029",
+          "symbol": "t0,D0",
+          "locator": "247–285,94–108"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-033",
+          "symbol": "R()",
+          "locator": "139–141"
+        },
+        {
+          "evidence_id": "PA1031-MOTION-034",
+          "symbol": "x()",
+          "locator": "291–297"
+        },
+        {
+          "evidence_id": "PA1031-GESTURE-007",
+          "symbol": "р(Object)",
+          "locator": "line383"
+        }
+      ]
+    },
+    {
+      "path": "scripts/native_ui_evidence.py",
+      "source_root": "private-reconstruction",
+      "bytes": 3952,
+      "sha256": "5a2fcb48f254b45b7ab65cd57981e4f59efb38935206962eab94b1deaf68007d",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-008",
+          "symbol": "read-only ELF reproducer",
+          "locator": "whole script"
+        }
+      ]
+    },
+    {
+      "path": "verification/apksigner-verify.txt",
+      "source_root": "deliverable",
+      "bytes": 13478,
+      "sha256": "5c8f9ea5fd440075aca13a1c5ca3c57fad47d22bb98d6adfe8832ea3e7e45988",
+      "references": [
+        {
+          "evidence_id": "PA1031-APK-003",
+          "symbol": "verify --verbose --print-certs",
+          "locator": "lines1-17"
+        }
+      ]
+    },
+    {
+      "path": "verification/jadx-result.txt",
+      "source_root": "deliverable",
+      "bytes": 399,
+      "sha256": "94f72b60015b48fbb1507fa5153df55d4ff66d79ef97e30fd17f3d0636eb898d",
+      "references": [
+        {
+          "evidence_id": "PA1031-TOOLS-001",
+          "symbol": "JADX run",
+          "locator": "entire record"
+        }
+      ]
+    },
+    {
+      "path": "verification/native-ui-mapping.json",
+      "source_root": "deliverable",
+      "bytes": 2918,
+      "sha256": "abc77969f81e69a4189812cb9eb8a028c3ceed332c762d94f753be381c1d3cd0",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-008",
+          "symbol": "library_sha256, jni_methods,load_segments",
+          "locator": "whole record"
+        }
+      ]
+    },
+    {
+      "path": "verification/rendering-resource-measurements.json",
+      "source_root": "deliverable",
+      "bytes": 3430,
+      "sha256": "745de0789fe2de39227a4e39c594acc13b0f82d105ba6469c71ab575dddfb161",
+      "references": [
+        {
+          "evidence_id": "PA1031-RENDER-012",
+          "symbol": "bitmaps",
+          "locator": "bar,elapsedbar,inverse_bar,inverse_elapsedbar,narrow variants"
+        },
+        {
+          "evidence_id": "PA1031-RENDER-015",
+          "symbol": "bitmaps",
+          "locator": "dominant_rgba and source metadata"
+        }
+      ]
+    },
+    {
+      "path": "verification/runtime-preflight.json",
+      "source_root": "deliverable",
+      "bytes": 1100,
+      "sha256": "8da7115d23a0eb1bae20a005431652cdc29a5f8a88ffff368d1d5996c1d0f9b6",
+      "references": [
+        {
+          "evidence_id": "PA1031-ENV-001",
+          "symbol": "capabilities",
+          "locator": "entire record"
+        }
+      ]
+    }
+  ]
+}

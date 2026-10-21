@@ -1,0 +1,118 @@
+{
+  "library": "decoded/lib/arm64-v8a/libpowerampcore.so",
+  "sha256": "c22a29d4e71723b1f7e8cb5dc6cd7e461aa5133b65e73ca4115928fa980f9d9e",
+  "abi": "arm64-v8a",
+  "machine": "EM_AARCH64",
+  "analysis": "static relocation and disassembly only",
+  "tools": {
+    "pyelftools": "0.32",
+    "capstone": "5.0.6"
+  },
+  "load_segments": [
+    {
+      "va": "0x0",
+      "file_offset": "0x0",
+      "file_bytes": 4596368,
+      "memory_bytes": 4596368,
+      "flags": 5
+    },
+    {
+      "va": "0x466290",
+      "file_offset": "0x462290",
+      "file_bytes": 56648,
+      "memory_bytes": 56688,
+      "flags": 6
+    },
+    {
+      "va": "0x477fd8",
+      "file_offset": "0x46ffd8",
+      "file_bytes": 9328,
+      "memory_bytes": 5709704,
+      "flags": 6
+    }
+  ],
+  "jni_methods": [
+    {
+      "name": "native_load_aa",
+      "signature": "(JLandroid/graphics/Bitmap;IFFFFF)J",
+      "name_field_va": "0x4662f8",
+      "name_field_file_offset": "0x4622f8",
+      "function_field_va": "0x466308",
+      "function_field_file_offset": "0x462308",
+      "function_va": "0x139f00",
+      "function_file_offset": "0x139f00"
+    },
+    {
+      "name": "native_render_frame",
+      "signature": "(JJ)Z",
+      "name_field_va": "0x466c00",
+      "name_field_file_offset": "0x462c00",
+      "function_field_va": "0x466c10",
+      "function_field_file_offset": "0x462c10",
+      "function_va": "0x1482dc",
+      "function_file_offset": "0x1482dc"
+    },
+    {
+      "name": "native_set_aa",
+      "signature": "(JJZII)V",
+      "name_field_va": "0x466cc0",
+      "name_field_file_offset": "0x462cc0",
+      "function_field_va": "0x466cd0",
+      "function_field_file_offset": "0x462cd0",
+      "function_va": "0x148650",
+      "function_file_offset": "0x148650"
+    },
+    {
+      "name": "native_commit_aa",
+      "signature": "(JII)V",
+      "name_field_va": "0x466cf0",
+      "name_field_file_offset": "0x462cf0",
+      "function_field_va": "0x466d00",
+      "function_field_file_offset": "0x462d00",
+      "function_va": "0x148744",
+      "function_file_offset": "0x148744"
+    }
+  ],
+  "referenced_strings": [
+    {
+      "va": "0x47b6a",
+      "file_offset": "0x47b6a",
+      "text": "milk/shaders/blur_vs.glsl"
+    },
+    {
+      "va": "0x4aad3",
+      "file_offset": "0x4aad3",
+      "text": "milk/shaders/blur_fs.glsl"
+    },
+    {
+      "va": "0x690b0",
+      "file_offset": "0x690b0",
+      "text": "milk/shaders/blur_aa_fs.glsl"
+    },
+    {
+      "va": "0x62a72",
+      "file_offset": "0x62a72",
+      "text": "u_saturation"
+    },
+    {
+      "va": "0x468bd",
+      "file_offset": "0x468bd",
+      "text": "u_apply_light"
+    },
+    {
+      "va": "0x65754",
+      "file_offset": "0x65754",
+      "text": "u_pin_light"
+    },
+    {
+      "va": "0x6a11a",
+      "file_offset": "0x6a11a",
+      "text": "u_lighten"
+    },
+    {
+      "va": "0x6cb2b",
+      "file_offset": "0x6cb2b",
+      "text": "u_darken"
+    }
+  ]
+}
