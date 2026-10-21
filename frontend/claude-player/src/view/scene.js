@@ -428,7 +428,9 @@ export class SceneFastLayout extends FastLayout {
       if (!p) return;
       v._stateAnimBase ??= {alpha: v.alpha, scaleX: v.scaleX, scaleY: v.scaleY, translationX: v.translationX, translationY: v.translationY};
       const base = v._stateAnimBase;
-      const target = on ? {alpha: p.alpha ?? base.alpha, scaleX: p.scaleX ?? base.scaleX, scaleY: p.scaleY ?? base.scaleY, translationX: p.translationX ?? base.translationX, translationY: p.translationY ?? base.translationY} : base;
+      // Only the declared properties animate; others stay free for the view's own use.
+      const target = {};
+      for (const k of ['alpha', 'scaleX', 'scaleY', 'translationX', 'translationY']) if (p[k] !== undefined) target[k] = on ? p[k] : base[k];
       this.ctx.tween(v, target, (p.duration ?? durationMs ?? 250) / 1000, decelerate1);
     });
   }

@@ -4,6 +4,7 @@
 import {FastLayout} from '../view/fast-layout.js';
 import {MeasureSpec} from '../view/view.js';
 import {GONE, VISIBLE} from '../res/values.js';
+import {sectionChar} from './scroller.js';
 
 const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text'};
 
@@ -29,6 +30,56 @@ export class PowerList extends FastLayout {
     this.source = source;
     this.scrollY = 0;
     this.requestLayout();
+    this.syncScroller();
+  }
+
+  /**
+   * Scroller mode for the source (sd.s()): name-sorted lists show the A–Z
+   * column with az_scroll on (default) or a thumb (3); others a thumb (1).
+   */
+  scrollerMode() {
+    const s = this.source;
+    if (!s) return 0;
+    if (s.sortedByName && s.sectionTitle) return (this.ctx.settings.az_scroll ?? true) ? 2 : 3;
+    return 1;
+  }
+
+  syncScroller() {
+    const sc = this.ctx.listScroller;
+    if (!sc || this.visibility === GONE) return;
+    if (sc.list !== this) sc.attachList(this, this.scrollerMode());
+    else { sc.setMode(this.scrollerMode()); sc.syncThumb(); }
+  }
+
+  scrollTo(y) {
+    this.stopFling();
+    this.scrollY = Math.max(0, Math.min(this.maxScroll(), y));
+    this.placeItems();
+  }
+
+  /** Scrolls so the item's row is the first under the header. */
+  scrollToIndex(i) {
+    const g = this.geometry();
+    this.scrollTo(i <= 0 ? 0 : g.headerH + Math.floor(i / g.cols) * g.itemH);
+  }
+
+  /** First item whose section is at or after ch (in chars order). */
+  scrollToSection(ch, chars) {
+    const s = this.source;
+    if (!s?.sectionTitle) return;
+    const want = chars.indexOf(ch);
+    for (let i = 0; i < s.count; i++) {
+      if (chars.indexOf(sectionChar(s.sectionTitle(i), chars)) >= want) { this.scrollToIndex(i); return; }
+    }
+    this.scrollTo(this.maxScroll());
+  }
+
+  sectionAtTop(chars) {
+    const s = this.source;
+    if (!s?.sectionTitle || !s.count) return null;
+    const g = this.geometry();
+    const i = Math.max(0, Math.min(s.count - 1, Math.floor(Math.max(0, this.scrollY - g.headerH) / g.itemH) * g.cols));
+    return sectionChar(s.sectionTitle(i), chars);
   }
 
   /** Geometry for the current width: columns, item size, header height. */
@@ -96,6 +147,7 @@ export class PowerList extends FastLayout {
     const s = this.source;
     if (!s) return;
     this.scrollY = Math.max(0, Math.min(this.scrollY, this.maxScroll()));
+    this.syncScroller();
     const g = this.geometry();
     const y0 = g.top + g.headerH - this.scrollY;
     const firstRow = Math.max(0, Math.floor((this.scrollY - g.top - g.headerH) / g.itemH));

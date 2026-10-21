@@ -395,6 +395,9 @@ export class ListWidget extends FastLayout {
     this.libList.visibility = list ? VISIBLE : GONE;
     for (const v of this.items.values()) v.visibility = list ? GONE : VISIBLE;
     if (list && !this.stack.length && !this.searching) this.openHome();
+    // The album-art pager has no scroller (mode 0); the library list sets its own.
+    if (list) this.libList.syncScroller();
+    else this.ctx.listScroller?.setMode(0);
     this.requestLayout();
     this.invalidate();
   }

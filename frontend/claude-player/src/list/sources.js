@@ -111,7 +111,10 @@ function categorySource(ctx, list, nav, cat) {
   const lib = ctx.library;
   const title = str(ctx, cat.title);
   let src;
-  if (cat.kind === 'all') src = new TrackSource(ctx, list, nav, title, lib.tracks);
+  if (cat.kind === 'all') {
+    src = new TrackSource(ctx, list, nav, title, [...lib.tracks].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '')));
+    src.sortedByName = true;
+  }
   else if (cat.kind === 'recent') src = new TrackSource(ctx, list, nav, title, [...lib.tracks].sort((a, b) => (b.added ?? 0) - (a.added ?? 0)));
   else if (cat.kind === 'long') src = new TrackSource(ctx, list, nav, title, lib.tracks.filter(t => t.durationMs >= 20 * 60000));
   else {
@@ -146,6 +149,10 @@ export class GroupSource {
   }
 
   get count() { return this.groups.length; }
+
+  // Groups are sorted by name: the scroller shows A–Z.
+  get sortedByName() { return true; }
+  sectionTitle(i) { return this.groups[i]?.title; }
 
   bindHeader(v) {
     bindCategoryHeader(this, v, '');
@@ -182,6 +189,8 @@ export class TrackSource {
   }
 
   get count() { return this.tracks.length; }
+
+  sectionTitle(i) { return this.tracks[i]?.title; }
 
   bindHeader(v) {
     bindCategoryHeader(this, v, String(this.tracks.length));
