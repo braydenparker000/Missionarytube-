@@ -157,8 +157,135 @@ export function elevationShadow(dp) {
   return key + ',' + ambient;
 }
 
-/** Labels that scroll (marquee) when the text does not fit; clipped meanwhile. */
-export class MarqueeFastTextView extends FastTextView {}
+/**
+ * Labels that scroll (marquee) when the text does not fit; clipped meanwhile
+ * (MarqueeFastTextView). With anim_long_labels on, a single-line marquee label
+ * lays out at 3000 dp; when it overflows by more than 10 px it waits (1500 ms
+ * the first time, 3000 ms after), scrolls left by the overflow at 42.5 dp/s
+ * (accelerate-decelerate past 50 px, linear below), waits, scrolls back and
+ * repeats while shown. Without the option the label ellipsizes at the end.
+ */
+const MARQUEE_DP_PER_S = 42.5, MARQUEE_LAYOUT_DP = 3000;
+const accelDecel = t => Math.cos((t + 1) * Math.PI) / 2 + 0.5;
+
+export class MarqueeFastTextView extends FastTextView {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.over = 0;
+    this.scroll = 0;
+    this.firstPass = true;
+  }
+
+  get marqueeOn() {
+    return this.ctx.settings?.anim_long_labels !== false;
+  }
+
+  layoutText(avail) {
+    if (!this.marqueeOn || this.maxLines !== 1 || this.ellipsize !== 4) {
+      if (!this.marqueeOn && this.ellipsize > 0) this.ellipsize = 3;
+      this.over = 0;
+      this.scroll = 0;
+      this.stopMarquee();
+      return super.layoutText(avail);
+    }
+    super.layoutText(Math.round(MARQUEE_LAYOUT_DP * this.ctx.dpr));
+    const L = this.lines.length === 1 ? this.lines[0] : null;
+    const over = L ? Math.ceil(L.w) - avail : 0;
+    if (over <= 0) { this.over = 0; this.stopMarquee(); return; }
+    // The text box is the available width; the line keeps its full width.
+    L.full = L.w;
+    L.w = avail;
+    this.textW = avail;
+    if (over <= 10) { this.over = 0; this.stopMarquee(); return; }
+    if (this.over !== over) {
+      this.over = over;
+      if (this.scroll < -over) this.scroll = -over;
+      this.restartMarquee();
+    }
+  }
+
+  setText(t) {
+    if (t !== this.text) { this.scroll = 0; this.firstPass = true; this.stopMarquee(); }
+    super.setText(t);
+  }
+
+  isShownNow() {
+    if (!this.el.isConnected || document.hidden) return false;
+    for (let v = this; v; v = v.parent) if (v.visibility !== 0 || v.alpha <= 0) return false;
+    return true;
+  }
+
+  stopMarquee() {
+    clearTimeout(this._mqTimer);
+    cancelAnimationFrame(this._mqRaf);
+    this._mqTimer = this._mqRaf = 0;
+  }
+
+  restartMarquee() {
+    this.stopMarquee();
+    this.wait(this.scroll === 0 ? 0 : -this.over);
+  }
+
+  /** Waits at the current end, then scrolls to the other one. */
+  wait(at) {
+    const ms = this.firstPass ? 1500 : 3000;
+    this._mqTimer = setTimeout(() => {
+      this._mqTimer = 0;
+      if (!this.over) return;
+      if (!this.isShownNow()) { this.wait(at); return; }
+      this.firstPass = false;
+      this.scrollTo(at === 0 ? -this.over : 0);
+    }, ms);
+  }
+
+  scrollTo(target) {
+    const from = this.scroll, dist = Math.abs(target - from);
+    const ms = dist / (MARQUEE_DP_PER_S * this.ctx.dpr) * 1000;
+    const ease = this.over > 50 ? accelDecel : t => t;
+    const t0 = performance.now();
+    const step = now => {
+      const t = Math.min(1, (now - t0) / ms);
+      this.setScroll(Math.round(from + (target - from) * ease(t)));
+      if (t < 1) this._mqRaf = requestAnimationFrame(step);
+      else { this._mqRaf = 0; this.wait(target); }
+    };
+    this._mqRaf = requestAnimationFrame(step);
+  }
+
+  setScroll(x) {
+    if (this.scroll === x) return;
+    this.scroll = x;
+    this.applyScroll();
+  }
+
+  draw() {
+    super.draw();
+    this.applyScroll();
+  }
+
+  /** Clips the line to the text box and offsets its glyphs by the scroll. */
+  applyScroll() {
+    const el = this.textEl?.children[0];
+    if (!el) return;
+    const px = this.ctx.px;
+    let inner = el.firstElementChild?.classList.contains('mq') ? el.firstElementChild : null;
+    if (!this.over) {
+      if (inner) el.textContent = inner.textContent;
+      el.style.width = el.style.clipPath = '';
+      return;
+    }
+    if (!inner) {
+      inner = document.createElement('span');
+      inner.className = 'mq';
+      inner.textContent = el.textContent;
+      el.replaceChildren(inner);
+    }
+    el.style.width = px(this.textW) + 'px';
+    el.style.clipPath = 'inset(-50% 0 -50% 0)';
+    inner.style.display = 'inline-block';
+    inner.style.transform = this.scroll ? `translateX(${px(this.scroll)}px)` : '';
+  }
+}
 
 /**
  * The list. In the player scenes it shows the album-art pager; the library

@@ -130,7 +130,7 @@ function applyGlobalOptions(theme, settings, map, force, applied) {
   if ((settings.vis_frs_type ?? 2) === 2) apply('OptionEquFRSRounded');
   if ((settings.list_header_buttons ?? 1) === 0) apply('OptionNoHeaderButtons');
   if (settings.localized_az) apply('OptionLocalizedAZScroll');
-  if ((settings.anim_long_labels ?? true) && settings.anim_long_labels_in_lists) apply('OptionAnimLongLabelsInLists');
+  if ((settings.anim_long_labels ?? true) && (settings.anim_long_labels_in_lists ?? true)) apply('OptionAnimLongLabelsInLists');
 }
 
 /**
