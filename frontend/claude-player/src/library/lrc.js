@@ -48,7 +48,13 @@ export function parseLyrics(text) {
 /** The track's lyrics: a sidecar .lrc, then synchronised, then plain tag lyrics. */
 export function trackLyrics(t) {
   if (!t) return null;
-  return parseLyrics(t.lyricsFile) ?? parseLyrics(t.lyricsSynced) ?? parseLyrics(t.lyrics);
+  // Parsed once per text (cached on the track, not persisted).
+  const key = (t.lyricsFile ?? '') + '\u0000' + (t.lyricsSynced ?? '') + '\u0000' + (t.lyrics ?? '');
+  if (t._lyricsKey !== key) {
+    Object.defineProperty(t, '_lyricsKey', {value: key, writable: true, enumerable: false, configurable: true});
+    Object.defineProperty(t, '_lyrics', {value: parseLyrics(t.lyricsFile) ?? parseLyrics(t.lyricsSynced) ?? parseLyrics(t.lyrics), writable: true, enumerable: false, configurable: true});
+  }
+  return t._lyrics;
 }
 
 /** Index of the line active at position ms (the last line starting at or before it). */

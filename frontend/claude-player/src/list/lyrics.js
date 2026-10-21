@@ -34,8 +34,14 @@ export class LyricsButton extends FastButton {
     const hidden = mode === 0 || (mode === 1 && !trackLyrics(track));
     if (hidden === this.hidden) return;
     this.hidden = hidden;
-    this.el.style.display = hidden ? 'none' : '';
+    this.invalidate();
     this.parent?.requestLayout();
+  }
+
+  // Hidden: takes no space (goneWhenEmpty) and draws nothing (onDraw returns early).
+  draw() {
+    super.draw();
+    this.el.style.visibility = this.hidden ? 'hidden' : '';
   }
 
   onClick() {

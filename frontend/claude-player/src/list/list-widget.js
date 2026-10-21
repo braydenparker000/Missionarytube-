@@ -617,6 +617,7 @@ export class ListWidget extends FastLayout {
       const w = b.right - b.left, h = b.bottom - b.top;
       v.left = 0; v.top = 0;
       v.setItemScene(b.scene, w, h);
+      v.syncLyricsButton();
       v.translationX = b.left;
       v.translationY = b.top;
       v.scaleX = v.scaleY = b.scale;

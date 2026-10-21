@@ -355,6 +355,26 @@ The list posts `cmd_selection_menu_open`:
 
 The dynamic popup buttons (`dynamicButtons`) show the current insert mode's icon and label. A click posts clickMsgId; a long press opens the modes menu. Enqueue modes are "Add to end" (0) and "Shuffled" (2). The item box fade time is inferred.
 
+### F40 — Lyrics — `CS` (structure) / `INF` (page geometry)
+
+`main_lyrics_button`: 0 means never, 1 means when lyrics are available (default), 2 means always. `LyricsButton` hides through `isEmpty()` with `layout_goneWhenEmpty`, and `onDraw` returns early. A click opens `cmd_nav_to_lyrics`, and the top nav goes to `scene_lyrics`, whose main-UI records are based on defaultScene. The AA item has a `scene_lyrics`:
+- art matched to the item height at the left (8 dp margins)
+- title and line 2 beside the art, with marquee
+- the menu and lyrics buttons
+
+Lines use `item_lyrics`:
+- **Inactive:** `?colorIconDisabled`, centred, 13 sp vertical margins.
+- **Active:** `scene_active` (×1.1, textColorPrimary). `ap0.h0()` maps zoomed to `scene_zoomed_active` and small to `scene_small_active`.
+- **Unsynced:** `scene_unsync` (left aligned, ×0.85, `?colorLessContrast`).
+
+The layouter extends the last item so that late lines can reach the follow position (`ap0.i0`). With no lyrics, the page uses `item_empty_lyrics_with_config`; the web build shows `scene_empty_no_button` because it has no lyrics app.
+
+The following are inferred:
+- the page fills the AA item frame, with the header pinned and lines clipped under it
+- the follow position (one third down)
+- the follow pause after a user scroll (4 s)
+- tap to seek
+
 ## Open questions, prioritised by fidelity impact
 
 1. F15 gesture thresholds, fling velocity mapping into `v` (F05), track-swipe paging physics.

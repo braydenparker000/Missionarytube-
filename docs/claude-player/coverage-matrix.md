@@ -109,4 +109,5 @@ Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred ·
 | Visualization modes | Vis button popup (none / with UI / full screen), playing-scene choice by mode, full-screen tap shows temporary UI (F37) | No visualization renderer behind it (MilkDrop presets `LEGAL`/`UW`; see §3) |
 | A–Z scroller | ListScrollerView modes (A–Z column, thumb), letter bubble, press state animation, section jumps (F38) | `localized_az` alphabets not yet; bubble placement by intent |
 | Selection mode | Item select boxes, selection panel with the reference's per-list action layouts, select all/none/range, counts, state-enabled actions, Queue / Play next with insert-mode menus, Share via Web Share (F39) | Playlists, delete, info/tags and album art actions have no handlers yet |
-| Not yet | Lyrics, ripple masks, help overlays, item-menu dialogs | — |
+| Lyrics | .lrc sidecars, ID3 USLT/SYLT, Vorbis LYRICS, MP4 ©lyr; AA lyrics button per `main_lyrics_button`; lyrics page in the album-art frame with the scene_lyrics header, synced / unsynced line scenes, active-line follow with `lyrics_offset`, tap to seek, empty page (F40) | Page geometry, follow position and play-button state in scene_lyrics need screenshots; no lyrics plugins or online search |
+| Not yet | Ripple masks, help overlays, item-menu dialogs, playlists | — |

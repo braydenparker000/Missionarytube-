@@ -64,6 +64,8 @@ class SubAAModeButton extends PopupLayout {
     this.longClickable = true;
     const ia = new StyledAttributes(ctx.res, ctx.theme, {}, null, iconStyle);
     this.icon = new FastTextView(ctx, ia);
+    // Icon styles derived from PopupButton are gone by default; the slot shows them.
+    this.icon.visibility = VISIBLE;
     this.icon.lp = this.generateLayoutParams(ia);
     this.addView(this.icon);
     // The icon leaves the menu; rows appear in it.
