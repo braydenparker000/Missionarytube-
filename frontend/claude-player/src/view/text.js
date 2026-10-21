@@ -118,6 +118,28 @@ export class FastTextView extends View {
     if (text !== undefined) this.setText(a.string('android:text', '') ?? '');
   }
 
+  applySceneViewParams(rec) {
+    super.applySceneViewParams(rec);
+    const a = rec.viewAttrs;
+    if (!a) return;
+    const tc = a.local('android:textColor');
+    if (tc !== undefined) this.textColor = a.res.colorValue(tc, a.theme) ?? this.textColor;
+    if (a.local('lineBackground') !== undefined) {
+      const lb = a.ref('lineBackground');
+      this.lineBackground = lb ? this.ctx.drawables.fromRef(lb, a.theme) : null;
+    }
+    let redraw = false;
+    if (a.local('drawableTint') !== undefined) { this.drawableTint = a.color('drawableTint') ?? null; redraw = true; }
+    if (a.local('android:drawable') !== undefined) {
+      const dr = a.ref('android:drawable');
+      this.baseDrawable = dr ? this.ctx.drawables.fromRef(dr, a.theme) : null;
+      redraw = true;
+    }
+    if (redraw) this.setDrawable(this.baseDrawable ?? null);
+    this._textKey = null;
+    this.invalidate();
+  }
+
   updateFont() {
     this.font = resolveFont(this.fontFamily, this.textStyle);
     const sz = this.effectiveTextSize();
@@ -153,10 +175,8 @@ export class FastTextView extends View {
   }
 
   setDrawable(d) {
-    if (d && this.drawableTint && 'tint' in d) {
-      d = Object.assign(Object.create(Object.getPrototypeOf(d)), d);
-      d.tint = this.drawableTint;
-    }
+    this.baseDrawable = d;
+    if (d && this.drawableTint) d = d.withTint(this.drawableTint);
     this.drawable = d;
     this.requestLayout();
     this.invalidate();
@@ -412,11 +432,14 @@ export class FastTextView extends View {
     const w = this.width, h = this.height;
     const pos = this.drawablePosition;
     const pl = this.paddingLeft, pt = this.paddingTop, pr = this.paddingRight, pb = this.paddingBottom;
-    let x, y;
+    let x, y, ow = dw, oh = dh;
     if (pos === -1 || pos === -2) {
-      // Gravity.apply within the padded box (forceGravity) or the full bounds (gravityNoPads).
+      // Gravity.apply within the padded box (forceGravity) or the full bounds (gravityNoPads);
+      // fill gravities stretch the drawable over that box.
       const [l, t, r, b] = pos === -1 ? [pl, pt, pr, pb] : [0, 0, 0, 0];
       const hg = this.gravity & 7, vg = this.gravity & 112;
+      if (hg === 7) ow = w - l - r;
+      if (vg === 112) oh = h - t - b;
       x = hg === 1 ? l + Math.trunc((w - l - r - dw) / 2) : hg === 5 ? w - r - dw : l;
       y = vg === 16 ? t + Math.trunc((h - t - b - dh) / 2) : vg === 80 ? h - b - dh : t;
     } else if (pos === 1) {
@@ -429,7 +452,7 @@ export class FastTextView extends View {
       x = this.drawablePaddingStart;
       y = Math.round((h - pt - pb - dh) / 2 + pt);
     }
-    d.ops(dw, dh, this.state, ops, x, y);
+    d.ops(ow, oh, this.state, ops, x, y);
   }
 
   onStateChanged() {

@@ -28,6 +28,14 @@ export class Drawable {
   /** Paint operations for the given bounds and view state. */
   ops(/* w, h, state, out, x, y */) {}
   get stateful() { return false; }
+  /** Copy with a tint (colour value) applied, propagated like Drawable.setTintList. */
+  withTint(tint) {
+    const c = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+    c.version = version++;
+    c.applyTint(tint);
+    return c;
+  }
+  applyTint() {}
 }
 
 export class ColorDrawable extends Drawable {
@@ -49,10 +57,11 @@ export class ShapeDrawable extends Drawable {
     }
     this.padding = spec.pad ?? null;
   }
-  get stateful() { return !!(this.solid?.list || this.strokeColor?.list); }
+  get stateful() { return !!(this.solid?.list || this.strokeColor?.list || this.tint?.list); }
+  applyTint(t) { this.tint = t; }
   ops(w, h, state, out, x = 0, y = 0) {
     const op = {x, y, w, h};
-    const solid = this.solid ? colorForState(this.solid, state) : null;
+    const solid = this.tint && this.solid ? colorForState(this.tint, state) : this.solid ? colorForState(this.solid, state) : null;
     if (this.gradient) op.bgImage = this.gradientCss(w, h);
     else if (solid !== null) op.bg = colorToCss(withAlpha(solid, this.alpha));
     if (this.stroke && this.stroke.width > 0) {
@@ -109,6 +118,7 @@ export class LayerDrawable extends Drawable {
   }
   get stateful() { return this.layers.some(L => L.d?.stateful); }
   findById(id) { return this.layers.find(L => L.id === id)?.d ?? null; }
+  applyTint(t) { this.layers = this.layers.map(L => ({...L, d: L.d?.withTint(t) ?? null})); }
   ops(w, h, state, out, x = 0, y = 0) {
     for (const L of this.layers) {
       if (!L.d) continue;
@@ -143,6 +153,7 @@ export class InsetDrawable extends Drawable {
     this.padding = {left: p.left + ins.l, top: p.top + ins.t, right: p.right + ins.r, bottom: p.bottom + ins.b};
   }
   get stateful() { return !!this.d?.stateful; }
+  applyTint(t) { this.d = this.d?.withTint(t) ?? null; }
   ops(w, h, state, out, x = 0, y = 0) {
     if (!this.d) return;
     this.d.alpha = this.alpha;
@@ -163,6 +174,7 @@ export class StateListDrawable extends Drawable {
     }
   }
   get stateful() { return true; }
+  applyTint(t) { this.items = this.items.map(it => ({...it, d: it.d?.withTint(t) ?? null})); }
   pick(state) {
     for (const it of this.items) {
       let ok = true;
@@ -187,6 +199,7 @@ export class LevelListDrawable extends Drawable {
     if (d) { this.intrinsicWidth = d.intrinsicWidth; this.intrinsicHeight = d.intrinsicHeight; this.padding = d.padding; }
   }
   get stateful() { return true; }
+  applyTint(t) { this.items = this.items.map(it => ({...it, d: it.d?.withTint(t) ?? null})); }
   ops(w, h, state, out, x = 0, y = 0) {
     const lvl = this.level;
     const it = this.items.find(i => lvl >= i.min && lvl <= i.max);
@@ -200,6 +213,7 @@ export class RotateDrawable extends Drawable {
     this.d = d; this.from = from; this.to = to;
     if (d) { this.intrinsicWidth = d.intrinsicWidth; this.intrinsicHeight = d.intrinsicHeight; this.padding = d.padding; }
   }
+  applyTint(t) { this.d = this.d?.withTint(t) ?? null; }
   ops(w, h, state, out, x = 0, y = 0) {
     if (!this.d) return;
     const start = out.length;
@@ -219,10 +233,11 @@ export class IconDrawable extends Drawable {
     this.intrinsicWidth = iw;
     this.intrinsicHeight = ih;
     this.tint = null; // colour value ({color}|{list})
-    this.gravity = 17;
+    this.gravity = 119; // Bitmap/vector drawables fill their bounds unless a gravity is given
     this.baseColor = meta?.color ? parseColor(meta.color) : 0xff000000;
   }
   get stateful() { return !!this.tint?.list; }
+  applyTint(t) { this.tint = t; }
   ops(w, h, state, out, x = 0, y = 0) {
     let color = this.tint ? colorForState(this.tint, state) : null;
     const tinted = color !== null;

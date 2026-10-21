@@ -70,12 +70,35 @@ export function colourRole(buf) {
     const key = ((rgba[i] >> 5) << 6) | ((rgba[i + 1] >> 5) << 3) | (rgba[i + 2] >> 5);
     seen.set(key, (seen.get(key) ?? 0) + 1);
   }
-  if (!n) return {color: '#00000000', mono: true};
+  if (!n) return {color: '#00000000', mono: true, ...dominantColours(rgba)};
   r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
   for (let i = 0; i < rgba.length; i += 4) {
     if (rgba[i + 3] < 128) continue;
     spread = Math.max(spread, Math.abs(rgba[i] - r) + Math.abs(rgba[i + 1] - g) + Math.abs(rgba[i + 2] - b));
   }
   const hex = v => v.toString(16).padStart(2, '0');
-  return {color: '#ff' + hex(r) + hex(g) + hex(b), mono: spread < 96 && seen.size <= 4};
+  return {color: '#ff' + hex(r) + hex(g) + hex(b), mono: spread < 96 && seen.size <= 4, ...dominantColours(rgba)};
+}
+
+// Dominant exact colour (with alpha) and, for outlined shapes, the dominant
+// colour of the remaining pixels: fill/edge colours for procedurally drawn
+// replacements (e.g. waveform bars).
+function dominantColours(rgba) {
+  const counts = new Map();
+  let visible = 0;
+  for (let i = 0; i < rgba.length; i += 4) {
+    if (rgba[i + 3] === 0) continue;
+    visible++;
+    const key = ((rgba[i + 3] << 24) | (rgba[i] << 16) | (rgba[i + 1] << 8) | rgba[i + 2]) >>> 0;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const ranked = [...counts].sort((x, y) => y[1] - x[1]);
+  if (!ranked.length) return {};
+  const argb = k => '#' + k.toString(16).padStart(8, '0');
+  const rgbOf = k => k & 0xffffff;
+  const fill = ranked[0][0];
+  const out = {fill: argb(fill)};
+  const edge = ranked.find(([k, c]) => rgbOf(k) !== rgbOf(fill) && c >= visible * 0.03);
+  if (edge) out.edge = argb(edge[0]);
+  return out;
 }

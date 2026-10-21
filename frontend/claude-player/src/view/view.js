@@ -51,6 +51,10 @@ export class View {
     this.scaleX = this.scaleY = 1;
     this.translationX = this.translationY = 0;
     this.rotation = 0;
+    this.rotationX = 0;
+    this.rotationY = 0;
+    this.pivotX = null; // null = centre (the platform default)
+    this.pivotY = null;
     this.elevation = 0;
     this.paddingLeft = this.paddingTop = this.paddingRight = this.paddingBottom = 0;
     this.minWidth = this.minHeight = 0;
@@ -95,6 +99,10 @@ export class View {
     this.scaleX = a.float('android:scaleX', this.scaleX);
     this.scaleY = a.float('android:scaleY', this.scaleY);
     this.rotation = a.float('android:rotation', 0);
+    this.rotationX = a.float('android:rotationX', 0);
+    this.rotationY = a.float('android:rotationY', 0);
+    if (a.has('android:transformPivotX')) this.pivotX = a.dimFloat('android:transformPivotX', 0);
+    if (a.has('android:transformPivotY')) this.pivotY = a.dimFloat('android:transformPivotY', 0);
     this.clickable = a.bool('android:clickable', this.clickable);
     this.longClickable = a.bool('android:longClickable', this.longClickable);
     if (!a.bool('android:enabled', true)) this.state.enabled = false;
@@ -107,6 +115,16 @@ export class View {
       if (p) {
         this.paddingLeft ||= p.left; this.paddingTop ||= p.top; this.paddingRight ||= p.right; this.paddingBottom ||= p.bottom;
       }
+    }
+  }
+
+  /** View-specific params of a scene record (applyViewParams): background here; subclasses extend. */
+  applySceneViewParams(rec) {
+    const a = rec.viewAttrs;
+    if (!a) return;
+    if (a.local('android:background') !== undefined) {
+      this.background = this.ctx.drawables.fromRef(a.ref('android:background'), a.theme);
+      this.invalidate();
     }
   }
 
@@ -221,13 +239,20 @@ export class View {
     if (d.w !== w) { d.w = w; el.style.width = px(w) + 'px'; }
     if (d.h !== h) { d.h = h; el.style.height = px(h) + 'px'; }
     const x = this.left + this.translationX, y = this.top + this.translationY;
-    const sx = this.scaleX, sy = this.scaleY, rot = this.rotation;
-    if (d.x !== x || d.y !== y || d.sx !== sx || d.sy !== sy || d.rot !== rot) {
-      d.x = x; d.y = y; d.sx = sx; d.sy = sy; d.rot = rot;
+    const sx = this.scaleX, sy = this.scaleY, rot = this.rotation, rx = this.rotationX, ry = this.rotationY;
+    if (d.x !== x || d.y !== y || d.sx !== sx || d.sy !== sy || d.rot !== rot || d.rx !== rx || d.ry !== ry) {
+      d.x = x; d.y = y; d.sx = sx; d.sy = sy; d.rot = rot; d.rx = rx; d.ry = ry;
       let t = `translate(${px(x)}px,${px(y)}px)`;
-      if (sx !== 1 || sy !== 1) t += ` scale(${sx},${sy})`;
+      // 3D rotations use the platform's default camera distance (8 inches = 1280dp).
+      if (rx || ry) t += ` perspective(1280px) rotateX(${-rx}deg) rotateY(${ry}deg)`;
       if (rot) t += ` rotate(${rot}deg)`;
+      if (sx !== 1 || sy !== 1) t += ` scale(${sx},${sy})`;
       el.style.transform = t;
+    }
+    const pvx = this.pivotX, pvy = this.pivotY;
+    if (d.pvx !== pvx || d.pvy !== pvy) {
+      d.pvx = pvx; d.pvy = pvy;
+      el.style.transformOrigin = pvx === null && pvy === null ? '' : `${pvx === null ? '50%' : px(pvx) + 'px'} ${pvy === null ? '50%' : px(pvy) + 'px'}`;
     }
     const alpha = Math.max(0, Math.min(1, this.alpha));
     if (d.alpha !== alpha) { d.alpha = alpha; el.style.opacity = alpha === 1 ? '' : String(alpha); }

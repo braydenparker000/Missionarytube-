@@ -198,6 +198,7 @@ export class SceneController {
       return;
     }
     if (this.running) this.finish(true);
+    this.root.loadBehaviorsFor?.(scene);
     this.prevScene = this.scene;
     this.scene = scene;
     this.items = collect(this.root, scene, []);
@@ -218,6 +219,7 @@ export class SceneController {
   drag(scene, ratio) {
     if (!this.running || this.scene !== scene) {
       if (this.running) this.finish(true);
+      this.root.loadBehaviorsFor?.(scene);
       this.prevScene = this.scene;
       this.scene = scene;
       this.items = collect(this.root, scene, []);
@@ -400,6 +402,17 @@ export class SceneFastLayout extends FastLayout {
     this.scenes = new SceneController(this);
     this.privateScene = a ? a.bool('privateScene', false) : false;
     this.enableStateAnim = a ? a.bool('enableStateAnim', false) : false;
+  }
+
+  /** Loads LoadableBehavior layouts registered for a scene (within this scene scope). */
+  loadBehaviorsFor(scene) {
+    const visit = g => {
+      for (const c of [...g.children]) {
+        if (c.loadForScenes && !c.loaded && c.loadForScenes.includes(scene)) c.load();
+        else if (c.children && !c.privateScene) visit(c);
+      }
+    };
+    visit(this);
   }
 
   /** Runs a state animation (e.g. anim_seeking) on views that declare it. */

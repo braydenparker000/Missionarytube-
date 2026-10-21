@@ -37,6 +37,16 @@ export class Context {
     this.px = v => v / this.dpr;
     this.animScale = 1;
     this.dynamicDimensions = {};
+    this.windowInsets = {left: 0, top: 0, right: 0, bottom: 0};
+    // Height the browser's transient bars (address bar) currently take from the
+    // large viewport, in device px. The art keeps its full-height size.
+    this.transientBarHeight = 0;
+    this.settings = {navbar_seekbar: true, animations: 'normal'};
+  }
+
+  /** Default click routing: navigation buttons are named after their commands. */
+  onViewClick(view) {
+    if (view.id && view.id.startsWith('cmd_')) this.bus.post('bus_gui', view.id, view);
   }
 
   dynamicDimension(name) {

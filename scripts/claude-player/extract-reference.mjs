@@ -23,7 +23,9 @@ export const EXTRACTOR_VERSION = 1;
 // Layout/style families that belong to third-party libraries the reference bundles
 // (AppCompat, Material components, payment SDKs) rather than to the player UI.
 const FOREIGN_LAYOUT = /^(abc_|mtrl_|material_|design_|m3_|sdk_pay_|select_dialog_|support_simple_|notification_|custom_mr_|wgt_|widget)/;
-const FOREIGN_STYLE = /^(Base_|Platform_|RtlOverlay|RtlUnderlay|TextAppearance_(AppCompat|Compat|Design|MaterialComponents|Material3|M3)|ThemeOverlay_(AppCompat|Design|MaterialComponents|Material3)|Theme_(AppCompat|Design|MaterialComponents|Material3)|Widget_(AppCompat|Compat|Design|MaterialComponents|Material3|Support)|ShapeAppearance|MaterialAlertDialog|CardView|AlertDialog_AppCompat|Animation_AppCompat|Animation_Design|Animation_Material3|Base_|SdkPay|sdk_pay|MediaRouter|Theme_MediaRouter|Widget_MediaRouter|TextAppearance_MediaRouter|EmptyTheme|Theme_Hidden|Theme_PlayCore|ExoMedia|TextAppearance_Material3)/;
+const FOREIGN_STYLE = /^(Platform_|RtlOverlay|RtlUnderlay|TextAppearance_(AppCompat|Compat|Design|MaterialComponents|Material3|M3)|ThemeOverlay_(AppCompat|Design|MaterialComponents|Material3)|Theme_(AppCompat|Design|MaterialComponents|Material3)|Widget_(AppCompat|Compat|Design|MaterialComponents|Material3|Support)|ShapeAppearance|MaterialAlertDialog|CardView|AlertDialog_AppCompat|Animation_AppCompat|Animation_Design|Animation_Material3|SdkPay|sdk_pay|MediaRouter|Theme_MediaRouter|Widget_MediaRouter|TextAppearance_MediaRouter|EmptyTheme|Theme_Hidden|Theme_PlayCore|ExoMedia|TextAppearance_Material3)/;
+// Base_ styles are shared by the libraries and the player: only library-named ones are dropped.
+const FOREIGN_BASE_STYLE = /^Base_.*(AppCompat|MaterialComponents|Material3|Material|Design|CardView|MediaRouter|ShapeAppearance|SdkPay)/;
 const KEEP_FOREIGN_STYLE = /^Base_ActivityTheme/;
 
 function qualifierOf(dirName, type) {
@@ -119,7 +121,7 @@ export function extract(dir) {
             }
             model.attrs[name] = def;
           } else if (kind === 'style') {
-            if (FOREIGN_STYLE.test(name) && !KEEP_FOREIGN_STYLE.test(name)) continue;
+            if ((FOREIGN_STYLE.test(name) || FOREIGN_BASE_STYLE.test(name)) && !KEEP_FOREIGN_STYLE.test(name)) continue;
             const s = {};
             if (n.attrs.parent !== undefined) s.parent = n.attrs.parent;
             s.items = n.children.filter(c => c.tag === 'item').map(c => [c.attrs.name, c.text]);

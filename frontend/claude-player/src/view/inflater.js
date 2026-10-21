@@ -44,6 +44,37 @@ export class BehaviorView extends View {
   }
 }
 
+/**
+ * LoadableBehavior: inflates a layout into its parent the first time the
+ * parent enters one of the loadForScene scenes (insertAt: here, end, start).
+ */
+export class LoadableBehaviorView extends BehaviorView {
+  constructor(ctx, a) {
+    super(ctx, a);
+    const v = a.raw('android:layout');
+    const m = v ? /^@layout\/(.+)$/.exec(a.res.resolveRaw(v, a.theme).value ?? '') : null;
+    this.layoutName = m ? m[1] : null;
+    this.loadForScenes = [];
+    for (const k of ['loadForScene', 'loadForScene_2', 'loadForScene_3', 'loadForScene_4', 'loadForScene_5', 'loadForScene_6', 'loadForScene_7', 'loadForScene_8', 'loadForScene_9']) {
+      const r = a.raw(k);
+      if (!r) break;
+      const id = /^@\+?id\/(.+)$/.exec(a.res.resolveRaw(r, a.theme).value ?? '');
+      if (id) this.loadForScenes.push(id[1]);
+    }
+    this.insertAt = a.int('insertAt', -1);
+    this.loaded = false;
+  }
+
+  /** Inflates the layout into the parent; returns the new views. */
+  load() {
+    if (this.loaded || !this.layoutName || !this.parent) return [];
+    this.loaded = true;
+    const parent = this.parent;
+    const at = this.insertAt === -2 ? parent.children.indexOf(this) : this.insertAt === 0 ? 0 : -1;
+    return this.ctx.inflater.inflate(this.layoutName, parent, {insertAt: at});
+  }
+}
+
 export class Placeholder extends View {
   constructor(ctx, a, tag) {
     super(ctx, a);
@@ -71,19 +102,20 @@ export class Inflater {
   }
 
   /** Inflates a layout resource into parent (appending). Returns the created root view(s). */
-  inflate(name, parent, {optional = false, overrides = null} = {}) {
+  inflate(name, parent, {optional = false, overrides = null, insertAt = -1} = {}) {
     const tree = this.ctx.res.layout(name);
     if (!tree) {
       if (!optional) console.warn('[claude-player] missing layout', name);
       return [];
     }
     const [tag, attrs, children] = tree;
+    const pos = {at: insertAt};
     if (tag === 'merge') {
       const made = [];
-      for (const c of children ?? []) made.push(...this.inflateNode(c, parent));
+      for (const c of children ?? []) made.push(...this.inflateNode(c, parent, null, pos));
       return made;
     }
-    return this.inflateNode(tree, parent, overrides);
+    return this.inflateNode(tree, parent, overrides, pos);
   }
 
   resolveLayoutName(raw) {
@@ -93,7 +125,7 @@ export class Inflater {
     return m ? m[1] : null;
   }
 
-  inflateNode(node, parent, overrides = null) {
+  inflateNode(node, parent, overrides = null, pos = null) {
     const [tag, rawAttrs, children] = node;
     let attrs = normaliseAttrs(rawAttrs || {});
     if (tag === 'include') {
@@ -128,7 +160,8 @@ export class Inflater {
     view._xmlTag = className;
     if (parent) {
       view.lp = parent.generateLayoutParams ? parent.generateLayoutParams(sa) : null;
-      parent.addView(view);
+      if (pos && pos.at >= 0) parent.addView(view, pos.at++);
+      else parent.addView(view);
     }
     if (children && view instanceof ViewGroup) {
       for (const c of children) this.inflateNode(c, view);
@@ -151,7 +184,7 @@ export class Inflater {
     const short = shortName(className);
     const Cls = registry.get(className) ?? registry.get(short);
     if (Cls) return new Cls(this.ctx, sa, className);
-    if (/Behavior$/.test(short)) return new BehaviorView(this.ctx, sa);
+    if (/Behavior$/.test(short)) return sa.raw('android:layout') ? new LoadableBehaviorView(this.ctx, sa) : new BehaviorView(this.ctx, sa);
     unknownClasses.add(className);
     const hasChildren = children && children.some(c => Array.isArray(c) && !PSEUDO_TAGS.has(shortName(c[0])));
     return hasChildren ? new PlaceholderGroup(this.ctx, sa, className) : new Placeholder(this.ctx, sa, className);
@@ -162,6 +195,6 @@ export class Inflater {
 register(['FastLayout', 'FastLayoutWithViewCacheOpt', 'ClickableFastLayout', 'PrivateNonSceneFastLayout', 'LikeUnlikeLayout', 'DialogOuterFastLayout', 'FrameLayout', 'LinearLayout', 'RelativeLayout'], FastLayout);
 register(['SceneFastLayout', 'MenuPlaceholderLayout', 'ItemSceneFastLayout'], SceneFastLayout);
 register(['FastTextView', 'TextView', 'ListIndexerPopupView', 'BusStatusText', 'HtmlTextView', 'LyricsFastTextView', 'InfoTextView', 'KnobLabelAndValue'], FastTextView);
-register(['FastButton', 'Button', 'ImageButton', 'FastCheckBox', 'FastCheckBoxOnly', 'CheckBox', 'RadioButton', 'LyricsButton', 'BusStatusTextButton', 'IntentActionButton', 'MediaRouteButton'], FastButton);
+register(['FastButton', 'DragHandler', 'FastCheckBoxOnly', 'Button', 'ImageButton', 'FastCheckBox', 'FastCheckBoxOnly', 'CheckBox', 'RadioButton', 'LyricsButton', 'BusStatusTextButton', 'IntentActionButton', 'MediaRouteButton'], FastButton);
 register(['BusActionButton', 'PlayPauseButton', 'MorphableBusActionButton', 'BusStateEnabledActionButton', 'BusCheckBox'], BusActionButton);
 register(['View', 'NonOverlappingView', 'Space', 'android.widget.Space', 'SmartSpacer', 'Shim', 'AlphaDisabledView'], View);
