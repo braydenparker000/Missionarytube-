@@ -2,6 +2,7 @@
 // media/cover URLs, and category views (albums, artists, genres, folders).
 import {LibraryDb} from './db.js';
 import {readTags, readRemotePicture} from './tags.js';
+import {Playlists} from './playlists.js';
 import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars} from './r2.js';
 
 // Remote covers: full images in Cache Storage on first view (capped, oldest
@@ -51,6 +52,7 @@ export class Library {
     this.remoteTracks = [];
     this.userData = new Map();
     ctx.library = this;
+    this.playlists = new Playlists(ctx, this);
     ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => {
       if (msg === 'cmd_data_track_rating' && d?.track) this.setRating(d.track, d.arg1 ?? 0);
     });
@@ -68,6 +70,7 @@ export class Library {
       const snap = await this.db.getState('r2:index');
       if (snap?.tracks) { this.r2Generated = snap.generatedAt; this.remoteTracks = this.withUserData(snap.tracks); }
       this.setTracks([...this.localTracks, ...this.remoteTracks]);
+      await this.playlists.load();
     } catch (e) {
       console.warn('[claude-player] library storage unavailable', e);
     }

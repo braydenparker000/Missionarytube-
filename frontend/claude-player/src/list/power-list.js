@@ -194,7 +194,7 @@ export class PowerList extends FastLayout {
         const r = Math.floor(i / g.cols), c = i % g.cols;
         x = g.left + c * (g.colW + g.gap); y = y0 + r * g.itemH; w = g.colW; h = g.itemH; scene = s.itemScene;
         if (fresh || v._boundKey !== i) { s.bindItem(v, i); v._boundKey = i; }
-        v.setSelection?.(!!this.selection, !!this.selection?.has(i));
+        if (this.selectable) v.setSelection?.(!!this.selection, !!this.selection?.has(i));
       }
       v.left = 0; v.top = 0;
       v.setItemScene(scene, w, h);

@@ -31,6 +31,10 @@ export class ToastLayout extends FastLayout {
   show({title = '', line2 = '', icon = null} = {}) {
     const c = this.container();
     if (!c) return;
+    // While a dialog is open its own toast shows, else the main screen's.
+    let host = null;
+    for (let p = this.parent; p; p = p.parent) if (p.isDialogHost) { host = p; break; }
+    if (host !== (this.ctx.dialogs?.at(-1)?.host ?? null)) return;
     this.findViewById('title')?.setText(title);
     const l2 = this.findViewById('line2');
     l2?.setText(line2);

@@ -121,10 +121,13 @@ export class PopupLayout extends FastLayout {
     v.visibility = GONE;
   }
 
+  /** The nearest menu placeholder (a dialog's own before the main screen's). */
   placeholder() {
-    let root = this;
-    while (root.parent) root = root.parent;
-    return root.findViewById(this.placeholderId);
+    for (let p = this.parent; p; p = p.parent) {
+      const ph = p.findViewById(this.placeholderId);
+      if (ph) return ph;
+    }
+    return null;
   }
 
   open() {

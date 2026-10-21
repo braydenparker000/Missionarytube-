@@ -67,6 +67,10 @@ export class LibraryDb {
     return req(this.store('state', 'readwrite').put(value, key));
   }
 
+  deleteState(key) {
+    return req(this.store('state', 'readwrite').delete(key));
+  }
+
   /** State entries whose keys start with prefix, as [key, value] pairs. */
   async stateEntries(prefix) {
     const range = IDBKeyRange.bound(prefix, prefix + '\uffff');

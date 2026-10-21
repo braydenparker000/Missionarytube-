@@ -119,8 +119,8 @@ export class Inflater {
     return this.inflateNode(tree, parent, overrides, pos);
   }
 
-  resolveLayoutName(raw) {
-    const {value} = this.ctx.res.resolveRaw(raw, this.ctx.theme);
+  resolveLayoutName(raw, theme = this.ctx.theme) {
+    const {value} = this.ctx.res.resolveRaw(raw, theme);
     if (typeof value !== 'string') return null;
     const m = /^@layout\/(.+)$/.exec(value);
     return m ? m[1] : null;
@@ -130,7 +130,8 @@ export class Inflater {
     const [tag, rawAttrs, children] = node;
     let attrs = normaliseAttrs(rawAttrs || {});
     if (tag === 'include') {
-      const layoutName = this.resolveLayoutName(attrs['layout'] ?? attrs['android:layout']);
+      // Theme attributes (?dialogContentLayout) resolve in the parent's theme.
+      const layoutName = this.resolveLayoutName(attrs['layout'] ?? attrs['android:layout'], parent?.viewTheme ?? this.ctx.theme);
       const optional = attrs.optional === 'true';
       if (!layoutName) {
         if (!optional) console.warn('[claude-player] unresolved include', attrs.layout);

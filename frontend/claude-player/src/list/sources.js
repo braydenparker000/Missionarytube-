@@ -16,7 +16,7 @@ const HOME = [
   {id: 7, title: 'genres', icon: '?genres', kind: 'genres'},
   {id: 17, title: 'years', icon: '?years', kind: 'years'},
   {id: 8, title: 'composers', icon: '?composers', kind: 'composers'},
-  {id: 9, title: 'playlists', icon: '?playlists', kind: 'empty'},
+  {id: 9, title: 'playlists', icon: '?playlists', kind: 'playlists'},
   {id: 18, title: 'streams', icon: '?streams', kind: 'empty'},
   {id: 10, title: 'queue', icon: '?queue', kind: 'queue'},
   {id: 19, title: 'bookmarks', icon: '?bookmarks', kind: 'empty'},
@@ -130,6 +130,7 @@ function categorySource(ctx, list, nav, cat) {
     const {keep, order} = STAT_LISTS[cat.kind];
     src = new TrackSource(ctx, list, nav, title, lib.tracks.filter(keep).sort(order));
   }
+  else if (cat.kind === 'playlists') return playlistsSource(ctx, list, nav);
   else if (cat.kind === 'long') src = new TrackSource(ctx, list, nav, title, lib.tracks.filter(t => t.durationMs >= 20 * 60000));
   else {
     const groups = groupsFor(lib, cat.kind);
@@ -272,4 +273,24 @@ export function searchSource(ctx, list, nav, query, kind = 'all') {
     genres: t => t.genre || 'Unknown genre', folders: t => t.folder || '/', composers: t => t.composer || 'Unknown composer',
   }[kind] ?? (t => t.title), kind);
   return bare(new GroupSource(ctx, list, nav, title, groups.filter(g => has(g.title))));
+}
+
+/** Playlists category: each playlist (name, track count) opens its tracks. */
+export function playlistsSource(ctx, list, nav) {
+  const P = ctx.playlists;
+  const groups = (P?.sorted() ?? []).map(pl => ({kind: 'playlist', title: pl.name, tracks: P.tracksOf(pl), pl}));
+  const src = new GroupSource(ctx, list, nav, str(ctx, 'playlists'), groups);
+  src.icon = '?playlists';
+  src.onItemClick = i => { const s2 = playlistSource(ctx, list, nav, groups[i].pl); if (s2) nav.open(s2); };
+  return src;
+}
+
+/** A playlist's tracks in playlist order. */
+export function playlistSource(ctx, list, nav, pl) {
+  const P = ctx.playlists;
+  if (!P || !pl) return null;
+  const src = new TrackSource(ctx, list, nav, pl.name, P.tracksOf(pl));
+  src.icon = '?playlists';
+  src.playlist = pl;
+  return src;
 }

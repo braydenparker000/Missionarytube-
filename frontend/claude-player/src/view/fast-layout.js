@@ -421,7 +421,10 @@ export class FastLayout extends ViewGroup {
         y0 = T + mt; hasT = true;
       }
     } else if (atb.kind === PARENT) {
-      if (B !== MIN) { y1 = B - mb; hasB = true; }
+      // A parent bottom with center_vertical gravity and no top attach centres
+      // in the area (inferred: e.g. ItemPopupListTitle, DialogToastLineOnly1).
+      if (!hasT && (lp.gravity & 112) === 16) { y0 = MAX; y1 = MIN; }
+      else if (B !== MIN) { y1 = B - mb; hasB = true; }
       else if (!hasT) { y0 = T + mt; hasT = true; }
     } else if (atb.kind === INSET) {
       if (B !== MIN) { y1 = B - this.getInsets().bottom - mb; hasB = true; }
@@ -429,7 +432,8 @@ export class FastLayout extends ViewGroup {
       y1 = s.wrapB - mb; hasB = true;
     }
     if (!hasT && !hasB) {
-      if (B === MIN && (!lp.gravityTarget || (lp.gravity & 112) === 0)) { y0 = T + mt; hasT = true; }
+      if (y0 === MAX && y1 === MIN && atb.kind === PARENT) { /* centred by gravity */ }
+      else if (B === MIN && (!lp.gravityTarget || (lp.gravity & 112) === 0)) { y0 = T + mt; hasT = true; }
       else { y0 = MAX; y1 = MIN; }
     } else if (hasB && !hasT) y0 = MIN;
 

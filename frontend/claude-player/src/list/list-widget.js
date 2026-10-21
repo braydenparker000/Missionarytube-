@@ -13,7 +13,8 @@ import {StyledAttributes} from '../res/resources.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
-import {HomeSource, currentCategorySource, searchSource} from './sources.js';
+import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource} from './sources.js';
+import {openAddToPlaylist} from '../widgets/playlist-dialog.js';
 import {LyricsPage} from './lyrics.js';
 import {elevationShadow} from '../view/drawables.js';
 
@@ -350,7 +351,8 @@ export class ListWidget extends FastLayout {
     this.addView(this.lyricsPage);
     this.stack = [];
     ctx.bus.subscribe('bus_gui', (msg, src, d) => {
-      if (msg === 'msg_nav_changed') {
+      if (msg === 'cmd_nav_to_playlist' && d?.playlist) this.openPlaylist(d.playlist);
+      else if (msg === 'msg_nav_changed') {
         this.searching = d.nav === 'nav_search';
         this.setMode(d.nav === 'nav_lyrics' ? 'lyrics' : d.nav === 'nav_lib' || this.searching ? 'list' : 'aa');
         if (this.searching) this.showSearch();
@@ -365,6 +367,7 @@ export class ListWidget extends FastLayout {
         else if (msg === 'cmd_list_search_cat') { this.searchCat = d?.kind ?? 'all'; if (this.searching) this.showSearch(); }
         else if (current[msg]) this.openCurrent(current[msg]);
         else if (msg === 'cmd_list_play' || msg === 'cmd_list_shuffle') this.playList(msg === 'cmd_list_shuffle');
+        else if (msg === 'cmd_list_add_to_pl_dialog') this.addToPlaylist();
       });
     }
     ctx.bus.subscribe('bus_library', () => {
@@ -373,6 +376,23 @@ export class ListWidget extends FastLayout {
         if (this.mode === 'list') this.openHome();
       }
     });
+  }
+
+  /** Add to Playlist: the selected tracks in selection mode, else the current track. */
+  addToPlaylist() {
+    const list = this.libList;
+    const tracks = list.selection?.size ? list.selectedTracks() : [this.ctx.player?.track].filter(Boolean);
+    if (list.selection) list.endSelection();
+    openAddToPlaylist(this.ctx, tracks);
+  }
+
+  /** Opens a playlist's tracks (Open after adding). */
+  openPlaylist(pl) {
+    this.ctx.bus.post('bus_gui', 'cmd_nav_to_lib', this);
+    this.openHome();
+    this.open(playlistsSource(this.ctx, this.libList, this.nav));
+    const src = playlistSource(this.ctx, this.libList, this.nav, pl);
+    if (src) this.open(src);
   }
 
   get nav() {

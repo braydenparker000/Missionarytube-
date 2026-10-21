@@ -163,7 +163,10 @@ export class Resources {
 
   stringByName(name) {
     const e = this.entry('string', name);
-    return e === undefined ? undefined : unescapeString(e);
+    if (e === undefined) return undefined;
+    // Aliases (@string/x) resolve to their target.
+    if (typeof e === 'string' && /^@string\//.test(e)) return this.string(e, null);
+    return unescapeString(e);
   }
 
   integer(raw, theme, def) {
