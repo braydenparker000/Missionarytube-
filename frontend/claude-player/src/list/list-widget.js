@@ -3,7 +3,9 @@
 // its own item scene (scene_aa when paused, scene_aa_playing when playing).
 import {View, MeasureSpec} from '../view/view.js';
 import {FastLayout} from '../view/fast-layout.js';
-import {SceneFastLayout} from '../view/scene.js';
+import {SceneFastLayout, SceneRecord} from '../view/scene.js';
+import {animTime} from '../widgets/topnav.js';
+import {animateShade} from '../widgets/popup.js';
 import {FastTextView} from '../view/text.js';
 import {register} from '../view/inflater.js';
 import {AAGeometry, geometryParams, dynamicDimensionReader} from './aa-geometry.js';
@@ -259,6 +261,11 @@ export class ListWidget extends FastLayout {
         v.parent = this;
         this.children.push(v);
         this.el.appendChild(v.el);
+        // The item menu: the menu button, or a long press on the cover.
+        const menu = v.findViewById('menu');
+        if (menu) menu.onClick = () => this.openItemMenu(v);
+        v.longClickable = true;
+        v.onLongClick = () => (this.mode === 'aa' ? (this.openItemMenu(v), true) : false);
       }
       v.visibility = this.mode === 'list' ? GONE : VISIBLE;
       this.items.set(rel, v);
@@ -390,6 +397,7 @@ export class ListWidget extends FastLayout {
   placeItems() {
     const g = this.geometry;
     for (const [rel, v] of this.items) {
+      if (v.inMenu) continue; // borrowed by the open item menu
       const b = g.itemBounds(rel, rel);
       const w = b.right - b.left, h = b.bottom - b.top;
       v.left = 0; v.top = 0;
@@ -405,6 +413,100 @@ export class ListWidget extends FastLayout {
     }
   }
 }
+
+/**
+ * Item menu (the reference's scene_item_menu): the current cover item leaves
+ * the pager for the menu placeholder at its screen rect, loads its popup menu
+ * part (merge_item_popup_menu + merge_menu_items_aa) and both the placeholder
+ * (item frame) and the item (its children) go to scene_item_menu over the
+ * popup enter time with the shade; closing reverses and returns the item.
+ */
+const ITEM_MENU = 'scene_item_menu';
+
+ListWidget.prototype.openItemMenu = function (v) {
+  if (this.mode !== 'aa' || v.inMenu || this.items.get(0) !== v) return;
+  let root = this;
+  while (root.parent) root = root.parent;
+  const ph = root.findViewById('menu_placeholder');
+  if (!ph || ph.popup) return;
+  const a = v.getLocationIn(null), b = ph.getLocationIn(null);
+  const x = Math.round(a.x - b.x), y = Math.round(a.y - b.y), w = v.width, h = v.height;
+  this.menuItem = {v, prevScene: v.itemScene, saved: new Map()};
+  v.inMenu = true;
+  this.removeView(v);
+  v.translationX = v.translationY = 0;
+  v.scaleX = v.scaleY = 1;
+  v.rotation = v.rotationX = v.rotationY = 0;
+  v.alpha = 1;
+  const abs = ph.generateLayoutParams(this.ctx.inflater.styledAttributes({}));
+  Object.assign(abs, {width: w, height: h, leftMargin: x, topMargin: y});
+  v.lp = abs;
+  ph.addView(v);
+  // The popup part loads into the item now, so its records use the placeholder's params.
+  if (!v.menuLoaded) {
+    v.menuLoaded = true;
+    v.walk(c => { if (c.layoutName === 'merge_item_popup_menu' && !c.loaded) c.load(); });
+    const items = v.findViewById('menu_items');
+    if (items) {
+      this.ctx.inflater.inflate('merge_menu_items_aa', items);
+      items.walk(c => {
+        if (c === items || !c.clickable) return;
+        const click = c.onClick?.bind(c);
+        c.onClick = () => { click?.(); this.closeItemMenu(); };
+      });
+    }
+  }
+  // Item backgrounds are level-lists: the popup level shows the menu surface.
+  const popupLevel = this.ctx.res.integer('@integer/ITEM_BG_LEVEL_POPUP', this.ctx.theme) ?? 16;
+  if (v.background) { this.menuItem.bgLevel = v.background.level ?? 0; v.background.level = popupLevel; v._dom.bg = null; v.invalidate(); }
+  const map = v.sceneParams ??= new Map();
+  const rec = new SceneRecord();
+  rec.visibility = VISIBLE; rec.alpha = 1; rec.scale = 1; rec.recalc = 2; rec.lp = abs;
+  this.menuItem.saved.set('defaultScene', map.get('defaultScene'));
+  map.set('defaultScene', rec);
+  if (map.get(ITEM_MENU)) map.get(ITEM_MENU).recalc = 2;
+  ph.popup = {modal: true, close: () => this.closeItemMenu()};
+  ph.clickable = true;
+  ph.forceLayoutTree();
+  ph.measure(MeasureSpec.make(ph.width, MeasureSpec.EXACTLY), MeasureSpec.make(ph.height, MeasureSpec.EXACTLY));
+  ph.layout(ph.left, ph.top, ph.right, ph.bottom);
+  const ms = this.ctx.res.integer('?popupEnterAnimTime', this.ctx.theme) ?? 350;
+  const dur = animTime(this.ctx, ms / 1000);
+  animateShade(this.ctx, ph, 1, dur);
+  ph.scenes.go(ITEM_MENU, {duration: dur});
+  v.itemScene = ITEM_MENU;
+  v.scenes.go(ITEM_MENU, {duration: dur});
+};
+
+ListWidget.prototype.closeItemMenu = function () {
+  const m = this.menuItem;
+  if (!m || m.closing) return;
+  m.closing = true;
+  const v = m.v;
+  let root = this;
+  while (root.parent) root = root.parent;
+  const ph = root.findViewById('menu_placeholder');
+  const ms = this.ctx.res.integer('?popupExitAnimTime', this.ctx.theme) ?? 200;
+  const dur = animTime(this.ctx, ms / 1000);
+  animateShade(this.ctx, ph, 0, dur);
+  ph.clickable = false;
+  v.scenes.go(m.prevScene, {duration: dur});
+  v.itemScene = m.prevScene;
+  ph.scenes.go('defaultScene', {duration: dur, onEnd: () => {
+    ph.removeView(v);
+    ph.popup = null;
+    for (const [s, r] of m.saved) { if (r) v.sceneParams.set(s, r); else v.sceneParams.delete(s); }
+    v.lp = this.generateLayoutParams(null);
+    if (v.background) { v.background.level = m.bgLevel ?? 0; v._dom.bg = null; v.invalidate(); }
+    v.inMenu = false;
+    v.parent = this;
+    this.children.push(v);
+    this.el.appendChild(v.el);
+    this.menuItem = null;
+    this.requestLayout();
+    this.ctx.scheduleLayout();
+  }});
+};
 
 /** Text list item (categories, headers): item scenes like the track item. */
 export class TextItemView extends AAItemView {}

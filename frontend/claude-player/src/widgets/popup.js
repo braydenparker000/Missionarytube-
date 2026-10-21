@@ -18,6 +18,17 @@ import {animTime} from './topnav.js';
 const MENU = 'scene_button_menu', CLOSED = 'scene_button_menu_closed';
 const idOf = raw => (raw ? /^@\+?id\/(.+)$/.exec(raw)?.[1] ?? null : null);
 
+/** Fades a menu placeholder's shade to `to` over `seconds`. */
+export function animateShade(ctx, ph, to, seconds) {
+  const from = parseFloat(ph.shadeEl.style.opacity) || 0, t0 = performance.now(), ms = seconds * 1000;
+  ph._shadeAnim?.();
+  ph._shadeAnim = ctx.onFrame(now => {
+    const t = ms ? Math.min(1, (now - t0) / ms) : 1;
+    ph.setShade(from + (to - from) * t);
+    return t < 1 ? true : (ph._shadeAnim = null, false);
+  });
+}
+
 /** MenuPlaceholderLayout: hosts open popups over a shade; a tap outside closes them. */
 export class MenuPlaceholderLayout extends SceneFastLayout {
   constructor(ctx, a) {
@@ -225,13 +236,7 @@ export class PopupLayout extends FastLayout {
   }
 
   shadeAnim(ph, to, seconds) {
-    const from = parseFloat(ph.shadeEl.style.opacity) || 0, t0 = performance.now(), ms = seconds * 1000;
-    this._shade?.();
-    this._shade = this.ctx.onFrame(now => {
-      const t = ms ? Math.min(1, (now - t0) / ms) : 1;
-      ph.setShade(from + (to - from) * t);
-      return t < 1 ? true : (this._shade = null, false);
-    });
+    animateShade(this.ctx, ph, to, seconds);
   }
 }
 
