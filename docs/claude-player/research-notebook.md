@@ -270,6 +270,28 @@ The solver (bytecode) measures a view attached on both sides EXACTLY to the span
 full-width pills, the duration covering the elapsed label. That is very likely not the real look, so
 some solver rule is still misread. Placement must be confirmed from a reference screenshot.
 
+### F32 — Resizable round-knob stacks — `OPEN`
+The Volume/Reverb tab knob layouts ("Resizable" styles) attach the value label to both parent
+edges with `wrap_content` and `consumeSpace=vertical`, the label above it (`attachBottom=_value_label`)
+and the knob above the label. Traced literally (bytecode `p1`/`d1`: both-edge attach measures
+EXACTLY to the span; a view's top attach resolves before its bottom dependency is laid out; a view
+attached on both edges consumes from the top), the value label fills the layout, the label gets zero
+height and the knob lands above the layout. That cannot be the shipping look, so — as in F31 — some
+rule for `wrap_content` attached on both edges is still misread. The implementation lays these
+stacks out by intent (value at the bottom, label above, knob filling the rest, square, centred) and
+flags it. A screenshot of the Volume tab settles both F31 and F32.
+
+### F33 — Equalizer — `CS` (structure) / `INF` (DSP)
+EQ tab: `EqKnobsList` (a PowerList) holds the preamp item (`preamp_knob_width`) then one
+`LinearKnob` per band at `x = z + (i-1)·D`, `D` = the band knob measured UNSPECIFIED. LinearKnob
+geometry (travel, thumb, hole, dashed guide ticks, value-blended fill) and RoundKnob geometry
+(30°–330° from the bottom, arc ring outside the knob with round-cap trimming, rotating indicator)
+come from their `onSizeChanged`/`onDraw`. The FRS in graphic mode draws one point per band, evenly
+spaced, joined by cubics with horizontal tangents, over a centre backline, with tone humps and a
+vertical five-stop gradient. Band frequencies and labels come from the native DSP (not in the APK):
+the ten-band 31 Hz–16 kHz set is inferred, as are tone shelf corners, the reverb impulse, limiter
+settings and the tempo stepping. Tone knobs are boost-only (0–100%), matching the FRS humps.
+
 ## Open questions, prioritised by fidelity impact
 
 1. F15 gesture thresholds, fling velocity mapping into `v` (F05), track-swipe paging physics.
@@ -278,6 +300,7 @@ some solver rule is still misread. Placement must be confirmed from a reference 
 4. List item scenes, zoom levels and list transitions (F18).
 5. Waveform analysis algorithm and bar counts per bucket (F13).
 6. Elapsed/duration label placement in the "More buttons" layout (F31).
-7. Sign conventions of the art pager's 3D tilt (rotationX/Y) and the backdrop blur look (F26, F30).
-8. Runtime corroboration of everything above. This needs an owner-run device capture protocol
+7. F32 resizable knob stacks (Volume/Reverb tabs), and the real band set of the native DSP.
+8. Sign conventions of the art pager's 3D tilt (rotationX/Y) and the backdrop blur look (F26, F30).
+9. Runtime corroboration of everything above. This needs an owner-run device capture protocol
    (see the architecture plan, “Fidelity verification”).

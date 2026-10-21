@@ -21,6 +21,7 @@ import {renderOps} from '../view/drawables.js';
 import {colorForState} from '../res/resources.js';
 import {colorToCss} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
+import {animTime} from './topnav.js';
 
 const idOf = raw => (raw ? /^@\+?id\/(.+)$/.exec(raw)?.[1] ?? null : null);
 const clamp01 = v => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -184,15 +185,17 @@ export class LinearKnob extends FastTextView {
     renderOps(this.opsEl, ops, this.ctx.px);
   }
 
-  // Dragging: grabbing the thumb moves it relatively; touching the track jumps the thumb centre to the finger.
+  // Dragging (vertical): grabbing the thumb moves it relatively; a drag that
+  // starts on the track first centres the thumb under the finger. Horizontal
+  // drags go to the list / pager (interceptible until the knob commits).
+  get interceptible() { return true; }
+
   onPointerDown(e) {
     if (!this.state.enabled) return false;
     const top = this.thumbTop(), range = this.travel() - this.thumbH;
     if (range <= 0) return false;
     const grab = e.y >= top - this.minTouch / 2 && e.y <= top + this.thumbH + this.minTouch / 2;
-    this._drag = {y0: e.y, v0: this.value, range, grab};
-    if (!grab) this.setValue(1 - (e.y - this.paddingTop - this.thumbH / 2) / range, true);
-    this._drag.v0 = this.value;
+    this._drag = {x0: e.x, y0: e.y, v0: this.value, range, grab, started: false};
     this.setPressed(true);
     return true;
   }
@@ -200,6 +203,16 @@ export class LinearKnob extends FastTextView {
   onPointerMove(e) {
     const d = this._drag;
     if (!d) return;
+    if (!d.started) {
+      const slop = 8 * this.ctx.dpr;
+      if (Math.abs(e.y - d.y0) <= slop || Math.abs(e.y - d.y0) < Math.abs(e.x - d.x0)) return;
+      d.started = true;
+      this.disallowIntercept = true;
+      if (!d.grab) {
+        this.setValue(1 - (d.y0 - this.paddingTop - this.thumbH / 2) / d.range, true);
+        d.v0 = this.value;
+      }
+    }
     this.setValue(d.v0 - (e.y - d.y0) / d.range, true);
   }
 
@@ -310,7 +323,12 @@ export class EqKnobsList extends ViewGroup {
     this.knobs.forEach((k, i) => {
       const x = x0 + this.preampWidth + i * this.itemWidth;
       k.layout(x, top, x + this.itemWidth, top + h);
+      // Like the recycling list, only items intersecting the list are attached.
+      const vis = x + this.itemWidth > 0 && x < this.width ? 0 : 4;
+      if (k.visibility !== vis) { k.visibility = vis; k.invalidate(); }
     });
+    const pv = x0 + this.preampWidth > 0 ? 0 : 4;
+    if (this.preampLayout.visibility !== pv) { this.preampLayout.visibility = pv; this.preampLayout.invalidate(); }
     this.scroller()?.onListScrolled?.(this);
   }
 
@@ -647,3 +665,462 @@ register(['EqKnobsList'], EqKnobsList);
 register(['FrequencyResponseScroller'], FrequencyResponseScroller);
 register(['MilkFRS'], MilkFRS);
 register(['DSPCheckBox', 'LimiterDSPCheckBox'], DSPCheckBox);
+
+/** Java-style number formatting for knob value labels (%.Nf, %d, %%). */
+export function formatValue(fmt, x) {
+  return fmt.replace(/%(\.(\d+))?([fd%])/g, (m, p, digits, kind) => {
+    if (kind === '%') return '%';
+    if (kind === 'd') return String(Math.round(x));
+    return x.toFixed(digits === undefined ? 6 : +digits);
+  });
+}
+
+/**
+ * RoundKnob (reference onSizeChanged/onDraw): the knob drawable fits the
+ * square inset by the arc margin G = (arcWidth + arcOffset)·turns; angles run
+ * clockwise from the bottom between minDegree (30) and maxDegree (330); the
+ * indicator sits at the knob's bottom edge and rotates about the centre; the
+ * arc (round caps, trimmed by the cap angle) sweeps from arcStartPoint to the
+ * value on the ring outside the knob, coloured start → end by value.
+ */
+export class RoundKnob extends View {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.clickable = true;
+    const kd = a.ref('knob'), id = a.ref('indicator');
+    this.knob = kd ? ctx.drawables.fromRef(kd, a.theme) : null;
+    this.indicator = id ? ctx.drawables.fromRef(id, a.theme) : null;
+    this.indicatorScale = a.float('indicatorScale', 1);
+    this.rotateKnob = a.bool('rotateKnob', false);
+    this.snapTo = a.float('snapTo', NaN);
+    this.minDeg = a.float('minDegree', 30);
+    this.maxDeg = a.float('maxDegree', 330);
+    this.arcWidth = a.dim('arcWidth', 0);
+    this.arcOffset = a.dimOffset('arcOffset', 0);
+    this.arcStartPoint = a.float('arcStartPoint', 0);
+    this.arcStart = a.color('arcStartColor') ?? null;
+    this.arcEnd = a.color('arcEndColor') ?? null;
+    this.fmt = a.string('valueFormat', '') || null;
+    this.fmtMin = a.float('valueFormatMin', NaN);
+    this.fmtMax = a.float('valueFormatMax', NaN);
+    this.fmtMid = a.float('valueFormatMid', NaN);
+    this.fmtMidPos = a.float('valueFormatMidPos', NaN);
+    this.value = 0;
+    this.canvas = document.createElement('canvas');
+    this.canvas.className = 'cv';
+    this.el.appendChild(this.canvas);
+    this.opsEl = document.createElement('div');
+    this.opsEl.className = 'ops';
+    this.el.appendChild(this.opsEl);
+    this.onChange = null;
+  }
+
+  setValue(v, fromUser = false) {
+    v = clamp01(v);
+    if (v === this.value) return;
+    this.value = v;
+    this.invalidate();
+    if (fromUser) this.onChange?.(v);
+  }
+
+  /** Display value: min..max, piecewise through mid at midPos when given. */
+  displayValue() {
+    const v = this.value, min = this.fmtMin, max = this.fmtMax;
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return v;
+    if (Number.isFinite(this.fmtMid) && Number.isFinite(this.fmtMidPos) && this.fmtMidPos > 0 && this.fmtMidPos < 1) {
+      return v <= this.fmtMidPos ? min + (this.fmtMid - min) * (v / this.fmtMidPos) : this.fmtMid + (max - this.fmtMid) * ((v - this.fmtMidPos) / (1 - this.fmtMidPos));
+    }
+    return min + (max - min) * v;
+  }
+
+  valueText() {
+    return this.fmt ? formatValue(this.fmt, this.displayValue()) : '';
+  }
+
+  onMeasure(wSpec, hSpec) {
+    const s = Math.min(MeasureSpec.getSize(wSpec), MeasureSpec.getSize(hSpec));
+    const resolve = (size, spec) => (MeasureSpec.getMode(spec) === MeasureSpec.EXACTLY ? MeasureSpec.getSize(spec) : MeasureSpec.getMode(spec) === MeasureSpec.AT_MOST ? Math.min(size, MeasureSpec.getSize(spec)) : size);
+    this.setMeasuredDimension(resolve(s, wSpec), resolve(s, hSpec));
+  }
+
+  geometry() {
+    const turns = Math.ceil((this.maxDeg - this.minDeg) / 360);
+    const G = this.arcWidth ? (this.arcWidth + this.arcOffset) * turns : 0;
+    const w = Math.trunc(this.width - this.paddingLeft - this.paddingRight - 2 * G);
+    const h = Math.trunc(this.height - this.paddingTop - this.paddingBottom - 2 * G);
+    const s = Math.min(w, h);
+    // Square knob drawable centred in the inner box; offset by padding + G.
+    const ox = Math.trunc(this.paddingLeft + G), oy = Math.trunc(this.paddingTop + G);
+    const kx = ox + Math.trunc((w - s) / 2), ky = oy + Math.trunc((h - s) / 2);
+    return {G, s, kx, ky, cx: kx + s / 2, cy: ky + s / 2};
+  }
+
+  angle() {
+    return this.minDeg + this.value * (this.maxDeg - this.minDeg);
+  }
+
+  arcColor() {
+    if (!this.arcStart) return 0;
+    const a = colorForState(this.arcStart, this.state) ?? 0;
+    return this.arcEnd ? lerpHsv(a, colorForState(this.arcEnd, this.state) ?? a, this.value) : a;
+  }
+
+  draw() {
+    super.draw();
+    const px = this.ctx.px, g = this.geometry();
+    const ops = [];
+    if (this.knob && g.s > 0) this.knob.ops(g.s, g.s, this.state, ops, g.kx, g.ky);
+    if (this.indicator && g.s > 0) {
+      const sc = this.indicatorScale;
+      const iw = this.indicator.intrinsicWidth * sc, ih = this.indicator.intrinsicHeight * sc;
+      const padTop = (this.indicator.padding?.top ?? 0) * sc;
+      // At angle 0 the indicator sits at the bottom edge; rotate its centre about the knob centre.
+      const x0 = g.cx - iw / 2, y0 = g.ky + g.s - ih - padTop;
+      const a = (this.angle() * Math.PI) / 180;
+      const dx = x0 + iw / 2 - g.cx, dy = y0 + ih / 2 - g.cy;
+      const rx = g.cx + dx * Math.cos(a) - dy * Math.sin(a), ry = g.cy + dx * Math.sin(a) + dy * Math.cos(a);
+      const sub = [];
+      this.indicator.ops(Math.round(iw), Math.round(ih), this.state, sub, Math.round(rx - iw / 2), Math.round(ry - ih / 2));
+      for (const o of sub) ops.push({...o, rotate: this.angle()});
+    }
+    renderOps(this.opsEl, ops, px);
+    const cv = this.canvas;
+    if (cv.width !== this.width || cv.height !== this.height) {
+      cv.width = Math.max(1, this.width);
+      cv.height = Math.max(1, this.height);
+      cv.style.width = px(this.width) + 'px';
+      cv.style.height = px(this.height) + 'px';
+    }
+    const c2 = cv.getContext('2d');
+    c2.clearRect(0, 0, cv.width, cv.height);
+    const color = this.arcColor();
+    if (!color || !this.arcWidth || g.s <= 0) return;
+    const range = this.maxDeg - this.minDeg;
+    let sweep = range * (this.value - this.arcStartPoint);
+    if (Math.abs(sweep) < 0.01) return;
+    let start = this.minDeg + this.arcStartPoint * range + 90;
+    const half = this.arcWidth / 2;
+    const r = g.s / 2 + half + this.arcOffset;
+    // Round caps would overshoot the value: trim by the cap angle (scaled down for short arcs).
+    let cap = (180 * half) / (Math.PI * r);
+    if (sweep > 0) {
+      start += cap;
+      sweep -= sweep < 15 ? (2 * cap * sweep) / 15 : 2 * cap;
+    } else {
+      start -= cap;
+      sweep += sweep > -15 ? (2 * cap * sweep) / -15 : 2 * cap;
+    }
+    const rad = d => (d * Math.PI) / 180;
+    c2.beginPath();
+    c2.arc(g.cx, g.cy, r, rad(start), rad(start + sweep), sweep < 0);
+    c2.strokeStyle = colorToCss(color);
+    c2.lineWidth = this.arcWidth;
+    c2.lineCap = 'round';
+    c2.stroke();
+  }
+
+  // Rotary drag: the value follows the finger's angle change around the centre.
+  pointerAngle(e) {
+    const g = this.geometry();
+    let a = (Math.atan2(-(e.x - g.cx), e.y - g.cy) * 180) / Math.PI;
+    return a < 0 ? a + 360 : a;
+  }
+
+  get interceptible() { return true; }
+
+  onPointerDown(e) {
+    if (!this.state.enabled) return false;
+    this._drag = {a: this.pointerAngle(e), v: this.value, x0: e.x, y0: e.y, started: false};
+    this.setPressed(true);
+    this.onPressChanged?.(true);
+    return true;
+  }
+
+  onPointerMove(e) {
+    const d = this._drag;
+    if (!d) return;
+    if (!d.started) {
+      if (Math.hypot(e.x - d.x0, e.y - d.y0) <= 8 * this.ctx.dpr) return;
+      d.started = true;
+      this.disallowIntercept = true;
+    }
+    const a = this.pointerAngle(e);
+    let delta = a - d.a;
+    if (delta > 180) delta -= 360; else if (delta < -180) delta += 360;
+    d.a = a;
+    d.v = clamp01(d.v + delta / (this.maxDeg - this.minDeg));
+    let v = d.v;
+    if (Number.isFinite(this.snapTo) && Math.abs(v - this.snapTo) < 0.02) v = this.snapTo;
+    this.setValue(v, true);
+  }
+
+  onPointerUp() {
+    this._drag = null;
+    this.setPressed(false);
+    this.onPressChanged?.(false);
+  }
+
+  onPointerCancel() {
+    this.onPointerUp();
+  }
+}
+
+const LAYOUT_ATTR = /^(android:)?(layout_|id$|style$)/;
+
+/**
+ * DSPRoundKnobLayout: a FastLayout composed in code of the round knob and its
+ * labels (left/right, label, value label, lock label), each from its style;
+ * the knob also reads the layout element's own attributes (format, snap, arc
+ * start), as the reference passes the same AttributeSet.
+ */
+export class DSPRoundKnobLayout extends FastLayout {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.param = idOf(a.raw('param'));
+    this.enablingParam = idOf(a.raw('enablingParam'));
+    this.dspParamDef = idOf(a.raw('dspParamDef'));
+    const res = ctx.res, theme = a.theme;
+    const styleOf = name => theme.styleName(a.raw(name));
+    const knobXml = {};
+    for (const [k, v] of Object.entries(a.xml)) if (!LAYOUT_ATTR.test(k)) knobXml[k] = v;
+    const knobSa = new a.constructor(res, theme, knobXml, a.xml.style ? theme.styleName(a.xml.style) : null, styleOf('roundKnobStyle'));
+    this.knob = new RoundKnob(ctx, knobSa);
+    this.knob.id = '_knob';
+    this.adopt(this.knob, ctx.inflater.styledAttributes({}, theme), styleOf('roundKnobStyle'));
+    const label = (styleKey, textKey, id) => {
+      const sn = styleOf(styleKey);
+      if (!sn) return null;
+      const sa = new a.constructor(res, theme, {}, sn);
+      const v = new FastTextView(ctx, sa);
+      v.id = id;
+      if (textKey) v.setText(a.string(textKey, '') ?? '');
+      this.adopt(v, sa);
+      return v;
+    };
+    this.leftLabel = label('leftLabelStyle', 'leftLabelText', 'left_label');
+    this.rightLabel = label('rightLabelStyle', 'rightLabelText', 'right_label');
+    this.label = label('labelStyle', 'labelText', '_label');
+    this.valueLabel = label('valueLabelStyle', null, '_value_label');
+    const animStyle = styleOf('valueLabelPressedAnimStyle');
+    this.pressAnim = animStyle ? new a.constructor(res, theme, {}, animStyle) : null;
+    this.knob.onChange = v => { if (this.param) ctx.dsp?.set(this.param, v); this.updateValueLabel(); };
+    this.knob.onPressChanged = on => this.animateValueLabel(on);
+    // Volume: no format in the layout; the parameter definition shows percent.
+    if (!this.knob.fmt && this.dspParamDef) {
+      this.knob.fmt = res.stringByName('f0_percent') ?? '%.0f%%';
+      this.knob.fmtMin = 0;
+      this.knob.fmtMax = 100;
+    }
+    ctx.bus.subscribe('bus_dsp', () => this.syncDsp());
+    queueMicrotask(() => this.syncDsp());
+  }
+
+  /**
+   * "Resizable" knob styles (value label attached to both parent edges, label
+   * above it, knob above the label) form a bottom-up stack. Read literally,
+   * the solver rules traced so far stretch the value label over the whole
+   * layout and push the knob out of bounds, so the stack is laid out by
+   * intent here (research notebook F32, open).
+   */
+  get resizable() {
+    const v = this.valueLabel?.lp;
+    return !!(v && v.attachTop?.kind === 1 && v.attachBottom?.kind === 1);
+  }
+
+  onMeasure(wSpec, hSpec) {
+    if (!this.resizable) return super.onMeasure(wSpec, hSpec);
+    const W = MeasureSpec.getSize(wSpec), H = MeasureSpec.getSize(hSpec);
+    this.setMeasuredDimension(W, H);
+    const iw = Math.max(0, W - this.paddingLeft - this.paddingRight);
+    const wrap = v => v.measure(MeasureSpec.make(iw, MeasureSpec.AT_MOST), MeasureSpec.make(H, MeasureSpec.AT_MOST));
+    for (const v of [this.valueLabel, this.label, this.leftLabel, this.rightLabel]) if (v) wrap(v);
+    const vl = this.valueLabel.lp, kl = this.knob.lp;
+    let below = this.valueLabel.measuredHeight + vl.topMargin + vl.bottomMargin;
+    if (this.label) below += this.label.measuredHeight + this.label.lp.topMargin + this.label.lp.bottomMargin;
+    let s = Math.min(iw, H - this.paddingTop - this.paddingBottom - below - (kl.topMargin ?? 0) - (kl.bottomMargin ?? 0));
+    if (kl.maxHeight > 0) s = Math.min(s, kl.maxHeight);
+    s = Math.max(0, s);
+    this.knob.measure(MeasureSpec.make(s, MeasureSpec.EXACTLY), MeasureSpec.make(s, MeasureSpec.EXACTLY));
+  }
+
+  onLayout(...args) {
+    if (!this.resizable) return super.onLayout(...args);
+    const W = this.width, H = this.height;
+    const cx = v => Math.round((W - v.measuredWidth) / 2);
+    const vl = this.valueLabel.lp, kl = this.knob.lp;
+    const vb = H - this.paddingBottom - vl.bottomMargin, vt = vb - this.valueLabel.measuredHeight;
+    this.valueLabel.layout(cx(this.valueLabel), vt, cx(this.valueLabel) + this.valueLabel.measuredWidth, vb);
+    let edge = vt - vl.topMargin;
+    if (this.label) {
+      const ll = this.label.lp;
+      const lb = edge - ll.bottomMargin, lt = lb - this.label.measuredHeight;
+      this.label.layout(cx(this.label), lt, cx(this.label) + this.label.measuredWidth, lb);
+      edge = lt - ll.topMargin;
+    }
+    const kb = edge - (kl.bottomMargin ?? 0), kt = kb - this.knob.measuredHeight;
+    this.knob.layout(cx(this.knob), kt, cx(this.knob) + this.knob.measuredWidth, kb);
+  }
+
+  adopt(v, sa, styleName = null) {
+    const lsa = styleName ? new sa.constructor(sa.res, sa.theme, {}, styleName) : sa;
+    v.lp = this.generateLayoutParams(lsa);
+    this.addView(v);
+  }
+
+  syncDsp() {
+    const dsp = this.ctx.dsp;
+    if (!dsp || !this.param) return;
+    const v = dsp.get(this.param);
+    if (typeof v === 'number' && !this.knob._drag) this.knob.setValue(v);
+    const en = !!dsp.get('dsp_enabled') && (this.enablingParam ? dsp.get(this.enablingParam) !== false : true);
+    for (const c of this.children) c.setEnabled(en);
+    this.updateValueLabel();
+  }
+
+  updateValueLabel() {
+    this.valueLabel?.setText(this.knob.valueText());
+  }
+
+  animateValueLabel(on) {
+    const v = this.valueLabel, p = this.pressAnim;
+    if (!v || !p) return;
+    const ms = p.int('android:duration', 300);
+    const target = on ? {scaleX: p.float('android:scaleX', 1), scaleY: p.float('android:scaleY', 1), translationY: p.dim('android:translationY', 0)} : {scaleX: 1, scaleY: 1, translationY: 0};
+    v.pivotX = 0;
+    v.pivotY = v.height;
+    this.ctx.tween(v, target, ms / 1000);
+  }
+}
+
+/** Tone knobs: boost-only, shown in percent (the reference's default tone display). */
+export class DSPToneRoundKnobLayout extends DSPRoundKnobLayout {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.knob.fmt = ctx.res.stringByName('f0_percent') ?? '%.0f%%';
+    this.knob.fmtMin = 0;
+    this.knob.fmtMax = 100;
+    this.knob.fmtMid = NaN;
+  }
+}
+
+register(['RoundKnob'], RoundKnob);
+register(['DSPRoundKnobLayout'], DSPRoundKnobLayout);
+register(['DSPToneRoundKnobLayout'], DSPToneRoundKnobLayout);
+
+/**
+ * BusAAScrollingBehavior (EQ pages): pages the parent's tab layouts
+ * horizontally. cmd_nav_to_eq with arg1 selects a tab (posScrollAnimTime);
+ * a horizontal swipe settles on the nearest page (settleAnimTime) and posts
+ * the tab state so the tab bar follows.
+ */
+export class PagesScrollingBehavior extends View {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.visibility = 8;
+    this.posMs = a.int('posScrollAnimTime', 250);
+    this.settleMs = a.int('settleAnimTime', 450);
+    this.posMsg = idOf(a.raw('onPosChangedMsgId'));
+    this.page = 0;
+    this.offset = 0;
+    ctx.bus.subscribe('bus_gui', (msg, src, d) => {
+      if (msg === this.posMsg && d?.arg1 !== undefined) this.go(d.arg1, true);
+    });
+    queueMicrotask(() => this.attach());
+  }
+
+  pages() {
+    return (this.parent?.children ?? []).filter(c => c !== this && !(c instanceof PagesScrollingBehavior) && c.visibility !== 8);
+  }
+
+  attach() {
+    const host = this.parent;
+    if (!host || host._pager) return;
+    host._pager = this;
+    const self = this;
+    // Pages clip horizontally (their content may overflow vertically, e.g. pressed labels).
+    for (const p of this.pages()) p.el.style.clipPath = 'inset(-100vh 0px -100vh 0px)';
+    host.onInterceptStart = (start, now) => {
+      const dx = now.rootX - start.rootX, dy = now.rootY - start.rootY;
+      if (Math.abs(dx) <= Math.abs(dy) * 1.5) return false;
+      self.drag = {x: start.rootX, offset: self.offset, samples: [[start.time, start.rootX]]};
+      return true;
+    };
+    host.onPointerMove = e => {
+      const d = self.drag;
+      if (!d) return;
+      d.samples.push([e.time, e.rootX]);
+      if (d.samples.length > 6) d.samples.shift();
+      const max = (self.pages().length - 1) * host.width;
+      self.setOffset(Math.max(0, Math.min(max, d.offset - (e.rootX - d.x))));
+    };
+    host.onPointerUp = () => {
+      const d = self.drag;
+      self.drag = null;
+      if (!d) return;
+      const [t0, x0] = d.samples[0], [t1, x1] = d.samples[d.samples.length - 1];
+      const v = t1 > t0 ? -(x1 - x0) / (t1 - t0) : 0;
+      let page = Math.round(self.offset / host.width);
+      if (Math.abs(v) > 0.3) page = v > 0 ? Math.ceil(self.offset / host.width) : Math.floor(self.offset / host.width);
+      self.go(page, true, self.settleMs);
+    };
+    const onLayout = host.onLayout.bind(host);
+    host.onLayout = (...args) => {
+      onLayout(...args);
+      self.setOffset(self.page * host.width, true);
+    };
+    this.go(this.ctx.eqTab ?? 0, false);
+  }
+
+  setOffset(x, force = false) {
+    if (x === this.offset && !force) return;
+    this.offset = x;
+    const w = this.parent?.width ?? 0;
+    this.pages().forEach((p, i) => {
+      // Pages share the host frame; each sits one host width further right.
+      p.translationX = Math.round(i * w - x) - (p.left - this.pages()[0].left);
+      p.invalidate();
+    });
+  }
+
+  go(page, animate, ms = this.posMs) {
+    const n = this.pages().length;
+    page = Math.max(0, Math.min(n - 1, page | 0));
+    const changed = page !== this.page;
+    this.page = page;
+    this.ctx.eqTab = page;
+    const host = this.parent;
+    if (!host) return;
+    const target = page * host.width;
+    this._anim?.();
+    if (!animate) this.setOffset(target, true);
+    else {
+      const from = this.offset, t0 = performance.now(), dur = animTime(this.ctx, ms / 1000) * 1000;
+      this._anim = this.ctx.onFrame(now => {
+        const t = dur ? Math.min(1, (now - t0) / dur) : 1;
+        const e = 1 - (1 - t) * (1 - t);
+        this.setOffset(from + (target - from) * e);
+        return t < 1 ? true : (this._anim = null, false);
+      });
+    }
+    if (changed || !animate) this.ctx.bus.post('bus_gui', 'msg_eq_tab_changed', this, {arg1: page});
+  }
+}
+
+/** BusSelectableBehavior (tab bar): activates the button whose arg1 is the current tab. */
+export class TabSelectableBehavior extends View {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.visibility = 8;
+    ctx.bus.subscribe('bus_gui', (msg, src, d) => {
+      if (msg === 'msg_eq_tab_changed') this.select(d.arg1);
+    });
+    queueMicrotask(() => this.select(ctx.eqTab ?? 0));
+  }
+
+  select(tab) {
+    for (const c of this.parent?.children ?? []) if (c.arg1 !== undefined) c.setActivated?.(c.arg1 === tab);
+  }
+}
+
+register(['BusAAScrollingBehavior'], PagesScrollingBehavior);
+register(['BusSelectableBehavior'], TabSelectableBehavior);

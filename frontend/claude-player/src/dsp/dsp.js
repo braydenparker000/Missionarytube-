@@ -29,8 +29,8 @@ const DEFAULTS = {
   dsp_tone_enabled: false,
   dsp_limiter_enabled: true,
   dsp_preamp: 0.5,
-  dsp_bass_gain: 0.5,
-  dsp_treble_gain: 0.5,
+  dsp_bass_gain: 0, // tone knobs boost only (0..100%)
+  dsp_treble_gain: 0,
   dsp_balance: 0.5,
   dsp_stereo_fx: 0,
   dsp_tempo_enabled: false,
@@ -47,6 +47,8 @@ const DEFAULTS = {
   dsp_reverb_param6: 0.5, // predelay mix
   dsp_reverb_param7: 0.5, // damp
   dsp_eq_preset_name: null,
+  // No platform audio effects on the web (the MusicFX button stays disabled).
+  dsp_has_platform_fx: false,
 };
 
 // Which update message each parameter posts (layout updateMsgId attributes).
@@ -237,8 +239,8 @@ export class DSP {
     k(n.preamp.gain, eq ? dbToGain((v.dsp_preamp - 0.5) * 2 * BAND_RANGE_DB) : 1);
     n.bands.forEach((f, i) => k(f.gain, eq ? this.bands[i].gain * BAND_RANGE_DB : 0));
     const tone = on && v.dsp_tone_enabled;
-    k(n.bass.gain, tone ? (v.dsp_bass_gain - 0.5) * 2 * TONE_RANGE_DB : 0);
-    k(n.treble.gain, tone ? (v.dsp_treble_gain - 0.5) * 2 * TONE_RANGE_DB : 0);
+    k(n.bass.gain, tone ? v.dsp_bass_gain * TONE_RANGE_DB : 0);
+    k(n.treble.gain, tone ? v.dsp_treble_gain * TONE_RANGE_DB : 0);
     // Mono averages the channels; stereo X widens the side signal up to 2x.
     const mono = on && v.dsp_mono_enabled;
     const w = mono ? 0 : 1 + (on ? v.dsp_stereo_fx : 0);
@@ -315,7 +317,7 @@ export class DSP {
     const out = new Float32Array(freqs.length);
     const v = this.values;
     if (!(v.dsp_enabled && v.dsp_tone_enabled)) return out;
-    for (const [type, f0, g] of [['lowshelf', BASS_HZ, (v.dsp_bass_gain - 0.5) * 2 * TONE_RANGE_DB], ['highshelf', TREBLE_HZ, (v.dsp_treble_gain - 0.5) * 2 * TONE_RANGE_DB]]) {
+    for (const [type, f0, g] of [['lowshelf', BASS_HZ, v.dsp_bass_gain * TONE_RANGE_DB], ['highshelf', TREBLE_HZ, v.dsp_treble_gain * TONE_RANGE_DB]]) {
       if (!g) continue;
       const mag = biquadMagnitude(type, f0, g, Math.SQRT1_2, freqs, this.ac?.sampleRate ?? 48000);
       for (let i = 0; i < freqs.length; i++) out[i] += 20 * Math.log10(mag[i]);

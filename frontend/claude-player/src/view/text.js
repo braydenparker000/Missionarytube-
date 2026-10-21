@@ -537,10 +537,12 @@ export class BusActionButton extends FastButton {
     this.msgId = idName(a?.raw('msgId'));
     this.longPressMsgId = idName(a?.raw('longPressMsgId'));
     if (this.longPressMsgId) this.longClickable = true;
+    const arg1 = a?.raw('arg1');
+    this.arg1 = arg1 === undefined || !/^(@integer\/|-?\d)/.test(arg1) ? undefined : a.int('arg1', 0);
   }
 
   onClick() {
-    if (this.msgId) this.ctx.bus?.post(this.busId, this.msgId, this);
+    if (this.msgId) this.ctx.bus?.post(this.busId, this.msgId, this, this.arg1 === undefined ? undefined : {arg1: this.arg1});
     else super.onClick();
   }
 

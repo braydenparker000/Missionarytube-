@@ -70,6 +70,14 @@ export function installInput(ctx, container) {
     container.setPointerCapture?.(e.pointerId);
     if (typeof hit.onPointerDown === 'function' && hit.onPointerDown(event(hit, p, e))) {
       active = {id: e.pointerId, view: hit, custom: true};
+      // An interceptible view lets ancestors take a gesture over until it sets
+      // disallowIntercept (requestDisallowInterceptTouchEvent).
+      if (hit.interceptible) {
+        hit.disallowIntercept = false;
+        const list = [];
+        for (let c = hit.parent; c; c = c.parent) if (typeof c.onInterceptStart === 'function') list.push(c);
+        if (list.length) Object.assign(active, {start: p, interceptors: list});
+      }
       return;
     }
     let v = hit;
@@ -101,6 +109,17 @@ export function installInput(ctx, container) {
     if (!a || a.id !== e.pointerId) return;
     const p = point(e);
     if (a.custom) {
+      if (a.interceptors && !a.view.disallowIntercept && (Math.abs(p.x - a.start.x) > slop || Math.abs(p.y - a.start.y) > slop)) {
+        for (const c of a.interceptors) {
+          if (c.onInterceptStart(event(c, a.start, e), event(c, p, e))) {
+            a.view.onPointerCancel?.();
+            active = {id: a.id, view: c, custom: true};
+            c.onPointerMove?.(event(c, p, e));
+            return;
+          }
+        }
+        a.interceptors = null;
+      }
       a.view.onPointerMove?.(event(a.view, p, e));
       return;
     }
