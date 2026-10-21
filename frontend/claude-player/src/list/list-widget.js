@@ -71,11 +71,14 @@ export class AAItemView extends SceneFastLayout {
     this.line2?.setText(track?.artist ?? '');
     this.meta?.setText(track?.meta ?? '');
     this.num?.setText('');
-    this.image?.setArt(track?.art ?? null);
-    if (track && !track.art && track.artId && this.ctx.library) {
-      this.ctx.library.artFor(track).then(art => {
+    // List rows use cached thumbnails; the player's cover items the full image.
+    const field = this.useThumb ? 'thumb' : 'art';
+    const have = track?.[field] ?? (this.useThumb ? track?.art : null) ?? null;
+    this.image?.setArt(have);
+    if (track && !have && track.artId && this.ctx.library) {
+      (this.useThumb ? this.ctx.library.thumbFor(track) : this.ctx.library.artFor(track)).then(art => {
         if (art && this.track === track) {
-          track.art = art;
+          track[field] = art;
           this.image?.setArt(art);
         }
       });

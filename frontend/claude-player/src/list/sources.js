@@ -165,7 +165,7 @@ export class GroupSource {
   bindItem(v, i) {
     const g = this.groups[i];
     const first = g.tracks[0];
-    v.bind({id: 'group:' + g.kind + ':' + g.title, title: g.title, artist: g.kind === 'album' ? g.artist : `${g.tracks.length}`, art: first?.art, artId: first?.artId, meta: ''});
+    v.bind({id: 'group:' + g.kind + ':' + g.title, title: g.title, artist: g.kind === 'album' ? g.artist : `${g.tracks.length}`, art: first?.art, thumb: first?.thumb, artId: first?.artId, meta: ''});
   }
 
   onItemClick(i) {

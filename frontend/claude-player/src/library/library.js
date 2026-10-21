@@ -4,6 +4,12 @@ import {LibraryDb} from './db.js';
 import {readTags} from './tags.js';
 import {fetchR2Library, r2Tracks, R2_LIBRARY_URL} from './r2.js';
 
+// Remote covers: full images in Cache Storage on first view (capped, oldest
+// out first); 256 px thumbnails made once per cover for list rows (kept).
+// Object URLs live in small in-memory LRUs that release their images.
+const COVERS = 'claude-player-covers', THUMBS = 'claude-player-thumbs';
+const COVER_CAP = 1500, THUMB_PX = 256, MEM_FULL = 60, MEM_THUMB = 800;
+
 // Per-track listening data for remote tracks (state store, key u:<id>).
 const USER_FIELDS = ['wave', 'durationMs', 'plays', 'lastPlayed', 'rating'];
 
@@ -33,6 +39,8 @@ export class Library {
     this.tracks = [];
     this.byId = new Map();
     this.artCache = new Map();
+    this.thumbCache = new Map();
+    this.coverPuts = 0;
     this.fileUrls = new Map();
     this.localTracks = [];
     this.remoteTracks = [];
@@ -161,16 +169,80 @@ export class Library {
     return url;
   }
 
-  /** Cover {url, width, height} or null. */
+  /** Cover {url, width, height} or null (full size). */
   artFor(t) {
     if (t.art) return Promise.resolve(t.art);
     if (!t.artId) return Promise.resolve(null);
-    let p = this.artCache.get(t.artId);
-    if (!p) {
-      p = /^https:/.test(t.artId) ? loadArtUrl(t.artId) : this.db.art(t.artId).then(b => (b ? loadArt(b) : null));
-      this.artCache.set(t.artId, p);
+    if (!/^https:/.test(t.artId)) {
+      let p = this.artCache.get(t.artId);
+      if (!p) this.artCache.set(t.artId, p = this.db.art(t.artId).then(b => (b ? loadArt(b) : null)));
+      return p;
     }
-    return p;
+    return this.memo(this.artCache, MEM_FULL, t, 'art', () => this.remoteCover(t.artId).then(b => (b ? loadArt(b) : null)));
+  }
+
+  /** Small cover for list rows: a cached 256 px thumbnail of a remote cover. */
+  thumbFor(t) {
+    if (!t.artId || !/^https:/.test(t.artId)) return this.artFor(t);
+    if (t.thumb) return Promise.resolve(t.thumb);
+    return this.memo(this.thumbCache, MEM_THUMB, t, 'thumb', async () => {
+      const url = t.artId;
+      const caches_ = globalThis.caches ? await caches.open(THUMBS).catch(() => null) : null;
+      let blob = await caches_?.match(url).then(r => r?.blob()).catch(() => null);
+      if (!blob) {
+        const full = await this.remoteCover(url);
+        if (!full) return null;
+        blob = await makeThumb(full) ?? full;
+        caches_?.put(url, new Response(blob, {headers: {'content-type': blob.type || 'image/jpeg'}})).catch(() => {});
+      }
+      return loadArt(blob);
+    });
+  }
+
+  /**
+   * In-memory LRU of object-URL images keyed by cover URL: an evicted entry
+   * revokes its URL and clears the field on the records that used it.
+   */
+  memo(map, cap, t, field, make) {
+    const key = t.artId;
+    let e = map.get(key);
+    if (e) { map.delete(key); map.set(key, e); }
+    else {
+      e = {p: make(), owners: new Set()};
+      map.set(key, e);
+      while (map.size > cap) {
+        const [k, old] = map.entries().next().value;
+        map.delete(k);
+        old.p.then(a => { if (a?.url?.startsWith('blob:')) URL.revokeObjectURL(a.url); });
+        for (const o of old.owners) if (o[field]) o[field] = null;
+      }
+    }
+    e.owners.add(t);
+    return e.p;
+  }
+
+  /** A remote cover's bytes: Cache Storage first, else the network (then cached). */
+  async remoteCover(url) {
+    const store = globalThis.caches ? await caches.open(COVERS).catch(() => null) : null;
+    const hit = await store?.match(url).catch(() => null);
+    if (hit) return hit.blob();
+    try {
+      const r = await fetch(url, {mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer'});
+      if (!r.ok) return null;
+      const blob = await r.blob();
+      if (store) {
+        await store.put(url, new Response(blob, {headers: {'content-type': blob.type || 'image/jpeg'}})).catch(() => {});
+        if (++this.coverPuts % 50 === 0) this.pruneCovers(store);
+      }
+      return blob;
+    } catch {
+      return null;
+    }
+  }
+
+  async pruneCovers(store) {
+    const keys = await store.keys().catch(() => []);
+    for (let i = 0; i < keys.length - COVER_CAP; i++) await store.delete(keys[i]).catch(() => {});
   }
 
   /**
@@ -271,15 +343,18 @@ export function trackMetaLabel(t) {
   return parts.join(' ');
 }
 
-/** Cover by URL: the image's natural size for the fit rule (no pixel access, so no CORS needed). */
-async function loadArtUrl(url) {
-  const img = new Image();
-  img.decoding = 'async';
-  img.referrerPolicy = 'no-referrer';
-  img.src = url;
+/** A 256 px JPEG thumbnail of an image blob, or null when the browser cannot resize. */
+async function makeThumb(blob) {
   try {
-    await img.decode();
-    return {url, width: img.naturalWidth || 1, height: img.naturalHeight || 1};
+    const bmp = await createImageBitmap(blob);
+    const k = Math.min(1, THUMB_PX / Math.max(bmp.width, bmp.height));
+    const w = Math.max(1, Math.round(bmp.width * k)), h = Math.max(1, Math.round(bmp.height * k));
+    const canvas = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), {width: w, height: h});
+    const g = canvas.getContext('2d');
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(bmp, 0, 0, w, h);
+    bmp.close?.();
+    return canvas.convertToBlob ? await canvas.convertToBlob({type: 'image/jpeg', quality: 0.85}) : await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
   } catch {
     return null;
   }

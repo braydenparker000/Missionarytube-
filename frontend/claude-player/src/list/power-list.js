@@ -124,6 +124,7 @@ export class PowerList extends FastLayout {
       v.lp = this.generateLayoutParams(null);
       v.parent = this;
       v.listItemType = type;
+      v.useThumb = true;
       this.children.push(v);
       this.el.appendChild(v.el);
       v.onClick = () => this.onItemClick(v);
