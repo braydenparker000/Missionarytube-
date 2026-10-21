@@ -207,6 +207,25 @@ export class LevelListDrawable extends Drawable {
   }
 }
 
+/** ScaleDrawable / ClipDrawable: draws the child over a level-proportional part of the bounds. */
+export class ScaleDrawable extends Drawable {
+  constructor(d, sw, sh) {
+    super();
+    this.d = d; this.sw = sw; this.sh = sh;
+    if (d) { this.intrinsicWidth = d.intrinsicWidth; this.intrinsicHeight = d.intrinsicHeight; this.padding = d.padding; }
+  }
+  get stateful() { return !!this.d?.stateful; }
+  applyTint(t) { this.d = this.d?.withTint(t) ?? null; }
+  ops(w, h, state, out, x = 0, y = 0) {
+    if (!this.d) return;
+    const f = (10000 - this.level) / 10000;
+    const dw = Math.round(w - w * f * this.sw), dh = Math.round(h - h * f * this.sh);
+    if (dw <= 0 || dh <= 0) return;
+    this.d.alpha = this.alpha;
+    this.d.ops(dw, dh, state, out, x, y + (h - dh));
+  }
+}
+
 export class RotateDrawable extends Drawable {
   constructor(d, from, to) {
     super();
@@ -397,7 +416,14 @@ export class Drawables {
       case 'rotate': {
         return new RotateDrawable(this.child(tree, attrs, theme, name), parseFloat(attrs['android:fromDegrees'] ?? '0'), parseFloat(attrs['android:toDegrees'] ?? '360'));
       }
-      case 'clip': case 'scale': case 'animated-rotate':
+      case 'clip': case 'scale': {
+        // Level-driven partial drawing (progress bars): width scales with level/10000.
+        const pct = v => (v ? parseFloat(v) / (v.endsWith('%') ? 100 : 1) : 0);
+        const sw = tag === 'clip' ? (/vertical/.test(attrs['android:clipOrientation'] ?? '') ? 0 : 1) : pct(attrs['android:scaleWidth']);
+        const sh = tag === 'clip' ? (/vertical/.test(attrs['android:clipOrientation'] ?? '') ? 1 : 0) : pct(attrs['android:scaleHeight']);
+        return new ScaleDrawable(this.child(tree, attrs, theme, name), sw, sh);
+      }
+      case 'animated-rotate':
         return this.child(tree, attrs, theme, name);
       case 'bitmap': case 'nine-patch': {
         const src = attrs['android:src'];

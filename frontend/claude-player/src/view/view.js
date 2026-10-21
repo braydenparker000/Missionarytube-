@@ -236,8 +236,8 @@ export class View {
       el.style.visibility = hidden ? 'hidden' : '';
     }
     const w = this.right - this.left, h = this.bottom - this.top;
-    if (d.w !== w) { d.w = w; el.style.width = px(w) + 'px'; }
-    if (d.h !== h) { d.h = h; el.style.height = px(h) + 'px'; }
+    if (d.w !== w) { d.w = w; el.style.width = px(w) + 'px'; this._dirty = true; }
+    if (d.h !== h) { d.h = h; el.style.height = px(h) + 'px'; this._dirty = true; }
     const x = this.left + this.translationX, y = this.top + this.translationY;
     const sx = this.scaleX, sy = this.scaleY, rot = this.rotation, rx = this.rotationX, ry = this.rotationY;
     if (d.x !== x || d.y !== y || d.sx !== sx || d.sy !== sy || d.rot !== rot || d.rx !== rx || d.ry !== ry) {
@@ -265,7 +265,9 @@ export class View {
   /** Appearance (background etc.); subclasses extend. */
   draw() {
     const bg = this.background;
-    if (bg !== this._dom.bg || bg?.version !== this._dom.bgVersion || this._dom.bgState !== stateKey(this.state)) {
+    const size = this.width + 'x' + this.height;
+    if (bg !== this._dom.bg || bg?.version !== this._dom.bgVersion || this._dom.bgState !== stateKey(this.state) || (bg && this._dom.bgSize !== size)) {
+      this._dom.bgSize = size;
       this._dom.bg = bg;
       this._dom.bgVersion = bg?.version;
       this._dom.bgState = stateKey(this.state);
