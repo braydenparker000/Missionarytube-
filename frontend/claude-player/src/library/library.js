@@ -2,7 +2,7 @@
 // media/cover URLs, and category views (albums, artists, genres, folders).
 import {LibraryDb} from './db.js';
 import {readTags, readRemotePicture} from './tags.js';
-import {fetchR2Library, r2Tracks, R2_LIBRARY_URL} from './r2.js';
+import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars} from './r2.js';
 
 // Remote covers: full images in Cache Storage on first view (capped, oldest
 // out first); 256 px thumbnails made once per cover for list rows (kept).
@@ -313,9 +313,16 @@ export class Library {
    */
   async waveFor(t, bars = 100) {
     if (t.wave) return t.wave;
-    // Remote tracks only use the index's pre-generated waveform: decoding
-    // would download the whole file.
-    if (t.remote || !this.byId.has(t.id)) return null;
+    if (!this.byId.has(t.id)) return null;
+    // Remote tracks only use pre-generated waveforms (a small file on R2):
+    // decoding would download the whole song.
+    if (t.remote) {
+      const w = t.waveUrl ? await fetchWaveform(t.waveUrl) : null;
+      if (!w) return null;
+      t.wave = peaksToBars(w.peaks, bars);
+      await this.saveTrack(t);
+      return t.wave;
+    }
     const file = await this.db?.file(t.id);
     if (!file || typeof OfflineAudioContext !== 'function') return null;
     try {

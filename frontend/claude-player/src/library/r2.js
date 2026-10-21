@@ -46,9 +46,11 @@ export function r2Tracks(data, url = R2_LIBRARY_URL) {
       replayGain: m.rgTrack != null ? {track: m.rgTrack, album: m.rgAlbum, trackPeak: m.rgTrackPeak, albumPeak: m.rgAlbumPeak} : null,
       opusHeadGainDb: m.opusHeadGainDb ?? null,
     };
-    // A pre-generated seek-bar waveform spares the player decoding the whole file.
+    // Pre-generated seek-bar waveforms: inline in the index, or a DCW1 file
+    // at <base>/waveform/<id> when the index marks waveformVersion 1.
     const wave = decodeWave(m.waveform ?? t.waveform);
     if (wave) rec.wave = wave;
+    else if ((t.waveformVersion ?? m.waveformVersion) === 1) rec.waveUrl = base + 'waveform/' + t.id;
     out.push(rec);
   }
   return out;
@@ -66,4 +68,59 @@ export function decodeWave(w) {
   }
   if (!v || v.length < 16 || v.length > 1000 || !v.every(x => x >= 0 && x <= 1)) return null;
   return v.map(x => Math.round(x * 1000) / 1000);
+}
+
+const DCW1 = 0x44435731, DCW_RATE = 16, DCW_MAX_MS = 4 * 3600 * 1000;
+
+/**
+ * Parses a DCW1 waveform file (the DrawerCast server format): "DCW1", u32
+ * duration ms, u32 bin count, u16 bins per second (16), u16 reserved (0),
+ * then one peak byte (0..255) per bin. Returns {durationMs, peaks} or null.
+ */
+export function parseDcw1(bytes) {
+  if (bytes.length < 17) return null;
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const ms = v.getUint32(4), bins = v.getUint32(8);
+  if (v.getUint32(0) !== DCW1 || v.getUint16(12) !== DCW_RATE || v.getUint16(14) !== 0) return null;
+  if (!ms || ms > DCW_MAX_MS || bins !== Math.ceil((ms * DCW_RATE) / 1000) || bytes.length !== 16 + bins) return null;
+  return {durationMs: ms, peaks: bytes.subarray(16)};
+}
+
+/** Fetches a DCW1 file (bounded size, 3 s timeout); null when absent or invalid. */
+export async function fetchWaveform(url) {
+  const max = 16 + Math.ceil((DCW_MAX_MS * DCW_RATE) / 1000);
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 3000);
+  try {
+    const r = await fetch(url, {signal: ctl.signal, credentials: 'omit', referrerPolicy: 'no-referrer'});
+    if (!r.ok || +(r.headers.get('content-length') || 0) > max) return null;
+    const reader = r.body.getReader(), chunks = [];
+    let n = 0;
+    for (;;) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      n += value.length;
+      if (n > max) { reader.cancel().catch(() => {}); return null; }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(n);
+    let at = 0;
+    for (const c of chunks) { bytes.set(c, at); at += c.length; }
+    return parseDcw1(bytes);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Peak bins reduced to `bars` bars (peak per bar), loudest bar 1. */
+export function peaksToBars(peaks, bars) {
+  const out = new Array(bars).fill(0);
+  for (let b = 0; b < bars; b++) {
+    const s0 = Math.floor((b * peaks.length) / bars), s1 = Math.max(s0 + 1, Math.floor(((b + 1) * peaks.length) / bars));
+    for (let i = s0; i < s1 && i < peaks.length; i++) if (peaks[i] > out[b]) out[b] = peaks[i];
+  }
+  const max = Math.max(...out) || 1;
+  return out.map(x => Math.round((x / max) * 1000) / 1000);
 }
