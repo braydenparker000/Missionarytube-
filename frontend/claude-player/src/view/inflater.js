@@ -141,7 +141,7 @@ export class Inflater {
     }
     const short = shortName(tag);
     if (short === 'SceneParams' || short === 'StateAnimParams') {
-      const target = this.pseudoTarget(parent, attrs);
+      const target = this.pseudoTarget(parent, attrs, pos);
       if (!target) return [];
       const sa = this.styledAttributes(attrs);
       if (short === 'SceneParams') {
@@ -162,6 +162,7 @@ export class Inflater {
       view.lp = parent.generateLayoutParams ? parent.generateLayoutParams(sa) : null;
       if (pos && pos.at >= 0) parent.addView(view, pos.at++);
       else parent.addView(view);
+      if (pos) pos.last = view;
     }
     if (children && view instanceof ViewGroup) {
       for (const c of children) this.inflateNode(c, view);
@@ -170,13 +171,16 @@ export class Inflater {
     return [view];
   }
 
-  pseudoTarget(parent, attrs) {
+  /** The view a pseudo-tag applies to: forId, the parent, or the preceding sibling. */
+  pseudoTarget(parent, attrs, pos = null) {
     const forId = attrs.forId;
     if (forId && forId !== 'parent') {
       const id = forId.replace(/^@\+?id\//, '');
       return parent.findViewById(id) ?? null;
     }
     if (forId === 'parent') return parent;
+    // Inserted (not appended) merge roots: the sibling inflated just before.
+    if (pos?.last) return pos.last;
     return parent.children[parent.children.length - 1] ?? null;
   }
 

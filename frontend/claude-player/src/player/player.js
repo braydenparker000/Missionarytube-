@@ -134,6 +134,11 @@ export class Player {
 
   play() {
     if (!this.track) return;
+    // The DSP graph needs a user gesture; play is the first one that matters.
+    if (this.audio && this.isMedia(this.track)) {
+      this.ctx.dsp?.attach(this.audio);
+      this.ctx.dsp?.resume();
+    }
     if (this.track.src && this.audio?.src) this.audio.play().catch(() => {});
     this.setState(STATE_PLAYING);
   }

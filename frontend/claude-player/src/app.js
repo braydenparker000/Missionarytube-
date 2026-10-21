@@ -12,6 +12,7 @@ import {installInput} from './input.js';
 import {Library} from './library/library.js';
 import {installImport} from './library/import-ui.js';
 import {Settings, loadStoredSettings, runtimeSettings} from './settings/settings.js';
+import {DSP} from './dsp/dsp.js';
 import './widgets/basic.js';
 import './widgets/topnav.js';
 import './widgets/time.js';
@@ -19,6 +20,7 @@ import './widgets/waveseek.js';
 import './widgets/subaa.js';
 import './widgets/milk.js';
 import './widgets/navbar.js';
+import './widgets/eq.js';
 import './list/list-widget.js';
 
 export async function loadModel(url) {
@@ -98,6 +100,7 @@ export async function boot() {
   const inflater = new Inflater(ctx);
   ctx.inflater = inflater;
   const player = new Player(ctx);
+  new DSP(ctx);
   new Settings(ctx);
   // Window decor: a plain FastLayout filling the viewport hosts the main layout.
   const decor = new FastLayout(ctx, null);
@@ -146,7 +149,7 @@ export async function boot() {
   });
   document.getElementById('cp-boot')?.remove();
   const diag = {skin: skin.name, applied, unknown: [...unknownClasses], missingIcons: [...ctx.drawables.missingIcons], config};
-  window.__cp = {ctx, res, theme, decor, skins, diag, player, library};
+  window.__cp = {ctx, res, theme, decor, skins, diag, player, library, dsp: ctx.dsp};
   return window.__cp;
 }
 
