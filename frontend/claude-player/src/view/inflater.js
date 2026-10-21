@@ -9,6 +9,7 @@ import {FastTextView, FastButton, BusActionButton} from './text.js';
 import {GONE} from '../res/values.js';
 
 const registry = new Map();
+const PSEUDO_TAGS = new Set(['SceneParams', 'StateAnimParams']);
 export const unknownClasses = new Set();
 
 export function register(names, cls) {
@@ -106,11 +107,12 @@ export class Inflater {
       for (const [k, v] of Object.entries(attrs)) if (k !== 'layout' && k !== 'optional') ov[k] = v;
       return this.inflate(layoutName, parent, {optional, overrides: Object.keys(ov).length ? ov : null});
     }
-    if (tag === 'SceneParams' || tag === 'StateAnimParams') {
+    const short = shortName(tag);
+    if (short === 'SceneParams' || short === 'StateAnimParams') {
       const target = this.pseudoTarget(parent, attrs);
       if (!target) return [];
       const sa = this.styledAttributes(attrs);
-      if (tag === 'SceneParams') {
+      if (short === 'SceneParams') {
         const lpParent = target.parent ?? parent;
         attachSceneParams(target, sa, s => (lpParent.generateLayoutParams ? lpParent.generateLayoutParams(s) : null));
       } else attachStateAnim(target, sa);
@@ -151,7 +153,7 @@ export class Inflater {
     if (Cls) return new Cls(this.ctx, sa, className);
     if (/Behavior$/.test(short)) return new BehaviorView(this.ctx, sa);
     unknownClasses.add(className);
-    const hasChildren = children && children.some(c => Array.isArray(c) && c[0] !== 'SceneParams' && c[0] !== 'StateAnimParams');
+    const hasChildren = children && children.some(c => Array.isArray(c) && !PSEUDO_TAGS.has(shortName(c[0])));
     return hasChildren ? new PlaceholderGroup(this.ctx, sa, className) : new Placeholder(this.ctx, sa, className);
   }
 }

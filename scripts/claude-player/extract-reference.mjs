@@ -5,7 +5,12 @@
 // lists and XML drawables. Vector path data and bitmap pixels are never copied;
 // such drawables keep only their declared size so original icons can replace them.
 //
-// Usage: node scripts/claude-player/extract-reference.mjs <decoded-apk-dir> <out.json>
+// Resources the UI selects from code (mode icon arrays, popup styles, toast
+// strings) are reachable from no XML root. With --code, the smali directories of
+// a decode are scanned for resource-ID constants only, mapped to names through
+// public.xml, and those names become extra roots; no code is copied.
+//
+// Usage: node scripts/claude-player/extract-reference.mjs <decoded-apk-dir> <out.json[.gz]> [--code <smali-dir>...]
 import {readFileSync, readdirSync, statSync, writeFileSync, existsSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {gzipSync} from 'node:zlib';
@@ -270,17 +275,58 @@ export function defaultRoots(model) {
   return roots;
 }
 
+// Bundled third-party code (store SDKs, Google/AndroidX/Kotlin runtimes) and
+// their resource name families are not part of the player UI.
+const FOREIGN_CODE = /^(android|androidx|kotlin|kotlinx|okhttp3|okio|ru|pl|com\/google|org)\//;
+const FOREIGN_NAME = /^(abc_|mtrl_|material_|design_|m3_|exo_|common_google_|sdk_pay_|mr_|fallback_menu|status_bar_notification|androidx_|call_notification|copy_toast|search_menu_title|item_touch_helper)/;
+const CODE_TYPES = new Map([['array', 'array'], ['string', 'string'], ['plurals', 'plurals'], ['dimen', 'dimen'], ['integer', 'integer'], ['bool', 'bool'], ['fraction', 'fraction'], ['color', 'color'], ['style', 'style'], ['layout', 'layout'], ['drawable', 'drawable'], ['mipmap', 'mipmap'], ['attr', 'attr'], ['xml', 'xml'], ['menu', 'menu'], ['anim', 'anim'], ['animator', 'animator'], ['interpolator', 'interpolator'], ['font', 'font']]);
+
+/** Roots for resources referenced by ID from the player's own code. */
+export function codeRoots(decodedDir, smaliDirs) {
+  const pub = readFileSync(join(decodedDir, 'res/values/public.xml'), 'utf8');
+  const byId = new Map();
+  for (const m of pub.matchAll(/<public type="([^"]+)" name="([^"]+)" id="(0x[0-9a-f]+)"/g)) byId.set(m[3], [m[1], m[2]]);
+  const found = new Set();
+  const walk = (base, d) => {
+    for (const f of readdirSync(d).sort()) {
+      const p = join(d, f);
+      if (statSync(p).isDirectory()) {
+        if (!FOREIGN_CODE.test(p.slice(base.length + 1) + '/')) walk(base, p);
+      } else if (f.endsWith('.smali')) {
+        for (const m of readFileSync(p, 'utf8').matchAll(/0x7f[0-9a-f]{6}\b/g)) {
+          const r = byId.get(m[0]);
+          if (r && CODE_TYPES.has(r[0]) && !FOREIGN_NAME.test(r[1])) found.add(r[0] + '\0' + r[1]);
+        }
+      }
+    }
+  };
+  for (const d of smaliDirs) walk(d, d);
+  const roots = [];
+  for (const k of [...found].sort()) {
+    const [type, name] = k.split('\0');
+    if (type === 'xml' || type === 'menu' || type === 'anim' || type === 'animator' || type === 'interpolator') roots.push([type === 'xml' || type === 'menu' ? 'xml' : 'anim', type + '/' + name]);
+    else if (type === 'color') roots.push(['colorvalue', name], ['colorlist', name]);
+    else roots.push([type, name]);
+  }
+  return roots;
+}
+
 function main() {
-  const [dir, out] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const code = [];
+  for (let i = args.indexOf('--code'); i >= 0; i = args.indexOf('--code')) code.push(...args.splice(i, 2).slice(1));
+  const [dir, out] = args;
   if (!dir || !out) {
-    console.error('usage: extract-reference.mjs <decoded-apk-dir> <out.json>');
+    console.error('usage: extract-reference.mjs <decoded-apk-dir> <out.json[.gz]> [--code <smali-dir>...]');
     process.exit(2);
   }
   const yml = existsSync(join(dir, 'apktool.yml')) ? readFileSync(join(dir, 'apktool.yml'), 'utf8') : '';
   const versionCode = /versionCode:\s*'?(\d+)/.exec(yml)?.[1] ?? null;
   const versionName = /versionName:\s*(\S+)/.exec(yml)?.[1] ?? null;
   const full = extract(dir);
-  const model = prune(full, defaultRoots(full));
+  const roots = defaultRoots(full);
+  if (code.length) roots.push(...codeRoots(dir, code));
+  const model = prune(full, roots);
   model.meta = {
     extractorVersion: EXTRACTOR_VERSION,
     reference: {versionCode, versionName},
