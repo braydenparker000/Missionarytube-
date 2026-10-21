@@ -46,6 +46,14 @@ export class AAItemView extends SceneFastLayout {
     this.meta?.setText(track?.meta ?? '');
     this.num?.setText('');
     this.image?.setArt(track?.art ?? null);
+    if (track && !track.art && track.artId && this.ctx.library) {
+      this.ctx.library.artFor(track).then(art => {
+        if (art && this.track === track) {
+          track.art = art;
+          this.image?.setArt(art);
+        }
+      });
+    }
   }
 
   /** Switches the item scene at the given item size (no animation). */

@@ -65,6 +65,7 @@ export class Waveseek extends ViewGroup {
     this.setWave(null, false);
     ctx.bus.subscribe('bus_player', (msg, src, d) => {
       if (msg === 'msg_player_track_changed') this.onTrack(d?.track, !d?.meta);
+      else if (msg === 'msg_player_track_wave') this.setWave(d.track.wave, true);
       else if (msg === 'msg_player_track_seek') this.syncPosition();
       else if (msg === 'msg_player_playing_state_changed') this.onPlaying(d.arg1 === STATE_PLAYING);
     });

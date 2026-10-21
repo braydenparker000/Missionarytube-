@@ -9,6 +9,8 @@ import {parseSkins, composeTheme} from './skin.js';
 import {loadFonts} from './fonts.js';
 import {Player} from './player/player.js';
 import {installInput} from './input.js';
+import {Library} from './library/library.js';
+import {installImport} from './library/import-ui.js';
 import './widgets/basic.js';
 import './widgets/topnav.js';
 import './widgets/time.js';
@@ -97,12 +99,27 @@ export async function boot({skinIndex = 1, prefs = {}} = {}) {
   ctx.setRoot(decor, container);
   inflater.inflate('activity_main', decor);
   installInput(ctx, container);
+  player.installMediaSession();
+  const library = await new Library(ctx).open();
+  const importUi = installImport(ctx, document.body);
   const params = new URLSearchParams(location.search);
   if (params.has('demo')) {
     const {demoTracks} = await import('./dev/demo.js');
     player.setQueue(await demoTracks(), +(params.get('demo') || 0));
     if (params.has('playing')) player.play();
-  }
+  } else if (library.tracks.length) {
+    const saved = await library.db?.getState('queue').catch(() => null);
+    const index = Math.max(0, library.tracks.findIndex(t => t.id === saved?.trackId));
+    player.setQueue(library.tracks, index);
+    if (saved?.positionMs) player.seek(saved.positionMs);
+  } else importUi.show();
+  // Remember the current track and position (reference: resume where left off).
+  const saveState = () => {
+    const t = player.track;
+    if (t && library.byId.has(t.id)) library.db?.setState('queue', {trackId: t.id, positionMs: player.positionMs()}).catch(() => {});
+  };
+  ctx.bus.subscribe('bus_player', m => { if (m === 'msg_player_track_changed' || m === 'msg_player_playing_state_changed') saveState(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveState(); });
   ctx.scheduleLayout();
   window.addEventListener('resize', () => {
     applyViewport();
@@ -112,7 +129,7 @@ export async function boot({skinIndex = 1, prefs = {}} = {}) {
   });
   document.getElementById('cp-boot')?.remove();
   const diag = {skin: skin.name, applied, unknown: [...unknownClasses], missingIcons: [...ctx.drawables.missingIcons], config};
-  window.__cp = {ctx, res, theme, decor, skins, diag, player};
+  window.__cp = {ctx, res, theme, decor, skins, diag, player, library};
   return window.__cp;
 }
 
