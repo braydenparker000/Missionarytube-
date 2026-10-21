@@ -53,6 +53,7 @@ export class Library {
     this.userData = new Map();
     ctx.library = this;
     this.playlists = new Playlists(ctx, this);
+    this.customArt = new Map(); // 'a:<album>\0<artist>' or 't:<id>' -> Blob (picked images)
     ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => {
       if (msg === 'cmd_data_track_rating' && d?.track) this.setRating(d.track, d.arg1 ?? 0);
     });
@@ -70,6 +71,7 @@ export class Library {
       const snap = await this.db.getState('r2:index');
       if (snap?.tracks) { this.r2Generated = snap.generatedAt; this.remoteTracks = this.withUserData(snap.tracks); }
       this.setTracks([...this.localTracks, ...this.remoteTracks]);
+      for (const [k, v] of await this.db.stateEntries('ca:')) if (v instanceof Blob) this.customArt.set(k.slice(3), v);
       await this.playlists.load();
     } catch (e) {
       console.warn('[claude-player] library storage unavailable', e);
@@ -185,9 +187,41 @@ export class Library {
     return url;
   }
 
+  /** Custom art keys: the album (album + album artist) and the track. */
+  artKeys(t) {
+    return {album: 'a:' + (t.album || '') + '\0' + (t.albumArtist || t.artist || ''), track: 't:' + t.id};
+  }
+
+  /** A picked image for the track (its own, else its album's), as a loaded cover. */
+  customArtFor(t) {
+    const {album, track} = this.artKeys(t);
+    const key = this.customArt.has(track) ? track : t.album && this.customArt.has(album) ? album : null;
+    if (!key) return null;
+    let p = this.artCache.get('ca:' + key);
+    if (!p) this.artCache.set('ca:' + key, p = loadArt(this.customArt.get(key)));
+    return p;
+  }
+
+  /** Sets (blob) or removes (null) a picked cover for a track or its whole album. */
+  async setCustomArt(t, blob, forAlbum) {
+    const {album, track} = this.artKeys(t);
+    const key = forAlbum ? album : track;
+    const old = this.artCache.get('ca:' + key);
+    this.artCache.delete('ca:' + key);
+    old?.then(a => a?.url && URL.revokeObjectURL(a.url));
+    if (blob) { this.customArt.set(key, blob); await this.db?.setState('ca:' + key, blob).catch(() => {}); }
+    else { this.customArt.delete(key); await this.db?.deleteState?.('ca:' + key).catch(() => {}); }
+    const changed = forAlbum ? this.tracks.filter(x => this.artKeys(x).album === album) : [t];
+    if (!changed.includes(t)) changed.push(t);
+    for (const x of changed) { x.art = null; x.thumb = null; }
+    this.ctx.bus.post('bus_data', 'msg_data_art_changed', this, {tracks: changed});
+  }
+
   /** Cover {url, width, height} or null (full size). */
   artFor(t) {
     if (t.art) return Promise.resolve(t.art);
+    const custom = this.customArt.size ? this.customArtFor(t) : null;
+    if (custom) return custom;
     if (!t.artId) return Promise.resolve(null);
     if (!isRemoteArt(t.artId)) {
       let p = this.artCache.get(t.artId);
@@ -203,6 +237,7 @@ export class Library {
    * wanted() is asked before any download (rows scrolled past skip it).
    */
   thumbFor(t, wanted = null) {
+    if (this.customArt.size && this.customArtFor(t)) return this.artFor(t);
     if (!t.artId || !isRemoteArt(t.artId)) return this.artFor(t);
     if (t.thumb) return Promise.resolve(t.thumb);
     const key = t.artId;

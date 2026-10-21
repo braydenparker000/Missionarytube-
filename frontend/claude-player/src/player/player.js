@@ -54,6 +54,13 @@ export class Player {
       });
     }
     ctx.bus.subscribe('bus_player_cmd', (msg, src, data) => this.command(msg, data ?? {}));
+    // A picked cover for the playing track shows at once.
+    ctx.bus.subscribe('bus_data', (msg, src, d) => {
+      const t = this.track;
+      if (msg !== 'msg_data_art_changed' || !t || !d?.tracks?.some(x => x.id === t.id)) return;
+      t.art = null;
+      ctx.library?.artFor(t).then(art => { if (this.track === t) { t.art = art; this.post('msg_player_track_changed', {track: t, meta: true}); } });
+    });
     ctx.player = this;
   }
 
@@ -136,7 +143,7 @@ export class Player {
         });
       }
     }
-    if (t && !t.art && t.artId && this.ctx.library) {
+    if (t && !t.art && (t.artId || this.ctx.library?.customArt?.size) && this.ctx.library) {
       this.ctx.library.artFor(t).then(art => {
         if (!art || token !== this.loadToken) return;
         t.art = art;

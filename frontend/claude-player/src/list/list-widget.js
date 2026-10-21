@@ -30,6 +30,11 @@ export class AAItemView extends SceneFastLayout {
     this.track = undefined;
     ctx.bus.subscribe('bus_data', (msg, src, d) => {
       if (msg === 'msg_data_track_rating_changed' && this.track && d?.track?.id === this.track.id) this.syncRating();
+      else if (msg === 'msg_data_art_changed' && this.track && d?.tracks?.some(x => x.id === this.track.id)) {
+        const t = this.track;
+        this.track = undefined;
+        this.bind(t);
+      }
     });
   }
 
@@ -85,7 +90,7 @@ export class AAItemView extends SceneFastLayout {
     const field = this.useThumb ? 'thumb' : 'art';
     const have = track?.[field] ?? (this.useThumb ? track?.art : null) ?? null;
     this.image?.setArt(have);
-    if (track && !have && track.artId && this.ctx.library) {
+    if (track && !have && (track.artId || this.ctx.library?.customArt?.size) && this.ctx.library) {
       // Rows only download once they stay on screen (still bound to this track).
       (this.useThumb ? this.ctx.library.thumbFor(track, () => this.track === track && this.visibility === VISIBLE) : this.ctx.library.artFor(track)).then(art => {
         if (art && this.track === track) {
