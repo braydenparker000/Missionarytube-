@@ -106,4 +106,7 @@ Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred ·
 | Toasts | Upper and lower toast frames; shuffle/repeat mode toasts | Expand/collapse times inferred |
 | Long labels | Marquee: lays out at 3000 dp, clips to the text box, scrolls the overflow at 42.5 dp/s with 1500/3000 ms waits (F35) | — |
 | Sleep timer | Sub-AA button popup: four-turn knob (0–240 min), relative-time title, play-to-end, Disable/Cancel/OK; player timer (F36) | Playback stops with a plain pause (no fade; reference behaviour not verified) |
-| Not yet | Lyrics, visualization popup, A–Z scroller, selection menu, ripple masks | Visualization renderer `UW`/`LEGAL` (see §3) |
+| Visualization modes | Vis button popup (none / with UI / full screen), playing-scene choice by mode, full-screen tap shows temporary UI (F37) | No visualization renderer behind it (MilkDrop presets `LEGAL`/`UW`; see §3) |
+| A–Z scroller | ListScrollerView modes (A–Z column, thumb), letter bubble, press state animation, section jumps (F38) | `localized_az` alphabets not yet; bubble placement by intent |
+| Selection mode | Item select boxes, selection panel with the reference's per-list action layouts, select all/none/range, counts, state-enabled actions, Queue / Play next with insert-mode menus, Share via Web Share (F39) | Playlists, delete, info/tags and album art actions have no handlers yet |
+| Not yet | Lyrics, ripple masks, help overlays, item-menu dialogs | — |

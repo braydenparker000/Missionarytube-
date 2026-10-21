@@ -322,6 +322,39 @@ The sub-AA button is `sleep_timer_layout`, a popup over `merge_sleep_timer_popup
 
 How the reference stops playback (fade or immediate) is not verified, so a plain pause is used. The frame is ?TopSleepTimerButtonLayout_scene_item_menu (centred, up to 340 dp). The icon stays at the top left (?SleepTimerButton_scene_button_menu).
 
+### F37 — Visualization modes — `CS`
+
+The sub-AA vis button is a `BusSelectablePopupButtonLayout` over `vis_modes` / `vis_icons_32dp` / `vis_modes_enum` (VIS_NONE 0, VIS_W_UI 1, VIS_FULL_SCREEN 2). It posts `cmd_gui_set_vis_mode`. While playing, the top nav (`О(IZZ)`) picks `scene_vis_w_ui` for mode 1, `scene_vis` for mode 2, and `scene_playing` otherwise. In full screen a tap gives `scene_vis_temp_ui` for tempUITime + `vis_temp_ui_ms` (default 1500 ms). Mode 1 also posts `cmd_list_prefer_aa_state`, which is not reproduced.
+
+### F38 — List scroller — `CS`
+
+`ListScrollerView` attributes are `Q` styleable indices 0–22. The mode comes from the list (`sd.s()`):
+- **Name-sorted lists** use mode 2 (the A–Z column) when `az_scroll` is on (the default), and mode 3 (a thumb) when it is off. If the list has no indexer, mode 2 also falls back to 3.
+- **Other lists** use mode 1 (a thumb).
+- **The album-art pager** uses mode 0 (hidden).
+
+A–Z geometry (`e()`):
+- avail = azSize × height (fraction), or height − azPaddingTop − azPaddingBottom.
+- Cell f = avail / (chars + scroll-up item).
+- Text size = azTextScale × f.
+- Baseline offset = f − (f − (−ascent − descent)) / 2.
+
+Drawing (`onDraw`): azBackground fills the column; the touched cell gets azTouchedBackground and the pressed text colour; separator lines are drawn in azSeparatorLineColor.
+
+The thumb (`d()`): its top is (H − thumbH − padT − padB) × offset / (range − extent) + padT, and it shows whenever the list can scroll (`o()`). Fades take 250 ms. `anim_scrollbar_pressed` scales the scroller ×1.5 about its right edge and fades and scales the bubble in. The default chars are "0ABCDEFGHIJKLMNOPQRSTUVWXYZ#".
+
+### F39 — Selection mode — `CS` (UI) / `INF` (actions)
+
+The header Select button posts `list/cmd_list_toggle_selection_mode`. Items reveal `select_box` (ItemTrackSelectBox: platform check box on rounded_large, over the art) and show the selection as checked.
+
+The list posts `cmd_selection_menu_open`:
+- arg1 is the actions layout from `sd.t()`: tracks use `merge_selection_menu_list_tracks_items`, groups with art use `merge_selection_menu_list_items_w_aa`, and other lists use `merge_selection_menu_list_base_items`.
+- data is the ids to hide.
+
+`SelectionMenuBehavior` loads `merge_selection_menu_inner` once, inflates the actions into `selection_menu_items`, and moves `selection_menu_container` to `scene_selection_menu` (animTime 500 / exit 200).
+
+The dynamic popup buttons (`dynamicButtons`) show the current insert mode's icon and label. A click posts clickMsgId; a long press opens the modes menu. Enqueue modes are "Add to end" (0) and "Shuffled" (2). The item box fade time is inferred.
+
 ## Open questions, prioritised by fidelity impact
 
 1. F15 gesture thresholds, fling velocity mapping into `v` (F05), track-swipe paging physics.
