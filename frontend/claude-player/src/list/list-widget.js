@@ -223,6 +223,86 @@ export class ListWidget extends FastLayout {
     this.setMeasuredDimension(MeasureSpec.getSize(wSpec), MeasureSpec.getSize(hSpec));
   }
 
+  // Art pager gestures: a horizontal drag moves the pages; release commits to
+  // the neighbour past half a page or on a fling, else springs back.
+  onPointerDown(e) {
+    this.pageDrag = {x0: e.rootX, y0: e.rootY, offset0: this.geometry.offset, started: false, samples: [[e.time, e.rootX]]};
+    this.stopPageAnim();
+    return true;
+  }
+
+  onInterceptStart(start, now) {
+    if (Math.abs(now.rootX - start.rootX) <= Math.abs(now.rootY - start.rootY)) return false;
+    this.pageDrag = {x0: start.rootX, y0: start.rootY, offset0: this.geometry.offset, started: true, samples: [[start.time, start.rootX]]};
+    this.stopPageAnim();
+    return true;
+  }
+
+  onPointerMove(e) {
+    const d = this.pageDrag;
+    if (!d) return;
+    const dx = e.rootX - d.x0;
+    if (!d.started) {
+      if (Math.abs(dx) < 8 * this.ctx.dpr) return;
+      d.started = true;
+    }
+    d.samples.push([e.time, e.rootX]);
+    if (d.samples.length > 8) d.samples.shift();
+    const stride = this.geometry.pageStride || 1;
+    let off = d.offset0 + dx / stride;
+    const p = this.ctx.player;
+    // No neighbour: resist past the edge.
+    if (off < 0 && !p?.trackAt(1)) off *= 0.3;
+    if (off > 0 && !p?.trackAt(-1)) off *= 0.3;
+    this.setPageOffset(Math.max(-1, Math.min(1, off)));
+  }
+
+  onPointerUp(e) {
+    const d = this.pageDrag;
+    this.pageDrag = null;
+    if (!d || !d.started) return;
+    const [t0, x0] = d.samples[0], [t1, x1] = d.samples[d.samples.length - 1];
+    const v = t1 > t0 ? (x1 - x0) / (t1 - t0) / this.ctx.dpr : 0; // dp per ms
+    const off = this.geometry.offset, p = this.ctx.player;
+    let target = 0;
+    if ((off < -0.5 || v < -0.3) && p?.trackAt(1) && !e.cancelled) target = -1;
+    else if ((off > 0.5 || v > 0.3) && p?.trackAt(-1) && !e.cancelled) target = 1;
+    const sub = this.substyle;
+    const seconds = (target ? sub.int('pageManualCommitAnimTime', 250) : sub.int('pageManualCancelAnimTime', 500)) / 1000;
+    this.animatePageOffset(target, seconds, () => {
+      if (!target) return;
+      this.geometry.offset = 0;
+      p.step(target === -1 ? 1 : -1);
+    });
+  }
+
+  setPageOffset(off) {
+    this.geometry.offset = off;
+    this.placeItems();
+  }
+
+  stopPageAnim() {
+    this._pageAnim?.();
+    this._pageAnim = null;
+  }
+
+  animatePageOffset(target, seconds, done) {
+    this.stopPageAnim();
+    const from = this.geometry.offset, start = performance.now();
+    const dur = Math.max(1, seconds * 1000 * Math.max(0.3, Math.abs(target - from)));
+    this._pageAnim = this.ctx.onFrame(now => {
+      const t = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - t, 4);
+      this.setPageOffset(from + (target - from) * e);
+      if (t >= 1) {
+        this._pageAnim = null;
+        done?.();
+        return false;
+      }
+      return true;
+    });
+  }
+
   onLayout() {
     if (!this.items.size) this.rebind();
     this.applyInsets();
@@ -232,6 +312,11 @@ export class ListWidget extends FastLayout {
     g.marginR = this.readMargins('aaMarginRight');
     g.marginB = this.readMargins('aaMarginBottom');
     g.setBounds(this.width, this.height + this.ctx.transientBarHeight, this.paddingLeft, this.paddingTop, this.paddingRight, this.paddingBottom);
+    this.placeItems();
+  }
+
+  placeItems() {
+    const g = this.geometry;
     for (const [rel, v] of this.items) {
       const b = g.itemBounds(rel, rel);
       const w = b.right - b.left, h = b.bottom - b.top;

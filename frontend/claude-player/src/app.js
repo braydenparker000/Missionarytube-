@@ -14,6 +14,7 @@ import './widgets/topnav.js';
 import './widgets/time.js';
 import './widgets/waveseek.js';
 import './widgets/subaa.js';
+import './widgets/milk.js';
 import './list/list-widget.js';
 
 export async function loadModel(url) {

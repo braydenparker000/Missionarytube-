@@ -389,7 +389,8 @@ export class Drawables {
       case 'level-list': {
         const items = children.filter(c => c[0] === 'item').map(it => {
           const a = it[1] || {};
-          return {min: parseInteger(a['android:minLevel'] ?? '0') ?? 0, max: parseInteger(a['android:maxLevel'] ?? '0') ?? 0, d: this.child(it, a, theme, name)};
+          const lvl = k => this.res.integer(a[k] ?? '0', theme) ?? 0;
+          return {min: lvl('android:minLevel'), max: lvl('android:maxLevel'), d: this.child(it, a, theme, name)};
         });
         return new LevelListDrawable(items);
       }

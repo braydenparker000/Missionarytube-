@@ -221,6 +221,55 @@ needs a CSP `<meta>`. Media payload extensions are rejected. The total is capped
 current `frontend/` is 20.53 MiB, leaving **≈4.47 MiB** shared headroom. `frontend/claude-player/`
 does not exist (no collision). Root `npm test` only discovers `tests/*.test.mjs` at the top level.
 
+### F26 — Album-art geometry (`P`) — `CONFIRMED_STATIC` (bytecode-checked)
+Art size = smaller available side × `aaItemRatio`, capped by `aaMaxSize` minus paddings and by both
+available sides, floored at `aaMinSize`. The available area subtracts list paddings, `aaPadding*` and
+`aaMargin*` (margins may name runtime sizes such as `navbar_bounds_size`). The anchor follows
+`aaGravity`; the wide alternative layout applies when available height ≤ `maxAvailSizeForAltAaLayout`
+and width/height ≥ `altAaLayoutRatio`. A page at offset f shifts by `(int)(scale·dense·f·m + 0.5)`,
+scales by `1 − ((1 − maxScale)/2)·|f|` (min 0.001) and tilts by f × (5° X abs, −10° Y, 5.5° Z).
+Alpha is 0 below 5 % visibility, else `(v − 0.05) × 1.0526`. The decompiler inverted three spots
+here (bottom anchoring when `aaItemBoundsMatchList & 2`, the alpha branch and the item scene choice);
+the bytecode gives `mode & 15`: 0 → `scene_aa`, 1 → `scene_aa_playing`, 2 → `scene_aa_vis`.
+(f) `list/aa-geometry.js`, shared by `AABounds` and the list's art pager.
+
+### F27 — Player states — `CONFIRMED_STATIC`
+The main screen has two scenes: the default scene (paused) and `scene_playing`. Paused ↔ playing
+uses `playStateAnimTime` (320 ms) without the animation-speed setting; library ↔ player uses
+`animMainEnterTime`/`animMainExitTime`; between library, search and equalizer `animTime`. The first
+animated change after start adds 0.35 s. The art item switches between `scene_aa` (scale 0.975) and
+`scene_aa_playing` (scale 1.0).
+(f) `widgets/topnav.js`, `list/list-widget.js`.
+
+### F28 — Waveform seek bar — `CONFIRMED_STATIC`
+Scrolling layout: the cursor sits at `cursorPosition` (50 %) and the waveform moves under it, so at
+0:00 the bars start at the centre. Bar width is the bar bitmap width (`barWidth=auto`, 8 dp), spacing
+1.25 dp, 100 bars, minimum height 10 dp, bars centred vertically. Bars left of the cursor use the
+elapsed bitmap (grey 0x7e at 25 % alpha); upcoming bars are white at 66 % with a 45 % grey outline.
+Partly clipped edge bars fade by their visible fraction. Without wave data a track with a duration
+shows `|sin|` bands (3 periods, amplitude 0.33). Data changes cross-fade over 400 ms (150 ms to no
+data). The bitmaps are replaced by procedurally drawn pills from extracted fill/edge colours.
+(f) `widgets/waveseek.js`. The real wave (native scanner) is approximated from decoded audio later.
+
+### F29 — Sub-art buttons row — `CONFIRMED_STATIC`
+Without the feature pack the row is "fit centred", one line, normal size: slot width
+`clamp((W − 4·gap)/5, min(36 dp, 68 dp), 68 dp)`; slots 0–1 from the left edge, slot 2 centred,
+slots 3–4 from the right edge (slot 3 outermost), further slots past the right edge. Defaults:
+visualisation, sleep timer, empty (counter when enabled), shuffle, repeat.
+(f) `widgets/subaa.js`. Popup mode menus are not yet built; a tap posts `cmd_subaa_button`.
+
+### F30 — Background (`MilkWidget`) — `UNSUPPORTED_WEB` (native GL), approximated
+Visualisation and the blurred art backdrop are rendered natively. Defaults: blur level 5, downscale
+2^5, saturation 150 %, intensity 100 %, bottom gradient level 4 to #FF000000.
+(f) `widgets/milk.js`: CSS blur/saturate over the art plus a gradient. The radius and gradient curve
+are guesses to tune against reference screenshots.
+
+### F31 — Elapsed/duration labels — `OPEN`
+Both labels attach to the parent on both sides with `wrap_content` in the "More buttons" layout.
+The solver (bytecode) measures a view attached on both sides EXACTLY to the span, which yields two
+full-width pills, the duration covering the elapsed label. That is very likely not the real look, so
+some solver rule is still misread. Placement must be confirmed from a reference screenshot.
+
 ## Open questions, prioritised by fidelity impact
 
 1. F15 gesture thresholds, fling velocity mapping into `v` (F05), track-swipe paging physics.
@@ -228,5 +277,7 @@ does not exist (no collision). Root `npm test` only discovers `tests/*.test.mjs`
 3. Default skin on first run, and the first-run screen.
 4. List item scenes, zoom levels and list transitions (F18).
 5. Waveform analysis algorithm and bar counts per bucket (F13).
-6. Runtime corroboration of everything above. This needs an owner-run device capture protocol
+6. Elapsed/duration label placement in the "More buttons" layout (F31).
+7. Sign conventions of the art pager's 3D tilt (rotationX/Y) and the backdrop blur look (F26, F30).
+8. Runtime corroboration of everything above. This needs an owner-run device capture protocol
    (see the architecture plan, “Fidelity verification”).
