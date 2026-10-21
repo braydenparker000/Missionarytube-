@@ -194,7 +194,10 @@ export class ListWidget extends FastLayout {
     // Track menu: jump to the current track's artist / album / folder / genre.
     const current = {cmd_request_current_artist: 'artist', cmd_list_current_album: 'album', cmd_list_current_folder: 'folder', cmd_request_current_genre: 'genre'};
     for (const bus of ['list', 'bus_data_cmd']) {
-      ctx.bus.subscribe(bus, msg => { if (current[msg]) this.openCurrent(current[msg]); });
+      ctx.bus.subscribe(bus, msg => {
+        if (current[msg]) this.openCurrent(current[msg]);
+        else if (msg === 'cmd_list_play' || msg === 'cmd_list_shuffle') this.playList(msg === 'cmd_list_shuffle');
+      });
     }
     ctx.bus.subscribe('bus_library', () => {
       if (this.stack.length) {
@@ -206,6 +209,18 @@ export class ListWidget extends FastLayout {
 
   get nav() {
     return {list: this.libList, open: src => this.open(src)};
+  }
+
+  /** Header Play / Shuffle: the shown list's tracks from the start, or shuffled. */
+  playList(shuffle) {
+    const src = this.stack[this.stack.length - 1];
+    const tracks = src?.tracks ?? src?.groups?.flatMap(g => g.tracks) ?? [];
+    if (!tracks.length) return;
+    const p = this.ctx.player;
+    this.ctx.bus.post('bus_player_cmd', 'cmd_player_set_shuffle', this, {arg1: shuffle ? 2 : 0});
+    p.setQueue(tracks, shuffle ? Math.floor(Math.random() * tracks.length) : 0);
+    p.play();
+    if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
   }
 
   openCurrent(kind) {
