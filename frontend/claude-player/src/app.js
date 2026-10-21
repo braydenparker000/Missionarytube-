@@ -159,6 +159,8 @@ export async function boot() {
     if (ctx.topNav && ctx.topNav.nav !== 'nav_main') ctx.topNav.navigate('nav_main');
   });
   ctx.scheduleLayout();
+  // Installable app: the service worker keeps the app's files offline.
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   window.addEventListener('resize', () => {
     applyViewport();
     decor.insets = ctx.windowInsets;
