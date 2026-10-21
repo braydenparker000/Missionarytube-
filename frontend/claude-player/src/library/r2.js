@@ -2,7 +2,7 @@
 // jarvis-hub Worker) listing every track with its tags, duration and cover.
 // Audio streams from <base>/audio/<id> (byte ranges, CORS for the site's
 // origin); covers from <base>/art/<id> when the index has a cover key,
-// else from the index's coverURL. The Worker only answers the site's own
+// else embedded in the audio file (read with range requests). The Worker only answers the site's own
 // origin, so this works when the player is served from that site.
 
 export const R2_LIBRARY_URL = 'https://jarvis-hub-api.braydenparker999.workers.dev/music/library.json';
@@ -40,7 +40,9 @@ export function r2Tracks(data, url = R2_LIBRARY_URL) {
       path: t.path, folder: (t.folder || '').replace(/^Cloudflare R2\/?/, ''), fileName, size: t.size, mime: t.mimeType || '',
       added: Date.parse(t.r2Identity?.lastModified) || 0,
       src: base + 'audio/' + t.id,
-      artUrl: t.coverKey ? base + 'art/' + t.id : t.coverURL || null,
+      // Covers stay on R2: the Worker's image when indexed, else the file's embedded cover
+      // (the index's legacy coverURL points elsewhere and is not used).
+      artUrl: t.coverKey ? base + 'art/' + t.id : null,
       replayGain: m.rgTrack != null ? {track: m.rgTrack, album: m.rgAlbum, trackPeak: m.rgTrackPeak, albumPeak: m.rgAlbumPeak} : null,
       opusHeadGainDb: m.opusHeadGainDb ?? null,
     };

@@ -1,7 +1,7 @@
 // The music library: imported tracks (tags + stored files), lazily opened
 // media/cover URLs, and category views (albums, artists, genres, folders).
 import {LibraryDb} from './db.js';
-import {readTags} from './tags.js';
+import {readTags, readRemotePicture} from './tags.js';
 import {fetchR2Library, r2Tracks, R2_LIBRARY_URL} from './r2.js';
 
 // Remote covers: full images in Cache Storage on first view (capped, oldest
@@ -9,6 +9,11 @@ import {fetchR2Library, r2Tracks, R2_LIBRARY_URL} from './r2.js';
 // Object URLs live in small in-memory LRUs that release their images.
 const COVERS = 'claude-player-covers', THUMBS = 'claude-player-thumbs';
 const COVER_CAP = 1500, THUMB_PX = 256, MEM_FULL = 60, MEM_THUMB = 800;
+const COVER_SLOTS = 3, ROW_SETTLE_MS = 150;
+const SKIPPED = Symbol('skipped');
+const isRemoteArt = key => /^(https:|embedded:)/.test(key);
+// Cache Storage needs URL keys: embedded covers get a local pseudo-URL.
+const cacheKey = key => (key.startsWith('embedded:') ? new URL('covers/embedded/' + encodeURIComponent(key.slice(9)), location.href).href : key);
 
 // Per-track listening data for remote tracks (state store, key u:<id>).
 const USER_FIELDS = ['wave', 'durationMs', 'plays', 'lastPlayed', 'rating'];
@@ -72,8 +77,8 @@ export class Library {
       const u = this.userData.get(t.id);
       if (u) for (const k of USER_FIELDS) if (u[k] !== undefined) t[k] = u[k];
       t.meta = trackMetaLabel(t);
-      // Remote covers load by URL (artFor).
-      if (t.artUrl) t.artId = t.artUrl;
+      // Remote covers: the Worker's image, else the audio file's embedded cover (artFor).
+      if (t.remote) t.artId = t.artUrl || 'embedded:' + t.id;
     }
     return list;
   }
@@ -173,34 +178,43 @@ export class Library {
   artFor(t) {
     if (t.art) return Promise.resolve(t.art);
     if (!t.artId) return Promise.resolve(null);
-    if (!/^https:/.test(t.artId)) {
+    if (!isRemoteArt(t.artId)) {
       let p = this.artCache.get(t.artId);
       if (!p) this.artCache.set(t.artId, p = this.db.art(t.artId).then(b => (b ? loadArt(b) : null)));
       return p;
     }
-    return this.memo(this.artCache, MEM_FULL, t, 'art', () => this.remoteCover(t.artId).then(b => (b ? loadArt(b) : null)));
+    // The player's cover goes ahead of list thumbnails.
+    return this.memo(this.artCache, MEM_FULL, t, 'art', () => this.remoteCover(t.artId, {priority: true}).then(b => (b ? loadArt(b) : null)));
   }
 
-  /** Small cover for list rows: a cached 256 px thumbnail of a remote cover. */
-  thumbFor(t) {
-    if (!t.artId || !/^https:/.test(t.artId)) return this.artFor(t);
+  /**
+   * Small cover for list rows: a cached 256 px thumbnail of a remote cover.
+   * wanted() is asked before any download (rows scrolled past skip it).
+   */
+  thumbFor(t, wanted = null) {
+    if (!t.artId || !isRemoteArt(t.artId)) return this.artFor(t);
     if (t.thumb) return Promise.resolve(t.thumb);
-    return this.memo(this.thumbCache, MEM_THUMB, t, 'thumb', async () => {
-      const url = t.artId;
-      const caches_ = globalThis.caches ? await caches.open(THUMBS).catch(() => null) : null;
-      let blob = await caches_?.match(url).then(r => r?.blob()).catch(() => null);
-      if (!blob) {
-        const full = await this.remoteCover(url);
-        if (!full) return null;
-        blob = await makeThumb(full) ?? full;
-        caches_?.put(url, new Response(blob, {headers: {'content-type': blob.type || 'image/jpeg'}})).catch(() => {});
-      }
+    const key = t.artId;
+    const p = this.memo(this.thumbCache, MEM_THUMB, t, 'thumb', async () => {
+      const store = globalThis.caches ? await caches.open(THUMBS).catch(() => null) : null;
+      const hit = await store?.match(cacheKey(key)).catch(() => null);
+      if (hit) return hit.headers.get('x-cover-none') ? null : loadArt(await hit.blob());
+      const full = await this.remoteCover(key, {wanted});
+      if (full === SKIPPED) throw SKIPPED;
+      if (!full) return null;
+      const blob = await makeThumb(full) ?? full;
+      store?.put(cacheKey(key), new Response(blob, {headers: {'content-type': blob.type || 'image/jpeg'}})).catch(() => {});
       return loadArt(blob);
+    });
+    // A skipped row forgets the attempt so it can load when shown again.
+    return p.catch(e => {
+      if (e === SKIPPED) { this.thumbCache.delete(key); return null; }
+      return null;
     });
   }
 
   /**
-   * In-memory LRU of object-URL images keyed by cover URL: an evicted entry
+   * In-memory LRU of object-URL images keyed by cover key: an evicted entry
    * revokes its URL and clears the field on the records that used it.
    */
   memo(map, cap, t, field, make) {
@@ -213,7 +227,7 @@ export class Library {
       while (map.size > cap) {
         const [k, old] = map.entries().next().value;
         map.delete(k);
-        old.p.then(a => { if (a?.url?.startsWith('blob:')) URL.revokeObjectURL(a.url); });
+        old.p.then(a => { if (a?.url?.startsWith('blob:')) URL.revokeObjectURL(a.url); }, () => {});
         for (const o of old.owners) if (o[field]) o[field] = null;
       }
     }
@@ -221,23 +235,70 @@ export class Library {
     return e.p;
   }
 
-  /** A remote cover's bytes: Cache Storage first, else the network (then cached). */
-  async remoteCover(url) {
+  /**
+   * A remote cover's bytes: Cache Storage first (including "no cover"
+   * markers), else the network through the download slots, then cached.
+   * Worker covers are images; "embedded:<id>" covers come from the audio
+   * file's own tags with range requests.
+   */
+  async remoteCover(key, {priority = false, wanted = null} = {}) {
     const store = globalThis.caches ? await caches.open(COVERS).catch(() => null) : null;
-    const hit = await store?.match(url).catch(() => null);
-    if (hit) return hit.blob();
+    const ck = cacheKey(key);
+    const hit = await store?.match(ck).catch(() => null);
+    if (hit) return hit.headers.get('x-cover-none') ? null : hit.blob();
+    if (wanted) {
+      await new Promise(r => setTimeout(r, ROW_SETTLE_MS));
+      if (!wanted()) return SKIPPED;
+    }
+    const release = await this.coverSlot(priority, wanted);
+    if (!release) return SKIPPED;
     try {
-      const r = await fetch(url, {mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer'});
-      if (!r.ok) return null;
-      const blob = await r.blob();
+      let blob = null;
+      if (key.startsWith('embedded:')) {
+        const t = this.byId.get(key.slice(9));
+        const pic = t?.src ? await readRemotePicture(t.src) : null;
+        blob = pic ? new Blob([pic.bytes], {type: pic.mime || 'image/jpeg'}) : null;
+      } else {
+        const r = await fetch(key, {mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer'});
+        if (r.ok) blob = await r.blob();
+        else if (r.status !== 404) return null; // transient: try again another time
+      }
       if (store) {
-        await store.put(url, new Response(blob, {headers: {'content-type': blob.type || 'image/jpeg'}})).catch(() => {});
+        const res = blob ? new Response(blob, {headers: {'content-type': blob.type || 'image/jpeg'}}) : new Response('', {headers: {'x-cover-none': '1'}});
+        await store.put(ck, res).catch(() => {});
         if (++this.coverPuts % 50 === 0) this.pruneCovers(store);
       }
       return blob;
     } catch {
       return null;
+    } finally {
+      release();
     }
+  }
+
+  /** Download slots (COVER_SLOTS at once); the player's cover jumps the line. */
+  coverSlot(priority, wanted) {
+    this.slotWaiters ??= [];
+    this.slotsBusy ??= 0;
+    if (this.slotsBusy < COVER_SLOTS) {
+      this.slotsBusy++;
+      return Promise.resolve(() => this.freeSlot());
+    }
+    return new Promise(resolve => {
+      const w = {resolve, wanted};
+      if (priority) this.slotWaiters.unshift(w); else this.slotWaiters.push(w);
+    });
+  }
+
+  freeSlot() {
+    // Hand the slot to the next waiter that still wants it.
+    while (this.slotWaiters.length) {
+      const w = this.slotWaiters.shift();
+      if (w.wanted && !w.wanted()) { w.resolve(null); continue; }
+      w.resolve(() => this.freeSlot());
+      return;
+    }
+    this.slotsBusy--;
   }
 
   async pruneCovers(store) {

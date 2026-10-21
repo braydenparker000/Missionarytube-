@@ -152,6 +152,7 @@ function readFlacPicture(b, o, out) {
   p += 4 + descLen + 16;
   const len = be32(b, p);
   p += 4;
+  if (p + len > b.length) return; // truncated read: no half image
   if (!out.picture || type === 3) out.picture = {mime, bytes: b.slice(p, p + len)};
 }
 
@@ -341,9 +342,10 @@ export async function readTags(file) {
     if (!readFlac(head, end, out)) readMp3Duration(head, end, file.size, out);
   } else if (!readFlac(head, 0, out) && !readMp4(head, out)) {
     if (latin1.decode(head.subarray(0, 4)) === 'OggS') {
+      // A large comment packet (embedded cover) spans many pages: grow until it is whole.
       let need = readOggPackets(head, out);
-      if (need > head.length && need < 64 << 20) {
-        head = new Uint8Array(await file.slice(0, Math.min(file.size, need)).arrayBuffer());
+      while (need > head.length && need < 64 << 20 && head.length < file.size) {
+        head = new Uint8Array(await file.slice(0, Math.min(file.size, Math.max(need, head.length * 2))).arrayBuffer());
         need = readOggPackets(head, out);
       }
       await oggDuration(file, out);
@@ -351,4 +353,86 @@ export async function readTags(file) {
   }
   if (!out.title) out.title = (file.name ?? '').replace(/\.[^.]+$/, '');
   return out;
+}
+
+/**
+ * The embedded cover of a remote file, read with byte-range requests: the
+ * first 256 KB, then further ranges (at least doubling) until the tag block
+ * is whole (ID3 size, or the Ogg comment packet's end), up to 4 MB. Returns
+ * {mime, bytes} or null.
+ */
+export async function readRemotePicture(url, fetchInit = {}) {
+  const LIMIT = 4 << 20;
+  // Bytes [start, end); a server that ignores the range (200) is read only as far as asked.
+  const range = async (start, end) => {
+    const r = await fetch(url, {...fetchInit, headers: {Range: `bytes=${start}-${end - 1}`}, credentials: 'omit', mode: 'cors'});
+    if (r.status === 416) return new Uint8Array(0); // past the end
+    if (r.status !== 206 && !(r.status === 200 && start === 0)) throw new Error('cover range ' + r.status);
+    const buf = new Uint8Array(end - start);
+    let n = 0;
+    const reader = r.body.getReader();
+    while (n < buf.length) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      const take = Math.min(value.length, buf.length - n);
+      buf.set(value.subarray(0, take), n);
+      n += take;
+    }
+    reader.cancel().catch(() => {});
+    return buf.subarray(0, n);
+  };
+  let head = await range(0, 256 << 10);
+  let eof = head.length < 256 << 10;
+  const grow = async need => {
+    const end = Math.min(LIMIT, Math.max(need, head.length * 2));
+    const tail = await range(head.length, end);
+    eof = tail.length < end - head.length;
+    const all = new Uint8Array(head.length + tail.length);
+    all.set(head);
+    all.set(tail, head.length);
+    head = all;
+  };
+  const out = {picture: null};
+  if (head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33) {
+    const size = syncsafe(head, 6) + 10;
+    if (size > head.length && size <= LIMIT && !eof) await grow(size);
+    readId3(head, out);
+  } else if (latin1.decode(head.subarray(0, 4)) === 'OggS') {
+    let need;
+    while ((need = readOggPackets(head, out)) > head.length && head.length < LIMIT && !eof) await grow(need);
+  } else if (latin1.decode(head.subarray(4, 8)) === 'ftyp') {
+    // The cover is in moov, which can outgrow the first read or follow the
+    // audio (mdat): walk the top-level box headers, then read moov alone.
+    let o = 0, moov = null;
+    for (let i = 0; i < 16 && !moov; i++) {
+      const h = o + 16 <= head.length ? head.subarray(o, o + 16) : await range(o, o + 16);
+      if (h.length < 8) break;
+      const size = be32(h, 0) === 1 && h.length >= 16 ? be32(h, 8) * 2 ** 32 + be32(h, 12) : be32(h, 0);
+      if (size < 8) break;
+      if (latin1.decode(h.subarray(4, 8)) === 'moov') moov = [o, o + size];
+      o += size;
+    }
+    if (moov && moov[1] - moov[0] <= LIMIT) {
+      const m = moov[1] <= head.length ? head.subarray(moov[0], moov[1]) : await range(moov[0], moov[1]);
+      const b = new Uint8Array(8 + m.length);
+      b.set([0, 0, 0, 8, 0x66, 0x74, 0x79, 0x70]); // an empty ftyp box ahead of moov
+      b.set(m, 8);
+      readMp4(b, out);
+    }
+  } else if (latin1.decode(head.subarray(0, 4)) === 'fLaC') {
+    // Grow until the metadata blocks (the picture among them) are whole.
+    const metaEnd = () => {
+      let o = 4;
+      while (o + 4 <= head.length) {
+        const last = head[o] & 0x80;
+        o += 4 + ((head[o + 1] << 16) | (head[o + 2] << 8) | head[o + 3]);
+        if (last) return o;
+      }
+      return o + 4;
+    };
+    let need;
+    while ((need = metaEnd()) > head.length && head.length < LIMIT && !eof) await grow(need);
+    readFlac(head, 0, out);
+  }
+  return out.picture?.bytes?.length ? out.picture : null;
 }

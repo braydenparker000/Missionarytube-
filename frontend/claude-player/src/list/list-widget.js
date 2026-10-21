@@ -76,7 +76,8 @@ export class AAItemView extends SceneFastLayout {
     const have = track?.[field] ?? (this.useThumb ? track?.art : null) ?? null;
     this.image?.setArt(have);
     if (track && !have && track.artId && this.ctx.library) {
-      (this.useThumb ? this.ctx.library.thumbFor(track) : this.ctx.library.artFor(track)).then(art => {
+      // Rows only download once they stay on screen (still bound to this track).
+      (this.useThumb ? this.ctx.library.thumbFor(track, () => this.track === track && this.visibility === VISIBLE) : this.ctx.library.artFor(track)).then(art => {
         if (art && this.track === track) {
           track[field] = art;
           this.image?.setArt(art);
