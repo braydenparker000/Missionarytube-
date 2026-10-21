@@ -22,6 +22,7 @@ import './widgets/milk.js';
 import './widgets/navbar.js';
 import './widgets/eq.js';
 import './widgets/popup.js';
+import './widgets/search.js';
 import './list/list-widget.js';
 
 export async function loadModel(url) {

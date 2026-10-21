@@ -72,3 +72,5 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
 .cps-radio::before{content:"";position:absolute;left:24px;top:50%;width:20px;height:20px;margin-top:-10px;border-radius:50%;border:2px solid var(--cps-fg2);box-sizing:border-box}
 .cps-radio.on::before{border-color:var(--cps-accent);background:radial-gradient(circle,var(--cps-accent) 0 4.5px,transparent 5px)}
 .cps-radio:active{background:rgba(255,255,255,.08)}
+.cp-search-input{position:absolute;margin:0;padding:0;border:0;outline:none;background:transparent;color:transparent;-webkit-appearance:none;appearance:none;pointer-events:auto;z-index:1}
+.cp-search-input::-webkit-search-cancel-button{display:none}

@@ -222,3 +222,25 @@ export function currentCategorySource(ctx, list, nav, kind) {
   src.icon = {artist: '?artists', album: '?albums', folder: '?folders', genre: '?genres'}[kind];
   return src;
 }
+
+/**
+ * Search results for a query in a category: songs match title, artist or
+ * album; other categories list matching groups (each opens its tracks).
+ */
+export function searchSource(ctx, list, nav, query, kind = 'all') {
+  const q = query.trim().toLocaleLowerCase();
+  const lib = ctx.library;
+  const pool = lib?.tracks?.length ? lib.tracks : ctx.player?.queue ?? [];
+  const has = s => !!s && s.toLocaleLowerCase().includes(q);
+  const title = ctx.res.stringByName('search') ?? 'Search';
+  const bare = src => { src.header = null; src.headerHeight = 0; return src; };
+  if (!q) return bare(new TrackSource(ctx, list, nav, title, []));
+  if (kind === 'all' || kind === 'songs') {
+    return bare(new TrackSource(ctx, list, nav, title, pool.filter(t => has(t.title) || has(t.artist) || has(t.album) || (kind === 'all' && (has(t.genre) || has(t.composer))))));
+  }
+  const groups = (lib?.tracks?.length ? groupsFor(lib, kind) : null) ?? group(pool, {
+    albums: t => t.album || 'Unknown album', artists: t => t.artist || 'Unknown artist',
+    genres: t => t.genre || 'Unknown genre', folders: t => t.folder || '/', composers: t => t.composer || 'Unknown composer',
+  }[kind] ?? (t => t.title), kind);
+  return bare(new GroupSource(ctx, list, nav, title, groups.filter(g => has(g.title))));
+}

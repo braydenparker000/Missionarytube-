@@ -13,7 +13,7 @@ import {StyledAttributes} from '../res/resources.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
-import {HomeSource, currentCategorySource} from './sources.js';
+import {HomeSource, currentCategorySource, searchSource} from './sources.js';
 
 const OFFSET_STATUS_BAR = 1, OFFSET_NAVIGATION_BAR = 2;
 
@@ -189,13 +189,20 @@ export class ListWidget extends FastLayout {
     this.addView(this.libList);
     this.stack = [];
     ctx.bus.subscribe('bus_gui', (msg, src, d) => {
-      if (msg === 'msg_nav_changed') this.setMode(d.nav === 'nav_lib' ? 'list' : 'aa');
+      if (msg === 'msg_nav_changed') {
+        this.searching = d.nav === 'nav_search';
+        this.setMode(d.nav === 'nav_lib' || this.searching ? 'list' : 'aa');
+        if (this.searching) this.showSearch();
+        else if (this.mode === 'list' && this.searchShown) { this.searchShown = false; this.libList.setSource(this.stack[this.stack.length - 1]); }
+      }
     });
     // Track menu: jump to the current track's artist / album / folder / genre.
     const current = {cmd_request_current_artist: 'artist', cmd_list_current_album: 'album', cmd_list_current_folder: 'folder', cmd_request_current_genre: 'genre'};
     for (const bus of ['list', 'bus_data_cmd']) {
-      ctx.bus.subscribe(bus, msg => {
-        if (current[msg]) this.openCurrent(current[msg]);
+      ctx.bus.subscribe(bus, (msg, src, d) => {
+        if (msg === 'cmd_list_search_text') { this.searchQuery = d?.string ?? ''; if (this.searching) this.showSearch(); }
+        else if (msg === 'cmd_list_search_cat') { this.searchCat = d?.kind ?? 'all'; if (this.searching) this.showSearch(); }
+        else if (current[msg]) this.openCurrent(current[msg]);
         else if (msg === 'cmd_list_play' || msg === 'cmd_list_shuffle') this.playList(msg === 'cmd_list_shuffle');
       });
     }
@@ -211,9 +218,16 @@ export class ListWidget extends FastLayout {
     return {list: this.libList, open: src => this.open(src)};
   }
 
+  showSearch() {
+    this.searchShown = true;
+    const src = searchSource(this.ctx, this.libList, this.nav, this.searchQuery ?? '', this.searchCat ?? 'all');
+    this.searchSrc = src;
+    this.libList.setSource(src);
+  }
+
   /** Header Play / Shuffle: the shown list's tracks from the start, or shuffled. */
   playList(shuffle) {
-    const src = this.stack[this.stack.length - 1];
+    const src = this.searching ? this.searchSrc : this.stack[this.stack.length - 1];
     const tracks = src?.tracks ?? src?.groups?.flatMap(g => g.tracks) ?? [];
     if (!tracks.length) return;
     const p = this.ctx.player;
@@ -257,7 +271,7 @@ export class ListWidget extends FastLayout {
     const list = mode === 'list';
     this.libList.visibility = list ? VISIBLE : GONE;
     for (const v of this.items.values()) v.visibility = list ? GONE : VISIBLE;
-    if (list && !this.stack.length) this.openHome();
+    if (list && !this.stack.length && !this.searching) this.openHome();
     this.requestLayout();
     this.invalidate();
   }
@@ -408,6 +422,13 @@ export class ListWidget extends FastLayout {
     if (ll.visibility !== GONE) {
       // Rows scroll above the navbar (bottomReservedSpace) and the bottom inset.
       ll.paddingTop = 0;
+      if (this.searching) {
+        // Results start below the search panel.
+        let root = this;
+        while (root.parent) root = root.parent;
+        const sl = root.findViewById('search_edit')?.parent;
+        if (sl && sl.visibility !== GONE) ll.paddingTop = Math.max(0, sl.getLocationIn(null).y + sl.height - this.getLocationIn(null).y);
+      }
       ll.paddingBottom = this.ctx.dynamicDimension(this.bottomReservedId ?? 'navbar_bounds_2lines_size') + this.ctx.windowInsets.bottom;
       ll.paddingLeft = this.ctx.windowInsets.left;
       ll.paddingRight = this.ctx.windowInsets.right;
