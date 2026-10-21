@@ -14,6 +14,7 @@ import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
 import {HomeSource, currentCategorySource, searchSource} from './sources.js';
+import {LyricsPage} from './lyrics.js';
 import {elevationShadow} from '../view/drawables.js';
 
 const OFFSET_STATUS_BAR = 1, OFFSET_NAVIGATION_BAR = 2;
@@ -58,9 +59,14 @@ export class AAItemView extends SceneFastLayout {
     box.setChecked(checked);
   }
 
+  syncLyricsButton() {
+    this.findViewById('lyrics')?.setTrack?.(this.track);
+  }
+
   bind(track) {
     if (this.track === track) return;
     this.track = track;
+    this.syncLyricsButton();
     this.title?.setText(track?.title ?? '');
     this.line2?.setText(track?.artist ?? '');
     this.meta?.setText(track?.meta ?? '');
@@ -83,6 +89,7 @@ export class AAItemView extends SceneFastLayout {
     if (this.itemScene === scene) return;
     this.itemScene = scene;
     this.loadBehaviorsFor(scene);
+    this.syncLyricsButton();
     this.scenes.go(scene, {duration: 0});
   }
 }
@@ -325,11 +332,15 @@ export class ListWidget extends FastLayout {
     this.libList.visibility = GONE;
     this.libList.lp = this.generateLayoutParams(null);
     this.addView(this.libList);
+    this.lyricsPage = new LyricsPage(ctx, this);
+    this.lyricsPage.visibility = GONE;
+    this.lyricsPage.lp = this.generateLayoutParams(null);
+    this.addView(this.lyricsPage);
     this.stack = [];
     ctx.bus.subscribe('bus_gui', (msg, src, d) => {
       if (msg === 'msg_nav_changed') {
         this.searching = d.nav === 'nav_search';
-        this.setMode(d.nav === 'nav_lib' || this.searching ? 'list' : 'aa');
+        this.setMode(d.nav === 'nav_lyrics' ? 'lyrics' : d.nav === 'nav_lib' || this.searching ? 'list' : 'aa');
         if (this.searching) this.showSearch();
         else if (this.mode === 'list' && this.searchShown) { this.searchShown = false; this.libList.setSource(this.stack[this.stack.length - 1]); }
       }
@@ -406,9 +417,10 @@ export class ListWidget extends FastLayout {
   setMode(mode) {
     if (this.mode === mode) return;
     this.mode = mode;
-    const list = mode === 'list';
+    const list = mode === 'list', lyrics = mode === 'lyrics';
     this.libList.visibility = list ? VISIBLE : GONE;
-    for (const v of this.items.values()) v.visibility = list ? GONE : VISIBLE;
+    this.lyricsPage.show(lyrics);
+    for (const v of this.items.values()) v.visibility = list || lyrics ? GONE : VISIBLE;
     if (list && !this.stack.length && !this.searching) this.openHome();
     // The album-art pager has no scroller (mode 0); the library list sets its own.
     if (list) this.libList.syncScroller();
@@ -583,6 +595,18 @@ export class ListWidget extends FastLayout {
     g.marginB = this.readMargins('aaMarginBottom');
     g.setBounds(this.width, this.height + this.ctx.transientBarHeight, this.paddingLeft, this.paddingTop, this.paddingRight, this.paddingBottom);
     this.placeItems();
+    // The lyrics page takes the current album-art item's frame (scene_lyrics keeps the player around it).
+    const lp = this.lyricsPage;
+    if (lp.visibility !== GONE) {
+      const b = g.itemBounds(0, 0);
+      const w = b.right - b.left, h = b.bottom - b.top;
+      lp.measure(MeasureSpec.make(w, MeasureSpec.EXACTLY), MeasureSpec.make(h, MeasureSpec.EXACTLY));
+      lp.layout(0, 0, w, h);
+      lp.translationX = b.left;
+      lp.translationY = b.top;
+      lp.el.style.overflow = 'hidden';
+      lp.invalidate();
+    }
   }
 
   placeItems() {

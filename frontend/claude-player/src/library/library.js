@@ -54,6 +54,11 @@ export class Library {
   async importFiles(files, onProgress) {
     let added = 0, done = 0;
     const audio = [...files].filter(isAudioFile);
+    // Sidecar .lrc files next to the audio (same path without the extension).
+    const lrc = new Map();
+    for (const f of files) {
+      if (/\.lrc$/i.test(f.name)) lrc.set((f.webkitRelativePath || f.name).replace(/\.[^./]+$/, '').toLowerCase(), f);
+    }
     for (const f of audio) {
       const id = hash((f.webkitRelativePath || f.name) + '|' + f.size + '|' + (f.lastModified ?? 0));
       if (this.byId.has(id)) { onProgress?.(++done, audio.length); continue; }
@@ -73,6 +78,10 @@ export class Library {
         path, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '', fileName: f.name, size: f.size, mime: f.type || '',
         artId, added: Date.now(),
       };
+      const side = lrc.get(path.replace(/\.[^./]+$/, '').toLowerCase());
+      if (side) { try { meta.lyricsFile = await side.text(); } catch { /* unreadable sidecar */ } }
+      if (tags.lyricsSynced) meta.lyricsSynced = tags.lyricsSynced;
+      if (tags.lyrics) meta.lyrics = tags.lyrics;
       meta.meta = trackMetaLabel(meta);
       if (this.db) await this.db.putTrack(meta, f, artBlob);
       if (artBlob && artId && !this.artCache.has(artId)) this.artCache.set(artId, loadArt(artBlob));

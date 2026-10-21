@@ -60,6 +60,40 @@ function readId3(b, out) {
       case 'TPOS': case 'TPA': [out.disc] = parseNumberPair(text()); break;
       case 'TYER': case 'TYE': case 'TDRC': out.year = parseInt(text()) || out.year; break;
       case 'TLEN': out.durationMs ||= parseInt(text()) || 0; break;
+      case 'USLT': case 'ULT': {
+        // Encoding, 3-byte language, terminated descriptor, then the lyrics.
+        const enc = body[0];
+        let p = 4;
+        if (enc === 1 || enc === 2) { while (p + 1 < body.length && (body[p] || body[p + 1])) p += 2; p += 2; }
+        else { while (p < body.length && body[p]) p++; p++; }
+        const lyr = decodeText(body.subarray(p), enc).replace(/\0+$/g, '').trim();
+        if (lyr && !out.lyrics) out.lyrics = lyr;
+        break;
+      }
+      case 'SYLT': {
+        // Synchronised lyrics with millisecond timestamps (format 2) as LRC text.
+        const enc = body[0], fmt = body[4];
+        if (fmt !== 2) break;
+        let p = 6;
+        const skip = () => {
+          if (enc === 1 || enc === 2) { while (p + 1 < body.length && (body[p] || body[p + 1])) p += 2; p += 2; }
+          else { while (p < body.length && body[p]) p++; p++; }
+        };
+        skip();
+        const lines = [];
+        while (p < body.length) {
+          const st = p;
+          skip();
+          const txt = decodeText(body.subarray(st, Math.max(st, p - (enc === 1 || enc === 2 ? 2 : 1))), enc).replace(/^\n/, '');
+          if (p + 4 > body.length) break;
+          const ms = be32(body, p);
+          p += 4;
+          const mm = Math.floor(ms / 60000), ss = ((ms % 60000) / 1000).toFixed(2).padStart(5, '0');
+          lines.push(`[${String(mm).padStart(2, '0')}:${ss}]${txt}`);
+        }
+        if (lines.length) out.lyricsSynced = lines.join('\n');
+        break;
+      }
       case 'APIC': case 'PIC': {
         const enc = body[0];
         let p = 1, mime;
@@ -99,6 +133,7 @@ function readVorbisComments(b, o, out) {
     else if (k === 'TRACKTOTAL' || k === 'TOTALTRACKS') out.trackTotal = parseInt(v) || 0;
     else if (k === 'DISCNUMBER') [out.disc] = parseNumberPair(v);
     else if (k === 'DATE' || k === 'YEAR') out.year = parseInt(v) || out.year;
+    else if ((k === 'LYRICS' || k === 'UNSYNCEDLYRICS' || k === 'UNSYNCED LYRICS') && !out.lyrics) out.lyrics = s.slice(eq + 1);
     else if (k === 'METADATA_BLOCK_PICTURE' && !out.picture) {
       try {
         const bin = Uint8Array.from(atob(v), c => c.charCodeAt(0));
@@ -191,6 +226,7 @@ function readMp4(b, out) {
             case '©alb': out.album = str(); break;
             case '©gen': out.genre = str(); break;
             case '©day': out.year = parseInt(str()) || out.year; break;
+            case '©lyr': out.lyrics = str(); break;
             case 'trkn': if (val.length >= 6) { out.track = (val[2] << 8) | val[3]; out.trackTotal = (val[4] << 8) | val[5]; } break;
             case 'disk': if (val.length >= 4) out.disc = (val[2] << 8) | val[3]; break;
             case 'covr': if (!out.picture) out.picture = {mime: kind === 14 ? 'image/png' : 'image/jpeg', bytes: val.slice()}; break;

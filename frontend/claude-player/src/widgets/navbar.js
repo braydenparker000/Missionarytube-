@@ -11,7 +11,7 @@ import {STATE_PLAYING} from '../player/player.js';
 import {animTime} from './topnav.js';
 import {renderOps} from '../view/drawables.js';
 
-const NAV_BUTTON = {nav_main: null, nav_lib: 'cmd_nav_to_lib', nav_eq: 'cmd_nav_to_eq', nav_search: 'cmd_nav_to_search', nav_lyrics: 'cmd_nav_to_lib'};
+const NAV_BUTTON = {nav_main: null, nav_lib: 'cmd_nav_to_lib', nav_eq: 'cmd_nav_to_eq', nav_search: 'cmd_nav_to_search', nav_lyrics: null};
 
 export class Navbar extends FastLayout {
   constructor(ctx, a) {

@@ -7,7 +7,7 @@ const PLAYING_FAMILY = new Set(['scene_playing', 'scene_vis', 'scene_vis_temp_ui
 const VIS_FAMILY = new Set(['scene_vis', 'scene_vis_temp_ui', 'scene_vis_w_ui']);
 const VIS_NONE = 0, VIS_W_UI = 1, VIS_FULL_SCREEN = 2;
 const VIS_KEY = 'cp-vis-mode';
-const NAV_SCENES = {nav_lib: 'scene_lib', nav_lyrics: 'scene_lib', nav_search: 'scene_search', nav_eq: 'scene_eq'};
+const NAV_SCENES = {nav_lib: 'scene_lib', nav_lyrics: 'scene_lyrics', nav_search: 'scene_search', nav_eq: 'scene_eq'};
 
 /** Duration scaling from the Animations setting (normal, fast, disabled). */
 export function animTime(ctx, seconds) {
@@ -41,6 +41,7 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
       if (msg === 'cmd_nav_to_lib') this.navigate('nav_lib');
       else if (msg === 'cmd_nav_to_search') this.navigate('nav_search');
       else if (msg === 'cmd_nav_to_eq') this.navigate('nav_eq');
+      else if (msg === 'cmd_nav_to_lyrics') this.navigate('nav_lyrics');
       else if (msg === 'cmd_nav_to_main' || msg === 'cmd_gui_back') this.navigate('nav_main');
       else if (msg === 'cmd_gui_set_vis_mode') this.setVisMode(d?.arg1 ?? 0);
     });
