@@ -46,7 +46,24 @@ export function r2Tracks(data, url = R2_LIBRARY_URL) {
       replayGain: m.rgTrack != null ? {track: m.rgTrack, album: m.rgAlbum, trackPeak: m.rgTrackPeak, albumPeak: m.rgAlbumPeak} : null,
       opusHeadGainDb: m.opusHeadGainDb ?? null,
     };
+    // A pre-generated seek-bar waveform spares the player decoding the whole file.
+    const wave = decodeWave(m.waveform ?? t.waveform);
+    if (wave) rec.wave = wave;
     out.push(rec);
   }
   return out;
+}
+
+/**
+ * Index waveforms: base64 of one byte per bar (peak level, loudest bar 255),
+ * or an array of 0..1 numbers; 16 to 1000 bars.
+ */
+export function decodeWave(w) {
+  let v = null;
+  if (Array.isArray(w)) v = w.map(Number);
+  else if (typeof w === 'string') {
+    try { v = Array.from(atob(w), c => c.charCodeAt(0) / 255); } catch { return null; }
+  }
+  if (!v || v.length < 16 || v.length > 1000 || !v.every(x => x >= 0 && x <= 1)) return null;
+  return v.map(x => Math.round(x * 1000) / 1000);
 }
