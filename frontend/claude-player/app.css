@@ -1,0 +1,16 @@
+@font-face{font-family:"cp-ttnorms";font-weight:700;font-style:normal;font-display:block;src:url("fonts/tt-norms-pro-bold.otf") format("opentype")}
+@font-face{font-family:"cp-ttnorms";font-weight:500;font-style:normal;font-display:block;src:url("fonts/tt-norms-pro-medium.otf") format("opentype")}
+@font-face{font-family:"cp-manrope3";font-weight:400;font-style:normal;font-display:block;src:url("fonts/manrope3-regular.otf") format("opentype")}
+@font-face{font-family:"cp-manrope3";font-weight:500;font-style:normal;font-display:block;src:url("fonts/manrope3-medium.otf") format("opentype")}
+@font-face{font-family:"cp-manrope3";font-weight:800;font-style:normal;font-display:block;src:url("fonts/manrope3-extrabold.otf") format("opentype")}
+
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;overscroll-behavior:none;-webkit-tap-highlight-color:transparent;touch-action:none;user-select:none;-webkit-user-select:none}
+#cp-root{position:fixed;left:0;top:0;width:100%;height:100%;overflow:hidden;contain:strict}
+.v{position:absolute;left:0;top:0;box-sizing:border-box;transform-origin:50% 50%}
+.v .bg,.v .ops{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none}
+.op{position:absolute;left:0;top:0;box-sizing:border-box;transform-origin:50% 50%}
+.op svg{display:block}
+.txt{position:absolute;left:0;top:0;pointer-events:none;white-space:pre;font-kerning:normal;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
+.ln{position:absolute;left:0;top:0;white-space:pre}
+.cp-boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#888;font:14px sans-serif;background:#000}
+.cp-file{position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0}
