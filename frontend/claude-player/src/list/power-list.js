@@ -66,15 +66,23 @@ export class PowerList extends FastLayout {
     this.scrollTo(i <= 0 ? 0 : g.headerH + Math.floor(i / g.cols) * g.itemH);
   }
 
-  /** First item whose section is at or after ch (in chars order). */
+  /**
+   * The first item in ch's section; else the first later letter/digit section
+   * (symbol titles sort first in the list but under '#' at the column's end).
+   */
   scrollToSection(ch, chars) {
     const s = this.source;
     if (!s?.sectionTitle) return;
-    const want = chars.indexOf(ch);
+    const want = chars.indexOf(ch), other = chars[chars.length - 1];
+    let after = -1;
     for (let i = 0; i < s.count; i++) {
-      if (chars.indexOf(sectionChar(s.sectionTitle(i), chars)) >= want) { this.scrollToIndex(i); return; }
+      const c = sectionChar(s.sectionTitle(i), chars);
+      if (c === ch) { this.scrollToIndex(i); return; }
+      if (after < 0 && c !== other && chars.indexOf(c) > want) after = i;
     }
-    this.scrollTo(this.maxScroll());
+    if (after >= 0) this.scrollToIndex(after);
+    else if (ch === other) this.scrollToIndex(0);
+    else this.scrollTo(this.maxScroll());
   }
 
   sectionAtTop(chars) {
