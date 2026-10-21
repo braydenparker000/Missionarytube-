@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Renderer discrimination bench</title>
+<style>
+html,body{margin:0;height:100%;background:#111;color:#eee;font:15px system-ui;overflow:hidden}
+#stage{position:fixed;inset:0;overflow:hidden}
+.el{position:absolute;left:0;top:0;will-change:transform,opacity;transform-origin:0 0}
+.row{position:absolute;left:0;right:0;height:64px;display:flex;align-items:center;gap:12px;padding:0 16px;box-sizing:border-box}
+.row i{width:48px;height:48px;border-radius:8px;background:#345;flex:none}
+.row b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn{width:56px;height:56px;border-radius:28px;background:#2a2a2a}
+#scroller{position:absolute;inset:0;overflow-y:scroll}
+canvas{position:absolute;left:0;top:0}
+</style></head><body><div id="stage"></div>
+<script>
+// Synthetic scene approximating the player<->library scene pair: one art box,
+// two labels, five transport buttons, waveform, navbar strip, list beneath.
+const W=innerWidth,H=innerHeight,DPR=devicePixelRatio,ROWS=2000,ROW_H=64;
+const stage=document.getElementById('stage');
+const ease=t=>1-Math.pow(1-t,4); // DecelerateInterpolator(2.0)
+const lerp=(a,b,t)=>a+(b-a)*t;
+const bars=Float32Array.from({length:400},(_,i)=>0.2+0.8*Math.abs(Math.sin(i*0.13)*Math.cos(i*0.031)));
+// Two scene rects per element: [x,y,w,h,alpha] in "playing" and "lib".
+const art=document.createElement('canvas');art.width=art.height=512;
+{const g=art.getContext('2d'),gr=g.createLinearGradient(0,0,512,512);gr.addColorStop(0,'#c63');gr.addColorStop(1,'#36c');g.fillStyle=gr;g.fillRect(0,0,512,512);}
+const S={
+ art:[[24,96,W-48,W-48,1],[16,H-72,56,56,1]],
+ title:[[24,W+72,W-48,28,1],[84,H-70,W-160,22,1]],
+ sub:[[24,W+104,W-48,22,1],[84,H-46,W-160,18,1]],
+ wave:[[24,W+150,W-48,72,1],[0,H-80,W,4,0]],
+ nav:[[0,H,W,80,0],[0,H-80,W,80,1]],
+ list:[[0,H*0.2,W,H,0],[0,0,W,H,1]],
+};
+for(let i=0;i<5;i++)S['b'+i]=[[24+i*((W-48-56)/4),W+250,56,56,1],[W-64,H-68,48,48,i===2?1:0]];
+function frameRects(t){const o={};for(const k in S){const[a,b]=S[k];o[k]=a.map((v,i)=>lerp(v,b[i],t));}return o;}
+const mode=new URLSearchParams(location.search).get('mode');
+const stats={work:[],intervals:[]};let last=0;
+function record(ts,w){if(last)stats.intervals.push(ts-last);last=ts;stats.work.push(w);}
+// Virtual list: recycled pool of DOM rows.
+function makeDomList(host){
+ const sc=document.createElement('div');sc.id='scroller';const sp=document.createElement('div');sp.style.height=ROWS*ROW_H+'px';sp.style.position='relative';sc.append(sp);host.append(sc);
+ const pool=[];const n=Math.ceil(H/ROW_H)+4;
+ for(let i=0;i<n;i++){const r=document.createElement('div');r.className='row';r.innerHTML='<i></i><div><b></b><div style="opacity:.6;font-size:13px"></div></div>';sp.append(r);pool.push({el:r,b:r.querySelector('b'),s:r.querySelector('div>div'),idx:-1});}
+ function update(){const first=Math.floor(sc.scrollTop/ROW_H)-2;for(let i=0;i<n;i++){const idx=first+i;if(idx<0||idx>=ROWS)continue;const p=pool[((idx%n)+n)%n];if(p.idx!==idx){p.idx=idx;p.el.style.transform=`translateY(${idx*ROW_H}px)`;p.b.textContent='Track title number '+idx+' — a fairly long name';p.s.textContent='Artist '+(idx%97)+' · Album '+(idx%31);}}}
+ sc.addEventListener('scroll',update,{passive:true});update();return sc;
+}
+// ---- Mode A: transition loops ----
+function domScene(useLayout){
+ const els={};
+ for(const k in S){let e;
+  if(k==='list'){e=document.createElement('div');e.className='el';e.style.width=W+'px';e.style.height=H+'px';makeDomList(e);}
+  else if(k==='art'){e=document.createElement('canvas');e.className='el';e.width=e.height=512;e.getContext('2d').drawImage(art,0,0);}
+  else if(k==='wave'){e=document.createElement('canvas');e.className='el';e.width=(W-48)*DPR;e.height=72*DPR;const g=e.getContext('2d');g.fillStyle='#ddd';const bw=e.width/400;bars.forEach((v,i)=>g.fillRect(i*bw,e.height*(1-v)/2,bw*0.6,e.height*v));}
+  else{e=document.createElement('div');e.className='el'+(k[0]==='b'?' btn':'');if(k==='title'||k==='sub')e.textContent=k==='title'?'Some Track Title That Is Long':'Artist Name — Album Name';if(k==='nav')e.style.background='#1d1d1d';}
+  if(k!=='list'&&k[0]!=='b'&&k!=='nav'&&!useLayout){e.style.width=S[k][0][2]+'px';e.style.height=S[k][0][3]+'px';}
+  if(k[0]==='b'||k==='nav'){e.style.width=S[k][0][2]+'px';e.style.height=S[k][0][3]+'px';}
+  stage.append(e);els[k]=e;}
+ if(els.list)stage.prepend(els.list);
+ return t=>{const r=frameRects(t);for(const k in r){const[x,y,w,h,a]=r[k],e=els[k],[,,w0,h0]=S[k][0];
+  if(useLayout&&k!=='list'){e.style.left=x+'px';e.style.top=y+'px';e.style.width=w+'px';e.style.height=h+'px';e.style.transform='none';}
+  else{const sx=w/(w0||1),sy=h/(h0||1);e.style.transform=k==='list'?`translate(${x}px,${y}px)`:`translate(${x}px,${y}px) scale(${sx},${sy})`;}
+  e.style.opacity=a;}
+  els.title.getBoundingClientRect();};
+}
+function canvasScene(){
+ const c=document.createElement('canvas');c.width=W*DPR;c.height=H*DPR;c.style.width=W+'px';c.style.height=H+'px';stage.append(c);const g=c.getContext('2d');let scroll=0;
+ return t=>{const r=frameRects(t);g.setTransform(DPR,0,0,DPR,0,0);g.fillStyle='#111';g.fillRect(0,0,W,H);
+  {const[x,y,w,h,a]=r.list;g.globalAlpha=a;const first=Math.floor(scroll/ROW_H);for(let i=0;i<Math.ceil(H/ROW_H)+1;i++){const idx=first+i,yy=y+idx*ROW_H-scroll;g.fillStyle='#345';g.fillRect(16,yy+8,48,48);g.fillStyle='#eee';g.font='600 15px system-ui';g.fillText('Track title number '+idx+' — a fairly long name',76,yy+28);g.globalAlpha=a*0.6;g.font='13px system-ui';g.fillText('Artist '+(idx%97)+' · Album '+(idx%31),76,yy+48);g.globalAlpha=a;}scroll+=8;}
+  {const[x,y,w,h,a]=r.art;g.globalAlpha=a;g.drawImage(art,x,y,w,h);}
+  g.fillStyle='#eee';for(const k of['title','sub']){const[x,y,w,h,a]=r[k];g.globalAlpha=a;g.font=(k==='title'?'600 ':'')+Math.round(h*0.8)+'px system-ui';g.fillText(k==='title'?'Some Track Title That Is Long':'Artist Name — Album Name',x,y+h*0.8,w);}
+  {const[x,y,w,h,a]=r.wave;g.globalAlpha=a;const bw=w/400;g.fillStyle='#ddd';for(let i=0;i<400;i++){const v=bars[i];g.fillRect(x+i*bw,y+h*(1-v)/2,bw*0.6,h*v);}}
+  {const[x,y,w,h,a]=r.nav;g.globalAlpha=a;g.fillStyle='#1d1d1d';g.fillRect(x,y,w,h);}
+  for(let i=0;i<5;i++){const[x,y,w,h,a]=r['b'+i];g.globalAlpha=a;g.fillStyle='#2a2a2a';g.beginPath();g.arc(x+w/2,y+h/2,w/2,0,7);g.fill();}
+  g.globalAlpha=1;};
+}
+// ---- Mode B: waveform scrub ----
+function waveCanvas(){const c=document.createElement('canvas');const w=W-48,h=72;c.width=w*DPR;c.height=h*DPR;c.style.cssText=`left:24px;top:300px;width:${w}px;height:${h}px`;stage.append(c);const g=c.getContext('2d');
+ return p=>{g.setTransform(DPR,0,0,DPR,0,0);g.clearRect(0,0,w,h);const bw=w/400,px=p*w;for(let i=0;i<400;i++){const v=bars[i];g.fillStyle=i*bw<px?'#f80':'#666';g.fillRect(i*bw,h*(1-v)/2,bw*0.6,h*v);}};}
+function waveSvg(){const ns='http://www.w3.org/2000/svg',w=W-48,h=72;const s=document.createElementNS(ns,'svg');s.setAttribute('width',w);s.setAttribute('height',h);s.style.cssText='position:absolute;left:24px;top:300px';
+ let d='';const bw=w/400;bars.forEach((v,i)=>{d+=`M${i*bw},${h*(1-v)/2}h${bw*0.6}v${h*v}h${-bw*0.6}z`;});
+ s.innerHTML=`<defs><clipPath id="cp"><rect id="cr" x="0" y="0" width="0" height="${h}"/></clipPath></defs><path d="${d}" fill="#666"/><path d="${d}" fill="#f80" clip-path="url(#cp)"/>`;stage.append(s);const cr=s.querySelector('#cr');
+ return p=>{cr.setAttribute('width',p*w);s.getBoundingClientRect();};}
+// ---- Mode C: list fling ----
+function listDom(){const sc=makeDomList(stage);return t=>{sc.scrollTop=t*ROWS*ROW_H*0.5;sc.querySelector('.row').getBoundingClientRect();};}
+function listCanvas(){const c=document.createElement('canvas');c.width=W*DPR;c.height=H*DPR;c.style.width=W+'px';c.style.height=H+'px';stage.append(c);const g=c.getContext('2d');
+ return t=>{const scroll=t*ROWS*ROW_H*0.5;g.setTransform(DPR,0,0,DPR,0,0);g.fillStyle='#111';g.fillRect(0,0,W,H);const first=Math.floor(scroll/ROW_H);for(let i=0;i<Math.ceil(H/ROW_H)+1;i++){const idx=first+i,yy=idx*ROW_H-scroll;g.fillStyle='#345';g.fillRect(16,yy+8,48,48);g.fillStyle='#eee';g.font='600 15px system-ui';g.fillText('Track title number '+idx+' — a fairly long name',76,yy+28);g.fillStyle='#999';g.font='13px system-ui';g.fillText('Artist '+(idx%97)+' · Album '+(idx%31),76,yy+48);}};}
+const builders={'A-dom-compositor':()=>domScene(false),'A-dom-layout':()=>domScene(true),'A-canvas':canvasScene,'B-canvas':waveCanvas,'B-svg':waveSvg,'C-dom':listDom,'C-canvas':listCanvas};
+const draw=builders[mode]();const DUR=4000;let t0=0;
+function loop(ts){if(!t0)t0=ts;const el=ts-t0;const s=performance.now();
+ if(mode[0]==='A'){const ph=(el%1000)/1000,dir=Math.floor(el/1000)%2;draw(ease(dir?1-ph:ph));}
+ else if(mode[0]==='B'){draw((Math.sin(el/300)+1)/2);}
+ else draw(el/DUR*0.6);
+ record(ts,performance.now()-s);
+ if(el<DUR)requestAnimationFrame(loop);else window.__done=stats;}
+requestAnimationFrame(loop);
+</script></body></html>

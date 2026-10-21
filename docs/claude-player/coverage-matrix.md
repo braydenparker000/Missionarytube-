@@ -1,0 +1,90 @@
+# Reference-to-implementation coverage matrix
+
+Reference: Poweramp build 1031. Evidence IDs (`F..`) refer to the
+[research notebook](research-notebook.md). Every planned component maps to a reference component or to
+a named technical necessity (`TN`). The status describes **reference knowledge**, not code: nothing
+is implemented yet.
+
+Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred · `OPEN` unknown ·
+`UW` unsupported on the web · `LEGAL` exact reproduction blocked by rights; a substitute is labelled as one.
+
+## 1. First journey: player → library → mini-player
+
+| Reference component | Evidence | Status | Original implementation contract | Milestone | Fidelity limitation / next evidence |
+| --- | --- | --- | --- | --- | --- |
+| Single player activity / top scene container (`TopNavSceneFastLayout`) | F01, F02 | CS | `SceneGraph` root, one document | M1 | — |
+| Scenes `defaultScene`, `scene_playing`, `scene_lib` | F03, F04 | CS | `SceneParams` records + engine | M1 | Runtime timing `OPEN` |
+| Scene transition curve and duration law | F05 | CS (code, med-high) | `SceneClock` | M1 | Call-site → duration mapping `OPEN`; needs a device recording |
+| Declared timing table (`animMainEnterTime` …) | F07 | CS (declared) | `TimingTable` | M1 | Elapsed time `OPEN` |
+| State anims (seeking, pressed) | F04, F06 | CS | `StateAnimClock` | M2 | — |
+| One-pass layout (`FastLayout`) | F09 | CS (doc) | `FastLayoutSolver` | M1 | Undocumented edge cases verified by the oracle |
+| Window-size buckets | F12 | CS | `QualifierResolver` | M1 | The browser window differs from the app window; basis made explicit |
+| Status/navigation bar backgrounds and insets | F02 | CS | `env(safe-area-inset-*)`, `viewport-fit=cover`, `theme-color` | M2 | Bar colour control limited (`UW` partial) |
+| Album art bounds (`aa_bounds`) and image | F02 | CS (structure) | `AlbumArt` view, embedded-art extraction | M2 | Cropping rules `OPEN` |
+| Album-art swipe ←/→ (track), more (category), ↓ (list), ↑ (lyrics) | F14 | CS (semantics) | `GestureArena` + `AAScroller` | M2 (←/→, ↓), M7 (↑) | Thresholds/physics `OPEN` (F15) |
+| Waveseek (scrollable), cursor, pressed/seeking states | F13, F02 | CS (doc) | `Waveseek` canvas + `WaveformAnalyzer` worker | M2 | Analysis algorithm `OPEN` (labelled provisional) |
+| Play / pause / play-behind, long press = stop | F02 | CS | `BusActionButton` → `MessageBus` → `PlaybackService` | M2 | — |
+| Elapsed / duration labels, long press elapsed = reset to 0:00 | F02, `ui_player.xml` | CS | `Elapsed`/`Duration` views | M2 | — |
+| Sub-album-art buttons (shuffle, repeat …, editable) | F02 | CS (structure) | `SubAAButtons` | M2 (fixed set), M7 (editing) | Default button set per layout `OPEN` |
+| Track labels (title, line 2), marquee | `ui_player.xml` | CS (options) | `TrackLabels` with marquee | M2 | Marquee speed `OPEN` |
+| Navbar container, mini-player pager list, nav buttons | F16 | CS | `Navbar` + pager | M2 | Paging physics `OPEN` |
+| Navbar tap → player; swipe ←/→ track; long press → category | F14 | CS | `GestureArena` | M2 | Thresholds `OPEN` |
+| Library list widget (`ListWidget`/`PowerList`) | F02 | CS (structure) | `VirtualList` (recycled DOM pool) | M2 (Tracks/Albums/Folders) | Item layouts `OPEN` until analysed |
+| A–Z list scroller + indexer popup | F02, `library_lists.xml` | CS | `ListScroller` | M4 | — |
+| Message bus (`bus_player_cmd`, `msgId`) | F02 | CS | `MessageBus` | M1 | — |
+| Real audio playback, pause/next/previous/seek/completion | F20 | CS (behaviour) | `PlaybackService` over `HTMLAudioElement` | M2 | Native engine `UW` |
+| Lock screen / notification controls | manifest, `lockscreen.xml` | CS | Media Session API | M2 | Poweramp's own lock screen `UW`; OS media notification only |
+| Background playback | `PlayerService` | CS | Media element + Media Session | M2 | Physical-phone verification required |
+| Local music source | `library.xml` (rescan, folders) | CS | `LocalFilesAdapter` (`<input type=file>`), IndexedDB index | M2 | Persistent folder access and rescans `UW` on Android Chrome |
+| Persistence of position/queue/settings | `restore_pos` etc. | CS | `Persistence` (IndexedDB, versioned, `claude-player:` namespace) | M2 | — |
+| Feature-pack/licence gating | F08, settings | CS | **Not reproduced** (TN: no commerce) | — | Gated features behave as unlocked; noted per setting |
+
+## 2. Configurable appearance families (built-in skins)
+
+| Reference option | Evidence | Status | Contract | Milestone | Limitation |
+| --- | --- | --- | --- | --- | --- |
+| Skins Light / Black, day/night pairing, Follow Day/Night | F10, F11 | CS | `ThemeComposer` base styles; `prefers-color-scheme` | M2 (Black), M3 (Light, follow) | Default skin on first run `OPEN` |
+| Layout: Default / Alt / Alt2 | F11 | CS | Overlay → alternate scene/layout styles | M3 | — |
+| Track labels centered; labels background | F11 | CS | Overlay | M3 | — |
+| Player buttons background | F11 | CS | Overlay | M3 | — |
+| Material You colours (more/less) | F11 | CS | Seed-colour palette from a user-chosen colour | M3 | System wallpaper palette `UW`; the substitute is labelled |
+| Font: System / Alt / Bold | F11, F19 | CS | `system-ui` / OFL Manrope / labelled substitute | M2 (Bold substitute), M3 | Bold = TT Norms Pro is `LEGAL` (substitute) |
+| Rounded corners more/less | F11 | CS | Corner tokens via overlay | M3 | — |
+| Seekbar: Waveseek / Static / Plain with buttons | F11, F13 | CS | `Waveseek` scrollable/fixed, `PlainSeek` | M2 (waveseek), M3 | — |
+| More (pro) buttons; Light buttons | F11 | CS | Overlay | M3 | — |
+| Knob highlight; graphic FRS colour | F11 | CS | EQ view tokens | M6 | — |
+| Navbar background (default/semi/none), offset, force-light | F11 | CS | Overlay | M3 | — |
+| Transparent status bar; Android navbar background | F11 | CS | Insets + `theme-color` | M3 | Browser chrome limits (`UW` partial) |
+| Album-art background blur/details/intensity/saturation/gradient | F23 | CS | `ArtBackdrop` | M3 | Blur kernel equivalence `OPEN` |
+| Animations off / fast / normal | F08 | CS (code) | `animScale` (+ `prefers-reduced-motion`) | M2 | — |
+| 3rd-party skins (APK skin packages) | `ui_theme.xml` | CS | — | — | `UW`: cannot load Android skin APKs. Listed, not faked |
+
+## 3. Later feature families (summary)
+
+| Reference family | Evidence | Status | Milestone | Known limitation |
+| --- | --- | --- | --- | --- |
+| Library categories, list options (sort/zoom), headers with meta, list transitions | F17, F18 | CS / INF | M4 | Transition semantics `INF` |
+| Search with category filters | F14, `library_search.xml` | CS | M4 | — |
+| Selection menu, multi-select drag | F14 | CS | M4 | — |
+| Queue, playlists, shuffle/repeat semantics and settings | `library_queue/shuffle/playlists.xml` | CS | M5 | Playlist file import/export: paths `UW` partial |
+| Equalizer (bands, tone, preamp, limiter, reverb, presets) | F20, `audio_equ.xml`, EQ layouts | CS (UI/settings) | M6 | DSP numerics differ from the native engine; documented curves only |
+| AutoEQ headphone presets | F22 | CS | — | `UW` within the budget (7.3 MB) |
+| Lyrics, sleep timer, rating, meta-info cycling, track menu, toasts | F14, layouts | CS | M7 | — |
+| Visualization (MilkDrop presets) | F21 | CS | M8 (decision) | Presets `LEGAL` review; native renderer `UW` |
+| Output/DAC/bit-perfect/resampler/DVC/buffer/audio focus | F20 | CS | — | `UW` |
+| Headset plug/BT auto-resume, volume-key skip | `headset.xml` | CS | — | `UW` (partial via Media Session buttons only) |
+| Widgets, quick-settings tile, Android Auto, Chromecast | F01 | CS | — | `UW` |
+| Tag editing and file deletion | dialogs | CS | — | `UW` for picked files on Android |
+| Settings export/import | `singlepane.xml` | CS | M7 | Own JSON format; Poweramp backup format `OPEN` (not targeted) |
+| Settings breadth (452 keys) | F17 | CS | M3–M7 | Each key gets a status: implemented / UI-only / `UW` / `LEGAL` |
+
+## 4. Technical necessities with no reference component
+
+| TN | Why |
+| --- | --- |
+| `GestureArena` (pointer ownership, axis lock, cancel, multi-touch invalidation, click-through suppression) | Android's view-system touch dispatch has no browser equivalent |
+| `QualifierResolver` window basis | The browser window ≠ the app window (F12) |
+| `LocalFilesAdapter` re-pick flow, OPFS opt-in | Android Chrome lacks persistent folder handles |
+| Persistence namespace `claude-player:` | No reads or writes to other routes' storage (handoff §5) |
+| Original icon set, licensed fonts | Proprietary drawables/fonts cannot ship (F19) |
+| CSP meta, route budget | Repo build gates (F25) |
