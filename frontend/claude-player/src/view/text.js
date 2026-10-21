@@ -108,7 +108,8 @@ export class FastTextView extends View {
     this.textSize = size;
     this.textStyle = style;
     this.fontFamily = family;
-    this.textColor = color ?? {color: 0xffff0000};
+    // Without a colour the platform's default text appearance applies (textColorPrimary).
+    this.textColor = color ?? res.colorValue('?android:textColorPrimary', a.theme) ?? {color: 0xffffffff};
     this.allCaps = allCaps;
     this.letterSpacing = a.float('android:letterSpacing', 0);
     this.lineSpacingMultiplier = a.float('android:lineSpacingMultiplier', 1);

@@ -2,6 +2,9 @@
 // the reference's player command/state messages on the message bus.
 // bus_player_cmd carries commands in; bus_player carries state changes out.
 
+// Reference mode enums (integers SHUFFLE_* / REPEAT_*).
+export const SHUFFLE_NONE = 0;
+export const REPEAT_NONE = 0, REPEAT_ON = 1, REPEAT_ADVANCE = 2, REPEAT_SONG = 3, SINGLE_SONG = 4, REPEAT_ADVANCE_AND_STOP = 5;
 export const STATE_STOPPED = 0, STATE_PLAYING = 1, STATE_PAUSED = 2;
 
 /** Reference time label: m:ss, or h:mm:ss from an hour; "-:--" for unknown. */
@@ -52,12 +55,41 @@ export class Player {
     return this.queue[this.index] ?? null;
   }
 
-  trackAt(rel) {
+  /** Repeat modes that wrap the list (repeat on, advance categories). */
+  get wraps() {
+    return this.repeat === REPEAT_ON || this.repeat === REPEAT_ADVANCE;
+  }
+
+  /** Play order: the queue order, or a permutation when shuffling (current track first). */
+  ensureOrder() {
+    const n = this.queue.length;
+    if (this.order?.length === n && this.orderShuffle === this.shuffle) return;
+    const order = [...Array(n).keys()];
+    if (this.shuffle !== SHUFFLE_NONE) {
+      for (let i = n - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+      const at = order.indexOf(this.index);
+      if (at > 0) [order[0], order[at]] = [order[at], order[0]];
+    }
+    this.order = order;
+    this.orderShuffle = this.shuffle;
+  }
+
+  /** Queue index rel steps away in play order (null past the ends unless wrapping). */
+  indexAt(rel) {
     const n = this.queue.length;
     if (!n) return null;
-    const i = this.index + rel;
-    if (i < 0 || i >= n) return this.repeat === 1 && n > 1 ? this.queue[(i % n + n) % n] : null;
-    return this.queue[i];
+    this.ensureOrder();
+    const pos = this.order.indexOf(this.index) + rel;
+    if (pos < 0 || pos >= n) return this.wraps && n > 1 ? this.order[(pos % n + n) % n] : null;
+    return this.order[pos];
+  }
+
+  trackAt(rel) {
+    const i = this.indexAt(rel);
+    return i === null ? null : this.queue[i];
   }
 
   post(msg, data) {
@@ -66,6 +98,7 @@ export class Player {
 
   setQueue(tracks, index = 0) {
     this.queue = tracks;
+    this.order = null;
     this.load(Math.max(0, Math.min(index, tracks.length - 1)), false);
   }
 
@@ -163,21 +196,21 @@ export class Player {
   }
 
   step(dir) {
-    const n = this.queue.length;
-    if (!n) return;
-    let i = this.index + dir;
-    if (i >= n) i = this.repeat === 1 ? 0 : n - 1;
-    if (i < 0) i = this.repeat === 1 ? n - 1 : 0;
+    if (!this.queue.length) return;
+    let i = this.indexAt(dir);
+    if (i === null) i = this.indexAt(0);
     const playing = this.state === STATE_PLAYING;
     this.load(i, playing);
   }
 
   onEnded() {
     if (this.state !== STATE_PLAYING) return;
-    if (this.repeat === 3) { this.seek(0); return; }
-    if (this.index >= this.queue.length - 1 && this.repeat !== 1) {
+    if (this.repeat === REPEAT_SONG) { this.seek(0); return; }
+    // Single song: play one and pause; otherwise stop at the end unless the mode wraps.
+    if (this.repeat === SINGLE_SONG || this.indexAt(1) === null) {
       this.pause();
-      this.seek(0);
+      if (this.repeat !== SINGLE_SONG) this.seek(0);
+      else this.step(1);
       return;
     }
     this.step(1);
@@ -200,7 +233,7 @@ export class Player {
         break;
       case 'cmd_player_seek': this.seek(d.arg1 ?? 0); break;
       case 'cmd_player_seek_jump': this.seek(this.positionMs() + (d.arg1 ? 10000 : -10000)); break;
-      case 'cmd_player_set_shuffle': this.shuffle = d.arg1 ?? 0; this.post('msg_player_shuffle_mode_changed', {arg1: this.shuffle}); break;
+      case 'cmd_player_set_shuffle': this.shuffle = d.arg1 ?? 0; this.order = null; this.post('msg_player_shuffle_mode_changed', {arg1: this.shuffle}); break;
       case 'cmd_player_set_repeat': this.repeat = d.arg1 ?? 0; this.post('msg_player_repeat_mode_changed', {arg1: this.repeat}); break;
     }
   }

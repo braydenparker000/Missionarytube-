@@ -8,7 +8,10 @@ import {FastTextView} from '../view/text.js';
 import {MeasureSpec} from '../view/view.js';
 import {register} from '../view/inflater.js';
 import {StyledAttributes} from '../res/resources.js';
-import {VISIBLE} from '../res/values.js';
+import {VISIBLE, GONE} from '../res/values.js';
+import {PopupLayout} from './popup.js';
+import {FastButton} from '../view/text.js';
+import {attachSceneParams, SceneRecord, DEFAULT_SCENE} from '../view/scene.js';
 
 const DEFAULT_BUTTONS = ['vis', 'sleeptimer', null, 'shuffle', 'repeat'];
 
@@ -39,6 +42,81 @@ class SubAAButton extends FastLayout {
 
   onClick() {
     this.ctx.bus.post('bus_gui', 'cmd_subaa_button', this, {kind: this.kind});
+  }
+}
+
+/**
+ * Shuffle / repeat buttons: popup buttons whose menu lists the modes
+ * (BusSelectablePopupButtonLayout). Closed, the slot shows the current mode's
+ * icon; open, every mode is a row (?PopupButton_scene_button_menu: icon left,
+ * label) and choosing one sets the mode.
+ */
+class SubAAModeButton extends PopupLayout {
+  constructor(ctx, a, kind, iconStyle) {
+    super(ctx, a);
+    this.kind = kind;
+    this.longClickable = true;
+    const ia = new StyledAttributes(ctx.res, ctx.theme, {}, null, iconStyle);
+    this.icon = new FastTextView(ctx, ia);
+    this.icon.lp = this.generateLayoutParams(ia);
+    this.addView(this.icon);
+    // The icon leaves the menu; rows appear in it.
+    const iconMenu = new SceneRecord();
+    iconMenu.visibility = GONE; iconMenu.alpha = 1; iconMenu.scale = 1; iconMenu.recalc = 0; iconMenu.lp = this.icon.lp;
+    this.icon.sceneParams = new Map([[DEFAULT_SCENE, Object.assign(new SceneRecord(), {visibility: VISIBLE, alpha: 1, scale: 1, recalc: 0, lp: this.icon.lp})], ['scene_button_menu', iconMenu], ['scene_button_menu_closed', Object.assign(new SceneRecord(), {visibility: VISIBLE, alpha: 1, scale: 1, recalc: 0, lp: this.icon.lp})]]);
+    this.menuMinWidth = Math.round(260 * ctx.dpr);
+    this.buttonStyle = a.theme.styleName(a.raw('buttonStyle')) ?? ctx.theme.styleName('?PopupButton');
+    this.menuButtonStyle = a.theme.styleName(a.raw('menuButtonStyle')) ?? ctx.theme.styleName('?PopupButton_scene_button_menu');
+  }
+
+  modes() {
+    const res = this.ctx.res, th = this.ctx.theme;
+    const arr = name => res.entry('array', name) ?? [];
+    const repeat = this.kind === 'repeat';
+    const values = arr(repeat ? 'repeat_modes_enum' : 'shuffle_modes_enum').map(v => res.integer(v, th));
+    const labels = arr(repeat ? 'repeat_modes' : 'shuffle_modes').map(v => res.string(v, th));
+    const icons = arr(repeat ? 'repeat_icons_reordered_32dp' : 'shuffle_icons_32dp');
+    return values.map((v, i) => ({value: v, label: labels[i] ?? '', icon: icons[i] ?? null}));
+  }
+
+  populate() {
+    if (this.rows) return;
+    const ctx = this.ctx, th = ctx.theme;
+    const closedStyle = this.buttonStyle, menuStyle = this.menuButtonStyle;
+    this.rows = this.modes().map(m => {
+      const sa = new StyledAttributes(ctx.res, th, {}, null, closedStyle);
+      const b = new FastButton(ctx, sa);
+      b._attrs = sa;
+      b.setText(m.label);
+      b.setDrawable(ctx.drawables.fromValue(m.icon, th));
+      b.lp = this.generateLayoutParams(sa);
+      this.addView(b);
+      attachSceneParams(b, new StyledAttributes(ctx.res, th, {}, menuStyle), s2 => this.generateLayoutParams(s2));
+      this.hideUntilOpen(b);
+      b.onClick = () => {
+        const cmd = this.kind === 'repeat' ? 'cmd_player_set_repeat' : 'cmd_player_set_shuffle';
+        ctx.bus.post('bus_player_cmd', cmd, this, {arg1: m.value});
+        this.close();
+      };
+      b.mode = m.value;
+      return b;
+    });
+  }
+
+  onOpen() {
+    const cur = this.kind === 'repeat' ? this.ctx.player?.repeat : this.ctx.player?.shuffle;
+    for (const r of this.rows) { r.setChecked(r.mode === cur); r.setActivated(r.mode === cur); }
+  }
+
+  setIcon(attrName) {
+    const d = attrName ? this.ctx.drawables.fromValue(attrName, this.ctx.theme) : null;
+    this.icon.setDrawable(d);
+  }
+
+  onStateChanged() {
+    super.onStateChanged();
+    this.icon.state.pressed = this.state.pressed;
+    this.icon.invalidate();
   }
 }
 
@@ -76,7 +154,8 @@ export class SubAAButtonsLayout extends SceneFastLayout {
     else if (kind === 'sleeptimer') { layoutStyle = th.styleName('?TopEditableSleepTimerButtonLayout'); iconStyle = th.styleName('?TopSleepTimerButton'); }
     else { layoutStyle = th.styleName('?TopEditableDynamicButtonLayout'); iconStyle = 'DynamicPopupButtonIconNoTint'; }
     const a = new StyledAttributes(ctx.res, th, {}, null, layoutStyle);
-    const b = new SubAAButton(ctx, a, kind, iconStyle);
+    const Cls = kind === 'shuffle' || kind === 'repeat' ? SubAAModeButton : SubAAButton;
+    const b = new Cls(ctx, a, kind, iconStyle);
     b.id = kind + '_button_layout';
     b.lp = this.generateLayoutParams(a);
     this.addView(b);
@@ -157,7 +236,7 @@ export class SubAAButtonsLayout extends SceneFastLayout {
       rects.push([l, top, l + G, bottom]);
     }
     this.slotViews.forEach((v, i) => {
-      if (!v) return;
+      if (!v || v.parent !== this) return; // away in an open popup
       const [l, t, r, b] = rects[i];
       v.measure(MeasureSpec.make(r - l, MeasureSpec.EXACTLY), MeasureSpec.make(b - t, MeasureSpec.EXACTLY));
       v.layout(l, t, r, b);

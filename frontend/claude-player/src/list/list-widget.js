@@ -175,7 +175,7 @@ export class ListWidget extends FastLayout {
     this.items = new Map(); // rel -> AAItemView
     this.spare = [];
     ctx.bus.subscribe('bus_player', (msg, src, d) => {
-      if (msg === 'msg_player_track_changed') { this.rebind(); this.requestLayout(); }
+      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed') { this.rebind(); this.requestLayout(); }
       else if (msg === 'msg_player_playing_state_changed') this.setPlayingMode(d.arg1 === STATE_PLAYING);
     });
     ctx.listWidget = this;

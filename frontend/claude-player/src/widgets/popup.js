@@ -59,6 +59,16 @@ export class PopupLayout extends FastLayout {
     this.clickable = true;
     this.isOpen = false;
     this.itemsInflated = false;
+    this.popupLevel = ctx.res.integer('@integer/ITEM_BG_LEVEL_POPUP', ctx.theme) ?? 1;
+  }
+
+  /** Popup backgrounds are level-lists: the popup level shows the menu surface. */
+  setBackgroundLevel(level) {
+    const bg = this.background;
+    if (!bg || bg.level === level) return;
+    bg.level = level;
+    this._dom.bg = null;
+    this.invalidate();
   }
 
   onClick() {
@@ -134,7 +144,15 @@ export class PopupLayout extends FastLayout {
       r.visibility = VISIBLE; r.alpha = 1; r.scale = 1; r.recalc = 2; r.lp = abs;
       map.set(s, r);
     }
-    if (map.get(MENU)) map.get(MENU).recalc = 2;
+    if (!map.get(MENU) || this.autoMenuFrame) {
+      // No menu frame in the layout (code-built buttons): expand from the button.
+      this.autoMenuFrame = true;
+      const r = new SceneRecord();
+      r.visibility = VISIBLE; r.alpha = 1; r.scale = 1;
+      r.lp = this.menuFrame(ph, x, y, w, h);
+      map.set(MENU, r);
+    }
+    map.get(MENU).recalc = 2;
     this.lp = abs;
     ph.addView(this);
     ph.popup = this;
@@ -144,9 +162,39 @@ export class PopupLayout extends FastLayout {
     ph.layout(ph.left, ph.top, ph.right, ph.bottom);
     ph.scenes.scene = CLOSED;
     const dur = animTime(this.ctx, this.enterMs / 1000);
+    this.setBackgroundLevel(this.popupLevel);
     this.shadeAnim(ph, 1, dur);
     ph.scenes.go(MENU, {duration: dur});
     this.ctx.bus.post('bus_gui', 'msg_popup_opened', this);
+  }
+
+  /** Content height of the open menu (rows stacked by consumeSpace). */
+  menuContentHeight() {
+    let h = this.paddingTop + this.paddingBottom;
+    for (const c of this.children) {
+      const rec = c.sceneParams?.get(MENU);
+      if (!rec || rec.visibility === GONE) continue;
+      const lp = rec.lp ?? c.lp;
+      h += Math.max(0, lp.height) + (lp.topMargin ?? 0) + (lp.bottomMargin ?? 0);
+    }
+    return h;
+  }
+
+  /**
+   * Menu frame for buttons without one: content height, at least the
+   * button's width (menuMinWidth), expanding from the button upward when it
+   * sits in the lower half, kept inside the placeholder with a margin.
+   */
+  menuFrame(ph, x, y, w, h) {
+    const dp = v => Math.round(v * this.ctx.dpr), m = dp(16);
+    const W = Math.min(ph.width - 2 * m, Math.max(w, this.menuMinWidth ?? dp(240)));
+    const H = Math.min(ph.height - 2 * m, Math.max(h, this.menuContentHeight()));
+    let left = Math.round(x + w / 2 - W / 2);
+    left = Math.max(m, Math.min(ph.width - m - W, left));
+    let top = y + h / 2 > ph.height / 2 ? y + h - H : y;
+    top = Math.max(m, Math.min(ph.height - m - H, top));
+    const lp = ph.generateLayoutParams(this.ctx.inflater.styledAttributes({}));
+    return Object.assign(lp, {width: W, height: H, leftMargin: left, topMargin: top});
   }
 
   close() {
@@ -170,6 +218,7 @@ export class PopupLayout extends FastLayout {
     this.lp = lp;
     parent.addView(this, i < 0 ? parent.children.length : i);
     this.translationX = this.translationY = 0;
+    this.setBackgroundLevel(0);
     this.onClosed?.();
     parent.forceLayoutTree();
     this.ctx.scheduleLayout();

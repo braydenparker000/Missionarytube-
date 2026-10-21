@@ -92,6 +92,7 @@ export class View {
     this.minWidth = a.dim('android:minWidth', 0);
     this.minHeight = a.dim('android:minHeight', 0);
     this.elevation = a.dimFloat('android:elevation', 0);
+    this.translationZ = a.dimFloat('android:translationZ', 0);
     this.translationX = a.dimFloat('android:translationX', 0);
     this.translationY = a.dimFloat('android:translationY', 0);
     const scale = a.float('scale', undefined);
@@ -254,6 +255,9 @@ export class View {
       d.pvx = pvx; d.pvy = pvy;
       el.style.transformOrigin = pvx === null && pvy === null ? '' : `${pvx === null ? '50%' : px(pvx) + 'px'} ${pvy === null ? '50%' : px(pvy) + 'px'}`;
     }
+    // Siblings draw in Z order (elevation + translationZ), then in child order.
+    const z = Math.round((this.elevation || 0) + (this.translationZ || 0));
+    if (d.z !== z) { d.z = z; el.style.zIndex = z > 0 ? String(z) : ''; }
     const alpha = Math.max(0, Math.min(1, this.alpha));
     if (d.alpha !== alpha) { d.alpha = alpha; el.style.opacity = alpha === 1 ? '' : String(alpha); }
     if (this._dirty) {

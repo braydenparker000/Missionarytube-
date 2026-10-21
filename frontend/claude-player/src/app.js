@@ -122,15 +122,17 @@ export async function boot() {
   } else if (library.tracks.length) {
     const saved = await library.db?.getState('queue').catch(() => null);
     const index = Math.max(0, library.tracks.findIndex(t => t.id === saved?.trackId));
+    if (saved?.shuffle !== undefined) player.shuffle = saved.shuffle;
+    if (saved?.repeat !== undefined) player.repeat = saved.repeat;
     player.setQueue(library.tracks, index);
     if (saved?.positionMs) player.seek(saved.positionMs);
   } else importUi.show();
   // Remember the current track and position (reference: resume where left off).
   const saveState = () => {
     const t = player.track;
-    if (t && library.byId.has(t.id)) library.db?.setState('queue', {trackId: t.id, positionMs: player.positionMs()}).catch(() => {});
+    if (t && library.byId.has(t.id)) library.db?.setState('queue', {trackId: t.id, positionMs: player.positionMs(), shuffle: player.shuffle, repeat: player.repeat}).catch(() => {});
   };
-  ctx.bus.subscribe('bus_player', m => { if (m === 'msg_player_track_changed' || m === 'msg_player_playing_state_changed') saveState(); });
+  ctx.bus.subscribe('bus_player', m => { if (m === 'msg_player_track_changed' || m === 'msg_player_playing_state_changed' || m === 'msg_player_shuffle_mode_changed' || m === 'msg_player_repeat_mode_changed') saveState(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveState(); });
   // System back (browser history): library levels first, then back to the player.
   ctx.bus.subscribe('bus_gui', (m, src, d) => {
