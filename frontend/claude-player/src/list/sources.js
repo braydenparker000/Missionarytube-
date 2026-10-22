@@ -36,6 +36,7 @@ export const homeCategory = id => HOME.find(c => c.id === id) ?? null;
 import {applyZoom, listOpts, REVERSE} from './list-opts.js';
 import {SEARCH_CATS} from '../widgets/search.js';
 import {GONE} from '../res/values.js';
+import {STATE_PLAYING} from '../player/player.js';
 import {searchHistory, removeSearch, clearSearchHistory} from '../library/search-history.js';
 
 // The search categories after "All" (jj1.v1 order).
@@ -372,7 +373,8 @@ export class TrackSource {
     const category = this.ctx.listWidget?.categoryFor(this) ?? null;
     // list_action_resets off: the playing track goes on in its new list.
     if (p.track && this.tracks[i] === p.track && !this.ctx.pref?.('list_action_resets')) p.adoptQueue(this.tracks, i, category);
-    else p.setQueue(this.tracks, i, category);
+    // A manual track change: it crossfades per fade_manual_advance while playing.
+    else if (!p.selectInList(this.tracks, i, category)) p.setQueue(this.tracks, i, category, p.state === STATE_PLAYING);
     p.play();
     if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
   }

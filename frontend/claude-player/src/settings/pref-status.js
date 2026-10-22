@@ -353,9 +353,9 @@ export const PREF_STATUS = {
   search_play_tracks: [BUILT, 'Song taps queue the found songs only (vo1.g0)'],
   search_track_titles_only: [BUILT, 'Songs match by title only (uf1 field sets)'],
   // library_shuffle
-  shuffle_random_factor: [TODO, ''],
-  no_reshuffle: [TODO, ''],
-  no_reshuffle_for_large_lists: [TODO, ''],
+  shuffle_random_factor: [BUILT, 'Least recently played tracks first below full randomization (ie.W, F72)'],
+  no_reshuffle: [BUILT, 'Picking a track of the playing list keeps the shuffle order (F72)'],
+  no_reshuffle_for_large_lists: [BUILT, 'Picking a track of the playing list keeps the shuffle order (F72)'],
   category_shuffle: [TODO, ''],
   hier_flat_shf: [TODO, ''],
   // lockscreen

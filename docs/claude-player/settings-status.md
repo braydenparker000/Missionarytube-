@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 139 |
+| Built | 142 |
 | Settings UI | 109 |
-| Not built | 21 |
+| Not built | 18 |
 | No web counterpart | 141 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -433,9 +433,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `shuffle_random_factor` | SeekbarPreference | Not built |  |
-| `no_reshuffle` | MultilineSwitchPreference | Not built |  |
-| `no_reshuffle_for_large_lists` | MultilineSwitchPreference | Not built |  |
+| `shuffle_random_factor` | SeekbarPreference | Built | Least recently played tracks first below full randomization (ie.W, F72) |
+| `no_reshuffle` | MultilineSwitchPreference | Built | Picking a track of the playing list keeps the shuffle order (F72) |
+| `no_reshuffle_for_large_lists` | MultilineSwitchPreference | Built | Picking a track of the playing list keeps the shuffle order (F72) |
 | `category_shuffle` | TagListPreference | Not built |  |
 | `hier_flat_shf` | MultilineSwitchPreference | Not built |  |
 

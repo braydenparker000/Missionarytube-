@@ -91,6 +91,8 @@ const CODE_DEFAULTS = {
   '2', lrc_scan: 'true', lrc_utf8: 'true', notify_action1: '2', notify_action2: '3', notify_action3: '1',
   notify_action4: '8', notify_action5: '7', notify_action6: '0', notify_prio: '2', notify_resume: 'false',
   keep_service: 'false', no_keep_notif_on_dscn: 'false', hide_menu: 'false', vis_ignore_touch_faded: 'false',
+  // m30.g1: shuffle randomization 0.5 (a float seek bar over 12 steps).
+  shuffle_random_factor: '6',
 };
 const defaultOf = node => RUNTIME_DEFAULTS[attr(node, 'key')] ?? attr(node, 'defaultValue') ?? CODE_DEFAULTS[attr(node, 'key')];
 

@@ -5,7 +5,7 @@ import {trackTitle, artistLabel, albumLabel} from '../library/labels.js';
 import {DeckFader, fadePrefs, gaplessPair, replayGainOf, AUTO_NONE, AUTO_NON_GAPLESS, AUTO_SHUFFLED, MANUAL_SHORT, MANUAL_CROSSFADE} from './fades.js';
 
 // Reference mode enums (integers SHUFFLE_* / REPEAT_*).
-export const SHUFFLE_NONE = 0, SHUFFLE_ALL = 1;
+export const SHUFFLE_NONE = 0, SHUFFLE_ALL = 1, SHUFFLE_SONGS = 2, SHUFFLE_CATS = 3, SHUFFLE_SONGS_AND_CATS = 4;
 export const REPEAT_NONE = 0, REPEAT_ON = 1, REPEAT_ADVANCE = 2, REPEAT_SONG = 3, SINGLE_SONG = 4, REPEAT_ADVANCE_AND_STOP = 5;
 export const STATE_STOPPED = 0, STATE_PLAYING = 1, STATE_PAUSED = 2;
 
@@ -23,6 +23,36 @@ export function formatTime(seconds, unknownIfZero = false) {
 }
 
 export const msToLabelSeconds = ms => Math.trunc((ms + 500) / 1000);
+
+const fisherYates = a => {
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+};
+
+/**
+ * Shuffle order (ie.W): with shuffle_random_factor y < 1 and more than 4
+ * tracks, the tracks played longest ago come first — those with played_at at
+ * or below a threshold (the played_at at offset round(n·y) in played_at
+ * order; from 10000 tracks min + (max − min)·y), each part shuffled.
+ * y = 1 shuffles fully.
+ */
+export function shuffleOrder(tracks, factor) {
+  const n = tracks.length, idx = [...Array(n).keys()];
+  const y = Math.max(0, Math.min(1, Number.isFinite(+factor) ? +factor : 0.5));
+  if (y >= 1 || n <= 4) return fisherYates(idx);
+  const played = i => +(tracks[i].lastPlayed || 0);
+  let thr;
+  if (n >= 10000) {
+    let lo = Infinity, hi = -Infinity;
+    for (const i of idx) { const p = played(i); if (p < lo) lo = p; if (p > hi) hi = p; }
+    thr = lo + Math.trunc((hi - lo) * y);
+  } else {
+    const sorted = idx.map(played).sort((a, b) => a - b);
+    thr = sorted[Math.min(n - 1, Math.round(n * y))];
+  }
+  const older = idx.filter(i => played(i) <= thr), newer = idx.filter(i => played(i) > thr);
+  return [...fisherYates(older), ...fisherYates(newer)];
+}
 
 export class Player {
   constructor(ctx) {
@@ -129,7 +159,8 @@ export class Player {
     if (this.queueMode) return rel === 0 ? this.ctx.res?.stringByName('queue') ?? 'Queue' : this.ctx.res?.stringByName('exit_queue') ?? 'Leave queue';
     const n = c.source.count;
     if (n < 2 && rel !== 0) return null;
-    const i = ((c.index + rel) % n + n) % n;
+    const order = this.categoryOrder(), pos = order.indexOf(c.index);
+    const i = order[((pos + rel) % n + n) % n];
     return c.source.groups?.[i]?.title ?? c.source.sectionTitle?.(i) ?? null;
   }
 
@@ -141,10 +172,10 @@ export class Player {
     const c = this.category;
     if (this.queueMode) return this.exitQueue();
     if (!this.categoryNavigable) return false;
-    const n = c.source.count;
-    let i = c.index + 1;
-    if (i >= n) { if (!wrap || n <= 1) return false; i = 0; }
-    return this.loadCategory(i, false);
+    const n = c.source.count, order = this.categoryOrder();
+    let pos = order.indexOf(c.index) + 1;
+    if (pos >= n) { if (!wrap || n <= 1) return false; pos = 0; }
+    return this.loadCategory(order[pos], false);
   }
 
   /** Plays the previous category (prevCategory, always wrapping), from its last track when last. */
@@ -154,8 +185,8 @@ export class Player {
     if (!this.categoryNavigable) return false;
     const n = c.source.count;
     if (n <= 0) return false;
-    const i = c.index > 0 ? c.index - 1 : n - 1;
-    return this.loadCategory(i, last);
+    const order = this.categoryOrder(), pos = order.indexOf(c.index);
+    return this.loadCategory(order[pos > 0 ? pos - 1 : n - 1], last);
   }
 
   /**
@@ -180,23 +211,47 @@ export class Player {
     return true;
   }
 
+  /** Songs play shuffled in Shuffle All / Songs / Songs and Categories (Shuffle Categories keeps them in order). */
+  get songsShuffled() {
+    return this.shuffle !== SHUFFLE_NONE && this.shuffle !== SHUFFLE_CATS;
+  }
+
+  /** Categories advance in a shuffled order in Shuffle Categories / Songs and Categories. */
+  get catsShuffled() {
+    return this.shuffle === SHUFFLE_CATS || this.shuffle === SHUFFLE_SONGS_AND_CATS;
+  }
+
   /** Play order: the queue order, or a permutation when shuffling (current track first). */
   ensureOrder() {
     const n = this.queue.length;
     if (this.order?.length === n && this.orderShuffle === this.shuffle && this.orderQueueMode === this.queueMode) return;
-    const order = [...Array(n).keys()];
+    let order = [...Array(n).keys()];
     // queue_no_shuffle: the Queue always plays in order.
-    if (this.shuffle !== SHUFFLE_NONE && !(this.queueMode && this.ctx.pref?.('queue_no_shuffle'))) {
-      for (let i = n - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [order[i], order[j]] = [order[j], order[i]];
-      }
+    if (this.songsShuffled && !(this.queueMode && this.ctx.pref?.('queue_no_shuffle'))) {
+      order = shuffleOrder(this.queue, +(this.ctx.pref?.('shuffle_random_factor') ?? 0.5));
       const at = order.indexOf(this.index);
       if (at > 0) [order[0], order[at]] = [order[at], order[0]];
     }
     this.order = order;
     this.orderShuffle = this.shuffle;
     this.orderQueueMode = this.queueMode;
+  }
+
+  /** Category play order: shuffled (current first) in the category shuffle modes, else in order. */
+  categoryOrder() {
+    const c = this.category, n = c?.source.count ?? 0;
+    const key = c ? `${n}|${this.shuffle}` : null;
+    if (this.catOrder && this.catOrderKey === key && this.catOrderSource === c?.source) return this.catOrder;
+    let order = [...Array(n).keys()];
+    if (this.catsShuffled && n > 1) {
+      for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+      const at = order.indexOf(c.index);
+      if (at > 0) [order[0], order[at]] = [order[at], order[0]];
+    }
+    this.catOrder = order;
+    this.catOrderKey = key;
+    this.catOrderSource = c?.source ?? null;
+    return order;
   }
 
   /** Queue index rel steps away in play order (null past the ends unless wrapping). */
@@ -238,14 +293,30 @@ export class Player {
    * from ({source, index}: a library list with tracksAt(i) and titles) for
    * category navigation, or null.
    */
-  setQueue(tracks, index = 0, category = null) {
+  setQueue(tracks, index = 0, category = null, autoplay = false) {
     this.queue = tracks;
     this.category = category;
     // Another list leaves queue mode (the files entity is no longer the Queue).
     if (!this.enteringQueue) { this.queueMode = false; this.savedNP = null; }
     this.post('msg_player_category_changed');
     this.order = null;
-    this.load(Math.max(0, Math.min(index, tracks.length - 1)), false);
+    this.load(Math.max(0, Math.min(index, tracks.length - 1)), autoplay);
+  }
+
+  /**
+   * A track picked from the playing list (onItemClick): the shuffle order is
+   * kept with no_reshuffle, and for lists over 20000 tracks with
+   * no_reshuffle_for_large_lists; otherwise the list starts over (a new
+   * shuffle). Returns false when the list is not the playing one.
+   */
+  selectInList(tracks, index, category) {
+    const same = tracks === this.queue || (tracks.length === this.queue.length && tracks.every((t, i) => t.id === this.queue[i]?.id));
+    if (!same || this.queueMode || !this.songsShuffled || !this.order) return false;
+    const keep = !!this.ctx.pref?.('no_reshuffle') || (this.ctx.pref?.('no_reshuffle_for_large_lists') !== false && tracks.length > 20000);
+    if (!keep) return false;
+    this.category = category ?? this.category;
+    this.load(index, this.state === STATE_PLAYING);
+    return true;
   }
 
   /**

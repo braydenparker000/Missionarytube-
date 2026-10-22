@@ -1279,6 +1279,36 @@ DSP graph.
   valueFormat ("%.1fdB"); a long press on the value enters it.
 - Restore Defaults now notifies every restored key.
 
+### F72 — Shuffle modes and options — `CONFIRMED_STATIC` (fallback bytecode in part)
+
+(a) S1 `pi1` (`toUri`, `next`, `startQueueImpl`), `qq0.S` (the `shs` parameter per shuffle mode),
+`ie.W` / `R0` / `S0` / `T0` / `U0` (fallback bytecode: shuffle_order), `m30.g1`
+(shuffle_random_factor 0.5), `b40` (no_reshuffle `V`, no_reshuffle_for_large_lists `n2`,
+category_shuffle `Z1`, hier_flat_shf `U`), `ie.A` (20000 tracks from Android 9), `y01` / `PlayerServiceCore`
+(reshuffle on a pick unless no_reshuffle).
+
+(c) **Modes:**
+- Shuffle All shuffles the playing list's songs without category navigation.
+- Shuffle Songs and Shuffle Songs/Categories shuffle the songs (`shs`). Shuffle Categories keeps the
+  songs in order.
+- Shuffle Categories and Songs/Categories advance through the categories in a shuffled order, the
+  current one first. Next / previous category and the category labels follow that order.
+- (Before, every mode shuffled the songs and the categories stayed in order.)
+
+**Randomization** (shuffle_random_factor y, default 0.5, a float seek bar over 12 steps):
+- Below 1, with more than 4 tracks, the tracks whose played_at is at or below a threshold come first,
+  each part shuffled.
+- The threshold is the played_at at offset round(n·y) in played_at order; from 10 000 tracks it is
+  min + (max − min)·y.
+- y = 1 shuffles fully.
+
+**Picking a track from the playing list** keeps the shuffle order with no_reshuffle, or for lists
+over 20 000 tracks with no_reshuffle_for_large_lists (default on). Otherwise the list starts a new
+shuffle. A pick while playing is a manual track change for fade_manual_advance (F70).
+
+**Not built yet:** category_shuffle and hier_flat_shf, which act on sub-category lists (Albums by
+Artist, Folders Hierarchy; not built).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1368,6 +1398,7 @@ No status is device-verified.
 | F69 Reverb presets | Built | Parameter 8 kept at 1.0 without a knob |
 | F70 Fades and crossfades | Built | Curves and the gapless-pair test inferred (native pipeline) |
 | F71 ReplayGain | Built | Gain rules follow the standard (native player) |
+| F72 Shuffle modes and options | Partial | category_shuffle and hier_flat_shf wait for the sub-category screens |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact
