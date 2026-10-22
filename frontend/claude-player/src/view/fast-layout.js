@@ -563,7 +563,8 @@ export class FastLayout extends ViewGroup {
     } else {
       const m = lp.wrapIgnoresMargins ? 0 : margins;
       size = (lp.consume & C_STACK_H) ? s.fullW - m : R === MIN ? HUGE : R - L - m;
-      mode = lp.unlimitedMeasure ? MeasureSpec.UNSPECIFIED : MeasureSpec.AT_MOST;
+      // Wrap children of a parent measured without a width limit are unlimited too (onMeasure: mode 0).
+      mode = lp.unlimitedMeasure || MeasureSpec.getMode(s.wSpec) === MeasureSpec.UNSPECIFIED ? MeasureSpec.UNSPECIFIED : MeasureSpec.AT_MOST;
     }
     if (size > lp.maxWidth) size = lp.maxWidth;
     if (size < lp.minWidthLP) size = lp.minWidthLP;
@@ -586,7 +587,7 @@ export class FastLayout extends ViewGroup {
     } else {
       const m = lp.wrapIgnoresMargins ? 0 : margins;
       size = B === MIN ? HUGE : B - T - m;
-      mode = lp.unlimitedMeasure ? MeasureSpec.UNSPECIFIED : MeasureSpec.AT_MOST;
+      mode = lp.unlimitedMeasure || MeasureSpec.getMode(s.hSpec) === MeasureSpec.UNSPECIFIED ? MeasureSpec.UNSPECIFIED : MeasureSpec.AT_MOST;
     }
     if (size > lp.maxHeight) size = lp.maxHeight;
     if (size < lp.minHeightLP) size = lp.minHeightLP;

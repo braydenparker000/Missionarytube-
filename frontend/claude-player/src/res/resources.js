@@ -237,7 +237,7 @@ export class Resources {
           const cv = this.colorValue(v, theme);
           color = cv ? (cv.color ?? resolveListDefault(cv)) : null;
         } else if (k === 'android:alpha' || k === 'app:alpha' || k === 'alpha') alpha = this.float(v, theme) ?? 1;
-        else if (k.startsWith('android:state_')) states[k.slice(14)] = v === 'true';
+        else if (/^(?:android|w|app):state_/.test(k)) states[k.slice(k.indexOf(':state_') + 7)] = v === 'true';
       }
       if (color === null) continue;
       if (alpha !== 1) color = ((Math.round(((color >>> 24) & 0xff) * alpha) << 24) | (color & 0xffffff)) >>> 0;

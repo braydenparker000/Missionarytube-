@@ -144,10 +144,16 @@ export function importPresetFiles(ctx) {
   const el = document.createElement('input');
   el.type = 'file';
   el.multiple = true;
-  el.accept = '.json,application/json';
+  el.accept = '.json,.txt,application/json,text/plain';
   el.addEventListener('change', async () => {
-    const n = await ctx.eqPresets.importFiles([...(el.files ?? [])]);
-    if (n) ctx.bus.post('bus_gui', 'cmd_gui_show_toast', null, {title: `${str(ctx, 'pref_import', 'Import')}: ${n}`});
+    // qf1.V0: the parametric count, else the graphic one; one preset adds its name.
+    const r = await ctx.eqPresets.importFiles([...(el.files ?? [])]);
+    const fmt = (key, n) => (ctx.res.stringByName(key) ?? '%d').replace('%d', n);
+    let title, line2 = null;
+    if (r.parametric) { title = fmt('imported_parametric_presets_d', r.parametric); if (r.parametric === 1) line2 = r.name; }
+    else if (r.graphic) { title = fmt('imported_graphic_presets_d', r.graphic); if (r.graphic === 1) line2 = r.name; }
+    else { title = fmt('imported_parametric_presets_d', 0); line2 = fmt('imported_graphic_presets_d', 0); }
+    ctx.bus.post('bus_gui', 'cmd_gui_show_toast', null, {title, line2});
   });
   el.click();
 }

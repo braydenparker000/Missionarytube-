@@ -1254,8 +1254,7 @@ shelves' frequency and Q in the JSON are the Tone settings, F68.)
 
 **No web counterpart:** dsp_border_gain (native gain smoothing).
 
-**Not built:** device assignment (F81), AutoEq presets, and parametric presets (the DSP is graphic
-only).
+**Not built:** device assignment (F81) and AutoEq presets. Parametric presets are F82.
 
 (f) `dsp/eq-presets.js`, `widgets/eq-preset-ui.js`, `EqPresetPopupListLayout` in
 `widgets/popup.js`, `PopupList` row heights, the DSP's preset hooks (`get` / `set` / `setBand`).
@@ -1703,6 +1702,139 @@ Assigned filter keeps the presets bound to the playing song (no device bindings 
 (f) `dsp/eq-presets.js` (`presetForTrack`, `assignTracks`, `unassignAll`, `onTrack`),
 `widgets/eq-preset-ui.js` (`setupAssign`, `openAssignPresetDialog`), `widgets/popup.js`.
 
+### F82 — Parametric equalizer — `CONFIRMED_STATIC` (model, UI, presets) / `INFERRED` (filter maths, tall item layout)
+
+(a) S1:
+- Model and controller: `Band`, `pr` / `or` (band array, add `or.P`, reorder `or.m2758`),
+  `u21` (`cmd_dsp_*` handling: add, delete by serial, reorder, lock, set gain / freq / Q / type /
+  channels / colour), `s.a` / `pr.m2840` (preset load), `qr` (binary blob), `u31.r` / `u31.s`
+  (JSON), `qf1.V0` / `U0` (import and its toasts), `qq0.T` and `kn` (built-in presets).
+- UI: `EqKnobsList` (selection, lock toast `o0`, controls `z`, item width `p0`), `C0049`
+  (adapter: preamp, `_param` items, `_controls` / `_empty_controls`), `c10` (band item),
+  `h10` (item background), `g10` + `ColorCircleSelector` (colour popup), `fp1` (type and
+  channel popups), `nr` / `zr` (knob scales), `KnobLabelAndValue`, `np` (colour cursor),
+  `FrequencyResponseScroller` (parametric drawing and touch).
+- Resources: the `EqParam*` and `EqListControls*` styles, `merge_selection_menu_eq_knobs`,
+  `merge_eq_param_colors`, `eq_param_type_modes` / `eq_param_lr_modes` and their icon arrays,
+  `EqParamColorSet_Default`.
+
+(c) **Mode.** There is no mode setting: the EQ is parametric when its bands are (the loaded preset
+decides). A graphic preset drops the parametric bands; a parametric preset replaces the bands.
+Reset zeroes gains and preamp and keeps the bands.
+
+**Bands.** Type 0 Low Pass, 1 High Pass, 2 Band Pass, 3 Peaking Band, 4 Low Shelf, 5 High Shelf;
+channels L+R / Left / Right; frequency an integer 1..24000 Hz; Q 0.1..12; gain ±15 dB; colour;
+lock. At most 64.
+- Add Band: the first is a Band Pass at 31 Hz, Q 1.5; each next one takes the last band's type
+  and Q at twice its frequency (at most 20 kHz). Its colour comes from a cursor walking the
+  palette down each column (first "none"), kept in memory only.
+- A locked band disables its type and channel popups; its knobs ignore touches and are not
+  clickable, so a tap reaches the band and shows "Band is locked" (with the Lock hint). Colour,
+  Select, the lock box, delete and reorder still work.
+
+**List.** The preamp, one item per band, then the controls item: Add Band, Select and, in the
+first 7 days after the first run, "Long press value to edit"; with no bands, Add Band alone.
+Every item has the first band item's width, measured unconstrained at the list height (`p0`).
+Adding a band scrolls it into view with 200 sp of slack (less 20 %).
+
+**Band item.** From its styles: the gain slider, two column guides, Select, colour, lock, the
+channel and type popups, the Q and Freq knobs with their labels, the select box and the drag
+handle (both shown only in selection mode).
+- Freq scale (`nr`): 20–199, 200–994, 1000–7950 and 8000–24000 Hz over the four quarters,
+  snapping to 5 / 50 / 100 Hz in the upper quarters while dragged; labels "440", "2.50K",
+  "12.0K". Q scale (`zr`): 0.1..12 through 1.5 at the middle, "%.2f".
+- A long press on a label opens the value dialog (title Frequency / Q / Gain, the volume-jump
+  warning).
+- Background (`h10`): the band colour as a rounded fill (2 dp left inset, 28 dp corners), else a
+  dotted separator except after the last band. A colour pick fades in CIE Lab over 250 ms.
+
+**Colour popup.** The palette rows (split at 0 entries) as circles, the current one ringed;
+touch-down and every move pick live; the popup stays open (the selector takes the touch stream,
+so no click reaches the popup).
+
+**Selection mode** (Select, or a band's Select button with that band): the selection menu with
+Delete (confirmed; locked bands too) and Lock/unlock (the opposite of the first selected band's
+lock, for all). The drag handle reorders bands. Tapping the controls item ends it.
+
+**Curve.** Each band is its own filled lobe between its response and 0 dB, not summed; ±15 dB
+fills the half height; colours are the band colour at twice its HSV saturation and value (fill
+alpha 0.5). The FRS is the list's scrollbar: a drag scrolls proportionally; a touch outside the
+window glides there over 350 ms (decelerate 2), the outer tenths clamping to the ends.
+
+**Presets.** The six built-in parametric presets and the three graphic tone presets are listed.
+JSON keeps the reference order (`name`, `preamp`, `parametric`, `bands`; tone bands first; signed
+ARGB colours). Import reports "Imported parametric presets: n" (else graphic), with the name for
+one preset. A taken name gets " (n)".
+
+**AutoEq text** (`cy0.G` / `J` / `I`): a file whose first 100 lines hold "Preamp: X dB" and
+"Filter n: ON <type> Fc <Hz> Hz Gain <dB> dB Q <q>" lines imports as a parametric preset (up to
+64 bands, coloured by the colour cursor; PK / PEQ / Modal peaking, LS / LSC and HS / HSC shelves,
+LP / LPQ, HP / HPQ, BP). A "GraphicEQ: <Hz> <dB>; …" line with at least 5 rising points imports
+as a graphic preset, each gain taken as (dB + 6) / 15. The graphic points are sampled onto the
+EQ's bands like any graphic preset (the reference rebuilds a band layout from the points; here the
+band count stays the user's).
+
+**Default presets** (`qq0.m2923`, `m10.h` / `o`): each mode has a user preset named Graphic or
+Parametric with no data; loading it resets the EQ to that mode (Parametric: no bands). Their rows
+are 2-line with "Default Preset".
+
+**Import AutoEq Presets** (`_import_autoeq`; `pq1`, `ma`): a notice ("Import presets from a zip
+file …" and "The imported presets will overwrite …") with Select File, then every
+"<name> ParametricEQ.txt" / "<name> GraphicEQ.txt" of the zip (at most 64 KB each) becomes an
+AutoEq preset: bands locked, a parametric preset's preamp 0 dB, the source taken from the two
+folders above the file's own (underscores as spaces, first letter capitalised) and shown as the
+row's second line. A preset with the same name and source is replaced. The result is "Done" with
+"Imported presets: n". The presets show under the AutoEq filter.
+
+(e) **Inferred.**
+- The filter maths is native (`Coefs`). Peaking and the shelves are RBJ biquads with a Q. Low,
+  High and Band Pass carry gains in the reference presets and tone bands, so they are boost/cut
+  filters here: x + (g − 1)·F(x), F the RBJ pass filter. At a high Q this dips just past the
+  corner.
+- The curve's frequency axis is taken as log 20 Hz..24 kHz.
+- The tall item variant (screen height ≥ 700 dp) read literally gives the Q knob no height: Freq,
+  attached to both parent edges, exceeds its maximum height, keeps only its top attach and sits
+  at the top, where Q also starts. It is laid out by intent (as F32): Q under the popups, Freq at
+  the bottom beside the tool column, labels inside each knob's bottom padding.
+- The empty EQ's Add Band item takes the rest of the list width.
+- The select box and drag handle fade in over 150 ms.
+
+**Not built:** the per-device AutoEq suggestions (`suggest_autoeq`: outputs not identifiable),
+the binary preset blob (presets are stored as JSON here), and haptics.
+
+(f) `dsp/param-eq.js`, `dsp/dsp.js` (parametric model, commands, graph), `dsp/eq-presets.js`,
+`widgets/eq-param.js`, `EqKnobsList` and `FrequencyResponseScroller` in `widgets/eq.js`,
+`widgets/eq-preset-ui.js` (import toast), `icons.js` (type, channel and unlock glyphs),
+`tests/claude-player-param-eq.test.mjs`.
+
+### F83 — App drawable states and wrap measuring under an unlimited parent — `CONFIRMED_STATIC`
+
+(a) S1: `h30` / `i30` (extra drawable states pushed down a view tree), `x82.mo651`
+(`state_locked`), `LimiterDSPCheckBox` (`state_limiting`), `yv0.m3714`
+(`state_toolbar_in_header`), `FastLayout.onMeasure` / `g1` (child specs).
+
+(c) **States.** Selectors use the app's own states as well as the platform's: `w:state_locked`,
+`w:state_limiting`, `w:state_toolbar_in_header`. They were read as unconditional items, so:
+- every enabled EQ knob thumb drew its locked look (the disabled stroke), never the normal or
+  pressed one;
+- the Limit button always drew its limiting look;
+- the navbar's lists icon was always filled.
+
+Now:
+- locked bands set `state_locked` on their knobs;
+- the Limit button samples the limiter every 100 ms while playing and shows `state_limiting`
+  while its gain is under 0.9995 (here the compressor's gain reduction);
+- the moveable toolbar pushes `state_toolbar_in_header` down the navbar while the library list
+  shows its first item (`extraStates`).
+
+**Measuring.** A FastLayout measured without a width (or height) limit measures its wrap_content
+children without one too (`onMeasure` mode 0). A plain view then takes no space instead of the
+huge limit.
+
+(f) `view/drawables.js`, `res/resources.js`, `view/view.js` (`setExtraState`, `stateKey`),
+`LimiterDSPCheckBox` in `widgets/eq.js`, `list/moveable-toolbar.js`, `list/power-list.js`
+(`scrollState().first`), `view/fast-layout.js`.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1754,7 +1886,7 @@ No status is device-verified.
 | F30 backdrop | Built (approximation) | — |
 | F31 elapsed/duration | Partial | Placement `OPEN` |
 | F32 knob stacks | Partial | Laid out by intent |
-| F33 equalizer | Partial | Presets per F67, song assignment per F81; platform FX, AutoEQ and device assignment not built |
+| F33 equalizer | Partial | Presets per F67, song assignment per F81, parametric mode per F82; platform FX, AutoEQ and device assignment not built |
 | F34 popups | Built | Curve inferred |
 | F35 marquee | Built | — |
 | F36 sleep timer | Built | Expiry fade not verified |
@@ -1787,7 +1919,7 @@ No status is device-verified.
 | F63 library list preferences / List Options | Built | — |
 | F65 queue | Built | Shuffled order inferred |
 | F66 playlist re-sort / files | Built | Import picks files (web) |
-| F67 EQ presets | Partial | Song / category assignment built (F81); device assignment, AutoEq, parametric not built |
+| F67 EQ presets | Partial | Song / category assignment built (F81), parametric presets (F82); device assignment and AutoEq not built |
 | F68 EQ knob values, Tone / band settings, settings rows | Built | Band frequencies for non-ISO counts and resampling inferred; dsp_border_gain native |
 | F69 Reverb presets | Built | Parameter 8 kept at 1.0 without a knob |
 | F70 Fades and crossfades | Built | Curves and the gapless-pair test inferred (native pipeline) |
@@ -1802,6 +1934,8 @@ No status is device-verified.
 | F81 EQ preset song and category assignment | Built | Devices hidden (outputs not identifiable); the playback switch-back inferred |
 | F79 Entry headers, back decor, category row meta | Built | No artist images |
 | F80 Library list overscroll | Built | Rubber band reading of `mo1890` and the row scale pivot inferred; glow only where the theme colours it |
+| F82 Parametric equalizer | Built | Filter maths and curve axis inferred (native); tall item layout by intent; AutoEq text files and the AutoEq project zip import; per-device suggestions not built |
+| F83 App drawable states, unlimited wrap measuring | Built | — |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

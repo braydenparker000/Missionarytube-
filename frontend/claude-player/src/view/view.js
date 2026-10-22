@@ -303,8 +303,20 @@ export class View {
   toString() { return `${this.constructor.name}#${this.id ?? this.uid}`; }
 }
 
+/**
+ * An app drawable state (h30.w / i30: state_locked, state_limiting,
+ * state_toolbar_in_header) on a view and every view under it.
+ */
+export function setExtraState(view, key, on) {
+  view.walk(v => {
+    if (!!v.state[key] === on) return;
+    v.state[key] = on;
+    v.onStateChanged?.();
+  });
+}
+
 export function stateKey(s) {
-  return (s.enabled ? 1 : 0) | (s.pressed ? 2 : 0) | (s.selected ? 4 : 0) | (s.checked ? 8 : 0) | (s.activated ? 16 : 0);
+  return (s.enabled ? 1 : 0) | (s.pressed ? 2 : 0) | (s.selected ? 4 : 0) | (s.checked ? 8 : 0) | (s.activated ? 16 : 0) | (s.locked ? 32 : 0) | (s.limiting ? 64 : 0) | (s.toolbar_in_header ? 128 : 0);
 }
 
 export class ViewGroup extends View {

@@ -24,6 +24,7 @@ import './widgets/subaa.js';
 import './widgets/milk.js';
 import './widgets/navbar.js';
 import './widgets/eq.js';
+import './widgets/eq-param.js';
 import './widgets/popup.js';
 import './widgets/search.js';
 import './widgets/toast.js';
@@ -126,6 +127,11 @@ export async function boot() {
   const ctx = new Context({res, theme, dpr});
   Object.assign(ctx.settings, settings);
   ctx.prefDefaults = prefDefaults(res);
+  // The first run's time (b40.G1, set once at the first launch).
+  try {
+    ctx.firstRunAt = +localStorage.getItem('cp-first-run') || 0;
+    if (!ctx.firstRunAt) localStorage.setItem('cp-first-run', String(ctx.firstRunAt = Date.now()));
+  } catch { ctx.firstRunAt = Date.now(); }
   const applyViewport = () => {
     const vp = measureViewport();
     ctx.viewportWidth = window.innerWidth;

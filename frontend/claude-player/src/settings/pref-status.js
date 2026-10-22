@@ -116,7 +116,7 @@ export const PREF_STATUS = {
   suggest_autoeq: [WEB, ANDROID_DEVICES],
   _clear_autoeq_known_devices: [UI, ''],
   _presets_to_peq: [UI, ''],
-  _import_autoeq: [UI, ''],
+  _import_autoeq: [BUILT, 'Imports the AutoEq project zip\'s ParametricEQ / GraphicEQ files as AutoEq presets (F82)'],
   reset_eq_presets: [BUILT, 'Built-in EQ presets lose their edits and names (F69)'],
   // audio_focus
   resume_after_call: [WEB, ANDROID_FOCUS],

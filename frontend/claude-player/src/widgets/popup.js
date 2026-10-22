@@ -400,13 +400,16 @@ export class EqPresetPopupListLayout extends PopupLayout {
   /** The presets the search and filters show, by section. */
   sections() {
     const P = this.ctx.eqPresets, f = new Set(this.filters), q = this.query.trim().toLowerCase();
-    if (!P || !f.has('t/graphic')) return [];
+    if (!P) return [];
     // Assigned (mf1): the presets bound to the playing song (no devices here).
     const songPreset = P.presetForTrack(this.ctx.player?.track?.id);
-    const keep = p => (!q || q.split(/\s+/).every(w => p.name.toLowerCase().includes(w))) && (!f.has('f/assigned') || p.id === songPreset);
+    // Graphic / Parametric (eq_presets.parametric).
+    const kind = p => f.has(p.parametric ? 't/parametric' : 't/graphic');
+    const keep = p => kind(p) && (!q || q.split(/\s+/).every(w => p.name.toLowerCase().includes(w))) && (!f.has('f/assigned') || p.id === songPreset);
     const out = [];
     if (f.has('g/user')) out.push({title: 'user_plural_adj_short', presets: P.users().filter(keep)});
     if (f.has('g/built_in')) out.push({title: 'builtin_presets_short', presets: P.builtIns().filter(keep)});
+    if (f.has('g/auto_eq')) out.push({title: 'auto_eq', presets: P.autoEqs().filter(keep)});
     for (const s of out) s.presets.sort((x, y) => x.name.localeCompare(y.name, undefined, {sensitivity: 'base', numeric: true}));
     return out.filter(s => s.presets.length);
   }
@@ -497,10 +500,13 @@ export class EqPresetPopupListLayout extends PopupLayout {
   presetRow(p) {
     // m10.o: a preset bound to the playing song takes the 3-line row with its song icon.
     const bound = this.ctx.eqPresets?.presetForTrack(this.ctx.player?.track?.id) === p.id;
-    const key = (bound ? '3:' : '') + p.id;
+    // m10.o: a default preset (Default Preset) or an AutoEq one (its source) takes the 2-line row.
+    const two = !bound && !!p.line2;
+    const key = (bound ? '3:' : two ? '2:' : '') + p.id;
     let row = this.rowCache.get(key);
     if (!row) {
-      row = this.ctx.inflater.inflate(bound ? 'item_eq_preset_3line' : 'item_eq_preset', null)[0];
+      row = this.ctx.inflater.inflate(bound ? 'item_eq_preset_3line' : two ? 'item_eq_preset_2line' : 'item_eq_preset', null)[0];
+      if (two) row.findViewById('line2')?.setText(p.line2);
       row.findViewById('lock')?.setVisibility(GONE);
       if (bound) {
         for (const id of ['speaker', 'wired', 'bt', 'usb', 'chromecast', 'other']) row.findViewById(id)?.setVisibility(GONE);

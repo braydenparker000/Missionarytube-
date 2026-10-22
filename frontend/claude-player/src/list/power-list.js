@@ -112,7 +112,10 @@ export class PowerList extends FastLayout {
     let flags = max <= 0 || this.scrollY <= 0 ? AT_TOP : this.scrollY >= max ? AT_END : BETWEEN;
     if (this.over > 0) flags = PAST_TOP;
     else if (this.over < 0) flags = (max <= 0 ? AT_TOP : BETWEEN) | PAST_END;
-    return {flags, endGap: max - this.scrollY, lastShown: !!s?.count && this.active.has(s.count - 1)};
+    // The first shown item is the first one (the header, or row 0 without one): yv0's toolbar_in_header.
+    const g = s ? this.geometry() : null, y = this.scrollY - this.over;
+    const first = !g || (g.headH ? y < g.top + g.headH : y < g.top + g.headerH + (g.itemH || 1));
+    return {flags, endGap: max - this.scrollY, lastShown: !!s?.count && this.active.has(s.count - 1), first};
   }
 
   /** Tells the host the list moved its content by f px (PowerList.h0 → om0). */
@@ -464,6 +467,8 @@ export class PowerList extends FastLayout {
   // actions layout (sd.t()). States go out on the list bus.
   onListCmd(msg, d) {
     if (!this.selectable) return;
+    // Another list (the EQ's bands) owns the selection menu now.
+    if (this.ctx.selectionOwner && this.ctx.selectionOwner !== this) return;
     if (this.visibility === GONE && msg !== 'cmd_end_selection_mode') return;
     const sel = this.selection;
     switch (msg) {
@@ -511,6 +516,8 @@ export class PowerList extends FastLayout {
   setSelectionMode(on, closeMenu = true) {
     if (!!this.selection === on) return;
     this.selection = on ? new Set() : null;
+    if (on) this.ctx.selectionOwner = this;
+    else if (this.ctx.selectionOwner === this) this.ctx.selectionOwner = null;
     // om0.h / r: the moveable toolbar fades out for the selection menu and back.
     this.host?.toolbar?.fade(on);
     if (on) this.ctx.bus.post('bus_gui', 'cmd_selection_menu_open', this, {arg1: this.source?.selectionLayout ?? 'merge_selection_menu_list_base_items'});

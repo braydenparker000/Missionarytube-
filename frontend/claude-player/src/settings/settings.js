@@ -432,6 +432,19 @@ export class Settings {
     input.click();
   }
 
+  importAutoEq() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.zip,application/zip';
+    input.addEventListener('change', async () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      const n = await this.ctx.eqPresets?.importAutoEqZip(f).catch(() => 0) ?? 0;
+      this.toast(this.str('@string/done') + ' · ' + this.str('@string/imported_presets_d').replace('%d', n));
+    });
+    input.click();
+  }
+
   /** A platform toast over the settings page (2 s). */
   toast(message) {
     this.toastEl?.remove();
@@ -726,6 +739,11 @@ export class Settings {
     if (restore) {
       row.classList.add('cps-clickable');
       row.addEventListener('click', () => this.confirm(this.str(attr(node, 'title')), this.str(attr(node, 'summary') ?? attr(node, 'line1')), () => { restore(); this.toast(this.str('@string/done')); }));
+    }
+    // Import AutoEq Presets (pq1 / ma): the notice, Select File, then the zip's presets.
+    if (key === '_import_autoeq') {
+      row.classList.add('cps-clickable');
+      row.addEventListener('click', () => this.confirm(this.str('@string/import_autoeq_presets'), this.str('@string/import_presets_from_zip_autoeq') + '\n\n' + this.str('@string/imported_presets_will_overwrite_autoeq'), () => this.importAutoEq(), this.str('@string/select_file')));
     }
     // about_version (ns1): the build, then its source tree.
     if (key === 'about_version') {

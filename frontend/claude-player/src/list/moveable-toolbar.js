@@ -12,6 +12,7 @@
 // - Pins (cmd_list_force_ab_on_screen 1 / 2: the library and search help)
 //   fix it while held; selection mode fades it out and back over 250 ms.
 import {VISIBLE, INVISIBLE} from '../res/values.js';
+import {setExtraState} from '../view/view.js';
 
 export const ANCHOR_FIXED_TOP = 0, ANCHOR_TOP = 1, ANCHOR_BOTTOM = 2, ANCHOR_FIXED_BOTTOM = 3;
 // List layout status (h0.H): at the top, pulled past the top, between, at the end, pushed past the end.
@@ -156,6 +157,8 @@ export class MoveableToolbar {
    */
   scrolled(list, f, touch = false, transitioning = false) {
     if (!list) { this.showNow(); return; }
+    // extraStates (h30 / i30): state_toolbar_in_header down the toolbar while the list shows its first item.
+    if (this.extraStates) setExtraState(this.view, 'toolbar_in_header', !!list.first);
     const v = this.view, mode = this.anchor, bottom = this.bottomAnchored;
     const reserved = this.reserved();
     const height = bottom ? reserved + this.bottomToolbar : v.height + (v.lp?.topMargin ?? 0);
