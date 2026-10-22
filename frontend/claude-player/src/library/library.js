@@ -3,7 +3,7 @@
 import {LibraryDb} from './db.js';
 import {readTags, readRemotePicture} from './tags.js';
 import {Playlists} from './playlists.js';
-import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars} from './r2.js';
+import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars, decodeWave} from './r2.js';
 
 // Remote covers: full images in Cache Storage on first view (capped, oldest
 // out first); 256 px thumbnails made once per cover for list rows (kept).
@@ -11,6 +11,7 @@ import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars} fr
 const COVERS = 'claude-player-covers', THUMBS = 'claude-player-thumbs';
 const COVER_CAP = 1500, THUMB_PX = 256, MEM_FULL = 60, MEM_THUMB = 800;
 const COVER_SLOTS = 3, ROW_SETTLE_MS = 150;
+const R2_REFRESH_MS = 12 * 3600 * 1000;
 const SKIPPED = Symbol('skipped');
 const isRemoteArt = key => /^(https:|embedded:)/.test(key);
 // Cache Storage needs URL keys: embedded covers get a local pseudo-URL.
@@ -69,7 +70,7 @@ export class Library {
       this.localTracks = await this.db.allTracks();
       for (const [k, v] of await this.db.stateEntries('u:')) this.userData.set(k.slice(2), v);
       const snap = await this.db.getState('r2:index');
-      if (snap?.tracks) { this.r2Generated = snap.generatedAt; this.remoteTracks = this.withUserData(snap.tracks); }
+      if (snap?.tracks) { this.r2Generated = snap.generatedAt; this.r2SavedAt = snap.savedAt ?? 0; this.remoteTracks = this.withUserData(snap.tracks); }
       this.setTracks([...this.localTracks, ...this.remoteTracks]);
       for (const [k, v] of await this.db.stateEntries('ca:')) if (v instanceof Blob) this.customArt.set(k.slice(3), v);
       await this.playlists.load();
@@ -83,7 +84,8 @@ export class Library {
   withUserData(list) {
     for (const t of list) {
       const u = this.userData.get(t.id);
-      if (u) for (const k of USER_FIELDS) if (u[k] !== undefined) t[k] = u[k];
+      // The index's own waveform wins over one stored from an earlier source.
+      if (u) for (const k of USER_FIELDS) if (u[k] !== undefined && !(k === 'wave' && (t.waveB64 || t.wave))) t[k] = u[k];
       t.meta = trackMetaLabel(t);
       // Remote covers: the Worker's image, else the audio file's embedded cover (artFor).
       if (t.remote) t.artId = t.artUrl || 'embedded:' + t.id;
@@ -91,16 +93,34 @@ export class Library {
     return list;
   }
 
-  /** Loads the R2 index; replaces the remote tracks when it changed. */
-  async refreshR2(url = this.ctx.settings?.r2_library_url || R2_LIBRARY_URL) {
+  /** Decodes a track's inline index waveform on first use. */
+  ensureWave(t) {
+    if (t && !t.wave && t.waveB64) t.wave = decodeWave(t.waveB64);
+    return t?.wave ?? null;
+  }
+
+  /**
+   * Loads the R2 index; replaces the remote tracks when it changed. The index
+   * is large (several MB) and not cacheable, so a snapshot younger than
+   * R2_REFRESH_MS is kept unless forced (Rescan).
+   */
+  async refreshR2({force = false, url = this.ctx.settings?.r2_library_url || R2_LIBRARY_URL} = {}) {
+    if (!force && this.remoteTracks.length && Date.now() - (this.r2SavedAt ?? 0) < R2_REFRESH_MS) return false;
     try {
       const data = await fetchR2Library(url);
-      if (data.generatedAt && data.generatedAt === this.r2Generated) return false;
+      if (data.generatedAt && data.generatedAt === this.r2Generated) {
+        this.r2SavedAt = Date.now();
+        this.db?.getState('r2:index').then(snap => snap && this.db.setState('r2:index', {...snap, savedAt: this.r2SavedAt})).catch(() => {});
+        return false;
+      }
       const tracks = r2Tracks(data, url);
       this.r2Generated = data.generatedAt;
       this.remoteTracks = this.withUserData(tracks);
       this.setTracks([...this.localTracks, ...this.remoteTracks]);
-      this.db?.setState('r2:index', {generatedAt: data.generatedAt, tracks}).catch(() => {});
+      this.r2SavedAt = Date.now();
+      // The snapshot keeps index data only (no decoded waves or images).
+      const snapshot = tracks.map(({art, thumb, wave, ...r}) => (r.waveB64 ? r : {...r, wave}));
+      this.db?.setState('r2:index', {generatedAt: data.generatedAt, savedAt: this.r2SavedAt, tracks: snapshot}).catch(() => {});
       return true;
     } catch (e) {
       console.warn('[claude-player] R2 library unavailable:', e.message);
@@ -358,7 +378,7 @@ export class Library {
    * available; this is an approximation). Cached in the track record.
    */
   async waveFor(t, bars = 100) {
-    if (t.wave) return t.wave;
+    if (this.ensureWave(t)) return t.wave;
     if (!this.byId.has(t.id)) return null;
     // Remote tracks only use pre-generated waveforms (a small file on R2):
     // decoding would download the whole song.

@@ -46,10 +46,13 @@ export function r2Tracks(data, url = R2_LIBRARY_URL) {
       replayGain: m.rgTrack != null ? {track: m.rgTrack, album: m.rgAlbum, trackPeak: m.rgTrackPeak, albumPeak: m.rgAlbumPeak} : null,
       opusHeadGainDb: m.opusHeadGainDb ?? null,
     };
-    // Pre-generated seek-bar waveforms: inline in the index, or a DCW1 file
-    // at <base>/waveform/<id> when the index marks waveformVersion 1.
-    const wave = decodeWave(m.waveform ?? t.waveform);
-    if (wave) rec.wave = wave;
+    // Pre-generated seek-bar waveforms: inline in the index (metadata.waveform),
+    // or a DCW1 file at <base>/waveform/<id> when it marks waveformVersion 1.
+    // Inline base64 waveforms stay compact on the record and decode when the
+    // track plays (Library.ensureWave); arrays decode now.
+    const w = m.waveform ?? t.waveform;
+    if (typeof w === 'string' && w.length >= 20 && w.length <= 1400) rec.waveB64 = w;
+    else if (Array.isArray(w) && decodeWave(w)) rec.wave = decodeWave(w);
     else if ((t.waveformVersion ?? m.waveformVersion) === 1) rec.waveUrl = base + 'waveform/' + t.id;
     out.push(rec);
   }

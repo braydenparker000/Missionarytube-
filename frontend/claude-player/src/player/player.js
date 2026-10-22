@@ -150,6 +150,7 @@ export class Player {
         this.post('msg_player_track_changed', {track: t, meta: true});
       });
     }
+    this.ctx.library?.ensureWave?.(t);
     this.post('msg_player_track_changed', {track: t});
     if (autoplay) this.setState(STATE_PLAYING);
     if (t && !t.wave && this.ctx.library?.byId.has(t.id)) {

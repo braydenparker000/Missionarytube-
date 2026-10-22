@@ -69,6 +69,8 @@ export class ScrollingBehavior extends View {
     const p = this.parent;
     if (!p || p._scrolling) return;
     p._scrolling = this;
+    // A scrolling area clips its content (Android scroll containers do).
+    p.el.style.overflow = 'hidden';
     const content = () => p.children.filter(c => c !== this && c.visibility !== GONE);
     const max = () => Math.max(0, Math.max(0, ...content().map(c => c.bottom + (c.lp?.bottomMargin ?? 0))) + p.paddingBottom - p.height);
     const apply = y => {

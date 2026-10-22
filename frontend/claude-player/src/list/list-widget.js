@@ -16,6 +16,7 @@ import {PowerList} from './power-list.js';
 import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource} from './sources.js';
 import {openAddToPlaylist} from '../widgets/playlist-dialog.js';
 import {alertDialog, editNameDialog} from '../widgets/dialog.js';
+import {openInfo, openAlbumArt} from '../widgets/info-dialog.js';
 import {LyricsPage} from './lyrics.js';
 import {elevationShadow} from '../view/drawables.js';
 
@@ -405,10 +406,22 @@ export class ListWidget extends FastLayout {
     const src = this.stack[this.stack.length - 1];
     const str = (k, f = k) => ctx.res.stringByName(k) ?? f;
     const selected = () => [...(list.selection ?? [])].sort((a, b) => a - b);
+    // The selection's first track, else the track the menu is for.
+    const subject = () => {
+      if (list.selection?.size) { const t = list.selectedTracks()[0]; list.endSelection(); return t; }
+      return this.menuSubject ?? ctx.player?.track;
+    };
     switch (msg) {
+      case 'cmd_data_info_tags': case 'cmd_list_info_dialog': openInfo(ctx, subject()); break;
+      case 'cmd_list_select_aa_dialog': case 'cmd_list_album_art': {
+        // From a list header: the list's first track.
+        const t = list.selection?.size ? subject() : (this.menuFromHeader ? src?.tracks?.[0] ?? src?.groups?.[0]?.tracks?.[0] : ctx.player?.track);
+        openAlbumArt(ctx, t);
+        break;
+      }
       case 'cmd_data_add_playlist': P?.create(); break;
       case 'cmd_list_rescan':
-        ctx.library.refreshR2?.();
+        ctx.library.refreshR2?.({force: true});
         ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: str('pref_rescan_folders', 'Rescan')});
         break;
       case 'cmd_data_clear_q':
@@ -502,8 +515,8 @@ export class ListWidget extends FastLayout {
     if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
   }
 
-  openCurrent(kind) {
-    const src = currentCategorySource(this.ctx, this.libList, this.nav, kind);
+  openCurrent(kind, track = null) {
+    const src = currentCategorySource(this.ctx, this.libList, this.nav, kind, track);
     if (!src) return;
     this.ctx.bus.post('bus_gui', 'cmd_nav_to_lib', this);
     if (!this.stack.length) this.openHome();
@@ -762,6 +775,7 @@ const ITEM_MENU = 'scene_item_menu';
  */
 ListWidget.prototype.openItemMenu = function (v, itemsLayout = 'merge_menu_items_aa') {
   if (v.inMenu || this.menuItem) return;
+  this.menuFromHeader = itemsLayout !== 'merge_menu_items_aa';
   if (itemsLayout === 'merge_menu_items_aa' && (this.mode !== 'aa' || this.items.get(0) !== v)) return;
   let root = this;
   while (root.parent) root = root.parent;

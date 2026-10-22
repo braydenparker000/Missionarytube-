@@ -243,8 +243,8 @@ export class TrackSource {
  * The current track's artist / album / folder / genre as a track list
  * (track menu actions; the library's own tracks, else the play queue).
  */
-export function currentCategorySource(ctx, list, nav, kind) {
-  const t = ctx.player?.track;
+export function currentCategorySource(ctx, list, nav, kind, track = null) {
+  const t = track ?? ctx.player?.track;
   if (!t) return null;
   const lib = ctx.library;
   const pool = lib?.tracks?.length ? lib.tracks : ctx.player.queue;

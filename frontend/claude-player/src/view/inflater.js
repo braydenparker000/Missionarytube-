@@ -2,7 +2,7 @@
 // ?attr layouts), pseudo-tags <SceneParams>/<StateAnimParams>, and a registry
 // mapping reference widget classes onto engine view classes.
 import {StyledAttributes} from '../res/resources.js';
-import {View, ViewGroup} from './view.js';
+import {View, MeasureSpec, ViewGroup} from './view.js';
 import {FastLayout} from './fast-layout.js';
 import {SceneFastLayout, attachSceneParams, attachStateAnim} from './scene.js';
 import {FastTextView, FastButton, FastCheckBox, BusActionButton} from './text.js';
@@ -81,6 +81,12 @@ export class Placeholder extends View {
     super(ctx, a);
     this.tag = tag;
     this.el.dataset.placeholder = tag;
+  }
+
+  // Unimplemented views take no space unless sized exactly.
+  onMeasure(wSpec, hSpec) {
+    const size = (spec, min) => (MeasureSpec.getMode(spec) === MeasureSpec.EXACTLY ? MeasureSpec.getSize(spec) : min);
+    this.setMeasuredDimension(size(wSpec, this.suggestedMinimumWidth), size(hSpec, this.suggestedMinimumHeight));
   }
 }
 
@@ -214,7 +220,7 @@ export class Inflater {
 // Base registrations; feature modules register their widgets too.
 register(['FastLayout', 'FastLayoutWithViewCacheOpt', 'ClickableFastLayout', 'PrivateNonSceneFastLayout', 'DialogOuterFastLayout', 'FrameLayout', 'LinearLayout', 'RelativeLayout'], FastLayout);
 register(['SceneFastLayout', 'MenuPlaceholderLayout', 'ItemSceneFastLayout'], SceneFastLayout);
-register(['FastTextView', 'TextView', 'ListIndexerPopupView', 'BusStatusText', 'HtmlTextView', 'LyricsFastTextView', 'InfoTextView', 'KnobLabelAndValue'], FastTextView);
+register(['FastTextView', 'TextView', 'ImageView', 'ListIndexerPopupView', 'BusStatusText', 'HtmlTextView', 'LyricsFastTextView', 'InfoTextView', 'KnobLabelAndValue'], FastTextView);
 register(['FastCheckBox', 'FastCheckBoxOnly', 'CheckBox'], FastCheckBox);
 register(['FastButton', 'DragHandler', 'Button', 'ImageButton', 'RadioButton', 'LyricsButton', 'BusStatusTextButton', 'IntentActionButton', 'MediaRouteButton'], FastButton);
 register(['BusActionButton', 'MorphableBusActionButton', 'BusStateEnabledActionButton', 'BusCheckBox'], BusActionButton);

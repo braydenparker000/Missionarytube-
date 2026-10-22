@@ -36,7 +36,7 @@ export function openDialog(ctx, {style, title = '', buttons = {}, onButton = nul
   ctx.inflater.inflate(layout, host);
   const animMs = ctx.res.integer('?animTime', theme) ?? 350;
   const altOut = ctx.res.resolveRaw('?dialogAltOutScene', theme).value === 'true';
-  const find = id => host.findViewById(id);
+  const find = id => (id ? host.findViewById(id) : null);
 
   const dialog = {
     host, theme, find, closed: false,
