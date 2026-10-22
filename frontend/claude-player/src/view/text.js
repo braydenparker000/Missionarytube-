@@ -35,7 +35,7 @@ export function measureText(str, font, sizePx, letterSpacing = 0) {
 }
 
 const ascentCache = new Map();
-function cssAscentDescent(font, sizePx) {
+export function cssAscentDescent(font, sizePx) {
   const key = font.family + font.weight + '|' + sizePx;
   let v = ascentCache.get(key);
   if (!v) {
@@ -581,16 +581,77 @@ export class BusActionButton extends FastButton {
     // A layout argument (e.g. a help layout) passes its name.
     const layout = typeof arg1 === 'string' ? /^@layout\/(.+)$/.exec(arg1)?.[1] : null;
     this.arg1 = layout ?? (arg1 === undefined || !/^(@integer\/|-?\d)/.test(arg1) ? undefined : a.int('arg1', 0));
+    // confirmTitle / confirmText / confirmButton: an alert confirms the command first.
+    this.confirm = a?.has?.('confirmTitle') ? {title: a.string('confirmTitle', ''), text: a.string('confirmText', ''), button: a.string('confirmButton', null)} : null;
+    // BusDisabledForStateBehavior / MorphableBusStateBehavior: enabled by a
+    // state (enableForStateId) or disabled by one (disableForStateId); with
+    // morphWhenState the button takes another command, drawable and long
+    // press while that state holds (and stays enabled).
+    this.enableStateId = idName(a?.raw('enableForStateId'));
+    this.disableStateId = idName(a?.raw('disableForStateId'));
+    this.morphStateId = idName(a?.raw('morphWhenState'));
+    if (this.morphStateId) {
+      this.base = {msgId: this.msgId, arg1: this.arg1, arg2: undefined, longPressMsgId: this.longPressMsgId, longPressEndMsgId: null};
+      const md = a.raw('morphDrawable');
+      this.morph = {
+        msgId: idName(a.raw('morphMsgId')), arg1: a.int('morphArg1', 0), arg2: a.int('morphArg2', 0),
+        longPressMsgId: idName(a.raw('morphLongPressMsgId')), longPressEndMsgId: idName(a.raw('morphLongPressEndMsgId')),
+        drawable: md ? ctx.drawables.fromValue(md, a.theme) : null,
+      };
+    }
+    if (this.enableStateId || this.disableStateId || this.morphStateId) {
+      for (const bus of new Set([idName(a.raw('disableForStateBusId')) ?? 'bus_player', 'bus_player', 'bus_dsp', 'bus_app'])) {
+        ctx.bus.subscribe(bus, () => this.syncState());
+      }
+      queueMicrotask(() => this.syncState());
+    }
+  }
+
+  syncState() {
+    const st = id => this.ctx.stateOf?.(id);
+    const morphed = this.morphStateId ? st(this.morphStateId) === true : false;
+    if (this.morphStateId && morphed !== !!this.morphed) {
+      this.morphed = morphed;
+      const m = morphed ? this.morph : this.base;
+      Object.assign(this, {msgId: m.msgId, arg1: m.arg1, arg2: m.arg2, longPressMsgId: m.longPressMsgId, longPressEndMsgId: m.longPressEndMsgId});
+      if (this.morph.drawable) {
+        this.baseDrawableSaved ??= this.drawable;
+        this.setDrawable(morphed ? this.morph.drawable : this.baseDrawableSaved);
+      }
+      this.longClickable = !!this.longPressMsgId;
+    }
+    // States this runtime does not know (list selection states …) leave the button to its owner.
+    let enabled = null;
+    if (morphed) enabled = true;
+    else if (this.enableStateId && st(this.enableStateId) !== undefined) enabled = !!st(this.enableStateId);
+    else if (this.disableStateId && st(this.disableStateId) !== undefined) enabled = !st(this.disableStateId);
+    if (enabled !== null && enabled !== this.state.enabled) this.setEnabled(enabled);
   }
 
   onClick() {
-    if (this.msgId) this.ctx.bus?.post(this.busId, this.msgId, this, this.arg1 === undefined ? undefined : {arg1: this.arg1});
-    else super.onClick();
+    if (!this.msgId) { super.onClick(); return; }
+    const data = this.arg1 === undefined ? undefined : this.arg2 === undefined ? {arg1: this.arg1} : {arg1: this.arg1, arg2: this.arg2};
+    const post = () => this.ctx.bus?.post(this.busId, this.msgId, this, data);
+    const c = this.confirm;
+    if (!c) { post(); return; }
+    const message = String(c.text ?? '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+    import('../widgets/dialog.js').then(m => m.alertDialog(this.ctx, {title: c.title, message, positive: c.button, onPositive: post}));
   }
 
   onLongClick() {
     if (this.longPressMsgId) {
-      this.ctx.bus?.post(this.busId, this.longPressMsgId, this);
+      const data = this.longPressEndMsgId ? {arg1: this.arg1} : undefined;
+      this.ctx.bus?.post(this.busId, this.longPressMsgId, this, data);
+      // A press-and-hold command ends with the release (morphLongPressEndMsgId).
+      if (this.longPressEndMsgId) {
+        const end = () => {
+          window.removeEventListener('pointerup', end, true);
+          window.removeEventListener('pointercancel', end, true);
+          this.ctx.bus?.post(this.busId, this.longPressEndMsgId, this, {arg1: this.arg1});
+        };
+        window.addEventListener('pointerup', end, true);
+        window.addEventListener('pointercancel', end, true);
+      }
       return true;
     }
     return super.onLongClick();

@@ -9,7 +9,9 @@
 // progress > threshold commits. The settle runs over
 // 1 / (1 / (dragAnimTime * max(0.25, rest)) + rate) s, rate = |v| / span
 // (0..10, commits only), decelerating (2.0). A drag that starts on a list or
-// another scrolling view belongs to that view.
+// another scrolling view belongs to that view; with dragByNestedScroll that
+// view hands the frame the scroll it cannot use (DialogOuterFastLayout's
+// nested scroll; frame.nestedDrag).
 import {TOUCH_SLOP_DP, MAX_FLING_DP, VelocityTracker} from '../gesture.js';
 
 /**
@@ -19,7 +21,7 @@ import {TOUCH_SLOP_DP, MAX_FLING_DP, VelocityTracker} from '../gesture.js';
  * enabled(), settled(commit) after the settle, and ownTouches to take touches
  * that land on the interceptor itself (NavbarExtension.onTouchEvent).
  */
-export function installSheetDrag(ctx, {interceptor, frame, scenes, dir, dragAnimTime, threshold, velocity, span, target, enabled, settled, ownTouches = false}) {
+export function installSheetDrag(ctx, {interceptor, frame, scenes, dir, dragAnimTime, threshold, velocity, span, target, enabled, settled, ownTouches = false, nested = false, nestedVelocity = false}) {
   if (!dir || !frame || !interceptor) return;
   const slop = TOUCH_SLOP_DP * ctx.dpr;
   let g = null, pending = null;
@@ -59,7 +61,11 @@ export function installSheetDrag(ctx, {interceptor, frame, scenes, dir, dragAnim
     }
     if (!g) return;
     g.vt.add(e.time, e.rootX, e.rootY);
-    let f = ((dir === 2 ? -1 : 1) * (e.rootY - g.y0)) / g.span;
+    progress(e.rootY);
+  };
+  // The drag at pointer y: dy / span towards the collapse, logarithmic past either end.
+  const progress = y => {
+    let f = ((dir === 2 ? -1 : 1) * (y - g.y0)) / g.span;
     const over = f > 1 ? 1 - f : f < 0 ? -f : 0;
     if (over) {
       const log = Math.log(Math.abs(over) / 0.05 + 1) * 0.05;
@@ -70,12 +76,15 @@ export function installSheetDrag(ctx, {interceptor, frame, scenes, dir, dragAnim
   interceptor.onPointerUp = e => {
     pending = null;
     if (!g) return;
-    const s = g.span;
     let v = 0;
     if (!e.cancelled) {
       g.vt.up(e.time);
       v = g.vt.compute(MAX_FLING_DP * ctx.dpr).vy;
     }
+    release(v);
+  };
+  const release = v => {
+    const s = g.span;
     g = null;
     if (!scenes.running?.manual) return;
     const p = scenes.ratio;
@@ -88,4 +97,55 @@ export function installSheetDrag(ctx, {interceptor, frame, scenes, dir, dragAnim
     const seconds = Math.abs(1 / (1 / (dragAnimTime * rest || 1) + rate));
     scenes.settleTo(commit, dragAnimTime > 0 ? seconds : 0, done => settled(done));
   };
+  if (!nested) return;
+  /*
+   * Nested scroll (DialogOuterFastLayout, dragByNestedScroll): a scrolling
+   * view's vertical drag starts a virtual pointer drag of the frame (down at
+   * the start, past touch slop like a touch). The view first offers each
+   * step (dy > 0 scrolls its content up): while the frame is off its rest by
+   * more than 0.025 the frame takes it (onNestedPreScroll); then the scroll
+   * the view could not use moves the frame (onNestedScroll). The stop
+   * releases the frame, ignoring the velocity unless dragUseNestedScrollVelocity.
+   */
+  let n = null;
+  const step = (dy, time) => {
+    n.y -= dy;
+    if (!g) {
+      if (Math.abs(n.y) < slop) return;
+      const vt = new VelocityTracker();
+      vt.add(n.t0, 0, 0);
+      g = {y0: Math.sign(n.y) * slop, span: span(), vt};
+    }
+    g.vt.add(time, 0, n.y);
+    progress(n.y);
+  };
+  frame.nestedDrag = {
+    start(time) {
+      if (!enabled() || (scenes.running && !scenes.running.manual)) { n = null; return false; }
+      n = {y: 0, t0: time};
+      return true;
+    },
+    pre(dy, time) {
+      if (!n || !g) return 0;
+      const f = scenes.ratio ?? 0;
+      if (f <= 0.025 && f >= -0.025) return 0;
+      step(dy, time);
+      return dy;
+    },
+    unconsumed(dy, time) { if (n && dy) step(dy, time); },
+    stop(time) {
+      const had = n;
+      n = null;
+      if (!had || !g) { g = null; return; }
+      let v = 0;
+      if (nestedVelocity) { g.vt.up(time); v = g.vt.compute(MAX_FLING_DP * ctx.dpr).vy; }
+      release(v);
+    },
+  };
+}
+
+/** The nearest dialog frame taking a view's nested scroll (dragByNestedScroll), or null. */
+export function nestedDragOf(view) {
+  for (let v = view?.parent; v; v = v.parent) if (v.nestedDrag) return v.nestedDrag;
+  return null;
 }

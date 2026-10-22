@@ -285,7 +285,10 @@ Without the feature pack the row is "fit centred", one line, normal size: slot w
 `clamp((W − 4·gap)/5, min(36 dp, 68 dp), 68 dp)`; slots 0–1 from the left edge, slot 2 centred,
 slots 3–4 from the right edge (slot 3 outermost), further slots past the right edge. Defaults:
 visualisation, sleep timer, empty (counter when enabled), shuffle, repeat.
-(f) `widgets/subaa.js`. Popup mode menus are not yet built; a tap posts `cmd_subaa_button`.
+With the feature pack the row is editable (F62): up to 32 slots, the centred or compact layout,
+small buttons and two lines, stored per orientation.
+(f) `widgets/subaa.js` (the row, its button kinds and their popup menus), `widgets/subaa-edit.js`
+(F62).
 
 ### F30 — Background (`MilkWidget`) — `UNSUPPORTED_WEB` (native GL), approximated
 Visualisation and the blurred art backdrop are rendered natively. Defaults: blur level 5, downscale
@@ -320,8 +323,8 @@ spaced, joined by cubics with horizontal tangents, over a centre backline, with 
 vertical five-stop gradient. The built-in presets, seeded from code as parameter strings
 (`31=0.39;…;16K=0;preamp=1`, plus `bass`/`treble`), confirm the ten-band 31 Hz–16 kHz set and its
 labels (`1K` …), normalised band gains (±1 = ±15 dB, the band knob range) and a linear preamp; the
-extractor captures them. Tone shelf corners, the reverb impulse, limiter settings, tempo stepping
-and the preamp knob scale remain inferred (native DSP). Tone knobs are boost-only (0–100%), matching the FRS humps.
+extractor captures them. The reverb impulse, limiter settings and tempo stepping remain inferred (native DSP);
+the tone shelf corners and Q and the ±24 dB preamp are confirmed (F68). Tone knobs are boost-only (0–100%), matching the FRS humps.
 
 ### F34 — Popups — `CS` (mechanism) / `INF` (timing curve)
 Popup button layouts (`BusActionPopupLayout`, preset list buttons) open in place: the menu
@@ -417,7 +420,8 @@ Close clears the filter, then collapses, then leaves vis mode (`cmd_gui_set_vis_
 - a press advances to the next mode and toasts the label with `toastOnPress` ("Long press for more options")
 - a long press opens the menu
 
-The `PowerListSharedItemTransition` morph between pager and list is approximated by a cross-fade.
+The vis panel's `PowerListSharedItemTransition` morph between its preset pager and list is
+approximated by a cross-fade. The library's art pager ↔ list hand-off is built (F48).
 
 ### F42 — Ratings and play statistics — `CS`
 
@@ -524,7 +528,15 @@ list at its top level follows a side swipe at a quarter.
 The following are `INFERRED`:
 - Which pair time each programmatic navigation uses: the `p31` selection is partly garbled.
 - The side of the pivot for the forward/reverse lyrics swipes, taken literally.
-- The shared item's view hand-off between pages: not reproduced.
+- **Shared item hand-off** (`PowerListSharedItemTransition.mo621`, art pager ↔ list), now built:
+  the playing track's art item and its list row are one view during the change.
+  - The row stays hidden.
+  - The art item moves from its pager frame into the row's frame, as the list page's zoom shows it.
+  - Its item scene morphs into the row's scene by the same fraction; the children's frames are laid
+    out at the row's size.
+  - At the end the row shows again and the art item returns to its own scene.
+  - It applies only when the row is on screen.
+  - The art scene's own background switches at the end; the item root is not a scene child.
 - The header-to-item morph of library swipes: substituted by the generic back pivot zoom.
 
 (f) `src/list/list-transition.js`, `ListWidget.startTransition`, `levelTransition`,
@@ -622,7 +634,9 @@ item, and going back to it, morphs between the item and the level:
 - **Without an item** (Back after a scroll that dropped the item, or a level not opened from an
   item), the F48 pivot zooms run.
 
-`INFERRED`: the shared title view's own morph (title text moving into the header) is not built.
+**Header title.** There is no separate title morph. `u31.m3287` only sets the magnified layout
+rect, and `PowerListSharedItemTransition` pairs views only between the art pager and a list (F18),
+so level changes morph whole pages.
 
 (f) `ListWidget.levelTransition/pageMorph`, `PowerList.itemRect/contentTop`.
 
@@ -636,7 +650,7 @@ item, and going back to it, morphs between the item and the level:
 The layout becomes visible with `nav_search`. Results combine songs and the matching group kinds
 under the mask.
 
-`INFERRED`: the result list draws no per-kind subheaders.
+Superseded by F64: the categories, per-kind subheaders and history are ported there.
 
 (f) `src/widgets/search.js`, `searchSource(…, mask)`.
 
@@ -681,9 +695,16 @@ reference recreates the activity).
 - **Clamp and the first star:** the star is clamped to 0..5. On star 1, a swipe gives 0 on its
   first half and 1 otherwise, and a tap toggles 1 ↔ 0. A tap left of the stars on rating 0 gives 1.
 
-`INFERRED`/not built:
-- The cross-fade between a scene's star drawables: they switch at the scene start.
-- The outlined star glyph is original art.
+**Scene changes** (H0 / N / V0 / onDraw):
+- A scene that changes the stars, their tint or the line background fades the new ones in over the
+  old ones by the scene fraction (old 1 − K, new K).
+- A change of gravity or clipping moves the background, the clip and the star origin from the old
+  geometry to the new one.
+- A reversed change keeps the old look.
+- Here this applies to animated scene changes (item menu, lyrics). The art's play-state change
+  switches item scenes at once (its frames animate).
+
+`INFERRED`: the outlined star glyph is original art.
 
 (f) `src/widgets/rating.js`.
 
@@ -714,9 +735,20 @@ moves by the slop on each axis it crossed.
 the shim.
 
 **Lists in the frame.** A list starts a nested scroll on down, which disables the frame's
-intercept.
+intercept. With `dragByNestedScroll` (BaseDialog on; off for the list alert dialog and Select
+Album Art), `DialogOuterFastLayout` hands the frame the scroll the list cannot use:
+- the scroll's start puts down a virtual pointer drag of the frame (past touch slop, as a touch);
+- each step goes to the frame first while it is off its rest by more than 0.025
+  (onNestedPreScroll);
+- then the list scrolls, and what it could not use moves the frame (onNestedScroll);
+- the scroll's stop releases the frame, ignoring the velocity unless
+  `dragUseNestedScrollVelocity`.
 
-Not built: `dragByNestedScroll`, the list's overscroll handoff to the frame.
+The app's lists (PowerList) and scrolling dialog content (ScrollingBehavior) scroll by steps and
+offer each one to the frame.
+
+A scene held by a drag takes its dragged frames again after a layout pass. Rows bound while the list
+scrolls under a held frame no longer snap the frame to the target layout.
 
 (f) `installSheetDrag` in `src/widgets/sheet-drag.js` (used by `installDrag` in `src/widgets/dialog.js`), `SceneController.drag` (limits) and `settleTo`.
 
@@ -754,6 +786,10 @@ the drag handle next to the select box. A press on the handle starts the drag at
 **Release.**
 - The row returns to the gap over 250 ms (decelerate). It then drops to scale 1 over 150 ms
   (anticipate 0.3) and its background level returns.
+- **Background fades** (kw0 → `AAItemView.x1`): the lift fades the dragged level in over 200 ms;
+  the drop fades it out over 200 ms. These are the level-list's DrawableContainer enter and exit
+  fades, ported as `fadeLevel`. Popups fade their surface level the same way (`G1`): in over the
+  popup enter time, out over the exit time.
 - The order goes to the source as slot → row (`cmd_data_reorder` "poses"). The sort column is
   rewritten for every moved row.
 
@@ -769,7 +805,6 @@ the drag handle next to the select box. A press on the handle starts the drag at
 - **Release during a slide:** the reference finishes the slide while the row rides along via the
   transition's other rect. Here the row interpolates to the gap on the same curve, over
   max((1 − p)·250 ms, 100 ms).
-- **Background level:** it switches without the LevelListDrawable 200 ms fade.
 - **After the drop:** the selection stays on the moved tracks. The reference's handling of its
   checked positions is not read.
 - **List height:** it keeps the full row count while carried rows are away.
@@ -822,6 +857,688 @@ Substitutes and not built:
 
 (f) `src/widgets/lyrics-dialog.js`, `LyricsButton.onLongClick`.
 
+### F62 — Sub-art button editing — `CONFIRMED_STATIC` / owner-approved feature-pack feature
+
+(a) S1 `SubAAButtonsLayout` (`F1`, `z1`, `y1`, `C1`, `A1`, `onLayout`, `performLongClick`),
+`LoadableDraggableButtonsBehavior`, `DraggableSourceBehavior`, `cm2` (the button factory), `c40`
+(the stored row), `EditButtonsRedirPref`, `merge_subaabuttons_edit`, `@array/sub_aa_buttons`,
+`FastLayout` (`stack_horizontal` wrap).
+
+(c) Editing begins on a long press between the buttons, moving no further than the touch slop.
+It also begins from Settings → Player → "Edit player screen buttons", which closes settings,
+returns to the player screen and begins 150 ms later.
+- **Conditions:** the player screen (`nav_main`) is showing, no navigation is animating, nothing
+  modal is open, and `sub_aa_buttons_no_lp_edit` is off (that pref gates only the long press).
+- **Row:** rises over the shade with `translationZ = ?popup_elevation`; touches follow Z order.
+  Its 32 slots draw with `slot` / `slot_highlighted` and fade in over 250 ms. While editing, the
+  row scrolls over the slots' extent; otherwise it scrolls over the buttons' right edge.
+- **Panel (`merge_subaabuttons_edit`, loaded after the row):** the shade (`Shim`; a tap ends
+  editing) and a panel with:
+  - Centered, 2 lines and Small checkboxes;
+  - a settings shortcut to the player screen settings;
+  - the palette, four per row (`EditableButtonContainer` 25 % wide, `stack_horizontal`), each
+    button with its label below and at 25 % alpha while it is in the row;
+  - the hint.
+- **Drag:** a long press on a palette or row button lifts a copy. The copy scales to 1.2 over 200 ms
+  and follows the finger; the row and the palette no longer scroll for that touch.
+  - The highlighted slot is the one whose span contains the copy's centre x and overlaps its top or
+    bottom.
+  - Touching the row's left or right edge scrolls the row at 350 dp/s.
+  - Release on a slot: the copy flies there over 200 ms and the button lands. A different button in
+    that slot leaves the row; a button moved within the row leaves its old slot.
+  - Release elsewhere: a palette copy flies back; a row button leaves the row as its copy fades
+    over 100 ms.
+- **Layout options:** changing one moves the buttons to their new slots over 0.5 s
+  (accelerate-decelerate). Two lines starts the second line at slot 16.
+- **Ending:** the shade, Back or Escape end editing. The slots fade out, the panel closes over
+  0.25 s, and the row is stored per orientation with trailing empty slots dropped.
+- **Button kinds (`cm2`):**
+  - visualisation, sleep timer, counter ("position / count", or "- / -"), shuffle and repeat;
+  - menu, add to playlist (icon morphs when the track is in a playlist), album art, info/tags,
+    lyrics (icon morphs when the track has lyrics), artist, album, genre and folder;
+  - like / unlike / love / unlove checkboxes, and the like-unlike and love-unlove rating menus;
+  - previous / next category: a long press goes to the first / last category with a toast; both are
+    disabled when categories cannot be navigated;
+  - −10 s / +10 s: a tap jumps 10 s. Held, the jump repeats every 250 ms: 10 s for the first 3 s,
+    then 20 s;
+  - audio info: the short audio meta line, opening the DSP info popup.
+
+Substitutes and not built:
+- **Feature pack:** the reference sells editing in its feature pack; the owner approved it for this
+  private build, so it is always unlocked.
+- **Omitted kinds:** cast (no web counterpart), delete and tag editing (owner decisions), and
+  bookmarks (not built).
+- **Audio info:** the routed device icon has no web counterpart.
+- **Engine fix:** a `stack_horizontal` child that wraps to a new line now lays out on that line.
+
+(f) `src/widgets/subaa-edit.js`, `src/widgets/subaa.js`, `Player.edgeCategory`, the
+`cmd_player_seek_jump` `ms` argument, `SettingsUi.closeAll`, `input.js` Z-ordered hit testing and
+the long-press disallow-intercept, `FastLayout` wrap position.
+
+### F63 — Library list preferences and List Options — `CONFIRMED_STATIC` (fallback bytecode in part)
+
+(a) S1 `yp1` (Settings → Library → Lists listeners), `z22` / `n12` and `uf1.e1` (track labels),
+`lw0` (multi-tag splitting), `ListOptsActivity` (and its fallback decompile for `у(FastButton)`),
+`ql0` / `vl0` (option handlers), `gi1` / `fi1` (library categories), `oi1`, `zi1`, `yi1`, `sj1`,
+`ii1`, `hi1` (the statistics and Long Files queries), `m30` (state defaults, including the
+first-run block `m30.d`), `p31` (`cmd_nav_to_lib`, `cmd_list_clear_list`, `cmd_list_show_all`),
+`hs.у` (clear and show all), `ie` (`W0`, `mo2079`), `g32` / `b32` (header heights), `hl0`.
+
+(c) Track labels and list behaviour:
+- **Title:** the title tag, or the file name with `title_filename`.
+- **Artist:** the album artist with `use_albumartist`; album rows lead with it with
+  `use_albumartist_albums`; an album artist's track lists lead with it with
+  `use_albumartist_albumartists`.
+- **Line 2:** "artist - album", leaving out unknown parts with `hide_unknown_album` (default on)
+  and `hide_unknown_artist`.
+- **Numbers (`track_num_type`):** 1 a separate number ("-" without one), 2 in the meta
+  ("N / disc | meta"), 3 a title prefix "N. ". Types 1 and 2 apply only in album and folder track
+  lists. `track_disc_meta` adds the disc.
+- **Albums:** keyed by (album, album artist), case-insensitively. With `join_albums` (default on) a
+  track without an album artist joins the album whose album artist is the track's artist.
+- **Sort field:** names sort without a leading "The", "A" or "An" unless `no_sort_field` is on; the
+  A–Z column follows.
+- **Splitting:** `artists_split_chars`, `composers_split_chars` and `genres_split_chars` (tokens
+  joined by U+001F; genres default to ";" and "//") split tags; a name from `artists_split_ignore`
+  ("AC/DC | +/-") at the start of a part stays whole. Artists and composers split only into two or
+  more parts; `show_unsplit_cats` keeps the unsplit entry as well.
+- **`list_action_resets` off:** tapping the playing track adopts the list as the queue without
+  restarting the track.
+- The shown lists are re-made when any of these change.
+
+List Options:
+- **Home (`library_layout`):** a check box per category in `gi1` order for the home list
+  (`library_lists`, default 1048511), each after a star for the start category (`library_home`,
+  default -1). Notes sit under Album Artists, Albums by Artist and Bookmarks.
+  - A long press on a star or a check box makes that category the start one, or clears it when it
+    already is, and checks the box.
+  - Unchecking the start category clears it.
+  - The stars fade over 250 ms (1 for the start category, 0.1 for the others).
+  - `cmd_nav_to_lib` with no remembered list opens the start category over the home.
+- **Search (`search_layout`):** a check box per searched category. The mask persists and is shared
+  with the search chips.
+- **Max Items (`limit_group`):** 200 / 500 / 1000 / no limit for Most Played, Top Rated, Low Rated,
+  Recently Added and Recently Played. The value is `*_files_limit`: 0 in `m30`, but the first-run
+  block sets 200, and the read is `max(2, v)`.
+  - The cap applies in the query's own order before the list's sort.
+  - The queries: Most Played is `played_times > 0` by plays; Recently Played and Recently Added
+    are by date; Top Rated is `rating > 1` by rating; Low Rated is `rating = 1`.
+- **Clear / Show All:** shown for Most Played, Recently Played and Recently Added (`ch1`). Clear
+  sets the list's start time to now; Show All sets it back to 0. Neither asks for confirmation.
+- **Min Duration (`duration_group`, Long Files):** a 0–119 seek bar for 1–120 minutes, saved when
+  the drag ends. `long_files_min_duration` is 15 minutes after the first run (the app used 20).
+- **Compact Header (`layout_header_compact`, `xh1`):** an entry's track list takes
+  `compactTextHeaderSize` instead of `textHeaderSize` (`b32.F0`).
+- **Show Titles Only:** disabled at zoom levels -2, -3 and -4 (`ie.mo2079`).
+- **Sort notes:** shown under their options.
+- **Settings gear:** opens Settings → Library. It is invisible when List Options opens from the
+  `library_list_opts` / `list_opts` preferences (`arg1` 1).
+- **Reference quirk:** the "no limit" radio's tag is " 2147483647" with a leading space, so
+  `Integer.parseInt` throws and the choice is dropped. Here it applies, a deliberate deviation.
+
+(f) `library/labels.js`, `library/split.js`, `Library.albums()` and the category builders,
+`list/sources.js` (`STAT_LISTS`, sort keys, `homeCategories`), `list/list-opts.js`,
+`ListWidget.openStart` / `openListOptionsFor` / `rebuildStack`, `widgets/search.js`
+(`searchMask`), `view/seekbar.js` (platform SeekBar stand-in), `view/html-text.js` (HtmlTextView
+with inline icons), `SettingsUi.overDialog` (the settings page moves under a player dialog while
+it is open). Not built: list memory (a playlist's or folder's remembered position and per-track
+progress).
+
+### F64 — Search results, categories and history — `CONFIRMED_STATIC`
+
+(a) S1 `jj1` (`v1`, `u1`), `kj1` (the merged result cursor, its separator rows, search history `А`
+and the empty query), `vo1` (`T0`, `g0`, `f`, `y`, `e0`, `P0`), `to1` (row types), `l2.B` (matching),
+`ls` (the word splitter), `uf1` / `te1` / `cf1` / `le1` / `zf1` / `eg1` / `vj1` / `hf1` / `ri1`
+(search fields and `R` orders), `SeparatorItemView`, `item_separator_button`,
+`item_search_history`, `item_clear_search_history`, `ListSearchCatsLayout` / `im0` (the chip row,
+a `b82` scroller), `m30.f1` (`search_track_titles_only`), `b40.N0` (`search_play_tracks`).
+
+(c) **Categories:** Albums, Artists, Album Artists, Folders, Genres, Years, Composers, Playlists,
+All Songs and Streams, in that order. The chips select them (bit i = category i, persisted). The
+chip row scrolls sideways (drag, fling, clamped ends).
+
+**Matching:** the query splits on whitespace, ":", "-" and "_". Every word must occur,
+case-insensitively, in the category's fields joined with no separator; more than 64 words find
+nothing. Fields:
+- Albums: album and artist.
+- All Songs: title, album and artist. With `search_track_titles_only`, the title only. With
+  `title_filename`, the file name stands in for the title.
+- Every other category: its name.
+
+**Results:** each category with matches gets a subheader row (`item_separator_button`: the
+category's name and a hairline, `separatorSize` high), then its rows sorted by name with NOCASE
+ordering. Entries show as track-style rows.
+- A tap on an entry opens it.
+- A tap on a song plays the found songs from it (`vo1.f`).
+- Play / Shuffle (`vo1.g0`) plays through the Queue (F65). With `search_play_tracks` (default on),
+  and when songs are the last results, only the found songs; otherwise every result row's songs in
+  order.
+
+**History:** every delivered result set records its query. A query that extends a stored term
+replaces it; a query a stored term already extends adds nothing; anything else is added. The empty
+search lists the 16 newest terms (`item_search_history`: the term and a clear button), then "Clear
+search history". A tap on a term searches it; its button removes it.
+
+**Fix:** the chip row now lays out after Search opens. Its scene change had captured a 0 × 0
+target frame while the row was gone.
+
+Not built: Streams results (owner decision), the search zoom levels (`list_zoom_search`) and the
+targeted search (`ste`).
+
+(f) `list/sources.js` (`searchSource`, `historySource`), `library/search-history.js`,
+`list/power-list.js` (separator and plain row types with their own heights), `widgets/search.js`
+(`SEARCH_CATS`, the chip row scroller).
+
+### F65 — The Queue — `CONFIRMED_STATIC`
+
+(a) S1 `pi1` (`shouldMoveToQueueAfterSong` / `AfterList`, `startQueueImpl`, `exitQueueImpl`,
+`next`, `onQueueUpdated`, `postCreate`), `hs.y` (adding), `ui1` (the Queue entity and its order),
+`qq0.j` / `qq0.n` (labels), `k21` (`played_at`), `b40.Q` / `b40.R` / `b40.S`, `c40.a0` / `c40.b0`,
+`m30.C` / `m30.f3172` / `m30.c`, `vo1.g0` (search Play).
+
+(c) The Queue is a list of entries. An entry stays unplayed until its track's playback session
+starts after the entry was added (`played_at < created_at`). Unplayed entries wait while another
+list plays.
+
+**Queue mode:** the entries become the playing list and the interrupted list is saved. The Queue
+starts at the first unplayed entry (or the last), with a 1 s "Started queue" toast. `queue_start`
+sets when:
+- 1: as soon as tracks are added;
+- 2 (default): on the next song;
+- 3: at the end of the list, ahead of repeat and advance.
+
+**End (`queue_end`):**
+- 1 (default): return to the saved list and go on to its next track, with "Left queue".
+- 0: stay. Repeat on plays the Queue again; otherwise playback stops.
+
+In queue mode the next/previous "category" is "Leave queue" (the same exit).
+
+**Adding:**
+- Play Next with `q_next_forces_after_song` (default on) sets `queue_start` to 2.
+- `queue_clear_on_add` clears the Queue first, keeping the playing entry unless the Queue starts
+  immediately.
+- Otherwise a Queue whose entries have all played is cleared, unless `queue_never_clear_on_add`.
+- Play Next inserts after the playing entry, or before the unplayed ones; Add appends.
+- Insert mode 2 shuffles the added tracks. The insert modes are the `queue_insert_pos` /
+  `play_next_insert_pos` preferences, shared with the selection menu's mode buttons.
+
+**Other rules:**
+- `queue_no_shuffle` plays the Queue in order.
+- Clear Queue keeps the playing entry in queue mode.
+- Search Play / Shuffle clears the Queue, fills it with the results and starts it ("Playing queued
+  search results"). A song tap in the results plays the found songs.
+- The entries, their played state, queue mode and the list to return to persist across restarts.
+
+Inferred: the order of a shuffled Queue (the reference's `shuffle_order` column) uses the player's
+shuffle permutation.
+
+(f) `player/player.js` (`entries`, `startQueue`, `exitQueue`, `queueNext`, `enqueue`,
+`queueUpdated`, `playAsQueue`, `clearQueue`, `resumeQueueMode`), `list/mode-state.js`, `app.js`
+(persistence), `ListWidget.playSearch`.
+
+### F66 — Playlist re-sort, import and export — `CONFIRMED_STATIC` / web substitute in part
+
+(a) S1 `PlaylistSortActivity`, `dialog_content_resort`, `cm2.q` (the orders), `si1.S` / `ui1.S`,
+`g32` (Re-Sort shown for `bi1`), `y51` (reading), `lc0` (writing), `PlaylistsExportActivity` / `oa`,
+`ct1` (the Playlists settings), `b40.a1` / `b40.o1` / `b40.p1`.
+
+(c) **Re-Sort** (playlists and the Queue): each radio re-sorts the stored order at once; Reverse
+(bit 30) re-sorts again and starts from "by track". The orders follow `cm2.q`:
+- names are case folded;
+- album and artist use their sort fields;
+- ties fall back to the title;
+- rating, duration, play count and played time run highest first;
+- Random ignores Reverse.
+
+"By added to list" exists only for the Queue (its entry time). Entries whose files are missing stay
+after the sorted ones.
+
+**Reading:** .m3u8 as UTF-8; .m3u as UTF-8 with `m3u_utf8`, else in the tag encoding; .pls by its
+`FileN=` lines; .wpl / .zpl by their `media src`. `#EXTINF` names an entry, and with
+`pl_import_ratings` `#EXT-X-RATING:` sets the next entry's rating.
+
+**Writing:** `#EXTM3U`, then per entry `#EXT-X-RATING:<rating>` and its path, with CRLF line ends,
+one `<name>.m3u8` per playlist. File-based playlists are written only with "Also export file based
+playlists".
+
+**Web substitutes:**
+- Import picks playlist files; the reference imports the system library's playlists, which a
+  browser cannot reach. Each file becomes a file-based playlist, and re-importing the same file
+  replaces it.
+- Entries resolve by the longest matching path tail among tracks with the same file name.
+- Unresolved entries stay (`path:<path>`, not playable). With `pl_auto_resolve` they are matched
+  again whenever the library changes.
+- Export downloads through the browser; there is no target folder choice.
+
+(f) `widgets/resort-dialog.js`, `library/playlist-files.js`, `SettingsUi.importPlaylists` /
+`openExportDialog` / `toast`, `ListWidget.listAction` (`cmd_list_resort_dialog`).
+
+### F67 — Equalizer presets — `CONFIRMED_STATIC` / not built in part
+
+(a) S1 `EqPresetPopupListLayout` (`m10` rows, `n10`, `o10`), `EqPresetSearchCatsLayout`, `mf1`
+(sections and filters), `AddEqPresetActivity` / `BaseAddPresetActivity`, `merge_eq_menu_layout`,
+`merge_selection_menu_eq_preset_items`, `item_eq_preset_search`, `u31.r` (preset JSON), `oc` / `x81`
+(export file name), `Band` (types).
+
+(c) **Popup (Preset button):**
+- A header with a name search and the filter chips: User / Built-in / AutoEq, Graphic / Parametric,
+  Assigned. The chips persist, defaulting to all but Assigned.
+  - A tap toggles a chip; a long press keeps only that chip within its group.
+  - Graphic or Parametric always stays on.
+  - Reset Filters restores the default.
+- The presets in sections (User, Built-in) under subheaders, by name, each with its mini response
+  curve. The current preset shows checked; a tap loads it and closes the popup.
+- A long press selects presets (select boxes over the curve), with Rename (one preset), Delete
+  (user presets), Share, Export and Import over the list.
+
+**EQ menu:**
+- Auto Save: edits are written into the current preset unless it is Locked; otherwise an edit
+  leaves the preset and the label returns to "Preset".
+- Save/Assign: "Save Preset", the name prefilled and existing names suggested. With a current
+  preset, saving updates it (data and name); otherwise it adds or overwrites a user preset.
+- Rename, Share, Export, Import.
+- Restore Defaults, after the reference confirmation: a built-in preset loses its edits and name;
+  a user preset's gains go to zero.
+
+**JSON:** `{name, preamp (dB), parametric, bands: [{type, channels, frequency, q, gain (dB), color}]}`
+with type 0 bass shelf, 1 treble shelf, 2 peak. Several presets export as an array to
+`<name or Presets> [<date time>].json`.
+
+`_autosave` in the EQ settings is the same switch. `BusActionButton` now honours `confirmTitle` /
+`confirmText` / `confirmButton`.
+
+**Inferred:** imported peaks at other frequencies summing into the nearest graphic band. (The tone
+shelves' frequency and Q in the JSON are the Tone settings, F68.)
+
+### F68 — EQ knob values, Tone and band settings, settings rows — `CONFIRMED_STATIC` / inferred in part
+
+(a) S1 `KnobLabelAndValue` (`onDraw`, `onMeasure`, `m640`, `b`, `e`), `LinearKnob` (`q`, `l`, `v`,
+`f`, `k`, `onTouchEvent` from fallback bytecode, `setValueFromDialog`), `zi0` (zoom animator), `h5`,
+`f10` (band knob), `C0049` (`as` preamp knob), `pr.H` / `lc0` (preamp scale), `DSPToneRoundKnobLayout`,
+`DSPRoundKnobLayout` (`v1`, `onLongClick`), `RoundKnob` (`d`, `getValueForDialog`,
+`setValueFromDialog`), `Utils.m545 / m547 / m549`, `ur1` (Tone settings, `zr` definitions), `b40`
+(`tone_*`, `equ_*` keys), `v11` (band layout hand-off), `RoundKnobPreference`,
+`preference_roundknob`, `RawTextPreference` (`m404`, attributes `wa1.o0`), `r81` (`m2970`,
+`wa1.Z`), `SeekbarPreference` (`A`, `mo409`, `B`, `onStopTrackingTouch`, `wa1.w0`),
+`settings_quote_background` (v23).
+
+(c) **Band and preamp knobs (eq_labels, default 1):**
+- Mode 1 shows the value as "%.1f" over -15..15 dB for bands and -24..24 dB for the preamp; mode 2 as
+  "%.0f%%" over -100..100; mode 0 hides it.
+- The value line (`?EqKnobValue_Text`) sits at the bottom, the label `valuePadding` above it; both
+  stand on the label background. The travel loses the value line and `textPadding`.
+- The value text shows the target value. While the thumb is held it zooms ×`valueAnimZoom` (1.5) and the
+  label background ×1.5 / ×1.1, over `valueAnimTime` (300 ms, decelerate). There is no zoom without
+  a value.
+- Touches:
+  - On the thumb, or within `thumbMinTouchableSize` / 2 of its centre: a drag.
+  - Below the travel (the label): a long press opens the value entry dialog — title the band label,
+    the value selected, the volume warning below. The typed value is clamped to the range, mapped back
+    and animated.
+  - Elsewhere on the travel: on release, the value steps 0.05 toward the tap, snapped to twentieths.
+    It slides linearly over 500 ms per unit (100 ms at least). A step landing on exactly 0 is dropped,
+    as in the bytecode.
+- The preamp spans -24..+24 dB, linear through 0 dB at the middle (`pr.H`). It was ±15 dB here before.
+
+**Tone knobs (tone_labels, default 2):**
+- Mode 1 shows "%.1f" over 0..15 with one dialog digit; mode 2 percent with whole numbers; mode 0
+  has no value label and no long press.
+- A long press on any DSP round knob's label or value label opens the same value dialog, which takes
+  `dialogPrecision` digits. The typed value is mapped back (m545), rounded to `rounding` steps and
+  animated: 120 ms for a change of 0.05 or less, otherwise 400 ms, decelerate(2).
+
+**Tone settings (peq_equ_tone):**
+- Four knobs: bass frequency 20..250 Hz (default 90), bass Q 0.1..2 (default 0.8), treble frequency
+  5..15 kHz (default 10 kHz), treble Q (default 0.6). Each maps linearly.
+- They are stored as tone_bass_freq / tone_bass_q / tone_treble_freq / tone_treble_q: whole hertz
+  and two-decimal Q factors, with the default stored as 0. A long press on the value enters it.
+- The web shelves are IIR filters with the RBJ shelf Q, cross-faded when their coefficients change.
+  They replace the platform shelving biquads, which have no Q.
+
+**Band settings (peq_equ_bands):**
+- equ_bands_num picks 5, 10, 12, 15, 16, 24, 31 or 32 bands. equ_custom_bands uses
+  equ_custom_bands_num over first_fr..last_fr instead (clamped to 5..32, 5..400 Hz and 10..24 kHz).
+- The frequencies come from the native library. Here ISO 10 / 15 / 31 take the ISO 266 octave,
+  2/3-octave and 1/3-octave centres.
+- *Inferred:*
+  - other counts are log-spaced over the custom defaults (20 Hz..16 kHz);
+  - each band's Q is sqrt(2^N) / (2^N − 1) for an N-octave spacing (1.41 at one octave);
+  - gains and presets are resampled in log frequency onto a new layout.
+
+**Settings rows:**
+- RawText summaries are composed of summary, line1, smallLine1 … line4, smallLine4. Lines are
+  separated by a blank line (one newline with singleNewline, two between groups with
+  extraLineBetweenGroups). Small lines take the Hint style; prefixes, lineCase and addDots apply.
+  The text is HTML: inline drawables, settings / #key / web links.
+- `summary2` follows in the tertiary colour, after a blank line for the RawText family, knobs and
+  switches. `sup` is a small line above the summary.
+- RawText backgrounds: the v23 quote bar, a rounded outline and a warning outline. Rows the reference
+  fills from Android state stay out.
+- Seek bars:
+  - step, `scale`, `floatScale` (stored value ÷ floatScale) and entries / values arrays;
+  - summary and summary2 formatted with the value;
+  - left / centre / right labels and tick marks;
+  - the value is stored when the touch ends.
+- Dependent rows follow their switch, its default included.
+
+**No web counterpart:** dsp_border_gain (native gain smoothing).
+
+**Not built:** device and per-song/category assignment, AutoEq presets, and parametric presets
+(the DSP is graphic only).
+
+(f) `dsp/eq-presets.js`, `widgets/eq-preset-ui.js`, `EqPresetPopupListLayout` in
+`widgets/popup.js`, `PopupList` row heights, the DSP's preset hooks (`get` / `set` / `setBand`).
+
+### F69 — Reverb presets — `CONFIRMED_STATIC`
+
+(a) S1 `ReverbPresetPopupListLayout`, `jk1`, `cd`, `mr` (`D1`, `W1`), `uh.j` (built-in seeds),
+`gj1` (`ORDER BY name`), `ReverbPluginService` (`O`, `mo368`, `m391`), `AddReverbPresetActivity`,
+`dialog_content_add_reverb_preset`, `merge_selection_menu_preset_items`, `wr1` / `yp1`
+(Restore Reverb Presets), `yp1.J` / `x8` case 5 (Restore Equalizer Presets), `c40.I`
+(`help_once_flags`).
+
+(c) **Presets:**
+- Eight built-ins (`reverb_preset_labels`, ids 1000 down to 993) carry "1=…;…;8=…;" parameter strings.
+  Parameter 8 is always 1.0 and has no knob here.
+- The Preset button opens them by name as `item_popup_simple` rows with the reverb icon; the current
+  one shows checked.
+- A tap applies a preset (`cmd_dsp_set_reverb_preset`) and closes the popup; the button shows its
+  name. Any knob edit leaves the preset (the label returns to "Preset").
+- A long press selects presets for Rename (one preset) and Delete; built-ins can be deleted too.
+- The first time each preset list (EQ bit 1, reverb bit 2) finishes opening, a 4 s toast says a long
+  press selects items.
+
+**Save** (`cmd_data_add_reverb_preset_dialog`, the tab's Save button):
+- The current preset's name is prefilled and existing names are suggested.
+- With a current preset (id ≠ 0) Save updates that preset's name and data; otherwise it adds one.
+- The values then apply under the typed name with id 0, as the bytecode does, so the saved row is
+  not checked until it is picked.
+
+**Settings:**
+- Restore Reverb Presets deletes ids ≤ 1000 and seeds the built-ins again; user presets stay.
+- Restore Equalizer Presets drops the built-in presets' edits and names and reloads a current
+  built-in.
+- Both confirm first and show "Done".
+
+### F70 — Fades and crossfades — `CONFIRMED_STATIC` (settings) / `INF` (curves)
+
+(a) S1 `fade.xml`, `b40` (crossfade_auto_advance 0, crossfade_length_ms 5000, fade_manual_advance 1,
+fade_short_ms 400, fade_short_xfade_ms 400, fade_seek_ms 100, fade_play_pause and fade_seek on,
+track_end_silence_ms 0), `v11` (hands them to the native `Pipeline2.l / u / q / n / r`),
+`pref_auto_fading_entries`, `pref_fading_entries`.
+
+(c) The fading itself runs in the native pipeline, so these behaviours follow the settings' wording
+with linear gain ramps (inferred). The player has two media decks, each with its own gain in the
+DSP graph.
+
+- **Play / pause** (fade_play_pause): pausing fades out over fade_short_ms, then pauses; resuming
+  fades in. A seek made while fading out (Stop) lands once it is silent.
+- **Seek** (fade_seek): out over fade_seek_ms, the jump, then in over fade_seek_ms. The position shows
+  the target at once.
+- **Manual track changes** (fade_manual_advance): No fading, Short crossfade (fade_short_xfade_ms) or
+  Crossfade (crossfade_length_ms). The next track starts on the other deck while the current one
+  fades out.
+- **Automatic advance** (crossfade_auto_advance): within crossfade_length_ms of the end the next track
+  starts crossfading. Modes:
+  - All songs.
+  - Shuffled songs: only with shuffle on.
+  - Non-gapless/cue: except for gapless pairs. A gapless pair is inferred as the next track number of
+    the same album, disc and folder.
+  - No crossfade is started when the advance would stop (end of list, single song, sleep timer) or
+    repeat the song, or when the track is not longer than the crossfade.
+- **track_end_silence_ms:** silence after a track ends before the next one starts.
+
+### F71 — ReplayGain — `CONFIRMED_STATIC` (settings) / `INF` (gain rules)
+
+(a) S1 `rg.xml`, `b40` (rg_preamp_mb `r`, rg_default_mb `q`), `yp1` / `zp1` (`cmd_player_set_rg_levels`),
+`RoundKnobPreference` (`wa1.s0`: min, max, scale, valueFormat; `B`, `m406`).
+
+(c) **Gain:**
+- The reference passes the levels to its native player. The rules here are the standard
+  ReplayGain ones that the settings name:
+  - rg_type: Don't apply, Apply Gain, or Apply Gain / prevent clipping by peak (gain ≤ 1 / peak);
+  - rg_source: Album, falling back to Track, or Track, falling back to Album;
+  - RG preamp (rg_preamp_mb, ±16 dB) adds to tagged songs; "Preamp for songs without RG info"
+    (rg_default_mb) is the gain of untagged songs.
+- The gain is a per-deck gain before the fade gain and the DSP. Setting changes apply to the playing
+  track at once.
+
+**Tags:** REPLAYGAIN_* in Vorbis comments, ID3 TXXX and MP4 freeform items, and Opus R128_* (Q7.8 dB,
++5 dB to the ReplayGain reference) are read on import and rescan. The R2 index's values already were.
+
+**Settings:**
+- The two knobs are XML RoundKnobPreferences: an int over min..max, shown divided by scale in
+  valueFormat ("%.1fdB"); a long press on the value enters it.
+- Restore Defaults now notifies every restored key.
+
+### F72 — Shuffle modes and options — `CONFIRMED_STATIC` (fallback bytecode in part)
+
+(a) S1 `pi1` (`toUri`, `next`, `startQueueImpl`), `qq0.S` (the `shs` parameter per shuffle mode),
+`ie.W` / `R0` / `S0` / `T0` / `U0` (fallback bytecode: shuffle_order), `m30.g1`
+(shuffle_random_factor 0.5), `b40` (no_reshuffle `V`, no_reshuffle_for_large_lists `n2`,
+category_shuffle `Z1`, hier_flat_shf `U`), `ie.A` (20000 tracks from Android 9), `y01` / `PlayerServiceCore`
+(reshuffle on a pick unless no_reshuffle).
+
+(c) **Modes:**
+- Shuffle All shuffles the playing list's songs without category navigation.
+- Shuffle Songs and Shuffle Songs/Categories shuffle the songs (`shs`). Shuffle Categories keeps the
+  songs in order.
+- Shuffle Categories and Songs/Categories advance through the categories in a shuffled order, the
+  current one first. Next / previous category and the category labels follow that order.
+- (Before, every mode shuffled the songs and the categories stayed in order.)
+
+**Randomization** (shuffle_random_factor y, default 0.5, a float seek bar over 12 steps):
+- Below 1, with more than 4 tracks, the tracks whose played_at is at or below a threshold come first,
+  each part shuffled.
+- The threshold is the played_at at offset round(n·y) in played_at order; from 10 000 tracks it is
+  min + (max − min)·y.
+- y = 1 shuffles fully.
+
+**Picking a track from the playing list** keeps the shuffle order with no_reshuffle, or for lists
+over 20 000 tracks with no_reshuffle_for_large_lists (default on). Otherwise the list starts a new
+shuffle. A pick while playing is a manual track change for fade_manual_advance (F70).
+
+category_shuffle and hier_flat_shf act on the category lists' header Shuffle (F76).
+
+### F73 — Library playback options, pro button morph — `CONFIRMED_STATIC`
+
+(a) S1 `b40` (scan_min_track_duration 6, skip_video, restore_pos, restore_pos_min_dur 45), `c40.b`
+(long_skip_rewind), `pi1.shouldRestorePerTrackPos`, `p21` (`last_pos` updates, restore on load),
+`k51` (`state_player_long_seek`), `MorphableBusStateBehavior` (`wa1.Y`), `BusDisabledForStateBehavior`,
+`TopPrevCat` / `TopNextCat` styles, `xs1` / `ss1` / `hs.H` (Reset stats).
+
+(c) **Scan settings** (applied to the loaded records at once):
+- Tracks shorter than scan_min_track_duration seconds are left out of the library ("Don't ignore" = 0).
+- With skip_video, files with a video stream are left out. Imports detect it from an MP4 `vide`
+  handler or a video MIME type, R2 tracks from their MIME type.
+
+**restore_pos:**
+- Leaving a track stores its position (`last_pos`; 0 within 2 s of the end).
+- A track longer than restore_pos_min_dur minutes, or one played from the Long list, starts at that
+  position. The exception: when an automatic crossfade would begin within crossfade + 2 s of it.
+
+**long_skip_rewind** (state_player_long_seek: the option on and a track over restore_pos_min_dur
+minutes, or the Long list):
+- The pro previous / next category buttons morph into −10 s / +10 s. A tap jumps 10 s; held, they
+  jump every 250 ms, 10 s for 3 s and then 20 s, until released (`cmd_player_begin_seek_jumps` /
+  `end_seek_jumps`). They stay enabled.
+- Otherwise they follow `state_player_category_not_navigable` (disabled outside category lists).
+- BusActionButton now honours enableForStateId / disableForStateId / morphWhenState for the states
+  this runtime knows: category navigation, long seek, seekable, dsp_enabled.
+
+**Reset stats:** "Reset stats?" with the warning and the stats-based categories note; Reset sets
+played times and last played to zero for every track.
+
+### F74 — About: version and licenses — `CONFIRMED_STATIC`
+
+(a) S1 `general.xml` (`about_version`, `oss` with its SettingsLicenseActivity intent), `ns1`
+(the version summary).
+
+(c) **Version:** the summary is "build-1031-uni", then on new lines a native build string and the
+32/64-bit word. Here it is "build-" and the deployed commit, then the player folder's tree and
+"local edits" when the deployed tree was dirty, from `release.json` beside the app folders.
+A checkout without `release.json` shows "build-local".
+
+**Open Source Licenses:** a settings page with one note per third-party piece the player loads:
+butterchurn 2.6.7 and butterchurn-presets 2.4.7 (MIT, with the full notice), Manrope3 (OFL 1.1, the
+full notice in `fonts/LICENSES.md`) and TT Norms Pro (used under the owner's permission). The
+reference's own list (its native libraries) does not apply.
+
+### F75 — Navbar scroll-away and the bottom toolbar — `CONFIRMED_STATIC` (fallback bytecode)
+
+(a) S1 `TopListWidget` (moveableToolbar `@id/navbar`, moveableToolbarAnchor bottom,
+moveableToolbarExtraStates false), `om0` (wa1.U attributes, `c0` creates `yv0`, `h0` / `i` / `h` / `r` /
+`t0` / `p0`, cmd_list_force_ab_on_screen), `ListWidget` (static_navbar: anchor bottom → fixedBottom),
+`yv0` / `xv0` (fallback bytecode), `h0` (layout status), `pd.y0` / `sh` / `w62.f0` / `w62.j` / `z62`
+(bottom toolbar, scene_bottom_toolbar), `hl0` (bottomToolbarSize, 44 dp), `sb0` and `i22` (posters),
+`yp1` (both settings recreate the screen).
+
+(c) **Scroll-away (bottom anchor).**
+- Each scroll step of f px (content movement; negative towards the list end) moves the offset
+  H = H + f.
+- The offset is 0 (shown) at the list top or when everything fits, and at the end.
+- In between, the navbar moves down by −H, up to height = the rows' reserved space (navbar bounds plus
+  the bottom inset) plus the bottom toolbar size. At full height it is invisible.
+- Approaching the end (last item shown, scrolling on), H is held at ≥ −(scroll left), so the navbar
+  comes back as the end nears.
+- fixedBottom (static_navbar, or while pinned) keeps it in place.
+- Jumps (A–Z, scroll to track) re-place it without moving it.
+
+**Other states.**
+- **Art or lyrics layout:** shown at once (a 250 ms linear move back).
+- **Level change:** the configured anchor again, then placed for the new list; while the level
+  transition runs, a 100 ms linear move back.
+- **Library and search help:** pinned while open (cmd_list_force_ab_on_screen 1 / 2).
+- **Equalizer:** going there shows it.
+- **Selection mode:** alpha 1 → 0 over 250 ms (linear), and back.
+
+**Bottom toolbar** (list_bottom_toolbar: 0 disabled, 1 semi-transparent, 2 enabled):
+- **What and where:** every non-empty list with a header shows the header's item again in
+  scene_bottom_toolbar, 44 dp high (bottomToolbarZ 1.25 dp), right above the navbar. Its top is
+  list bottom − reserved − size + how far the navbar moved down (its translation plus bottom margin),
+  clamped to the list's bottom edge.
+- **Fade-in:** with header buttons on, while one of the first three items is the first shown, it
+  fades in and grows from 0.85 as the scroll passes the header, over 104 dp. Without header buttons it
+  is always shown.
+- **Semi-transparent:** alpha × 0.55.
+- **Padding:** the rows' bottom padding grows by its size whenever the setting is on (om0.u0).
+
+**Inferred:**
+- The bottom toolbar's fade measure reads `w62.f0`'s first-item offset as the list's scroll from the
+  content top.
+- A zero-alpha toolbar takes no touches.
+
+### F76 — Category levels, Albums by Artist, Folders Hierarchy — `CONFIRMED_STATIC`
+
+(a) S1:
+- **List classes:** `p31` (list class per entity type), `kc.f` / `he.a` (an entry opens
+  `<category>/<id>/albums`), `u3` / `v3` / `r3` / `y62` (the second level and its −103 row),
+  `ze1` / `eg1` / `hf1` / `le1` / `vj1` (the categories implementing `ah1`).
+- **Albums by Artist:** `ue1` / `ve1` (the artist_albums table).
+- **Folders Hierarchy:** `cg1` (a1, M, W), `h60` (FoldersAndFilesPage).
+- **Header Play / Shuffle:** `sd.g0` / `sd.V` / `u3.V` / `u3.z`, `p31` (cmd_list_play → g0(0),
+  cmd_list_shuffle → g0(4)), `pi1.toUri` / `qq0.S`, `m30` (root_hier_immediate `h`,
+  hier_files_zoom `k0`), `b40` (hier_flat_shf `U`, hier_no_advance `W`, category_shuffle `Z1`),
+  `strings` (all_*_songs).
+
+(c) **Second level.**
+- Artists, Album Artists, Genres, Composers and Years open an entry's albums.
+- Under the header is an "All Artist / Album Artist / Genre / Composer / Year Songs" row
+  (allTracksSubheadSize, scene_1, "N songs"), which opens the entry's songs. Then come the albums
+  that hold the entry's songs, sorted like albums.
+- Albums and Folders open their songs directly.
+
+**Albums by Artist:** one row per album and track artist (unsplit), with album sorts. A row opens
+that artist's songs on the album.
+
+**Folders Hierarchy.**
+- **Top level:** the root's folders; with root_hier_immediate, the first folder with tracks or
+  several subfolders (8 levels at most).
+- **A folder's rows:**
+  - its subfolders: name, parent folder, and "files | duration" of the whole subtree;
+  - then its files.
+- **Zoom:** with hier_files_zoom, a folder with files only takes the Folders files zoom.
+- **Playing a file:** plays the folder. The hierarchy's folders with files are the categories, in
+  path order.
+
+**Header Play** (shuffle off):
+- **Category list:** the first entry, with the entries as categories.
+- **Folders Hierarchy:** the folder, or its first folder with files. It also sets Play All
+  Categories (repeat 2) unless hier_no_advance.
+
+**Header Shuffle:**
+- **Category list:** category_shuffle (4 songs and categories, 3 categories; Songs counts as 4 on a
+  top level list). On an entry's albums, Songs shuffles all the entry's songs.
+- **Folders Hierarchy, hier_flat_shf on:** every song of the subtree, shuffled.
+- **Folders Hierarchy, hier_flat_shf off:** songs and categories, with the subtree's folders first.
+
+**Also:**
+- The track menu's Folders button opens the folder in Folders Hierarchy, with the levels above it on
+  the back stack; with menu_nav_to_folders it opens the Folders list.
+- The player takes the reference ids cmd_player_set_repeat_mode and cmd_player_set_shuffle_mode.
+
+**Inferred:**
+- Rows use the track item where the reference uses text items for category and top-level folder
+  rows (as the other category lists here).
+- Folder rows show the first track's art.
+- With root_hier_immediate the walk follows the setting's text: the decompiled loop's exit when a
+  level has several folders is garbled.
+
+### F77 — CUE sheets — `CONFIRMED_STATIC` (settings) / `INF` (parsing and playback)
+
+(a) S1:
+- `library_misc` / `library_lists` XML: process_cues (default on), show_cue_source (default off).
+- `strings`: "Virtual folders are created for CUE files with multiple tracks"; "Big undivided CUE
+  disc image files will be visible in lists".
+- `m30` (show_cue_source `f3171`); `df1` / `cg1` (cue_folder_id, num_all_files with
+  show_cue_source).
+- The native CUE parser and the pipeline's range playback are not in the bytecode.
+
+(c) **Import.**
+- A .cue sheet beside imported audio is parsed: FILE, TRACK, INDEX 01 (mm:ss:ff at 75 frames per
+  second), TITLE / PERFORMER / SONGWRITER per sheet and track, REM GENRE / DATE.
+- It is stored on the audio file it names (by name, else by base name).
+
+**Library.**
+- With process_cues, a file whose sheet lists several tracks shows as virtual tracks in a virtual
+  folder named after the .cue file.
+- Each track is a range of the image: from its INDEX 01 to the next track's, the last one to the end
+  of the file.
+- Track fields come from the sheet, falling back to the image's tags.
+- The image itself shows only with show_cue_source.
+- Virtual tracks keep their own plays, ratings and positions.
+
+**Playback.**
+- A virtual track plays its range of the image. Seeks, positions and crossfade timing are relative
+  to the range.
+- At the range's end, the next contiguous track of the same image goes on without reloading
+  (gapless). Any other change stops the image first.
+
+**Also:**
+- WAV files now read their fmt / data chunks for the duration, LIST/INFO text and an embedded ID3
+  chunk. They previously fell through to the MP3 frame scan.
+
+**Not covered:**
+- The R2 library: its index lists audio files only.
+- Waveforms of virtual tracks.
+
+### F78 — GUI modals: the navbar sheet over the visualization — `CONFIRMED_STATIC`
+
+(a) S1 `gx0` (the navbar posts cmd_gui_set_modal / cmd_gui_unset_modal with @id/navbar as its sheet
+opens and closes), `t61` (modal popups as @id/popup_menu, item menus as @id/popup_menu_item), `i22` (the modal stack; `m2030`, the main scene choice; the unset path).
+
+(c) **While a modal is up** (the navbar menu sheet, a modal popup, an item menu):
+- The player screen leaves the visualization scenes for scene_playing (its full UI).
+- A touch starts no temporary UI.
+
+**When the last modal goes:**
+- the player screen takes its own scene again (scene_vis_w_ui, scene_vis or scene_playing), or
+- an open temporary UI restarts its timer.
+
+**Before:** the temporary UI's timer returned the open sheet to scene_vis_w_ui. The navbar container
+was then at the faded-controls alpha, and the transport showed through the sheet. A scene change
+within the same navigation also closed the sheet; only a navigation change does now.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -858,7 +1575,7 @@ No status is device-verified.
 | F15 thresholds and physics | Built | VelocityTracker reproduced in form only |
 | F16 navbar | Built | — |
 | F17 settings corpus | Built (screens) | Per-key implementation statuses not recorded |
-| F18 list transitions | Partial | The F48 zoom transitions, the header-to-item and item-to-header morphs (F54) and the pinch zoom transitions (F53) are built. The shared item view hand-off and the title's own morph are **not built**. |
+| F18 list transitions | Built | The F48 zoom transitions with the shared item hand-off, the header-to-item and item-to-header morphs (F54) and the pinch zoom transitions (F53) |
 | F19 typography | Built | — |
 | F20 audio | Built (web subset) | Native engine `UW` |
 | F21 visualization | Built (butterchurn) | — |
@@ -869,11 +1586,11 @@ No status is device-verified.
 | F26 art geometry | Built | Tilt signs `OPEN` |
 | F27 player states | Built | — |
 | F28 waveseek drawing | Built | — |
-| F29 sub-art buttons | Partial | Editing **not built**: a paid feature-pack feature in the reference; needs an owner decision |
+| F29 sub-art buttons | Built | Editing is F62 |
 | F30 backdrop | Built (approximation) | — |
 | F31 elapsed/duration | Partial | Placement `OPEN` |
 | F32 knob stacks | Partial | Laid out by intent |
-| F33 equalizer | Partial | Preset save/rename/share/import/export, platform FX and AutoEQ not built |
+| F33 equalizer | Partial | Presets per F67; platform FX, AutoEQ and preset assignment not built |
 | F34 popups | Built | Curve inferred |
 | F35 marquee | Built | — |
 | F36 sleep timer | Built | Expiry fade not verified |
@@ -883,25 +1600,42 @@ No status is device-verified.
 | F40 lyrics | Built | Page geometry inferred. Lyrics dialog built (F61); provider apps not built. |
 | F41 vis panel | Built | Pager–list morph cross-fades |
 | F42 ratings/stats | Built | Rating swipes built (F57) |
-| F43 dialogs | Partial | Drag-to-dismiss built (F58), except the list overscroll handoff |
-| F44 playlists | Partial | Drag reordering built (F59); re-sort and import **not built** |
+| F43 dialogs | Built | Drag to dismiss with the list overscroll handoff (F58) |
+| F44 playlists | Built | Drag reordering (F59); re-sort, import and export (F66) |
 | F45 info / album art | Built | Tag editing skipped (owner decision) |
-| F46 list options | Partial | Max Items, Min Duration, list memory and the compact header not built |
+| F46 list options | Partial | Max Items, Min Duration, compact header, categories built (F63); list memory not built |
 | F47 waveform data | Built | — |
 | F48 list page transitions | Partial | See F48 (e) |
 | F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics button long press opens the lyrics dialog (F61). |
 | F50 unbuilt gestures | Not built | Sub-art button editing (owner decision), predictive back |
-| F59 drag reorder | Built | Release mid-slide, level fade and the grid path inferred or untested |
+| F59 drag reorder | Built | Release mid-slide and the grid path inferred or untested |
 | F60 navbar sheet drag | Built | — |
 | F61 lyrics dialog | Built | The share sheet substitutes the search chooser; provider apps not built |
+| F62 sub-art button editing | Built | Cast, delete, tag editing and bookmark buttons left out; no routed device icon |
 | F51 meta info | Built | Output line substituted; first-press toast persistence inferred |
 | F52 category navigation | Built | — |
 | F53 pinch-to-zoom | Built | — |
-| F54 item/header morphs | Partial | Title morph not built |
-| F55 search chips | Built | Per-kind subheaders not drawn |
+| F54 item/header morphs | Built | — |
+| F55 search chips | Built | Categories, subheaders and history per F64 |
 | F56 Follow Day/Night | Built | Night mode from `prefers-color-scheme` |
-| F57 star rating bar | Built | Scene drawable cross-fade not built |
-| F58 dialog drag | Partial | Nested-scroll handoff not built |
+| F57 star rating bar | Built | — |
+| F58 dialog drag | Built | — |
+| F63 library list preferences / List Options | Built | List memory not built |
+| F65 queue | Built | Shuffled order inferred |
+| F66 playlist re-sort / files | Built | Import picks files (web) |
+| F67 EQ presets | Partial | Assignment, AutoEq, parametric not built |
+| F68 EQ knob values, Tone / band settings, settings rows | Built | Band frequencies for non-ISO counts and resampling inferred; dsp_border_gain native |
+| F69 Reverb presets | Built | Parameter 8 kept at 1.0 without a knob |
+| F70 Fades and crossfades | Built | Curves and the gapless-pair test inferred (native pipeline) |
+| F71 ReplayGain | Built | Gain rules follow the standard (native player) |
+| F72 Shuffle modes and options | Partial | category_shuffle and hier_flat_shf wait for the sub-category screens |
+| F73 Library playback options, pro button morph | Built | — |
+| F74 About: version and licenses | Built | — |
+| F75 Navbar scroll-away and the bottom toolbar | Built | The bottom toolbar fades with the leaving page in level transitions (`w62.j` fades it by the transition fraction) |
+| F76 Category levels, Albums by Artist, Folders Hierarchy | Built | Text-item rows for categories (track items here) |
+| F77 CUE sheets | Built | R2 index (audio files only); virtual tracks have no waveform |
+| F78 GUI modals (navbar sheet, popups, item menus) | Built | — |
+| F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact
 

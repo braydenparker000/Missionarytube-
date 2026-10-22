@@ -215,10 +215,13 @@ export function installHelp(ctx) {
     return null;
   };
   let open = null;
+  // sb0.y: the library and search help pin the list's moveable toolbar until closed.
+  let pinned = false;
   const close = () => {
     const h = open;
     if (!h) return;
     open = null;
+    if (pinned) { pinned = false; ctx.bus.post('list', 'cmd_list_force_ab_on_screen', null, {arg1: 2}); }
     for (const c of h.children) ctx.tween(c, {alpha: 0, scaleX: c._helpFrom?.scaleX ?? 1, scaleY: c._helpFrom?.scaleY ?? 1}, ANIM_S);
     setTimeout(() => { h.parent?.removeView(h); ctx.scheduleLayout(); }, ANIM_S * 1000);
   };
@@ -237,6 +240,7 @@ export function installHelp(ctx) {
       const vis = {alpha: 1, scaleX: 1, scaleY: 1};
       ctx.tween(c, vis, ANIM_S);
     }
+    if (name === 'merge_help_lib' || name === 'merge_help_search') { pinned = true; ctx.bus.post('list', 'cmd_list_force_ab_on_screen', null, {arg1: 1}); }
     ctx.bus.post('bus_gui', 'cmd_navbar_sheet_close', null);
     root.forceLayoutTree?.();
     ctx.scheduleLayout();

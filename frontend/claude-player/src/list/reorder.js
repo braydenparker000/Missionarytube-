@@ -24,6 +24,7 @@ import {accelDecel} from '../gesture.js';
 import {FastTextView} from '../view/text.js';
 import {StyledAttributes} from '../res/resources.js';
 import {MeasureSpec} from '../view/view.js';
+import {fadeLevel} from '../view/drawables.js';
 
 const LIFT_MS = 350, UNLIFT_MS = 150, RETURN_MS = 250, BG_MS = 200, BADGE_MS = 350;
 const GROUP_T = 0.25; // x32.m3573 time for the gather and scatter transitions
@@ -86,7 +87,7 @@ export class ListReorder {
     // The lifted row.
     view.setActivated?.(false);
     this.bgLevel = view.background?.level ?? 0;
-    this.setBgLevel(ctx.res.integer('@integer/ITEM_BG_LEVEL_INTERMEDIATE', ctx.theme) ?? 32);
+    this.setBgLevel(ctx.res.integer('@integer/ITEM_BG_LEVEL_INTERMEDIATE', ctx.theme) ?? 32, true);
     list.el.appendChild(view.el);
     list.stopFling();
     list.reorder = this;
@@ -95,12 +96,9 @@ export class ListReorder {
     list.placeItems();
   }
 
-  setBgLevel(level) {
-    const bg = this.view.background;
-    if (!bg || bg.level === level) return;
-    bg.level = level;
-    if (this.view._dom) this.view._dom.bg = null;
-    this.view.invalidate();
+  /** kw0 → AAItemView.x1: the lift fades the dragged level in over 200 ms, the drop fades it out over 200 ms. */
+  setBgLevel(level, lift = false) {
+    fadeLevel(this.ctx, this.view, level, lift ? {enter: BG_MS} : {enter: BG_MS, exit: BG_MS});
   }
 
   /** A one-shot animation over ms with an interpolator; returns a cancel function. */

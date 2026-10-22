@@ -1,7 +1,8 @@
 // Toasts (ToastFrameLayout / UpperToastFrameLayout): the frame sits in a
 // private-scene container whose scenes expand it (scene_expanded with an
 // icon, scene_expanded_no_icon without) and collapse it again after
-// toastDuration (2000 ms). cmd_gui_show_toast carries {title, line2, icon};
+// toastDuration (2000 ms). cmd_gui_show_toast carries {title, line2, icon,
+// ms (a shorter stay, u12.A's duration)};
 // the lower toast also announces shuffle and repeat mode changes with the
 // mode's icon and long description. Expand/collapse times are inferred.
 import {FastLayout} from '../view/fast-layout.js';
@@ -28,7 +29,7 @@ export class ToastLayout extends FastLayout {
     return this.parent?.scenes ? this.parent : null;
   }
 
-  show({title = '', line2 = '', icon = null} = {}) {
+  show({title = '', line2 = '', icon = null, ms = null} = {}) {
     const c = this.container();
     if (!c) return;
     // While a dialog is open its own toast shows, else the main screen's.
@@ -44,7 +45,7 @@ export class ToastLayout extends FastLayout {
     clearTimeout(this.timer);
     c.scenes.go(d ? 'scene_expanded' : 'scene_expanded_no_icon', {duration: animTime(this.ctx, IN_S)});
     this.shownAt = performance.now();
-    this.timer = setTimeout(() => this.hide(), this.duration);
+    this.timer = setTimeout(() => this.hide(), ms ?? this.duration);
   }
 
   hide() {

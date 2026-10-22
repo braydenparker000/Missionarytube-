@@ -528,7 +528,8 @@ export class FastLayout extends ViewGroup {
     else {
       // Gone views still extend nothing; keep wrap extents unchanged.
     }
-    lp.fl = x0; lp.ft = y0; lp.fr = x0 + measuredW; lp.fb = y0 + measuredH;
+    // A stack_horizontal wrap moves the view to the next line.
+    lp.fl = lp.l; lp.ft = lp.t; lp.fr = lp.l + measuredW; lp.fb = lp.t + measuredH;
     lp.pass = pass;
     if (!gone && lp.gravityGroup >= 0) {
       const groups = s.groups ??= [];

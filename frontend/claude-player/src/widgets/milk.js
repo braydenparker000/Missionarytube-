@@ -34,12 +34,27 @@ export class MilkWidget extends View {
       if (msg === 'msg_player_track_changed') this.setArt(ctx.player?.track?.art ?? null);
       else if (msg === 'msg_player_playing_state_changed') this.syncVis();
     });
+    // The backdrop behind the library lists and the lyrics (i22: list_aa_blur_enabled /
+    // lyrics_aa_blur_enabled; MilkWidget: aa_bg_gradient_for_list).
+    this.place = 'main';
+    ctx.bus.subscribe('bus_gui', (msg, src, d) => {
+      if (msg !== 'msg_nav_changed') return;
+      const place = d.nav === 'nav_lyrics' ? 'lyrics' : d.nav === 'nav_lib' || d.nav === 'nav_search' ? 'list' : d.nav === 'nav_eq' ? 'eq' : 'main';
+      if (place !== this.place) { this.place = place; this.invalidate(); this.syncVis(); }
+    });
+    ctx.bus.subscribe('bus_app', (msg, src, d) => {
+      if (msg !== 'msg_app_setting_changed') return;
+      if (/^(aa_blur|aa_bg|list_aa|lyrics_aa)/.test(d?.key)) this.invalidate();
+      if (d?.key === 'vis_in_lib') this.syncVis();
+    });
   }
 
   settings() {
-    const s = this.ctx.settings;
+    const s = this.ctx.settings, pref = k => !!this.ctx.pref(k);
+    const where = this.place === 'list' ? pref('list_aa_blur_enabled') : this.place === 'lyrics' ? pref('lyrics_aa_blur_enabled') : true;
     return {
-      enabled: s.aa_blur_enabled ?? true,
+      enabled: (s.aa_blur_enabled ?? true) && where,
+      listGradient: this.place !== 'list' || pref('aa_bg_gradient_for_list'),
       level: s.aa_blur ?? 5,
       scale: s.aa_blur_scale ?? 5,
       saturation: ((s.aa_blur_saturation ?? 150) / 100) * this.blurSaturationMul,
@@ -51,7 +66,9 @@ export class MilkWidget extends View {
 
   syncVis() {
     const ctx = this.ctx;
-    const on = ctx.settings?.enable_vis !== false && (ctx.gui?.visMode ?? 0) !== 0 && ctx.player?.state === STATE_PLAYING && !!ctx.dsp?.nodes;
+    // vis_in_lib (i22): the visualization goes on behind the library, search and lyrics.
+    const here = this.place === 'main' || ((this.place === 'list' || this.place === 'lyrics') && !!ctx.pref('vis_in_lib'));
+    const on = ctx.settings?.enable_vis !== false && (ctx.gui?.visMode ?? 0) !== 0 && ctx.player?.state === STATE_PLAYING && !!ctx.dsp?.nodes && here;
     this.visCanvas.style.display = on ? '' : 'none';
     if (on) this.renderer.start(); else this.renderer.stop();
   }
@@ -76,7 +93,7 @@ export class MilkWidget extends View {
     const g = st.gradient / 10;
     const c = st.gradientColor;
     const rgba = a => `rgba(${(c >>> 16) & 255},${(c >>> 8) & 255},${c & 255},${a.toFixed(3)})`;
-    this.shade.style.background = url && g > 0 ? `linear-gradient(to bottom, ${rgba(g * 0.35)} 0%, ${rgba(g * 1.6 > 1 ? 1 : g * 1.6)} 100%)` : '';
+    this.shade.style.background = url && g > 0 && st.listGradient ? `linear-gradient(to bottom, ${rgba(g * 0.35)} 0%, ${rgba(g * 1.6 > 1 ? 1 : g * 1.6)} 100%)` : '';
   }
 }
 

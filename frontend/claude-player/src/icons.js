@@ -161,6 +161,9 @@ G.reverb = arc(5, 12, 3, 2, 270, 450) + arc(5, 12, 7.5, 2, 290, 430) + arc(5, 12
 G.tone = circle(7, 8, 3.2) + circle(17, 16, 3.2) + rect(2.5, 15, 10, 2.2, 1) + rect(11.5, 6.9, 10, 2.2, 1);
 G.grid_drag = circle(9, 6, 1.6) + circle(15, 6, 1.6) + circle(9, 12, 1.6) + circle(15, 12, 1.6) + circle(9, 18, 1.6) + circle(15, 18, 1.6);
 G.list_drag = rect(4, 8, 16, 2.2, 1) + rect(4, 13.8, 16, 2.2, 1);
+// Pinch-to-zoom: two arrowheads pointing apart along the diagonal.
+G.zoom_arrows = poly([[20.5, 3.5], [20.5, 11], [17.6, 8.1], [13.3, 12.4], [11.6, 10.7], [15.9, 6.4], [13, 3.5]], 0.4)
+  + poly([[3.5, 20.5], [3.5, 13], [6.4, 15.9], [10.7, 11.6], [12.4, 13.3], [8.1, 17.6], [11, 20.5]], 0.4);
 G.question = 'M8.4 8.7c.3-2.4 1.9-4.2 4.1-4.2 2.4 0 4.2 1.6 4.2 3.8 0 2.8-3.4 3.3-3.4 6.2h-2.8c0-4.2 3.4-4.4 3.4-6.2 0-.9-.6-1.6-1.4-1.6-.9 0-1.5.7-1.6 2Z' + circle(12.3, 18.6, 1.8);
 G.account = circle(12, 8.5, 4.2) + 'M4.5 20.5c0-4 3.4-6.9 7.5-6.9s7.5 2.9 7.5 6.9Z';
 G.bars_peak = rect(4, 4, 4, 16, 1.2) + rect(10, 8, 4, 12, 1.2) + rect(16, 12, 4, 8, 1.2);
@@ -206,6 +209,8 @@ const RULES = [
   [/^cp_radio_on$/, () => 'radio_on'],
   [/^cp_radio_off$/, () => 'radio_off'],
   [/^support/, () => 'support'],
+  // Inline glyphs (play_rounded_12dp) are plain, not the round button.
+  [/^play_rounded_\d+dp$/, () => 'play_rounded'],
   [/^play_round(_inv)?(_rounded)?/, m => round(m[2] ? 'play_rounded' : 'play', 0.52)],
   [/^pause_round(_inv)?(_rounded)?/, m => round(m[2] ? 'pause_rounded' : 'pause', 0.44)],
   [/^ff_round(_inv)?(_rounded)?/, m => round(m[2] ? 'ff_rounded' : 'ff', 0.46)],
@@ -214,13 +219,14 @@ const RULES = [
   [/^prev_cat_round(_inv)?(_rounded)?/, () => round('prev_cat', 0.5)],
   [/^(back_10s_round|back_10s)/, () => 'back_10s'],
   [/^(forward_10s_round|forward_10s)/, () => 'forward_10s'],
-  [/^play_(core|small|24dp)/, (m, n) => (n.includes('rounded') ? 'play_rounded' : 'play')],
+  [/^play_(core|small|24dp|12dp)/, (m, n) => (n.includes('rounded') ? 'play_rounded' : 'play')],
   [/^pause_(core|small)/, (m, n) => (n.includes('rounded') ? 'pause_rounded' : 'pause')],
   [/^ff_core/, (m, n) => (n.includes('rounded') ? 'ff_rounded' : 'ff')],
   [/^rw_core/, (m, n) => (n.includes('rounded') ? 'rw_rounded' : 'rw')],
   [/^next_cat/, (m, n) => (n.includes('rounded') ? 'next_cat_rounded' : 'next_cat')],
   [/^prev_cat/, () => 'prev_cat'],
   [/^next_12dp/, () => 'ff'],
+  [/^zoom_arrows/, () => 'zoom_arrows'],
   [/^shuffle/, () => 'shuffle'],
   [/^repeat_song/, () => 'repeat_song'],
   [/^repeat_advance/, () => 'repeat_advance'],

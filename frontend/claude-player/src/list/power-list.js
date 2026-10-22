@@ -4,10 +4,18 @@
 import {FastLayout} from '../view/fast-layout.js';
 import {MeasureSpec} from '../view/view.js';
 import {GONE, VISIBLE} from '../res/values.js';
+import {AT_TOP, BETWEEN, AT_END} from './moveable-toolbar.js';
 import {sectionChar} from './scroller.js';
+import {modeState} from './mode-state.js';
 import {VelocityTracker, Fling, TOUCH_SLOP_DP, MIN_FLING_DP, MAX_FLING_DP} from '../gesture.js';
+import {nestedDragOf} from '../widgets/sheet-drag.js';
 
-export const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text'};
+export const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text', separator: 'item_separator_button', history: 'item_search_history', clearHistory: 'item_clear_search_history'};
+// Row types without item scenes (SeparatorItemView): laid out at the row's size.
+const PLAIN_TYPES = new Set(['separator', 'history', 'clearHistory']);
+
+// The subhead row's list index (y62: x61 -103).
+export const SUBHEAD = -103;
 
 // A touch during a fling faster than this stops it without a click (the scroller's 13.75 dp/s).
 const CLICK_STOP_DP = 13.75;
@@ -26,6 +34,9 @@ export class PowerList extends FastLayout {
     this.selection = null; // Set of selected indices while in selection mode
     this.selectable = true;
     this.noScroller = false;
+    // Bottom toolbar (sh): {mode 1 semi-transparent / 2 enabled, size, z, headerButtons}; set by the host.
+    this.bottomToolbar = null;
+    this.toolbarView = null;
     for (const bus of ['list', 'bus_gui']) ctx.bus.subscribe(bus, (msg, src, d) => this.onListCmd(msg, d ?? {}));
   }
 
@@ -36,6 +47,8 @@ export class PowerList extends FastLayout {
     this.active.clear();
     this.source = source;
     this.scrollY = 0;
+    // The moveable toolbar takes the new layout at its next placement (om0.i).
+    this.levelChanged = true;
     this.requestLayout();
     this.syncScroller();
   }
@@ -62,12 +75,30 @@ export class PowerList extends FastLayout {
     this.stopFling();
     this.scrollY = Math.max(0, Math.min(this.maxScroll(), y));
     this.placeItems();
+    // A jump re-lays the list out (vj0.m3436): the toolbar takes its status, no movement.
+    this.scrolled(0, false);
+  }
+
+  /**
+   * The layout status the moveable toolbar reads (h0.H, w62.b): at the top
+   * (also when everything fits), at the end, or between; the scroll left to
+   * the end and whether the last item is shown.
+   */
+  scrollState() {
+    const max = this.maxScroll(), s = this.source;
+    const flags = max <= 0 || this.scrollY <= 0 ? AT_TOP : this.scrollY >= max ? AT_END : BETWEEN;
+    return {flags, endGap: max - this.scrollY, lastShown: !!s?.count && this.active.has(s.count - 1)};
+  }
+
+  /** Tells the host the list moved its content by f px (PowerList.h0 → om0). */
+  scrolled(f, touch) {
+    if (!this.levelChanged) this.host?.listScrolled?.(this, f, touch);
   }
 
   /** Scrolls so the item's row is the first under the header. */
   scrollToIndex(i) {
     const g = this.geometry();
-    this.scrollTo(i <= 0 ? 0 : g.headerH + Math.floor(i / g.cols) * g.itemH);
+    this.scrollTo(i <= 0 ? 0 : g.headerH + this.itemTop(g, i));
   }
 
   /** An item's rect in the list's own coordinates (as shown now), or null. */
@@ -75,8 +106,8 @@ export class PowerList extends FastLayout {
     const s = this.source;
     if (!s || i < 0 || i >= s.count) return null;
     const g = this.geometry();
-    const r = Math.floor(i / g.cols), c = i % g.cols;
-    return {left: g.left + c * (g.colW + g.gap), top: g.top + g.headerH - this.scrollY + r * g.itemH, width: g.colW, height: g.itemH};
+    const c = i % g.cols;
+    return {left: g.left + c * (g.colW + g.gap), top: g.top + g.headerH - this.scrollY + this.itemTop(g, i), width: g.colW, height: this.itemHeightAt(g, i)};
   }
 
   /** Where the items start (below the header) in the list's coordinates (h0's content top). */
@@ -88,10 +119,10 @@ export class PowerList extends FastLayout {
   /** Centres a track's row in the list (the playing track in its source list). */
   scrollToTrack(t) {
     const s = this.source;
-    const i = t ? s?.tracks?.findIndex(x => x.id === t.id) ?? -1 : -1;
+    const i = t ? (s?.indexOfTrack ? s.indexOfTrack(t) : s?.tracks?.findIndex(x => x.id === t.id) ?? -1) : -1;
     if (i < 0) return;
     const g = this.geometry();
-    this.scrollTo(g.top + g.headerH + Math.floor(i / g.cols) * g.itemH + g.itemH / 2 - (this.height - this.paddingBottom) / 2);
+    this.scrollTo(g.top + g.headerH + this.itemTop(g, i) + g.itemH / 2 - (this.height - this.paddingBottom) / 2);
   }
 
   /**
@@ -117,7 +148,7 @@ export class PowerList extends FastLayout {
     const s = this.source;
     if (!s?.sectionTitle || !s.count) return null;
     const g = this.geometry();
-    const i = Math.max(0, Math.min(s.count - 1, Math.floor(Math.max(0, this.scrollY - g.headerH) / g.itemH) * g.cols));
+    const i = Math.max(0, Math.min(s.count - 1, this.indexAtY(g, Math.max(0, this.scrollY - g.headerH))));
     return sectionChar(s.sectionTitle(i), chars);
   }
 
@@ -131,15 +162,47 @@ export class PowerList extends FastLayout {
     const colW = Math.floor((contentW - gap * (cols - 1)) / cols);
     // Grid zoom levels: square art plus the text's extra space (itemHeight -1).
     const itemH = s.itemHeight >= 0 ? s.itemHeight : Math.round(colW * (s.aaRatio ?? 1)) + (s.gridExtra ?? 0);
-    return {cols, colW, gap, itemH, headerH: s.header ? s.headerHeight : 0, top: this.paddingTop, left: pl};
+    // Separator rows (search subheaders) in a one-column list: their own height.
+    const seps = cols === 1 && s.separators?.length ? s.separators : null;
+    // The header and, under it, a subhead row (y62: the "All ... Songs" row) before the items.
+    const headH = s.header ? s.headerHeight : 0, subH = s.subhead ? s.subhead.height : 0;
+    return {cols, colW, gap, itemH, seps, sepH: seps ? s.separatorHeight : 0, headH, subH, headerH: headH + subH, top: this.paddingTop, left: pl};
+  }
+
+  /** Separator rows before item i (g.seps is sorted). */
+  static sepsBefore(seps, i) {
+    let lo = 0, hi = seps.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (seps[m] < i) lo = m + 1; else hi = m; }
+    return lo;
+  }
+
+  /** Item i's top below the header. */
+  itemTop(g, i) {
+    if (!g.seps) return Math.floor(i / g.cols) * g.itemH;
+    const k = PowerList.sepsBefore(g.seps, i);
+    return (i - k) * g.itemH + k * g.sepH;
+  }
+
+  itemHeightAt(g, i) {
+    if (!g.seps) return g.itemH;
+    const k = PowerList.sepsBefore(g.seps, i);
+    return g.seps[k] === i ? g.sepH : g.itemH;
+  }
+
+  /** The first item of the row at y below the header (rows above count; past the end, the count). */
+  indexAtY(g, y) {
+    if (!g.seps) return Math.floor(y / g.itemH) * g.cols;
+    let lo = 0, hi = this.source.count;
+    while (lo < hi) { const m = (lo + hi + 1) >> 1; if (this.itemTop(g, m) <= y) lo = m; else hi = m - 1; }
+    return lo;
   }
 
   contentHeight() {
     const s = this.source;
     if (!s) return 0;
     const g = this.geometry();
-    const rows = Math.ceil(s.count / g.cols);
-    return g.top + g.headerH + rows * g.itemH + this.paddingBottom;
+    const end = g.seps ? this.itemTop(g, s.count) : Math.ceil(s.count / g.cols) * g.itemH;
+    return g.top + g.headerH + end + this.paddingBottom;
   }
 
   maxScroll() {
@@ -174,9 +237,11 @@ export class PowerList extends FastLayout {
 
   onItemClick(v) {
     if (Math.abs(this.velocity) > CLICK_STOP_DP * this.ctx.dpr) return;
+    if (this.source?.isSeparator?.(v.listIndex)) return;
     if (this.selection && v.listIndex >= 0) { this.toggleSelected(v.listIndex); return; }
     this.lastClicked = v.listIndex;
     if (v.listIndex === -1) this.source.onHeaderClick?.();
+    else if (v.listIndex === SUBHEAD) this.source.onSubheadClick?.();
     else this.source.onItemClick?.(v.listIndex);
   }
 
@@ -189,6 +254,12 @@ export class PowerList extends FastLayout {
   }
 
   /** Binds and positions the visible items (and the header). */
+  /** Binds the shown rows again (preferences that change their labels). */
+  rebindAll() {
+    for (const v of this.active.values()) v._boundKey = null;
+    this.placeItems();
+  }
+
   placeItems() {
     const s = this.source;
     if (!s) return;
@@ -197,17 +268,23 @@ export class PowerList extends FastLayout {
     // A drag reorder places the rows itself.
     if (this.reorder) { this.reorder.place(); return; }
     const g = this.geometry();
-    const y0 = g.top + g.headerH - this.scrollY;
-    const firstRow = Math.max(0, Math.floor((this.scrollY - g.top - g.headerH) / g.itemH));
-    const lastRow = Math.min(Math.ceil(s.count / g.cols) - 1, Math.floor((this.scrollY + this.height - g.top - g.headerH) / g.itemH));
-    const want = new Set();
-    if (s.header && g.top + g.headerH - this.scrollY > 0) want.add(-1);
-    for (let r = firstRow; r <= lastRow; r++) {
-      for (let c = 0; c < g.cols; c++) {
-        const i = r * g.cols + c;
-        if (i < s.count) want.add(i);
-      }
+    // A new source: the host places the moveable toolbar once the level change has started.
+    if (this.levelChanged && this.width > 0 && !this._levelQueued) {
+      this._levelQueued = true;
+      queueMicrotask(() => {
+        this._levelQueued = false;
+        if (!this.levelChanged) return;
+        this.levelChanged = false;
+        this.host?.listLevelChanged?.(this);
+      });
     }
+    const y0 = g.top + g.headerH - this.scrollY;
+    const want = new Set();
+    if (s.header && g.top + g.headH - this.scrollY > 0) want.add(-1);
+    if (s.subhead && g.top + g.headerH - this.scrollY > 0) want.add(SUBHEAD);
+    const first = this.indexAtY(g, Math.max(0, this.scrollY - g.top - g.headerH));
+    const last = Math.min(s.count - 1, this.indexAtY(g, Math.max(0, this.scrollY + this.height - g.top - g.headerH)) + g.cols - 1);
+    for (let i = first; i <= last; i++) want.add(i);
     for (const [i, v] of this.active) {
       if (!want.has(i) && !v.inMenu) { this.recycle(i, v); this.active.delete(i); }
     }
@@ -216,28 +293,97 @@ export class PowerList extends FastLayout {
       let v = this.active.get(i);
       const fresh = !v;
       if (fresh) {
-        v = this.obtain(i === -1 ? s.header.type : s.itemType);
+        v = this.obtain(i === -1 ? s.header.type : i === SUBHEAD ? s.subhead.type : s.typeAt?.(i) ?? s.itemType);
         this.active.set(i, v);
       }
       v.listIndex = i;
       let x, y, w, h, scene;
       if (i === -1) {
-        x = 0; y = g.top - this.scrollY; w = this.width; h = g.headerH; scene = s.header.scene;
+        x = 0; y = g.top - this.scrollY; w = this.width; h = g.headH; scene = s.header.scene;
         if (fresh || v._boundKey !== 'h') { s.bindHeader(v); v._boundKey = 'h'; }
+      } else if (i === SUBHEAD) {
+        x = 0; y = g.top + g.headH - this.scrollY; w = this.width; h = g.subH; scene = s.subhead.scene;
+        if (fresh || v._boundKey !== 's') { s.bindSubhead(v); v._boundKey = 's'; }
+        if (this.selectable) v.setSelection?.(false, false, false);
       } else {
-        const r = Math.floor(i / g.cols), c = i % g.cols;
-        x = g.left + c * (g.colW + g.gap); y = y0 + r * g.itemH; w = g.colW; h = g.itemH; scene = s.itemScene;
+        const c = i % g.cols;
+        x = g.left + c * (g.colW + g.gap); y = y0 + this.itemTop(g, i); w = g.colW; h = this.itemHeightAt(g, i); scene = s.itemScene;
         if (fresh || v._boundKey !== i) { s.bindItem(v, i); v._boundKey = i; }
+        if (PLAIN_TYPES.has(v.listItemType)) {
+          v.left = 0; v.top = 0;
+          v.measure(MeasureSpec.make(w, MeasureSpec.EXACTLY), MeasureSpec.make(h, MeasureSpec.EXACTLY));
+          v.layout(0, 0, w, h);
+          v.translationX = x;
+          v.translationY = y;
+          v.invalidate();
+          continue;
+        }
         if (this.selectable) v.setSelection?.(!!this.selection, !!this.selection?.has(i), !!s.reorderable);
       }
       // Rows a drag reorder faded or scaled come back whole.
       if (v.alpha !== 1 || v.scaleX !== 1) { v.alpha = 1; v.scaleX = v.scaleY = 1; }
+      // The row a shared item transition morphs into stays hidden until it ends (mo621).
+      const hide = i === this.sharedIndex;
+      if (hide !== !!v._sharedHidden) { v._sharedHidden = hide; v.el.classList.toggle('cp-shared-hidden', hide); }
       v.left = 0; v.top = 0;
       v.setItemScene(scene, w, h);
       v.translationX = x;
       v.translationY = y;
       v.invalidate();
     }
+    this.placeBottomToolbar(g);
+  }
+
+  /**
+   * Bottom toolbar (sh, w62.f0 / j; F75): with list_bottom_toolbar the
+   * header's buttons also show as an item in scene_bottom_toolbar
+   * (bottomToolbarSize) right above the moveable toolbar, moving down with it
+   * to the list's bottom edge. With header buttons on it fades in and grows
+   * from 0.85 over 104 dp once the header has scrolled away (while one of the
+   * first three items is the first shown); semi-transparent caps its alpha at
+   * 0.55. Lists that are empty or have no header have none.
+   */
+  placeBottomToolbar(g = null) {
+    const bt = this.bottomToolbar, s = this.source;
+    let v = this.toolbarView;
+    if (!bt || !s?.header || !(s.count > 0) || !this.width) {
+      if (v && v.visibility !== GONE) { v.visibility = GONE; v.invalidate(); }
+      return;
+    }
+    g ??= this.geometry();
+    if (!v || v.listItemType !== s.header.type) {
+      if (v) { v.visibility = GONE; v.invalidate(); }
+      v = this.toolbarView = this.ctx.inflater.inflate(LAYOUT_FOR_TYPE[s.header.type], null)[0];
+      v.lp = this.generateLayoutParams(null);
+      v.parent = this;
+      v.listItemType = s.header.type;
+      v.listIndex = -10;
+      v.useThumb = true;
+      v.elevation = bt.z;
+      this.children.push(v);
+      this.el.appendChild(v.el);
+      const menu = v.findViewById('menu');
+      if (menu) menu.onClick = () => { if (this.source?.menuLayout) this.host?.openItemMenu?.(v, this.source.menuLayout); };
+    }
+    if (v.inMenu) return;
+    if (v._boundSource !== s) { s.bindHeader(v); v._boundSource = s; }
+    let f = 1;
+    if (bt.headerButtons) {
+      const first = this.indexAtY(g, Math.max(0, this.scrollY - g.top - g.headerH));
+      if (first < 3) f = Math.min(1, Math.max(0, (this.scrollY - g.headH) / (104 * this.ctx.dpr)));
+    }
+    const alpha = (bt.mode === 1 ? 0.55 : 1) * f;
+    const size = bt.size, bottom = this.height, inset = bt.inset?.() ?? 0;
+    let top = bottom - (bt.reserved?.() ?? 0) - size + (this.host?.toolbar?.movedDown() ?? 0);
+    if (top + size > bottom - inset) top = bottom - size - inset;
+    v.visibility = alpha > 0 ? VISIBLE : GONE;
+    v.left = 0; v.top = 0;
+    v.setItemScene('scene_bottom_toolbar', this.width, size);
+    v.translationX = 0;
+    v.translationY = top;
+    v.alpha = alpha;
+    v.scaleX = v.scaleY = 0.85 + 0.15 * f;
+    v.invalidate();
   }
 
   // Selection mode (cmd_list_toggle_selection_mode): items show their select
@@ -258,7 +404,7 @@ export class PowerList extends FastLayout {
         this.selectionChanged();
       } break;
       case 'cmd_list_add_to_q': case 'cmd_list_add_as_next_to_q': if (sel?.size) {
-        this.ctx.player?.enqueue?.(this.selectedTracks(), msg === 'cmd_list_add_as_next_to_q', this.ctx.listState?.[msg === 'cmd_list_add_to_q' ? 'state_queue_insert_pos' : 'state_play_next_insert_pos'] ?? 0);
+        this.ctx.player?.enqueue?.(this.selectedTracks(), msg === 'cmd_list_add_as_next_to_q', modeState(this.ctx, msg === 'cmd_list_add_to_q' ? 'state_queue_insert_pos' : 'state_play_next_insert_pos'));
         this.endSelection();
       } break;
       case 'cmd_list_send_dialog': if (sel?.size && navigator.share) {
@@ -292,6 +438,8 @@ export class PowerList extends FastLayout {
   setSelectionMode(on, closeMenu = true) {
     if (!!this.selection === on) return;
     this.selection = on ? new Set() : null;
+    // om0.h / r: the moveable toolbar fades out for the selection menu and back.
+    this.host?.toolbar?.fade(on);
     if (on) this.ctx.bus.post('bus_gui', 'cmd_selection_menu_open', this, {arg1: this.source?.selectionLayout ?? 'merge_selection_menu_list_base_items'});
     else if (closeMenu) this.endSelection();
     this.selectionChanged();
@@ -345,7 +493,16 @@ export class PowerList extends FastLayout {
     const vt = new VelocityTracker();
     vt.add(start.time, start.rootX, start.rootY);
     this.drag = {y: start.rootY + Math.sign(now.rootY - start.rootY) * slop, scroll: this.scrollY, vt, started: true};
+    this.startNested(start.time);
     return true;
+  }
+
+  /** A dialog frame around the list takes the scroll the list cannot use (dragByNestedScroll). */
+  startNested(time) {
+    const d = this.drag;
+    d.last = d.y;
+    d.nested = nestedDragOf(this);
+    if (d.nested && !d.nested.start(time)) d.nested = null;
   }
 
   onPointerMove(e) {
@@ -357,14 +514,23 @@ export class PowerList extends FastLayout {
       if (Math.abs(dy) < slop) return;
       d.started = true;
       d.y += Math.sign(dy) * slop;
+      this.startNested(e.time);
     }
-    this.scrollY = Math.max(0, Math.min(this.maxScroll(), d.scroll - (e.rootY - d.y)));
+    // Scroll by the step: the dialog frame first (pre-scroll), then the list, then the frame again.
+    const step = d.last - e.rootY;
+    d.last = e.rootY;
+    const own = step - (d.nested?.pre(step, e.time) ?? 0);
+    const prev = this.scrollY;
+    this.scrollY = Math.max(0, Math.min(this.maxScroll(), prev + own));
+    d.nested?.unconsumed(own - (this.scrollY - prev), e.time);
     this.placeItems();
+    if (this.scrollY !== prev) this.scrolled(prev - this.scrollY, true);
   }
 
   onPointerUp(e) {
     const d = this.drag;
     this.drag = null;
+    d?.nested?.stop(e?.time ?? performance.now());
     if (!d || !d.started || e?.cancelled) return;
     d.vt.up(e.time);
     const v = -d.vt.compute(MAX_FLING_DP * this.ctx.dpr).vy;
@@ -379,6 +545,7 @@ export class PowerList extends FastLayout {
     this._fling = this.ctx.onFrame(now => {
       const dt = Math.min(0.048, (now - last) / 1000);
       last = now;
+      const prev = this.scrollY;
       this.scrollY += f.step(dt);
       this.velocity = f.v;
       const max = this.maxScroll();
@@ -388,6 +555,7 @@ export class PowerList extends FastLayout {
         stop = true;
       }
       this.placeItems();
+      if (this.scrollY !== prev) this.scrolled(prev - this.scrollY, false);
       if (stop) {
         this.velocity = 0;
         this._fling = null;

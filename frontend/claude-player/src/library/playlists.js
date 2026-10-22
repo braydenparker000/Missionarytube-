@@ -2,7 +2,11 @@
 // ids in order, created and modified times. New playlists are named
 // "Playlist N" (playlist_root_word), renamed from the playlist's menu.
 // Adding follows the insert position (top, bottom, shuffled into the list)
-// and pl_no_dups (off by default: duplicates are allowed).
+// and pl_no_dups (off by default: duplicates are allowed). Playlists imported
+// from files keep the file name (path) and may hold unresolved entries
+// (path:<path>, playlist-files.js) that do not play.
+
+import {autoResolve, UNRESOLVED} from './playlist-files.js';
 
 export const INSERT_BOTTOM = 0, INSERT_TOP = 1, INSERT_SHUFFLED = 2;
 export const SORT_NAME = 0, SORT_ADDED = 0x40000001, SORT_NUM_TRACKS = 0x40000002, SORT_MODIFIED = 0x40000003;
@@ -13,6 +17,8 @@ export class Playlists {
     this.library = library;
     this.items = [];
     ctx.playlists = this;
+    // pl_auto_resolve: a changed library resolves waiting entries again.
+    ctx.bus.subscribe('bus_library', () => { if (this.items.length) autoResolve(ctx); });
   }
 
   async load() {

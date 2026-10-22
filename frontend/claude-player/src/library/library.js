@@ -1,8 +1,10 @@
 // The music library: imported tracks (tags + stored files), lazily opened
 // media/cover URLs, and category views (albums, artists, genres, folders).
 import {LibraryDb} from './db.js';
-import {readTags, readRemotePicture} from './tags.js';
+import {readTags, readRemotePicture, setTagEncoding, decodeTextFile} from './tags.js';
+import {makeSplitter, GENRE_DEFAULT_SPLIT} from './split.js';
 import {Playlists} from './playlists.js';
+import {parseCue, cueFor, cueTracks} from './cue.js';
 import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars, decodeWave} from './r2.js';
 
 // Remote covers: full images in Cache Storage on first view (capped, oldest
@@ -44,9 +46,15 @@ export class Library {
     this.ctx = ctx;
     this.db = null;
     this.tracks = [];
+    this.allTracks = [];
+    // The scan settings apply to the loaded records at once (the reference rescans).
+    ctx.bus.subscribe('bus_app', (msg, src, d) => {
+      if (msg === 'msg_app_setting_changed' && /^(scan_min_track_duration|skip_video|process_cues|show_cue_source)$/.test(d?.key ?? '')) this.setTracks(this.allTracks);
+    });
     this.byId = new Map();
     this.artCache = new Map();
     this.thumbCache = new Map();
+    ctx.bus.subscribe('bus_app', (msg, src, d) => { if (msg === 'msg_app_setting_changed' && d?.key === 'aa_force_default') this.refreshArt(); });
     this.coverPuts = 0;
     this.fileUrls = new Map();
     this.localTracks = [];
@@ -131,7 +139,8 @@ export class Library {
   /** Persists a track's changed data (imports: the record; R2 tracks: listening data). */
   saveTrack(t) {
     if (!this.db) return Promise.resolve();
-    if (!t.remote) {
+    // Virtual CUE tracks keep their listening data like remote ones.
+    if (!t.remote && !t.cueOf) {
       // Runtime fields (images, object URLs) stay out of the stored record.
       const {art, thumb, ...rec} = t;
       if (typeof rec.src === 'string' && rec.src.startsWith('blob:')) delete rec.src;
@@ -143,20 +152,56 @@ export class Library {
     return this.db.setState('u:' + t.id, u);
   }
 
+  /**
+   * The library's tracks: every record (allTracks, byId), of which the scan
+   * settings keep tracks (scan_min_track_duration: shorter tracks are
+   * ignored, 0 keeps all; skip_video: files with a video stream are ignored).
+   */
   setTracks(list) {
     list.sort(compareTracks);
-    this.tracks = list;
-    this.byId = new Map(list.map(t => [t.id, t]));
-    this.ctx.bus.post('bus_library', 'msg_library_changed', this, {count: list.length});
+    this.allTracks = list;
+    const minMs = (+(this.ctx.pref?.('scan_min_track_duration') ?? 6) || 0) * 1000, noVideo = !!this.ctx.pref?.('skip_video');
+    // process_cues: disc images with a sheet show as their virtual tracks
+    // (kept per image, so a playing one stays the same object); the image
+    // itself only with show_cue_source.
+    const cues = this.ctx.pref?.('process_cues') !== false, showSource = !!this.ctx.pref?.('show_cue_source');
+    this.cueCache ??= new Map();
+    const shown = [], virtual = [];
+    for (const t of list) {
+      if (!cues || !t.cue?.tracks?.length) { shown.push(t); continue; }
+      let v = this.cueCache.get(t.id);
+      if (!v || v.image !== t || v.duration !== t.durationMs) {
+        v = {image: t, duration: t.durationMs, tracks: this.withUserData(cueTracks(t, trackMetaLabel))};
+        this.cueCache.set(t.id, v);
+      }
+      virtual.push(...v.tracks);
+      shown.push(...v.tracks);
+      if (showSource) shown.push(t);
+    }
+    if (virtual.length) shown.sort(compareTracks);
+    this.tracks = shown.filter(t => !(minMs && t.durationMs && t.durationMs < minMs) && !(noVideo && t.video));
+    this.byId = new Map([...list, ...virtual].map(t => [t.id, t]));
+    this.ctx.bus.post('bus_library', 'msg_library_changed', this, {count: this.tracks.length});
   }
 
   /** Imports audio files (File objects); returns the number added. */
   async importFiles(files, onProgress) {
     let added = 0, done = 0;
     const audio = [...files].filter(isAudioFile);
-    // Sidecar .lrc files next to the audio (same path without the extension).
-    const lrc = new Map();
+    setTagEncoding(this.ctx.pref?.('tag_encoding'));
+    // CUE sheets beside the audio, per folder (process_cues expands them; stored with the image).
+    const sheets = new Map();
     for (const f of files) {
+      if (!/\.cue$/i.test(f.name)) continue;
+      const path = f.webkitRelativePath || f.name, dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+      try {
+        const sheet = parseCue(decodeTextFile(new Uint8Array(await f.arrayBuffer()), true));
+        (sheets.get(dir) ?? sheets.set(dir, []).get(dir)).push({name: f.name, sheet});
+      } catch { /* unreadable sheet */ }
+    }
+    // Sidecar .lrc files next to the audio (same path without the extension), with lrc_scan.
+    const lrc = new Map();
+    for (const f of this.ctx.pref?.('lrc_scan') === false ? [] : files) {
       if (/\.lrc$/i.test(f.name)) lrc.set((f.webkitRelativePath || f.name).replace(/\.[^./]+$/, '').toLowerCase(), f);
     }
     for (const f of audio) {
@@ -178,25 +223,72 @@ export class Library {
         path, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '', fileName: f.name, size: f.size, mime: f.type || '',
         artId, added: Date.now(),
       };
+      if (tags.hasVideo || /^video\//.test(f.type || '')) meta.video = true;
       const side = lrc.get(path.replace(/\.[^./]+$/, '').toLowerCase());
-      if (side) { try { meta.lyricsFile = await side.text(); } catch { /* unreadable sidecar */ } }
+      // LRC text: UTF-8, or the tag encoding for non-Unicode files unless lrc_utf8.
+      if (side) { try { meta.lyricsFile = decodeTextFile(new Uint8Array(await side.arrayBuffer()), this.ctx.pref?.('lrc_utf8') !== false); } catch { /* unreadable sidecar */ } }
       if (tags.lyricsSynced) meta.lyricsSynced = tags.lyricsSynced;
       if (tags.lyrics) meta.lyrics = tags.lyrics;
+      if (tags.replayGain) meta.replayGain = tags.replayGain;
+      for (const c of sheets.get(meta.folder) ?? []) {
+        const cue = cueFor(c.sheet, f.name, c.name);
+        if (cue) { meta.cue = cue; break; }
+      }
       meta.meta = trackMetaLabel(meta);
       if (this.db) await this.db.putTrack(meta, f, artBlob);
       if (artBlob && artId && !this.artCache.has(artId)) this.artCache.set(artId, loadArt(artBlob));
       this.byId.set(id, meta);
-      this.tracks.push(meta);
+      this.allTracks.push(meta);
       added++;
       onProgress?.(++done, audio.length);
     }
-    this.setTracks(this.tracks);
+    this.setTracks(this.allTracks);
     return added;
+  }
+
+  /**
+   * Re-reads the tags of stored local files (rescan_lyrics_tags: lyrics only;
+   * erase_and_rescan: everything), reporting (done, total).
+   */
+  async rescanTags({lyricsOnly = false} = {}, onProgress) {
+    setTagEncoding(this.ctx.pref?.('tag_encoding'));
+    const local = this.allTracks.filter(t => !t.remote && !t.src);
+    let done = 0;
+    for (const t of local) {
+      const f = await this.db?.file(t.id).catch(() => null);
+      if (f) {
+        let tags = null;
+        try { tags = await readTags(f); } catch { /* unreadable */ }
+        if (tags) {
+          if (lyricsOnly) {
+            if (tags.lyrics) t.lyrics = tags.lyrics; else delete t.lyrics;
+            if (tags.lyricsSynced) t.lyricsSynced = tags.lyricsSynced; else delete t.lyricsSynced;
+          } else {
+            Object.assign(t, {
+              title: tags.title || t.fileName || t.title, artist: tags.artist || '', album: tags.album || '', albumArtist: tags.albumArtist || '',
+              genre: tags.genre || '', track: tags.track || 0, disc: tags.disc || 0, year: tags.year || 0,
+              durationMs: tags.durationMs || t.durationMs || 0, sampleRate: tags.sampleRate || 0, bits: tags.bits || 0, bitrate: tags.bitrate || 0,
+            });
+            if (tags.lyrics) t.lyrics = tags.lyrics; else delete t.lyrics;
+            if (tags.lyricsSynced) t.lyricsSynced = tags.lyricsSynced; else delete t.lyricsSynced;
+            if (tags.replayGain) t.replayGain = tags.replayGain; else delete t.replayGain;
+            t.meta = trackMetaLabel(t);
+          }
+          const {art, thumb, ...rec} = t;
+          await this.db?.updateTrack(rec).catch(() => {});
+        }
+      }
+      onProgress?.(++done, local.length);
+    }
+    this.setTracks(this.allTracks);
+    return local.length;
   }
 
   /** Media URL for a track (object URL over the stored file). */
   async mediaUrl(t) {
     if (t.src) return t.src;
+    // A CUE track plays a range of its disc image.
+    if (t.cueOf) { const image = this.byId.get(t.cueOf); return image ? this.mediaUrl(image) : null; }
     let url = this.fileUrls.get(t.id);
     if (!url) {
       const file = await this.db?.file(t.id);
@@ -237,8 +329,28 @@ export class Library {
     this.ctx.bus.post('bus_data', 'msg_data_art_changed', this, {tracks: changed});
   }
 
+  /** Every track shows its art again (after a cache clear or aa_force_default). */
+  refreshArt() {
+    for (const map of [this.artCache, this.thumbCache]) {
+      for (const e of map.values()) Promise.resolve(e?.p ?? e).then(a => { if (a?.url?.startsWith('blob:')) URL.revokeObjectURL(a.url); }, () => {});
+      map.clear();
+    }
+    for (const x of this.tracks) { x.art = null; x.thumb = null; }
+    const t = this.ctx.player?.track;
+    if (t && !this.tracks.includes(t)) { t.art = null; t.thumb = null; }
+    this.ctx.bus.post('bus_data', 'msg_data_art_changed', this, {tracks: t ? [...this.tracks, t] : this.tracks});
+  }
+
+  /** clear_aa_cache: deletes the downloaded cover and thumbnail caches. */
+  async clearArtCache() {
+    if (globalThis.caches) await Promise.all([caches.delete(COVERS), caches.delete(THUMBS)]).catch(() => {});
+    this.refreshArt();
+  }
+
   /** Cover {url, width, height} or null (full size). */
   artFor(t) {
+    // aa_force_default (c6): the default image instead of any art.
+    if (this.ctx.pref?.('aa_force_default')) return Promise.resolve(null);
     if (t.art) return Promise.resolve(t.art);
     const custom = this.customArt.size ? this.customArtFor(t) : null;
     if (custom) return custom;
@@ -257,6 +369,7 @@ export class Library {
    * wanted() is asked before any download (rows scrolled past skip it).
    */
   thumbFor(t, wanted = null) {
+    if (this.ctx.pref?.('aa_force_default')) return Promise.resolve(null);
     if (this.customArt.size && this.customArtFor(t)) return this.artFor(t);
     if (!t.artId || !isRemoteArt(t.artId)) return this.artFor(t);
     if (t.thumb) return Promise.resolve(t.thumb);
@@ -379,6 +492,8 @@ export class Library {
    */
   async waveFor(t, bars = 100) {
     if (this.ensureWave(t)) return t.wave;
+    // A CUE track's waveform would be the whole image's: none (not ported).
+    if (t.cueOf) return null;
     if (!this.byId.has(t.id)) return null;
     // Remote tracks only use pre-generated waveforms (a small file on R2):
     // decoding would download the whole song.
@@ -436,41 +551,184 @@ export class Library {
     this.ctx.bus.post('bus_data', 'msg_data_track_played', this, {track: t});
   }
 
+  /** Settings → Reset stats (hs.H): every track's played times and last played go to zero. */
+  async resetStats() {
+    for (const t of this.tracks) {
+      if (!t.plays && !t.lastPlayed) continue;
+      t.plays = 0;
+      t.lastPlayed = 0;
+      await this.saveTrack(t);
+    }
+    this.ctx.bus.post('bus_app', 'msg_app_data_changed', this);
+    this.ctx.bus.post('bus_data', 'msg_data_track_played', this, {});
+  }
+
+  /** The last position of a track (folder_files.last_pos), kept when leaving it. */
+  rememberPosition(t0, ms) {
+    const t = this.byId.get(t0.id) ?? t0;
+    if ((t.lastPos ?? 0) === ms) return;
+    t.lastPos = ms;
+    if (t0 !== t) t0.lastPos = ms;
+    if (this.byId.has(t.id)) this.saveTrack(t);
+  }
+
   async rememberDuration(t, ms) {
     if (!ms || t.durationMs === ms || !this.byId.has(t.id)) return;
     t.durationMs = ms;
     await this.saveTrack(t);
   }
 
-  // Category views (Poweramp library categories).
+  // Category views (Poweramp library categories; the scanner's tables, zj /
+  // mg1). Names match case-insensitively, the first spelling shows; an empty
+  // tag is the unknown entry. Albums are keyed by album and album artist;
+  // join_albums moves a track without an album artist into the album of the
+  // same name whose album artist is the track's artist.
   albums() {
+    const unknown = this.ctx.res?.stringByName('unknown_album_name') ?? 'Unknown album';
+    const lc = s => (s ?? '').toLowerCase();
+    const tagged = new Set();
+    if (this.ctx.pref?.('join_albums') !== false) for (const t of this.tracks) if (t.album && t.albumArtist) tagged.add(lc(t.album) + '\u0000' + lc(t.albumArtist));
     const map = new Map();
     for (const t of this.tracks) {
-      const key = (t.album || '') + '\u0000' + (t.albumArtist || t.artist || '');
+      let key;
+      if (!t.album) key = '\u0001';
+      else {
+        let aa = lc(t.albumArtist);
+        if (!aa && t.artist && tagged.has(lc(t.album) + '\u0000' + lc(t.artist))) aa = lc(t.artist);
+        key = lc(t.album) + '\u0000' + aa;
+      }
       let a = map.get(key);
-      if (!a) map.set(key, a = {kind: 'album', title: t.album || 'Unknown album', artist: t.albumArtist || t.artist || '', tracks: [], artId: t.artId});
+      if (!a) map.set(key, a = {kind: 'album', title: t.album || unknown, artist: t.albumArtist || t.artist || '', tracks: [], artId: t.artId});
       a.tracks.push(t);
       a.artId ||= t.artId;
     }
     return [...map.values()].sort((x, y) => x.title.localeCompare(y.title));
   }
 
-  artists() {
+  /** The split symbols in effect (artists / album artists, composers, genres). */
+  splitters() {
+    const p = k => this.ctx.pref?.(k);
+    const key = [p('artists_split_chars'), p('artists_split_ignore'), p('composers_split_chars'), p('genres_split_chars')].join('\u0002');
+    if (this._splitKey !== key) {
+      this._splitKey = key;
+      const artists = makeSplitter(p('artists_split_chars'), p('artists_split_ignore'));
+      this._split = {artist: artists, albumArtist: artists, composer: makeSplitter(p('composers_split_chars')), genre: makeSplitter(p('genres_split_chars') || GENRE_DEFAULT_SPLIT)};
+    }
+    return this._split;
+  }
+
+  /**
+   * A track's names in a category: the split parts (genres from one part,
+   * the others from two), plus the whole value as an unsplit entry for
+   * show_unsplit_cats.
+   */
+  namesOf(t, field) {
+    const v = t[field] || '';
+    if (!v) return {names: [''], unsplit: null};
+    const split = this.splitters()[field];
+    const parts = split ? split(v) : [v];
+    const min = field === 'genre' ? 1 : 2;
+    if (parts.length < min) return {names: [v], unsplit: null};
+    return {names: parts, unsplit: parts.length >= 2 ? v : null};
+  }
+
+  /** Artists, album artists, composers or genres as groups of tracks. */
+  namedGroups(field, kind, unknownName, unknownFallback) {
+    const unknown = this.ctx.res?.stringByName(unknownName) ?? unknownFallback;
+    const showUnsplit = field !== 'genre' && !!this.ctx.pref?.('show_unsplit_cats');
     const map = new Map();
+    const add = (name, t) => {
+      const k = name.toLowerCase();
+      let g = map.get(k);
+      if (!g) map.set(k, g = {kind, title: name || unknown, tracks: []});
+      if (g.tracks[g.tracks.length - 1] !== t) g.tracks.push(t);
+    };
     for (const t of this.tracks) {
-      const k = t.artist || 'Unknown artist';
-      (map.get(k) ?? map.set(k, {kind: 'artist', title: k, tracks: []}).get(k)).tracks.push(t);
+      const {names, unsplit} = this.namesOf(t, field);
+      for (const n of names) add(n, t);
+      if (unsplit && showUnsplit) add(unsplit, t);
     }
     return [...map.values()].sort((x, y) => x.title.localeCompare(y.title));
   }
 
-  genres() {
+  artists() {
+    return this.namedGroups('artist', 'artist', 'unknown_artist_name', 'Unknown artist');
+  }
+
+  albumArtists() {
+    // A track without an album artist counts under its artist (IFNULL(album_artist, artist)).
+    const unknown = this.ctx.res?.stringByName('unknown_artist_name') ?? 'Unknown artist';
+    const showUnsplit = !!this.ctx.pref?.('show_unsplit_cats');
     const map = new Map();
     for (const t of this.tracks) {
-      const k = t.genre || 'Unknown genre';
-      (map.get(k) ?? map.set(k, {kind: 'genre', title: k, tracks: []}).get(k)).tracks.push(t);
+      const field = t.albumArtist ? 'albumArtist' : 'artist';
+      const {names, unsplit} = this.namesOf(t, field);
+      for (const n of unsplit && showUnsplit ? [...names, unsplit] : names) {
+        const k = n.toLowerCase();
+        let g = map.get(k);
+        if (!g) map.set(k, g = {kind: 'albumArtist', title: n || unknown, tracks: []});
+        g.tracks.push(t);
+      }
     }
     return [...map.values()].sort((x, y) => x.title.localeCompare(y.title));
+  }
+
+  composers() {
+    return this.namedGroups('composer', 'composer', 'unknown_composer_name', 'Unknown composer');
+  }
+
+  genres() {
+    return this.namedGroups('genre', 'genre', 'unknown_genre_name', 'Unknown genre');
+  }
+
+  /**
+   * Folders Hierarchy (the folders table with parent_id, hier_num_files and
+   * hier_duration; cg1.a1): every track folder and its parents under the
+   * root '' (folders: subfolders by name, files: the folder's tracks).
+   */
+  folderTree() {
+    if (this._tree?.tracks === this.tracks) return this._tree;
+    const nodes = new Map();
+    const node = path => {
+      let n = nodes.get(path);
+      if (n) return n;
+      const cut = path.lastIndexOf('/');
+      n = {path, name: path.slice(cut + 1) || path, parent: null, folders: [], files: [], hierFiles: 0, hierMs: 0};
+      nodes.set(path, n);
+      if (path) { n.parent = node(cut < 0 ? '' : path.slice(0, cut)); n.parent.folders.push(n); }
+      return n;
+    };
+    const root = node('');
+    for (const t of this.tracks) node((t.folder || '').replace(/\/+$/, '')).files.push(t);
+    const byPath = (a, b) => a.path.localeCompare(b.path, undefined, {sensitivity: 'base', numeric: true});
+    const sum = n => {
+      n.folders.sort(byPath);
+      n.hierFiles = n.files.length;
+      n.hierMs = n.files.reduce((s, t) => s + (t.durationMs || 0), 0);
+      for (const c of n.folders) { sum(c); n.hierFiles += c.hierFiles; n.hierMs += c.hierMs; }
+    };
+    sum(root);
+    // Folders with files in sort_path order (the hierarchy's category order).
+    const withFiles = [];
+    const walk = n => { if (n.files.length) withFiles.push(n); n.folders.forEach(walk); };
+    walk(root);
+    this._tree = {tracks: this.tracks, root, nodes, withFiles};
+    return this._tree;
+  }
+
+  /**
+   * The hierarchy's top (root_hier_immediate, cg1.a1): with one root folder
+   * its contents show at once, going deeper (8 levels at most) until a
+   * folder with tracks or several subfolders.
+   */
+  hierRoot() {
+    let n = this.folderTree().root;
+    if (!this.ctx.pref?.('root_hier_immediate')) return n;
+    for (let i = 0; i < 8 && n.folders.length === 1 && !n.files.length; i++) {
+      n = n.folders[0];
+      if (n.files.length || n.folders.length > 1) break;
+    }
+    return n;
   }
 
   folders() {

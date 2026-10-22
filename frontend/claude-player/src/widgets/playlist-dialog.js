@@ -101,7 +101,7 @@ export class PlaylistSelectAndAddToListLayout extends FastLayout {
       bindItem: (v, i) => {
         const pl = pls[i];
         const first = lib.byId.get(pl.ids[0]);
-        v.bind({id: 'pl:' + pl.id + ':' + pl.ids.length, title: pl.name, artist: '', art: first?.art, thumb: first?.thumb, artId: first?.artId, meta: ''});
+        v.bind({id: 'pl:' + pl.id + ':' + pl.ids.length, group: true, title: pl.name, artist: '', art: first?.art, thumb: first?.thumb, artId: first?.artId, meta: ''});
         const box = v.findViewById('select_box');
         if (box) {
           const rec = box.sceneParams?.get('defaultScene');

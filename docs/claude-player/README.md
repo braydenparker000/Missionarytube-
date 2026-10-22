@@ -8,7 +8,7 @@ approval.
 | --- | --- |
 | [Architecture and fidelity plan](architecture-plan.md) | Environment/APK report, fidelity strategy, options and selection, decomposition, limitations, milestones and gates, first slice, owner decisions |
 | [Coverage matrix](coverage-matrix.md) | Reference component → evidence → status → contract → milestone → limitation; section 5 is the implementation status |
-| [Research notebook](research-notebook.md) | Evidence ledger (F01–F61, I1) with a build status per finding with confidence classes and open questions |
+| [Research notebook](research-notebook.md) | Evidence ledger (F01–F62, I1) with a build status per finding with confidence classes and open questions |
 | [Renderer bench](experiments/renderer-bench/README.md) | Discriminating rendering experiment and results |
 
 ## Running and hosting

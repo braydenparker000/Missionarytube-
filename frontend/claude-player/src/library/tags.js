@@ -8,6 +8,29 @@ const utf8 = new TextDecoder('utf-8');
 const utf16 = new TextDecoder('utf-16le');
 const utf16be = new TextDecoder('utf-16be');
 
+// Non-Unicode text (ID3 encoding 0, playlists, LRC files without UTF-8):
+// tag_encoding names the charset; _default_ keeps ISO-8859-1.
+let legacy = latin1;
+const CHARSETS = {SJIS: 'shift_jis', 'TIS-620': 'windows-874'};
+
+/** tag_encoding (pref_tag_encoding_values) for non-Unicode tags read from now on. */
+export function setTagEncoding(name) {
+  try { legacy = !name || name === '_default_' ? latin1 : new TextDecoder(CHARSETS[name] ?? name); } catch { legacy = latin1; }
+}
+
+/**
+ * Text of a sidecar or playlist file: UTF-8 when utf8Always, a BOM or (with
+ * sniff) valid UTF-8 says so, else the tag encoding.
+ */
+export function decodeTextFile(bytes, utf8Always, sniff = true) {
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) return utf8.decode(bytes.subarray(3));
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return utf16.decode(bytes.subarray(2));
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return utf16be.decode(bytes.subarray(2));
+  if (utf8Always) return utf8.decode(bytes);
+  if (!sniff) return legacy.decode(bytes);
+  try { return new TextDecoder('utf-8', {fatal: true}).decode(bytes); } catch { return legacy.decode(bytes); }
+}
+
 function decodeText(bytes, enc) {
   if (enc === 1) {
     if (bytes[0] === 0xfe && bytes[1] === 0xff) return utf16be.decode(bytes.subarray(2));
@@ -16,7 +39,7 @@ function decodeText(bytes, enc) {
   }
   if (enc === 2) return utf16be.decode(bytes);
   if (enc === 3) return utf8.decode(bytes);
-  return latin1.decode(bytes);
+  return legacy.decode(bytes);
 }
 
 const clean = s => (s ?? '').replace(/\0+$/g, '').replace(/\0/g, ' / ').trim();
@@ -34,6 +57,24 @@ function parseNumberPair(s) {
 }
 
 /** ID3v2.2/2.3/2.4 frames of interest. */
+/**
+ * ReplayGain tags: REPLAYGAIN_{TRACK,ALBUM}_{GAIN,PEAK} ("-6.5 dB", "0.98"),
+ * or Opus R128_{TRACK,ALBUM}_GAIN (Q7.8 dB relative to -23 LUFS; +5 dB to
+ * the ReplayGain reference).
+ */
+function setReplayGain(out, key, value) {
+  const k = key.toUpperCase().replace(/\s+/g, '_');
+  const m = /^(?:REPLAYGAIN_(TRACK|ALBUM)_(GAIN|PEAK)|R128_(TRACK|ALBUM)_GAIN)$/.exec(k);
+  if (!m) return false;
+  const x = parseFloat(String(value).replace(',', '.'));
+  if (!Number.isFinite(x)) return true;
+  const rg = out.replayGain ??= {};
+  if (m[3]) rg[m[3].toLowerCase()] ??= Math.round((x / 256 + 5) * 100) / 100;
+  else if (m[2] === 'GAIN') rg[m[1].toLowerCase()] = x;
+  else rg[m[1].toLowerCase() + 'Peak'] = x;
+  return true;
+}
+
 function readId3(b, out) {
   if (b.length < 10 || b[0] !== 0x49 || b[1] !== 0x44 || b[2] !== 0x33) return 0;
   const ver = b[3], flags = b[5];
@@ -60,6 +101,13 @@ function readId3(b, out) {
       case 'TPOS': case 'TPA': [out.disc] = parseNumberPair(text()); break;
       case 'TYER': case 'TYE': case 'TDRC': out.year = parseInt(text()) || out.year; break;
       case 'TLEN': out.durationMs ||= parseInt(text()) || 0; break;
+      case 'TXXX': case 'TXX': {
+        // User text: description \0 value (ReplayGain).
+        const t = decodeText(body.subarray(1), body[0]);
+        const z = t.indexOf('\0');
+        if (z > 0) setReplayGain(out, t.slice(0, z), t.slice(z + 1).replace(/\0+$/g, ''));
+        break;
+      }
       case 'USLT': case 'ULT': {
         // Encoding, 3-byte language, terminated descriptor, then the lyrics.
         const enc = body[0];
@@ -124,6 +172,7 @@ function readVorbisComments(b, o, out) {
     const eq = s.indexOf('=');
     if (eq < 0) continue;
     const k = s.slice(0, eq).toUpperCase(), v = s.slice(eq + 1).trim();
+    if (setReplayGain(out, k, v)) continue;
     if (k === 'TITLE') out.title = v;
     else if (k === 'ARTIST') out.artist = out.artist ? out.artist + ' / ' + v : v;
     else if (k === 'ALBUMARTIST' || k === 'ALBUM ARTIST') out.albumArtist = v;
@@ -268,7 +317,21 @@ function readMp4(b, out) {
       if (size < 8) size = end - o;
       const body = o + hdr, next = o + size;
       if (type === 'moov' || type === 'udta' || type === 'ilst' || type === 'trak' || type === 'mdia') walk(body, Math.min(next, end), depth + 1);
+      else if (type === '----' && depth >= 2) {
+        // Freeform item: mean, name, data (com.apple.iTunes:replaygain_track_gain).
+        let p = body, name = '', value = '';
+        while (p + 8 <= Math.min(next, b.length)) {
+          const sz = be32(b, p), t = latin1.decode(b.subarray(p + 4, p + 8));
+          if (sz < 8) break;
+          if (t === 'name') name = utf8.decode(b.subarray(p + 12, p + sz));
+          else if (t === 'data') value = utf8.decode(b.subarray(p + 16, p + sz));
+          p += sz;
+        }
+        if (name) setReplayGain(out, name, value);
+      }
       else if (type === 'meta') walk(body + 4, Math.min(next, end), depth + 1);
+      // A track handler of type 'vide': the file has a video stream (skip_video).
+      else if (type === 'hdlr' && latin1.decode(b.subarray(body + 8, body + 12)) === 'vide') out.hasVideo = true;
       else if (type === 'mvhd') {
         const v = b[body];
         const scale = v === 1 ? be32(b, body + 20) : be32(b, body + 12);
@@ -343,10 +406,51 @@ function flacMetaEnd(b) {
   return o + 4;
 }
 
+/**
+ * RIFF/WAVE: fmt (sample rate, bits), the data chunk's length for the
+ * duration, LIST/INFO text (INAM, IART, IPRD, IGNR, ICRD, ITRK) and an
+ * embedded ID3 tag ("id3 " chunk). Chunks are read by range so a large data
+ * chunk is skipped.
+ */
+async function readWav(file, out) {
+  out.format = 'WAV';
+  let o = 12, byteRate = 0, dataBytes = 0;
+  const INFO = {INAM: 'title', IART: 'artist', IPRD: 'album', IGNR: 'genre'};
+  for (let i = 0; i < 64 && o + 8 <= file.size; i++) {
+    const h = new Uint8Array(await file.slice(o, o + 8).arrayBuffer());
+    const id = latin1.decode(h.subarray(0, 4)), size = le32(h, 4), body = o + 8;
+    if (id === 'fmt ' && size >= 16) {
+      const f = new Uint8Array(await file.slice(body, body + 16).arrayBuffer());
+      out.sampleRate = le32(f, 4);
+      byteRate = le32(f, 8);
+      out.bits = f[14] | (f[15] << 8);
+    } else if (id === 'data') dataBytes = Math.min(size, file.size - body);
+    else if ((id === 'LIST' || id === 'id3 ' || id === 'ID3 ') && size < 16 << 20) {
+      const c = new Uint8Array(await file.slice(body, body + size).arrayBuffer());
+      if (id !== 'LIST') readId3(c, out);
+      else if (latin1.decode(c.subarray(0, 4)) === 'INFO') {
+        for (let k = 4; k + 8 <= c.length;) {
+          const sub = latin1.decode(c.subarray(k, k + 4)), n = le32(c, k + 4);
+          const text = clean(decodeText(c.subarray(k + 8, k + 8 + n), 0));
+          if (INFO[sub] && text && !out[INFO[sub]]) out[INFO[sub]] = text;
+          if (sub === 'ICRD' && !out.year) out.year = parseInt(text, 10) || 0;
+          if (sub === 'ITRK' && !out.track) out.track = parseNumberPair(text)[0] || 0;
+          k += 8 + n + (n & 1);
+        }
+      }
+    }
+    o = body + size + (size & 1);
+  }
+  if (byteRate && dataBytes) out.durationMs = Math.round(dataBytes / byteRate * 1000);
+  if (out.durationMs && !out.bitrate) out.bitrate = Math.round(file.size * 8 / out.durationMs);
+}
+
 export async function readTags(file) {
   const out = {title: '', artist: '', album: '', albumArtist: '', genre: '', track: 0, trackTotal: 0, disc: 0, year: 0, durationMs: 0, picture: null, format: ''};
   let head = new Uint8Array(await file.slice(0, 1 << 20).arrayBuffer());
-  if (head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33) {
+  if (latin1.decode(head.subarray(0, 4)) === 'RIFF' && latin1.decode(head.subarray(8, 12)) === 'WAVE') {
+    await readWav(file, out);
+  } else if (head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33) {
     const size = syncsafe(head, 6) + 10;
     if (size + 65536 > head.length && size < 32 << 20) head = new Uint8Array(await file.slice(0, size + 65536).arrayBuffer());
     const end = readId3(head, out);

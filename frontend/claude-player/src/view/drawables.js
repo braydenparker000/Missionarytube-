@@ -201,10 +201,48 @@ export class LevelListDrawable extends Drawable {
   get stateful() { return true; }
   applyTint(t) { this.items = this.items.map(it => ({...it, d: it.d?.withTint(t) ?? null})); }
   ops(w, h, state, out, x = 0, y = 0) {
-    const lvl = this.level;
-    const it = this.items.find(i => lvl >= i.min && lvl <= i.max);
-    if (it?.d) { it.d.alpha = this.alpha; it.d.level = lvl; it.d.ops(w, h, state, out, x, y); }
+    const at = lvl => this.items.find(i => lvl >= i.min && lvl <= i.max) ?? null;
+    const draw = (it, lvl, a) => { if (it?.d && a > 0) { it.d.alpha = this.alpha * a; it.d.level = lvl; it.d.ops(w, h, state, out, x, y); } };
+    const f = this.fade;
+    if (f) {
+      // DrawableContainer: the old child fades out over exitFade while the new one fades in over enterFade.
+      const t = performance.now() - f.t0;
+      const from = at(f.level), to = at(this.level);
+      if (from !== to) draw(from, f.level, f.exit > 0 ? Math.max(0, 1 - t / f.exit) : 0);
+      draw(to, this.level, f.enter > 0 ? Math.min(1, t / f.enter) : 1);
+      return;
+    }
+    draw(at(this.level), this.level, 1);
   }
+}
+
+/**
+ * A level change of a view's level-list background with DrawableContainer
+ * fades (setEnterFadeDuration / setExitFadeDuration, ms): the new level's
+ * drawable fades in over enter while the old one fades out over exit.
+ */
+export function fadeLevel(ctx, view, level, {enter = 0, exit = 0} = {}) {
+  const bg = view.background;
+  if (!bg || bg.level === level) return;
+  const repaint = () => { bg.version = version++; if (view._dom) view._dom.bg = null; view.invalidate(); };
+  if (!(bg instanceof LevelListDrawable) || (enter <= 0 && exit <= 0)) {
+    bg.fade = null;
+    bg.level = level;
+    repaint();
+    return;
+  }
+  bg.fadeCancel?.();
+  const f = bg.fade = {level: bg.level, t0: performance.now(), enter, exit};
+  bg.level = level;
+  repaint();
+  const cancel = ctx.onFrame(now => {
+    if (bg.fade !== f) return false;
+    const done = now - f.t0 >= Math.max(enter, exit);
+    if (done) { bg.fade = null; bg.fadeCancel = null; }
+    repaint();
+    return !done;
+  });
+  bg.fadeCancel = () => { cancel(); bg.fade = null; };
 }
 
 /** ScaleDrawable / ClipDrawable: draws the child over a level-proportional part of the bounds. */

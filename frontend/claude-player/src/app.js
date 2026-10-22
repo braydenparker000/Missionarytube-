@@ -11,9 +11,12 @@ import {Player} from './player/player.js';
 import {installInput} from './input.js';
 import {Library} from './library/library.js';
 import {installImport} from './library/import-ui.js';
-import {Settings, loadStoredSettings, runtimeSettings} from './settings/settings.js';
+import {Settings, loadStoredSettings, runtimeSettings, prefDefaults} from './settings/settings.js';
 import {DSP} from './dsp/dsp.js';
+import {installEqPresets} from './widgets/eq-preset-ui.js';
 import './widgets/basic.js';
+import './view/seekbar.js';
+import './view/html-text.js';
 import './widgets/topnav.js';
 import './widgets/time.js';
 import './widgets/waveseek.js';
@@ -30,6 +33,8 @@ import './widgets/rating.js';
 import {installHelp} from './widgets/help.js';
 import {installMetaInfo} from './widgets/meta-info.js';
 import {openLyricsDialog} from './widgets/lyrics-dialog.js';
+import {installSubAAEditor} from './widgets/subaa-edit.js';
+import {installScreenPrefs} from './widgets/screen.js';
 import './list/list-widget.js';
 import './list/selection.js';
 
@@ -120,6 +125,7 @@ export async function boot() {
   const {theme, applied} = composeTheme(res, skin, prefs, {settings});
   const ctx = new Context({res, theme, dpr});
   Object.assign(ctx.settings, settings);
+  ctx.prefDefaults = prefDefaults(res);
   const applyViewport = () => {
     const vp = measureViewport();
     ctx.viewportWidth = window.innerWidth;
@@ -133,6 +139,7 @@ export async function boot() {
   ctx.inflater = inflater;
   const player = new Player(ctx);
   new DSP(ctx);
+  installEqPresets(ctx);
   new Settings(ctx);
   // Window decor: a plain FastLayout filling the viewport hosts the main layout.
   const decor = new FastLayout(ctx, null);
@@ -146,7 +153,9 @@ export async function boot() {
   const library = await new Library(ctx).open();
   installHelp(ctx);
   installMetaInfo(ctx);
-  ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => { if (msg === 'cmd_data_lyrics') openLyricsDialog(ctx, d?.track); });
+  installSubAAEditor(ctx);
+  ctx.screenPrefs = installScreenPrefs(ctx);
+  ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => { if (msg === 'cmd_data_lyrics') openLyricsDialog(ctx, d?.track, {pluginFirst: d?.arg1 === 1}); });
   const importUi = installImport(ctx, document.body);
   ctx.importUi = importUi;
   const params = new URLSearchParams(location.search);
@@ -163,8 +172,11 @@ export async function boot() {
     const index = Math.max(0, library.tracks.findIndex(t => t.id === saved?.trackId));
     if (saved?.shuffle !== undefined) player.shuffle = saved.shuffle;
     if (saved?.repeat !== undefined) player.repeat = saved.repeat;
-    player.setQueue(library.tracks, index);
-    player.userQueue = (saved?.userQueue ?? []).map(id => library.byId.get(id)).filter(Boolean);
+    player.restoreQueue(saved?.entries ?? saved?.userQueue, library.byId);
+    // In queue mode the list to return to is saved by its track.
+    const npIndex = saved?.queueMode ? Math.max(0, library.tracks.findIndex(t => t.id === saved.npTrackId)) : index;
+    player.setQueue(library.tracks, npIndex);
+    if (saved?.queueMode) player.resumeQueueMode(saved.trackId);
     if (saved?.positionMs) player.seek(saved.positionMs);
   } else importUi.show();
   // A library that arrives later (R2 index refresh) fills an empty player.
@@ -174,18 +186,31 @@ export async function boot() {
   // Remember the current track and position (reference: resume where left off).
   const saveState = () => {
     const t = player.track;
-    if (t && library.byId.has(t.id)) library.db?.setState('queue', {trackId: t.id, positionMs: player.positionMs(), shuffle: player.shuffle, repeat: player.repeat, userQueue: player.userQueue.map(q => q.id)}).catch(() => {});
+    if (!t || !library.byId.has(t.id)) return;
+    const np = player.savedNP;
+    library.db?.setState('queue', {
+      trackId: t.id, positionMs: player.positionMs(), shuffle: player.shuffle, repeat: player.repeat,
+      entries: player.entries.map(e => ({id: e.track.id, created: e.created, played: e.played})),
+      queueMode: player.queueMode, npTrackId: np?.queue?.[np.index]?.id ?? null,
+    }).catch(() => {});
   };
   ctx.bus.subscribe('bus_player', m => { if (m === 'msg_player_track_changed' || m === 'msg_player_playing_state_changed' || m === 'msg_player_shuffle_mode_changed' || m === 'msg_player_repeat_mode_changed' || m === 'msg_player_queue_changed') saveState(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveState(); });
-  // System back (browser history): library levels first, then back to the player.
+  // The home screen: the player, or the library with start_at_lib (the
+  // app starts there and Back from the player or the EQ returns to it).
+  const home = () => (ctx.pref('start_at_lib') ? 'nav_lib' : 'nav_main');
+  if (home() === 'nav_lib') ctx.topNav?.navigate('nav_lib', false);
+  // System back (browser history): library levels first, then back home.
   ctx.bus.subscribe('bus_gui', (m, src, d) => {
-    if (m === 'msg_nav_changed' && d.nav !== 'nav_main' && !history.state?.cpNav) history.pushState({cpNav: d.nav}, '');
+    if (m === 'msg_nav_changed' && d.nav !== home() && !history.state?.cpNav) history.pushState({cpNav: d.nav}, '');
   });
   window.addEventListener('popstate', () => {
-    if (ctx.settingsUi?.isOpen) return;
+    if (ctx.subAAEditor?.onPopState()) return;
+    if (ctx.settingsUi?.isOpen || ctx.settingsUi?.consumeClose()) return;
+    const tn = ctx.topNav, h = home();
+    if (h === 'nav_lib' && tn && tn.nav !== 'nav_lib') { tn.navigate('nav_lib'); return; }
     if (ctx.listWidget?.back()) return;
-    if (ctx.topNav && ctx.topNav.nav !== 'nav_main') ctx.topNav.navigate('nav_main');
+    if (tn && tn.nav !== h) tn.navigate(h);
   });
   ctx.scheduleLayout();
   // Installable app: the service worker keeps the app's files offline.

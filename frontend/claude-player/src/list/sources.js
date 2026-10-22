@@ -28,7 +28,19 @@ const HOME = [
   {id: 16, title: 'long_files', icon: '?long_files', kind: 'long'},
 ];
 const DEFAULT_HOME_MASK = 1048511;
+// Notes under categories in List Options (th1.c()).
+const HOME_HINTS = {album_artists: 'summary_album_artists', albums_by_artist: 'summary_albums_by_artists', bookmarks: 'bookmarks_hint'};
+
+/** A library category by id (library_home). */
+export const homeCategory = id => HOME.find(c => c.id === id) ?? null;
 import {applyZoom, listOpts, REVERSE} from './list-opts.js';
+import {SEARCH_CATS} from '../widgets/search.js';
+import {GONE} from '../res/values.js';
+import {STATE_PLAYING} from '../player/player.js';
+import {searchHistory, removeSearch, clearSearchHistory} from '../library/search-history.js';
+
+// The search categories after "All" (jj1.v1 order).
+const SEARCH_KINDS = SEARCH_CATS.slice(1);
 
 const cmpStr = (a, b) => (a ?? '').localeCompare(b ?? '', undefined, {sensitivity: 'base', numeric: true});
 const byTrackNo = (a, b) => (a.disc || 0) - (b.disc || 0) || (a.track || 0) - (b.track || 0);
@@ -54,14 +66,22 @@ const TRACK_SORT = {
 
 const gAdded = g => (g._added ??= Math.max(0, ...g.tracks.map(t => t.added || 0)));
 const gYear = g => (g._year ??= Math.min(...g.tracks.map(t => t.year || 9999)));
-const byName = (a, b) => cmpStr(a.title, b.title);
+// no_sort_field off (the default): album, artist, album artist and composer
+// names sort without a leading "the", "a" or "an" (the library's sort fields).
+const ARTICLE = /^(the|a|an)\s+/i;
+const ARTICLE_KEYS = new Set(['cat:albums', 'cat:artists', 'cat:albumArtists', 'cat:composers', 'cat:albums_by_artist']);
+// The second level's album lists sort like albums (te1).
+const articled = key => ARTICLE_KEYS.has(key) || key.startsWith('sub:');
+let articles = false;
+const sortKey = s => (articles ? (s ?? '').replace(ARTICLE, '') : s);
+const byName = (a, b) => cmpStr(sortKey(a.title), sortKey(b.title));
 const GROUP_SORT = {
   0: byName,
   added: (a, b) => (b.pl?.created ?? gAdded(b)) - (a.pl?.created ?? gAdded(a)) || byName(a, b),
   count: (a, b) => (b.pl?.ids.length ?? b.tracks.length) - (a.pl?.ids.length ?? a.tracks.length) || byName(a, b),
   year: (a, b) => gYear(a) - gYear(b) || byName(a, b),
-  artist: (a, b) => cmpStr(a.artist ?? a.tracks[0]?.artist, b.artist ?? b.tracks[0]?.artist) || byName(a, b),
-  albumArtist: (a, b) => cmpStr(a.tracks[0]?.albumArtist || a.tracks[0]?.artist, b.tracks[0]?.albumArtist || b.tracks[0]?.artist) || byName(a, b),
+  artist: (a, b) => cmpStr(sortKey(a.artist ?? a.tracks[0]?.artist), sortKey(b.artist ?? b.tracks[0]?.artist)) || byName(a, b),
+  albumArtist: (a, b) => cmpStr(sortKey(a.tracks[0]?.albumArtist || a.tracks[0]?.artist), sortKey(b.tracks[0]?.albumArtist || b.tracks[0]?.artist)) || byName(a, b),
   modified: (a, b) => (b.pl?.modified ?? gAdded(b)) - (a.pl?.modified ?? gAdded(a)) || byName(a, b),
   pathCs: (a, b) => { const x = a.path ?? a.title, y = b.path ?? b.title; return x < y ? -1 : x > y ? 1 : 0; },
   path: (a, b) => cmpStr(a.path ?? a.title, b.path ?? b.title),
@@ -88,9 +108,12 @@ function withOptions(src, list, {key, zoomKind, sortKind = null, defaultSort = 0
   const v = value & ~REVERSE, rev = (value & REVERSE) !== 0;
   if (src.groups) {
     const cmp = GROUP_SORT[GROUP_SORT_FOR[sortKind]?.[v] ?? '0'] ?? byName;
-    src.groups = [...src.groups].sort(cmp);
+    articles = articled(key) && !src.ctx?.pref?.('no_sort_field');
+    try { src.groups = [...src.groups].sort(cmp); } finally { articles = false; }
     if (rev) src.groups.reverse();
     src.byName = v === 0 && !rev;
+    // The A-Z column follows the sort field.
+    if (articled(key) && !src.ctx?.pref?.('no_sort_field')) src.sectionTitle = i => (src.groups[i]?.title ?? '').replace(ARTICLE, '');
   } else if (src.tracks) {
     let t = [...src.tracks];
     if (v === 11) {
@@ -120,6 +143,20 @@ function str(ctx, name, fallback = name) {
   return ctx.res.stringByName(name, ctx.theme) ?? fallback;
 }
 
+/** A quantity string (plurals): "one" for 1, else "other", with %d filled in. */
+export function plural(ctx, name, n) {
+  const e = ctx.res.entry('plurals', name);
+  const raw = (n === 1 ? e?.one : null) ?? e?.other ?? '%d';
+  const text = ctx.res.string(raw, ctx.theme) ?? String(raw);
+  return text.replace(/%d/g, String(n));
+}
+
+/** "m:ss" or "h:mm:ss" (the library's dur_meta). */
+function durationMeta(ms) {
+  const sec = Math.round((ms || 0) / 1000), h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, ss = String(sec % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
+
 /** The library home: category tiles. */
 export class HomeSource {
   constructor(ctx, list, nav) {
@@ -137,6 +174,7 @@ export class HomeSource {
     // addStatusBarHeightToHeaders: the header grows by the top inset.
     this.headerHeight = d.topTextHeaderSize + ctx.windowInsets.top;
     withOptions(this, list, {key: 'home', zoomKind: 'home'});
+    this.homeCategories = HOME.map(c => ({...c, hint: HOME_HINTS[c.title] ?? null}));
     this.rebuild = () => new HomeSource(ctx, list, nav);
   }
 
@@ -167,10 +205,10 @@ function groupsFor(lib, kind) {
   switch (kind) {
     case 'albums': return lib.albums();
     case 'artists': return lib.artists();
-    case 'albumArtists': return group(lib.tracks, t => t.albumArtist || t.artist || 'Unknown artist', 'artist');
+    case 'albumArtists': return lib.albumArtists();
     case 'genres': return lib.genres();
     case 'years': return group(lib.tracks, t => (t.year ? String(t.year) : 'Unknown year'), 'year');
-    case 'composers': return group(lib.tracks, t => t.composer || 'Unknown composer', 'composer');
+    case 'composers': return lib.composers();
     case 'folders': return lib.folders();
     default: return null;
   }
@@ -187,12 +225,20 @@ function group(tracks, keyOf, kind) {
 
 // Statistics lists (from play counts, play times and ratings; like = 5, unlike = 1).
 const byTitle = (a, b) => (a.title ?? '').localeCompare(b.title ?? '');
+// The statistics lists as the reference queries them (oi1, zi1, yi1, sj1,
+// ii1): a filter, the order the cap applies in, Max Items (*_files_limit,
+// 200 from the first-run defaults, m30.d) and, for the lists with Clear /
+// Show All (ch1), the time they start from (*_from; 0 shows all).
 const STAT_LISTS = {
-  mostPlayed: {keep: t => t.plays > 0, order: (a, b) => b.plays - a.plays || (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0)},
-  recentlyPlayed: {keep: t => t.lastPlayed > 0, order: (a, b) => b.lastPlayed - a.lastPlayed},
-  topRated: {keep: t => t.rating >= 4, order: (a, b) => b.rating - a.rating || byTitle(a, b)},
-  lowRated: {keep: t => t.rating > 0 && t.rating <= 2, order: (a, b) => a.rating - b.rating || byTitle(a, b)},
+  mostPlayed: {keep: (t, from) => t.plays > 0 && (t.lastPlayed ?? 0) > from, order: (a, b) => b.plays - a.plays, clearable: true},
+  recentlyPlayed: {keep: (t, from) => (t.lastPlayed ?? 0) > from, order: (a, b) => b.lastPlayed - a.lastPlayed, clearable: true},
+  recent: {keep: (t, from) => !from || (t.added ?? 0) > from, order: (a, b) => (b.added || 0) - (a.added || 0), clearable: true},
+  topRated: {keep: t => t.rating > 1, order: (a, b) => b.rating - a.rating},
+  lowRated: {keep: t => t.rating === 1, order: null},
 };
+const DEFAULT_LIMIT = 200, NO_LIMIT = 2147483647;
+// Long Files: at least long_files_min_duration (15 minutes from the first run).
+const DEFAULT_LONG_MS = 900000;
 
 // Sort kinds and default track orders of the categories.
 const GROUP_SORT_KIND = {albums: 'albums', artists: 'names', albumArtists: 'names', genres: 'names', composers: 'names', years: 'years', folders: 'folders'};
@@ -203,21 +249,37 @@ export function allSongsSource(ctx, list, nav) {
   return categorySource(ctx, list, nav, HOME[0]);
 }
 
-function categorySource(ctx, list, nav, cat) {
+export function categorySource(ctx, list, nav, cat) {
   const lib = ctx.library;
   const title = str(ctx, cat.title);
   const tracks = (tracksIn, kind) => withOptions(new TrackSource(ctx, list, nav, title, tracksIn), list, {key: 'tracks:' + kind, zoomKind: 'tracks', sortKind: 'tracks', defaultSort: TRACKS_DEFAULT_SORT[kind] ?? 0});
   let src;
   if (cat.kind === 'all') src = tracks(lib.tracks, 'all');
-  else if (cat.kind === 'recent') src = tracks(lib.tracks, 'recent');
   else if (cat.kind === 'queue') {
     src = withOptions(new TrackSource(ctx, list, nav, title, [...(ctx.player?.userQueue ?? [])]), list, {key: 'tracks:queue', zoomKind: 'tracks'});
     src.kind = 'queue';
     reorderable(src, map => ctx.player?.reorderQueue(map));
   }
-  else if (STAT_LISTS[cat.kind]) src = tracks(lib.tracks.filter(STAT_LISTS[cat.kind].keep), cat.kind);
+  else if (STAT_LISTS[cat.kind]) {
+    const stat = STAT_LISTS[cat.kind], o = listOpts('tracks:' + cat.kind);
+    const from = stat.clearable ? o.from ?? 0 : 0, limit = Math.max(2, o.limit ?? DEFAULT_LIMIT);
+    let picked = lib.tracks.filter(t => stat.keep(t, from));
+    if (stat.order) picked.sort(stat.order);
+    if (limit !== NO_LIMIT) picked = picked.slice(0, limit);
+    src = tracks(picked, cat.kind);
+    src.limitable = true;
+    src.limit = limit;
+    src.clearable = !!stat.clearable;
+  }
   else if (cat.kind === 'playlists') return playlistsSource(ctx, list, nav);
-  else if (cat.kind === 'long') src = tracks(lib.tracks.filter(t => t.durationMs >= 20 * 60000), 'long');
+  else if (cat.title === 'albums_by_artist') src = albumsByArtistSource(ctx, list, nav, title);
+  else if (cat.title === 'folders_hier') return folderLevelSource(ctx, list, nav, lib.hierRoot(), cat);
+  else if (cat.kind === 'long') {
+    const min = listOpts('tracks:long').minDurationMs ?? DEFAULT_LONG_MS;
+    src = tracks(lib.tracks.filter(t => t.durationMs >= min), 'long');
+    src.kind = 'long';
+    src.minDurationMs = min;
+  }
   else {
     const groups = groupsFor(lib, cat.kind);
     src = groups
@@ -235,6 +297,16 @@ function bindCategoryHeader(src, v, line2) {
   v.findViewById('title')?.setText(src.title);
   v.findViewById('line2')?.setText(line2);
   v.findViewById('aa_image')?.setDrawable?.(src.icon ? src.ctx.drawables.fromValue(src.icon, src.ctx.theme) : null);
+}
+
+/**
+ * An album row's artist (te1.C0): the album artist with
+ * use_albumartist_albums, else the artist of its tracks.
+ */
+function albumRowArtist(ctx, g) {
+  const t = g.tracks[0];
+  if (ctx.pref?.('use_albumartist_albums') && t?.albumArtist) return t.albumArtist;
+  return t?.artist || ctx.res?.stringByName('unknown_artist_name') || 'Unknown artist';
 }
 
 /** A category's entries (albums, artists, ...) as track-item rows. */
@@ -271,13 +343,81 @@ export class GroupSource {
   bindItem(v, i) {
     const g = this.groups[i];
     const first = g.tracks[0];
-    v.bind({id: 'group:' + g.kind + ':' + g.title, title: g.title, artist: g.kind === 'album' ? g.artist : `${g.tracks.length}`, art: first?.art, thumb: first?.thumb, artId: first?.artId, meta: ''});
+    const artist = this.groupKind === 'albumsByArtist' ? g.artist : g.kind === 'album' ? albumRowArtist(this.ctx, g) : `${g.tracks.length}`;
+    v.bind({id: 'group:' + g.kind + ':' + (g.artist ?? '') + ':' + g.title, group: true, title: g.title, artist, art: first?.art, thumb: first?.thumb, artId: first?.artId, meta: ''});
   }
 
   onItemClick(i) {
     const g = this.groups[i];
-    this.nav.open(groupTracksSource(this.ctx, this.nav.list, this.nav, g, this.icon));
+    // he.a(): artists, album artists, genres, composers and years open the entry's albums (u3).
+    if (ALL_SONGS[g.kind]) this.nav.open(subAlbumsSource(this.ctx, this.nav.list, this.nav, g, this.icon));
+    else this.nav.open(groupTracksSource(this.ctx, this.nav.list, this.nav, g, this.icon));
   }
+}
+
+// The second level's "All ... Songs" row per category (df1 / qe1 / ig1 / ... F0()).
+const ALL_SONGS = {artist: 'all_artist_songs', albumArtist: 'all_album_artist_songs', genre: 'all_genre_songs', composer: 'all_composer_songs', year: 'all_year_songs'};
+
+/** Albums from the library that hold some of the given tracks (only those tracks). */
+function albumsOf(ctx, tracks) {
+  const own = new Set(tracks);
+  const out = [];
+  for (const a of ctx.library.albums()) {
+    const mine = a.tracks.filter(t => own.has(t));
+    if (mine.length) out.push({kind: 'album', title: a.title, artist: a.artist, artId: a.artId, tracks: mine});
+  }
+  return out;
+}
+
+/**
+ * An entry's albums (u3 over re1, the 2nd level category): an "All <category>
+ * Songs" row (allTracksSubheadSize, scene_1, "N songs") under the header,
+ * then the albums holding the entry's tracks, sorted like albums
+ * (<category>_albums_sort). Its menu is the tracks menu (v3.n).
+ */
+class SubAlbumsSource extends GroupSource {
+  get menuLayout() { return 'merge_menu_items_tracks'; }
+}
+
+export function subAlbumsSource(ctx, list, nav, g, icon) {
+  const src = withOptions(new SubAlbumsSource(ctx, list, nav, g.title, albumsOf(ctx, g.tracks)), list, {key: 'sub:' + g.kind, zoomKind: 'groups', sortKind: 'albums'});
+  src.groupKind = 'albums';
+  src.secondLevel = true;
+  src.parentGroup = g;
+  src.icon = icon;
+  src.subhead = {type: 'track', scene: 'scene_1', height: list.host.substyle.dim('allTracksSubheadSize', 0)};
+  src.bindSubhead = v => {
+    const first = g.tracks.find(t => t.artId || t.art || t.thumb) ?? g.tracks[0];
+    v.bind({id: 'all:' + g.kind + ':' + g.title, group: true, title: str(ctx, ALL_SONGS[g.kind]), artist: plural(ctx, 'songs_d', g.tracks.length), meta: '', art: first?.art, thumb: first?.thumb, artId: first?.artId});
+  };
+  // u3.f(-103): the entry's own files list.
+  src.onSubheadClick = () => nav.open(groupTracksSource(ctx, list, nav, g, icon));
+  src.rebuild = () => subAlbumsSource(ctx, list, nav, g, icon);
+  return src;
+}
+
+/**
+ * Albums by Artist (ue1: the artist_albums table): one row per album and
+ * artist (a track's artist, unsplit), the album with that artist's tracks;
+ * album sorts (albums_by_artist_sort). A row opens those tracks (ve1).
+ */
+export function albumsByArtistSource(ctx, list, nav, title) {
+  const unknown = ctx.res?.stringByName('unknown_artist_name') ?? 'Unknown artist';
+  const rows = [];
+  for (const a of ctx.library.albums()) {
+    const byArtist = new Map();
+    for (const t of a.tracks) {
+      const name = t.artist || unknown, k = name.toLowerCase();
+      let r = byArtist.get(k);
+      if (!r) byArtist.set(k, r = {kind: 'album', title: a.title, artist: name, artId: t.artId, tracks: []});
+      r.tracks.push(t);
+      r.artId ||= t.artId;
+    }
+    rows.push(...byArtist.values());
+  }
+  const src = withOptions(new GroupSource(ctx, list, nav, title, rows), list, {key: 'cat:albums_by_artist', zoomKind: 'groups', sortKind: 'albums'});
+  src.groupKind = 'albumsByArtist';
+  return src;
 }
 
 /** Tracks as rows; a tap plays from that track (List Item Action: play and go to main UI). */
@@ -310,14 +450,18 @@ export class TrackSource {
   }
 
   bindItem(v, i) {
-    v.bind(this.tracks[i]);
+    v.bind(this.tracks[i], !!this.numbered, !!this.albumArtistList);
   }
 
   onItemClick(i) {
     const p = this.ctx.player;
     // This list becomes the playing track's source list (album-art tap / swipe down).
     this.ctx.listWidget?.rememberQueueSource(this);
-    p.setQueue(this.tracks, i, this.ctx.listWidget?.categoryFor(this) ?? null);
+    const category = this.ctx.listWidget?.categoryFor(this) ?? null;
+    // list_action_resets off: the playing track goes on in its new list.
+    if (p.track && this.tracks[i] === p.track && !this.ctx.pref?.('list_action_resets')) p.adoptQueue(this.tracks, i, category);
+    // A manual track change: it crossfades per fade_manual_advance while playing.
+    else if (!p.selectInList(this.tracks, i, category)) p.setQueue(this.tracks, i, category, p.state === STATE_PLAYING);
     p.play();
     if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
   }
@@ -340,10 +484,23 @@ export function currentCategorySource(ctx, list, nav, kind, track = null) {
   }[kind];
   if (!key) return null;
   const k = key(t);
-  const tracks = pool.filter(x => key(x) === k);
-  const title = kind === 'album' ? t.album || 'Unknown album' : kind === 'folder' ? (k.split('/').pop() || k) : k;
+  let tracks = pool.filter(x => key(x) === k);
+  let title = kind === 'album' ? t.album || 'Unknown album' : kind === 'folder' ? (k.split('/').pop() || k) : k;
+  // The library's own entry (album keys, split artists and genres): the one holding the track.
+  const groups = lib?.tracks?.includes(t) ? {album: () => lib.albums(), artist: () => lib.artists(), genre: () => lib.genres()}[kind]?.() : null;
+  if (groups) {
+    const first = kind === 'album' ? null : lib.namesOf(t, kind).names[0].toLowerCase();
+    const g = groups.find(x => x.tracks.includes(t) && (first === null || x.title.toLowerCase() === first || (!first && x.tracks.includes(t))));
+    if (g) { tracks = g.tracks; title = g.title; }
+  }
   const src = withOptions(new TrackSource(ctx, list, nav, title, tracks), list, {key: 'tracks:' + kind, zoomKind: 'tracks', sortKind: 'tracks', defaultSort: TRACKS_DEFAULT_SORT[kind] ?? 0});
   src.rebuild = () => currentCategorySource(ctx, list, nav, kind, t);
+  // Track numbers belong to album and folder track lists (wf1 entities).
+  src.numbered = kind === 'album' || kind === 'folder';
+  // Compact Header (xh1, layout_header_compact): the header takes
+  // compactTextHeaderSize.
+  src.compactable = true;
+  if (src.compactHeader) src.headerHeight = list.host.substyle.dim('compactTextHeaderSize', 0) + ctx.windowInsets.top;
   src.icon = {artist: '?artists', album: '?albums', folder: '?folders', genre: '?genres'}[kind];
   return src;
 }
@@ -353,47 +510,113 @@ export function currentCategorySource(ctx, list, nav, kind, track = null) {
  * album; other categories list matching groups (each opens its tracks).
  */
 /** Search categories in chip order (the bits of the search mask). */
-const SEARCH_KINDS = ['songs', 'albums', 'artists', 'genres', 'folders', 'composers'];
+/**
+ * The empty search: the search history (item_search_history rows) and, after
+ * them, Clear Search History. A tap on a term searches it; its clear button
+ * removes it.
+ */
+function historySource(ctx, list, nav, title) {
+  const terms = searchHistory();
+  const src = new TrackSource(ctx, list, nav, title, []);
+  src.header = null;
+  src.headerHeight = 0;
+  if (!terms.length) return src;
+  const rerun = () => ctx.listWidget?.showSearch?.();
+  const n = terms.length;
+  Object.defineProperty(src, 'count', {get: () => n + 1});
+  src.typeAt = i => (i < n ? 'history' : 'clearHistory');
+  src.isSeparator = () => false;
+  src.tracksAt = () => [];
+  src.sectionTitle = i => terms[i] ?? '';
+  src.selectable = false;
+  src.bindItem = (v, i) => {
+    const b = v.findViewById('line2');
+    if (i < n) {
+      v.findViewById('title')?.setText(terms[i]);
+      b?.setText('');
+      if (b && !b._clearIcon) { b._clearIcon = ctx.drawables.fromValue('?clear', ctx.theme); }
+      b?.setDrawable?.(b._clearIcon);
+      if (b) b.onClick = () => { removeSearch(terms[i]); rerun(); };
+    } else {
+      b?.setText(str(ctx, 'clear_search_history'));
+      if (b) b.onClick = () => { clearSearchHistory(); rerun(); };
+    }
+  };
+  src.onItemClick = i => { if (i < n) ctx.bus.post('list', 'cmd_list_search_text', src, {string: terms[i]}); };
+  return src;
+}
 
 /**
- * Search results for a query over a category mask (bit i = SEARCH_KINDS[i];
- * -1 all): songs matching title, artist or album, then each selected
- * category's matching entries, in chip order, as one list. Category
- * subheaders between the parts are not drawn.
+ * Search (jj1 / kj1 / vo1; notebook F64): the categories the chips select, in
+ * jj1.v1 order, each with its matches under a subheader row
+ * (item_separator_button, separatorSize high) and sorted by its name, case
+ * folded (COLLATE NOCASE). The query splits on whitespace, ":", "-" and "_";
+ * every word must occur in the entry's fields joined together (l2.B: LIKE
+ * %word% over field||field); more than 64 words find nothing. Fields:
+ * Albums album and artist, All Songs title, album and artist (title only
+ * with search_track_titles_only; the file name for the title with
+ * title_filename), the others their name. Streams are not built (owner
+ * decision) and find nothing.
  */
 export function searchSource(ctx, list, nav, query, mask = -1) {
-  const q = query.trim().toLocaleLowerCase();
   const lib = ctx.library;
   const pool = lib?.tracks?.length ? lib.tracks : ctx.player?.queue ?? [];
-  const has = s => !!s && s.toLocaleLowerCase().includes(q);
-  const title = ctx.res.stringByName('search') ?? 'Search';
+  const title = str(ctx, 'search', 'Search');
   const bare = src => { src.header = null; src.headerHeight = 0; return src; };
-  if (!q || !mask) return bare(new TrackSource(ctx, list, nav, title, []));
-  const on = kind => (mask & (1 << SEARCH_KINDS.indexOf(kind))) !== 0;
-  const tracks = on('songs') ? pool.filter(t => has(t.title) || has(t.artist) || has(t.album)) : [];
-  const groups = [];
-  for (const kind of SEARCH_KINDS.slice(1)) {
-    if (!on(kind)) continue;
-    const gs = (lib?.tracks?.length ? groupsFor(lib, kind) : null) ?? group(pool, {
-      albums: t => t.album || 'Unknown album', artists: t => t.artist || 'Unknown artist',
-      genres: t => t.genre || 'Unknown genre', folders: t => t.folder || '/', composers: t => t.composer || 'Unknown composer',
-    }[kind], kind);
-    groups.push(...gs.filter(g => has(g.title)));
-  }
-  if (!groups.length) return bare(new TrackSource(ctx, list, nav, title, tracks));
-  if (!tracks.length) return bare(new GroupSource(ctx, list, nav, title, groups));
-  // Songs and entries in one list: rows below tracks.length are entries.
-  const src = bare(new GroupSource(ctx, list, nav, title, groups));
-  const n = tracks.length;
-  src.tracks = tracks;
-  Object.defineProperty(src, 'count', {get: () => n + groups.length});
-  src.tracksAt = i => (i < n ? [tracks[i]] : groups[i - n]?.tracks ?? []);
-  src.sectionTitle = i => (i < n ? tracks[i].title : groups[i - n]?.title);
+  const words = String(query ?? '').split(/[\s:\-_]+/).filter(Boolean).map(w => w.toLowerCase());
+  if (!words.length) return historySource(ctx, list, nav, title);
+  if (words.length > 64 || !mask) return bare(new TrackSource(ctx, list, nav, title, []));
+  const has = (...fields) => { const s = fields.map(f => f ?? '').join('').toLowerCase(); return words.every(w => s.includes(w)); };
+  const nocase = (a, b) => { const x = (a ?? '').toLowerCase(), y = (b ?? '').toLowerCase(); return x < y ? -1 : x > y ? 1 : 0; };
+  const fileTitles = !!ctx.pref?.('title_filename'), titlesOnly = !!ctx.pref?.('search_track_titles_only');
+  const fileName = t => { const p = t.fileName || t.path || ''; return p.slice(p.lastIndexOf('/') + 1); };
+  const line1 = t => (fileTitles ? fileName(t) : t.title);
+  const found = kind => {
+    switch (kind) {
+      case 'songs': return pool.filter(t => (titlesOnly ? has(line1(t)) : has(line1(t), t.album, t.artist))).sort((a, b) => nocase(line1(a), line1(b)));
+      case 'albums': return (groupsFor(lib, 'albums') ?? []).filter(g => has(g.title, g.artist)).sort((a, b) => nocase(a.title, b.title));
+      case 'playlists': return (ctx.playlists?.sorted() ?? []).map(pl => ({kind: 'playlist', title: pl.name, tracks: ctx.playlists.tracksOf(pl), pl})).filter(g => has(g.title)).sort((a, b) => nocase(a.title, b.title));
+      case 'streams': return [];
+      default: return (lib?.tracks?.length ? groupsFor(lib, kind) ?? [] : []).filter(g => has(g.title)).sort((a, b) => nocase(a.title, b.title));
+    }
+  };
+  const rows = [], separators = [];
+  SEARCH_KINDS.forEach((c, i) => {
+    if ((mask & (1 << i)) === 0) return;
+    const hits = found(c.kind);
+    if (!hits.length) return;
+    separators.push(rows.length);
+    rows.push({sep: str(ctx, c.title)});
+    for (const h of hits) rows.push(c.kind === 'songs' ? {track: h} : {group: h, kind: c.kind});
+  });
+  if (!rows.length) return bare(new TrackSource(ctx, list, nav, title, []));
+  const src = bare(new GroupSource(ctx, list, nav, title, rows.filter(r => r.group).map(r => r.group)));
+  const d = dims(list);
+  src.rows = rows;
+  src.separators = separators;
+  src.separatorHeight = list.host.substyle.dim('separatorSize', d.itemSizeSmall);
+  src.tracks = rows.filter(r => r.track).map(r => r.track);
+  src.byName = false;
+  Object.defineProperty(src, 'count', {get: () => rows.length});
+  src.isSeparator = i => !!rows[i]?.sep;
+  src.typeAt = i => (rows[i]?.sep ? 'separator' : undefined);
+  src.tracksAt = i => (rows[i]?.track ? [rows[i].track] : rows[i]?.group?.tracks ?? []);
+  src.sectionTitle = i => rows[i]?.track?.title ?? rows[i]?.group?.title ?? rows[i]?.sep;
+  const groupIndex = new Map(rows.filter(r => r.group).map((r, k) => [r, k]));
   const bindGroup = src.bindItem.bind(src), openGroup = src.onItemClick.bind(src);
-  src.bindItem = (v, i) => (i < n ? v.bind(tracks[i]) : bindGroup(v, i - n));
+  src.bindItem = (v, i) => {
+    const r = rows[i];
+    if (r.sep) { v.findViewById('title')?.setText(r.sep); v.findViewById('line2')?.setVisibility(GONE); return; }
+    if (r.track) v.bind(r.track);
+    else bindGroup(v, groupIndex.get(r));
+  };
+  // A tap on an entry opens it; a tap on a song plays the found songs from
+  // it (vo1.f: the songs category filtered by the search).
   src.onItemClick = i => {
-    if (i >= n) { openGroup(i - n); return; }
-    ctx.player.setQueue(tracks, i);
+    const r = rows[i];
+    if (!r || r.sep) return;
+    if (r.group) { openGroup(groupIndex.get(r)); return; }
+    ctx.player.setQueue(src.tracks, src.tracks.indexOf(r.track));
     ctx.player.play();
     if ((ctx.settings.list_item_action ?? 1) === 1) ctx.bus.post('bus_gui', 'cmd_nav_to_main', src);
   };
@@ -457,5 +680,152 @@ export function groupTracksSource(ctx, list, nav, g, icon) {
   src.icon = icon;
   src.group = g;
   src.rebuild = () => groupTracksSource(ctx, list, nav, g, icon);
+  src.numbered = kind === 'album' || kind === 'folder';
+  // Compact Header (xh1, layout_header_compact): the header takes
+  // compactTextHeaderSize.
+  src.compactable = true;
+  if (src.compactHeader) src.headerHeight = list.host.substyle.dim('compactTextHeaderSize', 0) + ctx.windowInsets.top;
+  src.albumArtistList = kind === 'albumArtist';
+  return src;
+}
+
+/**
+ * Folders Hierarchy (h60, FoldersAndFilesPage over cg1; notebook F76). The
+ * top level (the root, or with root_hier_immediate the first folder with
+ * tracks or several subfolders) lists its subfolders; a folder lists its
+ * subfolders (name, parent folder, "files | duration" of the whole subtree)
+ * and then its own files. A subfolder opens the next level, a file plays the
+ * folder with the hierarchy's folders as categories (in path order). With
+ * hier_files_zoom a folder with files only takes the Folders files zoom
+ * level. Header Play starts at the folder (or its first folder with files)
+ * and, unless hier_no_advance, sets Play All Categories; header Shuffle with
+ * hier_flat_shf shuffles every song of the subtree, else songs and
+ * categories with the subtree's folders first (cg1.W).
+ */
+class FolderLevelSource {
+  constructor(ctx, list, nav, node, cat) {
+    this.ctx = ctx;
+    this.nav = nav;
+    this.node = node;
+    this.cat = cat;
+    const lib = ctx.library, tree = lib.folderTree();
+    this.tree = tree;
+    this.isRoot = node === lib.hierRoot();
+    this.title = this.isRoot ? str(ctx, 'folders_hier') : node.name;
+    this.folders = node.folders;
+    const d = dims(list);
+    this.header = {type: 'text', scene: 'scene_header'};
+    this.headerHeight = d.textHeaderSize + ctx.windowInsets.top;
+    this.itemType = 'track';
+    this.icon = '?folders_hier';
+    const filesOnly = !this.folders.length && node.files.length > 0;
+    // hier_files_zoom (m30.k0): a folder with files only takes the folder files zoom.
+    const filesZoom = filesOnly && !!ctx.pref?.('hier_files_zoom');
+    const files = withOptions({ctx, tracks: [...node.files]}, list, {key: 'tracks:folders_hier', zoomKind: 'tracks', sortKind: 'tracks', defaultSort: TRACKS_DEFAULT_SORT.folder});
+    this.tracks = files.tracks;
+    this.numbered = true;
+    applyZoom(this, list.host.substyle, filesZoom ? 'tracks' : 'groups', filesZoom ? 'tracks:folder' : 'cat:folders_hier');
+    this.rebuild = () => folderLevelSource(ctx, list, nav, lib.folderTree().nodes.get(node.path) ?? lib.hierRoot(), cat);
+  }
+
+  get count() { return this.folders.length + this.tracks.length; }
+
+  get menuLayout() { return 'merge_menu_items_lib'; }
+
+  get selectionLayout() { return 'merge_selection_menu_list_tracks_items'; }
+
+  isFolder(i) { return i < this.folders.length; }
+
+  indexOfTrack(t) {
+    const i = this.tracks.findIndex(x => x.id === t.id);
+    return i < 0 ? -1 : this.folders.length + i;
+  }
+
+  tracksAt(i) {
+    if (!this.isFolder(i)) return this.tracks[i - this.folders.length] ? [this.tracks[i - this.folders.length]] : [];
+    return subtreeFiles(this.folders[i]);
+  }
+
+  sectionTitle(i) {
+    return this.isFolder(i) ? this.folders[i].name : this.tracks[i - this.folders.length]?.title;
+  }
+
+  bindHeader(v) {
+    bindCategoryHeader(this, v, this.isRoot ? '' : hierMeta(this.node));
+  }
+
+  bindItem(v, i) {
+    if (this.isFolder(i)) {
+      const f = this.folders[i], first = f.files[0] ?? subtreeFiles(f)[0];
+      v.bind({id: 'hier:' + f.path, group: true, title: f.name, artist: f.parent?.name ?? '', meta: hierMeta(f), art: first?.art, thumb: first?.thumb, artId: first?.artId});
+    } else v.bind(this.tracks[i - this.folders.length], true, false);
+  }
+
+  onItemClick(i) {
+    if (this.isFolder(i)) { this.nav.open(folderLevelSource(this.ctx, this.nav.list, this.nav, this.folders[i], this.cat)); return; }
+    const p = this.ctx.player, k = i - this.folders.length;
+    this.ctx.listWidget?.rememberQueueSource(this);
+    const category = hierCategory(this, this.node);
+    if (p.track && this.tracks[k] === p.track && !this.ctx.pref?.('list_action_resets')) p.adoptQueue(this.tracks, k, category);
+    else if (!p.selectInList(this.tracks, k, category)) p.setQueue(this.tracks, k, category, p.state === STATE_PLAYING);
+    p.play();
+    if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
+  }
+
+  /** Header Play (g0(0)) and Shuffle (g0(4) through h60.V). */
+  play(shuffle) {
+    const ctx = this.ctx, p = ctx.player, flat = !!ctx.pref?.('hier_flat_shf');
+    const bus = (m, a) => ctx.bus.post('bus_player_cmd', m, this, {arg1: a});
+    if (shuffle && flat) {
+      // shs=h: every song of the subtree, shuffled.
+      const all = subtreeFiles(this.node);
+      if (!all.length) return false;
+      bus('cmd_player_set_shuffle', 2);
+      p.setQueue(all, Math.floor(Math.random() * all.length), null);
+    } else {
+      // cg1.M: the folder, or the next folder with files in path order.
+      const order = this.tree.withFiles;
+      const inside = order.filter(n => n === this.node || n.path.startsWith(this.node.path ? this.node.path + '/' : ''));
+      if (!inside.length) return false;
+      const start = shuffle ? inside[Math.floor(Math.random() * inside.length)] : inside[0];
+      bus('cmd_player_set_shuffle', shuffle ? 4 : 0);
+      // sd.g0(0): Play All Categories unless hier_no_advance (b40.W).
+      if (!shuffle && !ctx.pref?.('hier_no_advance')) bus('cmd_player_set_repeat_mode', 2);
+      const category = hierCategory(this, start);
+      const tracks = category.source.tracksAt(category.index);
+      p.setQueue(tracks, shuffle ? Math.floor(Math.random() * tracks.length) : 0, category);
+    }
+    p.play();
+    return true;
+  }
+}
+
+function hierMeta(n) {
+  return `${n.hierFiles} | ${durationMeta(n.hierMs)}`;
+}
+
+/** Every file in a folder's subtree, folder by folder in path order. */
+function subtreeFiles(n) {
+  const out = [...n.files];
+  for (const c of n.folders) out.push(...subtreeFiles(c));
+  return out;
+}
+
+/**
+ * The hierarchy's categories: every folder with files in path order; in the
+ * category shuffle modes the playing level's subtree comes first (cg1.W).
+ */
+function hierCategory(src, node) {
+  const order = src.tree.withFiles, index = order.indexOf(node);
+  if (index < 0) return null;
+  const level = src.node, prefix = level.path ? level.path + '/' : '';
+  const first = new Set(order.filter(n => n === level || n.path.startsWith(prefix)).map(n => order.indexOf(n)));
+  const files = n => withOptions({ctx: src.ctx, tracks: [...n.files]}, src.nav.list, {key: 'tracks:folders_hier', zoomKind: 'tracks', sortKind: 'tracks', defaultSort: TRACKS_DEFAULT_SORT.folder}).tracks;
+  return {source: {count: order.length, groups: order.map(n => ({title: n.name, tracks: n.files})), tracksAt: j => (order[j] ? files(order[j]) : []), shuffleFirst: first}, index};
+}
+
+export function folderLevelSource(ctx, list, nav, node, cat = homeCategory(2)) {
+  const src = new FolderLevelSource(ctx, list, nav, node, cat);
+  src.kind = 'hier';
   return src;
 }

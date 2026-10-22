@@ -13,17 +13,23 @@ import {StyledAttributes} from '../res/resources.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
+import {MoveableToolbar, ANCHOR_BOTTOM, ANCHOR_FIXED_BOTTOM} from './moveable-toolbar.js';
 import {ListReorder} from './reorder.js';
-import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource, groupTracksSource} from './sources.js';
+import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource, groupTracksSource, folderLevelSource, homeCategory, categorySource as categoryListSource} from './sources.js';
+import {SEARCH_CATS, searchMask} from '../widgets/search.js';
+import {recordSearch} from '../library/search-history.js';
 import {ListTransition, ZOOM, pageFx} from './list-transition.js';
-import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut, elastic} from '../gesture.js';
+import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut, elastic, pagerScroll} from '../gesture.js';
 import {trackLyrics} from '../library/lrc.js';
 import {openAddToPlaylist} from '../widgets/playlist-dialog.js';
 import {alertDialog, editNameDialog} from '../widgets/dialog.js';
 import {openInfo, openAlbumArt} from '../widgets/info-dialog.js';
 import {openListOptions, ZOOMS, listOpts, saveListOpts} from './list-opts.js';
+import {openResortDialog} from '../widgets/resort-dialog.js';
+import {exportPlaylists} from '../library/playlist-files.js';
 import {LyricsPage} from './lyrics.js';
 import {elevationShadow} from '../view/drawables.js';
+import {trackTitle, trackLine2, trackNumbers} from '../library/labels.js';
 
 const OFFSET_STATUS_BAR = 1, OFFSET_NAVIGATION_BAR = 2;
 
@@ -35,6 +41,13 @@ const MENU_LONG_PRESS = [null, ['list', 'cmd_list_delete_dialog'], ['list', 'cmd
   ['list', 'cmd_list_select_aa_dialog'], ARTIST, ALBUM, FOLDER, GENRE, ['list', 'cmd_list_share'], ['bus_data_cmd', 'cmd_data_track_rating', 5], ['bus_data_cmd', 'cmd_data_track_rating', 1]];
 
 /** Track item: a scene layout whose scene is chosen by the list (item scenes). */
+// Preferences that change the labels of bound rows.
+const LABEL_PREFS = ['title_filename', 'use_albumartist', 'use_albumartist_albumartists', 'hide_unknown_album', 'hide_unknown_artist', 'track_num_type', 'track_disc_meta'];
+const labelsKey = ctx => LABEL_PREFS.map(k => ctx.pref?.(k)).join('|');
+// Preferences that change which rows a library list has or their order
+// (album keys, sort field, split categories): the shown lists are re-made.
+const LIST_PREFS = ['join_albums', 'no_sort_field', 'show_unsplit_cats', 'artists_split_chars', 'artists_split_ignore', 'composers_split_chars', 'genres_split_chars'];
+
 export class AAItemView extends SceneFastLayout {
   constructor(ctx, a) {
     super(ctx, a);
@@ -123,15 +136,31 @@ export class AAItemView extends SceneFastLayout {
     this.findViewById('lyrics')?.setTrack?.(this.track);
   }
 
-  bind(track) {
-    if (this.track === track) return;
+  /**
+   * The track's labels (library/labels.js): title, line 2 and meta with the
+   * track_num_type numbers; numbered is true in album and folder track lists.
+   */
+  bind(track, numbered = this.numbered ?? false, albumArtistList = false) {
+    if (this.track === track && this.numbered === numbered && this.aaList === albumArtistList && this.labelsKey === labelsKey(this.ctx)) return;
     this.track = track;
+    this.numbered = numbered;
+    this.aaList = albumArtistList;
+    this.labelsKey = labelsKey(this.ctx);
     this.syncLyricsButton();
     this.syncRating();
-    this.title?.setText(track?.title ?? '');
-    this.line2?.setText(track?.artist ?? '');
-    this.meta?.setText(track?.meta ?? '');
-    this.num?.setText('');
+    if (track?.group) {
+      // Category rows carry their own labels.
+      this.title?.setText(track.title ?? '');
+      this.line2?.setText(track.artist ?? '');
+      this.meta?.setText(track.meta ?? '');
+      this.num?.setText('');
+    } else {
+      const n = trackNumbers(this.ctx, track, numbered);
+      this.title?.setText(track ? n.title(trackTitle(this.ctx, track)) : '');
+      this.line2?.setText(trackLine2(this.ctx, track, albumArtistList));
+      this.meta?.setText(track ? n.meta(track.meta ?? '') : '');
+      this.num?.setText(n.num ?? '');
+    }
     // List rows use cached thumbnails; the player's cover items the full image.
     const field = this.useThumb ? 'thumb' : 'art';
     const have = track?.[field] ?? (this.useThumb ? track?.art : null) ?? null;
@@ -387,8 +416,25 @@ export class ListWidget extends FastLayout {
     this.items = new Map(); // rel -> AAItemView
     this.spare = [];
     ctx.bus.subscribe('bus_player', (msg, src, d) => {
-      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed' || msg === 'msg_player_category_changed') { this.rebind(); this.requestLayout(); }
+      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed' || msg === 'msg_player_category_changed') {
+        const dir = msg === 'msg_player_track_changed' ? this.advanceDir() : 0;
+        this.rebind();
+        this.requestLayout();
+        if (dir) this.scrollToCurrent(dir);
+      }
       else if (msg === 'msg_player_playing_state_changed') this.setPlayingMode(d.arg1 === STATE_PLAYING);
+      // The shown Queue follows its entries.
+      if (msg === 'msg_player_queue_changed') {
+        const top = this.stack[this.stack.length - 1];
+        if (top?.kind === 'queue' && !this.libList.reorder) this.replaceTop(top.rebuild?.());
+      }
+    });
+    ctx.bus.subscribe('bus_gui', msg => { if (msg === 'msg_nav_changed') this.setPlayingMode(); });
+    ctx.bus.subscribe('bus_app', (msg, src, d) => {
+      if (msg === 'msg_app_setting_changed' && LABEL_PREFS.includes(d?.key)) { this.rebind(); this.libList.rebindAll(); }
+      if (msg === 'msg_app_setting_changed' && d?.key === 'vis_aa_visible') this.setPlayingMode();
+      if (msg === 'msg_app_setting_changed' && LIST_PREFS.includes(d?.key)) this.rebuildStack();
+      if (msg === 'msg_app_setting_changed' && /^(search_track_titles_only|title_filename)$/.test(d?.key) && this.searching) this.showSearch();
     });
     ctx.listWidget = this;
     this.mode = 'aa';
@@ -398,6 +444,24 @@ export class ListWidget extends FastLayout {
     this.libList.interceptible = true; // side swipes go to the widget (parent level)
     this.libList.lp = this.generateLayoutParams(null);
     this.addView(this.libList);
+    // Moveable toolbar (om0: moveableToolbar / Anchor / ExtraStates; F75):
+    // static_navbar turns a bottom anchor fixed (ListWidget). The bottom
+    // toolbar (list_bottom_toolbar, om0.u0) adds its size under the rows.
+    this.toolbarId = a.idRef('moveableToolbar')?.id ?? null;
+    this.toolbarAnchor = a.int('moveableToolbarAnchor', 0);
+    if (ctx.pref('static_navbar') === true && this.toolbarAnchor === ANCHOR_BOTTOM) this.toolbarAnchor = ANCHOR_FIXED_BOTTOM;
+    this.toolbarExtraStates = a.bool('moveableToolbarExtraStates', false);
+    this.toolbar = null;
+    const bottomToolbar = +(ctx.pref('list_bottom_toolbar') ?? 2) || 0;
+    this.bottomToolbarSize = bottomToolbar ? this.substyle.dim('bottomToolbarSize', 100) : 0;
+    this.libList.bottomToolbar = bottomToolbar ? {
+      mode: bottomToolbar,
+      size: this.bottomToolbarSize,
+      z: this.substyle.dimFloat('bottomToolbarZ', 0),
+      headerButtons: +(ctx.pref('list_header_buttons') ?? 1) !== 0,
+      reserved: () => this.reservedSpace(),
+      inset: () => this.ctx.windowInsets.bottom,
+    } : null;
     this.lyricsPage = new LyricsPage(ctx, this);
     this.lyricsPage.visibility = GONE;
     this.lyricsPage.interceptible = true; // the widget takes side swipes and a pull at the top
@@ -426,11 +490,17 @@ export class ListWidget extends FastLayout {
     const current = {cmd_request_current_artist: 'artist', cmd_list_current_album: 'album', cmd_list_current_folder: 'folder', cmd_request_current_genre: 'genre'};
     for (const bus of ['list', 'bus_data_cmd']) {
       ctx.bus.subscribe(bus, (msg, src, d) => {
-        if (msg === 'cmd_list_search_text') { this.searchQuery = d?.string ?? ''; if (this.searching) this.showSearch(); }
+        if (msg === 'cmd_list_force_ab_on_screen') { if (bus === 'list') this.forceToolbar(d?.arg1 ?? 0); }
+        else if (msg === 'cmd_list_search_text') { this.searchQuery = d?.string ?? ''; if (this.searching) this.showSearch(); }
         else if (msg === 'cmd_list_search_cat') { this.searchMask = d?.mask ?? -1; if (this.searching) this.showSearch(); }
         else if (current[msg]) this.openCurrent(current[msg]);
         else if (msg === 'cmd_list_play' || msg === 'cmd_list_shuffle') this.playList(msg === 'cmd_list_shuffle');
         else if (msg === 'cmd_list_add_to_pl_dialog') this.addToPlaylist();
+        // The track menu's Lyrics item (p31): the lyrics page, or the lyrics dialog with lyrics_in_menu.
+        else if (msg === 'cmd_nav_to_lyrics_or_app') {
+          if (+this.ctx.pref('lyrics_in_menu') === 1) this.ctx.bus.post('bus_data_cmd', 'cmd_data_lyrics', this, {});
+          else this.ctx.bus.post('bus_gui', 'cmd_nav_to_lyrics', this);
+        }
         else this.listAction(msg, d);
       });
     }
@@ -491,12 +561,33 @@ export class ListWidget extends FastLayout {
         ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: str('pref_rescan_folders', 'Rescan')});
         break;
       case 'cmd_data_clear_q':
-        ctx.player.userQueue = [];
-        ctx.bus.post('bus_player', 'msg_player_queue_changed', this);
+        ctx.player.clearQueue();
         if (src?.kind === 'queue') this.replaceTop(src.rebuild?.());
         break;
+      case 'cmd_list_resort_dialog':
+        if (src?.playlist) {
+          const pl = src.playlist, byId = ctx.library?.byId;
+          openResortDialog(ctx, {
+            name: pl.name,
+            entries: () => pl.ids.filter(id => byId?.has(id)).map(id => ({track: byId.get(id)})),
+            // Entries whose files are missing keep their order after the sorted ones.
+            apply: sorted => P.reorder(pl, [...sorted.map(e => e.track.id), ...pl.ids.filter(id => !byId?.has(id))]),
+          });
+        } else if (src?.kind === 'queue') {
+          const p = ctx.player;
+          openResortDialog(ctx, {
+            name: str('queue', 'Queue'), hasAddedTime: true,
+            entries: () => p.entries,
+            apply: sorted => { p.entries = sorted; p.queueUpdated(false); },
+          });
+        }
+        break;
+      case 'cmd_list_show_all':
       case 'cmd_list_clear_list':
-        if (src?.playlist) alertDialog(ctx, {title: src.playlist.name, message: str('clear') + '?', positive: str('clear'), onPositive: () => P.removeAt(src.playlist, src.playlist.ids.map((_, i) => i))});
+        if (src?.clearable) {
+          saveListOpts(src.optsKey, {from: msg === 'cmd_list_clear_list' ? Date.now() : 0});
+          this.replaceTop(src.rebuild?.());
+        } else if (msg === 'cmd_list_clear_list' && src?.playlist) alertDialog(ctx, {title: src.playlist.name, message: str('clear') + '?', positive: str('clear'), onPositive: () => P.removeAt(src.playlist, src.playlist.ids.map((_, i) => i))});
         break;
       case 'cmd_list_rename_dialog': {
         const g = src?.isPlaylists ? src.groups[selected()[0]] : null;
@@ -530,13 +621,20 @@ export class ListWidget extends FastLayout {
    */
   prepareListMenu(items) {
     const src = this.stack[this.stack.length - 1];
-    const hide = new Set(['add_to_home', 'delete_dups', 'add_url', 'show_all', 'resort']);
-    if (!src?.playlist) hide.add('clear');
+    const hide = new Set(['add_to_home', 'delete_dups', 'add_url']);
+    // Re-Sort: playlists and the Queue (bi1).
+    if (!src?.playlist && src?.kind !== 'queue') hide.add('resort');
+    // Clear / Show All: playlists clear their entries; the statistics lists
+    // (ch1) start from now or from the beginning again.
+    if (!src?.playlist && !src?.clearable) hide.add('clear');
+    if (!src?.clearable) hide.add('show_all');
     if (src?.kind !== 'queue') hide.add('clear_q');
     if (!src?.optsKey) hide.add('list_options');
     const exportText = this.ctx.res.stringByName('pref_export');
     for (const c of [...items.children]) {
       if (hide.has(c.id)) { c.setVisibility(GONE); continue; }
+      if (src?.clearable && (c.id === 'clear' || c.id === 'show_all')) c.setVisibility(VISIBLE);
+      if (c.id === 'resort' && !hide.has('resort')) c.setVisibility(VISIBLE);
       if (c.id === 'folders') c.onClick = () => this.ctx.importUi?.show();
       else if (!c.id && c.text === exportText) c.onClick = () => exportPlaylists(this.ctx);
     }
@@ -548,6 +646,13 @@ export class ListWidget extends FastLayout {
     const y = this.libList.scrollY;
     this.stack[this.stack.length - 1] = src;
     if (this.mode === 'list' && !this.searchShown) { this.libList.setSource(src); this.libList.scrollTo(y); }
+  }
+
+  /** Re-makes every list on the navigation stack, keeping the shown one's scroll position. */
+  rebuildStack() {
+    if (!this.stack.length) return;
+    for (let i = 0; i < this.stack.length - 1; i++) this.stack[i] = this.stack[i].rebuild?.() ?? this.stack[i];
+    this.replaceTop(this.stack[this.stack.length - 1].rebuild?.());
   }
 
   /** Opens a playlist's tracks (Open after adding). */
@@ -565,14 +670,25 @@ export class ListWidget extends FastLayout {
 
   showSearch() {
     this.searchShown = true;
-    const src = searchSource(this.ctx, this.libList, this.nav, this.searchQuery ?? '', this.searchMask ?? -1);
+    const q = this.searchQuery ?? '';
+    const src = searchSource(this.ctx, this.libList, this.nav, q, this.searchMask ?? searchMask());
+    // Every delivered result set records its query (sd.e0 → kj1.А).
+    if (q.trim()) recordSearch(q.trim());
     this.searchSrc = src;
     this.libList.setSource(src);
   }
 
   /** Header Play / Shuffle: the shown list's tracks from the start, or shuffled. */
   playList(shuffle) {
-    const src = this.searching ? this.searchSrc : this.stack[this.stack.length - 1];
+    if (this.searching) { this.playSearch(shuffle); return; }
+    const src = this.stack[this.stack.length - 1];
+    // Folders Hierarchy plays its level itself; category lists play their entries as categories.
+    if (src?.play || src?.groups) {
+      if (!(src.play ? src.play(shuffle) : this.playCategories(src, shuffle))) return;
+      this.rememberQueueSource(src);
+      if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
+      return;
+    }
     const tracks = src?.tracks ?? src?.groups?.flatMap(g => g.tracks) ?? [];
     if (!tracks.length) return;
     const p = this.ctx.player;
@@ -583,7 +699,27 @@ export class ListWidget extends FastLayout {
     if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
   }
 
+  /**
+   * Search Play / Shuffle (vo1.g0): the results play through a fresh Queue
+   * (clean_and_play) with a toast. With search_play_tracks, when songs are
+   * the last results, only the found songs; otherwise every result row's
+   * songs in order.
+   */
+  playSearch(shuffle) {
+    const src = this.searchSrc, rows = src?.rows;
+    if (!rows?.length) return;
+    const onlySongs = this.ctx.pref('search_play_tracks') !== false && !!rows[rows.length - 1].track;
+    const tracks = rows.flatMap(r => (r.sep ? [] : r.track ? [r.track] : onlySongs ? [] : r.group.tracks));
+    if (!tracks.length) return;
+    this.ctx.player.playAsQueue(tracks, shuffle ? 2 : 0);
+    const str = this.ctx.res.stringByName('playing_q_from_search') ?? 'Playing Queue from search';
+    this.ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: str});
+    if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
+  }
+
   openCurrent(kind, track = null) {
+    // The track menu's Folders button opens the folder in Folders Hierarchy unless menu_nav_to_folders.
+    if (kind === 'folder' && !this.ctx.pref('menu_nav_to_folders') && this.openHierFolder(track ?? this.ctx.player?.track)) return;
     const src = currentCategorySource(this.ctx, this.libList, this.nav, kind, track);
     if (!src) return;
     this.ctx.bus.post('bus_gui', 'cmd_nav_to_lib', this);
@@ -595,6 +731,34 @@ export class ListWidget extends FastLayout {
   openHome() {
     this.stack = [];
     this.open(new HomeSource(this.ctx, this.libList, this.nav));
+  }
+
+  /**
+   * The library as navigation first shows it (cmd_nav_to_lib, p31): the
+   * start category (library_home) over the home, else the home.
+   */
+  openStart() {
+    this.openHome();
+    const cat = homeCategory(+(this.ctx.pref('library_home') ?? -1));
+    if (cat) this.open(categoryListSource(this.ctx, this.libList, this.nav, cat));
+  }
+
+  /**
+   * List Options of a list that is not shown (the library_list_opts and
+   * list_opts preferences): 'home' or 'search'.
+   */
+  openListOptionsFor(which, opts = {}) {
+    const ctx = this.ctx;
+    if (which === 'search') {
+      const src = {optsKey: 'search', title: ctx.res.stringByName('search') ?? 'Search', searchCategories: SEARCH_CATS.slice(1)};
+      return openListOptions(ctx, src, null, opts);
+    }
+    const src = new HomeSource(ctx, this.libList, this.nav);
+    return openListOptions(ctx, src, () => {
+      if (!(this.stack[0] instanceof HomeSource)) return;
+      if (this.stack.length === 1) this.replaceTop(this.stack[0].rebuild());
+      else this.stack[0] = this.stack[0].rebuild();
+    }, opts);
   }
 
   open(src) {
@@ -609,6 +773,92 @@ export class ListWidget extends FastLayout {
     this.libList.setSource(src);
     if (shown) this.levelTransition(prev, prev.savedScroll, false, rect);
     if (this.stack.length > 1) history.pushState({cpList: this.stack.length}, '');
+  }
+
+  /**
+   * PowerListSharedItemTransition (art pager <-> list, mo621): the playing
+   * track's art item and its list row are one view during the change. The
+   * row stays hidden while the art item moves from its pager frame into the
+   * row's frame (through the list page's zoom) and its item scene morphs into
+   * the row's scene by the same fraction; at the end the row shows again and
+   * the art item returns to its own scene. Only when the row is on screen.
+   */
+  shareItem(fromPage, toPage) {
+    const toList = fromPage === 'aa' && toPage === 'list';
+    if (!toList && !(fromPage === 'list' && toPage === 'aa')) return null;
+    const v = this.items.get(0), t = this.ctx.player?.track, L = this.libList, s = L.source;
+    if (!v || !t || !s || v.inMenu) return null;
+    L.placeItems();
+    const i = s.indexOfTrack ? s.indexOfTrack(t) : s.tracks?.findIndex(x => x.id === t.id) ?? -1;
+    const row = i >= 0 ? L.active.get(i) : null;
+    const r = row ? L.itemRect(i) : null;
+    if (!r || r.top + r.height <= 0 || r.top >= L.height) return null;
+    const b = this.geometry.itemBounds(0, 0);
+    const share = {v, row, i, toList, scene: s.itemScene, aa: {x: b.left, y: b.top, w: b.right - b.left, h: b.bottom - b.top, scale: b.scale, scene: b.scene}, rowSize: [r.width, r.height]};
+    this.shared = share;
+    L.sharedIndex = i;
+    // The art item lays out in its own scene at its pager size, then drags towards the row's scene.
+    v.setItemScene(b.scene, share.aa.w, share.aa.h);
+    v.scenes.drag(share.scene, toList ? 0 : 1, {targetSize: share.rowSize});
+    L.placeItems();
+    return share;
+  }
+
+  /** The shared item at transition progress p (towards the entering page). */
+  morphShared(share, p) {
+    const {v, toList, aa} = share, L = this.libList;
+    const k = toList ? p : 1 - p; // towards the row
+    const r = L.itemRect(share.i);
+    if (!r) return;
+    // The row's frame as the list page shows it (scaled about its centre by the page zoom).
+    const s = L.scaleX ?? 1, cx = L.width / 2, cy = L.height / 2;
+    const rw = r.width * s, rh = r.height * s;
+    const rx = cx + (r.left - cx) * s + L.left + L.translationX, ry = cy + (r.top - cy) * s + L.top + L.translationY;
+    // The art item's visual frame (its scale about its centre).
+    const aw = aa.w * aa.scale, ah = aa.h * aa.scale, ax = aa.x + (aa.w - aw) / 2, ay = aa.y + (aa.h - ah) / 2;
+    const lerp = (a, b2) => a + (b2 - a) * k;
+    const x = lerp(ax, rx), y = lerp(ay, ry), w = lerp(aw, rw), h = lerp(ah, rh);
+    // Unscaled size between the two layouts; the rest is scale.
+    const uw = lerp(aa.w, r.width), uh = lerp(aa.h, r.height), sc = w / uw;
+    v.setFrame(0, 0, Math.round(uw), Math.round(uh));
+    v.scaleX = v.scaleY = sc;
+    v.translationX = x - (uw - w) / 2;
+    v.translationY = y - (uh - h) / 2;
+    v.rotation = v.rotationX = v.rotationY = 0;
+    v.alpha = 1;
+    v.visibility = VISIBLE;
+    v.scenes.drag(share.scene, k, {targetSize: share.rowSize});
+    v.invalidate();
+  }
+
+  /** The row shows again; the art item returns to its own scene and placement. */
+  endShared(share) {
+    const {v} = share;
+    this.shared = null;
+    this.libList.sharedIndex = null;
+    if (v.scenes.running?.manual) v.scenes.settleTo(false, 0);
+    v.itemScene = null;
+    this.libList.placeItems();
+    this.placeItems();
+  }
+
+  /** Folders Hierarchy at a track's folder, the levels above it on the back stack. */
+  openHierFolder(t) {
+    const lib = this.ctx.library;
+    if (!t || !lib?.tracks?.includes(t)) return false;
+    const tree = lib.folderTree(), root = lib.hierRoot();
+    const node = tree.nodes.get((t.folder || '').replace(/\/+$/, ''));
+    if (!node) return false;
+    const chain = [];
+    for (let n = node; n && n !== root; n = n.parent) chain.unshift(n);
+    if (chain[0] && chain[0].parent !== root && !root.folders.includes(chain[0])) return false;
+    this.ctx.bus.post('bus_gui', 'cmd_nav_to_lib', this);
+    if (!this.stack.length) this.openHome();
+    this.stack.length = 1;
+    for (const n of [root, ...chain.slice(0, -1)]) this.stack.push(folderLevelSource(this.ctx, this.libList, this.nav, n));
+    this.open(folderLevelSource(this.ctx, this.libList, this.nav, chain[chain.length - 1] ?? root));
+    this.libList.scrollToTrack(t);
+    return true;
   }
 
   /** Back inside the library; returns false at the library home. */
@@ -714,9 +964,12 @@ export class ListWidget extends FastLayout {
     this.mode = mode;
     const list = mode === 'list', lyrics = mode === 'lyrics';
     this.libList.visibility = list ? VISIBLE : GONE;
+    // The art and the lyrics are no list layout: the toolbar shows (yv0.A).
+    if (list) this.libList.levelChanged = true;
+    else this.toolbar?.showNow();
     this.lyricsPage.show(lyrics);
     for (const v of this.items.values()) v.visibility = list || lyrics ? GONE : VISIBLE;
-    if (list && !this.stack.length && !this.searching) this.openHome();
+    if (list && !this.stack.length && !this.searching) this.openStart();
     // The album-art pager has no scroller (mode 0); the library list sets its own.
     if (list) this.libList.syncScroller();
     else this.ctx.listScroller?.setMode(0);
@@ -724,11 +977,56 @@ export class ListWidget extends FastLayout {
     this.invalidate();
   }
 
-  setPlayingMode(playing) {
-    const mode = playing ? 1 : 0;
+  /**
+   * The art's state (cmd_list_prefer_aa_state): 1 while playing, 0 paused;
+   * with faded controls (scene_vis_w_ui) 2, the art hidden for the
+   * visualisation, unless vis_aa_visible.
+   */
+  setPlayingMode(playing = this.playingNow ?? this.ctx.player?.state === STATE_PLAYING) {
+    this.playingNow = playing;
+    const faded = this.ctx.topNav?.scenes?.scene === 'scene_vis_w_ui' && !this.ctx.pref('vis_aa_visible');
+    const mode = faded ? 2 : playing ? 1 : 0;
     if (this.geometry.mode === mode) return;
     this.geometry.mode = mode;
     this.requestLayout();
+  }
+
+  /** The rows' reserved space above the list bottom (om0.o0): the navbar bounds plus the bottom inset. */
+  reservedSpace() {
+    return this.ctx.dynamicDimension(this.bottomReservedId ?? 'navbar_bounds_2lines_size') + this.ctx.windowInsets.bottom;
+  }
+
+  /** The moveable toolbar, once the root holds it (om0.c0). */
+  ensureToolbar() {
+    if (this.toolbar || !this.toolbarId) return this.toolbar;
+    let root = this;
+    while (root.parent) root = root.parent;
+    const view = root.findViewById(this.toolbarId);
+    if (!view) return null;
+    this.toolbar = new MoveableToolbar(this.ctx, view, {anchor: this.toolbarAnchor, extraStates: this.toolbarExtraStates, bottomToolbar: this.bottomToolbarSize, reserved: () => this.reservedSpace()});
+    this.toolbar.onMove = () => { if (this.libList.visibility !== GONE) this.libList.placeBottomToolbar(); };
+    return this.toolbar;
+  }
+
+  /** PowerList.h0 → yv0.m3714: the shown list moved by f. */
+  listScrolled(list, f, touch) {
+    if (list !== this.libList || this.mode !== 'list') return;
+    this.ensureToolbar()?.scrolled(list.scrollState(), f, touch, !!this.trans);
+  }
+
+  /** om0.i: a new layout in the shown list (level change, rebuild, search results). */
+  listLevelChanged(list) {
+    if (list !== this.libList || this.mode !== 'list') return;
+    this.ensureToolbar()?.levelChanged(list.scrollState(), !!this.trans);
+  }
+
+  /** cmd_list_force_ab_on_screen: 0 show now, 1 pin, 2 release. */
+  forceToolbar(how) {
+    const t = this.ensureToolbar();
+    if (!t) return;
+    if (how === 1) t.pin(true);
+    else if (how === 2) t.pin(false);
+    else t.showNow();
   }
 
   applyInsets() {
@@ -784,8 +1082,33 @@ export class ListWidget extends FastLayout {
     return v;
   }
 
+  /**
+   * The step of a track change from the pages bound so far: 1 when the new
+   * track was the next page, -1 the previous one, else 0 (a jump, or this
+   * pager's own settle).
+   */
+  advanceDir() {
+    const t = this.ctx.player?.track, b = this.bound;
+    if (this.selfStep || !t || !b || t === b[0]) return 0;
+    return t === b[1] ? 1 : t === b[-1] ? -1 : 0;
+  }
+
+  /**
+   * aa_anim: on a step to a neighbour the art scrolls to it (PowerList.Z over
+   * the pager's w.mo3080): the pages start one page displaced and settle over
+   * aaPosSettleAnimTime on the pager's scroll curve. Without it they jump.
+   */
+  scrollToCurrent(dir) {
+    if (!this.ctx.pref('aa_anim') || this.mode !== 'aa' || this.trans || this.gesture?.kind === 'page') return;
+    this.geometry.offset = dir;
+    this.placeItems?.();
+    const settle = this.substyle.int('aaPosSettleAnimTime', 650) / 1000;
+    this.animatePageOffset(0, settle, null, pagerScroll);
+  }
+
   rebind() {
     const p = this.ctx.player;
+    this.bound = {[-1]: p?.trackAt(-1, true) ?? null, 0: p?.track ?? null, 1: p?.trackAt(1, true) ?? null};
     for (const rel of [-1, 0, 1]) {
       const t = p?.trackAt(rel, true) ?? null;
       if (!t && rel !== 0) {
@@ -793,7 +1116,7 @@ export class ListWidget extends FastLayout {
         if (v) { this.items.delete(rel); v.visibility = GONE; this.spare.push(v); }
         continue;
       }
-      this.itemFor(rel).bind(t);
+      this.itemFor(rel).bind(t, !!p?.category?.source?.numbered);
     }
     this.bindDecor();
   }
@@ -954,7 +1277,7 @@ export class ListWidget extends FastLayout {
       this.libList.setSource(this.stack[this.stack.length - 1]);
       nav = 'nav_lib';
     } else if (target === 'library') {
-      if (!this.stack.length) this.openHome();
+      if (!this.stack.length) this.openStart();
       else this.libList.setSource(this.stack[this.stack.length - 1]);
       nav = 'nav_lib';
     } else if (target === 'lyrics') {
@@ -978,6 +1301,8 @@ export class ListWidget extends FastLayout {
     if (toPage === 'aa') for (const v of this.items.values()) v.visibility = VISIBLE;
     this.onLayout();
     if (target === 'list') this.libList.scrollToTrack(this.ctx.player.track);
+    // PowerListSharedItemTransition: the art item and the track's row hand off one view.
+    const share = this.shareItem(fromPage, toPage);
     // Zoom factors: shared-item moves and forward pivots zoom the leaving
     // page up and the entering one from below 1; a back pivot the reverse.
     const back = target === 'parent';
@@ -992,6 +1317,7 @@ export class ListWidget extends FastLayout {
     const render = p => {
       this.pageFx(fromPage, leaveView, p, leaveR, leavePivot);
       this.pageFx(toPage, enterView, 1 - p, enterR, enterPivot);
+      if (share) this.morphShared(share, p);
     };
     const sub = this.substyle;
     const trans = new ListTransition(this.ctx, {
@@ -1000,6 +1326,7 @@ export class ListWidget extends FastLayout {
       commitTime: sub.int('pageManualCommitAnimTime', 250) / 1000,
       cancelTime: sub.int('pageManualCancelAnimTime', 500) / 1000,
       finish: commit => {
+        if (share) this.endShared(share);
         this.pageFx(fromPage, leaveView, 0, 1, null);
         this.pageFx(toPage, enterView, 0, 1, null);
         if (ghost) ghost.visibility = GONE;
@@ -1073,6 +1400,7 @@ export class ListWidget extends FastLayout {
       this.addView(g);
     }
     g.visibility = VISIBLE;
+    g.bottomToolbar = this.libList.bottomToolbar;
     g.paddingTop = this.libList.paddingTop; g.paddingBottom = this.libList.paddingBottom;
     g.paddingLeft = this.libList.paddingLeft; g.paddingRight = this.libList.paddingRight;
     g.setSource(source);
@@ -1106,14 +1434,57 @@ export class ListWidget extends FastLayout {
    * category navigation; each category's tracks come in its own list order.
    */
   categoryFor(src) {
-    const at = this.stack.indexOf(src), parent = this.stack[at - 1];
-    if (at < 1 || !parent?.groups) return null;
-    const g = src.group ?? parent.groups.find(x => x.pl && x.pl === src.playlist);
-    const index = g ? parent.groups.indexOf(g) : -1;
-    if (index < 0) return null;
-    const ctx = this.ctx, list = this.libList, nav = this.nav, groups = parent.groups;
-    const tracksAt = j => (groups[j]?.pl ? playlistSource(ctx, list, nav, groups[j].pl) : groups[j] ? groupTracksSource(ctx, list, nav, groups[j], parent.icon) : null)?.tracks ?? [];
+    const at = this.stack.indexOf(src);
+    // The list the entry came from; an entry's "All ... Songs" list belongs to the entries above its albums.
+    for (let k = at - 1; k >= 0 && k >= at - 2; k--) {
+      const parent = this.stack[k];
+      if (!parent?.groups) return null;
+      const g = src.group ?? parent.groups.find(x => x.pl && x.pl === src.playlist);
+      const index = g ? parent.groups.indexOf(g) : -1;
+      if (index >= 0) return this.categoriesOf(parent, index);
+    }
+    return null;
+  }
+
+  /** A category list's entries as categories ({source: {count, groups, tracksAt}, index}). */
+  categoriesOf(list, index) {
+    const ctx = this.ctx, pl = this.libList, nav = this.nav, groups = list.groups;
+    const tracksAt = j => (groups[j]?.pl ? playlistSource(ctx, pl, nav, groups[j].pl) : groups[j] ? groupTracksSource(ctx, pl, nav, groups[j], list.icon) : null)?.tracks ?? [];
     return {source: {count: groups.length, groups, tracksAt}, index};
+  }
+
+  /**
+   * Header Play / Shuffle on a category list (sd.g0 → pi1.toUri): the first
+   * entry (Shuffle: a random one) plays with the entries as categories; Play
+   * turns shuffle off. Shuffle takes category_shuffle (b40.Z1): on a top
+   * level list Songs counts as Songs and Categories (sd.V); on an entry's
+   * albums Songs shuffles all the entry's songs (u3.z(2)).
+   */
+  playCategories(src, shuffle) {
+    const groups = src.groups;
+    if (!groups?.length) return false;
+    const ctx = this.ctx, p = ctx.player;
+    let mode = 0;
+    if (shuffle) {
+      const cs = +(ctx.pref('category_shuffle') ?? 4) || 4;
+      mode = src.secondLevel ? cs : cs === 2 ? 4 : cs;
+    }
+    ctx.bus.post('bus_player_cmd', 'cmd_player_set_shuffle', this, {arg1: mode});
+    if (mode === 2 && src.parentGroup) {
+      const files = groupTracksSource(ctx, this.libList, this.nav, src.parentGroup, src.icon).tracks;
+      if (!files.length) return false;
+      const at = this.stack.indexOf(src), above = this.stack[at - 1];
+      const i = above?.groups ? above.groups.indexOf(src.parentGroup) : -1;
+      p.setQueue(files, Math.floor(Math.random() * files.length), i >= 0 ? this.categoriesOf(above, i) : null);
+    } else {
+      const index = shuffle ? Math.floor(Math.random() * groups.length) : 0;
+      const category = this.categoriesOf(src, index);
+      const tracks = category.source.tracksAt(index);
+      if (!tracks.length) return false;
+      p.setQueue(tracks, mode === 2 || mode === 4 ? Math.floor(Math.random() * tracks.length) : 0, category);
+    }
+    p.play();
+    return true;
   }
 
   /** The list a track list played from becomes the playing track's source list. */
@@ -1141,6 +1512,12 @@ export class ListWidget extends FastLayout {
    * Without a further level the list scales elastically and springs back.
    */
   onPinchStart({dist, time}) {
+    // The lyrics page zooms its text size (list_zoom_lyrics) with the same pinch rules.
+    if (this.mode === 'lyrics' && !this.trans) {
+      this.pinch = {d0: dist, started: false, vt: new VelocityTracker(), lyrics: true};
+      this.pinch.vt.add(time, dist, 0);
+      return true;
+    }
     if (this.mode !== 'list' || this.searching || this.trans || this.searchShown) return false;
     const src = this.libList.source;
     if (!src?.optsKey || !ZOOMS[src.zoomKind]) return false;
@@ -1160,10 +1537,23 @@ export class ListWidget extends FastLayout {
       g.started = true;
       g.zoomIn = dist > g.d0;
       g.d0 = Math.max(1, dist);
-      g.trans = this.startZoomTransition(g.zoomIn);
+      g.trans = g.lyrics ? null : this.startZoomTransition(g.zoomIn);
       return;
     }
     const r = dist / g.d0;
+    if (g.lyrics) {
+      g.p = (g.zoomIn ? r - 1 : 1 - r) * 1.25;
+      // At the last size the page scales elastically, as a list does.
+      const page = this.lyricsPage, z = page.zoom;
+      if ((g.zoomIn && z >= 1) || (!g.zoomIn && z <= -1)) {
+        const f = -(r - 1) * 1.25;
+        const e = f > 0 ? Math.sqrt(Math.min(1, Math.min(3, f) / 3) * 0.2) * 0.2
+          : f < 0 ? -Math.sqrt(Math.max(0, Math.min(1, (1 - Math.max(0.1, Math.min(1, f + 1))) / 0.9)) * 0.2) * 0.2 : 0;
+        page.scaleX = page.scaleY = 1 - e;
+        page.invalidate();
+      }
+      return;
+    }
     if (g.trans) g.trans.setProgress((g.zoomIn ? r - 1 : 1 - r) * 1.25);
     else {
       // No further level: the list scales elastically (A.B / A.H).
@@ -1179,6 +1569,13 @@ export class ListWidget extends FastLayout {
     const g = this.pinch;
     this.pinch = null;
     if (!g?.started) return;
+    if (g.lyrics) {
+      g.vt.up(time);
+      const vdp = cancelled ? 0 : g.vt.compute(MAX_FLING_DP * this.ctx.dpr).vx / this.ctx.dpr;
+      const commit = Math.abs(vdp) >= 500 ? (vdp > 0) === g.zoomIn : (g.p ?? 0) > 0.3;
+      if (!(commit && this.lyricsPage.stepZoom(g.zoomIn ? 1 : -1))) this.springBackScale(this.lyricsPage);
+      return;
+    }
     if (!g.trans) { this.springBackScale(this.libList); return; }
     g.vt.up(time);
     const v = cancelled ? 0 : g.vt.compute(MAX_FLING_DP * this.ctx.dpr).vx;
@@ -1301,7 +1698,8 @@ export class ListWidget extends FastLayout {
     this.animatePageOffset(target, seconds, () => {
       if (!target) return;
       this.geometry.offset = 0;
-      p.step(target === -1 ? 1 : -1);
+      this.selfStep = true;
+      try { p.step(target === -1 ? 1 : -1); } finally { this.selfStep = false; }
     });
   }
 
@@ -1416,13 +1814,13 @@ export class ListWidget extends FastLayout {
   }
 
   /** Settles the page offset over the given time (cubic ease-out, the scroller's curve). */
-  animatePageOffset(target, seconds, done) {
+  animatePageOffset(target, seconds, done, curve = cubicOut) {
     this.stopPageAnim();
     const from = this.geometry.offset, start = performance.now();
     const dur = Math.max(1, seconds * 1000);
     this._pageAnim = this.ctx.onFrame(now => {
       const t = Math.min(1, (now - start) / dur);
-      this.setPageOffset(from + (target - from) * cubicOut(t));
+      this.setPageOffset(from + (target - from) * curve(t));
       if (t >= 1) {
         this._pageAnim = null;
         done?.();
@@ -1450,7 +1848,7 @@ export class ListWidget extends FastLayout {
         }
         if (bottom) ll.paddingTop = Math.max(0, bottom - this.getLocationIn(null).y);
       }
-      ll.paddingBottom = this.ctx.dynamicDimension(this.bottomReservedId ?? 'navbar_bounds_2lines_size') + this.ctx.windowInsets.bottom;
+      ll.paddingBottom = this.reservedSpace() + this.bottomToolbarSize;
       ll.paddingLeft = this.ctx.windowInsets.left;
       ll.paddingRight = this.ctx.windowInsets.right;
       ll.measure(MeasureSpec.make(this.width, MeasureSpec.EXACTLY), MeasureSpec.make(this.height, MeasureSpec.EXACTLY));
@@ -1482,6 +1880,7 @@ export class ListWidget extends FastLayout {
     this.placeDecor();
     for (const [rel, v] of this.items) {
       if (v.inMenu) continue; // borrowed by the open item menu
+      if (this.shared?.v === v) continue; // morphing into a list row (morphShared)
       const b = g.itemBounds(rel, rel);
       const w = b.right - b.left, h = b.bottom - b.top;
       v.left = 0; v.top = 0;
@@ -1567,6 +1966,8 @@ ListWidget.prototype.openItemMenu = function (v, itemsLayout = 'merge_menu_items
   if (v.itemScene && v.itemScene !== 'defaultScene') map.set(v.itemScene, rec);
   if (map.get(ITEM_MENU)) map.get(ITEM_MENU).recalc = 2;
   ph.popup = {modal: true, close: () => this.closeItemMenu()};
+  // The item menu is a GUI modal while open (om0 → t61: @id/popup_menu_item; F78).
+  this.ctx.bus.post('bus_gui', 'cmd_gui_set_modal', this, {arg1: 'popup_menu_item'});
   ph.clickable = true;
   ph.forceLayoutTree();
   ph.measure(MeasureSpec.make(ph.width, MeasureSpec.EXACTLY), MeasureSpec.make(ph.height, MeasureSpec.EXACTLY));
@@ -1583,6 +1984,7 @@ ListWidget.prototype.closeItemMenu = function () {
   const m = this.menuItem;
   if (!m || m.closing) return;
   m.closing = true;
+  this.ctx.bus.post('bus_gui', 'cmd_gui_unset_modal', this, {arg1: 'popup_menu_item'});
   const v = m.v;
   let root = this;
   while (root.parent) root = root.parent;
@@ -1633,19 +2035,3 @@ export class PlayingMark extends View {
 register(['PlayingMark'], PlayingMark);
 register(['ListWidget'], ListWidget);
 
-/** Saves each playlist as an .m3u8 file (track paths, extended info). */
-export function exportPlaylists(ctx) {
-  const P = ctx.playlists;
-  for (const pl of P?.items ?? []) {
-    const lines = ['#EXTM3U'];
-    for (const t of P.tracksOf(pl)) {
-      lines.push(`#EXTINF:${Math.round((t.durationMs || 0) / 1000)},${[t.artist, t.title].filter(Boolean).join(' - ')}`);
-      lines.push(t.path || t.fileName || t.title);
-    }
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([lines.join('\n') + '\n'], {type: 'audio/x-mpegurl'}));
-    a.download = pl.name.replace(/[\\/:*?"<>|]/g, '_') + '.m3u8';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  }
-}

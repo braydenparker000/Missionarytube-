@@ -42,6 +42,37 @@ export class Context {
     // large viewport, in device px. The art keeps its full-height size.
     this.transientBarHeight = 0;
     this.settings = {navbar_seekbar: true, animations: 'normal'};
+    // The reference preference defaults by key (settings.js prefDefaults).
+    this.prefDefaults = {};
+  }
+
+  /** A preference as the runtime reads it: the stored value, else the reference default. */
+  pref(key) {
+    const v = this.settings[key];
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+    return v ?? this.prefDefaults[key];
+  }
+
+  /**
+   * Boolean bus states (StateBus.getBooleanState) by id, for views that
+   * enable, disable or morph with a state; undefined for unknown states.
+   */
+  stateOf(id) {
+    const p = this.player, t = p?.track, dsp = this.dsp;
+    switch (id) {
+      case 'state_player_category_navigable': return !!p?.categoryNavigable;
+      case 'state_player_category_not_navigable': return !p?.categoryNavigable;
+      // k51: long_skip_rewind and a track longer than restore_pos_min_dur minutes, or the Long list.
+      case 'state_player_long_seek': {
+        if (!t || !this.pref('long_skip_rewind')) return false;
+        const min = +(this.pref('restore_pos_min_dur') ?? 45) || 0;
+        return (t.durationMs || 0) > min * 60000 || this.listWidget?.queueStack?.at(-1)?.kind === 'long';
+      }
+      case 'state_player_track_seekable': return !!t;
+      case 'dsp_enabled': return !!dsp?.get('dsp_enabled');
+      default: return undefined;
+    }
   }
 
   /** Default click routing: navigation buttons are named after their commands. */
@@ -124,5 +155,10 @@ export class Context {
     const w = Math.round(this.viewportWidth * this.dpr), h = Math.round(this.viewportHeight * this.dpr);
     root.measure(MeasureSpec.make(w, MeasureSpec.EXACTLY), MeasureSpec.make(h, MeasureSpec.EXACTLY));
     root.layout(0, 0, w, h);
+    // Scenes held by a drag (no animator) take their dragged frames again.
+    for (const sc of this.manualScenes ?? []) {
+      if (sc.running?.manual) sc.apply(sc.ratio);
+      else this.manualScenes.delete(sc);
+    }
   }
 }

@@ -2,9 +2,11 @@
 // (scene_lyrics). The page shows the current track's AA item in its
 // scene_lyrics as the header, then one item_lyrics row per line: synchronised
 // lines dim (default scene) with the playing one in scene_active (×1.1,
-// primary colour); plain lyrics use scene_unsync (left aligned, ×0.85). With
-// no lyrics, item_empty_lyrics_with_config shows in scene_empty_no_button (no
-// lyrics app integration on the web). The active line follows the playback
+// primary colour); plain lyrics use scene_unsync (left aligned, ×0.85). The
+// lyrics size (list_zoom_lyrics, also by pinching) picks the small or zoomed
+// variants of these scenes. With no lyrics, item_empty_lyrics_with_config
+// shows in scene_empty with the search button (the lyrics dialog), or in
+// scene_empty_no_button when lyrics_plugin is None. The active line follows the playback
 // position plus lyrics_offset; the page keeps it in view unless the user has
 // just scrolled. Header height, follow position, follow pause and tap-to-seek
 // are inferred (F40).
@@ -91,9 +93,18 @@ export class LyricsPage extends FastLayout {
     this.empty = ctx.inflater.inflate('item_empty_lyrics_with_config', null)[0];
     this.adopt(this.empty);
     this.empty.visibility = GONE;
-    // The empty page's settings button opens the Lyrics settings.
+    // The empty page's settings button opens the Lyrics settings; its search
+    // button the lyrics dialog for the track (fp0: cmd_data_lyrics).
     ctx.bus.subscribe('list', msg => {
       if (msg === 'cmd_list_empty_dialog' && this.visibility !== GONE) ctx.settingsUi?.open('ui_lyrics');
+    });
+    const search = this.empty.findViewById?.('search_button');
+    if (search) {
+      search.clickable = true;
+      search.onClick = () => { if (this.track) ctx.bus.post('bus_data_cmd', 'cmd_data_lyrics', this, {track: this.track}); };
+    }
+    ctx.bus.subscribe('bus_app', (msg, src, d) => {
+      if (msg === 'msg_app_setting_changed' && (d?.key === 'list_zoom_lyrics' || d?.key === 'lyrics_plugin') && this.visibility !== GONE) this.requestLayout();
     });
     ctx.bus.subscribe('bus_player', msg => {
       if (msg === 'msg_player_track_changed' && this.visibility !== GONE) this.setTrack(ctx.player.track);
@@ -155,9 +166,26 @@ export class LyricsPage extends FastLayout {
     return +(this.ctx.settings?.lyrics_offset ?? 0) || 0;
   }
 
+  /** The lyrics size (ji1 zoom level): -1 small, 0 default, 1 large. */
+  get zoom() {
+    return Math.max(-1, Math.min(1, +this.ctx.pref('list_zoom_lyrics') || 0));
+  }
+
+  /** The line's scene for the lyrics size (ap0: f2351, h0()). */
   sceneFor(i) {
-    if (!this.lyrics?.synced) return 'scene_unsync';
-    return i === this.active ? 'scene_active' : 'defaultScene';
+    const z = this.zoom;
+    if (!this.lyrics?.synced) return z > 0 ? 'scene_unsync_zoomed' : z < 0 ? 'scene_unsync_small' : 'scene_unsync';
+    if (i === this.active) return z > 0 ? 'scene_zoomed_active' : z < 0 ? 'scene_small_active' : 'scene_active';
+    return z > 0 ? 'scene_zoomed' : z < 0 ? 'scene_small' : 'defaultScene';
+  }
+
+  /** Pinch (the list zoom of the lyrics entity): a step to the next size, kept as list_zoom_lyrics. */
+  stepZoom(dir) {
+    const next = this.zoom + dir;
+    if (next < -1 || next > 1) return false;
+    this.ctx.settingsUi?.setPref('list_zoom_lyrics', String(next));
+    this.requestLayout();
+    return true;
   }
 
   tick() {
@@ -199,7 +227,7 @@ export class LyricsPage extends FastLayout {
     if (this.empty.visibility !== GONE) {
       this.empty.measure(MeasureSpec.make(w, MeasureSpec.EXACTLY), MeasureSpec.make(Math.max(0, this.height - hh), MeasureSpec.EXACTLY));
       this.empty.layout(0, 0, w, this.empty.measuredHeight);
-      this.empty.scenes?.go('scene_empty_no_button', {duration: 0});
+      this.empty.scenes?.go(+this.ctx.pref('lyrics_plugin') === -1 ? 'scene_empty_no_button' : 'scene_empty', {duration: 0});
       this.empty.translationY = hh;
     }
     // Keep the active line in view (about a third down the lines area) unless the user scrolled.

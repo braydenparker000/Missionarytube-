@@ -46,6 +46,7 @@ export function r2Tracks(data, url = R2_LIBRARY_URL) {
       replayGain: m.rgTrack != null ? {track: m.rgTrack, album: m.rgAlbum, trackPeak: m.rgTrackPeak, albumPeak: m.rgAlbumPeak} : null,
       opusHeadGainDb: m.opusHeadGainDb ?? null,
     };
+    if (/^video\//.test(t.mimeType || '') || m.video) rec.video = true;
     // Pre-generated seek-bar waveforms: inline in the index (metadata.waveform),
     // or a DCW1 file at <base>/waveform/<id> when it marks waveformVersion 1.
     // Inline base64 waveforms stay compact on the record and decode when the

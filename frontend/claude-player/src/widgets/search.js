@@ -9,16 +9,23 @@ import {register} from '../view/inflater.js';
 import {StyledAttributes, colorForState} from '../res/resources.js';
 import {colorToCss, GONE, VISIBLE} from '../res/values.js';
 import {cssFontFamily} from '../fonts.js';
+import {RECALC_NONE} from '../view/scene.js';
+import {VelocityTracker, Fling, TOUCH_SLOP_DP, MIN_FLING_DP, MAX_FLING_DP} from '../gesture.js';
 
-/** Search categories (chips): all, then the library's searchable categories. */
+// The searched categories (jj1.v1 order) after "All"; the chip titles are
+// the categories' names.
 export const SEARCH_CATS = [
   {kind: 'all', title: 'select_all_short'},
-  {kind: 'songs', title: 'songs'},
   {kind: 'albums', title: 'albums'},
   {kind: 'artists', title: 'artists'},
-  {kind: 'genres', title: 'genres'},
+  {kind: 'albumArtists', title: 'album_artists'},
   {kind: 'folders', title: 'folders'},
+  {kind: 'genres', title: 'genres'},
+  {kind: 'years', title: 'years'},
   {kind: 'composers', title: 'composers'},
+  {kind: 'playlists', title: 'playlists'},
+  {kind: 'songs', title: 'all_songs'},
+  {kind: 'streams', title: 'streams'},
 ];
 
 export class ListSearchEditText extends FastTextView {
@@ -101,6 +108,23 @@ export class ListSearchEditText extends FastTextView {
  * shows checked while every bit is set.
  */
 export const SEARCH_ALL = (1 << (SEARCH_CATS.length - 1)) - 1;
+const MASK_STORE = 'cp-search-mask';
+
+/** The searched categories (z30 search categories; persisted, all by default). */
+export function searchMask() {
+  try {
+    const v = localStorage.getItem(MASK_STORE);
+    if (v !== null && /^\d+$/.test(v)) return +v & SEARCH_ALL;
+  } catch { /* storage unavailable */ }
+  return SEARCH_ALL;
+}
+
+/** Sets the searched categories: saved, the chips follow and the results re-run. */
+export function setSearchMask(ctx, mask) {
+  try { localStorage.setItem(MASK_STORE, String(mask)); } catch { /* storage unavailable */ }
+  if (ctx.searchCats && ctx.searchCats.mask !== mask) ctx.searchCats.setMask(mask, false);
+  ctx.bus.post('list', 'cmd_list_search_cat', ctx.searchCats ?? null, {mask});
+}
 
 export class ListSearchCatsLayout extends FastLayout {
   constructor(ctx, a) {
@@ -121,7 +145,9 @@ export class ListSearchCatsLayout extends FastLayout {
       this.addView(b);
       return b;
     });
-    this.setMask(SEARCH_ALL, false);
+    this.mask = -1;
+    this.setMask(searchMask(), false);
+    ctx.searchCats = this;
     // The layout starts gone; entering search shows it and makes its
     // scene_search record visible (x1(); targeted searches are not built).
     this.visibility = GONE;
@@ -133,9 +159,68 @@ export class ListSearchCatsLayout extends FastLayout {
       const rec = this.sceneParams?.get('scene_search');
       if (rec) { rec.visibility = VISIBLE; rec.alpha = 1; }
       // The running scene change already took the old record: retarget it.
+      // Its target frame was taken while the layout was gone (0 × 0), so the
+      // change leaves the frame to the layout pass.
       const it = ctx.topNav?.scenes.items.find(x => x.view === this);
-      if (it) { it.toVisibility = VISIBLE; it.toAlpha = 1; it.fade = true; it.fromAlpha = 0; }
-      this.parent?.requestLayout();
+      if (it) { it.toVisibility = VISIBLE; it.toAlpha = 1; it.fade = true; it.fromAlpha = 0; it.recalc = RECALC_NONE; }
+      this.requestLayout();
+    });
+  }
+
+  // The row scrolls sideways when the chips pass its width (im0's b82
+  // scroller): a horizontal drag scrolls it, a fast release flings it, and
+  // the ends clamp. The stretch overscroll is not drawn.
+  onLayout(changed, l, t, r, b) {
+    super.onLayout(changed, l, t, r, b);
+    let extent = 0;
+    for (const c of this.children) if (c.visibility !== GONE) extent = Math.max(extent, c.right + (c.lp?.rightMargin ?? 0));
+    this.chipsExtent = extent + this.paddingRight;
+    const sx = Math.min(this.scrollX ?? 0, this.maxScrollX);
+    this.scrollX = sx;
+    if (sx) for (const c of this.children) c.layout(c.left - sx, c.top, c.right - sx, c.bottom);
+  }
+
+  get maxScrollX() { return Math.max(0, (this.chipsExtent ?? 0) - this.width); }
+
+  setScrollX(x) {
+    const v = Math.max(0, Math.min(this.maxScrollX, x));
+    if (v === (this.scrollX ?? 0)) return false;
+    this.scrollX = v;
+    this.requestLayout();
+    return true;
+  }
+
+  onInterceptStart(start, now) {
+    if (!this.maxScrollX || Math.abs(now.rootX - start.rootX) <= Math.abs(now.rootY - start.rootY)) return false;
+    this._fling?.();
+    this._fling = null;
+    const vt = new VelocityTracker();
+    vt.add(start.time, start.rootX, start.rootY);
+    this.hScroll = {x: start.rootX + Math.sign(now.rootX - start.rootX) * TOUCH_SLOP_DP * this.ctx.dpr, scroll: this.scrollX ?? 0, vt};
+    return true;
+  }
+
+  onPointerMove(e) {
+    const h = this.hScroll;
+    if (!h) return;
+    h.vt.add(e.time, e.rootX, e.rootY);
+    this.setScrollX(h.scroll - (e.rootX - h.x));
+  }
+
+  onPointerUp(e) {
+    const h = this.hScroll;
+    this.hScroll = null;
+    if (!h || e?.cancelled) return;
+    h.vt.up(e.time);
+    const v = -h.vt.compute(MAX_FLING_DP * this.ctx.dpr).vx;
+    if (Math.abs(v) < MIN_FLING_DP * this.ctx.dpr) return;
+    const f = new Fling(v);
+    let last = performance.now();
+    this._fling = this.ctx.onFrame(now => {
+      const dt = Math.min(0.048, (now - last) / 1000);
+      last = now;
+      const moved = this.setScrollX((this.scrollX ?? 0) + f.step(dt));
+      return moved && !f.done;
     });
   }
 
@@ -147,7 +232,7 @@ export class ListSearchCatsLayout extends FastLayout {
       b.setChecked(on);
       b.setActivated(on);
     }
-    if (notify && changed) this.ctx.bus.post('list', 'cmd_list_search_cat', this, {mask});
+    if (notify && changed) setSearchMask(this.ctx, mask);
   }
 }
 
@@ -178,5 +263,5 @@ export class EditTextView extends ListSearchEditText {
 }
 
 register(['ListSearchEditText'], ListSearchEditText);
-register(['EditText', 'AppCompatEditText'], EditTextView);
+register(['EditText', 'AppCompatEditText', 'AutoCompleteTextView', 'LocalListSearchEditText'], EditTextView);
 register(['ListSearchCatsLayout'], ListSearchCatsLayout);
