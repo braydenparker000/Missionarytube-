@@ -189,6 +189,19 @@ export class EqPresets {
     else this.changed();
   }
 
+  /**
+   * Settings → Restore Equalizer Presets (cmd_dsp_restore_eq_presets): the
+   * built-in presets lose their edits and names; a current built-in preset
+   * loads again.
+   */
+  restoreBuiltIns() {
+    this.data.overrides = {};
+    if (this.data.names) for (const id of Object.keys(this.data.names)) if (id.startsWith('b:')) delete this.data.names[id];
+    this.save();
+    if (this.data.current?.startsWith('b:')) this.apply(this.data.current);
+    else this.changed();
+  }
+
   /** The reference JSON object of a preset. */
   toJson(p) {
     const q = p.params ?? {}, tp = this.ctx.dsp.toneParams();

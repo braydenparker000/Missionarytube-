@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 124 |
-| Settings UI | 110 |
-| Not built | 35 |
+| Built | 126 |
+| Settings UI | 109 |
+| Not built | 34 |
 | No web counterpart | 141 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -125,7 +125,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `_clear_autoeq_known_devices` | RawTextPreference | Settings UI |  |
 | `_presets_to_peq` | RawTextPreference | Settings UI |  |
 | `_import_autoeq` | RawTextPreference | Settings UI |  |
-| `reset_eq_presets` | RawTextPreference | Settings UI |  |
+| `reset_eq_presets` | RawTextPreference | Built | Built-in EQ presets lose their edits and names (F69) |
 
 ## audio_focus
 
@@ -244,7 +244,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `force_audio_on_focus` | MultilineSwitchPreference | No web counterpart | Android audio focus (calls, other apps); the browser arbitrates audio |
 | `mod_gain_mb` | RoundKnobPreference | No web counterpart | Tracker module decoders; the browser cannot decode .mod / .xm / .it |
 | `mod_separation` | RoundKnobPreference | No web counterpart | Tracker module decoders; the browser cannot decode .mod / .xm / .it |
-| `reset_reverb_presets` | Preference | Not built |  |
+| `reset_reverb_presets` | Preference | Built | Restores the eight built-in reverb presets (F69) |
 
 ## buy_methods
 

@@ -117,7 +117,7 @@ export const PREF_STATUS = {
   _clear_autoeq_known_devices: [UI, ''],
   _presets_to_peq: [UI, ''],
   _import_autoeq: [UI, ''],
-  reset_eq_presets: [UI, ''],
+  reset_eq_presets: [BUILT, 'Built-in EQ presets lose their edits and names (F69)'],
   // audio_focus
   resume_after_call: [WEB, ANDROID_FOCUS],
   resume_on_start: [WEB, ANDROID_FOCUS],
@@ -212,7 +212,7 @@ export const PREF_STATUS = {
   force_audio_on_focus: [WEB, ANDROID_FOCUS],
   mod_gain_mb: [WEB, TRACKER],
   mod_separation: [WEB, TRACKER],
-  reset_reverb_presets: [TODO, ''],
+  reset_reverb_presets: [BUILT, 'Restores the eight built-in reverb presets (F69)'],
   // buy_methods
   buy_play_fv: [NA, NO_PURCHASES],
   buy_rustore_fv: [NA, NO_PURCHASES],

@@ -218,6 +218,8 @@ export class DSP {
     if (param === 'dsp_autosave_enabled') return !!P?.autosave;
     if (param === 'dsp_eq_preset_locked') return !!P?.isLocked();
     if (param === 'dsp_eq_preset_rename_allowed') return !!P?.canRename();
+    if (param === 'dsp_reverb_preset_name') return this.ctx.reverbPresets?.current?.name ?? null;
+    if (param === 'dsp_reverb_preset_id') return this.ctx.reverbPresets?.current?.id ?? 0;
     return this.values[param];
   }
 
@@ -227,6 +229,8 @@ export class DSP {
     if (param === 'dsp_eq_preset_locked') { P?.setLocked(value); return; }
     if (this.values[param] === value) return;
     this.values[param] = value;
+    // A reverb parameter edit leaves the reverb preset (mo368).
+    if (param.startsWith('dsp_reverb_param')) this.ctx.reverbPresets?.edited();
     // Preamp and tone are part of the preset: an edit goes through the store.
     if ((param === 'dsp_preamp' || param === 'dsp_bass_gain' || param === 'dsp_treble_gain' || param === 'dsp_tone_enabled') && this.values.dsp_eq_preset_name && !P?.edited()) this.values.dsp_eq_preset_name = null;
     this.save();
@@ -281,6 +285,8 @@ export class DSP {
       const rate = tempoRate(this.values.dsp_tempo) + (d?.arg1 === 1 ? 0.05 : -0.05);
       const r = Math.max(0.5, Math.min(3, rate));
       this.set('dsp_tempo', r <= 1 ? r - 0.5 : 0.5 + (r - 1) / 4);
+    } else if (msg === 'cmd_dsp_set_reverb_preset') {
+      this.ctx.reverbPresets?.applyPreset(d?.id);
     } else if (msg === 'cmd_dsp_eq_preset_restore') {
       this.ctx.eqPresets?.restore();
     } else if (msg === 'cmd_dsp_reset_eq') {

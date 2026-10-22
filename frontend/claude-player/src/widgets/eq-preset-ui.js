@@ -4,6 +4,7 @@
 import {openDialog, editNameDialog} from './dialog.js';
 import {GONE} from '../res/values.js';
 import {EqPresets} from '../dsp/eq-presets.js';
+import {ReverbPresets} from '../dsp/reverb-presets.js';
 
 const str = (ctx, k, f = k) => ctx.res.stringByName(k) ?? f;
 
@@ -42,6 +43,40 @@ export function openSavePresetDialog(ctx) {
   return d;
 }
 
+/**
+ * Save Reverb Preset (AddReverbPresetActivity, dialog_content_add_reverb_preset):
+ * the current preset's name prefilled, existing names suggested.
+ */
+export function openSaveReverbPresetDialog(ctx) {
+  const R = ctx.reverbPresets;
+  let input = null;
+  const d = openDialog(ctx, {
+    style: 'dialog_AddReverbPresetActivity', title: str(ctx, 'save_preset', 'Save Preset'),
+    buttons: {positive: str(ctx, 'save', 'Save'), negative: str(ctx, 'cancel', 'Cancel')},
+    onButton: which => {
+      if (which !== 1) return true;
+      const v = (input?.value ?? '').trim();
+      if (!v) return false;
+      R.saveAs(v);
+      return true;
+    },
+  });
+  input = d.find('edit_text');
+  if (input?.input) {
+    input.hint = str(ctx, 'preset', 'Preset');
+    input.setValue(R.current?.id ? R.current.name : '');
+    const list = document.createElement('datalist');
+    list.id = 'cp-reverb-preset-names';
+    for (const p of R.all()) { const o = document.createElement('option'); o.value = p.name; list.appendChild(o); }
+    document.getElementById(list.id)?.remove();
+    document.body.appendChild(list);
+    input.input.setAttribute('list', list.id);
+    input.input.addEventListener('keydown', e => { if (e.key === 'Enter') d.find('button1')?.onClick?.(); });
+    setTimeout(() => { input.input.focus({preventScroll: true}); input.input.select(); }, (ctx.res.integer('?animTime', d.theme) ?? 350) + 30);
+  }
+  return d;
+}
+
 /** Picks preset files and imports them. */
 export function importPresetFiles(ctx) {
   const el = document.createElement('input');
@@ -57,6 +92,7 @@ export function importPresetFiles(ctx) {
 
 export function installEqPresets(ctx) {
   const P = new EqPresets(ctx);
+  new ReverbPresets(ctx);
   P.install(msg => {
     const cur = P.current;
     switch (msg) {
@@ -67,6 +103,7 @@ export function installEqPresets(ctx) {
       case 'cmd_data_eq_preset_share': P.share([cur ?? {name: str(ctx, 'preset', 'Preset'), params: P.capture()}]); break;
       case 'cmd_data_eq_preset_export': P.exportFile([cur ?? {name: str(ctx, 'preset', 'Preset'), params: P.capture()}]); break;
       case 'cmd_data_eq_preset_import': importPresetFiles(ctx); break;
+      case 'cmd_data_add_reverb_preset_dialog': if (ctx.reverbPresets) openSaveReverbPresetDialog(ctx); break;
     }
   });
   return P;

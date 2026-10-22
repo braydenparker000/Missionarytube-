@@ -196,8 +196,21 @@ export class PopupLayout extends FastLayout {
     const dur = animTime(this.ctx, this.enterMs / 1000);
     this.setBackgroundLevel(this.popupLevel);
     this.shadeAnim(ph, 1, dur);
-    ph.scenes.go(MENU, {duration: dur});
+    ph.scenes.go(MENU, {duration: dur, onEnd: () => this.openedHint()});
     this.ctx.bus.post('bus_gui', 'msg_popup_opened', this);
+  }
+
+  /**
+   * mr.D1: once the preset list has opened, the first time per list type
+   * (help_once_flags bit helpFlag), a 4 s toast tells that a long press
+   * selects items.
+   */
+  openedHint() {
+    if (!this.helpFlag || !this.isOpen) return;
+    const flags = +(this.ctx.pref('help_once_flags') ?? 0) || 0;
+    if (flags & this.helpFlag) return;
+    this.ctx.settingsUi?.setPref('help_once_flags', String(flags | this.helpFlag), {recreate: false});
+    this.ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: this.ctx.res.stringByName('long_press_item_for_selection') ?? '', icon: '?toast_info', ms: 4000});
   }
 
   /** Content height of the open menu (rows stacked by consumeSpace). */
@@ -353,6 +366,7 @@ export class EqPresetPopupListLayout extends PopupLayout {
     const ls = a.raw('popupListStyle');
     this.listStyle = ls ? a.theme.styleName(ls) : null;
     this.itemSize = a.dim('listItemSize', Math.round(48 * ctx.dpr));
+    this.helpFlag = 1;
     this.query = '';
     this.selection = null;
     this.rowCache = new Map();
@@ -480,8 +494,12 @@ export class EqPresetPopupListLayout extends PopupLayout {
     row.findViewById('title')?.setText(p.name);
     const frs = row.findViewById('frs');
     if (frs) { frs.presetBands = p.params; frs.invalidate?.(); }
-    const sel = row.findViewById('select_box');
-    if (sel) { sel.visibility = this.selection ? VISIBLE : GONE; sel.setChecked?.(!!this.selection?.has(p.id)); }
+    // The select box shows over the art in selection mode (AAItemView).
+    if (row.setSelection) row.setSelection(!!this.selection, !!this.selection?.has(p.id));
+    else {
+      const sel = row.findViewById('select_box');
+      if (sel) { sel.setVisibility(this.selection ? VISIBLE : GONE); sel.setChecked?.(!!this.selection?.has(p.id)); }
+    }
     row.setActivated?.(this.ctx.eqPresets?.data.current === p.id);
     row.onClick = () => {
       if (this.selection) { this.toggle(p.id); return; }
@@ -531,7 +549,132 @@ export class EqPresetPopupListLayout extends PopupLayout {
   }
 }
 
+/**
+ * ReverbPresetPopupListLayout (jk1 rows, notebook F69): the reverb presets
+ * by name as item_popup_simple rows with the reverb icon; the current one
+ * shows checked. A tap applies a preset and closes; a long press selects
+ * presets with Rename (one) and Delete (merge_selection_menu_preset_items).
+ * The label shows the current preset name (defaultTextOnNoState).
+ */
+export class ReverbPresetPopupListLayout extends PopupLayout {
+  constructor(ctx, a) {
+    super(ctx, a);
+    const ls = a.raw('popupListStyle');
+    this.listStyle = ls ? a.theme.styleName(ls) : null;
+    this.itemSize = a.dim('listItemSize', Math.round(48 * ctx.dpr));
+    this.helpFlag = 2;
+    this.selection = null;
+    this.rowCache = new Map();
+    ctx.bus.subscribe('bus_dsp', (msg, src, d) => {
+      if (msg !== 'msg_dsp_reverb_changed' && msg !== 'msg_dsp_started') return;
+      this.syncLabel();
+      if (this.list && !this.closed) this.rebuild();
+    });
+    queueMicrotask(() => this.syncLabel());
+  }
+
+  syncLabel() {
+    const label = this.findViewById('_label');
+    if (!label) return;
+    this._defaultText ??= label.text;
+    const name = this.ctx.dsp?.get('dsp_reverb_preset_name');
+    label.setText(name || this._defaultText);
+  }
+
+  populate() {
+    if (this.list) return;
+    const sa = new (this._attrs.constructor)(this.ctx.res, this.ctx.theme, {}, this.listStyle);
+    this.list = new PopupList(this.ctx, sa);
+    this.list.lp = this.generateLayoutParams(sa);
+    this.addView(this.list);
+    this.hideUntilOpen(this.list);
+    this.selBar = this.makeSelectionBar();
+    this.rebuild();
+  }
+
+  makeSelectionBar() {
+    const ctx = this.ctx;
+    const bar = ctx.inflater.create('FastLayout', ctx.inflater.styledAttributes({'android:layout_width': 'fill_parent', 'android:layout_height': 'wrap_content', 'android:paddingLeft': '8.0dip', 'android:paddingTop': '8.0dip', 'android:paddingBottom': '8.0dip'}), null);
+    ctx.inflater.inflate('merge_selection_menu_preset_items', bar);
+    bar.popupRowHeight = -1;
+    const R = () => ctx.reverbPresets;
+    const done = () => { this.selection = null; this.rebuild(); };
+    for (const b of bar.children) {
+      const act = {
+        cmd_list_rename_dialog: () => {
+          const p = R().get([...(this.selection ?? [])][0]);
+          if (p) import('./dialog.js').then(m => m.editNameDialog(ctx, {title: ctx.res.stringByName('rename') ?? 'Rename', value: p.name, onDone: name => R().rename(p.id, name)}));
+          done();
+        },
+        cmd_list_delete: () => { R().remove([...(this.selection ?? [])]); done(); },
+      }[b.msgId];
+      if (act) b.onClick = act; else b.setVisibility(GONE);
+    }
+    return bar;
+  }
+
+  presetRow(p) {
+    let row = this.rowCache.get(p.id);
+    if (!row) {
+      row = this.ctx.inflater.inflate('item_popup_simple', null)[0];
+      const icon = row.findViewById('aa_image');
+      const d = this.ctx.drawables.fromValue?.('?reverb_24dp', this.ctx.theme);
+      if (icon && d) icon.setDrawable?.(d);
+      row.clickable = true;
+      row.longClickable = true;
+      this.rowCache.set(p.id, row);
+    }
+    row.findViewById('title')?.setText(p.name);
+    // The select box shows over the art in selection mode (AAItemView).
+    if (row.setSelection) row.setSelection(!!this.selection, !!this.selection?.has(p.id));
+    else {
+      const sel = row.findViewById('select_box');
+      if (sel) { sel.setVisibility(this.selection ? VISIBLE : GONE); sel.setChecked?.(!!this.selection?.has(p.id)); }
+    }
+    row.setActivated?.(this.ctx.reverbPresets?.current?.id === p.id);
+    row.onClick = () => {
+      if (this.selection) { this.toggle(p.id); return; }
+      this.ctx.bus.post('bus_dsp_cmd', 'cmd_dsp_set_reverb_preset', this, {id: p.id});
+      this.close();
+    };
+    row.onLongClick = () => { if (!this.selection) this.selection = new Set(); this.toggle(p.id); return true; };
+    return row;
+  }
+
+  toggle(id) {
+    const s = this.selection;
+    if (s.has(id)) s.delete(id); else s.add(id);
+    if (!s.size) this.selection = null;
+    this.rebuild();
+  }
+
+  rebuild() {
+    if (!this.list) return;
+    const rows = [];
+    if (this.selection) {
+      for (const b of this.selBar.children) if (b.msgId === 'cmd_list_rename_dialog') b.setEnabled?.(this.selection.size === 1);
+      rows.push(this.selBar);
+    }
+    for (const p of this.ctx.reverbPresets?.all() ?? []) rows.push(this.presetRow(p));
+    const y = this.list.scrollY;
+    this.list.setRows(rows, this.itemSize);
+    this.list.scrollY = y;
+  }
+
+  onOpen() {
+    this.closed = false;
+    this.rebuild();
+  }
+
+  onClosed() {
+    this.closed = true;
+    this.selection = null;
+    super.onClosed?.();
+  }
+}
+
 register(['MenuPlaceholderLayout'], MenuPlaceholderLayout);
-register(['BusActionPopupLayout', 'ReverbPresetPopupListLayout'], PopupLayout);
+register(['BusActionPopupLayout'], PopupLayout);
+register(['ReverbPresetPopupListLayout'], ReverbPresetPopupListLayout);
 register(['EqPresetPopupListLayout'], EqPresetPopupListLayout);
 register(['EqPresetSearchCatsLayout'], FastLayout);

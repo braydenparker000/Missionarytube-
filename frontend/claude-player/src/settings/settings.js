@@ -709,6 +709,15 @@ export class Settings {
         break;
       }
     }
+    // Restore actions (yp1.J / wr1): a confirmation, then "Done".
+    const restore = {
+      reset_eq_presets: () => this.ctx.eqPresets?.restoreBuiltIns(),
+      reset_reverb_presets: () => this.ctx.reverbPresets?.restoreBuiltIns(),
+    }[key];
+    if (restore) {
+      row.classList.add('cps-clickable');
+      row.addEventListener('click', () => this.confirm(this.str(attr(node, 'title')), this.str(attr(node, 'summary') ?? attr(node, 'line1')), () => { restore(); this.toast(this.str('@string/done')); }));
+    }
     if (lines) summaryEl.appendChild(lines);
     else if (summary) this.appendRich(summaryEl, this.rawStr(summary));
     if (!summaryEl.textContent && !summaryEl.querySelector('.cps-inline-icon')) summaryEl.remove();

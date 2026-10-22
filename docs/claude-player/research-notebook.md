@@ -1197,6 +1197,37 @@ shelves' frequency and Q in the JSON are the Tone settings, F68.)
 (f) `dsp/eq-presets.js`, `widgets/eq-preset-ui.js`, `EqPresetPopupListLayout` in
 `widgets/popup.js`, `PopupList` row heights, the DSP's preset hooks (`get` / `set` / `setBand`).
 
+### F69 — Reverb presets — `CONFIRMED_STATIC`
+
+(a) S1 `ReverbPresetPopupListLayout`, `jk1`, `cd`, `mr` (`D1`, `W1`), `uh.j` (built-in seeds),
+`gj1` (`ORDER BY name`), `ReverbPluginService` (`O`, `mo368`, `m391`), `AddReverbPresetActivity`,
+`dialog_content_add_reverb_preset`, `merge_selection_menu_preset_items`, `wr1` / `yp1`
+(Restore Reverb Presets), `yp1.J` / `x8` case 5 (Restore Equalizer Presets), `c40.I`
+(`help_once_flags`).
+
+(c) **Presets:**
+- Eight built-ins (`reverb_preset_labels`, ids 1000 down to 993) carry "1=…;…;8=…;" parameter strings.
+  Parameter 8 is always 1.0 and has no knob here.
+- The Preset button opens them by name as `item_popup_simple` rows with the reverb icon; the current
+  one shows checked.
+- A tap applies a preset (`cmd_dsp_set_reverb_preset`) and closes the popup; the button shows its
+  name. Any knob edit leaves the preset (the label returns to "Preset").
+- A long press selects presets for Rename (one preset) and Delete; built-ins can be deleted too.
+- The first time each preset list (EQ bit 1, reverb bit 2) finishes opening, a 4 s toast says a long
+  press selects items.
+
+**Save** (`cmd_data_add_reverb_preset_dialog`, the tab's Save button):
+- The current preset's name is prefilled and existing names are suggested.
+- With a current preset (id ≠ 0) Save updates that preset's name and data; otherwise it adds one.
+- The values then apply under the typed name with id 0, as the bytecode does, so the saved row is
+  not checked until it is picked.
+
+**Settings:**
+- Restore Reverb Presets deletes ids ≤ 1000 and seeds the built-ins again; user presets stay.
+- Restore Equalizer Presets drops the built-in presets' edits and names and reloads a current
+  built-in.
+- Both confirm first and show "Done".
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1283,6 +1314,7 @@ No status is device-verified.
 | F66 playlist re-sort / files | Built | Import picks files (web) |
 | F67 EQ presets | Partial | Assignment, AutoEq, parametric not built |
 | F68 EQ knob values, Tone / band settings, settings rows | Built | Band frequencies for non-ISO counts and resampling inferred; dsp_border_gain native |
+| F69 Reverb presets | Built | Parameter 8 kept at 1.0 without a knob |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact
