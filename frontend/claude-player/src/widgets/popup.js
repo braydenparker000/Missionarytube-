@@ -54,6 +54,8 @@ export class MenuPlaceholderLayout extends SceneFastLayout {
 
 /** Base popup button layout (BusActionPopupLayout and the preset list buttons). */
 export class PopupLayout extends FastLayout {
+  static toasted = new Set();
+
   constructor(ctx, a) {
     super(ctx, a);
     this.enterMs = a.int('popupEnterAnimTime', 350);
@@ -68,6 +70,7 @@ export class PopupLayout extends FastLayout {
     this.busId = idOf(a.raw('busId'));
     this.msgId = idOf(a.raw('msgId'));
     this.clickable = true;
+    this.firstPressToast = a.string('firstPressToast', null);
     this.isOpen = false;
     this.itemsInflated = false;
     this.popupLevel = ctx.res.integer('@integer/ITEM_BG_LEVEL_POPUP', ctx.theme) ?? 1;
@@ -85,7 +88,22 @@ export class PopupLayout extends FastLayout {
   onClick() {
     if (this.isOpen) return;
     if (this.openOnClick) this.open();
-    else if (this.msgId) this.ctx.bus.post(this.busId, this.msgId, this);
+    else if (this.msgId) {
+      this.ctx.bus.post(this.busId, this.msgId, this);
+      // firstPressToast: the first press of a command-first popup button
+      // tells how to reach the menu (once per session; inferred).
+      if (this.firstPressToast && !PopupLayout.toasted.has(this.firstPressToast)) {
+        PopupLayout.toasted.add(this.firstPressToast);
+        this.ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: this.firstPressToast});
+      }
+    }
+  }
+
+  /** A command-first popup button opens its menu on a long press. */
+  onLongClick() {
+    if (this.openOnClick || !this.menuItemsLayout || this.isOpen) return false;
+    this.open();
+    return true;
   }
 
   /** Subclass hook: content for the open menu (called once before the first open). */

@@ -3,7 +3,7 @@
 // bus_player_cmd carries commands in; bus_player carries state changes out.
 
 // Reference mode enums (integers SHUFFLE_* / REPEAT_*).
-export const SHUFFLE_NONE = 0;
+export const SHUFFLE_NONE = 0, SHUFFLE_ALL = 1;
 export const REPEAT_NONE = 0, REPEAT_ON = 1, REPEAT_ADVANCE = 2, REPEAT_SONG = 3, SINGLE_SONG = 4, REPEAT_ADVANCE_AND_STOP = 5;
 export const STATE_STOPPED = 0, STATE_PLAYING = 1, STATE_PAUSED = 2;
 
@@ -68,9 +68,59 @@ export class Player {
     return this.override ?? this.queue[this.index] ?? null;
   }
 
-  /** Repeat modes that wrap the list (repeat on, advance categories). */
+  /**
+   * Repeat modes that wrap the list: repeat on, and advance when there is no
+   * category to advance to (the reference's next(): a plain files list).
+   */
   get wraps() {
-    return this.repeat === REPEAT_ON || this.repeat === REPEAT_ADVANCE;
+    return this.repeat === REPEAT_ON || (this.repeat === REPEAT_ADVANCE && !this.category);
+  }
+
+  /** Category navigation: a queue from a category's list, not in shuffle-all mode. */
+  get categoryNavigable() {
+    return !!this.category && this.shuffle !== SHUFFLE_ALL;
+  }
+
+  /** Title of the category rel steps away (wrapping), or null. */
+  categoryTitle(rel) {
+    const c = this.category;
+    if (!this.categoryNavigable) return null;
+    const n = c.source.count;
+    if (n < 2 && rel !== 0) return null;
+    const i = ((c.index + rel) % n + n) % n;
+    return c.source.groups?.[i]?.title ?? c.source.sectionTitle?.(i) ?? null;
+  }
+
+  /**
+   * Plays the next category's first track (nextCategory): wraps to the first
+   * category when wrap and there are at least two; returns false at the end.
+   */
+  nextCategory(wrap = true) {
+    const c = this.category;
+    if (!this.categoryNavigable) return false;
+    const n = c.source.count;
+    let i = c.index + 1;
+    if (i >= n) { if (!wrap || n <= 1) return false; i = 0; }
+    return this.loadCategory(i, false);
+  }
+
+  /** Plays the previous category (prevCategory, always wrapping), from its last track when last. */
+  prevCategory(last = false) {
+    const c = this.category;
+    if (!this.categoryNavigable) return false;
+    const n = c.source.count;
+    if (n <= 0) return false;
+    const i = c.index > 0 ? c.index - 1 : n - 1;
+    return this.loadCategory(i, last);
+  }
+
+  loadCategory(i, last) {
+    const c = this.category, tracks = c.source.tracksAt(i);
+    if (!tracks?.length) return false;
+    const playing = this.state === STATE_PLAYING;
+    this.setQueue(tracks, last ? tracks.length - 1 : 0, {source: c.source, index: i});
+    if (playing) this.play();
+    return true;
   }
 
   /** Play order: the queue order, or a permutation when shuffling (current track first). */
@@ -91,33 +141,46 @@ export class Player {
   }
 
   /** Queue index rel steps away in play order (null past the ends unless wrapping). */
-  indexAt(rel) {
+  indexAt(rel, wrap = this.wraps) {
     const n = this.queue.length;
     if (!n) return null;
     this.ensureOrder();
     const pos = this.order.indexOf(this.index) + rel;
-    if (pos < 0 || pos >= n) return this.wraps && n > 1 ? this.order[(pos % n + n) % n] : null;
+    if (pos < 0 || pos >= n) return wrap && n > 1 ? this.order[(pos % n + n) % n] : null;
     return this.order[pos];
   }
 
-  /** Track rel steps away in play order: queued tracks come right after the current one. */
-  trackAt(rel) {
+  /**
+   * Track rel steps away in play order: queued tracks come right after the
+   * current one. The pagers ask with list = true: the list's own neighbours,
+   * which do not wrap (the reference's art and mini player pages end at the
+   * list's ends whatever the repeat mode).
+   */
+  trackAt(rel, list = false) {
     if (rel === 0) return this.track;
+    const wrap = list ? false : this.wraps;
     const at = i => (i === null ? null : this.queue[i] ?? null);
     if (rel > 0) {
       if (rel <= this.userQueue.length) return this.userQueue[rel - 1];
-      return at(this.indexAt(rel - this.userQueue.length));
+      return at(this.indexAt(rel - this.userQueue.length, wrap));
     }
     // While a queued track plays, the list's current track is the previous one.
-    return this.override ? at(this.indexAt(rel + 1)) : at(this.indexAt(rel));
+    return this.override ? at(this.indexAt(rel + 1, wrap)) : at(this.indexAt(rel, wrap));
   }
 
   post(msg, data) {
     this.ctx.bus.post('bus_player', msg, this, data);
   }
 
-  setQueue(tracks, index = 0) {
+  /**
+   * Sets the play queue. category is the list of categories the tracks came
+   * from ({source, index}: a library list with tracksAt(i) and titles) for
+   * category navigation, or null.
+   */
+  setQueue(tracks, index = 0, category = null) {
     this.queue = tracks;
+    this.category = category;
+    this.post('msg_player_category_changed');
     this.order = null;
     this.override = null;
     this.load(Math.max(0, Math.min(index, tracks.length - 1)), false);
@@ -244,6 +307,9 @@ export class Player {
     if (this.override) { this.load(dir > 0 ? (this.indexAt(1) ?? this.index) : this.index, playing); return; }
     if (!this.queue.length) return;
     let i = this.indexAt(dir);
+    // Past the ends of a category's list: the next category's first track, or
+    // the previous category's last one (the reference's next() / prev()).
+    if (i === null && (dir > 0 ? this.nextCategory(this.repeat !== REPEAT_ADVANCE_AND_STOP) : this.prevCategory(true))) return;
     if (i === null) i = this.indexAt(0);
     this.load(i, playing);
   }
@@ -259,6 +325,9 @@ export class Player {
       return;
     }
     if (this.repeat === REPEAT_SONG) { this.seek(0); return; }
+    // Advance modes go on to the next category at the end of the list.
+    if (this.indexAt(1) === null && !this.userQueue.length && !this.override && (this.repeat === REPEAT_ADVANCE || this.repeat === REPEAT_ADVANCE_AND_STOP)
+      && this.nextCategory(this.repeat !== REPEAT_ADVANCE_AND_STOP)) return;
     // Single song: play one and pause; otherwise stop at the end unless the mode wraps.
     if (this.repeat === SINGLE_SONG || (this.indexAt(1) === null && !this.userQueue.length && !this.override)) {
       this.pause();
@@ -284,6 +353,8 @@ export class Player {
         // Provisional: restart the track when past 3 s (the reference rule is not verified yet).
         if (this.positionMs() > 3000) this.seek(0); else this.step(-1);
         break;
+      case 'cmd_player_play_next_category': this.nextCategory(true); break;
+      case 'cmd_player_play_prev_category': this.prevCategory(false); break;
       case 'cmd_player_seek': this.seek(d.arg1 ?? 0); break;
       case 'cmd_player_seek_jump': this.seek(this.positionMs() + (d.arg1 ? 10000 : -10000)); break;
       case 'cmd_player_set_shuffle': this.shuffle = d.arg1 ?? 0; this.order = null; this.post('msg_player_shuffle_mode_changed', {arg1: this.shuffle}); break;

@@ -13,14 +13,14 @@ import {StyledAttributes} from '../res/resources.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
-import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource} from './sources.js';
+import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource, groupTracksSource} from './sources.js';
 import {ListTransition, ZOOM, pageFx} from './list-transition.js';
 import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut, elastic} from '../gesture.js';
 import {trackLyrics} from '../library/lrc.js';
 import {openAddToPlaylist} from '../widgets/playlist-dialog.js';
 import {alertDialog, editNameDialog} from '../widgets/dialog.js';
 import {openInfo, openAlbumArt} from '../widgets/info-dialog.js';
-import {openListOptions} from './list-opts.js';
+import {openListOptions, ZOOMS, listOpts, saveListOpts} from './list-opts.js';
 import {LyricsPage} from './lyrics.js';
 import {elevationShadow} from '../view/drawables.js';
 
@@ -353,7 +353,7 @@ export class ListWidget extends FastLayout {
     this.items = new Map(); // rel -> AAItemView
     this.spare = [];
     ctx.bus.subscribe('bus_player', (msg, src, d) => {
-      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed') { this.rebind(); this.requestLayout(); }
+      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed' || msg === 'msg_player_category_changed') { this.rebind(); this.requestLayout(); }
       else if (msg === 'msg_player_playing_state_changed') this.setPlayingMode(d.arg1 === STATE_PLAYING);
     });
     ctx.listWidget = this;
@@ -393,7 +393,7 @@ export class ListWidget extends FastLayout {
     for (const bus of ['list', 'bus_data_cmd']) {
       ctx.bus.subscribe(bus, (msg, src, d) => {
         if (msg === 'cmd_list_search_text') { this.searchQuery = d?.string ?? ''; if (this.searching) this.showSearch(); }
-        else if (msg === 'cmd_list_search_cat') { this.searchCat = d?.kind ?? 'all'; if (this.searching) this.showSearch(); }
+        else if (msg === 'cmd_list_search_cat') { this.searchMask = d?.mask ?? -1; if (this.searching) this.showSearch(); }
         else if (current[msg]) this.openCurrent(current[msg]);
         else if (msg === 'cmd_list_play' || msg === 'cmd_list_shuffle') this.playList(msg === 'cmd_list_shuffle');
         else if (msg === 'cmd_list_add_to_pl_dialog') this.addToPlaylist();
@@ -530,7 +530,7 @@ export class ListWidget extends FastLayout {
 
   showSearch() {
     this.searchShown = true;
-    const src = searchSource(this.ctx, this.libList, this.nav, this.searchQuery ?? '', this.searchCat ?? 'all');
+    const src = searchSource(this.ctx, this.libList, this.nav, this.searchQuery ?? '', this.searchMask ?? -1);
     this.searchSrc = src;
     this.libList.setSource(src);
   }
@@ -542,7 +542,8 @@ export class ListWidget extends FastLayout {
     if (!tracks.length) return;
     const p = this.ctx.player;
     this.ctx.bus.post('bus_player_cmd', 'cmd_player_set_shuffle', this, {arg1: shuffle ? 2 : 0});
-    p.setQueue(tracks, shuffle ? Math.floor(Math.random() * tracks.length) : 0);
+    if (src && !this.searching) this.rememberQueueSource(src);
+    p.setQueue(tracks, shuffle ? Math.floor(Math.random() * tracks.length) : 0, src && !this.searching ? this.categoryFor(src) : null);
     p.play();
     if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
   }
@@ -564,10 +565,14 @@ export class ListWidget extends FastLayout {
   open(src) {
     const prev = this.stack[this.stack.length - 1];
     const shown = this.mode === 'list' && !this.trans && prev && this.libList.source === prev && this.width > 0;
+    // The tapped item (its rect now) leads the item-to-header morph.
+    const from = shown ? this.libList.lastClicked : undefined;
+    const rect = from >= 0 ? this.libList.itemRect(from) : null;
+    src.openedFrom = from;
     if (prev) prev.savedScroll = this.libList.scrollY;
     this.stack.push(src);
     this.libList.setSource(src);
-    if (shown) this.levelTransition(prev, prev.savedScroll, false);
+    if (shown) this.levelTransition(prev, prev.savedScroll, false, rect);
     if (this.stack.length > 1) history.pushState({cpList: this.stack.length}, '');
   }
 
@@ -580,33 +585,80 @@ export class ListWidget extends FastLayout {
     const top = this.stack[this.stack.length - 1];
     this.libList.setSource(top);
     this.libList.scrollTo(top.savedScroll ?? 0);
-    this.levelTransition(leaving, scroll, true);
+    this.levelTransition(leaving, scroll, true, leaving.openedFrom >= 0 ? this.libList.itemRect(leaving.openedFrom) : null);
     return true;
   }
 
   /**
-   * Library level change by a tap or Back (generic pivot transitions over
-   * pageAnimTime): the leaving level zooms up and fades while the new one
-   * grows in from half size; going back runs the reverse zooms.
+   * Library level change by a tap or Back over pageAnimTime (F48). With the
+   * item that opened the level (rect, in list coordinates) the item-to-header
+   * / header-to-item morph runs: the parent level magnifies by
+   * max(2, W / (x + w)) with the item's top led to the list top, while the
+   * child level maps into the item's rect (x, y, 2x + w, 2y + h) by a page
+   * scale j (rect height / H, or rect width / W on a wide list) and fades;
+   * forward the parent leaves magnifying and the child grows out of the item,
+   * Back reverses both. Without an item the generic pivot zooms run.
    */
-  levelTransition(leavingSrc, scroll, back) {
+  levelTransition(leavingSrc, scroll, back, rect = null) {
     if (this.searching || this.libList.visibility === GONE) return;
     const ghost = this.ghostList(leavingSrc, scroll);
-    const leaveR = back ? ZOOM.list.enter : ZOOM.list.leave, enterR = back ? ZOOM.list.leave : ZOOM.list.enter;
+    let leave, enter;
+    if (rect) {
+      const mag = {kind: 'mag', y: rect.top, f2: Math.max(2, this.libList.width / Math.max(1, rect.left + rect.width))};
+      const into = list => ({kind: 'rect', rect, top: list.contentTop()});
+      leave = back ? into(ghost) : mag;
+      enter = back ? mag : into(this.libList);
+    } else {
+      leave = {kind: 'zoom', R: back ? ZOOM.list.enter : ZOOM.list.leave};
+      enter = {kind: 'zoom', R: back ? ZOOM.list.leave : ZOOM.list.enter};
+    }
     const trans = new ListTransition(this.ctx, {
       render: p => {
-        this.pageFx('list', ghost, p, leaveR, null);
-        this.pageFx('list', this.libList, 1 - p, enterR, null);
+        this.pageMorph(ghost, p, leave);
+        this.pageMorph(this.libList, 1 - p, enter);
       },
       finish: () => {
         ghost.visibility = GONE;
-        this.pageFx('list', this.libList, 0, 1, null);
+        this.pageMorph(this.libList, 0, null);
         this.trans = null;
       },
     });
     this.trans = trans;
     trans.setProgress(0);
     trans.run(this.pageTime('pageAnimTime'));
+  }
+
+  /**
+   * A list page at distance f from shown: a zoom about its pivot ({kind:
+   * 'zoom', R, pivot}), the magnified parent ({kind: 'mag', y, f2}) or the
+   * page mapped into an item rect ({kind: 'rect', rect, top}: the list's
+   * content top is the page origin). Alpha is 1 - f.
+   */
+  pageMorph(view, f, m) {
+    if (!m || m.kind === 'zoom' || f <= 0) {
+      view.translationX = view.translationY = 0;
+      this.pageFx('list', view, f, m?.R ?? 1, m?.pivot ?? null);
+      return;
+    }
+    const W = view.width || 1, H = view.height || 1;
+    let s, tx, ty;
+    if (m.kind === 'mag') {
+      s = 1 + (m.f2 - 1) * f;
+      tx = 0;
+      ty = -m.y * m.f2 * f;
+    } else {
+      const R = m.rect, rw = R.left + R.width, rh = R.top + R.height;
+      const j = H <= W || rw >= W ? rh / H : rw / W;
+      s = 1 + (j - 1) * f;
+      tx = R.left * f;
+      ty = (R.top - m.top * j) * f;
+    }
+    view.pivotX = view.pivotY = 0;
+    view.scaleX = view.scaleY = s;
+    view.translationX = tx;
+    view.translationY = ty;
+    view.alpha = 1 - f;
+    view.invalidate();
   }
 
   /**
@@ -700,13 +752,68 @@ export class ListWidget extends FastLayout {
   rebind() {
     const p = this.ctx.player;
     for (const rel of [-1, 0, 1]) {
-      const t = p?.trackAt(rel) ?? null;
+      const t = p?.trackAt(rel, true) ?? null;
       if (!t && rel !== 0) {
         const v = this.items.get(rel);
         if (v) { this.items.delete(rel); v.visibility = GONE; this.spare.push(v); }
         continue;
       }
       this.itemFor(rel).bind(t);
+    }
+    this.bindDecor();
+  }
+
+  /**
+   * A decor page shows where a track page is missing at a list end, fading in
+   * by its distance from the centre (|w| page widths): opaque within 0.4,
+   * transparent beyond 0.65, linear between (the art layouter's decor rule).
+   */
+  placeDecor() {
+    if (!this.decor) return;
+    const g = this.geometry, p = this.ctx.player;
+    for (const [rel, d] of this.decor) {
+      const missing = this.mode === 'aa' && !this.trans && !p?.trackAt(rel, true) && !!p?.track;
+      const w = Math.abs(g.offset + rel), f2 = 1 - w;
+      const alpha = f2 < 0.35 ? 0 : f2 <= 0.6 ? (f2 - 0.35) / 0.25 : 1;
+      const show = missing && alpha > 0;
+      d.visibility = show ? VISIBLE : GONE;
+      if (!show) continue;
+      const b = g.itemBounds(rel, rel);
+      const bw = b.right - b.left, bh = b.bottom - b.top;
+      d.measure(MeasureSpec.make(bw, MeasureSpec.EXACTLY), MeasureSpec.make(bh, MeasureSpec.EXACTLY));
+      d.layout(0, 0, bw, bh);
+      d.translationX = b.left;
+      d.translationY = b.top;
+      d.scaleX = d.scaleY = b.scale;
+      d.rotationX = b.rotationX;
+      d.rotationY = b.rotationY;
+      d.rotation = b.rotation;
+      d.alpha = alpha;
+      d.invalidate();
+    }
+  }
+
+  /**
+   * Category decor pages past the list's ends (item_aa_le_decor): the
+   * previous or next category's name, else "No previous/next category".
+   */
+  bindDecor() {
+    const p = this.ctx.player, res = this.ctx.res;
+    this.decor ??= new Map();
+    for (const rel of [-1, 1]) {
+      let d = this.decor.get(rel);
+      if (!d) {
+        d = this.ctx.inflater.inflate('item_aa_le_decor', null)[0];
+        d.lp = this.generateLayoutParams(null);
+        d.parent = this;
+        this.children.push(d);
+        this.el.appendChild(d.el);
+        d.visibility = GONE;
+        this.decor.set(rel, d);
+      }
+      const name = p?.categoryTitle(rel);
+      const text = d.children?.[0];
+      text?.setText?.(name ?? res.stringByName(rel < 0 ? 'no_previous_list' : 'no_next_list') ?? '');
     }
   }
 
@@ -805,7 +912,7 @@ export class ListWidget extends FastLayout {
     const toPage = target === 'parent' || target === 'library' ? 'list' : target;
     if (fromPage === toPage && target !== 'parent') return null;
     const saved = {stack: this.stack.slice(), source: this.libList.source, scroll: this.libList.scrollY};
-    let nav = null, ghost = null;
+    let nav = null, ghost = null, enterPivot = null;
     if (target === 'list') {
       if (!this.ctx.player?.track) return null;
       this.stack = this.sourceStack();
@@ -826,6 +933,9 @@ export class ListWidget extends FastLayout {
       ghost = this.ghostList(saved.source, saved.scroll);
       this.libList.setSource(this.stack[this.stack.length - 2]);
       this.libList.scrollTo(this.stack[this.stack.length - 2].savedScroll ?? 0);
+      const r = saved.source?.openedFrom >= 0 ? this.libList.itemRect(saved.source.openedFrom) : null;
+      // The swipe variant zooms the parent from 1.5 about the opening item's bottom edge.
+      if (r) enterPivot = {x: this.libList.width / 2, y: r.top + r.height};
     }
     // Show the entering page under the leaving one.
     if (toPage === 'list') this.libList.visibility = VISIBLE;
@@ -846,7 +956,7 @@ export class ListWidget extends FastLayout {
     const enterView = toPage === 'list' ? this.libList : toPage === 'lyrics' ? this.lyricsPage : null;
     const render = p => {
       this.pageFx(fromPage, leaveView, p, leaveR, leavePivot);
-      this.pageFx(toPage, enterView, 1 - p, enterR, null);
+      this.pageFx(toPage, enterView, 1 - p, enterR, enterPivot);
     };
     const sub = this.substyle;
     const trans = new ListTransition(this.ctx, {
@@ -955,6 +1065,22 @@ export class ListWidget extends FastLayout {
     if (prev && prev !== this.libList.source && !this.searching) this.levelTransition(prev, scroll, false);
   }
 
+  /**
+   * The category a track list belongs to (an entry of the level above it,
+   * e.g. an album of Albums or a playlist of Playlists), for the player's
+   * category navigation; each category's tracks come in its own list order.
+   */
+  categoryFor(src) {
+    const at = this.stack.indexOf(src), parent = this.stack[at - 1];
+    if (at < 1 || !parent?.groups) return null;
+    const g = src.group ?? parent.groups.find(x => x.pl && x.pl === src.playlist);
+    const index = g ? parent.groups.indexOf(g) : -1;
+    if (index < 0) return null;
+    const ctx = this.ctx, list = this.libList, nav = this.nav, groups = parent.groups;
+    const tracksAt = j => (groups[j]?.pl ? playlistSource(ctx, list, nav, groups[j].pl) : groups[j] ? groupTracksSource(ctx, list, nav, groups[j], parent.icon) : null)?.tracks ?? [];
+    return {source: {count: groups.length, groups, tracksAt}, index};
+  }
+
   /** The list a track list played from becomes the playing track's source list. */
   rememberQueueSource(src) {
     this.queueStack = this.stack.includes(src) ? this.stack.slice(0, this.stack.indexOf(src) + 1) : null;
@@ -967,6 +1093,125 @@ export class ListWidget extends FastLayout {
     if (qs?.length && qs[qs.length - 1].tracks?.some(x => x.id === t?.id)) return qs.slice();
     const home = new HomeSource(this.ctx, this.libList, this.nav);
     return [home, allSongsSource(this.ctx, this.libList, this.nav)];
+  }
+
+  /**
+   * Pinch-to-zoom in library lists (the reference's pinch tracking and its
+   * zoom transitions): once the finger distance changes by a touch slop, the
+   * list zooms in (spread) or out to the next "View as" level (k/r: the
+   * neighbouring entry of the level table), progress (d / d0 - 1) * 1.25
+   * from the distance d0 at that moment. Release: a distance rate of 500 dp/s
+   * or more commits when it goes the zoom's way, else past 0.3; the settle
+   * uses pageManualCancelAnimTime either way and a quarter of the rate.
+   * Without a further level the list scales elastically and springs back.
+   */
+  onPinchStart({dist, time}) {
+    if (this.mode !== 'list' || this.searching || this.trans || this.searchShown) return false;
+    const src = this.libList.source;
+    if (!src?.optsKey || !ZOOMS[src.zoomKind]) return false;
+    this.libList.drag = null;
+    this.libList.stopFling();
+    this.pinch = {d0: dist, started: false, vt: new VelocityTracker()};
+    this.pinch.vt.add(time, dist, 0);
+    return true;
+  }
+
+  onPinchMove({dist, time}) {
+    const g = this.pinch;
+    if (!g) return;
+    g.vt.add(time, dist, 0);
+    if (!g.started) {
+      if (Math.abs(dist - g.d0) < TOUCH_SLOP_DP * this.ctx.dpr) return;
+      g.started = true;
+      g.zoomIn = dist > g.d0;
+      g.d0 = Math.max(1, dist);
+      g.trans = this.startZoomTransition(g.zoomIn);
+      return;
+    }
+    const r = dist / g.d0;
+    if (g.trans) g.trans.setProgress((g.zoomIn ? r - 1 : 1 - r) * 1.25);
+    else {
+      // No further level: the list scales elastically (A.B / A.H).
+      const f = -(r - 1) * 1.25;
+      const e = f > 0 ? Math.sqrt(Math.min(1, Math.min(3, f) / 3) * 0.2) * 0.2
+        : f < 0 ? -Math.sqrt(Math.max(0, Math.min(1, (1 - Math.max(0.1, Math.min(1, f + 1))) / 0.9)) * 0.2) * 0.2 : 0;
+      this.libList.scaleX = this.libList.scaleY = 1 - e;
+      this.libList.invalidate();
+    }
+  }
+
+  onPinchEnd({time, cancelled}) {
+    const g = this.pinch;
+    this.pinch = null;
+    if (!g?.started) return;
+    if (!g.trans) { this.springBackScale(this.libList); return; }
+    g.vt.up(time);
+    const v = cancelled ? 0 : g.vt.compute(MAX_FLING_DP * this.ctx.dpr).vx;
+    const t = g.trans, p = t.p, vdp = v / this.ctx.dpr;
+    let commit, rate = 0;
+    if (Math.abs(vdp) >= 500) {
+      const spreading = vdp > 0;
+      commit = spreading === g.zoomIn;
+      rate = (spreading === g.zoomIn ? 1 : -1) * (v / g.d0);
+    } else commit = p > 0.3;
+    if (commit ? p > 0.8 : p < 0.2) rate = 0;
+    t.settle(commit, rate / 4, t.cancelTime);
+  }
+
+  /** Zoom transition to the next "View as" level, or null at the table's end. */
+  startZoomTransition(zoomIn) {
+    const src = this.libList.source, key = src.optsKey;
+    const levels = ZOOMS[src.zoomKind].map(z => z.value);
+    const at = levels.indexOf(src.zoomLevel);
+    const level = at < 0 ? undefined : levels[at + (zoomIn ? 1 : -1)];
+    if (level === undefined) return null;
+    const oldZoom = listOpts(key).zoom;
+    saveListOpts(key, {zoom: level});
+    const next = src.rebuild?.();
+    if (!next) { saveListOpts(key, {zoom: oldZoom}); return null; }
+    // The middle visible item leads the new level.
+    const geo = this.libList.geometry();
+    const mid = Math.max(0, Math.floor((this.libList.scrollY + this.libList.height / 2 - geo.top - geo.headerH) / geo.itemH) * geo.cols);
+    const scroll = this.libList.scrollY;
+    const ghost = this.ghostList(src, scroll);
+    this.libList.setSource(next);
+    if (mid > 0) this.libList.scrollToIndex(Math.min(mid, next.count - 1));
+    // Zoom in: the shown level grows away and the new one comes up from half
+    // size; zoom out the reverse (mo984 with !zoomIn / zoomIn).
+    const leaveR = zoomIn ? ZOOM.list.leave : ZOOM.list.enter, enterR = zoomIn ? ZOOM.list.enter : ZOOM.list.leave;
+    const pause = this.substyle.int('pageManualCancelAnimTime', 500) / 1000;
+    const trans = new ListTransition(this.ctx, {
+      commitTime: pause, cancelTime: pause,
+      render: p => {
+        this.pageFx('list', ghost, p, leaveR, null);
+        this.pageFx('list', this.libList, 1 - p, enterR, null);
+      },
+      finish: commit => {
+        ghost.visibility = GONE;
+        this.pageFx('list', this.libList, 0, 1, null);
+        this.trans = null;
+        if (commit) this.stack[this.stack.length - 1] = next;
+        else {
+          saveListOpts(key, {zoom: oldZoom});
+          this.libList.setSource(src);
+          this.libList.scrollTo(scroll);
+        }
+      },
+    });
+    this.trans = trans;
+    trans.setProgress(0);
+    return trans;
+  }
+
+  springBackScale(view) {
+    const from = view.scaleX, t0 = performance.now();
+    const ms = Math.max(0.35, Math.abs(1 - from) / 2) * 1000;
+    this.ctx.onFrame(now => {
+      const t = Math.min(1, (now - t0) / ms);
+      view.scaleX = view.scaleY = 1 + (from - 1) * (1 - cubicOut(t));
+      view.invalidate();
+      return t < 1;
+    });
   }
 
   /** Horizontal paging over the art items. */
@@ -982,7 +1227,7 @@ export class ListWidget extends FastLayout {
         lastX = e.rootX;
         let off = this.geometry.offset;
         // Past the ends the drag is damped by the overscroll so far.
-        const over = off > 0 && !p?.trackAt(-1) ? off * stride : off < 0 && !p?.trackAt(1) ? off * stride : 0;
+        const over = off > 0 && !p?.trackAt(-1, true) ? off * stride : off < 0 && !p?.trackAt(1, true) ? off * stride : 0;
         if (over && Math.sign(dx) === Math.sign(over)) dx *= Math.max(0, 1 - Math.abs(over) / m);
         off += dx / stride;
         this.setPageOffset(Math.max(-1, Math.min(1, off)));
@@ -994,10 +1239,16 @@ export class ListWidget extends FastLayout {
   settlePage(v) {
     const p = this.ctx.player, g = this.geometry;
     const off = g.offset;
+    // Swipe more: an overscroll past 0.6 of a page plays the previous or next
+    // category; the page stays until the new track resets it.
+    const over = (off > 0 && !p?.trackAt(-1, true)) || (off < 0 && !p?.trackAt(1, true));
+    if (over && Math.abs(off) > 0.6 && p?.categoryNavigable) {
+      if (off < 0 ? p.nextCategory(true) : p.prevCategory(false)) { this.setPageOffset(0); return; }
+    }
     let target = 0;
     if (Math.abs(v * 1e-4 + off) >= 0.2) {
-      if (off > 0) target = p?.trackAt(-1) ? 1 : 0;
-      else target = p?.trackAt(1) ? -1 : 0;
+      if (off > 0) target = p?.trackAt(-1, true) ? 1 : 0;
+      else target = p?.trackAt(1, true) ? -1 : 0;
     }
     // The remaining offset settles at a speed of distance / aaPosSettleAnimTime,
     // plus |v| * 0.2 when the fling points at the target.
@@ -1157,8 +1408,12 @@ export class ListWidget extends FastLayout {
         // Results start below the search panel.
         let root = this;
         while (root.parent) root = root.parent;
-        const sl = root.findViewById('search_edit')?.parent;
-        if (sl && sl.visibility !== GONE) ll.paddingTop = Math.max(0, sl.getLocationIn(null).y + sl.height - this.getLocationIn(null).y);
+        // Below the search panel and, when shown, the category chips.
+        let bottom = 0;
+        for (const v of [root.findViewById('search_edit')?.parent, root.findViewById('search_cats_layout')]) {
+          if (v && v.visibility !== GONE && v.height > 0) bottom = Math.max(bottom, v.getLocationIn(null).y + v.height);
+        }
+        if (bottom) ll.paddingTop = Math.max(0, bottom - this.getLocationIn(null).y);
       }
       ll.paddingBottom = this.ctx.dynamicDimension(this.bottomReservedId ?? 'navbar_bounds_2lines_size') + this.ctx.windowInsets.bottom;
       ll.paddingLeft = this.ctx.windowInsets.left;
@@ -1189,6 +1444,7 @@ export class ListWidget extends FastLayout {
 
   placeItems() {
     const g = this.geometry;
+    this.placeDecor();
     for (const [rel, v] of this.items) {
       if (v.inMenu) continue; // borrowed by the open item menu
       const b = g.itemBounds(rel, rel);

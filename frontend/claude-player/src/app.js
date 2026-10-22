@@ -28,6 +28,7 @@ import './widgets/sleeptimer.js';
 import './widgets/vispanel.js';
 import './widgets/rating.js';
 import {installHelp} from './widgets/help.js';
+import {installMetaInfo} from './widgets/meta-info.js';
 import './list/list-widget.js';
 import './list/selection.js';
 
@@ -83,15 +84,37 @@ function installDynamicDimensions(ctx) {
   });
 }
 
+/**
+ * Follow Day/Night (follow_night_mode, SkinnableThemeManager): at night a
+ * light skin (one with a darkMode pair) loads as its pair, by day a dark skin
+ * (lightMode pair) as its pair. The stored skin stays the user's choice; the
+ * pair only applies to this theme load. Returns the skin index to use.
+ */
+function followNightMode(stored, skins, night) {
+  let index = +(stored.skin ?? 1);
+  const skin = skins[index];
+  if (stored.follow_night_mode === true || stored.follow_night_mode === 'true') {
+    const pair = night ? skin?.darkMode : skin?.lightMode;
+    const to = pair ? skins.findIndex(x => x.style === pair) : -1;
+    if (to >= 0) index = to;
+  }
+  // A system day/night change re-applies the rule (the reference recreates the activity).
+  window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => {
+    const now = loadStoredSettings();
+    if (now.follow_night_mode === true || now.follow_night_mode === 'true') location.reload();
+  });
+  return index;
+}
+
 export async function boot() {
   const stored = loadStoredSettings();
-  const skinIndex = +(stored.skin ?? 1);
-  const prefs = stored['skin_prefs_' + skinIndex] ?? {};
   const settings = runtimeSettings(stored);
   const [model] = await Promise.all([loadModel(new URL('../model/reference.json.gz', import.meta.url)), loadFonts()]);
   const {dpr, config} = deviceConfig();
   const res = new Resources(model, config, {density: dpr, scaledDensity: dpr, xdpi: 160 * dpr});
   const skins = parseSkins(res);
+  const skinIndex = followNightMode(stored, skins, config.night);
+  const prefs = stored['skin_prefs_' + skinIndex] ?? {};
   const skin = skins[skinIndex] ?? skins[0];
   const {theme, applied} = composeTheme(res, skin, prefs, {settings});
   const ctx = new Context({res, theme, dpr});
@@ -121,6 +144,7 @@ export async function boot() {
   player.installMediaSession();
   const library = await new Library(ctx).open();
   installHelp(ctx);
+  installMetaInfo(ctx);
   const importUi = installImport(ctx, document.body);
   ctx.importUi = importUi;
   const params = new URLSearchParams(location.search);

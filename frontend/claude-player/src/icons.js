@@ -98,6 +98,11 @@ G.star = poly(Array.from({length: 10}, (_, i) => {
   const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? 4.4 : 9.6;
   return [12 + r * Math.cos(a), 12.6 + r * Math.sin(a)];
 }), 0.8);
+// Outlined star: the star with an inset star cut out (reverse winding).
+G.star_stroke = G.star + poly(Array.from({length: 10}, (_, i) => {
+  const a = -Math.PI / 2 - (i * Math.PI) / 5, r = i % 2 ? 2.6 : 6.6;
+  return [12 + r * Math.cos(a), 12.9 + r * Math.sin(a)];
+}), 0.4);
 G.chromecast = 'M3 6.5C3 5.7 3.7 5 4.5 5h15c.8 0 1.5.7 1.5 1.5v11c0 .8-.7 1.5-1.5 1.5H14v-2.2h4.8V7.2H5.2v2.6H3Z' + 'M3 19h2.6c0-1.4-1.2-2.6-2.6-2.6Z' + arc(3, 19, 4.7, 1.8, 270, 360) + arc(3, 19, 8.2, 1.8, 270, 360);
 G.back_10s = arc(12, 13, 7, 2.2, 200, 375) + poly([[2.6, 7.4], [8.2, 4.4], [7.6, 10.4]], 0.4);
 G.forward_10s = arc(12, 13, 7, 2.2, 165, 340) + poly([[21.4, 7.4], [15.8, 4.4], [16.4, 10.4]], 0.4);
@@ -259,6 +264,7 @@ const RULES = [
   [/^(chromecast|pre_chromecast|ic_mr)/, () => 'chromecast'],
   [/^up_nav/, () => 'up_nav'],
   [/^scroll_up/, () => 'scroll_up'],
+  [/^star_stroke/, () => 'star_stroke'],
   [/^star/, () => 'star'],
   [/^check/, () => 'check'],
   [/^(close|clear|settings_close|ic_dialog_close)/, () => 'close'],

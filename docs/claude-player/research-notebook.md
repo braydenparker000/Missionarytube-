@@ -21,7 +21,7 @@ not an observed elapsed time, and a declared dimension is not a final on-screen 
 
 Decompilation scope: JADX 1.5.1 decompiled the whole APK into scratch space (never committed), with
 fallback (bytecode) mode for methods JADX could not restructure. The gesture and transition audit
-(F15, F48–F50) read every touch handler, scroller, pager and list transition class listed below.
+(F15, F48–F58) read every touch handler, scroller, pager and list transition class listed below.
 No native library is inspected.
 
 ## Findings
@@ -542,11 +542,182 @@ The following are `INFERRED`:
 ### F50 — Gestures with no reproduction yet — `CONFIRMED_STATIC`
 
 Read but not built:
-- the overscroll category change of the art pager
-- pinch-to-zoom (`A`: zoom-in/out transitions, scale law `√(clamp/3·0.2)·0.2`)
 - the drag-reorder handler (`DragHandler`, `DraggableSourceBehavior`)
+- sub-art button editing (`SubAAButtonsLayout`, `LoadableDraggableButtonsBehavior`)
 - the navbar extension's sheet drag
 - the predictive back gesture (`zb` / `ListWidget.V/g0/T`), which has no browser counterpart
+
+The art pager's overscroll category change and pinch-to-zoom were listed here and are now built
+(F52, F53).
+
+### F51 — Meta info line — `CONFIRMED_STATIC`
+
+(a) S1 `k51`, `merge_meta_info_layout`. (c) A tap sends `cmd_player_switch_track_meta` and cycles
+the mode, which persists. The default mode 0 is decode info. The cycle runs decode → output →
+category → folder → next → decode.
+- **Category:** "name - position / count".
+- **Folder:** the parent folder's name, with the `micro_folders` icon.
+- **Next:** "title - artist - album" of the next track, with `meta_next_12dp`. At a list end it
+  shows `next_cat_s` (the next category's name), `next_list`, or `end_reached`.
+- **Button:** `openOnClick` false, so a long press opens the audio info popup. `firstPressToast`
+  shows a hint on the first press.
+
+`INFERRED`/substitutes:
+- The output line names "Web Audio" and the context's sample rate, because the browser reports no
+  output device.
+- The first-press toast shows once per session; its persistence is not read.
+
+(f) `src/widgets/meta-info.js`, `PopupLayout.firstPressToast`.
+
+### F52 — Category navigation and the art pager's "swipe more" — `CONFIRMED_STATIC`
+
+(a) S1 `pi1` (category navigation), `w`/`P` (`X0`, `t0`), `ov0`/`pv0` (navbar decor pages),
+`item_aa_le_decor`, `item_miniplayer_prev_next_decor`. (c) A queue started from a library list
+carries its category: the list's groups, with the track's group as the position.
+- **When it applies:** category navigation needs shuffle mode other than 1 (all).
+- **`next()`:** at the queue's end, with repeat ADVANCE (or mode 5) or a user "next", it runs
+  `nextCategory(wrap = repeat ≠ 5)`.
+- **`prev()`:** at the queue's start it runs `prevCategory(true)`, which starts at the category's
+  last track. `prevCategory` always wraps.
+- **Art pager:** past the last or first track the neighbouring page is a decor page showing the
+  next or previous category's name (`no_next_list` / `no_previous_list` without one). Its alpha is
+  1 − |offset|: 0 below 0.35, ramping to 1 at 0.6.
+- **Overscroll:** beyond 0.6 of a page, with category navigation available, the release changes
+  category: next wraps, previous starts at the first track.
+- **Navbar:** the mini player's pager (`pv0`, undamped, over `ov0`) follows the same rule.
+
+(f) `Player.nextCategory/prevCategory/categoryNavigable`, `ListWidget.bindDecor/settlePage`,
+`MiniPlayerList`, `categoryFor`.
+
+### F53 — Pinch-to-zoom in library lists — `CONFIRMED_STATIC`
+
+(a) S1 `A`, `pd.k`/`pd.r` ("View as" zoom tables). (c) A second finger starts a pinch. Once the
+spread changes by touch slop, the direction picks the zoom: spreading zooms in to the next "View
+as" level, pinching zooms out to the previous one.
+- **Progress:** (d / d0 − 1)·1.25, mirrored for zooming out. The shown level leaves and the new
+  one enters with the F48 list zoom law (R 0.5 / 1.5).
+- **Release:** at least 500 dp/s commits when the spread moves with the zoom direction and cancels
+  against it, at a quarter of the spread rate. A slower release commits past 0.3. The rate is
+  zeroed beyond 0.8 (commit) or below 0.2 (cancel). Both settle times are
+  `pageManualCancelAnimTime` (500 ms).
+- **No further level:** the list scales elastically, by `√(min(f, 3)/3·0.2)·0.2` pinching in and
+  the mirrored law spreading out, and springs back on release.
+- **Item kept in view:** the middle visible item leads the new level.
+
+(f) `ListWidget.onPinchStart/Move/End`, `startZoomTransition`, `input.js` (second pointer).
+
+### F54 — Header-to-item and item-to-header morphs — `CONFIRMED_STATIC` / `INFERRED` in part
+
+(a) S1 the shared header transitions in mode 2, `u31.m3287`. (c) Opening a level from a tapped
+item, and going back to it, morphs between the item and the level:
+- **The child level** maps into the item's rect (x, y, 2x + w, 2y + h) at page scale j. j is
+  rect height / H, unless the list is wider than tall and the rect narrower than the list, in
+  which case it is rect width / W. Translation is (R.left·f, (R.top − P·j)·f), with P the content
+  top. It fades by 1 − f.
+- **The parent** magnifies by f2 = max(2, W / (x + w)) about its top-left, translated by
+  −y·f2·f, and fades.
+- **Direction:** forward, the parent leaves magnifying and the child grows out of the item. Back
+  reverses both, over `pageAnimTime`.
+- **Without an item** (Back after a scroll that dropped the item, or a level not opened from an
+  item), the F48 pivot zooms run.
+
+`INFERRED`: the shared title view's own morph (title text moving into the header) is not built.
+
+(f) `ListWidget.levelTransition/pageMorph`, `PowerList.itemRect/contentTop`.
+
+### F55 — Search category chips — `CONFIRMED_STATIC`
+
+(a) S1 `ListSearchCatsLayout` (`I0` → `w1`, `l` → `v1`). (c) The chips hold a category mask:
+- A tap toggles its category.
+- A long press keeps only its category.
+- "All" sets every bit.
+
+The layout becomes visible with `nav_search`. Results combine songs and the matching group kinds
+under the mask.
+
+`INFERRED`: the result list draws no per-kind subheaders.
+
+(f) `src/widgets/search.js`, `searchSource(…, mask)`.
+
+### F56 — Follow Day/Night — `CONFIRMED_STATIC`
+
+(a) S1 `yp1` (the `follow_night_mode` preference), `c40.V` (the flag), `wv1` (SkinnableThemeManager
+theme load), `SkinInfo` (`e`/`f` pair, `g` set by `darkMode`). (c) With the option on, the theme
+load picks the pair skin:
+- at night (`uiMode` night), a skin that declares `darkMode` loads as that pair;
+- by day, a skin that declares `lightMode` loads as its pair.
+
+The stored skin is not changed, so turning the option off returns to it. The browser's
+`prefers-color-scheme` stands in for the system night mode, and a scheme change reloads (the
+reference recreates the activity).
+
+(f) `followNightMode` in `src/app.js`.
+
+### F57 — Star rating bar — `CONFIRMED_STATIC` (fallback bytecode)
+
+(a) S1 `RatingBar`, styleable `wa1.k0`, `ItemRatingBar*` styles, `anim_ratingbar_pressed`.
+
+(c) **Layout and drawing.** There are five stars of `drawableWidth` (O) each. Gravity is
+`android:gravity & 7`: 1 centred, 5 right, otherwise left.
+- **At rest**, with `doClip`, only max(1, rating) star slots show, over a `lineBackground` sized to
+  them.
+- **A press** grows the slots to five; the release shrinks them back. The slot count animates over
+  max(75, trunc(|to − from + 0.5|)·75) ms with accelerate-decelerate.
+- **Draw order:** on stars for the rating, then off stars, stepping −O for right gravity.
+
+**Touch.** The bar takes the stream: its list may not intercept.
+- **Down:** pressed, `anim_ratingbar_pressed` (scale 1.1) over 0.45 s.
+- **Tap or swipe:** a horizontal move over twice the touch slop turns the tap into a swipe that
+  rates live.
+- **Release:** a tap rates the star under the finger. The rating is sent only when it differs from
+  the one at the press. The state animation returns over 0.2 s.
+- **Long press:** toggles 5 ↔ 0. The rating is sent on release.
+
+**Star under x.** p = trunc(x − paddingLeft + 0.5).
+- **Left gravity:** star = trunc(p/O) + 1; the first half is p < O/2.
+- **Right gravity:** star = 5 − trunc(p/O).
+- **Centred:** the five stars are centred.
+- **Clamp and the first star:** the star is clamped to 0..5. On star 1, a swipe gives 0 on its
+  first half and 1 otherwise, and a tap toggles 1 ↔ 0. A tap left of the stars on rating 0 gives 1.
+
+`INFERRED`/not built:
+- The cross-fade between a scene's star drawables: they switch at the scene start.
+- The outlined star glyph is original art.
+
+(f) `src/widgets/rating.js`.
+
+### F58 — Dialog drag to dismiss — `CONFIRMED_STATIC` (fallback bytecode)
+
+(a) S1 `DialogBehavior`, `vm` (drag), `wm` (shim and frame touch over `j0`), `um` (attributes
+`wa1.f4985`), `do1.r/m1459/m1460`, `ao1`, `DialogOuterFastLayout`.
+
+(c) **Attributes** (`BaseDialog`): `collapseDragDirection` none/down/up (bottom sheets down;
+centered and top sheets up), `dragAnimTime` 1000, `dragThreshold` 0.5,
+`dragThresholdVelocity` 1800 dp.
+
+**Drag.** A drag starts inside the frame once it passes touch slop on either axis. The start
+moves by the slop on each axis it crossed.
+- **Progress:** dy / span, where span is the frame height (down) or the frame bottom (up); dy is
+  negated for up. It drives the scene towards the out scene (default, or
+  `scene_dialog_out_alt`).
+- **Past either end:** ln(|over| / 0.05 + 1)·0.05, limited to −0.2 below and 1 above.
+
+**Release.**
+- A fling over the velocity threshold commits when it points in the collapse direction and
+  cancels against it. Otherwise progress > `dragThreshold` commits.
+- **Settle time:** 1 / (1 / (dragAnimTime·max(0.25, rest)) + rate) s. The rate is |v| / span
+  (0..10) on a commit and 0 on a cancel. The interpolation is decelerate (2.0).
+- A commit collapses the dialog (cancel). A dialog that refuses returns to `scene_dialog_in`.
+
+**Shim.** A touch that did not drag the frame dismisses on release, including drags that start on
+the shim.
+
+**Lists in the frame.** A list starts a nested scroll on down, which disables the frame's
+intercept.
+
+Not built: `dragByNestedScroll`, the list's overscroll handoff to the frame.
+
+(f) `installDrag` in `src/widgets/dialog.js`, `SceneController.drag` (limits) and `settleTo`.
 
 ### I1 — Layout inferences to verify against screenshots
 
@@ -577,14 +748,14 @@ No status is device-verified.
 | F08 animation speed | Built | — |
 | F09 FastLayout | Built | I1 inferences |
 | F10 theme composition | Built | — |
-| F11 skin options | Partial | Options apply through generic overlay composition and are not checked one by one. Follow Day/Night (`darkMode`/`lightMode` pairing) is **not built**. Material You has no seed-colour substitute. |
+| F11 skin options | Partial | Options apply through generic overlay composition and are not checked one by one. Follow Day/Night is built (F56). Material You has no seed-colour substitute. |
 | F12 window buckets | Built | — |
 | F13 waveseek | Built | Native analysis `OPEN` |
-| F14 gesture inventory | Partial | Art ←/→, ↓ (source list), ↑ (lyrics) and tap are built, as are the navbar tap, ←/→ and long press, the library parent swipe and the line 2 tap and long press. **Not built:** art "swipe more" (category), pinch-to-zoom, multi-select drag, meta-info tap cycling, long press between buttons (edit), search-chip toggle and long press (a tap selects one chip), the lyrics button long press, rating swipes, the visualization ←/→ preset swipe on the vis itself (the vis panel pager is built). |
+| F14 gesture inventory | Partial | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58). **Not built:** multi-select drag, long press between buttons (edit), the lyrics button long press, the visualization ←/→ preset swipe on the vis itself (the vis panel pager is built). |
 | F15 thresholds and physics | Built | VelocityTracker reproduced in form only |
 | F16 navbar | Built | — |
 | F17 settings corpus | Built (screens) | Per-key implementation statuses not recorded |
-| F18 list transitions | Partial | The F48 zoom transitions are built. The header-to-item and item-to-header morphs, the shared item view hand-off and the zoom transitions (pinch) are **not built**. |
+| F18 list transitions | Partial | The F48 zoom transitions, the header-to-item and item-to-header morphs (F54) and the pinch zoom transitions (F53) are built. The shared item view hand-off and the title's own morph are **not built**. |
 | F19 typography | Built | — |
 | F20 audio | Built (web subset) | Native engine `UW` |
 | F21 visualization | Built (butterchurn) | — |
@@ -608,15 +779,23 @@ No status is device-verified.
 | F39 selection | Partial | Multi-select drag **not built**. Delete files skipped (owner decision). |
 | F40 lyrics | Built | Page geometry inferred. Lyrics dialog **not built**. |
 | F41 vis panel | Built | Pager–list morph cross-fades |
-| F42 ratings/stats | Built | Rating swipes **not built** |
-| F43 dialogs | Partial | Drag-to-dismiss **not built** |
+| F42 ratings/stats | Built | Rating swipes built (F57) |
+| F43 dialogs | Partial | Drag-to-dismiss built (F58), except the list overscroll handoff |
 | F44 playlists | Partial | Re-sort, import and drag reordering **not built** |
 | F45 info / album art | Built | Tag editing skipped (owner decision) |
 | F46 list options | Partial | Max Items, Min Duration, list memory and the compact header not built |
 | F47 waveform data | Built | — |
 | F48 list page transitions | Partial | See F48 (e) |
 | F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics dialog is not built. |
-| F50 unbuilt gestures | Not built | — |
+| F50 unbuilt gestures | Not built | Drag reorder, sub-art button editing, navbar sheet drag, predictive back |
+| F51 meta info | Built | Output line substituted; first-press toast persistence inferred |
+| F52 category navigation | Built | — |
+| F53 pinch-to-zoom | Built | — |
+| F54 item/header morphs | Partial | Title morph not built |
+| F55 search chips | Built | Per-kind subheaders not drawn |
+| F56 Follow Day/Night | Built | Night mode from `prefers-color-scheme` |
+| F57 star rating bar | Built | Scene drawable cross-fade not built |
+| F58 dialog drag | Partial | Nested-scroll handoff not built |
 
 ## Open questions, prioritised by fidelity impact
 
