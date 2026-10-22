@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 158 |
+| Built | 160 |
 | Settings UI | 109 |
-| Not built | 2 |
+| Not built | 0 |
 | No web counterpart | 141 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -374,7 +374,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `root_hier_immediate` | MultilineSwitchPreference | Built | Folders Hierarchy opens at the first folder with tracks or several subfolders (F76) |
 | `hier_files_zoom` | MultilineSwitchPreference | Built | a files-only folder takes the Folders files zoom (F76) |
 | `no_sort_field` | MultilineSwitchPreference | Built | Sort field drops The/A/An (sources.js sortKey) |
-| `show_cue_source` | MultilineSwitchPreference | Not built |  |
+| `show_cue_source` | MultilineSwitchPreference | Built | the disc image shows beside its CUE tracks (F77) |
 | `stream_name_in_title` | MultilineSwitchPreference | Owner decision | Owner decision: no network streams |
 
 ## library_playlists
@@ -418,7 +418,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `genres_split_chars` | TagsPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
 | `tag_encoding` | ListPreference | Built | Imported files read from now on; R2 index metadata comes decoded from the Worker |
 | `m3u_utf8` | MultilineSwitchPreference | Built | .m3u in UTF-8, else the tag encoding |
-| `process_cues` | MultilineSwitchPreference | Not built |  |
+| `process_cues` | MultilineSwitchPreference | Built | imported disc images with a .cue sheet become virtual folders of range tracks (F77; imports only) |
 
 ## library_search
 

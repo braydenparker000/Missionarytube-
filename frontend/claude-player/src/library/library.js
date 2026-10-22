@@ -4,6 +4,7 @@ import {LibraryDb} from './db.js';
 import {readTags, readRemotePicture, setTagEncoding, decodeTextFile} from './tags.js';
 import {makeSplitter, GENRE_DEFAULT_SPLIT} from './split.js';
 import {Playlists} from './playlists.js';
+import {parseCue, cueFor, cueTracks} from './cue.js';
 import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars, decodeWave} from './r2.js';
 
 // Remote covers: full images in Cache Storage on first view (capped, oldest
@@ -48,7 +49,7 @@ export class Library {
     this.allTracks = [];
     // The scan settings apply to the loaded records at once (the reference rescans).
     ctx.bus.subscribe('bus_app', (msg, src, d) => {
-      if (msg === 'msg_app_setting_changed' && (d?.key === 'scan_min_track_duration' || d?.key === 'skip_video')) this.setTracks(this.allTracks);
+      if (msg === 'msg_app_setting_changed' && /^(scan_min_track_duration|skip_video|process_cues|show_cue_source)$/.test(d?.key ?? '')) this.setTracks(this.allTracks);
     });
     this.byId = new Map();
     this.artCache = new Map();
@@ -138,7 +139,8 @@ export class Library {
   /** Persists a track's changed data (imports: the record; R2 tracks: listening data). */
   saveTrack(t) {
     if (!this.db) return Promise.resolve();
-    if (!t.remote) {
+    // Virtual CUE tracks keep their listening data like remote ones.
+    if (!t.remote && !t.cueOf) {
       // Runtime fields (images, object URLs) stay out of the stored record.
       const {art, thumb, ...rec} = t;
       if (typeof rec.src === 'string' && rec.src.startsWith('blob:')) delete rec.src;
@@ -159,8 +161,26 @@ export class Library {
     list.sort(compareTracks);
     this.allTracks = list;
     const minMs = (+(this.ctx.pref?.('scan_min_track_duration') ?? 6) || 0) * 1000, noVideo = !!this.ctx.pref?.('skip_video');
-    this.tracks = list.filter(t => !(minMs && t.durationMs && t.durationMs < minMs) && !(noVideo && t.video));
-    this.byId = new Map(list.map(t => [t.id, t]));
+    // process_cues: disc images with a sheet show as their virtual tracks
+    // (kept per image, so a playing one stays the same object); the image
+    // itself only with show_cue_source.
+    const cues = this.ctx.pref?.('process_cues') !== false, showSource = !!this.ctx.pref?.('show_cue_source');
+    this.cueCache ??= new Map();
+    const shown = [], virtual = [];
+    for (const t of list) {
+      if (!cues || !t.cue?.tracks?.length) { shown.push(t); continue; }
+      let v = this.cueCache.get(t.id);
+      if (!v || v.image !== t || v.duration !== t.durationMs) {
+        v = {image: t, duration: t.durationMs, tracks: this.withUserData(cueTracks(t, trackMetaLabel))};
+        this.cueCache.set(t.id, v);
+      }
+      virtual.push(...v.tracks);
+      shown.push(...v.tracks);
+      if (showSource) shown.push(t);
+    }
+    if (virtual.length) shown.sort(compareTracks);
+    this.tracks = shown.filter(t => !(minMs && t.durationMs && t.durationMs < minMs) && !(noVideo && t.video));
+    this.byId = new Map([...list, ...virtual].map(t => [t.id, t]));
     this.ctx.bus.post('bus_library', 'msg_library_changed', this, {count: this.tracks.length});
   }
 
@@ -169,6 +189,16 @@ export class Library {
     let added = 0, done = 0;
     const audio = [...files].filter(isAudioFile);
     setTagEncoding(this.ctx.pref?.('tag_encoding'));
+    // CUE sheets beside the audio, per folder (process_cues expands them; stored with the image).
+    const sheets = new Map();
+    for (const f of files) {
+      if (!/\.cue$/i.test(f.name)) continue;
+      const path = f.webkitRelativePath || f.name, dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+      try {
+        const sheet = parseCue(decodeTextFile(new Uint8Array(await f.arrayBuffer()), true));
+        (sheets.get(dir) ?? sheets.set(dir, []).get(dir)).push({name: f.name, sheet});
+      } catch { /* unreadable sheet */ }
+    }
     // Sidecar .lrc files next to the audio (same path without the extension), with lrc_scan.
     const lrc = new Map();
     for (const f of this.ctx.pref?.('lrc_scan') === false ? [] : files) {
@@ -200,6 +230,10 @@ export class Library {
       if (tags.lyricsSynced) meta.lyricsSynced = tags.lyricsSynced;
       if (tags.lyrics) meta.lyrics = tags.lyrics;
       if (tags.replayGain) meta.replayGain = tags.replayGain;
+      for (const c of sheets.get(meta.folder) ?? []) {
+        const cue = cueFor(c.sheet, f.name, c.name);
+        if (cue) { meta.cue = cue; break; }
+      }
       meta.meta = trackMetaLabel(meta);
       if (this.db) await this.db.putTrack(meta, f, artBlob);
       if (artBlob && artId && !this.artCache.has(artId)) this.artCache.set(artId, loadArt(artBlob));
@@ -253,6 +287,8 @@ export class Library {
   /** Media URL for a track (object URL over the stored file). */
   async mediaUrl(t) {
     if (t.src) return t.src;
+    // A CUE track plays a range of its disc image.
+    if (t.cueOf) { const image = this.byId.get(t.cueOf); return image ? this.mediaUrl(image) : null; }
     let url = this.fileUrls.get(t.id);
     if (!url) {
       const file = await this.db?.file(t.id);
@@ -456,6 +492,8 @@ export class Library {
    */
   async waveFor(t, bars = 100) {
     if (this.ensureWave(t)) return t.wave;
+    // A CUE track's waveform would be the whole image's: none (not ported).
+    if (t.cueOf) return null;
     if (!this.byId.has(t.id)) return null;
     // Remote tracks only use pre-generated waveforms (a small file on R2):
     // decoding would download the whole song.

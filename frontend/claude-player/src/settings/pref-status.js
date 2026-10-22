@@ -314,7 +314,7 @@ export const PREF_STATUS = {
   root_hier_immediate: [BUILT, 'Folders Hierarchy opens at the first folder with tracks or several subfolders (F76)'],
   hier_files_zoom: [BUILT, 'a files-only folder takes the Folders files zoom (F76)'],
   no_sort_field: [BUILT, 'Sort field drops The/A/An (sources.js sortKey)'],
-  show_cue_source: [TODO, ''],
+  show_cue_source: [BUILT, 'the disc image shows beside its CUE tracks (F77)'],
   stream_name_in_title: [OWNER, NO_STREAMS],
   // library_playlists
   playlists_import: [BUILT, 'Picks playlist files (the browser cannot read a system library); F66'],
@@ -346,7 +346,7 @@ export const PREF_STATUS = {
   genres_split_chars: [BUILT, 'Split categories (library/split.js); unsplit entries with show_unsplit_cats'],
   tag_encoding: [BUILT, 'Imported files read from now on; R2 index metadata comes decoded from the Worker'],
   m3u_utf8: [BUILT, '.m3u in UTF-8, else the tag encoding'],
-  process_cues: [TODO, ''],
+  process_cues: [BUILT, 'imported disc images with a .cue sheet become virtual folders of range tracks (F77; imports only)'],
   // library_search
   msg: [UI, ''],
   list_opts: [BUILT, 'Opens the Search List Options (searched categories)'],

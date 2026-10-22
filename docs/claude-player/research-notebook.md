@@ -1452,6 +1452,44 @@ that artist's songs on the album.
 - With root_hier_immediate the walk follows the setting's text: the decompiled loop's exit when a
   level has several folders is garbled.
 
+### F77 — CUE sheets — `CONFIRMED_STATIC` (settings) / `INF` (parsing and playback)
+
+(a) S1:
+- `library_misc` / `library_lists` XML: process_cues (default on), show_cue_source (default off).
+- `strings`: "Virtual folders are created for CUE files with multiple tracks"; "Big undivided CUE
+  disc image files will be visible in lists".
+- `m30` (show_cue_source `f3171`); `df1` / `cg1` (cue_folder_id, num_all_files with
+  show_cue_source).
+- The native CUE parser and the pipeline's range playback are not in the bytecode.
+
+(c) **Import.**
+- A .cue sheet beside imported audio is parsed: FILE, TRACK, INDEX 01 (mm:ss:ff at 75 frames per
+  second), TITLE / PERFORMER / SONGWRITER per sheet and track, REM GENRE / DATE.
+- It is stored on the audio file it names (by name, else by base name).
+
+**Library.**
+- With process_cues, a file whose sheet lists several tracks shows as virtual tracks in a virtual
+  folder named after the .cue file.
+- Each track is a range of the image: from its INDEX 01 to the next track's, the last one to the end
+  of the file.
+- Track fields come from the sheet, falling back to the image's tags.
+- The image itself shows only with show_cue_source.
+- Virtual tracks keep their own plays, ratings and positions.
+
+**Playback.**
+- A virtual track plays its range of the image. Seeks, positions and crossfade timing are relative
+  to the range.
+- At the range's end, the next contiguous track of the same image goes on without reloading
+  (gapless). Any other change stops the image first.
+
+**Also:**
+- WAV files now read their fmt / data chunks for the duration, LIST/INFO text and an embedded ID3
+  chunk. They previously fell through to the MP3 frame scan.
+
+**Not covered:**
+- The R2 library: its index lists audio files only.
+- Waveforms of virtual tracks.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1546,6 +1584,7 @@ No status is device-verified.
 | F74 About: version and licenses | Built | — |
 | F75 Navbar scroll-away and the bottom toolbar | Built | The bottom toolbar fades with the leaving page in level transitions (`w62.j` fades it by the transition fraction) |
 | F76 Category levels, Albums by Artist, Folders Hierarchy | Built | Text-item rows for categories (track items here) |
+| F77 CUE sheets | Built | R2 index (audio files only); virtual tracks have no waveform |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

@@ -406,10 +406,51 @@ function flacMetaEnd(b) {
   return o + 4;
 }
 
+/**
+ * RIFF/WAVE: fmt (sample rate, bits), the data chunk's length for the
+ * duration, LIST/INFO text (INAM, IART, IPRD, IGNR, ICRD, ITRK) and an
+ * embedded ID3 tag ("id3 " chunk). Chunks are read by range so a large data
+ * chunk is skipped.
+ */
+async function readWav(file, out) {
+  out.format = 'WAV';
+  let o = 12, byteRate = 0, dataBytes = 0;
+  const INFO = {INAM: 'title', IART: 'artist', IPRD: 'album', IGNR: 'genre'};
+  for (let i = 0; i < 64 && o + 8 <= file.size; i++) {
+    const h = new Uint8Array(await file.slice(o, o + 8).arrayBuffer());
+    const id = latin1.decode(h.subarray(0, 4)), size = le32(h, 4), body = o + 8;
+    if (id === 'fmt ' && size >= 16) {
+      const f = new Uint8Array(await file.slice(body, body + 16).arrayBuffer());
+      out.sampleRate = le32(f, 4);
+      byteRate = le32(f, 8);
+      out.bits = f[14] | (f[15] << 8);
+    } else if (id === 'data') dataBytes = Math.min(size, file.size - body);
+    else if ((id === 'LIST' || id === 'id3 ' || id === 'ID3 ') && size < 16 << 20) {
+      const c = new Uint8Array(await file.slice(body, body + size).arrayBuffer());
+      if (id !== 'LIST') readId3(c, out);
+      else if (latin1.decode(c.subarray(0, 4)) === 'INFO') {
+        for (let k = 4; k + 8 <= c.length;) {
+          const sub = latin1.decode(c.subarray(k, k + 4)), n = le32(c, k + 4);
+          const text = clean(decodeText(c.subarray(k + 8, k + 8 + n), 0));
+          if (INFO[sub] && text && !out[INFO[sub]]) out[INFO[sub]] = text;
+          if (sub === 'ICRD' && !out.year) out.year = parseInt(text, 10) || 0;
+          if (sub === 'ITRK' && !out.track) out.track = parseNumberPair(text)[0] || 0;
+          k += 8 + n + (n & 1);
+        }
+      }
+    }
+    o = body + size + (size & 1);
+  }
+  if (byteRate && dataBytes) out.durationMs = Math.round(dataBytes / byteRate * 1000);
+  if (out.durationMs && !out.bitrate) out.bitrate = Math.round(file.size * 8 / out.durationMs);
+}
+
 export async function readTags(file) {
   const out = {title: '', artist: '', album: '', albumArtist: '', genre: '', track: 0, trackTotal: 0, disc: 0, year: 0, durationMs: 0, picture: null, format: ''};
   let head = new Uint8Array(await file.slice(0, 1 << 20).arrayBuffer());
-  if (head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33) {
+  if (latin1.decode(head.subarray(0, 4)) === 'RIFF' && latin1.decode(head.subarray(8, 12)) === 'WAVE') {
+    await readWav(file, out);
+  } else if (head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33) {
     const size = syncsafe(head, 6) + 10;
     if (size + 65536 > head.length && size < 32 << 20) head = new Uint8Array(await file.slice(0, size + 65536).arrayBuffer());
     const end = readId3(head, out);

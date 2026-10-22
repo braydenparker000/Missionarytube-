@@ -36,6 +36,9 @@ const fisherYates = a => {
  * order; from 10000 tracks min + (max − min)·y), each part shuffled.
  * y = 1 shuffles fully.
  */
+/** A CUE track's start in its disc image (F77); 0 for other tracks. */
+const rangeStart = t => t?.startMs || 0;
+
 export function shuffleOrder(tracks, factor) {
   const n = tracks.length, idx = [...Array(n).keys()];
   const y = Math.max(0, Math.min(1, Number.isFinite(+factor) ? +factor : 0.5));
@@ -81,18 +84,17 @@ export class Player {
       el.preload = 'auto';
       // CORS media so the DSP and visualization can process remote streams.
       el.crossOrigin = 'anonymous';
-      el.addEventListener('ended', () => {
-        if (el !== this.audio) return;
-        this.checkPlayed(true);
-        // track_end_silence_ms: silence after the track before the next one.
-        const gap = fadePrefs(this.ctx).endSilenceMs;
-        if (gap > 0) { clearTimeout(this.silenceTimer); this.silenceTimer = setTimeout(() => this.onEnded(), gap); } else this.onEnded();
-      });
-      el.addEventListener('timeupdate', () => { if (el === this.audio) { this.checkPlayed(); this.checkCrossfade(); } });
+      el.addEventListener('ended', () => { if (el === this.audio) this.trackEnded(); });
+      el.addEventListener('timeupdate', () => { if (el === this.audio) { this.checkRangeEnd(); this.checkPlayed(); this.checkCrossfade(); } });
       el.addEventListener('loadedmetadata', () => {
         if (el !== this.audio) return;
         const t = this.track;
         const ms = Number.isFinite(el.duration) ? Math.round(el.duration * 1000) : 0;
+        // A CUE track's length is its range; the last one ends with the image.
+        if (t?.cueOf) {
+          if (!t.endMs && ms) { t.durationMs = Math.max(0, ms - rangeStart(t)); this.post('msg_player_track_changed', {track: t, meta: true}); }
+          return;
+        }
         if (t && ms && Math.abs((t.durationMs || 0) - ms) > 1000) {
           t.durationMs = ms;
           this.ctx.library?.rememberDuration(t, ms);
@@ -364,7 +366,11 @@ export class Player {
       const f = fadePrefs(this.ctx);
       if (!(f.auto !== AUTO_NONE && t.lastPos >= (t.durationMs || 0) - f.crossfadeMs - 2000)) this.pendingSeek = t.lastPos;
     }
-    if (this.audio) {
+    // The next contiguous CUE track of the playing image goes on without reloading (gapless).
+    const onward = t?.cueOf && prev?.cueOf === t.cueOf && !fadeMs && !this.pendingSeek && old === this.audio && !!old?.src && !old.paused
+      && Math.abs(old.currentTime * 1000 - rangeStart(t)) < 1500;
+    if (onward) t.src = prev.src;
+    if (this.audio && !onward) {
       const media = t && (t.src || t.libraryId || this.ctx.library?.byId.has(t.id));
       let fadeIn = 0;
       if (fadeMs > 0 && media && this.decks.length > 1) {
@@ -394,7 +400,10 @@ export class Player {
           if (token !== this.loadToken || !url) return;
           t.src = url;
           el.src = url;
-          if (this.pendingSeek) { el.currentTime = this.pendingSeek / 1000; this.pendingSeek = 0; }
+          // A CUE track starts at its range.
+          const at = (this.pendingSeek || 0) + rangeStart(t);
+          if (at) el.currentTime = at / 1000;
+          this.pendingSeek = 0;
           if (this.state === STATE_PLAYING) {
             this.ctx.dsp?.attach(el);
             el.play().catch(() => {});
@@ -411,6 +420,7 @@ export class Player {
       });
     }
     this.ctx.library?.ensureWave?.(t);
+    this.armRange();
     this.post('msg_player_track_changed', {track: t});
     if (autoplay) this.setState(STATE_PLAYING);
     if (this.state === STATE_PLAYING) this.markQueuePlayed(t);
@@ -457,7 +467,8 @@ export class Player {
     if (this.state !== STATE_PLAYING || this.decks.length < 2 || !this.isMedia(t) || this.xfadeToken === this.loadToken) return;
     const f = fadePrefs(this.ctx);
     if (f.auto === AUTO_NONE || (f.auto === AUTO_SHUFFLED && !this.shuffle)) return;
-    const dur = el.duration * 1000, pos = el.currentTime * 1000;
+    // A CUE track's own range (F77).
+    const dur = (t.endMs ?? el.duration * 1000) - rangeStart(t), pos = el.currentTime * 1000 - rangeStart(t);
     if (!Number.isFinite(dur) || dur <= f.crossfadeMs || dur - pos > f.crossfadeMs) return;
     const next = this.predictNext();
     if (!next || (f.auto === AUTO_NON_GAPLESS && gaplessPair(t, next))) return;
@@ -472,7 +483,7 @@ export class Player {
     const t = this.track;
     if (!t) return 0;
     if (this.seekTarget !== null && this.seekTarget !== undefined) return this.seekTarget;
-    if (this.isMedia(t)) return Math.round(this.audio.currentTime * 1000);
+    if (this.isMedia(t)) return Math.max(0, Math.round(this.audio.currentTime * 1000) - rangeStart(t));
     const pos = this.state === STATE_PLAYING ? this.virtualPos + (performance.now() - this.virtualStart) : this.virtualPos;
     if (t.durationMs && pos >= t.durationMs) {
       queueMicrotask(() => this.onEnded());
@@ -524,7 +535,7 @@ export class Player {
       // fade_play_pause: resuming fades in over fade_short_ms.
       const f = fadePrefs(this.ctx);
       // A seek left by a pause fade-out (Stop, then Play) lands before resuming.
-      if (resume && this.seekTarget !== null && this.seekTarget !== undefined) { this.audio.currentTime = this.seekTarget / 1000; this.seekTarget = null; }
+      if (resume && this.seekTarget !== null && this.seekTarget !== undefined) { this.audio.currentTime = (this.seekTarget + rangeStart(this.track)) / 1000; this.seekTarget = null; }
       if (resume && f.playPause) {
         if (this.audio.paused) this.fader.set(this.audio, 0);
         this.fader.ramp(this.audio, 1, f.shortMs);
@@ -545,7 +556,7 @@ export class Player {
           if (this.state === STATE_PLAYING || el !== this.audio) return;
           el.pause();
           // A seek made while fading out (Stop) lands now.
-          if (this.seekTarget !== null && this.seekTarget !== undefined) { el.currentTime = this.seekTarget / 1000; this.seekTarget = null; }
+          if (this.seekTarget !== null && this.seekTarget !== undefined) { el.currentTime = (this.seekTarget + rangeStart(this.track)) / 1000; this.seekTarget = null; }
         });
       } else el.pause();
     }
@@ -565,7 +576,7 @@ export class Player {
         const token = this.loadToken;
         this.fader.ramp(el, 0, f.seekMs, () => {
           if (token !== this.loadToken || el !== this.audio) return;
-          el.currentTime = this.seekTarget / 1000;
+          el.currentTime = (this.seekTarget + rangeStart(t)) / 1000;
           this.seekTarget = null;
           this.fader.ramp(el, 1, f.seekMs);
         });
@@ -574,7 +585,7 @@ export class Player {
         this.seekTarget = ms;
       } else {
         this.seekTarget = null;
-        el.currentTime = ms / 1000;
+        el.currentTime = (ms + rangeStart(t)) / 1000;
       }
     } else {
       this.virtualPos = ms;
@@ -680,6 +691,36 @@ export class Player {
     let changed = false;
     for (const e of this.entries) if (!e.played && e.track.id === t.id) { e.played = true; changed = true; }
     if (changed) this.postQueueChanged();
+  }
+
+  /** The playing track reached its end (the media's, or a CUE range's). */
+  trackEnded() {
+    this.checkPlayed(true);
+    // track_end_silence_ms: silence after the track before the next one.
+    const gap = fadePrefs(this.ctx).endSilenceMs;
+    if (gap > 0) { clearTimeout(this.silenceTimer); this.silenceTimer = setTimeout(() => this.onEnded(), gap); } else this.onEnded();
+  }
+
+  /**
+   * The end of a CUE track's range (F77): the next contiguous track of the
+   * same image plays on from here (gapless); anything else stops the image
+   * first.
+   */
+  checkRangeEnd() {
+    const t = this.track, el = this.audio;
+    if (!t?.endMs || !el || el.paused || this.rangeEnded === this.loadToken) return;
+    if (el.currentTime * 1000 < t.endMs - 15) return;
+    this.rangeEnded = this.loadToken;
+    const next = this.predictNext();
+    const onward = next?.cueOf === t.cueOf && next.startMs === t.endMs && !(fadePrefs(this.ctx).endSilenceMs > 0);
+    if (!onward) { this.fader.stop(el); el.pause(); }
+    this.trackEnded();
+  }
+
+  /** Polls a CUE track's range end between timeupdate events. */
+  armRange() {
+    clearInterval(this.rangeTimer);
+    this.rangeTimer = this.track?.endMs ? setInterval(() => this.checkRangeEnd(), 30) : 0;
   }
 
   onEnded() {

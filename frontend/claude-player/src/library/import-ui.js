@@ -23,7 +23,7 @@ export function installImport(ctx, root) {
     input.multiple = true;
     input.className = 'cp-file';
     if (dir) input.webkitdirectory = true;
-    else input.accept = 'audio/*,.flac,.opus,.ogg,.m4a,.lrc';
+    else input.accept = 'audio/*,.flac,.opus,.ogg,.m4a,.lrc,.cue';
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'cp-import-btn';
