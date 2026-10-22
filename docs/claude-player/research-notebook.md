@@ -407,7 +407,7 @@ The following are inferred:
 - the follow pause after a user scroll (4 s)
 - tap to seek
 
-### F41 — Visualization panel — `CS` (structure) / `INF` (pager–list morph)
+### F41 — Visualization panel — `CS`
 
 `merge_vis_panel` holds `VisPanelFrame` (48 dp, `itemSize` 48 dp, `animTime` 500) inside a private-scene container. Collapsed, its `PowerList` pages the presets horizontally (`ov0`: one item per width), and settling on a page loads that preset. A tap expands the frame to `scene_vispanel_expanded` (352 dp):
 - a vertical list of `item_vis` rows in `scene_vis_item_list` (like/unlike tristate, activated check)
@@ -420,8 +420,15 @@ Close clears the filter, then collapses, then leaves vis mode (`cmd_gui_set_vis_
 - a press advances to the next mode and toasts the label with `toastOnPress` ("Long press for more options")
 - a long press opens the menu
 
-The vis panel's `PowerListSharedItemTransition` morph between its preset pager and list is
-approximated by a cross-fade. The library's art pager ↔ list hand-off is built (F48).
+**Pager ↔ list** (`VisPanelFrame.H0` / `N`, `PowerListSharedItemTransition.mo621` / `mo623`, `P.j`,
+`h0.j`): one PowerList changes from the pager layout (`ov0`, a `P`) to the list (`w62`,
+scene_vis_item_list) on the expand scene's progress.
+- The list takes the shared-item mapping (`h0` mode 4): it is scaled about a pivot by
+  `1 + (r − 1)·f`, with r = pager item / row height, and faded by `1 − f`.
+- The pager fades (`P` mode 2: alpha `1 − f`).
+- With `itemSize` equal to `listItemSize` (both `VisPanelFrame_height`), r is 1. The morph is then
+  exactly a cross-fade of pager and list on the scene's progress, which is how it is built.
+- The library's art pager ↔ list hand-off is F48.
 
 ### F42 — Ratings and play statistics — `CS`
 
@@ -572,14 +579,11 @@ The following are `INFERRED`:
 ### F50 — Gestures with no reproduction yet — `CONFIRMED_STATIC`
 
 Read but not built:
-- sub-art button editing (`SubAAButtonsLayout`, `LoadableDraggableButtonsBehavior`,
-  `DraggableSourceBehavior`). The reference enables it only in its paid feature-pack tier
-  (`performLongClick` and `F1` check the licence state), and this build models the free tier
-  (F29). Building it needs an owner decision.
 - the predictive back gesture (`zb` / `ListWidget.V/g0/T`), which has no browser counterpart
 
-The art pager's overscroll category change, pinch-to-zoom, drag reordering and the navbar sheet drag
-were listed here and are now built (F52, F53, F59, F60).
+The art pager's overscroll category change, pinch-to-zoom, drag reordering, the navbar sheet drag
+and sub-art button editing (feature-pack tier, owner approved; F62) were listed here and are now
+built (F52, F53, F59, F60, F62).
 
 ### F51 — Meta info line — `CONFIRMED_STATIC`
 
@@ -1536,9 +1540,11 @@ that artist's songs on the album.
 - WAV files now read their fmt / data chunks for the duration, LIST/INFO text and an embedded ID3
   chunk. They previously fell through to the MP3 frame scan.
 
-**Not covered:**
-- The R2 library: its index lists audio files only.
-- Waveforms of virtual tracks.
+**Waveforms** (inferred; the reference analyses natively): a virtual track's waveform is its range of
+the image's peaks. The image is decoded once per session at 10 slices a second, then the range is
+cut into the track's bars and normalised like a file's.
+
+**Not covered:** the R2 library, whose index lists audio files only.
 
 ### F78 — GUI modals: the navbar sheet over the visualization — `CONFIRMED_STATIC`
 
@@ -1709,16 +1715,16 @@ No status is device-verified.
 | F38 list scroller | Built | — |
 | F39 selection | Built | Multi-select drag built (F59). Delete files skipped (owner decision). |
 | F40 lyrics | Built | Page geometry inferred. Lyrics dialog built (F61); provider apps not built. |
-| F41 vis panel | Built | Pager–list morph cross-fades |
+| F41 vis panel | Built | — |
 | F42 ratings/stats | Built | Rating swipes built (F57) |
 | F43 dialogs | Built | Drag to dismiss with the list overscroll handoff (F58) |
 | F44 playlists | Built | Drag reordering (F59); re-sort, import and export (F66) |
 | F45 info / album art | Built | Tag editing skipped (owner decision) |
 | F46 list options | Built | List Memory built; its settings export not built |
 | F47 waveform data | Built | — |
-| F48 list page transitions | Partial | See F48 (e) |
+| F48 list page transitions | Built | Pair times per navigation and the lyrics swipe pivot side inferred (F48 (e)) |
 | F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics button long press opens the lyrics dialog (F61). |
-| F50 unbuilt gestures | Not built | Sub-art button editing (owner decision), predictive back |
+| F50 unbuilt gestures | Not built | Predictive back (no browser counterpart); sub-art button editing is F62 |
 | F59 drag reorder | Built | Release mid-slide and the grid path inferred or untested |
 | F60 navbar sheet drag | Built | — |
 | F61 lyrics dialog | Built | The share sheet substitutes the search chooser; provider apps not built |
@@ -1744,7 +1750,7 @@ No status is device-verified.
 | F74 About: version and licenses | Built | — |
 | F75 Navbar scroll-away and the bottom toolbar | Built | The bottom toolbar fades with the leaving page in level transitions (`w62.j` fades it by the transition fraction) |
 | F76 Category levels, Albums by Artist, Folders Hierarchy | Built | Text-item rows for categories (track items here) |
-| F77 CUE sheets | Built | R2 index (audio files only); virtual tracks have no waveform |
+| F77 CUE sheets | Built | R2 index (audio files only); virtual track waveforms sliced from the image (inferred) |
 | F78 GUI modals (navbar sheet, popups, item menus) | Built | — |
 | F79 Entry headers, back decor, category row meta | Built | No artist images |
 | F80 Library list overscroll | Built | Rubber band reading of `mo1890` and the row scale pivot inferred; glow only where the theme colours it |
