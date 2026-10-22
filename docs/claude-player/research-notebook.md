@@ -375,15 +375,94 @@ The following are inferred:
 - the follow pause after a user scroll (4 s)
 - tap to seek
 
+### F41 — Visualization panel — `CS` (structure) / `INF` (pager–list morph)
+
+`merge_vis_panel` holds `VisPanelFrame` (48 dp, `itemSize` 48 dp, `animTime` 500) inside a private-scene container. Collapsed, its `PowerList` pages the presets horizontally (`ov0`: one item per width), and settling on a page loads that preset. A tap expands the frame to `scene_vispanel_expanded` (352 dp):
+- a vertical list of `item_vis` rows in `scene_vis_item_list` (like/unlike tristate, activated check)
+- a filter field, a sort popup (type, name, author, source, rating) and the settings button
+- the shim behind it, which collapses the panel
+
+Close clears the filter, then collapses, then leaves vis mode (`cmd_gui_set_vis_mode` 0). Pausing and changing nav also collapse the panel. The advance button (`state_player_milk_advance`) is a non-dynamic `BusSelectablePopupButtonLayout`:
+- `milk_advance_enum` is `@null`, so the modes are the indices: lock, change with track, change by time, shuffle by time
+- the closed button shows only the selected row (`fp1.O1`)
+- a press advances to the next mode and toasts the label with `toastOnPress` ("Long press for more options")
+- a long press opens the menu
+
+The `PowerListSharedItemTransition` morph between pager and list is approximated by a cross-fade.
+
+### F42 — Ratings and play statistics — `CS`
+
+`LikeUnlikeLayout` keeps its two checks exclusive and sends `cmd_data_track_rating` with 5 (like), 1 (unlike) or 0. `RatingBar` (`rating_type` 2/3) shows `numStars` stars: `drawable` for set stars, `drawableOff` for the rest, over `lineBackground`. A track counts as played at `played_dur` percent (default 50). The lists are Most Played, Recently Played, Top Rated (≥ 4) and Low Rated (1–2).
+
+### F43 — Dialogs — `CS`
+
+Each dialog is an activity themed `dialog_<Activity>`, based on `BottomsheetDialog` (animTime 350, frame enters from `layout_attachTop 100%`) or `CenteredDialog` (450, `dialogAltOutScene`). All of them inflate the shared `dialog` layout:
+- the shim
+- the frame with the title layout and the theme's `dialogTitleExtraLayout`
+- `dialogContentLayout` (a flex child with weight 1)
+- `merge_dialog_buttons`
+
+Scenes: `scene_dialog_in`, `scene_dialog_in_toast` (`DialogBehavior` message, then close) and the out scenes. Dialogs keep their own `menu_placeholder` and toast.
+
+### F44 — Playlists and Add to Playlist — `CS`
+
+`PlaylistSelectAndAddToListLayout` (`listItemSize` 50 dp, rows `item_playlist_select_plus_checkbox`) has title buttons:
+- Add New Playlist (new playlists are named `playlist_root_word` N)
+- sort: name 0, date added 0x40000001, date modified 0x40000003, number of tracks 0x40000002
+- insert position: top 1, bottom 0, shuffled 2
+- select type
+
+The select types work as follows:
+- **One playlist:** a tap adds, then the frame shows Added with an Open button and closes after 2 s.
+- **Several:** check playlists, then use Add/Close.
+- **Toggle:** a tap adds or removes.
+
+`pl_no_dups` defaults to false. In a playlist, Delete removes entries; the Playlists category offers Rename and Delete. Header menus are `merge_menu_items_lib`, `_tracks` and `_playlists`, opened from `item_text`'s menu with `merge_item_text_popup_menu`, the same morph as the cover's item menu.
+
+### F45 — Info/Tags and Album Art — `CS`
+
+`dialog_content_info` shows:
+- the file
+- the format line, then ReplayGain
+- statistics (Played Times and Last Played, with a Reset icon)
+- the tags in a `TableLayout`, plus artist/album/genre/folder jumps
+- the cover source (`embed_album_art`, `in_folder_image`, `no_album_art`)
+
+The content scrolls (`ScrollingBehavior`). `SelectAlbumArtActivity` offers `pick_image` (Pick From Gallery) as its only button. A `use_for` check ("Also use for: %s") applies the picked image to the whole album. The online image grid is not available here.
+
+### F46 — List Options — `CS`
+
+`ListOptsActivity` builds its sort radios from per-list `(label, value, hint)` tables, and Reverse is bit 30:
+- **Tracks** (`uf1`): track 0, disc+track 13, title 1, filename 2, path 14, artist 8, album 9, year 3, year+album 15, added 12, modified 4, rating 5, duration 10, played at 7, play count 6, shuffle 11.
+- **Albums** (`te1`), **album artists** (`ne1`), **names** (`cf1`/`hf1`/`eg1`), **folders** (`zf1`), **playlists** (`ri1`) and **years** (`vj1`) have their own tables.
+
+"View as" levels come from `wh1.A()`: categories −4…5 (`ie`), track lists −3…2 (`jj1`) and home (`mg1`). The geometry comes from `pd.P0` and `bk0.P0`. Track lists remap their levels onto category levels −3, −2, −1, 0, 3 and 4, as the search list does (`vo1`). Item sizes come from the list substyle:
+- small / small no-AA / 1-line no-AA / extra small
+- itemSize / itemSizeZoomed
+- grid cells: square art plus `grid*ExtraSpace`
+
+Show Titles Only selects the `scene_1*` variants. Not reproduced: Max Items, Min Duration, list memory and the compact header.
+
+### F47 — Waveform data — `CS` (storage) / `OPEN` (analysis)
+
+`TagReader` reads `track_wave` as a float blob and resamples it to 100 values with `c22.A`, nearest-neighbour on a rounded index. The native analysis behind those floats is not visible in Java and is not reverse-engineered here (native code). The R2 index now carries 500 peak bytes per track, normalised to 255. Peak envelopes of heavily limited masters are nearly flat, which matches the data rather than a rendering fault.
+
+### I1 — Layout inferences to verify against screenshots
+
+- A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
+- Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
+- The vis panel filter field (`fill_parent` + `layout_attachRight @id/sort`) overflows left by the sort button's width under the solver port; its true placement is unverified.
+
 ## Open questions, prioritised by fidelity impact
 
 1. F15 gesture thresholds, fling velocity mapping into `v` (F05), track-swipe paging physics.
 2. Which `T` (F07) applies to which scene pair, and tap vs drag ownership of each transition.
 3. Default skin on first run, and the first-run screen.
-4. List item scenes, zoom levels and list transitions (F18).
-5. Waveform analysis algorithm and bar counts per bucket (F13).
+4. List transitions (F18); zoom levels and item scenes are now known (F46).
+5. Waveform analysis algorithm (F13, F47): native, so it is not inspected; the data now comes from the R2 index.
 6. Elapsed/duration label placement in the "More buttons" layout (F31).
 7. F32 resizable knob stacks (Volume/Reverb tabs), and the real band set of the native DSP.
 8. Sign conventions of the art pager's 3D tilt (rotationX/Y) and the backdrop blur look (F26, F30).
-9. Runtime corroboration of everything above. This needs an owner-run device capture protocol
+9. Layout inferences I1, and the Add to Playlist sheet height (it fills to the larger bottom-sheet maximum because the content is `fill_parent`).
+10. Runtime corroboration of everything above. This needs an owner-run device capture protocol
    (see the architecture plan, “Fidelity verification”).

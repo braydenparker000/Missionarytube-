@@ -48,7 +48,7 @@ Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred ·
 | Track labels centered; labels background | F11 | CS | Overlay | M3 | — |
 | Player buttons background | F11 | CS | Overlay | M3 | — |
 | Material You colours (more/less) | F11 | CS | Seed-colour palette from a user-chosen colour | M3 | System wallpaper palette `UW`; the substitute is labelled |
-| Font: System / Alt / Bold | F11, F19 | CS | `system-ui` / OFL Manrope / labelled substitute | M2 (Bold substitute), M3 | Bold = TT Norms Pro is `LEGAL` (substitute) |
+| Font: System / Alt / Bold | F11, F19 | CS | `system-ui` / OFL Manrope / TT Norms Pro | M2, M3 | TT Norms Pro used with the owner's permission (private, non-commercial) |
 | Rounded corners more/less | F11 | CS | Corner tokens via overlay | M3 | — |
 | Seekbar: Waveseek / Static / Plain with buttons | F11, F13 | CS | `Waveseek` scrollable/fixed, `PlainSeek` | M2 (waveseek), M3 | — |
 | More (pro) buttons; Light buttons | F11 | CS | Overlay | M3 | — |
@@ -70,7 +70,7 @@ Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred ·
 | Equalizer (bands, tone, preamp, limiter, reverb, presets) | F20, `audio_equ.xml`, EQ layouts | CS (UI/settings) | M6 | DSP numerics differ from the native engine; documented curves only |
 | AutoEQ headphone presets | F22 | CS | — | `UW` within the budget (7.3 MB) |
 | Lyrics, sleep timer, rating, meta-info cycling, track menu, toasts | F14, layouts | CS | M7 | — |
-| Visualization (MilkDrop presets) | F21 | CS | M8 (decision) | Presets `LEGAL` review; native renderer `UW` |
+| Visualization (MilkDrop presets) | F21, F41 | CS | M8 (decision: butterchurn) | Owner-approved substitute (butterchurn + its preset pack, MIT); native renderer `UW` |
 | Output/DAC/bit-perfect/resampler/DVC/buffer/audio focus | F20 | CS | — | `UW` |
 | Headset plug/BT auto-resume, volume-key skip | `headset.xml` | CS | — | `UW` (partial via Media Session buttons only) |
 | Widgets, quick-settings tile, Android Auto, Chromecast | F01 | CS | — | `UW` |
@@ -93,21 +93,28 @@ Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred ·
 
 | Area | Implemented | Substitutes and gaps |
 | --- | --- | --- |
-| Engine | Resources/qualifiers, theme composition, inflater, FastLayout, SceneParams scenes, FastTextView metrics, drawables as DOM ops | — |
-| Player screen | Art pager (tilt, swipe, playing scale), labels, rating/menu buttons, sub-art buttons, waveseek, transport, playing/paused scenes, blurred backdrop | Elapsed/duration pills (F31) and tilt signs `OPEN`; waveform analysis provisional; marquee not yet |
-| Library | Home grid (reference order and mask), category lists, track lists, back stack, list item action | Sort/zoom menus, search, selection menu, A–Z scroller not yet |
+| Engine | Resources/qualifiers, theme composition (incl. `android:theme` overlays), inflater, FastLayout (flex, consume, attach, gravity), SceneParams scenes, FastTextView metrics, drawables as DOM ops, ripples from the touch hotspot | Layout inferences I1 |
+| Player screen | Art pager (tilt, swipe, playing scale), labels with marquee, like/unlike or stars, menu, sub-art buttons, waveseek, transport, playing/paused scenes, blurred backdrop | Elapsed/duration pills (F31) and tilt signs `OPEN` |
+| Library | Home grid (reference order and mask); category, statistics and track lists; back stack; list item action; header menus; List Options (sort, reverse, View as, titles only; F46) | List transitions (F18); Max Items, Min Duration, list memory and compact header not offered |
 | Navbar | 1/2/3-line scenes, mini player, seek bar, menu sheet | Logo slot shows the hamburger glyph (trademark logo `LEGAL`) |
-| Playback | Local import (folder/files), tags, covers, waveforms, Media Session, resume | m4a/AAC depends on the browser's codecs |
+| Playback | Local import (folder/files, tags incl. large MP4/FLAC/Ogg blocks), R2 library (index snapshot, 12 h refresh, streaming by range), Media Session, resume, queue (Play next / Add to queue / modes) | m4a/AAC depends on the browser's codecs |
+| Covers | Local embedded art; R2 Worker images when indexed, else read from the audio file by byte ranges (3 slots, 150 ms row settle, "no cover" markers); Cache Storage covers and 256 px thumbnails; picked images per track or album (F45) | No online album-art search |
+| Waveforms | Index waveforms (inline base64 or DCW1 files at `/waveform/<id>`); local files decoded on device; reference resampling (F47) | The analysis algorithm is native (`OPEN`); R2 audio is never downloaded for a waveform |
 | Settings | Every preference screen from the reference XML: redirects, switches, tag lists, list dialogs, seek bars, notes; skin picker with skin options; settings font option; restore defaults; export/import (own JSON) | Platform Material colours (background, accent, switch) are inferred, not extracted. Purchase/feature-pack rows hidden (no commerce). Colour, knob, tags and text-entry preferences show as plain rows. Settings that change the player theme reload it when settings close (the reference recreates the activity). |
 | Equalizer | EQ tab (preamp + ten band knobs, response curve with selection window, spectrum backdrop, Equ/Tone/Limit, tone knobs, presets list, overflow menu), Volume tab (balance, stereo expand, tempo, mono, volume), Reverb tab (seven knobs, reverb on/off); tab paging; Web Audio DSP | DSP numerics inferred (F33); MilkDrop FRS backdrop substituted by a live spectrum; preset save/rename/share/import/export, platform FX and AutoEQ not implemented; knob stacks laid out by intent (F32) |
-| Popups | Button-to-menu morph with shade, menu items, preset list | Timing curve inferred (F34) |
-| Player menus | Shuffle and repeat mode menus (reference mode enums, play order, repeat semantics); track item menu with go-to artist/album/folder/genre; header Play and Shuffle | Item actions (delete, playlists, info, art) and their dialogs not yet |
+| Popups | Button-to-menu morph with shade, menu items, preset lists, dynamic and non-dynamic selectable buttons (F41) | Timing curve inferred (F34) |
+| Item menus | Cover item menu and list header menus (same morph); go-to artist/album/folder/genre; Add to Playlist; Info/Tags; Album Art; lyrics | Delete files and tag editing skipped (owner decision); launcher shortcuts, duplicate deletion, stream URLs and Show All hidden (`UW` / skipped) |
+| Dialogs | Shared `dialog` layout in each `dialog_<Activity>` theme, enter/out/toast scenes, button bar, shim and Escape (F43); alert, edit name, Add to Playlist, Info/Tags, Album Art, List Options | Drag-to-dismiss not implemented |
+| Playlists | Stored playlists; Playlists category; add (top/bottom/shuffled, one/several/toggle), rename, delete, remove entries, clear, .m3u8 export (F44) | Re-sort, import and drag reordering not implemented |
+| Ratings and statistics | Like/unlike, stars, play count at `played_dur` %, last played; Most Played, Recently Played, Top/Low Rated (F42) | History starts from first use (owner decision) |
 | Search | Search panel (native input under the drawn hint), results in list mode, category chips | Chip visibility in `scene_search` follows the layout (gone) |
-| Toasts | Upper and lower toast frames; shuffle/repeat mode toasts | Expand/collapse times inferred |
+| Toasts | Upper and lower toast frames; shuffle/repeat/advance mode toasts; dialog toasts | Expand/collapse times inferred |
 | Long labels | Marquee: lays out at 3000 dp, clips to the text box, scrolls the overflow at 42.5 dp/s with 1500/3000 ms waits (F35) | — |
 | Sleep timer | Sub-AA button popup: four-turn knob (0–240 min), relative-time title, play-to-end, Disable/Cancel/OK; player timer (F36) | Playback stops with a plain pause (no fade; reference behaviour not verified) |
-| Visualization modes | Vis button popup (none / with UI / full screen), playing-scene choice by mode, full-screen tap shows temporary UI (F37) | No visualization renderer behind it (MilkDrop presets `LEGAL`/`UW`; see §3) |
-| A–Z scroller | ListScrollerView modes (A–Z column, thumb), letter bubble, press state animation, section jumps (F38) | `localized_az` alphabets not yet; bubble placement by intent |
-| Selection mode | Item select boxes, selection panel with the reference's per-list action layouts, select all/none/range, counts, state-enabled actions, Queue / Play next with insert-mode menus, Share via Web Share (F39) | Playlists, delete, info/tags and album art actions have no handlers yet |
+| Visualization | Vis modes (none / with UI / full screen, temp UI); butterchurn renderer (owner-approved substitute for the native MilkDrop engine, pinned CDN build with SRI); vis panel with preset pager, preset list, filter, sort, likes, advance modes (F41) | Native renderer `UW`; pager-to-list morph cross-fades; preset sources are the butterchurn pack only |
+| A–Z scroller | ListScrollerView modes (A–Z column, thumb), letter bubble, press state animation, section jumps (F38); alphabet from `azChars` / `localized_azChars` | Only English resources exist, so non-Latin titles fall under # as in an English UI; bubble placement by intent |
+| Selection mode | Item select boxes, selection panel with the reference's per-list action layouts, select all/none/range, counts, state-enabled actions, Queue / Play next with insert-mode menus, Add to Playlist, Info, Album Art, Rename/Delete for playlists, Share via Web Share (F39) | Deleting files skipped (owner decision) |
 | Lyrics | .lrc sidecars, ID3 USLT/SYLT, Vorbis LYRICS, MP4 ©lyr; AA lyrics button per `main_lyrics_button`; lyrics page in the album-art frame with the scene_lyrics header, synced / unsynced line scenes, active-line follow with `lyrics_offset`, tap to seek, empty page (F40) | Page geometry, follow position and play-button state in scene_lyrics need screenshots; no lyrics plugins or online search |
-| Not yet | Ripple masks, help overlays, item-menu dialogs, playlists | — |
+| Help | Per-screen help overlays (main, vis, library, search, EQ pages) with placement, arrows and fades | Placement fallbacks by intent |
+| App shell | PWA (manifest, icons, service worker for app files only; media and covers never cached by it) | Hosting: Azure static site path `/claude-player/` (the R2 Worker answers that origin only) |
+| Not yet | Drag reordering in playlists/queue, playlist import, preset management in the EQ, pinch-to-zoom in lists | — |
