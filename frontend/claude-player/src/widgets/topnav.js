@@ -45,13 +45,16 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
       else if (msg === 'cmd_nav_to_main' || msg === 'cmd_gui_back') this.navigate('nav_main');
       else if (msg === 'cmd_gui_set_vis_mode') this.setVisMode(d?.arg1 ?? 0);
       else if (msg === 'msg_gui_layout_loaded' && d?.parent === this) this.applyFadedAlphas();
+      else if (msg === 'cmd_gui_set_modal') this.setModal(d?.arg1, true);
+      else if (msg === 'cmd_gui_unset_modal') this.setModal(d?.arg1, false);
     });
     // Visualisation (i22.y): a touch shows the UI for tempUITime, from full
     // screen or from faded controls; with vis_ignore_touch_faded the first
     // touch on faded controls only shows them.
     this.el.addEventListener('pointerdown', e => {
       const s = this.scenes.scene;
-      if (!this.playing || (s !== 'scene_vis' && s !== 'scene_vis_temp_ui' && s !== 'scene_vis_w_ui')) return;
+      // A modal (the navbar sheet) keeps the UI: no temporary UI (i22.m2030).
+      if (!this.playing || this.modals?.length || (s !== 'scene_vis' && s !== 'scene_vis_temp_ui' && s !== 'scene_vis_w_ui')) return;
       if (s === 'scene_vis_w_ui' && this.ctx.pref('vis_ignore_touch_faded')) { e.stopPropagation(); e.preventDefault(); }
       this.showTempUI();
     }, true);
@@ -94,6 +97,8 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
    */
   mainScene() {
     if (!this.playing) return DEFAULT_SCENE;
+    // While a modal is up the player shows its full UI (i22.m2030 with state_gui_is_modal_now).
+    if (this.modals?.length) return 'scene_playing';
     const vis = this.ctx.gui.visMode;
     return vis === VIS_FULL_SCREEN ? 'scene_vis' : vis === VIS_W_UI ? 'scene_vis_w_ui' : 'scene_playing';
   }
@@ -106,6 +111,23 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
   }
 
   /** Temporary UI over the full-screen visualisation: tempUITime + vis_temp_ui_ms (1500). */
+  /**
+   * cmd_gui_set_modal / cmd_gui_unset_modal (i22): modals stack by id. With
+   * the last one gone the player screen takes its scene again, or the
+   * temporary UI restarts its timer.
+   */
+  setModal(id, on) {
+    this.modals ??= [];
+    if (on) { this.modals.push(id ?? 0); return; }
+    const at = id ? this.modals.lastIndexOf(id) : this.modals.length - 1;
+    if (at < 0) return;
+    this.modals.splice(at, 1);
+    if (this.modals.length || this.nav !== 'nav_main') return;
+    const s = this.scenes.scene;
+    if (s === 'scene_vis_temp_ui') this.showTempUI();
+    else if (s === DEFAULT_SCENE || s === 'scene_playing') this.go(this.mainScene(), 'nav_main', true);
+  }
+
   showTempUI() {
     clearTimeout(this.tempTimer);
     if (this.scenes.scene !== 'scene_vis_temp_ui') this.go('scene_vis_temp_ui', 'nav_main', true);

@@ -24,7 +24,8 @@ export class Navbar extends FastLayout {
     this.sheet = false;
     this.nav = 'nav_main';
     ctx.bus.subscribe('bus_gui', (msg, src, d) => {
-      if (msg === 'msg_nav_changed') { this.nav = d.nav; this.setSheet(false, false); this.onNav(d.nav); }
+      // A scene change within the same navigation (the temporary UI) keeps the sheet.
+      if (msg === 'msg_nav_changed') { const changed = d.nav !== this.nav; this.nav = d.nav; if (changed) this.setSheet(false, false); this.onNav(d.nav); }
       else if (msg === 'cmd_nav_more') this.setSheet(!this.sheet, true);
       else if (msg === 'cmd_navbar_sheet_close' || msg === 'cmd_app_open_settings') this.setSheet(false, true);
     });
@@ -38,6 +39,8 @@ export class Navbar extends FastLayout {
   setSheet(open, animate) {
     if (this.sheet === open) return;
     this.sheet = open;
+    // The open sheet is a modal (gx0: cmd_gui_set_modal / cmd_gui_unset_modal with @id/navbar).
+    this.ctx.bus.post('bus_gui', open ? 'cmd_gui_set_modal' : 'cmd_gui_unset_modal', this, {arg1: 'navbar'});
     const more = this.buttons?.findViewById('cmd_nav_more');
     more?.setActivated(open);
     const c = this.container();

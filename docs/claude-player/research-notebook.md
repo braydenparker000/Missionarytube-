@@ -1490,6 +1490,23 @@ that artist's songs on the album.
 - The R2 library: its index lists audio files only.
 - Waveforms of virtual tracks.
 
+### F78 — GUI modals: the navbar sheet over the visualization — `CONFIRMED_STATIC`
+
+(a) S1 `gx0` (the navbar posts cmd_gui_set_modal / cmd_gui_unset_modal with @id/navbar as its sheet
+opens and closes), `i22` (the modal stack; `m2030`, the main scene choice; the unset path).
+
+(c) **While a modal is up** (here the navbar menu sheet):
+- The player screen leaves the visualization scenes for scene_playing (its full UI).
+- A touch starts no temporary UI.
+
+**When the last modal goes:**
+- the player screen takes its own scene again (scene_vis_w_ui, scene_vis or scene_playing), or
+- an open temporary UI restarts its timer.
+
+**Before:** the temporary UI's timer returned the open sheet to scene_vis_w_ui. The navbar container
+was then at the faded-controls alpha, and the transport showed through the sheet. A scene change
+within the same navigation also closed the sheet; only a navigation change does now.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1585,6 +1602,7 @@ No status is device-verified.
 | F75 Navbar scroll-away and the bottom toolbar | Built | The bottom toolbar fades with the leaving page in level transitions (`w62.j` fades it by the transition fraction) |
 | F76 Category levels, Albums by Artist, Folders Hierarchy | Built | Text-item rows for categories (track items here) |
 | F77 CUE sheets | Built | R2 index (audio files only); virtual tracks have no waveform |
+| F78 GUI modals (navbar sheet) | Built | Popups do not register as modals |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact
