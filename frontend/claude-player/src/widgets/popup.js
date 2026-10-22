@@ -12,6 +12,7 @@ import {SceneFastLayout, SceneRecord, DEFAULT_SCENE} from '../view/scene.js';
 import {FastTextView} from '../view/text.js';
 import {register} from '../view/inflater.js';
 import {colorForState} from '../res/resources.js';
+import {fadeLevel} from '../view/drawables.js';
 import {GONE, VISIBLE, colorToCss} from '../res/values.js';
 import {animTime} from './topnav.js';
 
@@ -76,13 +77,13 @@ export class PopupLayout extends FastLayout {
     this.popupLevel = ctx.res.integer('@integer/ITEM_BG_LEVEL_POPUP', ctx.theme) ?? 1;
   }
 
-  /** Popup backgrounds are level-lists: the popup level shows the menu surface. */
-  setBackgroundLevel(level) {
-    const bg = this.background;
-    if (!bg || bg.level === level) return;
-    bg.level = level;
-    this._dom.bg = null;
-    this.invalidate();
+  /**
+   * Popup backgrounds are level-lists: the popup level shows the menu surface
+   * (G1): it fades in over the enter time as the popup opens and out over the
+   * exit time as it closes.
+   */
+  setBackgroundLevel(level, ms = 0) {
+    fadeLevel(this.ctx, this, level, level ? {enter: Math.max(1, ms), exit: 1} : {enter: 1, exit: Math.max(1, ms)});
   }
 
   onClick() {
@@ -196,7 +197,7 @@ export class PopupLayout extends FastLayout {
     ph.layout(ph.left, ph.top, ph.right, ph.bottom);
     ph.scenes.scene = CLOSED;
     const dur = animTime(this.ctx, this.enterMs / 1000);
-    this.setBackgroundLevel(this.popupLevel);
+    this.setBackgroundLevel(this.popupLevel, dur * 1000);
     this.shadeAnim(ph, 1, dur);
     ph.scenes.go(MENU, {duration: dur, onEnd: () => this.openedHint()});
     this.ctx.bus.post('bus_gui', 'msg_popup_opened', this);
@@ -250,6 +251,7 @@ export class PopupLayout extends FastLayout {
     this.isOpen = false;
     if (this.modal) this.ctx.bus.post('bus_gui', 'cmd_gui_unset_modal', this, {arg1: 'popup_menu'});
     const dur = animTime(this.ctx, this.exitMs / 1000);
+    this.setBackgroundLevel(0, dur * 1000);
     this.shadeAnim(ph, 0, dur);
     ph.clickable = false;
     ph.scenes.go(CLOSED, {duration: dur, onEnd: () => this.restore(ph)});

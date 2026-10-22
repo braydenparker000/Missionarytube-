@@ -775,6 +775,10 @@ the drag handle next to the select box. A press on the handle starts the drag at
 **Release.**
 - The row returns to the gap over 250 ms (decelerate). It then drops to scale 1 over 150 ms
   (anticipate 0.3) and its background level returns.
+- **Background fades** (kw0 → `AAItemView.x1`): the lift fades the dragged level in over 200 ms;
+  the drop fades it out over 200 ms. These are the level-list's DrawableContainer enter and exit
+  fades, ported as `fadeLevel`. Popups fade their surface level the same way (`G1`): in over the
+  popup enter time, out over the exit time.
 - The order goes to the source as slot → row (`cmd_data_reorder` "poses"). The sort column is
   rewritten for every moved row.
 
@@ -790,7 +794,6 @@ the drag handle next to the select box. A press on the handle starts the drag at
 - **Release during a slide:** the reference finishes the slide while the row rides along via the
   transition's other rect. Here the row interpolates to the gap on the same curve, over
   max((1 − p)·250 ms, 100 ms).
-- **Background level:** it switches without the LevelListDrawable 200 ms fade.
 - **After the drop:** the selection stays on the moved tracks. The reference's handling of its
   checked positions is not read.
 - **List height:** it keeps the full row count while carried rows are away.
@@ -1594,7 +1597,7 @@ No status is device-verified.
 | F48 list page transitions | Partial | See F48 (e) |
 | F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics button long press opens the lyrics dialog (F61). |
 | F50 unbuilt gestures | Not built | Sub-art button editing (owner decision), predictive back |
-| F59 drag reorder | Built | Release mid-slide, level fade and the grid path inferred or untested |
+| F59 drag reorder | Built | Release mid-slide and the grid path inferred or untested |
 | F60 navbar sheet drag | Built | — |
 | F61 lyrics dialog | Built | The share sheet substitutes the search chooser; provider apps not built |
 | F62 sub-art button editing | Built | Cast, delete, tag editing and bookmark buttons left out; no routed device icon |
