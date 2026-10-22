@@ -13,8 +13,12 @@
 //   (dB), parametric, bands: [{type (0 bass shelf, 1 treble shelf, 2 peak),
 //   channels, frequency, q, gain (dB), color}]}; several presets export as an
 //   array to "<name or Presets> [<date time>].json".
-// Device assignment and AutoEq are not built (no output devices or AutoEq
-// database on the web).
+// - Song assignment (eq_preset_songs, EqPresetsBehavior, qf1; F81): a
+//   preset bound to songs loads when one of them starts; binding a category
+//   binds every song it holds at that moment. Song presets win over any
+//   other assignment.
+// Device assignment and AutoEq are not built (no identifiable outputs or
+// AutoEq database on the web).
 import {BAND_RANGE_DB, PREAMP_RANGE_DB} from './dsp.js';
 
 const STORE = 'cp-eq-presets';
@@ -25,7 +29,7 @@ const dbOf = linear => (linear > 0 ? 20 * Math.log10(linear) : 0);
 export class EqPresets {
   constructor(ctx) {
     this.ctx = ctx;
-    this.data = {users: [], overrides: {}, locks: {}, current: null, autosave: false};
+    this.data = {users: [], overrides: {}, locks: {}, current: null, autosave: false, songs: {}, base: undefined};
     try { Object.assign(this.data, JSON.parse(localStorage.getItem(STORE) ?? '{}') ?? {}); } catch { /* defaults */ }
     ctx.eqPresets = this;
   }
@@ -73,13 +77,67 @@ export class EqPresets {
     return q;
   }
 
-  apply(id) {
+  /**
+   * Loads a preset. A user's choice (not a song's) becomes the preset that
+   * returns after a song's own preset.
+   */
+  apply(id, {fromSong = false} = {}) {
     const p = this.get(id);
     if (!p) return;
+    if (!fromSong) { this.data.base = id; this.songLoaded = null; }
     this.data.current = id;
     this.applying = true;
     try { this.ctx.dsp.applyPreset({name: this.data.names?.[id] ?? p.key ?? p.name, params: p.params}); } finally { this.applying = false; }
     this.changed();
+  }
+
+  /** The preset bound to a song, or null. */
+  presetForTrack(trackId) {
+    const id = trackId ? this.data.songs?.[trackId] : null;
+    return id && this.get(id) ? id : null;
+  }
+
+  /** Binds (on) or unbinds a preset from songs (REPLACE INTO / DELETE FROM eq_preset_songs). */
+  assignTracks(presetId, trackIds, on) {
+    const songs = (this.data.songs ??= {});
+    for (const t of trackIds) {
+      if (on) songs[t] = presetId;
+      else if (songs[t] === presetId) delete songs[t];
+    }
+    this.changed();
+  }
+
+  /** Unassign: the preset leaves every song (__unbind_from_all_track_ids). */
+  unassignAll(presetId) {
+    const songs = this.data.songs ?? {};
+    for (const t of Object.keys(songs)) if (songs[t] === presetId) delete songs[t];
+    this.changed();
+  }
+
+  /**
+   * A track starts (DSPIPresetState, inferred where native): its song preset
+   * loads; after it, a track without one returns to the preset (or the
+   * unsaved EQ) that was on before.
+   */
+  onTrack(t) {
+    const id = this.presetForTrack(t?.id);
+    if (id) {
+      if (!this.songLoaded) this.saved = {id: this.data.current, params: this.data.current ? null : this.capture()};
+      this.songLoaded = id;
+      if (this.data.current !== id) this.apply(id, {fromSong: true});
+      return;
+    }
+    if (!this.songLoaded) return;
+    this.songLoaded = null;
+    const back = this.saved;
+    this.saved = null;
+    if (back?.id && this.get(back.id)) this.apply(back.id, {fromSong: true});
+    else if (back?.params) {
+      this.data.current = null;
+      this.applying = true;
+      try { this.ctx.dsp.applyPreset({name: '', params: back.params}); } finally { this.applying = false; }
+      this.changed();
+    }
   }
 
   isLocked(id = this.data.current) {
@@ -172,6 +230,7 @@ export class EqPresets {
     this.data.users = this.data.users.filter(u => !drop.has(u.id));
     for (const id of drop) delete this.data.locks[id];
     if (drop.has(this.data.current)) this.data.current = null;
+    for (const [t, id] of Object.entries(this.data.songs ?? {})) if (drop.has(id)) delete this.data.songs[t];
     this.changed();
     return drop.size;
   }

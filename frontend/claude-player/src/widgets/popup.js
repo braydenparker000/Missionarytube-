@@ -400,8 +400,10 @@ export class EqPresetPopupListLayout extends PopupLayout {
   /** The presets the search and filters show, by section. */
   sections() {
     const P = this.ctx.eqPresets, f = new Set(this.filters), q = this.query.trim().toLowerCase();
-    if (!P || f.has('f/assigned') || !f.has('t/graphic')) return [];
-    const keep = p => !q || q.split(/\s+/).every(w => p.name.toLowerCase().includes(w));
+    if (!P || !f.has('t/graphic')) return [];
+    // Assigned (mf1): the presets bound to the playing song (no devices here).
+    const songPreset = P.presetForTrack(this.ctx.player?.track?.id);
+    const keep = p => (!q || q.split(/\s+/).every(w => p.name.toLowerCase().includes(w))) && (!f.has('f/assigned') || p.id === songPreset);
     const out = [];
     if (f.has('g/user')) out.push({title: 'user_plural_adj_short', presets: P.users().filter(keep)});
     if (f.has('g/built_in')) out.push({title: 'builtin_presets_short', presets: P.builtIns().filter(keep)});
@@ -481,20 +483,32 @@ export class EqPresetPopupListLayout extends PopupLayout {
         cmd_list_export: () => { P().exportFile(chosen()); done(); },
         cmd_list_import: () => { import('./eq-preset-ui.js').then(m => m.importPresetFiles(ctx)); done(); },
       }[b.msgId];
-      if (!act) { b.setVisibility(GONE); continue; } // Assign: no output devices
+      if (b.msgId === 'cmd_list_preset_assign_dialog') {
+        // Assign (one preset): EqPresetAssignActivity.
+        b.onClick = () => { const p = chosen()[0]; if (p) import('./eq-preset-ui.js').then(m => m.openAssignPresetDialog(ctx, p)); done(); };
+        continue;
+      }
+      if (!act) { b.setVisibility(GONE); continue; }
       b.onClick = act;
     }
     return bar;
   }
 
   presetRow(p) {
-    let row = this.rowCache.get(p.id);
+    // m10.o: a preset bound to the playing song takes the 3-line row with its song icon.
+    const bound = this.ctx.eqPresets?.presetForTrack(this.ctx.player?.track?.id) === p.id;
+    const key = (bound ? '3:' : '') + p.id;
+    let row = this.rowCache.get(key);
     if (!row) {
-      row = this.ctx.inflater.inflate('item_eq_preset', null)[0];
+      row = this.ctx.inflater.inflate(bound ? 'item_eq_preset_3line' : 'item_eq_preset', null)[0];
       row.findViewById('lock')?.setVisibility(GONE);
+      if (bound) {
+        for (const id of ['speaker', 'wired', 'bt', 'usb', 'chromecast', 'other']) row.findViewById(id)?.setVisibility(GONE);
+        row.findViewById('line2')?.setText('');
+      }
       row.clickable = true;
       row.longClickable = true;
-      this.rowCache.set(p.id, row);
+      this.rowCache.set(key, row);
     }
     row.findViewById('title')?.setText(p.name);
     const frs = row.findViewById('frs');
@@ -526,8 +540,8 @@ export class EqPresetPopupListLayout extends PopupLayout {
     if (!this.list) return;
     const ctx = this.ctx, rows = [this.selection ? this.selBar : this.header];
     if (this.selection) {
-      // Rename takes one preset.
-      for (const b of this.selBar.children) if (b.msgId === 'cmd_list_rename_dialog') b.setEnabled?.(this.selection.size === 1);
+      // Rename and Assign take one preset.
+      for (const b of this.selBar.children) if (b.msgId === 'cmd_list_rename_dialog' || b.msgId === 'cmd_list_preset_assign_dialog') b.setEnabled?.(this.selection.size === 1);
     }
     for (const s of this.sections()) {
       const sep = ctx.inflater.inflate('item_separator_button', null)[0];

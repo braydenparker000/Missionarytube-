@@ -1254,8 +1254,8 @@ shelves' frequency and Q in the JSON are the Tone settings, F68.)
 
 **No web counterpart:** dsp_border_gain (native gain smoothing).
 
-**Not built:** device and per-song/category assignment, AutoEq presets, and parametric presets
-(the DSP is graphic only).
+**Not built:** device assignment (F81), AutoEq presets, and parametric presets (the DSP is graphic
+only).
 
 (f) `dsp/eq-presets.js`, `widgets/eq-preset-ui.js`, `EqPresetPopupListLayout` in
 `widgets/popup.js`, `PopupList` row heights, the DSP's preset hooks (`get` / `set` / `setBand`).
@@ -1665,6 +1665,44 @@ it is now cropped and centred, as `AAImageView` does.
 (f) `power-list.js` (`dragBy`, `spreadFor`, `springBack`, `overshoot`, the glow), `edge-glow.js`,
 `list-widget.js` (`AAImageView.setStretch`, crop), `gesture.js` (`FLING_CURVE`).
 
+### F81 — EQ preset song and category assignment — `CONFIRMED_STATIC` (storage, dialogs) / `INFERRED` (playback switch)
+
+(a) S1:
+- `merge_eq_preset_assign`, `EqPresetsBehavior` (rows; `__bind_to_track`, `__bind_to_cat`,
+  `__bound_cat_uri`).
+- `EqPresetAssignActivity` (OK / Cancel / Unassign: `__unbind_from_all_track_ids`,
+  `__unbind_from_all_devices`).
+- `qf1` (`REPLACE INTO eq_preset_songs` per file; a category binds each of its files).
+- `EqPresetPopupListLayout` (`cmd_list_preset_assign_dialog` for one selected preset).
+- `m10.o` (`item_eq_preset_3line` for a bound preset).
+- `mf1` (the Assigned filter).
+- `s` (`DSPIPresetState`, the loaded preset's reason: `pre_song` for a song preset).
+
+(c) **Storage.** The reference stores song bindings only (`eq_preset_songs`: file → preset).
+Binding a category binds every song it holds at that moment.
+
+**Dialogs.** Save/Assign and Assign Preset show `merge_eq_preset_assign`.
+- Its output devices (speaker, wired, Bluetooth, USB, Chromecast, other) are hidden: a web page
+  cannot tell its outputs apart.
+- "Apply to songs" shows:
+  - "Song: <title>", checked when the playing song is bound to the preset;
+  - its category, by the category's singular name (Album, Artist, Folder, …) with its micro icon.
+    It is hidden for lists that are not a category entry.
+- Save applies the boxes to the saved preset; OK applies them to the selected one.
+- Unassign removes the preset from every song.
+- The preset list's selection menu offers Assign for one preset.
+
+**Preset list.** A preset bound to the playing song shows the 3-line row with its song icon. The
+Assigned filter keeps the presets bound to the playing song (no device bindings exist here).
+
+**Playback** (inferred; the switch is in the native preset state):
+- When a bound song starts, its preset loads.
+- The next song without one returns to the preset (or unsaved EQ) that was on before.
+- A preset the user picks becomes that fallback.
+
+(f) `dsp/eq-presets.js` (`presetForTrack`, `assignTracks`, `unassignAll`, `onTrack`),
+`widgets/eq-preset-ui.js` (`setupAssign`, `openAssignPresetDialog`), `widgets/popup.js`.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1716,7 +1754,7 @@ No status is device-verified.
 | F30 backdrop | Built (approximation) | — |
 | F31 elapsed/duration | Partial | Placement `OPEN` |
 | F32 knob stacks | Partial | Laid out by intent |
-| F33 equalizer | Partial | Presets per F67; platform FX, AutoEQ and preset assignment not built |
+| F33 equalizer | Partial | Presets per F67, song assignment per F81; platform FX, AutoEQ and device assignment not built |
 | F34 popups | Built | Curve inferred |
 | F35 marquee | Built | — |
 | F36 sleep timer | Built | Expiry fade not verified |
@@ -1749,7 +1787,7 @@ No status is device-verified.
 | F63 library list preferences / List Options | Built | — |
 | F65 queue | Built | Shuffled order inferred |
 | F66 playlist re-sort / files | Built | Import picks files (web) |
-| F67 EQ presets | Partial | Assignment, AutoEq, parametric not built |
+| F67 EQ presets | Partial | Song / category assignment built (F81); device assignment, AutoEq, parametric not built |
 | F68 EQ knob values, Tone / band settings, settings rows | Built | Band frequencies for non-ISO counts and resampling inferred; dsp_border_gain native |
 | F69 Reverb presets | Built | Parameter 8 kept at 1.0 without a knob |
 | F70 Fades and crossfades | Built | Curves and the gapless-pair test inferred (native pipeline) |
@@ -1761,6 +1799,7 @@ No status is device-verified.
 | F76 Category levels, Albums by Artist, Folders Hierarchy | Built | Text-item rows for categories (track items here) |
 | F77 CUE sheets | Built | R2 index (audio files only); virtual track waveforms sliced from the image (inferred) |
 | F78 GUI modals (navbar sheet, popups, item menus) | Built | — |
+| F81 EQ preset song and category assignment | Built | Devices hidden (outputs not identifiable); the playback switch-back inferred |
 | F79 Entry headers, back decor, category row meta | Built | No artist images |
 | F80 Library list overscroll | Built | Rubber band reading of `mo1890` and the row scale pivot inferred; glow only where the theme colours it |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
