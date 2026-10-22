@@ -213,6 +213,7 @@ function categorySource(ctx, list, nav, cat) {
   else if (cat.kind === 'queue') {
     src = withOptions(new TrackSource(ctx, list, nav, title, [...(ctx.player?.userQueue ?? [])]), list, {key: 'tracks:queue', zoomKind: 'tracks'});
     src.kind = 'queue';
+    reorderable(src, map => ctx.player?.reorderQueue(map));
   }
   else if (STAT_LISTS[cat.kind]) src = tracks(lib.tracks.filter(STAT_LISTS[cat.kind].keep), cat.kind);
   else if (cat.kind === 'playlists') return playlistsSource(ctx, list, nav);
@@ -424,7 +425,29 @@ export function playlistSource(ctx, list, nav, pl) {
   src.playlist = pl;
   src.entryIndex = entryIndex;
   src.rebuild = () => playlistSource(ctx, list, nav, pl);
+  // Rows move between the shown entries' places; missing entries stay put.
+  reorderable(src, map => {
+    const ids = pl.ids.slice();
+    entryIndex.forEach((at, slot) => { ids[at] = pl.ids[entryIndex[map[slot]]]; });
+    // The shown list already has the new order; it is not rebuilt.
+    src.ownChange = true;
+    P.reorder(pl, ids);
+    src.ownChange = false;
+  });
   return src;
+}
+
+/**
+ * Drag reordering in selection mode (the playlist and queue lists, F59):
+ * applyOrder(map) puts row map[slot] at each slot and stores the order.
+ */
+function reorderable(src, store) {
+  src.reorderable = true;
+  src.applyOrder = map => {
+    const old = src.tracks;
+    src.tracks = map.map(i => old[i]);
+    store(map);
+  };
 }
 
 /** A category entry's tracks (album, artist, ...), with that list kind's options. */

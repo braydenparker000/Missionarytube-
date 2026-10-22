@@ -30,6 +30,7 @@ export class PowerList extends FastLayout {
   }
 
   setSource(source) {
+    this.reorder = null;
     if (this.selection) this.setSelectionMode(false);
     for (const [i, v] of this.active) this.recycle(i, v);
     this.active.clear();
@@ -193,6 +194,8 @@ export class PowerList extends FastLayout {
     if (!s) return;
     this.scrollY = Math.max(0, Math.min(this.scrollY, this.maxScroll()));
     this.syncScroller();
+    // A drag reorder places the rows itself.
+    if (this.reorder) { this.reorder.place(); return; }
     const g = this.geometry();
     const y0 = g.top + g.headerH - this.scrollY;
     const firstRow = Math.max(0, Math.floor((this.scrollY - g.top - g.headerH) / g.itemH));
@@ -225,8 +228,10 @@ export class PowerList extends FastLayout {
         const r = Math.floor(i / g.cols), c = i % g.cols;
         x = g.left + c * (g.colW + g.gap); y = y0 + r * g.itemH; w = g.colW; h = g.itemH; scene = s.itemScene;
         if (fresh || v._boundKey !== i) { s.bindItem(v, i); v._boundKey = i; }
-        if (this.selectable) v.setSelection?.(!!this.selection, !!this.selection?.has(i));
+        if (this.selectable) v.setSelection?.(!!this.selection, !!this.selection?.has(i), !!s.reorderable);
       }
+      // Rows a drag reorder faded or scaled come back whole.
+      if (v.alpha !== 1 || v.scaleX !== 1) { v.alpha = 1; v.scaleX = v.scaleY = 1; }
       v.left = 0; v.top = 0;
       v.setItemScene(scene, w, h);
       v.translationX = x;
@@ -262,6 +267,22 @@ export class PowerList extends FastLayout {
         navigator.share({text}).catch(() => {});
       } break;
     }
+  }
+
+  /**
+   * Ends a drag reorder: row map[slot] now shows at each slot. The source
+   * stores the order; selected rows stay selected where they landed.
+   */
+  applyOrder(map) {
+    const s = this.source;
+    if (this.selection) {
+      const sel = this.selection;
+      this.selection = new Set(map.flatMap((item, slot) => (sel.has(item) ? [slot] : [])));
+    }
+    if (map.some((item, slot) => item !== slot)) s.applyOrder?.(map);
+    for (const [i, v] of this.active) { this.recycle(i, v); }
+    this.active.clear();
+    this.selectionChanged();
   }
 
   endSelection() {

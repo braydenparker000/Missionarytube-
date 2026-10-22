@@ -381,6 +381,14 @@ export class Player {
     this.post('msg_player_queue_changed', {arg1: add.length});
   }
 
+  /** The queue in a new order (drag reordering: entry map[i] goes to place i). */
+  reorderQueue(map) {
+    const q = this.userQueue;
+    if (map.length !== q.length) return;
+    this.userQueue = map.map(i => q[i]);
+    this.post('msg_player_queue_changed', {arg1: 0});
+  }
+
   /**
    * Sleep timer (cmd_player_set_sleep_timer: arg1 seconds, arg2 play the last
    * song to its end). state_player_sleep_timer is the seconds and the end

@@ -21,7 +21,7 @@ not an observed elapsed time, and a declared dimension is not a final on-screen 
 
 Decompilation scope: JADX 1.5.1 decompiled the whole APK into scratch space (never committed), with
 fallback (bytecode) mode for methods JADX could not restructure. The gesture and transition audit
-(F15, F48–F58) read every touch handler, scroller, pager and list transition class listed below.
+(F15, F48–F59) read every touch handler, scroller, pager and list transition class listed below.
 No native library is inspected.
 
 ## Findings
@@ -542,13 +542,15 @@ The following are `INFERRED`:
 ### F50 — Gestures with no reproduction yet — `CONFIRMED_STATIC`
 
 Read but not built:
-- the drag-reorder handler (`DragHandler`, `DraggableSourceBehavior`)
-- sub-art button editing (`SubAAButtonsLayout`, `LoadableDraggableButtonsBehavior`)
+- sub-art button editing (`SubAAButtonsLayout`, `LoadableDraggableButtonsBehavior`,
+  `DraggableSourceBehavior`). The reference enables it only in its paid feature-pack tier
+  (`performLongClick` and `F1` check the licence state), and this build models the free tier
+  (F29). Building it needs an owner decision.
 - the navbar extension's sheet drag
 - the predictive back gesture (`zb` / `ListWidget.V/g0/T`), which has no browser counterpart
 
-The art pager's overscroll category change and pinch-to-zoom were listed here and are now built
-(F52, F53).
+The art pager's overscroll category change, pinch-to-zoom and drag reordering were listed here and
+are now built (F52, F53, F59).
 
 ### F51 — Meta info line — `CONFIRMED_STATIC`
 
@@ -719,6 +721,65 @@ Not built: `dragByNestedScroll`, the list's overscroll handoff to the frame.
 
 (f) `installDrag` in `src/widgets/dialog.js`, `SceneController.drag` (limits) and `settleTo`.
 
+### F59 — Drag reordering and multi-select drag — `CONFIRMED_STATIC` (fallback bytecode) / `INFERRED` in part
+
+(a) S1 `DragHandler`, `AAItemView.H/w1/x1`, `om0.mo632`, `kw0` (MultiGridDragHelper), `iw0`, `hw0`,
+`gw0`, `fw0`, `jw0`, `sa0.m3081`, `x62` (flags 12), `yf0.K`, `g32.mo1250` (`cmd_data_reorder`),
+`cm2.n`, `ui1`/`si1.mo1184`, `item_bg`, `ItemTrackDragView`.
+
+(c) **Where it applies.** In selection mode, rows of reorderable lists (playlists and the queue) show
+the drag handle next to the select box. A press on the handle starts the drag at once.
+
+**Lift.**
+- The row scales to 1.05 (`x62` flag 4; 1.07 in grids) over 350 ms with AnticipateInterpolator(2.0).
+- Its background takes `ITEM_BG_LEVEL_INTERMEDIATE` (32), which draws `colorDraggedBg`, a rounded
+  #AA000000.
+- It moves to the front.
+
+**Follow.** The row follows the finger, vertically only in one-column lists.
+- When its centre enters another row, the gap moves there. The row is inset by 4 dp in grids, 0 in
+  lists. The first row also takes a centre above it, and the last row one below or to its right.
+- One-column lists rotate the rows between the old and new gap; grids swap the two
+  (`iw0.m2123`).
+- The displaced rows slide with the finger. Progress = (|centre − old gap centre| /
+  |new gap − old gap| − 0.5)·2. At 1.01 the slide completes; at −0.01 the gap moves back and the rows
+  return.
+
+**Autoscroll (`kw0.m2317`, `sa0`).**
+- **Zones:** 2 % of the content height (rounded), measured at least the padding in from each edge.
+- **Speed:** (19.05 + (857.14 − 19.05)·depth / zone) dp/s, unbounded, so a row dragged over the
+  navbar padding scrolls fast.
+- **Start:** a row that starts inside a zone (zone moved 4 dp past it) scrolls only after it leaves.
+  Autoscroll starts on a move with no overlap or during a slide.
+
+**Release.**
+- The row returns to the gap over 250 ms (decelerate). It then drops to scale 1 over 150 ms
+  (anticipate 0.3) and its background level returns.
+- The order goes to the source as slot → row (`cmd_data_reorder` "poses"). The sort column is
+  rewritten for every moved row.
+
+**Multi-select.** Dragging a selected row while others are selected carries the selection.
+- **Pick-up:** the other selected rows fly into the dragged row (alpha 0, scale 0.75) while the
+  rest close up, over 250 ms (x32 settle, accelerate-decelerate). A badge "Items: N"
+  (`ItemTrackDragView`, centred on the art) fades in from 1.5× scale over 350 ms (decelerate).
+- **Drop:** the selection lands as one block at the drop slot, in its original order: the remap
+  shifts the rest by the block length. The block spreads out of the dropped row (from alpha 0,
+  scale 0.85) over 250 ms.
+
+`INFERRED`/substitutes:
+- **Release during a slide:** the reference finishes the slide while the row rides along via the
+  transition's other rect. Here the row interpolates to the gap on the same curve, over
+  max((1 − p)·250 ms, 100 ms).
+- **Background level:** it switches without the LevelListDrawable 200 ms fade.
+- **After the drop:** the selection stays on the moved tracks. The reference's handling of its
+  checked positions is not read.
+- **List height:** it keeps the full row count while carried rows are away.
+- **Grids:** the swap path and the 1.07 lift are implemented but unreachable, because the app's
+  track lists have no grid zoom.
+
+(f) `src/list/reorder.js`, `PowerList.applyOrder`, `AAItemView.initDragHandle`, `Playlists.reorder`,
+`Player.reorderQueue`.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -751,7 +812,7 @@ No status is device-verified.
 | F11 skin options | Partial | Options apply through generic overlay composition and are not checked one by one. Follow Day/Night is built (F56). Material You has no seed-colour substitute. |
 | F12 window buckets | Built | — |
 | F13 waveseek | Built | Native analysis `OPEN` |
-| F14 gesture inventory | Partial | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58). **Not built:** multi-select drag, long press between buttons (edit), the lyrics button long press, the visualization ←/→ preset swipe on the vis itself (the vis panel pager is built). |
+| F14 gesture inventory | Partial | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58); drag reorder and multi-select drag (F59). **Not built:** long press between buttons (edit; feature-pack tier, owner decision), the lyrics button long press, the visualization ←/→ preset swipe on the vis itself (the vis panel pager is built). |
 | F15 thresholds and physics | Built | VelocityTracker reproduced in form only |
 | F16 navbar | Built | — |
 | F17 settings corpus | Built (screens) | Per-key implementation statuses not recorded |
@@ -766,7 +827,7 @@ No status is device-verified.
 | F26 art geometry | Built | Tilt signs `OPEN` |
 | F27 player states | Built | — |
 | F28 waveseek drawing | Built | — |
-| F29 sub-art buttons | Partial | Editing **not built** |
+| F29 sub-art buttons | Partial | Editing **not built**: a paid feature-pack feature in the reference; needs an owner decision |
 | F30 backdrop | Built (approximation) | — |
 | F31 elapsed/duration | Partial | Placement `OPEN` |
 | F32 knob stacks | Partial | Laid out by intent |
@@ -776,18 +837,19 @@ No status is device-verified.
 | F36 sleep timer | Built | Expiry fade not verified |
 | F37 vis modes | Built | — |
 | F38 list scroller | Built | — |
-| F39 selection | Partial | Multi-select drag **not built**. Delete files skipped (owner decision). |
+| F39 selection | Built | Multi-select drag built (F59). Delete files skipped (owner decision). |
 | F40 lyrics | Built | Page geometry inferred. Lyrics dialog **not built**. |
 | F41 vis panel | Built | Pager–list morph cross-fades |
 | F42 ratings/stats | Built | Rating swipes built (F57) |
 | F43 dialogs | Partial | Drag-to-dismiss built (F58), except the list overscroll handoff |
-| F44 playlists | Partial | Re-sort, import and drag reordering **not built** |
+| F44 playlists | Partial | Drag reordering built (F59); re-sort and import **not built** |
 | F45 info / album art | Built | Tag editing skipped (owner decision) |
 | F46 list options | Partial | Max Items, Min Duration, list memory and the compact header not built |
 | F47 waveform data | Built | — |
 | F48 list page transitions | Partial | See F48 (e) |
 | F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics dialog is not built. |
-| F50 unbuilt gestures | Not built | Drag reorder, sub-art button editing, navbar sheet drag, predictive back |
+| F50 unbuilt gestures | Not built | Sub-art button editing (owner decision), navbar sheet drag, predictive back |
+| F59 drag reorder | Built | Release mid-slide, level fade and the grid path inferred or untested |
 | F51 meta info | Built | Output line substituted; first-press toast persistence inferred |
 | F52 category navigation | Built | — |
 | F53 pinch-to-zoom | Built | — |
