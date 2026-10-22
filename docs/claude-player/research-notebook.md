@@ -2132,6 +2132,13 @@ colours come from `*_colored`:
 The port redraws the glyphs as original vectors, compared side by side with the reference's sheet
 (`icons.js`, `badge_*`).
 
+The other icons the port requests (about 90 names, collected while driving every screen) were
+compared the same way, and the mismatches were redrawn. The micro category icons (`*_12dp`) reuse the
+badge glyphs.
+
+The navbar sheet's `logo_navbar_hamburger` is the reference's wordmark. The port keeps its own
+mark there.
+
 (g) `widgets/cast.js`, `view/text.js`, `view/view.js`, `list/list-widget.js` (`setCatIcon`),
 `list/sources.js`, `list/list-opts.js`, `list/power-list.js`, `icons.js`.
 
