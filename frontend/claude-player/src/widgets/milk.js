@@ -16,6 +16,9 @@ export class MilkWidget extends View {
     super(ctx, a);
     const bg = a.color('bgColor');
     this.bgColor = bg?.color ?? 0xff000000;
+    // aaBgColor (?colorAABgColor, white in the light skins): MilkLoader's
+    // solid backdrop when a track has no art (its palette default, A).
+    this.aaBgColor = (a.color('aaBgColor')?.color ?? 0xffffffff) | 0xff000000;
     this.blurSaturationMul = a.float('aaBlurSaturation', 1);
     this.blurIntensityMul = a.float('aaBlurIntensity', 1);
     this.layer = document.createElement('div');
@@ -90,7 +93,9 @@ export class MilkWidget extends View {
     // Downscale factor 2^scale approximated as a blur radius of a fraction of it.
     const radius = (1 << Math.min(st.scale, 9)) * 0.5 * (st.level / 5);
     ls.filter = url ? `blur(${radius.toFixed(1)}px) saturate(${st.saturation})` : '';
-    ls.opacity = url ? String(Math.min(1, st.intensity)) : '0';
+    // Without art the backdrop is the skin's art background colour.
+    ls.backgroundColor = url || !st.enabled ? '' : colorToCss(this.aaBgColor);
+    ls.opacity = url ? String(Math.min(1, st.intensity)) : st.enabled ? '1' : '0';
   }
 }
 

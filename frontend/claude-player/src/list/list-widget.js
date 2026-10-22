@@ -696,9 +696,21 @@ export class ListWidget extends FastLayout {
     if (!src?.clearable) hide.add('show_all');
     if (src?.kind !== 'queue') hide.add('clear_q');
     if (!src?.optsKey) hide.add('list_options');
+    // Album Art (g32.d0): an entry's songs of an art-bearing category (rg1:
+    // albums, artists, album artists, composers, genres, playlists); the
+    // artist-like ones (gh1) call it Art Image.
+    // An entry's albums list (af1, ne1, if1) counts as its entry.
+    const kind = src?.playlist ? 'playlist' : src?.group?.kind ?? src?.parentGroup?.kind;
+    if (!ART_ENTRY_KINDS.has(kind)) hide.add('album_art');
     const exportText = this.ctx.res.stringByName('pref_export');
     for (const c of [...items.children]) {
+      // Recycled headers reopen their menu for other lists: start from the layout's visibility.
+      c._menuVis ??= c.visibility;
       if (hide.has(c.id)) { c.setVisibility(GONE); continue; }
+      c.setVisibility(c._menuVis);
+      // Rescan (g32.d0): in a playlist (si1) it also resolves playlists; in a folder (ag1, dg1) it names the folder.
+      if (c.id === 'rescan') { c._menuText ??= c.text; c.setText(src?.playlist ? this.ctx.res.stringByName('rescan_resolve_playlists') : kind === 'folder' ? this.ctx.res.stringByName('rescan_this_folder') : c._menuText); }
+      if (c.id === 'album_art') { c.setVisibility(VISIBLE); c.setText(this.ctx.res.stringByName(HUMAN_ENTRY_KINDS.has(kind) ? 'art_image' : 'album_art') ?? c.text); }
       if (src?.clearable && (c.id === 'clear' || c.id === 'show_all')) c.setVisibility(VISIBLE);
       if (c.id === 'resort' && !hide.has('resort')) c.setVisibility(VISIBLE);
       if (!c.id && c.text === exportText) c.onClick = () => exportPlaylists(this.ctx);
@@ -2057,6 +2069,9 @@ const ITEM_MENU = 'scene_item_menu';
  * header (the source's menu items: lib, tracks or playlists), whose popup
  * part loads into the item (merge_item_popup_menu / merge_item_text_popup_menu).
  */
+const ART_ENTRY_KINDS = new Set(['album', 'artist', 'albumArtist', 'composer', 'genre', 'playlist']);
+const HUMAN_ENTRY_KINDS = new Set(['artist', 'albumArtist', 'composer']);
+
 ListWidget.prototype.openItemMenu = function (v, itemsLayout = 'merge_menu_items_aa') {
   if (v.inMenu || this.menuItem) return;
   this.menuFromHeader = itemsLayout !== 'merge_menu_items_aa';
@@ -2090,15 +2105,16 @@ ListWidget.prototype.openItemMenu = function (v, itemsLayout = 'merge_menu_items
     for (const c of [...items.children]) if (c.id !== 'separator') items.removeView(c);
     v.menuItemsLayout = itemsLayout;
     this.ctx.inflater.inflate(itemsLayout, items);
-    if (itemsLayout !== 'merge_menu_items_aa') this.prepareListMenu(items);
     // Deleting music files is out of scope (owner decision): the cover menu has no Delete.
-    else items.findViewById('delete')?.setVisibility(GONE);
+    if (itemsLayout === 'merge_menu_items_aa') items.findViewById('delete')?.setVisibility(GONE);
     items.walk(c => {
       if (c === items || !c.clickable) return;
       const click = c.onClick?.bind(c);
       c.onClick = () => { click?.(); this.closeItemMenu(); };
     });
   }
+  // Every opening: the entries the shown list offers.
+  if (items && itemsLayout !== 'merge_menu_items_aa') this.prepareListMenu(items);
   // Item backgrounds are level-lists: the popup level shows the menu surface.
   const popupLevel = this.ctx.res.integer('@integer/ITEM_BG_LEVEL_POPUP', this.ctx.theme) ?? 16;
   if (v.background) { this.menuItem.bgLevel = v.background.level ?? 0; v.background.level = popupLevel; v._dom.bg = null; v.invalidate(); }

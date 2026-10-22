@@ -2157,6 +2157,33 @@ mark there.
 - **EQ screen.** It matches the reference by id. Knob values differ because the harness has no audio
   engine.
 
+(i) A list header's menu (`g32.d0`), checked by tapping it in the harness:
+- **Album Art** shows only in an entry's songs or albums list when the entry's category bears art
+  (`rg1`: albums, artists, album artists, composers, genres, playlists). For the artist-like ones
+  (`gh1`) it is labelled Image (`art_image`). All Songs, folders and years hide it.
+- **Rescan** reads Rescan / Resolve Playlists in a playlist (`si1`) and Rescan This Folder in a
+  folder (`ag1`, `dg1`).
+- **Recycled headers.** The port prepared a header's menu only when it was first inflated, so a
+  recycled header kept the previous list's entries. It now prepares the menu on every opening.
+- **Dialogs.** Dialogs such as List Options draw in their own window, which the harness does not
+  capture.
+
+(j) Skins and the Alternative layout in the harness:
+- **Alternative layout** (`ALT`, alt_layout default on a short display). It matches the port by
+  id. The waveseek cursor only looks offset: the reference dump includes its 0.55 scale.
+- **Light skin.** The harness switches skins with `wv1.Н(null, themeId, …)` after setting `theme_id`.
+  - It requests outlined icons (`*_stroke`: equalizer, lists, search, menu, shuffle, repeat,
+    visualization, sleep timer). The port drew them filled; they are now outlines of the same glyphs.
+  - `MilkWidget`'s `aaBgColor` (`?colorAABgColor`: white in the light base theme, black in the
+    dark one) goes to `MilkLoader` as its solid-colour default. A track without art now shows it as
+    the backdrop. Before, the light skin showed black under its light controls. This reading is
+    `INFERRED`: the loader's decompiled branch is incomplete.
+
+(k) Animation timing in the harness: posting `cmd_nav_to_lib` and stepping the paused Choreographer
+in 16 ms frames finds the player-to-library scene change already complete at the first frame.
+Without a window, the harness cannot time transitions frame by frame; device recordings remain the
+source for F07 and F48.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
