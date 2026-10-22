@@ -135,7 +135,8 @@ variants, each with the player and EQ screens.
   `graphic_frs_color` the EQ.
 - No visible effect, by design: `android_navbar_bg`, `statusbar_bg` and `force_light_navbar`, which
   style Android's system bars.
-- Whether each change matches the reference's look still needs reference screenshots, as for F31.
+- Looks are not compared with the reference here. F85 found and fixed wrong attach values in the
+  Alternative and Full cover layouts the sweep had passed.
 
 ### F12 — Window-size buckets drive geometry — `CONFIRMED_STATIC`
 ~60 `values-*` qualifier sets (for example `sw360dp-h640dp-port`, `sw380dp-h750dp-port`,
@@ -306,22 +307,18 @@ Visualisation and the blurred art backdrop are rendered natively. Defaults: blur
 (f) `widgets/milk.js`: CSS blur/saturate over the art plus a gradient. The radius and gradient curve
 are guesses to tune against reference screenshots.
 
-### F31 — Elapsed/duration labels — `OPEN`
-Both labels attach to the parent on both sides with `wrap_content` in the "More buttons" layout.
-The solver (bytecode) measures a view attached on both sides EXACTLY to the span, which yields two
-full-width pills, the duration covering the elapsed label. That is very likely not the real look, so
-some solver rule is still misread. Placement must be confirmed from a reference screenshot.
+### F31 — Elapsed/duration labels — `CONFIRMED_STATIC` (F85)
+In the "More buttons" layout the elapsed label's right attach (`TopTrackElapsedMoreButtons`) and
+the duration label's left attach (`TopTrackDurationMoreButtons`, both scenes) are `@null` in the
+compiled table; apktool renders them as `parent` (F85). Each label wraps its text: elapsed at the
+left edge, duration at the right edge.
 
-### F32 — Resizable round-knob stacks — `OPEN`
-The Volume/Reverb tab knob layouts ("Resizable" styles) attach the value label to both parent
-edges with `wrap_content` and `consumeSpace=vertical`, the label above it (`attachBottom=_value_label`)
-and the knob above the label. Traced literally (bytecode `p1`/`d1`: both-edge attach measures
-EXACTLY to the span; a view's top attach resolves before its bottom dependency is laid out; a view
-attached on both edges consumes from the top), the value label fills the layout, the label gets zero
-height and the knob lands above the layout. That cannot be the shipping look, so — as in F31 — some
-rule for `wrap_content` attached on both edges is still misread. The implementation lays these
-stacks out by intent (value at the bottom, label above, knob filling the rest, square, centred) and
-flags it. A screenshot of the Volume tab settles both F31 and F32.
+### F32 — Resizable round-knob stacks — `CONFIRMED_STATIC` (F85)
+In the Volume/Reverb "Resizable" knob styles the value label's and label's top attaches
+(`EqResizableRoundKnobValue`, `EqResizableRoundKnobLabel`, `EqTempoRoundKnob`) are `@null`
+(F85). With the real values the solver builds the stack itself: the value label at the bottom,
+the label above it, the knob above the label. The earlier layout by intent gave the same frames
+within 1 px and is removed.
 
 ### F33 — Equalizer — `CS` (structure) / `INF` (DSP)
 EQ tab: `EqKnobsList` (a PowerList) holds the preamp item (`preamp_knob_width`) then one
@@ -343,8 +340,8 @@ placeholder helper takes the button out of its parent (an `InvisibleView` keeps 
 runs `scene_button_menu` over `popupEnterAnimTime` (350 ms); closing runs `scene_button_menu_closed`
 over `popupExitAnimTime` (200 ms). Menu items come from `menuItemsLayout`; preset buttons show a
 list (`popupListStyle`, rows `listItemSize`). The interpolation curve and overshoot handling
-(`maxOvershoot`) are not yet traced; the scene engine's curve is used. Preset rows' titles are
-bottom-attached with `center_vertical` gravity — same open family as F31/F32.
+(`maxOvershoot`) are not yet traced; the scene engine's curve is used. Preset row titles have
+no bottom attach (`@null`, F85) and centre by their `center_vertical` gravity.
 
 ### F35 — Marquee labels — `CS`
 
@@ -1737,7 +1734,7 @@ Assigned filter keeps the presets bound to the playing song (no device bindings 
 (f) `dsp/eq-presets.js` (`presetForTrack`, `assignTracks`, `unassignAll`, `onTrack`),
 `widgets/eq-preset-ui.js` (`setupAssign`, `openAssignPresetDialog`), `widgets/popup.js`.
 
-### F82 — Parametric equalizer — `CONFIRMED_STATIC` (model, UI, presets) / `INFERRED` (filter maths, tall item layout)
+### F82 — Parametric equalizer — `CONFIRMED_STATIC` (model, UI, presets) / `INFERRED` (filter maths)
 
 (a) S1:
 - Model and controller: `Band`, `pr` / `or` (band array, add `or.P`, reorder `or.m2758`),
@@ -1827,10 +1824,9 @@ row's second line. A preset with the same name and source is replaced. The resul
   filters here: x + (g − 1)·F(x), F the RBJ pass filter. At a high Q this dips just past the
   corner.
 - The curve's frequency axis is taken as log 20 Hz..24 kHz.
-- The tall item variant (screen height ≥ 700 dp) read literally gives the Q knob no height: Freq,
-  attached to both parent edges, exceeds its maximum height, keeps only its top attach and sits
-  at the top, where Q also starts. It is laid out by intent (as F32): Q under the popups, Freq at
-  the bottom beside the tool column, labels inside each knob's bottom padding.
+- The tall item variant (screen height ≥ 700 dp) is laid out by the solver. With the corrected
+  attaches (F85) Q sits under the popups and Freq at the bottom, each at full size; the earlier
+  layout by intent is removed.
 - The empty EQ's Add Band item takes the rest of the list width.
 - The select box and drag handle fade in over 150 ms.
 
@@ -1892,9 +1888,42 @@ counterpart:** the Android 12 system palette circles (`merge_widget_mu_colors`).
 (f) `settings/settings.js` (`pickColor`, `editText`, `colorPrefValue`), `app.css` (`.cps-amb*`),
 `widgets/milk.js` (reads the colour part).
 
+### F85 — Null style items, and the reference layout harness — `CONFIRMED_STATIC` (bytecode run)
+(a) The compiled resource table stores some style items as a reference to resource 0, which
+Android resolves to no value (`@null`). apktool writes such an item of an enum or flag attribute
+as the attribute's 0-valued name, so `layout_attachTop="@null"` reads as `parent`. The table holds
+296 null style items; 83 of them, all attach and consume-space items of the app's own attributes,
+were wrong in the model. Framework attributes were already decoded as `@null`. Layout files hold no
+such items.
+
+(b) Found by running the reference's own layout code. A scratch-only harness (nothing from it is
+committed) loads the APK's classes, converted with enjarify, and its resources in Robolectric
+(SDK 34, 412×915 dp at 420 dpi, JDK 17). JVM bytecode verification is off because R8 output calls
+superclass constructors as ART allows. The harness inflates `item_track` with the app's
+inflater (`ca1`) under the real theme stack (`wv1` order: rating option, art and header options,
+then the skin option overlap), switches it to `scene_aa` and reads the frames. With the Full
+cover theme the title and line 2 are wrap-sized, line 2 centred in the strip below the art and
+the title above it. The same engine fed this port's parameters stretched line 2 over the strip,
+which showed the parameters, not the solver, were wrong.
+
+(c) Effects of the corrected values, beyond F31, F32 and F82:
+- Alternative layout: title and line 2 form the centred gravity group below the art (long
+  portrait screens); Full cover: title above the centred line 2, rating and menu below it.
+- Library row titles take their text height; list header buttons are 112 px, not 136.
+- The upper toast frame takes its content height at its place, not the screen's top half.
+- The EQ preset button is centred between Equ and the menu button.
+- Popup list titles take their text width.
+
+(d) The solver rule that centred a view attached only to the parent's bottom when its gravity is
+`center_vertical` (I1) is removed: those views have no bottom attach. Screen geometry over ten
+screens is unchanged by the removal.
+
+(f) `scripts/claude-player/arsc-nulls.mjs` (reads the table), `scripts/claude-player/extract-reference.mjs`
+(`--arsc` writes the nulls back; without it the model is byte-identical to the previous one),
+`model/reference.json.gz`, `view/fast-layout.js`.
+
 ### I1 — Layout inferences to verify against screenshots
 
-- A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
 - The vis panel filter field (`fill_parent` + `layout_attachRight @id/sort`) overflows left by the sort button's width under the solver port; its true placement is unverified.
 
@@ -1941,8 +1970,8 @@ No status is device-verified.
 | F28 waveseek drawing | Built | — |
 | F29 sub-art buttons | Built | Editing is F62 |
 | F30 backdrop | Built (approximation) | — |
-| F31 elapsed/duration | Partial | Placement `OPEN` |
-| F32 knob stacks | Partial | Laid out by intent |
+| F31 elapsed/duration | Built | — |
+| F32 knob stacks | Built | — |
 | F33 equalizer | Partial | Presets per F67, song assignment per F81, parametric mode and AutoEq import per F82; platform FX, the bundled AutoEq database and device assignment not built |
 | F34 popups | Built | Curve inferred |
 | F35 marquee | Built | — |
@@ -1991,9 +2020,10 @@ No status is device-verified.
 | F81 EQ preset song and category assignment | Built | Devices hidden (outputs not identifiable); the playback switch-back inferred |
 | F79 Entry headers, back decor, category row meta | Built | No artist images |
 | F80 Library list overscroll | Built | Rubber band reading of `mo1890` and the row scale pivot inferred; glow only where the theme colours it |
-| F82 Parametric equalizer | Built | Filter maths and curve axis inferred (native); tall item layout by intent; AutoEq text files and the AutoEq project zip import; per-device suggestions not built |
+| F82 Parametric equalizer | Built | Filter maths and curve axis inferred (native); AutoEq text files and the AutoEq project zip import; per-device suggestions not built |
 | F83 App drawable states, unlimited wrap measuring | Built | — |
 | F84 Colour and text preferences | Built | System palette circles have no web counterpart |
+| F85 Null style items, reference harness | Built | — |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 
 ## Open questions, prioritised by fidelity impact
@@ -2003,9 +2033,8 @@ No status is device-verified.
 3. Default skin on first run, and the first-run screen.
 4. List transitions (F18); zoom levels and item scenes are now known (F46).
 5. Waveform analysis algorithm (F13, F47): native, so it is not inspected; the data now comes from the R2 index.
-6. Elapsed/duration label placement in the "More buttons" layout (F31).
-7. F32 resizable knob stacks (Volume/Reverb tabs), and the real band set of the native DSP.
-8. Sign conventions of the art pager's 3D tilt (rotationX/Y) and the backdrop blur look (F26, F30).
-9. Layout inferences I1, and the Add to Playlist sheet height (it fills to the larger bottom-sheet maximum because the content is `fill_parent`).
-10. Runtime corroboration of everything above. This needs an owner-run device capture protocol
+6. The real band set of the native DSP.
+7. Sign conventions of the art pager's 3D tilt (rotationX/Y) and the backdrop blur look (F26, F30).
+8. Layout inferences I1, and the Add to Playlist sheet height (it fills to the larger bottom-sheet maximum because the content is `fill_parent`).
+9. Runtime corroboration of everything above. This needs an owner-run device capture protocol
    (see the architecture plan, “Fidelity verification”).

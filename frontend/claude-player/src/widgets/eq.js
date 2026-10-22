@@ -1718,52 +1718,6 @@ export class DSPRoundKnobLayout extends FastLayout {
     queueMicrotask(() => this.syncDsp());
   }
 
-  /**
-   * "Resizable" knob styles (value label attached to both parent edges, label
-   * above it, knob above the label) form a bottom-up stack. Read literally,
-   * the solver rules traced so far stretch the value label over the whole
-   * layout and push the knob out of bounds, so the stack is laid out by
-   * intent here (research notebook F32, open).
-   */
-  get resizable() {
-    const v = this.valueLabel?.lp;
-    return !!(v && v.attachTop?.kind === 1 && v.attachBottom?.kind === 1);
-  }
-
-  onMeasure(wSpec, hSpec) {
-    if (!this.resizable) return super.onMeasure(wSpec, hSpec);
-    const W = MeasureSpec.getSize(wSpec), H = MeasureSpec.getSize(hSpec);
-    this.setMeasuredDimension(W, H);
-    const iw = Math.max(0, W - this.paddingLeft - this.paddingRight);
-    const wrap = v => v.measure(MeasureSpec.make(iw, MeasureSpec.AT_MOST), MeasureSpec.make(H, MeasureSpec.AT_MOST));
-    for (const v of [this.valueLabel, this.label, this.leftLabel, this.rightLabel]) if (v) wrap(v);
-    const vl = this.valueLabel.lp, kl = this.knob.lp;
-    let below = this.valueLabel.measuredHeight + vl.topMargin + vl.bottomMargin;
-    if (this.label) below += this.label.measuredHeight + this.label.lp.topMargin + this.label.lp.bottomMargin;
-    let s = Math.min(iw, H - this.paddingTop - this.paddingBottom - below - (kl.topMargin ?? 0) - (kl.bottomMargin ?? 0));
-    if (kl.maxHeight > 0) s = Math.min(s, kl.maxHeight);
-    s = Math.max(0, s);
-    this.knob.measure(MeasureSpec.make(s, MeasureSpec.EXACTLY), MeasureSpec.make(s, MeasureSpec.EXACTLY));
-  }
-
-  onLayout(...args) {
-    if (!this.resizable) return super.onLayout(...args);
-    const W = this.width, H = this.height;
-    const cx = v => Math.round((W - v.measuredWidth) / 2);
-    const vl = this.valueLabel.lp, kl = this.knob.lp;
-    const vb = H - this.paddingBottom - vl.bottomMargin, vt = vb - this.valueLabel.measuredHeight;
-    this.valueLabel.layout(cx(this.valueLabel), vt, cx(this.valueLabel) + this.valueLabel.measuredWidth, vb);
-    let edge = vt - vl.topMargin;
-    if (this.label) {
-      const ll = this.label.lp;
-      const lb = edge - ll.bottomMargin, lt = lb - this.label.measuredHeight;
-      this.label.layout(cx(this.label), lt, cx(this.label) + this.label.measuredWidth, lb);
-      edge = lt - ll.topMargin;
-    }
-    const kb = edge - (kl.bottomMargin ?? 0), kt = kb - this.knob.measuredHeight;
-    this.knob.layout(cx(this.knob), kt, cx(this.knob) + this.knob.measuredWidth, kb);
-  }
-
   adopt(v, sa, styleName = null) {
     const lsa = styleName ? new sa.constructor(sa.res, sa.theme, {}, styleName) : sa;
     v.lp = this.generateLayoutParams(lsa);
