@@ -152,6 +152,8 @@ export class View {
     if (this.state.pressed === p) return;
     this.state.pressed = p;
     if (this.background?.ripple) this.ctx.drawables?.paintRipple(this, p);
+    // A ripple drawable as the view's own drawable (the transport buttons) ripples over it.
+    if (this.drawable?.ripple && this.drawableRect) this.ctx.drawables?.paintRipple(this, p, this.drawable, this.drawableRect());
     this.onStateChanged();
   }
   setSelected(p) { if (this.state.selected !== p) { this.state.selected = p; this.onStateChanged(); } }
