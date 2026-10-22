@@ -21,7 +21,7 @@ not an observed elapsed time, and a declared dimension is not a final on-screen 
 
 Decompilation scope: JADX 1.5.1 decompiled the whole APK into scratch space (never committed), with
 fallback (bytecode) mode for methods JADX could not restructure. The gesture and transition audit
-(F15, F48–F59) read every touch handler, scroller, pager and list transition class listed below.
+(F15, F48–F60) read every touch handler, scroller, pager and list transition class listed below.
 No native library is inspected.
 
 ## Findings
@@ -546,11 +546,10 @@ Read but not built:
   `DraggableSourceBehavior`). The reference enables it only in its paid feature-pack tier
   (`performLongClick` and `F1` check the licence state), and this build models the free tier
   (F29). Building it needs an owner decision.
-- the navbar extension's sheet drag
 - the predictive back gesture (`zb` / `ListWidget.V/g0/T`), which has no browser counterpart
 
-The art pager's overscroll category change, pinch-to-zoom and drag reordering were listed here and
-are now built (F52, F53, F59).
+The art pager's overscroll category change, pinch-to-zoom, drag reordering and the navbar sheet drag
+were listed here and are now built (F52, F53, F59, F60).
 
 ### F51 — Meta info line — `CONFIRMED_STATIC`
 
@@ -719,7 +718,7 @@ intercept.
 
 Not built: `dragByNestedScroll`, the list's overscroll handoff to the frame.
 
-(f) `installDrag` in `src/widgets/dialog.js`, `SceneController.drag` (limits) and `settleTo`.
+(f) `installSheetDrag` in `src/widgets/sheet-drag.js` (used by `installDrag` in `src/widgets/dialog.js`), `SceneController.drag` (limits) and `settleTo`.
 
 ### F59 — Drag reordering and multi-select drag — `CONFIRMED_STATIC` (fallback bytecode) / `INFERRED` in part
 
@@ -780,6 +779,26 @@ the drag handle next to the select box. A press on the handle starts the drag at
 (f) `src/list/reorder.js`, `PowerList.applyOrder`, `AAItemView.initDragHandle`, `Playlists.reorder`,
 `Player.reorderQueue`.
 
+### F60 — Navbar menu sheet drag — `CONFIRMED_STATIC`
+
+(a) S1 `NavbarExtension` (`a0`, `d`, `Z0`, `u`, `onInterceptTouchEvent`, `onTouchEvent`), `um`, `vm`,
+`wm` (the F58 drag), styleable `wa1.a0` (`shim`, `content`, `twoLineEnterAnimTime`,
+`twoLineExitAnimTime`).
+
+(c) The open sheet (`scene_navbar_*_sheet`) collapses by drag with the F58 laws.
+- **Target:** the matching non-sheet scene (1line_sheet → default, 2lines_sheet → 2lines,
+  3lines_sheet → 3lines).
+- **Span:** the extension's height (no `content` view set).
+- **Attributes:** the extension's style sets none of the drag attributes, so `um` takes its
+  defaults: collapse down, `dragAnimTime` 500 ms, threshold 0.8, velocity 1000 px/s (pixels, not dp).
+- **Touches:** the extension consumes touches on its own background, so a drag can start there as
+  well as on its lines.
+- **Shim:** a touch on the shim released without dragging the sheet closes it with
+  `animExitTime`, even if it moved.
+
+(f) `installSheetDrag` in `src/widgets/sheet-drag.js` (shared with F58), `Navbar.installSheetDrag`,
+`Shim`.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -812,7 +831,7 @@ No status is device-verified.
 | F11 skin options | Partial | Options apply through generic overlay composition and are not checked one by one. Follow Day/Night is built (F56). Material You has no seed-colour substitute. |
 | F12 window buckets | Built | — |
 | F13 waveseek | Built | Native analysis `OPEN` |
-| F14 gesture inventory | Partial | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58); drag reorder and multi-select drag (F59). **Not built:** long press between buttons (edit; feature-pack tier, owner decision), the lyrics button long press, the visualization ←/→ preset swipe on the vis itself (the vis panel pager is built). |
+| F14 gesture inventory | Partial | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58); drag reorder and multi-select drag (F59); the navbar sheet drag (F60). **Not built:** long press between buttons (edit; feature-pack tier, owner decision), the lyrics button long press, the visualization ←/→ preset swipe on the vis itself (the vis panel pager is built). |
 | F15 thresholds and physics | Built | VelocityTracker reproduced in form only |
 | F16 navbar | Built | — |
 | F17 settings corpus | Built (screens) | Per-key implementation statuses not recorded |
@@ -848,8 +867,9 @@ No status is device-verified.
 | F47 waveform data | Built | — |
 | F48 list page transitions | Partial | See F48 (e) |
 | F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics dialog is not built. |
-| F50 unbuilt gestures | Not built | Sub-art button editing (owner decision), navbar sheet drag, predictive back |
+| F50 unbuilt gestures | Not built | Sub-art button editing (owner decision), predictive back |
 | F59 drag reorder | Built | Release mid-slide, level fade and the grid path inferred or untested |
+| F60 navbar sheet drag | Built | — |
 | F51 meta info | Built | Output line substituted; first-press toast persistence inferred |
 | F52 category navigation | Built | — |
 | F53 pinch-to-zoom | Built | — |
