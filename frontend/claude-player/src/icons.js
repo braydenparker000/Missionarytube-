@@ -328,6 +328,10 @@ G.back_10s_text = {svg: line('M8 8.4A7 7 0 0 1 19.6 11.4', 1.4) + `<path d="${po
 G.forward_10s_text = {svg: line('M16 8.4A7 7 0 0 0 4.4 11.4', 1.4) + `<path d="${poly([[19.4, 8.8], [15, 5.6], [14.5, 10.9]], 0.3)}"/>` + tenText(7.6)};
 G.lyrics_dashed = {svg: '<g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">' +
   '<path d="M6.3 7.3H10.3M13.7 7.3H17.7M4.3 12H7.1M10.6 12H13.4M16.9 12H19.7M7.5 16.7H10.5M13.5 16.7H16.5"/></g>'};
+// Light skins' outlined variants (*_stroke): the filled glyph's edge drawn as a line.
+for (const k of ['equ', 'equ_rounded', 'hamburger', 'hamburger_rounded', 'lists', 'lists_rounded', 'shuffle', 'repeat']) G['stroke_' + k] = {svg: outline(G[k], 1.3)};
+G.stroke_search = {svg: '<circle cx="10" cy="10" r="6.1" fill="none" stroke="currentColor" stroke-width="1.5"/>' + outline(poly([[14.2, 15.9], [15.9, 14.2], [21, 19.3], [19.3, 21]], 0.9), 1.4)};
+G.vis_thin = rect(3.6, 9.5, 1.5, 5, 0.75) + rect(7.5, 6.5, 1.5, 11, 0.75) + rect(11.25, 3.5, 1.5, 17, 0.75) + rect(15, 6.5, 1.5, 11, 0.75) + rect(18.9, 9.5, 1.5, 5, 0.75);
 // Glyph extents per badge (reference *_alt measured in the harness), for the thumbs.
 const BADGE_FIT = {top_rated: [6.2, 5.8, 18.2, 16.6], low_rated: [5.8, 7.6, 17.8, 18.6]};
 
@@ -352,6 +356,12 @@ function fit(glyph, sx, sy, dx = 0) {
 const RULES = [
   [/^(all_songs|folders_hier|folders|albums_by_artist|albums|artists|album_artists|genres|years|composers|playlists|streams|queue|bookmarks|most_played|top_rated|low_rated|recently_played|recently_added|long_files)(_thumb)?_alt$/, m => badge(m[1] === 'albums_by_artist' ? 'albums' : m[1])],
   [/^settings_close/, () => 'close'],
+  [/^(equ|hamburger|lists)(_rounded)?_stroke/, m => 'stroke_' + m[1] + (m[2] ?? '')],
+  [/^search(_rounded)?_stroke/, () => 'stroke_search'],
+  [/^shuffle_stroke/, () => 'stroke_shuffle'],
+  [/^repeat_stroke/, () => 'stroke_repeat'],
+  [/^vis_stroke/, () => 'vis_thin'],
+  [/^sleep_timer_stroke/, () => 'clock'],
   [/^(albums|album_artists|artists|composers|genres|playlists|years)_12dp$/, m => 'micro_' + m[1]],
   [/^toast_queue/, () => 'micro_queue'],
   [/^folder_stroke/, () => 'folder_stroke'],

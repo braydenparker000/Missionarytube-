@@ -2168,6 +2168,17 @@ mark there.
 - **Dialogs.** Dialogs such as List Options draw in their own window, which the harness does not
   capture.
 
+(j) Skins and the Alternative layout in the harness:
+- **Alternative layout** (`ALT`, alt_layout default on a short display). It matches the port by
+  id. The waveseek cursor only looks offset: the reference dump includes its 0.55 scale.
+- **Light skin.** The harness switches skins with `wv1.Н(null, themeId, …)` after setting `theme_id`.
+  - It requests outlined icons (`*_stroke`: equalizer, lists, search, menu, shuffle, repeat,
+    visualization, sleep timer). The port drew them filled; they are now outlines of the same glyphs.
+  - `MilkWidget`'s `aaBgColor` (`?colorAABgColor`: white in the light base theme, black in the
+    dark one) goes to `MilkLoader` as its solid-colour default. A track without art now shows it as
+    the backdrop. Before, the light skin showed black under its light controls. This reading is
+    `INFERRED`: the loader's decompiled branch is incomplete.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
