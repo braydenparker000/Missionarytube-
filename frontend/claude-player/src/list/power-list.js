@@ -8,6 +8,7 @@ import {AT_TOP, BETWEEN, AT_END} from './moveable-toolbar.js';
 import {sectionChar} from './scroller.js';
 import {modeState} from './mode-state.js';
 import {VelocityTracker, Fling, TOUCH_SLOP_DP, MIN_FLING_DP, MAX_FLING_DP} from '../gesture.js';
+import {nestedDragOf} from '../widgets/sheet-drag.js';
 
 export const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text', separator: 'item_separator_button', history: 'item_search_history', clearHistory: 'item_clear_search_history'};
 // Row types without item scenes (SeparatorItemView): laid out at the row's size.
@@ -489,7 +490,16 @@ export class PowerList extends FastLayout {
     const vt = new VelocityTracker();
     vt.add(start.time, start.rootX, start.rootY);
     this.drag = {y: start.rootY + Math.sign(now.rootY - start.rootY) * slop, scroll: this.scrollY, vt, started: true};
+    this.startNested(start.time);
     return true;
+  }
+
+  /** A dialog frame around the list takes the scroll the list cannot use (dragByNestedScroll). */
+  startNested(time) {
+    const d = this.drag;
+    d.last = d.y;
+    d.nested = nestedDragOf(this);
+    if (d.nested && !d.nested.start(time)) d.nested = null;
   }
 
   onPointerMove(e) {
@@ -501,9 +511,15 @@ export class PowerList extends FastLayout {
       if (Math.abs(dy) < slop) return;
       d.started = true;
       d.y += Math.sign(dy) * slop;
+      this.startNested(e.time);
     }
+    // Scroll by the step: the dialog frame first (pre-scroll), then the list, then the frame again.
+    const step = d.last - e.rootY;
+    d.last = e.rootY;
+    const own = step - (d.nested?.pre(step, e.time) ?? 0);
     const prev = this.scrollY;
-    this.scrollY = Math.max(0, Math.min(this.maxScroll(), d.scroll - (e.rootY - d.y)));
+    this.scrollY = Math.max(0, Math.min(this.maxScroll(), prev + own));
+    d.nested?.unconsumed(own - (this.scrollY - prev), e.time);
     this.placeItems();
     if (this.scrollY !== prev) this.scrolled(prev - this.scrollY, true);
   }
@@ -511,6 +527,7 @@ export class PowerList extends FastLayout {
   onPointerUp(e) {
     const d = this.drag;
     this.drag = null;
+    d?.nested?.stop(e?.time ?? performance.now());
     if (!d || !d.started || e?.cancelled) return;
     d.vt.up(e.time);
     const v = -d.vt.compute(MAX_FLING_DP * this.ctx.dpr).vy;

@@ -150,6 +150,9 @@ function installDrag(ctx, dialog, {outScene, cancelled}) {
     target: () => outScene,
     enabled: () => !dialog.closed,
     settled: commit => { if (commit) cancelled(); },
+    // um: dragByNestedScroll (BaseDialog true) and dragUseNestedScrollVelocity (false).
+    nested: res.bool('?dragByNestedScroll', theme) ?? true,
+    nestedVelocity: res.bool('?dragUseNestedScrollVelocity', theme) ?? false,
   });
 }
 

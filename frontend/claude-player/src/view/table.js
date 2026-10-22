@@ -4,6 +4,7 @@
 // content is taller than the parent).
 import {FastLayout} from './fast-layout.js';
 import {View, MeasureSpec} from './view.js';
+import {nestedDragOf} from '../widgets/sheet-drag.js';
 import {register} from './inflater.js';
 import {GONE} from '../res/values.js';
 
@@ -79,11 +80,23 @@ export class ScrollingBehavior extends View {
     };
     p.onInterceptStart = (start, now) => {
       if (max() <= 0 || Math.abs(now.rootY - start.rootY) <= Math.abs(now.rootX - start.rootX)) return false;
-      this.drag = {y: start.rootY, s: this.scroll};
+      // A dialog frame around takes the scroll this view cannot use (dragByNestedScroll).
+      let nested = nestedDragOf(p);
+      if (nested && !nested.start(start.time)) nested = null;
+      this.drag = {last: start.rootY, nested};
       return true;
     };
-    p.onPointerMove = e => { if (this.drag) apply(this.drag.s - (e.rootY - this.drag.y)); };
-    p.onPointerUp = () => { this.drag = null; };
+    p.onPointerMove = e => {
+      const d = this.drag;
+      if (!d) return;
+      const step = d.last - e.rootY;
+      d.last = e.rootY;
+      const own = step - (d.nested?.pre(step, e.time) ?? 0);
+      const prev = this.scroll;
+      apply(prev + own);
+      d.nested?.unconsumed(own - (this.scroll - prev), e.time);
+    };
+    p.onPointerUp = e => { this.drag?.nested?.stop(e?.time ?? performance.now()); this.drag = null; };
     p.el.addEventListener('wheel', e => { if (max() > 0) { e.preventDefault(); apply(this.scroll + e.deltaY * this.ctx.dpr); } }, {passive: false});
     const layout = p.onLayout.bind(p);
     p.onLayout = (...args) => { layout(...args); apply(this.scroll); };

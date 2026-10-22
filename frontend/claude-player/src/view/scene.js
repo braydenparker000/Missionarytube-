@@ -229,6 +229,8 @@ export class SceneController {
       this.items = collect(this.root, scene, []);
       this.prepare();
       this.running = {manual: true, from: 0, target: 1, duration: 0};
+      // A layout pass while the drag holds would leave the frames at the target layout: re-applied after it.
+      (this.root.ctx.manualScenes ??= new Set()).add(this);
     }
     this.ratio = Math.max(min, Math.min(max, ratio));
     this.apply(this.ratio);

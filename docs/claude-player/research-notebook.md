@@ -724,9 +724,20 @@ moves by the slop on each axis it crossed.
 the shim.
 
 **Lists in the frame.** A list starts a nested scroll on down, which disables the frame's
-intercept.
+intercept. With `dragByNestedScroll` (BaseDialog on; off for the list alert dialog and Select
+Album Art), `DialogOuterFastLayout` hands the frame the scroll the list cannot use:
+- the scroll's start puts down a virtual pointer drag of the frame (past touch slop, as a touch);
+- each step goes to the frame first while it is off its rest by more than 0.025
+  (onNestedPreScroll);
+- then the list scrolls, and what it could not use moves the frame (onNestedScroll);
+- the scroll's stop releases the frame, ignoring the velocity unless
+  `dragUseNestedScrollVelocity`.
 
-Not built: `dragByNestedScroll`, the list's overscroll handoff to the frame.
+The app's lists (PowerList) and scrolling dialog content (ScrollingBehavior) scroll by steps and
+offer each one to the frame.
+
+A scene held by a drag takes its dragged frames again after a layout pass. Rows bound while the list
+scrolls under a held frame no longer snap the frame to the target layout.
 
 (f) `installSheetDrag` in `src/widgets/sheet-drag.js` (used by `installDrag` in `src/widgets/dialog.js`), `SceneController.drag` (limits) and `settleTo`.
 
@@ -1575,7 +1586,7 @@ No status is device-verified.
 | F40 lyrics | Built | Page geometry inferred. Lyrics dialog built (F61); provider apps not built. |
 | F41 vis panel | Built | Pager–list morph cross-fades |
 | F42 ratings/stats | Built | Rating swipes built (F57) |
-| F43 dialogs | Partial | Drag-to-dismiss built (F58), except the list overscroll handoff |
+| F43 dialogs | Built | Drag to dismiss with the list overscroll handoff (F58) |
 | F44 playlists | Built | Drag reordering (F59); re-sort, import and export (F66) |
 | F45 info / album art | Built | Tag editing skipped (owner decision) |
 | F46 list options | Partial | Max Items, Min Duration, compact header, categories built (F63); list memory not built |
@@ -1594,7 +1605,7 @@ No status is device-verified.
 | F55 search chips | Built | Categories, subheaders and history per F64 |
 | F56 Follow Day/Night | Built | Night mode from `prefers-color-scheme` |
 | F57 star rating bar | Built | — |
-| F58 dialog drag | Partial | Nested-scroll handoff not built |
+| F58 dialog drag | Built | — |
 | F63 library list preferences / List Options | Built | List memory not built |
 | F65 queue | Built | Shuffled order inferred |
 | F66 playlist re-sort / files | Built | Import picks files (web) |

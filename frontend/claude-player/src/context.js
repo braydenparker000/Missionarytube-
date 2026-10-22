@@ -155,5 +155,10 @@ export class Context {
     const w = Math.round(this.viewportWidth * this.dpr), h = Math.round(this.viewportHeight * this.dpr);
     root.measure(MeasureSpec.make(w, MeasureSpec.EXACTLY), MeasureSpec.make(h, MeasureSpec.EXACTLY));
     root.layout(0, 0, w, h);
+    // Scenes held by a drag (no animator) take their dragged frames again.
+    for (const sc of this.manualScenes ?? []) {
+      if (sc.running?.manual) sc.apply(sc.ratio);
+      else this.manualScenes.delete(sc);
+    }
   }
 }
