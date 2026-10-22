@@ -240,34 +240,57 @@ export class AAImageView extends View {
     this.invalidate();
   }
 
-  /** Image rect inside the view for the scale type (AAImageView placement). */
+  /**
+   * AAImageView.E: an overscrolled header's art reaches e px further up
+   * (its rect grows upward, the image moves up by half of it; F80).
+   */
+  setStretch(e) {
+    if ((this.stretch ?? 0) === e) return;
+    this.stretch = e;
+    this.invalidate();
+  }
+
+  /**
+   * Image rect inside the view for the scale type (AAImageView placement),
+   * and the image's full height when it is taller than the rect (cropped,
+   * centred: [l, t, r, b, full]).
+   */
   imageRect() {
     const w = this.width, h = this.height;
-    if (!this.artSize) return [0, 0, w, h];
+    if (!this.artSize) return [0, 0, w, h, 0];
     const [bw, bh] = this.artSize;
-    if (this.scaleType === 6) return [0, 0, w, h];
+    if (this.scaleType === 6) return [0, 0, w, h, 0];
     if (bw + 16 < bh) {
       const s = Math.min(w / bw, h / bh);
       const iw = bw * s, ih = bh * s;
-      return [(w - iw) / 2, (h - ih) / 2, (w + iw) / 2, (h + ih) / 2];
+      return [(w - iw) / 2, (h - ih) / 2, (w + iw) / 2, (h + ih) / 2, 0];
     }
     const s = w / bw;
     const full = bh * s;
     const ih = full > h ? h : full;
     const top = (h - ih) * 0.5;
-    return [0, top, bw * s, top + ih];
+    return [0, top, bw * s, top + ih, full > h ? full : 0];
   }
 
   draw() {
     super.draw();
     const px = this.ctx.px;
-    const [l, t, r, b] = this.imageRect();
+    let [l, t, r, b, full] = this.imageRect();
     let radius = this.radii[this.radiusIndex];
     if (radius < 0) radius = this.height / 2;
     const st = this.img.style;
+    const e = this.stretch ?? 0;
+    t -= e;
     st.transform = `translate(${px(l)}px,${px(t)}px)`;
     st.width = px(r - l) + 'px';
     st.height = px(b - t) + 'px';
+    // A cropped image keeps its scale, centred (moved up by half the stretch);
+    // otherwise it fills the rect.
+    if (full || e) {
+      const ih = full || (b - t - e);
+      st.backgroundSize = `${px(r - l)}px ${px(ih)}px`;
+      st.backgroundPosition = `0px ${px(-(ih - (b - t - e)) / 2 + e / 2)}px`;
+    } else if (st.backgroundSize) { st.backgroundSize = ''; st.backgroundPosition = ''; }
     st.borderRadius = radius > 0 ? px(radius) + 'px' : '';
     const url = this.art?.url ?? null;
     if (this._url !== url) {

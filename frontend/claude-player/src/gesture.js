@@ -97,7 +97,7 @@ export const accelDecel = t => Math.cos((t + 1) * Math.PI) / 2 + 0.5;
 /** The scroller's ease-out (1 - (1 - t)^3). */
 export const cubicOut = t => 1 - (1 - t) ** 3;
 
-const FLING_CURVE = cubicBezier(0.103, 0.389, 0.307, 0.966);
+export const FLING_CURVE = cubicBezier(0.103, 0.389, 0.307, 0.966);
 
 /**
  * List fling (the reference scroller): velocity v0 (px/s) decays as

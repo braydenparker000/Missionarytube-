@@ -1601,14 +1601,54 @@ laid over the header in scene_header_back_decor, with the header's frame and alp
   `item_text_back_decor` under the top level. Search shows none here (`item_no_title_back_decor`).
 - `disableForStateId` selection mode: disabled, and invisible (disabledAlpha 0).
 
-**Not built:** the header art's stretch on overscroll (`AAImageView.E`, `h0` overscroll) — the
-library lists have no overscroll yet. Artist images (the reference's `CatImage` and artist art) are
+The header art's stretch on overscroll is F80. Artist images (the reference's `CatImage` and artist art) are
 not available; headers and rows show the first track's art.
 
 (f) `sources.js` (`entryHeader`, `groupMeta`, `groupLine2`, `metaIconOf`), `power-list.js`
 (`placeBackDecor`), `list-widget.js` (`backTitleFor`, `setMetaIcon`, `cmd_list_up_nav`),
 `library/list-memory.js`, `list-opts.js`, `html-text.js` (`html_2`; glyph boxes through the CSSOM,
 which `style-src 'self'` allows).
+
+### F80 — Library list overscroll — `CONFIRMED_STATIC` / `INFERRED` in part
+
+(a) S1 `hc` (PowerScroller: `C` drag, `mo1890` damping, `mo1886` release, `A` / `mo1887` spring
+back, `m1889` overshoot, the `fc` runnables), `dh0` (spring), `eh0` (fling and the linear
+overshoot), `h0` (`P` = 44 dp, `g` = 30 dp, the spread loop, `mo986` overscroll, `z` header
+stretch), `v62.v` / `w62.v` (row scaleY and offset), `AAImageView.E` / `onDraw`, `hj0` / `tb`
+(edge glow), `PowerList.draw` / `K` / `mo617` / `mo616`, `wa1.h0` (`android:colorEdgeEffect`),
+`kw0` (drag reorder sets `P` to 0).
+
+(c) **Drag past an end.** The content moves on past the end by a rubber band: (P / 4)·ln(1 + C / P)
+for C px of finger travel beyond the end, P = 44 dp. Moving back towards the list undoes the
+overscroll 1:1, then scrolls. Lists inside a dialog frame hand that drag to the frame instead (F58),
+and a drag reorder has none.
+
+**Release.** An overscrolled list does not fling; it springs back over max(0.5 s, |o| / 1500 px/s)
+along the fling curve (0.103, 0.389, 0.307, 0.966), ending within half a pixel.
+
+**Fling into an end.** The remaining velocity v overshoots past the end, decelerating linearly over
+|v| / 10⁶ s (about v² / 2·10⁶ px), then springs back.
+
+**While overscrolled** (pulled past the top, or pushed past the end of a list that scrolls), the
+shown rows spread. The k-th of n rows moves by (k / n)·(o / P)·30 dp and is scaled vertically by
+1 ± (k / n)·|o / P|·0.04 (larger at the top, smaller at the end). A track header's art reaches up
+over the gap: its rect grows by o and the image moves up by o / 2. The moveable toolbar reads
+past-top / past-end.
+
+**Edge glow** (`hj0`, the platform's pre-12 EdgeEffect): pulls, releases and absorbs (v / 5) at the
+end. Its colour is `android:colorEdgeEffect`, transparent in the default themes, so it shows only in
+themes that set one.
+
+**Inferred:**
+- The rubber band reads `hc.mo1890` as a target: its decompiled register use is ambiguous.
+- Row scale pivots on the row's centre.
+- An image's area above its bitmap stays the placeholder colour (the shader clamps there).
+
+Also fixed: a header image taller than its rect (a square cover in the wide header) was squashed;
+it is now cropped and centred, as `AAImageView` does.
+
+(f) `power-list.js` (`dragBy`, `spreadFor`, `springBack`, `overshoot`, the glow), `edge-glow.js`,
+`list-widget.js` (`AAImageView.setStretch`, crop), `gesture.js` (`FLING_CURVE`).
 
 ### I1 — Layout inferences to verify against screenshots
 
@@ -1706,7 +1746,8 @@ No status is device-verified.
 | F76 Category levels, Albums by Artist, Folders Hierarchy | Built | Text-item rows for categories (track items here) |
 | F77 CUE sheets | Built | R2 index (audio files only); virtual tracks have no waveform |
 | F78 GUI modals (navbar sheet, popups, item menus) | Built | — |
-| F79 Entry headers, back decor, category row meta | Built | Header art stretch on overscroll (no list overscroll yet); no artist images |
+| F79 Entry headers, back decor, category row meta | Built | No artist images |
+| F80 Library list overscroll | Built | Rubber band reading of `mo1890` and the row scale pivot inferred; glow only where the theme colours it |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

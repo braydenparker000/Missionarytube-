@@ -4,10 +4,12 @@
 import {FastLayout} from '../view/fast-layout.js';
 import {MeasureSpec} from '../view/view.js';
 import {GONE, VISIBLE} from '../res/values.js';
-import {AT_TOP, BETWEEN, AT_END} from './moveable-toolbar.js';
+import {AT_TOP, PAST_TOP, BETWEEN, AT_END, PAST_END} from './moveable-toolbar.js';
 import {sectionChar} from './scroller.js';
 import {modeState} from './mode-state.js';
-import {VelocityTracker, Fling, TOUCH_SLOP_DP, MIN_FLING_DP, MAX_FLING_DP} from '../gesture.js';
+import {VelocityTracker, Fling, FLING_CURVE, TOUCH_SLOP_DP, MIN_FLING_DP, MAX_FLING_DP} from '../gesture.js';
+import {EdgeGlow} from './edge-glow.js';
+import {colorToCss, argbAlpha} from '../res/values.js';
 import {nestedDragOf} from '../widgets/sheet-drag.js';
 
 export const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text', separator: 'item_separator_button', history: 'item_search_history', clearHistory: 'item_clear_search_history'};
@@ -19,6 +21,20 @@ export const SUBHEAD = -103;
 
 // A touch during a fling faster than this stops it without a click (the scroller's 13.75 dp/s).
 const CLICK_STOP_DP = 13.75;
+
+// Overscroll (PowerScroller hc over the h0 layouter; notebook F80). A drag
+// past an end moves the content on by a rubber band, (P / 4)·ln(1 + C / P)
+// for C px of finger travel beyond the end (P = 44 dp, h0.P); a release
+// springs it back over max(0.5 s, overscroll / 1500 px/s) along the fling
+// curve (dh0); a fling that reaches an end overshoots, decelerating linearly
+// at 10^6 px/s² (eh0 f2400), and springs back. While pulled past the top or
+// pushed past the end of a scrolled list, the shown rows spread: the k-th
+// of n rows moves by (k / n)·(o / P)·30 dp and grows (or, at the end,
+// shrinks) vertically by (k / n)·|o / P|·0.04 (h0, v62.v); the header's art
+// stretches up over the gap (AAImageView.E). The edge glow (hj0) takes the
+// pulls, the release and the fling's velocity.
+const OVER_DP = 44, SPREAD_DP = 30, SPREAD_SCALE = 0.04;
+const SPRING_PX_S = 1500, SPRING_MIN_S = 0.5, OVERSHOOT_DECEL = 1e6;
 
 export class PowerList extends FastLayout {
   constructor(ctx, host, a = null) {
@@ -37,6 +53,11 @@ export class PowerList extends FastLayout {
     // Bottom toolbar (sh): {mode 1 semi-transparent / 2 enabled, size, z, headerButtons}; set by the host.
     this.bottomToolbar = null;
     this.toolbarView = null;
+    // Overscroll: > 0 pulled past the top, < 0 pushed past the end (h0's mo986).
+    this.over = 0;
+    this.overC = 0;
+    this.overDir = 0;
+    this.noOverscroll = false;
     for (const bus of ['list', 'bus_gui']) ctx.bus.subscribe(bus, (msg, src, d) => this.onListCmd(msg, d ?? {}));
   }
 
@@ -47,6 +68,7 @@ export class PowerList extends FastLayout {
     this.active.clear();
     this.source = source;
     this.scrollY = 0;
+    this.resetOver();
     // The moveable toolbar takes the new layout at its next placement (om0.i).
     this.levelChanged = true;
     this.requestLayout();
@@ -73,6 +95,7 @@ export class PowerList extends FastLayout {
 
   scrollTo(y) {
     this.stopFling();
+    this.resetOver();
     this.scrollY = Math.max(0, Math.min(this.maxScroll(), y));
     this.placeItems();
     // A jump re-lays the list out (vj0.m3436): the toolbar takes its status, no movement.
@@ -86,7 +109,9 @@ export class PowerList extends FastLayout {
    */
   scrollState() {
     const max = this.maxScroll(), s = this.source;
-    const flags = max <= 0 || this.scrollY <= 0 ? AT_TOP : this.scrollY >= max ? AT_END : BETWEEN;
+    let flags = max <= 0 || this.scrollY <= 0 ? AT_TOP : this.scrollY >= max ? AT_END : BETWEEN;
+    if (this.over > 0) flags = PAST_TOP;
+    else if (this.over < 0) flags = (max <= 0 ? AT_TOP : BETWEEN) | PAST_END;
     return {flags, endGap: max - this.scrollY, lastShown: !!s?.count && this.active.has(s.count - 1)};
   }
 
@@ -107,13 +132,13 @@ export class PowerList extends FastLayout {
     if (!s || i < 0 || i >= s.count) return null;
     const g = this.geometry();
     const c = i % g.cols;
-    return {left: g.left + c * (g.colW + g.gap), top: g.top + g.headerH - this.scrollY + this.itemTop(g, i), width: g.colW, height: this.itemHeightAt(g, i)};
+    return {left: g.left + c * (g.colW + g.gap), top: g.top + g.headerH - this.scrollY + this.over + this.itemTop(g, i), width: g.colW, height: this.itemHeightAt(g, i)};
   }
 
   /** Where the items start (below the header) in the list's coordinates (h0's content top). */
   contentTop() {
     const g = this.geometry();
-    return g.top + g.headerH - this.scrollY;
+    return g.top + g.headerH - this.scrollY + this.over;
   }
 
   /** Centres a track's row in the list (the playing track in its source list). */
@@ -268,6 +293,8 @@ export class PowerList extends FastLayout {
     // A drag reorder places the rows itself.
     if (this.reorder) { this.reorder.place(); return; }
     const g = this.geometry();
+    // The content's scroll as shown: the overscroll moves it on past the end.
+    const sy = this.scrollY - this.over;
     // A new source: the host places the moveable toolbar once the level change has started.
     if (this.levelChanged && this.width > 0 && !this._levelQueued) {
       this._levelQueued = true;
@@ -278,12 +305,13 @@ export class PowerList extends FastLayout {
         this.host?.listLevelChanged?.(this);
       });
     }
-    const y0 = g.top + g.headerH - this.scrollY;
+    const y0 = g.top + g.headerH - sy;
     const want = new Set();
-    if (s.header && g.top + g.headH - this.scrollY > 0) want.add(-1);
-    if (s.subhead && g.top + g.headerH - this.scrollY > 0) want.add(SUBHEAD);
-    const first = this.indexAtY(g, Math.max(0, this.scrollY - g.top - g.headerH));
-    const last = Math.min(s.count - 1, this.indexAtY(g, Math.max(0, this.scrollY + this.height - g.top - g.headerH)) + g.cols - 1);
+    if (s.header && g.top + g.headH - sy > 0) want.add(-1);
+    if (s.subhead && g.top + g.headerH - sy > 0) want.add(SUBHEAD);
+    const first = this.indexAtY(g, Math.max(0, sy - g.top - g.headerH));
+    const last = Math.min(s.count - 1, this.indexAtY(g, Math.max(0, sy + this.height - g.top - g.headerH)) + g.cols - 1);
+    const spread = this.spreadFor(g, first, last);
     for (let i = first; i <= last; i++) want.add(i);
     for (const [i, v] of this.active) {
       if (!want.has(i) && !v.inMenu) { this.recycle(i, v); this.active.delete(i); }
@@ -299,10 +327,12 @@ export class PowerList extends FastLayout {
       v.listIndex = i;
       let x, y, w, h, scene;
       if (i === -1) {
-        x = 0; y = g.top - this.scrollY; w = this.width; h = g.headH; scene = s.header.scene;
+        x = 0; y = g.top - sy; w = this.width; h = g.headH; scene = s.header.scene;
         if (fresh || v._boundKey !== 'h') { s.bindHeader(v); v._boundKey = 'h'; }
+        // AAImageView.E: the header's art reaches up over the pulled gap.
+        v.image?.setStretch?.(this.over > 0 ? this.over : 0);
       } else if (i === SUBHEAD) {
-        x = 0; y = g.top + g.headH - this.scrollY; w = this.width; h = g.subH; scene = s.subhead.scene;
+        x = 0; y = g.top + g.headH - sy; w = this.width; h = g.subH; scene = s.subhead.scene;
         if (fresh || v._boundKey !== 's') { s.bindSubhead(v); v._boundKey = 's'; }
         if (this.selectable) v.setSelection?.(false, false, false);
       } else {
@@ -314,14 +344,17 @@ export class PowerList extends FastLayout {
           v.measure(MeasureSpec.make(w, MeasureSpec.EXACTLY), MeasureSpec.make(h, MeasureSpec.EXACTLY));
           v.layout(0, 0, w, h);
           v.translationX = x;
-          v.translationY = y;
+          v.translationY = y + (spread?.(i)?.dy ?? 0);
           v.invalidate();
           continue;
         }
         if (this.selectable) v.setSelection?.(!!this.selection, !!this.selection?.has(i), !!s.reorderable);
       }
-      // Rows a drag reorder faded or scaled come back whole.
-      if (v.alpha !== 1 || v.scaleX !== 1) { v.alpha = 1; v.scaleX = v.scaleY = 1; }
+      // Rows a drag reorder faded or scaled come back whole; overscroll spreads the shown rows.
+      const sp = i >= 0 ? spread?.(i) : null;
+      if (v.alpha !== 1 || v.scaleX !== 1) { v.alpha = 1; v.scaleX = 1; }
+      v.scaleY = sp ? sp.scale : 1;
+      if (sp) y += sp.dy;
       // The row a shared item transition morphs into stays hidden until it ends (mo621).
       const hide = i === this.sharedIndex;
       if (hide !== !!v._sharedHidden) { v._sharedHidden = hide; v.el.classList.toggle('cp-shared-hidden', hide); }
@@ -560,21 +593,196 @@ export class PowerList extends FastLayout {
     const step = d.last - e.rootY;
     d.last = e.rootY;
     const own = step - (d.nested?.pre(step, e.time) ?? 0);
-    const prev = this.scrollY;
-    this.scrollY = Math.max(0, Math.min(this.maxScroll(), prev + own));
-    d.nested?.unconsumed(own - (this.scrollY - prev), e.time);
+    const prev = this.scrollY, prevShown = prev - this.over;
+    if (d.nested) {
+      // A dialog frame takes what the list cannot use (no overscroll there).
+      this.scrollY = Math.max(0, Math.min(this.maxScroll(), prev + own));
+      d.nested.unconsumed(own - (this.scrollY - prev), e.time);
+    } else this.dragBy(own, e);
     this.placeItems();
-    if (this.scrollY !== prev) this.scrolled(prev - this.scrollY, true);
+    const shown = this.scrollY - this.over;
+    if (shown !== prevShown) this.scrolled(prevShown - shown, true);
+  }
+
+  get overMax() {
+    return this.noOverscroll || this.reorder ? 0 : Math.round(OVER_DP * this.ctx.dpr);
+  }
+
+  resetOver() {
+    this.springAnim?.();
+    this.springAnim = null;
+    this.over = 0;
+    this.overC = 0;
+    this.overDir = 0;
+  }
+
+  /**
+   * A drag step (hc.C over h0): step px of scroll (> 0 moves the content
+   * up). Inside the list it scrolls; past an end the overscroll follows the
+   * rubber band of the finger's travel beyond the end (inferred from
+   * hc.mo1890's (P / 4)·ln(|C| / P + 1)); back towards the list it undoes
+   * the overscroll 1:1 first.
+   */
+  dragBy(step, e) {
+    const max = this.maxScroll(), m = this.overMax, finger = -step;
+    if (this.over !== 0) {
+      const dir = this.over > 0 ? 1 : -1;
+      let pull;
+      if (this.overDir !== dir) { this.overDir = dir; this.overC = this.over; pull = this.over; } else { this.overC += finger; pull = finger; }
+      this.pullGlow(this.over, pull, e);
+      if (finger * dir > 0 && m > 0) {
+        // Further out: the rubber band.
+        this.over = dir * (m / 4) * Math.log(Math.abs(this.overC) / m + 1);
+        return;
+      }
+      // Back towards the list: the overscroll goes first, the rest scrolls.
+      const o = this.over + finger;
+      if (o * dir > 0) { this.over = o; return; }
+      this.over = 0;
+      this.overDir = 0;
+      this.overC = 0;
+      this.scrollY = Math.max(0, Math.min(max, this.scrollY - o));
+      return;
+    }
+    const y = this.scrollY + step;
+    if (y >= 0 && y <= max) { this.scrollY = y; return; }
+    this.scrollY = y < 0 ? 0 : max;
+    if (m <= 0) return;
+    // Into the overscroll: the travel beyond the end starts the rubber band.
+    const beyond = y < 0 ? -y : max - y;
+    this.overDir = Math.sign(beyond);
+    this.overC = beyond;
+    this.over = this.overDir * (m / 4) * Math.log(Math.abs(beyond) / m + 1);
+    this.pullGlow(this.over, beyond, e);
+  }
+
+  /** The overscroll spread (h0, v62.v): (row) → {dy, scale}, or null. */
+  spreadFor(g, first, last) {
+    const o = this.over, P = this.overMax;
+    // Pulled past the top, or pushed past the end of a list that scrolls.
+    if (!o || !P || last < first || (o < 0 && this.maxScroll() <= 0)) return null;
+    const row = i => (g.seps ? i : Math.floor(i / g.cols));
+    const r0 = row(first), n = row(last) - r0 + 1;
+    const f2 = o / P, abs = Math.abs(f2) * SPREAD_SCALE, gap = Math.round(SPREAD_DP * this.ctx.dpr);
+    return i => {
+      const k = (row(i) - r0 + 1) / n;
+      return {dy: Math.round(k * f2 * gap), scale: o > 0 ? 1 + k * abs : 1 - k * abs};
+    };
+  }
+
+  /**
+   * Springs an overscroll back (hc.A / mo1887 with dh0 p): over
+   * max(0.5 s, |o| / 1500 px/s) along the fling curve.
+   */
+  springBack() {
+    this.springAnim?.();
+    const o0 = this.over;
+    if (!o0) return;
+    const T = Math.max(SPRING_MIN_S, Math.abs(o0) / SPRING_PX_S);
+    let t0 = null;
+    this.springAnim = this.ctx.onFrame(now => {
+      t0 ??= now;
+      const k = Math.min(1, (now - t0) / 1000 / T);
+      const prevShown = this.scrollY - this.over;
+      let o = o0 * (1 - FLING_CURVE(k));
+      // dh0: within half a pixel of the end it ends.
+      if (k >= 1 || Math.abs(o) < 0.5) o = 0;
+      this.over = o;
+      if (!o) { this.overDir = 0; this.overC = 0; }
+      this.placeItems();
+      const shown = this.scrollY - this.over;
+      if (shown !== prevShown) this.scrolled(prevShown - shown, false);
+      if (o) return true;
+      this.springAnim = null;
+      return false;
+    });
+  }
+
+  /** The glow at the end the overscroll is at (s71.mo617 → hj0.onPull). */
+  pullGlow(o, f, e) {
+    const g = this.glow();
+    if (!g || !o || !this.height) return;
+    const fx = this.width && e?.x != null ? Math.max(0, Math.min(1, e.x / this.width)) : 0.5;
+    const now = performance.now();
+    if (o > 0) g.top.onPull(f / this.height, fx, now);
+    else g.bottom.onPull(-f / this.height, 1 - fx, now);
+    this.drawGlow();
+  }
+
+  /** The edge glows (PowerList.c, tb), when the theme's colorEdgeEffect has a colour. */
+  glow() {
+    if (this._glow !== undefined) return this._glow;
+    const c = this.ctx.res?.colorValue?.('?android:colorEdgeEffect', this.ctx.theme)?.color ?? 0;
+    if (!c || !argbAlpha(c)) return (this._glow = null);
+    const css = colorToCss(c);
+    return (this._glow = {top: new EdgeGlow(css), bottom: new EdgeGlow(css), el: null});
+  }
+
+  releaseGlow() {
+    const g = this._glow;
+    if (!g) return;
+    const now = performance.now();
+    g.top.onRelease(now);
+    g.bottom.onRelease(now);
+    this.drawGlow();
+  }
+
+  absorbGlow(o, v) {
+    const g = this.glow();
+    if (!g) return;
+    (o > 0 ? g.top : g.bottom).onAbsorb(v / 5, performance.now());
+    this.drawGlow();
+  }
+
+  /** PowerList.draw: the top glow as is, the bottom one turned half round; frames while either lasts. */
+  drawGlow() {
+    const g = this._glow;
+    if (!g || this._glowFrame) return;
+    if (!g.el) {
+      g.el = document.createElement('canvas');
+      g.el.className = 'cp-edge-glow';
+      this.el.appendChild(g.el);
+    }
+    this._glowFrame = this.ctx.onFrame(now => {
+      const w = Math.max(1, Math.round(this.width)), h = Math.max(1, Math.round(this.height));
+      const el = g.el;
+      if (el.width !== w || el.height !== h) {
+        el.width = w; el.height = h;
+        el.style.width = this.ctx.px(w) + 'px';
+        el.style.height = this.ctx.px(h) + 'px';
+        g.top.setSize(w, h);
+        g.bottom.setSize(w, h);
+      }
+      const c = el.getContext('2d');
+      c.clearRect(0, 0, w, h);
+      let more = false;
+      if (!g.top.finished) more = g.top.draw(c, now) || more;
+      if (!g.bottom.finished) {
+        c.save();
+        c.translate(-w, h);
+        c.translate(w, 0); c.rotate(Math.PI); c.translate(-w, 0);
+        more = g.bottom.draw(c, now) || more;
+        c.restore();
+      }
+      if (more) return true;
+      c.clearRect(0, 0, w, h);
+      this._glowFrame = null;
+      return false;
+    });
   }
 
   onPointerUp(e) {
     const d = this.drag;
     this.drag = null;
     d?.nested?.stop(e?.time ?? performance.now());
-    if (!d || !d.started || e?.cancelled) return;
+    if (!d || !d.started) return;
+    if (e?.cancelled) { this.releaseGlow(); if (this.over) this.springBack(); return; }
     d.vt.up(e.time);
     const v = -d.vt.compute(MAX_FLING_DP * this.ctx.dpr).vy;
-    if (Math.abs(v) >= MIN_FLING_DP * this.ctx.dpr) this.fling(v);
+    // hc.mo1886: an overscrolled list springs back instead of flinging.
+    if (this.over) this.springBack();
+    else if (Math.abs(v) >= MIN_FLING_DP * this.ctx.dpr) this.fling(v);
+    this.releaseGlow();
   }
 
   /** Fling at v px/s of scroll (the scroller's decay curve). */
@@ -591,7 +799,17 @@ export class PowerList extends FastLayout {
       const max = this.maxScroll();
       let stop = f.done;
       if (this.scrollY <= 0 || this.scrollY >= max) {
+        const beyond = this.scrollY < 0 ? -this.scrollY : this.scrollY > max ? max - this.scrollY : 0;
         this.scrollY = Math.max(0, Math.min(max, this.scrollY));
+        // hc.m1889: a fling still moving at the end overshoots and springs back.
+        if (!f.done && beyond && this.overMax > 0) {
+          this.over = beyond;
+          this.placeItems();
+          this.scrolled(prev - (this.scrollY - this.over), false);
+          this._fling = null;
+          this.overshoot(f.v);
+          return false;
+        }
         stop = true;
       }
       this.placeItems();
@@ -605,9 +823,41 @@ export class PowerList extends FastLayout {
     });
   }
 
+  /**
+   * The overshoot (eh0 f2400: a linear deceleration from the fling's
+   * velocity v over |v| / 10^6 s), the glow's absorb at v / 5, then the
+   * spring back.
+   */
+  overshoot(v) {
+    this.absorbGlow(this.over, -v);
+    const T = Math.abs(v) / OVERSHOOT_DECEL;
+    let t = 0, vel = v, last = performance.now();
+    this.springAnim = this.ctx.onFrame(now => {
+      const dt = Math.min(0.048, (now - last) / 1000);
+      last = now;
+      const t2 = Math.min(T, t + dt), used = t2 - t;
+      t = t2;
+      const nv = T > 0 ? v * (1 - t / T) : 0;
+      const prevShown = this.scrollY - this.over;
+      this.over -= ((vel + nv) * used) / 2;
+      vel = nv;
+      this.velocity = nv;
+      this.placeItems();
+      this.scrolled(prevShown - (this.scrollY - this.over), false);
+      if (t < T) return true;
+      this.springAnim = null;
+      this.velocity = 0;
+      this.springBack();
+      return false;
+    });
+  }
+
   stopFling() {
     this._fling?.();
     this._fling = null;
+    // A touch stops the spring where it is (hc.X / y); the drag goes on from there.
+    this.springAnim?.();
+    this.springAnim = null;
     this.velocity = 0;
   }
 }
