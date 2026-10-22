@@ -18,3 +18,13 @@ test('discovery reads only exact main CI evidence and never substitutes another 
  assert.equal((await findValidation(head,{get})).artifactId,'34');assert.equal(calls.length,3);assert.ok(calls[0].includes('event=push&status=success&head_sha='+head));
  await assert.rejects(findValidation('c'.repeat(40),{get}),/Wait for successful main Validate/);
 });
+test('a refusal names the missing evidence',()=>{
+ for(const [mutate,reason] of [[f=>f.artifacts.artifacts[0].expired=true,/has expired/],[f=>f.jobs.jobs[2].conclusion='failure',/"static-checks \/ qualification" did not succeed/],[f=>f.run.event='pull_request',/not started by a push/]]){
+  const f=fixture();mutate(f);assert.throws(()=>checkedValidation(f.run,head,f.jobs,f.artifacts),reason);
+ }
+});
+test('the publication step prints its reason and changes nothing',async()=>{
+ const {execFile}=await import('node:child_process');
+ const {stderr,code}=await new Promise(done=>execFile(process.execPath,[new URL('./guard-validation.mjs',import.meta.url).pathname],{env:{...process.env,GITHUB_REF:'refs/heads/main',EXPECTED_COMMIT:'a'.repeat(40)+'.',GITHUB_SHA:'a'.repeat(40)}},(error,stdout,stderr)=>done({stderr,code:error?.code??0})));
+ assert.equal(code,1);assert.match(stderr,/No provider changes attempted\.\nReason: A reviewed commit is required.*got "a{40}\."/);
+});

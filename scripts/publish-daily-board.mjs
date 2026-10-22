@@ -89,7 +89,7 @@ export function retainedProperties(snapshot,{restoreDigest=false}={}){
  return args;
 }
 export function checkedReviewedCommit(expected,checkout,dispatched=checkout){
- assert.match(expected||'',/^[a-f0-9]{40}$/,'A reviewed orchestration commit is required');
+ assert.match(expected||'',/^[a-f0-9]{40}$/,`A reviewed commit is required: a full 40-character lowercase SHA with nothing around it (got ${JSON.stringify(expected??'')})`);
  assert.equal(checkout,expected,'Checkout differs from the reviewed commit');
  assert.equal(dispatched,expected,'Dispatched revision differs from the reviewed commit');
 }
