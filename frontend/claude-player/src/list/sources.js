@@ -566,11 +566,20 @@ export function currentCategorySource(ctx, list, nav, kind, track = null) {
  * them, Clear Search History. A tap on a term searches it; its clear button
  * removes it.
  */
+// The search list's header (merge_item_text_header, scene_search_header):
+// searchHeaderSize (targetSearchHeaderSize when targeted) tall, under the
+// search panel, with the list buttons at its foot and no title.
+function searchHeader(ctx, list, src, targeted) {
+  const sub = list.host.substyle, d = dims(list);
+  src.header = {type: 'text', scene: 'scene_search_header'};
+  src.isSearch = true;
+  src.headerHeight = sub.dim(targeted ? 'targetSearchHeaderSize' : 'searchHeaderSize', d.textHeaderSize) + ctx.windowInsets.top;
+}
+
 function historySource(ctx, list, nav, title) {
   const terms = searchHistory();
   const src = new TrackSource(ctx, list, nav, title, []);
-  src.header = null;
-  src.headerHeight = 0;
+  searchHeader(ctx, list, src, false);
   src.isHistory = true;
   if (!terms.length) return src;
   const rerun = () => ctx.listWidget?.showSearch?.();
@@ -618,8 +627,7 @@ export function searchSource(ctx, list, nav, query, mask = -1, target = null) {
   // one-line scenes when the search covers one one-line category alone.
   const oneLine = target ? !!target.groups?.[0] && ONE_LINE_KINDS.has(target.groups[0].kind) : SEARCH_KINDS.filter((c, i) => mask & (1 << i)).every(c => ONE_LINE_KINDS.has(c.kind)) && SEARCH_KINDS.some((c, i) => mask & (1 << i));
   const bare = src => {
-    src.header = null;
-    src.headerHeight = 0;
+    searchHeader(ctx, list, src, !!target);
     const sub = list.host.substyle;
     applyZoom(src, sub, 'search', 'search');
     if (oneLine) { const g = zoomGeometry(sub, 'search', src.zoomLevel, true); src.itemScene = g.scene; src.itemHeight = g.itemHeight; }
@@ -751,7 +759,7 @@ export function playlistsSource(ctx, list, nav) {
   src.icon = '?playlists';
   src.isPlaylists = true;
   src.backDecor = 'item_top_text_back_decor';
-  src.onItemClick = i => { const s2 = playlistSource(ctx, list, nav, src.groups[i].pl); if (s2) nav.open(s2); };
+  src.onItemClick = i => { const s2 = playlistSource(ctx, list, nav, src.groups[i]?.pl); if (s2) nav.open(s2); };
   src.rebuild = () => playlistsSource(ctx, list, nav);
   return src;
 }
@@ -927,7 +935,8 @@ class FolderLevelSource {
   bindItem(v, i) {
     if (this.isFolder(i)) {
       const f = this.folders[i], first = f.files[0] ?? subtreeFiles(f)[0];
-      v.bind({id: 'hier:' + f.path, group: true, title: f.name, artist: f.parent?.name ?? '', meta: hierMeta(f), metaIcon: META_ICONS[this.ctx.listMemory?.flags('folder:' + f.path) ?? 0], art: first?.art, thumb: first?.thumb, artId: first?.artId});
+      // h60: folder rows show the folder category icon (?folder_cat_icon) at their end.
+      v.bind({id: 'hier:' + f.path, group: true, title: f.name, artist: f.parent?.name ?? '', meta: hierMeta(f), metaIcon: META_ICONS[this.ctx.listMemory?.flags('folder:' + f.path) ?? 0], catIcon: '?folder_cat_icon', art: first?.art, thumb: first?.thumb, artId: first?.artId});
     } else v.bind(this.tracks[i - this.folders.length], true, false);
   }
 

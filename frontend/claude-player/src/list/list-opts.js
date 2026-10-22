@@ -72,6 +72,27 @@ export function zoomGeometry(sub, kind, level, titlesOnly = false) {
   }
   const z = kind === 'search' ? SEARCH_ZOOM[level] ?? 0 : level;
   const one = titlesOnly;
+  return {...levelGeometry(d, z, one), scene1: ONE_LINE_SCENE[z] ?? 'scene_1_small'};
+}
+
+// pd.P0's d: the level's one-line scene, which rows without a second line
+// take (z62.W: line 2 empty marks the row with xc.i).
+const ONE_LINE_SCENE = {'-4': 'scene_1_small_no_aa', '-3': 'scene_1_small_no_aa', '-2': 'scene_1_small_no_aa', '-1': 'scene_1_small_no_aa', 0: 'scene_1_small', 1: 'scene_grid_1', 2: 'scene_grid_1', 3: 'scene_1', 4: 'scene_1_zoomed', 5: 'scene_grid_1_zoomed'};
+
+// Lists whose adapters always take the one-line scenes (kc: o9 for artists,
+// album artists, composers and genres; d61 for playlists).
+const ONE_LINE_LISTS = new Set(['cat:artists', 'cat:albumArtists', 'cat:composers', 'cat:genres', 'cat:playlists']);
+
+// kc.P0: artist, album artist and composer categories (gh1) show their grids
+// with the alt one-line scenes and the human grid's extra space.
+const ALT_GRID_LISTS = new Set(['cat:artists', 'cat:albumArtists', 'cat:composers']);
+function altGrid(sub, z) {
+  if (z === 1 || z === 2) return {scene: 'scene_grid_1_alt', scene1: 'scene_grid_1_alt', gridExtra: sub.dim('humanGridItemExtraSpace', 0)};
+  if (z === 5) return {scene: 'scene_grid_1_alt_zoomed', scene1: 'scene_grid_1_alt_zoomed', gridExtra: sub.dim('humanGridZoomedItemExtraSpace', 0)};
+  return null;
+}
+
+function levelGeometry(d, z, one) {
   switch (z) {
     case -4: return {scene: 'scene_1_small_no_aa', columns: 2, itemHeight: d('itemSize1SmallNoAAExtraSmall')};
     case -3: return {scene: 'scene_1_small_no_aa', columns: 1, itemHeight: d('itemSize1SmallNoAAExtraSmall')};
@@ -112,8 +133,10 @@ export function applyZoom(src, sub, kind, key, defaultLevel = null) {
   src.zoomLevel = saved ?? defaultLevel ?? defaultZoom(kind, key);
   src.titlesOnly = !!o.titlesOnly;
   src.compactHeader = !!o.compactHeader;
-  const g = zoomGeometry(sub, kind, src.zoomLevel, src.titlesOnly);
+  let g = zoomGeometry(sub, kind, src.zoomLevel, src.titlesOnly || ONE_LINE_LISTS.has(key));
+  if (kind !== 'search' && ALT_GRID_LISTS.has(key)) g = {...g, ...altGrid(sub, src.zoomLevel)};
   src.itemScene = g.scene;
+  src.itemScene1 = g.scene1 ?? null;
   src.columns = g.columns;
   src.itemHeight = g.itemHeight;
   src.gridExtra = g.gridExtra ?? 0;

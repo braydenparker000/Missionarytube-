@@ -2077,6 +2077,86 @@ The transport's ripple is the button's own drawable, not its background (`deripp
 ripples nested in its layers). It runs over the glyph inside the oval mask, and the port now runs
 it too (`paintRipple` with the drawable's rect).
 
+### F90 — Cast button, disabled fade, content alignment, category icons, one-line rows, badges — `CONFIRMED_STATIC` (bytecode run)
+(a) The player's cast button is a `MediaRouteButton`:
+- its drawable is `?media_route` (`mr_button_dark`), 20 dp wide with 14 dp padding, so 48 dp
+  (127 px);
+- `disabledAlpha` is 0, and it is enabled only while a cast route is available.
+
+The port draws it as a FastButton, enabled while `RemotePlayback.watchAvailability` reports a
+device; a tap opens the browser's device prompt (`widgets/cast.js`).
+
+(b) `FastTextView.setEnabled` fades the whole view to `disabledAlpha` (default 0.7) over 250 ms.
+The port faded only the text, at once.
+
+(c) FastLayout's align-to-content flags (`0x10000`, `0x20000`) align to the text's content rect.
+It starts from the padding, with these exceptions keyed on the drawable position:
+- 0 (start): the left edge is the drawable padding plus its adjustment;
+- −1: the left edge is the left padding plus the adjustment;
+- −2: the left edge is the adjustment alone;
+- 2: the right edge is the drawable padding plus the adjustment.
+
+The port added the drawable's width, which put the category meta 34 px right of the reference.
+
+(d) Row icons (`CatImage`, `AAItemView`) show the row's icon or text. Folders Hierarchy folder rows
+use `?folder_cat_icon` (`folder_16dp`).
+
+(e) One-line scenes:
+- `pd.P0` sets a list scene and a one-line scene per zoom level. A row whose second line is empty
+  takes the one-line scene (`z62.W`).
+- Two adapter families always take the one-line scenes (`kc`): artists, album artists, composers and
+  genres (`o9`), and playlists (`d61`).
+- In grids, the artist, album artist and composer categories (`gh1`) also use `scene_grid_1_alt`
+  (levels 1, 2) or `scene_grid_1_alt_zoomed` (level 5). Their cells add the human grid's extra
+  space (`humanGrid[Zoomed]ItemExtraSpace`).
+
+Measured: album artist cells 540 × 608 with a 466 px image; artist titles at y 596. The port now
+matches within the harness's 1 px display rounding.
+
+(f) Library category badges (`*_alt`, `*_thumb_alt`) are a coloured disc with a white glyph. The
+colours come from `*_colored`:
+
+| Badge | Colour | Badge | Colour |
+|---|---|---|---|
+| All songs | #738ace | Playlists | #704840 |
+| Folders | #4d7ac5 | Streams | #76a47b |
+| Folders hierarchy | #5066d8 | Queue | #716b40 |
+| Albums | #5858ae | Bookmarks | #5474db |
+| Artists | #5c5880 | Most played | #a080b7 |
+| Album artists | #706c9d | Top rated | #50646b |
+| Genres | #663e63 | Low rated | #555555 |
+| Years | #5392a2 | Recently played | #454588 |
+| Composers | #235e3d | Recently added | #4e5d44 |
+| | | Long files | #4d3e8c |
+
+The port redraws the glyphs as original vectors, compared side by side with the reference's sheet
+(`icons.js`, `badge_*`).
+
+The other icons the port requests (about 90 names, collected while driving every screen) were
+compared the same way, and the mismatches were redrawn. The micro category icons (`*_12dp`) reuse the
+badge glyphs.
+
+The navbar sheet's `logo_navbar_hamburger` is the reference's wordmark. The port keeps its own
+mark there.
+
+(g) `widgets/cast.js`, `view/text.js`, `view/view.js`, `list/list-widget.js` (`setCatIcon`),
+`list/sources.js`, `list/list-opts.js`, `list/power-list.js`, `icons.js`.
+
+(h) The search screen in the harness:
+- **Search header.** The list keeps a header item (`merge_item_text_header` in
+  `scene_search_header`, `searchHeaderSize` 378 px) under the search panel. It has no title, and the
+  Shuffle, Play, Select and menu buttons sit at its foot, from the empty query on. The port padded
+  the list below the chips and showed no buttons.
+- **Search-in-list button.** It is gone in search lists. Its `scene_search_header` params carry
+  `applyEvenIfGone dontApplyIfGone`, so a gone view stays out of that scene. The port's scene engine
+  now honours the flag.
+- **Search field.** It is a platform EditText (`TopListSearchEditText`, parent
+  `Widget.AppCompat.EditText`):
+  - its text appearance gives 18sp (47 px; the port had 12sp);
+  - its left drawable sits at the left padding.
+- **EQ screen.** It matches the reference by id. Knob values differ because the harness has no audio
+  engine.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
@@ -2182,6 +2262,7 @@ No status is device-verified.
 | F87 Library list defaults and options, measured | Built | Category meta (counts, durations) not compared: the seed has no `cat_stats` |
 | F88 Player backdrop gradient | Built | The art's mapping onto the screen inferred (native renderer) |
 | F89 Transport glyph boxes; library button, settings tap-through, no local imports | Built | Disc colours are the skin's own; which skin the owner's device uses is open |
+| F90 Cast button, disabled fade, content alignment, category icons, one-line rows, badges | Built | Category meta text not compared (the reference harness leaves it empty) |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 

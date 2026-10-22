@@ -266,7 +266,7 @@ export class View {
     // Siblings draw in Z order (elevation + translationZ), then in child order.
     const z = Math.round((this.elevation || 0) + (this.translationZ || 0));
     if (d.z !== z) { d.z = z; el.style.zIndex = z > 0 ? String(z) : ''; }
-    const alpha = Math.max(0, Math.min(1, this.alpha));
+    const alpha = Math.max(0, Math.min(1, this.alpha * (this.enabledAlpha ?? 1)));
     if (d.alpha !== alpha) { d.alpha = alpha; el.style.opacity = alpha === 1 ? '' : String(alpha); }
     if (this._dirty) {
       this._dirty = false;

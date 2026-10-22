@@ -155,9 +155,11 @@ export class AAItemView extends SceneFastLayout {
       this.line2?.setText(track.artist ?? '');
       this.meta?.setText(track.meta ?? '');
       this.setMetaIcon(track.metaIcon ?? null);
+      this.setCatIcon(track.catIcon ?? null);
       this.num?.setText('');
     } else {
       this.setMetaIcon(null);
+      this.setCatIcon(null);
       const n = trackNumbers(this.ctx, track, numbered);
       this.title?.setText(track ? n.title(trackTitle(this.ctx, track)) : '');
       this.line2?.setText(trackLine2(this.ctx, track, albumArtistList));
@@ -179,6 +181,17 @@ export class AAItemView extends SceneFastLayout {
     }
   }
 
+  /**
+   * The row's category image (CatImage, AAItemView.m): the list's icon for
+   * the row (Folders Hierarchy folders: ?folder_cat_icon), else nothing drawn.
+   */
+  setCatIcon(value) {
+    const ci = this.findViewById('cat_image');
+    if (!ci || (this._catIcon ?? null) === value) return;
+    this._catIcon = value;
+    ci.setDrawable(value ? this.ctx.drawables.fromValue(value, this.ctx.theme) : null);
+  }
+
   /** The meta line's icon (AAItemView.F.d0: category rows and headers; F79), or none. */
   setMetaIcon(name) {
     if (!this.meta || (this._metaIcon ?? null) === name) return;
@@ -195,6 +208,7 @@ export class AAItemView extends SceneFastLayout {
     if (this.itemScene === scene) return;
     this.itemScene = scene;
     this.loadBehaviorsFor(scene);
+    if (this.searchButtonGone !== undefined) this.findViewById('search_button')?.setVisibility(this.searchButtonGone ? GONE : VISIBLE);
     this.syncLyricsButton();
     this.scenes.go(scene, {duration: 0});
   }
@@ -1975,18 +1989,8 @@ export class ListWidget extends FastLayout {
     const ll = this.libList;
     if (ll.visibility !== GONE) {
       // Rows scroll above the navbar (bottomReservedSpace) and the bottom inset.
+      // Search results start below the search header (searchHeaderSize).
       ll.paddingTop = 0;
-      if (this.searching) {
-        // Results start below the search panel.
-        let root = this;
-        while (root.parent) root = root.parent;
-        // Below the search panel and, when shown, the category chips or the target chip.
-        let bottom = 0;
-        for (const v of [root.findViewById('search_edit')?.parent, root.findViewById('search_cats_layout'), root.findViewById('search_target')]) {
-          if (v && v.visibility !== GONE && v.height > 0) bottom = Math.max(bottom, v.getLocationIn(null).y + v.height);
-        }
-        if (bottom) ll.paddingTop = Math.max(0, bottom - this.getLocationIn(null).y);
-      }
       ll.paddingBottom = this.reservedSpace() + this.bottomToolbarSize;
       ll.paddingLeft = this.ctx.windowInsets.left;
       ll.paddingRight = this.ctx.windowInsets.right;

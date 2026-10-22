@@ -4,7 +4,7 @@
 import {View, MeasureSpec, stateKey} from './view.js';
 import {resolveFont, fontMetricsInt, zBounds, cssFontFamily} from '../fonts.js';
 import {colorForState} from '../res/resources.js';
-import {colorToCss, parseGravity, parseInteger, unescapeString} from '../res/values.js';
+import {colorToCss, parseGravity, parseInteger, unescapeString, VISIBLE} from '../res/values.js';
 import {renderOps} from './drawables.js';
 
 let measureCtx = null;
@@ -77,6 +77,8 @@ export class FastTextView extends View {
     this.drawablePosition = a.int('drawablePosition', this.drawableOnly ? -1 : 0);
     this.ellipsize = ellipsizeOf(a.raw('android:ellipsize'), res, a.theme);
     this.disabledAlpha = a.float('android:disabledAlpha', 0.7);
+    // FastTextView.setEnabled: a disabled view fades as a whole to disabledAlpha.
+    this.enabledAlpha = this.state.enabled ? 1 : this.disabledAlpha;
     this.allowZeroHeight = a.bool('allowZeroHeight', false);
     this.alignEllipsis = a.bool('alignEllipsis', true);
     this.drawableAdj = a.dimOffset('drawableAdj', 0);
@@ -346,9 +348,21 @@ export class FastTextView extends View {
   }
 
   contentInsets() {
-    // layout_alignToContent: text paddings plus the font's inner padding.
-    const [n, q, r, s] = this._pads ?? this.textPaddings();
-    return {left: n - this.drawableAdj, top: r + (this.eatFontPads ? 0 : this.padK), right: q, bottom: s + (this.eatFontPads ? 0 : this.padL)};
+    // layout_alignToContent (FastLayout, r40 flags 0x10000 / 0x20000): the
+    // drawable's side measures drawablePaddingStart + drawableAdj (O + a);
+    // forced or no-pad drawable gravity (-1 / -2) the padding (or none) + adj;
+    // other sides the padding. Vertically the font's inner padding is added.
+    const [, , r, s] = this._pads ?? this.textPaddings();
+    const top = r + (this.eatFontPads ? 0 : this.padK), bottom = s + (this.eatFontPads ? 0 : this.padL);
+    const a = this.drawableAdj, O = this.drawablePaddingStart, pl = this.paddingLeft, pr = this.paddingRight;
+    if (this.drawable) {
+      const p = this.drawablePosition;
+      if (p === -2) return {left: a, top, right: 0, bottom};
+      if (p === -1) return {left: pl + a, top, right: pr, bottom};
+      if (p === 0) return {left: O + a, top, right: pr, bottom};
+      if (p === 2) return {left: pl, top, right: O + a, bottom};
+    }
+    return {left: pl, top, right: pr, bottom};
   }
 
   currentTextColor() {
@@ -398,7 +412,6 @@ export class FastTextView extends View {
     st.letterSpacing = this.letterSpacing ? this.letterSpacing + 'em' : '';
     let c = this.currentTextColor();
     st.color = colorToCss(c);
-    st.opacity = this.state.enabled ? '' : String(this.disabledAlpha);
     const els = this.textEl.children;
     const baseline0 = this.ty - this.fmTop - this.padK;
     const pitch = this.lineHeight + this.extraSpacing;
@@ -460,6 +473,29 @@ export class FastTextView extends View {
       y = Math.round((h - pt - pb - dh) / 2 + pt);
     }
     return {x, y, w: ow, h: oh};
+  }
+
+  /**
+   * FastTextView.setEnabled: the view's alpha factor moves to 1 or
+   * disabledAlpha, over 250 ms while shown, else at once.
+   */
+  setEnabled(p) {
+    if (this.state.enabled === p) return;
+    if (!p) this.setPressed(false);
+    super.setEnabled(p);
+    const to = p ? 1 : this.disabledAlpha;
+    const from = this.enabledAlpha;
+    if (from === to) return;
+    if (this.visibility !== VISIBLE || !this.width) { this.enabledAlpha = to; this.invalidate(); return; }
+    const start = performance.now(), ms = 250 * (this.ctx.animScale ?? 1);
+    const anim = this._enAnim = {tick: now => {
+      if (this._enAnim !== anim) return false;
+      const t = ms > 0 ? Math.min(1, (now - start) / ms) : 1;
+      this.enabledAlpha = from + (to - from) * t;
+      this.invalidate();
+      return t < 1;
+    }};
+    this.ctx.animate(anim);
   }
 
   onStateChanged() {

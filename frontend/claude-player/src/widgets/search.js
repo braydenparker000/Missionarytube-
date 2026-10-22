@@ -33,6 +33,9 @@ export class ListSearchEditText extends FastTextView {
 
   constructor(ctx, a) {
     super(ctx, a);
+    // The platform EditText style's text appearance (textAppearanceMediumInverse,
+    // 18sp) sits under the theme's text size; it is not among the app's styles.
+    if (a.local('android:textSize') === undefined) { this.textSize = ctx.res.dimensionPixelSize('18sp', a.theme) ?? this.textSize; this.updateFont(); }
     this.hint = a.string('android:hint', '') ?? '';
     const dl = a.ref('android:drawableLeft');
     if (dl) { this.drawablePosition = 0; this.setDrawable(ctx.drawables.fromRef(dl, a.theme)); }
@@ -57,6 +60,14 @@ export class ListSearchEditText extends FastTextView {
       if (msg === 'msg_nav_changed' && d.nav === 'nav_search') setTimeout(() => input.focus({preventScroll: true}), 0);
       else if (msg === 'msg_nav_changed') input.blur();
     });
+  }
+
+  // A platform EditText: drawableLeft sits at the left padding (TextView
+  // compound drawables), where FastTextView puts it at drawablePaddingStart.
+  drawableRect() {
+    const r = super.drawableRect();
+    if (this.drawablePosition === 0) r.x += this.paddingLeft;
+    return r;
   }
 
   showHint() {
