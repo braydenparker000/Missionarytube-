@@ -532,6 +532,8 @@ export class Player {
     }
     this.state = s;
     if (s === STATE_PLAYING) this.markQueuePlayed(this.track);
+    // A sleep timer set while not playing starts with playback (k21: an.B pending).
+    if (s === STATE_PLAYING && this.sleep && this.sleep.end === null) this.startSleepTimer();
     this.post('msg_player_playing_state_changed', {arg1: s, playing: s === STATE_PLAYING});
     this.post('msg_player_status_changed', {playing: s === STATE_PLAYING});
   }
@@ -749,7 +751,7 @@ export class Player {
       this.sleep = null;
       this.pause();
       this.step(1);
-      this.post('msg_player_sleep_timer', {arg1: 0});
+      this.sleepPaused();
       return;
     }
     if (this.repeat === REPEAT_SONG) { this.seek(0); return; }
@@ -921,29 +923,47 @@ export class Player {
   }
 
   /**
-   * Sleep timer (cmd_player_set_sleep_timer: arg1 seconds, arg2 play the last
-   * song to its end). state_player_sleep_timer is the seconds and the end
-   * time; it counts in real time and pauses playback when it expires.
+   * Sleep timer (an.B; cmd_player_set_sleep_timer: arg1 seconds, arg2 play
+   * the last song to its end). Set while playing, it counts in real time
+   * (pausing does not stop it); set otherwise, it waits and starts its full
+   * time when playback starts (end null meanwhile). On expiry (k21 21):
+   * not playing, it just clears; playing, it pauses (or, playing to the end,
+   * stops at the track's end) with the "Sleep Timer / Paused" toast (an.m1066).
    */
   setSleepTimer(seconds, playToEnd) {
     clearTimeout(this.sleepTimeout);
     this.sleepWaitsForEnd = false;
-    this.sleep = seconds > 0 ? {seconds, end: performance.now() + seconds * 1000, playToEnd} : null;
-    if (this.sleep) this.sleepTimeout = setTimeout(() => this.onSleepTimer(), seconds * 1000);
+    this.sleep = seconds > 0 ? {seconds, end: null, playToEnd} : null;
+    if (this.sleep && this.state === STATE_PLAYING) this.startSleepTimer();
     this.post('msg_player_sleep_timer', {arg1: seconds});
+  }
+
+  startSleepTimer() {
+    const s = this.sleep;
+    s.end = performance.now() + s.seconds * 1000;
+    this.sleepTimeout = setTimeout(() => this.onSleepTimer(), s.seconds * 1000);
   }
 
   onSleepTimer() {
     const s = this.sleep;
     if (!s) return;
-    if (s.playToEnd && this.state === STATE_PLAYING) {
-      // Waits for the current track to end (onEnded pauses).
-      this.sleepWaitsForEnd = true;
+    if (this.state !== STATE_PLAYING) {
+      this.sleep = null;
+      this.post('msg_player_sleep_timer', {arg1: 0});
       return;
     }
+    // Waits for the current track to end (advance pauses).
+    if (s.playToEnd) { this.sleepWaitsForEnd = true; return; }
     this.sleep = null;
-    if (this.state === STATE_PLAYING) this.pause();
+    this.pause();
+    this.sleepPaused();
+  }
+
+  /** an.m1066: the timer ends with a toast. */
+  sleepPaused() {
+    const str = k => this.ctx.res?.stringByName(k) ?? k;
     this.post('msg_player_sleep_timer', {arg1: 0});
+    this.ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: str('sleep_timer'), line2: str('paused')});
   }
 
   /** Lock screen / headset controls through the Media Session API. */

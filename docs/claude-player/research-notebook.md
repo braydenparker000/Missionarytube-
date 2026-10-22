@@ -350,7 +350,7 @@ bottom-attached with `center_vertical` gravity — same open family as F31/F32.
 
 `MarqueeFastTextView`: with `anim_long_labels` on, a single-line label whose ellipsize is `marquee` lays out at 3000 dp. When the line overflows the available width by more than 10 px, it is clipped to the text box and scrolled: the first wait is 1500 ms and later waits are 3000 ms. It scrolls left by the overflow at 42.5 dp/s, using accelerate-decelerate when the overflow exceeds 50 px and linear otherwise, then waits, scrolls back and repeats while shown. With the option off, marquee labels ellipsize at the end. `OptionAnimLongLabelsInLists` (list and mini-player labels) defaults on as in `ui_player.xml`.
 
-### F36 — Sleep timer — `CS` (UI) / `INF` (expiry)
+### F36 — Sleep timer — `CS`
 
 The sub-AA button is `sleep_timer_layout`, a popup over `merge_sleep_timer_popup_layout`. `SleepTimerBehavior` gives the knob a range of 180°–1620° (four turns, 60 min per turn, 0–240 min). Past one turn, `RoundKnob` draws a ring per turn, each one stroke plus arcOffset further out, and only the partial ring gets the cap trim.
 
@@ -362,7 +362,14 @@ The sub-AA button is `sleep_timer_layout`, a popup over `merge_sleep_timer_popup
 - **Refresh:** the labels update every 500 ms.
 - **Button state:** the button is activated while the timer runs.
 
-How the reference stops playback (fade or immediate) is not verified, so a plain pause is used. The frame is ?TopSleepTimerButtonLayout_scene_item_menu (centred, up to 340 dp). The icon stays at the top left (?SleepTimerButton_scene_button_menu).
+**Expiry** (`an.B`, `k21` message 21, `an.m1066`, `PlayerServiceCore.o`):
+- Set while playing, the timer counts in real time; pausing does not stop it. Set while not
+  playing, it waits and starts its full time when playback starts.
+- At its end, if nothing plays it just clears. If playing, it pauses through the normal pause
+  (with its fade, F70), or with play-to-end stops when the track ends; then it clears and shows
+  the "Sleep Timer" / "Paused" toast.
+
+The frame is ?TopSleepTimerButtonLayout_scene_item_menu (centred, up to 340 dp). The icon stays at the top left (?SleepTimerButton_scene_button_menu).
 
 ### F37 — Visualization modes — `CS`
 
@@ -1912,7 +1919,7 @@ No status is device-verified.
 | F33 equalizer | Partial | Presets per F67, song assignment per F81, parametric mode and AutoEq import per F82; platform FX, the bundled AutoEq database and device assignment not built |
 | F34 popups | Built | Curve inferred |
 | F35 marquee | Built | — |
-| F36 sleep timer | Built | Expiry fade not verified |
+| F36 sleep timer | Built | — |
 | F37 vis modes | Built | — |
 | F38 list scroller | Built | — |
 | F39 selection | Built | Multi-select drag built (F59). Delete files skipped (owner decision). |
