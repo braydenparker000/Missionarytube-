@@ -14,8 +14,8 @@ Copyright (c) 2018, Mikhail Sharanda
 with Reserved Font Name Manrope.
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
-This license is copied below, and is also available with a FAQ at:
-http://scripts.sil.org/OFL
+This license is copied below, and is also available with a FAQ from
+SIL International (OFL-1.1).
 
 
 -----------------------------------------------------------
