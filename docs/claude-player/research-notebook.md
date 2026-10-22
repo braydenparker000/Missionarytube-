@@ -2179,6 +2179,11 @@ mark there.
     the backdrop. Before, the light skin showed black under its light controls. This reading is
     `INFERRED`: the loader's decompiled branch is incomplete.
 
+(k) Animation timing in the harness: posting `cmd_nav_to_lib` and stepping the paused Choreographer
+in 16 ms frames finds the player-to-library scene change already complete at the first frame.
+Without a window, the harness cannot time transitions frame by frame; device recordings remain the
+source for F07 and F48.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
