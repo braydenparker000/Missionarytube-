@@ -316,7 +316,7 @@ export class TrackSource {
     const p = this.ctx.player;
     // This list becomes the playing track's source list (album-art tap / swipe down).
     this.ctx.listWidget?.rememberQueueSource(this);
-    p.setQueue(this.tracks, i);
+    p.setQueue(this.tracks, i, this.ctx.listWidget?.categoryFor(this) ?? null);
     p.play();
     if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
   }
@@ -351,22 +351,52 @@ export function currentCategorySource(ctx, list, nav, kind, track = null) {
  * Search results for a query in a category: songs match title, artist or
  * album; other categories list matching groups (each opens its tracks).
  */
-export function searchSource(ctx, list, nav, query, kind = 'all') {
+/** Search categories in chip order (the bits of the search mask). */
+const SEARCH_KINDS = ['songs', 'albums', 'artists', 'genres', 'folders', 'composers'];
+
+/**
+ * Search results for a query over a category mask (bit i = SEARCH_KINDS[i];
+ * -1 all): songs matching title, artist or album, then each selected
+ * category's matching entries, in chip order, as one list. Category
+ * subheaders between the parts are not drawn.
+ */
+export function searchSource(ctx, list, nav, query, mask = -1) {
   const q = query.trim().toLocaleLowerCase();
   const lib = ctx.library;
   const pool = lib?.tracks?.length ? lib.tracks : ctx.player?.queue ?? [];
   const has = s => !!s && s.toLocaleLowerCase().includes(q);
   const title = ctx.res.stringByName('search') ?? 'Search';
   const bare = src => { src.header = null; src.headerHeight = 0; return src; };
-  if (!q) return bare(new TrackSource(ctx, list, nav, title, []));
-  if (kind === 'all' || kind === 'songs') {
-    return bare(new TrackSource(ctx, list, nav, title, pool.filter(t => has(t.title) || has(t.artist) || has(t.album) || (kind === 'all' && (has(t.genre) || has(t.composer))))));
+  if (!q || !mask) return bare(new TrackSource(ctx, list, nav, title, []));
+  const on = kind => (mask & (1 << SEARCH_KINDS.indexOf(kind))) !== 0;
+  const tracks = on('songs') ? pool.filter(t => has(t.title) || has(t.artist) || has(t.album)) : [];
+  const groups = [];
+  for (const kind of SEARCH_KINDS.slice(1)) {
+    if (!on(kind)) continue;
+    const gs = (lib?.tracks?.length ? groupsFor(lib, kind) : null) ?? group(pool, {
+      albums: t => t.album || 'Unknown album', artists: t => t.artist || 'Unknown artist',
+      genres: t => t.genre || 'Unknown genre', folders: t => t.folder || '/', composers: t => t.composer || 'Unknown composer',
+    }[kind], kind);
+    groups.push(...gs.filter(g => has(g.title)));
   }
-  const groups = (lib?.tracks?.length ? groupsFor(lib, kind) : null) ?? group(pool, {
-    albums: t => t.album || 'Unknown album', artists: t => t.artist || 'Unknown artist',
-    genres: t => t.genre || 'Unknown genre', folders: t => t.folder || '/', composers: t => t.composer || 'Unknown composer',
-  }[kind] ?? (t => t.title), kind);
-  return bare(new GroupSource(ctx, list, nav, title, groups.filter(g => has(g.title))));
+  if (!groups.length) return bare(new TrackSource(ctx, list, nav, title, tracks));
+  if (!tracks.length) return bare(new GroupSource(ctx, list, nav, title, groups));
+  // Songs and entries in one list: rows below tracks.length are entries.
+  const src = bare(new GroupSource(ctx, list, nav, title, groups));
+  const n = tracks.length;
+  src.tracks = tracks;
+  Object.defineProperty(src, 'count', {get: () => n + groups.length});
+  src.tracksAt = i => (i < n ? [tracks[i]] : groups[i - n]?.tracks ?? []);
+  src.sectionTitle = i => (i < n ? tracks[i].title : groups[i - n]?.title);
+  const bindGroup = src.bindItem.bind(src), openGroup = src.onItemClick.bind(src);
+  src.bindItem = (v, i) => (i < n ? v.bind(tracks[i]) : bindGroup(v, i - n));
+  src.onItemClick = i => {
+    if (i >= n) { openGroup(i - n); return; }
+    ctx.player.setQueue(tracks, i);
+    ctx.player.play();
+    if ((ctx.settings.list_item_action ?? 1) === 1) ctx.bus.post('bus_gui', 'cmd_nav_to_main', src);
+  };
+  return src;
 }
 
 /** Playlists category: each playlist (name, track count) opens its tracks. */
@@ -402,6 +432,7 @@ export function groupTracksSource(ctx, list, nav, g, icon) {
   const kind = g.kind ?? 'group';
   const src = withOptions(new TrackSource(ctx, list, nav, g.title, g.tracks), list, {key: 'tracks:' + kind, zoomKind: 'tracks', sortKind: 'tracks', defaultSort: TRACKS_DEFAULT_SORT[kind] ?? 0});
   src.icon = icon;
+  src.group = g;
   src.rebuild = () => groupTracksSource(ctx, list, nav, g, icon);
   return src;
 }

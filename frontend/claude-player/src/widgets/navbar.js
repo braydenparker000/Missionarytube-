@@ -92,7 +92,7 @@ export class MiniPlayerList extends FastLayout {
     this.offset = 0;
     this.el.style.overflow = 'hidden'; // neighbour pages stay inside the list
     ctx.bus.subscribe('bus_player', msg => {
-      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed') this.bind();
+      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed' || msg === 'msg_player_category_changed') this.bind();
     });
   }
 
@@ -125,11 +125,25 @@ export class MiniPlayerList extends FastLayout {
   bind() {
     const p = this.ctx.player;
     for (const rel of [-1, 0, 1]) {
-      const t = rel === 0 ? p?.track ?? null : p?.trackAt(rel) ?? null;
+      const t = rel === 0 ? p?.track ?? null : p?.trackAt(rel, true) ?? null;
       if (rel !== 0 && !t) { const v = this.items.get(rel); if (v) v.visibility = GONE; continue; }
       const v = this.itemFor(rel);
       v.visibility = VISIBLE;
       v.bind(t);
+    }
+    // Category decor pages past the ends (item_miniplayer_prev_next_decor).
+    this.decor ??= new Map();
+    for (const rel of [-1, 1]) {
+      let d = this.decor.get(rel);
+      if (!d) {
+        d = this.ctx.inflater.inflate('item_miniplayer_prev_next_decor', null)[0];
+        d.lp = this.generateLayoutParams(null);
+        d.parent = this;
+        this.children.push(d);
+        this.el.appendChild(d.el);
+        this.decor.set(rel, d);
+      }
+      d.children?.[0]?.setText?.(p?.categoryTitle(rel) ?? this.ctx.res.stringByName(rel < 0 ? 'no_previous_list' : 'no_next_list') ?? '');
     }
     this.requestLayout();
   }
@@ -151,6 +165,20 @@ export class MiniPlayerList extends FastLayout {
     for (const [rel, v] of this.items) {
       v.translationX = Math.round((rel + this.offset) * this.width);
       v.invalidate();
+    }
+    // Decor where a neighbour is missing, faded by distance (as on the art pager).
+    const p = this.ctx.player;
+    for (const [rel, d] of this.decor ?? []) {
+      const f2 = 1 - Math.abs(this.offset + rel);
+      const alpha = f2 < 0.35 ? 0 : f2 <= 0.6 ? (f2 - 0.35) / 0.25 : 1;
+      const show = !!p?.track && !p.trackAt(rel, true) && alpha > 0;
+      d.visibility = show ? VISIBLE : GONE;
+      if (!show) continue;
+      d.measure(MeasureSpec.make(this.width, MeasureSpec.EXACTLY), MeasureSpec.make(this.height, MeasureSpec.EXACTLY));
+      d.layout(0, 0, this.width, this.height);
+      d.translationX = Math.round((rel + this.offset) * this.width);
+      d.alpha = alpha;
+      d.invalidate();
     }
   }
 
@@ -180,8 +208,15 @@ export class MiniPlayerList extends FastLayout {
     if (!e?.cancelled) d.vt.up(e.time);
     const v = e?.cancelled ? 0 : d.vt.compute(MAX_FLING_DP * this.ctx.dpr).vx;
     const p = this.ctx.player, off = this.offset;
+    // Swipe more past an end: the previous or next category (Navbar.t0).
+    const over = (off > 0 && !p?.trackAt(-1, true)) || (off < 0 && !p?.trackAt(1, true));
+    if (over && Math.abs(off) > 0.6 && p?.categoryNavigable && (off < 0 ? p.nextCategory(true) : p.prevCategory(false))) {
+      this.offset = 0;
+      this.place();
+      return;
+    }
     let target = 0;
-    if (Math.abs(v * 1e-4 + off) >= 0.2) target = off > 0 ? (p?.trackAt(-1) ? 1 : 0) : (p?.trackAt(1) ? -1 : 0);
+    if (Math.abs(v * 1e-4 + off) >= 0.2) target = off > 0 ? (p?.trackAt(-1, true) ? 1 : 0) : (p?.trackAt(1, true) ? -1 : 0);
     const rem = off - target, dist = Math.abs(rem) * (this.width || 1);
     const boost = (rem > 0 && v < 0) || (rem < 0 && v > 0) ? Math.abs(v) * 0.2 : 0;
     const extra = (v !== 0 ? this.ctx.dpr * Math.abs(rem) : 0) + 0.01 * boost;

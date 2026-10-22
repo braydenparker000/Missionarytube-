@@ -64,8 +64,33 @@ export function installInput(ctx, container) {
     clearTimeout(a.timer); clearTimeout(a.pressTimer);
     a.view.setPressed(false);
   };
+  // Pointers down (for a second finger) and a running pinch.
+  const pointers = new Map();
+  const spread = () => {
+    const [a, b] = [...pointers.values()];
+    return {dist: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2};
+  };
+  // A second finger hands the stream to the nearest view with pinch handling
+  // (the reference's touch handler tracks a second pointer for zooming).
+  const startPinch = e => {
+    const a = active;
+    const from = a.view ?? hitTest(ctx.root, a.start?.x ?? 0, a.start?.y ?? 0);
+    for (let c = from; c; c = c.parent) {
+      if (typeof c.onPinchStart !== 'function') continue;
+      const s = spread();
+      if (!c.onPinchStart({...s, time: e.timeStamp})) continue;
+      if (a.custom) a.view.onPointerCancel?.();
+      else if (a.view) cancelPress(a);
+      active = {pinch: true, view: c};
+      return;
+    }
+  };
   container.addEventListener('pointerdown', e => {
-    if (active) return;
+    pointers.set(e.pointerId, point(e));
+    if (active) {
+      if (pointers.size === 2 && !active.pinch) startPinch(e);
+      return;
+    }
     const p = point(e);
     const hit = hitTest(ctx.root, p.x, p.y);
     if (!hit) return;
@@ -109,13 +134,18 @@ export function installInput(ctx, container) {
     }
   });
   container.addEventListener('pointermove', e => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, point(e));
     const a = active;
+    if (a?.pinch) {
+      if (pointers.size === 2) a.view.onPinchMove?.({...spread(), time: e.timeStamp});
+      return;
+    }
     if (!a || a.id !== e.pointerId) return;
     const p = point(e);
     if (a.custom) {
       if (a.interceptors && !a.view.disallowIntercept && (Math.abs(p.x - a.start.x) >= slop || Math.abs(p.y - a.start.y) >= slop)) {
         for (const c of a.interceptors) {
-          if (c.onInterceptStart(event(c, a.start, e, {time: a.downTime}), event(c, p, e))) {
+          if (c.onInterceptStart(event(c, a.start, e, {time: a.downTime, target: a.view}), event(c, p, e))) {
             a.view.onPointerCancel?.();
             active = {id: a.id, view: c, custom: true};
             c.onPointerMove?.(event(c, p, e));
@@ -130,7 +160,7 @@ export function installInput(ctx, container) {
     if (Math.abs(p.x - a.start.x) < slop && Math.abs(p.y - a.start.y) < slop) return;
     if (a.view) cancelPress(a);
     for (const c of a.interceptors) {
-      const start = event(c, a.start, e, {time: a.downTime});
+      const start = event(c, a.start, e, {time: a.downTime, target: a.view});
       if (c.onInterceptStart(start, event(c, p, e))) {
         active = {id: a.id, view: c, custom: true};
         c.onPointerMove?.(event(c, p, e));
@@ -141,6 +171,13 @@ export function installInput(ctx, container) {
   });
   const end = (e, cancelled) => {
     const a = active;
+    pointers.delete(e.pointerId);
+    if (a?.pinch) {
+      // The pinch ends with its first lifted finger; the other is ignored after.
+      if (!a.ended) { a.ended = true; a.view.onPinchEnd?.({time: e.timeStamp, cancelled}); }
+      if (!pointers.size) active = null;
+      return;
+    }
     if (!a || a.id !== e.pointerId) return;
     active = null;
     const p = point(e);

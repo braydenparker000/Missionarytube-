@@ -7,7 +7,7 @@ import {FastLayout} from '../view/fast-layout.js';
 import {MeasureSpec} from '../view/view.js';
 import {register} from '../view/inflater.js';
 import {StyledAttributes, colorForState} from '../res/resources.js';
-import {colorToCss} from '../res/values.js';
+import {colorToCss, GONE, VISIBLE} from '../res/values.js';
 import {cssFontFamily} from '../fonts.js';
 
 /** Search categories (chips): all, then the library's searchable categories. */
@@ -94,30 +94,60 @@ export class ListSearchEditText extends FastTextView {
   }
 }
 
-/** Category chips (catButtonStyle); the selected one is checked. */
+/**
+ * Category chips (catButtonStyle) over a category mask (ListSearchCatsLayout;
+ * bit i = category i after "All", default all set): a tap toggles a category
+ * and "All" checks every one; a long press keeps only that category. "All"
+ * shows checked while every bit is set.
+ */
+export const SEARCH_ALL = (1 << (SEARCH_CATS.length - 1)) - 1;
+
 export class ListSearchCatsLayout extends FastLayout {
   constructor(ctx, a) {
     super(ctx, a);
     const style = a.theme.styleName(a.raw('catButtonStyle'));
-    this.selected = 'all';
-    this.buttons = SEARCH_CATS.map(c => {
+    this.mask = SEARCH_ALL;
+    this.buttons = SEARCH_CATS.map((c, i) => {
       const sa = new StyledAttributes(ctx.res, ctx.theme, {}, null, style);
       const b = new FastButton(ctx, sa);
       b._attrs = sa;
       b.setText(ctx.res.stringByName(c.title) ?? c.title);
       b.kind = c.kind;
+      b.bit = i === 0 ? 0 : 1 << (i - 1);
       b.lp = this.generateLayoutParams(sa);
-      b.onClick = () => this.select(c.kind);
+      b.onClick = () => this.setMask(b.bit ? this.mask ^ b.bit : SEARCH_ALL);
+      b.longClickable = true;
+      b.onLongClick = () => { this.setMask(b.bit || SEARCH_ALL); return true; };
       this.addView(b);
       return b;
     });
-    this.select('all', false);
+    this.setMask(SEARCH_ALL, false);
+    // The layout starts gone; entering search shows it and makes its
+    // scene_search record visible (x1(); targeted searches are not built).
+    this.visibility = GONE;
+    ctx.bus.subscribe('bus_gui', (msg, src, d) => {
+      if (msg !== 'msg_nav_changed' || d.nav !== 'nav_search' || this.shown) return;
+      this.shown = true;
+      this.visibility = VISIBLE;
+      this.alpha = 1;
+      const rec = this.sceneParams?.get('scene_search');
+      if (rec) { rec.visibility = VISIBLE; rec.alpha = 1; }
+      // The running scene change already took the old record: retarget it.
+      const it = ctx.topNav?.scenes.items.find(x => x.view === this);
+      if (it) { it.toVisibility = VISIBLE; it.toAlpha = 1; it.fade = true; it.fromAlpha = 0; }
+      this.parent?.requestLayout();
+    });
   }
 
-  select(kind, notify = true) {
-    this.selected = kind;
-    for (const b of this.buttons) { b.setChecked(b.kind === kind); b.setActivated(b.kind === kind); }
-    if (notify) this.ctx.bus.post('list', 'cmd_list_search_cat', this, {kind});
+  setMask(mask, notify = true) {
+    const changed = mask !== this.mask;
+    this.mask = mask;
+    for (const b of this.buttons) {
+      const on = b.bit ? (mask & b.bit) !== 0 : (mask & SEARCH_ALL) === SEARCH_ALL;
+      b.setChecked(on);
+      b.setActivated(on);
+    }
+    if (notify && changed) this.ctx.bus.post('list', 'cmd_list_search_cat', this, {mask});
   }
 }
 

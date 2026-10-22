@@ -69,6 +69,21 @@ export class PowerList extends FastLayout {
     this.scrollTo(i <= 0 ? 0 : g.headerH + Math.floor(i / g.cols) * g.itemH);
   }
 
+  /** An item's rect in the list's own coordinates (as shown now), or null. */
+  itemRect(i) {
+    const s = this.source;
+    if (!s || i < 0 || i >= s.count) return null;
+    const g = this.geometry();
+    const r = Math.floor(i / g.cols), c = i % g.cols;
+    return {left: g.left + c * (g.colW + g.gap), top: g.top + g.headerH - this.scrollY + r * g.itemH, width: g.colW, height: g.itemH};
+  }
+
+  /** Where the items start (below the header) in the list's coordinates (h0's content top). */
+  contentTop() {
+    const g = this.geometry();
+    return g.top + g.headerH - this.scrollY;
+  }
+
   /** Centres a track's row in the list (the playing track in its source list). */
   scrollToTrack(t) {
     const s = this.source;
@@ -159,6 +174,7 @@ export class PowerList extends FastLayout {
   onItemClick(v) {
     if (Math.abs(this.velocity) > CLICK_STOP_DP * this.ctx.dpr) return;
     if (this.selection && v.listIndex >= 0) { this.toggleSelected(v.listIndex); return; }
+    this.lastClicked = v.listIndex;
     if (v.listIndex === -1) this.source.onHeaderClick?.();
     else this.source.onItemClick?.(v.listIndex);
   }

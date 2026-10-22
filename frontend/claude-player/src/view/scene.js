@@ -216,8 +216,11 @@ export class SceneController {
     this.root.ctx.animate(this);
   }
 
-  /** Drag-driven progress (0..1) without an animator; settle() finishes. */
-  drag(scene, ratio) {
+  /**
+   * Drag-driven progress (0..1) without an animator; settle() or settleTo()
+   * finishes. min/max allow an overshoot past either end (do1.r limits).
+   */
+  drag(scene, ratio, {min = 0, max = 1} = {}) {
     if (!this.running || this.scene !== scene) {
       if (this.running) this.finish(true);
       this.root.loadBehaviorsFor?.(scene);
@@ -227,8 +230,32 @@ export class SceneController {
       this.prepare();
       this.running = {manual: true, from: 0, target: 1, duration: 0};
     }
-    this.ratio = Math.max(0, Math.min(1, ratio));
+    this.ratio = Math.max(min, Math.min(max, ratio));
     this.apply(this.ratio);
+  }
+
+  /**
+   * Settles a drag-driven change over exactly `seconds` (decelerate 2.0), the
+   * scene controller's manual settle (do1.m1459): to the target (complete) or
+   * back to the previous scene. Zero seconds ends it at once.
+   */
+  settleTo(complete, seconds, onEnd) {
+    const r = this.running;
+    if (!r) return;
+    if (!(seconds > 0)) {
+      r.onEnd = onEnd;
+      if (!complete) [this.scene, this.prevScene] = [this.prevScene, this.scene];
+      this.finish(complete);
+      return;
+    }
+    r.manual = false;
+    r.start = performance.now();
+    r.from = this.ratio;
+    r.target = complete ? 1 : 0;
+    r.duration = seconds * 1000;
+    r.onEnd = onEnd;
+    if (!complete) [this.scene, this.prevScene] = [this.prevScene, this.scene];
+    this.root.ctx.animate(this);
   }
 
   settle(complete, {duration = 0.25, velocity = 0, onEnd} = {}) {
