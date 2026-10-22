@@ -128,6 +128,15 @@ Disabled/More/Less pronounced), `font_variant` (System / Alt / **Bold = default*
 `android_navbar_bg`. Global options: rating disabled / stars menu.
 (f) Typed `SkinOptionSchema`. Each value maps to the overlay it applies.
 
+**Sweep** (headless Chromium, 412×915): every non-default value of every option, both skins, 45
+variants, each with the player and EQ screens.
+- No page errors and no non-finite or runaway view frames.
+- Every option changes the screen it targets: player-screen options the player, `knob_hilite` and
+  `graphic_frs_color` the EQ.
+- No visible effect, by design: `android_navbar_bg`, `statusbar_bg` and `force_light_navbar`, which
+  style Android's system bars.
+- Whether each change matches the reference's look still needs reference screenshots, as for F31.
+
 ### F12 — Window-size buckets drive geometry — `CONFIRMED_STATIC`
 ~60 `values-*` qualifier sets (for example `sw360dp-h640dp-port`, `sw380dp-h750dp-port`,
 `sw390dp-w640dp-land`). `TopPlay_maxSize` alone has 18 variants from 72 to 104 dp.
@@ -1685,7 +1694,7 @@ No status is device-verified.
 | F08 animation speed | Built | — |
 | F09 FastLayout | Built | I1 inferences |
 | F10 theme composition | Built | — |
-| F11 skin options | Partial | Options apply through generic overlay composition and are not checked one by one. Follow Day/Night is built (F56). Material You has no seed-colour substitute. |
+| F11 skin options | Built | Every option rendered and checked in a sweep (F11); looks not compared with reference screenshots. Follow Day/Night is built (F56). Material You has no seed-colour substitute. |
 | F12 window buckets | Built | — |
 | F13 waveseek | Built | Native analysis `OPEN` |
 | F14 gesture inventory | Partial | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58); drag reorder and multi-select drag (F59); the navbar sheet drag (F60). the lyrics button long press (lyrics dialog, F61). **Not built:** long press between buttons (edit; feature-pack tier, owner decision). The help's visualization ←/→ preset swipe (`h_vis_swipe`) is anchored to `vis_panel_frame`: it is the vis panel pager, which is built, and no UI class sends `cmd_player_load_next/prev_milk_preset`. |

@@ -49,16 +49,16 @@ Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred ·
 | Reference option | Evidence | Status | Contract | Milestone | Limitation | Build |
 | --- | --- | --- | --- | --- | --- | --- |
 | Skins Light / Black, day/night pairing, Follow Day/Night | F10, F11 | CS | `ThemeComposer` base styles; `prefers-color-scheme` | M2 (Black), M3 (Light, follow) | Default skin on first run `OPEN` | Built: skins; Follow Day/Night (F56) |
-| Layout: Default / Alt / Alt2 | F11 | CS | Overlay → alternate scene/layout styles | M3 | — | Built (overlay; not checked per option) |
-| Track labels centered; labels background | F11 | CS | Overlay | M3 | — | Built (overlay; not checked per option) |
-| Player buttons background | F11 | CS | Overlay | M3 | — | Built (overlay; not checked per option) |
+| Layout: Default / Alt / Alt2 | F11 | CS | Overlay → alternate scene/layout styles | M3 | — | Built (overlay; each value rendered in the F11 sweep) |
+| Track labels centered; labels background | F11 | CS | Overlay | M3 | — | Built (overlay; each value rendered in the F11 sweep) |
+| Player buttons background | F11 | CS | Overlay | M3 | — | Built (overlay; each value rendered in the F11 sweep) |
 | Material You colours (more/less) | F11 | CS | Seed-colour palette from a user-chosen colour | M3 | System wallpaper palette `UW`; the substitute is labelled | Not built (no seed-colour substitute) |
 | Font: System / Alt / Bold | F11, F19 | CS | `system-ui` / OFL Manrope / TT Norms Pro | M2, M3 | TT Norms Pro used with the owner's permission (private, non-commercial) | Built |
-| Rounded corners more/less | F11 | CS | Corner tokens via overlay | M3 | — | Built (overlay; not checked per option) |
-| Seekbar: Waveseek / Static / Plain with buttons | F11, F13 | CS | `Waveseek` scrollable/fixed, `PlainSeek` | M2 (waveseek), M3 | — | Partial: waveseek built; Static/Plain overlays unchecked |
-| More (pro) buttons; Light buttons | F11 | CS | Overlay | M3 | — | Built (overlay; not checked per option) |
-| Knob highlight; graphic FRS colour | F11 | CS | EQ view tokens | M6 | — | Built (overlay; not checked per option) |
-| Navbar background (default/semi/none), offset, force-light | F11 | CS | Overlay | M3 | — | Built (overlay; not checked per option) |
+| Rounded corners more/less | F11 | CS | Corner tokens via overlay | M3 | — | Built (overlay; each value rendered in the F11 sweep) |
+| Seekbar: Waveseek / Static / Plain with buttons | F11, F13 | CS | `Waveseek` scrollable/fixed, `PlainSeek` | M2 (waveseek), M3 | — | Built: waveseek; Static and Plain overlays rendered in the F11 sweep |
+| More (pro) buttons; Light buttons | F11 | CS | Overlay | M3 | — | Built (overlay; each value rendered in the F11 sweep) |
+| Knob highlight; graphic FRS colour | F11 | CS | EQ view tokens | M6 | — | Built (overlay; each value rendered in the F11 sweep) |
+| Navbar background (default/semi/none), offset, force-light | F11 | CS | Overlay | M3 | — | Built (overlay; each value rendered in the F11 sweep) |
 | Transparent status bar; Android navbar background | F11 | CS | Insets + `theme-color` | M3 | Browser chrome limits (`UW` partial) | Partial (browser limits) |
 | Album-art background blur/details/intensity/saturation/gradient | F23 | CS | `ArtBackdrop` | M3 | Blur kernel equivalence `OPEN` | Built (approximation) |
 | Animations off / fast / normal | F08 | CS (code) | `animScale` (+ `prefers-reduced-motion`) | M2 | — | Built |
