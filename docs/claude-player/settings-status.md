@@ -13,10 +13,10 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 69 |
+| Built | 97 |
 | Settings UI | 110 |
-| Not built | 90 |
-| No web counterpart | 141 |
+| Not built | 63 |
+| No web counterpart | 140 |
 | Owner decision | 17 |
 | Not applicable | 25 |
 
@@ -323,8 +323,8 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `rescan_folders` | ProgressPreference | Not built |  |
-| `erase_and_rescan` | ProgressPreference | Not built |  |
+| `rescan_folders` | ProgressPreference | Built | Reloads the R2 index; imported files are re-read by Full Rescan |
+| `erase_and_rescan` | ProgressPreference | Built | Re-reads imported files' tags and reloads the R2 index |
 | `music_folders_button` | RawTextPreference | Settings UI |  |
 | `some_saf_folders_unavailable` | RawTextPreference | Settings UI |  |
 | `file_access_legacy` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
@@ -349,7 +349,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
 | `pref_look_and_feel` | PreferenceCategory | Settings UI |  |
-| `library_list_opts` | Preference | Not built |  |
+| `library_list_opts` | Preference | Built | Opens the home List Options (categories, start category, zoom) |
 | `static_navbar` | MultilineSwitchPreference | Not built |  |
 | `navbar_seekbar` | MultilineSwitchPreference | Built |  |
 | `headers_meta` | MultilineSwitchPreference | Built |  |
@@ -357,23 +357,23 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `localized_az` | MultilineSwitchPreference | Built |  |
 | `list_header_buttons` | TagListPreference | Built |  |
 | `list_bottom_toolbar` | TagListPreference | Not built |  |
-| `track_num_type` | TagListPreference | Not built |  |
-| `track_disc_meta` | MultilineSwitchPreference | Not built |  |
-| `title_filename` | MultilineSwitchPreference | Not built |  |
-| `list_action_resets` | MultilineSwitchPreference | Not built |  |
+| `track_num_type` | TagListPreference | Built | Track labels (library/labels.js) |
+| `track_disc_meta` | MultilineSwitchPreference | Built | Track labels (library/labels.js) |
+| `title_filename` | MultilineSwitchPreference | Built | Track labels (library/labels.js) |
+| `list_action_resets` | MultilineSwitchPreference | Built | Tapping the playing track adopts the list as the queue without it |
 | `list_item_action` | TagListPreference | Built |  |
 | `enable_deletion` | MultilineSwitchPreference | Owner decision | Owner decision: no file deletion |
-| `join_albums` | MultilineSwitchPreference | Not built |  |
-| `use_albumartist` | MultilineSwitchPreference | Not built |  |
-| `use_albumartist_albums` | MultilineSwitchPreference | Not built |  |
-| `use_albumartist_albumartists` | MultilineSwitchPreference | Not built |  |
-| `hide_unknown_album` | MultilineSwitchPreference | Not built |  |
-| `hide_unknown_artist` | MultilineSwitchPreference | Not built |  |
-| `show_unsplit_cats` | MultilineSwitchPreference | Not built |  |
+| `join_albums` | MultilineSwitchPreference | Built | Album keys (album, album artist); Library.albums() |
+| `use_albumartist` | MultilineSwitchPreference | Built | Track labels (library/labels.js) |
+| `use_albumartist_albums` | MultilineSwitchPreference | Built | Album rows lead with the album artist (sources.js albumRowArtist) |
+| `use_albumartist_albumartists` | MultilineSwitchPreference | Built | Track labels (library/labels.js) |
+| `hide_unknown_album` | MultilineSwitchPreference | Built | Track labels (library/labels.js) |
+| `hide_unknown_artist` | MultilineSwitchPreference | Built | Track labels (library/labels.js) |
+| `show_unsplit_cats` | MultilineSwitchPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
 | `hier_no_advance` | MultilineSwitchPreference | Not built |  |
 | `root_hier_immediate` | MultilineSwitchPreference | Not built |  |
 | `hier_files_zoom` | MultilineSwitchPreference | Not built |  |
-| `no_sort_field` | MultilineSwitchPreference | Not built |  |
+| `no_sort_field` | MultilineSwitchPreference | Built | Sort field drops The/A/An (sources.js sortKey) |
 | `show_cue_source` | MultilineSwitchPreference | Not built |  |
 | `stream_name_in_title` | MultilineSwitchPreference | Owner decision | Owner decision: no network streams |
 
@@ -412,11 +412,11 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `scan_providers` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
 | `scan_post_usb_mount` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
 | `scan_post_system` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
-| `artists_split_chars` | TagsPreference | Not built |  |
-| `artists_split_ignore` | TagsPreference | Not built |  |
-| `composers_split_chars` | TagsPreference | Not built |  |
-| `genres_split_chars` | TagsPreference | Not built |  |
-| `tag_encoding` | ListPreference | Not built |  |
+| `artists_split_chars` | TagsPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
+| `artists_split_ignore` | TagsPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
+| `composers_split_chars` | TagsPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
+| `genres_split_chars` | TagsPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
+| `tag_encoding` | ListPreference | Built | Imported files read from now on; R2 index metadata comes decoded from the Worker |
 | `m3u_utf8` | MultilineSwitchPreference | Not built |  |
 | `process_cues` | MultilineSwitchPreference | Not built |  |
 
@@ -425,7 +425,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
 | `msg` | RawTextPreference | Settings UI |  |
-| `list_opts` | Preference | Not built |  |
+| `list_opts` | Preference | Built | Opens the Search List Options (searched categories) |
 | `search_play_tracks` | MultilineSwitchPreference | Not built |  |
 | `search_track_titles_only` | MultilineSwitchPreference | Not built |  |
 
@@ -588,15 +588,15 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | --- | --- | --- | --- |
 | `main_lyrics_swipe` | TagListPreference | Built |  |
 | `main_lyrics_button` | TagListPreference | Built |  |
-| `lyrics_in_menu` | TagListPreference | Not built |  |
+| `lyrics_in_menu` | TagListPreference | Built |  |
 | `lyrics_keep_screen` | MultilineSwitchPreference | Built | Substitute: a screen wake lock |
 | `lyrics_offset` | SeekbarPreference | Built |  |
-| `list_zoom_lyrics` | TagListPreference | Not built |  |
-| `lyrics_plugin` | NumberListPreference | No web counterpart | Third-party Android apps |
-| `lyrics_custom_url` | EditTextPreference | Not built |  |
-| `rescan_lyrics_tags` | ProgressPreference | Not built |  |
-| `lrc_scan` | MultilineSwitchPreference | Not built |  |
-| `lrc_utf8` | MultilineSwitchPreference | Not built |  |
+| `list_zoom_lyrics` | TagListPreference | Built | Partial: pinching steps the size without the list zoom transition |
+| `lyrics_plugin` | NumberListPreference | Built | Partial: None and Browser via custom URL; the lyrics apps are Android apps and fall back to the custom URL |
+| `lyrics_custom_url` | EditTextPreference | Built | Default empty: the reference's default search host is not on the repository's host allowlist |
+| `rescan_lyrics_tags` | ProgressPreference | Built |  |
+| `lrc_scan` | MultilineSwitchPreference | Built | Partial: sidecar .lrc files read at import, matched by path; the reference also matches by tags and folders |
+| `lrc_utf8` | MultilineSwitchPreference | Built |  |
 
 ## ui_mediaactions
 

@@ -883,6 +883,75 @@ Substitutes and not built:
 `cmd_player_seek_jump` `ms` argument, `SettingsUi.closeAll`, `input.js` Z-ordered hit testing and
 the long-press disallow-intercept, `FastLayout` wrap position.
 
+### F63 — Library list preferences and List Options — `CONFIRMED_STATIC` (fallback bytecode in part)
+
+(a) S1 `yp1` (Settings → Library → Lists listeners), `z22` / `n12` and `uf1.e1` (track labels),
+`lw0` (multi-tag splitting), `ListOptsActivity` (and its fallback decompile for `у(FastButton)`),
+`ql0` / `vl0` (option handlers), `gi1` / `fi1` (library categories), `oi1`, `zi1`, `yi1`, `sj1`,
+`ii1`, `hi1` (the statistics and Long Files queries), `m30` (state defaults, including the
+first-run block `m30.d`), `p31` (`cmd_nav_to_lib`, `cmd_list_clear_list`, `cmd_list_show_all`),
+`hs.у` (clear and show all), `ie` (`W0`, `mo2079`), `g32` / `b32` (header heights), `hl0`.
+
+(c) Track labels and list behaviour:
+- **Title:** the title tag, or the file name with `title_filename`.
+- **Artist:** the album artist with `use_albumartist`; album rows lead with it with
+  `use_albumartist_albums`; an album artist's track lists lead with it with
+  `use_albumartist_albumartists`.
+- **Line 2:** "artist - album", leaving out unknown parts with `hide_unknown_album` (default on)
+  and `hide_unknown_artist`.
+- **Numbers (`track_num_type`):** 1 a separate number ("-" without one), 2 in the meta
+  ("N / disc | meta"), 3 a title prefix "N. ". Types 1 and 2 apply only in album and folder track
+  lists. `track_disc_meta` adds the disc.
+- **Albums:** keyed by (album, album artist), case-insensitively. With `join_albums` (default on) a
+  track without an album artist joins the album whose album artist is the track's artist.
+- **Sort field:** names sort without a leading "The", "A" or "An" unless `no_sort_field` is on; the
+  A–Z column follows.
+- **Splitting:** `artists_split_chars`, `composers_split_chars` and `genres_split_chars` (tokens
+  joined by U+001F; genres default to ";" and "//") split tags; a name from `artists_split_ignore`
+  ("AC/DC | +/-") at the start of a part stays whole. Artists and composers split only into two or
+  more parts; `show_unsplit_cats` keeps the unsplit entry as well.
+- **`list_action_resets` off:** tapping the playing track adopts the list as the queue without
+  restarting the track.
+- The shown lists are re-made when any of these change.
+
+List Options:
+- **Home (`library_layout`):** a check box per category in `gi1` order for the home list
+  (`library_lists`, default 1048511), each after a star for the start category (`library_home`,
+  default -1). Notes sit under Album Artists, Albums by Artist and Bookmarks.
+  - A long press on a star or a check box makes that category the start one, or clears it when it
+    already is, and checks the box.
+  - Unchecking the start category clears it.
+  - The stars fade over 250 ms (1 for the start category, 0.1 for the others).
+  - `cmd_nav_to_lib` with no remembered list opens the start category over the home.
+- **Search (`search_layout`):** a check box per searched category. The mask persists and is shared
+  with the search chips.
+- **Max Items (`limit_group`):** 200 / 500 / 1000 / no limit for Most Played, Top Rated, Low Rated,
+  Recently Added and Recently Played. The value is `*_files_limit`: 0 in `m30`, but the first-run
+  block sets 200, and the read is `max(2, v)`.
+  - The cap applies in the query's own order before the list's sort.
+  - The queries: Most Played is `played_times > 0` by plays; Recently Played and Recently Added
+    are by date; Top Rated is `rating > 1` by rating; Low Rated is `rating = 1`.
+- **Clear / Show All:** shown for Most Played, Recently Played and Recently Added (`ch1`). Clear
+  sets the list's start time to now; Show All sets it back to 0. Neither asks for confirmation.
+- **Min Duration (`duration_group`, Long Files):** a 0–119 seek bar for 1–120 minutes, saved when
+  the drag ends. `long_files_min_duration` is 15 minutes after the first run (the app used 20).
+- **Compact Header (`layout_header_compact`, `xh1`):** an entry's track list takes
+  `compactTextHeaderSize` instead of `textHeaderSize` (`b32.F0`).
+- **Show Titles Only:** disabled at zoom levels -2, -3 and -4 (`ie.mo2079`).
+- **Sort notes:** shown under their options.
+- **Settings gear:** opens Settings → Library. It is invisible when List Options opens from the
+  `library_list_opts` / `list_opts` preferences (`arg1` 1).
+- **Reference quirk:** the "no limit" radio's tag is " 2147483647" with a leading space, so
+  `Integer.parseInt` throws and the choice is dropped. Here it applies, a deliberate deviation.
+
+(f) `library/labels.js`, `library/split.js`, `Library.albums()` and the category builders,
+`list/sources.js` (`STAT_LISTS`, sort keys, `homeCategories`), `list/list-opts.js`,
+`ListWidget.openStart` / `openListOptionsFor` / `rebuildStack`, `widgets/search.js`
+(`searchMask`), `view/seekbar.js` (platform SeekBar stand-in), `view/html-text.js` (HtmlTextView
+with inline icons), `SettingsUi.overDialog` (the settings page moves under a player dialog while
+it is open). Not built: list memory (a playlist's or folder's remembered position and per-track
+progress).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -947,7 +1016,7 @@ No status is device-verified.
 | F43 dialogs | Partial | Drag-to-dismiss built (F58), except the list overscroll handoff |
 | F44 playlists | Partial | Drag reordering built (F59); re-sort and import **not built** |
 | F45 info / album art | Built | Tag editing skipped (owner decision) |
-| F46 list options | Partial | Max Items, Min Duration, list memory and the compact header not built |
+| F46 list options | Partial | Max Items, Min Duration, compact header, categories built (F63); list memory not built |
 | F47 waveform data | Built | — |
 | F48 list page transitions | Partial | See F48 (e) |
 | F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics button long press opens the lyrics dialog (F61). |
@@ -964,6 +1033,7 @@ No status is device-verified.
 | F56 Follow Day/Night | Built | Night mode from `prefers-color-scheme` |
 | F57 star rating bar | Built | Scene drawable cross-fade not built |
 | F58 dialog drag | Partial | Nested-scroll handoff not built |
+| F63 library list preferences / List Options | Built | List memory not built |
 
 ## Open questions, prioritised by fidelity impact
 

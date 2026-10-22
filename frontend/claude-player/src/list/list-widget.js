@@ -14,7 +14,8 @@ import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
 import {ListReorder} from './reorder.js';
-import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource, groupTracksSource} from './sources.js';
+import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource, groupTracksSource, homeCategory, categorySource as categoryListSource} from './sources.js';
+import {SEARCH_CATS, searchMask} from '../widgets/search.js';
 import {ListTransition, ZOOM, pageFx} from './list-transition.js';
 import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut, elastic, pagerScroll} from '../gesture.js';
 import {trackLyrics} from '../library/lrc.js';
@@ -24,6 +25,7 @@ import {openInfo, openAlbumArt} from '../widgets/info-dialog.js';
 import {openListOptions, ZOOMS, listOpts, saveListOpts} from './list-opts.js';
 import {LyricsPage} from './lyrics.js';
 import {elevationShadow} from '../view/drawables.js';
+import {trackTitle, trackLine2, trackNumbers} from '../library/labels.js';
 
 const OFFSET_STATUS_BAR = 1, OFFSET_NAVIGATION_BAR = 2;
 
@@ -35,6 +37,13 @@ const MENU_LONG_PRESS = [null, ['list', 'cmd_list_delete_dialog'], ['list', 'cmd
   ['list', 'cmd_list_select_aa_dialog'], ARTIST, ALBUM, FOLDER, GENRE, ['list', 'cmd_list_share'], ['bus_data_cmd', 'cmd_data_track_rating', 5], ['bus_data_cmd', 'cmd_data_track_rating', 1]];
 
 /** Track item: a scene layout whose scene is chosen by the list (item scenes). */
+// Preferences that change the labels of bound rows.
+const LABEL_PREFS = ['title_filename', 'use_albumartist', 'use_albumartist_albumartists', 'hide_unknown_album', 'hide_unknown_artist', 'track_num_type', 'track_disc_meta'];
+const labelsKey = ctx => LABEL_PREFS.map(k => ctx.pref?.(k)).join('|');
+// Preferences that change which rows a library list has or their order
+// (album keys, sort field, split categories): the shown lists are re-made.
+const LIST_PREFS = ['join_albums', 'no_sort_field', 'show_unsplit_cats', 'artists_split_chars', 'artists_split_ignore', 'composers_split_chars', 'genres_split_chars'];
+
 export class AAItemView extends SceneFastLayout {
   constructor(ctx, a) {
     super(ctx, a);
@@ -123,15 +132,31 @@ export class AAItemView extends SceneFastLayout {
     this.findViewById('lyrics')?.setTrack?.(this.track);
   }
 
-  bind(track) {
-    if (this.track === track) return;
+  /**
+   * The track's labels (library/labels.js): title, line 2 and meta with the
+   * track_num_type numbers; numbered is true in album and folder track lists.
+   */
+  bind(track, numbered = this.numbered ?? false, albumArtistList = false) {
+    if (this.track === track && this.numbered === numbered && this.aaList === albumArtistList && this.labelsKey === labelsKey(this.ctx)) return;
     this.track = track;
+    this.numbered = numbered;
+    this.aaList = albumArtistList;
+    this.labelsKey = labelsKey(this.ctx);
     this.syncLyricsButton();
     this.syncRating();
-    this.title?.setText(track?.title ?? '');
-    this.line2?.setText(track?.artist ?? '');
-    this.meta?.setText(track?.meta ?? '');
-    this.num?.setText('');
+    if (track?.group) {
+      // Category rows carry their own labels.
+      this.title?.setText(track.title ?? '');
+      this.line2?.setText(track.artist ?? '');
+      this.meta?.setText(track.meta ?? '');
+      this.num?.setText('');
+    } else {
+      const n = trackNumbers(this.ctx, track, numbered);
+      this.title?.setText(track ? n.title(trackTitle(this.ctx, track)) : '');
+      this.line2?.setText(trackLine2(this.ctx, track, albumArtistList));
+      this.meta?.setText(track ? n.meta(track.meta ?? '') : '');
+      this.num?.setText(n.num ?? '');
+    }
     // List rows use cached thumbnails; the player's cover items the full image.
     const field = this.useThumb ? 'thumb' : 'art';
     const have = track?.[field] ?? (this.useThumb ? track?.art : null) ?? null;
@@ -397,7 +422,9 @@ export class ListWidget extends FastLayout {
     });
     ctx.bus.subscribe('bus_gui', msg => { if (msg === 'msg_nav_changed') this.setPlayingMode(); });
     ctx.bus.subscribe('bus_app', (msg, src, d) => {
+      if (msg === 'msg_app_setting_changed' && LABEL_PREFS.includes(d?.key)) { this.rebind(); this.libList.rebindAll(); }
       if (msg === 'msg_app_setting_changed' && d?.key === 'vis_aa_visible') this.setPlayingMode();
+      if (msg === 'msg_app_setting_changed' && LIST_PREFS.includes(d?.key)) this.rebuildStack();
     });
     ctx.listWidget = this;
     this.mode = 'aa';
@@ -440,6 +467,11 @@ export class ListWidget extends FastLayout {
         else if (current[msg]) this.openCurrent(current[msg]);
         else if (msg === 'cmd_list_play' || msg === 'cmd_list_shuffle') this.playList(msg === 'cmd_list_shuffle');
         else if (msg === 'cmd_list_add_to_pl_dialog') this.addToPlaylist();
+        // The track menu's Lyrics item (p31): the lyrics page, or the lyrics dialog with lyrics_in_menu.
+        else if (msg === 'cmd_nav_to_lyrics_or_app') {
+          if (+this.ctx.pref('lyrics_in_menu') === 1) this.ctx.bus.post('bus_data_cmd', 'cmd_data_lyrics', this, {});
+          else this.ctx.bus.post('bus_gui', 'cmd_nav_to_lyrics', this);
+        }
         else this.listAction(msg, d);
       });
     }
@@ -504,8 +536,12 @@ export class ListWidget extends FastLayout {
         ctx.bus.post('bus_player', 'msg_player_queue_changed', this);
         if (src?.kind === 'queue') this.replaceTop(src.rebuild?.());
         break;
+      case 'cmd_list_show_all':
       case 'cmd_list_clear_list':
-        if (src?.playlist) alertDialog(ctx, {title: src.playlist.name, message: str('clear') + '?', positive: str('clear'), onPositive: () => P.removeAt(src.playlist, src.playlist.ids.map((_, i) => i))});
+        if (src?.clearable) {
+          saveListOpts(src.optsKey, {from: msg === 'cmd_list_clear_list' ? Date.now() : 0});
+          this.replaceTop(src.rebuild?.());
+        } else if (msg === 'cmd_list_clear_list' && src?.playlist) alertDialog(ctx, {title: src.playlist.name, message: str('clear') + '?', positive: str('clear'), onPositive: () => P.removeAt(src.playlist, src.playlist.ids.map((_, i) => i))});
         break;
       case 'cmd_list_rename_dialog': {
         const g = src?.isPlaylists ? src.groups[selected()[0]] : null;
@@ -539,13 +575,17 @@ export class ListWidget extends FastLayout {
    */
   prepareListMenu(items) {
     const src = this.stack[this.stack.length - 1];
-    const hide = new Set(['add_to_home', 'delete_dups', 'add_url', 'show_all', 'resort']);
-    if (!src?.playlist) hide.add('clear');
+    const hide = new Set(['add_to_home', 'delete_dups', 'add_url', 'resort']);
+    // Clear / Show All: playlists clear their entries; the statistics lists
+    // (ch1) start from now or from the beginning again.
+    if (!src?.playlist && !src?.clearable) hide.add('clear');
+    if (!src?.clearable) hide.add('show_all');
     if (src?.kind !== 'queue') hide.add('clear_q');
     if (!src?.optsKey) hide.add('list_options');
     const exportText = this.ctx.res.stringByName('pref_export');
     for (const c of [...items.children]) {
       if (hide.has(c.id)) { c.setVisibility(GONE); continue; }
+      if (src?.clearable && (c.id === 'clear' || c.id === 'show_all')) c.setVisibility(VISIBLE);
       if (c.id === 'folders') c.onClick = () => this.ctx.importUi?.show();
       else if (!c.id && c.text === exportText) c.onClick = () => exportPlaylists(this.ctx);
     }
@@ -557,6 +597,13 @@ export class ListWidget extends FastLayout {
     const y = this.libList.scrollY;
     this.stack[this.stack.length - 1] = src;
     if (this.mode === 'list' && !this.searchShown) { this.libList.setSource(src); this.libList.scrollTo(y); }
+  }
+
+  /** Re-makes every list on the navigation stack, keeping the shown one's scroll position. */
+  rebuildStack() {
+    if (!this.stack.length) return;
+    for (let i = 0; i < this.stack.length - 1; i++) this.stack[i] = this.stack[i].rebuild?.() ?? this.stack[i];
+    this.replaceTop(this.stack[this.stack.length - 1].rebuild?.());
   }
 
   /** Opens a playlist's tracks (Open after adding). */
@@ -574,7 +621,7 @@ export class ListWidget extends FastLayout {
 
   showSearch() {
     this.searchShown = true;
-    const src = searchSource(this.ctx, this.libList, this.nav, this.searchQuery ?? '', this.searchMask ?? -1);
+    const src = searchSource(this.ctx, this.libList, this.nav, this.searchQuery ?? '', this.searchMask ?? searchMask());
     this.searchSrc = src;
     this.libList.setSource(src);
   }
@@ -604,6 +651,34 @@ export class ListWidget extends FastLayout {
   openHome() {
     this.stack = [];
     this.open(new HomeSource(this.ctx, this.libList, this.nav));
+  }
+
+  /**
+   * The library as navigation first shows it (cmd_nav_to_lib, p31): the
+   * start category (library_home) over the home, else the home.
+   */
+  openStart() {
+    this.openHome();
+    const cat = homeCategory(+(this.ctx.pref('library_home') ?? -1));
+    if (cat) this.open(categoryListSource(this.ctx, this.libList, this.nav, cat));
+  }
+
+  /**
+   * List Options of a list that is not shown (the library_list_opts and
+   * list_opts preferences): 'home' or 'search'.
+   */
+  openListOptionsFor(which, opts = {}) {
+    const ctx = this.ctx;
+    if (which === 'search') {
+      const src = {optsKey: 'search', title: ctx.res.stringByName('search') ?? 'Search', searchCategories: SEARCH_CATS.slice(1)};
+      return openListOptions(ctx, src, null, opts);
+    }
+    const src = new HomeSource(ctx, this.libList, this.nav);
+    return openListOptions(ctx, src, () => {
+      if (!(this.stack[0] instanceof HomeSource)) return;
+      if (this.stack.length === 1) this.replaceTop(this.stack[0].rebuild());
+      else this.stack[0] = this.stack[0].rebuild();
+    }, opts);
   }
 
   open(src) {
@@ -725,7 +800,7 @@ export class ListWidget extends FastLayout {
     this.libList.visibility = list ? VISIBLE : GONE;
     this.lyricsPage.show(lyrics);
     for (const v of this.items.values()) v.visibility = list || lyrics ? GONE : VISIBLE;
-    if (list && !this.stack.length && !this.searching) this.openHome();
+    if (list && !this.stack.length && !this.searching) this.openStart();
     // The album-art pager has no scroller (mode 0); the library list sets its own.
     if (list) this.libList.syncScroller();
     else this.ctx.listScroller?.setMode(0);
@@ -834,7 +909,7 @@ export class ListWidget extends FastLayout {
         if (v) { this.items.delete(rel); v.visibility = GONE; this.spare.push(v); }
         continue;
       }
-      this.itemFor(rel).bind(t);
+      this.itemFor(rel).bind(t, !!p?.category?.source?.numbered);
     }
     this.bindDecor();
   }
@@ -995,7 +1070,7 @@ export class ListWidget extends FastLayout {
       this.libList.setSource(this.stack[this.stack.length - 1]);
       nav = 'nav_lib';
     } else if (target === 'library') {
-      if (!this.stack.length) this.openHome();
+      if (!this.stack.length) this.openStart();
       else this.libList.setSource(this.stack[this.stack.length - 1]);
       nav = 'nav_lib';
     } else if (target === 'lyrics') {
@@ -1182,6 +1257,12 @@ export class ListWidget extends FastLayout {
    * Without a further level the list scales elastically and springs back.
    */
   onPinchStart({dist, time}) {
+    // The lyrics page zooms its text size (list_zoom_lyrics) with the same pinch rules.
+    if (this.mode === 'lyrics' && !this.trans) {
+      this.pinch = {d0: dist, started: false, vt: new VelocityTracker(), lyrics: true};
+      this.pinch.vt.add(time, dist, 0);
+      return true;
+    }
     if (this.mode !== 'list' || this.searching || this.trans || this.searchShown) return false;
     const src = this.libList.source;
     if (!src?.optsKey || !ZOOMS[src.zoomKind]) return false;
@@ -1201,10 +1282,23 @@ export class ListWidget extends FastLayout {
       g.started = true;
       g.zoomIn = dist > g.d0;
       g.d0 = Math.max(1, dist);
-      g.trans = this.startZoomTransition(g.zoomIn);
+      g.trans = g.lyrics ? null : this.startZoomTransition(g.zoomIn);
       return;
     }
     const r = dist / g.d0;
+    if (g.lyrics) {
+      g.p = (g.zoomIn ? r - 1 : 1 - r) * 1.25;
+      // At the last size the page scales elastically, as a list does.
+      const page = this.lyricsPage, z = page.zoom;
+      if ((g.zoomIn && z >= 1) || (!g.zoomIn && z <= -1)) {
+        const f = -(r - 1) * 1.25;
+        const e = f > 0 ? Math.sqrt(Math.min(1, Math.min(3, f) / 3) * 0.2) * 0.2
+          : f < 0 ? -Math.sqrt(Math.max(0, Math.min(1, (1 - Math.max(0.1, Math.min(1, f + 1))) / 0.9)) * 0.2) * 0.2 : 0;
+        page.scaleX = page.scaleY = 1 - e;
+        page.invalidate();
+      }
+      return;
+    }
     if (g.trans) g.trans.setProgress((g.zoomIn ? r - 1 : 1 - r) * 1.25);
     else {
       // No further level: the list scales elastically (A.B / A.H).
@@ -1220,6 +1314,13 @@ export class ListWidget extends FastLayout {
     const g = this.pinch;
     this.pinch = null;
     if (!g?.started) return;
+    if (g.lyrics) {
+      g.vt.up(time);
+      const vdp = cancelled ? 0 : g.vt.compute(MAX_FLING_DP * this.ctx.dpr).vx / this.ctx.dpr;
+      const commit = Math.abs(vdp) >= 500 ? (vdp > 0) === g.zoomIn : (g.p ?? 0) > 0.3;
+      if (!(commit && this.lyricsPage.stepZoom(g.zoomIn ? 1 : -1))) this.springBackScale(this.lyricsPage);
+      return;
+    }
     if (!g.trans) { this.springBackScale(this.libList); return; }
     g.vt.up(time);
     const v = cancelled ? 0 : g.vt.compute(MAX_FLING_DP * this.ctx.dpr).vx;

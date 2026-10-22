@@ -222,7 +222,7 @@ export class Inflater {
 // Base registrations; feature modules register their widgets too.
 register(['FastLayout', 'FastLayoutWithViewCacheOpt', 'ClickableFastLayout', 'PrivateNonSceneFastLayout', 'DialogOuterFastLayout', 'FrameLayout', 'LinearLayout', 'RelativeLayout'], FastLayout);
 register(['SceneFastLayout', 'MenuPlaceholderLayout', 'ItemSceneFastLayout'], SceneFastLayout);
-register(['FastTextView', 'TextView', 'ImageView', 'ListIndexerPopupView', 'BusStatusText', 'HtmlTextView', 'LyricsFastTextView', 'InfoTextView', 'KnobLabelAndValue'], FastTextView);
+register(['FastTextView', 'TextView', 'ImageView', 'ListIndexerPopupView', 'BusStatusText', 'LyricsFastTextView', 'InfoTextView', 'KnobLabelAndValue'], FastTextView);
 register(['FastCheckBox', 'FastCheckBoxOnly', 'CheckBox'], FastCheckBox);
 register(['RadioButton'], FastRadioButton);
 register(['FastButton', 'DragHandler', 'Button', 'ImageButton', 'LyricsButton', 'BusStatusTextButton', 'IntentActionButton', 'MediaRouteButton'], FastButton);

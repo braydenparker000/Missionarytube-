@@ -42,10 +42,14 @@ const attr = (node, name) => {
 
 // Defaults the reference sets in code rather than in its preference XML
 // (the XML default is overridden or not a valid value).
-const RUNTIME_DEFAULTS = {navbar_seekbar: 'true', anim_speed: '1', hide_menu: '0', main_lyrics_button: '1', main_lyrics_swipe: '2'};
+const RUNTIME_DEFAULTS = {navbar_seekbar: 'true', anim_speed: '1', hide_menu: '0', main_lyrics_button: '1', main_lyrics_swipe: '2',
+  // b40 library state: the home's categories (all but Albums by Artist) and no start category.
+  library_lists: '1048511', library_home: '-1'};
 // Settings that restyle the player through theme overlays: the player
 // activity is recreated when settings close (a reload here).
 const THEME_KEYS = new Set(['rating_type', 'hide_menu', 'main_lyrics_button', 'aa_aspect', 'cc_button', 'headers_meta', 'vis_frs_type', 'list_header_buttons', 'localized_az', 'anim_long_labels', 'anim_long_labels_in_lists', 'navbar_seekbar', 'library_lists']);
+// Layers inside the player's root while a dialog shows over the settings page.
+const PAGE_UNDER_DIALOG_Z = 100000, DIALOG_OVER_PAGE_Z = 200000;
 const CONDITIONAL_KEYS = new Set(['perm_warn', 'manage_app_warn']);
 // Defaults the reference sets in code (c40 / b40 / m30 readers) for keys whose
 // preference XML has no defaultValue.
@@ -180,6 +184,16 @@ export class Settings {
     if (name !== 'singlepane') this.recordTag('settings/' + name, this.titleEl.textContent);
   }
 
+  /**
+   * Sets a preference from outside the settings screens (pinch zoom,
+   * dialogs); recreate false keeps a theme key from reloading the player
+   * (List Options' categories refresh the home list themselves).
+   */
+  setPref(key, value, {recreate = true} = {}) {
+    this.set(key, value);
+    this.applySetting(key, recreate);
+  }
+
   /** Recently opened settings screens: [path, title] pairs, oldest first (c40 settings tags). */
   get tags() {
     try { return JSON.parse(localStorage.getItem(TAGS_KEY) || '[]') || []; } catch { return []; }
@@ -233,6 +247,25 @@ export class Settings {
     this.root.hidden = true;
     this.closing = then ?? (() => {});
     history.go(-n);
+  }
+
+  /**
+   * A player dialog over the settings page (ListOptsActivity started from
+   * Settings): the page moves into the player's layer, under the dialog,
+   * while the dialog is open. #cp-root contains its layers, so nothing in
+   * it could otherwise show above the page.
+   */
+  overDialog(open) {
+    const page = this.root, layer = this.ctx.root?.el;
+    if (!page || !layer) { open(null); return; }
+    const home = page.parentNode, next = page.nextSibling;
+    layer.appendChild(page);
+    page.style.zIndex = String(PAGE_UNDER_DIALOG_Z);
+    const d = open(() => {
+      page.style.zIndex = '';
+      home?.insertBefore(page, next);
+    });
+    if (d?.host) { d.host.translationZ = DIALOG_OVER_PAGE_Z; d.host.invalidate(); }
   }
 
   /** The popstate of closeAll (consumed once); true when it was that one. */
@@ -337,6 +370,36 @@ export class Settings {
         });
         break;
       }
+      case 'TagsPreference': {
+        // TagsPreference: the tags in the row (up to listTagsLimit), edited in a dialog.
+        const sep = attr(node, 'separatorChars') || '\u001f';
+        const read = () => String(this.get(key, def ?? '') ?? '').split(sep).filter(Boolean);
+        const tags = document.createElement('div');
+        tags.className = 'cps-tags';
+        const show = () => {
+          tags.replaceChildren();
+          const list = read();
+          const limit = +(attr(node, 'listTagsLimit') ?? 10);
+          for (const t of list.slice(0, limit)) {
+            const chip = document.createElement('span');
+            chip.className = 'cps-tag';
+            chip.textContent = t;
+            tags.appendChild(chip);
+          }
+          summaryEl.textContent = list.length ? '' : this.str(attr(node, 'summaryWhenEmpty') ?? '@string/none');
+          if (!summaryEl.isConnected && !list.length) texts.appendChild(summaryEl);
+        };
+        texts.appendChild(tags);
+        show();
+        summary = null;
+        row.classList.add('cps-row-tall');
+        row.addEventListener('click', () => this.editTags(node, read(), sep, list => {
+          this.set(key, list.join(sep));
+          this.applySetting(key);
+          show();
+        }));
+        break;
+      }
       case 'TagListPreference': {
         const entries = this.array(attr(node, 'entries'));
         const values = attr(node, 'values') ? this.array(attr(node, 'values')) : entries.map((_, i) => String(i));
@@ -418,10 +481,44 @@ export class Settings {
           setTimeout(() => this.ctx.bus.post('bus_gui', 'cmd_gui_begin_button_edit', this), 150);
         }));
         break;
+      case 'ProgressPreference': {
+        // A long action with the platform progress bar while it runs.
+        const run = {
+          rescan_folders: () => this.ctx.library?.refreshR2({force: true}),
+          erase_and_rescan: async progress => {
+            const lib = this.ctx.library;
+            if (!lib) return;
+            await lib.rescanTags({}, progress);
+            lib.r2Generated = null;
+            await lib.refreshR2({force: true});
+          },
+          rescan_lyrics_tags: progress => this.ctx.library?.rescanTags({lyricsOnly: true}, progress),
+        }[key];
+        if (!run) break;
+        const bar = document.createElement('div');
+        bar.className = 'cps-progress';
+        bar.hidden = true;
+        row.appendChild(bar);
+        row.addEventListener('click', async () => {
+          if (!bar.hidden) return;
+          bar.hidden = false;
+          const base = summaryEl.textContent;
+          if (!summaryEl.isConnected) texts.appendChild(summaryEl);
+          try {
+            await run((done, total) => { summaryEl.textContent = `${done} / ${total}`; });
+          } finally {
+            bar.hidden = true;
+            summaryEl.textContent = base;
+            if (!base) summaryEl.remove();
+          }
+        });
+        break;
+      }
       case 'Preference':
         if (key === 'restore_defaults') row.addEventListener('click', () => this.restoreDefaults());
         else if (key === 'settings_export') row.addEventListener('click', () => this.exportSettings());
         else if (key === 'settings_import') row.addEventListener('click', () => this.importSettings());
+        else if (key === 'library_list_opts' || key === 'list_opts') row.addEventListener('click', () => this.overDialog(onClosed => this.ctx.listWidget?.openListOptionsFor(key === 'list_opts' ? 'search' : 'home', {fromSettings: true, onClosed})));
         else if (key === 'clear_aa_cache') row.addEventListener('click', () => this.confirm(this.str(attr(node, 'title')), this.str(attr(node, 'summary')), () => this.ctx.library?.clearArtCache()));
         break;
       case 'RawTextPreference':
@@ -544,6 +641,132 @@ export class Settings {
     this.dialog = shade;
   }
 
+  /**
+   * The tags dialog (TagsPreference / TagsEdit): removable tags, Add (up to
+   * tagsLimit) with a prompt, Save keeps them without case-insensitive
+   * duplicates. With allowWhitespace the prompt can keep spaces in a tag;
+   * otherwise whitespace separates several tags.
+   */
+  editTags(node, initial, sep, save) {
+    const list = [...initial];
+    const limit = +(attr(node, 'tagsLimit') ?? 20);
+    const shade = document.createElement('div');
+    shade.className = 'cps-dialog-shade';
+    const dlg = document.createElement('div');
+    dlg.className = 'cps-dialog';
+    const h = document.createElement('div');
+    h.className = 'cps-dialog-title';
+    h.textContent = this.str(attr(node, 'title'));
+    dlg.appendChild(h);
+    const msg = attr(node, 'dialogMessage');
+    if (msg) {
+      const m = document.createElement('div');
+      m.className = 'cps-dialog-msg';
+      m.textContent = this.str(msg);
+      dlg.appendChild(m);
+    }
+    const tags = document.createElement('div');
+    tags.className = 'cps-tags cps-dialog-tags';
+    dlg.appendChild(tags);
+    const bar = document.createElement('div');
+    bar.className = 'cps-dialog-buttons';
+    const button = (label, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cps-dialog-btn';
+      b.textContent = label;
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const add = button(this.str(attr(node, 'addButtonText') ?? '@string/add'), () => this.promptTag(node, entered => {
+      for (const t of entered) if (t && list.length < limit) list.push(t);
+      draw();
+    }));
+    add.classList.add('cps-dialog-btn-start');
+    const draw = () => {
+      tags.replaceChildren();
+      list.forEach((t, i) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'cps-tag cps-tag-x';
+        chip.textContent = t;
+        chip.addEventListener('click', () => { list.splice(i, 1); draw(); });
+        tags.appendChild(chip);
+      });
+      if (!list.length) {
+        const none = document.createElement('div');
+        none.className = 'cps-dialog-msg';
+        none.textContent = '- ' + this.str('@string/_empty') + ' -';
+        tags.appendChild(none);
+      }
+      add.disabled = list.length >= limit;
+    };
+    draw();
+    bar.append(add, button(this.str(attr(node, 'negativeButtonText') ?? '@string/cancel'), () => shade.remove()), button(this.str(attr(node, 'positiveButtonText') ?? '@string/save'), () => {
+      const seen = new Set(), out = [];
+      for (const t of list) { const k = t.toLocaleLowerCase(); if (t && !seen.has(k)) { seen.add(k); out.push(t); } }
+      shade.remove();
+      save(out);
+    }));
+    dlg.appendChild(bar);
+    shade.addEventListener('click', ev => { if (ev.target === shade) shade.remove(); });
+    shade.appendChild(dlg);
+    this.root.appendChild(shade);
+    this.dialog = shade;
+  }
+
+  /** The Add prompt of the tags dialog (merge_edit_text_with_label). */
+  promptTag(node, done) {
+    const allowSpace = attr(node, 'allowWhitespace') === 'true';
+    const shade = document.createElement('div');
+    shade.className = 'cps-dialog-shade';
+    const dlg = document.createElement('div');
+    dlg.className = 'cps-dialog';
+    const label = this.str(attr(node, 'addButtonText') ?? '@string/add');
+    const h = document.createElement('div');
+    h.className = 'cps-dialog-title';
+    h.textContent = label;
+    const input = document.createElement('input');
+    input.className = 'cps-input';
+    input.type = 'text';
+    dlg.append(h, input);
+    let keepSpace = null;
+    if (allowSpace) {
+      const lab = document.createElement('label');
+      lab.className = 'cps-check';
+      keepSpace = document.createElement('input');
+      keepSpace.type = 'checkbox';
+      const t = document.createElement('span');
+      t.textContent = this.str('@string/accept_space_in_separator');
+      const hint = document.createElement('div');
+      hint.className = 'cps-dialog-msg';
+      hint.textContent = this.str('@string/accept_space_in_separator_hint');
+      lab.append(keepSpace, t);
+      dlg.append(lab, hint);
+    }
+    const bar = document.createElement('div');
+    bar.className = 'cps-dialog-buttons';
+    const button = (text, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cps-dialog-btn';
+      b.textContent = text;
+      b.addEventListener('click', () => { shade.remove(); fn?.(); });
+      return b;
+    };
+    bar.append(button(this.str('@string/cancel')), button(label, () => {
+      const v = input.value;
+      if (keepSpace?.checked) done(v ? [v] : []);
+      else if (allowSpace) done(v.split(/\s+/).filter(Boolean));
+      else done(v.trim() ? [v.trim()] : []);
+    }));
+    dlg.appendChild(bar);
+    shade.addEventListener('click', ev => { if (ev.target === shade) shade.remove(); });
+    shade.appendChild(dlg);
+    this.root.appendChild(shade);
+    setTimeout(() => input.focus(), 0);
+  }
+
   /** Built-in skins with their options (theme_list). */
   renderSkins(parent) {
     const skins = parseSkins(this.ctx.res);
@@ -631,10 +854,10 @@ export class Settings {
   }
 
   /** Settings that take effect immediately in the running UI. */
-  applySetting(key) {
+  applySetting(key, recreate = true) {
     Object.assign(this.ctx.settings, runtimeSettings(this.values));
     this.ctx.bus.post('bus_app', 'msg_app_setting_changed', this, {key});
-    if (THEME_KEYS.has(key)) this.needsRecreate = true;
+    if (recreate && THEME_KEYS.has(key)) this.needsRecreate = true;
     if (key === 'settings_theme') this.applyScheme();
     if (key === 'num_settings_tags') this.trimTags();
     if (key === 'settings_font') this.root.dataset.font = ['default', 'alt', 'bold', 'boldplus'][+this.get(key, '2')] ?? 'bold';

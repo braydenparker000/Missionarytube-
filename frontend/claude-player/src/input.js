@@ -31,6 +31,20 @@ function hitTest(view, x, y) {
   return null;
 }
 
+/** The deepest visible view under a point, whether or not it takes touches. */
+function deepest(view, x, y) {
+  if (view.visibility !== VISIBLE || view.alpha <= 0) return null;
+  const l = localPoint(view, x, y);
+  if (l.x < 0 || l.y < 0 || l.x >= view.width || l.y >= view.height) return null;
+  const kids = view.children ? zOrdered(view.children) : [];
+  for (let i = kids.length - 1; i >= 0; i--) {
+    if (kids[i].visibility === GONE) continue;
+    const d = deepest(kids[i], l.x, l.y);
+    if (d) return d;
+  }
+  return view;
+}
+
 /** Children in drawing order (by elevation + translationZ, stable). */
 function zOrdered(children) {
   if (!children.some(c => (c.elevation || 0) + (c.translationZ || 0))) return children;
@@ -82,7 +96,7 @@ export function installInput(ctx, container) {
   // (the reference's touch handler tracks a second pointer for zooming).
   const startPinch = e => {
     const a = active;
-    const from = a.view ?? hitTest(ctx.root, a.start?.x ?? 0, a.start?.y ?? 0);
+    const from = a.view ?? hitTest(ctx.root, a.start?.x ?? 0, a.start?.y ?? 0) ?? a.under;
     for (let c = from; c; c = c.parent) {
       if (typeof c.onPinchStart !== 'function') continue;
       const s = spread();
@@ -101,7 +115,16 @@ export function installInput(ctx, container) {
     }
     const p = point(e);
     const hit = hitTest(ctx.root, p.x, p.y);
-    if (!hit) return;
+    if (!hit) {
+      // Nothing takes the touch, but the views under it still see it
+      // (onInterceptTouchEvent): their drags and a second finger's pinch.
+      const list = [];
+      for (let c = deepest(ctx.root, p.x, p.y); c; c = c.parent) if (typeof c.onInterceptStart === 'function' || typeof c.onPinchStart === 'function') list.push(c);
+      if (!list.length) return;
+      container.setPointerCapture?.(e.pointerId);
+      active = {id: e.pointerId, view: null, start: p, downTime: e.timeStamp, custom: false, interceptors: list.filter(c => typeof c.onInterceptStart === 'function'), downEvent: e, under: list[0]};
+      return;
+    }
     container.setPointerCapture?.(e.pointerId);
     if (typeof hit.onPointerDown === 'function' && hit.onPointerDown(event(hit, p, e))) {
       active = {id: e.pointerId, view: hit, custom: true};

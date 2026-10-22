@@ -107,6 +107,7 @@ export class View {
     this.clickable = a.bool('android:clickable', this.clickable);
     this.longClickable = a.bool('android:longClickable', this.longClickable);
     if (!a.bool('android:enabled', true)) this.state.enabled = false;
+    if (a.has('android:tag')) this.tag = a.raw('android:tag');
     const cd = a.raw('android:contentDescription');
     if (cd !== undefined) this.contentDescription = a.string('android:contentDescription', null);
     const bg = a.ref('android:background');

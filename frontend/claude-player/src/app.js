@@ -14,6 +14,8 @@ import {installImport} from './library/import-ui.js';
 import {Settings, loadStoredSettings, runtimeSettings, prefDefaults} from './settings/settings.js';
 import {DSP} from './dsp/dsp.js';
 import './widgets/basic.js';
+import './view/seekbar.js';
+import './view/html-text.js';
 import './widgets/topnav.js';
 import './widgets/time.js';
 import './widgets/waveseek.js';
@@ -151,7 +153,7 @@ export async function boot() {
   installMetaInfo(ctx);
   installSubAAEditor(ctx);
   ctx.screenPrefs = installScreenPrefs(ctx);
-  ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => { if (msg === 'cmd_data_lyrics') openLyricsDialog(ctx, d?.track); });
+  ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => { if (msg === 'cmd_data_lyrics') openLyricsDialog(ctx, d?.track, {pluginFirst: d?.arg1 === 1}); });
   const importUi = installImport(ctx, document.body);
   ctx.importUi = importUi;
   const params = new URLSearchParams(location.search);

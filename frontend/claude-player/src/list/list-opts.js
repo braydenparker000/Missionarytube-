@@ -1,13 +1,18 @@
 // List Options (dialog_ListOptsActivity): per list sort (with Reverse),
-// "View as" zoom level and Show Titles Only, saved per list. The option
-// tables are the reference's (label, value, hint) triples per list type;
-// zoom levels map to item scene, columns and item size like the reference
-// (pd.P0 for categories and tracks, bk0.P0 for the library home; track lists
-// remap their levels -3..2 onto -3, -2, -1, 0, 3, 4). Reverse is bit 30 of
-// the sort value. Not reproduced: Max Items / Min Duration (not offered by
-// these lists), list memory and the compact header option.
+// "View as" zoom level, Show Titles Only and Compact Header, saved per list.
+// The option tables are the reference's (label, value, hint) triples per list
+// type; zoom levels map to item scene, columns and item size like the
+// reference (pd.P0 for categories and tracks, bk0.P0 for the library home;
+// track lists remap their levels -3..2 onto -3, -2, -1, 0, 3, 4). Reverse is
+// bit 30 of the sort value. The home adds its categories (library_lists,
+// library_home), Search its searched categories, the capped lists Max Items
+// and Long Files Min Duration (notebook F63). Not reproduced: list memory
+// (a playlist's or folder's remembered position and per-track progress).
 import {openDialog} from '../widgets/dialog.js';
-import {GONE, VISIBLE} from '../res/values.js';
+import {GONE, INVISIBLE, VISIBLE} from '../res/values.js';
+import {accelDecel} from '../gesture.js';
+import {FastRadioButton} from '../view/text.js';
+import {searchMask, setSearchMask} from '../widgets/search.js';
 
 const STORE = 'cp-list-opts';
 export const REVERSE = 0x40000000;
@@ -84,6 +89,7 @@ export function applyZoom(src, sub, kind, key, defaultLevel = 0) {
   src.zoomKind = kind;
   src.zoomLevel = o.zoom ?? defaultLevel;
   src.titlesOnly = !!o.titlesOnly;
+  src.compactHeader = !!o.compactHeader;
   const g = zoomGeometry(sub, kind, src.zoomLevel, src.titlesOnly);
   src.itemScene = g.scene;
   src.columns = g.columns;
@@ -95,45 +101,160 @@ export function applyZoom(src, sub, kind, key, defaultLevel = 0) {
 const str = (ctx, k) => ctx.res.stringByName(k) ?? k;
 
 /**
- * Opens List Options for the shown source; onChange() re-creates the list
- * with the new options.
+ * A hint under an option (ListOptsActivity.y): ?Hint text indented to the
+ * option's text, 4dp below it.
  */
-export function openListOptions(ctx, src, onChange) {
+function addHint(ctx, group, button, text, index = -1) {
+  const sa = ctx.inflater.styledAttributes({style: '?Hint', 'android:layout_width': 'fill_parent', 'android:layout_height': 'wrap_content', 'layout_consumeSpace': 'vertical'});
+  const v = ctx.inflater.create('TextView', sa, null);
+  v._attrs = sa;
+  v.setText(str(ctx, text));
+  v.lp = group.generateLayoutParams(sa);
+  v.lp.leftMargin = button.textPaddings?.()[0] ?? 0;
+  v.lp.bottomMargin = Math.round(4 * ctx.dpr);
+  if (index < 0) group.addView(v); else group.addView(v, index);
+  return v;
+}
+
+/** Radio buttons already in a layout (Max Items): one checked at a time. */
+function radioGroup(group, onPick) {
+  const radios = group.children.filter(c => c instanceof FastRadioButton);
+  for (const r of radios) {
+    r.onCheckedChanged = on => {
+      if (!on) return;
+      for (const x of radios) if (x !== r) x.setChecked(false);
+      onPick(r);
+    };
+  }
+  return radios;
+}
+
+/**
+ * The library home's categories (gi1 order): a check box per category for
+ * the home list (library_lists bits) and a star before it for the category
+ * the library opens at (library_home). A long press on either makes that
+ * category the start one, or clears it when it is already; unchecking the
+ * start category clears it too. The stars fade over 250 ms.
+ */
+function libraryCategories(ctx, layout, categories, onChange) {
+  const stars = [];
+  const home = () => +(ctx.pref('library_home') ?? -1);
+  const toggleHome = star => {
+    const id = star.category.id;
+    const was = home() === id;
+    ctx.settingsUi?.setPref('library_home', String(was ? -1 : id), {recreate: false});
+    if (was) onChange();
+    ctx.tween(star, {alpha: was ? 0.1 : 1}, 0.25, accelDecel);
+    for (const s of stars) if (s !== star) ctx.tween(s, {alpha: 0.1}, 0.25, accelDecel);
+  };
+  for (const c of categories) {
+    const ssa = ctx.inflater.styledAttributes({style: '@style/SettingsListOptsCheckboxLibrary_Home'});
+    const star = ctx.inflater.create('com.maxmpz.widget.base.FastButton', ssa, null);
+    star._attrs = ssa;
+    star.lp = layout.generateLayoutParams(ssa);
+    star.alpha = home() === c.id ? 1 : 0.1;
+    star.category = c;
+    star.longClickable = true;
+    stars.push(star);
+    layout.addView(star);
+    const csa = ctx.inflater.styledAttributes({style: '@style/SettingsListOptsCheckboxLibrary'});
+    const cb = ctx.inflater.create('CheckBox', csa, null);
+    cb._attrs = csa;
+    cb.lp = layout.generateLayoutParams(csa);
+    cb.setText(str(ctx, c.title));
+    const mask = () => +(ctx.pref('library_lists') ?? 0);
+    cb.setChecked((mask() & (1 << c.id)) !== 0);
+    cb.onCheckedChanged = on => {
+      const m = on ? mask() | (1 << c.id) : mask() & ~(1 << c.id);
+      if (!on && home() === c.id) toggleHome(star);
+      ctx.settingsUi?.setPref('library_lists', String(m), {recreate: false});
+      onChange();
+    };
+    const check = () => { if (!cb.isChecked) { cb.setChecked(true); cb.onCheckedChanged(true); } };
+    star.onLongClick = () => { toggleHome(star); check(); return true; };
+    cb.longClickable = true;
+    cb.onLongClick = () => { toggleHome(star); check(); return true; };
+    layout.addView(cb);
+    if (c.hint) addHint(ctx, layout, cb, c.hint);
+  }
+  layout.setVisibility(VISIBLE);
+}
+
+/** The search categories (search_layout): a check box per searched category. */
+function searchCategories(ctx, layout, cats) {
+  const mask = () => searchMask();
+  cats.forEach((c, i) => {
+    const sa = ctx.inflater.styledAttributes({'android:layout_width': 'fill_parent', 'android:layout_height': 'wrap_content', 'layout_consumeSpace': 'vertical'});
+    const cb = ctx.inflater.create('CheckBox', sa, null);
+    cb._attrs = sa;
+    cb.lp = layout.generateLayoutParams(sa);
+    cb.setText(str(ctx, c.title));
+    cb.setChecked((mask() & (1 << i)) !== 0);
+    cb.onCheckedChanged = on => setSearchMask(ctx, on ? mask() | (1 << i) : mask() & ~(1 << i));
+    layout.addView(cb);
+  });
+  layout.setVisibility(VISIBLE);
+}
+
+/** m:ss or h:mm:ss for a duration in ms (Utils.A, rounded to seconds). */
+export function formatDuration(ms) {
+  const t = Math.floor((ms + 500) / 1000), s = t % 60;
+  if (t < 3600) return `${Math.floor(t / 60)}:${String(s).padStart(2, '0')}`;
+  return `${Math.floor(t / 3600)}:${String(Math.floor(t / 60) % 60).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+/** The levels where rows are one line already: Show Titles Only is off there (ie.mo2079). */
+const ONE_LINE_ZOOMS = new Set([-2, -3, -4]);
+
+/**
+ * Opens List Options for a source; onChange() re-creates the list with the
+ * new options. With fromSettings (the library_list_opts / list_opts
+ * preferences, arg1 1) the settings gear is hidden.
+ */
+export function openListOptions(ctx, src, onChange, {fromSettings = false, onClosed = null} = {}) {
   if (!src?.optsKey) return null;
   const key = src.optsKey;
   const sorts = src.sortKind ? SORTS[src.sortKind] : null;
   const zooms = ZOOMS[src.zoomKind];
   const title = (str(ctx, 'list_opts_s') ?? '%s').replace('%s', src.title || str(ctx, 'library'));
   const change = patch => { saveListOpts(key, patch); onChange?.(); };
-  return openDialog(ctx, {
-    style: 'dialog_ListOptsActivity', title,
+  const d = openDialog(ctx, {
+    style: 'dialog_ListOptsActivity', title, onClosed,
     buttons: {positive: str(ctx, 'close')},
     setup: d => {
-      d.find('button')?.setVisibility(GONE); // settings gear: no per-list settings page here
-      const radios = (group, options, current, onPick, style, extra = {}) => {
-        const made = [];
-        for (const o of options) {
-          const sa = ctx.inflater.styledAttributes({style, ...extra});
-          const r = ctx.inflater.create('RadioButton', sa, null);
-          r._attrs = sa;
-          r.setText(str(ctx, o.label));
-          r.setChecked(o.value === current);
-          r.lp = group.generateLayoutParams(sa);
-          r.onCheckedChanged = on => {
-            if (!on) return;
-            for (const x of made) if (x !== r) x.setChecked(false);
-            onPick(o.value);
-          };
-          group.addView(r);
-          made.push(r);
+      const gear = d.find('button');
+      if (fromSettings) gear?.setVisibility(INVISIBLE);
+      else if (gear) gear.onClick = () => { d.cancel(); ctx.settingsUi?.open('library'); };
+      if (src.homeCategories) libraryCategories(ctx, d.find('library_layout'), src.homeCategories, () => onChange?.());
+      if (src.searchCategories) searchCategories(ctx, d.find('search_layout'), src.searchCategories);
+      // Max Items (ih1): 200 / 500 / 1000 / no limit.
+      if (src.limitable) {
+        const g = d.find('limit_group');
+        g.setVisibility(VISIBLE);
+        const cur = src.limit;
+        for (const r of radioGroup(g, r => change({limit: parseInt(String(r.tag).replace(/^\\?\s*/, ''), 10)}))) {
+          r.setChecked(parseInt(String(r.tag).replace(/^\\?\s*/, ''), 10) === cur);
         }
-        return made;
-      };
+      }
+      // Min Duration (hi1, Long Files): 2..120 minutes; saved when the drag ends.
+      if (src.minDurationMs !== undefined) {
+        const g = d.find('duration_group');
+        g.setVisibility(VISIBLE);
+        const time = g.findViewById('time'), bar = g.findViewById('seekbar');
+        time?.setText(formatDuration(src.minDurationMs));
+        if (bar) {
+          bar.setMax(119);
+          bar.setProgress(Math.max(1, Math.floor(src.minDurationMs / 60000) - 1));
+          bar.onProgressChanged = (p, user) => { if (user) time?.setText(formatDuration((p + 1) * 60000)); };
+          bar.onStopTrackingTouch = () => change({minDurationMs: (bar.progress + 1) * 60000});
+        }
+      }
       if (sorts) {
         const g = d.find('sort_group');
         g.setVisibility(VISIBLE);
         const cur = src.sortValue ?? 0;
-        radios(g, sorts, cur & ~REVERSE, v => change({sort: v | ((listOpts(key).sort ?? src.sortValue ?? 0) & REVERSE)}), '@style/ListOptsRadioButton', {'android:layout_width': 'fill_parent', 'android:layout_height': 'wrap_content', 'layout_consumeSpace': 'vertical'});
+        const made = radios(ctx, g, sorts, cur & ~REVERSE, v => change({sort: v | ((listOpts(key).sort ?? src.sortValue ?? 0) & REVERSE)}), '@style/ListOptsRadioButton', {'android:layout_width': 'fill_parent', 'android:layout_height': 'wrap_content', 'layout_consumeSpace': 'vertical'});
+        sorts.forEach((o, i) => { if (o.hint) addHint(ctx, g, made[i], o.hint, g.children.indexOf(made[i]) + 1); });
         const sa = ctx.inflater.styledAttributes({});
         const rev = ctx.inflater.create('CheckBox', sa, null);
         rev._attrs = sa;
@@ -146,17 +267,48 @@ export function openListOptions(ctx, src, onChange) {
       if (zooms) {
         const g = d.find('zoom_group');
         g.setVisibility(VISIBLE);
-        radios(g, zooms, src.zoomLevel, v => change({zoom: v}), '@style/ListOptsRadioButton50');
-        // Show Titles Only: categories and track lists (not the home).
         const lg = d.find('layout_group');
-        const titles = d.find('show_titles_only');
-        d.find('compact_header')?.setVisibility(GONE);
+        const titles = d.find('show_titles_only'), compact = d.find('compact_header');
+        let shown = 0;
+        // Show Titles Only: categories and track lists (not the home); off
+        // at the one-line levels.
         if (src.zoomKind !== 'home' && titles) {
-          lg.setVisibility(VISIBLE);
+          shown++;
           titles.setChecked(!!src.titlesOnly);
+          titles.setEnabled(!ONE_LINE_ZOOMS.has(src.zoomLevel));
           titles.onCheckedChanged = on => change({titlesOnly: on});
-        }
+        } else titles?.setVisibility(GONE);
+        // Compact Header (xh1): an entry's track list.
+        if (src.compactable && compact) {
+          shown++;
+          compact.setChecked(!!src.compactHeader);
+          compact.onCheckedChanged = on => change({compactHeader: on});
+        } else compact?.setVisibility(GONE);
+        if (shown) lg.setVisibility(VISIBLE);
+        radios(ctx, g, zooms, src.zoomLevel, v => { change({zoom: v}); titles?.setEnabled(!ONE_LINE_ZOOMS.has(v)); }, '@style/ListOptsRadioButton50');
       }
     },
   });
+  return d;
+}
+
+/** Radio buttons for option triples, one checked at a time. */
+function radios(ctx, group, options, current, onPick, style, extra = {}) {
+  const made = [];
+  for (const o of options) {
+    const sa = ctx.inflater.styledAttributes({style, ...extra});
+    const r = ctx.inflater.create('RadioButton', sa, null);
+    r._attrs = sa;
+    r.setText(str(ctx, o.label));
+    r.setChecked(o.value === current);
+    r.lp = group.generateLayoutParams(sa);
+    r.onCheckedChanged = on => {
+      if (!on) return;
+      for (const x of made) if (x !== r) x.setChecked(false);
+      onPick(o.value);
+    };
+    group.addView(r);
+    made.push(r);
+  }
+  return made;
 }

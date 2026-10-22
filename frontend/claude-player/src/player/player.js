@@ -1,6 +1,7 @@
 // Playback model: the queue, the current track, play state and position, with
 // the reference's player command/state messages on the message bus.
 // bus_player_cmd carries commands in; bus_player carries state changes out.
+import {trackTitle, artistLabel, albumLabel} from '../library/labels.js';
 
 // Reference mode enums (integers SHUFFLE_* / REPEAT_*).
 export const SHUFFLE_NONE = 0, SHUFFLE_ALL = 1;
@@ -197,6 +198,21 @@ export class Player {
     this.order = null;
     this.override = null;
     this.load(Math.max(0, Math.min(index, tracks.length - 1)), false);
+  }
+
+  /**
+   * A new list around the playing track without restarting it (a list tap on
+   * the playing track without list_action_resets): the queue, category and
+   * shuffle order change, playback goes on.
+   */
+  adoptQueue(tracks, index, category = null) {
+    this.queue = tracks;
+    this.category = category;
+    this.index = Math.max(0, Math.min(index, tracks.length - 1));
+    this.order = null;
+    this.override = null;
+    this.post('msg_player_category_changed');
+    this.post('msg_player_track_changed', {track: this.track, meta: true});
   }
 
   load(index, autoplay, override = null) {
@@ -448,7 +464,8 @@ export class Player {
     this.ctx.bus.subscribe('bus_player', (msg) => {
       const t = this.track;
       if (msg === 'msg_player_track_changed' && t && typeof MediaMetadata === 'function') {
-        ms.metadata = new MediaMetadata({title: t.title, artist: t.artist ?? '', album: t.album ?? '', artwork: t.art ? [{src: t.art.url, sizes: `${t.art.width}x${t.art.height}`}] : []});
+        // The reference's media API labels (g30: m3733, m3740, y).
+        ms.metadata = new MediaMetadata({title: trackTitle(this.ctx, t), artist: artistLabel(this.ctx, t), album: albumLabel(this.ctx, t), artwork: t.art ? [{src: t.art.url, sizes: `${t.art.width}x${t.art.height}`}] : []});
       } else if (msg === 'msg_player_playing_state_changed') {
         ms.playbackState = this.state === STATE_PLAYING ? 'playing' : 'paused';
       }

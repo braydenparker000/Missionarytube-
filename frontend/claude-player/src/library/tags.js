@@ -8,6 +8,28 @@ const utf8 = new TextDecoder('utf-8');
 const utf16 = new TextDecoder('utf-16le');
 const utf16be = new TextDecoder('utf-16be');
 
+// Non-Unicode text (ID3 encoding 0, playlists, LRC files without UTF-8):
+// tag_encoding names the charset; _default_ keeps ISO-8859-1.
+let legacy = latin1;
+const CHARSETS = {SJIS: 'shift_jis', 'TIS-620': 'windows-874'};
+
+/** tag_encoding (pref_tag_encoding_values) for non-Unicode tags read from now on. */
+export function setTagEncoding(name) {
+  try { legacy = !name || name === '_default_' ? latin1 : new TextDecoder(CHARSETS[name] ?? name); } catch { legacy = latin1; }
+}
+
+/**
+ * Text of a sidecar or playlist file: UTF-8 when utf8Always, a BOM or valid
+ * UTF-8 says so, else the tag encoding.
+ */
+export function decodeTextFile(bytes, utf8Always) {
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) return utf8.decode(bytes.subarray(3));
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return utf16.decode(bytes.subarray(2));
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return utf16be.decode(bytes.subarray(2));
+  if (utf8Always) return utf8.decode(bytes);
+  try { return new TextDecoder('utf-8', {fatal: true}).decode(bytes); } catch { return legacy.decode(bytes); }
+}
+
 function decodeText(bytes, enc) {
   if (enc === 1) {
     if (bytes[0] === 0xfe && bytes[1] === 0xff) return utf16be.decode(bytes.subarray(2));
@@ -16,7 +38,7 @@ function decodeText(bytes, enc) {
   }
   if (enc === 2) return utf16be.decode(bytes);
   if (enc === 3) return utf8.decode(bytes);
-  return latin1.decode(bytes);
+  return legacy.decode(bytes);
 }
 
 const clean = s => (s ?? '').replace(/\0+$/g, '').replace(/\0/g, ' / ').trim();

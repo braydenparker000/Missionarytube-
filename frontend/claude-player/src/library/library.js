@@ -1,7 +1,8 @@
 // The music library: imported tracks (tags + stored files), lazily opened
 // media/cover URLs, and category views (albums, artists, genres, folders).
 import {LibraryDb} from './db.js';
-import {readTags, readRemotePicture} from './tags.js';
+import {readTags, readRemotePicture, setTagEncoding, decodeTextFile} from './tags.js';
+import {makeSplitter, GENRE_DEFAULT_SPLIT} from './split.js';
 import {Playlists} from './playlists.js';
 import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars, decodeWave} from './r2.js';
 
@@ -155,9 +156,10 @@ export class Library {
   async importFiles(files, onProgress) {
     let added = 0, done = 0;
     const audio = [...files].filter(isAudioFile);
-    // Sidecar .lrc files next to the audio (same path without the extension).
+    setTagEncoding(this.ctx.pref?.('tag_encoding'));
+    // Sidecar .lrc files next to the audio (same path without the extension), with lrc_scan.
     const lrc = new Map();
-    for (const f of files) {
+    for (const f of this.ctx.pref?.('lrc_scan') === false ? [] : files) {
       if (/\.lrc$/i.test(f.name)) lrc.set((f.webkitRelativePath || f.name).replace(/\.[^./]+$/, '').toLowerCase(), f);
     }
     for (const f of audio) {
@@ -180,7 +182,8 @@ export class Library {
         artId, added: Date.now(),
       };
       const side = lrc.get(path.replace(/\.[^./]+$/, '').toLowerCase());
-      if (side) { try { meta.lyricsFile = await side.text(); } catch { /* unreadable sidecar */ } }
+      // LRC text: UTF-8, or the tag encoding for non-Unicode files unless lrc_utf8.
+      if (side) { try { meta.lyricsFile = decodeTextFile(new Uint8Array(await side.arrayBuffer()), this.ctx.pref?.('lrc_utf8') !== false); } catch { /* unreadable sidecar */ } }
       if (tags.lyricsSynced) meta.lyricsSynced = tags.lyricsSynced;
       if (tags.lyrics) meta.lyrics = tags.lyrics;
       meta.meta = trackMetaLabel(meta);
@@ -193,6 +196,43 @@ export class Library {
     }
     this.setTracks(this.tracks);
     return added;
+  }
+
+  /**
+   * Re-reads the tags of stored local files (rescan_lyrics_tags: lyrics only;
+   * erase_and_rescan: everything), reporting (done, total).
+   */
+  async rescanTags({lyricsOnly = false} = {}, onProgress) {
+    setTagEncoding(this.ctx.pref?.('tag_encoding'));
+    const local = this.tracks.filter(t => !t.remote && !t.src);
+    let done = 0;
+    for (const t of local) {
+      const f = await this.db?.file(t.id).catch(() => null);
+      if (f) {
+        let tags = null;
+        try { tags = await readTags(f); } catch { /* unreadable */ }
+        if (tags) {
+          if (lyricsOnly) {
+            if (tags.lyrics) t.lyrics = tags.lyrics; else delete t.lyrics;
+            if (tags.lyricsSynced) t.lyricsSynced = tags.lyricsSynced; else delete t.lyricsSynced;
+          } else {
+            Object.assign(t, {
+              title: tags.title || t.fileName || t.title, artist: tags.artist || '', album: tags.album || '', albumArtist: tags.albumArtist || '',
+              genre: tags.genre || '', track: tags.track || 0, disc: tags.disc || 0, year: tags.year || 0,
+              durationMs: tags.durationMs || t.durationMs || 0, sampleRate: tags.sampleRate || 0, bits: tags.bits || 0, bitrate: tags.bitrate || 0,
+            });
+            if (tags.lyrics) t.lyrics = tags.lyrics; else delete t.lyrics;
+            if (tags.lyricsSynced) t.lyricsSynced = tags.lyricsSynced; else delete t.lyricsSynced;
+            t.meta = trackMetaLabel(t);
+          }
+          const {art, thumb, ...rec} = t;
+          await this.db?.updateTrack(rec).catch(() => {});
+        }
+      }
+      onProgress?.(++done, local.length);
+    }
+    this.setTracks(this.tracks);
+    return local.length;
   }
 
   /** Media URL for a track (object URL over the stored file). */
@@ -464,35 +504,107 @@ export class Library {
     await this.saveTrack(t);
   }
 
-  // Category views (Poweramp library categories).
+  // Category views (Poweramp library categories; the scanner's tables, zj /
+  // mg1). Names match case-insensitively, the first spelling shows; an empty
+  // tag is the unknown entry. Albums are keyed by album and album artist;
+  // join_albums moves a track without an album artist into the album of the
+  // same name whose album artist is the track's artist.
   albums() {
+    const unknown = this.ctx.res?.stringByName('unknown_album_name') ?? 'Unknown album';
+    const lc = s => (s ?? '').toLowerCase();
+    const tagged = new Set();
+    if (this.ctx.pref?.('join_albums') !== false) for (const t of this.tracks) if (t.album && t.albumArtist) tagged.add(lc(t.album) + '\u0000' + lc(t.albumArtist));
     const map = new Map();
     for (const t of this.tracks) {
-      const key = (t.album || '') + '\u0000' + (t.albumArtist || t.artist || '');
+      let key;
+      if (!t.album) key = '\u0001';
+      else {
+        let aa = lc(t.albumArtist);
+        if (!aa && t.artist && tagged.has(lc(t.album) + '\u0000' + lc(t.artist))) aa = lc(t.artist);
+        key = lc(t.album) + '\u0000' + aa;
+      }
       let a = map.get(key);
-      if (!a) map.set(key, a = {kind: 'album', title: t.album || 'Unknown album', artist: t.albumArtist || t.artist || '', tracks: [], artId: t.artId});
+      if (!a) map.set(key, a = {kind: 'album', title: t.album || unknown, artist: t.albumArtist || t.artist || '', tracks: [], artId: t.artId});
       a.tracks.push(t);
       a.artId ||= t.artId;
     }
     return [...map.values()].sort((x, y) => x.title.localeCompare(y.title));
   }
 
-  artists() {
+  /** The split symbols in effect (artists / album artists, composers, genres). */
+  splitters() {
+    const p = k => this.ctx.pref?.(k);
+    const key = [p('artists_split_chars'), p('artists_split_ignore'), p('composers_split_chars'), p('genres_split_chars')].join('\u0002');
+    if (this._splitKey !== key) {
+      this._splitKey = key;
+      const artists = makeSplitter(p('artists_split_chars'), p('artists_split_ignore'));
+      this._split = {artist: artists, albumArtist: artists, composer: makeSplitter(p('composers_split_chars')), genre: makeSplitter(p('genres_split_chars') || GENRE_DEFAULT_SPLIT)};
+    }
+    return this._split;
+  }
+
+  /**
+   * A track's names in a category: the split parts (genres from one part,
+   * the others from two), plus the whole value as an unsplit entry for
+   * show_unsplit_cats.
+   */
+  namesOf(t, field) {
+    const v = t[field] || '';
+    if (!v) return {names: [''], unsplit: null};
+    const split = this.splitters()[field];
+    const parts = split ? split(v) : [v];
+    const min = field === 'genre' ? 1 : 2;
+    if (parts.length < min) return {names: [v], unsplit: null};
+    return {names: parts, unsplit: parts.length >= 2 ? v : null};
+  }
+
+  /** Artists, album artists, composers or genres as groups of tracks. */
+  namedGroups(field, kind, unknownName, unknownFallback) {
+    const unknown = this.ctx.res?.stringByName(unknownName) ?? unknownFallback;
+    const showUnsplit = field !== 'genre' && !!this.ctx.pref?.('show_unsplit_cats');
     const map = new Map();
+    const add = (name, t) => {
+      const k = name.toLowerCase();
+      let g = map.get(k);
+      if (!g) map.set(k, g = {kind, title: name || unknown, tracks: []});
+      if (g.tracks[g.tracks.length - 1] !== t) g.tracks.push(t);
+    };
     for (const t of this.tracks) {
-      const k = t.artist || 'Unknown artist';
-      (map.get(k) ?? map.set(k, {kind: 'artist', title: k, tracks: []}).get(k)).tracks.push(t);
+      const {names, unsplit} = this.namesOf(t, field);
+      for (const n of names) add(n, t);
+      if (unsplit && showUnsplit) add(unsplit, t);
     }
     return [...map.values()].sort((x, y) => x.title.localeCompare(y.title));
   }
 
-  genres() {
+  artists() {
+    return this.namedGroups('artist', 'artist', 'unknown_artist_name', 'Unknown artist');
+  }
+
+  albumArtists() {
+    // A track without an album artist counts under its artist (IFNULL(album_artist, artist)).
+    const unknown = this.ctx.res?.stringByName('unknown_artist_name') ?? 'Unknown artist';
+    const showUnsplit = !!this.ctx.pref?.('show_unsplit_cats');
     const map = new Map();
     for (const t of this.tracks) {
-      const k = t.genre || 'Unknown genre';
-      (map.get(k) ?? map.set(k, {kind: 'genre', title: k, tracks: []}).get(k)).tracks.push(t);
+      const field = t.albumArtist ? 'albumArtist' : 'artist';
+      const {names, unsplit} = this.namesOf(t, field);
+      for (const n of unsplit && showUnsplit ? [...names, unsplit] : names) {
+        const k = n.toLowerCase();
+        let g = map.get(k);
+        if (!g) map.set(k, g = {kind: 'albumArtist', title: n || unknown, tracks: []});
+        g.tracks.push(t);
+      }
     }
     return [...map.values()].sort((x, y) => x.title.localeCompare(y.title));
+  }
+
+  composers() {
+    return this.namedGroups('composer', 'composer', 'unknown_composer_name', 'Unknown composer');
+  }
+
+  genres() {
+    return this.namedGroups('genre', 'genre', 'unknown_genre_name', 'Unknown genre');
   }
 
   folders() {

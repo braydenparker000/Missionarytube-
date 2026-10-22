@@ -101,6 +101,23 @@ export class ListSearchEditText extends FastTextView {
  * shows checked while every bit is set.
  */
 export const SEARCH_ALL = (1 << (SEARCH_CATS.length - 1)) - 1;
+const MASK_STORE = 'cp-search-cats';
+
+/** The searched categories (z30 search categories; persisted, all by default). */
+export function searchMask() {
+  try {
+    const v = localStorage.getItem(MASK_STORE);
+    if (v !== null && /^\d+$/.test(v)) return +v & SEARCH_ALL;
+  } catch { /* storage unavailable */ }
+  return SEARCH_ALL;
+}
+
+/** Sets the searched categories: saved, the chips follow and the results re-run. */
+export function setSearchMask(ctx, mask) {
+  try { localStorage.setItem(MASK_STORE, String(mask)); } catch { /* storage unavailable */ }
+  if (ctx.searchCats && ctx.searchCats.mask !== mask) ctx.searchCats.setMask(mask, false);
+  ctx.bus.post('list', 'cmd_list_search_cat', ctx.searchCats ?? null, {mask});
+}
 
 export class ListSearchCatsLayout extends FastLayout {
   constructor(ctx, a) {
@@ -121,7 +138,9 @@ export class ListSearchCatsLayout extends FastLayout {
       this.addView(b);
       return b;
     });
-    this.setMask(SEARCH_ALL, false);
+    this.mask = -1;
+    this.setMask(searchMask(), false);
+    ctx.searchCats = this;
     // The layout starts gone; entering search shows it and makes its
     // scene_search record visible (x1(); targeted searches are not built).
     this.visibility = GONE;
@@ -147,7 +166,7 @@ export class ListSearchCatsLayout extends FastLayout {
       b.setChecked(on);
       b.setActivated(on);
     }
-    if (notify && changed) this.ctx.bus.post('list', 'cmd_list_search_cat', this, {mask});
+    if (notify && changed) setSearchMask(this.ctx, mask);
   }
 }
 

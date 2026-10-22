@@ -189,6 +189,12 @@ export class PowerList extends FastLayout {
   }
 
   /** Binds and positions the visible items (and the header). */
+  /** Binds the shown rows again (preferences that change their labels). */
+  rebindAll() {
+    for (const v of this.active.values()) v._boundKey = null;
+    this.placeItems();
+  }
+
   placeItems() {
     const s = this.source;
     if (!s) return;
