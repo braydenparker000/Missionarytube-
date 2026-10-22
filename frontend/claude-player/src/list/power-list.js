@@ -44,7 +44,9 @@ export class PowerList extends FastLayout {
     this.clipChildren = false;
     this.source = null;
     this.scrollY = 0;
-    this.pool = new Map(); // type -> [views]
+    // type -> [views]; lists of one host share it, so a page transition's
+    // ghost list takes the rows the shown list let go instead of inflating.
+    this.pool = host ? (host.itemPool ??= new Map()) : new Map();
     this.active = new Map(); // index -> view (-1 header)
     this.velocity = 0;
     this._fling = null;
@@ -239,22 +241,55 @@ export class PowerList extends FastLayout {
   }
 
   obtain(type) {
-    const list = this.pool.get(type);
-    let v = list?.pop();
-    if (!v) {
-      v = this.ctx.inflater.inflate(LAYOUT_FOR_TYPE[type], null)[0];
-      v.lp = this.generateLayoutParams(null);
-      v.parent = this;
-      v.listItemType = type;
-      v.useThumb = true;
-      this.children.push(v);
-      this.el.appendChild(v.el);
-      v.onClick = () => this.onItemClick(v);
-      v.clickable = true;
-      withView(v, 'menu', menu => { menu.onClick = () => { if (v.listIndex === -1 && this.source?.menuLayout) this.host?.openItemMenu?.(v, this.source.menuLayout); }; });
-    }
+    const v = this.pool.get(type)?.pop() ?? this.create(type);
+    this.adopt(v);
     v.visibility = VISIBLE;
     return v;
+  }
+
+  /** A new row view of a type; clicks go to whichever list holds it. */
+  create(type) {
+    const v = this.ctx.inflater.inflate(LAYOUT_FOR_TYPE[type], null)[0];
+    v.listItemType = type;
+    v.useThumb = true;
+    v.clickable = true;
+    v.onClick = () => v.parent.onItemClick(v);
+    withView(v, 'menu', menu => { menu.onClick = () => { const l = v.parent; if ((v.listIndex === -1 || v === l.toolbarView) && l.source?.menuLayout) l.host?.openItemMenu?.(v, l.source.menuLayout); }; });
+    return v;
+  }
+
+  /** Moves a row view into this list (pooled rows may come from another list of the host). */
+  adopt(v) {
+    if (v.parent === this) return;
+    if (v.parent) {
+      v.parent.children.splice(v.parent.children.indexOf(v), 1);
+      if (!this.selectable) v.setSelection?.(false, false, false);
+    }
+    v.lp = this.generateLayoutParams(null);
+    v.parent = this;
+    this.children.push(v);
+    this.el.appendChild(v.el);
+  }
+
+  /**
+   * Inflates spare rows ({type: count}) in idle time, so the first pages a
+   * transition shows (the leaving and the entering list) take pooled rows
+   * instead of inflating in the transition's first frame.
+   */
+  prewarm(counts) {
+    const idle = globalThis.requestIdleCallback;
+    if (!idle) return;
+    const queue = Object.entries(counts).flatMap(([type, n]) => Array.from({length: n}, () => type));
+    const step = deadline => {
+      while (queue.length && deadline.timeRemaining() > 8) {
+        const type = queue.shift();
+        const v = this.create(type);
+        this.adopt(v);
+        this.recycle(-1, v);
+      }
+      if (queue.length) idle(step);
+    };
+    idle(step);
   }
 
   recycle(i, v) {
@@ -428,17 +463,17 @@ export class PowerList extends FastLayout {
     }
     g ??= this.geometry();
     if (!v || v.listItemType !== s.header.type) {
-      if (v) { v.visibility = GONE; v.invalidate(); }
-      v = this.toolbarView = this.ctx.inflater.inflate(LAYOUT_FOR_TYPE[s.header.type], null)[0];
-      v.lp = this.generateLayoutParams(null);
-      v.parent = this;
-      v.listItemType = s.header.type;
+      // A pooled header row serves as the toolbar, raised and not clickable as a row.
+      if (v) {
+        v.elevation = v._rowElevation; v.clickable = true;
+        this.recycle(-10, v);
+      }
+      v = this.toolbarView = this.obtain(s.header.type);
       v.listIndex = -10;
-      v.useThumb = true;
+      v._rowElevation = v.elevation;
       v.elevation = bt.z;
-      this.children.push(v);
-      this.el.appendChild(v.el);
-      withView(v, 'menu', menu => { menu.onClick = () => { if (this.source?.menuLayout) this.host?.openItemMenu?.(v, this.source.menuLayout); }; });
+      v.clickable = false;
+      v._boundSource = null;
     }
     if (v.inMenu) return;
     if (v._boundSource !== s) { s.bindHeader(v); v._boundSource = s; }

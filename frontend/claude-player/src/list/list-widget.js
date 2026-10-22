@@ -476,6 +476,8 @@ export class ListWidget extends FastLayout {
     // Library mode: a PowerList over the same area, with a navigation stack.
     this.libList = new PowerList(ctx, this);
     this.libList.visibility = GONE;
+    // Enough rows for a full page of each kind, twice (a page transition shows two lists).
+    this.libList.prewarm({track: 32, text: 16});
     this.libList.interceptible = true; // side swipes go to the widget (parent level)
     this.libList.lp = this.generateLayoutParams(null);
     this.addView(this.libList);
