@@ -30,6 +30,7 @@ import './widgets/toast.js';
 import './widgets/sleeptimer.js';
 import './widgets/vispanel.js';
 import './widgets/rating.js';
+import './widgets/cast.js';
 import {installHelp} from './widgets/help.js';
 import {installMetaInfo} from './widgets/meta-info.js';
 import {openLyricsDialog} from './widgets/lyrics-dialog.js';

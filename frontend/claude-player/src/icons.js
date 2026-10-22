@@ -221,6 +221,58 @@ function round(glyph, scale = 0.5) {
   return {circle: true, glyph, transform: `translate(${f(t)} ${f(t)}) scale(${scale})`};
 }
 
+// Library category badges (the *_alt bitmaps, tinted by *_colored): a disc
+// with the glyph cut out. Original glyphs drawn to the reference's extents.
+const stroke = (d, w = 2.1) => `<path d="${d}" fill="none" stroke="#000" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+const ellipse = (cx, cy, rx, ry, rot) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" transform="rotate(${rot} ${cx} ${cy})"/>`;
+G.badge_all_songs = {svg:
+  stroke('M12.6 2.3C15.6 4.2 15.1 7.6 11.9 10.1C8.6 12.7 6.2 14.4 6.4 16.9C6.6 19.4 9 20.6 11.7 20.3C14.4 20 16.4 18.4 16.2 16.1C16 13.9 14 12.6 12 12.9C10.2 13.2 9 14.6 9.5 16.2') +
+  stroke('M12.5 2.3C11.4 2.1 10.8 3.6 10.9 6.1L12.7 20.4C12.9 22 11.7 22.7 10.6 22.4') +
+  '<circle cx="9.9" cy="21.2" r="1.4"/>'};
+G.badge_folders = poly([[5.8, 6.6], [10.6, 6.6], [12.2, 8.2], [19, 8.2], [19, 17.2], [5.8, 17.2]], 1.1);
+G.badge_folders_hier = {svg:
+  `<path d="${poly([[5, 5.4], [8.4, 5.4], [9.7, 6.7], [14.6, 6.7], [14.6, 14.6], [5, 14.6]], 0.9)}"/>` +
+  `<path d="${poly([[9, 9.6], [12.6, 9.6], [13.9, 10.9], [19, 10.9], [19, 19], [9, 19]], 1)}" stroke="#fff" stroke-width="1.6" paint-order="stroke"/>`};
+G.badge_albums = {svg: ellipse(12, 12.1, 8.9, 6.1, -45) + `<g fill="#fff">${ellipse(12.4, 11.7, 2.5, 1.7, -45)}</g>` + ellipse(12.4, 11.7, 1, 0.7, -45)};
+G.badge_artists = {svg:
+  `<path d="${rect(8.4, 2, 7.2, 12.2, 3.6)}"/>` +
+  stroke('M5.2 10.8A6.8 6.8 0 0 0 18.8 10.8', 2) + stroke('M12 17.8V22', 2.2)};
+G.badge_album_artists = {svg:
+  `<path fill-rule="evenodd" d="${rect(8.4, 2.2, 7.2, 12.2, 3.6)}${circle(12, 6.6, 2)}"/>` + '<circle cx="12" cy="6.6" r="0.8"/>' +
+  stroke('M5.2 10.8A6.8 6.8 0 0 0 18.8 10.8', 2) + stroke('M12 17.8V22', 2.2)};
+G.badge_genres = {svg:
+  `<path fill-rule="evenodd" d="${circle(8.9, 15.4, 4.3)}${circle(9.4, 15, 1.1)}"/>` + '<circle cx="11.5" cy="12.6" r="3.1"/>' +
+  stroke('M11 13.8L17.6 6.2', 1.9) + `<path d="${poly([[16.9, 5.2], [18.3, 3.9], [19.5, 5.1], [18.2, 6.5]], 0.3)}"/>`};
+G.badge_years = {svg:
+  '<g font-family="cp-ttnorms,sans-serif" font-weight="700" text-anchor="middle">' +
+  '<text x="11.6" y="8.4" font-size="4.2" fill="#666">\u201970</text>' +
+  '<text x="11.4" y="13" font-size="4.6" fill="#444">\u201990</text>' +
+  '<text x="11.2" y="19" font-size="6.2">\u201920</text></g>'};
+G.badge_composers = {svg: '<circle cx="12" cy="9.2" r="3" fill="none" stroke="#000" stroke-width="1.9"/>' +
+  '<path d="M5.8 18.6C6.2 15.6 8.8 13.8 12 13.8C15.2 13.8 17.8 15.6 18.2 18.6Z"/>'};
+G.badge_playlists = [7.7, 12, 16.3].map(y => circle(6.5, y, 1.1) + rect(9, y - 1.1, 9.4, 2.2, 1.1)).join('');
+G.badge_streams = circle(12.1, 12, 1.7) + arc(12.1, 12, 4, 1.6, 140, 220) + arc(12.1, 12, 4, 1.6, -40, 40) + arc(12.1, 12, 7, 1.6, 135, 225) + arc(12.1, 12, 7, 1.6, -45, 45);
+G.badge_queue = poly([[4.8, 7.6], [8.9, 7.6], [13.4, 12.1], [8.9, 16.6], [4.8, 16.6], [9.3, 12.1]], 0.3) + poly([[11.6, 7.6], [15.7, 7.6], [20.2, 12.1], [15.7, 16.6], [11.6, 16.6], [16.1, 12.1]], 0.3);
+G.badge_bookmarks = poly([[7.6, 6], [16.4, 6], [16.4, 17.8], [12, 14.6], [7.6, 17.8]], 0.9);
+G.badge_most_played = {svg: `<path d="${poly([[8.2, 6.6], [17.8, 12], [8.2, 17.4]], 0.9)}"/>` +
+  `<path fill="#fff" d="${poly([[8.2, 9.4], [12.7, 12], [8.2, 14.6]], 0.2)}"/>` + `<path d="${poly([[8.2, 10.9], [10.2, 12], [8.2, 13.1]], 0)}"/>`};
+G.badge_top_rated = G.like;
+G.badge_low_rated = G.unlike;
+G.badge_recently_played = {svg: `<path d="${poly([[7.6, 5.6], [19, 12.1], [7.6, 18.6]], 1)}"/>` +
+  '<path d="M10.4 9.4V13.6H13.2" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>'};
+G.badge_recently_added = rect(10.4, 5.8, 3.4, 12.4, 0.6) + rect(5.8, 10.3, 12.6, 3.4, 0.6);
+G.badge_long_files = [5.7, 9.97, 14.23, 18.5].map(x => circle(x, 12.1, 1.1)).join('');
+// Glyph extents per badge (reference *_alt measured in the harness), for the thumbs.
+const BADGE_FIT = {top_rated: [6.2, 5.8, 18.2, 16.6], low_rated: [5.8, 7.6, 17.8, 18.6]};
+
+function badge(key) {
+  const b = BADGE_FIT[key];
+  if (!b) return {circle: true, glyph: 'badge_' + key, transform: ''};
+  // The thumbs reuse the like / unlike glyphs (drawn on 3..21.2 x 3.2..20.8), fitted to the box.
+  const [x0, y0, x1, y1] = b, sx = (x1 - x0) / 18.2, sy = (y1 - y0) / 17.6;
+  return {circle: true, glyph: 'badge_' + key, transform: `translate(${f(x0 - 3 * sx)} ${f(y0 - 3.2 * sy)}) scale(${f(sx)} ${f(sy)})`};
+}
+
 /**
  * A glyph scaled about the grid centre by sx, sy, then moved right by dx
  * units: the transport's core glyphs fill their inset box (the measured
@@ -232,6 +284,7 @@ function fit(glyph, sx, sy, dx = 0) {
 
 // Reference drawable name -> glyph mapping (ordered; first match wins).
 const RULES = [
+  [/^(all_songs|folders_hier|folders|albums_by_artist|albums|artists|album_artists|genres|years|composers|playlists|streams|queue|bookmarks|most_played|top_rated|low_rated|recently_played|recently_added|long_files)(_thumb)?_alt$/, m => badge(m[1] === 'albums_by_artist' ? 'albums' : m[1])],
   [/^settings_close/, () => 'close'],
   [/^like_stroke/, () => 'like_stroke'],
   [/^plus_check/, () => 'add'],
@@ -435,7 +488,8 @@ export function iconSvg(name, color, mono = true) {
     body = `<path fill="${color}" transform="${r.transform}" d="${G[r.glyph]}"/>`;
   } else {
     // Round buttons: tinted -> knocked-out glyph; untinted -> dark disc with light glyph.
-    const glyph = `<path transform="${r.transform}" d="${G[r.glyph]}"/>`;
+    const g = G[r.glyph];
+    const glyph = typeof g === 'object' ? `<g transform="${r.transform}">${g.svg}</g>` : `<path transform="${r.transform}" d="${g}"/>`;
     // Mask content depends only on the glyph, so one id per glyph is safe to share.
     const id = 'cpm_' + r.glyph;
     if (mono) body = `<mask id="${id}"><rect width="24" height="24" fill="#fff"/><g fill="#000">${glyph}</g></mask><circle cx="12" cy="12" r="12" fill="${color}" mask="url(#${id})"/>`;

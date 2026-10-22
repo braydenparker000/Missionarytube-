@@ -377,6 +377,8 @@ export class PowerList extends FastLayout {
         const c = i % g.cols;
         x = g.left + c * (g.colW + g.gap); y = y0 + this.itemTop(g, i); w = g.colW; h = this.itemHeightAt(g, i); scene = s.itemScene;
         if (fresh || v._boundKey !== i) { s.bindItem(v, i); v._boundKey = i; }
+        // A row without a second line takes the level's one-line scene (z62.L).
+        if (s.itemScene1 && v.line2 && !v.line2.text) scene = s.itemScene1;
         if (PLAIN_TYPES.has(v.listItemType)) {
           v.left = 0; v.top = 0;
           v.measure(MeasureSpec.make(w, MeasureSpec.EXACTLY), MeasureSpec.make(h, MeasureSpec.EXACTLY));

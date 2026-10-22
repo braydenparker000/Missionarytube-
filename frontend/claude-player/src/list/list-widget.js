@@ -155,9 +155,11 @@ export class AAItemView extends SceneFastLayout {
       this.line2?.setText(track.artist ?? '');
       this.meta?.setText(track.meta ?? '');
       this.setMetaIcon(track.metaIcon ?? null);
+      this.setCatIcon(track.catIcon ?? null);
       this.num?.setText('');
     } else {
       this.setMetaIcon(null);
+      this.setCatIcon(null);
       const n = trackNumbers(this.ctx, track, numbered);
       this.title?.setText(track ? n.title(trackTitle(this.ctx, track)) : '');
       this.line2?.setText(trackLine2(this.ctx, track, albumArtistList));
@@ -177,6 +179,17 @@ export class AAItemView extends SceneFastLayout {
         }
       });
     }
+  }
+
+  /**
+   * The row's category image (CatImage, AAItemView.m): the list's icon for
+   * the row (Folders Hierarchy folders: ?folder_cat_icon), else nothing drawn.
+   */
+  setCatIcon(value) {
+    const ci = this.findViewById('cat_image');
+    if (!ci || (this._catIcon ?? null) === value) return;
+    this._catIcon = value;
+    ci.setDrawable(value ? this.ctx.drawables.fromValue(value, this.ctx.theme) : null);
   }
 
   /** The meta line's icon (AAItemView.F.d0: category rows and headers; F79), or none. */

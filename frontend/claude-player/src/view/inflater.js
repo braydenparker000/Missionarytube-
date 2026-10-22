@@ -238,7 +238,7 @@ register(['SceneFastLayout', 'MenuPlaceholderLayout', 'ItemSceneFastLayout'], Sc
 register(['FastTextView', 'TextView', 'ImageView', 'ListIndexerPopupView', 'BusStatusText', 'LyricsFastTextView', 'InfoTextView', 'KnobLabelAndValue'], FastTextView);
 register(['FastCheckBox', 'FastCheckBoxOnly', 'CheckBox'], FastCheckBox);
 register(['RadioButton'], FastRadioButton);
-register(['FastButton', 'DragHandler', 'Button', 'ImageButton', 'LyricsButton', 'IntentActionButton', 'MediaRouteButton'], FastButton);
+register(['FastButton', 'DragHandler', 'Button', 'ImageButton', 'LyricsButton', 'IntentActionButton'], FastButton);
 register(['BusStatusTextButton'], BusStatusTextButton);
 register(['BusActionButton', 'MorphableBusActionButton', 'BusStateEnabledActionButton', 'BusCheckBox'], BusActionButton);
 register(['View', 'NonOverlappingView', 'Space', 'android.widget.Space', 'SmartSpacer', 'AlphaDisabledView'], View);

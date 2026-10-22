@@ -751,7 +751,7 @@ export function playlistsSource(ctx, list, nav) {
   src.icon = '?playlists';
   src.isPlaylists = true;
   src.backDecor = 'item_top_text_back_decor';
-  src.onItemClick = i => { const s2 = playlistSource(ctx, list, nav, src.groups[i].pl); if (s2) nav.open(s2); };
+  src.onItemClick = i => { const s2 = playlistSource(ctx, list, nav, src.groups[i]?.pl); if (s2) nav.open(s2); };
   src.rebuild = () => playlistsSource(ctx, list, nav);
   return src;
 }
@@ -927,7 +927,8 @@ class FolderLevelSource {
   bindItem(v, i) {
     if (this.isFolder(i)) {
       const f = this.folders[i], first = f.files[0] ?? subtreeFiles(f)[0];
-      v.bind({id: 'hier:' + f.path, group: true, title: f.name, artist: f.parent?.name ?? '', meta: hierMeta(f), metaIcon: META_ICONS[this.ctx.listMemory?.flags('folder:' + f.path) ?? 0], art: first?.art, thumb: first?.thumb, artId: first?.artId});
+      // h60: folder rows show the folder category icon (?folder_cat_icon) at their end.
+      v.bind({id: 'hier:' + f.path, group: true, title: f.name, artist: f.parent?.name ?? '', meta: hierMeta(f), metaIcon: META_ICONS[this.ctx.listMemory?.flags('folder:' + f.path) ?? 0], catIcon: '?folder_cat_icon', art: first?.art, thumb: first?.thumb, artId: first?.artId});
     } else v.bind(this.tracks[i - this.folders.length], true, false);
   }
 
