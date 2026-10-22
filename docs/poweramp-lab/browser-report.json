@@ -1,0 +1,31 @@
+{
+  "viewportAssumptions": {
+    "dpr": 2,
+    "fontScale": 1,
+    "insets": 0
+  },
+  "checks": [
+    "Production subpath imports, HTML/CSS/JS MIME, no external dependencies or CSP errors",
+    "Actual music decode/play/time/peaks; player→library→mini return preserves media element; mini pause owns click",
+    "EQ gain reaches audio graph; real touch static seek; IndexedDB import and paused reload restoration",
+    "108 Black/Light ×3 layouts ×3 waveform modes ×buttons ×3 viewports; resolver/DOM bounds and controls"
+  ],
+  "captures": [
+    "player-360x780.png",
+    "player-430x932.png",
+    "player-780x360.png",
+    "library-360x780.png",
+    "settings-360x780.png"
+  ],
+  "nativePixelParity": "unverified; no Android runtime oracle",
+  "media": {
+    "title": "Vibe Ace",
+    "duration": 61.470476,
+    "sha256": "6c23aed3dd5aa57f2b1652ecab68d15d9b82ad257f54e639eb2880ca09bc118a",
+    "source": "external private licensed music fixture; not shipped"
+  },
+  "configurationCases": 108,
+  "errors": [],
+  "browser": "154.0.8037.57",
+  "status": "PASS bounded browser checks, not native acceptance"
+}

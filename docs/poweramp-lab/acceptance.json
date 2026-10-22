@@ -1,0 +1,285 @@
+{
+  "status": "INCOMPLETE; engineering checkpoint, not accepted exact recreation",
+  "runtimeOracle": "Original Android unavailable",
+  "rows": [
+    {
+      "id": "A1",
+      "requirement": "Composition",
+      "nativeReference": "02-RESOLVED-PLAYER-UI.md; 06-DRAWING-AND-WAVEFORM.md",
+      "implementation": "app.js/layout.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Native-derived settled geometry, crop and backdrop; fonts/icons/metrics differ"
+    },
+    {
+      "id": "A2",
+      "requirement": "Playing state",
+      "nativeReference": "02-RESOLVED-PLAYER-UI.md; 06-DRAWING-AND-WAVEFORM.md",
+      "implementation": "app.js/layout.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Sizes resolve; native StateAnim scene transforms remain partial"
+    },
+    {
+      "id": "A3",
+      "requirement": "Controls",
+      "nativeReference": "02-RESOLVED-PLAYER-UI.md; 06-DRAWING-AND-WAVEFORM.md",
+      "implementation": "app.js/layout.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Play/pause/stop/skip/category/rating work; hold-to-scan and full native shuffle modes incomplete"
+    },
+    {
+      "id": "A4",
+      "requirement": "Time and waveform",
+      "nativeReference": "02-RESOLVED-PLAYER-UI.md; 06-DRAWING-AND-WAVEFORM.md",
+      "implementation": "app.js/layout.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Decoded audio time/peaks and three seek modes; native rebound/input thresholds differ"
+    },
+    {
+      "id": "A5",
+      "requirement": "Content states",
+      "nativeReference": "02-RESOLVED-PLAYER-UI.md; 06-DRAWING-AND-WAVEFORM.md",
+      "implementation": "app.js/layout.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Real artwork/no-art and stale loads handled; exact long-text and child-scene drawing unverified"
+    },
+    {
+      "id": "B1",
+      "requirement": "Black and Light",
+      "nativeReference": "session2/style-resolution.md; session2/settings-system.md",
+      "implementation": "settings.js/layout.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Both selectable; OEM/material palette branches incomplete"
+    },
+    {
+      "id": "B2",
+      "requirement": "Three layouts",
+      "nativeReference": "session2/style-resolution.md; session2/settings-system.md",
+      "implementation": "settings.js/layout.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Qualified settled geometry implemented; recursive FastLayout branches bounded"
+    },
+    {
+      "id": "B3",
+      "requirement": "Buttons and ratings",
+      "nativeReference": "session2/style-resolution.md; session2/settings-system.md",
+      "implementation": "settings.js/layout.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "More Buttons, editable scrolling sub-art, persisted ratings; exact glyph/metric gaps"
+    },
+    {
+      "id": "B4",
+      "requirement": "Three seek modes",
+      "nativeReference": "session2/style-resolution.md; session2/settings-system.md",
+      "implementation": "settings.js/layout.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "100 scrolling/60 static/plain implemented with actual peaks"
+    },
+    {
+      "id": "B5",
+      "requirement": "Artwork typography and insets",
+      "nativeReference": "session2/style-resolution.md; session2/settings-system.md",
+      "implementation": "settings.js/layout.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Crop/background/rounding/fonts/scale implemented; TTNorms and Android nonlinear SP differ"
+    },
+    {
+      "id": "B6",
+      "requirement": "Persistence and switching",
+      "nativeReference": "session2/style-resolution.md; session2/settings-system.md",
+      "implementation": "settings.js/layout.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Scoped typed persistence; 279 input fixtures, selected scalar assertions; not all native options implemented"
+    },
+    {
+      "id": "C1",
+      "requirement": "Main library navigation",
+      "nativeReference": "04-SCENE-ANIMATION-ENGINE.md; session2/screen-atlas.md; session2/interactions.md",
+      "implementation": "motion.js/scene-renderer.js/library.js/app.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Independent tap/direct ownership; upward lyrics route absent"
+    },
+    {
+      "id": "C2",
+      "requirement": "Mini-player",
+      "nativeReference": "04-SCENE-ANIMATION-ENGINE.md; session2/screen-atlas.md; session2/interactions.md",
+      "implementation": "motion.js/scene-renderer.js/library.js/app.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Independent play/pause and media identity tested; horizontal page painting incomplete"
+    },
+    {
+      "id": "C3",
+      "requirement": "Categories",
+      "nativeReference": "04-SCENE-ANIMATION-ENGINE.md; session2/screen-atlas.md; session2/interactions.md",
+      "implementation": "motion.js/scene-renderer.js/library.js/app.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "All Songs/Albums/Artists/Genres/Folders/Playlists/Queue routes functional"
+    },
+    {
+      "id": "C4",
+      "requirement": "Presentation and history",
+      "nativeReference": "04-SCENE-ANIMATION-ENGINE.md; session2/screen-atlas.md; session2/interactions.md",
+      "implementation": "motion.js/scene-renderer.js/library.js/app.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Scoped rows/grids and Back; collapsing headers and persistent sort incomplete"
+    },
+    {
+      "id": "C5",
+      "requirement": "Search and queue",
+      "nativeReference": "04-SCENE-ANIMATION-ENGINE.md; session2/screen-atlas.md; session2/interactions.md",
+      "implementation": "motion.js/scene-renderer.js/library.js/app.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Real metadata search and duplicate queue occurrence operations"
+    },
+    {
+      "id": "C6",
+      "requirement": "Context and selection",
+      "nativeReference": "04-SCENE-ANIMATION-ENGINE.md; session2/screen-atlas.md; session2/interactions.md",
+      "implementation": "motion.js/scene-renderer.js/library.js/app.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Browser-tested selection/reorder/cancel; group reorder and native fling/A-Z parity incomplete"
+    },
+    {
+      "id": "D1",
+      "requirement": "Separate routes",
+      "nativeReference": "04-SCENE-ANIMATION-ENGINE.md; 05-GESTURE-STATE-MACHINES.md; session2/interactions.md",
+      "implementation": "motion.js/scene-renderer.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Native clocks and gesture release rules; lyrics/mini page visuals incomplete"
+    },
+    {
+      "id": "D2",
+      "requirement": "Independent owners",
+      "nativeReference": "04-SCENE-ANIMATION-ENGINE.md; 05-GESTURE-STATE-MACHINES.md; session2/interactions.md",
+      "implementation": "motion.js/scene-renderer.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "List/top/navbar independent; top endpoint scene transforms still bounded"
+    },
+    {
+      "id": "D3",
+      "requirement": "Interruption and ownership",
+      "nativeReference": "04-SCENE-ANIMATION-ENGINE.md; 05-GESTURE-STATE-MACHINES.md; session2/interactions.md",
+      "implementation": "motion.js/scene-renderer.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Causal pointer/reversal/cancel tests; native multitouch delegation differs"
+    },
+    {
+      "id": "D4",
+      "requirement": "Waveform semantics",
+      "nativeReference": "04-SCENE-ANIMATION-ENGINE.md; 05-GESTURE-STATE-MACHINES.md; session2/interactions.md",
+      "implementation": "motion.js/scene-renderer.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Scrolling versus fixed input and owned cancel commit; edge rebound incomplete"
+    },
+    {
+      "id": "D5",
+      "requirement": "Lifetime and continuity",
+      "nativeReference": "04-SCENE-ANIMATION-ENGINE.md; 05-GESTURE-STATE-MACHINES.md; session2/interactions.md",
+      "implementation": "motion.js/scene-renderer.js/graphics.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Track/load guards and shared stable ID; native shared child scene parity unverified"
+    },
+    {
+      "id": "E1",
+      "requirement": "Local playback",
+      "nativeReference": "session2/session3-entry.md; Session3 handoff E",
+      "implementation": "audio.js/metadata.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Real licensed Vorbis with tags/art/peaks plays, seeks and restores paused"
+    },
+    {
+      "id": "E2",
+      "requirement": "Persistent intent",
+      "nativeReference": "session2/session3-entry.md; Session3 handoff E",
+      "implementation": "audio.js/metadata.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "UI navigation preserves audio; selection/pause generations tested"
+    },
+    {
+      "id": "E3",
+      "requirement": "Queue shuffle repeat",
+      "nativeReference": "session2/session3-entry.md; Session3 handoff E",
+      "implementation": "audio.js/metadata.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Occurrence-aware queue, IDB library, repeat and shuffle; native category shuffle modes incomplete"
+    },
+    {
+      "id": "E4",
+      "requirement": "Media Session",
+      "nativeReference": "session2/session3-entry.md; Session3 handoff E",
+      "implementation": "audio.js/metadata.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Handlers registered; actual Android background/lockscreen untested"
+    },
+    {
+      "id": "E5",
+      "requirement": "Remote media",
+      "nativeReference": "session2/session3-entry.md; Session3 handoff E",
+      "implementation": "audio.js/metadata.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "NOT IMPLEMENTED: optional read-only R2 integration not attempted"
+    },
+    {
+      "id": "F1",
+      "requirement": "Settings",
+      "nativeReference": "session2/settings-system.md; session2/screen-atlas.md; session2/interactions.md",
+      "implementation": "settings.js/library.js/panels.js/audio.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Functional supported core controls; entire native Settings inventory not implemented"
+    },
+    {
+      "id": "F2",
+      "requirement": "Collections and context",
+      "nativeReference": "session2/settings-system.md; session2/screen-atlas.md; session2/interactions.md",
+      "implementation": "settings.js/library.js/panels.js/audio.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Playlist CRUD/detail/search/queue/selection implemented; group operations remain bounded"
+    },
+    {
+      "id": "F3",
+      "requirement": "EQ",
+      "nativeReference": "session2/settings-system.md; session2/screen-atlas.md; session2/interactions.md",
+      "implementation": "settings.js/library.js/panels.js/audio.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Audible band gains/count/presets; native parametric/volume/reverb/preset assignment incomplete"
+    },
+    {
+      "id": "F4",
+      "requirement": "Lyrics and visualization",
+      "nativeReference": "session2/settings-system.md; session2/screen-atlas.md; session2/interactions.md",
+      "implementation": "settings.js/library.js/panels.js/audio.js",
+      "tests": "tests/poweramp-lab-*.test.mjs; tests/poweramp-lab-browser.mjs (see verification report for actual run)",
+      "status": "INCOMPLETE_NATIVE_ACCEPTANCE",
+      "implementedOrRemaining": "Editable timed LRC and real spectrum; native page/visualization modes partial, MilkDrop deferred"
+    }
+  ]
+}
