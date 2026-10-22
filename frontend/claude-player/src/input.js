@@ -17,8 +17,10 @@ function hitTest(view, x, y) {
   const l = localPoint(view, x, y);
   const inside = l.x >= 0 && l.y >= 0 && l.x < view.width && l.y < view.height;
   if (view.children) {
-    for (let i = view.children.length - 1; i >= 0; i--) {
-      const c = view.children[i];
+    // Touches go to the children in reverse drawing order: higher Z first, then later children.
+    const kids = zOrdered(view.children);
+    for (let i = kids.length - 1; i >= 0; i--) {
+      const c = kids[i];
       if (c.visibility === GONE) continue;
       const hit = hitTest(c, l.x, l.y);
       if (hit) return hit;
@@ -27,6 +29,12 @@ function hitTest(view, x, y) {
   if (!inside) return null;
   if (view.clickable || view.longClickable || typeof view.onPointerDown === 'function') return view;
   return null;
+}
+
+/** Children in drawing order (by elevation + translationZ, stable). */
+function zOrdered(children) {
+  if (!children.some(c => (c.elevation || 0) + (c.translationZ || 0))) return children;
+  return children.map((c, i) => [c, i]).sort((a, b) => ((a[0].elevation || 0) + (a[0].translationZ || 0)) - ((b[0].elevation || 0) + (b[0].translationZ || 0)) || a[1] - b[1]).map(e => e[0]);
 }
 
 /** Parent-space point to a view's local space (translation, scale about the pivot). */
@@ -157,6 +165,8 @@ export function installInput(ctx, container) {
       a.view.onPointerMove?.(event(a.view, p, e));
       return;
     }
+    // A view that took the gesture after its long press (requestDisallowInterceptTouchEvent) keeps it.
+    if (a.longFired && a.view?.disallowIntercept) return;
     if (Math.abs(p.x - a.start.x) < slop && Math.abs(p.y - a.start.y) < slop) return;
     if (a.view) cancelPress(a);
     for (const c of a.interceptors) {

@@ -42,6 +42,16 @@ export class Context {
     // large viewport, in device px. The art keeps its full-height size.
     this.transientBarHeight = 0;
     this.settings = {navbar_seekbar: true, animations: 'normal'};
+    // The reference preference defaults by key (settings.js prefDefaults).
+    this.prefDefaults = {};
+  }
+
+  /** A preference as the runtime reads it: the stored value, else the reference default. */
+  pref(key) {
+    const v = this.settings[key];
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+    return v ?? this.prefDefaults[key];
   }
 
   /** Default click routing: navigation buttons are named after their commands. */

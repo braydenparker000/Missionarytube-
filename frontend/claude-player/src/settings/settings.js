@@ -48,6 +48,26 @@ const THEME_KEYS = new Set(['rating_type', 'hide_menu', 'main_lyrics_button', 'a
 const CONDITIONAL_KEYS = new Set(['perm_warn', 'manage_app_warn']);
 const defaultOf = node => RUNTIME_DEFAULTS[attr(node, 'key')] ?? attr(node, 'defaultValue');
 
+/** A preference value as the runtime reads it: booleans and numbers from their strings. */
+const runtimeValue = v => (v === 'true' ? true : v === 'false' ? false : typeof v === 'string' && /^-?\d+$/.test(v) ? +v : v);
+
+/**
+ * The reference defaults of every preference key: its XML defaultValue, or
+ * the default the reference sets in code (RUNTIME_DEFAULTS, CODE_DEFAULTS).
+ */
+export function prefDefaults(res) {
+  const out = {};
+  const walk = n => {
+    if (!Array.isArray(n)) return;
+    if (typeof n[0] !== 'string') { n.forEach(walk); return; }
+    const key = attr(n, 'key'), d = key ? defaultOf(n) : undefined;
+    if (key && !(key in out) && d !== undefined) out[key] = runtimeValue(d);
+    (n[2] ?? []).forEach(walk);
+  };
+  for (const tree of Object.values(res.model.xml ?? {})) walk(tree);
+  return out;
+}
+
 export class Settings {
   constructor(ctx) {
     this.ctx = ctx;
@@ -137,6 +157,30 @@ export class Settings {
   /** Back goes through history so the browser's back button and ours agree. */
   back() {
     history.back();
+  }
+
+  /**
+   * Closes every settings page at once (cmd_app_close_settings): the history
+   * entries go in one step and `then` runs once they are gone.
+   */
+  closeAll(then) {
+    const n = this.stack.length;
+    if (!n) { then?.(); return; }
+    this.dialog?.remove();
+    this.stack = [];
+    this.root.hidden = true;
+    this.closing = then ?? (() => {});
+    history.go(-n);
+  }
+
+  /** The popstate of closeAll (consumed once); true when it was that one. */
+  consumeClose() {
+    const then = this.closing;
+    if (!then) return false;
+    this.closing = null;
+    if (this.needsRecreate) location.reload();
+    else then();
+    return true;
   }
 
   pop() {
@@ -305,6 +349,13 @@ export class Settings {
         summary = null;
         break;
       }
+      case 'EditButtonsRedirPref':
+        // Back to the player screen, where the button editing begins 150 ms later.
+        row.addEventListener('click', () => this.closeAll(() => {
+          if (this.ctx.topNav && this.ctx.topNav.nav !== 'nav_main') this.ctx.topNav.navigate('nav_main');
+          setTimeout(() => this.ctx.bus.post('bus_gui', 'cmd_gui_begin_button_edit', this), 150);
+        }));
+        break;
       case 'Preference':
         if (key === 'restore_defaults') row.addEventListener('click', () => this.restoreDefaults());
         else if (key === 'settings_export') row.addEventListener('click', () => this.exportSettings());

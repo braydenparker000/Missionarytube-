@@ -285,7 +285,10 @@ Without the feature pack the row is "fit centred", one line, normal size: slot w
 `clamp((W − 4·gap)/5, min(36 dp, 68 dp), 68 dp)`; slots 0–1 from the left edge, slot 2 centred,
 slots 3–4 from the right edge (slot 3 outermost), further slots past the right edge. Defaults:
 visualisation, sleep timer, empty (counter when enabled), shuffle, repeat.
-(f) `widgets/subaa.js`. Popup mode menus are not yet built; a tap posts `cmd_subaa_button`.
+With the feature pack the row is editable (F62): up to 32 slots, the centred or compact layout,
+small buttons and two lines, stored per orientation.
+(f) `widgets/subaa.js` (the row, its button kinds and their popup menus), `widgets/subaa-edit.js`
+(F62).
 
 ### F30 — Background (`MilkWidget`) — `UNSUPPORTED_WEB` (native GL), approximated
 Visualisation and the blurred art backdrop are rendered natively. Defaults: blur level 5, downscale
@@ -822,6 +825,64 @@ Substitutes and not built:
 
 (f) `src/widgets/lyrics-dialog.js`, `LyricsButton.onLongClick`.
 
+### F62 — Sub-art button editing — `CONFIRMED_STATIC` / owner-approved feature-pack feature
+
+(a) S1 `SubAAButtonsLayout` (`F1`, `z1`, `y1`, `C1`, `A1`, `onLayout`, `performLongClick`),
+`LoadableDraggableButtonsBehavior`, `DraggableSourceBehavior`, `cm2` (the button factory), `c40`
+(the stored row), `EditButtonsRedirPref`, `merge_subaabuttons_edit`, `@array/sub_aa_buttons`,
+`FastLayout` (`stack_horizontal` wrap).
+
+(c) Editing begins on a long press between the buttons, moving no further than the touch slop.
+It also begins from Settings → Player → "Edit player screen buttons", which closes settings,
+returns to the player screen and begins 150 ms later.
+- **Conditions:** the player screen (`nav_main`) is showing, no navigation is animating, nothing
+  modal is open, and `sub_aa_buttons_no_lp_edit` is off (that pref gates only the long press).
+- **Row:** rises over the shade with `translationZ = ?popup_elevation`; touches follow Z order.
+  Its 32 slots draw with `slot` / `slot_highlighted` and fade in over 250 ms. While editing, the
+  row scrolls over the slots' extent; otherwise it scrolls over the buttons' right edge.
+- **Panel (`merge_subaabuttons_edit`, loaded after the row):** the shade (`Shim`; a tap ends
+  editing) and a panel with:
+  - Centered, 2 lines and Small checkboxes;
+  - a settings shortcut to the player screen settings;
+  - the palette, four per row (`EditableButtonContainer` 25 % wide, `stack_horizontal`), each
+    button with its label below and at 25 % alpha while it is in the row;
+  - the hint.
+- **Drag:** a long press on a palette or row button lifts a copy. The copy scales to 1.2 over 200 ms
+  and follows the finger; the row and the palette no longer scroll for that touch.
+  - The highlighted slot is the one whose span contains the copy's centre x and overlaps its top or
+    bottom.
+  - Touching the row's left or right edge scrolls the row at 350 dp/s.
+  - Release on a slot: the copy flies there over 200 ms and the button lands. A different button in
+    that slot leaves the row; a button moved within the row leaves its old slot.
+  - Release elsewhere: a palette copy flies back; a row button leaves the row as its copy fades
+    over 100 ms.
+- **Layout options:** changing one moves the buttons to their new slots over 0.5 s
+  (accelerate-decelerate). Two lines starts the second line at slot 16.
+- **Ending:** the shade, Back or Escape end editing. The slots fade out, the panel closes over
+  0.25 s, and the row is stored per orientation with trailing empty slots dropped.
+- **Button kinds (`cm2`):**
+  - visualisation, sleep timer, counter ("position / count", or "- / -"), shuffle and repeat;
+  - menu, add to playlist (icon morphs when the track is in a playlist), album art, info/tags,
+    lyrics (icon morphs when the track has lyrics), artist, album, genre and folder;
+  - like / unlike / love / unlove checkboxes, and the like-unlike and love-unlove rating menus;
+  - previous / next category: a long press goes to the first / last category with a toast; both are
+    disabled when categories cannot be navigated;
+  - −10 s / +10 s: a tap jumps 10 s. Held, the jump repeats every 250 ms: 10 s for the first 3 s,
+    then 20 s;
+  - audio info: the short audio meta line, opening the DSP info popup.
+
+Substitutes and not built:
+- **Feature pack:** the reference sells editing in its feature pack; the owner approved it for this
+  private build, so it is always unlocked.
+- **Omitted kinds:** cast (no web counterpart), delete and tag editing (owner decisions), and
+  bookmarks (not built).
+- **Audio info:** the routed device icon has no web counterpart.
+- **Engine fix:** a `stack_horizontal` child that wraps to a new line now lays out on that line.
+
+(f) `src/widgets/subaa-edit.js`, `src/widgets/subaa.js`, `Player.edgeCategory`, the
+`cmd_player_seek_jump` `ms` argument, `SettingsUi.closeAll`, `input.js` Z-ordered hit testing and
+the long-press disallow-intercept, `FastLayout` wrap position.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -869,7 +930,7 @@ No status is device-verified.
 | F26 art geometry | Built | Tilt signs `OPEN` |
 | F27 player states | Built | — |
 | F28 waveseek drawing | Built | — |
-| F29 sub-art buttons | Partial | Editing **not built**: a paid feature-pack feature in the reference; needs an owner decision |
+| F29 sub-art buttons | Built | Editing is F62 |
 | F30 backdrop | Built (approximation) | — |
 | F31 elapsed/duration | Partial | Placement `OPEN` |
 | F32 knob stacks | Partial | Laid out by intent |
@@ -894,6 +955,7 @@ No status is device-verified.
 | F59 drag reorder | Built | Release mid-slide, level fade and the grid path inferred or untested |
 | F60 navbar sheet drag | Built | — |
 | F61 lyrics dialog | Built | The share sheet substitutes the search chooser; provider apps not built |
+| F62 sub-art button editing | Built | Cast, delete, tag editing and bookmark buttons left out; no routed device icon |
 | F51 meta info | Built | Output line substituted; first-press toast persistence inferred |
 | F52 category navigation | Built | — |
 | F53 pinch-to-zoom | Built | — |

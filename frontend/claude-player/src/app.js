@@ -11,7 +11,7 @@ import {Player} from './player/player.js';
 import {installInput} from './input.js';
 import {Library} from './library/library.js';
 import {installImport} from './library/import-ui.js';
-import {Settings, loadStoredSettings, runtimeSettings} from './settings/settings.js';
+import {Settings, loadStoredSettings, runtimeSettings, prefDefaults} from './settings/settings.js';
 import {DSP} from './dsp/dsp.js';
 import './widgets/basic.js';
 import './widgets/topnav.js';
@@ -30,6 +30,7 @@ import './widgets/rating.js';
 import {installHelp} from './widgets/help.js';
 import {installMetaInfo} from './widgets/meta-info.js';
 import {openLyricsDialog} from './widgets/lyrics-dialog.js';
+import {installSubAAEditor} from './widgets/subaa-edit.js';
 import './list/list-widget.js';
 import './list/selection.js';
 
@@ -120,6 +121,7 @@ export async function boot() {
   const {theme, applied} = composeTheme(res, skin, prefs, {settings});
   const ctx = new Context({res, theme, dpr});
   Object.assign(ctx.settings, settings);
+  ctx.prefDefaults = prefDefaults(res);
   const applyViewport = () => {
     const vp = measureViewport();
     ctx.viewportWidth = window.innerWidth;
@@ -146,6 +148,7 @@ export async function boot() {
   const library = await new Library(ctx).open();
   installHelp(ctx);
   installMetaInfo(ctx);
+  installSubAAEditor(ctx);
   ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => { if (msg === 'cmd_data_lyrics') openLyricsDialog(ctx, d?.track); });
   const importUi = installImport(ctx, document.body);
   ctx.importUi = importUi;
@@ -183,7 +186,8 @@ export async function boot() {
     if (m === 'msg_nav_changed' && d.nav !== 'nav_main' && !history.state?.cpNav) history.pushState({cpNav: d.nav}, '');
   });
   window.addEventListener('popstate', () => {
-    if (ctx.settingsUi?.isOpen) return;
+    if (ctx.subAAEditor?.onPopState()) return;
+    if (ctx.settingsUi?.isOpen || ctx.settingsUi?.consumeClose()) return;
     if (ctx.listWidget?.back()) return;
     if (ctx.topNav && ctx.topNav.nav !== 'nav_main') ctx.topNav.navigate('nav_main');
   });

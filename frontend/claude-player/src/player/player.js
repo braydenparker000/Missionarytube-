@@ -114,6 +114,19 @@ export class Player {
     return this.loadCategory(i, last);
   }
 
+  /**
+   * Plays the first or last category (playFirstCategory / playLastCategory)
+   * and tells so with a toast.
+   */
+  edgeCategory(last) {
+    const c = this.category;
+    if (!this.categoryNavigable || c.source.count <= 0) return false;
+    if (!this.loadCategory(last ? c.source.count - 1 : 0, false)) return false;
+    const name = last ? 'jumped_to_last_category' : 'jumped_to_first_category';
+    this.ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: this.ctx.res?.stringByName(name) ?? name});
+    return true;
+  }
+
   loadCategory(i, last) {
     const c = this.category, tracks = c.source.tracksAt(i);
     if (!tracks?.length) return false;
@@ -350,13 +363,17 @@ export class Player {
         break;
       case 'cmd_player_play_next_track': this.step(1); break;
       case 'cmd_player_play_prev_track':
-        // Provisional: restart the track when past 3 s (the reference rule is not verified yet).
-        if (this.positionMs() > 3000) this.seek(0); else this.step(-1);
+        // previous_resets: past 5 s into a seekable track that is playing or paused, Previous restarts it.
+        if (this.ctx.pref?.('previous_resets') && this.track && this.state !== STATE_STOPPED && this.positionMs() > 5000) this.seek(0);
+        else this.step(-1);
         break;
       case 'cmd_player_play_next_category': this.nextCategory(true); break;
       case 'cmd_player_play_prev_category': this.prevCategory(false); break;
       case 'cmd_player_seek': this.seek(d.arg1 ?? 0); break;
-      case 'cmd_player_seek_jump': this.seek(this.positionMs() + (d.arg1 ? 10000 : -10000)); break;
+      case 'cmd_player_play_first_category': this.edgeCategory(false); break;
+      case 'cmd_player_play_last_category': this.edgeCategory(true); break;
+      // A jump of 10 s, or d.ms while a jump button is held (10 s, then 20 s after 3 s).
+      case 'cmd_player_seek_jump': this.seek(this.positionMs() + (d.arg1 ? 1 : -1) * (d.ms ?? 10000)); break;
       case 'cmd_player_set_shuffle': this.shuffle = d.arg1 ?? 0; this.order = null; this.post('msg_player_shuffle_mode_changed', {arg1: this.shuffle}); break;
       case 'cmd_player_set_repeat': this.repeat = d.arg1 ?? 0; this.post('msg_player_repeat_mode_changed', {arg1: this.repeat}); break;
       case 'cmd_player_set_sleep_timer': this.setSleepTimer(d.arg1 ?? 0, !!d.arg2); break;
