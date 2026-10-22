@@ -85,7 +85,21 @@ export class RatingBar extends View {
     this.opsEl = document.createElement('div');
     this.opsEl.className = 'ops';
     this.clipEl.appendChild(this.opsEl);
-    this.el.append(this.bgEl, this.clipEl);
+    // The previous scene's line background and stars while a scene change cross-fades them.
+    this.oldBgEl = document.createElement('div');
+    this.oldBgEl.className = 'ops';
+    this.oldClipEl = document.createElement('div');
+    this.oldClipEl.style.cssText = 'position:absolute;overflow:hidden';
+    this.oldOpsEl = document.createElement('div');
+    this.oldOpsEl.className = 'ops';
+    this.oldClipEl.appendChild(this.oldOpsEl);
+    this.el.append(this.oldBgEl, this.bgEl, this.oldClipEl, this.clipEl);
+    this.fade = null;
+  }
+
+  /** The scene-dependent look (stars, line background, gravity, clipping). */
+  look() {
+    return {starOn: this.starOn, starOff: this.starOff, lineBg: this.lineBg, gravity: this.gravity, doClip: this.doClip, onRef: this.onRef, offRef: this.offRef, tint: this.tint, theme: this.theme};
   }
 
   loadStars() {
@@ -95,11 +109,11 @@ export class RatingBar extends View {
     this.starOff = tinted(d(this.offRef));
   }
 
-  applySceneViewParams(rec) {
-    super.applySceneViewParams(rec);
+  applySceneViewParams(rec, it) {
+    super.applySceneViewParams(rec, it);
     const a = rec.viewAttrs;
     if (!a) return;
-    // The reference cross-fades to a scene's drawables; here they switch at the scene start.
+    const before = this.look(), fromFrame = this.width ? this.frame() : null;
     let stars = false;
     if (a.local('android:drawable') !== undefined) { this.onRef = a.ref('android:drawable'); stars = true; }
     if (a.local('drawableOff') !== undefined) { this.offRef = a.ref('drawableOff'); stars = true; }
@@ -111,7 +125,38 @@ export class RatingBar extends View {
     }
     if (a.local('android:gravity') !== undefined) this.gravity = gravityOf(a, this.gravity);
     if (a.local('doClip') !== undefined) this.doClip = a.bool('doClip', true);
+    // H0 / N / V0 / onDraw: during the scene change the new stars and line
+    // background fade in over the old ones by the scene fraction, and the
+    // background, clip and star origin move from the old geometry.
+    const after = this.look();
+    const changed = before.starOn !== after.starOn || before.starOff !== after.starOff || before.lineBg !== after.lineBg;
+    const moved = before.gravity !== after.gravity || before.doClip !== after.doClip;
+    this.fade = it && (changed || moved) ? {before, after, fromFrame: moved ? fromFrame : null, k: 0, stars: changed} : null;
     this.invalidate();
+  }
+
+  sceneTransitionFrame(it, f) {
+    if (!this.fade) return;
+    this.fade.k = f;
+    this.invalidate();
+  }
+
+  sceneTransitionEnd(it, complete) {
+    const fd = this.fade;
+    if (!fd) return;
+    this.fade = null;
+    // A reversed change keeps the old look.
+    if (!complete) Object.assign(this, fd.before);
+    this.clearOld();
+    this.invalidate();
+  }
+
+  clearOld() {
+    renderOps(this.oldBgEl, [], this.ctx.px);
+    renderOps(this.oldOpsEl, [], this.ctx.px);
+    this.oldBgEl.style.opacity = this.oldClipEl.style.opacity = '';
+    this.bgEl.style.opacity = this.clipEl.style.opacity = '';
+    this._oldShown = false;
   }
 
   /** Binds a rating without animating (n(rating, false)); negative disables the bar. */
@@ -153,21 +198,42 @@ export class RatingBar extends View {
 
   draw() {
     super.draw();
-    const H = this.height, f = this.frame();
+    const fd = this.fade, k = fd?.k ?? 1;
+    let f = this.frame();
+    if (fd?.fromFrame) {
+      // eb1 WORK between the old and the new geometry (ints for the background, floats for the clip and origin).
+      const a = fd.fromFrame, li = (x, y) => Math.round(x + (y - x) * k), lf = (x, y) => x + (y - x) * k;
+      f = {bgL: li(a.bgL, f.bgL), bgR: li(a.bgR, f.bgR), cL: lf(a.cL, f.cL), cR: lf(a.cR, f.cR), x0: lf(a.x0, f.x0)};
+    }
+    this.paint(this.bgEl, this.clipEl, this.opsEl, f, this.lineBg, this.starOn, this.starOff, this.gravity);
+    const fading = !!fd?.stars && k < 1;
+    const op = fading ? String(k) : '';
+    this.bgEl.style.opacity = this.clipEl.style.opacity = op;
+    if (fading) {
+      const b = fd.before;
+      this.paint(this.oldBgEl, this.oldClipEl, this.oldOpsEl, f, b.lineBg, b.starOn, b.starOff, this.gravity);
+      this.oldBgEl.style.opacity = this.oldClipEl.style.opacity = String(1 - k);
+      this._oldShown = true;
+    } else if (this._oldShown) this.clearOld();
+  }
+
+  /** The line background and the stars into one set of layers (onDraw). */
+  paint(bgEl, clipEl, opsEl, f, lineBg, starOn, starOff, gravity) {
+    const H = this.height, px = this.ctx.px;
     const bg = [];
-    this.lineBg?.ops(f.bgR - f.bgL, H, this.state, bg, f.bgL, 0);
-    renderOps(this.bgEl, bg, this.ctx.px);
-    const px = this.ctx.px, st = this.clipEl.style;
+    lineBg?.ops(f.bgR - f.bgL, H, this.state, bg, f.bgL, 0);
+    renderOps(bgEl, bg, px);
+    const st = clipEl.style;
     st.left = px(f.cL) + 'px'; st.top = '0px';
     st.width = px(Math.max(0, f.cR - f.cL)) + 'px'; st.height = px(H) + 'px';
-    const ops = [], step = this.gravity === 5 ? -this.starW : this.starW, y = Math.trunc((H - this.starH) / 2);
-    if (this.starOn) {
+    const ops = [], step = gravity === 5 ? -this.starW : this.starW, y = Math.trunc((H - this.starH) / 2);
+    if (starOn) {
       for (let i = 0; i < STARS; i++) {
-        const d = i < this.rating ? this.starOn : this.starOff;
+        const d = i < this.rating ? starOn : starOff;
         d?.ops(this.starW, this.starH, this.state, ops, f.x0 + i * step - f.cL, y);
       }
     }
-    renderOps(this.opsEl, ops, px);
+    renderOps(opsEl, ops, px);
   }
 
   /** Star under x for a tap or a swipe (g()). */

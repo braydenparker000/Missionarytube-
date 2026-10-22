@@ -684,9 +684,16 @@ reference recreates the activity).
 - **Clamp and the first star:** the star is clamped to 0..5. On star 1, a swipe gives 0 on its
   first half and 1 otherwise, and a tap toggles 1 ↔ 0. A tap left of the stars on rating 0 gives 1.
 
-`INFERRED`/not built:
-- The cross-fade between a scene's star drawables: they switch at the scene start.
-- The outlined star glyph is original art.
+**Scene changes** (H0 / N / V0 / onDraw):
+- A scene that changes the stars, their tint or the line background fades the new ones in over the
+  old ones by the scene fraction (old 1 − K, new K).
+- A change of gravity or clipping moves the background, the clip and the star origin from the old
+  geometry to the new one.
+- A reversed change keeps the old look.
+- Here this applies to animated scene changes (item menu, lyrics). The art's play-state change
+  switches item scenes at once (its frames animate).
+
+`INFERRED`: the outlined star glyph is original art.
 
 (f) `src/widgets/rating.js`.
 
@@ -1586,7 +1593,7 @@ No status is device-verified.
 | F54 item/header morphs | Partial | Title morph not built |
 | F55 search chips | Built | Categories, subheaders and history per F64 |
 | F56 Follow Day/Night | Built | Night mode from `prefers-color-scheme` |
-| F57 star rating bar | Built | Scene drawable cross-fade not built |
+| F57 star rating bar | Built | — |
 | F58 dialog drag | Partial | Nested-scroll handoff not built |
 | F63 library list preferences / List Options | Built | List memory not built |
 | F65 queue | Built | Shuffled order inferred |
