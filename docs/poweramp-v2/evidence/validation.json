@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "implementationCommit": "ff204c42093eed9c14fb8bf1814caef745348c47",
+  "localVerificationCommit": "588fb13007b48eb86c1fa150655e0dfec28df3d5",
+  "identicalImplementationTree": "9787efa942130abc821fa507648012f45fe8e700",
+  "date": "2026-10-20",
+  "runtimeFiles": [
+    {
+      "path": "frontend/poweramp-v2/app.js",
+      "bytes": 21262,
+      "sha256": "774de9488452c1ba2a3af44bef9828ce82bbb665ca9e99f630f368a6ab369332"
+    },
+    {
+      "path": "frontend/poweramp-v2/audio.js",
+      "bytes": 11437,
+      "sha256": "366ca1d327ff0076e59d28b1f19e132fd7bd091adc7c9d06513cce5f50c6cde2"
+    },
+    {
+      "path": "frontend/poweramp-v2/icons.js",
+      "bytes": 1936,
+      "sha256": "92a36246f46fa0f862dea38e0d1b0efb9d9413e329a46c000c10fcecfd46cc78"
+    },
+    {
+      "path": "frontend/poweramp-v2/index.html",
+      "bytes": 5064,
+      "sha256": "d522221b29737664836ccbdccc20cf31b2d8f8705ce38f60b4adae141532f745"
+    },
+    {
+      "path": "frontend/poweramp-v2/motion.js",
+      "bytes": 4012,
+      "sha256": "df48176d1b91e829888945aa7896d501304e7942b9f5e0dfa4b9701218ee7bcb"
+    },
+    {
+      "path": "frontend/poweramp-v2/preferences.js",
+      "bytes": 1045,
+      "sha256": "f0162d21c93c0e415132230475f14b494b384bc885cb362b08f8e87a49b13cb1"
+    },
+    {
+      "path": "frontend/poweramp-v2/queue.js",
+      "bytes": 2436,
+      "sha256": "b62764c06aa455c4aa012e06790ab40023e5fb985180986e73159e160a39bb89"
+    },
+    {
+      "path": "frontend/poweramp-v2/remote-source.js",
+      "bytes": 6782,
+      "sha256": "314338d27af9b42ddf7c34d08ee9cc03efd7fcacffb0db879126dfc16f2b18ab"
+    },
+    {
+      "path": "frontend/poweramp-v2/sources.js",
+      "bytes": 4930,
+      "sha256": "edf81335a51b6f28dfaa095342b72f67e91b30a2ef40dcfec5911d17b6674582"
+    },
+    {
+      "path": "frontend/poweramp-v2/style.css",
+      "bytes": 9450,
+      "sha256": "6f5918ea1b6ac57764a17c293848a0e80134116b75a7a4d436ce3d83f5660666"
+    },
+    {
+      "path": "frontend/poweramp-v2/waveform.js",
+      "bytes": 1471,
+      "sha256": "c033c3d116d057d07e7d50d3f9684d93b198055a25157a1c1f507968aeb4f4bc"
+    }
+  ],
+  "runtimeBytes": 69825,
+  "frontendBytes": 21595757,
+  "frontendLimitBytes": 26214400,
+  "v2SourceTree": "01c01886a9334f8324fbc65a9349c5ba8e1b0642",
+  "checks": [
+    {
+      "command": "V2_ROOT=dist/poweramp-v2 node --test tests/poweramp-v2-*.test.mjs",
+      "pass": 48,
+      "fail": 0,
+      "skipped": 0
+    },
+    {
+      "command": "node --test tests/source-layout.test.mjs scripts/frontend-source.test.mjs tests/privacy.test.mjs",
+      "pass": 18,
+      "fail": 0,
+      "skipped": 0
+    },
+    {
+      "command": "npm run build",
+      "result": "pass"
+    }
+  ],
+  "fullCI": "not established locally",
+  "originalRuntimeCapture": false,
+  "a15Verified": false,
+  "merged": false,
+  "deployed": false
+}

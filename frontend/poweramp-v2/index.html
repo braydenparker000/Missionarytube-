@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#222222">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>Poweramp V2</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <main id="app" aria-label="Poweramp V2 music player" data-scene="player">
+    <section id="library" aria-label="Music library" inert>
+      <header class="library-header">
+        <button id="back" aria-label="Back" data-icon="back"></button>
+        <div class="header-copy"><h1 id="library-title">Library</h1><p id="library-subtitle">On this device</p></div>
+        <button id="import" aria-label="Open audio files" data-icon="add"></button>
+      </header>
+      <div id="search-row" hidden><input id="search-input" type="search" placeholder="Search songs, artists, albums" aria-label="Search library" autocomplete="off"></div>
+      <div id="categories" class="categories"></div>
+      <div id="list-toolbar" hidden><span id="result-count"></span><button id="sort" class="text-button">Title ↑</button></div>
+      <div id="track-list" role="listbox" aria-label="Songs" tabindex="0"><div id="list-space" role="presentation"></div><div id="list-rows" role="presentation"></div></div>
+      <p id="empty" hidden>No songs found</p>
+    </section>
+
+    <section id="player" aria-label="Now playing">
+      <div id="art-placeholder"></div>
+      <div id="track-labels" class="track-labels"><h1 id="track-title">Loading…</h1><p id="track-subtitle"></p></div>
+      <div id="player-controls">
+        <div class="sub-art-controls">
+          <button id="repeat" aria-label="Repeat off" aria-pressed="false" data-icon="repeat"></button>
+          <button id="queue" aria-label="Open queue" data-icon="queue"></button>
+          <button id="shuffle" aria-label="Shuffle" aria-pressed="false" data-icon="shuffle"></button>
+        </div>
+        <div class="wave-area">
+          <canvas id="waveform" aria-hidden="true"></canvas>
+          <input id="seek" class="wave-seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek track">
+          <span id="seek-marker" hidden aria-hidden="true"></span>
+          <div class="transport">
+            <button id="previous" aria-label="Previous track" data-icon="previous"></button>
+            <button id="play" class="play" aria-label="Play" data-icon="play"></button>
+            <button id="next" aria-label="Next track" data-icon="next"></button>
+          </div>
+          <div class="time-row"><span id="elapsed">0:00</span><span id="duration">0:00</span></div>
+        </div>
+        <div class="track-info"><span id="audio-info">Original demo audio</span><span id="track-counter">1 / 3</span></div>
+      </div>
+    </section>
+
+    <div id="artwork" class="artwork" aria-label="Album artwork. Swipe sideways to change tracks, up to open library" role="img"><div id="art-image" class="art-image"></div></div>
+    <section id="mini" aria-label="Mini player" inert>
+      <button id="mini-expand" aria-label="Expand player"><span class="mini-copy"><strong id="mini-title"></strong><span id="mini-subtitle"></span></span></button>
+      <button id="mini-play" aria-label="Play" data-icon="play"></button>
+      <input id="mini-seek" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek in mini player">
+    </section>
+    <nav id="navbar" aria-label="Main navigation">
+      <button id="nav-library" aria-label="Library" data-icon="library"></button>
+      <button id="nav-eq" aria-label="Equalizer unavailable in this preview" data-icon="eq" disabled></button>
+      <button id="nav-search" aria-label="Search" data-icon="search"></button>
+      <button id="nav-menu" aria-label="Menu" data-icon="menu"></button>
+    </nav>
+    <p id="status" role="status" hidden></p>
+    <audio id="audio" preload="metadata"></audio>
+  </main>
+  <dialog id="menu">
+    <header><h2>Poweramp V2</h2><button id="close-menu" aria-label="Close menu" data-icon="close"></button></header>
+    <p class="muted">Development preview · original demo catalog</p>
+    <button id="open-files" class="menu-action">Open audio files<span>Play files from your device for this session</span></button>
+    <button id="demo" class="menu-action">Demo library<span>Three original sound studies with real waveforms</span></button>
+    <p class="muted small">No files are uploaded. Equalizer and remote music integration are not enabled in this preview.</p>
+  </dialog>
+  <input id="files" type="file" accept="audio/*,.flac,.opus,.ogg,.m4a,.mp3,.wav" multiple hidden>
+  <noscript>This player needs JavaScript enabled to play audio.</noscript>
+</body>
+</html>
