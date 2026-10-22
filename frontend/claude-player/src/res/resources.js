@@ -21,6 +21,51 @@ const FRAMEWORK_THEME = {
   'android:listChoiceIndicatorSingle': '@android:drawable/btn_radio_material',
 };
 
+/**
+ * Platform text appearances (Material, API 21+) that reference styles inherit:
+ * the APK carries only references to them. DeviceDefault styles alias the
+ * Material ones; a dotted name without an entry inherits its prefix.
+ */
+const PRIMARY = '?android:textColorPrimary', SECONDARY = '?android:textColorSecondary';
+const ta = (size, family = 'sans-serif', color = PRIMARY, extra = []) => [['android:textSize', size + 'sp'], ['android:fontFamily', family], ['android:textColor', color], ...extra];
+const FRAMEWORK_STYLES = {
+  'TextAppearance': ta(14),
+  'TextAppearance.Material': ta(14),
+  'TextAppearance.Material.Body1': ta(14),
+  'TextAppearance.Material.Body2': ta(14, 'sans-serif-medium'),
+  'TextAppearance.Material.Button': ta(14, 'sans-serif-medium', PRIMARY, [['android:textAllCaps', 'true']]),
+  'TextAppearance.Material.Caption': ta(12, 'sans-serif', SECONDARY),
+  'TextAppearance.Material.Subhead': ta(16),
+  'TextAppearance.Material.Title': ta(20, 'sans-serif-medium'),
+  'TextAppearance.Material.Headline': ta(24),
+  'TextAppearance.Material.Display1': ta(34, 'sans-serif', SECONDARY),
+  'TextAppearance.Material.Display2': ta(45, 'sans-serif', SECONDARY),
+  'TextAppearance.Material.Display3': ta(56, 'sans-serif', SECONDARY),
+  'TextAppearance.Material.Display4': ta(112, 'sans-serif-light', SECONDARY),
+  'TextAppearance.Material.Large': ta(22),
+  'TextAppearance.Material.Medium': ta(18, 'sans-serif', SECONDARY),
+  'TextAppearance.Material.Small': ta(14, 'sans-serif', '?android:textColorTertiary'),
+  'TextAppearance.Material.Menu': ta(16),
+  'TextAppearance.Material.Widget.Button': ta(14, 'sans-serif-medium', PRIMARY, [['android:textAllCaps', 'true']]),
+  'TextAppearance.Material.Widget.ActionBar.Title': ta(20, 'sans-serif-medium'),
+  'TextAppearance.Material.Widget.ActionBar.Subtitle': ta(16, 'sans-serif', SECONDARY),
+  'TextAppearance.Material.Widget.ActionBar.Menu': ta(14, 'sans-serif-medium', PRIMARY, [['android:textAllCaps', 'true']]),
+  'TextAppearance.Material.Widget.ActionMode.Title': ta(20, 'sans-serif-medium'),
+  'TextAppearance.Material.Widget.ActionMode.Subtitle': ta(16, 'sans-serif', SECONDARY),
+  'TextAppearance.Material.Widget.PopupMenu': ta(16),
+  'TextAppearance.Material.SearchResult.Title': ta(20),
+  'TextAppearance.Material.SearchResult.Subtitle': ta(14, 'sans-serif', SECONDARY),
+  'TextAppearance.Material.Notification': ta(14, 'sans-serif', SECONDARY),
+  'TextAppearance.Material.Notification.Title': ta(14),
+};
+
+function frameworkStyle(name) {
+  for (let n = name.replace('.DeviceDefault', '.Material'); n; n = n.includes('.') ? n.slice(0, n.lastIndexOf('.')) : '') {
+    if (FRAMEWORK_STYLES[n]) return new Map(FRAMEWORK_STYLES[n]);
+  }
+  return new Map();
+}
+
 const RESOLVE_DEPTH = 24;
 
 export class Resources {
@@ -71,9 +116,7 @@ export class Resources {
     if (s) {
       if (s.parent) {
         const parentRef = parseRef(s.parent.startsWith('@') ? s.parent : '@style/' + s.parent);
-        if (parentRef && parentRef.kind === 'res' && !parentRef.android) {
-          merged = new Map(this.style(parentRef.name));
-        }
+        if (parentRef && parentRef.kind === 'res') merged = parentRef.android ? frameworkStyle(parentRef.name) : new Map(this.style(parentRef.name));
       }
       for (const [k, v] of s.items) merged.set(k, v);
     }

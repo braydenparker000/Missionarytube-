@@ -5,7 +5,7 @@ import {StyledAttributes} from '../res/resources.js';
 import {View, MeasureSpec, ViewGroup} from './view.js';
 import {FastLayout} from './fast-layout.js';
 import {SceneFastLayout, attachSceneParams, attachStateAnim} from './scene.js';
-import {FastTextView, FastButton, FastCheckBox, FastRadioButton, BusActionButton} from './text.js';
+import {FastTextView, FastButton, FastCheckBox, FastRadioButton, BusActionButton, BusStatusTextButton} from './text.js';
 import {GONE} from '../res/values.js';
 
 const registry = new Map();
@@ -73,9 +73,22 @@ export class LoadableBehaviorView extends BehaviorView {
     const parent = this.parent;
     const at = this.insertAt === -2 ? parent.children.indexOf(this) : this.insertAt === 0 ? 0 : -1;
     const made = this.ctx.inflater.inflate(this.layoutName, parent, {insertAt: at});
+    for (let p = parent; p; p = p.parent) {
+      if (p.loadHooks) p.loadHooks = p.loadHooks.filter(h => { const f = p.findViewById(h.id); if (f) h.fn(f); return !f; });
+    }
     this.ctx.bus?.post('bus_gui', 'msg_gui_layout_loaded', this, {parent});
     return made;
   }
+}
+
+/**
+ * Calls fn with root's descendant id now, or when a LoadableBehavior first
+ * inflates it (item views load their art and header part per scene).
+ */
+export function withView(root, id, fn) {
+  const v = root.findViewById(id);
+  if (v) fn(v);
+  else (root.loadHooks ??= []).push({id, fn});
 }
 
 export class Placeholder extends View {
@@ -225,6 +238,7 @@ register(['SceneFastLayout', 'MenuPlaceholderLayout', 'ItemSceneFastLayout'], Sc
 register(['FastTextView', 'TextView', 'ImageView', 'ListIndexerPopupView', 'BusStatusText', 'LyricsFastTextView', 'InfoTextView', 'KnobLabelAndValue'], FastTextView);
 register(['FastCheckBox', 'FastCheckBoxOnly', 'CheckBox'], FastCheckBox);
 register(['RadioButton'], FastRadioButton);
-register(['FastButton', 'DragHandler', 'Button', 'ImageButton', 'LyricsButton', 'BusStatusTextButton', 'IntentActionButton', 'MediaRouteButton'], FastButton);
+register(['FastButton', 'DragHandler', 'Button', 'ImageButton', 'LyricsButton', 'IntentActionButton', 'MediaRouteButton'], FastButton);
+register(['BusStatusTextButton'], BusStatusTextButton);
 register(['BusActionButton', 'MorphableBusActionButton', 'BusStateEnabledActionButton', 'BusCheckBox'], BusActionButton);
 register(['View', 'NonOverlappingView', 'Space', 'android.widget.Space', 'SmartSpacer', 'AlphaDisabledView'], View);

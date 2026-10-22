@@ -3,6 +3,7 @@
 // header item, momentum scrolling and reference zoom-level geometry.
 import {FastLayout} from '../view/fast-layout.js';
 import {MeasureSpec} from '../view/view.js';
+import {withView} from '../view/inflater.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {AT_TOP, PAST_TOP, BETWEEN, AT_END, PAST_END} from './moveable-toolbar.js';
 import {sectionChar} from './scroller.js';
@@ -250,8 +251,7 @@ export class PowerList extends FastLayout {
       this.el.appendChild(v.el);
       v.onClick = () => this.onItemClick(v);
       v.clickable = true;
-      const menu = v.findViewById('menu');
-      if (menu) menu.onClick = () => { if (v.listIndex === -1 && this.source?.menuLayout) this.host?.openItemMenu?.(v, this.source.menuLayout); };
+      withView(v, 'menu', menu => { menu.onClick = () => { if (v.listIndex === -1 && this.source?.menuLayout) this.host?.openItemMenu?.(v, this.source.menuLayout); }; });
     }
     v.visibility = VISIBLE;
     return v;
@@ -438,8 +438,7 @@ export class PowerList extends FastLayout {
       v.elevation = bt.z;
       this.children.push(v);
       this.el.appendChild(v.el);
-      const menu = v.findViewById('menu');
-      if (menu) menu.onClick = () => { if (this.source?.menuLayout) this.host?.openItemMenu?.(v, this.source.menuLayout); };
+      withView(v, 'menu', menu => { menu.onClick = () => { if (this.source?.menuLayout) this.host?.openItemMenu?.(v, this.source.menuLayout); }; });
     }
     if (v.inMenu) return;
     if (v._boundSource !== s) { s.bindHeader(v); v._boundSource = s; }

@@ -7,7 +7,7 @@ import {SceneFastLayout, SceneRecord} from '../view/scene.js';
 import {animTime} from '../widgets/topnav.js';
 import {animateShade} from '../widgets/popup.js';
 import {FastTextView} from '../view/text.js';
-import {register} from '../view/inflater.js';
+import {register, withView} from '../view/inflater.js';
 import {AAGeometry, geometryParams, dynamicDimensionReader} from './aa-geometry.js';
 import {StyledAttributes} from '../res/resources.js';
 import {GONE, VISIBLE} from '../res/values.js';
@@ -1161,13 +1161,12 @@ export class ListWidget extends FastLayout {
         this.children.push(v);
         this.el.appendChild(v.el);
         // The item menu: the menu button, or a long press on the cover.
-        const menu = v.findViewById('menu');
-        if (menu) {
+        withView(v, 'menu', menu => {
           menu.onClick = () => this.openItemMenu(v);
           // menu_button_long_press: 0 none (default), else a track action.
           menu.longClickable = true;
           menu.onLongClick = () => this.trackAction(MENU_LONG_PRESS[+(this.ctx.settings.menu_button_long_press ?? 0)]);
-        }
+        });
         // Line 2: line2_click (default disabled) and line2_long_click (default
         // artist) jump to the track's artist, album, folder or genre.
         const line2 = v.findViewById('line2');
@@ -2062,6 +2061,8 @@ ListWidget.prototype.openItemMenu = function (v, itemsLayout = 'merge_menu_items
     v.menuItemsLayout = itemsLayout;
     this.ctx.inflater.inflate(itemsLayout, items);
     if (itemsLayout !== 'merge_menu_items_aa') this.prepareListMenu(items);
+    // Deleting music files is out of scope (owner decision): the cover menu has no Delete.
+    else items.findViewById('delete')?.setVisibility(GONE);
     items.walk(c => {
       if (c === items || !c.clickable) return;
       const click = c.onClick?.bind(c);
@@ -2078,7 +2079,19 @@ ListWidget.prototype.openItemMenu = function (v, itemsLayout = 'merge_menu_items
   this.menuItem.saved.set(v.itemScene, map.get(v.itemScene));
   map.set('defaultScene', rec);
   if (v.itemScene && v.itemScene !== 'defaultScene') map.set(v.itemScene, rec);
-  if (map.get(ITEM_MENU)) map.get(ITEM_MENU).recalc = 2;
+  const menuRec = map.get(ITEM_MENU);
+  if (menuRec) {
+    // The item wraps its menu content: measured in the menu scene, whose
+    // entries (hidden ones gone) the current scene does not lay out.
+    const r = Object.assign(Object.create(Object.getPrototypeOf(menuRec)), menuRec);
+    r.recalc = 2;
+    if (menuRec.lp?.height === -2 && menuRec.lp.width > 0) {
+      const [, mh] = v.scenes.measureIn(ITEM_MENU, MeasureSpec.make(menuRec.lp.width, MeasureSpec.EXACTLY), MeasureSpec.make(ph.height, MeasureSpec.AT_MOST));
+      r.lp = Object.assign(Object.create(Object.getPrototypeOf(menuRec.lp)), menuRec.lp, {height: mh});
+    }
+    this.menuItem.saved.set(ITEM_MENU, menuRec);
+    map.set(ITEM_MENU, r);
+  }
   ph.popup = {modal: true, close: () => this.closeItemMenu()};
   // The item menu is a GUI modal while open (om0 → t61: @id/popup_menu_item; F78).
   this.ctx.bus.post('bus_gui', 'cmd_gui_set_modal', this, {arg1: 'popup_menu_item'});
@@ -2090,8 +2103,10 @@ ListWidget.prototype.openItemMenu = function (v, itemsLayout = 'merge_menu_items
   const dur = animTime(this.ctx, ms / 1000);
   animateShade(this.ctx, ph, 1, dur);
   ph.scenes.go(ITEM_MENU, {duration: dur});
+  // The item's own scene lays out at the frame the placeholder's scene gives it.
+  const to = ph.scenes.items?.find(it => it.view === v)?.to;
   v.itemScene = ITEM_MENU;
-  v.scenes.go(ITEM_MENU, {duration: dur});
+  v.scenes.go(ITEM_MENU, {duration: dur, targetSize: to ? [to[2] - to[0], to[3] - to[1]] : null});
 };
 
 ListWidget.prototype.closeItemMenu = function () {

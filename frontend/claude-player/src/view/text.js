@@ -569,6 +569,15 @@ export class FastRadioButton extends FastCheckBox {
   }
 }
 
+/** Button whose label is a bus state (labelStateId), updated on updateMsgId. */
+export class BusStatusTextButton extends FastButton {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.labelStateId = idName(a?.raw('labelStateId'));
+    if (this.labelStateId) this.setText(String(ctx.stateOf?.(this.labelStateId) ?? ''));
+  }
+}
+
 /** Button dispatching a command message onto a bus (busId/msgId/longPressMsgId). */
 export class BusActionButton extends FastButton {
   constructor(ctx, a) {

@@ -197,6 +197,8 @@ G.list_drag = rect(4, 8, 16, 2.2, 1) + rect(4, 13.8, 16, 2.2, 1);
 // Pinch-to-zoom: two arrowheads pointing apart along the diagonal.
 G.zoom_arrows = poly([[20.5, 3.5], [20.5, 11], [17.6, 8.1], [13.3, 12.4], [11.6, 10.7], [15.9, 6.4], [13, 3.5]], 0.4)
   + poly([[3.5, 20.5], [3.5, 13], [6.4, 15.9], [10.7, 11.6], [12.4, 13.3], [8.1, 17.6], [11, 20.5]], 0.4);
+// Up/back arrow: a shaft with a chevron head pointing left.
+G.back_arrow = poly([[4, 12], [11, 5], [12.6, 6.6], [8.3, 10.9], [20, 10.9], [20, 13.1], [8.3, 13.1], [12.6, 17.4], [11, 19]], 0.3);
 G.question = 'M8.4 8.7c.3-2.4 1.9-4.2 4.1-4.2 2.4 0 4.2 1.6 4.2 3.8 0 2.8-3.4 3.3-3.4 6.2h-2.8c0-4.2 3.4-4.4 3.4-6.2 0-.9-.6-1.6-1.4-1.6-.9 0-1.5.7-1.6 2Z' + circle(12.3, 18.6, 1.8);
 G.account = circle(12, 8.5, 4.2) + 'M4.5 20.5c0-4 3.4-6.9 7.5-6.9s7.5 2.9 7.5 6.9Z';
 G.bars_peak = rect(4, 4, 4, 16, 1.2) + rect(10, 8, 4, 12, 1.2) + rect(16, 12, 4, 8, 1.2);
@@ -260,6 +262,7 @@ const RULES = [
   [/^prev_cat/, () => 'prev_cat'],
   [/^next_12dp/, () => 'ff'],
   [/^zoom_arrows/, () => 'zoom_arrows'],
+  [/^(back|abc_ic_ab_back)/, () => 'back_arrow'],
   [/^shuffle/, () => 'shuffle'],
   [/^repeat_song/, () => 'repeat_song'],
   [/^repeat_advance/, () => 'repeat_advance'],

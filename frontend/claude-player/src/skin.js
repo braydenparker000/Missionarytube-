@@ -4,7 +4,7 @@
 import {Theme} from './res/resources.js';
 import {parseRef} from './res/values.js';
 
-const OPTION_TAGS = new Set(['option', 'radio', 'multiSwitch', 'popup', 'seekbarOptions']);
+const OPTION_TAGS = new Set(['option', 'radio', 'multiSwitch', 'popup', 'seekbarOptions', 'msg']);
 
 function styleRefName(v) {
   const r = parseRef(v);
@@ -50,6 +50,8 @@ export function parseSkins(res) {
         minSdk: oa.minSdk ? parseInt(oa.minSdk) : 0, maxSdk: oa.maxSdk ? parseInt(oa.maxSdk) : 0,
         defaultValue: oa.defaultValue ?? null,
         checkedByDefault: oa.checkedByDefault === 'true',
+        // msg: a note (line1, then its smaller lines) under the option before it.
+        lines: o[0] === 'msg' ? [oa.line1, oa.smallLine1, oa.smallLine2, oa.smallLine3].filter(Boolean).map(r => res.string(r) ?? '') : null,
         overlapStyle: oa.overlapStyle ? styleRefName(oa.overlapStyle) : null,
         overlapAttr: oa.overlapAttr ? attrRefName(oa.overlapAttr) : null,
         choices: [],
@@ -91,7 +93,7 @@ export function optionValue(opt, prefs) {
   return v;
 }
 
-function optionEnabled(opt, skin, prefs, sdk) {
+export function optionEnabled(opt, skin, prefs, sdk) {
   if (opt.minSdk && sdk < opt.minSdk) return false;
   if (opt.maxSdk && sdk > opt.maxSdk) return false;
   if (opt.dependency) {
@@ -152,7 +154,7 @@ export function composeTheme(res, skin, prefs = {}, {sdk = 35, settings = {}, ro
     }
   };
   for (const opt of skin.options) {
-    if (!optionEnabled(opt, skin, prefs, sdk)) continue;
+    if (opt.kind === 'msg' || !optionEnabled(opt, skin, prefs, sdk)) continue;
     if (opt.kind === 'option') {
       if (optionValue(opt, prefs)) applyOverlap(opt.overlapStyle, opt.overlapAttr);
     } else {

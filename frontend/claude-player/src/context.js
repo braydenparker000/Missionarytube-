@@ -71,6 +71,8 @@ export class Context {
       }
       case 'state_player_track_seekable': return !!t;
       case 'dsp_enabled': return !!dsp?.get('dsp_enabled');
+      // The app edition the menu's logo label shows (BusStatusTextButton).
+      case 'state_app_edition_name': return 'Claude Player';
       default: return undefined;
     }
   }
