@@ -24,6 +24,7 @@ export class LyricsButton extends FastButton {
   constructor(ctx, a) {
     super(ctx, a);
     this.hidden = true;
+    this.longClickable = true;
   }
 
   isEmpty() {
@@ -31,6 +32,7 @@ export class LyricsButton extends FastButton {
   }
 
   setTrack(track) {
+    this.track = track;
     const mode = +(this.ctx.settings?.main_lyrics_button ?? 1);
     const hidden = mode === 0 || (mode === 1 && !trackLyrics(track));
     if (hidden === this.hidden) return;
@@ -47,6 +49,13 @@ export class LyricsButton extends FastButton {
 
   onClick() {
     this.ctx.bus.post('bus_gui', 'cmd_nav_to_lyrics', this);
+  }
+
+  /** A long press opens the lyrics dialog (cmd_data_lyrics, F61). */
+  onLongClick() {
+    if (this.hidden) return false;
+    this.ctx.bus.post('bus_data_cmd', 'cmd_data_lyrics', this, {track: this.track});
+    return true;
   }
 }
 

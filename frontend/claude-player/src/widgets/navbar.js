@@ -7,6 +7,7 @@ import {FastLayout} from '../view/fast-layout.js';
 import {View, MeasureSpec} from '../view/view.js';
 import {FastButton} from '../view/text.js';
 import {register} from '../view/inflater.js';
+import {installSheetDrag} from './sheet-drag.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {animTime} from './topnav.js';
 import {renderOps} from '../view/drawables.js';
@@ -40,11 +41,52 @@ export class Navbar extends FastLayout {
     more?.setActivated(open);
     const c = this.container();
     if (!c) return;
-    const base = this.lines === 3 ? 'scene_navbar_3lines' : this.lines === 2 ? 'scene_navbar_2lines' : 'defaultScene';
+    const base = this.baseScene();
     const scene = open ? (this.lines === 3 ? 'scene_navbar_3lines_sheet' : this.lines === 2 ? 'scene_navbar_2lines_sheet' : 'scene_navbar_1line_sheet') : base;
     const ext = this.ext?._attrs;
     const ms = open ? ext?.int('animTime', 500) ?? 500 : ext?.int('animExitTime', 200) ?? 200;
+    if (open) this.installSheetDrag(c);
     c.scenes.go(scene, {duration: animate ? animTime(this.ctx, ms / 1000) : 0});
+  }
+
+  /** The base (non-sheet) scene for the current line count (NavbarExtension.a0). */
+  baseScene() {
+    return this.lines === 3 ? 'scene_navbar_3lines' : this.lines === 2 ? 'scene_navbar_2lines' : 'defaultScene';
+  }
+
+  /**
+   * Dragging the open sheet collapses it (NavbarExtension's vm / wm, F60):
+   * the extension's own collapseDragDirection, dragAnimTime, dragThreshold
+   * and dragThresholdVelocity with the reference defaults (down, 500 ms, 0.8,
+   * 1000 px/s); the span is the extension's height; touches on the
+   * extension's background count (its onTouchEvent consumes them).
+   */
+  installSheetDrag(c) {
+    const ext = this.ext, a = ext?._attrs;
+    if (!ext || this.sheetDrag) return;
+    this.sheetDrag = true;
+    // The shim forwards its touches to the sheet (Shim.B, wm.H): a touch
+    // released without dragging the sheet closes it, even one that moved.
+    const shim = c.findViewById(a?.idRef?.('shim')?.id ?? 'navbar_shim');
+    if (shim) {
+      shim.onPointerDown = () => this.sheet;
+      shim.onPointerUp = e => { if (!e.cancelled) this.ctx.bus.post('bus_gui', 'cmd_navbar_sheet_close', shim); };
+    }
+    installSheetDrag(this.ctx, {
+      interceptor: ext, frame: ext, scenes: c.scenes, ownTouches: true,
+      dir: a?.int('collapseDragDirection', 1) ?? 1,
+      dragAnimTime: Math.max(0, a?.int('dragAnimTime', 500) ?? 500) / 1000,
+      threshold: a?.float('dragThreshold', 0.8) ?? 0.8,
+      velocity: a?.dim('dragThresholdVelocity', 1000) ?? 1000,
+      span: () => ext.height,
+      target: () => this.baseScene(),
+      enabled: () => this.sheet,
+      settled: commit => {
+        if (!commit) return;
+        this.sheet = false;
+        this.buttons?.findViewById('cmd_nav_more')?.setActivated(false);
+      },
+    });
   }
 
   onFinishInflate() {

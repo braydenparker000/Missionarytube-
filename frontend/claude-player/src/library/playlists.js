@@ -92,6 +92,12 @@ export class Playlists {
     this.save(pl);
   }
 
+  /** The playlist's entries in a new order (drag reordering). */
+  reorder(pl, ids) {
+    pl.ids = ids;
+    this.save(pl);
+  }
+
   move(pl, from, to) {
     const [id] = pl.ids.splice(from, 1);
     pl.ids.splice(to, 0, id);

@@ -13,6 +13,7 @@ import {StyledAttributes} from '../res/resources.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
+import {ListReorder} from './reorder.js';
 import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource, groupTracksSource} from './sources.js';
 import {ListTransition, ZOOM, pageFx} from './list-transition.js';
 import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut, elastic} from '../gesture.js';
@@ -71,18 +72,51 @@ export class AAItemView extends SceneFastLayout {
   }
 
   /** Selection mode: the select box shows over the art, checked when selected. */
-  setSelection(mode, checked) {
+  setSelection(mode, checked, reorderable = false) {
     const box = this.selectBox ??= this.findViewById('select_box');
     if (!box) return;
-    const vis = mode ? VISIBLE : GONE;
-    if (box.visibility !== vis) {
-      box.setVisibility(vis);
-      // The box fades in on entering selection mode (duration inferred).
-      if (mode) { box.alpha = 0; this.ctx.tween(box, {alpha: 1}, 0.15); }
-      this.forceLayoutTree?.();
-      this.requestLayout();
-    } else if (mode && box.alpha === 0 && !this.ctx.tweens?.has(box)) box.alpha = 1;
+    // The drag handle shows with the box on reorderable lists (AAItemView.H, a0).
+    const handle = this.dragHandle ??= this.initDragHandle();
+    for (const [v, on] of [[box, mode], [handle, mode && reorderable]]) {
+      if (!v) continue;
+      const vis = on ? VISIBLE : GONE;
+      if (v.visibility !== vis) {
+        v.setVisibility(vis);
+        // The box and handle fade in on entering selection mode (duration inferred).
+        if (on) { v.alpha = 0; this.ctx.tween(v, {alpha: 1}, 0.15); }
+        this.forceLayoutTree?.();
+        this.requestLayout();
+      } else if (on && v.alpha === 0 && !this.ctx.tweens?.has(v)) v.alpha = 1;
+    }
     box.setChecked(checked);
+  }
+
+  /** DragHandler: a press starts the drag reorder of this row (om0.mo632). */
+  initDragHandle() {
+    const h = this.findViewById('drag_handler');
+    if (!h) return null;
+    h.performClick = () => false;
+    h.onPointerDown = e => {
+      const list = this.parent;
+      const r = list?.selection ? ListReorder.start(list, this, this.listIndex) : null;
+      if (!r) return false;
+      h.setPressed(true);
+      h.reorder = r;
+      h.last = {x: e.rootX, y: e.rootY};
+      return true;
+    };
+    h.onPointerMove = e => {
+      if (!h.reorder) return;
+      h.reorder.move(e.rootX - h.last.x, e.rootY - h.last.y);
+      h.last = {x: e.rootX, y: e.rootY};
+    };
+    h.onPointerUp = () => {
+      h.setPressed(false);
+      h.reorder?.drop();
+      h.reorder = null;
+    };
+    h.onPointerCancel = () => h.onPointerUp();
+    return h;
   }
 
   syncLyricsButton() {
@@ -403,6 +437,7 @@ export class ListWidget extends FastLayout {
     ctx.bus.subscribe('bus_data', msg => {
       if (msg !== 'msg_playlists_changed') return;
       const top = this.stack[this.stack.length - 1];
+      if (top?.ownChange) return;
       if (top?.isPlaylists) this.replaceTop(playlistsSource(ctx, this.libList, this.nav));
       else if (top?.playlist) this.replaceTop(playlistSource(ctx, this.libList, this.nav, top.playlist));
     });
