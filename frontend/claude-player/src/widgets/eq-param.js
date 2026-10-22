@@ -439,36 +439,6 @@ export class ParamBandItem extends FastLayout {
     this.ctx.dsp?.setParamBand(this.index, 'color', color);
   }
 
-  onLayout(...args) {
-    super.onLayout(...args);
-    if (this.q.lp.attachBottom?.id === '_freq') this.layoutTall();
-  }
-
-  /**
-   * The tall variant (h >= 700 dp) read literally leaves the Q knob no
-   * height: Freq, attached to both parent edges, exceeds its maximum height,
-   * keeps only its top attach and sits at the top, where Q (top to Freq)
-   * also starts. Laid out by its evident intent instead (research notebook
-   * F82, as F32): Q under the popups (its top attach), Freq on the bottom
-   * (its bottom attach) beside the tool column, both at Freq's size; each
-   * label in its knob's bottom padding; the popups centred on Q.
-   */
-  layoutTall() {
-    const f = this.freq, q = this.q, s = f.width, h = f.height;
-    if (!s || !h) return;
-    const fb = this.height - this.paddingBottom - (f.lp.bottomMargin ?? 0), ft = fb - h, dy = ft - f.top;
-    f.layout(f.left, ft, f.right, fb);
-    const fl = this.freqLabel;
-    fl.layout(fl.left, fl.top + dy, fl.right, fl.bottom + dy);
-    const qt = q.top;
-    q.measure(MeasureSpec.make(s, MeasureSpec.EXACTLY), MeasureSpec.make(h, MeasureSpec.EXACTLY));
-    q.layout(f.left, qt, f.left + s, qt + h);
-    const cx = f.left + s / 2, centre = (v, top) => { const x = Math.round(cx - v.width / 2); v.layout(x, top, x + v.width, top + v.height); };
-    centre(this.qLabel, q.bottom - this.qLabel.height);
-    centre(this.lr, this.lr.top);
-    centre(this.type, this.type.top);
-  }
-
   onClick() {
     this.list.itemClicked(this);
   }

@@ -10,15 +10,21 @@
 // a decode are scanned for resource-ID constants only, mapped to names through
 // public.xml, and those names become extra roots; no code is copied.
 //
-// Usage: node scripts/claude-player/extract-reference.mjs <decoded-apk-dir> <out.json[.gz]> [--code <smali-dir>...]
+// apktool writes a style item stored as a null reference ("@null") as the 0-valued
+// enum or flag name of its attribute ("parent", "none"), which reads as a real
+// value. With --arsc, the APK's resource table is read for those items
+// (arsc-nulls.mjs) and they are written back as "@null".
+//
+// Usage: node scripts/claude-player/extract-reference.mjs <decoded-apk-dir> <out.json[.gz]> [--code <smali-dir>...] [--arsc <apk>]
 import {readFileSync, readdirSync, statSync, writeFileSync, existsSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {gzipSync} from 'node:zlib';
 import {join, basename} from 'node:path';
 import {parseXml} from './xml.mjs';
 import {colourRole} from './png.mjs';
+import {nullStyleItems, readArsc} from './arsc-nulls.mjs';
 
-export const EXTRACTOR_VERSION = 1;
+export const EXTRACTOR_VERSION = 2;
 
 // Layout/style families that belong to third-party libraries the reference bundles
 // (AppCompat, Material components, payment SDKs) rather than to the player UI.
@@ -175,6 +181,27 @@ export function extract(dir) {
   }
   model.values.id.sort();
   return model;
+}
+
+/**
+ * Writes the resource table's null style items into the model ("@null" replaces
+ * apktool's enum-name rendering; an item apktool left out is added). Framework
+ * attributes are skipped: apktool already renders those nulls as "@null".
+ * Returns the number of items changed.
+ */
+export function applyNulls(model, nulls) {
+  let changed = 0;
+  for (const n of nulls) {
+    if (n.attr.includes('0x')) continue;
+    const entry = model.styles[n.style]?.find(v => (v[1] ?? '') === n.qualifier);
+    if (!entry) continue;
+    const item = entry[0].items.find(i => i[0] === n.attr);
+    if (!item) entry[0].items.push([n.attr, n.value]);
+    else if (item[1] === n.value) continue;
+    else item[1] = n.value;
+    changed++;
+  }
+  return changed;
 }
 
 // Keeps only entries reachable from the player UI roots, following @type/name and
@@ -354,15 +381,18 @@ function main() {
   const args = process.argv.slice(2);
   const code = [];
   for (let i = args.indexOf('--code'); i >= 0; i = args.indexOf('--code')) code.push(...args.splice(i, 2).slice(1));
+  const arscAt = args.indexOf('--arsc');
+  const arsc = arscAt >= 0 ? args.splice(arscAt, 2)[1] : null;
   const [dir, out] = args;
   if (!dir || !out) {
-    console.error('usage: extract-reference.mjs <decoded-apk-dir> <out.json[.gz]> [--code <smali-dir>...]');
+    console.error('usage: extract-reference.mjs <decoded-apk-dir> <out.json[.gz]> [--code <smali-dir>...] [--arsc <apk>]');
     process.exit(2);
   }
   const yml = existsSync(join(dir, 'apktool.yml')) ? readFileSync(join(dir, 'apktool.yml'), 'utf8') : '';
   const versionCode = /versionCode:\s*'?(\d+)/.exec(yml)?.[1] ?? null;
   const versionName = /versionName:\s*(\S+)/.exec(yml)?.[1] ?? null;
   const full = extract(dir);
+  if (arsc) console.log(`--arsc: ${applyNulls(full, nullStyleItems(readArsc(arsc)))} null style items restored`);
   const roots = defaultRoots(full);
   if (code.length) roots.push(...codeRoots(dir, code));
   const eqPresets = code.length ? codePresets(dir, code) : [];
