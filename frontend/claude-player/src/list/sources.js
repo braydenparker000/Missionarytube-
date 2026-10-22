@@ -259,6 +259,7 @@ export function categorySource(ctx, list, nav, cat) {
   else if (cat.kind === 'long') {
     const min = listOpts('tracks:long').minDurationMs ?? DEFAULT_LONG_MS;
     src = tracks(lib.tracks.filter(t => t.durationMs >= min), 'long');
+    src.kind = 'long';
     src.minDurationMs = min;
   }
   else {

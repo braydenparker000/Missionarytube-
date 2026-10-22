@@ -45,6 +45,11 @@ export class Library {
     this.ctx = ctx;
     this.db = null;
     this.tracks = [];
+    this.allTracks = [];
+    // The scan settings apply to the loaded records at once (the reference rescans).
+    ctx.bus.subscribe('bus_app', (msg, src, d) => {
+      if (msg === 'msg_app_setting_changed' && (d?.key === 'scan_min_track_duration' || d?.key === 'skip_video')) this.setTracks(this.allTracks);
+    });
     this.byId = new Map();
     this.artCache = new Map();
     this.thumbCache = new Map();
@@ -145,11 +150,18 @@ export class Library {
     return this.db.setState('u:' + t.id, u);
   }
 
+  /**
+   * The library's tracks: every record (allTracks, byId), of which the scan
+   * settings keep tracks (scan_min_track_duration: shorter tracks are
+   * ignored, 0 keeps all; skip_video: files with a video stream are ignored).
+   */
   setTracks(list) {
     list.sort(compareTracks);
-    this.tracks = list;
+    this.allTracks = list;
+    const minMs = (+(this.ctx.pref?.('scan_min_track_duration') ?? 6) || 0) * 1000, noVideo = !!this.ctx.pref?.('skip_video');
+    this.tracks = list.filter(t => !(minMs && t.durationMs && t.durationMs < minMs) && !(noVideo && t.video));
     this.byId = new Map(list.map(t => [t.id, t]));
-    this.ctx.bus.post('bus_library', 'msg_library_changed', this, {count: list.length});
+    this.ctx.bus.post('bus_library', 'msg_library_changed', this, {count: this.tracks.length});
   }
 
   /** Imports audio files (File objects); returns the number added. */
@@ -181,6 +193,7 @@ export class Library {
         path, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '', fileName: f.name, size: f.size, mime: f.type || '',
         artId, added: Date.now(),
       };
+      if (tags.hasVideo || /^video\//.test(f.type || '')) meta.video = true;
       const side = lrc.get(path.replace(/\.[^./]+$/, '').toLowerCase());
       // LRC text: UTF-8, or the tag encoding for non-Unicode files unless lrc_utf8.
       if (side) { try { meta.lyricsFile = decodeTextFile(new Uint8Array(await side.arrayBuffer()), this.ctx.pref?.('lrc_utf8') !== false); } catch { /* unreadable sidecar */ } }
@@ -191,11 +204,11 @@ export class Library {
       if (this.db) await this.db.putTrack(meta, f, artBlob);
       if (artBlob && artId && !this.artCache.has(artId)) this.artCache.set(artId, loadArt(artBlob));
       this.byId.set(id, meta);
-      this.tracks.push(meta);
+      this.allTracks.push(meta);
       added++;
       onProgress?.(++done, audio.length);
     }
-    this.setTracks(this.tracks);
+    this.setTracks(this.allTracks);
     return added;
   }
 
@@ -205,7 +218,7 @@ export class Library {
    */
   async rescanTags({lyricsOnly = false} = {}, onProgress) {
     setTagEncoding(this.ctx.pref?.('tag_encoding'));
-    const local = this.tracks.filter(t => !t.remote && !t.src);
+    const local = this.allTracks.filter(t => !t.remote && !t.src);
     let done = 0;
     for (const t of local) {
       const f = await this.db?.file(t.id).catch(() => null);
@@ -233,7 +246,7 @@ export class Library {
       }
       onProgress?.(++done, local.length);
     }
-    this.setTracks(this.tracks);
+    this.setTracks(this.allTracks);
     return local.length;
   }
 
@@ -498,6 +511,27 @@ export class Library {
     t.lastPlayed = Date.now();
     if (this.byId.has(t.id)) this.saveTrack(t);
     this.ctx.bus.post('bus_data', 'msg_data_track_played', this, {track: t});
+  }
+
+  /** Settings → Reset stats (hs.H): every track's played times and last played go to zero. */
+  async resetStats() {
+    for (const t of this.tracks) {
+      if (!t.plays && !t.lastPlayed) continue;
+      t.plays = 0;
+      t.lastPlayed = 0;
+      await this.saveTrack(t);
+    }
+    this.ctx.bus.post('bus_app', 'msg_app_data_changed', this);
+    this.ctx.bus.post('bus_data', 'msg_data_track_played', this, {});
+  }
+
+  /** The last position of a track (folder_files.last_pos), kept when leaving it. */
+  rememberPosition(t0, ms) {
+    const t = this.byId.get(t0.id) ?? t0;
+    if ((t.lastPos ?? 0) === ms) return;
+    t.lastPos = ms;
+    if (t0 !== t) t0.lastPos = ms;
+    if (this.byId.has(t.id)) this.saveTrack(t);
   }
 
   async rememberDuration(t, ms) {

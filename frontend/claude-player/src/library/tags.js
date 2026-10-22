@@ -330,6 +330,8 @@ function readMp4(b, out) {
         if (name) setReplayGain(out, name, value);
       }
       else if (type === 'meta') walk(body + 4, Math.min(next, end), depth + 1);
+      // A track handler of type 'vide': the file has a video stream (skip_video).
+      else if (type === 'hdlr' && latin1.decode(b.subarray(body + 8, body + 12)) === 'vide') out.hasVideo = true;
       else if (type === 'mvhd') {
         const v = b[body];
         const scale = v === 1 ? be32(b, body + 20) : be32(b, body + 12);

@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 142 |
+| Built | 148 |
 | Settings UI | 109 |
-| Not built | 18 |
+| Not built | 12 |
 | No web counterpart | 141 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -329,12 +329,12 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `some_saf_folders_unavailable` | RawTextPreference | Settings UI |  |
 | `file_access_legacy` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
 | `_legacy_access_warning` | RawTextPreference | Settings UI |  |
-| `scan_min_track_duration` | NumberListPreference | Not built |  |
-| `skip_video` | MultilineSwitchPreference | Not built |  |
+| `scan_min_track_duration` | NumberListPreference | Built | Shorter tracks are left out of the library (F73) |
+| `skip_video` | MultilineSwitchPreference | Built | Files with a video stream are left out (F73) |
 | `auto_find_button` | Preference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
-| `restore_pos` | MultilineSwitchPreference | Not built |  |
-| `long_skip_rewind` | MultilineSwitchPreference | Not built |  |
-| `restore_pos_min_dur` | SeekbarPreference | Not built |  |
+| `restore_pos` | MultilineSwitchPreference | Built | Long tracks start where they were left (last_pos, F73) |
+| `long_skip_rewind` | MultilineSwitchPreference | Built | Pro category buttons become -10/+10 s on long tracks (F73) |
+| `restore_pos_min_dur` | SeekbarPreference | Built | Long tracks start where they were left (last_pos, F73) |
 | `played_dur` | SeekbarPreference | Built |  |
 | `library_lists` | RedirectPreference | Settings UI |  |
 | `library_search` | RedirectPreference | Settings UI |  |
@@ -342,7 +342,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `library_playlists` | RedirectPreference | Settings UI |  |
 | `library_shuffle` | RedirectPreference | Settings UI |  |
 | `library_scanner` | RedirectPreference | Settings UI |  |
-| `reset_stats` | Preference | Not built |  |
+| `reset_stats` | Preference | Built | Resets played times and last played (F73) |
 
 ## library_lists
 

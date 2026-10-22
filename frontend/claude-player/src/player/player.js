@@ -340,6 +340,11 @@ export class Player {
     // settings ask for it (automatic advance armed by checkCrossfade, or a
     // manual change per fade_manual_advance).
     const prev = this.track, old = this.audio;
+    // last_pos: the position the track is left at (0 within 2 s of its end).
+    if (prev && this.isMedia(prev) && index !== this.index) {
+      const pos = this.positionMs(), dur = prev.durationMs || 0;
+      this.ctx.library?.rememberPosition?.(prev, pos >= 0 && dur && pos < dur - 2000 ? pos : 0);
+    }
     const sounding = this.state === STATE_PLAYING && autoplay && this.isMedia(prev) && !!old?.src && !old.paused;
     const fadeMs = sounding ? this.transitionMs() : 0;
     this.xfadeAuto = 0;
@@ -350,6 +355,13 @@ export class Player {
     this.virtualStart = performance.now();
     const t = this.track;
     const token = this.loadToken = (this.loadToken ?? 0) + 1;
+    // restore_pos (p21 / shouldRestorePerTrackPos): a long track (or one from
+    // the Long list) starts where it was left, unless an automatic crossfade
+    // would begin right away.
+    if (t && !this.pendingSeek && (t.lastPos ?? 0) > 0 && this.shouldRestorePos(t)) {
+      const f = fadePrefs(this.ctx);
+      if (!(f.auto !== AUTO_NONE && t.lastPos >= (t.durationMs || 0) - f.crossfadeMs - 2000)) this.pendingSeek = t.lastPos;
+    }
     if (this.audio) {
       const media = t && (t.src || t.libraryId || this.ctx.library?.byId.has(t.id));
       let fadeIn = 0;
@@ -405,6 +417,11 @@ export class Player {
         if (w && token === this.loadToken) this.post('msg_player_track_wave', {track: t});
       });
     }
+  }
+
+  shouldRestorePos(t) {
+    if (this.ctx.listWidget?.queueStack?.at(-1)?.kind === 'long') return true;
+    return !!this.ctx.pref?.('restore_pos') && (t.durationMs || 0) > (+(this.ctx.pref?.('restore_pos_min_dur') ?? 45) || 0) * 60000;
   }
 
   /**
@@ -723,6 +740,18 @@ export class Player {
       case 'cmd_player_play_last_category': this.edgeCategory(true); break;
       // A jump of 10 s, or d.ms while a jump button is held (10 s, then 20 s after 3 s).
       case 'cmd_player_seek_jump': this.seek(this.positionMs() + (d.arg1 ? 1 : -1) * (d.ms ?? 10000)); break;
+      // Held ±10 s buttons: jumps every 250 ms, 10 s for 3 s, then 20 s, until the end command.
+      case 'cmd_player_begin_seek_jumps': {
+        clearTimeout(this.jumpTimer);
+        const t0 = performance.now(), dir = d.arg1 ? 1 : -1;
+        const step = () => {
+          this.seek(this.positionMs() + dir * (performance.now() - t0 < 3000 ? 10000 : 20000));
+          this.jumpTimer = setTimeout(step, 250);
+        };
+        step();
+        break;
+      }
+      case 'cmd_player_end_seek_jumps': clearTimeout(this.jumpTimer); break;
       case 'cmd_player_set_shuffle': this.shuffle = d.arg1 ?? 0; this.order = null; this.post('msg_player_shuffle_mode_changed', {arg1: this.shuffle}); break;
       case 'cmd_player_set_repeat': this.repeat = d.arg1 ?? 0; this.post('msg_player_repeat_mode_changed', {arg1: this.repeat}); break;
       case 'cmd_player_set_sleep_timer': this.setSleepTimer(d.arg1 ?? 0, !!d.arg2); break;

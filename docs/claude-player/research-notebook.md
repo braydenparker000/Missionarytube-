@@ -1309,6 +1309,35 @@ shuffle. A pick while playing is a manual track change for fade_manual_advance (
 **Not built yet:** category_shuffle and hier_flat_shf, which act on sub-category lists (Albums by
 Artist, Folders Hierarchy; not built).
 
+### F73 — Library playback options, pro button morph — `CONFIRMED_STATIC`
+
+(a) S1 `b40` (scan_min_track_duration 6, skip_video, restore_pos, restore_pos_min_dur 45), `c40.b`
+(long_skip_rewind), `pi1.shouldRestorePerTrackPos`, `p21` (`last_pos` updates, restore on load),
+`k51` (`state_player_long_seek`), `MorphableBusStateBehavior` (`wa1.Y`), `BusDisabledForStateBehavior`,
+`TopPrevCat` / `TopNextCat` styles, `xs1` / `ss1` / `hs.H` (Reset stats).
+
+(c) **Scan settings** (applied to the loaded records at once):
+- Tracks shorter than scan_min_track_duration seconds are left out of the library ("Don't ignore" = 0).
+- With skip_video, files with a video stream are left out. Imports detect it from an MP4 `vide`
+  handler or a video MIME type, R2 tracks from their MIME type.
+
+**restore_pos:**
+- Leaving a track stores its position (`last_pos`; 0 within 2 s of the end).
+- A track longer than restore_pos_min_dur minutes, or one played from the Long list, starts at that
+  position. The exception: when an automatic crossfade would begin within crossfade + 2 s of it.
+
+**long_skip_rewind** (state_player_long_seek: the option on and a track over restore_pos_min_dur
+minutes, or the Long list):
+- The pro previous / next category buttons morph into −10 s / +10 s. A tap jumps 10 s; held, they
+  jump every 250 ms, 10 s for 3 s and then 20 s, until released (`cmd_player_begin_seek_jumps` /
+  `end_seek_jumps`). They stay enabled.
+- Otherwise they follow `state_player_category_not_navigable` (disabled outside category lists).
+- BusActionButton now honours enableForStateId / disableForStateId / morphWhenState for the states
+  this runtime knows: category navigation, long seek, seekable, dsp_enabled.
+
+**Reset stats:** "Reset stats?" with the warning and the stats-based categories note; Reset sets
+played times and last played to zero for every track.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1399,6 +1428,7 @@ No status is device-verified.
 | F70 Fades and crossfades | Built | Curves and the gapless-pair test inferred (native pipeline) |
 | F71 ReplayGain | Built | Gain rules follow the standard (native player) |
 | F72 Shuffle modes and options | Partial | category_shuffle and hier_flat_shf wait for the sub-category screens |
+| F73 Library playback options, pro button morph | Built | — |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact
