@@ -143,12 +143,16 @@ export class LayerDrawable extends Drawable {
 }
 
 export class InsetDrawable extends Drawable {
-  constructor(d, ins) {
+  /** ins: pixel insets {l, t, r, b}; frac: fractions of the bounds (android:inset="19%"), added to them. */
+  constructor(d, ins, frac = {l: 0, t: 0, r: 0, b: 0}) {
     super();
     this.d = d;
     this.ins = ins;
-    this.intrinsicWidth = d && d.intrinsicWidth >= 0 ? d.intrinsicWidth + ins.l + ins.r : -1;
-    this.intrinsicHeight = d && d.intrinsicHeight >= 0 ? d.intrinsicHeight + ins.t + ins.b : -1;
+    this.frac = frac;
+    // InsetDrawable.getIntrinsicWidth: the child grown so the fractions leave it its size.
+    const size = (c, f1, f2, i1, i2) => (c >= 0 && f1 + f2 < 1 ? Math.trunc(c / (1 - f1 - f2)) + i1 + i2 : -1);
+    this.intrinsicWidth = d ? size(d.intrinsicWidth, frac.l, frac.r, ins.l, ins.r) : -1;
+    this.intrinsicHeight = d ? size(d.intrinsicHeight, frac.t, frac.b, ins.t, ins.b) : -1;
     const p = d?.padding ?? {left: 0, top: 0, right: 0, bottom: 0};
     this.padding = {left: p.left + ins.l, top: p.top + ins.t, right: p.right + ins.r, bottom: p.bottom + ins.b};
   }
@@ -156,8 +160,11 @@ export class InsetDrawable extends Drawable {
   applyTint(t) { this.d = this.d?.withTint(t) ?? null; }
   ops(w, h, state, out, x = 0, y = 0) {
     if (!this.d) return;
+    const f = this.frac;
+    const l = this.ins.l + Math.trunc(f.l * w), t = this.ins.t + Math.trunc(f.t * h);
+    const r = this.ins.r + Math.trunc(f.r * w), b = this.ins.b + Math.trunc(f.b * h);
     this.d.alpha = this.alpha;
-    this.d.ops(w - this.ins.l - this.ins.r, h - this.ins.t - this.ins.b, state, out, x + this.ins.l, y + this.ins.t);
+    this.d.ops(w - l - r, h - t - b, state, out, x + l, y + t);
   }
 }
 
@@ -453,12 +460,18 @@ export class Drawables {
         return sl;
       }
       case 'inset': {
-        const all = this.dim(attrs['android:inset'], theme, 0);
-        const ins = {
-          l: this.dim(attrs['android:insetLeft'], theme, all), t: this.dim(attrs['android:insetTop'], theme, all),
-          r: this.dim(attrs['android:insetRight'], theme, all), b: this.dim(attrs['android:insetBottom'], theme, all),
+        // Each inset is a dimension or a fraction of the bounds ("19%").
+        const frac = raw => {
+          const v = raw === undefined ? undefined : this.res.resolveRaw(raw, theme).value;
+          return typeof v === 'string' && /%$/.test(v) ? parseFloat(v) / 100 : null;
         };
-        return new InsetDrawable(this.child(tree, attrs, theme, name), ins);
+        const side = k => {
+          const raw = attrs[k] ?? attrs['android:inset'];
+          const f = frac(raw);
+          return f === null ? {px: this.dim(raw, theme, 0), f: 0} : {px: 0, f};
+        };
+        const L = side('android:insetLeft'), T = side('android:insetTop'), R = side('android:insetRight'), B = side('android:insetBottom');
+        return new InsetDrawable(this.child(tree, attrs, theme, name), {l: L.px, t: T.px, r: R.px, b: B.px}, {l: L.f, t: T.f, r: R.f, b: B.f});
       }
       case 'level-list': {
         const items = children.filter(c => c[0] === 'item').map(it => {

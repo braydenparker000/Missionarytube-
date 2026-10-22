@@ -318,6 +318,13 @@ export class Settings {
     const r = this.root = document.createElement('div');
     r.className = 'cp-settings';
     r.hidden = true;
+    // The tap that opened the settings ends with the browser's click, which
+    // lands on whatever row is now under the finger: drop clicks just after
+    // opening (a person cannot tap a row that fast).
+    this.openedAt = -Infinity;
+    r.addEventListener('click', e => {
+      if (performance.now() - this.openedAt < 400) { e.stopPropagation(); e.preventDefault(); }
+    }, true);
     const font = ['default', 'alt', 'bold', 'boldplus'][+(this.get('settings_font', '2'))] ?? 'bold';
     r.dataset.font = font;
     this.applyScheme();
@@ -353,7 +360,9 @@ export class Settings {
   open(name) {
     const tree = this.screen(name);
     if (!tree) return;
-    this.ensureRoot().hidden = false;
+    const root = this.ensureRoot();
+    if (root.hidden) this.openedAt = performance.now();
+    root.hidden = false;
     this.stack.push(name);
     history.pushState({cpSettings: this.stack.length}, '');
     this.render(name, tree);
@@ -841,14 +850,12 @@ export class Settings {
         // A long action with the platform progress bar while it runs.
         const run = {
           rescan_folders: () => this.ctx.library?.refreshR2({force: true}),
-          erase_and_rescan: async progress => {
+          erase_and_rescan: async () => {
             const lib = this.ctx.library;
             if (!lib) return;
-            await lib.rescanTags({}, progress);
             lib.r2Generated = null;
             await lib.refreshR2({force: true});
           },
-          rescan_lyrics_tags: progress => this.ctx.library?.rescanTags({lyricsOnly: true}, progress),
         }[key];
         if (!run) break;
         const bar = document.createElement('div');

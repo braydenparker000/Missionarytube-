@@ -6,7 +6,7 @@
 import {FastLayout} from '../view/fast-layout.js';
 import {View, MeasureSpec} from '../view/view.js';
 import {FastButton} from '../view/text.js';
-import {register} from '../view/inflater.js';
+import {register, withView} from '../view/inflater.js';
 import {StyledAttributes} from '../res/resources.js';
 import {installSheetDrag} from './sheet-drag.js';
 import {STATE_PLAYING} from '../player/player.js';
@@ -96,6 +96,15 @@ export class Navbar extends FastLayout {
   onFinishInflate() {
     this.buttons = this.findViewById('navbar_nav_buttons');
     this.ext = this.findViewById('navbar_extension');
+    // The library button always opens the library at its start (owner decision;
+    // the reference keeps the last list). Other ways in keep the list.
+    withView(this, 'cmd_nav_to_lib', b => {
+      const click = b.onClick;
+      b.onClick = function () {
+        this.ctx.bus.post('bus_gui', 'cmd_list_to_start', this);
+        click.call(this);
+      };
+    });
   }
 
   container() {

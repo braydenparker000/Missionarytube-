@@ -106,10 +106,8 @@ frontend/claude-player/
   EQ is on, and its effect on background playback is measured on device before it becomes the default.
 - **Catalog/sources:** a worker builds category indexes (albums, artists, album artists, genres,
   composers, years, folders) from tags with the reference sort rules (articles, album-artist options).
-  The local source uses a file picker; on Android Chrome, file access ends with the session. After a
-  reload, tracks are marked “needs re-pick” with honest provenance. Optional OPFS import is an explicit
-  user choice showing the quota. Remote/catalog adapters come later and only through existing public
-  contracts, with no backend changes.
+  The source is the R2 library index; local file imports were removed by an owner decision (F89).
+  Remote/catalog adapters come only through existing public contracts, with no backend changes.
 
 ## 5. Android/web limitations stated up front
 

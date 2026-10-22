@@ -510,6 +510,7 @@ export class ListWidget extends FastLayout {
     this.trans = null; // running page transition
     ctx.bus.subscribe('bus_gui', (msg, src, d) => {
       if (msg === 'cmd_nav_to_playlist' && d?.playlist) this.openPlaylist(d.playlist);
+      else if (msg === 'cmd_list_to_start') this.toStart();
       else if (msg === 'msg_nav_changed') {
         this.searching = d.nav === 'nav_search';
         // A transition's own navigation: it sets the mode when it ends. Any
@@ -525,7 +526,11 @@ export class ListWidget extends FastLayout {
           this.pendingTarget = false;
         }
         if (this.searching) this.showSearch();
-        else if (this.mode === 'list' && this.searchShown) { this.searchShown = false; this.libList.setSource(this.stack[this.stack.length - 1]); }
+        else if (this.mode === 'list' && this.searchShown) {
+          this.searchShown = false;
+          if (this.stack.length) this.libList.setSource(this.stack[this.stack.length - 1]);
+          else this.openStart();
+        }
       }
     });
     // Track menu: jump to the current track's artist / album / folder / genre.
@@ -667,7 +672,8 @@ export class ListWidget extends FastLayout {
    */
   prepareListMenu(items) {
     const src = this.stack[this.stack.length - 1];
-    const hide = new Set(['add_to_home', 'delete_dups', 'add_url']);
+    // Select Folders: the library is the R2 index (local imports removed, owner decision).
+    const hide = new Set(['add_to_home', 'delete_dups', 'add_url', 'folders']);
     // Re-Sort: playlists and the Queue (bi1).
     if (!src?.playlist && src?.kind !== 'queue') hide.add('resort');
     // Clear / Show All: playlists clear their entries; the statistics lists
@@ -681,8 +687,7 @@ export class ListWidget extends FastLayout {
       if (hide.has(c.id)) { c.setVisibility(GONE); continue; }
       if (src?.clearable && (c.id === 'clear' || c.id === 'show_all')) c.setVisibility(VISIBLE);
       if (c.id === 'resort' && !hide.has('resort')) c.setVisibility(VISIBLE);
-      if (c.id === 'folders') c.onClick = () => this.ctx.importUi?.show();
-      else if (!c.id && c.text === exportText) c.onClick = () => exportPlaylists(this.ctx);
+      if (!c.id && c.text === exportText) c.onClick = () => exportPlaylists(this.ctx);
     }
   }
 
@@ -841,6 +846,25 @@ export class ListWidget extends FastLayout {
     this.openHome();
     const cat = homeCategory(+(this.ctx.pref('library_home') ?? -1));
     if (cat) this.open(categoryListSource(this.ctx, this.libList, this.nav, cat));
+    this.startSource = this.stack[this.stack.length - 1];
+  }
+
+  /**
+   * The library button: the library at its start. Shown, the list changes
+   * at once, after its level history entries are dropped (their popstate
+   * reopens the start); otherwise the next showing opens the start
+   * (setMode / startTransition with an empty stack).
+   */
+  toStart() {
+    const depth = this.stack.length;
+    this.trans?.complete();
+    if (this.mode !== 'list' || this.searching) { this.stack = []; return; }
+    if (this.stack[depth - 1] === this.startSource) { this.libList.scrollTo(0); return; }
+    const reopen = () => { this.stack = []; this.openStart(); };
+    if (depth > 1) {
+      this.ignorePop = reopen;
+      history.go(-(depth - 1));
+    } else reopen();
   }
 
   /**
@@ -963,7 +987,7 @@ export class ListWidget extends FastLayout {
 
   /** Back inside the library; returns false at the library home. */
   back() {
-    if (this.ignorePop) { this.ignorePop = false; return true; }
+    if (this.ignorePop) { const then = this.ignorePop; this.ignorePop = false; if (typeof then === 'function') then(); return true; }
     if (this.mode !== 'list' || this.stack.length <= 1) return false;
     if (this.trans) return true;
     const leaving = this.stack.pop(), scroll = this.libList.scrollY;

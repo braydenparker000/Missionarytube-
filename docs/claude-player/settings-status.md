@@ -13,11 +13,11 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 161 |
+| Built | 155 |
 | Settings UI | 108 |
 | Not built | 0 |
 | No web counterpart | 141 |
-| Owner decision | 17 |
+| Owner decision | 23 |
 | Not applicable | 25 |
 
 ## aa
@@ -323,15 +323,15 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `rescan_folders` | ProgressPreference | Built | Reloads the R2 index; imported files are re-read by Full Rescan |
-| `erase_and_rescan` | ProgressPreference | Built | Re-reads imported files' tags and reloads the R2 index |
+| `rescan_folders` | ProgressPreference | Built | Reloads the R2 index |
+| `erase_and_rescan` | ProgressPreference | Built | Reloads the R2 index, even when it has not changed |
 | `music_folders_button` | RawTextPreference | Settings UI |  |
 | `some_saf_folders_unavailable` | RawTextPreference | Settings UI |  |
-| `file_access_legacy` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
+| `file_access_legacy` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index |
 | `_legacy_access_warning` | RawTextPreference | Settings UI |  |
 | `scan_min_track_duration` | NumberListPreference | Built | Shorter tracks are left out of the library (F73) |
 | `skip_video` | MultilineSwitchPreference | Built | Files with a video stream are left out (F73) |
-| `auto_find_button` | Preference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
+| `auto_find_button` | Preference | No web counterpart | Android storage scanning; the web library is the R2 index |
 | `restore_pos` | MultilineSwitchPreference | Built | Long tracks start where they were left (last_pos, F73) |
 | `long_skip_rewind` | MultilineSwitchPreference | Built | Pro category buttons become -10/+10 s on long tracks (F73) |
 | `restore_pos_min_dur` | SeekbarPreference | Built | Long tracks start where they were left (last_pos, F73) |
@@ -374,7 +374,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `root_hier_immediate` | MultilineSwitchPreference | Built | Folders Hierarchy opens at the first folder with tracks or several subfolders (F76) |
 | `hier_files_zoom` | MultilineSwitchPreference | Built | a files-only folder takes the Folders files zoom (F76) |
 | `no_sort_field` | MultilineSwitchPreference | Built | Sort field drops The/A/An (sources.js sortKey) |
-| `show_cue_source` | MultilineSwitchPreference | Built | the disc image shows beside its CUE tracks (F77) |
+| `show_cue_source` | MultilineSwitchPreference | Owner decision | Applies to local files; local imports were removed (owner decision) and the R2 index carries decoded tags, no CUE sheets and no lyrics files |
 | `stream_name_in_title` | MultilineSwitchPreference | Owner decision | Owner decision: no network streams |
 
 ## library_playlists
@@ -406,19 +406,19 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `auto_scan` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
-| `scan_no_wait` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
-| `initial_scan` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
-| `scan_providers` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
-| `scan_post_usb_mount` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
-| `scan_post_system` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index or files the user imports |
+| `auto_scan` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index |
+| `scan_no_wait` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index |
+| `initial_scan` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index |
+| `scan_providers` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index |
+| `scan_post_usb_mount` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index |
+| `scan_post_system` | MultilineSwitchPreference | No web counterpart | Android storage scanning; the web library is the R2 index |
 | `artists_split_chars` | TagsPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
 | `artists_split_ignore` | TagsPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
 | `composers_split_chars` | TagsPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
 | `genres_split_chars` | TagsPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
-| `tag_encoding` | ListPreference | Built | Imported files read from now on; R2 index metadata comes decoded from the Worker |
+| `tag_encoding` | ListPreference | Owner decision | Applies to local files; local imports were removed (owner decision) and the R2 index carries decoded tags, no CUE sheets and no lyrics files |
 | `m3u_utf8` | MultilineSwitchPreference | Built | .m3u in UTF-8, else the tag encoding |
-| `process_cues` | MultilineSwitchPreference | Built | imported disc images with a .cue sheet become virtual folders of range tracks (F77; imports only) |
+| `process_cues` | MultilineSwitchPreference | Owner decision | Applies to local files; local imports were removed (owner decision) and the R2 index carries decoded tags, no CUE sheets and no lyrics files |
 
 ## library_search
 
@@ -594,9 +594,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `list_zoom_lyrics` | TagListPreference | Built | Partial: pinching steps the size without the list zoom transition |
 | `lyrics_plugin` | NumberListPreference | Built | Partial: None and Browser via custom URL; the lyrics apps are Android apps and fall back to the custom URL |
 | `lyrics_custom_url` | EditTextPreference | Built | Default empty: the reference's default search host is not on the repository's host allowlist |
-| `rescan_lyrics_tags` | ProgressPreference | Built |  |
-| `lrc_scan` | MultilineSwitchPreference | Built | Partial: sidecar .lrc files read at import, matched by path; the reference also matches by tags and folders |
-| `lrc_utf8` | MultilineSwitchPreference | Built |  |
+| `rescan_lyrics_tags` | ProgressPreference | Owner decision | Applies to local files; local imports were removed (owner decision) and the R2 index carries decoded tags, no CUE sheets and no lyrics files |
+| `lrc_scan` | MultilineSwitchPreference | Owner decision | Applies to local files; local imports were removed (owner decision) and the R2 index carries decoded tags, no CUE sheets and no lyrics files |
+| `lrc_utf8` | MultilineSwitchPreference | Owner decision | Applies to local files; local imports were removed (owner decision) and the R2 index carries decoded tags, no CUE sheets and no lyrics files |
 
 ## ui_mediaactions
 

@@ -18,22 +18,12 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
 .txt{position:absolute;left:0;top:0;pointer-events:none;white-space:pre;font-kerning:normal;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
 .ln{position:absolute;left:0;top:0;white-space:pre}
 .cp-boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#888;font:14px sans-serif;background:#000}
-.cp-file{position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0}
 .cv{position:absolute;left:0;top:0;pointer-events:none}
 .art{position:absolute;left:0;top:0;background-size:100% 100%;background-repeat:no-repeat;background-color:#222;overflow:hidden}
 .art.none{background-color:#2a2a2a}
 .cp-probe{position:fixed;left:0;top:0;width:0;height:100lvh;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);box-sizing:content-box}
 .milk-art{position:absolute;inset:-12%;background-size:cover;background-position:center;transform:translateZ(0)}
-.milk-shade{position:absolute;inset:0}
 .milk-vis{position:absolute;left:0;top:0;width:100%;height:100%;display:none}
-.cp-import{position:fixed;left:16px;right:16px;top:50%;transform:translateY(-50%);background:#1c1c1e;color:#fff;border-radius:24px;padding:24px;font-family:cp-ttnorms,sans-serif;z-index:10;box-shadow:0 8px 32px rgba(0,0,0,.6)}
-.cp-import[hidden]{display:none}
-.cp-import-title{font-weight:700;font-size:20px;margin-bottom:8px}
-.cp-import-msg{font-weight:500;font-size:14px;color:#bbb;margin-bottom:20px}
-.cp-import-row{display:flex;gap:12px}
-.cp-import-row[hidden]{display:none}
-.cp-import-btn{flex:1;font:700 15px cp-ttnorms,sans-serif;color:#fff;background:#333;border:0;border-radius:18px;padding:12px 16px}
-.cp-import-close{margin-top:12px;width:100%;background:transparent;color:#999}
 /* Settings (platform Material preference metrics; colours inferred, see coverage matrix) */
 .cp-settings{--cps-bg:#000;--cps-fg:#fff;--cps-fg2:rgba(255,255,255,.7);--cps-fg3:rgba(255,255,255,.5);--cps-accent:#a8c7fa;--cps-on-accent:#062e6f;--cps-track:rgba(255,255,255,.12);--cps-press:rgba(255,255,255,.08);--cps-press2:rgba(255,255,255,.1);--cps-raw:rgba(255,255,255,.06);--cps-dialog:#2b2930;--cps-outline:#938f99;--cps-tf:cp-ttnorms,sans-serif;--cps-tw:500;--cps-sf:cp-ttnorms,sans-serif;--cps-sw:500;position:fixed;inset:0;z-index:20;background:var(--cps-bg);color:var(--cps-fg);display:flex;flex-direction:column;font-family:var(--cps-tf);-webkit-font-smoothing:antialiased;touch-action:pan-y;user-select:none}
 .cp-settings[hidden]{display:none}

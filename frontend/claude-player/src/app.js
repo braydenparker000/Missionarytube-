@@ -10,7 +10,6 @@ import {loadFonts} from './fonts.js';
 import {Player} from './player/player.js';
 import {installInput} from './input.js';
 import {Library} from './library/library.js';
-import {installImport} from './library/import-ui.js';
 import {Settings, loadStoredSettings, runtimeSettings, prefDefaults} from './settings/settings.js';
 import {DSP} from './dsp/dsp.js';
 import {installEqPresets} from './widgets/eq-preset-ui.js';
@@ -162,8 +161,6 @@ export async function boot() {
   installSubAAEditor(ctx);
   ctx.screenPrefs = installScreenPrefs(ctx);
   ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => { if (msg === 'cmd_data_lyrics') openLyricsDialog(ctx, d?.track, {pluginFirst: d?.arg1 === 1}); });
-  const importUi = installImport(ctx, document.body);
-  ctx.importUi = importUi;
   const params = new URLSearchParams(location.search);
   if (params.has('demo')) {
     const {demoTracks} = await import('./dev/demo.js');
@@ -184,10 +181,10 @@ export async function boot() {
     player.setQueue(library.tracks, npIndex);
     if (saved?.queueMode) player.resumeQueueMode(saved.trackId);
     if (saved?.positionMs) player.seek(saved.positionMs);
-  } else importUi.show();
+  }
   // A library that arrives later (R2 index refresh) fills an empty player.
   ctx.bus.subscribe('bus_library', () => {
-    if (!player.queue.length && library.tracks.length) { importUi.hide(); player.setQueue(library.tracks, 0); }
+    if (!player.queue.length && library.tracks.length) player.setQueue(library.tracks, 0);
   });
   // Remember the current track and position (reference: resume where left off).
   const saveState = () => {

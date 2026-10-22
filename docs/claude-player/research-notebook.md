@@ -2005,6 +2005,69 @@ The library home header shows "Library". The Queue row shows `state_player_queue
 (g) `list/list-opts.js` (`defaultZoom`, `ZOOMS`, `SEARCH_ZOOM`), `list/sources.js`, `list/list-widget.js`,
 `player/player.js` (`queueCounter`), `view/text.js`.
 
+### F88 — Player backdrop gradient — `CONFIRMED_STATIC`
+(a) S1 `MilkWidget` (`c40` `aa_bg_gradient` 4, `aa_bg_gradient_color` "#FF000000",
+`aa_bg_gradient_for_list`), `MilkLoader` (the bitmap pass before `native_load_aa`).
+
+(b) The gradient is painted into the art bitmap before the native blur, top to bottom of the
+image. Over levels 0 → 10:
+- it is clear down to 0.75 → 0.1 of the height;
+- it reaches the colour at 1 → 0.85.
+
+Level 4 is clear to 49% and black at 94%. Level 0 paints nothing.
+
+(c) The colour's own alpha is dropped. Black is opaque; any other colour takes alpha 170 → 255 with
+the level. The platform interpolates unpremultiplied from transparent black, so the in-between
+stops darken towards black.
+
+(d) The list backdrop has the gradient only with `aa_bg_gradient_for_list`. The port used to lay a
+separate overlay over the whole screen, from 14% to 64% black, which left the lower half light.
+
+(e) The transport buttons' black discs (`colorPlayButtonsBg`, the v31 `ripple_play_round_100dp`)
+and the time labels' black pills (`colorBgInverse`) are the reference skin's own values. They cut
+the waveseek drawn behind the transport.
+
+**Inferred:** how the native renderer maps the art onto the screen. The port keeps the art covering
+the screen, so image height maps to screen height.
+
+(f) `widgets/milk.js` (`artGradient`), `app.css` (`.milk-art`).
+
+### F89 — Transport glyph boxes; library button, settings tap-through, local imports — `CONFIRMED_STATIC` (bytecode run) / owner decisions
+(a) The harness renders the main activity and its drawables. The transport buttons draw a
+`colorPlayButtonsBg` oval (black in every skin but the Material You and light-button ones), and the
+time labels an `inverse_rounded_small_labels` pill (`colorBgInverse`, black). Sizes match the port:
+play 263 px, rewind and fast forward 168 px, previous and next category 126 px.
+
+(b) The v31 glyph layer is an `<inset>` with a fraction of the bounds:
+- play 25%, pause 30%, fast forward 19%, next category 20%;
+- rewind and previous category rotate the forward glyphs by 180°.
+
+`InsetDrawable` takes `(int) (fraction × size)` per side, and an intrinsic size of
+`child / (1 − fractions)`. The port read the fraction as 0, so every glyph filled its disc.
+
+(c) Measured glyphs (light pixels, 1082 px wide screen) within the disc; the port's core glyphs are
+fitted to them:
+
+| Button | Disc | Glyph | Centre offset |
+|---|---|---|---|
+| Play | 263 | 104 × 119 | +13.5 px |
+| Pause | 263 | 85 × 105 | 0 |
+| Fast forward | 168 | 92 × 52 | +6 px |
+| Next category | 126 | 67 × 29 | +3.5 px |
+
+(d) Owner decisions:
+- The navbar's library button always opens the library at its start. The reference keeps the last
+  list; the swipe to the playing track and the other ways in still keep it.
+- Local file imports are removed: Select Folders, the import panel, and imported tracks with their
+  CUE sheets, `.lrc` sidecars and tag re-reading. The library is the R2 index.
+
+(e) A tap that opens the settings ends with the browser's click on the row now under the finger,
+which opened a settings page (Lock Screen from the menu sheet's Settings row). Clicks in the first
+400 ms after the settings open are dropped.
+
+(f) `view/drawables.js` (`InsetDrawable`), `icons.js` (`fit`), `widgets/navbar.js`,
+`list/list-widget.js` (`toStart`), `settings/settings.js`, `library/library.js`, `app.js`.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
@@ -2098,7 +2161,7 @@ No status is device-verified.
 | F74 About: version and licenses | Built | — |
 | F75 Navbar scroll-away and the bottom toolbar | Built | The bottom toolbar fades with the leaving page in level transitions (`w62.j` fades it by the transition fraction) |
 | F76 Category levels, Albums by Artist, Folders Hierarchy | Built | Text-item rows for categories (track items here) |
-| F77 CUE sheets | Built | R2 index (audio files only); virtual track waveforms sliced from the image (inferred) |
+| F77 CUE sheets | Owner decision | Sheets came with local imports, removed (F89); the R2 index has audio files only |
 | F78 GUI modals (navbar sheet, popups, item menus) | Built | — |
 | F81 EQ preset song and category assignment | Built | Devices hidden (outputs not identifiable); the playback switch-back inferred |
 | F79 Entry headers, back decor, category row meta | Built | No artist images |
@@ -2108,6 +2171,8 @@ No status is device-verified.
 | F84 Colour and text preferences | Built | System palette circles have no web counterpart |
 | F85 Null style items, reference harness | Built | — |
 | F87 Library list defaults and options, measured | Built | Category meta (counts, durations) not compared: the seed has no `cat_stats` |
+| F88 Player backdrop gradient | Built | The art's mapping onto the screen inferred (native renderer) |
+| F89 Transport glyph boxes; library button, settings tap-through, no local imports | Built | Disc colours are the skin's own; which skin the owner's device uses is open |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 
