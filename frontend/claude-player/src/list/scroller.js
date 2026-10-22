@@ -49,7 +49,8 @@ export class ListScrollerView extends FastTextView {
     this.pivotFracX = a.fraction('transformPivotX_percent', 0.5);
     this.thumbW = this.thumb?.intrinsicWidth > 0 ? this.thumb.intrinsicWidth : Math.round(16 * ctx.dpr);
     this.thumbH = this.thumb?.intrinsicHeight > 0 ? this.thumb.intrinsicHeight : Math.round(64 * ctx.dpr);
-    this.chars = AZ_CHARS;
+    // The alphabet resource: localized_azChars with the Localized A-Z option.
+    this.chars = (ctx.settings?.localized_az ? ctx.res.stringByName('localized_azChars') : ctx.res.stringByName('azChars')) || AZ_CHARS;
     this.mode = -1;
     this.pressedIndex = MIN;
     this.thumbAlpha = 0;

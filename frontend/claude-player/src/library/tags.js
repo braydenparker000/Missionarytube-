@@ -332,6 +332,17 @@ function readMp3Duration(b, o, fileSize, out) {
 }
 
 /** Reads tags from a File/Blob (first 1 MiB, plus more for large ID3 pictures). */
+/** End offset of the FLAC metadata blocks in b, or a larger offset still needed. */
+function flacMetaEnd(b) {
+  let o = 4;
+  while (o + 4 <= b.length) {
+    const last = b[o] & 0x80;
+    o += 4 + ((b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]);
+    if (last) return o;
+  }
+  return o + 4;
+}
+
 export async function readTags(file) {
   const out = {title: '', artist: '', album: '', albumArtist: '', genre: '', track: 0, trackTotal: 0, disc: 0, year: 0, durationMs: 0, picture: null, format: ''};
   let head = new Uint8Array(await file.slice(0, 1 << 20).arrayBuffer());
@@ -340,6 +351,32 @@ export async function readTags(file) {
     if (size + 65536 > head.length && size < 32 << 20) head = new Uint8Array(await file.slice(0, size + 65536).arrayBuffer());
     const end = readId3(head, out);
     if (!readFlac(head, end, out)) readMp3Duration(head, end, file.size, out);
+  } else if (latin1.decode(head.subarray(4, 8)) === 'ftyp') {
+    // MP4: tags, duration and cover live in moov, which can outgrow the first
+    // read or follow the audio (mdat): walk the top-level boxes, read moov alone.
+    let o = 0, moov = null;
+    for (let i = 0; i < 32 && !moov && o + 8 <= file.size; i++) {
+      const h = new Uint8Array(await file.slice(o, o + 16).arrayBuffer());
+      const size = be32(h, 0) === 1 && h.length >= 16 ? be32(h, 8) * 2 ** 32 + be32(h, 12) : be32(h, 0);
+      if (size < 8) break;
+      if (latin1.decode(h.subarray(4, 8)) === 'moov') moov = [o, o + size];
+      o += size;
+    }
+    if (moov && moov[1] - moov[0] <= 64 << 20) {
+      const m = new Uint8Array(await file.slice(moov[0], moov[1]).arrayBuffer());
+      const b = new Uint8Array(8 + m.length);
+      b.set([0, 0, 0, 8, 0x66, 0x74, 0x79, 0x70]);
+      b.set(m, 8);
+      readMp4(b, out);
+    } else readMp4(head, out);
+  } else if (latin1.decode(head.subarray(0, 4)) === 'fLaC') {
+    // FLAC metadata (a large picture) can outgrow the first read.
+    let need = flacMetaEnd(head);
+    while (need > head.length && need < 64 << 20 && head.length < file.size) {
+      head = new Uint8Array(await file.slice(0, Math.min(file.size, Math.max(need, head.length * 2))).arrayBuffer());
+      need = flacMetaEnd(head);
+    }
+    readFlac(head, 0, out);
   } else if (!readFlac(head, 0, out) && !readMp4(head, out)) {
     if (latin1.decode(head.subarray(0, 4)) === 'OggS') {
       // A large comment packet (embedded cover) spans many pages: grow until it is whole.
@@ -421,17 +458,8 @@ export async function readRemotePicture(url, fetchInit = {}) {
     }
   } else if (latin1.decode(head.subarray(0, 4)) === 'fLaC') {
     // Grow until the metadata blocks (the picture among them) are whole.
-    const metaEnd = () => {
-      let o = 4;
-      while (o + 4 <= head.length) {
-        const last = head[o] & 0x80;
-        o += 4 + ((head[o + 1] << 16) | (head[o + 2] << 8) | head[o + 3]);
-        if (last) return o;
-      }
-      return o + 4;
-    };
     let need;
-    while ((need = metaEnd()) > head.length && head.length < LIMIT && !eof) await grow(need);
+    while ((need = flacMetaEnd(head)) > head.length && head.length < LIMIT && !eof) await grow(need);
     readFlac(head, 0, out);
   }
   return out.picture?.bytes?.length ? out.picture : null;
