@@ -208,6 +208,7 @@ export class AAItemView extends SceneFastLayout {
     if (this.itemScene === scene) return;
     this.itemScene = scene;
     this.loadBehaviorsFor(scene);
+    if (this.searchButtonGone !== undefined) this.findViewById('search_button')?.setVisibility(this.searchButtonGone ? GONE : VISIBLE);
     this.syncLyricsButton();
     this.scenes.go(scene, {duration: 0});
   }
@@ -1988,18 +1989,8 @@ export class ListWidget extends FastLayout {
     const ll = this.libList;
     if (ll.visibility !== GONE) {
       // Rows scroll above the navbar (bottomReservedSpace) and the bottom inset.
+      // Search results start below the search header (searchHeaderSize).
       ll.paddingTop = 0;
-      if (this.searching) {
-        // Results start below the search panel.
-        let root = this;
-        while (root.parent) root = root.parent;
-        // Below the search panel and, when shown, the category chips or the target chip.
-        let bottom = 0;
-        for (const v of [root.findViewById('search_edit')?.parent, root.findViewById('search_cats_layout'), root.findViewById('search_target')]) {
-          if (v && v.visibility !== GONE && v.height > 0) bottom = Math.max(bottom, v.getLocationIn(null).y + v.height);
-        }
-        if (bottom) ll.paddingTop = Math.max(0, bottom - this.getLocationIn(null).y);
-      }
       ll.paddingBottom = this.reservedSpace() + this.bottomToolbarSize;
       ll.paddingLeft = this.ctx.windowInsets.left;
       ll.paddingRight = this.ctx.windowInsets.right;

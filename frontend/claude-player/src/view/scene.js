@@ -157,7 +157,8 @@ export function attachStateAnim(view, sa) {
 function collect(group, scene, out) {
   for (const c of group.children ?? []) {
     const rec = c.sceneParams?.get(scene);
-    if (rec) out.push({view: c, rec});
+    // applyEvenIfGone dontApplyIfGone (do1): a gone view keeps out of the scene.
+    if (rec && !(rec.applyEvenIfGone === 2 && c.visibility === GONE)) out.push({view: c, rec});
     if (c.children && !c.privateScene) collect(c, scene, out);
   }
   return out;

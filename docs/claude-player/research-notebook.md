@@ -2142,6 +2142,21 @@ mark there.
 (g) `widgets/cast.js`, `view/text.js`, `view/view.js`, `list/list-widget.js` (`setCatIcon`),
 `list/sources.js`, `list/list-opts.js`, `list/power-list.js`, `icons.js`.
 
+(h) The search screen in the harness:
+- **Search header.** The list keeps a header item (`merge_item_text_header` in
+  `scene_search_header`, `searchHeaderSize` 378 px) under the search panel. It has no title, and the
+  Shuffle, Play, Select and menu buttons sit at its foot, from the empty query on. The port padded
+  the list below the chips and showed no buttons.
+- **Search-in-list button.** It is gone in search lists. Its `scene_search_header` params carry
+  `applyEvenIfGone dontApplyIfGone`, so a gone view stays out of that scene. The port's scene engine
+  now honours the flag.
+- **Search field.** It is a platform EditText (`TopListSearchEditText`, parent
+  `Widget.AppCompat.EditText`):
+  - its text appearance gives 18sp (47 px; the port had 12sp);
+  - its left drawable sits at the left padding.
+- **EQ screen.** It matches the reference by id. Knob values differ because the harness has no audio
+  engine.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.

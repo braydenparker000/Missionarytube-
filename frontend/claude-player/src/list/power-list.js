@@ -13,6 +13,15 @@ import {EdgeGlow} from './edge-glow.js';
 import {colorToCss, argbAlpha} from '../res/values.js';
 import {nestedDragOf} from '../widgets/sheet-drag.js';
 
+// Search lists have no search-in-list button: it is gone, so the search
+// header's scene leaves it so (applyEvenIfGone dontApplyIfGone).
+// The buttons may load later, with the scene (setItemScene).
+function searchButton(v, s) {
+  v.searchButtonGone = !!s.isSearch;
+  const b = v.findViewById?.('search_button');
+  if (b) b.setVisibility(s.isSearch ? GONE : VISIBLE);
+}
+
 export const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text', separator: 'item_separator_button', history: 'item_search_history', clearHistory: 'item_clear_search_history'};
 // Row types without item scenes (SeparatorItemView): laid out at the row's size.
 const PLAIN_TYPES = new Set(['separator', 'history', 'clearHistory']);
@@ -366,7 +375,7 @@ export class PowerList extends FastLayout {
       let x, y, w, h, scene;
       if (i === -1) {
         x = 0; y = g.top - sy; w = this.width; h = g.headH; scene = s.header.scene;
-        if (fresh || v._boundKey !== 'h') { s.bindHeader(v); v._boundKey = 'h'; }
+        if (fresh || v._boundKey !== 'h') { s.bindHeader(v); searchButton(v, s); v._boundKey = 'h'; }
         // AAImageView.E: the header's art reaches up over the pulled gap.
         v.image?.setStretch?.(this.over > 0 ? this.over : 0);
       } else if (i === SUBHEAD) {
@@ -478,7 +487,7 @@ export class PowerList extends FastLayout {
       v._boundSource = null;
     }
     if (v.inMenu) return;
-    if (v._boundSource !== s) { s.bindHeader(v); v._boundSource = s; }
+    if (v._boundSource !== s) { s.bindHeader(v); searchButton(v, s); v._boundSource = s; }
     let f = 1;
     if (bt.headerButtons) {
       const first = this.indexAtY(g, Math.max(0, this.scrollY - g.top - g.headerH));
