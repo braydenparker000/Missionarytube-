@@ -1061,12 +1061,39 @@ search history". A tap on a term searches it; its button removes it.
 **Fix:** the chip row now lays out after Search opens. Its scene change had captured a 0 × 0
 target frame while the row was gone.
 
-Not built: Streams results (owner decision), the search zoom levels (`list_zoom_search`) and the
-targeted search (`ste`).
+**Minimum query:** two characters (one when targeted, or for Japanese, Korean and Chinese).
+Shorter, the plain search lists its history and a targeted one nothing (`kj1.B`).
 
-(f) `list/sources.js` (`searchSource`, `historySource`), `library/search-history.js`,
+**Search zoom** (`list_zoom_search`, `jj1.A` / `u` / `q0` / `F`, `vo1.P0`): six one-column levels,
+the track lists' table: 1 line extra small, 1 line, List - no images, List - compact (the default),
+List - small and List. The one-line scenes apply when the search covers one one-line category
+alone (Playlists, Genres, Years or Composers). Pinch steps through the levels; List Options offers
+them; separators and history rows keep their own heights.
+
+**Targeted search** (`ste` / `fpt`; `p31` `cmd_list_target_search` / `cmd_list_clear_target_search`,
+`vo1.T0` / `W0` / `S0`, `kj1.B`, `pd.I0`, `ListSearchTargetButton`, `ListSearchCatsLayout.x1`):
+- A list header's search button searches within the shown list: a category list, an entry's
+  songs or albums, Albums by Artist, a Folders Hierarchy level. The Library home, the Queue and
+  the search itself open the plain search.
+- The query starts empty with the keyboard. The category chips hide behind the target chip: the
+  list's label ("Albums", "Album Songs: Coastlines", "Folders Hierarchy: <folder>") with an X.
+- It searches the list's own rows in the list's own order: a category list its entries (albums by
+  album and artist), a track list its songs, a Folders Hierarchy level its subfolders and the songs
+  directly in it, the songs under "Folder Songs" (a header shows only before a second category).
+  A result binds, opens and plays as in that list (a song plays the list from it).
+- The chip clears the target: the same text over the chosen categories, the chips back.
+- The last plain search text comes back when Search is opened plainly; targeted terms still enter
+  the history.
+
+(e) **Inferred:** the labels' kind names for deeper lists, and the one-line levels' scenes for
+results that are not one-line categories.
+
+Not built: Streams results (owner decision).
+
+(f) `list/sources.js` (`searchSource`, `targetedRows`, `historySource`), `library/search-history.js`,
 `list/power-list.js` (separator and plain row types with their own heights), `widgets/search.js`
-(`SEARCH_CATS`, the chip row scroller).
+(`SEARCH_CATS`, the chip row scroller, `ListSearchTargetButton`), `list/list-widget.js`
+(`targetSearch`, `targetLabel`, `setSearchTarget`, the search's pinch zoom).
 
 ### F65 — The Queue — `CONFIRMED_STATIC`
 
@@ -1967,7 +1994,7 @@ No status is device-verified.
 | F82 Parametric equalizer | Built | Filter maths and curve axis inferred (native); tall item layout by intent; AutoEq text files and the AutoEq project zip import; per-device suggestions not built |
 | F83 App drawable states, unlimited wrap measuring | Built | — |
 | F84 Colour and text preferences | Built | System palette circles have no web counterpart |
-| F64 search | Built | Search zoom levels and targeted search not built; no Streams |
+| F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 
 ## Open questions, prioritised by fidelity impact
 

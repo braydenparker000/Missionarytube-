@@ -517,6 +517,11 @@ export class ListWidget extends FastLayout {
         const mode = d.nav === 'nav_lyrics' ? 'lyrics' : d.nav === 'nav_lib' || this.searching ? 'list' : 'aa';
         if (!this.searching && !this.searchShown && this.animateModeChange(mode)) return;
         this.setMode(mode);
+        // Search reached any other way than a header's search button is the plain search.
+        if (this.searching) {
+          if (!this.pendingTarget && this.searchTarget) this.setSearchTarget(null, true);
+          this.pendingTarget = false;
+        }
         if (this.searching) this.showSearch();
         else if (this.mode === 'list' && this.searchShown) { this.searchShown = false; this.libList.setSource(this.stack[this.stack.length - 1]); }
       }
@@ -528,6 +533,8 @@ export class ListWidget extends FastLayout {
         if (msg === 'cmd_list_force_ab_on_screen') { if (bus === 'list') this.forceToolbar(d?.arg1 ?? 0); }
         else if (msg === 'cmd_list_search_text') { this.searchQuery = d?.string ?? ''; if (this.searching) this.showSearch(); }
         else if (msg === 'cmd_list_search_cat') { this.searchMask = d?.mask ?? -1; if (this.searching) this.showSearch(); }
+        else if (msg === 'cmd_list_target_search') { if (bus === 'list') this.targetSearch(); }
+        else if (msg === 'cmd_list_clear_target_search') { if (bus === 'list' && this.searchTarget) { this.setSearchTarget(null); if (this.searching) this.showSearch(); } }
         else if (current[msg]) this.openCurrent(current[msg]);
         else if (msg === 'cmd_list_play' || msg === 'cmd_list_shuffle') this.playList(msg === 'cmd_list_shuffle');
         else if (msg === 'cmd_list_add_to_pl_dialog') this.addToPlaylist();
@@ -591,7 +598,7 @@ export class ListWidget extends FastLayout {
         break;
       }
       case 'cmd_list_options_dialog':
-        if (src?.optsKey) openListOptions(ctx, src, () => this.replaceTop(src.rebuild?.() ?? null));
+        if (src?.optsKey) openListOptions(ctx, src, () => { if (this.searchShown && src === this.searchSrc) this.showSearch(); else this.replaceTop(src.rebuild?.() ?? null); });
         break;
       case 'cmd_list_rescan':
         ctx.library.refreshR2?.({force: true});
@@ -705,10 +712,61 @@ export class ListWidget extends FastLayout {
     return {list: this.libList, open: src => this.open(src)};
   }
 
+  /**
+   * cmd_list_target_search (a list header's search button; p31): a library
+   * list searches within itself (ste, labelled fpt), starting empty with the
+   * keyboard; the Library home, the Queue and the search itself open the
+   * plain search.
+   */
+  targetSearch() {
+    const src = this.mode === 'list' && !this.searching && !this.searchShown ? this.stack[this.stack.length - 1] : null;
+    const target = src && !(src instanceof HomeSource) && src.kind !== 'queue' && !src.rows && (src.groups || src.tracks || src.folders) ? src : null;
+    if (target) {
+      this.pendingTarget = true;
+      this.setSearchTarget({src: target, label: this.targetLabel(target)});
+      this.ctx.bus.post('list', 'cmd_list_search_text', this, {string: ''});
+    }
+    this.ctx.bus.post('bus_gui', 'cmd_nav_to_search', this);
+  }
+
+  /**
+   * The target chip's label (pd.I0): a category list's title; a deeper
+   * list's kind and name ("Album Songs: Abbey Road"; inferred names for the
+   * kinds); Folders Hierarchy and its folder.
+   */
+  targetLabel(src) {
+    const s = k => this.ctx.res.stringByName(k) ?? k;
+    // "%1$s: %2$s" with a non-breaking space after the colon.
+    const pair = (a, b) => s('key_colon_value_s_s').replace('%1$s', a).replace(': %2$s', ':\u00a0' + b).replace('%2$s', b);
+    if (src.folders) return src.isRoot ? s('folders_hier') : pair(s('folders_hier'), src.title);
+    if (this.stack.indexOf(src) <= 1) return src.title;
+    const g = src.group, pg = src.parentGroup;
+    const KIND = {artist: 'artist', albumArtist: 'artist', genre: 'genre', composer: 'composer', year: 'year'};
+    let kind = null;
+    if (pg && !g) kind = `${KIND[pg.kind] ?? 'artist'}_albums`;
+    else if (g?.kind === 'album') kind = src.parentGroup && KIND[src.parentGroup.kind] ? `${KIND[src.parentGroup.kind]}_album_songs` : 'album_songs';
+    else if (g?.kind === 'folder') kind = 'folder_songs';
+    else if (g?.pl || g?.kind === 'playlist' || src.playlist) kind = 'playlist_songs';
+    else if (g && KIND[g.kind]) kind = `all_${g.kind === 'albumArtist' ? 'album_artist' : g.kind}_songs`;
+    return kind && this.ctx.res.stringByName(kind) ? pair(s(kind), src.title) : src.title;
+  }
+
+  /** Targeted or plain: the chips hide behind the target chip (ListSearchCatsLayout.x1 / ListSearchTargetButton). */
+  setSearchTarget(t, restorePlain = false) {
+    const was = this.searchTarget;
+    // The last search term is kept for the plain search only (vo1.S0 / W0).
+    if (t && !was) this.plainQuery = this.searchQuery ?? '';
+    this.searchTarget = t;
+    this.ctx.searchCats?.setShown?.(!t);
+    this.ctx.searchTarget?.setTarget?.(t?.label ?? null);
+    if (!t && restorePlain) this.ctx.bus.post('list', 'cmd_list_search_text', this, {string: this.plainQuery ?? ''});
+  }
+
   showSearch() {
     this.searchShown = true;
     const q = this.searchQuery ?? '';
-    const src = searchSource(this.ctx, this.libList, this.nav, q, this.searchMask ?? searchMask());
+    const src = searchSource(this.ctx, this.libList, this.nav, q, this.searchMask ?? searchMask(), this.searchTarget?.src ?? null);
+    src.searchCategories = this.searchTarget ? null : SEARCH_CATS.slice(1);
     // Every delivered result set records its query (sd.e0 → kj1.А).
     if (q.trim()) recordSearch(q.trim());
     this.searchSrc = src;
@@ -790,7 +848,7 @@ export class ListWidget extends FastLayout {
   openListOptionsFor(which, opts = {}) {
     const ctx = this.ctx;
     if (which === 'search') {
-      const src = {optsKey: 'search', title: ctx.res.stringByName('search') ?? 'Search', searchCategories: SEARCH_CATS.slice(1)};
+      const src = {optsKey: 'search', zoomKind: 'tracks', title: ctx.res.stringByName('search') ?? 'Search', searchCategories: SEARCH_CATS.slice(1)};
       return openListOptions(ctx, src, null, opts);
     }
     const src = new HomeSource(ctx, this.libList, this.nav);
@@ -1571,8 +1629,10 @@ export class ListWidget extends FastLayout {
       this.pinch.vt.add(time, dist, 0);
       return true;
     }
-    if (this.mode !== 'list' || this.searching || this.trans || this.searchShown) return false;
+    if (this.mode !== 'list' || this.trans) return false;
     const src = this.libList.source;
+    // Search zooms too (list_zoom_search), its history page not.
+    if ((this.searching || this.searchShown) && (src !== this.searchSrc || src.isHistory)) return false;
     if (!src?.optsKey || !ZOOMS[src.zoomKind]) return false;
     this.libList.drag = null;
     this.libList.stopFling();
@@ -1675,7 +1735,8 @@ export class ListWidget extends FastLayout {
         ghost.visibility = GONE;
         this.pageFx('list', this.libList, 0, 1, null);
         this.trans = null;
-        if (commit) this.stack[this.stack.length - 1] = next;
+        if (commit && src === this.searchSrc) this.searchSrc = next;
+        else if (commit) this.stack[this.stack.length - 1] = next;
         else {
           saveListOpts(key, {zoom: oldZoom});
           this.libList.setSource(src);
@@ -1894,9 +1955,9 @@ export class ListWidget extends FastLayout {
         // Results start below the search panel.
         let root = this;
         while (root.parent) root = root.parent;
-        // Below the search panel and, when shown, the category chips.
+        // Below the search panel and, when shown, the category chips or the target chip.
         let bottom = 0;
-        for (const v of [root.findViewById('search_edit')?.parent, root.findViewById('search_cats_layout')]) {
+        for (const v of [root.findViewById('search_edit')?.parent, root.findViewById('search_cats_layout'), root.findViewById('search_target')]) {
           if (v && v.visibility !== GONE && v.height > 0) bottom = Math.max(bottom, v.getLocationIn(null).y + v.height);
         }
         if (bottom) ll.paddingTop = Math.max(0, bottom - this.getLocationIn(null).y);

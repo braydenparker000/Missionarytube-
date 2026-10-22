@@ -33,7 +33,7 @@ const HOME_HINTS = {album_artists: 'summary_album_artists', albums_by_artist: 's
 
 /** A library category by id (library_home). */
 export const homeCategory = id => HOME.find(c => c.id === id) ?? null;
-import {applyZoom, listOpts, REVERSE} from './list-opts.js';
+import {applyZoom, listOpts, REVERSE, zoomGeometry} from './list-opts.js';
 import {SEARCH_CATS} from '../widgets/search.js';
 import {GONE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
@@ -566,6 +566,7 @@ function historySource(ctx, list, nav, title) {
   const src = new TrackSource(ctx, list, nav, title, []);
   src.header = null;
   src.headerHeight = 0;
+  src.isHistory = true;
   if (!terms.length) return src;
   const rerun = () => ctx.listWidget?.showSearch?.();
   const n = terms.length;
@@ -604,14 +605,31 @@ function historySource(ctx, list, nav, title) {
  * title_filename), the others their name. Streams are not built (owner
  * decision) and find nothing.
  */
-export function searchSource(ctx, list, nav, query, mask = -1) {
+export function searchSource(ctx, list, nav, query, mask = -1, target = null) {
   const lib = ctx.library;
   const pool = lib?.tracks?.length ? lib.tracks : ctx.player?.queue ?? [];
   const title = str(ctx, 'search', 'Search');
-  const bare = src => { src.header = null; src.headerHeight = 0; return src; };
-  const words = String(query ?? '').split(/[\s:\-_]+/).filter(Boolean).map(w => w.toLowerCase());
-  if (!words.length) return historySource(ctx, list, nav, title);
-  if (words.length > 64 || !mask) return bare(new TrackSource(ctx, list, nav, title, []));
+  // list_zoom_search (jj1): the six one-column levels of track lists; the
+  // one-line scenes when the search covers one one-line category alone.
+  const oneLine = target ? !!target.groups?.[0] && ONE_LINE_KINDS.has(target.groups[0].kind) : SEARCH_KINDS.filter((c, i) => mask & (1 << i)).every(c => ONE_LINE_KINDS.has(c.kind)) && SEARCH_KINDS.some((c, i) => mask & (1 << i));
+  const bare = src => {
+    src.header = null;
+    src.headerHeight = 0;
+    const sub = list.host.substyle;
+    applyZoom(src, sub, 'tracks', 'search');
+    if (oneLine) { const g = zoomGeometry(sub, 'tracks', src.zoomLevel, true); src.itemScene = g.scene; src.itemHeight = g.itemHeight; }
+    src.rebuild = () => searchSource(ctx, list, nav, query, mask, target);
+    src.searchTarget = target;
+    return src;
+  };
+  // At least two characters (one in a targeted search, or for Japanese,
+  // Korean and Chinese); shorter, an untargeted search lists its history and
+  // a targeted one nothing (kj1.B).
+  const q = String(query ?? '').trim();
+  const minLen = target || /^(ja|ko|zh)\b/i.test(globalThis.navigator?.language ?? '') ? 1 : 2;
+  const words = q.split(/[\s:\-_]+/).filter(Boolean).map(w => w.toLowerCase());
+  if (!words.length || q.length < minLen) return target ? bare(new TrackSource(ctx, list, nav, title, [])) : historySource(ctx, list, nav, title);
+  if (words.length > 64 || (!target && !mask)) return bare(new TrackSource(ctx, list, nav, title, []));
   const has = (...fields) => { const s = fields.map(f => f ?? '').join('').toLowerCase(); return words.every(w => s.includes(w)); };
   const nocase = (a, b) => { const x = (a ?? '').toLowerCase(), y = (b ?? '').toLowerCase(); return x < y ? -1 : x > y ? 1 : 0; };
   const fileTitles = !!ctx.pref?.('title_filename'), titlesOnly = !!ctx.pref?.('search_track_titles_only');
@@ -626,6 +644,7 @@ export function searchSource(ctx, list, nav, query, mask = -1) {
       default: return (lib?.tracks?.length ? groupsFor(lib, kind) ?? [] : []).filter(g => has(g.title)).sort((a, b) => nocase(a.title, b.title));
     }
   };
+  if (target) return bare(targetedRows(ctx, list, nav, title, target, {has, line1, titlesOnly}));
   const rows = [], separators = [];
   SEARCH_KINDS.forEach((c, i) => {
     if ((mask & (1 << i)) === 0) return;
@@ -637,6 +656,7 @@ export function searchSource(ctx, list, nav, query, mask = -1) {
   });
   if (!rows.length) return bare(new TrackSource(ctx, list, nav, title, []));
   const src = bare(new GroupSource(ctx, list, nav, title, rows.filter(r => r.group).map(r => r.group)));
+  src.rebuild = () => searchSource(ctx, list, nav, query, mask, target);
   const d = dims(list);
   src.rows = rows;
   src.separators = separators;
@@ -670,6 +690,55 @@ export function searchSource(ctx, list, nav, query, mask = -1) {
 }
 
 /** Playlists category: each playlist (name, track count) opens its tracks. */
+// One-line category types (tg1): their search rows take the one-line scenes.
+const ONE_LINE_KINDS = new Set(['playlists', 'genres', 'years', 'composers', 'playlist', 'genre', 'year', 'composer']);
+
+/**
+ * A search within one list (targeted search, ste; vo1.T0 / kj1.B): the
+ * list's own rows that match, in the list's own order. Folders Hierarchy
+ * searches its subfolders (by name) and the songs directly in it, the songs
+ * under a "Folder Songs" header (a header shows only before a second
+ * category); a category list its entries (albums by album and artist); a
+ * track list its songs. Each row is the target's own row: it binds, opens
+ * and plays as in that list (a song plays the list from it).
+ */
+function targetedRows(ctx, list, nav, title, target, {has, line1, titlesOnly}) {
+  const songHit = t => (titlesOnly ? has(line1(t)) : has(line1(t), t.album, t.artist));
+  const cats = [];
+  if (target.folders) {
+    cats.push({items: target.folders.flatMap((f, i) => (has(f.name) ? [{group: {tracks: subtreeFiles(f)}, at: i}] : []))});
+    cats.push({title: str(ctx, 'folder_songs'), items: target.tracks.flatMap((t, k) => (songHit(t) ? [{track: t, at: target.folders.length + k}] : []))});
+  } else if (target.groups) {
+    cats.push({items: target.groups.flatMap((g, i) => (has(g.title, g.kind === 'album' || g.kind === 'albums' ? g.artist : '') ? [{group: g, at: i}] : []))});
+  } else {
+    cats.push({items: (target.tracks ?? []).flatMap((t, k) => (songHit(t) ? [{track: t, at: k}] : []))});
+  }
+  const rows = [], separators = [];
+  cats.forEach((c, n) => {
+    if (!c.items.length) return;
+    if (n > 0 && c.title) { separators.push(rows.length); rows.push({sep: c.title}); }
+    rows.push(...c.items);
+  });
+  const src = new GroupSource(ctx, list, nav, title, []);
+  src.rows = rows;
+  src.separators = separators;
+  src.separatorHeight = list.host.substyle.dim('separatorSize', dims(list).itemSizeSmall);
+  src.tracks = rows.filter(r => r.track).map(r => r.track);
+  src.byName = false;
+  Object.defineProperty(src, 'count', {get: () => rows.length});
+  src.isSeparator = i => !!rows[i]?.sep;
+  src.typeAt = i => (rows[i]?.sep ? 'separator' : undefined);
+  src.tracksAt = i => (rows[i]?.sep ? [] : target.tracksAt?.(rows[i].at) ?? []);
+  src.sectionTitle = i => rows[i]?.sep ?? target.sectionTitle?.(rows[i].at);
+  src.bindItem = (v, i) => {
+    const r = rows[i];
+    if (r.sep) { v.findViewById('title')?.setText(r.sep); v.findViewById('line2')?.setVisibility(GONE); return; }
+    target.bindItem(v, r.at);
+  };
+  src.onItemClick = i => { const r = rows[i]; if (r && !r.sep) target.onItemClick(r.at); };
+  return src;
+}
+
 export function playlistsSource(ctx, list, nav) {
   const P = ctx.playlists;
   const groups = (P?.sorted() ?? []).map(pl => ({kind: 'playlist', title: pl.name, tracks: P.tracksOf(pl), pl}));

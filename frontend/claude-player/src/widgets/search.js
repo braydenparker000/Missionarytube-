@@ -2,7 +2,7 @@
 // icon and hint) and the category chips; results show in the list widget in
 // list mode (scene_search). The edit text is drawn by the view; a transparent
 // native input overlays it for the keyboard and caret.
-import {FastTextView, FastButton} from '../view/text.js';
+import {FastTextView, FastButton, BusActionButton} from '../view/text.js';
 import {FastLayout} from '../view/fast-layout.js';
 import {MeasureSpec} from '../view/view.js';
 import {register} from '../view/inflater.js';
@@ -149,22 +149,21 @@ export class ListSearchCatsLayout extends FastLayout {
     this.setMask(searchMask(), false);
     ctx.searchCats = this;
     // The layout starts gone; entering search shows it and makes its
-    // scene_search record visible (x1(); targeted searches are not built).
+    // scene_search record visible (x1()); a targeted search hides it behind
+    // the target chip until the target is cleared.
     this.visibility = GONE;
+    // The panel may inflate after a targeted search has begun.
+    this.wanted = !ctx.listWidget?.searchTarget;
     ctx.bus.subscribe('bus_gui', (msg, src, d) => {
       if (msg !== 'msg_nav_changed' || d.nav !== 'nav_search' || this.shown) return;
       this.shown = true;
-      this.visibility = VISIBLE;
-      this.alpha = 1;
-      const rec = this.sceneParams?.get('scene_search');
-      if (rec) { rec.visibility = VISIBLE; rec.alpha = 1; }
-      // The running scene change already took the old record: retarget it.
-      // Its target frame was taken while the layout was gone (0 × 0), so the
-      // change leaves the frame to the layout pass.
-      const it = ctx.topNav?.scenes.items.find(x => x.view === this);
-      if (it) { it.toVisibility = VISIBLE; it.toAlpha = 1; it.fade = true; it.fromAlpha = 0; it.recalc = RECALC_NONE; }
-      this.requestLayout();
+      if (this.wanted) showInSearchScene(ctx, this, true);
     });
+  }
+
+  setShown(on) {
+    this.wanted = on;
+    if (this.shown || !on) showInSearchScene(this.ctx, this, on);
   }
 
   // The row scrolls sideways when the chips pass its width (im0's b82
@@ -237,6 +236,50 @@ export class ListSearchCatsLayout extends FastLayout {
 }
 
 /**
+ * Shows or hides a view of the search panel in the search scene: its
+ * scene_search record and, while the scene change runs, the change's
+ * target (taken while the view was gone, so the frame is left to the
+ * layout pass).
+ */
+function showInSearchScene(ctx, v, on) {
+  const vis = on ? VISIBLE : GONE;
+  v.visibility = vis;
+  v.alpha = 1;
+  const rec = v.sceneParams?.get('scene_search');
+  if (rec) { rec.visibility = vis; rec.alpha = 1; }
+  const it = ctx.topNav?.scenes.items.find(x => x.view === v);
+  if (it) { it.toVisibility = vis; it.toAlpha = 1; it.fade = on; it.fromAlpha = on ? 0 : 1; it.recalc = RECALC_NONE; }
+  v.requestLayout();
+  v.parent?.requestLayout?.();
+}
+
+/**
+ * ListSearchTargetButton (TopSearchTarget): the targeted search's chip, the
+ * searched list's label with a clear (X) icon on its right; shown while the
+ * search is targeted (state_list_targeted_search). A press hides it and
+ * posts cmd_list_clear_target_search.
+ */
+export class ListSearchTargetButton extends BusActionButton {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.visibility = GONE;
+    ctx.searchTarget = this;
+    const t = ctx.listWidget?.searchTarget;
+    if (t) queueMicrotask(() => this.setTarget(t.label));
+  }
+
+  setTarget(label) {
+    if (label) this.setText(label);
+    showInSearchScene(this.ctx, this, !!label);
+  }
+
+  onClick() {
+    showInSearchScene(this.ctx, this, false);
+    super.onClick();
+  }
+}
+
+/**
  * Plain edit text (EditText): the same drawn text and native input, without
  * the list search binding; onTextChanged(text) reports edits.
  */
@@ -265,3 +308,4 @@ export class EditTextView extends ListSearchEditText {
 register(['ListSearchEditText'], ListSearchEditText);
 register(['EditText', 'AppCompatEditText', 'AutoCompleteTextView', 'LocalListSearchEditText'], EditTextView);
 register(['ListSearchCatsLayout'], ListSearchCatsLayout);
+register(['ListSearchTargetButton'], ListSearchTargetButton);
