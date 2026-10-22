@@ -13,11 +13,11 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 61 |
+| Built | 69 |
 | Settings UI | 110 |
-| Not built | 102 |
-| No web counterpart | 140 |
-| Owner decision | 14 |
+| Not built | 90 |
+| No web counterpart | 141 |
+| Owner decision | 17 |
 | Not applicable | 25 |
 
 ## aa
@@ -30,8 +30,8 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `aa_download_hd` | MultilineSwitchPreference | Owner decision | Owner decision: album art comes only from tags, folders or a picked image file |
 | `download_aa_wifi_only` | MultilineSwitchPreference | Owner decision | Owner decision: album art comes only from tags, folders or a picked image file |
 | `reset_negative_aa_status` | Preference | Owner decision | Owner decision: album art comes only from tags, folders or a picked image file |
-| `clear_aa_cache` | Preference | Not built |  |
-| `aa_force_default` | MultilineSwitchPreference | Not built |  |
+| `clear_aa_cache` | Preference | Built |  |
+| `aa_force_default` | MultilineSwitchPreference | Built |  |
 | `aa_8888` | MultilineSwitchPreference | No web counterpart | Android bitmap memory options |
 | `aa_hi_res_for_apis` | MultilineSwitchPreference | No web counterpart | Android media APIs for other apps and devices (lock screen, widgets, watches, intents) |
 | `aa_always` | MultilineSwitchPreference | No web counterpart | Android media APIs for other apps and devices (lock screen, widgets, watches, intents) |
@@ -39,7 +39,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `download_if_no_tags` | MultilineSwitchPreference | Owner decision | Owner decision: album art comes only from tags, folders or a picked image file |
 | `prefer_downloaded_aa` | MultilineSwitchPreference | Owner decision | Owner decision: album art comes only from tags, folders or a picked image file |
 | `aa_aspect` | TagListPreference | Built |  |
-| `aa_higher_res` | MultilineSwitchPreference | Not built |  |
+| `aa_higher_res` | MultilineSwitchPreference | No web counterpart | The browser decodes album art at full resolution; there is no decode size to raise |
 | `aa_per_stream_track` | MultilineSwitchPreference | Owner decision | Owner decision: no network streams |
 | `restore_defaults` | Preference | Built |  |
 
@@ -48,11 +48,11 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
 | `aa_blur_enabled` | MultilineSwitchPreference | Built |  |
-| `list_aa_blur_enabled` | MultilineSwitchPreference | Not built |  |
-| `lyrics_aa_blur_enabled` | MultilineSwitchPreference | Not built |  |
+| `list_aa_blur_enabled` | MultilineSwitchPreference | Built | Partial: the backdrop shows the playing track's art; the reference shows the opened list's own art |
+| `lyrics_aa_blur_enabled` | MultilineSwitchPreference | Built |  |
 | `aa_bg_gradient` | SeekbarPreference | Built |  |
 | `aa_bg_gradient_color` | ColorPreference | Built |  |
-| `aa_bg_gradient_for_list` | MultilineSwitchPreference | Not built |  |
+| `aa_bg_gradient_for_list` | MultilineSwitchPreference | Built |  |
 | `aa_blur` | SeekbarPreference | Built |  |
 | `aa_blur_scale` | SeekbarPreference | Built |  |
 | `aa_blur_intensity` | SeekbarPreference | Built |  |
@@ -661,20 +661,20 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | --- | --- | --- | --- |
 | `enable_vis` | MultilineSwitchPreference | Built |  |
 | `vis_frs_type` | TagListPreference | Built |  |
-| `vis_in_lib` | MultilineSwitchPreference | Not built |  |
+| `vis_in_lib` | MultilineSwitchPreference | Built |  |
 | `vis_preset_change_sec` | SeekbarPreference | Built |  |
 | `vis_panel_faded_alpha` | SeekbarPreference | Built |  |
 | `vis_controls_faded_alpha` | SeekbarPreference | Built |  |
 | `vis_temp_ui_ms` | SeekbarPreference | Built |  |
-| `vis_aa_visible` | MultilineSwitchPreference | Not built |  |
-| `vis_ignore_touch_faded` | MultilineSwitchPreference | Not built |  |
+| `vis_aa_visible` | MultilineSwitchPreference | Built |  |
+| `vis_ignore_touch_faded` | MultilineSwitchPreference | Built |  |
 | `vis_list_faded_alpha` | SeekbarPreference | Built |  |
 | `vis_fs_hide_bars` | MultilineSwitchPreference | Built | Substitute: the Fullscreen API, entered on the next touch |
-| `vis_use_compact_bars` | MultilineSwitchPreference | Not built |  |
+| `vis_use_compact_bars` | MultilineSwitchPreference | Owner decision | Owner decision: butterchurn is the visualizer; this option belongs to the native MilkDrop / bars renderer |
 | `milk_hd` | MultilineSwitchPreference | Built |  |
-| `milk_crop_aspect` | MultilineSwitchPreference | Not built |  |
+| `milk_crop_aspect` | MultilineSwitchPreference | Owner decision | Owner decision: butterchurn is the visualizer; this option belongs to the native MilkDrop / bars renderer |
 | `milk_30_fps` | MultilineSwitchPreference | Built |  |
-| `milk_strict` | MultilineSwitchPreference | Not built |  |
+| `milk_strict` | MultilineSwitchPreference | Owner decision | Owner decision: butterchurn is the visualizer; this option belongs to the native MilkDrop / bars renderer |
 | `vis_extra_delay_info` | RedirectPreference | Settings UI |  |
 | `list` | PreferenceCategory | Settings UI |  |
 | `vis_rescan` | ProgressPreference | No web counterpart | The visualizer presets ship with the app (butterchurn); there is nothing to scan |

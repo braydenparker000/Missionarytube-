@@ -46,10 +46,14 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
       else if (msg === 'cmd_gui_set_vis_mode') this.setVisMode(d?.arg1 ?? 0);
       else if (msg === 'msg_gui_layout_loaded' && d?.parent === this) this.applyFadedAlphas();
     });
-    // Full-screen visualisation: a tap shows the UI for tempUITime.
-    this.el.addEventListener('pointerdown', () => {
+    // Visualisation (i22.y): a touch shows the UI for tempUITime, from full
+    // screen or from faded controls; with vis_ignore_touch_faded the first
+    // touch on faded controls only shows them.
+    this.el.addEventListener('pointerdown', e => {
       const s = this.scenes.scene;
-      if (s === 'scene_vis' || s === 'scene_vis_temp_ui') this.showTempUI();
+      if (!this.playing || (s !== 'scene_vis' && s !== 'scene_vis_temp_ui' && s !== 'scene_vis_w_ui')) return;
+      if (s === 'scene_vis_w_ui' && this.ctx.pref('vis_ignore_touch_faded')) { e.stopPropagation(); e.preventDefault(); }
+      this.showTempUI();
     }, true);
     bus.subscribe('bus_player', (msg, src, data) => {
       if (msg === 'msg_player_status_changed') this.setPlaying(!!data?.playing, true);

@@ -395,6 +395,10 @@ export class ListWidget extends FastLayout {
       }
       else if (msg === 'msg_player_playing_state_changed') this.setPlayingMode(d.arg1 === STATE_PLAYING);
     });
+    ctx.bus.subscribe('bus_gui', msg => { if (msg === 'msg_nav_changed') this.setPlayingMode(); });
+    ctx.bus.subscribe('bus_app', (msg, src, d) => {
+      if (msg === 'msg_app_setting_changed' && d?.key === 'vis_aa_visible') this.setPlayingMode();
+    });
     ctx.listWidget = this;
     this.mode = 'aa';
     // Library mode: a PowerList over the same area, with a navigation stack.
@@ -729,8 +733,15 @@ export class ListWidget extends FastLayout {
     this.invalidate();
   }
 
-  setPlayingMode(playing) {
-    const mode = playing ? 1 : 0;
+  /**
+   * The art's state (cmd_list_prefer_aa_state): 1 while playing, 0 paused;
+   * with faded controls (scene_vis_w_ui) 2, the art hidden for the
+   * visualisation, unless vis_aa_visible.
+   */
+  setPlayingMode(playing = this.playingNow ?? this.ctx.player?.state === STATE_PLAYING) {
+    this.playingNow = playing;
+    const faded = this.ctx.topNav?.scenes?.scene === 'scene_vis_w_ui' && !this.ctx.pref('vis_aa_visible');
+    const mode = faded ? 2 : playing ? 1 : 0;
     if (this.geometry.mode === mode) return;
     this.geometry.mode = mode;
     this.requestLayout();

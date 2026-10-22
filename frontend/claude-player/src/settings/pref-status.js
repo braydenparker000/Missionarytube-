@@ -29,6 +29,8 @@ const ANDROID_SYSTEM = 'Android system services (wakelocks, intents, display, na
 const THIRD_PARTY_SKINS = 'Third-party skin APKs';
 const BUNDLED_PRESETS = 'The visualizer presets ship with the app (butterchurn); there is nothing to scan';
 const MEDIA_SESSION_ACTIONS = 'Notification buttons; Media Session offers only fixed actions, no custom buttons';
+const BROWSER_ART_DECODE = 'The browser decodes album art at full resolution; there is no decode size to raise';
+const BUTTERCHURN_ONLY = 'Owner decision: butterchurn is the visualizer; this option belongs to the native MilkDrop / bars renderer';
 const ART_PICK_ONLY = 'Owner decision: album art comes only from tags, folders or a picked image file';
 const NO_STREAMS = 'Owner decision: no network streams';
 const NO_DELETE = 'Owner decision: no file deletion';
@@ -44,8 +46,8 @@ export const PREF_STATUS = {
   aa_download_hd: [OWNER, ART_PICK_ONLY],
   download_aa_wifi_only: [OWNER, ART_PICK_ONLY],
   reset_negative_aa_status: [OWNER, ART_PICK_ONLY],
-  clear_aa_cache: [TODO, ''],
-  aa_force_default: [TODO, ''],
+  clear_aa_cache: [BUILT, ''],
+  aa_force_default: [BUILT, ''],
   aa_8888: [WEB, ANDROID_BITMAPS],
   aa_hi_res_for_apis: [WEB, ANDROID_MEDIA_API],
   aa_always: [WEB, ANDROID_MEDIA_API],
@@ -53,16 +55,16 @@ export const PREF_STATUS = {
   download_if_no_tags: [OWNER, ART_PICK_ONLY],
   prefer_downloaded_aa: [OWNER, ART_PICK_ONLY],
   aa_aspect: [BUILT, ''],
-  aa_higher_res: [TODO, ''],
+  aa_higher_res: [WEB, BROWSER_ART_DECODE],
   aa_per_stream_track: [OWNER, NO_STREAMS],
   restore_defaults: [BUILT, ''],
   // aa_bg
   aa_blur_enabled: [BUILT, ''],
-  list_aa_blur_enabled: [TODO, ''],
-  lyrics_aa_blur_enabled: [TODO, ''],
+  list_aa_blur_enabled: [BUILT, "Partial: the backdrop shows the playing track's art; the reference shows the opened list's own art"],
+  lyrics_aa_blur_enabled: [BUILT, ''],
   aa_bg_gradient: [BUILT, ''],
   aa_bg_gradient_color: [BUILT, ''],
-  aa_bg_gradient_for_list: [TODO, ''],
+  aa_bg_gradient_for_list: [BUILT, ''],
   aa_blur: [BUILT, ''],
   aa_blur_scale: [BUILT, ''],
   aa_blur_intensity: [BUILT, ''],
@@ -511,20 +513,20 @@ export const PREF_STATUS = {
   // vis
   enable_vis: [BUILT, ''],
   vis_frs_type: [BUILT, ''],
-  vis_in_lib: [TODO, ''],
+  vis_in_lib: [BUILT, ''],
   vis_preset_change_sec: [BUILT, ''],
   vis_panel_faded_alpha: [BUILT, ''],
   vis_controls_faded_alpha: [BUILT, ''],
   vis_temp_ui_ms: [BUILT, ''],
-  vis_aa_visible: [TODO, ''],
-  vis_ignore_touch_faded: [TODO, ''],
+  vis_aa_visible: [BUILT, ''],
+  vis_ignore_touch_faded: [BUILT, ''],
   vis_list_faded_alpha: [BUILT, ''],
   vis_fs_hide_bars: [BUILT, 'Substitute: the Fullscreen API, entered on the next touch'],
-  vis_use_compact_bars: [TODO, ''],
+  vis_use_compact_bars: [OWNER, BUTTERCHURN_ONLY],
   milk_hd: [BUILT, ''],
-  milk_crop_aspect: [TODO, ''],
+  milk_crop_aspect: [OWNER, BUTTERCHURN_ONLY],
   milk_30_fps: [BUILT, ''],
-  milk_strict: [TODO, ''],
+  milk_strict: [OWNER, BUTTERCHURN_ONLY],
   vis_extra_delay_info: [UI, ''],
   list: [UI, ''],
   vis_rescan: [WEB, BUNDLED_PRESETS],

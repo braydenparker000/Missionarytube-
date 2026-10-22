@@ -47,6 +47,7 @@ export class Library {
     this.byId = new Map();
     this.artCache = new Map();
     this.thumbCache = new Map();
+    ctx.bus.subscribe('bus_app', (msg, src, d) => { if (msg === 'msg_app_setting_changed' && d?.key === 'aa_force_default') this.refreshArt(); });
     this.coverPuts = 0;
     this.fileUrls = new Map();
     this.localTracks = [];
@@ -237,8 +238,28 @@ export class Library {
     this.ctx.bus.post('bus_data', 'msg_data_art_changed', this, {tracks: changed});
   }
 
+  /** Every track shows its art again (after a cache clear or aa_force_default). */
+  refreshArt() {
+    for (const map of [this.artCache, this.thumbCache]) {
+      for (const e of map.values()) Promise.resolve(e?.p ?? e).then(a => { if (a?.url?.startsWith('blob:')) URL.revokeObjectURL(a.url); }, () => {});
+      map.clear();
+    }
+    for (const x of this.tracks) { x.art = null; x.thumb = null; }
+    const t = this.ctx.player?.track;
+    if (t && !this.tracks.includes(t)) { t.art = null; t.thumb = null; }
+    this.ctx.bus.post('bus_data', 'msg_data_art_changed', this, {tracks: t ? [...this.tracks, t] : this.tracks});
+  }
+
+  /** clear_aa_cache: deletes the downloaded cover and thumbnail caches. */
+  async clearArtCache() {
+    if (globalThis.caches) await Promise.all([caches.delete(COVERS), caches.delete(THUMBS)]).catch(() => {});
+    this.refreshArt();
+  }
+
   /** Cover {url, width, height} or null (full size). */
   artFor(t) {
+    // aa_force_default (c6): the default image instead of any art.
+    if (this.ctx.pref?.('aa_force_default')) return Promise.resolve(null);
     if (t.art) return Promise.resolve(t.art);
     const custom = this.customArt.size ? this.customArtFor(t) : null;
     if (custom) return custom;
@@ -257,6 +278,7 @@ export class Library {
    * wanted() is asked before any download (rows scrolled past skip it).
    */
   thumbFor(t, wanted = null) {
+    if (this.ctx.pref?.('aa_force_default')) return Promise.resolve(null);
     if (this.customArt.size && this.customArtFor(t)) return this.artFor(t);
     if (!t.artId || !isRemoteArt(t.artId)) return this.artFor(t);
     if (t.thumb) return Promise.resolve(t.thumb);

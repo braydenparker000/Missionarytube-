@@ -42,12 +42,34 @@ const attr = (node, name) => {
 
 // Defaults the reference sets in code rather than in its preference XML
 // (the XML default is overridden or not a valid value).
-const RUNTIME_DEFAULTS = {navbar_seekbar: 'true', anim_speed: '1', hide_menu: '0', main_lyrics_button: '1', main_lyrics_swipe: '2', num_settings_tags: '5'};
+const RUNTIME_DEFAULTS = {navbar_seekbar: 'true', anim_speed: '1', hide_menu: '0', main_lyrics_button: '1', main_lyrics_swipe: '2'};
 // Settings that restyle the player through theme overlays: the player
 // activity is recreated when settings close (a reload here).
 const THEME_KEYS = new Set(['rating_type', 'hide_menu', 'main_lyrics_button', 'aa_aspect', 'cc_button', 'headers_meta', 'vis_frs_type', 'list_header_buttons', 'localized_az', 'anim_long_labels', 'anim_long_labels_in_lists', 'navbar_seekbar', 'library_lists']);
 const CONDITIONAL_KEYS = new Set(['perm_warn', 'manage_app_warn']);
-const defaultOf = node => RUNTIME_DEFAULTS[attr(node, 'key')] ?? attr(node, 'defaultValue');
+// Defaults the reference sets in code (c40 / b40 / m30 readers) for keys whose
+// preference XML has no defaultValue.
+const CODE_DEFAULTS = {
+  aa_blur_enabled: 'true', list_aa_blur_enabled: 'true', lyrics_aa_blur_enabled: 'true', aa_bg_gradient: '4',
+  aa_bg_gradient_for_list: 'true', global_pipeline64: 'false', global_follow_sr: 'false', global_dsd_remaster:
+  'false', global_perfect_bit_perfect: 'false', suggest_autoeq: 'true', cc_force_aa: 'false', cc_show_meta:
+  'true', force_no_speaker: 'false', volume_popup: 'false', pause_on_volume: 'false', force_audio_on_focus:
+  'false', mod_gain_mb: '300', mod_separation: '100', move_fp1_to_about: 'false', check_updates: 'false',
+  check_beta_updates: 'false', resume_on_headset: 'false', resume_on_bt: 'false', pause_on_headset: 'true',
+  pause_on_usb_connection: 'true', enable_headset_controls: 'true', headset_controls: '1', avrcp_controls: '1',
+  follow_pl_exact: 'true', ignore_bt_sec: '1', bt_ignore_repeat_shuffle: 'false', headset_beep: 'true',
+  beep_more: 'false', headset_vibrate: 'false', no_android_long_press: 'false', skip_video: 'false',
+  list_header_buttons: '1', list_bottom_toolbar: '2', stream_name_in_title: 'true', playlist_insert_pos: '0',
+  queue_insert_pos: '0', play_next_insert_pos: '0', search_play_tracks: 'true', search_track_titles_only:
+  'false', no_reshuffle: 'false', no_reshuffle_for_large_lists: 'true', category_shuffle: '4', mb_a_grid:
+  'false', send_mediasession_q: 'false', use_wakelock: 'false', op_framerate: 'false', equ_custom_bands:
+  'false', keep_screen_on: 'false', num_settings_tags: '5', main_lyrics_swipe: '2', main_lyrics_button: '1',
+  lyrics_in_menu: '0', lyrics_keep_screen: 'false', lyrics_offset: '0', list_zoom_lyrics: '0', lyrics_plugin:
+  '2', lrc_scan: 'true', lrc_utf8: 'true', notify_action1: '2', notify_action2: '3', notify_action3: '1',
+  notify_action4: '8', notify_action5: '7', notify_action6: '0', notify_prio: '2', notify_resume: 'false',
+  keep_service: 'false', no_keep_notif_on_dscn: 'false', hide_menu: 'false', vis_ignore_touch_faded: 'false',
+};
+const defaultOf = node => RUNTIME_DEFAULTS[attr(node, 'key')] ?? attr(node, 'defaultValue') ?? CODE_DEFAULTS[attr(node, 'key')];
 
 /** A preference value as the runtime reads it: booleans and numbers from their strings. */
 const runtimeValue = v => (v === 'true' ? true : v === 'false' ? false : typeof v === 'string' && /^-?\d+$/.test(v) ? +v : v);
@@ -400,6 +422,7 @@ export class Settings {
         if (key === 'restore_defaults') row.addEventListener('click', () => this.restoreDefaults());
         else if (key === 'settings_export') row.addEventListener('click', () => this.exportSettings());
         else if (key === 'settings_import') row.addEventListener('click', () => this.importSettings());
+        else if (key === 'clear_aa_cache') row.addEventListener('click', () => this.confirm(this.str(attr(node, 'title')), this.str(attr(node, 'summary')), () => this.ctx.library?.clearArtCache()));
         break;
       case 'RawTextPreference':
         row.classList.add('cps-raw');
@@ -485,6 +508,36 @@ export class Settings {
       r.addEventListener('click', () => { done(i); shade.remove(); });
       dlg.appendChild(r);
     });
+    shade.addEventListener('click', ev => { if (ev.target === shade) shade.remove(); });
+    shade.appendChild(dlg);
+    this.root.appendChild(shade);
+    this.dialog = shade;
+  }
+
+  /** Confirmation dialog (PseudoAlertDialog): title, message, Cancel and OK. */
+  confirm(title, message, ok) {
+    const shade = document.createElement('div');
+    shade.className = 'cps-dialog-shade';
+    const dlg = document.createElement('div');
+    dlg.className = 'cps-dialog';
+    const h = document.createElement('div');
+    h.className = 'cps-dialog-title';
+    h.textContent = title;
+    const m = document.createElement('div');
+    m.className = 'cps-dialog-msg';
+    m.textContent = message;
+    const bar = document.createElement('div');
+    bar.className = 'cps-dialog-buttons';
+    const button = (label, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cps-dialog-btn';
+      b.textContent = label;
+      b.addEventListener('click', () => { shade.remove(); fn?.(); });
+      return b;
+    };
+    bar.append(button(this.str('@string/cancel')), button(this.str('@string/OK'), ok));
+    dlg.append(h, m, bar);
     shade.addEventListener('click', ev => { if (ev.target === shade) shade.remove(); });
     shade.appendChild(dlg);
     this.root.appendChild(shade);
