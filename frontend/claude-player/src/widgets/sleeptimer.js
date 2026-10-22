@@ -11,13 +11,30 @@ import {register} from '../view/inflater.js';
 const MAX_MINUTES = 240, REFRESH_MS = 500;
 const STORE_KEY = 'cp-sleep';
 
-/** Java-style format with positional (%1$s) and sequential (%s, %d) arguments. */
+/**
+ * Java-style format (String.format): positional (%1$s) and sequential
+ * arguments, conversions s d f x %, flags "-", "0" and "+", width and
+ * precision (%.1f, %02d).
+ */
 export function formatString(fmt, ...args) {
   let i = 0;
-  return fmt.replace(/%(?:(\d+)\$)?([sd%])/g, (m, pos, kind) => {
+  return String(fmt).replace(/%(?:(\d+)\$)?([-+0]*)(\d+)?(?:\.(\d+))?([sSdfxX%n])/g, (m, pos, flags, width, prec, kind) => {
     if (kind === '%') return '%';
+    if (kind === 'n') return '\n';
     const v = args[pos ? +pos - 1 : i++];
-    return kind === 'd' ? String(Math.trunc(v)) : String(v ?? '');
+    let out;
+    if (kind === 'd') out = String(Math.trunc(+v || 0));
+    else if (kind === 'f') out = (+v || 0).toFixed(prec === undefined ? 6 : +prec);
+    else if (kind === 'x' || kind === 'X') { out = (Math.trunc(+v || 0) >>> 0).toString(16); if (kind === 'X') out = out.toUpperCase(); }
+    else { out = String(v ?? ''); if (prec !== undefined) out = out.slice(0, +prec); if (kind === 'S') out = out.toUpperCase(); }
+    if (flags.includes('+') && (kind === 'd' || kind === 'f') && !out.startsWith('-')) out = '+' + out;
+    if (width && out.length < +width) {
+      const pad = +width - out.length;
+      if (flags.includes('-')) out += ' '.repeat(pad);
+      else if (flags.includes('0') && kind !== 's') out = (out[0] === '-' || out[0] === '+' ? out[0] + '0'.repeat(pad) + out.slice(1) : '0'.repeat(pad) + out);
+      else out = ' '.repeat(pad) + out;
+    }
+    return out;
   });
 }
 

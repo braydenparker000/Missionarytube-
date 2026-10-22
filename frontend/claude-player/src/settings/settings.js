@@ -9,6 +9,10 @@ import {Theme} from '../res/resources.js';
 import {renderOps} from '../view/drawables.js';
 import {importPlaylistFiles, exportPlaylists} from '../library/playlist-files.js';
 import {openDialog} from '../widgets/dialog.js';
+import {formatValue} from '../widgets/eq.js';
+import {formatString} from '../widgets/sleeptimer.js';
+import {iconSvg} from '../icons.js';
+import {TONE_DEFAULTS, TONE_RANGES} from '../dsp/dsp.js';
 
 const STORE_KEY = 'cp-settings';
 const TAGS_KEY = 'cp-settings-tags';
@@ -53,6 +57,19 @@ const THEME_KEYS = new Set(['rating_type', 'hide_menu', 'main_lyrics_button', 'a
 // Layers inside the player's root while a dialog shows over the settings page.
 const PAGE_UNDER_DIALOG_Z = 100000, DIALOG_OVER_PAGE_Z = 200000;
 const CONDITIONAL_KEYS = new Set(['perm_warn', 'manage_app_warn']);
+// Summaries set in code by the settings fragments.
+const CODE_SUMMARIES = {msg: '@string/pref_search_playback_msg'};
+// RawTextPreference and its subclasses (their summary is composed of lines).
+const RAW_KINDS = new Set(['RawTextPreference', 'LargeRawTextPreference', 'RedirectPreference', 'ProgressPreference', 'ButtonPref', 'EditButtonsRedirPref', 'ManageAppWarnPref']);
+// PreferenceHelper with a blank line before summary2 (r81's 4th argument).
+const SUMMARY2_GAP_KINDS = new Set([...RAW_KINDS, 'RoundKnobPreference', 'MultilineSwitchPreference']);
+// Tone screen knobs (ur1): the stored key, range and default of each.
+const TONE_KNOBS = {
+  _bassFreq: {store: 'tone_bass_freq', part: '@string/bass', range: TONE_RANGES.bassHz, def: TONE_DEFAULTS.bassHz},
+  _bassQ: {store: 'tone_bass_q', part: '@string/bass', q: true, range: TONE_RANGES.bassQ, def: TONE_DEFAULTS.bassQ},
+  _trebleFreq: {store: 'tone_treble_freq', part: '@string/treble', range: TONE_RANGES.trebleHz, def: TONE_DEFAULTS.trebleHz},
+  _trebleQ: {store: 'tone_treble_q', part: '@string/treble', q: true, range: TONE_RANGES.trebleQ, def: TONE_DEFAULTS.trebleQ},
+};
 // Defaults the reference sets in code (c40 / b40 / m30 readers) for keys whose
 // preference XML has no defaultValue.
 const CODE_DEFAULTS = {
@@ -90,7 +107,9 @@ export function prefDefaults(res) {
     if (!Array.isArray(n)) return;
     if (typeof n[0] !== 'string') { n.forEach(walk); return; }
     const key = attr(n, 'key'), d = key ? defaultOf(n) : undefined;
-    if (key && !(key in out) && d !== undefined) out[key] = runtimeValue(d);
+    // A float seek bar stores its default (in scaled units) divided by floatScale.
+    const fs = attr(n, 'floatScale');
+    if (key && !(key in out) && d !== undefined) out[key] = fs && short(n[0]) === 'SeekbarPreference' ? +d / +fs : runtimeValue(d);
     (n[2] ?? []).forEach(walk);
   };
   for (const tree of Object.values(res.model.xml ?? {})) walk(tree);
@@ -128,6 +147,118 @@ export class Settings {
     const {res, theme} = this.ctx;
     const v = res.string(raw, theme);
     return typeof v === 'string' ? v.replace(/\\n/g, '\n').replace(/<[^>]+>/g, '') : String(raw);
+  }
+
+  /** A string resource with its HTML markup kept. */
+  rawStr(raw) {
+    if (raw === undefined || raw === null) return '';
+    const v = this.ctx.res.string(raw, this.ctx.theme);
+    return typeof v === 'string' ? v.replace(/\\n/g, '\n') : String(raw);
+  }
+
+  /**
+   * Appends resource text (Html.fromHtml when it has markup): b/i/u, small /
+   * big, sup / sub, br / p, lists as bullet lines, and links — settings/<screen>
+   * [#key] opens a settings screen, #key scrolls to a row of this one, http(s)
+   * opens the page. link wraps the whole text (supLink).
+   */
+  appendRich(target, text, link = null) {
+    let host = target;
+    if (link) { host = this.linkEl(link); target.appendChild(host); }
+    if (!/<[a-zA-Z/][^>]*>/.test(text)) { host.append(text); return; }
+    const doc = new DOMParser().parseFromString(`<body>${text}</body>`, 'text/html');
+    const walk = (src, dst) => {
+      for (const n of src.childNodes) {
+        if (n.nodeType === 3) { dst.append(n.textContent); continue; }
+        if (n.nodeType !== 1) continue;
+        const tag = n.tagName.toLowerCase();
+        let el = null;
+        if (tag === 'br') { dst.append('\n'); continue; }
+        if (tag === 'img') {
+          // Inline drawable (<img src=play_rounded_12dp>): 12 dp in the text colour.
+          const ic = document.createElement('span');
+          ic.className = 'cps-inline-icon';
+          ic.innerHTML = iconSvg(n.getAttribute('src') ?? '', 'currentColor');
+          dst.appendChild(ic);
+          continue;
+        }
+        if (tag === 'tt') { el = document.createElement('span'); el.className = 'cps-tt'; walk(n, el); dst.appendChild(el); continue; }
+        if (tag === 'li') { dst.append('\n• '); walk(n, dst); continue; }
+        if (tag === 'p' || tag === 'div') { if (dst.textContent) dst.append('\n\n'); walk(n, dst); continue; }
+        if (tag === 'b' || tag === 'strong') el = document.createElement('b');
+        else if (tag === 'i' || tag === 'em') el = document.createElement('i');
+        else if (tag === 'u') el = document.createElement('u');
+        else if (tag === 'small' || tag === 'big' || tag === 'sup' || tag === 'sub') { el = document.createElement('span'); el.className = 'cps-' + tag; }
+        else if (tag === 'a' && n.getAttribute('href')) el = this.linkEl(n.getAttribute('href'));
+        if (!el) { walk(n, dst); continue; }
+        walk(n, el);
+        dst.appendChild(el);
+      }
+    };
+    walk(doc.body, host);
+  }
+
+  linkEl(href) {
+    const a = document.createElement('span');
+    a.className = 'cps-link';
+    a.addEventListener('click', ev => {
+      ev.stopPropagation();
+      const m = /^settings\/([^#]+)(?:#(.+))?$/.exec(href);
+      if (m) { this.open(m[1]); if (m[2]) this.revealKey(m[2]); return; }
+      if (href.startsWith('#')) { this.revealKey(href.slice(1)); return; }
+      if (/^https?:\/\//.test(href)) window.open(href, '_blank', 'noopener');
+    });
+    return a;
+  }
+
+  /** Scrolls a row of the open screen into view. */
+  revealKey(key) {
+    const row = [...(this.root?.querySelectorAll('.cps-row') ?? [])].find(r => r.dataset.key === key);
+    row?.scrollIntoView({block: 'center'});
+  }
+
+  /**
+   * RawTextPreference lines (m404): summary, line1, smallLine1, line2, … in
+   * order; lines are separated by a blank line (one newline with
+   * singleNewline, two blank lines between groups with extraLineBetweenGroups)
+   * and small lines take the Hint style. lineNPrefix leads a line; lineCase
+   * capitalizes (1) or decapitalizes (2) it; addDots ends a line followed by
+   * another with a period.
+   */
+  composeLines(node) {
+    const a = k => attr(node, k);
+    const L = [1, 2, 3, 4].map(i => (a('line' + i) ? this.rawStr(a('line' + i)) : ''));
+    const S = [1, 2, 3, 4].map(i => (a('smallLine' + i) ? this.rawStr(a('smallLine' + i)) : ''));
+    const summary = a('summary') ? this.rawStr(a('summary')) : '';
+    if (!summary && !L.some(Boolean) && !S.some(Boolean)) return null;
+    const lineCase = +(a('lineCase') ?? 0), addDots = a('addDots') === 'true';
+    const shape = (text, i) => {
+      const prefix = a(`line${i + 1}Prefix`) ? this.rawStr(a(`line${i + 1}Prefix`)) : '';
+      const dots = addDots && (i === 0 ? !!L[1] : i === 1 ? !!L[2] : false);
+      if (!lineCase && !prefix && !dots) return text;
+      let t = prefix + text;
+      if (dots && !text.endsWith('.')) t += '.';
+      if (lineCase === 1 && t) t = t[0].toUpperCase() + t.slice(1);
+      else if (lineCase === 2 && t) t = t[0].toLowerCase() + t.slice(1);
+      return t;
+    };
+    const sep = a('singleNewline') === 'true' ? '\n' : '\n\n', extra = a('extraLineBetweenGroups') === 'true';
+    const frag = document.createElement('span');
+    let any = false;
+    const put = (text, small, group) => {
+      if (!text) return;
+      const host = small ? Object.assign(document.createElement('span'), {className: 'cps-hint'}) : frag;
+      if (any) (small ? host : frag).append(group && extra ? sep + sep : sep);
+      this.appendRich(host, text);
+      if (small) frag.appendChild(host);
+      any = true;
+    };
+    put(summary, false, false);
+    for (let i = 0; i < 4; i++) {
+      put(L[i] ? shape(L[i], i) : '', false, i > 0);
+      put(S[i], true, false);
+    }
+    return any ? frag : null;
   }
 
   array(raw) {
@@ -377,14 +508,38 @@ export class Settings {
       t.textContent = this.str(title);
       texts.appendChild(t);
     }
-    let summary = attr(node, 'summary') ?? attr(node, 'line1');
+    row.dataset.key = key ?? '';
+    // sup (pref_experiment …): a small superscript line above the summary.
+    const sup = attr(node, 'sup');
+    if (sup) {
+      const e = document.createElement('div');
+      e.className = 'cps-supline';
+      this.appendRich(e, this.rawStr(sup), attr(node, 'supLink'));
+      texts.appendChild(e);
+    }
+    // Summaries the reference sets in code (yp1: the search playback note).
+    let summary = attr(node, 'summary') ?? CODE_SUMMARIES[key];
     const summaryEl = document.createElement('div');
     summaryEl.className = 'cps-summary';
     texts.appendChild(summaryEl);
+    // RawTextPreference family: the summary composed of its lines.
+    const lines = RAW_KINDS.has(kind) ? this.composeLines(node) : null;
+    if (lines) summary = null;
+    // summary2: a tertiary line under the summary (a blank line between for
+    // the RawText family, knobs and switches); seek bars and "%s" lists show
+    // it themselves.
+    const summary2 = attr(node, 'summary2');
+    if (summary2 && summary2 !== '%s' && kind !== 'SeekbarPreference') {
+      const e = document.createElement('div');
+      e.className = 'cps-summary2' + (SUMMARY2_GAP_KINDS.has(kind) ? ' gap' : '');
+      this.appendRich(e, this.rawStr(summary2));
+      texts.appendChild(e);
+    }
     row.appendChild(texts);
     const def = defaultOf(node);
     const dep = attr(node, 'dependency');
-    if (dep && !this.get(dep, true)) row.classList.add('cps-disabled');
+    // Dependent rows are disabled while their switch is off (its default included).
+    if (dep) { row.dataset.dep = dep; this.applyDependency(row); }
     switch (kind) {
       case 'RedirectPreference': {
         const target = attr(node, 'target');
@@ -485,28 +640,15 @@ export class Settings {
         break;
       }
       case 'SeekbarPreference': {
-        const min = +(attr(node, 'min') ?? 0), max = +(attr(node, 'max') ?? 100);
-        const input = document.createElement('input');
-        input.type = 'range';
-        input.min = String(min); input.max = String(max);
-        input.value = String(this.get(key, +(def ?? min)));
-        input.className = 'cps-seek';
-        const labels = this.array(attr(node, 'entries'));
-        const fmt = this.str(summary);
-        const showValue = () => { summaryEl.textContent = labels[+input.value] ?? fmt.replace(/%(\d\$)?[sd]/, input.value); };
-        input.addEventListener('input', () => { this.set(key, +input.value); showValue(); });
-        input.addEventListener('click', ev => ev.stopPropagation());
-        const ends = document.createElement('div');
-        ends.className = 'cps-seek-ends';
-        for (const l of ['leftLabel', 'rightLabel']) {
-          const e = document.createElement('span');
-          e.textContent = this.str(attr(node, l));
-          ends.appendChild(e);
-        }
-        texts.append(input, ends);
+        this.renderSeekbar(node, key, def, texts, summaryEl, summary);
         row.classList.add('cps-row-tall');
-        showValue();
         summary = null;
+        break;
+      }
+      case 'RoundKnobPreference': {
+        const k = TONE_KNOBS[key];
+        if (!k) break;
+        this.renderToneKnob(row, texts, k);
         break;
       }
       case 'EditButtonsRedirPref':
@@ -558,12 +700,21 @@ export class Settings {
         else if (key === 'playlists_import') row.addEventListener('click', () => this.importPlaylists());
         else if (key === 'clear_aa_cache') row.addEventListener('click', () => this.confirm(this.str(attr(node, 'title')), this.str(attr(node, 'summary')), () => this.ctx.library?.clearArtCache()));
         break;
-      case 'RawTextPreference':
+      case 'RawTextPreference': {
+        // Text rows take their background drawable: the v23 quote bar
+        // (settings_quote_background), a rounded or a warning outline, or none.
         row.classList.add('cps-raw');
+        const bg = /^@drawable\/settings_(quote|rounded|warn)_background$/.exec(attr(node, 'background') ?? '')?.[1];
+        if (bg) row.classList.add('cps-raw-' + bg);
         break;
+      }
     }
-    if (summary) summaryEl.textContent = this.str(summary);
-    if (!summaryEl.textContent) summaryEl.remove();
+    if (lines) summaryEl.appendChild(lines);
+    else if (summary) this.appendRich(summaryEl, this.rawStr(summary));
+    if (!summaryEl.textContent && !summaryEl.querySelector('.cps-inline-icon')) summaryEl.remove();
+    // Rows whose text the reference fills from Android state (output and
+    // device info, permission notes, feature-pack levels) stay out.
+    if (!row.textContent.trim() && !row.querySelector('.cps-switch,.cps-knob,.cps-seek,.cps-inline-icon')) return;
     parent.appendChild(row);
   }
 
@@ -582,9 +733,16 @@ export class Settings {
 
   restoreDefaults() {
     const name = this.stack[this.stack.length - 1];
-    for (const k of this.screenKeys(name)) delete this.values[k];
+    const changed = [];
+    for (const k of this.screenKeys(name)) {
+      // Non-persistent Tone knobs: their stored values return to the defaults.
+      const keys = TONE_KNOBS[k] ? [k, TONE_KNOBS[k].store] : [k];
+      for (const key of keys) { delete this.values[key]; delete this.ctx.settings[key]; }
+      if (TONE_KNOBS[k]) changed.push(TONE_KNOBS[k].store);
+    }
     saveStoredSettings(this.values);
     Object.assign(this.ctx.settings, runtimeSettings(this.values));
+    for (const key of changed) this.ctx.bus.post('bus_app', 'msg_app_setting_changed', this, {key});
     this.needsRecreate = true;
     this.render(name, this.ctx.res.entry('xml', name));
   }
@@ -646,6 +804,219 @@ export class Settings {
     shade.appendChild(dlg);
     this.root.appendChild(shade);
     this.dialog = shade;
+  }
+
+  /**
+   * A Tone knob row (RoundKnobPreference, preference_roundknob): the title,
+   * a 70 dp settings knob (30°..330° clockwise from the bottom) with its value
+   * under it; a long press on the value enters it. The value maps linearly
+   * over the parameter's range; frequencies store whole hertz and Q factors
+   * two decimals, the default stored as 0.
+   */
+  renderToneKnob(row, texts, k) {
+    const t = document.createElement('div');
+    t.className = 'cps-row-title';
+    t.textContent = this.str('@string/key_colon_value_s_s').replace('%1$s', this.str(k.part)).replace('%2$s', k.q ? this.str('@string/band_q') : this.str('@string/frequency').toLowerCase());
+    texts.appendChild(t);
+    const [min, max] = k.range;
+    const stored = () => { const x = parseFloat(this.get(k.store, 0)); return x > 0 ? x : k.def; };
+    let pos = (Math.min(max, Math.max(min, stored())) - min) / (max - min);
+    const box = document.createElement('div');
+    box.className = 'cps-knob-box';
+    const knob = document.createElement('div');
+    knob.className = 'cps-knob';
+    const ind = document.createElement('div');
+    ind.className = 'cps-knob-ind';
+    knob.appendChild(ind);
+    const val = document.createElement('div');
+    val.className = 'cps-knob-value';
+    box.append(knob, val);
+    row.appendChild(box);
+    const fmt = this.str(k.q ? '@string/f2' : '@string/f0');
+    const valueOf = p => min + (max - min) * p;
+    const show = () => {
+      ind.style.transform = `rotate(${30 + pos * 300}deg)`;
+      val.textContent = formatValue(fmt, valueOf(pos));
+    };
+    const commit = () => {
+      const x = valueOf(pos);
+      let v = k.q ? Math.round(x * 100) / 100 : Math.trunc(x);
+      if (v === k.def) v = 0;
+      this.set(k.store, v);
+      this.applySetting(k.store, false);
+    };
+    show();
+    // Rotation follows the pointer's angle about the centre (relative drag).
+    let drag = null, longTimer = 0;
+    const angle = e => {
+      const r = knob.getBoundingClientRect();
+      const a = Math.atan2(-(e.clientX - (r.left + r.width / 2)), e.clientY - (r.top + r.height / 2)) * 180 / Math.PI;
+      return a < 0 ? a + 360 : a;
+    };
+    knob.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      knob.setPointerCapture?.(e.pointerId);
+      drag = {a: angle(e), p: pos};
+      knob.classList.add('on');
+    });
+    knob.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const a = angle(e);
+      let d = a - drag.a;
+      if (d > 180) d -= 360; else if (d < -180) d += 360;
+      drag.a = a;
+      drag.p = Math.max(0, Math.min(1, drag.p + d / 300));
+      pos = drag.p;
+      show();
+      commit();
+    });
+    const up = () => { drag = null; knob.classList.remove('on'); };
+    knob.addEventListener('pointerup', up);
+    knob.addEventListener('pointercancel', up);
+    const enter = () => this.promptValue(t.textContent, this.str('@string/value_change_volume_warning'), val.textContent.replace(/%/g, ''), text => {
+      const x = parseFloat(String(text).replace(/,/g, '.'));
+      if (Number.isNaN(x)) return;
+      pos = Math.max(0, Math.min(1, (x - min) / (max - min)));
+      show();
+      commit();
+    });
+    val.addEventListener('pointerdown', () => { clearTimeout(longTimer); longTimer = setTimeout(enter, 400); });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) val.addEventListener(ev, () => clearTimeout(longTimer));
+    row.classList.add('cps-row-tall');
+  }
+
+  /**
+   * SeekbarPreference: min/max/step over the stored value, or an index into
+   * values (int, float or string array); a float pref stores value/floatScale.
+   * The summary (and summary2 after a blank line) formats the value: the
+   * entry at that value when entries exist, else the value (divided by scale
+   * when one is set); a format-free text shows as is. The summary follows
+   * the drag; the value is stored when the touch ends. Left / centre / right
+   * labels and tick marks sit under the bar.
+   */
+  renderSeekbar(node, key, def, texts, summaryEl, summary) {
+    const num = (k, d) => { const v = attr(node, k); return v === undefined ? d : +v; };
+    let min = num('min', 0) | 0, max = num('max', 100) | 0, step = (num('step', 1) | 0) || 1;
+    let scale = num('scale', -1), floatScale = num('floatScale', 0);
+    const entries = attr(node, 'entries') ? this.array(attr(node, 'entries')) : null;
+    let values = null, valueType = null;
+    if (attr(node, 'values')) {
+      const raw = this.array(attr(node, 'values'));
+      if (raw.length >= 2) {
+        values = raw;
+        valueType = raw.every(v => /^-?\d+$/.test(v)) ? 'int' : raw.every(v => !Number.isNaN(+v)) ? 'float' : 'string';
+        min = 0; max = raw.length - 1; step = 1; scale = -1; floatScale = 0;
+      }
+    }
+    const typed = v => (valueType === 'int' ? parseInt(v, 10) : valueType === 'float' ? parseFloat(v) : String(v));
+    // The current position (f527) from the stored value.
+    const stored = this.get(key, undefined);
+    let index;
+    if (values) {
+      const cur = stored ?? def;
+      index = values.findIndex(v => (valueType === 'string' ? v === String(cur) : typed(v) === +cur));
+      if (index < 0) index = 0;
+    } else {
+      let v;
+      if (floatScale) v = Math.round((stored !== undefined ? +stored : (+def || 0) / floatScale) * floatScale);
+      else v = stored !== undefined ? +stored | 0 : +def | 0;
+      index = Math.trunc((v - min) / step);
+    }
+    const valueAt = i => i * step + min;
+    const fmt = (i, str) => {
+      if (!str.includes('%')) return str;
+      if (!values) {
+        if (entries && i >= 0 && i < entries.length) return entries[i].includes('%') ? formatString(str, entries[i]) : entries[i];
+        return scale < 0 ? formatString(str, i) : formatString(str, i / scale);
+      }
+      if (i < 0) return String(i);
+      if (entries && i < entries.length) return formatString(str, entries[i] ?? '');
+      return formatString(str, i < values.length ? typed(values[i]) : i);
+    };
+    const s1 = summary ? this.rawStr(summary) : null, s2 = attr(node, 'summary2') ? this.rawStr(attr(node, 'summary2')) : null;
+    const show = () => {
+      summaryEl.replaceChildren();
+      if (s1 === null) return;
+      const i = values ? index : valueAt(index);
+      this.appendRich(summaryEl, fmt(i, s1) + (s2 ? '\n\n' + fmt(i, s2) : ''));
+      if (summaryEl.parentNode !== texts) texts.insertBefore(summaryEl, wrap);
+    };
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = '0';
+    input.max = String(Math.trunc((max - min) / step));
+    input.step = '1';
+    input.value = String(index);
+    input.className = 'cps-seek';
+    input.addEventListener('input', () => { index = +input.value; show(); });
+    input.addEventListener('change', () => {
+      const v = valueAt(index);
+      this.set(key, values ? typed(values[v]) : floatScale ? v / floatScale : v);
+      this.applySetting(key);
+    });
+    input.addEventListener('click', ev => ev.stopPropagation());
+    const wrap = document.createElement('div');
+    wrap.className = 'cps-seek-wrap';
+    if (attr(node, 'tickMark')) {
+      const n = Math.trunc((max - min) / step);
+      const ticks = document.createElement('div');
+      ticks.className = 'cps-seek-ticks';
+      for (let i = 0; i <= n && n <= 64; i++) ticks.appendChild(document.createElement('i'));
+      wrap.appendChild(ticks);
+    }
+    wrap.appendChild(input);
+    texts.appendChild(wrap);
+    const labels = ['leftLabel', 'centerLabel', 'rightLabel'].map(l => attr(node, l));
+    if (labels.some(Boolean)) {
+      const ends = document.createElement('div');
+      ends.className = 'cps-seek-ends';
+      for (const l of labels) {
+        const e = document.createElement('span');
+        e.textContent = l ? this.str(l) : '';
+        ends.appendChild(e);
+      }
+      texts.appendChild(ends);
+    }
+    show();
+  }
+
+  /** The value entry dialog (KnobLabelAndValue.e): the value selected, a hint below it, Cancel and OK. */
+  promptValue(title, hint, value, done) {
+    const shade = document.createElement('div');
+    shade.className = 'cps-dialog-shade';
+    const dlg = document.createElement('div');
+    dlg.className = 'cps-dialog';
+    const h = document.createElement('div');
+    h.className = 'cps-dialog-title';
+    h.textContent = title;
+    const input = document.createElement('input');
+    input.className = 'cps-input';
+    input.type = 'text';
+    input.inputMode = 'decimal';
+    input.value = value;
+    const m = document.createElement('div');
+    m.className = 'cps-dialog-msg';
+    m.style.paddingTop = '12px';
+    m.textContent = hint;
+    const bar = document.createElement('div');
+    bar.className = 'cps-dialog-buttons';
+    const button = (label, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cps-dialog-btn';
+      b.textContent = label;
+      b.addEventListener('click', () => { shade.remove(); fn?.(); });
+      return b;
+    };
+    const ok = button(this.str('@string/OK'), () => done(input.value));
+    bar.append(button(this.str('@string/cancel')), ok);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') ok.click(); });
+    dlg.append(h, input, m, bar);
+    shade.addEventListener('click', ev => { if (ev.target === shade) shade.remove(); });
+    shade.appendChild(dlg);
+    this.root.appendChild(shade);
+    this.dialog = shade;
+    setTimeout(() => { input.focus({preventScroll: true}); input.select(); }, 30);
   }
 
   /** Confirmation dialog (PseudoAlertDialog): title, message, Cancel and OK. */
@@ -891,8 +1262,15 @@ export class Settings {
   }
 
   /** Settings that take effect immediately in the running UI. */
+  /** A dependent row is disabled while the preference it depends on is off (its default included). */
+  applyDependency(row) {
+    const dep = row.dataset.dep;
+    row.classList.toggle('cps-disabled', !runtimeValue(String(this.get(dep, this.ctx.prefDefaults?.[dep] ?? true))));
+  }
+
   applySetting(key, recreate = true) {
     Object.assign(this.ctx.settings, runtimeSettings(this.values));
+    for (const row of this.root?.querySelectorAll('.cps-row[data-dep]') ?? []) if (row.dataset.dep === key) this.applyDependency(row);
     this.ctx.bus.post('bus_app', 'msg_app_setting_changed', this, {key});
     if (recreate && THEME_KEYS.has(key)) this.needsRecreate = true;
     if (key === 'settings_theme') this.applyScheme();

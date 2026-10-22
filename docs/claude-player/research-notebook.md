@@ -323,8 +323,8 @@ spaced, joined by cubics with horizontal tangents, over a centre backline, with 
 vertical five-stop gradient. The built-in presets, seeded from code as parameter strings
 (`31=0.39;…;16K=0;preamp=1`, plus `bass`/`treble`), confirm the ten-band 31 Hz–16 kHz set and its
 labels (`1K` …), normalised band gains (±1 = ±15 dB, the band knob range) and a linear preamp; the
-extractor captures them. Tone shelf corners, the reverb impulse, limiter settings, tempo stepping
-and the preamp knob scale remain inferred (native DSP). Tone knobs are boost-only (0–100%), matching the FRS humps.
+extractor captures them. The reverb impulse, limiter settings and tempo stepping remain inferred (native DSP);
+the tone shelf corners and Q and the ±24 dB preamp are confirmed (F68). Tone knobs are boost-only (0–100%), matching the FRS humps.
 
 ### F34 — Popups — `CS` (mechanism) / `INF` (timing curve)
 Popup button layouts (`BusActionPopupLayout`, preset list buttons) open in place: the menu
@@ -1115,8 +1115,81 @@ with type 0 bass shelf, 1 treble shelf, 2 peak. Several presets export as an arr
 `_autosave` in the EQ settings is the same switch. `BusActionButton` now honours `confirmTitle` /
 `confirmText` / `confirmButton`.
 
-**Inferred:** the tone shelves' frequency and Q in the JSON, and imported peaks at other frequencies
-summing into the nearest graphic band.
+**Inferred:** imported peaks at other frequencies summing into the nearest graphic band. (The tone
+shelves' frequency and Q in the JSON are the Tone settings, F68.)
+
+### F68 — EQ knob values, Tone and band settings, settings rows — `CONFIRMED_STATIC` / inferred in part
+
+(a) S1 `KnobLabelAndValue` (`onDraw`, `onMeasure`, `m640`, `b`, `e`), `LinearKnob` (`q`, `l`, `v`,
+`f`, `k`, `onTouchEvent` from fallback bytecode, `setValueFromDialog`), `zi0` (zoom animator), `h5`,
+`f10` (band knob), `C0049` (`as` preamp knob), `pr.H` / `lc0` (preamp scale), `DSPToneRoundKnobLayout`,
+`DSPRoundKnobLayout` (`v1`, `onLongClick`), `RoundKnob` (`d`, `getValueForDialog`,
+`setValueFromDialog`), `Utils.m545 / m547 / m549`, `ur1` (Tone settings, `zr` definitions), `b40`
+(`tone_*`, `equ_*` keys), `v11` (band layout hand-off), `RoundKnobPreference`,
+`preference_roundknob`, `RawTextPreference` (`m404`, attributes `wa1.o0`), `r81` (`m2970`,
+`wa1.Z`), `SeekbarPreference` (`A`, `mo409`, `B`, `onStopTrackingTouch`, `wa1.w0`),
+`settings_quote_background` (v23).
+
+(c) **Band and preamp knobs (eq_labels, default 1):**
+- Mode 1 shows the value as "%.1f" over -15..15 dB for bands and -24..24 dB for the preamp; mode 2 as
+  "%.0f%%" over -100..100; mode 0 hides it.
+- The value line (`?EqKnobValue_Text`) sits at the bottom, the label `valuePadding` above it; both
+  stand on the label background. The travel loses the value line and `textPadding`.
+- The value text shows the target value. While the thumb is held it zooms ×`valueAnimZoom` (1.5) and the
+  label background ×1.5 / ×1.1, over `valueAnimTime` (300 ms, decelerate). There is no zoom without
+  a value.
+- Touches:
+  - On the thumb, or within `thumbMinTouchableSize` / 2 of its centre: a drag.
+  - Below the travel (the label): a long press opens the value entry dialog — title the band label,
+    the value selected, the volume warning below. The typed value is clamped to the range, mapped back
+    and animated.
+  - Elsewhere on the travel: on release, the value steps 0.05 toward the tap, snapped to twentieths.
+    It slides linearly over 500 ms per unit (100 ms at least). A step landing on exactly 0 is dropped,
+    as in the bytecode.
+- The preamp spans -24..+24 dB, linear through 0 dB at the middle (`pr.H`). It was ±15 dB here before.
+
+**Tone knobs (tone_labels, default 2):**
+- Mode 1 shows "%.1f" over 0..15 with one dialog digit; mode 2 percent with whole numbers; mode 0
+  has no value label and no long press.
+- A long press on any DSP round knob's label or value label opens the same value dialog, which takes
+  `dialogPrecision` digits. The typed value is mapped back (m545), rounded to `rounding` steps and
+  animated: 120 ms for a change of 0.05 or less, otherwise 400 ms, decelerate(2).
+
+**Tone settings (peq_equ_tone):**
+- Four knobs: bass frequency 20..250 Hz (default 90), bass Q 0.1..2 (default 0.8), treble frequency
+  5..15 kHz (default 10 kHz), treble Q (default 0.6). Each maps linearly.
+- They are stored as tone_bass_freq / tone_bass_q / tone_treble_freq / tone_treble_q: whole hertz
+  and two-decimal Q factors, with the default stored as 0. A long press on the value enters it.
+- The web shelves are IIR filters with the RBJ shelf Q, cross-faded when their coefficients change.
+  They replace the platform shelving biquads, which have no Q.
+
+**Band settings (peq_equ_bands):**
+- equ_bands_num picks 5, 10, 12, 15, 16, 24, 31 or 32 bands. equ_custom_bands uses
+  equ_custom_bands_num over first_fr..last_fr instead (clamped to 5..32, 5..400 Hz and 10..24 kHz).
+- The frequencies come from the native library. Here ISO 10 / 15 / 31 take the ISO 266 octave,
+  2/3-octave and 1/3-octave centres.
+- *Inferred:*
+  - other counts are log-spaced over the custom defaults (20 Hz..16 kHz);
+  - each band's Q is sqrt(2^N) / (2^N − 1) for an N-octave spacing (1.41 at one octave);
+  - gains and presets are resampled in log frequency onto a new layout.
+
+**Settings rows:**
+- RawText summaries are composed of summary, line1, smallLine1 … line4, smallLine4. Lines are
+  separated by a blank line (one newline with singleNewline, two between groups with
+  extraLineBetweenGroups). Small lines take the Hint style; prefixes, lineCase and addDots apply.
+  The text is HTML: inline drawables, settings / #key / web links.
+- `summary2` follows in the tertiary colour, after a blank line for the RawText family, knobs and
+  switches. `sup` is a small line above the summary.
+- RawText backgrounds: the v23 quote bar, a rounded outline and a warning outline. Rows the reference
+  fills from Android state stay out.
+- Seek bars:
+  - step, `scale`, `floatScale` (stored value ÷ floatScale) and entries / values arrays;
+  - summary and summary2 formatted with the value;
+  - left / centre / right labels and tick marks;
+  - the value is stored when the touch ends.
+- Dependent rows follow their switch, its default included.
+
+**No web counterpart:** dsp_border_gain (native gain smoothing).
 
 **Not built:** device and per-song/category assignment, AutoEq presets, and parametric presets
 (the DSP is graphic only).
@@ -1209,6 +1282,7 @@ No status is device-verified.
 | F65 queue | Built | Shuffled order inferred |
 | F66 playlist re-sort / files | Built | Import picks files (web) |
 | F67 EQ presets | Partial | Assignment, AutoEq, parametric not built |
+| F68 EQ knob values, Tone / band settings, settings rows | Built | Band frequencies for non-ISO counts and resampling inferred; dsp_border_gain native |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

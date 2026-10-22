@@ -7,7 +7,7 @@
 import {GONE, VISIBLE} from './res/values.js';
 import {TOUCH_SLOP_DP} from './gesture.js';
 
-const LONG_PRESS_MS = 400; // ViewConfiguration.getLongPressTimeout() default
+export const LONG_PRESS_MS = 400; // ViewConfiguration.getLongPressTimeout() default
 // Touch slop: ViewConfiguration's 8 dp; a gesture starts once either axis reaches it.
 const TAP_TIMEOUT_MS = 100; // ViewConfiguration.getTapTimeout()
 

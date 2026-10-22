@@ -15,12 +15,10 @@
 //   array to "<name or Presets> [<date time>].json".
 // Device assignment and AutoEq are not built (no output devices or AutoEq
 // database on the web).
-import {BAND_RANGE_DB} from './dsp.js';
+import {BAND_RANGE_DB, PREAMP_RANGE_DB} from './dsp.js';
 
 const STORE = 'cp-eq-presets';
 export const TYPE_USER = 0, TYPE_BUILT_IN = 10;
-// Tone shelves in the JSON (inferred corners; the DSP's tone filters).
-const BASS = {frequency: 100, q: 0.7}, TREBLE = {frequency: 8000, q: 0.7};
 
 const dbOf = linear => (linear > 0 ? 20 * Math.log10(linear) : 0);
 
@@ -70,7 +68,7 @@ export class EqPresets {
   capture() {
     const dsp = this.ctx.dsp, q = {};
     for (const b of dsp.bands) q[b.label] = Math.round(b.gain * 1000) / 1000;
-    q.preamp = Math.round(Math.pow(10, (dsp.get('dsp_preamp') - 0.5) * 2 * BAND_RANGE_DB / 20) * 1000) / 1000;
+    q.preamp = Math.round(Math.pow(10, (dsp.get('dsp_preamp') - 0.5) * 2 * PREAMP_RANGE_DB / 20) * 1000) / 1000;
     if (dsp.get('dsp_tone_enabled')) { q.bass = dsp.get('dsp_bass_gain'); q.treble = dsp.get('dsp_treble_gain'); }
     return q;
   }
@@ -193,10 +191,10 @@ export class EqPresets {
 
   /** The reference JSON object of a preset. */
   toJson(p) {
-    const q = p.params ?? {};
+    const q = p.params ?? {}, tp = this.ctx.dsp.toneParams();
     const bands = [
-      {type: 0, channels: 0, frequency: BASS.frequency, q: BASS.q, gain: (q.bass ?? 0) * BAND_RANGE_DB, color: 0},
-      {type: 1, channels: 0, frequency: TREBLE.frequency, q: TREBLE.q, gain: (q.treble ?? 0) * BAND_RANGE_DB, color: 0},
+      {type: 0, channels: 0, frequency: tp.bassHz, q: tp.bassQ, gain: (q.bass ?? 0) * BAND_RANGE_DB, color: 0},
+      {type: 1, channels: 0, frequency: tp.trebleHz, q: tp.trebleQ, gain: (q.treble ?? 0) * BAND_RANGE_DB, color: 0},
       ...this.ctx.dsp.bands.map(b => ({type: 2, channels: 0, frequency: b.frequency, q: b.q, gain: (q[b.label] ?? 0) * BAND_RANGE_DB, color: 0})),
     ];
     return {name: p.name, preamp: Math.round(dbOf(q.preamp ?? 1) * 100) / 100, parametric: false, bands};

@@ -13,10 +13,10 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 113 |
+| Built | 124 |
 | Settings UI | 110 |
-| Not built | 47 |
-| No web counterpart | 140 |
+| Not built | 35 |
+| No web counterpart | 141 |
 | Owner decision | 17 |
 | Not applicable | 25 |
 
@@ -117,10 +117,10 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | --- | --- | --- | --- |
 | `peq_equ_bands` | RedirectPreference | Settings UI |  |
 | `peq_equ_tone` | RedirectPreference | Settings UI |  |
-| `eq_labels` | TagListPreference | Not built |  |
-| `tone_labels` | TagListPreference | Not built |  |
+| `eq_labels` | TagListPreference | Built | Band and preamp knob values: hidden, dB (-15..15 / -24..24) or percent (F68) |
+| `tone_labels` | TagListPreference | Built | Tone knob values: hidden, 0..15 or percent (F68) |
 | `_autosave` | MultilineSwitchPreference | Built | Auto Save in the EQ menu (F67) |
-| `dsp_border_gain` | MultilineSwitchPreference | Not built |  |
+| `dsp_border_gain` | MultilineSwitchPreference | No web counterpart | Gain smoothing near full volume runs inside the native DSP library (an algorithm not in the bytecode); the web DSP guards overload with its limiter |
 | `suggest_autoeq` | MultilineSwitchPreference | No web counterpart | Bluetooth / USB device detection |
 | `_clear_autoeq_known_devices` | RawTextPreference | Settings UI |  |
 | `_presets_to_peq` | RawTextPreference | Settings UI |  |
@@ -488,21 +488,21 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `equ_bands_num` | TagListPreference | Not built |  |
+| `equ_bands_num` | TagListPreference | Built | Band layout: ISO 10/15/31 centres; other counts log-spaced (inferred, F68) |
 | `_number_of_bands_msg` | RawTextPreference | Settings UI |  |
-| `equ_custom_bands` | MultilineSwitchPreference | Not built |  |
-| `equ_custom_bands_num` | SeekbarPreference | Not built |  |
-| `equ_custom_bands_first_fr` | SeekbarPreference | Not built |  |
-| `equ_custom_bands_last_fr` | SeekbarPreference | Not built |  |
+| `equ_custom_bands` | MultilineSwitchPreference | Built | Band layout: ISO 10/15/31 centres; other counts log-spaced (inferred, F68) |
+| `equ_custom_bands_num` | SeekbarPreference | Built | Band layout: ISO 10/15/31 centres; other counts log-spaced (inferred, F68) |
+| `equ_custom_bands_first_fr` | SeekbarPreference | Built | Band layout: ISO 10/15/31 centres; other counts log-spaced (inferred, F68) |
+| `equ_custom_bands_last_fr` | SeekbarPreference | Built | Band layout: ISO 10/15/31 centres; other counts log-spaced (inferred, F68) |
 
 ## peq_equ_tone
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `_bassFreq` | RoundKnobPreference | Not built |  |
-| `_bassQ` | RoundKnobPreference | Not built |  |
-| `_trebleFreq` | RoundKnobPreference | Not built |  |
-| `_trebleQ` | RoundKnobPreference | Not built |  |
+| `_bassFreq` | RoundKnobPreference | Built | Tone shelf corner frequency and Q (tone_* values, F68) |
+| `_bassQ` | RoundKnobPreference | Built | Tone shelf corner frequency and Q (tone_* values, F68) |
+| `_trebleFreq` | RoundKnobPreference | Built | Tone shelf corner frequency and Q (tone_* values, F68) |
+| `_trebleQ` | RoundKnobPreference | Built | Tone shelf corner frequency and Q (tone_* values, F68) |
 
 ## rg
 

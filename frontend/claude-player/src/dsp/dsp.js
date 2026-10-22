@@ -12,15 +12,68 @@
 
 const STORE_KEY = 'cp-dsp';
 
-/** Graphic equalizer bands (Hz) and their labels. */
+/** Graphic equalizer bands (Hz) and their labels (the 10-band set of the built-in presets). */
 export const GRAPHIC_BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+// Band layouts (peq_equ_bands): equ_bands_num picks 5..32 bands, or custom
+// bands span equ_custom_bands_first_fr..last_fr. The native library computes
+// the frequencies; here the ISO counts take the ISO 266 octave, 2/3-octave
+// and 1/3-octave centres and the other counts are spaced evenly in log
+// frequency over the custom bands' default 20 Hz..16 kHz (inferred).
+const ISO_BANDS = {
+  10: GRAPHIC_BANDS,
+  15: [25, 40, 63, 100, 160, 250, 400, 630, 1000, 1600, 2500, 4000, 6300, 10000, 16000],
+  31: [20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000],
+};
+
+/** Band centre frequencies for a count (5..32), custom first / last frequencies, or the ISO set. */
+export function bandFrequencies(count, first = 0, last = 0) {
+  const n = Math.max(5, Math.min(32, count | 0));
+  if (!first && !last && ISO_BANDS[n]) return ISO_BANDS[n];
+  const lo = Math.max(5, Math.min(400, first || 20)), hi = Math.max(10000, Math.min(24000, last || 16000));
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(Math.round(lo * Math.pow(hi / lo, i / (n - 1)) * 10) / 10);
+  return out;
+}
+
+/** Peaking Q for a band spacing of N octaves: sqrt(2^N) / (2^N - 1) (1.41 at one octave). */
+export function bandQ(freqs) {
+  if (freqs.length < 2) return BAND_Q;
+  const N = Math.log2(freqs[freqs.length - 1] / freqs[0]) / (freqs.length - 1);
+  const r = Math.pow(2, N);
+  return Math.round((Math.sqrt(r) / (r - 1)) * 100) / 100;
+}
+
+/** Gain at hz of a gain curve given as [hz, gain] points, linear in log frequency. */
+export function gainAt(points, hz) {
+  if (!points.length) return 0;
+  if (hz <= points[0][0]) return points[0][1];
+  for (let i = 1; i < points.length; i++) {
+    const [f1, g1] = points[i];
+    if (hz <= f1) {
+      const [f0, g0] = points[i - 1];
+      return g0 + (g1 - g0) * Math.log(hz / f0) / Math.log(f1 / f0);
+    }
+  }
+  return points[points.length - 1][1];
+}
+
+/** "16K" → 16000, "31" → 31 (band labels of the preset parameters). */
+export const labelHz = label => { const m = /^(\d+(?:\.\d+)?)(K?)$/.exec(label); return m ? +m[1] * (m[2] ? 1000 : 1) : NaN; };
+
 export const BAND_RANGE_DB = 15;
+// Preamp: knob position 0..1 is -24..+24 dB, linear through 0 dB at 0.5 (pr.H / lc0).
+export const PREAMP_RANGE_DB = 24;
 const BAND_Q = 1.41;
 const TONE_RANGE_DB = 15;
-const BASS_HZ = 100, TREBLE_HZ = 8000;
+// Tone shelves (ur1 / DSPParamDefs): bass 20..250 Hz (default 90), Q 0.1..2
+// (default 0.8); treble 5..15 kHz (default 10 kHz), Q default 0.6. Stored as
+// tone_bass_freq / tone_bass_q / tone_treble_freq / tone_treble_q, 0 = default.
+export const TONE_DEFAULTS = {bassHz: 90, bassQ: 0.8, trebleHz: 10000, trebleQ: 0.6};
+export const TONE_RANGES = {bassHz: [20, 250], bassQ: [0.1, 2], trebleHz: [5000, 15000], trebleQ: [0.1, 2]};
 
 export function bandLabel(hz) {
-  return hz >= 1000 ? `${+(hz / 1000).toFixed(1)}K` : String(hz);
+  // Whole hertz from 100 Hz (log-spaced bands), one decimal below (31.5).
+  return hz >= 1000 ? `${+(hz / 1000).toFixed(1)}K` : String(hz >= 100 ? Math.round(hz) : +hz.toFixed(1));
 }
 
 const DEFAULTS = {
@@ -75,7 +128,7 @@ export class DSP {
   constructor(ctx) {
     this.ctx = ctx;
     this.values = {...DEFAULTS};
-    this.bands = GRAPHIC_BANDS.map(hz => ({frequency: hz, label: bandLabel(hz), gain: 0, q: BAND_Q}));
+    this.bands = this.layoutBands(this.bandLayout(), []);
     this.load();
     this.ac = null;
     this.nodes = null;
@@ -84,21 +137,79 @@ export class DSP {
     ctx.bus.subscribe('bus_player', msg => {
       if (msg === 'msg_player_playing_state_changed' || msg === 'msg_player_track_changed') this.applyTempo();
     });
+    // A band layout change rebuilds the bands, their gains resampled.
+    ctx.bus.subscribe('bus_app', (msg, src, d) => {
+      if (msg === 'msg_app_setting_changed' && /^equ_(bands_num|custom_bands(_num|_first_fr|_last_fr)?)$/.test(d?.key ?? '')) this.relayoutBands();
+    });
+    // The Tone settings (frequencies and Q factors) apply at once.
+    ctx.bus.subscribe('bus_app', (msg, src, d) => {
+      if (msg !== 'msg_app_setting_changed' || !/^tone_(bass|treble)_(freq|q)$/.test(d?.key ?? '')) return;
+      this.update();
+      ctx.bus.post('bus_dsp', 'msg_dsp_eq_changed', this, {tone: true});
+    });
   }
 
   load() {
     try {
       const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
       if (s?.values) Object.assign(this.values, s.values);
-      if (Array.isArray(s?.bands) && s.bands.length === this.bands.length) s.bands.forEach((g, i) => { this.bands[i].gain = +g || 0; });
+      if (Array.isArray(s?.bands)) {
+        // Gains saved for another layout are resampled onto this one.
+        const freqs = Array.isArray(s.freqs) && s.freqs.length === s.bands.length ? s.freqs : s.bands.length === GRAPHIC_BANDS.length ? GRAPHIC_BANDS : null;
+        if (freqs) {
+          const pts = freqs.map((f, i) => [+f, +s.bands[i] || 0]);
+          for (const b of this.bands) b.gain = Math.max(-1, Math.min(1, gainAt(pts, b.frequency)));
+        }
+      }
     } catch { /* defaults */ }
   }
 
   save() {
     clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => {
-      try { localStorage.setItem(STORE_KEY, JSON.stringify({values: this.values, bands: this.bands.map(b => b.gain)})); } catch { /* storage unavailable */ }
+      try { localStorage.setItem(STORE_KEY, JSON.stringify({values: this.values, bands: this.bands.map(b => b.gain), freqs: this.bands.map(b => b.frequency)})); } catch { /* storage unavailable */ }
     }, 200);
+  }
+
+  /** The band frequencies the preferences select (custom bands or a band count). */
+  bandLayout() {
+    const p = k => this.ctx.pref?.(k);
+    const on = v => v === true || v === 'true';
+    if (on(p('equ_custom_bands'))) return bandFrequencies(+p('equ_custom_bands_num') || 10, +p('equ_custom_bands_first_fr') || 20, +p('equ_custom_bands_last_fr') || 16000);
+    return bandFrequencies(+p('equ_bands_num') || 10);
+  }
+
+  /** Bands at freqs, gains sampled from the points of the previous bands. */
+  layoutBands(freqs, prev) {
+    const q = bandQ(freqs), pts = prev.map(b => [b.frequency, b.gain]);
+    return freqs.map(hz => ({frequency: hz, label: bandLabel(hz), gain: Math.max(-1, Math.min(1, gainAt(pts, hz))), q}));
+  }
+
+  relayoutBands() {
+    const freqs = this.bandLayout();
+    if (freqs.length === this.bands.length && freqs.every((f, i) => f === this.bands[i].frequency)) return;
+    this.bands = this.layoutBands(freqs, this.bands);
+    if (this.nodes) this.rebuildBandNodes();
+    this.save();
+    this.update();
+    this.ctx.bus.post('bus_dsp', 'msg_dsp_eq_changed', this, {layout: true});
+  }
+
+  /** Replaces the peaking filters between the preamp and the tone shelves. */
+  rebuildBandNodes() {
+    const n = this.nodes, ac = this.ac;
+    n.preamp.disconnect();
+    for (const f of n.bands) f.disconnect();
+    n.bands = this.bands.map(b => {
+      const f = ac.createBiquadFilter();
+      f.type = 'peaking';
+      f.frequency.value = b.frequency;
+      f.Q.value = b.q;
+      return f;
+    });
+    let x = n.preamp;
+    for (const f of n.bands) x = x.connect(f);
+    x.connect(n.bass.input);
   }
 
   get(param) {
@@ -144,9 +255,11 @@ export class DSP {
    */
   applyPreset(p) {
     const q = p.params ?? {};
-    this.bands.forEach(b => { b.gain = Math.max(-1, Math.min(1, q[b.label] ?? 0)); });
+    // Preset gains are keyed by band label; another layout samples their curve.
+    const pts = Object.entries(q).map(([k, v]) => [labelHz(k), +v || 0]).filter(([hz]) => hz > 0).sort((a, b) => a[0] - b[0]);
+    this.bands.forEach(b => { b.gain = Math.max(-1, Math.min(1, q[b.label] ?? gainAt(pts, b.frequency))); });
     const pre = q.preamp > 0 ? 20 * Math.log10(q.preamp) : 0;
-    this.values.dsp_preamp = Math.max(0, Math.min(1, 0.5 + pre / (2 * BAND_RANGE_DB)));
+    this.values.dsp_preamp = Math.max(0, Math.min(1, 0.5 + pre / (2 * PREAMP_RANGE_DB)));
     const tone = q.bass !== undefined || q.treble !== undefined;
     this.values.dsp_bass_gain = q.bass ?? 0;
     this.values.dsp_treble_gain = q.treble ?? 0;
@@ -196,12 +309,10 @@ export class DSP {
       f.Q.value = b.q;
       return f;
     });
-    const bass = ac.createBiquadFilter();
-    bass.type = 'lowshelf';
-    bass.frequency.value = BASS_HZ;
-    const treble = ac.createBiquadFilter();
-    treble.type = 'highshelf';
-    treble.frequency.value = TREBLE_HZ;
+    // Shelves with a Q: the platform's shelving biquads have none, so each is
+    // an IIR filter, replaced (cross-faded) when its coefficients change.
+    const bass = new ShelfFilter(ac, 'lowshelf');
+    const treble = new ShelfFilter(ac, 'highshelf');
     // Stereo width via mid/side: L' = M + wS, R' = M - wS.
     const split = ac.createChannelSplitter(2);
     const merge = ac.createChannelMerger(2);
@@ -221,7 +332,9 @@ export class DSP {
     analyser.smoothingTimeConstant = 0.75;
     let n = src.connect(preamp);
     for (const f of bands) n = n.connect(f);
-    n.connect(bass).connect(treble).connect(split);
+    n.connect(bass.input);
+    bass.output.connect(treble.input);
+    treble.output.connect(split);
     merge.connect(pan);
     pan.connect(dry).connect(sum);
     pan.connect(predelay).connect(convolver).connect(wet).connect(sum);
@@ -260,11 +373,12 @@ export class DSP {
     const v = this.values, t = this.ac.currentTime, on = v.dsp_enabled;
     const k = (p, val) => p.setTargetAtTime(val, t, 0.015);
     const eq = on && v.dsp_eq_enabled;
-    k(n.preamp.gain, eq ? dbToGain((v.dsp_preamp - 0.5) * 2 * BAND_RANGE_DB) : 1);
+    k(n.preamp.gain, eq ? dbToGain((v.dsp_preamp - 0.5) * 2 * PREAMP_RANGE_DB) : 1);
     n.bands.forEach((f, i) => k(f.gain, eq ? this.bands[i].gain * BAND_RANGE_DB : 0));
     const tone = on && v.dsp_tone_enabled;
-    k(n.bass.gain, tone ? v.dsp_bass_gain * TONE_RANGE_DB : 0);
-    k(n.treble.gain, tone ? v.dsp_treble_gain * TONE_RANGE_DB : 0);
+    const tp = this.toneParams();
+    n.bass.set(tp.bassHz, tone ? v.dsp_bass_gain * TONE_RANGE_DB : 0, tp.bassQ);
+    n.treble.set(tp.trebleHz, tone ? v.dsp_treble_gain * TONE_RANGE_DB : 0, tp.trebleQ);
     // Mono averages the channels; stereo X widens the side signal up to 2x.
     const mono = on && v.dsp_mono_enabled;
     const w = mono ? 0 : 1 + (on ? v.dsp_stereo_fx : 0);
@@ -329,11 +443,18 @@ export class DSP {
       for (let i = 0; i < freqs.length; i++) out[i] += 20 * Math.log10(mag[i]);
     };
     if (v.dsp_enabled && v.dsp_eq_enabled) {
-      const pre = (v.dsp_preamp - 0.5) * 2 * BAND_RANGE_DB;
+      const pre = (v.dsp_preamp - 0.5) * 2 * PREAMP_RANGE_DB;
       for (let i = 0; i < out.length; i++) out[i] += pre;
       this.bands.forEach(b => add('peaking', b.frequency, b.gain * BAND_RANGE_DB, b.q));
     }
     return out;
+  }
+
+  /** The tone shelves' corners and Q factors (the stored tone_* values; 0 = default). */
+  toneParams() {
+    const num = (key, def) => { const x = parseFloat(this.ctx.pref?.(key)); return x > 0 ? x : def; };
+    const D = TONE_DEFAULTS;
+    return {bassHz: num('tone_bass_freq', D.bassHz), bassQ: num('tone_bass_q', D.bassQ), trebleHz: num('tone_treble_freq', D.trebleHz), trebleQ: num('tone_treble_q', D.trebleQ)};
   }
 
   /** Tone shelves' response in dB (drawn separately by the FRS). */
@@ -341,27 +462,27 @@ export class DSP {
     const out = new Float32Array(freqs.length);
     const v = this.values;
     if (!(v.dsp_enabled && v.dsp_tone_enabled)) return out;
-    for (const [type, f0, g] of [['lowshelf', BASS_HZ, v.dsp_bass_gain * TONE_RANGE_DB], ['highshelf', TREBLE_HZ, v.dsp_treble_gain * TONE_RANGE_DB]]) {
+    const tp = this.toneParams();
+    for (const [type, f0, g, q] of [['lowshelf', tp.bassHz, v.dsp_bass_gain * TONE_RANGE_DB, tp.bassQ], ['highshelf', tp.trebleHz, v.dsp_treble_gain * TONE_RANGE_DB, tp.trebleQ]]) {
       if (!g) continue;
-      const mag = biquadMagnitude(type, f0, g, Math.SQRT1_2, freqs, this.ac?.sampleRate ?? 48000);
+      const mag = biquadMagnitude(type, f0, g, q, freqs, this.ac?.sampleRate ?? 48000);
       for (let i = 0; i < freqs.length; i++) out[i] += 20 * Math.log10(mag[i]);
     }
     return out;
   }
 }
 
-/** RBJ cookbook biquad magnitude response. */
-export function biquadMagnitude(type, f0, gainDb, q, freqs, fs) {
+/** RBJ cookbook biquad coefficients [b0, b1, b2, a0, a1, a2] (shelves with a Q: alpha = sin w0 / 2Q). */
+export function biquadCoefficients(type, f0, gainDb, q, fs) {
   const A = Math.pow(10, gainDb / 40);
-  const w0 = (2 * Math.PI * f0) / fs;
+  const w0 = (2 * Math.PI * Math.min(f0, fs * 0.49)) / fs;
   const cw = Math.cos(w0), sw = Math.sin(w0);
+  const alpha = sw / (2 * q);
   let b0, b1, b2, a0, a1, a2;
   if (type === 'peaking') {
-    const alpha = sw / (2 * q);
     b0 = 1 + alpha * A; b1 = -2 * cw; b2 = 1 - alpha * A;
     a0 = 1 + alpha / A; a1 = -2 * cw; a2 = 1 - alpha / A;
   } else {
-    const alpha = (sw / 2) * Math.sqrt(2);
     const s = 2 * Math.sqrt(A) * alpha;
     if (type === 'lowshelf') {
       b0 = A * ((A + 1) - (A - 1) * cw + s); b1 = 2 * A * ((A - 1) - (A + 1) * cw); b2 = A * ((A + 1) - (A - 1) * cw - s);
@@ -371,6 +492,12 @@ export function biquadMagnitude(type, f0, gainDb, q, freqs, fs) {
       a0 = (A + 1) - (A - 1) * cw + s; a1 = 2 * ((A - 1) - (A + 1) * cw); a2 = (A + 1) - (A - 1) * cw - s;
     }
   }
+  return [b0, b1, b2, a0, a1, a2];
+}
+
+/** RBJ cookbook biquad magnitude response. */
+export function biquadMagnitude(type, f0, gainDb, q, freqs, fs) {
+  const [b0, b1, b2, a0, a1, a2] = biquadCoefficients(type, f0, gainDb, q, fs);
   const out = new Float32Array(freqs.length);
   for (let i = 0; i < freqs.length; i++) {
     const w = (2 * Math.PI * freqs[i]) / fs;
@@ -380,4 +507,39 @@ export function biquadMagnitude(type, f0, gainDb, q, freqs, fs) {
     out[i] = Math.sqrt((nr * nr + ni * ni) / (dr * dr + di * di));
   }
   return out;
+}
+
+/**
+ * A shelving filter with a Q (IIRFilterNode): input → IIR → gain → output. A
+ * coefficient change builds a new IIR path and cross-fades to it in 20 ms.
+ */
+class ShelfFilter {
+  constructor(ac, type) {
+    this.ac = ac;
+    this.type = type;
+    this.input = ac.createGain();
+    this.output = ac.createGain();
+    this.path = null;
+    this.key = null;
+  }
+
+  set(f0, gainDb, q) {
+    const key = `${f0}|${gainDb.toFixed(3)}|${q}`;
+    if (key === this.key) return;
+    this.key = key;
+    const ac = this.ac, t = ac.currentTime;
+    const [b0, b1, b2, a0, a1, a2] = biquadCoefficients(this.type, f0, gainDb, q, ac.sampleRate);
+    const iir = ac.createIIRFilter([b0 / a0, b1 / a0, b2 / a0], [1, a1 / a0, a2 / a0]);
+    const g = ac.createGain();
+    this.input.connect(iir).connect(g).connect(this.output);
+    const old = this.path;
+    this.path = {iir, g};
+    if (!old) return;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(1, t + 0.02);
+    old.g.gain.cancelScheduledValues(t);
+    old.g.gain.setValueAtTime(old.g.gain.value, t);
+    old.g.gain.linearRampToValueAtTime(0, t + 0.02);
+    setTimeout(() => { try { this.input.disconnect(old.iir); old.iir.disconnect(); old.g.disconnect(); } catch { /* already gone */ } }, 80);
+  }
 }

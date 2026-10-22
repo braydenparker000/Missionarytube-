@@ -209,6 +209,8 @@ const RULES = [
   [/^cp_radio_on$/, () => 'radio_on'],
   [/^cp_radio_off$/, () => 'radio_off'],
   [/^support/, () => 'support'],
+  // Inline glyphs (play_rounded_12dp) are plain, not the round button.
+  [/^play_rounded_\d+dp$/, () => 'play_rounded'],
   [/^play_round(_inv)?(_rounded)?/, m => round(m[2] ? 'play_rounded' : 'play', 0.52)],
   [/^pause_round(_inv)?(_rounded)?/, m => round(m[2] ? 'pause_rounded' : 'pause', 0.44)],
   [/^ff_round(_inv)?(_rounded)?/, m => round(m[2] ? 'ff_rounded' : 'ff', 0.46)],

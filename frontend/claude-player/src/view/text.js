@@ -35,7 +35,7 @@ export function measureText(str, font, sizePx, letterSpacing = 0) {
 }
 
 const ascentCache = new Map();
-function cssAscentDescent(font, sizePx) {
+export function cssAscentDescent(font, sizePx) {
   const key = font.family + font.weight + '|' + sizePx;
   let v = ascentCache.get(key);
   if (!v) {

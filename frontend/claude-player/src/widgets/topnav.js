@@ -72,7 +72,11 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
   applyFadedAlphas() {
     const pct = k => (+this.ctx.pref(k) || 0) / 100;
     const panel = pct('vis_panel_faded_alpha'), controls = pct('vis_controls_faded_alpha');
-    const list = Math.max(0, Math.min(1, pct('vis_list_faded_alpha')));
+    // vis_list_faded_alpha is a float seek bar (floatScale 100): stored as 0..1.
+    // (Values above 1 were stored as percent by earlier builds.)
+    let list = +this.ctx.pref('vis_list_faded_alpha') || 0;
+    if (list > 1) list /= 100;
+    list = Math.max(0, Math.min(1, list));
     const now = this.scenes?.scene === 'scene_vis_w_ui';
     for (const c of this.children) {
       if (c.isBehavior) continue;

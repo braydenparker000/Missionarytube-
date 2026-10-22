@@ -14,13 +14,17 @@
 // FRS (graphic mode): one point per band, evenly spaced, joined by cubics with
 // horizontal tangents; centre backline; tone humps; vertical 5-stop gradient.
 import {View, ViewGroup, MeasureSpec} from '../view/view.js';
-import {FastTextView, FastButton} from '../view/text.js';
+import {FastTextView, FastButton, measureText, cssAscentDescent} from '../view/text.js';
+import {cssFontFamily} from '../fonts.js';
+import {LONG_PRESS_MS} from '../input.js';
+import {openDialog} from './dialog.js';
 import {FastLayout} from '../view/fast-layout.js';
 import {register} from '../view/inflater.js';
 import {renderOps, elevationShadow} from '../view/drawables.js';
 import {colorForState} from '../res/resources.js';
-import {colorToCss} from '../res/values.js';
+import {colorToCss, VISIBLE, GONE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
+import {BAND_RANGE_DB, PREAMP_RANGE_DB} from '../dsp/dsp.js';
 import {animTime} from './topnav.js';
 
 const idOf = raw => (raw ? /^@\+?id\/(.+)$/.exec(raw)?.[1] ?? null : null);
@@ -53,7 +57,17 @@ function lerpHsv(a, b, t) {
   return fromHsv([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t, A[3] + (B[3] - A[3]) * t]);
 }
 
-/** Vertical linear knob with a label under the travel (KnobLabelAndValue + LinearKnob). */
+/**
+ * Vertical linear knob with its label and value line (KnobLabelAndValue +
+ * LinearKnob). The value line (valueTextAppearance) sits at the bottom with
+ * the label above it; both stand on the label background, which zooms with
+ * the value text while the thumb is held. Touches (onTouchEvent): on the thumb
+ * (or within thumbMinTouchableSize of its centre) a drag moves it; below the
+ * travel, the label area clicks and long-presses (a value entry dialog when a
+ * value is shown); elsewhere on the travel a tap steps the value 0.05 toward
+ * the tap, snapped to twentieths and animated linearly (500 ms per unit,
+ * 100 ms at least).
+ */
 export class LinearKnob extends FastTextView {
   constructor(ctx, a) {
     super(ctx, a);
@@ -66,10 +80,20 @@ export class LinearKnob extends FastTextView {
     this.thumbH = a.dim('thumbHeight', 0) || this.thumb?.intrinsicHeight || 0;
     this.textPadding = a.dim('textPadding', 0);
     this.valuePadding = a.dim('valuePadding', 0);
+    this.labelBgPadLeft = a.dimOffset('labelBackgroundPaddingLeft', 0);
+    this.labelBgPadRight = a.dimOffset('labelBackgroundPaddingRight', 0);
     this.labelBgPadTop = a.dimOffset('labelBackgroundPaddingTop', 0);
     this.labelBgPadBottom = a.dimOffset('labelBackgroundPaddingBottom', 0);
+    const lb = a.ref('labelBackground');
+    this.labelBg = lb ? ctx.drawables.fromRef(lb, a.theme) : null;
+    this.valueZoom = a.float('valueAnimZoom', 1.1);
+    this.zoomMs = a.int('valueAnimTime', 250);
+    this.labelBgZoom = a.float('labelBackgroundAnimZoom', 1.1);
+    this.labelBgZoomY = a.float('labelBackgroundAnimZoomY', this.labelBgZoom);
+    this.zoom = {value: 1, x: 1, y: 1};
     this.hideLabel = a.bool('hideLabel', false);
-    this.valueFormat = a.string('valueFormat', '') || null;
+    const vAp = a.raw('valueTextAppearance');
+    this.valueStyle = new FastTextView(ctx, ctx.inflater.styledAttributes(vAp ? {'android:textAppearance': vAp} : {}, a.theme));
     this.holeStartPoint = a.float('holeColorStartPoint', 0);
     // Fill colour: start → end blended by value (state-aware colour lists).
     this.holeStart = a.color('holeStartColor') ?? null;
@@ -83,11 +107,58 @@ export class LinearKnob extends FastTextView {
       stroke: Math.max(1, a.dim('stroke', 3)),
       dashes: (a.string('dashes', '') || '').split(',').map(s => (+s || 0) * ctx.dpr),
     } : null;
-    this.value = 0.5;
+    // value: the drawn position (J); target: the set value (L) the value text shows.
+    this.value = this.target = 0.5;
+    this.labelsMode = null;
+    this.labelBgEl = document.createElement('div');
+    this.labelBgEl.className = 'ops';
+    this.el.insertBefore(this.labelBgEl, this.el.firstChild);
+    this.valueEl = document.createElement('div');
+    this.valueEl.className = 'ln';
+    this.valueEl.style.position = 'absolute';
+    this.valueEl.style.whiteSpace = 'pre';
+    this.el.appendChild(this.valueEl);
     this.opsEl = document.createElement('div');
     this.opsEl.className = 'ops';
     this.el.appendChild(this.opsEl);
     this.onChange = null;
+    this.dialogTitle = null;
+    this.dialogHint = null;
+    // Value text: format and display range (valueFormat*, or setLabelsMode).
+    this.setFormat(a.string('valueFormat', '') || null, a.float('valueFormatMin', NaN), a.float('valueFormatMid', NaN), a.float('valueFormatMax', NaN), a.float('valueFormatMidPos', NaN));
+  }
+
+  /** l(): a value format over min..max through mid (always 0) at midPos; none hides the value. */
+  setFormat(fmt, min, mid, max, midPos) {
+    this.valueFormat = fmt || null;
+    this.fmtMin = min;
+    this.fmtMid = Number.isNaN(mid) ? NaN : 0;
+    this.fmtMax = max;
+    this.fmtMidPos = midPos;
+    this.requestLayout?.();
+    this.invalidate();
+  }
+
+  /** q(): the eq_labels mode — 1 the value over min..max ("%.1f"), 2 percent (-100..100), else none. */
+  setLabelsMode(min, max, mode) {
+    if (this.labelsMode === mode) return;
+    this.labelsMode = mode;
+    if (mode === 1) this.setFormat('%.1f', min, 0, max, 0.5);
+    else if (mode === 2) this.setFormat(this.ctx.res.stringByName('f0_percent') ?? '%.0f%%', -100, 0, 100, 0.5);
+    else this.setFormat(null, 0, 0, 0, 0);
+  }
+
+  /** v(): the target mapped to the display range (piecewise through mid at midPos). */
+  displayValue() {
+    let f = this.target;
+    const min = this.fmtMin, max = this.fmtMax, mid = this.fmtMid, mp = this.fmtMidPos;
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return f;
+    if (mp !== 0 && mid < max && mid > min) return f >= mp ? (max - mid) * ((f - mp) / mp) + mid : (mid - min) * (f / mp) + min;
+    return (max - min) * f + min;
+  }
+
+  valueText() {
+    return this.valueFormat ? formatValue(this.valueFormat, this.displayValue()) : null;
   }
 
   fillColor() {
@@ -98,11 +169,32 @@ export class LinearKnob extends FastTextView {
     return lerpHsv(a, b, this.value);
   }
 
-  /** Normalised position 0..1 (top = 1). */
-  setValue(v, fromUser = false) {
+  /**
+   * k(): sets the value (0..1, top = 1). animate: the drawn position slides to
+   * it (the value text and the change report take it at once).
+   */
+  setValue(v, fromUser = false, animate = false) {
     v = clamp01(v);
-    if (v === this.value) return;
-    this.value = v;
+    // The DSP's echo of a set value leaves a running slide alone.
+    if (Math.abs(v - this.target) < 1e-6) return;
+    this._anim?.();
+    this._anim = null;
+    this.target = v;
+    if (animate && Math.abs(this.value - v) > 0.001 && this.isShown?.() !== false) {
+      const from = this.value, ms = Math.max(100, Math.round(Math.abs(v - from) * 500));
+      let t0 = null;
+      this._anim = this.ctx.onFrame(now => {
+        t0 ??= now;
+        const k = Math.min(1, (now - t0) / ms);
+        this.value = from + (v - from) * k;
+        this.invalidate();
+        if (k < 1) return true;
+        this._anim = null;
+        return false;
+      });
+    } else {
+      this.value = v;
+    }
     this.invalidate();
     if (fromUser) this.onChange?.(v);
   }
@@ -111,18 +203,41 @@ export class LinearKnob extends FastTextView {
     this.setText(s);
   }
 
+  /** m640(): label line, plus valuePadding and the value line when a value shows. */
   labelZone() {
-    const label = this.hideLabel ? 0 : this.lineHeight - this.padK - this.padL;
-    return label;
+    let z = this.hideLabel ? 0 : this.lineHeight - this.padK - this.padL;
+    if (this.valueFormat) z += (this.hideLabel ? 0 : this.valuePadding) + this.valueStyle.lineHeight;
+    return z;
+  }
+
+  /** b(): the widest of the label and the value text ("100%" before a value exists). */
+  textWidth() {
+    let w = this.hideLabel ? 0 : this.textW;
+    if (this.valueFormat) {
+      const s = this.valueText() ?? '100%', vs = this.valueStyle;
+      w = Math.max(w, Math.ceil(measureText(s, vs.font, vs.effectiveTextSize(), vs.letterSpacing)));
+    }
+    return w;
+  }
+
+  labelBgPad() {
+    const p = this.labelBg?.padding ?? null;
+    return p ? {l: p.left ?? 0, t: p.top ?? 0, r: p.right ?? 0, b: p.bottom ?? 0} : {l: 0, t: 0, r: 0, b: 0};
   }
 
   onMeasure(wSpec, hSpec) {
     this.layoutText(0x7fffffff);
-    const z = this.labelZone();
-    const holeW = this.hole ? this.hole.intrinsicWidth + this.holePad().l + this.holePad().r : 0;
-    const holeH = this.hole ? this.hole.intrinsicHeight + this.holePad().t + this.holePad().b : 0;
-    const w = this.paddingLeft + this.paddingRight + Math.max(this.hideLabel ? 0 : this.textW, this.thumbW, holeW);
-    const h = this.paddingTop + this.paddingBottom + z + this.labelBgPadTop + this.labelBgPadBottom + Math.max(holeH, this.thumbH);
+    let b = this.textWidth(), z = this.labelZone();
+    if (this.labelBg) {
+      const r = this.labelBgPad();
+      b += r.l + r.r + this.labelBgPadLeft + this.labelBgPadRight;
+      z += r.t + r.b + this.labelBgPadTop + this.labelBgPadBottom;
+    }
+    const th = this.thumb ? this.thumbH + this.thumbPad().t + this.thumbPad().b : 0;
+    const tw = this.thumb ? this.thumbW + this.thumbPad().l + this.thumbPad().r : 0;
+    const hh = this.hole ? this.hole.intrinsicHeight + this.holePad().t + this.holePad().b : 0;
+    const w = this.paddingLeft + this.paddingRight + Math.max(b, tw);
+    const h = this.paddingTop + this.paddingBottom + z + Math.max(hh, th);
     const resolve = (size, spec) => {
       const m = MeasureSpec.getMode(spec), s = MeasureSpec.getSize(spec);
       return m === MeasureSpec.EXACTLY ? s : m === MeasureSpec.AT_MOST ? Math.min(size, s) : size;
@@ -135,14 +250,29 @@ export class LinearKnob extends FastTextView {
     return p ? {l: p.left ?? 0, t: p.top ?? 0, r: p.right ?? 0, b: p.bottom ?? 0} : {l: 0, t: 0, r: 0, b: 0};
   }
 
+  thumbPad() {
+    const p = this.thumb?.padding ?? null;
+    return p ? {l: p.left ?? 0, t: p.top ?? 0, r: p.right ?? 0, b: p.bottom ?? 0} : {l: 0, t: 0, r: 0, b: 0};
+  }
+
   travel() {
     return this.height - this.paddingTop - this.paddingBottom - this.labelZone() - this.labelBgPadTop - this.labelBgPadBottom - (this.valueFormat ? this.textPadding : 0);
   }
 
+  /** The horizontal centre of the label and value (inside the label background paddings). */
+  textCenterX() {
+    const pl = this.paddingLeft, y = this.labelBgPadLeft, K = this.labelBgPadRight;
+    return pl + Math.round((this.width - pl - this.paddingRight - y - K) / 2) + y;
+  }
+
+  /** The value baseline (i9); the label stands valuePadding above the value line. */
+  valueBaseline() {
+    return this.height - this.paddingBottom - this.labelBgPadBottom - this.valueStyle.fmBottom;
+  }
+
   positionText() {
-    const fm = this.fmBottom;
-    const baseline = this.height - this.paddingBottom - this.labelBgPadBottom - fm;
-    this.tx = Math.round((this.width - this.textW) / 2);
+    const baseline = this.valueFormat ? this.valueBaseline() - this.valueStyle.lineHeight - (this.hideLabel ? 0 : this.valuePadding) : this.height - this.paddingBottom - this.labelBgPadBottom - this.fmBottom;
+    this.tx = Math.round(this.textCenterX() - this.textW / 2);
     this.ty = baseline + this.fmTop + this.padK;
     this.invalidate();
   }
@@ -154,7 +284,7 @@ export class LinearKnob extends FastTextView {
   draw() {
     super.draw();
     const ops = [];
-    const W = this.width, L = this.travel();
+    const W = this.width, L = this.travel(), px = this.ctx.px;
     if (this.linesBg && this.thumbH) {
       const total = this.linesBg.dashes.reduce((s, d) => s + d, 0);
       const x0 = Math.round((W - total) / 2);
@@ -172,7 +302,7 @@ export class LinearKnob extends FastTextView {
       const p = this.holePad(), iw = this.hole.intrinsicWidth;
       const hx = Math.trunc((W - iw - p.l - p.r) / 2) + p.l;
       const top = this.paddingTop + p.t, bottom = Math.trunc(L - p.b + 0.5);
-      this.hole.ops(iw, Math.max(0, bottom - top), this.state, ops, hx, top);
+      this.hole.ops(iw, Math.max(0, bottom - top), this.holeState(), ops, hx, top);
       const fill = this.fillColor();
       if (fill && this.holeColorWidth) {
         const g0 = this.paddingTop + Math.trunc((1 - this.value) * L);
@@ -182,52 +312,197 @@ export class LinearKnob extends FastTextView {
       }
     }
     if (this.thumb) this.thumb.ops(this.thumbW, this.thumbH, this.state, ops, Math.trunc((W - this.thumbW) / 2), this.thumbTop());
-    renderOps(this.opsEl, ops, this.ctx.px);
+    renderOps(this.opsEl, ops, px);
+    this.drawLabelBg();
+    this.drawValue();
   }
 
-  // Dragging (vertical): grabbing the thumb moves it relatively; a drag that
-  // starts on the track first centres the thumb under the finger. Horizontal
-  // drags go to the list / pager (interceptible until the knob commits).
+  /** The hole's own state: pressed during a tap on the travel (S = 2). */
+  holeState() {
+    return this._drag?.mode === 2 ? {...this.state, pressed: true} : {...this.state, pressed: false};
+  }
+
+  drawLabelBg() {
+    const bg = this.labelBg, ops = [];
+    if (bg && this.width) {
+      const r = this.labelBgPad(), px = this.ctx.px;
+      const left = this.paddingLeft + r.l, right = this.width - r.r - this.paddingRight;
+      const bottom = this.height - r.b - this.paddingBottom;
+      const top = bottom - this.labelZone() - r.t - this.labelBgPadTop - this.labelBgPadBottom;
+      bg.ops(Math.max(0, right - left), Math.max(0, bottom - top), {...this.state, pressed: this._drag?.mode === 3}, ops, 0, 0);
+      const st = this.labelBgEl.style;
+      st.left = px(left) + 'px';
+      st.top = px(top) + 'px';
+      st.width = px(right - left) + 'px';
+      st.height = px(bottom - top) + 'px';
+      st.transform = this.zoom.x !== 1 || this.zoom.y !== 1 ? `scale(${this.zoom.x},${this.zoom.y})` : '';
+    }
+    renderOps(this.labelBgEl, ops, this.ctx.px);
+  }
+
+  drawValue() {
+    const s = this.valueText(), el = this.valueEl;
+    if (s === null || !this.width) { el.textContent = ''; return; }
+    const vs = this.valueStyle, px = this.ctx.px, size = vs.effectiveTextSize();
+    const {asc, desc} = cssAscentDescent(vs.font, size);
+    const w = measureText(s, vs.font, size, vs.letterSpacing);
+    const cx = this.textCenterX(), baseline = this.valueBaseline();
+    const st = el.style;
+    st.font = `${vs.font.italic ? 'italic ' : ''}${vs.font.weight} ${px(size)}px ${cssFontFamily(vs.font)}`;
+    st.letterSpacing = vs.letterSpacing ? vs.letterSpacing + 'em' : '';
+    st.color = colorToCss(colorForState(vs.textColor, this.state) ?? 0xffffffff);
+    st.lineHeight = px(asc + desc) + 'px';
+    st.transformOrigin = `${px(w / 2)}px ${px(asc)}px`;
+    st.transform = `translate(${px(cx - w / 2)}px,${px(baseline - asc)}px)` + (this.zoom.value !== 1 ? ` scale(${this.zoom.value})` : '');
+    el.textContent = s;
+  }
+
+  /** o(): the value text and label background zoom in while held (decelerate). */
+  animateZoom(on) {
+    this._zoomAnim?.();
+    const from = {...this.zoom}, to = on ? {value: this.valueZoom, x: this.labelBgZoom, y: this.labelBgZoomY} : {value: 1, x: 1, y: 1};
+    const ms = this.zoomMs;
+    let t0 = null;
+    this._zoomAnim = this.ctx.onFrame(now => {
+      t0 ??= now;
+      const t = Math.min(1, (now - t0) / ms), k = 1 - (1 - t) * (1 - t);
+      for (const key of ['value', 'x', 'y']) this.zoom[key] = from[key] + (to[key] - from[key]) * k;
+      this.invalidate();
+      if (t < 1) return true;
+      this._zoomAnim = null;
+      return false;
+    });
+  }
+
+  // Dragging (vertical): the thumb follows the finger from where it was
+  // grabbed. Horizontal drags go to the list / pager (interceptible until the
+  // knob commits).
   get interceptible() { return true; }
 
   onPointerDown(e) {
-    if (!this.state.enabled) return false;
+    if (!this.state.enabled || !this.thumb) return false;
+    this._anim?.();
+    if (this._anim) { this._anim = null; this.target = this.value; }
     const top = this.thumbTop(), range = this.travel() - this.thumbH;
     if (range <= 0) return false;
-    const grab = e.y >= top - this.minTouch / 2 && e.y <= top + this.thumbH + this.minTouch / 2;
-    this._drag = {x0: e.x, y0: e.y, v0: this.value, range, grab, started: false};
-    this.setPressed(true);
+    const cy = top + this.thumbH / 2, r = Math.trunc(this.minTouch / 2);
+    const holeBottom = this.hole ? Math.trunc(this.travel() - this.holePad().b + 0.5) : this.travel();
+    let mode;
+    if ((e.y >= top && e.y <= top + this.thumbH) || (e.y >= cy - r && e.y <= cy + r)) mode = 1;
+    else if (this.hole && e.y > holeBottom) mode = 3;
+    else mode = 2;
+    this._drag = {mode, x0: e.x, y0: e.y, v0: this.value, range, started: false};
+    if (mode === 1) {
+      this.setPressed(true);
+      if (this.valueFormat) this.animateZoom(true);
+    } else if (mode === 3 && this.longClickable) {
+      this._longTimer = setTimeout(() => { if (this._drag?.mode === 3) { this._drag.longFired = true; this.onLabelLongPress(); } }, LONG_PRESS_MS);
+    }
+    this.invalidate();
     return true;
   }
 
   onPointerMove(e) {
     const d = this._drag;
-    if (!d) return;
+    if (!d || d.mode !== 1) return;
     if (!d.started) {
       const slop = 8 * this.ctx.dpr;
       if (Math.abs(e.y - d.y0) <= slop || Math.abs(e.y - d.y0) < Math.abs(e.x - d.x0)) return;
       d.started = true;
       this.disallowIntercept = true;
-      if (!d.grab) {
-        this.setValue(1 - (d.y0 - this.paddingTop - this.thumbH / 2) / d.range, true);
-        d.v0 = this.value;
-      }
     }
     this.setValue(d.v0 - (e.y - d.y0) / d.range, true);
   }
 
-  onPointerUp() {
+  onPointerUp(e) {
+    const d = this._drag;
     this._drag = null;
-    this.setPressed(false);
+    clearTimeout(this._longTimer);
+    if (!d) return;
+    if (d.mode === 1) {
+      this.setPressed(false);
+      if (this.valueFormat) this.animateZoom(false);
+    } else if (d.mode === 2 && !e?.cancelled) {
+      // A tap above / below the thumb steps 0.05 toward it, snapped to 1/20
+      // (a step landing on exactly 0 is dropped, as in the reference).
+      const top = this.thumbTop();
+      let f = 0;
+      if (e.y < top) f = Math.round((this.value + 0.05) * 20) / 20;
+      else if (e.y > top + this.thumbH) f = Math.round((this.value - 0.05) * 20) / 20;
+      if (f !== 0) this.setValue(f, true, true);
+    }
+    this.invalidate();
   }
 
   onPointerCancel() {
-    this.onPointerUp();
+    this.onPointerUp({cancelled: true});
+  }
+
+  /** performLongClick on the label: the value entry dialog (only with a value shown). */
+  onLabelLongPress() {
+    const s = this.valueText();
+    if (s === null) return false;
+    openValueDialog(this.ctx, {
+      title: this.dialogTitle ?? this.text, hint: this.dialogHint, value: s.replace(/%/g, ''),
+      onDone: text => this.setValueFromDialog(text),
+    });
+    return true;
+  }
+
+  /** setValueFromDialog: the typed value clamped to the display range, mapped back to 0..1. */
+  setValueFromDialog(text) {
+    if (!text) return;
+    let v = parseFloat(String(text).replace(/,/g, '.'));
+    if (Number.isNaN(v)) return;
+    const min = this.fmtMin, max = this.fmtMax, mid = this.fmtMid, mp = this.fmtMidPos;
+    if (Number.isFinite(min) && Number.isFinite(max)) {
+      v = Math.min(max, Math.max(min, v));
+      if (mid >= max || mid <= min || !(mid === mid) || mp === 0) v = max - min !== 0 ? (v - min) / (max - min) : 0;
+      else if (v >= mid) v = (1 - mp) * ((v - mid) / (max - mid)) + mp;
+      else v = ((v - min) / (mid - min)) * mp;
+    }
+    if (Number.isFinite(v)) this.setValue(v, true, true);
   }
 }
 
-/** Equalizer band knob: label = band frequency, value = band gain (-1..1). */
+/**
+ * The value entry dialog (KnobLabelAndValue.e): merge_edit_text_with_label in
+ * a centred alert, the value selected, a hint below; OK applies it.
+ */
+export function openValueDialog(ctx, {title, hint = null, value = '', onDone}) {
+  const str = (k, f) => ctx.res.stringByName(k) ?? f;
+  let input = null;
+  const d = openDialog(ctx, {
+    style: 'dialog_AlertDialogActivity_centered', title,
+    buttons: {positive: str('OK', 'OK'), negative: str('cancel', 'Cancel')},
+    onButton: which => { if (which === 1) onDone?.(input?.value ?? ''); return true; },
+    setup: dd => {
+      const content = dd.find('content');
+      if (!content) return;
+      ctx.inflater.inflate('merge_edit_text_with_label', content);
+      if (hint) { const h = dd.find('hint_below'); h?.setText(hint); h?.setVisibility(VISIBLE); }
+    },
+  });
+  input = d.find('edit_text');
+  if (input?.setValue) {
+    input.setValue(value);
+    input.input.addEventListener('keydown', e => { if (e.key === 'Enter') d.find('button1')?.onClick?.(); });
+    setTimeout(() => { input.input.focus({preventScroll: true}); input.input.select(); }, (ctx.res.integer('?animTime', d.theme) ?? 350) + 30);
+  }
+  return d;
+}
+
+/** eq_labels (c40.R): 0 none, 1 dB (the default), 2 percent. */
+const eqLabelsMode = ctx => parseInt(ctx.pref('eq_labels'), 10) || 0;
+
+/** Equalizer band knob (f10): label = band frequency, value = band gain (-1..1 = -15..15 dB). */
 class BandKnob extends LinearKnob {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.setLabelsMode(-BAND_RANGE_DB, BAND_RANGE_DB, eqLabelsMode(ctx));
+    this.dialogHint = ctx.res.stringByName('value_change_volume_warning');
+  }
+
   bindBand(i, band) {
     this.band = i;
     this.setLabel(band.label);
@@ -235,8 +510,14 @@ class BandKnob extends LinearKnob {
   }
 }
 
-/** Preamp knob: DSP parameter dsp_preamp. */
-class PreampKnob extends LinearKnob {}
+/** Preamp knob (as / DSPLinearKnob): DSP parameter dsp_preamp, -24..24 dB. */
+class PreampKnob extends LinearKnob {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.setLabelsMode(-PREAMP_RANGE_DB, PREAMP_RANGE_DB, eqLabelsMode(ctx));
+    this.dialogHint = ctx.res.stringByName('value_change_volume_warning');
+  }
+}
 
 /**
  * EqKnobsList: preamp item then one knob per band, laid out at
@@ -262,7 +543,16 @@ export class EqKnobsList extends ViewGroup {
     pk.onChange = v => ctx.dsp?.set('dsp_preamp', v);
     this.knobStyle = sa('?EqLinearKnob');
     ctx.bus.subscribe('bus_dsp', () => this.syncDsp());
+    ctx.bus.subscribe('bus_app', (msg, src, d) => { if (msg === 'msg_app_setting_changed' && d?.key === 'eq_labels') this.applyLabelsMode(); });
     this.syncDsp();
+  }
+
+  applyLabelsMode() {
+    const mode = eqLabelsMode(this.ctx);
+    this.preamp.setLabelsMode(-PREAMP_RANGE_DB, PREAMP_RANGE_DB, mode);
+    for (const k of this.knobs) k.setLabelsMode(-BAND_RANGE_DB, BAND_RANGE_DB, mode);
+    this.preampLayout.requestLayout();
+    this.requestLayout();
   }
 
   ensureKnobs() {
@@ -274,6 +564,11 @@ export class EqKnobsList extends ViewGroup {
       k.lp = this.generateLayoutParams(this.knobStyle);
       this.addView(k);
       this.knobs.push(k);
+    }
+    // A smaller band layout drops the knobs past its last band.
+    if (this.knobs.length > bands.length) {
+      for (const k of this.knobs.splice(bands.length)) this.removeView(k);
+      this.requestLayout();
     }
   }
 
@@ -708,7 +1003,11 @@ export class RoundKnob extends View {
     this.fmtMax = a.float('valueFormatMax', NaN);
     this.fmtMid = a.float('valueFormatMid', NaN);
     this.fmtMidPos = a.float('valueFormatMidPos', NaN);
-    this.value = 0;
+    // Value entry (dialogPrecision: fraction digits shown, -1 = 4); rounding: steps per unit.
+    this.dialogPrecision = a.int('dialogPrecision', -1);
+    this.rounding = a.float('rounding', 0);
+    // value: the drawn position; target: the set value the value text shows.
+    this.value = this.target = 0;
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'cv';
     this.el.appendChild(this.canvas);
@@ -720,15 +1019,68 @@ export class RoundKnob extends View {
 
   setValue(v, fromUser = false) {
     v = clamp01(v);
-    if (v === this.value) return;
-    this.value = v;
+    // The DSP's echo of a set value leaves a running slide alone.
+    if (v === this.target && (this._anim || v === this.value)) return;
+    this._anim?.();
+    this._anim = null;
+    this.value = this.target = v;
     this.invalidate();
     if (fromUser) this.onChange?.(v);
   }
 
+  /**
+   * d(v, 1): an animated set — rounded to the rounding steps, the value (and
+   * the change report) at once, the knob sliding there with a decelerate(2)
+   * curve over 120 ms (a change of 0.05 or less) or 400 ms.
+   */
+  animateTo(v, fromUser = false) {
+    if (this.rounding) v = Math.round(this.rounding * v) / this.rounding;
+    v = clamp01(v);
+    const from = this.value, delta = Math.abs(from - v);
+    if (delta === 0) return;
+    if (delta <= 0.001) { this.setValue(v, fromUser); return; }
+    this._anim?.();
+    const ms = delta <= 0.05 ? 120 : 400;
+    this.target = v;
+    let t0 = null;
+    this._anim = this.ctx.onFrame(now => {
+      t0 ??= now;
+      const t = Math.min(1, (now - t0) / ms), k = 1 - Math.pow(1 - t, 4);
+      this.value = from + (v - from) * k;
+      this.invalidate();
+      if (t < 1) return true;
+      this._anim = null;
+      return false;
+    });
+    this.invalidate();
+    if (fromUser) this.onChange?.(v);
+  }
+
+  /** getValueForDialog: the display value with up to dialogPrecision (4) fraction digits. */
+  valueForDialog() {
+    const n = this.dialogPrecision === -1 ? 4 : this.dialogPrecision;
+    let s = this.displayValue().toFixed(n);
+    if (s.includes('.')) s = s.replace(/0+$/, '').replace(/\.$/, '');
+    return s === '-0' ? '0' : s;
+  }
+
+  /** setValueFromDialog: the typed display value mapped back to 0..1 (m545), animated. */
+  setValueFromDialog(text) {
+    if (!text) return;
+    let v = Number(String(text).replace(/,/g, '.').trim());
+    if (!String(text).trim() || Number.isNaN(v)) return;
+    const min = this.fmtMin, max = this.fmtMax, mid = this.fmtMid, mp = this.fmtMidPos;
+    if (Number.isFinite(min) && Number.isFinite(max)) {
+      if (!(mid < max && mid > min) || !Number.isFinite(mp) || mp === 0) v = max - min !== 0 ? (v - min) / (max - min) : 0;
+      else if (v < mid) v = ((v - min) / (mid - min)) * mp;
+      else v = (1 - mp) * ((v - mid) / (max - mid)) + mp;
+    }
+    if (Number.isFinite(v)) this.animateTo(v, true);
+  }
+
   /** Display value: min..max, piecewise through mid at midPos when given. */
   displayValue() {
-    const v = this.value, min = this.fmtMin, max = this.fmtMax;
+    const v = this.target, min = this.fmtMin, max = this.fmtMax;
     if (!Number.isFinite(min) || !Number.isFinite(max)) return v;
     if (Number.isFinite(this.fmtMid) && Number.isFinite(this.fmtMidPos) && this.fmtMidPos > 0 && this.fmtMidPos < 1) {
       return v <= this.fmtMidPos ? min + (this.fmtMid - min) * (v / this.fmtMidPos) : this.fmtMid + (max - this.fmtMid) * ((v - this.fmtMidPos) / (1 - this.fmtMidPos));
@@ -920,6 +1272,12 @@ export class DSPRoundKnobLayout extends FastLayout {
     this.valueLabel = label('valueLabelStyle', null, '_value_label');
     const animStyle = styleOf('valueLabelPressedAnimStyle');
     this.pressAnim = animStyle ? new a.constructor(res, theme, {}, animStyle) : null;
+    // A long press on the label or the value label opens the value entry dialog.
+    for (const v of [this.label, this.valueLabel]) {
+      if (!v) continue;
+      v.longClickable = true;
+      v.onLongClick = () => this.openValueDialog();
+    }
     this.knob.onChange = v => { if (this.param) ctx.dsp?.set(this.param, v); this.updateValueLabel(); };
     this.knob.onPressChanged = on => this.animateValueLabel(on);
     // Volume: no format in the layout; the parameter definition shows percent.
@@ -998,6 +1356,16 @@ export class DSPRoundKnobLayout extends FastLayout {
     this.valueLabel?.setText(this.knob.valueText());
   }
 
+  /** onLongClick: KnobLabelAndValue.e with the label as title (only while the knob is enabled). */
+  openValueDialog() {
+    if (!this.knob.state.enabled) return false;
+    openValueDialog(this.ctx, {
+      title: this.label?.text ?? '', hint: this.ctx.res.stringByName('value_change_volume_warning'),
+      value: this.knob.valueForDialog(), onDone: t => this.knob.setValueFromDialog(t),
+    });
+    return true;
+  }
+
   animateValueLabel(on) {
     const v = this.valueLabel, p = this.pressAnim;
     if (!v || !p) return;
@@ -1009,14 +1377,30 @@ export class DSPRoundKnobLayout extends FastLayout {
   }
 }
 
-/** Tone knobs: boost-only, shown in percent (the reference's default tone display). */
+/**
+ * Tone knobs (boost-only) per tone_labels (c40.S): 0 no value label (and no
+ * value dialog), 1 "%.1f" over 0..15 (one dialog digit), 2 percent over
+ * 0..100 (the default; whole numbers in the dialog).
+ */
 export class DSPToneRoundKnobLayout extends DSPRoundKnobLayout {
   constructor(ctx, a) {
     super(ctx, a);
-    this.knob.fmt = ctx.res.stringByName('f0_percent') ?? '%.0f%%';
-    this.knob.fmtMin = 0;
-    this.knob.fmtMax = 100;
-    this.knob.fmtMid = NaN;
+    this.applyToneLabels();
+    ctx.bus.subscribe('bus_app', (msg, src, d) => { if (msg === 'msg_app_setting_changed' && d?.key === 'tone_labels') this.applyToneLabels(); });
+  }
+
+  applyToneLabels() {
+    const mode = parseInt(this.ctx.pref('tone_labels'), 10) || 0, k = this.knob;
+    k.fmtMid = NaN;
+    k.fmtMidPos = NaN;
+    if (mode === 0) Object.assign(k, {fmt: null, fmtMin: 0, fmtMax: 0, dialogPrecision: -1});
+    else if (mode === 1) Object.assign(k, {fmt: '%.1f', fmtMin: 0, fmtMax: 15, dialogPrecision: 1});
+    else Object.assign(k, {fmt: this.ctx.res.stringByName('f0_percent') ?? '%.0f%%', fmtMin: 0, fmtMax: 100, dialogPrecision: 0});
+    // M: without a value the value label is not made and the label takes no long press.
+    this.valueLabel?.setVisibility(mode === 0 ? GONE : VISIBLE);
+    if (this.label) this.label.longClickable = mode !== 0;
+    this.updateValueLabel();
+    this.requestLayout();
   }
 }
 
