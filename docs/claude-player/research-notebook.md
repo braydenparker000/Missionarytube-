@@ -21,7 +21,7 @@ not an observed elapsed time, and a declared dimension is not a final on-screen 
 
 Decompilation scope: JADX 1.5.1 decompiled the whole APK into scratch space (never committed), with
 fallback (bytecode) mode for methods JADX could not restructure. The gesture and transition audit
-(F15, F48–F60) read every touch handler, scroller, pager and list transition class listed below.
+(F15, F48–F61) read every touch handler, scroller, pager and list transition class listed below.
 No native library is inspected.
 
 ## Findings
@@ -537,7 +537,7 @@ The following are `INFERRED`:
   (default 1). The values are 1 artist, 2 album, 3 folder, 4 genre. A tap with no action is consumed.
 - **Menu button long press (`menu_button_long_press`, default 0):** 1 delete, 2 add to playlist,
   3 info, 4 album art, 5–8 artist/album/folder/genre, 9 share, 10 like, 11 unlike.
-- **Lyrics button long press:** opens the lyrics dialog, which is not built.
+- **Lyrics button long press:** opens the lyrics dialog (F61).
 
 ### F50 — Gestures with no reproduction yet — `CONFIRMED_STATIC`
 
@@ -799,6 +799,29 @@ the drag handle next to the select box. A press on the handle starts the drag at
 (f) `installSheetDrag` in `src/widgets/sheet-drag.js` (shared with F58), `Navbar.installSheetDrag`,
 `Shim`.
 
+### F61 — Lyrics dialog (lyrics button long press) — `CONFIRMED_STATIC` / substitute in part
+
+(a) S1 `ListWidget` (the `R.id.lyrics` long click → `cmd_data_lyrics`), `x8` (`cmd_data_lyrics` →
+`dialogs.LyricsActivity`), `LyricsActivity`, `dialog_LyricsActivity` (BottomsheetDialog),
+`dialog_content_lyrics`.
+
+(c) A long press on the lyrics button opens the bottom-sheet lyrics dialog.
+- **Title and buttons:** "Lyrics", with button1 "Search" and buttons 2 and 3 hidden.
+- **Text (`big_text`):** the track's unsynchronised lyrics tag when it has at least 32 characters,
+  with a lone `\r` turned into a line break. Otherwise `no_lyrics`.
+- **Following the track:** the dialog follows the playing track (`msg_player_track_changed`).
+- **Search:** asks for a web search of "lyrics " + artist + " " + title. The title falls back to the
+  file name. The album is added only when the artist is empty, and `-` and `_` become spaces.
+
+Substitutes and not built:
+- **Search:** Android's `WEB_SEARCH` chooser becomes the Web Share sheet with the query; without
+  it, the query is copied to the clipboard. No search host is hard-coded (the repository's host
+  allowlist).
+- **Provider apps:** the third-party lyrics apps the reference queries first (`qo0` providers,
+  `lyrics_search_provider`, the `arg1 == 1` path) are Android apps and are not built.
+
+(f) `src/widgets/lyrics-dialog.js`, `LyricsButton.onLongClick`.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -831,7 +854,7 @@ No status is device-verified.
 | F11 skin options | Partial | Options apply through generic overlay composition and are not checked one by one. Follow Day/Night is built (F56). Material You has no seed-colour substitute. |
 | F12 window buckets | Built | — |
 | F13 waveseek | Built | Native analysis `OPEN` |
-| F14 gesture inventory | Partial | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58); drag reorder and multi-select drag (F59); the navbar sheet drag (F60). **Not built:** long press between buttons (edit; feature-pack tier, owner decision), the lyrics button long press, the visualization ←/→ preset swipe on the vis itself (the vis panel pager is built). |
+| F14 gesture inventory | Partial | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58); drag reorder and multi-select drag (F59); the navbar sheet drag (F60). the lyrics button long press (lyrics dialog, F61). **Not built:** long press between buttons (edit; feature-pack tier, owner decision). The help's visualization ←/→ preset swipe (`h_vis_swipe`) is anchored to `vis_panel_frame`: it is the vis panel pager, which is built, and no UI class sends `cmd_player_load_next/prev_milk_preset`. |
 | F15 thresholds and physics | Built | VelocityTracker reproduced in form only |
 | F16 navbar | Built | — |
 | F17 settings corpus | Built (screens) | Per-key implementation statuses not recorded |
@@ -857,7 +880,7 @@ No status is device-verified.
 | F37 vis modes | Built | — |
 | F38 list scroller | Built | — |
 | F39 selection | Built | Multi-select drag built (F59). Delete files skipped (owner decision). |
-| F40 lyrics | Built | Page geometry inferred. Lyrics dialog **not built**. |
+| F40 lyrics | Built | Page geometry inferred. Lyrics dialog built (F61); provider apps not built. |
 | F41 vis panel | Built | Pager–list morph cross-fades |
 | F42 ratings/stats | Built | Rating swipes built (F57) |
 | F43 dialogs | Partial | Drag-to-dismiss built (F58), except the list overscroll handoff |
@@ -866,10 +889,11 @@ No status is device-verified.
 | F46 list options | Partial | Max Items, Min Duration, list memory and the compact header not built |
 | F47 waveform data | Built | — |
 | F48 list page transitions | Partial | See F48 (e) |
-| F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics dialog is not built. |
+| F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics button long press opens the lyrics dialog (F61). |
 | F50 unbuilt gestures | Not built | Sub-art button editing (owner decision), predictive back |
 | F59 drag reorder | Built | Release mid-slide, level fade and the grid path inferred or untested |
 | F60 navbar sheet drag | Built | — |
+| F61 lyrics dialog | Built | The share sheet substitutes the search chooser; provider apps not built |
 | F51 meta info | Built | Output line substituted; first-press toast persistence inferred |
 | F52 category navigation | Built | — |
 | F53 pinch-to-zoom | Built | — |

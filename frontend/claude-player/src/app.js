@@ -29,6 +29,7 @@ import './widgets/vispanel.js';
 import './widgets/rating.js';
 import {installHelp} from './widgets/help.js';
 import {installMetaInfo} from './widgets/meta-info.js';
+import {openLyricsDialog} from './widgets/lyrics-dialog.js';
 import './list/list-widget.js';
 import './list/selection.js';
 
@@ -145,6 +146,7 @@ export async function boot() {
   const library = await new Library(ctx).open();
   installHelp(ctx);
   installMetaInfo(ctx);
+  ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => { if (msg === 'cmd_data_lyrics') openLyricsDialog(ctx, d?.track); });
   const importUi = installImport(ctx, document.body);
   ctx.importUi = importUi;
   const params = new URLSearchParams(location.search);
