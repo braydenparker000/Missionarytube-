@@ -1,11 +1,11 @@
-// The music library: imported tracks (tags + stored files), lazily opened
-// media/cover URLs, and category views (albums, artists, genres, folders).
+// The music library: the R2 index's tracks, lazily opened media/cover URLs,
+// and category views (albums, artists, genres, folders).
 import {LibraryDb} from './db.js';
-import {readTags, readRemotePicture, setTagEncoding, decodeTextFile} from './tags.js';
+import {readRemotePicture} from './tags.js';
 import {makeSplitter, GENRE_DEFAULT_SPLIT} from './split.js';
 import {Playlists} from './playlists.js';
 import {ListMemory} from './list-memory.js';
-import {parseCue, cueFor, cueTracks} from './cue.js';
+import {cueTracks} from './cue.js';
 import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars, decodeWave} from './r2.js';
 
 // Remote covers: full images in Cache Storage on first view (capped, oldest
@@ -23,25 +23,6 @@ const cacheKey = key => (key.startsWith('embedded:') ? new URL('covers/embedded/
 // Per-track listening data for remote tracks (state store, key u:<id>).
 const USER_FIELDS = ['wave', 'durationMs', 'plays', 'lastPlayed', 'rating'];
 
-const AUDIO_EXT = /\.(mp3|m4a|mp4|aac|flac|ogg|oga|opus|wav|wave|webm|weba|alac|aif|aiff)$/i;
-
-function hash(str) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 0x01000193);
-  return (h >>> 0).toString(36);
-}
-
-function hashBytes(b) {
-  let h = 0x811c9dc5;
-  const step = Math.max(1, Math.floor(b.length / 4096));
-  for (let i = 0; i < b.length; i += step) h = Math.imul(h ^ b[i], 0x01000193);
-  return ((h >>> 0).toString(36)) + '_' + b.length.toString(36);
-}
-
-export function isAudioFile(f) {
-  return (f.type && f.type.startsWith('audio/')) || AUDIO_EXT.test(f.name ?? '');
-}
-
 export class Library {
   constructor(ctx) {
     this.ctx = ctx;
@@ -58,7 +39,6 @@ export class Library {
     ctx.bus.subscribe('bus_app', (msg, src, d) => { if (msg === 'msg_app_setting_changed' && d?.key === 'aa_force_default') this.refreshArt(); });
     this.coverPuts = 0;
     this.fileUrls = new Map();
-    this.localTracks = [];
     this.remoteTracks = [];
     this.userData = new Map();
     ctx.library = this;
@@ -77,11 +57,10 @@ export class Library {
   async open() {
     try {
       this.db = await LibraryDb.open();
-      this.localTracks = await this.db.allTracks();
       for (const [k, v] of await this.db.stateEntries('u:')) this.userData.set(k.slice(2), v);
       const snap = await this.db.getState('r2:index');
       if (snap?.tracks) { this.r2Generated = snap.generatedAt; this.r2SavedAt = snap.savedAt ?? 0; this.remoteTracks = this.withUserData(snap.tracks); }
-      this.setTracks([...this.localTracks, ...this.remoteTracks]);
+      this.setTracks([...this.remoteTracks]);
       for (const [k, v] of await this.db.stateEntries('ca:')) if (v instanceof Blob) this.customArt.set(k.slice(3), v);
       await this.playlists.load();
       await this.listMemory.load();
@@ -127,7 +106,7 @@ export class Library {
       const tracks = r2Tracks(data, url);
       this.r2Generated = data.generatedAt;
       this.remoteTracks = this.withUserData(tracks);
-      this.setTracks([...this.localTracks, ...this.remoteTracks]);
+      this.setTracks([...this.remoteTracks]);
       this.r2SavedAt = Date.now();
       // The snapshot keeps index data only (no decoded waves or images).
       const snapshot = tracks.map(({art, thumb, wave, ...r}) => (r.waveB64 ? r : {...r, wave}));
@@ -185,106 +164,6 @@ export class Library {
     this.tracks = shown.filter(t => !(minMs && t.durationMs && t.durationMs < minMs) && !(noVideo && t.video));
     this.byId = new Map([...list, ...virtual].map(t => [t.id, t]));
     this.ctx.bus.post('bus_library', 'msg_library_changed', this, {count: this.tracks.length});
-  }
-
-  /** Imports audio files (File objects); returns the number added. */
-  async importFiles(files, onProgress) {
-    let added = 0, done = 0;
-    const audio = [...files].filter(isAudioFile);
-    setTagEncoding(this.ctx.pref?.('tag_encoding'));
-    // CUE sheets beside the audio, per folder (process_cues expands them; stored with the image).
-    const sheets = new Map();
-    for (const f of files) {
-      if (!/\.cue$/i.test(f.name)) continue;
-      const path = f.webkitRelativePath || f.name, dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
-      try {
-        const sheet = parseCue(decodeTextFile(new Uint8Array(await f.arrayBuffer()), true));
-        (sheets.get(dir) ?? sheets.set(dir, []).get(dir)).push({name: f.name, sheet});
-      } catch { /* unreadable sheet */ }
-    }
-    // Sidecar .lrc files next to the audio (same path without the extension), with lrc_scan.
-    const lrc = new Map();
-    for (const f of this.ctx.pref?.('lrc_scan') === false ? [] : files) {
-      if (/\.lrc$/i.test(f.name)) lrc.set((f.webkitRelativePath || f.name).replace(/\.[^./]+$/, '').toLowerCase(), f);
-    }
-    for (const f of audio) {
-      const id = hash((f.webkitRelativePath || f.name) + '|' + f.size + '|' + (f.lastModified ?? 0));
-      if (this.byId.has(id)) { onProgress?.(++done, audio.length); continue; }
-      let tags;
-      try { tags = await readTags(f); } catch { tags = {title: f.name.replace(/\.[^.]+$/, '')}; }
-      let artBlob = null, artId = null;
-      if (tags.picture?.bytes?.length) {
-        artId = hashBytes(tags.picture.bytes);
-        artBlob = new Blob([tags.picture.bytes], {type: tags.picture.mime || 'image/jpeg'});
-      }
-      const path = f.webkitRelativePath || f.name;
-      const meta = {
-        id, title: tags.title || f.name, artist: tags.artist || '', album: tags.album || '', albumArtist: tags.albumArtist || '',
-        genre: tags.genre || '', track: tags.track || 0, disc: tags.disc || 0, year: tags.year || 0,
-        durationMs: tags.durationMs || 0, format: tags.format || (f.name.split('.').pop() ?? '').toUpperCase(),
-        sampleRate: tags.sampleRate || 0, bits: tags.bits || 0, bitrate: tags.bitrate || 0,
-        path, folder: path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '', fileName: f.name, size: f.size, mime: f.type || '',
-        artId, added: Date.now(),
-      };
-      if (tags.hasVideo || /^video\//.test(f.type || '')) meta.video = true;
-      const side = lrc.get(path.replace(/\.[^./]+$/, '').toLowerCase());
-      // LRC text: UTF-8, or the tag encoding for non-Unicode files unless lrc_utf8.
-      if (side) { try { meta.lyricsFile = decodeTextFile(new Uint8Array(await side.arrayBuffer()), this.ctx.pref?.('lrc_utf8') !== false); } catch { /* unreadable sidecar */ } }
-      if (tags.lyricsSynced) meta.lyricsSynced = tags.lyricsSynced;
-      if (tags.lyrics) meta.lyrics = tags.lyrics;
-      if (tags.replayGain) meta.replayGain = tags.replayGain;
-      for (const c of sheets.get(meta.folder) ?? []) {
-        const cue = cueFor(c.sheet, f.name, c.name);
-        if (cue) { meta.cue = cue; break; }
-      }
-      meta.meta = trackMetaLabel(meta);
-      if (this.db) await this.db.putTrack(meta, f, artBlob);
-      if (artBlob && artId && !this.artCache.has(artId)) this.artCache.set(artId, loadArt(artBlob));
-      this.byId.set(id, meta);
-      this.allTracks.push(meta);
-      added++;
-      onProgress?.(++done, audio.length);
-    }
-    this.setTracks(this.allTracks);
-    return added;
-  }
-
-  /**
-   * Re-reads the tags of stored local files (rescan_lyrics_tags: lyrics only;
-   * erase_and_rescan: everything), reporting (done, total).
-   */
-  async rescanTags({lyricsOnly = false} = {}, onProgress) {
-    setTagEncoding(this.ctx.pref?.('tag_encoding'));
-    const local = this.allTracks.filter(t => !t.remote && !t.src);
-    let done = 0;
-    for (const t of local) {
-      const f = await this.db?.file(t.id).catch(() => null);
-      if (f) {
-        let tags = null;
-        try { tags = await readTags(f); } catch { /* unreadable */ }
-        if (tags) {
-          if (lyricsOnly) {
-            if (tags.lyrics) t.lyrics = tags.lyrics; else delete t.lyrics;
-            if (tags.lyricsSynced) t.lyricsSynced = tags.lyricsSynced; else delete t.lyricsSynced;
-          } else {
-            Object.assign(t, {
-              title: tags.title || t.fileName || t.title, artist: tags.artist || '', album: tags.album || '', albumArtist: tags.albumArtist || '',
-              genre: tags.genre || '', track: tags.track || 0, disc: tags.disc || 0, year: tags.year || 0,
-              durationMs: tags.durationMs || t.durationMs || 0, sampleRate: tags.sampleRate || 0, bits: tags.bits || 0, bitrate: tags.bitrate || 0,
-            });
-            if (tags.lyrics) t.lyrics = tags.lyrics; else delete t.lyrics;
-            if (tags.lyricsSynced) t.lyricsSynced = tags.lyricsSynced; else delete t.lyricsSynced;
-            if (tags.replayGain) t.replayGain = tags.replayGain; else delete t.replayGain;
-            t.meta = trackMetaLabel(t);
-          }
-          const {art, thumb, ...rec} = t;
-          await this.db?.updateTrack(rec).catch(() => {});
-        }
-      }
-      onProgress?.(++done, local.length);
-    }
-    this.setTracks(this.allTracks);
-    return local.length;
   }
 
   /** Media URL for a track (object URL over the stored file). */

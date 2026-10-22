@@ -22,8 +22,9 @@ const ANDROID_DEVICES = 'Bluetooth / USB device detection';
 const BROWSER_OUTPUT = 'The browser decodes, resamples and dithers the audio';
 const ANDROID_EFFECTS = 'Android system audio effects (MusicFX)';
 const TRACKER = 'Tracker module decoders; the browser cannot decode .mod / .xm / .it';
-const ANDROID_STORAGE = 'Android storage scanning; the web library is the R2 index or files the user imports';
+const ANDROID_STORAGE = 'Android storage scanning; the web library is the R2 index';
 const ANDROID_APPS = 'Third-party Android apps';
+const LOCAL_FILES = 'Applies to local files; local imports were removed (owner decision) and the R2 index carries decoded tags, no CUE sheets and no lyrics files';
 const ANDROID_AUTO = 'Android Auto';
 const ANDROID_SYSTEM = 'Android system services (wakelocks, intents, display, native libraries, screen state)';
 const THIRD_PARTY_SKINS = 'Third-party skin APKs';
@@ -267,8 +268,8 @@ export const PREF_STATUS = {
   no_android_long_press: [WEB, ANDROID_HEADSET],
   commands_history: [UI, ''],
   // library
-  rescan_folders: [BUILT, 'Reloads the R2 index; imported files are re-read by Full Rescan'],
-  erase_and_rescan: [BUILT, "Re-reads imported files' tags and reloads the R2 index"],
+  rescan_folders: [BUILT, 'Reloads the R2 index'],
+  erase_and_rescan: [BUILT, 'Reloads the R2 index, even when it has not changed'],
   music_folders_button: [UI, ''],
   some_saf_folders_unavailable: [UI, ''],
   file_access_legacy: [WEB, ANDROID_STORAGE],
@@ -314,7 +315,7 @@ export const PREF_STATUS = {
   root_hier_immediate: [BUILT, 'Folders Hierarchy opens at the first folder with tracks or several subfolders (F76)'],
   hier_files_zoom: [BUILT, 'a files-only folder takes the Folders files zoom (F76)'],
   no_sort_field: [BUILT, 'Sort field drops The/A/An (sources.js sortKey)'],
-  show_cue_source: [BUILT, 'the disc image shows beside its CUE tracks (F77)'],
+  show_cue_source: [OWNER, LOCAL_FILES],
   stream_name_in_title: [OWNER, NO_STREAMS],
   // library_playlists
   playlists_import: [BUILT, 'Picks playlist files (the browser cannot read a system library); F66'],
@@ -344,9 +345,9 @@ export const PREF_STATUS = {
   artists_split_ignore: [BUILT, 'Split categories (library/split.js); unsplit entries with show_unsplit_cats'],
   composers_split_chars: [BUILT, 'Split categories (library/split.js); unsplit entries with show_unsplit_cats'],
   genres_split_chars: [BUILT, 'Split categories (library/split.js); unsplit entries with show_unsplit_cats'],
-  tag_encoding: [BUILT, 'Imported files read from now on; R2 index metadata comes decoded from the Worker'],
+  tag_encoding: [OWNER, LOCAL_FILES],
   m3u_utf8: [BUILT, '.m3u in UTF-8, else the tag encoding'],
-  process_cues: [BUILT, 'imported disc images with a .cue sheet become virtual folders of range tracks (F77; imports only)'],
+  process_cues: [OWNER, LOCAL_FILES],
   // library_search
   msg: [UI, ''],
   list_opts: [BUILT, 'Opens the Search List Options (searched categories)'],
@@ -466,9 +467,9 @@ export const PREF_STATUS = {
   list_zoom_lyrics: [BUILT, 'Partial: pinching steps the size without the list zoom transition'],
   lyrics_plugin: [BUILT, 'Partial: None and Browser via custom URL; the lyrics apps are Android apps and fall back to the custom URL'],
   lyrics_custom_url: [BUILT, "Default empty: the reference's default search host is not on the repository's host allowlist"],
-  rescan_lyrics_tags: [BUILT, ''],
-  lrc_scan: [BUILT, 'Partial: sidecar .lrc files read at import, matched by path; the reference also matches by tags and folders'],
-  lrc_utf8: [BUILT, ''],
+  rescan_lyrics_tags: [OWNER, LOCAL_FILES],
+  lrc_scan: [OWNER, LOCAL_FILES],
+  lrc_utf8: [OWNER, LOCAL_FILES],
   // ui_mediaactions
   notify_action1: [WEB, MEDIA_SESSION_ACTIONS],
   notify_action2: [WEB, MEDIA_SESSION_ACTIONS],

@@ -221,6 +221,15 @@ function round(glyph, scale = 0.5) {
   return {circle: true, glyph, transform: `translate(${f(t)} ${f(t)}) scale(${scale})`};
 }
 
+/**
+ * A glyph scaled about the grid centre by sx, sy, then moved right by dx
+ * units: the transport's core glyphs fill their inset box (the measured
+ * reference bitmaps) more than the plain glyphs fill the grid.
+ */
+function fit(glyph, sx, sy, dx = 0) {
+  return {glyph, transform: `translate(${f(12 - 12 * sx + dx)} ${f(12 - 12 * sy)}) scale(${f(sx)} ${f(sy)})`};
+}
+
 // Reference drawable name -> glyph mapping (ordered; first match wins).
 const RULES = [
   [/^settings_close/, () => 'close'],
@@ -254,6 +263,14 @@ const RULES = [
   [/^prev_cat_round(_inv)?(_rounded)?/, () => round('prev_cat', 0.5)],
   [/^(back_10s_round|back_10s)/, () => 'back_10s'],
   [/^(forward_10s_round|forward_10s)/, () => 'forward_10s'],
+  // Transport core glyphs, fitted to the reference's glyph extents in their
+  // inset boxes (play 25%, pause 30%, ff 19%, next category 20% of the disc).
+  [/^play_core/, (m, n) => fit(n.includes('rounded') ? 'play_rounded' : 'play', 1.486, 1.506, 1.24)],
+  [/^pause_core/, (m, n) => fit(n.includes('rounded') ? 'pause_rounded' : 'pause', 1.441, 1.4)],
+  [/^ff_core/, (m, n) => fit(n.includes('rounded') ? 'ff_rounded' : 'ff', 1.136, 1, 1.744)],
+  [/^rw_core/, (m, n) => fit(n.includes('rounded') ? 'rw_rounded' : 'rw', 1.136, 1, -1.744)],
+  [/^next_cat_core/, (m, n) => fit(n.includes('rounded') ? 'next_cat_rounded' : 'next_cat', 1.047, 1.115, 1.436)],
+  [/^prev_cat_core/, () => fit('prev_cat', 1.047, 1.115, -1.436)],
   [/^play_(core|small|24dp|12dp)/, (m, n) => (n.includes('rounded') ? 'play_rounded' : 'play')],
   [/^pause_(core|small)/, (m, n) => (n.includes('rounded') ? 'pause_rounded' : 'pause')],
   [/^ff_core/, (m, n) => (n.includes('rounded') ? 'ff_rounded' : 'ff')],
@@ -414,6 +431,8 @@ export function iconSvg(name, color, mono = true) {
   let body;
   if (typeof r === 'string') {
     body = `<path fill="${color}" d="${G[r] ?? G.placeholder}"/>`;
+  } else if (!r.circle) {
+    body = `<path fill="${color}" transform="${r.transform}" d="${G[r.glyph]}"/>`;
   } else {
     // Round buttons: tinted -> knocked-out glyph; untinted -> dark disc with light glyph.
     const glyph = `<path transform="${r.transform}" d="${G[r.glyph]}"/>`;
