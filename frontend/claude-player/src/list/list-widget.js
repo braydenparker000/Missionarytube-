@@ -775,6 +775,73 @@ export class ListWidget extends FastLayout {
     if (this.stack.length > 1) history.pushState({cpList: this.stack.length}, '');
   }
 
+  /**
+   * PowerListSharedItemTransition (art pager <-> list, mo621): the playing
+   * track's art item and its list row are one view during the change. The
+   * row stays hidden while the art item moves from its pager frame into the
+   * row's frame (through the list page's zoom) and its item scene morphs into
+   * the row's scene by the same fraction; at the end the row shows again and
+   * the art item returns to its own scene. Only when the row is on screen.
+   */
+  shareItem(fromPage, toPage) {
+    const toList = fromPage === 'aa' && toPage === 'list';
+    if (!toList && !(fromPage === 'list' && toPage === 'aa')) return null;
+    const v = this.items.get(0), t = this.ctx.player?.track, L = this.libList, s = L.source;
+    if (!v || !t || !s || v.inMenu) return null;
+    L.placeItems();
+    const i = s.indexOfTrack ? s.indexOfTrack(t) : s.tracks?.findIndex(x => x.id === t.id) ?? -1;
+    const row = i >= 0 ? L.active.get(i) : null;
+    const r = row ? L.itemRect(i) : null;
+    if (!r || r.top + r.height <= 0 || r.top >= L.height) return null;
+    const b = this.geometry.itemBounds(0, 0);
+    const share = {v, row, i, toList, scene: s.itemScene, aa: {x: b.left, y: b.top, w: b.right - b.left, h: b.bottom - b.top, scale: b.scale, scene: b.scene}, rowSize: [r.width, r.height]};
+    this.shared = share;
+    L.sharedIndex = i;
+    // The art item lays out in its own scene at its pager size, then drags towards the row's scene.
+    v.setItemScene(b.scene, share.aa.w, share.aa.h);
+    v.scenes.drag(share.scene, toList ? 0 : 1, {targetSize: share.rowSize});
+    L.placeItems();
+    return share;
+  }
+
+  /** The shared item at transition progress p (towards the entering page). */
+  morphShared(share, p) {
+    const {v, toList, aa} = share, L = this.libList;
+    const k = toList ? p : 1 - p; // towards the row
+    const r = L.itemRect(share.i);
+    if (!r) return;
+    // The row's frame as the list page shows it (scaled about its centre by the page zoom).
+    const s = L.scaleX ?? 1, cx = L.width / 2, cy = L.height / 2;
+    const rw = r.width * s, rh = r.height * s;
+    const rx = cx + (r.left - cx) * s + L.left + L.translationX, ry = cy + (r.top - cy) * s + L.top + L.translationY;
+    // The art item's visual frame (its scale about its centre).
+    const aw = aa.w * aa.scale, ah = aa.h * aa.scale, ax = aa.x + (aa.w - aw) / 2, ay = aa.y + (aa.h - ah) / 2;
+    const lerp = (a, b2) => a + (b2 - a) * k;
+    const x = lerp(ax, rx), y = lerp(ay, ry), w = lerp(aw, rw), h = lerp(ah, rh);
+    // Unscaled size between the two layouts; the rest is scale.
+    const uw = lerp(aa.w, r.width), uh = lerp(aa.h, r.height), sc = w / uw;
+    v.setFrame(0, 0, Math.round(uw), Math.round(uh));
+    v.scaleX = v.scaleY = sc;
+    v.translationX = x - (uw - w) / 2;
+    v.translationY = y - (uh - h) / 2;
+    v.rotation = v.rotationX = v.rotationY = 0;
+    v.alpha = 1;
+    v.visibility = VISIBLE;
+    v.scenes.drag(share.scene, k, {targetSize: share.rowSize});
+    v.invalidate();
+  }
+
+  /** The row shows again; the art item returns to its own scene and placement. */
+  endShared(share) {
+    const {v} = share;
+    this.shared = null;
+    this.libList.sharedIndex = null;
+    if (v.scenes.running?.manual) v.scenes.settleTo(false, 0);
+    v.itemScene = null;
+    this.libList.placeItems();
+    this.placeItems();
+  }
+
   /** Folders Hierarchy at a track's folder, the levels above it on the back stack. */
   openHierFolder(t) {
     const lib = this.ctx.library;
@@ -1234,6 +1301,8 @@ export class ListWidget extends FastLayout {
     if (toPage === 'aa') for (const v of this.items.values()) v.visibility = VISIBLE;
     this.onLayout();
     if (target === 'list') this.libList.scrollToTrack(this.ctx.player.track);
+    // PowerListSharedItemTransition: the art item and the track's row hand off one view.
+    const share = this.shareItem(fromPage, toPage);
     // Zoom factors: shared-item moves and forward pivots zoom the leaving
     // page up and the entering one from below 1; a back pivot the reverse.
     const back = target === 'parent';
@@ -1248,6 +1317,7 @@ export class ListWidget extends FastLayout {
     const render = p => {
       this.pageFx(fromPage, leaveView, p, leaveR, leavePivot);
       this.pageFx(toPage, enterView, 1 - p, enterR, enterPivot);
+      if (share) this.morphShared(share, p);
     };
     const sub = this.substyle;
     const trans = new ListTransition(this.ctx, {
@@ -1256,6 +1326,7 @@ export class ListWidget extends FastLayout {
       commitTime: sub.int('pageManualCommitAnimTime', 250) / 1000,
       cancelTime: sub.int('pageManualCancelAnimTime', 500) / 1000,
       finish: commit => {
+        if (share) this.endShared(share);
         this.pageFx(fromPage, leaveView, 0, 1, null);
         this.pageFx(toPage, enterView, 0, 1, null);
         if (ghost) ghost.visibility = GONE;
@@ -1809,6 +1880,7 @@ export class ListWidget extends FastLayout {
     this.placeDecor();
     for (const [rel, v] of this.items) {
       if (v.inMenu) continue; // borrowed by the open item menu
+      if (this.shared?.v === v) continue; // morphing into a list row (morphShared)
       const b = g.itemBounds(rel, rel);
       const w = b.right - b.left, h = b.bottom - b.top;
       v.left = 0; v.top = 0;

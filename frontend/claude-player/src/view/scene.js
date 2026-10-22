@@ -220,14 +220,17 @@ export class SceneController {
    * Drag-driven progress (0..1) without an animator; settle() or settleTo()
    * finishes. min/max allow an overshoot past either end (do1.r limits).
    */
-  drag(scene, ratio, {min = 0, max = 1} = {}) {
+  drag(scene, ratio, {min = 0, max = 1, targetSize = null} = {}) {
     if (!this.running || this.scene !== scene) {
       if (this.running) this.finish(true);
       this.root.loadBehaviorsFor?.(scene);
       this.prevScene = this.scene;
       this.scene = scene;
       this.items = collect(this.root, scene, []);
+      // A shared item morphing into another item's frame lays its target out at that size.
+      this.targetSize = targetSize;
       this.prepare();
+      this.targetSize = null;
       this.running = {manual: true, from: 0, target: 1, duration: 0};
       // A layout pass while the drag holds would leave the frames at the target layout: re-applied after it.
       (this.root.ctx.manualScenes ??= new Set()).add(this);
@@ -337,10 +340,13 @@ export class SceneController {
       else if (targetVis !== GONE && v.visibility === GONE) v.visibility = targetVis;
       if (rec.applyViewParams && typeof v.applySceneViewParams === 'function') v.applySceneViewParams(rec, it);
     }
-    // One layout pass at the current root size produces the target frames.
+    // One layout pass at the current root size (or the target size) produces the target frames.
     root.forceLayoutTree();
-    root.measure(MeasureSpec.make(root.width, MeasureSpec.EXACTLY), MeasureSpec.make(root.height, MeasureSpec.EXACTLY));
-    root.layout(root.left, root.top, root.right, root.bottom);
+    const [tw, th] = this.targetSize ?? [root.width, root.height];
+    const [l0, t0, r0, b0] = [root.left, root.top, root.right, root.bottom];
+    root.measure(MeasureSpec.make(tw, MeasureSpec.EXACTLY), MeasureSpec.make(th, MeasureSpec.EXACTLY));
+    root.layout(l0, t0, l0 + tw, t0 + th);
+    if (this.targetSize) root.setFrame(l0, t0, r0, b0);
     // Target frames of all participants first: restoring one view below
     // re-lays out its subtree and would disturb nested participants.
     for (const it of this.items) {

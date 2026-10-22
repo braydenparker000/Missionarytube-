@@ -420,7 +420,8 @@ Close clears the filter, then collapses, then leaves vis mode (`cmd_gui_set_vis_
 - a press advances to the next mode and toasts the label with `toastOnPress` ("Long press for more options")
 - a long press opens the menu
 
-The `PowerListSharedItemTransition` morph between pager and list is approximated by a cross-fade.
+The vis panel's `PowerListSharedItemTransition` morph between its preset pager and list is
+approximated by a cross-fade. The library's art pager ↔ list hand-off is built (F48).
 
 ### F42 — Ratings and play statistics — `CS`
 
@@ -527,7 +528,15 @@ list at its top level follows a side swipe at a quarter.
 The following are `INFERRED`:
 - Which pair time each programmatic navigation uses: the `p31` selection is partly garbled.
 - The side of the pivot for the forward/reverse lyrics swipes, taken literally.
-- The shared item's view hand-off between pages: not reproduced.
+- **Shared item hand-off** (`PowerListSharedItemTransition.mo621`, art pager ↔ list), now built:
+  the playing track's art item and its list row are one view during the change.
+  - The row stays hidden.
+  - The art item moves from its pager frame into the row's frame, as the list page's zoom shows it.
+  - Its item scene morphs into the row's scene by the same fraction; the children's frames are laid
+    out at the row's size.
+  - At the end the row shows again and the art item returns to its own scene.
+  - It applies only when the row is on screen.
+  - The art scene's own background switches at the end; the item root is not a scene child.
 - The header-to-item morph of library swipes: substituted by the generic back pivot zoom.
 
 (f) `src/list/list-transition.js`, `ListWidget.startTransition`, `levelTransition`,
@@ -625,7 +634,9 @@ item, and going back to it, morphs between the item and the level:
 - **Without an item** (Back after a scroll that dropped the item, or a level not opened from an
   item), the F48 pivot zooms run.
 
-`INFERRED`: the shared title view's own morph (title text moving into the header) is not built.
+**Header title.** There is no separate title morph. `u31.m3287` only sets the magnified layout
+rect, and `PowerListSharedItemTransition` pairs views only between the art pager and a list (F18),
+so level changes morph whole pages.
 
 (f) `ListWidget.levelTransition/pageMorph`, `PowerList.itemRect/contentTop`.
 
@@ -1564,7 +1575,7 @@ No status is device-verified.
 | F15 thresholds and physics | Built | VelocityTracker reproduced in form only |
 | F16 navbar | Built | — |
 | F17 settings corpus | Built (screens) | Per-key implementation statuses not recorded |
-| F18 list transitions | Partial | The F48 zoom transitions, the header-to-item and item-to-header morphs (F54) and the pinch zoom transitions (F53) are built. The shared item view hand-off and the title's own morph are **not built**. |
+| F18 list transitions | Built | The F48 zoom transitions with the shared item hand-off, the header-to-item and item-to-header morphs (F54) and the pinch zoom transitions (F53) |
 | F19 typography | Built | — |
 | F20 audio | Built (web subset) | Native engine `UW` |
 | F21 visualization | Built (butterchurn) | — |
@@ -1604,7 +1615,7 @@ No status is device-verified.
 | F51 meta info | Built | Output line substituted; first-press toast persistence inferred |
 | F52 category navigation | Built | — |
 | F53 pinch-to-zoom | Built | — |
-| F54 item/header morphs | Partial | Title morph not built |
+| F54 item/header morphs | Built | — |
 | F55 search chips | Built | Categories, subheaders and history per F64 |
 | F56 Follow Day/Night | Built | Night mode from `prefers-color-scheme` |
 | F57 star rating bar | Built | — |

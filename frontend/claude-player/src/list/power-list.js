@@ -322,6 +322,9 @@ export class PowerList extends FastLayout {
       }
       // Rows a drag reorder faded or scaled come back whole.
       if (v.alpha !== 1 || v.scaleX !== 1) { v.alpha = 1; v.scaleX = v.scaleY = 1; }
+      // The row a shared item transition morphs into stays hidden until it ends (mo621).
+      const hide = i === this.sharedIndex;
+      if (hide !== !!v._sharedHidden) { v._sharedHidden = hide; v.el.classList.toggle('cp-shared-hidden', hide); }
       v.left = 0; v.top = 0;
       v.setItemScene(scene, w, h);
       v.translationX = x;
