@@ -543,8 +543,9 @@ export class FastCheckBox extends FastButton {
     if (!this.drawable && (tag === 'CheckBox' || tag === 'RadioButton')) {
       const d = ctx.drawables.framework(tag === 'RadioButton' ? 'btn_radio_material' : 'btn_check_material', a?.theme ?? ctx.theme);
       if (d) {
+        // CompoundButton: the text starts right after the button drawable (getCompoundPaddingLeft).
         this.drawablePosition = 0;
-        this.drawablePadding = Math.round(8 * ctx.dpr);
+        this.drawablePadding = 0;
         // Platform compound buttons: center_vertical|start unless styled.
         if (a?.raw('android:gravity') === undefined) this.gravity = (this.gravity & 7) | 16;
         this.setDrawable(d);

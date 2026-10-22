@@ -848,7 +848,7 @@ export class ListWidget extends FastLayout {
   openListOptionsFor(which, opts = {}) {
     const ctx = this.ctx;
     if (which === 'search') {
-      const src = {optsKey: 'search', zoomKind: 'tracks', title: ctx.res.stringByName('search') ?? 'Search', searchCategories: SEARCH_CATS.slice(1)};
+      const src = {optsKey: 'search', zoomKind: 'search', title: ctx.res.stringByName('search') ?? 'Search', searchCategories: SEARCH_CATS.slice(1)};
       return openListOptions(ctx, src, null, opts);
     }
     const src = new HomeSource(ctx, this.libList, this.nav);
@@ -1710,9 +1710,9 @@ export class ListWidget extends FastLayout {
     const level = at < 0 ? undefined : levels[at + (zoomIn ? 1 : -1)];
     if (level === undefined) return null;
     const oldZoom = listOpts(key).zoom;
-    saveListOpts(key, {zoom: level});
+    saveListOpts(key, {zoom: level, zv: 2});
     const next = src.rebuild?.();
-    if (!next) { saveListOpts(key, {zoom: oldZoom}); return null; }
+    if (!next) { saveListOpts(key, {zoom: oldZoom, zv: 2}); return null; }
     // The middle visible item leads the new level.
     const geo = this.libList.geometry();
     const mid = Math.max(0, Math.floor((this.libList.scrollY + this.libList.height / 2 - geo.top - geo.headerH) / geo.itemH) * geo.cols);
@@ -1737,7 +1737,7 @@ export class ListWidget extends FastLayout {
         if (commit && src === this.searchSrc) this.searchSrc = next;
         else if (commit) this.stack[this.stack.length - 1] = next;
         else {
-          saveListOpts(key, {zoom: oldZoom});
+          saveListOpts(key, {zoom: oldZoom, zv: 2});
           this.libList.setSource(src);
           this.libList.scrollTo(scroll);
         }

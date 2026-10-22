@@ -3,7 +3,7 @@
 // The option tables are the reference's (label, value, hint) triples per list
 // type; zoom levels map to item scene, columns and item size like the
 // reference (pd.P0 for categories and tracks, bk0.P0 for the library home;
-// track lists remap their levels -3..2 onto -3, -2, -1, 0, 3, 4). Reverse is
+// search remaps its levels -3..2 onto -3, -2, -1, 0, 3, 4). Reverse is
 // bit 30 of the sort value. The home adds its categories (library_lists,
 // library_home), Search its searched categories, the capped lists Max Items
 // and Long Files Min Duration (notebook F63). Not reproduced: list memory
@@ -35,10 +35,13 @@ export const SORTS = {
 export const ZOOMS = {
   home: [T('grid_small', -1), T('grid', 0), T('list_compact', 2), T('list', 1)],
   groups: [T('grid_1_no_aa_extra_small', -4), T('list_1_no_aa_extra_small', -3), T('list_1_no_aa', -2), T('list_no_aa', -1), T('list_compact', 0), T('list_small', 3), T('list', 4), T('grid_extra_small', 1), T('grid_small', 2), T('grid', 5)],
-  tracks: [T('list_1_no_aa_extra_small', -3), T('list_1_no_aa', -2), T('list_no_aa', -1), T('list_compact', 0), T('list_small', 1), T('list', 2)],
+  // Track lists offer the category levels (the reference's List Options for All Songs, read in the harness).
+  tracks: [T('grid_1_no_aa_extra_small', -4), T('list_1_no_aa_extra_small', -3), T('list_1_no_aa', -2), T('list_no_aa', -1), T('list_compact', 0), T('list_small', 3), T('list', 4), T('grid_extra_small', 1), T('grid_small', 2), T('grid', 5)],
+  // Search (jj1): six one-column levels, -3..2, mapped onto the track scenes.
+  search: [T('list_1_no_aa_extra_small', -3), T('list_1_no_aa', -2), T('list_no_aa', -1), T('list_compact', 0), T('list_small', 1), T('list', 2)],
 };
 
-const TRACK_ZOOM = {'-3': -3, '-2': -2, '-1': -1, 0: 0, 1: 3, 2: 4};
+const SEARCH_ZOOM = {'-3': -3, '-2': -2, '-1': -1, 0: 0, 1: 3, 2: 4};
 
 function load() {
   try { return JSON.parse(localStorage.getItem(STORE) ?? '{}') ?? {}; } catch { return {}; }
@@ -67,7 +70,7 @@ export function zoomGeometry(sub, kind, level, titlesOnly = false) {
     if (level === 2) return {scene: 'defaultScene', columns: 1, itemHeight: d('compactTextItemSize')};
     return {scene: 'defaultScene', columns: 1, itemHeight: d('textItemSize')};
   }
-  const z = kind === 'tracks' ? TRACK_ZOOM[level] ?? 0 : level;
+  const z = kind === 'search' ? SEARCH_ZOOM[level] ?? 0 : level;
   const one = titlesOnly;
   switch (z) {
     case -4: return {scene: 'scene_1_small_no_aa', columns: 2, itemHeight: d('itemSize1SmallNoAAExtraSmall')};
@@ -83,12 +86,30 @@ export function zoomGeometry(sub, kind, level, titlesOnly = false) {
   }
 }
 
+/**
+ * The reference's zoom level of a list on a fresh install (m30 list_zoom_*,
+ * read in the reference harness): track lists 3 (our level 1), except years
+ * and bookmarks 0; album, folder and playlist grids 5; artist, genre and
+ * composer lists 4; years 0.
+ */
+const DEFAULT_GROUP_ZOOM = {folders: 5, folders_hier: 3, albums: 5, albums_by_artist: 5, albumArtists: 5, playlists: 5, artists: 4, genres: 4, composers: 4, years: 0};
+export function defaultZoom(kind, key) {
+  const [scope, name] = key.split(':');
+  if (kind === 'search') return 1;
+  if (kind === 'tracks') return name === 'year' || name === 'bookmarks' ? 0 : 3;
+  if (scope === 'cat') return DEFAULT_GROUP_ZOOM[name] ?? 0;
+  if (scope === 'sub') return name === 'year' ? 0 : 5;
+  return 0;
+}
+
 /** Applies a list's saved zoom to a source (scene, columns, item size). */
-export function applyZoom(src, sub, kind, key, defaultLevel = 0) {
+export function applyZoom(src, sub, kind, key, defaultLevel = null) {
   const o = listOpts(key);
   src.optsKey = key;
   src.zoomKind = kind;
-  src.zoomLevel = o.zoom ?? defaultLevel;
+  // Track list zooms saved before they took the category levels (zv 2) used the search levels.
+  const saved = o.zoom !== undefined && kind === 'tracks' && o.zv !== 2 ? SEARCH_ZOOM[o.zoom] : o.zoom;
+  src.zoomLevel = saved ?? defaultLevel ?? defaultZoom(kind, key);
   src.titlesOnly = !!o.titlesOnly;
   src.compactHeader = !!o.compactHeader;
   const g = zoomGeometry(sub, kind, src.zoomLevel, src.titlesOnly);
@@ -269,6 +290,8 @@ export function openListOptions(ctx, src, onChange, {fromSettings = false, onClo
         g.setVisibility(VISIBLE);
         const cur = src.sortValue ?? 0;
         const made = radios(ctx, g, sorts, cur & ~REVERSE, v => change({sort: v | ((listOpts(key).sort ?? src.sortValue ?? 0) & REVERSE)}), '@style/ListOptsRadioButton', {'android:layout_width': 'fill_parent', 'android:layout_height': 'wrap_content', 'layout_consumeSpace': 'vertical'});
+        // The sort radios take code-made params (r40(-1, -2)): no style margins.
+        for (const r of made) r.lp.bottomMargin = 0;
         sorts.forEach((o, i) => { if (o.hint) addHint(ctx, g, made[i], o.hint, g.children.indexOf(made[i]) + 1); });
         const sa = ctx.inflater.styledAttributes({});
         const rev = ctx.inflater.create('CheckBox', sa, null);
@@ -300,7 +323,7 @@ export function openListOptions(ctx, src, onChange, {fromSettings = false, onClo
           compact.onCheckedChanged = on => change({compactHeader: on});
         } else compact?.setVisibility(GONE);
         if (shown) lg.setVisibility(VISIBLE);
-        radios(ctx, g, zooms, src.zoomLevel, v => { change({zoom: v}); titles?.setEnabled(!ONE_LINE_ZOOMS.has(v)); }, '@style/ListOptsRadioButton50');
+        radios(ctx, g, zooms, src.zoomLevel, v => { change({zoom: v, zv: 2}); titles?.setEnabled(!ONE_LINE_ZOOMS.has(v)); }, '@style/ListOptsRadioButton50');
       }
     },
   });

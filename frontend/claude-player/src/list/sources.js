@@ -1,6 +1,7 @@
 // Library list sources: the library home (category tiles) and category /
 // track lists, with the reference's zoom-level geometry (pd.P0 / bk0.P0):
-//   home, zoom 0: scene_grid, 2 columns, textItemSize rows, scene_top_header header
+//   home, default (zoom 1): one column of textItemSize rows, scene_top_header header;
+//   zoom 0: scene_grid, 2 columns
 //   tracks/categories, zoom 0: scene_small, 1 column, itemSizeSmall rows
 // Home categories follow the reference order and default visibility mask
 // (library_lists = 1048511: all but "Albums by Artist").
@@ -43,7 +44,8 @@ import {listKeyOf, categoryKey, KEEP_LIST, KEEP_TRACK} from '../library/list-mem
 // The search categories after "All" (jj1.v1 order).
 const SEARCH_KINDS = SEARCH_CATS.slice(1);
 
-const cmpStr = (a, b) => (a ?? '').localeCompare(b ?? '', undefined, {sensitivity: 'base', numeric: true});
+// Text order as the library's SQL collation: case-insensitive, digits by character ("Song D29" before "Song D3").
+const cmpStr = (a, b) => (a ?? '').localeCompare(b ?? '', undefined, {sensitivity: 'base'});
 const byTrackNo = (a, b) => (a.disc || 0) - (b.disc || 0) || (a.track || 0) - (b.track || 0);
 
 /** Track orders by sort value (reference values; newest/most first for dates and counts). */
@@ -100,7 +102,7 @@ const GROUP_SORT_FOR = {
  * Applies a list's saved options (List Options): zoom geometry and, with a
  * sort kind, the order of its rows. Name/title order shows the A–Z column.
  */
-function withOptions(src, list, {key, zoomKind, sortKind = null, defaultSort = 0, defaultZoom = 0}) {
+function withOptions(src, list, {key, zoomKind, sortKind = null, defaultSort = 0, defaultZoom = null}) {
   applyZoom(src, list.host.substyle, zoomKind, key, defaultZoom);
   if (!sortKind) return src;
   const value = listOpts(key).sort ?? defaultSort;
@@ -205,7 +207,8 @@ export class HomeSource {
     const mask = ctx.settings.library_lists ?? DEFAULT_HOME_MASK;
     this.items = HOME.filter(c => (mask & (1 << c.id)) !== 0);
     const d = dims(list);
-    this.title = '';
+    // The header's title (bk0: the Library string).
+    this.title = str(ctx, 'library');
     this.itemType = 'text';
     this.itemScene = 'scene_grid';
     this.columns = 2;
@@ -213,7 +216,8 @@ export class HomeSource {
     this.header = {type: 'text', scene: 'scene_top_header'};
     // addStatusBarHeightToHeaders: the header grows by the top inset.
     this.headerHeight = d.topTextHeaderSize + ctx.windowInsets.top;
-    withOptions(this, list, {key: 'home', zoomKind: 'home'});
+    // No stored zoom: bk0.P0's default case, one column of textItemSize rows (level 1).
+    withOptions(this, list, {key: 'home', zoomKind: 'home', defaultZoom: 1});
     this.homeCategories = HOME.map(c => ({...c, hint: HOME_HINTS[c.title] ?? null}));
     this.rebuild = () => new HomeSource(ctx, list, nav);
   }
@@ -231,7 +235,8 @@ export class HomeSource {
   bindItem(v, i) {
     const c = this.items[i];
     v.findViewById('title')?.setText(str(this.ctx, c.title));
-    v.findViewById('line2')?.setText('');
+    // The Queue row's counter (merge_item_queue_counter) takes the line-2 place.
+    v.findViewById('line2')?.setText(c.kind === 'queue' ? this.ctx.player?.queueCounter?.(str(this.ctx, '_empty')) ?? '' : '');
     const icon = v.findViewById('aa_image');
     icon?.setDrawable?.(this.ctx.drawables.fromValue(c.icon, this.ctx.theme));
   }
@@ -616,8 +621,8 @@ export function searchSource(ctx, list, nav, query, mask = -1, target = null) {
     src.header = null;
     src.headerHeight = 0;
     const sub = list.host.substyle;
-    applyZoom(src, sub, 'tracks', 'search');
-    if (oneLine) { const g = zoomGeometry(sub, 'tracks', src.zoomLevel, true); src.itemScene = g.scene; src.itemHeight = g.itemHeight; }
+    applyZoom(src, sub, 'search', 'search');
+    if (oneLine) { const g = zoomGeometry(sub, 'search', src.zoomLevel, true); src.itemScene = g.scene; src.itemHeight = g.itemHeight; }
     src.rebuild = () => searchSource(ctx, list, nav, query, mask, target);
     src.searchTarget = target;
     return src;

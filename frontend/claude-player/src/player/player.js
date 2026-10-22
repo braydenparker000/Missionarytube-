@@ -127,6 +127,20 @@ export class Player {
     return this.entries.map(e => e.track);
   }
 
+  /**
+   * state_player_queue_counter (k51): "position / total" while the Queue
+   * plays, else "played / total" (ui1.w1), "empty" without entries.
+   */
+  queueCounter(emptyText) {
+    const n = this.entries.length;
+    if (!n) return emptyText;
+    if (this.queueMode) {
+      const at = this.entries.findIndex(e => e.track === this.track);
+      if (at >= 0) return `${at + 1} / ${n}`;
+    }
+    return `${n - this.unplayedCount} / ${n}`;
+  }
+
   get unplayedCount() {
     return this.entries.reduce((n, e) => n + (e.played ? 0 : 1), 0);
   }
