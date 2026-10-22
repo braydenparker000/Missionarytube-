@@ -154,6 +154,8 @@ export class PopupLayout extends FastLayout {
     this.populate();
     this.onOpen?.();
     this.isOpen = true;
+    // A modal popup registers as a GUI modal while open (t61: @id/popup_menu; F78).
+    if (this.modal) this.ctx.bus.post('bus_gui', 'cmd_gui_set_modal', this, {arg1: 'popup_menu'});
     // The button's rect in placeholder coordinates.
     const a = this.getLocationIn(null), b = ph.getLocationIn(null);
     const x = a.x - b.x, y = a.y - b.y, w = this.width, h = this.height;
@@ -246,6 +248,7 @@ export class PopupLayout extends FastLayout {
     const ph = this.placeholder();
     if (!this.isOpen || !ph) return;
     this.isOpen = false;
+    if (this.modal) this.ctx.bus.post('bus_gui', 'cmd_gui_unset_modal', this, {arg1: 'popup_menu'});
     const dur = animTime(this.ctx, this.exitMs / 1000);
     this.shadeAnim(ph, 0, dur);
     ph.clickable = false;

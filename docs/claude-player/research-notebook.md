@@ -1493,9 +1493,9 @@ that artist's songs on the album.
 ### F78 — GUI modals: the navbar sheet over the visualization — `CONFIRMED_STATIC`
 
 (a) S1 `gx0` (the navbar posts cmd_gui_set_modal / cmd_gui_unset_modal with @id/navbar as its sheet
-opens and closes), `i22` (the modal stack; `m2030`, the main scene choice; the unset path).
+opens and closes), `t61` (modal popups as @id/popup_menu, item menus as @id/popup_menu_item), `i22` (the modal stack; `m2030`, the main scene choice; the unset path).
 
-(c) **While a modal is up** (here the navbar menu sheet):
+(c) **While a modal is up** (the navbar menu sheet, a modal popup, an item menu):
 - The player screen leaves the visualization scenes for scene_playing (its full UI).
 - A touch starts no temporary UI.
 
@@ -1602,7 +1602,7 @@ No status is device-verified.
 | F75 Navbar scroll-away and the bottom toolbar | Built | The bottom toolbar fades with the leaving page in level transitions (`w62.j` fades it by the transition fraction) |
 | F76 Category levels, Albums by Artist, Folders Hierarchy | Built | Text-item rows for categories (track items here) |
 | F77 CUE sheets | Built | R2 index (audio files only); virtual tracks have no waveform |
-| F78 GUI modals (navbar sheet) | Built | Popups do not register as modals |
+| F78 GUI modals (navbar sheet, popups, item menus) | Built | — |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

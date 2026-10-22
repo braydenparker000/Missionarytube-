@@ -1894,6 +1894,8 @@ ListWidget.prototype.openItemMenu = function (v, itemsLayout = 'merge_menu_items
   if (v.itemScene && v.itemScene !== 'defaultScene') map.set(v.itemScene, rec);
   if (map.get(ITEM_MENU)) map.get(ITEM_MENU).recalc = 2;
   ph.popup = {modal: true, close: () => this.closeItemMenu()};
+  // The item menu is a GUI modal while open (om0 → t61: @id/popup_menu_item; F78).
+  this.ctx.bus.post('bus_gui', 'cmd_gui_set_modal', this, {arg1: 'popup_menu_item'});
   ph.clickable = true;
   ph.forceLayoutTree();
   ph.measure(MeasureSpec.make(ph.width, MeasureSpec.EXACTLY), MeasureSpec.make(ph.height, MeasureSpec.EXACTLY));
@@ -1910,6 +1912,7 @@ ListWidget.prototype.closeItemMenu = function () {
   const m = this.menuItem;
   if (!m || m.closing) return;
   m.closing = true;
+  this.ctx.bus.post('bus_gui', 'cmd_gui_unset_modal', this, {arg1: 'popup_menu_item'});
   const v = m.v;
   let root = this;
   while (root.parent) root = root.parent;
