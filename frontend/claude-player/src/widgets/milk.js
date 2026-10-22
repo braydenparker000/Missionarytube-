@@ -1,10 +1,10 @@
 // MilkWidget: the player background. The reference renders it natively (GL):
 // the visualisation and the blurred album-art backdrop (aa_blur: level 5,
-// downscale 2^5, saturation 150%, intensity 100%, bottom gradient level 4 to
-// #FF000000). Here the backdrop is the art behind CSS blur/saturate filters
-// with a gradient overlay; the exact native blur kernel is not reproducible,
-// so radius and gradient curve are approximations to be tuned against
-// reference screenshots.
+// downscale 2^5, saturation 150%, intensity 100%). Before the blur, MilkLoader
+// paints the bottom gradient (aa_bg_gradient, level 4 to #FF000000) into the
+// art bitmap itself, so it is part of the image here too. The backdrop is the
+// art behind CSS blur/saturate filters; the native blur kernel is not
+// reproducible, so the radius is an approximation.
 import {View} from '../view/view.js';
 import {register} from '../view/inflater.js';
 import {colorToCss, parseColor} from '../res/values.js';
@@ -20,12 +20,10 @@ export class MilkWidget extends View {
     this.blurIntensityMul = a.float('aaBlurIntensity', 1);
     this.layer = document.createElement('div');
     this.layer.className = 'milk-art';
-    this.shade = document.createElement('div');
-    this.shade.className = 'milk-shade';
     // The visualization draws over the backdrop while a vis mode is on and music plays.
     this.visCanvas = document.createElement('canvas');
     this.visCanvas.className = 'milk-vis';
-    this.el.append(this.layer, this.shade, this.visCanvas);
+    this.el.append(this.layer, this.visCanvas);
     this.renderer = new MilkRenderer(ctx, this.visCanvas);
     ctx.bus.subscribe('bus_gui', msg => { if (msg === 'msg_gui_vis_mode_changed') this.syncVis(); });
     this.el.style.background = colorToCss(this.bgColor);
@@ -82,19 +80,40 @@ export class MilkWidget extends View {
     const st = this.settings();
     const url = st.enabled ? this.art?.url ?? null : null;
     const ls = this.layer.style;
-    if (this._url !== url) {
-      this._url = url;
-      ls.backgroundImage = url ? `url("${url}")` : '';
+    const gradient = url && st.gradient > 0 && st.listGradient ? artGradient(st.gradient, st.gradientColor) : null;
+    const image = url ? (gradient ? `${gradient}, url("${url}")` : `url("${url}")`) : '';
+    if (this._image !== image) {
+      this._image = image;
+      ls.backgroundImage = image;
+      ls.backgroundSize = gradient ? '100% 100%, cover' : '';
     }
     // Downscale factor 2^scale approximated as a blur radius of a fraction of it.
     const radius = (1 << Math.min(st.scale, 9)) * 0.5 * (st.level / 5);
     ls.filter = url ? `blur(${radius.toFixed(1)}px) saturate(${st.saturation})` : '';
     ls.opacity = url ? String(Math.min(1, st.intensity)) : '0';
-    const g = st.gradient / 10;
-    const c = st.gradientColor;
-    const rgba = a => `rgba(${(c >>> 16) & 255},${(c >>> 8) & 255},${c & 255},${a.toFixed(3)})`;
-    this.shade.style.background = url && g > 0 && st.listGradient ? `linear-gradient(to bottom, ${rgba(g * 0.35)} 0%, ${rgba(g * 1.6 > 1 ? 1 : g * 1.6)} 100%)` : '';
   }
+}
+
+/**
+ * The gradient MilkLoader draws over the art (top to bottom of the image):
+ * clear down to 0.75 → 0.1 of the height and the colour reached at 1 → 0.85
+ * as the level goes 0 → 10. Black is opaque; another colour (its alpha
+ * dropped) takes alpha 170 → 255 with the level. The platform interpolates
+ * unpremultiplied from transparent black, so in-between stops darken too.
+ */
+export function artGradient(level, color) {
+  const t = Math.max(0, Math.min(10, level)) / 10;
+  const lerp = (a, b) => a + (b - a) * t;
+  const start = lerp(0.75, 0.1), end = lerp(1, 0.85);
+  const rgb = color & 0xffffff;
+  const alpha = rgb ? Math.round(lerp(170, 255)) / 255 : 1;
+  const r = (rgb >>> 16) & 255, g = (rgb >>> 8) & 255, b = rgb & 255;
+  const stops = [`rgba(0,0,0,0) ${(start * 100).toFixed(2)}%`];
+  for (let k = 1; k <= 8; k++) {
+    const u = k / 8;
+    stops.push(`rgba(${Math.round(r * u)},${Math.round(g * u)},${Math.round(b * u)},${(alpha * u).toFixed(3)}) ${((start + (end - start) * u) * 100).toFixed(2)}%`);
+  }
+  return `linear-gradient(to bottom, ${stops.join(', ')})`;
 }
 
 register(['MilkWidget'], MilkWidget);

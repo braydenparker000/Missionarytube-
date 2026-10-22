@@ -2005,6 +2005,33 @@ The library home header shows "Library". The Queue row shows `state_player_queue
 (g) `list/list-opts.js` (`defaultZoom`, `ZOOMS`, `SEARCH_ZOOM`), `list/sources.js`, `list/list-widget.js`,
 `player/player.js` (`queueCounter`), `view/text.js`.
 
+### F88 — Player backdrop gradient — `CONFIRMED_STATIC`
+(a) S1 `MilkWidget` (`c40` `aa_bg_gradient` 4, `aa_bg_gradient_color` "#FF000000",
+`aa_bg_gradient_for_list`), `MilkLoader` (the bitmap pass before `native_load_aa`).
+
+(b) The gradient is painted into the art bitmap before the native blur, top to bottom of the
+image. Over levels 0 → 10:
+- it is clear down to 0.75 → 0.1 of the height;
+- it reaches the colour at 1 → 0.85.
+
+Level 4 is clear to 49% and black at 94%. Level 0 paints nothing.
+
+(c) The colour's own alpha is dropped. Black is opaque; any other colour takes alpha 170 → 255 with
+the level. The platform interpolates unpremultiplied from transparent black, so the in-between
+stops darken towards black.
+
+(d) The list backdrop has the gradient only with `aa_bg_gradient_for_list`. The port used to lay a
+separate overlay over the whole screen, from 14% to 64% black, which left the lower half light.
+
+(e) The transport buttons' black discs (`colorPlayButtonsBg`, the v31 `ripple_play_round_100dp`)
+and the time labels' black pills (`colorBgInverse`) are the reference skin's own values. They cut
+the waveseek drawn behind the transport.
+
+**Inferred:** how the native renderer maps the art onto the screen. The port keeps the art covering
+the screen, so image height maps to screen height.
+
+(f) `widgets/milk.js` (`artGradient`), `app.css` (`.milk-art`).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
@@ -2108,6 +2135,7 @@ No status is device-verified.
 | F84 Colour and text preferences | Built | System palette circles have no web counterpart |
 | F85 Null style items, reference harness | Built | — |
 | F87 Library list defaults and options, measured | Built | Category meta (counts, durations) not compared: the seed has no `cat_stats` |
+| F88 Player backdrop gradient | Built | The art's mapping onto the screen inferred (native renderer) |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 
