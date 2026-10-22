@@ -68,7 +68,7 @@ Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred ·
 | Reference family | Evidence | Status | Milestone | Known limitation | Build |
 | --- | --- | --- | --- | --- | --- |
 | Library categories, list options (sort/zoom), headers with meta, list transitions | F17, F18 | CS / INF | M4 | Transition semantics `INF` | Partial: categories, list options and headers built; list transitions built (F48 zooms, F53 pinch, F54 header/item morphs) except the shared item hand-off and the title morph |
-| Search with category filters | F14, `library_search.xml` | CS | M4 | — | Built: chip toggle and long-press filter (F55); per-kind subheaders not drawn |
+| Search with category filters | F14, `library_search.xml` | CS | M4 | — | Built: the reference's ten categories with scrolling chips, toggle and long-press filter (F55); word matching, per-kind subheaders, the song-tap queue rule and search history (F64). Search zoom levels and targeted search not built |
 | Selection menu, multi-select drag | F14, F59 | CS | M4 | — | Built: selection menu; drag reorder and multi-select drag (F59) |
 | Queue, playlists, shuffle/repeat semantics and settings | `library_queue/shuffle/playlists.xml` | CS | M5 | Playlist file import/export: paths `UW` partial | Partial: drag reordering built (F59); re-sort and import not built |
 | Equalizer (bands, tone, preamp, limiter, reverb, presets) | F20, `audio_equ.xml`, EQ layouts | CS (UI/settings) | M6 | DSP numerics differ from the native engine; documented curves only | Partial (F33) |

@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 97 |
+| Built | 99 |
 | Settings UI | 110 |
-| Not built | 63 |
+| Not built | 61 |
 | No web counterpart | 140 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -426,8 +426,8 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | --- | --- | --- | --- |
 | `msg` | RawTextPreference | Settings UI |  |
 | `list_opts` | Preference | Built | Opens the Search List Options (searched categories) |
-| `search_play_tracks` | MultilineSwitchPreference | Not built |  |
-| `search_track_titles_only` | MultilineSwitchPreference | Not built |  |
+| `search_play_tracks` | MultilineSwitchPreference | Built | Song taps queue the found songs only (vo1.g0) |
+| `search_track_titles_only` | MultilineSwitchPreference | Built | Songs match by title only (uf1 field sets) |
 
 ## library_shuffle
 

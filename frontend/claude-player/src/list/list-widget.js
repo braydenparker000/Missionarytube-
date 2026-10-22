@@ -16,6 +16,7 @@ import {PowerList} from './power-list.js';
 import {ListReorder} from './reorder.js';
 import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource, groupTracksSource, homeCategory, categorySource as categoryListSource} from './sources.js';
 import {SEARCH_CATS, searchMask} from '../widgets/search.js';
+import {recordSearch} from '../library/search-history.js';
 import {ListTransition, ZOOM, pageFx} from './list-transition.js';
 import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut, elastic, pagerScroll} from '../gesture.js';
 import {trackLyrics} from '../library/lrc.js';
@@ -425,6 +426,7 @@ export class ListWidget extends FastLayout {
       if (msg === 'msg_app_setting_changed' && LABEL_PREFS.includes(d?.key)) { this.rebind(); this.libList.rebindAll(); }
       if (msg === 'msg_app_setting_changed' && d?.key === 'vis_aa_visible') this.setPlayingMode();
       if (msg === 'msg_app_setting_changed' && LIST_PREFS.includes(d?.key)) this.rebuildStack();
+      if (msg === 'msg_app_setting_changed' && /^(search_track_titles_only|title_filename)$/.test(d?.key) && this.searching) this.showSearch();
     });
     ctx.listWidget = this;
     this.mode = 'aa';
@@ -621,7 +623,10 @@ export class ListWidget extends FastLayout {
 
   showSearch() {
     this.searchShown = true;
-    const src = searchSource(this.ctx, this.libList, this.nav, this.searchQuery ?? '', this.searchMask ?? searchMask());
+    const q = this.searchQuery ?? '';
+    const src = searchSource(this.ctx, this.libList, this.nav, q, this.searchMask ?? searchMask());
+    // Every delivered result set records its query (sd.e0 → kj1.А).
+    if (q.trim()) recordSearch(q.trim());
     this.searchSrc = src;
     this.libList.setSource(src);
   }

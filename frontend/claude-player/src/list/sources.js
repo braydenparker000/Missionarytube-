@@ -34,6 +34,12 @@ const HOME_HINTS = {album_artists: 'summary_album_artists', albums_by_artist: 's
 /** A library category by id (library_home). */
 export const homeCategory = id => HOME.find(c => c.id === id) ?? null;
 import {applyZoom, listOpts, REVERSE} from './list-opts.js';
+import {SEARCH_CATS} from '../widgets/search.js';
+import {GONE} from '../res/values.js';
+import {searchHistory, removeSearch, clearSearchHistory} from '../library/search-history.js';
+
+// The search categories after "All" (jj1.v1 order).
+const SEARCH_KINDS = SEARCH_CATS.slice(1);
 
 const cmpStr = (a, b) => (a ?? '').localeCompare(b ?? '', undefined, {sensitivity: 'base', numeric: true});
 const byTrackNo = (a, b) => (a.disc || 0) - (b.disc || 0) || (a.track || 0) - (b.track || 0);
@@ -415,47 +421,122 @@ export function currentCategorySource(ctx, list, nav, kind, track = null) {
  * album; other categories list matching groups (each opens its tracks).
  */
 /** Search categories in chip order (the bits of the search mask). */
-const SEARCH_KINDS = ['songs', 'albums', 'artists', 'genres', 'folders', 'composers'];
+/**
+ * The empty search: the search history (item_search_history rows) and, after
+ * them, Clear Search History. A tap on a term searches it; its clear button
+ * removes it.
+ */
+function historySource(ctx, list, nav, title) {
+  const terms = searchHistory();
+  const src = new TrackSource(ctx, list, nav, title, []);
+  src.header = null;
+  src.headerHeight = 0;
+  if (!terms.length) return src;
+  const rerun = () => ctx.listWidget?.showSearch?.();
+  const n = terms.length;
+  Object.defineProperty(src, 'count', {get: () => n + 1});
+  src.typeAt = i => (i < n ? 'history' : 'clearHistory');
+  src.isSeparator = () => false;
+  src.tracksAt = () => [];
+  src.sectionTitle = i => terms[i] ?? '';
+  src.selectable = false;
+  src.bindItem = (v, i) => {
+    const b = v.findViewById('line2');
+    if (i < n) {
+      v.findViewById('title')?.setText(terms[i]);
+      b?.setText('');
+      if (b && !b._clearIcon) { b._clearIcon = ctx.drawables.fromValue('?clear', ctx.theme); }
+      b?.setDrawable?.(b._clearIcon);
+      if (b) b.onClick = () => { removeSearch(terms[i]); rerun(); };
+    } else {
+      b?.setText(str(ctx, 'clear_search_history'));
+      if (b) b.onClick = () => { clearSearchHistory(); rerun(); };
+    }
+  };
+  src.onItemClick = i => { if (i < n) ctx.bus.post('list', 'cmd_list_search_text', src, {string: terms[i]}); };
+  return src;
+}
 
 /**
- * Search results for a query over a category mask (bit i = SEARCH_KINDS[i];
- * -1 all): songs matching title, artist or album, then each selected
- * category's matching entries, in chip order, as one list. Category
- * subheaders between the parts are not drawn.
+ * Search (jj1 / kj1 / vo1; notebook F64): the categories the chips select, in
+ * jj1.v1 order, each with its matches under a subheader row
+ * (item_separator_button, separatorSize high) and sorted by its name, case
+ * folded (COLLATE NOCASE). The query splits on whitespace, ":", "-" and "_";
+ * every word must occur in the entry's fields joined together (l2.B: LIKE
+ * %word% over field||field); more than 64 words find nothing. Fields:
+ * Albums album and artist, All Songs title, album and artist (title only
+ * with search_track_titles_only; the file name for the title with
+ * title_filename), the others their name. Streams are not built (owner
+ * decision) and find nothing.
  */
 export function searchSource(ctx, list, nav, query, mask = -1) {
-  const q = query.trim().toLocaleLowerCase();
   const lib = ctx.library;
   const pool = lib?.tracks?.length ? lib.tracks : ctx.player?.queue ?? [];
-  const has = s => !!s && s.toLocaleLowerCase().includes(q);
-  const title = ctx.res.stringByName('search') ?? 'Search';
+  const title = str(ctx, 'search', 'Search');
   const bare = src => { src.header = null; src.headerHeight = 0; return src; };
-  if (!q || !mask) return bare(new TrackSource(ctx, list, nav, title, []));
-  const on = kind => (mask & (1 << SEARCH_KINDS.indexOf(kind))) !== 0;
-  const tracks = on('songs') ? pool.filter(t => has(t.title) || has(t.artist) || has(t.album)) : [];
-  const groups = [];
-  for (const kind of SEARCH_KINDS.slice(1)) {
-    if (!on(kind)) continue;
-    const gs = (lib?.tracks?.length ? groupsFor(lib, kind) : null) ?? group(pool, {
-      albums: t => t.album || 'Unknown album', artists: t => t.artist || 'Unknown artist',
-      genres: t => t.genre || 'Unknown genre', folders: t => t.folder || '/', composers: t => t.composer || 'Unknown composer',
-    }[kind], kind);
-    groups.push(...gs.filter(g => has(g.title)));
-  }
-  if (!groups.length) return bare(new TrackSource(ctx, list, nav, title, tracks));
-  if (!tracks.length) return bare(new GroupSource(ctx, list, nav, title, groups));
-  // Songs and entries in one list: rows below tracks.length are entries.
-  const src = bare(new GroupSource(ctx, list, nav, title, groups));
-  const n = tracks.length;
-  src.tracks = tracks;
-  Object.defineProperty(src, 'count', {get: () => n + groups.length});
-  src.tracksAt = i => (i < n ? [tracks[i]] : groups[i - n]?.tracks ?? []);
-  src.sectionTitle = i => (i < n ? tracks[i].title : groups[i - n]?.title);
+  const words = String(query ?? '').split(/[\s:\-_]+/).filter(Boolean).map(w => w.toLowerCase());
+  if (!words.length) return historySource(ctx, list, nav, title);
+  if (words.length > 64 || !mask) return bare(new TrackSource(ctx, list, nav, title, []));
+  const has = (...fields) => { const s = fields.map(f => f ?? '').join('').toLowerCase(); return words.every(w => s.includes(w)); };
+  const nocase = (a, b) => { const x = (a ?? '').toLowerCase(), y = (b ?? '').toLowerCase(); return x < y ? -1 : x > y ? 1 : 0; };
+  const fileTitles = !!ctx.pref?.('title_filename'), titlesOnly = !!ctx.pref?.('search_track_titles_only');
+  const fileName = t => { const p = t.fileName || t.path || ''; return p.slice(p.lastIndexOf('/') + 1); };
+  const line1 = t => (fileTitles ? fileName(t) : t.title);
+  const found = kind => {
+    switch (kind) {
+      case 'songs': return pool.filter(t => (titlesOnly ? has(line1(t)) : has(line1(t), t.album, t.artist))).sort((a, b) => nocase(line1(a), line1(b)));
+      case 'albums': return (groupsFor(lib, 'albums') ?? []).filter(g => has(g.title, g.artist)).sort((a, b) => nocase(a.title, b.title));
+      case 'playlists': return (ctx.playlists?.sorted() ?? []).map(pl => ({kind: 'playlist', title: pl.name, tracks: ctx.playlists.tracksOf(pl), pl})).filter(g => has(g.title)).sort((a, b) => nocase(a.title, b.title));
+      case 'streams': return [];
+      default: return (lib?.tracks?.length ? groupsFor(lib, kind) ?? [] : []).filter(g => has(g.title)).sort((a, b) => nocase(a.title, b.title));
+    }
+  };
+  const rows = [], separators = [];
+  SEARCH_KINDS.forEach((c, i) => {
+    if ((mask & (1 << i)) === 0) return;
+    const hits = found(c.kind);
+    if (!hits.length) return;
+    separators.push(rows.length);
+    rows.push({sep: str(ctx, c.title)});
+    for (const h of hits) rows.push(c.kind === 'songs' ? {track: h} : {group: h, kind: c.kind});
+  });
+  if (!rows.length) return bare(new TrackSource(ctx, list, nav, title, []));
+  const src = bare(new GroupSource(ctx, list, nav, title, rows.filter(r => r.group).map(r => r.group)));
+  const d = dims(list);
+  src.rows = rows;
+  src.separators = separators;
+  src.separatorHeight = list.host.substyle.dim('separatorSize', d.itemSizeSmall);
+  src.tracks = rows.filter(r => r.track).map(r => r.track);
+  src.byName = false;
+  Object.defineProperty(src, 'count', {get: () => rows.length});
+  src.isSeparator = i => !!rows[i]?.sep;
+  src.typeAt = i => (rows[i]?.sep ? 'separator' : undefined);
+  src.tracksAt = i => (rows[i]?.track ? [rows[i].track] : rows[i]?.group?.tracks ?? []);
+  src.sectionTitle = i => rows[i]?.track?.title ?? rows[i]?.group?.title ?? rows[i]?.sep;
+  const groupIndex = new Map(rows.filter(r => r.group).map((r, k) => [r, k]));
   const bindGroup = src.bindItem.bind(src), openGroup = src.onItemClick.bind(src);
-  src.bindItem = (v, i) => (i < n ? v.bind(tracks[i]) : bindGroup(v, i - n));
+  src.bindItem = (v, i) => {
+    const r = rows[i];
+    if (r.sep) { v.findViewById('title')?.setText(r.sep); v.findViewById('line2')?.setVisibility(GONE); return; }
+    if (r.track) v.bind(r.track);
+    else bindGroup(v, groupIndex.get(r));
+  };
+  // A tap on an entry opens it. A tap on a song plays the results (vo1.g0):
+  // the found songs only with search_play_tracks (when songs are the last
+  // results), else every result row's songs in order.
   src.onItemClick = i => {
-    if (i >= n) { openGroup(i - n); return; }
-    ctx.player.setQueue(tracks, i);
+    const r = rows[i];
+    if (!r || r.sep) return;
+    if (r.group) { openGroup(groupIndex.get(r)); return; }
+    const onlySongs = ctx.pref?.('search_play_tracks') !== false && !!rows[rows.length - 1].track;
+    let queue = [], at = 0;
+    for (let k = 0; k < rows.length; k++) {
+      const x = rows[k];
+      if (x.sep || (onlySongs && !x.track)) continue;
+      if (k === i) at = queue.length;
+      queue = queue.concat(x.track ? [x.track] : x.group.tracks);
+    }
+    ctx.player.setQueue(queue, at);
     ctx.player.play();
     if ((ctx.settings.list_item_action ?? 1) === 1) ctx.bus.post('bus_gui', 'cmd_nav_to_main', src);
   };

@@ -350,8 +350,8 @@ export const PREF_STATUS = {
   // library_search
   msg: [UI, ''],
   list_opts: [BUILT, 'Opens the Search List Options (searched categories)'],
-  search_play_tracks: [TODO, ''],
-  search_track_titles_only: [TODO, ''],
+  search_play_tracks: [BUILT, 'Song taps queue the found songs only (vo1.g0)'],
+  search_track_titles_only: [BUILT, 'Songs match by title only (uf1 field sets)'],
   // library_shuffle
   shuffle_random_factor: [TODO, ''],
   no_reshuffle: [TODO, ''],

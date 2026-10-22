@@ -639,7 +639,7 @@ item, and going back to it, morphs between the item and the level:
 The layout becomes visible with `nav_search`. Results combine songs and the matching group kinds
 under the mask.
 
-`INFERRED`: the result list draws no per-kind subheaders.
+Superseded by F64: the categories, per-kind subheaders and history are ported there.
 
 (f) `src/widgets/search.js`, `searchSource(…, mask)`.
 
@@ -952,6 +952,50 @@ with inline icons), `SettingsUi.overDialog` (the settings page moves under a pla
 it is open). Not built: list memory (a playlist's or folder's remembered position and per-track
 progress).
 
+### F64 — Search results, categories and history — `CONFIRMED_STATIC`
+
+(a) S1 `jj1` (`v1`, `u1`), `kj1` (the merged result cursor, its separator rows, search history `А`
+and the empty query), `vo1` (`T0`, `g0`, `f`, `y`, `e0`, `P0`), `to1` (row types), `l2.B` (matching),
+`ls` (the word splitter), `uf1` / `te1` / `cf1` / `le1` / `zf1` / `eg1` / `vj1` / `hf1` / `ri1`
+(search fields and `R` orders), `SeparatorItemView`, `item_separator_button`,
+`item_search_history`, `item_clear_search_history`, `ListSearchCatsLayout` / `im0` (the chip row,
+a `b82` scroller), `m30.f1` (`search_track_titles_only`), `b40.N0` (`search_play_tracks`).
+
+(c) **Categories:** Albums, Artists, Album Artists, Folders, Genres, Years, Composers, Playlists,
+All Songs and Streams, in that order. The chips select them (bit i = category i, persisted). The
+chip row scrolls sideways (drag, fling, clamped ends).
+
+**Matching:** the query splits on whitespace, ":", "-" and "_". Every word must occur,
+case-insensitively, in the category's fields joined with no separator; more than 64 words find
+nothing. Fields:
+- Albums: album and artist.
+- All Songs: title, album and artist. With `search_track_titles_only`, the title only. With
+  `title_filename`, the file name stands in for the title.
+- Every other category: its name.
+
+**Results:** each category with matches gets a subheader row (`item_separator_button`: the
+category's name and a hairline, `separatorSize` high), then its rows sorted by name with NOCASE
+ordering. Entries show as track-style rows.
+- A tap on an entry opens it.
+- A tap on a song plays the results. With `search_play_tracks` (default on), and when songs are the
+  last results, only the found songs are queued; otherwise every result row's songs are queued in
+  order.
+
+**History:** every delivered result set records its query. A query that extends a stored term
+replaces it; a query a stored term already extends adds nothing; anything else is added. The empty
+search lists the 16 newest terms (`item_search_history`: the term and a clear button), then "Clear
+search history". A tap on a term searches it; its button removes it.
+
+**Fix:** the chip row now lays out after Search opens. Its scene change had captured a 0 × 0
+target frame while the row was gone.
+
+Not built: Streams results (owner decision), the search zoom levels (`list_zoom_search`) and the
+targeted search (`ste`).
+
+(f) `list/sources.js` (`searchSource`, `historySource`), `library/search-history.js`,
+`list/power-list.js` (separator and plain row types with their own heights), `widgets/search.js`
+(`SEARCH_CATS`, the chip row scroller).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1029,11 +1073,12 @@ No status is device-verified.
 | F52 category navigation | Built | — |
 | F53 pinch-to-zoom | Built | — |
 | F54 item/header morphs | Partial | Title morph not built |
-| F55 search chips | Built | Per-kind subheaders not drawn |
+| F55 search chips | Built | Categories, subheaders and history per F64 |
 | F56 Follow Day/Night | Built | Night mode from `prefers-color-scheme` |
 | F57 star rating bar | Built | Scene drawable cross-fade not built |
 | F58 dialog drag | Partial | Nested-scroll handoff not built |
 | F63 library list preferences / List Options | Built | List memory not built |
+| F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact
 
