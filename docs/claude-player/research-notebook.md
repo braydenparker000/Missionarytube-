@@ -1353,6 +1353,50 @@ butterchurn 2.6.7 and butterchurn-presets 2.4.7 (MIT, with the full notice), Man
 full notice in `fonts/LICENSES.md`) and TT Norms Pro (used under the owner's permission). The
 reference's own list (its native libraries) does not apply.
 
+### F75 — Navbar scroll-away and the bottom toolbar — `CONFIRMED_STATIC` (fallback bytecode)
+
+(a) S1 `TopListWidget` (moveableToolbar `@id/navbar`, moveableToolbarAnchor bottom,
+moveableToolbarExtraStates false), `om0` (wa1.U attributes, `c0` creates `yv0`, `h0` / `i` / `h` / `r` /
+`t0` / `p0`, cmd_list_force_ab_on_screen), `ListWidget` (static_navbar: anchor bottom → fixedBottom),
+`yv0` / `xv0` (fallback bytecode), `h0` (layout status), `pd.y0` / `sh` / `w62.f0` / `w62.j` / `z62`
+(bottom toolbar, scene_bottom_toolbar), `hl0` (bottomToolbarSize, 44 dp), `sb0` and `i22` (posters),
+`yp1` (both settings recreate the screen).
+
+(c) **Scroll-away (bottom anchor).**
+- Each scroll step of f px (content movement; negative towards the list end) moves the offset
+  H = H + f.
+- The offset is 0 (shown) at the list top or when everything fits, and at the end.
+- In between, the navbar moves down by −H, up to height = the rows' reserved space (navbar bounds plus
+  the bottom inset) plus the bottom toolbar size. At full height it is invisible.
+- Approaching the end (last item shown, scrolling on), H is held at ≥ −(scroll left), so the navbar
+  comes back as the end nears.
+- fixedBottom (static_navbar, or while pinned) keeps it in place.
+- Jumps (A–Z, scroll to track) re-place it without moving it.
+
+**Other states.**
+- **Art or lyrics layout:** shown at once (a 250 ms linear move back).
+- **Level change:** the configured anchor again, then placed for the new list; while the level
+  transition runs, a 100 ms linear move back.
+- **Library and search help:** pinned while open (cmd_list_force_ab_on_screen 1 / 2).
+- **Equalizer:** going there shows it.
+- **Selection mode:** alpha 1 → 0 over 250 ms (linear), and back.
+
+**Bottom toolbar** (list_bottom_toolbar: 0 disabled, 1 semi-transparent, 2 enabled):
+- **What and where:** every non-empty list with a header shows the header's item again in
+  scene_bottom_toolbar, 44 dp high (bottomToolbarZ 1.25 dp), right above the navbar. Its top is
+  list bottom − reserved − size + how far the navbar moved down (its translation plus bottom margin),
+  clamped to the list's bottom edge.
+- **Fade-in:** with header buttons on, while one of the first three items is the first shown, it
+  fades in and grows from 0.85 as the scroll passes the header, over 104 dp. Without header buttons it
+  is always shown.
+- **Semi-transparent:** alpha × 0.55.
+- **Padding:** the rows' bottom padding grows by its size whenever the setting is on (om0.u0).
+
+**Inferred:**
+- The bottom toolbar's fade measure reads `w62.f0`'s first-item offset as the list's scroll from the
+  content top.
+- A zero-alpha toolbar takes no touches.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1445,6 +1489,7 @@ No status is device-verified.
 | F72 Shuffle modes and options | Partial | category_shuffle and hier_flat_shf wait for the sub-category screens |
 | F73 Library playback options, pro button morph | Built | — |
 | F74 About: version and licenses | Built | — |
+| F75 Navbar scroll-away and the bottom toolbar | Built | The bottom toolbar fades with the leaving page in level transitions (`w62.j` fades it by the transition fraction) |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

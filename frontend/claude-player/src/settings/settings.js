@@ -53,7 +53,7 @@ const RUNTIME_DEFAULTS = {navbar_seekbar: 'true', anim_speed: '1', hide_menu: '0
   library_lists: '1048511', library_home: '-1'};
 // Settings that restyle the player through theme overlays: the player
 // activity is recreated when settings close (a reload here).
-const THEME_KEYS = new Set(['rating_type', 'hide_menu', 'main_lyrics_button', 'aa_aspect', 'cc_button', 'headers_meta', 'vis_frs_type', 'list_header_buttons', 'localized_az', 'anim_long_labels', 'anim_long_labels_in_lists', 'navbar_seekbar', 'library_lists']);
+const THEME_KEYS = new Set(['rating_type', 'hide_menu', 'main_lyrics_button', 'aa_aspect', 'cc_button', 'headers_meta', 'vis_frs_type', 'list_header_buttons', 'localized_az', 'anim_long_labels', 'anim_long_labels_in_lists', 'navbar_seekbar', 'library_lists', 'static_navbar', 'list_bottom_toolbar']);
 // Layers inside the player's root while a dialog shows over the settings page.
 const PAGE_UNDER_DIALOG_Z = 100000, DIALOG_OVER_PAGE_Z = 200000;
 const CONDITIONAL_KEYS = new Set(['perm_warn', 'manage_app_warn']);

@@ -121,6 +121,8 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
   }
 
   navigate(nav, animate = true) {
+    // i22: going to the equalizer shows the list's moveable toolbar at once.
+    if (nav === 'nav_eq' && this.nav !== 'nav_eq') this.ctx.bus.post('list', 'cmd_list_force_ab_on_screen', this, {arg1: 0});
     if (nav === 'nav_main') this.go(this.mainScene(), nav, animate);
     else this.go(NAV_SCENES[nav] ?? 'scene_lib', nav, animate);
   }

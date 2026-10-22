@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 150 |
+| Built | 152 |
 | Settings UI | 109 |
-| Not built | 10 |
+| Not built | 8 |
 | No web counterpart | 141 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -350,13 +350,13 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | --- | --- | --- | --- |
 | `pref_look_and_feel` | PreferenceCategory | Settings UI |  |
 | `library_list_opts` | Preference | Built | Opens the home List Options (categories, start category, zoom) |
-| `static_navbar` | MultilineSwitchPreference | Not built |  |
+| `static_navbar` | MultilineSwitchPreference | Built | bottom anchor becomes fixed: the navbar stays while lists scroll (F75) |
 | `navbar_seekbar` | MultilineSwitchPreference | Built |  |
 | `headers_meta` | MultilineSwitchPreference | Built |  |
 | `az_scroll` | MultilineSwitchPreference | Built |  |
 | `localized_az` | MultilineSwitchPreference | Built |  |
 | `list_header_buttons` | TagListPreference | Built |  |
-| `list_bottom_toolbar` | TagListPreference | Not built |  |
+| `list_bottom_toolbar` | TagListPreference | Built | header buttons as a bottom toolbar above the navbar; semi-transparent 0.55 (F75) |
 | `track_num_type` | TagListPreference | Built | Track labels (library/labels.js) |
 | `track_disc_meta` | MultilineSwitchPreference | Built | Track labels (library/labels.js) |
 | `title_filename` | MultilineSwitchPreference | Built | Track labels (library/labels.js) |

@@ -13,6 +13,7 @@ import {StyledAttributes} from '../res/resources.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
+import {MoveableToolbar, ANCHOR_BOTTOM, ANCHOR_FIXED_BOTTOM} from './moveable-toolbar.js';
 import {ListReorder} from './reorder.js';
 import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource, groupTracksSource, homeCategory, categorySource as categoryListSource} from './sources.js';
 import {SEARCH_CATS, searchMask} from '../widgets/search.js';
@@ -443,6 +444,24 @@ export class ListWidget extends FastLayout {
     this.libList.interceptible = true; // side swipes go to the widget (parent level)
     this.libList.lp = this.generateLayoutParams(null);
     this.addView(this.libList);
+    // Moveable toolbar (om0: moveableToolbar / Anchor / ExtraStates; F75):
+    // static_navbar turns a bottom anchor fixed (ListWidget). The bottom
+    // toolbar (list_bottom_toolbar, om0.u0) adds its size under the rows.
+    this.toolbarId = a.idRef('moveableToolbar')?.id ?? null;
+    this.toolbarAnchor = a.int('moveableToolbarAnchor', 0);
+    if (ctx.pref('static_navbar') === true && this.toolbarAnchor === ANCHOR_BOTTOM) this.toolbarAnchor = ANCHOR_FIXED_BOTTOM;
+    this.toolbarExtraStates = a.bool('moveableToolbarExtraStates', false);
+    this.toolbar = null;
+    const bottomToolbar = +(ctx.pref('list_bottom_toolbar') ?? 2) || 0;
+    this.bottomToolbarSize = bottomToolbar ? this.substyle.dim('bottomToolbarSize', 100) : 0;
+    this.libList.bottomToolbar = bottomToolbar ? {
+      mode: bottomToolbar,
+      size: this.bottomToolbarSize,
+      z: this.substyle.dimFloat('bottomToolbarZ', 0),
+      headerButtons: +(ctx.pref('list_header_buttons') ?? 1) !== 0,
+      reserved: () => this.reservedSpace(),
+      inset: () => this.ctx.windowInsets.bottom,
+    } : null;
     this.lyricsPage = new LyricsPage(ctx, this);
     this.lyricsPage.visibility = GONE;
     this.lyricsPage.interceptible = true; // the widget takes side swipes and a pull at the top
@@ -471,7 +490,8 @@ export class ListWidget extends FastLayout {
     const current = {cmd_request_current_artist: 'artist', cmd_list_current_album: 'album', cmd_list_current_folder: 'folder', cmd_request_current_genre: 'genre'};
     for (const bus of ['list', 'bus_data_cmd']) {
       ctx.bus.subscribe(bus, (msg, src, d) => {
-        if (msg === 'cmd_list_search_text') { this.searchQuery = d?.string ?? ''; if (this.searching) this.showSearch(); }
+        if (msg === 'cmd_list_force_ab_on_screen') { if (bus === 'list') this.forceToolbar(d?.arg1 ?? 0); }
+        else if (msg === 'cmd_list_search_text') { this.searchQuery = d?.string ?? ''; if (this.searching) this.showSearch(); }
         else if (msg === 'cmd_list_search_cat') { this.searchMask = d?.mask ?? -1; if (this.searching) this.showSearch(); }
         else if (current[msg]) this.openCurrent(current[msg]);
         else if (msg === 'cmd_list_play' || msg === 'cmd_list_shuffle') this.playList(msg === 'cmd_list_shuffle');
@@ -849,6 +869,9 @@ export class ListWidget extends FastLayout {
     this.mode = mode;
     const list = mode === 'list', lyrics = mode === 'lyrics';
     this.libList.visibility = list ? VISIBLE : GONE;
+    // The art and the lyrics are no list layout: the toolbar shows (yv0.A).
+    if (list) this.libList.levelChanged = true;
+    else this.toolbar?.showNow();
     this.lyricsPage.show(lyrics);
     for (const v of this.items.values()) v.visibility = list || lyrics ? GONE : VISIBLE;
     if (list && !this.stack.length && !this.searching) this.openStart();
@@ -871,6 +894,44 @@ export class ListWidget extends FastLayout {
     if (this.geometry.mode === mode) return;
     this.geometry.mode = mode;
     this.requestLayout();
+  }
+
+  /** The rows' reserved space above the list bottom (om0.o0): the navbar bounds plus the bottom inset. */
+  reservedSpace() {
+    return this.ctx.dynamicDimension(this.bottomReservedId ?? 'navbar_bounds_2lines_size') + this.ctx.windowInsets.bottom;
+  }
+
+  /** The moveable toolbar, once the root holds it (om0.c0). */
+  ensureToolbar() {
+    if (this.toolbar || !this.toolbarId) return this.toolbar;
+    let root = this;
+    while (root.parent) root = root.parent;
+    const view = root.findViewById(this.toolbarId);
+    if (!view) return null;
+    this.toolbar = new MoveableToolbar(this.ctx, view, {anchor: this.toolbarAnchor, extraStates: this.toolbarExtraStates, bottomToolbar: this.bottomToolbarSize, reserved: () => this.reservedSpace()});
+    this.toolbar.onMove = () => { if (this.libList.visibility !== GONE) this.libList.placeBottomToolbar(); };
+    return this.toolbar;
+  }
+
+  /** PowerList.h0 → yv0.m3714: the shown list moved by f. */
+  listScrolled(list, f, touch) {
+    if (list !== this.libList || this.mode !== 'list') return;
+    this.ensureToolbar()?.scrolled(list.scrollState(), f, touch, !!this.trans);
+  }
+
+  /** om0.i: a new layout in the shown list (level change, rebuild, search results). */
+  listLevelChanged(list) {
+    if (list !== this.libList || this.mode !== 'list') return;
+    this.ensureToolbar()?.levelChanged(list.scrollState(), !!this.trans);
+  }
+
+  /** cmd_list_force_ab_on_screen: 0 show now, 1 pin, 2 release. */
+  forceToolbar(how) {
+    const t = this.ensureToolbar();
+    if (!t) return;
+    if (how === 1) t.pin(true);
+    else if (how === 2) t.pin(false);
+    else t.showNow();
   }
 
   applyInsets() {
@@ -1240,6 +1301,7 @@ export class ListWidget extends FastLayout {
       this.addView(g);
     }
     g.visibility = VISIBLE;
+    g.bottomToolbar = this.libList.bottomToolbar;
     g.paddingTop = this.libList.paddingTop; g.paddingBottom = this.libList.paddingBottom;
     g.paddingLeft = this.libList.paddingLeft; g.paddingRight = this.libList.paddingRight;
     g.setSource(source);
@@ -1644,7 +1706,7 @@ export class ListWidget extends FastLayout {
         }
         if (bottom) ll.paddingTop = Math.max(0, bottom - this.getLocationIn(null).y);
       }
-      ll.paddingBottom = this.ctx.dynamicDimension(this.bottomReservedId ?? 'navbar_bounds_2lines_size') + this.ctx.windowInsets.bottom;
+      ll.paddingBottom = this.reservedSpace() + this.bottomToolbarSize;
       ll.paddingLeft = this.ctx.windowInsets.left;
       ll.paddingRight = this.ctx.windowInsets.right;
       ll.measure(MeasureSpec.make(this.width, MeasureSpec.EXACTLY), MeasureSpec.make(this.height, MeasureSpec.EXACTLY));

@@ -4,6 +4,7 @@
 import {FastLayout} from '../view/fast-layout.js';
 import {MeasureSpec} from '../view/view.js';
 import {GONE, VISIBLE} from '../res/values.js';
+import {AT_TOP, BETWEEN, AT_END} from './moveable-toolbar.js';
 import {sectionChar} from './scroller.js';
 import {modeState} from './mode-state.js';
 import {VelocityTracker, Fling, TOUCH_SLOP_DP, MIN_FLING_DP, MAX_FLING_DP} from '../gesture.js';
@@ -29,6 +30,9 @@ export class PowerList extends FastLayout {
     this.selection = null; // Set of selected indices while in selection mode
     this.selectable = true;
     this.noScroller = false;
+    // Bottom toolbar (sh): {mode 1 semi-transparent / 2 enabled, size, z, headerButtons}; set by the host.
+    this.bottomToolbar = null;
+    this.toolbarView = null;
     for (const bus of ['list', 'bus_gui']) ctx.bus.subscribe(bus, (msg, src, d) => this.onListCmd(msg, d ?? {}));
   }
 
@@ -39,6 +43,8 @@ export class PowerList extends FastLayout {
     this.active.clear();
     this.source = source;
     this.scrollY = 0;
+    // The moveable toolbar takes the new layout at its next placement (om0.i).
+    this.levelChanged = true;
     this.requestLayout();
     this.syncScroller();
   }
@@ -65,6 +71,24 @@ export class PowerList extends FastLayout {
     this.stopFling();
     this.scrollY = Math.max(0, Math.min(this.maxScroll(), y));
     this.placeItems();
+    // A jump re-lays the list out (vj0.m3436): the toolbar takes its status, no movement.
+    this.scrolled(0, false);
+  }
+
+  /**
+   * The layout status the moveable toolbar reads (h0.H, w62.b): at the top
+   * (also when everything fits), at the end, or between; the scroll left to
+   * the end and whether the last item is shown.
+   */
+  scrollState() {
+    const max = this.maxScroll(), s = this.source;
+    const flags = max <= 0 || this.scrollY <= 0 ? AT_TOP : this.scrollY >= max ? AT_END : BETWEEN;
+    return {flags, endGap: max - this.scrollY, lastShown: !!s?.count && this.active.has(s.count - 1)};
+  }
+
+  /** Tells the host the list moved its content by f px (PowerList.h0 → om0). */
+  scrolled(f, touch) {
+    if (!this.levelChanged) this.host?.listScrolled?.(this, f, touch);
   }
 
   /** Scrolls so the item's row is the first under the header. */
@@ -237,6 +261,16 @@ export class PowerList extends FastLayout {
     // A drag reorder places the rows itself.
     if (this.reorder) { this.reorder.place(); return; }
     const g = this.geometry();
+    // A new source: the host places the moveable toolbar once the level change has started.
+    if (this.levelChanged && this.width > 0 && !this._levelQueued) {
+      this._levelQueued = true;
+      queueMicrotask(() => {
+        this._levelQueued = false;
+        if (!this.levelChanged) return;
+        this.levelChanged = false;
+        this.host?.listLevelChanged?.(this);
+      });
+    }
     const y0 = g.top + g.headerH - this.scrollY;
     const want = new Set();
     if (s.header && g.top + g.headerH - this.scrollY > 0) want.add(-1);
@@ -282,6 +316,59 @@ export class PowerList extends FastLayout {
       v.translationY = y;
       v.invalidate();
     }
+    this.placeBottomToolbar(g);
+  }
+
+  /**
+   * Bottom toolbar (sh, w62.f0 / j; F75): with list_bottom_toolbar the
+   * header's buttons also show as an item in scene_bottom_toolbar
+   * (bottomToolbarSize) right above the moveable toolbar, moving down with it
+   * to the list's bottom edge. With header buttons on it fades in and grows
+   * from 0.85 over 104 dp once the header has scrolled away (while one of the
+   * first three items is the first shown); semi-transparent caps its alpha at
+   * 0.55. Lists that are empty or have no header have none.
+   */
+  placeBottomToolbar(g = null) {
+    const bt = this.bottomToolbar, s = this.source;
+    let v = this.toolbarView;
+    if (!bt || !s?.header || !(s.count > 0) || !this.width) {
+      if (v && v.visibility !== GONE) { v.visibility = GONE; v.invalidate(); }
+      return;
+    }
+    g ??= this.geometry();
+    if (!v || v.listItemType !== s.header.type) {
+      if (v) { v.visibility = GONE; v.invalidate(); }
+      v = this.toolbarView = this.ctx.inflater.inflate(LAYOUT_FOR_TYPE[s.header.type], null)[0];
+      v.lp = this.generateLayoutParams(null);
+      v.parent = this;
+      v.listItemType = s.header.type;
+      v.listIndex = -10;
+      v.useThumb = true;
+      v.elevation = bt.z;
+      this.children.push(v);
+      this.el.appendChild(v.el);
+      const menu = v.findViewById('menu');
+      if (menu) menu.onClick = () => { if (this.source?.menuLayout) this.host?.openItemMenu?.(v, this.source.menuLayout); };
+    }
+    if (v.inMenu) return;
+    if (v._boundSource !== s) { s.bindHeader(v); v._boundSource = s; }
+    let f = 1;
+    if (bt.headerButtons) {
+      const first = this.indexAtY(g, Math.max(0, this.scrollY - g.top - g.headerH));
+      if (first < 3) f = Math.min(1, Math.max(0, (this.scrollY - g.headerH) / (104 * this.ctx.dpr)));
+    }
+    const alpha = (bt.mode === 1 ? 0.55 : 1) * f;
+    const size = bt.size, bottom = this.height, inset = bt.inset?.() ?? 0;
+    let top = bottom - (bt.reserved?.() ?? 0) - size + (this.host?.toolbar?.movedDown() ?? 0);
+    if (top + size > bottom - inset) top = bottom - size - inset;
+    v.visibility = alpha > 0 ? VISIBLE : GONE;
+    v.left = 0; v.top = 0;
+    v.setItemScene('scene_bottom_toolbar', this.width, size);
+    v.translationX = 0;
+    v.translationY = top;
+    v.alpha = alpha;
+    v.scaleX = v.scaleY = 0.85 + 0.15 * f;
+    v.invalidate();
   }
 
   // Selection mode (cmd_list_toggle_selection_mode): items show their select
@@ -336,6 +423,8 @@ export class PowerList extends FastLayout {
   setSelectionMode(on, closeMenu = true) {
     if (!!this.selection === on) return;
     this.selection = on ? new Set() : null;
+    // om0.h / r: the moveable toolbar fades out for the selection menu and back.
+    this.host?.toolbar?.fade(on);
     if (on) this.ctx.bus.post('bus_gui', 'cmd_selection_menu_open', this, {arg1: this.source?.selectionLayout ?? 'merge_selection_menu_list_base_items'});
     else if (closeMenu) this.endSelection();
     this.selectionChanged();
@@ -402,8 +491,10 @@ export class PowerList extends FastLayout {
       d.started = true;
       d.y += Math.sign(dy) * slop;
     }
+    const prev = this.scrollY;
     this.scrollY = Math.max(0, Math.min(this.maxScroll(), d.scroll - (e.rootY - d.y)));
     this.placeItems();
+    if (this.scrollY !== prev) this.scrolled(prev - this.scrollY, true);
   }
 
   onPointerUp(e) {
@@ -423,6 +514,7 @@ export class PowerList extends FastLayout {
     this._fling = this.ctx.onFrame(now => {
       const dt = Math.min(0.048, (now - last) / 1000);
       last = now;
+      const prev = this.scrollY;
       this.scrollY += f.step(dt);
       this.velocity = f.v;
       const max = this.maxScroll();
@@ -432,6 +524,7 @@ export class PowerList extends FastLayout {
         stop = true;
       }
       this.placeItems();
+      if (this.scrollY !== prev) this.scrolled(prev - this.scrollY, false);
       if (stop) {
         this.velocity = 0;
         this._fling = null;
