@@ -72,7 +72,9 @@ export class LoadableBehaviorView extends BehaviorView {
     this.loaded = true;
     const parent = this.parent;
     const at = this.insertAt === -2 ? parent.children.indexOf(this) : this.insertAt === 0 ? 0 : -1;
-    return this.ctx.inflater.inflate(this.layoutName, parent, {insertAt: at});
+    const made = this.ctx.inflater.inflate(this.layoutName, parent, {insertAt: at});
+    this.ctx.bus?.post('bus_gui', 'msg_gui_layout_loaded', this, {parent});
+    return made;
   }
 }
 

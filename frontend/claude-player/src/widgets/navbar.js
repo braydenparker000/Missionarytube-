@@ -7,12 +7,13 @@ import {FastLayout} from '../view/fast-layout.js';
 import {View, MeasureSpec} from '../view/view.js';
 import {FastButton} from '../view/text.js';
 import {register} from '../view/inflater.js';
+import {StyledAttributes} from '../res/resources.js';
 import {installSheetDrag} from './sheet-drag.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {animTime} from './topnav.js';
 import {renderOps} from '../view/drawables.js';
 import {GONE, VISIBLE} from '../res/values.js';
-import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut} from '../gesture.js';
+import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut, pagerScroll} from '../gesture.js';
 
 const NAV_BUTTON = {nav_main: null, nav_lib: 'cmd_nav_to_lib', nav_eq: 'cmd_nav_to_eq', nav_search: 'cmd_nav_to_search', nav_lyrics: null};
 
@@ -134,7 +135,29 @@ export class MiniPlayerList extends FastLayout {
     this.offset = 0;
     this.el.style.overflow = 'hidden'; // neighbour pages stay inside the list
     ctx.bus.subscribe('bus_player', msg => {
-      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed' || msg === 'msg_player_category_changed') this.bind();
+      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed' || msg === 'msg_player_category_changed') {
+        const t = this.ctx.player?.track, b = this.bound;
+        const dir = msg === 'msg_player_track_changed' && !this.selfStep && t && b && t !== b[0] ? (t === b[1] ? 1 : t === b[-1] ? -1 : 0) : 0;
+        this.bind();
+        if (dir) this.scrollToCurrent(dir);
+      }
+    });
+  }
+
+  /** aa_anim (C0069.D0): a step to a neighbour scrolls the mini player over 650 ms on the pager's scroll curve. */
+  scrollToCurrent(dir) {
+    if (!this.ctx.pref('aa_anim') || this.drag) return;
+    this._anim?.();
+    const t0 = performance.now();
+    this.offset = dir;
+    this.place();
+    this._anim = this.ctx.onFrame(now => {
+      const t = Math.min(1, (now - t0) / 650);
+      this.offset = dir * (1 - pagerScroll(t));
+      this.place();
+      if (t < 1) return true;
+      this._anim = null;
+      return false;
     });
   }
 
@@ -166,6 +189,7 @@ export class MiniPlayerList extends FastLayout {
 
   bind() {
     const p = this.ctx.player;
+    this.bound = {[-1]: p?.trackAt(-1, true) ?? null, 0: p?.track ?? null, 1: p?.trackAt(1, true) ?? null};
     for (const rel of [-1, 0, 1]) {
       const t = rel === 0 ? p?.track ?? null : p?.trackAt(rel, true) ?? null;
       if (rel !== 0 && !t) { const v = this.items.get(rel); if (v) v.visibility = GONE; continue; }
@@ -271,8 +295,10 @@ export class MiniPlayerList extends FastLayout {
       if (t < 1) return true;
       this._anim = null;
       this.offset = 0;
-      if (target) p.step(target === -1 ? 1 : -1);
-      else this.place();
+      if (target) {
+        this.selfStep = true;
+        try { p.step(target === -1 ? 1 : -1); } finally { this.selfStep = false; }
+      } else this.place();
       return false;
     });
   }
@@ -382,4 +408,48 @@ export class Shim extends View {
   }
 }
 register(['Shim'], Shim);
-register(['NavExtSettingsTags'], View);
+
+/**
+ * Settings shortcuts under Settings in the menu sheet (NavExtSettingsTags
+ * over rz1): a read-only tag per recently opened settings screen
+ * (tagStyleReadOnly), oldest first; gone while there are none (showEmpty
+ * false). A tap closes the sheet and opens the screen after clickDelay.
+ */
+export class NavExtSettingsTags extends FastLayout {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.tagStyle = a.theme.styleName(a.raw('tagStyleReadOnly')) ?? 'NavExtSettingsTags_TagReadOnly';
+    this.clickDelay = a.int('clickDelay', 0);
+    this.shown = null;
+    ctx.bus.subscribe('bus_gui', msg => { if (msg === 'msg_gui_settings_tags_changed') this.refresh(); });
+    queueMicrotask(() => this.refresh());
+  }
+
+  isEmpty() {
+    return !this.children.length;
+  }
+
+  refresh() {
+    const tags = this.ctx.settingsUi?.tags ?? [];
+    const key = JSON.stringify(tags);
+    if (key === this.shown) return;
+    this.shown = key;
+    for (const c of [...this.children]) this.removeView(c);
+    for (const [path, title] of tags) {
+      if (!path || !title) continue;
+      const sa = new StyledAttributes(this.ctx.res, this.ctx.theme, {}, null, this.tagStyle);
+      const b = new FastButton(this.ctx, sa);
+      b._attrs = sa;
+      b.lp = this.generateLayoutParams(sa);
+      b.setText(title);
+      b.onClick = () => {
+        this.ctx.bus.post('bus_gui', 'cmd_navbar_sheet_close', this);
+        setTimeout(() => this.ctx.settingsUi?.open(path.replace(/^settings\//, '')), Math.max(0, this.clickDelay));
+      };
+      this.addView(b);
+    }
+    this.requestLayout();
+    this.ctx.scheduleLayout();
+  }
+}
+register(['NavExtSettingsTags'], NavExtSettingsTags);

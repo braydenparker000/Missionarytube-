@@ -44,6 +44,7 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
       else if (msg === 'cmd_nav_to_lyrics') this.navigate('nav_lyrics');
       else if (msg === 'cmd_nav_to_main' || msg === 'cmd_gui_back') this.navigate('nav_main');
       else if (msg === 'cmd_gui_set_vis_mode') this.setVisMode(d?.arg1 ?? 0);
+      else if (msg === 'msg_gui_layout_loaded' && d?.parent === this) this.applyFadedAlphas();
     });
     // Full-screen visualisation: a tap shows the UI for tempUITime.
     this.el.addEventListener('pointerdown', () => {
@@ -53,6 +54,29 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
     bus.subscribe('bus_player', (msg, src, data) => {
       if (msg === 'msg_player_status_changed') this.setPlaying(!!data?.playing, true);
     });
+    bus.subscribe('bus_app', (msg, src, d) => {
+      if (msg === 'msg_app_setting_changed' && /^vis_(panel|controls|list)_faded_alpha$/.test(d?.key)) this.applyFadedAlphas();
+    });
+    queueMicrotask(() => this.applyFadedAlphas());
+  }
+
+  /**
+   * Faded controls (i22.m): in scene_vis_w_ui the vis panel takes
+   * vis_panel_faded_alpha, the list vis_list_faded_alpha and every other
+   * child with a record for the scene vis_controls_faded_alpha (percent).
+   */
+  applyFadedAlphas() {
+    const pct = k => (+this.ctx.pref(k) || 0) / 100;
+    const panel = pct('vis_panel_faded_alpha'), controls = pct('vis_controls_faded_alpha');
+    const list = Math.max(0, Math.min(1, pct('vis_list_faded_alpha')));
+    const now = this.scenes?.scene === 'scene_vis_w_ui';
+    for (const c of this.children) {
+      if (c.isBehavior) continue;
+      const rec = c.sceneParams?.get('scene_vis_w_ui');
+      if (!rec) continue;
+      rec.alpha = c.id === 'vis_panel_container' ? panel : c.id === 'list' ? list : controls;
+      if (now) { c.alpha = rec.alpha; c.invalidate(); }
+    }
   }
 
   /**
@@ -79,7 +103,7 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
     if (this.scenes.scene !== 'scene_vis_temp_ui') this.go('scene_vis_temp_ui', 'nav_main', true);
     this.tempTimer = setTimeout(() => {
       if (this.scenes.scene === 'scene_vis_temp_ui' && this.nav === 'nav_main') this.go(this.mainScene(), 'nav_main', true);
-    }, this.times.tempUI * 1000 + (+this.ctx.settings?.vis_temp_ui_ms || 1500));
+    }, this.times.tempUI * 1000 + (+this.ctx.pref('vis_temp_ui_ms') || 0));
   }
 
   setPlaying(playing, animate) {
@@ -110,6 +134,8 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
 
   /** Scene change with the reference's duration selection. */
   go(scene, nav, animate = true) {
+    // Views loaded since (the vis panel) take the faded alphas too.
+    if (scene === 'scene_vis_w_ui') this.applyFadedAlphas();
     const cur = this.scenes.scene;
     const prevNav = this.nav;
     this.nav = nav;

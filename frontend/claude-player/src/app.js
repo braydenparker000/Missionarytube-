@@ -31,6 +31,7 @@ import {installHelp} from './widgets/help.js';
 import {installMetaInfo} from './widgets/meta-info.js';
 import {openLyricsDialog} from './widgets/lyrics-dialog.js';
 import {installSubAAEditor} from './widgets/subaa-edit.js';
+import {installScreenPrefs} from './widgets/screen.js';
 import './list/list-widget.js';
 import './list/selection.js';
 
@@ -149,6 +150,7 @@ export async function boot() {
   installHelp(ctx);
   installMetaInfo(ctx);
   installSubAAEditor(ctx);
+  ctx.screenPrefs = installScreenPrefs(ctx);
   ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => { if (msg === 'cmd_data_lyrics') openLyricsDialog(ctx, d?.track); });
   const importUi = installImport(ctx, document.body);
   ctx.importUi = importUi;
@@ -181,15 +183,21 @@ export async function boot() {
   };
   ctx.bus.subscribe('bus_player', m => { if (m === 'msg_player_track_changed' || m === 'msg_player_playing_state_changed' || m === 'msg_player_shuffle_mode_changed' || m === 'msg_player_repeat_mode_changed' || m === 'msg_player_queue_changed') saveState(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveState(); });
-  // System back (browser history): library levels first, then back to the player.
+  // The home screen: the player, or the library with start_at_lib (the
+  // app starts there and Back from the player or the EQ returns to it).
+  const home = () => (ctx.pref('start_at_lib') ? 'nav_lib' : 'nav_main');
+  if (home() === 'nav_lib') ctx.topNav?.navigate('nav_lib', false);
+  // System back (browser history): library levels first, then back home.
   ctx.bus.subscribe('bus_gui', (m, src, d) => {
-    if (m === 'msg_nav_changed' && d.nav !== 'nav_main' && !history.state?.cpNav) history.pushState({cpNav: d.nav}, '');
+    if (m === 'msg_nav_changed' && d.nav !== home() && !history.state?.cpNav) history.pushState({cpNav: d.nav}, '');
   });
   window.addEventListener('popstate', () => {
     if (ctx.subAAEditor?.onPopState()) return;
     if (ctx.settingsUi?.isOpen || ctx.settingsUi?.consumeClose()) return;
+    const tn = ctx.topNav, h = home();
+    if (h === 'nav_lib' && tn && tn.nav !== 'nav_lib') { tn.navigate('nav_lib'); return; }
     if (ctx.listWidget?.back()) return;
-    if (ctx.topNav && ctx.topNav.nav !== 'nav_main') ctx.topNav.navigate('nav_main');
+    if (tn && tn.nav !== h) tn.navigate(h);
   });
   ctx.scheduleLayout();
   // Installable app: the service worker keeps the app's files offline.

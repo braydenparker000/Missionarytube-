@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 50 |
+| Built | 61 |
 | Settings UI | 110 |
-| Not built | 113 |
+| Not built | 102 |
 | No web counterpart | 140 |
 | Owner decision | 14 |
 | Not applicable | 25 |
@@ -562,7 +562,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | --- | --- | --- | --- |
 | `ui_theme` | RedirectPreference | Settings UI |  |
 | `follow_night_mode` | MultilineSwitchPreference | Built |  |
-| `settings_theme` | TagListPreference | Not built |  |
+| `settings_theme` | TagListPreference | Built |  |
 | `settings_font` | TagListPreference | Built |  |
 | `ui_player` | RedirectPreference | Settings UI |  |
 | `ui_lyrics` | RedirectPreference | Settings UI |  |
@@ -571,10 +571,10 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `ui_icon` | RedirectPreference | Settings UI |  |
 | `orientation` | TagListPreference | Built |  |
 | `anim_speed` | TagListPreference | Built |  |
-| `start_at_lib` | MultilineSwitchPreference | Not built |  |
-| `hide_status_bar` | MultilineSwitchPreference | Not built |  |
-| `keep_screen_on` | MultilineSwitchPreference | Not built |  |
-| `num_settings_tags` | SeekbarPreference | Not built |  |
+| `start_at_lib` | MultilineSwitchPreference | Built |  |
+| `hide_status_bar` | MultilineSwitchPreference | Built | Substitute: the Fullscreen API, entered on the next touch |
+| `keep_screen_on` | MultilineSwitchPreference | Built | Substitute: a screen wake lock |
+| `num_settings_tags` | SeekbarPreference | Built |  |
 
 ## ui_icon
 
@@ -589,7 +589,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `main_lyrics_swipe` | TagListPreference | Built |  |
 | `main_lyrics_button` | TagListPreference | Built |  |
 | `lyrics_in_menu` | TagListPreference | Not built |  |
-| `lyrics_keep_screen` | MultilineSwitchPreference | Not built |  |
+| `lyrics_keep_screen` | MultilineSwitchPreference | Built | Substitute: a screen wake lock |
 | `lyrics_offset` | SeekbarPreference | Built |  |
 | `list_zoom_lyrics` | TagListPreference | Not built |  |
 | `lyrics_plugin` | NumberListPreference | No web counterpart | Third-party Android apps |
@@ -630,7 +630,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `aa_anim` | MultilineSwitchPreference | Not built |  |
+| `aa_anim` | MultilineSwitchPreference | Built |  |
 | `anim_long_labels` | MultilineSwitchPreference | Built |  |
 | `anim_long_labels_in_lists` | MultilineSwitchPreference | Built |  |
 | `edit_player_screen_buttons` | EditButtonsRedirPref | Built |  |
@@ -663,13 +663,13 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `vis_frs_type` | TagListPreference | Built |  |
 | `vis_in_lib` | MultilineSwitchPreference | Not built |  |
 | `vis_preset_change_sec` | SeekbarPreference | Built |  |
-| `vis_panel_faded_alpha` | SeekbarPreference | Not built |  |
-| `vis_controls_faded_alpha` | SeekbarPreference | Not built |  |
+| `vis_panel_faded_alpha` | SeekbarPreference | Built |  |
+| `vis_controls_faded_alpha` | SeekbarPreference | Built |  |
 | `vis_temp_ui_ms` | SeekbarPreference | Built |  |
 | `vis_aa_visible` | MultilineSwitchPreference | Not built |  |
 | `vis_ignore_touch_faded` | MultilineSwitchPreference | Not built |  |
-| `vis_list_faded_alpha` | SeekbarPreference | Not built |  |
-| `vis_fs_hide_bars` | MultilineSwitchPreference | Not built |  |
+| `vis_list_faded_alpha` | SeekbarPreference | Built |  |
+| `vis_fs_hide_bars` | MultilineSwitchPreference | Built | Substitute: the Fullscreen API, entered on the next touch |
 | `vis_use_compact_bars` | MultilineSwitchPreference | Not built |  |
 | `milk_hd` | MultilineSwitchPreference | Built |  |
 | `milk_crop_aspect` | MultilineSwitchPreference | Not built |  |

@@ -133,3 +133,6 @@ export class Fling {
 export function elastic(f) {
   return Math.sqrt(Math.max(0, Math.min(1, Math.abs(f))) * 0.3) * 0.3 * Math.sign(f);
 }
+
+/** The pager's smooth scroll to a neighbour (w.p, aa_anim): cubic-bezier(0.5, 0.1, 0.15, 0.99). */
+export const pagerScroll = cubicBezier(0.5, 0.1, 0.15, 0.99);

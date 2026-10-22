@@ -16,7 +16,7 @@ import {PowerList} from './power-list.js';
 import {ListReorder} from './reorder.js';
 import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource, groupTracksSource} from './sources.js';
 import {ListTransition, ZOOM, pageFx} from './list-transition.js';
-import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut, elastic} from '../gesture.js';
+import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut, elastic, pagerScroll} from '../gesture.js';
 import {trackLyrics} from '../library/lrc.js';
 import {openAddToPlaylist} from '../widgets/playlist-dialog.js';
 import {alertDialog, editNameDialog} from '../widgets/dialog.js';
@@ -387,7 +387,12 @@ export class ListWidget extends FastLayout {
     this.items = new Map(); // rel -> AAItemView
     this.spare = [];
     ctx.bus.subscribe('bus_player', (msg, src, d) => {
-      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed' || msg === 'msg_player_category_changed') { this.rebind(); this.requestLayout(); }
+      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed' || msg === 'msg_player_category_changed') {
+        const dir = msg === 'msg_player_track_changed' ? this.advanceDir() : 0;
+        this.rebind();
+        this.requestLayout();
+        if (dir) this.scrollToCurrent(dir);
+      }
       else if (msg === 'msg_player_playing_state_changed') this.setPlayingMode(d.arg1 === STATE_PLAYING);
     });
     ctx.listWidget = this;
@@ -784,8 +789,33 @@ export class ListWidget extends FastLayout {
     return v;
   }
 
+  /**
+   * The step of a track change from the pages bound so far: 1 when the new
+   * track was the next page, -1 the previous one, else 0 (a jump, or this
+   * pager's own settle).
+   */
+  advanceDir() {
+    const t = this.ctx.player?.track, b = this.bound;
+    if (this.selfStep || !t || !b || t === b[0]) return 0;
+    return t === b[1] ? 1 : t === b[-1] ? -1 : 0;
+  }
+
+  /**
+   * aa_anim: on a step to a neighbour the art scrolls to it (PowerList.Z over
+   * the pager's w.mo3080): the pages start one page displaced and settle over
+   * aaPosSettleAnimTime on the pager's scroll curve. Without it they jump.
+   */
+  scrollToCurrent(dir) {
+    if (!this.ctx.pref('aa_anim') || this.mode !== 'aa' || this.trans || this.gesture?.kind === 'page') return;
+    this.geometry.offset = dir;
+    this.placeItems?.();
+    const settle = this.substyle.int('aaPosSettleAnimTime', 650) / 1000;
+    this.animatePageOffset(0, settle, null, pagerScroll);
+  }
+
   rebind() {
     const p = this.ctx.player;
+    this.bound = {[-1]: p?.trackAt(-1, true) ?? null, 0: p?.track ?? null, 1: p?.trackAt(1, true) ?? null};
     for (const rel of [-1, 0, 1]) {
       const t = p?.trackAt(rel, true) ?? null;
       if (!t && rel !== 0) {
@@ -1301,7 +1331,8 @@ export class ListWidget extends FastLayout {
     this.animatePageOffset(target, seconds, () => {
       if (!target) return;
       this.geometry.offset = 0;
-      p.step(target === -1 ? 1 : -1);
+      this.selfStep = true;
+      try { p.step(target === -1 ? 1 : -1); } finally { this.selfStep = false; }
     });
   }
 
@@ -1416,13 +1447,13 @@ export class ListWidget extends FastLayout {
   }
 
   /** Settles the page offset over the given time (cubic ease-out, the scroller's curve). */
-  animatePageOffset(target, seconds, done) {
+  animatePageOffset(target, seconds, done, curve = cubicOut) {
     this.stopPageAnim();
     const from = this.geometry.offset, start = performance.now();
     const dur = Math.max(1, seconds * 1000);
     this._pageAnim = this.ctx.onFrame(now => {
       const t = Math.min(1, (now - start) / dur);
-      this.setPageOffset(from + (target - from) * cubicOut(t));
+      this.setPageOffset(from + (target - from) * curve(t));
       if (t >= 1) {
         this._pageAnim = null;
         done?.();

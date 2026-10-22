@@ -9,6 +9,7 @@ import {Theme} from '../res/resources.js';
 import {renderOps} from '../view/drawables.js';
 
 const STORE_KEY = 'cp-settings';
+const TAGS_KEY = 'cp-settings-tags';
 
 export function loadStoredSettings() {
   try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {}; } catch { return {}; }
@@ -41,7 +42,7 @@ const attr = (node, name) => {
 
 // Defaults the reference sets in code rather than in its preference XML
 // (the XML default is overridden or not a valid value).
-const RUNTIME_DEFAULTS = {navbar_seekbar: 'true', anim_speed: '1', hide_menu: '0', main_lyrics_button: '1', main_lyrics_swipe: '2'};
+const RUNTIME_DEFAULTS = {navbar_seekbar: 'true', anim_speed: '1', hide_menu: '0', main_lyrics_button: '1', main_lyrics_swipe: '2', num_settings_tags: '5'};
 // Settings that restyle the player through theme overlays: the player
 // activity is recreated when settings close (a reload here).
 const THEME_KEYS = new Set(['rating_type', 'hide_menu', 'main_lyrics_button', 'aa_aspect', 'cc_button', 'headers_meta', 'vis_frs_type', 'list_header_buttons', 'localized_az', 'anim_long_labels', 'anim_long_labels_in_lists', 'navbar_seekbar', 'library_lists']);
@@ -125,6 +126,8 @@ export class Settings {
     r.hidden = true;
     const font = ['default', 'alt', 'bold', 'boldplus'][+(this.get('settings_font', '2'))] ?? 'bold';
     r.dataset.font = font;
+    this.applyScheme();
+    globalThis.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => this.applyScheme());
     const bar = document.createElement('div');
     bar.className = 'cps-bar';
     const back = document.createElement('button');
@@ -152,6 +155,43 @@ export class Settings {
     this.stack.push(name);
     history.pushState({cpSettings: this.stack.length}, '');
     this.render(name, tree);
+    if (name !== 'singlepane') this.recordTag('settings/' + name, this.titleEl.textContent);
+  }
+
+  /** Recently opened settings screens: [path, title] pairs, oldest first (c40 settings tags). */
+  get tags() {
+    try { return JSON.parse(localStorage.getItem(TAGS_KEY) || '[]') || []; } catch { return []; }
+  }
+
+  setTags(tags) {
+    try { localStorage.setItem(TAGS_KEY, JSON.stringify(tags)); } catch { /* storage unavailable */ }
+    this.ctx.bus.post('bus_gui', 'msg_gui_settings_tags_changed', this);
+  }
+
+  /**
+   * js1 settings tags: an opened screen joins the newest end, replacing an
+   * entry with its title (an identical entry stays where it is); at most
+   * num_settings_tags (default 5, 0 = none) are kept.
+   */
+  recordTag(path, title) {
+    const max = +this.get('num_settings_tags', 5);
+    if (max <= 0 || !title) return;
+    const tags = this.tags;
+    for (let i = tags.length - 1; i >= 0; i--) {
+      if (tags[i][1] !== title) continue;
+      if (tags[i][0] === path) return;
+      tags.splice(i, 1);
+    }
+    tags.push([path, title]);
+    this.setTags(tags.slice(-max));
+  }
+
+  /** num_settings_tags changed: keep the newest entries, or none. */
+  trimTags() {
+    const max = Math.max(0, +this.get('num_settings_tags', 5));
+    const tags = this.tags;
+    if (max === 0) this.setTags([]);
+    else if (tags.length > max) this.setTags(tags.slice(-max));
   }
 
   /** Back goes through history so the browser's back button and ours agree. */
@@ -525,10 +565,25 @@ export class Settings {
     });
   }
 
+  /**
+   * settings_theme (SettingsActivity.getThemeResId): 1 light, 2 dark; the
+   * default and Follow Day/Night take the DeviceDefault settings theme, which
+   * follows the system's night mode.
+   */
+  applyScheme() {
+    if (!this.root) return;
+    const mode = +this.get('settings_theme', '0');
+    const dark = mode === 2 || (mode !== 1 && !!globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches);
+    this.root.dataset.scheme = dark ? 'dark' : 'light';
+  }
+
   /** Settings that take effect immediately in the running UI. */
   applySetting(key) {
     Object.assign(this.ctx.settings, runtimeSettings(this.values));
+    this.ctx.bus.post('bus_app', 'msg_app_setting_changed', this, {key});
     if (THEME_KEYS.has(key)) this.needsRecreate = true;
+    if (key === 'settings_theme') this.applyScheme();
+    if (key === 'num_settings_tags') this.trimTags();
     if (key === 'settings_font') this.root.dataset.font = ['default', 'alt', 'bold', 'boldplus'][+this.get(key, '2')] ?? 'bold';
   }
 }
