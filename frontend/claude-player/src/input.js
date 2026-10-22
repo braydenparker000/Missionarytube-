@@ -5,8 +5,10 @@
 // the stream over once the pointer moves past touch slop (onInterceptStart),
 // like ViewGroup.onInterceptTouchEvent.
 import {GONE, VISIBLE} from './res/values.js';
+import {TOUCH_SLOP_DP} from './gesture.js';
 
 const LONG_PRESS_MS = 400; // ViewConfiguration.getLongPressTimeout() default
+// Touch slop: ViewConfiguration's 8 dp; a gesture starts once either axis reaches it.
 const TAP_TIMEOUT_MS = 100; // ViewConfiguration.getTapTimeout()
 
 /** Deepest visible view under (x, y) that accepts touch. */
@@ -48,7 +50,7 @@ function toLocal(view, x, y) {
 }
 
 export function installInput(ctx, container) {
-  const slop = Math.round(8 * ctx.dpr);
+  const slop = TOUCH_SLOP_DP * ctx.dpr;
   let active = null;
   const point = e => {
     const r = container.getBoundingClientRect();
@@ -76,7 +78,7 @@ export function installInput(ctx, container) {
         hit.disallowIntercept = false;
         const list = [];
         for (let c = hit.parent; c; c = c.parent) if (typeof c.onInterceptStart === 'function') list.push(c);
-        if (list.length) Object.assign(active, {start: p, interceptors: list});
+        if (list.length) Object.assign(active, {start: p, downTime: e.timeStamp, interceptors: list});
       }
       return;
     }
@@ -92,10 +94,10 @@ export function installInput(ctx, container) {
           return;
         }
       }
-      if (interceptors.length) active = {id: e.pointerId, view: null, start: p, custom: false, interceptors, downEvent: e};
+      if (interceptors.length) active = {id: e.pointerId, view: null, start: p, downTime: e.timeStamp, custom: false, interceptors, downEvent: e};
       return;
     }
-    const a = active = {id: e.pointerId, view: v, start: p, custom: false, longFired: false, timer: 0, pressTimer: 0, interceptors};
+    const a = active = {id: e.pointerId, view: v, start: p, downTime: e.timeStamp, custom: false, longFired: false, timer: 0, pressTimer: 0, interceptors};
     // Ripple hotspot (drawableHotspotChanged) in the view's coordinates.
     v.hotspot = toLocal(v, p.x, p.y);
     a.pressTimer = setTimeout(() => v.setPressed(true), TAP_TIMEOUT_MS);
@@ -111,9 +113,9 @@ export function installInput(ctx, container) {
     if (!a || a.id !== e.pointerId) return;
     const p = point(e);
     if (a.custom) {
-      if (a.interceptors && !a.view.disallowIntercept && (Math.abs(p.x - a.start.x) > slop || Math.abs(p.y - a.start.y) > slop)) {
+      if (a.interceptors && !a.view.disallowIntercept && (Math.abs(p.x - a.start.x) >= slop || Math.abs(p.y - a.start.y) >= slop)) {
         for (const c of a.interceptors) {
-          if (c.onInterceptStart(event(c, a.start, e), event(c, p, e))) {
+          if (c.onInterceptStart(event(c, a.start, e, {time: a.downTime}), event(c, p, e))) {
             a.view.onPointerCancel?.();
             active = {id: a.id, view: c, custom: true};
             c.onPointerMove?.(event(c, p, e));
@@ -125,10 +127,10 @@ export function installInput(ctx, container) {
       a.view.onPointerMove?.(event(a.view, p, e));
       return;
     }
-    if (Math.abs(p.x - a.start.x) <= slop && Math.abs(p.y - a.start.y) <= slop) return;
+    if (Math.abs(p.x - a.start.x) < slop && Math.abs(p.y - a.start.y) < slop) return;
     if (a.view) cancelPress(a);
     for (const c of a.interceptors) {
-      const start = event(c, a.start, e);
+      const start = event(c, a.start, e, {time: a.downTime});
       if (c.onInterceptStart(start, event(c, p, e))) {
         active = {id: a.id, view: c, custom: true};
         c.onPointerMove?.(event(c, p, e));

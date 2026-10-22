@@ -13,7 +13,10 @@ import {StyledAttributes} from '../res/resources.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
-import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource} from './sources.js';
+import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource} from './sources.js';
+import {ListTransition, ZOOM, pageFx} from './list-transition.js';
+import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut, elastic} from '../gesture.js';
+import {trackLyrics} from '../library/lrc.js';
 import {openAddToPlaylist} from '../widgets/playlist-dialog.js';
 import {alertDialog, editNameDialog} from '../widgets/dialog.js';
 import {openInfo, openAlbumArt} from '../widgets/info-dialog.js';
@@ -22,6 +25,13 @@ import {LyricsPage} from './lyrics.js';
 import {elevationShadow} from '../view/drawables.js';
 
 const OFFSET_STATUS_BAR = 1, OFFSET_NAVIGATION_BAR = 2;
+
+// Track actions of the art item's line 2 and menu button (bus, command or arg1).
+const ARTIST = ['bus_data_cmd', 'cmd_request_current_artist'], ALBUM = ['list', 'cmd_list_current_album'];
+const FOLDER = ['list', 'cmd_list_current_folder'], GENRE = ['bus_data_cmd', 'cmd_request_current_genre'];
+const LINE2_ACTION = [null, ARTIST, ALBUM, FOLDER, GENRE];
+const MENU_LONG_PRESS = [null, ['list', 'cmd_list_delete_dialog'], ['list', 'cmd_list_add_to_pl_dialog'], ['bus_data_cmd', 'cmd_data_info_tags'],
+  ['list', 'cmd_list_select_aa_dialog'], ARTIST, ALBUM, FOLDER, GENRE, ['list', 'cmd_list_share'], ['bus_data_cmd', 'cmd_data_track_rating', 5], ['bus_data_cmd', 'cmd_data_track_rating', 1]];
 
 /** Track item: a scene layout whose scene is chosen by the list (item scenes). */
 export class AAItemView extends SceneFastLayout {
@@ -351,18 +361,29 @@ export class ListWidget extends FastLayout {
     // Library mode: a PowerList over the same area, with a navigation stack.
     this.libList = new PowerList(ctx, this);
     this.libList.visibility = GONE;
+    this.libList.interceptible = true; // side swipes go to the widget (parent level)
     this.libList.lp = this.generateLayoutParams(null);
     this.addView(this.libList);
     this.lyricsPage = new LyricsPage(ctx, this);
     this.lyricsPage.visibility = GONE;
+    this.lyricsPage.interceptible = true; // the widget takes side swipes and a pull at the top
     this.lyricsPage.lp = this.generateLayoutParams(null);
     this.addView(this.lyricsPage);
     this.stack = [];
+    this.aaFx = null; // page transition zoom of the art items {f, R}
+    this.aaShift = 0; // elastic vertical shift of the current art item (px)
+    this.trans = null; // running page transition
     ctx.bus.subscribe('bus_gui', (msg, src, d) => {
       if (msg === 'cmd_nav_to_playlist' && d?.playlist) this.openPlaylist(d.playlist);
       else if (msg === 'msg_nav_changed') {
         this.searching = d.nav === 'nav_search';
-        this.setMode(d.nav === 'nav_lyrics' ? 'lyrics' : d.nav === 'nav_lib' || this.searching ? 'list' : 'aa');
+        // A transition's own navigation: it sets the mode when it ends. Any
+        // other navigation completes a running transition first.
+        if (this.ownNav) return;
+        this.trans?.complete();
+        const mode = d.nav === 'nav_lyrics' ? 'lyrics' : d.nav === 'nav_lib' || this.searching ? 'list' : 'aa';
+        if (!this.searching && !this.searchShown && this.animateModeChange(mode)) return;
+        this.setMode(mode);
         if (this.searching) this.showSearch();
         else if (this.mode === 'list' && this.searchShown) { this.searchShown = false; this.libList.setSource(this.stack[this.stack.length - 1]); }
       }
@@ -421,6 +442,12 @@ export class ListWidget extends FastLayout {
         break;
       }
       case 'cmd_data_add_playlist': P?.create(); break;
+      case 'cmd_list_share': {
+        // The current track through the platform share sheet (as text).
+        const t = ctx.player?.track;
+        if (t && navigator.share) navigator.share({text: [t.artist, t.title].filter(Boolean).join(' – ')}).catch(() => {});
+        break;
+      }
       case 'cmd_list_options_dialog':
         if (src?.optsKey) openListOptions(ctx, src, () => this.replaceTop(src.rebuild?.() ?? null));
         break;
@@ -535,17 +562,64 @@ export class ListWidget extends FastLayout {
   }
 
   open(src) {
+    const prev = this.stack[this.stack.length - 1];
+    const shown = this.mode === 'list' && !this.trans && prev && this.libList.source === prev && this.width > 0;
+    if (prev) prev.savedScroll = this.libList.scrollY;
     this.stack.push(src);
     this.libList.setSource(src);
+    if (shown) this.levelTransition(prev, prev.savedScroll, false);
     if (this.stack.length > 1) history.pushState({cpList: this.stack.length}, '');
   }
 
   /** Back inside the library; returns false at the library home. */
   back() {
+    if (this.ignorePop) { this.ignorePop = false; return true; }
     if (this.mode !== 'list' || this.stack.length <= 1) return false;
-    this.stack.pop();
-    this.libList.setSource(this.stack[this.stack.length - 1]);
+    if (this.trans) return true;
+    const leaving = this.stack.pop(), scroll = this.libList.scrollY;
+    const top = this.stack[this.stack.length - 1];
+    this.libList.setSource(top);
+    this.libList.scrollTo(top.savedScroll ?? 0);
+    this.levelTransition(leaving, scroll, true);
     return true;
+  }
+
+  /**
+   * Library level change by a tap or Back (generic pivot transitions over
+   * pageAnimTime): the leaving level zooms up and fades while the new one
+   * grows in from half size; going back runs the reverse zooms.
+   */
+  levelTransition(leavingSrc, scroll, back) {
+    if (this.searching || this.libList.visibility === GONE) return;
+    const ghost = this.ghostList(leavingSrc, scroll);
+    const leaveR = back ? ZOOM.list.enter : ZOOM.list.leave, enterR = back ? ZOOM.list.leave : ZOOM.list.enter;
+    const trans = new ListTransition(this.ctx, {
+      render: p => {
+        this.pageFx('list', ghost, p, leaveR, null);
+        this.pageFx('list', this.libList, 1 - p, enterR, null);
+      },
+      finish: () => {
+        ghost.visibility = GONE;
+        this.pageFx('list', this.libList, 0, 1, null);
+        this.trans = null;
+      },
+    });
+    this.trans = trans;
+    trans.setProgress(0);
+    trans.run(this.pageTime('pageAnimTime'));
+  }
+
+  /**
+   * Navigation between the player, the library and the lyrics by buttons:
+   * the list's pages zoom with aaToTopLibAnimTime, topLibToAAAnimTime,
+   * aaToLyricsAnimTime or lyricsToAAAnimTime while the top scene animates.
+   */
+  animateModeChange(mode) {
+    const pairs = {'aa>list': 'aaToTopLibAnimTime', 'list>aa': 'topLibToAAAnimTime', 'aa>lyrics': 'aaToLyricsAnimTime', 'lyrics>aa': 'lyricsToAAAnimTime'};
+    const key = pairs[this.mode + '>' + mode];
+    if (!key || !this.width) return false;
+    const target = mode === 'list' ? 'library' : mode;
+    return !!this.startTransition(target, {seconds: this.pageTime(key), navigate: false});
   }
 
   setMode(mode) {
@@ -593,9 +667,29 @@ export class ListWidget extends FastLayout {
         this.el.appendChild(v.el);
         // The item menu: the menu button, or a long press on the cover.
         const menu = v.findViewById('menu');
-        if (menu) menu.onClick = () => this.openItemMenu(v);
+        if (menu) {
+          menu.onClick = () => this.openItemMenu(v);
+          // menu_button_long_press: 0 none (default), else a track action.
+          menu.longClickable = true;
+          menu.onLongClick = () => this.trackAction(MENU_LONG_PRESS[+(this.ctx.settings.menu_button_long_press ?? 0)]);
+        }
+        // Line 2: line2_click (default disabled) and line2_long_click (default
+        // artist) jump to the track's artist, album, folder or genre.
+        const line2 = v.findViewById('line2');
+        if (line2) {
+          line2.clickable = line2.longClickable = true;
+          line2.onClick = () => this.trackAction(LINE2_ACTION[+(this.ctx.settings.line2_click ?? 0)]);
+          line2.onLongClick = () => this.trackAction(LINE2_ACTION[+(this.ctx.settings.line2_long_click ?? 1)]);
+        }
         v.longClickable = true;
         v.onLongClick = () => (this.mode === 'aa' ? (this.openItemMenu(v), true) : false);
+        // A press on the cover opens the track's source list (h_main_aa).
+        v.clickable = true;
+        v.onClick = () => {
+          if (this.mode === 'aa' && this.items.get(0) === v && !v.inMenu && Math.abs(this.geometry.offset) < 0.05) {
+            this.showSourceList();
+          }
+        };
       }
       v.visibility = this.mode === 'list' ? GONE : VISIBLE;
       this.items.set(rel, v);
@@ -620,58 +714,408 @@ export class ListWidget extends FastLayout {
     this.setMeasuredDimension(MeasureSpec.getSize(wSpec), MeasureSpec.getSize(hSpec));
   }
 
-  // Art pager gestures: a horizontal drag moves the pages; release commits to
-  // the neighbour past half a page or on a fling, else springs back.
+  // Gestures (F15, F48). The album-art pager (the reference's pager touch
+  // handler over the art layouter):
+  // - a horizontal drag moves the pages; past the first or last track the
+  //   drag is damped by 1 - overscroll / art size;
+  // - release moves to the neighbour when |offset + v * 1e-4| >= 0.2 (v in
+  //   px/s), the side chosen by the offset's sign, and settles with a cubic
+  //   ease-out over aaPosSettleAnimTime, sped up by |v| * 0.2 px/s when the
+  //   fling points at the target;
+  // - a vertical drag while the pages rest (|offset| < 0.05) drives the
+  //   move-down transition to the track's source list (down) or the move-up
+  //   transition to the lyrics (up, per main_lyrics_swipe); progress is the
+  //   drag over the art size. Without a target the art follows elastically.
+  // The lyrics page returns to the art by a horizontal swipe (progress over
+  // the list width) or a pull down at its top. Library lists go to their
+  // parent with a horizontal swipe.
   onPointerDown(e) {
-    if (this.mode !== 'aa') return false;
-    this.pageDrag = {x0: e.rootX, y0: e.rootY, offset0: this.geometry.offset, started: false, samples: [[e.time, e.rootX]]};
-    this.stopPageAnim();
+    if (this.mode !== 'aa' || this.trans) return false;
+    this.gesture = {kind: 'pending', start: {x: e.rootX, y: e.rootY}, vt: new VelocityTracker()};
+    this.gesture.vt.add(e.time, e.rootX, e.rootY);
     return true;
   }
 
   onInterceptStart(start, now) {
-    if (this.mode !== 'aa') return false;
-    if (Math.abs(now.rootX - start.rootX) <= Math.abs(now.rootY - start.rootY)) return false;
-    this.pageDrag = {x0: start.rootX, y0: start.rootY, offset0: this.geometry.offset, started: true, samples: [[start.time, start.rootX]]};
-    this.stopPageAnim();
+    if (this.trans) return false;
+    const dx = now.rootX - start.rootX, dy = now.rootY - start.rootY;
+    const vertical = Math.abs(dy) > Math.abs(dx);
+    // The drag starts one touch slop along the movement (no jump at the slop).
+    const slop = TOUCH_SLOP_DP * this.ctx.dpr;
+    const x0 = start.rootX + (Math.abs(dx) >= slop ? Math.sign(dx) * slop : 0);
+    const y0 = start.rootY + (Math.abs(dy) >= slop ? Math.sign(dy) * slop : 0);
+    const vt = new VelocityTracker();
+    vt.add(start.time, start.rootX, start.rootY);
+    let g = null;
+    if (this.mode === 'aa') {
+      if (!vertical) g = this.beginPage(x0);
+      else if (Math.abs(this.geometry.offset) < 0.05 && !this._pageAnim) g = this.beginVertical(dy > 0, y0);
+    } else if (this.mode === 'lyrics') {
+      if (!vertical) g = this.beginSideBack(dx < 0, x0, 'lyrics');
+      else if (dy > 0 && this.lyricsPage.scrollY <= 0) g = this.beginLyricsPull(y0);
+    } else if (this.mode === 'list' && !vertical && !this.searching) {
+      g = this.beginSideBack(dx < 0, x0, 'list');
+    }
+    if (!g) return false;
+    this.gesture = Object.assign(g, {vt});
     return true;
   }
 
   onPointerMove(e) {
-    const d = this.pageDrag;
-    if (!d) return;
-    const dx = e.rootX - d.x0;
-    if (!d.started) {
-      if (Math.abs(dx) < 8 * this.ctx.dpr) return;
-      d.started = true;
+    const g = this.gesture;
+    if (!g) return;
+    g.vt.add(e.time, e.rootX, e.rootY);
+    if (g.kind === 'pending') {
+      const dx = e.rootX - g.start.x, dy = e.rootY - g.start.y;
+      const slop = TOUCH_SLOP_DP * this.ctx.dpr;
+      if (Math.abs(dx) < slop && Math.abs(dy) < slop) return;
+      const vt = g.vt;
+      this.gesture = null;
+      if (!this.onInterceptStart({rootX: g.start.x, rootY: g.start.y, time: vt.samples[0]?.[0] ?? e.time}, e)) return;
+      this.gesture.vt = vt;
     }
-    d.samples.push([e.time, e.rootX]);
-    if (d.samples.length > 8) d.samples.shift();
-    const stride = this.geometry.pageStride || 1;
-    let off = d.offset0 + dx / stride;
-    const p = this.ctx.player;
-    // No neighbour: resist past the edge.
-    if (off < 0 && !p?.trackAt(1)) off *= 0.3;
-    if (off > 0 && !p?.trackAt(-1)) off *= 0.3;
-    this.setPageOffset(Math.max(-1, Math.min(1, off)));
+    this.gesture.move(e);
   }
 
   onPointerUp(e) {
-    const d = this.pageDrag;
-    this.pageDrag = null;
-    if (!d || !d.started) return;
-    const [t0, x0] = d.samples[0], [t1, x1] = d.samples[d.samples.length - 1];
-    const v = t1 > t0 ? (x1 - x0) / (t1 - t0) / this.ctx.dpr : 0; // dp per ms
-    const off = this.geometry.offset, p = this.ctx.player;
-    let target = 0;
-    if ((off < -0.5 || v < -0.3) && p?.trackAt(1) && !e.cancelled) target = -1;
-    else if ((off > 0.5 || v > 0.3) && p?.trackAt(-1) && !e.cancelled) target = 1;
+    const g = this.gesture;
+    this.gesture = null;
+    if (!g || g.kind === 'pending') return;
+    if (!e.cancelled) g.vt.up(e.time);
+    const {vx, vy} = e.cancelled ? {vx: 0, vy: 0} : g.vt.compute(MAX_FLING_DP * this.ctx.dpr);
+    g.up(vx, vy);
+  }
+
+  onPointerCancel() {
+    this.onPointerUp({cancelled: true});
+  }
+
+  /**
+   * Starts a page transition of the list widget (F48) to target: 'list' (the
+   * playing track's source list), 'lyrics', 'aa' (back to the art) or
+   * 'parent' (the library level above). Pages leave and enter by their
+   * layouter's zoom; a drag makes the top navigation scene follow the
+   * progress. seconds > 0 runs it as an animation (a tap); returns null when
+   * there is nothing to show.
+   */
+  startTransition(target, {drag = false, side = 0, seconds = 0, navigate = true} = {}) {
+    if (this.trans || this.menuItem) return null;
+    const from = this.mode;
+    const fromPage = from === 'list' ? 'list' : from === 'lyrics' ? 'lyrics' : 'aa';
+    const toPage = target === 'parent' || target === 'library' ? 'list' : target;
+    if (fromPage === toPage && target !== 'parent') return null;
+    const saved = {stack: this.stack.slice(), source: this.libList.source, scroll: this.libList.scrollY};
+    let nav = null, ghost = null;
+    if (target === 'list') {
+      if (!this.ctx.player?.track) return null;
+      this.stack = this.sourceStack();
+      this.libList.setSource(this.stack[this.stack.length - 1]);
+      nav = 'nav_lib';
+    } else if (target === 'library') {
+      if (!this.stack.length) this.openHome();
+      else this.libList.setSource(this.stack[this.stack.length - 1]);
+      nav = 'nav_lib';
+    } else if (target === 'lyrics') {
+      if (!this.ctx.player?.track) return null;
+      nav = 'nav_lyrics';
+    } else if (target === 'aa') {
+      nav = 'nav_main';
+    } else if (target === 'parent') {
+      if (this.stack.length < 2) return null;
+      // The leaving level stays on screen in a second list while the parent enters.
+      ghost = this.ghostList(saved.source, saved.scroll);
+      this.libList.setSource(this.stack[this.stack.length - 2]);
+      this.libList.scrollTo(this.stack[this.stack.length - 2].savedScroll ?? 0);
+    }
+    // Show the entering page under the leaving one.
+    if (toPage === 'list') this.libList.visibility = VISIBLE;
+    if (toPage === 'lyrics') this.lyricsPage.show(true);
+    if (toPage === 'aa') for (const v of this.items.values()) v.visibility = VISIBLE;
+    this.onLayout();
+    if (target === 'list') this.libList.scrollToTrack(this.ctx.player.track);
+    // Zoom factors: shared-item moves and forward pivots zoom the leaving
+    // page up and the entering one from below 1; a back pivot the reverse.
+    const back = target === 'parent';
+    const kindOf = page => (page === 'aa' ? 'aa' : 'list');
+    const enterR = back ? ZOOM[kindOf(toPage)].leave : ZOOM[kindOf(toPage)].enter;
+    const leaveR = back ? ZOOM[kindOf(fromPage)].enter : ZOOM[kindOf(fromPage)].leave;
+    // Leaving pivot: the shared move-down from the lyrics pivots at the top
+    // centre, offset by a list width against a side swipe.
+    const leaveView = fromPage === 'list' ? (ghost ?? this.libList) : fromPage === 'lyrics' ? this.lyricsPage : null;
+    const leavePivot = fromPage === 'lyrics' && target === 'aa' ? {x: leaveView.width / 2 + side * this.width, y: 0} : null;
+    const enterView = toPage === 'list' ? this.libList : toPage === 'lyrics' ? this.lyricsPage : null;
+    const render = p => {
+      this.pageFx(fromPage, leaveView, p, leaveR, leavePivot);
+      this.pageFx(toPage, enterView, 1 - p, enterR, null);
+    };
     const sub = this.substyle;
-    const seconds = (target ? sub.int('pageManualCommitAnimTime', 250) : sub.int('pageManualCancelAnimTime', 500)) / 1000;
+    const trans = new ListTransition(this.ctx, {
+      render,
+      scene: drag && nav ? this.ctx.topNav?.sceneFor(nav) : null,
+      commitTime: sub.int('pageManualCommitAnimTime', 250) / 1000,
+      cancelTime: sub.int('pageManualCancelAnimTime', 500) / 1000,
+      finish: commit => {
+        this.pageFx(fromPage, leaveView, 0, 1, null);
+        this.pageFx(toPage, enterView, 0, 1, null);
+        if (ghost) ghost.visibility = GONE;
+        if (commit) {
+          if (target === 'parent') {
+            // Drop the level's history entry; its popstate must not go back again.
+            this.stack.pop();
+            this.ignorePop = true;
+            history.back();
+          }
+          if (nav && drag) { this.ownNav = true; this.ctx.topNav?.adoptNav(nav); this.ownNav = false; }
+          this.trans = null;
+          this.setMode(toPage === 'aa' ? 'aa' : toPage);
+          if (target === 'list') for (let i = 2; i <= this.stack.length; i++) history.pushState({cpList: i}, '');
+        } else {
+          this.trans = null;
+          this.stack = saved.stack;
+          if (fromPage === 'list' || target === 'list') { this.libList.setSource(saved.source); this.libList.scrollTo(saved.scroll); }
+          if (toPage === 'list' && fromPage !== 'list') this.libList.visibility = GONE;
+          if (toPage === 'lyrics') this.lyricsPage.show(false);
+          if (toPage === 'aa') for (const v of this.items.values()) v.visibility = GONE;
+        }
+        this.requestLayout();
+        this.ctx.scheduleLayout();
+      },
+    });
+    this.trans = trans;
+    if (!drag && nav && navigate) { this.ownNav = true; this.ctx.topNav?.navigate(nav); this.ownNav = false; }
+    trans.setProgress(0);
+    if (seconds > 0) trans.run(seconds);
+    return trans;
+  }
+
+  /** Posts a track action of the art item; false when none is set. */
+  trackAction(a) {
+    if (!a || this.mode !== 'aa') return false;
+    const [bus, cmd, arg1] = a;
+    this.ctx.bus.post(bus, cmd, this, arg1 === undefined ? {} : {arg1, track: this.ctx.player?.track});
+    return true;
+  }
+
+  /** A list page time (seconds); the Animations setting's Disabled makes it instant. */
+  pageTime(attr) {
+    return this.ctx.settings.animations === 'disabled' ? 0.001 : this.substyle.int(attr, 250) / 1000;
+  }
+
+  /** Scale, pivot and alpha of a page at distance f from shown (zoom R). */
+  pageFx(page, view, f, R, pivot) {
+    if (page === 'aa') {
+      this.aaFx = f > 0 ? {f, R} : null;
+      this.placeItems();
+      return;
+    }
+    if (!view) return;
+    const fx = f > 0 ? pageFx(f, R) : {scale: 1, alpha: 1};
+    view.scaleX = view.scaleY = fx.scale;
+    view.alpha = fx.alpha;
+    view.pivotX = pivot ? pivot.x : null;
+    view.pivotY = pivot ? pivot.y : null;
+    view.invalidate();
+  }
+
+  /** A second list showing a leaving library level during a transition. */
+  ghostList(source, scroll) {
+    let g = this.ghost;
+    if (!g) {
+      g = this.ghost = new PowerList(this.ctx, this);
+      g.selectable = false;
+      g.noScroller = true;
+      g.lp = this.generateLayoutParams(null);
+      this.addView(g);
+    }
+    g.visibility = VISIBLE;
+    g.paddingTop = this.libList.paddingTop; g.paddingBottom = this.libList.paddingBottom;
+    g.paddingLeft = this.libList.paddingLeft; g.paddingRight = this.libList.paddingRight;
+    g.setSource(source);
+    g.measure(MeasureSpec.make(this.width, MeasureSpec.EXACTLY), MeasureSpec.make(this.height, MeasureSpec.EXACTLY));
+    g.layout(0, 0, this.width, this.height);
+    g.scrollTo(scroll);
+    return g;
+  }
+
+  /**
+   * The playing track's source list: from the art or the lyrics a page
+   * transition (aaToTopLibAnimTime); in the library the list replaces the
+   * shown level.
+   */
+  showSourceList() {
+    if (!this.ctx.player?.track || this.trans) return;
+    if (this.mode !== 'list' || this.searching) {
+      if (this.searching) this.ctx.bus.post('bus_gui', 'cmd_nav_to_lib', this);
+      else { this.startTransition('list', {seconds: this.pageTime('aaToTopLibAnimTime')}); return; }
+    }
+    const prev = this.libList.source, scroll = this.libList.scrollY;
+    this.stack = this.sourceStack();
+    this.libList.setSource(this.stack[this.stack.length - 1]);
+    this.libList.scrollToTrack(this.ctx.player.track);
+    if (prev && prev !== this.libList.source && !this.searching) this.levelTransition(prev, scroll, false);
+  }
+
+  /** The list a track list played from becomes the playing track's source list. */
+  rememberQueueSource(src) {
+    this.queueStack = this.stack.includes(src) ? this.stack.slice(0, this.stack.indexOf(src) + 1) : null;
+  }
+
+  /** Levels for the playing track's source list: where the queue came from, else All Songs. */
+  sourceStack() {
+    const t = this.ctx.player?.track;
+    const qs = this.queueStack;
+    if (qs?.length && qs[qs.length - 1].tracks?.some(x => x.id === t?.id)) return qs.slice();
+    const home = new HomeSource(this.ctx, this.libList, this.nav);
+    return [home, allSongsSource(this.ctx, this.libList, this.nav)];
+  }
+
+  /** Horizontal paging over the art items. */
+  beginPage(x0) {
+    this.stopPageAnim();
+    const p = this.ctx.player;
+    let lastX = x0;
+    return {
+      kind: 'page',
+      move: e => {
+        const stride = this.geometry.pageStride || 1, m = this.geometry.size || 1;
+        let dx = e.rootX - lastX;
+        lastX = e.rootX;
+        let off = this.geometry.offset;
+        // Past the ends the drag is damped by the overscroll so far.
+        const over = off > 0 && !p?.trackAt(-1) ? off * stride : off < 0 && !p?.trackAt(1) ? off * stride : 0;
+        if (over && Math.sign(dx) === Math.sign(over)) dx *= Math.max(0, 1 - Math.abs(over) / m);
+        off += dx / stride;
+        this.setPageOffset(Math.max(-1, Math.min(1, off)));
+      },
+      up: vx => this.settlePage(vx),
+    };
+  }
+
+  settlePage(v) {
+    const p = this.ctx.player, g = this.geometry;
+    const off = g.offset;
+    let target = 0;
+    if (Math.abs(v * 1e-4 + off) >= 0.2) {
+      if (off > 0) target = p?.trackAt(-1) ? 1 : 0;
+      else target = p?.trackAt(1) ? -1 : 0;
+    }
+    // The remaining offset settles at a speed of distance / aaPosSettleAnimTime,
+    // plus |v| * 0.2 when the fling points at the target.
+    const stride = g.pageStride || 1;
+    const rem = off - target;
+    const dist = Math.abs(rem) * stride;
+    const towards = (rem > 0 && v < 0) || (rem < 0 && v > 0);
+    const boost = towards ? Math.abs(v) * 0.2 : 0;
+    const frac = Math.abs(rem) % 1;
+    const extra = (v !== 0 && frac < 0.999 ? this.ctx.dpr * frac : 0) + 0.01 * boost;
+    const settle = this.substyle.int('aaPosSettleAnimTime', 650) / 1000;
+    const d = dist + extra;
+    const speed = d / settle + boost;
+    const seconds = d > 0 ? d / Math.max(1e-9, speed) : 0;
     this.animatePageOffset(target, seconds, () => {
       if (!target) return;
       this.geometry.offset = 0;
       p.step(target === -1 ? 1 : -1);
+    });
+  }
+
+  /** Vertical drag on the art: the source list (down) or the lyrics (up), else elastic. */
+  beginVertical(down, y0) {
+    const m = () => this.geometry.size || 1;
+    const target = down ? 'list' : this.lyricsSwipeAllowed() ? 'lyrics' : null;
+    const trans = target ? this.startTransition(target, {drag: true}) : null;
+    if (!trans) {
+      // No page to move to: the art follows the finger elastically.
+      this.stopShiftAnim();
+      return {
+        kind: 'elastic',
+        move: e => { this.aaShift = elastic((e.rootY - y0) / m()) * m(); this.placeItems(); },
+        up: () => this.releaseShift(),
+      };
+    }
+    const sign = down ? 1 : -1;
+    return {
+      kind: 'transition',
+      move: e => trans.setProgress(sign * (e.rootY - y0) / m()),
+      up: (vx, vy) => trans.release(sign * vy, m()),
+    };
+  }
+
+  /** Lyrics page pulled down at its top: back to the art (move down). */
+  beginLyricsPull(y0) {
+    const trans = this.startTransition('aa', {drag: true, from: 'lyrics', pivotTop: true});
+    if (!trans) return null;
+    const m = () => this.geometry.size || 1;
+    return {
+      kind: 'transition',
+      move: e => trans.setProgress((e.rootY - y0) / m()),
+      up: (vx, vy) => trans.release(vy, m()),
+    };
+  }
+
+  /**
+   * Horizontal swipe to the previous page: from the lyrics back to the art
+   * (move down forward / reverse: the lyrics leave towards the swipe), from a
+   * library list to its parent. Progress is the swipe over the list width.
+   * Without a parent the list follows the swipe at a quarter.
+   */
+  beginSideBack(left, x0, from) {
+    const sign = left ? -1 : 1;
+    const W = () => this.width || 1;
+    const trans = from === 'lyrics'
+      ? this.startTransition('aa', {drag: true, from: 'lyrics', side: sign})
+      : this.stack.length > 1 ? this.startTransition('parent', {drag: true, side: sign}) : null;
+    if (!trans) {
+      if (from !== 'list') return null;
+      const list = this.libList;
+      return {
+        kind: 'elastic',
+        move: e => { list.translationX = (e.rootX - x0) * 0.25; list.invalidate(); },
+        up: () => this.springBack(list, 'translationX'),
+      };
+    }
+    return {
+      kind: 'transition',
+      move: e => trans.setProgress(sign * (e.rootX - x0) / W()),
+      up: vx => trans.release(sign * vx, W()),
+    };
+  }
+
+  /** main_lyrics_swipe: 0 never, 1 when the track has lyrics, 2 always (default). */
+  lyricsSwipeAllowed() {
+    const mode = +(this.ctx.settings?.main_lyrics_swipe ?? 2);
+    const t = this.ctx.player?.track;
+    return !!t && (mode === 2 || (mode === 1 && !!trackLyrics(t)));
+  }
+
+  /** Elastic return: over max(0.35 s, |shift| / 2 sizes per s), cubic ease-out. */
+  releaseShift() {
+    const from = this.aaShift, m = this.geometry.size || 1;
+    if (!from) return;
+    const ms = Math.max(0.35, Math.abs(from / m) / 2) * 1000, t0 = performance.now();
+    this.stopShiftAnim();
+    this._shiftAnim = this.ctx.onFrame(now => {
+      const t = Math.min(1, (now - t0) / ms);
+      this.aaShift = from * (1 - cubicOut(t));
+      this.placeItems();
+      if (t >= 1) { this._shiftAnim = null; return false; }
+      return true;
+    });
+  }
+
+  stopShiftAnim() {
+    this._shiftAnim?.();
+    this._shiftAnim = null;
+  }
+
+  springBack(view, prop) {
+    const from = view[prop], t0 = performance.now();
+    const ms = Math.max(0.35, Math.abs(from / (this.width || 1)) / 2) * 1000;
+    this.ctx.onFrame(now => {
+      const t = Math.min(1, (now - t0) / ms);
+      view[prop] = from * (1 - cubicOut(t));
+      view.invalidate();
+      return t < 1;
     });
   }
 
@@ -685,14 +1129,14 @@ export class ListWidget extends FastLayout {
     this._pageAnim = null;
   }
 
+  /** Settles the page offset over the given time (cubic ease-out, the scroller's curve). */
   animatePageOffset(target, seconds, done) {
     this.stopPageAnim();
     const from = this.geometry.offset, start = performance.now();
-    const dur = Math.max(1, seconds * 1000 * Math.max(0.3, Math.abs(target - from)));
+    const dur = Math.max(1, seconds * 1000);
     this._pageAnim = this.ctx.onFrame(now => {
       const t = Math.min(1, (now - start) / dur);
-      const e = 1 - Math.pow(1 - t, 4);
-      this.setPageOffset(from + (target - from) * e);
+      this.setPageOffset(from + (target - from) * cubicOut(t));
       if (t >= 1) {
         this._pageAnim = null;
         done?.();
@@ -752,13 +1196,15 @@ export class ListWidget extends FastLayout {
       v.left = 0; v.top = 0;
       v.setItemScene(b.scene, w, h);
       v.syncLyricsButton();
+      // Page transitions scale and fade the items; an elastic drag shifts the current one.
+      const fx = this.aaFx ? pageFx(this.aaFx.f, this.aaFx.R) : null;
       v.translationX = b.left;
-      v.translationY = b.top;
-      v.scaleX = v.scaleY = b.scale;
+      v.translationY = b.top + (rel === 0 ? Math.round(this.aaShift) : 0);
+      v.scaleX = v.scaleY = b.scale * (fx?.scale ?? 1);
       v.rotationX = b.rotationX;
       v.rotationY = b.rotationY;
       v.rotation = b.rotation;
-      v.alpha = b.fade;
+      v.alpha = b.fade * (fx?.alpha ?? 1);
       v.invalidate();
     }
   }

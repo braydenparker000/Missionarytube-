@@ -5,11 +5,12 @@ import {FastLayout} from '../view/fast-layout.js';
 import {MeasureSpec} from '../view/view.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {sectionChar} from './scroller.js';
+import {VelocityTracker, Fling, TOUCH_SLOP_DP, MIN_FLING_DP, MAX_FLING_DP} from '../gesture.js';
 
 export const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text'};
 
-/** Android-like fling: exponential velocity decay (ViewConfiguration scroll friction). */
-const FRICTION = 0.0045; // per ms, tuned to the platform's default fling feel
+// A touch during a fling faster than this stops it without a click (the scroller's 13.75 dp/s).
+const CLICK_STOP_DP = 13.75;
 
 export class PowerList extends FastLayout {
   constructor(ctx, host, a = null) {
@@ -66,6 +67,15 @@ export class PowerList extends FastLayout {
   scrollToIndex(i) {
     const g = this.geometry();
     this.scrollTo(i <= 0 ? 0 : g.headerH + Math.floor(i / g.cols) * g.itemH);
+  }
+
+  /** Centres a track's row in the list (the playing track in its source list). */
+  scrollToTrack(t) {
+    const s = this.source;
+    const i = t ? s?.tracks?.findIndex(x => x.id === t.id) ?? -1 : -1;
+    if (i < 0) return;
+    const g = this.geometry();
+    this.scrollTo(g.top + g.headerH + Math.floor(i / g.cols) * g.itemH + g.itemH / 2 - (this.height - this.paddingBottom) / 2);
   }
 
   /**
@@ -147,7 +157,7 @@ export class PowerList extends FastLayout {
   }
 
   onItemClick(v) {
-    if (Math.abs(this.velocity) > 0.05) return;
+    if (Math.abs(this.velocity) > CLICK_STOP_DP * this.ctx.dpr) return;
     if (this.selection && v.listIndex >= 0) { this.toggleSelected(v.listIndex); return; }
     if (v.listIndex === -1) this.source.onHeaderClick?.();
     else this.source.onItemClick?.(v.listIndex);
@@ -281,53 +291,67 @@ export class PowerList extends FastLayout {
     this.placeItems();
   }
 
-  // Scrolling: drag with the finger, fling with decaying velocity, clamp at the ends.
+  // Scrolling (the reference's list scroller, F15): the drag starts one touch
+  // slop along the movement; a release faster than the minimum fling velocity
+  // flings with the scroller's decay (Fling); the ends clamp.
   onPointerDown(e) {
     this.stopFling();
-    this.drag = {y: e.rootY, scroll: this.scrollY, samples: [[e.time, e.rootY]], started: false};
+    this.drag = {y: e.rootY, scroll: this.scrollY, vt: new VelocityTracker(), started: false};
+    this.drag.vt.add(e.time, e.rootX, e.rootY);
     return true;
   }
 
   onInterceptStart(start, now) {
     if (Math.abs(now.rootY - start.rootY) <= Math.abs(now.rootX - start.rootX)) return false;
     this.stopFling();
-    this.drag = {y: start.rootY, scroll: this.scrollY, samples: [[start.time, start.rootY]], started: true};
+    const slop = TOUCH_SLOP_DP * this.ctx.dpr;
+    const vt = new VelocityTracker();
+    vt.add(start.time, start.rootX, start.rootY);
+    this.drag = {y: start.rootY + Math.sign(now.rootY - start.rootY) * slop, scroll: this.scrollY, vt, started: true};
     return true;
   }
 
   onPointerMove(e) {
     const d = this.drag;
     if (!d) return;
-    d.samples.push([e.time, e.rootY]);
-    if (d.samples.length > 6) d.samples.shift();
+    d.vt.add(e.time, e.rootX, e.rootY);
+    if (!d.started) {
+      const dy = e.rootY - d.y, slop = TOUCH_SLOP_DP * this.ctx.dpr;
+      if (Math.abs(dy) < slop) return;
+      d.started = true;
+      d.y += Math.sign(dy) * slop;
+    }
     this.scrollY = Math.max(0, Math.min(this.maxScroll(), d.scroll - (e.rootY - d.y)));
     this.placeItems();
   }
 
-  onPointerUp() {
+  onPointerUp(e) {
     const d = this.drag;
     this.drag = null;
-    if (!d) return;
-    const [t0, y0] = d.samples[0], [t1, y1] = d.samples[d.samples.length - 1];
-    const v = t1 > t0 && performance.now() - t1 < 100 ? -(y1 - y0) / (t1 - t0) : 0;
-    if (Math.abs(v) > 0.1) this.fling(v);
+    if (!d || !d.started || e?.cancelled) return;
+    d.vt.up(e.time);
+    const v = -d.vt.compute(MAX_FLING_DP * this.ctx.dpr).vy;
+    if (Math.abs(v) >= MIN_FLING_DP * this.ctx.dpr) this.fling(v);
   }
 
+  /** Fling at v px/s of scroll (the scroller's decay curve). */
   fling(v) {
+    const f = new Fling(v);
     this.velocity = v;
     let last = performance.now();
     this._fling = this.ctx.onFrame(now => {
-      const dt = Math.min(48, now - last);
+      const dt = Math.min(0.048, (now - last) / 1000);
       last = now;
-      this.scrollY += this.velocity * dt;
-      this.velocity *= Math.exp(-FRICTION * dt);
+      this.scrollY += f.step(dt);
+      this.velocity = f.v;
       const max = this.maxScroll();
+      let stop = f.done;
       if (this.scrollY <= 0 || this.scrollY >= max) {
         this.scrollY = Math.max(0, Math.min(max, this.scrollY));
-        this.velocity = 0;
+        stop = true;
       }
       this.placeItems();
-      if (Math.abs(this.velocity) < 0.02) {
+      if (stop) {
         this.velocity = 0;
         this._fling = null;
         return false;

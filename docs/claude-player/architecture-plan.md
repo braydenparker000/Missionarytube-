@@ -3,8 +3,10 @@
 **Objective (fixed):** a faithful, independently written browser recreation of **Poweramp build 1031**:
 its screen hierarchy, built-in appearance configurations, controls, library, settings, gestures,
 animation relationships, waveform, EQ and queue. It is not a new player inspired by Poweramp.
-**Status:** research and plan only. Nothing is implemented, merged or deployed. Implementation
-starts only after this plan is reviewed.
+**Status:** this is the original plan, written before implementation. The implementation now
+exists in `frontend/claude-player/`; the [coverage matrix](coverage-matrix.md) (Build column, section
+5) and the [research notebook](research-notebook.md) (build status per finding) record what is
+built. Deployment needs the owner's approval.
 
 ## 1. Verified environment and APK report
 

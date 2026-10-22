@@ -245,6 +245,17 @@ export class SceneController {
     this.root.ctx.animate(this);
   }
 
+  /**
+   * Ends a drag-driven change where its driver ended it: at the target scene
+   * (complete) or back at the previous one, without an animation of its own.
+   */
+  release(complete) {
+    const r = this.running;
+    if (!r?.manual) return;
+    if (!complete) [this.scene, this.prevScene] = [this.prevScene, this.scene];
+    this.finish(complete);
+  }
+
   /** Animation frame callback; returns false when done. */
   tick(now) {
     const r = this.running;

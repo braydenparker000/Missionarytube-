@@ -2,81 +2,85 @@
 
 Reference: Poweramp build 1031. Evidence IDs (`F..`) refer to the
 [research notebook](research-notebook.md). Every planned component maps to a reference component or to
-a named technical necessity (`TN`). The status columns describe **reference knowledge**; section 5 records what the
-code implements so far.
+a named technical necessity (`TN`). The status columns describe **reference knowledge**; the Build column and section 5 record what the
+code implements.
+
+The **Build** column is this audit's status against the code: `Built` (implemented and exercised in
+headless Chromium; gesture rows with CDP touch events), `Partial`, `Not built`, `UW` or a skip by
+owner decision. Nothing here is device-verified.
 
 Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred · `OPEN` unknown ·
 `UW` unsupported on the web · `LEGAL` exact reproduction blocked by rights; a substitute is labelled as one.
 
 ## 1. First journey: player → library → mini-player
 
-| Reference component | Evidence | Status | Original implementation contract | Milestone | Fidelity limitation / next evidence |
-| --- | --- | --- | --- | --- | --- |
-| Single player activity / top scene container (`TopNavSceneFastLayout`) | F01, F02 | CS | `SceneGraph` root, one document | M1 | — |
-| Scenes `defaultScene`, `scene_playing`, `scene_lib` | F03, F04 | CS | `SceneParams` records + engine | M1 | Runtime timing `OPEN` |
-| Scene transition curve and duration law | F05 | CS (code, med-high) | `SceneClock` | M1 | Call-site → duration mapping `OPEN`; needs a device recording |
-| Declared timing table (`animMainEnterTime` …) | F07 | CS (declared) | `TimingTable` | M1 | Elapsed time `OPEN` |
-| State anims (seeking, pressed) | F04, F06 | CS | `StateAnimClock` | M2 | — |
-| One-pass layout (`FastLayout`) | F09 | CS (doc) | `FastLayoutSolver` | M1 | Undocumented edge cases verified by the oracle |
-| Window-size buckets | F12 | CS | `QualifierResolver` | M1 | The browser window differs from the app window; basis made explicit |
-| Status/navigation bar backgrounds and insets | F02 | CS | `env(safe-area-inset-*)`, `viewport-fit=cover`, `theme-color` | M2 | Bar colour control limited (`UW` partial) |
-| Album art bounds (`aa_bounds`) and image | F02 | CS (structure) | `AlbumArt` view, embedded-art extraction | M2 | Cropping rules `OPEN` |
-| Album-art swipe ←/→ (track), more (category), ↓ (list), ↑ (lyrics) | F14 | CS (semantics) | `GestureArena` + `AAScroller` | M2 (←/→, ↓), M7 (↑) | Thresholds/physics `OPEN` (F15) |
-| Waveseek (scrollable), cursor, pressed/seeking states | F13, F02 | CS (doc) | `Waveseek` canvas + `WaveformAnalyzer` worker | M2 | Analysis algorithm `OPEN` (labelled provisional) |
-| Play / pause / play-behind, long press = stop | F02 | CS | `BusActionButton` → `MessageBus` → `PlaybackService` | M2 | — |
-| Elapsed / duration labels, long press elapsed = reset to 0:00 | F02, `ui_player.xml` | CS | `Elapsed`/`Duration` views | M2 | — |
-| Sub-album-art buttons (shuffle, repeat …, editable) | F02 | CS (structure) | `SubAAButtons` | M2 (fixed set), M7 (editing) | Default button set per layout `OPEN` |
-| Track labels (title, line 2), marquee | `ui_player.xml` | CS (options) | `TrackLabels` with marquee | M2 | Marquee speed `OPEN` |
-| Navbar container, mini-player pager list, nav buttons | F16 | CS | `Navbar` + pager | M2 | Paging physics `OPEN` |
-| Navbar tap → player; swipe ←/→ track; long press → category | F14 | CS | `GestureArena` | M2 | Thresholds `OPEN` |
-| Library list widget (`ListWidget`/`PowerList`) | F02 | CS (structure) | `VirtualList` (recycled DOM pool) | M2 (Tracks/Albums/Folders) | Item layouts `OPEN` until analysed |
-| A–Z list scroller + indexer popup | F02, `library_lists.xml` | CS | `ListScroller` | M4 | — |
-| Message bus (`bus_player_cmd`, `msgId`) | F02 | CS | `MessageBus` | M1 | — |
-| Real audio playback, pause/next/previous/seek/completion | F20 | CS (behaviour) | `PlaybackService` over `HTMLAudioElement` | M2 | Native engine `UW` |
-| Lock screen / notification controls | manifest, `lockscreen.xml` | CS | Media Session API | M2 | Poweramp's own lock screen `UW`; OS media notification only |
-| Background playback | `PlayerService` | CS | Media element + Media Session | M2 | Physical-phone verification required |
-| Local music source | `library.xml` (rescan, folders) | CS | `LocalFilesAdapter` (`<input type=file>`), IndexedDB index | M2 | Persistent folder access and rescans `UW` on Android Chrome |
-| Persistence of position/queue/settings | `restore_pos` etc. | CS | `Persistence` (IndexedDB, versioned, `claude-player:` namespace) | M2 | — |
-| Feature-pack/licence gating | F08, settings | CS | **Not reproduced** (TN: no commerce) | — | Gated features behave as unlocked; noted per setting |
+| Reference component | Evidence | Status | Original implementation contract | Milestone | Fidelity limitation / next evidence | Build |
+| --- | --- | --- | --- | --- | --- | --- |
+| Single player activity / top scene container (`TopNavSceneFastLayout`) | F01, F02 | CS | `SceneGraph` root, one document | M1 | — | Built |
+| Scenes `defaultScene`, `scene_playing`, `scene_lib` | F03, F04 | CS | `SceneParams` records + engine | M1 | Runtime timing `OPEN` | Built |
+| Scene transition curve and duration law | F05 | CS (code, med-high) | `SceneClock` | M1 | Call-site → duration mapping `OPEN`; needs a device recording | Built |
+| Declared timing table (`animMainEnterTime` …) | F07 | CS (declared) | `TimingTable` | M1 | Elapsed time `OPEN` | Built |
+| State anims (seeking, pressed) | F04, F06 | CS | `StateAnimClock` | M2 | — | Built |
+| One-pass layout (`FastLayout`) | F09 | CS (doc) | `FastLayoutSolver` | M1 | Undocumented edge cases verified by the oracle | Built |
+| Window-size buckets | F12 | CS | `QualifierResolver` | M1 | The browser window differs from the app window; basis made explicit | Built |
+| Status/navigation bar backgrounds and insets | F02 | CS | `env(safe-area-inset-*)`, `viewport-fit=cover`, `theme-color` | M2 | Bar colour control limited (`UW` partial) | Built |
+| Album art bounds (`aa_bounds`) and image | F02 | CS (structure) | `AlbumArt` view, embedded-art extraction | M2 | Cropping rules `OPEN` | Built |
+| Album-art swipe ←/→ (track), more (category), ↓ (list), ↑ (lyrics) | F14, F15, F48 | CS (bytecode) | `ListWidget` pager + `ListTransition` | M2 (←/→, ↓), M7 (↑) | Shared item view hand-off not reproduced | Partial: ←/→, ↓, ↑ and tap built with reference physics (F15, F48); "swipe more" category change not built |
+| Waveseek (scrollable), cursor, pressed/seeking states | F13, F02 | CS (doc) | `Waveseek` canvas + `WaveformAnalyzer` worker | M2 | Analysis algorithm `OPEN` (labelled provisional) | Built |
+| Play / pause / play-behind, long press = stop | F02 | CS | `BusActionButton` → `MessageBus` → `PlaybackService` | M2 | — | Built |
+| Elapsed / duration labels, long press elapsed = reset to 0:00 | F02, `ui_player.xml` | CS | `Elapsed`/`Duration` views | M2 | — | Partial (placement F31) |
+| Sub-album-art buttons (shuffle, repeat …, editable) | F02 | CS (structure) | `SubAAButtons` | M2 (fixed set), M7 (editing) | Default button set per layout `OPEN` | Partial: fixed set built, editing not built |
+| Track labels (title, line 2), marquee | `ui_player.xml` | CS (options) | `TrackLabels` with marquee | M2 | Marquee speed `OPEN` | Built; line 2 tap/long press built (F49) |
+| Navbar container, mini-player pager list, nav buttons | F16, F15 | CS | `Navbar` + `MiniPlayerList` pager | M2 | Category decor items at the ends not built | Built (pager, F15) |
+| Navbar tap → player; swipe ←/→ track; long press → category | F14, F15 | CS | `MiniPlayerList` | M2 | — | Built |
+| Library list widget (`ListWidget`/`PowerList`) | F02 | CS (structure) | `VirtualList` (recycled DOM pool) | M2 (Tracks/Albums/Folders) | Item layouts `OPEN` until analysed | Built |
+| A–Z list scroller + indexer popup | F02, `library_lists.xml` | CS | `ListScroller` | M4 | — | Built |
+| Message bus (`bus_player_cmd`, `msgId`) | F02 | CS | `MessageBus` | M1 | — | Built |
+| Real audio playback, pause/next/previous/seek/completion | F20 | CS (behaviour) | `PlaybackService` over `HTMLAudioElement` | M2 | Native engine `UW` | Built |
+| Lock screen / notification controls | manifest, `lockscreen.xml` | CS | Media Session API | M2 | Poweramp's own lock screen `UW`; OS media notification only | Built (device unverified) |
+| Background playback | `PlayerService` | CS | Media element + Media Session | M2 | Physical-phone verification required | Built (device unverified) |
+| Local music source | `library.xml` (rescan, folders) | CS | `LocalFilesAdapter` (`<input type=file>`), IndexedDB index | M2 | Persistent folder access and rescans `UW` on Android Chrome | Built |
+| Persistence of position/queue/settings | `restore_pos` etc. | CS | `Persistence` (IndexedDB, versioned, `claude-player:` namespace) | M2 | — | Built |
+| Feature-pack/licence gating | F08, settings | CS | **Not reproduced** (TN: no commerce) | — | Gated features behave as unlocked; noted per setting | Not reproduced (by design) |
 
 ## 2. Configurable appearance families (built-in skins)
 
-| Reference option | Evidence | Status | Contract | Milestone | Limitation |
-| --- | --- | --- | --- | --- | --- |
-| Skins Light / Black, day/night pairing, Follow Day/Night | F10, F11 | CS | `ThemeComposer` base styles; `prefers-color-scheme` | M2 (Black), M3 (Light, follow) | Default skin on first run `OPEN` |
-| Layout: Default / Alt / Alt2 | F11 | CS | Overlay → alternate scene/layout styles | M3 | — |
-| Track labels centered; labels background | F11 | CS | Overlay | M3 | — |
-| Player buttons background | F11 | CS | Overlay | M3 | — |
-| Material You colours (more/less) | F11 | CS | Seed-colour palette from a user-chosen colour | M3 | System wallpaper palette `UW`; the substitute is labelled |
-| Font: System / Alt / Bold | F11, F19 | CS | `system-ui` / OFL Manrope / TT Norms Pro | M2, M3 | TT Norms Pro used with the owner's permission (private, non-commercial) |
-| Rounded corners more/less | F11 | CS | Corner tokens via overlay | M3 | — |
-| Seekbar: Waveseek / Static / Plain with buttons | F11, F13 | CS | `Waveseek` scrollable/fixed, `PlainSeek` | M2 (waveseek), M3 | — |
-| More (pro) buttons; Light buttons | F11 | CS | Overlay | M3 | — |
-| Knob highlight; graphic FRS colour | F11 | CS | EQ view tokens | M6 | — |
-| Navbar background (default/semi/none), offset, force-light | F11 | CS | Overlay | M3 | — |
-| Transparent status bar; Android navbar background | F11 | CS | Insets + `theme-color` | M3 | Browser chrome limits (`UW` partial) |
-| Album-art background blur/details/intensity/saturation/gradient | F23 | CS | `ArtBackdrop` | M3 | Blur kernel equivalence `OPEN` |
-| Animations off / fast / normal | F08 | CS (code) | `animScale` (+ `prefers-reduced-motion`) | M2 | — |
-| 3rd-party skins (APK skin packages) | `ui_theme.xml` | CS | — | — | `UW`: cannot load Android skin APKs. Listed, not faked |
+| Reference option | Evidence | Status | Contract | Milestone | Limitation | Build |
+| --- | --- | --- | --- | --- | --- | --- |
+| Skins Light / Black, day/night pairing, Follow Day/Night | F10, F11 | CS | `ThemeComposer` base styles; `prefers-color-scheme` | M2 (Black), M3 (Light, follow) | Default skin on first run `OPEN` | Partial: skins built; Follow Day/Night not built |
+| Layout: Default / Alt / Alt2 | F11 | CS | Overlay → alternate scene/layout styles | M3 | — | Built (overlay; not checked per option) |
+| Track labels centered; labels background | F11 | CS | Overlay | M3 | — | Built (overlay; not checked per option) |
+| Player buttons background | F11 | CS | Overlay | M3 | — | Built (overlay; not checked per option) |
+| Material You colours (more/less) | F11 | CS | Seed-colour palette from a user-chosen colour | M3 | System wallpaper palette `UW`; the substitute is labelled | Not built (no seed-colour substitute) |
+| Font: System / Alt / Bold | F11, F19 | CS | `system-ui` / OFL Manrope / TT Norms Pro | M2, M3 | TT Norms Pro used with the owner's permission (private, non-commercial) | Built |
+| Rounded corners more/less | F11 | CS | Corner tokens via overlay | M3 | — | Built (overlay; not checked per option) |
+| Seekbar: Waveseek / Static / Plain with buttons | F11, F13 | CS | `Waveseek` scrollable/fixed, `PlainSeek` | M2 (waveseek), M3 | — | Partial: waveseek built; Static/Plain overlays unchecked |
+| More (pro) buttons; Light buttons | F11 | CS | Overlay | M3 | — | Built (overlay; not checked per option) |
+| Knob highlight; graphic FRS colour | F11 | CS | EQ view tokens | M6 | — | Built (overlay; not checked per option) |
+| Navbar background (default/semi/none), offset, force-light | F11 | CS | Overlay | M3 | — | Built (overlay; not checked per option) |
+| Transparent status bar; Android navbar background | F11 | CS | Insets + `theme-color` | M3 | Browser chrome limits (`UW` partial) | Partial (browser limits) |
+| Album-art background blur/details/intensity/saturation/gradient | F23 | CS | `ArtBackdrop` | M3 | Blur kernel equivalence `OPEN` | Built (approximation) |
+| Animations off / fast / normal | F08 | CS (code) | `animScale` (+ `prefers-reduced-motion`) | M2 | — | Built |
+| 3rd-party skins (APK skin packages) | `ui_theme.xml` | CS | — | — | `UW`: cannot load Android skin APKs. Listed, not faked | UW |
 
 ## 3. Later feature families (summary)
 
-| Reference family | Evidence | Status | Milestone | Known limitation |
-| --- | --- | --- | --- | --- |
-| Library categories, list options (sort/zoom), headers with meta, list transitions | F17, F18 | CS / INF | M4 | Transition semantics `INF` |
-| Search with category filters | F14, `library_search.xml` | CS | M4 | — |
-| Selection menu, multi-select drag | F14 | CS | M4 | — |
-| Queue, playlists, shuffle/repeat semantics and settings | `library_queue/shuffle/playlists.xml` | CS | M5 | Playlist file import/export: paths `UW` partial |
-| Equalizer (bands, tone, preamp, limiter, reverb, presets) | F20, `audio_equ.xml`, EQ layouts | CS (UI/settings) | M6 | DSP numerics differ from the native engine; documented curves only |
-| AutoEQ headphone presets | F22 | CS | — | `UW` within the budget (7.3 MB) |
-| Lyrics, sleep timer, rating, meta-info cycling, track menu, toasts | F14, layouts | CS | M7 | — |
-| Visualization (MilkDrop presets) | F21, F41 | CS | M8 (decision: butterchurn) | Owner-approved substitute (butterchurn + its preset pack, MIT); native renderer `UW` |
-| Output/DAC/bit-perfect/resampler/DVC/buffer/audio focus | F20 | CS | — | `UW` |
-| Headset plug/BT auto-resume, volume-key skip | `headset.xml` | CS | — | `UW` (partial via Media Session buttons only) |
-| Widgets, quick-settings tile, Android Auto, Chromecast | F01 | CS | — | `UW` |
-| Tag editing and file deletion | dialogs | CS | — | `UW` for picked files on Android |
-| Settings export/import | `singlepane.xml` | CS | M7 | Own JSON format; Poweramp backup format `OPEN` (not targeted) |
-| Settings breadth (452 keys) | F17 | CS | M3–M7 | Each key gets a status: implemented / UI-only / `UW` / `LEGAL` |
+| Reference family | Evidence | Status | Milestone | Known limitation | Build |
+| --- | --- | --- | --- | --- | --- |
+| Library categories, list options (sort/zoom), headers with meta, list transitions | F17, F18 | CS / INF | M4 | Transition semantics `INF` | Partial: categories, list options and headers built; list transitions partial (F48: zoom transitions, no header/item morphs) |
+| Search with category filters | F14, `library_search.xml` | CS | M4 | — | Partial: one category at a time; toggle and long-press filter not built |
+| Selection menu, multi-select drag | F14 | CS | M4 | — | Partial: selection menu built; multi-select drag not built |
+| Queue, playlists, shuffle/repeat semantics and settings | `library_queue/shuffle/playlists.xml` | CS | M5 | Playlist file import/export: paths `UW` partial | Partial: re-sort, import and drag reordering not built |
+| Equalizer (bands, tone, preamp, limiter, reverb, presets) | F20, `audio_equ.xml`, EQ layouts | CS (UI/settings) | M6 | DSP numerics differ from the native engine; documented curves only | Partial (F33) |
+| AutoEQ headphone presets | F22 | CS | — | `UW` within the budget (7.3 MB) | Not built (UW) |
+| Lyrics, sleep timer, rating, meta-info cycling, track menu, toasts | F14, layouts | CS | M7 | — | Partial: lyrics dialog, meta-info cycling and rating swipes not built |
+| Visualization (MilkDrop presets) | F21, F41 | CS | M8 (decision: butterchurn) | Owner-approved substitute (butterchurn + its preset pack, MIT); native renderer `UW` | Built (butterchurn) |
+| Output/DAC/bit-perfect/resampler/DVC/buffer/audio focus | F20 | CS | — | `UW` | UW |
+| Headset plug/BT auto-resume, volume-key skip | `headset.xml` | CS | — | `UW` (partial via Media Session buttons only) | UW |
+| Widgets, quick-settings tile, Android Auto, Chromecast | F01 | CS | — | `UW` | UW |
+| Tag editing and file deletion | dialogs | CS | — | `UW` for picked files on Android | Skipped (owner decision) |
+| Settings export/import | `singlepane.xml` | CS | M7 | Own JSON format; Poweramp backup format `OPEN` (not targeted) | Built |
+| Settings breadth (452 keys) | F17 | CS | M3–M7 | Each key gets a status: implemented / UI-only / `UW` / `LEGAL` | Partial: screens built; per-key statuses not recorded |
 
 ## 4. Technical necessities with no reference component
 
@@ -94,9 +98,9 @@ Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred ·
 | Area | Implemented | Substitutes and gaps |
 | --- | --- | --- |
 | Engine | Resources/qualifiers, theme composition (incl. `android:theme` overlays), inflater, FastLayout (flex, consume, attach, gravity), SceneParams scenes, FastTextView metrics, drawables as DOM ops, ripples from the touch hotspot | Layout inferences I1 |
-| Player screen | Art pager (tilt, swipe, playing scale), labels with marquee, like/unlike or stars, menu, sub-art buttons, waveseek, transport, playing/paused scenes, blurred backdrop | Elapsed/duration pills (F31) and tilt signs `OPEN` |
-| Library | Home grid (reference order and mask); category, statistics and track lists; back stack; list item action; header menus; List Options (sort, reverse, View as, titles only; F46) | List transitions (F18); Max Items, Min Duration, list memory and compact header not offered |
-| Navbar | 1/2/3-line scenes, mini player, seek bar, menu sheet | Logo slot shows the hamburger glyph (trademark logo `LEGAL`) |
+| Player screen | Art pager (tilt, playing scale) with the reference pager physics (F15). Swipe ↓ / tap → the track's source list, swipe ↑ → lyrics, with the move transitions and the top scene following the drag (F48), elastic without a target. Labels with marquee; line 2 tap/long press and menu-button long press (F49); like/unlike or stars, menu, sub-art buttons, waveseek, transport, playing/paused scenes, blurred backdrop | Elapsed/duration pills (F31) and tilt signs `OPEN`. Not built: art "swipe more" category change, long press between buttons (edit), meta-info cycling, rating swipes |
+| Library | Home grid (reference order and mask); category, statistics and track lists; back stack with remembered scroll; list item action; header menus; List Options (sort, reverse, View as, titles only; F46); reference list scrolling and fling (F15); side swipe → parent level; zoom page transitions for opening, going back and player/library/lyrics changes (F48) | Header-to-item / item-to-header morphs and the shared item hand-off not built (generic pivot zooms instead); pinch-to-zoom and multi-select drag not built; Max Items, Min Duration, list memory and compact header not offered |
+| Navbar | 1/2/3-line scenes, mini player pager (swipe ←/→ changes track, tap → player, long press → the track's source list; F15), seek bar, menu sheet | Logo slot shows the hamburger glyph (trademark logo `LEGAL`); category decor pages at the ends and the sheet drag not built |
 | Playback | Local import (folder/files, tags incl. large MP4/FLAC/Ogg blocks), R2 library (index snapshot, 12 h refresh, streaming by range), Media Session, resume, queue (Play next / Add to queue / modes) | m4a/AAC depends on the browser's codecs |
 | Covers | Local embedded art; R2 Worker images when indexed, else read from the audio file by byte ranges (3 slots, 150 ms row settle, "no cover" markers); Cache Storage covers and 256 px thumbnails; picked images per track or album (F45) | No online album-art search |
 | Waveforms | Index waveforms (inline base64 or DCW1 files at `/waveform/<id>`); local files decoded on device; reference resampling (F47) | The analysis algorithm is native (`OPEN`); R2 audio is never downloaded for a waveform |
@@ -114,7 +118,7 @@ Status key: `CS` confirmed static · `CR` confirmed runtime · `INF` inferred ·
 | Visualization | Vis modes (none / with UI / full screen, temp UI); butterchurn renderer (owner-approved substitute for the native MilkDrop engine, pinned CDN build with SRI); vis panel with preset pager, preset list, filter, sort, likes, advance modes (F41) | Native renderer `UW`; pager-to-list morph cross-fades; preset sources are the butterchurn pack only |
 | A–Z scroller | ListScrollerView modes (A–Z column, thumb), letter bubble, press state animation, section jumps (F38); alphabet from `azChars` / `localized_azChars` | Only English resources exist, so non-Latin titles fall under # as in an English UI; bubble placement by intent |
 | Selection mode | Item select boxes, selection panel with the reference's per-list action layouts, select all/none/range, counts, state-enabled actions, Queue / Play next with insert-mode menus, Add to Playlist, Info, Album Art, Rename/Delete for playlists, Share via Web Share (F39) | Deleting files skipped (owner decision) |
-| Lyrics | .lrc sidecars, ID3 USLT/SYLT, Vorbis LYRICS, MP4 ©lyr; AA lyrics button per `main_lyrics_button`; lyrics page in the album-art frame with the scene_lyrics header, synced / unsynced line scenes, active-line follow with `lyrics_offset`, tap to seek, empty page (F40) | Page geometry, follow position and play-button state in scene_lyrics need screenshots; no lyrics plugins or online search |
+| Lyrics | .lrc sidecars, ID3 USLT/SYLT, Vorbis LYRICS, MP4 ©lyr; AA lyrics button per `main_lyrics_button`; swipe ↑ on the art per `main_lyrics_swipe`; back by a side swipe or a pull at the top (F48); lyrics page in the album-art frame with the scene_lyrics header, synced / unsynced line scenes, active-line follow with `lyrics_offset`, tap to seek, empty page (F40) | Page geometry, follow position and play-button state in scene_lyrics need screenshots; lyrics dialog (button long press), lyrics plugins and online search not built |
 | Help | Per-screen help overlays (main, vis, library, search, EQ pages) with placement, arrows and fades | Placement fallbacks by intent |
 | App shell | PWA (manifest, icons, service worker for app files only; media and covers never cached by it) | Hosting: Azure static site path `/claude-player/` (the R2 Worker answers that origin only) |
-| Not yet | Drag reordering in playlists/queue, playlist import, preset management in the EQ, pinch-to-zoom in lists | — |
+| Not yet | Art "swipe more" category change, pinch-to-zoom in lists, multi-select drag, drag reordering in playlists/queue, playlist import, EQ preset management, search-chip toggle/long-press filters, meta-info cycling, sub-art button editing, rating swipes, dialog drag-to-dismiss, Follow Day/Night skin pairing, Material You substitute, header/item list morphs | — |
