@@ -1922,6 +1922,89 @@ screens is unchanged by the removal.
 (`--arsc` writes the nulls back; without it the model is byte-identical to the previous one),
 `model/reference.json.gz`, `view/fast-layout.js`.
 
+### F86 — Settings and the main activity in the reference harness; late-loaded item buttons — `CONFIRMED_STATIC` (bytecode run)
+(a) The F85 harness also runs whole activities. `SettingsActivity` needs: EmojiCompat stubbed as a
+failed load, `Sync`'s application set (the purchase preferences read it), and the player service
+declared unbindable. With Robolectric's native graphics the text metrics are real. `MainActivity`
+also needs the startup check passed (`cm2`'s start time set), and every context returning the
+default display (a shadow of `ContextImpl.getDisplay`). Its library is empty: a player and library
+state for list comparisons is not set up yet.
+
+(b) Settings, measured at 412×915 dp. The theme is `Theme.DeviceDefault.Settings` (AOSP here; an
+OEM settings theme on a device):
+- The action bar has no up arrow. It shows the title at 16 dp (20 sp), then Search and Close
+  (48 dp each) at the right.
+- Rows: text at 16 dp, or at 72 dp after a 32 dp icon placed at 12 dp. Padding is 16 dp.
+- Category titles: 14 sp, at 16 dp, 16 dp above.
+- Text lines carry the font's padding plus 2 px from the fallback line spacing. A 19.5 sp title
+  is 73 px; a 14 sp summary is 54 px for its first line and 44 px for each further one.
+- Tag chips are 93 px tall.
+- Skins page:
+  - A row per skin: radio, preview, name (17 sp), "Built-in", then the description (13 sp) at 60 dp.
+  - The selected skin's options sit 28 dp in, each under a separator.
+  - Layout is a radio list with summaries; the `msg` notes show under their option.
+
+(c) Settings search (`SettingsSearchLayout`, `pref_search` fts4 index): every preference with a key
+and a title, the screens' titles as a " / " breadcrumb, and a summary unless it is a format string
+(`de.B`). It takes a rounded 48 dp bar over the action bar. Items show a 32 dp icon, the title
+(18 sp), the summary (14 sp) and the breadcrumb (13 sp). A result opens its screen and scrolls to
+the preference. Search history is not built.
+
+(d) Platform text appearances are style parents the APK only references. For example,
+`NavbarExtensionMenuLine_Text` → `TextAppearance.AppCompat` → `@android:style/TextAppearance.Material`
+gives 14 sp. Without them the navbar menu lines fell to 20 px.
+
+(e) `merge_item_aa_and_header` (the cover's menu and lyrics buttons) loads when the item enters
+`scene_aa`. Buttons are wired when their layout loads (`withView`), so the cover's 3-dot button
+opens the track menu. The menu item lays out at the popup's frame, and its height is measured in
+the menu scene. File deletion is out of scope, so Delete is hidden there.
+
+(f) `settings/settings.js`, `app.css` (`cps-*`), `res/resources.js` (`FRAMEWORK_STYLES`),
+`view/inflater.js` (`withView`), `view/scene.js` (`measureIn`, `go` `targetSize`),
+`list/list-widget.js`, `view/text.js` (`BusStatusTextButton`), `skin.js` (`msg` notes).
+
+### F87 — Library lists measured in the reference harness — `CONFIRMED_STATIC` (bytecode run)
+(a) The harness seeds the app's own library database (`rs`, `folders.db`) with the browser harness
+library: 40 tracks over five albums, artists and folders. It opens lists by tapping the real views
+and dumps their frames, including the app's own text views (`FastTextView.g`).
+
+(b) Its environment needs three adjustments:
+- The display reports rounded corners, so `OptionRoundedScreenCorners` applies as on current phones.
+- `s41.C` is cleared and the skins' `alt_layout` option removed, then the skin theme is recomposed
+  (`wv1.y` with force). The sandbox computes `C` on a short display, which picks the Alternative
+  layout. A 20:9 phone (`height / width` in whole numbers is 2) keeps Default.
+- With these, all 1,456 resolved theme attributes match this port's theme. The remaining
+  differences are value notation and platform attributes the port does not use.
+
+(c) Fresh-install list zooms (`m30` `list_zoom_*`, filled from the app's shipped defaults, not the
+`0` in code):
+- Library 1.
+- Track lists 3 ("List – small": itemSize rows, 80 dp art). Years, years' files and bookmarks 0.
+- Album, folder, album artist and playlist grids, and every sub-album grid, 5 ("Grid": 2 columns).
+- Artists, genres and composers 4 ("List": zoomed rows). Folders Hierarchy 3. Search 1.
+The port read 0 everywhere, so the home showed a two-column grid and track lists small rows.
+
+(d) The List Options for a track list offers the ten category levels, from "Grid – 1 line small"
+to "Grid"; search keeps its six. The sort radios take code-made layout params (no style margin).
+Hints indent by the button's compound padding. Platform check boxes and radio buttons have no gap
+between the button and the text.
+
+(e) Titles sort as text in the library's collation ("Song D29" before "Song D3"), not by number.
+The library home header shows "Library". The Queue row shows `state_player_queue_counter`:
+- "position / total" while the Queue plays;
+- else "played / total";
+- "empty" with no entries.
+
+(f) Measured equal, row by row, with the seeded data:
+- the library home;
+- All Songs and an album's track list (header, 252 px rows, art, title, line 2);
+- the album grid;
+- the artist list (title and meta position; meta text differs because the seed has no stats);
+- the EQ screen and the List Options dialog.
+
+(g) `list/list-opts.js` (`defaultZoom`, `ZOOMS`, `SEARCH_ZOOM`), `list/sources.js`, `list/list-widget.js`,
+`player/player.js` (`queueCounter`), `view/text.js`.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
@@ -2024,6 +2107,8 @@ No status is device-verified.
 | F83 App drawable states, unlimited wrap measuring | Built | — |
 | F84 Colour and text preferences | Built | System palette circles have no web counterpart |
 | F85 Null style items, reference harness | Built | — |
+| F87 Library list defaults and options, measured | Built | Category meta (counts, durations) not compared: the seed has no `cat_stats` |
+| F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 
 ## Open questions, prioritised by fidelity impact

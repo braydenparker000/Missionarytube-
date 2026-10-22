@@ -181,7 +181,7 @@ export class SceneController {
    * Transitions to a scene. duration in seconds (0 = immediate). velocity shortens
    * the duration. Starts from the current ratio when reversing a running transition.
    */
-  go(scene, {duration = 0, velocity = 0, onEnd} = {}) {
+  go(scene, {duration = 0, velocity = 0, onEnd, targetSize = null} = {}) {
     if (scene === this.scene && !this.running) {
       onEnd?.(true);
       return;
@@ -203,7 +203,10 @@ export class SceneController {
     this.prevScene = this.scene;
     this.scene = scene;
     this.items = collect(this.root, scene, []);
+    // A view the parent's scene resizes lays its target out at that size.
+    this.targetSize = targetSize;
     this.prepare();
+    this.targetSize = null;
     this.notify('start');
     if (!(duration > 0)) {
       this.apply(1, true);
@@ -286,6 +289,26 @@ export class SceneController {
     if (!r?.manual) return;
     if (!complete) [this.scene, this.prevScene] = [this.prevScene, this.scene];
     this.finish(complete);
+  }
+
+  /**
+   * The root's measured size laid out in a scene without entering it: the
+   * scene's params apply for one measure pass, then the current ones return.
+   */
+  measureIn(scene, wSpec, hSpec) {
+    this.root.loadBehaviorsFor?.(scene);
+    const items = collect(this.root, scene, []);
+    const saved = items.map(({view}) => [view, view.lp, view.visibility]);
+    for (const {view, rec} of items) {
+      if (rec.lp) view.lp = rec.lp;
+      if (rec.visibility !== undefined) view.visibility = rec.visibility;
+    }
+    this.root.forceLayoutTree();
+    this.root.measure(wSpec, hSpec);
+    const size = [this.root.measuredWidth, this.root.measuredHeight];
+    for (const [view, lp, vis] of saved) { view.lp = lp; view.visibility = vis; }
+    this.root.forceLayoutTree();
+    return size;
   }
 
   /** Animation frame callback; returns false when done. */

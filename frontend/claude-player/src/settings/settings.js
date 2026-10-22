@@ -4,7 +4,7 @@
 // screen of the reference model (xml/<name>) is rendered as a DOM list with
 // AOSP Material metrics and the settings font option; values persist per
 // device. Platform colours (background, accent) are inferred, not extracted.
-import {parseSkins} from '../skin.js';
+import {parseSkins, optionValue, optionEnabled} from '../skin.js';
 import {Theme} from '../res/resources.js';
 import {renderOps} from '../view/drawables.js';
 import {importPlaylistFiles, exportPlaylists} from '../library/playlist-files.js';
@@ -148,6 +148,8 @@ export class Settings {
     this.root = null;
     ctx.bus.subscribe('bus_app_cmd', msg => {
       if (msg === 'cmd_app_open_settings') this.open('singlepane');
+      // The navbar Settings line's long press opens the settings search.
+      else if (msg === 'cmd_app_open_settings_search') { this.open('singlepane'); this.openSearch(); }
     });
     ctx.settingsUi = this;
     this._theme = null;
@@ -320,16 +322,24 @@ export class Settings {
     r.dataset.font = font;
     this.applyScheme();
     globalThis.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => this.applyScheme());
+    // The action bar: the title, then Search and Close (SettingsActivity's
+    // menu); the platform back gesture goes up a page.
     const bar = document.createElement('div');
     bar.className = 'cps-bar';
-    const back = document.createElement('button');
-    back.type = 'button';
-    back.className = 'cps-back';
-    back.setAttribute('aria-label', this.str('@string/back'));
-    back.addEventListener('click', () => this.back());
     this.titleEl = document.createElement('div');
     this.titleEl.className = 'cps-title';
-    bar.append(back, this.titleEl);
+    const button = (icon, label, onClick) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cps-bar-btn';
+      b.setAttribute('aria-label', this.str(label));
+      b.innerHTML = iconSvg(icon, 'currentColor');
+      b.addEventListener('click', onClick);
+      return b;
+    };
+    bar.append(this.titleEl,
+      button('search', '@string/search', () => this.openSearch()),
+      button('settings_close', '@string/close', () => this.closeAll()));
     this.list = document.createElement('div');
     this.list.className = 'cps-list';
     r.append(bar, this.list);
@@ -409,6 +419,7 @@ export class Settings {
     const n = this.stack.length;
     if (!n) { then?.(); return; }
     this.dialog?.remove();
+    this.closeSearch();
     this.stack = [];
     this.root.hidden = true;
     this.closing = then ?? (() => {});
@@ -581,6 +592,7 @@ export class Settings {
 
   pop() {
     this.dialog?.remove();
+    this.closeSearch();
     this.stack.pop();
     if (!this.stack.length) {
       this.root.hidden = true;
@@ -965,10 +977,150 @@ export class Settings {
 
   paintIcon(el, d) {
     if (!d) return;
-    const size = Math.round(24 * this.ctx.dpr);
+    // Preference icons are 32dp drawables (PreferenceImageView at intrinsic size).
+    const size = Math.round(32 * this.ctx.dpr);
     const ops = [];
     d.ops(size, size, {enabled: true}, ops, 0, 0);
     renderOps(el, ops, this.ctx.px);
+  }
+
+  /**
+   * The search index (PrefSearchIndexer over the preference XML): every
+   * preference with a key and a title, from the screens reachable from the
+   * root, with its summary, icon and the titles of the screens on the way
+   * (" / " separated).
+   */
+  searchIndex() {
+    if (this._index) return this._index;
+    const out = [], seen = new Set();
+    const walk = (name, crumbs) => {
+      if (seen.has(name)) return;
+      seen.add(name);
+      const tree = this.screen(name);
+      if (!tree) return;
+      const visit = nodes => {
+        for (const node of nodes ?? []) {
+          if (!Array.isArray(node)) continue;
+          const kind = short(node[0]);
+          if (kind === 'PreferenceCategory') { visit(node[2]); continue; }
+          if (attr(node, 'removeAsNeeded') === 'true' || /^(Buy|FeaturePack|AlreadyPurchased|LicenseStatus|ManageAppWarn)/.test(kind)) continue;
+          const key = attr(node, 'key'), title = attr(node, 'title');
+          const target = kind === 'RedirectPreference' ? attr(node, 'target') : null;
+          if (key && title) {
+            const summary = attr(node, 'summary');
+            out.push({screen: name, key, title: this.str(title), summary: this.searchSummary(summary), crumbs: crumbs.join(' / '), icon: attr(node, 'icon')});
+          }
+          if (target && !/^https?:/.test(target)) walk(target, [...crumbs, this.str(title)]);
+          visit(node[2]);
+        }
+      };
+      visit(tree[2]);
+    };
+    walk('singlepane', []);
+    return (this._index = out);
+  }
+
+  /** An indexed summary: none when it is a format string (de.B: a % not followed by % or a space). */
+  searchSummary(raw) {
+    const v = raw ? this.str(raw) : '';
+    return /%[^% ]/.test(v) ? '' : v;
+  }
+
+  /** Entries whose title or summary has a word starting with each query word (fts4 prefix match). */
+  searchFor(q) {
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return [];
+    const wordsOf = t => t.toLowerCase().split(/[^\p{L}\p{N}]+/u);
+    return this.searchIndex().filter(e => {
+      const have = [...wordsOf(e.title), ...wordsOf(e.summary)];
+      return words.every(w => have.some(h => h.startsWith(w)));
+    });
+  }
+
+  /** The search panel over the action bar (SettingsSearchLayout scene_search). */
+  openSearch() {
+    if (this.searchEl) { this.searchEl.querySelector('input').focus(); return; }
+    const panel = this.searchEl = document.createElement('div');
+    panel.className = 'cps-search';
+    const bar = document.createElement('div');
+    bar.className = 'cps-search-bar';
+    const btn = (icon, label, onClick) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cps-bar-btn';
+      b.setAttribute('aria-label', this.str(label));
+      b.innerHTML = iconSvg(icon, 'currentColor');
+      b.addEventListener('click', onClick);
+      return b;
+    };
+    const input = document.createElement('input');
+    input.className = 'cps-search-edit';
+    input.type = 'text';
+    input.placeholder = this.str('@string/search');
+    input.spellcheck = false;
+    const clear = btn('settings_close', '@string/clear', () => { input.value = ''; update(); input.focus(); });
+    bar.append(btn('back', '@string/close', () => this.closeSearch()), input, clear);
+    const results = document.createElement('div');
+    results.className = 'cps-search-list';
+    const update = () => {
+      const q = input.value.trim();
+      clear.style.visibility = input.value ? 'visible' : 'hidden';
+      results.replaceChildren();
+      if (!q) return;
+      const hits = this.searchFor(q);
+      if (!hits.length) {
+        const e = document.createElement('div');
+        e.className = 'cps-search-empty';
+        e.textContent = this.str('@string/no_content');
+        results.appendChild(e);
+        return;
+      }
+      for (const h of hits.slice(0, 200)) results.appendChild(this.searchItem(h));
+    };
+    input.addEventListener('input', update);
+    panel.append(bar, results);
+    this.root.appendChild(panel);
+    update();
+    input.focus();
+  }
+
+  closeSearch() {
+    this.searchEl?.remove();
+    this.searchEl = null;
+  }
+
+  /** item_settings_search: icon, title, summary and the screens' path. */
+  searchItem(h) {
+    const row = document.createElement('div');
+    row.className = 'cps-search-item';
+    const ic = document.createElement('div');
+    ic.className = 'cps-search-icon';
+    if (h.icon) this.paintIcon(ic, this.ctx.drawables.fromValue(h.icon, this.theme));
+    const texts = document.createElement('div');
+    texts.className = 'cps-search-texts';
+    for (const [cls, text] of [['cps-search-title', h.title], ['cps-search-line2', h.summary], ['cps-search-line3', h.crumbs]]) {
+      if (!text) continue;
+      const e = document.createElement('div');
+      e.className = cls;
+      e.textContent = text.split('\n')[0];
+      texts.appendChild(e);
+    }
+    row.append(ic, texts);
+    row.addEventListener('click', () => {
+      this.closeSearch();
+      if (this.stack[this.stack.length - 1] !== h.screen) this.open(h.screen);
+      this.reveal(h.key);
+    });
+    return row;
+  }
+
+  /** Scrolls to a preference and flashes it (the opened path's #key). */
+  reveal(key) {
+    const row = this.list.querySelector(`[data-key="${CSS.escape(key)}"]`);
+    if (!row) return;
+    row.scrollIntoView({block: 'center'});
+    row.classList.add('cps-reveal');
+    setTimeout(() => row.classList.remove('cps-reveal'), 1200);
   }
 
   /** Single-choice dialog (platform AlertDialog with a radio list). */
@@ -1395,76 +1547,79 @@ export class Settings {
   }
 
   /** Built-in skins with their options (theme_list). */
+  /**
+   * BuiltinSkinsPreferenceCategory: a radio row per skin (radio, preview,
+   * name, "Built-in", description), the selected skin followed by its
+   * options, indented under it with separators: chips (multiSwitch / popup),
+   * radio rows with summaries (radio), switches (option) and notes (msg).
+   */
   renderSkins(parent) {
     const skins = parseSkins(this.ctx.res);
     const current = +this.get('skin', 1);
+    const el = (tag, cls, text) => { const e = document.createElement(tag); e.className = cls; if (text) e.textContent = text; return e; };
+    const reload = () => location.reload();
     skins.forEach((skin, i) => {
-      const row = document.createElement('div');
-      row.className = 'cps-row cps-skin' + (i === current ? ' on' : '');
-      const texts = document.createElement('div');
-      texts.className = 'cps-texts';
-      const t = document.createElement('div');
-      t.className = 'cps-row-title';
-      t.textContent = skin.name;
-      const s = document.createElement('div');
-      s.className = 'cps-summary';
-      s.textContent = skin.description;
-      texts.append(t, s);
-      const radio = document.createElement('div');
-      radio.className = 'cps-radio-dot' + (i === current ? ' on' : '');
-      row.append(radio, texts);
+      const row = el('div', 'cps-skin' + (i === current ? ' on' : '') + (i ? ' sep' : ''));
+      row.append(el('div', 'cps-radio-dot' + (i === current ? ' on' : '')));
+      // The preview stand-in: the skin's background as a rounded tile.
+      const dark = /Black|Dark/i.test(skin.style ?? '') || !!skin.lightMode;
+      row.append(el('div', 'cps-skin-preview' + (dark ? ' dark' : '')));
+      row.append(el('div', 'cps-skin-name', skin.name), el('div', 'cps-skin-kind', this.str('@string/built_in')), el('div', 'cps-skin-desc', skin.description));
       row.addEventListener('click', () => {
         if (i === current) return;
         this.set('skin', i);
-        location.reload();
+        reload();
       });
       parent.appendChild(row);
       if (i !== current) return;
       const prefs = this.get('skin_prefs_' + i, {});
-      for (const opt of skin.options) {
-        if (opt.kind === 'msg' || !opt.key) continue;
-        const orow = document.createElement('div');
-        orow.className = 'cps-row cps-skin-opt';
-        const ot = document.createElement('div');
-        ot.className = 'cps-texts';
-        const title = document.createElement('div');
-        title.className = 'cps-row-title';
-        title.textContent = opt.name;
-        ot.appendChild(title);
-        orow.appendChild(ot);
+      const save = () => { this.set('skin_prefs_' + i, prefs); reload(); };
+      skin.options.forEach((opt, oi) => {
+        if (opt.minSdk && opt.minSdk > 35) return;
+        const next = skin.options[oi + 1];
+        if (opt.kind === 'msg') {
+          const m = el('div', 'cps-skin-msg');
+          this.appendRich(m, opt.lines.join('<br>'));
+          parent.appendChild(m);
+          return;
+        }
+        if (!opt.key) return;
+        const box = el('div', 'cps-skin-opt' + (opt.kind === 'option' ? ' switch' : '') + (next?.kind === 'msg' ? ' before-msg' : ''));
+        if (!optionEnabled(opt, skin, prefs, 35)) box.classList.add('cps-disabled');
+        const texts = el('div', 'cps-texts');
+        texts.append(el('div', 'cps-row-title', opt.name));
+        box.append(texts);
         if (opt.kind === 'option') {
-          const sw = document.createElement('div');
-          const val = prefs[opt.key] ?? opt.checkedByDefault;
-          sw.className = 'cps-switch' + (val ? ' on' : '');
-          orow.appendChild(sw);
-          orow.addEventListener('click', () => {
-            prefs[opt.key] = !(prefs[opt.key] ?? opt.checkedByDefault);
-            this.set('skin_prefs_' + i, prefs);
-            location.reload();
-          });
-        } else {
-          const tags = document.createElement('div');
-          tags.className = 'cps-tags';
-          const sel = prefs[opt.key] ?? null;
+          if (opt.summary) texts.append(el('div', 'cps-summary', opt.summary));
+          const sw = el('div', 'cps-switch' + (optionValue(opt, prefs) ? ' on' : ''));
+          box.append(sw);
+          box.addEventListener('click', () => { prefs[opt.key] = !optionValue(opt, prefs); save(); });
+        } else if (opt.kind === 'radio') {
+          const sel = optionValue(opt, prefs);
+          const list = el('div', 'cps-skin-radios');
           opt.choices.forEach((c, ci) => {
-            const chip = document.createElement('button');
+            const r = el('div', 'cps-skin-radio' + (ci === sel ? ' on' : ''));
+            const line = el('div', 'cps-skin-radio-line');
+            line.append(el('div', 'cps-radio-dot' + (ci === sel ? ' on' : '')), el('div', 'cps-skin-radio-name', c.name));
+            r.append(line);
+            if (c.summary) r.append(el('div', 'cps-skin-radio-summary', c.summary));
+            r.addEventListener('click', () => { if (ci !== sel) { prefs[opt.key] = ci; save(); } });
+            list.append(r);
+          });
+          box.append(list);
+        } else {
+          const tags = el('div', 'cps-tags');
+          const sel = optionValue(opt, prefs);
+          opt.choices.forEach((c, ci) => {
+            const chip = el('button', 'cps-tag' + (ci === sel ? ' on' : ''), c.name);
             chip.type = 'button';
-            chip.className = 'cps-tag';
-            chip.textContent = c.name;
-            const defIdx = opt.choices.findIndex(x => (x.rawStyle ?? '') === opt.defaultValue || (x.rawAttr ?? '') === opt.defaultValue);
-            chip.classList.toggle('on', ci === (sel ?? (defIdx >= 0 ? defIdx : 0)));
-            chip.addEventListener('click', () => {
-              prefs[opt.key] = ci;
-              this.set('skin_prefs_' + i, prefs);
-              location.reload();
-            });
+            chip.addEventListener('click', () => { if (ci !== sel) { prefs[opt.key] = ci; save(); } });
             tags.appendChild(chip);
           });
-          ot.appendChild(tags);
-          orow.classList.add('cps-row-tall');
+          box.append(tags);
         }
-        parent.appendChild(orow);
-      }
+        parent.appendChild(box);
+      });
     });
   }
 
