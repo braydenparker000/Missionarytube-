@@ -534,8 +534,7 @@ export class ListWidget extends FastLayout {
         ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: str('pref_rescan_folders', 'Rescan')});
         break;
       case 'cmd_data_clear_q':
-        ctx.player.userQueue = [];
-        ctx.bus.post('bus_player', 'msg_player_queue_changed', this);
+        ctx.player.clearQueue();
         if (src?.kind === 'queue') this.replaceTop(src.rebuild?.());
         break;
       case 'cmd_list_show_all':
@@ -633,7 +632,8 @@ export class ListWidget extends FastLayout {
 
   /** Header Play / Shuffle: the shown list's tracks from the start, or shuffled. */
   playList(shuffle) {
-    const src = this.searching ? this.searchSrc : this.stack[this.stack.length - 1];
+    if (this.searching) { this.playSearch(shuffle); return; }
+    const src = this.stack[this.stack.length - 1];
     const tracks = src?.tracks ?? src?.groups?.flatMap(g => g.tracks) ?? [];
     if (!tracks.length) return;
     const p = this.ctx.player;
@@ -641,6 +641,24 @@ export class ListWidget extends FastLayout {
     if (src && !this.searching) this.rememberQueueSource(src);
     p.setQueue(tracks, shuffle ? Math.floor(Math.random() * tracks.length) : 0, src && !this.searching ? this.categoryFor(src) : null);
     p.play();
+    if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
+  }
+
+  /**
+   * Search Play / Shuffle (vo1.g0): the results play through a fresh Queue
+   * (clean_and_play) with a toast. With search_play_tracks, when songs are
+   * the last results, only the found songs; otherwise every result row's
+   * songs in order.
+   */
+  playSearch(shuffle) {
+    const src = this.searchSrc, rows = src?.rows;
+    if (!rows?.length) return;
+    const onlySongs = this.ctx.pref('search_play_tracks') !== false && !!rows[rows.length - 1].track;
+    const tracks = rows.flatMap(r => (r.sep ? [] : r.track ? [r.track] : onlySongs ? [] : r.group.tracks));
+    if (!tracks.length) return;
+    this.ctx.player.playAsQueue(tracks, shuffle ? 2 : 0);
+    const str = this.ctx.res.stringByName('playing_q_from_search') ?? 'Playing Queue from search';
+    this.ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: str});
     if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
   }
 

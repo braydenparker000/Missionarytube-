@@ -6,6 +6,7 @@
 // it to the default scene (animExitTime 200 ms) and ends selection mode.
 // Bus-bound widgets in the panel follow the list states (selection count,
 // all selected, range available, ...).
+import {modeState, setModeState} from './mode-state.js';
 import {FastLayout} from '../view/fast-layout.js';
 import {FastTextView} from '../view/text.js';
 import {register} from '../view/inflater.js';
@@ -194,7 +195,7 @@ export class SelectionContextPopupButton extends PopupLayout {
   /** Selects a mode: state, command, toast (from a press) and the cross-fade of the shown row. */
   select(arg, fromMenu) {
     const ctx = this.ctx;
-    ctx.listState = Object.assign(ctx.listState ?? {}, {[this.stateKey]: arg});
+    setModeState(ctx, this.stateKey, arg);
     if (this.buttonsMsg) ctx.bus.post(this.buttonsBus, this.buttonsMsg, this, {arg1: arg});
     this.syncMode(!fromMenu);
     if (fromMenu) this.close();
@@ -209,7 +210,7 @@ export class SelectionContextPopupButton extends PopupLayout {
   }
 
   modeIndex() {
-    const cur = this.ctx.listState?.[this.stateKey] ?? this.args[0] ?? 0;
+    const cur = modeState(this.ctx, this.stateKey) ?? this.args[0] ?? 0;
     return Math.max(0, this.args.indexOf(cur));
   }
 
@@ -282,7 +283,7 @@ export class SelectionContextPopupButton extends PopupLayout {
       this.hideUntilOpen(b);
       b.mode = arg;
       b.onClick = () => {
-        ctx.listState = Object.assign(ctx.listState ?? {}, {[this.stateKey]: arg});
+        setModeState(ctx, this.stateKey, arg);
         if (this.buttonsMsg) ctx.bus.post(this.buttonsBus, this.buttonsMsg, this, {arg1: arg});
         this.syncMode();
         this.close();
@@ -304,7 +305,7 @@ export class SelectionContextPopupButton extends PopupLayout {
   }
 
   onOpen() {
-    const cur = this.ctx.listState?.[this.stateKey] ?? this.args[0];
+    const cur = modeState(this.ctx, this.stateKey) ?? this.args[0];
     for (const r of this.rows) { r.setChecked(r.mode === cur); r.setActivated(r.mode === cur); }
   }
 

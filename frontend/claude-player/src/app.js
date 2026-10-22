@@ -170,8 +170,11 @@ export async function boot() {
     const index = Math.max(0, library.tracks.findIndex(t => t.id === saved?.trackId));
     if (saved?.shuffle !== undefined) player.shuffle = saved.shuffle;
     if (saved?.repeat !== undefined) player.repeat = saved.repeat;
-    player.setQueue(library.tracks, index);
-    player.userQueue = (saved?.userQueue ?? []).map(id => library.byId.get(id)).filter(Boolean);
+    player.restoreQueue(saved?.entries ?? saved?.userQueue, library.byId);
+    // In queue mode the list to return to is saved by its track.
+    const npIndex = saved?.queueMode ? Math.max(0, library.tracks.findIndex(t => t.id === saved.npTrackId)) : index;
+    player.setQueue(library.tracks, npIndex);
+    if (saved?.queueMode) player.resumeQueueMode(saved.trackId);
     if (saved?.positionMs) player.seek(saved.positionMs);
   } else importUi.show();
   // A library that arrives later (R2 index refresh) fills an empty player.
@@ -181,7 +184,13 @@ export async function boot() {
   // Remember the current track and position (reference: resume where left off).
   const saveState = () => {
     const t = player.track;
-    if (t && library.byId.has(t.id)) library.db?.setState('queue', {trackId: t.id, positionMs: player.positionMs(), shuffle: player.shuffle, repeat: player.repeat, userQueue: player.userQueue.map(q => q.id)}).catch(() => {});
+    if (!t || !library.byId.has(t.id)) return;
+    const np = player.savedNP;
+    library.db?.setState('queue', {
+      trackId: t.id, positionMs: player.positionMs(), shuffle: player.shuffle, repeat: player.repeat,
+      entries: player.entries.map(e => ({id: e.track.id, created: e.created, played: e.played})),
+      queueMode: player.queueMode, npTrackId: np?.queue?.[np.index]?.id ?? null,
+    }).catch(() => {});
   };
   ctx.bus.subscribe('bus_player', m => { if (m === 'msg_player_track_changed' || m === 'msg_player_playing_state_changed' || m === 'msg_player_shuffle_mode_changed' || m === 'msg_player_repeat_mode_changed' || m === 'msg_player_queue_changed') saveState(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveState(); });

@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 99 |
+| Built | 107 |
 | Settings UI | 110 |
-| Not built | 61 |
+| Not built | 53 |
 | No web counterpart | 140 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -393,14 +393,14 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `queue_start` | TagListPreference | Not built |  |
-| `queue_end` | TagListPreference | Not built |  |
-| `queue_insert_pos` | TagListPreference | Not built |  |
-| `play_next_insert_pos` | TagListPreference | Not built |  |
-| `q_next_forces_after_song` | MultilineSwitchPreference | Not built |  |
-| `queue_clear_on_add` | MultilineSwitchPreference | Not built |  |
-| `queue_never_clear_on_add` | MultilineSwitchPreference | Not built |  |
-| `queue_no_shuffle` | MultilineSwitchPreference | Not built |  |
+| `queue_start` | TagListPreference | Built | Queue start: immediately, after the song, after the list (F65) |
+| `queue_end` | TagListPreference | Built | Queue end: return to the list, or stay / repeat (F65) |
+| `queue_insert_pos` | TagListPreference | Built | Shared with the selection menu mode (c40) |
+| `play_next_insert_pos` | TagListPreference | Built | Shared with the selection menu mode (c40) |
+| `q_next_forces_after_song` | MultilineSwitchPreference | Built | Play Next sets queue_start to after the song |
+| `queue_clear_on_add` | MultilineSwitchPreference | Built | Queue clearing on add (hs.y) |
+| `queue_never_clear_on_add` | MultilineSwitchPreference | Built | Queue clearing on add (hs.y) |
+| `queue_no_shuffle` | MultilineSwitchPreference | Built | The Queue plays in order |
 
 ## library_scanner
 

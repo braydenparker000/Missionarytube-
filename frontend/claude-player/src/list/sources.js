@@ -521,22 +521,13 @@ export function searchSource(ctx, list, nav, query, mask = -1) {
     if (r.track) v.bind(r.track);
     else bindGroup(v, groupIndex.get(r));
   };
-  // A tap on an entry opens it. A tap on a song plays the results (vo1.g0):
-  // the found songs only with search_play_tracks (when songs are the last
-  // results), else every result row's songs in order.
+  // A tap on an entry opens it; a tap on a song plays the found songs from
+  // it (vo1.f: the songs category filtered by the search).
   src.onItemClick = i => {
     const r = rows[i];
     if (!r || r.sep) return;
     if (r.group) { openGroup(groupIndex.get(r)); return; }
-    const onlySongs = ctx.pref?.('search_play_tracks') !== false && !!rows[rows.length - 1].track;
-    let queue = [], at = 0;
-    for (let k = 0; k < rows.length; k++) {
-      const x = rows[k];
-      if (x.sep || (onlySongs && !x.track)) continue;
-      if (k === i) at = queue.length;
-      queue = queue.concat(x.track ? [x.track] : x.group.tracks);
-    }
-    ctx.player.setQueue(queue, at);
+    ctx.player.setQueue(src.tracks, src.tracks.indexOf(r.track));
     ctx.player.play();
     if ((ctx.settings.list_item_action ?? 1) === 1) ctx.bus.post('bus_gui', 'cmd_nav_to_main', src);
   };

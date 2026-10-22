@@ -5,6 +5,7 @@ import {FastLayout} from '../view/fast-layout.js';
 import {MeasureSpec} from '../view/view.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {sectionChar} from './scroller.js';
+import {modeState} from './mode-state.js';
 import {VelocityTracker, Fling, TOUCH_SLOP_DP, MIN_FLING_DP, MAX_FLING_DP} from '../gesture.js';
 
 export const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text', separator: 'item_separator_button', history: 'item_search_history', clearHistory: 'item_clear_search_history'};
@@ -301,7 +302,7 @@ export class PowerList extends FastLayout {
         this.selectionChanged();
       } break;
       case 'cmd_list_add_to_q': case 'cmd_list_add_as_next_to_q': if (sel?.size) {
-        this.ctx.player?.enqueue?.(this.selectedTracks(), msg === 'cmd_list_add_as_next_to_q', this.ctx.listState?.[msg === 'cmd_list_add_to_q' ? 'state_queue_insert_pos' : 'state_play_next_insert_pos'] ?? 0);
+        this.ctx.player?.enqueue?.(this.selectedTracks(), msg === 'cmd_list_add_as_next_to_q', modeState(this.ctx, msg === 'cmd_list_add_to_q' ? 'state_queue_insert_pos' : 'state_play_next_insert_pos'));
         this.endSelection();
       } break;
       case 'cmd_list_send_dialog': if (sel?.size && navigator.share) {

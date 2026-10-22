@@ -977,8 +977,9 @@ nothing. Fields:
 category's name and a hairline, `separatorSize` high), then its rows sorted by name with NOCASE
 ordering. Entries show as track-style rows.
 - A tap on an entry opens it.
-- A tap on a song plays the results. With `search_play_tracks` (default on), and when songs are the
-  last results, only the found songs are queued; otherwise every result row's songs are queued in
+- A tap on a song plays the found songs from it (`vo1.f`).
+- Play / Shuffle (`vo1.g0`) plays through the Queue (F65). With `search_play_tracks` (default on),
+  and when songs are the last results, only the found songs; otherwise every result row's songs in
   order.
 
 **History:** every delivered result set records its query. A query that extends a stored term
@@ -995,6 +996,53 @@ targeted search (`ste`).
 (f) `list/sources.js` (`searchSource`, `historySource`), `library/search-history.js`,
 `list/power-list.js` (separator and plain row types with their own heights), `widgets/search.js`
 (`SEARCH_CATS`, the chip row scroller).
+
+### F65 — The Queue — `CONFIRMED_STATIC`
+
+(a) S1 `pi1` (`shouldMoveToQueueAfterSong` / `AfterList`, `startQueueImpl`, `exitQueueImpl`,
+`next`, `onQueueUpdated`, `postCreate`), `hs.y` (adding), `ui1` (the Queue entity and its order),
+`qq0.j` / `qq0.n` (labels), `k21` (`played_at`), `b40.Q` / `b40.R` / `b40.S`, `c40.a0` / `c40.b0`,
+`m30.C` / `m30.f3172` / `m30.c`, `vo1.g0` (search Play).
+
+(c) The Queue is a list of entries. An entry stays unplayed until its track's playback session
+starts after the entry was added (`played_at < created_at`). Unplayed entries wait while another
+list plays.
+
+**Queue mode:** the entries become the playing list and the interrupted list is saved. The Queue
+starts at the first unplayed entry (or the last), with a 1 s "Started queue" toast. `queue_start`
+sets when:
+- 1: as soon as tracks are added;
+- 2 (default): on the next song;
+- 3: at the end of the list, ahead of repeat and advance.
+
+**End (`queue_end`):**
+- 1 (default): return to the saved list and go on to its next track, with "Left queue".
+- 0: stay. Repeat on plays the Queue again; otherwise playback stops.
+
+In queue mode the next/previous "category" is "Leave queue" (the same exit).
+
+**Adding:**
+- Play Next with `q_next_forces_after_song` (default on) sets `queue_start` to 2.
+- `queue_clear_on_add` clears the Queue first, keeping the playing entry unless the Queue starts
+  immediately.
+- Otherwise a Queue whose entries have all played is cleared, unless `queue_never_clear_on_add`.
+- Play Next inserts after the playing entry, or before the unplayed ones; Add appends.
+- Insert mode 2 shuffles the added tracks. The insert modes are the `queue_insert_pos` /
+  `play_next_insert_pos` preferences, shared with the selection menu's mode buttons.
+
+**Other rules:**
+- `queue_no_shuffle` plays the Queue in order.
+- Clear Queue keeps the playing entry in queue mode.
+- Search Play / Shuffle clears the Queue, fills it with the results and starts it ("Playing queued
+  search results"). A song tap in the results plays the found songs.
+- The entries, their played state, queue mode and the list to return to persist across restarts.
+
+Inferred: the order of a shuffled Queue (the reference's `shuffle_order` column) uses the player's
+shuffle permutation.
+
+(f) `player/player.js` (`entries`, `startQueue`, `exitQueue`, `queueNext`, `enqueue`,
+`queueUpdated`, `playAsQueue`, `clearQueue`, `resumeQueueMode`), `list/mode-state.js`, `app.js`
+(persistence), `ListWidget.playSearch`.
 
 ### I1 — Layout inferences to verify against screenshots
 
@@ -1078,6 +1126,7 @@ No status is device-verified.
 | F57 star rating bar | Built | Scene drawable cross-fade not built |
 | F58 dialog drag | Partial | Nested-scroll handoff not built |
 | F63 library list preferences / List Options | Built | List memory not built |
+| F65 queue | Built | Shuffled order inferred |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact
