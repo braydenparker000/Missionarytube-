@@ -2068,6 +2068,15 @@ which opened a settings page (Lock Screen from the menu sheet's Settings row). C
 (f) `view/drawables.js` (`InsetDrawable`), `icons.js` (`fit`), `widgets/navbar.js`,
 `list/list-widget.js` (`toStart`), `settings/settings.js`, `library/library.js`, `app.js`.
 
+(g) Placement measured in the reference at 412 × 915 dp (2.625×) and 360 × 780 dp (3×), in the
+default and the playing scene (`do1.X` to `scene_playing`):
+- the transport, the waveseek and the top buttons equal the port's frames within 1 px;
+- the time labels equal them once their scale (about 0.8 in the default scene) is left out.
+
+The transport's ripple is the button's own drawable, not its background (`deripple` only drops
+ripples nested in its layers). It runs over the glyph inside the oval mask, and the port now runs
+it too (`paintRipple` with the drawable's rect).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.

@@ -429,7 +429,12 @@ export class FastTextView extends View {
   }
 
   drawableOps(ops) {
-    const d = this.drawable;
+    const {x, y, w, h} = this.drawableRect();
+    this.drawable.ops(w, h, this.state, ops, x, y);
+  }
+
+  /** Where the drawable draws: {x, y, w, h} in view coordinates. */
+  drawableRect() {
     const [dw, dh] = this.drawableSize();
     const w = this.width, h = this.height;
     const pos = this.drawablePosition;
@@ -454,7 +459,7 @@ export class FastTextView extends View {
       x = this.drawablePaddingStart;
       y = Math.round((h - pt - pb - dh) / 2 + pt);
     }
-    d.ops(ow, oh, this.state, ops, x, y);
+    return {x, y, w: ow, h: oh};
   }
 
   onStateChanged() {

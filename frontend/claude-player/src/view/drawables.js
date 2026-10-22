@@ -599,18 +599,23 @@ export class Drawables {
    * clipped to the mask (or content) outline; without either it is unbounded
    * with android:radius (else half the larger side) around the centre.
    */
-  paintRipple(view, pressed) {
-    const d = view.background;
+  paintRipple(view, pressed, d = view.background, rect = null) {
     if (!d?.ripple || !d.rippleColor) return;
-    const px = this.ctx.px, w = view.width, h = view.height;
+    // A foreground drawable's ripple (rect: where the view draws it) goes over the content.
+    const fg = !!rect, key = fg ? '_fgRipple' : '_ripple', hostKey = fg ? '_fgRippleHost' : '_rippleHost';
+    const px = this.ctx.px, w = rect ? rect.w : view.width, h = rect ? rect.h : view.height;
     if (pressed) {
-      let host = view._rippleHost;
+      let host = view[hostKey];
       if (!host) {
-        host = view._rippleHost = document.createElement('div');
+        host = view[hostKey] = document.createElement('div');
         host.className = 'rpl';
-        const bg = view._bgLayer;
-        view.el.insertBefore(host, bg ? bg.nextSibling : view.el.firstChild);
+        if (fg) view.el.appendChild(host);
+        else {
+          const bg = view._bgLayer;
+          view.el.insertBefore(host, bg ? bg.nextSibling : view.el.firstChild);
+        }
       }
+      if (fg) host.style.transform = `translate(${px(rect.x)}px,${px(rect.y)}px)`;
       const st = host.style;
       st.width = px(w) + 'px';
       st.height = px(h) + 'px';
@@ -622,7 +627,7 @@ export class Drawables {
         st.overflow = 'hidden';
         st.borderRadius = o?.radius ?? (o?.radii ? o.radii.map(r => px(r) + 'px').join(' ') : '');
       } else { st.overflow = ''; st.borderRadius = ''; }
-      const hs = view.hotspot ?? {x: w / 2, y: h / 2};
+      const hs = view.hotspot ? {x: view.hotspot.x - (rect?.x ?? 0), y: view.hotspot.y - (rect?.y ?? 0)} : {x: w / 2, y: h / 2};
       const R = bounded ? Math.hypot(Math.max(hs.x, w - hs.x), Math.max(hs.y, h - hs.y)) : (d.radius ?? Math.max(w, h) / 2);
       const c = document.createElement('div');
       c.className = 'rpl-c';
@@ -640,10 +645,10 @@ export class Drawables {
         {transform: 'translate(0,0) scale(1)'},
       ], {duration: 225 * (this.ctx.animScale ?? 1), easing: 'cubic-bezier(0,0,0.2,1)', fill: 'forwards'});
       c.animate([{opacity: 0}, {opacity: 1}], {duration: 75, fill: 'forwards'});
-      view._ripple = c;
+      view[key] = c;
     } else {
-      const c = view._ripple;
-      view._ripple = null;
+      const c = view[key];
+      view[key] = null;
       if (!c) return;
       // Short taps still show the ripple growing while it fades.
       c.animate([{opacity: 1}, {opacity: 0}], {duration: 150, delay: 60, fill: 'forwards'}).onfinish = () => c.remove();
