@@ -103,7 +103,9 @@ export class PowerList extends FastLayout {
     const gap = s.gridSpacing ?? 0;
     const contentW = w - pl - pr;
     const colW = Math.floor((contentW - gap * (cols - 1)) / cols);
-    return {cols, colW, gap, itemH: s.itemHeight, headerH: s.header ? s.headerHeight : 0, top: this.paddingTop, left: pl};
+    // Grid zoom levels: square art plus the text's extra space (itemHeight -1).
+    const itemH = s.itemHeight >= 0 ? s.itemHeight : Math.round(colW * (s.aaRatio ?? 1)) + (s.gridExtra ?? 0);
+    return {cols, colW, gap, itemH, headerH: s.header ? s.headerHeight : 0, top: this.paddingTop, left: pl};
   }
 
   contentHeight() {

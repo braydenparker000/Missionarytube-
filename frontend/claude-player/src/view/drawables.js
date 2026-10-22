@@ -301,7 +301,8 @@ export class Drawables {
 
   /** Platform drawables the reference relies on, as original stand-ins. */
   framework(name, theme) {
-    if (name === 'btn_check_material') {
+    if (name === 'btn_check_material' || name === 'btn_radio_material') {
+      const radio = name === 'btn_radio_material';
       const size = Math.round(32 * this.ctx.dpr);
       const tinted = (icon, raw) => {
         const d = new IconDrawable(icon, {mono: true}, size, size);
@@ -310,8 +311,8 @@ export class Drawables {
         return d;
       };
       return new StateListDrawable([
-        {states: {checked: true}, d: tinted('cp_check_on', '?android:colorControlActivated')},
-        {states: {}, d: tinted('cp_check_off', '?android:colorControlNormal')},
+        {states: {checked: true}, d: tinted(radio ? 'cp_radio_on' : 'cp_check_on', '?android:colorControlActivated')},
+        {states: {}, d: tinted(radio ? 'cp_radio_off' : 'cp_check_off', '?android:colorControlNormal')},
       ]);
     }
     return null;

@@ -5,7 +5,7 @@ import {StyledAttributes} from '../res/resources.js';
 import {View, MeasureSpec, ViewGroup} from './view.js';
 import {FastLayout} from './fast-layout.js';
 import {SceneFastLayout, attachSceneParams, attachStateAnim} from './scene.js';
-import {FastTextView, FastButton, FastCheckBox, BusActionButton} from './text.js';
+import {FastTextView, FastButton, FastCheckBox, FastRadioButton, BusActionButton} from './text.js';
 import {GONE} from '../res/values.js';
 
 const registry = new Map();
@@ -222,6 +222,7 @@ register(['FastLayout', 'FastLayoutWithViewCacheOpt', 'ClickableFastLayout', 'Pr
 register(['SceneFastLayout', 'MenuPlaceholderLayout', 'ItemSceneFastLayout'], SceneFastLayout);
 register(['FastTextView', 'TextView', 'ImageView', 'ListIndexerPopupView', 'BusStatusText', 'HtmlTextView', 'LyricsFastTextView', 'InfoTextView', 'KnobLabelAndValue'], FastTextView);
 register(['FastCheckBox', 'FastCheckBoxOnly', 'CheckBox'], FastCheckBox);
-register(['FastButton', 'DragHandler', 'Button', 'ImageButton', 'RadioButton', 'LyricsButton', 'BusStatusTextButton', 'IntentActionButton', 'MediaRouteButton'], FastButton);
+register(['RadioButton'], FastRadioButton);
+register(['FastButton', 'DragHandler', 'Button', 'ImageButton', 'LyricsButton', 'BusStatusTextButton', 'IntentActionButton', 'MediaRouteButton'], FastButton);
 register(['BusActionButton', 'MorphableBusActionButton', 'BusStateEnabledActionButton', 'BusCheckBox'], BusActionButton);
 register(['View', 'NonOverlappingView', 'Space', 'android.widget.Space', 'SmartSpacer', 'AlphaDisabledView'], View);

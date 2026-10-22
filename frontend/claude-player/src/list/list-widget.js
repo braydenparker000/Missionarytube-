@@ -17,6 +17,7 @@ import {HomeSource, currentCategorySource, searchSource, playlistsSource, playli
 import {openAddToPlaylist} from '../widgets/playlist-dialog.js';
 import {alertDialog, editNameDialog} from '../widgets/dialog.js';
 import {openInfo, openAlbumArt} from '../widgets/info-dialog.js';
+import {openListOptions} from './list-opts.js';
 import {LyricsPage} from './lyrics.js';
 import {elevationShadow} from '../view/drawables.js';
 
@@ -420,6 +421,9 @@ export class ListWidget extends FastLayout {
         break;
       }
       case 'cmd_data_add_playlist': P?.create(); break;
+      case 'cmd_list_options_dialog':
+        if (src?.optsKey) openListOptions(ctx, src, () => this.replaceTop(src.rebuild?.() ?? null));
+        break;
       case 'cmd_list_rescan':
         ctx.library.refreshR2?.({force: true});
         ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: str('pref_rescan_folders', 'Rescan')});
@@ -467,6 +471,7 @@ export class ListWidget extends FastLayout {
     const hide = new Set(['add_to_home', 'delete_dups', 'add_url', 'show_all', 'resort']);
     if (!src?.playlist) hide.add('clear');
     if (src?.kind !== 'queue') hide.add('clear_q');
+    if (!src?.optsKey) hide.add('list_options');
     const exportText = this.ctx.res.stringByName('pref_export');
     for (const c of [...items.children]) {
       if (hide.has(c.id)) { c.setVisibility(GONE); continue; }

@@ -531,13 +531,41 @@ export class FastButton extends FastTextView {
   }
 }
 
-/** Check box: a button that toggles its checked state on click (FastCheckBox). */
+/**
+ * Check box: a button that toggles its checked state on click (FastCheckBox).
+ * Platform CheckBox / RadioButton tags without a drawable get the platform
+ * indicator stand-in at the start (android:button of the default styles).
+ */
 export class FastCheckBox extends FastButton {
+  constructor(ctx, a, className = '') {
+    super(ctx, a);
+    const tag = className.slice(className.lastIndexOf('.') + 1);
+    if (!this.drawable && (tag === 'CheckBox' || tag === 'RadioButton')) {
+      const d = ctx.drawables.framework(tag === 'RadioButton' ? 'btn_radio_material' : 'btn_check_material', a?.theme ?? ctx.theme);
+      if (d) {
+        this.drawablePosition = 0;
+        this.drawablePadding = Math.round(8 * ctx.dpr);
+        // Platform compound buttons: center_vertical|start unless styled.
+        if (a?.raw('android:gravity') === undefined) this.gravity = (this.gravity & 7) | 16;
+        this.setDrawable(d);
+      }
+    }
+  }
+
   get isChecked() { return !!this.state.checked; }
 
   onClick() {
     this.setChecked(!this.state.checked);
     this.onCheckedChanged?.(this.state.checked);
+  }
+}
+
+/** Radio button: a press only checks it (the group clears the others). */
+export class FastRadioButton extends FastCheckBox {
+  onClick() {
+    if (this.state.checked) return;
+    this.setChecked(true);
+    this.onCheckedChanged?.(true);
   }
 }
 

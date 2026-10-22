@@ -27,9 +27,11 @@ export function placeholderWave(n, layout) {
 }
 
 /** Resamples wave data to n bars (nearest source bin). */
+/** Nearest-sample resampling with a rounded source index (the reference's c22.A). */
 function resample(n, src) {
   const out = new Float32Array(n);
-  for (let i = 0; i < n; i++) out[i] = src[Math.min(src.length - 1, Math.floor((i * src.length) / n))];
+  const step = src.length / n;
+  for (let i = 0; i < n; i++) out[i] = src[Math.min(src.length - 1, Math.trunc(0.5 + i * step))];
   return out;
 }
 

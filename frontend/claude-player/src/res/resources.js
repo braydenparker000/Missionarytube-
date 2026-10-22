@@ -18,6 +18,7 @@ const FRAMEWORK_THEME = {
   'android:disabledAlpha': '0.3',
   'android:colorControlActivated': '?android:colorAccent',
   'android:listChoiceIndicatorMultiple': '@android:drawable/btn_check_material',
+  'android:listChoiceIndicatorSingle': '@android:drawable/btn_radio_material',
 };
 
 const RESOLVE_DEPTH = 24;
