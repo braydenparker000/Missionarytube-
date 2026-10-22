@@ -237,7 +237,7 @@ export const PREF_STATUS = {
   uber_level: [NA, NO_PURCHASES],
   // general
   feature_packages: [NA, NO_PURCHASES],
-  about_version: [TODO, ''],
+  about_version: [BUILT, 'build id from release.json (commit, player tree, local edits)'],
   updates: [UI, ''],
   check_updates: [NA, REFERENCE_SERVICES],
   check_beta_updates: [NA, REFERENCE_SERVICES],
@@ -245,7 +245,7 @@ export const PREF_STATUS = {
   other: [UI, ''],
   visit_site_about: [UI, ''],
   translations: [UI, ''],
-  oss: [TODO, ''],
+  oss: [BUILT, 'licenses page: butterchurn, butterchurn-presets, Manrope3, TT Norms Pro'],
   privacy: [UI, ''],
   addons: [UI, ''],
   // headset

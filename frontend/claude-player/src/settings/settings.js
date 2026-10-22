@@ -140,6 +140,12 @@ export class Settings {
     return this._theme;
   }
 
+  /** A settings screen's tree: the reference XML, or a screen built here (oss). */
+  screen(name) {
+    if (name === 'oss') return ossScreen();
+    return this.ctx.res.entry('xml', name);
+  }
+
   get isOpen() {
     return !!this.root && !this.root.hidden;
   }
@@ -313,7 +319,7 @@ export class Settings {
   }
 
   open(name) {
-    const tree = this.ctx.res.entry('xml', name);
+    const tree = this.screen(name);
     if (!tree) return;
     this.ensureRoot().hidden = false;
     this.stack.push(name);
@@ -455,7 +461,7 @@ export class Settings {
       return;
     }
     const name = this.stack[this.stack.length - 1];
-    this.render(name, this.ctx.res.entry('xml', name));
+    this.render(name, this.screen(name));
   }
 
   render(name, tree) {
@@ -699,6 +705,7 @@ export class Settings {
         else if (key === 'library_list_opts' || key === 'list_opts') row.addEventListener('click', () => this.overDialog(onClosed => this.ctx.listWidget?.openListOptionsFor(key === 'list_opts' ? 'search' : 'home', {fromSettings: true, onClosed})));
         else if (key === 'playlists_export') row.addEventListener('click', () => this.overDialog(onClosed => openExportDialog(this.ctx, onClosed)));
         else if (key === 'playlists_import') row.addEventListener('click', () => this.importPlaylists());
+        else if (key === 'oss') row.addEventListener('click', () => this.open('oss'));
         else if (key === 'reset_stats') row.addEventListener('click', () => this.confirm(this.str('@string/reset_stats_q'), this.str('@string/reset_all_tracks_stats_warn') + '\n\n' + this.str('@string/reset_stats_based_cats'), () => this.ctx.library?.resetStats(), this.str('@string/reset')));
         else if (key === 'clear_aa_cache') row.addEventListener('click', () => this.confirm(this.str(attr(node, 'title')), this.str(attr(node, 'summary')), () => this.ctx.library?.clearArtCache()));
         break;
@@ -720,6 +727,11 @@ export class Settings {
       row.classList.add('cps-clickable');
       row.addEventListener('click', () => this.confirm(this.str(attr(node, 'title')), this.str(attr(node, 'summary') ?? attr(node, 'line1')), () => { restore(); this.toast(this.str('@string/done')); }));
     }
+    // about_version (ns1): the build, then its source tree.
+    if (key === 'about_version') {
+      summary = null;
+      buildInfo().then(text => { summaryEl.textContent = text; if (!summaryEl.parentNode) texts.appendChild(summaryEl); });
+    }
     if (lines) summaryEl.appendChild(lines);
     else if (summary) this.appendRich(summaryEl, this.rawStr(summary));
     if (!summaryEl.textContent && !summaryEl.querySelector('.cps-inline-icon')) summaryEl.remove();
@@ -738,7 +750,7 @@ export class Settings {
       if (k && short(n[0]) !== 'RedirectPreference') keys.push(k);
       for (const c of n[2] ?? []) walk(c);
     };
-    walk(this.ctx.res.entry('xml', name));
+    walk(this.screen(name));
     return keys;
   }
 
@@ -755,7 +767,7 @@ export class Settings {
     Object.assign(this.ctx.settings, runtimeSettings(this.values));
     for (const key of changed) this.ctx.bus.post('bus_app', 'msg_app_setting_changed', this, {key});
     this.needsRecreate = true;
-    this.render(name, this.ctx.res.entry('xml', name));
+    this.render(name, this.screen(name));
   }
 
   /** Settings export/import: a JSON file of the stored values. */
@@ -1326,6 +1338,34 @@ export class Settings {
  * target (the browser's downloads here; no folder choice), "Also export file
  * based playlists", Export / Cancel.
  */
+/**
+ * The deployed build (release.json beside the app folders): "build-<commit>"
+ * and the player folder's tree, or "build-local" in a checkout.
+ */
+let buildInfoPromise = null;
+function buildInfo() {
+  buildInfoPromise ??= fetch('../release.json', {cache: 'no-cache'}).then(r => (r.ok ? r.json() : null)).catch(() => null).then(rel => {
+    const c = rel?.components?.['claude-player'] ?? rel?.frontend;
+    if (!c?.commit) return 'build-local';
+    return `build-${c.commit.slice(0, 7)}` + (c.tree ? `\ntree ${c.tree.slice(0, 7)}` : '') + (c.dirty ? '\nlocal edits' : '');
+  });
+  return buildInfoPromise;
+}
+
+// Open Source Licenses (SettingsLicenseActivity): the third-party pieces the
+// player loads, each with its notice.
+const MIT = 'Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.';
+function ossScreen() {
+  // Quoted, as a resource string keeps its whitespace only inside quotes.
+  const item = (title, text) => ['RawTextPreference', {'android:title': title, 'w:line1': `"${text}"`}];
+  return ['PreferenceScreen', {'android:title': '@string/pref_open_source_licenses'}, [
+    item('butterchurn 2.6.7', 'MIT License\n\nCopyright (c) 2013-2018 Jordan Berg\n\n' + MIT),
+    item('butterchurn-presets 2.4.7', 'MIT License\n\nCopyright (c) 2013-2018 Jordan Berg\n\n' + MIT),
+    item('Manrope3 (modified Manrope)', 'SIL Open Font License, Version 1.1\n\nCopyright (c) 2018, Mikhail Sharanda, with Reserved Font Name Manrope.\n\nThe full notice ships with the fonts (fonts/LICENSES.md).'),
+    item('TT Norms Pro (TypeType)', 'Commercial typeface, used in this private project under the permission the owner obtained; not licensed for any other use.'),
+  ]];
+}
+
 function openExportDialog(ctx, onClosed) {
   const str = (k, f = k) => ctx.res.stringByName(k) ?? f;
   let fileBased = false;

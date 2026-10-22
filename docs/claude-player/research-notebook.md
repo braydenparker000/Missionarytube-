@@ -1338,6 +1338,21 @@ minutes, or the Long list):
 **Reset stats:** "Reset stats?" with the warning and the stats-based categories note; Reset sets
 played times and last played to zero for every track.
 
+### F74 — About: version and licenses — `CONFIRMED_STATIC`
+
+(a) S1 `general.xml` (`about_version`, `oss` with its SettingsLicenseActivity intent), `ns1`
+(the version summary).
+
+(c) **Version:** the summary is "build-1031-uni", then on new lines a native build string and the
+32/64-bit word. Here it is "build-" and the deployed commit, then the player folder's tree and
+"local edits" when the deployed tree was dirty, from `release.json` beside the app folders.
+A checkout without `release.json` shows "build-local".
+
+**Open Source Licenses:** a settings page with one note per third-party piece the player loads:
+butterchurn 2.6.7 and butterchurn-presets 2.4.7 (MIT, with the full notice), Manrope3 (OFL 1.1, the
+full notice in `fonts/LICENSES.md`) and TT Norms Pro (used under the owner's permission). The
+reference's own list (its native libraries) does not apply.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1429,6 +1444,7 @@ No status is device-verified.
 | F71 ReplayGain | Built | Gain rules follow the standard (native player) |
 | F72 Shuffle modes and options | Partial | category_shuffle and hier_flat_shf wait for the sub-category screens |
 | F73 Library playback options, pro button morph | Built | — |
+| F74 About: version and licenses | Built | — |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

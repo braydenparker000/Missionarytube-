@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 148 |
+| Built | 150 |
 | Settings UI | 109 |
-| Not built | 12 |
+| Not built | 10 |
 | No web counterpart | 141 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -285,7 +285,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
 | `feature_packages` | FeaturePackRedirectPref | Not applicable | Private non-commercial build: no purchases or feature packs |
-| `about_version` | Preference | Not built |  |
+| `about_version` | Preference | Built | build id from release.json (commit, player tree, local edits) |
 | `updates` | PreferenceCategory | Settings UI |  |
 | `check_updates` | MultilineSwitchPreference | Not applicable | The reference's own sites, updates and crash reports |
 | `check_beta_updates` | MultilineSwitchPreference | Not applicable | The reference's own sites, updates and crash reports |
@@ -293,7 +293,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `other` | PreferenceCategory | Settings UI |  |
 | `visit_site_about` | PreferenceScreen | Settings UI |  |
 | `translations` | RedirectPreference | Settings UI |  |
-| `oss` | Preference | Not built |  |
+| `oss` | Preference | Built | licenses page: butterchurn, butterchurn-presets, Manrope3, TT Norms Pro |
 | `privacy` | PreferenceScreen | Settings UI |  |
 | `addons` | PreferenceCategory | Settings UI |  |
 
