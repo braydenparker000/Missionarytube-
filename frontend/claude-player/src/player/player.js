@@ -2,7 +2,7 @@
 // the reference's player command/state messages on the message bus.
 // bus_player_cmd carries commands in; bus_player carries state changes out.
 import {trackTitle, artistLabel, albumLabel} from '../library/labels.js';
-import {DeckFader, fadePrefs, gaplessPair, AUTO_NONE, AUTO_NON_GAPLESS, AUTO_SHUFFLED, MANUAL_SHORT, MANUAL_CROSSFADE} from './fades.js';
+import {DeckFader, fadePrefs, gaplessPair, replayGainOf, AUTO_NONE, AUTO_NON_GAPLESS, AUTO_SHUFFLED, MANUAL_SHORT, MANUAL_CROSSFADE} from './fades.js';
 
 // Reference mode enums (integers SHUFFLE_* / REPEAT_*).
 export const SHUFFLE_NONE = 0, SHUFFLE_ALL = 1;
@@ -77,6 +77,10 @@ export class Player {
       if (msg !== 'msg_data_art_changed' || !t || !d?.tracks?.some(x => x.id === t.id)) return;
       t.art = null;
       ctx.library?.artFor(t).then(art => { if (this.track === t) { t.art = art; this.post('msg_player_track_changed', {track: t, meta: true}); } });
+    });
+    // ReplayGain settings apply to the playing track at once.
+    ctx.bus.subscribe('bus_app', (msg, src, d) => {
+      if (msg === 'msg_app_setting_changed' && /^rg_/.test(d?.key ?? '') && this.audio && this.isMedia(this.track)) this.ctx.dsp?.setReplayGain?.(this.audio, replayGainOf(this.ctx, this.track));
     });
     ctx.player = this;
   }
@@ -299,6 +303,7 @@ export class Player {
       }
       if (media) {
         const el = this.audio;
+        this.ctx.dsp?.setReplayGain?.(el, replayGainOf(this.ctx, t));
         const ready = t.src ? Promise.resolve(t.src) : this.ctx.library.mediaUrl(t);
         ready.then(url => {
           if (token !== this.loadToken || !url) return;

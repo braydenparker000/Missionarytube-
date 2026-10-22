@@ -1256,6 +1256,29 @@ DSP graph.
     repeat the song, or when the track is not longer than the crossfade.
 - **track_end_silence_ms:** silence after a track ends before the next one starts.
 
+### F71 — ReplayGain — `CONFIRMED_STATIC` (settings) / `INF` (gain rules)
+
+(a) S1 `rg.xml`, `b40` (rg_preamp_mb `r`, rg_default_mb `q`), `yp1` / `zp1` (`cmd_player_set_rg_levels`),
+`RoundKnobPreference` (`wa1.s0`: min, max, scale, valueFormat; `B`, `m406`).
+
+(c) **Gain:**
+- The reference passes the levels to its native player. The rules here are the standard
+  ReplayGain ones that the settings name:
+  - rg_type: Don't apply, Apply Gain, or Apply Gain / prevent clipping by peak (gain ≤ 1 / peak);
+  - rg_source: Album, falling back to Track, or Track, falling back to Album;
+  - RG preamp (rg_preamp_mb, ±16 dB) adds to tagged songs; "Preamp for songs without RG info"
+    (rg_default_mb) is the gain of untagged songs.
+- The gain is a per-deck gain before the fade gain and the DSP. Setting changes apply to the playing
+  track at once.
+
+**Tags:** REPLAYGAIN_* in Vorbis comments, ID3 TXXX and MP4 freeform items, and Opus R128_* (Q7.8 dB,
++5 dB to the ReplayGain reference) are read on import and rescan. The R2 index's values already were.
+
+**Settings:**
+- The two knobs are XML RoundKnobPreferences: an int over min..max, shown divided by scale in
+  valueFormat ("%.1fdB"); a long press on the value enters it.
+- Restore Defaults now notifies every restored key.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1344,6 +1367,7 @@ No status is device-verified.
 | F68 EQ knob values, Tone / band settings, settings rows | Built | Band frequencies for non-ISO counts and resampling inferred; dsp_border_gain native |
 | F69 Reverb presets | Built | Parameter 8 kept at 1.0 without a knob |
 | F70 Fades and crossfades | Built | Curves and the gapless-pair test inferred (native pipeline) |
+| F71 ReplayGain | Built | Gain rules follow the standard (native player) |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

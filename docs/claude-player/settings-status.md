@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 135 |
+| Built | 139 |
 | Settings UI | 109 |
-| Not built | 25 |
+| Not built | 21 |
 | No web counterpart | 141 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -508,10 +508,10 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `rg_type` | TagListPreference | Not built |  |
-| `rg_source` | TagListPreference | Not built |  |
-| `rg_preamp_mb` | RoundKnobPreference | Not built |  |
-| `rg_default_mb` | RoundKnobPreference | Not built |  |
+| `rg_type` | TagListPreference | Built | ReplayGain from track/album tags with preamp, default gain and peak limiting (F71) |
+| `rg_source` | TagListPreference | Built | ReplayGain from track/album tags with preamp, default gain and peak limiting (F71) |
+| `rg_preamp_mb` | RoundKnobPreference | Built | ReplayGain from track/album tags with preamp, default gain and peak limiting (F71) |
+| `rg_default_mb` | RoundKnobPreference | Built | ReplayGain from track/album tags with preamp, default gain and peak limiting (F71) |
 
 ## singlepane
 

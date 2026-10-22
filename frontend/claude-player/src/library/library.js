@@ -186,6 +186,7 @@ export class Library {
       if (side) { try { meta.lyricsFile = decodeTextFile(new Uint8Array(await side.arrayBuffer()), this.ctx.pref?.('lrc_utf8') !== false); } catch { /* unreadable sidecar */ } }
       if (tags.lyricsSynced) meta.lyricsSynced = tags.lyricsSynced;
       if (tags.lyrics) meta.lyrics = tags.lyrics;
+      if (tags.replayGain) meta.replayGain = tags.replayGain;
       meta.meta = trackMetaLabel(meta);
       if (this.db) await this.db.putTrack(meta, f, artBlob);
       if (artBlob && artId && !this.artCache.has(artId)) this.artCache.set(artId, loadArt(artBlob));
@@ -223,6 +224,7 @@ export class Library {
             });
             if (tags.lyrics) t.lyrics = tags.lyrics; else delete t.lyrics;
             if (tags.lyricsSynced) t.lyricsSynced = tags.lyricsSynced; else delete t.lyricsSynced;
+            if (tags.replayGain) t.replayGain = tags.replayGain; else delete t.replayGain;
             t.meta = trackMetaLabel(t);
           }
           const {art, thumb, ...rec} = t;

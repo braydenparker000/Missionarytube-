@@ -102,3 +102,23 @@ export class DeckFader {
     }, ms);
   }
 }
+
+/**
+ * ReplayGain (rg.xml; F71): rg_type 0 none, 1 gain, 2 gain limited by the
+ * peak; rg_source 0 album (track when absent), 1 track (album when absent);
+ * rg_preamp_mb adds to tagged songs, rg_default_mb is the gain of songs
+ * without ReplayGain (millibels). Linear gain.
+ */
+export function replayGainOf(ctx, t) {
+  const type = +(ctx.pref?.('rg_type') ?? 0) || 0;
+  if (!type || !t) return 1;
+  const album = +(ctx.pref?.('rg_source') ?? 0) === 0;
+  const rg = t.replayGain ?? {};
+  const pick = (a, b) => (a !== undefined && a !== null && Number.isFinite(+a) ? +a : b !== undefined && b !== null && Number.isFinite(+b) ? +b : null);
+  const gain = album ? pick(rg.album, rg.track) : pick(rg.track, rg.album);
+  const peak = album ? pick(rg.albumPeak, rg.trackPeak) : pick(rg.trackPeak, rg.albumPeak);
+  const db = gain === null ? (+(ctx.pref?.('rg_default_mb') ?? 0) || 0) / 100 : gain + (+(ctx.pref?.('rg_preamp_mb') ?? 0) || 0) / 100;
+  let lin = Math.pow(10, db / 20);
+  if (type === 2 && gain !== null && peak > 0) lin = Math.min(lin, 1 / peak);
+  return lin;
+}

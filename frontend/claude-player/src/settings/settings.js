@@ -646,9 +646,8 @@ export class Settings {
         break;
       }
       case 'RoundKnobPreference': {
-        const k = TONE_KNOBS[key];
-        if (!k) break;
-        this.renderToneKnob(row, texts, k);
+        const spec = TONE_KNOBS[key] ? this.toneKnobSpec(TONE_KNOBS[key]) : this.attrKnobSpec(node, key, def);
+        this.renderKnob(row, texts, spec);
         break;
       }
       case 'EditButtonsRedirPref':
@@ -747,7 +746,7 @@ export class Settings {
       // Non-persistent Tone knobs: their stored values return to the defaults.
       const keys = TONE_KNOBS[k] ? [k, TONE_KNOBS[k].store] : [k];
       for (const key of keys) { delete this.values[key]; delete this.ctx.settings[key]; }
-      if (TONE_KNOBS[k]) changed.push(TONE_KNOBS[k].store);
+      changed.push(...keys);
     }
     saveStoredSettings(this.values);
     Object.assign(this.ctx.settings, runtimeSettings(this.values));
@@ -816,20 +815,21 @@ export class Settings {
   }
 
   /**
-   * A Tone knob row (RoundKnobPreference, preference_roundknob): the title,
-   * a 70 dp settings knob (30°..330° clockwise from the bottom) with its value
-   * under it; a long press on the value enters it. The value maps linearly
-   * over the parameter's range; frequencies store whole hertz and Q factors
-   * two decimals, the default stored as 0.
+   * A knob row (RoundKnobPreference, preference_roundknob): the title, a
+   * 70 dp settings knob (30°..330° clockwise from the bottom) with its value
+   * under it; a long press on the value enters it. spec: title, min / max in
+   * display units, fmt, read() and write(display value).
    */
-  renderToneKnob(row, texts, k) {
-    const t = document.createElement('div');
-    t.className = 'cps-row-title';
-    t.textContent = this.str('@string/key_colon_value_s_s').replace('%1$s', this.str(k.part)).replace('%2$s', k.q ? this.str('@string/band_q') : this.str('@string/frequency').toLowerCase());
-    texts.appendChild(t);
-    const [min, max] = k.range;
-    const stored = () => { const x = parseFloat(this.get(k.store, 0)); return x > 0 ? x : k.def; };
-    let pos = (Math.min(max, Math.max(min, stored())) - min) / (max - min);
+  renderKnob(row, texts, spec) {
+    // Tone knobs take their title in code; XML knobs already have theirs.
+    if (!texts.querySelector('.cps-row-title')) {
+      const t = document.createElement('div');
+      t.className = 'cps-row-title';
+      t.textContent = spec.title;
+      texts.prepend(t);
+    }
+    const {min, max} = spec;
+    let pos = (Math.min(max, Math.max(min, spec.read())) - min) / (max - min);
     const box = document.createElement('div');
     box.className = 'cps-knob-box';
     const knob = document.createElement('div');
@@ -841,18 +841,10 @@ export class Settings {
     val.className = 'cps-knob-value';
     box.append(knob, val);
     row.appendChild(box);
-    const fmt = this.str(k.q ? '@string/f2' : '@string/f0');
     const valueOf = p => min + (max - min) * p;
     const show = () => {
       ind.style.transform = `rotate(${30 + pos * 300}deg)`;
-      val.textContent = formatValue(fmt, valueOf(pos));
-    };
-    const commit = () => {
-      const x = valueOf(pos);
-      let v = k.q ? Math.round(x * 100) / 100 : Math.trunc(x);
-      if (v === k.def) v = 0;
-      this.set(k.store, v);
-      this.applySetting(k.store, false);
+      val.textContent = formatString(spec.fmt, valueOf(pos));
     };
     show();
     // Rotation follows the pointer's angle about the centre (relative drag).
@@ -877,17 +869,17 @@ export class Settings {
       drag.p = Math.max(0, Math.min(1, drag.p + d / 300));
       pos = drag.p;
       show();
-      commit();
+      spec.write(valueOf(pos));
     });
     const up = () => { drag = null; knob.classList.remove('on'); };
     knob.addEventListener('pointerup', up);
     knob.addEventListener('pointercancel', up);
-    const enter = () => this.promptValue(t.textContent, this.str('@string/value_change_volume_warning'), val.textContent.replace(/%/g, ''), text => {
+    const enter = () => this.promptValue(spec.title, this.str('@string/value_change_volume_warning'), val.textContent.replace(/[^0-9.,+-]/g, ''), text => {
       const x = parseFloat(String(text).replace(/,/g, '.'));
       if (Number.isNaN(x)) return;
       pos = Math.max(0, Math.min(1, (x - min) / (max - min)));
       show();
-      commit();
+      spec.write(valueOf(pos));
     });
     val.addEventListener('pointerdown', () => { clearTimeout(longTimer); longTimer = setTimeout(enter, 400); });
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) val.addEventListener(ev, () => clearTimeout(longTimer));
@@ -895,98 +887,41 @@ export class Settings {
   }
 
   /**
-   * SeekbarPreference: min/max/step over the stored value, or an index into
-   * values (int, float or string array); a float pref stores value/floatScale.
-   * The summary (and summary2 after a blank line) formats the value: the
-   * entry at that value when entries exist, else the value (divided by scale
-   * when one is set); a format-free text shows as is. The summary follows
-   * the drag; the value is stored when the touch ends. Left / centre / right
-   * labels and tick marks sit under the bar.
+   * Tone knobs (ur1): linear over the parameter's range; frequencies store
+   * whole hertz and Q factors two decimals, the default stored as 0.
    */
-  renderSeekbar(node, key, def, texts, summaryEl, summary) {
-    const num = (k, d) => { const v = attr(node, k); return v === undefined ? d : +v; };
-    let min = num('min', 0) | 0, max = num('max', 100) | 0, step = (num('step', 1) | 0) || 1;
-    let scale = num('scale', -1), floatScale = num('floatScale', 0);
-    const entries = attr(node, 'entries') ? this.array(attr(node, 'entries')) : null;
-    let values = null, valueType = null;
-    if (attr(node, 'values')) {
-      const raw = this.array(attr(node, 'values'));
-      if (raw.length >= 2) {
-        values = raw;
-        valueType = raw.every(v => /^-?\d+$/.test(v)) ? 'int' : raw.every(v => !Number.isNaN(+v)) ? 'float' : 'string';
-        min = 0; max = raw.length - 1; step = 1; scale = -1; floatScale = 0;
-      }
-    }
-    const typed = v => (valueType === 'int' ? parseInt(v, 10) : valueType === 'float' ? parseFloat(v) : String(v));
-    // The current position (f527) from the stored value.
-    const stored = this.get(key, undefined);
-    let index;
-    if (values) {
-      const cur = stored ?? def;
-      index = values.findIndex(v => (valueType === 'string' ? v === String(cur) : typed(v) === +cur));
-      if (index < 0) index = 0;
-    } else {
-      let v;
-      if (floatScale) v = Math.round((stored !== undefined ? +stored : (+def || 0) / floatScale) * floatScale);
-      else v = stored !== undefined ? +stored | 0 : +def | 0;
-      index = Math.trunc((v - min) / step);
-    }
-    const valueAt = i => i * step + min;
-    const fmt = (i, str) => {
-      if (!str.includes('%')) return str;
-      if (!values) {
-        if (entries && i >= 0 && i < entries.length) return entries[i].includes('%') ? formatString(str, entries[i]) : entries[i];
-        return scale < 0 ? formatString(str, i) : formatString(str, i / scale);
-      }
-      if (i < 0) return String(i);
-      if (entries && i < entries.length) return formatString(str, entries[i] ?? '');
-      return formatString(str, i < values.length ? typed(values[i]) : i);
+  toneKnobSpec(k) {
+    const [min, max] = k.range;
+    return {
+      title: this.str('@string/key_colon_value_s_s').replace('%1$s', this.str(k.part)).replace('%2$s', k.q ? this.str('@string/band_q') : this.str('@string/frequency').toLowerCase()),
+      min, max, fmt: this.str(k.q ? '@string/f2' : '@string/f0'),
+      read: () => { const x = parseFloat(this.get(k.store, 0)); return x > 0 ? x : k.def; },
+      write: x => {
+        let v = k.q ? Math.round(x * 100) / 100 : Math.trunc(x);
+        if (v === k.def) v = 0;
+        this.set(k.store, v);
+        this.applySetting(k.store, false);
+      },
     };
-    const s1 = summary ? this.rawStr(summary) : null, s2 = attr(node, 'summary2') ? this.rawStr(attr(node, 'summary2')) : null;
-    const show = () => {
-      summaryEl.replaceChildren();
-      if (s1 === null) return;
-      const i = values ? index : valueAt(index);
-      this.appendRich(summaryEl, fmt(i, s1) + (s2 ? '\n\n' + fmt(i, s2) : ''));
-      if (summaryEl.parentNode !== texts) texts.insertBefore(summaryEl, wrap);
+  }
+
+  /**
+   * A knob from its XML (rg_preamp_mb …): an int over min..max shown divided
+   * by scale in valueFormat.
+   */
+  attrKnobSpec(node, key, def) {
+    const scale = +(attr(node, 'scale') ?? 1) || 1;
+    const lo = +(attr(node, 'min') ?? 0), hi = +(attr(node, 'max') ?? 100);
+    return {
+      title: this.str(attr(node, 'title')),
+      min: lo / scale, max: hi / scale, fmt: this.str(attr(node, 'valueFormat') ?? '%s'),
+      read: () => (+this.get(key, def ?? 0) || 0) / scale,
+      write: x => {
+        const v = Math.max(lo, Math.min(hi, Math.round(x * scale)));
+        this.set(key, v);
+        this.applySetting(key, false);
+      },
     };
-    const input = document.createElement('input');
-    input.type = 'range';
-    input.min = '0';
-    input.max = String(Math.trunc((max - min) / step));
-    input.step = '1';
-    input.value = String(index);
-    input.className = 'cps-seek';
-    input.addEventListener('input', () => { index = +input.value; show(); });
-    input.addEventListener('change', () => {
-      const v = valueAt(index);
-      this.set(key, values ? typed(values[v]) : floatScale ? v / floatScale : v);
-      this.applySetting(key);
-    });
-    input.addEventListener('click', ev => ev.stopPropagation());
-    const wrap = document.createElement('div');
-    wrap.className = 'cps-seek-wrap';
-    if (attr(node, 'tickMark')) {
-      const n = Math.trunc((max - min) / step);
-      const ticks = document.createElement('div');
-      ticks.className = 'cps-seek-ticks';
-      for (let i = 0; i <= n && n <= 64; i++) ticks.appendChild(document.createElement('i'));
-      wrap.appendChild(ticks);
-    }
-    wrap.appendChild(input);
-    texts.appendChild(wrap);
-    const labels = ['leftLabel', 'centerLabel', 'rightLabel'].map(l => attr(node, l));
-    if (labels.some(Boolean)) {
-      const ends = document.createElement('div');
-      ends.className = 'cps-seek-ends';
-      for (const l of labels) {
-        const e = document.createElement('span');
-        e.textContent = l ? this.str(l) : '';
-        ends.appendChild(e);
-      }
-      texts.appendChild(ends);
-    }
-    show();
   }
 
   /** The value entry dialog (KnobLabelAndValue.e): the value selected, a hint below it, Cancel and OK. */

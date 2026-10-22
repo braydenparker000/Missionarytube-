@@ -408,10 +408,10 @@ export const PREF_STATUS = {
   _trebleFreq: [BUILT, 'Tone shelf corner frequency and Q (tone_* values, F68)'],
   _trebleQ: [BUILT, 'Tone shelf corner frequency and Q (tone_* values, F68)'],
   // rg
-  rg_type: [TODO, ''],
-  rg_source: [TODO, ''],
-  rg_preamp_mb: [TODO, ''],
-  rg_default_mb: [TODO, ''],
+  rg_type: [BUILT, 'ReplayGain from track/album tags with preamp, default gain and peak limiting (F71)'],
+  rg_source: [BUILT, 'ReplayGain from track/album tags with preamp, default gain and peak limiting (F71)'],
+  rg_preamp_mb: [BUILT, 'ReplayGain from track/album tags with preamp, default gain and peak limiting (F71)'],
+  rg_default_mb: [BUILT, 'ReplayGain from track/album tags with preamp, default gain and peak limiting (F71)'],
   // singlepane
   manage_app_warn: [BUILT, ''],
   perm_warn: [UI, ''],

@@ -300,16 +300,25 @@ export class DSP {
     }
   }
 
-  /** A media element's own gain into the graph (null before the graph exists). */
+  /** A media element's own (fade) gain into the graph (null before the graph exists). */
   deckGain(el) {
-    return this.sources?.get(el) ?? null;
+    return this.sources?.get(el)?.fade ?? null;
   }
 
+  /** Each element: source → ReplayGain → fade gain → preamp. */
   connectElement(el) {
     if (!this.nodes || !el || this.sources.has(el)) return;
-    const g = this.ac.createGain();
-    this.ac.createMediaElementSource(el).connect(g).connect(this.nodes.preamp);
-    this.sources.set(el, g);
+    const rg = this.ac.createGain(), fade = this.ac.createGain();
+    rg.gain.value = el._rgGain ?? 1;
+    this.ac.createMediaElementSource(el).connect(rg).connect(fade).connect(this.nodes.preamp);
+    this.sources.set(el, {rg, fade});
+  }
+
+  /** The ReplayGain of an element's track (linear); kept for a graph built later. */
+  setReplayGain(el, gain) {
+    el._rgGain = gain;
+    const n = this.sources?.get(el);
+    if (n) n.rg.gain.setTargetAtTime(gain, this.ac.currentTime, 0.01);
   }
 
   /** Builds the graph on the player's media element (needs a user gesture first). */

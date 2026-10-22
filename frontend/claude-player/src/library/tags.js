@@ -57,6 +57,24 @@ function parseNumberPair(s) {
 }
 
 /** ID3v2.2/2.3/2.4 frames of interest. */
+/**
+ * ReplayGain tags: REPLAYGAIN_{TRACK,ALBUM}_{GAIN,PEAK} ("-6.5 dB", "0.98"),
+ * or Opus R128_{TRACK,ALBUM}_GAIN (Q7.8 dB relative to -23 LUFS; +5 dB to
+ * the ReplayGain reference).
+ */
+function setReplayGain(out, key, value) {
+  const k = key.toUpperCase().replace(/\s+/g, '_');
+  const m = /^(?:REPLAYGAIN_(TRACK|ALBUM)_(GAIN|PEAK)|R128_(TRACK|ALBUM)_GAIN)$/.exec(k);
+  if (!m) return false;
+  const x = parseFloat(String(value).replace(',', '.'));
+  if (!Number.isFinite(x)) return true;
+  const rg = out.replayGain ??= {};
+  if (m[3]) rg[m[3].toLowerCase()] ??= Math.round((x / 256 + 5) * 100) / 100;
+  else if (m[2] === 'GAIN') rg[m[1].toLowerCase()] = x;
+  else rg[m[1].toLowerCase() + 'Peak'] = x;
+  return true;
+}
+
 function readId3(b, out) {
   if (b.length < 10 || b[0] !== 0x49 || b[1] !== 0x44 || b[2] !== 0x33) return 0;
   const ver = b[3], flags = b[5];
@@ -83,6 +101,13 @@ function readId3(b, out) {
       case 'TPOS': case 'TPA': [out.disc] = parseNumberPair(text()); break;
       case 'TYER': case 'TYE': case 'TDRC': out.year = parseInt(text()) || out.year; break;
       case 'TLEN': out.durationMs ||= parseInt(text()) || 0; break;
+      case 'TXXX': case 'TXX': {
+        // User text: description \0 value (ReplayGain).
+        const t = decodeText(body.subarray(1), body[0]);
+        const z = t.indexOf('\0');
+        if (z > 0) setReplayGain(out, t.slice(0, z), t.slice(z + 1).replace(/\0+$/g, ''));
+        break;
+      }
       case 'USLT': case 'ULT': {
         // Encoding, 3-byte language, terminated descriptor, then the lyrics.
         const enc = body[0];
@@ -147,6 +172,7 @@ function readVorbisComments(b, o, out) {
     const eq = s.indexOf('=');
     if (eq < 0) continue;
     const k = s.slice(0, eq).toUpperCase(), v = s.slice(eq + 1).trim();
+    if (setReplayGain(out, k, v)) continue;
     if (k === 'TITLE') out.title = v;
     else if (k === 'ARTIST') out.artist = out.artist ? out.artist + ' / ' + v : v;
     else if (k === 'ALBUMARTIST' || k === 'ALBUM ARTIST') out.albumArtist = v;
@@ -291,6 +317,18 @@ function readMp4(b, out) {
       if (size < 8) size = end - o;
       const body = o + hdr, next = o + size;
       if (type === 'moov' || type === 'udta' || type === 'ilst' || type === 'trak' || type === 'mdia') walk(body, Math.min(next, end), depth + 1);
+      else if (type === '----' && depth >= 2) {
+        // Freeform item: mean, name, data (com.apple.iTunes:replaygain_track_gain).
+        let p = body, name = '', value = '';
+        while (p + 8 <= Math.min(next, b.length)) {
+          const sz = be32(b, p), t = latin1.decode(b.subarray(p + 4, p + 8));
+          if (sz < 8) break;
+          if (t === 'name') name = utf8.decode(b.subarray(p + 12, p + sz));
+          else if (t === 'data') value = utf8.decode(b.subarray(p + 16, p + sz));
+          p += sz;
+        }
+        if (name) setReplayGain(out, name, value);
+      }
       else if (type === 'meta') walk(body + 4, Math.min(next, end), depth + 1);
       else if (type === 'mvhd') {
         const v = b[body];
