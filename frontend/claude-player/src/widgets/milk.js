@@ -60,7 +60,7 @@ export class MilkWidget extends View {
       saturation: ((s.aa_blur_saturation ?? 150) / 100) * this.blurSaturationMul,
       intensity: ((s.aa_blur_intensity ?? 100) / 100) * this.blurIntensityMul,
       gradient: Math.max(0, Math.min(10, s.aa_bg_gradient ?? 4)),
-      gradientColor: parseColor(s.aa_bg_gradient_color ?? '#FF000000') ?? 0xff000000,
+      gradientColor: parseColor(String(s.aa_bg_gradient_color ?? '#FF000000').split('|')[0]) ?? 0xff000000,
     };
   }
 

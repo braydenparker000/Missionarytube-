@@ -240,6 +240,7 @@ renderer or a licensed open-source one; no presets redistributed without a licen
 ### F22 — AutoEQ database — `CONFIRMED_STATIC`; budget constraint
 `assets/auto_eq.db` is 7.3 MB, which exceeds the whole remaining frontend budget (F25).
 (f) `UNSUPPORTED_WEB` within the current hosting budget. Would need an approved data-hosting decision.
+The user's own AutoEq project zip and AutoEq text files import as presets (F82).
 
 ### F23 — Album-art background parameters — `CONFIRMED_STATIC`
 `aa_bg.xml`: blur 0–15 (default 5), details 0–10 (default 5), intensity 0–250 % (default 100),
@@ -1835,6 +1836,28 @@ huge limit.
 `LimiterDSPCheckBox` in `widgets/eq.js`, `list/moveable-toolbar.js`, `list/power-list.js`
 (`scrollState().first`), `view/fast-layout.js`.
 
+### F84 — Colour and text preferences — `CONFIRMED_STATIC` / `INFERRED` in part
+
+(a) S1 `ColorPreference`, `preference_color`, `AmbilwarnaLayout` / `ambilwarna_layout`
+(`AmbilWarnaKotak`, `ambilwarna_hueWidth` 36 dp, `ambilwarna_spacer` 16 dp), `EditTextPreference`
+rows (`lyrics_custom_url`).
+
+(c) **Colour** (`aa_bg_gradient_color`):
+- The row shows "#RRGGBB" and a 60 × 30 dp swatch under its text.
+- A click opens the picker with no title: a saturation / value square 280 dp high, the hue bar on
+  its right (hue 0 at the bottom, 360 at the top) with its cursor, the target ring, then the new
+  colour (60 × 30 dp) beside its six hex digits. Typing six valid digits sets the colour.
+- OK stores "#AARRGGBB|@0" (the reference's form; `@<attr>` names a theme colour picked from the
+  system palette circles).
+
+**Text:** a one-line entry dialog (title, OK / Cancel).
+
+(e) **Inferred:** the swatch corner rounding (the outline provider's radius is not read). **No web
+counterpart:** the Android 12 system palette circles (`merge_widget_mu_colors`).
+
+(f) `settings/settings.js` (`pickColor`, `editText`, `colorPrefValue`), `app.css` (`.cps-amb*`),
+`widgets/milk.js` (reads the colour part).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1867,7 +1890,7 @@ No status is device-verified.
 | F11 skin options | Built | Every option rendered and checked in a sweep (F11); looks not compared with reference screenshots. Follow Day/Night is built (F56). Material You has no seed-colour substitute. |
 | F12 window buckets | Built | — |
 | F13 waveseek | Built | Native analysis `OPEN` |
-| F14 gesture inventory | Partial | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58); drag reorder and multi-select drag (F59); the navbar sheet drag (F60). the lyrics button long press (lyrics dialog, F61). **Not built:** long press between buttons (edit; feature-pack tier, owner decision). The help's visualization ←/→ preset swipe (`h_vis_swipe`) is anchored to `vis_panel_frame`: it is the vis panel pager, which is built, and no UI class sends `cmd_player_load_next/prev_milk_preset`. |
+| F14 gesture inventory | Built | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58); drag reorder and multi-select drag (F59); the navbar sheet drag (F60). the lyrics button long press (lyrics dialog, F61); the long press between the sub-art buttons (editing, F62). The help's visualization ←/→ preset swipe (`h_vis_swipe`) is anchored to `vis_panel_frame`: it is the vis panel pager, which is built, and no UI class sends `cmd_player_load_next/prev_milk_preset`. |
 | F15 thresholds and physics | Built | VelocityTracker reproduced in form only |
 | F16 navbar | Built | — |
 | F17 settings corpus | Built (screens) | Per-key implementation statuses not recorded |
@@ -1875,7 +1898,7 @@ No status is device-verified.
 | F19 typography | Built | — |
 | F20 audio | Built (web subset) | Native engine `UW` |
 | F21 visualization | Built (butterchurn) | — |
-| F22 AutoEQ | Not built | `UW` within the budget |
+| F22 AutoEQ | Partial | The bundled database is `UW` within the budget; the AutoEq project zip and text files import (F82) |
 | F23 art background | Built | Blur kernel approximated |
 | F24 renderer bench | N/A | — |
 | F25 hosting | N/A | — |
@@ -1886,7 +1909,7 @@ No status is device-verified.
 | F30 backdrop | Built (approximation) | — |
 | F31 elapsed/duration | Partial | Placement `OPEN` |
 | F32 knob stacks | Partial | Laid out by intent |
-| F33 equalizer | Partial | Presets per F67, song assignment per F81, parametric mode per F82; platform FX, AutoEQ and device assignment not built |
+| F33 equalizer | Partial | Presets per F67, song assignment per F81, parametric mode and AutoEq import per F82; platform FX, the bundled AutoEq database and device assignment not built |
 | F34 popups | Built | Curve inferred |
 | F35 marquee | Built | — |
 | F36 sleep timer | Built | Expiry fade not verified |
@@ -1903,7 +1926,7 @@ No status is device-verified.
 | F47 waveform data | Built | — |
 | F48 list page transitions | Built | Pair times per navigation and the lyrics swipe pivot side inferred (F48 (e)) |
 | F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics button long press opens the lyrics dialog (F61). |
-| F50 unbuilt gestures | Not built | Predictive back (no browser counterpart); sub-art button editing is F62 |
+| F50 unbuilt gestures | `UW` | Predictive back has no browser counterpart (the system back arrives as a plain history step); sub-art button editing is F62 |
 | F59 drag reorder | Built | Release mid-slide and the grid path inferred or untested |
 | F60 navbar sheet drag | Built | — |
 | F61 lyrics dialog | Built | The share sheet substitutes the search chooser; provider apps not built |
@@ -1919,7 +1942,7 @@ No status is device-verified.
 | F63 library list preferences / List Options | Built | — |
 | F65 queue | Built | Shuffled order inferred |
 | F66 playlist re-sort / files | Built | Import picks files (web) |
-| F67 EQ presets | Partial | Song / category assignment built (F81), parametric presets (F82); device assignment and AutoEq not built |
+| F67 EQ presets | Partial | Song / category assignment built (F81), parametric, default and AutoEq presets (F82); device assignment not built |
 | F68 EQ knob values, Tone / band settings, settings rows | Built | Band frequencies for non-ISO counts and resampling inferred; dsp_border_gain native |
 | F69 Reverb presets | Built | Parameter 8 kept at 1.0 without a knob |
 | F70 Fades and crossfades | Built | Curves and the gapless-pair test inferred (native pipeline) |
@@ -1936,6 +1959,7 @@ No status is device-verified.
 | F80 Library list overscroll | Built | Rubber band reading of `mo1890` and the row scale pivot inferred; glow only where the theme colours it |
 | F82 Parametric equalizer | Built | Filter maths and curve axis inferred (native); tall item layout by intent; AutoEq text files and the AutoEq project zip import; per-device suggestions not built |
 | F83 App drawable states, unlimited wrap measuring | Built | — |
+| F84 Colour and text preferences | Built | System palette circles have no web counterpart |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

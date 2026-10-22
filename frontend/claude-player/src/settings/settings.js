@@ -118,6 +118,28 @@ export function prefDefaults(res) {
   return out;
 }
 
+/** A ColorPreference value ("#AARRGGBB|@<attr>", or a plain colour) as ARGB, or null. */
+export function colorPrefValue(v) {
+  const m = /^#([0-9a-fA-F]{8}|[0-9a-fA-F]{6})(?![0-9a-fA-F])/.exec(String(v ?? ''));
+  if (!m) return null;
+  return (m[1].length === 6 ? 0xff000000 | parseInt(m[1], 16) : parseInt(m[1], 16)) >>> 0;
+}
+const hex6 = c => (c & 0xffffff).toString(16).padStart(6, '0').toUpperCase();
+const cssArgb = c => `rgba(${(c >>> 16) & 255},${(c >>> 8) & 255},${c & 255},${((c >>> 24) & 255) / 255})`;
+function argbToHsv(c) {
+  const r = ((c >>> 16) & 255) / 255, g = ((c >>> 8) & 255) / 255, b = (c & 255) / 255;
+  const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+  let h = 0;
+  if (d) h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [(h * 60 + 360) % 360, max ? d / max : 0, max];
+}
+function hsvToArgb([h, s, v]) {
+  const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  const k = n => Math.round((n + m) * 255);
+  return ((0xff << 24) | (k(r) << 16) | (k(g) << 8) | k(b)) >>> 0;
+}
+
 export class Settings {
   constructor(ctx) {
     this.ctx = ctx;
@@ -445,6 +467,98 @@ export class Settings {
     input.click();
   }
 
+  /** A dialog holding custom content with Cancel / OK; ok() returns false to stay open. */
+  contentDialog(title, content, ok) {
+    const shade = document.createElement('div');
+    shade.className = 'cps-dialog-shade';
+    const dlg = document.createElement('div');
+    dlg.className = 'cps-dialog';
+    if (title) {
+      const h = document.createElement('div');
+      h.className = 'cps-dialog-title';
+      h.textContent = title;
+      dlg.appendChild(h);
+    }
+    const bar = document.createElement('div');
+    bar.className = 'cps-dialog-buttons';
+    const button = (label, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cps-dialog-btn';
+      b.textContent = label;
+      b.addEventListener('click', () => { if (fn?.() !== false) shade.remove(); });
+      return b;
+    };
+    bar.append(button(this.str('@string/cancel')), button(this.str('@string/OK'), ok));
+    dlg.append(content, bar);
+    shade.addEventListener('click', ev => { if (ev.target === shade) shade.remove(); });
+    shade.appendChild(dlg);
+    this.root.appendChild(shade);
+    this.dialog = shade;
+    return shade;
+  }
+
+  /** EditTextPreference: one line, selected, Enter confirms. */
+  editText(title, value, done) {
+    const wrap = document.createElement('div');
+    wrap.className = 'cps-dialog-field';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'cps-edit';
+    input.value = value;
+    wrap.appendChild(input);
+    const shade = this.contentDialog(title, wrap, () => done(input.value));
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { done(input.value); shade.remove(); } });
+    setTimeout(() => { input.focus(); input.select(); }, 50);
+  }
+
+  /**
+   * The colour picker (AmbilwarnaLayout, no title): a saturation / value
+   * square 280 dp high with the hue bar (36 dp, 16 dp apart) on its right,
+   * the hue cursor beside the bar (hue 0 at the bottom, 360 at the top) and
+   * the target ring on the square; under them the new colour (60 x 30 dp)
+   * and its six hex digits (typing six valid digits sets the colour). The
+   * system palette circles of Android 12 have no web counterpart.
+   */
+  pickColor(initial, done) {
+    const hsv = argbToHsv(initial);
+    const box = document.createElement('div');
+    box.className = 'cps-amb';
+    box.innerHTML = '<div class="cps-amb-top"><div class="cps-amb-sv"><div class="cps-amb-target"></div></div><div class="cps-amb-hue"><div class="cps-amb-cursor"></div></div></div><div class="cps-amb-bottom"><div class="cps-amb-new"></div><input class="cps-edit cps-amb-hex" maxlength="6" spellcheck="false"></div>';
+    const sv = box.querySelector('.cps-amb-sv'), hue = box.querySelector('.cps-amb-hue');
+    const target = box.querySelector('.cps-amb-target'), cursor = box.querySelector('.cps-amb-cursor');
+    const preview = box.querySelector('.cps-amb-new'), hex = box.querySelector('.cps-amb-hex');
+    const paint = (setHex = true) => {
+      const c = hsvToArgb(hsv);
+      sv.style.backgroundColor = cssArgb(hsvToArgb([hsv[0], 1, 1]));
+      target.style.left = hsv[1] * 100 + '%';
+      target.style.top = (1 - hsv[2]) * 100 + '%';
+      const y = 1 - hsv[0] / 360;
+      cursor.style.top = (y === 1 ? 0 : y) * 100 + '%';
+      preview.style.background = cssArgb(c);
+      if (setHex) hex.value = hex6(c);
+    };
+    const drag = (el, fn) => el.addEventListener('pointerdown', e => {
+      el.setPointerCapture(e.pointerId);
+      const at = ev => { const r = el.getBoundingClientRect(); fn(Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)), Math.max(0, Math.min(1, (ev.clientY - r.top) / r.height))); paint(); };
+      at(e);
+      const move = ev => at(ev);
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', () => el.removeEventListener('pointermove', move), {once: true});
+    });
+    drag(sv, (x, y) => { hsv[1] = x; hsv[2] = 1 - y; });
+    drag(hue, (x, y) => { hsv[0] = 360 - y * 360; });
+    hex.addEventListener('input', () => {
+      const v = hex.value;
+      if (!/^[0-9a-fA-F]{6}$/.test(v)) return;
+      const c = (0xff000000 | parseInt(v, 16)) >>> 0;
+      hsv.splice(0, 3, ...argbToHsv(c));
+      paint(false);
+    });
+    paint();
+    this.contentDialog(null, box, () => done(hsvToArgb(hsv)));
+  }
+
   /** A platform toast over the settings page (2 s). */
   toast(message) {
     this.toastEl?.remove();
@@ -656,6 +770,39 @@ export class Settings {
         row.addEventListener('click', () => this.choose(this.str(attr(node, 'dialogTitle') ?? title), entries, values.indexOf(String(this.get(key, def ?? ''))), i => {
           this.set(key, values[i]);
           valueEl.textContent = cur();
+          this.applySetting(key);
+        }));
+        break;
+      }
+      case 'EditTextPreference': {
+        // A text entry dialog (title, the value selected, OK / Cancel); "%s" shows the value.
+        const showValue = summary === '%s';
+        if (showValue) summary = null;
+        const valueEl = document.createElement('div');
+        valueEl.className = 'cps-summary cps-value';
+        const sync = () => { valueEl.textContent = String(this.get(key, def ?? '') ?? ''); };
+        if (showValue) { sync(); texts.appendChild(valueEl); }
+        row.addEventListener('click', () => this.editText(this.str(attr(node, 'dialogTitle') ?? title), String(this.get(key, def ?? '') ?? ''), v => { this.set(key, v); sync(); this.applySetting(key); }));
+        break;
+      }
+      case 'ColorPreference': {
+        // preference_color: the summary "#RRGGBB" and a 60 x 30 dp swatch under
+        // the text; a click opens the colour picker (AmbilwarnaLayout).
+        if (summary === '%s') summary = null;
+        const valueEl = document.createElement('div');
+        valueEl.className = 'cps-summary cps-value';
+        const swatch = document.createElement('div');
+        swatch.className = 'cps-color-swatch';
+        const sync = () => {
+          const c = colorPrefValue(this.get(key, def ?? ''));
+          valueEl.textContent = c === null ? '' : '#' + hex6(c);
+          swatch.style.background = c === null ? 'transparent' : cssArgb(c);
+        };
+        sync();
+        texts.append(valueEl, swatch);
+        row.addEventListener('click', () => this.pickColor(colorPrefValue(this.get(key, def ?? '')) ?? 0xff000000, c => {
+          this.set(key, '#' + (c >>> 0).toString(16).padStart(8, '0') + '|@0');
+          sync();
           this.applySetting(key);
         }));
         break;
