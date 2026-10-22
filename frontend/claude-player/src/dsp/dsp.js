@@ -300,13 +300,25 @@ export class DSP {
     }
   }
 
+  /** A media element's own gain into the graph (null before the graph exists). */
+  deckGain(el) {
+    return this.sources?.get(el) ?? null;
+  }
+
+  connectElement(el) {
+    if (!this.nodes || !el || this.sources.has(el)) return;
+    const g = this.ac.createGain();
+    this.ac.createMediaElementSource(el).connect(g).connect(this.nodes.preamp);
+    this.sources.set(el, g);
+  }
+
   /** Builds the graph on the player's media element (needs a user gesture first). */
   attach(audio) {
-    if (this.nodes || !audio) return;
+    if (this.nodes) { this.connectElement(audio); return; }
+    if (!audio) return;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ac = this.ac = new AC();
-    const src = ac.createMediaElementSource(audio);
     const preamp = ac.createGain();
     const bands = this.bands.map(b => {
       const f = ac.createBiquadFilter();
@@ -336,7 +348,7 @@ export class DSP {
     const analyser = ac.createAnalyser();
     analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0.75;
-    let n = src.connect(preamp);
+    let n = preamp;
     for (const f of bands) n = n.connect(f);
     n.connect(bass.input);
     bass.output.connect(treble.input);
@@ -344,7 +356,11 @@ export class DSP {
     merge.connect(pan);
     pan.connect(dry).connect(sum);
     pan.connect(predelay).connect(convolver).connect(wet).connect(sum);
-    this.nodes = {src, preamp, bands, bass, treble, ll, lr, rl, rr, pan, dry, wet, predelay, convolver, sum, limiter, limiterBypass, volume, analyser};
+    this.nodes = {preamp, bands, bass, treble, ll, lr, rl, rr, pan, dry, wet, predelay, convolver, sum, limiter, limiterBypass, volume, analyser};
+    // Each media element (the player's decks) feeds the preamp through its own
+    // gain, the fades' control.
+    this.sources = new Map();
+    this.connectElement(audio);
     this.routeLimiter();
     volume.connect(analyser).connect(ac.destination);
     this._irKey = null;
@@ -428,12 +444,14 @@ export class DSP {
   }
 
   applyTempo() {
-    const audio = this.ctx.player?.audio;
-    if (!audio) return;
+    const p = this.ctx.player;
+    const decks = p?.decks?.length ? p.decks : p?.audio ? [p.audio] : [];
     const on = this.values.dsp_enabled && this.values.dsp_tempo_enabled;
     const rate = on ? tempoRate(this.values.dsp_tempo) : 1;
-    if (audio.playbackRate !== rate) audio.playbackRate = rate;
-    audio.preservesPitch = true;
+    for (const audio of decks) {
+      if (audio.playbackRate !== rate) audio.playbackRate = rate;
+      audio.preservesPitch = true;
+    }
   }
 
   /**

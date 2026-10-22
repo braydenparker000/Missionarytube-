@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 126 |
+| Built | 135 |
 | Settings UI | 109 |
-| Not built | 34 |
+| Not built | 25 |
 | No web counterpart | 141 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -259,16 +259,16 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `crossfade_auto_advance` | TagListPreference | Not built |  |
-| `fade_manual_advance` | TagListPreference | Not built |  |
-| `fade_play_pause` | MultilineSwitchPreference | Not built |  |
-| `fade_seek` | MultilineSwitchPreference | Not built |  |
+| `crossfade_auto_advance` | TagListPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
+| `fade_manual_advance` | TagListPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
+| `fade_play_pause` | MultilineSwitchPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
+| `fade_seek` | MultilineSwitchPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
 | `gapless_preload_ms` | SeekbarPreference | No web counterpart | The browser decodes, resamples and dithers the audio |
-| `track_end_silence_ms` | SeekbarPreference | Not built |  |
-| `crossfade_length_ms` | SeekbarPreference | Not built |  |
-| `fade_short_xfade_ms` | SeekbarPreference | Not built |  |
-| `fade_short_ms` | SeekbarPreference | Not built |  |
-| `fade_seek_ms` | SeekbarPreference | Not built |  |
+| `track_end_silence_ms` | SeekbarPreference | Built | Silence after a track before the next one (F70) |
+| `crossfade_length_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
+| `fade_short_xfade_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
+| `fade_short_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
+| `fade_seek_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
 
 ## feature_packages
 

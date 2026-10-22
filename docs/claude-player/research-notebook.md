@@ -1228,6 +1228,34 @@ shelves' frequency and Q in the JSON are the Tone settings, F68.)
   built-in.
 - Both confirm first and show "Done".
 
+### F70 — Fades and crossfades — `CONFIRMED_STATIC` (settings) / `INF` (curves)
+
+(a) S1 `fade.xml`, `b40` (crossfade_auto_advance 0, crossfade_length_ms 5000, fade_manual_advance 1,
+fade_short_ms 400, fade_short_xfade_ms 400, fade_seek_ms 100, fade_play_pause and fade_seek on,
+track_end_silence_ms 0), `v11` (hands them to the native `Pipeline2.l / u / q / n / r`),
+`pref_auto_fading_entries`, `pref_fading_entries`.
+
+(c) The fading itself runs in the native pipeline, so these behaviours follow the settings' wording
+with linear gain ramps (inferred). The player has two media decks, each with its own gain in the
+DSP graph.
+
+- **Play / pause** (fade_play_pause): pausing fades out over fade_short_ms, then pauses; resuming
+  fades in. A seek made while fading out (Stop) lands once it is silent.
+- **Seek** (fade_seek): out over fade_seek_ms, the jump, then in over fade_seek_ms. The position shows
+  the target at once.
+- **Manual track changes** (fade_manual_advance): No fading, Short crossfade (fade_short_xfade_ms) or
+  Crossfade (crossfade_length_ms). The next track starts on the other deck while the current one
+  fades out.
+- **Automatic advance** (crossfade_auto_advance): within crossfade_length_ms of the end the next track
+  starts crossfading. Modes:
+  - All songs.
+  - Shuffled songs: only with shuffle on.
+  - Non-gapless/cue: except for gapless pairs. A gapless pair is inferred as the next track number of
+    the same album, disc and folder.
+  - No crossfade is started when the advance would stop (end of list, single song, sleep timer) or
+    repeat the song, or when the track is not longer than the crossfade.
+- **track_end_silence_ms:** silence after a track ends before the next one starts.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1315,6 +1343,7 @@ No status is device-verified.
 | F67 EQ presets | Partial | Assignment, AutoEq, parametric not built |
 | F68 EQ knob values, Tone / band settings, settings rows | Built | Band frequencies for non-ISO counts and resampling inferred; dsp_border_gain native |
 | F69 Reverb presets | Built | Parameter 8 kept at 1.0 without a knob |
+| F70 Fades and crossfades | Built | Curves and the gapless-pair test inferred (native pipeline) |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

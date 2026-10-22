@@ -2,6 +2,7 @@
 // the reference's player command/state messages on the message bus.
 // bus_player_cmd carries commands in; bus_player carries state changes out.
 import {trackTitle, artistLabel, albumLabel} from '../library/labels.js';
+import {DeckFader, fadePrefs, gaplessPair, AUTO_NONE, AUTO_NON_GAPLESS, AUTO_SHUFFLED, MANUAL_SHORT, MANUAL_CROSSFADE} from './fades.js';
 
 // Reference mode enums (integers SHUFFLE_* / REPEAT_*).
 export const SHUFFLE_NONE = 0, SHUFFLE_ALL = 1;
@@ -38,19 +39,30 @@ export class Player {
     this.state = STATE_STOPPED;
     this.shuffle = 0;
     this.repeat = 1;
-    this.audio = typeof Audio === 'function' ? new Audio() : null;
+    // Two media elements (decks): a crossfade plays the next track on the
+    // other one while this one fades out. this.audio is the current deck.
+    this.decks = typeof Audio === 'function' ? [new Audio(), new Audio()] : [];
+    this.audio = this.decks[0] ?? null;
+    this.fader = new DeckFader(ctx);
     // Tracks without a media source play on a virtual clock (demo content).
     this.virtualStart = 0;
     this.virtualPos = 0;
-    if (this.audio) {
-      this.audio.preload = 'auto';
+    for (const el of this.decks) {
+      el.preload = 'auto';
       // CORS media so the DSP and visualization can process remote streams.
-      this.audio.crossOrigin = 'anonymous';
-      this.audio.addEventListener('ended', () => { this.checkPlayed(true); this.onEnded(); });
-      this.audio.addEventListener('timeupdate', () => this.checkPlayed());
-      this.audio.addEventListener('loadedmetadata', () => {
+      el.crossOrigin = 'anonymous';
+      el.addEventListener('ended', () => {
+        if (el !== this.audio) return;
+        this.checkPlayed(true);
+        // track_end_silence_ms: silence after the track before the next one.
+        const gap = fadePrefs(this.ctx).endSilenceMs;
+        if (gap > 0) { clearTimeout(this.silenceTimer); this.silenceTimer = setTimeout(() => this.onEnded(), gap); } else this.onEnded();
+      });
+      el.addEventListener('timeupdate', () => { if (el === this.audio) { this.checkPlayed(); this.checkCrossfade(); } });
+      el.addEventListener('loadedmetadata', () => {
+        if (el !== this.audio) return;
         const t = this.track;
-        const ms = Number.isFinite(this.audio.duration) ? Math.round(this.audio.duration * 1000) : 0;
+        const ms = Number.isFinite(el.duration) ? Math.round(el.duration * 1000) : 0;
         if (t && ms && Math.abs((t.durationMs || 0) - ms) > 1000) {
           t.durationMs = ms;
           this.ctx.library?.rememberDuration(t, ms);
@@ -249,21 +261,55 @@ export class Player {
   }
 
   load(index, autoplay) {
+    // A playing media track crossfades into the next one when the fade
+    // settings ask for it (automatic advance armed by checkCrossfade, or a
+    // manual change per fade_manual_advance).
+    const prev = this.track, old = this.audio;
+    const sounding = this.state === STATE_PLAYING && autoplay && this.isMedia(prev) && !!old?.src && !old.paused;
+    const fadeMs = sounding ? this.transitionMs() : 0;
+    this.xfadeAuto = 0;
+    this.seekTarget = null;
+    clearTimeout(this.silenceTimer);
     this.index = index;
     this.virtualPos = 0;
     this.virtualStart = performance.now();
     const t = this.track;
     const token = this.loadToken = (this.loadToken ?? 0) + 1;
     if (this.audio) {
-      this.audio.removeAttribute('src');
-      if (t && (t.src || t.libraryId || this.ctx.library?.byId.has(t.id))) {
+      const media = t && (t.src || t.libraryId || this.ctx.library?.byId.has(t.id));
+      let fadeIn = 0;
+      if (fadeMs > 0 && media && this.decks.length > 1) {
+        const next = this.decks.find(d => d !== old);
+        this.fader.stop(next);
+        next.pause();
+        next.removeAttribute('src');
+        this.audio = next;
+        this.fader.set(next, 0);
+        this.fader.ramp(old, 0, fadeMs, () => {
+          if (old === this.audio) return;
+          old.pause();
+          old.removeAttribute('src');
+          this.fader.set(old, 1);
+        });
+        fadeIn = fadeMs;
+      } else {
+        for (const d of this.decks) if (d !== this.audio) { this.fader.stop(d); d.pause(); d.removeAttribute('src'); }
+        this.fader.set(this.audio, 1);
+        this.audio.removeAttribute('src');
+      }
+      if (media) {
+        const el = this.audio;
         const ready = t.src ? Promise.resolve(t.src) : this.ctx.library.mediaUrl(t);
         ready.then(url => {
           if (token !== this.loadToken || !url) return;
           t.src = url;
-          this.audio.src = url;
-          if (this.pendingSeek) { this.audio.currentTime = this.pendingSeek / 1000; this.pendingSeek = 0; }
-          if (this.state === STATE_PLAYING) this.audio.play().catch(() => {});
+          el.src = url;
+          if (this.pendingSeek) { el.currentTime = this.pendingSeek / 1000; this.pendingSeek = 0; }
+          if (this.state === STATE_PLAYING) {
+            this.ctx.dsp?.attach(el);
+            el.play().catch(() => {});
+            if (fadeIn) this.fader.ramp(el, 1, fadeIn);
+          }
         });
       }
     }
@@ -285,9 +331,52 @@ export class Player {
     }
   }
 
+  /**
+   * The crossfade length of this track change: an armed automatic advance
+   * (crossfade_auto_advance), none for other automatic advances, else
+   * fade_manual_advance (short crossfade or crossfade).
+   */
+  transitionMs() {
+    if (this.xfadeAuto) return this.xfadeAuto;
+    if (this.advancing) return 0;
+    const f = fadePrefs(this.ctx);
+    return f.manual === MANUAL_SHORT ? f.shortXfadeMs : f.manual === MANUAL_CROSSFADE ? f.crossfadeMs : 0;
+  }
+
+  /** The track an automatic advance would play next (null when it would stop or is unknown). */
+  predictNext() {
+    if (this.sleepWaitsForEnd || this.repeat === REPEAT_SONG || this.repeat === SINGLE_SONG) return null;
+    if (this.pendingQueue && (this.queueStart !== 3 || this.indexAt(1, false) === null)) return this.entries.find(e => !e.played)?.track ?? null;
+    const i = this.queueMode ? this.indexAt(1, false) : this.indexAt(1);
+    return i === null ? null : this.queue[i] ?? null;
+  }
+
+  /**
+   * Automatic crossfade (crossfade_auto_advance): within crossfade_length_ms
+   * of the end the next track starts on the other deck. Modes: all songs;
+   * shuffled songs only with shuffle on; "non-gapless/cue" except gapless
+   * pairs. A track no longer than the crossfade is not cut (inferred).
+   */
+  checkCrossfade() {
+    const el = this.audio, t = this.track;
+    if (this.state !== STATE_PLAYING || this.decks.length < 2 || !this.isMedia(t) || this.xfadeToken === this.loadToken) return;
+    const f = fadePrefs(this.ctx);
+    if (f.auto === AUTO_NONE || (f.auto === AUTO_SHUFFLED && !this.shuffle)) return;
+    const dur = el.duration * 1000, pos = el.currentTime * 1000;
+    if (!Number.isFinite(dur) || dur <= f.crossfadeMs || dur - pos > f.crossfadeMs) return;
+    const next = this.predictNext();
+    if (!next || (f.auto === AUTO_NON_GAPLESS && gaplessPair(t, next))) return;
+    this.xfadeToken = this.loadToken;
+    this.checkPlayed(true);
+    this.xfadeAuto = Math.max(50, Math.round((dur - pos) / (el.playbackRate || 1)));
+    this.onEnded();
+    this.xfadeAuto = 0;
+  }
+
   positionMs() {
     const t = this.track;
     if (!t) return 0;
+    if (this.seekTarget !== null && this.seekTarget !== undefined) return this.seekTarget;
     if (this.isMedia(t)) return Math.round(this.audio.currentTime * 1000);
     const pos = this.state === STATE_PLAYING ? this.virtualPos + (performance.now() - this.virtualStart) : this.virtualPos;
     if (t.durationMs && pos >= t.durationMs) {
@@ -330,17 +419,41 @@ export class Player {
 
   play() {
     if (!this.track) return;
+    const resume = this.state !== STATE_PLAYING;
     // The DSP graph needs a user gesture; play is the first one that matters.
     if (this.audio && this.isMedia(this.track)) {
-      this.ctx.dsp?.attach(this.audio);
+      for (const d of this.decks) this.ctx.dsp?.attach(d);
       this.ctx.dsp?.resume();
     }
-    if (this.track.src && this.audio?.src) this.audio.play().catch(() => {});
+    if (this.track.src && this.audio?.src) {
+      // fade_play_pause: resuming fades in over fade_short_ms.
+      const f = fadePrefs(this.ctx);
+      // A seek left by a pause fade-out (Stop, then Play) lands before resuming.
+      if (resume && this.seekTarget !== null && this.seekTarget !== undefined) { this.audio.currentTime = this.seekTarget / 1000; this.seekTarget = null; }
+      if (resume && f.playPause) {
+        if (this.audio.paused) this.fader.set(this.audio, 0);
+        this.fader.ramp(this.audio, 1, f.shortMs);
+      } else this.fader.set(this.audio, 1);
+      this.audio.play().catch(() => {});
+    }
     this.setState(STATE_PLAYING);
   }
 
   pause() {
-    if (this.isMedia(this.track)) this.audio.pause();
+    if (this.isMedia(this.track)) {
+      const el = this.audio, f = fadePrefs(this.ctx);
+      // A crossfade's outgoing deck stops at once.
+      for (const d of this.decks) if (d !== el) { this.fader.stop(d); d.pause(); }
+      // fade_play_pause: pausing fades out over fade_short_ms, then pauses.
+      if (f.playPause && this.state === STATE_PLAYING && !el.paused) {
+        this.fader.ramp(el, 0, f.shortMs, () => {
+          if (this.state === STATE_PLAYING || el !== this.audio) return;
+          el.pause();
+          // A seek made while fading out (Stop) lands now.
+          if (this.seekTarget !== null && this.seekTarget !== undefined) { el.currentTime = this.seekTarget / 1000; this.seekTarget = null; }
+        });
+      } else el.pause();
+    }
     this.setState(STATE_PAUSED);
   }
 
@@ -349,8 +462,25 @@ export class Player {
     if (!t) return;
     ms = Math.max(0, Math.min(ms, t.durationMs || ms));
     if (this.isMedia(t)) {
-      if (this.audio.src) this.audio.currentTime = ms / 1000;
-      else this.pendingSeek = ms;
+      const el = this.audio, f = fadePrefs(this.ctx);
+      if (!el.src) this.pendingSeek = ms;
+      else if (f.seek && this.state === STATE_PLAYING && !el.paused) {
+        // fade_seek: out over fade_seek_ms, the jump, then back in.
+        this.seekTarget = ms;
+        const token = this.loadToken;
+        this.fader.ramp(el, 0, f.seekMs, () => {
+          if (token !== this.loadToken || el !== this.audio) return;
+          el.currentTime = this.seekTarget / 1000;
+          this.seekTarget = null;
+          this.fader.ramp(el, 1, f.seekMs);
+        });
+      } else if (!el.paused && this.state !== STATE_PLAYING) {
+        // Still fading out after a pause: the jump waits for the silence.
+        this.seekTarget = ms;
+      } else {
+        this.seekTarget = null;
+        el.currentTime = ms / 1000;
+      }
     } else {
       this.virtualPos = ms;
       this.virtualStart = performance.now();
@@ -459,6 +589,12 @@ export class Player {
 
   onEnded() {
     if (this.state !== STATE_PLAYING) return;
+    // Track changes from here are automatic advances (no manual fade).
+    this.advancing = true;
+    try { this.advance(); } finally { this.advancing = false; }
+  }
+
+  advance() {
     if (this.sleepWaitsForEnd) {
       this.sleepWaitsForEnd = false;
       this.sleep = null;
