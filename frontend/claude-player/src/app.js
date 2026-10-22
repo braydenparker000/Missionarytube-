@@ -13,6 +13,7 @@ import {Library} from './library/library.js';
 import {installImport} from './library/import-ui.js';
 import {Settings, loadStoredSettings, runtimeSettings, prefDefaults} from './settings/settings.js';
 import {DSP} from './dsp/dsp.js';
+import {installEqPresets} from './widgets/eq-preset-ui.js';
 import './widgets/basic.js';
 import './view/seekbar.js';
 import './view/html-text.js';
@@ -138,6 +139,7 @@ export async function boot() {
   ctx.inflater = inflater;
   const player = new Player(ctx);
   new DSP(ctx);
+  installEqPresets(ctx);
   new Settings(ctx);
   // Window decor: a plain FastLayout filling the viewport hosts the main layout.
   const decor = new FastLayout(ctx, null);

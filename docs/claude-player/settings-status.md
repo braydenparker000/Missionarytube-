@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 112 |
+| Built | 113 |
 | Settings UI | 110 |
-| Not built | 48 |
+| Not built | 47 |
 | No web counterpart | 140 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -119,7 +119,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `peq_equ_tone` | RedirectPreference | Settings UI |  |
 | `eq_labels` | TagListPreference | Not built |  |
 | `tone_labels` | TagListPreference | Not built |  |
-| `_autosave` | MultilineSwitchPreference | Not built |  |
+| `_autosave` | MultilineSwitchPreference | Built | Auto Save in the EQ menu (F67) |
 | `dsp_border_gain` | MultilineSwitchPreference | Not built |  |
 | `suggest_autoeq` | MultilineSwitchPreference | No web counterpart | Bluetooth / USB device detection |
 | `_clear_autoeq_known_devices` | RawTextPreference | Settings UI |  |

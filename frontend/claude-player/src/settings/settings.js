@@ -138,10 +138,13 @@ export class Settings {
   }
 
   get(key, def) {
+    // Non-persistent preferences backed by player state (_autosave: the EQ preset store).
+    if (key === '_autosave' && this.ctx.eqPresets) return this.ctx.eqPresets.autosave;
     return key in this.values ? this.values[key] : def;
   }
 
   set(key, value) {
+    if (key === '_autosave' && this.ctx.eqPresets) { this.ctx.eqPresets.setAutosave(value === true || value === 'true'); return; }
     this.values[key] = value;
     saveStoredSettings(this.values);
     this.ctx.bus.post('bus_gui', 'msg_setting_changed', this, {key, value});

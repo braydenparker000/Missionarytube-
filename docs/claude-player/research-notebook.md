@@ -1081,6 +1081,49 @@ playlists".
 (f) `widgets/resort-dialog.js`, `library/playlist-files.js`, `SettingsUi.importPlaylists` /
 `openExportDialog` / `toast`, `ListWidget.listAction` (`cmd_list_resort_dialog`).
 
+### F67 — Equalizer presets — `CONFIRMED_STATIC` / not built in part
+
+(a) S1 `EqPresetPopupListLayout` (`m10` rows, `n10`, `o10`), `EqPresetSearchCatsLayout`, `mf1`
+(sections and filters), `AddEqPresetActivity` / `BaseAddPresetActivity`, `merge_eq_menu_layout`,
+`merge_selection_menu_eq_preset_items`, `item_eq_preset_search`, `u31.r` (preset JSON), `oc` / `x81`
+(export file name), `Band` (types).
+
+(c) **Popup (Preset button):**
+- A header with a name search and the filter chips: User / Built-in / AutoEq, Graphic / Parametric,
+  Assigned. The chips persist, defaulting to all but Assigned.
+  - A tap toggles a chip; a long press keeps only that chip within its group.
+  - Graphic or Parametric always stays on.
+  - Reset Filters restores the default.
+- The presets in sections (User, Built-in) under subheaders, by name, each with its mini response
+  curve. The current preset shows checked; a tap loads it and closes the popup.
+- A long press selects presets (select boxes over the curve), with Rename (one preset), Delete
+  (user presets), Share, Export and Import over the list.
+
+**EQ menu:**
+- Auto Save: edits are written into the current preset unless it is Locked; otherwise an edit
+  leaves the preset and the label returns to "Preset".
+- Save/Assign: "Save Preset", the name prefilled and existing names suggested. With a current
+  preset, saving updates it (data and name); otherwise it adds or overwrites a user preset.
+- Rename, Share, Export, Import.
+- Restore Defaults, after the reference confirmation: a built-in preset loses its edits and name;
+  a user preset's gains go to zero.
+
+**JSON:** `{name, preamp (dB), parametric, bands: [{type, channels, frequency, q, gain (dB), color}]}`
+with type 0 bass shelf, 1 treble shelf, 2 peak. Several presets export as an array to
+`<name or Presets> [<date time>].json`.
+
+`_autosave` in the EQ settings is the same switch. `BusActionButton` now honours `confirmTitle` /
+`confirmText` / `confirmButton`.
+
+**Inferred:** the tone shelves' frequency and Q in the JSON, and imported peaks at other frequencies
+summing into the nearest graphic band.
+
+**Not built:** device and per-song/category assignment, AutoEq presets, and parametric presets
+(the DSP is graphic only).
+
+(f) `dsp/eq-presets.js`, `widgets/eq-preset-ui.js`, `EqPresetPopupListLayout` in
+`widgets/popup.js`, `PopupList` row heights, the DSP's preset hooks (`get` / `set` / `setBand`).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1132,7 +1175,7 @@ No status is device-verified.
 | F30 backdrop | Built (approximation) | — |
 | F31 elapsed/duration | Partial | Placement `OPEN` |
 | F32 knob stacks | Partial | Laid out by intent |
-| F33 equalizer | Partial | Preset save/rename/share/import/export, platform FX and AutoEQ not built |
+| F33 equalizer | Partial | Presets per F67; platform FX, AutoEQ and preset assignment not built |
 | F34 popups | Built | Curve inferred |
 | F35 marquee | Built | — |
 | F36 sleep timer | Built | Expiry fade not verified |
@@ -1165,6 +1208,7 @@ No status is device-verified.
 | F63 library list preferences / List Options | Built | List memory not built |
 | F65 queue | Built | Shuffled order inferred |
 | F66 playlist re-sort / files | Built | Import picks files (web) |
+| F67 EQ presets | Partial | Assignment, AutoEq, parametric not built |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

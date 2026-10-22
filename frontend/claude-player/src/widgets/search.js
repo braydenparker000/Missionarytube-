@@ -263,5 +263,5 @@ export class EditTextView extends ListSearchEditText {
 }
 
 register(['ListSearchEditText'], ListSearchEditText);
-register(['EditText', 'AppCompatEditText'], EditTextView);
+register(['EditText', 'AppCompatEditText', 'AutoCompleteTextView', 'LocalListSearchEditText'], EditTextView);
 register(['ListSearchCatsLayout'], ListSearchCatsLayout);

@@ -111,7 +111,7 @@ export const PREF_STATUS = {
   peq_equ_tone: [UI, ''],
   eq_labels: [TODO, ''],
   tone_labels: [TODO, ''],
-  _autosave: [TODO, ''],
+  _autosave: [BUILT, 'Auto Save in the EQ menu (F67)'],
   dsp_border_gain: [TODO, ''],
   suggest_autoeq: [WEB, ANDROID_DEVICES],
   _clear_autoeq_known_devices: [UI, ''],

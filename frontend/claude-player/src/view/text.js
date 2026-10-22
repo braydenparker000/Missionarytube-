@@ -581,11 +581,17 @@ export class BusActionButton extends FastButton {
     // A layout argument (e.g. a help layout) passes its name.
     const layout = typeof arg1 === 'string' ? /^@layout\/(.+)$/.exec(arg1)?.[1] : null;
     this.arg1 = layout ?? (arg1 === undefined || !/^(@integer\/|-?\d)/.test(arg1) ? undefined : a.int('arg1', 0));
+    // confirmTitle / confirmText / confirmButton: an alert confirms the command first.
+    this.confirm = a?.has?.('confirmTitle') ? {title: a.string('confirmTitle', ''), text: a.string('confirmText', ''), button: a.string('confirmButton', null)} : null;
   }
 
   onClick() {
-    if (this.msgId) this.ctx.bus?.post(this.busId, this.msgId, this, this.arg1 === undefined ? undefined : {arg1: this.arg1});
-    else super.onClick();
+    if (!this.msgId) { super.onClick(); return; }
+    const post = () => this.ctx.bus?.post(this.busId, this.msgId, this, this.arg1 === undefined ? undefined : {arg1: this.arg1});
+    const c = this.confirm;
+    if (!c) { post(); return; }
+    const message = String(c.text ?? '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+    import('../widgets/dialog.js').then(m => m.alertDialog(this.ctx, {title: c.title, message, positive: c.button, onPositive: post}));
   }
 
   onLongClick() {

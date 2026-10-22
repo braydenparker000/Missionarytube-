@@ -102,12 +102,22 @@ export class DSP {
   }
 
   get(param) {
+    // Preset state held by the preset store (EQ menu Auto Save / Lock / Rename).
+    const P = this.ctx.eqPresets;
+    if (param === 'dsp_autosave_enabled') return !!P?.autosave;
+    if (param === 'dsp_eq_preset_locked') return !!P?.isLocked();
+    if (param === 'dsp_eq_preset_rename_allowed') return !!P?.canRename();
     return this.values[param];
   }
 
   set(param, value) {
+    const P = this.ctx.eqPresets;
+    if (param === 'dsp_autosave_enabled') { P?.setAutosave(value); return; }
+    if (param === 'dsp_eq_preset_locked') { P?.setLocked(value); return; }
     if (this.values[param] === value) return;
     this.values[param] = value;
+    // Preamp and tone are part of the preset: an edit goes through the store.
+    if ((param === 'dsp_preamp' || param === 'dsp_bass_gain' || param === 'dsp_treble_gain' || param === 'dsp_tone_enabled') && this.values.dsp_eq_preset_name && !P?.edited()) this.values.dsp_eq_preset_name = null;
     this.save();
     this.update();
     const msg = MSG_FOR[param] ?? (param.startsWith('dsp_reverb') ? 'msg_dsp_reverb_changed' : 'msg_dsp_other_changed');
@@ -121,7 +131,7 @@ export class DSP {
     const g = Math.max(-1, Math.min(1, gain));
     if (b.gain === g) return;
     b.gain = g;
-    if (this.values.dsp_eq_preset_name) this.values.dsp_eq_preset_name = null;
+    if (this.values.dsp_eq_preset_name && !this.ctx.eqPresets?.edited()) this.values.dsp_eq_preset_name = null;
     this.save();
     this.update();
     this.ctx.bus.post('bus_dsp', 'msg_dsp_eq_changed', this, {band: i});
@@ -158,9 +168,12 @@ export class DSP {
       const rate = tempoRate(this.values.dsp_tempo) + (d?.arg1 === 1 ? 0.05 : -0.05);
       const r = Math.max(0.5, Math.min(3, rate));
       this.set('dsp_tempo', r <= 1 ? r - 0.5 : 0.5 + (r - 1) / 4);
+    } else if (msg === 'cmd_dsp_eq_preset_restore') {
+      this.ctx.eqPresets?.restore();
     } else if (msg === 'cmd_dsp_reset_eq') {
       this.bands.forEach(b => { b.gain = 0; });
       this.values.dsp_eq_preset_name = null;
+      if (this.ctx.eqPresets) this.ctx.eqPresets.data.current = null;
       this.values.dsp_preamp = 0.5;
       this.save();
       this.update();
