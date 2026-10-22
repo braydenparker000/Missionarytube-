@@ -19,8 +19,10 @@ not an observed elapsed time, and a declared dimension is not a final on-screen 
 | S3 | In-app help overlays in S1 (`merge_help_*` layouts and their strings) | Official in-app description of gestures. |
 | S4 | Renderer experiment in [`experiments/renderer-bench/`](experiments/renderer-bench/) | Original code, headless Chromium. |
 
-Decompilation scope so far: `SceneFastLayout`, `SceneParams`, `AnimTimeHelper` and the obfuscated
-scene animator helper class they delegate to. No smali, native-library or exhaustive decompilation.
+Decompilation scope: JADX 1.5.1 decompiled the whole APK into scratch space (never committed), with
+fallback (bytecode) mode for methods JADX could not restructure. The gesture and transition audit
+(F15, F48–F50) read every touch handler, scroller, pager and list transition class listed below.
+No native library is inspected.
 
 ## Findings
 
@@ -154,12 +156,39 @@ them. Search categories: tap toggles a filter, long press filters to one. Visual
 changes preset. Player settings add `line2_click`/`line2_long_click`, cover long press opening the menu,
 and rating swipes. (f) `GestureArena` recogniser set.
 
-### F15 — Gesture thresholds and fling physics — `OPEN`
-Not declared in resources (no swipe, slop or fling dimens beyond Material library values). They live
-in code (`AAScrollingBehavior`, `BusAAScrollingBehavior`, `ScrollingBehavior`, `DragHandler`, list
-classes). Next step: targeted decompilation of those classes in M1. Until then, Android platform
-defaults (touch slop 8 dp, long press ≈400 ms) are labelled *provisional platform defaults*, not
-Poweramp values.
+### F15 — Gesture thresholds and fling physics — `CONFIRMED_STATIC` (bytecode-checked)
+(a) S1 classes: the shared touch handler (`j0` and its subclasses `a0`, `m22`, `wm`), the list scroller
+(`hc`, `sa0`, `eh0`, `dh0`), the album-art pager handler (`w`, `pv0`), the transition drivers (`km0`
+and its subclasses `C0047`, `B`, `C0048`, `A`, `l22`), the transition runner (`x32`, `w32`, `h5`),
+`PowerListTransitionBase`, the layouters' transition hooks (`P.j`, `h0.j`) and `hl0` (list substyle
+times). JADX could not restructure `PowerListTransitionBase.A` and `w.mo1885`; their fallback output
+was read instead.
+(c)
+- **Slop:** the platform's scaled touch slop (8 dp). A drag starts once either axis reaches it, and
+  the start point then moves by the slop along each axis that crossed it, so the content does not jump.
+- **Velocity:** the platform `VelocityTracker`, clamped to the scaled maximum fling velocity (8000 dp/s).
+  A list fling needs at least the scaled minimum (50 dp/s).
+- **List fling:** `v(t) = v0 · (1 − B(t/T))`, B = cubic bezier (0.103, 0.389, 0.307, 0.966),
+  T = max(0.75 s, |v0| / 9000 px/s). A touch during a fling faster than 13.75 dp/s stops it without
+  a click.
+- **Album-art pager (`w` over the art layouter `P`):**
+  - Horizontal drags move the pages. Past the first or last item each move is damped by
+    1 − overscroll / art size.
+  - Release goes to the neighbour when `|offset + v·1e-4| ≥ 0.2` (v in px/s), on the side given by the
+    offset's sign. Otherwise it springs back.
+  - The settle uses a cubic ease-out. Its speed is distance / `aaPosSettleAnimTime` (650 ms) plus
+    |v|·0.2 when the fling points at the target, so a fling shortens it.
+  - Programmatic moves use `aaPosAnimTime` (550 ms) on a bezier (0.5, 0.1, 0.15, 0.99).
+  - An overscroll past 0.6 of a page changes category (`cmd_player_play_next/prev_category`).
+- **Vertical drags on the art** are accepted only while the pages rest (|offset| < 0.05). They drive
+  the list transitions of F48.
+- **Navbar mini player:** the same pager handler without the overscroll damping (`pv0`), over a pager
+  layouter (`ov0`) with previous/next-category decor items at the ends.
+(d) The earlier "provisional platform defaults" are replaced by these values.
+(e) High for the constants and rules. The platform `VelocityTracker` strategy (LSQ2) is reproduced
+in form, not bit-exactly.
+(f) `src/gesture.js` (velocity, fling, curves, elastic), `ListWidget` and `MiniPlayerList` pagers,
+`PowerList` and the lyrics page scrolling.
 
 ### F16 — Navbar / mini-player composition — `CONFIRMED_STATIC`
 `merge_navbar`: `navbar_container` (scene layout) → `navbar` with `navbar_list` (a `PowerList`: the
@@ -447,16 +476,152 @@ Show Titles Only selects the `scene_1*` variants. Not reproduced: Max Items, Min
 
 `TagReader` reads `track_wave` as a float blob and resamples it to 100 values with `c22.A`, nearest-neighbour on a rounded index. The native analysis behind those floats is not visible in Java and is not reverse-engineered here (native code). The R2 index now carries 500 peak bytes per track, normalised to 255. Peak envelopes of heavily limited masters are nearly flat, which matches the data rather than a rendering fault.
 
+### F48 — List page transitions — `CONFIRMED_STATIC` (bytecode-checked) / visual `INFERRED` in part
+
+(a) S1 `PowerListTransitionBase`, `PowerListSharedItemTransition` (+ move up/down/forward/reverse),
+`PowerListGenericPivotTransitionBase`, `PowerListGenericFadeTransition`, `x32`, `w32`, `h5`, `C0047`,
+`C0048`, `ListWidget.b1/s0`, `p31`, `i22` (top navigation), `P.j`, `h0.j`, `u31.A`.
+
+(c) The main list is one `PowerList` whose pages (art page, lyrics page, category lists) change by
+transitions with a progress from 0 to 1.
+
+**Gestures that drive a transition:**
+- On the art: drag ↓ → `PowerListSharedMoveDownItemTransition` to the playing track's source list
+  (`C0069.f(MIN_VALUE)`), positioned at the track. Drag ↑ → `PowerListSharedMoveUpItemTransition` to
+  the lyrics page when `main_lyrics_swipe` allows it (0 never, 1 with lyrics, 2 always; default 2,
+  from code). Progress = drag / art size.
+- On the lyrics page: a side swipe goes back to the art (forward or reverse move-down variants;
+  progress = swipe / list width), and so does a pull down at the top (move down).
+- In library lists: a side swipe goes to the parent level (header-to-item swipe transitions).
+
+**Release (`PowerListTransitionBase.A`):**
+- A fling of at least 500 dp/s commits when it points forward and cancels otherwise. A slower
+  release commits past 0.3.
+- The settle runs at the release rate (progress/s, clamped to [1/T, 8] forward, [−8, −3.5] back)
+  unless progress is beyond 0.8 (commit) or below 0.2 (cancel).
+- Otherwise it is accelerate-decelerate over the remaining fraction of T: `pageManualCommitAnimTime`
+  (250 ms, at least 100 ms) or `pageManualCancelAnimTime` (500 ms, at least T/3).
+- Programmatic transitions use the pair's time: `pageAnimTime` 250, `aaToTopLibAnimTime` 250,
+  `topLibToAAAnimTime` 250, `aaToLyricsAnimTime` 250, `lyricsToAAAnimTime` 150,
+  `libSearchAnimTime` 150, `aaToSearchAnimTime` 150, `searchToAAAnimTime` 250 ms.
+
+**Rendering per layouter (f = the page's distance from shown):**
+- List layouters (`h0`; the lyrics page too) scale about a pivot by `(R − 1)·f + 1` and fade by 1 − f,
+  with R 0.5 for an entering page and 1.5 for a leaving one.
+- The art layouter (`P`) scales each item by the same law with R 0.75 or 1.25 and ignores the pivot.
+- Move transitions pivot the leaving page at its top centre, shifted by ± the list width for the
+  side-swipe variants. Back pivots swap the factors. Fade transitions only fade.
+- While a drag drives a transition, the top navigation scene follows the same ratio
+  (`state_list_transition_ratio`) and ends with it.
+
+**Without a target**, the art follows the finger elastically, `√(0.3·|d|)·0.3` of the art size
+(d = drag / art size), and returns over max(0.35 s, |shift| / 2) with a cubic ease-out. A library
+list at its top level follows a side swipe at a quarter.
+
+(d) A cover tap opens the same source list (in-app help `h_main_aa`).
+(e) The constants and the scale/alpha laws are read from bytecode.
+
+The following are `INFERRED`:
+- Which pair time each programmatic navigation uses: the `p31` selection is partly garbled.
+- The side of the pivot for the forward/reverse lyrics swipes, taken literally.
+- The shared item's view hand-off between pages: not reproduced.
+- The header-to-item morph of library swipes: substituted by the generic back pivot zoom.
+
+(f) `src/list/list-transition.js`, `ListWidget.startTransition`, `levelTransition`,
+`SceneController.release`, `TopNavSceneFastLayout.adoptNav`.
+
+### F49 — Line 2 and menu-button actions — `CONFIRMED_STATIC`
+
+`C0069.y/A0/B0`:
+- **Line 2:** a tap runs `line2_click` (default 0, disabled) and a long press runs `line2_long_click`
+  (default 1). The values are 1 artist, 2 album, 3 folder, 4 genre. A tap with no action is consumed.
+- **Menu button long press (`menu_button_long_press`, default 0):** 1 delete, 2 add to playlist,
+  3 info, 4 album art, 5–8 artist/album/folder/genre, 9 share, 10 like, 11 unlike.
+- **Lyrics button long press:** opens the lyrics dialog, which is not built.
+
+### F50 — Gestures with no reproduction yet — `CONFIRMED_STATIC`
+
+Read but not built:
+- the overscroll category change of the art pager
+- pinch-to-zoom (`A`: zoom-in/out transitions, scale law `√(clamp/3·0.2)·0.2`)
+- the drag-reorder handler (`DragHandler`, `DraggableSourceBehavior`)
+- the navbar extension's sheet drag
+- the predictive back gesture (`zb` / `ListWidget.V/g0/T`), which has no browser counterpart
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
 - The vis panel filter field (`fill_parent` + `layout_attachRight @id/sort`) overflows left by the sort button's width under the solver port; its true placement is unverified.
 
+## Build status of the findings
+
+Statuses:
+- **Built** means implemented and exercised in headless Chromium. Gesture rows were exercised this
+  session with CDP touch events.
+- **Partial** means part of the finding is implemented.
+- **Not built** means nothing is implemented yet.
+- **N/A** means the finding is a constraint or a source note rather than a feature.
+
+No status is device-verified.
+
+| Finding | Status | What is missing |
+| --- | --- | --- |
+| F01 shell | Built | — |
+| F02 scene graph | Built | — |
+| F03 scene inventory | Built | Item scenes beyond the lists in use |
+| F04 SceneParams | Built | — |
+| F05 scene clock | Built | The call-site mapping of velocity into scene changes |
+| F06 state anims | Built | — |
+| F07 timing table | Built | Elapsed times on a device |
+| F08 animation speed | Built | — |
+| F09 FastLayout | Built | I1 inferences |
+| F10 theme composition | Built | — |
+| F11 skin options | Partial | Options apply through generic overlay composition and are not checked one by one. Follow Day/Night (`darkMode`/`lightMode` pairing) is **not built**. Material You has no seed-colour substitute. |
+| F12 window buckets | Built | — |
+| F13 waveseek | Built | Native analysis `OPEN` |
+| F14 gesture inventory | Partial | Art ←/→, ↓ (source list), ↑ (lyrics) and tap are built, as are the navbar tap, ←/→ and long press, the library parent swipe and the line 2 tap and long press. **Not built:** art "swipe more" (category), pinch-to-zoom, multi-select drag, meta-info tap cycling, long press between buttons (edit), search-chip toggle and long press (a tap selects one chip), the lyrics button long press, rating swipes, the visualization ←/→ preset swipe on the vis itself (the vis panel pager is built). |
+| F15 thresholds and physics | Built | VelocityTracker reproduced in form only |
+| F16 navbar | Built | — |
+| F17 settings corpus | Built (screens) | Per-key implementation statuses not recorded |
+| F18 list transitions | Partial | The F48 zoom transitions are built. The header-to-item and item-to-header morphs, the shared item view hand-off and the zoom transitions (pinch) are **not built**. |
+| F19 typography | Built | — |
+| F20 audio | Built (web subset) | Native engine `UW` |
+| F21 visualization | Built (butterchurn) | — |
+| F22 AutoEQ | Not built | `UW` within the budget |
+| F23 art background | Built | Blur kernel approximated |
+| F24 renderer bench | N/A | — |
+| F25 hosting | N/A | — |
+| F26 art geometry | Built | Tilt signs `OPEN` |
+| F27 player states | Built | — |
+| F28 waveseek drawing | Built | — |
+| F29 sub-art buttons | Partial | Editing **not built** |
+| F30 backdrop | Built (approximation) | — |
+| F31 elapsed/duration | Partial | Placement `OPEN` |
+| F32 knob stacks | Partial | Laid out by intent |
+| F33 equalizer | Partial | Preset save/rename/share/import/export, platform FX and AutoEQ not built |
+| F34 popups | Built | Curve inferred |
+| F35 marquee | Built | — |
+| F36 sleep timer | Built | Expiry fade not verified |
+| F37 vis modes | Built | — |
+| F38 list scroller | Built | — |
+| F39 selection | Partial | Multi-select drag **not built**. Delete files skipped (owner decision). |
+| F40 lyrics | Built | Page geometry inferred. Lyrics dialog **not built**. |
+| F41 vis panel | Built | Pager–list morph cross-fades |
+| F42 ratings/stats | Built | Rating swipes **not built** |
+| F43 dialogs | Partial | Drag-to-dismiss **not built** |
+| F44 playlists | Partial | Re-sort, import and drag reordering **not built** |
+| F45 info / album art | Built | Tag editing skipped (owner decision) |
+| F46 list options | Partial | Max Items, Min Duration, list memory and the compact header not built |
+| F47 waveform data | Built | — |
+| F48 list page transitions | Partial | See F48 (e) |
+| F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics dialog is not built. |
+| F50 unbuilt gestures | Not built | — |
+
 ## Open questions, prioritised by fidelity impact
 
-1. F15 gesture thresholds, fling velocity mapping into `v` (F05), track-swipe paging physics.
-2. Which `T` (F07) applies to which scene pair, and tap vs drag ownership of each transition.
+1. Runtime corroboration of F15/F48 (curves, the pivot side of the lyrics swipes) against recordings.
+2. Which programmatic pair time (F48) each navigation uses, and whether search transitions zoom or fade.
 3. Default skin on first run, and the first-run screen.
 4. List transitions (F18); zoom levels and item scenes are now known (F46).
 5. Waveform analysis algorithm (F13, F47): native, so it is not inspected; the data now comes from the R2 index.

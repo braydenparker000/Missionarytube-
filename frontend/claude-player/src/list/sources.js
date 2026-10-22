@@ -198,6 +198,11 @@ const STAT_LISTS = {
 const GROUP_SORT_KIND = {albums: 'albums', artists: 'names', albumArtists: 'names', genres: 'names', composers: 'names', years: 'years', folders: 'folders'};
 const TRACKS_DEFAULT_SORT = {all: 1, recent: 12, long: 10, mostPlayed: 6, recentlyPlayed: 7, topRated: 5, lowRated: 5 | REVERSE, album: 13, artist: 9, albumArtist: 9, genre: 8, composer: 8, year: 15, folder: 2};
 
+/** The All Songs list (the source list of a queue that came from no list). */
+export function allSongsSource(ctx, list, nav) {
+  return categorySource(ctx, list, nav, HOME[0]);
+}
+
 function categorySource(ctx, list, nav, cat) {
   const lib = ctx.library;
   const title = str(ctx, cat.title);
@@ -309,6 +314,8 @@ export class TrackSource {
 
   onItemClick(i) {
     const p = this.ctx.player;
+    // This list becomes the playing track's source list (album-art tap / swipe down).
+    this.ctx.listWidget?.rememberQueueSource(this);
     p.setQueue(this.tracks, i);
     p.play();
     if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);

@@ -93,6 +93,21 @@ export class TopNavSceneFastLayout extends SceneFastLayout {
     else this.go(NAV_SCENES[nav] ?? 'scene_lib', nav, animate);
   }
 
+  /**
+   * A list transition dragged the scene to the target (state_list_transition
+   * with its ratio): adopt the navigation it reached without animating again.
+   */
+  adoptNav(nav) {
+    this.nav = nav;
+    this.firstAnimationDone = true;
+    this.ctx.bus.post('bus_gui', 'msg_nav_changed', this, {nav, scene: this.scenes.scene});
+  }
+
+  /** Scene the navigation shows (the player screen's scene for nav_main). */
+  sceneFor(nav) {
+    return nav === 'nav_main' ? this.mainScene() : NAV_SCENES[nav] ?? 'scene_lib';
+  }
+
   /** Scene change with the reference's duration selection. */
   go(scene, nav, animate = true) {
     const cur = this.scenes.scene;

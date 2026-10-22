@@ -10,6 +10,8 @@ import {register} from '../view/inflater.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {animTime} from './topnav.js';
 import {renderOps} from '../view/drawables.js';
+import {GONE, VISIBLE} from '../res/values.js';
+import {VelocityTracker, TOUCH_SLOP_DP, MAX_FLING_DP, cubicOut} from '../gesture.js';
 
 const NAV_BUTTON = {nav_main: null, nav_lib: 'cmd_nav_to_lib', nav_eq: 'cmd_nav_to_eq', nav_search: 'cmd_nav_to_search', nav_lyrics: null};
 
@@ -74,32 +76,61 @@ export class Navbar extends FastLayout {
   }
 }
 
-/** The navbar's mini player list: the current track as item_miniplayer. */
+/**
+ * The navbar's mini player list: a pager of item_miniplayer pages (previous,
+ * current, next track). It uses the art pager's touch handling without its
+ * overscroll damping (F48): a horizontal drag moves the pages, release moves
+ * to the neighbour when |offset + v * 1e-4| >= 0.2 (v in px/s) and settles
+ * with a cubic ease-out over 650 ms, shortened by |v| * 0.2 px/s towards the
+ * target. A tap returns to the player; a long press opens the track's source
+ * list ("Long press for track category").
+ */
 export class MiniPlayerList extends FastLayout {
   constructor(ctx, a) {
     super(ctx, a);
-    this.item = null;
+    this.items = new Map(); // rel -> item
+    this.offset = 0;
+    this.el.style.overflow = 'hidden'; // neighbour pages stay inside the list
     ctx.bus.subscribe('bus_player', msg => {
-      if (msg === 'msg_player_track_changed') this.bind();
+      if (msg === 'msg_player_track_changed' || msg === 'msg_player_shuffle_mode_changed' || msg === 'msg_player_repeat_mode_changed') this.bind();
     });
   }
 
-  ensureItem() {
-    if (!this.item) {
-      this.item = this.ctx.inflater.inflate('item_miniplayer', null)[0];
-      this.item.lp = this.generateLayoutParams(null);
-      this.item.parent = this;
-      this.children.push(this.item);
-      this.el.appendChild(this.item.el);
-      this.item.clickable = true;
-      this.item.onClick = () => this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
+  /** The current page (kept for callers that expect the single item). */
+  get item() {
+    return this.items.get(0) ?? null;
+  }
+
+  itemFor(rel) {
+    let v = this.items.get(rel);
+    if (!v) {
+      v = this.ctx.inflater.inflate('item_miniplayer', null)[0];
+      v.lp = this.generateLayoutParams(null);
+      v.parent = this;
+      this.children.push(v);
+      this.el.appendChild(v.el);
+      v.clickable = true;
+      v.onClick = () => this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
+      v.longClickable = true;
+      v.onLongClick = () => { this.ctx.listWidget?.showSourceList(); return true; };
+      this.items.set(rel, v);
     }
-    return this.item;
+    return v;
+  }
+
+  ensureItem() {
+    return this.itemFor(0);
   }
 
   bind() {
-    const t = this.ctx.player?.track ?? null;
-    this.ensureItem().bind(t);
+    const p = this.ctx.player;
+    for (const rel of [-1, 0, 1]) {
+      const t = rel === 0 ? p?.track ?? null : p?.trackAt(rel) ?? null;
+      if (rel !== 0 && !t) { const v = this.items.get(rel); if (v) v.visibility = GONE; continue; }
+      const v = this.itemFor(rel);
+      v.visibility = VISIBLE;
+      v.bind(t);
+    }
     this.requestLayout();
   }
 
@@ -108,10 +139,69 @@ export class MiniPlayerList extends FastLayout {
   }
 
   onLayout() {
-    const v = this.ensureItem();
-    if (v.track === undefined) this.bind();
-    v.measure(MeasureSpec.make(this.width, MeasureSpec.EXACTLY), MeasureSpec.make(this.height, MeasureSpec.EXACTLY));
-    v.layout(0, 0, this.width, this.height);
+    if (this.ensureItem().track === undefined) this.bind();
+    for (const v of this.items.values()) {
+      v.measure(MeasureSpec.make(this.width, MeasureSpec.EXACTLY), MeasureSpec.make(this.height, MeasureSpec.EXACTLY));
+      v.layout(0, 0, this.width, this.height);
+    }
+    this.place();
+  }
+
+  place() {
+    for (const [rel, v] of this.items) {
+      v.translationX = Math.round((rel + this.offset) * this.width);
+      v.invalidate();
+    }
+  }
+
+  onInterceptStart(start, now) {
+    const dx = now.rootX - start.rootX;
+    if (Math.abs(dx) <= Math.abs(now.rootY - start.rootY) || !this.ctx.player?.track) return false;
+    this._anim?.();
+    this._anim = null;
+    const vt = new VelocityTracker();
+    vt.add(start.time, start.rootX, start.rootY);
+    this.drag = {x: start.rootX + Math.sign(dx) * TOUCH_SLOP_DP * this.ctx.dpr, offset0: this.offset, vt};
+    return true;
+  }
+
+  onPointerMove(e) {
+    const d = this.drag;
+    if (!d) return;
+    d.vt.add(e.time, e.rootX, e.rootY);
+    this.offset = Math.max(-1, Math.min(1, d.offset0 + (e.rootX - d.x) / (this.width || 1)));
+    this.place();
+  }
+
+  onPointerUp(e) {
+    const d = this.drag;
+    this.drag = null;
+    if (!d) return;
+    if (!e?.cancelled) d.vt.up(e.time);
+    const v = e?.cancelled ? 0 : d.vt.compute(MAX_FLING_DP * this.ctx.dpr).vx;
+    const p = this.ctx.player, off = this.offset;
+    let target = 0;
+    if (Math.abs(v * 1e-4 + off) >= 0.2) target = off > 0 ? (p?.trackAt(-1) ? 1 : 0) : (p?.trackAt(1) ? -1 : 0);
+    const rem = off - target, dist = Math.abs(rem) * (this.width || 1);
+    const boost = (rem > 0 && v < 0) || (rem < 0 && v > 0) ? Math.abs(v) * 0.2 : 0;
+    const extra = (v !== 0 ? this.ctx.dpr * Math.abs(rem) : 0) + 0.01 * boost;
+    const dd = dist + extra, speed = dd / 0.65 + boost;
+    const ms = dd > 0 ? (dd / speed) * 1000 : 1, t0 = performance.now(), from = off;
+    this._anim = this.ctx.onFrame(now => {
+      const t = Math.min(1, (now - t0) / ms);
+      this.offset = from + (target - from) * cubicOut(t);
+      this.place();
+      if (t < 1) return true;
+      this._anim = null;
+      this.offset = 0;
+      if (target) p.step(target === -1 ? 1 : -1);
+      else this.place();
+      return false;
+    });
+  }
+
+  onPointerCancel() {
+    this.onPointerUp({cancelled: true});
   }
 }
 

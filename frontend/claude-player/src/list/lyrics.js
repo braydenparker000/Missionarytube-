@@ -15,8 +15,9 @@ import {MeasureSpec} from '../view/view.js';
 import {register} from '../view/inflater.js';
 import {GONE, VISIBLE} from '../res/values.js';
 import {trackLyrics, activeLine} from '../library/lrc.js';
+import {VelocityTracker, Fling, TOUCH_SLOP_DP, MIN_FLING_DP, MAX_FLING_DP} from '../gesture.js';
 
-const FOLLOW_PAUSE_MS = 4000, FOLLOW_MS = 300, FRICTION = 0.0045;
+const FOLLOW_PAUSE_MS = 4000, FOLLOW_MS = 300;
 
 /** Shown per main_lyrics_button: 0 never, 1 when the track has lyrics (default), 2 always. */
 export class LyricsButton extends FastButton {
@@ -233,47 +234,65 @@ export class LyricsPage extends FastLayout {
     });
   }
 
-  // Dragging and flinging the lines (pauses following).
+  // Dragging and flinging the lines (pauses following), with the list
+  // scroller's slop and fling (F15).
   onPointerDown(e) {
     this._anim?.();
     this._fling?.();
-    this.drag = {y: e.rootY, scroll: this.scrollY, samples: [[e.time, e.rootY]]};
+    this.drag = {y: e.rootY, scroll: this.scrollY, vt: new VelocityTracker(), started: false};
+    this.drag.vt.add(e.time, e.rootX, e.rootY);
     return true;
   }
 
+  // Vertical drags over the (clickable) lines; a pull down at the top is
+  // left to the list widget (back to the art), as are side swipes.
   onInterceptStart(start, now) {
-    if (Math.abs(now.rootY - start.rootY) <= Math.abs(now.rootX - start.rootX)) return false;
+    const dx = now.rootX - start.rootX, dy = now.rootY - start.rootY;
+    if (Math.abs(dy) <= Math.abs(dx) || (dy > 0 && this.scrollY <= 0)) return false;
     this._anim?.();
-    this.drag = {y: start.rootY, scroll: this.scrollY, samples: [[start.time, start.rootY]]};
+    this._fling?.();
+    const vt = new VelocityTracker();
+    vt.add(start.time, start.rootX, start.rootY);
+    this.drag = {y: start.rootY + Math.sign(dy) * TOUCH_SLOP_DP * this.ctx.dpr, scroll: this.scrollY, vt, started: true};
     return true;
   }
 
   onPointerMove(e) {
     const d = this.drag;
     if (!d) return;
-    d.samples.push([e.time, e.rootY]);
-    if (d.samples.length > 6) d.samples.shift();
+    d.vt.add(e.time, e.rootX, e.rootY);
+    if (!d.started) {
+      const dy = e.rootY - d.y, slop = TOUCH_SLOP_DP * this.ctx.dpr;
+      if (Math.abs(dy) < slop) return;
+      d.started = true;
+      d.y += Math.sign(dy) * slop;
+    }
     this.userScrollAt = performance.now();
     this.scrollY = d.scroll - (e.rootY - d.y);
     this.placeRows();
   }
 
-  onPointerUp() {
+  onPointerCancel() {
+    this.drag = null;
+  }
+
+  onPointerUp(e) {
     const d = this.drag;
     this.drag = null;
-    if (!d) return;
-    const [t0, y0] = d.samples[0], [t1, y1] = d.samples[d.samples.length - 1];
-    let v = t1 > t0 && performance.now() - t1 < 100 ? -(y1 - y0) / (t1 - t0) : 0;
-    if (Math.abs(v) < 0.1) return;
+    if (!d || !d.started || e?.cancelled) return;
+    d.vt.up(e.time);
+    const v = -d.vt.compute(MAX_FLING_DP * this.ctx.dpr).vy;
+    if (Math.abs(v) < MIN_FLING_DP * this.ctx.dpr) return;
+    const f = new Fling(v);
     let last = performance.now();
     this._fling = this.ctx.onFrame(now => {
-      const dt = Math.min(48, now - last);
+      const dt = Math.min(0.048, (now - last) / 1000);
       last = now;
-      this.scrollY += v * dt;
-      v *= Math.exp(-FRICTION * dt);
+      this.scrollY += f.step(dt);
       this.userScrollAt = now;
       this.placeRows();
-      return Math.abs(v) >= 0.02 && this.scrollY > 0 && this.scrollY < this.maxScroll();
+      if (f.done || this.scrollY <= 0 || this.scrollY >= this.maxScroll()) { this._fling = null; return false; }
+      return true;
     });
   }
 }
