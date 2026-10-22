@@ -15,7 +15,7 @@ import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
 import {MoveableToolbar, ANCHOR_BOTTOM, ANCHOR_FIXED_BOTTOM} from './moveable-toolbar.js';
 import {ListReorder} from './reorder.js';
-import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource, groupTracksSource, homeCategory, categorySource as categoryListSource} from './sources.js';
+import {HomeSource, currentCategorySource, searchSource, playlistsSource, playlistSource, allSongsSource, groupTracksSource, folderLevelSource, homeCategory, categorySource as categoryListSource} from './sources.js';
 import {SEARCH_CATS, searchMask} from '../widgets/search.js';
 import {recordSearch} from '../library/search-history.js';
 import {ListTransition, ZOOM, pageFx} from './list-transition.js';
@@ -682,6 +682,13 @@ export class ListWidget extends FastLayout {
   playList(shuffle) {
     if (this.searching) { this.playSearch(shuffle); return; }
     const src = this.stack[this.stack.length - 1];
+    // Folders Hierarchy plays its level itself; category lists play their entries as categories.
+    if (src?.play || src?.groups) {
+      if (!(src.play ? src.play(shuffle) : this.playCategories(src, shuffle))) return;
+      this.rememberQueueSource(src);
+      if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
+      return;
+    }
     const tracks = src?.tracks ?? src?.groups?.flatMap(g => g.tracks) ?? [];
     if (!tracks.length) return;
     const p = this.ctx.player;
@@ -711,6 +718,8 @@ export class ListWidget extends FastLayout {
   }
 
   openCurrent(kind, track = null) {
+    // The track menu's Folders button opens the folder in Folders Hierarchy unless menu_nav_to_folders.
+    if (kind === 'folder' && !this.ctx.pref('menu_nav_to_folders') && this.openHierFolder(track ?? this.ctx.player?.track)) return;
     const src = currentCategorySource(this.ctx, this.libList, this.nav, kind, track);
     if (!src) return;
     this.ctx.bus.post('bus_gui', 'cmd_nav_to_lib', this);
@@ -764,6 +773,25 @@ export class ListWidget extends FastLayout {
     this.libList.setSource(src);
     if (shown) this.levelTransition(prev, prev.savedScroll, false, rect);
     if (this.stack.length > 1) history.pushState({cpList: this.stack.length}, '');
+  }
+
+  /** Folders Hierarchy at a track's folder, the levels above it on the back stack. */
+  openHierFolder(t) {
+    const lib = this.ctx.library;
+    if (!t || !lib?.tracks?.includes(t)) return false;
+    const tree = lib.folderTree(), root = lib.hierRoot();
+    const node = tree.nodes.get((t.folder || '').replace(/\/+$/, ''));
+    if (!node) return false;
+    const chain = [];
+    for (let n = node; n && n !== root; n = n.parent) chain.unshift(n);
+    if (chain[0] && chain[0].parent !== root && !root.folders.includes(chain[0])) return false;
+    this.ctx.bus.post('bus_gui', 'cmd_nav_to_lib', this);
+    if (!this.stack.length) this.openHome();
+    this.stack.length = 1;
+    for (const n of [root, ...chain.slice(0, -1)]) this.stack.push(folderLevelSource(this.ctx, this.libList, this.nav, n));
+    this.open(folderLevelSource(this.ctx, this.libList, this.nav, chain[chain.length - 1] ?? root));
+    this.libList.scrollToTrack(t);
+    return true;
   }
 
   /** Back inside the library; returns false at the library home. */
@@ -1335,14 +1363,57 @@ export class ListWidget extends FastLayout {
    * category navigation; each category's tracks come in its own list order.
    */
   categoryFor(src) {
-    const at = this.stack.indexOf(src), parent = this.stack[at - 1];
-    if (at < 1 || !parent?.groups) return null;
-    const g = src.group ?? parent.groups.find(x => x.pl && x.pl === src.playlist);
-    const index = g ? parent.groups.indexOf(g) : -1;
-    if (index < 0) return null;
-    const ctx = this.ctx, list = this.libList, nav = this.nav, groups = parent.groups;
-    const tracksAt = j => (groups[j]?.pl ? playlistSource(ctx, list, nav, groups[j].pl) : groups[j] ? groupTracksSource(ctx, list, nav, groups[j], parent.icon) : null)?.tracks ?? [];
+    const at = this.stack.indexOf(src);
+    // The list the entry came from; an entry's "All ... Songs" list belongs to the entries above its albums.
+    for (let k = at - 1; k >= 0 && k >= at - 2; k--) {
+      const parent = this.stack[k];
+      if (!parent?.groups) return null;
+      const g = src.group ?? parent.groups.find(x => x.pl && x.pl === src.playlist);
+      const index = g ? parent.groups.indexOf(g) : -1;
+      if (index >= 0) return this.categoriesOf(parent, index);
+    }
+    return null;
+  }
+
+  /** A category list's entries as categories ({source: {count, groups, tracksAt}, index}). */
+  categoriesOf(list, index) {
+    const ctx = this.ctx, pl = this.libList, nav = this.nav, groups = list.groups;
+    const tracksAt = j => (groups[j]?.pl ? playlistSource(ctx, pl, nav, groups[j].pl) : groups[j] ? groupTracksSource(ctx, pl, nav, groups[j], list.icon) : null)?.tracks ?? [];
     return {source: {count: groups.length, groups, tracksAt}, index};
+  }
+
+  /**
+   * Header Play / Shuffle on a category list (sd.g0 → pi1.toUri): the first
+   * entry (Shuffle: a random one) plays with the entries as categories; Play
+   * turns shuffle off. Shuffle takes category_shuffle (b40.Z1): on a top
+   * level list Songs counts as Songs and Categories (sd.V); on an entry's
+   * albums Songs shuffles all the entry's songs (u3.z(2)).
+   */
+  playCategories(src, shuffle) {
+    const groups = src.groups;
+    if (!groups?.length) return false;
+    const ctx = this.ctx, p = ctx.player;
+    let mode = 0;
+    if (shuffle) {
+      const cs = +(ctx.pref('category_shuffle') ?? 4) || 4;
+      mode = src.secondLevel ? cs : cs === 2 ? 4 : cs;
+    }
+    ctx.bus.post('bus_player_cmd', 'cmd_player_set_shuffle', this, {arg1: mode});
+    if (mode === 2 && src.parentGroup) {
+      const files = groupTracksSource(ctx, this.libList, this.nav, src.parentGroup, src.icon).tracks;
+      if (!files.length) return false;
+      const at = this.stack.indexOf(src), above = this.stack[at - 1];
+      const i = above?.groups ? above.groups.indexOf(src.parentGroup) : -1;
+      p.setQueue(files, Math.floor(Math.random() * files.length), i >= 0 ? this.categoriesOf(above, i) : null);
+    } else {
+      const index = shuffle ? Math.floor(Math.random() * groups.length) : 0;
+      const category = this.categoriesOf(src, index);
+      const tracks = category.source.tracksAt(index);
+      if (!tracks.length) return false;
+      p.setQueue(tracks, mode === 2 || mode === 4 ? Math.floor(Math.random() * tracks.length) : 0, category);
+    }
+    p.play();
+    return true;
   }
 
   /** The list a track list played from becomes the playing track's source list. */

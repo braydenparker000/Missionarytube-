@@ -643,6 +643,56 @@ export class Library {
     return this.namedGroups('genre', 'genre', 'unknown_genre_name', 'Unknown genre');
   }
 
+  /**
+   * Folders Hierarchy (the folders table with parent_id, hier_num_files and
+   * hier_duration; cg1.a1): every track folder and its parents under the
+   * root '' (folders: subfolders by name, files: the folder's tracks).
+   */
+  folderTree() {
+    if (this._tree?.tracks === this.tracks) return this._tree;
+    const nodes = new Map();
+    const node = path => {
+      let n = nodes.get(path);
+      if (n) return n;
+      const cut = path.lastIndexOf('/');
+      n = {path, name: path.slice(cut + 1) || path, parent: null, folders: [], files: [], hierFiles: 0, hierMs: 0};
+      nodes.set(path, n);
+      if (path) { n.parent = node(cut < 0 ? '' : path.slice(0, cut)); n.parent.folders.push(n); }
+      return n;
+    };
+    const root = node('');
+    for (const t of this.tracks) node((t.folder || '').replace(/\/+$/, '')).files.push(t);
+    const byPath = (a, b) => a.path.localeCompare(b.path, undefined, {sensitivity: 'base', numeric: true});
+    const sum = n => {
+      n.folders.sort(byPath);
+      n.hierFiles = n.files.length;
+      n.hierMs = n.files.reduce((s, t) => s + (t.durationMs || 0), 0);
+      for (const c of n.folders) { sum(c); n.hierFiles += c.hierFiles; n.hierMs += c.hierMs; }
+    };
+    sum(root);
+    // Folders with files in sort_path order (the hierarchy's category order).
+    const withFiles = [];
+    const walk = n => { if (n.files.length) withFiles.push(n); n.folders.forEach(walk); };
+    walk(root);
+    this._tree = {tracks: this.tracks, root, nodes, withFiles};
+    return this._tree;
+  }
+
+  /**
+   * The hierarchy's top (root_hier_immediate, cg1.a1): with one root folder
+   * its contents show at once, going deeper (8 levels at most) until a
+   * folder with tracks or several subfolders.
+   */
+  hierRoot() {
+    let n = this.folderTree().root;
+    if (!this.ctx.pref?.('root_hier_immediate')) return n;
+    for (let i = 0; i < 8 && n.folders.length === 1 && !n.files.length; i++) {
+      n = n.folders[0];
+      if (n.files.length || n.folders.length > 1) break;
+    }
+    return n;
+  }
+
   folders() {
     const map = new Map();
     for (const t of this.tracks) {

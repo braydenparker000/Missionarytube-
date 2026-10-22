@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 152 |
+| Built | 158 |
 | Settings UI | 109 |
-| Not built | 8 |
+| Not built | 2 |
 | No web counterpart | 141 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -370,9 +370,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `hide_unknown_album` | MultilineSwitchPreference | Built | Track labels (library/labels.js) |
 | `hide_unknown_artist` | MultilineSwitchPreference | Built | Track labels (library/labels.js) |
 | `show_unsplit_cats` | MultilineSwitchPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
-| `hier_no_advance` | MultilineSwitchPreference | Not built |  |
-| `root_hier_immediate` | MultilineSwitchPreference | Not built |  |
-| `hier_files_zoom` | MultilineSwitchPreference | Not built |  |
+| `hier_no_advance` | MultilineSwitchPreference | Built | header Play in Folders Hierarchy sets Play All Categories unless on (F76) |
+| `root_hier_immediate` | MultilineSwitchPreference | Built | Folders Hierarchy opens at the first folder with tracks or several subfolders (F76) |
+| `hier_files_zoom` | MultilineSwitchPreference | Built | a files-only folder takes the Folders files zoom (F76) |
 | `no_sort_field` | MultilineSwitchPreference | Built | Sort field drops The/A/An (sources.js sortKey) |
 | `show_cue_source` | MultilineSwitchPreference | Not built |  |
 | `stream_name_in_title` | MultilineSwitchPreference | Owner decision | Owner decision: no network streams |
@@ -436,8 +436,8 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `shuffle_random_factor` | SeekbarPreference | Built | Least recently played tracks first below full randomization (ie.W, F72) |
 | `no_reshuffle` | MultilineSwitchPreference | Built | Picking a track of the playing list keeps the shuffle order (F72) |
 | `no_reshuffle_for_large_lists` | MultilineSwitchPreference | Built | Picking a track of the playing list keeps the shuffle order (F72) |
-| `category_shuffle` | TagListPreference | Not built |  |
-| `hier_flat_shf` | MultilineSwitchPreference | Not built |  |
+| `category_shuffle` | TagListPreference | Built | header Shuffle mode on category lists and their albums (F76) |
+| `hier_flat_shf` | MultilineSwitchPreference | Built | header Shuffle in Folders Hierarchy shuffles every song of the subtree (F76) |
 
 ## lockscreen
 
@@ -646,7 +646,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `show_counter` | MultilineSwitchPreference | Built |  |
 | `_counter_hint` | RawTextPreference | Settings UI |  |
 | `previous_resets` | MultilineSwitchPreference | Built |  |
-| `menu_nav_to_folders` | MultilineSwitchPreference | Not built |  |
+| `menu_nav_to_folders` | MultilineSwitchPreference | Built | track menu Folders: Folders instead of Folders Hierarchy (F76) |
 
 ## ui_theme
 

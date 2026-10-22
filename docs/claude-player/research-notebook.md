@@ -1306,8 +1306,7 @@ category_shuffle `Z1`, hier_flat_shf `U`), `ie.A` (20000 tracks from Android 9),
 over 20 000 tracks with no_reshuffle_for_large_lists (default on). Otherwise the list starts a new
 shuffle. A pick while playing is a manual track change for fade_manual_advance (F70).
 
-**Not built yet:** category_shuffle and hier_flat_shf, which act on sub-category lists (Albums by
-Artist, Folders Hierarchy; not built).
+category_shuffle and hier_flat_shf act on the category lists' header Shuffle (F76).
 
 ### F73 — Library playback options, pro button morph — `CONFIRMED_STATIC`
 
@@ -1396,6 +1395,62 @@ moveableToolbarExtraStates false), `om0` (wa1.U attributes, `c0` creates `yv0`, 
 - The bottom toolbar's fade measure reads `w62.f0`'s first-item offset as the list's scroll from the
   content top.
 - A zero-alpha toolbar takes no touches.
+
+### F76 — Category levels, Albums by Artist, Folders Hierarchy — `CONFIRMED_STATIC`
+
+(a) S1:
+- **List classes:** `p31` (list class per entity type), `kc.f` / `he.a` (an entry opens
+  `<category>/<id>/albums`), `u3` / `v3` / `r3` / `y62` (the second level and its −103 row),
+  `ze1` / `eg1` / `hf1` / `le1` / `vj1` (the categories implementing `ah1`).
+- **Albums by Artist:** `ue1` / `ve1` (the artist_albums table).
+- **Folders Hierarchy:** `cg1` (a1, M, W), `h60` (FoldersAndFilesPage).
+- **Header Play / Shuffle:** `sd.g0` / `sd.V` / `u3.V` / `u3.z`, `p31` (cmd_list_play → g0(0),
+  cmd_list_shuffle → g0(4)), `pi1.toUri` / `qq0.S`, `m30` (root_hier_immediate `h`,
+  hier_files_zoom `k0`), `b40` (hier_flat_shf `U`, hier_no_advance `W`, category_shuffle `Z1`),
+  `strings` (all_*_songs).
+
+(c) **Second level.**
+- Artists, Album Artists, Genres, Composers and Years open an entry's albums.
+- Under the header is an "All Artist / Album Artist / Genre / Composer / Year Songs" row
+  (allTracksSubheadSize, scene_1, "N songs"), which opens the entry's songs. Then come the albums
+  that hold the entry's songs, sorted like albums.
+- Albums and Folders open their songs directly.
+
+**Albums by Artist:** one row per album and track artist (unsplit), with album sorts. A row opens
+that artist's songs on the album.
+
+**Folders Hierarchy.**
+- **Top level:** the root's folders; with root_hier_immediate, the first folder with tracks or
+  several subfolders (8 levels at most).
+- **A folder's rows:**
+  - its subfolders: name, parent folder, and "files | duration" of the whole subtree;
+  - then its files.
+- **Zoom:** with hier_files_zoom, a folder with files only takes the Folders files zoom.
+- **Playing a file:** plays the folder. The hierarchy's folders with files are the categories, in
+  path order.
+
+**Header Play** (shuffle off):
+- **Category list:** the first entry, with the entries as categories.
+- **Folders Hierarchy:** the folder, or its first folder with files. It also sets Play All
+  Categories (repeat 2) unless hier_no_advance.
+
+**Header Shuffle:**
+- **Category list:** category_shuffle (4 songs and categories, 3 categories; Songs counts as 4 on a
+  top level list). On an entry's albums, Songs shuffles all the entry's songs.
+- **Folders Hierarchy, hier_flat_shf on:** every song of the subtree, shuffled.
+- **Folders Hierarchy, hier_flat_shf off:** songs and categories, with the subtree's folders first.
+
+**Also:**
+- The track menu's Folders button opens the folder in Folders Hierarchy, with the levels above it on
+  the back stack; with menu_nav_to_folders it opens the Folders list.
+- The player takes the reference ids cmd_player_set_repeat_mode and cmd_player_set_shuffle_mode.
+
+**Inferred:**
+- Rows use the track item where the reference uses text items for category and top-level folder
+  rows (as the other category lists here).
+- Folder rows show the first track's art.
+- With root_hier_immediate the walk follows the setting's text: the decompiled loop's exit when a
+  level has several folders is garbled.
 
 ### I1 — Layout inferences to verify against screenshots
 
@@ -1490,6 +1545,7 @@ No status is device-verified.
 | F73 Library playback options, pro button morph | Built | — |
 | F74 About: version and licenses | Built | — |
 | F75 Navbar scroll-away and the bottom toolbar | Built | The bottom toolbar fades with the leaving page in level transitions (`w62.j` fades it by the transition fraction) |
+| F76 Category levels, Albums by Artist, Folders Hierarchy | Built | Text-item rows for categories (track items here) |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact

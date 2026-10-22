@@ -244,9 +244,11 @@ export class Player {
     if (this.catOrder && this.catOrderKey === key && this.catOrderSource === c?.source) return this.catOrder;
     let order = [...Array(n).keys()];
     if (this.catsShuffled && n > 1) {
-      for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-      const at = order.indexOf(c.index);
-      if (at > 0) [order[0], order[at]] = [order[at], order[0]];
+      const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+      // A source may put some categories first (cg1.W: the playing level's folders), the current one leading.
+      const first = c.source.shuffleFirst;
+      order = first ? [...shuffle([...first].filter(i => i !== c.index)), ...shuffle(order.filter(i => !first.has(i) && i !== c.index))] : shuffle(order.filter(i => i !== c.index));
+      order.unshift(c.index);
     }
     this.catOrder = order;
     this.catOrderKey = key;
@@ -752,7 +754,10 @@ export class Player {
         break;
       }
       case 'cmd_player_end_seek_jumps': clearTimeout(this.jumpTimer); break;
+      case 'cmd_player_set_shuffle_mode':
       case 'cmd_player_set_shuffle': this.shuffle = d.arg1 ?? 0; this.order = null; this.post('msg_player_shuffle_mode_changed', {arg1: this.shuffle}); break;
+      // The reference's id (layouts post it) and this app's shorter one.
+      case 'cmd_player_set_repeat_mode':
       case 'cmd_player_set_repeat': this.repeat = d.arg1 ?? 0; this.post('msg_player_repeat_mode_changed', {arg1: this.repeat}); break;
       case 'cmd_player_set_sleep_timer': this.setSleepTimer(d.arg1 ?? 0, !!d.arg2); break;
     }

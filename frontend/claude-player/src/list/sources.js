@@ -69,7 +69,9 @@ const gYear = g => (g._year ??= Math.min(...g.tracks.map(t => t.year || 9999)));
 // no_sort_field off (the default): album, artist, album artist and composer
 // names sort without a leading "the", "a" or "an" (the library's sort fields).
 const ARTICLE = /^(the|a|an)\s+/i;
-const ARTICLE_KEYS = new Set(['cat:albums', 'cat:artists', 'cat:albumArtists', 'cat:composers']);
+const ARTICLE_KEYS = new Set(['cat:albums', 'cat:artists', 'cat:albumArtists', 'cat:composers', 'cat:albums_by_artist']);
+// The second level's album lists sort like albums (te1).
+const articled = key => ARTICLE_KEYS.has(key) || key.startsWith('sub:');
 let articles = false;
 const sortKey = s => (articles ? (s ?? '').replace(ARTICLE, '') : s);
 const byName = (a, b) => cmpStr(sortKey(a.title), sortKey(b.title));
@@ -106,12 +108,12 @@ function withOptions(src, list, {key, zoomKind, sortKind = null, defaultSort = 0
   const v = value & ~REVERSE, rev = (value & REVERSE) !== 0;
   if (src.groups) {
     const cmp = GROUP_SORT[GROUP_SORT_FOR[sortKind]?.[v] ?? '0'] ?? byName;
-    articles = ARTICLE_KEYS.has(key) && !src.ctx?.pref?.('no_sort_field');
+    articles = articled(key) && !src.ctx?.pref?.('no_sort_field');
     try { src.groups = [...src.groups].sort(cmp); } finally { articles = false; }
     if (rev) src.groups.reverse();
     src.byName = v === 0 && !rev;
     // The A-Z column follows the sort field.
-    if (ARTICLE_KEYS.has(key) && !src.ctx?.pref?.('no_sort_field')) src.sectionTitle = i => (src.groups[i]?.title ?? '').replace(ARTICLE, '');
+    if (articled(key) && !src.ctx?.pref?.('no_sort_field')) src.sectionTitle = i => (src.groups[i]?.title ?? '').replace(ARTICLE, '');
   } else if (src.tracks) {
     let t = [...src.tracks];
     if (v === 11) {
@@ -139,6 +141,20 @@ function dims(list) {
 
 function str(ctx, name, fallback = name) {
   return ctx.res.stringByName(name, ctx.theme) ?? fallback;
+}
+
+/** A quantity string (plurals): "one" for 1, else "other", with %d filled in. */
+export function plural(ctx, name, n) {
+  const e = ctx.res.entry('plurals', name);
+  const raw = (n === 1 ? e?.one : null) ?? e?.other ?? '%d';
+  const text = ctx.res.string(raw, ctx.theme) ?? String(raw);
+  return text.replace(/%d/g, String(n));
+}
+
+/** "m:ss" or "h:mm:ss" (the library's dur_meta). */
+function durationMeta(ms) {
+  const sec = Math.round((ms || 0) / 1000), h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, ss = String(sec % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
 
 /** The library home: category tiles. */
@@ -256,6 +272,8 @@ export function categorySource(ctx, list, nav, cat) {
     src.clearable = !!stat.clearable;
   }
   else if (cat.kind === 'playlists') return playlistsSource(ctx, list, nav);
+  else if (cat.title === 'albums_by_artist') src = albumsByArtistSource(ctx, list, nav, title);
+  else if (cat.title === 'folders_hier') return folderLevelSource(ctx, list, nav, lib.hierRoot(), cat);
   else if (cat.kind === 'long') {
     const min = listOpts('tracks:long').minDurationMs ?? DEFAULT_LONG_MS;
     src = tracks(lib.tracks.filter(t => t.durationMs >= min), 'long');
@@ -325,13 +343,81 @@ export class GroupSource {
   bindItem(v, i) {
     const g = this.groups[i];
     const first = g.tracks[0];
-    v.bind({id: 'group:' + g.kind + ':' + g.title, group: true, title: g.title, artist: g.kind === 'album' ? albumRowArtist(this.ctx, g) : `${g.tracks.length}`, art: first?.art, thumb: first?.thumb, artId: first?.artId, meta: ''});
+    const artist = this.groupKind === 'albumsByArtist' ? g.artist : g.kind === 'album' ? albumRowArtist(this.ctx, g) : `${g.tracks.length}`;
+    v.bind({id: 'group:' + g.kind + ':' + (g.artist ?? '') + ':' + g.title, group: true, title: g.title, artist, art: first?.art, thumb: first?.thumb, artId: first?.artId, meta: ''});
   }
 
   onItemClick(i) {
     const g = this.groups[i];
-    this.nav.open(groupTracksSource(this.ctx, this.nav.list, this.nav, g, this.icon));
+    // he.a(): artists, album artists, genres, composers and years open the entry's albums (u3).
+    if (ALL_SONGS[g.kind]) this.nav.open(subAlbumsSource(this.ctx, this.nav.list, this.nav, g, this.icon));
+    else this.nav.open(groupTracksSource(this.ctx, this.nav.list, this.nav, g, this.icon));
   }
+}
+
+// The second level's "All ... Songs" row per category (df1 / qe1 / ig1 / ... F0()).
+const ALL_SONGS = {artist: 'all_artist_songs', albumArtist: 'all_album_artist_songs', genre: 'all_genre_songs', composer: 'all_composer_songs', year: 'all_year_songs'};
+
+/** Albums from the library that hold some of the given tracks (only those tracks). */
+function albumsOf(ctx, tracks) {
+  const own = new Set(tracks);
+  const out = [];
+  for (const a of ctx.library.albums()) {
+    const mine = a.tracks.filter(t => own.has(t));
+    if (mine.length) out.push({kind: 'album', title: a.title, artist: a.artist, artId: a.artId, tracks: mine});
+  }
+  return out;
+}
+
+/**
+ * An entry's albums (u3 over re1, the 2nd level category): an "All <category>
+ * Songs" row (allTracksSubheadSize, scene_1, "N songs") under the header,
+ * then the albums holding the entry's tracks, sorted like albums
+ * (<category>_albums_sort). Its menu is the tracks menu (v3.n).
+ */
+class SubAlbumsSource extends GroupSource {
+  get menuLayout() { return 'merge_menu_items_tracks'; }
+}
+
+export function subAlbumsSource(ctx, list, nav, g, icon) {
+  const src = withOptions(new SubAlbumsSource(ctx, list, nav, g.title, albumsOf(ctx, g.tracks)), list, {key: 'sub:' + g.kind, zoomKind: 'groups', sortKind: 'albums'});
+  src.groupKind = 'albums';
+  src.secondLevel = true;
+  src.parentGroup = g;
+  src.icon = icon;
+  src.subhead = {type: 'track', scene: 'scene_1', height: list.host.substyle.dim('allTracksSubheadSize', 0)};
+  src.bindSubhead = v => {
+    const first = g.tracks.find(t => t.artId || t.art || t.thumb) ?? g.tracks[0];
+    v.bind({id: 'all:' + g.kind + ':' + g.title, group: true, title: str(ctx, ALL_SONGS[g.kind]), artist: plural(ctx, 'songs_d', g.tracks.length), meta: '', art: first?.art, thumb: first?.thumb, artId: first?.artId});
+  };
+  // u3.f(-103): the entry's own files list.
+  src.onSubheadClick = () => nav.open(groupTracksSource(ctx, list, nav, g, icon));
+  src.rebuild = () => subAlbumsSource(ctx, list, nav, g, icon);
+  return src;
+}
+
+/**
+ * Albums by Artist (ue1: the artist_albums table): one row per album and
+ * artist (a track's artist, unsplit), the album with that artist's tracks;
+ * album sorts (albums_by_artist_sort). A row opens those tracks (ve1).
+ */
+export function albumsByArtistSource(ctx, list, nav, title) {
+  const unknown = ctx.res?.stringByName('unknown_artist_name') ?? 'Unknown artist';
+  const rows = [];
+  for (const a of ctx.library.albums()) {
+    const byArtist = new Map();
+    for (const t of a.tracks) {
+      const name = t.artist || unknown, k = name.toLowerCase();
+      let r = byArtist.get(k);
+      if (!r) byArtist.set(k, r = {kind: 'album', title: a.title, artist: name, artId: t.artId, tracks: []});
+      r.tracks.push(t);
+      r.artId ||= t.artId;
+    }
+    rows.push(...byArtist.values());
+  }
+  const src = withOptions(new GroupSource(ctx, list, nav, title, rows), list, {key: 'cat:albums_by_artist', zoomKind: 'groups', sortKind: 'albums'});
+  src.groupKind = 'albumsByArtist';
+  return src;
 }
 
 /** Tracks as rows; a tap plays from that track (List Item Action: play and go to main UI). */
@@ -600,5 +686,146 @@ export function groupTracksSource(ctx, list, nav, g, icon) {
   src.compactable = true;
   if (src.compactHeader) src.headerHeight = list.host.substyle.dim('compactTextHeaderSize', 0) + ctx.windowInsets.top;
   src.albumArtistList = kind === 'albumArtist';
+  return src;
+}
+
+/**
+ * Folders Hierarchy (h60, FoldersAndFilesPage over cg1; notebook F76). The
+ * top level (the root, or with root_hier_immediate the first folder with
+ * tracks or several subfolders) lists its subfolders; a folder lists its
+ * subfolders (name, parent folder, "files | duration" of the whole subtree)
+ * and then its own files. A subfolder opens the next level, a file plays the
+ * folder with the hierarchy's folders as categories (in path order). With
+ * hier_files_zoom a folder with files only takes the Folders files zoom
+ * level. Header Play starts at the folder (or its first folder with files)
+ * and, unless hier_no_advance, sets Play All Categories; header Shuffle with
+ * hier_flat_shf shuffles every song of the subtree, else songs and
+ * categories with the subtree's folders first (cg1.W).
+ */
+class FolderLevelSource {
+  constructor(ctx, list, nav, node, cat) {
+    this.ctx = ctx;
+    this.nav = nav;
+    this.node = node;
+    this.cat = cat;
+    const lib = ctx.library, tree = lib.folderTree();
+    this.tree = tree;
+    this.isRoot = node === lib.hierRoot();
+    this.title = this.isRoot ? str(ctx, 'folders_hier') : node.name;
+    this.folders = node.folders;
+    const d = dims(list);
+    this.header = {type: 'text', scene: 'scene_header'};
+    this.headerHeight = d.textHeaderSize + ctx.windowInsets.top;
+    this.itemType = 'track';
+    this.icon = '?folders_hier';
+    const filesOnly = !this.folders.length && node.files.length > 0;
+    // hier_files_zoom (m30.k0): a folder with files only takes the folder files zoom.
+    const filesZoom = filesOnly && !!ctx.pref?.('hier_files_zoom');
+    const files = withOptions({ctx, tracks: [...node.files]}, list, {key: 'tracks:folders_hier', zoomKind: 'tracks', sortKind: 'tracks', defaultSort: TRACKS_DEFAULT_SORT.folder});
+    this.tracks = files.tracks;
+    this.numbered = true;
+    applyZoom(this, list.host.substyle, filesZoom ? 'tracks' : 'groups', filesZoom ? 'tracks:folder' : 'cat:folders_hier');
+    this.rebuild = () => folderLevelSource(ctx, list, nav, lib.folderTree().nodes.get(node.path) ?? lib.hierRoot(), cat);
+  }
+
+  get count() { return this.folders.length + this.tracks.length; }
+
+  get menuLayout() { return 'merge_menu_items_lib'; }
+
+  get selectionLayout() { return 'merge_selection_menu_list_tracks_items'; }
+
+  isFolder(i) { return i < this.folders.length; }
+
+  indexOfTrack(t) {
+    const i = this.tracks.findIndex(x => x.id === t.id);
+    return i < 0 ? -1 : this.folders.length + i;
+  }
+
+  tracksAt(i) {
+    if (!this.isFolder(i)) return this.tracks[i - this.folders.length] ? [this.tracks[i - this.folders.length]] : [];
+    return subtreeFiles(this.folders[i]);
+  }
+
+  sectionTitle(i) {
+    return this.isFolder(i) ? this.folders[i].name : this.tracks[i - this.folders.length]?.title;
+  }
+
+  bindHeader(v) {
+    bindCategoryHeader(this, v, this.isRoot ? '' : hierMeta(this.node));
+  }
+
+  bindItem(v, i) {
+    if (this.isFolder(i)) {
+      const f = this.folders[i], first = f.files[0] ?? subtreeFiles(f)[0];
+      v.bind({id: 'hier:' + f.path, group: true, title: f.name, artist: f.parent?.name ?? '', meta: hierMeta(f), art: first?.art, thumb: first?.thumb, artId: first?.artId});
+    } else v.bind(this.tracks[i - this.folders.length], true, false);
+  }
+
+  onItemClick(i) {
+    if (this.isFolder(i)) { this.nav.open(folderLevelSource(this.ctx, this.nav.list, this.nav, this.folders[i], this.cat)); return; }
+    const p = this.ctx.player, k = i - this.folders.length;
+    this.ctx.listWidget?.rememberQueueSource(this);
+    const category = hierCategory(this, this.node);
+    if (p.track && this.tracks[k] === p.track && !this.ctx.pref?.('list_action_resets')) p.adoptQueue(this.tracks, k, category);
+    else if (!p.selectInList(this.tracks, k, category)) p.setQueue(this.tracks, k, category, p.state === STATE_PLAYING);
+    p.play();
+    if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
+  }
+
+  /** Header Play (g0(0)) and Shuffle (g0(4) through h60.V). */
+  play(shuffle) {
+    const ctx = this.ctx, p = ctx.player, flat = !!ctx.pref?.('hier_flat_shf');
+    const bus = (m, a) => ctx.bus.post('bus_player_cmd', m, this, {arg1: a});
+    if (shuffle && flat) {
+      // shs=h: every song of the subtree, shuffled.
+      const all = subtreeFiles(this.node);
+      if (!all.length) return false;
+      bus('cmd_player_set_shuffle', 2);
+      p.setQueue(all, Math.floor(Math.random() * all.length), null);
+    } else {
+      // cg1.M: the folder, or the next folder with files in path order.
+      const order = this.tree.withFiles;
+      const inside = order.filter(n => n === this.node || n.path.startsWith(this.node.path ? this.node.path + '/' : ''));
+      if (!inside.length) return false;
+      const start = shuffle ? inside[Math.floor(Math.random() * inside.length)] : inside[0];
+      bus('cmd_player_set_shuffle', shuffle ? 4 : 0);
+      // sd.g0(0): Play All Categories unless hier_no_advance (b40.W).
+      if (!shuffle && !ctx.pref?.('hier_no_advance')) bus('cmd_player_set_repeat_mode', 2);
+      const category = hierCategory(this, start);
+      const tracks = category.source.tracksAt(category.index);
+      p.setQueue(tracks, shuffle ? Math.floor(Math.random() * tracks.length) : 0, category);
+    }
+    p.play();
+    return true;
+  }
+}
+
+function hierMeta(n) {
+  return `${n.hierFiles} | ${durationMeta(n.hierMs)}`;
+}
+
+/** Every file in a folder's subtree, folder by folder in path order. */
+function subtreeFiles(n) {
+  const out = [...n.files];
+  for (const c of n.folders) out.push(...subtreeFiles(c));
+  return out;
+}
+
+/**
+ * The hierarchy's categories: every folder with files in path order; in the
+ * category shuffle modes the playing level's subtree comes first (cg1.W).
+ */
+function hierCategory(src, node) {
+  const order = src.tree.withFiles, index = order.indexOf(node);
+  if (index < 0) return null;
+  const level = src.node, prefix = level.path ? level.path + '/' : '';
+  const first = new Set(order.filter(n => n === level || n.path.startsWith(prefix)).map(n => order.indexOf(n)));
+  const files = n => withOptions({ctx: src.ctx, tracks: [...n.files]}, src.nav.list, {key: 'tracks:folders_hier', zoomKind: 'tracks', sortKind: 'tracks', defaultSort: TRACKS_DEFAULT_SORT.folder}).tracks;
+  return {source: {count: order.length, groups: order.map(n => ({title: n.name, tracks: n.files})), tracksAt: j => (order[j] ? files(order[j]) : []), shuffleFirst: first}, index};
+}
+
+export function folderLevelSource(ctx, list, nav, node, cat = homeCategory(2)) {
+  const src = new FolderLevelSource(ctx, list, nav, node, cat);
+  src.kind = 'hier';
   return src;
 }

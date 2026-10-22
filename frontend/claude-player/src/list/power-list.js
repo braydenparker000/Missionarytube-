@@ -13,6 +13,9 @@ export const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text', separato
 // Row types without item scenes (SeparatorItemView): laid out at the row's size.
 const PLAIN_TYPES = new Set(['separator', 'history', 'clearHistory']);
 
+// The subhead row's list index (y62: x61 -103).
+export const SUBHEAD = -103;
+
 // A touch during a fling faster than this stops it without a click (the scroller's 13.75 dp/s).
 const CLICK_STOP_DP = 13.75;
 
@@ -115,7 +118,7 @@ export class PowerList extends FastLayout {
   /** Centres a track's row in the list (the playing track in its source list). */
   scrollToTrack(t) {
     const s = this.source;
-    const i = t ? s?.tracks?.findIndex(x => x.id === t.id) ?? -1 : -1;
+    const i = t ? (s?.indexOfTrack ? s.indexOfTrack(t) : s?.tracks?.findIndex(x => x.id === t.id) ?? -1) : -1;
     if (i < 0) return;
     const g = this.geometry();
     this.scrollTo(g.top + g.headerH + this.itemTop(g, i) + g.itemH / 2 - (this.height - this.paddingBottom) / 2);
@@ -160,7 +163,9 @@ export class PowerList extends FastLayout {
     const itemH = s.itemHeight >= 0 ? s.itemHeight : Math.round(colW * (s.aaRatio ?? 1)) + (s.gridExtra ?? 0);
     // Separator rows (search subheaders) in a one-column list: their own height.
     const seps = cols === 1 && s.separators?.length ? s.separators : null;
-    return {cols, colW, gap, itemH, seps, sepH: seps ? s.separatorHeight : 0, headerH: s.header ? s.headerHeight : 0, top: this.paddingTop, left: pl};
+    // The header and, under it, a subhead row (y62: the "All ... Songs" row) before the items.
+    const headH = s.header ? s.headerHeight : 0, subH = s.subhead ? s.subhead.height : 0;
+    return {cols, colW, gap, itemH, seps, sepH: seps ? s.separatorHeight : 0, headH, subH, headerH: headH + subH, top: this.paddingTop, left: pl};
   }
 
   /** Separator rows before item i (g.seps is sorted). */
@@ -235,6 +240,7 @@ export class PowerList extends FastLayout {
     if (this.selection && v.listIndex >= 0) { this.toggleSelected(v.listIndex); return; }
     this.lastClicked = v.listIndex;
     if (v.listIndex === -1) this.source.onHeaderClick?.();
+    else if (v.listIndex === SUBHEAD) this.source.onSubheadClick?.();
     else this.source.onItemClick?.(v.listIndex);
   }
 
@@ -273,7 +279,8 @@ export class PowerList extends FastLayout {
     }
     const y0 = g.top + g.headerH - this.scrollY;
     const want = new Set();
-    if (s.header && g.top + g.headerH - this.scrollY > 0) want.add(-1);
+    if (s.header && g.top + g.headH - this.scrollY > 0) want.add(-1);
+    if (s.subhead && g.top + g.headerH - this.scrollY > 0) want.add(SUBHEAD);
     const first = this.indexAtY(g, Math.max(0, this.scrollY - g.top - g.headerH));
     const last = Math.min(s.count - 1, this.indexAtY(g, Math.max(0, this.scrollY + this.height - g.top - g.headerH)) + g.cols - 1);
     for (let i = first; i <= last; i++) want.add(i);
@@ -285,14 +292,18 @@ export class PowerList extends FastLayout {
       let v = this.active.get(i);
       const fresh = !v;
       if (fresh) {
-        v = this.obtain(i === -1 ? s.header.type : s.typeAt?.(i) ?? s.itemType);
+        v = this.obtain(i === -1 ? s.header.type : i === SUBHEAD ? s.subhead.type : s.typeAt?.(i) ?? s.itemType);
         this.active.set(i, v);
       }
       v.listIndex = i;
       let x, y, w, h, scene;
       if (i === -1) {
-        x = 0; y = g.top - this.scrollY; w = this.width; h = g.headerH; scene = s.header.scene;
+        x = 0; y = g.top - this.scrollY; w = this.width; h = g.headH; scene = s.header.scene;
         if (fresh || v._boundKey !== 'h') { s.bindHeader(v); v._boundKey = 'h'; }
+      } else if (i === SUBHEAD) {
+        x = 0; y = g.top + g.headH - this.scrollY; w = this.width; h = g.subH; scene = s.subhead.scene;
+        if (fresh || v._boundKey !== 's') { s.bindSubhead(v); v._boundKey = 's'; }
+        if (this.selectable) v.setSelection?.(false, false, false);
       } else {
         const c = i % g.cols;
         x = g.left + c * (g.colW + g.gap); y = y0 + this.itemTop(g, i); w = g.colW; h = this.itemHeightAt(g, i); scene = s.itemScene;
@@ -355,7 +366,7 @@ export class PowerList extends FastLayout {
     let f = 1;
     if (bt.headerButtons) {
       const first = this.indexAtY(g, Math.max(0, this.scrollY - g.top - g.headerH));
-      if (first < 3) f = Math.min(1, Math.max(0, (this.scrollY - g.headerH) / (104 * this.ctx.dpr)));
+      if (first < 3) f = Math.min(1, Math.max(0, (this.scrollY - g.headH) / (104 * this.ctx.dpr)));
     }
     const alpha = (bt.mode === 1 ? 0.55 : 1) * f;
     const size = bt.size, bottom = this.height, inset = bt.inset?.() ?? 0;
