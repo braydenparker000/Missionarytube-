@@ -2157,6 +2157,17 @@ mark there.
 - **EQ screen.** It matches the reference by id. Knob values differ because the harness has no audio
   engine.
 
+(i) A list header's menu (`g32.d0`), checked by tapping it in the harness:
+- **Album Art** shows only in an entry's songs or albums list when the entry's category bears art
+  (`rg1`: albums, artists, album artists, composers, genres, playlists). For the artist-like ones
+  (`gh1`) it is labelled Image (`art_image`). All Songs, folders and years hide it.
+- **Rescan** reads Rescan / Resolve Playlists in a playlist (`si1`) and Rescan This Folder in a
+  folder (`ag1`, `dg1`).
+- **Recycled headers.** The port prepared a header's menu only when it was first inflated, so a
+  recycled header kept the previous list's entries. It now prepares the menu on every opening.
+- **Dialogs.** Dialogs such as List Options draw in their own window, which the harness does not
+  capture.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
