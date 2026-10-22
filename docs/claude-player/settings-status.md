@@ -13,8 +13,8 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 160 |
-| Settings UI | 109 |
+| Built | 161 |
+| Settings UI | 108 |
 | Not built | 0 |
 | No web counterpart | 141 |
 | Owner decision | 17 |
@@ -124,7 +124,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `suggest_autoeq` | MultilineSwitchPreference | No web counterpart | Bluetooth / USB device detection |
 | `_clear_autoeq_known_devices` | RawTextPreference | Settings UI |  |
 | `_presets_to_peq` | RawTextPreference | Settings UI |  |
-| `_import_autoeq` | RawTextPreference | Settings UI |  |
+| `_import_autoeq` | RawTextPreference | Built | Imports the AutoEq project zip's ParametricEQ / GraphicEQ files as AutoEq presets (F82) |
 | `reset_eq_presets` | RawTextPreference | Built | Built-in EQ presets lose their edits and names (F69) |
 
 ## audio_focus

@@ -128,6 +128,15 @@ Disabled/More/Less pronounced), `font_variant` (System / Alt / **Bold = default*
 `android_navbar_bg`. Global options: rating disabled / stars menu.
 (f) Typed `SkinOptionSchema`. Each value maps to the overlay it applies.
 
+**Sweep** (headless Chromium, 412×915): every non-default value of every option, both skins, 45
+variants, each with the player and EQ screens.
+- No page errors and no non-finite or runaway view frames.
+- Every option changes the screen it targets: player-screen options the player, `knob_hilite` and
+  `graphic_frs_color` the EQ.
+- No visible effect, by design: `android_navbar_bg`, `statusbar_bg` and `force_light_navbar`, which
+  style Android's system bars.
+- Whether each change matches the reference's look still needs reference screenshots, as for F31.
+
 ### F12 — Window-size buckets drive geometry — `CONFIRMED_STATIC`
 ~60 `values-*` qualifier sets (for example `sw360dp-h640dp-port`, `sw380dp-h750dp-port`,
 `sw390dp-w640dp-land`). `TopPlay_maxSize` alone has 18 variants from 72 to 104 dp.
@@ -231,6 +240,7 @@ renderer or a licensed open-source one; no presets redistributed without a licen
 ### F22 — AutoEQ database — `CONFIRMED_STATIC`; budget constraint
 `assets/auto_eq.db` is 7.3 MB, which exceeds the whole remaining frontend budget (F25).
 (f) `UNSUPPORTED_WEB` within the current hosting budget. Would need an approved data-hosting decision.
+The user's own AutoEq project zip and AutoEq text files import as presets (F82).
 
 ### F23 — Album-art background parameters — `CONFIRMED_STATIC`
 `aa_bg.xml`: blur 0–15 (default 5), details 0–10 (default 5), intensity 0–250 % (default 100),
@@ -340,7 +350,7 @@ bottom-attached with `center_vertical` gravity — same open family as F31/F32.
 
 `MarqueeFastTextView`: with `anim_long_labels` on, a single-line label whose ellipsize is `marquee` lays out at 3000 dp. When the line overflows the available width by more than 10 px, it is clipped to the text box and scrolled: the first wait is 1500 ms and later waits are 3000 ms. It scrolls left by the overflow at 42.5 dp/s, using accelerate-decelerate when the overflow exceeds 50 px and linear otherwise, then waits, scrolls back and repeats while shown. With the option off, marquee labels ellipsize at the end. `OptionAnimLongLabelsInLists` (list and mini-player labels) defaults on as in `ui_player.xml`.
 
-### F36 — Sleep timer — `CS` (UI) / `INF` (expiry)
+### F36 — Sleep timer — `CS`
 
 The sub-AA button is `sleep_timer_layout`, a popup over `merge_sleep_timer_popup_layout`. `SleepTimerBehavior` gives the knob a range of 180°–1620° (four turns, 60 min per turn, 0–240 min). Past one turn, `RoundKnob` draws a ring per turn, each one stroke plus arcOffset further out, and only the partial ring gets the cap trim.
 
@@ -352,7 +362,14 @@ The sub-AA button is `sleep_timer_layout`, a popup over `merge_sleep_timer_popup
 - **Refresh:** the labels update every 500 ms.
 - **Button state:** the button is activated while the timer runs.
 
-How the reference stops playback (fade or immediate) is not verified, so a plain pause is used. The frame is ?TopSleepTimerButtonLayout_scene_item_menu (centred, up to 340 dp). The icon stays at the top left (?SleepTimerButton_scene_button_menu).
+**Expiry** (`an.B`, `k21` message 21, `an.m1066`, `PlayerServiceCore.o`):
+- Set while playing, the timer counts in real time; pausing does not stop it. Set while not
+  playing, it waits and starts its full time when playback starts.
+- At its end, if nothing plays it just clears. If playing, it pauses through the normal pause
+  (with its fade, F70), or with play-to-end stops when the track ends; then it clears and shows
+  the "Sleep Timer" / "Paused" toast.
+
+The frame is ?TopSleepTimerButtonLayout_scene_item_menu (centred, up to 340 dp). The icon stays at the top left (?SleepTimerButton_scene_button_menu).
 
 ### F37 — Visualization modes — `CS`
 
@@ -407,7 +424,7 @@ The following are inferred:
 - the follow pause after a user scroll (4 s)
 - tap to seek
 
-### F41 — Visualization panel — `CS` (structure) / `INF` (pager–list morph)
+### F41 — Visualization panel — `CS`
 
 `merge_vis_panel` holds `VisPanelFrame` (48 dp, `itemSize` 48 dp, `animTime` 500) inside a private-scene container. Collapsed, its `PowerList` pages the presets horizontally (`ov0`: one item per width), and settling on a page loads that preset. A tap expands the frame to `scene_vispanel_expanded` (352 dp):
 - a vertical list of `item_vis` rows in `scene_vis_item_list` (like/unlike tristate, activated check)
@@ -420,8 +437,15 @@ Close clears the filter, then collapses, then leaves vis mode (`cmd_gui_set_vis_
 - a press advances to the next mode and toasts the label with `toastOnPress` ("Long press for more options")
 - a long press opens the menu
 
-The vis panel's `PowerListSharedItemTransition` morph between its preset pager and list is
-approximated by a cross-fade. The library's art pager ↔ list hand-off is built (F48).
+**Pager ↔ list** (`VisPanelFrame.H0` / `N`, `PowerListSharedItemTransition.mo621` / `mo623`, `P.j`,
+`h0.j`): one PowerList changes from the pager layout (`ov0`, a `P`) to the list (`w62`,
+scene_vis_item_list) on the expand scene's progress.
+- The list takes the shared-item mapping (`h0` mode 4): it is scaled about a pivot by
+  `1 + (r − 1)·f`, with r = pager item / row height, and faded by `1 − f`.
+- The pager fades (`P` mode 2: alpha `1 − f`).
+- With `itemSize` equal to `listItemSize` (both `VisPanelFrame_height`), r is 1. The morph is then
+  exactly a cross-fade of pager and list on the scene's progress, which is how it is built.
+- The library's art pager ↔ list hand-off is F48.
 
 ### F42 — Ratings and play statistics — `CS`
 
@@ -474,7 +498,25 @@ The content scrolls (`ScrollingBehavior`). `SelectAlbumArtActivity` offers `pick
 - itemSize / itemSizeZoomed
 - grid cells: square art plus `grid*ExtraSpace`
 
-Show Titles Only selects the `scene_1*` variants. Not reproduced: Max Items, Min Duration, list memory and the compact header.
+Show Titles Only selects the `scene_1*` variants. Max Items, Min Duration and Compact Header are F63.
+
+**List Memory** (`ListOptsActivity` over a `jh1` list: folders `zf1` / `cg1` and playlists `ri1`;
+`zf1.h0` / `ri1.h0` → `oh1`; `pi1.moveFilesCursorToListMemorizedPosition`, `shouldRestorePerTrackPos`;
+`c30` / `d61` / `h60` / `k60` columns; `xc.j` / `xc.m` with `wa1.M`):
+- A folder's or playlist's songs list shows the List Memory group: List Position (`keep_list_pos`)
+  and Per Track Progress (`keep_track_pos`), each stored when the user ticks it
+  (`cmd_data_set_list_meta`), with the reference hint and its second paragraph (`html_2`).
+- **List Position:** a list started without a picked track starts at its memorized entry: header
+  Play or Shuffle, a category list's Play (its first entry), previous / next category. The entry is
+  the folder's file with the latest `played_at`, or the playlist entry last played from that playlist
+  (`playlist_entries.played_at`).
+- **Per Track Progress:** the list's tracks start where they were left, whatever `restore_pos` says.
+- **Meta icons:** folder rows (Folders, Folders Hierarchy) and song list headers of folders and
+  playlists show `(keep_track_pos << 1) + keep_list_pos` as the meta icon (`meta_songs_12dp`,
+  `keep_list_pos_12dp`, `keep_track_pos_12dp`, `keep_list_track_pos_12dp`); playlist rows show
+  List Position only (`d61`: column 5).
+- **Inferred:** a folder's `played_at` is our last completed play; flags are kept in the library
+  store (the reference's settings export of them is not built).
 
 ### F47 — Waveform data — `CS` (storage) / `OPEN` (analysis)
 
@@ -554,14 +596,11 @@ The following are `INFERRED`:
 ### F50 — Gestures with no reproduction yet — `CONFIRMED_STATIC`
 
 Read but not built:
-- sub-art button editing (`SubAAButtonsLayout`, `LoadableDraggableButtonsBehavior`,
-  `DraggableSourceBehavior`). The reference enables it only in its paid feature-pack tier
-  (`performLongClick` and `F1` check the licence state), and this build models the free tier
-  (F29). Building it needs an owner decision.
 - the predictive back gesture (`zb` / `ListWidget.V/g0/T`), which has no browser counterpart
 
-The art pager's overscroll category change, pinch-to-zoom, drag reordering and the navbar sheet drag
-were listed here and are now built (F52, F53, F59, F60).
+The art pager's overscroll category change, pinch-to-zoom, drag reordering, the navbar sheet drag
+and sub-art button editing (feature-pack tier, owner approved; F62) were listed here and are now
+built (F52, F53, F59, F60, F62).
 
 ### F51 — Meta info line — `CONFIRMED_STATIC`
 
@@ -1022,12 +1061,39 @@ search history". A tap on a term searches it; its button removes it.
 **Fix:** the chip row now lays out after Search opens. Its scene change had captured a 0 × 0
 target frame while the row was gone.
 
-Not built: Streams results (owner decision), the search zoom levels (`list_zoom_search`) and the
-targeted search (`ste`).
+**Minimum query:** two characters (one when targeted, or for Japanese, Korean and Chinese).
+Shorter, the plain search lists its history and a targeted one nothing (`kj1.B`).
 
-(f) `list/sources.js` (`searchSource`, `historySource`), `library/search-history.js`,
+**Search zoom** (`list_zoom_search`, `jj1.A` / `u` / `q0` / `F`, `vo1.P0`): six one-column levels,
+the track lists' table: 1 line extra small, 1 line, List - no images, List - compact (the default),
+List - small and List. The one-line scenes apply when the search covers one one-line category
+alone (Playlists, Genres, Years or Composers). Pinch steps through the levels; List Options offers
+them; separators and history rows keep their own heights.
+
+**Targeted search** (`ste` / `fpt`; `p31` `cmd_list_target_search` / `cmd_list_clear_target_search`,
+`vo1.T0` / `W0` / `S0`, `kj1.B`, `pd.I0`, `ListSearchTargetButton`, `ListSearchCatsLayout.x1`):
+- A list header's search button searches within the shown list: a category list, an entry's
+  songs or albums, Albums by Artist, a Folders Hierarchy level. The Library home, the Queue and
+  the search itself open the plain search.
+- The query starts empty with the keyboard. The category chips hide behind the target chip: the
+  list's label ("Albums", "Album Songs: Coastlines", "Folders Hierarchy: <folder>") with an X.
+- It searches the list's own rows in the list's own order: a category list its entries (albums by
+  album and artist), a track list its songs, a Folders Hierarchy level its subfolders and the songs
+  directly in it, the songs under "Folder Songs" (a header shows only before a second category).
+  A result binds, opens and plays as in that list (a song plays the list from it).
+- The chip clears the target: the same text over the chosen categories, the chips back.
+- The last plain search text comes back when Search is opened plainly; targeted terms still enter
+  the history.
+
+(e) **Inferred:** the labels' kind names for deeper lists, and the one-line levels' scenes for
+results that are not one-line categories.
+
+Not built: Streams results (owner decision).
+
+(f) `list/sources.js` (`searchSource`, `targetedRows`, `historySource`), `library/search-history.js`,
 `list/power-list.js` (separator and plain row types with their own heights), `widgets/search.js`
-(`SEARCH_CATS`, the chip row scroller).
+(`SEARCH_CATS`, the chip row scroller, `ListSearchTargetButton`), `list/list-widget.js`
+(`targetSearch`, `targetLabel`, `setSearchTarget`, the search's pinch zoom).
 
 ### F65 — The Queue — `CONFIRMED_STATIC`
 
@@ -1223,8 +1289,7 @@ shelves' frequency and Q in the JSON are the Tone settings, F68.)
 
 **No web counterpart:** dsp_border_gain (native gain smoothing).
 
-**Not built:** device and per-song/category assignment, AutoEq presets, and parametric presets
-(the DSP is graphic only).
+**Not built:** device assignment (F81) and AutoEq presets. Parametric presets are F82.
 
 (f) `dsp/eq-presets.js`, `widgets/eq-preset-ui.js`, `EqPresetPopupListLayout` in
 `widgets/popup.js`, `PopupList` row heights, the DSP's preset hooks (`get` / `set` / `setBand`).
@@ -1518,9 +1583,11 @@ that artist's songs on the album.
 - WAV files now read their fmt / data chunks for the duration, LIST/INFO text and an embedded ID3
   chunk. They previously fell through to the MP3 frame scan.
 
-**Not covered:**
-- The R2 library: its index lists audio files only.
-- Waveforms of virtual tracks.
+**Waveforms** (inferred; the reference analyses natively): a virtual track's waveform is its range of
+the image's peaks. The image is decoded once per session at 10 slices a second, then the range is
+cut into the track's bars and normalised like a file's.
+
+**Not covered:** the R2 library, whose index lists audio files only.
 
 ### F78 — GUI modals: the navbar sheet over the visualization — `CONFIRMED_STATIC`
 
@@ -1538,6 +1605,292 @@ opens and closes), `t61` (modal popups as @id/popup_menu, item menus as @id/popu
 **Before:** the temporary UI's timer returned the open sheet to scene_vis_w_ui. The navbar container
 was then at the faded-controls alpha, and the transport showed through the sheet. A scene change
 within the same navigation also closed the sheet; only a navigation change does now.
+
+### F79 — Entry headers, back decor and category row meta — `CONFIRMED_STATIC` (fallback bytecode in part)
+
+(a) S1 `c32` / `g32` (an entry's songs), `u3` (an entry's albums), `h60` (Folders Hierarchy), `kc` /
+`b32` / `k60` (category lists), `pd.H0` / `pd.z0`, `md.o` (header item type at -2 / -10, back decor
+at -5), `xc.mo1881` / `xc.e` (header and row binding), `hl0` (sizes), `h0.z` (the back decor takes
+the header's frame), `BackDecorItemView`, layouts `item_track` (scene_header / scene_header_1),
+`item_back_decor`, `item_text_back_decor`, `item_top_text_back_decor`, `item_no_title_back_decor`.
+`g32.F0`, `u3.F0` and `h60.F0` are read from fallback bytecode (jadx mangles them).
+
+(c) **Header item.** An entry's songs (album, artist, folder, genre, playlist, …), an entry's albums
+and a Folders Hierarchy folder use the track item (`_item_type_track`) as their header; category
+lists, the hierarchy's top level and the home keep the text header.
+- **scene_header:** the entry's art fills the header; the title, line 2 and the meta (with its icon)
+  sit at its foot over the header buttons.
+- **scene_header_1** (title, no line 2) when the parent category is a `tg1` one: artists, album
+  artists, genres, composers, years, playlists.
+
+**Height** (plus the top inset; Compact Header = `xh1.W0`):
+
+| List | Height | Compact |
+| --- | --- | --- |
+| artist, album artist, composer songs (`gh1`: `df1`, `qe1`, `kf1`; under a `tg1` category) | humanCatHeaderSize (at most the width) | compactHumanCatHeaderSize |
+| album songs of album artists and composers (`pe1`, `jf1`) | humanCatHeaderSize | compactHeaderSize |
+| other songs lists (albums, folders, genres, years, playlists, Albums by Artist) | headerSize | compactHeaderSize |
+| an entry's albums (`u3`) | headerSize; years (`ug1`) humanCatHeaderSize | compactHeaderSize; years compactHumanCatHeaderSize |
+| Folders Hierarchy folder (`h60`, not the top level) | headerSize | compactHeaderSize |
+| category lists (`kc`), hierarchy top level | textHeaderSize | compactTextHeaderSize (never offered) |
+
+**Header content** (the category entry's row, `pd.z0`): title the entry's name; line 2 its `C0`
+(an album's artist, a folder's parent); meta its `m0` "files | duration" (albums add " | year";
+playlists pad the bar with two spaces); meta icon `meta_songs_12dp`, or the folder's / playlist's
+List Memory flags (F46).
+
+**Category rows** (`xc.e`): the same line 2 and meta. Previously line 2 showed the song count.
+
+**Back decor** (`sd.c()`; `BackDecorItemView`): an up-nav title ("‹ Parent", `cmd_list_up_nav`)
+laid over the header in scene_header_back_decor, with the header's frame and alpha, above it.
+- Its text is `pd.H0`: the parent entity's name (Library above a category; Artists above "All Artist
+  Songs"), or in a second level the parent entry's (the artist above one of their albums).
+- Layouts: song lists `item_back_decor`; an entry's albums `item_text_back_decor`; category lists
+  `item_top_text_back_decor`; a hierarchy folder `item_back_decor` with the parent folder's name, or
+  `item_text_back_decor` under the top level. Search shows none here (`item_no_title_back_decor`).
+- `disableForStateId` selection mode: disabled, and invisible (disabledAlpha 0).
+
+The header art's stretch on overscroll is F80. Artist images (the reference's `CatImage` and artist art) are
+not available; headers and rows show the first track's art.
+
+(f) `sources.js` (`entryHeader`, `groupMeta`, `groupLine2`, `metaIconOf`), `power-list.js`
+(`placeBackDecor`), `list-widget.js` (`backTitleFor`, `setMetaIcon`, `cmd_list_up_nav`),
+`library/list-memory.js`, `list-opts.js`, `html-text.js` (`html_2`; glyph boxes through the CSSOM,
+which `style-src 'self'` allows).
+
+### F80 — Library list overscroll — `CONFIRMED_STATIC` / `INFERRED` in part
+
+(a) S1 `hc` (PowerScroller: `C` drag, `mo1890` damping, `mo1886` release, `A` / `mo1887` spring
+back, `m1889` overshoot, the `fc` runnables), `dh0` (spring), `eh0` (fling and the linear
+overshoot), `h0` (`P` = 44 dp, `g` = 30 dp, the spread loop, `mo986` overscroll, `z` header
+stretch), `v62.v` / `w62.v` (row scaleY and offset), `AAImageView.E` / `onDraw`, `hj0` / `tb`
+(edge glow), `PowerList.draw` / `K` / `mo617` / `mo616`, `wa1.h0` (`android:colorEdgeEffect`),
+`kw0` (drag reorder sets `P` to 0).
+
+(c) **Drag past an end.** The content moves on past the end by a rubber band: (P / 4)·ln(1 + C / P)
+for C px of finger travel beyond the end, P = 44 dp. Moving back towards the list undoes the
+overscroll 1:1, then scrolls. Lists inside a dialog frame hand that drag to the frame instead (F58),
+and a drag reorder has none.
+
+**Release.** An overscrolled list does not fling; it springs back over max(0.5 s, |o| / 1500 px/s)
+along the fling curve (0.103, 0.389, 0.307, 0.966), ending within half a pixel.
+
+**Fling into an end.** The remaining velocity v overshoots past the end, decelerating linearly over
+|v| / 10⁶ s (about v² / 2·10⁶ px), then springs back.
+
+**While overscrolled** (pulled past the top, or pushed past the end of a list that scrolls), the
+shown rows spread. The k-th of n rows moves by (k / n)·(o / P)·30 dp and is scaled vertically by
+1 ± (k / n)·|o / P|·0.04 (larger at the top, smaller at the end). A track header's art reaches up
+over the gap: its rect grows by o and the image moves up by o / 2. The moveable toolbar reads
+past-top / past-end.
+
+**Edge glow** (`hj0`, the platform's pre-12 EdgeEffect): pulls, releases and absorbs (v / 5) at the
+end. Its colour is `android:colorEdgeEffect`, transparent in the default themes, so it shows only in
+themes that set one.
+
+**Inferred:**
+- The rubber band reads `hc.mo1890` as a target: its decompiled register use is ambiguous.
+- Row scale pivots on the row's centre.
+- An image's area above its bitmap stays the placeholder colour (the shader clamps there).
+
+Also fixed: a header image taller than its rect (a square cover in the wide header) was squashed;
+it is now cropped and centred, as `AAImageView` does.
+
+(f) `power-list.js` (`dragBy`, `spreadFor`, `springBack`, `overshoot`, the glow), `edge-glow.js`,
+`list-widget.js` (`AAImageView.setStretch`, crop), `gesture.js` (`FLING_CURVE`).
+
+### F81 — EQ preset song and category assignment — `CONFIRMED_STATIC` (storage, dialogs) / `INFERRED` (playback switch)
+
+(a) S1:
+- `merge_eq_preset_assign`, `EqPresetsBehavior` (rows; `__bind_to_track`, `__bind_to_cat`,
+  `__bound_cat_uri`).
+- `EqPresetAssignActivity` (OK / Cancel / Unassign: `__unbind_from_all_track_ids`,
+  `__unbind_from_all_devices`).
+- `qf1` (`REPLACE INTO eq_preset_songs` per file; a category binds each of its files).
+- `EqPresetPopupListLayout` (`cmd_list_preset_assign_dialog` for one selected preset).
+- `m10.o` (`item_eq_preset_3line` for a bound preset).
+- `mf1` (the Assigned filter).
+- `s` (`DSPIPresetState`, the loaded preset's reason: `pre_song` for a song preset).
+
+(c) **Storage.** The reference stores song bindings only (`eq_preset_songs`: file → preset).
+Binding a category binds every song it holds at that moment.
+
+**Dialogs.** Save/Assign and Assign Preset show `merge_eq_preset_assign`.
+- Its output devices (speaker, wired, Bluetooth, USB, Chromecast, other) are hidden: a web page
+  cannot tell its outputs apart.
+- "Apply to songs" shows:
+  - "Song: <title>", checked when the playing song is bound to the preset;
+  - its category, by the category's singular name (Album, Artist, Folder, …) with its micro icon.
+    It is hidden for lists that are not a category entry.
+- Save applies the boxes to the saved preset; OK applies them to the selected one.
+- Unassign removes the preset from every song.
+- The preset list's selection menu offers Assign for one preset.
+
+**Preset list.** A preset bound to the playing song shows the 3-line row with its song icon. The
+Assigned filter keeps the presets bound to the playing song (no device bindings exist here).
+
+**Playback** (inferred; the switch is in the native preset state):
+- When a bound song starts, its preset loads.
+- The next song without one returns to the preset (or unsaved EQ) that was on before.
+- A preset the user picks becomes that fallback.
+
+(f) `dsp/eq-presets.js` (`presetForTrack`, `assignTracks`, `unassignAll`, `onTrack`),
+`widgets/eq-preset-ui.js` (`setupAssign`, `openAssignPresetDialog`), `widgets/popup.js`.
+
+### F82 — Parametric equalizer — `CONFIRMED_STATIC` (model, UI, presets) / `INFERRED` (filter maths, tall item layout)
+
+(a) S1:
+- Model and controller: `Band`, `pr` / `or` (band array, add `or.P`, reorder `or.m2758`),
+  `u21` (`cmd_dsp_*` handling: add, delete by serial, reorder, lock, set gain / freq / Q / type /
+  channels / colour), `s.a` / `pr.m2840` (preset load), `qr` (binary blob), `u31.r` / `u31.s`
+  (JSON), `qf1.V0` / `U0` (import and its toasts), `qq0.T` and `kn` (built-in presets).
+- UI: `EqKnobsList` (selection, lock toast `o0`, controls `z`, item width `p0`), `C0049`
+  (adapter: preamp, `_param` items, `_controls` / `_empty_controls`), `c10` (band item),
+  `h10` (item background), `g10` + `ColorCircleSelector` (colour popup), `fp1` (type and
+  channel popups), `nr` / `zr` (knob scales), `KnobLabelAndValue`, `np` (colour cursor),
+  `FrequencyResponseScroller` (parametric drawing and touch).
+- Resources: the `EqParam*` and `EqListControls*` styles, `merge_selection_menu_eq_knobs`,
+  `merge_eq_param_colors`, `eq_param_type_modes` / `eq_param_lr_modes` and their icon arrays,
+  `EqParamColorSet_Default`.
+
+(c) **Mode.** There is no mode setting: the EQ is parametric when its bands are (the loaded preset
+decides). A graphic preset drops the parametric bands; a parametric preset replaces the bands.
+Reset zeroes gains and preamp and keeps the bands.
+
+**Bands.** Type 0 Low Pass, 1 High Pass, 2 Band Pass, 3 Peaking Band, 4 Low Shelf, 5 High Shelf;
+channels L+R / Left / Right; frequency an integer 1..24000 Hz; Q 0.1..12; gain ±15 dB; colour;
+lock. At most 64.
+- Add Band: the first is a Band Pass at 31 Hz, Q 1.5; each next one takes the last band's type
+  and Q at twice its frequency (at most 20 kHz). Its colour comes from a cursor walking the
+  palette down each column (first "none"), kept in memory only.
+- A locked band disables its type and channel popups; its knobs ignore touches and are not
+  clickable, so a tap reaches the band and shows "Band is locked" (with the Lock hint). Colour,
+  Select, the lock box, delete and reorder still work.
+
+**List.** The preamp, one item per band, then the controls item: Add Band, Select and, in the
+first 7 days after the first run, "Long press value to edit"; with no bands, Add Band alone.
+Every item has the first band item's width, measured unconstrained at the list height (`p0`).
+Adding a band scrolls it into view with 200 sp of slack (less 20 %).
+
+**Band item.** From its styles: the gain slider, two column guides, Select, colour, lock, the
+channel and type popups, the Q and Freq knobs with their labels, the select box and the drag
+handle (both shown only in selection mode).
+- Freq scale (`nr`): 20–199, 200–994, 1000–7950 and 8000–24000 Hz over the four quarters,
+  snapping to 5 / 50 / 100 Hz in the upper quarters while dragged; labels "440", "2.50K",
+  "12.0K". Q scale (`zr`): 0.1..12 through 1.5 at the middle, "%.2f".
+- A long press on a label opens the value dialog (title Frequency / Q / Gain, the volume-jump
+  warning).
+- Background (`h10`): the band colour as a rounded fill (2 dp left inset, 28 dp corners), else a
+  dotted separator except after the last band. A colour pick fades in CIE Lab over 250 ms.
+
+**Colour popup.** The palette rows (split at 0 entries) as circles, the current one ringed;
+touch-down and every move pick live; the popup stays open (the selector takes the touch stream,
+so no click reaches the popup).
+
+**Selection mode** (Select, or a band's Select button with that band): the selection menu with
+Delete (confirmed; locked bands too) and Lock/unlock (the opposite of the first selected band's
+lock, for all). The drag handle reorders bands. Tapping the controls item ends it.
+
+**Curve.** Each band is its own filled lobe between its response and 0 dB, not summed; ±15 dB
+fills the half height; colours are the band colour at twice its HSV saturation and value (fill
+alpha 0.5). The FRS is the list's scrollbar: a drag scrolls proportionally; a touch outside the
+window glides there over 350 ms (decelerate 2), the outer tenths clamping to the ends.
+
+**Presets.** The six built-in parametric presets and the three graphic tone presets are listed.
+JSON keeps the reference order (`name`, `preamp`, `parametric`, `bands`; tone bands first; signed
+ARGB colours). Import reports "Imported parametric presets: n" (else graphic), with the name for
+one preset. A taken name gets " (n)".
+
+**AutoEq text** (`cy0.G` / `J` / `I`): a file whose first 100 lines hold "Preamp: X dB" and
+"Filter n: ON <type> Fc <Hz> Hz Gain <dB> dB Q <q>" lines imports as a parametric preset (up to
+64 bands, coloured by the colour cursor; PK / PEQ / Modal peaking, LS / LSC and HS / HSC shelves,
+LP / LPQ, HP / HPQ, BP). A "GraphicEQ: <Hz> <dB>; …" line with at least 5 rising points imports
+as a graphic preset, each gain taken as (dB + 6) / 15. The graphic points are sampled onto the
+EQ's bands like any graphic preset (the reference rebuilds a band layout from the points; here the
+band count stays the user's).
+
+**Default presets** (`qq0.m2923`, `m10.h` / `o`): each mode has a user preset named Graphic or
+Parametric with no data; loading it resets the EQ to that mode (Parametric: no bands). Their rows
+are 2-line with "Default Preset".
+
+**Import AutoEq Presets** (`_import_autoeq`; `pq1`, `ma`): a notice ("Import presets from a zip
+file …" and "The imported presets will overwrite …") with Select File, then every
+"<name> ParametricEQ.txt" / "<name> GraphicEQ.txt" of the zip (at most 64 KB each) becomes an
+AutoEq preset: bands locked, a parametric preset's preamp 0 dB, the source taken from the two
+folders above the file's own (underscores as spaces, first letter capitalised) and shown as the
+row's second line. A preset with the same name and source is replaced. The result is "Done" with
+"Imported presets: n". The presets show under the AutoEq filter.
+
+(e) **Inferred.**
+- The filter maths is native (`Coefs`). Peaking and the shelves are RBJ biquads with a Q. Low,
+  High and Band Pass carry gains in the reference presets and tone bands, so they are boost/cut
+  filters here: x + (g − 1)·F(x), F the RBJ pass filter. At a high Q this dips just past the
+  corner.
+- The curve's frequency axis is taken as log 20 Hz..24 kHz.
+- The tall item variant (screen height ≥ 700 dp) read literally gives the Q knob no height: Freq,
+  attached to both parent edges, exceeds its maximum height, keeps only its top attach and sits
+  at the top, where Q also starts. It is laid out by intent (as F32): Q under the popups, Freq at
+  the bottom beside the tool column, labels inside each knob's bottom padding.
+- The empty EQ's Add Band item takes the rest of the list width.
+- The select box and drag handle fade in over 150 ms.
+
+**Not built:** the per-device AutoEq suggestions (`suggest_autoeq`: outputs not identifiable),
+the binary preset blob (presets are stored as JSON here), and haptics.
+
+(f) `dsp/param-eq.js`, `dsp/dsp.js` (parametric model, commands, graph), `dsp/eq-presets.js`,
+`widgets/eq-param.js`, `EqKnobsList` and `FrequencyResponseScroller` in `widgets/eq.js`,
+`widgets/eq-preset-ui.js` (import toast), `icons.js` (type, channel and unlock glyphs),
+`tests/claude-player-param-eq.test.mjs`.
+
+### F83 — App drawable states and wrap measuring under an unlimited parent — `CONFIRMED_STATIC`
+
+(a) S1: `h30` / `i30` (extra drawable states pushed down a view tree), `x82.mo651`
+(`state_locked`), `LimiterDSPCheckBox` (`state_limiting`), `yv0.m3714`
+(`state_toolbar_in_header`), `FastLayout.onMeasure` / `g1` (child specs).
+
+(c) **States.** Selectors use the app's own states as well as the platform's: `w:state_locked`,
+`w:state_limiting`, `w:state_toolbar_in_header`. They were read as unconditional items, so:
+- every enabled EQ knob thumb drew its locked look (the disabled stroke), never the normal or
+  pressed one;
+- the Limit button always drew its limiting look;
+- the navbar's lists icon was always filled.
+
+Now:
+- locked bands set `state_locked` on their knobs;
+- the Limit button samples the limiter every 100 ms while playing and shows `state_limiting`
+  while its gain is under 0.9995 (here the compressor's gain reduction);
+- the moveable toolbar pushes `state_toolbar_in_header` down the navbar while the library list
+  shows its first item (`extraStates`).
+
+**Measuring.** A FastLayout measured without a width (or height) limit measures its wrap_content
+children without one too (`onMeasure` mode 0). A plain view then takes no space instead of the
+huge limit.
+
+(f) `view/drawables.js`, `res/resources.js`, `view/view.js` (`setExtraState`, `stateKey`),
+`LimiterDSPCheckBox` in `widgets/eq.js`, `list/moveable-toolbar.js`, `list/power-list.js`
+(`scrollState().first`), `view/fast-layout.js`.
+
+### F84 — Colour and text preferences — `CONFIRMED_STATIC` / `INFERRED` in part
+
+(a) S1 `ColorPreference`, `preference_color`, `AmbilwarnaLayout` / `ambilwarna_layout`
+(`AmbilWarnaKotak`, `ambilwarna_hueWidth` 36 dp, `ambilwarna_spacer` 16 dp), `EditTextPreference`
+rows (`lyrics_custom_url`).
+
+(c) **Colour** (`aa_bg_gradient_color`):
+- The row shows "#RRGGBB" and a 60 × 30 dp swatch under its text.
+- A click opens the picker with no title: a saturation / value square 280 dp high, the hue bar on
+  its right (hue 0 at the bottom, 360 at the top) with its cursor, the target ring, then the new
+  colour (60 × 30 dp) beside its six hex digits. Typing six valid digits sets the colour.
+- OK stores "#AARRGGBB|@0" (the reference's form; `@<attr>` names a theme colour picked from the
+  system palette circles).
+
+**Text:** a one-line entry dialog (title, OK / Cancel).
+
+(e) **Inferred:** the swatch corner rounding (the outline provider's radius is not read). **No web
+counterpart:** the Android 12 system palette circles (`merge_widget_mu_colors`).
+
+(f) `settings/settings.js` (`pickColor`, `editText`, `colorPrefValue`), `app.css` (`.cps-amb*`),
+`widgets/milk.js` (reads the colour part).
 
 ### I1 — Layout inferences to verify against screenshots
 
@@ -1568,10 +1921,10 @@ No status is device-verified.
 | F08 animation speed | Built | — |
 | F09 FastLayout | Built | I1 inferences |
 | F10 theme composition | Built | — |
-| F11 skin options | Partial | Options apply through generic overlay composition and are not checked one by one. Follow Day/Night is built (F56). Material You has no seed-colour substitute. |
+| F11 skin options | Built | Every option rendered and checked in a sweep (F11); looks not compared with reference screenshots. Follow Day/Night is built (F56). Material You has no seed-colour substitute. |
 | F12 window buckets | Built | — |
 | F13 waveseek | Built | Native analysis `OPEN` |
-| F14 gesture inventory | Partial | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58); drag reorder and multi-select drag (F59); the navbar sheet drag (F60). the lyrics button long press (lyrics dialog, F61). **Not built:** long press between buttons (edit; feature-pack tier, owner decision). The help's visualization ←/→ preset swipe (`h_vis_swipe`) is anchored to `vis_panel_frame`: it is the vis panel pager, which is built, and no UI class sends `cmd_player_load_next/prev_milk_preset`. |
+| F14 gesture inventory | Built | Built: art ←/→, ↓ (source list), ↑ (lyrics), tap and "swipe more" (category, F52); the navbar tap, ←/→, long press and category overscroll; the library parent swipe; line 2 tap and long press; pinch-to-zoom (F53); meta-info tap cycling (F51); search-chip toggle and long press (F55); rating taps, swipes and long press (F57); dialog drag (F58); drag reorder and multi-select drag (F59); the navbar sheet drag (F60). the lyrics button long press (lyrics dialog, F61); the long press between the sub-art buttons (editing, F62). The help's visualization ←/→ preset swipe (`h_vis_swipe`) is anchored to `vis_panel_frame`: it is the vis panel pager, which is built, and no UI class sends `cmd_player_load_next/prev_milk_preset`. |
 | F15 thresholds and physics | Built | VelocityTracker reproduced in form only |
 | F16 navbar | Built | — |
 | F17 settings corpus | Built (screens) | Per-key implementation statuses not recorded |
@@ -1579,7 +1932,7 @@ No status is device-verified.
 | F19 typography | Built | — |
 | F20 audio | Built (web subset) | Native engine `UW` |
 | F21 visualization | Built (butterchurn) | — |
-| F22 AutoEQ | Not built | `UW` within the budget |
+| F22 AutoEQ | Partial | The bundled database is `UW` within the budget; the AutoEq project zip and text files import (F82) |
 | F23 art background | Built | Blur kernel approximated |
 | F24 renderer bench | N/A | — |
 | F25 hosting | N/A | — |
@@ -1590,24 +1943,24 @@ No status is device-verified.
 | F30 backdrop | Built (approximation) | — |
 | F31 elapsed/duration | Partial | Placement `OPEN` |
 | F32 knob stacks | Partial | Laid out by intent |
-| F33 equalizer | Partial | Presets per F67; platform FX, AutoEQ and preset assignment not built |
+| F33 equalizer | Partial | Presets per F67, song assignment per F81, parametric mode and AutoEq import per F82; platform FX, the bundled AutoEq database and device assignment not built |
 | F34 popups | Built | Curve inferred |
 | F35 marquee | Built | — |
-| F36 sleep timer | Built | Expiry fade not verified |
+| F36 sleep timer | Built | — |
 | F37 vis modes | Built | — |
 | F38 list scroller | Built | — |
 | F39 selection | Built | Multi-select drag built (F59). Delete files skipped (owner decision). |
 | F40 lyrics | Built | Page geometry inferred. Lyrics dialog built (F61); provider apps not built. |
-| F41 vis panel | Built | Pager–list morph cross-fades |
+| F41 vis panel | Built | — |
 | F42 ratings/stats | Built | Rating swipes built (F57) |
 | F43 dialogs | Built | Drag to dismiss with the list overscroll handoff (F58) |
 | F44 playlists | Built | Drag reordering (F59); re-sort, import and export (F66) |
 | F45 info / album art | Built | Tag editing skipped (owner decision) |
-| F46 list options | Partial | Max Items, Min Duration, compact header, categories built (F63); list memory not built |
+| F46 list options | Built | List Memory built; its settings export not built |
 | F47 waveform data | Built | — |
-| F48 list page transitions | Partial | See F48 (e) |
+| F48 list page transitions | Built | Pair times per navigation and the lyrics swipe pivot side inferred (F48 (e)) |
 | F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics button long press opens the lyrics dialog (F61). |
-| F50 unbuilt gestures | Not built | Sub-art button editing (owner decision), predictive back |
+| F50 unbuilt gestures | `UW` | Predictive back has no browser counterpart (the system back arrives as a plain history step); sub-art button editing is F62 |
 | F59 drag reorder | Built | Release mid-slide and the grid path inferred or untested |
 | F60 navbar sheet drag | Built | — |
 | F61 lyrics dialog | Built | The share sheet substitutes the search chooser; provider apps not built |
@@ -1620,22 +1973,28 @@ No status is device-verified.
 | F56 Follow Day/Night | Built | Night mode from `prefers-color-scheme` |
 | F57 star rating bar | Built | — |
 | F58 dialog drag | Built | — |
-| F63 library list preferences / List Options | Built | List memory not built |
+| F63 library list preferences / List Options | Built | — |
 | F65 queue | Built | Shuffled order inferred |
 | F66 playlist re-sort / files | Built | Import picks files (web) |
-| F67 EQ presets | Partial | Assignment, AutoEq, parametric not built |
+| F67 EQ presets | Partial | Song / category assignment built (F81), parametric, default and AutoEq presets (F82); device assignment not built |
 | F68 EQ knob values, Tone / band settings, settings rows | Built | Band frequencies for non-ISO counts and resampling inferred; dsp_border_gain native |
 | F69 Reverb presets | Built | Parameter 8 kept at 1.0 without a knob |
 | F70 Fades and crossfades | Built | Curves and the gapless-pair test inferred (native pipeline) |
 | F71 ReplayGain | Built | Gain rules follow the standard (native player) |
-| F72 Shuffle modes and options | Partial | category_shuffle and hier_flat_shf wait for the sub-category screens |
+| F72 Shuffle modes and options | Built | — |
 | F73 Library playback options, pro button morph | Built | — |
 | F74 About: version and licenses | Built | — |
 | F75 Navbar scroll-away and the bottom toolbar | Built | The bottom toolbar fades with the leaving page in level transitions (`w62.j` fades it by the transition fraction) |
 | F76 Category levels, Albums by Artist, Folders Hierarchy | Built | Text-item rows for categories (track items here) |
-| F77 CUE sheets | Built | R2 index (audio files only); virtual tracks have no waveform |
+| F77 CUE sheets | Built | R2 index (audio files only); virtual track waveforms sliced from the image (inferred) |
 | F78 GUI modals (navbar sheet, popups, item menus) | Built | — |
-| F64 search | Built | Search zoom levels and targeted search not built; no Streams |
+| F81 EQ preset song and category assignment | Built | Devices hidden (outputs not identifiable); the playback switch-back inferred |
+| F79 Entry headers, back decor, category row meta | Built | No artist images |
+| F80 Library list overscroll | Built | Rubber band reading of `mo1890` and the row scale pivot inferred; glow only where the theme colours it |
+| F82 Parametric equalizer | Built | Filter maths and curve axis inferred (native); tall item layout by intent; AutoEq text files and the AutoEq project zip import; per-device suggestions not built |
+| F83 App drawable states, unlimited wrap measuring | Built | — |
+| F84 Colour and text preferences | Built | System palette circles have no web counterpart |
+| F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 
 ## Open questions, prioritised by fidelity impact
 

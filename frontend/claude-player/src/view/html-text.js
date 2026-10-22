@@ -2,7 +2,7 @@
 // shown with its inline <img src=…> drawables. Each image takes an em-wide
 // slot in the text, so lines measure and wrap as plain text, and the icon is
 // drawn into its slot (12dp, w:drawableTint, else the text colour). Other
-// tags are dropped; <br> breaks the line.
+// tags are dropped; <br> breaks the line. w:html_2 follows after a blank line.
 import {FastTextView} from './text.js';
 import {register} from './inflater.js';
 import {colorForState} from '../res/resources.js';
@@ -26,7 +26,10 @@ export class HtmlTextView extends FastTextView {
     super(ctx, a);
     this.iconTint = a.color('drawableTint') ?? null;
     this.images = [];
-    const html = a.string('html', null);
+    let html = a.string('html', null);
+    // w:html_2: a second paragraph after a blank line.
+    const html2 = a.string('html_2', null);
+    if (html2 !== null) html = `${html ?? ''}<br><br>${html2}`;
     if (html !== null) this.setHtml(html);
   }
 
@@ -53,7 +56,11 @@ export class HtmlTextView extends FastTextView {
         if (i > 0) {
           const slot = document.createElement('span');
           slot.style.cssText = `display:inline-block;width:1em;height:${size}px;vertical-align:-0.1em;text-align:center`;
-          slot.innerHTML = `<span style="display:inline-block;width:${size}px;height:${size}px">${iconSvg(this.images[k++] ?? 'placeholder', color)}</span>`;
+          // The glyph's box is styled through the CSSOM: style-src 'self' refuses inline style attributes.
+          const box = document.createElement('span');
+          box.style.cssText = `display:inline-block;width:${size}px;height:${size}px`;
+          box.innerHTML = iconSvg(this.images[k++] ?? 'placeholder', color);
+          slot.appendChild(box);
           el.appendChild(slot);
         }
         if (p) el.appendChild(document.createTextNode(p));

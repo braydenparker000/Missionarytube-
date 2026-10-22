@@ -4,6 +4,7 @@ import {LibraryDb} from './db.js';
 import {readTags, readRemotePicture, setTagEncoding, decodeTextFile} from './tags.js';
 import {makeSplitter, GENRE_DEFAULT_SPLIT} from './split.js';
 import {Playlists} from './playlists.js';
+import {ListMemory} from './list-memory.js';
 import {parseCue, cueFor, cueTracks} from './cue.js';
 import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars, decodeWave} from './r2.js';
 
@@ -62,6 +63,7 @@ export class Library {
     this.userData = new Map();
     ctx.library = this;
     this.playlists = new Playlists(ctx, this);
+    this.listMemory = new ListMemory(ctx, this);
     this.customArt = new Map(); // 'a:<album>\0<artist>' or 't:<id>' -> Blob (picked images)
     ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => {
       if (msg === 'cmd_data_track_rating' && d?.track) this.setRating(d.track, d.arg1 ?? 0);
@@ -82,6 +84,7 @@ export class Library {
       this.setTracks([...this.localTracks, ...this.remoteTracks]);
       for (const [k, v] of await this.db.stateEntries('ca:')) if (v instanceof Blob) this.customArt.set(k.slice(3), v);
       await this.playlists.load();
+      await this.listMemory.load();
     } catch (e) {
       console.warn('[claude-player] library storage unavailable', e);
     }
@@ -492,8 +495,7 @@ export class Library {
    */
   async waveFor(t, bars = 100) {
     if (this.ensureWave(t)) return t.wave;
-    // A CUE track's waveform would be the whole image's: none (not ported).
-    if (t.cueOf) return null;
+    if (t.cueOf) return this.cueWave(t, bars);
     if (!this.byId.has(t.id)) return null;
     // Remote tracks only use pre-generated waveforms (a small file on R2):
     // decoding would download the whole song.
@@ -504,18 +506,31 @@ export class Library {
       await this.saveTrack(t);
       return t.wave;
     }
-    const file = await this.db?.file(t.id);
+    const p = await this.filePeaks(t.id, () => bars);
+    if (!p) return null;
+    t.wave = normalizePeaks(p.peaks);
+    await this.saveTrack(t);
+    return t.wave;
+  }
+
+  /**
+   * An imported file's peaks: the decoded audio (8 kHz) in bars(durationMs)
+   * equal slices, each its largest sample over the channels; null when it
+   * cannot be decoded.
+   */
+  async filePeaks(id, bars) {
+    const file = await this.db?.file(id);
     if (!file || typeof OfflineAudioContext !== 'function') return null;
     try {
       const buf = await file.arrayBuffer();
       const ac = new OfflineAudioContext(1, 8000, 8000);
       const audio = await ac.decodeAudioData(buf);
-      const n = audio.length, chans = audio.numberOfChannels;
+      const n = audio.length, chans = audio.numberOfChannels, count = Math.max(1, bars(audio.duration * 1000));
       const data = [];
       for (let c = 0; c < chans; c++) data.push(audio.getChannelData(c));
-      const out = new Array(bars).fill(0);
-      for (let b = 0; b < bars; b++) {
-        const s0 = Math.floor((b * n) / bars), s1 = Math.floor(((b + 1) * n) / bars);
+      const out = new Array(count).fill(0);
+      for (let b = 0; b < count; b++) {
+        const s0 = Math.floor((b * n) / count), s1 = Math.floor(((b + 1) * n) / count);
         let peak = 0;
         for (let c = 0; c < chans; c++) {
           const d = data[c];
@@ -523,14 +538,39 @@ export class Library {
         }
         out[b] = peak;
       }
-      const max = Math.max(...out) || 1;
-      t.wave = out.map(v => Math.round((v / max) * 1000) / 1000);
-      await this.saveTrack(t);
-      return t.wave;
+      return {peaks: out, ms: audio.duration * 1000};
     } catch (e) {
       console.warn('[claude-player] waveform', e);
       return null;
     }
+  }
+
+  /**
+   * A CUE track's waveform (F77): its range of the disc image's peaks (the
+   * image decoded once per session at 10 slices a second), in bars slices,
+   * normalised like a file's. Inferred: the reference analyses natively.
+   */
+  async cueWave(t, bars) {
+    const image = this.byId.get(t.cueOf);
+    if (!image || image.remote) return null;
+    this.cuePeaks ??= new Map();
+    let p = this.cuePeaks.get(image.id);
+    if (!p) { p = this.filePeaks(image.id, ms => Math.ceil(ms / 100)); this.cuePeaks.set(image.id, p); }
+    const fine = await p;
+    if (!fine?.peaks.length) return null;
+    const per = fine.ms / fine.peaks.length, n = fine.peaks.length;
+    const a = Math.max(0, Math.min(n - 1, Math.floor((t.startMs || 0) / per)));
+    const end = t.endMs ?? fine.ms;
+    const b = Math.max(a + 1, Math.min(n, Math.ceil(end / per)));
+    const out = new Array(bars).fill(0);
+    for (let k = 0; k < bars; k++) {
+      const i0 = a + Math.floor((k * (b - a)) / bars), i1 = Math.max(i0 + 1, a + Math.floor(((k + 1) * (b - a)) / bars));
+      let peak = 0;
+      for (let i = i0; i < i1 && i < n; i++) if (fine.peaks[i] > peak) peak = fine.peaks[i];
+      out[k] = peak;
+    }
+    t.wave = normalizePeaks(out);
+    return t.wave;
   }
 
   /** Track rating 0..5 (like 5, unlike 1); items follow msg_data_track_rating_changed. */
@@ -743,6 +783,12 @@ export class Library {
 
 function compareTracks(a, b) {
   return (a.albumArtist || a.artist || '').localeCompare(b.albumArtist || b.artist || '') || (a.album || '').localeCompare(b.album || '') || (a.disc - b.disc) || (a.track - b.track) || a.title.localeCompare(b.title);
+}
+
+/** Peaks scaled to the largest (1), three decimals. */
+function normalizePeaks(peaks) {
+  const max = Math.max(...peaks) || 1;
+  return peaks.map(v => Math.round((v / max) * 1000) / 1000);
 }
 
 /** Provisional format line ("FLAC 44.1kHz 16bit"); the reference formatter is not ported yet. */

@@ -423,7 +423,8 @@ export class Drawables {
           if (it[0] !== 'item') continue;
           const a = it[1] || {};
           const states = {};
-          for (const [k, v] of Object.entries(a)) if (k.startsWith('android:state_')) states[k.slice(14)] = v === 'true';
+          // Platform states and the app's own (w:state_locked / limiting / toolbar_in_header).
+          for (const [k, v] of Object.entries(a)) { const m = /^(?:android|w|app):state_(.+)$/.exec(k); if (m) states[m[1]] = v === 'true'; }
           items.push({states, d: this.child(it, a, theme, name)});
         }
         return new StateListDrawable(items);

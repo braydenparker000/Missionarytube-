@@ -6,8 +6,11 @@
 // (item_vis in scene_vis_item_list: like/unlike, activated check) with a
 // filter field, sort and settings; a shim behind it collapses it. Close
 // clears the filter, else collapses, else leaves the visualization. Pausing
-// or leaving the player collapses it. The reference morphs the current item
-// between pager and list (PowerListSharedItemTransition); here the two cross-fade.
+// or leaving the player collapses it. Pager and list cross the expand scene
+// as the reference's PowerListSharedItemTransition renders them (F41): with
+// itemSize equal to listItemSize the list's mode-4 zoom has scale 1, so the
+// pager fades out (P mode 2: alpha 1 - f) as the list fades in (h0: 1 - f),
+// both on the scene's own progress.
 import {FastLayout} from '../view/fast-layout.js';
 import {SceneFastLayout, DEFAULT_SCENE, decelerate2} from '../view/scene.js';
 import {MeasureSpec} from '../view/view.js';
@@ -268,17 +271,28 @@ export class VisPanelFrame extends FastLayout {
       list.visibility = VISIBLE;
       list.alpha = 0;
       list.refresh(this.filter);
-      // The current preset's row starts where the pager shows it.
+      // u31.B: the list shows the current preset's row.
       requestAnimationFrame(() => list.scrollToCurrent());
-      this.ctx.tween(list, {alpha: 1}, this.animTime / 1000);
     }
-    this.ctx.tween(this.pager, {alpha: 0}, this.animTime / 2000);
     const shim = this.shim();
     if (shim) {
       shim.setVisibility(VISIBLE);
       shim.onClick = () => this.collapse();
     }
-    c.scenes.go(EXPANDED, {duration: this.animTime / 1000});
+    c.scenes.go(EXPANDED, {duration: this.animTime / 1000, onEnd: () => this.crossFade(this.expanded ? 1 : 0)});
+  }
+
+  /** The expand scene's progress (f towards the new scene) drives the cross-fade. */
+  sceneTransitionFrame(it, f) {
+    this.crossFade(this.expanded ? f : 1 - f);
+  }
+
+  /** p: 0 collapsed (pager shown), 1 expanded (list shown). */
+  crossFade(p) {
+    p = Math.max(0, Math.min(1, p));
+    this.pager.alpha = 1 - p;
+    this.pager.invalidate();
+    if (this.list && this.list.visibility === VISIBLE) { this.list.alpha = p; this.list.invalidate(); }
   }
 
   collapse() {
@@ -288,9 +302,7 @@ export class VisPanelFrame extends FastLayout {
     this.edit?.input?.blur();
     const shim = this.shim();
     if (shim) shim.setVisibility(GONE);
-    if (this.list) this.ctx.tween(this.list, {alpha: 0}, this.animTime / 2000);
-    this.ctx.tween(this.pager, {alpha: 1}, this.animTime / 1000);
-    c.scenes.go(DEFAULT_SCENE, {duration: this.animTime / 1000, onEnd: () => { if (!this.expanded && this.list) this.list.visibility = GONE; }});
+    c.scenes.go(DEFAULT_SCENE, {duration: this.animTime / 1000, onEnd: () => { this.crossFade(this.expanded ? 1 : 0); if (!this.expanded && this.list) this.list.visibility = GONE; }});
   }
 
   /** Close: clears the filter, else collapses, else leaves the visualization. */

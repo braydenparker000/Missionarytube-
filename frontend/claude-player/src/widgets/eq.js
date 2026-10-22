@@ -317,6 +317,11 @@ export class LinearKnob extends FastTextView {
     this.drawValue();
   }
 
+  /** The label background shows pressed while the label area is held. */
+  labelPressed() {
+    return this._drag?.mode === 3;
+  }
+
   /** The hole's own state: pressed during a tap on the travel (S = 2). */
   holeState() {
     return this._drag?.mode === 2 ? {...this.state, pressed: true} : {...this.state, pressed: false};
@@ -329,7 +334,7 @@ export class LinearKnob extends FastTextView {
       const left = this.paddingLeft + r.l, right = this.width - r.r - this.paddingRight;
       const bottom = this.height - r.b - this.paddingBottom;
       const top = bottom - this.labelZone() - r.t - this.labelBgPadTop - this.labelBgPadBottom;
-      bg.ops(Math.max(0, right - left), Math.max(0, bottom - top), {...this.state, pressed: this._drag?.mode === 3}, ops, 0, 0);
+      bg.ops(Math.max(0, right - left), Math.max(0, bottom - top), {...this.state, pressed: this.labelPressed()}, ops, 0, 0);
       const st = this.labelBgEl.style;
       st.left = px(left) + 'px';
       st.top = px(top) + 'px';
@@ -380,7 +385,7 @@ export class LinearKnob extends FastTextView {
   get interceptible() { return true; }
 
   onPointerDown(e) {
-    if (!this.state.enabled || !this.thumb) return false;
+    if (!this.state.enabled || this.state.locked || !this.thumb) return false;
     this._anim?.();
     if (this._anim) { this._anim = null; this.target = this.value; }
     const top = this.thumbTop(), range = this.travel() - this.thumbH;
@@ -441,7 +446,7 @@ export class LinearKnob extends FastTextView {
   /** performLongClick on the label: the value entry dialog (only with a value shown). */
   onLabelLongPress() {
     const s = this.valueText();
-    if (s === null) return false;
+    if (s === null || this.state.locked) return false;
     openValueDialog(this.ctx, {
       title: this.dialogTitle ?? this.text, hint: this.dialogHint, value: s.replace(/%/g, ''),
       onDone: text => this.setValueFromDialog(text),
@@ -493,7 +498,7 @@ export function openValueDialog(ctx, {title, hint = null, value = '', onDone}) {
 }
 
 /** eq_labels (c40.R): 0 none, 1 dB (the default), 2 percent. */
-const eqLabelsMode = ctx => parseInt(ctx.pref('eq_labels'), 10) || 0;
+export const eqLabelsMode = ctx => parseInt(ctx.pref('eq_labels'), 10) || 0;
 
 /** Equalizer band knob (f10): label = band frequency, value = band gain (-1..1 = -15..15 dB). */
 class BandKnob extends LinearKnob {
@@ -530,6 +535,14 @@ export class EqKnobsList extends ViewGroup {
     this.scrollerId = idOf(a.raw('listScroller'));
     this.scrollX = 0;
     this.knobs = [];
+    // Parametric mode (F82): band items and the controls item; selection mode.
+    this.parametric = false;
+    this.pitems = [];
+    this.controls = null;
+    this.selection = null;
+    this.reorder = null;
+    // E: 200 sp of slack after a new band (onAttachedToWindow).
+    this.newBandSlack = Math.round(200 * ctx.dpr);
     this.preampWidth = ctx.res.dimensionPixelSize('@dimen/preamp_knob_width', ctx.theme) ?? 0;
     const sa = style => ctx.inflater.styledAttributes({style});
     const preSa = sa('?EqPreampKnobLayout');
@@ -542,7 +555,8 @@ export class EqKnobsList extends ViewGroup {
     pre.addView(pk);
     pk.onChange = v => ctx.dsp?.set('dsp_preamp', v);
     this.knobStyle = sa('?EqLinearKnob');
-    ctx.bus.subscribe('bus_dsp', () => this.syncDsp());
+    ctx.bus.subscribe('bus_dsp', (msg, src, d) => this.onDsp(msg, d));
+    ctx.bus.subscribe('list', (msg, src, d) => this.onListCmd(msg, d));
     ctx.bus.subscribe('bus_app', (msg, src, d) => { if (msg === 'msg_app_setting_changed' && d?.key === 'eq_labels') this.applyLabelsMode(); });
     this.syncDsp();
   }
@@ -551,8 +565,14 @@ export class EqKnobsList extends ViewGroup {
     const mode = eqLabelsMode(this.ctx);
     this.preamp.setLabelsMode(-PREAMP_RANGE_DB, PREAMP_RANGE_DB, mode);
     for (const k of this.knobs) k.setLabelsMode(-BAND_RANGE_DB, BAND_RANGE_DB, mode);
+    for (const it of this.pitems) it.gain.setLabelsMode(-BAND_RANGE_DB, BAND_RANGE_DB, mode);
     this.preampLayout.requestLayout();
     this.requestLayout();
+  }
+
+  /** The items after the preamp: the graphic knobs, or the parametric bands and the controls. */
+  get items() {
+    return this.parametric ? (this.controls ? [...this.pitems, this.controls] : this.pitems) : this.knobs;
   }
 
   ensureKnobs() {
@@ -572,20 +592,288 @@ export class EqKnobsList extends ViewGroup {
     }
   }
 
-  syncDsp() {
+  /**
+   * bus_dsp: a band value message leaves the items alone (they show it
+   * already); msg_dsp_eq_changed with arg1 1 (a structural change) reloads
+   * them, otherwise they rebind animated (t0); anything else resyncs.
+   */
+  onDsp(msg, d) {
+    if (msg.startsWith('msg_dsp_eq_band_')) return;
+    this.syncDsp({structural: msg === 'msg_dsp_eq_changed' && d?.arg1 === 1, animate: msg === 'msg_dsp_eq_changed' && d?.arg1 !== 1 && !d?.band, added: d?.added});
+  }
+
+  syncDsp({structural = false, animate = false, added = null} = {}) {
     const dsp = this.ctx.dsp;
     if (!dsp) return;
-    this.ensureKnobs();
     const enabled = dsp.get('dsp_enabled') && dsp.get('dsp_eq_enabled');
-    dsp.bands.forEach((b, i) => {
-      const k = this.knobs[i];
-      k.bindBand(i, b);
-      k.setEnabled(enabled);
-    });
+    if (dsp.parametric !== this.parametric) this.switchMode(dsp.parametric);
+    if (this.parametric) this.syncParam(enabled, animate && !structural, added);
+    else {
+      this.ensureKnobs();
+      dsp.bands.forEach((b, i) => {
+        const k = this.knobs[i];
+        k.bindBand(i, b);
+        k.setEnabled(enabled);
+      });
+      for (const k of this.knobs) k.invalidate();
+    }
     this.preamp.setValue(dsp.get('dsp_preamp'));
     this.preamp.setEnabled(enabled);
     this.preamp.invalidate();
-    for (const k of this.knobs) k.invalidate();
+  }
+
+  /** The loaded preset changed the mode: the other mode's items leave. */
+  switchMode(parametric) {
+    if (!parametric) this.endSelection();
+    this.parametric = parametric;
+    for (const k of this.knobs.splice(0)) this.removeView(k);
+    for (const it of this.pitems.splice(0)) this.removeView(it);
+    if (this.controls) { this.removeView(this.controls); this.controls = null; }
+    this.scrollX = 0;
+    this.requestLayout();
+  }
+
+  /** C0049 in parametric mode: one item per band, then the controls (or the empty controls). */
+  syncParam(enabled, animate, added) {
+    const P = EqKnobsList.param, dsp = this.ctx.dsp;
+    if (!P) return;
+    const bands = dsp.pbands, n = bands.length, before = this.pitems.length;
+    while (this.pitems.length < n) {
+      const it = new P.ParamBandItem(this.ctx, this);
+      it.lp = this.generateLayoutParams(this.ctx.inflater.styledAttributes({}));
+      this.addView(it);
+      this.pitems.push(it);
+    }
+    while (this.pitems.length > n) this.removeView(this.pitems.pop());
+    bands.forEach((b, i) => this.pitems[i].bind(i, b, n, enabled, animate));
+    const empty = n === 0;
+    if (!this.controls || this.controls.empty !== empty) {
+      if (this.controls) this.removeView(this.controls);
+      const c = this.controls = P.makeControls(this.ctx, this, empty);
+      c.empty = empty;
+      c.lp = this.generateLayoutParams(this.ctx.inflater.styledAttributes({}));
+      this.addView(c);
+    }
+    this.controls.add.setEnabled(enabled);
+    this.controls.select?.setEnabled(enabled && n > 0);
+    if (this.selection) {
+      const live = new Set(bands.map(b => b.serial));
+      for (const s of [...this.selection]) if (!live.has(s)) this.selection.delete(s);
+      if (!n) this.endSelection();
+    }
+    this.selectionChanged(false);
+    this.requestLayout();
+    // NewDataLoadedTrans: a band added scrolls it into view with slack after it.
+    if (added && n > before) this.scrollToNewBand();
+  }
+
+  scrollToNewBand() {
+    this.ctx.scheduleLayout?.();
+    requestAnimationFrame(() => {
+      const end = this.paddingLeft + this.preampWidth + this.pitems.length * (this.itemWidth ?? 0);
+      const target = Math.min(this.maxScroll(), Math.max(this.scrollX, end + Math.round(this.newBandSlack * 0.8) - this.width));
+      this.smoothScrollTo(target, 250);
+    });
+  }
+
+  smoothScrollTo(x, ms, interp = t => 1 - (1 - t) * (1 - t)) {
+    this.stopFling();
+    const from = this.scrollX, t0 = performance.now(), dur = Math.max(1, ms * (this.ctx.animScale ?? 1));
+    if (from === x) return;
+    this._fling = this.ctx.onFrame(now => {
+      const t = Math.min(1, (now - t0) / dur), k = interp(t);
+      this.scrollTo(from + (x - from) * k);
+      if (t < 1) return true;
+      this._fling = null;
+      return false;
+    });
+  }
+
+  // Selection mode (parametric only; EqKnobsList / jp1): the selection menu
+  // (merge_selection_menu_eq_knobs) with Delete and Lock/unlock; the list
+  // states go out on the list bus as for the library list.
+
+  startSelection(serial = null) {
+    if (!this.parametric || !this.pitems.length) return;
+    if (!this.selection) {
+      this.selection = new Set();
+      this.ctx.selectionOwner = this;
+      this.ctx.bus.post('bus_gui', 'cmd_selection_menu_open', this, {arg1: 'merge_selection_menu_eq_knobs'});
+    }
+    if (serial != null) this.selection.add(serial);
+    this.selectionChanged(true);
+  }
+
+  toggleSelectionMode() {
+    if (this.selection) this.endSelection();
+    else this.startSelection();
+  }
+
+  /** Leaves selection mode; fromMenu: the menu closed itself. */
+  endSelection(fromMenu = false) {
+    if (!this.selection) return;
+    this.selection = null;
+    if (this.ctx.selectionOwner === this) this.ctx.selectionOwner = null;
+    if (!fromMenu) this.ctx.bus.post('bus_gui', 'cmd_selection_menu_close', this);
+    this.selectionChanged(true);
+  }
+
+  toggleSelected(serial) {
+    if (serial == null) return;
+    if (!this.selection) { this.startSelection(serial); return; }
+    if (this.selection.has(serial)) this.selection.delete(serial); else this.selection.add(serial);
+    this.selectionChanged(false);
+  }
+
+  /** Selected serials in band order. */
+  selectedSerials() {
+    return (this.ctx.dsp?.pbands ?? []).filter(b => this.selection?.has(b.serial)).map(b => b.serial);
+  }
+
+  selectionChanged(animate) {
+    const sel = this.selection;
+    for (const it of this.pitems) {
+      it.setSelectionMode(!!sel, animate);
+      it.setChecked(!!sel?.has(it.band?.serial));
+    }
+    if (this.ctx.selectionOwner !== this && !(animate && !sel)) return;
+    const bands = this.ctx.dsp?.pbands ?? [], n = sel?.size ?? 0, total = bands.length;
+    const idx = bands.flatMap((b, i) => (sel?.has(b.serial) ? [i] : []));
+    const st = this.ctx.listState = Object.assign(this.ctx.listState ?? {}, {
+      state_list_selection_mode: !!sel,
+      state_list_selection_count: n,
+      state_list_selectable_item_count: total,
+      state_list_all_selected: n > 0 && n === total,
+      state_list_something_selected: n > 0,
+      state_list_one_item_selected: n === 1,
+      state_list_range_avail: n > 1 && idx[idx.length - 1] - idx[0] + 1 > n,
+    });
+    this.ctx.bus.post('list', 'state_list_selection_count', this, {arg1: n, state: st});
+  }
+
+  onListCmd(msg) {
+    if (this.ctx.selectionOwner !== this || !this.selection) return;
+    const dsp = this.ctx.dsp, sel = this.selection, bands = dsp?.pbands ?? [];
+    switch (msg) {
+      case 'cmd_end_selection_mode': this.endSelection(true); break;
+      case 'cmd_list_select_all': for (const b of bands) sel.add(b.serial); this.selectionChanged(false); break;
+      case 'cmd_list_select_none': sel.clear(); this.selectionChanged(false); break;
+      case 'cmd_list_select_range': {
+        const idx = bands.flatMap((b, i) => (sel.has(b.serial) ? [i] : []));
+        if (idx.length) for (let i = idx[0]; i <= idx[idx.length - 1]; i++) sel.add(bands[i].serial);
+        this.selectionChanged(false);
+        break;
+      }
+      case 'cmd_list_delete': {
+        // Locked bands go too (u21.O has no lock check).
+        const serials = this.selectedSerials();
+        if (!serials.length) break;
+        sel.clear();
+        dsp.deleteParamBands(serials);
+        break;
+      }
+      case 'cmd_list_lock_unlock': {
+        // The opposite of the first selected band's lock, for all of them.
+        const serials = this.selectedSerials(), first = bands.find(b => b.serial === serials[0]);
+        if (first) dsp.lockParamBands(!first.locked, serials);
+        break;
+      }
+    }
+  }
+
+  /** A band item tapped: in selection mode it toggles; a locked band tells so (o0). */
+  itemClicked(item) {
+    if (this.selection) { this.toggleSelected(item.band?.serial); return; }
+    if (item.band?.locked) this.lockedToast();
+  }
+
+  itemLongClicked(item) {
+    if (!item.band?.locked) return false;
+    this.lockedToast();
+    return true;
+  }
+
+  /** The controls item tapped in selection mode ends it (z). */
+  controlsClicked() {
+    if (this.selection && this.pitems.length) this.endSelection();
+  }
+
+  lockedToast() {
+    const s = k => this.ctx.res.stringByName(k) ?? '';
+    this.ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {icon: '?lock_24dp_tinted', title: s('band_is_locked'), line2: s('use_band_or_menu_lock_unlock')});
+  }
+
+  // Drag reorder (DragHandler → mo632): the handle's touch-down lifts the band;
+  // it follows the finger, the others move aside; the drop sends the order
+  // (cmd_dsp_reorder_eq_bands). Near an edge the list scrolls.
+
+  startDrag(item, e) {
+    if (!this.selection || this.reorder) return false;
+    this.stopFling();
+    const from = this.pitems.indexOf(item);
+    if (from < 0) return false;
+    this.reorder = {item, from, x0: e.rootX, rootX: e.rootX, scroll0: this.scrollX, order: this.pitems.map((_, i) => i)};
+    item.el.style.zIndex = '5';
+    this.reorder.edge = this.ctx.onFrame(() => this.dragEdgeScroll());
+    return true;
+  }
+
+  dragMove(e) {
+    const r = this.reorder;
+    if (!r) return;
+    r.rootX = e.rootX;
+    this.placeDrag();
+  }
+
+  /** The dragged band under the finger; the slot it is over takes it. */
+  placeDrag() {
+    const r = this.reorder, D = this.itemWidth || 1;
+    const dx = r.rootX - r.x0 + (this.scrollX - r.scroll0);
+    const slotNow = r.order.indexOf(r.from);
+    const want = Math.max(0, Math.min(r.order.length - 1, Math.round(r.from + dx / D)));
+    if (want !== slotNow) {
+      const before = new Map(this.pitems.map((it, i) => [i, this.slotX(r.order.indexOf(i))]));
+      r.order.splice(slotNow, 1);
+      r.order.splice(want, 0, r.from);
+      this.pitems.forEach((it, i) => {
+        if (i === r.from) return;
+        const shift = before.get(i) - this.slotX(r.order.indexOf(i));
+        if (!shift) return;
+        it.translationX += shift;
+        this.ctx.tween(it, {translationX: 0}, 0.15);
+      });
+      this.onLayout();
+    }
+    r.item.translationX = (r.from - r.order.indexOf(r.from)) * D + dx;
+    r.item.invalidate();
+  }
+
+  slotX(slot) {
+    return this.paddingLeft - this.scrollX + this.preampWidth + slot * (this.itemWidth ?? 0);
+  }
+
+  dragEdgeScroll() {
+    const r = this.reorder;
+    if (!r) return false;
+    const loc = this.getLocationIn(null), x = r.rootX - loc.x, edge = this.width * 0.1;
+    const v = x < edge ? -(edge - x) / edge : x > this.width - edge ? (x - (this.width - edge)) / edge : 0;
+    if (v) {
+      const before = this.scrollX;
+      this.scrollTo(this.scrollX + v * 12 * this.ctx.dpr);
+      if (this.scrollX !== before) this.placeDrag();
+    }
+    return true;
+  }
+
+  dragEnd() {
+    const r = this.reorder;
+    if (!r) return;
+    this.reorder = null;
+    r.edge?.();
+    r.item.el.style.zIndex = '';
+    for (const it of this.pitems) { this.ctx.tweens?.delete?.(it); it.translationX = 0; it.invalidate(); }
+    this.onLayout();
+    if (r.order.some((o, i) => o !== i)) this.ctx.dsp?.reorderParamBands(r.order);
   }
 
   onMeasure(wSpec, hSpec) {
@@ -593,17 +881,28 @@ export class EqKnobsList extends ViewGroup {
     this.setMeasuredDimension(w, h);
     const ih = Math.max(0, h - this.paddingTop - this.paddingBottom);
     this.preampLayout.measure(MeasureSpec.make(this.preampWidth, MeasureSpec.EXACTLY), MeasureSpec.make(ih, MeasureSpec.EXACTLY));
+    const items = this.items;
+    // p0: the item width is the first item's, measured unconstrained at the list height.
     let d = 0;
-    for (const k of this.knobs) {
-      k.measure(MeasureSpec.make(0, MeasureSpec.UNSPECIFIED), MeasureSpec.make(ih, MeasureSpec.EXACTLY));
-      d = Math.max(d, k.measuredWidth);
+    if (this.parametric) {
+      const probe = this.pitems[0];
+      if (probe) { probe.measure(MeasureSpec.make(1000, MeasureSpec.UNSPECIFIED), MeasureSpec.make(ih || 1000, MeasureSpec.EXACTLY)); d = probe.measuredWidth & 0xffffff; }
+    } else {
+      for (const k of items) {
+        k.measure(MeasureSpec.make(0, MeasureSpec.UNSPECIFIED), MeasureSpec.make(ih, MeasureSpec.EXACTLY));
+        d = Math.max(d, k.measuredWidth);
+      }
     }
     this.itemWidth = d;
-    for (const k of this.knobs) k.measure(MeasureSpec.make(d, MeasureSpec.EXACTLY), MeasureSpec.make(ih, MeasureSpec.EXACTLY));
+    for (const k of items) {
+      // An empty EQ's Add Band takes the rest of the list (centred there; inferred).
+      const iw = k === this.controls && !this.pitems.length ? Math.max(0, w - this.paddingLeft - this.paddingRight - this.preampWidth) : d;
+      k.measure(MeasureSpec.make(iw, MeasureSpec.EXACTLY), MeasureSpec.make(ih, MeasureSpec.EXACTLY));
+    }
   }
 
   contentWidth() {
-    return this.preampWidth + this.knobs.length * (this.itemWidth ?? 0);
+    return this.preampWidth + this.items.reduce((s, k) => s + (k.measuredWidth || this.itemWidth || 0), 0);
   }
 
   maxScroll() {
@@ -615,11 +914,16 @@ export class EqKnobsList extends ViewGroup {
     const top = this.paddingTop, h = Math.max(0, this.height - top - this.paddingBottom);
     const x0 = this.paddingLeft - this.scrollX;
     this.preampLayout.layout(x0, top, x0 + this.preampWidth, top + h);
-    this.knobs.forEach((k, i) => {
-      const x = x0 + this.preampWidth + i * this.itemWidth;
-      k.layout(x, top, x + this.itemWidth, top + h);
+    const items = this.items, r = this.reorder;
+    let x = x0 + this.preampWidth;
+    items.forEach((k, i) => {
+      const w = k.measuredWidth || this.itemWidth;
+      // While a band is dragged the items sit in their slots of the new order.
+      const kx = r && i < this.pitems.length ? x0 + this.preampWidth + r.order.indexOf(i) * this.itemWidth : x;
+      k.layout(kx, top, kx + w, top + h);
+      x += w;
       // Like the recycling list, only items intersecting the list are attached.
-      const vis = x + this.itemWidth > 0 && x < this.width ? 0 : 4;
+      const vis = (kx + w > 0 && kx < this.width) || k === r?.item ? 0 : 4;
       if (k.visibility !== vis) { k.visibility = vis; k.invalidate(); }
     });
     const pv = x0 + this.preampWidth > 0 ? 0 : 4;
@@ -701,6 +1005,9 @@ export class FrequencyResponseScroller extends View {
     this.toneFill = intColor(a, 'toneFillColor', 0x28ffffff);
     this.toneLine = intColor(a, 'toneLineColor', 0xaaffffff);
     this.backLine = intColor(a, 'backLineColor', 0xff777777);
+    this.paramLineWidth = a.dim('parametricLineWidth', Math.round(ctx.dpr));
+    this.miniMode = a.bool('miniMode', false);
+    this.lobes = new Map();
     this.gradient = [intColor(a, 'graphicColorMax', 0), intColor(a, 'graphicColor75', 0), this.lineColor, intColor(a, 'graphicColor25', 0), intColor(a, 'graphicColorMin', 0)];
     const sel = a.ref('selectionDrawable');
     this.selection = sel ? ctx.drawables.fromRef(sel, a.theme) : null;
@@ -770,7 +1077,8 @@ export class FrequencyResponseScroller extends View {
       g.translate(0, this.toneLineWidth / 2);
       const hump = (f, fromLeft) => {
         if (!(f > 0)) return;
-        const x0 = fromLeft ? 0 : W, x1 = fromLeft ? 0.3 * W : W - 0.3 * W;
+        const span = this.miniMode ? 0.4 : 0.3;
+        const x0 = fromLeft ? 0 : W, x1 = fromLeft ? span * W : W - span * W;
         const y = (1 - f) * hh;
         const path = new Path2D();
         path.moveTo(x0, y);
@@ -788,10 +1096,17 @@ export class FrequencyResponseScroller extends View {
       hump(dsp.get('dsp_treble_gain'), false);
       g.restore();
     }
+    // Parametric: one lobe per band.
+    const preset = this.presetBands;
+    if (preset ? preset.parametric : dsp.parametric) {
+      const eqOn = preset ? true : dsp.get('dsp_enabled') && dsp.get('dsp_eq_enabled');
+      if (eqOn) this.drawLobes(g, W, H, preset ? preset.bands ?? [] : dsp.pbands);
+      g.restore();
+      return;
+    }
     // Band curve.
     const bands = dsp.bands;
     // A preset row's mini curve draws that preset; otherwise the live bands.
-    const preset = this.presetBands;
     const eqOn = preset ? true : dsp.get('dsp_enabled') && dsp.get('dsp_eq_enabled');
     const gainOf = b => (preset ? preset[b.label] ?? 0 : b.gain);
     const n = bands.length;
@@ -822,20 +1137,100 @@ export class FrequencyResponseScroller extends View {
     g.restore();
   }
 
-  // Dragging over the curve scrolls the knob list (the FRS is its scroller).
+  /**
+   * Parametric bands (FrequencyResponseScroller, parametric mode): each band
+   * its own closed lobe between its response and the 0 dB line, not summed.
+   * One sample every 2 px (4 in mini mode) over 20 Hz..24 kHz in log
+   * frequency (inferred), evaluated at 48 kHz; ±15 dB fills the half height;
+   * points within 0.08 dB of 0 sit on the line, which the path does not
+   * stroke along. Fill and stroke: the band colour at twice its HSV
+   * saturation and value (fill alpha 0.5), or the tone fill and the line
+   * colour for a band without one.
+   */
+  drawLobes(g, W, H, bands) {
+    const lw = this.paramLineWidth, hh = H - lw, mid = hh / 2;
+    const n = Math.max(2, Math.floor(W / (this.miniMode ? 4 : 2)));
+    const freqs = this._lobeFreqs?.length === n ? this._lobeFreqs : (this._lobeFreqs = Float64Array.from({length: n}, (_, i) => 20 * Math.pow(24000 / 20, i / (n - 1))));
+    const dsp = this.ctx.dsp, seen = new Set();
+    g.save();
+    g.translate(0, lw / 2);
+    g.lineWidth = lw;
+    g.lineJoin = 'round';
+    for (const b of bands) {
+      const key = `${b.type}|${b.frequency}|${b.q}|${b.gain}|${W}|${H}`;
+      seen.add(key);
+      let path = this.lobes.get(key);
+      if (!path) {
+        const db = dsp.paramBandDb(b, freqs);
+        path = new Path2D();
+        path.moveTo(-lw, mid);
+        let onZero = false;
+        for (let i = 0; i < n; i++) {
+          const x = (i / (n - 1)) * W;
+          if (Math.abs(db[i]) <= 0.08) {
+            if (!onZero) path.lineTo(x, mid); else path.moveTo(x, mid);
+            onZero = true;
+          } else {
+            path.lineTo(x, mid - Math.max(-15, Math.min(15, db[i])) * (hh / 30));
+            onZero = false;
+          }
+        }
+        path.lineTo(W + lw, mid);
+        this.lobes.set(key, path);
+      }
+      const rgb = (b.color ?? 0) & 0xffffff;
+      let fill = this.toneFill, line = this.lineColor;
+      if (rgb) {
+        const [h, s, v, a] = toHsv(b.color >>> 0);
+        const bright = fromHsv([h, Math.min(1, s * 2), Math.min(1, v * 2), 1]);
+        fill = ((bright & 0xffffff) | (0x80 << 24)) >>> 0;
+        line = ((bright & 0xffffff) | (Math.round(a * 255) << 24)) >>> 0;
+      }
+      g.fillStyle = colorToCss(fill);
+      g.fill(path);
+      g.strokeStyle = colorToCss(line);
+      g.stroke(path);
+    }
+    for (const k of this.lobes.keys()) if (!seen.has(k)) this.lobes.delete(k);
+    g.restore();
+  }
+
+  /**
+   * The FRS is the list's scrollbar (onTouchEvent): a drag scrolls the list
+   * proportionally from where it was; a touch outside the selection first
+   * glides the list (350 ms, decelerate 2) to the touch's share of the scroll
+   * range (the outer tenths clamp to the ends), and a 4 dp move during that
+   * glide turns into the drag.
+   */
   onPointerDown(e) {
-    if (!this.list || this.list.maxScroll() <= 0) return false;
-    this._drag = {x: e.x, scroll: this.list.scrollX};
+    const list = this.list;
+    if (!list || list.maxScroll() <= 0) return false;
+    list.stopFling();
+    const pl = this.paddingLeft, inside = e.x >= pl + this.sel.x && e.x <= pl + this.sel.x + this.sel.w;
+    this._drag = {x: e.x, scroll: list.scrollX};
+    if (!inside) {
+      const W = this.width;
+      const y = Math.max(0, Math.min(1, e.x / W));
+      const f = y < 0.1 ? 0 : y <= 0.9 ? y : 1;
+      list.smoothScrollTo(Math.round(f * list.maxScroll()), 350, t => 1 - Math.pow(1 - t, 4));
+      this._drag.gliding = true;
+    }
     this.setPressed(true);
     return true;
   }
 
   onPointerMove(e) {
-    const d = this._drag;
+    const d = this._drag, list = this.list;
     if (!d) return;
+    if (d.gliding && list._fling) {
+      if (Math.abs(e.x - d.x) < 4 * this.ctx.dpr) return;
+      list.stopFling();
+      Object.assign(d, {x: e.x, scroll: list.scrollX, gliding: false});
+      return;
+    }
     const W = this.width - this.paddingLeft - this.paddingRight;
-    const content = this.list.paddingLeft + this.list.contentWidth() + this.list.paddingRight;
-    this.list.scrollTo(d.scroll + ((e.x - d.x) / W) * content);
+    const content = list.paddingLeft + list.contentWidth() + list.paddingRight;
+    list.scrollTo(d.scroll + ((e.x - d.x) / W) * content);
   }
 
   onPointerUp() {
@@ -959,10 +1354,43 @@ export class DSPCheckBox extends FastButton {
   }
 }
 
+/**
+ * LimiterDSPCheckBox: while the limiter runs it is sampled every 100 ms; a
+ * gain under 0.9995 (here the compressor's gain reduction) shows the button
+ * in state_limiting until a sample without it.
+ */
+export class LimiterDSPCheckBox extends DSPCheckBox {
+  constructor(ctx, a) {
+    super(ctx, a);
+    this.timer = null;
+    ctx.bus.subscribe('bus_player', () => this.follow());
+    ctx.bus.subscribe('bus_dsp', () => this.follow());
+  }
+
+  follow() {
+    const dsp = this.ctx.dsp;
+    const on = !!(dsp?.nodes && dsp.get('dsp_enabled') && dsp.get('dsp_limiter_enabled') && this.ctx.player?.state === STATE_PLAYING);
+    if (on && !this.timer) this.timer = setInterval(() => this.sample(), 100);
+    else if (!on && this.timer) { clearInterval(this.timer); this.timer = null; this.setLimiting(false); }
+  }
+
+  sample() {
+    const reduction = this.ctx.dsp?.nodes?.limiter?.reduction ?? 0;
+    this.setLimiting(Math.pow(10, (typeof reduction === 'number' ? reduction : reduction?.value ?? 0) / 20) < 0.9995);
+  }
+
+  setLimiting(on) {
+    if (!!this.state.limiting === on) return;
+    this.state.limiting = on;
+    this.onStateChanged();
+  }
+}
+
 register(['EqKnobsList'], EqKnobsList);
 register(['FrequencyResponseScroller'], FrequencyResponseScroller);
 register(['MilkFRS'], MilkFRS);
-register(['DSPCheckBox', 'LimiterDSPCheckBox'], DSPCheckBox);
+register(['DSPCheckBox'], DSPCheckBox);
+register(['LimiterDSPCheckBox'], LimiterDSPCheckBox);
 
 /** Java-style number formatting for knob value labels (%.Nf, %d, %%). */
 export function formatValue(fmt, x) {
@@ -1198,7 +1626,7 @@ export class RoundKnob extends View {
   get interceptible() { return true; }
 
   onPointerDown(e) {
-    if (!this.state.enabled) return false;
+    if (!this.state.enabled || this.state.locked) return false;
     this._drag = {a: this.pointerAngle(e), v: this.value, x0: e.x, y0: e.y, started: false};
     this.setPressed(true);
     this.onPressChanged?.(true);

@@ -3,6 +3,7 @@
 // bus_player_cmd carries commands in; bus_player carries state changes out.
 import {trackTitle, artistLabel, albumLabel} from '../library/labels.js';
 import {DeckFader, fadePrefs, gaplessPair, replayGainOf, AUTO_NONE, AUTO_NON_GAPLESS, AUTO_SHUFFLED, MANUAL_SHORT, MANUAL_CROSSFADE} from './fades.js';
+import {listKeyOf, categoryKey, KEEP_TRACK} from '../library/list-memory.js';
 
 // Reference mode enums (integers SHUFFLE_* / REPEAT_*).
 export const SHUFFLE_NONE = 0, SHUFFLE_ALL = 1, SHUFFLE_SONGS = 2, SHUFFLE_CATS = 3, SHUFFLE_SONGS_AND_CATS = 4;
@@ -208,7 +209,10 @@ export class Player {
     const c = this.category, tracks = c.source.tracksAt(i);
     if (!tracks?.length) return false;
     const playing = this.state === STATE_PLAYING;
-    this.setQueue(tracks, last ? tracks.length - 1 : 0, {source: c.source, index: i});
+    // A folder or playlist with List Position starts at its memorized entry
+    // (pi1.loadFilesCursorFromCatCursor → moveFilesCursorToListMemorizedPosition; F46).
+    const first = last ? tracks.length - 1 : this.ctx.listMemory?.start(listKeyOf(c.source.groups?.[i]), tracks, 0) ?? 0;
+    this.setQueue(tracks, first, {source: c.source, index: i});
     if (playing) this.play();
     return true;
   }
@@ -421,6 +425,8 @@ export class Player {
     }
     this.ctx.library?.ensureWave?.(t);
     this.armRange();
+    // playlist_entries.played_at: the entry List Position returns to.
+    this.ctx.listMemory?.played(this.listKey, t);
     this.post('msg_player_track_changed', {track: t});
     if (autoplay) this.setState(STATE_PLAYING);
     if (this.state === STATE_PLAYING) this.markQueuePlayed(t);
@@ -431,8 +437,15 @@ export class Player {
     }
   }
 
+  /** The memory key of the playing folder or playlist (List Memory, F46), or null. */
+  get listKey() {
+    return this.queueMode ? null : categoryKey(this.category);
+  }
+
   shouldRestorePos(t) {
     if (this.ctx.listWidget?.queueStack?.at(-1)?.kind === 'long') return true;
+    // Per Track Progress (keep_track_pos) overrides restore_pos.
+    if (this.ctx.listMemory?.flags(this.listKey) & KEEP_TRACK) return true;
     return !!this.ctx.pref?.('restore_pos') && (t.durationMs || 0) > (+(this.ctx.pref?.('restore_pos_min_dur') ?? 45) || 0) * 60000;
   }
 
@@ -519,6 +532,8 @@ export class Player {
     }
     this.state = s;
     if (s === STATE_PLAYING) this.markQueuePlayed(this.track);
+    // A sleep timer set while not playing starts with playback (k21: an.B pending).
+    if (s === STATE_PLAYING && this.sleep && this.sleep.end === null) this.startSleepTimer();
     this.post('msg_player_playing_state_changed', {arg1: s, playing: s === STATE_PLAYING});
     this.post('msg_player_status_changed', {playing: s === STATE_PLAYING});
   }
@@ -736,7 +751,7 @@ export class Player {
       this.sleep = null;
       this.pause();
       this.step(1);
-      this.post('msg_player_sleep_timer', {arg1: 0});
+      this.sleepPaused();
       return;
     }
     if (this.repeat === REPEAT_SONG) { this.seek(0); return; }
@@ -908,29 +923,47 @@ export class Player {
   }
 
   /**
-   * Sleep timer (cmd_player_set_sleep_timer: arg1 seconds, arg2 play the last
-   * song to its end). state_player_sleep_timer is the seconds and the end
-   * time; it counts in real time and pauses playback when it expires.
+   * Sleep timer (an.B; cmd_player_set_sleep_timer: arg1 seconds, arg2 play
+   * the last song to its end). Set while playing, it counts in real time
+   * (pausing does not stop it); set otherwise, it waits and starts its full
+   * time when playback starts (end null meanwhile). On expiry (k21 21):
+   * not playing, it just clears; playing, it pauses (or, playing to the end,
+   * stops at the track's end) with the "Sleep Timer / Paused" toast (an.m1066).
    */
   setSleepTimer(seconds, playToEnd) {
     clearTimeout(this.sleepTimeout);
     this.sleepWaitsForEnd = false;
-    this.sleep = seconds > 0 ? {seconds, end: performance.now() + seconds * 1000, playToEnd} : null;
-    if (this.sleep) this.sleepTimeout = setTimeout(() => this.onSleepTimer(), seconds * 1000);
+    this.sleep = seconds > 0 ? {seconds, end: null, playToEnd} : null;
+    if (this.sleep && this.state === STATE_PLAYING) this.startSleepTimer();
     this.post('msg_player_sleep_timer', {arg1: seconds});
+  }
+
+  startSleepTimer() {
+    const s = this.sleep;
+    s.end = performance.now() + s.seconds * 1000;
+    this.sleepTimeout = setTimeout(() => this.onSleepTimer(), s.seconds * 1000);
   }
 
   onSleepTimer() {
     const s = this.sleep;
     if (!s) return;
-    if (s.playToEnd && this.state === STATE_PLAYING) {
-      // Waits for the current track to end (onEnded pauses).
-      this.sleepWaitsForEnd = true;
+    if (this.state !== STATE_PLAYING) {
+      this.sleep = null;
+      this.post('msg_player_sleep_timer', {arg1: 0});
       return;
     }
+    // Waits for the current track to end (advance pauses).
+    if (s.playToEnd) { this.sleepWaitsForEnd = true; return; }
     this.sleep = null;
-    if (this.state === STATE_PLAYING) this.pause();
+    this.pause();
+    this.sleepPaused();
+  }
+
+  /** an.m1066: the timer ends with a toast. */
+  sleepPaused() {
+    const str = k => this.ctx.res?.stringByName(k) ?? k;
     this.post('msg_player_sleep_timer', {arg1: 0});
+    this.ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: str('sleep_timer'), line2: str('paused')});
   }
 
   /** Lock screen / headset controls through the Media Session API. */

@@ -9,6 +9,11 @@
 //
 // Graph: source → preamp → bands → bass/treble shelves → mono → stereo width
 //        → balance → reverb (dry/wet) → limiter → master volume → analyser → out
+//
+// The bands are the graphic EQ's peaking filters or, when a parametric preset
+// is loaded, the parametric bands (param-eq.js; notebook F82). There is no
+// mode setting: the loaded preset decides (pr.m2841).
+import {paramBand, nextBand, ColorCursor, ParamBandNode, paramCoefficients, coefficientsDb, MAX_PARAM_BANDS, PARAM_FREQ_MIN, PARAM_FREQ_MAX, PARAM_Q_MIN, PARAM_Q_MAX, PARAM_TYPES} from './param-eq.js';
 
 const STORE_KEY = 'cp-dsp';
 
@@ -124,11 +129,16 @@ export function tempoRate(v) {
 
 const dbToGain = db => Math.pow(10, db / 20);
 
+/** A parametric band as stored (no serial or rev). */
+export const paramJson = b => ({type: b.type, frequency: b.frequency, q: b.q, gain: b.gain, channels: b.channels, color: b.color, locked: b.locked});
+
 export class DSP {
   constructor(ctx) {
     this.ctx = ctx;
     this.values = {...DEFAULTS};
     this.bands = this.layoutBands(this.bandLayout(), []);
+    this.parametric = false;
+    this.pbands = [];
     this.load();
     this.ac = null;
     this.nodes = null;
@@ -153,6 +163,10 @@ export class DSP {
     try {
       const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
       if (s?.values) Object.assign(this.values, s.values);
+      if (s?.parametric) {
+        this.parametric = true;
+        this.pbands = (Array.isArray(s.pbands) ? s.pbands : []).slice(0, MAX_PARAM_BANDS).map(b => paramBand(b));
+      }
       if (Array.isArray(s?.bands)) {
         // Gains saved for another layout are resampled onto this one.
         const freqs = Array.isArray(s.freqs) && s.freqs.length === s.bands.length ? s.freqs : s.bands.length === GRAPHIC_BANDS.length ? GRAPHIC_BANDS : null;
@@ -167,7 +181,7 @@ export class DSP {
   save() {
     clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => {
-      try { localStorage.setItem(STORE_KEY, JSON.stringify({values: this.values, bands: this.bands.map(b => b.gain), freqs: this.bands.map(b => b.frequency)})); } catch { /* storage unavailable */ }
+      try { localStorage.setItem(STORE_KEY, JSON.stringify({values: this.values, bands: this.bands.map(b => b.gain), freqs: this.bands.map(b => b.frequency), parametric: this.parametric, pbands: this.parametric ? this.pbands.map(paramJson) : undefined})); } catch { /* storage unavailable */ }
     }, 200);
   }
 
@@ -189,18 +203,22 @@ export class DSP {
     const freqs = this.bandLayout();
     if (freqs.length === this.bands.length && freqs.every((f, i) => f === this.bands[i].frequency)) return;
     this.bands = this.layoutBands(freqs, this.bands);
-    if (this.nodes) this.rebuildBandNodes();
+    if (this.nodes && !this.parametric) this.rebuildBandNodes();
     this.save();
     this.update();
     this.ctx.bus.post('bus_dsp', 'msg_dsp_eq_changed', this, {layout: true});
   }
 
-  /** Replaces the peaking filters between the preamp and the tone shelves. */
+  /**
+   * Replaces the band filters between the preamp and the tone shelves: the
+   * graphic EQ's peaking filters or the parametric bands.
+   */
   rebuildBandNodes() {
     const n = this.nodes, ac = this.ac;
     n.preamp.disconnect();
-    for (const f of n.bands) f.disconnect();
-    n.bands = this.bands.map(b => {
+    for (const f of n.bands ?? []) f.disconnect();
+    n.parametric = this.parametric;
+    n.bands = this.parametric ? this.pbands.map(b => new ParamBandNode(ac, b.channels)) : this.bands.map(b => {
       const f = ac.createBiquadFilter();
       f.type = 'peaking';
       f.frequency.value = b.frequency;
@@ -208,8 +226,124 @@ export class DSP {
       return f;
     });
     let x = n.preamp;
-    for (const f of n.bands) x = x.connect(f);
+    for (const f of n.bands) {
+      if (f instanceof ParamBandNode) { x.connect(f.input); x = f.output; } else x = x.connect(f);
+    }
     x.connect(n.bass.input);
+    this.update();
+  }
+
+  // Parametric bands (u21 / or; notebook F82). Indexes are EQ band indexes.
+
+  /** The colour cursor of new bands over the theme's EqParamColorSet. */
+  get colorCursor() {
+    if (!this._cursor) {
+      const res = this.ctx.res, ref = res?.resolveRaw?.('?EqParamColorSet', this.ctx.theme)?.value;
+      const name = /^@array\/(.+)$/.exec(ref ?? '')?.[1] ?? 'EqParamColorSet_Default';
+      this._cursor = new ColorCursor(res?.entry?.('array', name) ?? []);
+    }
+    return this._cursor;
+  }
+
+  /** A structural change (add, delete, reorder, lock, mode): msg_dsp_eq_changed with arg1 1. */
+  bandsChanged(extra = {}) {
+    if (this.nodes && (this.nodes.parametric !== this.parametric || this.parametric)) this.rebuildBandNodes();
+    this.save();
+    this.ctx.bus.post('bus_dsp', 'msg_dsp_eq_changed', this, {arg1: 1, ...extra});
+  }
+
+  /** An edit leaves the preset unless Auto Save keeps it (as setBand). */
+  bandEdited() {
+    if (this.values.dsp_eq_preset_name && !this.ctx.eqPresets?.edited()) this.values.dsp_eq_preset_name = null;
+  }
+
+  /** cmd_dsp_add_eq_band (u21.p): parametric only, up to 64 bands; silently ignored past that. */
+  addParamBand() {
+    if (!this.parametric || this.pbands.length >= MAX_PARAM_BANDS) return null;
+    const b = nextBand(this.pbands, this.colorCursor.next());
+    this.pbands.push(b);
+    this.bandEdited();
+    this.bandsChanged({added: b.serial});
+    return b;
+  }
+
+  /** cmd_dsp_delete_eq_bands (u21.O): by serial; locked bands go too. */
+  deleteParamBands(serials) {
+    const drop = new Set(serials);
+    const keep = this.pbands.filter(b => !drop.has(b.serial));
+    if (keep.length === this.pbands.length) return;
+    this.pbands = keep;
+    this.bandEdited();
+    this.bandsChanged();
+  }
+
+  /** cmd_dsp_reorder_eq_bands (or.m2758): order[i] = the old index now at i. */
+  reorderParamBands(order) {
+    const n = this.pbands.length;
+    if (order.length !== n || new Set(order).size !== n || order.some(i => !(i >= 0 && i < n))) return;
+    if (order.every((o, i) => o === i)) return;
+    this.pbands = order.map(i => this.pbands[i]);
+    this.pbands.forEach((b, i) => { if (order[i] !== i) b.rev++; });
+    this.bandEdited();
+    this.bandsChanged();
+  }
+
+  /** cmd_dsp_lock_unlock_eq_bands (u21.o): sets locked on the bands of these serials. */
+  lockParamBands(on, serials) {
+    if (!this.parametric) return;
+    const set = new Set(serials);
+    for (const b of this.pbands) if (set.has(b.serial)) b.locked = !!on;
+    this.bandEdited();
+    this.bandsChanged();
+  }
+
+  /**
+   * cmd_dsp_set_eq_{gain,freq,q,type,ch,color,locked}: one band value, clamped
+   * as Band does (freq an integer 1..24000, Q 0.1..12, gain -1..1). Type,
+   * channels, colour and lock are parametric only. Posts msg_dsp_eq_band_<key>.
+   */
+  setParamBand(i, key, value) {
+    const b = this.pbands[i];
+    if (!b || !this.parametric) return;
+    let v;
+    if (key === 'gain') v = Math.max(-1, Math.min(1, +value || 0));
+    else if (key === 'frequency') v = Math.max(PARAM_FREQ_MIN, Math.min(PARAM_FREQ_MAX, Math.trunc(+value || 0)));
+    else if (key === 'q') v = Math.max(PARAM_Q_MIN, Math.min(PARAM_Q_MAX, +value || 0));
+    else if (key === 'type') v = Math.max(0, Math.min(PARAM_TYPES - 1, value | 0));
+    else if (key === 'channels') v = Math.max(0, Math.min(2, value | 0));
+    else if (key === 'color') v = value >>> 0;
+    else if (key === 'locked') v = !!value;
+    else return;
+    if (b[key] === v) return;
+    b[key] = v;
+    if (key !== 'color' && key !== 'locked') b.rev++;
+    if (key !== 'color') this.bandEdited();
+    this.save();
+    if (key === 'channels' && this.nodes?.parametric) this.rebuildBandNodes();
+    else if (key !== 'color' && key !== 'locked') this.update();
+    const msg = {gain: 'msg_dsp_eq_band_gain', frequency: 'msg_dsp_eq_band_freq', q: 'msg_dsp_eq_band_q', type: 'msg_dsp_eq_band_type', channels: 'msg_dsp_eq_band_ch', color: 'msg_dsp_eq_band_color', locked: 'msg_dsp_eq_band_locked'}[key];
+    this.ctx.bus.post('bus_dsp', msg, this, {band: i, value: v});
+  }
+
+  /**
+   * Loads a parametric preset (s.a): its bands replace the EQ's, the preamp
+   * (dB) and tone gains come with it.
+   */
+  applyParamPreset(p) {
+    this.parametric = true;
+    this.pbands = (p.bands ?? []).slice(0, MAX_PARAM_BANDS).map(b => paramBand(b));
+    this.values.dsp_preamp = Math.max(0, Math.min(1, 0.5 + (+p.preamp || 0) / (2 * PREAMP_RANGE_DB)));
+    this.values.dsp_bass_gain = Math.max(0, Math.min(1, p.bass ?? 0));
+    this.values.dsp_treble_gain = Math.max(0, Math.min(1, p.treble ?? 0));
+    if (p.bass || p.treble) this.values.dsp_tone_enabled = true;
+    this.values.dsp_eq_preset_name = p.name;
+    this.values.dsp_eq_enabled = true;
+    this.bandsChanged({preset: p.name});
+  }
+
+  /** A parametric band's response in dB (the curve's native_filter_evaluate_freqs, at 48 kHz). */
+  paramBandDb(b, freqs, fs = 48000, out) {
+    return coefficientsDb(paramCoefficients(b, fs), freqs, fs, out);
   }
 
   get(param) {
@@ -259,6 +393,10 @@ export class DSP {
    */
   applyPreset(p) {
     const q = p.params ?? {};
+    // A graphic preset while parametric drops the parametric bands (pr.m2840).
+    const wasParam = this.parametric;
+    this.parametric = false;
+    this.pbands = [];
     // Preset gains are keyed by band label; another layout samples their curve.
     const pts = Object.entries(q).map(([k, v]) => [labelHz(k), +v || 0]).filter(([hz]) => hz > 0).sort((a, b) => a[0] - b[0]);
     this.bands.forEach(b => { b.gain = Math.max(-1, Math.min(1, q[b.label] ?? gainAt(pts, b.frequency))); });
@@ -270,6 +408,7 @@ export class DSP {
     if (tone) this.values.dsp_tone_enabled = true;
     this.values.dsp_eq_preset_name = p.name;
     this.values.dsp_eq_enabled = true;
+    if (wasParam) { this.bandsChanged({preset: p.name}); return; }
     this.save();
     this.update();
     this.ctx.bus.post('bus_dsp', 'msg_dsp_eq_changed', this, {preset: p.name});
@@ -289,8 +428,12 @@ export class DSP {
       this.ctx.reverbPresets?.applyPreset(d?.id);
     } else if (msg === 'cmd_dsp_eq_preset_restore') {
       this.ctx.eqPresets?.restore();
+    } else if (msg === 'cmd_dsp_add_eq_band') {
+      this.addParamBand();
     } else if (msg === 'cmd_dsp_reset_eq') {
+      // Reset (u21.v) zeroes the gains and preamp; parametric bands and the mode stay.
       this.bands.forEach(b => { b.gain = 0; });
+      this.pbands.forEach(b => { if (b.gain) { b.gain = 0; b.rev++; } });
       this.values.dsp_eq_preset_name = null;
       if (this.ctx.eqPresets) this.ctx.eqPresets.data.current = null;
       this.values.dsp_preamp = 0.5;
@@ -329,13 +472,6 @@ export class DSP {
     if (!AC) return;
     const ac = this.ac = new AC();
     const preamp = ac.createGain();
-    const bands = this.bands.map(b => {
-      const f = ac.createBiquadFilter();
-      f.type = 'peaking';
-      f.frequency.value = b.frequency;
-      f.Q.value = b.q;
-      return f;
-    });
     // Shelves with a Q: the platform's shelving biquads have none, so each is
     // an IIR filter, replaced (cross-faded) when its coefficients change.
     const bass = new ShelfFilter(ac, 'lowshelf');
@@ -357,19 +493,17 @@ export class DSP {
     const analyser = ac.createAnalyser();
     analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0.75;
-    let n = preamp;
-    for (const f of bands) n = n.connect(f);
-    n.connect(bass.input);
     bass.output.connect(treble.input);
     treble.output.connect(split);
     merge.connect(pan);
     pan.connect(dry).connect(sum);
     pan.connect(predelay).connect(convolver).connect(wet).connect(sum);
-    this.nodes = {preamp, bands, bass, treble, ll, lr, rl, rr, pan, dry, wet, predelay, convolver, sum, limiter, limiterBypass, volume, analyser};
+    this.nodes = {preamp, bands: [], bass, treble, ll, lr, rl, rr, pan, dry, wet, predelay, convolver, sum, limiter, limiterBypass, volume, analyser};
     // Each media element (the player's decks) feeds the preamp through its own
     // gain, the fades' control.
     this.sources = new Map();
     this.connectElement(audio);
+    this.rebuildBandNodes();
     this.routeLimiter();
     volume.connect(analyser).connect(ac.destination);
     this._irKey = null;
@@ -405,7 +539,10 @@ export class DSP {
     const k = (p, val) => p.setTargetAtTime(val, t, 0.015);
     const eq = on && v.dsp_eq_enabled;
     k(n.preamp.gain, eq ? dbToGain((v.dsp_preamp - 0.5) * 2 * PREAMP_RANGE_DB) : 1);
-    n.bands.forEach((f, i) => k(f.gain, eq ? this.bands[i].gain * BAND_RANGE_DB : 0));
+    if (n.parametric) {
+      const fs = this.ac.sampleRate;
+      n.bands.forEach((f, i) => { const b = this.pbands[i]; if (b) f.set(eq ? b : {...b, gain: 0}, fs); });
+    } else n.bands.forEach((f, i) => k(f.gain, eq ? this.bands[i].gain * BAND_RANGE_DB : 0));
     const tone = on && v.dsp_tone_enabled;
     const tp = this.toneParams();
     n.bass.set(tp.bassHz, tone ? v.dsp_bass_gain * TONE_RANGE_DB : 0, tp.bassQ);

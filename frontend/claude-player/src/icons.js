@@ -139,6 +139,11 @@ G.recently_added = arc(12, 12, 8, 2.4, 0, 359.9) + rect(10.8, 7, 2.4, 10, 1) + r
 G.long_files = rect(2.5, 9.5, 2.6, 5, 1) + rect(6.5, 6.5, 2.6, 11, 1) + rect(10.5, 4, 2.6, 16, 1) + rect(14.5, 7.5, 2.6, 9, 1) + rect(18.5, 10.5, 2.6, 3, 1);
 G.stream = circle(12, 12, 2.6) + arc(12, 12, 6, 2, 210, 330) + arc(12, 12, 6, 2, 30, 150) + arc(12, 12, 9.6, 2, 210, 330) + arc(12, 12, 9.6, 2, 30, 150);
 G.years = rect(3, 5, 18, 16, 2) + rect(6.5, 2.5, 2.6, 5, 1) + rect(14.9, 2.5, 2.6, 5, 1);
+// List Memory (keep_*_12dp): List Position marks a row of a list; Per Track
+// Progress a position on a track's bar; both stack the two.
+G.keep_list = rect(10, 4.6, 11.5, 2.6, 1.3) + rect(10, 10.7, 11.5, 2.6, 1.3) + rect(10, 16.8, 11.5, 2.6, 1.3) + circle(5, 12, 2.9);
+G.keep_track = rect(2, 10.8, 6, 2.4, 1.2) + circle(13, 12, 3.6) + rect(18, 10.8, 4, 2.4, 1.2);
+G.keep_list_track = rect(4, 3, 16, 2.6, 1.3) + rect(4, 8.4, 16, 2.6, 1.3) + rect(2, 16.8, 5.6, 2.4, 1.2) + circle(12.5, 18, 3.4) + rect(17.4, 16.8, 4.6, 2.4, 1.2);
 G.bookmark = poly([[6, 2.5], [18, 2.5], [18, 21.5], [12, 16.5], [6, 21.5]], 1.2);
 G.raw_file = poly([[5, 2.5], [14, 2.5], [19.5, 8], [19.5, 21.5], [5, 21.5]], 1.2);
 G.delete = rect(5.5, 7, 13, 14.5, 1.6) + rect(3.5, 3.6, 17, 2.4, 1) + rect(9.3, 2, 5.4, 2.6, 1);
@@ -146,6 +151,34 @@ G.edit = poly([[4, 16.5], [15.5, 5], [19, 8.5], [7.5, 20], [4, 20]], 0.6) + poly
 G.sort = rect(3, 5, 18, 2.6, 1) + rect(3, 10.7, 12, 2.6, 1) + rect(3, 16.4, 6, 2.6, 1);
 G.share = circle(18, 5, 3) + circle(6, 12, 3) + circle(18, 19, 3) + poly([[7.2, 10.6], [16.6, 5.2], [17.6, 7], [8.2, 12.4]], 0.4) + poly([[8.2, 11.6], [17.6, 17], [16.6, 18.8], [7.2, 13.4]], 0.4);
 G.timer = arc(12, 13.5, 8, 2.4, 0, 359.9) + rect(10.8, 8.5, 2.4, 6, 1) + rect(9, 1.8, 6, 2.4, 1);
+// A polyline drawn w thick, as one outline (forward on the left, back on the right).
+function strokeLine(pts, w) {
+  const h = w / 2, L = [], R = [];
+  pts.forEach((p, i) => {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    const nx = -dy / l * h, ny = dx / l * h;
+    L.push([p[0] + nx, p[1] + ny]);
+    R.push([p[0] - nx, p[1] - ny]);
+  });
+  return poly([...L, ...R.reverse()]);
+}
+const curve = (fn, x0 = 3, x1 = 21, n = 36) => strokeLine(Array.from({length: n + 1}, (_, i) => { const x = x0 + (x1 - x0) * i / n; return [x, fn(x)]; }), 2.4);
+const smooth = t => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+// Parametric band types (eq_param_type_icons_24dp): the filter's response shape.
+G.low_pass = curve(x => 7 + 12 * smooth((x - 9) / 11));
+G.high_pass = curve(x => 7 + 12 * smooth((15 - x) / 11));
+G.band_pass = curve(x => 19 - 13 * Math.exp(-((x - 12) ** 2) / 14));
+G.peaking_band = curve(x => 15 - 9 * Math.exp(-((x - 12) ** 2) / 9));
+G.low_shelf = curve(x => 8 + 9 * smooth((x - 7) / 10));
+G.high_shelf = curve(x => 8 + 9 * smooth((17 - x) / 10));
+// Channels (eq_param_lr_icons_24dp): L, R and both.
+const letterL = (x, y, s) => rect(x, y, 2.4 * s, 12 * s, 0.4) + rect(x, y + 9.6 * s, 7 * s, 2.4 * s, 0.4);
+const letterR = (x, y, s) => rect(x, y, 2.4 * s, 12 * s, 0.4) + arc(x + 3.2 * s, y + 3.6 * s, 2.4 * s, 2.4 * s, -90, 90) + rect(x, y, 3.4 * s, 2.4 * s) + rect(x, y + 4.8 * s, 3.4 * s, 2.4 * s) + poly([[x + 3 * s, y + 6.6 * s], [x + 5.6 * s, y + 6 * s], [x + 8.4 * s, y + 12 * s], [x + 5.6 * s, y + 12 * s]]);
+G.l_ch = letterL(8.5, 6, 1);
+G.r_ch = letterR(8, 6, 1);
+G.l_plus_r_ch = letterL(2.5, 7.5, 0.85) + rect(10.1, 11.9, 3.8, 1.8, 0.4) + rect(11.1, 10.9, 1.8, 3.8, 0.4) + letterR(15, 7.5, 0.75);
+G.unlock = rect(4.5, 10.5, 15, 11, 2) + arc(16.6, 7, 4.6, 2.6, 180, 360) + rect(19.9, 7, 2.6, 2.4);
 G.lock = rect(4.5, 10.5, 15, 11, 2) + arc(12, 10.5, 4.6, 2.6, 180, 360) + rect(5.4, 9, 2.6, 2) + rect(16, 9, 2.6, 2);
 G.palette = 'M12 2.5c5.4 0 9.5 3.8 9.5 8.4 0 2.9-2.4 4.6-5.1 4.6h-2c-1.1 0-1.7 1.2-1 2.1.5.6.7 1.2.7 1.8 0 1.2-1 2.1-2.1 2.1-5.2 0-9.5-4.3-9.5-9.5S6.8 2.5 12 2.5Z';
 G.speaker = rect(3, 9, 5, 6, 0.8) + poly([[8, 9], [14, 4], [14, 20], [8, 15]], 0.6);
@@ -296,6 +329,9 @@ const RULES = [
   [/^long_files/, () => 'long_files'],
   [/^streams?/, () => 'stream'],
   [/^years/, () => 'years'],
+  [/^keep_list_track_pos/, () => 'keep_list_track'],
+  [/^keep_list_pos/, () => 'keep_list'],
+  [/^keep_track_pos/, () => 'keep_track'],
   [/^(bookmark|keep_)/, () => 'bookmark'],
   [/^raw_file/, () => 'raw_file'],
   [/^(delete|del_dups)/, () => 'delete'],
@@ -303,7 +339,11 @@ const RULES = [
   [/^sort/, () => 'sort'],
   [/^share|^send/, () => 'share'],
   [/^sleep_timer/, () => 'timer'],
+  [/^unlock_solid/, () => 'unlock'],
   [/^(lock|unlock)/, () => 'lock'],
+  [/^l_plus_r_ch/, () => 'l_plus_r_ch'],
+  [/^l_ch/, () => 'l_ch'],
+  [/^r_ch/, () => 'r_ch'],
   [/^palette/, () => 'palette'],
   [/^(speaker|pre_speaker|ic_vol_type_speaker)/, () => 'speaker'],
   [/^(wired|pre_wired)/, () => 'headphones'],
@@ -327,7 +367,12 @@ const RULES = [
   [/^export/, () => 'export'],
   [/^import/, () => 'import'],
   [/^sine/, () => 'sine'],
-  [/^(band_pass|high_pass|low_pass|peaking|hsf|lsf)/, () => 'eq_band'],
+  [/^band_pass/, () => 'band_pass'],
+  [/^high_pass/, () => 'high_pass'],
+  [/^low_pass/, () => 'low_pass'],
+  [/^peaking/, () => 'peaking_band'],
+  [/^lsf/, () => 'low_shelf'],
+  [/^hsf/, () => 'high_shelf'],
   [/^percent/, () => 'percent'],
   [/^(bars|bit|limit|compressor|dvc|range)/, () => 'bars_peak'],
   [/^ic_media_play/, () => 'play'],
