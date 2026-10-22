@@ -30,6 +30,7 @@ import {exportPlaylists} from '../library/playlist-files.js';
 import {LyricsPage} from './lyrics.js';
 import {elevationShadow} from '../view/drawables.js';
 import {trackTitle, trackLine2, trackNumbers} from '../library/labels.js';
+import {categoryKey} from '../library/list-memory.js';
 
 const OFFSET_STATUS_BAR = 1, OFFSET_NAVIGATION_BAR = 2;
 
@@ -153,8 +154,10 @@ export class AAItemView extends SceneFastLayout {
       this.title?.setText(track.title ?? '');
       this.line2?.setText(track.artist ?? '');
       this.meta?.setText(track.meta ?? '');
+      this.setMetaIcon(track.metaIcon ?? null);
       this.num?.setText('');
     } else {
+      this.setMetaIcon(null);
       const n = trackNumbers(this.ctx, track, numbered);
       this.title?.setText(track ? n.title(trackTitle(this.ctx, track)) : '');
       this.line2?.setText(trackLine2(this.ctx, track, albumArtistList));
@@ -174,6 +177,15 @@ export class AAItemView extends SceneFastLayout {
         }
       });
     }
+  }
+
+  /** The meta line's icon (AAItemView.F.d0: category rows and headers; F79), or none. */
+  setMetaIcon(name) {
+    if (!this.meta || (this._metaIcon ?? null) === name) return;
+    // The meta's own drawable (its scenes') comes back when the icon goes.
+    if (this._metaIcon == null) this.metaBase = this.meta.baseDrawable ?? null;
+    this._metaIcon = name;
+    this.meta.setDrawable(name ? this.ctx.drawables.fromValue(name, this.ctx.theme) : this.metaBase);
   }
 
   /** Switches the item scene at the given item size (no animation). */
@@ -496,6 +508,8 @@ export class ListWidget extends FastLayout {
         else if (current[msg]) this.openCurrent(current[msg]);
         else if (msg === 'cmd_list_play' || msg === 'cmd_list_shuffle') this.playList(msg === 'cmd_list_shuffle');
         else if (msg === 'cmd_list_add_to_pl_dialog') this.addToPlaylist();
+        // The back decor's title (BackDecorItemView): up a level, not in selection mode.
+        else if (msg === 'cmd_list_up_nav') { if (bus === 'list' && this.mode === 'list' && !this.libList.selection && this.stack.length > 1) history.back(); }
         // The track menu's Lyrics item (p31): the lyrics page, or the lyrics dialog with lyrics_in_menu.
         else if (msg === 'cmd_nav_to_lyrics_or_app') {
           if (+this.ctx.pref('lyrics_in_menu') === 1) this.ctx.bus.post('bus_data_cmd', 'cmd_data_lyrics', this, {});
@@ -694,7 +708,10 @@ export class ListWidget extends FastLayout {
     const p = this.ctx.player;
     this.ctx.bus.post('bus_player_cmd', 'cmd_player_set_shuffle', this, {arg1: shuffle ? 2 : 0});
     if (src && !this.searching) this.rememberQueueSource(src);
-    p.setQueue(tracks, shuffle ? Math.floor(Math.random() * tracks.length) : 0, src && !this.searching ? this.categoryFor(src) : null);
+    const category = src && !this.searching ? this.categoryFor(src) : null;
+    // List Position (keep_list_pos, F46): a folder or playlist starts at its memorized entry.
+    const dflt = shuffle ? Math.floor(Math.random() * tracks.length) : 0;
+    p.setQueue(tracks, this.ctx.listMemory?.start(categoryKey(category), tracks, dflt) ?? dflt, category);
     p.play();
     if ((this.ctx.settings.list_item_action ?? 1) === 1) this.ctx.bus.post('bus_gui', 'cmd_nav_to_main', this);
   }
@@ -1009,6 +1026,18 @@ export class ListWidget extends FastLayout {
   }
 
   /** PowerList.h0 → yv0.m3714: the shown list moved by f. */
+  /**
+   * The back decor's title (md.y0 with tc.x): the level above's name (pd.H0:
+   * the parent entity's, the parent entry's in a second level), the library
+   * at the top; a list may name its own (backTitle).
+   */
+  backTitleFor(src) {
+    if (src.backTitle != null) return src.backTitle;
+    const at = this.stack.indexOf(src), parent = at > 0 ? this.stack[at - 1] : null;
+    if (!parent) return '';
+    return parent.title || (this.ctx.res.stringByName('library') ?? 'Library');
+  }
+
   listScrolled(list, f, touch) {
     if (list !== this.libList || this.mode !== 'list') return;
     this.ensureToolbar()?.scrolled(list.scrollState(), f, touch, !!this.trans);
@@ -1481,7 +1510,8 @@ export class ListWidget extends FastLayout {
       const category = this.categoriesOf(src, index);
       const tracks = category.source.tracksAt(index);
       if (!tracks.length) return false;
-      p.setQueue(tracks, mode === 2 || mode === 4 ? Math.floor(Math.random() * tracks.length) : 0, category);
+      // A folder or playlist entry with List Position starts at its memorized entry (F46).
+      p.setQueue(tracks, ctx.listMemory?.start(categoryKey(category), tracks, mode === 2 || mode === 4 ? Math.floor(Math.random() * tracks.length) : 0) ?? 0, category);
     }
     p.play();
     return true;
@@ -2023,6 +2053,7 @@ ListWidget.prototype.closeItemMenu = function () {
 export class TextItemView extends AAItemView {}
 
 register(['AAItemView'], AAItemView);
+register(['BackDecorItemView'], SceneFastLayout);
 register(['TextItemView'], TextItemView);
 register(['IconView'], FastTextView);
 register(['AAImageView'], AAImageView);

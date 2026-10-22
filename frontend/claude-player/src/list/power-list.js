@@ -331,7 +331,47 @@ export class PowerList extends FastLayout {
       v.translationY = y;
       v.invalidate();
     }
+    this.placeBackDecor();
     this.placeBottomToolbar(g);
+  }
+
+  /**
+   * Back decor (sd.c(), BackDecorItemView; F79): the level's up-nav title
+   * ("‹ Parent", cmd_list_up_nav) in scene_header_back_decor, laid over the
+   * header with its frame (h0.z copies the header's bounds and alpha) and
+   * above it (over_aa_elevation). Selection mode disables it (disabledAlpha 0).
+   */
+  placeBackDecor() {
+    const s = this.source, layout = s?.backDecor ?? null, hv = layout ? this.active.get(-1) : null;
+    this.decors ??= new Map();
+    for (const [name, v] of this.decors) {
+      if ((name !== layout || !hv) && v.visibility !== GONE) { v.visibility = GONE; v.invalidate(); }
+    }
+    if (!hv) return;
+    let v = this.decors.get(layout);
+    if (!v) {
+      v = this.ctx.inflater.inflate(layout, null)[0];
+      v.lp = this.generateLayoutParams(null);
+      v.parent = this;
+      v.listIndex = -5;
+      v.titleView = v.findViewById('title');
+      this.children.push(v);
+      this.el.appendChild(v.el);
+      this.decors.set(layout, v);
+    }
+    const title = this.host?.backTitleFor?.(s) ?? '';
+    if (v.boundTitle !== title) { v.boundTitle = title; v.titleView?.setText(title); }
+    v.titleView?.setEnabled?.(!this.selection);
+    v.visibility = VISIBLE;
+    v.left = 0; v.top = 0;
+    const w = hv.width, h = hv.height;
+    v.measure(MeasureSpec.make(w, MeasureSpec.EXACTLY), MeasureSpec.make(h, MeasureSpec.EXACTLY));
+    v.layout(0, 0, w, h);
+    if (v.itemScene !== 'scene_header_back_decor') { v.itemScene = 'scene_header_back_decor'; v.scenes?.go('scene_header_back_decor', {duration: 0}); }
+    v.translationX = hv.translationX;
+    v.translationY = hv.translationY;
+    v.alpha = hv.alpha;
+    v.invalidate();
   }
 
   /**

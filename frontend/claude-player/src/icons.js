@@ -139,6 +139,11 @@ G.recently_added = arc(12, 12, 8, 2.4, 0, 359.9) + rect(10.8, 7, 2.4, 10, 1) + r
 G.long_files = rect(2.5, 9.5, 2.6, 5, 1) + rect(6.5, 6.5, 2.6, 11, 1) + rect(10.5, 4, 2.6, 16, 1) + rect(14.5, 7.5, 2.6, 9, 1) + rect(18.5, 10.5, 2.6, 3, 1);
 G.stream = circle(12, 12, 2.6) + arc(12, 12, 6, 2, 210, 330) + arc(12, 12, 6, 2, 30, 150) + arc(12, 12, 9.6, 2, 210, 330) + arc(12, 12, 9.6, 2, 30, 150);
 G.years = rect(3, 5, 18, 16, 2) + rect(6.5, 2.5, 2.6, 5, 1) + rect(14.9, 2.5, 2.6, 5, 1);
+// List Memory (keep_*_12dp): List Position marks a row of a list; Per Track
+// Progress a position on a track's bar; both stack the two.
+G.keep_list = rect(10, 4.6, 11.5, 2.6, 1.3) + rect(10, 10.7, 11.5, 2.6, 1.3) + rect(10, 16.8, 11.5, 2.6, 1.3) + circle(5, 12, 2.9);
+G.keep_track = rect(2, 10.8, 6, 2.4, 1.2) + circle(13, 12, 3.6) + rect(18, 10.8, 4, 2.4, 1.2);
+G.keep_list_track = rect(4, 3, 16, 2.6, 1.3) + rect(4, 8.4, 16, 2.6, 1.3) + rect(2, 16.8, 5.6, 2.4, 1.2) + circle(12.5, 18, 3.4) + rect(17.4, 16.8, 4.6, 2.4, 1.2);
 G.bookmark = poly([[6, 2.5], [18, 2.5], [18, 21.5], [12, 16.5], [6, 21.5]], 1.2);
 G.raw_file = poly([[5, 2.5], [14, 2.5], [19.5, 8], [19.5, 21.5], [5, 21.5]], 1.2);
 G.delete = rect(5.5, 7, 13, 14.5, 1.6) + rect(3.5, 3.6, 17, 2.4, 1) + rect(9.3, 2, 5.4, 2.6, 1);
@@ -296,6 +301,9 @@ const RULES = [
   [/^long_files/, () => 'long_files'],
   [/^streams?/, () => 'stream'],
   [/^years/, () => 'years'],
+  [/^keep_list_track_pos/, () => 'keep_list_track'],
+  [/^keep_list_pos/, () => 'keep_list'],
+  [/^keep_track_pos/, () => 'keep_track'],
   [/^(bookmark|keep_)/, () => 'bookmark'],
   [/^raw_file/, () => 'raw_file'],
   [/^(delete|del_dups)/, () => 'delete'],

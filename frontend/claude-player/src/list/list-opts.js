@@ -13,6 +13,7 @@ import {GONE, INVISIBLE, VISIBLE} from '../res/values.js';
 import {accelDecel} from '../gesture.js';
 import {FastRadioButton} from '../view/text.js';
 import {searchMask, setSearchMask} from '../widgets/search.js';
+import {KEEP_LIST, KEEP_TRACK} from '../library/list-memory.js';
 
 const STORE = 'cp-list-opts';
 export const REVERSE = 0x40000000;
@@ -227,6 +228,20 @@ export function openListOptions(ctx, src, onChange, {fromSettings = false, onClo
       else if (gear) gear.onClick = () => { d.cancel(); ctx.settingsUi?.open('library'); };
       if (src.homeCategories) libraryCategories(ctx, d.find('library_layout'), src.homeCategories, () => onChange?.());
       if (src.searchCategories) searchCategories(ctx, d.find('search_layout'), src.searchCategories);
+      // List Memory (ListOptsActivity over jh1: a folder's or playlist's
+      // songs; F46): List Position (keep_list_pos) and Per Track Progress
+      // (keep_track_pos), set as the user ticks them (cmd_data_set_list_meta).
+      if (src.memoryKey && ctx.listMemory) {
+        const g = d.find('list_memory_layout');
+        g?.setVisibility(VISIBLE);
+        const bits = ctx.listMemory.flags(src.memoryKey);
+        for (const [id, bit] of [['list_pos', KEEP_LIST], ['per_track_progress', KEEP_TRACK]]) {
+          const cb = g?.findViewById(id);
+          if (!cb) continue;
+          cb.setChecked((bits & bit) !== 0);
+          cb.onCheckedChanged = on => { ctx.listMemory.setFlag(src.memoryKey, bit, on); onChange?.(); };
+        }
+      }
       // Max Items (ih1): 200 / 500 / 1000 / no limit.
       if (src.limitable) {
         const g = d.find('limit_group');

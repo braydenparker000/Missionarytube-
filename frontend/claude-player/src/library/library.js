@@ -4,6 +4,7 @@ import {LibraryDb} from './db.js';
 import {readTags, readRemotePicture, setTagEncoding, decodeTextFile} from './tags.js';
 import {makeSplitter, GENRE_DEFAULT_SPLIT} from './split.js';
 import {Playlists} from './playlists.js';
+import {ListMemory} from './list-memory.js';
 import {parseCue, cueFor, cueTracks} from './cue.js';
 import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars, decodeWave} from './r2.js';
 
@@ -62,6 +63,7 @@ export class Library {
     this.userData = new Map();
     ctx.library = this;
     this.playlists = new Playlists(ctx, this);
+    this.listMemory = new ListMemory(ctx, this);
     this.customArt = new Map(); // 'a:<album>\0<artist>' or 't:<id>' -> Blob (picked images)
     ctx.bus.subscribe('bus_data_cmd', (msg, src, d) => {
       if (msg === 'cmd_data_track_rating' && d?.track) this.setRating(d.track, d.arg1 ?? 0);
@@ -82,6 +84,7 @@ export class Library {
       this.setTracks([...this.localTracks, ...this.remoteTracks]);
       for (const [k, v] of await this.db.stateEntries('ca:')) if (v instanceof Blob) this.customArt.set(k.slice(3), v);
       await this.playlists.load();
+      await this.listMemory.load();
     } catch (e) {
       console.warn('[claude-player] library storage unavailable', e);
     }

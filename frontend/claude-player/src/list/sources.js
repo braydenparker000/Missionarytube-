@@ -38,6 +38,7 @@ import {SEARCH_CATS} from '../widgets/search.js';
 import {GONE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {searchHistory, removeSearch, clearSearchHistory} from '../library/search-history.js';
+import {listKeyOf, categoryKey, KEEP_LIST, KEEP_TRACK} from '../library/list-memory.js';
 
 // The search categories after "All" (jj1.v1 order).
 const SEARCH_KINDS = SEARCH_CATS.slice(1);
@@ -155,6 +156,45 @@ export function plural(ctx, name, n) {
 function durationMeta(ms) {
   const sec = Math.round((ms || 0) / 1000), h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, ss = String(sec % 60).padStart(2, '0');
   return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
+
+// Category rows and entry headers (xc.e / mo1881 over the categories'
+// columns; notebook F79): line 2 is the category's C0 column (an album's
+// artist, a folder's parent; none for names and playlists), the meta its m0
+// "files | duration" (albums add " | year"; playlists pad the bar with two
+// spaces) after the meta icon (wa1.M): the songs icon, or a folder's /
+// playlist's List Memory flags (F46; playlist rows show List Position only).
+const META_ICONS = ['?meta_songs_12dp', '?keep_list_pos_12dp', '?keep_track_pos_12dp', '?keep_list_track_pos_12dp'];
+const groupMs = g => g.tracks.reduce((sum, t) => sum + (t.durationMs || 0), 0);
+
+/** An album's year (album_year; none when no track has one). Inferred: the earliest. */
+function albumYear(g) {
+  let y = 0;
+  for (const t of g.tracks) if (t.year && (!y || t.year < y)) y = t.year;
+  return y;
+}
+
+export function groupMeta(g) {
+  const n = g.tracks.length, dur = durationMeta(groupMs(g));
+  if (g.pl) return `${n}  |  ${dur}`;
+  const y = g.kind === 'album' ? albumYear(g) : 0;
+  return `${n} | ${dur}` + (y ? ` | ${y}` : '');
+}
+
+/** The parent folder of a folder path (folders.parent_label). */
+const parentLabel = path => (path ?? '').replace(/\/+$/, '').split('/').slice(0, -1).join('/');
+
+function groupLine2(ctx, g) {
+  if (g.kind === 'album') return g.byArtist ? g.artist : albumRowArtist(ctx, g);
+  if (g.kind === 'folder') return parentLabel(g.path);
+  return '';
+}
+
+/** The meta icon of a category row (rows: true) or entry header. */
+function metaIconOf(ctx, g, rows) {
+  let bits = ctx.listMemory?.flags(listKeyOf(g)) ?? 0;
+  if (rows && g.pl) bits &= KEEP_LIST;
+  return META_ICONS[bits];
 }
 
 /** The library home: category tiles. */
@@ -289,6 +329,8 @@ export function categorySource(ctx, list, nav, cat) {
   }
   src.icon = cat.icon;
   src.rebuild = () => categorySource(ctx, list, nav, cat);
+  // kc / b32: the up-nav title over the text header names the library.
+  src.backDecor = 'item_top_text_back_decor';
   return src;
 }
 
@@ -343,15 +385,14 @@ export class GroupSource {
   bindItem(v, i) {
     const g = this.groups[i];
     const first = g.tracks[0];
-    const artist = this.groupKind === 'albumsByArtist' ? g.artist : g.kind === 'album' ? albumRowArtist(this.ctx, g) : `${g.tracks.length}`;
-    v.bind({id: 'group:' + g.kind + ':' + (g.artist ?? '') + ':' + g.title, group: true, title: g.title, artist, art: first?.art, thumb: first?.thumb, artId: first?.artId, meta: ''});
+    v.bind({id: 'group:' + g.kind + ':' + (g.artist ?? '') + ':' + g.title, group: true, title: g.title, artist: groupLine2(this.ctx, g), art: first?.art, thumb: first?.thumb, artId: first?.artId, meta: groupMeta(g), metaIcon: metaIconOf(this.ctx, g, true)});
   }
 
   onItemClick(i) {
     const g = this.groups[i];
     // he.a(): artists, album artists, genres, composers and years open the entry's albums (u3).
     if (ALL_SONGS[g.kind]) this.nav.open(subAlbumsSource(this.ctx, this.nav.list, this.nav, g, this.icon));
-    else this.nav.open(groupTracksSource(this.ctx, this.nav.list, this.nav, g, this.icon));
+    else this.nav.open(groupTracksSource(this.ctx, this.nav.list, this.nav, g, this.icon, this.parentGroup ?? null));
   }
 }
 
@@ -393,6 +434,9 @@ export function subAlbumsSource(ctx, list, nav, g, icon) {
   // u3.f(-103): the entry's own files list.
   src.onSubheadClick = () => nav.open(groupTracksSource(ctx, list, nav, g, icon));
   src.rebuild = () => subAlbumsSource(ctx, list, nav, g, icon);
+  // u3: the entry's header (scene_header_1, the parents being tg1); year
+  // albums (ug1) take the human sizes, the others headerSize / compactHeaderSize.
+  entryHeader(ctx, list, src, g, {scene1: true, human: g.kind === 'year', compactW: g.kind === 'year', backDecor: 'item_text_back_decor'});
   return src;
 }
 
@@ -409,7 +453,7 @@ export function albumsByArtistSource(ctx, list, nav, title) {
     for (const t of a.tracks) {
       const name = t.artist || unknown, k = name.toLowerCase();
       let r = byArtist.get(k);
-      if (!r) byArtist.set(k, r = {kind: 'album', title: a.title, artist: name, artId: t.artId, tracks: []});
+      if (!r) byArtist.set(k, r = {kind: 'album', byArtist: true, title: a.title, artist: name, artId: t.artId, tracks: []});
       r.tracks.push(t);
       r.artId ||= t.artId;
     }
@@ -497,10 +541,12 @@ export function currentCategorySource(ctx, list, nav, kind, track = null) {
   src.rebuild = () => currentCategorySource(ctx, list, nav, kind, t);
   // Track numbers belong to album and folder track lists (wf1 entities).
   src.numbered = kind === 'album' || kind === 'folder';
-  // Compact Header (xh1, layout_header_compact): the header takes
-  // compactTextHeaderSize.
-  src.compactable = true;
-  if (src.compactHeader) src.headerHeight = list.host.substyle.dim('compactTextHeaderSize', 0) + ctx.windowInsets.top;
+  const g = {kind, title, tracks, path: kind === 'folder' ? k : undefined, artist: kind === 'album' ? t.albumArtist || t.artist || '' : undefined};
+  if (ALL_SONGS_CATEGORY[kind]) {
+    entryHeader(ctx, list, src, g, {scene1: true, human: HUMAN_SONGS.has(kind), compactW: HUMAN_SONGS.has(kind)});
+    src.backTitle = str(ctx, ALL_SONGS_CATEGORY[kind]);
+  } else entryHeader(ctx, list, src, g);
+  src.group = g;
   src.icon = {artist: '?artists', album: '?albums', folder: '?folders', genre: '?genres'}[kind];
   return src;
 }
@@ -630,6 +676,7 @@ export function playlistsSource(ctx, list, nav) {
   const src = withOptions(new GroupSource(ctx, list, nav, str(ctx, 'playlists'), groups), list, {key: 'cat:playlists', zoomKind: 'groups', sortKind: 'playlists'});
   src.icon = '?playlists';
   src.isPlaylists = true;
+  src.backDecor = 'item_top_text_back_decor';
   src.onItemClick = i => { const s2 = playlistSource(ctx, list, nav, src.groups[i].pl); if (s2) nav.open(s2); };
   src.rebuild = () => playlistsSource(ctx, list, nav);
   return src;
@@ -647,6 +694,8 @@ export function playlistSource(ctx, list, nav, pl) {
   src.icon = '?playlists';
   src.playlist = pl;
   src.entryIndex = entryIndex;
+  // si1: under Playlists (tg1), title only.
+  entryHeader(ctx, list, src, {kind: 'playlist', title: pl.name, tracks, pl}, {scene1: true});
   src.rebuild = () => playlistSource(ctx, list, nav, pl);
   // Rows move between the shown entries' places; missing entries stay put.
   reorderable(src, map => {
@@ -673,18 +722,57 @@ function reorderable(src, store) {
   };
 }
 
-/** A category entry's tracks (album, artist, ...), with that list kind's options. */
-export function groupTracksSource(ctx, list, nav, g, icon) {
+/**
+ * Entry headers (c32 / g32, u3, h60; notebook F79). A category entry's songs,
+ * an entry's albums and a Folders Hierarchy folder show the track item as
+ * their header: in scene_header the entry's art fills it with the title,
+ * line 2 and meta (with its icon) at its foot; scene_header_1 (title only)
+ * when the parent category is a "human" one (tg1: artists, album artists,
+ * genres, composers, years, playlists). Height (g32.F0, u3.F0, h60.F0; plus
+ * the top inset): headerSize, or humanCatHeaderSize (at most the list's
+ * width) for the artist-like lists (gh1). Compact Header (xh1.W0) takes
+ * compactHeaderSize, or compactHumanCatHeaderSize where the reference picks
+ * it (compactW). Over it lies the back decor (backDecor): the up-nav title.
+ */
+function entryHeader(ctx, list, src, g, {scene1 = false, human = false, compactW = false, backDecor = 'item_back_decor', line2 = null, meta = null, metaIcon = null} = {}) {
+  const sub = list.host.substyle, compact = !!src.compactHeader;
+  const humanSize = Math.min(sub.dim('humanCatHeaderSize', 0), list.host.width || Infinity);
+  const size = compact ? sub.dim(compactW ? 'compactHumanCatHeaderSize' : 'compactHeaderSize', 0) : human ? humanSize : sub.dim('headerSize', 0);
+  src.header = {type: 'track', scene: scene1 ? 'scene_header_1' : 'scene_header'};
+  src.headerHeight = size + ctx.windowInsets.top;
+  src.compactable = true;
+  src.backDecor = backDecor;
+  // List Memory belongs to folders and playlists (jh1).
+  src.memoryKey = listKeyOf(g);
+  src.bindHeader = v => {
+    const first = g.tracks.find(t => t.artId || t.art || t.thumb) ?? g.tracks[0];
+    v.bind({id: 'hdr:' + g.kind + ':' + (g.path ?? g.pl?.id ?? g.artist ?? '') + ':' + g.title, group: true, title: g.title, artist: line2 ?? groupLine2(ctx, g), meta: meta ?? groupMeta(g), metaIcon: metaIcon ?? metaIconOf(ctx, g, false), art: first?.art, thumb: first?.thumb, artId: first?.artId});
+  };
+  return src;
+}
+
+// The categories of the "All … Songs" lists (their back decor names them, df1.j0()).
+const ALL_SONGS_CATEGORY = {artist: 'artists', albumArtist: 'album_artists', genre: 'genres', composer: 'composers', year: 'years'};
+// gh1 lists: the artist-like entries' songs (df1, qe1, kf1) and albums of album artists and composers (pe1, jf1).
+const HUMAN_SONGS = new Set(['artist', 'albumArtist', 'composer']);
+
+/**
+ * A category entry's tracks (album, artist, ...), with that list kind's
+ * options; parentGroup is the entry whose albums list it came from.
+ */
+export function groupTracksSource(ctx, list, nav, g, icon, parentGroup = null) {
   const kind = g.kind ?? 'group';
   const src = withOptions(new TrackSource(ctx, list, nav, g.title, g.tracks), list, {key: 'tracks:' + kind, zoomKind: 'tracks', sortKind: 'tracks', defaultSort: TRACKS_DEFAULT_SORT[kind] ?? 0});
   src.icon = icon;
   src.group = g;
-  src.rebuild = () => groupTracksSource(ctx, list, nav, g, icon);
+  src.rebuild = () => groupTracksSource(ctx, list, nav, g, icon, parentGroup);
   src.numbered = kind === 'album' || kind === 'folder';
-  // Compact Header (xh1, layout_header_compact): the header takes
-  // compactTextHeaderSize.
-  src.compactable = true;
-  if (src.compactHeader) src.headerHeight = list.host.substyle.dim('compactTextHeaderSize', 0) + ctx.windowInsets.top;
+  if (ALL_SONGS_CATEGORY[kind]) {
+    // df1 / qe1 / ig1 / kf1 / zj1: under the category itself (tg1).
+    const human = HUMAN_SONGS.has(kind);
+    entryHeader(ctx, list, src, g, {scene1: true, human, compactW: human});
+    src.backTitle = str(ctx, ALL_SONGS_CATEGORY[kind]);
+  } else entryHeader(ctx, list, src, g, {human: !!parentGroup && (parentGroup.kind === 'albumArtist' || parentGroup.kind === 'composer')});
   src.albumArtistList = kind === 'albumArtist';
   return src;
 }
@@ -716,6 +804,7 @@ class FolderLevelSource {
     const d = dims(list);
     this.header = {type: 'text', scene: 'scene_header'};
     this.headerHeight = d.textHeaderSize + ctx.windowInsets.top;
+    this.backDecor = 'item_top_text_back_decor';
     this.itemType = 'track';
     this.icon = '?folders_hier';
     const filesOnly = !this.folders.length && node.files.length > 0;
@@ -725,6 +814,13 @@ class FolderLevelSource {
     this.tracks = files.tracks;
     this.numbered = true;
     applyZoom(this, list.host.substyle, filesZoom ? 'tracks' : 'groups', filesZoom ? 'tracks:folder' : 'cat:folders_hier');
+    // h60.e0: a folder has the track header (headerSize / compactHeaderSize)
+    // with the parent folder's name as its up-nav title (item_back_decor), or
+    // under the top level the hierarchy's (item_text_back_decor).
+    if (!this.isRoot) {
+      const g = {kind: 'folder', title: node.name, path: node.path, tracks: subtreeFiles(node)};
+      entryHeader(ctx, list, this, g, {backDecor: node.parent === lib.hierRoot() ? 'item_text_back_decor' : 'item_back_decor', line2: node.parent?.name ?? '', meta: hierMeta(node)});
+    }
     this.rebuild = () => folderLevelSource(ctx, list, nav, lib.folderTree().nodes.get(node.path) ?? lib.hierRoot(), cat);
   }
 
@@ -751,13 +847,13 @@ class FolderLevelSource {
   }
 
   bindHeader(v) {
-    bindCategoryHeader(this, v, this.isRoot ? '' : hierMeta(this.node));
+    bindCategoryHeader(this, v, '');
   }
 
   bindItem(v, i) {
     if (this.isFolder(i)) {
       const f = this.folders[i], first = f.files[0] ?? subtreeFiles(f)[0];
-      v.bind({id: 'hier:' + f.path, group: true, title: f.name, artist: f.parent?.name ?? '', meta: hierMeta(f), art: first?.art, thumb: first?.thumb, artId: first?.artId});
+      v.bind({id: 'hier:' + f.path, group: true, title: f.name, artist: f.parent?.name ?? '', meta: hierMeta(f), metaIcon: META_ICONS[this.ctx.listMemory?.flags('folder:' + f.path) ?? 0], art: first?.art, thumb: first?.thumb, artId: first?.artId});
     } else v.bind(this.tracks[i - this.folders.length], true, false);
   }
 
@@ -793,7 +889,8 @@ class FolderLevelSource {
       if (!shuffle && !ctx.pref?.('hier_no_advance')) bus('cmd_player_set_repeat_mode', 2);
       const category = hierCategory(this, start);
       const tracks = category.source.tracksAt(category.index);
-      p.setQueue(tracks, shuffle ? Math.floor(Math.random() * tracks.length) : 0, category);
+      const dflt = shuffle ? Math.floor(Math.random() * tracks.length) : 0;
+      p.setQueue(tracks, ctx.listMemory?.start(categoryKey(category), tracks, dflt) ?? dflt, category);
     }
     p.play();
     return true;
@@ -821,7 +918,7 @@ function hierCategory(src, node) {
   const level = src.node, prefix = level.path ? level.path + '/' : '';
   const first = new Set(order.filter(n => n === level || n.path.startsWith(prefix)).map(n => order.indexOf(n)));
   const files = n => withOptions({ctx: src.ctx, tracks: [...n.files]}, src.nav.list, {key: 'tracks:folders_hier', zoomKind: 'tracks', sortKind: 'tracks', defaultSort: TRACKS_DEFAULT_SORT.folder}).tracks;
-  return {source: {count: order.length, groups: order.map(n => ({title: n.name, tracks: n.files})), tracksAt: j => (order[j] ? files(order[j]) : []), shuffleFirst: first}, index};
+  return {source: {count: order.length, groups: order.map(n => ({kind: 'folder', title: n.name, path: n.path, tracks: n.files})), tracksAt: j => (order[j] ? files(order[j]) : []), shuffleFirst: first}, index};
 }
 
 export function folderLevelSource(ctx, list, nav, node, cat = homeCategory(2)) {

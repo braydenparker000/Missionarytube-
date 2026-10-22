@@ -474,7 +474,25 @@ The content scrolls (`ScrollingBehavior`). `SelectAlbumArtActivity` offers `pick
 - itemSize / itemSizeZoomed
 - grid cells: square art plus `grid*ExtraSpace`
 
-Show Titles Only selects the `scene_1*` variants. Not reproduced: Max Items, Min Duration, list memory and the compact header.
+Show Titles Only selects the `scene_1*` variants. Max Items, Min Duration and Compact Header are F63.
+
+**List Memory** (`ListOptsActivity` over a `jh1` list: folders `zf1` / `cg1` and playlists `ri1`;
+`zf1.h0` / `ri1.h0` → `oh1`; `pi1.moveFilesCursorToListMemorizedPosition`, `shouldRestorePerTrackPos`;
+`c30` / `d61` / `h60` / `k60` columns; `xc.j` / `xc.m` with `wa1.M`):
+- A folder's or playlist's songs list shows the List Memory group: List Position (`keep_list_pos`)
+  and Per Track Progress (`keep_track_pos`), each stored when the user ticks it
+  (`cmd_data_set_list_meta`), with the reference hint and its second paragraph (`html_2`).
+- **List Position:** a list started without a picked track starts at its memorized entry: header
+  Play or Shuffle, a category list's Play (its first entry), previous / next category. The entry is
+  the folder's file with the latest `played_at`, or the playlist entry last played from that playlist
+  (`playlist_entries.played_at`).
+- **Per Track Progress:** the list's tracks start where they were left, whatever `restore_pos` says.
+- **Meta icons:** folder rows (Folders, Folders Hierarchy) and song list headers of folders and
+  playlists show `(keep_track_pos << 1) + keep_list_pos` as the meta icon (`meta_songs_12dp`,
+  `keep_list_pos_12dp`, `keep_track_pos_12dp`, `keep_list_track_pos_12dp`); playlist rows show
+  List Position only (`d61`: column 5).
+- **Inferred:** a folder's `played_at` is our last completed play; flags are kept in the library
+  store (the reference's settings export of them is not built).
 
 ### F47 — Waveform data — `CS` (storage) / `OPEN` (analysis)
 
@@ -1539,6 +1557,59 @@ opens and closes), `t61` (modal popups as @id/popup_menu, item menus as @id/popu
 was then at the faded-controls alpha, and the transport showed through the sheet. A scene change
 within the same navigation also closed the sheet; only a navigation change does now.
 
+### F79 — Entry headers, back decor and category row meta — `CONFIRMED_STATIC` (fallback bytecode in part)
+
+(a) S1 `c32` / `g32` (an entry's songs), `u3` (an entry's albums), `h60` (Folders Hierarchy), `kc` /
+`b32` / `k60` (category lists), `pd.H0` / `pd.z0`, `md.o` (header item type at -2 / -10, back decor
+at -5), `xc.mo1881` / `xc.e` (header and row binding), `hl0` (sizes), `h0.z` (the back decor takes
+the header's frame), `BackDecorItemView`, layouts `item_track` (scene_header / scene_header_1),
+`item_back_decor`, `item_text_back_decor`, `item_top_text_back_decor`, `item_no_title_back_decor`.
+`g32.F0`, `u3.F0` and `h60.F0` are read from fallback bytecode (jadx mangles them).
+
+(c) **Header item.** An entry's songs (album, artist, folder, genre, playlist, …), an entry's albums
+and a Folders Hierarchy folder use the track item (`_item_type_track`) as their header; category
+lists, the hierarchy's top level and the home keep the text header.
+- **scene_header:** the entry's art fills the header; the title, line 2 and the meta (with its icon)
+  sit at its foot over the header buttons.
+- **scene_header_1** (title, no line 2) when the parent category is a `tg1` one: artists, album
+  artists, genres, composers, years, playlists.
+
+**Height** (plus the top inset; Compact Header = `xh1.W0`):
+
+| List | Height | Compact |
+| --- | --- | --- |
+| artist, album artist, composer songs (`gh1`: `df1`, `qe1`, `kf1`; under a `tg1` category) | humanCatHeaderSize (at most the width) | compactHumanCatHeaderSize |
+| album songs of album artists and composers (`pe1`, `jf1`) | humanCatHeaderSize | compactHeaderSize |
+| other songs lists (albums, folders, genres, years, playlists, Albums by Artist) | headerSize | compactHeaderSize |
+| an entry's albums (`u3`) | headerSize; years (`ug1`) humanCatHeaderSize | compactHeaderSize; years compactHumanCatHeaderSize |
+| Folders Hierarchy folder (`h60`, not the top level) | headerSize | compactHeaderSize |
+| category lists (`kc`), hierarchy top level | textHeaderSize | compactTextHeaderSize (never offered) |
+
+**Header content** (the category entry's row, `pd.z0`): title the entry's name; line 2 its `C0`
+(an album's artist, a folder's parent); meta its `m0` "files | duration" (albums add " | year";
+playlists pad the bar with two spaces); meta icon `meta_songs_12dp`, or the folder's / playlist's
+List Memory flags (F46).
+
+**Category rows** (`xc.e`): the same line 2 and meta. Previously line 2 showed the song count.
+
+**Back decor** (`sd.c()`; `BackDecorItemView`): an up-nav title ("‹ Parent", `cmd_list_up_nav`)
+laid over the header in scene_header_back_decor, with the header's frame and alpha, above it.
+- Its text is `pd.H0`: the parent entity's name (Library above a category; Artists above "All Artist
+  Songs"), or in a second level the parent entry's (the artist above one of their albums).
+- Layouts: song lists `item_back_decor`; an entry's albums `item_text_back_decor`; category lists
+  `item_top_text_back_decor`; a hierarchy folder `item_back_decor` with the parent folder's name, or
+  `item_text_back_decor` under the top level. Search shows none here (`item_no_title_back_decor`).
+- `disableForStateId` selection mode: disabled, and invisible (disabledAlpha 0).
+
+**Not built:** the header art's stretch on overscroll (`AAImageView.E`, `h0` overscroll) — the
+library lists have no overscroll yet. Artist images (the reference's `CatImage` and artist art) are
+not available; headers and rows show the first track's art.
+
+(f) `sources.js` (`entryHeader`, `groupMeta`, `groupLine2`, `metaIconOf`), `power-list.js`
+(`placeBackDecor`), `list-widget.js` (`backTitleFor`, `setMetaIcon`, `cmd_list_up_nav`),
+`library/list-memory.js`, `list-opts.js`, `html-text.js` (`html_2`; glyph boxes through the CSSOM,
+which `style-src 'self'` allows).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1603,7 +1674,7 @@ No status is device-verified.
 | F43 dialogs | Built | Drag to dismiss with the list overscroll handoff (F58) |
 | F44 playlists | Built | Drag reordering (F59); re-sort, import and export (F66) |
 | F45 info / album art | Built | Tag editing skipped (owner decision) |
-| F46 list options | Partial | Max Items, Min Duration, compact header, categories built (F63); list memory not built |
+| F46 list options | Built | List Memory built; its settings export not built |
 | F47 waveform data | Built | — |
 | F48 list page transitions | Partial | See F48 (e) |
 | F49 line 2 / menu actions | Built | Delete is a no-op (owner decision). The lyrics button long press opens the lyrics dialog (F61). |
@@ -1620,7 +1691,7 @@ No status is device-verified.
 | F56 Follow Day/Night | Built | Night mode from `prefers-color-scheme` |
 | F57 star rating bar | Built | — |
 | F58 dialog drag | Built | — |
-| F63 library list preferences / List Options | Built | List memory not built |
+| F63 library list preferences / List Options | Built | — |
 | F65 queue | Built | Shuffled order inferred |
 | F66 playlist re-sort / files | Built | Import picks files (web) |
 | F67 EQ presets | Partial | Assignment, AutoEq, parametric not built |
@@ -1628,13 +1699,14 @@ No status is device-verified.
 | F69 Reverb presets | Built | Parameter 8 kept at 1.0 without a knob |
 | F70 Fades and crossfades | Built | Curves and the gapless-pair test inferred (native pipeline) |
 | F71 ReplayGain | Built | Gain rules follow the standard (native player) |
-| F72 Shuffle modes and options | Partial | category_shuffle and hier_flat_shf wait for the sub-category screens |
+| F72 Shuffle modes and options | Built | — |
 | F73 Library playback options, pro button morph | Built | — |
 | F74 About: version and licenses | Built | — |
 | F75 Navbar scroll-away and the bottom toolbar | Built | The bottom toolbar fades with the leaving page in level transitions (`w62.j` fades it by the transition fraction) |
 | F76 Category levels, Albums by Artist, Folders Hierarchy | Built | Text-item rows for categories (track items here) |
 | F77 CUE sheets | Built | R2 index (audio files only); virtual tracks have no waveform |
 | F78 GUI modals (navbar sheet, popups, item menus) | Built | — |
+| F79 Entry headers, back decor, category row meta | Built | Header art stretch on overscroll (no list overscroll yet); no artist images |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact
