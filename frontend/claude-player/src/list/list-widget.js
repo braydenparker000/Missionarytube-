@@ -24,6 +24,8 @@ import {openAddToPlaylist} from '../widgets/playlist-dialog.js';
 import {alertDialog, editNameDialog} from '../widgets/dialog.js';
 import {openInfo, openAlbumArt} from '../widgets/info-dialog.js';
 import {openListOptions, ZOOMS, listOpts, saveListOpts} from './list-opts.js';
+import {openResortDialog} from '../widgets/resort-dialog.js';
+import {exportPlaylists} from '../library/playlist-files.js';
 import {LyricsPage} from './lyrics.js';
 import {elevationShadow} from '../view/drawables.js';
 import {trackTitle, trackLine2, trackNumbers} from '../library/labels.js';
@@ -420,6 +422,11 @@ export class ListWidget extends FastLayout {
         if (dir) this.scrollToCurrent(dir);
       }
       else if (msg === 'msg_player_playing_state_changed') this.setPlayingMode(d.arg1 === STATE_PLAYING);
+      // The shown Queue follows its entries.
+      if (msg === 'msg_player_queue_changed') {
+        const top = this.stack[this.stack.length - 1];
+        if (top?.kind === 'queue' && !this.libList.reorder) this.replaceTop(top.rebuild?.());
+      }
     });
     ctx.bus.subscribe('bus_gui', msg => { if (msg === 'msg_nav_changed') this.setPlayingMode(); });
     ctx.bus.subscribe('bus_app', (msg, src, d) => {
@@ -537,6 +544,24 @@ export class ListWidget extends FastLayout {
         ctx.player.clearQueue();
         if (src?.kind === 'queue') this.replaceTop(src.rebuild?.());
         break;
+      case 'cmd_list_resort_dialog':
+        if (src?.playlist) {
+          const pl = src.playlist, byId = ctx.library?.byId;
+          openResortDialog(ctx, {
+            name: pl.name,
+            entries: () => pl.ids.filter(id => byId?.has(id)).map(id => ({track: byId.get(id)})),
+            // Entries whose files are missing keep their order after the sorted ones.
+            apply: sorted => P.reorder(pl, [...sorted.map(e => e.track.id), ...pl.ids.filter(id => !byId?.has(id))]),
+          });
+        } else if (src?.kind === 'queue') {
+          const p = ctx.player;
+          openResortDialog(ctx, {
+            name: str('queue', 'Queue'), hasAddedTime: true,
+            entries: () => p.entries,
+            apply: sorted => { p.entries = sorted; p.queueUpdated(false); },
+          });
+        }
+        break;
       case 'cmd_list_show_all':
       case 'cmd_list_clear_list':
         if (src?.clearable) {
@@ -576,7 +601,9 @@ export class ListWidget extends FastLayout {
    */
   prepareListMenu(items) {
     const src = this.stack[this.stack.length - 1];
-    const hide = new Set(['add_to_home', 'delete_dups', 'add_url', 'resort']);
+    const hide = new Set(['add_to_home', 'delete_dups', 'add_url']);
+    // Re-Sort: playlists and the Queue (bi1).
+    if (!src?.playlist && src?.kind !== 'queue') hide.add('resort');
     // Clear / Show All: playlists clear their entries; the statistics lists
     // (ch1) start from now or from the beginning again.
     if (!src?.playlist && !src?.clearable) hide.add('clear');
@@ -587,6 +614,7 @@ export class ListWidget extends FastLayout {
     for (const c of [...items.children]) {
       if (hide.has(c.id)) { c.setVisibility(GONE); continue; }
       if (src?.clearable && (c.id === 'clear' || c.id === 'show_all')) c.setVisibility(VISIBLE);
+      if (c.id === 'resort' && !hide.has('resort')) c.setVisibility(VISIBLE);
       if (c.id === 'folders') c.onClick = () => this.ctx.importUi?.show();
       else if (!c.id && c.text === exportText) c.onClick = () => exportPlaylists(this.ctx);
     }
@@ -1799,19 +1827,3 @@ export class PlayingMark extends View {
 register(['PlayingMark'], PlayingMark);
 register(['ListWidget'], ListWidget);
 
-/** Saves each playlist as an .m3u8 file (track paths, extended info). */
-export function exportPlaylists(ctx) {
-  const P = ctx.playlists;
-  for (const pl of P?.items ?? []) {
-    const lines = ['#EXTM3U'];
-    for (const t of P.tracksOf(pl)) {
-      lines.push(`#EXTINF:${Math.round((t.durationMs || 0) / 1000)},${[t.artist, t.title].filter(Boolean).join(' - ')}`);
-      lines.push(t.path || t.fileName || t.title);
-    }
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([lines.join('\n') + '\n'], {type: 'audio/x-mpegurl'}));
-    a.download = pl.name.replace(/[\\/:*?"<>|]/g, '_') + '.m3u8';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  }
-}

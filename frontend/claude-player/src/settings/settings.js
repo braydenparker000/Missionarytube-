@@ -7,6 +7,8 @@
 import {parseSkins} from '../skin.js';
 import {Theme} from '../res/resources.js';
 import {renderOps} from '../view/drawables.js';
+import {importPlaylistFiles, exportPlaylists} from '../library/playlist-files.js';
+import {openDialog} from '../widgets/dialog.js';
 
 const STORE_KEY = 'cp-settings';
 const TAGS_KEY = 'cp-settings-tags';
@@ -268,6 +270,36 @@ export class Settings {
     if (d?.host) { d.host.translationZ = DIALOG_OVER_PAGE_Z; d.host.invalidate(); }
   }
 
+  /**
+   * playlists_import: the reference imports the system library's playlists;
+   * here playlist files (.m3u8, .m3u, .pls, .wpl, .zpl) are picked and
+   * imported, then a toast counts them.
+   */
+  importPlaylists() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.m3u8,.m3u,.pls,.wpl,.zpl';
+    input.addEventListener('change', async () => {
+      const files = [...(input.files ?? [])];
+      if (!files.length) return;
+      const r = await importPlaylistFiles(this.ctx, files);
+      const msg = this.str('@string/playlists') + ': ' + r.playlists;
+      this.toast(msg);
+    });
+    input.click();
+  }
+
+  /** A platform toast over the settings page (2 s). */
+  toast(message) {
+    this.toastEl?.remove();
+    const el = this.toastEl = document.createElement('div');
+    el.className = 'cps-toast';
+    el.textContent = message;
+    this.root?.appendChild(el);
+    setTimeout(() => { el.classList.add('cps-toast-out'); setTimeout(() => el.remove(), 300); }, 2000);
+  }
+
   /** The popstate of closeAll (consumed once); true when it was that one. */
   consumeClose() {
     const then = this.closing;
@@ -519,6 +551,8 @@ export class Settings {
         else if (key === 'settings_export') row.addEventListener('click', () => this.exportSettings());
         else if (key === 'settings_import') row.addEventListener('click', () => this.importSettings());
         else if (key === 'library_list_opts' || key === 'list_opts') row.addEventListener('click', () => this.overDialog(onClosed => this.ctx.listWidget?.openListOptionsFor(key === 'list_opts' ? 'search' : 'home', {fromSettings: true, onClosed})));
+        else if (key === 'playlists_export') row.addEventListener('click', () => this.overDialog(onClosed => openExportDialog(this.ctx, onClosed)));
+        else if (key === 'playlists_import') row.addEventListener('click', () => this.importPlaylists());
         else if (key === 'clear_aa_cache') row.addEventListener('click', () => this.confirm(this.str(attr(node, 'title')), this.str(attr(node, 'summary')), () => this.ctx.library?.clearArtCache()));
         break;
       case 'RawTextPreference':
@@ -862,4 +896,25 @@ export class Settings {
     if (key === 'num_settings_tags') this.trimTags();
     if (key === 'settings_font') this.root.dataset.font = ['default', 'alt', 'bold', 'boldplus'][+this.get(key, '2')] ?? 'bold';
   }
+}
+
+/**
+ * Playlists export (PlaylistsExportActivity): the reference's note with the
+ * target (the browser's downloads here; no folder choice), "Also export file
+ * based playlists", Export / Cancel.
+ */
+function openExportDialog(ctx, onClosed) {
+  const str = (k, f = k) => ctx.res.stringByName(k) ?? f;
+  let fileBased = false;
+  return openDialog(ctx, {
+    style: 'dialog_PlaylistsExportActivity', title: str('pref_playlists_export', 'Export Playlists'), onClosed,
+    buttons: {positive: str('pref_export', 'Export'), negative: str('cancel', 'Cancel')},
+    onButton: which => { if (which === 1) exportPlaylists(ctx, {fileBased}); },
+    setup: d => {
+      const msg = str('pref_playlists_export_msg_s', '%s').replace(/^"|"$/g, '').replace('%s', 'Downloads');
+      d.find('text')?.setText(msg);
+      const cb = d.find('checkbox');
+      if (cb) cb.onCheckedChanged = on => { fileBased = on; };
+    },
+  });
 }

@@ -317,12 +317,12 @@ export const PREF_STATUS = {
   show_cue_source: [TODO, ''],
   stream_name_in_title: [OWNER, NO_STREAMS],
   // library_playlists
-  playlists_import: [TODO, ''],
-  playlists_export: [TODO, ''],
-  pl_import_ratings: [TODO, ''],
+  playlists_import: [BUILT, 'Picks playlist files (the browser cannot read a system library); F66'],
+  playlists_export: [BUILT, 'Downloads <name>.m3u8 per playlist (F66)'],
+  pl_import_ratings: [BUILT, '#EXT-X-RATING sets ratings on import'],
   playlist_insert_pos: [BUILT, ''],
   pl_del_entry_w_track: [OWNER, NO_DELETE],
-  pl_auto_resolve: [TODO, ''],
+  pl_auto_resolve: [BUILT, 'Unresolved entries are matched again on library changes'],
   pl_no_dups: [BUILT, ''],
   // library_queue
   queue_start: [BUILT, 'Queue start: immediately, after the song, after the list (F65)'],
@@ -345,7 +345,7 @@ export const PREF_STATUS = {
   composers_split_chars: [BUILT, 'Split categories (library/split.js); unsplit entries with show_unsplit_cats'],
   genres_split_chars: [BUILT, 'Split categories (library/split.js); unsplit entries with show_unsplit_cats'],
   tag_encoding: [BUILT, 'Imported files read from now on; R2 index metadata comes decoded from the Worker'],
-  m3u_utf8: [TODO, ''],
+  m3u_utf8: [BUILT, '.m3u in UTF-8, else the tag encoding'],
   process_cues: [TODO, ''],
   // library_search
   msg: [UI, ''],

@@ -13,9 +13,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Status | Keys |
 | --- | ---: |
-| Built | 107 |
+| Built | 112 |
 | Settings UI | 110 |
-| Not built | 53 |
+| Not built | 48 |
 | No web counterpart | 140 |
 | Owner decision | 17 |
 | Not applicable | 25 |
@@ -381,12 +381,12 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `playlists_import` | Preference | Not built |  |
-| `playlists_export` | Preference | Not built |  |
-| `pl_import_ratings` | MultilineSwitchPreference | Not built |  |
+| `playlists_import` | Preference | Built | Picks playlist files (the browser cannot read a system library); F66 |
+| `playlists_export` | Preference | Built | Downloads <name>.m3u8 per playlist (F66) |
+| `pl_import_ratings` | MultilineSwitchPreference | Built | #EXT-X-RATING sets ratings on import |
 | `playlist_insert_pos` | TagListPreference | Built |  |
 | `pl_del_entry_w_track` | MultilineSwitchPreference | Owner decision | Owner decision: no file deletion |
-| `pl_auto_resolve` | MultilineSwitchPreference | Not built |  |
+| `pl_auto_resolve` | MultilineSwitchPreference | Built | Unresolved entries are matched again on library changes |
 | `pl_no_dups` | MultilineSwitchPreference | Built |  |
 
 ## library_queue
@@ -417,7 +417,7 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 | `composers_split_chars` | TagsPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
 | `genres_split_chars` | TagsPreference | Built | Split categories (library/split.js); unsplit entries with show_unsplit_cats |
 | `tag_encoding` | ListPreference | Built | Imported files read from now on; R2 index metadata comes decoded from the Worker |
-| `m3u_utf8` | MultilineSwitchPreference | Not built |  |
+| `m3u_utf8` | MultilineSwitchPreference | Built | .m3u in UTF-8, else the tag encoding |
 | `process_cues` | MultilineSwitchPreference | Not built |  |
 
 ## library_search

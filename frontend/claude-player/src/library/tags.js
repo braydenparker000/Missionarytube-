@@ -19,14 +19,15 @@ export function setTagEncoding(name) {
 }
 
 /**
- * Text of a sidecar or playlist file: UTF-8 when utf8Always, a BOM or valid
- * UTF-8 says so, else the tag encoding.
+ * Text of a sidecar or playlist file: UTF-8 when utf8Always, a BOM or (with
+ * sniff) valid UTF-8 says so, else the tag encoding.
  */
-export function decodeTextFile(bytes, utf8Always) {
+export function decodeTextFile(bytes, utf8Always, sniff = true) {
   if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) return utf8.decode(bytes.subarray(3));
   if (bytes[0] === 0xff && bytes[1] === 0xfe) return utf16.decode(bytes.subarray(2));
   if (bytes[0] === 0xfe && bytes[1] === 0xff) return utf16be.decode(bytes.subarray(2));
   if (utf8Always) return utf8.decode(bytes);
+  if (!sniff) return legacy.decode(bytes);
   try { return new TextDecoder('utf-8', {fatal: true}).decode(bytes); } catch { return legacy.decode(bytes); }
 }
 

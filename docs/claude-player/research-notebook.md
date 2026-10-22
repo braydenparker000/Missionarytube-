@@ -1044,6 +1044,43 @@ shuffle permutation.
 `queueUpdated`, `playAsQueue`, `clearQueue`, `resumeQueueMode`), `list/mode-state.js`, `app.js`
 (persistence), `ListWidget.playSearch`.
 
+### F66 — Playlist re-sort, import and export — `CONFIRMED_STATIC` / web substitute in part
+
+(a) S1 `PlaylistSortActivity`, `dialog_content_resort`, `cm2.q` (the orders), `si1.S` / `ui1.S`,
+`g32` (Re-Sort shown for `bi1`), `y51` (reading), `lc0` (writing), `PlaylistsExportActivity` / `oa`,
+`ct1` (the Playlists settings), `b40.a1` / `b40.o1` / `b40.p1`.
+
+(c) **Re-Sort** (playlists and the Queue): each radio re-sorts the stored order at once; Reverse
+(bit 30) re-sorts again and starts from "by track". The orders follow `cm2.q`:
+- names are case folded;
+- album and artist use their sort fields;
+- ties fall back to the title;
+- rating, duration, play count and played time run highest first;
+- Random ignores Reverse.
+
+"By added to list" exists only for the Queue (its entry time). Entries whose files are missing stay
+after the sorted ones.
+
+**Reading:** .m3u8 as UTF-8; .m3u as UTF-8 with `m3u_utf8`, else in the tag encoding; .pls by its
+`FileN=` lines; .wpl / .zpl by their `media src`. `#EXTINF` names an entry, and with
+`pl_import_ratings` `#EXT-X-RATING:` sets the next entry's rating.
+
+**Writing:** `#EXTM3U`, then per entry `#EXT-X-RATING:<rating>` and its path, with CRLF line ends,
+one `<name>.m3u8` per playlist. File-based playlists are written only with "Also export file based
+playlists".
+
+**Web substitutes:**
+- Import picks playlist files; the reference imports the system library's playlists, which a
+  browser cannot reach. Each file becomes a file-based playlist, and re-importing the same file
+  replaces it.
+- Entries resolve by the longest matching path tail among tracks with the same file name.
+- Unresolved entries stay (`path:<path>`, not playable). With `pl_auto_resolve` they are matched
+  again whenever the library changes.
+- Export downloads through the browser; there is no target folder choice.
+
+(f) `widgets/resort-dialog.js`, `library/playlist-files.js`, `SettingsUi.importPlaylists` /
+`openExportDialog` / `toast`, `ListWidget.listAction` (`cmd_list_resort_dialog`).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - A child attached to the parent's bottom only, with `layout_gravity` `center_vertical`, is centred in the area. Examples: `ItemPopupListTitle`, `DialogToastLineOnly1`, `ItemTrackMenu_scene_lyrics`.
@@ -1106,7 +1143,7 @@ No status is device-verified.
 | F41 vis panel | Built | Pager–list morph cross-fades |
 | F42 ratings/stats | Built | Rating swipes built (F57) |
 | F43 dialogs | Partial | Drag-to-dismiss built (F58), except the list overscroll handoff |
-| F44 playlists | Partial | Drag reordering built (F59); re-sort and import **not built** |
+| F44 playlists | Built | Drag reordering (F59); re-sort, import and export (F66) |
 | F45 info / album art | Built | Tag editing skipped (owner decision) |
 | F46 list options | Partial | Max Items, Min Duration, compact header, categories built (F63); list memory not built |
 | F47 waveform data | Built | — |
@@ -1127,6 +1164,7 @@ No status is device-verified.
 | F58 dialog drag | Partial | Nested-scroll handoff not built |
 | F63 library list preferences / List Options | Built | List memory not built |
 | F65 queue | Built | Shuffled order inferred |
+| F66 playlist re-sort / files | Built | Import picks files (web) |
 | F64 search | Built | Search zoom levels and targeted search not built; no Streams |
 
 ## Open questions, prioritised by fidelity impact
