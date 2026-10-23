@@ -103,18 +103,21 @@ img.loaded, .img-fallback { animation: img-in 200ms var(--ease); }
 @media (min-width: 1200px) { .grid { grid-template-columns: repeat(6, 1fr); } }
 
 /* Lift menu */
-.lift { position: fixed; inset: 0; z-index: 900; background: rgba(0,0,0,0); -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); transition: background 260ms var(--ease), backdrop-filter 260ms var(--ease); }
-.lift.open { background: rgba(0,0,0,.45); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
-.lift-art { position: fixed; margin: 0; border-radius: 18px !important; box-shadow: 0 24px 48px rgba(0,0,0,.5); overflow: hidden; }
-.lift-art img { width: 100%; height: 100%; object-fit: cover; }
+/* The blur is set once and faded in: animating its radius repaints every frame. */
+.lift { position: fixed; inset: 0; z-index: 900; }
+.lift::before { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.45); -webkit-backdrop-filter: blur(36px); backdrop-filter: blur(36px); opacity: 0; transition: opacity 260ms var(--ease); }
+.lift.open::before { opacity: 1; }
+.lift-art { position: fixed; margin: 0; border-radius: 18px !important; box-shadow: 0 24px 48px rgba(0,0,0,.5); overflow: hidden; will-change: transform; }
+.lift-art img { width: 100%; height: 100%; object-fit: cover; animation: none; }
 .lift-text, .lift-menu { position: fixed; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 200ms 120ms var(--ease); }
 .lift.open .lift-text, .lift.open .lift-menu { opacity: 1; }
 .lift-text { top: var(--menu-top, 60%); width: min(280px, calc(100% - 48px)); display: flex; flex-direction: column; align-items: center; text-align: center; }
 .lift-text b { font-size: 16px; } .lift-text span { color: var(--muted); font-size: 13px; }
-.lift-menu { top: calc(var(--menu-top, 60%) + 52px); width: min(280px, calc(100% - 48px)); padding: 4px 0; border-radius: 20px; background: rgba(42,42,42,.96); transform-origin: top center; }
+.lift-menu { top: calc(var(--menu-top, 60%) + 52px); width: min(280px, calc(100% - 48px)); padding: 4px 0; border-radius: 20px; background: #1a1a1a; transform-origin: top center; overflow: hidden; }
 .lift.open .lift-menu { animation: menu-pop 280ms cubic-bezier(.3,1.3,.5,1); }
 @keyframes menu-pop { from { transform: translateX(-50%) scale(.62); } }
-.lift-item { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 50px; padding: 0 18px; border: 0; border-bottom: 1px solid rgba(255,255,255,.06); background: none; color: var(--text); font-size: 15px; text-align: left; opacity: 0; animation: item-in 220ms var(--ease) forwards; }
+.lift-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; min-height: 52px; padding: 0 18px; border: 0; border-bottom: .5px solid rgba(255,255,255,.08); background: none; color: var(--text); font-size: 15px; font-weight: 500; text-align: left; opacity: 0; animation: item-in 220ms var(--ease) forwards; transition: background 100ms var(--ease); }
+.lift-item:active { background: var(--pressed, rgba(255,255,255,.08)); }
 .lift-item:last-child { border-bottom: 0; }
 .lift-item .icon { fill: currentColor; opacity: .8; }
 .lift-item.destructive { color: var(--danger); }
@@ -123,12 +126,15 @@ img.loaded, .img-fallback { animation: img-in 200ms var(--ease); }
 /* Bottom sheet */
 .sheet { position: fixed; inset: 0; z-index: 950; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,0); transition: background 250ms var(--ease); }
 .sheet.open { background: var(--scrim); }
-.sheet-body { width: min(520px, 100%); max-height: 80vh; overflow-y: auto; padding: 8px 20px calc(16px + var(--safe-bottom)); border-radius: 28px 28px 0 0; background: #1c1c1c; box-shadow: inset 0 1px 0 rgba(255,255,255,.16); transform: translateY(100%); transition: transform 300ms var(--ease); touch-action: pan-y; }
+.sheet-body { width: min(520px, 100%); max-height: 80vh; overflow-y: auto; padding: 0 20px calc(16px + var(--safe-bottom)); border-radius: 28px 28px 0 0; background: #1c1c1c; box-shadow: inset 0 1px 0 rgba(255,255,255,.16); transform: translateY(100%); transition: transform 300ms var(--ease); touch-action: pan-y; }
 .sheet.open .sheet-body { transform: none; }
+/* The top of the sheet (handle and title) is the drag area: the browser must not take that gesture. */
+.sheet-grab { padding-top: 8px; touch-action: none; cursor: grab; }
 .sheet-handle { width: 36px; height: 4px; margin: 4px auto 12px; border-radius: 2px; background: rgba(255,255,255,.25); }
 .sheet-body h3 { margin: 0 0 4px; font-size: 18px; }
 .sheet-sub { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
-.sheet-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 52px; padding: 8px 4px; border: 0; background: none; color: var(--text); font-size: 15px; text-align: left; }
+.sheet-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 52px; padding: 8px 4px; border: 0; border-radius: 12px; background: none; color: var(--text); font-size: 15px; text-align: left; transition: background 100ms var(--ease); }
+.sheet-row:active { background: var(--pressed); }
 .sheet-row span { flex: 1; display: flex; flex-direction: column; }
 .sheet-row small { color: var(--muted); font-size: 12px; }
 .sheet-row .icon { fill: currentColor; }
