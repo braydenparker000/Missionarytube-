@@ -136,7 +136,10 @@ export class DetailsScreen {
       const videos = m.videos.filter(v => v.season === season);
       list.replaceChildren(...videos.map(v => this.episodeCard(m, v)));
       const next = list.querySelector('.episode-card.next');
-      if (next) requestAnimationFrame(() => list.scrollTo({left: next.offsetLeft - 18, behavior: reducedMotion() ? 'auto' : 'smooth'}));
+      if (next && next !== list.firstElementChild) requestAnimationFrame(() => {
+        const left = next.getBoundingClientRect().left - list.getBoundingClientRect().left + list.scrollLeft - 18;
+        list.scrollTo({left, behavior: reducedMotion() ? 'auto' : 'smooth'});
+      });
     };
     show(this.season);
     return h('section', {class: 'section'}, h('h2', {class: 'section-title'}, 'Episodes'), chips, list);

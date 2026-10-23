@@ -7,7 +7,7 @@ import {normaliseManifestUrl, getJson} from '../addons/client.js';
 import {homeCatalogs} from '../app/content.js';
 import {loadPrefs, savePrefs} from '../player/prefs.js';
 
-const navRow = (iconName, title, detail, run) => h('button', {class: 'set-row nav', type: 'button', onclick: run},
+const navRow = (iconName, title, detail, run) => h('button', {class: 'set-row link', type: 'button', onclick: run},
   h('span', {class: 'set-icon'}, icon(iconName, {size: 20})), h('span', {class: 'set-text'}, h('b', {}, title), detail ? h('small', {}, detail) : null), icon('chevronRight', {size: 20}));
 const switchRow = (title, detail, on, change) => {
   const input = h('input', {type: 'checkbox', role: 'switch', checked: !!on, onchange: e => change(e.target.checked)});

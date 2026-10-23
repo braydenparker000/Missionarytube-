@@ -116,7 +116,7 @@ export class StreamsScreen {
 
   card(group, s, i, sources) {
     const playable = !!s.url;
-    const size = sizeFrom(s);
+    const size = s.size ? sizeFrom(s) : ''; // a size already in the description is not repeated
     const id = `${group.addon.url}#${i}`;
     const card = h('button', {class: 'stream-card' + (playable ? '' : ' disabled'), type: 'button', 'aria-disabled': String(!playable),
       onclick: () => {
