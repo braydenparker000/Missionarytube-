@@ -1,10 +1,10 @@
 export const apps = [
   {id:'jarvis',name:'Jarvis',description:'Private chats & shared tasks',href:'/private/',icon:'chat',group:'Conversation'},
-  {id:'drawercast',name:'Poweramp',description:'Music',href:'/drawercast/',icon:'music',group:'Library'},
-  {id:'podcasts',name:'Podcasts',description:'Discover, listen & download',href:'/podcasts/',icon:'podcast',group:'Library'},
-  {id:'media',name:'Astra',description:'Videos',href:'/media/',icon:'media',group:'Library'},
   {id:'muse',name:'Mast',description:'Private Muse conversation in Jarvis',href:'/private/#mast',icon:'chat',group:'Conversation'},
   {id:'quick-ai',name:'Quick AI',description:'Fast answers · Gemini or Qwen',href:'/quick-ai/',icon:'chat',group:'Conversation'},
+  {id:'poweramp',name:'Poweramp',description:'Music',href:'/claude-player/',icon:'music',group:'Library'},
+  {id:'podcasts',name:'Podcasts',description:'Discover, listen & download',href:'/podcasts/',icon:'podcast',group:'Library'},
+  {id:'media',name:'Astra',description:'Videos',href:'/media/',icon:'media',group:'Library'},
   {id:'board',name:'Daily Board',description:'Your briefing',href:'/daily-board/',icon:'board',group:'Conversation'},
   {id:'guitar',name:'Guitar',description:'Songsterr · PDF tabs',href:'/guitar/',icon:'music',group:'Utilities'},
   {id:'notes',name:'Notes',description:'Saved in this browser',href:'/notes/',icon:'notes',group:'Utilities'},
@@ -17,7 +17,8 @@ const glyphs={
 podcast:'<circle cx="12" cy="10" r="3"/><path d="M8 21v-4a4 4 0 0 1 8 0v4M6 14a8 8 0 1 1 12 0"/>',
 menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',back:'<path d="m12 5-7 7 7 7M5 12h15"/>',search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',more:'<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',chevron:'<path d="m9 6 6 6-6 6"/>',home:'<path d="m3 10 9-7 9 7v10H14v-6h-4v6H3z"/>',favorites:'<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/>',settings:'<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--bg)"/><circle cx="15" cy="17" r="3" fill="var(--bg)"/>',chat:'<path d="M21 11a8 8 0 0 1-8 8H7l-4 3V11a9 9 0 0 1 18 0Z"/><path d="M8 9h8M8 13h5"/>',board:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>',music:'<path d="M4 10v4M8 5v14M12 8v8M16 3v18M20 9v6"/>',videos:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m10.5 10.5 4 2.5-4 2.5z"/>',media:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/>',notes:'<path d="M14 3H4v18h16V9zM14 3v6h6M8 13h8M8 17h5"/>',tools:'<path d="m14 5 5 5M4 20l5-1L20 8a3.5 3.5 0 0 0-5-5L4 14z"/>',server:'<rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/><path d="M7 7h.1M7 17h.1M12 7h5M12 17h5"/>'};
 export const icon=name=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${glyphs[name]||glyphs.tools}</svg>`;
-export function loadPreferences(){try{const p=JSON.parse(localStorage.getItem('jarvis.preferences.v1'));if(p&&Array.isArray(p.favorites))return {favorites:p.favorites.filter(id=>apps.some(a=>a.id===id))};}catch{}return {favorites:['jarvis','drawercast']};}
+// Poweramp's tile was 'drawercast' while it opened the old player; saved favorites keep it.
+export function loadPreferences(){try{const p=JSON.parse(localStorage.getItem('jarvis.preferences.v1'));if(p&&Array.isArray(p.favorites))return {favorites:[...new Set(p.favorites.map(id=>id==='drawercast'?'poweramp':id))].filter(id=>apps.some(a=>a.id===id))};}catch{}return {favorites:['jarvis','poweramp']};}
 export function savePreferences(p){localStorage.setItem('jarvis.preferences.v1',JSON.stringify(p));}
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
