@@ -34,8 +34,16 @@ client for browser-only details. Both are GPL; nothing is copied from either.
   a screen opened while a menu is closing waits for that menu's entry to go,
   and a reload on an open screen first returns the history to Home.
 - Long-press opens one menu (Android's own long-press is folded into it), and
-  the release of that press never taps an item. Sheets close with a drag on
-  their top, following the finger, or a quick flick.
+  the release of that press never taps an item. Sheets (Nuvio's floating
+  card) close with a drag on their top, following the finger, or a quick
+  flick.
+- Anything that removes or replaces what you have (remove or replace an
+  add-on, clear Continue Watching, copy again from classic Astra, reset
+  Astra's data) asks first in a centred dialog, Cancel beside the action
+  (`confirm()` in `src/ui/components.js`). Back, Escape or a tap outside
+  cancel; a second tap on the action, or on a sheet row, runs nothing.
+- Page headers stay at the top while their page scrolls (Library, Settings
+  and its pages, View all, and Streams' add-on chips).
 - **Home**: a hero of up to eight titles with art that turns every 8 s (or
   by swipe), Continue Watching, then one row per add-on catalog that needs no
   search text. Long-press any poster to save it or mark it watched.
@@ -43,7 +51,9 @@ client for browser-only details. Both are GPL; nothing is copied from either.
   Upcoming). Series open on the season of the next unwatched episode. The
   page draws at once from the card that was tapped (its art, title and, when
   the catalog has it, the description) and fills in when the full details
-  arrive; the hero art is kept, not re-faded.
+  arrive; the hero art is kept, not re-faded. The story shows three lines;
+  "Show more" appears only when that cuts it, at any width, and a tap on the
+  story opens it too.
 - **Streams**: every add-on is asked at once and fills in as it answers, in
   the add-ons' own order, with a chip per add-on. Each add-on's section holds
   its place with placeholder cards while it is asked and is filled in place,
@@ -247,7 +257,8 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
   landscape size: gestures, hold, lock, back order, menus, skip; and in
   portrait: rotation settings, the rotate button, picture-in-picture.
 - `backend/tests/astra-shell-browser.test.js`: Android back in the awkward
-  cases, and long-press and sheet dragging with real touch input.
+  cases, long-press and sheet dragging with real touch input, and the
+  confirm dialog (back, Escape, focus, one run per choice).
 - `backend/tests/astra-app-browser.test.js`: the app at phone portrait size
   against a fixture add-on (`backend/tests/helpers/astra-media-server.js`):
   Home, back, Continue Watching, the lift menu, Library, episodes, paging,

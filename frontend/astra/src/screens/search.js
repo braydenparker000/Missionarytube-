@@ -56,7 +56,7 @@ export class SearchScreen {
     this.discover = h('div', {class: 'discover'});
     view.append(h('div', {class: 'search-page'},
       h('div', {class: 'sticky-head'}, this.title, h('form', {class: 'search-box', role: 'search', onsubmit: e => { e.preventDefault(); clearTimeout(this.timer); this.run(this.input.value, true); this.input.blur(); }},
-        icon('search', {size: 20}), this.input, this.clear)),
+        this.input, this.clear)),
       this.recent, this.results, this.discover));
     this.input.addEventListener('input', () => { this.clear.hidden = !this.input.value; clearTimeout(this.timer); this.timer = setTimeout(() => this.run(this.input.value), DEBOUNCE); this.showRecent(); });
     this.input.addEventListener('focus', () => this.showRecent());
@@ -78,7 +78,7 @@ export class SearchScreen {
     const list = this.recents();
     this.recent.hidden = !(document.activeElement === this.input && !this.input.value && list.length && this.app.settings.recentSearches !== false);
     this.recent.replaceChildren(h('h2', {class: 'section-label'}, 'Recent searches'), ...list.map(q => h('div', {class: 'recent-row'},
-      h('button', {class: 'recent-q', type: 'button', onclick: () => { this.input.value = q; this.clear.hidden = false; this.run(q, true); }}, icon('search', {size: 18}), q),
+      h('button', {class: 'recent-q', type: 'button', onclick: () => { this.input.value = q; this.clear.hidden = false; this.run(q, true); }}, q),
       h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Remove ' + q, onclick: () => { this.app.store.set('recentSearches', this.recents().filter(x => x !== q)); this.showRecent(); this.input.focus(); }}, icon('close', {size: 18})))));
   }
 

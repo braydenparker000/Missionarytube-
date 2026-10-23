@@ -3,7 +3,7 @@
 // what is saved, or reset the new Astra's data and start again.
 
 import {h} from '../ui/dom.js';
-import {sheet} from '../ui/components.js';
+import {confirm} from '../ui/components.js';
 import {createStorage, PREFIX} from './store.js';
 
 export function showRecovery(root, error) {
@@ -18,8 +18,8 @@ export function showRecovery(root, error) {
   };
   // Only "astra.v2.*": classic Astra's data and the rest of the site stay.
   const reset = () => { for (const k of store.keys()) store.remove(k); location.reload(); };
-  const ask = () => sheet('Reset Astra data?', [{label: 'Reset and start again', icon: 'close', run: reset}, {label: 'Cancel'}],
-    {subtitle: 'Removes the add-ons, library, progress and settings this Astra saved on this device. Classic Astra’s data is not touched.'});
+  const ask = () => confirm('Reset Astra data?', {message: 'Removes the add-ons, library, progress and settings this Astra saved on this device. Classic Astra’s data is not touched.',
+    action: 'Reset and start again', destructive: true, run: reset});
   root.replaceChildren(h('div', {class: 'recovery'}, h('div', {class: 'state-card', role: 'alert'},
     h('h3', {}, 'Astra couldn’t start'),
     h('p', {}, 'Something saved on this device stopped it from opening. Export the raw data to keep a copy, then reset Astra’s data to start fresh.'),

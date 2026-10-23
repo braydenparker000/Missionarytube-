@@ -13,9 +13,10 @@ export function posterMenu(app) {
     app.library.has(m.type, m.id)
       ? {label: 'Remove from library', icon: 'check', run: () => { app.library.toggle(m); toast('Removed from library'); }}
       : {label: 'Add to library', icon: 'plus', run: () => { app.library.toggle(m); toast('Added to library'); }},
+    // A circled check for watched, so it never reads as the library's plain ✓.
     app.watched.has(m.type, m.id)
-      ? {label: 'Mark as unwatched', icon: 'replay', run: () => app.watched.set(m.type, m.id, null, false)}
-      : {label: 'Mark as watched', icon: 'check', run: () => app.watched.set(m.type, m.id, null, true)},
+      ? {label: 'Mark as unwatched', icon: 'checkCircleOutline', run: () => app.watched.set(m.type, m.id, null, false)}
+      : {label: 'Mark as watched', icon: 'checkCircle', run: () => app.watched.set(m.type, m.id, null, true)},
   ];
 }
 
@@ -146,6 +147,9 @@ export class HomeScreen {
     const settings = this.app.screens.settings;
     settings?.open?.('Add-ons', p => settings.addons(p));
   }
+
+  /** The first loaded row's titles (Settings > Appearance previews them). */
+  previewItems() { return [...this.rows.children].map(slot => slot.entry?.items).find(items => items?.length) || []; }
 
   /**
    * After a watched change or a Home setting: rows whose title or items

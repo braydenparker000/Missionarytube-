@@ -67,6 +67,24 @@ test('Home shows the hero and rows; a poster opens details; back walks back to H
   assert.deepEqual(errors, []);
 });
 
+test('Details offers "Show more" only when the story is really cut, and the story itself toggles', options, async t => {
+  const {page, errors} = await openApp(t);
+  await page.waitForSelector('.hero-slide');
+  await page.evaluate(() => astra.openTitle({id: 'tt1000001', type: 'movie', name: 'Movie 1'}));
+  await page.waitForSelector('.details .play-btn');
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('.more-link').isVisible(), false, 'three lines hold it at 412 px');
+  await page.setViewportSize({width: 300, height: 800});
+  await page.locator('.more-link').waitFor({state: 'visible'});
+  assert.equal(await page.locator('.more-link').textContent(), 'Show more');
+  await page.click('.description');
+  assert.equal(await page.locator('.more-link').textContent(), 'Show less');
+  assert.equal(await page.locator('.more-link').getAttribute('aria-expanded'), 'true');
+  await page.click('.more-link');
+  assert.equal(await page.locator('.description.open').count(), 0);
+  assert.deepEqual(errors, []);
+});
+
 test('playing a stream saves progress; Continue Watching resumes it', options, async t => {
   const {page} = await openApp(t);
   await page.waitForSelector('.hero-slide');
@@ -322,9 +340,9 @@ test('install takes a /configure address, ignores a double tap, installs on Ente
   // The same add-on from another address: offered as a replacement, not a second copy.
   await page.fill('.install-row .field', `${servers.media}/small/manifest.json?profile=2`);
   await page.press('.install-row .field', 'Enter');
-  await page.waitForSelector('.sheet-body h3');
-  assert.equal(await page.locator('.sheet-body h3').textContent(), 'Replace Small pages?');
-  await page.locator('.sheet-row', {hasText: 'Replace'}).click();
+  await page.waitForSelector('.dialog-layer.open');
+  assert.equal(await page.locator('.dialog-title').textContent(), 'Replace Small pages?');
+  await page.locator('.dialog-btn', {hasText: 'Replace'}).click();
   await page.waitForFunction(n => JSON.parse(localStorage.getItem('astra.v2.addons')).length === n && /profile=2/.test(localStorage.getItem('astra.v2.addons')), 2);
   // Failures in plain words: a missing page, and a host that does not let pages read it.
   await page.fill('.install-row .field', `${servers.media}/addon/nothing/configure`);
@@ -537,7 +555,7 @@ test('when Astra cannot start, a card offers to export the raw data or reset it'
   assert.equal(Object.keys(raw.items).every(k => k.startsWith('astra.v2.')), true);
   await page.getByRole('button', {name: 'Reset Astra data'}).click();
   const reloaded = page.waitForEvent('framenavigated', {timeout: 10000});
-  await page.locator('.sheet-row', {hasText: 'Reset and start again'}).click();
+  await page.locator('.dialog-btn', {hasText: 'Reset and start again'}).click();
   await reloaded;
   await page.waitForSelector('.hero-slide');
   assert.match(await page.locator('.toast').textContent(), /classic Astra: 1 add-ons/, 'starts like a first launch');

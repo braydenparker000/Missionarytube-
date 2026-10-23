@@ -174,15 +174,21 @@ export class DetailsScreen {
     if (age) parts.push(h('span', {class: 'age-badge'}, age));
     if (rating) parts.push(h('span', {class: 'imdb'}, h('b', {}, 'IMDb'), rating));
     const desc = typeof m.description === 'string' ? m.description : '';
-    const text = h('p', {class: 'description'}, desc);
-    const toggle = desc.length > 180 ? h('button', {class: 'more-link', type: 'button', 'aria-expanded': 'false', onclick: () => {
-      const open = text.classList.toggle('open'); toggle.textContent = open ? 'Show Less' : 'Show More ▾'; toggle.setAttribute('aria-expanded', String(open));
-    }}, 'Show More ▾') : null;
+    // "Show more" appears only when the story is really cut at three lines (measured, at
+    // any width), and the story itself toggles too, as in Nuvio.
+    const text = h('p', {class: 'description', onclick: () => { if (!toggle.hidden) flip(); }}, desc);
+    const flip = () => { const open = text.classList.toggle('open'); toggle.textContent = open ? 'Show less' : 'Show more'; toggle.setAttribute('aria-expanded', String(open)); };
+    const toggle = h('button', {class: 'more-link', type: 'button', 'aria-expanded': 'false', hidden: true, onclick: flip}, 'Show more');
+    if (desc && typeof ResizeObserver === 'function') new ResizeObserver(() => {
+      if (text.classList.contains('open')) return;
+      toggle.hidden = text.scrollHeight <= text.clientHeight + 1;
+      text.classList.toggle('clamped', !toggle.hidden);
+    }).observe(text);
     const people = [['Director', namesOf(m.director)], ['Writer', namesOf(m.writer)]].filter(([, v]) => v.length);
     return h('section', {class: 'section overview'},
       parts.length ? h('div', {class: 'meta-line'}, ...parts) : null,
       ...people.map(([k, v]) => h('p', {class: 'people'}, h('b', {}, k + ': '), v.slice(0, 3).join(', '))),
-      desc ? text : null, toggle);
+      desc ? text : null, desc ? toggle : null);
   }
 
   cast(m) {
@@ -231,20 +237,21 @@ export class DetailsScreen {
     const isNext = this.target?.video?.id === v.id;
     const date = validDate(v.released); // an unreadable date is not shown
     const code = episodeCode(v);
+    const runtime = runtimeLabel(v.runtime), day = date ? date.toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'}) : '';
+    // Nuvio's stack at the bottom of the art: code, title, story, then runtime left and date right.
     const card = h('button', {class: 'episode-card' + (isNext ? ' next' : '') + (aired(v) ? '' : ' unaired'), type: 'button', onclick: () => this.app.openStreams(m, v, {startTime: p && !p.completed ? p.time : 0})},
       h('div', {class: 'episode-art'}, image(v.thumbnail || m.background, '', 'episode-img'), h('div', {class: 'episode-shade'}),
-        code ? h('span', {class: 'episode-code'}, code) : null,
         watched ? h('span', {class: 'watched-badge'}, icon('check', {size: 12})) : null,
-        h('div', {class: 'episode-text'}, h('b', {}, videoTitle(v)), v.overview ? h('span', {}, v.overview) : null,
-          h('small', {}, [runtimeLabel(v.runtime), date ? date.toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'}) : ''].filter(Boolean).join(' · '))),
+        h('div', {class: 'episode-text'}, code ? h('span', {class: 'episode-code'}, code) : null, h('b', {}, videoTitle(v)), v.overview ? h('span', {class: 'episode-overview'}, v.overview) : null,
+          runtime || day ? h('span', {class: 'episode-meta'}, h('span', {}, runtime), h('span', {}, day)) : null),
         p && !p.completed ? h('div', {class: 'episode-progress'}, h('i', {style: {transform: `scaleX(${Math.min(1, p.time / p.duration)})`}})) : null));
     card.setAttribute('aria-label', [code, v.title || (code ? '' : videoTitle(v)), watched ? 'watched' : '', p && !p.completed ? `${clock(p.time)} watched` : ''].filter(Boolean).join(', '));
     longPress(card, () => {
       const index = m.videos.indexOf(v);
       liftMenu(card.querySelector('.episode-art'), v.title || episodeCode(v), episodeCode(v), [
-        watched ? {label: 'Mark as unwatched', icon: 'replay', run: () => this.app.watched.set(m.type, m.id, v.id, false)} : {label: 'Mark as watched', icon: 'check', run: () => this.app.watched.set(m.type, m.id, v.id, true)},
+        watched ? {label: 'Mark as unwatched', icon: 'checkCircleOutline', run: () => this.app.watched.set(m.type, m.id, v.id, false)} : {label: 'Mark as watched', icon: 'checkCircle', run: () => this.app.watched.set(m.type, m.id, v.id, true)},
         {label: 'Mark previous as watched', icon: 'episodes', run: () => this.app.watched.setMany(m.videos.slice(0, index).filter(x => x.season !== 0).map(x => [m.type, m.id, x.id]), true)},
-        v.season != null ? {label: `Mark Season ${v.season} as watched`, icon: 'check', run: () => this.app.watched.setMany(m.videos.filter(x => x.season === v.season).map(x => [m.type, m.id, x.id]), true)} : null, // a channel's videos have no season
+        v.season != null ? {label: `Mark Season ${v.season} as watched`, icon: 'checkCircle', run: () => this.app.watched.setMany(m.videos.filter(x => x.season === v.season).map(x => [m.type, m.id, x.id]), true)} : null, // a channel's videos have no season
       ].filter(Boolean));
     });
     return card;
@@ -253,6 +260,6 @@ export class DetailsScreen {
   facts(m) {
     const rows = [['Status', m.status], ['Release', m.releaseInfo || m.released?.slice?.(0, 10)], ['Runtime', runtimeLabel(m.runtime)], ['Country', m.country], ['Language', m.language], ['Genres', namesOf(m.genres).join(', ')]].filter(([, v]) => v && typeof v !== 'object');
     if (!rows.length) return null;
-    return h('section', {class: 'section'}, h('h2', {class: 'section-title'}, 'Details'), h('dl', {class: 'facts'}, ...rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, String(v))])));
+    return h('section', {class: 'section'}, h('h2', {class: 'section-title'}, 'Details'), h('dl', {class: 'facts'}, ...rows.map(([k, v]) => h('div', {class: 'fact'}, h('dt', {}, k), h('dd', {}, String(v))))));
   }
 }

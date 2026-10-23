@@ -23,7 +23,7 @@ export class LibraryScreen {
     if (!Object.hasOwn(SORTS, this.sort)) this.sort = 'recent'; // a sort this version does not have
     this.typeFilter = 'all';
     this.body = h('div', {class: 'library-body'});
-    this.toggle = h('button', {class: 'icon-btn', type: 'button', onclick: () => { this.layout = this.layout === 'rows' ? 'grid' : 'rows'; app.store.set('libraryLayout', this.layout); this.render(); }});
+    this.toggle = h('button', {class: 'icon-btn layout-toggle', type: 'button', onclick: () => { this.layout = this.layout === 'rows' ? 'grid' : 'rows'; app.store.set('libraryLayout', this.layout); this.render(); }});
     view.append(h('div', {class: 'library'}, h('div', {class: 'page-head'}, h('h1', {class: 'page-title'}, 'Library'), this.toggle), this.body));
     app.library.onChange(() => this.render());
     app.watched.onChange(() => { this.dirty = true; });
@@ -34,7 +34,8 @@ export class LibraryScreen {
   reselect() { this.view.scrollTo({top: 0}); }
 
   render() {
-    this.toggle.replaceChildren(icon(this.layout === 'rows' ? 'episodes' : 'library', {size: 22}));
+    // The icon shows the layout a tap switches to: a grid, or stacked rows.
+    this.toggle.replaceChildren(icon(this.layout === 'rows' ? 'grid' : 'agenda', {size: 22}));
     this.toggle.setAttribute('aria-label', this.layout === 'rows' ? 'Show as grid' : 'Show as rows');
     const items = this.app.library.list();
     if (!items.length) {

@@ -144,3 +144,38 @@ test('a sheet follows the finger down and closes; a short drag springs back', op
   assert.equal(await depth(page), 0);
   assert.deepEqual(errors, []);
 });
+
+test('a confirm dialog: back and Escape cancel it, Tab stays inside, the action runs once', options, async t => {
+  const {page, errors} = await openApp(t);
+  const open = () => page.evaluate(async () => {
+    const {confirm} = await import('/astra/src/ui/components.js');
+    window.confirmed ??= 0;
+    confirm('Remove Fixture?', {message: 'It can be installed again.', action: 'Remove', destructive: true, run: () => window.confirmed++});
+  });
+  const focused = () => page.evaluate(() => document.activeElement.textContent);
+  await open();
+  await page.waitForSelector('.dialog-layer.open');
+  await page.waitForFunction(() => history.state?.depth === 1, null, {timeout: 3000});
+  assert.equal(await page.getByRole('alertdialog', {name: 'Remove Fixture?'}).count(), 1);
+  assert.equal(await focused(), 'Cancel', 'a destructive choice starts on Cancel');
+  await page.keyboard.press('Tab');
+  assert.equal(await focused(), 'Remove');
+  await page.keyboard.press('Tab');
+  assert.equal(await focused(), 'Cancel', 'focus stays in the dialog');
+  await page.goBack();
+  await page.waitForFunction(() => !document.querySelector('.dialog-layer'));
+  await open();
+  await page.waitForSelector('.dialog-layer.open');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.dialog-layer'));
+  await page.waitForFunction(() => !history.state?.astra);
+  assert.equal(await page.evaluate(() => window.confirmed), 0, 'cancelled twice, nothing ran');
+  await open();
+  await page.waitForSelector('.dialog-layer.open');
+  await page.locator('.dialog-btn.destructive').dblclick();
+  await page.waitForFunction(() => !document.querySelector('.dialog-layer'));
+  await page.waitForFunction(() => !history.state?.astra);
+  assert.equal(await page.evaluate(() => window.confirmed), 1, 'a double tap runs it once');
+  assert.equal(await page.evaluate(() => astra.stack.length), 0, 'still on Home');
+  assert.deepEqual(errors, []);
+});
