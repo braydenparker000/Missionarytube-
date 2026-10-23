@@ -10,7 +10,7 @@
 //   1.25 leaving) and fades its alpha by 1 - f;
 // where f is the page's distance from being shown (progress for the leaving
 // page, 1 - progress for the entering one). A fade transition only fades.
-import {accelDecel} from '../gesture.js';
+import {accelDecel, animClock} from '../gesture.js';
 
 /** Zoom factors (R) for an entering (zoomIn) or leaving page, per layouter kind. */
 export const ZOOM = {list: {enter: 0.5, leave: 1.5}, aa: {enter: 0.75, leave: 1.25}};
@@ -84,15 +84,15 @@ export class ListTransition {
       if (!fitted) ms = Math.max(ms, commit ? 100 : (T * 1000) / 3);
       ms = Math.max(1, ms);
     }
-    const t0 = performance.now();
+    const clock = animClock();
     this.anim = this.ctx.onFrame(now => {
-      const dt = (now - t0) / 1000;
+      const elapsed = clock(now), dt = elapsed / 1000;
       let p, end;
       if (linear) {
         p = from + linear * dt;
         end = commit ? p >= 0.9999 : p <= 1e-4;
       } else {
-        const t = Math.min(1, (now - t0) / ms);
+        const t = Math.min(1, elapsed / ms);
         p = from + (to - from) * accelDecel(t);
         end = t >= 1;
       }

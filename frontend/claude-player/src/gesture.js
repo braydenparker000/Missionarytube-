@@ -136,3 +136,24 @@ export function elastic(f) {
 
 /** The pager's smooth scroll to a neighbour (w.p, aa_anim): cubic-bezier(0.5, 0.1, 0.15, 0.99). */
 export const pagerScroll = cubicBezier(0.5, 0.1, 0.15, 0.99);
+
+const FRAME_MS = 1000 / 60;
+
+/**
+ * An animation's clock (ValueAnimator): elapsed ms from the animation's first
+ * frame. When that first frame ran long (the layout and drawing of the change
+ * that started it), the start moves past the overrun (commitAnimationFrame),
+ * so the heavy frame does not skip the start of the animation.
+ */
+export function animClock() {
+  let t0 = -1, first = -1;
+  return now => {
+    if (t0 < 0) { t0 = first = now; return 0; }
+    if (first >= 0) {
+      const late = now - first - FRAME_MS;
+      if (late > 0) t0 += late;
+      first = -1;
+    }
+    return now - t0;
+  };
+}

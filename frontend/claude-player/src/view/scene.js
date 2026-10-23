@@ -3,6 +3,7 @@
 import {MeasureSpec} from './view.js';
 import {FastLayout} from './fast-layout.js';
 import {GONE, VISIBLE, INVISIBLE, parseVisibility} from '../res/values.js';
+import {animClock} from '../gesture.js';
 
 export const DEFAULT_SCENE = 'defaultScene';
 export const RECALC_ON_END = 0, RECALC_ON_START = 1, RECALC_DYNAMIC = 2, RECALC_FRACTION = 3, RECALC_NONE = 4;
@@ -193,7 +194,7 @@ export class SceneController {
       const r = this.running;
       [this.scene, this.prevScene] = [this.prevScene, this.scene];
       r.target = r.target === 1 ? 0 : 1;
-      r.start = performance.now();
+      r.clock = animClock();
       r.from = this.ratio;
       r.duration = sceneDuration(duration * Math.abs(r.target - this.ratio), velocity) * 1000;
       r.onEnd = onEnd;
@@ -214,7 +215,7 @@ export class SceneController {
       this.end(onEnd);
       return;
     }
-    this.running = {start: performance.now(), from: 0, target: 1, duration: sceneDuration(duration, velocity) * 1000, onEnd};
+    this.running = {clock: animClock(), from: 0, target: 1, duration: sceneDuration(duration, velocity) * 1000, onEnd};
     this.ratio = 0;
     this.apply(0, true);
     this.root.ctx.animate(this);
@@ -258,7 +259,7 @@ export class SceneController {
       return;
     }
     r.manual = false;
-    r.start = performance.now();
+    r.clock = animClock();
     r.from = this.ratio;
     r.target = complete ? 1 : 0;
     r.duration = seconds * 1000;
@@ -271,7 +272,7 @@ export class SceneController {
     const r = this.running;
     if (!r) return;
     r.manual = false;
-    r.start = performance.now();
+    r.clock = animClock();
     r.from = this.ratio;
     r.target = complete ? 1 : 0;
     const remaining = Math.abs(r.target - this.ratio);
@@ -316,7 +317,7 @@ export class SceneController {
   tick(now) {
     const r = this.running;
     if (!r || r.manual) return false;
-    const t = r.duration > 0 ? Math.min(1, (now - r.start) / r.duration) : 1;
+    const t = r.duration > 0 ? Math.min(1, r.clock(now) / r.duration) : 1;
     const eased = decelerate2(t);
     this.ratio = r.from + (r.target - r.from) * eased;
     // When reversed, ratio runs towards 0 against the original from/to snapshot.
@@ -381,7 +382,9 @@ export class SceneController {
     for (const it of this.items) {
       const v = it.view;
       // Restore the start presentation.
-      v.visibility = it.fade || it.toVisibility === GONE ? (it.fromVisibility === GONE ? it.toVisibility : it.fromVisibility) : it.toVisibility;
+      // A fading view shows while its alpha moves (from 0 when it was hidden,
+      // to 0 when it hides); a view going gone stays as it was until the end.
+      v.visibility = it.fade ? VISIBLE : it.toVisibility === GONE ? (it.fromVisibility === GONE ? it.toVisibility : it.fromVisibility) : it.toVisibility;
       if (it.toVisibility === GONE && it.fromVisibility === GONE) v.visibility = GONE;
       const [l, t, r, b] = it.from;
       if (it.recalc === RECALC_ON_END) {

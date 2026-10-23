@@ -181,6 +181,8 @@ class SubAAModeButton extends PopupLayout {
       this.addView(b);
       attachSceneParams(b, new StyledAttributes(ctx.res, th, {}, menuStyle), s2 => this.generateLayoutParams(s2));
       this.hideUntilOpen(b);
+      // ?PopupButton is not clickable (the closed slot); the open menu's rows are.
+      b.clickable = true;
       b.onClick = () => {
         if (this.kind === 'vis') ctx.bus.post('bus_gui', 'cmd_gui_set_vis_mode', this, {arg1: m.value});
         else if (this.rating) ctx.bus.post('bus_data_cmd', 'cmd_data_track_rating', this, {arg1: m.value, track: ctx.player?.track});
