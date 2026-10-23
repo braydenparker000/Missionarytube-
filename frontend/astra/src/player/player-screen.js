@@ -72,8 +72,11 @@ export class PlayerScreen extends EventTarget {
     this.viaEl = h('p', {class: 'ap-via'});
     this.played = h('div', {class: 'ap-played'});
     this.buffered = h('div', {class: 'ap-buffered'});
+    // A thumb at the play position, and while dragging a time bubble above the finger.
+    this.thumb = h('div', {class: 'ap-thumb', 'aria-hidden': 'true'});
+    this.bubble = h('div', {class: 'ap-bubble', 'aria-hidden': 'true', hidden: true});
     this.timeline = h('div', {class: 'ap-timeline', role: 'slider', tabindex: 0, 'aria-label': 'Seek', 'aria-valuemin': 0},
-      h('div', {class: 'ap-track'}, this.buffered, this.played));
+      h('div', {class: 'ap-track'}, this.buffered, this.played), this.thumb, this.bubble);
     this.timeEl = h('button', {class: 'ap-time', type: 'button', onclick: () => { this.remaining = !this.remaining; this.updateTime(); }});
     this.playBtn = iconButton('play', 'Play', () => this.togglePlay(), {class: 'ap-icon-btn ap-play'});
     this.spinner = h('div', {class: 'ap-spinner', hidden: true, role: 'progressbar', 'aria-label': 'Loading'});
@@ -364,6 +367,7 @@ export class PlayerScreen extends EventTarget {
     this.timeEl.textContent = !known ? clock(t) : this.remaining ? '−' + clock(d - t) : `${clock(t)} / ${clock(d)}`;
     if (known) {
       this.played.style.transform = `scaleX(${Math.min(1, t / d)})`;
+      this.thumb.style.left = `${(Math.min(1, t / d) * 100).toFixed(2)}%`;
       const b = this.video.buffered;
       let end = 0;
       for (let i = 0; i < b.length; i++) if (b.start(i) <= this.video.currentTime + 0.5) end = Math.max(end, b.end(i));
@@ -893,7 +897,7 @@ export class PlayerScreen extends EventTarget {
   }
 
   startDrag(p) {
-    if (p.kind === 'seek') { p.from = this.video.currentTime; this.scrubbing = true; this.showControls(false); }
+    if (p.kind === 'seek') { p.from = this.video.currentTime; this.scrubbing = true; this.root.classList.add('seeking'); this.showControls(false); }
     else {
       p.level = p.kind === 'volume' ? (this.video.muted ? 0 : this.video.volume) : (this.brightness ?? 1);
       this.levelBars[p.kind].hidden = false;
@@ -915,6 +919,7 @@ export class PlayerScreen extends EventTarget {
   endSeekDrag(cancelled) {
     if (!cancelled && this.scrubTime != null) this.video.currentTime = this.scrubTime;
     this.scrubTime = null; this.scrubbing = false;
+    this.root.classList.remove('seeking');
     this.seekPreview.hidden = true;
     this.updateTime(); this.scheduleHide();
   }
@@ -941,15 +946,21 @@ export class PlayerScreen extends EventTarget {
     const tl = this.timeline;
     let active = null;
     const at = e => { const r = tl.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (this.video.duration || 0); };
+    const bubble = () => {
+      const f = this.scrubTime / (this.video.duration || 1);
+      this.bubble.textContent = clock(this.scrubTime);
+      this.bubble.style.left = `clamp(28px, ${(f * 100).toFixed(2)}%, calc(100% - 28px))`;
+      this.bubble.hidden = false;
+    };
     tl.addEventListener('pointerdown', e => {
       if (this.locked || !(this.video.duration > 0)) return;
       active = e.pointerId; tl.setPointerCapture(e.pointerId); tl.classList.add('active');
-      this.scrubbing = true; this.scrubTime = at(e); this.updateTime(); this.showControls(false);
+      this.scrubbing = true; this.scrubTime = at(e); this.updateTime(); bubble(); this.showControls(false);
     });
-    tl.addEventListener('pointermove', e => { if (active === e.pointerId) { this.scrubTime = at(e); this.updateTime(); } });
+    tl.addEventListener('pointermove', e => { if (active === e.pointerId) { this.scrubTime = at(e); this.updateTime(); bubble(); } });
     const end = e => {
       if (active !== e.pointerId) return;
-      active = null; tl.classList.remove('active');
+      active = null; tl.classList.remove('active'); this.bubble.hidden = true;
       if (e.type === 'pointerup' && this.scrubTime != null) this.video.currentTime = this.scrubTime;
       this.scrubTime = null; this.scrubbing = false; this.updateTime(); this.scheduleHide();
     };

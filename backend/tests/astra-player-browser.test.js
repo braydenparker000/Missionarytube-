@@ -146,6 +146,20 @@ test('with the controls showing, subtitles stay clear of them: lifted in landsca
   assert.ok(port.subTop >= port.pictureBottom - 1 && port.subBottom <= port.blockTop, `portrait: under the picture, above the controls (${JSON.stringify(port)})`);
 });
 
+test('dragging the seek bar shows the time above the finger and a thumb on the bar', options, async t => {
+  const {page} = await openPlayer(t);
+  await tap(page, W / 2, H / 2);
+  const bar = await page.locator('.ap-timeline').boundingBox();
+  await page.mouse.move(bar.x + bar.width * 0.5, bar.y + bar.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bar.x + bar.width * 0.75, bar.y + bar.height / 2, {steps: 4});
+  assert.equal(await page.locator('.ap-bubble').isVisible(), true);
+  assert.match(await page.locator('.ap-bubble').textContent(), /^0:0[3-5]$/, 'three quarters of a 6 s file');
+  await page.mouse.up();
+  assert.equal(await page.locator('.ap-bubble').isVisible(), false);
+  assert.equal(await page.locator('.ap-thumb').isVisible(), true);
+});
+
 test('leaving full screen (Android back) closes the open menu first, does nothing while locked, then closes the player', options, async t => {
   const {page} = await openPlayer(t);
   // Android Chrome turns back into an exit from full screen; headless cannot enter it, so the exit is simulated.
