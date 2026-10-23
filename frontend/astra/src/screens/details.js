@@ -1,6 +1,6 @@
 // A title's page: hero, collapsing header, Play, overview, cast, episodes.
 
-import {h, clock, reducedMotion} from '../ui/dom.js';
+import {h, clock, reducedMotion, scrollTimelines} from '../ui/dom.js';
 import {icon} from '../ui/icons.js';
 import {image, longPress, liftMenu, toast} from '../ui/components.js';
 import {playTarget, seasonsOf, episodeCode, videoTitle, aired, namesOf, runtimeLabel, releaseLabel} from '../app/content.js';
@@ -20,7 +20,10 @@ export class DetailsScreen {
     this.body = h('div', {class: 'details-body'});
     this.el.append(this.body, this.header, this.backBtn);
     this.renderHero(item);
-    this.body.append(h('div', {class: 'details-loading'}, h('div', {class: 'spinner'})));
+    // Until the full details arrive: what the card already knows (a catalog item
+    // often carries the description), with a placeholder where Play will be.
+    this.body.append(h('div', {class: 'details-actions'}, h('div', {class: 'actions-row'}, h('div', {class: 'skeleton play-ph', 'aria-hidden': 'true'}))),
+      plain(item.description) ? this.overview(item) : h('div', {class: 'details-loading'}, h('div', {class: 'spinner'})));
     this.el.addEventListener('scroll', () => this.onScroll(), {passive: true});
     // Watched changes redraw at most once a frame, and only what shows them: the actions and the episodes.
     const watchedChanged = () => {
@@ -29,8 +32,12 @@ export class DetailsScreen {
         this.watchedFrame = 0;
         if (this.destroyed) return;
         this.renderActions();
-        const old = this.body.querySelector('.episode-row')?.closest('.section'), fresh = old && this.episodes(this.meta);
-        if (fresh) old.replaceWith(fresh);
+        // The episode row is redrawn where the viewer left it, not scrolled back to the next episode.
+        const row = this.body.querySelector('.episode-row'), old = row?.closest('.section');
+        this.keepScroll = row ? row.scrollLeft : null;
+        const fresh = old && this.episodes(this.meta);
+        if (fresh) { old.replaceWith(fresh); const list = fresh.querySelector('.episode-row'); if (list) list.scrollLeft = this.keepScroll; }
+        this.keepScroll = null;
       });
     };
     this.offs = [app.watched.onChange(watchedChanged), app.progress.onChange(() => this.meta && this.renderActions()), app.library.onChange(() => this.meta && this.renderActions())];
@@ -60,16 +67,28 @@ export class DetailsScreen {
   destroy() { this.destroyed = true; for (const off of this.offs) off(); }
   onShow(first) { if (!first && this.meta) this.renderActions(); }
 
+  /**
+   * The hero, drawn at once from the card that was tapped (its art is usually
+   * already in the browser) and updated in place when the full details
+   * arrive: an image whose address did not change is kept, never re-faded.
+   */
   renderHero(m) {
+    if (!this.hero) {
+      const bg = h('div', {class: 'details-bg'}), title = h('div', {class: 'details-title-slot'}), genres = h('p', {class: 'details-genres'});
+      this.hero = {bg, title, genres, el: h('div', {class: 'details-hero'}, bg, h('div', {class: 'details-shade'}), h('div', {class: 'details-hero-content'}, title, genres))};
+      this.body.prepend(this.hero.el);
+      this.heroEl = this.hero.el;
+    }
+    const art = m.background || m.poster || '';
+    if (art !== this.hero.art) { this.hero.art = art; this.hero.bg.replaceChildren(image(art, '', 'details-bg-img', {eager: true})); }
+    const titleKey = (m.logo || '') + '\n' + (m.name || '');
+    if (titleKey !== this.hero.titleKey) {
+      this.hero.titleKey = titleKey;
+      this.hero.title.replaceChildren(m.logo ? image(m.logo, m.name, 'details-logo', {eager: true}) : h('h1', {class: 'details-title'}, m.name || ''));
+    }
     const genres = namesOf(m.genres).slice(0, 3).join(' • ');
-    const hero = h('div', {class: 'details-hero'},
-      h('div', {class: 'details-bg'}, image(m.background || m.poster, '', 'details-bg-img')), h('div', {class: 'details-shade'}),
-      h('div', {class: 'details-hero-content'},
-        m.logo ? image(m.logo, m.name, 'details-logo') : h('h1', {class: 'details-title'}, m.name || ''),
-        genres ? h('p', {class: 'details-genres'}, genres) : null));
-    const old = this.body.querySelector('.details-hero');
-    if (old) old.replaceWith(hero); else this.body.prepend(hero);
-    this.heroEl = hero;
+    this.hero.genres.textContent = genres;
+    this.hero.genres.hidden = !genres;
     this.header.replaceChildren(h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Back', onclick: () => this.app.back()}, icon('back')),
       m.logo ? image(m.logo, m.name, 'header-logo') : h('b', {class: 'header-title'}, m.name || ''),
       this.libraryButton(m, 'icon-btn'));
@@ -90,7 +109,7 @@ export class DetailsScreen {
       this.header.setAttribute('aria-hidden', String(!collapsed));
       this.backBtn.classList.toggle('hide', collapsed);
     }
-    if (this.heroEl) this.heroEl.style.setProperty('--parallax', `${Math.min(y, 900) * 0.5}px`);
+    if (this.heroEl && !scrollTimelines) this.heroEl.style.setProperty('--parallax', `${Math.min(y, 900) * 0.5}px`);
   }
 
   renderBody() {
@@ -123,13 +142,23 @@ export class DetailsScreen {
     const blocked = !!target.disabled || (this.failed && m.type === 'series');
     const play = h('button', {class: 'play-btn', type: 'button', disabled: blocked, onclick: () => this.play(target)}, icon('play', {size: 18}), h('span', {}, target.label));
     longPress(play, () => { if (!blocked) this.app.openStreams(m, target.video, {startTime: target.startTime}); });
-    const more = h('button', {class: 'round-btn more' + (expanded ? ' open' : ''), type: 'button', 'aria-label': expanded ? 'Fewer actions' : 'More actions', 'aria-expanded': String(!!expanded), onclick: () => { this.moreOpen = !expanded; this.renderActions(); }}, icon('more', {size: 22}));
+    // The row and its More button stay in place (only what changed is swapped), so the button's turn animates.
+    const row = this.actionsSlot.querySelector('.actions-row') || h('div', {class: 'actions-row'});
+    const more = row.querySelector('.round-btn.more') || h('button', {class: 'round-btn more', type: 'button', onclick: () => { this.moreOpen = !this.moreOpen; this.renderActions(); }}, icon('more', {size: 22}));
+    more.classList.toggle('open', !!expanded);
+    more.setAttribute('aria-label', expanded ? 'Fewer actions' : 'More actions');
+    more.setAttribute('aria-expanded', String(!!expanded));
     const extra = expanded ? [
       h('button', {class: 'round-btn' + (watchedTitle ? ' active' : ''), type: 'button', 'aria-label': watchedTitle ? 'Mark as unwatched' : 'Mark as watched', onclick: () => this.app.watched.set(m.type, m.id, null, !watchedTitle)}, icon('check', {size: 21})),
       this.libraryButton(m, 'round-btn'),
     ] : [];
     const resume = target.progress ? h('div', {class: 'resume-bar'}, h('i', {style: {transform: `scaleX(${Math.min(1, target.progress.time / target.progress.duration)})`}})) : null;
-    this.actionsSlot.replaceChildren(...[h('div', {class: 'actions-row'}, play, ...extra, more), resume].filter(Boolean));
+    for (const child of [...row.children]) if (child !== more) child.remove();
+    row.prepend(play, ...extra);
+    if (more.parentNode !== row) row.append(more);
+    if (row.parentNode !== this.actionsSlot) this.actionsSlot.prepend(row);
+    this.actionsSlot.querySelector('.resume-bar')?.remove();
+    if (resume) this.actionsSlot.append(resume);
     this.header.querySelector('.icon-btn:last-child')?.replaceWith(this.libraryButton(m, 'icon-btn'));
   }
 
@@ -188,6 +217,7 @@ export class DetailsScreen {
 
   /** Scrolls an episode row so the episode Play would start is in view. */
   scrollToNext(list) {
+    if (this.keepScroll != null) return;
     const next = list.querySelector('.episode-card.next');
     if (next && next !== list.firstElementChild) requestAnimationFrame(() => {
       const left = next.getBoundingClientRect().left - list.getBoundingClientRect().left + list.scrollLeft - 18;

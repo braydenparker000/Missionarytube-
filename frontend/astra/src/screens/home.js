@@ -1,8 +1,8 @@
 // Home: the hero carousel, Continue Watching, then each catalog as a row.
 
-import {h, timeLeft, reducedMotion} from '../ui/dom.js';
+import {h, timeLeft, reducedMotion, scrollTimelines} from '../ui/dom.js';
 import {icon} from '../ui/icons.js';
-import {posterCard, image, longPress, liftMenu, skeletonRow, emptyCard, toast} from '../ui/components.js';
+import {posterCard, setWatchedBadge, image, longPress, liftMenu, skeletonRow, emptyCard, toast} from '../ui/components.js';
 import {homeCatalogs, loadRows, heroItems, ROW_ITEMS, episodeCode} from '../app/content.js';
 
 const HERO_INTERVAL = 8000;
@@ -38,7 +38,8 @@ export class HomeScreen {
     view.append(h('div', {class: 'home'}, this.hero, this.cw, this.rows));
     this.ctx = posterContext(app);
     app.progress.onChange(() => this.renderContinue());
-    app.watched.onChange(() => { this.dirty = true; });
+    // On screen: the badges change now; under another tab or screen: when Home shows again.
+    app.watched.onChange(() => { if (app.tab === 'home' && !app.covered) this.repaintBadges(); else this.dirty = true; });
     // A late add-on answer, a refreshed manifest or an edit in Settings: redraw without flashing skeletons.
     app.onAddons?.(() => this.load({quiet: true}));
     this.load();
@@ -134,7 +135,7 @@ export class HomeScreen {
     // Unchanged rows are left as they are: no flash, and a row the user scrolled stays put.
     const signature = [name, !!all, ...items.map(m => m.id)].join('\n');
     slot.entry = entry;
-    if (slot.signature === signature && !this.dirtyRows) return;
+    if (slot.signature === signature) return;
     slot.replaceChildren(rowHeader(name, all), h('div', {class: 'row-scroll'}, ...items.map(m => posterCard(m, this.ctx))));
     slot.dataset.key = entry.key;
     slot.signature = signature;
@@ -146,11 +147,19 @@ export class HomeScreen {
     settings?.open?.('Add-ons', p => settings.addons(p));
   }
 
+  /**
+   * After a watched change or a Home setting: rows whose title or items
+   * changed are redrawn; watched badges change in place, so the other rows
+   * keep their scroll and their images.
+   */
   repaintBadges() {
-    this.dirtyRows = true;
     for (const slot of this.rows.querySelectorAll('.row')) if (slot.entry) this.renderRow(slot, slot.entry);
-    this.dirtyRows = false;
+    for (const card of this.rows.querySelectorAll('.poster-card[data-item]')) {
+      const [type, ...rest] = card.dataset.item.split(':');
+      setWatchedBadge(card, !!this.ctx.watched?.({type, id: rest.join(':')}));
+    }
   }
+
 
   renderHero(rows) {
     const items = heroItems(rows);
@@ -173,23 +182,18 @@ export class HomeScreen {
    * a time: a second tap while it loads does nothing, and if the viewer moved
    * on meanwhile (another tab, another screen) the streams are not pushed.
    */
-  async resume(e, m, card, startTime) {
+  /**
+   * Opens a Continue Watching entry's streams at once, from what was saved
+   * with it; the full details (the episode list the player's next episode
+   * needs) arrive behind the screen. A second tap while it opens does nothing.
+   */
+  resume(e, m, card, startTime) {
     if (this.resuming) return;
     this.resuming = true;
-    const tab = this.app.tab, depth = this.app.stack.length;
-    card?.classList.add('busy');
-    card?.setAttribute('aria-busy', 'true');
-    try {
-      // Without the add-ons the saved card still plays: streams are asked for by id.
-      const meta = await this.app.meta(m).catch(() => ({...m, videos: []}));
-      if (this.app.tab !== tab || this.app.stack.length !== depth) return;
-      const video = e.videoId && e.videoId !== m.id ? meta.videos.find(v => v.id === e.videoId) || {id: e.videoId, season: e.season, episode: e.episode, title: e.title || ''} : null;
-      this.app.openStreams(meta, video, {startTime});
-    } finally {
-      this.resuming = false;
-      card?.classList.remove('busy');
-      card?.removeAttribute('aria-busy');
-    }
+    setTimeout(() => { this.resuming = false; }, 600);
+    const video = e.videoId && e.videoId !== m.id ? {id: e.videoId, season: e.season, episode: e.episode, title: e.title || '', thumbnail: e.thumbnail} : null;
+    const screen = this.app.openStreams(m, video, {startTime});
+    this.app.meta(m).then(meta => screen.updateMeta?.(meta), () => {}); // without the add-ons the saved card still plays: streams are asked by id
   }
 
   continueCard(e) {
@@ -219,14 +223,14 @@ class Hero {
     this.index = 0;
     this.onOpen = onOpen;
     this.track = h('div', {class: 'hero-track'});
-    this.slides = items.map(m => this.slide(m));
+    this.slides = items.map((m, i) => this.slide(m, i));
     this.track.append(...this.slides);
     this.dots = h('div', {class: 'hero-dots', role: 'tablist'}, ...items.map((m, i) => h('button', {class: 'hero-dot', type: 'button', role: 'tab', 'aria-label': `${i + 1} of ${items.length}: ${m.name}`, onclick: () => { this.go(i); this.restart(); }})));
     this.el = h('div', {class: 'hero', 'aria-roledescription': 'carousel', 'aria-label': 'Featured'}, this.track, this.dots);
     this.bindSwipe();
     this.onScroll = () => { const y = scroller.scrollTop; this.el.style.setProperty('--parallax', `${Math.min(y, 800) * 0.3}px`); };
     this.scroller = scroller;
-    scroller.addEventListener('scroll', this.onScroll, {passive: true});
+    if (!scrollTimelines) scroller.addEventListener('scroll', this.onScroll, {passive: true});
     this.observer = new IntersectionObserver(([e]) => { this.visible = e.isIntersecting; if (this.visible) this.resume(); else this.pause(); }, {threshold: 0.3});
     this.observer.observe(this.el);
     this.onVisibility = () => (document.hidden ? this.pause() : this.resume());
@@ -235,10 +239,10 @@ class Hero {
     this.resume();
   }
 
-  slide(m) {
+  slide(m, i = 1) {
     const meta = [m.type === 'series' ? 'Series' : 'Movie', (m.genres || [])[0], String(m.releaseInfo || m.year || '').slice(0, 4)].filter(Boolean);
     return h('article', {class: 'hero-slide', 'aria-roledescription': 'slide', 'aria-label': m.name},
-      h('div', {class: 'hero-bg'}, image(m.background || m.poster, '', 'hero-img')), h('div', {class: 'hero-shade'}),
+      h('div', {class: 'hero-bg'}, image(m.background || m.poster, '', 'hero-img', {eager: i === 0})), h('div', {class: 'hero-shade'}),
       h('div', {class: 'hero-content'},
         m.logo ? h('button', {class: 'hero-logo', type: 'button', onclick: () => this.onOpen(m), 'aria-label': m.name}, image(m.logo, m.name, 'hero-logo-img')) : h('button', {class: 'hero-title', type: 'button', onclick: () => this.onOpen(m)}, m.name),
         h('p', {class: 'hero-meta'}, ...meta.flatMap((t, i) => i ? [h('i', {class: 'dot', 'aria-hidden': 'true'}), t] : [t])),
@@ -252,6 +256,11 @@ class Hero {
     this.track.style.transform = `translateX(${-this.index * 100}%)`;
     [...this.dots.children].forEach((d, k) => { d.classList.toggle('on', k === this.index); d.setAttribute('aria-selected', String(k === this.index)); });
     this.slides.forEach((s, k) => s.setAttribute('aria-hidden', String(k !== this.index)));
+    // The art either side is fetched now, so a swipe or the next turn never shows it arriving.
+    for (const k of [this.index - 1, this.index + 1]) {
+      const img = this.slides[((k % n) + n) % n]?.querySelector('img[loading="lazy"]');
+      if (img) img.loading = 'eager';
+    }
   }
 
   bindSwipe() {

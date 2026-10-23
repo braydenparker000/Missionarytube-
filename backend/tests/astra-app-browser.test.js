@@ -179,6 +179,73 @@ test('a failing stream add-on shows an error row with Retry for that add-on only
   assert.deepEqual(errors, []);
 });
 
+test('Continue Watching opens its streams at once while the full details load; a second tap opens nothing more', options, async t => {
+  const {page, servers, errors} = await openApp(t, {storage: {'astra.v2.progress': {'movie:tt1000002|tt1000002': progressEntry(2, 600, 5400)}}});
+  await page.waitForSelector('.cw-card');
+  servers.control.metaDelay = 1500;
+  const card = page.locator('.cw-card').first();
+  await card.click();
+  await page.waitForSelector('.streams .resume-pill', {timeout: 1000}); // well before the details answer
+  await card.click({force: true, timeout: 1000}).catch(() => {}); // lands on the screen opening over it
+  assert.equal(await page.evaluate(() => astra.stack.length), 1);
+  await page.waitForFunction(() => /synthetic title/.test(astra.stack[0]?.screen.meta.description || ''), null, {timeout: 6000});
+  await page.locator('.stream-card', {hasText: 'Fixture 1080p'}).waitFor();
+  assert.deepEqual(errors, []);
+});
+
+test('marking a title watched changes its badge in place: the row keeps its scroll and its cards', options, async t => {
+  const {page, errors} = await openApp(t);
+  await page.waitForSelector('.hero-slide');
+  const row = homeRow(page, 'Popular - Movie');
+  await row.locator('.row-scroll').evaluate(el => { el.scrollLeft = 300; });
+  const card = row.locator('.poster-card').nth(3);
+  await card.evaluate(el => { el.dataset.mark = 'kept'; });
+  await card.dispatchEvent('contextmenu');
+  await page.locator('.lift-item', {hasText: 'Mark as watched'}).click();
+  await page.waitForFunction(() => document.querySelector('.poster-card[data-mark="kept"] .watched-badge'));
+  assert.equal(await row.locator('.row-scroll').evaluate(el => el.scrollLeft), 300);
+  assert.match(await row.locator('.poster-card[data-mark="kept"]').getAttribute('aria-label'), /, watched$/);
+  assert.deepEqual(errors, []);
+});
+
+test('Details paints at once from the card and keeps its hero art when the full details arrive', options, async t => {
+  const {page, servers, errors} = await openApp(t);
+  await page.waitForSelector('.hero-slide');
+  servers.control.metaDelay = 800;
+  await homeRow(page, 'Popular - Movie').locator('.poster-card').nth(2).click(); // Movie 3 has no logo: its title is text
+  await page.waitForSelector('.details .details-bg img');
+  assert.equal(await page.locator('.details .play-ph').count(), 1, 'a placeholder where Play will be');
+  assert.equal(await page.locator('.details-title').textContent(), 'Movie 3', 'the title from the card');
+  await page.locator('.details .details-bg img').evaluate(img => { img.dataset.mark = 'first'; });
+  await page.waitForSelector('.details .play-btn');
+  assert.equal(await page.locator('.details .details-bg img[data-mark="first"]').count(), 1, 'the same image element, not a new one fading in');
+  assert.equal(await page.locator('.details .play-ph').count(), 0);
+  assert.deepEqual(errors, []);
+});
+
+test('streams fill in place: a slower add-on listed first does not replace the cards already shown', options, async t => {
+  const {page, servers, errors} = await openApp(t, {addons: [['/flaky/manifest.json', 'Flaky']]});
+  servers.control.flakyStreams = false;
+  servers.control.streamDelay = 1500;
+  // The slow add-on first in the list, so its answer lands above the other's cards.
+  await page.evaluate(() => { const list = JSON.parse(localStorage.getItem('astra.v2.addons')); localStorage.setItem('astra.v2.addons', JSON.stringify(list.reverse())); });
+  await page.reload();
+  await page.waitForSelector('.hero-slide');
+  await homeRow(page, 'Popular - Movie').locator('.poster-card').first().click();
+  await page.click('.play-btn');
+  const fast = page.locator('.stream-card', {hasText: 'Fixture 1080p'});
+  await fast.waitFor();
+  assert.equal(await page.locator('.stream-group').first().locator('.stream-skeleton').count(), 2, 'the slow add-on holds its place with placeholders');
+  await fast.evaluate(el => { el.dataset.mark = 'seen'; });
+  await page.locator('.stream-card', {hasText: 'Flaky 720p'}).waitFor();
+  assert.equal(await page.locator('.stream-card[data-mark="seen"]').count(), 1, 'the card on screen is the same element');
+  assert.deepEqual((await page.locator('.stream-group h3').allInnerTexts()).map(t => t.trim()), ['Flaky', 'Fixture'], 'in the add-ons\' order');
+  await page.locator('.stream-card[data-mark="seen"]').click();
+  await page.waitForFunction(() => document.querySelector('.ap-video')?.currentTime > 0.3, null, {timeout: 20000});
+  assert.equal(await page.locator('.ap-via').textContent(), 'Via Fixture Fixture 1080p');
+  assert.deepEqual(errors, []);
+});
+
 test('small-page catalogs keep paging; a series without seasons lists its videos', options, async t => {
   const {page} = await openApp(t, {addons: [['/small/manifest.json', 'Small pages']]});
   await page.waitForSelector('.hero-slide');

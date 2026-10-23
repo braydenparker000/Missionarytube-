@@ -27,12 +27,14 @@ try {
   showRecovery(root, error);
 }
 
-// The launch screen stays until Home has something to show, at most 5 s.
+// The launch screen gives way as soon as Home draws anything, its placeholders
+// included: the app's own skeleton says "loading" better than a spinner.
 const launch = document.getElementById('launch');
-const done = () => { if (!launch.isConnected) return; launch.classList.add('gone'); setTimeout(() => launch.remove(), 400); };
+const done = () => { if (!launch.isConnected) return; launch.classList.add('gone'); setTimeout(() => launch.remove(), 250); };
 if (app) {
-  const home = app.views.home;
-  new MutationObserver((_, observer) => { if (home.querySelector('.hero-slide, .row .poster-card, .state-card')) { observer.disconnect(); done(); } }).observe(home, {childList: true, subtree: true});
+  const home = app.views.home, drawn = () => home.querySelector('.hero, .row, .state-card');
+  if (drawn()) requestAnimationFrame(done);
+  else new MutationObserver((_, observer) => { if (drawn()) { observer.disconnect(); done(); } }).observe(home, {childList: true, subtree: true});
   setTimeout(done, 5000);
 } else done();
 

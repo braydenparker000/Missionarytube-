@@ -87,7 +87,18 @@ export function posterCard(m, ctx) {
     h('span', {class: 'poster-year'}, String(m.releaseInfo || m.year || '').slice(0, 9)));
   card.setAttribute('aria-label', [name, String(m.releaseInfo || ''), watched ? 'watched' : ''].filter(Boolean).join(', '));
   if (ctx.menu) longPress(card, () => liftMenu(card.querySelector('.poster-art'), name, String(m.releaseInfo || ''), ctx.menu(m)));
+  card.dataset.item = `${m.type}:${m.id}`;
   return card;
+}
+
+/** Shows or hides a poster card's watched badge in place (no redraw of the row it sits in). */
+export function setWatchedBadge(card, on) {
+  const badge = card.querySelector('.watched-badge');
+  if (!!badge === on) return;
+  if (on) card.querySelector('.poster-art')?.append(h('span', {class: 'watched-badge', 'aria-label': 'Watched'}, icon('check', {size: 12})));
+  else badge.remove();
+  const label = (card.getAttribute('aria-label') || '').replace(/, watched$/, '');
+  card.setAttribute('aria-label', on ? label + ', watched' : label);
 }
 
 /** Nuvio's long-press menu: the poster lifts to the centre over a blurred app. */

@@ -61,7 +61,10 @@ export class SearchScreen {
     this.input.addEventListener('input', () => { this.clear.hidden = !this.input.value; clearTimeout(this.timer); this.timer = setTimeout(() => this.run(this.input.value), DEBOUNCE); this.showRecent(); });
     this.input.addEventListener('focus', () => this.showRecent());
     this.input.addEventListener('blur', () => setTimeout(() => { this.recent.hidden = true; }, 150));
-    view.addEventListener('scroll', () => { this.title.textContent = view.scrollTop > 40 && !this.input.value ? 'Discover' : 'Search'; }, {passive: true});
+    view.addEventListener('scroll', () => {
+      const title = view.scrollTop > 40 && !this.input.value ? 'Discover' : 'Search';
+      if (this.title.textContent !== title) this.title.textContent = title; // only when it changes: a write per scroll event costs a relayout
+    }, {passive: true});
     this.discoverState = {type: 'movie', catalog: null, genre: null};
     app.onAddons?.(() => this.addonsChanged());
     this.renderDiscover();
