@@ -96,7 +96,8 @@ export class Player {
           if (!t.endMs && ms) { t.durationMs = Math.max(0, ms - rangeStart(t)); this.post('msg_player_track_changed', {track: t, meta: true}); }
           return;
         }
-        if (t && ms && Math.abs((t.durationMs || 0) - ms) > 1000) {
+        // The decoder's length, as the reference's Duration shows it, whenever the label would differ.
+        if (t && ms && (Math.abs((t.durationMs || 0) - ms) > 1000 || msToLabelSeconds(t.durationMs || 0) !== msToLabelSeconds(ms))) {
           t.durationMs = ms;
           this.ctx.library?.rememberDuration(t, ms);
           this.post('msg_player_track_changed', {track: t, meta: true});

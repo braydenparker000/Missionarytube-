@@ -1,5 +1,5 @@
 // Elapsed / Duration labels of the player screen.
-import {FastTextView} from '../view/text.js';
+import {FastTextView, measureText} from '../view/text.js';
 import {register} from '../view/inflater.js';
 import {formatTime, msToLabelSeconds, STATE_PLAYING, STATE_STOPPED} from '../player/player.js';
 
@@ -32,10 +32,15 @@ export class Elapsed extends FastTextView {
     const s = msToLabelSeconds(ms);
     if (s === this.shownSeconds) return;
     const text = formatTime(s, false);
-    // Same-length updates keep the measured layout (the reference skips relayout).
-    if (!relayout && text.length === this.text.length) {
+    // Same-length updates keep the measured layout (Elapsed.W: FastTextView.T
+    // flag 1, the text laid out again in the view's width). The reference's
+    // centred label without ellipsis may run into its padding; digits differ
+    // in width, so a text the width does not hold is measured again instead
+    // of losing a character.
+    const [pl, pr] = this.textPaddings();
+    if (!relayout && text.length === this.text.length && this.width > 0 && measureText(text, this.font, this.effectiveTextSize(), this.letterSpacing) <= this.width - pl - pr) {
       this.text = text;
-      this.layoutText(this.width - this.textPaddings()[0] - this.textPaddings()[1]);
+      this.layoutText(this.width - pl - pr);
       this.positionText();
     } else this.setText(text);
     this.shownSeconds = s;

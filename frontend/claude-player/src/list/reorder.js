@@ -25,6 +25,7 @@ import {FastTextView} from '../view/text.js';
 import {StyledAttributes} from '../res/resources.js';
 import {MeasureSpec} from '../view/view.js';
 import {fadeLevel} from '../view/drawables.js';
+import {HEAD} from './power-list.js';
 
 const LIFT_MS = 350, UNLIFT_MS = 150, RETURN_MS = 250, BG_MS = 200, BADGE_MS = 350;
 const GROUP_T = 0.25; // x32.m3573 time for the gather and scatter transitions
@@ -410,7 +411,7 @@ export class ListReorder {
     for (const [i, w] of want) {
       let v = list.active.get(i);
       const fresh = !v;
-      if (fresh) { v = list.obtain(i === -1 ? s.header.type : s.itemType); list.active.set(i, v); }
+      if (fresh) { v = i === -1 ? list.obtain(s.header.type, HEAD) : list.obtain(s.itemType); list.active.set(i, v); }
       v.listIndex = i;
       if (i === -1) {
         if (fresh || v._boundKey !== 'h') { s.bindHeader(v); v._boundKey = 'h'; }
