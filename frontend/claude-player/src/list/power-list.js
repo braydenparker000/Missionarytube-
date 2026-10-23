@@ -31,6 +31,9 @@ export const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text', separato
 // Row types without item scenes (SeparatorItemView): laid out at the row's size.
 const PLAIN_TYPES = new Set(['separator', 'history', 'clearHistory']);
 
+// Scenes whose parts a prewarmed header row loads (merge_item_*header).
+const HEAD_SCENES = ['scene_header', 'scene_bottom_toolbar'];
+
 // The subhead row's list index (y62: x61 -103).
 export const SUBHEAD = -103;
 
@@ -84,7 +87,11 @@ export class PowerList extends FastLayout {
   setSource(source) {
     this.reorder = null;
     if (this.selection) this.setSelectionMode(false);
-    for (const [i, v] of this.active) this.recycle(i, v);
+    // The rows as they showed the leaving source: a page transition's ghost
+    // list takes them over (takeRows) unless a list takes them from the pool
+    // first. They go under the pool's spares.
+    const released = this.released = this.source ? {source: this.source, rows: new Map(this.active)} : null;
+    for (const [i, v] of this.active) { v._released = released; this.recycle(i, v, true); }
     this.active.clear();
     this.source = source;
     this.scrollY = 0;
@@ -257,8 +264,13 @@ export class PowerList extends FastLayout {
     return Math.max(0, this.contentHeight() - this.height);
   }
 
-  obtain(type) {
-    const v = this.pool.get(type)?.pop() ?? this.create(type);
+  /** A row view of a type: pooled (one that has loaded its parts for scene, if any), else new. */
+  obtain(type, scene = null) {
+    const pool = this.pool.get(type);
+    let k = pool?.length ? pool.length - 1 : -1;
+    if (scene) for (let j = k; j >= 0; j--) if (pool[j].loadedScenes?.has(scene)) { k = j; break; }
+    const v = k >= 0 ? pool.splice(k, 1)[0] : this.create(type);
+    v._released = null;
     this.adopt(v);
     v.visibility = VISIBLE;
     return v;
@@ -292,19 +304,49 @@ export class PowerList extends FastLayout {
   }
 
   /**
+   * Takes over another list's rows of this list's source, bound and laid out
+   * as that list showed them (the leaving level of a page transition), from
+   * its shown rows or the ones it has just let go into the shared pool.
+   */
+  takeRows(from) {
+    const s = this.source, shown = from.source === s;
+    const released = from.released;
+    const rows = shown ? from.active : released?.source === s && from.pool === this.pool ? released.rows : null;
+    from.released = null;
+    if (!s || !rows) return;
+    for (const [i, v] of [...rows]) {
+      if (v.inMenu || v.parent !== from || this.active.has(i) || (!shown && v._released !== released)) continue;
+      v._released = null;
+      if (shown) from.active.delete(i);
+      else {
+        const pool = this.pool.get(v.listItemType), k = pool ? pool.indexOf(v) : -1;
+        if (k < 0) continue;
+        pool.splice(k, 1);
+      }
+      this.adopt(v);
+      v.visibility = VISIBLE;
+      this.active.set(i, v);
+    }
+  }
+
+  /**
    * Inflates spare rows ({type: count}) in idle time, so the first pages a
    * transition shows (the leaving and the entering list) take pooled rows
-   * instead of inflating in the transition's first frame.
+   * instead of inflating in the transition's first frame. Header rows
+   * ({type: count} in heads) also load their header and toolbar parts.
    */
-  prewarm(counts) {
+  prewarm(counts, heads = {}) {
     const idle = globalThis.requestIdleCallback;
     if (!idle) return;
-    const queue = Object.entries(counts).flatMap(([type, n]) => Array.from({length: n}, () => type));
+    const each = (c, head) => Object.entries(c).flatMap(([type, n]) => Array.from({length: n}, () => ({type, head})));
+    // Header rows first: plain rows take the pool's top.
+    const queue = [...each(heads, true), ...each(counts, false)];
     const step = deadline => {
       while (queue.length && deadline.timeRemaining() > 8) {
-        const type = queue.shift();
+        const {type, head} = queue.shift();
         const v = this.create(type);
         this.adopt(v);
+        if (head) for (const sc of HEAD_SCENES) { v.loadBehaviorsFor(sc); (v.loadedScenes ??= new Set()).add(sc); }
         this.recycle(-1, v);
       }
       if (queue.length) idle(step);
@@ -312,10 +354,12 @@ export class PowerList extends FastLayout {
     idle(step);
   }
 
-  recycle(i, v) {
+  recycle(i, v, under = false) {
     v.visibility = GONE;
     v.invalidate();
-    (this.pool.get(v.listItemType) ?? this.pool.set(v.listItemType, []).get(v.listItemType)).push(v);
+    const pool = this.pool.get(v.listItemType) ?? this.pool.set(v.listItemType, []).get(v.listItemType);
+    if (under) pool.unshift(v);
+    else pool.push(v);
   }
 
   onItemClick(v) {
@@ -379,7 +423,7 @@ export class PowerList extends FastLayout {
       let v = this.active.get(i);
       const fresh = !v;
       if (fresh) {
-        v = this.obtain(i === -1 ? s.header.type : i === SUBHEAD ? s.subhead.type : s.typeAt?.(i) ?? s.itemType);
+        v = i === -1 ? this.obtain(s.header.type, s.header.scene) : this.obtain(i === SUBHEAD ? s.subhead.type : s.typeAt?.(i) ?? s.itemType);
         this.active.set(i, v);
       }
       v.listIndex = i;
@@ -490,7 +534,7 @@ export class PowerList extends FastLayout {
         v.elevation = v._rowElevation; v.clickable = true;
         this.recycle(-10, v);
       }
-      v = this.toolbarView = this.obtain(s.header.type);
+      v = this.toolbarView = this.obtain(s.header.type, 'scene_bottom_toolbar');
       v.listIndex = -10;
       v._rowElevation = v.elevation;
       v.elevation = bt.z;

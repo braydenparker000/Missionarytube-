@@ -2,6 +2,7 @@
 // loop (animations, layout, DOM sync), unit conversion and the message bus.
 import {Drawables} from './view/drawables.js';
 import {MeasureSpec} from './view/view.js';
+import {animClock} from './gesture.js';
 
 export class MessageBus {
   constructor() {
@@ -123,7 +124,7 @@ export class Context {
   tween(view, target, seconds, interp = t => t) {
     const from = {alpha: view.alpha, scaleX: view.scaleX, scaleY: view.scaleY, translationX: view.translationX, translationY: view.translationY};
     const dur = Math.max(0, seconds * 1000 * this.animScale);
-    this.tweens.set(view, {view, from, target, start: performance.now(), dur, interp});
+    this.tweens.set(view, {view, from, target, clock: animClock(), dur, interp});
     this.kick();
   }
 
@@ -133,7 +134,7 @@ export class Context {
       if (!a.tick(now)) this.animations.delete(a);
     }
     for (const [v, tw] of this.tweens) {
-      const t = tw.dur ? Math.min(1, (now - tw.start) / tw.dur) : 1;
+      const t = tw.dur ? Math.min(1, tw.clock(now) / tw.dur) : 1;
       const e = tw.interp(t);
       for (const k of Object.keys(tw.target)) v[k] = tw.from[k] + (tw.target[k] - tw.from[k]) * e;
       v.invalidate();

@@ -10,7 +10,7 @@ import {FastTextView} from '../view/text.js';
 import {register, withView} from '../view/inflater.js';
 import {AAGeometry, geometryParams, dynamicDimensionReader} from './aa-geometry.js';
 import {StyledAttributes} from '../res/resources.js';
-import {GONE, VISIBLE} from '../res/values.js';
+import {GONE, VISIBLE, INVISIBLE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {PowerList} from './power-list.js';
 import {MoveableToolbar, ANCHOR_BOTTOM, ANCHOR_FIXED_BOTTOM} from './moveable-toolbar.js';
@@ -208,6 +208,7 @@ export class AAItemView extends SceneFastLayout {
     if (this.itemScene === scene) return;
     this.itemScene = scene;
     this.loadBehaviorsFor(scene);
+    (this.loadedScenes ??= new Set()).add(scene);
     // The list's left-out header buttons (PowerList searchButton): gone before
     // the scene applies (dontApplyIfGone) and kept gone after it.
     const hidden = this.hiddenButtons;
@@ -479,19 +480,22 @@ export class ListWidget extends FastLayout {
         this.rebind();
         this.requestLayout();
         if (dir) this.scrollToCurrent(dir);
+        this.schedulePrepare();
       }
       else if (msg === 'msg_player_playing_state_changed') this.setPlayingMode(d.arg1 === STATE_PLAYING);
       // The shown Queue follows its entries.
       if (msg === 'msg_player_queue_changed') {
         const top = this.stack[this.stack.length - 1];
         if (top?.kind === 'queue' && !this.libList.reorder) this.replaceTop(top.rebuild?.());
+        this.schedulePrepare();
       }
     });
+    ctx.bus.subscribe('bus_library', msg => { if (msg === 'msg_library_changed') this.schedulePrepare(); });
     ctx.bus.subscribe('bus_gui', msg => { if (msg === 'msg_nav_changed') this.setPlayingMode(); });
     ctx.bus.subscribe('bus_app', (msg, src, d) => {
       if (msg === 'msg_app_setting_changed' && LABEL_PREFS.includes(d?.key)) { this.rebind(); this.libList.rebindAll(); }
       if (msg === 'msg_app_setting_changed' && d?.key === 'vis_aa_visible') this.setPlayingMode();
-      if (msg === 'msg_app_setting_changed' && LIST_PREFS.includes(d?.key)) this.rebuildStack();
+      if (msg === 'msg_app_setting_changed' && LIST_PREFS.includes(d?.key)) { this.rebuildStack(); this.schedulePrepare(); }
       if (msg === 'msg_app_setting_changed' && /^(search_track_titles_only|title_filename)$/.test(d?.key) && this.searching) this.showSearch();
     });
     ctx.listWidget = this;
@@ -500,7 +504,7 @@ export class ListWidget extends FastLayout {
     this.libList = new PowerList(ctx, this);
     this.libList.visibility = GONE;
     // Enough rows for a full page of each kind, twice (a page transition shows two lists).
-    this.libList.prewarm({track: 32, text: 16});
+    this.libList.prewarm({track: 32, text: 16}, {track: 3, text: 3});
     this.libList.interceptible = true; // side swipes go to the widget (parent level)
     this.libList.lp = this.generateLayoutParams(null);
     this.addView(this.libList);
@@ -1132,6 +1136,7 @@ export class ListWidget extends FastLayout {
     this.lyricsPage.show(lyrics);
     for (const v of this.items.values()) v.visibility = list || lyrics ? GONE : VISIBLE;
     if (list && !this.stack.length && !this.searching) this.openStart();
+    if (mode === 'aa') this.schedulePrepare();
     // The album-art pager has no scroller (mode 0); the library list sets its own.
     if (list) this.libList.syncScroller();
     else this.ctx.listScroller?.setMode(0);
@@ -1446,8 +1451,15 @@ export class ListWidget extends FastLayout {
     let nav = null, ghost = null, enterPivot = null;
     if (target === 'list') {
       if (!this.ctx.player?.track) return null;
-      this.stack = this.sourceStack();
-      this.libList.setSource(this.stack[this.stack.length - 1]);
+      const pre = this.prepared;
+      this.prepared = null;
+      if (pre?.track === this.ctx.player.track && this.libList.source === pre.stack[pre.stack.length - 1]) this.stack = pre.stack;
+      else {
+        this.stack = this.sourceStack();
+        this.libList.setSource(this.stack[this.stack.length - 1]);
+        // At the track's scroll from the first placement: the rows bind once.
+        if (this.libList.width > 0) this.libList.scrollToTrack(this.ctx.player.track);
+      }
       nav = 'nav_lib';
     } else if (target === 'library') {
       if (!this.stack.length) this.openStart();
@@ -1577,6 +1589,9 @@ export class ListWidget extends FastLayout {
     g.paddingTop = this.libList.paddingTop; g.paddingBottom = this.libList.paddingBottom;
     g.paddingLeft = this.libList.paddingLeft; g.paddingRight = this.libList.paddingRight;
     g.setSource(source);
+    // The shown list's rows of the level move over as they are, without binding again.
+    g.takeRows(this.libList);
+    g.scrollY = scroll;
     g.measure(MeasureSpec.make(this.width, MeasureSpec.EXACTLY), MeasureSpec.make(this.height, MeasureSpec.EXACTLY));
     g.layout(0, 0, this.width, this.height);
     g.scrollTo(scroll);
@@ -2010,17 +2025,7 @@ export class ListWidget extends FastLayout {
   onLayout() {
     if (!this.items.size) this.rebind();
     this.applyInsets();
-    const ll = this.libList;
-    if (ll.visibility !== GONE) {
-      // Rows scroll above the navbar (bottomReservedSpace) and the bottom inset.
-      // Search results start below the search header (searchHeaderSize).
-      ll.paddingTop = 0;
-      ll.paddingBottom = this.reservedSpace() + this.bottomToolbarSize;
-      ll.paddingLeft = this.ctx.windowInsets.left;
-      ll.paddingRight = this.ctx.windowInsets.right;
-      ll.measure(MeasureSpec.make(this.width, MeasureSpec.EXACTLY), MeasureSpec.make(this.height, MeasureSpec.EXACTLY));
-      ll.layout(0, 0, this.width, this.height);
-    }
+    if (this.libList.visibility !== GONE) this.layoutLibList();
     const g = this.geometry;
     g.marginL = this.readMargins('aaMarginLeft');
     g.marginT = this.readMargins('aaMarginTop');
@@ -2040,6 +2045,49 @@ export class ListWidget extends FastLayout {
       lp.el.style.overflow = 'hidden';
       lp.invalidate();
     }
+  }
+
+  layoutLibList() {
+    const ll = this.libList;
+    // Rows scroll above the navbar (bottomReservedSpace) and the bottom inset.
+    // Search results start below the search header (searchHeaderSize).
+    ll.paddingTop = 0;
+    ll.paddingBottom = this.reservedSpace() + this.bottomToolbarSize;
+    ll.paddingLeft = this.ctx.windowInsets.left;
+    ll.paddingRight = this.ctx.windowInsets.right;
+    ll.measure(MeasureSpec.make(this.width, MeasureSpec.EXACTLY), MeasureSpec.make(this.height, MeasureSpec.EXACTLY));
+    ll.layout(0, 0, this.width, this.height);
+  }
+
+  /** Prepares the playing track's list in idle time (prepareTrackList). */
+  schedulePrepare() {
+    this.prepared = null;
+    const idle = globalThis.requestIdleCallback;
+    if (this._prepQueued || !idle) return;
+    this._prepQueued = true;
+    idle(() => { this._prepQueued = false; this.prepareTrackList(); }, {timeout: 3000});
+  }
+
+  /**
+   * While the art shows, the playing track's list is built, bound and laid
+   * out at the track hidden, so a swipe down to it (aaToTopLib) starts
+   * without that work in the gesture's first frame.
+   */
+  prepareTrackList() {
+    const t = this.ctx.player?.track, ll = this.libList;
+    if (this.mode !== 'aa' || this.trans || this.menuItem || this.searching || !t || !this.width || ll.visibility !== GONE) return;
+    const stack = this.sourceStack(), top = stack[stack.length - 1];
+    ll.setSource(top);
+    ll.visibility = INVISIBLE;
+    // The art keeps the screen's scroller.
+    const noScroller = ll.noScroller;
+    ll.noScroller = true;
+    this.layoutLibList();
+    ll.scrollToTrack(t);
+    ll.sync();
+    ll.noScroller = noScroller;
+    ll.visibility = GONE;
+    this.prepared = {track: t, stack};
   }
 
   placeItems() {
