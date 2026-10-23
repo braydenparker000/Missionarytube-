@@ -2359,6 +2359,24 @@ queue was rebuilt.
 
 (c) Waveform accuracy and formatting stay with the index generator (the owner's plan: Muse).
 
+### F96 — When the Queue waits to start — `CONFIRMED` (`pi1`, `vo1.g0`, `ui1.w1`)
+(a) The search header's Play and Shuffle buttons (`vo1.g0`) send `cmd_data_mass_add_to_q` with
+`clean_and_play` and `play_in_shuffle_mode`. The Queue is cleared, filled with the results, and
+played ("Playing Queue from Search").
+
+(b) `pi1.mHasPendingQueue` is a stored flag, not "the Queue has unplayed entries":
+- It is set by `onQueueUpdated` when entries change outside queue mode (true while any are
+  unplayed), and at startup (`postCreate`) for `queue_start` 2 or 3 with unplayed entries.
+- It is cleared by `startQueueImpl`, at the Queue's end in queue mode, when the Queue list itself
+  becomes the playing list, and by an update in queue mode.
+- Playing another list does not touch it. A Queue left that way (say, Shuffle All after a search
+  Queue) does not take over again after the next song; songs added to it later make it pending.
+
+(c) The app derived "pending" from unplayed entries alone, so the rest of a search Queue resumed
+after one song of a newly shuffled list. The player now keeps the flag as above.
+`msg_player_queue_changed` also carries the reference's stats (`ui1.w1`): played entries, then
+the total.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
@@ -2470,6 +2488,7 @@ No status is device-verified.
 | F93 Header view pools, Back in search, time labels, play/pause change | Built | — |
 | F94 Large-library speed | Built | Measured in desktop Chromium at 4× throttle, not on the owner's device |
 | F95 Waveforms after an index refresh | Built | Waveform accuracy is the index generator's |
+| F96 Pending Queue after leaving it | Built | — |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 

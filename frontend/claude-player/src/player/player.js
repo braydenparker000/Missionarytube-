@@ -70,6 +70,9 @@ export class Player {
     this.entries = [];
     this.queueMode = false;
     this.savedNP = null;
+    // mHasPendingQueue: set when entries change while another list plays,
+    // cleared when the Queue starts or ends (see pendingQueue).
+    this.hasPendingQueue = false;
     this.state = STATE_STOPPED;
     this.shuffle = 0;
     this.repeat = 1;
@@ -167,9 +170,13 @@ export class Player {
     return this.entries.reduce((n, e) => n + (e.played ? 0 : 1), 0);
   }
 
-  /** Unplayed Queue entries wait while another list plays (mHasPendingQueue). */
+  /**
+   * The Queue waits to start while another list plays (mHasPendingQueue):
+   * only after entries were added there, or at startup. A Queue left by
+   * playing another list does not come back on its own.
+   */
   get pendingQueue() {
-    return !this.queueMode && this.unplayedCount > 0;
+    return this.hasPendingQueue && !this.queueMode && this.unplayedCount > 0;
   }
 
   /** queue_start: 1 immediately, 2 after the current song (default), 3 after the current list. */
@@ -671,6 +678,7 @@ export class Player {
   queueNext(playing, manual) {
     const i = this.indexAt(1, false);
     if (i !== null) { this.load(i, playing); return true; }
+    this.hasPendingQueue = false;
     if (+(this.ctx.pref?.('queue_end') ?? 1) === 1) { this.exitQueue(playing); return true; }
     if (this.repeat === REPEAT_ON) { this.load(this.indexAt(0, false) === null ? 0 : this.order?.[0] ?? 0, playing); return true; }
     if (manual) this.load(this.index, playing);
@@ -688,6 +696,7 @@ export class Player {
    * the last), and a toast tells so.
    */
   startQueue(playing = this.state === STATE_PLAYING) {
+    this.hasPendingQueue = false;
     if (!this.unplayedCount) return false;
     if (!this.queueMode) this.savedNP = {queue: this.queue, index: this.index, category: this.category, order: this.order, orderShuffle: this.orderShuffle};
     const first = this.entries.findIndex(e => !e.played);
@@ -731,9 +740,9 @@ export class Player {
     this.ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: this.ctx.res?.stringByName(name) ?? name, icon: '?toast_queue', ms: 1000});
   }
 
-  /** msg_player_queue_changed with the reference's stats: unplayed and total entries. */
+  /** msg_player_queue_changed with the reference's stats (ui1.w1): played and total entries. */
   postQueueChanged() {
-    this.post('msg_player_queue_changed', {arg1: this.unplayedCount, arg2: this.entries.length});
+    this.post('msg_player_queue_changed', {arg1: this.entries.length - this.unplayedCount, arg2: this.entries.length});
   }
 
   /** A track starting to play marks its waiting Queue entries played. */
@@ -896,7 +905,11 @@ export class Player {
     this.queueUpdated(true);
   }
 
-  /** The entries changed: the queue-mode list follows, and queue_start 1 starts the Queue now. */
+  /**
+   * The entries changed (onQueueUpdated): the queue-mode list follows;
+   * outside queue mode the Queue becomes pending while it has unplayed
+   * entries, and queue_start 1 starts it now.
+   */
   queueUpdated(added = false) {
     if (this.queueMode) {
       const t = this.track;
@@ -906,6 +919,7 @@ export class Player {
       if (cur >= 0) this.index = cur;
       else if (this.entries.length) { this.load(Math.max(0, this.entries.findIndex(e => !e.played)), this.state === STATE_PLAYING); }
     }
+    this.hasPendingQueue = !this.queueMode && this.unplayedCount > 0;
     this.postQueueChanged();
     if (added && this.pendingQueue && this.queueStart === 1) this.startQueue(this.state === STATE_PLAYING || !this.track);
   }
@@ -926,6 +940,7 @@ export class Player {
   clearQueue() {
     const keep = this.queueMode ? this.entries[this.index] : null;
     this.entries = keep ? [keep] : [];
+    this.hasPendingQueue = false;
     if (this.queueMode) { this.queue = this.queueOrderTracks(); this.index = keep ? 0 : -1; this.order = null; }
     this.postQueueChanged();
   }
@@ -942,6 +957,7 @@ export class Player {
   resumeQueueMode(trackId) {
     if (!this.entries.length) return;
     this.savedNP = {queue: this.queue, index: this.index, category: this.category, order: null};
+    this.hasPendingQueue = false;
     this.enteringQueue = true;
     try {
       this.queue = this.queueOrderTracks();
@@ -952,10 +968,15 @@ export class Player {
     } finally { this.enteringQueue = false; }
   }
 
-  /** Restores saved entries ({id, created, played}) with their tracks. */
+  /**
+   * Restores saved entries ({id, created, played}) with their tracks; with
+   * unplayed entries the Queue is pending again when it starts after the
+   * song or the list (postCreate).
+   */
   restoreQueue(saved, byId) {
     this.entries = (saved ?? []).map(e => (typeof e === 'string' ? {id: e, created: 0, played: false} : e))
       .map(e => ({track: byId.get(e.id), created: e.created ?? 0, played: !!e.played})).filter(e => e.track);
+    this.hasPendingQueue = (this.queueStart === 2 || this.queueStart === 3) && this.unplayedCount > 0;
   }
 
   /**
