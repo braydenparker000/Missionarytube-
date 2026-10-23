@@ -131,6 +131,10 @@ const FRONTEND_PUBLIC_HOSTS = {
   'frontend/guitar/pdf.js': ['cdnjs.cloudflare.com', 'jspdf.default.namespaceuri'], // bundled PDF loader and XML namespace, not a service
   'frontend/guitar/render-worker.js': ['www.alphatab.net'], // bundled renderer license
   'frontend/media/assets/js/playback/compatibility.js': ['mozilla.org', 'www.webmproject.org', 'aomediacodec.github.io', 'streams.videolan.org'], // bundled decoder notices and upstream samples
+  'frontend/astra/vendor/mediabunny.js': ['mozilla.org', 'www.webmproject.org', 'aomediacodec.github.io'], // vendored package license and codec spec notices
+  'frontend/astra/vendor/mediabunny-ac3.js': ['mozilla.org', 'streams.videolan.org'],
+  'frontend/astra/vendor/mediabunny-dts.js': ['mozilla.org', 'streams.videolan.org'],
+  'frontend/astra/vendor/LICENSES.md': ['mozilla.org', 'ffmpeg.org'], // third-party notices
   'frontend/media/index.html': ['images.metahub.space'], // existing artwork origin
   'frontend/mymedia/app.js': ['i.ytimg.com'], // existing thumbnails
   'frontend/mymedia/library.js': ['i.ytimg.com'],
