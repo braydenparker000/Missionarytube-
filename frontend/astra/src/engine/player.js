@@ -342,7 +342,7 @@ export class AstraPlayer extends EventTarget {
     if (this.hls) this.hls.subtitleTrack = track?.kind === 'stream' ? track.index : -1;
     if (this.dash) {
       this.dash.enableText?.(track?.kind === 'stream');
-      if (track?.kind === 'stream') this.dash.setTextTrack(track.index);
+      if (track?.kind === 'stream') this.dash.setTextTrack?.(track.index);
     }
     if (track?.kind === 'stream') queueMicrotask(() => this.pullTextTrackCues());
     this.subtitles.setCues(track ? this.cues.get(track.id) || [] : []);
