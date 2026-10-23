@@ -163,7 +163,12 @@ export class PlayerScreen extends EventTarget {
     this.closeOverlays();
     this.applyAspect();
     this.engine.subtitles.setStyle(subtitleStyle(this.prefs));
-    this.load(o.stream, o.startTime || 0);
+    if (o.deferred) { // the caller resolves the address, then calls load()
+      this.stream = o.stream;
+      this.engine.reset();
+      this.showLoading(true);
+      this.loadingStatus.textContent = 'Resolving the stream…';
+    } else this.load(o.stream, o.startTime || 0);
     this.showControls();
   }
 

@@ -31,6 +31,58 @@ function serveFile(req, res, file, {cors}) {
   createReadStream(file).pipe(res);
 }
 
+// A small Stremio add-on over the fixtures: catalogs, metadata, episodes,
+// search and streams, with generated artwork, so the whole app can be tested
+// without the internet.
+const GENRES = ['Drama', 'Comedy', 'Sci-Fi', 'Thriller'];
+const COLORS = ['#3b5bdb', '#c2255c', '#2b8a3e', '#e8590c', '#5f3dc4', '#0b7285'];
+function fixtureTitles(type) {
+  const count = type === 'movie' ? 60 : 12;
+  return Array.from({length: count}, (_, i) => {
+    const n = i + 1, id = `tt${type === 'movie' ? 1 : 2}${String(n).padStart(6, '0')}`;
+    return {id, type, name: `${type === 'movie' ? 'Movie' : 'Show'} ${n}`, releaseInfo: String(1990 + (n % 35)) + (type === 'series' ? '–' : ''), genres: [GENRES[n % 4]]};
+  });
+}
+function artSvg(kind, id) {
+  const n = parseInt(id.replace(/\D/g, '').slice(-3), 10) || 0, c = COLORS[n % COLORS.length];
+  const [w, hgt] = kind === 'p' ? [300, 444] : kind === 'l' ? [600, 230] : [1280, 720];
+  if (kind === 'l') return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hgt}"><text x="50%" y="62%" text-anchor="middle" font-family="sans-serif" font-size="120" font-weight="900" fill="#fff">${id.slice(-3)}</text></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${hgt}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c}"/><stop offset="1" stop-color="#111"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><text x="50%" y="55%" text-anchor="middle" font-family="sans-serif" font-size="${kind === 'p' ? 64 : 96}" font-weight="800" fill="rgba(255,255,255,.85)">${kind === 't' ? 'EP ' : ''}${id.slice(-3)}</text></svg>`;
+}
+function addonResponse(path, media, site) {
+  const json = body => ({type: 'application/json', body: JSON.stringify(body)});
+  const art = (k, id) => `${media}/art/${k}/${encodeURIComponent(id)}.svg`;
+  const dress = m => ({...m, poster: art('p', m.id), background: art('b', m.id), logo: Number(m.id.slice(-1)) % 3 ? art('l', m.id) : undefined});
+  if (path === '/manifest.json') return json({id: 'test.fixture.addon', name: 'Fixture', version: '1.0.0', description: 'Synthetic catalogs and streams for tests.', types: ['movie', 'series'], idPrefixes: ['tt'], resources: ['catalog', 'meta', 'stream'],
+    catalogs: [{type: 'movie', id: 'top', name: 'Popular', extra: [{name: 'search'}, {name: 'skip'}, {name: 'genre', options: GENRES}]}, {type: 'series', id: 'top', name: 'Popular', extra: [{name: 'search'}, {name: 'skip'}]}, {type: 'movie', id: 'new', name: 'New', extra: [{name: 'skip'}]}]});
+  let m = /^\/catalog\/(movie|series)\/(top|new)(?:\/([^/]+))?\.json$/.exec(path);
+  if (m) {
+    const extra = Object.fromEntries(new URLSearchParams((m[3] || '').replace(/&/g, '&')));
+    let items = fixtureTitles(m[1]).map(dress);
+    if (m[2] === 'new') items = items.slice().reverse();
+    if (extra.search) items = items.filter(i => i.name.toLowerCase().includes(extra.search.toLowerCase()));
+    if (extra.genre) items = items.filter(i => i.genres.includes(extra.genre));
+    const skip = +extra.skip || 0;
+    return json({metas: items.slice(skip, skip + 30)});
+  }
+  m = /^\/meta\/(movie|series)\/([^/]+)\.json$/.exec(path);
+  if (m) {
+    const base = fixtureTitles(m[1]).find(t => t.id === decodeURIComponent(m[2]));
+    if (!base) return json({meta: null});
+    const meta = {...dress(base), description: `${base.name} is a synthetic title used to test Astra. It has a long enough description to need the Show More control on a phone screen, which keeps the page tidy.`, runtime: '112 min', imdbRating: '7.8', cast: ['Ada Lovelace', 'Alan Turing', 'Grace Hopper'], director: ['Edsger Dijkstra']};
+    if (m[1] === 'series') meta.videos = [1, 2].flatMap(season => [1, 2, 3, 4, 5].map(episode => ({id: `${base.id}:${season}:${episode}`, season, episode, name: `Episode ${episode} of season ${season}`, overview: 'An episode of the fixture show.', thumbnail: art('t', `${base.id}${season}${episode}`), released: new Date(Date.UTC(2020, season, episode)).toISOString()})));
+    return json({meta});
+  }
+  m = /^\/stream\/(movie|series)\/([^/]+)\.json$/.exec(path);
+  if (m) return json({streams: [
+    {name: 'Fixture\n1080p', title: 'Multi-audio MKV\n💾 0.3 MB', url: `${media}/cors/multi-audio.mkv`, behaviorHints: {bingeGroup: 'fixture-mkv'}},
+    {name: 'Fixture\nMP4', title: 'Single-track MP4', url: `${media}/cors/single.mp4`},
+    {name: 'Fixture\nTorrent', title: 'Needs debrid', infoHash: 'a'.repeat(40)},
+  ]});
+  return null;
+}
+
+const origin = s => `http://127.0.0.1:${s.address().port}`;
 function listen(handler) {
   return new Promise(done => { const server = http.createServer(handler); server.listen(0, '127.0.0.1', () => done(server)); });
 }
@@ -46,6 +98,13 @@ export async function startAstraServers({frontend = join(ROOT, 'frontend'), fixt
   });
   const media = await listen((req, res) => {
     const url = new URL(req.url, 'http://x');
+    if (url.pathname.startsWith('/addon/')) {
+      const out = addonResponse(decodeURIComponent(url.pathname.slice(6)), origin(media), null);
+      res.writeHead(out ? 200 : 404, {'Content-Type': out?.type || 'text/plain', 'Access-Control-Allow-Origin': '*'});
+      return res.end(out?.body || 'not found');
+    }
+    const art = /^\/art\/([pblt])\/(.+)\.svg$/.exec(decodeURIComponent(url.pathname));
+    if (art) { res.writeHead(200, {'Content-Type': 'image/svg+xml', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'max-age=3600'}); return res.end(artSvg(art[1], art[2])); }
     const [, mode, ...rest] = decodeURIComponent(url.pathname).split('/');
     const file = normalize(join(fixtures, rest.join('/')));
     if (!file.startsWith(fixtures)) { res.writeHead(403); return res.end(); }
@@ -56,9 +115,8 @@ export async function startAstraServers({frontend = join(ROOT, 'frontend'), fixt
     }
     serveFile(req, res, file, {cors: mode === 'cors' ? true : mode === 'expose' ? 'expose' : false});
   });
-  const origin = s => `http://127.0.0.1:${s.address().port}`;
   return {
-    site: origin(site), media: origin(media),
+    site: origin(site), media: origin(media), addon: origin(media) + '/addon/manifest.json',
     close: () => Promise.all([site, media].map(s => new Promise(r => { s.closeAllConnections?.(); s.close(r); }))),
   };
 }

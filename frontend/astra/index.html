@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0d0d">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data: blob: https: http://localhost:* http://127.0.0.1:*; font-src 'self'; media-src 'self' blob: https: http://localhost:* http://127.0.0.1:*; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Astra</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="src/styles/tokens.css">
+  <link rel="stylesheet" href="src/styles/app.css">
+  <link rel="stylesheet" href="src/player/player.css">
+  <script type="module" src="src/main.js"></script>
+</head>
+<body>
+  <main id="app" class="astra"></main>
+  <div id="launch" class="launch" aria-hidden="true"><span class="wordmark">Astra</span><span class="spinner"></span></div>
+</body>
+</html>
