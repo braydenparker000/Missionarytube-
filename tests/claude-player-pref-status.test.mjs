@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
-import {PREF_STATUS, prefKeys, UI, BUILT, TODO, WEB, OWNER, NA} from '../frontend/claude-player/src/settings/pref-status.js';
+import {PREF_STATUS, prefKeys, unavailableNote, UI, BUILT, TODO, WEB, OWNER, NA} from '../frontend/claude-player/src/settings/pref-status.js';
 import {render, loadModel, DOC} from '../scripts/claude-player/pref-status.mjs';
 
 const model = loadModel();
@@ -39,4 +39,16 @@ test('built keys are read by the app', () => {
 
 test('the generated status table is current', () => {
   assert.equal(readFileSync(DOC, 'utf8'), render(model), 'run node scripts/claude-player/pref-status.mjs');
+});
+
+test('settings with no counterpart here carry the line their greyed-out row shows', () => {
+  for (const [key, [s, reason]] of Object.entries(PREF_STATUS)) {
+    const note = unavailableNote(key);
+    if (s === WEB) assert.equal(note, 'Not available on the web: ' + reason);
+    else if (s === OWNER) assert.match(note, /^Turned off in this player: [a-z]/, key);
+    else if (s === NA) assert.equal(note, 'Not part of this player');
+    else assert.equal(note, null, key);
+  }
+  assert.equal(unavailableNote('no_such_key'), null);
+  assert.equal(unavailableNote('download_album_art'), 'Turned off in this player: album art comes only from tags, folders or a picked image file');
 });
