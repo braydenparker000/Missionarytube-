@@ -36,6 +36,8 @@ function library(name) {
   });
 }
 
+const NETWORK_KINDS = new Set(['network', 'stall', 'timeout']);
+
 const MEDIA_ERRORS = {
   1: 'Playback was stopped.',
   2: 'The connection to the host failed while playing.',
@@ -68,7 +70,7 @@ export class AstraPlayer extends EventTarget {
     this.onVideoError = () => {
       const e = this.video.error;
       if (!e || !this.mode || this.mode === 'software') return;
-      this.fail(MEDIA_ERRORS[e.code] || 'Playback failed.', e.message, {decode: e.code === 3 || e.code === 4});
+      this.fail(MEDIA_ERRORS[e.code] || 'Playback failed.', e.message, {decode: e.code === 3 || e.code === 4, network: e.code === 2});
     };
     video.addEventListener('error', this.onVideoError);
     this.onFirstFrame = () => { this.started = true; };
@@ -84,10 +86,13 @@ export class AstraPlayer extends EventTarget {
    * Reports a stop. Before the first frame, a decoding failure in Astra's
    * own unpacking or in Chrome is retried once with the software decoder.
    */
-  fail(message, detail, {decode = false} = {}) {
+  fail(message, detail, {decode = false, network = false} = {}) {
     if (!this.started && decode && this.canFallBack()) { this.fallBack(message); return; }
+    // One stop is reported once, however many pipelines noticed it.
+    if (this.failedLoad === this.load_) return;
+    this.failedLoad = this.load_;
     this.record('error', {message, detail});
-    this.emit('error', {message, detail, plan: this.plan});
+    this.emit('error', {message, detail, plan: this.plan, network});
   }
 
   canFallBack() {
@@ -139,6 +144,8 @@ export class AstraPlayer extends EventTarget {
       const probed = await probe(url, {headers, signal: controller.signal, onStatus: t => this.status(t)});
       if (id !== this.load_) { probed.source?.close(); probed.input?.dispose(); return; }
       this.probed = probed;
+      // The connection to the host lost and found again while playing (the reader keeps trying meanwhile).
+      probed.source?.onState?.(state => { if (id === this.load_) this.emit('network', state); });
       this.info = probed.info;
       this.fileFacts(id, url, headers, probed, controller.signal);
       const caps = this.caps = {mse: mseSupports, native: nativeCanPlay, opusEncode: await canEncodeAudio('opus'), software: typeof WebAssembly === 'object' && typeof MediaStream === 'function'};
@@ -185,7 +192,7 @@ export class AstraPlayer extends EventTarget {
     this.selectedAudio = plan.audio?.track.id ?? null;
     const session = new RemuxSession(this.video, {info, video: plan.video, audio: plan.audio});
     session.addEventListener('status', e => this.status(e.detail));
-    session.addEventListener('error', e => this.fail(e.detail?.message || 'Playback stopped.', String(e.detail?.stack || e.detail), {decode: !e.detail?.kind}));
+    session.addEventListener('error', e => this.fail(e.detail?.message || 'Playback stopped.', String(e.detail?.stack || e.detail), {decode: !e.detail?.kind, network: NETWORK_KINDS.has(e.detail?.kind)}));
     this.session = session;
     this.startScanner();
     await session.start(startTime);

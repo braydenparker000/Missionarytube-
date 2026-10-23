@@ -109,3 +109,27 @@ test('streams are normalised and classic Astra add-ons are read without changing
   assert.deepEqual(classicAddons(storage), [{url: 'https://a.example.test/manifest.json', name: 'A'}]);
   assert.deepEqual(classicAddons({getItem: () => null}), [{url: CINEMETA, name: 'Cinemeta'}]);
 });
+
+test('a connection lost for longer than three tries is retried patiently: reads wait, then resume; the state is reported', async () => {
+  const h = host(60 * BLOCK, {failFirst: 5});
+  const source = new HttpSource('https://media.example.test/a.mkv', {fetchFn: h.fetchFn});
+  const states = [];
+  source.onState(s => states.push(s));
+  await source.open();
+  const started = Date.now();
+  // Far past what the first stream reads ahead: a new stream, which fails five times first.
+  const far = await source.read(55 * BLOCK, 55 * BLOCK + 10);
+  assert.ok(same(far, h.file.subarray(55 * BLOCK, 55 * BLOCK + 10)));
+  assert.ok(Date.now() - started > 2000, 'it backed off between tries');
+  assert.deepEqual(states, ['reconnecting', 'connected']);
+  source.close();
+});
+
+test('a dead link is said plainly; a host that never answers is given up on', async () => {
+  const gone = new HttpSource('https://media.example.test/a.mkv', {fetchFn: async () => new Response('', {status: 404})});
+  await assert.rejects(gone.open(), e => e.kind === 'gone' && /expired or the file was removed \(HTTP 404\)/.test(e.message));
+  const hangs = new HttpSource('https://media.example.test/a.mkv', {fetchFn: (url, init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason)))});
+  const t = Date.now();
+  await assert.rejects(hangs.open(), e => e.kind === 'timeout');
+  assert.ok(Date.now() - t >= 14000);
+});

@@ -44,7 +44,8 @@ export class PlayerScreen extends EventTarget {
     const subs = this.subsEl = h('div', {class: 'ap-subs'});
     this.engine = new AstraPlayer(video, subs);
     this.engine.addEventListener('status', e => { this.loadingStatus.textContent = e.detail; });
-    this.engine.addEventListener('error', e => this.showError(e.detail.message, e.detail.plan));
+    this.engine.addEventListener('error', e => this.showError(e.detail.message, e.detail.plan, e.detail));
+    this.engine.addEventListener('network', e => this.networkState(e.detail));
     this.engine.addEventListener('tracks', () => { this.refreshMenus(); if (this.ready) this.autoSubtitle(); });
     this.engine.addEventListener('ready', () => this.onReady());
     this.engine.addEventListener('filefacts', e => this.emit('fileinfo', e.detail));
@@ -192,6 +193,7 @@ export class PlayerScreen extends EventTarget {
 
   load(stream, startTime, {allowSilent = false} = {}) {
     this.stream = stream;
+    this.loadedFrom = startTime || 0; // where "Try again" resumes when nothing played yet
     this.ready = false;
     this.firstFrame = false;
     this.showLoading(true);
@@ -312,20 +314,34 @@ export class PlayerScreen extends EventTarget {
     if (on) this.loadingStatus.textContent = 'Finding the stream…';
   }
 
-  showError(message, plan = null) {
+  /** The host connection lost and found again: playback goes on from the buffer meanwhile, so this is a notice, not an error. */
+  networkState(state) {
+    if (state === 'reconnecting') { this.notice('Reconnecting…'); clearTimeout(this.noticeTimer); }
+    else if (state === 'connected' && !this.noticeEl.hidden) this.notice('Connected again');
+    else if (state === 'lost') this.noticeEl.hidden = true;
+  }
+
+  showError(message, plan = null, {network = false} = {}) {
     this.showLoading(false);
+    this.noticeEl.hidden = true;
     const report = h('button', {class: 'ap-chip', type: 'button', onclick: async () => {
       try { await navigator.clipboard.writeText(JSON.stringify(await this.engine.report(), null, 2)); report.textContent = 'Report copied'; } catch { report.textContent = 'Copy failed'; }
     }}, 'Copy report');
-    const external = canOpenExternally() && externalPlayerUrl(this.stream?.url);
+    // What can help depends on why it stopped: a lost connection is tried again
+    // (from where it stopped), a dead link needs another source, and only a file
+    // the browser cannot play is worth another app.
+    const connection = network || plan?.retry, gone = !!plan?.gone;
+    const external = !connection && !gone && canOpenExternally() && externalPlayerUrl(this.stream?.url);
+    const others = this.sources.length > 1, retry = connection || plan?.mode !== 'unsupported';
+    const primary = connection ? 'retry' : external ? 'external' : others ? 'sources' : 'retry';
     this.errorCard.replaceChildren(
-      h('h3', {}, plan?.mode === 'unsupported' ? 'Can’t play this here' : 'Playback stopped'), h('p', {}, message),
+      h('h3', {}, gone ? 'This link no longer works' : connection ? 'Lost the connection' : plan?.mode === 'unsupported' ? 'Can’t play this here' : 'Playback stopped'), h('p', {}, message),
       external ? h('p', {class: 'ap-error-hint'}, 'Another app on your phone, such as VLC, can play it.') : null,
       h('div', {class: 'ap-error-actions'},
         external ? h('button', {class: 'ap-chip primary', type: 'button', onclick: () => this.openExternally()}, 'Play in another app') : null,
         plan?.silent ? h('button', {class: 'ap-chip', type: 'button', onclick: () => this.load(this.stream, this.video.currentTime || 0, {allowSilent: true})}, 'Play without sound') : null,
-        this.sources.length > 1 ? h('button', {class: 'ap-chip' + (external ? '' : ' primary'), type: 'button', onclick: () => { this.errorCard.hidden = true; this.openPanel('sources'); }}, 'Choose another source') : null,
-        plan?.mode !== 'unsupported' ? h('button', {class: 'ap-chip', type: 'button', onclick: () => this.load(this.stream, this.video.currentTime || 0)}, 'Try again') : null,
+        others ? h('button', {class: 'ap-chip' + (primary === 'sources' ? ' primary' : ''), type: 'button', onclick: () => { this.errorCard.hidden = true; this.openPanel('sources'); }}, 'Choose another source') : null,
+        retry ? h('button', {class: 'ap-chip' + (primary === 'retry' ? ' primary' : ''), type: 'button', onclick: () => this.load(this.stream, this.video.currentTime || this.loadedFrom || 0)}, 'Try again') : null,
         report,
         h('button', {class: 'ap-chip', type: 'button', onclick: () => this.close('user')}, 'Close')));
     this.errorCard.hidden = false;
