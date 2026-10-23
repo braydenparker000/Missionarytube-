@@ -101,7 +101,7 @@ export async function launchQualifiedBrowser(t) {
     unavailable('Adversarial browser checks unexecuted: supply the qualified Chrome binary');
     return null;
   }
-  assert.ok(['v22.23.3', 'v24.21.0'].includes(process.version), 'Browser evidence requires an approved Node runtime');
+  assert.ok(['v22.23.4', 'v24.22.1'].includes(process.version), 'Browser evidence requires an approved Node runtime');
   assert.equal(execFileSync(executablePath, ['--version'], {encoding: 'utf8'}).trim(), 'Google Chrome for Testing 154.0.8037.97');
   let chromium;
   try { ({chromium} = await import('playwright-core')); }

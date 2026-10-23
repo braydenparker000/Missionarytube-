@@ -41,6 +41,9 @@ jobs:
           path: .jarvis-source
           persist-credentials: false
           fetch-depth: 0
+      # Component lanes qualify the pinned release source on these runtimes, and
+      # that source only accepts the runtimes it was approved with. Move them
+      # together with the jarvis-release.json source pin.
       - uses: actions/setup-node@v4
         with:
           node-version: '24.21.0'
@@ -194,7 +197,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '24.21.0'
+          node-version: '24.22.1'
           cache: npm
       - run: npm ci
       - run: node scripts/install-jarvis-browser.mjs
