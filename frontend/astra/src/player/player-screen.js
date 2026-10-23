@@ -18,6 +18,7 @@ import {loadPrefs, savePrefs, subtitleStyle, DEFAULTS, SPEEDS, ASPECTS, ASPECT_L
 
 const coarse = () => matchMedia('(pointer: coarse)').matches;
 import {languageName, baseLanguage} from '../engine/languages.js';
+import {externalPlayerUrl, canOpenExternally} from './external.js';
 
 const HIDE_AFTER = 3500;
 const PAUSE_OVERLAY_AFTER = 5000;
@@ -43,7 +44,7 @@ export class PlayerScreen extends EventTarget {
     const subs = this.subsEl = h('div', {class: 'ap-subs'});
     this.engine = new AstraPlayer(video, subs);
     this.engine.addEventListener('status', e => { this.loadingStatus.textContent = e.detail; });
-    this.engine.addEventListener('error', e => this.showError(e.detail.message));
+    this.engine.addEventListener('error', e => this.showError(e.detail.message, e.detail.plan));
     this.engine.addEventListener('tracks', () => { this.refreshMenus(); if (this.ready) this.autoSubtitle(); });
     this.engine.addEventListener('ready', () => this.onReady());
     this.engine.addEventListener('filefacts', e => this.emit('fileinfo', e.detail));
@@ -114,13 +115,14 @@ export class PlayerScreen extends EventTarget {
       h('button', {class: 'ap-unlock', type: 'button', onclick: e => { e.stopPropagation(); this.setLocked(false); }}, icon('unlock', {size: 34}), h('span', {}, 'Tap to unlock')),
       h('div', {class: 'ap-lock-track'}, h('div')));
     this.errorCard = h('div', {class: 'ap-error', hidden: true, role: 'alert'});
+    this.noticeEl = h('div', {class: 'ap-notice', hidden: true, role: 'status', onclick: () => { this.noticeEl.hidden = true; }});
     this.modal = h('div', {class: 'ap-modal', hidden: true});
     this.panel = h('div', {class: 'ap-panel', hidden: true});
 
     this.surface = h('div', {class: 'ap-surface'});
     this.root = h('div', {class: 'ap', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Player', hidden: true, tabindex: -1},
       video, subs, this.surface, this.pauseOverlay, this.feedback, this.seekPreview, this.levelBars.brightness, this.levelBars.volume,
-      this.controls, this.skipBtn, this.nextCard, this.lockOverlay, this.loading, this.errorCard, this.panel, this.modal);
+      this.controls, this.skipBtn, this.nextCard, this.lockOverlay, this.noticeEl, this.loading, this.errorCard, this.panel, this.modal);
     this.parent.append(this.root);
     new ResizeObserver(() => this.layout()).observe(this.root);
     video.addEventListener('loadedmetadata', () => this.layout());
@@ -188,14 +190,14 @@ export class PlayerScreen extends EventTarget {
     this.showControls();
   }
 
-  load(stream, startTime) {
+  load(stream, startTime, {allowSilent = false} = {}) {
     this.stream = stream;
     this.ready = false;
     this.firstFrame = false;
     this.showLoading(true);
     this.errorCard.hidden = true;
     this.viaEl.textContent = stream.name ? 'Via ' + stream.name.replace(/\s+/g, ' ') : '';
-    const prefs = {languages: [...new Set([this.prefs.audioLanguage, ...((navigator.languages || []).map(baseLanguage))].filter(Boolean))], subtitleLanguage: this.prefs.subtitleLanguage || null};
+    const prefs = {languages: [...new Set([this.prefs.audioLanguage, ...((navigator.languages || []).map(baseLanguage))].filter(Boolean))], subtitleLanguage: this.prefs.subtitleLanguage || null, allowSilent};
     this.engine.load({url: stream.url, headers: stream.headers || {}, startTime, autoplay: true, prefs, subtitles: stream.subtitles || []});
     this.mediaSession();
   }
@@ -204,6 +206,25 @@ export class PlayerScreen extends EventTarget {
     this.ready = this.engine.mode !== 'unsupported';
     this.refreshMenus();
     this.autoSubtitle();
+    // Say so when playback needs the viewer to know something: software decoding, Dolby Vision colours, no sound.
+    const notes = (this.engine.plan?.notes || []).filter(n => /software|Dolby Vision profile \d+ has|without sound/.test(n));
+    if (notes.length) this.notice(notes.at(-1));
+  }
+
+  /** A short message across the top for a few seconds. */
+  notice(text) {
+    this.noticeEl.textContent = text;
+    this.noticeEl.hidden = false;
+    clearTimeout(this.noticeTimer);
+    this.noticeTimer = setTimeout(() => { this.noticeEl.hidden = true; }, 7000);
+  }
+
+  /** Hands the stream to another app on the phone (VLC, MX Player…). */
+  openExternally() {
+    const url = externalPlayerUrl(this.stream?.url, {title: [this.meta.title, this.meta.episodeLine].filter(Boolean).join(' · '), position: this.video.currentTime || 0});
+    if (!url) return;
+    this.video.pause();
+    location.href = url;
   }
 
   /** Subtitles found by add-ons for what is playing; `load` ties them to one file. */
@@ -291,16 +312,20 @@ export class PlayerScreen extends EventTarget {
     if (on) this.loadingStatus.textContent = 'Finding the stream…';
   }
 
-  showError(message) {
+  showError(message, plan = null) {
     this.showLoading(false);
     const report = h('button', {class: 'ap-chip', type: 'button', onclick: async () => {
       try { await navigator.clipboard.writeText(JSON.stringify(await this.engine.report(), null, 2)); report.textContent = 'Report copied'; } catch { report.textContent = 'Copy failed'; }
     }}, 'Copy report');
+    const external = canOpenExternally() && externalPlayerUrl(this.stream?.url);
     this.errorCard.replaceChildren(
-      h('h3', {}, 'Playback stopped'), h('p', {}, message),
+      h('h3', {}, plan?.mode === 'unsupported' ? 'Can’t play this here' : 'Playback stopped'), h('p', {}, message),
+      external ? h('p', {class: 'ap-error-hint'}, 'Another app on your phone, such as VLC, can play it.') : null,
       h('div', {class: 'ap-error-actions'},
-        this.sources.length > 1 ? h('button', {class: 'ap-chip primary', type: 'button', onclick: () => { this.errorCard.hidden = true; this.openPanel('sources'); }}, 'Choose another source') : null,
-        h('button', {class: 'ap-chip', type: 'button', onclick: () => this.load(this.stream, this.video.currentTime || 0)}, 'Try again'),
+        external ? h('button', {class: 'ap-chip primary', type: 'button', onclick: () => this.openExternally()}, 'Play in another app') : null,
+        plan?.silent ? h('button', {class: 'ap-chip', type: 'button', onclick: () => this.load(this.stream, this.video.currentTime || 0, {allowSilent: true})}, 'Play without sound') : null,
+        this.sources.length > 1 ? h('button', {class: 'ap-chip' + (external ? '' : ' primary'), type: 'button', onclick: () => { this.errorCard.hidden = true; this.openPanel('sources'); }}, 'Choose another source') : null,
+        plan?.mode !== 'unsupported' ? h('button', {class: 'ap-chip', type: 'button', onclick: () => this.load(this.stream, this.video.currentTime || 0)}, 'Try again') : null,
         report,
         h('button', {class: 'ap-chip', type: 'button', onclick: () => this.close('user')}, 'Close')));
     this.errorCard.hidden = false;
@@ -663,7 +688,7 @@ export class PlayerScreen extends EventTarget {
 
   infoModal() {
     const e = this.engine, info = e.info, plan = e.plan;
-    const rows = [['How it plays', {native: 'Directly in Chrome', remux: 'Unpacked by Astra', hls: 'HLS stream', dash: 'DASH stream', unsupported: 'Not playable'}[e.mode] || '—']];
+    const rows = [['How it plays', {native: 'Directly in Chrome', remux: 'Unpacked by Astra', software: 'Decoded by Astra (software)', hls: 'HLS stream', dash: 'DASH stream', unsupported: 'Not playable'}[e.mode] || '—']];
     if (info?.video?.[0]) rows.push(['Video', [info.video[0].label, info.video[0].width && `${info.video[0].width}×${info.video[0].height}`, info.video[0].hdr && 'HDR'].filter(Boolean).join(' · ')]);
     const audio = e.audioOptions().find(a => a.selected);
     if (audio) rows.push(['Audio', audio.label + (audio.delivery === 'rebuilt' ? ' (converted)' : '')]);
@@ -672,7 +697,9 @@ export class PlayerScreen extends EventTarget {
     if (q) rows.push(['Frames', `${q.totalVideoFrames} shown, ${q.droppedVideoFrames} dropped`]);
     if (this.video.videoWidth) rows.push(['Picture', `${this.video.videoWidth}×${this.video.videoHeight}`]);
     for (const n of plan?.notes || []) rows.push(['Note', n]);
-    return [h('h3', {}, 'Stream info'), h('dl', {class: 'ap-info'}, ...rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))];
+    const external = canOpenExternally() && externalPlayerUrl(this.stream?.url);
+    return [h('h3', {}, 'Stream info'), h('dl', {class: 'ap-info'}, ...rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
+      external ? h('button', {class: 'ap-chip', type: 'button', onclick: () => this.openExternally()}, 'Play in another app') : null];
   }
 
   renderPanel() {

@@ -63,17 +63,35 @@ never switches pipeline mid-play:
 2. **Decide once** (`plan.js`, pure and unit-tested). Using answers from the
    browser itself (`capabilities.js`): `native` for a plain one-track
    MP4/WebM or an unreadable host, `remux` for everything else Astra can
-   play, `hls`/`dash` for adaptive streams, or `unsupported` with a reason.
-   Audio tracks are `direct` (AAC, Opus, FLAC), `rebuilt` (AC-3, E-AC-3,
-   DTS, Vorbis, MP3, PCM: decoded and re-encoded to Opus on the device) or
-   `unsupported` (TrueHD and other codecs no browser decoder exists for).
+   play, `software` when the phone has no browser decoder for the video
+   (HEVC, AV1 or VP9 without hardware support, 10-bit H.264) or Mediabunny
+   cannot read the container (AVI, FLV, MPEG-PS), `hls`/`dash` for adaptive
+   streams, or `unsupported` with a reason and an offer to play the file in
+   another app. Audio tracks are `direct` (AAC, Opus, FLAC), `rebuilt` (AC-3,
+   E-AC-3, DTS, Vorbis, MP3, PCM: decoded and re-encoded to Opus on the
+   device) or `unsupported` (TrueHD and other codecs no browser decoder
+   exists for); a file with only unplayable audio can be played without
+   sound when the viewer asks. Dolby Vision profiles are read from the MKV
+   header and explained (profile 5 has no standard picture underneath).
 3. **Play** (`remux.js`, `mse.js`). Video packets are re-wrapped as
    fragmented MP4 untouched, so the phone's hardware decoder does the work;
    audio has its own SourceBuffer, so changing track refills only the audio.
    Fragments carry absolute timestamps, so a seek outside the buffer starts
    fresh pipelines at the nearest key frame. Text subtitles in MKV are read
    from clusters already downloaded (`embedded-subtitles.js`) and drawn by
-   `src/subtitles/renderer.js`.
+   `src/subtitles/renderer.js`. Files whose timestamps start after zero
+   (MPEG-TS) are shifted to start at 0:00.
+4. **Software decoding** (`software.js`): libmedia's AVPlayer (LGPL-3.0,
+   served from classic Astra's folder, loaded only when needed) decodes with
+   WebCodecs where the browser has the decoder and WebAssembly otherwise,
+   into a MediaStream on the same `<video>`, reading through the same range
+   reader. The session gives the element the file's clock, so the player,
+   subtitles and picture-in-picture work unchanged. If Astra's own unpacking
+   or Chrome fails to decode before the first frame, playback switches to it
+   once by itself.
+5. **Another app**: when nothing in the browser can play a file, the player
+   offers it to the phone's video apps (VLC, MX Player…) through an Android
+   intent with the title and position (`src/player/external.js`).
 
 ## The player screen
 

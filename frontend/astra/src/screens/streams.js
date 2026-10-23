@@ -6,7 +6,12 @@ import {icon} from '../ui/icons.js';
 import {image, longPress, sheet, toast} from '../ui/components.js';
 import {fetchStreams, supports} from '../addons/client.js';
 import {episodeCode} from '../app/content.js';
+import {externalPlayerUrl, canOpenExternally} from '../player/external.js';
 
+/** Gives each stream of a group a key that stays the same however the list is filtered. */
+const keyed = g => ({...g, streams: g.streams ? g.streams.map((s, i) => ({...s, key: `${g.addon.url}#${i}`})) : g.streams});
+
+const NEEDS_DEBRID = 'Torrents need a debrid add-on such as TorBox.';
 const sizeLabel = n => !n ? '' : n >= 1e9 ? (n / 1e9).toFixed(n >= 1e10 ? 0 : 1) + ' GB' : Math.round(n / 1e6) + ' MB';
 
 /** A best-effort size from the stream's own text ("💾 4.2 GB"). */
@@ -50,7 +55,7 @@ export class StreamsScreen {
   /** Collects every playable stream without drawing (used by the player's episode switch). */
   async collect() {
     await this.app.ready;
-    await fetchStreams(this.addons(), this.meta.type, this.id, {onGroup: g => this.groups.set(g.addon.url, g)});
+    await fetchStreams(this.addons(), this.meta.type, this.id, {onGroup: g => this.groups.set(g.addon.url, keyed(g))});
     return this.sources();
   }
 
@@ -73,7 +78,7 @@ export class StreamsScreen {
     this.render();
     await fetchStreams(addons, this.meta.type, this.id, {onGroup: g => {
       this.pending.delete(g.addon.url);
-      this.groups.set(g.addon.url, {...g, order: addons.findIndex(a => a.url === g.addon.url)});
+      this.groups.set(g.addon.url, keyed({...g, order: addons.findIndex(a => a.url === g.addon.url)}));
       this.render();
     }});
     this.loading = false;
@@ -83,7 +88,7 @@ export class StreamsScreen {
 
   sources() {
     return [...this.groups.values()].filter(g => g.streams).sort((a, b) => a.order - b.order)
-      .flatMap(g => g.streams.filter(s => s.url).map((s, i) => ({id: `${g.addon.url}#${i}`, addonUrl: g.addon.url,
+      .flatMap(g => g.streams.filter(s => s.url).map(s => ({id: s.key, addonUrl: g.addon.url,
         label: `${g.addon.name} · ${(s.name || '').replace(/\s+/g, ' ')}`.trim(), detail: [s.title, sizeFrom(s)].filter(Boolean).join('\n'),
         stream: {...s, name: `${g.addon.name} ${(s.name || '').replace(/\s+/g, ' ')}`.trim()}})));
   }
@@ -97,7 +102,8 @@ export class StreamsScreen {
   render() {
     const groups = [...this.groups.values()].sort((a, b) => a.order - b.order);
     const withStreams = groups.filter(g => g.streams === null || g.streams?.length);
-    if (this.filter !== 'all' && !groups.some(g => g.addon.url === this.filter)) this.filter = 'all';
+    // The remembered add-on may have nothing for this title: show everything rather than an empty list.
+    if (this.filter !== 'all' && !withStreams.some(g => g.addon.url === this.filter)) this.filter = 'all';
     const refresh = h('button', {class: 'chip refresh' + (this.loading ? ' spinning' : ''), type: 'button', 'aria-label': 'Refresh streams', onclick: () => this.load()}, icon('replay', {size: 18}));
     const chip = (id, label) => h('button', {class: 'chip', role: 'tab', type: 'button', 'aria-selected': String(this.filter === id), 'aria-pressed': String(this.filter === id), onclick: () => { this.filter = id; this.app.store.set('lastAddon', id); this.render(); }}, label);
     this.chips.replaceChildren(refresh, chip('all', 'All'), ...withStreams.map(g => chip(g.addon.url, g.addon.name)));
@@ -117,11 +123,12 @@ export class StreamsScreen {
   card(group, s, i, sources) {
     const playable = !!s.url;
     const size = s.size ? sizeFrom(s) : ''; // a size already in the description is not repeated
-    const id = `${group.addon.url}#${i}`;
     const card = h('button', {class: 'stream-card' + (playable ? '' : ' disabled'), type: 'button', 'aria-disabled': String(!playable),
       onclick: () => {
-        if (!playable) { toast(s.infoHash ? 'Torrents need a debrid add-on such as TorBox.' : s.externalUrl ? 'This source opens outside Astra.' : 'This source has no playable link.'); return; }
-        const source = sources.find(x => x.id === id);
+        if (!playable && s.externalUrl && /^https?:/i.test(s.externalUrl)) { window.open(s.externalUrl, '_blank', 'noopener'); return; }
+        if (!playable) { toast(s.infoHash ? NEEDS_DEBRID : 'This source has no playable link.'); return; }
+        const source = sources.find(x => x.id === s.key);
+        if (!source) return;
         this.app.play({meta: this.meta, video: this.video, source, sources, startTime: this.startTime});
       }},
       h('b', {class: 'stream-name'}, (s.name || group.addon.name).replace(/\s*\n\s*/g, ' ')),
@@ -129,9 +136,10 @@ export class StreamsScreen {
       h('span', {class: 'stream-badges'}, size ? h('em', {}, size) : null, !playable && s.infoHash ? h('em', {class: 'muted'}, 'Torrent') : null));
     if (playable) longPress(card, () => sheet(s.name?.replace(/\s+/g, ' ') || group.addon.name, [
       {label: 'Copy stream link', icon: 'copy', run: () => navigator.clipboard.writeText(s.url).then(() => toast('Link copied'), () => toast('Copy failed'))},
+      canOpenExternally() ? {label: 'Play in another app', icon: 'play', run: () => { const url = externalPlayerUrl(s.url, {title: this.meta.name || ''}); if (url) location.href = url; }} : null,
       {label: 'Open in VLC', icon: 'play', run: () => { location.href = `intent:${s.url}#Intent;package=org.videolan.vlc;type=video/*;S.title=${encodeURIComponent(this.meta.name || '')};end`; }},
       {label: 'Check playback in the lab', icon: 'info', run: () => { location.href = `lab/?src=${encodeURIComponent(s.url)}`; }},
-    ], {subtitle: group.addon.name}));
+    ].filter(Boolean), {subtitle: group.addon.name}));
     return card;
   }
 }

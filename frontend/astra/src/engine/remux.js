@@ -46,6 +46,7 @@ export class RemuxSession extends EventTarget {
     this.stats = {appended: 0, restarts: 0};
     this.from = 0;
     this.readAt = {video: 0, audio: 0};
+    this.offset = 0; // the file's first timestamp; media time = file time - offset
     this.onSeeking = () => this.seeking();
     this.wakers = new Set();
     this.onProgress = () => { for (const w of this.wakers) w(); };
@@ -67,10 +68,16 @@ export class RemuxSession extends EventTarget {
       this.video.src = this.url;
     });
     URL.revokeObjectURL(this.url);
-    if (this.info.duration > 0) this.ms.duration = this.info.duration;
+    // Transport streams (and some recordings) start well after zero; play
+    // them from 0:00 by shifting the media rather than leaving a gap.
+    const firsts = await Promise.all([this.videoTrack?.ref, this.audio?.track.ref].filter(Boolean).map(t => t.getFirstTimestamp?.().catch(() => 0) ?? 0));
+    const first = firsts.length ? Math.min(...firsts) : 0;
+    this.offset = first > 0.05 ? first : 0;
+    if (this.info.duration > 0) this.ms.duration = Math.max(0.1, this.info.duration - this.offset);
     const fatal = error => this.fail(error);
     if (this.videoTrack) this.queues.video = new AppendQueue(this.ms.addSourceBuffer(videoMime(this.videoTrack)), this.video, fatal);
     if (this.audio) this.queues.audio = new AppendQueue(this.ms.addSourceBuffer(this.audio.delivery === 'rebuilt' ? OPUS : audioMime(this.audio.track)), this.video, fatal);
+    if (this.offset) for (const q of Object.values(this.queues)) q.buffer.timestampOffset = -this.offset;
     this.video.addEventListener('seeking', this.onSeeking);
     for (const type of ['timeupdate', 'seeking', 'playing']) this.video.addEventListener(type, this.onProgress);
     if (startTime > 0) this.video.currentTime = startTime;
@@ -81,8 +88,8 @@ export class RemuxSession extends EventTarget {
   run(time) {
     this.from = time;
     this.readAt = {video: time, audio: time};
-    if (this.queues.video) this.pumpVideo(this.queues.video.generation, time).catch(e => this.fail(e));
-    if (this.queues.audio) this.pumpAudio(this.queues.audio.generation, time).catch(e => this.fail(e));
+    if (this.queues.video) this.pumpVideo(this.queues.video.generation, time + this.offset).catch(e => this.fail(e));
+    if (this.queues.audio) this.pumpAudio(this.queues.audio.generation, time + this.offset).catch(e => this.fail(e));
   }
 
   seeking() {
@@ -112,15 +119,16 @@ export class RemuxSession extends EventTarget {
     this.audio = choice;
     this.ended.audio = false;
     const generation = await this.queues.audio.reset({mime: mime !== was ? mime : null});
+    if (this.offset) this.queues.audio.buffer.timestampOffset = -this.offset;
     this.flushAudio = generation; // see room()
-    this.pumpAudio(generation, Math.max(0, this.video.currentTime - 0.3)).catch(e => this.fail(e));
+    this.pumpAudio(generation, Math.max(0, this.video.currentTime - 0.3) + this.offset).catch(e => this.fail(e));
   }
 
   /** Waits while the pipeline is far enough ahead of the playhead. */
   async room(kind, timestamp, generation) {
     const queue = this.queues[kind];
     const current = () => !this.destroyed && queue.generation === generation;
-    this.readAt[kind] = timestamp;
+    this.readAt[kind] = timestamp - this.offset;
     // Chrome keeps playing audio it decoded from the old track until a seek
     // flushes it; seek in place once the new track covers the playhead.
     if (kind === 'audio' && this.flushAudio === generation && bufferedAt(queue.buffer, this.video.currentTime, 0.3, this.ms.duration)) {

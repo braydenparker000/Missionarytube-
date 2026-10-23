@@ -201,6 +201,10 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 .ap-episode small { color: rgba(255,255,255,.6); font-size: 12px; }
 .ap-episode b { font-size: 14px; line-height: 20px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
+/* A short notice across the top (software decoding, Dolby Vision colours, no sound). */
+.ap-notice { position: absolute; z-index: 8; top: calc(64px + var(--safe-top)); left: 50%; transform: translateX(-50%); width: min(560px, calc(100% - 32px)); padding: 10px 14px; border-radius: 14px; background: rgba(20,20,20,.88); color: #fff; font-size: 13px; line-height: 18px; text-align: center; }
+.ap-error-hint { color: rgba(255,255,255,.7); font-size: 13px; margin-top: -4px; }
+
 /* Portrait: menus stack and cover the picture fully; the side panels are full width. */
 @media (orientation: portrait) {
   .ap-rails { flex-wrap: wrap; }

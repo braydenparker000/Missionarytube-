@@ -13,7 +13,15 @@ const ID = {
   ContentCompression: 0x5034, ContentCompAlgo: 0x4254, ContentCompSettings: 0x4255,
   Cues: 0x1c53bb6b, CuePoint: 0xbb, CueTime: 0xb3, CueTrackPositions: 0xb7, CueClusterPosition: 0xf1,
   Cluster: 0x1f43b675, Timestamp: 0xe7, SimpleBlock: 0xa3, BlockGroup: 0xa0, Block: 0xa1, BlockDuration: 0x9b,
+  BlockAdditionMapping: 0x41e4, BlockAddIDType: 0x41e7, BlockAddIDExtraData: 0x41ed,
 };
+const DOLBY_VISION = new Set([0x64766343, 0x64767643, 0x64767743]); // 'dvcC', 'dvvC', 'dvwC'
+
+/** Reads a Dolby Vision configuration record: {profile, level, compatibility}. */
+export function dolbyVision(record) {
+  if (!record || record.length < 5) return null;
+  return {profile: record[2] >> 1, level: (record[2] & 1) << 5 | record[3] >> 3, compatibility: record[4] >> 4};
+}
 const TOP_LEVEL = new Set([ID.SeekHead, ID.Info, ID.Tracks, ID.Cues, ID.Cluster, 0x1254c367, 0x1941a469, 0x1043a770]);
 export const TRACK_TYPE = {video: 1, audio: 2, subtitle: 0x11};
 
@@ -80,6 +88,14 @@ function parseTrack(bytes, start, end) {
     else if (c.id === ID.FlagForced) t.forced = uint(bytes, c.dataStart, c.dataEnd) === 1;
     else if (c.id === ID.FlagHearingImpaired) t.hearingImpaired = uint(bytes, c.dataStart, c.dataEnd) === 1;
     else if (c.id === ID.FlagCommentary) t.commentary = uint(bytes, c.dataStart, c.dataEnd) === 1;
+    else if (c.id === ID.BlockAdditionMapping) {
+      let type = 0, extra = null;
+      for (const f of children(bytes, c.dataStart, c.dataEnd)) {
+        if (f.id === ID.BlockAddIDType) type = uint(bytes, f.dataStart, f.dataEnd);
+        else if (f.id === ID.BlockAddIDExtraData) extra = bytes.subarray(f.dataStart, f.dataEnd);
+      }
+      if (DOLBY_VISION.has(type)) t.dolbyVision = dolbyVision(extra);
+    }
     else if (c.id === ID.ContentEncodings) {
       for (const e of children(bytes, c.dataStart, c.dataEnd)) {
         if (e.id !== ID.ContentEncoding) continue;

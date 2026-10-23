@@ -208,3 +208,22 @@ test('picture-in-picture shrinks the video into its window and hands the screen 
   await page.waitForFunction(() => !astraLab.screen.isOpen);
   assert.deepEqual(errors, []);
 });
+
+test('a file with no playable audio offers Play without sound and another app; Play without sound plays', options, async t => {
+  const servers = await startAstraServers();
+  const browser = await chromium.launch({executablePath, headless: true, args: ['--autoplay-policy=no-user-gesture-required']});
+  t.after(async () => { await browser.close(); await servers.close(); });
+  const context = await browser.newContext({viewport: {width: W, height: H}, userAgent: 'Mozilla/5.0 (Linux; Android 14; SM-A155F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36'});
+  const page = await context.newPage();
+  await page.goto(`${servers.site}/astra/lab/`);
+  await page.waitForFunction(() => window.astraLab?.openPlayer);
+  await page.evaluate(url => astraLab.openPlayer({url, name: 'Fixture add-on'}, {title: 'Fixture'}), servers.media + '/cors/truehd-only.mkv');
+  await page.waitForSelector('.ap-error:not([hidden])');
+  assert.match(await page.locator('.ap-error p').first().textContent(), /TrueHD/);
+  const actions = await page.locator('.ap-error-actions button').allTextContents();
+  assert.deepEqual(actions.slice(0, 2), ['Play in another app', 'Play without sound']);
+  await page.locator('.ap-error-actions button', {hasText: 'Play without sound'}).click();
+  await page.waitForFunction(() => document.querySelector('.ap-video').currentTime > 0.5, null, {timeout: 20000});
+  assert.equal(await page.locator('.ap-error').isHidden(), true);
+  assert.match(await page.locator('.ap-notice').textContent(), /without sound/);
+});

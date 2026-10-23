@@ -4,13 +4,16 @@
 //   caps.mse(mime)     MediaSource.isTypeSupported
 //   caps.native(mime)  <video>.canPlayType says yes
 //   caps.opusEncode    WebCodecs can encode Opus (to rebuild unsupported audio)
+//   caps.software      the software decoder (libmedia) can run here
 //
 // Modes: 'native' (the browser plays the address itself), 'remux' (Astra
-// unpacks the file and feeds the browser video plus the chosen audio), 'hls',
+// unpacks the file and feeds the browser video plus the chosen audio),
+// 'software' (Astra decodes what the phone's decoders cannot), 'hls',
 // 'dash', or 'unsupported' with a reason a person can act on.
 
 import {baseLanguage, languageName} from './languages.js';
 import {channelName} from './labels.js';
+import {SOFTWARE_VIDEO, softwareAudio} from './software.js';
 
 const DIRECT_AUDIO = new Set(['aac', 'opus', 'flac', 'mp3']);
 const REBUILT_AUDIO = new Set(['ac3', 'eac3', 'dts', 'vorbis']);
@@ -26,6 +29,11 @@ export function adaptiveKind(url, contentType = '') {
 
 export function audioMime(track) { return `audio/mp4; codecs="${track.codecString || track.codec}"`; }
 export function videoMime(track) { return `video/mp4; codecs="${track.codecString || track.codec}"`; }
+
+/** In software mode the decoder plays the audio itself. */
+function softwareDelivery(track) {
+  return softwareAudio(track.codec) ? {delivery: 'software'} : {delivery: 'unsupported', reason: `${track.label || 'This audio format'} cannot be decoded in a browser.`};
+}
 
 /** How each audio track can reach the speaker: 'direct', 'rebuilt' or 'unsupported'. */
 export function audioDelivery(track, caps) {
@@ -89,25 +97,45 @@ export function planPlayback(probe, caps, prefs = {}) {
     return {mode: 'native', notes};
   }
   const info = probe.info;
-  if (!info) return {mode: 'unsupported', reason: probe.error?.message || 'Astra could not read this file.', notes};
+  if (!info) {
+    // Mediabunny does not read AVI, FLV or MPEG-PS; the software decoder does.
+    if (caps.software && probe.error?.kind === 'format') {
+      notes.push('Astra does not unpack this kind of file itself, so its software decoder plays it.');
+      return {mode: 'software', notes, audioOptions: [], subtitleOptions: []};
+    }
+    return {mode: 'unsupported', reason: probe.error?.message || 'Astra could not read this file.', notes};
+  }
   if (info.layout?.unknownClusterSizes) {
     notes.push('This file was written like a live recording, which Astra cannot unpack. Chrome will play it as-is: no audio track choice and no built-in subtitles.');
     return {mode: 'native', notes};
   }
   const video = info.video[0] || null;
-  const audioOptions = info.audio.map(track => ({track, ...audioDelivery(track, caps), label: audioLabel(track)}));
-  const audio = chooseAudio(audioOptions, {languages: prefs.languages || [], preferredId: prefs.audioId ?? null});
   const subtitles = info.subtitles || [];
   const subtitleOptions = subtitles.map(s => ({track: s, label: subtitleLabel(s), supported: !!s.format && !s.encrypted, reason: s.encrypted ? 'Encrypted subtitles.' : s.format ? '' : s.image ? `${s.image} picture subtitles cannot be shown.` : 'Unknown subtitle format.'}));
-  const subtitle = chooseSubtitle(subtitles, {audioLanguage: audio?.track.language, languages: prefs.languages || [], wanted: prefs.subtitleLanguage || null});
-
-  if (video && !caps.mse(videoMime(video))) {
-    const name = video.label + (video.hdr ? ' HDR' : '');
-    const nativeOk = NATIVE_CONTAINERS.test(info.container) && caps.native(`video/${/webm/i.test(info.container) ? 'webm' : 'mp4'}; codecs="${video.codecString}"`);
-    if (!nativeOk) return {mode: 'unsupported', reason: `This browser cannot decode ${name} video on this device.`, notes, video, audioOptions, subtitleOptions};
+  const dv = video?.dolbyVision;
+  if (dv) {
+    if (dv.compatibility === 0) notes.push(`Dolby Vision profile ${dv.profile} has no standard picture underneath, so colours may look wrong (purple and green) in a browser. A HDR10 or SDR source, or another app, shows it properly.`);
+    else notes.push(`Dolby Vision profile ${dv.profile}: shown as ${dv.compatibility === 1 || dv.compatibility === 6 ? 'HDR10' : dv.compatibility === 2 ? 'SDR' : 'HLG'}.`);
   }
+
+  const name = video ? video.label + (video.hdr ? ' HDR' : '') : '';
+  const nativeOk = video && NATIVE_CONTAINERS.test(info.container) && caps.native(`video/${/webm/i.test(info.container) ? 'webm' : 'mp4'}; codecs="${video.codecString}"`);
+  const software = !!video && !caps.mse(videoMime(video)) && !nativeOk;
+  if (software && !(caps.software && SOFTWARE_VIDEO.has(video.codec))) {
+    return {mode: 'unsupported', reason: `This phone cannot decode ${name} video in a browser.`, notes, video, audioOptions: [], subtitleOptions, external: true};
+  }
+
+  const audioOptions = info.audio.map(track => ({track, ...(software ? softwareDelivery(track) : audioDelivery(track, caps)), label: audioLabel(track)}));
+  const audio = chooseAudio(audioOptions, {languages: prefs.languages || [], preferredId: prefs.audioId ?? null});
+  const subtitle = chooseSubtitle(subtitles, {audioLanguage: audio?.track.language, languages: prefs.languages || [], wanted: prefs.subtitleLanguage || null});
   if (info.audio.length && !audio) {
-    return {mode: 'unsupported', reason: `None of the audio tracks can play in a browser (${[...new Set(info.audio.map(t => t.label))].join(', ')}).`, notes, video, audioOptions, subtitleOptions};
+    const reason = `None of the audio tracks can play in a browser (${[...new Set(info.audio.map(t => t.label))].join(', ')}).`;
+    if (!prefs.allowSilent) return {mode: 'unsupported', reason, notes, video, audioOptions, subtitleOptions, external: true, silent: !!video};
+    notes.push(`${reason} Playing without sound.`);
+  }
+  if (software) {
+    notes.push(`This phone has no ${name} decoder for browsers, so Astra decodes it in software. That uses more battery and may stutter at high resolutions.`);
+    return {mode: 'software', video, audio, audioOptions, subtitle, subtitleOptions, notes};
   }
   const unsupported = audioOptions.filter(o => o.delivery === 'unsupported');
   if (unsupported.length) notes.push(`Not playable here: ${unsupported.map(o => o.label).join('; ')}.`);
