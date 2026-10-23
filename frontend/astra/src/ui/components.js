@@ -111,7 +111,7 @@ export function liftMenu(source, title, subtitle, actions) {
   art.classList.add('lift-art');
   const menu = h('div', {class: 'lift-menu', role: 'menu'}, ...actions.map((a, i) => h('button', {
     class: 'lift-item' + (a.destructive ? ' destructive' : ''), type: 'button', role: 'menuitem', style: {animationDelay: `${60 + i * 35}ms`},
-    onclick: () => { close(); a.run(); },
+    onclick: () => { if (close()) a.run(); }, // a second quick tap runs nothing
   }, h('span', {}, a.label), a.icon ? icon(a.icon, {size: 20}) : null)));
   // Title and menu stack in one column, so the 14 px between them holds whatever the title's length.
   const panel = h('div', {class: 'lift-panel'}, h('div', {class: 'lift-text'}, h('b', {}, title || ''), subtitle ? h('span', {}, subtitle) : null), menu);
@@ -138,13 +138,14 @@ export function liftMenu(source, title, subtitle, actions) {
   });
   const pop = pushLayer('lift', () => close(true));
   function close(fromBack = false) {
-    if (!layer.isConnected || layer.classList.contains('closing')) return;
+    if (!layer.isConnected || layer.classList.contains('closing')) return false;
     if (!fromBack) pop();
     layer.classList.add('closing');
     layer.classList.remove('open');
     art.style.transition = `transform ${Math.round(move * 0.7)}ms cubic-bezier(.4,0,.2,1)`;
     art.style.transform = fromCard;
     setTimeout(() => layer.remove(), move);
+    return true;
   }
   menu.querySelector('button')?.focus({preventScroll: true});
   return close;

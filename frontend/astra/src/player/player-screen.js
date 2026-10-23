@@ -126,6 +126,8 @@ export class PlayerScreen extends EventTarget {
       this.controls, h('div', {class: 'ap-buffering'}, this.spinner), this.skipBtn, this.nextCard, this.lockOverlay, this.noticeEl, this.loading, this.errorCard, this.panel, this.modal);
     this.parent.append(this.root);
     this.bottomEl = this.controls.querySelector('.ap-bottom');
+    // Moving through the controls with Tab shows them.
+    this.controls.addEventListener('focusin', () => { if (!this.controlsVisible && !this.locked) this.showControls(); });
     const resized = new ResizeObserver(() => this.layout());
     resized.observe(this.root);
     resized.observe(this.bottomEl); // a two-line title or the Via line changes how much room the subtitles need
@@ -160,6 +162,10 @@ export class PlayerScreen extends EventTarget {
     this.sources = o.sources || [];
     this.sourceId = o.sourceId ?? this.sources[0]?.id ?? null;
     this.segments = (o.segments || []).filter(s => s.end > s.start);
+    // Choices that belong to one title start fresh with the next.
+    this.panelSeason = null;
+    this.subLang = null;
+    this.setBrightness(1);
     this.nextDismissed = false;
     this.skipped = new Set();
     this.firstFrame = false;
@@ -541,12 +547,20 @@ export class PlayerScreen extends EventTarget {
     removeEventListener('keydown', this.onKey);
   }
 
-  /** The floating window closed: expanded (still playing) brings the player back; closed (paused) ends it. */
+  /**
+   * The floating window went away. Closing it (Chrome pauses the video just
+   * before) ends playback; expanding it brings the player back, paused or not.
+   */
   leftPip() {
     this.root.classList.remove('in-pip');
     if (!this.minimized) return;
-    if (this.video.paused || this.video.ended) { this.minimized = false; this.root.classList.remove('mini'); this.close('pip'); return; }
-    this.restoreFromPip();
+    // Decided a moment later: the pause that comes with closing may be dispatched just after this event.
+    setTimeout(() => {
+      if (!this.minimized) return;
+      const closed = this.video.ended || (this.video.paused && performance.now() - (this.pausedAt || 0) < 400);
+      if (closed) { this.minimized = false; this.root.classList.remove('mini'); this.close('pip'); return; }
+      this.restoreFromPip();
+    });
   }
 
   restoreFromPip({exit = false} = {}) {
@@ -684,7 +698,11 @@ export class PlayerScreen extends EventTarget {
 
   subtitleModal() {
     const options = this.engine.subtitleOptions();
-    const langs = [...new Set(options.map(s => baseLanguage(s.language) || 'und'))];
+    // Languages in a useful order: the remembered one, the phone's own, then A to Z (Unknown last).
+    const wanted = [baseLanguage(this.prefs.subtitleLanguage), ...navigator.languages.map(baseLanguage)].filter(Boolean);
+    const rank = code => code === 'und' ? 1e4 : wanted.includes(code) ? wanted.indexOf(code) : 100;
+    const langs = [...new Set(options.map(s => baseLanguage(s.language) || 'und'))]
+      .sort((a, b) => rank(a) - rank(b) || (languageName(a) || a).localeCompare(languageName(b) || b));
     const selected = options.find(s => s.selected);
     this.subLang ??= selected ? baseLanguage(selected.language) || 'und' : langs[0] || null;
     if (this.subLang && !langs.includes(this.subLang)) this.subLang = langs[0] || null;
@@ -777,6 +795,7 @@ export class PlayerScreen extends EventTarget {
     });
     v.addEventListener('waiting', () => { if (this.firstFrame) this.setBuffering(true); });
     v.addEventListener('pause', () => {
+      this.pausedAt = performance.now();
       this.updatePlayState(); this.wake(false); this.showControls(false); this.emitProgress(true);
     });
     v.addEventListener('play', () => { this.updatePlayState(); this.scheduleHide(); });
@@ -944,6 +963,10 @@ export class PlayerScreen extends EventTarget {
   key(e) {
     if (!this.isOpen || e.target.closest?.('input, textarea')) return;
     const k = e.key;
+    // Locked means locked, keys too; only the Unlock button can be reached and pressed.
+    if (this.locked) { if (k !== 'Tab' && !e.target.closest?.('.ap-unlock')) { e.preventDefault(); this.showLockHint(); } return; }
+    // Space and Enter on a focused button or the seek bar press that, not play/pause.
+    if ((k === ' ' || k === 'Enter') && e.target.closest?.('button, [role="slider"]')) return;
     if (k === ' ' || k === 'k') { e.preventDefault(); this.togglePlay(); }
     else if (k === 'ArrowLeft' || k === 'j') { e.preventDefault(); this.seekBy(-10); this.flash('−10s', {kind: 'left'}); }
     else if (k === 'ArrowRight' || k === 'l') { e.preventDefault(); this.seekBy(10); this.flash('+10s', {kind: 'right'}); }

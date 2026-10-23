@@ -41,7 +41,8 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 .ap-icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,.12); }
 .ap-icon-btn .icon { fill: currentColor; }
 .ap-icon-btn .icon text { fill: currentColor; font-family: var(--font); }
-.ap-icon-btn.on { color: var(--ap-accent); }
+.ap-icon-btn.on { position: relative; color: var(--ap-accent); }
+.ap-icon-btn.on::after { content: ''; position: absolute; left: 50%; bottom: 7px; width: 14px; height: 2px; margin-left: -7px; border-radius: 1px; background: currentColor; } /* "on" must show: the accent is white like the icon */
 .ap-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -62%); display: flex; align-items: center; gap: 56px; }
 .ap-side { width: 54px; height: 54px; }
 .ap-side .icon { width: 34px; height: 34px; }

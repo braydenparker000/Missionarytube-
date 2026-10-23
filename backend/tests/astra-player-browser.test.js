@@ -266,6 +266,15 @@ test('picture-in-picture shrinks the video into its window and hands the screen 
   await page.evaluate(() => document.exitPictureInPicture());
   await page.waitForFunction(() => !document.querySelector('.ap').classList.contains('mini'));
   assert.equal(await page.evaluate(() => astraLab.screen.isOpen), true);
+  // Paused inside the window a while ago, then expanded: the player comes back, paused.
+  await page.evaluate(() => astraLab.screen.togglePip());
+  await page.waitForFunction(() => document.querySelector('.ap').classList.contains('mini'));
+  await page.evaluate(() => document.querySelector('.ap-video').pause());
+  await page.waitForTimeout(600);
+  await page.evaluate(() => document.exitPictureInPicture());
+  await page.waitForFunction(() => !document.querySelector('.ap').classList.contains('mini'));
+  assert.deepEqual(await page.evaluate(() => [astraLab.screen.isOpen, document.querySelector('.ap-video').paused]), [true, true]);
+  await page.evaluate(() => document.querySelector('.ap-video').play());
   // Closing the window pauses the video: the player ends.
   await page.evaluate(() => astraLab.screen.togglePip());
   await page.waitForFunction(() => document.querySelector('.ap').classList.contains('mini'));
