@@ -37,6 +37,7 @@ const ALLOWED_HOSTS = [
   "api.torbox.app", // Read-only JSON lookup for the selected TorBox source
   "torrentio.strem.fun", // Only recognize the public resolver URL shape
   "v3-cinemeta.strem.io", // the public default add-on, no configuration or token
+  "opensubtitles-v3.strem.io", // Stremio's public subtitle add-on, no configuration or token
   "cdn.jsdelivr.net", // pinned, integrity-checked player runtimes
   "registry.npmjs.org", // used by the dependency pinning script
   // The public pool the provider resolves through. All are public

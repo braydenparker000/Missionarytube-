@@ -114,7 +114,7 @@ export function normaliseStream(s) {
     url: typeof s.url === 'string' ? s.url : null, infoHash: s.infoHash || null, ytId: s.ytId || null, externalUrl: s.externalUrl || null,
     name: String(s.name || ''), title: String(s.title || s.description || ''),
     headers: hints.proxyHeaders?.request && typeof hints.proxyHeaders.request === 'object' ? hints.proxyHeaders.request : {},
-    filename: hints.filename || '', size: Number(hints.videoSize) || null, bingeGroup: hints.bingeGroup || null, notWebReady: !!hints.notWebReady,
+    filename: hints.filename || '', size: Number(hints.videoSize) || null, videoHash: typeof hints.videoHash === 'string' ? hints.videoHash : null, bingeGroup: hints.bingeGroup || null, notWebReady: !!hints.notWebReady,
     subtitles: Array.isArray(s.subtitles) ? s.subtitles.filter(x => x?.url).map(x => ({url: x.url, language: x.lang || '', label: x.label || ''})) : [],
   };
 }

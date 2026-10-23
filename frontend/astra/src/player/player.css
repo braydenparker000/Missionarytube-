@@ -154,9 +154,14 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 .ap-row .icon { flex: none; fill: var(--ap-accent); }
 .ap-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ap-row small { color: rgba(255,255,255,.6); font-size: 12px; }
-.ap-tags { display: flex; gap: 6px; }
+.ap-row.file { justify-content: flex-start; color: rgba(255,255,255,.85); }
+.ap-row.file b { font-weight: 500; }
+.ap-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .ap-tags em { font-style: normal; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,.14); color: rgba(255,255,255,.85); }
+.ap-tags em.good { background: rgba(76,175,80,.28); color: #c8f2ca; }
+.ap-file { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,.6); font-size: 12px; }
 .ap-empty { color: rgba(255,255,255,.7); font-size: 14px; line-height: 20px; }
+.ap-empty.small { font-size: 12px; margin-top: 8px; }
 .ap-step { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
 .ap-step > div { display: flex; align-items: center; gap: 6px; }
 .ap-step b { min-width: 54px; text-align: center; font-variant-numeric: tabular-nums; }

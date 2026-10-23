@@ -11,17 +11,21 @@ const executablePath = [process.env.JARVIS_CHROME, process.env.PRIVATE_WORKSPACE
 if (process.env.CI) assert.ok(executablePath, 'Set JARVIS_CHROME; CI must not silently skip the Astra app');
 const options = {skip: executablePath ? false : 'Set JARVIS_CHROME to run Astra browser checks', timeout: 180000};
 
-async function openApp(t, {seed = true, classic = null} = {}) {
+async function openApp(t, {seed = true, classic = null, storage = {}, route = null} = {}) {
   const servers = await startAstraServers();
   const browser = await chromium.launch({executablePath, headless: true, args: ['--autoplay-policy=no-user-gesture-required']});
   t.after(async () => { await browser.close(); await servers.close(); });
   const context = await browser.newContext({viewport: {width: 412, height: 915}, hasTouch: true, isMobile: true});
-  await context.addInitScript(([addon, seed, classic]) => {
+  // No test may reach the internet: OpenSubtitles is off unless a test routes it.
+  if (route) await context.route(route.url, route.handler);
+  storage = {'astra.v2.settings': route ? {} : {openSubtitles: false}, ...storage};
+  await context.addInitScript(([addon, seed, classic, storage]) => {
     if (sessionStorage.getItem('seeded')) return;
     sessionStorage.setItem('seeded', '1');
     if (seed) localStorage.setItem('astra.v2.addons', JSON.stringify([{url: addon, enabled: true, name: 'Fixture'}]));
     if (classic) for (const [k, v] of Object.entries(classic)) localStorage.setItem(k, JSON.stringify(v).replaceAll('ADDON', addon));
-  }, [servers.addon, seed, classic]);
+    for (const [k, v] of Object.entries(storage)) localStorage.setItem(k, JSON.stringify(v));
+  }, [servers.addon, seed, classic, storage]);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
@@ -153,4 +157,49 @@ test('first launch copies add-ons, library and progress from classic Astra witho
   await page.click('.nav-item[data-tab="library"]');
   await page.waitForSelector('.library .poster-card');
   assert.equal(await page.locator('.library .poster-title').first().textContent(), 'Movie 3');
+});
+
+test('add-on subtitles: asked with the file hash, shown in the remembered language, listed with their source', options, async t => {
+  const {page, servers, errors} = await openApp(t, {storage: {'astra.v2.player': {subtitleLanguage: 'en'}}});
+  await page.waitForSelector('.hero-slide');
+  await homeRow(page, 'Popular - Movie').locator('.poster-card').nth(3).click();
+  await page.click('.play-btn');
+  await page.locator('.stream-card', {hasText: 'Fixture MP4'}).click();
+  await page.waitForFunction(() => document.querySelector('.ap-subs .bottom')?.textContent === 'Fixture subtitle line', null, {timeout: 20000});
+  assert.match(servers.subtitleRequests.at(-1), /^\/subtitles\/movie\/tt1000004\/videoHash=[0-9a-f]{16}&videoSize=147050\.json$/);
+  await page.evaluate(() => astra.player.openModal('subtitles'));
+  const rows = await page.locator('.ap-rail.tracks .ap-row').allTextContents();
+  assert.match(rows[0], /English.*Fixture\.en\.srt.*Fixture.*Exact match/);
+  await page.locator('.ap-rail.languages .ap-row', {hasText: 'Spanish'}).click();
+  await page.locator('.ap-rail.tracks .ap-row').first().click();
+  await page.waitForFunction(() => document.querySelector('.ap-subs .bottom')?.textContent === 'Línea de prueba', null, {timeout: 10000});
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('astra.v2.player')).subtitleLanguage), 'es');
+  assert.deepEqual(errors, []);
+});
+
+test('OpenSubtitles is asked by default, and the setting turns it off', options, async t => {
+  const asked = [];
+  const route = {url: 'https://opensubtitles-v3.strem.io/**', handler: (r) => {
+    asked.push(new URL(r.request().url()).pathname);
+    const body = r.request().url().endsWith('/manifest.json') ? {id: 'org.stremio.opensubtitlesv3', name: 'OpenSubtitles v3', resources: ['subtitles'], types: ['movie', 'series'], idPrefixes: ['tt'], catalogs: []}
+      : {subtitles: [{id: 'os-1', url: 'https://opensubtitles-v3.strem.io/file/1.srt', lang: 'pob'}]};
+    if (r.request().url().endsWith('.srt')) return r.fulfill({status: 200, headers: {'Access-Control-Allow-Origin': '*'}, body: '1\n00:00:00,300 --> 00:00:05,500\nOlá do OpenSubtitles\n'});
+    return r.fulfill({status: 200, headers: {'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  }};
+  const {page} = await openApp(t, {route, storage: {'astra.v2.player': {subtitleLanguage: 'pt'}}});
+  await page.waitForSelector('.hero-slide');
+  await homeRow(page, 'Popular - Movie').locator('.poster-card').nth(4).click();
+  await page.click('.play-btn');
+  await page.locator('.stream-card', {hasText: 'Fixture MP4'}).click();
+  await page.waitForFunction(() => document.querySelector('.ap-subs .bottom')?.textContent === 'Olá do OpenSubtitles', null, {timeout: 20000});
+  assert.ok(asked.some(p => p.startsWith('/subtitles/movie/tt1000005/')), JSON.stringify(asked));
+  await page.evaluate(() => astra.player.close('user'));
+  await page.evaluate(() => astra.saveSettings({openSubtitles: false}));
+  asked.length = 0;
+  await page.goBack(); // to details
+  await page.click('.play-btn');
+  await page.locator('.stream-card', {hasText: 'Fixture MP4'}).click();
+  await page.waitForFunction(() => astra.player.engine.subtitleOptions().length >= 2, null, {timeout: 20000});
+  await page.waitForTimeout(500);
+  assert.deepEqual(asked.filter(p => p.includes('/subtitles/')), [], 'not asked once turned off');
 });

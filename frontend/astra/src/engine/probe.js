@@ -3,6 +3,7 @@
 import * as MB from '../../vendor/mediabunny.js';
 import {HttpSource, SourceError} from './http-source.js';
 import {readLayout, subtitleTracks} from './mkv.js';
+import {readMp4Subtitles} from './mp4.js';
 import {languageName} from './languages.js';
 import {videoCodecName, audioCodecName} from './labels.js';
 import {adaptiveKind} from './plan.js';
@@ -63,6 +64,8 @@ export async function probe(url, {headers = {}, signal, onStatus = () => {}} = {
   let layout = null, subtitles = [];
   if (container.includes('matroska') || container.includes('webm')) {
     try { layout = await readLayout((s, e) => source.read(s, e), source.size); subtitles = subtitleTracks(layout); } catch {}
+  } else if (/mp4|quicktime|mov/.test(container)) {
+    try { subtitles = await readMp4Subtitles((s, e) => source.read(s, e), source.size); } catch {}
   }
   for (const s of subtitles) s.languageName = languageName(s.language);
   return {
@@ -74,7 +77,7 @@ export async function probe(url, {headers = {}, signal, onStatus = () => {}} = {
 /** A plain-object copy of the info for reports (no track handles or bytes). */
 export function describeInfo(info) {
   if (!info) return null;
-  const clean = t => Object.fromEntries(Object.entries(t).filter(([k]) => !['ref', 'decoderConfig', 'header'].includes(k)));
+  const clean = t => Object.fromEntries(Object.entries(t).filter(([k]) => !['ref', 'decoderConfig', 'header', 'samples'].includes(k)));
   return {container: info.container, mime: info.mime, size: info.size, duration: info.duration,
     video: (info.video || []).map(clean), audio: (info.audio || []).map(clean), subtitles: (info.subtitles || []).map(clean)};
 }

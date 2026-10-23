@@ -9,7 +9,9 @@ import {probe, describeInfo} from './probe.js';
 import {planPlayback, audioLabel, subtitleLabel} from './plan.js';
 import {mseSupports, nativeCanPlay, canEncodeAudio, deviceReport} from './capabilities.js';
 import {RemuxSession} from './remux.js';
-import {MkvSubtitleScanner} from './embedded-subtitles.js';
+import {MkvSubtitleScanner, Mp4SubtitleScanner} from './embedded-subtitles.js';
+import {remoteFileHash, HASH_CHUNK} from './file-hash.js';
+import {decodeSubtitleBytes} from '../addons/subtitles.js';
 import {SubtitleRenderer} from '../subtitles/renderer.js';
 import {parseSubtitleFile, markupSpans} from '../subtitles/parse.js';
 import {preferredLanguages, languageName, baseLanguage} from './languages.js';
@@ -39,10 +41,7 @@ const MEDIA_ERRORS = {
   4: 'This browser cannot play this file as it is.',
 };
 
-/** Decodes subtitle file bytes: UTF-8 when valid, else Windows-1252 (old SRT files). */
-export function decodeSubtitleBytes(bytes) {
-  try { return new TextDecoder('utf-8', {fatal: true}).decode(bytes); } catch { return new TextDecoder('windows-1252').decode(bytes); }
-}
+export {decodeSubtitleBytes};
 
 export class AstraPlayer extends EventTarget {
   /**
@@ -58,7 +57,7 @@ export class AstraPlayer extends EventTarget {
     this.plan = null;
     this.info = null;
     this.audio = [];
-    this.textTracks = []; // {id, label, language, kind: 'embedded'|'external'|'stream', supported, reason}
+    this.textTracks = []; // {id, label, language, kind: 'embedded'|'external'|'stream', supported, reason, source, exact}
     this.cues = new Map(); // track id -> cues
     this.selectedSubtitle = null;
     this.selectedAudio = null;
@@ -91,6 +90,7 @@ export class AstraPlayer extends EventTarget {
       if (id !== this.load_) { probed.source?.close(); probed.input?.dispose(); return; }
       this.probed = probed;
       this.info = probed.info;
+      this.fileFacts(id, url, headers, probed, controller.signal);
       const caps = {mse: mseSupports, native: nativeCanPlay, opusEncode: await canEncodeAudio('opus')};
       this.plan = planPlayback(probed, caps, {...prefs, languages, requiresHeaders: Object.keys(headers).length > 0});
       this.mode = this.plan.mode;
@@ -103,8 +103,7 @@ export class AstraPlayer extends EventTarget {
       else if (this.mode === 'dash') await this.startDash(url, startTime);
       else await this.startNative(url, startTime);
       if (id !== this.load_) return;
-      for (const s of subtitles) this.addSubtitleTrack(s);
-      this.emit('tracks');
+      this.addSubtitleTracks(subtitles.map(s => ({...s, source: s.source || 'This stream'})), id);
       if (autoplay) this.video.play().catch(() => {});
       this.emit('ready', this.plan);
       return this.plan;
@@ -131,14 +130,13 @@ export class AstraPlayer extends EventTarget {
     session.addEventListener('error', e => this.fail(e.detail?.message || 'Playback stopped.', String(e.detail?.stack || e.detail)));
     this.session = session;
     for (const o of plan.subtitleOptions) {
-      this.textTracks.push({id: o.track.id, label: o.label, language: o.track.language, kind: 'embedded', supported: o.supported, reason: o.reason, forced: o.track.forced});
+      this.textTracks.push({id: o.track.id, label: o.label, language: o.track.language, kind: 'embedded', supported: o.supported, reason: o.reason, forced: o.track.forced, image: !!o.track.image});
     }
-    if (info.layout && plan.subtitleOptions.some(o => o.supported)) {
-      this.scanner = new MkvSubtitleScanner(probed.source, info.layout, info.subtitles, (trackId, cues) => this.receiveCues(trackId, cues));
-      this.scanner.seek(startTime);
-      this.scanner.start();
-      this.onSeekScan = () => this.scanner.seek(this.video.currentTime);
-      this.video.addEventListener('seeking', this.onSeekScan);
+    if (plan.subtitleOptions.some(o => o.supported)) {
+      const onCues = (trackId, cues) => this.receiveCues(trackId, cues), onChange = () => this.subtitles.refresh();
+      this.scanner = info.layout ? new MkvSubtitleScanner(probed.source, info.layout, info.subtitles, onCues, onChange)
+        : info.subtitles.some(s => s.samples) ? new Mp4SubtitleScanner(probed.source, info.subtitles, onCues, onChange) : null;
+      this.scanner?.start();
     }
     await session.start(startTime);
     if (plan.subtitle) this.selectSubtitle(plan.subtitle.id);
@@ -220,7 +218,12 @@ export class AstraPlayer extends EventTarget {
     this.emit('tracks');
   }
 
-  subtitleOptions() { return this.textTracks.map(t => ({...t, selected: t.id === this.selectedSubtitle})); }
+  /** Subtitle choices: built-in first, then exact matches, then the rest in arrival order. */
+  subtitleOptions() {
+    const rank = t => t.kind === 'embedded' ? 0 : t.kind === 'stream' ? 1 : t.exact ? 2 : 3;
+    return this.textTracks.map((t, i) => ({t, i})).sort((a, b) => rank(a.t) - rank(b.t) || a.i - b.i)
+      .map(({t}) => ({id: t.id, label: t.label, language: t.language, kind: t.kind, supported: t.supported, reason: t.reason, forced: t.forced, source: t.source || '', exact: !!t.exact, name: t.name || '', loading: !!t.loading, image: !!t.image, selected: t.id === this.selectedSubtitle}));
+  }
 
   /** Shows a subtitle track, or none with null. */
   selectSubtitle(id) {
@@ -232,27 +235,72 @@ export class AstraPlayer extends EventTarget {
       if (track?.kind === 'stream') queueMicrotask(() => this.pullTextTrackCues());
     }
     this.subtitles.setCues(track ? this.cues.get(track.id) || [] : []);
+    if (track?.kind === 'external' && !track.loaded) this.loadTrack(track);
     this.record('subtitle', track?.label ?? 'off');
     this.emit('tracks');
   }
 
+  /** Downloads and reads an add-on's subtitle file the first time it is chosen. */
+  loadTrack(track) {
+    if (track.loaded || track.loading) return track.loading;
+    track.loading = (async () => {
+      try {
+        const r = await fetch(track.url, {credentials: 'omit', referrerPolicy: 'no-referrer'});
+        if (!r.ok) throw Error('HTTP ' + r.status);
+        const cues = parseSubtitleFile(decodeSubtitleBytes(new Uint8Array(await r.arrayBuffer()), track.language), track.format || track.url);
+        if (!cues.length) throw Error('empty');
+        track.loaded = true;
+        if (this.textTracks.includes(track)) this.receiveCues(track.id, cues);
+      } catch (e) {
+        track.supported = false;
+        track.reason = e?.message === 'empty' ? 'This file has no subtitles Astra can read.' : 'Could not be downloaded.';
+        if (this.selectedSubtitle === track.id) { this.selectedSubtitle = null; this.subtitles.setCues([]); }
+        this.record('subtitle-error', String(e?.message || e));
+      } finally {
+        track.loading = null;
+        this.emit('tracks');
+      }
+    })();
+    return track.loading;
+  }
+
   /**
-   * Adds a subtitle file (from an add-on or the viewer). Text arrives later;
-   * the track is listed at once. Returns its id.
+   * Adds a subtitle file (from an add-on, the stream or the viewer). It is
+   * listed at once and downloaded when chosen. Returns its id (null for a duplicate).
    */
-  addSubtitleTrack({url = null, text = null, label = '', language = '', format = ''}) {
-    const id = 'ext:' + (this.textTracks.filter(t => t.kind === 'external').length + 1);
-    this.textTracks.push({id, label: label || languageName(language) || 'Subtitles', language, kind: 'external', supported: true, url});
-    const ingest = body => this.receiveCues(id, parseSubtitleFile(body, format || url || ''));
-    if (text != null) ingest(text);
-    else if (url) {
-      fetch(url, {credentials: 'omit', referrerPolicy: 'no-referrer'})
-        .then(r => r.ok ? r.arrayBuffer() : Promise.reject(Error('HTTP ' + r.status)))
-        .then(b => ingest(decodeSubtitleBytes(new Uint8Array(b))))
-        .catch(e => { const t = this.textTracks.find(x => x.id === id); if (t) { t.supported = false; t.reason = 'Could not be downloaded.'; } this.record('subtitle-error', String(e?.message || e)); this.emit('tracks'); });
-    }
-    this.emit('tracks');
+  addSubtitleTrack({url = null, text = null, label = '', language = '', format = '', source = '', exact = false, name = ''}, {silent = false} = {}) {
+    if (url && this.textTracks.some(t => t.url === url)) return null;
+    this.externalCount = (this.externalCount || 0) + 1;
+    const id = 'ext:' + this.externalCount;
+    const track = {id, label: label || languageName(language) || 'Subtitles', language, kind: 'external', supported: true, url, format, source, exact, name, loaded: text != null};
+    this.textTracks.push(track);
+    if (text != null) this.receiveCues(id, parseSubtitleFile(text, format || url || ''));
+    if (!silent) this.emit('tracks');
     return id;
+  }
+
+  /** Adds many at once (one 'tracks' event). `load` drops a list meant for an earlier file. */
+  addSubtitleTracks(list, load = this.load_) {
+    if (load !== this.load_ || !list?.length) return [];
+    const ids = list.map(s => this.addSubtitleTrack(s, {silent: true})).filter(Boolean);
+    this.emit('tracks');
+    return ids;
+  }
+
+  /**
+   * Learns the file's size and OpenSubtitles hash (two small reads) so
+   * subtitle add-ons can match this exact release; emits 'filefacts'.
+   */
+  async fileFacts(load, url, headers, probed, signal) {
+    let hash = null;
+    const size = probed.readable && !probed.adaptive ? probed.info?.size || probed.source?.size || null : null;
+    if (size) {
+      try {
+        const head = probed.source?.has(0, HASH_CHUNK) ? await probed.source.read(0, HASH_CHUNK) : null;
+        hash = await remoteFileHash(probed.source?.url || url, size, {headers, head: head && head.slice(), signal});
+      } catch {}
+    }
+    if (load === this.load_ && !signal.aborted) this.emit('filefacts', {load, hash, size});
   }
 
   /** A shareable report: what the file contains, how it plays, what this device supports. */
@@ -262,7 +310,7 @@ export class AstraPlayer extends EventTarget {
       plan: this.plan && {mode: this.plan.mode, reason: this.plan.reason, notes: this.plan.notes, audio: this.plan.audio?.label, delivery: this.plan.audio?.delivery},
       info: describeInfo(this.info), device: await deviceReport(),
       health: this.session?.health?.() ?? null, stats: this.session?.stats ?? null,
-      subtitles: {clustersScanned: this.scanner?.clusters ?? 0, cues: Object.fromEntries([...this.cues].map(([k, v]) => [k, v.length]))},
+      subtitles: {clustersScanned: this.scanner?.clustersRead ?? 0, cues: Object.fromEntries([...this.cues].map(([k, v]) => [k, v.length]))},
       video: {currentTime: this.video.currentTime, readyState: this.video.readyState, error: this.video.error?.message || null,
         quality: this.video.getVideoPlaybackQuality ? (({totalVideoFrames, droppedVideoFrames}) => ({totalVideoFrames, droppedVideoFrames}))(this.video.getVideoPlaybackQuality()) : null,
         size: this.video.videoWidth ? `${this.video.videoWidth}x${this.video.videoHeight}` : null},
@@ -274,7 +322,6 @@ export class AstraPlayer extends EventTarget {
   reset() {
     this.abort?.abort();
     this.scanner?.stop(); this.scanner = null;
-    if (this.onSeekScan) this.video.removeEventListener('seeking', this.onSeekScan);
     this.session?.destroy(); this.session = null;
     this.hls?.destroy(); this.hls = null;
     this.dash?.reset(); this.dash = null;

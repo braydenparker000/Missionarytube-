@@ -7,6 +7,7 @@ import {loadManifests, fetchMeta, episodeCode} from './content.js';
 import {pushLayer} from './back-stack.js';
 import {PlayerScreen} from '../player/player-screen.js';
 import {resolveDebrid} from '../addons/debrid.js';
+import {fetchSubtitles, subtitleAddons} from '../addons/subtitles.js';
 import {h} from '../ui/dom.js';
 import {icon} from '../ui/icons.js';
 import {toast} from '../ui/components.js';
@@ -156,7 +157,7 @@ export class App {
    * goes full screen before anything awaits.
    */
   play({meta, video = null, source, sources, startTime = 0}) {
-    this.playing = {meta, video};
+    this.playing = {meta, video, stream: source.stream};
     const videos = meta.videos || [];
     const index = video ? videos.findIndex(v => v.id === video.id) : -1;
     const next = index >= 0 ? videos.slice(index + 1).find(v => v.season !== 0) || null : null;
@@ -187,10 +188,31 @@ export class App {
       if (entry?.completed && !this.watched.has(p.meta.type, p.meta.id, v ? v.id : null)) this.watched.set(p.meta.type, p.meta.id, v ? v.id : null, true);
     };
     this.player.addEventListener('progress', e => { save(e.detail.time, e.detail.duration); if (e.detail.final) this.progress.flush(true); });
-    this.player.addEventListener('close', () => { this.progress.flush(true); this.playing = null; });
+    this.player.addEventListener('close', () => { this.progress.flush(true); this.playing = null; this.subtitleSearch?.abort(); this.subtitleSearch = null; });
     this.player.addEventListener('episode', e => this.switchEpisode(e.detail.episode.video));
     this.player.addEventListener('next', () => { if (this.playing?.next) this.switchEpisode(this.playing.next); });
-    this.player.addEventListener('source', e => { if (this.playing) this.playing.sourceId = e.detail.source.id; });
+    this.player.addEventListener('source', e => { if (this.playing) { this.playing.sourceId = e.detail.source.id; this.playing.stream = e.detail.source.stream; } });
+    this.player.addEventListener('fileinfo', e => this.findSubtitles(e.detail));
+  }
+
+  /**
+   * Asks subtitle add-ons (and OpenSubtitles unless turned off) for the
+   * title playing, with the file's hash and size when Astra could read them.
+   */
+  async findSubtitles({load, hash, size}) {
+    const p = this.playing;
+    if (!p) return;
+    this.subtitleSearch?.abort();
+    const search = this.subtitleSearch = new AbortController();
+    const addons = subtitleAddons(this.enabledAddons(), {builtIn: this.settings.openSubtitles !== false});
+    const stream = p.stream || {};
+    this.player.setSubtitleSearch(true);
+    try {
+      await fetchSubtitles(addons, p.meta.type, p.video ? p.video.id : p.meta.id, {videoHash: hash || stream.videoHash, videoSize: size || stream.size, filename: stream.filename},
+        {signal: search.signal, onList: list => { if (!search.signal.aborted) this.player.addSubtitles(list, load); }});
+    } catch {} finally {
+      if (this.subtitleSearch === search) { this.subtitleSearch = null; this.player.setSubtitleSearch(false); }
+    }
   }
 
   /** Another episode from inside the player: same release group when there is one, else its sources list. */

@@ -6,7 +6,7 @@
 // Events: 'progress' {time, duration} (every 10 s, on pause and on close),
 // 'close' {time, duration, reason}, 'source' {source}, 'episode' {episode}.
 
-import {AstraPlayer} from '../engine/player.js';
+import {AstraPlayer, decodeSubtitleBytes} from '../engine/player.js';
 import {pushLayer} from '../app/back-stack.js';
 import {icon} from '../ui/icons.js';
 import {h, clock, haptic} from '../ui/dom.js';
@@ -39,8 +39,9 @@ export class PlayerScreen extends EventTarget {
     this.engine = new AstraPlayer(video, subs);
     this.engine.addEventListener('status', e => { this.loadingStatus.textContent = e.detail; });
     this.engine.addEventListener('error', e => this.showError(e.detail.message));
-    this.engine.addEventListener('tracks', () => this.refreshMenus());
+    this.engine.addEventListener('tracks', () => { this.refreshMenus(); if (this.ready) this.autoSubtitle(); });
     this.engine.addEventListener('ready', () => this.onReady());
+    this.engine.addEventListener('filefacts', e => this.emit('fileinfo', e.detail));
 
     // Feedback
     this.feedback = h('div', {class: 'ap-feedback', 'aria-live': 'polite'});
@@ -177,6 +178,7 @@ export class PlayerScreen extends EventTarget {
 
   load(stream, startTime) {
     this.stream = stream;
+    this.ready = false;
     this.firstFrame = false;
     this.showLoading(true);
     this.errorCard.hidden = true;
@@ -187,14 +189,47 @@ export class PlayerScreen extends EventTarget {
   }
 
   onReady() {
+    this.ready = this.engine.mode !== 'unsupported';
     this.refreshMenus();
-    if (this.engine.mode === 'unsupported') return;
-    // Subtitles from add-ons in the remembered language, when the file has none in it.
+    this.autoSubtitle();
+  }
+
+  /** Subtitles found by add-ons for what is playing; `load` ties them to one file. */
+  addSubtitles(list, load) { this.engine.addSubtitleTracks(list, load); }
+
+  /** Loads an .srt, .vtt or .ass file the viewer picks and shows it. */
+  pickSubtitleFile() {
+    const input = h('input', {type: 'file', accept: '.srt,.vtt,.ass,.ssa,.sub,.txt,text/*', hidden: true});
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      input.remove();
+      if (!file || file.size > 8 << 20) return;
+      const text = decodeSubtitleBytes(new Uint8Array(await file.arrayBuffer()));
+      const id = this.engine.addSubtitleTrack({text, label: file.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'Subtitles', format: file.name, source: 'This phone'});
+      const cues = this.engine.cues.get(id) || [];
+      if (!cues.length) { this.flash('No subtitles found in that file'); return; }
+      this.subLang = 'und';
+      this.engine.selectSubtitle(id);
+      this.renderModal();
+    }, {once: true});
+    this.root.append(input);
+    input.click();
+  }
+
+  /** Whether subtitle add-ons are still being asked (shown in the subtitles menu). */
+  setSubtitleSearch(on) { this.subtitleSearch = on; this.refreshMenus(); }
+
+  /**
+   * Shows subtitles in the remembered language when nothing is shown yet:
+   * the file's own track first, then an exact match for this release, then
+   * the first add-on file. Choosing Off in the menu forgets the language.
+   */
+  autoSubtitle() {
     const want = this.prefs.subtitleLanguage;
-    if (want && !this.engine.selectedSubtitle) {
-      const match = this.engine.subtitleOptions().find(s => s.supported && baseLanguage(s.language) === want);
-      if (match) this.engine.selectSubtitle(match.id);
-    }
+    if (!want || !this.ready || this.engine.selectedSubtitle) return;
+    const options = this.engine.subtitleOptions().filter(s => s.supported && baseLanguage(s.language) === want);
+    const match = options.find(s => !s.forced) || options[0];
+    if (match) this.engine.selectSubtitle(match.id);
   }
 
   close(reason = 'user') {
@@ -503,12 +538,17 @@ export class PlayerScreen extends EventTarget {
     const langName = code => code === 'und' ? 'Unknown' : languageName(code) || code;
     const languageRail = h('div', {class: 'ap-rail languages'},
       h('button', {class: 'ap-row' + (!selected ? ' selected' : ''), type: 'button', onclick: () => { this.engine.selectSubtitle(null); this.prefs.subtitleLanguage = ''; savePrefs(this.prefs); }}, h('b', {}, 'Off'), !selected ? icon('check', {size: 20}) : null),
-      ...langs.map(code => h('button', {class: 'ap-row' + (code === this.subLang ? ' current' : ''), type: 'button', onclick: () => { this.subLang = code; this.renderModal(); }}, h('b', {}, langName(code)), h('small', {}, String(options.filter(s => (baseLanguage(s.language) || 'und') === code).length)))));
+      ...langs.map(code => h('button', {class: 'ap-row' + (code === this.subLang ? ' current' : ''), type: 'button', onclick: () => { this.subLang = code; this.renderModal(); }}, h('b', {}, langName(code)), h('small', {}, String(options.filter(s => (baseLanguage(s.language) || 'und') === code).length)))),
+      h('button', {class: 'ap-row file', type: 'button', onclick: () => this.pickSubtitleFile()}, icon('plus', {size: 18}), h('b', {}, 'From this phone…')));
     const trackRail = h('div', {class: 'ap-rail tracks'}, ...options.filter(s => (baseLanguage(s.language) || 'und') === this.subLang).map(s => h('button', {
       class: 'ap-row' + (s.selected ? ' selected' : ''), type: 'button', disabled: !s.supported,
       onclick: () => { this.engine.selectSubtitle(s.id); this.prefs.subtitleLanguage = baseLanguage(s.language); savePrefs(this.prefs); },
-    }, h('span', {class: 'ap-row-text'}, h('b', {}, s.label), h('span', {class: 'ap-tags'}, h('em', {}, s.kind === 'embedded' ? 'Built-in' : s.kind === 'stream' ? 'Stream' : 'Add-on'), s.forced ? h('em', {}, 'Forced') : null), !s.supported ? h('small', {}, s.reason || '') : null), s.selected ? icon('check', {size: 20}) : null)));
-    if (!options.length) trackRail.append(h('p', {class: 'ap-empty'}, 'This source has no subtitles.'));
+    }, h('span', {class: 'ap-row-text'}, h('b', {}, s.label), s.name ? h('small', {class: 'ap-file'}, s.name) : null,
+      h('span', {class: 'ap-tags'}, h('em', {}, s.kind === 'embedded' ? (s.image ? 'Built-in picture' : 'Built-in') : s.kind === 'stream' ? 'Stream' : s.source || 'Add-on'),
+        s.exact ? h('em', {class: 'good'}, 'Exact match') : null, s.forced ? h('em', {}, 'Forced') : null, s.loading ? h('em', {}, 'Loading…') : null),
+      !s.supported ? h('small', {}, s.reason || '') : null), s.selected ? icon('check', {size: 20}) : null)));
+    if (!options.length) trackRail.append(h('p', {class: 'ap-empty'}, this.subtitleSearch ? 'Looking for subtitles…' : 'No subtitles for this source.'));
+    else if (this.subtitleSearch) trackRail.append(h('p', {class: 'ap-empty small'}, 'Still asking subtitle add-ons…'));
     return [h('h3', {}, 'Subtitles'), h('div', {class: 'ap-rails'}, languageRail, trackRail, this.styleRail())];
   }
 

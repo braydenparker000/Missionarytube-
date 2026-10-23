@@ -96,6 +96,16 @@ export class HttpSource {
   blockCount() { return Math.ceil(this.size / BLOCK); }
   blockLength(index) { return Math.min(BLOCK, this.size - index * BLOCK); }
 
+  /** Indexes of the blocks in the cache right now. */
+  cachedBlocks() { return [...this.blocks.keys()]; }
+
+  /** The end of the cached run of bytes that starts at `start` (start itself if none). */
+  cachedUntil(start) {
+    let i = Math.floor(start / BLOCK);
+    while (i * BLOCK < this.size && this.blocks.has(i)) i++;
+    return Math.max(start, Math.min(this.size, i * BLOCK));
+  }
+
   /** True when [start, end) is fully cached. */
   has(start, end) {
     for (let i = Math.floor(start / BLOCK); i * BLOCK < Math.min(end, this.size); i++) if (!this.blocks.has(i)) return false;

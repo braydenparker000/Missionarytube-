@@ -90,11 +90,15 @@ export function planPlayback(probe, caps, prefs = {}) {
   }
   const info = probe.info;
   if (!info) return {mode: 'unsupported', reason: probe.error?.message || 'Astra could not read this file.', notes};
+  if (info.layout?.unknownClusterSizes) {
+    notes.push('This file was written like a live recording, which Astra cannot unpack. Chrome will play it as-is: no audio track choice and no built-in subtitles.');
+    return {mode: 'native', notes};
+  }
   const video = info.video[0] || null;
   const audioOptions = info.audio.map(track => ({track, ...audioDelivery(track, caps), label: audioLabel(track)}));
   const audio = chooseAudio(audioOptions, {languages: prefs.languages || [], preferredId: prefs.audioId ?? null});
   const subtitles = info.subtitles || [];
-  const subtitleOptions = subtitles.map(s => ({track: s, label: subtitleLabel(s), supported: !!s.format && !s.encrypted, reason: s.image ? `${s.image} picture subtitles are not supported yet.` : s.encrypted ? 'Encrypted subtitles.' : s.format ? '' : 'Unknown subtitle format.'}));
+  const subtitleOptions = subtitles.map(s => ({track: s, label: subtitleLabel(s), supported: !!s.format && !s.encrypted, reason: s.encrypted ? 'Encrypted subtitles.' : s.format ? '' : s.image ? `${s.image} picture subtitles cannot be shown.` : 'Unknown subtitle format.'}));
   const subtitle = chooseSubtitle(subtitles, {audioLanguage: audio?.track.language, languages: prefs.languages || [], wanted: prefs.subtitleLanguage || null});
 
   if (video && !caps.mse(videoMime(video))) {
