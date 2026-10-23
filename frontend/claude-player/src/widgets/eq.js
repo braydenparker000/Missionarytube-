@@ -1338,7 +1338,9 @@ export class DSPCheckBox extends FastButton {
     const dsp = this.ctx.dsp;
     if (!dsp || !this.param) return;
     this.setChecked(!!dsp.get(this.param));
-    this.setEnabled(this.enablingParam ? dsp.get(this.enablingParam) !== false : true);
+    // The first state the DSP gives applies at once (no fade as the page loads).
+    this.setEnabled(this.enablingParam ? dsp.get(this.enablingParam) !== false : true, !this._dspSynced);
+    this._dspSynced = true;
   }
 
   onClick() {
@@ -1730,7 +1732,8 @@ export class DSPRoundKnobLayout extends FastLayout {
     const v = dsp.get(this.param);
     if (typeof v === 'number' && !this.knob._drag) this.knob.setValue(v);
     const en = !!dsp.get('dsp_enabled') && (this.enablingParam ? dsp.get(this.enablingParam) !== false : true);
-    for (const c of this.children) c.setEnabled(en);
+    for (const c of this.children) c.setEnabled(en, !this._dspSynced);
+    this._dspSynced = true;
     this.updateValueLabel();
   }
 

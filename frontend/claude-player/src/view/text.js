@@ -477,16 +477,16 @@ export class FastTextView extends View {
 
   /**
    * FastTextView.setEnabled: the view's alpha factor moves to 1 or
-   * disabledAlpha, over 250 ms while shown, else at once.
+   * disabledAlpha, over 250 ms while shown, else (or now) at once.
    */
-  setEnabled(p) {
+  setEnabled(p, now = false) {
     if (this.state.enabled === p) return;
     if (!p) this.setPressed(false);
     super.setEnabled(p);
     const to = p ? 1 : this.disabledAlpha;
     const from = this.enabledAlpha;
     if (from === to) return;
-    if (this.visibility !== VISIBLE || !this.width) { this.enabledAlpha = to; this.invalidate(); return; }
+    if (now || this.visibility !== VISIBLE || !this.width) { this._enAnim = null; this.enabledAlpha = to; this.invalidate(); return; }
     const start = performance.now(), ms = 250 * (this.ctx.animScale ?? 1);
     const anim = this._enAnim = {tick: now => {
       if (this._enAnim !== anim) return false;
