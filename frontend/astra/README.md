@@ -198,7 +198,8 @@ never switches pipeline mid-play:
 `new PlayerScreen().open({stream, meta, sources, episodes, next, segments})`
 must be called from a tap: it goes full screen. It follows the phone's
 rotation unless Settings > Playback > Rotation says Landscape or Portrait;
-the rotate button in the top bar switches until the player closes. In
+the rotate button in the top bar switches until the player closes (and says
+so where the screen cannot be turned, as on a desktop). In
 portrait the picture is a band across the middle; when there is room,
 subtitles sit in the black under it. With the controls showing, bottom
 subtitles, Skip and the next-episode card are placed from the controls'
@@ -210,14 +211,21 @@ measured height, so nothing covers the title or the buttons.
   preview; vertical swipe on the left changes the picture's brightness (a page
   cannot change the screen's), on the right the volume.
 - Hold anywhere but a button plays at 2x until release.
-- Lock hides everything; any touch shows "Tap to unlock".
-- Menus: audio, subtitles (language, track, delay, size, position, colour,
-  background, outline, bold), stream info; side panels for sources and
-  episodes. Back closes the menu first, then the player; on a phone in full
-  screen, Android's back (which leaves full screen) does the same, and does
-  nothing while locked.
+- Lock hides everything; any touch shows "Tap to unlock" and how far along
+  playback is.
+- Sound turned all the way down shows a "Sound off" chip in the corner; a tap
+  turns it back on.
+- Menus: audio, subtitles (a Tracks tab with language and track; a Style tab
+  with delay, size, position, colour, background, outline and bold, which
+  leaves the picture showing so changes can be seen), stream info; side
+  panels for sources and episodes, opened at the current one. Back closes the
+  menu first, then the player; on a phone in full screen, Android's back
+  (which leaves full screen) does the same, and does nothing while locked.
+- With a keyboard, a menu takes focus and Escape gives it back; the app
+  behind the player cannot be reached while it is open.
 - Skip intro/recap/outro from `segments`; the next-episode card appears at
-  99% (or when the outro starts) and plays only when tapped.
+  99% (or when the outro starts) and plays only when tapped. An episode not
+  out yet says when it is out, and Next does not play it.
 - Picture-in-picture (top bar): the video moves to Android's floating window
   and the app can be used; expanding the window brings the player back (also
   after pausing in the window), closing it ends playback. Leaving Astra while playing opens it by itself
@@ -230,6 +238,8 @@ measured height, so nothing covers the title or the buttons.
   (404/410) asks for another source; a host that does not answer in 15 s
   says so. Another app is offered only for files the browser cannot play.
 - Media Session controls, screen kept awake.
+- Unpacking a file gives the page a turn every 8 ms, so taps (Close
+  included) answer while a film starts.
 
 ## Subtitles
 

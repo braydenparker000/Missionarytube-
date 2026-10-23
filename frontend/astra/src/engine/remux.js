@@ -15,6 +15,10 @@ import {audioMime, videoMime} from './plan.js';
 /** Read-ahead limits; tests shorten them to exercise restarts on small files. */
 export const TUNING = {ahead: {video: 40, audio: 60}, maxQueued: 24 << 20};
 const OPUS = 'audio/mp4; codecs="opus"';
+// Reading and re-wrapping run on the page's own thread: after this many
+// milliseconds the reader lets a tap or a frame through.
+const SLICE_MS = 8;
+const pageTurn = () => globalThis.scheduler?.yield ? globalThis.scheduler.yield() : new Promise(resolve => setTimeout(resolve, 0));
 
 let decodersReady = null;
 /** Loads the AC-3/E-AC-3 and DTS decoders once, only when a file needs them. */
@@ -46,6 +50,8 @@ export class RemuxSession extends EventTarget {
     this.stats = {appended: 0, restarts: 0};
     this.from = 0;
     this.readAt = {video: 0, audio: 0};
+    this.sliceStart = 0;
+    this.aheadRead = {video: {at: 0}, audio: {at: 0}};
     this.offset = 0; // the file's first timestamp; media time = file time - offset
     this.onSeeking = () => this.seeking();
     this.wakers = new Set();
@@ -135,16 +141,28 @@ export class RemuxSession extends EventTarget {
       this.flushAudio = null;
       this.video.currentTime = this.video.currentTime;
     }
+    if (performance.now() - this.sliceStart > SLICE_MS) {
+      await pageTurn();
+      this.sliceStart = performance.now();
+    }
     // Limit what is buffered ahead, not what is read: fragments end at key
     // frames, so the reader runs up to one GOP ahead of the buffer.
-    while (current() && (bufferedAhead(queue.buffer, this.video.currentTime) > TUNING.ahead[kind] || queue.pending() > TUNING.maxQueued)) {
+    while (current() && (this.ahead(kind, generation) > TUNING.ahead[kind] || queue.pending() > TUNING.maxQueued)) {
       await new Promise(resolve => {
         const done = () => { clearTimeout(timer); this.wakers.delete(done); resolve(); };
         const timer = setTimeout(done, 1000);
         this.wakers.add(done);
       });
+      this.aheadRead[kind].at = 0;
     }
     return current();
+  }
+
+  /** Seconds buffered ahead of the playhead, read at most every 50 ms rather than for every packet. */
+  ahead(kind, generation) {
+    const read = this.aheadRead[kind], now = performance.now();
+    if (now - read.at > 50 || read.generation !== generation) Object.assign(read, {at: now, generation, value: bufferedAhead(this.queues[kind].buffer, this.video.currentTime)});
+    return read.value;
   }
 
   output(kind, generation) {

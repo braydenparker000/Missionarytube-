@@ -20,6 +20,8 @@ const TABS = [
   {id: 'settings', label: 'Settings', icon: 'settings'},
 ];
 const LABEL_SCROLL = 60; // px of scroll that hides or shows the bar's labels
+// "Out 3 Nov" for an episode with a date to come; "Not out yet" without one.
+const outOn = v => { const t = v?.released ? new Date(v.released) : null; return t && !Number.isNaN(t.getTime()) ? 'Out ' + t.toLocaleDateString(undefined, {month: 'short', day: 'numeric'}) : 'Not out yet'; };
 const SETTINGS = {showCatalogType: true, posterWidth: 126, posterRadius: 12, hero: true};
 
 export class App {
@@ -270,7 +272,7 @@ export class App {
       // The player's episode panel lists seasons; videos without one (a channel's uploads) have no panel.
       episodes: video && video.season != null ? {seasons: [...new Set(videos.map(v => v.season))].filter(s => s != null), season: video.season, current: video.id,
         items: videos.filter(v => v.season != null).map(v => ({id: v.id, season: v.season, episode: v.episode, title: v.title, thumbnail: v.thumbnail, video: v}))} : null,
-      next: next ? {label: episodeCode(next), title: next.title, thumbnail: next.thumbnail, hasAired: aired(next)} : null,
+      next: next ? {label: episodeCode(next), title: next.title, thumbnail: next.thumbnail, hasAired: aired(next), status: aired(next) ? '' : outOn(next)} : null,
     };
     const resolving = resolveDebrid(source.stream.url).catch(() => source.stream.url);
     this.player.open({...options, stream: {...options.stream, url: null}, deferred: true});
