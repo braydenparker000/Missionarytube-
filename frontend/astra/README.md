@@ -78,7 +78,10 @@ never switches pipeline mid-play:
 ## The player screen
 
 `new PlayerScreen().open({stream, meta, sources, episodes, next, segments})`
-must be called from a tap: it goes full screen and turns to landscape.
+must be called from a tap: it goes full screen. It follows the phone's
+rotation unless Settings > Playback > Rotation says Landscape or Portrait;
+the rotate button in the top bar switches until the player closes. In
+portrait the picture is a band across the middle, with subtitles fitted to it.
 
 - Tap toggles the controls; they hide 3.5 s after the last touch while playing.
 - Double tap left or right seeks 10 s; more taps within 0.8 s add 10 s each.
@@ -92,19 +95,43 @@ must be called from a tap: it goes full screen and turns to landscape.
   episodes. Back closes the menu first, then the player.
 - Skip intro/recap/outro from `segments`; the next-episode card appears at
   99% (or when the outro starts) and plays only when tapped.
-- Media Session controls, screen kept awake, picture-in-picture where allowed.
+- Picture-in-picture (top bar): the video moves to Android's floating window
+  and the app can be used; expanding the window brings the player back,
+  closing it ends playback. Leaving Astra while playing opens it by itself
+  where Chrome allows (Settings > Playback > Picture-in-picture).
+- Media Session controls, screen kept awake.
+
+## Subtitles
+
+- **Add-ons**: every add-on with a `subtitles` resource is asked, plus
+  OpenSubtitles v3 unless turned off in Settings > Playback. When Astra can
+  read the file it sends the OpenSubtitles hash and size (`file-hash.js`), so
+  subtitles timed for that exact release are marked "Exact match" and come
+  first. Files are downloaded only when chosen (`src/addons/subtitles.js`).
+- **Inside the file**: SRT, ASS and WebVTT in MKV; PGS (Blu-ray) and VobSub
+  (DVD) picture subtitles in MKV (`src/subtitles/pgs.js`, `vobsub.js`); 3GPP
+  timed text and WebVTT in MP4 (`src/engine/mp4.js`). They are read from data
+  the video pipeline already downloaded (`embedded-subtitles.js`), block by
+  block as it arrives, so seeking works with or without a cue index.
+- **From the phone**: the subtitles menu can load an .srt, .vtt or .ass file.
+- The remembered language is shown by itself: the file's own track first,
+  then an exact match, then the first add-on file. Choosing Off forgets it.
+- Old code pages (Cyrillic, Arabic, Central European and others) and UTF-16
+  files are decoded by language.
 
 ## Tests
 
-- `tests/astra-*.test.mjs` (root `npm test`): planner, subtitles, the MKV
-  reader, the range reader, the add-on client, saved data, rows and the Play
-  button.
+- `tests/astra-*.test.mjs` (root `npm test`): planner, subtitles (text and
+  picture decoders, the MP4 reader, the block scanner, the file hash, add-on
+  subtitles), the MKV reader, the range reader, the add-on client, saved
+  data, rows and the Play button.
 - `backend/tests/astra-playback-browser.test.js` (`npm run test:backend`
   with `JARVIS_CHROME`): real playback in Chrome against synthetic files on a
   separate origin, including audio switching measured by pitch, subtitles,
   seeking, blocked hosts and HEVC refusal.
 - `backend/tests/astra-player-browser.test.js`: the player screen at phone
-  landscape size: gestures, hold, lock, back order, menus, skip.
+  landscape size: gestures, hold, lock, back order, menus, skip; and in
+  portrait: rotation settings, the rotate button, picture-in-picture.
 - `backend/tests/astra-app-browser.test.js`: the app at phone portrait size
   against a fixture add-on (`backend/tests/helpers/astra-media-server.js`):
   Home, back, Continue Watching, the lift menu, Library, episodes, paging,

@@ -196,7 +196,9 @@ test('OpenSubtitles is asked by default, and the setting turns it off', options,
   await page.evaluate(() => astra.player.close('user'));
   await page.evaluate(() => astra.saveSettings({openSubtitles: false}));
   asked.length = 0;
+  await page.waitForFunction(() => !astra.player.isOpen);
   await page.goBack(); // to details
+  await page.waitForFunction(() => astra.stack.length === 1 && !document.querySelector('.streams'));
   await page.click('.play-btn');
   await page.locator('.stream-card', {hasText: 'Fixture MP4'}).click();
   await page.waitForFunction(() => astra.player.engine.subtitleOptions().length >= 2, null, {timeout: 20000});

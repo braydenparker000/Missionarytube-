@@ -12,6 +12,14 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 .ap-subs { position: absolute; inset: 0; pointer-events: none; }
 .ap .astra-subs-zone.bottom { transition: transform var(--t-normal) var(--ease); }
 .ap.controls .astra-subs-zone.bottom { transform: translateY(-96px); }
+/* Portrait: the picture is a band across the middle and the controls sit
+   below it, so subtitles stay where they are. */
+.ap.portrait.controls .astra-subs-zone.bottom { transform: none; }
+.ap.portrait .ap-center { transform: translate(-50%, -50%); gap: 48px; }
+.ap.portrait .ap-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ap.portrait .ap-shade-top { height: 120px; }
+/* Picture-in-picture from the player: the video lives on in the floating window. */
+.ap.mini { visibility: hidden; pointer-events: none; }
 .ap-surface { position: absolute; inset: 0; }
 
 /* Controls */
@@ -193,13 +201,15 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 .ap-episode small { color: rgba(255,255,255,.6); font-size: 12px; }
 .ap-episode b { font-size: 14px; line-height: 20px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* Portrait (desktop windows, phones that refuse landscape) */
+/* Portrait: menus stack and cover the picture fully; the side panels are full width. */
 @media (orientation: portrait) {
-  .ap-center { gap: 32px; }
   .ap-rails { flex-wrap: wrap; }
   .ap-rail { max-height: none; }
   .ap-rail.languages, .ap-rail.tracks, .ap-rail.style { flex-basis: 100%; }
   .ap-modal-body { padding-left: 16px; padding-right: 16px; }
+  .ap-modal-scrim { background: rgba(10,10,10,.94); }
+  .ap-rail.tracks:not(:empty) { padding-top: 8px; border-top: 1px solid rgba(255,255,255,.12); }
+  .ap-rail.style { padding-top: 12px; border-top: 1px solid rgba(255,255,255,.12); }
 }
 @media (prefers-reduced-motion: reduce) {
   .ap-loading-logo { animation: none; opacity: 1; }

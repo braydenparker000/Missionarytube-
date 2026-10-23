@@ -96,7 +96,9 @@ export class SubtitleRenderer {
   setDelay(seconds) { this.delay = Math.round(seconds * 10) / 10; this.shown = null; this.render(); }
 
   applyStyle() {
-    const h = this.layer.clientHeight || 360, s = this.style;
+    // Sized from the picture's height, but never below a phone-readable size
+    // (a portrait screen shows a short picture band).
+    const h = Math.max(this.layer.clientHeight || 360, 340), s = this.style;
     const px = Math.max(12, h * 0.052 * s.size);
     const L = this.layer.style;
     L.setProperty('--sub-size', px.toFixed(1) + 'px');
