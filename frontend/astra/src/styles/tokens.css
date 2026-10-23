@@ -87,6 +87,9 @@ button { cursor: pointer; }
 .astra-sub.left { text-align: left; } .astra-sub.center { text-align: center; } .astra-sub.right { text-align: right; }
 .astra-sub span { background: var(--sub-box, transparent); box-decoration-break: clone; -webkit-box-decoration-break: clone; padding: 0 0.15em; border-radius: 2px; }
 
+/* Reduced motion: everything settles at once. Looping animations (spinners,
+   shimmer, pulses) run a single 1 ms pass and stop, instead of jumping to a
+   new position every frame. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: 1ms !important; transition-delay: 0s !important; }
 }

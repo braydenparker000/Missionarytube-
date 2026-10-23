@@ -105,7 +105,8 @@ export class App {
     this.views = {};
     this.tabsEl = h('div', {class: 'tab-views'});
     for (const t of TABS) {
-      const view = h('section', {class: 'tab-view', 'data-tab': t.id, hidden: t.id !== 'home', 'aria-label': t.label});
+      const view = h('section', {class: 'tab-view' + (t.id === 'home' ? '' : ' off'), 'data-tab': t.id, 'aria-label': t.label});
+      view.inert = t.id !== 'home';
       this.views[t.id] = view;
       this.tabsEl.append(view);
     }
@@ -132,7 +133,8 @@ export class App {
     if (this.tab === id) { if (fromTap) this.screens[id]?.reselect?.(); return; }
     const first = !this.screens[id];
     if (first) this.screens[id] = new this.screenTypes[id](this, this.views[id]);
-    for (const [k, v] of Object.entries(this.views)) v.hidden = k !== id;
+    // Hidden tabs stay laid out (content-visibility), so coming back is a repaint, not a rebuild.
+    for (const [k, v] of Object.entries(this.views)) { v.classList.toggle('off', k !== id); v.inert = k !== id; }
     this.navButtons.forEach((b, i) => { const on = TABS[i].id === id; b.classList.toggle('selected', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
     this.pill.style.setProperty('--i', TABS.findIndex(t => t.id === id));
     const previous = this.tab;
@@ -164,6 +166,7 @@ export class App {
     this.stackEl.append(layer);
     this.stack.push({screen, layer});
     this.root.classList.add('has-screen');
+    this.setCovered(true);
     requestAnimationFrame(() => layer.classList.add('in'));
     const entry = this.stack[this.stack.length - 1];
     entry.pop = pushLayer('screen', () => this.removeScreen(entry));
@@ -184,7 +187,16 @@ export class App {
       setTimeout(() => e.layer.remove(), 220);
     }
     this.root.classList.toggle('has-screen', this.stack.length > 0);
+    this.setCovered(this.stack.length > 0 || !!this.player?.isOpen);
     this.stack[this.stack.length - 1]?.screen.onShow?.(false);
+  }
+
+  /** A screen or the player is over the tabs: the tab under them can rest (Home's hero stops turning). */
+  setCovered(covered) {
+    if (covered === !!this.covered) return;
+    this.covered = covered;
+    this.root.classList.toggle('covered', covered);
+    this.screens[this.tab]?.onCover?.(covered);
   }
 
   openTitle(meta) { return this.push(new this.screenTypes.details(this, meta)); }
@@ -209,6 +221,7 @@ export class App {
   }
 
   playNow({meta, video = null, source, sources, startTime = 0}) {
+    this.setCovered(true);
     this.playing = {meta, video, stream: source.stream};
     const videos = meta.videos || [];
     const index = video ? videos.findIndex(v => v.id === video.id) : -1;
@@ -240,7 +253,7 @@ export class App {
       if (entry?.completed && !this.watched.has(p.meta.type, p.meta.id, v ? v.id : null)) this.watched.set(p.meta.type, p.meta.id, v ? v.id : null, true);
     };
     this.player.addEventListener('progress', e => { save(e.detail.time, e.detail.duration); if (e.detail.final) this.progress.flush(true); });
-    this.player.addEventListener('close', () => { this.progress.flush(true); this.playing = null; this.subtitleSearch?.abort(); this.subtitleSearch = null; });
+    this.player.addEventListener('close', () => { this.progress.flush(true); this.playing = null; this.subtitleSearch?.abort(); this.subtitleSearch = null; this.setCovered(this.stack.length > 0); });
     this.player.addEventListener('episode', e => this.switchEpisode(e.detail.episode.video));
     this.player.addEventListener('next', () => { if (this.playing?.next) this.switchEpisode(this.playing.next); });
     this.player.addEventListener('source', e => { if (this.playing) { this.playing.sourceId = e.detail.source.id; this.playing.stream = e.detail.source.stream; } });

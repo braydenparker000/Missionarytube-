@@ -20,9 +20,14 @@ img.loaded, .img-fallback { animation: img-in 200ms var(--ease); }
 .tab-view { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: var(--nav-space); scrollbar-width: none; }
 .tab-view::-webkit-scrollbar { display: none; }
 .screen-stack { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
-.screen-layer { position: absolute; inset: 0; pointer-events: auto; background: var(--bg); opacity: 0; transform: translateY(14px); transition: opacity var(--t-normal) var(--ease), transform var(--t-normal) var(--ease); }
+/* A pushed screen slides in from 6% while it turns opaque within 90 ms, so
+   the two screens are never blended for long. isolation keeps a screen's
+   fixed headers inside its own layer (under the screen pushed over it). */
+.screen-layer { position: absolute; inset: 0; isolation: isolate; pointer-events: auto; background: var(--bg); opacity: 0; transform: translateX(6%); transition: opacity 90ms linear, transform 260ms var(--ease-decel); }
 .screen-layer.in { opacity: 1; transform: none; }
-.screen-layer.out { opacity: 0; transform: translateY(10px); transition-duration: 180ms; pointer-events: none; }
+.screen-layer.out { opacity: 0; transform: translateX(6%); transition: opacity 150ms 40ms linear, transform 200ms var(--ease); pointer-events: none; }
+/* Hidden tabs keep their layout and paint state (switching back is cheap) but draw nothing. */
+.tab-view.off { content-visibility: hidden; visibility: hidden; pointer-events: none; }
 .screen { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding-bottom: calc(24px + var(--safe-bottom)); scrollbar-width: none; }
 .screen::-webkit-scrollbar { display: none; }
 .astra.has-screen .nav { opacity: 0; transform: translate(-50%, 24px); pointer-events: none; }
@@ -65,13 +70,17 @@ img.loaded, .img-fallback { animation: img-in 200ms var(--ease); }
 .filter-chips::-webkit-scrollbar { display: none; }
 .chip.dropdown .icon { fill: currentColor; transform: rotate(90deg); }
 .chip.danger { color: var(--danger); }
-.toast { position: fixed; z-index: 3000; left: 50%; top: calc(var(--safe-top) + 12px); transform: translate(-50%, -140%); display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 12px 16px; border-radius: var(--r-xl); background: #2a2a2a; color: var(--text); font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.4); opacity: 0; transition: transform 300ms var(--ease), opacity 300ms var(--ease); pointer-events: none; }
+/* Messages rise from the bottom, above the floating nav (or the screen's bottom edge). */
+.toast { position: fixed; z-index: 3000; left: 50%; bottom: calc(var(--nav-space) + 8px); transform: translate(-50%, 140%); display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 12px 16px; border-radius: var(--r-xl); background: #2a2a2a; color: var(--text); font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.4); opacity: 0; transition: transform 300ms var(--ease), opacity 300ms var(--ease); pointer-events: none; }
 .toast.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
 .toast button { border: 0; background: none; color: var(--accent); font-weight: 700; }
 
-/* Skeletons: one shimmer band shared by every placeholder */
-.skeleton { background: linear-gradient(100deg, var(--skeleton) 30%, var(--shimmer) 50%, var(--skeleton) 70%) var(--skeleton); background-size: 200vw 100%; background-attachment: fixed; animation: shimmer 2.4s linear infinite; border-radius: var(--poster-r); }
-@keyframes shimmer { from { background-position: 100vw 0; } to { background-position: -100vw 0; } }
+/* Skeletons: static placeholders with a shimmer band that only moves (a
+   transform, run by the compositor): nothing is repainted while it plays. */
+.skeleton { position: relative; overflow: hidden; background: var(--skeleton); border-radius: var(--poster-r); }
+.skeleton::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, var(--shimmer) 50%, transparent 80%); transform: translateX(-100%); animation: shimmer 1.6s linear infinite; }
+@keyframes shimmer { to { transform: translateX(100%); } }
+body:has(.astra.has-screen) .toast { bottom: calc(var(--safe-bottom) + 16px); }
 .skeleton-title { width: 128px; height: 16px; border-radius: 6px; }
 .skeleton-poster { flex: none; width: var(--poster-w); aspect-ratio: .675; }
 .skeleton-landscape { flex: none; width: calc(var(--poster-w) * 1.96); aspect-ratio: 1.77; }
@@ -157,7 +166,8 @@ img.loaded, .img-fallback { animation: img-in 200ms var(--ease); }
 .hero-cta { min-height: 44px; padding: 12px 28px; border: 0; border-radius: 40px; background: var(--text); color: var(--on-accent); font-size: 16px; font-weight: 700; }
 .hero-cta:active { transform: scale(.96); }
 .hero-dots { position: absolute; left: 0; right: 0; bottom: 18px; display: flex; justify-content: center; gap: 8px; }
-.hero-dot { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 4px; background: var(--text); opacity: .35; transition: width 300ms var(--ease), opacity 300ms var(--ease); }
+.hero-dot { position: relative; width: 8px; height: 8px; padding: 0; border: 0; border-radius: 4px; background: var(--text); opacity: .35; transition: width 300ms var(--ease), opacity 300ms var(--ease); }
+.hero-dot::before { content: ''; position: absolute; inset: -12px -6px; } /* a finger-sized target around the small dot */
 .hero-dot.on { width: 32px; opacity: .92; }
 .skeleton-hero { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 12px; padding-bottom: 60px; }
 .hero-logo-ph { width: 62%; height: 64px; } .hero-line-ph { width: 50%; height: 14px; } .hero-btn-ph { width: 140px; height: 44px; border-radius: 40px; }
@@ -341,3 +351,13 @@ img.loaded, .img-fallback { animation: img-in 200ms var(--ease); }
   .hero-content { align-items: flex-start; text-align: left; padding-left: 48px; }
   .hero-cta { display: none; }
 }
+
+/* Pressed states: a quick, animated response on everything tappable. */
+.set-row, .recent-q, .row-all, .more-link, .search-clear, .float-back, .hero-cta, .cw-art { transition: background 100ms var(--ease), opacity 100ms var(--ease), transform 100ms var(--ease); }
+.set-row:active, .recent-q:active { background: var(--pressed); }
+.row-all:active, .more-link:active, .search-clear:active { opacity: .6; }
+.float-back:active { transform: scale(.92); }
+.icon-btn { transition: background 100ms var(--ease); }
+/* Native apps never select text on a long press; fields still do. */
+.astra, .lift, .sheet { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.astra input, .astra textarea, .astra [contenteditable] { -webkit-user-select: text; user-select: text; }
