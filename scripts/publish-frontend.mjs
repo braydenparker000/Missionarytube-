@@ -167,7 +167,7 @@ async function publicRead(path,hash,size){
  const r=await fetch(ORIGIN+'/'+path,{redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000)});
  assert.equal(r.status,200);const bytes=Buffer.from(await r.arrayBuffer());assert.equal(sha(bytes),hash,'Public byte mismatch');assert.equal(bytes.length,size);
 }
-const contentType=path=>({html:'text/html; charset=utf-8',css:'text/css; charset=utf-8',js:'application/javascript; charset=utf-8',json:'application/json',woff:'font/woff',wasm:'application/wasm',svg:'image/svg+xml',png:'image/png',webp:'image/webp',jpg:'image/jpeg',jpeg:'image/jpeg',ico:'image/x-icon'})[path.split('.').pop()]||'application/octet-stream';
+const contentType=path=>({html:'text/html; charset=utf-8',css:'text/css; charset=utf-8',js:'application/javascript; charset=utf-8',json:'application/json',woff:'font/woff',woff2:'font/woff2',wasm:'application/wasm',svg:'image/svg+xml',png:'image/png',webp:'image/webp',jpg:'image/jpeg',jpeg:'image/jpeg',ico:'image/x-icon'})[path.split('.').pop()]||'application/octet-stream';
 function upload(file,old,{rollback=false}={}){
  const properties=rollback?retainedProperties(file,{restoreDigest:true}):old.exists?retainedProperties(old):['--content-type',contentType(file.path),'--content-cache-control',/\.[a-f0-9]{12}\.(js|woff)$/.test(file.path)?'public, max-age=31536000, immutable':'no-cache'];
  const result=JSON.parse(az(['upload','--name',file.path,'--file',resolve(rollback?OUT:'dist',rollback?file.file:file.path),...properties,'--overwrite','true',...(old.exists?['--if-match',old.etag]:['--if-none-match','*']),'--output','json']));
