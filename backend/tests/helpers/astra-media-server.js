@@ -101,10 +101,15 @@ function listen(handler) {
   return new Promise(done => { const server = http.createServer(handler); server.listen(0, '127.0.0.1', () => done(server)); });
 }
 
-/** Starts both servers. Resolves {site, media, addon, subtitleRequests, close}. */
-export async function startAstraServers({frontend = join(ROOT, 'frontend'), fixtures = join(ROOT, 'tests/fixtures/astra')} = {}) {
+/**
+ * Starts both servers. Resolves {site, media, addon, subtitleRequests, close}.
+ * `release`, when given, is called for each /release.json (the site's
+ * release manifest, which the service worker reads) and returns its body.
+ */
+export async function startAstraServers({frontend = join(ROOT, 'frontend'), fixtures = join(ROOT, 'tests/fixtures/astra'), release = null} = {}) {
   const site = await listen((req, res) => {
     const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    if (release && path === '/release.json') { res.writeHead(200, {'Content-Type': 'application/json', 'Cache-Control': 'no-store'}); return res.end(JSON.stringify(release())); }
     let file = normalize(join(frontend, path));
     if (!file.startsWith(frontend)) { res.writeHead(403); return res.end(); }
     if (path.endsWith('/')) file = join(file, 'index.html');

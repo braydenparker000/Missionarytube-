@@ -15,6 +15,29 @@
   <link rel="stylesheet" href="src/styles/app.css">
   <link rel="stylesheet" href="src/player/player.css">
   <script type="module" src="src/main.js"></script>
+  <!-- Every module the app needs to start, fetched at once instead of import by import
+       (kept in step with src/main.js by tests/astra-startup.test.mjs). The player loads later. -->
+  <link rel="modulepreload" href="src/app/app.js">
+  <link rel="modulepreload" href="src/app/store.js">
+  <link rel="modulepreload" href="src/addons/client.js">
+  <link rel="modulepreload" href="src/app/content.js">
+  <link rel="modulepreload" href="src/app/cache.js">
+  <link rel="modulepreload" href="src/app/back-stack.js">
+  <link rel="modulepreload" href="src/addons/debrid.js">
+  <link rel="modulepreload" href="src/addons/subtitles.js">
+  <link rel="modulepreload" href="src/ui/dom.js">
+  <link rel="modulepreload" href="src/ui/icons.js">
+  <link rel="modulepreload" href="src/ui/components.js">
+  <link rel="modulepreload" href="src/screens/home.js">
+  <link rel="modulepreload" href="src/screens/search.js">
+  <link rel="modulepreload" href="src/screens/library.js">
+  <link rel="modulepreload" href="src/screens/settings.js">
+  <link rel="modulepreload" href="src/player/prefs.js">
+  <link rel="modulepreload" href="src/engine/languages.js">
+  <link rel="modulepreload" href="src/screens/details.js">
+  <link rel="modulepreload" href="src/screens/streams.js">
+  <link rel="modulepreload" href="src/player/external.js">
+  <link rel="modulepreload" href="src/screens/catalog.js">
 </head>
 <body>
   <main id="app" class="astra"></main>

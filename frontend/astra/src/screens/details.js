@@ -9,6 +9,8 @@ export class DetailsScreen {
   constructor(app, item) {
     this.app = app;
     this.item = item;
+    // Fetch the player while the viewer reads, so Play opens it at once.
+    (globalThis.requestIdleCallback || (fn => setTimeout(fn, 1200)))(() => app.loadPlayer?.().catch(() => {}));
     this.el = h('div', {class: 'screen details'});
     this.header = h('header', {class: 'details-header', 'aria-hidden': 'true'});
     this.backBtn = h('button', {class: 'float-back', type: 'button', 'aria-label': 'Back', onclick: () => app.back()}, icon('back', {size: 24}));

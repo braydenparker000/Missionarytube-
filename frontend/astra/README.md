@@ -13,8 +13,8 @@ client for browser-only details. Both are GPL; nothing is copied from either.
 
 | Path | What it is |
 | --- | --- |
-| `index.html`, `src/main.js` | The app at `/astra/`. Installable (`manifest.webmanifest`, `sw.js`: network first, the cache only when offline). |
-| `src/app/` | `app.js` (tabs, screen stack, playing a stream), `store.js` (saved data under `astra.v2.*`), `content.js` (rows, hero, what Play means), `back-stack.js` (Android back, one history entry per open screen, sheet or menu). |
+| `index.html`, `src/main.js` | The app at `/astra/`. Installable (`manifest.webmanifest`); `sw.js` opens it from a saved copy (below). |
+| `src/app/` | `app.js` (tabs, screen stack, playing a stream), `store.js` (saved data under `astra.v2.*`), `content.js` (rows, hero, what Play means), `cache.js` (add-on answers kept between visits), `back-stack.js` (Android back, one history entry per open screen, sheet or menu). |
 | `src/screens/` | Home, Details, Streams, Catalog ("View all"), Search and Discover, Library, Settings. |
 | `lab/` | Playback lab at `/astra/lab/`: play a link or a stream from your add-ons, see what the file holds and how it plays, switch audio and subtitles, copy a report. |
 | `src/engine/` | The playback engine (below). |
@@ -49,6 +49,31 @@ client for browser-only details. Both are GPL; nothing is copied from either.
   subtitle language, subtitle style) and your data (export, restore, clear).
 - On first launch Astra copies add-ons, library and progress from classic
   Astra (`astra.v1.*`) once, and leaves the classic data as it was.
+
+## Opening fast
+
+- **A saved copy of the app** (`sw.js`, over https). A release of Astra is the
+  Git tree of `frontend/astra` named in the site's `/release.json`. The first
+  visit saves the files it loaded under that release; later visits open from
+  the saved copy, offline too, and look for a newer release in the
+  background (one small request). A newer release is saved whole before open
+  pages are told; they offer **Reload** and never mix files from two releases.
+  On a local `http` server the worker is off unless `localStorage`
+  `astra.dev.sw` is `1`.
+- **Add-on answers are kept** (`src/app/cache.js`, Cache Storage
+  `astra-data-v1`). Manifests (6 h), Home's catalogs (30 min) and title pages
+  (12 h) paint at once from the last answer while a fresh one is fetched;
+  Home redraws only the rows that changed, keeping where they were scrolled.
+  Entries unused for a week are dropped.
+- **Nothing waits on a slow add-on.** Manifests have 6 s; Home starts 2.5 s
+  after the first one answers and adds the rest as they come. Catalogs load
+  four at a time, title pages ask every add-on at once. When no add-on
+  answers, Home says so with Retry, and tries again when the phone is back
+  online.
+- **Only the start-up code loads at start-up.** `index.html` preloads the
+  modules `main.js` imports (`tests/astra-startup.test.mjs` keeps the list
+  exact); the player and the engine load on the first Play, fetched early
+  while Details or Streams is open.
 
 ## How a file plays
 
@@ -153,7 +178,8 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
 - `backend/tests/astra-app-browser.test.js`: the app at phone portrait size
   against a fixture add-on (`backend/tests/helpers/astra-media-server.js`):
   Home, back, Continue Watching, the lift menu, Library, episodes, paging,
-  Search, add-on settings and the classic import.
+  Search, add-on settings, the classic import, add-on subtitles, and the
+  saved copy (offline start, a new release announced).
 - Fixtures: `bash scripts/astra/make-fixtures.sh` regenerates
   `tests/fixtures/astra/` (needs ffmpeg). Each audio track is a sine tone at a
   different pitch.

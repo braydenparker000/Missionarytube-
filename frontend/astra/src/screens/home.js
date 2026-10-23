@@ -39,6 +39,8 @@ export class HomeScreen {
     this.ctx = posterContext(app);
     app.progress.onChange(() => this.renderContinue());
     app.watched.onChange(() => { this.dirty = true; });
+    // A late add-on answer, a refreshed manifest or an edit in Settings: redraw without flashing skeletons.
+    app.onAddons?.(() => this.load({quiet: true}));
     this.load();
   }
 
@@ -46,38 +48,56 @@ export class HomeScreen {
   onHide() { this.carousel?.pause(); }
   reselect() { this.view.scrollTo({top: 0, behavior: reducedMotion() ? 'auto' : 'smooth'}); }
 
-  async load() {
+  async load({quiet = false} = {}) {
     this.abort?.abort();
     const abort = this.abort = new AbortController();
-    this.hero.replaceChildren(h('div', {class: 'hero skeleton-hero'}, h('div', {class: 'skeleton hero-logo-ph'}), h('div', {class: 'skeleton hero-line-ph'}), h('div', {class: 'skeleton hero-btn-ph'})));
-    this.rows.replaceChildren(skeletonRow(), skeletonRow(), skeletonRow());
+    const showHero = this.app.settings.hero !== false;
+    if (!quiet || !this.rows.childElementCount) {
+      this.hero.replaceChildren(...(showHero ? [h('div', {class: 'hero skeleton-hero'}, h('div', {class: 'skeleton hero-logo-ph'}), h('div', {class: 'skeleton hero-line-ph'}), h('div', {class: 'skeleton hero-btn-ph'}))] : []));
+      this.rows.replaceChildren(skeletonRow(), skeletonRow(), skeletonRow());
+    }
     this.renderContinue();
     await this.app.ready;
     if (abort.signal.aborted) return;
-    const entries = homeCatalogs(this.app.enabledAddons(), this.app.manifests).filter(e => !this.app.settings.hiddenRows?.includes(e.key));
+    const hidden = Array.isArray(this.app.settings.hiddenRows) ? this.app.settings.hiddenRows : [];
+    const entries = homeCatalogs(this.app.enabledAddons(), this.app.manifests).filter(e => !hidden.includes(e.key));
     if (!entries.length) {
+      this.carousel?.destroy?.(); this.carousel = null;
       this.hero.replaceChildren();
-      this.rows.replaceChildren(emptyCard('No content sources', 'Add an add-on with catalogs in Settings to fill Home.', {label: 'Open add-ons', run: () => this.app.selectTab('settings')}));
+      const enabled = this.app.enabledAddons().length;
+      if (enabled && !this.app.manifests.size) {
+        this.rows.replaceChildren(emptyCard('Can’t reach your add-ons', navigator.onLine === false ? 'This phone is offline. Astra tries again when the connection is back.' : 'They did not answer. Check the connection and try again.',
+          {label: 'Retry', run: () => { this.app.reloadAddons(); this.load(); }}));
+      } else {
+        this.rows.replaceChildren(emptyCard('No content sources', 'Add an add-on with catalogs in Settings to fill Home.', {label: 'Open add-ons', run: () => this.openAddons()}));
+      }
       return;
     }
-    const slots = new Map(entries.map(e => [e.key, h('section', {class: 'row'})]));
-    this.rows.replaceChildren(...slots.values());
-    for (const slot of slots.values()) slot.append(...[...skeletonRow(6).children]);
+    // A quiet reload keeps the rows already shown (and where they were scrolled to) until their fresh copy is drawn.
+    const previous = new Map([...this.rows.querySelectorAll('.row[data-key]')].map(r => [r.dataset.key, r]));
+    const slots = new Map(entries.map(e => [e.key, quiet && previous.get(e.key)?.entry ? previous.get(e.key) : h('section', {class: 'row'})]));
+    const order = [...slots.values()];
+    if (order.length !== this.rows.children.length || order.some((slot, i) => this.rows.children[i] !== slot)) this.rows.replaceChildren(...order);
+    for (const slot of order) if (!slot.childElementCount) slot.append(...[...skeletonRow(6).children]);
     const loaded = [];
-    let heroDone = false;
+    let heroDone = quiet && !!this.carousel; // a quiet reload keeps the hero turning
     await loadRows(entries, (entry, items, error) => {
       const slot = slots.get(entry.key);
-      if (error || !items.length) { slot.remove(); return; }
+      if (error || !items.length) {
+        if (quiet && slot.entry) { entry.items = slot.entry.items; if (!loaded.includes(entry)) loaded.push(entry); } else slot.remove();
+        return;
+      }
       entry.items = items;
-      loaded.push(entry);
+      if (!loaded.includes(entry)) loaded.push(entry);
       this.renderRow(slot, entry);
       const firstTwo = entries.slice(0, 2).every(e => e.items || !slots.get(e.key).isConnected);
-      if (!heroDone && firstTwo && this.app.settings.hero !== false) {
+      if (!heroDone && firstTwo && showHero) {
         heroDone = true;
         this.renderHero(entries.filter(e => e.items));
       }
     }, {signal: abort.signal});
-    if (!heroDone) this.renderHero(loaded);
+    if (!heroDone && showHero) this.renderHero(loaded);
+    if (!showHero) { this.carousel?.destroy?.(); this.carousel = null; this.hero.replaceChildren(); }
     if (!loaded.length) this.rows.replaceChildren(emptyCard("Couldn't load Home", 'Your add-ons did not answer. Check the connection and try again.', {label: 'Retry', run: () => { this.app.reloadAddons(); this.load(); }}));
   }
 
@@ -85,12 +105,26 @@ export class HomeScreen {
     const items = entry.items.slice(0, ROW_ITEMS);
     const all = entry.items.length > ROW_ITEMS || entry.pageable ? () => this.app.openCatalog(entry) : null;
     const name = this.app.settings.showCatalogType === false ? entry.title.replace(/ - (Movie|Series|\w+)$/, '') : entry.title;
+    // Unchanged rows are left as they are: no flash, and a row the user scrolled stays put.
+    const signature = [name, !!all, ...items.map(m => m.id)].join('\n');
+    slot.entry = entry;
+    if (slot.signature === signature && !this.dirtyRows) return;
     slot.replaceChildren(rowHeader(name, all), h('div', {class: 'row-scroll'}, ...items.map(m => posterCard(m, this.ctx))));
     slot.dataset.key = entry.key;
-    slot.entry = entry;
+    slot.signature = signature;
   }
 
-  repaintBadges() { for (const slot of this.rows.querySelectorAll('.row')) if (slot.entry) this.renderRow(slot, slot.entry); }
+  openAddons() {
+    this.app.selectTab('settings');
+    const settings = this.app.screens.settings;
+    settings?.open?.('Add-ons', p => settings.addons(p));
+  }
+
+  repaintBadges() {
+    this.dirtyRows = true;
+    for (const slot of this.rows.querySelectorAll('.row')) if (slot.entry) this.renderRow(slot, slot.entry);
+    this.dirtyRows = false;
+  }
 
   renderHero(rows) {
     const items = heroItems(rows);
