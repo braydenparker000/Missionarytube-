@@ -193,6 +193,21 @@ test('Continue Watching opens its streams at once while the full details load; a
   assert.deepEqual(errors, []);
 });
 
+test('marking a title watched changes its badge in place: the row keeps its scroll and its cards', options, async t => {
+  const {page, errors} = await openApp(t);
+  await page.waitForSelector('.hero-slide');
+  const row = homeRow(page, 'Popular - Movie');
+  await row.locator('.row-scroll').evaluate(el => { el.scrollLeft = 300; });
+  const card = row.locator('.poster-card').nth(3);
+  await card.evaluate(el => { el.dataset.mark = 'kept'; });
+  await card.dispatchEvent('contextmenu');
+  await page.locator('.lift-item', {hasText: 'Mark as watched'}).click();
+  await page.waitForFunction(() => document.querySelector('.poster-card[data-mark="kept"] .watched-badge'));
+  assert.equal(await row.locator('.row-scroll').evaluate(el => el.scrollLeft), 300);
+  assert.match(await row.locator('.poster-card[data-mark="kept"]').getAttribute('aria-label'), /, watched$/);
+  assert.deepEqual(errors, []);
+});
+
 test('Details paints at once from the card and keeps its hero art when the full details arrive', options, async t => {
   const {page, servers, errors} = await openApp(t);
   await page.waitForSelector('.hero-slide');

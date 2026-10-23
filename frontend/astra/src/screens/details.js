@@ -32,8 +32,12 @@ export class DetailsScreen {
         this.watchedFrame = 0;
         if (this.destroyed) return;
         this.renderActions();
-        const old = this.body.querySelector('.episode-row')?.closest('.section'), fresh = old && this.episodes(this.meta);
-        if (fresh) old.replaceWith(fresh);
+        // The episode row is redrawn where the viewer left it, not scrolled back to the next episode.
+        const row = this.body.querySelector('.episode-row'), old = row?.closest('.section');
+        this.keepScroll = row ? row.scrollLeft : null;
+        const fresh = old && this.episodes(this.meta);
+        if (fresh) { old.replaceWith(fresh); const list = fresh.querySelector('.episode-row'); if (list) list.scrollLeft = this.keepScroll; }
+        this.keepScroll = null;
       });
     };
     this.offs = [app.watched.onChange(watchedChanged), app.progress.onChange(() => this.meta && this.renderActions()), app.library.onChange(() => this.meta && this.renderActions())];
@@ -203,6 +207,7 @@ export class DetailsScreen {
 
   /** Scrolls an episode row so the episode Play would start is in view. */
   scrollToNext(list) {
+    if (this.keepScroll != null) return;
     const next = list.querySelector('.episode-card.next');
     if (next && next !== list.firstElementChild) requestAnimationFrame(() => {
       const left = next.getBoundingClientRect().left - list.getBoundingClientRect().left + list.scrollLeft - 18;

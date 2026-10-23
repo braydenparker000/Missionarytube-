@@ -2,7 +2,7 @@
 
 import {h, timeLeft, reducedMotion} from '../ui/dom.js';
 import {icon} from '../ui/icons.js';
-import {posterCard, image, longPress, liftMenu, skeletonRow, emptyCard, toast} from '../ui/components.js';
+import {posterCard, setWatchedBadge, image, longPress, liftMenu, skeletonRow, emptyCard, toast} from '../ui/components.js';
 import {homeCatalogs, loadRows, heroItems, ROW_ITEMS, episodeCode} from '../app/content.js';
 
 const HERO_INTERVAL = 8000;
@@ -38,7 +38,8 @@ export class HomeScreen {
     view.append(h('div', {class: 'home'}, this.hero, this.cw, this.rows));
     this.ctx = posterContext(app);
     app.progress.onChange(() => this.renderContinue());
-    app.watched.onChange(() => { this.dirty = true; });
+    // On screen: the badges change now; under another tab or screen: when Home shows again.
+    app.watched.onChange(() => { if (app.tab === 'home' && !app.covered) this.repaintBadges(); else this.dirty = true; });
     // A late add-on answer, a refreshed manifest or an edit in Settings: redraw without flashing skeletons.
     app.onAddons?.(() => this.load({quiet: true}));
     this.load();
@@ -134,7 +135,7 @@ export class HomeScreen {
     // Unchanged rows are left as they are: no flash, and a row the user scrolled stays put.
     const signature = [name, !!all, ...items.map(m => m.id)].join('\n');
     slot.entry = entry;
-    if (slot.signature === signature && !this.dirtyRows) return;
+    if (slot.signature === signature) return;
     slot.replaceChildren(rowHeader(name, all), h('div', {class: 'row-scroll'}, ...items.map(m => posterCard(m, this.ctx))));
     slot.dataset.key = entry.key;
     slot.signature = signature;
@@ -146,11 +147,19 @@ export class HomeScreen {
     settings?.open?.('Add-ons', p => settings.addons(p));
   }
 
+  /**
+   * After a watched change or a Home setting: rows whose title or items
+   * changed are redrawn; watched badges change in place, so the other rows
+   * keep their scroll and their images.
+   */
   repaintBadges() {
-    this.dirtyRows = true;
     for (const slot of this.rows.querySelectorAll('.row')) if (slot.entry) this.renderRow(slot, slot.entry);
-    this.dirtyRows = false;
+    for (const card of this.rows.querySelectorAll('.poster-card[data-item]')) {
+      const [type, ...rest] = card.dataset.item.split(':');
+      setWatchedBadge(card, !!this.ctx.watched?.({type, id: rest.join(':')}));
+    }
   }
+
 
   renderHero(rows) {
     const items = heroItems(rows);
