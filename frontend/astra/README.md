@@ -1,8 +1,10 @@
 # Astra (new)
 
-The ground-up rebuild of Astra, the media module. It is being built beside
-classic Astra (`frontend/media/`), which stays live and untouched until this
-one replaces it; then the home tile moves here and `frontend/media/` retires.
+The ground-up rebuild of Astra, the media module. The home tile opens it.
+Classic Astra (`frontend/media/`) still serves `/media/` and is linked from
+Settings while this one settles in; My Media also still loads classic Astra's
+compatibility player from there, so `frontend/media/` cannot retire until
+that moves too.
 
 Design reference: Nuvio (Android) for screens and behaviour, Stremio's web
 client for browser-only details. Both are GPL; nothing is copied from either.

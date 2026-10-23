@@ -4,7 +4,7 @@ export const apps = [
   {id:'quick-ai',name:'Quick AI',description:'Fast answers · Gemini or Qwen',href:'/quick-ai/',icon:'chat',group:'Conversation'},
   {id:'poweramp',name:'Poweramp',description:'Music',href:'/claude-player/',icon:'music',group:'Library'},
   {id:'podcasts',name:'Podcasts',description:'Discover, listen & download',href:'/podcasts/',icon:'podcast',group:'Library'},
-  {id:'media',name:'Astra',description:'Videos',href:'/media/',icon:'media',group:'Library'},
+  {id:'media',name:'Astra',description:'Videos',href:'/astra/',icon:'media',group:'Library'},
   {id:'board',name:'Daily Board',description:'Your briefing',href:'/daily-board/',icon:'board',group:'Conversation'},
   {id:'guitar',name:'Guitar',description:'Songsterr · PDF tabs',href:'/guitar/',icon:'music',group:'Utilities'},
   {id:'notes',name:'Notes',description:'Saved in this browser',href:'/notes/',icon:'notes',group:'Utilities'},
