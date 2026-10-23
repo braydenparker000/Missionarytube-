@@ -75,6 +75,12 @@ img.loaded, .img-fallback { animation: img-in 200ms var(--ease); }
 .toast.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
 .toast button { border: 0; background: none; color: var(--accent); font-weight: 700; }
 
+/* Recovery: shown in place of the app when it cannot start (src/app/recovery.js) */
+.recovery { position: absolute; inset: 0; display: flex; overflow-y: auto; padding: calc(var(--safe-top) + 24px) 0 calc(var(--safe-bottom) + 24px); }
+.recovery .state-card { width: calc(100% - 2 * var(--gutter)); max-width: 440px; margin: auto; }
+.recovery-actions { display: grid; gap: 10px; }
+.state-card .recovery-detail { margin: 14px 0 0; color: var(--muted); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
+
 /* Skeletons: static placeholders with a shimmer band that only moves (a
    transform, run by the compositor): nothing is repainted while it plays. */
 .skeleton { position: relative; overflow: hidden; background: var(--skeleton); border-radius: var(--poster-r); }

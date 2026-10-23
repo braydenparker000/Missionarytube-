@@ -9,20 +9,32 @@ import {DetailsScreen} from './screens/details.js';
 import {StreamsScreen} from './screens/streams.js';
 import {CatalogScreen} from './screens/catalog.js';
 import {toast} from './ui/components.js';
+import {showRecovery} from './app/recovery.js';
 
-const app = new App(document.getElementById('app'), {
-  home: HomeScreen, search: SearchScreen, library: LibraryScreen, settings: SettingsScreen,
-  details: DetailsScreen, streams: StreamsScreen, catalog: CatalogScreen,
-});
-window.astra = app;
-app.start();
+const root = document.getElementById('app');
+let app = null;
+try {
+  app = new App(root, {
+    home: HomeScreen, search: SearchScreen, library: LibraryScreen, settings: SettingsScreen,
+    details: DetailsScreen, streams: StreamsScreen, catalog: CatalogScreen,
+  });
+  window.astra = app;
+  app.start();
+} catch (error) {
+  // Never leave the launch screen spinning: offer to export or reset what is saved.
+  console.error(error);
+  app = null;
+  showRecovery(root, error);
+}
 
 // The launch screen stays until Home has something to show, at most 5 s.
 const launch = document.getElementById('launch');
 const done = () => { if (!launch.isConnected) return; launch.classList.add('gone'); setTimeout(() => launch.remove(), 400); };
-const home = app.views.home;
-new MutationObserver((_, observer) => { if (home.querySelector('.hero-slide, .row .poster-card, .state-card')) { observer.disconnect(); done(); } }).observe(home, {childList: true, subtree: true});
-setTimeout(done, 5000);
+if (app) {
+  const home = app.views.home;
+  new MutationObserver((_, observer) => { if (home.querySelector('.hero-slide, .row .poster-card, .state-card')) { observer.disconnect(); done(); } }).observe(home, {childList: true, subtree: true});
+  setTimeout(done, 5000);
+} else done();
 
 // Over https only; tests switch it on for a local server with localStorage astra.dev.sw = 1.
 const workerAllowed = location.protocol === 'https:' || (() => { try { return localStorage.getItem('astra.dev.sw') === '1'; } catch { return false; } })();

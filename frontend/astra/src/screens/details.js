@@ -19,7 +19,18 @@ export class DetailsScreen {
     this.renderHero(item);
     this.body.append(h('div', {class: 'details-loading'}, h('div', {class: 'spinner'})));
     this.el.addEventListener('scroll', () => this.onScroll(), {passive: true});
-    this.offs = [app.watched.onChange(() => this.meta && this.renderBody()), app.progress.onChange(() => this.meta && this.renderActions()), app.library.onChange(() => this.meta && this.renderActions())];
+    // Watched changes redraw at most once a frame, and only what shows them: the actions and the episodes.
+    const watchedChanged = () => {
+      if (!this.meta || this.watchedFrame) return;
+      this.watchedFrame = requestAnimationFrame(() => {
+        this.watchedFrame = 0;
+        if (this.destroyed) return;
+        this.renderActions();
+        const old = this.body.querySelector('.episode-row')?.closest('.section'), fresh = old && this.episodes(this.meta);
+        if (fresh) old.replaceWith(fresh);
+      });
+    };
+    this.offs = [app.watched.onChange(watchedChanged), app.progress.onChange(() => this.meta && this.renderActions()), app.library.onChange(() => this.meta && this.renderActions())];
     this.load();
   }
 
@@ -164,8 +175,8 @@ export class DetailsScreen {
       const index = m.videos.indexOf(v);
       liftMenu(card.querySelector('.episode-art'), v.title || episodeCode(v), episodeCode(v), [
         watched ? {label: 'Mark as unwatched', icon: 'replay', run: () => this.app.watched.set(m.type, m.id, v.id, false)} : {label: 'Mark as watched', icon: 'check', run: () => this.app.watched.set(m.type, m.id, v.id, true)},
-        {label: 'Mark previous as watched', icon: 'episodes', run: () => { for (const x of m.videos.slice(0, index)) if (x.season !== 0) this.app.watched.set(m.type, m.id, x.id, true); }},
-        {label: `Mark Season ${v.season} as watched`, icon: 'check', run: () => { for (const x of m.videos) if (x.season === v.season) this.app.watched.set(m.type, m.id, x.id, true); }},
+        {label: 'Mark previous as watched', icon: 'episodes', run: () => this.app.watched.setMany(m.videos.slice(0, index).filter(x => x.season !== 0).map(x => [m.type, m.id, x.id]), true)},
+        {label: `Mark Season ${v.season} as watched`, icon: 'check', run: () => this.app.watched.setMany(m.videos.filter(x => x.season === v.season).map(x => [m.type, m.id, x.id]), true)},
       ]);
     });
     return card;

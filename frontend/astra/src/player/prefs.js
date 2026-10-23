@@ -19,12 +19,19 @@ export const DEFAULTS = Object.freeze({
 });
 export const ORIENTATIONS = [['auto', 'Follow phone'], ['landscape', 'Landscape'], ['portrait', 'Portrait']];
 
-export function loadPrefs(storage = globalThis.localStorage) {
-  try { return {...DEFAULTS, ...JSON.parse(storage.getItem(KEY) || '{}')}; } catch { return {...DEFAULTS}; }
+// localStorage is read inside the try: with site data blocked, even reading the property throws.
+export function loadPrefs(storage) {
+  try {
+    const saved = JSON.parse((storage ?? globalThis.localStorage).getItem(KEY) || '{}');
+    const out = {...DEFAULTS};
+    // A damaged value falls back to its default instead of reaching the player.
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) for (const [k, v] of Object.entries(saved)) if (!(k in DEFAULTS) || typeof v === typeof DEFAULTS[k]) out[k] = v;
+    return out;
+  } catch { return {...DEFAULTS}; }
 }
 
-export function savePrefs(prefs, storage = globalThis.localStorage) {
-  try { storage.setItem(KEY, JSON.stringify(prefs)); return true; } catch { return false; }
+export function savePrefs(prefs, storage) {
+  try { (storage ?? globalThis.localStorage).setItem(KEY, JSON.stringify(prefs)); return true; } catch { return false; }
 }
 
 /** Converts the stored subtitle settings to the renderer's style. */

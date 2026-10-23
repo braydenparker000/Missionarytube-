@@ -7,6 +7,7 @@ import {normaliseManifestUrl, getJson} from '../addons/client.js';
 import {homeCatalogs} from '../app/content.js';
 import {loadPrefs, savePrefs, ORIENTATIONS} from '../player/prefs.js';
 import {languageName} from '../engine/languages.js';
+import {BACKUP_KEYS, restoreBackup} from '../app/store.js';
 
 const languageLabel = code => code ? languageName(code) || code : '';
 
@@ -151,29 +152,32 @@ export class SettingsScreen {
 
   data(page) {
     const app = this.app;
-    const keys = ['addons', 'library', 'progress', 'watched', 'settings', 'recentSearches'];
     const exportData = () => {
-      const blob = new Blob([JSON.stringify({astra: 'backup/1', at: new Date().toISOString(), data: Object.fromEntries(keys.map(k => [k, app.store.get(k, null)]))}, null, 1)], {type: 'application/json'});
+      const blob = new Blob([JSON.stringify({astra: 'backup/1', at: new Date().toISOString(), data: Object.fromEntries(BACKUP_KEYS.map(k => [k, app.store.get(k, null)]))}, null, 1)], {type: 'application/json'});
       const a = h('a', {href: URL.createObjectURL(blob), download: `astra-backup-${new Date().toISOString().slice(0, 10)}.json`});
       document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     };
-    const file = h('input', {type: 'file', accept: 'application/json', hidden: true, onchange: async e => {
-      try {
-        const backup = JSON.parse(await e.target.files[0].text());
-        if (backup?.astra !== 'backup/1') throw Error('Not an Astra backup.');
-        for (const k of keys) if (backup.data?.[k] != null) app.store.set(k, backup.data[k]);
-        toast('Restored. Reloading…');
-        setTimeout(() => location.reload(), 800);
-      } catch (err) { toast(err.message || 'That file could not be read.'); }
+    // Restore and copy-again freeze storage before reloading, so nothing this window still holds is saved over them.
+    const file = h('input', {type: 'file', accept: 'application/json,.json', hidden: true, onchange: async e => {
+      const chosen = e.target.files[0];
+      e.target.value = ''; // the same file can be chosen again
+      if (!chosen) return;
+      const text = await chosen.text().catch(() => null);
+      if (text == null) { toast('That file could not be read.'); return; }
+      const result = restoreBackup(app.store, text);
+      if (!result.ok) { toast(result.message); return; }
+      toast(`${result.message} Reloading…`);
+      setTimeout(() => location.reload(), 1200);
     }});
+    const copyAgain = () => { for (const k of ['imported', 'addons', 'library', 'progress']) app.store.remove(k); app.store.freeze(); location.reload(); };
     return [
       group('Backup',
         h('button', {class: 'set-row', type: 'button', onclick: exportData}, h('span', {class: 'set-text'}, h('b', {}, 'Export a backup'), h('small', {}, 'Add-ons, library, progress and settings as a file'))),
         h('button', {class: 'set-row', type: 'button', onclick: () => file.click()}, h('span', {class: 'set-text'}, h('b', {}, 'Restore from a backup'), h('small', {}, 'Replaces what is on this device'))), file),
       group('Clear',
-        h('button', {class: 'set-row danger', type: 'button', onclick: () => sheet('Clear Continue Watching?', [{label: 'Clear', icon: 'close', run: () => { app.progress.entries = {}; app.progress.flush(true); toast('Continue Watching cleared'); }}, {label: 'Cancel'}])}, h('span', {class: 'set-text'}, h('b', {}, 'Clear Continue Watching'))),
-        h('button', {class: 'set-row', type: 'button', onclick: () => sheet('Copy again from classic Astra?', [{label: 'Copy add-ons, library and progress', run: () => { for (const k of ['imported', 'addons', 'library', 'progress']) app.store.set(k, null); location.reload(); }}, {label: 'Cancel'}], {subtitle: 'Replaces what the new Astra has with what classic Astra has now.'})}, h('span', {class: 'set-text'}, h('b', {}, 'Copy again from classic Astra')))),
+        h('button', {class: 'set-row danger', type: 'button', onclick: () => sheet('Clear Continue Watching?', [{label: 'Clear', icon: 'close', run: () => { app.progress.clear(); toast('Continue Watching cleared'); }}, {label: 'Cancel'}])}, h('span', {class: 'set-text'}, h('b', {}, 'Clear Continue Watching'))),
+        h('button', {class: 'set-row', type: 'button', onclick: () => sheet('Copy again from classic Astra?', [{label: 'Copy add-ons, library and progress', run: copyAgain}, {label: 'Cancel'}], {subtitle: 'Replaces what the new Astra has with what classic Astra has now.'})}, h('span', {class: 'set-text'}, h('b', {}, 'Copy again from classic Astra')))),
     ];
   }
 }
