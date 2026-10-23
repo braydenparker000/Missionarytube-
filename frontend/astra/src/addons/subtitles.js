@@ -3,6 +3,7 @@
 // that off in Settings. Lists only: files are downloaded when chosen.
 
 import {fetchManifest, getJson, resourceUrl, supports} from './client.js';
+import {baseLanguage} from '../engine/languages.js';
 
 export const OPENSUBTITLES = 'https://opensubtitles-v3.strem.io/manifest.json';
 
@@ -54,7 +55,8 @@ export function decodeSubtitleBytes(bytes, language = '') {
   let zeros = 0;
   for (let i = 1; i < Math.min(bytes.length, 400); i += 2) if (bytes[i] === 0) zeros++;
   if (zeros > 150) return new TextDecoder('utf-16le').decode(bytes);
-  const lang = String(language).toLowerCase().slice(0, 2);
+  // Add-ons send three-letter codes ('gre', 'bul', 'rum'): their first two letters are not the language.
+  const lang = baseLanguage(language) || String(language).toLowerCase().slice(0, 2);
   const legacy = {ru: 'windows-1251', uk: 'windows-1251', bg: 'windows-1251', sr: 'windows-1251', mk: 'windows-1251', be: 'windows-1251',
     ar: 'windows-1256', fa: 'windows-1256', ur: 'windows-1256', he: 'windows-1255', el: 'windows-1253', tr: 'windows-1254',
     pl: 'windows-1250', cs: 'windows-1250', sk: 'windows-1250', hu: 'windows-1250', ro: 'windows-1250', hr: 'windows-1250', sl: 'windows-1250', bs: 'windows-1250',
