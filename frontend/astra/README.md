@@ -162,6 +162,9 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
   timed text and WebVTT in MP4 (`src/engine/mp4.js`). They are read from data
   the video pipeline already downloaded (`embedded-subtitles.js`), block by
   block as it arrives, so seeking works with or without a cue index.
+- **In adaptive streams**: an HLS or DASH stream's own subtitle tracks are
+  listed; hls.js and dash.js load them and Astra copies each cue once into
+  its own renderer, so they take the same style as every other subtitle.
 - **From the phone**: the subtitles menu can load an .srt, .vtt or .ass file.
 - The remembered language is shown by itself: the file's own track first,
   then an exact match, then the first add-on file. Choosing Off forgets it.
@@ -177,7 +180,9 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
 - `backend/tests/astra-playback-browser.test.js` (`npm run test:backend`
   with `JARVIS_CHROME`): real playback in Chrome against synthetic files on a
   separate origin, including audio switching measured by pitch, subtitles,
-  seeking, blocked hosts and HEVC refusal.
+  seeking, blocked hosts and HEVC refusal. The HLS subtitle test runs when
+  `ASTRA_HLS_JS` names a local copy of the pinned `hls.min.js` (tests never
+  reach the CDN).
 - `backend/tests/astra-player-browser.test.js`: the player screen at phone
   landscape size: gestures, hold, lock, back order, menus, skip; and in
   portrait: rotation settings, the rotate button, picture-in-picture.
