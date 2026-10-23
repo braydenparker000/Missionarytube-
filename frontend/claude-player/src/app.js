@@ -186,8 +186,10 @@ export async function boot() {
     if (saved?.positionMs) player.seek(saved.positionMs);
   }
   // A library that arrives later (R2 index refresh) fills an empty player.
+  // A refreshed index replaces the records: the player takes the new ones.
   ctx.bus.subscribe('bus_library', () => {
     if (!player.queue.length && library.tracks.length) player.setQueue(library.tracks, 0);
+    else player.adoptRecords(library.byId);
   });
   // Remember the current track and position (reference: resume where left off).
   const saveState = () => {

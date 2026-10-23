@@ -395,7 +395,14 @@ export class Library {
     // decoding would download the whole song.
     if (t.remote) {
       const w = t.waveUrl ? await fetchWaveform(t.waveUrl) : null;
-      if (!w) return null;
+      if (!w) {
+        // A snapshot from an older index points at waveform files the
+        // current one may no longer have (it carries them inline): the
+        // index is fetched again once a session; the player then takes the
+        // new records (adoptRecords).
+        if (t.waveUrl && !this.waveRefresh) this.waveRefresh = this.refreshR2({force: true});
+        return null;
+      }
       t.wave = peaksToBars(w.peaks, bars);
       await this.saveTrack(t);
       return t.wave;
