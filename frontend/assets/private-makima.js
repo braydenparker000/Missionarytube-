@@ -1,3 +1,4 @@
+// Dormant: Makima (Grok) is hidden from the workspace (private-dormant-agents.js); kept working for a return.
 import {createBoardWrite} from './private-board-state.js';
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text)n.textContent=text;if(cls)n.className=cls;return n;};
 export function renderMakima({container,api,onAccessLost,createAvatar}){

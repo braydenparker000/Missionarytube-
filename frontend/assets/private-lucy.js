@@ -1,3 +1,4 @@
+// Dormant: Lucy (ChatGPT) is hidden from the workspace (private-dormant-agents.js); kept working for a return.
 import {watchChatAvatars} from './private-avatars.js';
 import './private-theme.js';
 if(parent!==window)document.body.classList.add('private-embedded');
