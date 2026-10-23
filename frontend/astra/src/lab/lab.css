@@ -54,3 +54,6 @@ body { min-height: 100vh; padding-bottom: calc(32px + var(--safe-bottom)); }
 .link-row { display: flex; gap: 8px; }
 .skeleton { background: var(--skeleton); border-radius: var(--r-lg); }
 @media (min-width: 600px) { .results { grid-template-columns: repeat(4, 1fr); } }
+.stream-row { display: flex; gap: 8px; align-items: stretch; }
+.stream-row .stream { flex: 1; min-width: 0; }
+.stream-row .analyse { align-self: center; }
