@@ -199,7 +199,10 @@ never switches pipeline mid-play:
 must be called from a tap: it goes full screen. It follows the phone's
 rotation unless Settings > Playback > Rotation says Landscape or Portrait;
 the rotate button in the top bar switches until the player closes. In
-portrait the picture is a band across the middle, with subtitles fitted to it.
+portrait the picture is a band across the middle; when there is room,
+subtitles sit in the black under it. With the controls showing, bottom
+subtitles, Skip and the next-episode card are placed from the controls'
+measured height, so nothing covers the title or the buttons.
 
 - Tap toggles the controls; they hide 3.5 s after the last touch while playing.
 - Double tap left or right seeks 10 s; more taps within 0.8 s add 10 s each.
@@ -210,13 +213,22 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
 - Lock hides everything; any touch shows "Tap to unlock".
 - Menus: audio, subtitles (language, track, delay, size, position, colour,
   background, outline, bold), stream info; side panels for sources and
-  episodes. Back closes the menu first, then the player.
+  episodes. Back closes the menu first, then the player; on a phone in full
+  screen, Android's back (which leaves full screen) does the same, and does
+  nothing while locked.
 - Skip intro/recap/outro from `segments`; the next-episode card appears at
   99% (or when the outro starts) and plays only when tapped.
 - Picture-in-picture (top bar): the video moves to Android's floating window
-  and the app can be used; expanding the window brings the player back,
-  closing it ends playback. Leaving Astra while playing opens it by itself
+  and the app can be used; expanding the window brings the player back (also
+  after pausing in the window), closing it ends playback. Leaving Astra while playing opens it by itself
   where Chrome allows (Settings > Playback > Picture-in-picture).
+- Waiting for data shows a spinner of its own after 400 ms; the controls
+  stay as they were.
+- A lost connection is retried for up to a minute (at once when the phone is
+  back online) while the buffer plays, with "Reconnecting…"; only then does
+  the player stop, offering Try again from where it stopped. A dead link
+  (404/410) asks for another source; a host that does not answer in 15 s
+  says so. Another app is offered only for files the browser cannot play.
 - Media Session controls, screen kept awake.
 
 ## Subtitles
@@ -238,7 +250,11 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
 - The remembered language is shown by itself: the file's own track first,
   then an exact match, then the first add-on file. Choosing Off forgets it.
 - Old code pages (Cyrillic, Arabic, Central European and others) and UTF-16
-  files are decoded by language.
+  files are decoded by language, from add-ons' two- or three-letter codes.
+- A file's format is read from its first line (an .srt named
+  "Glass.Onion" stays SRT); a file one reader finds empty is offered to the
+  others. A host that blocks reading the file is said in the subtitles menu
+  (add-on subtitles still work).
 
 ## Tests
 
