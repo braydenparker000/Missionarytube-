@@ -80,7 +80,9 @@ function measureViewport() {
 /** Runtime-computed sizes the layouts refer to by id (navbar bounds). */
 function installDynamicDimensions(ctx) {
   const {res, theme} = ctx;
-  const off = a => res.dimensionPixelOffset('?' + a, theme) ?? 0;
+  // Resolved once per attribute: lists read these on every scroll step.
+  const known = new Map();
+  const off = a => known.get(a) ?? known.set(a, res.dimensionPixelOffset('?' + a, theme) ?? 0).get(a);
   const two = () => off('navbar_marginB') + off('navbar_marginT') + off('Navbar_height') * 2 + off('NavbarList_marginBottom');
   const three = () => two() + off('NavbarSeekbar_marginTop') + off('NavbarSeekbar_marginBottom') + off('NavbarSeekbar_height');
   Object.assign(ctx.dynamicDimensions, {

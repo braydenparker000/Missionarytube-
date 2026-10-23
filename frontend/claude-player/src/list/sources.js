@@ -45,7 +45,9 @@ import {listKeyOf, categoryKey, KEEP_LIST, KEEP_TRACK} from '../library/list-mem
 const SEARCH_KINDS = SEARCH_CATS.slice(1);
 
 // Text order as the library's SQL collation: case-insensitive, digits by character ("Song D29" before "Song D3").
-const cmpStr = (a, b) => (a ?? '').localeCompare(b ?? '', undefined, {sensitivity: 'base'});
+// One collator for all comparisons (localeCompare with options builds one per call).
+const BASE = new Intl.Collator(undefined, {sensitivity: 'base'}), PLAIN = new Intl.Collator();
+const cmpStr = (a, b) => BASE.compare(a ?? '', b ?? '');
 const byTrackNo = (a, b) => (a.disc || 0) - (b.disc || 0) || (a.track || 0) - (b.track || 0);
 
 /** Track orders by sort value (reference values; newest/most first for dates and counts). */
@@ -272,11 +274,11 @@ function group(tracks, keyOf, kind) {
     const k = keyOf(t);
     (map.get(k) ?? map.set(k, {kind, title: k, tracks: []}).get(k)).tracks.push(t);
   }
-  return [...map.values()].sort((a, b) => a.title.localeCompare(b.title));
+  return [...map.values()].sort((a, b) => PLAIN.compare(a.title, b.title));
 }
 
 // Statistics lists (from play counts, play times and ratings; like = 5, unlike = 1).
-const byTitle = (a, b) => (a.title ?? '').localeCompare(b.title ?? '');
+const byTitle = (a, b) => PLAIN.compare(a.title ?? '', b.title ?? '');
 // The statistics lists as the reference queries them (oi1, zi1, yi1, sj1,
 // ii1): a filter, the order the cap applies in, Max Items (*_files_limit,
 // 200 from the first-run defaults, m30.d) and, for the lists with Clear /
@@ -626,6 +628,10 @@ function historySource(ctx, list, nav, title) {
  * title_filename), the others their name. Streams are not built (owner
  * decision) and find nothing.
  */
+// Search caches: items' lower-cased search texts, and the last query's hits per kind.
+const SEARCH_TEXT = new WeakMap();
+const LAST_SEARCH = {q: null, mode: -1, hits: null};
+
 export function searchSource(ctx, list, nav, query, mask = -1, target = null) {
   const lib = ctx.library;
   const pool = lib?.tracks?.length ? lib.tracks : ctx.player?.queue ?? [];
@@ -651,29 +657,54 @@ export function searchSource(ctx, list, nav, query, mask = -1, target = null) {
   if (!words.length || q.length < minLen) return target ? bare(new TrackSource(ctx, list, nav, title, [])) : historySource(ctx, list, nav, title);
   if (words.length > 64 || (!target && !mask)) return bare(new TrackSource(ctx, list, nav, title, []));
   const has = (...fields) => { const s = fields.map(f => f ?? '').join('').toLowerCase(); return words.every(w => s.includes(w)); };
-  const nocase = (a, b) => { const x = (a ?? '').toLowerCase(), y = (b ?? '').toLowerCase(); return x < y ? -1 : x > y ? 1 : 0; };
   const fileTitles = !!ctx.pref?.('title_filename'), titlesOnly = !!ctx.pref?.('search_track_titles_only');
   const fileName = t => { const p = t.fileName || t.path || ''; return p.slice(p.lastIndexOf('/') + 1); };
   const line1 = t => (fileTitles ? fileName(t) : t.title);
+  // Each item's lower-cased search text is made once (per field set);
+  // sorting compares precomputed keys.
+  const mode = (fileTitles ? 1 : 0) | (titlesOnly ? 2 : 0);
+  const textOf = (o, make) => {
+    const c = SEARCH_TEXT.get(o);
+    if (c?.mode === mode) return c.s;
+    const v = make().toLowerCase();
+    SEARCH_TEXT.set(o, {mode, s: v});
+    return v;
+  };
+  const matches = s => words.every(w => s.includes(w));
+  const byKey = (list, keyOf) => list.map(x => [(keyOf(x) ?? '').toLowerCase(), x]).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)).map(x => x[1]);
+  const trackText = t => textOf(t, () => (titlesOnly ? line1(t) ?? '' : (line1(t) ?? '') + (t.album ?? '') + (t.artist ?? '')));
+  const groupText = (g, withArtist) => textOf(g, () => (g.title ?? '') + (withArtist ? g.artist ?? '' : ''));
+  // Typing on: a query that extends the last one narrows its hits (every
+  // word of the longer query holds a word of the shorter one).
+  const prev = LAST_SEARCH.mode === mode && LAST_SEARCH.q != null && q.toLowerCase().startsWith(LAST_SEARCH.q) ? LAST_SEARCH.hits : null;
+  const hits = new Map();
+  const narrow = (kind, all, text) => {
+    // Only hits taken from this very list (the library's tracks or groups as now).
+    const p = prev?.get(kind);
+    const out = (p?.all === all ? p.out : all).filter(x => matches(text(x)));
+    hits.set(kind, {all, out});
+    return out;
+  };
   const found = kind => {
     switch (kind) {
-      case 'songs': return pool.filter(t => (titlesOnly ? has(line1(t)) : has(line1(t), t.album, t.artist))).sort((a, b) => nocase(line1(a), line1(b)));
-      case 'albums': return (groupsFor(lib, 'albums') ?? []).filter(g => has(g.title, g.artist)).sort((a, b) => nocase(a.title, b.title));
-      case 'playlists': return (ctx.playlists?.sorted() ?? []).map(pl => ({kind: 'playlist', title: pl.name, tracks: ctx.playlists.tracksOf(pl), pl})).filter(g => has(g.title)).sort((a, b) => nocase(a.title, b.title));
+      case 'songs': return byKey(narrow(kind, pool, trackText), line1);
+      case 'albums': return byKey(narrow(kind, groupsFor(lib, 'albums') ?? [], g => groupText(g, true)), g => g.title);
+      case 'playlists': return byKey((ctx.playlists?.sorted() ?? []).map(pl => ({kind: 'playlist', title: pl.name, tracks: ctx.playlists.tracksOf(pl), pl})).filter(g => has(g.title)), g => g.title);
       case 'streams': return [];
-      default: return (lib?.tracks?.length ? groupsFor(lib, kind) ?? [] : []).filter(g => has(g.title)).sort((a, b) => nocase(a.title, b.title));
+      default: return byKey(narrow(kind, lib?.tracks?.length ? groupsFor(lib, kind) ?? [] : [], g => groupText(g, false)), g => g.title);
     }
   };
   if (target) return bare(targetedRows(ctx, list, nav, title, target, {has, line1, titlesOnly}));
   const rows = [], separators = [];
   SEARCH_KINDS.forEach((c, i) => {
     if ((mask & (1 << i)) === 0) return;
-    const hits = found(c.kind);
-    if (!hits.length) return;
+    const kindHits = found(c.kind);
+    if (!kindHits.length) return;
     separators.push(rows.length);
     rows.push({sep: str(ctx, c.title)});
-    for (const h of hits) rows.push(c.kind === 'songs' ? {track: h} : {group: h, kind: c.kind});
+    for (const h of kindHits) rows.push(c.kind === 'songs' ? {track: h} : {group: h, kind: c.kind});
   });
+  Object.assign(LAST_SEARCH, {q: q.toLowerCase(), mode, hits});
   if (!rows.length) return bare(new TrackSource(ctx, list, nav, title, []));
   const src = bare(new GroupSource(ctx, list, nav, title, rows.filter(r => r.group).map(r => r.group)));
   src.rebuild = () => searchSource(ctx, list, nav, query, mask, target);

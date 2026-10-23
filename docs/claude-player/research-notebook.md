@@ -2306,6 +2306,38 @@ width without a measure.
   the pause button shows at once at the play button's size and settles (100 → 88 dp), and hides at
   once on pause while the play button grows back. The port's frames follow this.
 
+### F94 — Large-library speed: sorting, category views, search, covers — `INFERRED` (measured in Chromium at 4× CPU throttle)
+The harness library now scales to the owner's size (`N`, about 12 songs an album and 3 albums an
+artist; the owner's index has 7,494 tracks). Findings:
+
+(a) **Sorting.** `String.localeCompare` with options builds a collator per call. All Songs' title
+order took 2.3 s to open with 10,000 tracks; a pinch zoom re-sorted the same list (683 ms freeze at
+3,000). Sorts now share `Intl.Collator`s with the same options (the same order):
+- All Songs (10,000): 2,695 → 152 ms to first frame.
+- Pinch start: 683 → 100 ms (3,000), 117 ms (10,000).
+
+(b) **Category views.** Albums, artists, album artists, genres, composers and folders were grouped
+again on every call (search asks on each keystroke). They are now built once for the shown tracks
+and the preferences that shape them (join_albums, show_unsplit_cats, split characters), and in idle
+time after the library loads.
+
+(c) **Search.**
+- Items' lower-cased search texts are made once.
+- Sorting compares precomputed keys.
+- A query that extends the last one filters the last hits; every word of the longer query holds a
+  word of the shorter one, and hits are only reused when taken from the very same list.
+- With 10,000 tracks: the first search 288 → 89–109 ms; typing on 50–70 ms per key (was up to 225).
+
+(d) **Covers.** A row's thumbnail size came from a full `createImageBitmap` decode, on cache hits
+too. That is a decode and an image bitmap per row scrolled in; external-memory GC passes reached
+180 ms.
+- The size now comes from the image header (PNG IHDR, GIF, JPEG SOFn, WebP VP8/VP8L/VP8X).
+- New thumbnails decode at their 256 px size.
+- Scrolling 3,000 rows with covers: frames over 20 ms 16–18 → 2–5 of about 270.
+
+(e) The navbar's dynamic dimensions resolve once per attribute (they were resolved on every scroll
+step).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
@@ -2415,6 +2447,7 @@ No status is device-verified.
 | F91 Popup rows, row taps, home toolbar, pause scene, transition start cost | Built | Transition smoothness on the owner's device not measured |
 | F92 AutoEq preset database | Built | Band locks and the 0 dB preamp inferred from the zip import |
 | F93 Header view pools, Back in search, time labels, play/pause change | Built | — |
+| F94 Large-library speed | Built | Measured in desktop Chromium at 4× throttle, not on the owner's device |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 
