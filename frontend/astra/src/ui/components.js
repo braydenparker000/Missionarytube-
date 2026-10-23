@@ -80,12 +80,13 @@ export function image(src, alt = '', cls = '', {eager = false} = {}) {
  */
 export function posterCard(m, ctx) {
   const watched = ctx.watched?.(m);
+  const name = String(m.name || '') || 'Untitled'; // an add-on may send items without a name
   const card = h('button', {class: 'poster-card', type: 'button', onclick: () => ctx.onOpen(m)},
     h('div', {class: 'poster-art'}, image(m.poster, '', 'poster-img'), watched ? h('span', {class: 'watched-badge', 'aria-label': 'Watched'}, icon('check', {size: 12})) : null),
-    h('span', {class: 'poster-title'}, m.name || ''),
+    h('span', {class: 'poster-title'}, name),
     h('span', {class: 'poster-year'}, String(m.releaseInfo || m.year || '').slice(0, 9)));
-  card.setAttribute('aria-label', [m.name, String(m.releaseInfo || ''), watched ? 'watched' : ''].filter(Boolean).join(', '));
-  if (ctx.menu) longPress(card, () => liftMenu(card.querySelector('.poster-art'), m.name, String(m.releaseInfo || ''), ctx.menu(m)));
+  card.setAttribute('aria-label', [name, String(m.releaseInfo || ''), watched ? 'watched' : ''].filter(Boolean).join(', '));
+  if (ctx.menu) longPress(card, () => liftMenu(card.querySelector('.poster-art'), name, String(m.releaseInfo || ''), ctx.menu(m)));
   return card;
 }
 

@@ -3,9 +3,9 @@
 // Every pushed screen is one history entry, so Android back walks them back.
 
 import {createStorage, importClassic, Addons, Library, Watched, Progress, SAVE_FAILED} from './store.js';
-import {fetchMeta, episodeCode, MANIFEST_TIMEOUT} from './content.js';
+import {fetchMeta, episodeCode, aired, MANIFEST_TIMEOUT} from './content.js';
 import {swr, pruneCache} from './cache.js';
-import {fetchManifest} from '../addons/client.js';
+import {fetchManifest, normaliseManifest} from '../addons/client.js';
 import {pushLayer, startBackStack} from './back-stack.js';
 import {resolveDebrid} from '../addons/debrid.js';
 import {fetchSubtitles, subtitleAddons} from '../addons/subtitles.js';
@@ -34,7 +34,7 @@ export class App {
     this.progress = new Progress(this.store);
     this.settings = {...SETTINGS, ...this.store.get('settings', {})};
     this.manifests = new Map();
-    this.unreachable = new Set(); // enabled add-ons whose manifest could not be loaded
+    this.unreachable = new Map(); // enabled add-ons whose manifest could not be loaded: url -> the error
     this.addonListeners = new Set();
     this.stack = [];
     this.screenTypes = screens;
@@ -105,12 +105,14 @@ export class App {
     const current = () => generation === this.addonGeneration;
     const manifests = new Map();
     this.manifests = manifests;
-    this.unreachable = new Set();
+    const unreachable = this.unreachable = new Map();
     let settled = false;
+    // Saved copies from before manifests were normalised are normalised on the way out too.
     const tasks = addons.map(a => swr('manifest:' + a.url, () => fetchManifest(a.url, {timeout: MANIFEST_TIMEOUT}), {maxAge: 6 * 3600 * 1000,
-      onFresh: m => { if (current()) { manifests.set(a.url, m); this.addonsChanged(); } }})
-      .then(m => { if (!current()) return; manifests.set(a.url, m); this.unreachable.delete(a.url); if (settled) this.addonsChanged(); },
-        () => { if (current()) this.unreachable.add(a.url); }));
+      onFresh: m => { if (current()) { manifests.set(a.url, normaliseManifest(m)); this.addonsChanged(); } }})
+      .then(normaliseManifest)
+      .then(m => { if (!current()) return; manifests.set(a.url, m); unreachable.delete(a.url); if (settled) this.addonsChanged(); },
+        error => { if (current()) unreachable.set(a.url, error); }));
     const all = Promise.allSettled(tasks);
     const early = new Promise(resolve => setTimeout(() => { if (manifests.size) resolve(); }, 2500));
     this.ready = Promise.race([all, early]).then(() => { settled = true; return manifests; });
@@ -222,10 +224,18 @@ export class App {
   openCatalog(entry) { return this.push(new this.screenTypes.catalog(this, entry)); }
   openStreams(meta, video = null, options = {}) { return this.push(new this.screenTypes.streams(this, meta, video, options)); }
 
-  /** Full metadata for a card (catalog items carry only part of it). */
+  /**
+   * Full metadata for a card (catalog items carry only part of it), over what
+   * the card already had. When no add-on has the title, the card itself with
+   * no videos. Rejects when the add-ons could not be reached, so a screen can
+   * say so instead of showing a stub.
+   */
   async meta(item) {
     await this.ready;
-    return await fetchMeta(this.enabledAddons(), this.manifests, item.type, item.id).catch(() => null) || {...item, videos: []};
+    const meta = await fetchMeta(this.enabledAddons(), this.manifests, item.type, item.id);
+    if (!meta) return {...item, videos: []};
+    const known = Object.entries(meta).filter(([, v]) => v != null && v !== '' && !(Array.isArray(v) && !v.length));
+    return {...item, ...Object.fromEntries(known), videos: meta.videos};
   }
 
   /**
@@ -253,13 +263,14 @@ export class App {
     const options = {
       stream: {...source.stream, url: source.stream.url}, sourceId: source.id, sources, startTime,
       meta: {
-        title: meta.name, episodeLine: video ? `${episodeCode(video)}${video.title ? ' • ' + video.title : ''}` : '',
+        title: meta.name, episodeLine: video ? [episodeCode(video), video.title].filter(Boolean).join(' • ') : '',
         release: [String(meta.releaseInfo || '').slice(0, 4), (meta.genres || [])[0]].filter(Boolean).join(' · '),
         description: video?.overview || meta.description || '', logo: meta.logo || '', background: video?.thumbnail || meta.background || '', poster: meta.poster || '',
       },
-      episodes: video ? {seasons: [...new Set(videos.map(v => v.season))].filter(s => s != null), season: video.season, current: video.id,
+      // The player's episode panel lists seasons; videos without one (a channel's uploads) have no panel.
+      episodes: video && video.season != null ? {seasons: [...new Set(videos.map(v => v.season))].filter(s => s != null), season: video.season, current: video.id,
         items: videos.filter(v => v.season != null).map(v => ({id: v.id, season: v.season, episode: v.episode, title: v.title, thumbnail: v.thumbnail, video: v}))} : null,
-      next: next ? {label: episodeCode(next), title: next.title, thumbnail: next.thumbnail, hasAired: !next.released || new Date(next.released) <= new Date()} : null,
+      next: next ? {label: episodeCode(next), title: next.title, thumbnail: next.thumbnail, hasAired: aired(next)} : null,
     };
     const resolving = resolveDebrid(source.stream.url).catch(() => source.stream.url);
     this.player.open({...options, stream: {...options.stream, url: null}, deferred: true});

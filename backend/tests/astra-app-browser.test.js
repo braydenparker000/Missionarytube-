@@ -11,8 +11,13 @@ const executablePath = [process.env.JARVIS_CHROME, process.env.PRIVATE_WORKSPACE
 if (process.env.CI) assert.ok(executablePath, 'Set JARVIS_CHROME; CI must not silently skip the Astra app');
 const options = {skip: executablePath ? false : 'Set JARVIS_CHROME to run Astra browser checks', timeout: 180000};
 
-// `raw` stores text as it is (damaged values); `script` runs in every page before Astra.
-async function openApp(t, {seed = true, classic = null, storage = {}, raw = {}, route = null, script = null} = {}) {
+/**
+ * Opens Astra at phone size with the fixture add-on installed. `raw` stores
+ * text as it is (damaged values); `script` runs in every page before Astra;
+ * `addons` adds the fixture server's misbehaving add-ons after the fixture
+ * add-on: [['/broken/manifest.json', 'Broken'], …].
+ */
+async function openApp(t, {seed = true, classic = null, storage = {}, raw = {}, route = null, script = null, addons = []} = {}) {
   const servers = await startAstraServers();
   const browser = await chromium.launch({executablePath, headless: true, args: ['--autoplay-policy=no-user-gesture-required']});
   t.after(async () => { await browser.close(); await servers.close(); });
@@ -20,14 +25,15 @@ async function openApp(t, {seed = true, classic = null, storage = {}, raw = {}, 
   // No test may reach the internet: OpenSubtitles is off unless a test routes it.
   if (route) await context.route(route.url, route.handler);
   storage = {'astra.v2.settings': route ? {} : {openSubtitles: false}, ...storage};
-  await context.addInitScript(([addon, seed, classic, storage, raw]) => {
+  const installed = [{url: servers.addon, enabled: true, name: 'Fixture'}, ...addons.map(([path, name]) => ({url: servers.media + path, enabled: true, name}))];
+  await context.addInitScript(([addon, seed, classic, storage, raw, installed]) => {
     if (sessionStorage.getItem('seeded')) return;
     sessionStorage.setItem('seeded', '1');
-    if (seed) localStorage.setItem('astra.v2.addons', JSON.stringify([{url: addon, enabled: true, name: 'Fixture'}]));
+    if (seed) localStorage.setItem('astra.v2.addons', JSON.stringify(installed));
     if (classic) for (const [k, v] of Object.entries(classic)) localStorage.setItem(k, JSON.stringify(v).replaceAll('ADDON', addon));
     for (const [k, v] of Object.entries(storage)) localStorage.setItem(k, JSON.stringify(v));
     for (const [k, v] of Object.entries(raw)) localStorage.setItem(k, v);
-  }, [servers.addon, seed, classic, storage, raw]);
+  }, [servers.addon, seed, classic, storage, raw, installed]);
   if (script) await context.addInitScript(script);
   const page = await context.newPage();
   const errors = [];
@@ -125,11 +131,142 @@ test('View all pages through a catalog; Search finds titles and remembers the qu
   await page.waitForFunction(() => document.querySelectorAll('.catalog .poster-card').length === 60, null, {timeout: 10000});
   await page.goBack();
   await page.click('.nav-item[data-tab="search"]');
+  await page.fill('.search-input', 's');
+  await page.waitForSelector('.search-hint');
   await page.fill('.search-input', 'show 1');
   await page.waitForSelector('.search-results .poster-card');
   assert.deepEqual(await page.locator('.search-results .row-head h2').allTextContents(), ['Popular • Series']);
   assert.deepEqual(await page.locator('.search-results .poster-title').allTextContents(), ['Show 1', 'Show 10', 'Show 11', 'Show 12']);
+  assert.equal(await page.evaluate(() => localStorage.getItem('astra.v2.recentSearches')), null, 'typing alone saves nothing');
+  await page.press('.search-input', 'Enter');
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('astra.v2.recentSearches') || '[]')[0] === 'show 1');
+});
+
+test('a malformed second add-on does not break Home; its failing row says so and retries alone', options, async t => {
+  const {page, servers, errors} = await openApp(t, {addons: [['/broken/manifest.json', 'Broken']]});
+  await page.waitForSelector('.hero-slide');
+  await homeRow(page, 'Odd - Movie').locator('.row-error').waitFor();
+  assert.deepEqual(await page.locator('.tab-view[data-tab="home"] .row-head h2').allTextContents(), ['Popular - Movie', 'Popular - Series', 'New - Movie', 'Odd - Movie']);
+  assert.equal(await homeRow(page, 'Popular - Movie').locator('.poster-card').count(), 18, 'the good add-on is untouched');
+  servers.control.brokenCatalog = false;
+  await homeRow(page, 'Odd - Movie').getByRole('button', {name: 'Retry Odd - Movie'}).click();
+  await homeRow(page, 'Odd - Movie').locator('.poster-card').nth(1).waitFor();
+  assert.deepEqual(await homeRow(page, 'Odd - Movie').locator('.poster-title').allTextContents(), ['Movie 1', 'Untitled'], 'a nameless item is "Untitled"; one without an id is dropped');
+  assert.match(await homeRow(page, 'Odd - Movie').locator('.poster-card').nth(1).getAttribute('aria-label'), /^Untitled/);
+  // Search and Discover still work with the malformed add-on installed.
+  await page.click('.nav-item[data-tab="search"]');
+  await page.waitForSelector('.discover .poster-card');
+  await page.fill('.search-input', 'movie 1');
+  await page.waitForSelector('.search-results .poster-card');
+  assert.deepEqual(errors, []);
+});
+
+test('a failing stream add-on shows an error row with Retry for that add-on only', options, async t => {
+  const {page, servers, errors} = await openApp(t, {addons: [['/flaky/manifest.json', 'Flaky (saved name)']]});
+  await page.waitForSelector('.hero-slide');
+  await homeRow(page, 'Popular - Movie').locator('.poster-card').first().click();
+  await page.click('.play-btn');
+  await page.waitForSelector('.group-error');
+  assert.match(await page.locator('.group-error').textContent(), /^Flaky didn't answerThe add-on answered 500\.Retry$/);
+  assert.equal(await page.locator('.chip.failed').textContent(), 'Flaky', 'the manifest name, as known');
+  assert.equal(await page.locator('.stream-card').count(), 4, "the other add-on's streams are listed");
+  servers.control.flakyStreams = false;
+  await page.getByRole('button', {name: 'Retry Flaky'}).click();
+  await page.locator('.stream-card', {hasText: 'Flaky 720p'}).waitFor();
+  assert.equal(await page.locator('.group-error').count(), 0);
+  assert.deepEqual(await page.locator('.streams .filter-chips .chip:not(.refresh)').allTextContents(), ['All', 'Fixture', 'Flaky']);
+  assert.equal(await page.locator('.stream-card').count(), 5);
+  assert.deepEqual(errors, []);
+});
+
+test('small-page catalogs keep paging; a series without seasons lists its videos', options, async t => {
+  const {page} = await openApp(t, {addons: [['/small/manifest.json', 'Small pages']]});
+  await page.waitForSelector('.hero-slide');
+  await homeRow(page, 'Tiny pages - Movie').locator('.row-all').click();
+  // Five items a page leave the footer in view: paging continues past page two without scrolling,
+  // until the footer is more than 600 px below the screen; scrolling loads the rest.
+  await page.waitForFunction(() => document.querySelectorAll('.catalog .poster-card').length >= 15, null, {timeout: 10000});
+  await page.evaluate(() => { const s = document.querySelector('.catalog'); s.scrollTo({top: s.scrollHeight}); });
+  await page.waitForFunction(() => document.querySelectorAll('.catalog .poster-card').length === 23, null, {timeout: 10000});
+  await page.goBack();
+  await page.waitForFunction(() => astra.stack.length === 0);
+  await homeRow(page, 'Channels - Series').locator('.poster-card').first().click();
+  await page.waitForSelector('.details .episode-card');
+  assert.equal(await page.locator('.details .section-title', {hasText: 'Videos'}).count(), 1);
+  assert.equal(await page.locator('.season-chips').count(), 0);
+  assert.deepEqual(await page.locator('.episode-text b').allTextContents(), ['First upload', 'Second upload', 'Third upload']);
+  assert.equal(await page.locator('.episode-code').count(), 0, 'no empty code badges');
+  assert.equal(await page.locator('.episode-card.unaired').count(), 0, 'an unreadable date counts as aired');
+  assert.equal(await page.locator('.details').getByText(/Invalid Date|null|NaN/).count(), 0);
+  assert.equal(await page.locator('.play-btn').textContent(), 'Play');
+  assert.equal(await page.locator('.details-genres').textContent(), 'Vlogs', 'a genres string is one genre');
+  await page.locator('.episode-card').nth(2).click();
+  await page.waitForSelector('.streams-hero.episode');
+  assert.equal(await page.locator('.streams-text h1').textContent(), 'Third upload');
+  // Neither add-on has streams for it: the empty state keeps a way to try again.
+  await page.locator('.streams .state-card', {hasText: 'No compatible add-ons'}).waitFor();
+  assert.equal(await page.locator('.streams .state-card .btn').textContent(), 'Refresh');
+  assert.equal(await page.locator('.streams .chip.refresh').count(), 1);
+});
+
+test('Details says when metadata could not load, keeps the card, and retries', options, async t => {
+  const {page, servers, errors} = await openApp(t);
+  await page.waitForSelector('.hero-slide');
+  servers.control.metaFails = true;
+  await homeRow(page, 'Popular - Series').locator('.poster-card').nth(4).click();
+  await page.waitForSelector('.details-error');
+  assert.match(await page.locator('.details-error').textContent(), /Couldn't load details.*The add-on answered 503\./);
+  assert.equal(await page.locator('.details-title').count() + await page.locator('.details-logo').count(), 1, 'the title the card had stays');
+  assert.equal(await page.locator('.play-btn').isDisabled(), true, 'a series waits for its episodes');
+  await page.getByRole('button', {name: 'Retry'}).click();
+  await page.waitForFunction(() => document.querySelector('.details-error .btn')?.textContent === 'Retry');
+  assert.equal(await page.locator('.details-error').count(), 1, 'still failing');
+  // Back online: tried again by itself.
+  servers.control.metaFails = false;
+  await page.evaluate(() => dispatchEvent(new Event('online')));
+  await page.waitForSelector('.details .episode-card');
+  assert.equal(await page.locator('.details-error').count(), 0);
+  assert.equal(await page.locator('.play-btn').textContent(), 'Play S1 E1');
+  assert.equal(await page.locator('.play-btn').isDisabled(), false);
+  assert.deepEqual(errors, []);
+});
+
+test('install takes a /configure address, ignores a double tap, installs on Enter and offers to replace the same add-on', options, async t => {
+  const {page, servers} = await openApp(t);
+  await page.waitForSelector('.hero-slide');
+  await page.click('.nav-item[data-tab="settings"]');
+  await page.getByRole('button', {name: /Add-ons/}).click();
+  await page.waitForSelector('.addon-card');
+  assert.equal(await page.locator('.install-row .field').getAttribute('placeholder'), 'Add-on URL');
+  servers.control.manifestDelay = 400;
+  await page.fill('.install-row .field', `${servers.media}/small/configure`);
+  await page.dblclick('.install-row .btn');
+  await page.press('.install-row .field', 'Enter'); // and Enter while it is still checking
+  await page.waitForFunction(() => document.querySelectorAll('.addon-card').length === 2);
+  await page.waitForTimeout(600);
+  const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('astra.v2.addons')).map(a => a.url));
+  assert.deepEqual(await stored(), [servers.addon, `${servers.media}/small/manifest.json`], 'installed once, at its manifest address');
+  await page.waitForFunction(() => document.querySelectorAll('.addon-state')[1]?.textContent === 'v1.0.0 · Active', null, {timeout: 5000});
+  servers.control.manifestDelay = 0;
+  // Enter installs; the same address in another form is refused.
+  await page.fill('.install-row .field', `${servers.media}/small/manifest.json/#top`);
+  await page.press('.install-row .field', 'Enter');
+  await page.waitForFunction(() => /Small pages is already installed/.test(document.querySelector('.set-page-body .set-note')?.textContent || ''));
+  // The same add-on from another address: offered as a replacement, not a second copy.
+  await page.fill('.install-row .field', `${servers.media}/small/manifest.json?profile=2`);
+  await page.press('.install-row .field', 'Enter');
+  await page.waitForSelector('.sheet-body h3');
+  assert.equal(await page.locator('.sheet-body h3').textContent(), 'Replace Small pages?');
+  await page.locator('.sheet-row', {hasText: 'Replace'}).click();
+  await page.waitForFunction(n => JSON.parse(localStorage.getItem('astra.v2.addons')).length === n && /profile=2/.test(localStorage.getItem('astra.v2.addons')), 2);
+  // Failures in plain words: a missing page, and a host that does not let pages read it.
+  await page.fill('.install-row .field', `${servers.media}/addon/nothing/configure`);
+  await page.press('.install-row .field', 'Enter');
+  await page.waitForFunction(() => document.querySelector('.set-page-body .set-note')?.textContent === 'The add-on answered 404.');
+  await page.fill('.install-row .field', `${servers.media}/closed/nothing`);
+  await page.press('.install-row .field', 'Enter');
+  await page.waitForFunction(() => /^Couldn't reach it \(offline, not https, or the add-on blocks browsers\)\.$/.test(document.querySelector('.set-page-body .set-note')?.textContent || ''));
+  assert.equal((await stored()).length, 2);
 });
 
 test('Settings: add-ons can be disabled, reordered and refuse duplicates', options, async t => {
@@ -303,6 +440,7 @@ test('damaged saved values are cleaned up: Astra starts and Home, Library and Se
   await page.click('.nav-item[data-tab="search"]');
   await page.fill('.search-input', 'show 1');
   await page.waitForSelector('.search-results .poster-card');
+  await page.press('.search-input', 'Enter'); // recent searches are saved on Enter, not while typing
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('astra.v2.recentSearches') || '[]')[0] === 'show 1');
   assert.deepEqual(errors, []);
 });

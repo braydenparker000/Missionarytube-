@@ -4,23 +4,41 @@
 import {h} from '../ui/dom.js';
 import {icon} from '../ui/icons.js';
 import {posterCard, skeletonRow, emptyCard, sheet} from '../ui/components.js';
-import {getJson, resourceUrl} from '../addons/client.js';
+import {getJson, resourceUrl, fetchManifest} from '../addons/client.js';
 import {posterContext, rowHeader} from './home.js';
-import {fetchCatalog} from '../app/content.js';
+import {fetchCatalog, catalogItems, eachManifest, MANIFEST_TIMEOUT} from '../app/content.js';
 
 const DEBOUNCE = 350;
 const MAX_RECENT = 10;
 
 export function searchCatalogsOf(addons, manifests) {
   const out = [];
-  addons.forEach((addon, order) => {
-    const manifest = manifests.get(addon.url);
-    for (const catalog of manifest?.catalogs || []) {
+  eachManifest(addons, manifests, (addon, manifest, order) => {
+    const found = [];
+    for (const catalog of manifest.catalogs || []) {
       const extras = catalog.extra || [];
       const search = extras.some(e => e.name === 'search') || (catalog.extraSupported || []).includes('search');
       if (!search || extras.some(e => e.isRequired && e.name !== 'search')) continue;
-      out.push({addon, order, manifest, catalog, title: `${catalog.name || catalog.id} • ${catalog.type === 'series' ? 'Series' : catalog.type === 'movie' ? 'Movie' : catalog.type}`});
+      found.push({addon, order, manifest, catalog, title: `${catalog.name || catalog.id} • ${catalog.type === 'series' ? 'Series' : catalog.type === 'movie' ? 'Movie' : catalog.type}`});
     }
+    out.push(...found);
+  });
+  return out;
+}
+
+/** Discover's catalogs: those whose only required extras are genre and paging. */
+export function discoverCatalogsOf(addons, manifests) {
+  const out = [];
+  eachManifest(addons, manifests, (addon, manifest, order) => {
+    const found = [];
+    for (const catalog of manifest.catalogs || []) {
+      const extras = catalog.extra || [];
+      if (extras.some(e => e.isRequired && !['genre', 'skip'].includes(e.name))) continue;
+      found.push({addon, order, catalog, addonName: manifest.name || addon.name, title: catalog.name || catalog.id,
+        pageable: extras.some(e => e.name === 'skip') || (catalog.extraSupported || []).includes('skip'),
+        genres: (extras.find(e => e.name === 'genre')?.options) || catalog.genres || []});
+    }
+    out.push(...found);
   });
   return out;
 }
@@ -45,6 +63,7 @@ export class SearchScreen {
     this.input.addEventListener('blur', () => setTimeout(() => { this.recent.hidden = true; }, 150));
     view.addEventListener('scroll', () => { this.title.textContent = view.scrollTop > 40 && !this.input.value ? 'Discover' : 'Search'; }, {passive: true});
     this.discoverState = {type: 'movie', catalog: null, genre: null};
+    app.onAddons?.(() => this.addonsChanged());
     this.renderDiscover();
   }
 
@@ -60,55 +79,99 @@ export class SearchScreen {
       h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Remove ' + q, onclick: () => { this.app.store.set('recentSearches', this.recents().filter(x => x !== q)); this.showRecent(); this.input.focus(); }}, icon('close', {size: 18})))));
   }
 
+  /** Saves a query as a recent search: on Enter, a tapped recent search or a tapped result, never while typing. */
   remember(q) {
     if (q.length < 2 || this.app.settings.recentSearches === false) return;
     this.app.store.set('recentSearches', [q, ...this.recents().filter(x => x.toLowerCase() !== q.toLowerCase())].slice(0, MAX_RECENT));
   }
 
+  /**
+   * Searches every search catalog, one block per add-on in add-on order. An
+   * add-on whose manifest has not arrived yet is fetched and searched too.
+   * Skeletons stand in only until the first answer; after that a line names
+   * the add-ons still being waited for.
+   */
   async run(raw, submit = false) {
     const q = raw.trim();
     this.abort?.abort();
+    this.query = q;
+    this.searchFailed = false;
     this.discover.hidden = !!q;
-    if (q.length < 2) { this.results.replaceChildren(); return; }
-    const abort = this.abort = new AbortController();
-    await this.app.ready;
-    const catalogs = searchCatalogsOf(this.app.enabledAddons(), this.app.manifests);
-    if (!catalogs.length) { this.results.replaceChildren(emptyCard('No search catalogs', 'None of your add-ons can search. Add one in Settings.')); return; }
-    const slots = catalogs.map(() => h('section', {class: 'row'}, ...skeletonRow(6).children));
-    this.results.replaceChildren(...slots.slice(0, 2), ...slots.slice(2).map(s => { s.hidden = true; return s; }));
-    let found = 0, settled = 0;
-    await Promise.allSettled(catalogs.map(async (c, i) => {
-      const slot = slots[i];
-      try {
-        const data = await getJson(resourceUrl(c.addon.url, 'catalog', c.catalog.type, c.catalog.id, {search: q}), {signal: abort.signal});
-        if (abort.signal.aborted) return;
-        const items = (data?.metas || []).filter(m => m?.id).map(m => ({...m, type: m.type || c.catalog.type}));
-        if (!items.length) { slot.remove(); return; }
-        found++;
-        slot.hidden = false;
-        slot.replaceChildren(rowHeader(c.title, null), h('div', {class: 'row-scroll'}, ...items.slice(0, 30).map(m => posterCard(m, this.ctx))));
-      } catch { slot.remove(); } finally {
-        settled++;
-        if (!abort.signal.aborted && settled === catalogs.length && !found) this.results.replaceChildren(emptyCard('No results', `Nothing matched “${q}”.`));
-      }
-    }));
-    if (found && !abort.signal.aborted) this.remember(q);
     if (submit) this.remember(q);
+    if (!q) { this.results.replaceChildren(); return; }
+    if (q.length < 2) { this.results.replaceChildren(h('p', {class: 'search-hint'}, 'Keep typing: search starts at two letters.')); return; }
+    const abort = this.abort = new AbortController(), {signal} = abort;
+    const loading = h('div', {class: 'search-loading', 'aria-hidden': 'true'}, skeletonRow(6), skeletonRow(6));
+    this.results.replaceChildren(loading);
+    await this.app.ready;
+    if (signal.aborted) return;
+    const addons = this.app.enabledAddons();
+    const blocks = addons.map(() => h('div', {class: 'search-block'}));
+    const waiting = h('p', {class: 'search-waiting', role: 'status'});
+    this.results.replaceChildren(loading, ...blocks, waiting);
+    const ctx = {...this.ctx, onOpen: m => { this.remember(q); this.app.openTitle(m); }};
+    const state = {asked: 0, answered: 0, found: 0, unreachable: 0, settled: 0};
+    const pending = new Map(); // one key per unanswered request -> its add-on's name
+    const update = () => {
+      if (signal.aborted || !state.settled) return;
+      loading.remove();
+      const names = [...new Set(pending.values())];
+      waiting.textContent = names.length ? `Still waiting for ${names.join(', ')}…` : '';
+    };
+    const searchOne = async (c, block) => {
+      const key = {};
+      state.asked++;
+      pending.set(key, c.manifest.name || c.addon.name);
+      const slot = h('section', {class: 'row', hidden: true});
+      block.append(slot);
+      try {
+        const data = await getJson(resourceUrl(c.addon.url, 'catalog', c.catalog.type, c.catalog.id, {search: q}), {signal});
+        if (signal.aborted) return;
+        state.answered++;
+        const items = catalogItems(data, c.catalog.type);
+        if (!items.length) { slot.remove(); return; }
+        state.found++;
+        slot.hidden = false;
+        slot.replaceChildren(rowHeader(c.title, null), h('div', {class: 'row-scroll'}, ...items.slice(0, 30).map(m => posterCard(m, ctx))));
+      } catch { slot.remove(); } finally { pending.delete(key); state.settled++; update(); }
+    };
+    await Promise.allSettled(addons.map(async (addon, i) => {
+      let manifest = this.app.manifests.get(addon.url);
+      if (!manifest) {
+        const key = {};
+        pending.set(key, addon.name || 'an add-on');
+        try { manifest = await fetchManifest(addon.url, {timeout: MANIFEST_TIMEOUT}); } catch { state.unreachable++; state.settled++; return; } finally { pending.delete(key); update(); }
+        if (signal.aborted) return;
+      }
+      await Promise.allSettled(searchCatalogsOf([addon], new Map([[addon.url, manifest]])).map(c => searchOne(c, blocks[i])));
+    }));
+    if (signal.aborted) return;
+    loading.remove();
+    waiting.remove();
+    if (state.found) return;
+    if (!state.asked && !state.unreachable) this.results.replaceChildren(emptyCard('No search catalogs', 'None of your add-ons can search. Add one in Settings.'));
+    else if (!state.answered) {
+      // Every add-on failed: that is a connection problem, not "no results". Tried again when add-ons come back.
+      this.searchFailed = true;
+      this.results.replaceChildren(emptyCard("Couldn't search", navigator.onLine === false ? 'This phone is offline. Check your connection and try again.' : 'Your add-ons did not answer. Check your connection and try again.',
+        {label: 'Retry', run: () => this.run(this.input.value)}));
+    } else this.results.replaceChildren(emptyCard('No results', `Nothing matched “${q}”.`));
+  }
+
+  /** Re-runs a failed search and refreshes Discover when the add-ons change (a late manifest, an edit, back online). */
+  addonsChanged() {
+    const key = discoverKey(discoverCatalogsOf(this.app.enabledAddons(), this.app.manifests));
+    if (key !== this.discoverKey) this.renderDiscover();
+    if (this.searchFailed && this.query === this.input.value.trim()) this.run(this.input.value);
   }
 
   /** Discover: type, catalog and genre pickers over a three-column grid. */
   async renderDiscover() {
     await this.app.ready;
-    const all = [];
-    this.app.enabledAddons().forEach((addon, order) => {
-      const manifest = this.app.manifests.get(addon.url);
-      for (const catalog of manifest?.catalogs || []) {
-        const extras = catalog.extra || [];
-        if (extras.some(e => e.isRequired && !['genre', 'skip'].includes(e.name))) continue;
-        all.push({addon, order, catalog, addonName: manifest.name, title: catalog.name || catalog.id, pageable: extras.some(e => e.name === 'skip'),
-          genres: (extras.find(e => e.name === 'genre')?.options) || catalog.genres || []});
-      }
-    });
+    const all = discoverCatalogsOf(this.app.enabledAddons(), this.app.manifests);
+    this.discoverKey = discoverKey(all);
+    this.discoverObserver?.disconnect();
+    this.discoverToken = null;
     if (!all.length) { this.discover.replaceChildren(); return; }
     const st = this.discoverState;
     const types = [...new Set(all.map(c => c.catalog.type))];
@@ -130,6 +193,7 @@ export class SearchScreen {
     const token = this.discoverToken = {};
     const seen = new Set();
     let skip = 0, done = false, busy = false;
+    const io = this.discoverObserver = new IntersectionObserver(([e]) => { if (e.isIntersecting) load(); }, {root: this.view, rootMargin: '600px'});
     const load = async () => {
       if (busy || done || token !== this.discoverToken) return;
       busy = true;
@@ -141,11 +205,14 @@ export class SearchScreen {
         skip += page.length;
         grid.append(...fresh.map(m => posterCard(m, this.ctx)));
         if (!fresh.length || !entry.pageable) done = true;
-      } catch { done = true; if (!skip) grid.replaceChildren(emptyCard("Couldn't load", 'This catalog did not answer.')); }
+      } catch { done = true; if (!skip) grid.replaceChildren(emptyCard("Couldn't load", 'This catalog did not answer.', {label: 'Retry', run: () => this.renderDiscover()})); }
       busy = false;
+      // A short page can leave the footer in view, and an observer only reports changes: observing
+      // again reports where it is now, so the next page loads if it is still near.
+      if (!done && token === this.discoverToken) { io.unobserve(footer); io.observe(footer); }
     };
     await load();
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) load(); }, {root: this.view, rootMargin: '600px'});
-    io.observe(footer);
   }
 }
+
+const discoverKey = catalogs => catalogs.map(c => `${c.addon.url}|${c.catalog.type}|${c.catalog.id}|${c.title}`).join('\n');

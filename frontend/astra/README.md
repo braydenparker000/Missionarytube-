@@ -53,6 +53,29 @@ client for browser-only details. Both are GPL; nothing is copied from either.
 - **Settings**: appearance, which catalogs Home shows, add-ons (install,
   enable, reorder, configure, remove), playback defaults (preferred audio and
   subtitle language, subtitle style) and your data (export, restore, clear).
+  Install takes what people paste (`stremio://`, a `/configure` page, a
+  trailing slash or `#…`), installs on Enter, ignores a second tap while
+  checking, and offers to replace an add-on already installed from another
+  address (same manifest id). Each add-on says Loading…, Active, or why it
+  could not load, with Retry.
+
+## When add-ons misbehave
+
+- **At the boundary**: `fetchManifest` normalises every manifest
+  (`normaliseManifest`: catalogs, extras, resources, types and id prefixes
+  are arrays; catalogs without an id and type are dropped) and `normaliseMeta`
+  every title (names as string lists, season and episode as numbers or null,
+  unreadable dates dropped and counted as aired). Home, Search and Discover
+  also skip, one add-on at a time, anything that still fails.
+- **Failures are shown, not hidden**: a Home row whose catalog fails keeps
+  its title with "Couldn't load this row · Retry"; Streams marks an add-on
+  that did not answer and offers Retry for it alone; Search says "Couldn't
+  search" when every add-on failed, and names the add-ons still being waited
+  for once others have answered; Details says "Couldn't load details" (Play
+  waits for a series' episodes) and tries again when the add-ons or the
+  connection come back. Browser errors read as sentences ("The add-on took
+  too long", "The add-on answered 404"; `addonError` in `client.js`).
+- A series whose videos have no seasons (channels) lists them under Videos.
 - On first launch Astra copies add-ons, library and progress from classic
   Astra (`astra.v1.*`) once, and leaves the classic data as it was.
 
@@ -224,7 +247,12 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
   Home, back, Continue Watching, the lift menu, Library, episodes, paging,
   Search, add-on settings, the classic import, add-on subtitles, the saved
   copy (offline start, a new release announced), backup restore, damaged and
-  blocked storage, the recovery card and two windows at once.
+  blocked storage, the recovery card and two windows at once, and
+  misbehaving add-ons (`/broken`, `/flaky`, `/small` on the fixture server:
+  a malformed manifest, failing streams and meta, five-item pages, a
+  seasonless channel).
+- `tests/astra-addon-data.test.mjs`: manifest and metadata normalisation,
+  pasted addresses, and how failed requests are described.
 - Fixtures: `bash scripts/astra/make-fixtures.sh` regenerates
   `tests/fixtures/astra/` (needs ffmpeg). Each audio track is a sine tone at a
   different pitch.

@@ -3,7 +3,7 @@
 import {h} from '../ui/dom.js';
 import {icon} from '../ui/icons.js';
 import {sheet, toast, emptyCard} from '../ui/components.js';
-import {normaliseManifestUrl, getJson} from '../addons/client.js';
+import {normaliseManifestUrl, fetchManifest} from '../addons/client.js';
 import {homeCatalogs} from '../app/content.js';
 import {loadPrefs, savePrefs, ORIENTATIONS} from '../player/prefs.js';
 import {languageName} from '../engine/languages.js';
@@ -30,6 +30,7 @@ class Page {
     this.render();
   }
   render() { this.body.replaceChildren(...[this.renderFn(this)].flat().filter(Boolean)); }
+  destroy() { this.off?.(); } // a page that listens (Add-ons) stops when closed
 }
 
 export class SettingsScreen {
@@ -90,44 +91,78 @@ export class SettingsScreen {
   addons(page) {
     const app = this.app;
     const list = app.addons.list;
-    const changed = () => { app.addons.save(); app.reloadAddons(); app.screens.home?.load(); page.render(); };
-    const input = h('input', {class: 'field', type: 'url', placeholder: 'https://…/manifest.json or stremio://…', autocomplete: 'off', 'aria-label': 'Add-on address'});
+    // The list is redrawn in place, never the whole page, so the address field keeps what is typed.
+    const heading = h('h2', {class: 'section-label'});
+    const listSlot = h('div');
+    const renderList = () => {
+      heading.textContent = `Installed (${list.length})`;
+      listSlot.replaceChildren(list.length ? h('div', {class: 'addon-list'}, ...list.map(card)) : emptyCard('No add-ons', 'Install one above. Cinemeta gives catalogs and details; stream add-ons give sources.'));
+    };
+    // Cards say Loading… until the add-ons are reloaded, then Active or why not; late answers redraw too.
+    const changed = () => { app.addons.save(); const ready = app.reloadAddons(); renderList(); ready.then(renderList); app.screens.home?.load(); };
+    page.off?.();
+    page.off = app.onAddons(renderList);
+
+    const input = h('input', {class: 'field', type: 'url', placeholder: 'Add-on URL', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', enterkeyhint: 'go', 'aria-label': 'Add-on URL'});
+    const button = h('button', {class: 'btn primary', type: 'submit'}, 'Install');
     const status = h('p', {class: 'set-note', role: 'status'});
+    const sameAddress = (stored, url) => { try { return normaliseManifestUrl(stored) === url; } catch { return stored === url; } };
+    const already = url => list.find(a => sameAddress(a.url, url));
+    let installing = false;
     const install = async () => {
+      if (installing) return; // a second tap or Enter while checking
       let url;
       try { url = normaliseManifestUrl(input.value); } catch (e) { status.textContent = e.message; return; }
-      if (list.some(a => a.url === url)) { status.textContent = 'That add-on is already installed.'; return; }
+      if (already(url)) { status.textContent = `${already(url).name || 'That add-on'} is already installed.`; return; }
+      installing = true;
+      button.disabled = true;
       status.textContent = 'Checking…';
+      let manifest;
       try {
-        const manifest = await getJson(url);
-        if (!manifest?.id || !manifest.name || !Array.isArray(manifest.resources)) throw Error('That address is not a Stremio add-on.');
-        list.push({url, enabled: true, name: manifest.name});
-        input.value = '';
-        toast(`${manifest.name} installed`);
-        changed();
-      } catch (e) { status.textContent = e.message || 'Could not reach that add-on.'; }
+        manifest = await fetchManifest(url);
+        if (!manifest.id || !manifest.name || !manifest.resources.length) throw Error("That page isn't an add-on manifest.");
+      } catch (e) { status.textContent = e.message || "Couldn't reach that add-on."; return; } finally { installing = false; button.disabled = false; }
+      // Checked again after the wait: it may have been installed meanwhile.
+      if (already(url)) { status.textContent = `${already(url).name || 'That add-on'} is already installed.`; return; }
+      const done = text => { input.value = ''; status.textContent = ''; toast(text); changed(); };
+      // The same add-on from another address (usually another configuration): Stremio keeps one per id, so offer to replace it.
+      const twin = list.find(a => app.manifests.get(a.url)?.id === manifest.id);
+      if (twin) {
+        status.textContent = `${manifest.name} is already installed from another address.`;
+        sheet(`Replace ${twin.name || manifest.name}?`, [
+          {label: 'Replace', icon: 'replay', run: () => { if (!list.includes(twin) || already(url)) return; Object.assign(twin, {url, name: manifest.name, enabled: true}); done(`${manifest.name} replaced`); }},
+          {label: 'Cancel'},
+        ], {subtitle: 'It is installed from another address, perhaps with other settings. Replacing keeps its place in the list.'});
+        return;
+      }
+      list.push({url, enabled: true, name: manifest.name});
+      done(`${manifest.name} installed`);
     };
+    // A form, so Enter on the keyboard installs too; the browser's URL check is off (it would refuse "host/path").
+    const form = h('form', {class: 'install-row', novalidate: true, onsubmit: e => { e.preventDefault(); install(); }}, input, button);
+
     const card = (a, i) => {
       const manifest = app.manifests.get(a.url);
+      const error = a.enabled !== false && !manifest ? app.unreachable.get(a.url) : null;
+      const state = a.enabled === false ? 'Disabled' : manifest ? 'Active' : error ? "Couldn't load" : 'Loading…';
       const configurable = manifest?.behaviorHints?.configurable || manifest?.behaviorHints?.configurationRequired;
       const resources = (manifest?.resources || []).map(r => typeof r === 'string' ? r : r.name);
       return h('div', {class: 'addon-card'},
         h('div', {class: 'addon-top'}, manifest?.logo ? h('img', {class: 'addon-logo', src: manifest.logo, alt: '', referrerpolicy: 'no-referrer'}) : h('span', {class: 'addon-logo ph'}, (a.name || '?')[0]),
-          h('div', {class: 'addon-name'}, h('b', {}, manifest?.name || a.name), h('small', {}, [manifest?.version && 'v' + manifest.version, a.enabled === false ? 'Disabled' : manifest ? 'Active' : 'Unavailable'].filter(Boolean).join(' · '))),
+          h('div', {class: 'addon-name'}, h('b', {}, manifest?.name || a.name), h('small', {class: error ? 'addon-state failed' : 'addon-state'}, [manifest?.version && 'v' + manifest.version, state].filter(Boolean).join(' · '))),
           h('label', {class: 'switch'}, h('input', {type: 'checkbox', role: 'switch', checked: a.enabled !== false, 'aria-label': 'Enable ' + a.name, onchange: e => { a.enabled = e.target.checked; changed(); }}), h('i'))),
+        error ? h('p', {class: 'addon-error'}, error.message || "Couldn't reach it.") : null,
         manifest?.description ? h('p', {class: 'addon-desc'}, manifest.description) : null,
         resources.length ? h('p', {class: 'addon-res'}, resources.join(' · ') + (manifest?.catalogs?.length ? ` · ${manifest.catalogs.length} catalogs` : '')) : null,
         h('div', {class: 'addon-actions'},
           h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Move up', disabled: i === 0, onclick: () => { [list[i - 1], list[i]] = [list[i], list[i - 1]]; changed(); }}, h('span', {class: 'rot-up'}, icon('chevronRight', {size: 20}))),
           h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Move down', disabled: i === list.length - 1, onclick: () => { [list[i + 1], list[i]] = [list[i], list[i + 1]]; changed(); }}, h('span', {class: 'rot-down'}, icon('chevronRight', {size: 20}))),
+          error ? h('button', {class: 'chip', type: 'button', 'aria-label': 'Retry ' + a.name, onclick: () => { const ready = app.reloadAddons(); renderList(); ready.then(renderList); }}, 'Retry') : null,
           configurable ? h('button', {class: 'chip', type: 'button', onclick: () => open(a.url.replace(/manifest\.json$/, 'configure'), '_blank', 'noopener')}, 'Configure') : null,
-          h('button', {class: 'chip danger', type: 'button', onclick: () => sheet(`Remove ${a.name}?`, [{label: 'Remove', icon: 'close', run: () => { list.splice(i, 1); changed(); toast(`${a.name} removed`); }}, {label: 'Cancel'}])}, 'Remove')));
+          h('button', {class: 'chip danger', type: 'button', onclick: () => sheet(`Remove ${a.name}?`, [{label: 'Remove', icon: 'close', run: () => { list.splice(list.indexOf(a), 1); changed(); toast(`${a.name} removed`); }}, {label: 'Cancel'}])}, 'Remove')));
     };
-    return [
-      group('Install', h('div', {class: 'set-row column'}, h('div', {class: 'install-row'}, input, h('button', {class: 'btn primary', type: 'button', onclick: install}, 'Install')), status)),
-      h('h2', {class: 'section-label'}, `Installed (${list.length})`),
-      list.length ? h('div', {class: 'addon-list'}, ...list.map(card)) : emptyCard('No add-ons', 'Install one above. Cinemeta gives catalogs and details; stream add-ons give sources.'),
-    ];
+    renderList();
+    return [group('Install', h('div', {class: 'set-row column'}, form, status)), heading, listSlot];
   }
 
   playback(page) {
