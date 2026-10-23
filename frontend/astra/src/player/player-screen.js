@@ -100,7 +100,7 @@ export class PlayerScreen extends EventTarget {
       h('div', {class: 'ap-top'}, this.pipBtn, this.rotateBtn, this.lockBtn, iconButton('back', 'Close player', () => this.close('user'))),
       h('div', {class: 'ap-center'},
         iconButton('replay', 'Back 10 seconds', () => this.seekBy(-10), {class: 'ap-icon-btn ap-side', iconText: '10'}),
-        h('div', {class: 'ap-play-wrap'}, this.playBtn, this.spinner),
+        h('div', {class: 'ap-play-wrap'}, this.playBtn),
         iconButton('forward', 'Forward 10 seconds', () => this.seekBy(10), {class: 'ap-icon-btn ap-side', iconText: '10'})),
       h('div', {class: 'ap-bottom'},
         h('div', {class: 'ap-meta'}, this.titleEl, this.episodeEl, this.releaseEl, this.viaEl),
@@ -123,7 +123,7 @@ export class PlayerScreen extends EventTarget {
     this.surface = h('div', {class: 'ap-surface'});
     this.root = h('div', {class: 'ap', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Player', hidden: true, tabindex: -1},
       video, subs, this.surface, this.pauseOverlay, this.feedback, this.seekPreview, this.levelBars.brightness, this.levelBars.volume,
-      this.controls, this.skipBtn, this.nextCard, this.lockOverlay, this.noticeEl, this.loading, this.errorCard, this.panel, this.modal);
+      this.controls, h('div', {class: 'ap-buffering'}, this.spinner), this.skipBtn, this.nextCard, this.lockOverlay, this.noticeEl, this.loading, this.errorCard, this.panel, this.modal);
     this.parent.append(this.root);
     new ResizeObserver(() => this.layout()).observe(this.root);
     video.addEventListener('loadedmetadata', () => this.layout());
@@ -208,8 +208,9 @@ export class PlayerScreen extends EventTarget {
     this.ready = this.engine.mode !== 'unsupported';
     this.refreshMenus();
     this.autoSubtitle();
-    // Say so when playback needs the viewer to know something: software decoding, Dolby Vision colours, no sound.
-    const notes = (this.engine.plan?.notes || []).filter(n => /software|Dolby Vision profile \d+ has|without sound/.test(n));
+    // Say so when playback needs the viewer to know something: software decoding, Dolby Vision colours, no sound,
+    // or a file Astra cannot read (so no audio choice and no subtitles from inside it).
+    const notes = (this.engine.plan?.notes || []).filter(n => /software|Dolby Vision profile \d+ has|without sound|Chrome will play it as-is/.test(n));
     if (notes.length) this.notice(notes.at(-1));
   }
 
@@ -376,12 +377,17 @@ export class PlayerScreen extends EventTarget {
     this.root.classList.toggle('paused', paused);
   }
 
+  /**
+   * Waiting for data: a spinner of its own, over the picture whether or not
+   * the controls show, after 400 ms (a short wait shows nothing). The controls
+   * are left as they are, so a double-tap seek or a slow host does not keep
+   * popping them up.
+   */
   setBuffering(on) {
     this.buffering = on;
-    this.spinner.hidden = !on;
-    this.playBtn.hidden = on;
-    if (on) this.showControls(false);
-    else this.scheduleHide();
+    clearTimeout(this.bufferTimer);
+    if (on) this.bufferTimer = setTimeout(() => { this.spinner.hidden = false; this.playBtn.hidden = true; }, 400);
+    else { this.spinner.hidden = true; this.playBtn.hidden = false; this.scheduleHide(); }
   }
 
   // ——— Controls visibility ———
@@ -392,7 +398,7 @@ export class PlayerScreen extends EventTarget {
     this.root.classList.add('controls');
     this.pauseOverlay.hidden = true;
     this.skipHiddenByTimer = false;
-    if (autoHide) this.scheduleHide();
+    if (autoHide) this.scheduleHide(); else clearTimeout(this.hideTimer); // an earlier timer must not hide what should stay
     this.updateSkip(this.video.currentTime);
   }
 
@@ -676,7 +682,9 @@ export class PlayerScreen extends EventTarget {
       h('span', {class: 'ap-tags'}, h('em', {}, s.kind === 'embedded' ? (s.image ? 'Built-in picture' : 'Built-in') : s.kind === 'stream' ? 'Stream' : s.source || 'Add-on'),
         s.exact ? h('em', {class: 'good'}, 'Exact match') : null, s.forced ? h('em', {}, 'Forced') : null, s.loading ? h('em', {}, 'Loading…') : null),
       !s.supported ? h('small', {}, s.reason || '') : null), s.selected ? icon('check', {size: 20}) : null)));
-    if (!options.length) trackRail.append(h('p', {class: 'ap-empty'}, this.subtitleSearch ? 'Looking for subtitles…' : 'No subtitles for this source.'));
+    if (!options.length) trackRail.append(h('p', {class: 'ap-empty'}, this.subtitleSearch ? 'Looking for subtitles…'
+      : this.engine.mode === 'native' && !this.engine.readable ? 'This host does not let Astra read the file, so subtitles inside it cannot be shown. Subtitles from your add-ons still appear here, and you can load a file from this phone.'
+      : 'No subtitles for this source.'));
     else if (this.subtitleSearch) trackRail.append(h('p', {class: 'ap-empty small'}, 'Still asking subtitle add-ons…'));
     return [h('h3', {}, 'Subtitles'), h('div', {class: 'ap-rails'}, languageRail, trackRail, this.styleRail())];
   }

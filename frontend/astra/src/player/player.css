@@ -45,6 +45,9 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 .ap-play-wrap { display: grid; place-items: center; width: 60px; height: 60px; }
 .ap-play { width: 60px; height: 60px; }
 .ap-play .icon { width: 34px; height: 34px; }
+/* The buffering spinner has a layer of its own, where the play button sits, shown with or without the controls. */
+.ap-buffering { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -62%); display: grid; place-items: center; width: 60px; height: 60px; pointer-events: none; }
+.ap.portrait .ap-buffering { transform: translate(-50%, -50%); }
 .ap-spinner { width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255,255,255,.2); border-top-color: var(--ap-accent); animation: ap-spin 1s linear infinite; }
 @keyframes ap-spin { to { transform: rotate(360deg); } }
 .ap-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 max(20px, env(safe-area-inset-right, 0px)) max(8px, var(--safe-bottom)) max(20px, env(safe-area-inset-left, 0px)); }
@@ -219,5 +222,5 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ap-loading-logo { animation: none; opacity: 1; }
-  .ap-spinner { animation-duration: 3s; }
+  .ap .ap-spinner { animation: ap-spin 3s linear infinite !important; } /* a slow turn still says "loading"; a frozen ring looks like a hang */
 }

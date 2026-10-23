@@ -114,6 +114,19 @@ test('the action buttons keep a finger-sized target and, in landscape, all fit t
   assert.equal(await page.locator('.ap-more').isVisible(), false, 'nothing hidden behind More in landscape');
 });
 
+test('waiting for data shows a spinner of its own after a moment and leaves the controls hidden', options, async t => {
+  const {page} = await openPlayer(t);
+  await page.waitForFunction(() => !document.querySelector('.ap').classList.contains('controls'), null, {timeout: 8000});
+  await page.evaluate(() => document.querySelector('.ap-video').dispatchEvent(new Event('waiting')));
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('.ap-spinner').isVisible(), false, 'a short wait shows nothing');
+  await page.waitForTimeout(400);
+  assert.equal(await page.locator('.ap-spinner').isVisible(), true);
+  assert.equal(await controlsShown(page), false, 'the controls stay hidden');
+  await page.evaluate(() => document.querySelector('.ap-video').dispatchEvent(new Event('playing')));
+  assert.equal(await page.locator('.ap-spinner').isVisible(), false);
+});
+
 test('leaving full screen (Android back) closes the open menu first, does nothing while locked, then closes the player', options, async t => {
   const {page} = await openPlayer(t);
   // Android Chrome turns back into an exit from full screen; headless cannot enter it, so the exit is simulated.
