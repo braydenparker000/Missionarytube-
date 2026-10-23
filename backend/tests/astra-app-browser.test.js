@@ -206,3 +206,40 @@ test('OpenSubtitles is asked by default, and the setting turns it off', options,
   await page.waitForTimeout(500);
   assert.deepEqual(asked.filter(p => p.includes('/subtitles/')), [], 'not asked once turned off');
 });
+
+test('the installed app opens from its saved copy, offline too, and announces a new release', options, async t => {
+  let release = 'tree-a';
+  const servers = await startAstraServers({release: () => ({components: {astra: {tree: release}}})});
+  const browser = await chromium.launch({executablePath, headless: true});
+  t.after(async () => { await browser.close(); await servers.close(); });
+  const context = await browser.newContext({viewport: {width: 412, height: 915}, hasTouch: true, isMobile: true, serviceWorkers: 'allow'});
+  await context.addInitScript(addon => {
+    navigator.serviceWorker?.addEventListener('message', event => { if (event.data?.type === 'astra-saved') window.astraSaved = event.data.release; });
+    localStorage.setItem('astra.dev.sw', '1');
+    localStorage.setItem('astra.v2.addons', JSON.stringify([{url: addon, enabled: true, name: 'Fixture'}]));
+    localStorage.setItem('astra.v2.settings', JSON.stringify({openSubtitles: false}));
+  }, servers.addon);
+  const page = await context.newPage();
+  await page.goto(`${servers.site}/astra/`);
+  await page.waitForSelector('.tab-view[data-tab="home"] .row .poster-card');
+  // The first visit's files are saved under its release.
+  await page.waitForFunction(() => window.astraSaved === 'tree-a', null, {timeout: 20000});
+  assert.ok(await page.evaluate(async () => (await (await caches.open('astra-app-tree-a')).keys()).length >= 20));
+  await page.close();
+
+  // Offline: the app and Home's rows come from what was saved.
+  await context.setOffline(true);
+  const offline = await context.newPage();
+  await offline.goto(`${servers.site}/astra/`);
+  await offline.waitForSelector('.tab-view[data-tab="home"] .row .poster-card', {timeout: 15000});
+  assert.deepEqual(await offline.locator('.tab-view[data-tab="home"] .row-head h2').allTextContents(), ['Popular - Movie', 'Popular - Series', 'New - Movie']);
+  await offline.close();
+
+  // A new release: the saved copy opens, the new one is fetched behind it and announced.
+  await context.setOffline(false);
+  release = 'tree-b';
+  const updated = await context.newPage();
+  await updated.goto(`${servers.site}/astra/`);
+  await updated.waitForFunction(() => /Astra has been updated/.test(document.querySelector('.toast')?.textContent || ''), null, {timeout: 20000});
+  assert.ok(await updated.evaluate(async () => (await (await caches.open('astra-app-tree-b')).keys()).length >= 20));
+});

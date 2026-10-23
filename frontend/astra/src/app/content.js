@@ -1,10 +1,14 @@
 // What Home shows and what a title's Play button does, from add-on data.
 
 import {fetchManifest, getJson, resourceUrl, supports} from '../addons/client.js';
+import {swr} from './cache.js';
 
 export const ROW_ITEMS = 18;
-const BATCH = 4;
+const POOL = 4;
 const metaCache = new Map();
+export const MANIFEST_TIMEOUT = 6000;
+const CATALOG_AGE = 30 * 60 * 1000; // a saved first page is shown, and refreshed when older than this
+const META_AGE = 12 * 3600 * 1000;
 
 /** Catalogs Home can show: no required extras except paging and genre. */
 export function homeCatalogs(addons, manifests) {
@@ -26,7 +30,7 @@ export function homeCatalogs(addons, manifests) {
 
 export async function loadManifests(addons, {signal} = {}) {
   const manifests = new Map();
-  await Promise.allSettled(addons.map(async a => { manifests.set(a.url, await fetchManifest(a.url, {signal})); }));
+  await Promise.allSettled(addons.map(async a => { manifests.set(a.url, await fetchManifest(a.url, {signal, timeout: MANIFEST_TIMEOUT})); }));
   return manifests;
 }
 
@@ -39,14 +43,25 @@ export async function fetchCatalog(entry, {skip = 0, genre = null, signal} = {})
   return (data?.metas || []).filter(m => m && m.id).map(m => ({...m, type: m.type || entry.catalog.type}));
 }
 
-/** Loads catalogs four at a time, reporting each as it lands. */
+/**
+ * Loads catalogs' first pages, four requests at a time (the next starts as
+ * soon as one ends), reporting each as it lands. A page saved from an earlier
+ * visit is reported at once and refreshed in the background; onRow is called
+ * again if the fresh page differs.
+ */
 export async function loadRows(entries, onRow, {signal} = {}) {
-  for (let i = 0; i < entries.length; i += BATCH) {
-    if (signal?.aborted) return;
-    await Promise.allSettled(entries.slice(i, i + BATCH).map(async entry => {
-      try { onRow(entry, await fetchCatalog(entry, {signal}), null); } catch (error) { if (!signal?.aborted) onRow(entry, [], error); }
-    }));
-  }
+  const queue = [...entries];
+  const worker = async () => {
+    for (let entry = queue.shift(); entry && !signal?.aborted; entry = queue.shift()) {
+      try {
+        // The request itself is not cancelled with this load: a reload that
+        // replaces it waits on the same request (and it is saved either way).
+        const items = await swr('catalog:' + entry.key, () => fetchCatalog(entry), {maxAge: CATALOG_AGE, onFresh: fresh => { if (!signal?.aborted) onRow(entry, fresh, null); }});
+        if (!signal?.aborted) onRow(entry, items || [], null);
+      } catch (error) { if (!signal?.aborted) onRow(entry, [], error); }
+    }
+  };
+  await Promise.all(Array.from({length: Math.min(POOL, entries.length)}, worker));
 }
 
 /** Hero items: up to 8 from the first two catalogs, deduplicated, shuffled per visit. */
@@ -65,15 +80,18 @@ export function heroItems(rows, seed = Date.now()) {
 export async function fetchMeta(addons, manifests, type, id, {signal} = {}) {
   const key = type + ':' + id;
   if (metaCache.has(key)) return metaCache.get(key);
-  const task = (async () => {
-    for (const addon of addons) {
-      const manifest = manifests.get(addon.url) || await fetchManifest(addon.url, {signal}).catch(() => null);
-      if (!manifest || !supports(manifest, 'meta', type, id)) continue;
+  // Every add-on that serves it is asked at once; the first answer in add-on order wins.
+  const fetchAll = async () => {
+    const asks = addons.map(async addon => {
+      const manifest = manifests.get(addon.url) || await fetchManifest(addon.url, {signal, timeout: MANIFEST_TIMEOUT}).catch(() => null);
+      if (!manifest || !supports(manifest, 'meta', type, id)) return null;
       const data = await getJson(resourceUrl(addon.url, 'meta', type, id), {signal, timeout: 8000}).catch(() => null);
-      if (data?.meta) return normaliseMeta({...data.meta, type: data.meta.type || type});
-    }
+      return data?.meta ? {...data.meta, type: data.meta.type || type} : null;
+    });
+    for (const ask of asks) { const meta = await ask; if (meta) return meta; }
     return null;
-  })();
+  };
+  const task = swr('meta:' + key, fetchAll, {maxAge: META_AGE}).then(meta => meta ? normaliseMeta(meta) : null);
   metaCache.set(key, task);
   task.then(v => { if (!v) metaCache.delete(key); }, () => metaCache.delete(key));
   return task;

@@ -30,6 +30,7 @@ export class StreamsScreen {
     this.groups = new Map();
     this.filter = app.store.get('lastAddon', 'all');
     if (headless) return;
+    app.loadPlayer?.().catch(() => {});
     this.el = h('div', {class: 'screen streams'});
     this.chips = h('div', {class: 'filter-chips', role: 'tablist'});
     this.list = h('div', {class: 'stream-list', 'aria-live': 'polite'});
@@ -59,10 +60,11 @@ export class StreamsScreen {
     return this.sources();
   }
 
+  /** Add-ons that may have streams: those that say so, and those not reached yet (asked again). */
   addons() {
     return this.app.enabledAddons().filter(a => {
       const m = this.app.manifests.get(a.url);
-      return m && supports(m, 'stream', this.meta.type, this.id);
+      return !m || supports(m, 'stream', this.meta.type, this.id);
     });
   }
 

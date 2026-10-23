@@ -3,9 +3,10 @@
 // Every pushed screen is one history entry, so Android back walks them back.
 
 import {createStorage, importClassic, Addons, Library, Watched, Progress} from './store.js';
-import {loadManifests, fetchMeta, episodeCode} from './content.js';
+import {fetchMeta, episodeCode, MANIFEST_TIMEOUT} from './content.js';
+import {swr, pruneCache} from './cache.js';
+import {fetchManifest} from '../addons/client.js';
 import {pushLayer} from './back-stack.js';
-import {PlayerScreen} from '../player/player-screen.js';
 import {resolveDebrid} from '../addons/debrid.js';
 import {fetchSubtitles, subtitleAddons} from '../addons/subtitles.js';
 import {h} from '../ui/dom.js';
@@ -31,14 +32,38 @@ export class App {
     this.progress = new Progress(this.store);
     this.settings = {showCatalogType: true, posterWidth: 126, posterRadius: 12, hero: true, ...this.store.get('settings', {})};
     this.manifests = new Map();
+    this.unreachable = new Set(); // enabled add-ons whose manifest could not be loaded
+    this.addonListeners = new Set();
     this.stack = [];
     this.screenTypes = screens;
     this.build();
     this.reloadAddons();
-    this.player = new PlayerScreen({parent: root});
-    this.bindPlayer();
+    this.player = null; // loaded on first use (it brings the playback engine): see loadPlayer()
     addEventListener('pagehide', () => this.progress.flush(true));
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.progress.flush(true); });
+    // Back online: try the add-ons that could not be reached.
+    addEventListener('online', () => { if (this.unreachable.size) this.reloadAddons(); });
+    (globalThis.requestIdleCallback || (fn => setTimeout(fn, 4000)))(() => pruneCache().catch(() => {}));
+  }
+
+  /**
+   * The player screen and its engine (with Mediabunny) load on first use, so
+   * they do not slow the app's start. Screens that lead to playback call this
+   * early, while the viewer is still choosing.
+   */
+  loadPlayer() {
+    return this.playerLoading ??= import('../player/player-screen.js').then(({PlayerScreen}) => {
+      this.player = new PlayerScreen({parent: this.root});
+      this.bindPlayer();
+      return this.player;
+    }).catch(error => { this.playerLoading = null; throw error; });
+  }
+
+  /** Calls fn() whenever the set of add-on manifests changes (a late answer, a refresh, an edit). */
+  onAddons(fn) { this.addonListeners.add(fn); return () => this.addonListeners.delete(fn); }
+  addonsChanged() {
+    clearTimeout(this.addonsTimer);
+    this.addonsTimer = setTimeout(() => { for (const fn of this.addonListeners) fn(); }, 50);
   }
 
   saveSettings(patch) { Object.assign(this.settings, patch); this.store.set('settings', this.settings); this.applySettings(); }
@@ -48,9 +73,28 @@ export class App {
     s.setProperty('--poster-r', this.settings.posterRadius + 'px');
   }
 
-  /** Fetches every enabled add-on's manifest; screens wait on this.ready. */
+  /**
+   * Loads every enabled add-on's manifest; screens wait on this.ready.
+   * Manifests saved from the last visit answer at once (refreshed in the
+   * background). The wait ends when all have answered, or after 2.5 s once at
+   * least one has; a later answer is announced through onAddons().
+   */
   reloadAddons() {
-    this.ready = loadManifests(this.addons.enabled()).then(m => { this.manifests = m; return m; });
+    const addons = this.addons.enabled();
+    const generation = this.addonGeneration = (this.addonGeneration || 0) + 1;
+    const current = () => generation === this.addonGeneration;
+    const manifests = new Map();
+    this.manifests = manifests;
+    this.unreachable = new Set();
+    let settled = false;
+    const tasks = addons.map(a => swr('manifest:' + a.url, () => fetchManifest(a.url, {timeout: MANIFEST_TIMEOUT}), {maxAge: 6 * 3600 * 1000,
+      onFresh: m => { if (current()) { manifests.set(a.url, m); this.addonsChanged(); } }})
+      .then(m => { if (!current()) return; manifests.set(a.url, m); this.unreachable.delete(a.url); if (settled) this.addonsChanged(); },
+        () => { if (current()) this.unreachable.add(a.url); }));
+    const all = Promise.allSettled(tasks);
+    const early = new Promise(resolve => setTimeout(() => { if (manifests.size) resolve(); }, 2500));
+    this.ready = Promise.race([all, early]).then(() => { settled = true; return manifests; });
+    all.then(() => { if (current() && settled) this.addonsChanged(); });
     return this.ready;
   }
   enabledAddons() { return this.addons.enabled(); }
@@ -156,7 +200,14 @@ export class App {
    * Plays a stream from the streams screen. Must run from a tap: the player
    * goes full screen before anything awaits.
    */
-  play({meta, video = null, source, sources, startTime = 0}) {
+  play(options) {
+    if (this.player) return this.playNow(options);
+    // First play of the visit: the engine is still loading (the tap's user
+    // activation lasts long enough for full screen once it has).
+    this.loadPlayer().then(() => this.playNow(options), () => toast('The player could not load. Check the connection.'));
+  }
+
+  playNow({meta, video = null, source, sources, startTime = 0}) {
     this.playing = {meta, video, stream: source.stream};
     const videos = meta.videos || [];
     const index = video ? videos.findIndex(v => v.id === video.id) : -1;
