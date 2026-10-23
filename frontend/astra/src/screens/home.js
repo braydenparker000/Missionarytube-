@@ -46,6 +46,7 @@ export class HomeScreen {
 
   onShow() { if (this.dirty) { this.dirty = false; this.repaintBadges(); } this.carousel?.resume(); }
   onHide() { this.carousel?.pause(); }
+  onCover(covered) { if (covered) this.onHide(); else this.onShow(); }
   reselect() { this.view.scrollTo({top: 0, behavior: reducedMotion() ? 'auto' : 'smooth'}); }
 
   async load({quiet = false} = {}) {
@@ -238,7 +239,7 @@ class Hero {
 
   pause() { clearInterval(this.timer); this.timer = 0; }
   resume() {
-    if (this.timer || reducedMotion() || document.hidden || this.visible === false || this.items.length < 2 || !this.el.isConnected || this.el.closest('[hidden]')) return;
+    if (this.timer || reducedMotion() || document.hidden || this.visible === false || this.items.length < 2 || !this.el.isConnected || this.el.closest('[hidden], .off, .covered')) return;
     this.timer = setInterval(() => this.go(this.index + 1), HERO_INTERVAL);
   }
   restart() { this.pause(); this.resume(); }

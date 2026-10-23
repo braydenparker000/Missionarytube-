@@ -59,11 +59,18 @@ export function longPress(el, onLongPress) {
   el.addEventListener('contextmenu', e => { e.preventDefault(); fire(e); });
 }
 
-export function image(src, alt = '', cls = '') {
+/**
+ * An image that fades in when it arrives from the network. Art the browser
+ * already holds (a poster seen on Home, now on Details) shows at once, with
+ * no fade to replay. `eager` is for the art that fills the screen first.
+ */
+export function image(src, alt = '', cls = '', {eager = false} = {}) {
   if (!src) return h('div', {class: 'img-fallback ' + cls});
-  const img = h('img', {class: cls, src, alt, loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', draggable: 'false'});
+  const img = h('img', {class: cls, alt, loading: eager ? 'eager' : 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', draggable: 'false'});
+  if (eager) img.fetchPriority = 'high';
+  img.src = src;
   img.addEventListener('error', () => img.replaceWith(h('div', {class: 'img-fallback ' + cls})), {once: true});
-  img.addEventListener('load', () => img.classList.add('loaded'), {once: true});
+  if (!img.complete) img.addEventListener('load', () => img.classList.add('loaded'), {once: true});
   return img;
 }
 
