@@ -11,10 +11,13 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 .ap-video[data-aspect="zoom"] { object-fit: cover; }
 .ap-subs { position: absolute; inset: 0; pointer-events: none; }
 .ap .astra-subs-zone.bottom { transition: transform var(--t-normal) var(--ease); }
-.ap.controls .astra-subs-zone.bottom { transform: translateY(-96px); }
-/* Portrait: the picture is a band across the middle and the controls sit
-   below it, so subtitles stay where they are. */
-.ap.portrait.controls .astra-subs-zone.bottom { transform: none; }
+/* With the controls showing, bottom subtitles rise just clear of them (the
+   lift is measured in layout()). In portrait with room under the picture they
+   sit in the black below it instead, where nothing covers them. */
+.ap.controls .astra-subs-zone.bottom { transform: translateY(calc(-1 * var(--ap-sub-lift, 96px))); }
+.ap.subs-below .astra-subs { overflow: visible; }
+.ap.subs-below .astra-subs-zone.bottom { bottom: auto; top: calc(100% + 14px); }
+.ap.subs-below.controls .astra-subs-zone.bottom { transform: none; }
 .ap.portrait .ap-center { transform: translate(-50%, -50%); gap: 48px; }
 .ap.portrait .ap-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .ap.portrait .ap-shade-top { height: 120px; }
@@ -130,7 +133,10 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 @keyframes ap-slide-in { from { opacity: 0; transform: translateX(40px); } }
 
 /* Above the title block while the controls show */
-.ap.controls .ap-skip, .ap.controls .ap-next { bottom: calc(176px + var(--safe-bottom)); }
+.ap.controls .ap-skip, .ap.controls .ap-next { bottom: calc(var(--ap-bottom-h, 166px) + 10px); }
+/* The next-episode card: finger-sized buttons; in portrait it spans the width. */
+.ap.portrait .ap-next { left: 16px; right: 16px; max-width: none; }
+.ap-next button { min-height: 44px; min-width: 44px; }
 
 /* Lock */
 .ap.locked .ap-controls, .ap.locked .ap-skip, .ap.locked .ap-next { display: none; }

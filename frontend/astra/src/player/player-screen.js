@@ -125,7 +125,10 @@ export class PlayerScreen extends EventTarget {
       video, subs, this.surface, this.pauseOverlay, this.feedback, this.seekPreview, this.levelBars.brightness, this.levelBars.volume,
       this.controls, h('div', {class: 'ap-buffering'}, this.spinner), this.skipBtn, this.nextCard, this.lockOverlay, this.noticeEl, this.loading, this.errorCard, this.panel, this.modal);
     this.parent.append(this.root);
-    new ResizeObserver(() => this.layout()).observe(this.root);
+    this.bottomEl = this.controls.querySelector('.ap-bottom');
+    const resized = new ResizeObserver(() => this.layout());
+    resized.observe(this.root);
+    resized.observe(this.bottomEl); // a two-line title or the Via line changes how much room the subtitles need
     video.addEventListener('loadedmetadata', () => this.layout());
     video.addEventListener('resize', () => this.layout());
     video.addEventListener('enterpictureinpicture', () => this.root.classList.add('in-pip'));
@@ -474,10 +477,25 @@ export class PlayerScreen extends EventTarget {
   layout() {
     const W = this.root.clientWidth, H = this.root.clientHeight, vw = this.video.videoWidth, vh = this.video.videoHeight;
     this.root.classList.toggle('portrait', H > W);
+    // Skip, the next-episode card and lifted subtitles sit above the controls' measured bottom block.
+    const bottomH = this.bottomEl?.offsetHeight || 0;
+    this.root.style.setProperty('--ap-bottom-h', bottomH + 'px');
     const box = this.subsEl.style;
-    if (!W || !H || !vw || !vh || this.prefs.aspect !== 'fit') { box.left = box.top = box.width = box.height = ''; return; }
-    const scale = Math.min(W / vw, H / vh), w = vw * scale, h = vh * scale;
-    Object.assign(box, {left: ((W - w) / 2).toFixed(1) + 'px', top: ((H - h) / 2).toFixed(1) + 'px', width: w.toFixed(1) + 'px', height: h.toFixed(1) + 'px'});
+    let pictureBottom = H;
+    if (!W || !H || !vw || !vh || this.prefs.aspect !== 'fit') box.left = box.top = box.width = box.height = '';
+    else {
+      const scale = Math.min(W / vw, H / vh), w = vw * scale, h = vh * scale;
+      pictureBottom = (H + h) / 2;
+      Object.assign(box, {left: ((W - w) / 2).toFixed(1) + 'px', top: ((H - h) / 2).toFixed(1) + 'px', width: w.toFixed(1) + 'px', height: h.toFixed(1) + 'px'});
+    }
+    // Portrait with room under the picture: subtitles go there, in the black,
+    // clear of the picture and of the buttons over it.
+    const below = H > W && H - pictureBottom - bottomH > 110;
+    this.root.classList.toggle('subs-below', below);
+    // Otherwise, when the controls show, bottom subtitles rise just clear of them.
+    const zone = this.subsEl.querySelector('.astra-subs-zone.bottom');
+    const zoneBottom = pictureBottom - (zone ? parseFloat(getComputedStyle(zone).bottom) || 0 : 0);
+    this.root.style.setProperty('--ap-sub-lift', Math.max(0, Math.round(zoneBottom - (H - bottomH - 8))) + 'px');
   }
 
   /** Locks the screen to the viewer's choice; 'auto' follows the phone. Needs full screen. */
