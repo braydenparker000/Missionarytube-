@@ -186,7 +186,7 @@ export class App {
         next: p.next ? {videoId: p.next.id, season: p.next.season, episode: p.next.episode, title: p.next.title, thumbnail: p.next.thumbnail} : null});
       if (entry?.completed && !this.watched.has(p.meta.type, p.meta.id, v ? v.id : null)) this.watched.set(p.meta.type, p.meta.id, v ? v.id : null, true);
     };
-    this.player.addEventListener('progress', e => save(e.detail.time, e.detail.duration));
+    this.player.addEventListener('progress', e => { save(e.detail.time, e.detail.duration); if (e.detail.final) this.progress.flush(true); });
     this.player.addEventListener('close', () => { this.progress.flush(true); this.playing = null; });
     this.player.addEventListener('episode', e => this.switchEpisode(e.detail.episode.video));
     this.player.addEventListener('next', () => { if (this.playing?.next) this.switchEpisode(this.playing.next); });

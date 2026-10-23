@@ -120,7 +120,10 @@ export class PlayerScreen extends EventTarget {
     this.bindTimeline();
     this.onKey = e => this.key(e);
     this.onFullscreen = () => this.fullscreenChanged();
-    this.onVisibility = () => { if (document.visibilityState === 'visible' && !this.video.paused) this.wake(true); };
+    this.onVisibility = () => {
+      if (document.visibilityState === 'hidden') this.emitProgress(true, true); // the app may not come back
+      else if (!this.video.paused) this.wake(true);
+    };
   }
 
   /**
@@ -587,11 +590,11 @@ export class PlayerScreen extends EventTarget {
     v.addEventListener('ended', () => { this.showControls(false); this.emitProgress(true); });
   }
 
-  emitProgress(force) {
+  emitProgress(force, final = false) {
     const now = performance.now();
     if (!force && now - this.lastProgress < 10000) return;
     this.lastProgress = now;
-    if (this.video.currentTime > 0) this.emit('progress', {time: this.video.currentTime, duration: this.video.duration || 0});
+    if (this.video.currentTime > 0) this.emit('progress', {time: this.video.currentTime, duration: this.video.duration || 0, final});
   }
 
   bindSurface() {
