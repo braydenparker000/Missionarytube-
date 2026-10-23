@@ -1,6 +1,6 @@
 // Home: the hero carousel, Continue Watching, then each catalog as a row.
 
-import {h, timeLeft, reducedMotion} from '../ui/dom.js';
+import {h, timeLeft, reducedMotion, scrollTimelines} from '../ui/dom.js';
 import {icon} from '../ui/icons.js';
 import {posterCard, setWatchedBadge, image, longPress, liftMenu, skeletonRow, emptyCard, toast} from '../ui/components.js';
 import {homeCatalogs, loadRows, heroItems, ROW_ITEMS, episodeCode} from '../app/content.js';
@@ -230,7 +230,7 @@ class Hero {
     this.bindSwipe();
     this.onScroll = () => { const y = scroller.scrollTop; this.el.style.setProperty('--parallax', `${Math.min(y, 800) * 0.3}px`); };
     this.scroller = scroller;
-    scroller.addEventListener('scroll', this.onScroll, {passive: true});
+    if (!scrollTimelines) scroller.addEventListener('scroll', this.onScroll, {passive: true});
     this.observer = new IntersectionObserver(([e]) => { this.visible = e.isIntersecting; if (this.visible) this.resume(); else this.pause(); }, {threshold: 0.3});
     this.observer.observe(this.el);
     this.onVisibility = () => (document.hidden ? this.pause() : this.resume());

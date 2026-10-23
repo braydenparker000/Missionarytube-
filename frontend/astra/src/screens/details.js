@@ -1,6 +1,6 @@
 // A title's page: hero, collapsing header, Play, overview, cast, episodes.
 
-import {h, clock, reducedMotion} from '../ui/dom.js';
+import {h, clock, reducedMotion, scrollTimelines} from '../ui/dom.js';
 import {icon} from '../ui/icons.js';
 import {image, longPress, liftMenu, toast} from '../ui/components.js';
 import {playTarget, seasonsOf, episodeCode, videoTitle, aired, namesOf, runtimeLabel, releaseLabel} from '../app/content.js';
@@ -109,7 +109,7 @@ export class DetailsScreen {
       this.header.setAttribute('aria-hidden', String(!collapsed));
       this.backBtn.classList.toggle('hide', collapsed);
     }
-    if (this.heroEl) this.heroEl.style.setProperty('--parallax', `${Math.min(y, 900) * 0.5}px`);
+    if (this.heroEl && !scrollTimelines) this.heroEl.style.setProperty('--parallax', `${Math.min(y, 900) * 0.5}px`);
   }
 
   renderBody() {

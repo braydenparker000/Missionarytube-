@@ -201,6 +201,17 @@ body:has(.astra.has-screen) .toast { bottom: calc(var(--safe-bottom) + 16px); }
 /* Details */
 .details-hero { position: relative; height: clamp(420px, 133vw, 760px); overflow: hidden; }
 .details-bg { position: absolute; inset: 0; transform: translateY(var(--parallax, 0)) scale(1.08); }
+/* Parallax driven by the scroll itself (Chrome runs it off the main thread);
+   browsers without scroll timelines fall back to --parallax set from script. */
+@supports (animation-timeline: scroll()) {
+  .hero-bg { --zoom: 1.14; --travel: 240px; }
+  .details-bg { --zoom: 1.08; --travel: 450px; }
+  /* Named on the scrolling page: the hero's own overflow clip would otherwise be the "nearest" scroller. */
+  .tab-view, .screen { scroll-timeline: --page block; }
+  .hero-bg, .details-bg { animation: parallax linear both; animation-timeline: --page; animation-range: 0 800px; }
+  @keyframes parallax { from { transform: translateY(0) scale(var(--zoom)); } to { transform: translateY(var(--travel)) scale(var(--zoom)); } }
+}
+@media (prefers-reduced-motion: reduce) { .hero-bg, .details-bg { animation: none !important; transform: scale(1.08); } }
 .details-bg-img, .details-bg .img-fallback { width: 100%; height: 100%; object-fit: cover; }
 .details-shade { position: absolute; inset: 0; background: linear-gradient(transparent calc(100% - 320px), rgba(13,13,13,.04) calc(100% - 300px), rgba(13,13,13,.34) calc(100% - 200px), rgba(13,13,13,.84) calc(100% - 60px), var(--bg)); }
 .details-hero-content { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 0 24px; text-align: center; }

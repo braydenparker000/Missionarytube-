@@ -36,3 +36,6 @@ export function timeLeft(seconds) {
 export function haptic(ms = 10) { try { navigator.vibrate?.(ms); } catch {} }
 
 export function reducedMotion() { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
+
+/** True when CSS can drive animations from scrolling (then parallax needs no script). */
+export const scrollTimelines = typeof CSS !== 'undefined' && CSS.supports?.('animation-timeline: scroll()') === true;
