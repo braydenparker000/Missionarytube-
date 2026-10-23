@@ -20,7 +20,10 @@ export class DetailsScreen {
     this.body = h('div', {class: 'details-body'});
     this.el.append(this.body, this.header, this.backBtn);
     this.renderHero(item);
-    this.body.append(h('div', {class: 'details-loading'}, h('div', {class: 'spinner'})));
+    // Until the full details arrive: what the card already knows (a catalog item
+    // often carries the description), with a placeholder where Play will be.
+    this.body.append(h('div', {class: 'details-actions'}, h('div', {class: 'actions-row'}, h('div', {class: 'skeleton play-ph', 'aria-hidden': 'true'}))),
+      plain(item.description) ? this.overview(item) : h('div', {class: 'details-loading'}, h('div', {class: 'spinner'})));
     this.el.addEventListener('scroll', () => this.onScroll(), {passive: true});
     // Watched changes redraw at most once a frame, and only what shows them: the actions and the episodes.
     const watchedChanged = () => {
@@ -60,16 +63,28 @@ export class DetailsScreen {
   destroy() { this.destroyed = true; for (const off of this.offs) off(); }
   onShow(first) { if (!first && this.meta) this.renderActions(); }
 
+  /**
+   * The hero, drawn at once from the card that was tapped (its art is usually
+   * already in the browser) and updated in place when the full details
+   * arrive: an image whose address did not change is kept, never re-faded.
+   */
   renderHero(m) {
+    if (!this.hero) {
+      const bg = h('div', {class: 'details-bg'}), title = h('div', {class: 'details-title-slot'}), genres = h('p', {class: 'details-genres'});
+      this.hero = {bg, title, genres, el: h('div', {class: 'details-hero'}, bg, h('div', {class: 'details-shade'}), h('div', {class: 'details-hero-content'}, title, genres))};
+      this.body.prepend(this.hero.el);
+      this.heroEl = this.hero.el;
+    }
+    const art = m.background || m.poster || '';
+    if (art !== this.hero.art) { this.hero.art = art; this.hero.bg.replaceChildren(image(art, '', 'details-bg-img', {eager: true})); }
+    const titleKey = (m.logo || '') + '\n' + (m.name || '');
+    if (titleKey !== this.hero.titleKey) {
+      this.hero.titleKey = titleKey;
+      this.hero.title.replaceChildren(m.logo ? image(m.logo, m.name, 'details-logo', {eager: true}) : h('h1', {class: 'details-title'}, m.name || ''));
+    }
     const genres = namesOf(m.genres).slice(0, 3).join(' • ');
-    const hero = h('div', {class: 'details-hero'},
-      h('div', {class: 'details-bg'}, image(m.background || m.poster, '', 'details-bg-img')), h('div', {class: 'details-shade'}),
-      h('div', {class: 'details-hero-content'},
-        m.logo ? image(m.logo, m.name, 'details-logo') : h('h1', {class: 'details-title'}, m.name || ''),
-        genres ? h('p', {class: 'details-genres'}, genres) : null));
-    const old = this.body.querySelector('.details-hero');
-    if (old) old.replaceWith(hero); else this.body.prepend(hero);
-    this.heroEl = hero;
+    this.hero.genres.textContent = genres;
+    this.hero.genres.hidden = !genres;
     this.header.replaceChildren(h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Back', onclick: () => this.app.back()}, icon('back')),
       m.logo ? image(m.logo, m.name, 'header-logo') : h('b', {class: 'header-title'}, m.name || ''),
       this.libraryButton(m, 'icon-btn'));

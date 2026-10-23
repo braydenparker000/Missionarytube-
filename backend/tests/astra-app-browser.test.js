@@ -179,6 +179,21 @@ test('a failing stream add-on shows an error row with Retry for that add-on only
   assert.deepEqual(errors, []);
 });
 
+test('Details paints at once from the card and keeps its hero art when the full details arrive', options, async t => {
+  const {page, servers, errors} = await openApp(t);
+  await page.waitForSelector('.hero-slide');
+  servers.control.metaDelay = 800;
+  await homeRow(page, 'Popular - Movie').locator('.poster-card').nth(2).click(); // Movie 3 has no logo: its title is text
+  await page.waitForSelector('.details .details-bg img');
+  assert.equal(await page.locator('.details .play-ph').count(), 1, 'a placeholder where Play will be');
+  assert.equal(await page.locator('.details-title').textContent(), 'Movie 3', 'the title from the card');
+  await page.locator('.details .details-bg img').evaluate(img => { img.dataset.mark = 'first'; });
+  await page.waitForSelector('.details .play-btn');
+  assert.equal(await page.locator('.details .details-bg img[data-mark="first"]').count(), 1, 'the same image element, not a new one fading in');
+  assert.equal(await page.locator('.details .play-ph').count(), 0);
+  assert.deepEqual(errors, []);
+});
+
 test('streams fill in place: a slower add-on listed first does not replace the cards already shown', options, async t => {
   const {page, servers, errors} = await openApp(t, {addons: [['/flaky/manifest.json', 'Flaky']]});
   servers.control.flakyStreams = false;

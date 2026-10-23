@@ -150,7 +150,7 @@ export async function startAstraServers({frontend = join(ROOT, 'frontend'), fixt
     serveFile(req, res, file, {cors: false});
   });
   const subtitleRequests = [];
-  const control = {brokenCatalog: true, flakyStreams: true, metaFails: false, manifestDelay: 0, streamDelay: 0};
+  const control = {brokenCatalog: true, flakyStreams: true, metaFails: false, manifestDelay: 0, streamDelay: 0, metaDelay: 0};
   const media = await listen((req, res) => {
     const url = new URL(req.url, 'http://x');
     const subs = /^\/subs\/(\w+)\.srt$/.exec(url.pathname);
@@ -163,6 +163,7 @@ export async function startAstraServers({frontend = join(ROOT, 'frontend'), fixt
       return delay ? setTimeout(send, delay) : send();
     }
     if (control.metaFails && url.pathname.startsWith('/addon/meta/')) { res.writeHead(503, {'Access-Control-Allow-Origin': '*'}); return res.end('busy'); }
+    if (control.metaDelay && url.pathname.startsWith('/addon/meta/') && !req.delayed) { req.delayed = true; return setTimeout(() => media.emit('request', req, res), control.metaDelay); }
     if (url.pathname.startsWith('/addon/')) {
       const out = addonResponse(decodeURIComponent(url.pathname.slice(6)), origin(media), null, subtitleRequests);
       res.writeHead(out ? 200 : 404, {'Content-Type': out?.type || 'text/plain', 'Access-Control-Allow-Origin': '*'});
