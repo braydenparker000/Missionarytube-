@@ -940,8 +940,14 @@ export class PlayerScreen extends EventTarget {
   toggleFullscreen() { if (document.fullscreenElement) this.exitFullscreen(); else this.enterFullscreen(); }
 
   fullscreenChanged() {
-    // On a phone, leaving full screen is the back button: close, as Nuvio does.
-    if (!document.fullscreenElement && this.wasFullscreen && this.isOpen && this.wantFullscreen && !this.minimized && !document.pictureInPictureElement && coarse()) this.close('back');
+    // On a phone, leaving full screen is the back button. Like back anywhere
+    // else it closes what is open first (a menu or a panel); locked, it closes
+    // nothing. The next tap goes full screen again. Only then does it close
+    // the player, as Nuvio's does.
+    if (document.fullscreenElement || !this.wasFullscreen || !this.isOpen || !this.wantFullscreen || this.minimized || document.pictureInPictureElement || !coarse()) return;
+    if (this.modalName || this.panelName) { this.closeOverlays(); return; }
+    if (this.locked) { this.showLockHint(); return; }
+    this.close('back');
   }
 
   async wake(on) {

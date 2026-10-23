@@ -65,7 +65,9 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 
 .ap-bar { display: flex; align-items: center; gap: 8px; margin-top: -6px; }
 .ap-actions-wrap { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; }
-.ap-actions { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; max-width: calc(5 * 52px); }
+/* The row takes the bar's free width; buttons keep their 48 px (they shrank to 24 px), and what does not fit scrolls behind More. */
+.ap-actions { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.ap-actions > * { flex: none; }
 .ap-actions::-webkit-scrollbar { display: none; }
 .ap-text-btn { flex: none; height: 48px; padding: 0 12px; border: 0; border-radius: var(--r-full); background: transparent; color: #fff; font-size: 14px; font-weight: 600; white-space: nowrap; }
 .ap-text-btn:active { background: rgba(255,255,255,.12); }

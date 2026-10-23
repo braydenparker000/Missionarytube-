@@ -106,6 +106,39 @@ test('back closes the open menu first, then the player', options, async t => {
   assert.equal(await page.locator('.ap').isHidden(), true);
 });
 
+test('the action buttons keep a finger-sized target and, in landscape, all fit the bar', options, async t => {
+  const {page} = await openPlayer(t);
+  await tap(page, W / 2, H / 2);
+  const widths = await page.locator('.ap-actions > button').evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().width)));
+  assert.ok(widths.length >= 4 && widths.every(w => w >= 44), `targets ${widths}`);
+  assert.equal(await page.locator('.ap-more').isVisible(), false, 'nothing hidden behind More in landscape');
+});
+
+test('leaving full screen (Android back) closes the open menu first, does nothing while locked, then closes the player', options, async t => {
+  const {page} = await openPlayer(t);
+  // Android Chrome turns back into an exit from full screen; headless cannot enter it, so the exit is simulated.
+  await page.evaluate(() => { const real = window.matchMedia.bind(window); window.matchMedia = q => q === '(pointer: coarse)' ? {matches: true} : real(q); }); // a phone
+  const leaveFullscreen = () => page.evaluate(async () => {
+    const s = astraLab.screen;
+    if (document.fullscreenElement) return document.exitFullscreen();
+    s.wasFullscreen = true; s.wantFullscreen = true;
+    document.dispatchEvent(new Event('fullscreenchange'));
+  });
+  await tap(page, W / 2, H / 2);
+  await page.click('[aria-label="Audio"]');
+  await leaveFullscreen();
+  await page.waitForFunction(() => document.querySelector('.ap-modal').hidden);
+  assert.equal(await page.evaluate(() => astraLab.screen.isOpen), true, 'the menu closed, not the player');
+  await tap(page, W / 2, H / 2);
+  await page.click('[aria-label="Lock controls"]');
+  await leaveFullscreen();
+  await page.waitForTimeout(200);
+  assert.equal(await page.evaluate(() => astraLab.screen.isOpen), true, 'locked: nothing closes');
+  await page.click('.ap-unlock');
+  await leaveFullscreen();
+  await page.waitForFunction(() => !astraLab.screen.isOpen);
+});
+
 test('audio and subtitle menus switch tracks and remember the choice', options, async t => {
   const {page} = await openPlayer(t);
   await tap(page, W / 2, H / 2);
