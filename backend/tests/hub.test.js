@@ -151,3 +151,14 @@ test('Poweramp opens the new player right after the chats, and old favorites fol
   assert.deepEqual(loadPreferences().favorites,['poweramp','guitar']);
  }finally{if(previous===undefined)delete globalThis.localStorage;else globalThis.localStorage=previous;}
 });
+
+test('Astra opens the new app; its id stays, so saved favorites keep it',async()=>{
+ const {apps,loadPreferences}=await import('../../frontend/assets/hub.js');
+ const astra=apps.find(a=>a.name==='Astra');
+ assert.deepEqual([astra.id,astra.href],['media','/astra/']);
+ assert.equal(apps.some(a=>a.href==='/media/'),false);
+ const saved=new Map([['jarvis.preferences.v1',JSON.stringify({favorites:['media','jarvis']})]]),previous=globalThis.localStorage;
+ globalThis.localStorage={getItem:k=>saved.get(k)??null};
+ try{assert.deepEqual(loadPreferences().favorites,['media','jarvis']);}
+ finally{if(previous===undefined)delete globalThis.localStorage;else globalThis.localStorage=previous;}
+});

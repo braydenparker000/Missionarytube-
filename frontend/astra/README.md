@@ -1,8 +1,10 @@
 # Astra (new)
 
-The ground-up rebuild of Astra, the media module. It is being built beside
-classic Astra (`frontend/media/`), which stays live and untouched until this
-one replaces it; then the home tile moves here and `frontend/media/` retires.
+The ground-up rebuild of Astra, the media module. The home tile opens it.
+Classic Astra (`frontend/media/`) still serves `/media/` and is linked from
+Settings while this one settles in; My Media also still loads classic Astra's
+compatibility player from there, so `frontend/media/` cannot retire until
+that moves too.
 
 Design reference: Nuvio (Android) for screens and behaviour, Stremio's web
 client for browser-only details. Both are GPL; nothing is copied from either.
@@ -11,15 +13,42 @@ client for browser-only details. Both are GPL; nothing is copied from either.
 
 | Path | What it is |
 | --- | --- |
+| `index.html`, `src/main.js` | The app at `/astra/`. Installable (`manifest.webmanifest`, `sw.js`: network first, the cache only when offline). |
+| `src/app/` | `app.js` (tabs, screen stack, playing a stream), `store.js` (saved data under `astra.v2.*`), `content.js` (rows, hero, what Play means), `back-stack.js` (Android back, one history entry per open screen, sheet or menu). |
+| `src/screens/` | Home, Details, Streams, Catalog ("View all"), Search and Discover, Library, Settings. |
 | `lab/` | Playback lab at `/astra/lab/`: play a link or a stream from your add-ons, see what the file holds and how it plays, switch audio and subtitles, copy a report. |
 | `src/engine/` | The playback engine (below). |
 | `src/player/` | The full-screen player (Nuvio's layout and gestures): `player-screen.js`, pure gesture rules in `gestures.js`, saved choices in `prefs.js`. |
-| `src/app/back-stack.js` | Android back, one history entry per open screen, sheet or menu. |
-| `src/ui/` | Icons drawn for Astra and small DOM helpers. |
+| `src/ui/` | Icons drawn for Astra, poster cards, the long-press lift menu, sheets, toasts and small DOM helpers. |
 | `src/subtitles/` | SRT, WebVTT and ASS parsing, and the renderer that draws cues over the video. |
-| `src/addons/` | The Stremio add-on protocol client. |
+| `src/addons/` | The Stremio add-on protocol client, and TorBox link resolution (`debrid.js`). |
 | `src/styles/tokens.css` | Colours, type, radii, motion and shared controls. |
 | `vendor/` | Mediabunny and its AC-3 and DTS decoders, copied by `node scripts/astra/vendor.mjs` (see `vendor/LICENSES.md`). |
+
+## The app
+
+- Four tabs (Home, Search, Library, Settings) stay alive, so switching keeps
+  each one's scroll; the floating nav shrinks to icons once a page scrolls.
+  Back from another tab returns to Home; back on Home leaves the app.
+- **Home**: a hero of up to eight titles with art that turns every 8 s (or
+  by swipe), Continue Watching, then one row per add-on catalog that needs no
+  search text. Long-press any poster to save it or mark it watched.
+- **Details**: Play says what it will do (Play, Resume, Play S1 E2,
+  Upcoming). Series open on the season of the next unwatched episode.
+- **Streams**: every add-on is asked at once and fills in as it answers, in
+  the add-ons' own order, with a chip per add-on. Nothing is ranked or picked
+  for you. Long-press a stream to copy it, open it in VLC or check it in the
+  lab. TorBox links from add-ons are resolved to the file just before play.
+- **Nothing plays without a tap.** The next-episode card and skip buttons are
+  taps; there are no countdowns.
+- Progress is saved every 10 s while playing, and on pause, close and leaving the app. Streams under 121 s are
+  placeholder clips and are not tracked. At 90% a title counts as watched and
+  Continue Watching offers the next episode instead.
+- **Settings**: appearance, which catalogs Home shows, add-ons (install,
+  enable, reorder, configure, remove), playback defaults (preferred audio and
+  subtitle language, subtitle style) and your data (export, restore, clear).
+- On first launch Astra copies add-ons, library and progress from classic
+  Astra (`astra.v1.*`) once, and leaves the classic data as it was.
 
 ## How a file plays
 
@@ -68,13 +97,18 @@ must be called from a tap: it goes full screen and turns to landscape.
 ## Tests
 
 - `tests/astra-*.test.mjs` (root `npm test`): planner, subtitles, the MKV
-  reader, the range reader and the add-on client.
+  reader, the range reader, the add-on client, saved data, rows and the Play
+  button.
 - `backend/tests/astra-playback-browser.test.js` (`npm run test:backend`
   with `JARVIS_CHROME`): real playback in Chrome against synthetic files on a
   separate origin, including audio switching measured by pitch, subtitles,
   seeking, blocked hosts and HEVC refusal.
 - `backend/tests/astra-player-browser.test.js`: the player screen at phone
   landscape size: gestures, hold, lock, back order, menus, skip.
+- `backend/tests/astra-app-browser.test.js`: the app at phone portrait size
+  against a fixture add-on (`backend/tests/helpers/astra-media-server.js`):
+  Home, back, Continue Watching, the lift menu, Library, episodes, paging,
+  Search, add-on settings and the classic import.
 - Fixtures: `bash scripts/astra/make-fixtures.sh` regenerates
   `tests/fixtures/astra/` (needs ffmpeg). Each audio track is a sine tone at a
   different pitch.
