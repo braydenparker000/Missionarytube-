@@ -179,6 +179,29 @@ test('a failing stream add-on shows an error row with Retry for that add-on only
   assert.deepEqual(errors, []);
 });
 
+test('streams fill in place: a slower add-on listed first does not replace the cards already shown', options, async t => {
+  const {page, servers, errors} = await openApp(t, {addons: [['/flaky/manifest.json', 'Flaky']]});
+  servers.control.flakyStreams = false;
+  servers.control.streamDelay = 1500;
+  // The slow add-on first in the list, so its answer lands above the other's cards.
+  await page.evaluate(() => { const list = JSON.parse(localStorage.getItem('astra.v2.addons')); localStorage.setItem('astra.v2.addons', JSON.stringify(list.reverse())); });
+  await page.reload();
+  await page.waitForSelector('.hero-slide');
+  await homeRow(page, 'Popular - Movie').locator('.poster-card').first().click();
+  await page.click('.play-btn');
+  const fast = page.locator('.stream-card', {hasText: 'Fixture 1080p'});
+  await fast.waitFor();
+  assert.equal(await page.locator('.stream-group').first().locator('.stream-skeleton').count(), 2, 'the slow add-on holds its place with placeholders');
+  await fast.evaluate(el => { el.dataset.mark = 'seen'; });
+  await page.locator('.stream-card', {hasText: 'Flaky 720p'}).waitFor();
+  assert.equal(await page.locator('.stream-card[data-mark="seen"]').count(), 1, 'the card on screen is the same element');
+  assert.deepEqual((await page.locator('.stream-group h3').allInnerTexts()).map(t => t.trim()), ['Flaky', 'Fixture'], 'in the add-ons\' order');
+  await page.locator('.stream-card[data-mark="seen"]').click();
+  await page.waitForFunction(() => document.querySelector('.ap-video')?.currentTime > 0.3, null, {timeout: 20000});
+  assert.equal(await page.locator('.ap-via').textContent(), 'Via Fixture Fixture 1080p');
+  assert.deepEqual(errors, []);
+});
+
 test('small-page catalogs keep paging; a series without seasons lists its videos', options, async t => {
   const {page} = await openApp(t, {addons: [['/small/manifest.json', 'Small pages']]});
   await page.waitForSelector('.hero-slide');

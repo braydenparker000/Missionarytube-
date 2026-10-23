@@ -12,6 +12,8 @@ import {externalPlayerUrl, canOpenExternally} from '../player/external.js';
 const keyed = g => ({...g, streams: g.streams ? g.streams.map((s, i) => ({...s, key: `${g.addon.url}#${i}`})) : g.streams});
 
 const NEEDS_DEBRID = 'Torrents need a debrid add-on such as TorBox.';
+/** A placeholder stream card while an add-on is asked (Nuvio's: two bars on a card). */
+const skeletonStream = () => h('div', {class: 'stream-skeleton', 'aria-hidden': 'true'}, h('i', {class: 'skeleton'}), h('i', {class: 'skeleton'}));
 const sizeLabel = n => !n ? '' : n >= 1e9 ? (n / 1e9).toFixed(n >= 1e10 ? 0 : 1) + ' GB' : Math.round(n / 1e6) + ' MB';
 
 /** A best-effort size from the stream's own text ("💾 4.2 GB"). */
@@ -142,6 +144,8 @@ export class StreamsScreen {
   renderEmpty(title, body, retry = false) {
     this.loading = false;
     this.empty = true;
+    this.chipSignature = null;
+    this.sections?.clear();
     this.chips.replaceChildren(this.refreshChip());
     this.list.replaceChildren(emptyCard(title, body, retry ? {label: 'Refresh', run: () => this.load()} : null));
     this.footer.textContent = '';
@@ -154,40 +158,80 @@ export class StreamsScreen {
       h('button', {class: 'chip', type: 'button', 'aria-label': `Retry ${g.addon.name}`, onclick: () => this.retry(g.addon.url)}, 'Retry'));
   }
 
+  /**
+   * Draws the chips and the list. Each add-on has one section, created in
+   * add-on order when the screen opens (with placeholder cards while it is
+   * asked) and filled in place when it answers: cards already on screen are
+   * never replaced or moved by another add-on's answer, so a press in
+   * progress is not lost and nothing jumps.
+   */
   render() {
     const groups = [...this.groups.values()].sort((a, b) => a.order - b.order);
     // Listed: add-ons still asking, with streams, or that failed. One that answered with none is left out.
     const listed = groups.filter(g => g.streams === null || g.streams?.length || g.error);
     // The remembered add-on may have nothing for this title: show everything rather than an empty list.
     if (this.filter !== 'all' && !listed.some(g => g.addon.url === this.filter)) this.filter = 'all';
-    const chip = (id, label, failed = false) => h('button', {class: 'chip' + (failed ? ' failed' : ''), role: 'tab', type: 'button', 'aria-selected': String(this.filter === id), 'aria-pressed': String(this.filter === id),
-      'aria-label': failed ? `${label}, didn't answer` : null, onclick: () => { this.filter = id; this.app.store.set('lastAddon', id); this.render(); }}, label);
-    this.chips.replaceChildren(this.refreshChip(), chip('all', 'All'), ...listed.map(g => chip(g.addon.url, g.addon.name, !!g.error)));
+    this.renderChips(listed);
     const shown = this.filter === 'all' ? listed : listed.filter(g => g.addon.url === this.filter);
-    const sources = this.sources();
     const asking = groups.some(g => g.streams === null);
     const nothing = !this.loading && !asking && !groups.some(g => g.streams?.length);
     const failed = groups.filter(g => g.error).length;
-    this.list.replaceChildren(...[
-      nothing ? h('div', {class: 'state-card'}, h('h3', {}, 'No streams found'),
-        h('p', {}, failed === groups.length && failed ? 'None of your add-ons answered. Check the connection and try again.' : failed ? 'The add-ons that answered had none for this title.' : 'None of your add-ons returned streams for this title.'),
-        h('button', {class: 'btn primary wide', type: 'button', onclick: () => this.load()}, 'Try again')) : null,
-      ...shown.flatMap(g => g.error ? [this.failedRow(g)] : [
-        this.filter === 'all' ? h('h3', {class: 'group-title'}, g.addon.name, g.streams === null ? h('span', {class: 'fetching'}, ' Fetching…') : null) : null,
-        ...(g.streams || []).map((s, i) => this.card(g, s, i, sources)),
-      ]),
-    ].filter(Boolean));
+    const state = nothing ? h('div', {class: 'state-card'}, h('h3', {}, 'No streams found'),
+      h('p', {}, failed === groups.length && failed ? 'None of your add-ons answered. Check the connection and try again.' : failed ? 'The add-ons that answered had none for this title.' : 'None of your add-ons returned streams for this title.'),
+      h('button', {class: 'btn primary wide', type: 'button', onclick: () => this.load()}, 'Try again')) : null;
+    this.sections ??= new Map();
+    const wanted = shown.map(g => this.section(g));
+    for (const [url, sec] of this.sections) if (!wanted.includes(sec)) { sec.el.remove(); if (!this.groups.has(url)) this.sections.delete(url); }
+    const order = [state, ...wanted.map(sec => sec.el)].filter(Boolean);
+    // Only out-of-place nodes move.
+    this.list.querySelector(':scope > .state-card')?.remove();
+    order.forEach((el, i) => { if (this.list.children[i] !== el) this.list.insertBefore(el, this.list.children[i] || null); });
+    while (this.list.children.length > order.length) this.list.lastElementChild.remove();
     this.footer.textContent = asking ? 'Checking more add-ons…' : '';
   }
 
-  card(group, s, i, sources) {
+  /** The chips, rebuilt only when what they show changes (so their scroll stays put). */
+  renderChips(listed) {
+    const signature = [this.filter, this.loading, ...listed.map(g => g.addon.url + (g.error ? '!' : ''))].join('|');
+    if (signature === this.chipSignature) return;
+    this.chipSignature = signature;
+    const chip = (id, label, failed = false) => h('button', {class: 'chip' + (failed ? ' failed' : ''), role: 'tab', type: 'button', 'aria-selected': String(this.filter === id), 'aria-pressed': String(this.filter === id),
+      'aria-label': failed ? `${label}, didn't answer` : null, onclick: () => { this.filter = id; this.app.store.set('lastAddon', id); this.render(); }}, label);
+    this.chips.replaceChildren(this.refreshChip(), chip('all', 'All'), ...listed.map(g => chip(g.addon.url, g.addon.name, !!g.error)));
+  }
+
+  /** One add-on's section, updated in place: its title, then placeholders, its cards, or its error row. */
+  section(g) {
+    let sec = this.sections.get(g.addon.url);
+    if (!sec) {
+      const fetching = h('span', {class: 'fetching'}, ' Fetching…');
+      const head = h('h3', {class: 'group-title'}, g.addon.name, fetching);
+      const body = h('div', {class: 'group-body'});
+      sec = {el: h('section', {class: 'stream-group', 'data-addon': g.addon.url}, head, body), head, fetching, body, shows: undefined};
+      this.sections.set(g.addon.url, sec);
+    }
+    sec.head.hidden = this.filter !== 'all' || !!g.error;
+    sec.fetching.hidden = g.streams !== null;
+    // What the body shows: placeholders, an error, or this exact list of streams.
+    const shows = g.error ? g.error : g.streams === null ? 'asking' : g.streams;
+    if (sec.shows !== shows) {
+      sec.shows = shows;
+      sec.body.replaceChildren(...(g.error ? [this.failedRow(g)]
+        : g.streams === null ? [skeletonStream(), skeletonStream()]
+        : g.streams.map((s, i) => this.card(g, s, i))));
+    }
+    return sec;
+  }
+
+  card(group, s, i) {
     const playable = !!s.url;
     const size = s.size ? sizeFrom(s) : ''; // a size already in the description is not repeated
     const card = h('button', {class: 'stream-card' + (playable ? '' : ' disabled'), type: 'button', 'aria-disabled': String(!playable),
       onclick: () => {
         if (!playable && s.externalUrl && /^https?:/i.test(s.externalUrl)) { window.open(s.externalUrl, '_blank', 'noopener'); return; }
         if (!playable) { toast(s.infoHash ? NEEDS_DEBRID : 'This source has no playable link.'); return; }
-        const source = sources.find(x => x.id === s.key);
+        // The sources as they are now (more add-ons may have answered since this card was drawn).
+        const sources = this.sources(), source = sources.find(x => x.id === s.key);
         if (!source) return;
         this.app.play({meta: this.meta, video: this.video, source, sources, startTime: this.startTime});
       }},
