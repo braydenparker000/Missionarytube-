@@ -142,13 +142,23 @@ export class DetailsScreen {
     const blocked = !!target.disabled || (this.failed && m.type === 'series');
     const play = h('button', {class: 'play-btn', type: 'button', disabled: blocked, onclick: () => this.play(target)}, icon('play', {size: 18}), h('span', {}, target.label));
     longPress(play, () => { if (!blocked) this.app.openStreams(m, target.video, {startTime: target.startTime}); });
-    const more = h('button', {class: 'round-btn more' + (expanded ? ' open' : ''), type: 'button', 'aria-label': expanded ? 'Fewer actions' : 'More actions', 'aria-expanded': String(!!expanded), onclick: () => { this.moreOpen = !expanded; this.renderActions(); }}, icon('more', {size: 22}));
+    // The row and its More button stay in place (only what changed is swapped), so the button's turn animates.
+    const row = this.actionsSlot.querySelector('.actions-row') || h('div', {class: 'actions-row'});
+    const more = row.querySelector('.round-btn.more') || h('button', {class: 'round-btn more', type: 'button', onclick: () => { this.moreOpen = !this.moreOpen; this.renderActions(); }}, icon('more', {size: 22}));
+    more.classList.toggle('open', !!expanded);
+    more.setAttribute('aria-label', expanded ? 'Fewer actions' : 'More actions');
+    more.setAttribute('aria-expanded', String(!!expanded));
     const extra = expanded ? [
       h('button', {class: 'round-btn' + (watchedTitle ? ' active' : ''), type: 'button', 'aria-label': watchedTitle ? 'Mark as unwatched' : 'Mark as watched', onclick: () => this.app.watched.set(m.type, m.id, null, !watchedTitle)}, icon('check', {size: 21})),
       this.libraryButton(m, 'round-btn'),
     ] : [];
     const resume = target.progress ? h('div', {class: 'resume-bar'}, h('i', {style: {transform: `scaleX(${Math.min(1, target.progress.time / target.progress.duration)})`}})) : null;
-    this.actionsSlot.replaceChildren(...[h('div', {class: 'actions-row'}, play, ...extra, more), resume].filter(Boolean));
+    for (const child of [...row.children]) if (child !== more) child.remove();
+    row.prepend(play, ...extra);
+    if (more.parentNode !== row) row.append(more);
+    if (row.parentNode !== this.actionsSlot) this.actionsSlot.prepend(row);
+    this.actionsSlot.querySelector('.resume-bar')?.remove();
+    if (resume) this.actionsSlot.append(resume);
     this.header.querySelector('.icon-btn:last-child')?.replaceWith(this.libraryButton(m, 'icon-btn'));
   }
 

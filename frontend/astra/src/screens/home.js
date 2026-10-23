@@ -223,7 +223,7 @@ class Hero {
     this.index = 0;
     this.onOpen = onOpen;
     this.track = h('div', {class: 'hero-track'});
-    this.slides = items.map(m => this.slide(m));
+    this.slides = items.map((m, i) => this.slide(m, i));
     this.track.append(...this.slides);
     this.dots = h('div', {class: 'hero-dots', role: 'tablist'}, ...items.map((m, i) => h('button', {class: 'hero-dot', type: 'button', role: 'tab', 'aria-label': `${i + 1} of ${items.length}: ${m.name}`, onclick: () => { this.go(i); this.restart(); }})));
     this.el = h('div', {class: 'hero', 'aria-roledescription': 'carousel', 'aria-label': 'Featured'}, this.track, this.dots);
@@ -239,10 +239,10 @@ class Hero {
     this.resume();
   }
 
-  slide(m) {
+  slide(m, i = 1) {
     const meta = [m.type === 'series' ? 'Series' : 'Movie', (m.genres || [])[0], String(m.releaseInfo || m.year || '').slice(0, 4)].filter(Boolean);
     return h('article', {class: 'hero-slide', 'aria-roledescription': 'slide', 'aria-label': m.name},
-      h('div', {class: 'hero-bg'}, image(m.background || m.poster, '', 'hero-img')), h('div', {class: 'hero-shade'}),
+      h('div', {class: 'hero-bg'}, image(m.background || m.poster, '', 'hero-img', {eager: i === 0})), h('div', {class: 'hero-shade'}),
       h('div', {class: 'hero-content'},
         m.logo ? h('button', {class: 'hero-logo', type: 'button', onclick: () => this.onOpen(m), 'aria-label': m.name}, image(m.logo, m.name, 'hero-logo-img')) : h('button', {class: 'hero-title', type: 'button', onclick: () => this.onOpen(m)}, m.name),
         h('p', {class: 'hero-meta'}, ...meta.flatMap((t, i) => i ? [h('i', {class: 'dot', 'aria-hidden': 'true'}), t] : [t])),
@@ -256,6 +256,11 @@ class Hero {
     this.track.style.transform = `translateX(${-this.index * 100}%)`;
     [...this.dots.children].forEach((d, k) => { d.classList.toggle('on', k === this.index); d.setAttribute('aria-selected', String(k === this.index)); });
     this.slides.forEach((s, k) => s.setAttribute('aria-hidden', String(k !== this.index)));
+    // The art either side is fetched now, so a swipe or the next turn never shows it arriving.
+    for (const k of [this.index - 1, this.index + 1]) {
+      const img = this.slides[((k % n) + n) % n]?.querySelector('img[loading="lazy"]');
+      if (img) img.loading = 'eager';
+    }
   }
 
   bindSwipe() {

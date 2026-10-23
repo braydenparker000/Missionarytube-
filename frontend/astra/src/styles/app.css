@@ -9,7 +9,7 @@ img.loaded, .img-fallback { animation: img-in 200ms var(--ease); }
 @keyframes img-in { from { opacity: 0; } }
 
 /* Launch */
-.launch { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; background: var(--bg); transition: opacity 400ms var(--ease); }
+.launch { position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; background: var(--bg); transition: opacity 250ms var(--ease); }
 .launch.gone { opacity: 0; pointer-events: none; }
 .wordmark { font-size: 44px; font-weight: 800; letter-spacing: -1.2px; }
 .spinner { width: 36px; height: 36px; border-radius: 50%; border: 3px solid rgba(255,255,255,.14); border-top-color: var(--accent); animation: spin 1s linear infinite; }
