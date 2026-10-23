@@ -67,3 +67,11 @@ test('another app is offered through an Android intent carrying the title and th
   assert.equal(canOpenExternally('Mozilla/5.0 (Linux; Android 14; SM-A155F)'), true);
   assert.equal(canOpenExternally('Mozilla/5.0 (X11; Linux x86_64)'), false);
 });
+
+test('a dead link or a silent host is said plainly instead of handing Chrome a file it cannot get either', () => {
+  const gone = planPlayback({readable: false, error: {kind: 'gone', message: 'The link has expired or the file was removed (HTTP 404).'}}, caps());
+  assert.deepEqual([gone.mode, gone.gone, gone.reason], ['unsupported', true, 'The link has expired or the file was removed (HTTP 404).']);
+  const silent = planPlayback({readable: false, error: {kind: 'timeout', message: 'The host did not answer.'}}, caps());
+  assert.deepEqual([silent.mode, silent.retry], ['unsupported', true]);
+  assert.equal(planPlayback({readable: false, error: {kind: 'unreadable', message: 'blocked'}}, caps()).mode, 'native', 'a host that only blocks pages still plays in Chrome');
+});

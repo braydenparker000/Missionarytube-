@@ -106,6 +106,71 @@ test('back closes the open menu first, then the player', options, async t => {
   assert.equal(await page.locator('.ap').isHidden(), true);
 });
 
+test('the action buttons keep a finger-sized target and, in landscape, all fit the bar', options, async t => {
+  const {page} = await openPlayer(t);
+  await tap(page, W / 2, H / 2);
+  const widths = await page.locator('.ap-actions > button').evaluateAll(bs => bs.map(b => Math.round(b.getBoundingClientRect().width)));
+  assert.ok(widths.length >= 4 && widths.every(w => w >= 44), `targets ${widths}`);
+  assert.equal(await page.locator('.ap-more').isVisible(), false, 'nothing hidden behind More in landscape');
+});
+
+test('waiting for data shows a spinner of its own after a moment and leaves the controls hidden', options, async t => {
+  const {page} = await openPlayer(t);
+  await page.waitForFunction(() => !document.querySelector('.ap').classList.contains('controls'), null, {timeout: 8000});
+  await page.evaluate(() => document.querySelector('.ap-video').dispatchEvent(new Event('waiting')));
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('.ap-spinner').isVisible(), false, 'a short wait shows nothing');
+  await page.waitForTimeout(400);
+  assert.equal(await page.locator('.ap-spinner').isVisible(), true);
+  assert.equal(await controlsShown(page), false, 'the controls stay hidden');
+  await page.evaluate(() => document.querySelector('.ap-video').dispatchEvent(new Event('playing')));
+  assert.equal(await page.locator('.ap-spinner').isVisible(), false);
+});
+
+test('with the controls showing, subtitles stay clear of them: lifted in landscape, under the picture in portrait', options, async t => {
+  const {page} = await openPlayer(t);
+  await page.evaluate(() => { const e = astraLab.screen.engine; e.selectSubtitle(e.subtitleOptions().find(o => /English/.test(o.label)).id); const v = document.querySelector('.ap-video'); v.pause(); v.currentTime = 1.3; });
+  await page.waitForFunction(() => /Hello from Astra/.test(document.querySelector('.ap .astra-subs-zone.bottom')?.textContent || ''), null, {timeout: 8000});
+  const measure = () => page.evaluate(() => {
+    const sub = document.querySelector('.ap .astra-subs-zone.bottom').getBoundingClientRect(), bottom = document.querySelector('.ap-bottom').getBoundingClientRect();
+    const v = document.querySelector('.ap-video'), W = innerWidth, H = innerHeight, scale = Math.min(W / v.videoWidth, H / v.videoHeight);
+    return {subTop: sub.top, subBottom: sub.bottom, blockTop: bottom.top, pictureBottom: (H + v.videoHeight * scale) / 2};
+  });
+  await page.evaluate(() => astraLab.screen.showControls(false));
+  await page.waitForTimeout(400);
+  const land = await measure();
+  assert.ok(land.subBottom <= land.blockTop, `landscape: subtitle ends above the controls (${JSON.stringify(land)})`);
+  await page.setViewportSize({width: 412, height: 915});
+  await page.waitForTimeout(400);
+  const port = await measure();
+  assert.ok(port.subTop >= port.pictureBottom - 1 && port.subBottom <= port.blockTop, `portrait: under the picture, above the controls (${JSON.stringify(port)})`);
+});
+
+test('leaving full screen (Android back) closes the open menu first, does nothing while locked, then closes the player', options, async t => {
+  const {page} = await openPlayer(t);
+  // Android Chrome turns back into an exit from full screen; headless cannot enter it, so the exit is simulated.
+  await page.evaluate(() => { const real = window.matchMedia.bind(window); window.matchMedia = q => q === '(pointer: coarse)' ? {matches: true} : real(q); }); // a phone
+  const leaveFullscreen = () => page.evaluate(async () => {
+    const s = astraLab.screen;
+    if (document.fullscreenElement) return document.exitFullscreen();
+    s.wasFullscreen = true; s.wantFullscreen = true;
+    document.dispatchEvent(new Event('fullscreenchange'));
+  });
+  await tap(page, W / 2, H / 2);
+  await page.click('[aria-label="Audio"]');
+  await leaveFullscreen();
+  await page.waitForFunction(() => document.querySelector('.ap-modal').hidden);
+  assert.equal(await page.evaluate(() => astraLab.screen.isOpen), true, 'the menu closed, not the player');
+  await tap(page, W / 2, H / 2);
+  await page.click('[aria-label="Lock controls"]');
+  await leaveFullscreen();
+  await page.waitForTimeout(200);
+  assert.equal(await page.evaluate(() => astraLab.screen.isOpen), true, 'locked: nothing closes');
+  await page.click('.ap-unlock');
+  await leaveFullscreen();
+  await page.waitForFunction(() => !astraLab.screen.isOpen);
+});
+
 test('audio and subtitle menus switch tracks and remember the choice', options, async t => {
   const {page} = await openPlayer(t);
   await tap(page, W / 2, H / 2);
@@ -201,6 +266,15 @@ test('picture-in-picture shrinks the video into its window and hands the screen 
   await page.evaluate(() => document.exitPictureInPicture());
   await page.waitForFunction(() => !document.querySelector('.ap').classList.contains('mini'));
   assert.equal(await page.evaluate(() => astraLab.screen.isOpen), true);
+  // Paused inside the window a while ago, then expanded: the player comes back, paused.
+  await page.evaluate(() => astraLab.screen.togglePip());
+  await page.waitForFunction(() => document.querySelector('.ap').classList.contains('mini'));
+  await page.evaluate(() => document.querySelector('.ap-video').pause());
+  await page.waitForTimeout(600);
+  await page.evaluate(() => document.exitPictureInPicture());
+  await page.waitForFunction(() => !document.querySelector('.ap').classList.contains('mini'));
+  assert.deepEqual(await page.evaluate(() => [astraLab.screen.isOpen, document.querySelector('.ap-video').paused]), [true, true]);
+  await page.evaluate(() => document.querySelector('.ap-video').play());
   // Closing the window pauses the video: the player ends.
   await page.evaluate(() => astraLab.screen.togglePip());
   await page.waitForFunction(() => document.querySelector('.ap').classList.contains('mini'));

@@ -92,6 +92,9 @@ export function planPlayback(probe, caps, prefs = {}) {
   const notes = [];
   if (probe.adaptive) return {mode: probe.adaptive, notes};
   if (!probe.readable) {
+    // A dead link or a silent host: Chrome would fail the same way, so say so instead of trying.
+    if (probe.error?.kind === 'gone') return {mode: 'unsupported', reason: probe.error.message, notes, gone: true};
+    if (probe.error?.kind === 'timeout') return {mode: 'unsupported', reason: 'The host did not answer. It may be busy; try again, or choose another source.', notes, retry: true};
     if (prefs.requiresHeaders) return {mode: 'unsupported', reason: 'This source needs request headers a browser is not allowed to send to a host that blocks web pages.', notes};
     notes.push(`${probe.error?.message || 'Astra cannot read this file.'} Chrome will play it as-is: no audio track choice and no built-in subtitles.`);
     return {mode: 'native', notes};

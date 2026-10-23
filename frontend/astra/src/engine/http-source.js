@@ -13,7 +13,10 @@ export const BLOCK = 1 << 20;
 const MAX_STREAMS = 2;
 const READ_AHEAD = 24 * BLOCK; // a stream pauses this far past the furthest block read from it
 const REUSE_WINDOW = 12 * BLOCK; // a request this close ahead of a stream waits for it
-const RETRIES = 3;
+const RETRIES = 3; // for answers that will not change by asking again (a refused range)
+const OPEN_TIMEOUT = 15000; // the host must start answering within this
+const STALL = 20000; // a stream that sends nothing for this long is dropped and reopened
+const KEEP_TRYING = 60000; // a lost connection is retried this long before reads fail
 
 export class SourceError extends Error {
   constructor(kind, message, detail) { super(message); this.kind = kind; this.detail = detail; }
@@ -45,7 +48,20 @@ export class HttpSource {
     this.listeners = new Set();
     this.closed = false;
     this.failures = 0;
+    this.failingSince = 0;
+    this.stateListeners = new Set();
     this.bytesFetched = 0;
+    // Back online: a waiting retry goes now instead of at the end of its back-off.
+    this.onOnline = () => this.retryNow?.();
+    if (typeof addEventListener === 'function') addEventListener('online', this.onOnline);
+  }
+
+  /** Calls fn('reconnecting' | 'connected') when the connection to the host is lost and found again. */
+  onState(fn) { this.stateListeners.add(fn); return () => this.stateListeners.delete(fn); }
+  setState(state) {
+    if (state === this.state) return;
+    this.state = state;
+    for (const fn of this.stateListeners) fn(state);
   }
 
   request(headers, signal, method = 'GET') {
@@ -62,15 +78,19 @@ export class HttpSource {
    */
   async open(signal) {
     let response;
+    // A host that never answers is given up on (the timer stops once headers arrive; the body keeps streaming).
+    const timeout = new AbortController(), timer = setTimeout(() => timeout.abort(), OPEN_TIMEOUT);
     try {
-      response = await this.request({Range: 'bytes=0-'}, signal);
+      response = await this.request({Range: 'bytes=0-'}, signal ? AbortSignal.any([signal, timeout.signal]) : timeout.signal);
     } catch (error) {
       if (signal?.aborted) throw error;
+      if (timeout.signal.aborted) throw new SourceError('timeout', 'The host did not answer.');
       throw new SourceError('unreadable', 'This host does not let a web page read the file, or the connection failed.', String(error?.message || error));
-    }
+    } finally { clearTimeout(timer); }
     if (response.status !== 206) {
       response.body?.cancel().catch(() => {});
       if (response.status === 200) throw new SourceError('range', 'This host sends the whole file at once instead of in parts.');
+      if (response.status === 404 || response.status === 410) throw new SourceError('gone', `The link has expired or the file was removed (HTTP ${response.status}).`, response.status);
       throw new SourceError('status', `The host answered ${response.status}.`, response.status);
     }
     if (response.url) this.url = response.url; // resolve redirects once
@@ -168,7 +188,20 @@ export class HttpSource {
     this.runStream(stream, response).then(() => this.reschedule(), async error => {
       this.streams.delete(stream);
       if (stream.controller.signal.aborted || this.closed) return this.reschedule();
-      if (++this.failures <= RETRIES) { await sleep(400 * this.failures); return this.reschedule(); }
+      // A lost or stalled connection is retried with a growing pause for up to a
+      // minute (at once when the phone is back online); reads wait meanwhile, so
+      // playback goes on from what is buffered and resumes by itself.
+      const answered = error instanceof SourceError && (error.kind === 'status' || error.kind === 'range');
+      this.failures++;
+      this.failingSince ||= Date.now();
+      this.failingAt = Math.min(this.failingAt ?? Infinity, stream.position); // only data from here on proves the host is back
+      if (answered ? this.failures <= RETRIES : Date.now() - this.failingSince < KEEP_TRYING) {
+        if (!answered) this.setState('reconnecting');
+        await new Promise(resolve => { const t = setTimeout(resolve, Math.min(5000, 400 * 2 ** (this.failures - 1))); this.retryNow = () => { clearTimeout(t); resolve(); }; });
+        this.retryNow = null;
+        return this.reschedule();
+      }
+      this.setState('lost');
       const failure = error instanceof SourceError ? error : new SourceError('network', 'The connection to the host dropped.', String(error?.message || error));
       for (const [i, list] of this.waiters) {
         if (i * BLOCK < stream.position) continue;
@@ -202,7 +235,11 @@ export class HttpSource {
       // Stop reading (TCP backpressure) when far ahead of every reader.
       while ((index - stream.want) * BLOCK > READ_AHEAD && !signal.aborted) await new Promise(r => { stream.wake = r; });
       if (signal.aborted) return;
-      const {done, value} = await reader.read();
+      // A connection that goes quiet (no error, no bytes) would hang reads forever.
+      let stall;
+      const {done, value} = await Promise.race([reader.read(), new Promise((_, reject) => { stall = setTimeout(() => reject(new SourceError('stall', 'The host stopped sending.')), STALL); })])
+        .catch(error => { reader.cancel().catch(() => {}); throw error; })
+        .finally(() => clearTimeout(stall));
       if (done) break;
       this.bytesFetched += value.length;
       for (let offset = 0; offset < value.length;) {
@@ -210,7 +247,7 @@ export class HttpSource {
         block.set(value.subarray(offset, offset + n), filled); filled += n; offset += n;
         if (filled < block.length) continue;
         this.store(index, block);
-        this.failures = 0;
+        if ((this.failures || this.failingSince) && index * BLOCK >= (this.failingAt ?? 0)) { this.failures = 0; this.failingSince = 0; this.failingAt = null; this.setState('connected'); }
         stream.position = ++index * BLOCK;
         if (index >= this.blockCount()) break;
         block = new Uint8Array(this.blockLength(index)); filled = 0;
@@ -230,6 +267,8 @@ export class HttpSource {
 
   close() {
     this.closed = true;
+    if (typeof removeEventListener === 'function') removeEventListener('online', this.onOnline);
+    this.retryNow?.();
     for (const s of [...this.streams]) s.abort();
     for (const list of this.waiters.values()) for (const w of list) w.reject(new SourceError('closed', 'The file was closed.'));
     this.waiters.clear();

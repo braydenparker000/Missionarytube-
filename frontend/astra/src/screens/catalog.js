@@ -16,8 +16,9 @@ export class CatalogScreen {
     this.grid = h('div', {class: 'grid'});
     this.footer = h('div', {class: 'grid-footer'});
     this.el = h('div', {class: 'screen catalog'},
-      h('header', {class: 'catalog-head'}, h('button', {class: 'round-btn small', type: 'button', 'aria-label': 'Back', onclick: () => app.back()}, icon('back', {size: 22})),
-        h('div', {}, h('h1', {}, entry.title), h('p', {}, entry.addonName))),
+      // Nuvio's catalog header: back, then the title and its add-on stacked under it; it stays while the grid scrolls.
+      h('header', {class: 'catalog-head'}, h('button', {class: 'round-btn small', type: 'button', 'aria-label': 'Back', onclick: () => app.back()}, icon('back', {size: 24})),
+        h('h1', {}, entry.title), entry.addonName ? h('p', {}, entry.addonName) : null),
       this.grid, this.footer);
     this.ctx = posterContext(app);
     this.grid.append(...Array.from({length: 9}, () => h('div', {class: 'skeleton skeleton-tile'})));

@@ -34,8 +34,16 @@ client for browser-only details. Both are GPL; nothing is copied from either.
   a screen opened while a menu is closing waits for that menu's entry to go,
   and a reload on an open screen first returns the history to Home.
 - Long-press opens one menu (Android's own long-press is folded into it), and
-  the release of that press never taps an item. Sheets close with a drag on
-  their top, following the finger, or a quick flick.
+  the release of that press never taps an item. Sheets (Nuvio's floating
+  card) close with a drag on their top, following the finger, or a quick
+  flick.
+- Anything that removes or replaces what you have (remove or replace an
+  add-on, clear Continue Watching, copy again from classic Astra, reset
+  Astra's data) asks first in a centred dialog, Cancel beside the action
+  (`confirm()` in `src/ui/components.js`). Back, Escape or a tap outside
+  cancel; a second tap on the action, or on a sheet row, runs nothing.
+- Page headers stay at the top while their page scrolls (Library, Settings
+  and its pages, View all, and Streams' add-on chips).
 - **Home**: a hero of up to eight titles with art that turns every 8 s (or
   by swipe), Continue Watching, then one row per add-on catalog that needs no
   search text. Long-press any poster to save it or mark it watched.
@@ -43,7 +51,9 @@ client for browser-only details. Both are GPL; nothing is copied from either.
   Upcoming). Series open on the season of the next unwatched episode. The
   page draws at once from the card that was tapped (its art, title and, when
   the catalog has it, the description) and fills in when the full details
-  arrive; the hero art is kept, not re-faded.
+  arrive; the hero art is kept, not re-faded. The story shows three lines;
+  "Show more" appears only when that cuts it, at any width, and a tap on the
+  story opens it too.
 - **Streams**: every add-on is asked at once and fills in as it answers, in
   the add-ons' own order, with a chip per add-on. Each add-on's section holds
   its place with placeholder cards while it is asked and is filled in place,
@@ -189,7 +199,10 @@ never switches pipeline mid-play:
 must be called from a tap: it goes full screen. It follows the phone's
 rotation unless Settings > Playback > Rotation says Landscape or Portrait;
 the rotate button in the top bar switches until the player closes. In
-portrait the picture is a band across the middle, with subtitles fitted to it.
+portrait the picture is a band across the middle; when there is room,
+subtitles sit in the black under it. With the controls showing, bottom
+subtitles, Skip and the next-episode card are placed from the controls'
+measured height, so nothing covers the title or the buttons.
 
 - Tap toggles the controls; they hide 3.5 s after the last touch while playing.
 - Double tap left or right seeks 10 s; more taps within 0.8 s add 10 s each.
@@ -200,13 +213,22 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
 - Lock hides everything; any touch shows "Tap to unlock".
 - Menus: audio, subtitles (language, track, delay, size, position, colour,
   background, outline, bold), stream info; side panels for sources and
-  episodes. Back closes the menu first, then the player.
+  episodes. Back closes the menu first, then the player; on a phone in full
+  screen, Android's back (which leaves full screen) does the same, and does
+  nothing while locked.
 - Skip intro/recap/outro from `segments`; the next-episode card appears at
   99% (or when the outro starts) and plays only when tapped.
 - Picture-in-picture (top bar): the video moves to Android's floating window
-  and the app can be used; expanding the window brings the player back,
-  closing it ends playback. Leaving Astra while playing opens it by itself
+  and the app can be used; expanding the window brings the player back (also
+  after pausing in the window), closing it ends playback. Leaving Astra while playing opens it by itself
   where Chrome allows (Settings > Playback > Picture-in-picture).
+- Waiting for data shows a spinner of its own after 400 ms; the controls
+  stay as they were.
+- A lost connection is retried for up to a minute (at once when the phone is
+  back online) while the buffer plays, with "Reconnecting…"; only then does
+  the player stop, offering Try again from where it stopped. A dead link
+  (404/410) asks for another source; a host that does not answer in 15 s
+  says so. Another app is offered only for files the browser cannot play.
 - Media Session controls, screen kept awake.
 
 ## Subtitles
@@ -228,7 +250,11 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
 - The remembered language is shown by itself: the file's own track first,
   then an exact match, then the first add-on file. Choosing Off forgets it.
 - Old code pages (Cyrillic, Arabic, Central European and others) and UTF-16
-  files are decoded by language.
+  files are decoded by language, from add-ons' two- or three-letter codes.
+- A file's format is read from its first line (an .srt named
+  "Glass.Onion" stays SRT); a file one reader finds empty is offered to the
+  others. A host that blocks reading the file is said in the subtitles menu
+  (add-on subtitles still work).
 
 ## Tests
 
@@ -247,7 +273,8 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
   landscape size: gestures, hold, lock, back order, menus, skip; and in
   portrait: rotation settings, the rotate button, picture-in-picture.
 - `backend/tests/astra-shell-browser.test.js`: Android back in the awkward
-  cases, and long-press and sheet dragging with real touch input.
+  cases, long-press and sheet dragging with real touch input, and the
+  confirm dialog (back, Escape, focus, one run per choice).
 - `backend/tests/astra-app-browser.test.js`: the app at phone portrait size
   against a fixture add-on (`backend/tests/helpers/astra-media-server.js`):
   Home, back, Continue Watching, the lift menu, Library, episodes, paging,

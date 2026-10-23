@@ -197,3 +197,24 @@ test('the scanner finds subtitles in whatever part of the file arrives, without 
   assert.deepEqual(texts.sort((a, b) => a[1] - b[1]), [['mp4:3', 1, 'Hello from Astra'], ['mp4:3', 3, 'Second line']]);
   mp4Scanner.stop();
 });
+
+test('a subtitle file is read by what it contains: names with "ass" or "ssa" in them stay SRT', async () => {
+  const {parseSubtitleFile} = await import('../frontend/astra/src/subtitles/parse.js');
+  const srt = '1\n00:00:01,000 --> 00:00:02,000\nHello\n\n2\n00:00:03,000 --> 00:00:04,000\nAgain\n';
+  for (const hint of ['https://subs.example.test/The.Glass.Onion.2022.srt', 'Class.of.09.S01E01.srt', 'https://subs.example.test/classic/download/123', 'Assassination.Classroom.E01', 'srt', ''])
+    assert.equal(parseSubtitleFile(srt, hint).length, 2, hint);
+  assert.equal(parseSubtitleFile(srt, 'ass').length, 2, 'a wrong format name falls back to what the file is');
+  const ass = '[Script Info]\nScriptType: v4.00+\n\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:01.00,0:00:02.00,Default,,0,0,0,,Hi there\n';
+  assert.equal(parseSubtitleFile(ass, 'https://subs.example.test/file.srt').length, 1, 'ASS content wins over an .srt name');
+  assert.equal(parseSubtitleFile('﻿WEBVTT\n\n00:01.000 --> 00:02.000\nVTT line\n', 'x.srt').length, 1);
+  assert.deepEqual(parseSubtitleFile('not subtitles at all', 'x.srt'), []);
+});
+
+test('old code pages are chosen from the three-letter codes add-ons send', () => {
+  const bytes = (...b) => Uint8Array.from(b);
+  assert.equal(decodeSubtitleBytes(bytes(0xC3, 0xE5, 0xE9, 0xE1, 0x20, 0xF3, 0xEF, 0xF5), 'gre'), 'Γεια σου');
+  assert.equal(decodeSubtitleBytes(bytes(0xCF, 0xF0, 0xE8, 0xE2, 0xE5, 0xF2), 'bul'), 'Привет');
+  assert.equal(decodeSubtitleBytes(bytes(0xA3, 0xF3, 0x64, 0x9F), 'pol'), 'Łódź');
+  assert.equal(decodeSubtitleBytes(bytes(0x4D, 0x75, 0x6C, 0xFE, 0x75, 0x6D, 0x65, 0x73, 0x63), 'rum'), 'Mulţumesc', 'Romanian is Central European, not Cyrillic');
+  assert.equal(decodeSubtitleBytes(bytes(0xC7, 0xFC, 0x72), 'tur'), 'Çür');
+});

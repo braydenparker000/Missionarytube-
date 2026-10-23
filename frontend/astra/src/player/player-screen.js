@@ -44,7 +44,8 @@ export class PlayerScreen extends EventTarget {
     const subs = this.subsEl = h('div', {class: 'ap-subs'});
     this.engine = new AstraPlayer(video, subs);
     this.engine.addEventListener('status', e => { this.loadingStatus.textContent = e.detail; });
-    this.engine.addEventListener('error', e => this.showError(e.detail.message, e.detail.plan));
+    this.engine.addEventListener('error', e => this.showError(e.detail.message, e.detail.plan, e.detail));
+    this.engine.addEventListener('network', e => this.networkState(e.detail));
     this.engine.addEventListener('tracks', () => { this.refreshMenus(); if (this.ready) this.autoSubtitle(); });
     this.engine.addEventListener('ready', () => this.onReady());
     this.engine.addEventListener('filefacts', e => this.emit('fileinfo', e.detail));
@@ -99,7 +100,7 @@ export class PlayerScreen extends EventTarget {
       h('div', {class: 'ap-top'}, this.pipBtn, this.rotateBtn, this.lockBtn, iconButton('back', 'Close player', () => this.close('user'))),
       h('div', {class: 'ap-center'},
         iconButton('replay', 'Back 10 seconds', () => this.seekBy(-10), {class: 'ap-icon-btn ap-side', iconText: '10'}),
-        h('div', {class: 'ap-play-wrap'}, this.playBtn, this.spinner),
+        h('div', {class: 'ap-play-wrap'}, this.playBtn),
         iconButton('forward', 'Forward 10 seconds', () => this.seekBy(10), {class: 'ap-icon-btn ap-side', iconText: '10'})),
       h('div', {class: 'ap-bottom'},
         h('div', {class: 'ap-meta'}, this.titleEl, this.episodeEl, this.releaseEl, this.viaEl),
@@ -122,9 +123,14 @@ export class PlayerScreen extends EventTarget {
     this.surface = h('div', {class: 'ap-surface'});
     this.root = h('div', {class: 'ap', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Player', hidden: true, tabindex: -1},
       video, subs, this.surface, this.pauseOverlay, this.feedback, this.seekPreview, this.levelBars.brightness, this.levelBars.volume,
-      this.controls, this.skipBtn, this.nextCard, this.lockOverlay, this.noticeEl, this.loading, this.errorCard, this.panel, this.modal);
+      this.controls, h('div', {class: 'ap-buffering'}, this.spinner), this.skipBtn, this.nextCard, this.lockOverlay, this.noticeEl, this.loading, this.errorCard, this.panel, this.modal);
     this.parent.append(this.root);
-    new ResizeObserver(() => this.layout()).observe(this.root);
+    this.bottomEl = this.controls.querySelector('.ap-bottom');
+    // Moving through the controls with Tab shows them.
+    this.controls.addEventListener('focusin', () => { if (!this.controlsVisible && !this.locked) this.showControls(); });
+    const resized = new ResizeObserver(() => this.layout());
+    resized.observe(this.root);
+    resized.observe(this.bottomEl); // a two-line title or the Via line changes how much room the subtitles need
     video.addEventListener('loadedmetadata', () => this.layout());
     video.addEventListener('resize', () => this.layout());
     video.addEventListener('enterpictureinpicture', () => this.root.classList.add('in-pip'));
@@ -156,6 +162,10 @@ export class PlayerScreen extends EventTarget {
     this.sources = o.sources || [];
     this.sourceId = o.sourceId ?? this.sources[0]?.id ?? null;
     this.segments = (o.segments || []).filter(s => s.end > s.start);
+    // Choices that belong to one title start fresh with the next.
+    this.panelSeason = null;
+    this.subLang = null;
+    this.setBrightness(1);
     this.nextDismissed = false;
     this.skipped = new Set();
     this.firstFrame = false;
@@ -192,6 +202,7 @@ export class PlayerScreen extends EventTarget {
 
   load(stream, startTime, {allowSilent = false} = {}) {
     this.stream = stream;
+    this.loadedFrom = startTime || 0; // where "Try again" resumes when nothing played yet
     this.ready = false;
     this.firstFrame = false;
     this.showLoading(true);
@@ -206,8 +217,9 @@ export class PlayerScreen extends EventTarget {
     this.ready = this.engine.mode !== 'unsupported';
     this.refreshMenus();
     this.autoSubtitle();
-    // Say so when playback needs the viewer to know something: software decoding, Dolby Vision colours, no sound.
-    const notes = (this.engine.plan?.notes || []).filter(n => /software|Dolby Vision profile \d+ has|without sound/.test(n));
+    // Say so when playback needs the viewer to know something: software decoding, Dolby Vision colours, no sound,
+    // or a file Astra cannot read (so no audio choice and no subtitles from inside it).
+    const notes = (this.engine.plan?.notes || []).filter(n => /software|Dolby Vision profile \d+ has|without sound|Chrome will play it as-is/.test(n));
     if (notes.length) this.notice(notes.at(-1));
   }
 
@@ -312,20 +324,34 @@ export class PlayerScreen extends EventTarget {
     if (on) this.loadingStatus.textContent = 'Finding the stream…';
   }
 
-  showError(message, plan = null) {
+  /** The host connection lost and found again: playback goes on from the buffer meanwhile, so this is a notice, not an error. */
+  networkState(state) {
+    if (state === 'reconnecting') { this.notice('Reconnecting…'); clearTimeout(this.noticeTimer); }
+    else if (state === 'connected' && !this.noticeEl.hidden) this.notice('Connected again');
+    else if (state === 'lost') this.noticeEl.hidden = true;
+  }
+
+  showError(message, plan = null, {network = false} = {}) {
     this.showLoading(false);
+    this.noticeEl.hidden = true;
     const report = h('button', {class: 'ap-chip', type: 'button', onclick: async () => {
       try { await navigator.clipboard.writeText(JSON.stringify(await this.engine.report(), null, 2)); report.textContent = 'Report copied'; } catch { report.textContent = 'Copy failed'; }
     }}, 'Copy report');
-    const external = canOpenExternally() && externalPlayerUrl(this.stream?.url);
+    // What can help depends on why it stopped: a lost connection is tried again
+    // (from where it stopped), a dead link needs another source, and only a file
+    // the browser cannot play is worth another app.
+    const connection = network || plan?.retry, gone = !!plan?.gone;
+    const external = !connection && !gone && canOpenExternally() && externalPlayerUrl(this.stream?.url);
+    const others = this.sources.length > 1, retry = connection || plan?.mode !== 'unsupported';
+    const primary = connection ? 'retry' : external ? 'external' : others ? 'sources' : 'retry';
     this.errorCard.replaceChildren(
-      h('h3', {}, plan?.mode === 'unsupported' ? 'Can’t play this here' : 'Playback stopped'), h('p', {}, message),
+      h('h3', {}, gone ? 'This link no longer works' : connection ? 'Lost the connection' : plan?.mode === 'unsupported' ? 'Can’t play this here' : 'Playback stopped'), h('p', {}, message),
       external ? h('p', {class: 'ap-error-hint'}, 'Another app on your phone, such as VLC, can play it.') : null,
       h('div', {class: 'ap-error-actions'},
         external ? h('button', {class: 'ap-chip primary', type: 'button', onclick: () => this.openExternally()}, 'Play in another app') : null,
         plan?.silent ? h('button', {class: 'ap-chip', type: 'button', onclick: () => this.load(this.stream, this.video.currentTime || 0, {allowSilent: true})}, 'Play without sound') : null,
-        this.sources.length > 1 ? h('button', {class: 'ap-chip' + (external ? '' : ' primary'), type: 'button', onclick: () => { this.errorCard.hidden = true; this.openPanel('sources'); }}, 'Choose another source') : null,
-        plan?.mode !== 'unsupported' ? h('button', {class: 'ap-chip', type: 'button', onclick: () => this.load(this.stream, this.video.currentTime || 0)}, 'Try again') : null,
+        others ? h('button', {class: 'ap-chip' + (primary === 'sources' ? ' primary' : ''), type: 'button', onclick: () => { this.errorCard.hidden = true; this.openPanel('sources'); }}, 'Choose another source') : null,
+        retry ? h('button', {class: 'ap-chip' + (primary === 'retry' ? ' primary' : ''), type: 'button', onclick: () => this.load(this.stream, this.video.currentTime || this.loadedFrom || 0)}, 'Try again') : null,
         report,
         h('button', {class: 'ap-chip', type: 'button', onclick: () => this.close('user')}, 'Close')));
     this.errorCard.hidden = false;
@@ -360,12 +386,17 @@ export class PlayerScreen extends EventTarget {
     this.root.classList.toggle('paused', paused);
   }
 
+  /**
+   * Waiting for data: a spinner of its own, over the picture whether or not
+   * the controls show, after 400 ms (a short wait shows nothing). The controls
+   * are left as they are, so a double-tap seek or a slow host does not keep
+   * popping them up.
+   */
   setBuffering(on) {
     this.buffering = on;
-    this.spinner.hidden = !on;
-    this.playBtn.hidden = on;
-    if (on) this.showControls(false);
-    else this.scheduleHide();
+    clearTimeout(this.bufferTimer);
+    if (on) this.bufferTimer = setTimeout(() => { this.spinner.hidden = false; this.playBtn.hidden = true; }, 400);
+    else { this.spinner.hidden = true; this.playBtn.hidden = false; this.scheduleHide(); }
   }
 
   // ——— Controls visibility ———
@@ -376,7 +407,7 @@ export class PlayerScreen extends EventTarget {
     this.root.classList.add('controls');
     this.pauseOverlay.hidden = true;
     this.skipHiddenByTimer = false;
-    if (autoHide) this.scheduleHide();
+    if (autoHide) this.scheduleHide(); else clearTimeout(this.hideTimer); // an earlier timer must not hide what should stay
     this.updateSkip(this.video.currentTime);
   }
 
@@ -452,10 +483,25 @@ export class PlayerScreen extends EventTarget {
   layout() {
     const W = this.root.clientWidth, H = this.root.clientHeight, vw = this.video.videoWidth, vh = this.video.videoHeight;
     this.root.classList.toggle('portrait', H > W);
+    // Skip, the next-episode card and lifted subtitles sit above the controls' measured bottom block.
+    const bottomH = this.bottomEl?.offsetHeight || 0;
+    this.root.style.setProperty('--ap-bottom-h', bottomH + 'px');
     const box = this.subsEl.style;
-    if (!W || !H || !vw || !vh || this.prefs.aspect !== 'fit') { box.left = box.top = box.width = box.height = ''; return; }
-    const scale = Math.min(W / vw, H / vh), w = vw * scale, h = vh * scale;
-    Object.assign(box, {left: ((W - w) / 2).toFixed(1) + 'px', top: ((H - h) / 2).toFixed(1) + 'px', width: w.toFixed(1) + 'px', height: h.toFixed(1) + 'px'});
+    let pictureBottom = H;
+    if (!W || !H || !vw || !vh || this.prefs.aspect !== 'fit') box.left = box.top = box.width = box.height = '';
+    else {
+      const scale = Math.min(W / vw, H / vh), w = vw * scale, h = vh * scale;
+      pictureBottom = (H + h) / 2;
+      Object.assign(box, {left: ((W - w) / 2).toFixed(1) + 'px', top: ((H - h) / 2).toFixed(1) + 'px', width: w.toFixed(1) + 'px', height: h.toFixed(1) + 'px'});
+    }
+    // Portrait with room under the picture: subtitles go there, in the black,
+    // clear of the picture and of the buttons over it.
+    const below = H > W && H - pictureBottom - bottomH > 110;
+    this.root.classList.toggle('subs-below', below);
+    // Otherwise, when the controls show, bottom subtitles rise just clear of them.
+    const zone = this.subsEl.querySelector('.astra-subs-zone.bottom');
+    const zoneBottom = pictureBottom - (zone ? parseFloat(getComputedStyle(zone).bottom) || 0 : 0);
+    this.root.style.setProperty('--ap-sub-lift', Math.max(0, Math.round(zoneBottom - (H - bottomH - 8))) + 'px');
   }
 
   /** Locks the screen to the viewer's choice; 'auto' follows the phone. Needs full screen. */
@@ -501,12 +547,20 @@ export class PlayerScreen extends EventTarget {
     removeEventListener('keydown', this.onKey);
   }
 
-  /** The floating window closed: expanded (still playing) brings the player back; closed (paused) ends it. */
+  /**
+   * The floating window went away. Closing it (Chrome pauses the video just
+   * before) ends playback; expanding it brings the player back, paused or not.
+   */
   leftPip() {
     this.root.classList.remove('in-pip');
     if (!this.minimized) return;
-    if (this.video.paused || this.video.ended) { this.minimized = false; this.root.classList.remove('mini'); this.close('pip'); return; }
-    this.restoreFromPip();
+    // Decided a moment later: the pause that comes with closing may be dispatched just after this event.
+    setTimeout(() => {
+      if (!this.minimized) return;
+      const closed = this.video.ended || (this.video.paused && performance.now() - (this.pausedAt || 0) < 400);
+      if (closed) { this.minimized = false; this.root.classList.remove('mini'); this.close('pip'); return; }
+      this.restoreFromPip();
+    });
   }
 
   restoreFromPip({exit = false} = {}) {
@@ -644,7 +698,11 @@ export class PlayerScreen extends EventTarget {
 
   subtitleModal() {
     const options = this.engine.subtitleOptions();
-    const langs = [...new Set(options.map(s => baseLanguage(s.language) || 'und'))];
+    // Languages in a useful order: the remembered one, the phone's own, then A to Z (Unknown last).
+    const wanted = [baseLanguage(this.prefs.subtitleLanguage), ...navigator.languages.map(baseLanguage)].filter(Boolean);
+    const rank = code => code === 'und' ? 1e4 : wanted.includes(code) ? wanted.indexOf(code) : 100;
+    const langs = [...new Set(options.map(s => baseLanguage(s.language) || 'und'))]
+      .sort((a, b) => rank(a) - rank(b) || (languageName(a) || a).localeCompare(languageName(b) || b));
     const selected = options.find(s => s.selected);
     this.subLang ??= selected ? baseLanguage(selected.language) || 'und' : langs[0] || null;
     if (this.subLang && !langs.includes(this.subLang)) this.subLang = langs[0] || null;
@@ -660,7 +718,9 @@ export class PlayerScreen extends EventTarget {
       h('span', {class: 'ap-tags'}, h('em', {}, s.kind === 'embedded' ? (s.image ? 'Built-in picture' : 'Built-in') : s.kind === 'stream' ? 'Stream' : s.source || 'Add-on'),
         s.exact ? h('em', {class: 'good'}, 'Exact match') : null, s.forced ? h('em', {}, 'Forced') : null, s.loading ? h('em', {}, 'Loading…') : null),
       !s.supported ? h('small', {}, s.reason || '') : null), s.selected ? icon('check', {size: 20}) : null)));
-    if (!options.length) trackRail.append(h('p', {class: 'ap-empty'}, this.subtitleSearch ? 'Looking for subtitles…' : 'No subtitles for this source.'));
+    if (!options.length) trackRail.append(h('p', {class: 'ap-empty'}, this.subtitleSearch ? 'Looking for subtitles…'
+      : this.engine.mode === 'native' && !this.engine.readable ? 'This host does not let Astra read the file, so subtitles inside it cannot be shown. Subtitles from your add-ons still appear here, and you can load a file from this phone.'
+      : 'No subtitles for this source.'));
     else if (this.subtitleSearch) trackRail.append(h('p', {class: 'ap-empty small'}, 'Still asking subtitle add-ons…'));
     return [h('h3', {}, 'Subtitles'), h('div', {class: 'ap-rails'}, languageRail, trackRail, this.styleRail())];
   }
@@ -735,6 +795,7 @@ export class PlayerScreen extends EventTarget {
     });
     v.addEventListener('waiting', () => { if (this.firstFrame) this.setBuffering(true); });
     v.addEventListener('pause', () => {
+      this.pausedAt = performance.now();
       this.updatePlayState(); this.wake(false); this.showControls(false); this.emitProgress(true);
     });
     v.addEventListener('play', () => { this.updatePlayState(); this.scheduleHide(); });
@@ -902,6 +963,10 @@ export class PlayerScreen extends EventTarget {
   key(e) {
     if (!this.isOpen || e.target.closest?.('input, textarea')) return;
     const k = e.key;
+    // Locked means locked, keys too; only the Unlock button can be reached and pressed.
+    if (this.locked) { if (k !== 'Tab' && !e.target.closest?.('.ap-unlock')) { e.preventDefault(); this.showLockHint(); } return; }
+    // Space and Enter on a focused button or the seek bar press that, not play/pause.
+    if ((k === ' ' || k === 'Enter') && e.target.closest?.('button, [role="slider"]')) return;
     if (k === ' ' || k === 'k') { e.preventDefault(); this.togglePlay(); }
     else if (k === 'ArrowLeft' || k === 'j') { e.preventDefault(); this.seekBy(-10); this.flash('−10s', {kind: 'left'}); }
     else if (k === 'ArrowRight' || k === 'l') { e.preventDefault(); this.seekBy(10); this.flash('+10s', {kind: 'right'}); }
@@ -940,8 +1005,14 @@ export class PlayerScreen extends EventTarget {
   toggleFullscreen() { if (document.fullscreenElement) this.exitFullscreen(); else this.enterFullscreen(); }
 
   fullscreenChanged() {
-    // On a phone, leaving full screen is the back button: close, as Nuvio does.
-    if (!document.fullscreenElement && this.wasFullscreen && this.isOpen && this.wantFullscreen && !this.minimized && !document.pictureInPictureElement && coarse()) this.close('back');
+    // On a phone, leaving full screen is the back button. Like back anywhere
+    // else it closes what is open first (a menu or a panel); locked, it closes
+    // nothing. The next tap goes full screen again. Only then does it close
+    // the player, as Nuvio's does.
+    if (document.fullscreenElement || !this.wasFullscreen || !this.isOpen || !this.wantFullscreen || this.minimized || document.pictureInPictureElement || !coarse()) return;
+    if (this.modalName || this.panelName) { this.closeOverlays(); return; }
+    if (this.locked) { this.showLockHint(); return; }
+    this.close('back');
   }
 
   async wake(on) {

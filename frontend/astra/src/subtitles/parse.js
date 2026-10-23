@@ -193,8 +193,18 @@ export function parseAss(text) {
 
 /** Picks a parser from a file name, MIME type or the text itself. */
 export function parseSubtitleFile(text, hint = '') {
-  const h = String(hint).toLowerCase();
-  if (/\.(ass|ssa)(\?|$)|ssa|ass/.test(h) || /^\s*\[Script Info\]/i.test(text)) return parseAss(text);
-  if (/vtt/.test(h) || /^﻿?WEBVTT/.test(text)) return parseVtt(text);
-  return parseSrt(text);
+  // The file's own first line decides; the hint (a format name, a file name or
+  // an address) counts only as a real extension. "Glass.Onion.srt" or
+  // ".../classic/..." must not read as ASS.
+  const h = String(hint).trim().toLowerCase();
+  const ext = /^(ass|ssa|vtt|webvtt|srt)$/.test(h) ? h : /\.([a-z0-9]{2,4})(?:[?#].*)?$/.exec(h)?.[1] || '';
+  const body = String(text).replace(/^\uFEFF/, '');
+  const order = /^\s*\[Script Info\]/i.test(body) ? [parseAss]
+    : /^\s*WEBVTT/.test(body) ? [parseVtt]
+    : ext === 'ass' || ext === 'ssa' ? [parseAss, parseSrt, parseVtt]
+    : ext === 'vtt' || ext === 'webvtt' ? [parseVtt, parseSrt]
+    : [parseSrt, parseVtt, parseAss];
+  // A file the first reader finds nothing in is offered to the others.
+  for (const parse of order) { const cues = parse(text); if (cues.length) return cues; }
+  return [];
 }

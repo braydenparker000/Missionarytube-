@@ -1,6 +1,7 @@
 // Astra's icon set: simple 24-unit glyphs drawn for Astra.
 
 const NS = 'http://www.w3.org/2000/svg';
+const CLOCKWISE = 'M12 5V2l4.5 4L12 10V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z'; // seek forward, and refresh
 const PATHS = {
   play: 'M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z',
   pause: 'M7 5h3.5v14H7zM13.5 5H17v14h-3.5z',
@@ -32,7 +33,20 @@ const PATHS = {
   plus: 'M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z',
   more: 'M6 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z',
   replay: 'M12 5V2L7.5 6 12 10V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z',
-  forward: 'M12 5V2l4.5 4L12 10V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z',
+  forward: CLOCKWISE,
+  refresh: CLOCKWISE,
+  arrowUp: 'M13 20V7.83l5.59 5.59L20 12l-8-8-8 8 1.41 1.41L11 7.83V20z',
+  arrowDown: 'M13 4v12.17l5.59-5.59L20 12l-8 8-8-8 1.41-1.41L11 16.17V4z',
+  // Watched is a filled circle with a check; not watched, the same check in a ring.
+  checkCircle: 'M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zM10.5 16.2 6.8 12.5l1.4-1.4 2.3 2.3 5.3-5.3 1.4 1.4z',
+  checkCircleOutline: 'M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20zm0 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM10.5 16.2 6.8 12.5l1.4-1.4 2.3 2.3 5.3-5.3 1.4 1.4z',
+  grid: 'M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z',
+  agenda: 'M4 4h16v7H4zm0 9h16v7H4z',
+  delete: 'M9 3h6l1 1h4v2H4V4h4zM5.5 8h13l-1 12a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2zm4 3v8H11v-8zm3.5 0v8h1.5v-8z',
+  palette: 'M12 3C7 3 3 7 3 12s4 9 9 9c1.1 0 2-.8 2-1.8 0-.5-.2-.9-.5-1.3-.3-.3-.5-.8-.5-1.3 0-1 .9-1.8 2-1.8h2.3c2.6 0 4.7-2 4.7-4.6C22 6.2 17.5 3 12 3zM7.5 13a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm2-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 3.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z',
+  extension: 'M10 4a2 2 0 1 1 4 0v1h4a1 1 0 0 1 1 1v4h1a2 2 0 1 1 0 4h-1v4a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-4h1a2 2 0 1 0 0-4H5V6a1 1 0 0 1 1-1h4z',
+  backup: 'M11 3h2v9.17l3.59-3.58L18 10l-6 6-6-6 1.41-1.41L11 12.17zM4 15h2v4h12v-4h2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z',
+  external: 'M14 3h7v7h-2V6.41l-7.29 7.3-1.42-1.42L17.59 5H14zM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z',
 };
 
 /** An SVG icon element. `label` makes it announced; otherwise it is decorative. */
