@@ -4,6 +4,7 @@
 
 import {AstraPlayer} from '../engine/player.js';
 import {TUNING} from '../engine/remux.js';
+import {PlayerScreen} from '../player/player-screen.js';
 import {deviceReport} from '../engine/capabilities.js';
 import {describeInfo} from '../engine/probe.js';
 import {channelName} from '../engine/labels.js';
@@ -144,37 +145,107 @@ const header = (title, back) => h('div', {class: 'browse-head'}, h('button', {cl
 
 async function openTitle(m) {
   const back = () => search($('search').value);
-  if (m.type !== 'series') return openStreams(m, 'movie', m.id, m.name, back);
+  if (m.type !== 'series') {
+    const meta = await fetchMeta(addons, 'movie', m.id).catch(() => null) || m;
+    return openStreams({item: m, meta, type: 'movie', id: m.id, title: m.name, back});
+  }
   browse.replaceChildren(header(m.name, back), h('p', {class: 'hint'}, 'Loading episodes…'));
   const meta = await fetchMeta(addons, 'series', m.id).catch(() => null);
   const videos = (meta?.videos || []).filter(v => v.season != null).sort((a, b) => a.season - b.season || a.episode - b.episode);
   const seasons = [...new Set(videos.map(v => v.season))].sort((a, b) => (a || 99) - (b || 99));
   const show = season => browse.replaceChildren(header(m.name, back),
     h('div', {class: 'seasons'}, ...seasons.map(s => h('button', {class: 'chip', 'aria-pressed': String(s === season), onclick: () => show(s)}, s === 0 ? 'Specials' : 'Season ' + s))),
-    h('div', {class: 'episodes'}, ...videos.filter(v => v.season === season).map(v => h('button', {class: 'episode', onclick: () => openStreams(m, 'series', v.id, `${m.name} S${v.season} E${v.episode}`, () => show(season))},
+    h('div', {class: 'episodes'}, ...videos.filter(v => v.season === season).map(v => h('button', {class: 'episode', onclick: () => openStreams({item: m, meta, videos, video: v, type: 'series', id: v.id, title: `${m.name} S${v.season} E${v.episode}`, back: () => show(season)})},
       h('b', {}, `${v.episode}. ${v.name || v.title || 'Episode ' + v.episode}`), h('span', {}, v.released ? new Date(v.released).toLocaleDateString() : '')))));
   if (seasons.length) show(seasons.find(s => s > 0) ?? seasons[0]); else browse.replaceChildren(header(m.name, back), h('p', {class: 'hint'}, 'No episodes listed.'));
 }
 
-function openStreams(m, type, id, title, back) {
+/** Streams of one title or episode, in add-on order, each playable in the full player. */
+function collectStreams(type, id, onUpdate) {
   const groups = new Map();
+  const done = fetchStreams(addons, type, id, {onGroup: g => { groups.set(g.addon.url, g); onUpdate?.(groups); }});
+  const sources = () => [...groups.values()].sort((a, b) => a.order - b.order)
+    .flatMap(g => g.streams.filter(s => s.url).map((s, i) => ({id: g.addon.url + '#' + i, label: (s.name || g.addon.name).replace(/\n/g, ' '), detail: s.title, stream: {...s, name: `${g.addon.name} ${s.name || ''}`.trim()}})));
+  return {groups, done, sources};
+}
+
+function openStreams(ctx) {
   const list = h('div', {class: 'streams'});
   const status = h('p', {class: 'hint'}, 'Asking your add-ons…');
-  browse.replaceChildren(header(title, back), status, list);
-  const render = () => {
+  browse.replaceChildren(header(ctx.title, ctx.back), status, list);
+  const render = groups => {
     const ordered = [...groups.values()].sort((a, b) => a.order - b.order);
     list.replaceChildren(...ordered.flatMap(g => [
       h('p', {class: 'group-head'}, g.addon.name, g.error ? h('span', {class: 'loading'}, ' — failed') : null),
-      ...g.streams.map(s => {
+      ...g.streams.map((s, i) => {
         const playable = !!s.url;
-        return h('button', {class: 'stream' + (playable ? '' : ' disabled'), disabled: !playable, onclick: () => play({...s, title})},
-          h('b', {}, (s.name || g.addon.name).replace(/\n/g, ' ')), h('span', {}, s.title + (playable ? '' : s.infoHash ? '\nTorrent: needs a debrid add-on' : '\nNot a direct link')));
+        return h('div', {class: 'stream-row'},
+          h('button', {class: 'stream' + (playable ? '' : ' disabled'), disabled: !playable, onclick: () => openPlayer(ctx, collected, g.addon.url + '#' + i)},
+            h('b', {}, (s.name || g.addon.name).replace(/\n/g, ' ')), h('span', {}, s.title + (playable ? '' : s.infoHash ? '\nTorrent: needs a debrid add-on' : '\nNot a direct link'))),
+          playable ? h('button', {class: 'chip analyse', onclick: () => play({...s, title: ctx.title})}, 'Analyse') : null);
       }),
     ]));
   };
-  fetchStreams(addons, type, id, {onGroup: g => { groups.set(g.addon.url, g); render(); }}).then(() => {
-    status.textContent = groups.size ? '' : 'None of your add-ons returned streams.';
-  });
+  const collected = collectStreams(ctx.type, ctx.id, render);
+  collected.done.then(() => { status.textContent = collected.groups.size ? '' : 'None of your add-ons returned streams.'; });
+}
+
+// The full player, opened from a tap on a stream.
+let screen = null;
+function playerScreen() {
+  if (screen) return screen;
+  screen = new PlayerScreen();
+  window.astraLab.screen = screen;
+  screen.addEventListener('progress', e => { window.astraLab.lastProgress = e.detail; });
+  screen.addEventListener('episode', e => switchEpisode(e.detail.episode.video));
+  screen.addEventListener('next', () => { const n = screen.lab?.nextVideo; if (n) switchEpisode(n); });
+  return screen;
+}
+
+function playerOptions(ctx, collected, sourceId) {
+  const {meta = {}, item = {}, videos, video} = ctx;
+  const sources = collected.sources();
+  const source = sources.find(s => s.id === sourceId) || sources[0];
+  const index = video ? videos.indexOf(video) : -1;
+  const nextVideo = index >= 0 ? videos[index + 1] : null;
+  const year = meta.releaseInfo || item.releaseInfo || meta.year || '';
+  return {
+    lab: {ctx, nextVideo},
+    stream: source.stream, sourceId: source.id, sources,
+    meta: {
+      title: meta.name || item.name || ctx.title,
+      episodeLine: video ? `S${video.season} E${video.episode}${video.name || video.title ? ' • ' + (video.name || video.title) : ''}` : '',
+      release: [year, (meta.genres || item.genres || [])[0]].filter(Boolean).join(' · '),
+      description: (video?.overview || video?.description || meta.description || ''),
+      logo: meta.logo || item.logo || '', background: meta.background || item.background || '', poster: meta.poster || item.poster || '',
+    },
+    episodes: video ? {seasons: [...new Set(videos.map(v => v.season))], season: video.season, current: video.id,
+      items: videos.map(v => ({id: v.id, season: v.season, episode: v.episode, title: v.name || v.title || '', thumbnail: v.thumbnail || '', video: v}))} : null,
+    next: nextVideo ? {label: `S${nextVideo.season} E${nextVideo.episode}`, title: nextVideo.name || nextVideo.title || '', thumbnail: nextVideo.thumbnail || '', hasAired: !nextVideo.released || new Date(nextVideo.released) <= new Date()} : null,
+  };
+}
+
+function openPlayer(ctx, collected, sourceId) {
+  const s = playerScreen();
+  const options = playerOptions(ctx, collected, sourceId);
+  s.lab = options.lab;
+  s.open(options);
+}
+
+/** Next or chosen episode: the same release group if it has one, otherwise the sources list. */
+async function switchEpisode(video) {
+  const s = screen, ctx = {...s.lab.ctx, video, id: video.id, title: `${s.lab.ctx.item.name} S${video.season} E${video.episode}`};
+  const group = s.stream?.bingeGroup;
+  s.showLoading(true);
+  const collected = collectStreams('series', video.id);
+  await collected.done;
+  const sources = collected.sources();
+  if (!sources.length) return s.showError('None of your add-ons returned streams for this episode.');
+  const same = group && sources.find(x => x.stream.bingeGroup === group);
+  const options = playerOptions(ctx, collected, (same || sources[0]).id);
+  s.lab = options.lab;
+  s.open(options);
+  if (!same) s.openPanel('sources');
 }
 
 $('link-form').addEventListener('submit', e => { e.preventDefault(); const url = $('link').value.trim(); if (url) play({url}); });
@@ -188,3 +259,11 @@ deviceReport().then(d => {
 
 const params = new URLSearchParams(location.search);
 if (params.get('src')) play({url: params.get('src'), startTime: +params.get('t') || 0, autoplay: params.get('autoplay') !== '0', languages: params.get('lang') ? params.get('lang').split(',') : null});
+
+/** For tests and pasted links: the full player on one stream. */
+window.astraLab.openPlayer = (stream, meta = {title: 'Test video'}, extra = {}) => {
+  const s = playerScreen();
+  s.lab = null;
+  s.open({stream, meta, sources: [], ...extra});
+  return s;
+};
