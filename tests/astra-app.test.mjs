@@ -90,11 +90,11 @@ test('Home uses catalogs without required extras; the hero picks up to eight wit
   ]}]]);
   const rows = homeCatalogs(addons, manifests);
   assert.deepEqual(rows.map(r => [r.title, r.pageable]), [['Popular - Movie', true], ['Popular - Series', false]]);
-  const items = n => Array.from({length: n}, (_, i) => ({id: 'x' + i, background: i % 2 ? 'b' : '', poster: ''}));
+  const items = n => Array.from({length: n}, (_, i) => ({id: 'x' + i, name: i === 1 ? '' : 'X' + i, background: i % 2 ? 'b' : '', poster: ''}));
   rows[0].items = items(30); rows[1].items = items(4);
   const hero = heroItems(rows, 42);
   assert.equal(hero.length, 8);
-  assert.ok(hero.every(m => m.background));
+  assert.ok(hero.every(m => m.background && m.name), 'art and a name: a nameless item is not featured');
   assert.deepEqual(heroItems(rows, 42).map(m => m.id), hero.map(m => m.id), 'the same seed gives the same order');
 });
 

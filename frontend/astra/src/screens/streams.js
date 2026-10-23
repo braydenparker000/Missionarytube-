@@ -3,9 +3,9 @@
 
 import {h, clock} from '../ui/dom.js';
 import {icon} from '../ui/icons.js';
-import {image, longPress, sheet, toast} from '../ui/components.js';
+import {image, longPress, sheet, toast, emptyCard} from '../ui/components.js';
 import {fetchStreams, supports} from '../addons/client.js';
-import {episodeCode} from '../app/content.js';
+import {episodeCode, videoTitle} from '../app/content.js';
 import {externalPlayerUrl, canOpenExternally} from '../player/external.js';
 
 /** Gives each stream of a group a key that stays the same however the list is filtered. */
@@ -28,9 +28,12 @@ export class StreamsScreen {
     this.video = video;
     this.startTime = startTime;
     this.groups = new Map();
+    this.names = new Map();
     this.filter = app.store.get('lastAddon', 'all');
     if (headless) return;
     app.loadPlayer?.().catch(() => {});
+    // "No compatible add-ons" may change when a late manifest arrives or add-ons are edited.
+    this.offAddons = app.onAddons?.(() => { if (this.empty) this.load(); });
     this.el = h('div', {class: 'screen streams'});
     this.chips = h('div', {class: 'filter-chips', role: 'tablist'});
     this.list = h('div', {class: 'stream-list', 'aria-live': 'polite'});
@@ -45,13 +48,24 @@ export class StreamsScreen {
     const m = this.meta, v = this.video;
     if (v) {
       return h('div', {class: 'streams-hero episode'}, h('div', {class: 'streams-art'}, image(v.thumbnail || m.background, '', 'streams-img')), h('div', {class: 'streams-shade'}),
-        h('div', {class: 'streams-text'}, h('b', {class: 'code'}, episodeCode(v)), h('h1', {}, v.title || `Episode ${v.episode}`), h('p', {}, m.name)));
+        h('div', {class: 'streams-text'}, episodeCode(v) ? h('b', {class: 'code'}, episodeCode(v)) : null, h('h1', {}, videoTitle(v)), h('p', {}, m.name)));
     }
     return h('div', {class: 'streams-hero movie'}, h('div', {class: 'streams-art'}, image(m.background, '', 'streams-img')), h('div', {class: 'streams-shade'}),
       m.logo ? image(m.logo, m.name, 'streams-logo') : h('h1', {class: 'streams-name'}, m.name));
   }
 
   get id() { return this.video ? this.video.id : this.meta.id; }
+
+  destroy() { this.abort?.abort(); this.offAddons?.(); }
+
+  /**
+   * An add-on's label on this screen: its manifest's name when known, else the
+   * name saved with it. Chosen once, so a chip never renames itself on answering.
+   */
+  nameOf(addon) {
+    if (!this.names.has(addon.url)) this.names.set(addon.url, this.app.manifests.get(addon.url)?.name || addon.name || 'Add-on');
+    return this.names.get(addon.url);
+  }
 
   /** Collects every playable stream without drawing (used by the player's episode switch). */
   async collect() {
@@ -69,23 +83,48 @@ export class StreamsScreen {
   }
 
   async load() {
+    this.abort?.abort();
+    const abort = this.abort = new AbortController();
     this.groups.clear();
     this.loading = true;
+    this.empty = false;
     await this.app.ready;
+    if (abort.signal.aborted) return;
     const addons = this.addons();
     if (!this.app.enabledAddons().length) { this.renderEmpty('No add-ons installed', 'Install an add-on with streams in Settings.'); return; }
-    if (!addons.length) { this.renderEmpty('No compatible add-ons', 'None of your add-ons offer streams for this title.'); return; }
-    this.pending = new Set(addons.map(a => a.url));
-    for (const [order, a] of addons.entries()) this.groups.set(a.url, {addon: a, order, streams: null});
+    if (!addons.length) { this.renderEmpty('No compatible add-ons', 'None of your add-ons offer streams for this title.', true); return; }
+    for (const [order, a] of addons.entries()) this.groups.set(a.url, {addon: {...a, name: this.nameOf(a)}, order, streams: null});
     this.render();
-    await fetchStreams(addons, this.meta.type, this.id, {onGroup: g => {
-      this.pending.delete(g.addon.url);
-      this.groups.set(g.addon.url, keyed({...g, order: addons.findIndex(a => a.url === g.addon.url)}));
+    await this.ask(addons, abort.signal);
+    if (abort.signal.aborted) return;
+    this.loading = false;
+    this.render();
+  }
+
+  /**
+   * Asks these add-ons for streams; each group fills in, or fails, as its
+   * add-on answers. An add-on reached only now that turns out to have no
+   * streams for this title is dropped.
+   */
+  async ask(addons, signal) {
+    await fetchStreams(addons, this.meta.type, this.id, {signal, onGroup: g => {
+      const group = this.groups.get(g.addon.url);
+      if (signal.aborted || !group) return;
+      this.groups.set(g.addon.url, keyed({...g, addon: group.addon, order: group.order}));
       this.render();
     }});
-    this.loading = false;
-    this.pending.clear();
+    if (signal.aborted) return;
+    for (const a of addons) if (this.groups.get(a.url)?.streams === null) this.groups.delete(a.url);
+  }
+
+  /** Asks one add-on again (its Retry), leaving the others as they are. */
+  async retry(url) {
+    const group = this.groups.get(url), signal = this.abort?.signal;
+    if (!group || group.streams === null || !signal) return;
+    this.groups.set(url, {addon: group.addon, order: group.order, streams: null});
     this.render();
+    await this.ask([group.addon], signal);
+    if (!signal.aborted) this.render();
   }
 
   sources() {
@@ -95,31 +134,50 @@ export class StreamsScreen {
         stream: {...s, name: `${g.addon.name} ${(s.name || '').replace(/\s+/g, ' ')}`.trim()}})));
   }
 
-  renderEmpty(title, body) {
-    this.chips.replaceChildren();
-    this.list.replaceChildren(h('div', {class: 'state-card'}, h('h3', {}, title), h('p', {}, body)));
+  refreshChip() {
+    return h('button', {class: 'chip refresh' + (this.loading ? ' spinning' : ''), type: 'button', 'aria-label': 'Refresh streams', onclick: () => this.load()}, icon('replay', {size: 18}));
+  }
+
+  /** A state with nothing to list. Refresh stays, so a late add-on or a fixed connection can still be tried. */
+  renderEmpty(title, body, retry = false) {
+    this.loading = false;
+    this.empty = true;
+    this.chips.replaceChildren(this.refreshChip());
+    this.list.replaceChildren(emptyCard(title, body, retry ? {label: 'Refresh', run: () => this.load()} : null));
     this.footer.textContent = '';
+  }
+
+  /** An add-on that failed: one line with its name, the reason, and Retry for that add-on only. */
+  failedRow(g) {
+    return h('div', {class: 'group-error'},
+      h('span', {class: 'group-error-text'}, h('b', {}, g.addon.name), " didn't answer", g.error?.message ? h('small', {}, g.error.message) : null),
+      h('button', {class: 'chip', type: 'button', 'aria-label': `Retry ${g.addon.name}`, onclick: () => this.retry(g.addon.url)}, 'Retry'));
   }
 
   render() {
     const groups = [...this.groups.values()].sort((a, b) => a.order - b.order);
-    const withStreams = groups.filter(g => g.streams === null || g.streams?.length);
+    // Listed: add-ons still asking, with streams, or that failed. One that answered with none is left out.
+    const listed = groups.filter(g => g.streams === null || g.streams?.length || g.error);
     // The remembered add-on may have nothing for this title: show everything rather than an empty list.
-    if (this.filter !== 'all' && !withStreams.some(g => g.addon.url === this.filter)) this.filter = 'all';
-    const refresh = h('button', {class: 'chip refresh' + (this.loading ? ' spinning' : ''), type: 'button', 'aria-label': 'Refresh streams', onclick: () => this.load()}, icon('replay', {size: 18}));
-    const chip = (id, label) => h('button', {class: 'chip', role: 'tab', type: 'button', 'aria-selected': String(this.filter === id), 'aria-pressed': String(this.filter === id), onclick: () => { this.filter = id; this.app.store.set('lastAddon', id); this.render(); }}, label);
-    this.chips.replaceChildren(refresh, chip('all', 'All'), ...withStreams.map(g => chip(g.addon.url, g.addon.name)));
-    const shown = this.filter === 'all' ? withStreams : withStreams.filter(g => g.addon.url === this.filter);
+    if (this.filter !== 'all' && !listed.some(g => g.addon.url === this.filter)) this.filter = 'all';
+    const chip = (id, label, failed = false) => h('button', {class: 'chip' + (failed ? ' failed' : ''), role: 'tab', type: 'button', 'aria-selected': String(this.filter === id), 'aria-pressed': String(this.filter === id),
+      'aria-label': failed ? `${label}, didn't answer` : null, onclick: () => { this.filter = id; this.app.store.set('lastAddon', id); this.render(); }}, label);
+    this.chips.replaceChildren(this.refreshChip(), chip('all', 'All'), ...listed.map(g => chip(g.addon.url, g.addon.name, !!g.error)));
+    const shown = this.filter === 'all' ? listed : listed.filter(g => g.addon.url === this.filter);
     const sources = this.sources();
-    this.list.replaceChildren(...shown.flatMap(g => [
-      this.filter === 'all' ? h('h3', {class: 'group-title'}, g.addon.name, g.streams === null ? h('span', {class: 'fetching'}, ' Fetching…') : null) : null,
-      ...(g.streams || []).map((s, i) => this.card(g, s, i, sources)),
-    ]).filter(Boolean));
-    if (!this.loading && !sources.length && !groups.some(g => g.streams?.length)) {
-      this.list.replaceChildren(h('div', {class: 'state-card'}, h('h3', {}, 'No streams found'), h('p', {}, groups.some(g => g.error) ? 'Some add-ons did not answer. Try again in a moment.' : 'None of your add-ons returned streams for this title.'),
-        h('button', {class: 'btn primary wide', type: 'button', onclick: () => this.load()}, 'Try again')));
-    }
-    this.footer.textContent = this.loading && this.pending?.size ? 'Checking more add-ons…' : '';
+    const asking = groups.some(g => g.streams === null);
+    const nothing = !this.loading && !asking && !groups.some(g => g.streams?.length);
+    const failed = groups.filter(g => g.error).length;
+    this.list.replaceChildren(...[
+      nothing ? h('div', {class: 'state-card'}, h('h3', {}, 'No streams found'),
+        h('p', {}, failed === groups.length && failed ? 'None of your add-ons answered. Check the connection and try again.' : failed ? 'The add-ons that answered had none for this title.' : 'None of your add-ons returned streams for this title.'),
+        h('button', {class: 'btn primary wide', type: 'button', onclick: () => this.load()}, 'Try again')) : null,
+      ...shown.flatMap(g => g.error ? [this.failedRow(g)] : [
+        this.filter === 'all' ? h('h3', {class: 'group-title'}, g.addon.name, g.streams === null ? h('span', {class: 'fetching'}, ' Fetching…') : null) : null,
+        ...(g.streams || []).map((s, i) => this.card(g, s, i, sources)),
+      ]),
+    ].filter(Boolean));
+    this.footer.textContent = asking ? 'Checking more add-ons…' : '';
   }
 
   card(group, s, i, sources) {

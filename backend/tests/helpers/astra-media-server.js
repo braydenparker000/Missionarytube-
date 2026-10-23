@@ -96,13 +96,47 @@ function addonResponse(path, media, site, requests = []) {
   return null;
 }
 
+// Add-ons that misbehave, for the robustness tests: `broken` has a malformed
+// manifest and a catalog that fails, `flaky` answers streams with errors, and
+// `small` pages its catalog five at a time and has a channel whose videos have
+// no seasons. `control` switches the failures off (tests change it directly).
+function oddAddonResponse(kind, path, media, control) {
+  const json = (body, status = 200) => ({status, type: 'application/json', body: JSON.stringify(body)});
+  const poster = id => `${media}/art/p/${encodeURIComponent(id)}.svg`;
+  if (kind === 'broken') {
+    if (path === '/manifest.json') return json({id: 'test.broken', name: 'Broken', version: '0.1.0', types: 'movie', resources: ['catalog', 42, {nope: true}],
+      catalogs: [{type: 'movie', id: 'odd', name: 'Odd', extra: {name: 'skip'}}, 'junk', null, {id: 'no-type'}]});
+    if (path === '/catalog/movie/odd.json') return control.brokenCatalog ? json({err: 'down'}, 500)
+      : json({metas: [{id: 'tt1000001', name: 'Movie 1', poster: poster('tt1000001'), genres: 'Drama'}, {id: 'tt1000002', poster: poster('tt1000002')}, {name: 'No id'}]});
+  }
+  if (kind === 'flaky') {
+    if (path === '/manifest.json') return json({id: 'test.flaky', name: 'Flaky', version: '1.0.0', types: ['movie', 'series'], idPrefixes: ['tt'], resources: ['stream'], catalogs: []});
+    if (/^\/stream\//.test(path)) return control.flakyStreams ? json({err: 'down'}, 500) : json({streams: [{name: 'Flaky\n720p', title: 'Answers the second time', url: `${media}/cors/single.mp4`}]});
+  }
+  if (kind === 'small') {
+    if (path === '/manifest.json') return json({id: 'test.small', name: 'Small pages', version: '1.0.0', types: ['movie', 'series'], idPrefixes: ['sm', 'ch'], resources: ['catalog', 'meta'],
+      catalogs: [{type: 'movie', id: 'tiny', name: 'Tiny pages', extra: [{name: 'skip'}]}, {type: 'series', id: 'channels', name: 'Channels'}]});
+    const page = /^\/catalog\/movie\/tiny(?:\/skip=(\d+))?\.json$/.exec(path);
+    if (page) {
+      const skip = +page[1] || 0;
+      return json({metas: Array.from({length: 23}, (_, i) => `sm${String(i + 1).padStart(3, '0')}`).slice(skip, skip + 5).map(id => ({id, type: 'movie', name: `Small ${id.slice(2)}`, poster: poster(id)}))});
+    }
+    if (path === '/catalog/series/channels.json') return json({metas: [{id: 'ch1', type: 'series', name: 'A channel', poster: poster('ch1')}]});
+    if (path === '/meta/series/ch1.json') return json({meta: {id: 'ch1', type: 'series', name: 'A channel', genres: 'Vlogs', cast: 'Ada Lovelace', videos: [
+      {id: 'ch1:v1', title: 'First upload', released: '2024-01-01'}, {id: 'ch1:v2', title: 'Second upload', released: 'sometime'}, {id: 'ch1:v3', title: 'Third upload', released: '2024-03-01'}]}});
+    const meta = /^\/meta\/movie\/(sm\d+)\.json$/.exec(path);
+    if (meta) return json({meta: {id: meta[1], type: 'movie', name: `Small ${meta[1].slice(2)}`}});
+  }
+  return null;
+}
+
 const origin = s => `http://127.0.0.1:${s.address().port}`;
 function listen(handler) {
   return new Promise(done => { const server = http.createServer(handler); server.listen(0, '127.0.0.1', () => done(server)); });
 }
 
 /**
- * Starts both servers. Resolves {site, media, addon, subtitleRequests, close}.
+ * Starts both servers. Resolves {site, media, addon, subtitleRequests, control, close}.
  * `release`, when given, is called for each /release.json (the site's
  * release manifest, which the service worker reads) and returns its body.
  */
@@ -116,10 +150,18 @@ export async function startAstraServers({frontend = join(ROOT, 'frontend'), fixt
     serveFile(req, res, file, {cors: false});
   });
   const subtitleRequests = [];
+  const control = {brokenCatalog: true, flakyStreams: true, metaFails: false, manifestDelay: 0};
   const media = await listen((req, res) => {
     const url = new URL(req.url, 'http://x');
     const subs = /^\/subs\/(\w+)\.srt$/.exec(url.pathname);
     if (subs && SUBTITLE_FILES[subs[1]]) { res.writeHead(200, {'Content-Type': 'application/x-subrip; charset=utf-8', 'Access-Control-Allow-Origin': '*'}); return res.end(SUBTITLE_FILES[subs[1]]); }
+    const odd = /^\/(broken|flaky|small)(\/.*)$/.exec(url.pathname);
+    if (odd) {
+      const out = oddAddonResponse(odd[1], decodeURIComponent(odd[2]), origin(media), control);
+      const send = () => { res.writeHead(out ? out.status : 404, {'Content-Type': out?.type || 'text/plain', 'Access-Control-Allow-Origin': '*'}); res.end(out?.body || 'not found'); };
+      return odd[2] === '/manifest.json' && control.manifestDelay ? setTimeout(send, control.manifestDelay) : send();
+    }
+    if (control.metaFails && url.pathname.startsWith('/addon/meta/')) { res.writeHead(503, {'Access-Control-Allow-Origin': '*'}); return res.end('busy'); }
     if (url.pathname.startsWith('/addon/')) {
       const out = addonResponse(decodeURIComponent(url.pathname.slice(6)), origin(media), null, subtitleRequests);
       res.writeHead(out ? 200 : 404, {'Content-Type': out?.type || 'text/plain', 'Access-Control-Allow-Origin': '*'});
@@ -138,7 +180,7 @@ export async function startAstraServers({frontend = join(ROOT, 'frontend'), fixt
     serveFile(req, res, file, {cors: mode === 'cors' ? true : mode === 'expose' ? 'expose' : false});
   });
   return {
-    site: origin(site), media: origin(media), addon: origin(media) + '/addon/manifest.json', subtitleRequests,
+    site: origin(site), media: origin(media), addon: origin(media) + '/addon/manifest.json', subtitleRequests, control,
     close: () => Promise.all([site, media].map(s => new Promise(r => { s.closeAllConnections?.(); s.close(r); }))),
   };
 }

@@ -49,7 +49,9 @@ export class CatalogScreen {
     }
     this.busy = false;
     this.footer.replaceChildren();
-    if (!this.done) { this.observer.observe(this.footer); }
+    // A short page can leave the footer in view, and an observer only reports changes: observing
+    // again reports where it is now, so the next page loads while the footer is still near.
+    if (!this.done) { this.observer.unobserve(this.footer); this.observer.observe(this.footer); }
   }
 
   destroy() { this.observer.disconnect(); }

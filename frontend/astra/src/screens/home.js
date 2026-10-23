@@ -85,27 +85,52 @@ export class HomeScreen {
     await loadRows(entries, (entry, items, error) => {
       const slot = slots.get(entry.key);
       if (error || !items.length) {
-        if (quiet && slot.entry) { entry.items = slot.entry.items; if (!loaded.includes(entry)) loaded.push(entry); } else slot.remove();
+        if (quiet && slot.entry) { entry.items = slot.entry.items; if (!loaded.includes(entry)) loaded.push(entry); }
+        else if (error) { entry.failed = true; this.renderRowError(slot, entry); } // says so, with Retry, instead of vanishing
+        else slot.remove(); // an empty catalog
         return;
       }
       entry.items = items;
       if (!loaded.includes(entry)) loaded.push(entry);
       this.renderRow(slot, entry);
-      const firstTwo = entries.slice(0, 2).every(e => e.items || !slots.get(e.key).isConnected);
+      const firstTwo = entries.slice(0, 2).every(e => e.items || e.failed || !slots.get(e.key).isConnected);
       if (!heroDone && firstTwo && showHero) {
         heroDone = true;
         this.renderHero(entries.filter(e => e.items));
       }
     }, {signal: abort.signal});
+    if (abort.signal.aborted) return;
     if (!heroDone && showHero) this.renderHero(loaded);
     if (!showHero) { this.carousel?.destroy?.(); this.carousel = null; this.hero.replaceChildren(); }
     if (!loaded.length) this.rows.replaceChildren(emptyCard("Couldn't load Home", 'Your add-ons did not answer. Check the connection and try again.', {label: 'Retry', run: () => { this.app.reloadAddons(); this.load(); }}));
   }
 
+  /** A row whose catalog failed: its title and a one-line note with Retry (that row only). */
+  renderRowError(slot, entry) {
+    const name = this.rowName(entry);
+    slot.entry = null;
+    slot.signature = null;
+    slot.dataset.key = entry.key;
+    const retry = h('button', {class: 'row-retry', type: 'button', 'aria-label': 'Retry ' + name, onclick: () => {
+      retry.disabled = true;
+      retry.textContent = 'Loading…';
+      loadRows([entry], (e, items, error) => {
+        if (!slot.isConnected) return;
+        if (error) { this.renderRowError(slot, e); return; }
+        if (!items.length) { slot.remove(); return; }
+        e.items = items; e.failed = false;
+        this.renderRow(slot, e);
+      });
+    }}, 'Retry');
+    slot.replaceChildren(rowHeader(name, null), h('p', {class: 'row-error'}, h('span', {}, "Couldn't load this row."), retry));
+  }
+
+  rowName(entry) { return this.app.settings.showCatalogType === false ? entry.title.replace(/ - (Movie|Series|\w+)$/, '') : entry.title; }
+
   renderRow(slot, entry) {
     const items = entry.items.slice(0, ROW_ITEMS);
     const all = entry.items.length > ROW_ITEMS || entry.pageable ? () => this.app.openCatalog(entry) : null;
-    const name = this.app.settings.showCatalogType === false ? entry.title.replace(/ - (Movie|Series|\w+)$/, '') : entry.title;
+    const name = this.rowName(entry);
     // Unchanged rows are left as they are: no flash, and a row the user scrolled stays put.
     const signature = [name, !!all, ...items.map(m => m.id)].join('\n');
     slot.entry = entry;
@@ -143,16 +168,36 @@ export class HomeScreen {
       h('div', {class: 'row-scroll'}, ...items.map(e => this.continueCard(e)))));
   }
 
+  /**
+   * Opens a Continue Watching entry's streams once its metadata is in. One at
+   * a time: a second tap while it loads does nothing, and if the viewer moved
+   * on meanwhile (another tab, another screen) the streams are not pushed.
+   */
+  async resume(e, m, card, startTime) {
+    if (this.resuming) return;
+    this.resuming = true;
+    const tab = this.app.tab, depth = this.app.stack.length;
+    card?.classList.add('busy');
+    card?.setAttribute('aria-busy', 'true');
+    try {
+      // Without the add-ons the saved card still plays: streams are asked for by id.
+      const meta = await this.app.meta(m).catch(() => ({...m, videos: []}));
+      if (this.app.tab !== tab || this.app.stack.length !== depth) return;
+      const video = e.videoId && e.videoId !== m.id ? meta.videos.find(v => v.id === e.videoId) || {id: e.videoId, season: e.season, episode: e.episode, title: e.title || ''} : null;
+      this.app.openStreams(meta, video, {startTime});
+    } finally {
+      this.resuming = false;
+      card?.classList.remove('busy');
+      card?.removeAttribute('aria-busy');
+    }
+  }
+
   continueCard(e) {
     const m = e.meta || {id: e.id, type: e.type, name: ''};
-    const code = e.season != null ? `S${e.season} E${e.episode}` : '';
+    const code = episodeCode(e);
     const status = e.kind === 'next' ? 'Next Up' : e.duration ? timeLeft(e.duration - e.time) : '';
     const art = e.thumbnail || m.background || m.poster;
-    const open = async () => {
-      const meta = await this.app.meta(m);
-      const video = e.videoId && e.videoId !== m.id ? meta.videos.find(v => v.id === e.videoId) || {id: e.videoId, season: e.season, episode: e.episode, title: e.title || ''} : null;
-      this.app.openStreams(meta, video, {startTime: e.kind === 'resume' ? e.time : 0});
-    };
+    const open = () => this.resume(e, m, card, e.kind === 'resume' ? e.time : 0);
     const card = h('button', {class: 'cw-card', type: 'button', onclick: open, 'aria-label': [m.name, code, status].filter(Boolean).join(', ')},
       h('div', {class: 'cw-art'}, image(art, '', 'cw-img'), h('div', {class: 'cw-shade'}),
         status ? h('span', {class: 'cw-chip'}, status) : null,
@@ -160,7 +205,7 @@ export class HomeScreen {
         e.kind === 'resume' ? h('div', {class: 'cw-progress'}, h('i', {style: {transform: `scaleX(${Math.min(1, e.time / e.duration)})`}})) : null));
     longPress(card, () => liftMenu(card.querySelector('.cw-art'), m.name, code, [
       {label: 'Go to details', icon: 'info', run: () => this.app.openTitle(m)},
-      e.kind === 'resume' ? {label: 'Start from beginning', icon: 'replay', run: async () => { const meta = await this.app.meta(m); this.app.openStreams(meta, e.videoId !== m.id ? meta.videos.find(v => v.id === e.videoId) : null, {startTime: 0}); }} : null,
+      e.kind === 'resume' ? {label: 'Start from beginning', icon: 'replay', run: () => this.resume(e, m, card, 0)} : null,
       {label: 'Remove', icon: 'close', destructive: true, run: () => { this.app.progress.remove(e.type, e.id); toast('Removed from Continue Watching'); }},
     ].filter(Boolean)));
     return card;
