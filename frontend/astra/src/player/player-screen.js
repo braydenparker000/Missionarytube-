@@ -120,8 +120,8 @@ export class PlayerScreen extends EventTarget {
       h('div', {class: 'ap-lock-track'}, h('div')));
     this.errorCard = h('div', {class: 'ap-error', hidden: true, role: 'alert'});
     this.noticeEl = h('div', {class: 'ap-notice', hidden: true, role: 'status', onclick: () => { this.noticeEl.hidden = true; }});
-    this.modal = h('div', {class: 'ap-modal', hidden: true});
-    this.panel = h('div', {class: 'ap-panel', hidden: true});
+    this.modal = h('div', {class: 'ap-modal', hidden: true, role: 'dialog', 'aria-modal': 'true'});
+    this.panel = h('div', {class: 'ap-panel', hidden: true, role: 'dialog', 'aria-modal': 'true'});
 
     this.surface = h('div', {class: 'ap-surface'});
     this.root = h('div', {class: 'ap', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Player', hidden: true, tabindex: -1},
@@ -178,6 +178,9 @@ export class PlayerScreen extends EventTarget {
     if (!this.isOpen) {
       this.isOpen = true;
       this.root.hidden = false;
+      // Keyboard focus stays in the player: the app behind it is inert while it is open.
+      this.inerted = [...this.parent.children].filter(el => el !== this.root && !el.inert);
+      for (const el of this.inerted) el.inert = true;
       document.documentElement.classList.add('ap-open');
       this.popLayer = pushLayer('player', () => { this.popLayer = null; this.close('back'); });
       this.enterFullscreen();
@@ -283,6 +286,8 @@ export class PlayerScreen extends EventTarget {
   close(reason = 'user') {
     if (!this.isOpen) return;
     this.isOpen = false;
+    for (const el of this.inerted || []) el.inert = false;
+    this.inerted = null;
     const time = this.video.currentTime, duration = this.video.duration || 0;
     this.emit('progress', {time, duration, final: true});
     this.emit('close', {time, duration, reason});
@@ -653,8 +658,10 @@ export class PlayerScreen extends EventTarget {
     this.modalClose = pushLayer('player-modal', () => { this.modalClose = null; this.closeOverlays(); });
     this.renderModal();
     this.modal.hidden = false;
+    this.modal.setAttribute('aria-label', {audio: 'Audio', subtitles: 'Subtitles', info: 'Stream info'}[name] || name);
     this.root.classList.add('overlay');
     this.showControls(false);
+    this.focusOverlay(this.modal);
   }
 
   openPanel(name) {
@@ -663,13 +670,26 @@ export class PlayerScreen extends EventTarget {
     this.panelClose = pushLayer('player-panel', () => { this.panelClose = null; this.closeOverlays(); });
     this.renderPanel();
     this.panel.hidden = false;
+    this.panel.setAttribute('aria-label', name === 'sources' ? 'Sources' : 'Episodes');
     this.root.classList.add('overlay');
     this.showControls(false);
+    // The current source or episode is in view, not a screen or two down the list.
+    this.panel.querySelector('.current')?.scrollIntoView({block: 'center'});
+    this.focusOverlay(this.panel);
+  }
+
+  /** Moves focus into a menu or panel (the current row, else its first button); closing gives it back. */
+  focusOverlay(el) {
+    this.returnFocus ??= document.activeElement;
+    (el.querySelector('.current, [aria-pressed="true"], .on') || el.querySelector('button'))?.focus({preventScroll: true});
   }
 
   closeOverlays(silent = false) {
+    const wasOpen = !!(this.modalName || this.panelName);
     if (this.modalName) { this.modalName = null; this.modal.hidden = true; this.modalClose?.(); this.modalClose = null; }
     if (this.panelName) { this.panelName = null; this.panel.hidden = true; this.panelClose?.(); this.panelClose = null; }
+    if (wasOpen && this.returnFocus?.isConnected) this.returnFocus.focus({preventScroll: true});
+    this.returnFocus = null;
     this.root.classList.remove('overlay');
     if (!silent) this.scheduleHide();
   }

@@ -106,6 +106,22 @@ test('back closes the open menu first, then the player', options, async t => {
   assert.equal(await page.locator('.ap').isHidden(), true);
 });
 
+test('a menu opened from the keyboard takes focus and Escape gives it back; the app behind the player is inert', options, async t => {
+  const {page} = await openPlayer(t);
+  await page.focus('[aria-label="Audio"]');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => !document.querySelector('.ap-modal').hidden);
+  assert.deepEqual(await page.evaluate(() => {
+    const modal = document.querySelector('.ap-modal'), root = document.querySelector('.ap');
+    return {inside: modal.contains(document.activeElement), label: modal.getAttribute('aria-label'), others: [...root.parentElement.children].filter(el => el !== root).every(el => el.inert)};
+  }), {inside: true, label: 'Audio', others: true});
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.querySelector('.ap-modal').hidden);
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Audio');
+  await page.evaluate(() => astraLab.screen.close());
+  assert.equal(await page.evaluate(() => [...document.querySelector('.ap').parentElement.children].some(el => el.inert)), false, 'closing releases the app');
+});
+
 test('the action buttons keep a finger-sized target and, in landscape, all fit the bar', options, async t => {
   const {page} = await openPlayer(t);
   await tap(page, W / 2, H / 2);
