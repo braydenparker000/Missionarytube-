@@ -34,7 +34,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '24.21.0'
+          node-version: '24.22.1'
       - name: Verify the selected historical publication belongs to this trusted main workflow
         id: parent
         env:

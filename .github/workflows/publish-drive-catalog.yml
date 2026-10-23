@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '22.23.4'
       - name: Test authenticated publisher without credentials
         run: node --test tests/drive-publisher-auth.test.mjs
       - name: Install media preparation tool from Ubuntu packages

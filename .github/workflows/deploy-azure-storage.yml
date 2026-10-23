@@ -40,7 +40,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '24.21.0'
+          node-version: '24.22.1'
       - id: validation
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -66,7 +66,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '24.21.0'
+          node-version: '24.22.1'
       - name: Verify reviewed revision and trusted publication history
         id: parent
         env:

@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '24.21.0'
+          node-version: '24.22.1'
       - name: Inspect live reader state without writes
         if: ${{ inputs.action == 'inspect' }}
         env:
