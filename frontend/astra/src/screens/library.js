@@ -20,6 +20,7 @@ export class LibraryScreen {
     this.ctx = posterContext(app);
     this.layout = app.store.get('libraryLayout', 'rows');
     this.sort = app.store.get('librarySort', 'recent');
+    if (!Object.hasOwn(SORTS, this.sort)) this.sort = 'recent'; // a sort this version does not have
     this.typeFilter = 'all';
     this.body = h('div', {class: 'library-body'});
     this.toggle = h('button', {class: 'icon-btn', type: 'button', onclick: () => { this.layout = this.layout === 'rows' ? 'grid' : 'rows'; app.store.set('libraryLayout', this.layout); this.render(); }});

@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json',
-  '.mkv': 'video/x-matroska', '.mp4': 'video/mp4', '.ts': 'video/mp2t', '.avi': 'video/x-msvideo', '.webm': 'video/webm', '.srt': 'application/x-subrip', '.vtt': 'text/vtt', '.ass': 'text/x-ssa'};
+  '.mkv': 'video/x-matroska', '.mp4': 'video/mp4', '.ts': 'video/mp2t', '.avi': 'video/x-msvideo', '.webm': 'video/webm', '.srt': 'application/x-subrip', '.vtt': 'text/vtt', '.ass': 'text/x-ssa', '.m3u8': 'application/vnd.apple.mpegurl'};
 
 function serveFile(req, res, file, {cors}) {
   let stat;

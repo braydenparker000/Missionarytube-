@@ -105,4 +105,11 @@ ff "${video[@]}" $(tone 880) -map 0:v -map 1:a "${x264[@]}" -c:a truehd -strict 
 ff "${video[@]}" $(tone 440) -map 0:v -map 1:a "${x264[@]}" -c:a aac -b:a 64k -f mpegts "$out/stream.ts"
 ff "${video[@]}" $(tone 440) -map 0:v -map 1:a "${x264[@]}" -bf 0 -c:a mp3 -b:a 64k "$out/h264.avi"
 
+# HLS with a WebVTT subtitle rendition (hls/master.m3u8): the stream's own subtitles.
+printf '1\n00:00:01,000 --> 00:00:02,500\nHello from HLS\n\n2\n00:00:03,000 --> 00:00:05,000\nSecond HLS line\n' > "$work/hls.srt"
+rm -rf "$out/hls" && mkdir -p "$out/hls"
+ff "${video[@]}" $(tone 440) -i "$work/hls.srt" -map 0:v -map 1:a -map 2:s "${x264[@]}" -c:a aac -b:a 64k -c:s webvtt -metadata:s:s:0 language=eng \
+  -f hls -hls_time 2 -hls_playlist_type vod -hls_segment_filename "$out/hls/s%v_%03d.ts" -master_pl_name master.m3u8 \
+  -var_stream_map "v:0,a:0,s:0,sgroup:subs,language:eng,name:English" "$out/hls/s%v.m3u8"
+
 ls -l "$out"

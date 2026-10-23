@@ -1,5 +1,12 @@
 /* Astra design tokens: a near-black, artwork-first palette with one light
-   accent, Android's own font, and a 4 dp spacing grid. */
+   accent, Inter (the face Nuvio's own type is drawn from), and a 4 dp
+   spacing grid. */
+@font-face { font-family: Inter; font-style: normal; font-weight: 400; font-display: swap; src: url(../../fonts/inter-400.woff2) format("woff2"); }
+@font-face { font-family: Inter; font-style: normal; font-weight: 500; font-display: swap; src: url(../../fonts/inter-500.woff2) format("woff2"); }
+@font-face { font-family: Inter; font-style: normal; font-weight: 600; font-display: swap; src: url(../../fonts/inter-600.woff2) format("woff2"); }
+@font-face { font-family: Inter; font-style: normal; font-weight: 700; font-display: swap; src: url(../../fonts/inter-700.woff2) format("woff2"); }
+@font-face { font-family: Inter; font-style: normal; font-weight: 800; font-display: swap; src: url(../../fonts/inter-800.woff2) format("woff2"); }
+@font-face { font-family: Inter; font-style: normal; font-weight: 900; font-display: swap; src: url(../../fonts/inter-900.woff2) format("woff2"); }
 :root {
   color-scheme: dark;
   --bg: #0d0d0d;
@@ -25,7 +32,7 @@
 
   --r-xs: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-xxl: 24px; --r-full: 999px;
   --gutter: 16px;
-  --font: Roboto, "Google Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font: Inter, Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
   --ease: cubic-bezier(0.2, 0, 0, 1);
   --ease-decel: cubic-bezier(0, 0, 0, 1);
   --t-fast: 150ms; --t-normal: 220ms; --t-sheet: 300ms; --t-slow: 400ms;

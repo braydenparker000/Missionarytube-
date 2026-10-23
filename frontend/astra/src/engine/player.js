@@ -73,6 +73,8 @@ export class AstraPlayer extends EventTarget {
     video.addEventListener('error', this.onVideoError);
     this.onFirstFrame = () => { this.started = true; };
     video.addEventListener('loadeddata', this.onFirstFrame);
+    this.onTimeUpdate = () => { if (this.hls || this.dash) this.pullTextTrackCues(); };
+    video.addEventListener('timeupdate', this.onTimeUpdate);
   }
 
   emit(type, detail) { this.dispatchEvent(new CustomEvent(type, {detail})); }
@@ -271,16 +273,32 @@ export class AstraPlayer extends EventTarget {
     const current = player.getCurrentTrackFor('audio');
     this.audio = tracks.map((t, i) => ({id: 'dash:' + i, track: t, label: t.labels?.[0]?.text || languageName(t.lang) || `Track ${i + 1}`, language: t.lang || '', supported: true}));
     this.selectedAudio = this.audio.find(a => a.track === current)?.id ?? this.audio[0]?.id ?? null;
+    // The stream's own subtitles: dash.js puts their cues on the video's text tracks, which Astra copies.
+    const texts = player.getTracksFor('text') || [];
+    this.textTracks = this.textTracks.filter(t => t.kind !== 'stream').concat(texts.map((t, i) => ({id: 'dash-sub:' + i, index: i, label: t.labels?.[0]?.text || languageName(t.lang) || `Subtitles ${i + 1}`, language: t.lang || '', kind: 'stream', supported: true})));
+    player.enableText?.(false);
   }
 
-  /** Copies cues an adaptive player placed on the video's text tracks into Astra's renderer. */
+  /**
+   * Copies cues an adaptive player (hls.js, dash.js) placed on the video's
+   * text tracks into Astra's renderer, each cue once. Runs as subtitle
+   * fragments arrive and on timeupdate while the stream's own subtitles show.
+   */
   pullTextTrackCues() {
+    const selected = this.textTracks.find(t => t.id === this.selectedSubtitle);
+    if (selected?.kind !== 'stream') return;
+    this.pulledCues ??= new WeakSet();
     for (const t of this.video.textTracks) {
       if (t.kind !== 'subtitles' && t.kind !== 'captions') continue;
       if (t.mode === 'showing') t.mode = 'hidden';
-      const id = this.hls && this.hls.subtitleTrack >= 0 ? 'hls-sub:' + this.hls.subtitleTrack : 'text:' + t.label;
-      const cues = Array.from(t.cues || [], c => ({start: c.startTime, end: c.endTime, align: 2, pos: null, spans: markupSpans(c.text || '')}));
-      if (cues.length) this.receiveCues(id, cues);
+      if (t.mode === 'disabled') continue;
+      const cues = [];
+      for (const c of t.cues || []) {
+        if (this.pulledCues.has(c)) continue;
+        this.pulledCues.add(c);
+        cues.push({start: c.startTime, end: c.endTime, align: 2, pos: null, spans: markupSpans(c.text || '')});
+      }
+      if (cues.length) this.receiveCues(selected.id, cues);
     }
   }
 
@@ -321,10 +339,12 @@ export class AstraPlayer extends EventTarget {
     const track = id == null ? null : this.textTracks.find(t => t.id === id);
     if (id != null && (!track || !track.supported)) return;
     this.selectedSubtitle = track ? track.id : null;
-    if (this.hls) {
-      this.hls.subtitleTrack = track?.kind === 'stream' ? track.index : -1;
-      if (track?.kind === 'stream') queueMicrotask(() => this.pullTextTrackCues());
+    if (this.hls) this.hls.subtitleTrack = track?.kind === 'stream' ? track.index : -1;
+    if (this.dash) {
+      this.dash.enableText?.(track?.kind === 'stream');
+      if (track?.kind === 'stream') this.dash.setTextTrack?.(track.index);
     }
+    if (track?.kind === 'stream') queueMicrotask(() => this.pullTextTrackCues());
     this.subtitles.setCues(track ? this.cues.get(track.id) || [] : []);
     if (track?.kind === 'external' && !track.loaded) this.loadTrack(track);
     this.record('subtitle', track?.label ?? 'off');
@@ -416,6 +436,7 @@ export class AstraPlayer extends EventTarget {
     this.session?.destroy(); this.session = null;
     this.hls?.destroy(); this.hls = null;
     this.dash?.reset(); this.dash = null;
+    this.pulledCues = null;
     this.probed?.input?.dispose?.(); this.probed?.source?.close?.(); this.probed = null;
     this.mode = null; this.plan = null; this.info = null;
     this.audio = []; this.textTracks = []; this.cues = new Map(); this.selectedAudio = null; this.selectedSubtitle = null;
@@ -429,6 +450,7 @@ export class AstraPlayer extends EventTarget {
     this.reset();
     this.video.removeEventListener('error', this.onVideoError);
     this.video.removeEventListener('loadeddata', this.onFirstFrame);
+    this.video.removeEventListener('timeupdate', this.onTimeUpdate);
     this.subtitles.destroy();
   }
 }

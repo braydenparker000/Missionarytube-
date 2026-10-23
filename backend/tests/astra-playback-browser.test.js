@@ -258,3 +258,25 @@ test('AVI, which Astra cannot unpack, goes to the software decoder: it plays or 
   const end = await page.evaluate(() => ({ready: document.getElementById('video').readyState >= 2, errors: astraLab.player.log.filter(l => l.kind === 'error').map(l => l.detail)}));
   if (!end.ready) assert.match(JSON.stringify(end.errors), /could not (show a picture|continue)/);
 });
+
+// hls.js comes from its pinned CDN address, which tests may not reach: this
+// runs when ASTRA_HLS_JS names a local copy of that exact file (the page
+// checks its integrity hash, so only the pinned build passes).
+const hlsJs = process.env.ASTRA_HLS_JS && existsSync(process.env.ASTRA_HLS_JS) ? process.env.ASTRA_HLS_JS : null;
+test('an HLS stream\'s own WebVTT subtitles are listed and drawn by Astra, each cue once', {...options, skip: options.skip || (hlsJs ? false : 'Set ASTRA_HLS_JS to a local hls.min.js 1.6.13')}, async t => {
+  const {open, servers, errors} = await harness(t);
+  const page = await open(null);
+  await page.route('**/npm/hls.js@1.6.13/**', r => r.fulfill({path: hlsJs, contentType: 'text/javascript', headers: {'access-control-allow-origin': '*'}}));
+  await page.evaluate(url => astraLab.play({url, autoplay: false}), servers.media + '/cors/hls/master.m3u8');
+  await page.waitForFunction(() => astraLab.player.mode === 'hls' && astraLab.player.subtitleOptions().length > 0, null, {timeout: 20000});
+  const subs = (await state(page)).subs;
+  assert.deepEqual(subs.map(s => [s.kind, s.language]), [['stream', 'eng']]);
+  await page.evaluate(id => astraLab.player.selectSubtitle(id), subs[0].id);
+  await page.evaluate(() => document.getElementById('video').play());
+  await page.waitForFunction(() => /Hello from HLS/.test(document.getElementById('subtitles')?.textContent || ''), null, {timeout: 15000});
+  await page.waitForFunction(() => document.getElementById('video').currentTime > 3.4, null, {timeout: 15000});
+  assert.match(await page.locator('#subtitles').textContent(), /Second HLS line/);
+  const stored = await page.evaluate(id => astraLab.player.cues.get(id).length, subs[0].id);
+  assert.equal(stored, 2, 'each cue copied once, however often the text track is read');
+  assert.deepEqual(errors, []);
+});

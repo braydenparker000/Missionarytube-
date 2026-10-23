@@ -2,7 +2,7 @@
 // screens pushed over them (details, streams, catalogs), and the player.
 // Every pushed screen is one history entry, so Android back walks them back.
 
-import {createStorage, importClassic, Addons, Library, Watched, Progress} from './store.js';
+import {createStorage, importClassic, Addons, Library, Watched, Progress, SAVE_FAILED} from './store.js';
 import {fetchMeta, episodeCode, MANIFEST_TIMEOUT} from './content.js';
 import {swr, pruneCache} from './cache.js';
 import {fetchManifest} from '../addons/client.js';
@@ -20,17 +20,19 @@ const TABS = [
   {id: 'settings', label: 'Settings', icon: 'settings'},
 ];
 const LABEL_SCROLL = 60; // px of scroll that hides or shows the bar's labels
+const SETTINGS = {showCatalogType: true, posterWidth: 126, posterRadius: 12, hero: true};
 
 export class App {
   constructor(root, screens) {
     this.root = root;
-    this.store = createStorage();
+    // A write that cannot be saved is said once, after the caller's own message (which would hide it).
+    this.store = createStorage(undefined, {onFail: reason => setTimeout(() => toast(SAVE_FAILED[reason]))});
     this.imported = importClassic(this.store);
     this.addons = new Addons(this.store);
     this.library = new Library(this.store);
     this.watched = new Watched(this.store);
     this.progress = new Progress(this.store);
-    this.settings = {showCatalogType: true, posterWidth: 126, posterRadius: 12, hero: true, ...this.store.get('settings', {})};
+    this.settings = {...SETTINGS, ...this.store.get('settings', {})};
     this.manifests = new Map();
     this.unreachable = new Set(); // enabled add-ons whose manifest could not be loaded
     this.addonListeners = new Set();
@@ -40,11 +42,15 @@ export class App {
     this.build();
     this.reloadAddons();
     this.player = null; // loaded on first use (it brings the playback engine): see loadPlayer()
+    // Leaving saves unsaved progress; with none it writes nothing (a reload after a restore must not undo it).
     addEventListener('pagehide', () => this.progress.flush(true));
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') this.progress.flush(true); });
     // Back online: try the add-ons that could not be reached.
     addEventListener('online', () => { if (this.unreachable.size) this.reloadAddons(); });
     (globalThis.requestIdleCallback || (fn => setTimeout(fn, 4000)))(() => pruneCache().catch(() => {}));
+    // Another Astra window (the installed app and a tab) changed add-ons or settings: follow it.
+    this.addons.onChange(() => { this.reloadAddons(); this.screens.home?.load(); });
+    this.store.watch('settings', () => this.reloadSettings());
   }
 
   /**
@@ -67,7 +73,20 @@ export class App {
     this.addonsTimer = setTimeout(() => { for (const fn of this.addonListeners) fn(); }, 50);
   }
 
-  saveSettings(patch) { Object.assign(this.settings, patch); this.store.set('settings', this.settings); this.applySettings(); }
+  /** Saves a change on top of the settings stored now, so another window's are kept. */
+  saveSettings(patch) {
+    const saved = {...this.store.get('settings', {}), ...patch};
+    Object.assign(this.settings, saved);
+    this.applySettings();
+    return this.store.set('settings', saved);
+  }
+  reloadSettings() {
+    const rows = s => JSON.stringify([s.hero, s.showCatalogType, s.hiddenRows]), before = rows(this.settings);
+    for (const k of Object.keys(this.settings)) delete this.settings[k]; // in place: pages hold this object
+    Object.assign(this.settings, SETTINGS, this.store.get('settings', {}));
+    this.applySettings();
+    if (rows(this.settings) !== before) this.screens.home?.load();
+  }
   applySettings() {
     const s = this.root.style;
     s.setProperty('--poster-w', this.settings.posterWidth + 'px');

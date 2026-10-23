@@ -81,6 +81,36 @@ client for browser-only details. Both are GPL; nothing is copied from either.
   exact); the player and the engine load on the first Play, fetched early
   while Details or Streams is open.
 
+## Saved data
+
+Everything is kept in this browser under `astra.v2.*` (`src/app/store.js`).
+
+- Each saved value is checked when read: a damaged entry is dropped and a
+  value of the wrong shape counts as unsaved, so one bad value cannot stop
+  the app. If Astra still cannot start, a card (`src/app/recovery.js`)
+  offers **Export raw data** (what is stored, as text) and **Reset Astra
+  data** (removes only `astra.v2.*`; classic Astra's data stays and is
+  copied again, as on a first launch).
+- A backup holds add-ons, library, progress, watched, settings and recent
+  searches.
+- **Restore** (Settings > Your data) checks the whole file first. A file that
+  isn't an Astra backup, or has a part of the wrong shape, is refused and
+  nothing changes; damaged entries inside a good part are skipped and
+  counted. Otherwise it replaces this device's data all or nothing: what the
+  backup lacks is removed. Player choices, Library layout and sort, and the
+  last stream filter stay, because they describe this phone rather than what
+  you saved or watched. The message says what came back.
+- After a restore or "Copy again from classic Astra" nothing is written until
+  the reload, and progress is only written when there is something new to
+  save, so leaving the page cannot undo either.
+- Two Astra windows (the installed app and a Chrome tab) share the data. Each
+  follows the other's changes, and a write changes only its own entries in
+  what is stored now: progress entry by entry (the later save wins), add-ons
+  by addition, removal, switch and order.
+- When the browser cannot save (storage full, or site data blocked) Astra
+  says so once instead of failing silently; with site data blocked it still
+  opens.
+
 ## How a file plays
 
 `AstraPlayer.load()` (`src/engine/player.js`) does three things, in order, and
@@ -162,6 +192,9 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
   timed text and WebVTT in MP4 (`src/engine/mp4.js`). They are read from data
   the video pipeline already downloaded (`embedded-subtitles.js`), block by
   block as it arrives, so seeking works with or without a cue index.
+- **In adaptive streams**: an HLS or DASH stream's own subtitle tracks are
+  listed; hls.js and dash.js load them and Astra copies each cue once into
+  its own renderer, so they take the same style as every other subtitle.
 - **From the phone**: the subtitles menu can load an .srt, .vtt or .ass file.
 - The remembered language is shown by itself: the file's own track first,
   then an exact match, then the first add-on file. Choosing Off forgets it.
@@ -173,11 +206,14 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
 - `tests/astra-*.test.mjs` (root `npm test`): planner, subtitles (text and
   picture decoders, the MP4 reader, the block scanner, the file hash, add-on
   subtitles), the MKV reader, the range reader, the add-on client, saved
-  data, rows and the Play button.
+  data (`astra-store.test.mjs`: sanitising, restore, two windows, saving
+  only what changed), rows and the Play button.
 - `backend/tests/astra-playback-browser.test.js` (`npm run test:backend`
   with `JARVIS_CHROME`): real playback in Chrome against synthetic files on a
   separate origin, including audio switching measured by pitch, subtitles,
-  seeking, blocked hosts and HEVC refusal.
+  seeking, blocked hosts and HEVC refusal. The HLS subtitle test runs when
+  `ASTRA_HLS_JS` names a local copy of the pinned `hls.min.js` (tests never
+  reach the CDN).
 - `backend/tests/astra-player-browser.test.js`: the player screen at phone
   landscape size: gestures, hold, lock, back order, menus, skip; and in
   portrait: rotation settings, the rotate button, picture-in-picture.
@@ -186,8 +222,9 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
 - `backend/tests/astra-app-browser.test.js`: the app at phone portrait size
   against a fixture add-on (`backend/tests/helpers/astra-media-server.js`):
   Home, back, Continue Watching, the lift menu, Library, episodes, paging,
-  Search, add-on settings, the classic import, add-on subtitles, and the
-  saved copy (offline start, a new release announced).
+  Search, add-on settings, the classic import, add-on subtitles, the saved
+  copy (offline start, a new release announced), backup restore, damaged and
+  blocked storage, the recovery card and two windows at once.
 - Fixtures: `bash scripts/astra/make-fixtures.sh` regenerates
   `tests/fixtures/astra/` (needs ffmpeg). Each audio track is a sine tone at a
   different pitch.
