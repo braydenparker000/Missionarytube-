@@ -95,7 +95,8 @@ export function openSavePresetDialog(ctx) {
     input.setValue(P.current?.name ?? '');
     const list = document.createElement('datalist');
     list.id = 'cp-eq-preset-names';
-    for (const p of P.all()) { const o = document.createElement('option'); o.value = p.name; list.appendChild(o); }
+    // Name suggestions: the user and built-in presets (not the 17k AutoEq ones).
+    for (const p of [...P.users(), ...P.builtIns()]) { const o = document.createElement('option'); o.value = p.name; list.appendChild(o); }
     document.getElementById(list.id)?.remove();
     document.body.appendChild(list);
     input.input.setAttribute('list', list.id);

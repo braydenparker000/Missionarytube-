@@ -374,9 +374,11 @@ export class SceneController {
     if (this.targetSize) root.setFrame(l0, t0, r0, b0);
     // Target frames of all participants first: restoring one view below
     // re-lays out its subtree and would disturb nested participants.
+    // The target is the laid-out frame: translations end at 0 below, so one
+    // left over (a scrolled-away toolbar's) must not move the target.
     for (const it of this.items) {
       const v = it.view;
-      it.to = v.visibility === GONE ? it.from : frameOf(v);
+      it.to = v.visibility === GONE ? it.from : [v.left, v.top, v.right, v.bottom];
       if (it.fromVisibility === GONE) it.from = it.to;
     }
     for (const it of this.items) {
