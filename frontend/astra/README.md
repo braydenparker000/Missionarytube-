@@ -40,10 +40,16 @@ client for browser-only details. Both are GPL; nothing is copied from either.
   by swipe), Continue Watching, then one row per add-on catalog that needs no
   search text. Long-press any poster to save it or mark it watched.
 - **Details**: Play says what it will do (Play, Resume, Play S1 E2,
-  Upcoming). Series open on the season of the next unwatched episode.
+  Upcoming). Series open on the season of the next unwatched episode. The
+  page draws at once from the card that was tapped (its art, title and, when
+  the catalog has it, the description) and fills in when the full details
+  arrive; the hero art is kept, not re-faded.
 - **Streams**: every add-on is asked at once and fills in as it answers, in
-  the add-ons' own order, with a chip per add-on. Nothing is ranked or picked
-  for you. Long-press a stream to copy it, open it in VLC or check it in the
+  the add-ons' own order, with a chip per add-on. Each add-on's section holds
+  its place with placeholder cards while it is asked and is filled in place,
+  so cards already on screen never move to a new element under the finger.
+  Continue Watching opens Streams at once from what was saved. Nothing is
+  ranked or picked for you. Long-press a stream to copy it, open it in VLC or check it in the
   lab. TorBox links from add-ons are resolved to the file just before play.
 - **Nothing plays without a tap.** The next-episode card and skip buttons are
   taps; there are no countdowns.
