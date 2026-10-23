@@ -2377,6 +2377,26 @@ after one song of a newly shuffled list. The player now keeps the flag as above.
 `msg_player_queue_changed` also carries the reference's stats (`ui1.w1`): played entries, then
 the total.
 
+### F97 — Settings that do nothing here — `CONFIRMED` (harness walk of the settings screens)
+(a) The owner asked whether every setting shown actually does something. A walk of the 27 screens
+reachable from the main settings page rendered 305 keyed rows:
+- 143 built rows that act, plus 2 more that start greyed because a switch they depend on is off;
+- 49 screens, categories, links or text lines;
+- 111 rows this player has no counterpart for: 77 with no web counterpart, 23 turned off by owner
+  decisions, 11 the reference's own business (purchases, support, updates). Before this change,
+  104 of them looked like working settings and the other 7 were greyed only by a dependency, with
+  no reason given.
+
+(b) All 125 visible built keys are read by code. 12 of them are read only in `settings.js`, and each
+is handled there:
+- options for the settings screens themselves (theme, font, animation speed, shortcut count);
+- actions (restore defaults, rescan, full rescan, reset stats, playlist import and export);
+- the version dialog and the open-source licences screen.
+
+(c) The settings screens now grey out every row of the three no-counterpart statuses, with a
+line from `unavailableNote` (the status table's reason), and a dependency cannot re-enable them.
+No reachable screen link is among them, so every built setting stays reachable.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
@@ -2489,6 +2509,7 @@ No status is device-verified.
 | F94 Large-library speed | Built | Measured in desktop Chromium at 4× throttle, not on the owner's device |
 | F95 Waveforms after an index refresh | Built | Waveform accuracy is the index generator's |
 | F96 Pending Queue after leaving it | Built | — |
+| F97 Settings with no counterpart greyed out with the reason | Built | The reasons are the status table's wording, not the reference's |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 

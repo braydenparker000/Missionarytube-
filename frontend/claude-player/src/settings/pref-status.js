@@ -536,6 +536,21 @@ export const PREF_STATUS = {
   list_3rdparty: [UI, ''],
 };
 
+/**
+ * The line a settings row shows, greyed out, when this player has no
+ * counterpart for its key (WEB, OWNER, NA); null for the others.
+ */
+export function unavailableNote(key) {
+  const [status, reason = ''] = PREF_STATUS[key] ?? [];
+  if (status === WEB) return 'Not available on the web: ' + reason;
+  if (status === OWNER) {
+    const why = reason.replace(/^Owner decision: /, '');
+    return 'Turned off in this player: ' + why.charAt(0).toLowerCase() + why.slice(1);
+  }
+  if (status === NA) return 'Not part of this player';
+  return null;
+}
+
 /** The keyed preference entries of a reference model: [{key, screen, type}] in document order, first occurrence. */
 export function prefKeys(model) {
   const out = [], seen = new Set();

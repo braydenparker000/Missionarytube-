@@ -11,6 +11,9 @@ Every keyed entry of the reference preference XML (452 keys), by screen. Statuse
 - **Owner decision:** left out by an owner decision.
 - **Not applicable:** the reference's own business (purchases, support, updates).
 
+The settings screens show the last three greyed out, with a line saying why
+(`unavailableNote`), so no visible setting silently does nothing.
+
 | Status | Keys |
 | --- | ---: |
 | Built | 155 |

@@ -13,6 +13,7 @@ import {formatValue} from '../widgets/eq.js';
 import {formatString} from '../widgets/sleeptimer.js';
 import {iconSvg} from '../icons.js';
 import {TONE_DEFAULTS, TONE_RANGES} from '../dsp/dsp.js';
+import {unavailableNote} from './pref-status.js';
 
 const STORE_KEY = 'cp-settings';
 const TAGS_KEY = 'cp-settings-tags';
@@ -665,6 +666,9 @@ export class Settings {
       texts.appendChild(t);
     }
     row.dataset.key = key ?? '';
+    // A setting this player has no counterpart for is greyed out with the reason (pref-status.js).
+    const unavailable = key ? unavailableNote(key) : null;
+    if (unavailable) row.classList.add('cps-disabled', 'cps-unavailable');
     // sup (pref_experiment …): a small superscript line above the summary.
     const sup = attr(node, 'sup');
     if (sup) {
@@ -689,6 +693,12 @@ export class Settings {
       const e = document.createElement('div');
       e.className = 'cps-summary2' + (SUMMARY2_GAP_KINDS.has(kind) ? ' gap' : '');
       this.appendRich(e, this.rawStr(summary2));
+      texts.appendChild(e);
+    }
+    if (unavailable) {
+      const e = document.createElement('div');
+      e.className = 'cps-summary2 cps-unavailable-note';
+      e.textContent = unavailable;
       texts.appendChild(e);
     }
     row.appendChild(texts);
@@ -1643,10 +1653,13 @@ export class Settings {
   }
 
   /** Settings that take effect immediately in the running UI. */
-  /** A dependent row is disabled while the preference it depends on is off (its default included). */
+  /**
+   * A dependent row is disabled while the preference it depends on is off
+   * (its default included); an unavailable row stays disabled.
+   */
   applyDependency(row) {
     const dep = row.dataset.dep;
-    row.classList.toggle('cps-disabled', !runtimeValue(String(this.get(dep, this.ctx.prefDefaults?.[dep] ?? true))));
+    row.classList.toggle('cps-disabled', row.classList.contains('cps-unavailable') || !runtimeValue(String(this.get(dep, this.ctx.prefDefaults?.[dep] ?? true))));
   }
 
   applySetting(key, recreate = true) {
