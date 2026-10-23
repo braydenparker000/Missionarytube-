@@ -40,6 +40,7 @@ export function subtitleStyle(p) {
 }
 
 export const SUBTITLE_COLORS = ['#ffffff', '#ffd54f', '#4dd0e1', '#ef5350', '#66bb6a', '#ba68c8', '#ffa726', '#c6ff00', '#42a5f5', '#000000'];
+export const SUBTITLE_COLOR_NAMES = {'#ffffff': 'White', '#ffd54f': 'Yellow', '#4dd0e1': 'Cyan', '#ef5350': 'Red', '#66bb6a': 'Green', '#ba68c8': 'Purple', '#ffa726': 'Orange', '#c6ff00': 'Lime', '#42a5f5': 'Blue', '#000000': 'Black'};
 export const SUBTITLE_BACKGROUNDS = [0, 0.35, 0.55, 0.8];
 export const SPEEDS = [1, 1.25, 1.5, 2];
 export const ASPECTS = ['fit', 'fill', 'zoom'];

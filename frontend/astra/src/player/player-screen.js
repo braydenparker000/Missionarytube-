@@ -14,7 +14,7 @@ import {pushLayer} from '../app/back-stack.js';
 import {icon} from '../ui/icons.js';
 import {h, clock, haptic} from '../ui/dom.js';
 import * as G from './gestures.js';
-import {loadPrefs, savePrefs, subtitleStyle, DEFAULTS, SPEEDS, ASPECTS, ASPECT_LABELS, SUBTITLE_COLORS, SUBTITLE_BACKGROUNDS} from './prefs.js';
+import {loadPrefs, savePrefs, subtitleStyle, DEFAULTS, SPEEDS, ASPECTS, ASPECT_LABELS, SUBTITLE_COLORS, SUBTITLE_COLOR_NAMES, SUBTITLE_BACKGROUNDS} from './prefs.js';
 
 const coarse = () => matchMedia('(pointer: coarse)').matches;
 import {languageName, baseLanguage} from '../engine/languages.js';
@@ -72,8 +72,11 @@ export class PlayerScreen extends EventTarget {
     this.viaEl = h('p', {class: 'ap-via'});
     this.played = h('div', {class: 'ap-played'});
     this.buffered = h('div', {class: 'ap-buffered'});
+    // A thumb at the play position, and while dragging a time bubble above the finger.
+    this.thumb = h('div', {class: 'ap-thumb', 'aria-hidden': 'true'});
+    this.bubble = h('div', {class: 'ap-bubble', 'aria-hidden': 'true', hidden: true});
     this.timeline = h('div', {class: 'ap-timeline', role: 'slider', tabindex: 0, 'aria-label': 'Seek', 'aria-valuemin': 0},
-      h('div', {class: 'ap-track'}, this.buffered, this.played));
+      h('div', {class: 'ap-track'}, this.buffered, this.played), this.thumb, this.bubble);
     this.timeEl = h('button', {class: 'ap-time', type: 'button', onclick: () => { this.remaining = !this.remaining; this.updateTime(); }});
     this.playBtn = iconButton('play', 'Play', () => this.togglePlay(), {class: 'ap-icon-btn ap-play'});
     this.spinner = h('div', {class: 'ap-spinner', hidden: true, role: 'progressbar', 'aria-label': 'Loading'});
@@ -114,16 +117,18 @@ export class PlayerScreen extends EventTarget {
     this.nextCard = h('div', {class: 'ap-next', hidden: true});
     this.lockOverlay = h('div', {class: 'ap-lock', hidden: true},
       h('button', {class: 'ap-unlock', type: 'button', onclick: e => { e.stopPropagation(); this.setLocked(false); }}, icon('unlock', {size: 34}), h('span', {}, 'Tap to unlock')),
-      h('div', {class: 'ap-lock-track'}, h('div')));
+      h('div', {class: 'ap-lock-track'}, this.lockFill = h('div')));
     this.errorCard = h('div', {class: 'ap-error', hidden: true, role: 'alert'});
     this.noticeEl = h('div', {class: 'ap-notice', hidden: true, role: 'status', onclick: () => { this.noticeEl.hidden = true; }});
-    this.modal = h('div', {class: 'ap-modal', hidden: true});
-    this.panel = h('div', {class: 'ap-panel', hidden: true});
+    // Sound turned all the way down stays visible, and one tap brings it back.
+    this.mutedChip = h('button', {class: 'ap-muted', type: 'button', hidden: true, 'aria-label': 'Sound is off. Turn it on', onclick: () => this.unmute()}, icon('mute', {size: 18}), h('span', {}, 'Sound off'));
+    this.modal = h('div', {class: 'ap-modal', hidden: true, role: 'dialog', 'aria-modal': 'true'});
+    this.panel = h('div', {class: 'ap-panel', hidden: true, role: 'dialog', 'aria-modal': 'true'});
 
     this.surface = h('div', {class: 'ap-surface'});
     this.root = h('div', {class: 'ap', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Player', hidden: true, tabindex: -1},
       video, subs, this.surface, this.pauseOverlay, this.feedback, this.seekPreview, this.levelBars.brightness, this.levelBars.volume,
-      this.controls, h('div', {class: 'ap-buffering'}, this.spinner), this.skipBtn, this.nextCard, this.lockOverlay, this.noticeEl, this.loading, this.errorCard, this.panel, this.modal);
+      this.controls, h('div', {class: 'ap-buffering'}, this.spinner), this.skipBtn, this.nextCard, this.lockOverlay, this.mutedChip, this.noticeEl, this.loading, this.errorCard, this.panel, this.modal);
     this.parent.append(this.root);
     this.bottomEl = this.controls.querySelector('.ap-bottom');
     // Moving through the controls with Tab shows them.
@@ -165,7 +170,9 @@ export class PlayerScreen extends EventTarget {
     // Choices that belong to one title start fresh with the next.
     this.panelSeason = null;
     this.subLang = null;
+    this.subTab = 'tracks';
     this.setBrightness(1);
+    this.mutedChip.hidden = !(this.video.muted || this.video.volume === 0);
     this.nextDismissed = false;
     this.skipped = new Set();
     this.firstFrame = false;
@@ -175,6 +182,9 @@ export class PlayerScreen extends EventTarget {
     if (!this.isOpen) {
       this.isOpen = true;
       this.root.hidden = false;
+      // Keyboard focus stays in the player: the app behind it is inert while it is open.
+      this.inerted = [...this.parent.children].filter(el => el !== this.root && !el.inert);
+      for (const el of this.inerted) el.inert = true;
       document.documentElement.classList.add('ap-open');
       this.popLayer = pushLayer('player', () => { this.popLayer = null; this.close('back'); });
       this.enterFullscreen();
@@ -280,6 +290,8 @@ export class PlayerScreen extends EventTarget {
   close(reason = 'user') {
     if (!this.isOpen) return;
     this.isOpen = false;
+    for (const el of this.inerted || []) el.inert = false;
+    this.inerted = null;
     const time = this.video.currentTime, duration = this.video.duration || 0;
     this.emit('progress', {time, duration, final: true});
     this.emit('close', {time, duration, reason});
@@ -364,6 +376,8 @@ export class PlayerScreen extends EventTarget {
     this.timeEl.textContent = !known ? clock(t) : this.remaining ? '−' + clock(d - t) : `${clock(t)} / ${clock(d)}`;
     if (known) {
       this.played.style.transform = `scaleX(${Math.min(1, t / d)})`;
+      this.thumb.style.left = `${(Math.min(1, t / d) * 100).toFixed(2)}%`;
+      this.lockFill.style.transform = `scaleX(${Math.min(1, t / d)})`;
       const b = this.video.buffered;
       let end = 0;
       for (let i = 0; i < b.length; i++) if (b.start(i) <= this.video.currentTime + 0.5) end = Math.max(end, b.end(i));
@@ -382,7 +396,7 @@ export class PlayerScreen extends EventTarget {
     btn.replaceChildren(icon(paused ? 'play' : 'pause', {size: 34}));
     btn.setAttribute('aria-label', paused ? 'Play' : 'Pause');
     btn.title = paused ? 'Play' : 'Pause';
-    this.viaEl.hidden = !paused;
+    this.viaEl.classList.toggle('off', !paused); // hidden but keeping its room, so the title does not jump
     this.root.classList.toggle('paused', paused);
   }
 
@@ -505,20 +519,21 @@ export class PlayerScreen extends EventTarget {
   }
 
   /** Locks the screen to the viewer's choice; 'auto' follows the phone. Needs full screen. */
-  lockOrientation(kind = this.prefs.orientation) {
+  lockOrientation(kind = this.prefs.orientation, {announce = false} = {}) {
     this.orientation = kind;
+    const failed = () => { if (announce) this.flash('This screen cannot be turned from here'); };
     try {
-      if (kind === 'landscape' || kind === 'portrait') screen.orientation?.lock?.(kind).catch(() => {});
-      else screen.orientation?.unlock?.();
-    } catch {}
+      if (kind !== 'landscape' && kind !== 'portrait') { screen.orientation?.unlock?.(); return; }
+      if (!screen.orientation?.lock) return failed();
+      screen.orientation.lock(kind).then(() => { if (announce) this.flash(kind === 'landscape' ? 'Landscape' : 'Portrait'); }, failed);
+    } catch { failed(); }
   }
 
   /** Turns the player to the other orientation for this session. */
   rotate() {
     const target = this.root.clientHeight > this.root.clientWidth ? 'landscape' : 'portrait';
-    this.flash(target === 'landscape' ? 'Landscape' : 'Portrait');
-    if (document.fullscreenElement) this.lockOrientation(target);
-    else this.enterFullscreen(target);
+    if (document.fullscreenElement) this.lockOrientation(target, {announce: true});
+    else this.enterFullscreen(target, {announce: true});
     this.showControls();
   }
 
@@ -623,8 +638,9 @@ export class PlayerScreen extends EventTarget {
     const card = this.nextCard;
     card.replaceChildren(
       n.thumbnail ? h('img', {src: n.thumbnail, alt: '', referrerpolicy: 'no-referrer'}) : h('div', {class: 'ap-next-thumb'}),
-      h('div', {class: 'ap-next-text'}, h('small', {}, 'Next Episode'), h('b', {}, n.label + (n.title ? ' • ' + n.title : '')), n.status ? h('span', {}, n.status) : null),
-      h('button', {class: 'ap-next-play', type: 'button', onclick: () => this.playNext(), disabled: n.hasAired === false}, icon('play', {size: 16}), 'Play'),
+      h('div', {class: 'ap-next-text'}, h('small', {}, 'Next Episode'), h('b', {}, n.label + (n.title ? ' • ' + n.title : '')),
+        n.status || n.hasAired === false ? h('span', {}, n.status || 'Not out yet') : null),
+      h('button', {class: 'ap-next-play', type: 'button', 'aria-label': `Play ${n.label}${n.title ? ', ' + n.title : ''}`, onclick: () => this.playNext(), disabled: n.hasAired === false}, icon('play', {size: 16}), 'Play'),
       h('button', {class: 'ap-next-close', type: 'button', 'aria-label': 'Dismiss', onclick: () => { this.nextDismissed = true; card.hidden = true; }}, icon('close', {size: 16})));
     let startX = null;
     card.onpointerdown = e => { startX = e.clientX; };
@@ -639,7 +655,18 @@ export class PlayerScreen extends EventTarget {
     this.nextCard.hidden = t < at || credits;
   }
 
-  playNext() { this.emit('next', {time: this.video.currentTime}); }
+  playNext() {
+    const n = this.options.next;
+    if (n?.hasAired === false) { this.flash(`${n.label} is not out yet`); return; }
+    this.emit('next', {time: this.video.currentTime});
+  }
+
+  unmute() {
+    if (this.video.volume === 0) this.video.volume = 1;
+    this.video.muted = false;
+    this.mutedChip.hidden = true;
+    this.flash('Sound on');
+  }
 
   // ——— Modals and panels ———
 
@@ -649,8 +676,10 @@ export class PlayerScreen extends EventTarget {
     this.modalClose = pushLayer('player-modal', () => { this.modalClose = null; this.closeOverlays(); });
     this.renderModal();
     this.modal.hidden = false;
+    this.modal.setAttribute('aria-label', {audio: 'Audio', subtitles: 'Subtitles', info: 'Stream info'}[name] || name);
     this.root.classList.add('overlay');
     this.showControls(false);
+    this.focusOverlay(this.modal);
   }
 
   openPanel(name) {
@@ -659,13 +688,26 @@ export class PlayerScreen extends EventTarget {
     this.panelClose = pushLayer('player-panel', () => { this.panelClose = null; this.closeOverlays(); });
     this.renderPanel();
     this.panel.hidden = false;
+    this.panel.setAttribute('aria-label', name === 'sources' ? 'Sources' : 'Episodes');
     this.root.classList.add('overlay');
     this.showControls(false);
+    // The current source or episode is in view, not a screen or two down the list.
+    this.panel.querySelector('.current')?.scrollIntoView({block: 'center'});
+    this.focusOverlay(this.panel);
+  }
+
+  /** Moves focus into a menu or panel (the current row, else its first button); closing gives it back. */
+  focusOverlay(el) {
+    this.returnFocus ??= document.activeElement;
+    (el.querySelector('.current, [aria-pressed="true"], .on') || el.querySelector('button'))?.focus({preventScroll: true});
   }
 
   closeOverlays(silent = false) {
+    const wasOpen = !!(this.modalName || this.panelName);
     if (this.modalName) { this.modalName = null; this.modal.hidden = true; this.modalClose?.(); this.modalClose = null; }
     if (this.panelName) { this.panelName = null; this.panel.hidden = true; this.panelClose?.(); this.panelClose = null; }
+    if (wasOpen && this.returnFocus?.isConnected) this.returnFocus.focus({preventScroll: true});
+    this.returnFocus = null;
     this.root.classList.remove('overlay');
     if (!silent) this.scheduleHide();
   }
@@ -683,7 +725,22 @@ export class PlayerScreen extends EventTarget {
     if (name === 'audio') body = this.audioModal();
     else if (name === 'subtitles') body = this.subtitleModal();
     else body = this.infoModal();
-    this.modal.replaceChildren(h('div', {class: 'ap-modal-scrim', onclick: () => this.closeOverlays()}), h('div', {class: 'ap-modal-body ' + name}, close, body));
+    // Redrawn after every tap: the lists stay where they were scrolled, and keyboard focus stays on its button.
+    const kept = this.modal.hidden ? [] : [...this.modal.querySelectorAll('.ap-modal-body, .ap-rail')].map(el => ['.' + [...el.classList].join('.'), el.scrollTop]);
+    const key = el => el.getAttribute('aria-label') || el.textContent;
+    const focused = this.modal.contains(document.activeElement) && document.activeElement.matches('button') ? key(document.activeElement) : null;
+    // Picking tracks hides the picture; styling leaves it showing, so the change can be seen.
+    const scrim = 'ap-modal-scrim' + (name !== 'subtitles' ? '' : this.subTab === 'style' ? ' preview' : ' solid');
+    this.modal.replaceChildren(h('div', {class: scrim, onclick: () => this.closeOverlays()}), h('div', {class: 'ap-modal-body ' + name}, close, body));
+    for (const [selector, top] of kept) { const el = this.modal.querySelector(selector); if (el) el.scrollTop = top; }
+    if (focused != null) [...this.modal.querySelectorAll('button')].find(b => key(b) === focused)?.focus({preventScroll: true});
+  }
+
+  pickLanguage(code) {
+    this.subLang = code;
+    this.renderModal();
+    // Stacked in portrait, the tracks are under the languages: bring them up.
+    if (this.root.classList.contains('portrait')) this.modal.querySelector('.ap-rail.tracks')?.scrollIntoView({block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
   }
 
   audioModal() {
@@ -708,11 +765,11 @@ export class PlayerScreen extends EventTarget {
     if (this.subLang && !langs.includes(this.subLang)) this.subLang = langs[0] || null;
     const langName = code => code === 'und' ? 'Unknown' : languageName(code) || code;
     const languageRail = h('div', {class: 'ap-rail languages'},
-      h('button', {class: 'ap-row' + (!selected ? ' selected' : ''), type: 'button', onclick: () => { this.engine.selectSubtitle(null); this.prefs.subtitleLanguage = ''; savePrefs(this.prefs); }}, h('b', {}, 'Off'), !selected ? icon('check', {size: 20}) : null),
-      ...langs.map(code => h('button', {class: 'ap-row' + (code === this.subLang ? ' current' : ''), type: 'button', onclick: () => { this.subLang = code; this.renderModal(); }}, h('b', {}, langName(code)), h('small', {}, String(options.filter(s => (baseLanguage(s.language) || 'und') === code).length)))),
+      h('button', {class: 'ap-row' + (!selected ? ' selected' : ''), type: 'button', 'aria-pressed': String(!selected), onclick: () => { this.engine.selectSubtitle(null); this.prefs.subtitleLanguage = ''; savePrefs(this.prefs); }}, h('b', {}, 'Off'), !selected ? icon('check', {size: 20}) : null),
+      ...langs.map(code => h('button', {class: 'ap-row' + (code === this.subLang ? ' current' : ''), type: 'button', 'aria-pressed': String(code === this.subLang), onclick: () => this.pickLanguage(code)}, h('b', {}, langName(code)), h('small', {}, String(options.filter(s => (baseLanguage(s.language) || 'und') === code).length)))),
       h('button', {class: 'ap-row file', type: 'button', onclick: () => this.pickSubtitleFile()}, icon('plus', {size: 18}), h('b', {}, 'From this phone…')));
     const trackRail = h('div', {class: 'ap-rail tracks'}, ...options.filter(s => (baseLanguage(s.language) || 'und') === this.subLang).map(s => h('button', {
-      class: 'ap-row' + (s.selected ? ' selected' : ''), type: 'button', disabled: !s.supported,
+      class: 'ap-row' + (s.selected ? ' selected' : ''), type: 'button', disabled: !s.supported, 'aria-pressed': String(!!s.selected),
       onclick: () => { this.engine.selectSubtitle(s.id); this.prefs.subtitleLanguage = baseLanguage(s.language); savePrefs(this.prefs); },
     }, h('span', {class: 'ap-row-text'}, h('b', {}, s.label), s.name ? h('small', {class: 'ap-file'}, s.name) : null,
       h('span', {class: 'ap-tags'}, h('em', {}, s.kind === 'embedded' ? (s.image ? 'Built-in picture' : 'Built-in') : s.kind === 'stream' ? 'Stream' : s.source || 'Add-on'),
@@ -722,7 +779,11 @@ export class PlayerScreen extends EventTarget {
       : this.engine.mode === 'native' && !this.engine.readable ? 'This host does not let Astra read the file, so subtitles inside it cannot be shown. Subtitles from your add-ons still appear here, and you can load a file from this phone.'
       : 'No subtitles for this source.'));
     else if (this.subtitleSearch) trackRail.append(h('p', {class: 'ap-empty small'}, 'Still asking subtitle add-ons…'));
-    return [h('h3', {}, 'Subtitles'), h('div', {class: 'ap-rails'}, languageRail, trackRail, this.styleRail())];
+    const tab = this.subTab === 'style' ? 'style' : 'tracks';
+    const tabs = h('div', {class: 'ap-tabs', role: 'tablist'}, ...[['tracks', 'Tracks'], ['style', 'Style']].map(([id, label]) =>
+      h('button', {class: 'ap-tab' + (id === tab ? ' on' : ''), type: 'button', role: 'tab', 'aria-selected': String(id === tab), onclick: () => { this.subTab = id; this.renderModal(); this.modal.querySelector('.ap-modal-body').scrollTop = 0; }}, label)));
+    return [h('div', {class: 'ap-modal-head'}, h('h3', {}, 'Subtitles'), tabs),
+      tab === 'style' ? h('div', {class: 'ap-rails'}, this.styleRail()) : h('div', {class: 'ap-rails'}, languageRail, trackRail)];
   }
 
   styleRail() {
@@ -732,18 +793,20 @@ export class PlayerScreen extends EventTarget {
       h('div', {}, h('button', {class: 'ap-chip', type: 'button', 'aria-label': label + ' down', onclick: minus}, '−'), h('b', {}, value), h('button', {class: 'ap-chip', type: 'button', 'aria-label': label + ' up', onclick: plus}, '+'),
         reset ? h('button', {class: 'ap-chip ghost', type: 'button', onclick: reset}, 'Reset') : null));
     const delay = r.delay;
-    return h('div', {class: 'ap-rail style'},
+    // Two groups: side by side in landscape, so nothing hides below the fold.
+    return h('div', {class: 'ap-rail style'}, h('div', {class: 'ap-style-group'},
       stepper('Delay', `${delay > 0 ? '+' : ''}${delay.toFixed(1)} s`, () => { r.setDelay(Math.max(-60, delay - 0.1)); this.renderModal(); }, () => { r.setDelay(Math.min(60, delay + 0.1)); this.renderModal(); }, delay ? () => { r.setDelay(0); this.renderModal(); } : null),
       stepper('Size', String(p.subtitleSize), () => { p.subtitleSize = Math.max(12, p.subtitleSize - 2); save(); }, () => { p.subtitleSize = Math.min(40, p.subtitleSize + 2); save(); }),
       stepper('Position', String(p.subtitleOffset), () => { p.subtitleOffset = Math.max(0, p.subtitleOffset - 5); save(); }, () => { p.subtitleOffset = Math.min(200, p.subtitleOffset + 5); save(); }),
       h('div', {class: 'ap-toggles'},
         h('button', {class: 'ap-chip' + (p.subtitleBold ? ' on' : ''), type: 'button', 'aria-pressed': String(p.subtitleBold), onclick: () => { p.subtitleBold = !p.subtitleBold; save(); }}, 'Bold'),
-        h('button', {class: 'ap-chip' + (p.subtitleOutline ? ' on' : ''), type: 'button', 'aria-pressed': String(p.subtitleOutline), onclick: () => { p.subtitleOutline = !p.subtitleOutline; save(); }}, 'Outline')),
+        h('button', {class: 'ap-chip' + (p.subtitleOutline ? ' on' : ''), type: 'button', 'aria-pressed': String(p.subtitleOutline), onclick: () => { p.subtitleOutline = !p.subtitleOutline; save(); }}, 'Outline'))),
+      h('div', {class: 'ap-style-group'},
       h('span', {class: 'ap-label'}, 'Text colour'),
-      h('div', {class: 'ap-swatches'}, ...SUBTITLE_COLORS.map(c => h('button', {class: 'ap-swatch' + (c === p.subtitleColor ? ' on' : ''), type: 'button', 'aria-label': 'Colour ' + c, style: {background: c}, onclick: () => { p.subtitleColor = c; save(); }}))),
+      h('div', {class: 'ap-swatches'}, ...SUBTITLE_COLORS.map(c => h('button', {class: 'ap-swatch' + (c === p.subtitleColor ? ' on' : ''), type: 'button', 'aria-label': SUBTITLE_COLOR_NAMES[c] || c, 'aria-pressed': String(c === p.subtitleColor), style: {background: c}, onclick: () => { p.subtitleColor = c; save(); }}))),
       h('span', {class: 'ap-label'}, 'Background'),
-      h('div', {class: 'ap-swatches'}, ...SUBTITLE_BACKGROUNDS.map(a => h('button', {class: 'ap-swatch bg' + (a === p.subtitleBackground ? ' on' : ''), type: 'button', 'aria-label': a ? `Background ${Math.round(a * 100)}%` : 'No background', style: {background: a ? `rgba(0,0,0,${a})` : 'transparent'}, onclick: () => { p.subtitleBackground = a; save(); }}))),
-      h('button', {class: 'ap-chip ghost', type: 'button', onclick: () => { for (const k of ['subtitleSize', 'subtitleColor', 'subtitleBackground', 'subtitleOutline', 'subtitleBold', 'subtitleOffset']) p[k] = DEFAULTS[k]; r.setDelay(0); save(); }}, 'Reset defaults'));
+      h('div', {class: 'ap-swatches'}, ...SUBTITLE_BACKGROUNDS.map(a => h('button', {class: 'ap-swatch bg' + (a === p.subtitleBackground ? ' on' : ''), type: 'button', 'aria-label': a ? `Background ${Math.round(a * 100)}%` : 'No background', 'aria-pressed': String(a === p.subtitleBackground), style: {background: a ? `rgba(0,0,0,${a})` : 'transparent'}, onclick: () => { p.subtitleBackground = a; save(); }}))),
+      h('button', {class: 'ap-chip ghost', type: 'button', onclick: () => { for (const k of ['subtitleSize', 'subtitleColor', 'subtitleBackground', 'subtitleOutline', 'subtitleBold', 'subtitleOffset']) p[k] = DEFAULTS[k]; r.setDelay(0); save(); }}, 'Reset defaults')));
   }
 
   infoModal() {
@@ -799,6 +862,7 @@ export class PlayerScreen extends EventTarget {
       this.updatePlayState(); this.wake(false); this.showControls(false); this.emitProgress(true);
     });
     v.addEventListener('play', () => { this.updatePlayState(); this.scheduleHide(); });
+    v.addEventListener('volumechange', () => { this.mutedChip.hidden = !(v.muted || v.volume === 0); });
     v.addEventListener('timeupdate', () => { this.updateTime(); this.emitProgress(false); this.positionState(); });
     v.addEventListener('progress', () => this.updateTime());
     v.addEventListener('durationchange', () => this.updateTime());
@@ -893,7 +957,7 @@ export class PlayerScreen extends EventTarget {
   }
 
   startDrag(p) {
-    if (p.kind === 'seek') { p.from = this.video.currentTime; this.scrubbing = true; this.showControls(false); }
+    if (p.kind === 'seek') { p.from = this.video.currentTime; this.scrubbing = true; this.root.classList.add('seeking'); this.showControls(false); }
     else {
       p.level = p.kind === 'volume' ? (this.video.muted ? 0 : this.video.volume) : (this.brightness ?? 1);
       this.levelBars[p.kind].hidden = false;
@@ -915,6 +979,7 @@ export class PlayerScreen extends EventTarget {
   endSeekDrag(cancelled) {
     if (!cancelled && this.scrubTime != null) this.video.currentTime = this.scrubTime;
     this.scrubTime = null; this.scrubbing = false;
+    this.root.classList.remove('seeking');
     this.seekPreview.hidden = true;
     this.updateTime(); this.scheduleHide();
   }
@@ -941,15 +1006,21 @@ export class PlayerScreen extends EventTarget {
     const tl = this.timeline;
     let active = null;
     const at = e => { const r = tl.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * (this.video.duration || 0); };
+    const bubble = () => {
+      const f = this.scrubTime / (this.video.duration || 1);
+      this.bubble.textContent = clock(this.scrubTime);
+      this.bubble.style.left = `clamp(28px, ${(f * 100).toFixed(2)}%, calc(100% - 28px))`;
+      this.bubble.hidden = false;
+    };
     tl.addEventListener('pointerdown', e => {
       if (this.locked || !(this.video.duration > 0)) return;
       active = e.pointerId; tl.setPointerCapture(e.pointerId); tl.classList.add('active');
-      this.scrubbing = true; this.scrubTime = at(e); this.updateTime(); this.showControls(false);
+      this.scrubbing = true; this.scrubTime = at(e); this.updateTime(); bubble(); this.showControls(false);
     });
-    tl.addEventListener('pointermove', e => { if (active === e.pointerId) { this.scrubTime = at(e); this.updateTime(); } });
+    tl.addEventListener('pointermove', e => { if (active === e.pointerId) { this.scrubTime = at(e); this.updateTime(); bubble(); } });
     const end = e => {
       if (active !== e.pointerId) return;
-      active = null; tl.classList.remove('active');
+      active = null; tl.classList.remove('active'); this.bubble.hidden = true;
       if (e.type === 'pointerup' && this.scrubTime != null) this.video.currentTime = this.scrubTime;
       this.scrubTime = null; this.scrubbing = false; this.updateTime(); this.scheduleHide();
     };
@@ -985,14 +1056,15 @@ export class PlayerScreen extends EventTarget {
 
   // ——— System integration ———
 
-  enterFullscreen(orientation = this.orientation || this.prefs.orientation) {
+  enterFullscreen(orientation = this.orientation || this.prefs.orientation, {announce = false} = {}) {
     this.wantFullscreen = true;
     const el = this.root;
-    if (!el.requestFullscreen || document.fullscreenElement) return;
+    const failed = () => { if (announce) this.flash('This screen cannot be turned from here'); };
+    if (!el.requestFullscreen || document.fullscreenElement) return failed();
     el.requestFullscreen({navigationUI: 'hide'}).then(() => {
       this.wasFullscreen = true;
-      this.lockOrientation(orientation);
-    }).catch(() => {});
+      this.lockOrientation(orientation, {announce});
+    }).catch(failed);
   }
 
   exitFullscreen() {

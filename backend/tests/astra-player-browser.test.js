@@ -106,6 +106,32 @@ test('back closes the open menu first, then the player', options, async t => {
   assert.equal(await page.locator('.ap').isHidden(), true);
 });
 
+test('a menu opened from the keyboard takes focus and Escape gives it back; the app behind the player is inert', options, async t => {
+  const {page} = await openPlayer(t);
+  await page.focus('[aria-label="Audio"]');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => !document.querySelector('.ap-modal').hidden);
+  assert.deepEqual(await page.evaluate(() => {
+    const modal = document.querySelector('.ap-modal'), root = document.querySelector('.ap');
+    return {inside: modal.contains(document.activeElement), label: modal.getAttribute('aria-label'), others: [...root.parentElement.children].filter(el => el !== root).every(el => el.inert)};
+  }), {inside: true, label: 'Audio', others: true});
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.querySelector('.ap-modal').hidden);
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Audio');
+  // A menu redrawn by a key press keeps focus on the button pressed.
+  await page.focus('[aria-label="Subtitles"]');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => !document.querySelector('.ap-modal').hidden);
+  await page.focus('[role="tab"]:not([aria-selected="true"])');
+  await page.keyboard.press('Enter');
+  await page.focus('[aria-label="Size up"]');
+  await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Size up');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => astraLab.screen.close());
+  assert.equal(await page.evaluate(() => [...document.querySelector('.ap').parentElement.children].some(el => el.inert)), false, 'closing releases the app');
+});
+
 test('the action buttons keep a finger-sized target and, in landscape, all fit the bar', options, async t => {
   const {page} = await openPlayer(t);
   await tap(page, W / 2, H / 2);
@@ -144,6 +170,20 @@ test('with the controls showing, subtitles stay clear of them: lifted in landsca
   await page.waitForTimeout(400);
   const port = await measure();
   assert.ok(port.subTop >= port.pictureBottom - 1 && port.subBottom <= port.blockTop, `portrait: under the picture, above the controls (${JSON.stringify(port)})`);
+});
+
+test('dragging the seek bar shows the time above the finger and a thumb on the bar', options, async t => {
+  const {page} = await openPlayer(t);
+  await tap(page, W / 2, H / 2);
+  const bar = await page.locator('.ap-timeline').boundingBox();
+  await page.mouse.move(bar.x + bar.width * 0.5, bar.y + bar.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bar.x + bar.width * 0.75, bar.y + bar.height / 2, {steps: 4});
+  assert.equal(await page.locator('.ap-bubble').isVisible(), true);
+  assert.match(await page.locator('.ap-bubble').textContent(), /^0:0[3-5]$/, 'three quarters of a 6 s file');
+  await page.mouse.up();
+  assert.equal(await page.locator('.ap-bubble').isVisible(), false);
+  assert.equal(await page.locator('.ap-thumb').isVisible(), true);
 });
 
 test('leaving full screen (Android back) closes the open menu first, does nothing while locked, then closes the player', options, async t => {
@@ -186,9 +226,51 @@ test('audio and subtitle menus switch tracks and remember the choice', options, 
   await page.waitForFunction(() => document.querySelector('.ap .astra-subs-zone.bottom')?.textContent === 'Hello from Astra', null, {timeout: 8000});
   const size = () => page.evaluate(() => parseFloat(document.querySelector('.ap-subs').style.getPropertyValue('--sub-size')));
   const small = await size();
+  await page.getByRole('tab', {name: 'Style'}).click();
+  assert.equal(await page.locator('.ap-rail.languages').count(), 0, 'Style is a tab of its own');
   await page.click('[aria-label="Size up"]');
   assert.ok(await size() > small, 'the size step applies at once');
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('astra.v2.player')).subtitleLanguage), 'en');
+  // A tap redraws the menu; where it was scrolled stays put.
+  const scrolled = await page.evaluate(() => { const el = document.querySelector('.ap-modal-body'); el.scrollTop = 1e4; return el.scrollTop; });
+  await page.click('[aria-label="Size down"]');
+  assert.equal(await page.evaluate(() => document.querySelector('.ap-modal-body').scrollTop), scrolled);
+  assert.equal(await page.locator('.ap-swatch[aria-label="Yellow"]').count(), 1, 'colours are named');
+});
+
+test('sound turned off shows a chip that turns it back on; the title does not jump on pause; locked shows progress', options, async t => {
+  const {page} = await openPlayer(t);
+  assert.equal(await page.locator('.ap-muted').isVisible(), false, 'nothing while the sound is on');
+  await page.evaluate(() => { document.querySelector('.ap-video').volume = 0; });
+  await page.waitForSelector('.ap-muted', {state: 'visible'});
+  await page.click('.ap-muted');
+  assert.deepEqual(await page.evaluate(() => { const v = document.querySelector('.ap-video'); return [v.muted, v.volume]; }), [false, 1]);
+  await page.waitForSelector('.ap-muted', {state: 'hidden'});
+
+  await tap(page, W / 2, H / 2);
+  const titleY = () => page.evaluate(() => document.querySelector('.ap-title').getBoundingClientRect().top);
+  const playing = await titleY();
+  await page.evaluate(() => document.querySelector('.ap-video').pause());
+  await page.waitForFunction(() => document.querySelector('.ap').classList.contains('paused'));
+  assert.equal(await titleY(), playing, 'the Via line keeps its room');
+  await page.evaluate(() => document.querySelector('.ap-video').play());
+
+  await page.evaluate(() => astraLab.screen.setLocked(true));
+  await tap(page, W / 2, H / 2);
+  await page.waitForTimeout(400);
+  assert.ok(await page.evaluate(() => new DOMMatrix(getComputedStyle(document.querySelector('.ap-lock-track div')).transform).a) > 0, 'the lock track follows playback');
+});
+
+test('an episode that is not out yet says so, and Next does not play it', options, async t => {
+  const {page} = await openPlayer(t, {next: {label: 'S1 E3', title: 'Later', hasAired: false, status: 'Out 3 Nov'}});
+  const nexts = await page.evaluate(() => { window.__nexts = 0; astraLab.screen.addEventListener('next', () => window.__nexts++); astraLab.screen.renderNext(); return document.querySelector('.ap-next').textContent; });
+  assert.match(nexts, /Out 3 Nov/);
+  assert.equal(await page.locator('.ap-next-play').getAttribute('aria-label'), 'Play S1 E3, Later');
+  assert.equal(await page.locator('.ap-next-play').isDisabled(), true);
+  await tap(page, W / 2, H / 2);
+  await page.click('.ap-actions [aria-label="Next episode"]');
+  assert.match(await page.locator('.ap-feedback').textContent(), /S1 E3 is not out yet/);
+  assert.equal(await page.evaluate(() => window.__nexts), 0);
 });
 
 test('skip intro appears inside the segment and jumps past it', options, async t => {
@@ -243,6 +325,11 @@ test('the player follows the phone by default; portrait fits subtitles to the pi
   await page.evaluate(() => astraLab.screen.showControls());
   await page.locator('.ap-top [aria-label="Rotate"]').click();
   assert.equal(await page.evaluate(() => window.__locks.at(-1)), 'landscape');
+  await page.waitForFunction(() => document.querySelector('.ap-feedback').textContent === 'Landscape');
+  // Where the screen cannot be turned, the button says so instead of claiming it turned.
+  await page.evaluate(() => { screen.orientation.lock = () => Promise.reject(new DOMException('no', 'NotSupportedError')); astraLab.screen.showControls(); });
+  await page.locator('.ap-top [aria-label="Rotate"]').click();
+  await page.waitForFunction(() => /cannot be turned/.test(document.querySelector('.ap-feedback').textContent));
   assert.deepEqual(errors, []);
 });
 
