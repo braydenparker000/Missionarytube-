@@ -216,8 +216,12 @@ export class App {
   play(options) {
     if (this.player) return this.playNow(options);
     // First play of the visit: the engine is still loading (the tap's user
-    // activation lasts long enough for full screen once it has).
-    this.loadPlayer().then(() => this.playNow(options), () => toast('The player could not load. Check the connection.'));
+    // activation lasts long enough for full screen once it has). The player's
+    // black loading screen shows at once, so the tap is answered.
+    const veil = h('div', {class: 'player-veil', role: 'status', 'aria-label': 'Opening the player'}, h('div', {class: 'spinner'}));
+    this.root.append(veil);
+    this.loadPlayer().then(() => this.playNow(options), () => toast('The player could not load. Check the connection.'))
+      .finally(() => setTimeout(() => veil.remove(), 150));
   }
 
   playNow({meta, video = null, source, sources, startTime = 0}) {
