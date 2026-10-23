@@ -2184,6 +2184,43 @@ in 16 ms frames finds the player-to-library scene change already complete at the
 Without a window, the harness cannot time transitions frame by frame; device recordings remain the
 source for F07 and F48.
 
+### F91 — Popup rows, row taps, home toolbar, pause scene, transition start cost — `CONFIRMED_STATIC` (bytecode run) / `INFERRED` (performance)
+(a) `?PopupButton` sets `android:clickable=false`: it is the closed slot of a SubAA popup. The rows
+of an open shuffle or repeat menu are clickable. The port's rows inherited the slot's flag, so no
+option could be chosen; they are now clickable.
+
+(b) `ItemTrackLine2` is clickable and long-clickable in its style (the cover's line-2 actions). In a
+list it spans the row and took the taps, so only the art started a song. In list rows line 2 now
+forwards its tap and long press to the row.
+
+(c) `ListHeaderButton_scene_bottom_toolbar` makes the header buttons visible. The library home
+hides all but the menu in code, at the top and in the moveable toolbar. Search hides only its own
+button. The port applies the hidden set after each item scene.
+
+(d) The sw3dp `merge_topwaveseeklayout_extralayout` SceneParams for `pause`: `defaultScene` with
+`jumpVisibility=true`. `TopPause` defaults to invisible, 28 dp at scale 1.75; in `scene_playing`
+it is visible at scale 1. `TopPlay` in `scene_playing` is invisible, 50 dp, scale 0.75. A fade from
+INVISIBLE kept the view invisible during the fade in the port, so the button vanished on press; a
+fading view is now visible for the fade.
+
+(e) The library search panel has no backdrop behind its chips; rows scroll under it (the moveable
+toolbar's layering in search is the reference's).
+
+(f) Transition start cost (`INFERRED`, measured in Chromium at 4× CPU throttle):
+- The transition times match the reference (pageAnimTime 250, aaToTopLibAnimTime 250,
+  topLibToAAAnimTime 250, aaPosAnimTime 550, aaPosSettleAnimTime 650, libSearchAnimTime 150;
+  manual commit 250 and cancel 500 by default).
+- Every transition's first frame ran 100–170 ms, mostly binding and laying out rows. The clock
+  started before that frame, so the first 40–60 % of each animation was skipped.
+- `ValueAnimator.commitAnimationFrame` moves an animation's start past a long first frame. The
+  port's page, scene and tween clocks now start at their first frame and do the same
+  (`animClock`, `gesture.js`).
+- The leaving list of a page change takes over the shown rows instead of binding them again. The
+  playing track's list is built in idle time while the art shows. Prewarmed header rows load their
+  header and toolbar parts.
+- First frame now: swipe down from the player about 67 ms (was 150), album open and Back about 70
+  (were 130), category open about 100 (was 150).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
@@ -2290,6 +2327,7 @@ No status is device-verified.
 | F88 Player backdrop gradient | Built | The art's mapping onto the screen inferred (native renderer) |
 | F89 Transport glyph boxes; library button, settings tap-through, no local imports | Built | Disc colours are the skin's own; which skin the owner's device uses is open |
 | F90 Cast button, disabled fade, content alignment, category icons, one-line rows, badges | Built | Category meta text not compared (the reference harness leaves it empty) |
+| F91 Popup rows, row taps, home toolbar, pause scene, transition start cost | Built | Transition smoothness on the owner's device not measured |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 
