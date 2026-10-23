@@ -2221,6 +2221,14 @@ toolbar's layering in search is the reference's).
 - First frame now: swipe down from the player about 67 ms (was 150), album open and Back about 70
   (were 130), category open about 100 (was 150).
 
+(g) Enabled state on first bind (`INFERRED`): a DSP-bound control (`w:enablingParam`) shows its
+first state at once. The port faded `platform_fx_button` (`dsp_has_platform_fx` false,
+disabledAlpha 0) out over 250 ms each time the EQ page loaded, which read as a flash.
+
+(h) Scene target frames are the laid-out frames (`View.getLeft/getTop`). Translations end at 0 when
+a scene starts. The port measured targets with the current translation included. The navbar,
+scrolled away by the moveable toolbar (478 px), opened the player 478 px low, off screen.
+
 ### F92 — The AutoEq preset database — `CONFIRMED_STATIC` (bytecode run, asset read) / `INFERRED` where marked
 (a) `assets/auto_eq.db` is SQLite: `eq_presets(_id, name, meta, parametric, data_blob)`, 17,703 rows.
 That is 8,853 graphic and 8,850 parametric presets, over 6,033 headphone names and 49 measurement
