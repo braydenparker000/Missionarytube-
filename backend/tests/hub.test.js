@@ -137,3 +137,17 @@ test('Server reports schedule status as unverifiable without treating connectivi
   assert.equal(schedule(),'Schedule status cannot be verified from this page.');
  }
 });
+
+test('Poweramp opens the new player right after the chats, and old favorites follow it',async()=>{
+ const {apps,loadPreferences}=await import('../../frontend/assets/hub.js');
+ assert.deepEqual(apps.slice(0,4).map(a=>a.id),['jarvis','muse','quick-ai','poweramp']);
+ assert.equal(apps.find(a=>a.id==='poweramp').href,'/claude-player/');
+ assert.equal(apps.some(a=>a.href==='/drawercast/'),false);
+ const saved=new Map(),previous=globalThis.localStorage;
+ globalThis.localStorage={getItem:k=>saved.get(k)??null};
+ try{
+  assert.deepEqual(loadPreferences().favorites,['jarvis','poweramp']);
+  saved.set('jarvis.preferences.v1',JSON.stringify({favorites:['drawercast','guitar','poweramp','gone']}));
+  assert.deepEqual(loadPreferences().favorites,['poweramp','guitar']);
+ }finally{if(previous===undefined)delete globalThis.localStorage;else globalThis.localStorage=previous;}
+});
