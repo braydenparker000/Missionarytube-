@@ -98,4 +98,11 @@ ff "${video[@]}" $(tone 440) -i "$work/en.srt" -map 0:v -map 1:a -map 2:s "${x26
   -metadata:s:s:0 language=eng -live 1 -cluster_time_limit 1000 "$out/nocues.mkv"
 node "$(dirname "$0")/unknown-size.mjs" "$out/nocues.mkv" "$out/live.mkv"
 
+# Only TrueHD audio: no sound is possible in a browser ("Play without sound").
+ff "${video[@]}" $(tone 880) -map 0:v -map 1:a "${x264[@]}" -c:a truehd -strict -2 -metadata:s:a:0 language=eng -metadata:s:a:0 title="TrueHD 7.1" "$out/truehd-only.mkv"
+
+# MPEG-TS (unpacked by Astra) and AVI (Mediabunny cannot read it; the software decoder can).
+ff "${video[@]}" $(tone 440) -map 0:v -map 1:a "${x264[@]}" -c:a aac -b:a 64k -f mpegts "$out/stream.ts"
+ff "${video[@]}" $(tone 440) -map 0:v -map 1:a "${x264[@]}" -bf 0 -c:a mp3 -b:a 64k "$out/h264.avi"
+
 ls -l "$out"

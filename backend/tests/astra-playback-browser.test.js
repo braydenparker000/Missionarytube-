@@ -37,7 +37,9 @@ async function tones(page, low = 440, high = 880) {
     if (!window.__meter) {
       const ctx = new AudioContext(); await ctx.resume();
       const an = ctx.createAnalyser(); an.fftSize = 8192; an.smoothingTimeConstant = 0;
-      ctx.createMediaElementSource(v).connect(an); an.connect(ctx.destination);
+      // A MediaStream (the software decoder's output) is measured at the stream.
+      if (v.srcObject) ctx.createMediaStreamSource(v.srcObject).connect(an);
+      else { ctx.createMediaElementSource(v).connect(an); an.connect(ctx.destination); }
       window.__meter = {ctx, an, data: new Float32Array(an.frequencyBinCount)};
     }
     const {ctx, an, data} = window.__meter, bin = f => Math.round(f * an.fftSize / ctx.sampleRate);
@@ -127,18 +129,22 @@ test('hosts that block pages or ignore ranges fall back to Chrome with an honest
   }
 });
 
-test('HEVC on a browser without a decoder is refused up front, with the reason', options, async t => {
-  const {open} = await harness(t);
+test('HEVC without a browser decoder plays through the software decoder: picture, sound and seeking', options, async t => {
+  const {open, errors} = await harness(t);
   const page = await open('cors/hevc.mkv');
   await ready(page);
   const hevc = await page.evaluate(() => MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L93.B0"'));
   const s = await state(page);
-  if (hevc) assert.equal(s.mode, 'remux');
-  else {
-    assert.equal(s.mode, 'unsupported');
-    assert.match(s.reason, /cannot decode HEVC video/);
-    assert.match(await page.locator('#status').textContent(), /HEVC/);
-  }
+  if (hevc) { assert.equal(s.mode, 'remux'); return; }
+  assert.equal(s.mode, 'software');
+  assert.match(s.notes.join(' '), /decodes it in software/);
+  assert.equal(await page.evaluate(() => document.getElementById('video').videoWidth), 320);
+  const sound = await tones(page, 440, 880);
+  assert.ok(sound.low > sound.high + 10, `the 440 Hz track is heard (${JSON.stringify(sound)})`);
+  await page.evaluate(() => { document.getElementById('video').currentTime = 4; });
+  await page.waitForFunction(() => { const t = document.getElementById('video').currentTime; return t >= 3.9 && t < 5.9; }, null, {timeout: 15000});
+  await page.waitForFunction(() => document.getElementById('video').currentTime > 4.4, null, {timeout: 15000});
+  assert.deepEqual(errors, []);
 });
 
 test('seeking within and outside what is buffered keeps playing from the new position', options, async t => {
@@ -213,4 +219,42 @@ test('Matroska with clusters of unknown size goes to Chrome as-is, with a note',
   assert.match(s.notes.join(' '), /written like a live recording/);
   await page.evaluate(() => document.getElementById('video').play());
   await page.waitForFunction(() => document.getElementById('video').currentTime > 0.5, null, {timeout: 15000});
+});
+
+test('MPEG-TS starting after zero plays from 0:00 through Astra', options, async t => {
+  const {open, errors} = await harness(t);
+  const page = await open('cors/stream.ts');
+  await ready(page);
+  assert.equal((await state(page)).mode, 'remux');
+  const start = await page.evaluate(() => { const v = document.getElementById('video'); return {time: v.currentTime, from: v.buffered.start(0), duration: v.duration}; });
+  assert.ok(start.time < 0.1 && start.from < 0.1 && Math.abs(start.duration - 6) < 0.2, `shifted to start at zero (${JSON.stringify(start)})`);
+  await page.evaluate(() => document.getElementById('video').play());
+  await page.waitForFunction(() => document.getElementById('video').currentTime > 1, null, {timeout: 15000});
+  assert.deepEqual(errors, []);
+});
+
+test('when Astra\'s unpacking cannot decode the video, it switches to the software decoder before the first frame', options, async t => {
+  const {open, servers} = await harness(t);
+  const page = await open(null);
+  // Claim an HEVC decoder this browser does not have: the planner chooses the remux path, which then fails.
+  await page.evaluate(() => { const real = MediaSource.isTypeSupported.bind(MediaSource); MediaSource.isTypeSupported = type => /hvc1|hev1/.test(type) || real(type); });
+  const hevc = await page.evaluate(() => MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L93.B0"') && !!document.createElement('video').canPlayType('video/mp4; codecs="hvc1.1.6.L93.B0"'));
+  await page.evaluate(url => astraLab.play({url, autoplay: false}), servers.media + '/cors/hevc.mkv');
+  await page.waitForFunction(() => astraLab.player.mode === 'software' || document.getElementById('video').readyState >= 2, null, {timeout: 40000});
+  if (hevc) return; // a browser that really has HEVC plays it through Astra
+  const s = await state(page);
+  assert.equal(s.mode, 'software');
+  assert.match(s.notes.join(' '), /Switched to the software decoder/);
+  await page.waitForFunction(() => document.getElementById('video').readyState >= 2, null, {timeout: 30000});
+  await page.evaluate(() => document.getElementById('video').play());
+  await page.waitForFunction(() => document.getElementById('video').currentTime > 1, null, {timeout: 15000});
+});
+
+test('AVI, which Astra cannot unpack, goes to the software decoder: it plays or ends with an honest error, never a black screen', options, async t => {
+  const {open} = await harness(t);
+  const page = await open('cors/h264.avi');
+  await page.waitForFunction(() => astraLab.player.mode === 'software', null, {timeout: 20000});
+  await page.waitForFunction(() => document.getElementById('video').readyState >= 2 || astraLab.player.log.some(l => l.kind === 'error'), null, {timeout: 40000});
+  const end = await page.evaluate(() => ({ready: document.getElementById('video').readyState >= 2, errors: astraLab.player.log.filter(l => l.kind === 'error').map(l => l.detail)}));
+  if (!end.ready) assert.match(JSON.stringify(end.errors), /could not (show a picture|continue)/);
 });

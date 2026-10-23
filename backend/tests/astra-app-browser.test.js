@@ -49,7 +49,7 @@ test('Home shows the hero and rows; a poster opens details; back walks back to H
   assert.equal(await page.locator('.details').getByText('null', {exact: true}).count(), 0);
   await page.click('.play-btn');
   await page.waitForSelector('.stream-card');
-  assert.deepEqual(await page.locator('.stream-name').allTextContents(), ['Fixture 1080p', 'Fixture MP4', 'Fixture Torrent']);
+  assert.deepEqual(await page.locator('.stream-name').allTextContents(), ['Fixture Web', 'Fixture 1080p', 'Fixture MP4', 'Fixture Torrent']);
   await page.goBack();
   await page.waitForFunction(() => astra.stack.length === 1);
   await page.goBack();
@@ -65,6 +65,7 @@ test('playing a stream saves progress; Continue Watching resumes it', options, a
   await page.click('.play-btn');
   await page.locator('.stream-card', {hasText: 'Fixture 1080p'}).click();
   await page.waitForFunction(() => document.querySelector('.ap-video')?.currentTime > 1, null, {timeout: 20000});
+  assert.equal(await page.locator('.ap-via').textContent(), 'Via Fixture Fixture 1080p', 'the tapped stream plays');
   // The fixture is 6 s; record a position on a long title as the player would.
   await page.evaluate(() => astra.player.emit('progress', {time: 600, duration: 5400}));
   await page.click('.ap-video', {position: {x: 200, y: 400}}).catch(() => {});

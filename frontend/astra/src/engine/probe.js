@@ -34,8 +34,9 @@ export async function probe(url, {headers = {}, signal, onStatus = () => {}} = {
   });
   let format;
   try { format = await input.getFormat(); } catch (error) {
-    input.dispose(); source.close();
-    return {readable: true, info: null, error: new SourceError('format', 'This is not a video file Astra recognises.', String(error?.message || error))};
+    input.dispose();
+    // The source stays open: the software decoder reads formats Mediabunny does not (the caller closes it otherwise).
+    return {readable: true, source, info: null, error: new SourceError('format', 'This is not a video file Astra recognises.', String(error?.message || error))};
   }
   const container = String(format.name || '').toLowerCase();
   const tracks = await input.getTracks();
@@ -63,7 +64,12 @@ export async function probe(url, {headers = {}, signal, onStatus = () => {}} = {
 
   let layout = null, subtitles = [];
   if (container.includes('matroska') || container.includes('webm')) {
-    try { layout = await readLayout((s, e) => source.read(s, e), source.size); subtitles = subtitleTracks(layout); } catch {}
+    try {
+      layout = await readLayout((s, e) => source.read(s, e), source.size);
+      subtitles = subtitleTracks(layout);
+      const dv = layout.tracks.find(t => t.type === 1 && t.dolbyVision)?.dolbyVision;
+      if (dv && video[0]) video[0].dolbyVision = dv;
+    } catch {}
   } else if (/mp4|quicktime|mov/.test(container)) {
     try { subtitles = await readMp4Subtitles((s, e) => source.read(s, e), source.size); } catch {}
   }

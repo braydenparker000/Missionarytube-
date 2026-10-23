@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 
 const ROOT = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 const TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json',
-  '.mkv': 'video/x-matroska', '.mp4': 'video/mp4', '.webm': 'video/webm', '.srt': 'application/x-subrip', '.vtt': 'text/vtt', '.ass': 'text/x-ssa'};
+  '.mkv': 'video/x-matroska', '.mp4': 'video/mp4', '.ts': 'video/mp2t', '.avi': 'video/x-msvideo', '.webm': 'video/webm', '.srt': 'application/x-subrip', '.vtt': 'text/vtt', '.ass': 'text/x-ssa'};
 
 function serveFile(req, res, file, {cors}) {
   let stat;
@@ -88,6 +88,7 @@ function addonResponse(path, media, site, requests = []) {
   }
   m = /^\/stream\/(movie|series)\/([^/]+)\.json$/.exec(path);
   if (m) return json({streams: [
+    {name: 'Fixture\nWeb', title: 'Opens a web page', externalUrl: 'https://example.test/watch'}, // listed first: card and source numbering must still match
     {name: 'Fixture\n1080p', title: 'Multi-audio MKV\n💾 0.3 MB', url: `${media}/cors/multi-audio.mkv`, behaviorHints: {bingeGroup: 'fixture-mkv'}},
     {name: 'Fixture\nMP4', title: 'Single-track MP4', url: `${media}/cors/single.mp4`},
     {name: 'Fixture\nTorrent', title: 'Needs debrid', infoHash: 'a'.repeat(40)},

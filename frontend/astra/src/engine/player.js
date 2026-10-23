@@ -9,6 +9,8 @@ import {probe, describeInfo} from './probe.js';
 import {planPlayback, audioLabel, subtitleLabel} from './plan.js';
 import {mseSupports, nativeCanPlay, canEncodeAudio, deviceReport} from './capabilities.js';
 import {RemuxSession} from './remux.js';
+import {SoftwareSession, softwareAudio, SOFTWARE_VIDEO} from './software.js';
+import {HttpSource} from './http-source.js';
 import {MkvSubtitleScanner, Mp4SubtitleScanner} from './embedded-subtitles.js';
 import {remoteFileHash, HASH_CHUNK} from './file-hash.js';
 import {decodeSubtitleBytes} from '../addons/subtitles.js';
@@ -65,16 +67,61 @@ export class AstraPlayer extends EventTarget {
     this.log = [];
     this.onVideoError = () => {
       const e = this.video.error;
-      if (!e || !this.mode) return;
-      this.fail(MEDIA_ERRORS[e.code] || 'Playback failed.', e.message);
+      if (!e || !this.mode || this.mode === 'software') return;
+      this.fail(MEDIA_ERRORS[e.code] || 'Playback failed.', e.message, {decode: e.code === 3 || e.code === 4});
     };
     video.addEventListener('error', this.onVideoError);
+    this.onFirstFrame = () => { this.started = true; };
+    video.addEventListener('loadeddata', this.onFirstFrame);
   }
 
   emit(type, detail) { this.dispatchEvent(new CustomEvent(type, {detail})); }
   status(text) { this.record('status', text); this.emit('status', text); }
   record(kind, detail) { this.log.push({t: Math.round(performance.now()), kind, detail}); if (this.log.length > 200) this.log.shift(); }
-  fail(message, detail) { this.record('error', {message, detail}); this.emit('error', {message, detail}); }
+  /**
+   * Reports a stop. Before the first frame, a decoding failure in Astra's
+   * own unpacking or in Chrome is retried once with the software decoder.
+   */
+  fail(message, detail, {decode = false} = {}) {
+    if (!this.started && decode && this.canFallBack()) { this.fallBack(message); return; }
+    this.record('error', {message, detail});
+    this.emit('error', {message, detail, plan: this.plan});
+  }
+
+  canFallBack() {
+    const v = this.info?.video?.[0];
+    return !this.fellBack && ['remux', 'native'].includes(this.mode) && this.caps?.software && !!this.info && (!v || SOFTWARE_VIDEO.has(v.codec)) && this.readable;
+  }
+
+  async fallBack(reason) {
+    const id = this.load_, at = this.video.currentTime || this.startTime || 0;
+    this.fellBack = true;
+    this.record('fallback', reason);
+    this.status('Switching to the software decoder…');
+    this.scanner?.stop(); this.scanner = null;
+    this.session?.destroy(); this.session = null;
+    this.video.removeAttribute('src');
+    try { this.video.load(); } catch {}
+    try {
+      if (!this.probed?.source || this.probed.source.closed) {
+        const source = new HttpSource(this.url, {headers: this.headers});
+        await source.open(this.abort?.signal);
+        this.probed = {...this.probed, source};
+      }
+      if (id !== this.load_) return;
+      this.mode = 'software';
+      this.plan = {...this.plan, mode: 'software', notes: [...(this.plan?.notes || []), `Switched to the software decoder: ${reason}`]};
+      await this.startSoftware(at);
+      if (id !== this.load_) return;
+      this.emit('tracks');
+      this.video.play().catch(() => {});
+      this.emit('ready', this.plan);
+    } catch (error) {
+      if (id !== this.load_) return;
+      this.record('error', {message: reason, detail: String(error?.message || error)});
+      this.emit('error', {message: reason, detail: String(error?.message || error), plan: this.plan});
+    }
+  }
 
   /**
    * @param {{url: string, headers?: object, startTime?: number, autoplay?: boolean, prefs?: object, subtitles?: Array}} options
@@ -82,6 +129,7 @@ export class AstraPlayer extends EventTarget {
   async load({url, headers = {}, startTime = 0, autoplay = false, prefs = {}, subtitles = []}) {
     const id = ++this.load_;
     this.reset();
+    Object.assign(this, {url, headers, startTime, started: false, fellBack: false});
     const languages = prefs.languages || preferredLanguages();
     const controller = new AbortController();
     this.abort = controller;
@@ -91,14 +139,22 @@ export class AstraPlayer extends EventTarget {
       this.probed = probed;
       this.info = probed.info;
       this.fileFacts(id, url, headers, probed, controller.signal);
-      const caps = {mse: mseSupports, native: nativeCanPlay, opusEncode: await canEncodeAudio('opus')};
+      const caps = this.caps = {mse: mseSupports, native: nativeCanPlay, opusEncode: await canEncodeAudio('opus'), software: typeof WebAssembly === 'object' && typeof MediaStream === 'function'};
+      this.readable = probed.readable && !probed.adaptive;
       this.plan = planPlayback(probed, caps, {...prefs, languages, requiresHeaders: Object.keys(headers).length > 0});
       this.mode = this.plan.mode;
       this.record('plan', {mode: this.mode, notes: this.plan.notes, reason: this.plan.reason});
       if (this.mode === 'unsupported') { probed.source?.close(); this.fail(this.plan.reason); return this.plan; }
-      if (this.mode !== 'remux') { probed.source?.close(); probed.input?.dispose(); }
+      if (this.mode !== 'remux' && this.mode !== 'software') { probed.source?.close(); probed.input?.dispose(); }
       this.status(this.mode === 'remux' ? 'Preparing playback…' : 'Starting…');
-      if (this.mode === 'remux') await this.startRemux(startTime, languages);
+      if (this.mode === 'remux') {
+        try { await this.startRemux(startTime, languages); } catch (error) {
+          if (id !== this.load_) return;
+          if (!this.canFallBack()) throw error;
+          await this.fallBack(String(error?.message || error));
+          return this.plan;
+        }
+      } else if (this.mode === 'software') await this.startSoftware(startTime);
       else if (this.mode === 'hls') await this.startHls(url, headers, startTime);
       else if (this.mode === 'dash') await this.startDash(url, startTime);
       else await this.startNative(url, startTime);
@@ -127,18 +183,49 @@ export class AstraPlayer extends EventTarget {
     this.selectedAudio = plan.audio?.track.id ?? null;
     const session = new RemuxSession(this.video, {info, video: plan.video, audio: plan.audio});
     session.addEventListener('status', e => this.status(e.detail));
-    session.addEventListener('error', e => this.fail(e.detail?.message || 'Playback stopped.', String(e.detail?.stack || e.detail)));
+    session.addEventListener('error', e => this.fail(e.detail?.message || 'Playback stopped.', String(e.detail?.stack || e.detail), {decode: !e.detail?.kind}));
     this.session = session;
-    for (const o of plan.subtitleOptions) {
+    this.startScanner();
+    await session.start(startTime);
+    if (plan.subtitle) this.selectSubtitle(plan.subtitle.id);
+  }
+
+  /** Lists the file's own subtitle tracks and starts reading them from the shared cache. */
+  startScanner() {
+    const {plan, info, probed} = this;
+    if (this.scanner || !info) return;
+    if (!this.textTracks.some(t => t.kind === 'embedded')) for (const o of plan.subtitleOptions || []) {
       this.textTracks.push({id: o.track.id, label: o.label, language: o.track.language, kind: 'embedded', supported: o.supported, reason: o.reason, forced: o.track.forced, image: !!o.track.image});
     }
-    if (plan.subtitleOptions.some(o => o.supported)) {
+    if ((plan.subtitleOptions || []).some(o => o.supported) && probed?.source) {
       const onCues = (trackId, cues) => this.receiveCues(trackId, cues), onChange = () => this.subtitles.refresh();
       this.scanner = info.layout ? new MkvSubtitleScanner(probed.source, info.layout, info.subtitles, onCues, onChange)
-        : info.subtitles.some(s => s.samples) ? new Mp4SubtitleScanner(probed.source, info.subtitles, onCues, onChange) : null;
+        : info.subtitles?.some(s => s.samples) ? new Mp4SubtitleScanner(probed.source, info.subtitles, onCues, onChange) : null;
       this.scanner?.start();
     }
-    await session.start(startTime);
+  }
+
+  /** Software decoding through libmedia (see software.js). */
+  async startSoftware(startTime) {
+    const {plan, info, probed} = this;
+    probed.input?.dispose?.();
+    const session = new SoftwareSession(this.video, {source: probed.source});
+    session.addEventListener('status', e => this.status(e.detail));
+    session.addEventListener('error', e => { this.record('error', {message: 'software', detail: String(e.detail?.message || e.detail)}); this.emit('error', {message: 'The software decoder could not continue with this file.', detail: String(e.detail?.message || e.detail), plan: this.plan}); });
+    session.addEventListener('tracks', () => this.emit('tracks'));
+    this.session = session;
+    this.startScanner();
+    await session.start(startTime, {autoplay: false});
+    // Audio tracks as libmedia numbers them, labelled from the probe when it read the same file.
+    const streams = session.audioStreams();
+    const known = info?.audio || [];
+    this.audio = streams.map((s, i) => {
+      const track = known.length === streams.length ? known[i] : null;
+      const option = track && plan.audioOptions?.find(o => o.track === track);
+      const supported = track ? softwareAudio(track.codec) : true;
+      return {id: 'sw:' + s.id, stream: s.id, label: option?.label || s.title || languageName(s.language) || `Track ${i + 1}`, language: track?.language || s.language, supported, reason: supported ? '' : option?.reason, delivery: 'software'};
+    });
+    this.selectedAudio = this.audio.find(a => streams.find(s => s.id === a.stream)?.active)?.id ?? this.audio[0]?.id ?? null;
     if (plan.subtitle) this.selectSubtitle(plan.subtitle.id);
   }
 
@@ -198,6 +285,9 @@ export class AstraPlayer extends EventTarget {
   }
 
   receiveCues(trackId, cues) {
+    // Embedded cues are in file time; a remux session that starts the file at 0:00 shifts them too.
+    const shift = this.session?.offset || 0;
+    if (shift && /^(mkv|mp4):/.test(trackId)) for (const c of cues) { c.start -= shift; c.end -= shift; }
     if (!this.cues.has(trackId)) this.cues.set(trackId, []);
     this.cues.get(trackId).push(...cues);
     if (trackId === this.selectedSubtitle) this.subtitles.addCues(cues);
@@ -211,7 +301,8 @@ export class AstraPlayer extends EventTarget {
     if (!choice || !choice.supported || id === this.selectedAudio) return;
     this.selectedAudio = id;
     this.record('audio', choice.label);
-    if (this.session && choice.option) await this.session.setAudio({track: choice.option.track, delivery: choice.option.delivery});
+    if (this.session && choice.stream != null) await this.session.setAudioStream(choice.stream);
+    else if (this.session && choice.option) await this.session.setAudio({track: choice.option.track, delivery: choice.option.delivery});
     else if (this.hls) this.hls.audioTrack = choice.index;
     else if (this.dash) this.dash.setCurrentTrack(choice.track);
     else if (choice.native) for (const a of this.audio) if (a.native) a.native.enabled = a === choice;
@@ -337,6 +428,7 @@ export class AstraPlayer extends EventTarget {
     this.load_++;
     this.reset();
     this.video.removeEventListener('error', this.onVideoError);
+    this.video.removeEventListener('loadeddata', this.onFirstFrame);
     this.subtitles.destroy();
   }
 }
