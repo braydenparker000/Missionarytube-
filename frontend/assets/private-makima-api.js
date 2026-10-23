@@ -1,3 +1,4 @@
+// Dormant: Makima (Grok) is hidden from the workspace (private-dormant-agents.js); kept working for a return.
 const uuid=v=>typeof v==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(v);
 const cursor=v=>typeof v==='string'&&/^\d{1,15}$/.test(v);
 const check=v=>{if(!v)throw Object.assign(Error('Invalid private Makima response'),{kind:'invalid'});};

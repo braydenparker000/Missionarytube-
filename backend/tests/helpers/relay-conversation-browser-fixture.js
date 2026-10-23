@@ -10,6 +10,7 @@ import {COMMENTS_URL} from '../../publications.js';
 import {SHARED_OBJECT} from '../../shared.js';
 import {RELAY_OWNER, RELAY_CALLBACK, RELAY_OWNER_SCOPE, RELAY_VERSION, challenge, hash, random} from '../../relay-common.js';
 import {createInterceptionCancellationTracker} from './browser-interception-cancellation.js';
+import {SHOW_DORMANT_KEY} from '../../../frontend/assets/private-dormant-agents.js';
 
 export const SITE = 'https://missionarytube.z13.web.core.windows.net';
 export const WORKER = 'https://jarvis-hub-api.braydenparker999.workers.dev';
@@ -115,7 +116,7 @@ export async function launchQualifiedBrowser(t) {
     args: ['--disable-background-networking', '--disable-component-update', '--disable-sync', '--no-first-run']});
 }
 
-export async function openConversationPage(browser, harness, {width = 390, height = 844, mobile = true, root = publicRoot, owner, clock = true, context: sharedContext} = {}) {
+export async function openConversationPage(browser, harness, {width = 390, height = 844, mobile = true, root = publicRoot, owner, clock = true, context: sharedContext, showDormant = true} = {}) {
   const liveAssets = process.env.JARVIS_LIVE_ASSETS === '1';
   const context = sharedContext || await browser.newContext({viewport: {width, height}, isMobile: mobile, hasTouch: mobile, serviceWorkers: 'block', offline: !liveAssets});
   const page = await context.newPage();
@@ -124,6 +125,10 @@ export async function openConversationPage(browser, harness, {width = 390, heigh
   const cdp = await context.newCDPSession(page), records = [], errors = [], unexpected = [], pending = new Set(), rules = [], releases = new Set();
   let closing = false;
   await cdp.send('Page.enable');
+  // The workspace tests also cover the dormant Lucy and Makima views
+  // (private-dormant-agents.js); showDormant false opens the default workspace.
+  if (showDormant) await cdp.send('Page.addScriptToEvaluateOnNewDocument', {source:
+    `if(location.origin===${JSON.stringify(SITE)})localStorage.setItem(${JSON.stringify(SHOW_DORMANT_KEY)},'1');`});
   if (owner) {
     const saved = JSON.stringify(JSON.stringify({device_token: owner.device_token, device_id: owner.device.id}));
     const script = await cdp.send('Page.addScriptToEvaluateOnNewDocument', {source:
