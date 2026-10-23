@@ -58,7 +58,22 @@ export class StreamsScreen {
 
   get id() { return this.video ? this.video.id : this.meta.id; }
 
-  destroy() { this.abort?.abort(); this.offAddons?.(); }
+  destroy() { this.destroyed = true; this.abort?.abort(); this.offAddons?.(); }
+
+  /**
+   * The title's full details, when the screen was opened from a saved card
+   * (Continue Watching): Play then has the episode list for the next episode,
+   * and the episode's own title and art replace the saved ones.
+   */
+  updateMeta(meta) {
+    if (!meta || this.destroyed) return;
+    this.meta = {...this.meta, ...meta, videos: meta.videos || this.meta.videos || []};
+    const full = this.video && this.meta.videos.find(v => v.id === this.video.id);
+    if (full && (full.title !== this.video.title || full.thumbnail !== this.video.thumbnail)) {
+      this.video = full;
+      this.el.querySelector('.streams-hero')?.replaceWith(this.hero());
+    }
+  }
 
   /**
    * An add-on's label on this screen: its manifest's name when known, else the

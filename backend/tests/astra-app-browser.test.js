@@ -179,6 +179,20 @@ test('a failing stream add-on shows an error row with Retry for that add-on only
   assert.deepEqual(errors, []);
 });
 
+test('Continue Watching opens its streams at once while the full details load; a second tap opens nothing more', options, async t => {
+  const {page, servers, errors} = await openApp(t, {storage: {'astra.v2.progress': {'movie:tt1000002|tt1000002': progressEntry(2, 600, 5400)}}});
+  await page.waitForSelector('.cw-card');
+  servers.control.metaDelay = 1500;
+  const card = page.locator('.cw-card').first();
+  await card.click();
+  await page.waitForSelector('.streams .resume-pill', {timeout: 1000}); // well before the details answer
+  await card.click({force: true, timeout: 1000}).catch(() => {}); // lands on the screen opening over it
+  assert.equal(await page.evaluate(() => astra.stack.length), 1);
+  await page.waitForFunction(() => /synthetic title/.test(astra.stack[0]?.screen.meta.description || ''), null, {timeout: 6000});
+  await page.locator('.stream-card', {hasText: 'Fixture 1080p'}).waitFor();
+  assert.deepEqual(errors, []);
+});
+
 test('Details paints at once from the card and keeps its hero art when the full details arrive', options, async t => {
   const {page, servers, errors} = await openApp(t);
   await page.waitForSelector('.hero-slide');

@@ -173,23 +173,18 @@ export class HomeScreen {
    * a time: a second tap while it loads does nothing, and if the viewer moved
    * on meanwhile (another tab, another screen) the streams are not pushed.
    */
-  async resume(e, m, card, startTime) {
+  /**
+   * Opens a Continue Watching entry's streams at once, from what was saved
+   * with it; the full details (the episode list the player's next episode
+   * needs) arrive behind the screen. A second tap while it opens does nothing.
+   */
+  resume(e, m, card, startTime) {
     if (this.resuming) return;
     this.resuming = true;
-    const tab = this.app.tab, depth = this.app.stack.length;
-    card?.classList.add('busy');
-    card?.setAttribute('aria-busy', 'true');
-    try {
-      // Without the add-ons the saved card still plays: streams are asked for by id.
-      const meta = await this.app.meta(m).catch(() => ({...m, videos: []}));
-      if (this.app.tab !== tab || this.app.stack.length !== depth) return;
-      const video = e.videoId && e.videoId !== m.id ? meta.videos.find(v => v.id === e.videoId) || {id: e.videoId, season: e.season, episode: e.episode, title: e.title || ''} : null;
-      this.app.openStreams(meta, video, {startTime});
-    } finally {
-      this.resuming = false;
-      card?.classList.remove('busy');
-      card?.removeAttribute('aria-busy');
-    }
+    setTimeout(() => { this.resuming = false; }, 600);
+    const video = e.videoId && e.videoId !== m.id ? {id: e.videoId, season: e.season, episode: e.episode, title: e.title || '', thumbnail: e.thumbnail} : null;
+    const screen = this.app.openStreams(m, video, {startTime});
+    this.app.meta(m).then(meta => screen.updateMeta?.(meta), () => {}); // without the add-ons the saved card still plays: streams are asked by id
   }
 
   continueCard(e) {

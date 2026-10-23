@@ -195,8 +195,6 @@ body:has(.astra.has-screen) .toast { bottom: calc(var(--safe-bottom) + 16px); }
 .cw-text small { font-size: 10px; font-weight: 600; color: var(--text-2); }
 .cw-text b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cw-text span { font-size: 10px; opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cw-card.busy .cw-art { transform: scale(.97); }
-.cw-card.busy .cw-art::after { content: ''; position: absolute; top: 50%; left: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; border: 3px solid rgba(255,255,255,.2); border-top-color: var(--accent); animation: spin 1s linear infinite; }
 .cw-progress { position: absolute; left: 9px; right: 9px; bottom: 4px; height: 3px; border-radius: 2px; background: rgba(0,0,0,.3); overflow: hidden; }
 .cw-progress i, .episode-progress i, .resume-bar i { display: block; height: 100%; background: var(--accent); transform-origin: left; }
 
