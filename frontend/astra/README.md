@@ -30,6 +30,12 @@ client for browser-only details. Both are GPL; nothing is copied from either.
 - Four tabs (Home, Search, Library, Settings) stay alive, so switching keeps
   each one's scroll; the floating nav shrinks to icons once a page scrolls.
   Back from another tab returns to Home; back on Home leaves the app.
+  Every open screen, sheet and menu is one history entry (`back-stack.js`);
+  a screen opened while a menu is closing waits for that menu's entry to go,
+  and a reload on an open screen first returns the history to Home.
+- Long-press opens one menu (Android's own long-press is folded into it), and
+  the release of that press never taps an item. Sheets close with a drag on
+  their top, following the finger, or a quick flick.
 - **Home**: a hero of up to eight titles with art that turns every 8 s (or
   by swipe), Continue Watching, then one row per add-on catalog that needs no
   search text. Long-press any poster to save it or mark it watched.
@@ -175,6 +181,8 @@ portrait the picture is a band across the middle, with subtitles fitted to it.
 - `backend/tests/astra-player-browser.test.js`: the player screen at phone
   landscape size: gestures, hold, lock, back order, menus, skip; and in
   portrait: rotation settings, the rotate button, picture-in-picture.
+- `backend/tests/astra-shell-browser.test.js`: Android back in the awkward
+  cases, and long-press and sheet dragging with real touch input.
 - `backend/tests/astra-app-browser.test.js`: the app at phone portrait size
   against a fixture add-on (`backend/tests/helpers/astra-media-server.js`):
   Home, back, Continue Watching, the lift menu, Library, episodes, paging,

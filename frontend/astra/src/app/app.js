@@ -6,7 +6,7 @@ import {createStorage, importClassic, Addons, Library, Watched, Progress} from '
 import {fetchMeta, episodeCode, MANIFEST_TIMEOUT} from './content.js';
 import {swr, pruneCache} from './cache.js';
 import {fetchManifest} from '../addons/client.js';
-import {pushLayer} from './back-stack.js';
+import {pushLayer, startBackStack} from './back-stack.js';
 import {resolveDebrid} from '../addons/debrid.js';
 import {fetchSubtitles, subtitleAddons} from '../addons/subtitles.js';
 import {h} from '../ui/dom.js';
@@ -36,6 +36,7 @@ export class App {
     this.addonListeners = new Set();
     this.stack = [];
     this.screenTypes = screens;
+    startBackStack();
     this.build();
     this.reloadAddons();
     this.player = null; // loaded on first use (it brings the playback engine): see loadPlayer()
