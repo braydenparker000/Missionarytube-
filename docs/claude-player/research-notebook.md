@@ -2338,6 +2338,27 @@ too. That is a decode and an image bitmap per row scrolled in; external-memory G
 (e) The navbar's dynamic dimensions resolve once per attribute (they were resolved on every scroll
 step).
 
+### F95 — Waveforms that never loaded — `CONFIRMED` (the owner's index, read for counts only)
+(a) The owner's current index (generated 2026-10-22, 7,494 tracks) carries an inline waveform for
+every track:
+- base64, 668 characters, 500 bars;
+- all decode with `atob` and pass `decodeWave`;
+- none is flat or silent (about 15 very short tracks are mostly quiet).
+
+A random sample of 60 tracks played in the harness with this index all showed their waveform. The
+older per-track DCW1 files (`waveform/<id>`) now answer 404.
+
+(b) The gap was on the client. An index refresh makes new track records, but the player kept its
+queue's old ones. A queue built from an older snapshot (waveform files, no inline data) stayed
+without waveforms, and its playing track no longer matched the library lists' records, until the
+queue was rebuilt.
+- The player now takes the refreshed records by id (`adoptRecords`) for the playing list, the
+  Queue's entries and the list to return to. Playback goes on.
+- A waveform file that fails refreshes the index once a session, so a snapshot from before inline
+  waveforms heals without waiting for the 12-hour refresh.
+
+(c) Waveform accuracy and formatting stay with the index generator (the owner's plan: Muse).
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
@@ -2448,6 +2469,7 @@ No status is device-verified.
 | F92 AutoEq preset database | Built | Band locks and the 0 dB preamp inferred from the zip import |
 | F93 Header view pools, Back in search, time labels, play/pause change | Built | — |
 | F94 Large-library speed | Built | Measured in desktop Chromium at 4× throttle, not on the owner's device |
+| F95 Waveforms after an index refresh | Built | Waveform accuracy is the index generator's |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 

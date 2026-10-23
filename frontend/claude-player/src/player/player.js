@@ -123,6 +123,27 @@ export class Player {
     return this.queue[this.index] ?? null;
   }
 
+  /**
+   * The library's records after a change (an index refresh makes new ones):
+   * the playing list, the Queue's entries and the list to return to take
+   * their tracks' current records by id, so the playing track shows the
+   * index's new data (its waveform) and matches the library's lists again.
+   * Playback goes on.
+   */
+  adoptRecords(byId) {
+    const swap = t => (t && byId.get(t.id)) || t;
+    const before = this.track;
+    if (this.queue.some(t => t && byId.get(t.id) && byId.get(t.id) !== t)) this.queue = this.queue.map(swap);
+    for (const e of this.entries) e.track = swap(e.track);
+    if (this.savedNP?.queue) this.savedNP.queue = this.savedNP.queue.map(swap);
+    const now = this.track;
+    if (!now || now === before) return;
+    // Runtime data the old record had loaded stays with the track.
+    now.art ??= before?.art;
+    this.ctx.library?.ensureWave?.(now);
+    this.post('msg_player_track_changed', {track: now, meta: true});
+  }
+
   /** The Queue's tracks in entry order (the Queue list). */
   get userQueue() {
     return this.entries.map(e => e.track);
