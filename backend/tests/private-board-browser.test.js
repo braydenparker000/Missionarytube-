@@ -30,7 +30,9 @@ test('shared board renders, paginates, accepts owner replies/decisions/tasks and
   await p.getByText('Group details',{exact:true}).click();await p.getByText('Shared tasks',{exact:true}).click();await p.locator('#board-task-title').fill('Synthetic shared task');await p.locator('#board-task-body').fill('Fixture scope only');await p.locator('#board-task-assignee').selectOption('makima');await p.getByRole('button',{name:'Create shared task',exact:true}).click();await p.getByRole('heading',{name:'Synthetic shared task',exact:true}).waitFor();
   assert.equal(obj.db.prepare('SELECT assignee FROM board_tasks WHERE title=?').get('Synthetic shared task').assignee,'makima');
   const output=process.env.PRIVATE_BOARD_EVIDENCE||'/tmp/private-board-evidence';await mkdir(output,{recursive:true});
-  for(const [width,height,name] of [[320,640,'mobile-320'],[390,560,'keyboard-space'],[1280,900,'desktop']]){await p.setViewportSize({width,height});assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));const composer=await p.locator('.board-composer').boundingBox();assert.ok(composer&&composer.y+composer.height<=height+1,'composer stays inside viewport');await p.screenshot({path:output+'/'+name+'.png'});}
+  for(const [width,height,name] of [[320,640,'mobile-320'],[390,560,'keyboard-space'],[1280,900,'desktop']]){await p.setViewportSize({width,height});
+  // The page sizes itself from a resize handler; measure once it has run.
+  await p.waitForFunction(h=>{const r=document.querySelector('.board-composer')?.getBoundingClientRect();return !!r&&r.bottom<=h+1;},height,{timeout:5000}).catch(()=>{});assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));const composer=await p.locator('.board-composer').boundingBox();assert.ok(composer&&composer.y+composer.height<=height+1,'composer stays inside viewport');await p.screenshot({path:output+'/'+name+'.png'});}
   assertBrowserContained(phone);
  }finally{await closeConversationHarness(browser,h,pages);}
 });
