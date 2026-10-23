@@ -24,9 +24,13 @@
 //   graphic tone presets are listed beside the extracted graphic ones.
 // - Default presets per mode (Graphic / Parametric), AutoEq text files and
 //   the AutoEq project zip (AutoEq presets) (F82).
+// - The reference's AutoEq database (F92, auto-eq-db.js): 17,703 AutoEq
+//   presets, loaded on first use; an imported AutoEq zip preset of the same
+//   headphone and source takes its place.
 // Device assignment and per-device AutoEq suggestions are not built (outputs
 // are not identifiable on the web).
 import {BAND_RANGE_DB, PREAMP_RANGE_DB, paramJson, bandLabel} from './dsp.js';
+import {AutoEqDb} from './auto-eq-db.js';
 
 const STORE = 'cp-eq-presets';
 export const TYPE_USER = 0, TYPE_BUILT_IN = 10, TYPE_AUTO_EQ = 20;
@@ -58,11 +62,28 @@ export class EqPresets {
     this.ctx = ctx;
     this.data = {users: [], overrides: {}, locks: {}, current: null, autosave: false, songs: {}, base: undefined};
     try { Object.assign(this.data, JSON.parse(localStorage.getItem(STORE) ?? '{}') ?? {}); } catch { /* defaults */ }
+    // The AutoEq list (17k presets) builds again only when its names or members change.
+    this.aeqVer = 0;
+    this.autoEqDb = new AutoEqDb();
     ctx.eqPresets = this;
+    // A chosen or song-bound database preset needs the database to load.
+    const ids = [this.data.current, this.data.base, ...Object.values(this.data.songs ?? {})];
+    if (ids.some(id => this.isDbId(id))) this.loadAutoEq();
   }
 
   save() {
     try { localStorage.setItem(STORE, JSON.stringify(this.data)); } catch { /* storage unavailable */ }
+  }
+
+  /** An AutoEq id that no imported zip preset holds (a database preset's). */
+  isDbId(id) {
+    return typeof id === 'string' && id.startsWith('a:') && !(this.data.autoeq ?? []).some(a => a.id === id);
+  }
+
+  /** Loads the AutoEq database once; the preset lists update when it is in. */
+  loadAutoEq() {
+    if (this.autoEqDb.loaded) return Promise.resolve(true);
+    return this.autoEqDb.load().then(() => { this.aeqVer++; this.ctx.bus.post('bus_dsp', 'msg_dsp_eq_changed', this, {presets: true}); return true; }, () => false);
   }
 
   changed() {
@@ -86,20 +107,44 @@ export class EqPresets {
     return [...defaults, ...this.data.users.map(u => ({...u, type: TYPE_USER, parametric: !!u.params?.parametric}))];
   }
 
-  /** AutoEq presets (imported from the AutoEq project zip); line 2 is their source. */
+  /**
+   * AutoEq presets: the imported AutoEq zip's and the database's (an
+   * imported one replaces the database's of its id), by name (COLLATE
+   * NOCASE, mf1.R); line 2 is their source. Parameters are read when used
+   * (a database preset's decode then).
+   */
   autoEqs() {
-    return (this.data.autoeq ?? []).map(a => ({...a, type: TYPE_AUTO_EQ, params: this.data.overrides[a.id] ?? a.params, base: a.params, parametric: !!a.params?.parametric, line2: a.source || null}))
-      .map(p => (this.data.names?.[p.id] ? {...p, name: this.data.names[p.id]} : p));
+    if (this._aeq?.ver === this.aeqVer) return this._aeq.list;
+    const P = this, names = this.data.names ?? {}, db = this.autoEqDb;
+    const item = (id, name, source, base) => ({
+      id, type: TYPE_AUTO_EQ, name: names[id] ?? name, source, line2: source || null,
+      get base() { return base(); },
+      get params() { return P.data.overrides[id] ?? base(); },
+      get parametric() { return !!this.params?.parametric; },
+    });
+    const list = (this.data.autoeq ?? []).map(a => item(a.id, a.name, a.source, () => a.params));
+    if (db.loaded) {
+      const taken = new Set([...list.map(p => p.id), ...(this.data.removedAutoEq ?? [])]);
+      for (const d of db.list) if (!taken.has(d.id)) list.push(item(d.id, d.name, d.source, () => db.params(d)));
+    }
+    const key = p => p.name.replace(/[A-Z]+/g, c => c.toLowerCase());
+    const keyed = list.map((p, i) => [key(p), i, p]);
+    keyed.sort((x, y) => (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : x[1] - y[1]));
+    const sorted = keyed.map(x => x[2]);
+    this._aeq = {ver: this.aeqVer, list: sorted, byId: new Map(sorted.map(p => [p.id, p]))};
+    return sorted;
   }
 
   /** All presets: user, built-in then AutoEq, each by name. */
   all() {
     const byName = (a, b) => a.name.localeCompare(b.name, undefined, {sensitivity: 'base', numeric: true});
-    return [...this.users().sort(byName), ...this.builtIns().sort(byName), ...this.autoEqs().sort(byName)];
+    return [...this.users().sort(byName), ...this.builtIns().sort(byName), ...this.autoEqs()];
   }
 
   get(id) {
-    return this.all().find(p => p.id === id) ?? null;
+    if (typeof id !== 'string') return null;
+    if (id.startsWith('a:')) { this.autoEqs(); return this._aeq.byId.get(id) ?? null; }
+    return [...this.users(), ...this.builtIns()].find(p => p.id === id) ?? null;
   }
 
   get current() {
@@ -265,6 +310,7 @@ export class EqPresets {
       u.name = name;
     }
     if (this.data.current === id) this.ctx.dsp.values.dsp_eq_preset_name = name;
+    this.aeqVer++;
     this.changed();
   }
 
@@ -272,11 +318,15 @@ export class EqPresets {
   remove(ids) {
     const drop = new Set(ids.filter(id => /^[ua]:/.test(id)));
     if (!drop.size) return 0;
+    // Database presets stay deleted (their eq_presets rows go).
+    const fromDb = [...drop].filter(id => this.isDbId(id));
+    if (fromDb.length) this.data.removedAutoEq = [...new Set([...(this.data.removedAutoEq ?? []), ...fromDb])];
     this.data.users = this.data.users.filter(u => !drop.has(u.id));
     if (this.data.autoeq) this.data.autoeq = this.data.autoeq.filter(a => !drop.has(a.id));
     for (const id of drop) delete this.data.locks[id];
     if (drop.has(this.data.current)) this.data.current = null;
     for (const [t, id] of Object.entries(this.data.songs ?? {})) if (drop.has(id)) delete this.data.songs[t];
+    this.aeqVer++;
     this.changed();
     return drop.size;
   }
@@ -284,7 +334,7 @@ export class EqPresets {
   /** Restore Defaults for the current preset. */
   restore(id = this.data.current) {
     if (!id) return;
-    if (/^[ba]:/.test(id)) { delete this.data.overrides[id]; if (this.data.names) delete this.data.names[id]; }
+    if (/^[ba]:/.test(id)) { delete this.data.overrides[id]; if (this.data.names) delete this.data.names[id]; this.aeqVer++; }
     else if (id.startsWith('d:')) {
       // A default preset is a user preset: its gains go to zero.
       const q = this.get(id)?.params;
@@ -308,6 +358,7 @@ export class EqPresets {
   restoreBuiltIns() {
     this.data.overrides = {};
     if (this.data.names) for (const id of Object.keys(this.data.names)) if (/^[ba]:/.test(id)) delete this.data.names[id];
+    this.aeqVer++;
     this.save();
     if (/^[ba]:/.test(this.data.current ?? '')) this.apply(this.data.current);
     else this.changed();
@@ -503,7 +554,7 @@ export class EqPresets {
       if (old >= 0) list[old] = item; else list.push(item);
       n++;
     }
-    if (n) this.changed();
+    if (n) { this.aeqVer++; this.changed(); }
     return n;
   }
 

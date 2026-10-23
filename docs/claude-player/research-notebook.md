@@ -2221,6 +2221,42 @@ toolbar's layering in search is the reference's).
 - First frame now: swipe down from the player about 67 ms (was 150), album open and Back about 70
   (were 130), category open about 100 (was 150).
 
+### F92 — The AutoEq preset database — `CONFIRMED_STATIC` (bytecode run, asset read) / `INFERRED` where marked
+(a) `assets/auto_eq.db` is SQLite: `eq_presets(_id, name, meta, parametric, data_blob)`, 17,703 rows.
+That is 8,853 graphic and 8,850 parametric presets, over 6,033 headphone names and 49 measurement
+sources (`meta`, e.g. "Crinacle 711 in-ear"). The AutoEqDbImporter (`ha.A`, `na.m2613`) copies every
+row with a name, meta and blob into `eq_presets` as type 20, ordered by name, parametric, meta.
+
+(b) The blob format:
+- A 36-byte header: "PaP" 1, a u16 record count + 2, a u16 parametric flag, and constant fields
+  (90, 1, 10000).
+- Graphic records are 12 bytes: u32 kind 0x5002, f32 gain dB, u32 Hz. Every graphic preset has the
+  same 32 frequencies, 20 Hz to 19,871 Hz. Gains run from −15 to +5.8 dB, the same +6 dB-shifted
+  scale as the AutoEq GraphicEQ text import (cy0.I).
+- Parametric records are 20 bytes: u32 kind (0x70 << 8 | type), f32 gain dB, u32 Hz, f32 Q, u32 ARGB
+  colour (0 = none). The types are 3 peak, 4 low shelf and 5 high shelf. Each preset has one low
+  shelf at 105 Hz, one high shelf at 10 kHz and 8 peaks.
+- No preamp is stored.
+
+(c) The list query (`mf1.w0`) runs in this order:
+- User (type 0), then Built-in (type 10).
+- Selected AutoEq: the current preset when it is type 20, except in assign mode (`R0`).
+- AutoEq: the rest, by `name COLLATE NOCASE`, with `LIMIT f3242`. That limit is 10,000 on a 64-bit
+  Android 11+ device whose display is over 1,000 px both ways, 5,000 on Android 9+, else 1,000.
+- The search and the Graphic / Parametric filters apply to every group.
+
+(d) Port:
+- `scripts/claude-player/extract-auto-eq.mjs` converts the database (read from scratch space) into
+  `model/auto-eq.json.gz`: 1.1 MB, a name and source per entry, gains in centi-dB.
+- `dsp/auto-eq-db.js` loads it on the first look at the AutoEq group, or at start when the current,
+  base or a song's preset is one of them. Presets decode when used.
+- Ids match the AutoEq zip import (`a:<source>/<name>[:p]`), so an imported preset replaces the
+  database's. Deleted ones stay deleted.
+- `INFERRED`: the bands are locked and the preamp is 0 dB, as for the zip import (ma).
+
+(e) Licence: the presets come from the AutoEq project (MIT), as the reference ships them. The owner
+asked for them in the port.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
@@ -2328,6 +2364,7 @@ No status is device-verified.
 | F89 Transport glyph boxes; library button, settings tap-through, no local imports | Built | Disc colours are the skin's own; which skin the owner's device uses is open |
 | F90 Cast button, disabled fade, content alignment, category icons, one-line rows, badges | Built | Category meta text not compared (the reference harness leaves it empty) |
 | F91 Popup rows, row taps, home toolbar, pause scene, transition start cost | Built | Transition smoothness on the owner's device not measured |
+| F92 AutoEq preset database | Built | Band locks and the 0 dB preamp inferred from the zip import |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 

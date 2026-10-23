@@ -16,6 +16,7 @@ import {fadeLevel} from '../view/drawables.js';
 import {GONE, VISIBLE, colorToCss} from '../res/values.js';
 import {animTime} from './topnav.js';
 import {VelocityTracker, Fling, MIN_FLING_DP, MAX_FLING_DP} from '../gesture.js';
+import {TYPE_AUTO_EQ} from '../dsp/eq-presets.js';
 
 const MENU = 'scene_button_menu', CLOSED = 'scene_button_menu_closed';
 const idOf = raw => (raw ? /^@\+?id\/(.+)$/.exec(raw)?.[1] ?? null : null);
@@ -429,6 +430,8 @@ export class PopupList extends FastLayout {
  * The label shows the current preset name (defaultTextOnNoState).
  */
 const EQ_FILTERS_STORE = 'cp-eq-preset-filters';
+// AutoEq rows a list shows (mf1.f3242 on a 64-bit Android 11+ device with a large display).
+const AUTO_EQ_LIMIT = 10000;
 const EQ_FILTERS_DEFAULT = 'g/user,g/built_in,g/auto_eq,t/graphic,t/parametric';
 
 export class EqPresetPopupListLayout extends PopupLayout {
@@ -475,8 +478,22 @@ export class EqPresetPopupListLayout extends PopupLayout {
     const out = [];
     if (f.has('g/user')) out.push({title: 'user_plural_adj_short', presets: P.users().filter(keep)});
     if (f.has('g/built_in')) out.push({title: 'builtin_presets_short', presets: P.builtIns().filter(keep)});
-    if (f.has('g/auto_eq')) out.push({title: 'auto_eq', presets: P.autoEqs().filter(keep)});
-    for (const s of out) s.presets.sort((x, y) => x.name.localeCompare(y.name, undefined, {sensitivity: 'base', numeric: true}));
+    if (f.has('g/auto_eq')) {
+      // The reference's AutoEq database loads with the first look; the sections fill in then.
+      if (!P.autoEqDb.loaded) P.loadAutoEq();
+      // Selected AutoEq (mf1 group 2): the current AutoEq preset; the AutoEq
+      // group leaves it out and shows at most 10,000 (mf1.f3242), by name.
+      const cur = P.current?.type === TYPE_AUTO_EQ ? P.current : null;
+      if (cur && keep(cur)) out.push({title: 'selected_auto_eq', presets: [cur], sorted: true});
+      const list = [];
+      for (const p of P.autoEqs()) {
+        if (p.id === cur?.id || !keep(p)) continue;
+        list.push(p);
+        if (list.length === AUTO_EQ_LIMIT) break;
+      }
+      out.push({title: 'auto_eq', presets: list, sorted: true});
+    }
+    for (const s of out) if (!s.sorted) s.presets.sort((x, y) => x.name.localeCompare(y.name, undefined, {sensitivity: 'base', numeric: true}));
     return out.filter(s => s.presets.length);
   }
 
