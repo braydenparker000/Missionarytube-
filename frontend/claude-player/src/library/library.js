@@ -164,6 +164,21 @@ export class Library {
     this.tracks = shown.filter(t => !(minMs && t.durationMs && t.durationMs < minMs) && !(noVideo && t.video));
     this.byId = new Map([...list, ...virtual].map(t => [t.id, t]));
     this.ctx.bus.post('bus_library', 'msg_library_changed', this, {count: this.tracks.length});
+    this.warmGroups();
+  }
+
+  /** The category views built in idle time, so the first search or category list finds them made. */
+  warmGroups() {
+    const idle = globalThis.requestIdleCallback;
+    if (!idle || this._warmQueued) return;
+    this._warmQueued = true;
+    const kinds = ['albums', 'artists', 'albumArtists', 'genres', 'composers', 'folders'];
+    const step = deadline => {
+      while (kinds.length && deadline.timeRemaining() > 4) this[kinds.shift()]();
+      if (kinds.length) idle(step, {timeout: 5000});
+      else this._warmQueued = false;
+    };
+    idle(step, {timeout: 5000});
   }
 
   /** Media URL for a track (object URL over the stored file). */
@@ -502,7 +517,26 @@ export class Library {
   // tag is the unknown entry. Albums are keyed by album and album artist;
   // join_albums moves a track without an album artist into the album of the
   // same name whose album artist is the track's artist.
+  /**
+   * A category view built once for the shown tracks and the preferences that
+   * shape it (search and the category lists ask for them on every change;
+   * the reference reads its tables). Callers copy before sorting.
+   */
+  grouped(name, make) {
+    const p = k => String(this.ctx.pref?.(k) ?? '');
+    const key = GROUP_PREFS.map(p).join('\u0002');
+    const c = (this._grouped ??= new Map()).get(name);
+    if (c && c.tracks === this.tracks && c.key === key) return c.value;
+    const value = make();
+    this._grouped.set(name, {tracks: this.tracks, key, value});
+    return value;
+  }
+
   albums() {
+    return this.grouped('albums', () => this.buildAlbums());
+  }
+
+  buildAlbums() {
     const unknown = this.ctx.res?.stringByName('unknown_album_name') ?? 'Unknown album';
     const lc = s => (s ?? '').toLowerCase();
     const tagged = new Set();
@@ -521,7 +555,7 @@ export class Library {
       a.tracks.push(t);
       a.artId ||= t.artId;
     }
-    return [...map.values()].sort((x, y) => x.title.localeCompare(y.title));
+    return [...map.values()].sort((x, y) => PLAIN.compare(x.title, y.title));
   }
 
   /** The split symbols in effect (artists / album artists, composers, genres). */
@@ -541,10 +575,10 @@ export class Library {
    * the others from two), plus the whole value as an unsplit entry for
    * show_unsplit_cats.
    */
-  namesOf(t, field) {
+  namesOf(t, field, splitters = this.splitters()) {
     const v = t[field] || '';
     if (!v) return {names: [''], unsplit: null};
-    const split = this.splitters()[field];
+    const split = splitters[field];
     const parts = split ? split(v) : [v];
     const min = field === 'genre' ? 1 : 2;
     if (parts.length < min) return {names: [v], unsplit: null};
@@ -562,26 +596,31 @@ export class Library {
       if (!g) map.set(k, g = {kind, title: name || unknown, tracks: []});
       if (g.tracks[g.tracks.length - 1] !== t) g.tracks.push(t);
     };
+    const splitters = this.splitters();
     for (const t of this.tracks) {
-      const {names, unsplit} = this.namesOf(t, field);
+      const {names, unsplit} = this.namesOf(t, field, splitters);
       for (const n of names) add(n, t);
       if (unsplit && showUnsplit) add(unsplit, t);
     }
-    return [...map.values()].sort((x, y) => x.title.localeCompare(y.title));
+    return [...map.values()].sort((x, y) => PLAIN.compare(x.title, y.title));
   }
 
   artists() {
-    return this.namedGroups('artist', 'artist', 'unknown_artist_name', 'Unknown artist');
+    return this.grouped('artists', () => this.namedGroups('artist', 'artist', 'unknown_artist_name', 'Unknown artist'));
   }
 
   albumArtists() {
+    return this.grouped('albumArtists', () => this.buildAlbumArtists());
+  }
+
+  buildAlbumArtists() {
     // A track without an album artist counts under its artist (IFNULL(album_artist, artist)).
     const unknown = this.ctx.res?.stringByName('unknown_artist_name') ?? 'Unknown artist';
     const showUnsplit = !!this.ctx.pref?.('show_unsplit_cats');
-    const map = new Map();
+    const map = new Map(), splitters = this.splitters();
     for (const t of this.tracks) {
       const field = t.albumArtist ? 'albumArtist' : 'artist';
-      const {names, unsplit} = this.namesOf(t, field);
+      const {names, unsplit} = this.namesOf(t, field, splitters);
       for (const n of unsplit && showUnsplit ? [...names, unsplit] : names) {
         const k = n.toLowerCase();
         let g = map.get(k);
@@ -589,15 +628,15 @@ export class Library {
         g.tracks.push(t);
       }
     }
-    return [...map.values()].sort((x, y) => x.title.localeCompare(y.title));
+    return [...map.values()].sort((x, y) => PLAIN.compare(x.title, y.title));
   }
 
   composers() {
-    return this.namedGroups('composer', 'composer', 'unknown_composer_name', 'Unknown composer');
+    return this.grouped('composers', () => this.namedGroups('composer', 'composer', 'unknown_composer_name', 'Unknown composer'));
   }
 
   genres() {
-    return this.namedGroups('genre', 'genre', 'unknown_genre_name', 'Unknown genre');
+    return this.grouped('genres', () => this.namedGroups('genre', 'genre', 'unknown_genre_name', 'Unknown genre'));
   }
 
   /**
@@ -619,7 +658,7 @@ export class Library {
     };
     const root = node('');
     for (const t of this.tracks) node((t.folder || '').replace(/\/+$/, '')).files.push(t);
-    const byPath = (a, b) => a.path.localeCompare(b.path, undefined, {sensitivity: 'base', numeric: true});
+    const byPath = (a, b) => PATHS.compare(a.path, b.path);
     const sum = n => {
       n.folders.sort(byPath);
       n.hierFiles = n.files.length;
@@ -651,17 +690,28 @@ export class Library {
   }
 
   folders() {
+    return this.grouped('folders', () => this.buildFolders());
+  }
+
+  buildFolders() {
     const map = new Map();
     for (const t of this.tracks) {
       const k = t.folder || '/';
       (map.get(k) ?? map.set(k, {kind: 'folder', title: k.split('/').pop() || k, path: k, tracks: []}).get(k)).tracks.push(t);
     }
-    return [...map.values()].sort((x, y) => x.path.localeCompare(y.path));
+    return [...map.values()].sort((x, y) => PLAIN.compare(x.path, y.path));
   }
 }
 
+// Collators shared by every sort (localeCompare builds one per call): the
+// default order, and paths case-insensitive with numbers by value.
+const PLAIN = new Intl.Collator(), PATHS = new Intl.Collator(undefined, {sensitivity: 'base', numeric: true});
+
+// Preferences that shape the category views (grouped).
+const GROUP_PREFS = ['join_albums', 'show_unsplit_cats', 'artists_split_chars', 'artists_split_ignore', 'composers_split_chars', 'genres_split_chars'];
+
 function compareTracks(a, b) {
-  return (a.albumArtist || a.artist || '').localeCompare(b.albumArtist || b.artist || '') || (a.album || '').localeCompare(b.album || '') || (a.disc - b.disc) || (a.track - b.track) || a.title.localeCompare(b.title);
+  return PLAIN.compare(a.albumArtist || a.artist || '', b.albumArtist || b.artist || '') || PLAIN.compare(a.album || '', b.album || '') || (a.disc - b.disc) || (a.track - b.track) || PLAIN.compare(a.title, b.title);
 }
 
 /** Peaks scaled to the largest (1), three decimals. */
@@ -680,12 +730,55 @@ export function trackMetaLabel(t) {
   return parts.join(' ');
 }
 
+/**
+ * An image's pixel size from its header (PNG, GIF, JPEG, WebP), or null:
+ * rows need the size for their fit rule, and decoding a whole image for it
+ * costs a decode and an image bitmap per row scrolled in.
+ */
+export async function imageSize(blob) {
+  try {
+    const b = new Uint8Array(await blob.slice(0, 65536).arrayBuffer());
+    const u16 = (i, le = false) => (le ? b[i] | (b[i + 1] << 8) : (b[i] << 8) | b[i + 1]);
+    const u32 = i => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+    if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return [u32(16), u32(20)];
+    if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return [u16(6, true), u16(8, true)];
+    if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45) {
+      const kind = String.fromCharCode(b[12], b[13], b[14], b[15]);
+      if (kind === 'VP8 ') return [u16(26, true) & 0x3fff, u16(28, true) & 0x3fff];
+      if (kind === 'VP8L') { const v = b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24); return [(v & 0x3fff) + 1, ((v >> 14) & 0x3fff) + 1]; }
+      if (kind === 'VP8X') return [1 + (b[24] | (b[25] << 8) | (b[26] << 16)), 1 + (b[27] | (b[28] << 8) | (b[29] << 16))];
+      return null;
+    }
+    if (b[0] === 0xff && b[1] === 0xd8) {
+      // Frame header: the first SOFn marker (not DHT C4, JPG C8 or DAC CC).
+      for (let i = 2; i + 9 < b.length;) {
+        if (b[i] !== 0xff) { i++; continue; }
+        const m = b[i + 1];
+        if (m === 0xff) { i++; continue; }
+        if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
+        if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return [u16(i + 7), u16(i + 5)];
+        i += 2 + u16(i + 2);
+      }
+    }
+  } catch { /* unreadable */ }
+  return null;
+}
+
 /** A 256 px JPEG thumbnail of an image blob, or null when the browser cannot resize. */
 async function makeThumb(blob) {
   try {
-    const bmp = await createImageBitmap(blob);
-    const k = Math.min(1, THUMB_PX / Math.max(bmp.width, bmp.height));
-    const w = Math.max(1, Math.round(bmp.width * k)), h = Math.max(1, Math.round(bmp.height * k));
+    // Decoded at the thumbnail size where the header gives the image's size.
+    const size = await imageSize(blob);
+    let bmp, w, h;
+    if (size && size[0] > 0 && size[1] > 0) {
+      const k = Math.min(1, THUMB_PX / Math.max(size[0], size[1]));
+      w = Math.max(1, Math.round(size[0] * k)); h = Math.max(1, Math.round(size[1] * k));
+      bmp = await createImageBitmap(blob, k < 1 ? {resizeWidth: w, resizeHeight: h, resizeQuality: 'high'} : undefined);
+    } else {
+      bmp = await createImageBitmap(blob);
+      const k = Math.min(1, THUMB_PX / Math.max(bmp.width, bmp.height));
+      w = Math.max(1, Math.round(bmp.width * k)); h = Math.max(1, Math.round(bmp.height * k));
+    }
     const canvas = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), {width: w, height: h});
     const g = canvas.getContext('2d');
     g.imageSmoothingQuality = 'high';
@@ -699,6 +792,8 @@ async function makeThumb(blob) {
 
 async function loadArt(blob) {
   const url = URL.createObjectURL(blob);
+  const size = await imageSize(blob);
+  if (size && size[0] > 0 && size[1] > 0) return {url, width: size[0], height: size[1]};
   try {
     const bmp = await createImageBitmap(blob);
     const art = {url, width: bmp.width, height: bmp.height};
