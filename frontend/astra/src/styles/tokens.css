@@ -78,6 +78,8 @@ button { cursor: pointer; }
 .astra-subs-zone.bottom { bottom: var(--sub-offset, 6%); }
 .astra-subs-free { position: absolute; inset: 0; }
 .astra-subs-free .astra-sub { position: absolute; max-width: 90%; }
+.astra-subs-pictures { position: absolute; inset: 0; }
+.astra-sub-picture { position: absolute; image-rendering: auto; }
 .astra-sub {
   font-size: var(--sub-size, 18px); line-height: 1.28; font-weight: var(--sub-weight, 500); color: var(--sub-color, #fff);
   text-shadow: var(--sub-shadow); white-space: pre-wrap; overflow-wrap: anywhere;

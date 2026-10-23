@@ -157,3 +157,60 @@ test('seeking within and outside what is buffered keeps playing from the new pos
   await page.evaluate(() => { document.getElementById('video').currentTime = 3.2; });
   await page.waitForFunction(() => document.getElementById('video').currentTime > 3.5, null, {timeout: 15000});
 });
+
+test('PGS and VobSub picture subtitles are drawn over the picture, in place and on time', options, async t => {
+  const {open, errors} = await harness(t);
+  for (const path of ['cors/pgs.mkv', 'cors/vobsub.mkv']) {
+    const page = await open(path);
+    await ready(page);
+    const s = await state(page);
+    assert.equal(s.mode, 'remux', path);
+    assert.deepEqual(s.subs.map(x => [x.supported, x.image]), [[true, true]], path);
+    await page.evaluate(id => astraLab.player.selectSubtitle(id), s.subs[0].id);
+    await page.evaluate(() => { document.getElementById('video').currentTime = 1.6; });
+    await page.waitForFunction(() => document.querySelectorAll('#subtitles .astra-sub-picture').length === 1, null, {timeout: 10000});
+    const box = await page.evaluate(() => {
+      const c = document.querySelector('#subtitles .astra-sub-picture'), v = document.getElementById('video');
+      const rc = c.getBoundingClientRect(), rv = v.getBoundingClientRect();
+      const scale = Math.min(rv.width / v.videoWidth, rv.height / v.videoHeight), x0 = rv.left + (rv.width - v.videoWidth * scale) / 2, y0 = rv.top + (rv.height - v.videoHeight * scale) / 2;
+      return {x: (rc.left - x0) / scale, y: (rc.top - y0) / scale, w: rc.width / scale, pixel: [...c.getContext('2d').getImageData(c.width >> 1, c.height >> 1, 1, 1).data]};
+    });
+    assert.ok(Math.abs(box.x - 100) < 4 && Math.abs(box.y - 130) < 4 && Math.abs(box.w - 120) < 4, `${path}: placed on the picture (${JSON.stringify(box)})`);
+    assert.ok(box.pixel[0] > 180 && box.pixel[1] > 180 && box.pixel[2] < 120 && box.pixel[3] > 200, `${path}: yellow (${box.pixel})`);
+    await page.evaluate(() => { document.getElementById('video').currentTime = 2.75; });
+    await page.waitForFunction(() => document.querySelectorAll('#subtitles .astra-sub-picture').length === 0, null, {timeout: 10000});
+    await page.close();
+  }
+  assert.deepEqual(errors, []);
+});
+
+test('MP4 timed text and Matroska without a cue index show their subtitles', options, async t => {
+  const {open, errors} = await harness(t);
+  for (const [path, id] of [['cors/text.mp4', 'mp4:3'], ['cors/nocues.mkv', 'mkv:3']]) {
+    const page = await open(path);
+    await ready(page);
+    const s = await state(page);
+    assert.equal(s.mode, 'remux', path);
+    assert.deepEqual(s.subs.map(x => [x.id, x.label, x.supported]), [[id, 'English', true]], path);
+    await page.evaluate(id => astraLab.player.selectSubtitle(id), id);
+    await page.evaluate(() => { document.getElementById('video').currentTime = 3.3; });
+    await page.waitForFunction(() => document.querySelector('#subtitles .bottom')?.textContent === 'Second line', null, {timeout: 10000});
+    await page.evaluate(() => { document.getElementById('video').currentTime = 1.3; });
+    await page.waitForFunction(() => document.querySelector('#subtitles .bottom')?.textContent === 'Hello from Astra', null, {timeout: 10000});
+    await page.evaluate(() => document.getElementById('video').play());
+    await page.waitForFunction(() => document.getElementById('video').currentTime > 2, null, {timeout: 15000});
+    await page.close();
+  }
+  assert.deepEqual(errors, []);
+});
+
+test('Matroska with clusters of unknown size goes to Chrome as-is, with a note', options, async t => {
+  const {open} = await harness(t);
+  const page = await open('cors/live.mkv');
+  await ready(page);
+  const s = await state(page);
+  assert.equal(s.mode, 'native');
+  assert.match(s.notes.join(' '), /written like a live recording/);
+  await page.evaluate(() => document.getElementById('video').play());
+  await page.waitForFunction(() => document.getElementById('video').currentTime > 0.5, null, {timeout: 15000});
+});

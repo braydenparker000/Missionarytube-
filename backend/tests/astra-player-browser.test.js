@@ -134,3 +134,77 @@ test('skip intro appears inside the segment and jumps past it', options, async t
   await page.waitForFunction(() => document.querySelector('.ap-video').currentTime >= 4.4, null, {timeout: 3000});
   assert.equal(await page.locator('.ap-skip').isHidden(), true);
 });
+
+/** A portrait phone with orientation locks and picture-in-picture recorded instead of performed. */
+async function portraitPlayer(t, prefs = {}) {
+  const servers = await startAstraServers();
+  const browser = await chromium.launch({executablePath, headless: true, args: ['--autoplay-policy=no-user-gesture-required']});
+  t.after(async () => { await browser.close(); await servers.close(); });
+  const context = await browser.newContext({viewport: {width: 412, height: 915}, hasTouch: true, isMobile: true});
+  await context.addInitScript(prefs => {
+    window.__locks = [];
+    screen.orientation.lock = kind => { window.__locks.push(kind); return Promise.resolve(); };
+    screen.orientation.unlock = () => { window.__locks.push('unlock'); };
+    Object.defineProperty(Document.prototype, 'pictureInPictureEnabled', {get: () => true, configurable: true});
+    Object.defineProperty(Document.prototype, 'pictureInPictureElement', {get() { return window.__pip || null; }, configurable: true});
+    HTMLVideoElement.prototype.requestPictureInPicture = function () { window.__pip = this; this.dispatchEvent(new Event('enterpictureinpicture')); return Promise.resolve({}); };
+    Document.prototype.exitPictureInPicture = function () { const v = window.__pip; window.__pip = null; v?.dispatchEvent(new Event('leavepictureinpicture')); return Promise.resolve(); };
+    localStorage.setItem('astra.v2.player', JSON.stringify(prefs));
+  }, prefs);
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(`${servers.site}/astra/lab/`);
+  await page.waitForFunction(() => window.astraLab?.openPlayer);
+  // Opened from a real tap, as the app does, so full screen is allowed.
+  await page.evaluate(url => {
+    const b = document.createElement('button');
+    b.id = 'open-player'; b.textContent = 'Open'; b.style.cssText = 'position:fixed;top:0;left:0;z-index:5000;width:80px;height:40px';
+    b.onclick = () => { b.remove(); astraLab.openPlayer({url, name: 'Fixture add-on'}, {title: 'Fixture'}); };
+    document.body.append(b);
+  }, servers.media + '/cors/multi-audio.mkv');
+  await page.click('#open-player');
+  await page.waitForFunction(() => document.querySelector('.ap-video').currentTime > 0.3, null, {timeout: 20000});
+  return {page, errors};
+}
+
+test('the player follows the phone by default; portrait fits subtitles to the picture; rotate switches', options, async t => {
+  const {page, errors} = await portraitPlayer(t);
+  await page.waitForFunction(() => document.fullscreenElement && window.__locks.length > 0);
+  assert.deepEqual(await page.evaluate(() => window.__locks), ['unlock'], 'no forced landscape');
+  assert.equal(await page.evaluate(() => document.querySelector('.ap').classList.contains('portrait')), true);
+  const subs = await page.evaluate(() => { const r = document.querySelector('.ap-subs').getBoundingClientRect(); return {top: r.top, height: r.height, width: r.width}; });
+  assert.ok(Math.abs(subs.width - 412) < 1 && Math.abs(subs.height - 412 * 180 / 320) < 1 && Math.abs(subs.top - (915 - subs.height) / 2) < 1, `subtitles cover the picture band (${JSON.stringify(subs)})`);
+  await page.evaluate(() => astraLab.screen.showControls());
+  await page.locator('.ap-top [aria-label="Rotate"]').click();
+  assert.equal(await page.evaluate(() => window.__locks.at(-1)), 'landscape');
+  assert.deepEqual(errors, []);
+});
+
+test('Settings can keep the player in portrait or landscape', options, async t => {
+  const {page} = await portraitPlayer(t, {orientation: 'portrait'});
+  await page.waitForFunction(() => window.__locks.length > 0);
+  assert.deepEqual(await page.evaluate(() => window.__locks), ['portrait']);
+});
+
+test('picture-in-picture shrinks the video into its window and hands the screen back; expanding returns, closing ends', options, async t => {
+  const {page, errors} = await portraitPlayer(t);
+  await page.evaluate(() => astraLab.screen.showControls());
+  await page.locator('.ap-top [aria-label="Picture in picture"]').click();
+  await page.waitForFunction(() => document.querySelector('.ap').classList.contains('mini'));
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('ap-open')), false, 'the page scrolls again');
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.ap')).visibility), 'hidden');
+  const before = await time(page);
+  await page.waitForTimeout(700);
+  assert.ok(await time(page) > before, 'keeps playing in the window');
+  // The window's expand control: still playing, so the player comes back.
+  await page.evaluate(() => document.exitPictureInPicture());
+  await page.waitForFunction(() => !document.querySelector('.ap').classList.contains('mini'));
+  assert.equal(await page.evaluate(() => astraLab.screen.isOpen), true);
+  // Closing the window pauses the video: the player ends.
+  await page.evaluate(() => astraLab.screen.togglePip());
+  await page.waitForFunction(() => document.querySelector('.ap').classList.contains('mini'));
+  await page.evaluate(() => { document.querySelector('.ap-video').pause(); document.exitPictureInPicture(); });
+  await page.waitForFunction(() => !astraLab.screen.isOpen);
+  assert.deepEqual(errors, []);
+});

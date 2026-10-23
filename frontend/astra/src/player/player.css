@@ -12,6 +12,14 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 .ap-subs { position: absolute; inset: 0; pointer-events: none; }
 .ap .astra-subs-zone.bottom { transition: transform var(--t-normal) var(--ease); }
 .ap.controls .astra-subs-zone.bottom { transform: translateY(-96px); }
+/* Portrait: the picture is a band across the middle and the controls sit
+   below it, so subtitles stay where they are. */
+.ap.portrait.controls .astra-subs-zone.bottom { transform: none; }
+.ap.portrait .ap-center { transform: translate(-50%, -50%); gap: 48px; }
+.ap.portrait .ap-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ap.portrait .ap-shade-top { height: 120px; }
+/* Picture-in-picture from the player: the video lives on in the floating window. */
+.ap.mini { visibility: hidden; pointer-events: none; }
 .ap-surface { position: absolute; inset: 0; }
 
 /* Controls */
@@ -154,9 +162,14 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 .ap-row .icon { flex: none; fill: var(--ap-accent); }
 .ap-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ap-row small { color: rgba(255,255,255,.6); font-size: 12px; }
-.ap-tags { display: flex; gap: 6px; }
+.ap-row.file { justify-content: flex-start; color: rgba(255,255,255,.85); }
+.ap-row.file b { font-weight: 500; }
+.ap-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .ap-tags em { font-style: normal; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,.14); color: rgba(255,255,255,.85); }
+.ap-tags em.good { background: rgba(76,175,80,.28); color: #c8f2ca; }
+.ap-file { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,.6); font-size: 12px; }
 .ap-empty { color: rgba(255,255,255,.7); font-size: 14px; line-height: 20px; }
+.ap-empty.small { font-size: 12px; margin-top: 8px; }
 .ap-step { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
 .ap-step > div { display: flex; align-items: center; gap: 6px; }
 .ap-step b { min-width: 54px; text-align: center; font-variant-numeric: tabular-nums; }
@@ -188,13 +201,15 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 .ap-episode small { color: rgba(255,255,255,.6); font-size: 12px; }
 .ap-episode b { font-size: 14px; line-height: 20px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* Portrait (desktop windows, phones that refuse landscape) */
+/* Portrait: menus stack and cover the picture fully; the side panels are full width. */
 @media (orientation: portrait) {
-  .ap-center { gap: 32px; }
   .ap-rails { flex-wrap: wrap; }
   .ap-rail { max-height: none; }
   .ap-rail.languages, .ap-rail.tracks, .ap-rail.style { flex-basis: 100%; }
   .ap-modal-body { padding-left: 16px; padding-right: 16px; }
+  .ap-modal-scrim { background: rgba(10,10,10,.94); }
+  .ap-rail.tracks:not(:empty) { padding-top: 8px; border-top: 1px solid rgba(255,255,255,.12); }
+  .ap-rail.style { padding-top: 12px; border-top: 1px solid rgba(255,255,255,.12); }
 }
 @media (prefers-reduced-motion: reduce) {
   .ap-loading-logo { animation: none; opacity: 1; }

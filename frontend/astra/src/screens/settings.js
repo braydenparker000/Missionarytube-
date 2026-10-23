@@ -5,7 +5,10 @@ import {icon} from '../ui/icons.js';
 import {sheet, toast, emptyCard} from '../ui/components.js';
 import {normaliseManifestUrl, getJson} from '../addons/client.js';
 import {homeCatalogs} from '../app/content.js';
-import {loadPrefs, savePrefs} from '../player/prefs.js';
+import {loadPrefs, savePrefs, ORIENTATIONS} from '../player/prefs.js';
+import {languageName} from '../engine/languages.js';
+
+const languageLabel = code => code ? languageName(code) || code : '';
 
 const navRow = (iconName, title, detail, run) => h('button', {class: 'set-row link', type: 'button', onclick: run},
   h('span', {class: 'set-icon'}, icon(iconName, {size: 20})), h('span', {class: 'set-text'}, h('b', {}, title), detail ? h('small', {}, detail) : null), icon('chevronRight', {size: 20}));
@@ -134,9 +137,13 @@ export class SettingsScreen {
         switchRow('Touch gestures', 'Double tap to seek, swipe for seek, brightness and volume, hold for speed', p.gestures, v => save({gestures: v})),
         choiceRow('Hold speed', [[1.25, '1.25x'], [1.5, '1.5x'], [2, '2x'], [3, '3x']], p.holdSpeed, v => save({holdSpeed: v})),
         switchRow('Pause overlay', 'Show the title and story after 5 s paused', p.pauseOverlay, v => save({pauseOverlay: v})),
-        choiceRow('Picture size', [['fit', 'Fit'], ['fill', 'Fill'], ['zoom', 'Zoom']], p.aspect, v => save({aspect: v}))),
+        choiceRow('Picture size', [['fit', 'Fit'], ['fill', 'Fill'], ['zoom', 'Zoom']], p.aspect, v => save({aspect: v})),
+        choiceRow('Rotation', ORIENTATIONS, p.orientation, v => save({orientation: v})),
+        switchRow('Picture-in-picture', 'Keep watching in a small window when you leave Astra, where Chrome allows it. The player’s top bar has a button for it too.', p.autoPip, v => save({autoPip: v}))),
+      group('Subtitles',
+        switchRow('OpenSubtitles', 'Also look for subtitles on OpenSubtitles, Stremio’s subtitle add-on, as well as your installed add-ons', this.app.settings.openSubtitles !== false, v => { this.app.saveSettings({openSubtitles: v}); page.render(); })),
       group('Languages',
-        h('p', {class: 'set-note'}, `Audio: ${p.audioLanguage || 'your phone’s language'} · Subtitles: ${p.subtitleLanguage || 'off'}. Astra remembers what you pick in the player.`),
+        h('p', {class: 'set-note'}, `Audio: ${languageLabel(p.audioLanguage) || 'your phone’s language'} · Subtitles: ${languageLabel(p.subtitleLanguage) || 'off'}. Astra remembers what you pick in the player and shows subtitles in that language by itself.`),
         h('button', {class: 'set-row', type: 'button', onclick: () => save({audioLanguage: '', subtitleLanguage: ''})}, h('span', {class: 'set-text'}, h('b', {}, 'Forget my language choices')))),
       h('p', {class: 'set-note'}, 'Subtitle size, colour, background and position are set from the subtitles menu while watching.'),
     ];

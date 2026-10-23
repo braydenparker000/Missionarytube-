@@ -2,7 +2,7 @@
 # Regenerates the synthetic media in tests/fixtures/astra/ used by the Astra
 # playback tests. Every file is a 6 s colour-bar test pattern with sine tones,
 # so a test can tell audio tracks apart by pitch: 440 Hz, 880 Hz, 660 Hz,
-# 1320 Hz. Requires ffmpeg with libx264, libx265, libvpx and libopus.
+# 1320 Hz. Requires ffmpeg with libx264, libx265, libvpx and libopus, and Node.
 # Usage: bash scripts/astra/make-fixtures.sh
 set -euo pipefail
 out="$(cd "$(dirname "$0")/../.." && pwd)/tests/fixtures/astra"
@@ -79,5 +79,23 @@ ff "${video[@]}" $(tone 440) -map 0:v -map 1:a -c:v libx265 -preset ultrafast -t
 
 # VP9 and Opus in WebM: plays natively.
 ff "${video[@]}" $(tone 440) -map 0:v -map 1:a -c:v libvpx-vp9 -b:v 100k -g 48 -deadline realtime -cpu-used 8 -c:a libopus -b:a 64k "$out/vp9.webm"
+
+# Picture subtitles. ffmpeg cannot draw text into pictures, so a tiny Blu-ray
+# stream (two coloured boxes, 1-2.5 s and 3-4.5 s) is written by script, muxed
+# as PGS, then converted picture-to-picture into DVD (VobSub) subtitles.
+node "$(dirname "$0")/pgs-fixture.mjs" "$work/boxes.sup"
+ff "${video[@]}" $(tone 440) -copyts -i "$work/boxes.sup" -map 0:v -map 1:a -map 2:s "${x264[@]}" -c:a aac -b:a 64k -c:s copy \
+  -metadata:s:s:0 language=eng "$out/pgs.mkv"
+ff -fix_sub_duration -i "$out/pgs.mkv" -map 0 -c:v copy -c:a copy -c:s dvdsub -metadata:s:s:0 language=spa "$out/vobsub.mkv"
+
+# MP4 with a 3GPP timed text track: goes through Astra so the text can be read.
+ff "${video[@]}" $(tone 440) -i "$work/en.srt" -map 0:v -map 1:a -map 2:s "${x264[@]}" -c:a aac -b:a 64k -c:s mov_text \
+  -metadata:s:s:0 language=eng -movflags +faststart "$out/text.mp4"
+
+# No cue index (nocues.mkv), and the same written like a live recording with
+# clusters of unknown size (live.mkv), which Mediabunny cannot demux.
+ff "${video[@]}" $(tone 440) -i "$work/en.srt" -map 0:v -map 1:a -map 2:s "${x264[@]}" -g 24 -c:a aac -b:a 64k -c:s srt \
+  -metadata:s:s:0 language=eng -live 1 -cluster_time_limit 1000 "$out/nocues.mkv"
+node "$(dirname "$0")/unknown-size.mjs" "$out/nocues.mkv" "$out/live.mkv"
 
 ls -l "$out"

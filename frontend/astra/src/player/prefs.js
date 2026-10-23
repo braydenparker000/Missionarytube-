@@ -14,7 +14,10 @@ export const DEFAULTS = Object.freeze({
   audioLanguage: '', // last chosen audio language, base code
   subtitleLanguage: '', // last chosen subtitle language, '' = off
   pauseOverlay: true,
+  orientation: 'auto', // auto (follow the phone) | landscape | portrait
+  autoPip: true, // picture-in-picture when leaving the app while playing, where the browser allows it
 });
+export const ORIENTATIONS = [['auto', 'Follow phone'], ['landscape', 'Landscape'], ['portrait', 'Portrait']];
 
 export function loadPrefs(storage = globalThis.localStorage) {
   try { return {...DEFAULTS, ...JSON.parse(storage.getItem(KEY) || '{}')}; } catch { return {...DEFAULTS}; }
