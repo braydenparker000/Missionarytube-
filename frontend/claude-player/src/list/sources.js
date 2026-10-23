@@ -231,6 +231,8 @@ export class HomeSource {
   bindHeader(v) {
     v.findViewById('title')?.setText(this.title);
     v.findViewById('line2')?.setText('');
+    v.track = null;
+    v.findViewById('aa_image')?.setArt?.(null);
     v.findViewById('aa_image')?.setDrawable?.(null);
   }
 
@@ -239,7 +241,10 @@ export class HomeSource {
     v.findViewById('title')?.setText(str(this.ctx, c.title));
     // The Queue row's counter (merge_item_queue_counter) takes the line-2 place.
     v.findViewById('line2')?.setText(c.kind === 'queue' ? this.ctx.player?.queueCounter?.(str(this.ctx, '_empty')) ?? '' : '');
+    // The row shows its category icon: no track's cover (nor one still loading for it).
+    v.track = null;
     const icon = v.findViewById('aa_image');
+    icon?.setArt?.(null);
     icon?.setDrawable?.(this.ctx.drawables.fromValue(c.icon, this.ctx.theme));
   }
 

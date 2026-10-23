@@ -2265,6 +2265,47 @@ row with a name, meta and blob into `eq_presets` as type 20, ordered by name, pa
 (e) Licence: the presets come from the AutoEq project (MIT), as the reference ships them. The owner
 asked for them in the port.
 
+### F93 — Header view pools, Back in search, time labels, the play/pause change — `CONFIRMED_STATIC` (bytecode run)
+(a) The popup menu part a list header loads (`merge_item_text_popup_menu`, `merge_item_popup_menu`)
+has records only for the header scenes. `menu_items` is invisible in scene_aa, scene_header,
+scene_top_header, scene_grid, scene_search_header and scene_bottom_toolbar, gone in
+scene_bottom_toolbar, and visible in scene_item_menu. There are none for the row scenes
+(scene_small …). The reference list keeps header and item views apart, so a header never becomes a
+row. The port pooled them together: a header that had opened its menu came back as a row with the
+menu entries ("Rescan" and the separator) over its title.
+- Pools are now keyed by role: rows, the header and moveable toolbar, and the subhead.
+- A level change while the menu is open leaves the menu's view out of recycling; it goes to the pool
+  when the menu closes.
+- Home rows clear any track binding and art, so their category icon shows.
+
+(b) Back is a stack of handlers (`ac` / `yb.r0`, newest first). Search is a mode of the library
+list. The port now handles Back in search like this:
+- Levels opened from the results belong to the search. Back returns through them to the results,
+  then out of search to the screen it was opened from.
+- The library's own levels are not search's to pop.
+- The side-swipe parent follows the same rule. Before, Back from search at a library depth of 2 or
+  more popped a library level and left the search panel over it.
+
+(c) Elapsed and Duration format time with `Utils.m551` (m:ss, h:mm:ss from an hour; Duration uses
+`Utils.A`, (ms + 500) / 1000 s). Elapsed refreshes 500 ms after starting, then every 250 ms. A
+same-length text updates with `FastTextView.T(…, 1)`, which lays the text out again in the view's
+width without a measure.
+- The label style is centred, `ellipsize none`, `clipToPadding false`, `noBreak`, so a slightly
+  wider text runs into the 8 dp padding.
+- Manrope's digits differ in width (`1` is 390 units, `0` is 610). The port cut such texts by a
+  character ("20:02" drawn as "20:0", 161 of the first 3,601 seconds). A same-length text that no
+  longer fits is now measured again.
+- The duration shown is the decoder's (`z22.m3734`): the port now takes the media element's length
+  whenever the rounded label would differ, not only past a second.
+
+(d) The play/pause change with the default theme's MoreButtons styles:
+- TopPause fills the height, capped at TopPlay_maxSize, at scale 1, invisible.
+- In scene_playing it is visible, with `jumpVisibility` and a smaller cap.
+- TopPlay goes invisible at 50 dp and scale 0.75 and fades.
+- `jumpVisibility` (flag 0x8000000, `do1.O`) sets the view's alpha to the target alpha at the start:
+  the pause button shows at once at the play button's size and settles (100 → 88 dp), and hides at
+  once on pause while the play button grows back. The port's frames follow this.
+
 ### I1 — Layout inferences to verify against screenshots
 
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
@@ -2373,6 +2414,7 @@ No status is device-verified.
 | F90 Cast button, disabled fade, content alignment, category icons, one-line rows, badges | Built | Category meta text not compared (the reference harness leaves it empty) |
 | F91 Popup rows, row taps, home toolbar, pause scene, transition start cost | Built | Transition smoothness on the owner's device not measured |
 | F92 AutoEq preset database | Built | Band locks and the 0 dB preamp inferred from the zip import |
+| F93 Header view pools, Back in search, time labels, play/pause change | Built | — |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 

@@ -208,7 +208,6 @@ export class AAItemView extends SceneFastLayout {
     if (this.itemScene === scene) return;
     this.itemScene = scene;
     this.loadBehaviorsFor(scene);
-    (this.loadedScenes ??= new Set()).add(scene);
     // The list's left-out header buttons (PowerList searchButton): gone before
     // the scene applies (dontApplyIfGone) and kept gone after it.
     const hidden = this.hiddenButtons;
@@ -540,6 +539,9 @@ export class ListWidget extends FastLayout {
       if (msg === 'cmd_nav_to_playlist' && d?.playlist) this.openPlaylist(d.playlist);
       else if (msg === 'cmd_list_to_start') this.toStart();
       else if (msg === 'msg_nav_changed') {
+        // Back from search returns to the screen search was opened from.
+        if (d.nav === 'nav_search' && this.navNow !== 'nav_search') this.searchFrom = this.navNow ?? null;
+        this.navNow = d.nav;
         this.searching = d.nav === 'nav_search';
         // A transition's own navigation: it sets the mode when it ends. Any
         // other navigation completes a running transition first.
@@ -556,8 +558,10 @@ export class ListWidget extends FastLayout {
         if (this.searching) this.showSearch();
         else if (this.searchShown) {
           // Leaving search for any screen: the list returns to the library at
-          // once, so no later transition into the library shows the results.
+          // once, so no later transition into the library shows the results;
+          // levels opened from the results go with the search.
           this.searchShown = false;
+          while (this.stack.length > 1 && this.stack[this.stack.length - 1].fromSearch) this.stack.pop();
           if (this.stack.length) this.libList.setSource(this.stack[this.stack.length - 1]);
           else this.openStart();
         }
@@ -928,7 +932,10 @@ export class ListWidget extends FastLayout {
   }
 
   open(src) {
-    const prev = this.stack[this.stack.length - 1];
+    const top = this.stack[this.stack.length - 1];
+    // A level opened from the search results belongs to the search: Back returns to the results.
+    if (this.searching) src.fromSearch = true;
+    const prev = this.searching && !top?.fromSearch ? this.searchSrc : top;
     const shown = this.mode === 'list' && !this.trans && prev && this.libList.source === prev && this.width > 0;
     // The tapped item (its rect now) leads the item-to-header morph.
     const from = shown ? this.libList.lastClicked : undefined;
@@ -1027,13 +1034,24 @@ export class ListWidget extends FastLayout {
     return true;
   }
 
-  /** Back inside the library; returns false at the library home. */
+  /**
+   * Back inside the library; returns false at the library home. In search
+   * it goes back through the levels opened from the results to the results,
+   * then out of search to the screen it was opened from (the library's own
+   * levels are not search's to pop).
+   */
   back() {
     if (this.ignorePop) { const then = this.ignorePop; this.ignorePop = false; if (typeof then === 'function') then(); return true; }
-    if (this.mode !== 'list' || this.stack.length <= 1) return false;
+    if (this.mode !== 'list') return false;
+    if (this.searching && !this.stack[this.stack.length - 1]?.fromSearch) {
+      this.ctx.topNav?.navigate(this.searchFrom && this.searchFrom !== 'nav_search' ? this.searchFrom : 'nav_lib');
+      return true;
+    }
+    if (this.stack.length <= 1) return false;
     if (this.trans) return true;
     const leaving = this.stack.pop(), scroll = this.libList.scrollY;
-    const top = this.stack[this.stack.length - 1];
+    const below = this.stack[this.stack.length - 1];
+    const top = this.searching && !below.fromSearch ? this.searchSrc : below;
     this.libList.setSource(top);
     this.libList.scrollTo(top.savedScroll ?? 0);
     this.levelTransition(leaving, scroll, true, leaving.openedFrom >= 0 ? this.libList.itemRect(leaving.openedFrom) : null);
@@ -1051,7 +1069,7 @@ export class ListWidget extends FastLayout {
    * Back reverses both. Without an item the generic pivot zooms run.
    */
   levelTransition(leavingSrc, scroll, back, rect = null) {
-    if (this.searching || this.libList.visibility === GONE) return;
+    if (this.libList.visibility === GONE) return;
     const ghost = this.ghostList(leavingSrc, scroll);
     let leave, enter;
     if (rect) {
@@ -1472,10 +1490,14 @@ export class ListWidget extends FastLayout {
       nav = 'nav_main';
     } else if (target === 'parent') {
       if (this.stack.length < 2) return null;
+      // In search the parent of a level opened from the results is the results; the library's levels are not search's.
+      const top = this.stack[this.stack.length - 1], below = this.stack[this.stack.length - 2];
+      if (this.searching && !top.fromSearch) return null;
+      const parent = this.searching && !below.fromSearch ? this.searchSrc : below;
       // The leaving level stays on screen in a second list while the parent enters.
       ghost = this.ghostList(saved.source, saved.scroll);
-      this.libList.setSource(this.stack[this.stack.length - 2]);
-      this.libList.scrollTo(this.stack[this.stack.length - 2].savedScroll ?? 0);
+      this.libList.setSource(parent);
+      this.libList.scrollTo(parent.savedScroll ?? 0);
       const r = saved.source?.openedFrom >= 0 ? this.libList.itemRect(saved.source.openedFrom) : null;
       // The swipe variant zooms the parent from 1.5 about the opening item's bottom edge.
       if (r) enterPivot = {x: this.libList.width / 2, y: r.top + r.height};
@@ -2244,7 +2266,11 @@ ListWidget.prototype.closeItemMenu = function () {
     home.el.appendChild(v.el);
     this.menuItem = null;
     if (home === this) v.visibility = this.mode === 'list' ? GONE : VISIBLE;
-    else {
+    else if (home.active && home.active.get(v.listIndex) !== v && home.toolbarView !== v) {
+      // The list changed level meanwhile (setSource kept the view out): to the pool.
+      v.itemScene = null;
+      home.recycle(v.listIndex, v);
+    } else {
       // A list header goes back to its slot.
       v.translationX = m.tx; v.translationY = m.ty;
       v.itemScene = null;
