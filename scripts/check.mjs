@@ -87,7 +87,8 @@ async function collectSourceFiles(directory) {
   return found;
 }
 
-const sourceFiles = [mediaPath("index.html"), ...(await collectSourceFiles(mediaPath("assets")))];
+// Classic Astra (frontend/media) and new Astra (frontend/astra, its own code; vendored packages excluded).
+const sourceFiles = [mediaPath("index.html"), ...(await collectSourceFiles(mediaPath("assets"))), ...(await collectSourceFiles("frontend/astra/src")), ...(await collectSourceFiles("frontend/astra/lab"))];
 let remoteDependencies = 0;
 
 for (const path of sourceFiles) {

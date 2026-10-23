@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0d0d">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval' blob: https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; media-src 'self' blob: https: http://localhost:* http://127.0.0.1:*; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; worker-src 'self' blob:; base-uri 'none'; form-action 'none'">
+  <title>Astra playback lab</title>
+  <link rel="stylesheet" href="../src/styles/tokens.css">
+  <link rel="stylesheet" href="../src/lab/lab.css">
+  <script type="module" src="../src/lab/lab.js"></script>
+</head>
+<body>
+  <header class="lab-top">
+    <a class="lab-back" href="/" aria-label="Back to Jarvis">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
+    </a>
+    <div>
+      <h1>Playback lab</h1>
+      <p>New Astra player engine</p>
+    </div>
+  </header>
+  <main class="lab">
+    <section class="lab-stage" aria-label="Player">
+      <div class="lab-screen" id="screen">
+        <video id="video" controls playsinline preload="auto"></video>
+        <div id="subtitles"></div>
+        <p class="lab-placeholder" id="placeholder">Pick a stream below, or paste a link.</p>
+        <p class="lab-status" id="status" role="status" hidden></p>
+      </div>
+    </section>
+
+    <section class="lab-panel" id="tracks" hidden>
+      <h2 class="section-label">Audio</h2>
+      <div class="chips" id="audio"></div>
+      <h2 class="section-label">Subtitles</h2>
+      <div class="chips" id="subs"></div>
+      <div class="sub-style" id="sub-style">
+        <div class="stepper"><button class="chip" data-step="size" data-by="-0.1" aria-label="Smaller subtitles">A−</button><span id="size-value">100%</span><button class="chip" data-step="size" data-by="0.1" aria-label="Larger subtitles">A+</button></div>
+        <div class="stepper"><button class="chip" data-step="delay" data-by="-0.1" aria-label="Show subtitles earlier">−0.1 s</button><span id="delay-value">0.0 s</span><button class="chip" data-step="delay" data-by="0.1" aria-label="Show subtitles later">+0.1 s</button></div>
+        <button class="chip" id="sub-box" aria-pressed="false">Background</button>
+      </div>
+    </section>
+
+    <section class="lab-panel" id="plan" hidden>
+      <h2 class="section-label">How it plays</h2>
+      <div class="card plan-card"><p class="plan-mode" id="plan-mode"></p><ul id="plan-notes"></ul></div>
+      <h2 class="section-label">Inside the file</h2>
+      <div class="card facts" id="facts"></div>
+      <button class="btn" id="copy-report">Copy playback report</button>
+      <p class="hint" id="copy-hint" role="status"></p>
+    </section>
+
+    <section class="lab-panel" aria-labelledby="find-label">
+      <h2 class="section-label" id="find-label">Find something to play</h2>
+      <form class="search" id="search-form" role="search">
+        <input class="field" id="search" type="search" placeholder="Search movies, shows..." autocomplete="off" enterkeyhint="search" aria-label="Search titles">
+      </form>
+      <p class="hint" id="addon-hint"></p>
+      <div id="browse"></div>
+      <details class="paste">
+        <summary>Paste a link instead</summary>
+        <form id="link-form" class="link-row">
+          <input class="field" id="link" type="url" placeholder="https://…/video.mkv" autocomplete="off" aria-label="Video link">
+          <button class="btn primary" type="submit">Play</button>
+        </form>
+      </details>
+    </section>
+
+    <section class="lab-panel">
+      <h2 class="section-label">This phone</h2>
+      <div class="card device" id="device"></div>
+    </section>
+  </main>
+</body>
+</html>
