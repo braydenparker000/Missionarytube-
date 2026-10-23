@@ -107,6 +107,21 @@ export function installInput(ctx, container) {
       return;
     }
   };
+  // Text fields: the views draw over their native inputs (a modal's shade
+  // layer, the popup frame), so a tap focuses the field in its onClick. The
+  // browser's mouse events that follow a tap must not take that focus back;
+  // a tap anywhere but the focused field ends the editing instead.
+  const isField = el => el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+  container.addEventListener('mousedown', e => { if (!isField(e.target)) e.preventDefault(); });
+  container.addEventListener('pointerdown', e => {
+    const focused = document.activeElement;
+    if (isField(focused) && container.contains(focused)) {
+      const owner = deepest(ctx.root, point(e).x, point(e).y);
+      let mine = false;
+      for (let c = owner; c; c = c.parent) if (c.input === focused) mine = true;
+      if (!mine) focused.blur();
+    }
+  }, true);
   container.addEventListener('pointerdown', e => {
     pointers.set(e.pointerId, point(e));
     if (active) {

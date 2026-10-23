@@ -214,6 +214,8 @@ export class HomeSource {
     this.columns = 2;
     this.itemHeight = d.textItemSize;
     this.header = {type: 'text', scene: 'scene_top_header'};
+    // The home's toolbar has only its menu (bk0: no songs of its own to play or select).
+    this.menuOnlyToolbar = true;
     // addStatusBarHeightToHeaders: the header grows by the top inset.
     this.headerHeight = d.topTextHeaderSize + ctx.windowInsets.top;
     // No stored zoom: bk0.P0's default case, one column of textItemSize rows (level 1).

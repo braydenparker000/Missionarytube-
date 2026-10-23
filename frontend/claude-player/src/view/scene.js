@@ -381,7 +381,9 @@ export class SceneController {
     for (const it of this.items) {
       const v = it.view;
       // Restore the start presentation.
-      v.visibility = it.fade || it.toVisibility === GONE ? (it.fromVisibility === GONE ? it.toVisibility : it.fromVisibility) : it.toVisibility;
+      // A fading view shows while its alpha moves (from 0 when it was hidden,
+      // to 0 when it hides); a view going gone stays as it was until the end.
+      v.visibility = it.fade ? VISIBLE : it.toVisibility === GONE ? (it.fromVisibility === GONE ? it.toVisibility : it.fromVisibility) : it.toVisibility;
       if (it.toVisibility === GONE && it.fromVisibility === GONE) v.visibility = GONE;
       const [l, t, r, b] = it.from;
       if (it.recalc === RECALC_ON_END) {

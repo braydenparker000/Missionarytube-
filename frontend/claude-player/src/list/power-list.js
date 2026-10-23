@@ -13,13 +13,18 @@ import {EdgeGlow} from './edge-glow.js';
 import {colorToCss, argbAlpha} from '../res/values.js';
 import {nestedDragOf} from '../widgets/sheet-drag.js';
 
-// Search lists have no search-in-list button: it is gone, so the search
-// header's scene leaves it so (applyEvenIfGone dontApplyIfGone).
-// The buttons may load later, with the scene (setItemScene).
+// Header buttons a list leaves out (they stay gone through its scenes):
+// search lists have no search-in-list button (applyEvenIfGone
+// dontApplyIfGone); the library home's toolbar keeps only its menu.
+const NO_SEARCH = new Set(['search_button']);
+const MENU_ONLY = new Set(['shuffle_button', 'play_button', 'search_button', 'select_button']);
+const NONE = new Set();
 function searchButton(v, s) {
-  v.searchButtonGone = !!s.isSearch;
-  const b = v.findViewById?.('search_button');
-  if (b) b.setVisibility(s.isSearch ? GONE : VISIBLE);
+  const hidden = s.isSearch ? NO_SEARCH : s.menuOnlyToolbar ? MENU_ONLY : NONE;
+  if (v.hiddenButtons === hidden) return;
+  v.hiddenButtons = hidden;
+  // The buttons may load later, with the scene: setItemScene applies the set; re-enter it.
+  v.itemScene = null;
 }
 
 export const LAYOUT_FOR_TYPE = {track: 'item_track', text: 'item_text', separator: 'item_separator_button', history: 'item_search_history', clearHistory: 'item_clear_search_history'};
@@ -51,6 +56,9 @@ export class PowerList extends FastLayout {
     super(ctx, a);
     this.host = host;
     this.clipChildren = false;
+    // Its own compositor layer: page transitions scale and fade the whole
+    // list every frame, which then moves without repainting its rows.
+    this.el.style.willChange = 'transform, opacity';
     this.source = null;
     this.scrollY = 0;
     // type -> [views]; lists of one host share it, so a page transition's
@@ -263,6 +271,9 @@ export class PowerList extends FastLayout {
     v.useThumb = true;
     v.clickable = true;
     v.onClick = () => v.parent.onItemClick(v);
+    // Line 2 is clickable in the item style (for the cover's line 2 actions);
+    // in a list it acts as the row, so the whole row plays or opens.
+    withView(v, 'line2', l2 => { l2.onClick = () => v.onClick(); l2.onLongClick = () => v.onLongClick?.() ?? false; });
     withView(v, 'menu', menu => { menu.onClick = () => { const l = v.parent; if ((v.listIndex === -1 || v === l.toolbarView) && l.source?.menuLayout) l.host?.openItemMenu?.(v, l.source.menuLayout); }; });
     return v;
   }

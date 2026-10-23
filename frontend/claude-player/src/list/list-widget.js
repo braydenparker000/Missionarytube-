@@ -208,9 +208,18 @@ export class AAItemView extends SceneFastLayout {
     if (this.itemScene === scene) return;
     this.itemScene = scene;
     this.loadBehaviorsFor(scene);
-    if (this.searchButtonGone !== undefined) this.findViewById('search_button')?.setVisibility(this.searchButtonGone ? GONE : VISIBLE);
+    // The list's left-out header buttons (PowerList searchButton): gone before
+    // the scene applies (dontApplyIfGone) and kept gone after it.
+    const hidden = this.hiddenButtons;
+    if (hidden && hidden !== this._hiddenApplied) {
+      this._hiddenApplied = hidden;
+      for (const id of HEADER_BUTTONS) this.findViewById(id)?.setVisibility(hidden.has(id) ? GONE : VISIBLE);
+      // The scene's records apply afresh over the reset buttons.
+      this.scenes.scene = null;
+    }
     this.syncLyricsButton();
     this.scenes.go(scene, {duration: 0});
+    if (hidden?.size) for (const id of hidden) this.findViewById(id)?.setVisibility(GONE);
   }
 }
 
@@ -514,6 +523,7 @@ export class ListWidget extends FastLayout {
       inset: () => this.ctx.windowInsets.bottom,
     } : null;
     this.lyricsPage = new LyricsPage(ctx, this);
+    this.lyricsPage.el.style.willChange = 'transform, opacity';
     this.lyricsPage.visibility = GONE;
     this.lyricsPage.interceptible = true; // the widget takes side swipes and a pull at the top
     this.lyricsPage.lp = this.generateLayoutParams(null);
@@ -540,7 +550,9 @@ export class ListWidget extends FastLayout {
           this.pendingTarget = false;
         }
         if (this.searching) this.showSearch();
-        else if (this.mode === 'list' && this.searchShown) {
+        else if (this.searchShown) {
+          // Leaving search for any screen: the list returns to the library at
+          // once, so no later transition into the library shows the results.
           this.searchShown = false;
           if (this.stack.length) this.libList.setSource(this.stack[this.stack.length - 1]);
           else this.openStart();
@@ -2069,6 +2081,7 @@ const ITEM_MENU = 'scene_item_menu';
  * header (the source's menu items: lib, tracks or playlists), whose popup
  * part loads into the item (merge_item_popup_menu / merge_item_text_popup_menu).
  */
+const HEADER_BUTTONS = ['shuffle_button', 'play_button', 'search_button', 'select_button'];
 const ART_ENTRY_KINDS = new Set(['album', 'artist', 'albumArtist', 'composer', 'genre', 'playlist']);
 const HUMAN_ENTRY_KINDS = new Set(['artist', 'albumArtist', 'composer']);
 

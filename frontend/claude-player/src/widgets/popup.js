@@ -15,6 +15,7 @@ import {colorForState} from '../res/resources.js';
 import {fadeLevel} from '../view/drawables.js';
 import {GONE, VISIBLE, colorToCss} from '../res/values.js';
 import {animTime} from './topnav.js';
+import {VelocityTracker, Fling, MIN_FLING_DP, MAX_FLING_DP} from '../gesture.js';
 
 const MENU = 'scene_button_menu', CLOSED = 'scene_button_menu_closed';
 const idOf = raw => (raw ? /^@\+?id\/(.+)$/.exec(raw)?.[1] ?? null : null);
@@ -280,69 +281,134 @@ export class PopupLayout extends FastLayout {
 }
 
 /** A vertically scrolling list of popup rows (the popup list of preset buttons). */
+/**
+ * A popup's scrolling list of rows. Rows are views, or {key, make} entries
+ * built only when they scroll near the window (17k AutoEq presets); a row
+ * that stays across setRows keeps its view, so a focused search field in the
+ * header is never taken out of the page. Rows measure to popupRowHeight (-1
+ * measures the view) or the list's row height. A drag scrolls, a quick
+ * release flings with the list scroller's decay.
+ */
 export class PopupList extends FastLayout {
   constructor(ctx, a) {
     super(ctx, a);
-    this.rows = [];
+    this.entries = [];
     this.rowHeight = 0;
     this.scrollY = 0;
     this.clipChildren = true;
     this.el.style.overflow = 'hidden';
   }
 
-  setRows(views, rowHeight) {
-    for (const r of this.rows) this.removeView(r);
-    this.rows = views;
+  /** The views shown (built) now. */
+  get rows() { return this.children; }
+
+  setRows(rows, rowHeight) {
+    this.entries = rows.map(r => (r instanceof View ? {view: r} : {key: r.key, make: r.make}));
     this.rowHeight = rowHeight;
-    for (const v of views) { v.lp = this.generateLayoutParams(this.ctx.inflater.styledAttributes({})); this.addView(v); }
     this.scrollY = 0;
     this.requestLayout();
   }
 
-  // A row's own height (popupRowHeight; -1 measures it), else the list's.
+  heightOf(e) {
+    const v = e.view;
+    if (v && v.visibility === GONE) return 0;
+    const rh = v?.popupRowHeight ?? this.rowHeight;
+    return rh < 0 ? v.measuredHeight : rh;
+  }
+
   onMeasure(wSpec, hSpec) {
     const w = MeasureSpec.getSize(wSpec), h = MeasureSpec.getSize(hSpec);
     this.setMeasuredDimension(w, h);
-    for (const r of this.rows) {
-      const rh = r.popupRowHeight ?? this.rowHeight;
-      r.measure(MeasureSpec.make(w, MeasureSpec.EXACTLY), rh < 0 ? MeasureSpec.make(0, MeasureSpec.UNSPECIFIED) : MeasureSpec.make(rh, MeasureSpec.EXACTLY));
-    }
+    // Views given up front measure now (headers, separators); built rows on attach.
+    for (const e of this.entries) if (e.view) this.measureRow(e.view, w);
+  }
+
+  measureRow(v, w) {
+    const rh = v.popupRowHeight ?? this.rowHeight;
+    v.measure(MeasureSpec.make(w, MeasureSpec.EXACTLY), rh < 0 ? MeasureSpec.make(0, MeasureSpec.UNSPECIFIED) : MeasureSpec.make(rh, MeasureSpec.EXACTLY));
   }
 
   get contentHeight() {
-    return this.rows.reduce((n, r) => n + (r.visibility === GONE ? 0 : r.measuredHeight || r.popupRowHeight || this.rowHeight), 0);
+    let n = 0;
+    for (const e of this.entries) n += this.heightOf(e);
+    return n;
   }
 
   onLayout() {
     this.scrollY = Math.max(0, Math.min(this.scrollY, this.contentHeight - this.height));
-    let y = -this.scrollY;
-    for (const r of this.rows) {
-      if (r.visibility === GONE) continue;
-      const rh = r.measuredHeight || this.rowHeight;
-      r.layout(0, y, this.width, y + rh);
+    // Rows within a screen above and below the window are attached.
+    const lo = this.scrollY - this.height, hi = this.scrollY + 2 * this.height;
+    const want = new Set();
+    let y = 0;
+    for (const e of this.entries) {
+      const rh = this.heightOf(e);
+      if (rh > 0 && y + rh >= lo && y <= hi) {
+        if (!e.view) { e.view = e.make(); e.view.lp ??= this.generateLayoutParams(this.ctx.inflater.styledAttributes({})); this.measureRow(e.view, this.width); }
+        const v = e.view;
+        want.add(v);
+        if (v.parent !== this) { v.lp ??= this.generateLayoutParams(this.ctx.inflater.styledAttributes({})); this.addView(v); this.measureRow(v, this.width); }
+        v.layout(0, y - this.scrollY, this.width, y - this.scrollY + rh);
+      }
       y += rh;
     }
+    for (const v of [...this.children]) if (!want.has(v)) this.removeView(v);
+  }
+
+  maxScroll() {
+    return Math.max(0, this.contentHeight - this.height);
+  }
+
+  stopFling() {
+    this._fling?.();
+    this._fling = null;
   }
 
   onInterceptStart(start, now) {
     if (Math.abs(now.rootY - start.rootY) <= Math.abs(now.rootX - start.rootX)) return false;
-    this.drag = {y: start.rootY, s: this.scrollY};
+    this.stopFling();
+    const vt = new VelocityTracker();
+    vt.add(start.time, start.rootX, start.rootY);
+    vt.add(now.time, now.rootX, now.rootY);
+    this.drag = {y: start.rootY, s: this.scrollY, vt};
     return true;
   }
 
   onPointerDown(e) {
-    this.drag = {y: e.rootY, s: this.scrollY};
+    this.stopFling();
+    const vt = new VelocityTracker();
+    vt.add(e.time, e.rootX, e.rootY);
+    this.drag = {y: e.rootY, s: this.scrollY, vt};
     return true;
   }
 
   onPointerMove(e) {
-    if (!this.drag) return;
-    this.scrollY = this.drag.s - (e.rootY - this.drag.y);
+    const d = this.drag;
+    if (!d) return;
+    d.vt.add(e.time, e.rootX, e.rootY);
+    this.scrollY = Math.max(0, Math.min(this.maxScroll(), d.s - (e.rootY - d.y)));
     this.onLayout();
+    this.invalidate();
   }
 
-  onPointerUp() {
+  onPointerUp(e) {
+    const d = this.drag;
     this.drag = null;
+    if (!d) return;
+    d.vt.up(e?.time ?? performance.now());
+    const v = -d.vt.compute(MAX_FLING_DP * this.ctx.dpr).vy;
+    if (Math.abs(v) < MIN_FLING_DP * this.ctx.dpr) return;
+    const f = new Fling(v);
+    let last = performance.now();
+    this._fling = this.ctx.onFrame(now => {
+      const dt = Math.min(0.048, (now - last) / 1000);
+      last = now;
+      const max = this.maxScroll();
+      this.scrollY = Math.max(0, Math.min(max, this.scrollY + f.step(dt)));
+      this.onLayout();
+      this.invalidate();
+      if (f.done || this.scrollY <= 0 || this.scrollY >= max) { this._fling = null; return false; }
+      return true;
+    });
   }
 }
 
@@ -549,13 +615,19 @@ export class EqPresetPopupListLayout extends PopupLayout {
       // Rename and Assign take one preset.
       for (const b of this.selBar.children) if (b.msgId === 'cmd_list_rename_dialog' || b.msgId === 'cmd_list_preset_assign_dialog') b.setEnabled?.(this.selection.size === 1);
     }
+    this.sepCache ??= new Map();
     for (const s of this.sections()) {
-      const sep = ctx.inflater.inflate('item_separator_button', null)[0];
-      sep.findViewById('title')?.setText(ctx.res.stringByName(s.title) ?? s.title);
-      sep.findViewById('line2')?.setVisibility(GONE);
-      sep.popupRowHeight = ctx.listWidget?.libList?.host?.substyle?.dim('separatorSize', 0) || Math.round(28 * ctx.dpr);
+      let sep = this.sepCache.get(s.title);
+      if (!sep) {
+        sep = ctx.inflater.inflate('item_separator_button', null)[0];
+        sep.findViewById('title')?.setText(ctx.res.stringByName(s.title) ?? s.title);
+        sep.findViewById('line2')?.setVisibility(GONE);
+        sep.popupRowHeight = ctx.listWidget?.libList?.host?.substyle?.dim('separatorSize', 0) || Math.round(28 * ctx.dpr);
+        this.sepCache.set(s.title, sep);
+      }
       rows.push(sep);
-      for (const p of s.presets) rows.push(this.presetRow(p));
+      // Preset rows build when they scroll near the window.
+      for (const p of s.presets) rows.push({key: p.id, make: () => this.presetRow(p)});
     }
     const y = this.list.scrollY;
     this.list.setRows(rows, this.itemSize);
