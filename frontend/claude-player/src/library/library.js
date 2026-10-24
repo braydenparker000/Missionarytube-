@@ -14,7 +14,7 @@ import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars, de
 const COVERS = 'claude-player-covers', THUMBS = 'claude-player-thumbs';
 const COVER_CAP = 1500, THUMB_PX = 256, MEM_FULL = 60, MEM_THUMB = 800;
 const COVER_SLOTS = 3, ROW_SETTLE_MS = 150;
-const R2_REFRESH_MS = 12 * 3600 * 1000;
+const R2_REFRESH_MS = 10 * 60 * 1000; // a revalidation: an unchanged index costs a 304
 const SKIPPED = Symbol('skipped');
 const isRemoteArt = key => /^(https:|embedded:)/.test(key);
 // Cache Storage needs URL keys: embedded covers get a local pseudo-URL.
@@ -90,9 +90,9 @@ export class Library {
   }
 
   /**
-   * Loads the R2 index; replaces the remote tracks when it changed. The index
-   * is large (several MB) and not cacheable, so a snapshot younger than
-   * R2_REFRESH_MS is kept unless forced (Rescan).
+   * Loads the R2 index; replaces the remote tracks when it changed. A snapshot
+   * younger than R2_REFRESH_MS is kept unless forced (Rescan); older, the
+   * browser revalidates its cached index (304 when unchanged).
    */
   async refreshR2({force = false, url = this.ctx.settings?.r2_library_url || R2_LIBRARY_URL} = {}) {
     if (!force && this.remoteTracks.length && Date.now() - (this.r2SavedAt ?? 0) < R2_REFRESH_MS) return false;
