@@ -82,8 +82,10 @@ jc wait --minutes 24      # run with run_in_background
 
 - It ends with messages (exit 0): answer them, then wait again.
 - It ends empty (exit 3): wait again, until you have been idle for
-  **2 hours** in total. Then run `jc status stopping` and finish your turn
+  **4 hours** in total. Then run `jc status stopping` and finish your turn
   with a one-line summary. The next message starts a fresh session.
+  (Each empty wait costs one short turn, about every 24 minutes; four hours
+  is how long a waiting session was tested to stay up.)
 - Never poll in the foreground, and never sleep in a loop.
 
 ## Your notebook

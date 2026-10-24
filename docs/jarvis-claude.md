@@ -85,12 +85,23 @@ the status line then says "Waking is not set up yet".
 
 ## Costs
 
-- Waiting costs nothing; a session only uses your plan's usage while it is
-  reading and answering. An idle session stops after two hours.
+- Waiting itself costs nothing. A listening session wakes for one short
+  turn about every 24 minutes (about 3¢ of usage at list prices in the
+  test below) and stops after four idle hours.
 - Cloudflare: the long polls keep one Durable Object awake while the app is
   open or a session is listening. Even awake all day, that is about 11,000
   GB-seconds of the free plan's 13,000 a day; in practice it is far less.
   Watch the Durable Objects usage graph after the first week.
+
+## Tested: a session keeps listening
+
+On 2026-10-24 a cloud session ran ten 25-minute background waits in a row
+(03:41 to 07:52 UTC). Every wait ended on time, in the same process, with
+no pause or restart of its machine, and the whole test used about 35¢ of
+usage at list prices. So a listening session stays reachable for hours,
+and Claude answers within seconds while it is up. If a session is ever
+stopped anyway, its lease lapses within a minute and the next message
+wakes a fresh one.
 
 ## Files
 
