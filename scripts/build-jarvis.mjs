@@ -45,9 +45,9 @@ for(const file of files){
  }
  if(/\.(mp4|mkv|webm|mp3|opus|flac|wav)$/i.test(file))throw Error('Media payload is not allowed in the frontend artifact: '+file);
 }
-// 30 MiB while classic Astra (frontend/media) and new Astra (frontend/astra) ship
-// side by side; return to 25 MiB when frontend/media retires.
-if(total>30*1024*1024)throw Error('Frontend exceeds the 30 MiB budget');
+// 25 MiB. Classic Astra (frontend/media) is retired; Astra's software decoder
+// (frontend/assets/libmedia, about 11 MiB) is the largest single component.
+if(total>25*1024*1024)throw Error('Frontend exceeds the 25 MiB budget');
 await cp('dist/index.html','dist/jarvis-preview.html');
 assert.deepEqual(await frontendProvenance(),provenance,'Frontend source changed during the build');
 // Public release metadata names the actual frontend input, not a historical fixture.

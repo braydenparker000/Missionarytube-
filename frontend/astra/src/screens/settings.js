@@ -62,8 +62,7 @@ export class SettingsScreen {
       group('Data',
         navRow('backup', 'Your data', 'Back up, restore, clear', () => this.open('Your data', p => this.data(p)))),
       group('About',
-        navRow('info', 'Playback lab', 'See how a file plays on this phone', () => { location.href = 'lab/'; }),
-        navRow('external', 'Classic Astra', 'The previous version, while this one settles in', () => { location.href = '../media/'; })),
+        navRow('info', 'Playback lab', 'See how a file plays on this phone', () => { location.href = 'lab/'; })),
       h('p', {class: 'about'}, 'Astra · new · built on the Stremio add-on protocol. Everything stays on this device.'));
   }
 

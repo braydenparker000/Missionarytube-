@@ -1,32 +1,20 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
-import { mediaAppRoot } from "../tests/helpers/media-root.mjs";
-
-const mediaRoot = mediaAppRoot();
-const mediaPath = (path) => join(mediaRoot, path);
+// Astra (frontend/astra) is the media app. Its software decoder loads the
+// libmedia runtime shared from frontend/assets/libmedia.
+const astraRoot = "frontend/astra";
+const astraPath = (path) => join(astraRoot, path);
 const failures = [];
 const requiredFiles = [
-  "index.html",
-  "assets/css/obsidian.css",
-  "assets/js/app.js",
-  "assets/js/bootstrap.js",
-  "assets/js/progress-store.js",
-  "assets/js/catalog-registry.js",
-  "assets/js/discovery-health.js",
-  "assets/js/federated-search.js",
-  "assets/js/search-intent.js",
-  "assets/js/route-runtime.js",
-  "assets/js/playback/settings.js",
-  "assets/js/playback/streams.js",
-  "assets/js/playback/adapters.js",
-  "assets/js/playback/engine.js",
-  "assets/js/playback/episodes.js",
-  "assets/js/playback/subtitles.js",
-  "assets/js/youtube/config.js",
-  "assets/js/youtube/instances.js",
-  "assets/js/youtube/api.js",
-  "assets/js/youtube/playback.js",
+  "frontend/astra/index.html",
+  "frontend/astra/src/main.js",
+  "frontend/astra/src/engine/player.js",
+  "frontend/astra/src/engine/software.js",
+  "frontend/astra/vendor/mediabunny.js",
+  "frontend/assets/libmedia/avplayer.js",
+  "frontend/assets/libmedia/licenses/libmedia-COPYING.LGPLv3.txt",
+  "frontend/mymedia/player.js",
   "AGENTS.md",
   "CLAUDE.md",
   "docs/WORKFLOW.md",
@@ -38,13 +26,13 @@ const requiredFiles = [
 
 for (const path of requiredFiles) {
   try {
-    await access(path === "index.html" || path.startsWith("assets/") ? mediaPath(path) : path);
+    await access(path);
   } catch {
     failures.push(`Missing required file: ${path}`);
   }
 }
 
-const html = await readFile(mediaPath("index.html"), "utf8");
+const html = await readFile(astraPath("index.html"), "utf8");
 const checks = [
   [/<!doctype html>/i, "index.html must declare an HTML doctype"],
   [/<html[^>]*lang=/i, "index.html must declare a document language"],
@@ -57,9 +45,9 @@ for (const [pattern, message] of checks) {
   if (!pattern.test(html)) failures.push(message);
 }
 
-for (const asset of html.matchAll(/(?:src|href)=["'](assets\/[^"'?#]+)/g)) {
+for (const asset of html.matchAll(/(?:src|href)=["'](?![a-z][a-z0-9+.-]*:|\/|#)([^"'?#]+)/gi)) {
   try {
-    await access(mediaPath(asset[1]));
+    await access(astraPath(asset[1]));
   } catch {
     failures.push(`Referenced asset does not exist: ${asset[1]}`);
   }
@@ -87,8 +75,8 @@ async function collectSourceFiles(directory) {
   return found;
 }
 
-// Classic Astra (frontend/media) and new Astra (frontend/astra, its own code; vendored packages excluded).
-const sourceFiles = [mediaPath("index.html"), ...(await collectSourceFiles(mediaPath("assets"))), ...(await collectSourceFiles("frontend/astra/src")), ...(await collectSourceFiles("frontend/astra/lab"))];
+// Astra's own code (vendored packages excluded) and My Media, which loads Astra's engine.
+const sourceFiles = [astraPath("index.html"), ...(await collectSourceFiles(astraPath("src"))), ...(await collectSourceFiles(astraPath("lab"))), ...(await collectSourceFiles("frontend/mymedia"))];
 let remoteDependencies = 0;
 
 for (const path of sourceFiles) {

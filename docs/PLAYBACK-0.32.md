@@ -42,7 +42,9 @@ records each file's SHA-256. The build refuses mismatches. Assets are served
 from Astra's own origin and fetched by the browser only when needed.
 
 libmedia is copyright Gaoxing Zhao and contributors, distributed
-under LGPLv3. License texts are in `assets/licenses/libmedia-COPYING.*.txt`.
+under LGPLv3. The runtime ships from `frontend/assets/libmedia/` (served at
+`/assets/libmedia/`, loaded by Astra's `src/engine/software.js`); license texts
+and the modification notice are in `frontend/assets/libmedia/licenses/`.
 A narrow capability patch in `scripts/build-libmedia.mjs` permits the existing
 VideoFrame/MediaStream renderer when WebGL is absent; all its other required
 APIs remain checked. The patch and its license notice accompany the runtime.

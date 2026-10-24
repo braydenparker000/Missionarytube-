@@ -6,18 +6,13 @@
   "type": "module",
   "workspaces": ["backend"],
   "scripts": {
-    "test": "node scripts/check.mjs && node --test tests/*.test.mjs scripts/*.test.mjs scripts/test-jarvis-media.mjs",
+    "test": "node scripts/check.mjs && node --test tests/*.test.mjs scripts/*.test.mjs",
     "build": "node scripts/build-jarvis.mjs && node scripts/build-backend.mjs",
     "test:podcasts": "node --test tests/podcasts-mobile-browser.test.mjs backend/tests/podcasts.test.js backend/tests/podcast-directory-contract.test.js",
     "test:daily-board": "node --test tests/daily-board-report.test.mjs tests/daily-board-browser.test.mjs scripts/frontend-source.test.mjs scripts/publish-daily-board.test.mjs tests/privacy.test.mjs",
     "test:jarvis": "npm --prefix .jarvis-source test",
     "test:backend": "npm --prefix backend test",
-    "test:tools": "python -m unittest discover -s tests/python -p 'test_*.py' -v",
-    "test:media-jarvis:source": "node scripts/test-jarvis-media.mjs source",
-    "test:media-jarvis:shipped": "node scripts/test-jarvis-media.mjs shipped",
-    "test:media-jarvis:pinned": "node scripts/test-jarvis-media.mjs pinned",
-    "test:media-jarvis:source-only": "node scripts/test-jarvis-media.mjs source-only",
-    "test:media-jarvis:qualify": "node scripts/test-jarvis-media.mjs qualify"
+    "test:tools": "python -m unittest discover -s tests/python -p 'test_*.py' -v"
   },
   "dependencies": {
     "@libmedia/avplayer": "1.3.1",

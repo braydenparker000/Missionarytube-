@@ -76,9 +76,10 @@ behavior is accepted merely by listing it.
 
 ## Test and privacy boundaries
 
-Root `npm test` explicitly selects `tests/*.test.mjs`, `scripts/*.test.mjs`,
-and the already-discovered `scripts/test-jarvis-media.mjs`. All 86 original
-orchestration test entrypoints remain selected. A new test checks discovery
+Root `npm test` explicitly selects `tests/*.test.mjs` and `scripts/*.test.mjs`.
+At import it also selected `scripts/test-jarvis-media.mjs` and all 86 original
+orchestration test entrypoints; the classic media app (`frontend/media`) and
+its tests were later retired in favour of Astra. A new test checks discovery
 coverage and rejects omitted nested or differently suffixed test files.
 Imported application tests are not automatically discovered or claimed passing.
 They will run as a separately qualified component during cutover.

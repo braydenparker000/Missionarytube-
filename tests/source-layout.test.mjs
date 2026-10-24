@@ -12,7 +12,7 @@ test('removed application snapshots cannot become build inputs again', async()=>
 });
 
 test('historical compatibility fixtures refuse current sources and paths outside the explicit fixture set',()=>{
-  for(const path of ['frontend/media/index.html','../package.json','jarvis/public/../backend/worker.js']){
+  for(const path of ['frontend/astra/index.html','../package.json','jarvis/public/../backend/worker.js']){
     assert.throws(()=>historicalBytes(path),/Not a retained historical fixture/);
     assert.throws(()=>historicalModulePath(path),/Not a retained historical fixture/);
   }
@@ -40,7 +40,7 @@ test('source identity detects changed bytes, executable modes and added files', 
 
 test('deployment command explicitly selects every existing orchestration test, never jarvis tests', async () => {
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url)));
-  assert.equal(pkg.scripts.test, 'node scripts/check.mjs && node --test tests/*.test.mjs scripts/*.test.mjs scripts/test-jarvis-media.mjs');
+  assert.equal(pkg.scripts.test, 'node scripts/check.mjs && node --test tests/*.test.mjs scripts/*.test.mjs');
   // Refuse silently omitted nested/new-extension tests in either deployment scope.
   const discovered = [];
   async function walk(directory) {
@@ -52,8 +52,7 @@ test('deployment command explicitly selects every existing orchestration test, n
   }
   await walk('tests');
   await walk('scripts');
-  assert.ok(discovered.includes('scripts/test-jarvis-media.mjs'));
-  assert.ok(discovered.includes('tests/media-app-root.test.mjs'));
-  assert.ok(discovered.length >= 86);
-  for (const path of discovered) assert.match(path, /^(?:(?:tests|scripts)\/[^/]+\.test\.mjs|scripts\/test-jarvis-media\.mjs)$/);
+  assert.ok(discovered.includes('tests/source-layout.test.mjs'));
+  assert.ok(discovered.length >= 83);
+  for (const path of discovered) assert.match(path, /^(?:tests|scripts)\/[^/]+\.test\.mjs$/);
 });
