@@ -3,14 +3,47 @@
 How music gets from Muse into the player, and what keeps it working.
 
 ```
- Muse ── signed uploads ──▶ Worker /music/uploads/*  ──▶ R2 bucket jarvis-music
-                                                            native/audio/<sha256>.opus
-                                                            native/art/<sha256>.jpg|png
-                                                            catalog/r2-library-v1.json   (the stored catalog)
-                                                            catalog/r2-library-last-good-v1.json
- Player ◀── /music/library.json (light index, ETag) ◀── Worker ◀──┘
-        ◀── /music/library/audio|art|waveform/<id>
+ Muse ── signed uploads ─────▶ Worker /music/uploads/audio|art ─▶ R2 native/audio, native/art
+      ── signed changes ─────▶ Worker /music/uploads/<op> ─▶ catalog writer (Durable Object
+                                                              "music-catalog-v1": one row per track,
+                                                              waveforms, change log)
+                                                                │ publishes after each change
+                                                                ▼
+                                                     R2 catalog/r2-library-v1.json (no waveforms)
+ Player ◀── /music/library.json (light index, ETag) ◀── Worker read path ◀──┘
+        ◀── /music/library/audio|art/<id> (R2)  ◀── /music/library/waveform/<id> (writer)
 ```
+
+Muse's side of this is in [muse-music-sop.md](muse-music-sop.md).
+
+## The catalog writer
+
+`backend/music-catalog.js`, one Durable Object (`music-catalog-v1`):
+
+- **One writer.** Register, register-batch, analysis, patch, replace-audio
+  and delete run here one at a time: no "library changed concurrently", and a
+  change is a row update, not a read-modify-write of the whole file (about
+  0.2 s per change at 7,500 tracks, publish included; a batch of 100 is one
+  publish).
+- **Published, not edited.** After each change the catalog file is rebuilt
+  from the rows, validated as a whole (album claims included), and written
+  with a conditional put. A failed write is retried by the object's alarm;
+  `/music/health` shows `writer.pendingPublish` meanwhile.
+- **Waveforms live in the writer**, one per row, served per track. The file
+  is about 8.4 MB instead of 13.3 MB (the 16 MiB limit now holds about
+  15,000 tracks).
+- **Stable ids.** `replace-audio` keeps the track's id (so its plays and
+  ratings); the catalog's validator now allows a native id whose audio has
+  been replaced.
+- **Outside edits.** On first use the writer takes in the existing file. If
+  the file is later replaced by someone else and nothing here is waiting to be
+  published, it is taken in too. If something is waiting, that is a conflict:
+  changes are refused (409) until `reimport` (take the file) or
+  `publish {force: true}` (keep the writer's rows).
+- **Change log**: every change keeps the record as it was before (last
+  20,000), for repair by hand.
+- **Audit** compares the bucket with the rows: missing objects, wrong sizes,
+  orphans.
 
 ## Delivery (what phones download)
 
@@ -28,8 +61,8 @@ How music gets from Muse into the player, and what keeps it working.
 
 ## Last known good
 
-The stored catalog is one file, and today Muse also edits it directly. A
-broken edit used to take all music down (503). Now:
+The catalog is one file in R2. A broken edit of it (before the writer, Muse
+edited it directly) used to take all music down (503). Now:
 
 - Each new valid catalog is copied to `catalog/r2-library-last-good-v1.json`.
 - When the stored catalog is invalid, missing or over the size limit, the
@@ -47,23 +80,11 @@ keys or message text:
 ```json
 {"ok": true, "servingLastGood": false, "problem": null,
  "catalog": {"etag": "…", "count": 7494, "generatedAt": "…", "storedBytes": 13335814,
-             "limitBytes": 16777216, "usedPercent": 79.5, "publicBytes": 8352209, "waveforms": 7494}}
+             "limitBytes": 16777216, "usedPercent": 79.5, "publicBytes": 8352209, "waveforms": 7494},
+ "writer": {"ready": true, "count": 7494, "pendingPublish": false, "conflict": null,
+            "withoutWaveform": 0, "lastAudit": {"missing": 0, "orphans": 0, "…": "…"}}}
 ```
 
 `ok: false` with `servingLastGood: true` means the stored catalog needs fixing;
 `problem.reason` says how it is broken. The deploy check
 (`scripts/verify-music-worker.mjs`) also checks the 304, a waveform and health.
-
-## Next: one writer for the catalog
-
-Still to do, with Muse:
-
-- The catalog moves into a Durable Object (one row per track) with a single
-  writer: no 16 MiB cap, no "library changed concurrently" conflicts, and
-  registering a track no longer rewrites the whole file. The R2 file and the
-  light index are generated from it, so they are always valid, and earlier
-  versions are kept for rollback.
-- Signed endpoints for batch registration, tag edits, deletion, waveforms and
-  cover replacement, so nothing edits the catalog file directly.
-- A regular integrity sweep: catalog entries whose objects are missing, and
-  uploaded objects that were never registered.

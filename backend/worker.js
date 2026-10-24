@@ -19,6 +19,7 @@ import {relayOwnerPublic,relayOwnerStore,relayOwnerAssistantAttachmentIngress} f
 import {RelayError,boundedText,RELAY_OAUTH_OBJECT} from './relay-common.js';
 import {projectTransport,projectStore} from './relay-projects.js';
 import {claudeChatPublic,claudeChatInternal,CLAUDE_CHAT_OBJECT} from './claude-chat.js';
+import {musicCatalogInternal,musicCatalogAlarm,isMusicCatalog,MUSIC_CATALOG_OBJECT} from './music-catalog.js';
 const paths = new Set(['/v1/state', '/v1/messages', '/v1/board', '/v1/responder/connect', '/v1/responder/revoke', '/v1/agent/inbox', '/v1/agent/replies', '/v1/agent/board']);
 const digest = async value => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))),b=>b.toString(16).padStart(2,'0')).join('');
 const randomKey = () => Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
@@ -150,6 +151,8 @@ export class Hub {
     return this.publicationSync;
   }
   async alarm(){
+    // The music catalog object's alarm only retries a catalog publish.
+    if(isMusicCatalog(this.ctx))return musicCatalogAlarm(this.ctx,this.env);
     // Keep a durable retry before any import or callback await. The two lanes
     // perform bounded work, then one compositor selects their shared next wake.
     const wake=await beginRelayCoreAlarm(this.ctx);
@@ -194,6 +197,10 @@ export class Hub {
         return this.withCoreWake(operation);
       }
       return operation();
+    }
+    if(path==='/internal/music'){
+      if(this.ctx.id?.name && this.ctx.id.name!==MUSIC_CATALOG_OBJECT)return json({error:'Wrong music object'},403);
+      return musicCatalogInternal(this.ctx,this.env,await request.json());
     }
     if(path==='/internal/claude-chat'){
       if(this.ctx.id?.name && this.ctx.id.name!==CLAUDE_CHAT_OBJECT)return json({error:'Wrong chat object'},403);

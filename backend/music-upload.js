@@ -1,11 +1,12 @@
-import {validateAnalysis} from '../frontend/drawercast/audio-analysis.js';
 import {FRONTEND_ORIGINS} from './origins.js';
 import {byteRange} from './music.js';
-import {publicLibrary,libraryHealth} from './music-library-cache.js';
-import {LIBRARY_KEY,MAX_LIBRARY_BYTES,HEX,SONG_ID,metadata,identityMatches,validateLibrary,boundedBytes,readStoredLibrary,signatureMessage} from '../frontend/drawercast/r2-library.js';
+import {publicLibrary,libraryHealth,waveBytes} from './music-library-cache.js';
+import {musicCatalog,verifiedBlob,WRITE_OPS} from './music-catalog.js';
+import {HEX,SONG_ID,identityMatches,boundedBytes,signatureMessage} from '../frontend/drawercast/r2-library.js';
 const AUDIO=/^\/music\/uploads\/audio\/([a-f0-9]{64})\.opus$/;
 const ART=/^\/music\/uploads\/art\/([a-f0-9]{64})\.(jpg|png)$/;
-const REGISTER='/music/uploads/register',ANALYSIS='/music/uploads/analysis';
+// Catalog changes go to the catalog's single writer (music-catalog.js).
+const CATALOG=/^\/music\/uploads\/([a-z-]+)$/;
 const utf8=new TextEncoder();
 const hash=async bytes=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(x=>x.toString(16).padStart(2,'0')).join('');
 const raw=hex=>Uint8Array.from(hex.match(/../g),x=>parseInt(x,16));
@@ -23,7 +24,6 @@ async function signed(request,env,url){
   return {size:Number(size),hash:h,type};
 }
 const fnv=bytes=>{let h=0x811c9dc5;for(const b of bytes)h=Math.imul(h^b,0x01000193)>>>0;return h.toString(16).padStart(8,'0')+bytes.length.toString(16);};
-function verifiedBlob(o,sha,size){return o?.size===size&&o.customMetadata?.['verified-sha256']===sha&&o.customMetadata?.verification==='worker-upload-sha256-v1';}
 export async function nativeMusic(request,env){
   const url=new URL(request.url),p=url.pathname;
   if(p!=='/music/library.json'&&p!=='/music/health'&&!p.startsWith('/music/library/')&&!p.startsWith('/music/uploads/'))return null;
@@ -41,13 +41,13 @@ export async function nativeMusic(request,env){
   try{
     if(upload){
       if(origin)return json({error:'Server-to-server uploads only'},403);
-      const audio=AUDIO.exec(p),art=ART.exec(p);
-      if(!(audio||art||(p===REGISTER||p===ANALYSIS)))return json({error:'Not found'},404);
-      if(request.method!==([REGISTER,ANALYSIS].includes(p)?'POST':'PUT'))return json({error:'Method not allowed'},405);
+      const audio=AUDIO.exec(p),art=ART.exec(p),op=!audio&&!art&&WRITE_OPS.has(CATALOG.exec(p)?.[1])?CATALOG.exec(p)[1]:null;
+      if(!(audio||art||op))return json({error:'Not found'},404);
+      if(request.method!==(op?'POST':'PUT'))return json({error:'Method not allowed'},405);
       const auth=await signed(request,env,url);if(!auth)return json({error:'Authorized music signature required'},401);
-      const max=audio?32*1024*1024:art?2*1024*1024:16384;
+      const max=audio?32*1024*1024:art?2*1024*1024:op==='register-batch'?1024*1024:65536;
       if(auth.size>max)return json({error:'Upload exceeds its size limit'},413);
-      if(audio&&auth.type!=='audio/ogg'||art&&auth.type!==(art[2]==='jpg'?'image/jpeg':'image/png')||[REGISTER,ANALYSIS].includes(p)&&auth.type!=='application/json')return json({error:'Unexpected content type'},415);
+      if(audio&&auth.type!=='audio/ogg'||art&&auth.type!==(art[2]==='jpg'?'image/jpeg':'image/png')||op&&auth.type!=='application/json')return json({error:'Unexpected content type'},415);
       // Bound streamed bytes after signature authentication; never trust Content-Length.
       const bytes=await boundedBytes(request.body,Math.min(max,auth.size));
       if(bytes.length!==auth.size||await hash(bytes)!==auth.hash)return json({error:'Uploaded bytes do not match signed proof'},422);
@@ -61,54 +61,18 @@ export async function nativeMusic(request,env){
         if(!verifiedBlob(o,sha,bytes.length))return json({error:'Existing object conflicts with verified upload'},409);
         return json({key,sha256:sha,size:o.size,r2Identity:proof(o)});
       }
-      if(p===ANALYSIS){
-        let body;try{body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{return json({error:'Invalid analysis registration'},422);}
-        if(!SONG_ID.test(body.id)||!HEX.test(body.sha256)||!Number.isSafeInteger(body.size)||!(body.previousAnalysisSha256===null||HEX.test(body.previousAnalysisSha256)||body.previousAnalysisSha256===undefined&&Object.hasOwn(body,'previousAnalysis')))return json({error:'Invalid analysis identity'},422);
-        let analysis;try{analysis=validateAnalysis(body.audioAnalysis,body.sha256,body.size);}catch{return json({error:'Invalid audio analysis'},422);}
-        for(let attempt=0;attempt<5;attempt++){
-          const {data,etag}=await readStoredLibrary(env.MUSIC_R2),existing=data.tracks.find(t=>t.id===body.id);
-          if(!existing||existing.sha256!==body.sha256||existing.size!==body.size||!identityMatches({size:body.r2Identity?.size,etag:body.r2Identity?.etag,uploaded:new Date(body.r2Identity?.lastModified)},existing.r2Identity))return json({error:'Analysis object identity conflict'},409);
-          const object=await env.MUSIC_R2.head(existing.audioKey);
-          if(!identityMatches(object,existing.r2Identity)||!(existing.audioKey.startsWith('native/')?verifiedBlob(object,existing.sha256,existing.size):object.customMetadata?.['source-sha256']===existing.sha256&&object.customMetadata?.['source-size']===String(existing.size)))return json({error:'Verified audio is unavailable'},409);
-          const old=existing.metadata.audioAnalysis,revision=old?await hash(utf8.encode(JSON.stringify(old))):null;
-          if(JSON.stringify(old)===JSON.stringify(analysis))return json({registered:true,analysisUpdated:false,id:existing.id,count:data.count});
-          const expected=body.previousAnalysisSha256===undefined?(body.previousAnalysis?await hash(utf8.encode(JSON.stringify(body.previousAnalysis))):null):body.previousAnalysisSha256;
-          if(revision!==expected)return json({error:'Analysis changed concurrently; review before retry'},409);
-          existing.metadata.audioAnalysis=analysis;data.generatedAt=new Date().toISOString();validateLibrary(data);
-          const text=JSON.stringify(data);if(utf8.encode(text).length>MAX_LIBRARY_BYTES)return json({error:'Music library limit reached'},413);
-          if(await env.MUSIC_R2.put(LIBRARY_KEY,text,{onlyIf:{etagMatches:etag},httpMetadata:{contentType:'application/json'}}))return json({registered:true,analysisUpdated:true,id:existing.id,count:data.count});
-        }
-        return json({error:'Library changed concurrently; retry analysis with reviewed identity'},409);
-      }
-      let body,meta;try{body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));meta=metadata(body.metadata);}catch{return json({error:'Invalid track metadata'},422);}
-      if(meta.audioAnalysis){try{meta.audioAnalysis=validateAnalysis(meta.audioAnalysis,body.sha256,body.size);}catch{return json({error:'Invalid audio analysis'},422);}}
-      if(meta.dur<=0)return json({error:'A positive prepared duration is required'},422);
-      if(!HEX.test(body.sha256)||!Number.isSafeInteger(body.size)||body.size<=0||typeof body.name!=='string'||body.name.length>512||/[\x00-\x1f\/\\]/.test(body.name)||!body.name.endsWith('.opus'))return json({error:'Invalid track registration'},422);
-      const audioKey='native/audio/'+body.sha256+'.opus',o=await env.MUSIC_R2.head(audioKey);
-      if(!verifiedBlob(o,body.sha256,body.size))return json({error:'Upload audio before registration'},409);
-      const track={id:'r2_native_'+body.sha256,audioKey,sha256:body.sha256,size:body.size,mimeType:'audio/ogg',r2Identity:proof(o),
-        metadata:meta,path:body.name,folder:'Cloudflare R2/'+meta.artist};
-      if(body.cover){
-        const c=body.cover;if(!HEX.test(c.sha256)||!['jpg','png'].includes(c.ext)||!Number.isSafeInteger(c.size)||c.size<=0)return json({error:'Invalid cover registration'},422);
-        const key='native/art/'+c.sha256+'.'+c.ext,artObject=await env.MUSIC_R2.head(key);
-        if(!verifiedBlob(artObject,c.sha256,c.size))return json({error:'Upload artwork before registration'},409);
-        Object.assign(track,{coverKey:key,coverSha256:c.sha256,coverSize:c.size,coverMimeType:c.ext==='jpg'?'image/jpeg':'image/png',coverIdentity:proof(artObject)});
-      }
-      for(let attempt=0;attempt<5;attempt++){
-        const {data,etag}=await readStoredLibrary(env.MUSIC_R2);
-        const existing=data.tracks.find(t=>t.sha256===track.sha256&&t.size===track.size);
-        if(existing)return json({registered:true,duplicate:true,id:existing.id,count:data.count});
-        data.tracks.push(track);data.count=data.tracks.length;data.generatedAt=new Date().toISOString();validateLibrary(data);
-        const text=JSON.stringify(data);if(utf8.encode(text).length>MAX_LIBRARY_BYTES)return json({error:'Music library limit reached'},413);
-        const saved=await env.MUSIC_R2.put(LIBRARY_KEY,text,{onlyIf:{etagMatches:etag},httpMetadata:{contentType:'application/json'}});
-        if(saved)return json({registered:true,duplicate:false,id:track.id,count:data.count});
-      }
-      return json({error:'Library changed concurrently; retry this registration'},409);
+      let body;try{body=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{body=null;}
+      if(!body||typeof body!=='object'||Array.isArray(body))return json({error:op==='analysis'?'Invalid analysis registration':'Invalid track metadata'},422);
+      if(!env.HUBS)return json({error:'The music catalog is not configured'},503);
+      const result=await musicCatalog(env,op,body);
+      return json(result.body,result.status);
     }
     if(!['GET','HEAD'].includes(request.method))return json({error:'Method not allowed'},405);
     if(env.MUSIC_PUBLIC_READ!=='true')return json({error:'Public music delivery is not enabled'},403);
     if(p==='/music/health'){
-      try{return json(libraryHealth(await publicLibrary(env.MUSIC_R2)));}
+      let writer=null;
+      if(env.HUBS){try{const r=await musicCatalog(env,'status');writer=r.status===200?r.body:{error:r.body?.error||'unavailable'};}catch{writer={error:'unavailable'};}}
+      try{return json({...libraryHealth(await publicLibrary(env.MUSIC_R2)),writer});}
       catch(error){return json({ok:false,servingLastGood:false,problem:{reason:error.message==='Music library changed'?'The stored catalog changed while reading':'No valid catalog is available'},catalog:null},503);}
     }
     const route=/^\/music\/library\/(audio|art|waveform)\/(r2_[A-Za-z0-9_-]+)$/.exec(p);
@@ -124,7 +88,10 @@ export async function nativeMusic(request,env){
       return response(library.text,200,{'Content-Type':'application/json; charset=utf-8'});
     }
     if(route[1]==='waveform'){
-      const bars=library.waves.get(route[2]);if(!bars)return json({error:'Not found'},404);
+      // Inline in an older catalog file, else kept by the catalog's writer.
+      let bars=library.waves.get(route[2]);
+      if(!bars&&env.HUBS&&library.tracks.has(route[2])){try{bars=waveBytes((await musicCatalog(env,'waveform',{id:route[2]})).body?.waveform);}catch{}}
+      if(!bars)return json({error:'Not found'},404);
       const etag='"wf-'+fnv(bars)+'"';headers.set('ETag',etag);headers.set('Cache-Control','public, max-age=604800');
       if(unchanged(etag))return response(null,304);
       return response(bars,200,{'Content-Type':'application/octet-stream','Content-Length':String(bars.length)});
