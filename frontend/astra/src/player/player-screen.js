@@ -28,6 +28,9 @@ const SKIP_LABELS = {intro: 'Skip Intro', recap: 'Skip Recap', outro: 'Skip Outr
 const iconButton = (name, label, onclick, extra = {}) => h('button', {class: 'ap-icon-btn', type: 'button', 'aria-label': label, title: label, onclick, ...extra}, icon(name, {text: extra.iconText}));
 
 export class PlayerScreen extends EventTarget {
+  /** How long a load runs before the loading screen offers other sources. */
+  static SLOW_LOAD_MS = 10000;
+
   constructor({parent = document.body} = {}) {
     super();
     this.parent = parent;
@@ -62,7 +65,10 @@ export class PlayerScreen extends EventTarget {
     this.loadingArt = h('div', {class: 'ap-loading-art'});
     this.loadingLogo = h('div', {class: 'ap-loading-logo'});
     this.loadingStatus = h('p', {class: 'ap-loading-status', role: 'status'});
-    this.loading = h('div', {class: 'ap-loading'}, this.loadingArt, this.loadingLogo, this.loadingStatus,
+    this.loadingInfo = h('p', {class: 'ap-loading-info'});
+    this.loadingSlow = h('div', {class: 'ap-loading-slow', hidden: true});
+    this.loading = h('div', {class: 'ap-loading'}, this.loadingArt, this.loadingLogo,
+      h('div', {class: 'ap-loading-foot'}, this.loadingStatus, this.loadingInfo, this.loadingSlow),
       iconButton('close', 'Close player', () => this.close('user'), {class: 'ap-icon-btn ap-loading-close'}));
 
     // Controls
@@ -138,8 +144,15 @@ export class PlayerScreen extends EventTarget {
     resized.observe(this.bottomEl); // a two-line title or the Via line changes how much room the subtitles need
     video.addEventListener('loadedmetadata', () => this.layout());
     video.addEventListener('resize', () => this.layout());
-    video.addEventListener('enterpictureinpicture', () => this.root.classList.add('in-pip'));
-    video.addEventListener('leavepictureinpicture', () => this.leftPip());
+    // Android leaves full screen on the way into and out of the floating window; those changes are not back.
+    this.pipUntil = 0;
+    const pipMove = () => { this.pipUntil = performance.now() + 1500; };
+    video.addEventListener('enterpictureinpicture', () => {
+      pipMove();
+      this.root.classList.add('in-pip');
+      if (this.isOpen) this.minimize(); // also when Chrome moves it by itself on leaving the app
+    });
+    video.addEventListener('leavepictureinpicture', () => { pipMove(); this.leftPip(); });
     this.bindVideo();
     this.bindSurface();
     this.bindTimeline();
@@ -211,6 +224,7 @@ export class PlayerScreen extends EventTarget {
   }
 
   load(stream, startTime, {allowSilent = false} = {}) {
+    if (!this.loadingSlow.hidden) { this.loadingSince = null; this.loadingSlow.hidden = true; } // another source: count afresh
     this.stream = stream;
     this.loadedFrom = startTime || 0; // where "Try again" resumes when nothing played yet
     this.ready = false;
@@ -333,7 +347,28 @@ export class PlayerScreen extends EventTarget {
 
   showLoading(on) {
     this.loading.hidden = !on;
-    if (on) this.loadingStatus.textContent = 'Finding the stream…';
+    if (!on) { clearInterval(this.loadingTimer); this.loadingTimer = 0; this.loadingSince = null; this.loadingSlow.hidden = true; this.loadingInfo.textContent = ''; return; }
+    this.loadingStatus.textContent = 'Finding the stream…';
+    // A load that takes a while says how long and how much has arrived, then offers a way out.
+    this.loadingSince ??= performance.now();
+    this.loadingTimer ||= setInterval(() => this.loadingTick(), 500);
+  }
+
+  loadingTick() {
+    const seconds = (performance.now() - this.loadingSince) / 1000, bytes = this.engine.source?.bytesFetched || 0;
+    this.loadingInfo.textContent = seconds < 5 ? '' : [`${Math.floor(seconds)} s`, bytes ? `${(bytes / 1e6).toFixed(1)} MB received` : ''].filter(Boolean).join(' · ');
+    if (seconds * 1000 < PlayerScreen.SLOW_LOAD_MS || !this.loadingSlow.hidden) return;
+    const status = this.loadingStatus.textContent;
+    const why = /Resolving/.test(status) ? 'The debrid service is slow to answer.'
+      : !bytes ? 'The host has not started sending the file.'
+      : 'The host is sending the file slowly.';
+    const others = this.sources.some(s => s.id !== this.sourceId);
+    const external = canOpenExternally() && externalPlayerUrl(this.stream?.url);
+    this.loadingSlow.replaceChildren(h('span', {}, `This is taking a while. ${why}`),
+      others || external ? h('div', {class: 'ap-loading-actions'},
+        others ? h('button', {class: 'ap-chip', type: 'button', onclick: () => this.openPanel('sources')}, 'Other sources') : null,
+        external ? h('button', {class: 'ap-chip', type: 'button', onclick: () => this.openExternally()}, 'Play in another app') : null) : null);
+    this.loadingSlow.hidden = false;
   }
 
   /** The host connection lost and found again: playback goes on from the buffer meanwhile, so this is a notice, not an error. */
@@ -544,10 +579,11 @@ export class PlayerScreen extends EventTarget {
    */
   async togglePip() {
     if (document.pictureInPictureElement) { document.exitPictureInPicture().catch(() => {}); return; }
+    this.pipUntil = performance.now() + 3000;
     try {
       await this.video.requestPictureInPicture();
       this.minimize();
-    } catch { this.flash('Picture-in-picture is not available here'); }
+    } catch { this.pipUntil = 0; this.flash('Picture-in-picture is not available here'); }
   }
 
   minimize() {
@@ -1082,6 +1118,7 @@ export class PlayerScreen extends EventTarget {
     // nothing. The next tap goes full screen again. Only then does it close
     // the player, as Nuvio's does.
     if (document.fullscreenElement || !this.wasFullscreen || !this.isOpen || !this.wantFullscreen || this.minimized || document.pictureInPictureElement || !coarse()) return;
+    if (performance.now() < this.pipUntil || this.root.classList.contains('in-pip')) return; // moving to or from the floating window
     if (this.modalName || this.panelName) { this.closeOverlays(); return; }
     if (this.locked) { this.showLockHint(); return; }
     this.close('back');

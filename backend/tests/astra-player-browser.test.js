@@ -370,6 +370,59 @@ test('picture-in-picture shrinks the video into its window and hands the screen 
   assert.deepEqual(errors, []);
 });
 
+test('picture-in-picture on Android, which leaves full screen on the way in and out, keeps the player', options, async t => {
+  const {page, errors} = await portraitPlayer(t);
+  await page.waitForFunction(() => document.fullscreenElement);
+  // Android Chrome drops the page's full screen while it moves the video into its window, and the
+  // fullscreenchange arrives before the video counts as in picture-in-picture.
+  await page.evaluate(() => {
+    HTMLVideoElement.prototype.requestPictureInPicture = async function () {
+      await document.exitFullscreen();
+      await new Promise(r => setTimeout(r, 50));
+      window.__pip = this; this.dispatchEvent(new Event('enterpictureinpicture')); return {};
+    };
+  });
+  await page.evaluate(() => astraLab.screen.showControls());
+  await page.locator('.ap-top [aria-label="Picture in picture"]').click();
+  await page.waitForFunction(() => document.querySelector('.ap').classList.contains('mini'));
+  await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => astraLab.screen.isOpen), true, 'the player is still open in the window');
+  const before = await time(page);
+  await page.waitForTimeout(500);
+  assert.ok(await time(page) > before, 'keeps playing');
+  // Expanding: the window closes and the page is briefly full screen and back.
+  await page.evaluate(async () => { document.exitPictureInPicture(); await document.documentElement.requestFullscreen().catch(() => {}); await document.exitFullscreen().catch(() => {}); });
+  await page.waitForFunction(() => !document.querySelector('.ap').classList.contains('mini'));
+  await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => astraLab.screen.isOpen), true, 'expanding brings the player back');
+  // Leaving the app with auto picture-in-picture: Chrome moves the video by itself.
+  await page.evaluate(async () => { await document.querySelector('.ap').requestFullscreen().catch(() => {}); });
+  await page.evaluate(async () => { const v = document.querySelector('.ap-video'); await document.exitFullscreen().catch(() => {}); window.__pip = v; v.dispatchEvent(new Event('enterpictureinpicture')); });
+  await page.waitForTimeout(300);
+  assert.deepEqual(await page.evaluate(() => [astraLab.screen.isOpen, document.querySelector('.ap').classList.contains('mini')]), [true, true]);
+  assert.deepEqual(errors, []);
+});
+
+test('a load that takes a while says how long and offers the other sources; picking one plays it', options, async t => {
+  const servers = await startAstraServers();
+  const browser = await chromium.launch({executablePath, headless: true, args: ['--autoplay-policy=no-user-gesture-required']});
+  t.after(async () => { await browser.close(); await servers.close(); });
+  const page = await browser.newPage({viewport: {width: W, height: H}});
+  await page.goto(`${servers.site}/astra/lab/`);
+  await page.waitForFunction(() => window.astraLab?.openPlayer);
+  await page.evaluate(([stuck, good]) => {
+    const sources = [{id: 'a', label: 'Stuck', detail: 'Never answers', stream: {url: stuck, name: 'Stuck'}}, {id: 'b', label: 'Good', detail: 'Works', stream: {url: good, name: 'Good'}}];
+    astraLab.openPlayer(sources[0].stream, {title: 'Fixture'}, {sources, sourceId: 'a'});
+    astraLab.screen.constructor.SLOW_LOAD_MS = 1500;
+  }, [servers.media + '/hang/multi-audio.mkv', servers.media + '/cors/multi-audio.mkv']);
+  await page.waitForSelector('.ap-loading-slow:not([hidden])', {timeout: 5000});
+  assert.match(await page.locator('.ap-loading-slow').textContent(), /taking a while\. The host has not started sending the file\./);
+  await page.click('.ap-loading-slow >> text=Other sources');
+  await page.locator('.ap-source', {hasText: 'Good'}).click();
+  await page.waitForFunction(() => document.querySelector('.ap-video').currentTime > 0.3, null, {timeout: 20000});
+  assert.equal(await page.locator('.ap-loading').isHidden(), true);
+});
+
 test('a file with no playable audio offers Play without sound and another app; Play without sound plays', options, async t => {
   const servers = await startAstraServers();
   const browser = await chromium.launch({executablePath, headless: true, args: ['--autoplay-policy=no-user-gesture-required']});

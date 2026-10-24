@@ -12,6 +12,7 @@
 export const BLOCK = 1 << 20;
 const MAX_STREAMS = 2;
 const READ_AHEAD = 24 * BLOCK; // a stream pauses this far past the furthest block read from it
+const PROBE_AHEAD = 2 * BLOCK; // ...and this far while the file is being described: where playback starts is not known yet
 const REUSE_WINDOW = 12 * BLOCK; // a request this close ahead of a stream waits for it
 const RETRIES = 3; // for answers that will not change by asking again (a refused range)
 const OPEN_TIMEOUT = 15000; // the host must start answering within this
@@ -51,6 +52,7 @@ export class HttpSource {
     this.failingSince = 0;
     this.stateListeners = new Set();
     this.bytesFetched = 0;
+    this.probing = false;
     // Back online: a waiting retry goes now instead of at the end of its back-off.
     this.onOnline = () => this.retryNow?.();
     if (typeof addEventListener === 'function') addEventListener('online', this.onOnline);
@@ -66,6 +68,12 @@ export class HttpSource {
 
   request(headers, signal, method = 'GET') {
     return this.fetchFn(this.url, {method, headers: {...this.headers, ...headers}, signal, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer'});
+  }
+
+  /** Reading the header is over: streams read ahead fully again. */
+  doneProbing() {
+    this.probing = false;
+    for (const s of this.streams) s.wake?.();
   }
 
   /** Calls fn(blockIndex) whenever a block lands in the cache. */
@@ -182,6 +190,13 @@ export class HttpSource {
       const victim = [...this.streams].find(s => !busy(s)) || this.streams.values().next().value;
       victim.abort();
     }
+    // Playing from elsewhere (resuming halfway, a seek): a stream nobody reads from, far from here,
+    // is closed rather than paused, since a paused connection still fills its window (megabytes)
+    // with data that is not needed, taking the phone's bandwidth from the stream that is.
+    if (!this.probing) for (const s of [...this.streams]) {
+      const near = Math.abs(s.position - position) <= READ_AHEAD + REUSE_WINDOW;
+      if (!near && ![...this.waiters.keys()].some(i => this.servedBy(s, i))) s.abort();
+    }
     const stream = {position, want: Math.floor(position / BLOCK), controller: new AbortController(), wake: null};
     stream.abort = () => { stream.controller.abort(); this.streams.delete(stream); stream.wake?.(); };
     this.streams.add(stream);
@@ -233,7 +248,7 @@ export class HttpSource {
     let block = new Uint8Array(this.blockLength(index)), filled = 0;
     while (index < this.blockCount()) {
       // Stop reading (TCP backpressure) when far ahead of every reader.
-      while ((index - stream.want) * BLOCK > READ_AHEAD && !signal.aborted) await new Promise(r => { stream.wake = r; });
+      while ((index - stream.want) * BLOCK > (this.probing ? PROBE_AHEAD : READ_AHEAD) && !signal.aborted) await new Promise(r => { stream.wake = r; });
       if (signal.aborted) return;
       // A connection that goes quiet (no error, no bytes) would hang reads forever.
       let stall;

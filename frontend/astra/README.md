@@ -229,7 +229,11 @@ measured height, so nothing covers the title or the buttons.
 - Picture-in-picture (top bar): the video moves to Android's floating window
   and the app can be used; expanding the window brings the player back (also
   after pausing in the window), closing it ends playback. Leaving Astra while playing opens it by itself
-  where Chrome allows (Settings > Playback > Picture-in-picture).
+  where Chrome allows (Settings > Playback > Picture-in-picture). Android leaves full screen on the way
+  into and out of the window; those changes are not taken for the back button.
+- A load that runs past 5 s shows how long and how much has arrived; past 10 s it says what it is
+  waiting on (the debrid service, a host that has not answered, or a slow one) and offers the other
+  sources and another app.
 - Waiting for data shows a spinner of its own after 400 ms; the controls
   stay as they were.
 - A lost connection is retried for up to a minute (at once when the phone is
@@ -240,6 +244,9 @@ measured height, so nothing covers the title or the buttons.
 - Media Session controls, screen kept awake.
 - Unpacking a file gives the page a turn every 8 ms, so taps (Close
   included) answer while a film starts.
+- While a file is being described, Astra reads only 2 MB ahead of what it
+  asked for; resuming halfway then closes the connection at the start, so it
+  does not share the phone's bandwidth with the one that is needed.
 
 ## Subtitles
 

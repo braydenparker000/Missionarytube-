@@ -107,7 +107,11 @@ html.ap-open, html.ap-open body { overflow: hidden; }
 .ap-loading-logo { position: relative; display: grid; place-items: center; max-width: min(320px, 60vw); opacity: 0; animation: ap-logo-in 700ms 400ms var(--ease) forwards, ap-pulse 2s 1100ms ease-in-out infinite; }
 .ap-loading-logo img { max-width: 100%; max-height: 180px; object-fit: contain; }
 .ap-loading-logo span { font-size: 28px; font-weight: 800; text-align: center; }
-.ap-loading-status { position: absolute; left: 0; right: 0; bottom: calc(18% + var(--safe-bottom)); margin: 0; text-align: center; color: rgba(255,255,255,.75); font-size: 14px; }
+.ap-loading-foot { position: absolute; left: 16px; right: 16px; bottom: calc(14% + var(--safe-bottom)); display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.ap-loading-status { margin: 0; color: rgba(255,255,255,.75); font-size: 14px; }
+.ap-loading-info { margin: 0; min-height: 16px; color: rgba(255,255,255,.55); font-size: 12px; font-variant-numeric: tabular-nums; }
+.ap-loading-slow { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 420px; margin-top: 8px; color: rgba(255,255,255,.85); font-size: 14px; line-height: 20px; }
+.ap-loading-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .ap-loading-close { position: absolute; top: max(8px, var(--safe-top)); right: max(12px, env(safe-area-inset-right, 0px)); width: 44px; height: 44px; }
 @keyframes ap-logo-in { to { opacity: 1; } }
 @keyframes ap-pulse { 50% { transform: scale(1.04); } }

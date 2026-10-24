@@ -1,7 +1,8 @@
 // Two local origins for Astra's browser tests: the frontend (the app's own
 // origin) and a separate media host that serves the synthetic fixtures with
 // byte ranges, like a real file host. The media host answers cross-origin
-// reads under /cors/ and refuses them (no CORS headers) under /closed/.
+// reads under /cors/ and refuses them (no CORS headers) under /closed/;
+// /hang/ never answers.
 import http from 'node:http';
 import {createReadStream, statSync} from 'node:fs';
 import {extname, join, normalize, resolve} from 'node:path';
@@ -174,6 +175,7 @@ export async function startAstraServers({frontend = join(ROOT, 'frontend'), fixt
     const [, mode, ...rest] = decodeURIComponent(url.pathname).split('/');
     const file = normalize(join(fixtures, rest.join('/')));
     if (!file.startsWith(fixtures)) { res.writeHead(403); return res.end(); }
+    if (mode === 'hang') return; // a host that takes the request and never answers
     if (mode === 'norange') { // a host that ignores Range and always sends the whole file
       const stat = statSync(file);
       res.writeHead(200, {'Access-Control-Allow-Origin': '*', 'Content-Type': TYPES[extname(file)], 'Content-Length': stat.size});
