@@ -47,13 +47,32 @@ test('THD+N, level envelopes and latency read known values', () => {
 test('the lab renders the real playback chain offline and measures it', {skip: !findChrome() && 'Chrome is required'}, async t => {
   const lab = await startLab();
   t.after(() => lab.close());
-  const results = await lab.run({names: ['volume-change', 'eq-off', 'hot-default']});
+  // Every scenario but the 20 s render-cost ones.
+  const results = await lab.run({names: ['/^(?!cost-)/']});
   assert.deepEqual(lab.errors, []);
-  const by = Object.fromEntries(results.map(r => [r.name, r]));
+  const by = Object.fromEntries(results.map(r => [r.name, r.metrics]));
   for (const r of results) assert.deepEqual(r.errors, [], r.name);
-  // Ramped parameters are smooth; the steady tone before them reads at the floor.
-  assert.ok(by['volume-change'].metrics.clickDb < -80, JSON.stringify(by['volume-change'].metrics));
-  assert.ok(by['volume-change'].metrics.floorDb < -130);
-  assert.ok(by['eq-off'].metrics.clickDb < -80);
-  assert.ok(Number.isFinite(by['hot-default'].metrics.truePeakDb));
+  const info = Object.fromEntries((await lab.scenarios()).map(s => [s.name, s]));
+  // No parameter change, graph change, fade, seek or cross-fade clicks.
+  for (const [name, m] of Object.entries(by)) {
+    if (m.clickDb === undefined) continue;
+    assert.ok(m.clickDb < -80, `${name} (${info[name].title}): click ${m.clickDb} dBFS`);
+  }
+  // With the limiter on nothing leaves above -1 dBTP: hot masters, EQ and gain stacking, cross-fades, width, reverb.
+  for (const name of ['hot-default', 'hot-bass-boost', 'hot-stacking', 'auto-xfade-sum', 'width-max', 'reverb-full', 'limiter-thd']) {
+    assert.equal(by[name].overs, 0, name);
+    assert.ok(by[name].truePeakDb <= -1, `${name}: ${by[name].truePeakDb} dBTP`);
+  }
+  // The limiter is transparent until it is needed, and does not distort a sustained bass note.
+  assert.equal(by['limiter-level'].gainDb, 0);
+  assert.equal(by['limiter-level'].latencyFrames, 103);
+  assert.ok(by['limiter-thd'].thdnDb < -100);
+  // Balance turns the far side down; it never adds one channel into the other.
+  assert.ok(by['balance-left'].samplePeakDb <= -2.9, `balance: ${by['balance-left'].samplePeakDb}`);
+  // Cross-fades are equal power and start with the incoming sound, also after a network delay.
+  for (const name of ['next-xfade', 'next-xfade-network']) {
+    const m = by[name];
+    assert.ok(m.inStartDb < -25, `${name}: incoming starts at ${m.inStartDb} dB`);
+    assert.ok(Math.abs(m.inMidDb + 3) < 1.5 && Math.abs(m.outMidDb + 3) < 1.5, `${name}: midpoint ${m.inMidDb} / ${m.outMidDb} dB`);
+  }
 });

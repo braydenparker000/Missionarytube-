@@ -262,16 +262,16 @@ The settings screens show the last three greyed out, with a line saying why
 
 | Key | Type | Status | Note |
 | --- | --- | --- | --- |
-| `crossfade_auto_advance` | TagListPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
-| `fade_manual_advance` | TagListPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
-| `fade_play_pause` | MultilineSwitchPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
-| `fade_seek` | MultilineSwitchPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
+| `crossfade_auto_advance` | TagListPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
+| `fade_manual_advance` | TagListPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
+| `fade_play_pause` | MultilineSwitchPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
+| `fade_seek` | MultilineSwitchPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
 | `gapless_preload_ms` | SeekbarPreference | No web counterpart | The browser decodes, resamples and dithers the audio |
 | `track_end_silence_ms` | SeekbarPreference | Built | Silence after a track before the next one (F70) |
-| `crossfade_length_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
-| `fade_short_xfade_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
-| `fade_short_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
-| `fade_seek_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks; linear curves inferred (F70) |
+| `crossfade_length_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
+| `fade_short_xfade_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
+| `fade_short_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
+| `fade_seek_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
 
 ## feature_packages
 

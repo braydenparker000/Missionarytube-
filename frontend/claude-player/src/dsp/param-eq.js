@@ -11,8 +11,11 @@
 // The filter maths is native in the reference (Coefs); here Peaking and the
 // shelves are the RBJ cookbook biquads with a Q, and Low / High / Band Pass,
 // which carry a gain in the reference presets and tone bands, are boost/cut
-// filters: x + (g - 1)·F(x), F the RBJ pass filter at (f, Q) (inferred).
-import {biquadCoefficients} from './dsp.js';
+// filters: x + (g - 1)·F(x), F the RBJ pass filter at (f, Q) (inferred). The
+// maths is in filters.js, shared with the audio engine that plays the bands.
+import {paramCoefficients, coefficientsDb} from './filters.js';
+
+export {paramCoefficients, coefficientsDb};
 
 export const MAX_PARAM_BANDS = 64;
 export const PARAM_TYPES = 6;
@@ -114,116 +117,4 @@ export function colorRows(entries) {
     rows[rows.length - 1].push(v === 1 ? 0 : ((v >>> 24) === 0 ? (v | 0xff000000) >>> 0 : v));
   }
   return rows.filter(r => r.length);
-}
-
-/** RBJ pass filters [b0, b1, b2, a0, a1, a2] (BPF: constant 0 dB peak gain). */
-function passCoefficients(type, f0, q, fs) {
-  const w0 = (2 * Math.PI * Math.min(f0, fs * 0.49)) / fs;
-  const cw = Math.cos(w0), sw = Math.sin(w0), alpha = sw / (2 * q);
-  const a = [1 + alpha, -2 * cw, 1 - alpha];
-  if (type === 0) return [(1 - cw) / 2, 1 - cw, (1 - cw) / 2, ...a];
-  if (type === 1) return [(1 + cw) / 2, -(1 + cw), (1 + cw) / 2, ...a];
-  return [alpha, 0, -alpha, ...a];
-}
-
-/** A parametric band's biquad [b0, b1, b2, a0, a1, a2] at fs. */
-export function paramCoefficients(b, fs) {
-  const db = b.gain * 15;
-  if (b.type === 3) return biquadCoefficients('peaking', b.frequency, db, b.q, fs);
-  if (b.type === 4) return biquadCoefficients('lowshelf', b.frequency, db, b.q, fs);
-  if (b.type === 5) return biquadCoefficients('highshelf', b.frequency, db, b.q, fs);
-  // Boost/cut around the pass filter F = B/A: H = 1 + (g - 1)F = (A + (g - 1)B) / A.
-  const [b0, b1, b2, a0, a1, a2] = passCoefficients(b.type, b.frequency, b.q, fs);
-  const k = Math.pow(10, db / 20) - 1;
-  return [a0 + k * b0, a1 + k * b1, a2 + k * b2, a0, a1, a2];
-}
-
-/** Magnitude in dB of a biquad at the given frequencies. */
-export function coefficientsDb(c, freqs, fs, out = new Float32Array(freqs.length)) {
-  const [b0, b1, b2, a0, a1, a2] = c;
-  for (let i = 0; i < freqs.length; i++) {
-    const w = (2 * Math.PI * freqs[i]) / fs;
-    const c1 = Math.cos(w), s1 = Math.sin(w), c2 = Math.cos(2 * w), s2 = Math.sin(2 * w);
-    const nr = b0 + b1 * c1 + b2 * c2, ni = -(b1 * s1 + b2 * s2);
-    const dr = a0 + a1 * c1 + a2 * c2, di = -(a1 * s1 + a2 * s2);
-    out[i] = 10 * Math.log10(Math.max(1e-12, (nr * nr + ni * ni) / (dr * dr + di * di)));
-  }
-  return out;
-}
-
-/**
- * A biquad as an IIRFilterNode, which cannot change its coefficients: a
- * change builds a new filter and cross-fades to it in 20 ms.
- */
-export class IirSwap {
-  constructor(ac) {
-    this.ac = ac;
-    this.input = ac.createGain();
-    this.output = ac.createGain();
-    this.path = null;
-    this.key = null;
-  }
-
-  set(coefs) {
-    const key = coefs.map(x => x.toPrecision(9)).join();
-    if (key === this.key) return;
-    this.key = key;
-    const ac = this.ac, t = ac.currentTime;
-    const [b0, b1, b2, a0, a1, a2] = coefs;
-    const iir = ac.createIIRFilter([b0 / a0, b1 / a0, b2 / a0], [1, a1 / a0, a2 / a0]);
-    const g = ac.createGain();
-    this.input.connect(iir).connect(g).connect(this.output);
-    const old = this.path;
-    this.path = {iir, g};
-    if (!old) return;
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(1, t + 0.02);
-    old.g.gain.cancelScheduledValues(t);
-    old.g.gain.setValueAtTime(old.g.gain.value, t);
-    old.g.gain.linearRampToValueAtTime(0, t + 0.02);
-    setTimeout(() => { try { this.input.disconnect(old.iir); old.iir.disconnect(); old.g.disconnect(); } catch { /* already gone */ } }, 80);
-  }
-
-  disconnect() {
-    try { this.input.disconnect(); this.output.disconnect(); this.path?.iir.disconnect(); this.path?.g.disconnect(); } catch { /* already gone */ }
-  }
-}
-
-/**
- * One parametric band in the graph: both channels, or (channels 1 / 2) only
- * the left or right one, the other passing through. The input is upmixed to
- * stereo so a mono source keeps both sides.
- */
-export class ParamBandNode {
-  constructor(ac, channels) {
-    this.channels = channels;
-    this.filter = new IirSwap(ac);
-    this.input = ac.createGain();
-    this.input.channelCount = 2;
-    this.input.channelCountMode = 'explicit';
-    this.input.channelInterpretation = 'speakers';
-    if (!channels) {
-      this.input.connect(this.filter.input);
-      this.output = this.filter.output;
-      return;
-    }
-    const split = ac.createChannelSplitter(2), merge = ac.createChannelMerger(2);
-    const ch = channels - 1, other = 1 - ch;
-    this.input.connect(split);
-    split.connect(this.filter.input, ch);
-    this.filter.output.connect(merge, 0, ch);
-    split.connect(merge, other, other);
-    this.output = merge;
-    this.parts = [split, merge];
-  }
-
-  set(band, fs) {
-    this.filter.set(paramCoefficients(band, fs));
-  }
-
-  disconnect() {
-    this.filter.disconnect();
-    try { this.input.disconnect(); this.output.disconnect(); } catch { /* already gone */ }
-    for (const p of this.parts ?? []) try { p.disconnect(); } catch { /* already gone */ }
-  }
 }

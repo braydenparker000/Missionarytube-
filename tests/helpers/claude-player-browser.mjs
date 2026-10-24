@@ -49,7 +49,7 @@ export function libraryOf(tracks) {
  * fixture (index, audio with byte ranges, 404 for covers and waveforms).
  * Returns the page, page errors and the audio requests seen.
  */
-export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 390, audioDelayMs = 0} = {}) {
+export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 390, audioDelayMs = 0, workletDelayMs = 0} = {}) {
   if (!chrome) throw Error('Claude Player browser checks require Chrome. Set JARVIS_CHROME.');
   const root = resolve('frontend');
   const server = createServer(async (req, res) => {
@@ -58,6 +58,8 @@ export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 
       let file = resolve(root, '.' + path);
       if (!file.startsWith(root + sep)) throw Error();
       if ((await stat(file)).isDirectory()) file += '/index.html';
+      // A slow audio engine module (the worklet loads after the page).
+      if (workletDelayMs && file.endsWith('engine-worklet.js')) await new Promise(r => setTimeout(r, workletDelayMs));
       res.writeHead(200, {'Content-Type': TYPES[extname(file)] || 'application/octet-stream'});
       res.end(await readFile(file));
     } catch { res.writeHead(404); res.end(); }
@@ -66,7 +68,8 @@ export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 
   t.after(() => new Promise(done => { server.closeAllConnections(); server.close(done); }));
   const browser = await chromium.launch({executablePath: chrome, headless: true, args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required']});
   t.after(() => browser.close());
-  const page = await browser.newPage({viewport: {width, height: 844}, isMobile: true, hasTouch: true, reducedMotion: 'reduce'});
+  // With a slow engine module the page loads it itself, not through the service worker.
+  const page = await browser.newPage({viewport: {width, height: 844}, isMobile: true, hasTouch: true, reducedMotion: 'reduce', ...(workletDelayMs ? {serviceWorkers: 'block'} : {})});
   const origin = `http://127.0.0.1:${server.address().port}`, errors = [], requests = [];
   page.on('pageerror', e => errors.push(e.message));
   const lib = libraryOf(tracks), byId = new Map(lib.map(x => [x.id, x]));
