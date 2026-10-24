@@ -18,6 +18,7 @@ import {reserveRelayCoreWake,releaseRelayCoreWake,assertRelayCoreWake,beginRelay
 import {relayOwnerPublic,relayOwnerStore,relayOwnerAssistantAttachmentIngress} from './relay-owner.js';
 import {RelayError,boundedText,RELAY_OAUTH_OBJECT} from './relay-common.js';
 import {projectTransport,projectStore} from './relay-projects.js';
+import {claudeChatPublic,claudeChatInternal,CLAUDE_CHAT_OBJECT} from './claude-chat.js';
 const paths = new Set(['/v1/state', '/v1/messages', '/v1/board', '/v1/responder/connect', '/v1/responder/revoke', '/v1/agent/inbox', '/v1/agent/replies', '/v1/agent/board']);
 const digest = async value => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))),b=>b.toString(16).padStart(2,'0')).join('');
 const randomKey = () => Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
@@ -26,6 +27,7 @@ const publicState = state => ({messages:state.messages, posts:state.posts});
 const unanswered = state => state.messages.filter(m=>m.role==='user' && !state.messages.some(r=>r.kind==='reply' && r.replyTo===m.id));
 export default {
   async fetch(request, env, executionCtx) {
+    const claude=await claudeChatPublic(request,env);if(claude)return claude;
     const makima=await makimaConnector(request,env,executionCtx);if(makima)return makima;
     const project=await projectTransport(request,env);if(project)return project;
     const relay=await relayConnector(request,env);if(relay)return relay;
@@ -192,6 +194,10 @@ export class Hub {
         return this.withCoreWake(operation);
       }
       return operation();
+    }
+    if(path==='/internal/claude-chat'){
+      if(this.ctx.id?.name && this.ctx.id.name!==CLAUDE_CHAT_OBJECT)return json({error:'Wrong chat object'},403);
+      return claudeChatInternal(this.ctx,this.env,await request.json());
     }
     if(path==='/internal/relay/agents')return agentChatStore(this.ctx,this.env,await request.json());
     if(path==='/internal/relay/mast')return mastAdapterStore(this.ctx,this.env,await request.json());
