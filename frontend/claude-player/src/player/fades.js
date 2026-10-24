@@ -1,9 +1,11 @@
 // Fades (fade.xml / b40: crossfade_auto_advance, fade_manual_advance,
 // fade_play_pause, fade_seek, track_end_silence_ms and their lengths;
 // notebook F70). The reference hands these to its native pipeline
-// (Pipeline2.l / q / n / r / u); the curves there are not in the bytecode,
-// so here every fade is a linear gain ramp on the element's own gain in the
-// DSP graph (its volume before the graph exists).
+// (Pipeline2.l / q / n / r / u); the curves there are not in the bytecode.
+// Here each deck's fade gain runs in the audio engine (dsp.js): cross-fades
+// are equal power, pause / play / seek fades a smooth S-curve, and a fade-in
+// starts with the deck's sound, not before it (a stream can take a moment).
+// Before the graph exists the element's volume ramps instead.
 
 export const AUTO_NONE = 0, AUTO_NON_GAPLESS = 1, AUTO_ALL = 2, AUTO_SHUFFLED = 3;
 export const MANUAL_NONE = 0, MANUAL_SHORT = 1, MANUAL_CROSSFADE = 2;
@@ -35,71 +37,90 @@ export function gaplessPair(a, b) {
   return dir(a) === dir(b) && (a.disc || 0) === (b.disc || 0) && +b.track === +a.track + 1;
 }
 
-/** Gain ramps per media element. */
+/** A fade short enough to go unheard as a fade: it only keeps a cut or a start from clicking. */
+export const DECLICK_MS = 8;
+
+/** Gain ramps per deck (media element). */
 export class DeckFader {
   constructor(ctx) {
     this.ctx = ctx;
     this.pending = new Map();
   }
 
-  gain(el) {
-    return this.ctx.dsp?.deckGain?.(el) ?? null;
+  /** The DSP when el plays through its graph (fades run in the engine), else null. */
+  graph(el) {
+    const dsp = this.ctx.dsp;
+    return dsp?.hasDeck?.(el) ? dsp : null;
   }
 
-  value(el) {
-    const g = this.gain(el);
-    return g ? g.gain.value : el.volume;
-  }
-
-  stop(el) {
+  /** Forgets el's pending ramp (its done callback will not run); the gain goes on as it was. */
+  cancel(el) {
     const p = this.pending.get(el);
-    if (!p) return;
+    if (!p) return false;
     clearTimeout(p.timer);
     p.cancel?.();
+    if (p.seeked) el.removeEventListener('seeked', p.seeked);
     this.pending.delete(el);
-    const g = this.gain(el);
-    if (g) {
-      const t = g.context.currentTime, v = g.gain.value;
-      g.gain.cancelScheduledValues(t);
-      g.gain.setValueAtTime(v, t);
-    }
+    return true;
+  }
+
+  /** Stops el's fade where it is. */
+  stop(el) {
+    if (this.cancel(el)) this.graph(el)?.fadeHold(el);
   }
 
   set(el, v) {
-    this.stop(el);
-    const g = this.gain(el);
-    if (g) {
-      const t = g.context.currentTime;
-      g.gain.cancelScheduledValues(t);
-      g.gain.setValueAtTime(v, t);
+    this.cancel(el);
+    const dsp = this.graph(el);
+    if (dsp) {
+      dsp.fadeSet(el, v);
       el.volume = 1;
     } else el.volume = v;
   }
 
-  /** Ramps el's gain to `to` over ms (linear), then calls done. */
-  ramp(el, to, ms, done = null) {
-    this.stop(el);
-    const g = this.gain(el), entry = {};
+  /**
+   * Ramps el's gain to `to` over ms, then calls done. opts.curve: 'linear',
+   * 'equal' (equal power) or 'smooth'; opts.gate: start when the deck's sound
+   * begins; opts.after: start when that deck's sound begins (opts.keepEnd:
+   * still end on time; opts.timeoutMs: the longest wait); opts.seeked: wait
+   * for the element's seek to finish before gating on its sound.
+   */
+  ramp(el, to, ms, done = null, opts = {}) {
+    // The new fade takes over from the running one (no hold between them, so the gain turns smoothly).
+    this.cancel(el);
+    const entry = {};
     this.pending.set(el, entry);
-    if (g) {
-      const t = g.context.currentTime;
-      g.gain.cancelScheduledValues(t);
-      g.gain.setValueAtTime(g.gain.value, t);
-      g.gain.linearRampToValueAtTime(to, t + ms / 1000);
-    } else {
-      const from = el.volume;
-      let t0 = null;
-      entry.cancel = this.ctx.onFrame?.(now => {
-        t0 ??= now;
-        const k = Math.min(1, (now - t0) / Math.max(1, ms));
-        el.volume = Math.max(0, Math.min(1, from + (to - from) * k));
-        return k < 1;
-      });
-    }
-    entry.timer = setTimeout(() => {
-      if (this.pending.get(el) === entry) this.pending.delete(el);
+    const finish = () => {
+      if (this.pending.get(el) !== entry) return;
+      this.pending.delete(el);
+      clearTimeout(entry.timer);
       done?.();
-    }, ms);
+    };
+    const dsp = this.graph(el);
+    if (dsp) {
+      const send = () => {
+        if (entry.seeked) { el.removeEventListener('seeked', entry.seeked); entry.seeked = null; }
+        clearTimeout(entry.timer);
+        dsp.fade(el, to, ms, opts, finish);
+        // A safety net should the engine stop answering: the longest the fade can take.
+        entry.timer = setTimeout(finish, ms + (opts.gate || opts.after ? opts.timeoutMs ?? 4000 : 0) + 1000);
+      };
+      if (opts.seeked && el.seeking) {
+        entry.seeked = () => { if (this.pending.get(el) === entry) send(); };
+        el.addEventListener('seeked', entry.seeked);
+        entry.timer = setTimeout(send, 5000);
+      } else send();
+      return;
+    }
+    const from = el.volume;
+    let t0 = null;
+    entry.cancel = this.ctx.onFrame?.(now => {
+      t0 ??= now;
+      const k = Math.min(1, (now - t0) / Math.max(1, ms));
+      el.volume = Math.max(0, Math.min(1, from + (to - from) * k));
+      return k < 1;
+    });
+    entry.timer = setTimeout(finish, ms);
   }
 }
 

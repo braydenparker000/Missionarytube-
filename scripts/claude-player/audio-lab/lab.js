@@ -4,8 +4,10 @@
 // and seek latency, and timers and performance.now() follow render time, so
 // fades, ramps and timeouts land where they would in real time. The context
 // time the code sees can lag the render position (lagMs), as the main thread's
-// view of a live AudioContext does. Scenarios (scenarios.js) script the user's
-// actions; analysis.js measures the output.
+// view of a live AudioContext does. The main thread looks in every 512 frames
+// (tickMs), when the engine's messages are handled, and the engine has handled
+// everything sent to it before rendering goes on (dsp.sync). Scenarios
+// (scenarios.js) script the user's actions; analysis.js measures the output.
 import * as M from './analysis.js';
 import {SCENARIOS} from './scenarios.js';
 
@@ -97,6 +99,7 @@ class LabAudio extends EventTarget {
   get buffered() { return ranges(this.readyState >= 1 ? this.buffer.duration : 0); }
   get networkState() { return this._src ? 1 : 0; }
   get currentTime() { return this.node ? Math.min(this.buffer.duration, this.offset + (this.lab.time - this.startedAt) * this.playbackRate) : this.offset; }
+  get seeking() { return !!this.seekTimer; }
   set currentTime(t) { this.seek(+t || 0); }
   load() { this.reset(this._src); }
 
@@ -232,7 +235,7 @@ export class Lab {
   constructor(scn, opts = {}) {
     this.scn = scn;
     this.rate = opts.rate ?? RATE;
-    this.opts = {loadMs: 0, resumeMs: 0, seekMs: 20, lagMs: 0, ...scn.media, ...opts};
+    this.opts = {loadMs: 0, resumeMs: 0, seekMs: 20, lagMs: 0, tickMs: 512 / (opts.rate ?? RATE) * 1000, ...scn.media, ...opts};
     this.buffers = new Map();
     this.decks = [];
     this.errors = [];
@@ -330,9 +333,12 @@ export class Lab {
       clock.install();
       this.player = new Player(ctx);
       this.dsp = new DSP(ctx);
-      // Settings as stored before the session starts (dsp values, bands).
+      // Settings as stored before the session starts (dsp values, bands), then
+      // the engine module loads (as it does while the app boots).
       Object.assign(this.dsp.values, scn.dsp ?? {});
       scn.before?.(this);
+      await this.dsp.ready;
+      this.dsp.update?.();
       const tracks = (scn.tracks ?? [{name: 'main'}]).map((t, i) => ({id: 'lab' + i, title: t.name, src: 'lab:' + t.name, durationMs: Math.round(this.buffers.get('lab:' + t.name).duration * 1000), ...t.meta}));
       this.tracks = tracks;
       this.player.setQueue(tracks, scn.startIndex ?? 0);
@@ -351,7 +357,8 @@ export class Lab {
           await macrotask();
           if (clock.nextDue() > clock.now + 1e-6) break;
         }
-        const want = Math.min(clock.nextDue() / 1000, next < actions.length ? actions[next].at : Infinity);
+        await this.dsp.sync?.();
+        const want = Math.min(clock.nextDue() / 1000, next < actions.length ? actions[next].at : Infinity, this.time + this.opts.tickMs / 1000);
         const nowFrame = Math.round(this.time * this.rate);
         let frame = Math.ceil(want * this.rate / QUANTUM - 1e-9) * QUANTUM;
         if (!(frame > nowFrame)) frame = nowFrame + QUANTUM;

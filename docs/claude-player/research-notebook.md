@@ -1329,9 +1329,12 @@ fade_short_ms 400, fade_short_xfade_ms 400, fade_seek_ms 100, fade_play_pause an
 track_end_silence_ms 0), `v11` (hands them to the native `Pipeline2.l / u / q / n / r`),
 `pref_auto_fading_entries`, `pref_fading_entries`.
 
-(c) The fading itself runs in the native pipeline, so these behaviours follow the settings' wording
-with linear gain ramps (inferred). The player has two media decks, each with its own gain in the
-DSP graph.
+(c) The fading itself runs in the native pipeline, so these behaviours follow the settings' wording;
+the curves are chosen here (inferred). The player has two media decks, each with its own fade gain
+in the audio engine (`engine-worklet.js`): crossfades are equal power, play, pause and seek fades an
+S-curve, and a fade-in starts when the deck's sound begins (a stream can take a moment), so it is
+never spent on silence. A manual change, pause or seek without a fade still fades over 8 ms, which
+only keeps the cut from clicking.
 
 - **Play / pause** (fade_play_pause): pausing fades out over fade_short_ms, then pauses; resuming
   fades in. A seek made while fading out (Stop) lands once it is silent.

@@ -1,9 +1,9 @@
 # Claude Player audio quality on Android Chrome
 
 What reaches the speaker when the player streams the R2 library, measured
-rather than assumed. This page records the measurement tools, the baseline
-of the shipped chain (`main` at `e033d3c`) and the platform facts the fixes
-rely on. Later changes update the results table in place.
+rather than assumed. This page records the measurement tools, the platform
+facts, the baseline of the original chain (`main` at `e033d3c`) and the
+audio engine that replaced it, with both measured by the same scenarios.
 
 ## Tools
 
@@ -34,16 +34,21 @@ rely on. Later changes update the results table in place.
 - **Playback log** (on the phone): Settings › Audio › Audio Outputs ›
   Advanced Tweaks › **Audio Outputs Detection Log**, or open the player with
   `?diag`. It shows the output Chrome opened (rate, base and output latency,
-  latency category, state), **dropouts** (`AudioContext.playbackStats`
-  underruns: the device asked for audio the renderer did not deliver in time),
-  the output level (peaks and reads with clipping, metered once the log has
-  been shown), the stream (format, buffered audio, rebuffers, stalls, media
-  errors), device and page facts (long tasks, time hidden) and recent events.
-  **Copy report** puts the whole log on the clipboard as JSON.
+  latency category, state, whether the audio engine runs), **dropouts**
+  (`AudioContext.playbackStats` underruns: the device asked for audio the
+  renderer did not deliver in time), the output level from the engine's
+  meters (every sample of the session: peaks, limiter reduction, clipped
+  samples and the overs the limiter caught), the stream (format, buffered
+  audio, rebuffers, stalls, media errors), device and page facts (long tasks,
+  time hidden) and recent events. **Copy report** puts the whole log on the
+  clipboard as JSON.
 - `tests/claude-player-audio-lab.test.mjs` calibrates the measurements and
-  renders the chain; `tests/claude-player-playback-browser.test.mjs` plays
-  fixture tracks through the real app (synthetic R2 index, range-capable WAV
-  audio) and checks the log.
+  holds every scenario to the results below (no click above −80 dBFS, nothing
+  over −1 dBTP with the limiter on, equal-power cross-fades that start with
+  the sound); `tests/claude-player-audio-engine.test.mjs` tests the limiter
+  and the equalizer bank directly; `tests/claude-player-playback-browser.test.mjs`
+  plays fixture tracks through the real app (synthetic R2 index,
+  range-capable WAV audio) and checks the engine and the log.
 
 ## Source quality
 
@@ -139,3 +144,98 @@ default chain 47× real time, 31 bands 25×, 64 parametric bands 11×, reverb
 at full size 9×, and **10× after reverb is switched off** (the convolver keeps
 running with its impulse). With `interactive` latency, a 2–5 ms callback
 leaves little margin for that load.
+
+## The audio engine
+
+The native graph was replaced by one AudioWorklet engine
+(`src/dsp/engine-worklet.js`): decks → `cp-eq` → `cp-out` → output.
+
+- **Output path**: the context asks for the `playback` latency category
+  (Android's power-saving path, at least 20 ms per callback instead of the
+  2–5 ms low-latency burst). Measured live by the playback log's dropout
+  counter.
+- **Equalizer** (`eq-engine.js`): the graphic or parametric bands and the
+  tone shelves (with their Q) as one direct-form-I biquad cascade in double
+  precision, built from the same maths the curves draw (`filters.js`), so the
+  curve is what plays. Every parameter glides: gain in dB and frequency and Q
+  logarithmically, with coefficients interpolated per sample. A type or
+  channel change passes through 0 dB, where every band type is flat; a
+  removed band fades first. Band order, locks and colours change nothing
+  audible. A band resting at 0 dB costs nothing.
+- **Limiter** (`limiter.js`), at −1 dBTP: a 4× oversampled true-peak
+  detector, 2 ms lookahead, 15 ms hold, 120 ms release, and the gain smoothed
+  by two moving averages so it reaches what each peak needs as the peak leaves
+  the delay line. Below the ceiling it passes audio bit for bit; there is no
+  makeup gain; the latency is a constant 103 frames (2.1 ms at 48 kHz), also
+  while switched off. Off, it reduces nothing, and the output stage clamps at
+  full scale exactly as the phone's mixer would (most library tracks then
+  clip).
+- **Fades** run in the engine: cross-fades are equal power and begin when
+  the incoming track starts sounding, however long the network took and in
+  whichever render block the main thread's messages land; play and seek
+  fade-ins begin with the sound (a seek's only once the seek has finished);
+  a pause during a cross-fade fades the outgoing track instead of cutting it;
+  with the fade settings off, 8 ms fades still keep cuts and starts from
+  clicking (fades under 50 ms take an S-curve: an equal-power curve's corner
+  clicks when it is that short). A fade that takes over a running one (play
+  just after pause) carries on from its slope, so the gain turns without a
+  corner.
+- **Track changes in a hurry**: Next pressed again before the incoming track
+  has sounded gives the new track that deck, and the outgoing track plays on
+  until the new one sounds; pressed while both sound, the older track fades
+  out over 32 ms before its deck is reused. An automatic cross-fade still
+  ends with the outgoing track when the incoming one is late: the outgoing
+  fade is shortened by the wait, and gives up waiting in time to fade out.
+- **Balance** turns the far channel down instead of panning one channel into
+  the other.
+- **Reverb**: two convolvers, each on its own faded send from `cp-eq`, with
+  the predelay built into the impulse. A new impulse fades in on the free
+  convolver while the old one fades out; switched off, the convolvers are
+  disconnected and cost nothing.
+- **Before the engine has loaded** the decks play straight to the output
+  (fades on the elements' volume), so a play pressed early is never silent;
+  the engine takes over at the first moment nothing plays (a switch while a
+  deck sounds would jump). The context is suspended until something plays,
+  also where the page may autoplay.
+- **Fallback**: without AudioWorklet, or if the engine stops, the decks play
+  through plain gains with no effects (a deck that was fading out is
+  silenced); the playback log says which.
+- **Service worker**: the app's files come from the network first (one
+  consistent version of the modules after a deploy) with a 3 s limit; after
+  a failure the offline copies serve at once for a minute, so a bad network
+  costs one wait per launch, not one per module.
+
+## Results (baseline → engine)
+
+Same scenarios as the baseline (lab, Chrome 153):
+
+| Scenario | Baseline | Engine |
+| --- | --- | --- |
+| Limiter on / off, DSP off (click) | −26.5 / −36.4 / −36.4 dBFS | −144.8 (silence floor) |
+| Parametric preset / band locked / band count changed | −33.2 / −34.8 / −26.1 | −89.0 / −140.8 / −105.3 |
+| Bass knob / parametric band dragged | −63.0 / −73.9 | −138.9 / −135.3 (also with the main thread 10.7 ms behind) |
+| Reverb switched on / size changed | −60.1 / −34.5 | −101.0 / −97.8 |
+| Seek with fade, local / streamed; seek without fade | −41.1 / −59.2 / −26.0 | −143.3 / −143.3 / −105.3 |
+| Pause during a cross-fade | −49.2 | −132.1 |
+| Next pressed twice 150 ms apart (300 ms to first audio): short cross-fade / fades off | −24.6 / −43.4 | −101.4 / −96.1 (the first track plays on until the third sounds; before, it was gone) |
+| Next with manual fades off | −26.0 (cut) | −98.3 (8 ms S-curve) |
+| Play 5 ms after pause, play/pause fades off | −26.0 (gain jump) | −103.3 |
+| Automatic 2 s cross-fade into a track ending cold, incoming 600 ms / 1.2 s late | −119.6 / −119.6 | −113.4 / −108.3 (outgoing at −21 / −20 dB at its end) |
+| Default cross-fade: incoming at start / midpoint | −6.4 / +0.6 dB (not faded in) | −32.8 / −3.2 dB (equal power) |
+| Same, 300 ms to first audio: outgoing at the midpoint | −52.6 dB (gone before the new track) | −2.8 dB |
+| Hot master, limiter on: true peak, overs | +0.63 dBTP, 44 | −1.06 dBTP, 0 |
+| Bass-boost preset / preamp + tone + ReplayGain stacking | 6,368 / 9,448 overs | 0 / 0 (≤ −1.07 dBTP) |
+| Two hot masters cross-fading | +0.75 dBTP, 84 overs | −1.06 dBTP, 0 |
+| 50 Hz at +3 dBFS through the limiter: THD+N | −44.1 dB, 19,380 overs | −149.3 dB, 0 |
+| Quiet music through the limiter: level, delay | +0.57 dB, 288 frames | 0 dB, 103 frames |
+| Balance fully left, tone at −3 dBFS | −0.05 dBFS (channels summed) | −3.0 dBFS |
+| Real library excerpts (decoded by Chrome), hottest | +2.03 dBTP, 292 overs | −1.11 dBTP, 0 |
+
+Render cost in real-time multiples (higher is better; the lab's own stepping
+is included, so only the ratios mean much): default chain 18 → 27, 31 bands
+13 → 32, 64 parametric bands 7 → 17, reverb used and switched off 6 → 26;
+reverb at its largest size stays 6 (the convolution itself).
+
+Still open after the engine: nothing is preloaded, so a track that ends
+without a cross-fade is followed by the next one's network start (300 ms in
+the lab); a long pause keeps the audio thread running.

@@ -205,7 +205,7 @@ export class MilkRenderer {
         const {bc, presets} = await loadButterchurn();
         const {w, h} = this.size();
         this.viz = bc.createVisualizer(dsp.ac, this.canvas, {width: w, height: h, pixelRatio: 1, textureRatio: 1});
-        this.viz.connectAudio(dsp.nodes.volume);
+        this.viz.connectAudio(dsp.nodes.analyser);
         this.presets.setPresets(presets);
         this.presets.start();
         this.started = true;

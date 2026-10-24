@@ -1,5 +1,5 @@
 // DSP: the reference's native audio engine is replaced by a Web Audio graph on
-// the player's media element. Parameters keep the reference ids (dsp_eq_enabled,
+// the player's decks. Parameters keep the reference ids (dsp_eq_enabled,
 // dsp_bass_gain, ...) and its update messages (msg_dsp_eq_changed, ...), so
 // the equalizer widgets bind to them exactly as the layouts declare.
 //
@@ -7,13 +7,24 @@
 // round-knob params 0..1. Band frequencies, tone shelf corners, reverb and
 // limiter numerics are inferred (the native engine is not reproduced).
 //
-// Graph: source → preamp → bands → bass/treble shelves → mono → stereo width
-//        → balance → reverb (dry/wet) → limiter → master volume → analyser → out
+// Graph: decks → cp-eq (each deck's ReplayGain and fade, preamp, bands, tone
+//        shelves, width / mono / balance) → cp-out (dry + reverb return,
+//        master volume, true-peak limiter) → out, analyser alongside.
+// Both stages run in an AudioWorklet (engine-worklet.js): every parameter
+// glides there, so no change steps the audio, and a fade can wait for its
+// deck's sound to begin. The reverb is a convolver on a send from cp-eq that
+// exists only while the reverb is on. The context uses the "playback"
+// latency category (Android's power-saving output path, 20 ms or more per
+// callback). Without AudioWorklet the decks play through plain gains, with
+// no effects (docs/claude-player/audio-quality.md).
 //
 // The bands are the graphic EQ's peaking filters or, when a parametric preset
 // is loaded, the parametric bands (param-eq.js; notebook F82). There is no
 // mode setting: the loaded preset decides (pr.m2841).
-import {paramBand, nextBand, ColorCursor, ParamBandNode, paramCoefficients, coefficientsDb, MAX_PARAM_BANDS, PARAM_FREQ_MIN, PARAM_FREQ_MAX, PARAM_Q_MIN, PARAM_Q_MAX, PARAM_TYPES} from './param-eq.js';
+import {paramBand, nextBand, ColorCursor, paramCoefficients, coefficientsDb, MAX_PARAM_BANDS, PARAM_FREQ_MIN, PARAM_FREQ_MAX, PARAM_Q_MIN, PARAM_Q_MAX, PARAM_TYPES} from './param-eq.js';
+import {biquadCoefficients, biquadMagnitude, PEAKING, LOW_SHELF, HIGH_SHELF} from './filters.js';
+
+export {biquadCoefficients, biquadMagnitude};
 
 const STORE_KEY = 'cp-dsp';
 
@@ -142,8 +153,20 @@ export class DSP {
     this.load();
     this.ac = null;
     this.nodes = null;
-    // The AudioContext's latency category (the playback diagnostics report it).
-    this.latencyHint = 'interactive';
+    // 'worklet', or 'native' (plain gains, no effects) when the engine cannot run.
+    this.engine = null;
+    this.latencyHint = 'playback';
+    // Decks (media elements) by input index; engine messages sent before it is ready.
+    this.decks = new Map();
+    this.queue = [];
+    // Fade completions by id, and each deck's latest fade (a superseded fade never completes).
+    this.fadeDone = new Map();
+    this.fadeIds = new Map();
+    this.fadeSeq = 0;
+    // Until the engine has loaded, the decks play straight to the output (no effects).
+    this.bypass = false;
+    this.meter = null;
+    this.wet = [0, 0];
     ctx.dsp = this;
     ctx.bus.subscribe('bus_dsp_cmd', (msg, src, d) => this.onCommand(msg, d));
     ctx.bus.subscribe('bus_player', msg => {
@@ -159,6 +182,7 @@ export class DSP {
       this.update();
       ctx.bus.post('bus_dsp', 'msg_dsp_eq_changed', this, {tone: true});
     });
+    this.open();
   }
 
   load() {
@@ -205,34 +229,9 @@ export class DSP {
     const freqs = this.bandLayout();
     if (freqs.length === this.bands.length && freqs.every((f, i) => f === this.bands[i].frequency)) return;
     this.bands = this.layoutBands(freqs, this.bands);
-    if (this.nodes && !this.parametric) this.rebuildBandNodes();
     this.save();
     this.update();
     this.ctx.bus.post('bus_dsp', 'msg_dsp_eq_changed', this, {layout: true});
-  }
-
-  /**
-   * Replaces the band filters between the preamp and the tone shelves: the
-   * graphic EQ's peaking filters or the parametric bands.
-   */
-  rebuildBandNodes() {
-    const n = this.nodes, ac = this.ac;
-    n.preamp.disconnect();
-    for (const f of n.bands ?? []) f.disconnect();
-    n.parametric = this.parametric;
-    n.bands = this.parametric ? this.pbands.map(b => new ParamBandNode(ac, b.channels)) : this.bands.map(b => {
-      const f = ac.createBiquadFilter();
-      f.type = 'peaking';
-      f.frequency.value = b.frequency;
-      f.Q.value = b.q;
-      return f;
-    });
-    let x = n.preamp;
-    for (const f of n.bands) {
-      if (f instanceof ParamBandNode) { x.connect(f.input); x = f.output; } else x = x.connect(f);
-    }
-    x.connect(n.bass.input);
-    this.update();
   }
 
   // Parametric bands (u21 / or; notebook F82). Indexes are EQ band indexes.
@@ -249,7 +248,7 @@ export class DSP {
 
   /** A structural change (add, delete, reorder, lock, mode): msg_dsp_eq_changed with arg1 1. */
   bandsChanged(extra = {}) {
-    if (this.nodes && (this.nodes.parametric !== this.parametric || this.parametric)) this.rebuildBandNodes();
+    this.update();
     this.save();
     this.ctx.bus.post('bus_dsp', 'msg_dsp_eq_changed', this, {arg1: 1, ...extra});
   }
@@ -321,8 +320,7 @@ export class DSP {
     if (key !== 'color' && key !== 'locked') b.rev++;
     if (key !== 'color') this.bandEdited();
     this.save();
-    if (key === 'channels' && this.nodes?.parametric) this.rebuildBandNodes();
-    else if (key !== 'color' && key !== 'locked') this.update();
+    if (key !== 'color' && key !== 'locked') this.update();
     const msg = {gain: 'msg_dsp_eq_band_gain', frequency: 'msg_dsp_eq_band_freq', q: 'msg_dsp_eq_band_q', type: 'msg_dsp_eq_band_type', channels: 'msg_dsp_eq_band_ch', color: 'msg_dsp_eq_band_color', locked: 'msg_dsp_eq_band_locked'}[key];
     this.ctx.bus.post('bus_dsp', msg, this, {band: i, value: v});
   }
@@ -445,141 +443,303 @@ export class DSP {
     }
   }
 
-  /** A media element's own (fade) gain into the graph (null before the graph exists). */
-  deckGain(el) {
-    return this.sources?.get(el)?.fade ?? null;
+  /**
+   * Creates the audio context (suspended until the first play) and starts
+   * loading the engine, so it is ready by the time something plays.
+   */
+  open() {
+    const AC = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
+    if (!AC || this.ac) return;
+    const ac = this.ac = new AC({latencyHint: this.latencyHint});
+    // Where the page may autoplay (an installed app) the context starts running: nothing plays yet.
+    if (ac.state === 'running' && this.ctx.player?.state !== 1) ac.suspend?.().catch(() => {});
+    // Decks connect here at once; until the engine has loaded they play straight to the output.
+    this.inputs = [ac.createGain(), ac.createGain()];
+    for (const g of this.inputs) g.connect(ac.destination);
+    this.bypass = true;
+    const load = ac.audioWorklet ? ac.audioWorklet.addModule(new URL('./engine-worklet.js', import.meta.url)) : Promise.reject(new Error('AudioWorklet unavailable'));
+    this.ready = load.then(() => this.build('worklet'), e => { this.failure = String(e?.message ?? e); this.build('native'); });
+    // Suspended or interrupted by the system while playing: ask to go on.
+    ac.addEventListener?.('statechange', () => { if (ac.state !== 'running' && ac.state !== 'closed' && this.ctx.player?.state === 1) this.resume(); });
   }
 
-  /** Each element: source → ReplayGain → fade gain → preamp. */
-  connectElement(el) {
-    if (!this.nodes || !el || this.sources.has(el)) return;
-    const rg = this.ac.createGain(), fade = this.ac.createGain();
-    rg.gain.value = el._rgGain ?? 1;
-    this.ac.createMediaElementSource(el).connect(rg).connect(fade).connect(this.nodes.preamp);
-    this.sources.set(el, {rg, fade});
+  /**
+   * The decks enter the graph (this.route): from the plain path once no deck
+   * plays (switching while one sounds would jump), else at once.
+   */
+  join() {
+    clearTimeout(this.joinTimer);
+    if (this.bypass && [...this.decks.keys()].some(el => !el.paused)) { this.joinTimer = setTimeout(() => this.join(), 500); return; }
+    this.inputs.forEach((g, i) => { g.disconnect(); this.route(g, i); });
+    if (!this.bypass) return;
+    // Fades ran on the elements' volume meanwhile; from now on they run in the graph.
+    this.bypass = false;
+    for (const el of this.decks.keys()) el.volume = 1;
   }
 
-  /** The ReplayGain of an element's track (linear); kept for a graph built later. */
-  setReplayGain(el, gain) {
-    el._rgGain = gain;
-    const n = this.sources?.get(el);
-    if (n) n.rg.gain.setTargetAtTime(gain, this.ac.currentTime, 0.01);
-  }
-
-  /** Builds the graph on the player's media element (needs a user gesture first). */
-  attach(audio) {
-    if (this.nodes) { this.connectElement(audio); return; }
-    if (!audio) return;
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    const ac = this.ac = new AC();
-    const preamp = ac.createGain();
-    // Shelves with a Q: the platform's shelving biquads have none, so each is
-    // an IIR filter, replaced (cross-faded) when its coefficients change.
-    const bass = new ShelfFilter(ac, 'lowshelf');
-    const treble = new ShelfFilter(ac, 'highshelf');
-    // Stereo width via mid/side: L' = M + wS, R' = M - wS.
-    const split = ac.createChannelSplitter(2);
-    const merge = ac.createChannelMerger(2);
-    const ll = ac.createGain(), lr = ac.createGain(), rl = ac.createGain(), rr = ac.createGain();
-    split.connect(ll, 0); split.connect(lr, 0); split.connect(rl, 1); split.connect(rr, 1);
-    ll.connect(merge, 0, 0); rl.connect(merge, 0, 0); lr.connect(merge, 0, 1); rr.connect(merge, 0, 1);
-    const pan = ac.createStereoPanner();
-    const dry = ac.createGain(), wet = ac.createGain();
-    const predelay = ac.createDelay(1);
-    const convolver = ac.createConvolver();
-    const sum = ac.createGain();
-    const limiter = ac.createDynamicsCompressor();
-    const limiterBypass = ac.createGain();
-    const volume = ac.createGain();
+  /** The graph: the worklet engine, or plain gains without effects. */
+  build(kind) {
+    const ac = this.ac;
     const analyser = ac.createAnalyser();
     analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0.75;
-    bass.output.connect(treble.input);
-    treble.output.connect(split);
-    merge.connect(pan);
-    pan.connect(dry).connect(sum);
-    pan.connect(predelay).connect(convolver).connect(wet).connect(sum);
-    this.nodes = {preamp, bands: [], bass, treble, ll, lr, rl, rr, pan, dry, wet, predelay, convolver, sum, limiter, limiterBypass, volume, analyser};
-    // Each media element (the player's decks) feeds the preamp through its own
-    // gain, the fades' control.
-    this.sources = new Map();
-    this.connectElement(audio);
-    this.rebuildBandNodes();
-    this.routeLimiter();
-    volume.connect(analyser).connect(ac.destination);
-    this._irKey = null;
-    this.update();
+    if (kind === 'worklet') {
+      try {
+        const opts = {channelCount: 2, channelCountMode: 'explicit', channelInterpretation: 'speakers'};
+        // cp-eq: two decks in; the music and the two reverb sends out.
+        const eq = new AudioWorkletNode(ac, 'cp-eq', {...opts, numberOfInputs: 2, numberOfOutputs: 3, outputChannelCount: [2, 2, 2]});
+        const out = new AudioWorkletNode(ac, 'cp-out', {...opts, numberOfInputs: 3, numberOfOutputs: 1, outputChannelCount: [2]});
+        this.route = (g, i) => g.connect(eq, 0, i);
+        eq.connect(out, 0, 0);
+        out.connect(ac.destination);
+        out.connect(analyser);
+        for (const node of [eq, out]) {
+          node.port.onmessage = e => this.fromEngine(e.data);
+          node.onprocessorerror = () => this.fallBack('the audio engine stopped');
+        }
+        this.nodes = {eq, out, convolvers: [null, null], analyser, volume: out, limiter: this.limiterView()};
+        this.engine = 'worklet';
+        for (const m of this.queue.splice(0)) this.post(m);
+        this.update();
+        this.join();
+        return;
+      } catch (e) {
+        this.failure = String(e?.message ?? e);
+      }
+    }
+    this.buildNative(analyser);
   }
 
-  routeLimiter() {
-    const {sum, limiter, limiterBypass, volume} = this.nodes;
-    sum.disconnect();
-    limiter.disconnect();
-    limiterBypass.disconnect();
-    if (this.values.dsp_enabled && this.values.dsp_limiter_enabled) {
-      limiter.threshold.value = -1;
-      limiter.knee.value = 0;
-      limiter.ratio.value = 20;
-      limiter.attack.value = 0.002;
-      limiter.release.value = 0.1;
-      sum.connect(limiter).connect(volume);
-    } else sum.connect(limiterBypass).connect(volume);
-    this._limiterOn = this.values.dsp_enabled && this.values.dsp_limiter_enabled;
+  /** Plain playback: each deck through its ReplayGain and fade gains to the master volume. */
+  buildNative(analyser = this.nodes?.analyser) {
+    const ac = this.ac, volume = ac.createGain();
+    const decks = this.inputs.map((input, i) => {
+      const rg = ac.createGain(), fade = ac.createGain();
+      rg.connect(fade).connect(volume);
+      const el = [...this.decks].find(([, k]) => k === i)?.[0];
+      rg.gain.value = el?._rgGain ?? 1;
+      return {rg, fade};
+    });
+    this.route = (g, i) => g.connect(decks[i].rg);
+    volume.connect(ac.destination);
+    volume.connect(analyser);
+    this.nodes = {decks, analyser, volume, limiter: this.limiterView()};
+    this.engine = 'native';
+    for (const m of this.queue.splice(0)) this.post(m);
+    this.update();
+    this.join();
+  }
+
+  /** The engine failed while playing: the decks go on through plain gains (no effects). */
+  fallBack(reason) {
+    if (this.engine !== 'worklet') return;
+    this.failure = reason;
+    const {eq, out} = this.nodes;
+    for (const g of this.inputs) g.disconnect();
+    for (const node of [eq, out, ...this.nodes.convolvers]) try { node?.disconnect(); } catch { /* gone */ }
+    this.buildNative(this.nodes.analyser);
+    // The engine's fade gains are lost: the playing deck goes on, any other (fading out) is silenced.
+    for (const [el, i] of this.decks) this.nodes.decks[i].fade.gain.value = el === this.ctx.player?.audio ? 1 : 0;
+    this.ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: 'Audio effects stopped', line2: 'Playing without them'});
+  }
+
+  /** The Limit button's view of the limiter: its gain reduction now, in dB. */
+  limiterView() {
+    const dsp = this;
+    return {get reduction() { return dsp.limiterReductionDb(); }};
+  }
+
+  /** Messages from the engine: fade completions, meters, sync replies. */
+  fromEngine(m) {
+    if (m.type === 'done') {
+      const done = this.fadeDone.get(m.id);
+      this.fadeDone.delete(m.id);
+      for (const [deck, id] of this.fadeIds) if (id === m.id) this.fadeIds.delete(deck);
+      done?.();
+    }
+    else if (m.type === 'meter') { this.meter = m; this.meterAt = performance.now(); this.ctx.playbackLog?.engineMeter?.(m); }
+    else if (m.type === 'pong') { this.pongs?.get(m.id)?.(); this.pongs?.delete(m.id); }
+  }
+
+  /** Sends a message to an engine stage (m.stage 'eq' or 'out'), or keeps it until the engine is ready. */
+  post(m) {
+    if (!this.engine) { this.queue.push(m); return; }
+    if (this.engine === 'worklet') { this.nodes[m.stage].port.postMessage(m); return; }
+    // Plain gains: fades and ReplayGain only.
+    const deck = this.nodes.decks?.[m.deck], t = this.ac.currentTime;
+    if (!deck) return;
+    if (m.type === 'rg') deck.rg.gain.setTargetAtTime(m.value, t, 0.01);
+    else if (m.type === 'set') { deck.fade.gain.cancelScheduledValues(t); deck.fade.gain.setValueAtTime(m.value, t); }
+    else if (m.type === 'hold') deck.fade.gain.cancelAndHoldAtTime(t);
+    else if (m.type === 'fade') {
+      // Start a little ahead: the main thread's clock can trail the render.
+      const t0 = t + 0.01;
+      deck.fade.gain.cancelAndHoldAtTime(t0);
+      deck.fade.gain.linearRampToValueAtTime(m.to, t0 + m.ms / 1000);
+      setTimeout(() => this.fromEngine({type: 'done', id: m.id}), m.ms + 10);
+    }
+  }
+
+  /** Resolves once the engine has handled every message sent before (the audio lab steps with it). */
+  sync() {
+    if (this.engine !== 'worklet') return Promise.resolve();
+    this.pongs ??= new Map();
+    return Promise.all(['eq', 'out'].map(stage => new Promise(resolve => {
+      const id = ++this.fadeSeq;
+      this.pongs.set(id, resolve);
+      this.nodes[stage].port.postMessage({type: 'ping', id});
+    })));
+  }
+
+  /** Each media element (deck) feeds the engine; there are two decks. */
+  connectElement(el) {
+    if (!this.ac || !el || this.decks.has(el) || this.decks.size >= this.inputs.length) return;
+    const i = this.decks.size;
+    this.decks.set(el, i);
+    this.ac.createMediaElementSource(el).connect(this.inputs[i]);
+    if (el._rgGain !== undefined) this.post({stage: 'eq', type: 'rg', deck: i, value: el._rgGain});
+  }
+
+  /** Whether el plays through the graph (its fades run there; before the engine has loaded, on the element). */
+  hasDeck(el) {
+    return this.decks.has(el) && !this.bypass;
+  }
+
+  /** A deck's new fade, set or hold supersedes its last fade, which will never complete. */
+  supersede(deck, id = 0) {
+    const last = this.fadeIds.get(deck);
+    if (last) this.fadeDone.delete(last);
+    if (id) this.fadeIds.set(deck, id); else this.fadeIds.delete(deck);
+  }
+
+  /**
+   * Fades deck el to `to` over ms: curve 'linear', 'equal' (equal power) or
+   * 'smooth'; gate waits for the deck's sound to begin, after (another deck)
+   * for that deck's sound to begin under its gated fade, at most timeoutMs
+   * (4 s); keepEnd shortens the fade by its wait (it still ends on time).
+   * done() runs when it ends.
+   */
+  fade(el, to, ms, {curve = 'linear', gate = false, after = null, keepEnd = false, timeoutMs = undefined} = {}, done = null) {
+    const deck = this.decks.get(el);
+    if (deck === undefined) return false;
+    const id = ++this.fadeSeq;
+    this.supersede(deck, id);
+    if (done) this.fadeDone.set(id, done);
+    const other = after ? this.decks.get(after) : undefined;
+    this.post({stage: 'eq', type: 'fade', deck, to, ms, curve, gate, after: other, keepEnd, timeoutMs, id});
+    return true;
+  }
+
+  /** Sets deck el's fade gain at once (a silent deck). */
+  fadeSet(el, value) {
+    const deck = this.decks.get(el);
+    if (deck === undefined) return;
+    this.supersede(deck);
+    this.post({stage: 'eq', type: 'set', deck, value});
+  }
+
+  /** Stops deck el's fade where it is. */
+  fadeHold(el) {
+    const deck = this.decks.get(el);
+    if (deck === undefined) return;
+    this.supersede(deck);
+    this.post({stage: 'eq', type: 'hold', deck});
+  }
+
+  /** The ReplayGain of an element's track (linear); kept for a deck connected later. */
+  setReplayGain(el, gain) {
+    el._rgGain = gain;
+    const deck = this.decks.get(el);
+    if (deck !== undefined) this.post({stage: 'eq', type: 'rg', deck, value: gain});
+  }
+
+  /** Connects the player's media element (the first play's user gesture starts the context). */
+  attach(audio) {
+    this.open();
+    this.connectElement(audio);
   }
 
   resume() {
-    if (this.ac?.state === 'suspended') this.ac.resume().catch(() => {});
+    const ac = this.ac;
+    if (ac && (ac.state === 'suspended' || ac.state === 'interrupted')) ac.resume().catch(() => {});
   }
 
-  /** The limiter's gain reduction now, in dB (0 or below). */
+  /** The limiter's gain reduction now, in dB (0 or below), from the engine's last meter. */
   limiterReductionDb() {
-    const r = this.nodes?.limiter?.reduction;
-    return typeof r === 'number' ? r : r?.value ?? 0;
+    const m = this.meter;
+    if (this.engine !== 'worklet' || !m || performance.now() - (this.meterAt ?? 0) > 500) return 0;
+    return 20 * Math.log10(Math.max(1e-6, Math.min(m.gain, m.minGain)));
   }
 
-  /** Pushes the parameter values into the graph. */
+  /** Pushes the parameter values into the engine. */
   update() {
     this.applyTempo();
     const n = this.nodes;
     if (!n) return;
-    const v = this.values, t = this.ac.currentTime, on = v.dsp_enabled;
-    const k = (p, val) => p.setTargetAtTime(val, t, 0.015);
-    const eq = on && v.dsp_eq_enabled;
-    k(n.preamp.gain, eq ? dbToGain((v.dsp_preamp - 0.5) * 2 * PREAMP_RANGE_DB) : 1);
-    if (n.parametric) {
-      const fs = this.ac.sampleRate;
-      n.bands.forEach((f, i) => { const b = this.pbands[i]; if (b) f.set(eq ? b : {...b, gain: 0}, fs); });
-    } else n.bands.forEach((f, i) => k(f.gain, eq ? this.bands[i].gain * BAND_RANGE_DB : 0));
-    const tone = on && v.dsp_tone_enabled;
-    const tp = this.toneParams();
-    n.bass.set(tp.bassHz, tone ? v.dsp_bass_gain * TONE_RANGE_DB : 0, tp.bassQ);
-    n.treble.set(tp.trebleHz, tone ? v.dsp_treble_gain * TONE_RANGE_DB : 0, tp.trebleQ);
+    const v = this.values, on = v.dsp_enabled;
+    const volume = v.dsp_master_volume_enabled ? v.dsp_master_volume : 1;
+    if (this.engine === 'native') { n.volume.gain.setTargetAtTime(volume, this.ac.currentTime, 0.015); return; }
+    const eq = on && v.dsp_eq_enabled, tone = on && v.dsp_tone_enabled;
+    const bands = [];
+    if (eq && this.parametric) for (const b of this.pbands) bands.push({id: 'p' + b.serial, type: b.type, f: b.frequency, q: b.q, g: b.gain * 15, ch: b.channels});
+    else if (eq) for (const b of this.bands) bands.push({id: 'g' + b.frequency, type: PEAKING, f: b.frequency, q: b.q, g: b.gain * BAND_RANGE_DB, ch: 0});
+    if (tone) {
+      const tp = this.toneParams();
+      bands.push({id: 'bass', type: LOW_SHELF, f: tp.bassHz, q: tp.bassQ, g: v.dsp_bass_gain * TONE_RANGE_DB, ch: 0});
+      bands.push({id: 'treble', type: HIGH_SHELF, f: tp.trebleHz, q: tp.trebleQ, g: v.dsp_treble_gain * TONE_RANGE_DB, ch: 0});
+    }
     // Mono averages the channels; stereo X widens the side signal up to 2x.
+    // Balance turns the far side down (it never moves one channel into the other).
     const mono = on && v.dsp_mono_enabled;
     const w = mono ? 0 : 1 + (on ? v.dsp_stereo_fx : 0);
-    const a = (1 + w) / 2, b = (1 - w) / 2;
-    k(n.ll.gain, a); k(n.rr.gain, a); k(n.lr.gain, b); k(n.rl.gain, b);
-    k(n.pan.pan, on ? (v.dsp_balance - 0.5) * 2 : 0);
-    const reverb = on && v.dsp_reverb_enabled;
-    k(n.wet.gain, reverb ? v.dsp_reverb_param5 : 0);
-    k(n.dry.gain, reverb ? 1 - v.dsp_reverb_param5 * 0.5 : 1);
-    n.predelay.delayTime.setTargetAtTime(v.dsp_reverb_param4 * 0.2, t, 0.02);
-    if (reverb) this.updateImpulse();
-    k(n.volume.gain, v.dsp_master_volume_enabled ? v.dsp_master_volume : 1);
-    if (this._limiterOn !== (on && v.dsp_limiter_enabled)) this.routeLimiter();
+    const a = (1 + w) / 2, c = (1 - w) / 2;
+    const bal = on ? (v.dsp_balance - 0.5) * 2 : 0, gl = Math.min(1, 1 - bal), gr = Math.min(1, 1 + bal);
+    const reverb = on && v.dsp_reverb_enabled, mix = v.dsp_reverb_param5;
+    this.reverb(reverb);
+    this.post({stage: 'eq', type: 'state', preamp: eq ? dbToGain((v.dsp_preamp - 0.5) * 2 * PREAMP_RANGE_DB) : 1, bands, matrix: [gl * a, gl * c, gr * c, gr * a], send: reverb ? this.wet : [0, 0]});
+    this.post({stage: 'out', type: 'state', dry: reverb ? 1 - mix * 0.5 : 1, wet: reverb ? this.wet.map(k => k * mix) : [0, 0], volume, limiter: on && v.dsp_limiter_enabled});
   }
 
-  /** Synthesised reverb impulse: decaying noise shaped by size, fade, damp and filter. */
+  /**
+   * The reverb exists only while it sounds: switched off, its send and return
+   * fade and the convolvers are disconnected (no convolution runs). A new
+   * impulse goes into the free convolver; its send fades in while the old
+   * one's send and return fade out.
+   */
+  reverb(on) {
+    const n = this.nodes, v = this.values;
+    if (on) {
+      clearTimeout(this.reverbOff);
+      this.reverbOff = 0;
+      this.updateImpulse();
+    } else if (n.convolvers.some(Boolean) && !this.reverbOff) {
+      this.reverbOff = setTimeout(() => {
+        this.reverbOff = 0;
+        if (v.dsp_enabled && v.dsp_reverb_enabled) return;
+        n.convolvers.forEach((c, i) => { if (c) { try { n.eq.disconnect(c); c.disconnect(); } catch { /* gone */ } n.convolvers[i] = null; } });
+        this._irKey = null;
+        this.wet = [0, 0];
+      }, 300);
+    }
+  }
+
+  /**
+   * Synthesised reverb impulse: the predelay's silence, then decaying noise
+   * shaped by size, fade, damp and filter. A knob drag rebuilds it at most
+   * every 200 ms; the replaced convolver goes 150 ms after a swap, its send
+   * and return faded by then.
+   */
   updateImpulse() {
     const v = this.values;
-    const key = [1, 2, 3, 7].map(i => v['dsp_reverb_param' + i].toFixed(3)).join();
+    const key = [1, 2, 3, 4, 7].map(i => v['dsp_reverb_param' + i].toFixed(3)).join();
     if (key === this._irKey) return;
+    if (this.irTimer) { this.irPending = true; return; }
     this._irKey = key;
-    const ac = this.ac, rate = ac.sampleRate;
-    const seconds = 0.3 + v.dsp_reverb_param1 * 3.7;
+    this.irTimer = setTimeout(() => { this.irTimer = 0; if (this.irPending) { this.irPending = false; this.update(); } }, 200);
+    const ac = this.ac, rate = ac.sampleRate, n = this.nodes;
+    const seconds = 0.3 + v.dsp_reverb_param1 * 3.7, pre = Math.round(v.dsp_reverb_param4 * 0.2 * rate);
     const len = Math.round(seconds * rate);
-    const ir = ac.createBuffer(2, len, rate);
+    const ir = ac.createBuffer(2, pre + len, rate);
     const decay = 1.5 + (1 - v.dsp_reverb_param3) * 6;
     const damp = v.dsp_reverb_param7, cutoff = 0.05 + (1 - v.dsp_reverb_param2) * 0.9;
     for (let ch = 0; ch < 2; ch++) {
@@ -591,10 +751,19 @@ export class DSP {
         // One-pole low-pass whose coefficient falls over time (damping).
         const c = cutoff * (1 - damp * x * 0.9);
         lp += c * (noise - lp);
-        d[i] = lp * Math.pow(1 - x, decay);
+        d[pre + i] = lp * Math.pow(1 - x, decay);
       }
     }
-    this.nodes.convolver.buffer = ir;
+    // The new impulse plays from the free convolver, fed by its own send.
+    const slot = n.convolvers[0] && !n.convolvers[1] ? 1 : 0, old = n.convolvers[1 - slot];
+    if (n.convolvers[slot]) try { n.eq.disconnect(n.convolvers[slot]); n.convolvers[slot].disconnect(); } catch { /* gone */ }
+    const conv = ac.createConvolver();
+    conv.buffer = ir;
+    n.eq.connect(conv, 1 + slot);
+    conv.connect(n.out, 0, 1 + slot);
+    n.convolvers[slot] = conv;
+    this.wet = slot ? [0, 1] : [1, 0];
+    if (old) setTimeout(() => { try { n.eq.disconnect(old); old.disconnect(); } catch { /* gone */ } if (n.convolvers[1 - slot] === old) n.convolvers[1 - slot] = null; }, 150);
   }
 
   applyTempo() {
@@ -647,77 +816,5 @@ export class DSP {
       for (let i = 0; i < freqs.length; i++) out[i] += 20 * Math.log10(mag[i]);
     }
     return out;
-  }
-}
-
-/** RBJ cookbook biquad coefficients [b0, b1, b2, a0, a1, a2] (shelves with a Q: alpha = sin w0 / 2Q). */
-export function biquadCoefficients(type, f0, gainDb, q, fs) {
-  const A = Math.pow(10, gainDb / 40);
-  const w0 = (2 * Math.PI * Math.min(f0, fs * 0.49)) / fs;
-  const cw = Math.cos(w0), sw = Math.sin(w0);
-  const alpha = sw / (2 * q);
-  let b0, b1, b2, a0, a1, a2;
-  if (type === 'peaking') {
-    b0 = 1 + alpha * A; b1 = -2 * cw; b2 = 1 - alpha * A;
-    a0 = 1 + alpha / A; a1 = -2 * cw; a2 = 1 - alpha / A;
-  } else {
-    const s = 2 * Math.sqrt(A) * alpha;
-    if (type === 'lowshelf') {
-      b0 = A * ((A + 1) - (A - 1) * cw + s); b1 = 2 * A * ((A - 1) - (A + 1) * cw); b2 = A * ((A + 1) - (A - 1) * cw - s);
-      a0 = (A + 1) + (A - 1) * cw + s; a1 = -2 * ((A - 1) + (A + 1) * cw); a2 = (A + 1) + (A - 1) * cw - s;
-    } else {
-      b0 = A * ((A + 1) + (A - 1) * cw + s); b1 = -2 * A * ((A - 1) + (A + 1) * cw); b2 = A * ((A + 1) + (A - 1) * cw - s);
-      a0 = (A + 1) - (A - 1) * cw + s; a1 = 2 * ((A - 1) - (A + 1) * cw); a2 = (A + 1) - (A - 1) * cw - s;
-    }
-  }
-  return [b0, b1, b2, a0, a1, a2];
-}
-
-/** RBJ cookbook biquad magnitude response. */
-export function biquadMagnitude(type, f0, gainDb, q, freqs, fs) {
-  const [b0, b1, b2, a0, a1, a2] = biquadCoefficients(type, f0, gainDb, q, fs);
-  const out = new Float32Array(freqs.length);
-  for (let i = 0; i < freqs.length; i++) {
-    const w = (2 * Math.PI * freqs[i]) / fs;
-    const c1 = Math.cos(w), s1 = Math.sin(w), c2 = Math.cos(2 * w), s2 = Math.sin(2 * w);
-    const nr = b0 + b1 * c1 + b2 * c2, ni = -(b1 * s1 + b2 * s2);
-    const dr = a0 + a1 * c1 + a2 * c2, di = -(a1 * s1 + a2 * s2);
-    out[i] = Math.sqrt((nr * nr + ni * ni) / (dr * dr + di * di));
-  }
-  return out;
-}
-
-/**
- * A shelving filter with a Q (IIRFilterNode): input → IIR → gain → output. A
- * coefficient change builds a new IIR path and cross-fades to it in 20 ms.
- */
-class ShelfFilter {
-  constructor(ac, type) {
-    this.ac = ac;
-    this.type = type;
-    this.input = ac.createGain();
-    this.output = ac.createGain();
-    this.path = null;
-    this.key = null;
-  }
-
-  set(f0, gainDb, q) {
-    const key = `${f0}|${gainDb.toFixed(3)}|${q}`;
-    if (key === this.key) return;
-    this.key = key;
-    const ac = this.ac, t = ac.currentTime;
-    const [b0, b1, b2, a0, a1, a2] = biquadCoefficients(this.type, f0, gainDb, q, ac.sampleRate);
-    const iir = ac.createIIRFilter([b0 / a0, b1 / a0, b2 / a0], [1, a1 / a0, a2 / a0]);
-    const g = ac.createGain();
-    this.input.connect(iir).connect(g).connect(this.output);
-    const old = this.path;
-    this.path = {iir, g};
-    if (!old) return;
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(1, t + 0.02);
-    old.g.gain.cancelScheduledValues(t);
-    old.g.gain.setValueAtTime(old.g.gain.value, t);
-    old.g.gain.linearRampToValueAtTime(0, t + 0.02);
-    setTimeout(() => { try { this.input.disconnect(old.iir); old.iir.disconnect(); old.g.disconnect(); } catch { /* already gone */ } }, 80);
   }
 }

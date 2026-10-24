@@ -7,6 +7,7 @@
 // +3 dBFS, as most of the library's Opus files do.
 
 const TONE = {kind: 'tone', hz: 440, db: -12};
+const THREE = {main: TONE, next: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}, third: {kind: 'tone', hz: 550, db: -12, edgeMs: 5}};
 const HOT = {kind: 'hot', peakDb: 3, seed: 7};
 const AT = 1.5;
 
@@ -58,6 +59,7 @@ export const SCENARIOS = {
   'seek-fade': click('Seek, local file (20 ms)', 'fade around the jump', lab => lab.player.seek(9001), {signal: {...TONE, seconds: 20}, media: {seekMs: 20}}),
   'seek-fade-network': click('Seek, streamed (250 ms)', 'fade-in ends before audio returns', lab => lab.player.seek(9001), {signal: {...TONE, seconds: 20}, media: {seekMs: 250}}),
   'seek-no-fade': click('Seek with fade_seek off', 'cut and restart', lab => lab.player.seek(9001), {signal: {...TONE, seconds: 20}, prefs: {fade_seek: false}}),
+  'play-in-pause-fade': click('Play 5 ms after pause, play/pause fades off', 'gain set while the de-click fade runs', [{at: AT, run: lab => lab.player.pause()}, {at: AT + 256 / 48000, run: lab => lab.player.play()}], {prefs: {fade_play_pause: false}}),
   'next-xfade': {
     group: 'fades', title: 'Next track, short cross-fade (local)', suspect: 'cross-fade summing',
     duration: 3, signals: {main: TONE, next: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}}, tracks: [{name: 'main'}, {name: 'next'}],
@@ -70,6 +72,25 @@ export const SCENARIOS = {
     actions: [{at: AT, run: lab => lab.player.step(1)}],
     measure: lab => ({...lab.clicks(AT - 0.02, 2.9), ...crossfade(lab, AT, AT + 0.3)}),
   },
+  'next-twice': {
+    group: 'fades', title: 'Next pressed twice 150 ms apart, short cross-fade (300 ms to first audio)', suspect: 'outgoing deck reused while sounding',
+    duration: 3, signals: THREE, tracks: [{name: 'main'}, {name: 'next'}, {name: 'third'}], media: {loadMs: 300},
+    actions: [{at: AT, run: lab => lab.player.step(1)}, {at: AT + 0.15, run: lab => lab.player.step(1)}],
+    // The first track plays on until the third sounds (300 ms after the second press).
+    measure: lab => ({...lab.clicks(AT - 0.02, 2.9), waitDb: lab.toneDb(440, AT + 0.3, AT + 0.34), ...crossfade(lab, AT + 0.15, AT + 0.45, 550)}),
+  },
+  'next-twice-no-fade': {
+    group: 'fades', title: 'Next pressed twice 150 ms apart, manual fades off (300 ms to first audio)', suspect: 'outgoing deck reused while sounding',
+    duration: 3, signals: THREE, tracks: [{name: 'main'}, {name: 'next'}, {name: 'third'}], media: {loadMs: 300}, prefs: {fade_manual_advance: 0},
+    actions: [{at: AT, run: lab => lab.player.step(1)}, {at: AT + 0.15, run: lab => lab.player.step(1)}],
+    measure: lab => lab.clicks(AT - 0.02, 2.9),
+  },
+  'next-no-fade': {
+    group: 'fades', title: 'Next track, manual fades off (8 ms de-click)', suspect: 'equal-power corner',
+    duration: 3, signals: {main: TONE, next: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}}, tracks: [{name: 'main'}, {name: 'next'}], prefs: {fade_manual_advance: 0},
+    actions: [{at: AT, run: lab => lab.player.step(1)}],
+    measure: lab => lab.clicks(AT - 0.02, 2.9),
+  },
   'pause-in-xfade': {
     group: 'fades', title: 'Pause during an automatic cross-fade', suspect: 'outgoing deck cut',
     duration: 3.5, signals: {main: {...TONE, seconds: 3.2, edgeMs: 5}, next: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}}, tracks: [{name: 'main'}, {name: 'next'}],
@@ -77,6 +98,8 @@ export const SCENARIOS = {
     actions: [{at: 2.2, run: lab => lab.player.pause()}],
     measure: lab => lab.clicks(2.18, 3.4),
   },
+  'auto-xfade-late': autoLate('Automatic 2 s cross-fade into a cold track end, incoming 600 ms late', 600),
+  'auto-xfade-later': autoLate('Automatic 2 s cross-fade into a cold track end, incoming 1.2 s late', 1200),
   'track-end-gap': {
     group: 'reliability', title: 'Track end to next track (no cross-fade, 300 ms to first audio)', suspect: 'no preload / gapless',
     duration: 3.5, signals: {main: {...TONE, seconds: 2, edgeMs: 5}, next: {...TONE, seconds: 4, edgeMs: 5}}, tracks: [{name: 'main', meta: {album: 'A', track: 1}}, {name: 'next', meta: {album: 'A', track: 2}}], media: {loadMs: 300},
@@ -117,6 +140,21 @@ export const SCENARIOS = {
   'cost-everything': cost('Tone, 31 bands, width, reverb', {prefs: {equ_bands_num: '31'}, dsp: {dsp_tone_enabled: true, dsp_bass_gain: 0.3, dsp_treble_gain: 0.3, dsp_stereo_fx: 0.5, dsp_reverb_enabled: true}}),
 };
 
+/**
+ * An automatic 2 s cross-fade into a track that ends cold (no fade in the
+ * music) with the incoming track late by loadMs: the outgoing fade still
+ * ends with its track. The first track also takes loadMs to start.
+ */
+function autoLate(title, loadMs) {
+  const len = 3.2 + 0.25 / 440, end = loadMs / 1000 + len;
+  return {
+    group: 'fades', title, suspect: 'outgoing fade waits past the track end', duration: 5,
+    signals: {main: {...TONE, seconds: len}, next: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}}, tracks: [{name: 'main'}, {name: 'next'}],
+    prefs: {crossfade_auto_advance: 2, crossfade_length_ms: 2000}, media: {loadMs},
+    measure: lab => ({outEndDb: lab.toneDb(440, end - 0.06, end - 0.01), ...lab.clicks(end - 0.05, end + 0.1, {floor: [0.8, 1.0]})}),
+  };
+}
+
 function cost(title, extra = {}) {
   return {group: 'cost', title, suspect: 'render cost', duration: 20, signal: HOT, measure: () => ({}), ...extra};
 }
@@ -127,9 +165,9 @@ function cost(title, extra = {}) {
  * the fade's midpoint, in dB against full level. A linear fade from silence
  * reads about -33 dB at the start and -6 dB each at the midpoint.
  */
-function crossfade(lab, start, audible) {
+function crossfade(lab, start, audible, hz = 330) {
   const w = 2 / 110, mid = audible + 0.2 - w / 2;
-  return {inStartDb: lab.toneDb(330, audible, audible + w), inMidDb: lab.toneDb(330, mid, mid + w), outMidDb: lab.toneDb(440, mid, mid + w)};
+  return {inStartDb: lab.toneDb(hz, audible, audible + w), inMidDb: lab.toneDb(hz, mid, mid + w), outMidDb: lab.toneDb(440, mid, mid + w)};
 }
 
 /** Keys of an object, prefixed (level ranges of several spans in one result). */

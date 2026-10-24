@@ -3,9 +3,10 @@
 // for the whole session: the audio output the browser reports (rate,
 // latency, state, underruns from AudioContext.playbackStats), the decks'
 // network and decoder events (waiting, stalls, errors, buffered audio), the
-// output level (peaks and clipping, metered from when the log is first
-// shown), main-thread long tasks and visibility. "Copy report" puts the whole
-// log on the clipboard as JSON, for checking playback on the phone itself.
+// output level (every sample, from the audio engine's meters: peaks, limiter
+// reduction, clipped samples and the overs the limiter caught), main-thread
+// long tasks and visibility. "Copy report" puts the whole log on the
+// clipboard as JSON, for checking playback on the phone itself.
 
 const MAX_EVENTS = 300;
 const DECK_EVENTS = ['loadstart', 'loadedmetadata', 'canplaythrough', 'playing', 'waiting', 'stalled', 'error', 'emptied', 'seeking', 'seeked', 'ended', 'abort'];
@@ -24,6 +25,8 @@ export class PlaybackLog {
     this.longTasks = {count: 0, totalMs: 0, maxMs: 0};
     this.hidden = {count: 0, ms: 0, since: document.hidden ? performance.now() : null};
     this.level = null;
+    // The engine's meters, summed over the session (dsp.js forwards each report).
+    this.meters = {frames: 0, inPeak: 0, inOvers: 0, outPeak: 0, clamps: 0, minGain: 1, recent: []};
     this.context = null;
     ctx.playbackLog = this;
     for (const el of ctx.player?.decks ?? []) this.watchDeck(el);
@@ -120,14 +123,31 @@ export class PlaybackLog {
     }
   }
 
+  /** A meter report from the audio engine (every 100 ms of audio). */
+  engineMeter(m) {
+    const t = this.meters;
+    t.frames += m.frames;
+    t.inPeak = Math.max(t.inPeak, m.inPeak);
+    t.inOvers += m.inOvers;
+    t.outPeak = Math.max(t.outPeak, m.outPeak);
+    t.clamps += m.clamps;
+    t.minGain = Math.min(t.minGain, m.minGain);
+    t.recent.push(m.outPeak);
+    if (t.recent.length > 100) t.recent.shift();
+    if (!m.clamps) return;
+    // A run of clipping is one event (updated), so it cannot flood the log.
+    const last = this.events.at(-1), now = this.now();
+    if (last?.type === 'clipped' && now - last.until < 2000) { last.samples += m.clamps; last.until = now; } else this.log('clipped', {samples: m.clamps, until: now});
+  }
+
   /**
-   * Output level: two analysers on the master output, read 20 times a second
+   * Output level without the engine (plain playback): two analysers on the master output, read 20 times a second
    * while the page is visible (each read covers the last 43 ms, so nearly
    * every sample is seen). Peaks above full scale clip in the phone's mixer.
    */
   startLevel() {
     const dsp = this.ctx.dsp, ac = dsp?.ac, out = dsp?.nodes?.volume;
-    if (this.level || !ac || !out) return;
+    if (this.level || !ac || !out || dsp.engine !== 'native') return;
     const split = ac.createChannelSplitter(2), an = [ac.createAnalyser(), ac.createAnalyser()];
     out.connect(split);
     an.forEach((a, i) => { a.fftSize = 2048; split.connect(a, i); });
@@ -158,9 +178,9 @@ export class PlaybackLog {
       version: 1, startedAt: this.startedAt, sessionSeconds: Math.round(this.now() / 1000),
       browser: navigator.userAgent, cores: navigator.hardwareConcurrency ?? null, memoryGB: navigator.deviceMemory ?? null,
       network: navigator.connection ? {type: navigator.connection.effectiveType, downlinkMbps: navigator.connection.downlink, saveData: navigator.connection.saveData} : null,
-      output: ac ? {sampleRate: ac.sampleRate, state: ac.state, baseLatencyMs: round(ac.baseLatency * 1000), outputLatencyMs: round(ac.outputLatency * 1000), latencyHint: dsp?.latencyHint ?? 'interactive', renderQuantum: ac.renderQuantumSize ?? 128} : null,
+      output: ac ? {sampleRate: ac.sampleRate, state: ac.state, baseLatencyMs: round(ac.baseLatency * 1000), outputLatencyMs: round(ac.outputLatency * 1000), latencyHint: dsp?.latencyHint ?? 'interactive', renderQuantum: ac.renderQuantumSize ?? 128, engine: dsp?.engine ?? null, bypass: !!dsp?.bypass, engineFailure: dsp?.failure ?? null} : null,
       underruns: stats ? {events: stats.underrunEvents, seconds: round(stats.underrunDuration, 3), playedSeconds: round(stats.totalDuration, 1), latencyMs: {average: round(stats.averageLatency * 1000), min: round(stats.minimumLatency * 1000), max: round(stats.maximumLatency * 1000)}, at: this.underruns.at.slice(-20)} : {supported: false},
-      level: this.level ? {since: this.level.since, peakDb: db(this.level.peak), recentPeakDb: db(Math.max(0, ...recent)), clippedReads: this.level.clippedReads, reads: this.level.reads, limiterDb: round(dsp?.limiterReductionDb?.() ?? 0, 1)} : null,
+      level: this.meters.frames ? this.engineLevel() : this.level ? {since: this.level.since, peakDb: db(this.level.peak), recentPeakDb: db(Math.max(0, ...recent)), clippedReads: this.level.clippedReads, reads: this.level.reads} : null,
       dsp: dsp ? {enabled: dsp.get('dsp_enabled'), eq: dsp.get('dsp_eq_enabled'), parametric: dsp.parametric, bands: dsp.parametric ? dsp.pbands.length : dsp.bands.length, preampDb: round((dsp.get('dsp_preamp') - 0.5) * 48, 1), tone: dsp.get('dsp_tone_enabled'), reverb: dsp.get('dsp_reverb_enabled'), limiter: dsp.get('dsp_limiter_enabled'), volume: dsp.get('dsp_master_volume')} : null,
       track: this.trackInfo(this.ctx.player?.track), decks: deck,
       longTasks: {count: this.longTasks.count, totalMs: Math.round(this.longTasks.totalMs), maxMs: Math.round(this.longTasks.maxMs)},
@@ -168,6 +188,12 @@ export class PlaybackLog {
       contextStates: this.context?.states.slice(-20) ?? [],
       events: this.events.slice(-120),
     };
+  }
+
+  /** The engine's level figures: every sample of the session. */
+  engineLevel() {
+    const t = this.meters, sr = this.ctx.dsp?.ac?.sampleRate || 48000;
+    return {meteredSeconds: round(t.frames / sr, 1), peakDb: db(t.outPeak), recentPeakDb: db(Math.max(0, ...t.recent)), inputPeakDb: db(t.inPeak), limiterMaxDb: round(db(t.minGain) ?? 0, 1), limiterNowDb: round(this.ctx.dsp?.limiterReductionDb?.() ?? 0, 1), clippedSamples: t.clamps, oversCaught: t.inOvers};
   }
 
   /** Fills the settings screen with the log (rows refresh every second while shown). */
@@ -219,10 +245,12 @@ export class PlaybackLog {
       this.startLevel();
       const s = this.snapshot();
       const o = s.output;
-      rows.get('output').textContent = o ? `Web Audio, ${round(o.sampleRate / 1000, 1)} kHz, ${o.state}\nLatency ${o.baseLatencyMs ?? '?'} ms base, ${o.outputLatencyMs ?? '?'} ms output (${o.latencyHint})` : 'Starts with the first played track';
+      rows.get('output').textContent = o ? `Web Audio, ${round(o.sampleRate / 1000, 1)} kHz, ${o.state}, ${o.bypass ? 'plain playback (the audio engine takes over once loaded and nothing plays)' : o.engine === 'worklet' ? 'audio engine on' : o.engine === 'native' ? 'plain playback (no effects' + (o.engineFailure ? ': ' + o.engineFailure : '') + ')' : 'starting'}\nLatency ${o.baseLatencyMs ?? '?'} ms base, ${o.outputLatencyMs ?? '?'} ms output (${o.latencyHint})` : 'Starts with the first played track';
       rows.get('underruns').textContent = s.underruns.supported === false ? 'Not reported by this browser' : `${s.underruns.events} in ${round(s.underruns.playedSeconds / 60, 1)} min played (${round(s.underruns.seconds * 1000, 0)} ms of silence)`;
       const l = s.level;
-      rows.get('level').textContent = l ? `Peak ${l.peakDb ?? '-∞'} dBFS since shown, last 10 s ${l.recentPeakDb ?? '-∞'} dBFS\nClipping in ${l.clippedReads} of ${l.reads} reads · limiter ${l.limiterDb} dB` : 'Starts with the first played track';
+      rows.get('level').textContent = !l ? 'Starts with the first played track' : l.meteredSeconds !== undefined
+        ? `Peak ${l.peakDb ?? '-∞'} dBFS, last 10 s ${l.recentPeakDb ?? '-∞'} dBFS · limiter now ${l.limiterNowDb} dB, at most ${l.limiterMaxDb} dB\n${l.clippedSamples} clipped samples in ${round(l.meteredSeconds / 60, 1)} min (the limiter caught ${l.oversCaught} over full scale)`
+        : `Peak ${l.peakDb ?? '-∞'} dBFS since shown, last 10 s ${l.recentPeakDb ?? '-∞'} dBFS\nClipping in ${l.clippedReads} of ${l.reads} reads`;
       const t = s.track, cur = s.decks.find(d => d.current) ?? s.decks[0];
       rows.get('track').textContent = t.format ? `${t.format} ${t.kbps ? t.kbps + ' kbps' : ''} ${t.rate ? round(t.rate / 1000, 1) + ' kHz' : ''} (${t.source})` : '—';
       rows.get('buffer').textContent = cur ? `${cur.bufferedAhead ?? 0} s buffered ahead\n${s.decks.reduce((n, d) => n + d.waits, 0)} rebuffers (${round(s.decks.reduce((n, d) => n + d.waitSeconds, 0), 1)} s), ${s.decks.reduce((n, d) => n + d.stalls, 0)} stalls, ${s.decks.reduce((n, d) => n + d.errors, 0)} errors${cur.lastError ? ' (last: ' + cur.lastError.kind + ')' : ''}` : '—';
