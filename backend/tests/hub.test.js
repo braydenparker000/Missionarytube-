@@ -162,3 +162,8 @@ test('Astra opens the new app; its id stays, so saved favorites keep it',async()
  try{assert.deepEqual(loadPreferences().favorites,['media','jarvis']);}
  finally{if(previous===undefined)delete globalThis.localStorage;else globalThis.localStorage=previous;}
 });
+
+test('Chats opens the new app (Claude and Muse); the Muse tile opens its conversation; ids stay, so favorites keep them',async()=>{
+ const {apps}=await import('../../frontend/assets/hub.js');
+ assert.deepEqual(apps.slice(0,2).map(a=>[a.id,a.name,a.href]),[['jarvis','Chats','/chats/'],['muse','Muse','/chats/#muse']]);
+});

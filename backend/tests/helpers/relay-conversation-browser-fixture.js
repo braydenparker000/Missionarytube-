@@ -152,7 +152,9 @@ export async function openConversationPage(browser, harness, {width = 390, heigh
     async function sendSyntheticResponse(command, params) {
       try { return await cdp.send(command, params); }
       catch (error) {
-        const proof = await confirmCancellation({event, error, command, validated: true});
+        // Chats reads (its long poll above all) are POSTs that change nothing.
+        const readOnly = url.pathname === '/claude-chat/owner' && /^\{"op":"(changes|threads|messages|status)"/.test(body || '');
+        const proof = await confirmCancellation({event, error, command, validated: true, readOnly});
         if (!proof) throw error;
         record.cancelledByBrowser = true;
         record.cancellation = proof;
@@ -183,7 +185,7 @@ export async function openConversationPage(browser, harness, {width = 390, heigh
         return await fulfill(new Response(bytes, {headers: {'Content-Type': mime[extname(filename)] || 'application/octet-stream', 'Cache-Control': 'no-store'}}));
       }
       assert.equal(url.origin, WORKER, 'Unexpected browser origin; all live egress is blocked');
-      assert.ok(url.pathname.startsWith('/relay/owner/') || url.pathname.startsWith('/shared/') || url.pathname.startsWith('/v1/'), 'Unexpected browser API');
+      assert.ok(url.pathname.startsWith('/relay/owner/') || url.pathname.startsWith('/claude-chat/owner') || url.pathname.startsWith('/shared/') || url.pathname.startsWith('/v1/'), 'Unexpected browser API');
       const forward = () => harness.fixture.request(url.pathname + url.search, {method: request.method, headers,
         body: ['GET', 'HEAD', 'OPTIONS'].includes(request.method) ? undefined : body, redirect: 'manual'});
       const rule = rules.find(rule => rule.remaining > 0 && rule.match(record));

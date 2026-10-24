@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#0f0f10">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://jarvis-hub-api.braydenparker999.workers.dev http://localhost:* http://127.0.0.1:*; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+  <title>Chats</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="src/styles.css">
+  <script type="module" src="src/main.js"></script>
+  <!-- Every module the app needs to start, fetched at once (kept in step by tests/chats-app.test.mjs). -->
+  <link rel="modulepreload" href="src/app.js">
+  <link rel="modulepreload" href="src/api.js">
+  <link rel="modulepreload" href="src/store.js">
+  <link rel="modulepreload" href="src/dom.js">
+  <link rel="modulepreload" href="src/ui.js">
+  <link rel="modulepreload" href="src/icons.js">
+  <link rel="modulepreload" href="src/back-stack.js">
+  <link rel="modulepreload" href="src/markdown.js">
+  <link rel="modulepreload" href="src/status.js">
+  <link rel="modulepreload" href="src/screens/list.js">
+  <link rel="modulepreload" href="src/screens/chat.js">
+  <link rel="modulepreload" href="src/screens/notebook.js">
+  <link rel="modulepreload" href="src/screens/settings.js">
+  <link rel="modulepreload" href="src/screens/signin.js">
+</head>
+<body>
+  <main id="app" class="chats"></main>
+  <div id="launch" class="launch" aria-hidden="true"></div>
+</body>
+</html>

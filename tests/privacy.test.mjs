@@ -40,6 +40,7 @@ const ALLOWED_HOSTS = [
   "opensubtitles-v3.strem.io", // Stremio's public subtitle add-on, no configuration or token
   "cdn.jsdelivr.net", // pinned, integrity-checked player runtimes
   "registry.npmjs.org", // used by the dependency pinning script
+  "api.anthropic.com", // the scheduled-task trigger shape Jarvis Chats fires (its URL itself is a Worker secret)
   // The public pool the provider resolves through. All are public
   // infrastructure run by volunteers, with no token anywhere in the URL.
   // Piped leads because its API is CORS-enabled by design, which is what a

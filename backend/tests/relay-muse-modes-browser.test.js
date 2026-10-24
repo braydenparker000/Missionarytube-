@@ -20,7 +20,8 @@ test('Muse phone: one launcher, explicit mode switch, owner auth and isolated dr
   const signedOut=await openConversationPage(browser,h,{clock:false,root:delayedRoot});pages.push(signedOut);
   let p=signedOut.page;await p.goto(SITE+'/');
   assert.equal(await p.locator('a[href="/mast/"]').count(),0);
-  await p.locator('a[href="/private/"]').first().click();
+  // The hub's Chats tile opens /chats/; the classic workspace is opened directly.
+  await p.goto(SITE+'/private/');
   await p.locator('#open-drawer').click();
   await p.getByRole('link',{name:'Public Muse',exact:true}).click();
   await p.waitForURL(SITE+'/muse/',{waitUntil:'commit'});
