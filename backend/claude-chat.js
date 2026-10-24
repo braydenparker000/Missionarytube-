@@ -146,9 +146,12 @@ export function recordWake(ctx, now, result) {
 
 // Delivered but unanswered for too long, with nobody holding the lease: the
 // session that took them is gone, so they go back in the queue.
-function requeueStranded(ctx, now) {
+function requeueStranded(ctx, now, {sessionChanged = false} = {}) {
   if (leaseView(ctx, now).alive) return 0;
-  const stranded = rows(ctx, `SELECT id FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NOT NULL AND delivered_ms < ?`, now - STRANDED_MS);
+  // A session that arrives with no live lease replaces the one that took these,
+  // so nothing taken before it can still be in progress.
+  const cutoff = sessionChanged ? now + 1 : now - STRANDED_MS;
+  const stranded = rows(ctx, `SELECT id FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NOT NULL AND delivered_ms < ?`, cutoff);
   for (const r of stranded) ctx.storage.sql.exec('UPDATE cc_messages SET delivered_ms=NULL WHERE id=?', r.id);
   return stranded.length;
 }
@@ -256,7 +259,7 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
       // Claude takes the waiting owner messages (all threads) and holds the lease.
       if (owner) fail(403, 'Only Claude takes messages');
       return tx(() => {
-        requeueStranded(ctx, now);
+        requeueStranded(ctx, now, {sessionChanged: true});
         renew(ctx, now, {state: 'listening', sessionUrl: args.sessionUrl ? sessionLink(args.sessionUrl) : undefined});
         clearStop(ctx);
         const list = rows(ctx, `SELECT * FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NULL ORDER BY seq LIMIT 20`);

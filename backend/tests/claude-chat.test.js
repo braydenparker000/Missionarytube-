@@ -111,6 +111,17 @@ test('wake backoff: one fire per window; a message stranded by a dead session is
   assert.deepEqual(call('claude', 'take', {}, later + 1).messages.map(m => m.body), ['a', 'b', 'c', 'd'], 'stranded messages come back, in order');
 });
 
+test('a new session gets messages the previous session took but never answered, at once', () => {
+  const call = store();
+  call('owner', 'thread.create', {id: T});
+  const t0 = 3_000_000;
+  call('owner', 'send', {id: M(1), threadId: T, body: 'a'}, t0);
+  assert.equal(call('claude', 'take', {}, t0 + 1).messages.length, 1);
+  // The reply to that take was lost and the session is gone; its lease lapses.
+  const later = t0 + 1 + Math.max(LEASE_WAIT_MS, LEASE_WORK_MS) + 1;
+  assert.deepEqual(call('claude', 'take', {}, later).messages.map(m => m.body), ['a']);
+});
+
 test('changes feed: everything after a sequence number, with the status', () => {
   const call = store();
   call('owner', 'thread.create', {id: T});
