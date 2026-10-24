@@ -59,3 +59,11 @@ test('jc waits for owner messages, answers, reports status, links the session an
   const refused = await run(process.execPath, [JC, 'wait', '--minutes', '0.05'], {env: {...env, JC_KEY: 'wrong'.repeat(10)}, timeout: 30_000}).catch(e => e);
   assert.equal(refused.code, 2, 'a refused key stops at once');
 });
+
+test('jc restarts itself through the session proxy, so the network secret is added to its requests', async () => {
+  const {needsProxyRestart} = await import('./jarvis-claude/jc.mjs');
+  assert.equal(needsProxyRestart({HTTPS_PROXY: 'http://proxy:8080'}), true);
+  assert.equal(needsProxyRestart({https_proxy: 'http://proxy:8080'}), true);
+  assert.equal(needsProxyRestart({HTTPS_PROXY: 'http://proxy:8080', NODE_USE_ENV_PROXY: '1'}), false, 'already restarted');
+  assert.equal(needsProxyRestart({}), false, 'no proxy: run as is');
+});
