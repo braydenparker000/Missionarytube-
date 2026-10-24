@@ -42,8 +42,10 @@ export function validateLibrary(data,{onAlbumPruned}={}){
     if(!SONG_ID.test(t?.id)||ids.has(t.id)||!HEX.test(t.sha256)||!AUDIO_KEY.test(t.audioKey)||
       !Number.isSafeInteger(t.size)||t.size<=0||!clean(t.path,1024)||!clean(t.folder,4096)||
       !/^(audio\/[a-z0-9.+-]+|video\/(mp4|webm)|application\/ogg)$/i.test(t.mimeType||''))fail();
-    if(t.id.startsWith('r2_native_')&&(t.id!=='r2_native_'+t.sha256||t.audioKey!=='native/audio/'+t.sha256+'.opus'))fail();
-    if(!t.id.startsWith('r2_native_')&&(!t.audioKey.startsWith('audio/'+t.id.slice(3)+'/')||!/^([a-f0-9]{32})$/.test(t.md5||'')))fail();
+    // Native audio is content-addressed by its hash. A track keeps its id when
+    // its audio is replaced, so the id need not name the current hash.
+    if(t.audioKey.startsWith('native/')){if(t.audioKey!=='native/audio/'+t.sha256+'.opus')fail();}
+    else if(t.id.startsWith('r2_native_')||!t.audioKey.startsWith('audio/'+t.id.slice(3)+'/')||!/^([a-f0-9]{32})$/.test(t.md5||''))fail();
     identity(t.r2Identity,t.size);metadata(t.metadata,{copyAnalysis:false});if(t.metadata.audioAnalysis)validateAnalysis(t.metadata.audioAnalysis,t.sha256,t.size);ids.add(t.id);
     if(t.metadata.audioAnalysis?.album)albumTracks.push(t);
     if(t.coverKey!=null){if(!ART_KEY.test(t.coverKey)||!HEX.test(t.coverSha256)||!t.coverKey.includes(t.coverSha256)||

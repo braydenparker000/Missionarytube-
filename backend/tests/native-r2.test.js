@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateKeyPairSync,createHash,sign} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
 import {nativeMusic} from '../music-upload.js';
+import {musicCatalogInternal,musicCatalogAlarm} from '../music-catalog.js';
 import {LIBRARY_KEY,validateLibrary,libraryMapping,restoreLibrarySnapshot,signatureMessage} from '../../frontend/drawercast/r2-library.js';
 import {r2Tracks,commitR2Catalog} from '../../frontend/drawercast/r2-api.js';
 const api='https://jarvis-hub-api.braydenparker999.workers.dev',origin='https://missionarytube.z13.web.core.windows.net';
@@ -21,8 +23,16 @@ function fixture(){
     calls.push(['put',k]);if(k===LIBRARY_KEY&&conflicts){conflicts--;return null;}
     const old=objects.get(k);if(options.onlyIf instanceof Headers&&options.onlyIf.get('If-None-Match')==='*'&&old)return null;
     if(options.onlyIf?.etagMatches!==undefined&&old?.etag!==options.onlyIf.etagMatches)return null;
-    const o=stored(k,b,options);objects.set(k,o);return o;}};
+    const o=stored(k,b,options);objects.set(k,o);return o;},
+    async delete(k){calls.push(['delete',k]);objects.delete(k);},
+    async list({prefix='',cursor,limit=1000}={}){const keys=[...objects.keys()].filter(k=>k.startsWith(prefix)).sort();const at=Number(cursor||0);
+      return {objects:keys.slice(at,at+limit).map(k=>({key:k,size:objects.get(k).size})),truncated:at+limit<keys.length,cursor:String(at+limit)};}};
   const env={MUSIC_R2:bucket,MUSIC_PUBLIC_READ:'true',MUSIC_UPLOAD_PUBLIC_KEYS:JSON.stringify([pub])};
+  // The catalog's single writer: one Durable Object, here on an in-memory SQLite.
+  const db=new DatabaseSync(':memory:');let savepoint=0;const alarms=[];
+  const ctx={storage:{sql:{exec:(q,...v)=>db.prepare(q).all(...v)},setAlarm:at=>{alarms.push(at);},
+    transactionSync(fn){const s='s'+(++savepoint);db.exec('SAVEPOINT '+s);try{const r=fn();db.exec('RELEASE '+s);return r;}catch(e){db.exec('ROLLBACK TO '+s+'; RELEASE '+s);throw e;}}}};
+  env.HUBS={idFromName:n=>n,get:()=>({fetch:async r=>musicCatalogInternal(ctx,env,await r.json())})};
   function request(path,body,method='PUT',type='audio/ogg',change={}){
     const time=String(Math.floor(Date.now()/1000)),hash=sha(body),size=String(body.length);
     const sig=sign(null,Buffer.from(signatureMessage({method,origin:api,path,type,hash,size,time,key:pub})),keys.privateKey).toString('hex');
@@ -34,7 +44,8 @@ function fixture(){
   function registration(b=audio,extra={}){return Buffer.from(JSON.stringify({sha256:sha(b),size:b.length,name:'Ready.opus',metadata:{title:'Ready',artist:'Artist',album:'Album',dur:10,codec:'Opus'},...extra}));}
   const register=b=>send('/music/uploads/register',b,'POST','application/json');
   const get=(path,h={},method='GET')=>nativeMusic(new Request(api+path,{method,headers:{Origin:origin,...h}}),env);
-  return {env,objects,calls,pub,request,send,putAudio,register,registration,get,conflict:()=>{conflicts=1;}};
+  const op=(name,body)=>send('/music/uploads/'+name,Buffer.from(JSON.stringify(body)),'POST','application/json');
+  return {env,objects,calls,pub,request,send,putAudio,register,registration,get,op,ctx,alarms,alarm:()=>musicCatalogAlarm(ctx,env),conflict:n=>{conflicts=n??1;}};
 }
 test('upload rejects unregistered, tampered, stale and cross-destination signatures before R2',async()=>{
   const f=fixture(),path='/music/uploads/audio/'+sha(audio)+'.opus';
@@ -263,4 +274,124 @@ test('native dates use verified upload time through stale saved state, refresh a
   request.onsuccess();tx.oncomplete();
   assert.equal((await committed).fresh[0].added,expected);assert.equal(updated.added,expected);assert.equal(updated.rating,5);
   data.generatedAt='2030-01-01T00:00:00Z';assert.equal(libraryMapping(data,url).tracks[0].added,expected);
+});
+
+// ——— The catalog's single writer ———
+const bars=n=>Buffer.from(Array.from({length:n},(_,i)=>(i*13)%256)).toString('base64');
+const stored=f=>JSON.parse(f.objects.get(LIBRARY_KEY).bytes.toString());
+const json=async r=>({status:r.status,...await r.json()});
+
+test('a waveform arrives with its registration, is kept by the writer, served per track and exported inline',async()=>{
+  const f=fixture();await f.putAudio();
+  const r=await json(await f.register(f.registration(audio,{waveform:bars(500)})));
+  assert.deepEqual([r.status,r.registered,r.published],[200,true,true]);
+  assert.equal(stored(f).tracks[0].metadata.waveform,undefined,'the catalog file carries no waveforms');
+  assert.equal(stored(f).tracks[0].waveformBars,true);
+  const index=await (await f.get('/music/library.json')).json();assert.equal(index.tracks[0].waveformBars,true);
+  const wave=await f.get('/music/library/waveform/'+r.id);assert.equal(wave.status,200);
+  assert.deepEqual(Buffer.from(await wave.arrayBuffer()),Buffer.from(bars(500),'base64'));
+  const exported=await json(await f.op('export',{}));assert.equal(exported.catalog.tracks[0].metadata.waveform,bars(500));
+  assert.equal((await f.register(f.registration(audio,{waveform:'bad'}))).status,422);
+});
+
+test('a batch registers many tracks with one catalog write; each item reports its own outcome',async()=>{
+  const f=fixture(),b=Buffer.concat([audio,Buffer.from('two')]),missing=Buffer.concat([audio,Buffer.from('never uploaded')]);
+  await f.putAudio();await f.putAudio(b);f.calls.length=0;
+  const reg=x=>JSON.parse(f.registration(x).toString());
+  const r=await json(await f.op('register-batch',{tracks:[reg(audio),reg(b),reg(missing),reg(audio)]}));
+  assert.equal(r.status,200);assert.equal(r.registered,2);assert.equal(r.count,2);
+  assert.deepEqual(r.results.map(x=>[x.registered,x.duplicate??null,x.status??null]),[[true,false,null],[true,false,null],[false,null,409],[true,true,null]]);
+  assert.equal(f.calls.filter(c=>c[0]==='put'&&c[1]===LIBRARY_KEY).length,1,'one write for the whole batch');
+  assert.equal((await f.op('register-batch',{tracks:[]})).status,422);
+});
+
+test('patch changes tags, path, waveform and cover in place; bad changes are refused',async()=>{
+  const f=fixture();await f.putAudio();const {id}=await (await f.register(f.registration())).json();
+  let r=await json(await f.op('patch',{id,metadata:{album:'Fixed album',albumArtist:'Band',genre:null},path:'Band/Ready.opus',waveform:bars(100)}));
+  assert.deepEqual([r.status,r.patched],[200,true]);
+  let t=stored(f).tracks[0];assert.deepEqual([t.metadata.album,t.metadata.albumArtist,t.path,t.metadata.title,t.waveformBars],['Fixed album','Band','Band/Ready.opus','Ready',true]);
+  assert.equal((await f.op('patch',{id,cover:{sha256:sha(art),size:art.length,ext:'png'}})).status,409,'artwork is uploaded first');
+  await f.send('/music/uploads/art/'+sha(art)+'.png',art,'PUT','image/png');
+  assert.equal((await f.op('patch',{id,cover:{sha256:sha(art),size:art.length,ext:'png'}})).status,200);
+  assert.equal(stored(f).tracks[0].coverKey,'native/art/'+sha(art)+'.png');
+  assert.equal((await f.get('/music/library/art/'+id)).status,200);
+  await f.op('patch',{id,cover:null,waveform:null});t=stored(f).tracks[0];
+  assert.deepEqual([t.coverKey,t.waveformBars],[undefined,undefined]);
+  assert.equal((await f.op('patch',{id,metadata:{title:''}})).status,422);
+  assert.equal((await f.op('patch',{id,metadata:{waveform:'x'}})).status,422);
+  assert.equal((await f.op('patch',{id:'r2_native_'+'f'.repeat(64),metadata:{album:'x'}})).status,404);
+});
+
+test('replacing audio keeps the track id; the old audio goes unless another track uses it',async()=>{
+  const f=fixture(),b=Buffer.concat([audio,Buffer.from('remaster')]);await f.putAudio();
+  const {id}=await (await f.register(f.registration())).json();await f.putAudio(b);
+  const r=await json(await f.op('replace-audio',{id,sha256:sha(b),size:b.length,name:'Ready (Remaster).opus'}));
+  assert.deepEqual([r.status,r.replaced,r.id],[200,true,id]);assert.deepEqual(r.deletedObjects,['native/audio/'+sha(audio)+'.opus']);
+  const t=stored(f).tracks[0];assert.deepEqual([t.id,t.sha256,t.size,t.path],[id,sha(b),b.length,'Ready (Remaster).opus']);
+  validateLibrary(stored(f));
+  const played=await f.get('/music/library/audio/'+id);assert.equal(played.status,200);assert.deepEqual(Buffer.from(await played.arrayBuffer()),b);
+  // Audio another track already has cannot be taken over.
+  const c=Buffer.concat([audio,Buffer.from('other')]);await f.putAudio(c);const other=await (await f.register(f.registration(c))).json();
+  assert.equal((await f.op('replace-audio',{id,sha256:sha(c),size:c.length})).status,409);
+  assert.equal((await f.op('replace-audio',{id:other.id,sha256:'a'.repeat(64),size:5})).status,409,'audio is uploaded first');
+});
+
+test('delete removes entries and their objects, keeping objects another track still uses',async()=>{
+  const f=fixture(),b=Buffer.concat([audio,Buffer.from('two')]);await f.putAudio();await f.putAudio(b);
+  await f.send('/music/uploads/art/'+sha(art)+'.png',art,'PUT','image/png');const cover={sha256:sha(art),size:art.length,ext:'png'};
+  const one=await (await f.register(f.registration(audio,{cover}))).json(),two=await (await f.register(f.registration(b,{cover}))).json();
+  const r=await json(await f.op('delete',{ids:[one.id,'r2_native_'+'e'.repeat(64)]}));
+  assert.deepEqual([r.status,r.deleted,r.notFound,r.count],[200,[one.id],['r2_native_'+'e'.repeat(64)],1]);
+  assert.deepEqual(r.deletedObjects,['native/audio/'+sha(audio)+'.opus'],'the shared cover stays');
+  assert.equal(f.objects.has('native/art/'+sha(art)+'.png'),true);
+  assert.equal((await (await f.get('/music/library.json')).json()).tracks[0].id,two.id);
+  assert.equal((await f.op('delete',{ids:[two.id],deleteObjects:false})).status,200);assert.equal(f.objects.has('native/audio/'+sha(b)+'.opus'),true);
+});
+
+test('an outside edit of the catalog file is adopted; one racing unpublished changes is a conflict until resolved',async()=>{
+  const f=fixture(),b=Buffer.concat([audio,Buffer.from('two')]);await f.putAudio();await f.putAudio(b);
+  const {id}=await (await f.register(f.registration())).json();
+  const edited=stored(f);edited.tracks[0].metadata.album='Edited outside';edited.generatedAt=new Date().toISOString();
+  await f.env.MUSIC_R2.put(LIBRARY_KEY,JSON.stringify(edited));
+  await f.register(f.registration(b));
+  assert.deepEqual(stored(f).tracks.map(t=>t.metadata.album),['Edited outside','Album'],'the edit is kept and the new track added');
+  // A write that keeps failing leaves changes waiting; the alarm retries them.
+  f.conflict(3);const pending=await json(await f.op('patch',{id,metadata:{album:'Mine'}}));
+  assert.deepEqual([pending.status,pending.published],[200,false]);assert.ok(f.alarms.length>0);
+  let health=await (await f.get('/music/health')).json();assert.equal(health.writer.pendingPublish,true);
+  // An outside edit now would lose 'Mine': refused until someone decides.
+  await f.env.MUSIC_R2.put(LIBRARY_KEY,JSON.stringify(edited));
+  const refused=await json(await f.op('patch',{id,metadata:{album:'Again'}}));assert.equal(refused.status,409);assert.equal(refused.conflict,true);
+  assert.equal((await f.op('reimport',{})).status,422,'reimport needs confirming');
+  assert.equal((await f.op('publish',{force:true})).status,200);
+  assert.equal(stored(f).tracks[0].metadata.album,'Mine','force keeps the writer\'s changes');
+  health=await (await f.get('/music/health')).json();assert.deepEqual([health.writer.pendingPublish,health.writer.conflict],[false,null]);
+  await f.env.MUSIC_R2.put(LIBRARY_KEY,JSON.stringify(edited));
+  assert.equal((await f.op('reimport',{confirm:true})).status,200);
+  assert.equal((await json(await f.op('export',{}))).catalog.tracks[0].metadata.album,'Edited outside','reimport takes the file');
+});
+
+test('a failed catalog write is retried by the alarm',async()=>{
+  const f=fixture();await f.putAudio();f.conflict(3);
+  const r=await json(await f.register(f.registration()));assert.deepEqual([r.registered,r.published],[true,false]);
+  assert.equal(stored(f).count,0);
+  await f.alarm();assert.equal(stored(f).count,1);
+  assert.equal((await (await f.get('/music/health')).json()).writer.pendingPublish,false);
+});
+
+test('audit finds entries whose objects are missing and objects nothing uses',async()=>{
+  const f=fixture(),b=Buffer.concat([audio,Buffer.from('orphan')]);await f.putAudio();await f.register(f.registration());await f.putAudio(b);
+  f.objects.delete('native/audio/'+sha(audio)+'.opus');
+  const r=await json(await f.op('audit',{}));
+  assert.deepEqual([r.status,r.tracks,r.missing,r.orphans],[200,1,1,1]);
+  assert.deepEqual(r.samples.orphans,['native/audio/'+sha(b)+'.opus']);
+  assert.equal((await (await f.get('/music/health')).json()).writer.lastAudit.missing,1);
+});
+
+test('catalog operations are signed, JSON and known',async()=>{
+  const f=fixture();
+  assert.equal((await nativeMusic(new Request(api+'/music/uploads/delete',{method:'POST',body:'{}',headers:{'Content-Type':'application/json'}}),f.env)).status,401);
+  assert.equal((await f.op('nonsense',{})).status,404);
+  assert.equal((await f.send('/music/uploads/patch',Buffer.from('[]'),'POST','application/json')).status,422);
+  delete f.env.HUBS;assert.equal((await f.op('patch',{id:'x'})).status,503);
 });
