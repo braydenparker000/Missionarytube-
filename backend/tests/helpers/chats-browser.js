@@ -11,7 +11,11 @@ import {hash, random} from '../../relay-common.js';
 
 export async function runChatsScenario(t, browser) {
   const key = 'k'.repeat(48), museToken = random();
-  const h = createConversationFixture(t, {env: {
+  // Attachments live in R2: an in-memory bucket stands in.
+  const objects = new Map();
+  const MUSIC_R2 = {async put(k, b, o) { objects.set(k, {bytes: new Uint8Array(b), customMetadata: o.customMetadata}); return {}; },
+    async get(k) { const o = objects.get(k); return o && {size: o.bytes.length, customMetadata: o.customMetadata, body: new Response(o.bytes).body}; }};
+  const h = createConversationFixture(t, {env: {MUSIC_R2,
     CLAUDE_CHAT_AGENT_KEY: key, CLAUDE_ROUTINE_FIRE_URL: 'https://api.anthropic.com/v1/claude_code/routines/trig_T/fire', CLAUDE_ROUTINE_TOKEN: 'routine-token',
     RELAY_MAST_ENABLED: 'true', RELAY_MAST_TOKEN_SHA256: await hash(museToken),
   }});
@@ -113,6 +117,30 @@ export async function runChatsScenario(t, browser) {
     await page.locator('.msg.owner', {hasText: 'Thanks!'}).waitFor();
     await page.locator('.msg.owner', {hasText: 'Thanks!'}).locator('.state', {hasText: 'Sent'}).waitFor();
     assert.equal(fired.length, 1, 'Claude is listening: no second fire');
+
+    // A screenshot for Claude: attached, previewed in the tray, sent with no words.
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
+    await page.locator('.composer input[type=file]').setInputFiles({name: 'screen.png', mimeType: 'image/png', buffer: png});
+    await page.locator('.attach-chip.ready').waitFor();
+    await writeSyntheticEvidence(phone, 'chats-attach');
+    await page.getByRole('button', {name: 'Send'}).click();
+    await page.locator('.attach-tray').waitFor({state: 'hidden'});
+    await page.locator('.msg.owner .shot img[src^="blob:"]').waitFor();
+    // Claude gets it, reads the bytes, and answers with a picture of its own.
+    const asked = (await asClaude('take', {wait: 0})).messages.find(m => m.attachments?.length);
+    assert.equal(asked.attachments[0].name, 'screen.png');
+    const bytes = await (await h.fixture.request('/claude-chat/agent/files/' + asked.attachments[0].id, {headers: {Authorization: 'Bearer ' + key}})).arrayBuffer();
+    assert.deepEqual(Buffer.from(bytes), png, 'Claude reads exactly what was sent');
+    const sent = await (await h.fixture.request('/claude-chat/agent/files', {method: 'POST', body: png,
+      headers: {Authorization: 'Bearer ' + key, 'Content-Type': 'image/png', 'X-File-Name': 'chart.png'}})).json();
+    await asClaude('post', {id: crypto.randomUUID(), threadId, body: 'Here it is, annotated.', attachments: [sent.file]});
+    const answer = page.locator('.msg.reply', {hasText: 'Here it is, annotated.'});
+    await answer.locator('.shot img[src^="blob:"]').waitFor();
+    await answer.locator('.shot').click();
+    await page.locator('.viewer img').waitFor();
+    await writeSyntheticEvidence(phone, 'chats-photo');
+    await page.keyboard.press('Escape');
+    await page.locator('.viewer').waitFor({state: 'detached'});
 
     // Back (the Android back button) to the list, which shows the thread; nothing waits on the owner now.
     await back();

@@ -150,7 +150,7 @@ export class Store extends EventTarget {
       thread.card = {id: m.id, title: meta.title || m.body.split('\n')[0], url: meta.url || null, state: meta.state || null, actions: Array.isArray(meta.actions) ? meta.actions.slice(0, 3) : [], at: m.createdAt};
     }
     if (thread && ['text', 'question', 'card'].includes(m.kind)) {
-      thread.last = {role: m.role, kind: m.kind, body: m.body.slice(0, 200)};
+      thread.last = {role: m.role, kind: m.kind, body: (m.body || attachmentLabel(m.attachments)).slice(0, 200)};
       thread.updatedAt = Math.max(thread.updatedAt || 0, m.createdAt);
     }
     const list = this.messages.get(m.threadId);
@@ -235,20 +235,22 @@ export class Store extends EventTarget {
   localMessage(o) {
     return o.to === MUSE
       ? {id: o.id, role: 'owner', body: o.body, createdAt: o.createdAt, local: true, failed: !!o.failed}
-      : {id: o.id, threadId: o.threadId, role: 'owner', kind: 'text', body: o.body, createdAt: o.createdAt, local: true, failed: !!o.failed, delivered: false, answered: false};
+      : {id: o.id, threadId: o.threadId, role: 'owner', kind: 'text', body: o.body, attachments: o.attachments || [], createdAt: o.createdAt, local: true, failed: !!o.failed, delivered: false, answered: false};
   }
-  send(to, threadId, body) {
+  /** Sends a message; to Claude it may carry attachments already uploaded ({id, name, type, size}). */
+  send(to, threadId, body, attachments = []) {
     body = body.trim();
-    if (!body) return;
-    const o = {to, threadId: to === MUSE ? null : threadId, id: uuid(), body, createdAt: Date.now()};
+    if (to === MUSE) attachments = [];
+    if (!body && !attachments.length) return;
+    const o = {to, threadId: to === MUSE ? null : threadId, id: uuid(), body, createdAt: Date.now(), ...(attachments.length ? {attachments} : {})};
     const t = to === MUSE ? null : this.threads.get(threadId);
-    if (t?.local) { o.title = titleFrom(body); t.title = o.title; }
+    if (t?.local) { o.title = titleFrom(body || attachments[0].name); t.title = o.title; }
     this.outbox.push(o);
     save(KEY.outbox, this.outbox);
     if (to === MUSE) this.museMessages.push(this.localMessage(o));
     else {
       this.thread(threadId).push(this.localMessage(o));
-      if (t) { t.last = {role: 'owner', body: body.slice(0, 200)}; t.updatedAt = o.createdAt; }
+      if (t) { t.last = {role: 'owner', body: (body || attachmentLabel(attachments)).slice(0, 200)}; t.updatedAt = o.createdAt; }
       this.emit('threads');
     }
     this.emit('messages', to === MUSE ? MUSE : threadId);
@@ -293,7 +295,7 @@ export class Store extends EventTarget {
               const {thread} = await claude('thread.create', {id: o.threadId, title: o.title || t?.title || 'New chat'});
               this.threads.set(thread.id, {...t, ...thread, local: false});
             }
-            const result = await claude('send', {id: o.id, threadId: o.threadId, body: o.body});
+            const result = await claude('send', {id: o.id, threadId: o.threadId, body: o.body, ...(o.attachments ? {attachments: o.attachments} : {})});
             this.mergeMessage(result.message);
             if (result.status) { this.status = result.status; this.emit('status'); }
             this.persistThread(o.threadId);
@@ -414,3 +416,11 @@ export function titleFrom(body) {
 }
 
 export {ApiError};
+
+/** A message with no words, in a preview: what it carries. */
+export function attachmentLabel(list = []) {
+  if (!list.length) return '';
+  const photos = list.filter(a => /^image\//.test(a.type)).length;
+  if (photos === list.length) return photos === 1 ? 'Photo' : `${photos} photos`;
+  return list.length === 1 ? list[0].name : `${list.length} files`;
+}

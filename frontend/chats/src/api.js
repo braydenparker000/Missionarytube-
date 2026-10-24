@@ -61,14 +61,15 @@ function forget(token) {
   for (const fn of listeners) fn(false);
 }
 
-async function request(path, {body, method, token, signal, timeout = 20_000, raw = false} = {}) {
+async function request(path, {body, file, method, token, signal, timeout = 20_000, raw = false} = {}) {
   let response;
   try {
     response = await fetch(origin + path, {
-      method: method || (body === undefined ? 'GET' : 'POST'),
+      method: method || (body === undefined && !file ? 'GET' : 'POST'),
       credentials: 'omit', cache: 'no-store', redirect: 'error',
-      headers: {...(token ? {Authorization: 'Bearer ' + token} : {}), ...(body === undefined ? {} : {'Content-Type': 'application/json'})},
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: {...(token ? {Authorization: 'Bearer ' + token} : {}), ...(body === undefined ? {} : {'Content-Type': 'application/json'}),
+        ...(file ? {'Content-Type': fileType(file), 'X-File-Name': encodeURIComponent(file.name || 'file')} : {})},
+      body: file || (body === undefined ? undefined : JSON.stringify(body)),
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeout)]) : AbortSignal.timeout(timeout),
     });
   } catch (error) {
@@ -85,6 +86,7 @@ async function request(path, {body, method, token, signal, timeout = 20_000, raw
       throw new ApiError('signed_out', response.status);
     }
     if (response.status === 429) throw new ApiError('rate_limited', 429);
+    if (response.status === 413) throw new ApiError('too_large', 413);
     if (response.status === 409) throw new ApiError('conflict', 409, code);
     throw new ApiError(response.status >= 500 ? 'unavailable' : 'rejected', response.status, code);
   }
@@ -101,6 +103,18 @@ export function claude(op, args = {}, {signal} = {}) {
   const wait = Number(args.wait) || 0;
   return owner('/claude-chat/owner', {body: {op, args}, signal, timeout: wait + 15_000});
 }
+
+const fileType = file => /^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/i.test(file.type || '') ? file.type : 'application/octet-stream';
+export const FILE_MAX = 15 * 1024 * 1024;
+
+/** Claude chat attachments: upload a File (→ {id, name, type, size}), read one back as a Blob. */
+export const chatFiles = {
+  async upload(file) {
+    if (file.size > FILE_MAX) throw new ApiError('too_large', 413);
+    return (await owner('/claude-chat/owner/files', {file, timeout: 120_000})).file;
+  },
+  async get(id) { return (await owner('/claude-chat/owner/files/' + encodeURIComponent(id), {raw: true, timeout: 60_000})).blob(); },
+};
 
 /** Muse (Mast): the private owner conversation, read forward from a cursor. */
 export const muse = {
@@ -122,6 +136,7 @@ export function describe(error) {
     case 'login_failed': return 'That username or password is not right.';
     case 'unavailable': return 'Jarvis is having trouble. Trying again…';
     case 'conflict': return 'That changed somewhere else. Reload and try again.';
+    case 'too_large': return 'Files are limited to 15 MB.';
     default: return 'Something went wrong.';
   }
 }

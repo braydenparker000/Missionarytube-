@@ -147,7 +147,7 @@ export class ListScreen {
     const state = t.card?.state;
     return this.row({
       key: t.id, title: t.title, archived: !!t.archived, tag: state && t.card.url ? `PR · ${CARD_STATES[state]?.replace('Checks ', '') || state}` : null,
-      preview: working ? s.detail + '…' : t.last ? (t.last.role === 'owner' ? 'You: ' : '') + plain(t.last.body, 90) : 'No messages yet',
+      preview: working ? s.detail + '…' : t.last ? (t.last.role === 'owner' ? 'You: ' : '') + (plain(t.last.body, 90) || 'Attachment') : 'No messages yet',
       at: t.updatedAt, unread: this.store.unread(t.id), working, queued,
     });
   }

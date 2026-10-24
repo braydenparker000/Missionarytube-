@@ -16,7 +16,8 @@ import {actionSheet, toast, onLongPress} from '../ui.js';
 import {renderMarkdown, inline, shortUrl} from '../markdown.js';
 import {claudeStatus, museStatus, sigClass, CARD_STATES} from '../status.js';
 import {MUSE, drafts, prefs} from '../store.js';
-import {muse as museApi, describe} from '../api.js';
+import {muse as museApi, chatFiles, describe, FILE_MAX} from '../api.js';
+import {pushLayer} from '../back-stack.js';
 
 const SUGGESTIONS = ['What do you remember about Jarvis?', 'What should we build next?', 'Check the site for anything broken'];
 const NEAR_BOTTOM = 120;
@@ -45,8 +46,13 @@ export class ChatScreen {
     const name = this.isMuse ? 'Message Muse' : 'Message Claude';
     this.input = h('textarea', {class: 'composer-input', rows: '1', placeholder: name, 'aria-label': name, enterkeyhint: prefs.enterSends ? 'send' : 'enter', maxlength: this.isMuse ? '4000' : '20000'});
     this.sendBtn = h('button', {class: 'send', type: 'submit', 'aria-label': 'Send', disabled: true}, icon('arrowUp', {size: 22}));
+    // Attachments (Claude chats): chosen files upload at once and wait in the tray until sent.
+    this.pending = [];
+    this.tray = h('div', {class: 'attach-tray', hidden: true, 'aria-label': 'Attachments'});
+    this.fileInput = h('input', {type: 'file', multiple: true, hidden: true, onchange: () => { this.addFiles([...this.fileInput.files]); this.fileInput.value = ''; }});
+    const attach = !this.isMuse && h('button', {class: 'icon-btn attach-btn', type: 'button', 'aria-label': 'Attach a photo or file', title: 'Attach', onclick: () => this.fileInput.click()}, icon('attach', {size: 22}));
     this.composer = h('form', {class: 'composer', onsubmit: e => { e.preventDefault(); this.primary(); }},
-      h('div', {class: 'composer-card'}, this.input, this.sendBtn));
+      this.tray, this.fileInput, h('div', {class: 'composer-card' + (attach ? ' with-attach' : '')}, attach, this.input, this.sendBtn));
     this.el.append(
       h('header', {class: 'chat-top'},
         h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Back', onclick: () => app.back()}, icon('back')),
@@ -130,11 +136,11 @@ export class ChatScreen {
 
   /** The send button: send when there is text; Stop while Claude works here and the box is empty. */
   renderSend() {
-    const text = !!this.input.value.trim();
+    const text = !!this.input.value.trim(), files = this.pending.some(p => p.file), uploading = this.pending.some(p => p.status === 'uploading');
     const {s, here} = this.claudeHere;
-    const stop = here && !text;
+    const stop = here && !text && !files;
     this.sendBtn.classList.toggle('stop', stop);
-    this.sendBtn.disabled = stop ? !!s.stopping : !text;
+    this.sendBtn.disabled = stop ? !!s.stopping : uploading || this.pending.some(p => p.status === 'failed') || !(text || files);
     const label = stop ? (s.stopping ? 'Stopping' : 'Stop Claude') : 'Send';
     if (this.sendBtn.getAttribute('aria-label') !== label) {
       this.sendBtn.setAttribute('aria-label', label);
@@ -226,7 +232,7 @@ export class ChatScreen {
       : this.isMuse ? h('span', {class: 'state'}, icon('check', {size: 14}), 'Sent')
       : m.delivered || m.answered ? h('span', {class: 'state seen'}, icon('seen', {size: 14}), 'Seen')
       : h('span', {class: 'state'}, icon('check', {size: 14}), 'Sent');
-    const el = h('div', {class: 'msg owner' + (m.failed ? ' failed' : ''), tabindex: '0'}, bubble,
+    const el = h('div', {class: 'msg owner' + (m.failed ? ' failed' : ''), tabindex: '0'}, m.body ? bubble : null,
       this.attachments(m),
       h('div', {class: 'meta'}, state,
         m.failed && h('button', {class: 'link-btn', type: 'button', onclick: () => this.store.retry(m.id)}, 'Retry')));
@@ -240,7 +246,7 @@ export class ChatScreen {
     const el = h('div', {class: `msg reply kind-${m.kind || 'text'}`, tabindex: '0'},
       m.kind === 'question' && h('div', {class: 'tag'}, 'Question'),
       m.kind === 'error' && h('div', {class: 'tag danger'}, 'Problem'),
-      renderMarkdown(m.body, {onCopy: () => haptic()}),
+      m.body ? renderMarkdown(m.body, {onCopy: () => haptic()}) : null,
       this.attachments(m),
       options.length > 0 && h('div', {class: 'quick'}, options.map((o, i) => this.replyButton(String(o), i === 0))),
       h('div', {class: 'meta'}, h('time', {}, when(m.createdAt)),
@@ -277,7 +283,77 @@ export class ChatScreen {
 
   attachments(m) {
     if (!m.attachments?.length) return null;
-    return h('div', {class: 'files'}, m.attachments.map(a => h('button', {class: 'chip file', type: 'button', onclick: () => this.openFile(m, a)}, icon('link', {size: 16}), a.name || 'File')));
+    if (this.isMuse) return h('div', {class: 'files'}, m.attachments.map(a => h('button', {class: 'chip file', type: 'button', onclick: () => this.openFile(m, a)}, icon('link', {size: 16}), a.name || 'File')));
+    const photos = m.attachments.filter(isPhoto), others = m.attachments.filter(a => !isPhoto(a));
+    return h('div', {class: 'attachments'},
+      photos.length > 0 && h('div', {class: 'shots' + (photos.length === 1 ? ' one' : '')}, photos.map(a => this.shot(a))),
+      others.length > 0 && h('div', {class: 'files'}, others.map(a => h('button', {class: 'chip file', type: 'button', 'aria-label': `Save ${a.name}`, onclick: () => this.saveFile(a)},
+        icon('download', {size: 16}), h('span', {class: 'file-name'}, a.name), h('span', {class: 'file-size'}, sizeLabel(a.size))))));
+  }
+  /** A photo in a message: loaded with the sign-in, opens full screen. */
+  shot(a) {
+    const img = h('img', {alt: a.name, decoding: 'async'});
+    const button = h('button', {class: 'shot', type: 'button', 'aria-label': `Open ${a.name}`, onclick: () => this.view(a)}, img);
+    fileURL(a.id).then(url => { img.src = url; }, () => button.classList.add('broken'));
+    return button;
+  }
+  async view(a) {
+    let url;
+    try { url = await fileURL(a.id); } catch (error) { toast(describe(error)); return; }
+    const opener = document.activeElement;
+    let close = null;
+    const done = (fromBack = false) => { if (!fromBack) close?.(); viewer.remove(); opener?.focus?.({preventScroll: true}); };
+    const viewer = h('div', {class: 'viewer', role: 'dialog', 'aria-modal': 'true', 'aria-label': a.name, onclick: e => { if (e.target === viewer || e.target.tagName === 'IMG') done(); }},
+      h('img', {src: url, alt: a.name}),
+      h('div', {class: 'viewer-bar'},
+        h('span', {class: 'viewer-name'}, a.name),
+        h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Save', onclick: () => this.saveFile(a)}, icon('download')),
+        h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Close', onclick: () => done()}, icon('close'))));
+    viewer.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); done(); } });
+    document.body.append(viewer);
+    close = pushLayer('viewer', () => done(true));
+    viewer.querySelector('[aria-label="Close"]').focus();
+  }
+  async saveFile(a) {
+    try {
+      const url = await fileURL(a.id);
+      const link = h('a', {href: url, download: a.name || 'file', rel: 'noopener'});
+      document.body.append(link); link.click(); link.remove();
+    } catch (error) { toast(describe(error)); }
+  }
+
+  /** Files chosen for the next message: each uploads at once; the tray shows them until sent. */
+  addFiles(files) {
+    for (const file of files) {
+      if (this.pending.length >= 10) { toast('Up to 10 attachments per message'); break; }
+      if (file.size > FILE_MAX) { toast(`${file.name} is over 15 MB`); continue; }
+      if (!file.size) continue;
+      const item = {file, key: Math.random().toString(36).slice(2), status: 'uploading', preview: isPhoto(file) ? URL.createObjectURL(file) : null, meta: null};
+      this.pending.push(item);
+      this.upload(item);
+    }
+    this.renderTray();
+  }
+  async upload(item) {
+    item.status = 'uploading'; this.renderTray();
+    try { item.meta = await chatFiles.upload(item.file); item.status = 'ready'; }
+    catch (error) { item.status = 'failed'; item.error = describe(error); }
+    if (this.pending.includes(item)) this.renderTray();
+  }
+  removePending(item) {
+    this.pending = this.pending.filter(p => p !== item);
+    if (item.preview) URL.revokeObjectURL(item.preview);
+    this.renderTray();
+  }
+  renderTray() {
+    this.tray.hidden = !this.pending.length;
+    this.tray.replaceChildren(...this.pending.map(item => h('div', {class: 'attach-chip ' + item.status, title: item.error || item.file.name},
+      item.preview ? h('img', {src: item.preview, alt: ''}) : h('span', {class: 'attach-icon', 'aria-hidden': 'true'}, icon('attach', {size: 18})),
+      h('span', {class: 'attach-name'}, item.file.name),
+      item.status === 'uploading' && h('span', {class: 'attach-state', 'aria-label': 'Uploading'}, h('span', {class: 'cursor'})),
+      item.status === 'failed' && h('button', {class: 'link-btn', type: 'button', onclick: () => this.upload(item)}, 'Retry'),
+      h('button', {class: 'icon-btn attach-remove', type: 'button', 'aria-label': `Remove ${item.file.name}`, onclick: () => this.removePending(item)}, icon('close', {size: 16})))));
+    this.renderSend();
   }
   async openFile(m, a) {
     try {
@@ -325,9 +401,14 @@ export class ChatScreen {
 
   send() {
     const text = this.input.value.trim();
-    if (!text) return;
+    if (this.pending.some(p => p.status !== 'ready')) return;
+    const attachments = this.pending.map(p => p.meta);
+    if (!text && !attachments.length) return;
     haptic();
-    this.store.send(this.isMuse ? MUSE : 'claude', this.key, text);
+    this.store.send(this.isMuse ? MUSE : 'claude', this.key, text, attachments);
+    for (const p of this.pending) if (p.preview) URL.revokeObjectURL(p.preview);
+    this.pending = [];
+    this.renderTray();
     this.input.value = '';
     drafts.set(this.key, '');
     this.resize();
@@ -396,4 +477,15 @@ function dayLabel(ms) {
   if (ms >= start) return 'Today';
   if (ms >= start - 86_400_000) return 'Yesterday';
   return d.toLocaleDateString([], {weekday: 'long', day: 'numeric', month: 'long', ...(d.getFullYear() !== today.getFullYear() ? {year: 'numeric'} : {})});
+}
+
+const isPhoto = a => /^image\/(png|jpe?g|gif|webp|avif|heic|heif|bmp)$/i.test(a.type || '');
+function sizeLabel(n) {
+  return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+}
+// Attachments read with the sign-in become object URLs, once per file for the page's life.
+const fileURLs = new Map();
+function fileURL(id) {
+  if (!fileURLs.has(id)) fileURLs.set(id, chatFiles.get(id).then(blob => URL.createObjectURL(blob), error => { fileURLs.delete(id); throw error; }));
+  return fileURLs.get(id);
 }

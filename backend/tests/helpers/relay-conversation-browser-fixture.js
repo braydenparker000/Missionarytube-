@@ -145,6 +145,10 @@ export async function openConversationPage(browser, harness, {width = 390, heigh
     const request = event.request, url = new URL(request.url);
     const headers = Object.fromEntries(Object.entries(request.headers).map(([name, value]) => [name.toLowerCase(), String(value)]));
     let body = request.postData;
+    // The raw bytes when the browser gives them (postData is text, which
+    // would corrupt a binary upload such as a photo).
+    const entries = request.postDataEntries;
+    let bytes = entries?.length && entries.every(e => typeof e.bytes === 'string') ? Buffer.concat(entries.map(e => Buffer.from(e.bytes, 'base64'))) : null;
     const record = {url: url.href, path: url.pathname, method: request.method, headers};
     records.push(record);
     // Called only after the static root or synthetic Worker route/response has
@@ -170,7 +174,9 @@ export async function openConversationPage(browser, harness, {width = 390, heigh
     try {
       if (request.hasPostData && body === undefined) {
         assert.ok(event.networkId, 'Original browser request body is required');
-        body = (await cdp.send('Network.getRequestPostData', {requestId: event.networkId})).postData;
+        const data = await cdp.send('Network.getRequestPostData', {requestId: event.networkId});
+        if (data.base64Encoded) { bytes = Buffer.from(data.postData, 'base64'); body = bytes.toString('utf8'); }
+        else body = data.postData;
       }
       if (body !== undefined) record.body = body;
       if (url.origin === SITE) {
@@ -187,7 +193,7 @@ export async function openConversationPage(browser, harness, {width = 390, heigh
       assert.equal(url.origin, WORKER, 'Unexpected browser origin; all live egress is blocked');
       assert.ok(url.pathname.startsWith('/relay/owner/') || url.pathname.startsWith('/claude-chat/owner') || url.pathname.startsWith('/shared/') || url.pathname.startsWith('/v1/'), 'Unexpected browser API');
       const forward = () => harness.fixture.request(url.pathname + url.search, {method: request.method, headers,
-        body: ['GET', 'HEAD', 'OPTIONS'].includes(request.method) ? undefined : body, redirect: 'manual'});
+        body: ['GET', 'HEAD', 'OPTIONS'].includes(request.method) ? undefined : bytes ?? body, redirect: 'manual'});
       const rule = rules.find(rule => rule.remaining > 0 && rule.match(record));
       let response;
       if (rule) { --rule.remaining; response = await rule.handle({record, forward}); }

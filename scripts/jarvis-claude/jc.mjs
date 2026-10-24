@@ -12,7 +12,9 @@
 //                               exits 0, exits 3 when the time is up with none, or
 //                               exits 4 (printing {stop}) when the owner taps Stop
 //   jc history <thread> [--limit 40]
-//   jc say <thread> [--reply-to <id>] [--kind text|progress|question|card] [--meta JSON] <text | ->
+//   jc say <thread> [--reply-to <id>] [--kind text|progress|question|card] [--meta JSON]
+//          [--attach <file>]… <text | ->     attachments: photos, screenshots, files (≤ 15 MB each)
+//   jc file <attachment id> [--out <path>]  saves an attachment from a message; prints where
 //   jc status working|listening|stopping [--thread <id>] [--note text]
 //   jc amend <message id> [--meta JSON] [--body <text | ->]   update your own post (a card's state)
 //   jc title <thread> <title>
@@ -25,7 +27,8 @@
 // and jc prints a STOP line on stderr: finish the step, report, and stop.
 
 import {randomUUID} from 'node:crypto';
-import {readFileSync, writeFileSync} from 'node:fs';
+import {readFileSync, writeFileSync, mkdirSync} from 'node:fs';
+import {basename, extname, dirname} from 'node:path';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -46,12 +49,37 @@ export async function call(op, args = {}, {timeoutMs = 70_000} = {}) {
 }
 
 function parse(argv) {
-  const flags = {}, rest = [];
+  const flags = {attach: []}, rest = [];
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i].startsWith('--')) flags[argv[i].slice(2)] = argv[i + 1]?.startsWith('--') || argv[i + 1] === undefined ? true : argv[++i];
-    else rest.push(argv[i]);
+    if (!argv[i].startsWith('--')) { rest.push(argv[i]); continue; }
+    const key = argv[i].slice(2), value = argv[i + 1]?.startsWith('--') || argv[i + 1] === undefined ? true : argv[++i];
+    if (key === 'attach') flags.attach.push(value); else flags[key] = value;
   }
   return {flags, rest};
+}
+
+// ——— Attachments ———
+const TYPES = {png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+  pdf: 'application/pdf', txt: 'text/plain', md: 'text/markdown', csv: 'text/csv', json: 'application/json', html: 'text/html',
+  mp3: 'audio/mpeg', opus: 'audio/ogg', ogg: 'audio/ogg', wav: 'audio/wav', mp4: 'video/mp4', zip: 'application/zip'};
+async function upload(path) {
+  const bytes = readFileSync(path), name = basename(path);
+  const headers = {'Content-Type': TYPES[extname(name).slice(1).toLowerCase()] || 'application/octet-stream', 'X-File-Name': encodeURIComponent(name)};
+  if (process.env.JC_KEY) headers.Authorization = `Bearer ${process.env.JC_KEY}`;
+  const response = await fetch(`${API}/claude-chat/agent/files`, {method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(120_000)});
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw Object.assign(new Error(`${name}: ${body.error || `HTTP ${response.status}`}`), {status: response.status});
+  return body.file;
+}
+async function download(id, out) {
+  const headers = process.env.JC_KEY ? {Authorization: `Bearer ${process.env.JC_KEY}`} : {};
+  const response = await fetch(`${API}/claude-chat/agent/files/${encodeURIComponent(id)}`, {headers, signal: AbortSignal.timeout(120_000)});
+  if (!response.ok) throw Object.assign(new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`), {status: response.status});
+  const name = decodeURIComponent(response.headers.get('x-file-name') || id).replace(/[\/\\]/g, '') || id;
+  const path = typeof out === 'string' ? out : join(tmpdir(), 'jc-files', id + '-' + name);
+  mkdirSync(dirname(path), {recursive: true});
+  writeFileSync(path, Buffer.from(await response.arrayBuffer()));
+  return path;
 }
 const stdin = () => readFileSync(0, 'utf8');
 const out = value => process.stdout.write(JSON.stringify(value, null, 2) + '\n');
@@ -90,9 +118,12 @@ async function main(argv) {
       const [threadId, ...words] = rest;
       const body = words.length === 1 && words[0] === '-' ? stdin() : words.join(' ');
       const meta = typeof flags.meta === 'string' ? JSON.parse(flags.meta) : undefined;
-      out(await call('post', {id: randomUUID(), threadId, body, kind: flags.kind || 'text', replyTo: flags['reply-to'], meta}));
+      const attachments = [];
+      for (const path of flags.attach) attachments.push(await upload(path));
+      out(await call('post', {id: randomUUID(), threadId, body, kind: flags.kind || 'text', replyTo: flags['reply-to'], meta, attachments: attachments.length ? attachments : undefined}));
       return 0;
     }
+    case 'file': console.log(await download(rest[0], flags.out)); return 0;
     case 'status': out(await call('status', {state: rest[0] || 'working', threadId: flags.thread, note: typeof flags.note === 'string' ? flags.note : undefined, sessionUrl: SESSION_URL})); return 0;
     case 'amend': {
       const body = flags.body === '-' ? stdin() : typeof flags.body === 'string' ? flags.body : undefined;
@@ -110,7 +141,7 @@ async function main(argv) {
       return 0;
     }
     default:
-      console.error('usage: jc wait|history|say|amend|status|title|link|threads|notebook (see the header of this file)');
+      console.error('usage: jc wait|history|say|file|amend|status|title|link|threads|notebook (see the header of this file)');
       return 64;
   }
 }
