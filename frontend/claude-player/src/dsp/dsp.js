@@ -142,6 +142,8 @@ export class DSP {
     this.load();
     this.ac = null;
     this.nodes = null;
+    // The AudioContext's latency category (the playback diagnostics report it).
+    this.latencyHint = 'interactive';
     ctx.dsp = this;
     ctx.bus.subscribe('bus_dsp_cmd', (msg, src, d) => this.onCommand(msg, d));
     ctx.bus.subscribe('bus_player', msg => {
@@ -528,6 +530,12 @@ export class DSP {
 
   resume() {
     if (this.ac?.state === 'suspended') this.ac.resume().catch(() => {});
+  }
+
+  /** The limiter's gain reduction now, in dB (0 or below). */
+  limiterReductionDb() {
+    const r = this.nodes?.limiter?.reduction;
+    return typeof r === 'number' ? r : r?.value ?? 0;
   }
 
   /** Pushes the parameter values into the graph. */

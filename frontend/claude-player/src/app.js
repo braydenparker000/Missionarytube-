@@ -12,6 +12,7 @@ import {installInput} from './input.js';
 import {Library} from './library/library.js';
 import {Settings, loadStoredSettings, runtimeSettings, prefDefaults} from './settings/settings.js';
 import {DSP} from './dsp/dsp.js';
+import {PlaybackLog} from './player/playback-log.js';
 import {installEqPresets} from './widgets/eq-preset-ui.js';
 import './widgets/basic.js';
 import './view/seekbar.js';
@@ -147,6 +148,7 @@ export async function boot() {
   ctx.inflater = inflater;
   const player = new Player(ctx);
   new DSP(ctx);
+  new PlaybackLog(ctx);
   installEqPresets(ctx);
   new Settings(ctx);
   // Window decor: a plain FastLayout filling the viewport hosts the main layout.
@@ -230,6 +232,8 @@ export async function boot() {
     ctx.scheduleLayout();
   });
   document.getElementById('cp-boot')?.remove();
+  // ?diag opens the playback diagnostics (Settings › Audio Outputs Detection Log).
+  if (params.has('diag')) ctx.settingsUi?.open('audio_platform_log');
   const diag = {skin: skin.name, applied, unknown: [...unknownClasses], missingIcons: [...ctx.drawables.missingIcons], config};
   window.__cp = {ctx, res, theme, decor, skins, diag, player, library, dsp: ctx.dsp};
   return window.__cp;

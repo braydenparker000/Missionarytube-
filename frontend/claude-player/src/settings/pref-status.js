@@ -200,7 +200,7 @@ export const PREF_STATUS = {
   usb_activity: [WEB, ANDROID_OUTPUT],
   force_no_speaker: [WEB, ANDROID_OUTPUT],
   use_stream3_player: [WEB, ANDROID_OUTPUT],
-  audio_platform_log: [UI, ''],
+  audio_platform_log: [UI, 'Shows the playback diagnostics: output rate, latency and underruns, stream and decoder events, output level, and a copyable report'],
   // audio_resampler
   resampler_type: [WEB, BROWSER_OUTPUT],
   resampler_cutoff: [WEB, BROWSER_OUTPUT],

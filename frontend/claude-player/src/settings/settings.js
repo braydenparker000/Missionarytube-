@@ -619,6 +619,8 @@ export class Settings {
     this.list.replaceChildren();
     this.list.scrollTop = 0;
     for (const node of tree[2] ?? []) this.renderNode(node, this.list);
+    // The Audio Outputs Detection Log is filled at runtime: here, the playback diagnostics.
+    if (name === 'audio_platform_log') this.ctx.playbackLog?.renderInto(this.list, this);
   }
 
   renderNode(node, parent) {
