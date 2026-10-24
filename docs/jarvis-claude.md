@@ -35,11 +35,13 @@ the plan, and no server to keep running.
 - **Nothing is lost.** The phone keeps unsent messages in an outbox and
   resends them with the same id; a message a session took but never answered
   goes back in the queue after 15 minutes.
-- **In the chat.** While Claude works, its steps gather in one live work
-  card, and the send button becomes **Stop**: Claude finishes the current
-  step, says what was and was not done, and stops. Pull requests arrive as
-  cards whose state Claude keeps current (checks running, passed, merged),
-  with buttons such as "Merge it" when it needs a decision.
+- **In the chat.** While Claude works, its steps gather in one live log,
+  and the send button becomes **Stop**: Claude finishes the current step,
+  says what was and was not done, and stops. Pull requests arrive as cards
+  whose state Claude keeps current (checks running, passed, merged), with
+  buttons such as "Merge it" when it needs a decision. The home screen puts
+  what Claude is doing now, and every pull request or question waiting on
+  the owner, above the chat list.
 - **What Claude does** is set by `scripts/jarvis-claude/INSTRUCTIONS.md`.
   The scheduled task only points there, so changing it is a pull request.
 

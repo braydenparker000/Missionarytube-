@@ -6,7 +6,7 @@ import {icon} from '../icons.js';
 import {claudeStatus, museStatus} from '../status.js';
 import {prefs, setPref} from '../store.js';
 import {auth} from '../api.js';
-import {ACCENTS} from '../theme.js';
+import {ACCENTS, DEFAULT_ACCENT} from '../theme.js';
 
 export class SettingsScreen {
   constructor(app) {
@@ -34,7 +34,7 @@ export class SettingsScreen {
       return h('label', {class: 'setting'}, h('span', {}, h('strong', {}, label), h('span', {}, detail)), input);
     };
     const swatches = h('div', {class: 'swatches', role: 'radiogroup', 'aria-label': 'Accent colour'},
-      ACCENTS.map(a => h('button', {class: 'swatch', type: 'button', role: 'radio', 'aria-checked': String((prefs.accent || 'ember') === a.id), 'aria-label': a.name,
+      ACCENTS.map(a => h('button', {class: 'swatch', type: 'button', role: 'radio', 'aria-checked': String((ACCENTS.some(x => x.id === prefs.accent) ? prefs.accent : DEFAULT_ACCENT) === a.id), 'aria-label': a.name,
         onclick: () => { haptic(); setPref('accent', a.id); this.app.applyPrefs(); this.render(); }},
         swatchDot(a.color), h('span', {}, a.name))));
     this.body.replaceChildren(

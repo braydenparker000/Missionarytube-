@@ -1,17 +1,17 @@
-// Accents for Chats on a pure black background. Each is bright enough for
-// text and icons on black (contrast above 7:1) and soft enough not to glare
-// on an OLED screen at night; the dark ink is what sits on a filled accent.
-// Muse keeps its own iris so the two conversations never look alike.
+// Signal colours for Chats on pure black. The interface is black and white;
+// one signal colour marks what is live or needs you (Claude working, unread,
+// a decision waiting). Each is bright enough on black (contrast above 6:1);
+// black ink sits on a filled signal. Muse keeps its own iris.
 
 export const ACCENTS = [
-  {id: 'ember', name: 'Ember', color: '#ff8a5c'},
-  {id: 'saffron', name: 'Saffron', color: '#ffb84d'},
-  {id: 'mint', name: 'Mint', color: '#4fe3b0'},
-  {id: 'sky', name: 'Sky', color: '#6ab8ff'},
-  {id: 'orchid', name: 'Orchid', color: '#e38dff'},
-  {id: 'rose', name: 'Rose', color: '#ff7f9f'},
+  {id: 'signal', name: 'Signal', color: '#ff4a3d'},
+  {id: 'amber', name: 'Amber', color: '#ffb020'},
+  {id: 'phosphor', name: 'Phosphor', color: '#3dff95'},
+  {id: 'ice', name: 'Ice', color: '#7fd8ff'},
+  {id: 'violet', name: 'Violet', color: '#b9a3ff'},
+  {id: 'white', name: 'White', color: '#f2f2f2'},
 ];
-export const DEFAULT_ACCENT = 'ember';
+export const DEFAULT_ACCENT = 'signal';
 
 export function applyTheme({accent = DEFAULT_ACCENT, largeText = false} = {}) {
   const chosen = ACCENTS.find(a => a.id === accent) || ACCENTS[0];

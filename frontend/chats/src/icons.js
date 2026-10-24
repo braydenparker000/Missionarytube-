@@ -29,6 +29,7 @@ const P = {
   stop: '<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>',
   chevron: '<path d="M6.5 9.5L12 15l5.5-5.5"/>',
+  next: '<path d="M9 5l7 7-7 7"/>',
   spark: '<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4" stroke-width="2.4"/>',
 };
 

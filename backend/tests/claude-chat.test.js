@@ -61,6 +61,7 @@ test('Claude amends its own posts in place (a card moving from checks running to
   assert.equal(amended.meta.state, 'merged');
   assert.equal(amended.body, 'Fix podcast search', 'an absent body is kept');
   assert.deepEqual(call('owner', 'changes', {after: head}).messages.map(m => [m.id, m.meta.state]), [[R(1), 'merged']], 'the page hears the change');
+  assert.deepEqual(call('owner', 'threads').threads[0].card, {id: R(1), title: 'Fix podcast search', url: 'https://github.com/o/r/pull/9', state: 'merged', actions: [], at: 1_000_000}, 'the thread list carries its latest card for the home screen');
   assert.throws(() => call('claude', 'amend', {id: M(1), body: 'rewritten'}), e => e.status === 404, 'not the owner\'s messages');
   assert.throws(() => call('owner', 'amend', {id: R(1), body: 'x'}), e => e.status === 403);
 });
