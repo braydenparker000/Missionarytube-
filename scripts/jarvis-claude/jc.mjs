@@ -4,6 +4,9 @@
 // The session never sees a key. Its cloud environment holds a network secret
 // for the Worker's host, and Anthropic's proxy adds the Authorization header
 // to requests as they leave the session. (JC_KEY is only for local testing.)
+// Node's fetch ignores HTTPS_PROXY unless NODE_USE_ENV_PROXY=1, so jc
+// restarts itself with it when a proxy is configured; otherwise its requests
+// would skip the proxy and arrive without the key.
 //
 //   jc wait [--minutes 24]      wait for owner messages; prints them as JSON and
 //                               exits 0, or exits 3 when the time is up with none
@@ -19,6 +22,7 @@
 
 import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
 
 const API = (process.env.JC_API || 'https://jarvis-hub-api.braydenparker999.workers.dev').replace(/\/$/, '');
 // The session's id (cse_…) shares its suffix with the session's claude.ai link (session_…).
@@ -93,6 +97,16 @@ async function main(argv) {
   }
 }
 
+/** True when jc must restart itself so that fetch goes through the session's proxy. */
+export function needsProxyRestart(env = process.env) {
+  return !!(env.HTTPS_PROXY || env.https_proxy) && env.NODE_USE_ENV_PROXY !== '1';
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
+  if (needsProxyRestart()) {
+    const child = spawnSync(process.execPath, ['--disable-warning=UNDICI-EHPA', ...process.execArgv, ...process.argv.slice(1)],
+      {stdio: 'inherit', env: {...process.env, NODE_USE_ENV_PROXY: '1'}});
+    process.exit(child.status ?? 1);
+  }
   main(process.argv.slice(2)).then(code => process.exit(code), error => { console.error(`jc: ${error.message}`); process.exit(1); });
 }
