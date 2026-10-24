@@ -242,6 +242,21 @@ test('the owner\'s polling fires the task once when a vanished session left a me
   assert.equal(a.pending, 1, 'the message waits for the new session');
 });
 
+test('messages carry attachments; a photo needs no words; bad attachment lists are refused', () => {
+  const call = store();
+  call('owner', 'thread.create', {id: T});
+  const photo = {id: R(9), name: 'screen.png', type: 'image/png', size: 2048};
+  const sent = call('owner', 'send', {id: M(1), threadId: T, attachments: [photo]}).message;
+  assert.equal(sent.body, '');
+  assert.deepEqual(sent.attachments, [photo]);
+  const reply = call('claude', 'post', {id: R(1), threadId: T, body: 'Here is the chart', attachments: [{...photo, id: R(8), name: 'a/b\u0000.png'}]}).message;
+  assert.equal(reply.attachments[0].name, 'ab.png', 'names lose slashes and control characters');
+  assert.deepEqual(call('owner', 'messages', {threadId: T}).messages.map(m => m.attachments.length), [1, 1]);
+  assert.throws(() => call('owner', 'send', {id: M(2), threadId: T}), e => e.status === 400, 'no words and nothing attached');
+  for (const bad of [[{...photo, id: 'x'}], [{...photo, size: 0}], [{...photo, type: 'nope'}], Array(11).fill(photo), 'x'])
+    assert.throws(() => call('owner', 'send', {id: M(3), threadId: T, body: 'b', attachments: bad}), e => e.status === 400);
+});
+
 test('changes feed: everything after a sequence number, with the status', () => {
   const call = store();
   call('owner', 'thread.create', {id: T});
@@ -308,7 +323,10 @@ test('over HTTP: the signed-in owner chats, Claude takes and replies with its ke
   const {PRIMARY_SITE} = await import('../origins.js');
   const key = 'k'.repeat(48);
   const fired = [];
-  const h = createConversationFixture(t, {env: {CLAUDE_CHAT_AGENT_KEY: key, CLAUDE_ROUTINE_FIRE_URL: 'https://api.anthropic.com/v1/claude_code/routines/trig_T/fire', CLAUDE_ROUTINE_TOKEN: 'routine-token'}});
+  const objects = new Map();
+  const MUSIC_R2 = {async put(k, b, o) { objects.set(k, {bytes: new Uint8Array(b), customMetadata: o.customMetadata}); return {}; },
+    async get(k) { const o = objects.get(k); return o && {size: o.bytes.length, customMetadata: o.customMetadata, body: new Response(o.bytes).body}; }};
+  const h = createConversationFixture(t, {env: {MUSIC_R2, CLAUDE_CHAT_AGENT_KEY: key, CLAUDE_ROUTINE_FIRE_URL: 'https://api.anthropic.com/v1/claude_code/routines/trig_T/fire', CLAUDE_ROUTINE_TOKEN: 'routine-token'}});
   t.after(() => h.close());
   // The fixture blocks the network; let only the routine fire through, recorded.
   const blocked = globalThis.fetch;
@@ -352,4 +370,34 @@ test('over HTTP: the signed-in owner chats, Claude takes and replies with its ke
   const live = await (await parked).json();
   assert.deepEqual(live.messages.map(m => m.body), ['Reading the repo…']);
   assert.equal(live.status.state, 'working');
+
+  // Attachments: the owner uploads a screenshot and sends it; Claude reads it and answers with a file.
+  const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]);
+  const upload = (who, bytes, type, name, extra = {}) => h.fixture.request(`/claude-chat/${who}/files`, {method: 'POST', body: bytes,
+    headers: {'Content-Type': type, 'X-File-Name': encodeURIComponent(name), ...(who === 'owner' ? {Origin: PRIMARY_SITE, Authorization: 'Bearer ' + owner.device_token} : {Authorization: 'Bearer ' + key}), ...extra}});
+  const shot = await upload('owner', png, 'image/png', 'Screen shot/1.png');
+  assert.equal(shot.status, 200);
+  const {file} = await shot.json();
+  assert.deepEqual([file.name, file.type, file.size], ['Screen shot1.png', 'image/png', png.length]);
+  assert.equal(shot.headers.get('access-control-allow-origin'), PRIMARY_SITE);
+  await asOwner('send', {id: crypto.randomUUID(), threadId: thread, body: 'What is this?', attachments: [file]});
+  const withFile = (await (await asClaude('take', {wait: 0})).json()).messages.find(m => m.attachments.length);
+  assert.deepEqual(withFile.attachments, [file]);
+  const read = await h.fixture.request(`/claude-chat/agent/files/${file.id}`, {headers: {Authorization: 'Bearer ' + key}});
+  assert.equal(read.status, 200);
+  assert.deepEqual(new Uint8Array(await read.arrayBuffer()), png);
+  assert.equal(read.headers.get('content-type'), 'image/png');
+  assert.match(read.headers.get('content-security-policy'), /sandbox/);
+  assert.equal(decodeURIComponent(read.headers.get('x-file-name')), 'Screen shot1.png');
+  const ownerRead = await h.fixture.request(`/claude-chat/owner/files/${file.id}`, {headers: {Origin: PRIMARY_SITE, Authorization: 'Bearer ' + owner.device_token}});
+  assert.equal(ownerRead.status, 200);
+  assert.equal(ownerRead.headers.get('access-control-expose-headers'), 'X-File-Name, Content-Length');
+  assert.equal((await h.fixture.request(`/claude-chat/owner/files/${file.id}`, {headers: {Origin: PRIMARY_SITE}})).status, 401, 'signed out cannot read');
+  assert.equal((await h.fixture.request(`/claude-chat/agent/files/${file.id}`, {headers: {Authorization: 'Bearer ' + 'x'.repeat(48)}})).status, 401);
+  assert.equal((await h.fixture.request(`/claude-chat/agent/files/${crypto.randomUUID()}`, {headers: {Authorization: 'Bearer ' + key}})).status, 404);
+  assert.equal((await upload('agent', new Uint8Array(0), 'text/plain', 'empty.txt')).status, 400);
+  assert.equal((await upload('agent', png, 'nonsense', 'x')).status, 415);
+  assert.equal((await upload('agent', png, 'image/png', 'big.png', {'Content-Length': String(16 * 1024 * 1024)})).status, 413);
+  const pre = await h.fixture.request('/claude-chat/owner/files', {method: 'OPTIONS', headers: {Origin: PRIMARY_SITE, 'Access-Control-Request-Method': 'POST'}});
+  assert.match(pre.headers.get('access-control-allow-headers'), /X-File-Name/);
 });

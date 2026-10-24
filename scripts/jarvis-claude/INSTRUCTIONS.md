@@ -80,6 +80,14 @@ Other kinds of post:
   decision that is not about a card; the options become buttons.
 - `--kind error` only when something failed that the owner should know.
 
+**Attachments.** A message may carry `attachments`
+(`[{id, name, type, size}]`: photos, screenshots, files). Save one with
+`jc file <id>` (it prints the path; `--out <path>` to choose) and look at it:
+read images with your file reader. Send pictures or files back with
+`jc say <thread> --attach <path> [--attach <path>] <text>` (15 MB each, up
+to 10). Pictures you find on the web are fine to show the owner this way;
+never commit them, or anything else copyrighted, to the repository.
+
 The owner can tap **Stop** while you work. Your background `jc wait` then
 ends with exit 4 (printing `{stop}`), and your next `jc status` or `jc say`
 prints a line starting `jc: STOP` on stderr. When you see either, finish

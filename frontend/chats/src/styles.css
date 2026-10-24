@@ -221,6 +221,36 @@ a { color: var(--link); text-decoration-color: var(--hair-2); text-underline-off
 .quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .quick .chip.primary { background: var(--text); border-color: transparent; color: #000; font-weight: 600; }
 .files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip.file { max-width: 100%; font-size: 13px; }
+.file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-size { flex: none; color: var(--muted); font: 500 11px var(--mono); }
+
+/* Attachments: photos as a grid of frames, full screen on a tap */
+.attachments { margin-top: 8px; }
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 4px; max-width: 420px; }
+.shots.one { grid-template-columns: minmax(0, 320px); }
+.shot { display: block; aspect-ratio: 1; padding: 0; border: 1px solid var(--hair-2); border-radius: var(--r-xs); background: var(--s2); overflow: hidden; }
+.shots.one .shot { aspect-ratio: auto; min-height: 120px; }
+.shot img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.shots.one .shot img { height: auto; max-height: 360px; object-fit: contain; }
+.shot.broken::after { content: "Unavailable"; display: grid; place-items: center; height: 100%; color: var(--muted); font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: 0.08em; }
+.viewer { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: #000; animation: fade var(--t) var(--ease); }
+.viewer img { width: 100%; height: 100%; object-fit: contain; }
+.viewer-bar { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 4px; padding: calc(var(--safe-top) + 4px) 4px 4px 16px; background: linear-gradient(#000, transparent); }
+.viewer-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* The composer's tray: files waiting to be sent */
+.attach-tray { display: flex; gap: 8px; max-width: 760px; margin: 0 auto 8px; overflow-x: auto; }
+.attach-chip { position: relative; display: flex; align-items: center; gap: 8px; flex: none; max-width: 220px; min-height: 52px; padding: 4px 2px 4px 4px; border: 1px solid var(--hair-2); border-radius: var(--r-sm); background: var(--s1); }
+.attach-chip img { width: 44px; height: 44px; flex: none; border-radius: var(--r-xs); object-fit: cover; }
+.attach-chip.uploading img { opacity: 0.5; }
+.attach-chip.failed { border-color: var(--accent-line); }
+.attach-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: none; color: var(--muted); }
+.attach-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-2); }
+.attach-state { flex: none; }
+.attach-remove { width: 40px; height: 40px; color: var(--muted); }
+.composer-card.with-attach { padding-left: 2px; }
+.attach-btn { width: 44px; height: 44px; color: var(--muted); }
 
 /* Work: Claude's steps as a log readout */
 .work { margin: 10px 0 4px; border-left: 2px solid var(--hair-2); padding-left: 14px; }

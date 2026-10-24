@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {execFile, spawn} from 'node:child_process';
 import {promisify} from 'node:util';
-import {mkdtempSync, rmSync} from 'node:fs';
+import {mkdtempSync, rmSync, writeFileSync, readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createRelayFixture} from '../backend/tests/relay-fixture.js';
@@ -14,7 +14,10 @@ const JC = new URL('./jarvis-claude/jc.mjs', import.meta.url).pathname;
 // jc (the Claude session's CLI) against the real Worker, served over local HTTP.
 test('jc waits for owner messages, answers, reports status, links the session and keeps the notebook', async t => {
   const key = 'k'.repeat(48);
-  const fixture = createRelayFixture({env: {CLAUDE_CHAT_AGENT_KEY: key}});
+  const objects = new Map();
+  const MUSIC_R2 = {async put(k, b, o) { objects.set(k, {bytes: new Uint8Array(b), customMetadata: o.customMetadata}); return {}; },
+    async get(k) { const o = objects.get(k); return o && {size: o.bytes.length, customMetadata: o.customMetadata, body: new Response(o.bytes).body}; }};
+  const fixture = createRelayFixture({env: {CLAUDE_CHAT_AGENT_KEY: key, MUSIC_R2}});
   const server = createServer(async (req, res) => {
     const chunks = [];
     for await (const c of req) chunks.push(c);
@@ -74,6 +77,17 @@ test('jc waits for owner messages, answers, reports status, links the session an
   status = claudeChatStore(ctx, {who: 'owner', op: 'status'}).status;
   assert.deepEqual([status.state, status.note], ['working', 'Another job'], 'and waiting did not end the work');
   await jc('say', thread, 'Stopped.');
+
+  // Attachments both ways: Claude sends a picture; it saves one the owner sent.
+  const picture = join(TMPDIR, 'chart.png');
+  writeFileSync(picture, Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 9]));
+  const posted = JSON.parse((await jc('say', thread, '--attach', picture, 'Here is the chart')).out).message;
+  assert.deepEqual(posted.attachments.map(a => [a.name, a.type, a.size]), [['chart.png', 'image/png', 9]]);
+  const saved = (await jc('file', posted.attachments[0].id)).out.trim();
+  assert.deepEqual(readFileSync(saved), readFileSync(picture));
+  const chosen = join(TMPDIR, 'copy.png');
+  assert.equal((await jc('file', posted.attachments[0].id, '--out', chosen)).out.trim(), chosen);
+  assert.notEqual((await jc('file', crypto.randomUUID())).code, 0, 'an unknown attachment is an error');
 
   assert.equal((await jc('notebook')).code, 0);
   const written = await new Promise(resolve => {

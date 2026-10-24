@@ -33,6 +33,25 @@ export const ACK_MS = 2 * 60_000; // a handed-out message nobody acts on this lo
 export const STRANDED_MS = 15 * 60_000; // a delivered message unanswered this long is handed out again
 export const MAX_WAIT_MS = 55_000;
 const LIMITS = {title: 120, body: 20_000, note: 500, notebook: 60_000, meta: 4_000};
+// Attachments: photos, screenshots and files, both ways. Bytes live in R2
+// (MUSIC_R2, under FILES_PREFIX, never public); messages carry their metadata.
+export const FILE_MAX = 15 * 1024 * 1024;
+export const FILES_PREFIX = 'chat/files/';
+const ATTACHMENTS_MAX = 10;
+const FILE_TYPE = /^[a-z0-9][a-z0-9.+-]{0,63}\/[a-z0-9][a-z0-9.+-]{0,63}$/i;
+const fileName = value => {
+  const name = String(value ?? '').normalize('NFC').replace(/[\x00-\x1f\x7f\/\\]/g, '').trim().slice(0, 200);
+  return name || 'file';
+};
+function attachmentsOf(list) {
+  if (list === undefined || list === null) return null;
+  if (!Array.isArray(list) || list.length > ATTACHMENTS_MAX) fail(400, `attachments is a list of at most ${ATTACHMENTS_MAX} files`);
+  if (!list.length) return null;
+  return JSON.stringify(list.map(a => {
+    if (!a || !uuid(a.id) || typeof a.name !== 'string' || !FILE_TYPE.test(a.type || '') || !Number.isSafeInteger(a.size) || a.size <= 0 || a.size > FILE_MAX) fail(400, 'Invalid attachment');
+    return {id: a.id, name: fileName(a.name), type: a.type.toLowerCase(), size: a.size};
+  }));
+}
 const ROLES = ['owner', 'claude'];
 const KINDS = ['text', 'progress', 'question', 'card', 'error'];
 const STATES = ['listening', 'working', 'stopping'];
@@ -63,6 +82,7 @@ export function claudeChatSchema(ctx) {
     role TEXT NOT NULL, kind TEXT NOT NULL, body TEXT NOT NULL, meta TEXT, reply_to TEXT,
     created_ms INTEGER NOT NULL, delivered_ms INTEGER, answered_ms INTEGER)`);
   ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS cc_messages_thread ON cc_messages(thread_id, seq)');
+  if (!rows(ctx, 'PRAGMA table_info(cc_messages)').some(c => c.name === 'attachments')) ctx.storage.sql.exec('ALTER TABLE cc_messages ADD COLUMN attachments TEXT');
   ctx.storage.sql.exec(`CREATE INDEX IF NOT EXISTS cc_messages_pending ON cc_messages(role, answered_ms, delivered_ms)`);
   // Small key/value rows: the notebook, the listener lease, the last wake.
   ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS cc_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
@@ -86,6 +106,7 @@ const cardView = json => {
 const messageView = r => r && ({
   seq: r.seq, id: r.id, threadId: r.thread_id, role: r.role, kind: r.kind, body: r.body,
   meta: r.meta ? JSON.parse(r.meta) : null, replyTo: r.reply_to || null, createdAt: r.created_ms,
+  attachments: r.attachments ? JSON.parse(r.attachments) : [],
   delivered: r.delivered_ms != null, answered: r.answered_ms != null,
 });
 
@@ -248,7 +269,7 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
         (SELECT kind FROM cc_messages m WHERE m.thread_id=t.id AND m.kind IN ('text','question','card') ORDER BY seq DESC LIMIT 1) AS last_kind,
         (SELECT json_object('id', id, 'body', body, 'meta', meta, 'at', created_ms) FROM cc_messages m WHERE m.thread_id=t.id AND m.kind='card' ORDER BY seq DESC LIMIT 1) AS last_card
         FROM cc_threads t WHERE archived=? ORDER BY updated_ms DESC LIMIT 200`, archived);
-      return {threads: list.map(r => ({...threadView(r), last: r.last_body ? {role: r.last_role, kind: r.last_kind, body: r.last_body.slice(0, 200)} : null, card: cardView(r.last_card)})), head: head(ctx)};
+      return {threads: list.map(r => ({...threadView(r), last: r.last_role ? {role: r.last_role, kind: r.last_kind, body: r.last_body.slice(0, 200)} : null, card: cardView(r.last_card)})), head: head(ctx)};
     }
     case 'thread.create': {
       if (!owner) fail(403, 'Only the owner starts threads');
@@ -287,7 +308,9 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
       // The owner's message. Idempotent by id, so a retried send never doubles.
       if (!owner) fail(403, 'Claude replies with "post"');
       const messageId = id(args.id, 'id'), threadId = id(args.threadId, 'threadId');
-      const body = text(args.body, LIMITS.body, 'body');
+      // A message may be only attachments (a photo with no words).
+      const attachments = attachmentsOf(args.attachments);
+      const body = text(args.body, LIMITS.body, 'body', {required: !attachments}) ?? '';
       return tx(() => {
         const prior = one(ctx, 'SELECT * FROM cc_messages WHERE id=?', messageId);
         if (prior) {
@@ -295,7 +318,7 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
           return {message: messageView(prior), wake: false};
         }
         const t = one(ctx, 'SELECT * FROM cc_threads WHERE id=?', threadId) || fail(404, 'No such thread');
-        ctx.storage.sql.exec('INSERT INTO cc_messages(id,thread_id,role,kind,body,created_ms) VALUES(?,?,?,?,?,?)', messageId, threadId, 'owner', 'text', body, now);
+        ctx.storage.sql.exec('INSERT INTO cc_messages(id,thread_id,role,kind,body,created_ms,attachments) VALUES(?,?,?,?,?,?,?)', messageId, threadId, 'owner', 'text', body, now, attachments);
         ctx.storage.sql.exec('UPDATE cc_threads SET updated_ms=?, archived=0 WHERE id=?', now, t.id);
         requeueStranded(ctx, now);
         change(ctx, 'message', messageId, now);
@@ -310,7 +333,8 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
       const messageId = id(args.id, 'id'), threadId = id(args.threadId, 'threadId');
       const kind = args.kind || 'text';
       if (!KINDS.includes(kind)) fail(400, 'Unknown kind');
-      const body = text(args.body, LIMITS.body, 'body');
+      const attachments = attachmentsOf(args.attachments);
+      const body = text(args.body, LIMITS.body, 'body', {required: !attachments}) ?? '';
       const replyTo = args.replyTo ? id(args.replyTo, 'replyTo') : null;
       const meta = args.meta === undefined || args.meta === null ? null : JSON.stringify(args.meta);
       if (meta && meta.length > LIMITS.meta) fail(413, 'meta is too long');
@@ -319,7 +343,7 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
         if (prior) return {message: messageView(prior)};
         one(ctx, 'SELECT id FROM cc_threads WHERE id=?', threadId) || fail(404, 'No such thread');
         if (replyTo) one(ctx, `SELECT id FROM cc_messages WHERE id=? AND thread_id=? AND role='owner'`, replyTo, threadId) || fail(404, 'replyTo is not an owner message in this thread');
-        ctx.storage.sql.exec('INSERT INTO cc_messages(id,thread_id,role,kind,body,meta,reply_to,created_ms) VALUES(?,?,?,?,?,?,?,?)', messageId, threadId, 'claude', kind, body, meta, replyTo, now);
+        ctx.storage.sql.exec('INSERT INTO cc_messages(id,thread_id,role,kind,body,meta,reply_to,created_ms,attachments) VALUES(?,?,?,?,?,?,?,?,?)', messageId, threadId, 'claude', kind, body, meta, replyTo, now, attachments);
         ctx.storage.sql.exec('UPDATE cc_threads SET updated_ms=? WHERE id=?', now, threadId);
         // A final answer settles the owner messages before it in the thread.
         if (kind !== 'progress') {
@@ -514,17 +538,63 @@ async function ownerAllowed(env, token) {
   return true;
 }
 
+/**
+ * POST …/files stores one file (raw body, its own Content-Type, X-File-Name)
+ * and returns {file: {id, name, type, size}} to attach to a message.
+ * GET …/files/<id> returns it. Either side may read any chat file: there is
+ * one owner. Bytes are served sandboxed and never inline as a page.
+ */
+async function chatFile(request, env, fileId, by, cors, send) {
+  if (!env.MUSIC_R2) return send({error: 'File storage is not configured'}, 503);
+  if (fileId) {
+    const object = await env.MUSIC_R2.get(FILES_PREFIX + fileId).catch(() => null);
+    if (!object?.body) return send({error: 'No such file'}, 404);
+    const type = FILE_TYPE.test(object.customMetadata?.type || '') ? object.customMetadata.type : 'application/octet-stream';
+    const name = fileName(object.customMetadata?.name);
+    return new Response(object.body, {headers: {...cors, 'Content-Type': type, 'Content-Length': String(object.size),
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`, 'X-File-Name': encodeURIComponent(name),
+      ...(cors['Access-Control-Allow-Origin'] ? {'Access-Control-Expose-Headers': 'X-File-Name, Content-Length'} : {}),
+      'Cache-Control': 'private, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "sandbox; default-src 'none'"}});
+  }
+  const declared = Number(request.headers.get('Content-Length'));
+  if (declared > FILE_MAX) return send({error: 'Files are limited to 15 MB'}, 413);
+  const type = (request.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase();
+  if (!FILE_TYPE.test(type)) return send({error: 'A file needs its Content-Type'}, 415);
+  let name;
+  try { name = fileName(decodeURIComponent(request.headers.get('X-File-Name') || '')); } catch { name = 'file'; }
+  const reader = request.body?.getReader();
+  if (!reader) return send({error: 'Empty file'}, 400);
+  const parts = []; let size = 0;
+  for (;;) {
+    const {done, value} = await reader.read(); if (done) break;
+    size += value.byteLength;
+    if (size > FILE_MAX) { await reader.cancel(); return send({error: 'Files are limited to 15 MB'}, 413); }
+    parts.push(value);
+  }
+  if (!size) return send({error: 'Empty file'}, 400);
+  const bytes = new Uint8Array(size); let at = 0;
+  for (const p of parts) { bytes.set(p, at); at += p.byteLength; }
+  const id = crypto.randomUUID();
+  try { await env.MUSIC_R2.put(FILES_PREFIX + id, bytes, {httpMetadata: {contentType: type}, customMetadata: {name, type, by}}); }
+  catch { return send({error: 'File storage unavailable; retry'}, 503); }
+  return send({file: {id, name, type, size}});
+}
+
+const FILE_ROUTE = /^\/claude-chat\/(owner|agent)\/files(?:\/([0-9a-f-]{36}))?$/;
+
 export async function claudeChatPublic(request, env) {
   const path = new URL(request.url).pathname;
-  if (path !== '/claude-chat/owner' && path !== '/claude-chat/agent') return null;
-  const asOwner = path === '/claude-chat/owner';
+  const fileRoute = FILE_ROUTE.exec(path);
+  if (path !== '/claude-chat/owner' && path !== '/claude-chat/agent' && !fileRoute) return null;
+  const asOwner = fileRoute ? fileRoute[1] === 'owner' : path === '/claude-chat/owner';
   const origin = request.headers.get('Origin');
   if (asOwner && origin && !FRONTEND_ORIGINS.has(origin)) return Response.json({error: 'Origin not allowed'}, {status: 403});
   const cors = asOwner && origin ? {'Access-Control-Allow-Origin': origin, Vary: 'Origin'} : {};
   const send = (body, status = 200) => new Response(JSON.stringify(body), {status, headers: {...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'}});
-  if (request.method === 'OPTIONS' && asOwner) return new Response(null, {status: 204, headers: {...cors, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '600'}});
-  if (request.method !== 'POST') return send({error: 'Method not allowed'}, 405);
-  if (!request.headers.get('Content-Type')?.startsWith('application/json')) return send({error: 'Expected JSON'}, 415);
+  if (request.method === 'OPTIONS' && asOwner) return new Response(null, {status: 204, headers: {...cors, 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-File-Name', 'Access-Control-Max-Age': '600'}});
+  const fileRead = fileRoute && fileRoute[2];
+  if (request.method !== (fileRead ? 'GET' : 'POST')) return send({error: 'Method not allowed'}, 405);
+  if (!fileRoute && !request.headers.get('Content-Type')?.startsWith('application/json')) return send({error: 'Expected JSON'}, 415);
   const bearer = request.headers.get('Authorization')?.match(/^Bearer (\S+)$/)?.[1];
   if (asOwner) {
     if (!origin) return send({error: 'Owner requests come from the Jarvis site'}, 403);
@@ -532,6 +602,7 @@ export async function claudeChatPublic(request, env) {
     try { if (!await ownerAllowed(env, bearer)) return send({error: 'This device is signed out', code: 'signed_out'}, 401); }
     catch { return send({error: 'Sign-in check unavailable; retry'}, 503); }
   } else if (!claudeKeyMatches(env, bearer)) return send({error: 'Unknown key'}, 401);
+  if (fileRoute) return chatFile(request, env, fileRoute[2], asOwner ? 'owner' : 'claude', cors, send);
   let body;
   try { body = JSON.parse(await boundedText(request, 64_000)); } catch { return send({error: 'Invalid JSON'}, 400); }
   if (!body || typeof body.op !== 'string' || (body.args !== undefined && (typeof body.args !== 'object' || Array.isArray(body.args)))) return send({error: 'Expected {op, args}'}, 400);
