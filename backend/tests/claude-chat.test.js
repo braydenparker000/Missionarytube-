@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {claudeChatStore, nextChange, fireClaude, recordWake, claudeKeyMatches, ChatError, LEASE_WAIT_MS, LEASE_WORK_MS, WAKE_BACKOFF_MS, STRANDED_MS} from '../claude-chat.js';
+import {claudeChatStore, claudeChatInternal, nextChange, fireClaude, recordWake, wakeDue, claudeKeyMatches, ChatError, LEASE_WAIT_MS, LEASE_WORK_MS, WORK_SHOWN_MS, WAKE_BACKOFF_MS, AUTO_WAKES, ACK_MS, STRANDED_MS} from '../claude-chat.js';
 
 function store() {
   const db = new DatabaseSync(':memory:');
@@ -120,6 +120,126 @@ test('a new session gets messages the previous session took but never answered, 
   // The reply to that take was lost and the session is gone; its lease lapses.
   const later = t0 + 1 + Math.max(LEASE_WAIT_MS, LEASE_WORK_MS) + 1;
   assert.deepEqual(call('claude', 'take', {}, later).messages.map(m => m.body), ['a']);
+});
+
+test('a background wait while Claude works keeps the work, its note and a Stop; the Stop ends the wait once', () => {
+  const call = store();
+  call('owner', 'thread.create', {id: T});
+  const t0 = 4_000_000;
+  call('owner', 'send', {id: M(1), threadId: T, body: 'fix it'}, t0);
+  call('claude', 'take', {stopSeen: 0}, t0 + 1);
+  call('claude', 'status', {state: 'working', threadId: T, note: 'Reading the code'}, t0 + 2);
+  const during = call('claude', 'take', {stopSeen: 0}, t0 + 50_000);
+  assert.equal(during.stop, null);
+  let status = call('owner', 'status', {}, t0 + 50_001).status;
+  assert.deepEqual([status.state, status.threadId, status.note], ['working', T, 'Reading the code'], 'the wait does not turn work into "listening"');
+  assert.equal(call('owner', 'stop', {threadId: T}, t0 + 60_000).stopped, true);
+  const heard = call('claude', 'take', {stopSeen: 0}, t0 + 60_001);
+  assert.equal(heard.stop.threadId, T, 'the wait hears Stop at once');
+  assert.equal(call('claude', 'take', {stopSeen: heard.stop.at}, t0 + 60_002).stop, null, 'but only once');
+  assert.equal(call('claude', 'take', {}, t0 + 60_003).stop, null, 'an older jc (no stopSeen) never hears it here, so its wait cannot spin');
+  assert.equal(call('owner', 'status', {}, t0 + 60_004).status.stopRequested, T, 'the Stop stays until Claude answers');
+  call('claude', 'post', {id: R(1), threadId: T, body: 'Stopped after the first step.'}, t0 + 70_000);
+  assert.equal(call('owner', 'status', {}, t0 + 70_001).status.stopRequested, null);
+  call('claude', 'status', {state: 'listening'}, t0 + 70_002);
+  status = call('owner', 'status', {}, t0 + 70_003).status;
+  assert.deepEqual([status.state, status.threadId, status.note], ['listening', null, null]);
+});
+
+test('a progress note marks the work; work not renewed for WORK_SHOWN_MS shows as listening while the waits go on', () => {
+  const call = store();
+  call('owner', 'thread.create', {id: T});
+  const t0 = 5_000_000;
+  call('claude', 'take', {}, t0);
+  call('claude', 'post', {id: R(1), threadId: T, kind: 'progress', body: 'Running the tests\nall 40 of them'}, t0 + 1);
+  let status = call('owner', 'status', {}, t0 + 2).status;
+  assert.deepEqual([status.state, status.threadId, status.note], ['working', T, 'Running the tests']);
+  for (let t = t0 + 40_000; t < t0 + WORK_SHOWN_MS + 60_000; t += 40_000) call('claude', 'take', {}, t);
+  status = call('owner', 'status', {}, t0 + WORK_SHOWN_MS + 60_001).status;
+  assert.deepEqual([status.alive, status.state], [true, 'listening']);
+});
+
+test('working holds the lease for minutes, not a quarter hour: a vanished machine is noticed soon', () => {
+  const call = store();
+  call('owner', 'thread.create', {id: T});
+  const t0 = 6_000_000;
+  call('claude', 'status', {state: 'working', threadId: T, note: 'x'}, t0);
+  assert.equal(call('owner', 'status', {}, t0 + LEASE_WORK_MS - 1).status.alive, true);
+  assert.equal(call('owner', 'status', {}, t0 + LEASE_WORK_MS + 1).status.alive, false);
+  assert.ok(LEASE_WORK_MS <= 5 * 60_000);
+});
+
+test('delivery is acknowledged: a message nobody acts on comes back; one Claude is working on stays with it', () => {
+  const call = store();
+  const T2 = '11111111-1111-4111-8111-222222222222';
+  call('owner', 'thread.create', {id: T});
+  call('owner', 'thread.create', {id: T2});
+  const t0 = 7_000_000;
+  call('owner', 'send', {id: M(1), threadId: T, body: 'lost on the way'}, t0);
+  call('owner', 'send', {id: M(2), threadId: T2, body: 'being worked on'}, t0);
+  assert.equal(call('claude', 'take', {}, t0 + 1).messages.length, 2, 'both handed out (the reply to this take is then lost for M1)');
+  call('claude', 'status', {state: 'working', threadId: T2, note: 'on it'}, t0 + 2);
+  assert.deepEqual(call('claude', 'take', {}, t0 + ACK_MS - 1).messages, [], 'not before the window');
+  assert.deepEqual(call('claude', 'take', {}, t0 + ACK_MS + 2).messages.map(m => m.body), ['lost on the way'], 'only the one nobody acted on');
+  call('claude', 'post', {id: R(1), threadId: T, kind: 'progress', body: 'Looking'}, t0 + ACK_MS + 3);
+  assert.deepEqual(call('claude', 'take', {}, t0 + 3 * ACK_MS).messages, [], 'a post acknowledges it');
+});
+
+test('the page re-wakes Claude when messages wait and their session vanished, a few times at most', () => {
+  const call = store();
+  call('owner', 'thread.create', {id: T});
+  const t0 = 8_000_000;
+  call('claude', 'take', {}, t0);
+  call('owner', 'send', {id: M(1), threadId: T, body: 'All good?'}, t0 + 1);
+  call('claude', 'take', {}, t0 + 2);
+  call('claude', 'status', {state: 'working', threadId: T, note: 'x'}, t0 + 3);
+  assert.equal(wakeDue(call.ctx, t0 + 60_000), null, 'the session still holds the lease');
+  // Its machine goes away: no stopping, the lease lapses.
+  let at = t0 + 3 + LEASE_WORK_MS + 1;
+  assert.deepEqual(wakeDue(call.ctx, at), {threadId: T, messageId: M(1)}, 'the message it had goes back and a new session is woken');
+  assert.equal(call('owner', 'status', {}, at).status.wake.starting, true);
+  assert.equal(wakeDue(call.ctx, at + 1000), null, 'one fire per backoff window');
+  for (let i = 1; i < AUTO_WAKES; i++) { at += WAKE_BACKOFF_MS; assert.ok(wakeDue(call.ctx, at), `fire ${i + 1}`); }
+  at += WAKE_BACKOFF_MS;
+  assert.equal(wakeDue(call.ctx, at), null, 'sessions keep not answering: wait for the owner');
+  assert.equal(call('owner', 'send', {id: M(2), threadId: T, body: 'Hey?'}, at).wake, true, 'the owner writing again always may wake');
+  call('claude', 'take', {}, at + 1);
+  call('claude', 'post', {id: R(1), threadId: T, body: 'Here.'}, at + 2);
+  call('claude', 'status', {state: 'stopping'}, at + 3);
+  call('owner', 'send', {id: M(3), threadId: T, body: 'Thanks'}, at + 4);
+  assert.equal(wakeDue(call.ctx, at + 5), null, 'that send already woke a session');
+  assert.ok(wakeDue(call.ctx, at + 4 + WAKE_BACKOFF_MS), 'a post reset the count: it may wake again');
+});
+
+test('a session that said it was stopping is not re-woken for messages it saw', () => {
+  const call = store();
+  call('owner', 'thread.create', {id: T});
+  const t0 = 9_000_000;
+  call('owner', 'send', {id: M(1), threadId: T, body: 'Thanks!'}, t0);
+  call('claude', 'take', {}, t0 + 1);
+  call('claude', 'status', {state: 'stopping'}, t0 + 2);
+  assert.equal(wakeDue(call.ctx, t0 + 10 * WAKE_BACKOFF_MS), null);
+});
+
+test('the owner\'s polling fires the task once when a vanished session left a message', async () => {
+  const db = new DatabaseSync(':memory:');
+  const ctx = {storage: {sql: {exec: (q, ...v) => db.prepare(q).all(...v)}, transactionSync: fn => fn()}};
+  const run = (who, op, args, at) => claudeChatStore(ctx, {who, op, args}, at);
+  const t0 = 10_000_000;
+  run('owner', 'thread.create', {id: T}, t0);
+  run('claude', 'take', {}, t0);
+  run('owner', 'send', {id: M(1), threadId: T, body: 'x'}, t0 + 1);
+  run('claude', 'take', {}, t0 + 2);
+  const env = {CLAUDE_ROUTINE_FIRE_URL: 'https://api.anthropic.com/v1/claude_code/routines/trig_X/fire', CLAUDE_ROUTINE_TOKEN: 'tok'};
+  const fires = [];
+  const fetchFn = async (url, init) => { fires.push(JSON.parse(init.body).text); return Response.json({claude_code_session_url: 'https://claude.ai/code/session_01Z'}); };
+  const later = t0 + LEASE_WAIT_MS + 10;
+  const poll = () => claudeChatInternal(ctx, env, {who: 'owner', op: 'status', args: {}}, {fetchFn, now: () => later}).then(r => r.json());
+  const [a, b] = await Promise.all([poll(), poll()]);
+  assert.equal(fires.length, 1, 'two pages polling at once fire once');
+  assert.match(fires[0], new RegExp(M(1)));
+  assert.equal(b.status.wake.starting, true);
+  assert.equal(a.pending, 1, 'the message waits for the new session');
 });
 
 test('changes feed: everything after a sequence number, with the status', () => {
