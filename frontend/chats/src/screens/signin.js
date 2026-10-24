@@ -3,7 +3,6 @@
 // them can be replaced here.
 
 import {h, ago} from '../dom.js';
-import {avatar} from '../ui.js';
 import {auth, describe} from '../api.js';
 
 export class SignInScreen {
@@ -16,8 +15,7 @@ export class SignInScreen {
     this.button = h('button', {class: 'btn primary wide', type: 'submit'}, 'Sign in');
     this.devices = h('div', {class: 'devices'});
     this.el.append(h('form', {class: 'signin', onsubmit: e => { e.preventDefault(); this.submit(); }},
-      h('div', {class: 'signin-avatars', 'aria-hidden': 'true'}, avatar('claude'), avatar('muse')),
-      h('h1', {}, 'Jarvis Chats'),
+      h('h1', {}, 'JARVIS', h('span', {class: 'label'}, ' Chats')),
       h('p', {class: 'muted'}, 'Claude and Muse, in one place. Sign in with your Jarvis owner account.'),
       this.user, this.pass, this.error, this.button, this.devices));
   }

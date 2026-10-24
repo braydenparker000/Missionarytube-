@@ -1,17 +1,19 @@
-// The first screen: Claude's status, a search box, Muse pinned on top, then
-// Claude's chats grouped by when they last moved (Today, Yesterday, Previous
-// 7 days, Older). Swipe a chat left to archive it (Undo in the toast), or
+// The first screen, read like an instrument panel: Claude's status line, then
+// the desk (what Claude is doing now, and what waits on you: a pull request
+// to decide on, a question), Muse pinned, then Claude's chats grouped by when
+// they last moved. Swipe a chat left to archive it (Undo in the toast), or
 // long-press (right-click) for Rename, Archive and Open in Claude.
 
 import {h, when, haptic} from '../dom.js';
 import {icon} from '../icons.js';
-import {avatar, onLongPress, toast} from '../ui.js';
+import {onLongPress, toast} from '../ui.js';
 import {plain} from '../markdown.js';
-import {claudeStatus, museStatus} from '../status.js';
+import {claudeStatus, museStatus, sigClass, CARD_STATES} from '../status.js';
 import {MUSE} from '../store.js';
 
 const DAY = 86_400_000;
 const SWIPE_ARCHIVE = 0.38; // of the row's width
+const OPEN_CARD = ['open', 'checks', 'passed', 'failed'];
 
 export class ListScreen {
   constructor(app) {
@@ -20,7 +22,7 @@ export class ListScreen {
     this.showArchived = false;
     this.query = '';
     this.el = h('section', {class: 'screen list-screen', 'aria-label': 'Chats'});
-    this.statusEl = h('button', {class: 'status-card', type: 'button', onclick: () => app.open('settings')});
+    this.statusEl = h('button', {class: 'status-line', type: 'button', onclick: () => app.open('settings')});
     this.rows = h('ul', {class: 'rows', role: 'list'});
     this.banner = h('div', {class: 'banner', role: 'status', hidden: true});
     this.searchInput = h('input', {type: 'search', placeholder: 'Search chats', 'aria-label': 'Search chats', enterkeyhint: 'search', autocomplete: 'off',
@@ -28,13 +30,14 @@ export class ListScreen {
     this.clear = h('button', {class: 'icon-btn clear', type: 'button', hidden: true, 'aria-label': 'Clear search', onclick: () => { this.searchInput.value = ''; this.query = ''; this.clear.hidden = true; this.render(); this.searchInput.focus(); }}, icon('close', {size: 18}));
     this.el.append(
       h('header', {class: 'top'},
-        h('h1', {}, 'Chats'),
+        h('h1', {class: 'wordmark'}, 'JARVIS'),
         h('div', {class: 'top-actions'},
           h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Notebook', title: 'Notebook', onclick: () => app.open('notebook')}, icon('notebook')),
           h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Settings', title: 'Settings', onclick: () => app.open('settings')}, icon('settings')))),
+      this.statusEl,
       h('div', {class: 'search'}, icon('search', {size: 18}), this.searchInput, this.clear),
       this.banner,
-      h('div', {class: 'list-scroll'}, this.statusEl, this.rows),
+      h('div', {class: 'list-scroll'}, this.rows),
       h('button', {class: 'fab', type: 'button', onclick: () => app.newChat()}, icon('compose'), h('span', {}, 'New chat')));
     for (const type of ['threads', 'status', 'muse-state', 'connection']) this.store.addEventListener(type, () => this.render());
     this.timer = setInterval(() => this.renderStatus(), 30_000); // "last seen 5 min ago" ages
@@ -49,17 +52,19 @@ export class ListScreen {
     const matches = (...texts) => !q || texts.some(t => (t || '').toLowerCase().includes(q));
     const items = [];
     const threads = store.threadList({archived: this.showArchived}).filter(t => matches(t.title, t.last?.body));
+    if (!this.showArchived && !q) items.push(...this.desk(threads));
     if (!this.showArchived) {
       const museLast = store.museLast();
-      if (matches('Muse', museLast?.body)) items.push(h('li', {class: 'group-label', role: 'presentation'}, 'Pinned'), this.museRow());
+      if (matches('Muse', museLast?.body)) items.push(this.groupLabel('Pinned'), this.museRow());
     }
     if (!store.synced && !threads.length && !store.threads.size) items.push(...[0, 1, 2].map(() => this.skeletonRow()));
-    let group = null;
+    const groups = new Map();
     for (const t of threads) {
       const label = this.showArchived ? 'Archived' : groupOf(t.updatedAt);
-      if (label !== group) { items.push(h('li', {class: 'group-label', role: 'presentation'}, label)); group = label; }
-      items.push(this.threadRow(t));
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(t);
     }
+    for (const [label, list] of groups) items.push(this.groupLabel(label, list.length), ...list.map(t => this.threadRow(t)));
     if (q && !items.length) items.push(h('li', {class: 'empty'}, h('p', {class: 'empty-title'}, 'No chats match'), h('p', {}, `Nothing found for “${this.searchInput.value.trim()}”.`)));
     else if (!threads.length && !this.showArchived && store.synced && !q) items.push(h('li', {class: 'empty'},
       h('p', {class: 'empty-title'}, 'Talk to Claude'),
@@ -83,19 +88,53 @@ export class ListScreen {
 
   renderStatus() {
     const s = claudeStatus(this.store.status, this.store.pending);
-    const working = s.threadId && this.store.threads.get(s.threadId);
-    this.statusEl.className = 'status-card tone-' + s.tone;
+    this.statusEl.className = 'status-line tone-' + s.tone;
     this.statusEl.setAttribute('aria-label', `Claude: ${s.label}. ${s.detail}. Open settings`);
-    this.statusEl.replaceChildren(avatar('claude'),
-      h('span', {class: 'status-text'}, h('strong', {}, 'Claude · ', s.label), h('span', {}, working ? `${s.detail} · ${working.title}` : s.detail)),
-      h('span', {class: 'dot', 'aria-hidden': 'true'}));
+    this.statusEl.replaceChildren(h('span', {class: sigClass(s.tone), 'aria-hidden': 'true'}),
+      h('b', {}, s.label === 'Claude' ? 'Claude' : `Claude · ${s.label}`),
+      // While Claude works on a chat, the desk below says on what.
+      h('span', {class: 'detail'}, s.threadId && this.store.threads.has(s.threadId) && !this.showArchived ? '' : s.detail));
+  }
+
+  groupLabel(text, count) {
+    return h('li', {class: 'group-label', role: 'presentation'}, h('span', {}, text), count ? h('span', {}, String(count).padStart(2, '0')) : null);
+  }
+
+  /** Now (Claude's live work) and Waiting on you (open pull requests, questions). */
+  desk(threads) {
+    const s = claudeStatus(this.store.status, this.store.pending);
+    const busy = s.threadId && (s.label === 'Working' || s.label === 'Stopping') ? this.store.threads.get(s.threadId) : null;
+    const items = [];
+    if (busy) items.push(this.groupLabel('Now'), h('li', {class: 'desk'}, this.deskItem(busy, 'sig live pulse', s.detail, true)));
+    const waiting = threads.filter(t => t.id !== busy?.id && needsYou(t));
+    if (waiting.length) {
+      items.push(this.groupLabel('Waiting on you', waiting.length));
+      for (const t of waiting) {
+        const c = t.card;
+        const asks = c?.actions?.length > 0;
+        const isCard = c && (OPEN_CARD.includes(c.state) || asks);
+        const pr = isCard && /\/pull\/(\d+)/.exec(c.url || '');
+        const label = isCard ? [pr ? 'PR #' + pr[1] : 'Result', CARD_STATES[c.state], asks && c.actions[0] + '?'].filter(Boolean).join(' · ') : 'Question';
+        const live = !isCard || asks || c.state === 'failed';
+        items.push(h('li', {class: 'desk'}, this.deskItem(t, 'sig' + (isCard && c.state === 'checks' ? ' live pulse' : live ? ' live' : ' on'), label, live)));
+      }
+    }
+    return items;
+  }
+
+  deskItem(t, sig, label, live) {
+    return h('button', {class: 'desk-item', type: 'button', onclick: () => this.app.openChat(t.id), 'aria-label': `${t.title}. ${label}`},
+      h('span', {class: sig, 'aria-hidden': 'true'}),
+      h('strong', {}, t.title),
+      h('span', {class: 'label' + (live ? ' live' : '')}, label),
+      h('span', {class: 'go', 'aria-hidden': 'true'}, icon('next', {size: 18})));
   }
 
   museRow() {
     const last = this.store.museLast();
     const s = museStatus(this.store.museState);
     return this.row({
-      key: MUSE, who: 'muse', title: 'Muse',
+      key: MUSE, title: 'Muse',
       preview: last ? (last.role === 'owner' ? 'You: ' : '') + plain(last.body, 90) : s.detail,
       at: last?.at, unread: this.store.unread(MUSE),
     });
@@ -105,27 +144,30 @@ export class ListScreen {
     const s = claudeStatus(this.store.status, this.store.pending);
     const working = s.threadId === t.id && (s.label === 'Working' || s.label === 'Stopping');
     const queued = this.store.outbox.some(o => o.threadId === t.id);
+    const state = t.card?.state;
     return this.row({
-      key: t.id, who: 'claude', title: t.title, archived: !!t.archived,
+      key: t.id, title: t.title, archived: !!t.archived, tag: state && t.card.url ? `PR · ${CARD_STATES[state]?.replace('Checks ', '') || state}` : null,
       preview: working ? s.detail + '…' : t.last ? (t.last.role === 'owner' ? 'You: ' : '') + plain(t.last.body, 90) : 'No messages yet',
       at: t.updatedAt, unread: this.store.unread(t.id), working, queued,
     });
   }
 
   skeletonRow() {
-    return h('li', {class: 'skel-row', 'aria-hidden': 'true'}, h('span', {class: 'skel round'}), h('span', {class: 'skel-lines'}, h('span', {class: 'skel line short'}), h('span', {class: 'skel line'})));
+    return h('li', {class: 'skel-row', 'aria-hidden': 'true'}, h('span', {class: 'skel line short'}), h('span', {class: 'skel line'}));
   }
 
-  row({key, who, title, preview, at, unread, working, queued, archived}) {
-    const button = h('button', {class: 'row' + (unread ? ' unread' : ''), type: 'button', onclick: () => this.app.openChat(key),
+  row({key, tag, title, preview, at, unread, working, queued, archived}) {
+    const button = h('button', {class: 'row' + (key === MUSE ? ' muse' : '') + (unread ? ' unread' : ''), type: 'button', onclick: () => this.app.openChat(key),
       'aria-label': `${title}${unread ? `, ${unread} unread` : ''}${working ? ', Claude is working' : ''}. ${preview}`},
-      avatar(who),
-      h('span', {class: 'row-main'},
-        h('span', {class: 'row-top'}, h('span', {class: 'row-title'}, title), h('span', {class: 'row-time'}, when(at))),
-        h('span', {class: 'row-bottom'},
-          queued && icon('clock', {size: 16}),
-          h('span', {class: 'row-preview' + (working ? ' working' : '')}, preview),
-          unread ? h('span', {class: 'badge'}, String(unread)) : null)));
+      h('span', {class: 'row-top'},
+        h('span', {class: 'row-title'}, title),
+        tag && h('span', {class: 'row-tag label'}, tag),
+        h('span', {class: 'row-time'}, when(at))),
+      h('span', {class: 'row-bottom'},
+        queued && icon('clock', {size: 16}),
+        working && h('span', {class: 'sig live pulse', 'aria-hidden': 'true'}),
+        h('span', {class: 'row-preview' + (working ? ' working' : '')}, preview),
+        unread ? h('span', {class: 'badge', 'aria-hidden': 'true'}, String(unread).padStart(2, '0')) : null));
     if (key === MUSE) return h('li', {}, button);
     onLongPress(button, () => this.app.chatMenu(key));
     const under = h('div', {class: 'row-under', 'aria-hidden': 'true'}, icon(archived ? 'unarchive' : 'archive', {size: 20}), archived ? 'Unarchive' : 'Archive');
@@ -177,6 +219,14 @@ export class ListScreen {
       toast(archive ? 'Chat archived' : 'Chat restored', {action: {label: 'Undo', run: () => this.store.updateThread(key, {archived: !archive})}});
     } catch { toast('Could not change that chat'); this.render(); }
   }
+}
+
+/** Claude spoke last, with an open pull request, a decision to make, or a question. */
+function needsYou(t) {
+  if (t.last?.role !== 'claude') return false;
+  const c = t.card;
+  if (c && !['merged', 'closed'].includes(c.state) && (OPEN_CARD.includes(c.state) || c.actions?.length)) return true;
+  return t.last?.role === 'claude' && t.last.kind === 'question';
 }
 
 function groupOf(ms, now = Date.now()) {

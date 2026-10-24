@@ -1,9 +1,16 @@
-# Inter
+# Fonts
 
-`inter-400.woff2` … `inter-700.woff2` (copies of Astra's) are Inter 4.000 (https://github.com/rsms/inter),
-Copyright 2016 The Inter Project Authors, subset to Latin characters and
-converted to WOFF2 (with fontTools `pyftsubset`). They are licensed under the
-SIL Open Font License 1.1, reproduced below.
+All three are licensed under the SIL Open Font License 1.1, reproduced below.
+
+- `inter-400.woff2` … `inter-700.woff2` (copies of Astra's) are Inter 4.000
+  (https://github.com/rsms/inter), Copyright 2016 The Inter Project Authors,
+  subset to Latin characters and converted to WOFF2 (with fontTools `pyftsubset`).
+- `doto.woff2` is Doto (https://github.com/oliverlalan/Doto), Copyright 2024
+  The Doto Project Authors, the Latin subset of the variable font as served
+  by Google Fonts.
+- `jetbrains-mono.woff2` is JetBrains Mono (https://github.com/JetBrains/JetBrainsMono),
+  Copyright 2020 The JetBrains Mono Project Authors, the Latin subset of the
+  variable font as served by Google Fonts.
 
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
 

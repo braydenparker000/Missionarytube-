@@ -54,6 +54,7 @@ export class App {
     for (const p of this.pages) p.screen.el.inert = true;
     this.list.el.inert = true;
     this.list.el.classList.add('covered');
+    this.list.el.setAttribute('aria-hidden', 'true'); // covered: out of the page's reading order
     requestAnimationFrame(() => requestAnimationFrame(() => screen.el.classList.remove('entering')));
     page.close = pushLayer('page', () => this.pop(page, true));
     this.pages.push(page);
@@ -73,7 +74,7 @@ export class App {
     el.setAttribute('aria-hidden', 'true');
     setTimeout(() => el.remove(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 340);
     const top = this.pages.at(-1);
-    if (top) top.screen.el.inert = false; else { this.list.el.inert = !auth.signedIn; this.list.el.classList.remove('covered'); }
+    if (top) top.screen.el.inert = false; else { this.list.el.inert = !auth.signedIn; this.list.el.classList.remove('covered'); this.list.el.removeAttribute('aria-hidden'); }
     // Focus returns to where the page was opened from.
     (top?.screen.el.querySelector('.composer-input') || this.lastFocus)?.focus?.({preventScroll: true});
   }

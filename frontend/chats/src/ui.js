@@ -96,8 +96,3 @@ export function onLongPress(el, fn) {
   el.addEventListener('contextmenu', e => { e.preventDefault(); cancel(); fn(e); });
   el.addEventListener('keydown', e => { if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); fn(e); } });
 }
-
-export function avatar(who) {
-  if (who === 'muse') return h('span', {class: 'avatar muse', 'aria-hidden': 'true'}, 'M');
-  return h('span', {class: 'avatar claude', 'aria-hidden': 'true'}, icon('spark', {size: 20}));
-}

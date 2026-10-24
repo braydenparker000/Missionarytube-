@@ -39,9 +39,9 @@ export async function runChatsScenario(t, browser) {
     }, 1e9);
     const {page} = phone;
     await page.goto(SITE + '/chats/');
-    await page.getByRole('heading', {name: 'Chats'}).waitFor();
+    await page.getByRole('heading', {name: 'JARVIS', exact: true}).waitFor();
     await page.getByRole('button', {name: /^Muse/}).waitFor();
-    await page.locator('.status-card', {hasText: 'Asleep'}).waitFor();
+    await page.locator('.status-line', {hasText: 'Asleep'}).waitFor();
 
     // A new chat: the first message creates the thread and wakes Claude.
     await page.getByRole('button', {name: 'New chat'}).click();
@@ -81,7 +81,7 @@ export async function runChatsScenario(t, browser) {
     await asClaude('status', {state: 'listening'});
     await page.locator('.md strong', {hasText: 'lower-cased twice'}).waitFor();
     await page.locator('.md-code code', {hasText: 'query.toLowerCase()'}).waitFor();
-    await page.locator('.card a.card-main', {hasText: 'Missionarytube-#400'}).waitFor();
+    await page.locator('.card a.card-main', {hasText: 'PR #400 · Missionarytube-'}).waitFor();
     assert.equal(await page.locator('.feed a[href^="javascript"], .feed img').count(), 0, 'markdown never makes script links or HTML');
     await page.locator('.md', {hasText: '<img src=x onerror=alert(2)>'}).waitFor();
     assert.equal(await page.locator('.card a.card-main').getAttribute('href'), pr);
@@ -91,6 +91,14 @@ export async function runChatsScenario(t, browser) {
     assert.equal(await page.locator('.thinking').isHidden(), true, 'nothing pending once Claude has answered');
     assert.equal(await page.getByRole('button', {name: 'Send'}).isDisabled(), true, 'Stop turns back into Send');
     await writeSyntheticEvidence(phone, 'chats-claude-thread');
+
+    // Home: the pull request waits on the owner, at the top of the list.
+    const back = async () => { await page.goBack(); await page.locator('.page').waitFor({state: 'detached'}); };
+    await back();
+    const waiting = page.locator('.desk-item', {hasText: 'Podcast search fix'});
+    await waiting.locator('.label', {hasText: 'PR #400 · Checks running · Merge it?'}).waitFor();
+    await writeSyntheticEvidence(phone, 'chats-desk');
+    await waiting.click();
 
     // A card's button answers for the owner; Claude then moves the card along.
     await page.getByRole('button', {name: 'Merge it'}).click();
@@ -106,10 +114,10 @@ export async function runChatsScenario(t, browser) {
     await page.locator('.msg.owner', {hasText: 'Thanks!'}).locator('.state', {hasText: 'Sent'}).waitFor();
     assert.equal(fired.length, 1, 'Claude is listening: no second fire');
 
-    // Back (the Android back button) to the list, which shows the thread.
-    const back = async () => { await page.goBack(); await page.locator('.page').waitFor({state: 'detached'}); };
+    // Back (the Android back button) to the list, which shows the thread; nothing waits on the owner now.
     await back();
     await page.locator('.row', {hasText: 'Podcast search fix'}).waitFor();
+    assert.equal(await page.locator('.desk-item').count(), 0, 'the merged pull request left the desk');
 
     // A reply that arrives while the owner is away: unread on the list, a "New" divider in the chat.
     await asClaude('post', {id: crypto.randomUUID(), threadId, body: 'Merged. Anything else?'});
@@ -157,8 +165,8 @@ export async function runChatsScenario(t, browser) {
 
     // The accent colour, chosen in Settings, is remembered.
     await page.getByRole('button', {name: 'Settings', exact: true}).click();
-    await page.getByRole('radio', {name: 'Mint'}).click();
-    assert.equal(await page.evaluate(() => document.documentElement.dataset.accent), 'mint');
+    await page.getByRole('radio', {name: 'Phosphor'}).click();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.accent), 'phosphor');
     await writeSyntheticEvidence(phone, 'chats-settings');
     await back();
 
@@ -193,7 +201,7 @@ export async function runChatsScenario(t, browser) {
     await page.getByRole('button', {name: 'Archived (1)'}).waitFor();
     await page.getByRole('button', {name: 'Undo'}).click();
     await page.locator('.row', {hasText: 'Podcasts'}).waitFor();
-    assert.equal(await page.evaluate(() => document.documentElement.dataset.accent), 'mint', 'the accent survived the reload');
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.accent), 'phosphor', 'the accent survived the reload');
 
     // Sign out: the sign-in screen, and the credential is gone.
     await page.getByRole('button', {name: 'Settings', exact: true}).click();

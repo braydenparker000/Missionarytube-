@@ -6,6 +6,14 @@
 
 import {ago} from './dom.js';
 
+/** A pull request card's state, as the chat and the home screen say it. */
+export const CARD_STATES = {open: 'Open', checks: 'Checks running', passed: 'Checks passed', failed: 'Checks failed', merged: 'Merged', closed: 'Closed'};
+
+/** The signal dot for a tone: lit while live or when something needs you. */
+export function sigClass(tone) {
+  return 'sig' + (tone === 'busy' ? ' live pulse' : tone === 'warn' ? ' live' : tone === 'online' ? ' on' : '');
+}
+
 export function claudeStatus(status, pending = 0, now = Date.now()) {
   if (!status) return {tone: 'idle', label: 'Claude', detail: 'Connecting…'};
   if (status.alive && status.state === 'working' && status.stopRequested) return {tone: 'busy', label: 'Stopping', detail: 'Finishing the current step', threadId: status.threadId, stopping: true};

@@ -67,6 +67,13 @@ const change = (ctx, kind, ref, now) => { ctx.storage.sql.exec('INSERT INTO cc_c
 const head = ctx => one(ctx, 'SELECT COALESCE(MAX(seq),0) AS seq FROM cc_changes').seq;
 
 const threadView = r => r && ({id: r.id, title: r.title, createdAt: r.created_ms, updatedAt: r.updated_ms, archived: !!r.archived, sessionUrl: r.session_url || null});
+// A thread's latest result card, for the home screen's "waiting on you".
+const cardView = json => {
+  if (!json) return null;
+  const c = JSON.parse(json);
+  const meta = c.meta ? JSON.parse(c.meta) : {};
+  return {id: c.id, title: meta.title || c.body.split('\n')[0].slice(0, 120), url: meta.url || null, state: meta.state || null, actions: Array.isArray(meta.actions) ? meta.actions.slice(0, 3) : [], at: c.at};
+};
 const messageView = r => r && ({
   seq: r.seq, id: r.id, threadId: r.thread_id, role: r.role, kind: r.kind, body: r.body,
   meta: r.meta ? JSON.parse(r.meta) : null, replyTo: r.reply_to || null, createdAt: r.created_ms,
@@ -161,9 +168,11 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
     case 'threads': {
       const archived = args.archived ? 1 : 0;
       const list = rows(ctx, `SELECT t.*, (SELECT body FROM cc_messages m WHERE m.thread_id=t.id AND m.kind IN ('text','question','card') ORDER BY seq DESC LIMIT 1) AS last_body,
-        (SELECT role FROM cc_messages m WHERE m.thread_id=t.id AND m.kind IN ('text','question','card') ORDER BY seq DESC LIMIT 1) AS last_role
+        (SELECT role FROM cc_messages m WHERE m.thread_id=t.id AND m.kind IN ('text','question','card') ORDER BY seq DESC LIMIT 1) AS last_role,
+        (SELECT kind FROM cc_messages m WHERE m.thread_id=t.id AND m.kind IN ('text','question','card') ORDER BY seq DESC LIMIT 1) AS last_kind,
+        (SELECT json_object('id', id, 'body', body, 'meta', meta, 'at', created_ms) FROM cc_messages m WHERE m.thread_id=t.id AND m.kind='card' ORDER BY seq DESC LIMIT 1) AS last_card
         FROM cc_threads t WHERE archived=? ORDER BY updated_ms DESC LIMIT 200`, archived);
-      return {threads: list.map(r => ({...threadView(r), last: r.last_body ? {role: r.last_role, body: r.last_body.slice(0, 200)} : null})), head: head(ctx)};
+      return {threads: list.map(r => ({...threadView(r), last: r.last_body ? {role: r.last_role, kind: r.last_kind, body: r.last_body.slice(0, 200)} : null, card: cardView(r.last_card)})), head: head(ctx)};
     }
     case 'thread.create': {
       if (!owner) fail(403, 'Only the owner starts threads');

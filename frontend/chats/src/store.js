@@ -27,7 +27,7 @@ const save = (key, value) => { try { localStorage.setItem(key, JSON.stringify(va
 const drop = key => { try { localStorage.removeItem(key); } catch {} };
 const sleep = (ms, signal) => new Promise(resolve => { const t = setTimeout(resolve, ms); signal?.addEventListener('abort', () => { clearTimeout(t); resolve(); }, {once: true}); });
 
-export const prefs = Object.assign({enterSends: !matchMedia('(pointer: coarse)').matches, largeText: false, accent: 'ember'}, load(KEY.prefs, {}));
+export const prefs = Object.assign({enterSends: !matchMedia('(pointer: coarse)').matches, largeText: false, accent: 'signal'}, load(KEY.prefs, {}));
 export function setPref(name, value) { prefs[name] = value; save(KEY.prefs, prefs); }
 
 export const drafts = {
@@ -145,8 +145,12 @@ export class Store extends EventTarget {
 
   mergeMessage(m) {
     const thread = this.threads.get(m.threadId);
+    if (thread && m.kind === 'card' && (!thread.card || thread.card.id === m.id || (thread.card.at || 0) <= m.createdAt)) {
+      const meta = m.meta || {};
+      thread.card = {id: m.id, title: meta.title || m.body.split('\n')[0], url: meta.url || null, state: meta.state || null, actions: Array.isArray(meta.actions) ? meta.actions.slice(0, 3) : [], at: m.createdAt};
+    }
     if (thread && ['text', 'question', 'card'].includes(m.kind)) {
-      thread.last = {role: m.role, body: m.body.slice(0, 200)};
+      thread.last = {role: m.role, kind: m.kind, body: m.body.slice(0, 200)};
       thread.updatedAt = Math.max(thread.updatedAt || 0, m.createdAt);
     }
     const list = this.messages.get(m.threadId);
