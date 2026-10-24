@@ -1,10 +1,9 @@
 # Astra (new)
 
 The ground-up rebuild of Astra, the media module. The home tile opens it.
-Classic Astra (`frontend/media/`) still serves `/media/` and is linked from
-Settings while this one settles in; My Media also still loads classic Astra's
-compatibility player from there, so `frontend/media/` cannot retire until
-that moves too.
+Classic Astra (`frontend/media/`) is retired. Its software decoder (libmedia)
+lives on in `frontend/assets/libmedia/`, and My Media hands files Chrome
+refuses to this engine.
 
 Design reference: Nuvio (Android) for screens and behaviour, Stremio's web
 client for browser-only details. Both are GPL; nothing is copied from either.
@@ -182,7 +181,7 @@ never switches pipeline mid-play:
    `src/subtitles/renderer.js`. Files whose timestamps start after zero
    (MPEG-TS) are shifted to start at 0:00.
 4. **Software decoding** (`software.js`): libmedia's AVPlayer (LGPL-3.0,
-   served from classic Astra's folder, loaded only when needed) decodes with
+   served from `frontend/assets/libmedia/`, loaded only when needed) decodes with
    WebCodecs where the browser has the decoder and WebAssembly otherwise,
    into a MediaStream on the same `<video>`, reading through the same range
    reader. The session gives the element the file's clock, so the player,
