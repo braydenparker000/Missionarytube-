@@ -141,7 +141,8 @@ export class AstraPlayer extends EventTarget {
     const controller = new AbortController();
     this.abort = controller;
     try {
-      const probed = await probe(url, {headers, signal: controller.signal, onStatus: t => this.status(t)});
+      this.source = null;
+      const probed = await probe(url, {headers, signal: controller.signal, onStatus: t => this.status(t), onSource: s => { if (id === this.load_) this.source = s; }});
       if (id !== this.load_) { probed.source?.close(); probed.input?.dispose(); return; }
       this.probed = probed;
       // The connection to the host lost and found again while playing (the reader keeps trying meanwhile).

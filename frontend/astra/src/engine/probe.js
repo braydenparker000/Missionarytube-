@@ -13,8 +13,10 @@ import {adaptiveKind} from './plan.js';
  * or {readable: false, error} when a page cannot read it (the planner then
  * hands the address to the browser as-is).
  */
-export async function probe(url, {headers = {}, signal, onStatus = () => {}} = {}) {
+export async function probe(url, {headers = {}, signal, onStatus = () => {}, onSource = () => {}} = {}) {
   const source = new HttpSource(url, {headers});
+  onSource(source); // so the loading screen can say how much has arrived
+  source.probing = true; // read only what describing the file needs; playback may start elsewhere
   onStatus('Opening the file…');
   let opened;
   try {
@@ -36,6 +38,7 @@ export async function probe(url, {headers = {}, signal, onStatus = () => {}} = {
   try { format = await input.getFormat(); } catch (error) {
     input.dispose();
     // The source stays open: the software decoder reads formats Mediabunny does not (the caller closes it otherwise).
+    source.doneProbing();
     return {readable: true, source, info: null, error: new SourceError('format', 'This is not a video file Astra recognises.', String(error?.message || error))};
   }
   const container = String(format.name || '').toLowerCase();
@@ -74,6 +77,7 @@ export async function probe(url, {headers = {}, signal, onStatus = () => {}} = {
     try { subtitles = await readMp4Subtitles((s, e) => source.read(s, e), source.size); } catch {}
   }
   for (const s of subtitles) s.languageName = languageName(s.language);
+  source.doneProbing();
   return {
     readable: true, source, input,
     info: {container: format.name || container, mime: await input.getMimeType().catch(() => ''), size: source.size, duration, video, audio, subtitles, layout},

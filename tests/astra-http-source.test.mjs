@@ -73,6 +73,24 @@ test('a jump far ahead opens a second stream at that block', async () => {
   source.close();
 });
 
+test('while the file is described, streams read only a little ahead; afterwards a jump far away closes the stream nobody reads', async () => {
+  const h = host(200 * BLOCK);
+  const source = new HttpSource('https://media.example.test/a.mkv', {fetchFn: h.fetchFn});
+  source.probing = true;
+  await source.open();
+  await source.read(0, 1000); // the header
+  await new Promise(r => setTimeout(r, 50));
+  assert.ok(source.bytesFetched <= 6 * BLOCK, `read ahead while describing: ${source.bytesFetched / BLOCK} blocks`);
+  await source.read(199 * BLOCK, 199 * BLOCK + 10); // the index at the end: the start stream stays (playback may begin there)
+  assert.equal([...source.streams].some(s => s.position < 10 * BLOCK), true);
+  source.doneProbing();
+  // Resuming halfway: the start stream is closed so it no longer takes the bandwidth.
+  const half = await source.read(100 * BLOCK, 100 * BLOCK + 10);
+  assert.ok(same(half, h.file.subarray(100 * BLOCK, 100 * BLOCK + 10)));
+  assert.deepEqual([...source.streams].map(s => Math.floor(s.position / BLOCK) >= 100), [true]);
+  source.close();
+});
+
 test('a dropped connection is retried, not reported', async () => {
   const h = host(80 * BLOCK, {failFirst: 1});
   const source = new HttpSource('https://media.example.test/a.mkv', {fetchFn: h.fetchFn});
