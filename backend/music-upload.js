@@ -1,7 +1,7 @@
 import {validateAnalysis} from '../frontend/drawercast/audio-analysis.js';
 import {FRONTEND_ORIGINS} from './origins.js';
 import {byteRange} from './music.js';
-import {publicLibrary} from './music-library-cache.js';
+import {publicLibrary,libraryHealth} from './music-library-cache.js';
 import {LIBRARY_KEY,MAX_LIBRARY_BYTES,HEX,SONG_ID,metadata,identityMatches,validateLibrary,boundedBytes,readStoredLibrary,signatureMessage} from '../frontend/drawercast/r2-library.js';
 const AUDIO=/^\/music\/uploads\/audio\/([a-f0-9]{64})\.opus$/;
 const ART=/^\/music\/uploads\/art\/([a-f0-9]{64})\.(jpg|png)$/;
@@ -22,17 +22,18 @@ async function signed(request,env,url){
   if(!await crypto.subtle.verify('Ed25519',publicKey,raw(sig),utf8.encode(signatureMessage({method:request.method,origin:url.origin,path:url.pathname,type,hash:h,size,time,key}))))return null;
   return {size:Number(size),hash:h,type};
 }
+const fnv=bytes=>{let h=0x811c9dc5;for(const b of bytes)h=Math.imul(h^b,0x01000193)>>>0;return h.toString(16).padStart(8,'0')+bytes.length.toString(16);};
 function verifiedBlob(o,sha,size){return o?.size===size&&o.customMetadata?.['verified-sha256']===sha&&o.customMetadata?.verification==='worker-upload-sha256-v1';}
 export async function nativeMusic(request,env){
   const url=new URL(request.url),p=url.pathname;
-  if(p!=='/music/library.json'&&!p.startsWith('/music/library/')&&!p.startsWith('/music/uploads/'))return null;
+  if(p!=='/music/library.json'&&p!=='/music/health'&&!p.startsWith('/music/library/')&&!p.startsWith('/music/uploads/'))return null;
   const origin=request.headers.get('Origin'),headers=new Headers({'Cache-Control':'private, no-store','Vary':'Origin','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'});
   const response=(body,status=200,extra={})=>{const h=new Headers(headers);for(const [k,v]of Object.entries(extra))h.set(k,v);return new Response(request.method==='HEAD'?null:body,{status,headers:h});};
   const json=(data,status=200)=>response(JSON.stringify(data),status,{'Content-Type':'application/json; charset=utf-8'});
   if(origin&&!FRONTEND_ORIGINS.has(origin))return json({error:'Origin not allowed'},403);
   if(origin)headers.set('Access-Control-Allow-Origin',origin);
   headers.set('Access-Control-Allow-Methods','GET, HEAD, OPTIONS');headers.set('Access-Control-Allow-Headers','Range, If-Range, If-None-Match');
-  headers.set('Access-Control-Expose-Headers','Content-Length, Content-Range, Accept-Ranges, ETag, Last-Modified');
+  headers.set('Access-Control-Expose-Headers','Content-Length, Content-Range, Accept-Ranges, ETag, Last-Modified, X-Music-Catalog');
   if(url.search)return json({error:'Query parameters are not supported'},400);
   const upload=p.startsWith('/music/uploads/');
   if(request.method==='OPTIONS')return upload||!['GET','HEAD',null].includes(request.headers.get('Access-Control-Request-Method'))?json({error:'Method not allowed'},405):response(null,204);
@@ -106,10 +107,28 @@ export async function nativeMusic(request,env){
     }
     if(!['GET','HEAD'].includes(request.method))return json({error:'Method not allowed'},405);
     if(env.MUSIC_PUBLIC_READ!=='true')return json({error:'Public music delivery is not enabled'},403);
-    const route=/^\/music\/library\/(audio|art)\/(r2_[A-Za-z0-9_-]+)$/.exec(p);
+    if(p==='/music/health'){
+      try{return json(libraryHealth(await publicLibrary(env.MUSIC_R2)));}
+      catch(error){return json({ok:false,servingLastGood:false,problem:{reason:error.message==='Music library changed'?'The stored catalog changed while reading':'No valid catalog is available'},catalog:null},503);}
+    }
+    const route=/^\/music\/library\/(audio|art|waveform)\/(r2_[A-Za-z0-9_-]+)$/.exec(p);
     if(p!=='/music/library.json'&&(!route||!SONG_ID.test(route[2])))return json({error:'Not found'},404);
     const library=await publicLibrary(env.MUSIC_R2);
-    if(p==='/music/library.json')return response(library.text,200,{'Content-Type':'application/json; charset=utf-8'});
+    // While a broken catalog is replaced, the last valid one is served and says so.
+    if(library.stale)headers.set('X-Music-Catalog','last-good');
+    const unchanged=etag=>request.headers.get('If-None-Match')?.split(',').some(v=>v.trim().replace(/^W\//,'')===etag);
+    if(p==='/music/library.json'){
+      // Revalidated on every read: unchanged costs a 304, not the whole index.
+      headers.set('ETag',library.publicEtag);headers.set('Cache-Control','no-cache');
+      if(unchanged(library.publicEtag))return response(null,304);
+      return response(library.text,200,{'Content-Type':'application/json; charset=utf-8'});
+    }
+    if(route[1]==='waveform'){
+      const bars=library.waves.get(route[2]);if(!bars)return json({error:'Not found'},404);
+      const etag='"wf-'+fnv(bars)+'"';headers.set('ETag',etag);headers.set('Cache-Control','public, max-age=604800');
+      if(unchanged(etag))return response(null,304);
+      return response(bars,200,{'Content-Type':'application/octet-stream','Content-Length':String(bars.length)});
+    }
     const t=library.tracks.get(route[2]);if(!t)return json({error:'Not found'},404);
     const art=route[1]==='art',key=art?t.coverKey:t.audioKey;if(!key)return json({error:'Not found'},404);
     const size=art?t.coverSize:t.size,identity=art?t.coverIdentity:t.r2Identity,sha=art?t.coverSha256:t.sha256;

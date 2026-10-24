@@ -69,6 +69,18 @@ for(const [i,file] of [files[0],files[Math.floor(files.length/2)],files.at(-1)].
   GET:200,HEAD:200,Range:206,suffix:206,invalidRange:416,ETag:304,preflight:204,CORS:true});
  console.log('Verified delivered audio sample '+(i+1)+': hash, decoding, Range and CORS passed.');
 }
+if(native){
+ // The light index: revalidated with its ETag, waveforms served per track, health reported.
+ const etag=manifestResponse.headers.get('etag');assert.ok(etag);
+ const again=await get(endpoint,{headers:{'If-None-Match':etag}});assert.equal(again.status,304);await again.body?.cancel();
+ const waved=manifest.tracks.find(t=>t.waveformBars);
+ if(waved){const wave=await get(api+'/music/library/waveform/'+waved.id);assert.equal(wave.status,200);
+  const bars=Buffer.from(await wave.arrayBuffer());assert.ok(bars.length>=16&&bars.length<=1000);}
+ const health=await get(api+'/music/health');assert.equal(health.status,200);
+ const report=await health.json();assert.equal(report.catalog.count,manifest.count);
+ result.health={ok:report.ok,servingLastGood:report.servingLastGood,usedPercent:report.catalog.usedPercent,waveforms:report.catalog.waveforms};
+ console.log('Verified light index (304 on revalidation), per-track waveforms and health.');
+}
 const denied=await get(endpoint,{headers:{Origin:'https://unapproved.example.test'}});
 assert.equal(denied.status,403);await denied.body?.cancel();
 if(partial){

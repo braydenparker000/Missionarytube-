@@ -10,9 +10,13 @@ const MAX_BYTES = 32 * 1024 * 1024;
 
 const CODECS = {opus: 'OPUS', aac: 'AAC', flac: 'FLAC', mp3: 'MP3', vorbis: 'OGG'};
 
-/** Fetches the index; throws on anything that is not a complete r2-library. */
+/**
+ * Fetches the index; throws on anything that is not a complete r2-library.
+ * The Worker tags it with an ETag, so the browser revalidates its cached copy
+ * and an unchanged index costs a 304, not a download.
+ */
 export async function fetchR2Library(url = R2_LIBRARY_URL, signal) {
-  const r = await fetch(url, {signal, credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer'});
+  const r = await fetch(url, {signal, credentials: 'omit', cache: 'no-cache', redirect: 'error', referrerPolicy: 'no-referrer'});
   if (r.status !== 200 || !/^application\/json/i.test(r.headers.get('content-type') || '')) throw new Error('library index unavailable (' + r.status + ')');
   const len = +(r.headers.get('content-length') || 0);
   if (len > MAX_BYTES) throw new Error('library index too large');
@@ -47,14 +51,14 @@ export function r2Tracks(data, url = R2_LIBRARY_URL) {
       opusHeadGainDb: m.opusHeadGainDb ?? null,
     };
     if (/^video\//.test(t.mimeType || '') || m.video) rec.video = true;
-    // Pre-generated seek-bar waveforms: inline in the index (metadata.waveform),
-    // or a DCW1 file at <base>/waveform/<id> when it marks waveformVersion 1.
-    // Inline base64 waveforms stay compact on the record and decode when the
-    // track plays (Library.ensureWave); arrays decode now.
+    // Pre-generated seek-bar waveforms: served per track at <base>/waveform/<id>
+    // (waveformBars: one byte per bar; waveformVersion 1: a DCW1 file), or
+    // inline in an older index (metadata.waveform). Inline base64 waveforms stay
+    // compact on the record and decode when the track plays (Library.ensureWave).
     const w = m.waveform ?? t.waveform;
     if (typeof w === 'string' && w.length >= 20 && w.length <= 1400) rec.waveB64 = w;
     else if (Array.isArray(w) && decodeWave(w)) rec.wave = decodeWave(w);
-    else if ((t.waveformVersion ?? m.waveformVersion) === 1) rec.waveUrl = base + 'waveform/' + t.id;
+    else if (t.waveformBars === true || (t.waveformVersion ?? m.waveformVersion) === 1) rec.waveUrl = base + 'waveform/' + t.id;
     out.push(rec);
   }
   return out;
@@ -90,7 +94,11 @@ export function parseDcw1(bytes) {
   return {durationMs: ms, peaks: bytes.subarray(16)};
 }
 
-/** Fetches a DCW1 file (bounded size, 3 s timeout); null when absent or invalid. */
+/**
+ * Fetches a track's waveform (bounded size, 3 s timeout): a DCW1 file, or
+ * plain bars (one peak byte per bar, 16 to 1000). Returns {durationMs, peaks}
+ * (durationMs 0 for plain bars), or null when absent or invalid.
+ */
 export async function fetchWaveform(url) {
   const max = 16 + Math.ceil((DCW_MAX_MS * DCW_RATE) / 1000);
   const ctl = new AbortController();
@@ -110,7 +118,8 @@ export async function fetchWaveform(url) {
     const bytes = new Uint8Array(n);
     let at = 0;
     for (const c of chunks) { bytes.set(c, at); at += c.length; }
-    return parseDcw1(bytes);
+    if (n >= 4 && new DataView(bytes.buffer).getUint32(0) === DCW1) return parseDcw1(bytes);
+    return n >= 16 && n <= 1000 ? {durationMs: 0, peaks: bytes} : null;
   } catch {
     return null;
   } finally {

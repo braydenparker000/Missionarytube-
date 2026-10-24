@@ -109,7 +109,7 @@ test('repeated range and catalog reads reuse validation but still check live cat
   f.objects.get('native/audio/'+sha(audio)+'.opus').customMetadata.verification='altered';
   assert.equal((await f.get(path)).status,503);
 });
-test('a cached catalog immediately sees registration, removal, invalid replacement and deletion',async()=>{
+test('a cached catalog immediately sees registration and removal; an invalid replacement or deletion keeps the last valid one, reported',async()=>{
   const f=fixture();await f.putAudio();await f.register(f.registration());
   const first=await (await f.get('/music/library.json')).json(),path='/music/library/audio/'+first.tracks[0].id;
   const b=Buffer.concat([audio,Buffer.from('later upload')]);await f.putAudio(b);await f.register(f.registration(b));
@@ -118,9 +118,44 @@ test('a cached catalog immediately sees registration, removal, invalid replaceme
   await f.env.MUSIC_R2.put(LIBRARY_KEY,JSON.stringify(latest));
   assert.equal((await f.get(path)).status,404);
   latest.count=99;await f.env.MUSIC_R2.put(LIBRARY_KEY,JSON.stringify(latest));
-  assert.equal((await f.get('/music/library.json')).status,503);
-  assert.equal((await f.get('/music/library/audio/'+latest.tracks[0].id)).status,503);
-  f.objects.delete(LIBRARY_KEY);assert.equal((await f.get('/music/library.json')).status,503);
+  const kept=await f.get('/music/library.json');
+  assert.equal(kept.status,200);assert.equal(kept.headers.get('X-Music-Catalog'),'last-good');assert.equal((await kept.json()).count,1);
+  assert.equal((await f.get('/music/library/audio/'+latest.tracks[0].id)).status,200,'music keeps playing');
+  assert.equal((await f.get(path)).status,404,'what the last valid catalog removed stays removed');
+  let health=await (await f.get('/music/health')).json();
+  assert.deepEqual([health.ok,health.servingLastGood,health.problem.reason,health.catalog.count],[false,true,'The stored catalog is invalid',1]);
+  // A fresh Worker (no memory) finds the copy the last valid catalog left in R2.
+  const fresh={...f.env,MUSIC_R2:{...f.env.MUSIC_R2}};
+  const cold=await nativeMusic(new Request(api+'/music/library.json',{headers:{Origin:origin}}),fresh);
+  assert.equal(cold.status,200);assert.equal(cold.headers.get('X-Music-Catalog'),'last-good');assert.equal((await cold.json()).count,1);
+  f.objects.delete(LIBRARY_KEY);assert.equal((await f.get('/music/library.json')).status,200,'a deleted catalog too');
+  latest.count=1;await f.env.MUSIC_R2.put(LIBRARY_KEY,JSON.stringify(latest));
+  health=await (await f.get('/music/health')).json();assert.deepEqual([health.ok,health.servingLastGood,health.problem],[true,false,null]);
+  assert.equal((await f.get('/music/library.json')).headers.get('X-Music-Catalog'),null,'a valid catalog is served again');
+  // With no valid catalog ever seen, there is nothing to fall back to.
+  const empty=fixture();await empty.env.MUSIC_R2.put(LIBRARY_KEY,'{"broken":');
+  assert.equal((await empty.get('/music/library.json')).status,503);
+  assert.equal((await empty.get('/music/health')).status,503);
+});
+
+test('phones download a light index: waveforms come per track, and an unchanged index costs a 304',async()=>{
+  const f=fixture();await f.putAudio();await f.register(f.registration());
+  // Waveforms are written into the stored catalog (today by Muse, directly).
+  const stored=JSON.parse(f.objects.get(LIBRARY_KEY).bytes.toString());
+  const bars=Buffer.from(Array.from({length:500},(_,i)=>i%256));stored.tracks[0].metadata.waveform=bars.toString('base64');
+  await f.env.MUSIC_R2.put(LIBRARY_KEY,JSON.stringify(stored));
+  const res=await f.get('/music/library.json'),etag=res.headers.get('ETag'),index=await res.json(),t=index.tracks[0];
+  assert.equal(t.metadata.waveform,undefined);assert.equal(t.waveformBars,true);validateLibrary(index);
+  assert.equal(res.headers.get('Cache-Control'),'no-cache');assert.match(etag,/^"[^"]+-p1"$/);
+  assert.equal((await f.get('/music/library.json',{'If-None-Match':etag})).status,304);
+  const wave=await f.get('/music/library/waveform/'+t.id);
+  assert.equal(wave.status,200);assert.equal(wave.headers.get('Content-Type'),'application/octet-stream');
+  assert.deepEqual(Buffer.from(await wave.arrayBuffer()),bars);
+  assert.equal((await f.get('/music/library/waveform/'+t.id,{'If-None-Match':wave.headers.get('ETag')})).status,304);
+  assert.equal((await f.get('/music/library/waveform/r2_native_'+'f'.repeat(64))).status,404);
+  const health=await (await f.get('/music/health')).json();
+  assert.deepEqual([health.ok,health.catalog.count,health.catalog.waveforms],[true,1,1]);
+  assert.ok(health.catalog.publicBytes<f.objects.get(LIBRARY_KEY).size);
 });
 test('catalog cache is isolated by storage binding and fails closed on replacement between HEAD and GET',async()=>{
   const f=fixture(),other=fixture();await f.putAudio();await f.register(f.registration());
@@ -133,7 +168,9 @@ test('catalog cache is isolated by storage binding and fails closed on replaceme
   assert.equal((await other.get('/music/library.json')).status,503);
   assert.equal((await (await other.get('/music/library.json')).json()).generatedAt,'2026-10-03T00:00:00Z');
   other.objects.get(LIBRARY_KEY).size=16*1024*1024+1;
-  assert.equal((await other.get('/music/library.json')).status,503);
+  const over=await other.get('/music/library.json');
+  assert.equal(over.status,200,'an oversized catalog keeps the last valid one');assert.equal(over.headers.get('X-Music-Catalog'),'last-good');
+  assert.equal((await (await other.get('/music/health')).json()).problem.reason,'The stored catalog is over the size limit');
 });
 test('native source preserves prior migrated track identity and source-local user state',()=>{
   const id='r2_legacyDriveID123',t={id,audioKey:'audio/legacyDriveID123/'+'b'.repeat(32)+'.opus',sha256:'a'.repeat(64),md5:'b'.repeat(32),size:64,

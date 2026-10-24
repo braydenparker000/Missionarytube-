@@ -69,8 +69,8 @@ export async function boundedBytes(body,max){
   finally{await reader.cancel();}
   const bytes=new Uint8Array(size);let at=0;for(const p of parts){bytes.set(p,at);at+=p.byteLength;}return bytes;
 }
-export async function readStoredLibrary(bucket,{etagMatches}={}){
-  const object=await bucket.get(LIBRARY_KEY,etagMatches?{onlyIf:{etagMatches}}:undefined);
+export async function readStoredLibrary(bucket,{etagMatches,key=LIBRARY_KEY}={}){
+  const object=await bucket.get(key,etagMatches?{onlyIf:{etagMatches}}:undefined);
   if(!object?.body||object.size>MAX_LIBRARY_BYTES){await object?.body?.cancel();fail();}
   const bytes=await boundedBytes(object.body,MAX_LIBRARY_BYTES);if(bytes.length!==object.size)fail();
   const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);let pruned=false;
