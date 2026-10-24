@@ -88,7 +88,7 @@ export class App {
     const close = this.pages.at(-1).close;
     this.pages.at(-1).close = () => { if (this.store.openKey === key) this.store.openKey = null; close(); };
     // Focus the composer on a fresh chat; elsewhere leave the keyboard down.
-    if (!this.store.thread?.(key)?.length && key !== MUSE) requestAnimationFrame(() => screen.input.focus());
+    if (key !== MUSE && !this.store.thread(key).length) requestAnimationFrame(() => screen.input.focus());
   }
 
   newChat() {
