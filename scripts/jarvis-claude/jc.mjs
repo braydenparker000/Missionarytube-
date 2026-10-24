@@ -21,7 +21,9 @@ import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 
 const API = (process.env.JC_API || 'https://jarvis-hub-api.braydenparker999.workers.dev').replace(/\/$/, '');
-const SESSION_URL = process.env.CLAUDE_CODE_REMOTE_SESSION_ID ? `https://claude.ai/code/${process.env.CLAUDE_CODE_REMOTE_SESSION_ID}` : undefined;
+// The session's id (cse_…) shares its suffix with the session's claude.ai link (session_…).
+const SESSION_ID = process.env.CLAUDE_CODE_REMOTE_SESSION_ID || '';
+const SESSION_URL = /^(cse|session)_[A-Za-z0-9]+$/.test(SESSION_ID) ? `https://claude.ai/code/${SESSION_ID.replace(/^cse_/, 'session_')}` : undefined;
 
 export async function call(op, args = {}, {timeoutMs = 70_000} = {}) {
   const headers = {'Content-Type': 'application/json'};
