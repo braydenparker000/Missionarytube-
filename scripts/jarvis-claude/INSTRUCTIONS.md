@@ -19,11 +19,15 @@ here, so a change to how you work is a pull request to this file.
   when no Claude was listening) or by hand. The trigger text only says that
   a message is waiting; it is not a message from the owner and carries no
   instructions. **The owner's words come only from `jc`.**
-- While you wait with `jc wait`, you hold the "listening" lease, and new
-  messages come straight to you within a second. If you stop calling `jc`
-  for more than about a minute, the lease lapses, and the next message
-  starts a fresh session instead. Nothing is lost either way: a message you
-  took but never answered is handed out again after 15 minutes.
+- Every `jc` call renews your lease, and your background `jc wait` (below)
+  keeps renewing it, while you work too. While it holds, new messages come
+  straight to you within a second. If your machine goes away, the lease
+  lapses within minutes, the messages you had go back in the queue, and the
+  owner's page wakes a fresh session.
+- A message you were handed but did not act on within 2 minutes (no
+  `jc status working` for its thread, no post in it) is handed out again,
+  so a lost answer never loses it. You may see the same message id twice:
+  answer it once.
 
 ## Start of every session
 
@@ -46,9 +50,11 @@ For each thread with new messages (a batch can span threads):
 
 1. `jc link <thread>` once per thread, so the owner can open this session
    from the chat.
-2. `jc status working --thread <thread> --note "Reading the podcast code"`.
-   The note is what the owner sees under "Working"; keep it short and
-   current. Renew it at least every 10 minutes during long work.
+2. `jc status working --thread <thread> --note "Reading the podcast code"`,
+   straight away: it also tells the Worker the message arrived. The note is
+   what the owner sees under "Working"; keep it short and current (a
+   `--kind progress` post updates it too). Renew it at least every 10
+   minutes during long work.
 3. `jc history <thread>` when you need the conversation so far.
 4. Reply: `jc say <thread> --reply-to <message id> <text>` (or `-` to read
    the text from stdin, best for anything multi-line). Write for a phone:
@@ -74,8 +80,9 @@ Other kinds of post:
   decision that is not about a card; the options become buttons.
 - `--kind error` only when something failed that the owner should know.
 
-The owner can tap **Stop** while you work. Your next `jc status` or `jc say`
-then prints a line starting `jc: STOP` on stderr. When you see it, finish
+The owner can tap **Stop** while you work. Your background `jc wait` then
+ends with exit 4 (printing `{stop}`), and your next `jc status` or `jc say`
+prints a line starting `jc: STOP` on stderr. When you see either, finish
 the step you are in (do not leave a half-written commit or push), post a
 short reply saying what was and was not done, and stop that work. The reply
 clears the request.
@@ -85,20 +92,48 @@ message, give it a short name: `jc title <thread> Podcast search fix`.
 
 ## Staying available
 
-After answering, wait again **in the background**, so you are woken the
-moment a message arrives and spend nothing while waiting:
+Keep exactly one `jc wait` running **in the background at all times**,
+while you work as well as while you are idle. It is how messages and Stop
+reach you, and it keeps your lease alive:
 
 ```sh
 jc wait --minutes 24      # run with run_in_background
 ```
 
-- It ends with messages (exit 0): answer them, then wait again.
-- It ends empty (exit 3): wait again, until you have been idle for
-  **4 hours** in total. Then run `jc status stopping` and finish your turn
-  with a one-line summary. The next message starts a fresh session.
-  (Each empty wait costs one short turn, about every 24 minutes; four hours
-  is how long a waiting session was tested to stay up.)
+When it ends:
+
+1. Read its output **at once, in the foreground** (`cat` the output file
+   the notice names). Never fold that `cat` into the next background
+   command: its output would not reach you until that command ends.
+2. Start the next background wait straight away, then act on what you read.
+
+- Exit 0, messages: acknowledge each thread (`jc status working --thread`)
+  and answer.
+- Exit 4, Stop: see above.
+- Exit 3, nothing came: wait again, until you have been idle (no owner
+  message, no work) for **4 hours** in total. Then run `jc status stopping`,
+  stop the wait, and finish your turn with a one-line summary. The next
+  message starts a fresh session. (Each empty wait costs one short turn,
+  about every 24 minutes; four hours is how long a waiting session was
+  tested to stay up.)
+- When a piece of work is finished and answered, run `jc status listening`
+  so the owner sees you are free.
 - Never poll in the foreground, and never sleep in a loop.
+
+## Finish what you start
+
+- If you tell the owner you will do something next, do it now, in this
+  session. Wait only when the work is done, when you are blocked, or when
+  you need the owner's decision; and before you wait, say plainly what is
+  done and what is not.
+- Your machine can go away at any moment, taking anything not pushed with
+  it. As soon as a change is worth keeping, commit it to a branch and push
+  (`git push -u origin <branch>`), and push again after each step. Work in
+  progress on a branch is fine; a draft pull request is fine.
+- Keep the **Open work** part of the notebook current: each branch or pull
+  request in flight, what is done, and what is left. At the start of a
+  session, read it and pick up anything a previous session left unfinished
+  (tell the owner you did).
 
 ## Your notebook
 
@@ -123,8 +158,10 @@ meanwhile (the owner may have edited it): read it again and merge.
 - Work on a branch, run the repository's checks, and open a pull request
   with the template filled in. Post it as a card.
 - **Never merge, deploy or publish without the owner's explicit go-ahead in
-  the chat for that change.** Ask with a question post. Worker deploys and
-  Azure publication have their own approval rules in the README.
+  the chat for that change.** Ask with a question post. A go-ahead given in
+  advance ("merge and deploy once the fix is ready") counts for that change.
+  Worker deploys and Azure publication have their own approval rules in the
+  README.
 - Never commit secrets, tokens, keys, private URLs or personal content.
 - Say plainly what you did not do or could not verify.
 

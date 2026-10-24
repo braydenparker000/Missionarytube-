@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {execFile, spawn} from 'node:child_process';
 import {promisify} from 'node:util';
+import {mkdtempSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {createRelayFixture} from '../backend/tests/relay-fixture.js';
 
 const run = promisify(execFile);
@@ -21,7 +24,10 @@ test('jc waits for owner messages, answers, reports status, links the session an
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => { server.close(); fixture.close?.(); });
-  const env = {...process.env, JC_API: `http://127.0.0.1:${server.address().port}`, JC_KEY: key, CLAUDE_CODE_REMOTE_SESSION_ID: 'cse_01Test'};
+  // jc remembers the last Stop it reported in the temp directory: a fresh one per run.
+  const TMPDIR = mkdtempSync(join(tmpdir(), 'jc-test-'));
+  t.after(() => rmSync(TMPDIR, {recursive: true, force: true}));
+  const env = {...process.env, TMPDIR, JC_API: `http://127.0.0.1:${server.address().port}`, JC_KEY: key, CLAUDE_CODE_REMOTE_SESSION_ID: 'cse_01Test'};
   const jc = (...args) => run(process.execPath, [JC, ...args], {env, timeout: 30_000}).then(r => ({code: 0, out: r.stdout, err: r.stderr}), e => ({code: e.code, out: e.stdout, err: e.stderr}));
 
   // The owner's side, straight into the store.
@@ -57,6 +63,17 @@ test('jc waits for owner messages, answers, reports status, links the session an
   const heard = await jc('status', 'working', '--thread', thread, '--note', 'Still working');
   assert.match(heard.err, /STOP: the owner asked you to stop/);
   assert.doesNotMatch((await jc('say', thread, 'Stopped.')).err, /STOP/, 'the reply clears it');
+
+  // Claude keeps a wait running in the background while it works: a Stop ends it at once, once.
+  await jc('status', 'working', '--thread', thread, '--note', 'Another job');
+  claudeChatStore(ctx, {who: 'owner', op: 'stop', args: {threadId: thread}});
+  const stopped = await jc('wait', '--minutes', '0.2');
+  assert.equal(stopped.code, 4);
+  assert.equal(JSON.parse(stopped.out).stop.threadId, thread);
+  assert.equal((await jc('wait', '--minutes', '0.02')).code, 3, 'the same Stop does not end the next wait');
+  status = claudeChatStore(ctx, {who: 'owner', op: 'status'}).status;
+  assert.deepEqual([status.state, status.note], ['working', 'Another job'], 'and waiting did not end the work');
+  await jc('say', thread, 'Stopped.');
 
   assert.equal((await jc('notebook')).code, 0);
   const written = await new Promise(resolve => {

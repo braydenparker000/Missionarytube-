@@ -9,7 +9,8 @@
 // would skip the proxy and arrive without the key.
 //
 //   jc wait [--minutes 24]      wait for owner messages; prints them as JSON and
-//                               exits 0, or exits 3 when the time is up with none
+//                               exits 0, exits 3 when the time is up with none, or
+//                               exits 4 (printing {stop}) when the owner taps Stop
 //   jc history <thread> [--limit 40]
 //   jc say <thread> [--reply-to <id>] [--kind text|progress|question|card] [--meta JSON] <text | ->
 //   jc status working|listening|stopping [--thread <id>] [--note text]
@@ -24,7 +25,9 @@
 // and jc prints a STOP line on stderr: finish the step, report, and stop.
 
 import {randomUUID} from 'node:crypto';
-import {readFileSync} from 'node:fs';
+import {readFileSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 
 const API = (process.env.JC_API || 'https://jarvis-hub-api.braydenparker999.workers.dev').replace(/\/$/, '');
@@ -53,15 +56,20 @@ function parse(argv) {
 const stdin = () => readFileSync(0, 'utf8');
 const out = value => process.stdout.write(JSON.stringify(value, null, 2) + '\n');
 
+// The last Stop this machine's waits reported, so each Stop ends one wait only.
+const STOP_SEEN = join(tmpdir(), 'jc-stop-seen');
+const stopSeen = () => { try { return Number(readFileSync(STOP_SEEN, 'utf8')) || 0; } catch { return 0; } };
+
 async function wait(minutes) {
   const deadline = Date.now() + minutes * 60_000;
   let failures = 0;
   while (Date.now() < deadline) {
     try {
       const left = deadline - Date.now();
-      const {messages} = await call('take', {wait: Math.min(50_000, Math.max(1000, left)), sessionUrl: SESSION_URL});
+      const {messages, stop} = await call('take', {wait: Math.min(50_000, Math.max(1000, left)), sessionUrl: SESSION_URL, stopSeen: stopSeen()});
       failures = 0;
       if (messages.length) { out({messages}); return 0; }
+      if (stop) { try { writeFileSync(STOP_SEEN, String(stop.at)); } catch {} out({stop}); return 4; }
     } catch (error) {
       // The lease lapses after ~75 s without a call, so keep trying, gently.
       if (error.status === 401 || error.status === 403) { console.error(`jc: refused (${error.status}): ${error.message}`); return 2; }

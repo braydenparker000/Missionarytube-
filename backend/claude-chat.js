@@ -4,12 +4,18 @@
 // One Durable Object (CLAUDE_CHAT_OBJECT) holds every thread, message and the
 // notebook (Claude's long-term memory), plus two pieces of live state:
 //
-// - the listener lease: a Claude session that is waiting for messages (or
-//   working on one) renews it; while it holds, new messages are handed to it
-//   through a long poll and nothing else is started;
+// - the listener lease: a Claude session renews it with every call (its
+//   background long poll keeps it fresh, also while it works); while it
+//   holds, new messages are handed to it and nothing else is started. When a
+//   session's machine goes away, the lease lapses within minutes;
 // - the wake: when no session holds the lease, sending a message fires the
 //   "Jarvis Claude" scheduled task (its API trigger), which starts a fresh
-//   cloud session. A fire is attempted at most once per WAKE_BACKOFF_MS.
+//   cloud session. A fire is attempted at most once per WAKE_BACKOFF_MS. The
+//   owner's page polling also re-fires when messages wait and the session
+//   that had them is gone, a few times at most before the owner writes again;
+// - delivery is acknowledged: a message handed to a session that shows no
+//   sign of acting on it (no status for its thread, no post) within ACK_MS is
+//   handed out again, so a lost reply or a missed wait never loses it.
 //
 // The owner's page reads changes after a sequence number (also as a long
 // poll), so replies, progress notes and status appear without refreshing.
@@ -19,8 +25,11 @@ import {FRONTEND_ORIGINS} from './origins.js';
 
 export const CLAUDE_CHAT_OBJECT = 'claude-chat-v1';
 export const LEASE_WAIT_MS = 75_000; // a long poll renews the lease for this long
-export const LEASE_WORK_MS = 15 * 60_000; // "working" renews it for this long
+export const LEASE_WORK_MS = 5 * 60_000; // "working" (a status or progress post) renews it for this long
+export const WORK_SHOWN_MS = 15 * 60_000; // the page shows "working" this long after the last working signal
 export const WAKE_BACKOFF_MS = 3 * 60_000; // a fired session gets this long to show up
+export const AUTO_WAKES = 3; // re-fires without any Claude post in between, before waiting for the owner
+export const ACK_MS = 2 * 60_000; // a handed-out message nobody acts on this long is handed out again
 export const STRANDED_MS = 15 * 60_000; // a delivered message unanswered this long is handed out again
 export const MAX_WAIT_MS = 55_000;
 const LIMITS = {title: 120, body: 20_000, note: 500, notebook: 60_000, meta: 4_000};
@@ -103,20 +112,35 @@ export function leaseView(ctx, now) {
   const lease = getState(ctx, 'lease');
   const wake = getState(ctx, 'wake');
   const alive = !!lease && lease.until > now;
+  const working = alive && isWorking(lease, now);
   return {
-    alive, state: alive ? lease.state : 'offline', threadId: alive ? lease.threadId || null : null,
+    alive, state: !alive ? 'offline' : working ? 'working' : lease.state === 'stopping' ? 'stopping' : 'listening', threadId: working ? lease.threadId || null : null,
     stopRequested: alive && lease.stop ? lease.stop.threadId || true : null,
-    note: alive ? lease.note || null : null, sessionUrl: lease?.sessionUrl || wake?.sessionUrl || null,
+    note: working ? lease.note || null : null, sessionUrl: lease?.sessionUrl || wake?.sessionUrl || null,
     lastSeen: lease?.seen || null,
     wake: wake ? {at: wake.at, ok: wake.ok, error: wake.error || null, starting: !alive && wake.ok && now - wake.at < WAKE_BACKOFF_MS} : null,
   };
 }
-function renew(ctx, now, patch) {
+const isWorking = (lease, now) => lease?.state === 'working' && now - (lease.workAt || 0) < WORK_SHOWN_MS;
+
+/**
+ * Renews the lease. `state` 'working' (with its thread and note) marks work and
+ * holds the lease for LEASE_WORK_MS; 'listening' ends work; 'stopping' lets go
+ * at once. With no state (a take, a post) the session is only known to be
+ * alive, and work in progress stays as it is.
+ */
+function renew(ctx, now, {state, threadId, note, sessionUrl} = {}) {
   const prior = getState(ctx, 'lease') || {};
-  patch = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)); // absent keys keep their value
-  const state = patch.state || prior.state || 'listening';
-  const until = state === 'stopping' ? now : now + (state === 'working' ? LEASE_WORK_MS : LEASE_WAIT_MS);
-  const lease = {...prior, ...patch, state, seen: now, until};
+  const held = prior.until > now ? prior.until : 0;
+  let lease = {...prior, seen: now};
+  if (sessionUrl !== undefined) lease.sessionUrl = sessionUrl;
+  if (state === 'stopping') lease = {...lease, state, threadId: null, note: null, until: now};
+  else if (state === 'working') {
+    lease = {...lease, state, workAt: now, until: Math.max(held, now + LEASE_WORK_MS)};
+    if (threadId !== undefined) lease.threadId = threadId;
+    if (note !== undefined) lease.note = note;
+  } else if (state === 'listening' || !isWorking(prior, now) || !held) lease = {...lease, state: 'listening', threadId: null, note: null, until: Math.max(held, now + LEASE_WAIT_MS)};
+  else lease.until = Math.max(held, now + LEASE_WAIT_MS);
   setState(ctx, 'lease', lease);
   return lease;
 }
@@ -139,9 +163,37 @@ export function shouldWake(ctx, now) {
   const wake = getState(ctx, 'wake');
   return !wake || now - wake.at >= WAKE_BACKOFF_MS;
 }
+/** Holds the wake window before the fire leaves, so two requests never fire twice. */
+function claimWake(ctx, now) {
+  const prior = getState(ctx, 'wake') || {};
+  setState(ctx, 'wake', {at: now, ok: true, error: null, sessionUrl: null, tries: (prior.tries || 0) + 1});
+}
 export function recordWake(ctx, now, result) {
-  setState(ctx, 'wake', {at: now, ok: !!result.ok, error: result.error || null, sessionUrl: result.sessionUrl || null});
+  const prior = getState(ctx, 'wake') || {};
+  const claimed = prior.at && now - prior.at < WAKE_BACKOFF_MS;
+  setState(ctx, 'wake', {at: claimed ? prior.at : now, ok: !!result.ok, error: result.error || null, sessionUrl: result.sessionUrl || null, tries: claimed ? prior.tries || 1 : (prior.tries || 0) + 1});
   change(ctx, 'status', null, now);
+}
+
+/**
+ * For the owner's page: messages wait, no session holds the lease, and the
+ * last one did not say it was stopping (it vanished), so wake another. The
+ * messages it had go back in the queue. At most AUTO_WAKES fires in a row
+ * without a Claude post; then only the owner's next message fires.
+ * Returns the message to name in the fire, or null.
+ */
+export function wakeDue(ctx, now) {
+  claudeChatSchema(ctx);
+  return ctx.storage.transactionSync(() => {
+    const lease = getState(ctx, 'lease');
+    if (lease && lease.until > now) return null;
+    if ((getState(ctx, 'wake')?.tries || 0) >= AUTO_WAKES || !shouldWake(ctx, now)) return null;
+    if (lease && lease.state !== 'stopping') requeueStranded(ctx, now, {sessionChanged: true});
+    const next = one(ctx, `SELECT id, thread_id FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NULL ORDER BY seq LIMIT 1`);
+    if (!next) return null;
+    claimWake(ctx, now);
+    return {threadId: next.thread_id, messageId: next.id};
+  });
 }
 
 // Delivered but unanswered for too long, with nobody holding the lease: the
@@ -154,6 +206,27 @@ function requeueStranded(ctx, now, {sessionChanged = false} = {}) {
   const stranded = rows(ctx, `SELECT id FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NOT NULL AND delivered_ms < ?`, cutoff);
   for (const r of stranded) ctx.storage.sql.exec('UPDATE cc_messages SET delivered_ms=NULL WHERE id=?', r.id);
   return stranded.length;
+}
+// Claude acts on a thread (a working status for it, or any post in it):
+// what it was handed there has arrived.
+function acknowledge(ctx, threadId, now) {
+  const acks = getState(ctx, 'acks', {});
+  for (const [key, at] of Object.entries(acks)) if (now - at > 86_400_000) delete acks[key];
+  acks[threadId] = now;
+  setState(ctx, 'acks', acks);
+}
+// Handed out, but the session showed no sign of acting on its thread since:
+// its reply or its wait's output was lost. Hand it out again, to whoever takes next.
+function requeueUnacknowledged(ctx, now) {
+  const acks = getState(ctx, 'acks', {});
+  const list = rows(ctx, `SELECT id, thread_id, delivered_ms FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NOT NULL AND delivered_ms < ?`, now - ACK_MS);
+  let n = 0;
+  for (const r of list) {
+    if ((acks[r.thread_id] || 0) >= r.delivered_ms) continue;
+    ctx.storage.sql.exec('UPDATE cc_messages SET delivered_ms=NULL WHERE id=?', r.id);
+    n++;
+  }
+  return n;
 }
 const pendingCount = ctx => one(ctx, `SELECT COUNT(*) AS n FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NULL`).n;
 
@@ -226,7 +299,9 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
         ctx.storage.sql.exec('UPDATE cc_threads SET updated_ms=?, archived=0 WHERE id=?', now, t.id);
         requeueStranded(ctx, now);
         change(ctx, 'message', messageId, now);
-        return {message: messageView(one(ctx, 'SELECT * FROM cc_messages WHERE id=?', messageId)), wake: shouldWake(ctx, now)};
+        const wake = shouldWake(ctx, now);
+        if (wake) claimWake(ctx, now);
+        return {message: messageView(one(ctx, 'SELECT * FROM cc_messages WHERE id=?', messageId)), wake};
       });
     }
     case 'post': {
@@ -251,6 +326,13 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
           ctx.storage.sql.exec(`UPDATE cc_messages SET answered_ms=?, delivered_ms=COALESCE(delivered_ms,?) WHERE thread_id=? AND role='owner' AND answered_ms IS NULL AND created_ms<=?`, now, now, threadId, now);
           clearStop(ctx, threadId);
         }
+        acknowledge(ctx, threadId, now);
+        // A post shows the session is alive (a progress note, that it works on this thread),
+        // and that the wakes reached a session that answers.
+        if (getState(ctx, 'lease')?.until > now || kind === 'progress') renew(ctx, now, kind === 'progress' ? {state: 'working', threadId, note: body.split('\n')[0].slice(0, LIMITS.note)} : {});
+        const wake = getState(ctx, 'wake');
+        if (wake?.tries) setState(ctx, 'wake', {...wake, tries: 0});
+        if (kind === 'progress') change(ctx, 'status', threadId, now);
         change(ctx, 'message', messageId, now);
         return {message: messageView(one(ctx, 'SELECT * FROM cc_messages WHERE id=?', messageId)), stop: pendingStop(ctx)};
       });
@@ -260,12 +342,20 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
       if (owner) fail(403, 'Only Claude takes messages');
       return tx(() => {
         requeueStranded(ctx, now, {sessionChanged: true});
-        renew(ctx, now, {state: 'listening', sessionUrl: args.sessionUrl ? sessionLink(args.sessionUrl) : undefined});
-        clearStop(ctx);
+        requeueUnacknowledged(ctx, now);
+        const before = leaseView(ctx, now);
+        // A take while working (the background wait) keeps the work, and any Stop, as they are.
+        const lease = renew(ctx, now, {sessionUrl: args.sessionUrl ? sessionLink(args.sessionUrl) : undefined});
+        if (!isWorking(lease, now)) clearStop(ctx);
+        if (before.state !== leaseView(ctx, now).state) change(ctx, 'status', null, now);
         const list = rows(ctx, `SELECT * FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NULL ORDER BY seq LIMIT 20`);
         for (const r of list) ctx.storage.sql.exec('UPDATE cc_messages SET delivered_ms=? WHERE seq=?', now, r.seq);
         if (list.length) change(ctx, 'delivered', null, now);
-        return {messages: list.map(messageView), pending: pendingCount(ctx)};
+        const stop = pendingStop(ctx);
+        // `stopSeen` is the Stop this session already heard; a newer one ends its wait.
+        // (A jc that does not send it never hears Stop here, so its wait cannot spin.)
+        const heard = args.stopSeen === undefined ? Infinity : Number(args.stopSeen) || 0;
+        return {messages: list.map(messageView), pending: pendingCount(ctx), stop: stop && stop.at > heard ? stop : null};
       });
     }
     case 'status': {
@@ -275,8 +365,9 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
       return tx(() => {
         const note = text(args.note, LIMITS.note, 'note', {required: false});
         const threadId = args.threadId ? id(args.threadId, 'threadId') : null;
-        renew(ctx, now, {state, note, threadId, sessionUrl: args.sessionUrl ? sessionLink(args.sessionUrl) : undefined});
+        renew(ctx, now, {state, note: note ?? undefined, threadId: threadId ?? undefined, sessionUrl: args.sessionUrl ? sessionLink(args.sessionUrl) : undefined});
         if (state !== 'working') clearStop(ctx);
+        if (state === 'working' && (threadId || getState(ctx, 'lease')?.threadId)) acknowledge(ctx, threadId || getState(ctx, 'lease').threadId, now);
         change(ctx, 'status', threadId, now);
         return {status: leaseView(ctx, now), stop: pendingStop(ctx)};
       });
@@ -288,7 +379,7 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
       const threadId = args.threadId ? id(args.threadId, 'threadId') : null;
       return tx(() => {
         const lease = getState(ctx, 'lease');
-        if (!lease || lease.until <= now || lease.state !== 'working') return {status: leaseView(ctx, now), stopped: false};
+        if (!lease || lease.until <= now || !isWorking(lease, now)) return {status: leaseView(ctx, now), stopped: false};
         setState(ctx, 'lease', {...lease, stop: {threadId: threadId || lease.threadId || null, at: now}});
         change(ctx, 'status', threadId, now);
         return {status: leaseView(ctx, now), stopped: true};
@@ -377,13 +468,18 @@ export async function fireClaude(env, {threadId, messageId}, fetchFn = fetch) {
 // ——— Inside the Durable Object ———
 const WAITING_OPS = new Set(['take', 'changes']);
 // A parked `changes` returns on any change (a status change too, so the page shows "working" at once).
-const emptyResult = (op, result) => op === 'take' ? !result.messages.length : !result.changed;
+const emptyResult = (op, result) => op === 'take' ? !result.messages.length && !result.stop : !result.changed;
 
 /** Runs one operation; `take` and `changes` with args.wait park until something changes. */
 export async function claudeChatInternal(ctx, env, input, {fetchFn = fetch, now = () => Date.now()} = {}) {
   try {
     const wait = Math.min(Math.max(0, Number(input?.args?.wait) || 0), MAX_WAIT_MS);
     const deadline = now() + wait;
+    // The owner's page polls: if messages wait and their session vanished, wake another.
+    if (input?.who === 'owner' && (input.op === 'changes' || input.op === 'status')) {
+      const due = wakeDue(ctx, now());
+      if (due) recordWake(ctx, now(), await fireClaude(env, due, fetchFn));
+    }
     let result = claudeChatStore(ctx, input, now());
     while (WAITING_OPS.has(input.op) && wait && emptyResult(input.op, result) && now() < deadline) {
       await nextChange(ctx, deadline - now());

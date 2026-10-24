@@ -21,10 +21,12 @@ the plan, and no server to keep running.
    └ node scripts/jarvis-claude/jc.mjs  →  POST /claude-chat/agent
 ```
 
-- **Listening.** A session waits with `jc wait`, a long poll that renews a
-  75-second lease. Messages sent meanwhile reach it at once. While it works,
-  `jc status working` holds the lease for 15 minutes and shows the owner
-  what it is doing.
+- **Listening.** A session always keeps a `jc wait` running in the
+  background, a long poll that renews a 75-second lease, also while it
+  works. Messages and Stop reach it within a second. `jc status working`
+  (or a progress post) shows the owner what it is doing and holds the lease
+  for 5 minutes on its own, so a session whose machine goes away is noticed
+  within minutes.
 - **Waking.** When no session holds the lease, a new message fires the
   scheduled task's API trigger. That starts a fresh session (about 10 to 30
   seconds), which reads its notebook and the waiting messages. The Worker
@@ -33,8 +35,13 @@ the plan, and no server to keep running.
   session reads it first and updates it. The owner can read and correct it
   in Chats.
 - **Nothing is lost.** The phone keeps unsent messages in an outbox and
-  resends them with the same id; a message a session took but never answered
-  goes back in the queue after 15 minutes.
+  resends them with the same id. Delivery is acknowledged: a message handed
+  to a session that does not act on its thread within 2 minutes is handed
+  out again. When a session vanishes, the messages it had go back in the
+  queue and the owner's open page wakes a fresh session (at most three times
+  in a row without an answer; then the owner's next message does). Sessions
+  push their work to a branch as they go and note it in the notebook, so a
+  vanished session's work is picked up, not lost.
 - **In the chat.** While Claude works, its steps gather in one live log,
   and the send button becomes **Stop**: Claude finishes the current step,
   says what was and was not done, and stops. Pull requests arrive as cards

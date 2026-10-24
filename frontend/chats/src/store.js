@@ -19,7 +19,7 @@ const KEY = {
 };
 const KEEP_MESSAGES = 120; // per conversation, in this browser
 const LONG_POLL_MS = 50_000;
-const MUSE_FAST_MS = 4_000, MUSE_OPEN_MS = 12_000, MUSE_IDLE_MS = 60_000;
+const MUSE_FAST_MS = 4_000, MUSE_OPEN_MS = 6_000, MUSE_IDLE_MS = 60_000;
 export const MUSE = 'muse';
 
 const load = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
