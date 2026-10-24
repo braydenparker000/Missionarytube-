@@ -25,6 +25,10 @@ const P = {
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
   link: '<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>',
   pr: '<circle cx="6" cy="5.5" r="2"/><circle cx="6" cy="18.5" r="2"/><circle cx="18" cy="18.5" r="2"/><path d="M6 7.5v9M18 16.5V10a3 3 0 00-3-3h-4M13 4.5L10.5 7 13 9.5"/>',
+  arrowUp: '<path d="M12 19V6M6.5 11.5L12 6l5.5 5.5"/>',
+  stop: '<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>',
+  chevron: '<path d="M6.5 9.5L12 15l5.5-5.5"/>',
   spark: '<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4" stroke-width="2.4"/>',
 };
 

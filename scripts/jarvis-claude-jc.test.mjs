@@ -22,7 +22,7 @@ test('jc waits for owner messages, answers, reports status, links the session an
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => { server.close(); fixture.close?.(); });
   const env = {...process.env, JC_API: `http://127.0.0.1:${server.address().port}`, JC_KEY: key, CLAUDE_CODE_REMOTE_SESSION_ID: 'cse_01Test'};
-  const jc = (...args) => run(process.execPath, [JC, ...args], {env, timeout: 30_000}).then(r => ({code: 0, out: r.stdout}), e => ({code: e.code, out: e.stdout, err: e.stderr}));
+  const jc = (...args) => run(process.execPath, [JC, ...args], {env, timeout: 30_000}).then(r => ({code: 0, out: r.stdout, err: r.stderr}), e => ({code: e.code, out: e.stdout, err: e.stderr}));
 
   // The owner's side, straight into the store.
   const {claudeChatStore, CLAUDE_CHAT_OBJECT} = await import('../backend/claude-chat.js');
@@ -45,6 +45,18 @@ test('jc waits for owner messages, answers, reports status, links the session an
   assert.equal((await jc('say', thread, '--reply-to', message, 'Hello', 'owner')).code, 0);
   const history = JSON.parse((await jc('history', thread)).out).messages;
   assert.deepEqual(history.map(m => [m.role, m.body, m.answered]), [['owner', 'Hello Claude', true], ['claude', 'Hello owner', false]]);
+
+  // A card Claude updates in place as its pull request moves.
+  const card = JSON.parse((await jc('say', thread, '--kind', 'card', '--meta', '{"url":"https://github.com/o/r/pull/9","state":"checks"}', 'Fix it')).out).message;
+  assert.equal((await jc('amend', card.id, '--meta', '{"url":"https://github.com/o/r/pull/9","state":"merged"}')).code, 0);
+  assert.equal(claudeChatStore(ctx, {who: 'owner', op: 'messages', args: {threadId: thread}}).messages.at(-1).meta.state, 'merged');
+
+  // The owner taps Stop while Claude works: the next status says so on stderr.
+  await jc('status', 'working', '--thread', thread, '--note', 'More work');
+  assert.equal(claudeChatStore(ctx, {who: 'owner', op: 'stop', args: {threadId: thread}}).stopped, true);
+  const heard = await jc('status', 'working', '--thread', thread, '--note', 'Still working');
+  assert.match(heard.err, /STOP: the owner asked you to stop/);
+  assert.doesNotMatch((await jc('say', thread, 'Stopped.')).err, /STOP/, 'the reply clears it');
 
   assert.equal((await jc('notebook')).code, 0);
   const written = await new Promise(resolve => {

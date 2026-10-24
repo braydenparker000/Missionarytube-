@@ -35,6 +35,36 @@ test('a thread and its messages: sends are idempotent, replies settle what came 
   assert.deepEqual(list.map(t => [t.title, t.last.role, t.last.body]), [['Plans', 'claude', 'hello!']]);
 });
 
+test('the owner can stop Claude mid-work; Claude hears it on its next post or status, and its answer clears it', () => {
+  const call = store();
+  call('owner', 'thread.create', {id: T});
+  call('owner', 'send', {id: M(1), threadId: T, body: 'refactor everything'});
+  assert.equal(call('owner', 'stop', {threadId: T}).stopped, false, 'nobody working: nothing to stop');
+  call('claude', 'take', {}, 1_000_100);
+  call('claude', 'status', {state: 'working', threadId: T, note: 'Refactoring'}, 1_000_200);
+  const asked = call('owner', 'stop', {threadId: T}, 1_000_300);
+  assert.equal(asked.stopped, true);
+  assert.equal(asked.status.stopRequested, T, 'the page can show "Stopping…"');
+  assert.deepEqual(call('claude', 'post', {id: R(1), threadId: T, kind: 'progress', body: 'step 2'}, 1_000_400).stop, {threadId: T, at: 1_000_300}, 'a progress post tells Claude');
+  assert.equal(call('claude', 'status', {state: 'working', threadId: T, note: 'Still going'}, 1_000_500).stop.threadId, T, 'and so does a status renewal');
+  assert.equal(call('claude', 'post', {id: R(2), threadId: T, body: 'Stopped. Nothing was pushed.'}, 1_000_600).stop, null, 'the final answer clears it');
+  assert.equal(call('owner', 'status', {}, 1_000_700).status.stopRequested, null);
+});
+
+test('Claude amends its own posts in place (a card moving from checks running to merged); never the owner\'s', () => {
+  const call = store();
+  call('owner', 'thread.create', {id: T});
+  call('owner', 'send', {id: M(1), threadId: T, body: 'fix it'});
+  call('claude', 'post', {id: R(1), threadId: T, kind: 'card', body: 'Fix podcast search', meta: {url: 'https://github.com/o/r/pull/9', state: 'checks'}});
+  const {head} = call('owner', 'changes', {after: 0});
+  const amended = call('claude', 'amend', {id: R(1), meta: {url: 'https://github.com/o/r/pull/9', state: 'merged'}}).message;
+  assert.equal(amended.meta.state, 'merged');
+  assert.equal(amended.body, 'Fix podcast search', 'an absent body is kept');
+  assert.deepEqual(call('owner', 'changes', {after: head}).messages.map(m => [m.id, m.meta.state]), [[R(1), 'merged']], 'the page hears the change');
+  assert.throws(() => call('claude', 'amend', {id: M(1), body: 'rewritten'}), e => e.status === 404, 'not the owner\'s messages');
+  assert.throws(() => call('owner', 'amend', {id: R(1), body: 'x'}), e => e.status === 403);
+});
+
 test('roles are enforced: Claude cannot send as the owner or start threads; the owner cannot take or post', () => {
   const call = store();
   call('owner', 'thread.create', {id: T});

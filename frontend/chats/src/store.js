@@ -27,7 +27,7 @@ const save = (key, value) => { try { localStorage.setItem(key, JSON.stringify(va
 const drop = key => { try { localStorage.removeItem(key); } catch {} };
 const sleep = (ms, signal) => new Promise(resolve => { const t = setTimeout(resolve, ms); signal?.addEventListener('abort', () => { clearTimeout(t); resolve(); }, {once: true}); });
 
-export const prefs = Object.assign({enterSends: !matchMedia('(pointer: coarse)').matches, largeText: false}, load(KEY.prefs, {}));
+export const prefs = Object.assign({enterSends: !matchMedia('(pointer: coarse)').matches, largeText: false, accent: 'ember'}, load(KEY.prefs, {}));
 export function setPref(name, value) { prefs[name] = value; save(KEY.prefs, prefs); }
 
 export const drafts = {
@@ -389,6 +389,14 @@ export class Store extends EventTarget {
     let n = this.unread(MUSE);
     for (const t of this.threads.values()) if (!t.archived) n += this.unread(t.id);
     return n;
+  }
+
+  /** Asks Claude to stop the work it is doing (it finishes the current step and says so). */
+  async stop(threadId) {
+    const result = await claude('stop', {threadId});
+    this.status = result.status;
+    this.emit('status');
+    return result.stopped;
   }
 
   // ——— Notebook ———

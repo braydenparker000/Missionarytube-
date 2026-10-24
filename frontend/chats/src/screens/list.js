@@ -1,28 +1,38 @@
-// The first screen: Muse pinned on top, then Claude's chats, newest first.
-// Long-press (or right-click) a chat for Rename, Archive and Open in Claude.
+// The first screen: Claude's status, a search box, Muse pinned on top, then
+// Claude's chats grouped by when they last moved (Today, Yesterday, Previous
+// 7 days, Older). Swipe a chat left to archive it (Undo in the toast), or
+// long-press (right-click) for Rename, Archive and Open in Claude.
 
-import {h, when} from '../dom.js';
+import {h, when, haptic} from '../dom.js';
 import {icon} from '../icons.js';
-import {avatar, onLongPress} from '../ui.js';
+import {avatar, onLongPress, toast} from '../ui.js';
 import {plain} from '../markdown.js';
 import {claudeStatus, museStatus} from '../status.js';
 import {MUSE} from '../store.js';
+
+const DAY = 86_400_000;
+const SWIPE_ARCHIVE = 0.38; // of the row's width
 
 export class ListScreen {
   constructor(app) {
     this.app = app;
     this.store = app.store;
     this.showArchived = false;
+    this.query = '';
     this.el = h('section', {class: 'screen list-screen', 'aria-label': 'Chats'});
     this.statusEl = h('button', {class: 'status-card', type: 'button', onclick: () => app.open('settings')});
     this.rows = h('ul', {class: 'rows', role: 'list'});
     this.banner = h('div', {class: 'banner', role: 'status', hidden: true});
+    this.searchInput = h('input', {type: 'search', placeholder: 'Search chats', 'aria-label': 'Search chats', enterkeyhint: 'search', autocomplete: 'off',
+      oninput: () => { this.query = this.searchInput.value.trim().toLowerCase(); this.clear.hidden = !this.query; this.render(); }});
+    this.clear = h('button', {class: 'icon-btn clear', type: 'button', hidden: true, 'aria-label': 'Clear search', onclick: () => { this.searchInput.value = ''; this.query = ''; this.clear.hidden = true; this.render(); this.searchInput.focus(); }}, icon('close', {size: 18}));
     this.el.append(
       h('header', {class: 'top'},
         h('h1', {}, 'Chats'),
         h('div', {class: 'top-actions'},
           h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Notebook', title: 'Notebook', onclick: () => app.open('notebook')}, icon('notebook')),
           h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Settings', title: 'Settings', onclick: () => app.open('settings')}, icon('settings')))),
+      h('div', {class: 'search'}, icon('search', {size: 18}), this.searchInput, this.clear),
       this.banner,
       h('div', {class: 'list-scroll'}, this.statusEl, this.rows),
       h('button', {class: 'fab', type: 'button', onclick: () => app.newChat()}, icon('compose'), h('span', {}, 'New chat')));
@@ -35,15 +45,27 @@ export class ListScreen {
     this.renderBanner();
     this.renderStatus();
     const store = this.store;
+    const q = this.query;
+    const matches = (...texts) => !q || texts.some(t => (t || '').toLowerCase().includes(q));
     const items = [];
-    if (!this.showArchived) items.push(this.museRow());
-    const threads = store.threadList({archived: this.showArchived});
-    for (const t of threads) items.push(this.threadRow(t));
-    if (!threads.length && !this.showArchived) items.push(h('li', {class: 'empty'},
+    const threads = store.threadList({archived: this.showArchived}).filter(t => matches(t.title, t.last?.body));
+    if (!this.showArchived) {
+      const museLast = store.museLast();
+      if (matches('Muse', museLast?.body)) items.push(h('li', {class: 'group-label', role: 'presentation'}, 'Pinned'), this.museRow());
+    }
+    if (!store.synced && !threads.length && !store.threads.size) items.push(...[0, 1, 2].map(() => this.skeletonRow()));
+    let group = null;
+    for (const t of threads) {
+      const label = this.showArchived ? 'Archived' : groupOf(t.updatedAt);
+      if (label !== group) { items.push(h('li', {class: 'group-label', role: 'presentation'}, label)); group = label; }
+      items.push(this.threadRow(t));
+    }
+    if (q && !items.length) items.push(h('li', {class: 'empty'}, h('p', {class: 'empty-title'}, 'No chats match'), h('p', {}, `Nothing found for “${this.searchInput.value.trim()}”.`)));
+    else if (!threads.length && !this.showArchived && store.synced && !q) items.push(h('li', {class: 'empty'},
       h('p', {class: 'empty-title'}, 'Talk to Claude'),
-      h('p', {}, 'Ask a question or hand over a job on Jarvis. Claude remembers what matters in its notebook, and can open pull requests for you to merge.')));
+      h('p', {}, 'Ask a question or hand over a job on Jarvis. Claude remembers what matters in its notebook, and opens pull requests for you to approve.')));
     const archivedCount = store.threadList({archived: true}).length;
-    if (this.showArchived || archivedCount) items.push(h('li', {class: 'archived-toggle'},
+    if (!q && (this.showArchived || archivedCount)) items.push(h('li', {class: 'archived-toggle'},
       h('button', {class: 'link-btn', type: 'button', onclick: () => { this.showArchived = !this.showArchived; this.render(); }},
         this.showArchived ? 'Back to chats' : `Archived (${archivedCount})`)));
     this.rows.replaceChildren(...items);
@@ -73,7 +95,7 @@ export class ListScreen {
     const last = this.store.museLast();
     const s = museStatus(this.store.museState);
     return this.row({
-      key: MUSE, who: 'muse', title: 'Muse', pinned: true,
+      key: MUSE, who: 'muse', title: 'Muse',
       preview: last ? (last.role === 'owner' ? 'You: ' : '') + plain(last.body, 90) : s.detail,
       at: last?.at, unread: this.store.unread(MUSE),
     });
@@ -81,26 +103,87 @@ export class ListScreen {
 
   threadRow(t) {
     const s = claudeStatus(this.store.status, this.store.pending);
+    const working = s.threadId === t.id && (s.label === 'Working' || s.label === 'Stopping');
     const queued = this.store.outbox.some(o => o.threadId === t.id);
     return this.row({
-      key: t.id, who: 'claude', title: t.title,
-      preview: s.threadId === t.id ? s.detail + '…' : t.last ? (t.last.role === 'owner' ? 'You: ' : '') + plain(t.last.body, 90) : 'No messages yet',
-      at: t.updatedAt, unread: this.store.unread(t.id), working: s.threadId === t.id, queued,
+      key: t.id, who: 'claude', title: t.title, archived: !!t.archived,
+      preview: working ? s.detail + '…' : t.last ? (t.last.role === 'owner' ? 'You: ' : '') + plain(t.last.body, 90) : 'No messages yet',
+      at: t.updatedAt, unread: this.store.unread(t.id), working, queued,
     });
   }
 
-  row({key, who, title, preview, at, unread, pinned, working, queued}) {
+  skeletonRow() {
+    return h('li', {class: 'skel-row', 'aria-hidden': 'true'}, h('span', {class: 'skel round'}), h('span', {class: 'skel-lines'}, h('span', {class: 'skel line short'}), h('span', {class: 'skel line'})));
+  }
+
+  row({key, who, title, preview, at, unread, working, queued, archived}) {
     const button = h('button', {class: 'row' + (unread ? ' unread' : ''), type: 'button', onclick: () => this.app.openChat(key),
       'aria-label': `${title}${unread ? `, ${unread} unread` : ''}${working ? ', Claude is working' : ''}. ${preview}`},
       avatar(who),
       h('span', {class: 'row-main'},
-        h('span', {class: 'row-top'}, h('span', {class: 'row-title'}, title), pinned && h('span', {class: 'pin', title: 'Pinned'}, 'Pinned'), h('span', {class: 'row-time'}, when(at))),
+        h('span', {class: 'row-top'}, h('span', {class: 'row-title'}, title), h('span', {class: 'row-time'}, when(at))),
         h('span', {class: 'row-bottom'},
-          working && h('span', {class: 'typing small', 'aria-hidden': 'true'}, h('i'), h('i'), h('i')),
           queued && icon('clock', {size: 16}),
-          h('span', {class: 'row-preview'}, preview),
+          h('span', {class: 'row-preview' + (working ? ' working' : '')}, preview),
           unread ? h('span', {class: 'badge'}, String(unread)) : null)));
-    if (key !== MUSE) onLongPress(button, () => this.app.chatMenu(key));
-    return h('li', {}, button);
+    if (key === MUSE) return h('li', {}, button);
+    onLongPress(button, () => this.app.chatMenu(key));
+    const under = h('div', {class: 'row-under', 'aria-hidden': 'true'}, icon(archived ? 'unarchive' : 'archive', {size: 20}), archived ? 'Unarchive' : 'Archive');
+    this.swipeToArchive(button, under, key, archived);
+    return h('li', {class: 'row-wrap'}, under, button);
   }
+
+  /** Drag a row left; past ~40% of its width it archives (or unarchives) on release. */
+  swipeToArchive(row, under, key, archived) {
+    let start = null, dx = 0, swiping = false;
+    row.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse' || e.button !== 0) return;
+      start = {x: e.clientX, y: e.clientY}; dx = 0; swiping = false;
+    });
+    row.addEventListener('pointermove', e => {
+      if (!start) return;
+      const mx = e.clientX - start.x, my = e.clientY - start.y;
+      if (!swiping) {
+        if (Math.abs(my) > 10) { start = null; return; } // a scroll
+        if (mx < -12 && Math.abs(mx) > Math.abs(my) * 1.5) { swiping = true; row.setPointerCapture?.(e.pointerId); row.classList.remove('settling'); }
+        else return;
+      }
+      dx = Math.min(0, mx);
+      row.style.transform = `translateX(${dx}px)`;
+      const ready = -dx > row.offsetWidth * SWIPE_ARCHIVE;
+      if (ready !== under.classList.contains('ready')) { under.classList.toggle('ready', ready); if (ready) haptic(10); }
+    });
+    const end = () => {
+      if (!start) return;
+      start = null;
+      if (!swiping) return;
+      const done = -dx > row.offsetWidth * SWIPE_ARCHIVE;
+      row.classList.add('settling');
+      // A swipe is not a tap: swallow the click it may produce, but only just after it.
+      const swallow = e => { e.stopImmediatePropagation(); e.preventDefault(); };
+      row.addEventListener('click', swallow, {capture: true, once: true});
+      setTimeout(() => row.removeEventListener('click', swallow, {capture: true}), 350);
+      if (!done) { row.style.transform = ''; under.classList.remove('ready'); return; }
+      row.style.transform = `translateX(-100%)`;
+      setTimeout(() => this.archive(key, !archived), 200);
+    };
+    row.addEventListener('pointerup', end);
+    row.addEventListener('pointercancel', () => { start = null; if (swiping) { row.classList.add('settling'); row.style.transform = ''; under.classList.remove('ready'); } });
+  }
+
+  async archive(key, archive) {
+    try {
+      await this.store.updateThread(key, {archived: archive});
+      toast(archive ? 'Chat archived' : 'Chat restored', {action: {label: 'Undo', run: () => this.store.updateThread(key, {archived: !archive})}});
+    } catch { toast('Could not change that chat'); this.render(); }
+  }
+}
+
+function groupOf(ms, now = Date.now()) {
+  const today = new Date(now);
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  if (!ms || ms >= start) return 'Today';
+  if (ms >= start - DAY) return 'Yesterday';
+  if (ms >= start - 7 * DAY) return 'Previous 7 days';
+  return 'Older';
 }

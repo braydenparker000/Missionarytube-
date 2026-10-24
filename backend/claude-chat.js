@@ -98,6 +98,7 @@ export function leaseView(ctx, now) {
   const alive = !!lease && lease.until > now;
   return {
     alive, state: alive ? lease.state : 'offline', threadId: alive ? lease.threadId || null : null,
+    stopRequested: alive && lease.stop ? lease.stop.threadId || true : null,
     note: alive ? lease.note || null : null, sessionUrl: lease?.sessionUrl || wake?.sessionUrl || null,
     lastSeen: lease?.seen || null,
     wake: wake ? {at: wake.at, ok: wake.ok, error: wake.error || null, starting: !alive && wake.ok && now - wake.at < WAKE_BACKOFF_MS} : null,
@@ -111,6 +112,17 @@ function renew(ctx, now, patch) {
   const lease = {...prior, ...patch, state, seen: now, until};
   setState(ctx, 'lease', lease);
   return lease;
+}
+
+function pendingStop(ctx) {
+  const lease = getState(ctx, 'lease');
+  return lease?.stop ? {threadId: lease.stop.threadId || null, at: lease.stop.at} : null;
+}
+function clearStop(ctx, threadId) {
+  const lease = getState(ctx, 'lease');
+  if (!lease?.stop || (threadId && lease.stop.threadId && lease.stop.threadId !== threadId)) return;
+  const {stop, ...rest} = lease;
+  setState(ctx, 'lease', rest);
 }
 
 /** Whether a send should fire the scheduled task: nobody holds the lease and no recent fire is pending. */
@@ -223,9 +235,12 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
         ctx.storage.sql.exec('INSERT INTO cc_messages(id,thread_id,role,kind,body,meta,reply_to,created_ms) VALUES(?,?,?,?,?,?,?,?)', messageId, threadId, 'claude', kind, body, meta, replyTo, now);
         ctx.storage.sql.exec('UPDATE cc_threads SET updated_ms=? WHERE id=?', now, threadId);
         // A final answer settles the owner messages before it in the thread.
-        if (kind !== 'progress') ctx.storage.sql.exec(`UPDATE cc_messages SET answered_ms=?, delivered_ms=COALESCE(delivered_ms,?) WHERE thread_id=? AND role='owner' AND answered_ms IS NULL AND created_ms<=?`, now, now, threadId, now);
+        if (kind !== 'progress') {
+          ctx.storage.sql.exec(`UPDATE cc_messages SET answered_ms=?, delivered_ms=COALESCE(delivered_ms,?) WHERE thread_id=? AND role='owner' AND answered_ms IS NULL AND created_ms<=?`, now, now, threadId, now);
+          clearStop(ctx, threadId);
+        }
         change(ctx, 'message', messageId, now);
-        return {message: messageView(one(ctx, 'SELECT * FROM cc_messages WHERE id=?', messageId))};
+        return {message: messageView(one(ctx, 'SELECT * FROM cc_messages WHERE id=?', messageId)), stop: pendingStop(ctx)};
       });
     }
     case 'take': {
@@ -234,6 +249,7 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
       return tx(() => {
         requeueStranded(ctx, now);
         renew(ctx, now, {state: 'listening', sessionUrl: args.sessionUrl ? sessionLink(args.sessionUrl) : undefined});
+        clearStop(ctx);
         const list = rows(ctx, `SELECT * FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NULL ORDER BY seq LIMIT 20`);
         for (const r of list) ctx.storage.sql.exec('UPDATE cc_messages SET delivered_ms=? WHERE seq=?', now, r.seq);
         if (list.length) change(ctx, 'delivered', null, now);
@@ -248,8 +264,37 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
         const note = text(args.note, LIMITS.note, 'note', {required: false});
         const threadId = args.threadId ? id(args.threadId, 'threadId') : null;
         renew(ctx, now, {state, note, threadId, sessionUrl: args.sessionUrl ? sessionLink(args.sessionUrl) : undefined});
+        if (state !== 'working') clearStop(ctx);
         change(ctx, 'status', threadId, now);
-        return {status: leaseView(ctx, now)};
+        return {status: leaseView(ctx, now), stop: pendingStop(ctx)};
+      });
+    }
+    case 'stop': {
+      // The owner asks Claude to stop what it is doing. Claude hears it on its
+      // next status or post (jc prints it), and a final reply clears it.
+      if (!owner) fail(403, 'Only the owner stops work');
+      const threadId = args.threadId ? id(args.threadId, 'threadId') : null;
+      return tx(() => {
+        const lease = getState(ctx, 'lease');
+        if (!lease || lease.until <= now || lease.state !== 'working') return {status: leaseView(ctx, now), stopped: false};
+        setState(ctx, 'lease', {...lease, stop: {threadId: threadId || lease.threadId || null, at: now}});
+        change(ctx, 'status', threadId, now);
+        return {status: leaseView(ctx, now), stopped: true};
+      });
+    }
+    case 'amend': {
+      // Claude updates one of its own posts in place: a card's state as a pull
+      // request moves (checks running → passed → merged), or a corrected reply.
+      if (owner) fail(403, 'Only Claude amends its posts');
+      const messageId = id(args.id, 'id');
+      return tx(() => {
+        const prior = one(ctx, `SELECT * FROM cc_messages WHERE id=? AND role='claude'`, messageId) || fail(404, 'No such Claude message');
+        const body = args.body === undefined ? prior.body : text(args.body, LIMITS.body, 'body');
+        const meta = args.meta === undefined ? prior.meta : args.meta === null ? null : JSON.stringify(args.meta);
+        if (meta && meta.length > LIMITS.meta) fail(413, 'meta is too long');
+        ctx.storage.sql.exec('UPDATE cc_messages SET body=?, meta=? WHERE id=?', body, meta, messageId);
+        change(ctx, 'message', messageId, now);
+        return {message: messageView(one(ctx, 'SELECT * FROM cc_messages WHERE id=?', messageId))};
       });
     }
     case 'changes': {
@@ -347,8 +392,8 @@ export async function claudeChatInternal(ctx, env, input, {fetchFn = fetch, now 
 // ——— The public routes ———
 // POST /claude-chat/owner {op, args}: the owner's page, with its Jarvis device bearer.
 // POST /claude-chat/agent {op, args}: the Claude session, with CLAUDE_CHAT_AGENT_KEY.
-const OWNER_OPS = new Set(['threads', 'thread.create', 'thread.update', 'messages', 'send', 'status', 'changes', 'notebook']);
-const AGENT_OPS = new Set(['threads', 'thread.update', 'messages', 'post', 'take', 'status', 'notebook']);
+const OWNER_OPS = new Set(['threads', 'thread.create', 'thread.update', 'messages', 'send', 'stop', 'status', 'changes', 'notebook']);
+const AGENT_OPS = new Set(['threads', 'thread.update', 'messages', 'post', 'amend', 'take', 'status', 'notebook']);
 const verified = new Map(); // token hash -> expiry: a device checked in the last minute is not re-checked per request
 
 async function ownerAllowed(env, token) {

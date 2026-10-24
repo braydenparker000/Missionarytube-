@@ -107,7 +107,7 @@ function codeBlock(code, lang, onCopy) {
 }
 
 // Inline spans, longest-first: `code`, links, **bold**, *italic*, ~~strike~~, bare URLs.
-const INLINE = /(`+)([\s\S]*?[^`])\1(?!`)|\[([^\]\n]+)\]\(([^)\s]+)\)|\*\*([^*\n]+)\*\*|__([^_\n]+)__|(?<![\w*])\*([^*\n]+)\*(?!\w)|(?<![\w_])_([^_\n]+)_(?!\w)|~~([^~\n]+)~~|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g;
+const INLINE = /(`+)([\s\S]*?[^`])\1(?!`)|\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)|\*\*([^*\n]+)\*\*|__([^_\n]+)__|(?<![\w*])\*([^*\n]+)\*(?!\w)|(?<![\w_])_([^_\n]+)_(?!\w)|~~([^~\n]+)~~|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g;
 
 export function inline(parent, text) {
   let last = 0;

@@ -8,6 +8,7 @@ import {ago} from './dom.js';
 
 export function claudeStatus(status, pending = 0, now = Date.now()) {
   if (!status) return {tone: 'idle', label: 'Claude', detail: 'Connecting…'};
+  if (status.alive && status.state === 'working' && status.stopRequested) return {tone: 'busy', label: 'Stopping', detail: 'Finishing the current step', threadId: status.threadId, stopping: true};
   if (status.alive && status.state === 'working') return {tone: 'busy', label: 'Working', detail: status.note || 'On it', threadId: status.threadId};
   if (status.alive) return {tone: 'online', label: 'Online', detail: 'Replies in seconds'};
   const wake = status.wake;
