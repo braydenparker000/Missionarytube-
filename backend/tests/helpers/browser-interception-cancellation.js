@@ -1,5 +1,6 @@
 // Test-only CDP bookkeeping. A stale interception is acceptable only after a
-// validated synthetic GET and the browser's matching, explicit cancellation.
+// validated synthetic read (a GET, or a POST the caller marks read-only) and
+// the browser's matching, explicit cancellation.
 // Navigation alone, missing IDs, API/fixture errors and other CDP errors fail.
 export function createInterceptionCancellationTracker(cdp, {timeoutMs = 100} = {}) {
   const cancelled = new Map(), waiters = new Map();
@@ -9,8 +10,8 @@ export function createInterceptionCancellationTracker(cdp, {timeoutMs = 100} = {
     cancelled.set(event.requestId, proof);
     for (const resolve of waiters.get(event.requestId) || []) resolve(proof);
   });
-  return async ({event, error, command, validated = false}) => {
-    if (!validated || event.request?.method !== 'GET' || typeof event.networkId !== 'string' || !event.networkId ||
+  return async ({event, error, command, validated = false, readOnly = false}) => {
+    if (!validated || (event.request?.method !== 'GET' && !readOnly) || typeof event.networkId !== 'string' || !event.networkId ||
         !['Fetch.fulfillRequest', 'Fetch.failRequest'].includes(command) ||
         error?.message !== `cdpSession.send: Protocol error (${command}): Invalid InterceptionId.`) return null;
     if (cancelled.has(event.networkId)) return cancelled.get(event.networkId);

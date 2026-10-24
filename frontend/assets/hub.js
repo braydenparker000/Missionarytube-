@@ -1,6 +1,6 @@
 export const apps = [
-  {id:'jarvis',name:'Jarvis',description:'Private chats & shared tasks',href:'/private/',icon:'chat',group:'Conversation'},
-  {id:'muse',name:'Mast',description:'Private Muse conversation in Jarvis',href:'/private/#mast',icon:'chat',group:'Conversation'},
+  {id:'jarvis',name:'Chats',description:'Claude and Muse',href:'/chats/',icon:'chat',group:'Conversation'},
+  {id:'muse',name:'Muse',description:'Private Muse conversation',href:'/chats/#muse',icon:'chat',group:'Conversation'},
   {id:'quick-ai',name:'Quick AI',description:'Fast answers · Gemini or Qwen',href:'/quick-ai/',icon:'chat',group:'Conversation'},
   {id:'poweramp',name:'Poweramp',description:'Music',href:'/claude-player/',icon:'music',group:'Library'},
   {id:'podcasts',name:'Podcasts',description:'Discover, listen & download',href:'/podcasts/',icon:'podcast',group:'Library'},

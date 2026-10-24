@@ -261,7 +261,8 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
       const messages = messageIds.map(m => messageView(one(ctx, 'SELECT * FROM cc_messages WHERE id=?', m))).filter(Boolean);
       const threads = threadIds.map(t => threadView(one(ctx, 'SELECT * FROM cc_threads WHERE id=?', t))).filter(Boolean);
       const delivered = list.some(c => c.kind === 'delivered');
-      return {head: list.length ? list.at(-1).seq : Math.max(after, head(ctx)), messages, threads, delivered, status: leaseView(ctx, now), pending: pendingCount(ctx)};
+      const notebook = list.some(c => c.kind === 'notebook');
+      return {head: list.length ? list.at(-1).seq : Math.max(after, head(ctx)), changed: list.length > 0, messages, threads, delivered, notebook, status: leaseView(ctx, now), pending: pendingCount(ctx)};
     }
     case 'notebook': {
       if (args.body === undefined) return {notebook: getState(ctx, 'notebook', {body: '', version: 0, updatedAt: null})};
@@ -318,7 +319,8 @@ export async function fireClaude(env, {threadId, messageId}, fetchFn = fetch) {
 
 // ——— Inside the Durable Object ———
 const WAITING_OPS = new Set(['take', 'changes']);
-const emptyResult = (op, result) => op === 'take' ? !result.messages.length : !result.messages.length && !result.threads.length && !result.delivered;
+// A parked `changes` returns on any change (a status change too, so the page shows "working" at once).
+const emptyResult = (op, result) => op === 'take' ? !result.messages.length : !result.changed;
 
 /** Runs one operation; `take` and `changes` with args.wait park until something changes. */
 export async function claudeChatInternal(ctx, env, input, {fetchFn = fetch, now = () => Date.now()} = {}) {
