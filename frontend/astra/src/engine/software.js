@@ -2,8 +2,8 @@
 // Media Source: HEVC, AV1 or VP9 without hardware support, 10-bit and 4:2:2
 // H.264, and containers Mediabunny does not read (AVI, FLV, MPEG-PS).
 //
-// libmedia's AVPlayer (LGPL-3.0, already shipped with classic Astra under
-// frontend/media/assets/js/playback/libmedia/, see docs/PLAYBACK-0.32.md)
+// libmedia's AVPlayer (LGPL-3.0, shipped under frontend/assets/libmedia/ with
+// its licenses, see docs/PLAYBACK-0.32.md)
 // decodes with WebCodecs where the browser has the decoder and WebAssembly
 // otherwise, and paints into a MediaStream on Astra's own <video>. It reads
 // through Astra's range reader, so the block cache and the embedded subtitle
@@ -14,7 +14,7 @@
 // playbackRate, play/pause) for as long as it runs; the player screen and the
 // subtitle renderer use the element exactly as they do for other modes.
 
-const BASE = new URL('../../../media/assets/js/playback/libmedia/', import.meta.url);
+const BASE = new URL('../../../assets/libmedia/', import.meta.url);
 // libmedia codec ids -> its decoder builds.
 const WASM = {27: 'h264', 173: 'hevc', 139: 'vp8', 167: 'vp9', 225: 'av1', 86018: 'aac', 86019: 'ac3', 86056: 'eac3', 86020: 'dca', 86017: 'mp3', 86076: 'opus', 86028: 'flac', 86021: 'vorbis'};
 const IO_END = -1048576; // libmedia's end-of-stream for custom loaders

@@ -131,12 +131,10 @@ const FRONTEND_PUBLIC_HOSTS = {
   'frontend/drawercast/player.js': ['drive.google.com', 'play.google.com', 'www.google.com', 'www.sqlite.org'], // existing Drive links and bundled license notices
   'frontend/guitar/pdf.js': ['cdnjs.cloudflare.com', 'jspdf.default.namespaceuri'], // bundled PDF loader and XML namespace, not a service
   'frontend/guitar/render-worker.js': ['www.alphatab.net'], // bundled renderer license
-  'frontend/media/assets/js/playback/compatibility.js': ['mozilla.org', 'www.webmproject.org', 'aomediacodec.github.io', 'streams.videolan.org'], // bundled decoder notices and upstream samples
   'frontend/astra/vendor/mediabunny.js': ['mozilla.org', 'www.webmproject.org', 'aomediacodec.github.io'], // vendored package license and codec spec notices
   'frontend/astra/vendor/mediabunny-ac3.js': ['mozilla.org', 'streams.videolan.org'],
   'frontend/astra/vendor/mediabunny-dts.js': ['mozilla.org', 'streams.videolan.org'],
   'frontend/astra/vendor/LICENSES.md': ['mozilla.org', 'ffmpeg.org'], // third-party notices
-  'frontend/media/index.html': ['images.metahub.space'], // existing artwork origin
   'frontend/mymedia/app.js': ['i.ytimg.com'], // existing thumbnails
   'frontend/mymedia/library.js': ['i.ytimg.com'],
   'frontend/podcasts/directory.js': ['itunes.apple.com'], // existing public podcast directory
@@ -166,7 +164,7 @@ test("no committed file references a non-allowlisted external host", () => {
 
 test('editable frontend files are privacy-scanned and archived endpoint allowances cannot authorize a new consumer', () => {
   assert.ok(files.includes('frontend/daily-board/v1/live.js'));
-  assert.ok(files.includes('frontend/media/assets/js/app.js'));
+  assert.ok(files.includes('frontend/astra/src/engine/player.js'));
   assert.ok(files.includes('frontend/assets/app.js'));
   assert.equal(isAllowed('api.tavily.com', 'frontend/assets/quick-ai-providers.js'), true);
   assert.equal(isAllowed('api.tavily.com', 'frontend/daily-board/v1/live.js'), false);

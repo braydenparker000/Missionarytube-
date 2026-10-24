@@ -44,7 +44,15 @@
 .folder-shelf{border-bottom:1px solid #ffffff0c;margin-bottom:4px}.folder-summary{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;min-height:64px;cursor:pointer;list-style:none;padding:10px 0}.folder-summary::-webkit-details-marker{display:none}.folder-icon{display:flex;color:#a7adb3}.folder-icon svg{width:20px}.folder-name{font-size:16px;font-weight:500;overflow-wrap:anywhere}.folder-total{font-size:13px;color:var(--muted)}.folder-chevron{font-size:18px;color:var(--muted)}.folder-grid{padding:4px 0 16px}.folder-shelf[open] .folder-chevron{transform:rotate(180deg)}
 .media-empty{padding:50px 0}.media-empty h2{font-weight:500;font-size:24px;letter-spacing:-.035em}.media-empty p{font-size:15px;color:var(--muted);max-width:320px}
 #load-more{width:100%;margin:24px 0}
-.stage{background:#000;margin:0 -20px}.stage video{display:block;width:100%;max-height:75svh;aspect-ratio:16/9;background:#000}
+.stage{position:relative;background:#000;margin:0 -20px}.stage video{display:block;width:100%;max-height:75svh;aspect-ratio:16/9;background:#000}
+/* Subtitles found inside a file, drawn by Astra's engine (frontend/astra/src/subtitles/renderer.js) when it plays a file Chrome refused. */
+.astra-subs{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.astra-subs-zone{position:absolute;left:4%;right:4%;display:flex;flex-direction:column;gap:.15em}
+.astra-subs-zone.top{top:4%}.astra-subs-zone.middle{top:50%;transform:translateY(-50%)}.astra-subs-zone.bottom{bottom:var(--sub-offset,14%)}
+.astra-subs-free,.astra-subs-pictures{position:absolute;inset:0}.astra-subs-free .astra-sub,.astra-sub-picture{position:absolute}.astra-subs-free .astra-sub{max-width:90%}
+.astra-sub{font-size:var(--sub-size,18px);line-height:1.28;font-weight:var(--sub-weight,500);color:var(--sub-color,#fff);text-shadow:var(--sub-shadow,0 1px 3px #000);white-space:pre-wrap;overflow-wrap:anywhere}
+.astra-sub.left{text-align:left}.astra-sub.center{text-align:center}.astra-sub.right{text-align:right}
+.astra-sub span{background:var(--sub-box,transparent);padding:0 .15em;border-radius:2px}
 .watch-body h1{font-size:23px;line-height:1.35;letter-spacing:-.025em;margin:22px 0 8px;overflow-wrap:anywhere}.watch-meta{font-size:13px;color:var(--muted);margin:0 0 12px}
 .player-tools{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 28px}.player-tools button,.player-tools select{border:1px solid #ffffff10;border-radius:8px;background:#1c1f22;font-size:14px;padding:8px 12px;min-height:48px;width:auto}.player-tools button[aria-pressed=true]{color:var(--accent)}
 .next-list{display:grid;gap:18px}.next-list .video-card{display:block}.next-list .video-menu{top:auto;bottom:0;right:-4px}.next-list .card-text{padding-right:44px}

@@ -1,27 +1,14 @@
 // Plays a Drive file in a <video>. The browser's own decoder handles MP4 and
 // WebM. When it refuses a file (MKV, AC-3/DTS audio, codecs without hardware
-// support), Astra's compatibility remuxer and software decoder take over.
-const ASTRA = '/media/assets/js/playback/';
-// Order matters: the software decoder needs request policy, and the
-// compatibility player hands off to the software decoder when present.
-const FALLBACK_SCRIPTS = ['request-policy.js', 'software-player.js', 'compatibility.js'];
-let fallbackLoad = null;
+// support), Astra's playback engine takes over on the same element: it
+// repackages what Chrome can decode and decodes the rest in software.
+// It is loaded only when a file needs it.
+const ENGINE = '/astra/src/engine/player.js';
+let engineLoad = null;
 
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = src;
-    script.onload = resolve;
-    script.onerror = () => { script.remove(); reject(Error('The compatibility player could not load.')); };
-    document.head.append(script);
-  });
-}
-
-function loadFallback() {
-  if (globalThis.AstraCompatibility) return Promise.resolve();
-  fallbackLoad ??= FALLBACK_SCRIPTS.reduce((chain, name) => chain.then(() => loadScript(ASTRA + name)), Promise.resolve())
-    .catch(error => { fallbackLoad = null; throw error; });
-  return fallbackLoad;
+function loadEngine() {
+  engineLoad ??= import(ENGINE).catch(() => { engineLoad = null; throw Error('The compatibility player could not load.'); });
+  return engineLoad;
 }
 
 // MEDIA_ERR_DECODE (3) and MEDIA_ERR_SRC_NOT_SUPPORTED (4) mean the format,
@@ -44,7 +31,7 @@ export async function driveProblem(url, fetcher = fetch) {
 }
 
 export function play(media, url, {startTime = 0, onError = () => {}, onMode = () => {}, stallMs = 12000, retryDelayMs = 650} = {}) {
-  let adapter = null, closed = false, fellBack = false, retries = 0, failed = false;
+  let adapter = null, layer = null, closed = false, fellBack = false, retries = 0, failed = false;
   let resumeAt = startTime, restartTimer = null, stallTimer = null;
   const cleanup = [];
   const listen = (type, fn) => { media.addEventListener(type, fn); cleanup.push(() => media.removeEventListener(type, fn)); };
@@ -90,12 +77,16 @@ export function play(media, url, {startTime = 0, onError = () => {}, onMode = ()
     const at = media.currentTime || startTime;
     onMode('compatibility');
     try {
-      await loadFallback();
+      const {AstraPlayer} = await loadEngine();
       if (closed) return;
       media.removeAttribute('src'); media.load();
-      adapter = globalThis.AstraCompatibility.createAdapter({media, url, startTime:at, autoplay:true,
-        onError:e => !closed && onError(e?.detail || 'This video could not be played on this device.')});
-      await adapter.attach();
+      // Astra draws subtitles it finds inside the file (forced ones only) on
+      // this layer; My Media's own captions stay on the video's text tracks.
+      layer = document.createElement('div');
+      media.after(layer);
+      adapter = new AstraPlayer(media, layer);
+      adapter.addEventListener('error', e => !closed && onError(e.detail?.message || 'This video could not be played on this device.'));
+      await adapter.load({url, startTime:at, autoplay:true});
     } catch (error) {
       if (!closed && error?.name !== 'AbortError') onError(error?.message || 'This video could not be played on this device.');
     }
@@ -141,11 +132,12 @@ export function play(media, url, {startTime = 0, onError = () => {}, onMode = ()
       clearStall();
       cleanup.forEach(fn => fn());
       adapter?.destroy();
+      layer?.remove();
       media.pause(); media.removeAttribute('src'); media.load();
     },
     seek(seconds) {
       const target = Math.max(0, Math.min(media.duration || Infinity, seconds));
-      if (adapter?.seekTo) adapter.seekTo(target); else media.currentTime = target;
+      media.currentTime = target;
     }
   };
 }

@@ -1,16 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { readAppSource } from "./helpers/media-root.mjs";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
 const run = promisify(execFile);
-const shell = await readAppSource("index.html");
-const appSource = await readAppSource("assets/js/app.js");
-const html = `${shell}\n${appSource}`;
+// Astra's playback engine is the only module that loads remote player code.
+const ENGINE = "frontend/astra/src/engine/player.js";
+const shell = await readFile(new URL("../frontend/astra/index.html", import.meta.url), "utf8");
+const engineSource = await readFile(new URL(`../${ENGINE}`, import.meta.url), "utf8");
+const html = `${shell}\n${engineSource}`;
 
 const MUTABLE = /(?:\/|@)(?:latest|next|canary|edge|beta|dev|main|master)(?:\/|$)/i;
 
@@ -26,7 +27,7 @@ test("no runtime dependency is loaded from a mutable channel", () => {
 
 test("dash.js is pinned to an exact version with an integrity hash", () => {
   const match = html.match(
-    /src:'(https:\/\/cdn\.jsdelivr\.net\/npm\/dashjs@(\d+\.\d+\.\d+)\/[^']+\.js)',integrity:'(sha384-[A-Za-z0-9+/=]+)'/
+    /src:\s*'(https:\/\/cdn\.jsdelivr\.net\/npm\/dashjs@(\d+\.\d+\.\d+)\/[^']+\.js)',\s*integrity:\s*'(sha384-[A-Za-z0-9+/=]+)'/
   );
   assert.ok(match, "dash.js must be loaded from a pinned URL with an integrity hash");
   assert.equal(match[2], "5.2.0");
@@ -35,7 +36,7 @@ test("dash.js is pinned to an exact version with an integrity hash", () => {
 
 test("hls.js is pinned to an exact version with an integrity hash", () => {
   const match = html.match(
-    /src:'(https:\/\/cdn\.jsdelivr\.net\/npm\/hls\.js@(\d+\.\d+\.\d+)\/[^']+\.js)',integrity:'(sha384-[A-Za-z0-9+/=]+)'/
+    /src:\s*'(https:\/\/cdn\.jsdelivr\.net\/npm\/hls\.js@(\d+\.\d+\.\d+)\/[^']+\.js)',\s*integrity:\s*'(sha384-[A-Za-z0-9+/=]+)'/
   );
   assert.ok(match, "hls.js must be loaded from a pinned URL with an integrity hash");
   assert.equal(match[2], "1.6.13");
@@ -43,8 +44,8 @@ test("hls.js is pinned to an exact version with an integrity hash", () => {
 });
 
 test("every remote script is cross-origin and integrity checked at load time", () => {
-  assert.match(html, /x\.integrity=lib\.integrity/);
-  assert.match(html, /x\.crossOrigin='anonymous'/);
+  assert.match(html, /integrity:\s*lib\.integrity/);
+  assert.match(html, /crossOrigin:\s*'anonymous'/);
   assert.equal(remoteScripts(html).length, 2, "only the two player libraries are loaded remotely");
 });
 
@@ -73,7 +74,7 @@ test("validation passes on an unmodified checkout", async () => {
 
 test("validation rejects an editable source containing a mutable /latest/ dependency URL", async () => {
   const result = await checkFixture(async (directory) => {
-    const path = join(directory, "frontend/media/assets/js/app.js");
+    const path = join(directory, ENGINE);
     const source = await readFile(path, "utf8");
     await writeFile(
       path,
@@ -90,20 +91,20 @@ test("validation rejects an editable source containing a mutable /latest/ depend
 
 test("validation rejects an editable source missing a remote script integrity hash", async () => {
   const result = await checkFixture(async (directory) => {
-    const path = join(directory, "frontend/media/assets/js/app.js");
+    const path = join(directory, ENGINE);
     const source = await readFile(path, "utf8");
-    await writeFile(path, source.replace(/,integrity:'sha384-[^']+'/, ""));
+    await writeFile(path, source.replace(/,\s*integrity:\s*'sha384-[^']+'/, ""));
   });
 
   assert.equal(result.code, 1, "check.mjs must fail the build");
   assert.match(result.output, /without a subresource integrity hash/);
 });
 
-test("validation requires the progress store module to ship", async () => {
+test("validation requires the software decoder runtime to ship", async () => {
   const result = await checkFixture(async (directory) => {
-    await rm(join(directory, "frontend/media/assets/js/progress-store.js"));
+    await rm(join(directory, "frontend/assets/libmedia/avplayer.js"));
   });
 
   assert.equal(result.code, 1);
-  assert.match(result.output, /Required Jarvis media source file is absent|Missing required file/);
+  assert.match(result.output, /Missing required file: frontend\/assets\/libmedia\/avplayer\.js/);
 });

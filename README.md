@@ -112,8 +112,8 @@ normal application rollback uses the guarded workflow above.
 
 ## Static compatibility and browser data
 
-The frontend is about 20 MiB of static application code, assets and existing
-player decoders. It contains no media library payload, backend source, credentials
+The frontend is about 24 MiB of static application code, assets and existing
+player decoders, within the build's 25 MiB budget. It contains no media library payload, backend source, credentials
 or tests. Media remains on existing providers. Azure Storage does not interpret
 SWA configuration: deployed CSP/referrer policies are explicit in document
 source. New or edited HTML must declare its CSP; the accepted unchanged legacy
@@ -191,12 +191,15 @@ readback before claiming a cutover; no fresh writer status is established here.
 Preserve both issues and their history for reconciliation and rollback.
 Destination issue #2 is an imported PR and must not be reused.
 
-## Media regression checks
+## Media
 
-The duplicate root media app and its legacy build/browser commands have been
-retired. Media source checks and the build read `frontend/media`.
-Generated provenance records its actual tree and checkout commit. Legacy
-source-only contracts read immutable Git fixtures, with no editable `src/` copy.
-Fixtures and licenses remain. The media
-qualification command retains its documented shipped UI TODOs and can report
-not ready; see [migration evidence](test-evidence/media-migration/README.md).
+Astra (`frontend/astra/`, served at `/astra/`) is the media app; the home tile
+opens it. Classic Astra (`frontend/media/`, `/media/`) and its source,
+shipped-bundle and qualification suites (`test:media-jarvis:*`) are retired.
+Astra's software decoder, the libmedia runtime and its licenses, ships from
+`frontend/assets/libmedia/`. My Media (`frontend/mymedia/`) plays Drive files
+natively and hands files Chrome refuses to Astra's playback engine
+(`/astra/src/engine/player.js`). Astra's tests are `tests/astra-*.test.mjs`;
+`scripts/check.mjs` checks Astra's entry point and remote-script pins.
+[Migration evidence](test-evidence/media-migration/README.md) for the classic
+app remains as history.
