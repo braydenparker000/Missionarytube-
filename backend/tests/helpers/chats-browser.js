@@ -63,23 +63,41 @@ export async function runChatsScenario(t, browser) {
     const {threadId, id: messageId} = taken.messages[0];
     await page.locator('.msg.owner .state', {hasText: 'Seen'}).waitFor();
     await asClaude('status', {state: 'working', threadId, note: 'Reading the search code'});
-    await page.locator('.typing-row', {hasText: 'Reading the search code'}).waitFor();
+    await page.locator('.thinking', {hasText: 'Reading the search code'}).waitFor();
+    // While Claude works here and the box is empty, the round button is Stop.
+    await page.getByRole('button', {name: 'Stop Claude'}).waitFor();
     await asClaude('post', {id: crypto.randomUUID(), threadId, kind: 'progress', body: 'Running the podcast tests'});
-    await page.locator('.steps.live', {hasText: 'Running the podcast tests'}).waitFor();
+    await page.locator('.work.live', {hasText: 'Running the podcast tests'}).waitFor();
+    assert.equal(await page.locator('.thinking').isHidden(), true, 'the live work card takes over from "thinking"');
+    await writeSyntheticEvidence(phone, 'chats-working');
+    await page.getByRole('button', {name: 'Stop Claude'}).click();
+    await page.locator('.work.live', {hasText: 'Stopping'}).waitFor();
+    assert.equal((await asClaude('status', {state: 'working', threadId, note: 'Wrapping up'})).stop.threadId, threadId, 'Claude hears the stop');
     await asClaude('thread.update', {id: threadId, title: 'Podcast search fix', sessionUrl: 'https://claude.ai/code/session_01Fired'});
     await page.locator('.chat-title', {hasText: 'Podcast search fix'}).waitFor();
     await asClaude('post', {id: crypto.randomUUID(), threadId, replyTo: messageId, body: 'Found it: the query was **lower-cased twice**. [Details](javascript:alert(1)) <img src=x onerror=alert(2)>\n\n```js\nquery.toLowerCase()\n```\n\n- [x] Fixed\n- [ ] Merged'});
-    await asClaude('post', {id: crypto.randomUUID(), threadId, kind: 'card', body: 'Fix podcast search', meta: {url: 'https://github.com/braydenparker000/Missionarytube-/pull/400', title: 'Fix podcast search', state: 'open'}});
+    const cardId = crypto.randomUUID(), pr = 'https://github.com/braydenparker000/Missionarytube-/pull/400';
+    await asClaude('post', {id: cardId, threadId, kind: 'card', body: 'Fix podcast search', meta: {url: pr, title: 'Fix podcast search', state: 'checks', actions: ['Merge it', 'Not yet']}});
     await asClaude('status', {state: 'listening'});
     await page.locator('.md strong', {hasText: 'lower-cased twice'}).waitFor();
     await page.locator('.md-code code', {hasText: 'query.toLowerCase()'}).waitFor();
-    await page.locator('a.card', {hasText: 'Missionarytube-#400'}).waitFor();
+    await page.locator('.card a.card-main', {hasText: 'Missionarytube-#400'}).waitFor();
     assert.equal(await page.locator('.feed a[href^="javascript"], .feed img').count(), 0, 'markdown never makes script links or HTML');
     await page.locator('.md', {hasText: '<img src=x onerror=alert(2)>'}).waitFor();
-    assert.equal(await page.locator('a.card').getAttribute('href'), 'https://github.com/braydenparker000/Missionarytube-/pull/400');
+    assert.equal(await page.locator('.card a.card-main').getAttribute('href'), pr);
+    await page.locator('.pill', {hasText: 'Checks running'}).waitFor();
+    await page.locator('.work:not(.live)', {hasText: 'Worked for'}).waitFor();
     await page.locator('.chat-sub', {hasText: 'Online'}).waitFor();
-    assert.equal(await page.locator('.typing-row').isHidden(), true, 'the typing row goes once Claude has answered');
+    assert.equal(await page.locator('.thinking').isHidden(), true, 'nothing pending once Claude has answered');
+    assert.equal(await page.getByRole('button', {name: 'Send'}).isDisabled(), true, 'Stop turns back into Send');
     await writeSyntheticEvidence(phone, 'chats-claude-thread');
+
+    // A card's button answers for the owner; Claude then moves the card along.
+    await page.getByRole('button', {name: 'Merge it'}).click();
+    await page.locator('.msg.owner', {hasText: 'Merge it'}).locator('.state', {hasText: 'Sent'}).waitFor();
+    assert.equal(await page.getByRole('button', {name: 'Not yet'}).count(), 0, 'the decision is made: its buttons go');
+    await asClaude('amend', {id: cardId, meta: {url: pr, title: 'Fix podcast search', state: 'merged'}});
+    await page.locator('.pill', {hasText: 'Merged'}).waitFor();
 
     // A second message while Claude listens is not a second wake.
     await input.fill('Thanks!');
@@ -92,7 +110,25 @@ export async function runChatsScenario(t, browser) {
     const back = async () => { await page.goBack(); await page.locator('.page').waitFor({state: 'detached'}); };
     await back();
     await page.locator('.row', {hasText: 'Podcast search fix'}).waitFor();
+
+    // A reply that arrives while the owner is away: unread on the list, a "New" divider in the chat.
+    await asClaude('post', {id: crypto.randomUUID(), threadId, body: 'Merged. Anything else?'});
+    await page.locator('.row.unread', {hasText: 'Podcast search fix'}).locator('.badge').waitFor();
     await writeSyntheticEvidence(phone, 'chats-list');
+    await page.locator('.row', {hasText: 'Podcast search fix'}).click();
+    await page.locator('.new-divider').waitFor();
+    await back();
+    await page.locator('.row:not(.unread)', {hasText: 'Podcast search fix'}).waitFor();
+
+    // Search filters the list.
+    const search = page.getByRole('searchbox', {name: 'Search chats'});
+    await search.fill('podcast');
+    await page.locator('.row', {hasText: 'Podcast search fix'}).waitFor();
+    assert.equal(await page.getByRole('button', {name: /^Muse/}).count(), 0, 'Muse does not match');
+    await search.fill('zzz');
+    await page.getByText('No chats match').waitFor();
+    await page.getByRole('button', {name: 'Clear search'}).click();
+    await page.getByRole('button', {name: /^Muse/}).waitFor();
 
     // Muse through the Mast adapter.
     await page.getByRole('button', {name: /^Muse/}).click();
@@ -119,6 +155,13 @@ export async function runChatsScenario(t, browser) {
     assert.match((await asClaude('notebook', {})).notebook.body, /Uses Android Chrome/);
     await back();
 
+    // The accent colour, chosen in Settings, is remembered.
+    await page.getByRole('button', {name: 'Settings', exact: true}).click();
+    await page.getByRole('radio', {name: 'Mint'}).click();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.accent), 'mint');
+    await writeSyntheticEvidence(phone, 'chats-settings');
+    await back();
+
     // Long-press a chat: rename it.
     const row = page.locator('.row', {hasText: 'Podcast search fix'});
     await row.click({button: 'right'});
@@ -139,8 +182,20 @@ export async function runChatsScenario(t, browser) {
     const stored = await page.evaluate(() => Object.keys(localStorage));
     assert.ok(stored.every(k => k.startsWith('chats.') || k === 'jarvis.relay.owner-session.v1'), 'only Chats keys and the shared sign-in: ' + stored);
 
-    // Sign out: the sign-in screen, and the credential is gone.
+    // Swipe a chat left to archive it; Undo brings it back.
     await back();
+    const box = await page.locator('.row', {hasText: 'Podcasts'}).boundingBox();
+    const y = box.y + box.height / 2;
+    await phone.cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x: box.x + box.width - 20, y}]});
+    for (let step = 1; step <= 8; step++) await phone.cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: box.x + box.width - 20 - step * 35, y}]});
+    await phone.cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+    await page.getByText('Chat archived').waitFor();
+    await page.getByRole('button', {name: 'Archived (1)'}).waitFor();
+    await page.getByRole('button', {name: 'Undo'}).click();
+    await page.locator('.row', {hasText: 'Podcasts'}).waitFor();
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.accent), 'mint', 'the accent survived the reload');
+
+    // Sign out: the sign-in screen, and the credential is gone.
     await page.getByRole('button', {name: 'Settings', exact: true}).click();
     await page.getByRole('button', {name: 'Sign out'}).click();
     await page.getByRole('heading', {name: 'Jarvis Chats'}).waitFor();

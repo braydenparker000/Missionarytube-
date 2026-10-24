@@ -7,6 +7,7 @@ import {pushLayer, startBackStack} from './back-stack.js';
 import {Store, MUSE, prefs} from './store.js';
 import {auth, describe} from './api.js';
 import {actionSheet, prompt, toast} from './ui.js';
+import {applyTheme} from './theme.js';
 import {ListScreen} from './screens/list.js';
 import {ChatScreen} from './screens/chat.js';
 import {NotebookScreen} from './screens/notebook.js';
@@ -43,7 +44,7 @@ export class App {
     if (!signedIn) requestAnimationFrame(() => this.signin.focus());
   }
 
-  applyPrefs() { document.documentElement.classList.toggle('large-text', !!prefs.largeText); }
+  applyPrefs() { applyTheme(prefs); }
 
   /** Opens a page on top. Each page is one back-stack entry. */
   push(screen) {
@@ -52,6 +53,7 @@ export class App {
     this.root.append(screen.el);
     for (const p of this.pages) p.screen.el.inert = true;
     this.list.el.inert = true;
+    this.list.el.classList.add('covered');
     requestAnimationFrame(() => requestAnimationFrame(() => screen.el.classList.remove('entering')));
     page.close = pushLayer('page', () => this.pop(page, true));
     this.pages.push(page);
@@ -69,9 +71,9 @@ export class App {
     el.classList.add('leaving');
     el.inert = true;
     el.setAttribute('aria-hidden', 'true');
-    setTimeout(() => el.remove(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 240);
+    setTimeout(() => el.remove(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 340);
     const top = this.pages.at(-1);
-    if (top) top.screen.el.inert = false; else this.list.el.inert = !auth.signedIn;
+    if (top) top.screen.el.inert = false; else { this.list.el.inert = !auth.signedIn; this.list.el.classList.remove('covered'); }
     // Focus returns to where the page was opened from.
     (top?.screen.el.querySelector('.composer-input') || this.lastFocus)?.focus?.({preventScroll: true});
   }

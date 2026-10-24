@@ -59,14 +59,26 @@ For each thread with new messages (a batch can span threads):
 
 Other kinds of post:
 
-- `--kind progress` for a step in longer work ("Running the tests"). These
-  fold into one line under your reply; post one per real milestone, not per
-  command.
-- `--kind card --meta '{"url":"https://github.com/…/pull/12","title":"Fix podcast search","state":"open"}'`
-  for a pull request or other result. The body is a one-line summary.
-- `--kind question --meta '{"options":["Yes, merge it","Not yet"]}'` when
-  you need a decision; the options become buttons.
+- `--kind progress` for a step in longer work ("Running the tests"). The
+  owner sees these as one live work card under your reply; post one per real
+  milestone, not per command.
+- `--kind card` for a pull request or other result. The body is a one-line
+  summary; the meta carries the link, its state and, when you need a
+  decision, buttons:
+  `--meta '{"url":"https://github.com/…/pull/12","title":"Fix podcast search","state":"checks","actions":["Merge it","Not yet"]}'`.
+  States: `open`, `checks` (CI running), `passed`, `failed`, `merged`,
+  `closed`. Keep the card current with `jc amend <card id> --meta '…'`
+  (`jc say` prints the new post's id) instead of posting a new card each
+  time. A tapped button arrives as an ordinary owner message.
+- `--kind question --meta '{"options":["Yes","Not yet"]}'` when you need a
+  decision that is not about a card; the options become buttons.
 - `--kind error` only when something failed that the owner should know.
+
+The owner can tap **Stop** while you work. Your next `jc status` or `jc say`
+then prints a line starting `jc: STOP` on stderr. When you see it, finish
+the step you are in (do not leave a half-written commit or push), post a
+short reply saying what was and was not done, and stop that work. The reply
+clears the request.
 
 If a thread is still called "New chat" or its title is just the first
 message, give it a short name: `jc title <thread> Podcast search fix`.

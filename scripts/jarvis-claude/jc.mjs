@@ -13,12 +13,15 @@
 //   jc history <thread> [--limit 40]
 //   jc say <thread> [--reply-to <id>] [--kind text|progress|question|card] [--meta JSON] <text | ->
 //   jc status working|listening|stopping [--thread <id>] [--note text]
+//   jc amend <message id> [--meta JSON] [--body <text | ->]   update your own post (a card's state)
 //   jc title <thread> <title>
 //   jc link <thread>            records this session's link on the thread
 //   jc threads
 //   jc notebook [--write <file|->] [--version N]
 //
 // Every call is one HTTPS request to POST /claude-chat/agent {op, args}.
+// When the owner has tapped Stop, every answer to a post or status says so,
+// and jc prints a STOP line on stderr: finish the step, report, and stop.
 
 import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
@@ -35,6 +38,7 @@ export async function call(op, args = {}, {timeoutMs = 70_000} = {}) {
   const response = await fetch(`${API}/claude-chat/agent`, {method: 'POST', headers, body: JSON.stringify({op, args}), signal: AbortSignal.timeout(timeoutMs)});
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(body.error || `HTTP ${response.status}`), {status: response.status});
+  if (body.stop) console.error(`jc: STOP: the owner asked you to stop${body.stop.threadId ? ` (thread ${body.stop.threadId})` : ''}. Finish the current step, post a short reply saying what was and was not done, and stop working.`);
   return body;
 }
 
@@ -82,6 +86,12 @@ async function main(argv) {
       return 0;
     }
     case 'status': out(await call('status', {state: rest[0] || 'working', threadId: flags.thread, note: typeof flags.note === 'string' ? flags.note : undefined, sessionUrl: SESSION_URL})); return 0;
+    case 'amend': {
+      const body = flags.body === '-' ? stdin() : typeof flags.body === 'string' ? flags.body : undefined;
+      const meta = typeof flags.meta === 'string' ? JSON.parse(flags.meta) : undefined;
+      out(await call('amend', {id: rest[0], body, meta}));
+      return 0;
+    }
     case 'title': out(await call('thread.update', {id: rest[0], title: rest.slice(1).join(' ')})); return 0;
     case 'link': out(await call('thread.update', {id: rest[0], sessionUrl: SESSION_URL})); return 0;
     case 'threads': out(await call('threads')); return 0;
@@ -92,7 +102,7 @@ async function main(argv) {
       return 0;
     }
     default:
-      console.error('usage: jc wait|history|say|status|title|link|threads|notebook (see the header of this file)');
+      console.error('usage: jc wait|history|say|amend|status|title|link|threads|notebook (see the header of this file)');
       return 64;
   }
 }
