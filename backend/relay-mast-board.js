@@ -1,7 +1,7 @@
 // Muse publishes the Daily Board straight to the Worker (no GitHub detour) and
 // keeps the owner's board brief: what to cover, how deep, how far back.
 // Mast token only; reached through mastAdapterStore, which checks it.
-import {prepare} from '../frontend/daily-board/v1/schema.js';
+import {prepareAny} from '../frontend/daily-board/v2/schema.js';
 import {sharedStore,sharedSchema} from './shared.js';
 import {PRIMARY_SITE} from './origins.js';
 import {RelayError, fields} from './relay-common.js';
@@ -72,7 +72,7 @@ function read(ctx, now) {
 
 function publish(ctx, report, now) {
   let publication;
-  try { publication = prepare(report, {reviewedPublic: true}); }
+  try { publication = prepareAny(report, {reviewedPublic: true}); }
   catch (error) { fail(400, 'Report rejected: ' + error.message); }
   const today = boardDate(now);
   if (report.date > today) fail(400, `Report date ${report.date} is after today (${today}, ${BOARD_TIMEZONE})`);
