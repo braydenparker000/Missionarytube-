@@ -1,5 +1,9 @@
 # Publishing contract — structured Daily Board v1
 
+> Muse now publishes straight to the Worker: see
+> [muse-daily-board.md](muse-daily-board.md). The GitHub issue path below
+> still works and is the fallback.
+
 No Worker, API, SQL migration or automation cadence change is required.
 The existing trusted issue importer and immutable SQLite briefing body are used.
 Retain the one existing 07:00 Rosario publisher. The parent owns its cutover.

@@ -1,6 +1,7 @@
 import {mastWork} from './relay-mast-work.js';
 import {ATTACHMENT_BODY_LIMIT} from './relay-owner-attachments.js';
 import {mastFileMetadata,mastFileCheckMessage,mastFileLink,mastFileOperation} from './relay-mast-attachments.js';
+import {mastBoard} from './relay-mast-board.js';
 // Owner-to-Mast only. No public inbox, owner Relay entries, OAuth grants or callbacks.
 import {RELAY_OAUTH_OBJECT, RelayError, fields, uuid, cursor, json, hash, equal, boundedText} from './relay-common.js';
 const fail = (status, message) => { throw new RelayError(-32602, message, {status}); };
@@ -67,6 +68,7 @@ export async function mastAdapterStore(ctx, env, input) {
       schema(ctx);return 'mast:'+input.token_hash;
     };
     if(input.op?.startsWith('file_'))return await mastFileOperation(ctx,input,authorize);
+    if(input.op?.startsWith('board_')){authorize();return mastBoard(ctx,input);}
     return ctx.storage.transactionSync(() => {
       if(input.op?.startsWith('work_')){if(!mastWorkEnabled(env))fail(503,'Mast Work is not activated');return json(mastWork(ctx,input,{writer:authorize()}));}
       if (input.op==='list') {
@@ -106,6 +108,12 @@ export async function mastAdapterPublic(request, env) {
       input={...Object.fromEntries(url.searchParams),op:url.searchParams.has('job_id')?'work_read':'work_list'};
     }else if(/^\/relay\/mast\/work\/(claim|update|plan|correct)$/.test(url.pathname)&&request.method==='POST'&&!url.search){
       const body=JSON.parse(await boundedText(request,16000));input={...body,op:'work_'+url.pathname.split('/').at(-1)};
+    }else if(url.pathname==='/relay/mast/board'&&request.method==='GET'&&!url.search){
+      input={op:'board_read'};
+    }else if(['/relay/mast/board/publish','/relay/mast/board/profile'].includes(url.pathname)&&request.method==='POST'&&!url.search){
+      const publish=url.pathname.endsWith('/publish'),body=JSON.parse(await boundedText(request,publish?40000:32000));
+      fields(body,publish?['report']:['version','profile'],publish?['report']:['version','profile']);
+      input={...body,op:publish?'board_publish':'board_profile'};
     }else if (url.pathname==='/relay/mast/messages' && request.method==='GET') {
       if ([...url.searchParams.keys()].some(k=>k!=='after') || url.searchParams.getAll('after').length>1) fail(400,'Invalid Mast query');
       input={op:'list',after:url.searchParams.get('after')||'0'};

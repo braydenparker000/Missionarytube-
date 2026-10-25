@@ -152,3 +152,24 @@ test('Daily Board preserves an edition chosen while refresh is pending and recov
  await page.getByRole('heading',{name:h.post.title,exact:true}).waitFor();
  assert.deepEqual(h.errors,[]);
 });
+
+test('Daily Board says when today’s report is late, and only then',async t=>{
+ const h=await openBoard(t,390),{page}=h;
+ const report=JSON.parse(await readFile(new URL('./fixtures/daily-board/one.json',import.meta.url)));
+ const post={id:report.id,title:report.title,body:encodeReport(report),createdAt:'2026-10-18T09:00:00Z'};
+ const note=page.locator('.late-note');
+ // 07:30 Rosario (UTC-3) on the report's day: due, but not late.
+ await page.clock.setFixedTime(new Date('2026-10-18T10:30:00Z'));h.setReply(legacy([post]));
+ await page.goto(h.origin+'/daily-board/');await page.getByRole('heading',{name:report.title,exact:true}).waitFor();
+ assert.equal(await note.isVisible(),false);
+ // The next morning after 08:00 the board says the new report is late.
+ await page.clock.setFixedTime(new Date('2026-10-19T11:15:00Z'));await page.reload();
+ await note.waitFor();assert.equal(await note.textContent(),'Today’s report hasn’t arrived yet. The latest is from October 18.');
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ // A plain report from today (dated by when it arrived) clears it.
+ h.setReply(legacy([{id:'33333333-3333-4333-8333-333333333333',title:'Today',body:'A plain briefing.',createdAt:'2026-10-19T10:05:00Z'},post]));
+ await page.getByRole('button',{name:'Refresh reports',exact:true}).click();
+ await page.getByText('Reports refreshed.',{exact:true}).waitFor();
+ assert.equal(await note.isVisible(),false);
+ assert.deepEqual(h.errors,[]);
+});

@@ -1,11 +1,24 @@
 import {request} from '/assets/shared-api.js';
 import {renderEntry} from './render.js';
+import {decodeReport} from './schema.js';
 const target=document.querySelector('#report');
 const refresh=document.createElement('button');
 refresh.id='refresh';refresh.type='button';refresh.className='tactile';refresh.textContent='Refresh reports';
 refresh.setAttribute('aria-label','Refresh reports');refresh.setAttribute('aria-controls','report');
 const status=document.createElement('p');status.className='refresh-status';status.setAttribute('role','status');
 let posts=[],select,host,shown,loading=false;
+// Reports are due by 08:00 Rosario; say so when today's has not arrived.
+const ZONE='America/Argentina/Cordoba',DUE_HOUR=8;
+const zoned=(ms,options)=>new Intl.DateTimeFormat('en-CA',{timeZone:ZONE,...options}).format(ms);
+const boardDay=ms=>zoned(ms,{year:'numeric',month:'2-digit',day:'2-digit'});
+const late=document.createElement('p');late.className='late-note';
+function lateNote(now=Date.now()){
+ if(!posts.length||Number(zoned(now,{hour:'2-digit',hourCycle:'h23'}))<DUE_HOUR)return '';
+ const latest=posts.map(p=>decodeReport(p)?.date||boardDay(Date.parse(p.createdAt))).sort().at(-1);
+ if(latest>=boardDay(now))return '';
+ const label=new Intl.DateTimeFormat('en',{timeZone:'UTC',month:'long',day:'numeric'}).format(Date.parse(latest));
+ return `Today’s report hasn’t arrived yet. The latest is from ${label}.`;
+}
 
 function show(){
  const post=posts.find(p=>p.id===select.value);
@@ -21,12 +34,13 @@ function display(next){
  }
  if(!select){
   select=document.createElement('select');select.setAttribute('aria-label','Report edition');
-  host=document.createElement('div');target.replaceChildren(select,host);
+  host=document.createElement('div');target.replaceChildren(late,select,host);
   select.addEventListener('change',show);
  }
  const options=posts.map(post=>{const option=document.createElement('option');option.value=post.id;option.textContent=post.title;return option;});
  select.replaceChildren(...options);
  select.value=posts.some(p=>p.id===selected)?selected:posts[0].id;
+ late.textContent=lateNote();
  show();
 }
 async function load({retrying=false,refreshing=false}={}){
