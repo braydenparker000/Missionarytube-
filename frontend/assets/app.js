@@ -1,6 +1,7 @@
 import {icon as uiIcon, sheet, appViewport, autosize, copyText} from './ui.js';
 import {conversation} from './conversation.js';
-import { apps, icon, loadPreferences, savePreferences, renderUtility } from './hub.js';
+import { apps, icon, loadPreferences, savePreferences, renderUtility, verbs, systemApps, DIRECTIONS, DEFAULT_COMPASS } from './hub.js';
+import { trackFlicks } from './compass.js';
 import { API_ORIGIN } from './config.js';
 import { request } from './shared-api.js';
 import { STORAGE_KEY, readState, mergeState } from './shared-store.js';
@@ -44,7 +45,10 @@ const paths = { home: '/', chat: '/jarvis/', board: '/daily-board/', favorites: 
 const labels = { home: 'Home', chat: 'Relay', board: 'Daily Board', favorites: 'Favorites', settings: 'Settings', notes: 'Notes', tools: 'Tools', server: 'Server' };
 function getRoute() { return ({jarvis:'chat','daily-board':'board',favorites:'favorites',settings:'settings',notes:'notes',tools:'tools',server:'server'})[location.pathname.split('/')[1]] || 'home'; }
 let preferences = loadPreferences();
-let searchQuery = '', searchOpen = false;
+let searchQuery = '', openVerb = '', detachCompass = null, pendingFocus = '';
+// Home is the compass; /#apps is its fallback list of every app by verb.
+const homeView = () => route==='home'&&location.hash==='#apps'?'verbs':'compass';
+const appById = id => apps.find(a=>a.id===id);
 const time = stamp => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(stamp));
 const clockFormat = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
 const dateFormat = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -95,22 +99,20 @@ function drawShell() {
   const launcher = ['home','favorites'].includes(route);
   clearTimeout(clockTimer);
   document.body.classList.toggle('launcher-page', launcher);
+  document.body.classList.toggle('compass-page', route==='home'&&homeView()==='compass');
+  if (route==='home'&&!document.querySelector('link[href^="/assets/home.css"]')) {
+    const css=document.createElement('link');css.rel='stylesheet';css.href='/assets/home.css?v=20261025';document.head.append(css);
+  }
   document.querySelector('meta[name="theme-color"]').content = ['chat','home','board'].includes(route)?'#000000':launcher ? '#090a0c' : '#121212';
   document.title = `${labels[route]} · Jarvis`;
   const header = launcher
-    ? `<header class="topbar launcher-topbar"><a class="brand" href="/" data-route="home">Jarvis</a><nav class="toolbar-actions" aria-label="Launcher tools"><button class="icon-button" id="search-button" aria-label="Search apps" aria-expanded="${route==='home'&&searchOpen}" ${route==='home'?'aria-controls="launcher-search"':''}>${icon('search')}</button><a class="icon-button" href="/favorites/" data-route="favorites" aria-label="Favorites" ${route==='favorites'?'aria-current="page"':''}>${icon('favorites')}</a><button class="icon-button" id="connection-button" aria-label="Connection details">${icon('more')}<span class="sr-only">${connection()}</span></button></nav></header>`
+    ? `<header class="topbar launcher-topbar"><a class="brand" href="/" data-route="home">Jarvis</a><nav class="toolbar-actions" aria-label="Launcher tools"><button class="icon-button" id="search-button" aria-label="Find an app">${icon('search')}</button><a class="icon-button" href="/favorites/" data-route="favorites" aria-label="Favorites" ${route==='favorites'?'aria-current="page"':''}>${icon('favorites')}</a><button class="icon-button" id="connection-button" aria-label="Connection details">${icon('more')}<span class="sr-only">${connection()}</span></button></nav></header>`
     : `<header class="topbar">${hub?`<button class="icon-button" id="menu-button" aria-label="Open navigation">${icon('menu')}</button>`:`<a class="icon-button" href="/" data-route="home" aria-label="Back to Home">${icon('back')}</a>`}${route==='chat'?`<div class="conversation-identity"><span class="brand" role="heading" aria-level="1">Relay</span><span class="conversation-visibility" id="conversation-visibility"></span></div>`:`<span class="brand">Jarvis</span>`}<div class="toolbar-actions">${route==='chat'?`<button class="icon-button" id="chat-search-toggle" aria-label="Search messages" hidden>${uiIcon('search')}</button><button class="icon-button" id="chat-menu" aria-label="Conversation menu">${uiIcon('more')}</button>`:''}${hub?`<button class="icon-button" id="search-button" aria-label="Search apps">${icon('search')}</button>`:''}<button class="icon-button" id="connection-button" aria-label="Connection details">${icon('more')}<span class="sr-only">${connection()}</span></button></div></header>`;
   const relayNav=route==='chat'?`<nav class="relay-navigation" aria-label="Relay destinations"><a class="relay-home" href="/" data-route="home">${icon('back')}<span>Jarvis home</span></a><p class="relay-nav-heading">Relay</p><button type="button" id="relay-nav-chat">${uiIcon('chat')}<span>Chat</span></button><button type="button" id="relay-nav-work">${uiIcon('check')}<span>Tasks</span></button><p class="relay-nav-note">A conversation, and the work that follows.</p></nav>`:'';
   $('app').innerHTML = `<div class="workspace${launcher?' launcher':''}">${relayNav}${header}<main id="content" tabindex="-1"></main>${hub&&!launcher?`<nav class="bottom-nav" aria-label="Hub navigation">${['home','favorites','settings'].map(key=>`<a href="${paths[key]}" data-route="${key}" ${key===route?'aria-current="page"':''}>${icon(key)}<span>${labels[key]}</span></a>`).join('')}</nav>`:''}</div>`;
   $('connection-button').onclick = showConnection;
   if ($('menu-button')) $('menu-button').onclick = showNavigation;
-  if ($('search-button')) $('search-button').onclick = () => {
-    if (route !== 'home') { route='home'; searchOpen=true; history.pushState({},'',paths.home); }
-    else searchOpen=!searchOpen;
-    if (!searchOpen) searchQuery='';
-    drawShell();
-    (searchOpen ? $('app-search') : $('search-button'))?.focus();
-  };
+  if ($('search-button')) $('search-button').onclick = () => showVerbs('app-search');
   drawPage();
   if(route==='chat') {
     $('relay-nav-chat').onclick=()=>{if(ownerUI.mode!=='public'){ownerController.showOwner();ownerController.setJobMode(false);ownerController.setRequestsOnly(false);}updateRelayNavigation();};
@@ -265,21 +267,78 @@ function launcherRow(app) {
   return `<a class="launcher-link${app.id==='jarvis'?' launcher-relay':''}" href="${app.href}">${icon(app.icon)}<span class="launcher-name">${app.name}</span>${favorite?`<span class="favorite-mark">${icon('favorites')}<span class="sr-only">Favorite</span></span>`:''}</a>`;
 }
 function drawHome() {
-  const favorites = route==='favorites';
+  detachCompass?.(); detachCompass=null;
+  if (route==='favorites') drawFavorites();
+  else if (homeView()==='verbs') drawVerbs();
+  else drawCompass();
+  if (pendingFocus) { $(pendingFocus)?.focus(); pendingFocus=''; }
+}
+function drawFavorites() {
   const selected = apps.filter(a=>preferences.favorites.includes(a.id));
-  $('content').innerHTML = `${favorites?`<section class="page-heading launcher-heading"><h1>Favorites</h1><button class="text-button" id="edit-favorites" aria-label="Edit favorites">Edit</button></section>`:`<section class="launcher-clock" aria-label="Local time and date"><h1 class="sr-only">Home</h1><time id="launcher-time" class="launcher-time"></time><time id="launcher-date" class="launcher-date"></time></section><div class="search-field" id="launcher-search" ${searchOpen?'':'hidden'}><label class="sr-only" for="app-search">Find an app</label><input id="app-search" type="search" placeholder="Find an app" value="${escape(searchQuery)}" autocomplete="off"></div>`}<div id="app-directory"></div>`;
-  const render=()=>{
-    const filtered=(favorites?selected:apps).filter(a=>(a.name+' '+a.description+' '+a.id).toLowerCase().includes(searchQuery.trim().toLowerCase()));
-    const utilityIds = ['tools','server','settings'];
-    const primary = filtered.filter(a=>!utilityIds.includes(a.id));
-    const utilities = filtered.filter(a=>utilityIds.includes(a.id));
-    $('app-directory').innerHTML = filtered.length?`<nav class="launcher-list" aria-label="${favorites?'Favorite apps':'Apps'}">${primary.map(launcherRow).join('')}${utilities.length?`<div class="launcher-utilities${primary.length?' separated':''}">${utilities.map(launcherRow).join('')}</div>`:''}</nav>`:`<p class="empty-note" role="status">${favorites?'Choose your favorite apps with Edit.':'No apps match your search.'}</p>`;
+  const utilityIds = ['tools','server','settings'];
+  const primary = selected.filter(a=>!utilityIds.includes(a.id));
+  const utilities = selected.filter(a=>utilityIds.includes(a.id));
+  $('content').innerHTML = `<section class="page-heading launcher-heading"><h1>Favorites</h1><button class="text-button" id="edit-favorites" aria-label="Edit favorites">Edit</button></section><div id="app-directory">${selected.length?`<nav class="launcher-list" aria-label="Favorite apps">${primary.map(launcherRow).join('')}${utilities.length?`<div class="launcher-utilities${primary.length?' separated':''}">${utilities.map(launcherRow).join('')}</div>`:''}</nav>`:`<p class="empty-note" role="status">Choose your favorite apps with Edit.</p>`}</div>`;
+  $('edit-favorites').onclick=editFavorites;
+}
+function drawCompass() {
+  const slots = preferences.compass.map(appById);
+  $('content').innerHTML = `<section class="compass-home" id="app-directory"><section class="launcher-clock" aria-label="Local time and date"><h1 class="sr-only">Home</h1><time id="launcher-time" class="launcher-time"></time><time id="launcher-date" class="launcher-date"></time></section><nav class="compass-rose" id="compass-rose" aria-label="Compass" aria-describedby="compass-hint"><span class="compass-ring" aria-hidden="true"></span><span class="compass-spoke" aria-hidden="true"></span><span class="compass-hub" aria-hidden="true"></span>${slots.map((a,i)=>`<a class="compass-app" data-dir="${i}" href="${a.href}" draggable="false" aria-label="${escape(a.name)} (${DIRECTIONS[i].toLowerCase()})"><span class="compass-icon">${icon(a.icon)}</span><span class="compass-name">${escape(a.name)}</span></a>`).join('')}</nav><p class="compass-hint" id="compass-hint">Touch anywhere, then flick toward an app</p><div class="home-bar"><button type="button" class="home-switch" id="home-verbs">${icon('list')}<span>All apps</span></button></div></section>`;
+  const home=$('app-directory'), rose=$('compass-rose'), hint=$('compass-hint'), idle=hint.textContent;
+  detachCompass = trackFlicks(home, {
+    ignore: target => !!target.closest('.home-bar'),
+    preview(dir) {
+      if (dir < 0) { delete rose.dataset.active; hint.textContent=idle; return; }
+      if (rose.dataset.active !== String(dir)) {
+        rose.dataset.active=dir; hint.textContent=`Let go to open ${slots[dir].name}`;
+        try { navigator.vibrate?.(8); } catch {}
+      }
+    },
+    open: dir => location.assign(slots[dir].href)
+  });
+  $('home-verbs').onclick=()=>showVerbs('home-compass');
+  updateClock();
+}
+function drawVerbs() {
+  const row = a => `<a class="verb-app" href="${a.href}">${icon(a.icon)}<span><strong>${escape(a.name)}</strong><small>${escape(a.description)}</small></span>${icon('chevron')}</a>`;
+  const word = v => `<span class="verb-name">${v.word}</span><span class="verb-hint">${escape(v.apps.map(id=>appById(id).name).join(' · '))}</span>`;
+  $('content').innerHTML = `<section class="verbs-home" id="app-directory"><h1 class="sr-only">All apps</h1><div class="verb-list" id="verb-list">${verbs.map(v=>`<section class="verb">${v.apps.length===1
+    ?`<a class="verb-word" href="${appById(v.apps[0]).href}">${word(v)}</a>`
+    :`<button type="button" class="verb-word" data-verb="${v.id}" aria-expanded="${openVerb===v.id}" aria-controls="verb-${v.id}">${word(v)}</button><div class="verb-apps" id="verb-${v.id}" ${openVerb===v.id?'':'hidden'}>${v.apps.map(id=>row(appById(id))).join('')}</div>`}</section>`).join('')}</div><div class="verb-results" id="verb-results" role="region" aria-label="Matching apps" hidden></div><nav class="verb-system" aria-label="System">${systemApps.map(id=>`<a href="${appById(id).href}" data-route="${id}">${escape(appById(id).name)}</a>`).join('')}<button type="button" id="edit-compass">Edit compass</button></nav><div class="home-bar"><button type="button" class="home-switch" id="home-compass">${icon('compass')}<span>Compass</span></button><div class="verb-find"><label class="sr-only" for="app-search">Find an app</label><span aria-hidden="true">›</span><input id="app-search" type="search" placeholder="Find an app" autocomplete="off" enterkeyhint="go" value="${escape(searchQuery)}"></div></div></section>`;
+  const toggles=[...document.querySelectorAll('button.verb-word')];
+  for (const toggle of toggles) toggle.onclick=()=>{
+    openVerb = openVerb===toggle.dataset.verb ? '' : toggle.dataset.verb;
+    for (const other of toggles) { const open=other.dataset.verb===openVerb; other.setAttribute('aria-expanded',String(open)); $('verb-'+other.dataset.verb).hidden=!open; }
   };
-  if(favorites)searchQuery='';
-  render();
-  if($('app-search'))$('app-search').oninput=e=>{searchQuery=e.target.value;render();};
-  if ($('edit-favorites')) $('edit-favorites').onclick=editFavorites;
-  if (!favorites) updateClock();
+  const find=$('app-search'), results=$('verb-results'), list=$('verb-list');
+  const matches=()=>{ const q=searchQuery.trim().toLowerCase(); return q?apps.filter(a=>(a.name+' '+a.description+' '+a.id).toLowerCase().includes(q)):null; };
+  const filter=()=>{ const found=matches(); list.hidden=!!found; results.hidden=!found; if(found)results.innerHTML=found.length?found.map(row).join(''):'<p class="empty-note" role="status">No apps match.</p>'; };
+  find.oninput=()=>{ searchQuery=find.value; filter(); };
+  find.onkeydown=e=>{
+    if (e.key==='Enter') { const first=matches()?.[0]; if (first) { e.preventDefault(); location.assign(first.href); } }
+    else if (e.key==='Escape'&&find.value) { find.value=''; searchQuery=''; filter(); }
+  };
+  filter();
+  $('home-compass').onclick=showCompass;
+  $('edit-compass').onclick=editCompass;
+}
+function showVerbs(focus) {
+  route='home'; pendingFocus=focus;
+  if (location.pathname!=='/'||location.hash!=='#apps') history.pushState({homeView:'apps'},'','/#apps');
+  drawShell(); window.scrollTo(0,0);
+}
+function showCompass() {
+  pendingFocus='home-verbs';
+  if (history.state?.homeView==='apps') history.back();
+  else { history.replaceState({},'',paths.home); drawShell(); }
+}
+function editCompass() {
+  const dialog=$('hub-dialog');
+  dialog.innerHTML=`<div class="dialog-heading"><h2 id="hub-dialog-heading">Compass</h2><button class="close" aria-label="Close compass">×</button></div><p>Choose the app for each direction. On Home, touch anywhere and flick that way.</p><form id="compass-form" class="compass-form">${DIRECTIONS.map((d,i)=>`<label class="compass-slot"><span>${d}</span><select name="slot">${apps.map(a=>`<option value="${a.id}" ${preferences.compass[i]===a.id?'selected':''}>${escape(a.name)}</option>`).join('')}</select></label>`).join('')}<button class="primary" type="submit">Save compass</button><button class="text-button" type="button" id="compass-reset">Reset to defaults</button></form>`;
+  dialog.querySelector('.close').onclick=()=>dialog.close();
+  $('compass-reset').onclick=()=>dialog.querySelectorAll('select').forEach((select,i)=>{select.value=DEFAULT_COMPASS[i];});
+  $('compass-form').onsubmit=e=>{e.preventDefault();try{const next={...preferences,compass:new FormData(e.target).getAll('slot')};savePreferences(next);preferences=next;dialog.close();drawShell();}catch{notify('The compass could not be saved. Browser storage is unavailable.');}};
+  dialog.showModal();
 }
 function editFavorites() {
   const dialog=$('hub-dialog');
@@ -294,8 +353,9 @@ function showNavigation() {
   dialog.querySelector('.close').onclick=()=>dialog.close();dialog.showModal();
 }
 function drawSettings() {
-  $('content').innerHTML=`<section class="page-heading"><h1>Settings</h1></section><section class="app-group"><h2 class="eyebrow">Your hub</h2><button class="app-row" id="settings-favorites">${icon('favorites')}<span><strong>Favorites</strong><small>Choose your favorite apps</small></span>${icon('chevron')}</button><a class="app-row" href="/server/">${icon('server')}<span><strong>Connection & status</strong><small>Message sync and service details</small></span>${icon('chevron')}</a></section><section class="reading"><h2>One shared conversation</h2><p>Relay messages and Daily Board are shared across phones. Favorites and notes are saved in this browser.</p><h2>Your player</h2><p>DrawerCast has its own full player and settings. Music stays on your phone or server.</p><h2>About</h2><p>Jarvis · version 1.1<br>Dark interface inspired by your Poweramp player.</p></section>`;
+  $('content').innerHTML=`<section class="page-heading"><h1>Settings</h1></section><section class="app-group"><h2 class="eyebrow">Your hub</h2><button class="app-row" id="settings-favorites">${icon('favorites')}<span><strong>Favorites</strong><small>Choose your favorite apps</small></span>${icon('chevron')}</button><button class="app-row" id="settings-compass">${icon('compass')}<span><strong>Compass</strong><small>Choose the app in each direction</small></span>${icon('chevron')}</button><a class="app-row" href="/server/">${icon('server')}<span><strong>Connection & status</strong><small>Message sync and service details</small></span>${icon('chevron')}</a></section><section class="reading"><h2>One shared conversation</h2><p>Relay messages and Daily Board are shared across phones. Favorites and notes are saved in this browser.</p><h2>Your player</h2><p>DrawerCast has its own full player and settings. Music stays on your phone or server.</p><h2>About</h2><p>Jarvis · version 1.1<br>Dark interface inspired by your Poweramp player.</p></section>`;
   $('settings-favorites').onclick=editFavorites;
+  $('settings-compass').onclick=editCompass;
 }
 function drawChat() {
   $('content').innerHTML = `<div class="conversation-search" id="chat-search-bar" hidden><label class="sr-only" for="conversation-search">Search messages</label><input id="conversation-search" type="search" placeholder="Search this conversation" autocomplete="off"><button class="icon-button" id="chat-search-close" type="button" aria-label="Close search">${uiIcon('close')}</button></div><section class="chat-panel"><div class="messages" id="messages" aria-label="Public Relay conversation"></div><div class="conversation-notice" id="relay-sync-notice" hidden><p id="relay-sync-error" role="status"></p><button class="text-button" type="button" id="relay-retry">Retry sync</button></div><form class="composer" id="message-form"><div class="composer-input"><label class="sr-only" for="message-text">Message Relay publicly</label><textarea id="message-text" rows="1" maxlength="4000" placeholder="Message Relay publicly…" required>${escape(state.composer || '')}</textarea><button class="primary send-icon" type="submit" id="send-message" aria-label="Send message">${uiIcon('send')}</button></div><div class="composer-bottom"><span id="relay-status" role="status">${API_ORIGIN?'Opening public inbox…':'Draft mode · saved on this device'}</span></div></form></section>`;
@@ -392,7 +452,7 @@ document.addEventListener('click', e => {
   if (link.dataset.route === 'board') { location.assign(paths.board); return; }
   relayMenuHistory.navigate(()=>{
     $('hub-dialog')?.close();
-    if (route !== link.dataset.route) { route = link.dataset.route; history.pushState({},'',paths[route]); }
+    if (route !== link.dataset.route || (link.dataset.route==='home'&&location.hash)) { route = link.dataset.route; history.pushState({},'',paths[route]); }
     drawShell(); window.scrollTo(0,0);
   });
 });

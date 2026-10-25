@@ -1,0 +1,139 @@
+/* Home: the compass (touch anywhere, flick toward an app) and its fallback list of every app by verb. */
+body.compass-page { overscroll-behavior: none; }
+body.compass-page .workspace.launcher { padding-bottom: 0; }
+.compass-home, .verbs-home {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100svh - 72px - env(safe-area-inset-top));
+}
+.compass-home {
+  align-items: center;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.launcher .compass-home .launcher-clock { padding: 4px 0 0; text-align: center; }
+.launcher .compass-home .launcher-time { font-size: clamp(60px, 17vw, 84px); }
+.launcher .compass-home .launcher-date { margin-top: 6px; }
+.compass-rose {
+  --rose: min(84vw, 360px, 48svh);
+  position: relative;
+  width: var(--rose);
+  height: var(--rose);
+  margin: auto 0;
+  flex-shrink: 0;
+}
+.compass-ring { position: absolute; inset: 12%; border-radius: 50%; border: 1px solid #ffffff12; }
+.compass-hub {
+  position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px;
+  border-radius: 50%; border: 1px solid #ffffff24; background: #ffffff07;
+}
+.compass-spoke {
+  position: absolute; left: 50%; top: 50%; width: 2px; height: calc(var(--rose) * .25); margin-left: -1px;
+  border-radius: 1px; background: var(--accent); transform-origin: 50% 0; opacity: 0;
+}
+.compass-rose[data-active] .compass-spoke { opacity: .9; }
+.compass-rose[data-active="0"] .compass-spoke { transform:rotate(180deg); }
+.compass-rose[data-active="1"] .compass-spoke { transform:rotate(225deg); }
+.compass-rose[data-active="2"] .compass-spoke { transform:rotate(270deg); }
+.compass-rose[data-active="3"] .compass-spoke { transform:rotate(315deg); }
+.compass-rose[data-active="4"] .compass-spoke { transform:rotate(360deg); }
+.compass-rose[data-active="5"] .compass-spoke { transform:rotate(405deg); }
+.compass-rose[data-active="6"] .compass-spoke { transform:rotate(450deg); }
+.compass-rose[data-active="7"] .compass-spoke { transform:rotate(495deg); }
+.compass-app {
+  position: absolute; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  width: 88px; min-height: 76px; border-radius: 16px; color: var(--text);
+}
+.compass-app[data-dir="0"] { left:50.00%;top:12.00%; }
+.compass-app[data-dir="1"] { left:76.87%;top:23.13%; }
+.compass-app[data-dir="2"] { left:88.00%;top:50.00%; }
+.compass-app[data-dir="3"] { left:76.87%;top:76.87%; }
+.compass-app[data-dir="4"] { left:50.00%;top:88.00%; }
+.compass-app[data-dir="5"] { left:23.13%;top:76.87%; }
+.compass-app[data-dir="6"] { left:12.00%;top:50.00%; }
+.compass-app[data-dir="7"] { left:23.13%;top:23.13%; }
+.compass-icon {
+  width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
+  background: #17181a; border: 1px solid #ffffff12; color: #e9e6e1;
+}
+.compass-icon svg { width: 22px; height: 22px; }
+.compass-name { font-size: 12px; line-height: 16px; color: var(--muted); white-space: nowrap; }
+.compass-app:active .compass-icon { background: #24262a; }
+.compass-rose[data-active] .compass-app { opacity: .4; }
+.compass-rose[data-active="0"] .compass-app[data-dir="0"],
+.compass-rose[data-active="1"] .compass-app[data-dir="1"],
+.compass-rose[data-active="2"] .compass-app[data-dir="2"],
+.compass-rose[data-active="3"] .compass-app[data-dir="3"],
+.compass-rose[data-active="4"] .compass-app[data-dir="4"],
+.compass-rose[data-active="5"] .compass-app[data-dir="5"],
+.compass-rose[data-active="6"] .compass-app[data-dir="6"],
+.compass-rose[data-active="7"] .compass-app[data-dir="7"] { opacity: 1; }
+.compass-rose[data-active="0"] .compass-app[data-dir="0"] .compass-icon,
+.compass-rose[data-active="1"] .compass-app[data-dir="1"] .compass-icon,
+.compass-rose[data-active="2"] .compass-app[data-dir="2"] .compass-icon,
+.compass-rose[data-active="3"] .compass-app[data-dir="3"] .compass-icon,
+.compass-rose[data-active="4"] .compass-app[data-dir="4"] .compass-icon,
+.compass-rose[data-active="5"] .compass-app[data-dir="5"] .compass-icon,
+.compass-rose[data-active="6"] .compass-app[data-dir="6"] .compass-icon,
+.compass-rose[data-active="7"] .compass-app[data-dir="7"] .compass-icon {
+  background: var(--accent); color: #17130d; border-color: transparent; transform: scale(1.12);
+}
+.compass-hint { margin: 14px 0 0; min-height: 22px; font-size: 14px; line-height: 22px; color: var(--muted); text-align: center; }
+.home-bar {
+  align-self: stretch; display: flex; align-items: center; gap: 12px;
+  padding: 12px 0 max(16px, env(safe-area-inset-bottom));
+}
+.home-switch {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 18px 0 14px;
+  border-radius: 24px; border: 1px solid #ffffff1c; background: #ffffff06; color: var(--text); font-size: 15px; flex-shrink: 0;
+}
+.home-switch svg { width: 20px; height: 20px; color: var(--muted); }
+.home-switch:active { background: #ffffff12; }
+
+.verb { border-top: 1px solid #ffffff12; }
+.verb-word {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  width: 100%; min-height: 68px; padding: 6px 0 4px; text-align: left; color: var(--text);
+}
+.verb-name { font-size: clamp(40px, 12vw, 50px); font-weight: 800; letter-spacing: -.045em; line-height: 1.15; }
+.verb-word[aria-expanded="true"] .verb-name { color: var(--accent); }
+.verb-hint, .verb-find { font-family: ui-monospace, "SF Mono", "Roboto Mono", Menlo, monospace; }
+.verb-hint { font-size: 11px; line-height: 16px; letter-spacing: .06em; text-transform: uppercase; color: #8f8c87; text-align: right; }
+.verb-apps, .verb-results { display: flex; flex-direction: column; gap: 8px; }
+.verb-apps { padding: 4px 0 16px; }
+.verb-results { padding-top: 12px; }
+.verb-app { display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 8px 14px; border-radius: 14px; background: #141517; }
+.verb-app > svg:first-child { width: 22px; height: 22px; color: #c1beb9; }
+.verb-app > span { flex: 1; min-width: 0; }
+.verb-app strong { display: block; font-size: 17px; line-height: 22px; font-weight: 600; }
+.verb-app small { display: block; color: var(--muted); font-size: 13px; line-height: 18px; }
+.verb-app > svg:last-child { width: 16px; height: 16px; color: #8f8c87; }
+.verb-app:active, .verb-system :is(a, button):active { background: #202226; }
+.verb-system { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding: 20px 0 4px; border-top: 1px solid #ffffff12; }
+.verb-system a, .verb-system button {
+  min-height: 44px; display: inline-flex; align-items: center; padding: 0 16px;
+  border-radius: 22px; background: #141517; color: #d6d3ce; font-size: 14px;
+}
+.verbs-home .home-bar { position: sticky; bottom: 0; background: var(--bg); }
+.verb-find {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px;
+  border-radius: 24px; background: #141517; border: 1px solid #ffffff10;
+}
+.verb-find > span { color: var(--accent); font-size: 18px; }
+.verb-find #app-search { min-width: 0; min-height: 46px; padding: 0; border: 0; background: transparent; font-family: inherit; font-size: 16px; }
+.verb-find #app-search:focus-visible { outline: none; }
+.verb-find:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.compass-form { display: grid; gap: 10px; margin-top: 8px; }
+.compass-slot { display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 12px; }
+.compass-slot span { color: var(--muted); font-size: 14px; }
+.compass-form .primary { margin-top: 10px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .compass-icon { transition: transform 120ms ease-out, background-color 120ms, color 120ms; }
+  .compass-app, .compass-spoke { transition: opacity 120ms; }
+}
