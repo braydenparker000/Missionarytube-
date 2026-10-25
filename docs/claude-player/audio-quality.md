@@ -97,6 +97,14 @@ reduces it first.
   (`kAudioWorkletThreadRealtimePriority` is enabled by default;
   `realtime_audio_worklet_thread.cc`), rendering through a FIFO whose
   buffering grows after an underrun (`audio_destination.cc`).
+- **A media element reaches Web Audio at its stream's own rate** and is
+  resampled per element. For `src=` playback the renderer keeps the stream's
+  rate (`ComputeStreamOutputConfig`, `media/renderers/audio_renderer_impl.cc`).
+  `media_element_audio_source_handler.cc` resamples to the context's rate with
+  a `SincResampler` of 64 taps (its request size, a render quantum, is at least
+  96 frames), Blackman-windowed, that runs on (pulling silence) while the
+  element is paused. A resampled track's start and end therefore ring over 32
+  input frames each.
 - **`AudioContext.playbackStats`** is stable (`runtime_enabled_features.json5`):
   `underrunEvents`, `underrunDuration`, `totalDuration` and latency figures.
 
@@ -167,7 +175,8 @@ The native graph was replaced by one AudioWorklet engine
   by two moving averages so it reaches what each peak needs as the peak leaves
   the delay line. Below the ceiling it passes audio bit for bit; there is no
   makeup gain; the latency is a constant 103 frames (2.1 ms at 48 kHz), also
-  while switched off. Off, it reduces nothing, and the output stage clamps at
+  while switched off (with the gapless lookahead below, the engine's is 423
+  frames, 8.8 ms). Off, it reduces nothing, and the output stage clamps at
   full scale exactly as the phone's mixer would (most library tracks then
   clip).
 - **Fades** run in the engine: cross-fades are equal power and begin when
@@ -320,6 +329,115 @@ Results:
 | Offline in the middle of a track (Chrome) | element errors after about 29 s; silence | waits; plays on where it was when back online |
 | Offline at a track change with copies (Chrome) | silence | the next track plays from its copy; a track without a copy gives way to the next one with a copy |
 
-The remaining 17 ms between tracks matters only for continuous albums (live
-recordings, DJ mixes). Closing it needs the next deck started early and
-spliced sample-accurately in the engine.
+The remaining 17 ms between tracks matters for continuous albums (live
+recordings, DJ mixes): the gapless join below closes it.
+
+## Gapless
+
+When the playing track ends with no cross-fade and no silence setting, the
+next track follows its last frame exactly, as on a CD:
+
+- **In the engine** (`engine-worklet.js`): each deck plays through a ring
+  buffer whose mix point trails the newest frame by 320 frames (6.7 ms at
+  48 kHz), so the end of a track is seen before it is heard.
+- **Early start, held**: half a second before the end, the player starts the
+  preloaded next track. The engine holds it, filling its ring without it
+  being heard.
+- **The join**: the outgoing deck's input goes exactly silent for 128 frames
+  at or after its expected end (the element has delivered its last frame).
+  The engine then mixes the held deck from its beginning, on the frame after
+  the outgoing track's last one. The new track plays on delayed by however
+  early it started, about 0.5 s.
+- **Resampled tracks.** The audio context runs at 48 kHz, the library's rate
+  (Opus always decodes at 48 kHz), so on any phone its tracks reach the engine
+  unresampled and join exactly; Chrome resamples the finished mix once if the
+  phone runs at another rate. A track at another rate (an MP3 or AAC at
+  44.1 kHz) is resampled on its way in, per element, by Chrome's 64-tap
+  SincResampler (`media_element_audio_source_handler.cc`): its start and end
+  ring over 32 input frames each. Back to back, two such edges leave a
+  14–21-frame near-silence and a click. The engine overlaps ringing edges
+  (outermost sample under 10⁻³) by their modelled length, and searches six
+  frames either way for the overlap whose sum bends least: each element's
+  resampler has its own sub-sample phase, which moves the best overlap by a
+  frame. Abrupt (unresampled) edges join back to back.
+- **Position**: the player subtracts that delay, at the track's tempo, from
+  the position. In the delay's last half-second (the tail) the element has
+  already ended while the engine still plays its end; the track ends once the
+  tail has been heard.
+- **Controls in a delayed track**:
+  - A pause drops the delay and steps the element back to what was heard last,
+    so nothing heard is skipped or repeated. A pause during the tail steps back
+    into the tail; resumed while the pause still fades out, the tail fades back
+    in and ends as it would have.
+  - A seek drops the delay; during the tail it restarts the element.
+  - Next or picking a track during the tail fades it out like any playing
+    track.
+  - A system pause (a call, headphones unplugged) stops at once: what the
+    engine holds fades out in 8 ms, and the element goes back to what was
+    heard. In the last tail the only playing element is the held next track;
+    its pause counts as the player's.
+- **Flushes never click.** Dropping what a deck has not played yet (a pause,
+  seek, cancel or reload) fades out what was about to be heard over 8 ms. At a
+  track's end the rest of it is heard as it is.
+- **Leading and trailing silence are kept.**
+  - The next track begins where its deck started: the start message plus the
+    decks' start latency, the shortest of the last 8 starts. So its leading
+    silence plays, even a silence still going on when the outgoing track ends.
+    A first sound within 150 ms of that point is start jitter, and the track
+    begins exactly with it. So a leading silence under 150 ms is not kept, but
+    a slower start than usual never adds silence.
+  - The outgoing track's trailing silence plays out, all but the last 120 ms.
+  - Until a start has been seen, the guess is high (250 ms). Early in a
+    session a little leading silence may be lost, but no silence is added.
+- **When it applies**: not for a cross-fade (`crossfade_auto_advance`), end
+  silence (`track_end_silence_ms`), repeat-song, CUE ranges (their ends are
+  watched on the element, which runs ahead), or a track that resumes where it
+  was left. The join is cancelled when, while the next track is held:
+  - the user seeks, pauses or picks another track;
+  - what comes next changes (queue, shuffle, repeat, a sleep timer running
+    out);
+  - or the playing stream stalls or reloads (its silence would look like its
+    end).
+
+  The held deck stops and waits at its start again. If the outgoing track
+  does not end within the ring (2.5 s), the join is given up and the usual
+  end starts the next track. A join the engine made just as the player
+  cancelled it is not taken for the next one (each splice has an id).
+- **Limits**:
+  - 2.7 ms or more of digital silence within a track's last 120 ms, followed
+    by more sound, is taken for its end.
+  - When nothing plays but the engine's last tail (the end of a gapless run),
+    a system pause that Chrome reports to no element plays out up to that
+    tail's 0.5 s.
+  - Resampled joins are aligned to the frame, not to the sub-sample. Measured
+    offline on recorded Chrome output, aligning to the sub-sample would take
+    the audible error from about −30 dBFS to under −50 dBFS.
+
+Results:
+
+| Check | Before (preload only) | Gapless |
+| --- | --- | --- |
+| A continuous recording split into two tracks, lab: gap, click | 0 ms, −93.9 dBFS (edge-faded tones); a cut waveform clicks | 0 ms, −144.8 dBFS (the silence floor: no click) |
+| Three tracks back to back, lab | | 0 ms, −144.8 dBFS, level unchanged |
+| The same with 300 ms to a stream's first audio, lab | | 0 ms, −144.8 dBFS |
+| Start latency 10 ms at one join, 130 ms at the next, lab | | 0 ms, −144.8 dBFS |
+| Real Chrome, continuous tone split into two WAV tracks (48 kHz) | 17 ms of silence between them | no gap; the largest bend across the join is the tone's own curvature |
+| Real Chrome, the same at 44.1 kHz on the 48 kHz output: audible error (12 kHz low-pass) at the join | back to back: about −7 dBFS, a 17–21-frame near-silence | −30.6 to −40.7 dBFS (overlap 69 frames) |
+| Real Chrome, 48 kHz tracks on a 44.1 kHz output | back to back: about −6 dBFS, a 14-frame near-silence | −29 to −46 dBFS (overlap 58–59 frames) |
+| Engine, unit tests: a sine split at a non-zero phase; ringing edges with the modelled length 3 frames off | | sample-exact (error < 10⁻⁶) |
+
+Fixed after an adversarial review (lab unless noted):
+
+| Check | Before | Now |
+| --- | --- | --- |
+| System pause of a joined track (Chrome) | played on about 490 ms | 0–12 ms |
+| Seek to the start in the tail | −21.9 dBFS click, then the next track | −102 dBFS; the track plays again |
+| Next in the tail | −21.9 dBFS click | −111 dBFS |
+| Pause in the tail, play 0.8 s later | the last 0.5 s heard again | not repeated; on to the next track |
+| A next track of 0.3 s | heard twice | heard once |
+| Start latency 10 ms, then 130 ms | 120 ms of silence added | none |
+| 2 ms of digital silence 50 ms before the end | joined there: the end lost, a −21 dBFS click | joined at the end |
+| Next track a CUE range of another image | its last 0.5 s lost | plays whole (not joined) |
+| Tempo 1.5×: position at the join | 241 ms | 0 ms |
+| Next pressed as the engine joins (the engine's report crossing the cancel; dsp unit test) | position 0.5 s off, 378 ms gap at the next join | the stale report is dropped |
+| Sleep timer (to the end of the track) running out while held | the next track heard for a moment | not heard |

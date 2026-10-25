@@ -13,12 +13,16 @@ const TYPES = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css
 
 export const chrome = [process.env.JARVIS_CHROME, process.env.CHROME_PATH, '/usr/bin/google-chrome', '/usr/bin/chromium'].find(p => p && existsSync(p));
 
-/** A 16-bit stereo WAV: a tone (hz, dB) with 5 ms raised-cosine edges. */
-export function wav({seconds = 8, hz = 440, db = -12, rate = 48000} = {}) {
-  const n = Math.round(seconds * rate), data = Buffer.alloc(n * 4), a = 10 ** (db / 20), edge = Math.round(rate * 0.005);
+/**
+ * A 16-bit stereo WAV: a tone (hz, dB) with 5 ms raised-cosine edges, or
+ * none (edges false); from: seconds of an earlier tone it goes on from (a
+ * continuous recording split into tracks).
+ */
+export function wav({seconds = 8, hz = 440, db = -12, rate = 48000, edges = true, from = 0} = {}) {
+  const n = Math.round(seconds * rate), data = Buffer.alloc(n * 4), a = 10 ** (db / 20), edge = Math.round(rate * 0.005), f0 = Math.round(from * rate);
   for (let i = 0; i < n; i++) {
-    const g = Math.min(1, i / edge, (n - 1 - i) / edge), g2 = 0.5 - 0.5 * Math.cos(Math.PI * Math.max(0, g));
-    const v = Math.round(32767 * a * g2 * Math.sin(2 * Math.PI * hz * i / rate));
+    const g = edges ? Math.min(1, i / edge, (n - 1 - i) / edge) : 1, g2 = 0.5 - 0.5 * Math.cos(Math.PI * Math.max(0, g));
+    const v = Math.round(32767 * a * g2 * Math.sin(2 * Math.PI * hz * (i + f0) / rate));
     data.writeInt16LE(v, i * 4);
     data.writeInt16LE(v, i * 4 + 2);
   }
@@ -38,7 +42,7 @@ export function libraryOf(tracks) {
       id, bytes, record: {
         id, audioKey: 'native/audio/' + id, size: bytes.length, sha256: '0'.repeat(64), md5: '0'.repeat(32), mimeType: 'audio/wav',
         r2Identity: {lastModified: '2026-10-01T00:00:00Z'}, path: `Lab/${t.album ?? 'Tones'}/${String(t.track ?? i + 1).padStart(2, '0')} ${t.title ?? 'Tone ' + (i + 1)}.wav`, folder: 'Cloudflare R2/Lab',
-        metadata: {title: t.title ?? 'Tone ' + (i + 1), artist: 'Audio Lab', album: t.album ?? 'Tones', track: t.track ?? i + 1, disc: 1, dur: t.seconds ?? 8, sr: 48000, ch: 2, codec: 'wav', bits: 16},
+        metadata: {title: t.title ?? 'Tone ' + (i + 1), artist: 'Audio Lab', album: t.album ?? 'Tones', track: t.track ?? i + 1, disc: 1, dur: t.seconds ?? 8, sr: t.rate ?? 48000, ch: 2, codec: 'wav', bits: 16},
       },
     };
   });
@@ -49,7 +53,7 @@ export function libraryOf(tracks) {
  * fixture (index, audio with byte ranges, 404 for covers and waveforms).
  * Returns the page, page errors and the audio requests seen.
  */
-export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 390, audioDelayMs = 0, workletDelayMs = 0} = {}) {
+export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 390, audioDelayMs = 0, workletDelayMs = 0, init = null} = {}) {
   // The audio network, steerable by a test: down (requests fail), hang (requests wait for release()),
   // tracks refused (any request) or refused whole (offline copy downloads), by id.
   const net = {down: false, hang: false, refuse: new Set(), refuseWhole: new Set(), held: [], release() { this.hang = false; for (const go of this.held.splice(0)) go(); }};
@@ -75,6 +79,7 @@ export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 
   const page = await browser.newPage({viewport: {width, height: 844}, isMobile: true, hasTouch: true, reducedMotion: 'reduce', ...(workletDelayMs ? {serviceWorkers: 'block'} : {})});
   const origin = `http://127.0.0.1:${server.address().port}`, errors = [], requests = [];
   page.on('pageerror', e => errors.push(e.message));
+  if (init) await page.addInitScript(init);
   const lib = libraryOf(tracks), byId = new Map(lib.map(x => [x.id, x]));
   const cors = {'Access-Control-Allow-Origin': origin, 'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges'};
   await page.route(WORKER + '/**', async route => {

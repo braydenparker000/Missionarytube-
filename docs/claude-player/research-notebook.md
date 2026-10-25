@@ -1334,7 +1334,9 @@ the curves are chosen here (inferred). The player has two media decks, each with
 in the audio engine (`engine-worklet.js`): crossfades are equal power, play, pause and seek fades an
 S-curve, and a fade-in starts when the deck's sound begins (a stream can take a moment), so it is
 never spent on silence. A manual change, pause or seek without a fade still fades over 8 ms, which
-only keeps the cut from clicking.
+only keeps the cut from clicking. An automatic advance with no cross-fade and no end silence is
+gapless: the next track starts early, held in the engine, and is joined to the playing track's last
+frame (see audio-quality.md, Gapless).
 
 - **Play / pause** (fade_play_pause): pausing fades out over fade_short_ms, then pauses; resuming
   fades in. A seek made while fading out (Stop) lands once it is silent.

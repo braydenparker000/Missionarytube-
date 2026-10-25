@@ -143,7 +143,8 @@ class LabAudio extends EventTarget {
     this.wantsPlay = true;
     if (this.ended) { this.offset = 0; this.ended = false; }
     this.emit('play');
-    if (this.readyState >= 1) this.later(this.lab.opts.resumeMs, () => { if (!this.paused && !this.node && this.wantsPlay) this.begin(); });
+    // As in Chrome, a play during a seek starts once the seek has finished.
+    if (this.readyState >= 1 && !this.seekTimer) this.later(this.lab.opts.resumeMs, () => { if (!this.paused && !this.node && this.wantsPlay && !this.seekTimer) this.begin(); });
     return p;
   }
 
@@ -178,7 +179,8 @@ class LabAudio extends EventTarget {
     node.buffer = this.buffer;
     node.playbackRate.value = this.playbackRate;
     node.connect(this.output);
-    node.start(now, this.offset);
+    // Now: on the frame (a computed start time a hair past it would be interpolated, a sample late or lost).
+    node.start(0, this.offset);
     this.node = node;
     this.startedAt = now;
     this.emit('playing');
@@ -245,8 +247,11 @@ export class Lab {
 
   /** A stereo AudioBuffer from per-channel sample functions over `seconds`. */
   makeBuffer(seconds, fill) {
-    const n = Math.round(seconds * this.rate), b = new AudioBuffer({numberOfChannels: 2, length: n, sampleRate: this.rate});
+    // One silent frame after the signal: Chrome's AudioBufferSourceNode plays a buffer's last
+    // frame twice at some lengths, which a gapless join would hear as part of the track.
+    const n = Math.round(seconds * this.rate), b = new AudioBuffer({numberOfChannels: 2, length: n + 1, sampleRate: this.rate});
     fill(b.getChannelData(0), b.getChannelData(1), this.rate);
+    b.getChannelData(0)[n] = b.getChannelData(1)[n] = 0;
     return b;
   }
 
@@ -263,8 +268,13 @@ export class Lab {
   async rawSignal(spec, seconds) {
     const r = this.rate;
     if (spec.kind === 'tone') {
-      const a = M.fromDb(spec.db ?? -12), w = 2 * Math.PI * spec.hz / r;
-      return this.makeBuffer(seconds, (L, R) => { for (let i = 0; i < L.length; i++) L[i] = R[i] = a * Math.sin(w * i); });
+      // fromSeconds: the tone goes on from that point of an earlier one (the next track of a continuous recording);
+      // zeros: spans [start, end) seconds of digital silence.
+      const a = M.fromDb(spec.db ?? -12), w = 2 * Math.PI * spec.hz / r, from = Math.round((spec.fromSeconds ?? 0) * r);
+      return this.makeBuffer(seconds, (L, R) => {
+        for (let i = 0; i < L.length; i++) L[i] = R[i] = a * Math.sin(w * (i + from));
+        for (const [s0, s1] of spec.zeros ?? []) for (let i = Math.round(s0 * r); i < Math.min(L.length, Math.round(s1 * r)); i++) L[i] = R[i] = 0;
+      });
     }
     if (spec.kind === 'antiphase') {
       const a = M.fromDb(spec.db ?? -6), w = 2 * Math.PI * (spec.hz ?? 440) / r;
@@ -374,7 +384,9 @@ export class Lab {
       this.out = [rendered.getChannelData(0), rendered.getChannelData(1)];
       this.input = this.buffers.get(tracks[0].src);
       const metrics = scn.measure ? await scn.measure(this) : {};
-      return {name: scn.name, metrics: {...metrics, renderMs: Math.round(this.renderMs), realtimeX: Math.round(duration * 1000 / this.renderMs)}, errors: [...new Set(errors)].slice(0, 5)};
+      // options.events: the decks' events [ms, deck, type, position ms] and the playback log's, for a look at what happened when.
+      const events = this.opts.events ? {decks: this.events, log: this.ctx.playbackLog?.events ?? []} : undefined;
+      return {name: scn.name, metrics: {...metrics, renderMs: Math.round(this.renderMs), realtimeX: Math.round(duration * 1000 / this.renderMs)}, errors: [...new Set(errors)].slice(0, 5), events};
     } finally {
       clock.uninstall();
       window.AudioContext = real.AudioContext;

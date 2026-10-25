@@ -64,17 +64,40 @@ test('the lab renders the real playback chain offline and measures it', {skip: !
     assert.ok(by[name].truePeakDb <= -1, `${name}: ${by[name].truePeakDb} dBTP`);
   }
   // The limiter is transparent until it is needed, and does not distort a sustained bass note.
+  // The engine's latency: 320 frames of gapless lookahead (end silence and resampler overlap) and the limiter's 103.
   assert.equal(by['limiter-level'].gainDb, 0);
-  assert.equal(by['limiter-level'].latencyFrames, 103);
+  assert.equal(by['limiter-level'].latencyFrames, 423);
   assert.ok(by['limiter-thd'].thdnDb < -100);
   // Balance turns the far side down; it never adds one channel into the other.
   assert.ok(by['balance-left'].samplePeakDb <= -2.9, `balance: ${by['balance-left'].samplePeakDb}`);
   // Cross-fades are equal power and start with the incoming sound: after a network delay, or at once when preloaded.
-  for (const name of ['next-xfade', 'next-xfade-network', 'next-xfade-preloaded']) {
+  for (const name of ['next-xfade', 'next-xfade-network', 'next-xfade-preloaded', 'pick-twice']) {
     const m = by[name];
     assert.ok(m.inStartDb < -25, `${name}: incoming starts at ${m.inStartDb} dB`);
     assert.ok(Math.abs(m.inMidDb + 3) < 1.5 && Math.abs(m.outMidDb + 3) < 1.5, `${name}: midpoint ${m.inMidDb} / ${m.outMidDb} dB`);
   }
+  // Picked again before the new track sounded: the first track played on until the newest one sounded.
+  assert.ok(by['pick-twice'].waitDb > -0.5, `pick twice: ${by['pick-twice'].waitDb} dB while waiting`);
   // The next track was preloaded: no silence between tracks, even with 300 ms to a stream's first audio.
   assert.ok(by['track-end-gap'].gapMs <= 20, `track end: ${by['track-end-gap'].gapMs} ms of silence`);
+  // Gapless around a joined track's last half-second (its element has ended; the engine still plays it), and around joins.
+  const quiet = db => db === null || db === undefined || db < -60;
+  const g = by;
+  assert.ok(g['gapless-tail-seek'].clickDb < -90 && g['gapless-tail-seek'].againDb > -1 && quiet(g['gapless-tail-seek'].thirdDb), `seek in the tail: ${JSON.stringify(g['gapless-tail-seek'])}`);
+  assert.ok(g['gapless-tail-next'].clickDb < -90, `Next in the tail: ${g['gapless-tail-next'].clickDb} dBFS`);
+  assert.ok(quiet(g['gapless-tail-pause'].againDb) && g['gapless-tail-pause'].thirdDb > -1, `pause in the tail: ${JSON.stringify(g['gapless-tail-pause'])}`);
+  assert.ok(g['gapless-system-pause'].heardMs <= 20 && g['gapless-system-pause'].paused, `system pause: ${JSON.stringify(g['gapless-system-pause'])}`);
+  assert.ok(g['gapless-short-next'].onceDb > -1 && quiet(g['gapless-short-next'].againDb) && g['gapless-short-next'].thirdDb > -1, `short next track: ${JSON.stringify(g['gapless-short-next'])}`);
+  assert.ok(quiet(g['gapless-sleep-held'].nextDb) && g['gapless-sleep-held'].state === 2, `sleep timer: ${JSON.stringify(g['gapless-sleep-held'])}`);
+  assert.ok(g['gapless-start-jitter'].gapMs === 0 && g['gapless-start-jitter'].clickDb < -120, `slower start: ${JSON.stringify(g['gapless-start-jitter'])}`);
+  assert.ok(g['gapless-short-silence'].endDb > -1 && !(g['gapless-short-silence'].nextEarlyDb > -30), `short silence: ${JSON.stringify(g['gapless-short-silence'])}`);
+  assert.ok(Math.abs(g['gapless-tempo'].posAtJoinMs) <= 30, `tempo: position ${g['gapless-tempo'].posAtJoinMs} ms at the join`);
+  assert.ok(g['gapless-cue-next'].rangeDb > -1, `CUE next: ${g['gapless-cue-next'].rangeDb} dB late in its range`);
+  // Gapless: a continuous recording split into tracks plays through each join without a gap or a step.
+  for (const name of ['gapless-continuous', 'gapless-network', 'gapless-three']) {
+    const m = by[name];
+    assert.equal(m.gapMs, 0, name);
+    assert.ok(m.clickDb < -120, `${name}: ${m.clickDb} dBFS at ${m.clickAt} s`);
+    if (m.joinedDb !== undefined) assert.ok(Math.abs(m.joinedDb) < 0.1, `${name}: level after the joins ${m.joinedDb} dB`);
+  }
 });

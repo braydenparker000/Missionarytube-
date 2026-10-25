@@ -5,7 +5,7 @@
 // Run: node --test tests/claude-player-reliability-browser.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {openPlayer, chrome} from './helpers/claude-player-browser.mjs';
+import {openPlayer, chrome, wav} from './helpers/claude-player-browser.mjs';
 
 const skip = !chrome && 'Chrome is required';
 
@@ -17,13 +17,14 @@ async function playFor(page, seconds) {
 
 const playingAt = (page, sec, timeout = 30000) => page.waitForFunction(s => { const a = window.__cp.player.audio; return !a.paused && a.readyState >= 3 && a.currentTime > s; }, sec, {timeout});
 
-test('the next track preloads on the idle deck and starts the moment the playing one ends', {skip}, async t => {
+test('the next track preloads on the idle deck, starts early held in the engine, and is joined to the playing one\'s end', {skip}, async t => {
   const h = await openPlayer(t, {tracks: [{seconds: 8}, {seconds: 8, hz: 330}, {seconds: 8, hz: 550}]});
   const {page} = h;
   await page.evaluate(() => {
     const p = window.__cp.player;
     window.__marks = [];
     for (const el of p.decks) for (const type of ['ended', 'playing']) el.addEventListener(type, () => window.__marks.push({type, deck: p.decks.indexOf(el), t: performance.now()}));
+    window.__cp.ctx.bus.subscribe('bus_player', (msg, src, d) => { if (msg === 'msg_player_track_changed' && !d?.meta && !window.__changedAt && p.index > 0) window.__changedAt = performance.now(); });
   });
   await playFor(page, 0.3);
   await page.waitForFunction(() => window.__cp.player.preloaded?.el.readyState >= 3, null, {timeout: 10000});
@@ -31,11 +32,14 @@ test('the next track preloads on the idle deck and starts the moment the playing
   assert.equal(pre.track, pre.next);
   await page.evaluate(() => window.__cp.player.seek(6500));
   await page.waitForFunction(id => window.__cp.player.track?.id === id && window.__cp.player.audio.currentTime > 0.3, pre.track, {timeout: 10000});
-  const r = await page.evaluate(() => ({deck: window.__cp.player.decks.indexOf(window.__cp.player.audio), marks: window.__marks, events: window.__cp.ctx.playbackLog.events.map(e => e.type)}));
+  const r = await page.evaluate(() => ({deck: window.__cp.player.decks.indexOf(window.__cp.player.audio), marks: window.__marks, events: window.__cp.ctx.playbackLog.events, delay: window.__cp.dsp.deckDelay(window.__cp.player.audio)}));
   assert.equal(r.deck, pre.deck, 'the preloaded deck plays the next track');
-  const ended = r.marks.find(m => m.type === 'ended'), started = r.marks.find(m => m.type === 'playing' && m.deck === pre.deck && m.t > ended.t);
-  assert.ok(started.t - ended.t < 150, `${Math.round(started.t - ended.t)} ms from the end to the next track`);
-  assert.ok(r.events.includes('preload'));
+  // It started before the track changed (held until the join; the first deck may be let go before its own end event), and plays on behind its element by that much.
+  const started = r.marks.find(m => m.type === 'playing' && m.deck === pre.deck), changed = await page.evaluate(() => window.__changedAt);
+  assert.ok(started && changed && started.t < changed, JSON.stringify({started, changed}));
+  const spliced = r.events.find(e => e.type === 'spliced');
+  assert.ok(spliced && r.delay > 0.3 && r.delay < 0.55, JSON.stringify({spliced, delay: r.delay}));
+  assert.ok(r.events.some(e => e.type === 'preload'));
   assert.deepEqual(h.errors, []);
 });
 
@@ -224,5 +228,130 @@ test('repeat one plays the track again at its end, and moves on from a track tha
   await page.waitForFunction(id => window.__cp.player.track?.id === id, h.lib[2].id, {timeout: 20000});
   await playingAt(page, 0.5);
   assert.equal(await page.evaluate(() => window.__cp.player.guard.summary().skipped), 1);
+  assert.deepEqual(h.errors, []);
+});
+
+test('gapless in Chrome: a continuous recording split into two tracks plays through the join without a gap or a step', {skip}, async t => {
+  // The tracks at the output's own rate (no resampling between the element and the engine).
+  const probe = await openPlayer(t, {tracks: [{seconds: 8}]});
+  const rate = await probe.page.evaluate(() => { window.__cp.ctx.dsp.open?.(); return window.__cp.dsp.ac.sampleRate; });
+  await probe.page.close();
+  const lenA = 8 + 0.3 / 440;
+  const h = await openPlayer(t, {tracks: [{seconds: lenA, rate, bytes: wav({seconds: lenA, rate, edges: false})}, {seconds: 8, rate, bytes: wav({seconds: 8, rate, edges: false, from: lenA})}]});
+  const {page} = h;
+  await playFor(page, 0.3);
+  await page.evaluate(() => window.__cp.player.seek(6000));
+  await page.waitForFunction(() => window.__cp.player.audio.currentTime > 6.3, null, {timeout: 10000});
+  // Record the engine's output across the join.
+  await page.evaluate(() => {
+    const d = window.__cp.dsp, tap = d.ac.createScriptProcessor(4096, 2, 2), rec = window.__rec = [];
+    tap.onaudioprocess = e => rec.push(Float32Array.from(e.inputBuffer.getChannelData(0)));
+    d.nodes.out.connect(tap);
+    tap.connect(d.ac.destination);
+  });
+  await page.waitForFunction(id => window.__cp.player.track?.id === id && window.__cp.player.positionMs() > 1000, h.lib[1].id, {timeout: 15000});
+  const r = await page.evaluate(() => {
+    const parts = window.__rec, x = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+    let o = 0;
+    for (const p of parts) { x.set(p, o); o += p.length; }
+    let run = 0, gap = 0, step = 0, peak = 0;
+    for (let i = 1; i < x.length - 1; i++) {
+      run = Math.abs(x[i]) < 1e-4 ? run + 1 : 0;
+      gap = Math.max(gap, run);
+      step = Math.max(step, Math.abs(x[i + 1] - 2 * x[i] + x[i - 1]));
+      peak = Math.max(peak, Math.abs(x[i]));
+    }
+    return {frames: x.length, gap, step, peak, spliced: window.__cp.ctx.playbackLog.events.some(e => e.type === 'spliced')};
+  });
+  // A 440 Hz tone at -12 dBFS bends at most A·w² per frame (about 1e-3); a step at the join would be ten times that.
+  const bend = 10 ** (-12 / 20) * (2 * Math.PI * 440 / rate) ** 2;
+  assert.ok(r.spliced, 'joined in the engine');
+  assert.ok(r.frames > rate, `recorded ${r.frames} frames`);
+  assert.ok(r.gap < 3, `${r.gap} silent frames in a row`);
+  assert.ok(r.step < 1.5 * bend, `largest bend ${r.step} (the tone's own: ${bend})`);
+  assert.ok(r.peak < 0.26 && r.peak > 0.24, `peak ${r.peak}`);
+  assert.deepEqual(h.errors, []);
+});
+
+/** Plays two tracks of one continuous 440 Hz tone (at `rate`) and records the engine's output from shortly before the join to after it. */
+async function recordJoin(t, rate) {
+  const lenA = 8 + 0.3 / 440;
+  const h = await openPlayer(t, {tracks: [{seconds: lenA, rate, bytes: wav({seconds: lenA, rate, edges: false})}, {seconds: 8, rate, bytes: wav({seconds: 8, rate, edges: false, from: lenA})}]});
+  const {page} = h;
+  await playFor(page, 0.3);
+  await page.evaluate(() => window.__cp.player.seek(6000));
+  await page.waitForFunction(() => window.__cp.player.audio.currentTime > 6.3, null, {timeout: 10000});
+  await page.evaluate(() => {
+    const d = window.__cp.dsp, tap = d.ac.createScriptProcessor(4096, 2, 2), rec = window.__rec = [];
+    tap.onaudioprocess = e => rec.push(Float32Array.from(e.inputBuffer.getChannelData(0)));
+    d.nodes.out.connect(tap);
+    tap.connect(d.ac.destination);
+  });
+  await page.waitForFunction(id => window.__cp.player.track?.id === id && window.__cp.player.positionMs() > 1000, h.lib[1].id, {timeout: 15000});
+  return h;
+}
+
+test('gapless in Chrome across a resampler: tracks at 44.1 kHz on the 48 kHz output overlap their ringing at the join', {skip}, async t => {
+  const h = await recordJoin(t, 44100);
+  const r = await h.page.evaluate(() => {
+    const parts = window.__rec, x = new Float32Array(parts.reduce((n, p) => n + p.length, 0)), rate = window.__cp.dsp.ac.sampleRate;
+    let o = 0;
+    for (const p of parts) { x.set(p, o); o += p.length; }
+    // The error against the continuous tone (fitted away from the edges of the recording), low-passed at 12 kHz: what is heard of the join.
+    const w = 2 * Math.PI * 440 / rate;
+    let ss = 0, sc = 0, cc = 0, ys = 0, yc = 0;
+    for (let n = 2048; n < x.length - 2048; n++) { const s = Math.sin(w * n), c = Math.cos(w * n); ss += s * s; sc += s * c; cc += c * c; ys += x[n] * s; yc += x[n] * c; }
+    const det = ss * cc - sc * sc, A = (ys * cc - yc * sc) / det, B = (yc * ss - ys * sc) / det;
+    const e = Float64Array.from(x, (v, n) => v - A * Math.sin(w * n) - B * Math.cos(w * n));
+    const taps = 127, m = (taps - 1) / 2, fc = 12000 / rate, h = [];
+    let sum = 0;
+    for (let i = 0; i < taps; i++) { const k = i - m, win = 0.42 - 0.5 * Math.cos(2 * Math.PI * i / (taps - 1)) + 0.08 * Math.cos(4 * Math.PI * i / (taps - 1)); h.push(win * (k ? Math.sin(2 * Math.PI * fc * k) / (Math.PI * k) : 2 * fc)); sum += h[i]; }
+    let worst = 0, run = 0, gap = 0;
+    for (let n = 4096; n < x.length - 4096; n++) { let v = 0; for (let k = 0; k < taps; k++) v += e[n - m + k] * h[k]; worst = Math.max(worst, Math.abs(v / sum)); }
+    for (const v of x) { run = Math.abs(v) < 1e-4 ? run + 1 : 0; gap = Math.max(gap, run); }
+    return {rate, amp: Math.hypot(A, B), errDb: 20 * Math.log10(worst), gap, spliced: window.__cp.ctx.playbackLog.events.find(ev => ev.type === 'spliced')};
+  });
+  assert.equal(r.rate, 48000);
+  assert.ok(r.spliced, 'joined in the engine');
+  // Each track rings over about 35 frames (Chrome's 64-tap resampler, 32 input frames each side).
+  assert.ok(r.spliced.overlap >= 62 && r.spliced.overlap <= 78, `overlap ${r.spliced.overlap}`);
+  assert.ok(r.gap < 3, `${r.gap} silent frames in a row`);
+  // Back to back the join is a click about -7 dBFS (a 17-frame dropout); overlapped it is well under -20 dBFS.
+  assert.ok(r.errDb < -20, `audible error at the join ${r.errDb.toFixed(1)} dBFS`);
+  assert.ok(Math.abs(r.amp - 0.251) < 0.003, `tone amplitude ${r.amp} (one phase across the join)`);
+  assert.deepEqual(h.errors, []);
+});
+
+test('the system pausing a joined track stops it at once, not after its delay, and play resumes it where it was heard', {skip}, async t => {
+  const h = await recordJoin(t, 48000);
+  const {page} = h;
+  // Joined and playing about 0.5 s behind its element; the system pauses the element (headphones unplugged).
+  const r = await page.evaluate(async () => {
+    const p = window.__cp.player, d = window.__cp.dsp;
+    const delay = d.deckDelay(p.audio), heard = p.positionMs();
+    const tap = d.ac.createScriptProcessor(256, 2, 2), rec = [];
+    tap.onaudioprocess = e => rec.push(Float32Array.from(e.inputBuffer.getChannelData(0)));
+    d.nodes.out.connect(tap);
+    tap.connect(d.ac.destination);
+    await new Promise(r => setTimeout(r, 200));
+    const at = rec.length * 256;
+    p.audio.pause();
+    await new Promise(r => setTimeout(r, 800));
+    const x = new Float32Array(rec.length * 256);
+    rec.forEach((b, i) => x.set(b, i * 256));
+    let last = at;
+    for (let i = at; i < x.length; i++) if (Math.abs(x[i]) > 1e-3) last = i;
+    return {delay, heard, state: p.state, soundMs: (last - at) / d.ac.sampleRate * 1000, pausedAt: p.positionMs()};
+  });
+  assert.ok(r.delay > 0.2, `joined with a delay (${r.delay} s)`);
+  assert.equal(r.state, 2);
+  // It used to play on for its whole delay (about 490 ms); now it fades out in 8 ms (plus the recorder's own buffering).
+  assert.ok(r.soundMs < 60, `${r.soundMs.toFixed(0)} ms of sound after the pause`);
+  // The position is what was heard; playing again goes on from there.
+  assert.ok(Math.abs(r.pausedAt - (r.heard + 200)) < 120, `paused at ${r.pausedAt} ms, heard ${r.heard} ms 200 ms before`);
+  await page.evaluate(() => window.__cp.player.play());
+  await page.waitForTimeout(300);
+  const after = await page.evaluate(() => window.__cp.player.positionMs());
+  assert.ok(after > r.pausedAt + 100 && after < r.pausedAt + 600, `resumed at ${after} ms (paused at ${r.pausedAt} ms)`);
   assert.deepEqual(h.errors, []);
 });
