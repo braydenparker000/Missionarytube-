@@ -9,6 +9,8 @@
 // and visibility. "Copy report" puts the whole log on the
 // clipboard as JSON, for checking playback on the phone itself.
 
+import {offlineAhead, setOfflineAhead, AHEAD_MODES} from '../library/audio-cache.js';
+
 const MAX_EVENTS = 300;
 const DECK_EVENTS = ['loadstart', 'loadedmetadata', 'canplaythrough', 'playing', 'waiting', 'stalled', 'error', 'emptied', 'seeking', 'seeked', 'ended', 'abort'];
 const MEDIA_ERRORS = {1: 'aborted', 2: 'network', 3: 'decode', 4: 'not supported'};
@@ -243,6 +245,14 @@ export class PlaybackLog {
     row(media, 'buffer', 'Network and decoder');
     row(media, 'recovery', 'Recovery');
     row(media, 'offline', 'Offline copies');
+    // How far ahead copies are saved (per device); tapping cycles the choices and applies at once.
+    const aheadText = () => ({few: 'A few tracks: on Wi-Fi the playing one and the next 3, on mobile data the next one', next: 'The next track only', off: 'None: tracks stream as they play'})[offlineAhead()] + '\nOnce a song has played 30 s (skipped songs cost none)';
+    row(media, 'offlineAhead', 'Save ahead for offline', () => {
+      setOfflineAhead(AHEAD_MODES[(AHEAD_MODES.indexOf(offlineAhead()) + 1) % AHEAD_MODES.length]);
+      rows.get('offlineAhead').textContent = aheadText();
+      this.ctx.player?.wantOffline?.();
+    });
+    rows.get('offlineAhead').textContent = aheadText();
     row(media, 'offlineClear', 'Delete offline copies', () => this.ctx.audioCache?.clear().then(() => { rows.get('offlineClear').textContent = 'Deleted'; }));
     const dev = cat('Device');
     row(dev, 'device', 'Browser and page');

@@ -175,6 +175,10 @@ test('offline, the playing track goes on from its own offline copy', {skip}, asy
   const {page} = h;
   await page.evaluate(() => { window.__cp.player.guard.stallMs = 2000; });
   await playFor(page, 0.5);
+  // Its copy waits until it has been listened to (30 s).
+  await page.waitForTimeout(1500);
+  assert.equal(await page.evaluate(() => window.__cp.ctx.audioCache.summary().wanted), 0);
+  await page.evaluate(() => window.__cp.player.seek(31000));
   await page.waitForFunction(() => window.__cp.ctx.audioCache.has(window.__cp.player.track.src), null, {timeout: 30000});
   h.net.down = true;
   await page.context().setOffline(true);
@@ -353,5 +357,30 @@ test('the system pausing a joined track stops it at once, not after its delay, a
   await page.waitForTimeout(300);
   const after = await page.evaluate(() => window.__cp.player.positionMs());
   assert.ok(after > r.pausedAt + 100 && after < r.pausedAt + 600, `resumed at ${after} ms (paused at ${r.pausedAt} ms)`);
+  assert.deepEqual(h.errors, []);
+});
+
+test('skipping songs early costs no offline copies and no preloads: they wait for 30 s of listening and the last 30 s', {skip}, async t => {
+  const h = await openPlayer(t, {tracks: Array.from({length: 7}, (_, i) => ({seconds: 60, rate: 8000, hz: 300 + 50 * i}))});
+  const {page} = h;
+  // Audio the elements stream (open-ended ranges), not the cover reader's first 256 KB (these fixtures have no indexed covers).
+  const id = i => h.lib[i].id, copies = () => h.requests.filter(q => q.range === null), streamed = i => h.requests.filter(q => q.range !== null && q.range !== 'bytes=0-262143' && q.id === id(i));
+  await playFor(page, 0.3);
+  // Three songs skipped 3 s in.
+  for (let i = 0; i < 3; i++) {
+    await page.waitForTimeout(3000);
+    await page.evaluate(() => window.__cp.player.step(1));
+    await page.waitForFunction(x => window.__cp.player.track?.id === x && window.__cp.player.audio.currentTime > 0.3, id(i + 1), {timeout: 10000});
+  }
+  await page.waitForTimeout(6000);
+  assert.deepEqual(copies().map(q => q.id), [], 'no offline copies while skipping');
+  for (const i of [4, 5, 6]) assert.deepEqual(streamed(i), [], `nothing of track ${i + 1} before its turn`);
+  // Listened to past 30 s: copies of the playing track and what comes next (Wi-Fi: 3 ahead); the next preloads once 30 s are left.
+  await page.evaluate(() => window.__cp.player.seek(31000));
+  await page.waitForFunction(() => { const s = window.__cp.ctx.audioCache.summary(); return s.wanted === 4 && s.ready === 4; }, null, {timeout: 30000});
+  assert.deepEqual(copies().map(q => q.id).sort(), [3, 4, 5, 6].map(id).sort());
+  await page.waitForFunction(() => window.__cp.player.preloaded?.el.readyState >= 2, null, {timeout: 10000});
+  const bytes = h.requests.reduce((n, q) => n + q.bytes, 0), track = h.lib[0].bytes.length;
+  console.log(`# downloaded ${(bytes / track).toFixed(2)} tracks' worth`);
   assert.deepEqual(h.errors, []);
 });

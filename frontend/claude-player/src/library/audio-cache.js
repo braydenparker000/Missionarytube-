@@ -13,16 +13,31 @@ export const AUDIO_BUDGET = 512 * 1024 * 1024;
 // A failed download waits this long before it is tried again (doubling, at most an hour).
 const RETRY_MS = 30000, RETRY_MAX_MS = 3600000;
 
+// How far ahead to keep copies (offlineAhead, chosen in the playback log), stored per device.
+const AHEAD_KEY = 'cp-offline-ahead';
+export const AHEAD_MODES = ['few', 'next', 'off'];
+
+/** The chosen mode: a few tracks (the default), the next track only, or none. */
+export function offlineAhead(storage = globalThis.localStorage) {
+  try { const m = storage?.getItem(AHEAD_KEY); return AHEAD_MODES.includes(m) ? m : 'few'; } catch { return 'few'; }
+}
+
+export function setOfflineAhead(mode, storage = globalThis.localStorage) {
+  try { storage?.setItem(AHEAD_KEY, mode); } catch { /* private mode: the default stays */ }
+}
+
 /**
- * How far ahead to keep copies: on Wi-Fi (or an unknown connection) the
- * playing track and the next 8; on a cellular connection the next 3 (the
- * playing track already streams); with Data Saver none (the next track
- * still preloads as a stream).
+ * How far ahead to keep copies, once a track has been listened to (the
+ * player asks only then, so skipped songs cost none): with a few tracks, on
+ * Wi-Fi (or an unknown connection) the playing track and the next 3, on a
+ * cellular connection the next one (the playing track already streams);
+ * the next track only; or none. With Data Saver none (the next track still
+ * preloads as a stream, shortly before it is needed).
  */
-export function offlinePlan(connection = globalThis.navigator?.connection) {
-  if (connection?.saveData) return {current: false, ahead: 0};
-  if (connection?.type === 'cellular') return {current: false, ahead: 3};
-  return {current: true, ahead: 8};
+export function offlinePlan(connection = globalThis.navigator?.connection, mode = offlineAhead()) {
+  if (connection?.saveData || mode === 'off') return {current: false, ahead: 0};
+  if (connection?.type === 'cellular' || mode === 'next') return {current: false, ahead: 1};
+  return {current: true, ahead: 3};
 }
 
 export class AudioCache {
