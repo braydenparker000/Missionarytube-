@@ -124,6 +124,7 @@ const BLOCKS = {
   stats(b) {
     const wrap = el('div'); if (b.text) wrap.append(el('p', b.text, 'block-intro'));
     const grid = el('dl', undefined, 'stats'); grid.dataset.count = b.items.length;
+    const shared = b.items.every(i => i.asOf === b.items[0].asOf);
     for (const i of b.items) {
       const tile = el('div', undefined, 'stat'); if (i.tone) tile.dataset.tone = i.tone;
       tile.append(el('dt', i.label));
@@ -133,10 +134,13 @@ const BLOCKS = {
         if (i.direction) { const arrow = el('span', {up: '▲', down: '▼', flat: '▶'}[i.direction], 'arrow'); arrow.setAttribute('aria-hidden', 'true'); change.append(arrow); }
         change.append(i.change); tile.append(change);
       }
-      tile.append(el('dd', (i.note ? i.note + ' · ' : '') + 'As of ' + shortDate(i.asOf), 'stat-asof'));
+      const asOf = shared ? '' : 'As of ' + shortDate(i.asOf);
+      if (i.note || asOf) tile.append(el('dd', [i.note, asOf].filter(Boolean).join(' · '), 'stat-asof'));
       grid.append(tile);
     }
-    wrap.append(grid); return wrap;
+    wrap.append(grid);
+    if (shared) wrap.append(el('p', 'As of ' + shortDate(b.items[0].asOf), 'stats-asof'));
+    return wrap;
   },
   perspectives(b) {
     const wrap = el('div', undefined, 'perspectives'), base = `tabs-${++tabCount}`;
@@ -203,8 +207,12 @@ const BLOCKS = {
 function renderBlock(b, story, ctx) {
   const root = el('div', undefined, `block block-${b.type}`); root.id = `block-${b.id}`;
   // v1 comparison/timeline/chart blocks put their lead-in in text; v2 too.
-  root.append(BLOCKS[b.type] ? BLOCKS[b.type](b, ctx) : el('p', b.text, 'prose'));
-  const marks = citeMarks(b, story); if (marks) root.append(marks);
+  const body = BLOCKS[b.type] ? BLOCKS[b.type](b, ctx) : el('p', b.text, 'prose');
+  root.append(body);
+  const marks = citeMarks(b, story);
+  // In prose the marks sit at the end of the paragraph, like footnote numbers.
+  if (marks && body.matches?.('p.prose')) { marks.className = 'cites inline'; marks.firstChild.remove(); body.append(' ', ...marks.childNodes); }
+  else if (marks) root.append(marks);
   return root;
 }
 
@@ -234,22 +242,69 @@ function sourceList(story, editionDate) {
   details.append(list); return details;
 }
 
+// --- Section icons: a small mark per section, from the label's first word. ---
+const ICONS = {
+  globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 0c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9m0-18C9.5 5.6 8.2 8.6 8.2 12s1.3 6.4 3.8 9M3.5 9h17M3.5 15h17',
+  pin: 'M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21Zm0-8.7a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z',
+  spark: 'M12 3v4m0 10v4M3 12h4m10 0h4M6.3 6.3l2.8 2.8m5.8 5.8 2.8 2.8m0-11.4-2.8 2.8m-5.8 5.8-2.8 2.8',
+  chart: 'M4 20V10m6 10V4m6 16v-7m4 7H3',
+  ballot: 'M5 10h14v10H5zM9 10V5h6v5M9 14h6',
+  doc: 'M7 3h7l4 4v14H7zM14 3v4h4M10 12h5m-5 4h5'
+};
+const SECTIONS = [
+  [/^(world|global|region|international|europe|asia|africa|americas|middle east|deep dive|tracked)/i, 'globe'],
+  [/^(argentina|rosario|local|córdoba|cordoba|buenos aires|santa fe)/i, 'pin'],
+  [/^(technology|tech|ai|science|research|security|builders|photography|privacy)/i, 'spark'],
+  [/^(economy|markets?|business|finance|energy|trade|recent)/i, 'chart'],
+  [/^(politics|election|vote)/i, 'ballot']
+];
+function sectionIcon(label) {
+  const key = SECTIONS.find(([re]) => re.test(label.trim()))?.[1] || 'doc';
+  const svg = svgEl('svg', {viewBox: '0 0 24 24', class: 'section-icon', 'aria-hidden': 'true', focusable: 'false'});
+  svg.append(svgEl('path', {d: ICONS[key]}));
+  return svg;
+}
+// A title that repeats the label's section ("Deep Dive: …" under "Deep Dive · …") drops the prefix.
+export function displayTitle(story) {
+  const section = story.label.split(/\s[·•|]\s/)[0].trim();
+  const prefix = section + ':';
+  return story.title.toLowerCase().startsWith(prefix.toLowerCase()) && story.title.length > prefix.length + 3 ? story.title.slice(prefix.length).trim() : story.title;
+}
+const storyMinutes = s => Math.max(1, Math.round([s.dek, s.whyItMatters, s.whatsNext, s.disagreement?.text, ...s.blocks.flatMap(b => [b.text, ...(b.items || []).map(i => i.text || i.label), ...(b.tabs || []).map(t => t.text), ...(b.steps || [])])].reduce((n, t) => n + words(t), 0) / 230));
+function leadIn(label, text, cls) {
+  const p = el('p', undefined, `lead-in ${cls}`); p.append(el('b', label + ':'), ' ', text); return p;
+}
+
 function renderStory(s, report, ctx) {
   const article = el('article', undefined, `story c-${s.composition}`); article.id = `story-${s.id}`;
   const head = el('header', undefined, 'story-head'), kicker = el('p', undefined, 'kicker');
-  kicker.append(el('span', s.label, 'label'), el('span', CLAIMS[s.claim], `claim claim-${s.claim}`));
-  head.append(kicker, el('h2', s.title)); if (s.dek) head.append(el('p', s.dek, 'dek'));
+  kicker.append(sectionIcon(s.label), el('span', s.label, 'label'), el('span', undefined, 'kicker-rule'), el('span', CLAIMS[s.claim], `claim claim-${s.claim}`));
+  head.append(kicker, el('h2', displayTitle(s))); if (s.dek) head.append(el('p', s.dek, 'dek'));
   article.append(head);
-  if (s.whyItMatters) { const why = el('aside', undefined, 'why'); why.append(el('p', 'Why it matters', 'note-title'), el('p', s.whyItMatters)); article.append(why); }
-  if (s.blocks.length) {
-    const body = el('div', undefined, 'story-body');
-    s.blocks.forEach(b => body.append(renderBlock(b, s, ctx)));
-    article.append(body);
-  }
+  if (s.whyItMatters) article.append(leadIn('Why it matters', s.whyItMatters, 'why'));
+  const blocks = s.blocks.map(b => renderBlock(b, s, ctx));
   const notes = [];
-  if (s.whatsNext) { const n = el('aside', undefined, 'note next'); n.append(el('p', 'What’s next', 'note-title'), el('p', s.whatsNext)); notes.push(n); }
-  if (s.disagreement) { const n = el('aside', undefined, 'note disagree'); n.append(el('p', s.disagreement.label || 'Room for disagreement', 'note-title'), el('p', s.disagreement.text)); notes.push(n); }
-  if (notes.length) { const row = el('div', undefined, 'notes'); row.append(...notes); article.append(row); }
+  if (s.whatsNext) notes.push(leadIn('What’s next', s.whatsNext, 'next'));
+  if (s.disagreement) { const n = el('aside', undefined, 'disagree'); n.append(leadIn(s.disagreement.label || 'Room for disagreement', s.disagreement.text, 'disagree-text')); notes.push(n); }
+  // The lead story and briefs read in full; others show their first block and
+  // open on request, so the edition can be skimmed story by story.
+  const collapsible = !['lead', 'brief'].includes(s.composition) && blocks.length + notes.length > 1;
+  const first = el('div', undefined, 'story-body'), rest = el('div', undefined, 'story-body story-more');
+  (collapsible ? blocks.slice(0, 1) : blocks).forEach(b => first.append(b));
+  if (first.childNodes.length) article.append(first);
+  if (collapsible) {
+    rest.id = `more-${s.id}`; blocks.slice(1).forEach(b => rest.append(b)); notes.forEach(n => rest.append(n));
+    const toggle = el('button', undefined, 'more'); toggle.type = 'button';
+    toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-controls', rest.id);
+    const minutes = storyMinutes(s), label = () => toggle.getAttribute('aria-expanded') === 'true' ? 'Show less' : `Continue reading · ${minutes} min`;
+    toggle.textContent = label();
+    toggle.addEventListener('click', () => {
+      const open = toggle.getAttribute('aria-expanded') !== 'true';
+      toggle.setAttribute('aria-expanded', String(open)); rest.classList.toggle('open', open); toggle.textContent = label();
+      if (!open) article.scrollIntoView({block: 'start'});
+    });
+    article.append(rest, toggle);
+  } else notes.forEach(n => article.append(n));
   const sources = sourceList(s, report.date);
   article.append(sources);
   // A source mark opens the list first, so the jump lands on a visible card.
@@ -286,11 +341,45 @@ function glance(report) {
   const list = el('ol');
   for (const s of report.stories) {
     const li = el('li'), a = el('a'); a.href = `#story-${s.id}`;
-    a.append(el('span', s.label, 'g-label'), el('span', s.title, 'g-title'));
+    a.append(el('span', s.label, 'g-label'), el('span', displayTitle(s), 'g-title'));
     if (s.dek) a.append(el('span', s.dek, 'g-dek'));
     li.append(a); list.append(li);
   }
   section.append(list); return section;
+}
+
+// A slim bar that follows the reader through the stories: "2 of 5", the
+// story's title, previous and next, and one segment per story.
+function pager(report, stories, ending) {
+  const bar = el('nav', undefined, 'pager'); bar.setAttribute('aria-label', 'Stories in this edition');
+  const count = el('span', '', 'pager-count'), title = el('span', '', 'pager-title');
+  const prev = el('button', '‹', 'pager-step'), next = el('button', '›', 'pager-step');
+  prev.type = next.type = 'button'; prev.setAttribute('aria-label', 'Previous story'); next.setAttribute('aria-label', 'Next story');
+  const segments = el('span', undefined, 'pager-segments'); segments.setAttribute('aria-hidden', 'true');
+  report.stories.forEach(() => segments.append(el('i')));
+  bar.append(prev, count, title, next, segments);
+  let current = 0;
+  const show = n => {
+    current = n; count.textContent = `${n + 1} of ${report.stories.length}`; title.textContent = displayTitle(report.stories[n]);
+    prev.disabled = n === 0; next.disabled = n === report.stories.length - 1;
+    [...segments.children].forEach((seg, i) => seg.className = i < n ? 'done' : i === n ? 'on' : '');
+  };
+  const go = n => { if (!stories.children[n]) return; stories.children[n].scrollIntoView({block: 'start'}); show(n); };
+  prev.addEventListener('click', () => go(current - 1)); next.addEventListener('click', () => go(current + 1));
+  show(0);
+  if ('IntersectionObserver' in window) {
+    // The story crossing the upper third of the screen is the one being read.
+    const seen = new IntersectionObserver(entries => entries.forEach(e => {
+      if (e.isIntersecting) show([...stories.children].indexOf(e.target));
+    }), {rootMargin: '-30% 0px -65% 0px'});
+    [...stories.children].forEach(story => seen.observe(story));
+    const reveal = new IntersectionObserver(([e]) => bar.classList.toggle('show', e.isIntersecting || e.boundingClientRect.top < 0), {threshold: 0});
+    reveal.observe(stories);
+    // Short last stories never reach the reading line; the end of the page counts as reaching them.
+    const end = new IntersectionObserver(([e]) => { if (e.isIntersecting) show(report.stories.length - 1); });
+    end.observe(ending);
+  }
+  return bar;
 }
 
 function edition(report, ctx) {
@@ -299,8 +388,9 @@ function edition(report, ctx) {
   if (report.stories.length > 1) root.append(glance(report));
   const stories = el('div', undefined, 'stories');
   report.stories.forEach(s => stories.append(renderStory(s, report, ctx)));
-  root.append(stories);
   const end = el('footer', undefined, 'edition-end');
+  if (report.stories.length > 1) root.append(pager(report, stories, end));
+  root.append(stories);
   end.append(el('p', 'End of this edition', 'end-mark'));
   if (ctx.publishedAt) end.append(el('p', `Published ${zoned(Date.parse(ctx.publishedAt), {weekday: 'long', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'})} Rosario time. Claims are labelled fact, forecast or interpretation; every story lists its sources.`));
   root.append(end);
