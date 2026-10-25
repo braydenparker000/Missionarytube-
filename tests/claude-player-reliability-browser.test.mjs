@@ -384,3 +384,26 @@ test('skipping songs early costs no offline copies and no preloads: they wait fo
   console.log(`# downloaded ${(bytes / track).toFixed(2)} tracks' worth`);
   assert.deepEqual(h.errors, []);
 });
+
+test('Data saver (Settings › Misc) downloads nothing ahead but the next song\'s preload, shortly before it plays', {skip}, async t => {
+  const h = await openPlayer(t, {tracks: Array.from({length: 4}, (_, i) => ({seconds: 60, rate: 8000, hz: 300 + 50 * i}))});
+  const {page} = h;
+  // The switch, in its own Data category of Misc, tapped like a person would.
+  await page.evaluate(() => window.__cp.ctx.settingsUi.open('misc'));
+  const row = page.locator('.cps-row', {hasText: 'Data saver'});
+  await row.waitFor();
+  await page.waitForTimeout(500);
+  await row.click();
+  assert.equal(await page.evaluate(() => window.__cp.ctx.pref('cp_data_saver')), true);
+  assert.match(await row.textContent(), /Only the next song preloads/);
+  await page.evaluate(() => window.__cp.ctx.settingsUi.close?.());
+  await playFor(page, 0.3);
+  // Listened past 30 s, with 29 s left: no copies; the next song preloads.
+  await page.evaluate(() => window.__cp.player.seek(31000));
+  await page.waitForFunction(() => window.__cp.player.preloaded?.el.readyState >= 2, null, {timeout: 15000});
+  await page.waitForTimeout(3000);
+  assert.deepEqual(h.requests.filter(q => q.range === null).map(q => q.id), [], 'no offline copies');
+  assert.equal(await page.evaluate(() => window.__cp.ctx.audioCache.summary().wanted), 0);
+  for (const i of [2, 3]) assert.deepEqual(h.requests.filter(q => q.id === h.lib[i].id && q.range !== 'bytes=0-262143'), [], `nothing of track ${i + 1}`);
+  assert.deepEqual(h.errors, []);
+});
