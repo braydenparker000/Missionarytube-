@@ -1,7 +1,7 @@
 # Daily Board premium plan
 
-Status: proposal, 25 October 2026. Nothing here is built or deployed yet.
-Owner decisions are listed in [section 9](#9-decisions-for-the-owner).
+Status: approved plan, 25 October 2026. Nothing here is built or deployed yet.
+Owner decisions are recorded in [section 9](#9-owner-decisions).
 
 The goal: every edition looks and reads like a premium publication, beats
 ChatGPT's GPT-6 Intelligent UI on the things a morning briefing needs, and
@@ -33,9 +33,9 @@ on:
 | Structure | Ad hoc per answer | Editorial anatomy per story: dek, what happened, why it matters, what's next, room for disagreement |
 | Trust | Citations at the end | Every block points to its sources; claims typed as fact, forecast or interpretation; freshness shown |
 | Continuity | None across chats | Story threads across days: "Day 3 of the Brazil runoff", what changed since yesterday |
-| Personal | Per prompt | Built from your saved brief, Rosario-local times, regions you chose, and your feedback |
+| Personal | Per prompt | Built from your saved brief, Rosario-local times and the regions you chose |
 | Formats | Screen only | Screen, listen, print and PDF, offline, calendar exports |
-| Reliability | On demand | Due at 07:00, checked before it goes up, a watchdog if it's late, an optional backup writer |
+| Reliability | On demand | Due at 07:00, checked before it goes up, a watchdog if it's late |
 
 ## 2. Where it is today (audit, 25 October)
 
@@ -55,7 +55,7 @@ From the six live structured editions (18–24 October) and screenshots at
   richer blocks won't fit.
 - **Days were missed.** 17 and 19 October have no report.
 - **Everything ships through one font** (Instrument Sans as base64 inside a
-  140 KB `design.css`). There's no light theme and no motion system.
+  140 KB `design.css`). There's no motion system.
 
 What's already good and stays: strict schema validation, no report code ever
 runs, sources with publish and event dates, claim labels, the
@@ -74,7 +74,7 @@ Keep the pattern, version the contract.
   `backend/shared.js`'s briefing limit for entries that carry a v2 envelope
   only. The GitHub importer path stays at 20 KB with v1.
 - **An edition-level design layer.** The report picks one of about six
-  curated themes (`theme: "dawn" | "ink" | "paper" | …`) and a cover style.
+  curated themes (`theme: "ink" | "ember" | "tide" | …`, all dark) and a cover style.
   It never supplies raw colours or CSS, so every edition looks designed
   without any styling coming from the report itself.
 - **Block-to-source links.** Every block can carry `cites: [0, 2]`, indexes
@@ -162,9 +162,9 @@ The cover and lead story use the full width. Data stories put the chart
 beside the text. Briefs run in a two-column band. Fix today's headline column
 and orphan grid cells.
 
-**5.3 Themes.** Dark "ink" (today's look, refined) and a light "paper"
-morning theme, following `prefers-color-scheme` with a manual switch. Edition
-themes add an accent colour and cover treatment within both.
+**5.3 Themes.** Dark only: today's "ink" look, refined. No light theme and no
+theme switch. Edition themes add an accent colour and cover treatment within
+the dark design.
 
 **5.4 Motion.** View Transitions for switching editions. Restrained reveal on
 scroll. All of it off under `prefers-reduced-motion`. A skeleton screen
@@ -176,10 +176,12 @@ board asset endpoint that checks the file's actual bytes (magic bytes), size
 (≤ 400 KB WebP or AVIF), dimensions, and SHA-256. Images are served from the
 Worker with safe headers and referenced in the report by hash. This needs a
 CSP `img-src` addition for the Worker origin. Policy (owner decision):
-abstract or editorial AI illustration only, never photoreal depictions of
-real people or events, and always labelled. Photos only when the licence is
-recorded (for example, Wikimedia Commons with author and licence). The
-generated date pattern is the fallback, so a missing image never looks broken.
+editorial AI illustration is the default, always labelled, and never a
+photoreal depiction of real people or events. Real photos are used in the
+rarer cases where they are clearly better (a place, a launch, a document),
+only with the licence recorded (for example, Wikimedia Commons with author and
+licence, or an official press image). The generated date pattern is the
+fallback, so a missing image never looks broken.
 
 **5.6 Accessibility.** WCAG 2.1 AA, keyboard-only use, 200% zoom, 360 px
 width, screen-reader labels on every interactive block, a data table behind
@@ -250,53 +252,46 @@ connectors can call a remote MCP server and how they authenticate.
 `publishedToday`. If no report has landed, it notifies the owner through the
 existing Jarvis inbox or relay events, and records the miss.
 
-**7.6 Optional backup writer.** The repo already wakes a Claude Code cloud
-session through a scheduled task ("Jarvis Claude", `docs/jarvis-claude.md`).
-The same pattern could write the edition at 08:15 if Muse hasn't, through the
-same publish path with its own scoped token. The one-per-date rule means the
-two writers can never double up. This needs a new credential and the owner's
-go-ahead.
+**7.6 Backup writer: not now.** A Claude cloud session could write the
+edition when Muse misses 08:00 (the "Jarvis Claude" scheduled-task pattern,
+`docs/jarvis-claude.md`). The owner declined it for now; Muse is the only
+writer and the watchdog is the safety net.
 
 **7.7 Scorecard.** Store each edition's score, publish time and warnings.
 Add a weekly owner-only summary (on time, missed days, average score,
 component variety) and a board entry in `evals/`.
 
-**7.8 Feedback loop.** On owner-only story controls ("More like this",
-"Less", "Go deeper", "Wrong"), store the reactions and return the last 14
-days of them in `board_read` as `feedback`, so each run adjusts. This needs
-the owner's session on the page (`backend/relay-owner.js`); visitors never
-see the controls.
+**7.8 Feedback: through the brief.** No feedback controls on the page (owner
+decision). Changes go through the Muse chat as brief edits ("more X, less Y"),
+which `board_profile` already supports.
 
-**7.9 Known Muse limits.** The free tier has a weekly usage limit; a deep
-daily research run plus image generation may need the $20 "Power" plan
-([source](https://gingerlabs.ai/blog/meta-muse-agent-capabilities-and-how-to-use-it)).
-Muse launched in the US first. Web pages Muse reads can contain prompt
+**7.9 Known Muse limits.** The owner is already on a paid Muse plan, so a
+deep daily run with images fits. Muse launched in the US first. Web pages Muse reads can contain prompt
 injection: the schema limits what a report can do, and the check endpoint
 flags anything off-brief.
 
 ## 8. Delivery plan
 
-Each phase is one PR to `main` with tests, and follows the README release
-path: merge → successful Validate → **Deploy to Azure Storage** with
-`expected_commit` for the page, and **Deploy verified music Worker** for
-Worker changes. Every deploy needs your explicit approval.
+Three PRs, each with tests, each following the README release path: merge →
+successful Validate → **Deploy to Azure Storage** with `expected_commit` for
+the page, then **Deploy verified music Worker** for the Worker. Every deploy
+needs the owner's explicit approval. Fewer, larger PRs are possible because
+one PR can carry both page and Worker changes; the order only matters at
+deploy time (page first, then Worker, then Muse's procedure).
 
-| Phase | What ships | Main files | Proof |
+| PR | What ships | Main files | Proof |
 | --- | --- | --- | --- |
-| 0. Foundations | v2 schema, renderer dispatch, 48 KB cap for v2, edition themes | `frontend/daily-board/v2/*`, `backend/shared.js`, `backend/relay-mast-board.js` | Schema unit tests; v1 history still renders unchanged |
-| 1. Premium shell | Type system, grid, cover, the 30-second board, light and dark themes, calendar edition picker, skeleton loading, motion. v1 editions benefit too | `index.html` (CSP), `v2/design.css`, `render.js`, `live.js` | Screenshots at 390 and 1280 px in both themes; axe-core with no violations; CSP check (`scripts/verify-daily-board.mjs`) |
-| 2. Components A | Story anatomy fields, key numbers, chart v2, perspectives, callouts, quote, watch today, source cards with `cites` | `v2/schema.js`, `v2/render.js`, `v2/charts.js` | One fixture per component; keyboard and screen-reader tests in `tests/daily-board-browser.test.mjs` |
-| 3. Muse reliability | `check` and `draft` endpoints, draft preview page, watchdog alarm, scorecard, procedure rewrite with gold editions | `backend/relay-mast-board.js`, `backend/relay-mast.js`, `docs/muse-daily-board.md` | `backend/tests/relay-mast-board.test.js` extended; one supervised Muse run from draft to publish |
-| 4. Rich media | Signed board asset uploads, images, maps, timeline v2, explainer stepper, what-if, Listen | New `backend/board-assets.js`, `v2/maps/*.svg` | Byte-validation tests; image and CSP browser tests; size budget |
-| 5. Personal and continuity | Threads, since yesterday, owner feedback controls, read state, search, offline and installable, print | `live.js`, a service worker, `backend/relay-mast-board.js` | Offline test; owner-only controls hidden for visitors |
+| 1. Premium board | v2 schema and renderer dispatch, 48 KB cap for v2, edition themes, the premium dark design (type, grid, cover, the 30-second board, date edition picker, skeleton, motion; v1 editions benefit too), and component set A: story anatomy fields, key numbers, chart v2, perspectives, callouts, quote, watch today, source cards with `cites` | `frontend/daily-board/v2/*`, `index.html` (CSP), `live.js`, `backend/shared.js`, `backend/relay-mast-board.js` | Schema unit tests; one fixture per component; v1 history renders; screenshots at 390 and 1280 px; axe-core clean; keyboard tests; CSP check (`scripts/verify-daily-board.mjs`) |
+| 2. Muse reliability | `check` and `draft` endpoints, draft preview page, 07:45 watchdog, scorecard, rewritten Muse procedure with two gold editions | `backend/relay-mast-board.js`, `backend/relay-mast.js`, `docs/muse-daily-board.md` | `backend/tests/relay-mast-board.test.js` extended; one supervised Muse run from draft to publish |
+| 3. Media and continuity | Signed board asset uploads (illustrations and licensed photos), maps, timeline v2, explainer stepper, what-if, Listen, threads and "since yesterday", read state, search, offline, print | New `backend/board-assets.js`, `v2/maps/*.svg`, a service worker | Byte-validation tests; image and CSP browser tests; offline test; size budget |
 
-After phase 3, Muse's procedure moves to v2. Each later phase adds one
-cookbook section when it ships.
+Muse's procedure moves to v2 after PR 1 is live, and gets its full rewrite in
+PR 2. PR 3 adds one cookbook section per new feature.
 
 **Tools and resources**
 
 - Testing: Node's test runner, Playwright with the preinstalled Chromium,
-  axe-core (dev only), screenshot comparison at fixed widths and themes,
+  axe-core (dev only), screenshot comparison at fixed widths,
   `scripts/verify-daily-board.mjs` for CSP and fonts, and a performance budget
   (under 150 KB of JS and CSS on first load, excluding fonts).
 - Design: OFL fonts subset with fonttools; Natural Earth base maps simplified
@@ -309,27 +304,27 @@ cookbook section when it ships.
   podcast skill, scheduled tasks, custom connectors, the signed upload
   pattern it already uses for music.
 
-## 9. Decisions for the owner
+## 9. Owner decisions
 
-1. **Images**: is AI editorial illustration OK (always labelled, never
-   photoreal people or events)? Or licensed photos only, or generated
-   patterns only?
-2. **Backup writer**: should a Claude cloud session write the edition when
-   Muse misses 08:00 (needs a new scoped token)?
-3. **Owner feedback controls** on the public page (visible only when you're
-   signed in)?
-4. **Muse plan**: OK to move to Power ($20 a month) if the free limit runs out?
-5. **Look**: dark "ink" first, light "paper" first, or both from the start?
+Recorded 25 October 2026.
+
+1. **Images**: AI editorial illustration by default (labelled, never
+   photoreal people or events); real, licensed photos in the rarer cases where
+   they are better.
+2. **Backup writer**: not now.
+3. **Feedback controls on the page**: no. Brief changes go through Muse.
+4. **Muse plan**: already on a paid plan.
+5. **Look**: dark theme only.
 
 ## 10. Risks
 
-- **Muse quality drifts.** Covered by the check endpoint, gold editions, the
-  scorecard and the feedback loop. Hard errors stay narrow so the board still
+- **Muse quality drifts.** Covered by the check endpoint, gold editions and
+  the scorecard. Hard errors stay narrow so the board still
   appears.
 - **Richer reports cost more to research.** Watch the Muse usage meter in
   the first week; the brief's `depth` and `stories` settings control cost.
-- **AI imagery can mislead.** The label is required and photoreal events
-  aren't allowed. The generated pattern is always available instead.
+- **Imagery can mislead.** AI art must be labelled and can't depict real
+  people or events photorealistically; photos need a recorded licence. The generated pattern is always available instead.
 - **Weight and speed.** Fonts get subset, maps simplified, and images capped
   at 400 KB, with the performance budget enforced in tests.
 - **Cache mismatch during a deploy.** Ship order (page, then Worker, then
