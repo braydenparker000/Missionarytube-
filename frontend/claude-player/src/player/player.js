@@ -5,7 +5,7 @@ import {trackTitle, artistLabel, albumLabel} from '../library/labels.js';
 import {DeckFader, DECLICK_MS, fadePrefs, gaplessPair, replayGainOf, AUTO_NONE, AUTO_NON_GAPLESS, AUTO_SHUFFLED, MANUAL_SHORT, MANUAL_CROSSFADE} from './fades.js';
 import {listKeyOf, categoryKey, KEEP_TRACK} from '../library/list-memory.js';
 import {offlinePlan, offlineAhead} from '../library/audio-cache.js';
-import {headOf} from '../library/heads.js';
+import {headOf, HEAD_S} from '../library/heads.js';
 import {StreamGuard} from './stream-guard.js';
 
 // Reference mode enums (integers SHUFFLE_* / REPEAT_*).
@@ -46,8 +46,9 @@ const rangeStart = t => t?.startMs || 0;
 // earlier costs nothing of the next one. Offline copies wait until a track has been listened to this
 // long (or its last LISTENED_S): skipped songs cost no copies.
 const PRELOAD_S = 30, LISTENED_S = 30;
-// The songs ahead whose first seconds are kept ready (library/heads.js).
-const HEADS_AHEAD = 3;
+// The songs ahead whose first seconds are kept ready (library/heads.js); they download once the
+// playing song has this much of its stream ahead (or all of it), and wait while it rebuffers (s).
+const HEADS_AHEAD = 3, HEADS_AFTER_BUFFERED_S = 10;
 // A manual track change: the outgoing track waits at most this long for the incoming one to sound
 // before it fades out (ms). A start on the phone (a head) or a usual network sounds within it, and
 // the two cross-fade exactly; a slower one does not leave the old track playing meanwhile.
@@ -132,7 +133,14 @@ export class Player {
         if ((el === this.audio || this.splicing?.el === el) && !el.ended) this.systemPaused();
       });
       // A stall near the end would look like the track's end to the engine: no join then.
-      el.addEventListener('waiting', () => { if (el === this.audio && this.splicing) this.cancelSplice(); });
+      // The next songs' heads wait meanwhile: the playing song's stream comes first.
+      el.addEventListener('waiting', () => {
+        if (el !== this.audio) return;
+        if (this.splicing) this.cancelSplice();
+        if (this.state === STATE_PLAYING) this.ctx.audioHeads?.hold?.(true);
+      });
+      // The playing song sounds (again): the next songs' heads follow once it has a stream ahead.
+      el.addEventListener('playing', () => { if (el === this.audio) this.headsSoon(1500); });
       el.addEventListener('play', () => {
         if (el !== this.audio || this.state === STATE_PLAYING || !el.getAttribute('src')) return;
         this.ctx.dsp?.resume();
@@ -780,6 +788,14 @@ export class Player {
     const heads = this.ctx.audioHeads;
     // Not before anything plays (opening the app, or skipping while paused, costs none).
     if (!heads?.available || this.state !== STATE_PLAYING) return;
+    // The playing song first: sounding, with its stream ahead; else later.
+    const el = this.audio;
+    if (el.paused || el.readyState < 3 || !this.streamAhead(el)) {
+      heads.hold(true);
+      this.headsSoon(2000);
+      return;
+    }
+    heads.hold(false);
     const n = this.ctx.pref?.('cp_data_saver') === true ? 1 : HEADS_AHEAD, list = [];
     for (let k = 1; k <= n; k++) {
       const x = this.trackAt(k);
@@ -787,6 +803,31 @@ export class Player {
       if (x && x !== this.track && !rangeStart(x) && !this.ctx.audioCache?.has(x.src)) list.push(headOf(x));
     }
     heads.want(list, this.track?.src ?? null);
+  }
+
+  /** Whether a deck has HEADS_AFTER_BUFFERED_S of its stream ahead of the playing position, or all of it. */
+  streamAhead(el) {
+    const b = el.buffered, t = el.currentTime;
+    for (let i = 0; i < b.length; i++) {
+      if (b.start(i) > t + 0.5 || b.end(i) < t) continue;
+      return b.end(i) - t >= HEADS_AFTER_BUFFERED_S || b.end(i) >= el.duration - 0.5;
+    }
+    return false;
+  }
+
+  /**
+   * The app opens on a song, paused: its head is fetched (when not on the
+   * phone already), so the first play starts at once. Not when it was left
+   * past its head (that resumes from the network), nor with Data saver. The
+   * next songs' heads kept from before stay (they follow once it plays).
+   */
+  wantStartHead() {
+    const heads = this.ctx.audioHeads, t = this.track;
+    if (!heads?.available || this.state === STATE_PLAYING || this.ctx.pref?.('cp_data_saver') === true) return;
+    if (!t || rangeStart(t) || this.ctx.audioCache?.has(t.src) || (this.pendingSeek || this.positionMs()) > (HEAD_S - 3) * 1000) return;
+    const next = [];
+    for (let k = 1; k <= HEADS_AHEAD; k++) { const x = this.trackAt(k); if (x?.src) next.push(x.src); }
+    heads.want([headOf(t)], next);
   }
 
   /** The heads wait ms (a starting song needs the bandwidth), then follow what comes next. */

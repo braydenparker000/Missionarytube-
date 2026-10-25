@@ -163,12 +163,17 @@ export class Waveseek extends ViewGroup {
   /**
    * Follows the position while playing, a step each time it moves a CSS
    * pixel (not every frame: a phone's screen then draws only when it
-   * moves visibly), and nothing while the page is hidden.
+   * moves visibly); hidden (the screen off), it stops until shown again.
    */
   follow() {
     const p = this.ctx.player;
     if (p?.state !== STATE_PLAYING) { this._follow = 0; return; }
-    if (!this.state.pressed && !document.hidden) this.syncPosition();
+    if (document.hidden) {
+      this._follow = 0;
+      document.addEventListener('visibilitychange', () => { if (!this._follow && this.ctx.player?.state === STATE_PLAYING) this.follow(); }, {once: true});
+      return;
+    }
+    if (!this.state.pressed) this.syncPosition();
     const msPerStep = (p.track?.durationMs || 0) * this.step() / (this.waveLen || 1) / (p.audio?.playbackRate || 1);
     this._follow = setTimeout(() => this.follow(), Math.max(16, Math.min(1000, msPerStep || 250)));
   }

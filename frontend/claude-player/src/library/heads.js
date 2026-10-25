@@ -5,6 +5,8 @@
 // Cache Storage; the service worker (sw.js) answers a song's range requests
 // from them, so a skip starts from the phone while the rest streams. Only the
 // heads wanted now are kept; a few hundred KB each instead of whole songs.
+// The player asks for them once the playing song has its stream ahead, and
+// holds them while it rebuffers; on opening, the song left off gets its own.
 export const HEADS = 'claude-player-heads';
 export const HEAD_S = 15;
 const TAG_ROOM = 64 * 1024, TAIL_BYTES = 128 * 1024;
@@ -31,6 +33,8 @@ export class AudioHeads {
     // Kept heads by URL: {head, tailStart, total, type}.
     this.kept = new Map();
     this.wanted = [];
+    this.keep = new Set();
+    this.held = false;
     this.busy = null;
     this.failed = new Set();
     this.counts = {downloads: 0, bytes: 0, failures: 0};
@@ -54,17 +58,17 @@ export class AudioHeads {
 
   /**
    * The heads to keep, in order (the next songs); others go, and missing ones
-   * download. The playing song's head (keep) stays while it plays, for a
-   * reload or a seek back, but does not download.
+   * download. Those of keep (a URL or a list: the playing song's, for a reload
+   * or a seek back) stay if there, but do not download.
    */
   async want(list, keep = null) {
     await this.ready;
     this.wanted = list.filter(Boolean);
-    this.keep = keep;
+    this.keep = new Set(keep === null ? [] : [].concat(keep));
     // The songs ahead changed: ones that failed before are tried again.
     this.failed.clear();
     // (By what is wanted now, at each step: a later call may change it meanwhile.)
-    const wanted = url => url === this.keep || this.wanted.some(w => w.url === url);
+    const wanted = url => this.keep.has(url) || this.wanted.some(w => w.url === url);
     if (this.busy && !wanted(this.busy.url)) this.busy.abort.abort();
     let changed = false;
     const cache = await this.caches.open(HEADS).catch(() => null);
@@ -78,12 +82,23 @@ export class AudioHeads {
     return this.pump();
   }
 
+  /**
+   * Held (the playing song is short of its stream): the download under way
+   * stops (it starts again later) and none starts until let go.
+   */
+  hold(on) {
+    if (this.held === on) return;
+    this.held = on;
+    if (on) this.busy?.abort.abort();
+    else this.pump();
+  }
+
   pump() {
-    if (this.pumping) return this.pumping;
+    if (this.pumping || this.held) return this.pumping;
     const run = (async () => {
       await null;
       try {
-        for (let w; (w = this.wanted.find(x => !this.kept.has(x.url) && !this.failed.has(x.url)));) await this.download(w);
+        for (let w; !this.held && (w = this.wanted.find(x => !this.kept.has(x.url) && !this.failed.has(x.url)));) await this.download(w);
       } finally {
         // At once, as the last one is found: a want() from now on starts a new run.
         if (this.pumping === run) this.pumping = null;
@@ -125,7 +140,7 @@ export class AudioHeads {
       await cache.put(w.url, new Response(head));
       if (tail) await cache.put(tailKey(w.url), new Response(tail));
       // No longer wanted while it was stored (nor playing): it goes.
-      if (w.url !== this.keep && !this.wanted.some(x => x.url === w.url)) throw new Error('not wanted');
+      if (!this.keep.has(w.url) && !this.wanted.some(x => x.url === w.url)) throw new Error('not wanted');
       this.kept.set(w.url, {head: w.head, tailStart: tail ? w.total - w.tail : w.total, total: w.total, type: w.type});
       this.counts.downloads++;
       this.counts.bytes += w.head + w.tail;
@@ -149,6 +164,6 @@ export class AudioHeads {
 
   /** For the playback log. */
   summary() {
-    return {available: this.available, kept: this.wanted.filter(w => this.kept.has(w.url)).length, wanted: this.wanted.length, downloading: !!this.busy, ...this.counts};
+    return {available: this.available, kept: this.wanted.filter(w => this.kept.has(w.url)).length, wanted: this.wanted.length, downloading: !!this.busy, held: this.held, ...this.counts};
   }
 }

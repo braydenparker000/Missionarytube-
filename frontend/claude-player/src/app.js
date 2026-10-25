@@ -192,6 +192,8 @@ export async function boot() {
     player.setQueue(library.tracks, npIndex);
     if (saved?.queueMode) player.resumeQueueMode(saved.trackId);
     if (saved?.positionMs) player.seek(saved.positionMs);
+    // The song left off: its start on the phone, so the first play starts at once.
+    player.wantStartHead();
   }
   // A library that arrives later (R2 index refresh) fills an empty player.
   // A refreshed index replaces the records: the player takes the new ones.
@@ -231,6 +233,12 @@ export async function boot() {
   ctx.scheduleLayout();
   // Installable app: the service worker keeps the app's files offline.
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  // The service worker stays awake while the app is in use: Chrome stops an idle one after about 30 s,
+  // and waking it delays the next play or skip by up to a second. A message every 20 s keeps it, while
+  // the page shows or plays (none otherwise).
+  setInterval(() => {
+    if (!document.hidden || player.state === 1) navigator.serviceWorker?.controller?.postMessage({type: 'ping'});
+  }, 20000);
   window.addEventListener('resize', () => {
     applyViewport();
     decor.insets = ctx.windowInsets;

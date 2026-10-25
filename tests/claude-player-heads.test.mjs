@@ -77,7 +77,7 @@ test('the wanted heads download one at a time, in order, at low priority; the wo
   const entry = [url(1), {head: 364 * KB, tailStart: 4672 * KB, total: 4800 * KB, type: 'audio/ogg'}];
   assert.deepEqual(told.at(-1).list[0], entry);
   assert.deepEqual(JSON.parse(new TextDecoder().decode(stored.get('https://site.test/claude-player/heads-index.json')))[0], entry);
-  assert.deepEqual(heads.summary(), {available: true, kept: 3, wanted: 3, downloading: false, downloads: 3, bytes: 3 * 492 * KB, failures: 0});
+  assert.deepEqual(heads.summary(), {available: true, kept: 3, wanted: 3, downloading: false, held: false, downloads: 3, bytes: 3 * 492 * KB, failures: 0});
   // Wanted again: nothing downloads twice.
   await heads.want([1, 2, 3].map(n => headOf(track(n))));
   assert.equal(net.log.length, 6);
@@ -192,4 +192,36 @@ test('songs wanted just as the downloads finish still download', async () => {
   net.let(url(3));
   await busy; await more; await heads.pumping;
   assert.deepEqual([...heads.kept.keys()], [1, 2, 3, 4].map(url));
+});
+
+test('held while the playing song is short of its stream: the download under way stops, none starts, and they go on when let go', async () => {
+  const net = network(sizes), {heads} = make(net);
+  net.hold(url(1));
+  const first = heads.want([1, 2].map(n => headOf(track(n))));
+  await new Promise(r => setTimeout(r, 0));
+  heads.hold(true);
+  await first;
+  await heads.pumping;
+  assert.equal(heads.kept.size, 0);
+  assert.equal(heads.summary().held, true);
+  assert.equal(heads.summary().failures, 0, 'a hold is no failure');
+  // Wanted meanwhile: nothing starts.
+  const before = net.log.length;
+  await heads.want([1, 2, 3].map(n => headOf(track(n))));
+  assert.equal(net.log.length, before);
+  net.let(url(1));
+  heads.hold(false);
+  await heads.pumping;
+  assert.deepEqual([...heads.kept.keys()], [1, 2, 3].map(url));
+});
+
+test('kept heads named in keep stay without downloading (the song left off, with the next ones from before)', async () => {
+  const net = network(sizes), {heads, caches} = make(net);
+  await heads.want([2, 3, 4].map(n => headOf(track(n))));
+  // The app opens on song 1: its head is wanted; the next songs' kept heads stay, and song 5's is not fetched.
+  const n = net.log.length;
+  await heads.want([headOf(track(1))], [url(2), url(3), url(4), url(5)]);
+  assert.deepEqual([...heads.kept.keys()].sort(), [1, 2, 3, 4].map(url).sort());
+  assert.deepEqual(net.log.slice(n).map(q => q.url), [url(1), url(1)]);
+  assert.ok(kept(caches).includes(url(2)));
 });

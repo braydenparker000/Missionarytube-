@@ -58,6 +58,12 @@ export class Elapsed extends FastTextView {
   startTimer() {
     if (this.timer || this.seeking) return;
     const tick = () => {
+      // Hidden (the screen off, another app): nothing to show; it goes on when the page shows again.
+      if (document.hidden) {
+        this.timer = 0;
+        document.addEventListener('visibilitychange', () => { if (this.ctx.player?.state === STATE_PLAYING) this.startTimer(); }, {once: true});
+        return;
+      }
       this.refresh(false);
       this.timer = setTimeout(tick, 250);
     };
