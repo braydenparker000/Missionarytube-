@@ -280,7 +280,10 @@ said it was playing. The player now handles the rest:
     when the next songs change, the others go.
   - Opening the app: the song left off gets its head (when it was left
     within its first 12 s, its head is not on the phone already, and Data
-    saver is off), so the first play starts from the phone. Nothing else
+    saver is off), and the paused deck reads the song's start and details
+    from it (`preload` metadata, no network), so the first play starts at
+    once (live: 76–94 ms; it waited 0.4–2.3 s for one more request when the
+    deck loaded nothing until play). Nothing else
     downloads before a song plays, nor while skipping paused. The players
     load nothing until they play (`preload` none, then auto); before, opening
     the app buffered the restored song (2.3 MB in a live check) and fetched

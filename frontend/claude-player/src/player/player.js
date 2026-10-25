@@ -638,7 +638,7 @@ export class Player {
     const old = this.deckUrl.get(el);
     if (old && old !== url) this.ctx.audioCache?.release(old);
     this.deckUrl.set(el, url);
-    el.preload = this.state === STATE_PLAYING ? 'auto' : 'none';
+    el.preload = this.state === STATE_PLAYING ? 'auto' : url === this.startHeadUrl ? 'metadata' : 'none';
     el.src = url;
     // The new load drops the pause event halt() queued.
     el._selfPause = false;
@@ -827,7 +827,14 @@ export class Player {
     if (!t || rangeStart(t) || this.ctx.audioCache?.has(t.src) || (this.pendingSeek || this.positionMs()) > (HEAD_S - 3) * 1000) return;
     const next = [];
     for (let k = 1; k <= HEADS_AHEAD; k++) { const x = this.trackAt(k); if (x?.src) next.push(x.src); }
-    heads.want([headOf(t)], next);
+    heads.want([headOf(t)], next).then(() => {
+      // Its head on the phone: the deck reads the song's start (and an Ogg file's end) from it now, with
+      // no network, so play starts at once; without, it would wait for one more request (0.4-2.3 s live).
+      if (this.track !== t || this.state === STATE_PLAYING || !heads.kept.has(t.src)) return;
+      this.startHeadUrl = t.src;
+      // (Once the service worker has heard of the head.)
+      setTimeout(() => { const el = this.audio; if (this.track === t && this.state !== STATE_PLAYING && this.deckUrl.get(el) === t.src) el.preload = 'metadata'; }, 300);
+    });
   }
 
   /** The heads wait ms (a starting song needs the bandwidth), then follow what comes next. */
