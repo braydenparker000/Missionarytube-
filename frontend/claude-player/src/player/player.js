@@ -48,6 +48,10 @@ const rangeStart = t => t?.startMs || 0;
 const PRELOAD_S = 30, LISTENED_S = 30;
 // The songs ahead whose first seconds are kept ready (library/heads.js).
 const HEADS_AHEAD = 3;
+// A manual track change: the outgoing track waits at most this long for the incoming one to sound
+// before it fades out (with the incoming track's start on the phone it sounds within it, and the
+// two cross-fade exactly) (ms).
+const MANUAL_WAIT_MS = 200;
 // Gapless: the preloaded next track starts this long before the playing one ends, held in the engine (s).
 const SPLICE_LEAD = 0.5;
 // Half the length of Chrome's resampler kernel (SincResampler, 64 taps for Web Audio's requests), in input frames.
@@ -105,7 +109,8 @@ export class Player {
     this.virtualStart = 0;
     this.virtualPos = 0;
     for (const el of this.decks) {
-      el.preload = 'auto';
+      // Nothing loads until it plays (opening the app costs no audio); playing, the stream buffers ahead.
+      el.preload = 'none';
       // CORS media so the DSP and visualization can process remote streams.
       el.crossOrigin = 'anonymous';
       el.addEventListener('ended', () => {
@@ -166,6 +171,7 @@ export class Player {
     // The offline copies follow what comes next (after a track change, once it has started).
     ctx.bus.subscribe('bus_player', (msg, src, d) => {
       if (msg === 'msg_player_track_changed' && !d?.meta) { this.offlineSoon(4000); this.headsSoon(1500); }
+      else if (msg === 'msg_player_playing_state_changed' && this.state === STATE_PLAYING) this.headsSoon(1500);
       else if (/^msg_player_(queue_changed|category_changed|shuffle_mode_changed|repeat_mode_changed)$/.test(msg)) { this.offlineSoon(1000); this.headsSoon(1000); }
     });
     globalThis.navigator?.connection?.addEventListener?.('change', () => this.offlineSoon(1000));
@@ -496,8 +502,8 @@ export class Player {
         const next = pre ? pre.el : this.decks.find(d => d !== old);
         if (!pre && !next.paused && !old._heard) {
           // Changed again before the incoming track sounded (Next pressed
-          // twice): the new track takes its deck, and the outgoing one keeps
-          // playing until the new track sounds.
+          // twice): the new track takes its deck, and the outgoing one goes
+          // on fading out as it was.
           this.unload(old);
           this.fader.set(old, 0);
         } else {
@@ -507,13 +513,15 @@ export class Player {
           else this.unload(next);
           this.audio = next;
           if (!freed) this.fader.set(next, 0);
-          // Equal power, and the outgoing track starts fading when the incoming one starts sounding.
+          // Equal power, and the outgoing track starts fading when the incoming one starts sounding;
+          // after a manual change only briefly (MANUAL_WAIT_MS): a skip to a track that is slow to
+          // start (its stream not on the phone yet) does not leave the old one playing meanwhile.
           const outMs = auto ? fadeMs : Math.max(DECLICK_MS, Math.min(fadeMs, oldLeft)), onTime = auto || oldLeft < fadeMs;
           this.fader.ramp(old, 0, outMs, () => {
             if (old === this.audio) return;
             this.unload(old);
             this.fader.set(old, 1);
-          }, {curve: 'equal', after: next, ...(onTime ? {keepEnd: true, timeoutMs: Math.max(0, outMs - Math.min(300, outMs / 2))} : {})});
+          }, {curve: 'equal', after: next, ...(onTime ? {keepEnd: true, timeoutMs: Math.max(0, outMs - Math.min(300, outMs / 2))} : {timeoutMs: MANUAL_WAIT_MS})});
         }
         fadeIn = fadeMs;
       } else if (pre) {
@@ -620,6 +628,7 @@ export class Player {
     const old = this.deckUrl.get(el);
     if (old && old !== url) this.ctx.audioCache?.release(old);
     this.deckUrl.set(el, url);
+    el.preload = this.state === STATE_PLAYING ? 'auto' : 'none';
     el.src = url;
     // The new load drops the pause event halt() queued.
     el._selfPause = false;
@@ -639,6 +648,7 @@ export class Player {
   /** Starts a deck (and the audio thread); a play the browser refuses (no user gesture yet) leaves the player paused. */
   startDeck(el) {
     this.ctx.dsp?.resume();
+    el.preload = 'auto';
     el.play().catch(e => {
       if (e?.name === 'NotAllowedError' && el === this.audio && this.state === STATE_PLAYING) this.setState(STATE_PAUSED);
     });
@@ -766,7 +776,8 @@ export class Player {
    */
   wantHeads() {
     const heads = this.ctx.audioHeads;
-    if (!heads?.available) return;
+    // Not before anything plays (opening the app, or skipping while paused, costs none).
+    if (!heads?.available || this.state !== STATE_PLAYING) return;
     const n = this.ctx.pref?.('cp_data_saver') === true ? 1 : HEADS_AHEAD, list = [];
     for (let k = 1; k <= n; k++) {
       const x = this.trackAt(k);

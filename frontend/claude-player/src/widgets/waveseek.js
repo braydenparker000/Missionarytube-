@@ -154,17 +154,23 @@ export class Waveseek extends ViewGroup {
   }
 
   onPlaying(playing) {
-    if (playing && !this._follow) {
-      this._follow = this.ctx.onFrame(() => {
-        if (!this.state.pressed) this.syncPosition();
-        return this.ctx.player?.state === STATE_PLAYING;
-      });
-    } else if (!playing && this._follow) {
-      this._follow();
-      this._follow = null;
-      this.syncPosition();
-    }
-    if (playing === false) this._follow = null;
+    clearTimeout(this._follow);
+    this._follow = 0;
+    if (playing) this.follow();
+    else this.syncPosition();
+  }
+
+  /**
+   * Follows the position while playing, a step each time it moves a pixel
+   * (not every frame: a phone's screen then draws only what changes), and
+   * nothing while the page is hidden.
+   */
+  follow() {
+    const p = this.ctx.player;
+    if (p?.state !== STATE_PLAYING) { this._follow = 0; return; }
+    if (!this.state.pressed && !document.hidden) this.syncPosition();
+    const msPerPx = (p.track?.durationMs || 0) / (this.waveLen || 1) / (p.audio?.playbackRate || 1);
+    this._follow = setTimeout(() => this.follow(), Math.max(16, Math.min(1000, msPerPx || 250)));
   }
 
   syncPosition() {

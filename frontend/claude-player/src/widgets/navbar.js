@@ -353,8 +353,15 @@ export class Seek extends View {
     });
   }
 
+  /** Follows the position while playing, a step each time it moves a pixel (not every frame), nothing while hidden. */
   follow(on) {
-    if (on && !this._follow) this._follow = this.ctx.onFrame(() => { if (!this._drag) this.syncProgress(); return this.ctx.player?.state === STATE_PLAYING ? true : (this._follow = null, false); });
+    clearTimeout(this._follow);
+    this._follow = null;
+    const p = this.ctx.player;
+    if (!on || p?.state !== STATE_PLAYING) return;
+    if (!this._drag && !document.hidden) this.syncProgress();
+    const msPerPx = (p.track?.durationMs || 0) / (this.width || 1) / (p.audio?.playbackRate || 1);
+    this._follow = setTimeout(() => this.follow(true), Math.max(16, Math.min(1000, msPerPx || 250)));
   }
 
   syncProgress() {
