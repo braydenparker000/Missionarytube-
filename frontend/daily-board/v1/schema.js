@@ -65,6 +65,16 @@ export function encodeReport(report) {
   if(new TextEncoder().encode(body).length>MAX_BYTES)throw Error('Encoded report exceeds briefing limit');
   return body;
 }
+/** The briefing publication for a reviewed, non-synthetic report (offline publisher and Worker). */
+export function prepare(report,{reviewedPublic=false}={}) {
+  validateReport(report);
+  if(report.title!==report.title.trim())throw Error('Title must not have surrounding whitespace');
+  if(!reviewedPublic)throw Error('Explicit public-content review required');
+  if(report.synthetic)throw Error('Synthetic fixtures cannot be published');
+  const publication = {schema:'jarvis-publication-v1',type:'briefing',id:report.id,date:report.date,title:report.title,body:encodeReport(report)};
+  if(JSON.stringify(publication).length>30000)throw Error('Publication envelope exceeds importer limit');
+  return publication;
+}
 export function decodeReport(entry) {
   if(typeof entry?.body!=='string'||entry.body.length>MAX_BYTES)return null;
   const index=entry.body.indexOf(REPORT_MARKER);if(index<0)return null;

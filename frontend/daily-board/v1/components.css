@@ -8,4 +8,5 @@
 .report>select{margin-top:24px;min-height:44px;max-width:100%;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit}
 #refresh{margin-left:auto;min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--surface);color:var(--ink);font:inherit}
 #refresh[aria-disabled="true"]{opacity:.65;cursor:wait}
+.late-note{margin:24px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;color:var(--sub);font-size:14px}.late-note:empty{display:none}
 .refresh-status{margin:16px 0 0;color:var(--sub);font-size:14px}.refresh-status:empty{display:none}

@@ -1,15 +1,7 @@
 import {readFile,writeFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
-import {validateReport,canonical,encodeReport} from '../frontend/daily-board/v1/schema.js';
-export function prepare(report,{reviewedPublic=false}={}) {
-  validateReport(report);
-  if(report.title!==report.title.trim())throw Error('Title must not have surrounding whitespace');
-  if(!reviewedPublic)throw Error('Explicit public-content review required');
-  if(report.synthetic)throw Error('Synthetic fixtures cannot be published');
-  const publication = {schema:'jarvis-publication-v1',type:'briefing',id:report.id,date:report.date,title:report.title,body:encodeReport(report)};
-  if(JSON.stringify(publication).length>30000)throw Error('Publication envelope exceeds importer limit');
-  return publication;
-}
+import {validateReport,canonical,prepare} from '../frontend/daily-board/v1/schema.js';
+export {prepare};
 export function verifyReadback(expected,actual) {return canonical(validateReport(expected))===canonical(validateReport(actual));}
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
   const [input,output,review]=process.argv.slice(2);
