@@ -449,3 +449,67 @@ test('the next 3 songs keep their first 15 s ready: a skip starts from the phone
   assert.deepEqual(h.requests.filter(q => q.range === null).map(q => q.id), [], 'no whole songs');
   assert.deepEqual(h.errors, []);
 });
+
+test('a skip to a song that is slow to start does not leave the old one playing: it fades out at once, and the new one starts when it can', {skip}, async t => {
+  const h = await openPlayer(t, {tracks: [{seconds: 60, rate: 8000}, {seconds: 60, rate: 8000, hz: 330}, {seconds: 60, rate: 8000, hz: 550}]});
+  const {page} = h;
+  await playFor(page, 1);
+  // The network stops answering (the next song's start is not on the phone).
+  h.net.hang = true;
+  const r = await page.evaluate(async () => {
+    const p = window.__cp.player, old = p.audio, t0 = performance.now();
+    p.step(1);
+    while (!old.paused && performance.now() - t0 < 6000) await new Promise(r => setTimeout(r, 20));
+    return {oldStoppedMs: Math.round(performance.now() - t0), newSounding: !p.audio.paused && p.audio.currentTime > 0.05};
+  });
+  // The wait for the new song (500 ms), its 400 ms short cross-fade out, and the deck let go; it waited 4 s before.
+  assert.ok(r.oldStoppedMs < 1500, `the old song played on ${r.oldStoppedMs} ms after the skip`);
+  assert.equal(r.newSounding, false);
+  // The network answers: the new song plays.
+  h.net.release();
+  await playingAt(page, 0.3, 15000);
+  assert.equal(await page.evaluate(() => window.__cp.player.track.id), h.lib[1].id);
+  assert.deepEqual(h.errors, []);
+});
+
+test('opening the app downloads no audio: the restored song loads, and the next songs\' starts download, only once it plays', {skip}, async t => {
+  const h = await openPlayer(t, {tracks: Array.from({length: 5}, (_, i) => ({seconds: 60, rate: 8000, hz: 300 + 60 * i}))});
+  const {page} = h;
+  await page.evaluate(() => navigator.serviceWorker.register('sw.js'));
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, {timeout: 15000});
+  // The player as it opens: a song restored, paused, at a position.
+  await page.evaluate(() => window.__cp.player.seek(5000));
+  await page.waitForTimeout(3000);
+  // (The cover reader's first 256 KB of a song without an indexed cover is not playback.)
+  const audio = () => h.requests.filter(q => q.range !== 'bytes=0-262143');
+  assert.deepEqual(audio().map(q => [q.id, q.range]), [], 'no audio before play');
+  assert.equal(await page.evaluate(() => window.__cp.ctx.audioHeads.summary().downloads), 0);
+  // Play: the song starts where it was, and the next 3 songs' starts follow.
+  await page.evaluate(() => window.__cp.player.play());
+  await playingAt(page, 5.2, 15000);
+  await page.waitForFunction(() => { const s = window.__cp.ctx.audioHeads.summary(); return s.kept === 3 && !s.downloading; }, null, {timeout: 30000});
+  assert.ok(audio().some(q => q.id === h.lib[0].id));
+  assert.deepEqual(h.errors, []);
+});
+
+test('while a song plays the seek bars follow it a visible pixel at a time, with no work every frame', {skip}, async t => {
+  const h = await openPlayer(t, {tracks: [{seconds: 60, rate: 8000}]});
+  const {page} = h;
+  await playFor(page, 0.5);
+  await page.waitForTimeout(500);
+  const r = await page.evaluate(async () => {
+    const c = window.__cp.ctx, w = c.root.findViewById('waveseek'), f0 = w.fraction;
+    let frames = 0;
+    const raf = window.requestAnimationFrame;
+    window.requestAnimationFrame = fn => raf(now => { frames++; fn(now); });
+    await new Promise(r => setTimeout(r, 2000));
+    window.requestAnimationFrame = raf;
+    return {callbacks: c.frameCallbacks.size, framesPerSec: frames / 2, moved: w.fraction - f0, scrollX: w.scrollX};
+  });
+  assert.equal(r.callbacks, 0, 'no per-frame callbacks while playing');
+  // Two seconds of a one-minute song: about 3% of the bar.
+  assert.ok(r.moved > 0.025 && r.moved < 0.045, JSON.stringify(r));
+  // Frames only when something moved visibly (it was about 60 a second).
+  assert.ok(r.framesPerSec < 20, JSON.stringify(r));
+  assert.deepEqual(h.errors, []);
+});

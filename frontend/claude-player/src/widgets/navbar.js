@@ -353,14 +353,22 @@ export class Seek extends View {
     });
   }
 
+  /** Follows the position while playing, a step each time it moves a CSS pixel (not every frame), nothing while hidden. */
   follow(on) {
-    if (on && !this._follow) this._follow = this.ctx.onFrame(() => { if (!this._drag) this.syncProgress(); return this.ctx.player?.state === STATE_PLAYING ? true : (this._follow = null, false); });
+    clearTimeout(this._follow);
+    this._follow = null;
+    const p = this.ctx.player;
+    if (!on || p?.state !== STATE_PLAYING) return;
+    if (!this._drag && !document.hidden) this.syncProgress();
+    const msPerStep = (p.track?.durationMs || 0) * Math.max(1, this.ctx.dpr || 1) / (this.width || 1) / (p.audio?.playbackRate || 1);
+    this._follow = setTimeout(() => this.follow(true), Math.max(16, Math.min(1000, msPerStep || 250)));
   }
 
   syncProgress() {
     const p = this.ctx.player, t = p?.track;
     const f = t?.durationMs ? p.positionMs() / t.durationMs : 0;
-    if (Math.abs(f - this.fraction) * this.width >= 0.5) { this.fraction = Math.max(0, Math.min(1, f)); this.invalidate(); }
+    // A move of a CSS pixel or more is drawn (layout units are device pixels).
+    if (Math.abs(f - this.fraction) * this.width >= Math.max(1, this.ctx.dpr || 1) / 2) { this.fraction = Math.max(0, Math.min(1, f)); this.invalidate(); }
   }
 
   draw() {

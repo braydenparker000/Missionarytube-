@@ -275,6 +275,11 @@ said it was playing. The player now handles the rest:
   - They download with range requests, one at a time at low priority,
     1.5 s after the song starts, into their own cache. Only the heads of the
     songs next now are kept; when the next songs change, the others go.
+    Nothing downloads before a song plays: opening the app (a song restored,
+    paused) or skipping while paused costs no audio. The players load
+    nothing until they play (`preload` none, then auto); before, opening the
+    app buffered the restored song (2.3 MB in a live check) and fetched the
+    next 3 heads (1.6 MB) without a song played.
   - The service worker answers a song's range requests that a head or tail
     covers, with what it holds; Chrome asks the network for the rest. It
     leaves every other request alone, so Chrome's own retries keep working.
@@ -287,6 +292,20 @@ said it was playing. The player now handles the rest:
     CUE tracks further into their file, need none. Before the app's service
     worker is installed (a first visit), songs stream as before.
   - The playback log shows them (*Next songs' first seconds*).
+- **A skip** cross-fades the playing song out over the short cross-fade
+  (400 ms) as the new one starts. The old song waits at most 500 ms for the
+  new one's first sound (a song with its head on the phone, or a usual
+  network, sounds within it, and the two cross-fade exactly), then fades out
+  regardless. Before, it
+  waited up to 4 s: a skip to a song not on the phone (Data saver, a song
+  picked from a list, a weak signal) left the old song playing about 4.4 s,
+  then silence until the new one arrived (live check, slow 4G).
+- **The seek bars** (the waveform and the navigation bar's progress line)
+  follow a playing song a step each time it moves a CSS pixel, and not while
+  the page is hidden. Before, each ran a callback every frame and the
+  waveform redrew at every device pixel: the screen drew about 60 frames a
+  second during playback. Live library, 3x phone screen in headless Chrome:
+  7 frames a second, main thread 5.4–5.9% busy (was 11.7–13.7%).
 - **Offline copies** (`library/audio-cache.js`), on request: what comes next
   downloads whole, one track at a time, at low priority, into Cache Storage.
   - Not by default since song heads: the copies a device kept under the old

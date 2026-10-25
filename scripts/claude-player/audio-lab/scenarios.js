@@ -81,6 +81,14 @@ export const SCENARIOS = {
     actions: [{at: AT, run: lab => lab.player.load(2, true)}],
     measure: lab => ({...lab.clicks(AT - 0.02, 2.9), ...crossfade(lab, AT, AT + 0.3)}),
   },
+  'next-xfade-slow': {
+    group: 'fades', title: 'Another track picked, short cross-fade (3 s to first audio)', suspect: 'old track plays on while the new one loads',
+    duration: 6, signals: {main: TONE, next: TONE, other: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}}, tracks: [{name: 'main'}, {name: 'next'}, {name: 'other'}],
+    // The playing track came at once; the one picked takes 3 s to its first audio.
+    actions: [{at: AT, run: lab => { lab.opts.loadMs = 3000; lab.player.load(2, true); }}],
+    // The old track waits up to 500 ms for the new one, then fades out over 400 ms: gone long before the new one arrives.
+    measure: lab => ({...lab.clicks(AT - 0.02, 5.9), waitDb: lab.toneDb(440, AT + 0.3, AT + 0.45), goneDb: lab.toneDb(440, AT + 1.1, AT + 1.5), newDb: lab.toneDb(330, AT + 3.6, AT + 4)}),
+  },
   'next-xfade-preloaded': {
     group: 'fades', title: 'Next track, short cross-fade (300 ms to first audio, preloaded)', suspect: 'no preload',
     duration: 3, signals: {main: TONE, next: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}}, tracks: [{name: 'main'}, {name: 'next'}], media: {loadMs: 300},
