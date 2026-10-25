@@ -335,3 +335,20 @@ test('stories open on request, the pager follows the reader, and section prefixe
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  assert.deepEqual(h.errors,[]);
 });
+
+test('a private draft preview renders one marked edition, and an expired link says so',async t=>{
+ const h=await openBoard(t,390),{page}=h;
+ const report=JSON.parse(await readFile(new URL('./fixtures/daily-board/premium.json',import.meta.url)));
+ h.setReply({status:200,body:{report,createdAt:'2026-10-25T09:00:00Z',expiresAt:'2026-10-26T09:00:00Z'}});
+ await page.goto(h.origin+'/daily-board/?draft='+'a'.repeat(64));
+ await page.getByRole('heading',{name:report.title,exact:true,level:1}).waitFor();
+ assert.match(await page.locator('.draft-banner').textContent(),/^Draft preview · not published · expires /);
+ assert.equal(await page.locator('nav.editions').count(),0,'no editions strip in a preview');
+ assert.equal(await page.getByRole('button',{name:'Refresh reports'}).count(),0);
+ assert.equal(await page.locator('article.story').count(),4);
+ h.setReply({status:404,body:{error:'This draft has expired or does not exist'}});
+ await page.reload();
+ await page.getByText('This draft has expired or does not exist.',{exact:true}).waitFor();
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ assert.deepEqual(h.errors,[]);
+});

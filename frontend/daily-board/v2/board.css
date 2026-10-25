@@ -359,3 +359,6 @@ button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
 .pager-segments i{flex:1;height:3px;border-radius:2px;background:var(--line)}
 .pager-segments i.done{background:var(--sub)}
 .pager-segments i.on{background:var(--accent)}
+
+/* Draft previews are unmistakable. */
+.draft-banner{position:sticky;top:64px;z-index:16;margin:16px 0 0;padding:12px 16px;border:1px dashed var(--warn);border-radius:12px;background:#1a150c;color:var(--warn);font-size:14px;font-weight:500}

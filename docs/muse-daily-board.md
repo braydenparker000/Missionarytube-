@@ -74,7 +74,7 @@ Read the brief back in plain words, save it once they agree, and confirm it
 saved. Afterwards, "more X", "less Y", "go deeper on Z" in the chat are brief
 changes: read, change, save, confirm in one line.
 
-## Each run (daily, 07:00 Rosario)
+## Each run (daily, 06:00 Rosario, ready by 07:00)
 
 1. `GET /relay/mast/board` →
    `{today, timezone, publishedToday, missing, recent, profile, version, board}`.
@@ -95,7 +95,28 @@ changes: read, change, save, confirm in one line.
 4. Check before publishing: every story has dated sources; each story's
    `claim` is honest (`fact`, `forecast` or `interpretation`); links are plain
    HTTPS with no query string; **the board is public**: nothing private about
-   the owner, including the brief itself.
+   the owner, including the brief itself. Then let the Worker check it:
+
+   ```json
+   POST /relay/mast/board/check
+   {"report": { … }}
+   → 200 {"ok": true, "errors": [], "quality": {"score": 84, "warnings": [{"code", "where", "message"}]}}
+   ```
+
+   Nothing is published. `errors` would stop a publish; fix them. `warnings`
+   never block: fix what you can (weak sources, repeated section prefixes,
+   uncited blocks, too many tiles, long chart labels), once, then go on.
+   Optionally look at it as the reader will:
+
+   ```json
+   POST /relay/mast/board/draft
+   {"report": { … }}
+   → 201 {"preview": "https://…/daily-board/?draft=<token>", "expiresAt", "quality"}
+   ```
+
+   Open `preview` in your browser to see the draft exactly as it will look
+   (marked "Draft preview · not published"). It expires after 24 hours, a new
+   draft replaces it, and publishing that date clears it.
 5. Publish:
 
    ```json
@@ -116,7 +137,8 @@ changes: read, change, save, confirm in one line.
      doubles.
 
    The report is on the board the moment the 201 or 200 comes back; there is
-   nothing to poll.
+   nothing to poll. The response includes the same `quality` the check gave;
+   the score is kept with the edition and shows in `recent` on the next read.
 6. End quietly. No message to the owner unless something failed.
 
 `missing` lists the last 7 days without a report. Publish a missed day only
@@ -124,12 +146,10 @@ when the owner asks; the date can be up to 7 days back.
 
 ## The old writer
 
-The external "Publish Jarvis Daily Board" automation still posts to GitHub
-around 07:05. Only one report per date is ever accepted, so the two cannot
-double up; whichever arrives first wins. Once Muse's first run is on the board,
-the owner switches the old automation off. The GitHub path
-([daily-board-publishing.md](daily-board-publishing.md)) keeps working as a
-fallback.
+The external "Publish Jarvis Daily Board" automation (ChatGPT) was switched
+off on 25 October 2026. Muse is the only writer. The GitHub path
+([daily-board-publishing.md](daily-board-publishing.md)) still works as a
+manual fallback.
 
 The board page says "Today's report hasn't arrived yet" after 08:00 Rosario
 when the day's report is missing.

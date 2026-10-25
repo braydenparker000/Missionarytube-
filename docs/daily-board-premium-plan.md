@@ -1,6 +1,6 @@
 # Daily Board premium plan
 
-Status: approved plan, 25 October 2026. PR 1 (premium board) is built and in review.
+Status: PR 1 and the reading redesign are live (25 October 2026). PR 2 adds the check, draft preview and quality scores; the late alert waits on a notification channel (see 7.5).
 Owner decisions are recorded in [section 9](#9-owner-decisions).
 
 The goal: every edition looks and reads like a premium publication, beats
@@ -248,7 +248,7 @@ custom connectors. The Worker already runs MCP servers (`backend/connector.js`,
 remove a whole class of request mistakes. First, confirm that Muse's custom
 connectors can call a remote MCP server and how they authenticate.
 
-**7.5 Watchdog.** A Durable Object alarm at 07:45 Rosario checks
+**7.5 Watchdog (not built yet).** Needs a channel for the alert first: the repository has no owner notification path today, and a daily Worker timer would change the Worker's deploy settings. A Durable Object alarm at 07:45 Rosario checks
 `publishedToday`. If no report has landed, it notifies the owner through the
 existing Jarvis inbox or relay events, and records the miss.
 
