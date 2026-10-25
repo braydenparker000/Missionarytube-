@@ -194,7 +194,7 @@ for(const width of [320,390,1280])test(`premium edition draws every v2 component
  assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'ember');
  assert.equal(await page.locator('article.story').count(),4);
  assert.equal(await page.locator('.glance li').count(),4);
- for(const selector of ['.cover-art','.stats .stat','.agenda li','.perspectives [role=tab]','.chart-line svg','.chart-column svg','.compare-item','.callout[data-kind=unknown]','.quote blockquote','.timeline li[data-state=now]','.stepper input[type=range]','.why','.note.next','.note.disagree','.c-brief'])
+ for(const selector of ['.cover-art','.stats .stat','.agenda li','.perspectives [role=tab]','.chart-line svg','.chart-column svg, .chart-bar .bars','.compare-item','.callout[data-kind=unknown]','.quote blockquote','.timeline li[data-state=now]','.stepper input[type=range]','.why','.note.next','.note.disagree','.c-brief'])
   assert.ok(await page.locator(selector).count()>0,selector);
  assert.match(await page.locator('.synthetic').textContent(),/Synthetic demonstration/);
  assert.equal(await page.locator('.agenda time').first().textContent(),'08:00');
@@ -255,5 +255,44 @@ test('an agenda item downloads a calendar file in Rosario time',async t=>{
  assert.match(download.suggestedFilename(),/\.ics$/);
  const text=await readFile(await download.path(),'utf8');
  assert.match(text,/DTSTART:20261025T200000Z/);assert.match(text,/SUMMARY:Polls close/);
+ assert.deepEqual(h.errors,[]);
+});
+
+test('a v2 edition over 20,000 characters passes the shared public reader and renders',async t=>{
+ const h=await openBoard(t,390),{page}=h;
+ const report=JSON.parse(await readFile(new URL('./fixtures/daily-board/premium.json',import.meta.url)));
+ // Grow it the way a real deep edition does: more stories, same components.
+ for(let i=0;i<6;i++)report.stories.push({...structuredClone(report.stories[0]),composition:'feature',id:`extra-${i}`,blocks:report.stories[0].blocks.map(b=>({...structuredClone(b),id:`${b.id}-${i}`}))});
+ const post={id:report.id,title:report.title,body:encodeV2(report),createdAt:'2026-10-25T09:00:17Z'};
+ assert.ok(post.body.length>20000,String(post.body.length));
+ h.setReply(legacy([post]));
+ await page.goto(h.origin+'/daily-board/');
+ await page.getByRole('heading',{name:report.title,exact:true,level:1}).waitFor();
+ assert.equal(await page.locator('article.story').count(),10);
+ assert.equal(await page.getByRole('button',{name:'Try again',exact:true}).count(),0);
+ assert.deepEqual(h.errors,[]);
+});
+
+for(const width of [390,1280])test(`a column chart with long labels stays readable at ${width}px`,async t=>{
+ const h=await openBoard(t,width),{page}=h;
+ const report=JSON.parse(await readFile(new URL('./fixtures/daily-board/premium.json',import.meta.url)));
+ Object.assign(report.stories[1].blocks[1],{labels:['Netanyahu bloc, 3 polls','Netanyahu bloc, i24','Opposition, low','Opposition, high'],series:[{name:'Projected seats',values:[50,59,52,56]}]});
+ // A two-series column chart keeps its columns and shortens labels instead.
+ report.stories[1].blocks.push({id:'two-series',type:'chart',kind:'column',text:'Two series',unit:'seats',labels:['Netanyahu bloc, 3 polls','Opposition, high'],series:[{name:'A',values:[50,56]},{name:'B',values:[48,57]}]});
+ h.setReply(legacy([{id:report.id,title:report.title,body:encodeV2(report),createdAt:'2026-10-25T09:00:17Z'}]));
+ await page.goto(h.origin+'/daily-board/');
+ await page.getByRole('heading',{name:report.title,exact:true,level:1}).waitFor();
+ const seats=page.locator('#block-retail-columns');
+ if(width<500){
+  assert.equal(await seats.locator('.chart-bar .bar-label').count(),4,'single-series columns that cannot fit become labelled bars');
+  assert.equal(await seats.locator('.bar-label').first().textContent(),'Netanyahu bloc, 3 polls');
+ }
+ // No two axis labels overlap in any chart.
+ const overlaps=await page.evaluate(()=>[...document.querySelectorAll('.chart-svg')].flatMap(svg=>{
+  const boxes=[...svg.querySelectorAll('text.tick')].filter(t=>t.getAttribute('text-anchor')==='middle').map(t=>t.getBoundingClientRect());
+  return boxes.slice(1).filter((b,i)=>Math.abs(b.top-boxes[i].top)<2&&b.left<boxes[i].right-1).map(()=>svg.getAttribute('aria-label'));
+ }));
+ assert.deepEqual(overlaps,[]);
+ assert.equal(await page.locator('#block-two-series .chart-column svg').count(),1);
  assert.deepEqual(h.errors,[]);
 });

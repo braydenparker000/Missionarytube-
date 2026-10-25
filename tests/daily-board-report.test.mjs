@@ -65,3 +65,12 @@ test('v2 publisher requires review, refuses synthetic content, and dispatches by
   assert.equal(p.type,'briefing');assert.ok(p.body.includes(v2.REPORT_MARKER));
   const old=fixture('one');old.synthetic=false;assert.ok(v2.prepareAny(old,{reviewedPublic:true}).body.includes('[Jarvis structured report v1]'));
 });
+
+import {validatePublicEntry} from '../frontend/assets/public-coordination.js';
+test('the shared public reader admits v2 editions up to 50,000 characters and keeps every other limit',()=>{
+  const entry=(body,extra={})=>({id:'55555555-5555-4555-8555-555555555555',title:'T',body,createdAt:'2026-10-25T09:00:00Z',...extra});
+  assert.doesNotThrow(()=>validatePublicEntry(entry('s'+v2.REPORT_MARKER+'x'.repeat(28000))));
+  assert.throws(()=>validatePublicEntry(entry('s'+v2.REPORT_MARKER+'x'.repeat(50001))));
+  assert.throws(()=>validatePublicEntry(entry('x'.repeat(20001))));
+  assert.throws(()=>validatePublicEntry({id:'55555555-5555-4555-8555-555555555555',role:'user',body:'x'.repeat(4001)+v2.REPORT_MARKER,createdAt:'2026-10-25T09:00:00Z'}));
+});
