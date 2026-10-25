@@ -51,7 +51,7 @@ export function libraryOf(tracks) {
 /**
  * Opens the player: frontend/ served locally, the Worker answered from the
  * fixture (index, audio with byte ranges, 404 for covers and waveforms).
- * Returns the page, page errors and the audio requests seen.
+ * Returns the page, page errors and the audio requests seen (with the bytes each was answered with).
  */
 export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 390, audioDelayMs = 0, workletDelayMs = 0, init = null} = {}) {
   // The audio network, steerable by a test: down (requests fail), hang (requests wait for release()),
@@ -89,14 +89,16 @@ export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 
     const item = m && byId.get(m[1]);
     if (!item) return route.fulfill({status: 404, headers: cors, body: ''});
     const range = /bytes=(\d+)-(\d*)/.exec(req.headers().range ?? '');
-    requests.push({id: item.id, range: range ? range[0] : null, at: Date.now()});
+    const q = {id: item.id, range: range ? range[0] : null, at: Date.now(), bytes: 0};
+    requests.push(q);
     if (net.hang) await new Promise(go => net.held.push(go));
     if (net.down) return route.abort('internetdisconnected');
     if (net.refuse.has(item.id) || (!range && net.refuseWhole.has(item.id))) return route.fulfill({status: 500, headers: cors, body: ''});
     if (audioDelayMs) await new Promise(r => setTimeout(r, audioDelayMs));
     const size = item.bytes.length;
-    if (!range) return route.fulfill({status: 200, headers: {...cors, 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes', 'Content-Length': String(size)}, body: item.bytes});
+    if (!range) { q.bytes = size; return route.fulfill({status: 200, headers: {...cors, 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes', 'Content-Length': String(size)}, body: item.bytes}); }
     const a = +range[1], b = range[2] ? Math.min(+range[2], size - 1) : size - 1;
+    q.bytes = b - a + 1;
     return route.fulfill({status: 206, headers: {...cors, 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${a}-${b}/${size}`, 'Content-Length': String(b - a + 1)}, body: item.bytes.subarray(a, b + 1)});
   });
   await page.goto(`${origin}/claude-player/${query}`);

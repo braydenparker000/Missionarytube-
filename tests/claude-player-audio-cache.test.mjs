@@ -4,7 +4,7 @@
 // Run: node --test tests/claude-player-audio-cache.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {AudioCache, offlinePlan} from '../frontend/claude-player/src/library/audio-cache.js';
+import {AudioCache, offlinePlan, offlineAhead, setOfflineAhead} from '../frontend/claude-player/src/library/audio-cache.js';
 
 const MB = 1024 * 1024;
 const url = n => `https://music.test/music/library/audio/r2_${n}`;
@@ -204,9 +204,17 @@ test('a wanted track that cannot fit waits without evicting anything, and the ot
   assert.equal(c.summary().tooBig, 1);
 });
 
-test('how far ahead copies are kept depends on the connection', () => {
-  assert.deepEqual(offlinePlan({type: 'wifi'}), {current: true, ahead: 8});
-  assert.deepEqual(offlinePlan(undefined), {current: true, ahead: 8});
-  assert.deepEqual(offlinePlan({type: 'cellular'}), {current: false, ahead: 3});
-  assert.deepEqual(offlinePlan({type: 'wifi', saveData: true}), {current: false, ahead: 0});
+test('how far ahead copies are kept depends on the connection and the chosen mode (kept per device)', () => {
+  assert.deepEqual(offlinePlan({type: 'wifi'}, 'few'), {current: true, ahead: 3});
+  assert.deepEqual(offlinePlan(undefined, 'few'), {current: true, ahead: 3});
+  assert.deepEqual(offlinePlan({type: 'cellular'}, 'few'), {current: false, ahead: 1});
+  assert.deepEqual(offlinePlan({type: 'wifi'}, 'next'), {current: false, ahead: 1});
+  assert.deepEqual(offlinePlan({type: 'wifi'}, 'off'), {current: false, ahead: 0});
+  assert.deepEqual(offlinePlan({type: 'wifi', saveData: true}, 'few'), {current: false, ahead: 0});
+  const storage = memoryStorage();
+  assert.equal(offlineAhead(storage), 'few');
+  setOfflineAhead('next', storage);
+  assert.equal(offlineAhead(storage), 'next');
+  storage.setItem('cp-offline-ahead', 'everything');
+  assert.equal(offlineAhead(storage), 'few');
 });

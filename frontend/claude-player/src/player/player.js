@@ -41,8 +41,10 @@ const fisherYates = a => {
  */
 /** A CUE track's start in its disc image (F77); 0 for other tracks. */
 const rangeStart = t => t?.startMs || 0;
-// The next track loads on the idle deck this long before the playing one ends (s).
-const PRELOAD_S = 60;
+// The next track loads on the idle deck this long before the playing one ends (s); a song skipped
+// earlier costs nothing of the next one. Offline copies wait until a track has been listened to this
+// long (or its last LISTENED_S): skipped songs cost no copies.
+const PRELOAD_S = 30, LISTENED_S = 30;
 // Gapless: the preloaded next track starts this long before the playing one ends, held in the engine (s).
 const SPLICE_LEAD = 0.5;
 // Half the length of Chrome's resampler kernel (SincResampler, 64 taps for Web Audio's requests), in input frames.
@@ -642,14 +644,15 @@ export class Player {
   }
 
   /**
-   * The next track loads on the idle deck before it is needed (PRELOAD_S
-   * before the end, or once the playing track is buffered to its end), so it
-   * starts at once, from its offline copy or with its start buffered. When
-   * what comes next changes (the queue, shuffle, repeat), the new one loads.
+   * The next track loads on the idle deck shortly before it is needed
+   * (PRELOAD_S before the end), so it starts at once, from its offline copy
+   * or with its start buffered. When what comes next changes (the queue,
+   * shuffle, repeat), the new one loads.
    */
   checkPreload() {
     const el = this.audio, t = this.track;
     if (this.state !== STATE_PLAYING || this.decks.length < 2 || !this.isMedia(t) || !el?.src || el.error) return;
+    this.checkListened();
     const next = this.predictNext(), p = this.preloaded;
     let same = p && next && (p.track === next || p.track.id === next.id);
     // Its offline copy has arrived since it preloaded from the stream: the idle deck takes the copy
@@ -660,8 +663,8 @@ export class Player {
     if (same || !next || next === t || !this.isMedia(next) || (next.cueOf && next.cueOf === t.cueOf) || next.id === this.preloadFailed) return;
     const idle = this.decks.find(d => d !== el);
     if (!idle.paused || this.fader.pending.has(idle)) return;
-    const end = t.endMs ? t.endMs / 1000 : el.duration, b = el.buffered;
-    if (!(end - el.currentTime <= PRELOAD_S || (b.length && b.end(b.length - 1) >= el.duration - 0.5))) return;
+    const end = t.endMs ? t.endMs / 1000 : el.duration;
+    if (!(end - el.currentTime <= PRELOAD_S)) return;
     // Metered, with its copy on the way: it preloads from the copy (unless the end is near).
     if (metered && cache?.wants(next.src) && !cache.has(next.src) && end - el.currentTime > 20) return;
     const pre = this.preloaded = {track: next, el: idle, ready: null};
@@ -720,17 +723,28 @@ export class Player {
     try { if (this.repeat === REPEAT_SONG || this.repeat === SINGLE_SONG) this.step(1); else this.advance(); } finally { this.advancing = false; }
   }
 
+  /** The playing track has been listened to (LISTENED_S, or its last LISTENED_S): its offline copies may download. */
+  checkListened() {
+    if (this.listenedToken === this.loadToken || !(this.positionMs() >= LISTENED_S * 1000 || this.timeLeft() <= LISTENED_S)) return;
+    this.listenedToken = this.loadToken;
+    this.wantOffline();
+  }
+
   /**
    * Offline copies of what comes next (offlinePlan: on Wi-Fi the playing
-   * track and the next 8, on a cellular connection the next 3). They wait
-   * while the playing track starts and needs the bandwidth.
+   * track and the next 3, on a cellular connection the next one). New ones
+   * wait until the playing track has been listened to, so skipped songs cost
+   * none; until then only copies already kept or on their way stay wanted.
+   * They also wait while the playing track starts and needs the bandwidth.
    */
   wantOffline() {
     const cache = this.ctx.audioCache;
     if (!cache?.available) return;
-    const plan = offlinePlan(), list = [], remote = x => x && /^https?:/.test(x.src || '');
-    if (plan.current && remote(this.track)) list.push(this.track);
+    const plan = offlinePlan(), listened = this.listenedToken === this.loadToken, remote = x => x && /^https?:/.test(x.src || '');
+    let list = [];
+    if (plan.current && listened && remote(this.track)) list.push(this.track);
     for (let k = 1; k <= plan.ahead; k++) { const x = this.trackAt(k); if (remote(x) && x !== this.track) list.push(x); }
+    if (!listened) list = list.filter(x => cache.has(x.src) || cache.wants(x.src));
     cache.want(list.map(x => ({url: x.src, bytes: x.size || 0})));
   }
 

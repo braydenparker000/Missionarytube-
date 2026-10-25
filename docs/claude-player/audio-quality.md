@@ -260,18 +260,29 @@ Then the element errors or waits, and the music stops while the player still
 said it was playing. The player now handles the rest:
 
 - **Preload** (`player.js`): the next track in play order loads on the idle
-  deck a minute before the playing one ends, or once the playing one is
-  buffered to its end. At the end it starts there, and a cross-fade into it
+  deck 30 s before the playing one ends (so a song skipped earlier costs
+  nothing of the next one; 30 s is plenty for its start, even on a slow
+  cellular link). At the end it starts there, and a cross-fade into it
   starts without a network wait. When what comes next changes (the queue,
   shuffle, repeat), the new next track loads instead. A track that failed to
   preload is not tried again until the track changes. A preloaded track whose
   offline copy arrives moves to the copy.
 - **Offline copies** (`library/audio-cache.js`): what comes next downloads
-  whole, one track at a time, at low priority, into Cache Storage, a few
-  seconds after a track starts (the start needs the bandwidth).
-  - How far ahead depends on the connection: on Wi-Fi the playing track and
-    the next 8; on a cellular connection the next 3, since the playing track
-    already streams; with Data Saver, none.
+  whole, one track at a time, at low priority, into Cache Storage.
+  - New copies wait until the playing track has been listened to for 30 s
+    (or has 30 s left), so skipped songs cost none. Until then, copies
+    already kept or downloading stay wanted, and nothing new starts.
+  - How far ahead (*Save ahead for offline* in the playback log, per device):
+    - *A few tracks* (the default): on Wi-Fi the playing track and the next 3;
+      on a cellular connection the next one, since the playing track already
+      streams.
+    - *The next track only*.
+    - *None*.
+  - With Data Saver, none.
+  - Skipping three songs 3 s in each (Chrome test, 7 one-minute tracks):
+    7 whole copies and 13.2 tracks' worth downloaded before; now no copies
+    and 5.0 tracks' worth. That is the 4 songs started, which Chrome reads
+    ahead itself, and their covers.
   - On a metered connection the next track's preload waits for its copy
     rather than streaming it too, unless the end is near.
   - A copy counts only once its size matches the index.
