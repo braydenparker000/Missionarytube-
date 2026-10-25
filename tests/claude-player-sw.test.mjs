@@ -97,3 +97,87 @@ test('media, range requests and other origins are left to the browser', async ()
   assert.equal(await w.dispatch({method: 'POST', url: SCOPE + 'src/app.js', mode: 'cors', headers: new Headers()}), null);
   assert.equal(w.calls.length, 0);
 });
+
+// Song heads (library/heads.js): the first bytes of the next songs, and an Ogg file's end, kept by the page.
+const SONG = 'https://jarvis-hub-api.example/music/library/audio/r2_song';
+
+/** The worker with song heads stored: a head of `head` bytes and a tail from `tailStart` of a `total`-byte song. */
+function songWorker({head = 100, tailStart = 900, total = 1000, index = false, network = async () => response('network')} = {}) {
+  const handlers = {}, stores = new Map(), calls = [];
+  const store = name => stores.get(name) ?? stores.set(name, new Map()).get(name);
+  const bytes = (from, n) => Uint8Array.from({length: n}, (_, i) => (from + i) % 251);
+  const at = (name, key, value) => store(name).set(key, value);
+  const stored = v => v && ({arrayBuffer: async () => v.buffer.slice(0), json: async () => v});
+  const h = {head, tailStart, total, type: 'audio/ogg'};
+  at('claude-player-heads', SONG, bytes(0, head));
+  if (tailStart < total) at('claude-player-heads', SONG + '?cp-tail', bytes(tailStart, total - tailStart));
+  if (index) at('claude-player-heads', SCOPE + 'heads-index.json', [[SONG, h]]);
+  class Resp { constructor(body, init) { Object.assign(this, init, {body}); } }
+  vm.runInNewContext(source, {
+    self: {addEventListener: (type, fn) => { handlers[type] = fn; }, location: new URL(SCOPE), registration: {scope: SCOPE}, skipWaiting: () => {}, clients: {claim: () => {}}},
+    caches: {open: async name => ({match: async key => stored(store(name).get(typeof key === 'string' ? key : key.url))}), keys: async () => []},
+    fetch: (...args) => { calls.push(args); return network(args[0]); },
+    Response: Resp, Uint8Array, URL, Promise, setTimeout, clearTimeout,
+  });
+  const tell = list => handlers.message({data: {type: 'heads', list}});
+  const get = async (range, url = SONG) => {
+    let answer = null;
+    handlers.fetch({request: {method: 'GET', url, mode: 'cors', headers: new Headers(range ? {range} : {})}, respondWith: p => { answer = p; }});
+    return answer ? await answer : null;
+  };
+  return {get, tell, calls, h, stores, bytes};
+}
+
+test('a song\'s range request that its head covers is answered from it, as much as it holds', async () => {
+  const w = songWorker();
+  w.tell([[SONG, w.h]]);
+  const all = await w.get('bytes=0-');
+  assert.equal(all.status, 206);
+  assert.equal(all.headers['Content-Range'], 'bytes 0-99/1000');
+  assert.equal(all.headers['Content-Length'], '100');
+  assert.equal(all.headers['Content-Type'], 'audio/ogg');
+  assert.deepEqual([...all.body], [...w.bytes(0, 100)]);
+  // A part of it, and a range running past it (the rest is asked for again, from the network).
+  const part = await w.get('bytes=10-19');
+  assert.deepEqual([part.headers['Content-Range'], [...part.body]], ['bytes 10-19/1000', [...w.bytes(10, 10)]]);
+  assert.equal((await w.get('bytes=50-500')).headers['Content-Range'], 'bytes 50-99/1000');
+  assert.equal(w.calls.length, 0);
+});
+
+test('the decoder\'s read of an Ogg file\'s end is answered from its tail', async () => {
+  const w = songWorker();
+  w.tell([[SONG, w.h]]);
+  const end = await w.get('bytes=930-');
+  assert.equal(end.headers['Content-Range'], 'bytes 930-999/1000');
+  assert.deepEqual([...end.body], [...w.bytes(930, 70)]);
+  assert.equal(w.calls.length, 0);
+});
+
+test('requests the heads do not cover are left to the browser (its own retries stay)', async () => {
+  const w = songWorker();
+  w.tell([[SONG, w.h]]);
+  for (const range of ['bytes=100-', 'bytes=500-899', null, 'bytes=-500', 'bytes=1000-']) assert.equal(await w.get(range), null, String(range));
+  assert.equal(await w.get('bytes=0-', SONG + '-other'), null);
+  // A song the page no longer keeps.
+  w.tell([]);
+  assert.equal(await w.get('bytes=0-'), null);
+  assert.equal(w.calls.length, 0);
+});
+
+test('a head gone from storage: the request goes to the network as it came, and the song streams from then on', async () => {
+  const w = songWorker();
+  w.tell([[SONG, w.h]]);
+  w.stores.get('claude-player-heads').delete(SONG);
+  assert.equal((await w.get('bytes=0-')).body, 'network');
+  assert.equal(w.calls.length, 1);
+  assert.equal(w.calls[0][0].headers.get('range'), 'bytes=0-');
+  assert.equal(await w.get('bytes=0-'), null);
+});
+
+test('a worker that starts again knows the heads from their index, until the page tells it more', async () => {
+  const w = songWorker({index: true});
+  await new Promise(r => setTimeout(r, 10));
+  assert.equal((await w.get('bytes=0-')).headers['Content-Range'], 'bytes 0-99/1000');
+  w.tell([]);
+  assert.equal(await w.get('bytes=0-'), null);
+});

@@ -267,17 +267,40 @@ said it was playing. The player now handles the rest:
   shuffle, repeat), the new next track loads instead. A track that failed to
   preload is not tried again until the track changes. A preloaded track whose
   offline copy arrives moves to the copy.
-- **Offline copies** (`library/audio-cache.js`): what comes next downloads
-  whole, one track at a time, at low priority, into Cache Storage.
+- **Song heads** (`library/heads.js`, served by `sw.js`), the default: when
+  a song starts, the next 3 songs fetch their first 15 s (at the file's
+  average rate, plus 64 KB for tags) and, for an Ogg file, its last 128 KB,
+  which Chrome's decoder reads for the length before it plays. That is about
+  0.4 MB per song instead of 4–6 MB whole.
+  - They download with range requests, one at a time at low priority,
+    1.5 s after the song starts, into their own cache. Only the heads of the
+    songs next now are kept; when the next songs change, the others go.
+  - The service worker answers a song's range requests that a head or tail
+    covers, with what it holds; Chrome asks the network for the rest. It
+    leaves every other request alone, so Chrome's own retries keep working.
+    A head missing from storage is fetched as the request came.
+  - A skip, or the preload 30 s before the end, therefore starts from the
+    phone. Chrome, a 1.5 s network: a skip to a song with a head sounded in
+    124 ms (real Opus files, head and tail served by the worker) and in under
+    1 s in the test (WAV fixtures).
+  - With *Data saver*, the next song's head only. Songs with a whole copy, and
+    CUE tracks further into their file, need none. Before the app's service
+    worker is installed (a first visit), songs stream as before.
+  - The playback log shows them (*Next songs' first seconds*).
+- **Offline copies** (`library/audio-cache.js`), on request: what comes next
+  downloads whole, one track at a time, at low priority, into Cache Storage.
+  - Not by default since song heads: the copies a device kept under the old
+    default (a few tracks) are deleted once, unless a mode had been chosen.
   - New copies wait until the playing track has been listened to for 30 s
     (or has 30 s left), so skipped songs cost none. Until then, copies
     already kept or downloading stay wanted, and nothing new starts.
-  - How far ahead (*Save ahead for offline* in the playback log, per device):
-    - *A few tracks* (the default): on Wi-Fi the playing track and the next 3;
-      on a cellular connection the next one, since the playing track already
+  - How far ahead (*Save whole songs for offline* in the playback log, per
+    device):
+    - *None* (the default): songs stream, and the next ones keep their heads.
+    - *The next whole song*.
+    - *A few whole songs*: on Wi-Fi the playing track and the next 3; on a
+      cellular connection the next one, since the playing track already
       streams.
-    - *The next track only*.
-    - *None*.
   - With *Data saver* (Settings › Misc › Data, this app's own switch) or the
     browser's Data Saver, none: only the next song preloads, 30 s before it
     plays.

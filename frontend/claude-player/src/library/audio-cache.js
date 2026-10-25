@@ -13,13 +13,27 @@ export const AUDIO_BUDGET = 512 * 1024 * 1024;
 // A failed download waits this long before it is tried again (doubling, at most an hour).
 const RETRY_MS = 30000, RETRY_MAX_MS = 3600000;
 
-// How far ahead to keep copies (offlineAhead, chosen in the playback log), stored per device.
-const AHEAD_KEY = 'cp-offline-ahead';
-export const AHEAD_MODES = ['few', 'next', 'off'];
+// How far ahead to keep whole copies (offlineAhead, chosen in the playback log), stored per device.
+// None by default: the next songs keep only their first seconds ready (library/heads.js).
+const AHEAD_KEY = 'cp-offline-ahead', RETIRED_KEY = 'cp-offline-retired';
+export const AHEAD_MODES = ['off', 'next', 'few'];
 
-/** The chosen mode: a few tracks (the default), the next track only, or none. */
+/** The chosen mode: none (the default), the next track only, or a few tracks. */
 export function offlineAhead(storage = globalThis.localStorage) {
-  try { const m = storage?.getItem(AHEAD_KEY); return AHEAD_MODES.includes(m) ? m : 'few'; } catch { return 'few'; }
+  try { const m = storage?.getItem(AHEAD_KEY); return AHEAD_MODES.includes(m) ? m : 'off'; } catch { return 'off'; }
+}
+
+/**
+ * Whole copies stopped being the default: the ones a device kept under the
+ * old default go once (not when a mode was chosen in the playback log).
+ */
+export async function retireDefaultCopies(cache, storage = globalThis.localStorage) {
+  try {
+    if (storage.getItem(AHEAD_KEY) || storage.getItem(RETIRED_KEY)) return;
+    storage.setItem(RETIRED_KEY, '1');
+  } catch { return; }
+  await cache.ready?.catch?.(() => {});
+  if (cache.index?.size) await cache.clear();
 }
 
 export function setOfflineAhead(mode, storage = globalThis.localStorage) {
@@ -27,7 +41,7 @@ export function setOfflineAhead(mode, storage = globalThis.localStorage) {
 }
 
 /**
- * How far ahead to keep copies, once a track has been listened to (the
+ * How far ahead to keep whole copies, once a track has been listened to (the
  * player asks only then, so skipped songs cost none): with a few tracks, on
  * Wi-Fi (or an unknown connection) the playing track and the next 3, on a
  * cellular connection the next one (the playing track already streams);

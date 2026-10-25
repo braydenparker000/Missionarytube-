@@ -1,7 +1,8 @@
 // Claude Player reliability end to end in Chrome: the next track preloaded on
-// the idle deck, offline copies of what comes next, recovery from a stalled or
-// lost network, the system pausing and resuming playback, the lock screen's
-// position, and the audio thread sleeping through a long pause.
+// the idle deck, the next songs' first seconds kept ready, offline copies of
+// what comes next (on request), recovery from a stalled or lost network, the
+// system pausing and resuming playback, the lock screen's position, and the
+// audio thread sleeping through a long pause.
 // Run: node --test tests/claude-player-reliability-browser.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,6 +15,9 @@ async function playFor(page, seconds) {
   await page.evaluate(() => window.__cp.player.play());
   await page.waitForFunction(s => !window.__cp.player.audio.paused && window.__cp.player.audio.currentTime > s, seconds, {timeout: 20000});
 }
+
+// Whole offline copies, chosen in the playback log (by default the next songs keep only their first seconds).
+const wholeCopies = () => localStorage.setItem('cp-offline-ahead', 'few');
 
 const playingAt = (page, sec, timeout = 30000) => page.waitForFunction(s => { const a = window.__cp.player.audio; return !a.paused && a.readyState >= 3 && a.currentTime > s; }, sec, {timeout});
 
@@ -44,7 +48,7 @@ test('the next track preloads on the idle deck, starts early held in the engine,
 });
 
 test('the next tracks are saved for offline, and offline the next one plays from its copy', {skip}, async t => {
-  const h = await openPlayer(t, {tracks: [{seconds: 8}, {seconds: 8, hz: 330}, {seconds: 8, hz: 550}]});
+  const h = await openPlayer(t, {init: wholeCopies, tracks: [{seconds: 8}, {seconds: 8, hz: 330}, {seconds: 8, hz: 550}]});
   const {page} = h;
   await playFor(page, 0.3);
   // Once the track has started, the copies download whole, one at a time, the playing track first.
@@ -64,7 +68,7 @@ test('the next tracks are saved for offline, and offline the next one plays from
 });
 
 test('offline, a track with no copy gives way to the next one that has a copy', {skip}, async t => {
-  const h = await openPlayer(t, {tracks: [{seconds: 8}, {seconds: 8, hz: 330}, {seconds: 8, hz: 550}]});
+  const h = await openPlayer(t, {init: wholeCopies, tracks: [{seconds: 8}, {seconds: 8, hz: 330}, {seconds: 8, hz: 550}]});
   const {page} = h;
   // The second track cannot be fetched at all; the others can.
   h.net.refuse.add(h.lib[1].id);
@@ -171,7 +175,7 @@ test('a system pause is followed on a deck the player reused or reloaded, and th
 });
 
 test('offline, the playing track goes on from its own offline copy', {skip}, async t => {
-  const h = await openPlayer(t, {tracks: [{seconds: 240, rate: 8000}]});
+  const h = await openPlayer(t, {init: wholeCopies, tracks: [{seconds: 240, rate: 8000}]});
   const {page} = h;
   await page.evaluate(() => { window.__cp.player.guard.stallMs = 2000; });
   await playFor(page, 0.5);
@@ -189,7 +193,7 @@ test('offline, the playing track goes on from its own offline copy', {skip}, asy
 });
 
 test('Next while the next track\'s preload is still opening its copy: the next track plays', {skip}, async t => {
-  const h = await openPlayer(t, {tracks: [{seconds: 20}, {seconds: 20, hz: 330}, {seconds: 20, hz: 550}]});
+  const h = await openPlayer(t, {init: wholeCopies, tracks: [{seconds: 20}, {seconds: 20, hz: 330}, {seconds: 20, hz: 550}]});
   const {page} = h;
   await playFor(page, 0.3);
   await page.waitForFunction(() => window.__cp.ctx.audioCache.summary().ready === 3, null, {timeout: 30000});
@@ -204,7 +208,7 @@ test('Next while the next track\'s preload is still opening its copy: the next t
 });
 
 test('a track that will not decode from its offline copy: the copy goes, the stream is tried, then it is skipped', {skip}, async t => {
-  const h = await openPlayer(t, {tracks: [{seconds: 8}, {seconds: 8, bytes: garbage()}, {seconds: 8, hz: 550}]});
+  const h = await openPlayer(t, {init: wholeCopies, tracks: [{seconds: 8}, {seconds: 8, bytes: garbage()}, {seconds: 8, hz: 550}]});
   const {page} = h;
   await playFor(page, 0.3);
   await page.waitForFunction(() => window.__cp.ctx.audioCache.summary().ready === 3, null, {timeout: 30000});
@@ -360,8 +364,8 @@ test('the system pausing a joined track stops it at once, not after its delay, a
   assert.deepEqual(h.errors, []);
 });
 
-test('skipping songs early costs no offline copies and no preloads: they wait for 30 s of listening and the last 30 s', {skip}, async t => {
-  const h = await openPlayer(t, {tracks: Array.from({length: 7}, (_, i) => ({seconds: 60, rate: 8000, hz: 300 + 50 * i}))});
+test('with whole copies chosen, skipping songs early costs no copies and no preloads: they wait for 30 s of listening and the last 30 s', {skip}, async t => {
+  const h = await openPlayer(t, {init: wholeCopies, tracks: Array.from({length: 7}, (_, i) => ({seconds: 60, rate: 8000, hz: 300 + 50 * i}))});
   const {page} = h;
   // Audio the elements stream (open-ended ranges), not the cover reader's first 256 KB (these fixtures have no indexed covers).
   const id = i => h.lib[i].id, copies = () => h.requests.filter(q => q.range === null), streamed = i => h.requests.filter(q => q.range !== null && q.range !== 'bytes=0-262143' && q.id === id(i));
@@ -405,5 +409,34 @@ test('Data saver (Settings › Misc) downloads nothing ahead but the next song\'
   assert.deepEqual(h.requests.filter(q => q.range === null).map(q => q.id), [], 'no offline copies');
   assert.equal(await page.evaluate(() => window.__cp.ctx.audioCache.summary().wanted), 0);
   for (const i of [2, 3]) assert.deepEqual(h.requests.filter(q => q.id === h.lib[i].id && q.range !== 'bytes=0-262143'), [], `nothing of track ${i + 1}`);
+  assert.deepEqual(h.errors, []);
+});
+
+test('the next 3 songs keep their first 15 s ready: a skip starts from the phone on a slow network, through the engine, and plays on from the network; no whole songs download', {skip}, async t => {
+  // Every audio request takes 1.5 s to answer (a slow mobile network).
+  const h = await openPlayer(t, {audioDelayMs: 1500, tracks: Array.from({length: 5}, (_, i) => ({seconds: 30, rate: 8000, hz: 300 + 60 * i}))});
+  const {page} = h;
+  // The service worker, as the app registers it over HTTPS (this server is plain HTTP).
+  await page.evaluate(() => navigator.serviceWorker.register('sw.js'));
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, {timeout: 15000});
+  await playFor(page, 0.3);
+  await page.waitForFunction(() => { const s = window.__cp.ctx.audioHeads.summary(); return s.wanted === 3 && s.kept === 3 && !s.downloading; }, null, {timeout: 40000});
+  const heads = h.requests.filter(q => q.range && /^bytes=0-\d+$/.test(q.range) && q.range !== 'bytes=0-262143');
+  assert.deepEqual([...new Set(heads.map(q => q.id))].sort(), [1, 2, 3].map(i => h.lib[i].id).sort());
+  // 15 s at the file's average rate (32 kB/s) plus 64 KB for its tags: about 0.5 MB of a 0.96 MB file.
+  assert.ok(heads.every(q => q.bytes > 15 * 32000 && q.bytes < 15 * 32000 + 64 * 1024 + 100), JSON.stringify(heads.map(q => q.bytes)));
+  // Skip 2 s in: the next song sounds well before the network could answer.
+  const t0 = await page.evaluate(() => { window.__cp.player.step(1); return performance.now(); });
+  await page.waitForFunction(id => window.__cp.player.track?.id === id && window.__cp.player.audio.currentTime > 0.05 && !window.__cp.player.audio.paused, h.lib[1].id, {timeout: 10000, polling: 10});
+  const startMs = await page.evaluate(t0 => performance.now() - t0, t0);
+  assert.ok(startMs < 1000, `the skipped-to song started after ${Math.round(startMs)} ms`);
+  // Through the audio engine (not silent).
+  await page.waitForTimeout(800);
+  const level = await page.evaluate(() => window.__cp.ctx.playbackLog.snapshot().level.recentPeakDb);
+  assert.ok(level > -30, `level ${level} dB`);
+  // Past its head (15 s) it plays on from the network.
+  await page.evaluate(() => window.__cp.player.seek(13000));
+  await page.waitForFunction(() => window.__cp.player.audio.currentTime > 18, null, {timeout: 20000});
+  assert.deepEqual(h.requests.filter(q => q.range === null).map(q => q.id), [], 'no whole songs');
   assert.deepEqual(h.errors, []);
 });

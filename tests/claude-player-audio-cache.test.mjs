@@ -4,7 +4,7 @@
 // Run: node --test tests/claude-player-audio-cache.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {AudioCache, offlinePlan, offlineAhead, setOfflineAhead} from '../frontend/claude-player/src/library/audio-cache.js';
+import {AudioCache, offlinePlan, offlineAhead, setOfflineAhead, retireDefaultCopies} from '../frontend/claude-player/src/library/audio-cache.js';
 
 const MB = 1024 * 1024;
 const url = n => `https://music.test/music/library/audio/r2_${n}`;
@@ -211,10 +211,37 @@ test('how far ahead copies are kept depends on the connection and the chosen mod
   assert.deepEqual(offlinePlan({type: 'wifi'}, 'next'), {current: false, ahead: 1});
   assert.deepEqual(offlinePlan({type: 'wifi'}, 'off'), {current: false, ahead: 0});
   assert.deepEqual(offlinePlan({type: 'wifi', saveData: true}, 'few'), {current: false, ahead: 0});
+  // None by default: the next songs keep only their first seconds (library/heads.js).
   const storage = memoryStorage();
-  assert.equal(offlineAhead(storage), 'few');
+  assert.equal(offlineAhead(storage), 'off');
   setOfflineAhead('next', storage);
   assert.equal(offlineAhead(storage), 'next');
   storage.setItem('cp-offline-ahead', 'everything');
-  assert.equal(offlineAhead(storage), 'few');
+  assert.equal(offlineAhead(storage), 'off');
+});
+
+test('the copies kept under the old default go once; chosen ones stay', async () => {
+  const net = network({[url(1)]: MB, [url(2)]: MB});
+  const storage = memoryStorage();
+  const c = make(net, {storage});
+  c.want([url(1), url(2)].map(u => ({url: u, bytes: MB})));
+  await c.pump();
+  assert.equal(c.summary().ready, 2);
+  // The update: no mode was ever chosen, so the old default's copies go.
+  await retireDefaultCopies(c, storage);
+  assert.deepEqual([c.has(url(1)), c.has(url(2))], [false, false]);
+  // Once: copies saved since, by choice, stay.
+  setOfflineAhead('few', storage);
+  c.want([{url: url(1), bytes: MB}]);
+  await c.pump();
+  await retireDefaultCopies(c, storage);
+  assert.equal(c.has(url(1)), true);
+  // A device that chose a mode before the update keeps its copies.
+  const chosen = memoryStorage();
+  setOfflineAhead('next', chosen);
+  const d = make(net, {storage: chosen});
+  d.want([{url: url(2), bytes: MB}]);
+  await d.pump();
+  await retireDefaultCopies(d, chosen);
+  assert.equal(d.has(url(2)), true);
 });
