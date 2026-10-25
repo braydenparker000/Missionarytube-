@@ -67,10 +67,16 @@ export const SCENARIOS = {
     measure: lab => ({...lab.clicks(AT - 0.02, 2.9), ...crossfade(lab, AT, AT)}),
   },
   'next-xfade-network': {
-    group: 'fades', title: 'Next track, short cross-fade (300 ms to first audio)', suspect: 'fade-in ends before audio',
+    group: 'fades', title: 'Another track picked, short cross-fade (300 ms to first audio)', suspect: 'fade-in ends before audio',
+    duration: 3, signals: {main: TONE, next: TONE, other: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}}, tracks: [{name: 'main'}, {name: 'next'}, {name: 'other'}], media: {loadMs: 300},
+    actions: [{at: AT, run: lab => lab.player.load(2, true)}],
+    measure: lab => ({...lab.clicks(AT - 0.02, 2.9), ...crossfade(lab, AT, AT + 0.3)}),
+  },
+  'next-xfade-preloaded': {
+    group: 'fades', title: 'Next track, short cross-fade (300 ms to first audio, preloaded)', suspect: 'no preload',
     duration: 3, signals: {main: TONE, next: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}}, tracks: [{name: 'main'}, {name: 'next'}], media: {loadMs: 300},
     actions: [{at: AT, run: lab => lab.player.step(1)}],
-    measure: lab => ({...lab.clicks(AT - 0.02, 2.9), ...crossfade(lab, AT, AT + 0.3)}),
+    measure: lab => ({...lab.clicks(AT - 0.02, 2.9), ...crossfade(lab, AT, AT)}),
   },
   'next-twice': {
     group: 'fades', title: 'Next pressed twice 150 ms apart, short cross-fade (300 ms to first audio)', suspect: 'outgoing deck reused while sounding',
@@ -78,6 +84,12 @@ export const SCENARIOS = {
     actions: [{at: AT, run: lab => lab.player.step(1)}, {at: AT + 0.15, run: lab => lab.player.step(1)}],
     // The first track plays on until the third sounds (300 ms after the second press).
     measure: lab => ({...lab.clicks(AT - 0.02, 2.9), waitDb: lab.toneDb(440, AT + 0.3, AT + 0.34), ...crossfade(lab, AT + 0.15, AT + 0.45, 550)}),
+  },
+  'next-in-pause-fade': {
+    group: 'fades', title: 'Next 100 ms into the pause\'s 400 ms fade-out', suspect: 'fading deck cut',
+    duration: 3, signals: {main: TONE, next: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}}, tracks: [{name: 'main'}, {name: 'next'}],
+    actions: [{at: AT, run: lab => lab.player.pause()}, {at: AT + 0.1, run: lab => lab.player.step(1)}],
+    measure: lab => lab.clicks(AT - 0.02, 2.9),
   },
   'next-twice-no-fade': {
     group: 'fades', title: 'Next pressed twice 150 ms apart, manual fades off (300 ms to first audio)', suspect: 'outgoing deck reused while sounding',

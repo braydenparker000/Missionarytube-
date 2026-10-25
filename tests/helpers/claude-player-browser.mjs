@@ -50,6 +50,9 @@ export function libraryOf(tracks) {
  * Returns the page, page errors and the audio requests seen.
  */
 export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 390, audioDelayMs = 0, workletDelayMs = 0} = {}) {
+  // The audio network, steerable by a test: down (requests fail), hang (requests wait for release()),
+  // tracks refused (any request) or refused whole (offline copy downloads), by id.
+  const net = {down: false, hang: false, refuse: new Set(), refuseWhole: new Set(), held: [], release() { this.hang = false; for (const go of this.held.splice(0)) go(); }};
   if (!chrome) throw Error('Claude Player browser checks require Chrome. Set JARVIS_CHROME.');
   const root = resolve('frontend');
   const server = createServer(async (req, res) => {
@@ -82,6 +85,9 @@ export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 
     if (!item) return route.fulfill({status: 404, headers: cors, body: ''});
     const range = /bytes=(\d+)-(\d*)/.exec(req.headers().range ?? '');
     requests.push({id: item.id, range: range ? range[0] : null, at: Date.now()});
+    if (net.hang) await new Promise(go => net.held.push(go));
+    if (net.down) return route.abort('internetdisconnected');
+    if (net.refuse.has(item.id) || (!range && net.refuseWhole.has(item.id))) return route.fulfill({status: 500, headers: cors, body: ''});
     if (audioDelayMs) await new Promise(r => setTimeout(r, audioDelayMs));
     const size = item.bytes.length;
     if (!range) return route.fulfill({status: 200, headers: {...cors, 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes', 'Content-Length': String(size)}, body: item.bytes});
@@ -90,5 +96,5 @@ export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 
   });
   await page.goto(`${origin}/claude-player/${query}`);
   await page.waitForFunction(() => window.__cp?.library?.tracks?.length > 0, null, {timeout: 30000});
-  return {page, errors, origin, requests, lib};
+  return {page, errors, origin, requests, lib, net};
 }

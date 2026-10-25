@@ -226,7 +226,7 @@ The settings screens show the last three greyed out, with a line saying why
 | `usb_activity` | MultilineSwitchPreference | No web counterpart | Android audio output devices and driver options; the browser owns the audio output |
 | `force_no_speaker` | MultilineSwitchPreference | No web counterpart | Android audio output devices and driver options; the browser owns the audio output |
 | `use_stream3_player` | MultilineSwitchPreference | No web counterpart | Android audio output devices and driver options; the browser owns the audio output |
-| `audio_platform_log` | RedirectPreference | Settings UI | Shows the playback diagnostics: output rate, latency and underruns, stream and decoder events, output level, and a copyable report |
+| `audio_platform_log` | RedirectPreference | Settings UI | Shows the playback diagnostics: output rate, latency and underruns, stream and decoder events, recoveries, offline copies, output level, and a copyable report |
 
 ## audio_resampler
 

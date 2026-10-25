@@ -35,6 +35,19 @@ function worker(network) {
 
 const response = body => ({ok: true, type: 'basic', body, clone() { return response(body); }});
 
+test('an update deletes only this worker\'s own older caches, never the site\'s other caches', async () => {
+  const handlers = {}, deleted = [];
+  const keys = ['claude-player-v1', 'claude-player-v0', 'claude-player-audio', 'claude-player-covers', 'claude-player-thumbs', 'jarvis-podcast-audio-v1'];
+  vm.runInNewContext(source, {
+    self: {addEventListener: (type, fn) => { handlers[type] = fn; }, location: new URL(SCOPE), registration: {scope: SCOPE}, skipWaiting: () => {}, clients: {claim: () => {}}},
+    caches: {keys: async () => keys, delete: async k => { deleted.push(k); return true; }}, URL, Promise, setTimeout, clearTimeout,
+  });
+  let done;
+  handlers.activate({waitUntil: p => { done = p; }});
+  await done;
+  assert.deepEqual(deleted, ['claude-player-v0']);
+});
+
 test('online, the network answers and refreshes the offline copy', async () => {
   const w = worker(async () => response('new'));
   w.store.set(SCOPE + 'src/dsp/dsp.js', response('old'));

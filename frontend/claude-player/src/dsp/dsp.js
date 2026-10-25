@@ -27,6 +27,8 @@ import {biquadCoefficients, biquadMagnitude, PEAKING, LOW_SHELF, HIGH_SHELF} fro
 export {biquadCoefficients, biquadMagnitude};
 
 const STORE_KEY = 'cp-dsp';
+// Paused this long, the audio thread sleeps (idle()).
+const IDLE_MS = 30000;
 
 /** Graphic equalizer bands (Hz) and their labels (the 10-band set of the built-in presets). */
 export const GRAPHIC_BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
@@ -660,8 +662,23 @@ export class DSP {
   }
 
   resume() {
+    clearTimeout(this.idleTimer);
     const ac = this.ac;
     if (ac && (ac.state === 'suspended' || ac.state === 'interrupted')) ac.resume().catch(() => {});
+  }
+
+  /**
+   * Paused for IDLE_MS, the audio thread sleeps (a phone in a pocket should
+   * not wake every 20 ms to play silence); Play wakes it, and the fade-in
+   * waits for the sound.
+   */
+  idle(on) {
+    clearTimeout(this.idleTimer);
+    if (!on) return;
+    this.idleTimer = setTimeout(() => {
+      const ac = this.ac, p = this.ctx.player;
+      if (ac?.state === 'running' && p?.state !== 1 && !p?.decks?.some(d => !d.paused)) ac.suspend().catch(() => {});
+    }, this.idleMs ?? IDLE_MS);
   }
 
   /** The limiter's gain reduction now, in dB (0 or below), from the engine's last meter. */
@@ -773,6 +790,8 @@ export class DSP {
     const rate = on ? tempoRate(this.values.dsp_tempo) : 1;
     for (const audio of decks) {
       if (audio.playbackRate !== rate) audio.playbackRate = rate;
+      // A new source (a reload, the next track) starts at the default rate: the tempo stays.
+      audio.defaultPlaybackRate = rate;
       audio.preservesPitch = true;
     }
   }
