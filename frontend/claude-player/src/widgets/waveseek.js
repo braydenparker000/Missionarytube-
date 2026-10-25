@@ -161,16 +161,21 @@ export class Waveseek extends ViewGroup {
   }
 
   /**
-   * Follows the position while playing, a step each time it moves a pixel
-   * (not every frame: a phone's screen then draws only what changes), and
-   * nothing while the page is hidden.
+   * Follows the position while playing, a step each time it moves a CSS
+   * pixel (not every frame: a phone's screen then draws only when it
+   * moves visibly), and nothing while the page is hidden.
    */
   follow() {
     const p = this.ctx.player;
     if (p?.state !== STATE_PLAYING) { this._follow = 0; return; }
     if (!this.state.pressed && !document.hidden) this.syncPosition();
-    const msPerPx = (p.track?.durationMs || 0) / (this.waveLen || 1) / (p.audio?.playbackRate || 1);
-    this._follow = setTimeout(() => this.follow(), Math.max(16, Math.min(1000, msPerPx || 250)));
+    const msPerStep = (p.track?.durationMs || 0) * this.step() / (this.waveLen || 1) / (p.audio?.playbackRate || 1);
+    this._follow = setTimeout(() => this.follow(), Math.max(16, Math.min(1000, msPerStep || 250)));
+  }
+
+  /** The smallest move drawn: a CSS pixel (layout units are device pixels). */
+  step() {
+    return Math.max(1, this.ctx.dpr || 1);
   }
 
   syncPosition() {
@@ -183,8 +188,8 @@ export class Waveseek extends ViewGroup {
     if (!(f >= 0)) f = 0;
     if (f > 1) f = 1;
     this.fraction = f;
-    const x = this.waveLen * f;
-    if (Math.round(x) !== Math.round(this.scrollX)) {
+    const x = this.waveLen * f, s = this.step();
+    if (Math.round(x / s) !== Math.round(this.scrollX / s)) {
       this.scrollX = x;
       this.invalidate();
     } else this.scrollX = x;

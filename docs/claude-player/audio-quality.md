@@ -301,10 +301,11 @@ said it was playing. The player now handles the rest:
   picked from a list, a weak signal) left the old song playing about 4.4 s,
   then silence until the new one arrived (live check, slow 4G).
 - **The seek bars** (the waveform and the navigation bar's progress line)
-  follow a playing song a step each time it moves a pixel, and not while the
-  page is hidden. Before, each ran a callback every frame, so the screen drew
-  about 60 frames a second during playback (about 11% of a desktop core,
-  mostly the frames themselves).
+  follow a playing song a step each time it moves a CSS pixel, and not while
+  the page is hidden. Before, each ran a callback every frame and the
+  waveform redrew at every device pixel: the screen drew about 60 frames a
+  second during playback. Live library, 3x phone screen in headless Chrome:
+  7 frames a second, main thread 5.4–5.9% busy (was 11.7–13.7%).
 - **Offline copies** (`library/audio-cache.js`), on request: what comes next
   downloads whole, one track at a time, at low priority, into Cache Storage.
   - Not by default since song heads: the copies a device kept under the old
