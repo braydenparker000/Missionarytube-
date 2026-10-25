@@ -69,10 +69,12 @@ test('the lab renders the real playback chain offline and measures it', {skip: !
   assert.ok(by['limiter-thd'].thdnDb < -100);
   // Balance turns the far side down; it never adds one channel into the other.
   assert.ok(by['balance-left'].samplePeakDb <= -2.9, `balance: ${by['balance-left'].samplePeakDb}`);
-  // Cross-fades are equal power and start with the incoming sound, also after a network delay.
-  for (const name of ['next-xfade', 'next-xfade-network']) {
+  // Cross-fades are equal power and start with the incoming sound: after a network delay, or at once when preloaded.
+  for (const name of ['next-xfade', 'next-xfade-network', 'next-xfade-preloaded']) {
     const m = by[name];
     assert.ok(m.inStartDb < -25, `${name}: incoming starts at ${m.inStartDb} dB`);
     assert.ok(Math.abs(m.inMidDb + 3) < 1.5 && Math.abs(m.outMidDb + 3) < 1.5, `${name}: midpoint ${m.inMidDb} / ${m.outMidDb} dB`);
   }
+  // The next track was preloaded: no silence between tracks, even with 300 ms to a stream's first audio.
+  assert.ok(by['track-end-gap'].gapMs <= 20, `track end: ${by['track-end-gap'].gapMs} ms of silence`);
 });

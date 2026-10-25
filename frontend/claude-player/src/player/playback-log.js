@@ -4,8 +4,9 @@
 // latency, state, underruns from AudioContext.playbackStats), the decks'
 // network and decoder events (waiting, stalls, errors, buffered audio), the
 // output level (every sample, from the audio engine's meters: peaks, limiter
-// reduction, clipped samples and the overs the limiter caught), main-thread
-// long tasks and visibility. "Copy report" puts the whole log on the
+// reduction, clipped samples and the overs the limiter caught), the offline
+// copies and the stream recoveries (stream-guard.js), main-thread long tasks
+// and visibility. "Copy report" puts the whole log on the
 // clipboard as JSON, for checking playback on the phone itself.
 
 const MAX_EVENTS = 300;
@@ -84,13 +85,16 @@ export class PlaybackLog {
     }
     for (const k of ['startMs', 'seekMs']) if (d[k].length > 50) d[k].splice(0, d[k].length - 50);
     if (type === 'canplaythrough' || type === 'loadedmetadata' || type === 'seeking' || type === 'seeked') return;
-    if (type !== 'playing' || current) this.log(type, {deck: d.index, ...(type === 'error' ? d.lastError : {}), ...(type === 'waiting' ? {at: round(el.currentTime, 2)} : {})});
+    const from = type === 'loadstart' ? {from: /^blob:/.test(el.currentSrc) ? (this.ctx.audioCache?.sourceOf?.(el.currentSrc) ? 'offline copy' : 'device') : 'stream'} : {};
+    if (type !== 'playing' || current) this.log(type, {deck: d.index, ...from, ...(type === 'error' ? d.lastError : {}), ...(type === 'waiting' ? {at: round(el.currentTime, 2)} : {})});
   }
 
   trackInfo(t) {
     if (!t) return {};
-    const src = String(t.src ?? '');
-    return {format: t.format || '', kbps: t.bitrate || 0, rate: t.sampleRate || 0, channels: t.channels || 0, source: src.startsWith('blob:') ? 'cached' : /^https?:/.test(src) ? 'stream' : src ? 'local' : 'library'};
+    const src = String(t.src ?? ''), p = this.ctx.player;
+    const playing = t === p?.track ? String(p.deckUrl?.get(p.audio) ?? '') : '';
+    const source = /^https?:/.test(src) ? (playing.startsWith('blob:') ? 'offline copy' : 'stream') : src || t.libraryId ? 'device' : 'demo';
+    return {id: t.id ?? null, format: t.format || '', kbps: t.bitrate || 0, rate: t.sampleRate || 0, channels: t.channels || 0, source};
   }
 
   /** Samples the audio context (state changes, underruns) while playing, every second. */
@@ -183,6 +187,9 @@ export class PlaybackLog {
       level: this.meters.frames ? this.engineLevel() : this.level ? {since: this.level.since, peakDb: db(this.level.peak), recentPeakDb: db(Math.max(0, ...recent)), clippedReads: this.level.clippedReads, reads: this.level.reads} : null,
       dsp: dsp ? {enabled: dsp.get('dsp_enabled'), eq: dsp.get('dsp_eq_enabled'), parametric: dsp.parametric, bands: dsp.parametric ? dsp.pbands.length : dsp.bands.length, preampDb: round((dsp.get('dsp_preamp') - 0.5) * 48, 1), tone: dsp.get('dsp_tone_enabled'), reverb: dsp.get('dsp_reverb_enabled'), limiter: dsp.get('dsp_limiter_enabled'), volume: dsp.get('dsp_master_volume')} : null,
       track: this.trackInfo(this.ctx.player?.track), decks: deck,
+      preloaded: this.ctx.player?.preloaded ? {track: this.ctx.player.preloaded.track?.id ?? null, deck: this.decks.get(this.ctx.player.preloaded.el)?.index ?? null} : null,
+      offline: this.ctx.audioCache?.summary?.() ?? null,
+      recovery: this.ctx.player?.guard?.summary?.() ?? null,
       longTasks: {count: this.longTasks.count, totalMs: Math.round(this.longTasks.totalMs), maxMs: Math.round(this.longTasks.maxMs)},
       hidden: {count: this.hidden.count, seconds: Math.round(hiddenMs / 1000)},
       contextStates: this.context?.states.slice(-20) ?? [],
@@ -234,6 +241,9 @@ export class PlaybackLog {
     const media = cat('Stream');
     row(media, 'track', 'Playing');
     row(media, 'buffer', 'Network and decoder');
+    row(media, 'recovery', 'Recovery');
+    row(media, 'offline', 'Offline copies');
+    row(media, 'offlineClear', 'Delete offline copies', () => this.ctx.audioCache?.clear().then(() => { rows.get('offlineClear').textContent = 'Deleted'; }));
     const dev = cat('Device');
     row(dev, 'device', 'Browser and page');
     const rep = cat('Report');
@@ -254,8 +264,13 @@ export class PlaybackLog {
       const t = s.track, cur = s.decks.find(d => d.current) ?? s.decks[0];
       rows.get('track').textContent = t.format ? `${t.format} ${t.kbps ? t.kbps + ' kbps' : ''} ${t.rate ? round(t.rate / 1000, 1) + ' kHz' : ''} (${t.source})` : '—';
       rows.get('buffer').textContent = cur ? `${cur.bufferedAhead ?? 0} s buffered ahead\n${s.decks.reduce((n, d) => n + d.waits, 0)} rebuffers (${round(s.decks.reduce((n, d) => n + d.waitSeconds, 0), 1)} s), ${s.decks.reduce((n, d) => n + d.stalls, 0)} stalls, ${s.decks.reduce((n, d) => n + d.errors, 0)} errors${cur.lastError ? ' (last: ' + cur.lastError.kind + ')' : ''}` : '—';
+      const r = s.recovery;
+      rows.get('recovery').textContent = !r ? '—' : `${r.reloads} reloads after ${r.errors} errors and ${r.stalls} stalls, ${r.recovered} recovered\n${r.skipped} tracks skipped (failed to play), ${r.offlineSkips} skipped offline${r.waitingOnline ? ' · waiting for the network' : ''}`;
+      const c = s.offline, mb = n => Math.round(n / 1048576);
+      rows.get('offline').textContent = !c?.available ? 'Not available in this browser' : `${c.ready} of the next ${c.wanted} tracks saved${c.downloading ? ', downloading' : c.held ? ', waiting for the track to start' : !c.online ? ', offline' : ''}\n${c.tracks} kept (${mb(c.bytes)} of ${mb(c.budget)} MB) · ${c.plays} played from a copy${c.failing ? ` · ${c.failing} failing (${c.lastError})` : ''}${c.tooBig ? ` · ${c.tooBig} too big for the space left` : ''}`;
+      if (!rows.get('offlineClear').textContent) rows.get('offlineClear').textContent = 'The copies download again as the queue plays';
       rows.get('device').textContent = `${s.cores ?? '?'} cores${s.memoryGB ? ', ' + s.memoryGB + ' GB' : ''}${s.network ? ', ' + s.network.type + (s.network.saveData ? ' (data saver)' : '') : ''}\nLong tasks ${s.longTasks.count} (max ${s.longTasks.maxMs} ms) · hidden ${s.hidden.count}× for ${s.hidden.seconds} s`;
-      rows.get('events').textContent = s.events.slice(-8).reverse().map(e => `${fmtTime(e.t)} ${e.type}${e.deck !== undefined ? ' #' + e.deck : ''}${e.ms !== undefined ? ' ' + e.ms + ' ms' : ''}${e.kind ? ' ' + e.kind : ''}`).join('\n') || '—';
+      rows.get('events').textContent = s.events.slice(-8).reverse().map(e => `${fmtTime(e.t)} ${e.type.replace(/_/g, ' ')}${e.deck !== undefined ? ' #' + e.deck : ''}${e.ms !== undefined ? ' ' + e.ms + ' ms' : ''}${e.kind ? ' ' + e.kind : ''}${e.reason ? ' ' + e.reason : ''}`).join('\n') || '—';
     };
     clearInterval(this.screenTimer);
     this.screenTimer = setInterval(fill, 1000);

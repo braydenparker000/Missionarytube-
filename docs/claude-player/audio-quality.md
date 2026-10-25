@@ -238,4 +238,88 @@ reverb at its largest size stays 6 (the convolution itself).
 
 Still open after the engine: nothing is preloaded, so a track that ends
 without a cross-fade is followed by the next one's network start (300 ms in
-the lab); a long pause keeps the audio thread running.
+the lab); a long pause keeps the audio thread running. Both are handled
+below.
+
+## Reliability
+
+What Chrome does by itself (`resource_multi_buffer_data_provider.cc`): a read
+that fails in the middle of a file is retried up to 30 times over about 29 s,
+but not one at the file's start, not one a service worker answered, and not a
+connection that hangs without failing (a phone moving between networks).
+Then the element errors or waits, and the music stops while the player still
+said it was playing. The player now handles the rest:
+
+- **Preload** (`player.js`): the next track in play order loads on the idle
+  deck a minute before the playing one ends, or once the playing one is
+  buffered to its end. At the end it starts there, and a cross-fade into it
+  starts without a network wait. When what comes next changes (the queue,
+  shuffle, repeat), the new next track loads instead. A track that failed to
+  preload is not tried again until the track changes. A preloaded track whose
+  offline copy arrives moves to the copy.
+- **Offline copies** (`library/audio-cache.js`): what comes next downloads
+  whole, one track at a time, at low priority, into Cache Storage, a few
+  seconds after a track starts (the start needs the bandwidth).
+  - How far ahead depends on the connection: on Wi-Fi the playing track and
+    the next 8; on a cellular connection the next 3, since the playing track
+    already streams; with Data Saver, none.
+  - On a metered connection the next track's preload waits for its copy
+    rather than streaming it too, unless the end is near.
+  - A copy counts only once its size matches the index.
+  - Copies play as blob URLs. These are same origin, so the engine processes
+    them.
+  - The least recently used copies go when the 512 MB budget or 90% of the
+    browser's quota is full. Copies of tracks wanted next, or playing, never
+    go. A track that does not fit even then waits, without evicting anything,
+    and the others still download.
+  - A copy that cannot be read, or one deleted behind the player's back, is
+    dropped from the index and downloads again.
+  - The playback log shows the copies and has *Delete offline copies*.
+- **Recovery** (`player/stream-guard.js`) watches the playing deck:
+  - An error, or 10 s without data while online, reloads the track where it
+    was: from its offline copy if one has arrived, else from the stream. Tries
+    are 1, 2, 4, 8, 15 and then 30 s apart, and the sound fades back in.
+  - Offline, a track with no copy gives way to the next one that has a copy.
+    Otherwise the player waits for the network and goes on where it was when
+    the network returns.
+  - The track's own offline copy, when the deck is not on it already, takes
+    over at once, online or offline.
+  - A file that will not decode: a bad copy is dropped and the stream tried,
+    and a stored file is skipped. A file that keeps failing while it answers
+    is skipped with *Failed to play*, at most 8 in a row, then the player
+    pauses. With repeat one it moves to the next track instead of starting
+    the failing one again.
+  - A reload keeps the tempo.
+- **The system pausing playback** (a call, headphones unplugged, the
+  notification's pause): the player follows, and a system resume fades in.
+  A play the browser refuses (no gesture yet) leaves the player paused,
+  rather than showing it playing in silence.
+- **Lock screen**: the Media Session gets the track's length, position and
+  rate, so the notification's seek bar runs.
+- **Idle**: after 30 s paused, the audio thread sleeps (a phone in a pocket
+  no longer wakes every 20 ms to play silence). Play wakes it, and the
+  fade-in waits for the sound.
+
+Fixed along the way:
+- **Repeat one** played a track once more and then stopped: at the end the
+  element is paused, and the seek back did not start it.
+- **Next during a pause's fade-out** cut the fading deck (−45.3 dBFS). It now
+  fades out over 32 ms (−130.9 dBFS).
+- **The service worker's update deleted every other cache on the site**: the
+  offline copies, the cover caches and other apps' downloads, such as the
+  podcasts app's audio. It now deletes only its own older caches.
+
+Results:
+
+| Check | Before | Now |
+| --- | --- | --- |
+| Track end to the next track, lab (300 ms to first audio) | 295 ms of silence | 0 ms |
+| Track end to the next track, Chrome (local fixture network) | 62 ms of silence, plus the network's time to first audio | 17 ms (Chrome starting a prepared element) |
+| Short cross-fade into the next track, 300 ms network | starts 300 ms late (fade-in gated) | starts at once, equal power |
+| Network hangs during a seek (Chrome) | silence; nothing reloads the stream | reloaded after 10 s without data, plays on at the seek target |
+| Offline in the middle of a track (Chrome) | element errors after about 29 s; silence | waits; plays on where it was when back online |
+| Offline at a track change with copies (Chrome) | silence | the next track plays from its copy; a track without a copy gives way to the next one with a copy |
+
+The remaining 17 ms between tracks matters only for continuous albums (live
+recordings, DJ mixes). Closing it needs the next deck started early and
+spliced sample-accurately in the engine.
