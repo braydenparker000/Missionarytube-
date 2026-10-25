@@ -2450,6 +2450,48 @@ reference's within 1 px, apart from the chip drift in (c).
 `library/library.js` (`waveFor`, `withUserData`), `widgets/waveseek.js` (`setWave`),
 `tests/claude-player-search-browser.test.mjs`.
 
+### F99 — Waveform analysis; search category order — `CONFIRMED_STATIC` (native code read) / owner extension
+(a) The analysis is native. `ScanDecode.native_scan` is registered in `libpowerampcore.so` (arm64)
+and runs `scan_with_decoder`, which decodes the file and keeps each block's mean square. Its
+output is 100 floats. The code was read as disassembly; only the behaviour is ported here:
+- Bar `i` is the RMS of blocks `floor(i·n/100)` to `floor((i+1)·n/100)` (at least one block).
+  With fewer than 100 blocks, bar `i` takes block `trunc(i·n/100 + 0.5)`.
+- Every bar is divided by `sqrt(max² + 0.01)` (`max` the largest bar) and raised to the power 1.35.
+- `TagReader` stores the floats as `wave` (F47). The seek bar samples 100 bars (`c22.A`).
+
+The constant keeps a quiet song lower than a loud one, and the exponent deepens quiet passages.
+
+(b) The library's waveforms were peak bars (largest sample per bar, loudest 255). Limited
+masters peak near full scale almost everywhere: across 26 sampled tracks the average bar was
+200–226 of 255. Every song looked like the same block. Now:
+- `scripts/audio/waveform.py` measures 500 bins of absolute RMS with FFmpeg (`astats` over
+  4096-sample blocks, all channels), one byte each as `round(255·sqrt(rms))`.
+- The catalog writer records `waveformKind: "rms"`, which the light index carries, and takes up
+  to 200 waveforms per signed `waveforms` call.
+- The player (`library/waveform.js`) groups the bins into 100 bars by RMS and applies (a)
+  exactly. Imported files and CUE tracks are measured the same way, from mean squares at
+  10 blocks a second.
+- Peak bars not yet replaced are drawn squared. Against the loudness bars of five songs, squared
+  peaks came within 0.08 on average; as they were, within 0.17.
+
+(c) Loading. The player fetched a waveform as its song started, gave it 3 s on a line busy with
+the song, never tried again that session, and re-downloaded the whole index after any failure.
+Now:
+- the timeout is 10 s, with two more tries (2 s and 6 s later);
+- only a missing file (404) refreshes the index;
+- one request per track at a time;
+- the next song's waveform is fetched when the current one starts.
+
+(d) Search category order. The reference's order is fixed (`jj1.v1`). At the owner's request the
+search's List Options gives each category a drag handle (the list's `list_drag` icon) on its left.
+Dragging moves the category; the chips and the result sections follow. The order is kept
+(`cp-search-order`), and bit `i` of the mask stays category `i`.
+
+(e) `library/waveform.js`, `library/library.js` (`waveFor`, `measureWave`, `prefetchWave`,
+`fileMeanSquares`), `library/r2.js`, `player/player.js`, `widgets/search.js` (`searchOrder`),
+`list/list-opts.js`, `list/sources.js`, `backend/music-catalog.js` (`waveforms`, `waveformKind`),
+`scripts/audio/waveform.py`, `docs/muse-music-sop.md`.
+
 ## Build status of the findings
 
 Statuses:
@@ -2559,6 +2601,7 @@ No status is device-verified.
 | F96 Pending Queue after leaving it | Built | — |
 | F97 Settings with no counterpart greyed out with the reason | Built | The reasons are the status table's wording, not the reference's |
 | F98 Search results' levels in the library, chip taps, served waveforms | Built | Side swipe to the parent is off for a level opened from the results; chips about 1 px narrower each |
+| F99 Waveform analysis (RMS bars, normalisation, power 1.35), search category order | Built | Library waveforms are loudness once regenerated (Muse); until then peak bars are drawn squared. The order is an owner extension |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 
@@ -2568,7 +2611,7 @@ No status is device-verified.
 2. Which programmatic pair time (F48) each navigation uses, and whether search transitions zoom or fade.
 3. Default skin on first run, and the first-run screen.
 4. List transitions (F18); zoom levels and item scenes are now known (F46).
-5. Waveform analysis algorithm (F13, F47): native, so it is not inspected; the data now comes from the R2 index.
+5. Waveform analysis algorithm (F13, F47): read from the native scanner (F99); the per-block mean square and the decoder's channel handling are inferred (all channels' samples).
 6. The real band set of the native DSP.
 7. Sign conventions of the art pager's 3D tilt (rotationX/Y) and the backdrop blur look (F26, F30).
 8. Layout inferences I1, and the Add to Playlist sheet height (it fills to the larger bottom-sheet maximum because the content is `fill_parent`).

@@ -130,6 +130,29 @@ export function searchMask() {
   return SEARCH_ALL;
 }
 
+const ORDER_STORE = 'cp-search-order';
+
+/**
+ * The order of the categories (chips and result sections): indexes into the
+ * categories after "All". The reference's order is fixed (jj1.v1); the owner
+ * asked for a choice, set by dragging in the search's List Options.
+ */
+export function searchOrder() {
+  const n = SEARCH_CATS.length - 1;
+  try {
+    const v = JSON.parse(localStorage.getItem(ORDER_STORE) ?? 'null');
+    if (Array.isArray(v) && v.length === n && new Set(v).size === n && v.every(i => Number.isInteger(i) && i >= 0 && i < n)) return v;
+  } catch { /* storage unavailable */ }
+  return Array.from({length: n}, (_, i) => i);
+}
+
+/** Sets the categories' order: saved, the chips follow and the results re-run. */
+export function setSearchOrder(ctx, order) {
+  try { localStorage.setItem(ORDER_STORE, JSON.stringify(order)); } catch { /* storage unavailable */ }
+  ctx.searchCats?.applyOrder();
+  ctx.bus.post('list', 'cmd_list_search_cat', ctx.searchCats ?? null, {mask: searchMask()});
+}
+
 /** Sets the searched categories: saved, the chips follow and the results re-run. */
 export function setSearchMask(ctx, mask) {
   try { localStorage.setItem(MASK_STORE, String(mask)); } catch { /* storage unavailable */ }
@@ -158,6 +181,7 @@ export class ListSearchCatsLayout extends FastLayout {
     });
     this.mask = -1;
     this.setMask(searchMask(), false);
+    this.applyOrder();
     ctx.searchCats = this;
     // The layout starts gone; entering search shows it and makes its
     // scene_search record visible (x1()); a targeted search hides it behind
@@ -170,6 +194,16 @@ export class ListSearchCatsLayout extends FastLayout {
       this.shown = true;
       if (this.wanted) showInSearchScene(ctx, this, true);
     });
+  }
+
+  /** "All", then the categories in the chosen order (searchOrder). */
+  applyOrder() {
+    const [all, ...cats] = this.buttons, order = searchOrder();
+    const wanted = [all, ...order.map(i => cats[i])];
+    if (wanted.every((b, i) => this.children[i] === b)) return;
+    for (const b of this.buttons) this.removeView(b);
+    for (const b of wanted) this.addView(b);
+    this.requestLayout();
   }
 
   setShown(on) {

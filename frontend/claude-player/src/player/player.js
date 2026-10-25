@@ -582,6 +582,8 @@ export class Player {
         if (w && token === this.loadToken) this.post('msg_player_track_wave', {track: t});
       });
     }
+    // The next song's waveform comes ahead (500 bytes), so it is there when the song starts.
+    this.ctx.library?.prefetchWave?.(this.predictNext());
   }
 
   /** Pauses a deck for the player's own reasons (the pause listener ignores it). */

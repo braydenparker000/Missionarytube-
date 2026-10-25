@@ -12,7 +12,9 @@ writes the catalog file directly. Background: [music-r2-pipeline.md](music-r2-pi
    Worker's signed endpoints below. A direct edit of the catalog file is still
    taken in when nothing else is pending, but it is the slow, risky path.
 2. **Waveforms travel with their track**: in the registration, or later with
-   `patch`. Never rewrite the catalog to change them.
+   `patch` or `waveforms`. Never rewrite the catalog to change them. Make them
+   with `scripts/audio/waveform.py` and send `"waveformKind": "rms"` (see
+   Waveforms below); a waveform sent without a kind counts as old peak bars.
 3. **Batch registrations** (up to 100 per call) once their audio and art are
    uploaded. One batch is one catalog write.
 4. **Back off on 429 and 5xx** (as now), but there is no need for long rests
@@ -78,7 +80,8 @@ POST /music/uploads/patch
  "cover": {"sha256": "…", "ext": "png", "size": 1234}}                   // uploaded first; null removes
 ```
 
-Any subset of those fields. Analysis corrections stay on
+Any subset of those fields (with a waveform, add `"waveformKind": "rms"`
+when it comes from `waveform.py`). Analysis corrections stay on
 `POST /music/uploads/analysis` (unchanged).
 
 ```json
@@ -99,6 +102,35 @@ POST /music/uploads/delete
 ```
 
 Entry and objects in one call; an object another track still uses is kept.
+
+## Waveforms
+
+The seek bar draws a song's loudness the way Poweramp does (notebook F99):
+100 bars, each the RMS of an equal slice of the song, divided by
+sqrt(max² + 0.01) and raised to the power 1.35. The server keeps the
+measurement; the player does the drawing.
+
+- **Make them** with `python3 scripts/audio/waveform.py FILE…` (FFmpeg): 500
+  bins, each the RMS of an equal span of the decoded audio (all channels, full
+  scale 1.0), one byte per bin, `round(255 * sqrt(rms))`, base64. Absolute,
+  not normalised: a quiet song draws lower than a loud one.
+- **Send them** with their kind: `"waveformKind": "rms"` on `register`,
+  `register-batch` items, `patch` and `replace-audio`, or in bulk:
+
+```json
+POST /music/uploads/waveforms
+{"items": [{"id": "r2_native_…", "waveform": "<base64>", "kind": "rms"}, … up to 200]}
+→ {"updated": 200, "notFound": [], "count": 8225, "published": true}
+```
+
+  One call is one catalog write. A waveform without `"rms"` is the older
+  peak kind, which the player can only approximate.
+- **Backfill** every track that has no `rms` waveform yet (resumable; streams
+  each song from the Worker, measures it, sends signed batches of 200):
+
+```
+python3 scripts/audio/waveform.py --backfill --key KEY.pem --jobs 4 --state waveforms.done
+```
 
 ## Backups, checks and conflicts
 
