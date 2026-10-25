@@ -110,6 +110,10 @@ export class Waveseek extends ViewGroup {
     const n = this.numBars;
     const noData = !data || data.length === 0;
     const next = noData ? new Float32Array(n) : data.length !== n ? resample(n, data) : Float32Array.from(data);
+    // One cross-fade at a time: a new one starts from the bars on screen (a
+    // waveform that arrives just after the track change lands mid-fade).
+    this._anim?.();
+    this._anim = null;
     if (animate && this.values) {
       const from = this.currentValues();
       this.values = from;
@@ -117,12 +121,13 @@ export class Waveseek extends ViewGroup {
       this.blend = 0;
       const dur = (noData ? this.noDataAnimTime : this.dataAnimTime) * 1000;
       const start = performance.now();
-      this.ctx.onFrame(now => {
+      this._anim = this.ctx.onFrame(now => {
         this.blend = Math.min(1, (now - start) / dur);
         this.invalidate();
         if (this.blend >= 1) {
-          this.values = this.target;
+          this.values = next;
           this.target = null;
+          this._anim = null;
           return false;
         }
         return true;

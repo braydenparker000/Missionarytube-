@@ -539,8 +539,9 @@ export class ListWidget extends FastLayout {
       if (msg === 'cmd_nav_to_playlist' && d?.playlist) this.openPlaylist(d.playlist);
       else if (msg === 'cmd_list_to_start') this.toStart();
       else if (msg === 'msg_nav_changed') {
-        // Back from search returns to the screen search was opened from.
-        if (d.nav === 'nav_search' && this.navNow !== 'nav_search') this.searchFrom = this.navNow ?? null;
+        // Back from search returns to the screen search was opened from (not
+        // to the library level that went back up to the results).
+        if (d.nav === 'nav_search' && this.navNow !== 'nav_search' && !this.toResults) this.searchFrom = this.navNow ?? null;
         this.navNow = d.nav;
         this.searching = d.nav === 'nav_search';
         // A transition's own navigation: it sets the mode when it ends. Any
@@ -551,11 +552,13 @@ export class ListWidget extends FastLayout {
         if (!this.searching && !this.searchShown && this.animateModeChange(mode)) return;
         this.setMode(mode);
         // Search reached any other way than a header's search button is the plain search.
-        if (this.searching) {
+        if (this.searching && !this.toResults) {
           if (!this.pendingTarget && this.searchTarget) this.setSearchTarget(null, true);
           this.pendingTarget = false;
+          // A new search: levels opened from earlier results are left behind.
+          while (this.stack.length > 1 && this.stack[this.stack.length - 1].fromSearch) this.stack.pop();
         }
-        if (this.searching) this.showSearch();
+        if (this.searching) this.showSearch(this.toResults);
         else if (this.searchShown) {
           // Leaving search for any screen: the list returns to the library at
           // once, so no later transition into the library shows the results;
@@ -815,9 +818,15 @@ export class ListWidget extends FastLayout {
     if (!t && restorePlain) this.ctx.bus.post('list', 'cmd_list_search_text', this, {string: this.plainQuery ?? ''});
   }
 
-  showSearch() {
+  showSearch(again = false) {
     this.searchShown = true;
     const q = this.searchQuery ?? '';
+    // Back up from a level opened from the results: the same results, where they were.
+    if (again && this.searchSrc) {
+      this.libList.setSource(this.searchSrc);
+      this.libList.scrollTo(this.searchSrc.savedScroll ?? 0);
+      return;
+    }
     const src = searchSource(this.ctx, this.libList, this.nav, q, this.searchMask ?? searchMask(), this.searchTarget?.src ?? null);
     src.searchCategories = this.searchTarget ? null : SEARCH_CATS.slice(1);
     // Every delivered result set records its query (sd.e0 → kj1.А).
@@ -933,9 +942,12 @@ export class ListWidget extends FastLayout {
 
   open(src) {
     const top = this.stack[this.stack.length - 1];
-    // A level opened from the search results belongs to the search: Back returns to the results.
-    if (this.searching) src.fromSearch = true;
-    const prev = this.searching && !top?.fromSearch ? this.searchSrc : top;
+    // A level opened from the search results leaves search for the library
+    // (its back decor reads "Search"); up from it returns to the results.
+    const fromResults = this.searching && !top?.fromSearch;
+    if (fromResults) src.searchParent = true;
+    if (this.searching || top?.fromSearch) src.fromSearch = true;
+    const prev = fromResults ? this.searchSrc : top;
     const shown = this.mode === 'list' && !this.trans && prev && this.libList.source === prev && this.width > 0;
     // The tapped item (its rect now) leads the item-to-header morph.
     const from = shown ? this.libList.lastClicked : undefined;
@@ -945,7 +957,15 @@ export class ListWidget extends FastLayout {
     this.stack.push(src);
     this.libList.setSource(src);
     if (shown) this.levelTransition(prev, prev.savedScroll, false, rect);
-    if (this.stack.length > 1) history.pushState({cpList: this.stack.length}, '');
+    // The entry stands for the library screen too (no second entry for the navigation).
+    if (this.stack.length > 1) history.pushState(fromResults ? {cpList: this.stack.length, cpNav: 'nav_lib'} : {cpList: this.stack.length}, '');
+    if (fromResults) {
+      // The scene leaves search (the search panel goes); the list keeps the level.
+      this.ownNav = true;
+      this.searchShown = false;
+      this.ctx.topNav?.navigate('nav_lib');
+      this.ownNav = false;
+    }
   }
 
   /**
@@ -1050,6 +1070,13 @@ export class ListWidget extends FastLayout {
     if (this.stack.length <= 1) return false;
     if (this.trans) return true;
     const leaving = this.stack.pop(), scroll = this.libList.scrollY;
+    if (leaving.searchParent && !this.searching) {
+      // Up from a level opened from the search results: the results, in search.
+      this.toResults = true;
+      this.ctx.topNav?.navigate('nav_search');
+      this.toResults = false;
+      return true;
+    }
     const below = this.stack[this.stack.length - 1];
     const top = this.searching && !below.fromSearch ? this.searchSrc : below;
     this.libList.setSource(top);
@@ -1201,6 +1228,7 @@ export class ListWidget extends FastLayout {
    */
   backTitleFor(src) {
     if (src.backTitle != null) return src.backTitle;
+    if (src.searchParent) return this.ctx.res.stringByName('search') ?? 'Search';
     const at = this.stack.indexOf(src), parent = at > 0 ? this.stack[at - 1] : null;
     if (!parent) return '';
     return parent.title || (this.ctx.res.stringByName('library') ?? 'Library');
@@ -1493,6 +1521,8 @@ export class ListWidget extends FastLayout {
       // In search the parent of a level opened from the results is the results; the library's levels are not search's.
       const top = this.stack[this.stack.length - 1], below = this.stack[this.stack.length - 2];
       if (this.searching && !top.fromSearch) return null;
+      // A level opened from the search results goes back up with Back or its decor.
+      if (top.searchParent) return null;
       const parent = this.searching && !below.fromSearch ? this.searchSrc : below;
       // The leaving level stays on screen in a second list while the parent enters.
       ghost = this.ghostList(saved.source, saved.scroll);
