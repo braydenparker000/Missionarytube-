@@ -45,7 +45,7 @@ export async function nativeMusic(request,env){
       if(!(audio||art||op))return json({error:'Not found'},404);
       if(request.method!==(op?'POST':'PUT'))return json({error:'Method not allowed'},405);
       const auth=await signed(request,env,url);if(!auth)return json({error:'Authorized music signature required'},401);
-      const max=audio?32*1024*1024:art?2*1024*1024:op==='register-batch'?1024*1024:65536;
+      const max=audio?32*1024*1024:art?2*1024*1024:op==='register-batch'||op==='waveforms'?1024*1024:65536;
       if(auth.size>max)return json({error:'Upload exceeds its size limit'},413);
       if(audio&&auth.type!=='audio/ogg'||art&&auth.type!==(art[2]==='jpg'?'image/jpeg':'image/png')||op&&auth.type!=='application/json')return json({error:'Unexpected content type'},415);
       // Bound streamed bytes after signature authentication; never trust Content-Length.

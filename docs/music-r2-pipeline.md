@@ -29,7 +29,10 @@ Muse's side of this is in [muse-music-sop.md](muse-music-sop.md).
   from the rows, validated as a whole (album claims included), and written
   with a conditional put. A failed write is retried by the object's alarm;
   `/music/health` shows `writer.pendingPublish` meanwhile.
-- **Waveforms live in the writer**, one per row, served per track. The file
+- **Waveforms live in the writer**, one per row, served per track. A
+  record's `waveformKind` says what they measure: `rms` (loudness bins from
+  `scripts/audio/waveform.py`, drawn the way Poweramp draws them) or the older
+  peak bars (no kind). `POST /music/uploads/waveforms` sends up to 200 at once. The file
   is about 8.4 MB instead of 13.3 MB (the 16 MiB limit now holds about
   15,000 tracks).
 - **Stable ids.** `replace-audio` keeps the track's id (so its plays and

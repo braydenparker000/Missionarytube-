@@ -322,6 +322,26 @@ test('patch changes tags, path, waveform and cover in place; bad changes are ref
   assert.equal((await f.op('patch',{id:'r2_native_'+'f'.repeat(64),metadata:{album:'x'}})).status,404);
 });
 
+test('waveforms say what they measure: a batch sends loudness bins, and the index names their kind',async()=>{
+  const f=fixture(),b=Buffer.concat([audio,Buffer.from('two')]);await f.putAudio();await f.putAudio(b);
+  const one=(await (await f.register(f.registration(audio,{waveform:bars(500)}))).json()).id;
+  const two=(await (await f.register(f.registration(b))).json()).id;
+  assert.equal(stored(f).tracks.find(t=>t.id===one).waveformKind,undefined,'a waveform without a kind is peak bars');
+  f.calls.length=0;
+  const r=await json(await f.op('waveforms',{items:[{id:one,waveform:bars(500),kind:'rms'},{id:two,waveform:bars(500),kind:'rms'},{id:'r2_native_'+'f'.repeat(64),waveform:bars(500),kind:'rms'}]}));
+  assert.deepEqual([r.status,r.updated,r.notFound,r.published],[200,2,['r2_native_'+'f'.repeat(64)],true]);
+  assert.equal(f.calls.filter(c=>c[0]==='put'&&c[1]===LIBRARY_KEY).length,1,'one write for the whole batch');
+  const index=await (await f.get('/music/library.json')).json();
+  assert.deepEqual(index.tracks.map(t=>[t.waveformBars,t.waveformKind]),[[true,'rms'],[true,'rms']]);
+  // Changing the waveform without a kind makes it peak bars again; removing it removes the kind.
+  await f.op('patch',{id:one,waveform:bars(400)});assert.equal(stored(f).tracks.find(t=>t.id===one).waveformKind,undefined);
+  await f.op('patch',{id:two,waveform:null});const t2=stored(f).tracks.find(t=>t.id===two);assert.deepEqual([t2.waveformBars,t2.waveformKind],[undefined,undefined]);
+  assert.equal((await f.op('patch',{id:one,waveform:bars(500),waveformKind:'rms'})).status,200);assert.equal(stored(f).tracks.find(t=>t.id===one).waveformKind,'rms');
+  for(const bad of [{items:[]},{items:[{id:one,waveform:bars(500)}]},{items:[{id:one,waveform:bars(500),kind:'loud'}]},{items:[{id:one,waveform:'x',kind:'rms'}]},{items:Array.from({length:201},()=>({id:one,waveform:bars(500),kind:'rms'}))}])
+    assert.equal((await f.op('waveforms',bad)).status,422);
+  assert.equal((await f.op('patch',{id:one,waveform:bars(500),waveformKind:'loud'})).status,422);
+});
+
 test('replacing audio keeps the track id; the old audio goes unless another track uses it',async()=>{
   const f=fixture(),b=Buffer.concat([audio,Buffer.from('remaster')]);await f.putAudio();
   const {id}=await (await f.register(f.registration())).json();await f.putAudio(b);
