@@ -1,6 +1,6 @@
 # Daily Board premium plan
 
-Status: approved plan, 25 October 2026. Nothing here is built or deployed yet.
+Status: approved plan, 25 October 2026. PR 1 (premium board) is built and in review.
 Owner decisions are recorded in [section 9](#9-owner-decisions).
 
 The goal: every edition looks and reads like a premium publication, beats
@@ -176,11 +176,11 @@ board asset endpoint that checks the file's actual bytes (magic bytes), size
 (≤ 400 KB WebP or AVIF), dimensions, and SHA-256. Images are served from the
 Worker with safe headers and referenced in the report by hash. This needs a
 CSP `img-src` addition for the Worker origin. Policy (owner decision):
-editorial AI illustration is the default, always labelled, and never a
-photoreal depiction of real people or events. Real photos are used in the
-rarer cases where they are clearly better (a place, a launch, a document),
-only with the licence recorded (for example, Wikimedia Commons with author and
-licence, or an official press image). The generated date pattern is the
+real photos are the default, used only with the source and licence recorded
+(for example, Wikimedia Commons with author and licence, an official press or
+government image, or a publisher's licensed image). AI illustration is for the
+rare cases where no suitable real image exists or the subject is abstract; it
+is always labelled and never a photoreal depiction of real people or events. The generated date pattern is the
 fallback, so a missing image never looks broken.
 
 **5.6 Accessibility.** WCAG 2.1 AA, keyboard-only use, 200% zoom, 360 px
@@ -308,9 +308,8 @@ PR 2. PR 3 adds one cookbook section per new feature.
 
 Recorded 25 October 2026.
 
-1. **Images**: AI editorial illustration by default (labelled, never
-   photoreal people or events); real, licensed photos in the rarer cases where
-   they are better.
+1. **Images**: real, licensed photos by default; AI illustration only in
+   rare cases (labelled, never photoreal people or events).
 2. **Backup writer**: not now.
 3. **Feedback controls on the page**: no. Brief changes go through Muse.
 4. **Muse plan**: already on a paid plan.

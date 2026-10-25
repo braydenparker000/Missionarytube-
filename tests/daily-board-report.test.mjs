@@ -26,3 +26,42 @@ test('existing body envelope round-trips with stable identity and safe unknown f
   assert.equal(decodeReport({...entry,body:entry.body.replace('jarvis-daily-board-v1','unknown')}),null);
   assert.equal(decodeReport({body:'Legacy prose'}),null);
 });
+
+import * as v2 from '../frontend/daily-board/v2/schema.js';
+test('v2 premium fixture validates and round-trips; v1 still decodes through v2',()=>{
+  const r=fixture('premium');assert.equal(v2.validateReport(r).synthetic,true);
+  const entry={id:r.id,title:r.title,body:v2.encodeReport(r)};
+  assert.deepEqual(v2.decodeReport(entry),r);
+  assert.equal(v2.decodeReport({...entry,id:'other'}),null);
+  assert.equal(v2.plainText(entry),r.summary);
+  const old=fixture('one');assert.deepEqual(v2.decodeReport({id:old.id,title:old.title,body:encodeReport(old)}),old);
+  assert.equal(v2.decodeReport({body:'Legacy prose'}),null);
+});
+test('v2 names the field that is wrong and refuses unsafe or unknown content',()=>{
+  const cases=[
+    [r=>r.stories[0].dek=undefined,/dek/],
+    [r=>r.stories[0].whyItMatters=undefined,/whyItMatters/],
+    [r=>r.stories[0].composition='flow',/composition/],
+    [r=>r.stories[0].blocks[0].type='script',/unsupported block type/],
+    [r=>r.stories[0].blocks[0].html='<b>x</b>',/unknown field html/],
+    [r=>r.stories[0].blocks[0].cites=[9],/cites/],
+    [r=>r.stories[0].blocks[1].items[0].asOf='yesterday',/asOf/],
+    [r=>r.stories[0].blocks[2].items[0].at='2026-10-25 08:00',/at \(ISO time/],
+    [r=>r.stories[1].blocks[0].series[0].values.pop(),/one value per label/],
+    [r=>r.stories[1].blocks[1].kind='pie',/kind/],
+    [r=>r.stories[0].sources[0].url='https://example.com/?utm=1',/plain https url/],
+    [r=>r.stories[0].sources[0].type='blog',/type primary/],
+    [r=>r.edition.theme='neon',/theme/],
+    [r=>r.edition.css='body{}',/unknown field css/],
+    [r=>r.stories[1].id=r.stories[0].id,/unique/],
+    [r=>r.summary='x'.repeat(50000),/too large/],
+  ];
+  for(const [change,message] of cases){const r=fixture('premium');change(r);assert.throws(()=>v2.validateReport(r),message);}
+  const brief=fixture('premium').stories[3];assert.equal(brief.blocks.length,0,'briefs may have no blocks');
+});
+test('v2 publisher requires review, refuses synthetic content, and dispatches by schema',()=>{
+  const r=fixture('premium');assert.throws(()=>v2.prepare(r));assert.throws(()=>v2.prepare(r,{reviewedPublic:true}),/Synthetic/);
+  r.synthetic=false;const p=v2.prepareAny(r,{reviewedPublic:true});
+  assert.equal(p.type,'briefing');assert.ok(p.body.includes(v2.REPORT_MARKER));
+  const old=fixture('one');old.synthetic=false;assert.ok(v2.prepareAny(old,{reviewedPublic:true}).body.includes('[Jarvis structured report v1]'));
+});

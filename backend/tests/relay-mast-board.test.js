@@ -5,8 +5,10 @@ import {createConversationFixture} from './helpers/relay-conversation-browser-fi
 import {hash,random} from '../relay-common.js';
 import {boardDate,checkProfile} from '../relay-mast-board.js';
 import {decodeReport} from '../../frontend/daily-board/v1/schema.js';
+import {decodeReport as decodeV2,REPORT_MARKER as V2_MARKER} from '../../frontend/daily-board/v2/schema.js';
 
 const fixture=JSON.parse(readFileSync(new URL('../../tests/fixtures/daily-board/one.json',import.meta.url),'utf8'));
+const premium=JSON.parse(readFileSync(new URL('../../tests/fixtures/daily-board/premium.json',import.meta.url),'utf8'));
 const report=(date,extra={})=>({...structuredClone(fixture),id:crypto.randomUUID(),date,synthetic:false,...extra});
 const profile={focus:'What matters to me today: tech, Argentina and music.',depth:'standard',stories:{min:4,max:7},lookbackHours:36,
   interests:[{topic:'AI and developer tools',priority:'high'},{topic:'Argentina economy',priority:'normal',notes:'Rosario angle when there is one'}],
@@ -71,4 +73,34 @@ test('the brief rejects what a run could not use',()=>{
   assert.doesNotThrow(()=>checkProfile(profile));
   for(const change of [{focus:''},{interests:[]},{interests:[{topic:'x',priority:'urgent'}]},{lookbackHours:2},{avoid:['x'.repeat(201)]},{sources:{trusted:[]}},{notes:''}])
     assert.throws(()=>checkProfile({...profile,...change}));
+});
+
+test('Muse publishes a premium v2 edition, larger than the v1 limit, and it reads back exactly',async t=>{
+  const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}});t.after(()=>h.close());
+  const call=(path,body)=>h.fixture.request('/relay/mast/board'+path,{method:'POST',headers:{Authorization:'Bearer '+token},body:JSON.stringify(body)});
+  const today=boardDate();
+  const report={...structuredClone(premium),id:crypto.randomUUID(),date:today,synthetic:false};
+  // Grow it past the old 20,000 limit with real story content, staying inside 48 KB.
+  for(let i=0;i<5;i++)report.stories.push({...structuredClone(premium.stories[0]),id:`extra-${i}`,blocks:premium.stories[0].blocks.map(b=>({...structuredClone(b),id:`${b.id}-${i}`}))});
+  const size=new TextEncoder().encode(JSON.stringify(report)).length;assert.ok(size>20000&&size<48000,String(size));
+
+  const bad=structuredClone(report);bad.stories[0].blocks[0].type='html';
+  const rejected=await call('/publish',{report:bad});assert.equal(rejected.status,400);
+  assert.match((await rejected.json()).error,/^Report rejected: Story 1 block 1: unsupported block type/);
+
+  const published=await call('/publish',{report});assert.equal(published.status,201);
+  assert.equal((await call('/publish',{report})).status,200,'the same edition retried is a duplicate, not a second report');
+  const state=await (await h.fixture.request('/shared/state')).json();
+  const entry=state.posts.find(p=>p.id===report.id);assert.ok(entry.body.includes(V2_MARKER));
+  assert.deepEqual(decodeV2(entry),report);
+
+  // A v1 report on another day still publishes through the same endpoint.
+  const old={...structuredClone(fixture),id:crypto.randomUUID(),date:new Date(Date.parse(today)-86400000).toISOString().slice(0,10),synthetic:false};
+  assert.equal((await call('/publish',{report:old})).status,201);
+});
+
+test('the public message path keeps its own limits even when a body mentions the v2 marker',async t=>{
+  const h=createConversationFixture(t,{env:{}});t.after(()=>h.close());
+  const r=await h.fixture.request('/shared/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:crypto.randomUUID(),body:'x'.repeat(4100)+V2_MARKER})});
+  assert.equal(r.status,400);assert.equal((await r.json()).error,'Invalid entry');
 });
