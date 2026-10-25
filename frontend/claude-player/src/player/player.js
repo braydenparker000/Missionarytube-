@@ -43,6 +43,12 @@ const fisherYates = a => {
 const rangeStart = t => t?.startMs || 0;
 // The next track loads on the idle deck this long before the playing one ends (s).
 const PRELOAD_S = 60;
+// Gapless: the preloaded next track starts this long before the playing one ends, held in the engine (s).
+const SPLICE_LEAD = 0.5;
+// Half the length of Chrome's resampler kernel (SincResampler, 64 taps for Web Audio's requests), in input frames.
+const RESAMPLER_HALF = 32;
+/** The rate a track decodes at (Opus always at 48 kHz); 0 when unknown. */
+const decodeRate = t => t?.format === 'OPUS' ? 48000 : t?.sampleRate || 0;
 
 export function shuffleOrder(tracks, factor) {
   const n = tracks.length, idx = [...Array(n).keys()];
@@ -97,18 +103,26 @@ export class Player {
       el.preload = 'auto';
       // CORS media so the DSP and visualization can process remote streams.
       el.crossOrigin = 'anonymous';
-      el.addEventListener('ended', () => { if (el === this.audio) this.trackEnded(); });
+      el.addEventListener('ended', () => {
+        el._endedAt = performance.now();
+        if (el === this.audio) this.endHeard(el);
+      });
       // Whether the deck's current source has started playing (a change before that replaces it).
       el.addEventListener('playing', () => { el._heard = true; });
       el.addEventListener('emptied', () => { el._heard = false; });
       el.addEventListener('loadstart', () => { el._heard = false; });
-      el.addEventListener('timeupdate', () => { if (el === this.audio) { this.checkRangeEnd(); this.checkPlayed(); this.checkCrossfade(); this.checkPreload(); } });
+      el.addEventListener('timeupdate', () => { if (el === this.audio) { this.checkRangeEnd(); this.checkPlayed(); this.checkCrossfade(); this.checkPreload(); this.checkGapless(); } });
       // Paused or resumed by the system (a call, headphones unplugged, the
       // notification): the player follows; a resume fades in.
       el.addEventListener('pause', () => {
         if (el._selfPause) { el._selfPause = false; return; }
-        if (el === this.audio && this.state === STATE_PLAYING && !el.ended && el.getAttribute('src')) this.setState(STATE_PAUSED);
+        if (this.state !== STATE_PLAYING || !el.getAttribute('src')) return;
+        // The playing deck, or the next one held in the engine (the only one still playing in the last tail);
+        // not one that reached its end (which pauses it).
+        if ((el === this.audio || this.splicing?.el === el) && !el.ended) this.systemPaused();
       });
+      // A stall near the end would look like the track's end to the engine: no join then.
+      el.addEventListener('waiting', () => { if (el === this.audio && this.splicing) this.cancelSplice(); });
       el.addEventListener('play', () => {
         if (el !== this.audio || this.state === STATE_PLAYING || !el.getAttribute('src')) return;
         this.ctx.dsp?.resume();
@@ -431,14 +445,18 @@ export class Player {
       const pos = this.positionMs(), dur = prev.durationMs || 0;
       this.ctx.library?.rememberPosition?.(prev, pos >= 0 && dur && pos < dur - 2000 ? pos : 0);
     }
-    const sounding = this.state === STATE_PLAYING && autoplay && this.isMedia(prev) && !!old?.src && !old.paused;
+    // Also an ended deck whose tail (a spliced deck's delay) still plays.
+    const sounding = this.state === STATE_PLAYING && autoplay && this.isMedia(prev) && !!old?.src && this.audible(old);
     // A manual change without a fade still cross-fades for DECLICK_MS, so the cut does not click.
     const fadeMs = sounding ? this.transitionMs() || (this.advancing ? 0 : DECLICK_MS) : 0;
-    // An automatic cross-fade ends with the outgoing track, however late the incoming one starts.
+    // An automatic cross-fade ends with the outgoing track, however late the incoming one starts;
+    // so does one started too close to the outgoing track's end for its full length.
     const auto = sounding && !!this.xfadeAuto;
+    const oldLeft = sounding ? this.timeLeft() * 1000 : Infinity;
     this.xfadeAuto = 0;
     this.seekTarget = null;
     clearTimeout(this.silenceTimer);
+    clearTimeout(this.endTimer);
     this.index = index;
     this.virtualPos = 0;
     this.virtualStart = performance.now();
@@ -462,6 +480,10 @@ export class Player {
       // The track already loaded on the idle deck starts from there.
       const p = this.preloaded;
       const pre = media && p?.url && p.el !== old && !p.el.error && (p.track === t || p.track.id === t.id) ? p : null;
+      // Gapless: the automatic advance into the track the engine joins (or is about to) keeps that deck playing.
+      const spliced = !!pre && this.advancing && this.splicing?.el === pre.el;
+      if (this.splicing && !spliced) this.cancelSplice();
+      this.splicing = null;
       let fadeIn = 0, freed = null;
       if (fadeMs > 0 && media && this.decks.length > 1) {
         const next = pre ? pre.el : this.decks.find(d => d !== old);
@@ -479,15 +501,17 @@ export class Player {
           this.audio = next;
           if (!freed) this.fader.set(next, 0);
           // Equal power, and the outgoing track starts fading when the incoming one starts sounding.
-          this.fader.ramp(old, 0, fadeMs, () => {
+          const outMs = auto ? fadeMs : Math.max(DECLICK_MS, Math.min(fadeMs, oldLeft)), onTime = auto || oldLeft < fadeMs;
+          this.fader.ramp(old, 0, outMs, () => {
             if (old === this.audio) return;
             this.unload(old);
             this.fader.set(old, 1);
-          }, {curve: 'equal', after: next, ...(auto ? {keepEnd: true, timeoutMs: Math.max(0, fadeMs - Math.min(300, fadeMs / 2))} : {})});
+          }, {curve: 'equal', after: next, ...(onTime ? {keepEnd: true, timeoutMs: Math.max(0, outMs - Math.min(300, outMs / 2))} : {})});
         }
         fadeIn = fadeMs;
       } else if (pre) {
-        for (const d of this.decks) if (d !== pre.el) this.retire(d);
+        // Joined: the playing track's last sound (the overlap) is still to be heard, then silence; it is not faded.
+        for (const d of this.decks) if (d !== pre.el) { if (spliced) this.unload(d, true); else this.retire(d); }
         this.audio = pre.el;
         this.fader.set(pre.el, 1);
       } else {
@@ -513,6 +537,13 @@ export class Player {
         });
         ready.then(url => {
           if (token !== this.loadToken || !url) return;
+          if (spliced) {
+            // The deck the engine joined (or is about to) plays already. A track shorter than its delay ended
+            // while held: its end is heard after the delay (once the engine has reported it: onSpliced).
+            this.pendingSeek = 0;
+            if (el.ended && this.ctx.dsp?.deckDelay?.(el)) this.endHeard(el);
+            return;
+          }
           // A CUE track starts at its range.
           const at = (this.pendingSeek || 0) + rangeStart(t);
           if (at || el.currentTime) el.currentTime = at / 1000;
@@ -552,8 +583,10 @@ export class Player {
     el.pause();
   }
 
-  /** Stops a deck and lets its source go (a blob URL is released, the stream closes). */
-  unload(el) {
+  /** Stops a deck and lets its source go (a blob URL is released, the stream closes); at its track's end, the rest is heard first. */
+  unload(el, end = el.ended) {
+    if (this.splicing?.el === el) this.cancelSplice();
+    this.ctx.dsp?.flush?.(el, end);
     this.fader.stop(el);
     this.halt(el);
     if (el.getAttribute('src') !== null) {
@@ -573,9 +606,10 @@ export class Player {
     this.fader.ramp(el, 0, DECLICK_MS * 4, () => { if (el !== this.audio) this.unload(el); }, {curve: 'smooth'});
   }
 
-  /** Points a deck at url (setting the same URL again reloads it). */
+  /** Points a deck at url (setting the same URL again reloads it); what the deck had not played yet is dropped. */
   assign(el, url) {
     this.halt(el);
+    this.ctx.dsp?.flush?.(el);
     const old = this.deckUrl.get(el);
     if (old && old !== url) this.ctx.audioCache?.release(old);
     this.deckUrl.set(el, url);
@@ -664,6 +698,10 @@ export class Player {
     if (!el || !t) return;
     const url = await this.sourceFor(t);
     if (token !== this.loadToken || el !== this.audio || !url) { this.ctx.audioCache?.release(url); return; }
+    // What the engine still holds fades out; the track goes on from what was heard.
+    this.cancelSplice();
+    sec = Math.max(0, sec - this.lagOf(el));
+    this.ctx.dsp?.flush?.(el);
     this.fader.set(el, 0);
     this.assign(el, url);
     if (sec > 0) el.currentTime = sec;
@@ -753,10 +791,10 @@ export class Player {
     const f = fadePrefs(this.ctx);
     if (f.auto === AUTO_NONE || (f.auto === AUTO_SHUFFLED && !this.shuffle)) return;
     // A CUE track's own range (F77).
-    const dur = (t.endMs ?? el.duration * 1000) - rangeStart(t), pos = el.currentTime * 1000 - rangeStart(t);
+    const dur = (t.endMs ?? el.duration * 1000) - rangeStart(t), pos = this.positionMs();
     if (!Number.isFinite(dur) || dur <= f.crossfadeMs || dur - pos > f.crossfadeMs) return;
     const next = this.predictNext();
-    if (!next || (f.auto === AUTO_NON_GAPLESS && gaplessPair(t, next))) return;
+    if (!next || !this.crossfadesInto(t, next, f)) return;
     this.xfadeToken = this.loadToken;
     this.checkPlayed(true);
     this.xfadeAuto = Math.max(50, Math.round((dur - pos) / (el.playbackRate || 1)));
@@ -764,11 +802,154 @@ export class Player {
     this.xfadeAuto = 0;
   }
 
+  /** Whether an automatic advance from t to next cross-fades (crossfade_auto_advance). */
+  crossfadesInto(t, next, f = fadePrefs(this.ctx)) {
+    if (f.auto === AUTO_NONE || (f.auto === AUTO_SHUFFLED && !this.shuffle)) return false;
+    if (f.auto === AUTO_NON_GAPLESS && gaplessPair(t, next)) return false;
+    // A track no longer than the cross-fade is not cut (inferred).
+    const dur = (t.endMs ?? this.audio.duration * 1000) - rangeStart(t);
+    return Number.isFinite(dur) && dur > f.crossfadeMs;
+  }
+
+  /**
+   * Gapless (no cross-fade and no silence between tracks): SPLICE_LEAD
+   * before the playing track ends, the preloaded next track starts, held in
+   * the engine, which joins it on the frame after the playing track's last
+   * one; the track change follows (onSpliced). Seeking, pausing or another
+   * track meanwhile cancels it.
+   */
+  checkGapless() {
+    this.checkSplice();
+    const el = this.audio, t = this.track, p = this.preloaded;
+    if (this.splicing || !p?.url || p.el.error || p.el.readyState < 3 || this.state !== STATE_PLAYING || !this.audible(el) || el.seeking || !this.ctx.dsp?.canSplice) return;
+    // A CUE range ends inside its image; repeat-song seeks back.
+    if (t?.endMs || this.repeat === REPEAT_SONG) return;
+    const next = this.predictNext(), f = fadePrefs(this.ctx);
+    if (!next || (p.track !== next && p.track.id !== next.id) || f.endSilenceMs > 0 || this.crossfadesInto(t, next, f)) return;
+    // A track that starts where it was left (restore_pos) does not start at its beginning;
+    // a CUE range ends inside its image (its end is watched on the element, which would run ahead).
+    if (((next.lastPos ?? 0) > 0 && this.shouldRestorePos(next)) || next.endMs) return;
+    const left = this.timeLeft();
+    if (!(left <= SPLICE_LEAD + 0.6)) return;
+    clearTimeout(this.spliceTimer);
+    const token = this.loadToken;
+    this.spliceTimer = setTimeout(() => { if (token === this.loadToken) this.armSplice(); }, Math.max(0, (left - SPLICE_LEAD) * 1000));
+  }
+
+  /** What comes next changed while the next track is held (queue, shuffle, repeat, sleep timer): no join then. */
+  checkSplice() {
+    const s = this.splicing, next = s && this.predictNext();
+    if (s && (!next || (next !== s.track && next.id !== s.track.id))) this.cancelSplice();
+  }
+
+  /** Seconds until a deck's track end is heard (a spliced deck plays behind its element: an ended one plays its tail). */
+  timeLeft(el = this.audio) {
+    const lag = this.ctx.dsp?.deckDelay?.(el) ?? 0;
+    if (el.ended) return Math.max(0, lag - (performance.now() - (el._endedAt ?? 0)) / 1000);
+    return (el.duration - el.currentTime) / (el.playbackRate || 1) + lag;
+  }
+
+  /** Whether a deck is heard: playing, or ended with its tail still playing out. */
+  audible(el) {
+    return !el.paused || (el.ended && this.timeLeft(el) > 0);
+  }
+
+  /** How far a deck's element runs ahead of what is heard, in media seconds (the engine's delay, at the deck's tempo). */
+  lagOf(el) {
+    return (this.ctx.dsp?.deckDelay?.(el) ?? 0) * (el.playbackRate || 1);
+  }
+
+  /** The media time heard now on a deck. */
+  heardTime(el) {
+    if (el.ended) return Math.max(0, el.duration - this.timeLeft(el) * (el.playbackRate || 1));
+    return Math.max(0, el.currentTime - this.lagOf(el));
+  }
+
+  /** The playing deck's element ended: its track ends once its tail has been heard. */
+  endHeard(el) {
+    clearTimeout(this.endTimer);
+    const left = this.timeLeft(el), token = this.loadToken;
+    if (left > 0) this.endTimer = setTimeout(() => { if (el === this.audio && token === this.loadToken && el.ended) this.trackEnded(); }, left * 1000);
+    else this.trackEnded();
+  }
+
+  /**
+   * Paused by the system (a call, headphones unplugged, the notification):
+   * the player follows at once. What the engine still holds of the playing
+   * deck (a spliced deck's delay, a tail) fades out in 8 ms, and the deck
+   * goes back to what was heard last.
+   */
+  systemPaused() {
+    const el = this.audio, at = this.heardTime(el), behind = at < el.currentTime - 0.001;
+    clearTimeout(this.endTimer);
+    this.setState(STATE_PAUSED);
+    this.halt(el);
+    this.ctx.dsp?.flush?.(el);
+    if (behind) el.currentTime = at;
+  }
+
+  armSplice() {
+    const el = this.audio, p = this.preloaded, next = this.predictNext();
+    if (this.splicing || !p || p.el.error || this.state !== STATE_PLAYING || !this.audible(el) || !next || (p.track !== next && p.track.id !== next.id)) return;
+    const left = this.timeLeft();
+    // Too close to the end: the end of the track starts the next one as usual.
+    if (!(left > 0.05)) return;
+    const b = p.el, start = rangeStart(next) / 1000;
+    // At its start already (a seek, even to the same place, would restart it).
+    if (Math.abs(b.currentTime - start) > 0.001) b.currentTime = start;
+    this.ctx.dsp.attach(b);
+    this.fader.set(b, 1);
+    if (!this.ctx.dsp.splice(b, el, left, this.ringOf(this.track), this.ringOf(next))) return;
+    this.splicing = {el: b, track: next, token: this.loadToken};
+    this.startDeck(b);
+  }
+
+  /**
+   * Output frames over which a track's start and end ring: a track at
+   * another rate than the output's is resampled, which spreads its edges
+   * over half the resampler's kernel. At a join the engine overlaps the
+   * ringing edges, so that they add up to the continuous signal.
+   */
+  ringOf(t) {
+    const sr = this.ctx.dsp?.ac?.sampleRate, r = decodeRate(t);
+    return sr && r && r !== sr ? Math.round(RESAMPLER_HALF * sr / r) : 0;
+  }
+
+  /** The engine joined the next track to the playing one's end: the track changes (its deck already plays). */
+  onSpliced(el) {
+    // Taken over already (the playing track's element reported its end first): one that ended while held ends after its delay, known now.
+    if (el === this.audio && !this.splicing) { if (el.ended) this.endHeard(el); return; }
+    if (this.splicing?.el !== el || this.splicing.token !== this.loadToken) return;
+    this.checkPlayed(true);
+    this.onEnded();
+  }
+
+  /** The engine could not join it (the playing track ran on): the next track waits at its start for the usual end. */
+  onSpliceFailed(el) {
+    if (this.splicing?.el === el) this.cancelSplice();
+  }
+
+  /**
+   * A splice no longer wanted: the held deck stops, drops what it held (had
+   * the engine joined it just now, that fades out) and waits at its start
+   * again, still preloaded; silenced until it has stopped.
+   */
+  cancelSplice() {
+    const s = this.splicing;
+    clearTimeout(this.spliceTimer);
+    if (!s) return;
+    this.splicing = null;
+    this.ctx.dsp?.flush(s.el);
+    this.fader.set(s.el, 0);
+    this.halt(s.el);
+    s.el.currentTime = rangeStart(s.track) / 1000;
+  }
+
   positionMs() {
     const t = this.track;
     if (!t) return 0;
     if (this.seekTarget !== null && this.seekTarget !== undefined) return this.seekTarget;
-    if (this.isMedia(t)) return Math.max(0, Math.round(this.audio.currentTime * 1000) - rangeStart(t));
+    if (this.isMedia(t)) return Math.max(0, Math.round(this.heardTime(this.audio) * 1000) - rangeStart(t));
     const pos = this.state === STATE_PLAYING ? this.virtualPos + (performance.now() - this.virtualStart) : this.virtualPos;
     if (t.durationMs && pos >= t.durationMs) {
       queueMicrotask(() => this.onEnded());
@@ -803,6 +984,7 @@ export class Player {
       else this.virtualPos = this.positionMs();
     }
     this.state = s;
+    if (s !== STATE_PLAYING) this.cancelSplice();
     this.ctx.dsp?.idle?.(s !== STATE_PLAYING);
     if (s === STATE_PLAYING) this.markQueuePlayed(this.track);
     // A sleep timer set while not playing starts with playback (k21: an.B pending).
@@ -824,6 +1006,14 @@ export class Player {
         this.guard.resume();
         return;
       }
+    }
+    if (resume && this.track.src && this.audio?.ended && this.isMedia(this.track)) {
+      this.setState(STATE_PLAYING);
+      // Paused during its tail and played again while the pause's fade-out ran: the tail fades back in and ends as it would have.
+      if (this.audible(this.audio)) { this.fader.ramp(this.audio, 1, DECLICK_MS, null, {curve: 'smooth'}); this.endHeard(this.audio); }
+      // Paused as its tail ended: on to the next track (playing it would start it over).
+      else this.trackEnded();
+      return;
     }
     if (this.track.src && this.audio?.src) {
       // fade_play_pause: resuming fades in over fade_short_ms.
@@ -853,10 +1043,15 @@ export class Player {
       for (const d of this.decks) if (d !== el && !d.paused) this.fader.ramp(d, 0, DECLICK_MS * 4, () => { if (d !== this.audio) this.halt(d); }, {curve: 'smooth'});
       // fade_play_pause: pausing fades out over fade_short_ms, then pauses
       // (without it, over DECLICK_MS, which only keeps the stop from clicking).
-      if (this.state === STATE_PLAYING && !el.paused) {
+      if (this.state === STATE_PLAYING && this.audible(el)) {
+        clearTimeout(this.endTimer);
         this.fader.ramp(el, 0, f.playPause ? f.shortMs : DECLICK_MS, () => {
           if (this.state === STATE_PLAYING || el !== this.audio) return;
           this.halt(el);
+          // A spliced deck ran ahead of what was heard (an ended one plays its tail): it goes back to what was heard last.
+          const at = this.heardTime(el), behind = at < el.currentTime - 0.001;
+          this.ctx.dsp?.flush?.(el);
+          if (behind) el.currentTime = at;
           // A seek made while fading out (Stop) lands now.
           if (this.seekTarget !== null && this.seekTarget !== undefined) { el.currentTime = (this.seekTarget + rangeStart(this.track)) / 1000; this.seekTarget = null; }
         }, {curve: 'smooth'});
@@ -868,11 +1063,21 @@ export class Player {
   seek(ms) {
     const t = this.track;
     if (!t) return;
+    this.cancelSplice();
+    clearTimeout(this.endTimer);
     ms = Math.max(0, Math.min(ms, t.durationMs || ms));
     if (this.isMedia(t)) {
       const el = this.audio, f = fadePrefs(this.ctx);
       if (!el.src) this.pendingSeek = ms;
-      else if (this.state === STATE_PLAYING && !el.paused) {
+      else if (this.state === STATE_PLAYING && el.ended) {
+        // Its tail playing out (the element has ended): the tail fades out at once, and the track plays again from there.
+        this.seekTarget = null;
+        this.ctx.dsp?.flush?.(el);
+        this.fader.set(el, 0);
+        el.currentTime = (ms + rangeStart(t)) / 1000;
+        this.startDeck(el);
+        this.fader.ramp(el, 1, f.seek ? f.seekMs : DECLICK_MS, null, {curve: 'smooth', gate: true, seeked: true});
+      } else if (this.state === STATE_PLAYING && !el.paused) {
         // fade_seek: out over fade_seek_ms, the jump, then back in once the
         // sound at the new position begins (without it, over DECLICK_MS).
         const fadeMs = f.seek ? f.seekMs : DECLICK_MS;
@@ -880,6 +1085,7 @@ export class Player {
         const token = this.loadToken;
         this.fader.ramp(el, 0, fadeMs, () => {
           if (token !== this.loadToken || el !== this.audio) return;
+          this.ctx.dsp?.flush?.(el);
           el.currentTime = (this.seekTarget + rangeStart(t)) / 1000;
           this.seekTarget = null;
           this.fader.ramp(el, 1, fadeMs, null, {curve: 'smooth', gate: true, seeked: true});
@@ -889,6 +1095,7 @@ export class Player {
         this.seekTarget = ms;
       } else {
         this.seekTarget = null;
+        this.ctx.dsp?.flush?.(el);
         el.currentTime = (ms + rangeStart(t)) / 1000;
       }
     } else {
@@ -988,6 +1195,7 @@ export class Player {
 
   /** msg_player_queue_changed with the reference's stats (ui1.w1): played and total entries. */
   postQueueChanged() {
+    this.checkSplice();
     this.post('msg_player_queue_changed', {arg1: this.entries.length - this.unplayedCount, arg2: this.entries.length});
   }
 
@@ -1112,10 +1320,10 @@ export class Player {
       }
       case 'cmd_player_end_seek_jumps': clearTimeout(this.jumpTimer); break;
       case 'cmd_player_set_shuffle_mode':
-      case 'cmd_player_set_shuffle': this.shuffle = d.arg1 ?? 0; this.order = null; this.post('msg_player_shuffle_mode_changed', {arg1: this.shuffle}); break;
+      case 'cmd_player_set_shuffle': this.shuffle = d.arg1 ?? 0; this.order = null; this.checkSplice(); this.post('msg_player_shuffle_mode_changed', {arg1: this.shuffle}); break;
       // The reference's id (layouts post it) and this app's shorter one.
       case 'cmd_player_set_repeat_mode':
-      case 'cmd_player_set_repeat': this.repeat = d.arg1 ?? 0; this.post('msg_player_repeat_mode_changed', {arg1: this.repeat}); break;
+      case 'cmd_player_set_repeat': this.repeat = d.arg1 ?? 0; this.checkSplice(); this.post('msg_player_repeat_mode_changed', {arg1: this.repeat}); break;
       case 'cmd_player_set_sleep_timer': this.setSleepTimer(d.arg1 ?? 0, !!d.arg2); break;
     }
   }
@@ -1266,7 +1474,7 @@ export class Player {
       return;
     }
     // Waits for the current track to end (advance pauses).
-    if (s.playToEnd) { this.sleepWaitsForEnd = true; return; }
+    if (s.playToEnd) { this.sleepWaitsForEnd = true; this.checkSplice(); return; }
     this.sleep = null;
     this.pause();
     this.sleepPaused();

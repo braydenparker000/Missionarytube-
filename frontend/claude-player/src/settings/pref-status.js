@@ -224,7 +224,7 @@ export const PREF_STATUS = {
   fade_manual_advance: [BUILT, 'Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70)'],
   fade_play_pause: [BUILT, 'Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70)'],
   fade_seek: [BUILT, 'Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70)'],
-  gapless_preload_ms: [WEB, BROWSER_OUTPUT],
+  gapless_preload_ms: [WEB, 'Gapless playback is automatic: the next track preloads a minute ahead (a stream needs more than this setting\'s 5 s) and the audio engine joins it to the playing track\'s last frame'],
   track_end_silence_ms: [BUILT, 'Silence after a track before the next one (F70)'],
   crossfade_length_ms: [BUILT, 'Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70)'],
   fade_short_xfade_ms: [BUILT, 'Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70)'],

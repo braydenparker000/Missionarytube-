@@ -7,7 +7,16 @@
 // +3 dBFS, as most of the library's Opus files do.
 
 const TONE = {kind: 'tone', hz: 440, db: -12};
+// Tracks that end mid-cycle of their 440 Hz tone (a continuous recording split into tracks).
+const GAPLESS_A = 2 + 0.3 / 440, GAPLESS_B = 1.5 + 0.55 / 440;
 const THREE = {main: TONE, next: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}, third: {kind: 'tone', hz: 550, db: -12, edgeMs: 5}};
+// Gapless around a joined track's tail: A (440 Hz) joined into B (330 Hz), then C (550 Hz).
+const TAIL = {main: {kind: 'tone', hz: 440, db: -12, seconds: GAPLESS_A}, next: {kind: 'tone', hz: 330, db: -12, seconds: 1.5}, third: {kind: 'tone', hz: 550, db: -12, seconds: 4}};
+const tail = (title, suspect, extra) => ({
+  group: 'reliability', title, suspect, duration: 5, signals: TAIL,
+  tracks: [{name: 'main', meta: {album: 'Live', track: 1}}, {name: 'next', meta: {album: 'Live', track: 2}}, {name: 'third', meta: {album: 'Live', track: 3}}],
+  ...extra,
+});
 const HOT = {kind: 'hot', peakDb: 3, seed: 7};
 const AT = 1.5;
 
@@ -91,6 +100,14 @@ export const SCENARIOS = {
     actions: [{at: AT, run: lab => lab.player.pause()}, {at: AT + 0.1, run: lab => lab.player.step(1)}],
     measure: lab => lab.clicks(AT - 0.02, 2.9),
   },
+  'pick-twice': {
+    group: 'fades', title: 'Two other tracks picked 150 ms apart, short cross-fade (300 ms to first audio)', suspect: 'a deck reused before it sounded',
+    duration: 3, signals: {main: TONE, next: TONE, third: {kind: 'tone', hz: 330, db: -12, edgeMs: 5}, fourth: {kind: 'tone', hz: 550, db: -12, edgeMs: 5}},
+    tracks: [{name: 'main'}, {name: 'next'}, {name: 'third'}, {name: 'fourth'}], media: {loadMs: 300},
+    actions: [{at: AT, run: lab => lab.player.load(2, true)}, {at: AT + 0.15, run: lab => lab.player.load(3, true)}],
+    // The first track plays on until the fourth sounds (300 ms after the second pick).
+    measure: lab => ({...lab.clicks(AT - 0.02, 2.9), waitDb: lab.toneDb(440, AT + 0.3, AT + 0.34), ...crossfade(lab, AT + 0.15, AT + 0.45, 550)}),
+  },
   'next-twice-no-fade': {
     group: 'fades', title: 'Next pressed twice 150 ms apart, manual fades off (300 ms to first audio)', suspect: 'outgoing deck reused while sounding',
     duration: 3, signals: THREE, tracks: [{name: 'main'}, {name: 'next'}, {name: 'third'}], media: {loadMs: 300}, prefs: {fade_manual_advance: 0},
@@ -112,6 +129,96 @@ export const SCENARIOS = {
   },
   'auto-xfade-late': autoLate('Automatic 2 s cross-fade into a cold track end, incoming 600 ms late', 600),
   'auto-xfade-later': autoLate('Automatic 2 s cross-fade into a cold track end, incoming 1.2 s late', 1200),
+  'gapless-continuous': {
+    group: 'reliability', title: 'A continuous recording split into two tracks (no cross-fade)', suspect: 'gap or click at the join',
+    // The first track ends mid-cycle (not at a zero crossing); the second goes on with the same tone.
+    duration: 4, signals: {main: {kind: 'tone', hz: 440, db: -12, seconds: GAPLESS_A}, next: {kind: 'tone', hz: 440, db: -12, seconds: 4, fromSeconds: GAPLESS_A}},
+    tracks: [{name: 'main', meta: {album: 'Live', track: 1}}, {name: 'next', meta: {album: 'Live', track: 2}}],
+    measure: lab => ({gapMs: silence(lab, 1.5, 3.5), ...lab.clicks(1.5, 3.5), joinedDb: lab.toneDb(440, 2.1, 2.4)}),
+  },
+  'gapless-three': {
+    group: 'reliability', title: 'Three tracks of a continuous recording, back to back', suspect: 'gap or click at a join',
+    duration: 5.5, signals: {
+      main: {kind: 'tone', hz: 440, db: -12, seconds: GAPLESS_A},
+      next: {kind: 'tone', hz: 440, db: -12, seconds: GAPLESS_B, fromSeconds: GAPLESS_A},
+      third: {kind: 'tone', hz: 440, db: -12, seconds: 4, fromSeconds: GAPLESS_A + GAPLESS_B},
+    },
+    tracks: [{name: 'main', meta: {album: 'Live', track: 1}}, {name: 'next', meta: {album: 'Live', track: 2}}, {name: 'third', meta: {album: 'Live', track: 3}}],
+    measure: lab => ({gapMs: silence(lab, 1.5, 5.3), ...lab.clicks(1.5, 5.3), joinedDb: lab.toneDb(440, 4.6, 4.9)}),
+  },
+  'gapless-next-held': {
+    group: 'reliability', title: 'Next pressed while the next track is held for a gapless join', suspect: 'held deck never heard',
+    duration: 4, signals: {main: {kind: 'tone', hz: 440, db: -12, seconds: GAPLESS_A}, next: {kind: 'tone', hz: 330, db: -12, seconds: 4, edgeMs: 5}},
+    tracks: [{name: 'main', meta: {album: 'Live', track: 1}}, {name: 'next', meta: {album: 'Live', track: 2}}],
+    // 1.5 s: the next track is held; 1.8 s: Next (a short cross-fade into it from its start).
+    actions: [{at: 1.8, run: lab => lab.player.step(1)}],
+    measure: lab => ({...lab.clicks(1.78, 3.5), nextDb: lab.toneDb(330, 2.6, 2.9), restartedAt: lab.player.audio.currentTime}),
+  },
+  // A joined into B (330 Hz, 1.5 s; started 0.5 s early, so heard until 3.5 s while its element ends at about 3.0 s), then C (550 Hz).
+  'gapless-tail-seek': tail('Seek to the start in the last half-second of a joined track (its element has ended)', 'tail cut, track skipped', {
+    actions: [{at: 3.2, run: lab => lab.player.seek(0)}],
+    measure: lab => ({...lab.clicks(3.15, 3.3), againDb: lab.toneDb(330, 3.7, 4.2), thirdDb: lab.toneDb(550, 3.7, 4.2)}),
+  }),
+  'gapless-tail-next': tail('Next in the last half-second of a joined track', 'tail cut', {
+    actions: [{at: 3.2, run: lab => lab.player.step(1)}],
+    measure: lab => ({...lab.clicks(3.15, 3.35)}),
+  }),
+  'gapless-tail-pause': tail('Pause in the last half-second of a joined track, play 0.8 s later', 'tail heard again', {
+    actions: [{at: 3.2, run: lab => lab.player.pause()}, {at: 4.0, run: lab => lab.player.play()}],
+    measure: lab => ({againDb: lab.toneDb(330, 4.1, 4.4), thirdDb: lab.toneDb(550, 4.1, 4.4)}),
+  }),
+  'gapless-system-pause': tail('The system pauses a joined track (headphones unplugged)', 'its delay plays on', {
+    signals: {...TAIL, next: {kind: 'tone', hz: 330, db: -12, seconds: 3}},
+    actions: [{at: 3.0, run: lab => lab.player.audio.pause()}],
+    measure: lab => ({heardMs: 400 - silence(lab, 3.0, 3.4), paused: lab.player.state === 2}),
+  }),
+  'gapless-short-next': tail('A next track shorter than its delay (0.3 s)', 'heard twice or skipped', {
+    signals: {...TAIL, next: {kind: 'tone', hz: 330, db: -12, seconds: 0.3}},
+    measure: lab => ({onceDb: lab.toneDb(330, 2.05, 2.25), againDb: lab.toneDb(330, 2.55, 2.75), thirdDb: lab.toneDb(550, 3.2, 3.5)}),
+  }),
+  'gapless-sleep-held': tail('Sleep timer (to the end of the track) running out while the next track is held', 'next track heard', {
+    actions: [{at: 1.7, run: lab => lab.player.setSleepTimer(0.1, true)}],
+    measure: lab => ({nextDb: lab.toneDb(330, GAPLESS_A + 0.012, GAPLESS_A + 0.2), state: lab.player.state}),
+  }),
+  'gapless-start-jitter': {
+    group: 'reliability', title: 'Start latency 10 ms at the first join, 130 ms at the second', suspect: 'silence added at a slower start',
+    duration: 5.5, signals: {
+      main: {kind: 'tone', hz: 440, db: -12, seconds: GAPLESS_A},
+      next: {kind: 'tone', hz: 440, db: -12, seconds: GAPLESS_B, fromSeconds: GAPLESS_A},
+      third: {kind: 'tone', hz: 440, db: -12, seconds: 4, fromSeconds: GAPLESS_A + GAPLESS_B},
+    },
+    tracks: [{name: 'main', meta: {album: 'Live', track: 1}}, {name: 'next', meta: {album: 'Live', track: 2}}, {name: 'third', meta: {album: 'Live', track: 3}}],
+    media: {resumeMs: 10}, actions: [{at: 2.6, run: lab => { lab.opts.resumeMs = 130; }}],
+    measure: lab => ({gapMs: silence(lab, 1.8, 4.2), ...lab.clicks(1.8, 4.2)}),
+  },
+  'gapless-short-silence': {
+    group: 'reliability', title: '2 ms of digital silence 50 ms before the end of the outgoing track', suspect: 'joined at the silence',
+    // The next track at 1 kHz: little of the 440 Hz tone leaks into its measure.
+    duration: 3.5, signals: {main: {kind: 'tone', hz: 440, db: -12, seconds: GAPLESS_A, zeros: [[GAPLESS_A - 0.05, GAPLESS_A - 0.048]]}, next: {kind: 'tone', hz: 1000, db: -12, seconds: 3}},
+    tracks: [{name: 'main', meta: {album: 'Live', track: 1}}, {name: 'next', meta: {album: 'Live', track: 2}}],
+    measure: lab => ({endDb: lab.toneDb(440, GAPLESS_A - 0.045, GAPLESS_A - 0.005), nextEarlyDb: lab.toneDb(1000, GAPLESS_A - 0.045, GAPLESS_A - 0.005)}),
+  },
+  'gapless-tempo': {
+    group: 'reliability', title: 'Position right after a join at tempo 1.5x', suspect: 'delay not scaled by the tempo',
+    duration: 3, signals: {main: {kind: 'tone', hz: 440, db: -12, seconds: GAPLESS_A}, next: {kind: 'tone', hz: 330, db: -12, seconds: 3}},
+    tracks: [{name: 'main', meta: {album: 'Live', track: 1}}, {name: 'next', meta: {album: 'Live', track: 2}}],
+    dsp: {dsp_tempo_enabled: true, dsp_tempo: 0.625},
+    before: lab => { const p = lab.player, on = p.onSpliced.bind(p); p.onSpliced = el => { const r = on(el); lab.posAtJoin ??= p.positionMs(); return r; }; },
+    measure: lab => ({posAtJoinMs: lab.posAtJoin ?? null}),
+  },
+  'gapless-cue-next': {
+    group: 'reliability', title: 'Next track a CUE range of another disc image', suspect: 'range end read off the running-ahead element',
+    duration: 5, signals: {main: {kind: 'tone', hz: 440, db: -12, seconds: GAPLESS_A}, img: {kind: 'tone', hz: 550, db: -12, seconds: 4}, third: {kind: 'tone', hz: 330, db: -12, seconds: 3}},
+    tracks: [{name: 'main', meta: {album: 'Live', track: 1}}, {name: 'img', meta: {cueOf: 'image1', startMs: 1000, endMs: 2500}}, {name: 'third', meta: {album: 'Live', track: 3}}],
+    // The range plays for its 1.5 s from about 2.0 s.
+    measure: lab => ({rangeDb: lab.toneDb(550, 3.1, 3.45)}),
+  },
+  'gapless-network': {
+    group: 'reliability', title: 'The same, 300 ms to a stream\'s first audio', suspect: 'gap or click at the join',
+    duration: 4.5, signals: {main: {kind: 'tone', hz: 440, db: -12, seconds: GAPLESS_A}, next: {kind: 'tone', hz: 440, db: -12, seconds: 4, fromSeconds: GAPLESS_A}},
+    tracks: [{name: 'main', meta: {album: 'Live', track: 1}}, {name: 'next', meta: {album: 'Live', track: 2}}], media: {loadMs: 300},
+    measure: lab => ({gapMs: silence(lab, 1.8, 4), ...lab.clicks(1.8, 4)}),
+  },
   'track-end-gap': {
     group: 'reliability', title: 'Track end to next track (no cross-fade, 300 ms to first audio)', suspect: 'no preload / gapless',
     duration: 3.5, signals: {main: {...TONE, seconds: 2, edgeMs: 5}, next: {...TONE, seconds: 4, edgeMs: 5}}, tracks: [{name: 'main', meta: {album: 'A', track: 1}}, {name: 'next', meta: {album: 'A', track: 2}}], media: {loadMs: 300},

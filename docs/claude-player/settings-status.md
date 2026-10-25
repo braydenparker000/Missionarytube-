@@ -266,7 +266,7 @@ The settings screens show the last three greyed out, with a line saying why
 | `fade_manual_advance` | TagListPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
 | `fade_play_pause` | MultilineSwitchPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
 | `fade_seek` | MultilineSwitchPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
-| `gapless_preload_ms` | SeekbarPreference | No web counterpart | The browser decodes, resamples and dithers the audio |
+| `gapless_preload_ms` | SeekbarPreference | No web counterpart | Gapless playback is automatic: the next track preloads a minute ahead (a stream needs more than this setting's 5 s) and the audio engine joins it to the playing track's last frame |
 | `track_end_silence_ms` | SeekbarPreference | Built | Silence after a track before the next one (F70) |
 | `crossfade_length_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |
 | `fade_short_xfade_ms` | SeekbarPreference | Built | Fades and crossfades on two media decks, run in the audio engine: equal-power crossfades, S-curve play, pause and seek fades that start with the sound (F70) |

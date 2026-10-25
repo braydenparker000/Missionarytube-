@@ -29,6 +29,8 @@ export {biquadCoefficients, biquadMagnitude};
 const STORE_KEY = 'cp-dsp';
 // Paused this long, the audio thread sleeps (idle()).
 const IDLE_MS = 30000;
+// The audio context's rate: the library's (its Opus tracks decode at 48 kHz).
+const CONTEXT_RATE = 48000;
 
 /** Graphic equalizer bands (Hz) and their labels (the 10-band set of the built-in presets). */
 export const GRAPHIC_BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
@@ -165,6 +167,10 @@ export class DSP {
     this.fadeDone = new Map();
     this.fadeIds = new Map();
     this.fadeSeq = 0;
+    // Spliced decks' delays (seconds), by element; each deck's splice under way (its id), by element.
+    this.delays = new Map();
+    this.splices = new Map();
+    this.spliceSeq = 0;
     // Until the engine has loaded, the decks play straight to the output (no effects).
     this.bypass = false;
     this.meter = null;
@@ -452,7 +458,11 @@ export class DSP {
   open() {
     const AC = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
     if (!AC || this.ac) return;
-    const ac = this.ac = new AC({latencyHint: this.latencyHint});
+    // At the library's rate (Opus always decodes at 48 kHz): its tracks reach the engine unresampled
+    // on any phone, so their gapless joins are exact (Chrome resamples the mix once if the phone runs at another rate).
+    let ac;
+    try { ac = new AC({latencyHint: this.latencyHint, sampleRate: CONTEXT_RATE}); } catch { ac = new AC({latencyHint: this.latencyHint}); }
+    this.ac = ac;
     // Where the page may autoplay (an installed app) the context starts running: nothing plays yet.
     if (ac.state === 'running' && this.ctx.player?.state !== 1) ac.suspend?.().catch(() => {});
     // Decks connect here at once; until the engine has loaded they play straight to the output.
@@ -540,6 +550,9 @@ export class DSP {
     for (const g of this.inputs) g.disconnect();
     for (const node of [eq, out, ...this.nodes.convolvers]) try { node?.disconnect(); } catch { /* gone */ }
     this.buildNative(this.nodes.analyser);
+    // No rings in plain playback: the decks play as their elements do.
+    this.delays.clear();
+    this.splices.clear();
     // The engine's fade gains are lost: the playing deck goes on, any other (fading out) is silenced.
     for (const [el, i] of this.decks) this.nodes.decks[i].fade.gain.value = el === this.ctx.player?.audio ? 1 : 0;
     this.ctx.bus.post('bus_gui', 'cmd_gui_show_toast', this, {title: 'Audio effects stopped', line2: 'Playing without them'});
@@ -553,6 +566,16 @@ export class DSP {
 
   /** Messages from the engine: fade completions, meters, sync replies. */
   fromEngine(m) {
+    if (m.type === 'spliced' || m.type === 'splice_failed') {
+      const el = [...this.decks].find(([, k]) => k === m.deck)?.[0];
+      // A splice cancelled meanwhile (its flush is on its way to the engine) is not reported.
+      if (!el || this.splices.get(el) !== m.id) return;
+      this.splices.delete(el);
+      if (m.type === 'spliced') this.delays.set(el, m.delay);
+      this.ctx.playbackLog?.log?.(m.type.replace('_', ' '), m.type === 'spliced' ? {ms: Math.round(m.delay * 1000), padMs: m.pad === null ? null : Math.round(m.pad * 1000), overlap: m.overlap} : {});
+      this.ctx.player?.[m.type === 'spliced' ? 'onSpliced' : 'onSpliceFailed']?.(el);
+      return;
+    }
     if (m.type === 'done') {
       const done = this.fadeDone.get(m.id);
       this.fadeDone.delete(m.id);
@@ -600,6 +623,49 @@ export class DSP {
     this.decks.set(el, i);
     this.ac.createMediaElementSource(el).connect(this.inputs[i]);
     if (el._rgGain !== undefined) this.post({stage: 'eq', type: 'rg', deck: i, value: el._rgGain});
+  }
+
+  /** Whether decks can be joined gaplessly (the worklet engine, not plain playback). */
+  get canSplice() {
+    return this.engine === 'worklet' && !this.bypass;
+  }
+
+  /**
+   * Gapless: deck `next` (started right after this) is held until deck
+   * `from`'s track ends, endIn seconds from now; then it plays from its first
+   * sound on the frame after the last one, overlapping it by the resampler's
+   * ringing of each track (ringFrom, ringTo: frames) where their edges ring
+   * (dsp 'spliced' tells the player). A flush of `next` cancels it.
+   */
+  splice(next, from, endIn, ringFrom = 0, ringTo = 0) {
+    const deck = this.decks.get(next), other = this.decks.get(from);
+    if (deck === undefined || other === undefined || !this.canSplice) return false;
+    const id = ++this.spliceSeq;
+    this.delays.delete(next);
+    this.splices.set(next, id);
+    this.post({stage: 'eq', type: 'splice', id, deck, from: other, endIn, ringFrom, ringTo});
+    return true;
+  }
+
+  /** How far a spliced deck plays behind its element's position, in seconds. */
+  deckDelay(el) {
+    return this.delays.get(el) ?? 0;
+  }
+
+  /**
+   * Drops what a deck has not played yet: a spliced deck's delay, and the
+   * frames of lookahead (what was about to be heard fades out in 8 ms; the
+   * deck's element should be paused or about to seek or let go). At its
+   * track's end (`end`), the rest of the track is heard first. Cancels its
+   * splice. Returns the seconds of delay dropped, by which the element's
+   * position ran ahead of what was heard.
+   */
+  flush(el, end = false) {
+    const d = this.delays.get(el) ?? 0, deck = this.decks.get(el);
+    this.delays.delete(el);
+    this.splices.delete(el);
+    if (deck !== undefined && this.engine === 'worklet') this.post({stage: 'eq', type: 'flush', deck, end});
+    return d;
   }
 
   /** Whether el plays through the graph (its fades run there; before the engine has loaded, on the element). */
