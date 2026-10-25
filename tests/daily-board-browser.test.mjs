@@ -194,7 +194,7 @@ for(const width of [320,390,1280])test(`premium edition draws every v2 component
  assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'ember');
  assert.equal(await page.locator('article.story').count(),4);
  assert.equal(await page.locator('.glance li').count(),4);
- for(const selector of ['.cover-art','.stats .stat','.agenda li','.perspectives [role=tab]','.chart-line svg','.chart-column svg, .chart-bar .bars','.compare-item','.callout[data-kind=unknown]','.quote blockquote','.timeline li[data-state=now]','.stepper input[type=range]','.why','.note.next','.note.disagree','.c-brief'])
+ for(const selector of ['.cover-art','.stats .stat','.agenda li','.perspectives [role=tab]','.chart-line svg','.chart-column svg, .chart-bar .bars','.compare-item','.callout[data-kind=unknown]','.quote blockquote','.timeline li[data-state=now]','.stepper input[type=range]','.lead-in.why','.lead-in.next','.disagree .lead-in','.c-brief','.section-icon','nav.pager'])
   assert.ok(await page.locator(selector).count()>0,selector);
  assert.match(await page.locator('.synthetic').textContent(),/Synthetic demonstration/);
  assert.equal(await page.locator('.agenda time').first().textContent(),'08:00');
@@ -215,6 +215,7 @@ test('premium components work by keyboard: tabs, explainer, source marks and dat
  assert.equal(await second.evaluate(n=>n===document.activeElement),true);
  assert.match(await page.getByRole('tabpanel').filter({visible:true}).first().textContent(),/Port fees/);
  await page.keyboard.press('End');assert.equal(await page.getByRole('tab',{name:'What to watch'}).getAttribute('aria-selected'),'true');
+ await page.locator('#story-bridge-reopens').getByRole('button',{name:/^Continue reading/}).click();
  const slider=page.getByRole('slider',{name:'Explanation step'});
  await slider.focus();await page.keyboard.press('ArrowRight');
  assert.match(await page.locator('.step-count').textContent(),/Step 2 of 3/);
@@ -294,5 +295,42 @@ for(const width of [390,1280])test(`a column chart with long labels stays readab
  }));
  assert.deepEqual(overlaps,[]);
  assert.equal(await page.locator('#block-two-series .chart-column svg').count(),1);
+ assert.deepEqual(h.errors,[]);
+});
+
+test('stories open on request, the pager follows the reader, and section prefixes are not repeated',async t=>{
+ const h=await openBoard(t,390),{page}=h;
+ const report=JSON.parse(await readFile(new URL('./fixtures/daily-board/premium.json',import.meta.url)));
+ report.stories[1].title='Economy: '+report.stories[1].title;
+ h.setReply(legacy([{id:report.id,title:report.title,body:encodeV2(report),createdAt:'2026-10-24T10:04:00Z'}]));
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await page.goto(h.origin+'/daily-board/');
+ await page.getByRole('heading',{name:report.title,exact:true,level:1}).waitFor();
+ // "Economy: …" under the label "Economy · September data" shows without the repeated prefix.
+ assert.equal(await page.locator('#story-harbour-trade h2').textContent(),'The harbour is busier. The town around it is not, yet.');
+ // The lead story reads in full; a feature shows its first block and opens on request.
+ assert.equal(await page.locator('#story-ribera-vote button.more').count(),0);
+ const story=page.locator('#story-harbour-trade'),more=story.locator('button.more');
+ assert.match(await more.textContent(),/^Continue reading · \d+ min$/);
+ assert.equal(await story.locator('#block-cargo-line').isVisible(),true);
+ assert.equal(await story.locator('#block-retail-columns').isVisible(),false);
+ await more.click();
+ assert.equal(await more.getAttribute('aria-expanded'),'true');assert.equal(await more.textContent(),'Show less');
+ assert.equal(await story.locator('#block-retail-columns').isVisible(),true);
+ assert.equal(await story.locator('.lead-in.next').isVisible(),true);
+ // The pager appears in the stories and tracks the one being read.
+ const pager=page.getByRole('navigation',{name:'Stories in this edition'});
+ await page.evaluate(()=>window.scrollTo(0,0));
+ assert.equal(await pager.evaluate(n=>n.classList.contains('show')),false,'hidden over the cover');
+ await page.locator('#story-bridge-reopens').scrollIntoViewIfNeeded();
+ await page.evaluate(()=>document.querySelector('#story-bridge-reopens').scrollIntoView());
+ await page.waitForFunction(()=>document.querySelector('.pager-count')?.textContent==='3 of 4');
+ assert.equal(await pager.evaluate(n=>n.classList.contains('show')),true);
+ await page.getByRole('button',{name:'Next story'}).click();
+ await page.waitForFunction(()=>document.querySelector('.pager-count')?.textContent==='4 of 4');
+ assert.equal(await page.getByRole('button',{name:'Next story'}).isDisabled(),true);
+ // Prose source marks sit inside the paragraph.
+ assert.equal(await page.locator('#block-vote-opening p.prose a.cite').count(),1);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  assert.deepEqual(h.errors,[]);
 });
