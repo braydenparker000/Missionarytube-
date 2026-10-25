@@ -13,7 +13,8 @@ import {Library} from './library/library.js';
 import {Settings, loadStoredSettings, runtimeSettings, prefDefaults} from './settings/settings.js';
 import {DSP} from './dsp/dsp.js';
 import {PlaybackLog} from './player/playback-log.js';
-import {AudioCache} from './library/audio-cache.js';
+import {AudioCache, retireDefaultCopies} from './library/audio-cache.js';
+import {AudioHeads} from './library/heads.js';
 import {installEqPresets} from './widgets/eq-preset-ui.js';
 import './widgets/basic.js';
 import './view/seekbar.js';
@@ -149,6 +150,8 @@ export async function boot() {
   ctx.inflater = inflater;
   // Offline copies of the queue's next tracks (Cache Storage; none on an insecure origin).
   ctx.audioCache = new AudioCache();
+  ctx.audioHeads = new AudioHeads();
+  retireDefaultCopies(ctx.audioCache);
   const player = new Player(ctx);
   new DSP(ctx);
   new PlaybackLog(ctx);

@@ -5,6 +5,7 @@ import {trackTitle, artistLabel, albumLabel} from '../library/labels.js';
 import {DeckFader, DECLICK_MS, fadePrefs, gaplessPair, replayGainOf, AUTO_NONE, AUTO_NON_GAPLESS, AUTO_SHUFFLED, MANUAL_SHORT, MANUAL_CROSSFADE} from './fades.js';
 import {listKeyOf, categoryKey, KEEP_TRACK} from '../library/list-memory.js';
 import {offlinePlan, offlineAhead} from '../library/audio-cache.js';
+import {headOf} from '../library/heads.js';
 import {StreamGuard} from './stream-guard.js';
 
 // Reference mode enums (integers SHUFFLE_* / REPEAT_*).
@@ -45,6 +46,8 @@ const rangeStart = t => t?.startMs || 0;
 // earlier costs nothing of the next one. Offline copies wait until a track has been listened to this
 // long (or its last LISTENED_S): skipped songs cost no copies.
 const PRELOAD_S = 30, LISTENED_S = 30;
+// The songs ahead whose first seconds are kept ready (library/heads.js).
+const HEADS_AHEAD = 3;
 // Gapless: the preloaded next track starts this long before the playing one ends, held in the engine (s).
 const SPLICE_LEAD = 0.5;
 // Half the length of Chrome's resampler kernel (SincResampler, 64 taps for Web Audio's requests), in input frames.
@@ -162,15 +165,15 @@ export class Player {
     });
     // The offline copies follow what comes next (after a track change, once it has started).
     ctx.bus.subscribe('bus_player', (msg, src, d) => {
-      if (msg === 'msg_player_track_changed' && !d?.meta) this.offlineSoon(4000);
-      else if (/^msg_player_(queue_changed|category_changed|shuffle_mode_changed|repeat_mode_changed)$/.test(msg)) this.offlineSoon(1000);
+      if (msg === 'msg_player_track_changed' && !d?.meta) { this.offlineSoon(4000); this.headsSoon(1500); }
+      else if (/^msg_player_(queue_changed|category_changed|shuffle_mode_changed|repeat_mode_changed)$/.test(msg)) { this.offlineSoon(1000); this.headsSoon(1000); }
     });
     globalThis.navigator?.connection?.addEventListener?.('change', () => this.offlineSoon(1000));
     // ReplayGain settings apply to the playing track at once.
     ctx.bus.subscribe('bus_app', (msg, src, d) => {
       if (msg === 'msg_app_setting_changed' && /^rg_/.test(d?.key ?? '') && this.audio && this.isMedia(this.track)) this.ctx.dsp?.setReplayGain?.(this.audio, replayGainOf(this.ctx, this.track));
       // Data saver on: downloads ahead stop at once; off: they follow the queue again.
-      if (msg === 'msg_app_setting_changed' && d?.key === 'cp_data_saver') this.wantOffline();
+      if (msg === 'msg_app_setting_changed' && d?.key === 'cp_data_saver') { this.wantOffline(); this.wantHeads(); }
     });
     ctx.player = this;
   }
@@ -753,6 +756,34 @@ export class Player {
     for (let k = 1; k <= plan.ahead; k++) { const x = this.trackAt(k); if (remote(x) && x !== this.track) list.push(x); }
     if (!listened) list = list.filter(x => cache.has(x.src) || cache.wants(x.src));
     cache.want(list.map(x => ({url: x.src, bytes: x.size || 0})));
+  }
+
+  /**
+   * The first HEAD_S of the songs that come next (HEADS_AHEAD; with Data
+   * saver the next one), so a skip starts from the phone: a few hundred KB
+   * each, not whole songs. Songs with a whole copy need none. The playing
+   * song's head, if it had one, stays while it plays (a reload, a seek back).
+   */
+  wantHeads() {
+    const heads = this.ctx.audioHeads;
+    if (!heads?.available) return;
+    const n = this.ctx.pref?.('cp_data_saver') === true ? 1 : HEADS_AHEAD, list = [];
+    for (let k = 1; k <= n; k++) {
+      const x = this.trackAt(k);
+      // (A CUE track further into its file would not start from the file's head.)
+      if (x && x !== this.track && !rangeStart(x) && !this.ctx.audioCache?.has(x.src)) list.push(headOf(x));
+    }
+    heads.want(list, this.track?.src ?? null);
+  }
+
+  /** The heads wait ms (a starting song needs the bandwidth), then follow what comes next. */
+  headsSoon(ms) {
+    // A later update already waiting (a song starting) stays: it reads the queue then.
+    const due = performance.now() + ms;
+    if (this.headsTimer && this.headsDue > due) return;
+    clearTimeout(this.headsTimer);
+    this.headsDue = due;
+    this.headsTimer = setTimeout(() => { this.headsTimer = 0; this.wantHeads(); }, ms);
   }
 
   /** The copies wait ms (a starting track needs the bandwidth), then follow what comes next. */

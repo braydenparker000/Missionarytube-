@@ -40,9 +40,9 @@ export function libraryOf(tracks) {
     const bytes = t.bytes ?? wav(t);
     return {
       id, bytes, record: {
-        id, audioKey: 'native/audio/' + id, size: bytes.length, sha256: '0'.repeat(64), md5: '0'.repeat(32), mimeType: 'audio/wav',
+        id, audioKey: 'native/audio/' + id, size: bytes.length, sha256: '0'.repeat(64), md5: '0'.repeat(32), mimeType: t.mime ?? 'audio/wav',
         r2Identity: {lastModified: '2026-10-01T00:00:00Z'}, path: `Lab/${t.album ?? 'Tones'}/${String(t.track ?? i + 1).padStart(2, '0')} ${t.title ?? 'Tone ' + (i + 1)}.wav`, folder: 'Cloudflare R2/Lab',
-        metadata: {title: t.title ?? 'Tone ' + (i + 1), artist: 'Audio Lab', album: t.album ?? 'Tones', track: t.track ?? i + 1, disc: 1, dur: t.seconds ?? 8, sr: t.rate ?? 48000, ch: 2, codec: 'wav', bits: 16},
+        metadata: {title: t.title ?? 'Tone ' + (i + 1), artist: 'Audio Lab', album: t.album ?? 'Tones', track: t.track ?? i + 1, disc: 1, dur: t.seconds ?? 8, sr: t.rate ?? 48000, ch: 2, codec: t.codec ?? 'wav', bits: 16},
         ...(t.waveform ? {waveformBars: true} : {}),
       },
       waveform: t.waveform ?? null,
@@ -101,10 +101,10 @@ export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 
     if (net.refuse.has(item.id) || (!range && net.refuseWhole.has(item.id))) return route.fulfill({status: 500, headers: cors, body: ''});
     if (audioDelayMs) await new Promise(r => setTimeout(r, audioDelayMs));
     const size = item.bytes.length;
-    if (!range) { q.bytes = size; return route.fulfill({status: 200, headers: {...cors, 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes', 'Content-Length': String(size)}, body: item.bytes}); }
+    if (!range) { q.bytes = size; return route.fulfill({status: 200, headers: {...cors, 'Content-Type': item.record.mimeType, 'Accept-Ranges': 'bytes', 'Content-Length': String(size)}, body: item.bytes}); }
     const a = +range[1], b = range[2] ? Math.min(+range[2], size - 1) : size - 1;
     q.bytes = b - a + 1;
-    return route.fulfill({status: 206, headers: {...cors, 'Content-Type': 'audio/wav', 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${a}-${b}/${size}`, 'Content-Length': String(b - a + 1)}, body: item.bytes.subarray(a, b + 1)});
+    return route.fulfill({status: 206, headers: {...cors, 'Content-Type': item.record.mimeType, 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${a}-${b}/${size}`, 'Content-Length': String(b - a + 1)}, body: item.bytes.subarray(a, b + 1)});
   });
   await page.goto(`${origin}/claude-player/${query}`);
   await page.waitForFunction(() => window.__cp?.library?.tracks?.length > 0, null, {timeout: 30000});
