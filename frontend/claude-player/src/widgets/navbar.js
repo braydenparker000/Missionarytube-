@@ -353,13 +353,17 @@ export class Seek extends View {
     });
   }
 
-  /** Follows the position while playing, a step each time it moves a CSS pixel (not every frame), nothing while hidden. */
+  /** Follows the position while playing, a step each time it moves a CSS pixel (not every frame); hidden, it stops until shown again. */
   follow(on) {
     clearTimeout(this._follow);
     this._follow = null;
     const p = this.ctx.player;
     if (!on || p?.state !== STATE_PLAYING) return;
-    if (!this._drag && !document.hidden) this.syncProgress();
+    if (document.hidden) {
+      document.addEventListener('visibilitychange', () => { if (!this._follow) this.follow(this.ctx.player?.state === STATE_PLAYING); }, {once: true});
+      return;
+    }
+    if (!this._drag) this.syncProgress();
     const msPerStep = (p.track?.durationMs || 0) * Math.max(1, this.ctx.dpr || 1) / (this.width || 1) / (p.audio?.playbackRate || 1);
     this._follow = setTimeout(() => this.follow(true), Math.max(16, Math.min(1000, msPerStep || 250)));
   }

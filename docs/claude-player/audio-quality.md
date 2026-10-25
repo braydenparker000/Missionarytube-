@@ -273,13 +273,22 @@ said it was playing. The player now handles the rest:
   which Chrome's decoder reads for the length before it plays. That is about
   0.4 MB per song instead of 4–6 MB whole.
   - They download with range requests, one at a time at low priority,
-    1.5 s after the song starts, into their own cache. Only the heads of the
-    songs next now are kept; when the next songs change, the others go.
-    Nothing downloads before a song plays: opening the app (a song restored,
-    paused) or skipping while paused costs no audio. The players load
-    nothing until they play (`preload` none, then auto); before, opening the
-    app buffered the restored song (2.3 MB in a live check) and fetched the
-    next 3 heads (1.6 MB) without a song played.
+    1.5 s after the playing song sounds, once it has 10 s of its stream
+    ahead (or all of it), into their own cache. While the playing song
+    rebuffers they wait (the download under way stops), so on a slow network
+    its stream comes first. Only the heads of the songs next now are kept;
+    when the next songs change, the others go.
+  - Opening the app: the song left off gets its head (when it was left
+    within its first 12 s, its head is not on the phone already, and Data
+    saver is off), so the first play starts from the phone. Nothing else
+    downloads before a song plays, nor while skipping paused. The players
+    load nothing until they play (`preload` none, then auto); before, opening
+    the app buffered the restored song (2.3 MB in a live check) and fetched
+    the next 3 heads (1.6 MB) without a song played.
+  - The service worker is kept awake while the app is in use: the page
+    sends it a message every 20 s while it shows or plays. Chrome stops an
+    idle worker after about 30 s, and waking it took about 1 s on the next
+    play or skip (live check: a first play 2.5 s after the app sat 40 s).
   - The service worker answers a song's range requests that a head or tail
     covers, with what it holds; Chrome asks the network for the rest. It
     leaves every other request alone, so Chrome's own retries keep working.
@@ -300,6 +309,14 @@ said it was playing. The player now handles the rest:
   waited up to 4 s: a skip to a song not on the phone (Data saver, a song
   picked from a list, a weak signal) left the old song playing about 4.4 s,
   then silence until the new one arrived (live check, slow 4G).
+- **In the background** (the screen off): playback, song changes and the
+  next songs' heads go on; nothing is drawn, and the clock, the seek bars
+  and the scrolling titles stop (they woke the phone 12–17 times a second
+  for nothing seen); shown again, they catch up at once. Checked in a real
+  hidden Chrome tab for 7.5 min on the live site (past the 5 min mark where
+  Chrome throttles timers hardest): no underruns or stalls, every song change
+  joined gapless (8 of 8 across runs), a pause let the audio thread sleep and
+  play resumed it in 6 ms, the main thread 0.3–0.4% busy.
 - **The seek bars** (the waveform and the navigation bar's progress line)
   follow a playing song a step each time it moves a CSS pixel, and not while
   the page is hidden. Before, each ran a callback every frame and the

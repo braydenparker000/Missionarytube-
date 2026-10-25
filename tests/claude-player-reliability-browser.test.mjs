@@ -513,3 +513,102 @@ test('while a song plays the seek bars follow it a visible pixel at a time, with
   assert.ok(r.framesPerSec < 20, JSON.stringify(r));
   assert.deepEqual(h.errors, []);
 });
+
+test('the next songs\' heads wait for the playing song: none download while its stream has not come, then they follow', {skip}, async t => {
+  const h = await openPlayer(t, {tracks: Array.from({length: 4}, (_, i) => ({seconds: 60, rate: 8000, hz: 300 + 60 * i}))});
+  const {page} = h;
+  await page.evaluate(() => navigator.serviceWorker.register('sw.js'));
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, {timeout: 15000});
+  // The playing song's stream does not come (a phone between networks).
+  h.net.hang = true;
+  await page.evaluate(() => window.__cp.player.play());
+  await page.waitForTimeout(4500);
+  const heads = () => h.requests.filter(q => q.id !== h.lib[0].id && q.range !== 'bytes=0-262143');
+  assert.deepEqual(heads().map(q => [q.id, q.range]), [], 'no heads before the playing song sounds');
+  // It comes: the song plays, then the heads download.
+  h.net.release();
+  await playingAt(page, 0.5, 15000);
+  await page.waitForFunction(() => { const s = window.__cp.ctx.audioHeads.summary(); return s.kept === 3 && !s.downloading; }, null, {timeout: 30000});
+  assert.equal(new Set(heads().map(q => q.id)).size, 3);
+  assert.deepEqual(h.errors, []);
+});
+
+test('reopened on a song left within its start, its head comes while paused, the first play starts from the phone, and the service worker is kept awake', {skip}, async t => {
+  // Each message to the service worker, counted.
+  const init = () => { window.__pings = 0; const post = ServiceWorker.prototype.postMessage; ServiceWorker.prototype.postMessage = function (m, ...a) { if (m?.type === 'ping') window.__pings++; return post.call(this, m, ...a); }; };
+  const h = await openPlayer(t, {init, tracks: Array.from({length: 4}, (_, i) => ({seconds: 60, rate: 8000, hz: 300 + 60 * i}))});
+  const {page} = h;
+  await page.evaluate(() => navigator.serviceWorker.register('sw.js'));
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, {timeout: 15000});
+  // Reopened (the worker now controls the page from the start), paused on song 1 at its start.
+  const n = h.requests.length;
+  await page.reload();
+  await page.waitForFunction(() => window.__cp?.library?.tracks?.length > 0 && !!navigator.serviceWorker.controller, null, {timeout: 30000});
+  await page.waitForFunction(() => window.__cp.ctx.audioHeads.summary().kept === 1, null, {timeout: 15000});
+  const audio = h.requests.slice(n).filter(q => q.range !== 'bytes=0-262143');
+  assert.deepEqual([...new Set(audio.map(q => q.id))], [h.lib[0].id], 'only the song left off');
+  assert.ok(audio.every(q => /^bytes=0-\d+$/.test(q.range)), JSON.stringify(audio.map(q => q.range)));
+  // The network goes; play starts from the phone.
+  h.net.hang = true;
+  const t0 = await page.evaluate(() => { window.__cp.player.play(); return performance.now(); });
+  await page.waitForFunction(() => !window.__cp.player.audio.paused && window.__cp.player.audio.currentTime > 0.05, null, {timeout: 10000, polling: 10});
+  const ms = await page.evaluate(t0 => performance.now() - t0, t0);
+  assert.ok(ms < 1000, `first play after ${Math.round(ms)} ms`);
+  h.net.release();
+  // Kept awake: a message every 20 s while the page shows or plays.
+  await page.waitForTimeout(21000);
+  assert.ok(await page.evaluate(() => window.__pings) >= 1);
+  assert.deepEqual(h.errors, []);
+});
+
+test('reopened on a song left past its start, nothing downloads before play', {skip}, async t => {
+  const h = await openPlayer(t, {tracks: Array.from({length: 3}, (_, i) => ({seconds: 60, rate: 8000, hz: 300 + 60 * i}))});
+  const {page} = h;
+  await page.evaluate(() => navigator.serviceWorker.register('sw.js'));
+  await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, {timeout: 15000});
+  await playFor(page, 0.5);
+  await page.evaluate(() => window.__cp.player.seek(30000));
+  await page.waitForTimeout(800);
+  await page.evaluate(() => window.__cp.player.pause());
+  await page.waitForTimeout(800);
+  const n = h.requests.length;
+  await page.reload();
+  await page.waitForFunction(() => window.__cp?.library?.tracks?.length > 0 && !!navigator.serviceWorker.controller, null, {timeout: 30000});
+  await page.waitForTimeout(3000);
+  assert.ok(Math.abs(await page.evaluate(() => window.__cp.player.pendingSeek || window.__cp.player.positionMs()) - 30000) < 2000, 'left at 30 s');
+  assert.deepEqual(h.requests.slice(n).filter(q => q.range !== 'bytes=0-262143').map(q => [q.id, q.range]), []);
+  assert.deepEqual(h.errors, []);
+});
+
+test('hidden (the screen off), the clock, seek bars and scrolling titles stop waking up; shown again, they go on', {skip}, async t => {
+  const init = () => {
+    const c = window.__wakes = {};
+    const st = window.setTimeout.bind(window);
+    window.setTimeout = (fn, ms, ...a) => { const s = (new Error().stack || '').split('\n')[2] || '', m = /\/src\/(widgets\/(?:time|waveseek|navbar)|list\/list-widget)\.js/.exec(s), k = m?.[1]; return st(typeof fn === 'function' && k ? (...x) => { c[k] = (c[k] || 0) + 1; fn(...x); } : fn, ms, ...a); };
+  };
+  const title = 'A song title far too long for the space it has on a phone, so that it scrolls';
+  const h = await openPlayer(t, {init, tracks: [{seconds: 60, rate: 8000, title}, {seconds: 60, rate: 8000, hz: 330, title: title + ' two'}]});
+  const {page} = h;
+  await playFor(page, 0.5);
+  await page.waitForTimeout(4000);
+  const shown = await page.evaluate(() => ({...window.__wakes}));
+  assert.ok(shown['widgets/time'] > 5 && shown['widgets/waveseek'] > 1, JSON.stringify(shown));
+  const hide = on => page.evaluate(on => { Object.defineProperty(document, 'hidden', {configurable: true, get: () => on}); Object.defineProperty(document, 'visibilityState', {configurable: true, get: () => (on ? 'hidden' : 'visible')}); document.dispatchEvent(new Event('visibilitychange')); }, on);
+  await hide(true);
+  // (What was already waiting fires once, sees the page hidden, and stops; a title's scroll under way
+  // ends first here, where animation frames run on: a hidden page has none.)
+  await page.waitForTimeout(9000);
+  const a = await page.evaluate(() => ({...window.__wakes}));
+  await page.waitForTimeout(6000);
+  const b = await page.evaluate(() => ({...window.__wakes}));
+  assert.deepEqual(b, a, 'no wake-ups while hidden');
+  assert.equal(await page.evaluate(() => window.__cp.player.audio.paused), false, 'it plays on');
+  // Shown again: the clock and the seek bar follow the song.
+  await hide(false);
+  const f0 = await page.evaluate(() => window.__cp.ctx.root.findViewById('waveseek').fraction);
+  await page.waitForTimeout(2500);
+  const c = await page.evaluate(() => ({...window.__wakes}));
+  assert.ok(c['widgets/time'] > b['widgets/time'] + 3, JSON.stringify({b, c}));
+  assert.ok(await page.evaluate(() => window.__cp.ctx.root.findViewById('waveseek').fraction) > f0);
+  assert.deepEqual(h.errors, []);
+});

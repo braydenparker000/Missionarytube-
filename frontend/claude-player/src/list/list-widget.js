@@ -389,6 +389,7 @@ export class MarqueeFastTextView extends FastTextView {
     clearTimeout(this._mqTimer);
     cancelAnimationFrame(this._mqRaf);
     this._mqTimer = this._mqRaf = 0;
+    this._mqParked = undefined;
   }
 
   restartMarquee() {
@@ -402,10 +403,26 @@ export class MarqueeFastTextView extends FastTextView {
     this._mqTimer = setTimeout(() => {
       this._mqTimer = 0;
       if (!this.over) return;
-      if (!this.isShownNow()) { this.wait(at); return; }
+      if (!this.isShownNow()) { this.park(at); return; }
       this.firstPass = false;
       this.scrollTo(at === 0 ? -this.over : 0);
     }, ms);
+  }
+
+  /**
+   * Not shown (another screen, a list row let go, the page hidden): no timer
+   * runs; it goes on when the view is drawn again or the page shows.
+   */
+  park(at) {
+    this._mqParked = at;
+    if (document.hidden) document.addEventListener('visibilitychange', () => this.unpark(), {once: true});
+  }
+
+  unpark() {
+    if (this._mqParked === undefined || this._mqTimer || this._mqRaf || !this.over) return;
+    const at = this._mqParked;
+    this._mqParked = undefined;
+    this.wait(at);
   }
 
   scrollTo(target) {
@@ -431,6 +448,7 @@ export class MarqueeFastTextView extends FastTextView {
   draw() {
     super.draw();
     this.applyScroll();
+    this.unpark();
   }
 
   /** Clips the line to the text box and offsets its glyphs by the scroll. */

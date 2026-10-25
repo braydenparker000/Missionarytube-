@@ -40,6 +40,7 @@ const headsLoaded = (async () => {
   try { const list = await (await (await caches.open(HEADS)).match(HEADS_INDEX))?.json(); if (Array.isArray(list) && !told) heads = new Map(list); } catch { /* none yet */ }
   headsKnown = true;
 })();
+// (The page's 'ping' every 20 s while in use needs no answer: a message keeps the worker from being stopped.)
 self.addEventListener('message', e => { if (e.data?.type === 'heads' && Array.isArray(e.data.list)) { heads = new Map(e.data.list); told = headsKnown = true; } });
 
 /** The part of a song's range request its head or tail covers: [start, end or null], or null. */
