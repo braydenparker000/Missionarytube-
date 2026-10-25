@@ -43,14 +43,17 @@ export function libraryOf(tracks) {
         id, audioKey: 'native/audio/' + id, size: bytes.length, sha256: '0'.repeat(64), md5: '0'.repeat(32), mimeType: 'audio/wav',
         r2Identity: {lastModified: '2026-10-01T00:00:00Z'}, path: `Lab/${t.album ?? 'Tones'}/${String(t.track ?? i + 1).padStart(2, '0')} ${t.title ?? 'Tone ' + (i + 1)}.wav`, folder: 'Cloudflare R2/Lab',
         metadata: {title: t.title ?? 'Tone ' + (i + 1), artist: 'Audio Lab', album: t.album ?? 'Tones', track: t.track ?? i + 1, disc: 1, dur: t.seconds ?? 8, sr: t.rate ?? 48000, ch: 2, codec: 'wav', bits: 16},
+        ...(t.waveform ? {waveformBars: true} : {}),
       },
+      waveform: t.waveform ?? null,
     };
   });
 }
 
 /**
  * Opens the player: frontend/ served locally, the Worker answered from the
- * fixture (index, audio with byte ranges, 404 for covers and waveforms).
+ * fixture (index, audio with byte ranges, a track's waveform bytes when it
+ * has them as the Worker serves them, 404 for covers).
  * Returns the page, page errors and the audio requests seen (with the bytes each was answered with).
  */
 export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 390, audioDelayMs = 0, workletDelayMs = 0, init = null} = {}) {
@@ -85,6 +88,8 @@ export async function openPlayer(t, {tracks = [{}, {}, {}], query = '', width = 
   await page.route(WORKER + '/**', async route => {
     const req = route.request(), url = new URL(req.url());
     if (url.pathname === '/music/library.json') return route.fulfill({status: 200, headers: {...cors, 'Content-Type': 'application/json'}, body: JSON.stringify({version: 1, kind: 'r2-library', tracks: lib.map(x => x.record)})});
+    const w = /^\/music\/library\/waveform\/(r2_[\w-]+)$/.exec(url.pathname), wave = w && byId.get(w[1])?.waveform;
+    if (wave) return route.fulfill({status: 200, headers: {...cors, 'Content-Type': 'application/octet-stream'}, body: Buffer.from(wave)});
     const m = /^\/music\/library\/audio\/(r2_[\w-]+)$/.exec(url.pathname);
     const item = m && byId.get(m[1]);
     if (!item) return route.fulfill({status: 404, headers: cors, body: ''});

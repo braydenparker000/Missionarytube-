@@ -21,7 +21,7 @@ const isRemoteArt = key => /^(https:|embedded:)/.test(key);
 const cacheKey = key => (key.startsWith('embedded:') ? new URL('covers/embedded/' + encodeURIComponent(key.slice(9)), location.href).href : key);
 
 // Per-track listening data for remote tracks (state store, key u:<id>).
-const USER_FIELDS = ['wave', 'durationMs', 'plays', 'lastPlayed', 'rating'];
+const USER_FIELDS = ['wave', 'waveSrc', 'durationMs', 'plays', 'lastPlayed', 'rating'];
 
 export class Library {
   constructor(ctx) {
@@ -74,8 +74,11 @@ export class Library {
   withUserData(list) {
     for (const t of list) {
       const u = this.userData.get(t.id);
-      // The index's own waveform wins over one stored from an earlier source.
-      if (u) for (const k of USER_FIELDS) if (u[k] !== undefined && !(k === 'wave' && (t.waveB64 || t.wave))) t[k] = u[k];
+      // The index's own waveform wins over one stored from an earlier source. A
+      // stored copy of a served waveform without waveSrc was reduced to peak
+      // bars (Oct 24-25) and is fetched again.
+      const stale = k => k === 'wave' && (t.waveB64 || t.wave || (t.waveUrl && !u.waveSrc));
+      if (u) for (const k of USER_FIELDS) if (u[k] !== undefined && !stale(k)) t[k] = u[k];
       t.meta = trackMetaLabel(t);
       // Remote covers: the Worker's image, else the audio file's embedded cover (artFor).
       if (t.remote) t.artId = t.artUrl || 'embedded:' + t.id;
@@ -403,7 +406,10 @@ export class Library {
         if (t.waveUrl && !this.waveRefresh) this.waveRefresh = this.refreshR2({force: true});
         return null;
       }
-      t.wave = peaksToBars(w.peaks, bars);
+      // Plain bars are the index's waveform as it was inline (one level per
+      // bar, the seek bar samples them); a DCW1 file is reduced to bars.
+      t.wave = w.durationMs ? peaksToBars(w.peaks, bars) : Array.from(w.peaks, x => Math.round((x / 255) * 1000) / 1000);
+      t.waveSrc = w.durationMs ? 'dcw1' : 'bars';
       await this.saveTrack(t);
       return t.wave;
     }
