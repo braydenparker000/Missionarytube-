@@ -76,6 +76,9 @@ test('the lab renders the real playback chain offline and measures it', {skip: !
     assert.ok(m.inStartDb < -25, `${name}: incoming starts at ${m.inStartDb} dB`);
     assert.ok(Math.abs(m.inMidDb + 3) < 1.5 && Math.abs(m.outMidDb + 3) < 1.5, `${name}: midpoint ${m.inMidDb} / ${m.outMidDb} dB`);
   }
+  // A new track slow to start (3 s): the old one does not play on meanwhile (it waited 4 s); the new one plays when it comes.
+  const slow = by['next-xfade-slow'];
+  assert.ok(slow.waitDb > -1 && slow.goneDb < -60 && slow.newDb > -1, `slow start: ${JSON.stringify({wait: slow.waitDb, gone: slow.goneDb, new: slow.newDb})}`);
   // Picked again before the new track sounded: the first track played on until the newest one sounded.
   assert.ok(by['pick-twice'].waitDb > -0.5, `pick twice: ${by['pick-twice'].waitDb} dB while waiting`);
   // The next track was preloaded: no silence between tracks, even with 300 ms to a stream's first audio.

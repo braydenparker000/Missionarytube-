@@ -462,8 +462,8 @@ test('a skip to a song that is slow to start does not leave the old one playing:
     while (!old.paused && performance.now() - t0 < 6000) await new Promise(r => setTimeout(r, 20));
     return {oldStoppedMs: Math.round(performance.now() - t0), newSounding: !p.audio.paused && p.audio.currentTime > 0.05};
   });
-  // The wait for the new song (200 ms), its 400 ms short cross-fade out, and the deck let go; it waited 4 s before.
-  assert.ok(r.oldStoppedMs < 1200, `the old song played on ${r.oldStoppedMs} ms after the skip`);
+  // The wait for the new song (500 ms), its 400 ms short cross-fade out, and the deck let go; it waited 4 s before.
+  assert.ok(r.oldStoppedMs < 1500, `the old song played on ${r.oldStoppedMs} ms after the skip`);
   assert.equal(r.newSounding, false);
   // The network answers: the new song plays.
   h.net.release();

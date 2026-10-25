@@ -293,9 +293,10 @@ said it was playing. The player now handles the rest:
     worker is installed (a first visit), songs stream as before.
   - The playback log shows them (*Next songs' first seconds*).
 - **A skip** cross-fades the playing song out over the short cross-fade
-  (400 ms) as the new one starts. The old song waits at most 200 ms for the
-  new one's first sound (a song with its head on the phone sounds within it,
-  and the two cross-fade exactly), then fades out regardless. Before, it
+  (400 ms) as the new one starts. The old song waits at most 500 ms for the
+  new one's first sound (a song with its head on the phone, or a usual
+  network, sounds within it, and the two cross-fade exactly), then fades out
+  regardless. Before, it
   waited up to 4 s: a skip to a song not on the phone (Data saver, a song
   picked from a list, a weak signal) left the old song playing about 4.4 s,
   then silence until the new one arrived (live check, slow 4G).

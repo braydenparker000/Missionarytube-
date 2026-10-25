@@ -49,9 +49,9 @@ const PRELOAD_S = 30, LISTENED_S = 30;
 // The songs ahead whose first seconds are kept ready (library/heads.js).
 const HEADS_AHEAD = 3;
 // A manual track change: the outgoing track waits at most this long for the incoming one to sound
-// before it fades out (with the incoming track's start on the phone it sounds within it, and the
-// two cross-fade exactly) (ms).
-const MANUAL_WAIT_MS = 200;
+// before it fades out (ms). A start on the phone (a head) or a usual network sounds within it, and
+// the two cross-fade exactly; a slower one does not leave the old track playing meanwhile.
+const MANUAL_WAIT_MS = 500;
 // Gapless: the preloaded next track starts this long before the playing one ends, held in the engine (s).
 const SPLICE_LEAD = 0.5;
 // Half the length of Chrome's resampler kernel (SincResampler, 64 taps for Web Audio's requests), in input frames.
