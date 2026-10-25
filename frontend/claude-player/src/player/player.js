@@ -4,7 +4,7 @@
 import {trackTitle, artistLabel, albumLabel} from '../library/labels.js';
 import {DeckFader, DECLICK_MS, fadePrefs, gaplessPair, replayGainOf, AUTO_NONE, AUTO_NON_GAPLESS, AUTO_SHUFFLED, MANUAL_SHORT, MANUAL_CROSSFADE} from './fades.js';
 import {listKeyOf, categoryKey, KEEP_TRACK} from '../library/list-memory.js';
-import {offlinePlan} from '../library/audio-cache.js';
+import {offlinePlan, offlineAhead} from '../library/audio-cache.js';
 import {StreamGuard} from './stream-guard.js';
 
 // Reference mode enums (integers SHUFFLE_* / REPEAT_*).
@@ -169,6 +169,8 @@ export class Player {
     // ReplayGain settings apply to the playing track at once.
     ctx.bus.subscribe('bus_app', (msg, src, d) => {
       if (msg === 'msg_app_setting_changed' && /^rg_/.test(d?.key ?? '') && this.audio && this.isMedia(this.track)) this.ctx.dsp?.setReplayGain?.(this.audio, replayGainOf(this.ctx, this.track));
+      // Data saver on: downloads ahead stop at once; off: they follow the queue again.
+      if (msg === 'msg_app_setting_changed' && d?.key === 'cp_data_saver') this.wantOffline();
     });
     ctx.player = this;
   }
@@ -657,7 +659,7 @@ export class Player {
     let same = p && next && (p.track === next || p.track.id === next.id);
     // Its offline copy has arrived since it preloaded from the stream: the idle deck takes the copy
     // (on a metered connection the streamed start stays: it is paid for).
-    const cache = this.ctx.audioCache, metered = !offlinePlan().current;
+    const cache = this.ctx.audioCache, metered = !this.offlinePlan().current;
     if (same && !metered && p.url && /^https?:/.test(p.url) && cache?.has(p.url)) same = false;
     if (p && !same) this.unload(p.el);
     if (same || !next || next === t || !this.isMedia(next) || (next.cueOf && next.cueOf === t.cueOf) || next.id === this.preloadFailed) return;
@@ -723,6 +725,11 @@ export class Player {
     try { if (this.repeat === REPEAT_SONG || this.repeat === SINGLE_SONG) this.step(1); else this.advance(); } finally { this.advancing = false; }
   }
 
+  /** How far ahead copies are kept: none with Data saver (Settings › Misc), else the playback log's choice. */
+  offlinePlan() {
+    return offlinePlan(undefined, this.ctx.pref?.('cp_data_saver') === true ? 'off' : offlineAhead());
+  }
+
   /** The playing track has been listened to (LISTENED_S, or its last LISTENED_S): its offline copies may download. */
   checkListened() {
     if (this.listenedToken === this.loadToken || !(this.positionMs() >= LISTENED_S * 1000 || this.timeLeft() <= LISTENED_S)) return;
@@ -740,7 +747,7 @@ export class Player {
   wantOffline() {
     const cache = this.ctx.audioCache;
     if (!cache?.available) return;
-    const plan = offlinePlan(), listened = this.listenedToken === this.loadToken, remote = x => x && /^https?:/.test(x.src || '');
+    const plan = this.offlinePlan(), listened = this.listenedToken === this.loadToken, remote = x => x && /^https?:/.test(x.src || '');
     let list = [];
     if (plan.current && listened && remote(this.track)) list.push(this.track);
     for (let k = 1; k <= plan.ahead; k++) { const x = this.trackAt(k); if (remote(x) && x !== this.track) list.push(x); }

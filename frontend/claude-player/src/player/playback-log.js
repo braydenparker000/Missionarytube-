@@ -246,7 +246,7 @@ export class PlaybackLog {
     row(media, 'recovery', 'Recovery');
     row(media, 'offline', 'Offline copies');
     // How far ahead copies are saved (per device); tapping cycles the choices and applies at once.
-    const aheadText = () => ({few: 'A few tracks: on Wi-Fi the playing one and the next 3, on mobile data the next one', next: 'The next track only', off: 'None: tracks stream as they play'})[offlineAhead()] + '\nOnce a song has played 30 s (skipped songs cost none)';
+    const aheadText = () => this.ctx.pref?.('cp_data_saver') === true ? 'None: Data saver is on (Settings › Misc)' : ({few: 'A few tracks: on Wi-Fi the playing one and the next 3, on mobile data the next one', next: 'The next track only', off: 'None: tracks stream as they play'})[offlineAhead()] + '\nOnce a song has played 30 s (skipped songs cost none)';
     row(media, 'offlineAhead', 'Save ahead for offline', () => {
       setOfflineAhead(AHEAD_MODES[(AHEAD_MODES.indexOf(offlineAhead()) + 1) % AHEAD_MODES.length]);
       rows.get('offlineAhead').textContent = aheadText();

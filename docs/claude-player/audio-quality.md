@@ -278,7 +278,9 @@ said it was playing. The player now handles the rest:
       streams.
     - *The next track only*.
     - *None*.
-  - With Data Saver, none.
+  - With *Data saver* (Settings › Misc › Data, this app's own switch) or the
+    browser's Data Saver, none: only the next song preloads, 30 s before it
+    plays.
   - Skipping three songs 3 s in each (Chrome test, 7 one-minute tracks):
     7 whole copies and 13.2 tracks' worth downloaded before; now no copies
     and 5.0 tracks' worth. That is the 4 songs started, which Chrome reads
