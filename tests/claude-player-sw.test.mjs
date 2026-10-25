@@ -92,6 +92,8 @@ test('a navigation is fetched as it came, with no options', async () => {
 
 test('media, range requests and other origins are left to the browser', async () => {
   const w = worker(async () => response('x'));
+  // (Once the worker knows the song heads: until then range requests wait for them, below.)
+  await new Promise(r => setTimeout(r, 0));
   assert.equal(await w.dispatch({method: 'GET', url: 'https://jarvis-hub-api.example/music/library/audio/r2_a', mode: 'cors', headers: new Headers()}), null);
   assert.equal(await w.dispatch({method: 'GET', url: SCOPE + 'src/app.js', mode: 'cors', headers: new Headers({range: 'bytes=0-'})}), null);
   assert.equal(await w.dispatch({method: 'POST', url: SCOPE + 'src/app.js', mode: 'cors', headers: new Headers()}), null);
@@ -174,10 +176,17 @@ test('a head gone from storage: the request goes to the network as it came, and 
   assert.equal(await w.get('bytes=0-'), null);
 });
 
-test('a worker that starts again knows the heads from their index, until the page tells it more', async () => {
+test('a worker Chrome starts again for a request answers it from the heads\' index (read first)', async () => {
+  // A skip minutes into a song: the worker was stopped while idle, and starts for the request.
   const w = songWorker({index: true});
-  await new Promise(r => setTimeout(r, 10));
   assert.equal((await w.get('bytes=0-')).headers['Content-Range'], 'bytes 0-99/1000');
-  w.tell([]);
-  assert.equal(await w.get('bytes=0-'), null);
+  assert.equal(w.calls.length, 0);
+  // A range the heads do not cover, asked meanwhile, goes to the network as it came.
+  const late = songWorker({index: true});
+  assert.equal((await late.get('bytes=500-')).body, 'network');
+  assert.equal(late.calls[0][0].headers.get('range'), 'bytes=500-');
+  // Then requests the heads do not cover are left alone again, and the page's word replaces the index.
+  assert.equal(await late.get('bytes=500-'), null);
+  late.tell([]);
+  assert.equal(await late.get('bytes=0-'), null);
 });

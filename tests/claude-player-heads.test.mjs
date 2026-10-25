@@ -21,7 +21,8 @@ function memoryCaches() {
       const m = store(name);
       return {
         match: async u => { const b = m.get(String(u)); return b ? new Response(b) : undefined; },
-        put: async (u, r) => { m.set(String(u), new Uint8Array(await r.arrayBuffer())); },
+        put: async (u, r) => { if (stores.full?.(String(u))) throw new DOMException('quota', 'QuotaExceededError'); m.set(String(u), new Uint8Array(await r.arrayBuffer())); },
+        keys: async () => [...m.keys()].map(u => ({url: u})),
         delete: async u => m.delete(String(u)),
       };
     },
@@ -30,16 +31,16 @@ function memoryCaches() {
 
 /** Songs of the given sizes served with byte ranges; requests are logged, and can be held or refused. */
 function network(sizes) {
-  const log = [], gates = new Map(), refused = new Set();
+  const log = [], gates = new Map(), refused = new Set(), changed = new Set();
   const fetch = async (u, init) => {
     const [, a, b] = /^bytes=(\d+)-(\d+)$/.exec(init.headers.Range);
     log.push({url: u, range: init.headers.Range, priority: init.priority});
     if (gates.has(u)) await new Promise((resolve, reject) => { gates.get(u).push(resolve); init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))); });
     if (refused.has(u)) return new Response('', {status: 503});
     const end = Math.min(+b, sizes[u] - 1), body = Uint8Array.from({length: end - +a + 1}, (_, i) => (+a + i) % 251);
-    return new Response(body, {status: 206, headers: {'content-range': `bytes ${a}-${end}/${sizes[u]}`}});
+    return new Response(body, {status: 206, headers: {'content-range': `bytes ${a}-${end}/${sizes[u] + (changed.has(u) ? 1 : 0)}`}});
   };
-  return {fetch, log, refused, hold: u => gates.set(u, []), let: u => { for (const go of gates.get(u) ?? []) go(); gates.delete(u); }};
+  return {fetch, log, refused, changed, hold: u => gates.set(u, []), let: u => { for (const go of gates.get(u) ?? []) go(); gates.delete(u); }};
 }
 
 function make(net) {
@@ -138,4 +139,57 @@ test('a server that ignores the range: the first bytes of its whole response are
 test('without a service worker to serve them there are none', () => {
   const heads = new AudioHeads({caches: memoryCaches(), fetch: async () => {}, worker: () => ({controller: null})});
   assert.equal(heads.available, false);
+});
+
+test('the playing song\'s head stays while it plays, without downloading; then it goes', async () => {
+  const net = network(sizes), {heads, caches} = make(net);
+  await heads.want([1, 2, 3].map(n => headOf(track(n))));
+  // Song 1 starts: its head stays (a reload or a seek back starts from it), and none downloads for a playing song that had none.
+  await heads.want([2, 3, 4].map(n => headOf(track(n))), url(1));
+  assert.deepEqual([...heads.kept.keys()].sort(), [1, 2, 3, 4].map(url).sort());
+  assert.equal(heads.summary().kept, 3);
+  await heads.want([3, 4, 5].map(n => headOf(track(n))), url(2));
+  assert.deepEqual([...heads.kept.keys()].sort(), [2, 3, 4, 5].map(url).sort());
+  await heads.want([4, 5].map(n => headOf(track(n))), url(9));
+  assert.equal(net.log.filter(q => q.url === url(9)).length, 0);
+  assert.deepEqual(kept(caches), [4, 5].flatMap(n => [url(n), url(n) + '?cp-tail']).sort());
+});
+
+test('nothing of a head that could not be stored stays (storage full on its tail), and stray entries go when the page starts', async () => {
+  const net = network(sizes), {heads, caches, worker} = make(net);
+  caches.stores.full = u => u === url(2) + '?cp-tail';
+  await heads.want([1, 2].map(n => headOf(track(n))));
+  assert.deepEqual(kept(caches), [url(1), url(1) + '?cp-tail']);
+  assert.equal(heads.summary().failures, 1);
+  // A page closed between storing a head and listing it.
+  caches.stores.full = null;
+  caches.stores.get(HEADS).set(url(7), new Uint8Array(5));
+  const again = new AudioHeads({caches, fetch: net.fetch, worker: () => worker, scope: 'https://site.test/claude-player/'});
+  await again.ready;
+  assert.deepEqual(kept(caches), [url(1), url(1) + '?cp-tail']);
+});
+
+test('bytes of a different file than the index describes (changed since) are not kept', async () => {
+  const net = network(sizes), {heads, caches} = make(net);
+  net.changed.add(url(1));
+  await heads.want([1, 2].map(n => headOf(track(n))));
+  assert.deepEqual([...heads.kept.keys()], [url(2)]);
+  assert.equal(caches.stores.get(HEADS).has(url(1)), false);
+});
+
+test('songs wanted just as the downloads finish still download', async () => {
+  const net = network(sizes), {heads} = make(net);
+  const first = heads.want([headOf(track(1))]);
+  await first;
+  // The run has just ended: a want now starts a new one, at once.
+  await heads.want([1, 2].map(n => headOf(track(n))));
+  assert.deepEqual([...heads.kept.keys()], [url(1), url(2)]);
+  // And one made while the last download is storing.
+  net.hold(url(3));
+  const busy = heads.want([1, 2, 3].map(n => headOf(track(n))));
+  await new Promise(r => setTimeout(r, 0));
+  const more = heads.want([1, 2, 3, 4].map(n => headOf(track(n))));
+  net.let(url(3));
+  await busy; await more; await heads.pumping;
+  assert.deepEqual([...heads.kept.keys()], [1, 2, 3, 4].map(url));
 });

@@ -227,14 +227,17 @@ test('the copies kept under the old default go once; chosen ones stay', async ()
   c.want([url(1), url(2)].map(u => ({url: u, bytes: MB})));
   await c.pump();
   assert.equal(c.summary().ready, 2);
-  // The update: no mode was ever chosen, so the old default's copies go.
-  await retireDefaultCopies(c, storage);
+  // Not while offline: they may be all there is to play.
+  await retireDefaultCopies(c, storage, () => false);
+  assert.equal(c.summary().ready, 2);
+  // The update, online: no mode was ever chosen, so the old default's copies go.
+  await retireDefaultCopies(c, storage, () => true);
   assert.deepEqual([c.has(url(1)), c.has(url(2))], [false, false]);
   // Once: copies saved since, by choice, stay.
   setOfflineAhead('few', storage);
   c.want([{url: url(1), bytes: MB}]);
   await c.pump();
-  await retireDefaultCopies(c, storage);
+  await retireDefaultCopies(c, storage, () => true);
   assert.equal(c.has(url(1)), true);
   // A device that chose a mode before the update keeps its copies.
   const chosen = memoryStorage();
@@ -242,6 +245,6 @@ test('the copies kept under the old default go once; chosen ones stay', async ()
   const d = make(net, {storage: chosen});
   d.want([{url: url(2), bytes: MB}]);
   await d.pump();
-  await retireDefaultCopies(d, chosen);
+  await retireDefaultCopies(d, chosen, () => true);
   assert.equal(d.has(url(2)), true);
 });

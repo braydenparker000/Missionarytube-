@@ -25,15 +25,14 @@ export function offlineAhead(storage = globalThis.localStorage) {
 
 /**
  * Whole copies stopped being the default: the ones a device kept under the
- * old default go once (not when a mode was chosen in the playback log).
+ * old default go once (not when a mode was chosen in the playback log, and
+ * not while offline, when they may be all there is to play).
  */
-export async function retireDefaultCopies(cache, storage = globalThis.localStorage) {
-  try {
-    if (storage.getItem(AHEAD_KEY) || storage.getItem(RETIRED_KEY)) return;
-    storage.setItem(RETIRED_KEY, '1');
-  } catch { return; }
+export async function retireDefaultCopies(cache, storage = globalThis.localStorage, online = () => globalThis.navigator?.onLine !== false) {
+  try { if (storage.getItem(AHEAD_KEY) || storage.getItem(RETIRED_KEY) || !online()) return; } catch { return; }
   await cache.ready?.catch?.(() => {});
   if (cache.index?.size) await cache.clear();
+  try { storage.setItem(RETIRED_KEY, '1'); } catch { /* storage unavailable */ }
 }
 
 export function setOfflineAhead(mode, storage = globalThis.localStorage) {

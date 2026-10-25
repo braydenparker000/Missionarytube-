@@ -761,7 +761,8 @@ export class Player {
   /**
    * The first HEAD_S of the songs that come next (HEADS_AHEAD; with Data
    * saver the next one), so a skip starts from the phone: a few hundred KB
-   * each, not whole songs. Songs with a whole copy need none.
+   * each, not whole songs. Songs with a whole copy need none. The playing
+   * song's head, if it had one, stays while it plays (a reload, a seek back).
    */
   wantHeads() {
     const heads = this.ctx.audioHeads;
@@ -772,13 +773,17 @@ export class Player {
       // (A CUE track further into its file would not start from the file's head.)
       if (x && x !== this.track && !rangeStart(x) && !this.ctx.audioCache?.has(x.src)) list.push(headOf(x));
     }
-    heads.want(list);
+    heads.want(list, this.track?.src ?? null);
   }
 
   /** The heads wait ms (a starting song needs the bandwidth), then follow what comes next. */
   headsSoon(ms) {
+    // A later update already waiting (a song starting) stays: it reads the queue then.
+    const due = performance.now() + ms;
+    if (this.headsTimer && this.headsDue > due) return;
     clearTimeout(this.headsTimer);
-    this.headsTimer = setTimeout(() => this.wantHeads(), ms);
+    this.headsDue = due;
+    this.headsTimer = setTimeout(() => { this.headsTimer = 0; this.wantHeads(); }, ms);
   }
 
   /** The copies wait ms (a starting track needs the bandwidth), then follow what comes next. */

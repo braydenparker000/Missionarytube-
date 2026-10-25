@@ -43,43 +43,63 @@ export class AudioHeads {
   }
 
   async load() {
-    try { const list = await (await (await this.caches.open(HEADS)).match(this.indexUrl))?.json(); if (Array.isArray(list)) this.kept = new Map(list); } catch { /* none yet */ }
+    try {
+      const cache = await this.caches.open(HEADS), list = await (await cache.match(this.indexUrl))?.json();
+      if (Array.isArray(list)) this.kept = new Map(list);
+      // What the index does not list (a page closed while storing one) goes.
+      const listed = new Set([this.indexUrl, ...[...this.kept.keys()].flatMap(u => [u, tailKey(u)])]);
+      for (const req of await cache.keys()) if (!listed.has(req.url)) await cache.delete(req.url);
+    } catch { /* none yet */ }
   }
 
-  /** The heads to keep, in order (the next songs); others go, and missing ones download. */
-  async want(list) {
+  /**
+   * The heads to keep, in order (the next songs); others go, and missing ones
+   * download. The playing song's head (keep) stays while it plays, for a
+   * reload or a seek back, but does not download.
+   */
+  async want(list, keep = null) {
     await this.ready;
     this.wanted = list.filter(Boolean);
+    this.keep = keep;
     // The songs ahead changed: ones that failed before are tried again.
     this.failed.clear();
-    const wanted = url => this.wanted.some(w => w.url === url);
+    // (By what is wanted now, at each step: a later call may change it meanwhile.)
+    const wanted = url => url === this.keep || this.wanted.some(w => w.url === url);
     if (this.busy && !wanted(this.busy.url)) this.busy.abort.abort();
     let changed = false;
     const cache = await this.caches.open(HEADS).catch(() => null);
-    // (By what is wanted now: a later call may have changed it meanwhile.)
     for (const url of [...this.kept.keys()]) {
       if (wanted(url)) continue;
       this.kept.delete(url);
       changed = true;
-      await cache?.delete(url).catch(() => {});
-      await cache?.delete(tailKey(url)).catch(() => {});
+      for (const key of [url, tailKey(url)]) if (!wanted(url)) await cache?.delete(key).catch(() => {});
     }
     if (changed) await this.publish();
     return this.pump();
   }
 
-  async pump() {
+  pump() {
     if (this.pumping) return this.pumping;
-    this.pumping = (async () => {
-      for (let w; (w = this.wanted.find(x => !this.kept.has(x.url) && !this.failed.has(x.url)));) await this.download(w);
-    })().finally(() => { this.pumping = null; });
-    return this.pumping;
+    const run = (async () => {
+      await null;
+      try {
+        for (let w; (w = this.wanted.find(x => !this.kept.has(x.url) && !this.failed.has(x.url)));) await this.download(w);
+      } finally {
+        // At once, as the last one is found: a want() from now on starts a new run.
+        if (this.pumping === run) this.pumping = null;
+      }
+    })();
+    return (this.pumping = run);
   }
 
-  /** Bytes [start, end] of a song: a 206 (or the first ones of a 200, read only that far). */
-  async range(url, start, end, signal) {
+  /** Bytes [start, end] of a song of `total` bytes: a 206 for them (or the first ones of a 200, read only that far). */
+  async range(url, start, end, total, signal) {
     const r = await this.fetch(url, {headers: {Range: `bytes=${start}-${end}`}, credentials: 'omit', cache: 'no-store', priority: 'low', signal});
     if (r.status !== 206 && !(r.status === 200 && start === 0)) throw new Error('HTTP ' + r.status);
+    // Bytes of another file than the index describes (changed since), or from elsewhere in it, would be served as these.
+    // (Where the headers are readable: the Worker exposes Content-Range.)
+    const got = /^bytes (\d+)-\d+\/(\d+|\*)$/.exec(r.headers.get('content-range') ?? ''), length = r.headers.get('content-length');
+    if (r.status === 206 ? got && (+got[1] !== start || (got[2] !== '*' && +got[2] !== total)) : length !== null && +length !== total) { r.body?.cancel().catch(() => {}); throw new Error('not the indexed file'); }
     const want = end - start + 1, buf = new Uint8Array(want), reader = r.body.getReader();
     let n = 0;
     while (n < want) {
@@ -96,22 +116,25 @@ export class AudioHeads {
 
   async download(w) {
     const abort = new AbortController();
+    let cache = null;
     this.busy = {url: w.url, abort};
     try {
-      const head = await this.range(w.url, 0, w.head - 1, abort.signal);
-      const tail = w.tail ? await this.range(w.url, w.total - w.tail, w.total - 1, abort.signal) : null;
-      const cache = await this.caches.open(HEADS);
+      const head = await this.range(w.url, 0, w.head - 1, w.total, abort.signal);
+      const tail = w.tail ? await this.range(w.url, w.total - w.tail, w.total - 1, w.total, abort.signal) : null;
+      cache = await this.caches.open(HEADS);
       await cache.put(w.url, new Response(head));
       if (tail) await cache.put(tailKey(w.url), new Response(tail));
-      // No longer wanted while it was stored: it goes.
-      if (!this.wanted.some(x => x.url === w.url)) { await cache.delete(w.url); await cache.delete(tailKey(w.url)); return; }
+      // No longer wanted while it was stored (nor playing): it goes.
+      if (w.url !== this.keep && !this.wanted.some(x => x.url === w.url)) throw new Error('not wanted');
       this.kept.set(w.url, {head: w.head, tailStart: tail ? w.total - w.tail : w.total, total: w.total, type: w.type});
       this.counts.downloads++;
       this.counts.bytes += w.head + w.tail;
       await this.publish();
-    } catch {
-      // Not now (offline, aborted, refused): it is tried again when the songs ahead change.
-      if (!abort.signal.aborted) { this.counts.failures++; this.failed.add(w.url); }
+    } catch (e) {
+      // Not now (offline, aborted, refused, storage full): nothing of it stays, and it is tried again
+      // when the songs ahead change.
+      if (!this.kept.has(w.url)) for (const key of [w.url, tailKey(w.url)]) await cache?.delete(key).catch(() => {});
+      if (!abort.signal.aborted && e?.message !== 'not wanted') { this.counts.failures++; this.failed.add(w.url); }
     } finally {
       if (this.busy?.abort === abort) this.busy = null;
     }
@@ -126,6 +149,6 @@ export class AudioHeads {
 
   /** For the playback log. */
   summary() {
-    return {available: this.available, kept: this.kept.size, wanted: this.wanted.length, downloading: !!this.busy, ...this.counts};
+    return {available: this.available, kept: this.wanted.filter(w => this.kept.has(w.url)).length, wanted: this.wanted.length, downloading: !!this.busy, ...this.counts};
   }
 }

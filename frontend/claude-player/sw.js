@@ -32,13 +32,23 @@ self.addEventListener('activate', e => {
 });
 
 // The heads kept, by song URL: {head, tailStart, total, type} (bytes). From the page's messages, and
-// from the heads cache's index when the worker starts (until then songs stream as usual).
-let heads = new Map(), told = false;
+// from the heads cache's index when the worker starts. Chrome stops an idle worker and starts it again
+// for the next request (a skip minutes into a song): range requests wait for the index, a few ms.
+let heads = new Map(), told = false, headsKnown = false;
 const HEADS_INDEX = new URL('heads-index.json', self.registration.scope).href;
-(async () => {
+const headsLoaded = (async () => {
   try { const list = await (await (await caches.open(HEADS)).match(HEADS_INDEX))?.json(); if (Array.isArray(list) && !told) heads = new Map(list); } catch { /* none yet */ }
+  headsKnown = true;
 })();
-self.addEventListener('message', e => { if (e.data?.type === 'heads' && Array.isArray(e.data.list)) { heads = new Map(e.data.list); told = true; } });
+self.addEventListener('message', e => { if (e.data?.type === 'heads' && Array.isArray(e.data.list)) { heads = new Map(e.data.list); told = headsKnown = true; } });
+
+/** The part of a song's range request its head or tail covers: [start, end or null], or null. */
+function covered(req) {
+  const h = heads.get(req.url), range = h && /^bytes=(\d+)-(\d*)$/.exec(req.headers.get('range') ?? '');
+  if (!range) return null;
+  const a = +range[1], b = range[2] ? +range[2] : null;
+  return a < h.head || (a >= h.tailStart && a < h.total) ? [h, a, b] : null;
+}
 
 /** A song's byte range from its head or tail: 206 with what they hold of it (gone from storage: the network's). */
 async function fromHead(req, h, a, b) {
@@ -57,10 +67,10 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   const url = new URL(req.url);
   // A song's range request that its head or tail covers.
-  const h = req.method === 'GET' && heads.get(req.url), range = h && /^bytes=(\d+)-(\d*)$/.exec(req.headers.get('range') ?? '');
-  if (range) {
-    const a = +range[1], b = range[2] ? +range[2] : null;
-    if (a < h.head || (a >= h.tailStart && a < h.total)) { e.respondWith(fromHead(req, h, a, b)); return; }
+  if (req.method === 'GET' && req.headers.has('range')) {
+    if (!headsKnown) { e.respondWith(headsLoaded.then(() => { const c = covered(req); return c ? fromHead(req, ...c) : fetch(req); })); return; }
+    const c = covered(req);
+    if (c) { e.respondWith(fromHead(req, ...c)); return; }
   }
   // Only same-origin GETs of the app itself; never media or range requests.
   if (req.method !== 'GET' || url.origin !== self.location.origin || req.headers.has('range')) return;
