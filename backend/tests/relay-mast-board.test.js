@@ -104,3 +104,40 @@ test('the public message path keeps its own limits even when a body mentions the
   const r=await h.fixture.request('/shared/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:crypto.randomUUID(),body:'x'.repeat(4100)+V2_MARKER})});
   assert.equal(r.status,400);assert.equal((await r.json()).error,'Invalid entry');
 });
+
+test('Muse can check and preview a draft before publishing, and each edition keeps its quality score',async t=>{
+  const token=random(),h=createConversationFixture(t,{env:{RELAY_MAST_ENABLED:'true',RELAY_MAST_TOKEN_SHA256:await hash(token)}});t.after(()=>h.close());
+  const call=(path,body)=>h.fixture.request('/relay/mast/board'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token},...(body?{body:JSON.stringify(body)}:{})});
+  const today=boardDate(),report={...structuredClone(premium),id:crypto.randomUUID(),date:today,synthetic:false};
+  report.stories[1].title='Economy: '+report.stories[1].title;
+  report.stories[1].sources[0].url='https://particle.news/story/x';report.stories[1].sources[1].url='https://en.wikipedia.org/wiki/Port';
+
+  // Check: no publish, every hard error listed, quality warnings named.
+  const bad=structuredClone(report);bad.stories[0].blocks[0].type='html';
+  const failed=await (await call('/check',{report:bad})).json();
+  assert.equal(failed.ok,false);assert.match(failed.errors[0],/unsupported block type/);assert.equal(failed.quality,null);
+  const checked=await (await call('/check',{report})).json();
+  assert.equal(checked.ok,true);assert.deepEqual(checked.errors,[]);
+  const codes=checked.quality.warnings.map(w=>w.code);
+  assert.ok(codes.includes('title-prefix')&&codes.includes('weak-sources')&&codes.includes('weak-source'),codes.join());
+  assert.ok(checked.quality.score<100);
+  assert.equal((await (await call('')).json()).publishedToday,false,'a check never publishes');
+
+  // Draft: a private preview link; only its exact token reads it.
+  const saved=await call('/draft',{report});assert.equal(saved.status,201);
+  const draft=await saved.json();const preview=new URL(draft.preview);
+  assert.match(preview.pathname,/\/daily-board\/$/);const draftToken=preview.searchParams.get('draft');assert.match(draftToken,/^[a-f0-9]{64}$/);
+  const read=await h.fixture.request('/shared/board-draft?token='+draftToken);assert.equal(read.status,200);
+  assert.deepEqual((await read.json()).report,report);
+  for(const q of ['?token='+'0'.repeat(64),'?token=short','','?token='+draftToken+'&x=1'])
+    assert.equal((await h.fixture.request('/shared/board-draft'+q)).status,404,q);
+  assert.equal((await call('/draft',{report:{...report,date:'2099-01-01'}})).status,400);
+  assert.equal((await h.fixture.request('/shared/state').then(r=>r.json())).posts.some(p=>p.id===report.id),false,'a draft is not on the board');
+
+  // Publish: the score is returned and kept with the edition; the draft for that date is cleared.
+  const published=await (await call('/publish',{report})).json();
+  assert.equal(published.published,true);assert.equal(published.quality.score,checked.quality.score);
+  assert.equal((await h.fixture.request('/shared/board-draft?token='+draftToken)).status,404,'publishing clears the draft');
+  const board=await (await call('')).json();
+  assert.equal(board.recent[0].quality.score,checked.quality.score);assert.ok(board.recent[0].quality.codes.includes('weak-sources'));
+});

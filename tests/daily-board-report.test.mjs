@@ -74,3 +74,20 @@ test('the shared public reader admits v2 editions up to 50,000 characters and ke
   assert.throws(()=>validatePublicEntry(entry('x'.repeat(20001))));
   assert.throws(()=>validatePublicEntry({id:'55555555-5555-4555-8555-555555555555',role:'user',body:'x'.repeat(4001)+v2.REPORT_MARKER,createdAt:'2026-10-25T09:00:00Z'}));
 });
+
+import {assess} from '../frontend/daily-board/v2/quality.js';
+test('quality checks score an edition and name what would improve it, without blocking',()=>{
+  const clean=assess(fixture('premium'));assert.ok(clean.score>=85,String(clean.score));
+  const r=fixture('premium');
+  r.stories[0].title='Region: '+r.stories[0].title;
+  r.stories[1].sources.forEach(s=>{s.url='https://particle.news/x';});
+  r.summary='Research cutoff: 07:00. '+r.summary;
+  r.stories[0].blocks[1].items.push({label:'Extra',value:'1',asOf:'2026-10-24'});
+  r.stories[1].blocks[1].labels[0]='A very long category label';
+  r.stories[0].blocks[0].cites=undefined;
+  const codes=assess(r,{profile:{depth:'deep',lookbackHours:36}}).warnings.map(w=>w.code);
+  for(const code of ['title-prefix','weak-sources','weak-source','process-note','many-tiles','long-labels','uncited'])assert.ok(codes.includes(code),code);
+  assert.ok(assess(r).score<clean.score);
+  const stale=fixture('premium');stale.stories[0].sources.forEach(s=>{s.publishedOn='2026-09-01';});
+  assert.ok(assess(stale,{profile:{depth:'standard',lookbackHours:36}}).warnings.some(w=>w.code==='stale'));
+});

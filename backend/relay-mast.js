@@ -110,10 +110,10 @@ export async function mastAdapterPublic(request, env) {
       const body=JSON.parse(await boundedText(request,16000));input={...body,op:'work_'+url.pathname.split('/').at(-1)};
     }else if(url.pathname==='/relay/mast/board'&&request.method==='GET'&&!url.search){
       input={op:'board_read'};
-    }else if(['/relay/mast/board/publish','/relay/mast/board/profile'].includes(url.pathname)&&request.method==='POST'&&!url.search){
-      const publish=url.pathname.endsWith('/publish'),body=JSON.parse(await boundedText(request,publish?64000:32000));
-      fields(body,publish?['report']:['version','profile'],publish?['report']:['version','profile']);
-      input={...body,op:publish?'board_publish':'board_profile'};
+    }else if(['/relay/mast/board/publish','/relay/mast/board/check','/relay/mast/board/draft','/relay/mast/board/profile'].includes(url.pathname)&&request.method==='POST'&&!url.search){
+      const action=url.pathname.split('/').at(-1),report=action!=='profile',body=JSON.parse(await boundedText(request,report?64000:32000));
+      fields(body,report?['report']:['version','profile'],report?['report']:['version','profile']);
+      input={...body,op:'board_'+action};
     }else if (url.pathname==='/relay/mast/messages' && request.method==='GET') {
       if ([...url.searchParams.keys()].some(k=>k!=='after') || url.searchParams.getAll('after').length>1) fail(400,'Invalid Mast query');
       input={op:'list',after:url.searchParams.get('after')||'0'};

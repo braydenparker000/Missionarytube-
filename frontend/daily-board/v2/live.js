@@ -1,4 +1,5 @@
 import {request} from '/assets/shared-api.js';
+import {API_ORIGIN} from '/assets/config.js';
 import {renderEntry, reportFor, ZONE} from './render.js';
 
 const target = document.querySelector('#report');
@@ -127,4 +128,24 @@ async function load({retrying = false, refreshing = false} = {}) {
   }
 }
 refresh.addEventListener('click', () => load({refreshing: true}));
-await load();
+
+// A private draft preview (?draft=<token>): one edition, clearly marked, no editions strip.
+async function loadDraft(token) {
+  try {
+    const response = await fetch(`${API_ORIGIN}/shared/board-draft?token=${encodeURIComponent(token)}`, {cache: 'no-store', signal: AbortSignal.timeout(15000)});
+    const data = await response.json();
+    if (!response.ok) throw Error(data.error || 'Draft unavailable');
+    const banner = document.createElement('p'); banner.className = 'draft-banner'; banner.setAttribute('role', 'status');
+    banner.textContent = `Draft preview · not published · expires ${new Date(data.expiresAt).toLocaleString('en-GB', {timeZone: ZONE, hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short'})} Rosario time`;
+    host = document.createElement('div'); host.className = 'edition-host';
+    target.replaceChildren(banner, host);
+    renderEntry({id: data.report.id, title: data.report.title, report: data.report, createdAt: data.createdAt}, host, {date: data.report.date});
+    document.title = 'Draft · Daily Board';
+  } catch (error) {
+    const message = document.createElement('p'); message.className = 'unavailable';
+    message.textContent = /expired|exist/.test(error.message) ? 'This draft has expired or does not exist.' : 'The draft could not be loaded. Try the link again.';
+    target.replaceChildren(message);
+  } finally { target.removeAttribute('aria-busy'); }
+}
+const draft = new URLSearchParams(location.search).get('draft');
+if (draft) await loadDraft(draft); else await load();

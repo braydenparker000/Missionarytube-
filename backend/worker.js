@@ -3,6 +3,7 @@ import {agentChatPublic,agentChatStore} from './relay-agent-chat.js';
 import {makimaConnector,makimaRpc,makimaChannelStore} from './relay-makima.js';
 import {MAKIMA_OBJECT,makimaEnabled,makimaOAuthPolicy} from './relay-makima-policy.js';
 import {mastAdapterPublic, mastAdapterStore} from './relay-mast.js';
+import {readBoardDraft} from './relay-mast-board.js';
 import {connector,oauthStore} from './connector.js';
 import {sharedStore,sharedSchema,SHARED_OBJECT,validateSharedRead,readLegacyInboxPage} from './shared.js';
 import {syncPublications,importPublicationHint,seedPublicationReconciliation,nextPublicationReconciliationAt,publicationReadNeedsWake} from './publications.js';
@@ -58,7 +59,7 @@ export default {
         return new Response(response.body,{status:response.status,headers:{...headers,'Content-Type':'application/json',...(response.headers.has('Retry-After')?{'Retry-After':response.headers.get('Retry-After')}:{})}});
       }catch{return reply({error:'Import hint unavailable; use the existing reconciler'},503);}
     }
-    if(['/shared/state','/shared/changes','/shared/result','/shared/messages'].includes(path)) {
+    if(['/shared/state','/shared/changes','/shared/result','/shared/messages','/shared/board-draft'].includes(path)) {
       if((path!=='/shared/messages'&&request.method!=='GET')||(path==='/shared/messages'&&request.method!=='POST'))return reply({error:'Method not allowed'},405);
       let data;
       if(request.method==='POST'){
@@ -227,6 +228,8 @@ export class Hub {
       catch(error){return json({error:{code:error instanceof RelayError?error.code:-32603,message:error instanceof RelayError?error.message:'Relay storage unavailable',...(error instanceof RelayError&&error.data?{data:error.data}:{})}});}
     }
     if(path.startsWith('/internal/shared/')) {
+      // A Daily Board draft preview: read-only, by its private token, never cached.
+      if(path==='/internal/shared/board-draft')return request.method==='GET'?readBoardDraft(this.ctx,new URL(request.url).searchParams):json({error:'Method not allowed'},405);
       if(path==='/internal/shared/legacy-page')return request.method==='GET'?readLegacyInboxPage(this.ctx,new URL(request.url).searchParams):json({error:'Method not allowed'},405);
       if(path==='/internal/shared/reconcile-legacy'){
         await this.syncPublicRead();

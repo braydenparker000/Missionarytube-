@@ -1,15 +1,20 @@
 // Muse publishes the Daily Board straight to the Worker (no GitHub detour) and
 // keeps the owner's board brief: what to cover, how deep, how far back.
 // Mast token only; reached through mastAdapterStore, which checks it.
-import {prepareAny} from '../frontend/daily-board/v2/schema.js';
+import {prepareAny, validateReport as validateV2, SCHEMA as V2} from '../frontend/daily-board/v2/schema.js';
+import {validateReport as validateV1} from '../frontend/daily-board/v1/schema.js';
+import {assess} from '../frontend/daily-board/v2/quality.js';
 import {sharedStore,sharedSchema} from './shared.js';
 import {PRIMARY_SITE} from './origins.js';
-import {RelayError, fields} from './relay-common.js';
+import {RelayError, fields, random, equal} from './relay-common.js';
 
 export const BOARD_URL = PRIMARY_SITE + '/daily-board/';
 export const BOARD_TIMEZONE = 'America/Argentina/Cordoba';
 export const DEPTHS = ['headlines', 'standard', 'deep'];
 const PROFILE_KEY = 'board-profile';
+const DRAFT_KEY = 'board-draft';
+const QUALITY_PREFIX = 'board-quality:';
+const DRAFT_MS = 24 * 3600000;
 const BACKFILL_DAYS = 7;
 const fail = (status, message, extra) => { throw new RelayError(-32602, message, {status, ...extra}); };
 const rows = (ctx, query, ...args) => [...ctx.storage.sql.exec(query, ...args)];
@@ -53,13 +58,60 @@ export function checkProfile(p) {
   return p;
 }
 
+const meta = (ctx, key) => { const value = rows(ctx, 'SELECT value FROM shared_meta WHERE key=?', key)[0]?.value; return value ? JSON.parse(value) : null; };
+const putMeta = (ctx, key, value) => ctx.storage.sql.exec('INSERT OR REPLACE INTO shared_meta VALUES(?,?)', key, JSON.stringify(value));
+
+/** The editorial score for a v2 edition (null for v1), sharpened by the saved brief. */
+function quality(ctx, report) {
+  if (report?.schema !== V2) return null;
+  try { return assess(report, {profile: savedProfile(ctx).profile}); } catch { return null; }
+}
+
+/** Every problem that would stop a publish, without publishing. */
+function problems(report, now, {draft = false} = {}) {
+  const errors = [];
+  try {
+    if (draft) (report?.schema === V2 ? validateV2 : validateV1)(report);
+    else prepareAny(report, {reviewedPublic: true});
+  } catch (error) { errors.push('Report rejected: ' + error.message); return errors; }
+  const today = boardDate(now);
+  if (report.date > today) errors.push(`Report date ${report.date} is after today (${today}, ${BOARD_TIMEZONE})`);
+  if (report.date < shift(today, -BACKFILL_DAYS)) errors.push(`Report date ${report.date} is more than ${BACKFILL_DAYS} days old`);
+  return errors;
+}
+
+function check(ctx, report, now) {
+  const errors = problems(report, now);
+  const taken = !errors.length && rows(ctx, 'SELECT entry_id FROM shared_briefing_dates WHERE date=?', report.date)[0]?.entry_id;
+  if (taken && taken !== report.id) errors.push(`A different report is already published for ${report.date}`);
+  return json({ok: !errors.length, errors, quality: errors.length ? null : quality(ctx, report)});
+}
+
+// One private draft at a time, readable only with its token until it expires.
+function saveDraft(ctx, report, now) {
+  const errors = problems(report, now, {draft: true});
+  if (errors.length) fail(400, errors[0], {errors});
+  const token = random(), expiresAt = new Date(now + DRAFT_MS).toISOString();
+  putMeta(ctx, DRAFT_KEY, {token, report, createdAt: new Date(now).toISOString(), expiresAt});
+  return json({draft: true, preview: `${BOARD_URL}?draft=${token}`, expiresAt, quality: quality(ctx, report)}, 201);
+}
+
+/** The public read behind a preview link: the draft only with its exact, unexpired token. */
+export function readBoardDraft(ctx, params, now = Date.now()) {
+  sharedSchema(ctx);
+  const token = params.get('token') || '', draft = meta(ctx, DRAFT_KEY);
+  if (!/^[a-f0-9]{64}$/.test(token) || [...params.keys()].some(k => k !== 'token') || !draft || !equal(token, draft.token) || Date.parse(draft.expiresAt) <= now)
+    return json({error: 'This draft has expired or does not exist'}, 404);
+  return json({report: draft.report, createdAt: draft.createdAt, expiresAt: draft.expiresAt});
+}
+
 function savedProfile(ctx) {
   const value = rows(ctx, 'SELECT value FROM shared_meta WHERE key=?', PROFILE_KEY)[0]?.value;
   return value ? JSON.parse(value) : {profile: null, version: 0, updatedAt: null};
 }
 function published(ctx, from) {
   return rows(ctx, `SELECT d.date, e.id, e.title, e.created_at FROM shared_briefing_dates d JOIN shared_entries e ON e.id=d.entry_id
-    WHERE d.date>=? ORDER BY d.date DESC LIMIT 31`, from).map(r => ({date: r.date, id: r.id, title: r.title, createdAt: r.created_at}));
+    WHERE d.date>=? ORDER BY d.date DESC LIMIT 31`, from).map(r => ({date: r.date, id: r.id, title: r.title, createdAt: r.created_at, quality: meta(ctx, QUALITY_PREFIX + r.date)}));
 }
 
 /** Everything a run needs first: today's board date, what is published, the brief. */
@@ -82,8 +134,14 @@ function publish(ctx, report, now) {
     const r = rows(ctx, 'SELECT d.date, e.id, e.title, e.created_at FROM shared_entries e LEFT JOIN shared_briefing_dates d ON d.entry_id=e.id WHERE e.id=?', id)[0];
     return r && {id: r.id, date: r.date, title: r.title, createdAt: r.created_at};
   };
-  if (response.status === 201) return json({published: true, entry: view(report.id), board: BOARD_URL}, 201);
-  if (response.ok) return json({published: false, duplicate: true, entry: view(report.id), board: BOARD_URL});
+  if (response.ok) {
+    const score = quality(ctx, report);
+    if (score) putMeta(ctx, QUALITY_PREFIX + report.date, {score: score.score, warnings: score.warnings.length, codes: [...new Set(score.warnings.map(w => w.code))]});
+    if (meta(ctx, DRAFT_KEY)?.report?.date === report.date) ctx.storage.sql.exec('DELETE FROM shared_meta WHERE key=?', DRAFT_KEY);
+    return response.status === 201
+      ? json({published: true, entry: view(report.id), board: BOARD_URL, quality: score}, 201)
+      : json({published: false, duplicate: true, entry: view(report.id), board: BOARD_URL, quality: score});
+  }
   if (response.status === 409) {
     const existing = rows(ctx, 'SELECT entry_id FROM shared_briefing_dates WHERE date=?', report.date)[0]?.entry_id;
     if (existing && existing !== report.id) fail(409, `A different report is already published for ${report.date}`, {existing: view(existing)});
@@ -109,6 +167,8 @@ export function mastBoard(ctx, input, now = Date.now()) {
     if (input.op === 'board_read') { fields(input, ['op', 'token_hash']); return json(read(ctx, now)); }
     if (input.op === 'board_publish') { fields(input, ['op', 'token_hash', 'report'], ['op', 'token_hash', 'report']); return publish(ctx, input.report, now); }
     if (input.op === 'board_profile') return saveProfile(ctx, input, now);
+    if (input.op === 'board_check') { fields(input, ['op', 'token_hash', 'report'], ['op', 'token_hash', 'report']); return check(ctx, input.report, now); }
+    if (input.op === 'board_draft') { fields(input, ['op', 'token_hash', 'report'], ['op', 'token_hash', 'report']); return saveDraft(ctx, input.report, now); }
     fail(404, 'Not found');
   } catch (error) {
     if (!(error instanceof RelayError)) throw error;

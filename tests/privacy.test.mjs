@@ -143,7 +143,9 @@ const FRONTEND_PUBLIC_HOSTS = {
   'frontend/quick-ai/index.html': ['generativelanguage.googleapis.com', 'api.groq.com', 'api.tavily.com'], // unchanged deployed document policy
   'frontend/mymedia/index.html': ['i.ytimg.com'], // unchanged deployed document policy
   'frontend/youtube-archive/privacy.html': ['myaccount.google.com'], // existing account-management link
-  'docs/daily-board-premium-plan.md': ['openai.com', 'a2ui.org'] // research references in the plan
+  'docs/daily-board-premium-plan.md': ['openai.com', 'a2ui.org'], // research references in the plan
+  'backend/tests/relay-mast-board.test.js': ['particle.news', 'en.wikipedia.org'], // weak-source examples for the quality check
+  'tests/daily-board-report.test.mjs': ['particle.news'] // weak-source example for the quality check
 };
 
 function isAllowed(host, path) {
