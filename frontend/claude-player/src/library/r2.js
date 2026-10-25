@@ -58,7 +58,11 @@ export function r2Tracks(data, url = R2_LIBRARY_URL) {
     const w = m.waveform ?? t.waveform;
     if (typeof w === 'string' && w.length >= 20 && w.length <= 1400) rec.waveB64 = w;
     else if (Array.isArray(w) && decodeWave(w)) rec.wave = decodeWave(w);
-    else if (t.waveformBars === true || (t.waveformVersion ?? m.waveformVersion) === 1) rec.waveUrl = base + 'waveform/' + t.id;
+    else if (t.waveformBars === true || (t.waveformVersion ?? m.waveformVersion) === 1) {
+      rec.waveUrl = base + 'waveform/' + t.id;
+      // Loudness bins (scripts/audio/waveform.py) or the older peak bars.
+      if (t.waveformKind === 'rms') rec.waveKind = 'rms';
+    }
     out.push(rec);
   }
   return out;
@@ -95,16 +99,18 @@ export function parseDcw1(bytes) {
 }
 
 /**
- * Fetches a track's waveform (bounded size, 3 s timeout): a DCW1 file, or
- * plain bars (one peak byte per bar, 16 to 1000). Returns {durationMs, peaks}
- * (durationMs 0 for plain bars), or null when absent or invalid.
+ * Fetches a track's waveform (bounded size, 10 s timeout): a DCW1 file, or
+ * plain bars (one byte per bar, 16 to 1000). Returns {durationMs, peaks}
+ * (durationMs 0 for plain bars), {missing: true} when the server has none,
+ * or null when the request failed or the data is invalid.
  */
 export async function fetchWaveform(url) {
   const max = 16 + Math.ceil((DCW_MAX_MS * DCW_RATE) / 1000);
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), 3000);
+  const timer = setTimeout(() => ctl.abort(), 10000);
   try {
     const r = await fetch(url, {signal: ctl.signal, credentials: 'omit', referrerPolicy: 'no-referrer'});
+    if (r.status === 404 || r.status === 410) return {missing: true};
     if (!r.ok || +(r.headers.get('content-length') || 0) > max) return null;
     const reader = r.body.getReader(), chunks = [];
     let n = 0;

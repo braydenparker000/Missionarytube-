@@ -7,6 +7,7 @@ import {Playlists} from './playlists.js';
 import {ListMemory} from './list-memory.js';
 import {cueTracks} from './cue.js';
 import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars, decodeWave} from './r2.js';
+import {barsFromMeanSquares, rmsBytesToMeanSquares, loudnessFromPeaks} from './waveform.js';
 
 // Remote covers: full images in Cache Storage on first view (capped, oldest
 // out first); 256 px thumbnails made once per cover for list rows (kept).
@@ -74,10 +75,10 @@ export class Library {
   withUserData(list) {
     for (const t of list) {
       const u = this.userData.get(t.id);
-      // The index's own waveform wins over one stored from an earlier source. A
-      // stored copy of a served waveform without waveSrc was reduced to peak
-      // bars (Oct 24-25) and is fetched again.
-      const stale = k => k === 'wave' && (t.waveB64 || t.wave || (t.waveUrl && !u.waveSrc));
+      // The index's own waveform wins over one stored from an earlier source;
+      // a stored copy of a served waveform made another way (an older kind or
+      // drawing) is fetched again.
+      const stale = k => k === 'wave' && (t.waveB64 || t.wave || (t.waveUrl && u.waveSrc !== waveSrcFor(t)));
       if (u) for (const k of USER_FIELDS) if (u[k] !== undefined && !stale(k)) t[k] = u[k];
       t.meta = trackMetaLabel(t);
       // Remote covers: the Worker's image, else the audio file's embedded cover (artFor).
@@ -86,9 +87,9 @@ export class Library {
     return list;
   }
 
-  /** Decodes a track's inline index waveform on first use. */
+  /** Decodes a track's inline index waveform (peak bars) on first use. */
   ensureWave(t) {
-    if (t && !t.wave && t.waveB64) t.wave = decodeWave(t.waveB64);
+    if (t && !t.wave && t.waveB64) { const w = decodeWave(t.waveB64); if (w) t.wave = loudnessFromPeaks(w); }
     return t?.wave ?? null;
   }
 
@@ -386,38 +387,59 @@ export class Library {
   }
 
   /**
-   * Waveform for the seek bar: per-bar peak levels normalised to the loudest
-   * bar, from a low-rate mono decode (the reference's native scanner is not
-   * available; this is an approximation). Cached in the track record.
+   * Waveform for the seek bar, the reference's way (waveform.js): a library
+   * track's served loudness bins, or its older peak bars until they are
+   * replaced; an imported file or CUE track measured here. Cached in the
+   * track record. One request per track at a time.
    */
-  async waveFor(t, bars = 100) {
-    if (this.ensureWave(t)) return t.wave;
+  waveFor(t, bars = 100) {
+    if (this.ensureWave(t)) return Promise.resolve(t.wave);
+    this.waveJobs ??= new Map();
+    let job = this.waveJobs.get(t.id);
+    if (!job) {
+      job = this.measureWave(t, bars).finally(() => this.waveJobs.delete(t.id));
+      this.waveJobs.set(t.id, job);
+    }
+    return job;
+  }
+
+  async measureWave(t, bars) {
     if (t.cueOf) return this.cueWave(t, bars);
     if (!this.byId.has(t.id)) return null;
     // Remote tracks only use pre-generated waveforms (a small file on R2):
     // decoding would download the whole song.
     if (t.remote) {
-      const w = t.waveUrl ? await fetchWaveform(t.waveUrl) : null;
-      if (!w) {
-        // A snapshot from an older index points at waveform files the
-        // current one may no longer have (it carries them inline): the
-        // index is fetched again once a session; the player then takes the
-        // new records (adoptRecords).
-        if (t.waveUrl && !this.waveRefresh) this.waveRefresh = this.refreshR2({force: true});
+      if (!t.waveUrl) return null;
+      // The song's own download competes on a slow line: tries again twice.
+      let w = null;
+      for (const wait of [0, 2000, 6000]) {
+        if (wait) await new Promise(r => setTimeout(r, wait));
+        w = await fetchWaveform(t.waveUrl);
+        if (w) break;
+      }
+      if (!w || w.missing) {
+        // A snapshot from an older index can point at waveform files the
+        // current one no longer has: the index is fetched again once a
+        // session; the player then takes the new records (adoptRecords).
+        if (w?.missing && !this.waveRefresh) this.waveRefresh = this.refreshR2({force: true});
         return null;
       }
-      // Plain bars are the index's waveform as it was inline (one level per
-      // bar, the seek bar samples them); a DCW1 file is reduced to bars.
-      t.wave = w.durationMs ? peaksToBars(w.peaks, bars) : Array.from(w.peaks, x => Math.round((x / 255) * 1000) / 1000);
-      t.waveSrc = w.durationMs ? 'dcw1' : 'bars';
+      if (t.waveKind === 'rms' && !w.durationMs) t.wave = barsFromMeanSquares(rmsBytesToMeanSquares(w.peaks), bars);
+      else t.wave = loudnessFromPeaks(w.durationMs ? peaksToBars(w.peaks, bars) : Array.from(w.peaks, x => x / 255));
+      t.waveSrc = waveSrcFor(t);
       await this.saveTrack(t);
       return t.wave;
     }
-    const p = await this.filePeaks(t.id, () => bars);
+    const p = await this.fileMeanSquares(t.id);
     if (!p) return null;
-    t.wave = normalizePeaks(p.peaks);
+    t.wave = barsFromMeanSquares(p.ms, bars);
     await this.saveTrack(t);
     return t.wave;
+  }
+
+  /** Waveforms ahead of time (the next song's): fetched quietly, kept with the track. */
+  prefetchWave(t) {
+    if (t && t.remote && t.waveUrl && !t.wave && this.byId.has(t.id)) this.waveFor(t).catch(() => {});
   }
 
   /**
@@ -425,27 +447,28 @@ export class Library {
    * equal slices, each its largest sample over the channels; null when it
    * cannot be decoded.
    */
-  async filePeaks(id, bars) {
+  async fileMeanSquares(id) {
     const file = await this.db?.file(id);
     if (!file || typeof OfflineAudioContext !== 'function') return null;
     try {
       const buf = await file.arrayBuffer();
       const ac = new OfflineAudioContext(1, 8000, 8000);
       const audio = await ac.decodeAudioData(buf);
-      const n = audio.length, chans = audio.numberOfChannels, count = Math.max(1, bars(audio.duration * 1000));
+      // Ten blocks a second (a CUE track takes its range of them).
+      const n = audio.length, chans = audio.numberOfChannels, count = Math.max(1, Math.ceil(audio.duration * 10));
       const data = [];
       for (let c = 0; c < chans; c++) data.push(audio.getChannelData(c));
       const out = new Array(count).fill(0);
       for (let b = 0; b < count; b++) {
         const s0 = Math.floor((b * n) / count), s1 = Math.floor(((b + 1) * n) / count);
-        let peak = 0;
+        let sum = 0;
         for (let c = 0; c < chans; c++) {
           const d = data[c];
-          for (let i = s0; i < s1; i++) { const v = d[i] < 0 ? -d[i] : d[i]; if (v > peak) peak = v; }
+          for (let i = s0; i < s1; i++) sum += d[i] * d[i];
         }
-        out[b] = peak;
+        out[b] = s1 > s0 ? sum / ((s1 - s0) * chans) : 0;
       }
-      return {peaks: out, ms: audio.duration * 1000};
+      return {ms: out, durationMs: audio.duration * 1000};
     } catch (e) {
       console.warn('[claude-player] waveform', e);
       return null;
@@ -462,21 +485,14 @@ export class Library {
     if (!image || image.remote) return null;
     this.cuePeaks ??= new Map();
     let p = this.cuePeaks.get(image.id);
-    if (!p) { p = this.filePeaks(image.id, ms => Math.ceil(ms / 100)); this.cuePeaks.set(image.id, p); }
+    if (!p) { p = this.fileMeanSquares(image.id); this.cuePeaks.set(image.id, p); }
     const fine = await p;
-    if (!fine?.peaks.length) return null;
-    const per = fine.ms / fine.peaks.length, n = fine.peaks.length;
+    if (!fine?.ms.length) return null;
+    const per = fine.durationMs / fine.ms.length, n = fine.ms.length;
     const a = Math.max(0, Math.min(n - 1, Math.floor((t.startMs || 0) / per)));
-    const end = t.endMs ?? fine.ms;
+    const end = t.endMs ?? fine.durationMs;
     const b = Math.max(a + 1, Math.min(n, Math.ceil(end / per)));
-    const out = new Array(bars).fill(0);
-    for (let k = 0; k < bars; k++) {
-      const i0 = a + Math.floor((k * (b - a)) / bars), i1 = Math.max(i0 + 1, a + Math.floor(((k + 1) * (b - a)) / bars));
-      let peak = 0;
-      for (let i = i0; i < i1 && i < n; i++) if (fine.peaks[i] > peak) peak = fine.peaks[i];
-      out[k] = peak;
-    }
-    t.wave = normalizePeaks(out);
+    t.wave = barsFromMeanSquares(fine.ms.slice(a, b), bars);
     return t.wave;
   }
 
@@ -727,11 +743,8 @@ function compareTracks(a, b) {
   return PLAIN.compare(a.albumArtist || a.artist || '', b.albumArtist || b.artist || '') || PLAIN.compare(a.album || '', b.album || '') || (a.disc - b.disc) || (a.track - b.track) || PLAIN.compare(a.title, b.title);
 }
 
-/** Peaks scaled to the largest (1), three decimals. */
-function normalizePeaks(peaks) {
-  const max = Math.max(...peaks) || 1;
-  return peaks.map(v => Math.round((v / max) * 1000) / 1000);
-}
+/** How a served waveform was drawn (stored with the track; another means fetch it again). */
+const waveSrcFor = t => (t.waveKind === 'rms' ? 'rms' : 'peak2');
 
 /** Provisional format line ("FLAC 44.1kHz 16bit"); the reference formatter is not ported yet. */
 export function trackMetaLabel(t) {

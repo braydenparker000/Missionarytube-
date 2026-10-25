@@ -43,7 +43,7 @@ export function libraryOf(tracks) {
         id, audioKey: 'native/audio/' + id, size: bytes.length, sha256: '0'.repeat(64), md5: '0'.repeat(32), mimeType: t.mime ?? 'audio/wav',
         r2Identity: {lastModified: '2026-10-01T00:00:00Z'}, path: `Lab/${t.album ?? 'Tones'}/${String(t.track ?? i + 1).padStart(2, '0')} ${t.title ?? 'Tone ' + (i + 1)}.wav`, folder: 'Cloudflare R2/Lab',
         metadata: {title: t.title ?? 'Tone ' + (i + 1), artist: 'Audio Lab', album: t.album ?? 'Tones', track: t.track ?? i + 1, disc: 1, dur: t.seconds ?? 8, sr: t.rate ?? 48000, ch: 2, codec: t.codec ?? 'wav', bits: 16},
-        ...(t.waveform ? {waveformBars: true} : {}),
+        ...(t.waveform ? {waveformBars: true, ...(t.waveformKind ? {waveformKind: t.waveformKind} : {})} : {}),
       },
       waveform: t.waveform ?? null,
     };

@@ -35,7 +35,7 @@ const HOME_HINTS = {album_artists: 'summary_album_artists', albums_by_artist: 's
 /** A library category by id (library_home). */
 export const homeCategory = id => HOME.find(c => c.id === id) ?? null;
 import {applyZoom, listOpts, REVERSE, zoomGeometry} from './list-opts.js';
-import {SEARCH_CATS} from '../widgets/search.js';
+import {SEARCH_CATS, searchOrder} from '../widgets/search.js';
 import {GONE} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 import {searchHistory, removeSearch, clearSearchHistory} from '../library/search-history.js';
@@ -696,7 +696,9 @@ export function searchSource(ctx, list, nav, query, mask = -1, target = null) {
   };
   if (target) return bare(targetedRows(ctx, list, nav, title, target, {has, line1, titlesOnly}));
   const rows = [], separators = [];
-  SEARCH_KINDS.forEach((c, i) => {
+  // Sections in the chosen category order (searchOrder); bit i stays category i.
+  searchOrder().forEach(i => {
+    const c = SEARCH_KINDS[i];
     if ((mask & (1 << i)) === 0) return;
     const kindHits = found(c.kind);
     if (!kindHits.length) return;

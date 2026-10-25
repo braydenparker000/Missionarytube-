@@ -21,6 +21,7 @@ import {validateAnalysis} from '../frontend/drawercast/audio-analysis.js';
 import {waveBytes} from './music-library-cache.js';
 
 export const MUSIC_CATALOG_OBJECT='music-catalog-v1';
+export const WAVE_BATCH_MAX=200;
 export const BATCH_MAX=100;
 const LOG_KEEP=20000,AUDIT_SAMPLES=100;
 const RETRY_MS=2000;
@@ -76,6 +77,15 @@ function checkSize(ctx,extra){
   if((p.bytes||0)+extra>MAX_LIBRARY_BYTES)fail(413,'Music library limit reached');
 }
 const waveOrFail=w=>{if(w==null)return null;if(!waveBytes(w))fail(422,'A waveform is base64 of 16 to 1000 bytes, one per bar');return w;};
+// What a waveform's bytes measure: "rms" (loudness bins, scripts/audio/waveform.py) or "peak" (the
+// older peak bars). The record carries it as waveformKind; the player draws each its own way.
+const WAVE_KINDS=['peak','rms'];
+const kindOrFail=k=>{if(k===undefined)return 'peak';if(!WAVE_KINDS.includes(k))fail(422,'waveformKind is "rms" or "peak"');return k;};
+function withKind(record,waveform,kind){
+  const next={...record};
+  if(waveform&&kind==='rms')next.waveformKind='rms';else delete next.waveformKind;
+  return next;
+}
 
 // ——— The catalog, as published ———
 function catalogData(ctx,{waveforms=false}={}){
@@ -188,13 +198,15 @@ async function prepare(env,body){
   const audio=await verifiedAudio(env,body.sha256,body.size);
   const track={id:'r2_native_'+body.sha256,...audio,metadata:meta,path:body.name,folder:'Cloudflare R2/'+meta.artist};
   if(body.cover)Object.assign(track,await verifiedCover(env,body.cover));
-  return {track,waveform:waveOrFail(body.waveform)};
+  const waveform=waveOrFail(body.waveform);
+  return {track:withKind(track,waveform,kindOrFail(body.waveformKind)),waveform};
 }
 function insert(ctx,{track,waveform},now){
   const existing=one(ctx,'SELECT id FROM music_tracks WHERE sha256=? AND size=?',track.sha256,track.size);
   if(existing){
     // The same audio again: a waveform it brings fills a missing one.
-    if(waveform&&!trackRow(ctx,existing.id).waveform){ctx.storage.sql.exec('UPDATE music_tracks SET waveform=?,updated_ms=? WHERE id=?',waveform,now,existing.id);changed(ctx,now);}
+    const row=trackRow(ctx,existing.id);
+    if(waveform&&!row.waveform){put(ctx,withKind(recordOf(row),waveform,track.waveformKind??'peak'),waveform,now);changed(ctx,now);}
     return {registered:true,duplicate:true,id:existing.id};
   }
   if(trackRow(ctx,track.id))fail(409,'A track with this id holds other audio');
@@ -244,9 +256,11 @@ const ops={
   async patch(ctx,env,body,now){
     const row=SONG_ID.test(body?.id)&&trackRow(ctx,body.id);if(!row)fail(404,'No such track');
     const cover=body.cover===undefined?undefined:body.cover===null?null:await verifiedCover(env,body.cover);
-    const waveform=body.waveform===undefined?undefined:waveOrFail(body.waveform);
+    const waveform=body.waveform===undefined?undefined:waveOrFail(body.waveform),kind=kindOrFail(body.waveformKind);
     return ctx.storage.transactionSync(()=>{
-      const current=trackRow(ctx,body.id),before=recordOf(current),next=structuredClone(before);
+      const current=trackRow(ctx,body.id),before=recordOf(current);
+      let next=structuredClone(before);
+      if(waveform!==undefined)next=withKind(next,waveform,kind);
       if(body.metadata!==undefined){
         if(!body.metadata||typeof body.metadata!=='object'||Array.isArray(body.metadata))fail(422,'metadata is an object of changes');
         const merged={...next.metadata};
@@ -265,12 +279,12 @@ const ops={
     const row=SONG_ID.test(body?.id)&&trackRow(ctx,body.id);if(!row)fail(404,'No such track');
     const audio=await verifiedAudio(env,body.sha256,body.size);
     if(body.name!==undefined&&(typeof body.name!=='string'||body.name.length>512||/[\x00-\x1f\/\\]/.test(body.name)||!body.name.endsWith('.opus')))fail(422,'Invalid file name');
-    const waveform=body.waveform===undefined?null:waveOrFail(body.waveform);
+    const waveform=body.waveform===undefined?null:waveOrFail(body.waveform),kind=kindOrFail(body.waveformKind);
     const result=ctx.storage.transactionSync(()=>{
       const current=trackRow(ctx,body.id),before=recordOf(current);
       const other=one(ctx,'SELECT id FROM music_tracks WHERE sha256=? AND size=? AND id<>?',audio.sha256,audio.size,body.id);
       if(other)fail(409,'That audio is already another track',{id:other.id});
-      const next={...structuredClone(before),...audio};delete next.md5;
+      const next=withKind({...structuredClone(before),...audio},waveform,kind);delete next.md5;
       // The old waveform and analysis describe the old audio.
       delete next.metadata.audioAnalysis;
       if(body.name)next.path=next.path.includes('/')?next.path.replace(/[^/]*$/,body.name):body.name;
@@ -280,6 +294,24 @@ const ops={
     });
     const removed=body.deleteOld===false?[]:await deleteUnreferenced(ctx,env,[result.oldAudioKey]);
     return {replaced:true,id:result.id,deletedObjects:removed,count:count(ctx)};
+  },
+  /** Waveforms for many tracks at once (a backfill): items [{id, waveform, kind}], 1 to WAVE_BATCH_MAX. */
+  async waveforms(ctx,env,body,now){
+    if(!Array.isArray(body?.items)||!body.items.length||body.items.length>WAVE_BATCH_MAX)fail(422,`items is 1 to ${WAVE_BATCH_MAX} waveforms`);
+    const items=body.items.map((item,i)=>{
+      if(!item||!SONG_ID.test(item.id)||item.kind===undefined)fail(422,`items[${i}] needs id, waveform and kind`);
+      return {id:item.id,waveform:waveOrFail(item.waveform),kind:kindOrFail(item.kind)};
+    });
+    return ctx.storage.transactionSync(()=>{
+      const notFound=[];let updated=0;
+      for(const {id,waveform,kind} of items){
+        const row=trackRow(ctx,id);if(!row){notFound.push(id);continue;}
+        const before=recordOf(row);
+        put(ctx,withKind(before,waveform,kind),waveform,now);log(ctx,now,'waveform',id,{waveform:row.waveform,waveformKind:before.waveformKind??null});updated++;
+      }
+      if(updated)changed(ctx,now);
+      return {updated,notFound,count:count(ctx)};
+    });
   },
   /** Remove tracks; with deleteObjects (the default), their audio and art too, when nothing else uses them. */
   async delete(ctx,env,body,now){

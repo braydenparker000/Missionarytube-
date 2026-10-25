@@ -12,7 +12,7 @@ import {openDialog} from '../widgets/dialog.js';
 import {GONE, INVISIBLE, VISIBLE} from '../res/values.js';
 import {accelDecel} from '../gesture.js';
 import {FastRadioButton} from '../view/text.js';
-import {searchMask, setSearchMask} from '../widgets/search.js';
+import {searchMask, setSearchMask, searchOrder, setSearchOrder} from '../widgets/search.js';
 import {KEEP_LIST, KEEP_TRACK} from '../library/list-memory.js';
 
 const STORE = 'cp-list-opts';
@@ -225,19 +225,69 @@ function libraryCategories(ctx, layout, categories, onChange) {
   layout.setVisibility(VISIBLE);
 }
 
-/** The search categories (search_layout): a check box per searched category. */
+/**
+ * The search categories (search_layout): a check box per searched category,
+ * in the chosen order, each with a drag handle (the list's list_drag icon) on
+ * its left. Dragging a handle moves its category; the chips and the result
+ * sections follow (searchOrder). The reference's order is fixed.
+ */
 function searchCategories(ctx, layout, cats) {
   const mask = () => searchMask();
-  cats.forEach((c, i) => {
-    const sa = ctx.inflater.styledAttributes({'android:layout_width': 'fill_parent', 'android:layout_height': 'wrap_content', 'layout_consumeSpace': 'vertical'});
+  const rows = cats.map((c, i) => {
+    const hsa = ctx.inflater.styledAttributes({style: '@style/SettingsListOptsCheckboxLibrary_Home', 'android:drawable': '@drawable/list_drag'});
+    const handle = ctx.inflater.create('com.maxmpz.widget.base.FastButton', hsa, null);
+    handle._attrs = hsa;
+    handle.lp = layout.generateLayoutParams(hsa);
+    handle.el?.setAttribute('aria-label', 'Move ' + str(ctx, c.title));
+    const sa = ctx.inflater.styledAttributes({'android:layout_width': 'fill_parent', 'android:layout_height': 'wrap_content', 'layout_consumeSpace': 'vertical|reset_horizontal'});
     const cb = ctx.inflater.create('CheckBox', sa, null);
     cb._attrs = sa;
     cb.lp = layout.generateLayoutParams(sa);
     cb.setText(str(ctx, c.title));
     cb.setChecked((mask() & (1 << i)) !== 0);
     cb.onCheckedChanged = on => setSearchMask(ctx, on ? mask() | (1 << i) : mask() & ~(1 << i));
-    layout.addView(cb);
+    return {i, handle, cb};
   });
+  let order = searchOrder();
+  const place = () => {
+    for (const r of rows) { layout.removeView(r.handle); layout.removeView(r.cb); }
+    for (const i of order) { layout.addView(rows[i].handle); layout.addView(rows[i].cb); }
+    layout.requestLayout();
+  };
+  place();
+  // A drag moves the row with the finger; past half a row it changes places.
+  for (const r of rows) {
+    const {handle, cb} = r;
+    handle.performClick = () => false;
+    handle.onPointerDown = e => { r.drag = {y: e.rootY, dy: 0}; handle.setPressed(true); return true; };
+    handle.onPointerMove = e => {
+      const d = r.drag;
+      if (!d) return;
+      d.dy += e.rootY - d.y;
+      d.y = e.rootY;
+      const h = cb.height || 1, at = order.indexOf(r.i);
+      const to = d.dy > h / 2 && at < order.length - 1 ? at + 1 : d.dy < -h / 2 && at > 0 ? at - 1 : at;
+      if (to !== at) {
+        order = order.slice();
+        order.splice(at, 1);
+        order.splice(to, 0, r.i);
+        d.dy -= (to - at) * h;
+        place();
+      }
+      handle.translationY = cb.translationY = d.dy;
+      handle.invalidate?.();
+      cb.invalidate?.();
+    };
+    handle.onPointerUp = () => {
+      if (!r.drag) return;
+      r.drag = null;
+      handle.setPressed(false);
+      handle.translationY = cb.translationY = 0;
+      layout.requestLayout();
+      if (order.join() !== searchOrder().join()) setSearchOrder(ctx, order);
+    };
+    handle.onPointerCancel = () => handle.onPointerUp();
+  }
   layout.setVisibility(VISIBLE);
 }
 
