@@ -2407,6 +2407,49 @@ No reachable screen link is among them, so every built setting stays reachable.
 - Flex children take spare space only at an exact parent size. Content beyond a wrap_content maximum shrinks the weighted child.
 - The vis panel filter field (`fill_parent` + `layout_attachRight @id/sort`) overflows left by the sort button's width under the solver port; its true placement is unverified.
 
+### F98 — Search results open their levels in the library; chip taps; the seek bar's served waveforms — `CONFIRMED_RUNTIME` (reference harness: taps and dumps)
+(a) The reference harness (F85, F86) now types into `search_edit`, taps and long-presses. The tap
+dispatches down and up 30 ms apart in event time with nothing run in between. The older tap ran
+the looper for 40 ms between them, and the app then read some taps as long presses: an item tap
+started selection mode, and a chip tap selected only its category.
+
+(b) An item opened from the search results (an album, a folder, an artist…) leaves search:
+- the library shows its level, and its back decor reads "Search";
+- the search panel goes, and the navbar's Library button is the active one.
+
+The decor (or Back) returns to search with the same query, chips and results. The port had kept
+such levels inside the search scene, with the search panel over them. It now opens them in the
+library under the results (`searchParent`); up from them returns to the results where they were.
+Opening and returning each cost one history entry. Search opened again from the navbar leaves the
+levels of earlier results behind. The side swipe to the parent level is off for such a level;
+Back and the decor go up.
+
+(c) Category chips (`ListSearchCatsLayout`, `FastCheckBox.performClick` → `im0.I0` → `w1`):
+- a tap toggles its category (off when on, on when off);
+- a long press (`performLongClick` → `l` → `v1`) keeps only its category;
+- "All" sets every category.
+
+Checked chips are filled, unchecked ones outlined with grey text. This port matched that already:
+a step-by-step run of taps and a long press gives the same chip states and look in both. Each chip
+comes out about 1 px narrower here (text advances in Chrome versus Android), so the 11th chip
+starts 9 px further left.
+
+(d) The search screen's frames (edit field, chips, header buttons, subheads, rows) match the
+reference's within 1 px, apart from the chip drift in (c).
+
+(e) Seek bar: the light index (F95) serves each waveform from `/music/library/waveform/<id>`.
+- The fetched bars were reduced to 100 by peak per bar and renormalised, which flattened every
+  shape into tall blocks. They are now kept as the index's inline waveforms were (one level per
+  bar); the seek bar samples them by nearest bar (`c22.A`). Copies stored without their source
+  (`waveSrc`) are fetched again.
+- A waveform that arrived during the track change's cross-fade started a second fade. The first
+  one, ending, cleared the second's target, and the seek bar drew nothing. Only one fade now runs;
+  a new one starts from the bars on screen.
+
+(f) `list/list-widget.js` (`open`, `back`, `backTitleFor`, `showSearch`, `msg_nav_changed`),
+`library/library.js` (`waveFor`, `withUserData`), `widgets/waveseek.js` (`setWave`),
+`tests/claude-player-search-browser.test.mjs`.
+
 ## Build status of the findings
 
 Statuses:
@@ -2515,6 +2558,7 @@ No status is device-verified.
 | F95 Waveforms after an index refresh | Built | Waveform accuracy is the index generator's |
 | F96 Pending Queue after leaving it | Built | — |
 | F97 Settings with no counterpart greyed out with the reason | Built | The reasons are the status table's wording, not the reference's |
+| F98 Search results' levels in the library, chip taps, served waveforms | Built | Side swipe to the parent is off for a level opened from the results; chips about 1 px narrower each |
 | F86 Settings metrics and search, late-loaded item buttons | Built | Settings search history not built; skin preview art and layout illustrations are stand-ins |
 | F64 search | Built | Zoom levels and targeted search built; no Streams (owner decision); deeper lists' target labels inferred |
 
