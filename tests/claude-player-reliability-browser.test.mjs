@@ -414,7 +414,8 @@ test('Data saver (Settings › Misc) downloads nothing ahead but the next song\'
 
 test('the next 3 songs keep their first 15 s ready: a skip starts from the phone on a slow network (a stopped service worker too), through the engine, and plays on from the network; no whole songs download', {skip}, async t => {
   // Every audio request takes 1.5 s to answer (a slow mobile network).
-  const h = await openPlayer(t, {audioDelayMs: 1500, tracks: Array.from({length: 5}, (_, i) => ({seconds: 30, rate: 8000, hz: 300 + 60 * i}))});
+  // One-minute songs: the skip comes before the next one's preload (30 s before the end).
+  const h = await openPlayer(t, {audioDelayMs: 1500, tracks: Array.from({length: 5}, (_, i) => ({seconds: 60, rate: 8000, hz: 300 + 60 * i}))});
   const {page} = h;
   // The service worker, as the app registers it over HTTPS (this server is plain HTTP).
   await page.evaluate(() => navigator.serviceWorker.register('sw.js'));
@@ -423,7 +424,7 @@ test('the next 3 songs keep their first 15 s ready: a skip starts from the phone
   await page.waitForFunction(() => { const s = window.__cp.ctx.audioHeads.summary(); return s.wanted === 3 && s.kept === 3 && !s.downloading; }, null, {timeout: 40000});
   const heads = h.requests.filter(q => q.range && /^bytes=0-\d+$/.test(q.range) && q.range !== 'bytes=0-262143');
   assert.deepEqual([...new Set(heads.map(q => q.id))].sort(), [1, 2, 3].map(i => h.lib[i].id).sort());
-  // 15 s at the file's average rate (32 kB/s) plus 64 KB for its tags: about 0.5 MB of a 0.96 MB file.
+  // 15 s at the file's average rate (32 kB/s) plus 64 KB for its tags: about 0.5 MB of a 1.9 MB file.
   assert.ok(heads.every(q => q.bytes > 15 * 32000 && q.bytes < 15 * 32000 + 64 * 1024 + 100), JSON.stringify(heads.map(q => q.bytes)));
   // Chrome stops an idle service worker (after about 30 s); the skip starts it again.
   const cdp = await page.context().newCDPSession(page);
@@ -435,7 +436,9 @@ test('the next 3 songs keep their first 15 s ready: a skip starts from the phone
   await page.waitForFunction(id => window.__cp.player.track?.id === id && window.__cp.player.audio.currentTime > 0.05 && !window.__cp.player.audio.paused, h.lib[1].id, {timeout: 10000, polling: 10});
   const startMs = await page.evaluate(t0 => performance.now() - t0, t0);
   assert.ok(startMs < 1000, `the skipped-to song started after ${Math.round(startMs)} ms`);
-  assert.deepEqual(h.requests.slice(before).filter(q => q.id === h.lib[1].id && q.range !== 'bytes=0-262143').map(q => q.range), [], 'its start came from the phone');
+  // Its start came from the phone (Chrome then asks the network for the rest, from the head's end).
+  const headEnd = Math.max(...heads.filter(q => q.id === h.lib[1].id).map(q => q.bytes));
+  assert.deepEqual(h.requests.slice(before).filter(q => q.id === h.lib[1].id && q.range !== 'bytes=0-262143' && +/\d+/.exec(q.range ?? '0') < headEnd).map(q => q.range), []);
   // Through the audio engine (not silent).
   await page.waitForTimeout(800);
   const level = await page.evaluate(() => window.__cp.ctx.playbackLog.snapshot().level.recentPeakDb);
