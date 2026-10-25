@@ -552,12 +552,15 @@ test('reopened on a song left within its start, its head comes while paused, the
   const audio = h.requests.slice(n).filter(q => q.range !== COVER_READ);
   assert.deepEqual([...new Set(audio.map(q => q.id))], [h.lib[0].id], 'only the song left off');
   assert.ok(audio.every(q => /^bytes=0-\d+$/.test(q.range)), JSON.stringify(audio.map(q => q.range)));
+  // The song is ready from the phone (its start and details read from its head, no network).
+  await page.waitForFunction(() => window.__cp.player.audio.readyState >= 3, null, {timeout: 10000});
+  assert.equal(h.requests.slice(n).filter(q => q.range !== COVER_READ).length, audio.length, 'nothing more from the network');
   // The network goes; play starts from the phone.
   h.net.hang = true;
   const t0 = await page.evaluate(() => { window.__cp.player.play(); return performance.now(); });
   await page.waitForFunction(() => !window.__cp.player.audio.paused && window.__cp.player.audio.currentTime > 0.05, null, {timeout: 10000, polling: 10});
   const ms = await page.evaluate(t0 => performance.now() - t0, t0);
-  assert.ok(ms < 1000, `first play after ${Math.round(ms)} ms`);
+  assert.ok(ms < 400, `first play after ${Math.round(ms)} ms`);
   h.net.release();
   // Kept awake: a message every 20 s while the page shows or plays.
   await page.waitForTimeout(21000);
