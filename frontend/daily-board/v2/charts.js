@@ -9,6 +9,18 @@ const svgEl = (tag, attrs = {}, text) => {
 };
 const format = v => v === null ? '–' : new Intl.NumberFormat('en', {maximumFractionDigits: Math.abs(v) < 10 ? 2 : 1}).format(v).replace('-', '−');
 
+// Axis labels are 12px text: about 7px a character. A label that would run
+// into its neighbour is shortened with an ellipsis; the full text stays in a
+// tooltip and in the data table.
+const CHAR_PX = 7;
+function axisLabel(text, room, attrs) {
+  const max = Math.max(3, Math.floor(room / CHAR_PX));
+  const node = svgEl('text', attrs, text.length > max ? text.slice(0, max - 1).trimEnd() + '…' : text);
+  if (text.length > max) node.append(svgEl('title', {}, text));
+  return node;
+}
+const fitsColumns = (b, W) => Math.max(...b.labels.map(l => l.length)) * CHAR_PX <= (W - 52) / b.labels.length - 6;
+
 // A readable scale with round bounds. Columns and bars start at zero; a line
 // fits its data, so a small change over time stays visible.
 function scale(values, zero = true) {
@@ -40,7 +52,8 @@ function lineChart(b, W) {
     svg.append(svgEl('text', {x: L - 8, y: y(t) + 4, class: 'tick', 'text-anchor': 'end'}, format(t)));
   }
   const every = Math.ceil(b.labels.length / (W < 500 ? 5 : 8));
-  b.labels.forEach((l, i) => { if (i % every === 0 || i === b.labels.length - 1) svg.append(svgEl('text', {x: x(i), y: H - 10, class: 'tick', 'text-anchor': 'middle'}, l)); });
+  const room = (W - L - R) / Math.ceil(b.labels.length / every) - 6;
+  b.labels.forEach((l, i) => { if (i % every === 0 || i === b.labels.length - 1) svg.append(axisLabel(l, room, {x: x(i), y: H - 10, class: 'tick', 'text-anchor': 'middle'})); });
   const ends = b.series.map((s, n) => {
     let d = '', pen = false;
     s.values.forEach((v, i) => { if (v === null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`; pen = true; });
@@ -73,7 +86,7 @@ function columnChart(b, W) {
       svg.append(svgEl('rect', {x: x0 + n * bar + 1, y: top, width: Math.max(2, bar - 2), height: h, rx: 2, class: `col s${n}${v < 0 ? ' neg' : ''}`}));
       if (b.series.length === 1) svg.append(svgEl('text', {x: x0 + bar / 2, y: v < 0 ? top + h + 14 : top - 6, class: 'value', 'text-anchor': 'middle'}, format(v)));
     });
-    svg.append(svgEl('text', {x: L + i * band + band / 2, y: H - 10, class: 'tick', 'text-anchor': 'middle'}, l));
+    svg.append(axisLabel(l, band - 6, {x: L + i * band + band / 2, y: H - 10, class: 'tick', 'text-anchor': 'middle'}));
   });
   return svg;
 }
@@ -124,7 +137,11 @@ export function chartFigure(b, width = 640) {
   const figure = document.createElement('figure'); figure.className = `chart chart-${b.kind}`;
   const caption = document.createElement('figcaption'), title = document.createElement('b'), unit = document.createElement('span');
   title.textContent = b.text; unit.textContent = b.unit; caption.append(title, unit); figure.append(caption);
-  figure.append(b.kind === 'line' ? lineChart(b, W) : b.kind === 'column' ? columnChart(b, W) : barChart(b));
+  // One series of columns whose labels can't sit side by side reads better as
+  // horizontal bars, where every label wraps in full.
+  const kind = b.kind === 'column' && b.series.length === 1 && !fitsColumns(b, W) ? 'bar' : b.kind;
+  figure.className = `chart chart-${kind}`;
+  figure.append(kind === 'line' ? lineChart(b, W) : kind === 'column' ? columnChart(b, W) : barChart(b));
   const key = legend(b); if (key) figure.append(key);
   if (b.note) { const note = document.createElement('p'); note.className = 'chart-note'; note.textContent = b.note; figure.append(note); }
   figure.append(dataTable(b));
