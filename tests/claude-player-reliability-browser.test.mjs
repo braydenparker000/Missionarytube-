@@ -16,6 +16,10 @@ async function playFor(page, seconds) {
   await page.waitForFunction(s => !window.__cp.player.audio.paused && window.__cp.player.audio.currentTime > s, seconds, {timeout: 20000});
 }
 
+// The cover reader's first range of a song without an indexed cover (library/tags.js readRemotePicture);
+// these WAV fixtures carry no tags, so it reads no further. Not playback.
+const COVER_READ = 'bytes=0-65535';
+
 // Whole offline copies, chosen in the playback log (by default the next songs keep only their first seconds).
 const wholeCopies = () => localStorage.setItem('cp-offline-ahead', 'few');
 
@@ -367,8 +371,8 @@ test('the system pausing a joined track stops it at once, not after its delay, a
 test('with whole copies chosen, skipping songs early costs no copies and no preloads: they wait for 30 s of listening and the last 30 s', {skip}, async t => {
   const h = await openPlayer(t, {init: wholeCopies, tracks: Array.from({length: 7}, (_, i) => ({seconds: 60, rate: 8000, hz: 300 + 50 * i}))});
   const {page} = h;
-  // Audio the elements stream (open-ended ranges), not the cover reader's first 256 KB (these fixtures have no indexed covers).
-  const id = i => h.lib[i].id, copies = () => h.requests.filter(q => q.range === null), streamed = i => h.requests.filter(q => q.range !== null && q.range !== 'bytes=0-262143' && q.id === id(i));
+  // Audio the elements stream (open-ended ranges), not the cover reader's first read (COVER_READ).
+  const id = i => h.lib[i].id, copies = () => h.requests.filter(q => q.range === null), streamed = i => h.requests.filter(q => q.range !== null && q.range !== COVER_READ && q.id === id(i));
   await playFor(page, 0.3);
   // Three songs skipped 3 s in.
   for (let i = 0; i < 3; i++) {
@@ -408,7 +412,7 @@ test('Data saver (Settings › Misc) downloads nothing ahead but the next song\'
   await page.waitForTimeout(3000);
   assert.deepEqual(h.requests.filter(q => q.range === null).map(q => q.id), [], 'no offline copies');
   assert.equal(await page.evaluate(() => window.__cp.ctx.audioCache.summary().wanted), 0);
-  for (const i of [2, 3]) assert.deepEqual(h.requests.filter(q => q.id === h.lib[i].id && q.range !== 'bytes=0-262143'), [], `nothing of track ${i + 1}`);
+  for (const i of [2, 3]) assert.deepEqual(h.requests.filter(q => q.id === h.lib[i].id && q.range !== COVER_READ), [], `nothing of track ${i + 1}`);
   assert.deepEqual(h.errors, []);
 });
 
@@ -422,7 +426,7 @@ test('the next 3 songs keep their first 15 s ready: a skip starts from the phone
   await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, {timeout: 15000});
   await playFor(page, 0.3);
   await page.waitForFunction(() => { const s = window.__cp.ctx.audioHeads.summary(); return s.wanted === 3 && s.kept === 3 && !s.downloading; }, null, {timeout: 40000});
-  const heads = h.requests.filter(q => q.range && /^bytes=0-\d+$/.test(q.range) && q.range !== 'bytes=0-262143');
+  const heads = h.requests.filter(q => q.range && /^bytes=0-\d+$/.test(q.range) && q.range !== COVER_READ);
   assert.deepEqual([...new Set(heads.map(q => q.id))].sort(), [1, 2, 3].map(i => h.lib[i].id).sort());
   // 15 s at the file's average rate (32 kB/s) plus 64 KB for its tags: about 0.5 MB of a 1.9 MB file.
   assert.ok(heads.every(q => q.bytes > 15 * 32000 && q.bytes < 15 * 32000 + 64 * 1024 + 100), JSON.stringify(heads.map(q => q.bytes)));
@@ -438,7 +442,7 @@ test('the next 3 songs keep their first 15 s ready: a skip starts from the phone
   assert.ok(startMs < 1000, `the skipped-to song started after ${Math.round(startMs)} ms`);
   // Its start came from the phone (Chrome then asks the network for the rest, from the head's end).
   const headEnd = Math.max(...heads.filter(q => q.id === h.lib[1].id).map(q => q.bytes));
-  assert.deepEqual(h.requests.slice(before).filter(q => q.id === h.lib[1].id && q.range !== 'bytes=0-262143' && +/\d+/.exec(q.range ?? '0') < headEnd).map(q => q.range), []);
+  assert.deepEqual(h.requests.slice(before).filter(q => q.id === h.lib[1].id && q.range !== COVER_READ && +/\d+/.exec(q.range ?? '0') < headEnd).map(q => q.range), []);
   // Through the audio engine (not silent).
   await page.waitForTimeout(800);
   const level = await page.evaluate(() => window.__cp.ctx.playbackLog.snapshot().level.recentPeakDb);
@@ -480,8 +484,8 @@ test('opening the app downloads no audio: the restored song loads, and the next 
   // The player as it opens: a song restored, paused, at a position.
   await page.evaluate(() => window.__cp.player.seek(5000));
   await page.waitForTimeout(3000);
-  // (The cover reader's first 256 KB of a song without an indexed cover is not playback.)
-  const audio = () => h.requests.filter(q => q.range !== 'bytes=0-262143');
+  // (The cover reader's first read of a song without an indexed cover, COVER_READ, is not playback.)
+  const audio = () => h.requests.filter(q => q.range !== COVER_READ);
   assert.deepEqual(audio().map(q => [q.id, q.range]), [], 'no audio before play');
   assert.equal(await page.evaluate(() => window.__cp.ctx.audioHeads.summary().downloads), 0);
   // Play: the song starts where it was, and the next 3 songs' starts follow.
@@ -523,7 +527,7 @@ test('the next songs\' heads wait for the playing song: none download while its 
   h.net.hang = true;
   await page.evaluate(() => window.__cp.player.play());
   await page.waitForTimeout(4500);
-  const heads = () => h.requests.filter(q => q.id !== h.lib[0].id && q.range !== 'bytes=0-262143');
+  const heads = () => h.requests.filter(q => q.id !== h.lib[0].id && q.range !== COVER_READ);
   assert.deepEqual(heads().map(q => [q.id, q.range]), [], 'no heads before the playing song sounds');
   // It comes: the song plays, then the heads download.
   h.net.release();
@@ -545,7 +549,7 @@ test('reopened on a song left within its start, its head comes while paused, the
   await page.reload();
   await page.waitForFunction(() => window.__cp?.library?.tracks?.length > 0 && !!navigator.serviceWorker.controller, null, {timeout: 30000});
   await page.waitForFunction(() => window.__cp.ctx.audioHeads.summary().kept === 1, null, {timeout: 15000});
-  const audio = h.requests.slice(n).filter(q => q.range !== 'bytes=0-262143');
+  const audio = h.requests.slice(n).filter(q => q.range !== COVER_READ);
   assert.deepEqual([...new Set(audio.map(q => q.id))], [h.lib[0].id], 'only the song left off');
   assert.ok(audio.every(q => /^bytes=0-\d+$/.test(q.range)), JSON.stringify(audio.map(q => q.range)));
   // The network goes; play starts from the phone.
@@ -576,7 +580,7 @@ test('reopened on a song left past its start, nothing downloads before play', {s
   await page.waitForFunction(() => window.__cp?.library?.tracks?.length > 0 && !!navigator.serviceWorker.controller, null, {timeout: 30000});
   await page.waitForTimeout(3000);
   assert.ok(Math.abs(await page.evaluate(() => window.__cp.player.pendingSeek || window.__cp.player.positionMs()) - 30000) < 2000, 'left at 30 s');
-  assert.deepEqual(h.requests.slice(n).filter(q => q.range !== 'bytes=0-262143').map(q => [q.id, q.range]), []);
+  assert.deepEqual(h.requests.slice(n).filter(q => q.range !== COVER_READ).map(q => [q.id, q.range]), []);
   assert.deepEqual(h.errors, []);
 });
 
