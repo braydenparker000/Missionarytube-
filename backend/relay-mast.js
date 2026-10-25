@@ -111,7 +111,7 @@ export async function mastAdapterPublic(request, env) {
     }else if(url.pathname==='/relay/mast/board'&&request.method==='GET'&&!url.search){
       input={op:'board_read'};
     }else if(['/relay/mast/board/publish','/relay/mast/board/profile'].includes(url.pathname)&&request.method==='POST'&&!url.search){
-      const publish=url.pathname.endsWith('/publish'),body=JSON.parse(await boundedText(request,publish?40000:32000));
+      const publish=url.pathname.endsWith('/publish'),body=JSON.parse(await boundedText(request,publish?64000:32000));
       fields(body,publish?['report']:['version','profile'],publish?['report']:['version','profile']);
       input={...body,op:publish?'board_publish':'board_profile'};
     }else if (url.pathname==='/relay/mast/messages' && request.method==='GET') {

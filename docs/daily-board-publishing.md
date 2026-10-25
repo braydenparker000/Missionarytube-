@@ -3,6 +3,8 @@
 > Muse now publishes straight to the Worker: see
 > [muse-daily-board.md](muse-daily-board.md). The GitHub issue path below
 > still works and is the fallback.
+> The premium [v2 format](daily-board-v2-format.md) is published through
+> Muse's direct path only; this GitHub fallback stays v1.
 
 No Worker, API, SQL migration or automation cadence change is required.
 The existing trusted issue importer and immutable SQLite briefing body are used.

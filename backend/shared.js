@@ -1,6 +1,7 @@
 // One shared inbox. Public callers can create user messages only.
 import publication from '../frontend/content/jarvis.json' with {type:'json'};
 import {enqueueRelayMessage} from './relay-events.js';
+import {REPORT_MARKER as BOARD_V2_MARKER} from '../frontend/daily-board/v2/schema.js';
 import {RELAY_OAUTH_OBJECT,boundedText} from './relay-common.js';
 import {coordinationSchema, recordPublicEntry, appendCoordination, readPublicCoordination, publicChangesReady, validatePublicCoordinationRead} from './public-coordination.js';
 export const SHARED_OBJECT = RELAY_OAUTH_OBJECT;
@@ -171,7 +172,9 @@ export function sharedStore(ctx, path, body = {}, params = new URLSearchParams()
   }
   const kind = path === '/internal/shared/message' ? 'user' : path === '/internal/shared/reply' ? 'reply' : path === '/internal/shared/briefing' ? 'briefing' : null;
   if (!kind) return json({error:'Not found'},404);
-  const bodyLimit = kind==='user' ? 4000 : kind==='briefing' ? 20000 : 6000;
+  // A v2 Daily Board edition carries richer blocks; only Muse's direct path
+  // can send one (the GitHub importer keeps its own 20,000 limit).
+  const bodyLimit = kind==='user' ? 4000 : kind==='briefing' ? (typeof body.body==='string'&&body.body.includes(BOARD_V2_MARKER) ? 50000 : 20000) : 6000;
   if (!id(body.id) || !text(body.body,bodyLimit) || kind==='reply'&&!id(body.replyTo) || kind==='briefing'&&!text(body.title,120)) return json({error:'Invalid entry'},400);
   return ctx.storage.transactionSync(() => {
     const existing=rows('SELECT * FROM shared_entries WHERE id=?',body.id)[0];

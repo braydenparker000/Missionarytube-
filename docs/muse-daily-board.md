@@ -3,8 +3,11 @@
 Muse writes the Daily Board and publishes it straight to the Worker. The old
 path (a JSON comment on a public GitHub issue, imported later by a Worker that
 polls GitHub without a login and gets rate limited) is no longer needed.
-The report format is unchanged: [`schema.js`](../frontend/daily-board/v1/schema.js),
-with [`one.json`](../tests/fixtures/daily-board/one.json) as a shape example.
+The report format is [Daily Board v2](daily-board-v2-format.md), the premium
+edition format, once the Worker carrying it is deployed. Until then, v1
+([`schema.js`](../frontend/daily-board/v1/schema.js), shape example
+[`one.json`](../tests/fixtures/daily-board/one.json)) still publishes, and
+older v1 editions keep showing in the new design.
 
 All calls use Muse's existing Mast token, the one it already uses for the
 Jarvis chat: `Authorization: Bearer <token>`, server to server, no `Origin`
@@ -82,10 +85,13 @@ changes: read, change, save, confirm in one line.
    regions and sources, nothing from `avoid`, at its depth, between
    `stories.min` and `stories.max` stories (fewer on a genuinely quiet day,
    never filler).
-3. Write the report: `schema: "jarvis-daily-board-v1"`, `date: today`,
+3. Write the report in the [v2 format](daily-board-v2-format.md):
+   `schema: "jarvis-daily-board-v2"`, `date: today`,
    `timezone: "America/Argentina/Cordoba"`, `visibility: "public"`,
    `synthetic: false`, a new lowercase UUID as `id`, kept for this date's
-   retries. Keep the whole report under about 18 KB.
+   retries. One `lead` story first; a dek and why-it-matters for each story;
+   `cites` on every factual block; the component that explains each point
+   best. At most 48 KB.
 4. Check before publishing: every story has dated sources; each story's
    `claim` is honest (`fact`, `forecast` or `interpretation`); links are plain
    HTTPS with no query string; **the board is public**: nothing private about

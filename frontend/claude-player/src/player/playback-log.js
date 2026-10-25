@@ -246,8 +246,9 @@ export class PlaybackLog {
     row(media, 'recovery', 'Recovery');
     row(media, 'offline', 'Offline copies');
     // How far ahead copies are saved (per device); tapping cycles the choices and applies at once.
-    const aheadText = () => this.ctx.pref?.('cp_data_saver') === true ? 'None: Data saver is on (Settings › Misc)' : ({few: 'A few tracks: on Wi-Fi the playing one and the next 3, on mobile data the next one', next: 'The next track only', off: 'None: tracks stream as they play'})[offlineAhead()] + '\nOnce a song has played 30 s (skipped songs cost none)';
-    row(media, 'offlineAhead', 'Save ahead for offline', () => {
+    const aheadText = () => this.ctx.pref?.('cp_data_saver') === true ? 'None: Data saver is on (Settings › Misc)' : ({few: 'A few whole songs: on Wi-Fi the playing one and the next 3, on mobile data the next one', next: 'The next whole song', off: 'None (songs stream; the next ones keep their first 15 s ready)'})[offlineAhead()] + (offlineAhead() === 'off' ? '' : '\nOnce a song has played 30 s (skipped songs cost none)');
+    row(media, 'heads', 'Next songs\' first seconds');
+    row(media, 'offlineAhead', 'Save whole songs for offline', () => {
       setOfflineAhead(AHEAD_MODES[(AHEAD_MODES.indexOf(offlineAhead()) + 1) % AHEAD_MODES.length]);
       rows.get('offlineAhead').textContent = aheadText();
       this.ctx.player?.wantOffline?.();
@@ -278,7 +279,9 @@ export class PlaybackLog {
       rows.get('recovery').textContent = !r ? '—' : `${r.reloads} reloads after ${r.errors} errors and ${r.stalls} stalls, ${r.recovered} recovered\n${r.skipped} tracks skipped (failed to play), ${r.offlineSkips} skipped offline${r.waitingOnline ? ' · waiting for the network' : ''}`;
       const c = s.offline, mb = n => Math.round(n / 1048576);
       rows.get('offline').textContent = !c?.available ? 'Not available in this browser' : `${c.ready} of the next ${c.wanted} tracks saved${c.downloading ? ', downloading' : c.held ? ', waiting for the track to start' : !c.online ? ', offline' : ''}\n${c.tracks} kept (${mb(c.bytes)} of ${mb(c.budget)} MB) · ${c.plays} played from a copy${c.failing ? ` · ${c.failing} failing (${c.lastError})` : ''}${c.tooBig ? ` · ${c.tooBig} too big for the space left` : ''}`;
-      if (!rows.get('offlineClear').textContent) rows.get('offlineClear').textContent = 'The copies download again as the queue plays';
+      const hd = this.ctx.audioHeads?.summary?.();
+      rows.get('heads').textContent = !hd ? '—' : !hd.available ? 'Starts once the app has its service worker (after the first visit)' : `${hd.kept} of the next ${hd.wanted} ready (first 15 s each)${hd.downloading ? ', downloading' : ''}\n${hd.downloads} fetched, ${Math.round(hd.bytes / 1024)} KB${hd.failures ? ` · ${hd.failures} failed` : ''}`;
+      if (!rows.get('offlineClear').textContent) rows.get('offlineClear').textContent = offlineAhead() === 'off' ? 'None are saved unless chosen above' : 'The copies download again as the queue plays';
       rows.get('device').textContent = `${s.cores ?? '?'} cores${s.memoryGB ? ', ' + s.memoryGB + ' GB' : ''}${s.network ? ', ' + s.network.type + (s.network.saveData ? ' (data saver)' : '') : ''}\nLong tasks ${s.longTasks.count} (max ${s.longTasks.maxMs} ms) · hidden ${s.hidden.count}× for ${s.hidden.seconds} s`;
       rows.get('events').textContent = s.events.slice(-8).reverse().map(e => `${fmtTime(e.t)} ${e.type.replace(/_/g, ' ')}${e.deck !== undefined ? ' #' + e.deck : ''}${e.ms !== undefined ? ' ' + e.ms + ' ms' : ''}${e.kind ? ' ' + e.kind : ''}${e.reason ? ' ' + e.reason : ''}`).join('\n') || '—';
     };
