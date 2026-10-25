@@ -321,11 +321,12 @@ test('stories open on request, the pager follows the reader, and section prefixe
  // The pager appears in the stories and tracks the one being read.
  const pager=page.getByRole('navigation',{name:'Stories in this edition'});
  await page.evaluate(()=>window.scrollTo(0,0));
- assert.equal(await pager.evaluate(n=>n.classList.contains('show')),false,'hidden over the cover');
+ // The visibility observer reports asynchronously after a scroll; wait for it.
+ await page.waitForFunction(()=>!document.querySelector('nav.pager').classList.contains('show'));
  await page.locator('#story-bridge-reopens').scrollIntoViewIfNeeded();
  await page.evaluate(()=>document.querySelector('#story-bridge-reopens').scrollIntoView());
  await page.waitForFunction(()=>document.querySelector('.pager-count')?.textContent==='3 of 4');
- assert.equal(await pager.evaluate(n=>n.classList.contains('show')),true);
+ await page.waitForFunction(()=>document.querySelector('nav.pager').classList.contains('show'));
  await page.getByRole('button',{name:'Next story'}).click();
  await page.waitForFunction(()=>document.querySelector('.pager-count')?.textContent==='4 of 4');
  assert.equal(await page.getByRole('button',{name:'Next story'}).isDisabled(),true);
