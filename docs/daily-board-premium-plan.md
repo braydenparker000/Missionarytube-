@@ -83,7 +83,7 @@ Keep the pattern, version the contract.
 - **Assets** (images, audio) are uploaded separately and referenced by
   content hash, never by URL (section 5.5).
 
-Ordering rule for every phase: the schema and renderer ship to the page, the
+Ordering rule for every PR: the schema and renderer ship to the page, the
 Worker ships, and only then does Muse's procedure mention the new feature.
 Until then, the Worker rejects a report that uses a new block with a clear
 400, so nothing breaks on the page.
