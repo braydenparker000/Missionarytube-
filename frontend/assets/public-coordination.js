@@ -1,3 +1,4 @@
+const BOARD_V2_MARKER = '\n\n[Jarvis structured report v2]\n';
 const uuid = value => typeof value==='string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value);
 const object = value => !!value && typeof value==='object' && !Array.isArray(value);
 const timestamp = value => typeof value==='string' && Number.isFinite(Date.parse(value));
@@ -13,7 +14,9 @@ export function validatePublicEntry(entry) {
   const reply=entry.role==='assistant' && entry.kind==='reply' && uuid(entry.replyTo) && entry.title===undefined;
   const post=entry.role===undefined && entry.kind===undefined && entry.replyTo===undefined &&
     typeof entry.title==='string' && !!entry.title.trim() && entry.title.length<=120;
-  if (!(user||reply||post) || entry.body.length>(user?4000:reply?6000:20000))
+  // A Daily Board v2 edition may be up to 50,000 characters (backend/shared.js keeps the same rule).
+  const postLimit=entry.body.includes(BOARD_V2_MARKER)?50000:20000;
+  if (!(user||reply||post) || entry.body.length>(user?4000:reply?6000:postLimit))
     throw Error('The inbox returned an invalid immutable public entry. Saved messages and the previous cursor have been preserved.');
   return entry;
 }

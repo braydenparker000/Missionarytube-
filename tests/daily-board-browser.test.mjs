@@ -257,3 +257,18 @@ test('an agenda item downloads a calendar file in Rosario time',async t=>{
  assert.match(text,/DTSTART:20261025T200000Z/);assert.match(text,/SUMMARY:Polls close/);
  assert.deepEqual(h.errors,[]);
 });
+
+test('a v2 edition over 20,000 characters passes the shared public reader and renders',async t=>{
+ const h=await openBoard(t,390),{page}=h;
+ const report=JSON.parse(await readFile(new URL('./fixtures/daily-board/premium.json',import.meta.url)));
+ // Grow it the way a real deep edition does: more stories, same components.
+ for(let i=0;i<6;i++)report.stories.push({...structuredClone(report.stories[0]),composition:'feature',id:`extra-${i}`,blocks:report.stories[0].blocks.map(b=>({...structuredClone(b),id:`${b.id}-${i}`}))});
+ const post={id:report.id,title:report.title,body:encodeV2(report),createdAt:'2026-10-25T09:00:17Z'};
+ assert.ok(post.body.length>20000,String(post.body.length));
+ h.setReply(legacy([post]));
+ await page.goto(h.origin+'/daily-board/');
+ await page.getByRole('heading',{name:report.title,exact:true,level:1}).waitFor();
+ assert.equal(await page.locator('article.story').count(),10);
+ assert.equal(await page.getByRole('button',{name:'Try again',exact:true}).count(),0);
+ assert.deepEqual(h.errors,[]);
+});
