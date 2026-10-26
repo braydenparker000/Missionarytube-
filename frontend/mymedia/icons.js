@@ -1,0 +1,52 @@
+// My Media's icon set: 24 px, drawn for this app. Outlined by default; the
+// filled variants mark the active tab and toggled actions.
+const PATHS = {
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  arrowBack: '<path d="M20 12H5M11 5l-7 7 7 7"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  refresh: '<path d="M20 11a8 8 0 0 0-14.5-4.6L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.6L20 16M20 20v-4h-4"/>',
+  more: '<circle cx="12" cy="5.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="18.5" r="1.4" fill="currentColor" stroke="none"/>',
+  home: '<path d="M4 10.5 12 4l8 6.5V20h-5v-6H9v6H4z"/>',
+  homeFill: '<path d="M4 10.5 12 4l8 6.5V20h-5v-6H9v6H4z" fill="currentColor"/>',
+  people: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20"/><path d="M15.5 5.6a3.2 3.2 0 0 1 0 5.8M17.5 14.2a5.5 5.5 0 0 1 3 4.3V20"/>',
+  peopleFill: '<circle cx="9" cy="8.5" r="3.2" fill="currentColor"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20z" fill="currentColor"/><path d="M15.5 5.6a3.2 3.2 0 0 1 0 5.8M17.5 14.2a5.5 5.5 0 0 1 3 4.3V20"/>',
+  stack: '<rect x="3.5" y="8" width="13" height="12" rx="2"/><path d="M7 4.5h11.5a2 2 0 0 1 2 2V16"/><path d="m8.5 11.5 4 2.5-4 2.5z" fill="currentColor"/>',
+  stackFill: '<rect x="3.5" y="8" width="13" height="12" rx="2" fill="currentColor"/><path d="M7 4.5h11.5a2 2 0 0 1 2 2V16"/><path d="m8.5 11.5 4 2.5-4 2.5z" fill="var(--bg)" stroke="var(--bg)"/>',
+  you: '<circle cx="12" cy="12" r="8.5"/><path d="m10 8.8 5 3.2-5 3.2z" fill="currentColor"/>',
+  youFill: '<circle cx="12" cy="12" r="8.5" fill="currentColor"/><path d="m10 8.8 5 3.2-5 3.2z" fill="var(--bg)" stroke="var(--bg)"/>',
+  play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>',
+  pause: '<rect x="6.5" y="5" width="3.6" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="13.9" y="5" width="3.6" height="14" rx="1" fill="currentColor" stroke="none"/>',
+  next: '<path d="M6 5.5v13l9.5-6.5z" fill="currentColor"/><path d="M18 5.5v13" stroke-width="2.4"/>',
+  prev: '<path d="M18 5.5v13L8.5 12z" fill="currentColor"/><path d="M6 5.5v13" stroke-width="2.4"/>',
+  replay: '<path d="M5 12a7 7 0 1 0 2.1-5"/><path d="M5 4v4h4"/>',
+  chevronDown: '<path d="m6 9 6 6 6-6"/>',
+  chevronRight: '<path d="m9 6 6 6-6 6"/>',
+  fullscreen: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  fullscreenExit: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
+  captions: '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M10.5 10.2a2.4 2.4 0 1 0 0 3.6M17 10.2a2.4 2.4 0 1 0 0 3.6"/>',
+  captionsFill: '<rect x="3" y="5.5" width="18" height="13" rx="2.5" fill="currentColor"/><path d="M10.5 10.2a2.4 2.4 0 1 0 0 3.6M17 10.2a2.4 2.4 0 1 0 0 3.6" stroke="var(--bg)"/>',
+  pip: '<rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11.5" width="7" height="5" rx="1" fill="currentColor"/>',
+  bookmark: '<path d="M6.5 4h11v16.5L12 16.5l-5.5 4z"/>',
+  bookmarkFill: '<path d="M6.5 4h11v16.5L12 16.5l-5.5 4z" fill="currentColor"/>',
+  queue: '<path d="M4 6h12M4 11h12M4 16h7M17 14v6M14 17h6"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  checkCircle: '<circle cx="12" cy="12" r="8.5"/><path d="m8 12.3 2.8 2.8L16.2 9.6"/>',
+  checkCircleFill: '<circle cx="12" cy="12" r="8.5" fill="currentColor"/><path d="m8 12.3 2.8 2.8L16.2 9.6" stroke="var(--bg)"/>',
+  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/>',
+  history: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v3.7h3.7M12 8v4.5l3 1.8"/>',
+  shuffle: '<path d="M4 7h3.5c4.5 0 4.5 10 9 10H20M4 17h3.5c1.6 0 2.6-1.3 3.4-3M14 10c.8-1.7 1.8-3 3.4-3H20M17.5 4.5 20 7l-2.5 2.5M17.5 14.5 20 17l-2.5 2.5"/>',
+  sort: '<path d="M4 7h16M7 12h10M10 17h4"/>',
+  speed: '<path d="M4.5 16.5a8 8 0 1 1 15 0"/><path d="m12 13 4-4.5"/>',
+  folder: '<path d="M3.5 7a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  remove: '<path d="M5 12h14"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  playlist: '<path d="M4 6h11M4 11h11M4 16h6"/><path d="M15 14.5v6l4.5-3z" fill="currentColor"/>',
+  northWest: '<path d="M17 17 7 7M7 15V7h8"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/>'
+};
+
+export function icon(name, size = 24) {
+  return `<svg class="i" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${PATHS[name] || ''}</svg>`;
+}
