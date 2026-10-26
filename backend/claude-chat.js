@@ -224,8 +224,9 @@ function requeueStranded(ctx, now, {sessionChanged = false} = {}) {
   // A session that arrives with no live lease replaces the one that took these,
   // so nothing taken before it can still be in progress.
   const cutoff = sessionChanged ? now + 1 : now - STRANDED_MS;
-  const stranded = rows(ctx, `SELECT id FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NOT NULL AND delivered_ms < ?`, cutoff);
+  const stranded = rows(ctx, `SELECT id, seq FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NOT NULL AND delivered_ms < ?`, cutoff);
   for (const r of stranded) ctx.storage.sql.exec('UPDATE cc_messages SET delivered_ms=NULL WHERE id=?', r.id);
+  if (stranded.length) logDelivery(ctx, {at: now, event: 'requeue', reason: sessionChanged ? 'new session' : 'stranded', seqs: stranded.map(r => r.seq)});
   return stranded.length;
 }
 // Claude acts on a thread (a working status for it, or any post in it):
@@ -240,14 +241,24 @@ function acknowledge(ctx, threadId, now) {
 // its reply or its wait's output was lost. Hand it out again, to whoever takes next.
 function requeueUnacknowledged(ctx, now) {
   const acks = getState(ctx, 'acks', {});
-  const list = rows(ctx, `SELECT id, thread_id, delivered_ms FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NOT NULL AND delivered_ms < ?`, now - ACK_MS);
-  let n = 0;
+  const list = rows(ctx, `SELECT id, seq, thread_id, delivered_ms FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NOT NULL AND delivered_ms < ?`, now - ACK_MS);
+  const requeued = [];
   for (const r of list) {
     if ((acks[r.thread_id] || 0) >= r.delivered_ms) continue;
     ctx.storage.sql.exec('UPDATE cc_messages SET delivered_ms=NULL WHERE id=?', r.id);
-    n++;
+    requeued.push(r.seq);
   }
-  return n;
+  if (requeued.length) logDelivery(ctx, {at: now, event: 'requeue', reason: 'unacknowledged', seqs: requeued});
+  return requeued.length;
+}
+// Who was handed what, and what came back: the last LOG_MAX handouts and
+// requeues, so a message that never reached Claude can be traced afterwards
+// (a lost reply shows a take by this session; another taker, its own session).
+const LOG_MAX = 60;
+function logDelivery(ctx, entry) {
+  const log = getState(ctx, 'deliveries', []);
+  log.push(entry);
+  setState(ctx, 'deliveries', log.slice(-LOG_MAX));
 }
 const pendingCount = ctx => one(ctx, `SELECT COUNT(*) AS n FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NULL`).n;
 
@@ -374,7 +385,10 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
         if (before.state !== leaseView(ctx, now).state) change(ctx, 'status', null, now);
         const list = rows(ctx, `SELECT * FROM cc_messages WHERE role='owner' AND answered_ms IS NULL AND delivered_ms IS NULL ORDER BY seq LIMIT 20`);
         for (const r of list) ctx.storage.sql.exec('UPDATE cc_messages SET delivered_ms=? WHERE seq=?', now, r.seq);
-        if (list.length) change(ctx, 'delivered', null, now);
+        if (list.length) {
+          logDelivery(ctx, {at: now, event: 'take', session: args.sessionUrl ? sessionLink(args.sessionUrl) : null, take: typeof args.take === 'string' ? args.take.slice(0, 64) : null, seqs: list.map(r => r.seq)});
+          change(ctx, 'delivered', null, now);
+        }
         const stop = pendingStop(ctx);
         // `stopSeen` is the Stop this session already heard; a newer one ends its wait.
         // (A jc that does not send it never hears Stop here, so its wait cannot spin.)
@@ -435,6 +449,11 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
       const delivered = list.some(c => c.kind === 'delivered');
       const notebook = list.some(c => c.kind === 'notebook');
       return {head: list.length ? list.at(-1).seq : Math.max(after, head(ctx)), changed: list.length > 0, messages, threads, delivered, notebook, status: leaseView(ctx, now), pending: pendingCount(ctx)};
+    }
+    case 'log': {
+      // The delivery log, for Claude to trace a message that never reached it.
+      if (owner) fail(403, 'Only Claude reads the delivery log');
+      return {deliveries: getState(ctx, 'deliveries', [])};
     }
     case 'notebook': {
       if (args.body === undefined) return {notebook: getState(ctx, 'notebook', {body: '', version: 0, updatedAt: null})};
@@ -525,7 +544,7 @@ export async function claudeChatInternal(ctx, env, input, {fetchFn = fetch, now 
 // POST /claude-chat/owner {op, args}: the owner's page, with its Jarvis device bearer.
 // POST /claude-chat/agent {op, args}: the Claude session, with CLAUDE_CHAT_AGENT_KEY.
 const OWNER_OPS = new Set(['threads', 'thread.create', 'thread.update', 'messages', 'send', 'stop', 'status', 'changes', 'notebook']);
-const AGENT_OPS = new Set(['threads', 'thread.update', 'messages', 'post', 'amend', 'take', 'status', 'notebook']);
+const AGENT_OPS = new Set(['threads', 'thread.update', 'messages', 'post', 'amend', 'take', 'status', 'notebook', 'log']);
 const verified = new Map(); // token hash -> expiry: a device checked in the last minute is not re-checked per request
 
 async function ownerAllowed(env, token) {
