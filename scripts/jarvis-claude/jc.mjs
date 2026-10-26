@@ -90,6 +90,10 @@ const out = value => process.stdout.write(JSON.stringify(value, null, 2) + '\n')
 const STOP_SEEN = join(tmpdir(), 'jc-stop-seen');
 const stopSeen = () => { try { return Number(readFileSync(STOP_SEEN, 'utf8')) || 0; } catch { return 0; } };
 
+// The session's proxy ends any request after 30 s (502), and a take it cuts
+// may already have been handed messages. Each take stays well under that.
+export const TAKE_WAIT_MS = 25_000;
+
 async function wait(minutes) {
   const deadline = Date.now() + minutes * 60_000;
   let failures = 0, take;
@@ -98,7 +102,7 @@ async function wait(minutes) {
       const left = deadline - Date.now();
       // Each take has an id the Worker logs, so a reply lost on the way back can be matched to it.
       take = randomUUID();
-      const {messages, stop} = await call('take', {wait: Math.min(50_000, Math.max(1000, left)), sessionUrl: SESSION_URL, stopSeen: stopSeen(), take});
+      const {messages, stop} = await call('take', {wait: Math.min(TAKE_WAIT_MS, Math.max(1000, left)), sessionUrl: SESSION_URL, stopSeen: stopSeen(), take});
       failures = 0;
       if (messages.length) { out({messages}); return 0; }
       if (stop) { try { writeFileSync(STOP_SEEN, String(stop.at)); } catch {} out({stop}); return 4; }
