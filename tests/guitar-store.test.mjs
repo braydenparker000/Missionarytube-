@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createStore, migrate, KEY, songKey, duration, dayKey } from '../frontend/guitar/store.js';
+import { createStore, migrate, KEY, songKey, duration, dayKey, DEFAULT_PREFS } from '../frontend/guitar/store.js';
 import { chordName, tuningName, diagramWindow } from '../frontend/guitar/chords.js';
 import { pickArtwork, coverSearchURL } from '../frontend/guitar/covers.js';
 import { tempoMap, clicks, occurrence, sampleName, lastAtOrBefore, firstAtOrAfter, beatsInBar } from '../frontend/guitar/timeline.js';
@@ -44,6 +44,19 @@ test('songs remember stage, track, loop, speed and best speed, and reject bad re
   assert.equal(again.song(song.key).status, 'canplay'); assert.equal(again.song(song.key).best, 85);
   again.rememberSearch('Wonderwall'); again.rememberSearch('wonderwall');
   assert.deepEqual(again.searches, ['wonderwall']);
+});
+
+test('display 2: smaller tab sizes and no count-in, for new and existing devices', () => {
+  const fresh = createStore(memory());
+  assert.equal(fresh.prefs.tabScale, 0.85); assert.equal(fresh.prefs.countIn, false);
+  for (const [old, now] of [[0.9, 0.7], [1, 0.85], [1.15, 1], [3, DEFAULT_PREFS.tabScale]]) {
+    const storage = memory({ [KEY]: JSON.stringify({ songs: {}, prefs: { tabScale: old, countIn: true, instrument: 'nylon' } }) });
+    const store = createStore(storage);
+    assert.equal(store.prefs.tabScale, now); assert.equal(store.prefs.countIn, false); assert.equal(store.prefs.instrument, 'nylon');
+    // Choices made after the upgrade stay.
+    store.setPrefs({ countIn: true, tabScale: 1 }); store.flush();
+    assert.equal(createStore(storage).prefs.countIn, true); assert.equal(createStore(storage).prefs.tabScale, 1);
+  }
 });
 
 test('practice time adds up by day and song, with a streak and this week', () => {

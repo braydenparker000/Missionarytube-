@@ -26,11 +26,11 @@ export function chordDiagram(frets, { width = 56, height = 64, label = '' } = {}
 export class Fretboard {
   constructor(root, { strings = 6, frets = 15, capo = 0 } = {}) {
     this.root = root; this.strings = strings; this.frets = frets; this.capo = capo;
-    // The drawing is 112 units tall and as wide as the box's shape allows, so
+    // The drawing is 92 units tall and as wide as the box's shape allows, so
     // dots stay round on any screen.
     const box = root.getBoundingClientRect();
-    this.width = Math.round(Math.min(1100, Math.max(300, box.height > 20 ? 112 * (box.width - 12) / (box.height - 8) : 400)));
-    this.svg = node('svg', { class: 'board', viewBox: `0 0 ${this.width} 112`, role: 'img', 'aria-label': 'Fretboard' });
+    this.width = Math.round(Math.min(1100, Math.max(300, box.height > 20 ? 92 * (box.width - 12) / (box.height - 8) : 400)));
+    this.svg = node('svg', { class: 'board', viewBox: `0 0 ${this.width} 92`, role: 'img', 'aria-label': 'Fretboard' });
     root.replaceChildren(this.svg);
     this.draw();
     this.pool = [];
@@ -41,19 +41,19 @@ export class Fretboard {
     const nut = 26, end = this.width - 4, total = 1 - Math.pow(2, -this.frets / 12);
     return nut + (end - nut) * (1 - Math.pow(2, -f / 12)) / total;
   }
-  y(s) { return 14 + (84 * s) / Math.max(1, this.strings - 1); }
+  y(s) { return 10 + (64 * s) / Math.max(1, this.strings - 1); }
   draw() {
     const svg = this.svg;
-    svg.append(node('rect', { x: 26, y: 6, width: this.width - 30, height: 100, rx: 3, class: 'b-wood' }));
+    svg.append(node('rect', { x: 26, y: 3, width: this.width - 30, height: 78, rx: 3, class: 'b-wood' }));
     // Inlays and numbers sit on the real frets; the board itself starts at the capo.
     const marks = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24].map(real => ({ real, f: real - this.capo })).filter(m => m.f >= 1 && m.f <= this.frets);
     const mid = f => (this.x(f - 1) + this.x(f)) / 2;
-    for (const m of marks) for (const cy of m.real % 12 === 0 ? [35, 77] : [56]) svg.append(node('circle', { cx: mid(m.f), cy, r: 4, class: 'b-inlay' }));
-    for (let f = 1; f <= this.frets; f++) svg.append(node('line', { x1: this.x(f), x2: this.x(f), y1: 6, y2: 106, class: 'b-fret' }));
-    svg.append(node('rect', { x: 23, y: 6, width: 4.5, height: 100, rx: 1.5, class: this.capo ? 'b-capo' : 'b-nut' }));
+    for (const m of marks) for (const cy of m.real % 12 === 0 ? [29, 55] : [42]) svg.append(node('circle', { cx: mid(m.f), cy, r: 4, class: 'b-inlay' }));
+    for (let f = 1; f <= this.frets; f++) svg.append(node('line', { x1: this.x(f), x2: this.x(f), y1: 3, y2: 81, class: 'b-fret' }));
+    svg.append(node('rect', { x: 23, y: 3, width: 4.5, height: 78, rx: 1.5, class: this.capo ? 'b-capo' : 'b-nut' }));
     for (let s = 0; s < this.strings; s++) svg.append(node('line', { x1: 2, x2: this.width - 2, y1: this.y(s), y2: this.y(s), class: 'b-string', 'stroke-width': (0.9 + s * 0.42).toFixed(2) }));
     for (const m of marks) {
-      const label = node('text', { x: mid(m.f), y: 111, class: 'b-num', 'text-anchor': 'middle' });
+      const label = node('text', { x: mid(m.f), y: 90, class: 'b-num', 'text-anchor': 'middle' });
       label.textContent = m.real;
       svg.append(label);
     }
@@ -63,7 +63,7 @@ export class Fretboard {
   dot(i) {
     while (this.pool.length <= i) {
       const g = node('g', { class: 'b-note' });
-      g.append(node('circle', { r: 8.5 }), node('text', { 'text-anchor': 'middle', y: 3.6 }));
+      g.append(node('circle', { r: 6.6 }), node('text', { 'text-anchor': 'middle', y: 3.1 }));
       this.layer.append(g);
       this.pool.push(g);
     }
