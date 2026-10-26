@@ -30,7 +30,7 @@ export class ListScreen {
     this.clear = h('button', {class: 'icon-btn clear', type: 'button', hidden: true, 'aria-label': 'Clear search', onclick: () => { this.searchInput.value = ''; this.query = ''; this.clear.hidden = true; this.render(); this.searchInput.focus(); }}, icon('close', {size: 18}));
     this.el.append(
       h('header', {class: 'top'},
-        h('h1', {class: 'wordmark'}, 'JARVIS'),
+        h('h1', {class: 'wordmark'}, 'Jarvis'),
         h('div', {class: 'top-actions'},
           h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Notebook', title: 'Notebook', onclick: () => app.open('notebook')}, icon('notebook')),
           h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Settings', title: 'Settings', onclick: () => app.open('settings')}, icon('settings')))),
@@ -90,14 +90,14 @@ export class ListScreen {
     const s = claudeStatus(this.store.status, this.store.pending);
     this.statusEl.className = 'status-line tone-' + s.tone;
     this.statusEl.setAttribute('aria-label', `Claude: ${s.label}. ${s.detail}. Open settings`);
-    this.statusEl.replaceChildren(h('span', {class: sigClass(s.tone), 'aria-hidden': 'true'}),
+    this.statusEl.replaceChildren(h('span', {class: 'avatar claude' + (s.tone === 'busy' ? ' busy' : s.tone === 'online' ? '' : ' away'), 'aria-hidden': 'true'}, h('span', {}, 'C')),
       h('b', {}, s.label === 'Claude' ? 'Claude' : `Claude · ${s.label}`),
       // While Claude works on a chat, the desk below says on what.
       h('span', {class: 'detail'}, s.threadId && this.store.threads.has(s.threadId) && !this.showArchived ? '' : s.detail));
   }
 
   groupLabel(text, count) {
-    return h('li', {class: 'group-label', role: 'presentation'}, h('span', {}, text), count ? h('span', {}, String(count).padStart(2, '0')) : null);
+    return h('li', {class: 'group-label', role: 'presentation'}, h('span', {}, text), count ? h('span', {}, String(count)) : null);
   }
 
   /** Now (Claude's live work) and Waiting on you (open pull requests, questions). */
@@ -167,7 +167,7 @@ export class ListScreen {
         queued && icon('clock', {size: 16}),
         working && h('span', {class: 'sig live pulse', 'aria-hidden': 'true'}),
         h('span', {class: 'row-preview' + (working ? ' working' : '')}, preview),
-        unread ? h('span', {class: 'badge', 'aria-hidden': 'true'}, String(unread).padStart(2, '0')) : null));
+        unread ? h('span', {class: 'badge', 'aria-hidden': 'true'}, String(unread)) : null));
     if (key === MUSE) return h('li', {}, button);
     onLongPress(button, () => this.app.chatMenu(key));
     const under = h('div', {class: 'row-under', 'aria-hidden': 'true'}, icon(archived ? 'unarchive' : 'archive', {size: 20}), archived ? 'Unarchive' : 'Archive');
