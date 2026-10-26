@@ -16,6 +16,7 @@
 //          [--attach <file>]… <text | ->     attachments: photos, screenshots, files (≤ 15 MB each)
 //   jc file <attachment id> [--out <path>]  saves an attachment from a message; prints where
 //   jc status working|listening|stopping [--thread <id>] [--note text]
+//                               (also records the state for the live-updates hook, live.mjs)
 //   jc amend <message id> [--meta JSON] [--body <text | ->]   update your own post (a card's state)
 //   jc title <thread> <title>
 //   jc link <thread>            records this session's link on the thread
@@ -23,6 +24,9 @@
 //   jc notebook [--write <file|->] [--version N]
 //   jc log                      the Worker's recent handouts and requeues (which
 //                               session took which message), to trace a lost one
+//   jc ci <card id> --pr <n> [--repo owner/name]   follows a pull request's checks and
+//                               keeps its card current (progress, then passed/failed);
+//                               exits 0 when they pass, 1 when one fails
 //
 // Every call is one HTTPS request to POST /claude-chat/agent {op, args}.
 // When the owner has tapped Stop, every answer to a post or status says so,
@@ -88,6 +92,10 @@ const out = value => process.stdout.write(JSON.stringify(value, null, 2) + '\n')
 
 // The last Stop this machine's waits reported, so each Stop ends one wait only.
 const STOP_SEEN = join(tmpdir(), 'jc-stop-seen');
+// The last state this session reported. The live-updates hook (live.mjs) only
+// posts while it says "working", so a listening session stays quiet.
+export const STATE_FILE = join(tmpdir(), 'jc-state.json');
+function recordState(state) { try { writeFileSync(STATE_FILE, JSON.stringify({state, at: Date.now()})); } catch {} }
 const stopSeen = () => { try { return Number(readFileSync(STOP_SEEN, 'utf8')) || 0; } catch { return 0; } };
 
 // The session's proxy ends any request after 30 s (502), and a take it cuts
@@ -117,6 +125,48 @@ async function wait(minutes) {
   return 3;
 }
 
+// ——— A pull request's checks, live on its card ———
+const REPO = 'braydenparker000/Missionarytube-';
+async function github(path) {
+  const response = await fetch(`https://api.github.com/repos/${path}`, {headers: {Accept: 'application/vnd.github+json', 'User-Agent': 'jarvis-claude-jc'}, signal: AbortSignal.timeout(20_000)});
+  if (!response.ok) throw Object.assign(new Error(`GitHub ${response.status}`), {status: response.status});
+  return response.json();
+}
+/** Check runs on a commit, summed up: {done, total, failed}, and whether all are finished. */
+export function checkProgress(runs) {
+  const total = runs.length, done = runs.filter(r => r.status === 'completed').length;
+  const failed = runs.filter(r => r.status === 'completed' && !['success', 'skipped', 'neutral'].includes(r.conclusion)).length;
+  return {done, total, failed, finished: total > 0 && done === total};
+}
+async function ci(cardId, {pr, repo, everyMs = 20_000}) {
+  if (!cardId || !Number.isInteger(pr)) { console.error('usage: jc ci <card id> --pr <number> [--repo owner/name]'); return 64; }
+  const info = await github(`${repo}/pulls/${pr}`);
+  const base = {url: info.html_url, title: info.title};
+  let last = '', quiet = 0;
+  for (;;) {
+    let runs;
+    try { runs = (await github(`${repo}/commits/${info.head.sha}/check-runs?per_page=100`)).check_runs; quiet = 0; }
+    catch (error) {
+      // Unauthenticated GitHub calls are rate limited; back off and keep the card as it is.
+      if (++quiet > 20) { console.error(`jc: giving up on CI: ${error.message}`); return 1; }
+      await new Promise(r => setTimeout(r, everyMs * 3)); continue;
+    }
+    const p = checkProgress(runs);
+    const state = !p.total ? 'checks' : p.failed ? 'failed' : p.finished ? 'passed' : 'checks';
+    const key = `${state}:${p.done}/${p.total}`;
+    if (key !== last) {
+      last = key;
+      await call('amend', {id: cardId, meta: {...base, state, progress: {done: p.done, total: p.total, failed: p.failed}}}).catch(() => {});
+      const note = state === 'passed' ? `CI passed: ${p.total} of ${p.total} checks ✓` : state === 'failed' ? `CI: ${p.failed} check${p.failed === 1 ? '' : 's'} failed` : `Waiting for CI: ${p.done} of ${p.total || '?'} checks done`;
+      await call('status', {state: 'working', note, sessionUrl: SESSION_URL}).catch(() => {});
+      console.log(note);
+    }
+    if (state === 'passed') return 0;
+    if (state === 'failed') return 1;
+    await new Promise(r => setTimeout(r, everyMs));
+  }
+}
+
 async function main(argv) {
   const [command, ...tail] = argv;
   const {flags, rest} = parse(tail);
@@ -133,7 +183,13 @@ async function main(argv) {
       return 0;
     }
     case 'file': console.log(await download(rest[0], flags.out)); return 0;
-    case 'status': out(await call('status', {state: rest[0] || 'working', threadId: flags.thread, note: typeof flags.note === 'string' ? flags.note : undefined, sessionUrl: SESSION_URL})); return 0;
+    case 'status': {
+      const state = rest[0] || 'working';
+      out(await call('status', {state, threadId: flags.thread, note: typeof flags.note === 'string' ? flags.note : undefined, sessionUrl: SESSION_URL}));
+      recordState(state);
+      return 0;
+    }
+    case 'ci': return ci(rest[0], {pr: Number(flags.pr), repo: typeof flags.repo === 'string' ? flags.repo : REPO});
     case 'amend': {
       const body = flags.body === '-' ? stdin() : typeof flags.body === 'string' ? flags.body : undefined;
       const meta = typeof flags.meta === 'string' ? JSON.parse(flags.meta) : undefined;
@@ -151,7 +207,7 @@ async function main(argv) {
       return 0;
     }
     default:
-      console.error('usage: jc wait|history|say|file|amend|status|title|link|threads|notebook|log (see the header of this file)');
+      console.error('usage: jc wait|history|say|file|amend|status|title|link|threads|notebook|log|ci (see the header of this file)');
       return 64;
   }
 }

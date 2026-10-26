@@ -20,6 +20,7 @@ function conversation(now) {
     ask,
     m('owner', 'text', 'And keep it fast', 890),
     m('claude', 'text', 'On it. **One update** with a new look.', 880, { replyTo: ask.id }),
+    m('claude', 'card', 'Premium chats', 870, { meta: { url: 'https://github.com/o/r/pull/9', title: 'Premium chats', state: 'checks', progress: { done: 7, total: 12, failed: 0 } } }),
     m('claude', 'progress', 'Read the chat screen', 860),
     m('claude', 'progress', 'Rewrote the styles', 600),
     m('claude', 'progress', 'Added the task card', 70),
@@ -96,6 +97,12 @@ test('Chats: bubbles for the owner, avatars for Claude, and a live task card tha
     await link.click();
     await page.locator('.msg.owner.flash', { hasText: 'Make the chats feel premium' }).waitFor();
     assert.equal(await page.locator('.chat-top .avatar.busy').count(), 1);
+
+    // A pull request's card shows its CI progress.
+    const checks = page.locator('.card .card-checks');
+    assert.equal(await checks.locator('.checks-label').textContent(), '7 of 12 checks done');
+    assert.equal(await checks.getAttribute('aria-valuenow'), '7');
+    assert.equal(await checks.locator('i').evaluate(el => el.style.width), '58%');
 
     // The live task card: the earlier steps ticked, the last one current (not doubled by the same status note), and a running timer.
     const card = page.locator('.work.live');

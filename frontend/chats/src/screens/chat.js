@@ -294,6 +294,7 @@ export class ChatScreen {
       h('span', {class: 'card-kicker'}, h('span', {class: 'ref'}, ref), state && h('span', {class: 'pill ' + state}, CARD_STATES[state] || state)),
       h('span', {class: 'card-title'}, title),
       detail && h('span', {class: 'card-detail'}, detail),
+      checksBar(meta.progress, state),
     ];
     const actions = actionable && Array.isArray(meta.actions) && !['merged', 'closed'].includes(state) ? meta.actions.slice(0, 3) : [];
     const el = h('div', {class: 'card', tabindex: '-1'},
@@ -555,6 +556,17 @@ export class ChatScreen {
     }
     this.app.chatMenu(this.key);
   }
+}
+
+/** A card's CI progress ({done, total, failed}) while its checks run: a bar and "7 of 12 checks". */
+function checksBar(progress, state) {
+  const total = Number(progress?.total) || 0, done = Math.min(total, Number(progress?.done) || 0), failed = Number(progress?.failed) || 0;
+  if (!total || !['checks', 'failed', 'passed'].includes(state)) return null;
+  const label = failed ? `${failed} of ${total} checks failed` : done === total ? `${total} of ${total} checks passed` : `${done} of ${total} checks done`;
+  const fill = h('i');
+  fill.style.width = Math.round(done / total * 100) + '%'; // CSSOM: the page's CSP allows no style attributes
+  return h('span', {class: 'card-checks' + (failed ? ' bad' : done === total ? ' ok' : ''), role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(total), 'aria-valuenow': String(done), 'aria-label': label},
+    h('span', {class: 'checks-track'}, fill), h('span', {class: 'checks-label'}, label));
 }
 
 /** A message's first line as plain text, short enough for a quote. */
