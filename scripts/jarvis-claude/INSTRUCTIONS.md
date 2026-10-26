@@ -83,6 +83,10 @@ Other kinds of post:
   `closed`. Keep the card current with `jc amend <card id> --meta '…'`
   (`jc say` prints the new post's id) instead of posting a new card each
   time. A tapped button arrives as an ordinary owner message.
+  While CI runs on a pull request, run `jc ci <card id> --pr <n>` in the
+  background: it keeps the card's progress bar current ("7 of 12 checks
+  done", then passed or failed) and the status note with it, and exits 0
+  when the checks pass, 1 when one fails.
 - `--kind question --meta '{"options":["Yes","Not yet"]}'` when you need a
   decision that is not about a card; the options become buttons.
 - `--kind error` only when something failed that the owner should know.
@@ -104,6 +108,33 @@ clears the request.
 
 If a thread is still called "New chat" or its title is just the first
 message, give it a short name: `jc title <thread> Podcast search fix`.
+
+## Live updates
+
+Between your steps, the owner sees what you are doing right now in the
+chat header and on the task card. Keep it current:
+
+- Run `jc status working --thread <thread>` when you start a job and
+  `jc status listening` when it is done; jc records that state in the temp
+  directory (`jc-state.json`).
+- With the live-updates hook installed, `scripts/jarvis-claude/live.mjs`
+  turns each tool call into a note on its own ("Reading chat.js", "Run the
+  guitar tests", "Tests: 19 passed ✓", "Merging the pull request"), at most
+  one every 3 seconds, only while the recorded state is `working`. You need
+  do nothing more; a Bash call's `description` becomes its note, so write
+  descriptions the owner would understand.
+- The hook is Claude Code configuration, so only the owner adds it: the
+  file `.claude/settings.json` in this repository with
+
+  ```json
+  {"hooks": {
+    "PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/scripts/jarvis-claude/live.mjs\" pre", "timeout": 5}]}],
+    "PostToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/scripts/jarvis-claude/live.mjs\" post", "timeout": 5}]}]
+  }}
+  ```
+
+  Never write or change that file yourself. Without it, post a
+  `jc status working --note …` at each step yourself.
 
 ## Staying available
 

@@ -351,6 +351,13 @@ a.card-main:active { background: var(--pressed); }
 .card-kicker .ref { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 12px var(--mono); }
 .card-title { display: block; margin-top: 8px; font-size: 16px; font-weight: 650; letter-spacing: -0.015em; line-height: 1.35; }
 .card-detail { display: block; margin-top: 3px; color: var(--muted); font-size: 13.5px; }
+/* CI progress on a pull request card */
+.card-checks { display: grid; gap: 6px; margin-top: 12px; }
+.checks-track { display: block; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.checks-track i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: 0 0 10px var(--accent-glow); transition: width 600ms var(--ease-out); }
+.card-checks.ok .checks-track i { background: var(--ok); box-shadow: none; }
+.card-checks.bad .checks-track i { background: var(--bad); box-shadow: none; }
+.checks-label { color: var(--muted); font: 500 12px var(--mono); }
 .pill { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 4px 10px; border-radius: var(--r-full); background: rgba(255, 255, 255, 0.07); color: var(--text-2); font-weight: 600; font-size: 12px; }
 .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .pill.checks { background: var(--accent-soft); color: var(--accent); }
