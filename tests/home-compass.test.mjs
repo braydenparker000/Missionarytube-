@@ -91,6 +91,9 @@ test('Home: flick to open, cancel by returning, tap still works, and the verbs l
  await Promise.all([page.waitForURL(origin+'/daily-board/'),flick(chats.x+chats.width/2,chats.y+chats.height/2,70,0)]);
 
  await page.goto(origin+'/');await page.locator('#compass-rose').waitFor();
+ // Let the freshly loaded launcher settle first: on a busy CI runner a tap in the
+ // same instant the page appears can miss, which no person's tap would do.
+ await page.waitForLoadState('networkidle');
  await Promise.all([page.waitForURL(origin+'/podcasts/'),page.locator('.compass-app[data-dir="3"]').tap()]);
 
  // The fallback: every app by verb, one open at a time, a finder, and back to the compass.
