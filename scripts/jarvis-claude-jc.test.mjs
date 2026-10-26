@@ -110,3 +110,8 @@ test('jc restarts itself through the session proxy, so the network secret is add
   assert.equal(needsProxyRestart({HTTPS_PROXY: 'http://proxy:8080', NODE_USE_ENV_PROXY: '1'}), false, 'already restarted');
   assert.equal(needsProxyRestart({}), false, 'no proxy: run as is');
 });
+
+test('each take ends before the session proxy cuts a request (30 s), so no handout dies with it', async () => {
+  const {TAKE_WAIT_MS} = await import('./jarvis-claude/jc.mjs');
+  assert.ok(TAKE_WAIT_MS <= 25_000, 'a take the proxy cuts may already hold messages');
+});
