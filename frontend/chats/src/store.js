@@ -27,7 +27,9 @@ const save = (key, value) => { try { localStorage.setItem(key, JSON.stringify(va
 const drop = key => { try { localStorage.removeItem(key); } catch {} };
 const sleep = (ms, signal) => new Promise(resolve => { const t = setTimeout(resolve, ms); signal?.addEventListener('abort', () => { clearTimeout(t); resolve(); }, {once: true}); });
 
-export const prefs = Object.assign({enterSends: !matchMedia('(pointer: coarse)').matches, largeText: false, accent: 'signal'}, load(KEY.prefs, {}));
+export const prefs = Object.assign({enterSends: !matchMedia('(pointer: coarse)').matches, largeText: false, accent: 'ember'}, load(KEY.prefs, {}));
+// The premium look (look 2) moved the default accent from Signal red to Ember; a phone still on the old default moves with it once.
+if ((prefs.look || 1) < 2) { if (prefs.accent === 'signal') prefs.accent = 'ember'; prefs.look = 2; }
 export function setPref(name, value) { prefs[name] = value; save(KEY.prefs, prefs); }
 
 export const drafts = {

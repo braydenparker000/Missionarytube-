@@ -1,12 +1,12 @@
 // One conversation: a Claude thread, or Muse.
 //
-// A transcript, not a messenger: each turn starts with who is speaking (YOU,
-// CLAUDE, MUSE) and when; there are no bubbles or avatars. Claude's replies
-// are full-width markdown and print in as they arrive. The owner's messages
-// carry their delivery state (Sending → Sent → Seen, or Not sent with Retry).
-// While Claude works, its steps gather in one log with a live cursor; pull
-// requests and other results are cards whose state Claude keeps current,
-// with buttons when it needs a decision. The composer grows with the text,
+// The owner's messages sit in bubbles on the right with their time and
+// delivery state (Sending → Sent → Seen, or Not sent with Retry). Claude's
+// (and Muse's) turns start with an avatar and name; replies are full-width
+// markdown that rise in as they arrive. While Claude works, its steps gather
+// in a task card: done steps ticked, the current one live with a timer, then
+// folded into a summary. Pull requests and other results are cards whose
+// state Claude keeps current, with buttons when it needs a decision. The composer grows with the text,
 // and its send button becomes Stop while Claude works on this chat. Opening
 // a chat with unread replies shows a "New" divider.
 
@@ -40,7 +40,8 @@ export class ChatScreen {
     this.feed = h('div', {class: 'feed', role: 'log', 'aria-label': 'Messages', 'aria-live': 'polite', 'aria-relevant': 'additions'});
     this.older = h('div', {class: 'older', 'aria-hidden': 'true'});
     this.thinkingNote = h('span');
-    this.thinking = h('div', {class: 'thinking', hidden: true, role: 'status'}, this.thinkingNote, h('span', {class: 'cursor', 'aria-hidden': 'true'}));
+    this.thinking = h('div', {class: 'thinking', hidden: true, role: 'status'}, avatar(this.isMuse ? 'muse' : 'claude'),
+      h('span', {class: 'dots', 'aria-hidden': 'true'}, h('i'), h('i'), h('i')), this.thinkingNote);
     this.scroller = h('div', {class: 'chat-scroll'}, this.older, this.feed, this.thinking);
     this.jump = h('button', {class: 'jump', type: 'button', hidden: true, onclick: () => this.toBottom(true)}, icon('down', {size: 16}), h('span', {}, 'New messages'));
     const name = this.isMuse ? 'Message Muse' : 'Message Claude';
@@ -56,6 +57,7 @@ export class ChatScreen {
     this.el.append(
       h('header', {class: 'chat-top'},
         h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Back', onclick: () => app.back()}, icon('back')),
+        this.headAvatar = avatar(this.isMuse ? 'muse' : 'claude'),
         h('button', {class: 'chat-heading', type: 'button', onclick: () => this.menu(), 'aria-label': 'Conversation options'}, this.titleEl, this.subEl),
         h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'More options', onclick: () => this.menu()}, icon('more'))),
       this.scroller, this.jump, this.composer);
@@ -89,6 +91,7 @@ export class ChatScreen {
 
   destroy() {
     for (const [type, fn] of this.listeners) this.store.removeEventListener(type, fn);
+    clearInterval(this.clock);
     this.olderObserver.disconnect();
     this.resizeObserver.disconnect();
     drafts.set(this.key, this.input.value);
@@ -131,6 +134,7 @@ export class ChatScreen {
     if (this.subEl.dataset.text === tone + text) return;
     this.subEl.dataset.text = tone + text;
     this.subEl.className = 'chat-sub tone-' + tone;
+    this.headAvatar.classList.toggle('busy', tone === 'busy');
     this.subEl.replaceChildren(h('span', {class: sigClass(tone), 'aria-hidden': 'true'}), h('span', {}, text));
   }
 
@@ -179,7 +183,7 @@ export class ChatScreen {
         divided = true; speaker = null;
       }
       const who = m.role === 'owner' ? 'owner' : this.isMuse ? 'muse' : 'claude';
-      if (who !== speaker) { nodes.push(this.turnHead(who, m)); speaker = who; group = null; }
+      if (who !== speaker) { if (who !== 'owner') nodes.push(this.turnHead(who, m)); speaker = who; group = null; }
       if (m.kind === 'progress') {
         if (!group) { group = {steps: []}; nodes.push(group); }
         group.steps.push(m);
@@ -189,6 +193,7 @@ export class ChatScreen {
       nodes.push(this.message(m, i > lastOwner));
     }
     const els = nodes.map((n, i) => n.steps ? this.work(n.steps, here && i === nodes.length - 1, s) : n);
+    this.tick();
     if (!list.length) els.push(this.store.threads.get(this.key)?.local || this.isMuse || list.loaded ? this.empty() : this.skeleton());
     this.feed.replaceChildren(...els);
     const newest = Math.max(0, ...list.map(m => m.seq || 0));
@@ -205,10 +210,9 @@ export class ChatScreen {
     else if (!this.stick && list.at(-1)?.role !== 'owner') this.jump.hidden = false;
   }
 
-  /** Who speaks next, and when: the start of a turn. */
+  /** The start of a Claude or Muse turn: avatar, name and time. */
   turnHead(who, m) {
-    const name = who === 'owner' ? 'You' : who === 'muse' ? 'Muse' : 'Claude';
-    return h('div', {class: 'turn-head ' + who, 'aria-hidden': 'true'}, h('span', {class: 'who'}, name), h('time', {}, clock(m.createdAt)));
+    return h('div', {class: 'turn-head ' + who, 'aria-hidden': 'true'}, avatar(who), h('span', {class: 'who'}, who === 'muse' ? 'Muse' : 'Claude'), h('time', {}, clock(m.createdAt)));
   }
 
   /** A message element, reused while it has not changed (markdown is drawn once). */
@@ -219,7 +223,11 @@ export class ChatScreen {
     if (cached?.sig === sig) return cached.el;
     const el = m.role === 'owner' ? this.ownerMessage(m) : this.replyMessage(m, actionable);
     // A reply that arrives while the chat is open prints in, once.
-    if (!cached && m.role !== 'owner' && (m.seq || 0) > this.printedTo && !reducedMotion()) el.classList.add('fresh');
+    if (!cached && m.role !== 'owner' && (m.seq || 0) > this.printedTo) {
+      if (!reducedMotion()) el.classList.add('fresh');
+      if (document.visibilityState === 'visible') haptic(8);
+    }
+    if (!cached && m.role === 'owner' && m.local && !reducedMotion()) el.classList.add('sent');
     this.rendered.set(m.id, {sig, el});
     return el;
   }
@@ -234,7 +242,7 @@ export class ChatScreen {
       : h('span', {class: 'state'}, icon('check', {size: 14}), 'Sent');
     const el = h('div', {class: 'msg owner' + (m.failed ? ' failed' : ''), tabindex: '0'}, m.body ? bubble : null,
       this.attachments(m),
-      h('div', {class: 'meta'}, state,
+      h('div', {class: 'meta'}, h('time', {}, clock(m.createdAt)), state,
         m.failed && h('button', {class: 'link-btn', type: 'button', onclick: () => this.store.retry(m.id)}, 'Retry')));
     onLongPress(el, () => this.messageMenu(m));
     return el;
@@ -365,24 +373,44 @@ export class ChatScreen {
     } catch (error) { toast(describe(error)); }
   }
 
-  /** Claude's steps as a log: the current step with a cursor while it works here, a summary after. */
+  /** Claude's steps as a task card: done steps ticked, the current one live with a timer; folded into a summary once done. */
   work(steps, live, s) {
     const first = steps[0].createdAt, last = steps.at(-1).createdAt;
     // While live, the newer of the last step and Claude's status note says what is happening now.
     const status = this.store.status;
     const noteIsNewer = live && status?.note && (status.lastSeen || 0) > last;
-    const now = noteIsNewer ? status.note : steps.at(-1).body;
+    const now = live ? (noteIsNewer ? status.note : steps.at(-1).body).split('\n')[0] : null;
+    const done = live && !noteIsNewer ? steps.slice(0, -1) : steps;
     const took = Math.max(1, Math.round(((live ? Date.now() : last) - first) / 60_000));
     const count = `${steps.length} step${steps.length === 1 ? '' : 's'}`;
+    const tick = icon('check', {size: 12});
+    const list = h('ol', {class: 'steps'},
+      done.map(st => h('li', {class: 'done'}, h('span', {class: 'mark', 'aria-hidden': 'true'}, tick.cloneNode(true)), h('span', {class: 'step-text'}, st.body.split('\n')[0]), h('time', {}, clock(st.createdAt)))),
+      live && h('li', {class: 'now', 'aria-current': 'step'}, h('span', {class: 'mark', 'aria-hidden': 'true'}), h('span', {class: 'step-text'}, now, h('span', {class: 'step-bar', 'aria-hidden': 'true'}, h('i')))));
+    if (live) {
+      return h('div', {class: 'work live', role: 'group', 'aria-label': 'Claude is working'},
+        h('div', {class: 'work-head'}, h('span', {class: 'work-title'}, s.stopping ? 'Stopping' : 'Working'),
+          h('time', {class: 'work-timer', dataset: {from: String(first)}}, elapsed(Date.now() - first))),
+        list);
+    }
     const details = h('details', {},
-      h('summary', {}, live && h('span', {class: 'sig live pulse', 'aria-hidden': 'true'}),
-        h('span', {class: 'work-title'}, live ? `${s.stopping ? 'Stopping' : 'Working'} · ${count}` : `Worked for ${took} min · ${count}`),
+      h('summary', {}, h('span', {class: 'mark done', 'aria-hidden': 'true'}, tick),
+        h('span', {class: 'work-title'}, `Done in ${took} min · ${count}`),
         h('span', {class: 'chev'}, icon('chevron', {size: 18}))),
-      h('ol', {}, steps.map(st => h('li', {}, h('time', {}, clock(st.createdAt)), h('span', {}, st.body)))));
+      list);
     if (this.openWork?.has(steps[0].id)) details.open = true;
     details.addEventListener('toggle', () => { (this.openWork ??= new Set())[details.open ? 'add' : 'delete'](steps[0].id); });
-    return h('div', {class: 'work' + (live ? ' live' : '')}, details,
-      live && h('p', {class: 'work-now'}, now.split('\n')[0], h('span', {class: 'cursor', 'aria-hidden': 'true'})));
+    return h('div', {class: 'work'}, details);
+  }
+  /** The live task card's timer runs while one is on screen. */
+  tick() {
+    clearInterval(this.clock);
+    const timer = this.feed.querySelector('.work-timer');
+    if (!timer) return;
+    this.clock = setInterval(() => {
+      if (!timer.isConnected) { clearInterval(this.clock); return; }
+      timer.textContent = elapsed(Date.now() - Number(timer.dataset.from));
+    }, 1000);
   }
 
   skeleton() {
@@ -392,9 +420,9 @@ export class ChatScreen {
   }
 
   empty() {
-    if (this.isMuse) return h('div', {class: 'chat-empty'}, h('p', {class: 'empty-title'}, 'MUSE'), h('p', {}, 'Your private conversation with Muse. Muse replies when it next checks in.'));
+    if (this.isMuse) return h('div', {class: 'chat-empty'}, h('p', {class: 'empty-title'}, 'Muse'), h('p', {}, 'Your private conversation with Muse. Muse replies when it next checks in.'));
     return h('div', {class: 'chat-empty'},
-      h('p', {class: 'empty-title'}, 'READY'),
+      h('p', {class: 'empty-title'}, 'Ready when you are'),
       h('p', {}, 'Ask anything, or hand over a job on Jarvis. Changes come back as pull requests for you to approve.'),
       h('div', {class: 'prompts'}, SUGGESTIONS.map(text => h('button', {type: 'button', onclick: () => { this.input.value = text; this.send(); }}, text))));
   }
@@ -464,6 +492,17 @@ export class ChatScreen {
     }
     this.app.chatMenu(this.key);
   }
+}
+
+/** A round avatar: Claude's gradient ring, or Muse's iris. */
+function avatar(who) {
+  return h('span', {class: 'avatar ' + who, 'aria-hidden': 'true'}, h('span', {}, who === 'muse' ? 'M' : 'C'));
+}
+
+/** 4:07 or 1:02:07: how long a task has run. */
+function elapsed(ms) {
+  const t = Math.max(0, Math.floor(ms / 1000)), hrs = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, sec = String(t % 60).padStart(2, '0');
+  return hrs ? `${hrs}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
 
 /** 14:05: the time of day, for turn heads and the work log. */
