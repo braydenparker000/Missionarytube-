@@ -65,9 +65,13 @@ For each thread with new messages (a batch can span threads):
 
 Other kinds of post:
 
-- `--kind progress` for a step in longer work ("Running the tests"). The
-  owner sees these as one live work card under your reply; post one per real
-  milestone, not per command.
+- `--kind progress` for a step in longer work. The owner sees these as a
+  live task card under your reply: each earlier step ticked off, the latest
+  one current, and a running timer. Post a step when you start each real
+  milestone of a job (typically 3 to 8: "Reading the reader code",
+  "Writing the fix", "Running the tests", "Opening the pull request",
+  "Deploying"), not per command. Keep each one short: one line, starting
+  with a verb. A long job with no steps looks stuck.
 - `--kind card` for a pull request or other result. The body is a one-line
   summary; the meta carries the link, its state and, when you need a
   decision, buttons:

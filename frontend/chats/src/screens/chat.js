@@ -6,8 +6,8 @@
 // markdown that rise in as they arrive. While Claude works, its steps gather
 // in a task card: done steps ticked, the current one live with a timer, then
 // folded into a summary. Pull requests and other results are cards whose
-// state Claude keeps current, with buttons when it needs a decision. The composer grows with the text,
-// and its send button becomes Stop while Claude works on this chat. Opening
+// state Claude keeps current, with buttons when it needs a decision. The
+// composer grows with the text, and its send button becomes Stop while Claude works on this chat. Opening
 // a chat with unread replies shows a "New" divider.
 
 import {h, when, haptic, reducedMotion} from '../dom.js';
@@ -193,9 +193,9 @@ export class ChatScreen {
       nodes.push(this.message(m, i > lastOwner));
     }
     const els = nodes.map((n, i) => n.steps ? this.work(n.steps, here && i === nodes.length - 1, s) : n);
-    this.tick();
     if (!list.length) els.push(this.store.threads.get(this.key)?.local || this.isMuse || list.loaded ? this.empty() : this.skeleton());
     this.feed.replaceChildren(...els);
+    this.tick();
     const newest = Math.max(0, ...list.map(m => m.seq || 0));
     if (list.length && (this.printedTo === Infinity || newest > this.printedTo)) this.printedTo = newest;
 
@@ -378,29 +378,33 @@ export class ChatScreen {
     const first = steps[0].createdAt, last = steps.at(-1).createdAt;
     // While live, the newer of the last step and Claude's status note says what is happening now.
     const status = this.store.status;
-    const noteIsNewer = live && status?.note && (status.lastSeen || 0) > last;
+    const noteIsNewer = live && status?.note && status.note !== steps.at(-1).body && (status.lastSeen || 0) > last;
     const now = live ? (noteIsNewer ? status.note : steps.at(-1).body).split('\n')[0] : null;
     const done = live && !noteIsNewer ? steps.slice(0, -1) : steps;
     const took = Math.max(1, Math.round(((live ? Date.now() : last) - first) / 60_000));
     const count = `${steps.length} step${steps.length === 1 ? '' : 's'}`;
     const tick = icon('check', {size: 12});
+    // Only a new card rises in, and only a newly finished step pops its tick; redraws stay still.
+    const seen = this.seenSteps ??= new Set(), quiet = this.firstRender;
+    const fresh = id => { const was = seen.has(id); seen.add(id); return !was && !quiet ? ' fresh' : ''; };
+    const cardFresh = fresh('card:' + steps[0].id);
     const list = h('ol', {class: 'steps'},
-      done.map(st => h('li', {class: 'done'}, h('span', {class: 'mark', 'aria-hidden': 'true'}, tick.cloneNode(true)), h('span', {class: 'step-text'}, st.body.split('\n')[0]), h('time', {}, clock(st.createdAt)))),
+      done.map(st => h('li', {class: 'done' + fresh(st.id)}, h('span', {class: 'mark', 'aria-hidden': 'true'}, tick.cloneNode(true)), h('span', {class: 'step-text'}, st.body.split('\n')[0]), h('time', {}, clock(st.createdAt)))),
       live && h('li', {class: 'now', 'aria-current': 'step'}, h('span', {class: 'mark', 'aria-hidden': 'true'}), h('span', {class: 'step-text'}, now, h('span', {class: 'step-bar', 'aria-hidden': 'true'}, h('i')))));
     if (live) {
-      return h('div', {class: 'work live', role: 'group', 'aria-label': 'Claude is working'},
+      return h('div', {class: 'work live' + cardFresh, role: 'group', 'aria-label': 'Claude is working'},
         h('div', {class: 'work-head'}, h('span', {class: 'work-title'}, s.stopping ? 'Stopping' : 'Working'),
           h('time', {class: 'work-timer', dataset: {from: String(first)}}, elapsed(Date.now() - first))),
         list);
     }
     const details = h('details', {},
       h('summary', {}, h('span', {class: 'mark done', 'aria-hidden': 'true'}, tick),
-        h('span', {class: 'work-title'}, `Done in ${took} min · ${count}`),
+        h('span', {class: 'work-title'}, `Worked for ${took} min · ${count}`),
         h('span', {class: 'chev'}, icon('chevron', {size: 18}))),
       list);
     if (this.openWork?.has(steps[0].id)) details.open = true;
     details.addEventListener('toggle', () => { (this.openWork ??= new Set())[details.open ? 'add' : 'delete'](steps[0].id); });
-    return h('div', {class: 'work'}, details);
+    return h('div', {class: 'work' + cardFresh}, details);
   }
   /** The live task card's timer runs while one is on screen. */
   tick() {
