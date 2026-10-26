@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { guitarSources, parseGprotabSearch, guitarProFormat, pickArtwork, gprotabFile, sound } from '../guitar-sources.js';
+import { guitarSources, parseGprotabSearch, guitarProFormat, gprotabFile, sound } from '../guitar-sources.js';
 
 const cors = { 'Access-Control-Allow-Origin': 'https://site.example' };
 const reply = (b, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
@@ -59,25 +59,8 @@ test('samples come only from the allowlisted guitar set and are cached for a yea
   await assert.rejects(sound('acoustic_guitar_nylon', 'C4', { fetcher: async () => new Response('<html>') }), /Invalid sample/);
 });
 
-test('covers need an artist match and only use Apple artwork hosts', async () => {
-  const row = (artistName, trackName, art = 'https://is1-ssl.mzstatic.com/image/thumb/a/b/100x100bb.jpg') => ({ artistName, trackName, artworkUrl100: art });
-  assert.equal(pickArtwork([row('Someone Else', 'Song'), row('The Artist', 'Song')], 'The Artist', 'Song'), 'https://is1-ssl.mzstatic.com/image/thumb/a/b/300x300bb.jpg');
-  assert.equal(pickArtwork([row('Nobody', 'Song')], 'The Artist', 'Song'), '');
-  assert.equal(pickArtwork([row('The Artist', 'Song', 'https://evil.example/100x100bb.jpg')], 'The Artist', 'Song'), '');
-  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2]);
-  const seen = [];
-  const r = await call('/guitar/cover?artist=The%20Artist&title=Song', async url => {
-    seen.push(url);
-    return url.startsWith('https://itunes.apple.com/') ? Response.json({ results: [row('The Artist', 'Song')] }) : new Response(jpeg);
-  });
-  assert.equal(r.status, 200); assert.equal(r.headers.get('Content-Type'), 'image/jpeg');
-  assert.match(seen[0], /^https:\/\/itunes\.apple\.com\/search\?term=The%20Artist%20Song&entity=song/);
-  assert.equal(seen[1], 'https://is1-ssl.mzstatic.com/image/thumb/a/b/300x300bb.jpg');
-  const miss = await call('/guitar/cover?artist=A&title=B', async () => Response.json({ results: [] }));
-  assert.equal(miss.status, 404); assert.equal(miss.headers.get('Cache-Control'), 'public, max-age=86400');
-});
-
 test('other guitar paths fall through to the Songsterr routes', async () => {
   assert.equal(await call('/guitar/search?q=abc', async () => assert.fail()), null);
-  assert.equal((await guitarSources(new Request('https://api.example/guitar/cover', { method: 'POST' }), reply, cors)).status, 405);
+  assert.equal(await call('/guitar/cover?artist=A&title=B', async () => assert.fail()), null);
+  assert.equal((await guitarSources(new Request('https://api.example/guitar/sounds/acoustic_guitar_nylon/E2.mp3', { method: 'POST' }), reply, cors)).status, 405);
 });

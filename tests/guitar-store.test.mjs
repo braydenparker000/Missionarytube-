@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStore, migrate, KEY, songKey, duration, dayKey } from '../frontend/guitar/store.js';
 import { chordName, tuningName, diagramWindow } from '../frontend/guitar/chords.js';
+import { pickArtwork, coverSearchURL } from '../frontend/guitar/covers.js';
 import { tempoMap, clicks, occurrence, sampleName, lastAtOrBefore, firstAtOrAfter, beatsInBar } from '../frontend/guitar/timeline.js';
 
 const memory = (seed = {}) => {
@@ -91,4 +92,13 @@ test('tempo maps, clicks, bar lookups and sample names', () => {
   assert.equal(lastAtOrBefore(bars, 4000), 1); assert.equal(lastAtOrBefore(bars, 0), 0);
   assert.equal(firstAtOrAfter(bars, 3841, 'start'), 2);
   assert.equal(sampleName(40), 'E2'); assert.equal(sampleName(61), 'Db4'); assert.equal(sampleName(21), 'A0');
+});
+
+test('covers need an artist match and only use Apple artwork hosts', () => {
+  const row = (artistName, trackName, art = 'https://is1-ssl.mzstatic.com/image/thumb/a/b/100x100bb.jpg') => ({ artistName, trackName, artworkUrl100: art });
+  assert.equal(pickArtwork([row('Someone Else', 'Song'), row('The Artist', 'Song')], 'The Artist', 'Song'), 'https://is1-ssl.mzstatic.com/image/thumb/a/b/300x300bb.jpg');
+  assert.equal(pickArtwork([row('Nobody', 'Song')], 'The Artist', 'Song'), '');
+  assert.equal(pickArtwork([row('The Artist', 'Song', 'https://evil.example/100x100bb.jpg')], 'The Artist', 'Song'), '');
+  assert.equal(coverSearchURL('Oasis', 'Wonderwall (Easy)'), 'https://itunes.apple.com/search?term=Oasis%20Wonderwall&entity=song&media=music&limit=8');
+  assert.equal(coverSearchURL('Oasis', 'Wonderwall 2'), 'https://itunes.apple.com/search?term=Oasis%20Wonderwall&entity=song&media=music&limit=8');
 });

@@ -149,6 +149,7 @@ export class Player {
   async play() {
     if (this.playing || !this.events) return;
     const ctx = this.context();
+    clearTimeout(this.sleepTimer);
     if (ctx.state !== 'running') await ctx.resume();
     if (this.position >= this.duration - 0.05) this.position = this.loop ? this.loop.start : 0;
     if (this.loop && (this.position < this.loop.start || this.position >= this.loop.end)) this.position = this.loop.start;
@@ -180,6 +181,10 @@ export class Player {
     clearInterval(this.timer); this.timer = null; this.playing = false; this.countUntil = 0;
     clearTimeout(this.endTimer); this.endTimer = null;
     this.silence();
+    // A running context keeps the reverb working on silence: let the notes
+    // fade, then suspend it so a paused song costs no CPU or battery.
+    clearTimeout(this.sleepTimer);
+    this.sleepTimer = setTimeout(() => { if (!this.playing && this.ctx?.state === 'running') this.ctx.suspend().catch(() => {}); }, 400);
   }
   silence(after = 0) {
     if (!this.ctx) return;

@@ -134,8 +134,11 @@ const FRONTEND_PUBLIC_HOSTS = {
   'frontend/guitar/engine.js': ['www.alphatab.net'], // bundled renderer license
   'frontend/guitar/sources.js': ['www.songsterr.com', 'gprotab.net'], // "Open on…" links to the tab's source page
   'frontend/guitar/credits.html': ['www.songsterr.com', 'gprotab.net', 'creativecommons.org'], // attribution links
-  'backend/guitar-sources.js': ['gprotab.net', 'gleitz.github.io', 'itunes.apple.com'], // fixed tab, sample and cover upstreams
-  'backend/tests/guitar-sources.test.js': ['gprotab.net', 'gleitz.github.io', 'itunes.apple.com', 'is1-ssl.mzstatic.com'], // mocked upstream calls
+  'frontend/guitar/covers.js': ['itunes.apple.com'], // public song artwork lookup, as Podcasts uses
+  'frontend/guitar/index.html': ['itunes.apple.com'], // document policy for that lookup
+  'backend/guitar-sources.js': ['gprotab.net', 'gleitz.github.io'], // fixed tab and sample upstreams
+  'backend/tests/guitar-sources.test.js': ['gprotab.net', 'gleitz.github.io'], // mocked upstream calls
+  'tests/guitar-store.test.mjs': ['is1-ssl.mzstatic.com', 'itunes.apple.com'], // artwork matching cases
   'frontend/astra/vendor/mediabunny.js': ['mozilla.org', 'www.webmproject.org', 'aomediacodec.github.io'], // vendored package license and codec spec notices
   'frontend/astra/vendor/mediabunny-ac3.js': ['mozilla.org', 'streams.videolan.org'],
   'frontend/astra/vendor/mediabunny-dts.js': ['mozilla.org', 'streams.videolan.org'],
