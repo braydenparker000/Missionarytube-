@@ -131,7 +131,11 @@ const FRONTEND_PUBLIC_HOSTS = {
   'frontend/assets/quick-ai-providers.js': ['api.tavily.com', 'generativelanguage.googleapis.com', 'api.groq.com'], // existing direct providers
   'frontend/drawercast/player.js': ['drive.google.com', 'play.google.com', 'www.google.com', 'www.sqlite.org'], // existing Drive links and bundled license notices
   'frontend/guitar/pdf.js': ['cdnjs.cloudflare.com', 'jspdf.default.namespaceuri'], // bundled PDF loader and XML namespace, not a service
-  'frontend/guitar/render-worker.js': ['www.alphatab.net'], // bundled renderer license
+  'frontend/guitar/engine.js': ['www.alphatab.net'], // bundled renderer license
+  'frontend/guitar/sources.js': ['www.songsterr.com', 'gprotab.net'], // "Open on…" links to the tab's source page
+  'frontend/guitar/credits.html': ['www.songsterr.com', 'gprotab.net', 'creativecommons.org'], // attribution links
+  'backend/guitar-sources.js': ['gprotab.net', 'gleitz.github.io', 'itunes.apple.com'], // fixed tab, sample and cover upstreams
+  'backend/tests/guitar-sources.test.js': ['gprotab.net', 'gleitz.github.io', 'itunes.apple.com', 'is1-ssl.mzstatic.com'], // mocked upstream calls
   'frontend/astra/vendor/mediabunny.js': ['mozilla.org', 'www.webmproject.org', 'aomediacodec.github.io'], // vendored package license and codec spec notices
   'frontend/astra/vendor/mediabunny-ac3.js': ['mozilla.org', 'streams.videolan.org'],
   'frontend/astra/vendor/mediabunny-dts.js': ['mozilla.org', 'streams.videolan.org'],

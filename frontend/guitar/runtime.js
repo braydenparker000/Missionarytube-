@@ -15,15 +15,3 @@ export async function withDeadline(work, ms) {
     timer = setTimeout(() => { controller.abort(); reject(Error("Couldn't generate this tab. Try another Songsterr version.")); }, ms);
   })]); } finally { clearTimeout(timer); controller.abort(); }
 }
-export function renderInWorker(data, signal) {
-  return new Promise((resolve, reject) => {
-    const worker = new Worker(new URL('./render-worker.js', import.meta.url), { type: 'module' });
-    const cleanup = () => { worker.terminate(); signal.removeEventListener('abort', abort); };
-    const abort = () => { cleanup(); reject(Error('Rendering timed out')); };
-    signal.addEventListener('abort', abort, { once: true });
-    if (signal.aborted) { abort(); return; }
-    worker.onmessage = ({ data }) => { cleanup(); data.ok ? resolve(data) : reject(Error('Rendering failed')); };
-    worker.onerror = () => { cleanup(); reject(Error('Rendering failed')); };
-    worker.postMessage(data);
-  });
-}

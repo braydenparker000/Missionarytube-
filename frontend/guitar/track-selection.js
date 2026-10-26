@@ -38,3 +38,14 @@ export function validParts(tracks, value) {
 export function resolveParts(tracks, remembered, saved) {
   return validParts(tracks, remembered) || validParts(tracks, saved) || defaultParts(tracks);
 }
+
+// The track the reader opens first: a rhythm part when one is named, else a
+// guitar that is not the lead or solo. GP tracks also carry note counts, so
+// nearly empty guitar tracks are passed over.
+export function readerTrack(tracks) {
+  const guitars = tracks.filter(t => t.kind === 'guitar');
+  const most = Math.max(0, ...guitars.map(t => t.notes ?? 1));
+  const usable = guitars.filter(t => (t.notes ?? 1) >= most * 0.25);
+  const pool = usable.length ? usable : guitars.length ? guitars : tracks;
+  return (pool.find(t => /rhythm/i.test(t.name)) || pool.find(t => !/\b(lead|solo)\b/i.test(t.name)) || pool[0])?.id;
+}

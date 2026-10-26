@@ -1,0 +1,14 @@
+{
+  "name": "jarvis-guitar-engine",
+  "private": true,
+  "type": "module",
+  "description": "Build-only sources for frontend/guitar/engine.js. Nothing here ships except the built bundle.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@coderline/alphatab": "1.8.1",
+    "esbuild": "0.25.10",
+    "opentype.js": "1.3.4"
+  }
+}
