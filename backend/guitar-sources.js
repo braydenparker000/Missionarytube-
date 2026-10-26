@@ -1,9 +1,8 @@
-// Guitar extras beside Songsterr: GProTab search and Guitar Pro downloads, the
-// guitar sample set used for playback, and song covers. Each upstream is a
+// Guitar extras beside Songsterr: GProTab search and Guitar Pro downloads, and
+// the guitar sample set used for playback. Each upstream is a
 // fixed host; paths are validated, bodies are bounded and nothing is stored.
 const GPROTAB = 'https://gprotab.net';
 const SOUNDS = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/';
-const ITUNES = 'https://itunes.apple.com/search';
 export const INSTRUMENTS = new Set(['acoustic_guitar_nylon', 'acoustic_guitar_steel', 'electric_guitar_clean', 'electric_guitar_jazz',
   'electric_guitar_muted', 'overdriven_guitar', 'distortion_guitar', 'guitar_harmonics']);
 const NOTE = /^(?:A|Bb|B|C|Db|D|Eb|E|F|Gb|G|Ab)[0-7]$/;
@@ -108,36 +107,11 @@ export async function sound(instrument, note, options) {
   return bytes;
 }
 
-const simple = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, ' ').trim();
-// The best iTunes song match for a cover: the artist must match, the title
-// should. Returns a 300px artwork URL on Apple's image CDN, or ''.
-export function pickArtwork(results, artist, title) {
-  const a = simple(artist), t = simple(title);
-  const scored = (Array.isArray(results) ? results : []).filter(r => typeof r?.artworkUrl100 === 'string' && /^https:\/\/is\d-ssl\.mzstatic\.com\//.test(r.artworkUrl100))
-    .map(r => ({ r, artist: simple(r.artistName) === a ? 4 : simple(r.artistName) && (simple(r.artistName).includes(a) || a.includes(simple(r.artistName))) ? 2 : 0,
-      title: simple(r.trackName) === t ? 2 : simple(r.trackName).startsWith(t) ? 1 : 0 }))
-    .filter(x => x.artist).sort((x, y) => y.artist + y.title - x.artist - x.title);
-  return scored.length ? scored[0].r.artworkUrl100.replace(/\/\d+x\d+bb\.(jpg|png)$/, '/300x300bb.jpg') : '';
-}
-
-export async function cover(artist, title, options) {
-  const a = String(artist || '').trim().slice(0, 120), t = String(title || '').trim().slice(0, 160);
-  if (a.length < 1 || t.length < 1) throw new SourceError('Not found', 404);
-  const term = encodeURIComponent(`${a} ${t.replace(/\s*\(.*?\)\s*/g, ' ')}`.trim());
-  const { bytes } = await fetchBounded(`${ITUNES}?term=${term}&entity=song&media=music&limit=8`, { ...options, limit: 512 * 1024, accept: 'application/json', ttl: 7 * DAY });
-  let data; try { data = JSON.parse(new TextDecoder().decode(bytes)); } catch { throw new SourceError('Not found', 404); }
-  const art = pickArtwork(data.results, a, t);
-  if (!art) throw new SourceError('Not found', 404);
-  const image = await fetchBounded(art, { ...options, limit: 400 * 1024, accept: 'image/jpeg', ttl: 30 * DAY });
-  if (!(image.bytes[0] === 0xff && image.bytes[1] === 0xd8) && !(image.bytes[0] === 0x89 && image.bytes[1] === 0x50)) throw new SourceError('Not found', 404);
-  return { bytes: image.bytes, type: image.bytes[0] === 0xff ? 'image/jpeg' : 'image/png' };
-}
-
-// Routes /guitar/gprotab/*, /guitar/sounds/* and /guitar/cover. Returns null
+// Routes /guitar/gprotab/* and /guitar/sounds/*. Returns null
 // for any other path so Songsterr's routes still apply.
 export async function guitarSources(request, reply, cors, options = {}) {
   const url = new URL(request.url);
-  const route = url.pathname.match(/^\/guitar\/(gprotab\/search|gprotab\/file|cover|sounds\/([a-z_]+)\/([A-Za-z0-9]+)\.mp3)$/);
+  const route = url.pathname.match(/^\/guitar\/(gprotab\/search|gprotab\/file|sounds\/([a-z_]+)\/([A-Za-z0-9]+)\.mp3)$/);
   if (!route) return null;
   if (request.method !== 'GET') return reply({ error: 'Method not allowed' }, 405);
   const binary = (bytes, type, maxAge, extra = {}) => new Response(bytes, { status: 200, headers: { ...cors, 'Content-Type': type,
@@ -148,16 +122,8 @@ export async function guitarSources(request, reply, cors, options = {}) {
       const { bytes, format } = await gprotabFile(url.searchParams.get('path'), options);
       return binary(bytes, 'application/octet-stream', DAY, { 'X-Guitar-Format': format, 'Access-Control-Expose-Headers': 'X-Guitar-Format' });
     }
-    if (route[1] === 'cover') {
-      const { bytes, type } = await cover(url.searchParams.get('artist'), url.searchParams.get('title'), options);
-      return binary(bytes, type, 30 * DAY);
-    }
     return binary(await sound(route[2], route[3], options), 'audio/mpeg', 365 * DAY);
   } catch (e) {
-    const status = e instanceof SourceError ? e.status : 502;
-    const response = reply({ error: e instanceof SourceError ? e.message : 'Source unavailable' }, status);
-    // Misses are cheap to remember; the page asks for a cover once per song.
-    if (route[1] === 'cover' && status === 404) response.headers.set('Cache-Control', 'public, max-age=86400');
-    return response;
+    return reply({ error: e instanceof SourceError ? e.message : 'Source unavailable' }, e instanceof SourceError ? e.status : 502);
   }
 }

@@ -2,6 +2,7 @@
 // of their tab in Cache Storage so they still open when a source is down.
 import { API_ORIGIN } from '/assets/config.js';
 import { allGuitarValue } from './track-selection.js';
+import { coverSearchURL, pickArtwork } from './covers.js';
 
 const BASE = API_ORIGIN + '/guitar/';
 const CACHE = 'jarvis-guitar-v1';
@@ -139,33 +140,44 @@ export async function keepSong(loaded, trackId) {
   await putSaved(`${loaded.key}|${meta.revisionId}|${trackId}`, JSON.stringify(s.data), 'application/json');
 }
 
-// Covers: a blob URL from the Worker's iTunes lookup, cached on the device.
+// Covers: Apple artwork found from the browser, cached on the device.
 const covers = new Map(), blobs = new Map();
+// Apple rate-limits its search, so look up at most three covers at a time.
+let active = 0;
+const waiting = [];
+async function gently(work) {
+  if (active >= 3) await new Promise(resolve => waiting.push(resolve));
+  active++;
+  try { return await work(); } finally { active--; waiting.shift()?.(); }
+}
+async function cachedFetch(url, store) {
+  let hit = await store?.match(url).catch(() => null);
+  if (hit) return hit;
+  const r = await gently(() => fetch(url, { signal: AbortSignal.timeout(12000) }));
+  if (!r.ok) return null;
+  store?.put(url, r.clone()).catch(() => {});
+  return r;
+}
 export function coverURL(song) {
   if (!song?.artist || !song.title) return Promise.resolve('');
-  const title = song.title.replace(/\s+\d+$/, '').replace(/\s*\((?:acoustic|live|solo|intro|cover|ver(?:sion)?\.?\s*\d*)\)\s*$/i, '');
-  const path = `cover?artist=${encodeURIComponent(song.artist)}&title=${encodeURIComponent(title)}`;
-  if (covers.has(path)) return covers.get(path);
+  const search = coverSearchURL(song.artist, song.title);
+  if (covers.has(search)) return covers.get(search);
   const load = (async () => {
-    const store = await cache();
-    let hit = await store?.match(BASE + path).catch(() => null);
-    if (!hit) {
-      try {
-        const r = await fetch(BASE + path);
-        if (r.status === 404) { store?.put(BASE + path, new Response('', { status: 200, headers: { 'X-Missing': '1' } })).catch(() => {}); return ''; }
-        if (!r.ok) return '';
-        hit = r.clone();
-        store?.put(BASE + path, r).catch(() => {});
-      } catch { return ''; }
-    }
-    if (hit.headers.get('X-Missing')) return '';
-    const blob = await hit.blob();
-    if (blob.size < 100) return '';
-    const url = URL.createObjectURL(blob);
-    blobs.set(url, blob);
-    return url;
+    try {
+      const store = await cache();
+      const found = await cachedFetch(search, store);
+      if (!found) return '';
+      const art = pickArtwork((await found.json()).results, song.artist, song.title);
+      if (!art) return '';
+      const image = await cachedFetch(art, store);
+      const blob = image && await image.blob();
+      if (!blob || blob.size < 100 || !/^image\//.test(blob.type)) return '';
+      const url = URL.createObjectURL(blob);
+      blobs.set(url, blob);
+      return url;
+    } catch { return ''; }
   })();
-  covers.set(path, load);
+  covers.set(search, load);
   return load;
 }
 
