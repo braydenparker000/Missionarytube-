@@ -21,6 +21,8 @@
 //   jc link <thread>            records this session's link on the thread
 //   jc threads
 //   jc notebook [--write <file|->] [--version N]
+//   jc log                      the Worker's recent handouts and requeues (which
+//                               session took which message), to trace a lost one
 //
 // Every call is one HTTPS request to POST /claude-chat/agent {op, args}.
 // When the owner has tapped Stop, every answer to a post or status says so,
@@ -90,17 +92,20 @@ const stopSeen = () => { try { return Number(readFileSync(STOP_SEEN, 'utf8')) ||
 
 async function wait(minutes) {
   const deadline = Date.now() + minutes * 60_000;
-  let failures = 0;
+  let failures = 0, take;
   while (Date.now() < deadline) {
     try {
       const left = deadline - Date.now();
-      const {messages, stop} = await call('take', {wait: Math.min(50_000, Math.max(1000, left)), sessionUrl: SESSION_URL, stopSeen: stopSeen()});
+      // Each take has an id the Worker logs, so a reply lost on the way back can be matched to it.
+      take = randomUUID();
+      const {messages, stop} = await call('take', {wait: Math.min(50_000, Math.max(1000, left)), sessionUrl: SESSION_URL, stopSeen: stopSeen(), take});
       failures = 0;
       if (messages.length) { out({messages}); return 0; }
       if (stop) { try { writeFileSync(STOP_SEEN, String(stop.at)); } catch {} out({stop}); return 4; }
     } catch (error) {
       // The lease lapses after ~75 s without a call, so keep trying, gently.
       if (error.status === 401 || error.status === 403) { console.error(`jc: refused (${error.status}): ${error.message}`); return 2; }
+      console.error(`jc: ${new Date().toISOString()} take ${take} failed: ${error.status ? `HTTP ${error.status} ` : ''}${error.message}`);
       failures++;
       await new Promise(r => setTimeout(r, Math.min(30_000, 1000 * 2 ** failures)));
     }
@@ -134,6 +139,7 @@ async function main(argv) {
     case 'title': out(await call('thread.update', {id: rest[0], title: rest.slice(1).join(' ')})); return 0;
     case 'link': out(await call('thread.update', {id: rest[0], sessionUrl: SESSION_URL})); return 0;
     case 'threads': out(await call('threads')); return 0;
+    case 'log': out(await call('log')); return 0;
     case 'notebook': {
       if (flags.write === undefined) { out(await call('notebook')); return 0; }
       const body = flags.write === '-' || flags.write === true ? stdin() : readFileSync(flags.write, 'utf8');
@@ -141,7 +147,7 @@ async function main(argv) {
       return 0;
     }
     default:
-      console.error('usage: jc wait|history|say|file|amend|status|title|link|threads|notebook (see the header of this file)');
+      console.error('usage: jc wait|history|say|file|amend|status|title|link|threads|notebook|log (see the header of this file)');
       return 64;
   }
 }

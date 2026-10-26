@@ -185,6 +185,24 @@ test('delivery is acknowledged: a message nobody acts on comes back; one Claude 
   assert.deepEqual(call('claude', 'take', {}, t0 + 3 * ACK_MS).messages, [], 'a post acknowledges it');
 });
 
+test('the delivery log records who took each message and what was handed out again', () => {
+  const call = store();
+  call('owner', 'thread.create', {id: T});
+  const t0 = 7_500_000;
+  call('owner', 'send', {id: M(1), threadId: T, body: 'fluffier?'}, t0);
+  const seq = call('claude', 'take', {sessionUrl: 'https://claude.ai/code/session_01Abc', take: 'take-1'}, t0 + 1).messages[0].seq;
+  call('claude', 'take', {}, t0 + ACK_MS / 2); // the wait keeps the lease: an empty take is not logged
+  call('claude', 'take', {take: 'take-2'}, t0 + ACK_MS + 2);
+  assert.deepEqual(call('claude', 'log').deliveries, [
+    {at: t0 + 1, event: 'take', session: 'https://claude.ai/code/session_01Abc', take: 'take-1', seqs: [seq]},
+    {at: t0 + ACK_MS + 2, event: 'requeue', reason: 'unacknowledged', seqs: [seq]},
+    {at: t0 + ACK_MS + 2, event: 'take', session: null, take: 'take-2', seqs: [seq]},
+  ]);
+  assert.throws(() => call('owner', 'log'), e => e instanceof ChatError && e.status === 403);
+  for (let i = 0; i < 70; i++) call('claude', 'take', {}, t0 + (i + 2) * 3 * ACK_MS);
+  assert.ok(call('claude', 'log').deliveries.length <= 60, 'the log keeps only the latest entries');
+});
+
 test('the page re-wakes Claude when messages wait and their session vanished, a few times at most', () => {
   const call = store();
   call('owner', 'thread.create', {id: T});
