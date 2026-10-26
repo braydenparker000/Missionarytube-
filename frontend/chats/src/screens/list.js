@@ -153,12 +153,14 @@ export class ListScreen {
   }
 
   skeletonRow() {
-    return h('li', {class: 'skel-row', 'aria-hidden': 'true'}, h('span', {class: 'skel line short'}), h('span', {class: 'skel line'}));
+    return h('li', {class: 'skel-row', 'aria-hidden': 'true'}, h('span', {class: 'skel dot'}), h('span', {class: 'skel-lines'}, h('span', {class: 'skel line short'}), h('span', {class: 'skel line'})));
   }
 
   row({key, tag, title, preview, at, unread, working, queued, archived}) {
     const button = h('button', {class: 'row' + (key === MUSE ? ' muse' : '') + (unread ? ' unread' : ''), type: 'button', onclick: () => this.app.openChat(key),
       'aria-label': `${title}${unread ? `, ${unread} unread` : ''}${working ? ', Claude is working' : ''}. ${preview}`},
+      h('span', {class: 'avatar ' + (key === MUSE ? 'muse' : 'claude') + (working ? ' busy' : ''), 'aria-hidden': 'true'}, h('span', {}, key === MUSE ? 'M' : 'C')),
+      h('span', {class: 'row-body'},
       h('span', {class: 'row-top'},
         h('span', {class: 'row-title'}, title),
         tag && h('span', {class: 'row-tag label'}, tag),
@@ -167,7 +169,7 @@ export class ListScreen {
         queued && icon('clock', {size: 16}),
         working && h('span', {class: 'sig live pulse', 'aria-hidden': 'true'}),
         h('span', {class: 'row-preview' + (working ? ' working' : '')}, preview),
-        unread ? h('span', {class: 'badge', 'aria-hidden': 'true'}, String(unread)) : null));
+        unread ? h('span', {class: 'badge', 'aria-hidden': 'true'}, String(unread)) : null)));
     if (key === MUSE) return h('li', {}, button);
     onLongPress(button, () => this.app.chatMenu(key));
     const under = h('div', {class: 'row-under', 'aria-hidden': 'true'}, icon(archived ? 'unarchive' : 'archive', {size: 20}), archived ? 'Unarchive' : 'Archive');

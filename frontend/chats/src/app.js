@@ -1,5 +1,6 @@
 // The app shell: the chat list underneath, and one page at a time on top
-// (a conversation, the notebook or settings), sliding in from the side.
+// (a conversation, the notebook or settings). A chat opened from a row grows
+// out of that row and shrinks back into it; other pages slide in from the side.
 // Android back closes the top page. /chats/#muse and /chats/#t=<id> open a
 // conversation directly.
 
@@ -22,6 +23,11 @@ export class App {
     this.list = new ListScreen(this);
     this.signin = new SignInScreen(this);
     this.root.append(this.list.el, this.signin.el);
+    // Where the last tap landed, so a chat can grow out of the row it came from.
+    this.root.addEventListener('pointerdown', e => {
+      const from = e.target.closest?.('.row, .desk-item, .fab');
+      this.tapFrom = from ? {rect: from.getBoundingClientRect(), at: Date.now()} : null;
+    }, true);
     this.applyPrefs();
     auth.onChange(() => this.renderAuth());
   }
@@ -47,8 +53,15 @@ export class App {
   applyPrefs() { applyTheme(prefs); }
 
   /** Opens a page on top. Each page is one back-stack entry. */
-  push(screen) {
+  push(screen, {zoom = false} = {}) {
     const page = {screen};
+    const from = zoom && this.tapFrom && Date.now() - this.tapFrom.at < 1500 && !matchMedia('(prefers-reduced-motion: reduce)').matches ? this.tapFrom.rect : null;
+    if (from) {
+      const {innerWidth: w, innerHeight: h} = window;
+      screen.el.style.setProperty('--from', `inset(${from.top}px ${Math.max(0, w - from.right)}px ${Math.max(0, h - from.bottom)}px ${from.left}px round 16px)`);
+      screen.el.classList.add('zoom');
+    }
+    this.tapFrom = null;
     screen.el.classList.add('page', 'entering');
     this.root.append(screen.el);
     for (const p of this.pages) p.screen.el.inert = true;
@@ -72,7 +85,7 @@ export class App {
     el.classList.add('leaving');
     el.inert = true;
     el.setAttribute('aria-hidden', 'true');
-    setTimeout(() => el.remove(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 340);
+    setTimeout(() => el.remove(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 420);
     const top = this.pages.at(-1);
     if (top) top.screen.el.inert = false; else { this.list.el.inert = !auth.signedIn; this.list.el.classList.remove('covered'); this.list.el.removeAttribute('aria-hidden'); }
     // Focus returns to where the page was opened from.
@@ -86,7 +99,7 @@ export class App {
     if (top instanceof ChatScreen && top.key === key) return;
     this.lastFocus = document.activeElement;
     const screen = new ChatScreen(this, key);
-    this.push(screen);
+    this.push(screen, {zoom: true});
     this.store.openKey = key;
     const close = this.pages.at(-1).close;
     this.pages.at(-1).close = () => { if (this.store.openKey === key) this.store.openKey = null; close(); };
