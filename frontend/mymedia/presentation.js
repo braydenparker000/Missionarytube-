@@ -53,3 +53,24 @@ export function progressBarMarkup(percent) {
   const value = Math.min(100, percent), rounded = Math.round(value);
   return `<span class="bar" role="progressbar" aria-valuenow="${rounded}" aria-valuemin="0" aria-valuemax="100" aria-label="Watched ${rounded} percent"><span data-progress="${value.toFixed(1)}"></span></span>`;
 }
+
+// "3 days ago" for a past time, in the phone's language.
+const AGO = [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]];
+export function timeAgo(ms, now = Date.now(), locale = undefined) {
+  if (!Number.isFinite(ms) || ms <= 0) return '';
+  const seconds = Math.max(0, (now - ms) / 1000);
+  const format = new Intl.RelativeTimeFormat(locale, {numeric:'auto'});
+  for (const [unit, size] of AGO) if (seconds >= size) return format.format(-Math.floor(seconds / size), unit);
+  return 'just now';
+}
+
+// A creator's avatar color: one of twelve, stable for the name.
+export function hueIndex(name) {
+  let n = 2166136261;
+  for (const c of String(name || '')) { n ^= c.codePointAt(0); n = Math.imul(n, 16777619); }
+  return (n >>> 0) % 12;
+}
+
+export function initials(name) {
+  return String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map(s => Array.from(s)[0]).join('').toLocaleUpperCase() || '?';
+}
