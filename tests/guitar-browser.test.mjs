@@ -76,12 +76,10 @@ test('Guitar: search both sources, read with a live cursor, loop, speed, sound, 
     assert.deepEqual(await page.locator(`${reader} .rd-section`).allTextContents(), ['Intro', 'Verse']);
     assert.equal(await page.locator(`${reader} .chord.now strong`).textContent(), 'C');
     assert.equal(await page.locator(`${reader} .rd-time`).last().textContent(), '0:20');
+    // The track name is never cut off.
+    assert.ok(await page.locator(`${reader} .tag-track`).evaluate(n => n.scrollWidth <= n.clientWidth && n.getBoundingClientRect().right <= innerWidth));
 
-    // Turn off the count-in, play, and watch the cursor and the clock move.
-    await page.click(`${reader} .rd-top [aria-label="Song options"]`);
-    await page.click('.sheet-item:has-text("Metronome options")');
-    await page.click('.sheet-item:has-text("Count in one bar")');
-    await page.waitForFunction(() => !document.querySelector('.sheet-layer'));
+    // The count-in is off by default: play, and watch the cursor and the clock move.
     const before = await page.locator(`${reader} .rd-cursor`).getAttribute('style');
     await page.click(`${reader} .tp-play`);
     await page.waitForFunction(() => document.querySelector('.reader .rd-time').textContent === '0:03', null, { timeout: 15000 });
@@ -91,12 +89,19 @@ test('Guitar: search both sources, read with a live cursor, loop, speed, sound, 
     assert.ok(await page.locator(`${reader} .board .b-note.on`).count() >= 5, 'the strummed chord lights the fretboard');
     await page.click(`${reader} .tp-play`);
 
-    // Loop the second bar by tapping it twice, then 70% speed.
+    // A tap hides the fretboard; Undo brings it back.
+    await page.click(`${reader} .rd-board`);
+    await page.waitForFunction(() => document.querySelector('.reader .rd-board').hidden);
+    await page.click('#toast button:has-text("Undo")');
+    await page.waitForFunction(() => !document.querySelector('.reader .rd-board').hidden);
+
+    // The default tab size fits two bars a line. Loop the second bar by tapping it twice, then 70% speed.
+    assert.equal(await page.locator(`${reader} .rd-system img`).first().getAttribute('alt'), 'Tab, bars 1 to 2');
     await page.click(`${reader} [aria-label="Loop"]`);
     await page.locator(`${reader} .rd-hint`).waitFor();
-    const second = await page.locator(`${reader} .rd-system`).nth(1).boundingBox();
-    await page.mouse.click(second.x + 150, second.y + second.height / 2);
-    await page.mouse.click(second.x + 150, second.y + second.height / 2);
+    const first = await page.locator(`${reader} .rd-system`).first().boundingBox();
+    await page.mouse.click(first.x + first.width * 0.75, first.y + first.height / 2);
+    await page.mouse.click(first.x + first.width * 0.75, first.y + first.height / 2);
     await page.waitForFunction(() => document.querySelector('.reader [aria-label="Loop"] small').textContent === '2–2');
     assert.equal(await page.locator(`${reader} .rd-loopmark`).count(), 1);
     await page.click(`${reader} [aria-label="Speed"]`);

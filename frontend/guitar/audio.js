@@ -25,7 +25,7 @@ const VOICING = {
   overdriven_guitar: { low: 0, mid: 2, high: -1, cab: 6500, level: 0.62 },
   distortion_guitar: { low: -2, mid: 2.5, high: -1.5, cab: 6000, level: 0.5 }
 };
-const MUTED = 'electric_guitar_muted', HARMONICS = 'guitar_harmonics';
+const MUTED = 'electric_guitar_muted';
 const LOOKAHEAD = 0.16;
 
 export class Player {
@@ -92,8 +92,7 @@ export class Player {
     const want = (set, midi) => { midi = Math.min(SAMPLE_RANGE[1], Math.max(SAMPLE_RANGE[0], Math.round(midi))); wanted.set(set + '/' + midi, { set, midi }); };
     for (const e of this.events || []) for (const n of e.n) {
       const bend = n.b ? Math.max(0, ...n.b.map(p => p[1])) : 0;
-      if (n.fl & FLAG.harmonic) want(HARMONICS, n.m);
-      else if ((n.fl & (FLAG.palmMute | FLAG.dead)) && this.instrument === 'electric') want(MUTED, n.m);
+      if ((n.fl & (FLAG.palmMute | FLAG.dead)) && this.instrument === 'electric') want(MUTED, n.m);
       else { want(this.set, n.m); if (bend >= 1) want(this.set, n.m + Math.round(bend)); }
     }
     // Keep memory bounded: forget decoded samples this song does not use.
@@ -264,7 +263,7 @@ export class Player {
 
   note(n, when, length, velocity) {
     const ctx = this.ctx, fl = n.fl;
-    const set = fl & FLAG.harmonic ? HARMONICS : (fl & (FLAG.palmMute | FLAG.dead)) && this.instrument === 'electric' ? MUTED : this.set;
+    const set = !(fl & FLAG.harmonic) && (fl & (FLAG.palmMute | FLAG.dead)) && this.instrument === 'electric' ? MUTED : this.set;
     const found = this.lookup(set, n.m) || this.lookup(this.set, n.m);
     if (!found) return;
     const src = new AudioBufferSourceNode(ctx, { buffer: found.buffer });
@@ -285,14 +284,23 @@ export class Player {
     if (fl & FLAG.legato) peak *= 0.72;
     if (fl & FLAG.staccato) hold = length * 0.5;
     if (fl & FLAG.letRing) hold = Math.max(length, 3.5);
-    if (fl & (FLAG.palmMute | FLAG.dead)) {
+    let attack = fl & FLAG.legato ? 0.012 : 0.003;
+    if (fl & FLAG.harmonic) {
+      // A harmonic is the chosen guitar at the harmonic's pitch with the body
+      // and the upper partials taken out: no pick thump, a glassy bell that rings.
+      const f = 440 * Math.pow(2, (n.m - 69) / 12);
+      const hp = new BiquadFilterNode(ctx, { type: 'highpass', frequency: f * 0.75, Q: 0.7 });
+      const lp = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: Math.min(16000, f * 4), Q: 0.5 });
+      chain = chain.connect(hp).connect(lp);
+      peak *= 0.9; attack = 0.012; hold = Math.max(length, 2.5); release = 0.35;
+    } else if (fl & (FLAG.palmMute | FLAG.dead)) {
       hold = fl & FLAG.dead ? 0.045 : Math.min(length, 0.2);
       release = 0.03;
       if (fl & FLAG.dead) peak *= 0.6;
       if (set !== MUTED) { const lp = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: fl & FLAG.dead ? 1400 : 900, Q: 0.6 }); chain = chain.connect(lp); }
     }
     gain.gain.setValueAtTime(0.0001, when);
-    gain.gain.linearRampToValueAtTime(peak, when + (fl & FLAG.legato ? 0.012 : 0.003));
+    gain.gain.linearRampToValueAtTime(peak, when + attack);
     gain.gain.setTargetAtTime(0.0001, when + hold, release);
     chain.connect(gain).connect(this.input);
     let lfo = null;

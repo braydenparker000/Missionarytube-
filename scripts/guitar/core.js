@@ -129,8 +129,10 @@ export function renderReader(score, trackIndex, { width = 390, scale = 1, font }
   res.effectFont = new M.Font(SANS, 11, M.FontStyle.Plain, M.FontWeight.Regular);
   for (const [key, f] of [...res.elementFonts]) res.elementFonts.set(key, new M.Font(SANS, f.size, f.style, f.weight));
   // Section names are drawn by the page above each system; BPM is in its header.
-  hide(settings, [...HIDDEN_HEADER, 'GuitarTuning', 'TrackNames', 'ChordDiagrams', 'EffectCapo', 'EffectDynamics', 'EffectMarker', 'EffectTempo']);
-  const { partials, bounds, musicFontSize } = render(settings, score, [trackIndex], Math.round(width / scale));
+  // "Let ring" brackets crowd the chord names on a phone; playback still lets them ring.
+  hide(settings, [...HIDDEN_HEADER, 'GuitarTuning', 'TrackNames', 'ChordDiagrams', 'EffectCapo', 'EffectDynamics', 'EffectMarker', 'EffectTempo', 'EffectLetRing']);
+  // alphaTab lays out at the final pixel width and scales the music inside it.
+  const { partials, bounds, musicFontSize } = render(settings, score, [trackIndex], Math.round(width));
   const systems = partials.map(p => ({ svg: font ? outlineMusic(p.svg, font, musicFontSize * scale, '#f4f1ea') : p.svg,
     width: p.width, height: p.height, first: p.first, last: p.last, bars: [] }));
   for (const system of bounds.staffSystems) for (const mb of system.bars) {

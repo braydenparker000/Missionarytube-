@@ -8,9 +8,18 @@ export const STATUSES = [
   { value: 'canplay', label: 'Can play' }
 ];
 export const DEFAULT_PREFS = {
-  instrument: 'acoustic', tone: 'clean', reverb: 0.22, volume: 0.9, metronome: false, clickVolume: 0.7, countIn: true,
-  latency: 0, tabScale: 1, fretboard: true, trainer: { on: false, step: 5, target: 100 }, source: 'all'
+  instrument: 'acoustic', tone: 'clean', reverb: 0.22, volume: 0.9, metronome: false, clickVolume: 0.7, countIn: false,
+  latency: 0, tabScale: 0.85, fretboard: true, trainer: { on: false, step: 5, target: 100 }, source: 'all', display: 2
 };
+export const TAB_SCALES = [0.7, 0.85, 1];
+
+// Display 2 made the tab sizes smaller (Small 0.9 / Medium 1 / Large 1.15 became
+// 0.7 / 0.85 / 1) and turned the count-in off by default.
+export function upgradePrefs(prefs) {
+  if (prefs.display >= 2) return prefs;
+  const tabScale = { 0.9: 0.7, 1: 0.85, 1.15: 1 }[prefs.tabScale] ?? DEFAULT_PREFS.tabScale;
+  return { ...prefs, tabScale, countIn: false, display: 2 };
+}
 const MAX_SONGS = 400, MAX_DAYS = 400;
 
 export const songKey = (source, id) => source === 'gprotab' ? 'g:' + id : 's' + id;
@@ -63,8 +72,8 @@ export function createStore(storage, now = () => Date.now()) {
   }
   const songs = {};
   for (const song of Object.values(state.songs || {})) { const c = clean(song); if (c) songs[c.key] = c; }
-  state = { songs, log: state.log && typeof state.log === 'object' ? state.log : {}, prefs: { ...DEFAULT_PREFS, ...(state.prefs || {}),
-    trainer: { ...DEFAULT_PREFS.trainer, ...(state.prefs?.trainer || {}) } }, searches: Array.isArray(state.searches) ? state.searches.filter(s => typeof s === 'string').slice(0, 8) : [] };
+  state = { songs, log: state.log && typeof state.log === 'object' ? state.log : {}, prefs: upgradePrefs({ ...DEFAULT_PREFS, display: 1, ...(state.prefs || {}),
+    trainer: { ...DEFAULT_PREFS.trainer, ...(state.prefs?.trainer || {}) } }), searches: Array.isArray(state.searches) ? state.searches.filter(s => typeof s === 'string').slice(0, 8) : [] };
   const listeners = new Set();
   let saveTimer = null;
   function persist() {

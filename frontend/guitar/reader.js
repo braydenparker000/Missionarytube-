@@ -7,7 +7,7 @@ import { Player, INSTRUMENTS, TONES } from './audio.js';
 import { chordDiagram, Fretboard } from './draw.js';
 import { tuningName } from './chords.js';
 import { lastAtOrBefore, occurrence, formatTime } from './timeline.js';
-import { STATUSES } from './store.js';
+import { STATUSES, TAB_SCALES } from './store.js';
 import { readerTrack } from './track-selection.js';
 import { filename, createDownload, nativeSaveMode, saveToDevice, triggerDownload, withDeadline } from './runtime.js';
 
@@ -47,7 +47,8 @@ class Reader {
       this.scroller = el('div.rd-scroll', {},
         this.sheet = el('div.rd-sheet', {},
           this.loading = el('div.rd-loading', { 'aria-hidden': 'true' }, el('i'), el('i'), el('i')))),
-      this.boardWrap = el('div.rd-board', { hidden: true }),
+      this.boardWrap = el('div.rd-board', { hidden: true, role: 'button', tabindex: '0', 'aria-label': 'Hide fretboard', onclick: () => this.setFretboard(false),
+        onkeydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.setFretboard(false); } } }),
       el('div.rd-dock', {},
         this.progress = el('div.rd-progress', {},
           this.timeNow = el('span.rd-time', {}, '0:00'),
@@ -270,6 +271,12 @@ class Reader {
     this.boardWrap.hidden = !this.prefs.fretboard;
     this.board = new Fretboard(this.boardWrap, { strings: tl.strings, frets: Math.min(24, high <= 12 ? 12 : high <= 15 ? 15 : high), capo: tl.capo });
   }
+  // A tap on the fretboard hides it; Display (or Undo) brings it back.
+  setFretboard(on) {
+    this.store.setPrefs({ fretboard: on }); this.prefs = this.store.prefs;
+    this.setupBoard(); this.lastSystem = null; this.frame(true);
+    if (!on) toast('Fretboard hidden', { label: 'Undo', action: () => this.setFretboard(true) });
+  }
 
   // ----- the playhead -----------------------------------------------------
   tickNow() { return player.map ? player.map.tickAt(player.now()) : 0; }
@@ -366,7 +373,9 @@ class Reader {
 
   follow(node, instant) {
     if (performance.now() - this.manualScroll < 2500) return;
-    const top = node.offsetTop - this.scroller.clientHeight * 0.18;
+    // The playing line sits near the top, and always wholly above the fretboard.
+    const view = this.scroller.clientHeight;
+    const top = Math.min(node.offsetTop - 12, Math.max(node.offsetTop - view * 0.18, node.offsetTop + node.offsetHeight - view + 20));
     this.scroller.scrollTo({ top: Math.max(0, top), behavior: instant || reduced() ? 'auto' : 'smooth' });
   }
 
@@ -641,10 +650,10 @@ class Reader {
   }
   displaySheet() {
     openSheet({ title: 'Display', content: [
-      el('div.voice-tone', {}, el('span', {}, 'Tab size'), segmented([{ value: 0.9, label: 'Small' }, { value: 1, label: 'Medium' }, { value: 1.15, label: 'Large' }], this.prefs.tabScale,
+      el('div.voice-tone', {}, el('span', {}, 'Tab size'), segmented(['Small', 'Medium', 'Large'].map((label, i) => ({ value: TAB_SCALES[i], label })), this.prefs.tabScale,
         v => { this.store.setPrefs({ tabScale: v }); this.prefs = this.store.prefs; this.rerender(); }, 'Tab size')),
       el('label.switch', {}, el('span', {}, el('strong', {}, 'Fretboard'), el('small', {}, 'Shows the notes as they play')),
-        el('input', { type: 'checkbox', role: 'switch', checked: !!this.prefs.fretboard, onchange: e => { this.store.setPrefs({ fretboard: e.target.checked }); this.prefs = this.store.prefs; this.setupBoard(); this.frame(true); } }))
+        el('input', { type: 'checkbox', role: 'switch', checked: !!this.prefs.fretboard, onchange: e => this.setFretboard(e.target.checked) }))
     ] });
   }
   syncSheet() {
