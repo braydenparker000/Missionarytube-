@@ -62,6 +62,9 @@ For each thread with new messages (a batch can span threads):
    than three columns.
 5. A reply settles every earlier unanswered message in its thread, so one
    good answer to three quick messages is fine.
+6. An owner message that starts with `> …` lines is a reply to an earlier
+   message (the owner swiped it): the quoted line says which one. Answer
+   with that message in mind; `--reply-to` the owner's new message as usual.
 
 Other kinds of post:
 

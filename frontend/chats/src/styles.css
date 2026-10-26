@@ -241,6 +241,7 @@ a { color: var(--link); text-decoration-color: var(--hair-2); text-underline-off
 .turn-head time { color: var(--faint); font-size: 12px; }
 .msg { position: relative; max-width: 100%; outline-offset: 4px; touch-action: pan-y; transition: transform 320ms var(--spring); }
 .msg.dragging { transition: none; }
+.msg pre, .msg .md-table { touch-action: auto; } /* wide code and tables still scroll sideways */
 /* Swiping a message right reveals a reply mark behind it. */
 .msg.dragging::before, .msg.dragging::after { content: ""; position: absolute; left: -40px; top: 50%; width: 30px; height: 30px; border-radius: 50%; opacity: var(--pull, 0);
   transform: translateY(-50%) scale(calc(0.5 + var(--pull, 0) * 0.5)); }

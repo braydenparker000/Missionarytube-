@@ -480,7 +480,7 @@ export class ChatScreen {
     if (m.local || m.failed) return;
     let start = null, dx = 0, dragging = false;
     const reset = () => { el.style.transform = ''; el.classList.remove('dragging'); el.style.removeProperty('--pull'); start = null; dragging = false; };
-    el.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse' && e.button === 0 && !e.target.closest('a, button')) start = {x: e.clientX, y: e.clientY}; });
+    el.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse' && e.button === 0 && !e.target.closest('a, button, pre, .md-table')) start = {x: e.clientX, y: e.clientY}; });
     el.addEventListener('pointermove', e => {
       if (!start) return;
       const mx = e.clientX - start.x, my = e.clientY - start.y;
