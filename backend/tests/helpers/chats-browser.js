@@ -43,7 +43,7 @@ export async function runChatsScenario(t, browser) {
     }, 1e9);
     const {page} = phone;
     await page.goto(SITE + '/chats/');
-    await page.getByRole('heading', {name: 'JARVIS', exact: true}).waitFor();
+    await page.getByRole('heading', {name: 'Jarvis', exact: true}).waitFor();
     await page.getByRole('button', {name: /^Muse/}).waitFor();
     await page.locator('.status-line', {hasText: 'Asleep'}).waitFor();
 
