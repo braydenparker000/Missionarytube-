@@ -9,6 +9,7 @@ import {sharedStore,sharedSchema,SHARED_OBJECT,validateSharedRead,readLegacyInbo
 import {syncPublications,importPublicationHint,seedPublicationReconciliation,nextPublicationReconciliationAt,publicationReadNeedsWake} from './publications.js';
 import {PRIMARY_SITE,FRONTEND_ORIGINS} from './origins.js';
 import {songsterr} from './songsterr.js';
+import {guitarSources} from './guitar-sources.js';
 import {music} from './music.js';
 import {nativeMusic} from './music-upload.js';
 import {podcasts} from './podcasts.js';
@@ -45,7 +46,7 @@ export default {
     const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{...headers,'Content-Type':'application/json'}});
     if(request.method==='OPTIONS') return new Response(null,{status:204,headers});
     const podcast=await podcasts(request,reply);if(podcast)return podcast;
-    const guitar=await songsterr(request,reply);if(guitar)return guitar;
+    const guitar=await guitarSources(request,reply,headers)||await songsterr(request,reply);if(guitar)return guitar;
     const path=new URL(request.url).pathname;
     if(path==='/health' && request.method==='GET') return reply({ok:true,mode:'github-publications',version:7,publicationIssue:2});
     if(path==='/shared/import-hint'){
