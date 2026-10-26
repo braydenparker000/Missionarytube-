@@ -4,6 +4,7 @@ import {svg} from './dom.js';
 
 const P = {
   back: '<path d="M15 5l-7 7 7 7"/>',
+  reply: '<path d="M9.5 6.5L4 12l5.5 5.5"/><path d="M4 12h9.5a6.5 6.5 0 016.5 6.5v.5"/>',
   send: '<path d="M4 12l16-8-6 16-2.5-6.5L4 12z"/><path d="M11.5 13.5L20 4"/>',
   compose: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
   more: '<circle cx="12" cy="5.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="18.5" r="1.4" fill="currentColor" stroke="none"/>',

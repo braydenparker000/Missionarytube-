@@ -19,7 +19,7 @@ import {MUSE, drafts, prefs} from '../store.js';
 import {muse as museApi, chatFiles, describe, FILE_MAX} from '../api.js';
 import {pushLayer} from '../back-stack.js';
 
-const SUGGESTIONS = ['What do you remember about Jarvis?', 'What should we build next?', 'Check the site for anything broken'];
+const SUGGESTIONS = [['notebook', 'What do you remember about Jarvis?'], ['compose', 'What should we build next?'], ['search', 'Check the site for anything broken']];
 const NEAR_BOTTOM = 120;
 
 export class ChatScreen {
@@ -52,8 +52,12 @@ export class ChatScreen {
     this.tray = h('div', {class: 'attach-tray', hidden: true, 'aria-label': 'Attachments'});
     this.fileInput = h('input', {type: 'file', multiple: true, hidden: true, onchange: () => { this.addFiles([...this.fileInput.files]); this.fileInput.value = ''; }});
     const attach = !this.isMuse && h('button', {class: 'icon-btn attach-btn', type: 'button', 'aria-label': 'Attach a photo or file', title: 'Attach', onclick: () => this.fileInput.click()}, icon('attach', {size: 22}));
+    // Replying to a message: swipe it right (or long-press → Reply); the bar shows what the next message answers.
+    this.quoteText = h('span', {class: 'quote-text'});
+    this.quoteBar = h('div', {class: 'quote-bar', hidden: true}, icon('reply', {size: 18}), this.quoteText,
+      h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Cancel reply', onclick: () => this.setQuote(null)}, icon('close', {size: 18})));
     this.composer = h('form', {class: 'composer', onsubmit: e => { e.preventDefault(); this.primary(); }},
-      this.tray, this.fileInput, h('div', {class: 'composer-card' + (attach ? ' with-attach' : '')}, attach, this.input, this.sendBtn));
+      this.quoteBar, this.tray, this.fileInput, h('div', {class: 'composer-card' + (attach ? ' with-attach' : '')}, attach, this.input, this.sendBtn));
     this.el.append(
       h('header', {class: 'chat-top'},
         h('button', {class: 'icon-btn', type: 'button', 'aria-label': 'Back', onclick: () => app.back()}, icon('back')),
@@ -175,6 +179,7 @@ export class ChatScreen {
     const nodes = [];
     let lastDay = '', group = null, divided = false, speaker = null;
     const lastOwner = list.findLastIndex(m => m.role === 'owner');
+    let ownerBefore = null; // the owner message just before this one, so replies to an earlier one can link back
     for (const [i, m] of list.entries()) {
       const day = new Date(m.createdAt).toDateString();
       if (day !== lastDay) { nodes.push(h('div', {class: 'day', role: 'separator'}, dayLabel(m.createdAt))); lastDay = day; group = null; speaker = null; }
@@ -190,7 +195,8 @@ export class ChatScreen {
         continue;
       }
       group = null;
-      nodes.push(this.message(m, i > lastOwner));
+      nodes.push(this.message(m, i > lastOwner, m.role !== 'owner' && m.replyTo && m.replyTo !== ownerBefore ? list.find(o => o.id === m.replyTo) : null));
+      if (m.role === 'owner') ownerBefore = m.id;
     }
     const els = nodes.map((n, i) => n.steps ? this.work(n.steps, here && i === nodes.length - 1, s) : n);
     if (!list.length) els.push(this.store.threads.get(this.key)?.local || this.isMuse || list.loaded ? this.empty() : this.skeleton());
@@ -216,12 +222,14 @@ export class ChatScreen {
   }
 
   /** A message element, reused while it has not changed (markdown is drawn once). */
-  message(m, afterLastOwner) {
+  message(m, afterLastOwner, answers = null) {
     const actionable = afterLastOwner && !this.isMuse;
-    const sig = [m.body, m.kind, m.local, m.failed, m.delivered, m.answered, m.seq, actionable, JSON.stringify(m.meta || null), (m.attachments || []).length].join('|');
+    const sig = [m.body, m.kind, m.local, m.failed, m.delivered, m.answered, m.seq, actionable, JSON.stringify(m.meta || null), (m.attachments || []).length, answers?.id].join('|');
     const cached = this.rendered.get(m.id);
     if (cached?.sig === sig) return cached.el;
-    const el = m.role === 'owner' ? this.ownerMessage(m) : this.replyMessage(m, actionable);
+    const el = m.role === 'owner' ? this.ownerMessage(m) : this.replyMessage(m, actionable, answers);
+    el.dataset.id = m.id;
+    this.swipeToReply(el, m);
     // A reply that arrives while the chat is open prints in, once.
     if (!cached && m.role !== 'owner' && (m.seq || 0) > this.printedTo) {
       if (!reducedMotion()) el.classList.add('fresh');
@@ -234,7 +242,11 @@ export class ChatScreen {
 
   ownerMessage(m) {
     const bubble = h('div', {class: 'bubble'});
-    m.body.split('\n').forEach((line, i) => { if (i) bubble.append(h('br')); inline(bubble, line); });
+    // A reply made by swiping starts with the quoted line ("> …"), shown as a quote.
+    const lines = m.body.split('\n'), quoted = [];
+    while (lines[0]?.startsWith('> ')) quoted.push(lines.shift().slice(2));
+    if (quoted.length) { while (lines[0] === '') lines.shift(); bubble.append(h('span', {class: 'bubble-quote'}, quoted.join(' '))); }
+    lines.forEach((line, i) => { if (i) bubble.append(h('br')); inline(bubble, line); });
     const state = m.failed ? h('span', {class: 'state failed'}, icon('alert', {size: 14}), 'Not sent')
       : m.local ? h('span', {class: 'state'}, icon('clock', {size: 14}), 'Sending')
       : this.isMuse ? h('span', {class: 'state'}, icon('check', {size: 14}), 'Sent')
@@ -248,10 +260,12 @@ export class ChatScreen {
     return el;
   }
 
-  replyMessage(m, actionable) {
+  replyMessage(m, actionable, answers) {
     if (m.kind === 'card') return this.card(m, actionable);
     const options = actionable && m.kind === 'question' && Array.isArray(m.meta?.options) ? m.meta.options.slice(0, 6) : [];
     const el = h('div', {class: `msg reply kind-${m.kind || 'text'}`, tabindex: '0'},
+      answers && h('button', {class: 'reply-link', type: 'button', 'aria-label': 'Show the message this answers', onclick: () => this.reveal(answers.id)},
+        icon('reply', {size: 14}), h('span', {}, plainLine(answers.body))),
       m.kind === 'question' && h('div', {class: 'tag'}, 'Question'),
       m.kind === 'error' && h('div', {class: 'tag danger'}, 'Problem'),
       m.body ? renderMarkdown(m.body, {onCopy: () => haptic()}) : null,
@@ -420,15 +434,18 @@ export class ChatScreen {
   skeleton() {
     return h('div', {class: 'skel-reply', 'aria-label': 'Loading messages'},
       h('span', {class: 'skel bubble-skel'}),
+      h('span', {class: 'skel-head'}, h('span', {class: 'skel dot'}), h('span', {class: 'skel line short'})),
       h('span', {class: 'skel line'}), h('span', {class: 'skel line'}), h('span', {class: 'skel line short'}));
   }
 
   empty() {
     if (this.isMuse) return h('div', {class: 'chat-empty'}, h('p', {class: 'empty-title'}, 'Muse'), h('p', {}, 'Your private conversation with Muse. Muse replies when it next checks in.'));
     return h('div', {class: 'chat-empty'},
-      h('p', {class: 'empty-title'}, 'Ready when you are'),
+      h('span', {class: 'avatar claude hero', 'aria-hidden': 'true'}, h('span', {}, 'C')),
+      h('p', {class: 'empty-title'}, greeting()),
       h('p', {}, 'Ask anything, or hand over a job on Jarvis. Changes come back as pull requests for you to approve.'),
-      h('div', {class: 'prompts'}, SUGGESTIONS.map(text => h('button', {type: 'button', onclick: () => { this.input.value = text; this.send(); }}, text))));
+      h('div', {class: 'prompts'}, SUGGESTIONS.map(([glyph, text]) => h('button', {type: 'button', onclick: () => { this.input.value = text; this.send(); }},
+        h('span', {class: 'prompt-icon', 'aria-hidden': 'true'}, icon(glyph, {size: 18})), h('span', {}, text)))));
   }
 
   send() {
@@ -437,7 +454,9 @@ export class ChatScreen {
     const attachments = this.pending.map(p => p.meta);
     if (!text && !attachments.length) return;
     haptic();
-    this.store.send(this.isMuse ? MUSE : 'claude', this.key, text, attachments);
+    const body = this.quote && text ? `> ${this.quote}\n\n${text}` : text;
+    this.setQuote(null);
+    this.store.send(this.isMuse ? MUSE : 'claude', this.key, body, attachments);
     for (const p of this.pending) if (p.preview) URL.revokeObjectURL(p.preview);
     this.pending = [];
     this.renderTray();
@@ -446,6 +465,44 @@ export class ChatScreen {
     this.resize();
     this.renderSend();
     this.toBottom(true);
+  }
+
+  /** Reply to a message: its first line goes above the composer, and into the message as a quote. */
+  setQuote(m) {
+    this.quote = m ? plainLine(m.body) : null;
+    this.quoteBar.hidden = !this.quote;
+    this.quoteText.textContent = this.quote ? `${m.role === 'owner' ? 'You' : this.isMuse ? 'Muse' : 'Claude'}: ${this.quote}` : '';
+    if (m) { haptic(10); this.input.focus(); }
+  }
+
+  /** Drag a message right to reply to it; it springs back on release. */
+  swipeToReply(el, m) {
+    if (m.local || m.failed) return;
+    let start = null, dx = 0, dragging = false;
+    const reset = () => { el.style.transform = ''; el.classList.remove('dragging'); el.style.removeProperty('--pull'); start = null; dragging = false; };
+    el.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse' && e.button === 0 && !e.target.closest('a, button, pre, .md-table')) start = {x: e.clientX, y: e.clientY}; });
+    el.addEventListener('pointermove', e => {
+      if (!start) return;
+      const mx = e.clientX - start.x, my = e.clientY - start.y;
+      if (!dragging) {
+        if (Math.abs(my) > 10 || mx < -10) { start = null; return; }
+        if (mx < 14) return;
+        dragging = true; el.classList.add('dragging');
+      }
+      dx = Math.max(0, Math.min(90, mx));
+      el.style.transform = `translateX(${dx * 0.8}px)`;
+      el.style.setProperty('--pull', String(Math.min(1, dx / 64)));
+    });
+    el.addEventListener('pointerup', () => { if (dragging && dx >= 64) this.setQuote(m); reset(); });
+    el.addEventListener('pointercancel', reset);
+  }
+
+  /** Scroll to a message and flash it. */
+  reveal(id) {
+    const target = this.feed.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    if (!target) return;
+    target.scrollIntoView({block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth'});
+    target.classList.remove('flash'); void target.offsetWidth; target.classList.add('flash');
   }
 
   async copy(text) {
@@ -476,12 +533,14 @@ export class ChatScreen {
 
   async messageMenu(m) {
     const actions = [
+      !m.local && !m.failed && {id: 'reply', label: 'Reply', icon: 'reply'},
       {id: 'copy', label: 'Copy text', icon: 'copy'},
       m.meta?.url && {id: 'open', label: 'Open link', icon: 'open'},
       m.failed && {id: 'retry', label: 'Send again', icon: 'retry'},
       (m.failed || m.local) && {id: 'discard', label: 'Delete (not sent)', icon: 'trash', danger: true},
     ];
     const choice = await actionSheet(null, actions);
+    if (choice === 'reply') this.setQuote(m);
     if (choice === 'copy') this.copy(m.body);
     if (choice === 'open') open(m.meta.url, '_blank', 'noopener');
     if (choice === 'retry') this.store.retry(m.id);
@@ -496,6 +555,18 @@ export class ChatScreen {
     }
     this.app.chatMenu(this.key);
   }
+}
+
+/** A message's first line as plain text, short enough for a quote. */
+function plainLine(body) {
+  const line = (body || '').split('\n').find(l => l.trim() && !l.startsWith('> ')) || '';
+  const text = line.replace(/[*_`#>]+/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+  return text.length > 90 ? text.slice(0, 89) + '…' : text;
+}
+
+/** Good morning / afternoon / evening, for a new chat. */
+function greeting(hour = new Date().getHours()) {
+  return hour < 5 ? 'Up late?' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 }
 
 /** A round avatar: Claude's gradient ring, or Muse's iris. */
