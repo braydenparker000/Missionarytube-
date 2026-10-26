@@ -53,6 +53,9 @@ test('CI progress counts finished checks and failures', () => {
   assert.deepEqual(checkProgress([run('completed', 'success'), run('completed', 'skipped')]), {done: 2, total: 2, failed: 0, finished: true});
   assert.deepEqual(checkProgress([run('completed', 'failure'), run('in_progress')]), {done: 1, total: 2, failed: 1, finished: false});
   assert.equal(checkProgress([]).finished, false);
+  const suite = (status, n = 3) => ({status, latest_check_runs_count: n});
+  assert.equal(checkProgress([run('completed', 'success')], [suite('in_progress')]).finished, false, 'a later job may not have started yet');
+  assert.equal(checkProgress([run('completed', 'success')], [suite('completed'), suite('queued', 0)]).finished, true, 'suites with no runs do not count');
 });
 
 test('as a hook, live.mjs posts the note through jc only while the session is working', async t => {

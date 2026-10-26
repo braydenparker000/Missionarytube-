@@ -132,26 +132,33 @@ async function github(path) {
   if (!response.ok) throw Object.assign(new Error(`GitHub ${response.status}`), {status: response.status});
   return response.json();
 }
-/** Check runs on a commit, summed up: {done, total, failed}, and whether all are finished. */
-export function checkProgress(runs) {
+/** Check runs on a commit, summed up: {done, total, failed}, and whether all are finished.
+ *  Jobs that wait on others only appear as runs once they start, so it is finished only when
+ *  every check suite that has runs (one per workflow run) is complete as well. */
+export function checkProgress(runs, suites = []) {
   const total = runs.length, done = runs.filter(r => r.status === 'completed').length;
   const failed = runs.filter(r => r.status === 'completed' && !['success', 'skipped', 'neutral'].includes(r.conclusion)).length;
-  return {done, total, failed, finished: total > 0 && done === total};
+  const suitesDone = suites.filter(x => x.latest_check_runs_count > 0).every(x => x.status === 'completed');
+  return {done, total, failed, finished: total > 0 && done === total && suitesDone};
 }
-async function ci(cardId, {pr, repo, everyMs = 20_000}) {
+async function ci(cardId, {pr, repo, everyMs = 30_000}) {
   if (!cardId || !Number.isInteger(pr)) { console.error('usage: jc ci <card id> --pr <number> [--repo owner/name]'); return 64; }
   const info = await github(`${repo}/pulls/${pr}`);
   const base = {url: info.html_url, title: info.title};
   let last = '', quiet = 0;
   for (;;) {
-    let runs;
-    try { runs = (await github(`${repo}/commits/${info.head.sha}/check-runs?per_page=100`)).check_runs; quiet = 0; }
+    let runs, suites;
+    try {
+      runs = (await github(`${repo}/commits/${info.head.sha}/check-runs?per_page=100`)).check_runs;
+      suites = (await github(`${repo}/commits/${info.head.sha}/check-suites?per_page=100`)).check_suites;
+      quiet = 0;
+    }
     catch (error) {
       // Unauthenticated GitHub calls are rate limited; back off and keep the card as it is.
       if (++quiet > 20) { console.error(`jc: giving up on CI: ${error.message}`); return 1; }
       await new Promise(r => setTimeout(r, everyMs * 3)); continue;
     }
-    const p = checkProgress(runs);
+    const p = checkProgress(runs, suites);
     const state = !p.total ? 'checks' : p.failed ? 'failed' : p.finished ? 'passed' : 'checks';
     const key = `${state}:${p.done}/${p.total}`;
     if (key !== last) {
