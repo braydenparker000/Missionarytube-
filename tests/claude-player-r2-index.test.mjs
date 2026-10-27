@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fetchR2Library, r2Tracks, fetchWaveform, peaksToBars} from '../frontend/claude-player/src/library/r2.js';
+import {waveSteps, MIN_WAVE_STEPS} from '../frontend/claude-player/src/library/waveform.js';
 
 const URL_ = 'https://jarvis-hub-api.braydenparker999.workers.dev/music/library.json';
 const track = extra => ({id: 'r2_native_' + 'a'.repeat(64), path: 'A/B.opus', size: 1000, mimeType: 'audio/ogg',
@@ -32,6 +33,18 @@ test('waveforms: plain bars and DCW1 files both read; anything else is ignored',
   assert.equal(await fetchWaveform('https://x.test/w'), null);
   serve(new Uint8Array(2000));
   assert.equal(await fetchWaveform('https://x.test/w'), null);
+});
+
+test('a waveform is revalidated, so one measured again replaces the browser\'s copy', async t => {
+  let init;
+  t.mock.method(globalThis, 'fetch', async (url, i) => { init = i; return new Response(new Uint8Array(500)); });
+  await fetchWaveform('https://x.test/w');
+  assert.equal(init.cache, 'no-cache');
+});
+
+test('cut-decode waveforms are told by their few flat steps', () => {
+  assert.equal(waveSteps(Uint8Array.from({length: 500}, (_, i) => Math.trunc(i / 84))), 6);
+  assert.ok(waveSteps(Uint8Array.from({length: 500}, (_, i) => (i * 7) % 256)) >= MIN_WAVE_STEPS);
 });
 
 test('the index is revalidated, not fetched past the browser cache', async t => {

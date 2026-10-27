@@ -109,7 +109,8 @@ export async function fetchWaveform(url) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 10000);
   try {
-    const r = await fetch(url, {signal: ctl.signal, credentials: 'omit', referrerPolicy: 'no-referrer'});
+    // Revalidated (a 304 when unchanged): a waveform measured again replaces the browser's copy.
+    const r = await fetch(url, {signal: ctl.signal, cache: 'no-cache', credentials: 'omit', referrerPolicy: 'no-referrer'});
     if (r.status === 404 || r.status === 410) return {missing: true};
     if (!r.ok || +(r.headers.get('content-length') || 0) > max) return null;
     const reader = r.body.getReader(), chunks = [];

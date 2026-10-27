@@ -29,6 +29,17 @@ export function barsFromMeanSquares(ms, bars = WAVE_BARS) {
 export const rmsBytesToMeanSquares = bytes => Array.from(bytes, b => (b / 255) ** 4);
 
 /**
+ * A measured song's waveform has hundreds of distinct bins; a few flat steps
+ * is a cut decode (the start of the song only), due to be measured again.
+ */
+export const MIN_WAVE_STEPS = 100;
+export function waveSteps(bytes) {
+  let n = 0;
+  for (let i = 0; i < bytes.length; i++) if (i === 0 || bytes[i] !== bytes[i - 1]) n++;
+  return n;
+}
+
+/**
  * Older peak waveforms (largest sample per bar, loudest 1): squared. A peak
  * only bounds loudness; squared, five sampled songs came within 0.08 of their
  * loudness bars on average (0.17 as they were).

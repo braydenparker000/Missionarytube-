@@ -35,6 +35,16 @@ test('served waveforms draw the reference way: loudness bins as its 100 bars, ol
   assert.deepEqual(h.errors, []);
 });
 
+test('a measured rms waveform is kept with the track; a cut-decode one (a few flat steps) is drawn but asked for again next session', {skip}, async t => {
+  const FLAT = Uint8Array.from({length: 500}, (_, i) => 3 + Math.trunc(i / 84));
+  const h = await openPlayer(t, {tracks: [{waveform: BARS, waveformKind: 'rms'}, {waveform: FLAT, waveformKind: 'rms'}]});
+  const {page} = h;
+  await page.waitForFunction(() => window.__cp.library.tracks.slice(0, 2).every(x => x.wave), null, {timeout: 10000});
+  const kept = await page.evaluate(() => window.__cp.library.tracks.slice(0, 2).map(x => window.__cp.library.userData.get(x.id)?.waveSrc ?? null));
+  assert.deepEqual(kept, ['rms2', null]);
+  assert.deepEqual(h.errors, []);
+});
+
 test('an album opened from search results opens in the library under "Search"; up returns to the results', {skip}, async t => {
   const h = await openPlayer(t, {tracks: [{title: 'Harbor Light', album: 'Low Tide'}, {title: 'Paper Boat', album: 'Low Tide'}, {title: 'Night Bus', album: 'Orbit'}]});
   const {page} = h;
