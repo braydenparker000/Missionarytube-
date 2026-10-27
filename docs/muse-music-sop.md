@@ -125,8 +125,10 @@ POST /music/uploads/waveforms
 
   One call is one catalog write. A waveform without `"rms"` is the older
   peak kind, which the player can only approximate.
-- **Backfill** every track that has no `rms` waveform yet (resumable; streams
-  each song from the Worker, measures it, sends signed batches of 200):
+- **Backfill** every track that has no `rms` waveform yet (resumable; downloads
+  each song from the Worker once (one request a song: the Worker is on the
+  free plan, 100,000 requests a day), measures it, sends signed batches of
+  200):
 
 ```
 python3 scripts/audio/waveform.py --backfill --key KEY.pem --jobs 4 --state waveforms.done

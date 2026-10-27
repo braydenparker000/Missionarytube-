@@ -7,7 +7,7 @@ import {Playlists} from './playlists.js';
 import {ListMemory} from './list-memory.js';
 import {cueTracks} from './cue.js';
 import {fetchR2Library, r2Tracks, R2_LIBRARY_URL, fetchWaveform, peaksToBars, decodeWave} from './r2.js';
-import {barsFromMeanSquares, rmsBytesToMeanSquares, loudnessFromPeaks} from './waveform.js';
+import {barsFromMeanSquares, rmsBytesToMeanSquares, loudnessFromPeaks, waveSteps, MIN_WAVE_STEPS} from './waveform.js';
 
 // Remote covers: full images in Cache Storage on first view (capped, oldest
 // out first); 256 px thumbnails made once per cover for list rows (kept).
@@ -424,9 +424,11 @@ export class Library {
         if (w?.missing && !this.waveRefresh) this.waveRefresh = this.refreshR2({force: true});
         return null;
       }
-      if (t.waveKind === 'rms' && !w.durationMs) t.wave = barsFromMeanSquares(rmsBytesToMeanSquares(w.peaks), bars);
+      const rms = t.waveKind === 'rms' && !w.durationMs;
+      if (rms) t.wave = barsFromMeanSquares(rmsBytesToMeanSquares(w.peaks), bars);
       else t.wave = loudnessFromPeaks(w.durationMs ? peaksToBars(w.peaks, bars) : Array.from(w.peaks, x => x / 255));
-      t.waveSrc = waveSrcFor(t);
+      // A cut-decode waveform is drawn but not kept: the next session asks again, until it is measured again.
+      t.waveSrc = rms && waveSteps(w.peaks) < MIN_WAVE_STEPS ? undefined : waveSrcFor(t);
       await this.saveTrack(t);
       return t.wave;
     }
@@ -744,7 +746,8 @@ function compareTracks(a, b) {
 }
 
 /** How a served waveform was drawn (stored with the track; another means fetch it again). */
-const waveSrcFor = t => (t.waveKind === 'rms' ? 'rms' : 'peak2');
+// 'rms2': rms waveforms stored before cut decodes were refused are fetched again.
+const waveSrcFor = t => (t.waveKind === 'rms' ? 'rms2' : 'peak2');
 
 /** Provisional format line ("FLAC 44.1kHz 16bit"); the reference formatter is not ported yet. */
 export function trackMetaLabel(t) {

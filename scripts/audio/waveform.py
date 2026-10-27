@@ -18,14 +18,15 @@ stream) is an error, never a waveform of its first seconds. Modes:
 
   waveform.py FILE...                      print {"file", "waveform"} lines
   waveform.py --backfill --key KEY.pem     every library track without an
-      [--jobs 4] [--limit N] [--state F]   "rms" waveform: stream its audio
-                                           from the Worker, measure, send
-                                           signed batches of 200
+      [--jobs 4] [--limit N] [--state F]   "rms" waveform: download its audio
+                                           from the Worker (one request a
+                                           song), measure, send signed
+                                           batches of 200
   waveform.py --backfill --redo-bad ...    also re-measure "rms" waveforms
                                            that are only a few flat steps
                                            (a short decode); use a new --state
 """
-import argparse, base64, importlib.util, json, math, os, subprocess, sys, time, urllib.request
+import argparse, base64, importlib.util, json, math, os, subprocess, sys, tempfile, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -100,6 +101,19 @@ def waveform(source):
     return encode(bins_of(squares))
 
 
+def download(url, folder, timeout=300):
+    """The whole file in one request (the Worker's daily request budget), checked against its length."""
+    path = Path(folder) / 'audio'
+    request = urllib.request.Request(url, headers={'User-Agent': 'JarvisWaveforms/1.0'})
+    with urllib.request.urlopen(request, timeout=timeout) as response, path.open('wb') as out:
+        expected = response.headers.get('Content-Length')
+        while chunk := response.read(1 << 20):
+            out.write(chunk)
+    if expected is not None and path.stat().st_size != int(expected):
+        raise ValueError(f'Downloaded {path.stat().st_size} of {expected} bytes')
+    return path
+
+
 def steps(raw):
     """Runs of equal bytes in a coded waveform: a measured song has hundreds."""
     return sum(1 for i, b in enumerate(raw) if i == 0 or b != raw[i - 1])
@@ -155,7 +169,8 @@ def backfill(args):
     def measure(track_id):
         for attempt in range(3):
             try:
-                return track_id, waveform(f'{ORIGIN}/music/library/audio/{track_id}'), None
+                with tempfile.TemporaryDirectory() as folder:
+                    return track_id, waveform(download(f'{ORIGIN}/music/library/audio/{track_id}', folder)), None
             except Exception as error:  # a network or decode failure: retried, then reported
                 last = error
                 time.sleep(2 * (attempt + 1))
