@@ -203,6 +203,15 @@ meanwhile (the owner may have edited it): read it again and merge.
   here about the code.
 - Work on a branch, run the repository's checks, and open a pull request
   with the template filled in. Post it as a card.
+- **Error inbox:** Jarvis pages report their uncaught errors to the Worker.
+  Read them with `jc errors` (last 24 h; `--hours N` for more) at the start
+  of a session, before working on an app, and after a deploy. An error with a
+  rising count is a bug to fix or to raise with the owner, even if they
+  have not mentioned it.
+- **Cloudflare (read-only):** requests to `api.cloudflare.com` carry a
+  read-only token (a network secret you never see): list Workers and query
+  their logs (Workers Observability) to find a Worker error's cause. It
+  cannot change or deploy anything; deploys stay with the workflows.
 - **Never merge, deploy or publish without the owner's explicit go-ahead in
   the chat for that change.** Ask with a question post. A go-ahead given in
   advance ("merge and deploy once the fix is ready") counts for that change.

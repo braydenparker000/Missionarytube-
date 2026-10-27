@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: https://i.ytimg.com https://www.googleapis.com https://*.googleusercontent.com; media-src 'self' blob: https://www.googleapis.com; connect-src 'self' https://www.googleapis.com; font-src 'self'; worker-src 'self' blob:; base-uri 'none';  form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: https://i.ytimg.com https://www.googleapis.com https://*.googleusercontent.com; media-src 'self' blob: https://www.googleapis.com; connect-src 'self' https://www.googleapis.com https://jarvis-hub-api.braydenparker999.workers.dev; font-src 'self'; worker-src 'self' blob:; base-uri 'none';  form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -10,6 +10,7 @@
   <title>My Media · Jarvis</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/mymedia/mymedia.css?v=0.39.0">
+  <script type="module" src="/assets/error-report.js" data-app="mymedia"></script>
   <script type="module" src="/mymedia/app.js?v=0.39.0"></script>
 </head>
 <body>
