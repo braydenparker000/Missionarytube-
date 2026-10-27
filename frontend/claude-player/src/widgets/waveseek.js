@@ -8,6 +8,8 @@ import {parseColor} from '../res/values.js';
 import {STATE_PLAYING} from '../player/player.js';
 
 const WAVE_SCROLLING = 0, WAVE_STATIC = 1;
+// While playing, the bar redraws at most this often (each draw moves it a sub-pixel step).
+const MAX_FOLLOW_FPS = 30;
 
 function argbCss(c, alphaMul = 1) {
   return `rgba(${(c >>> 16) & 255},${(c >>> 8) & 255},${c & 255},${(((c >>> 24) & 255) / 255) * alphaMul})`;
@@ -161,9 +163,11 @@ export class Waveseek extends ViewGroup {
   }
 
   /**
-   * Follows the position while playing, a step each time it moves a CSS
-   * pixel (not every frame: a phone's screen then draws only when it
-   * moves visibly); hidden (the screen off), it stops until shown again.
+   * Follows the position while playing, a step each time it moves a third
+   * of a device pixel (drawn anti-aliased, so it glides), at most
+   * MAX_FOLLOW_FPS a second: not every frame, so a slow song's bar draws
+   * a few times a second, never 60. Hidden (the screen off), it stops
+   * until shown again.
    */
   follow() {
     const p = this.ctx.player;
@@ -175,12 +179,12 @@ export class Waveseek extends ViewGroup {
     }
     if (!this.state.pressed) this.syncPosition();
     const msPerStep = (p.track?.durationMs || 0) * this.step() / (this.waveLen || 1) / (p.audio?.playbackRate || 1);
-    this._follow = setTimeout(() => this.follow(), Math.max(16, Math.min(1000, msPerStep || 250)));
+    this._follow = setTimeout(() => this.follow(), Math.max(1000 / MAX_FOLLOW_FPS, Math.min(1000, msPerStep || 250)));
   }
 
-  /** The smallest move drawn: a CSS pixel (layout units are device pixels). */
+  /** The smallest move drawn: a third of a device pixel (layout units are device pixels). */
   step() {
-    return Math.max(1, this.ctx.dpr || 1);
+    return 1 / 3;
   }
 
   syncPosition() {
