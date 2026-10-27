@@ -132,6 +132,18 @@ POST /music/uploads/waveforms
 python3 scripts/audio/waveform.py --backfill --key KEY.pem --jobs 4 --state waveforms.done
 ```
 
+- **Redo broken ones.** A measured song has hundreds of distinct bins; a
+  waveform of only a few flat steps came from a decode that stopped after
+  the first second. `--redo-bad` checks every `rms` waveform and re-measures
+  those (use a new state file: the old one lists them as done). The tool now
+  refuses a song whose decode stops short of its length, so a cut stream is
+  a reported failure, never a waveform. Run it unchanged, in full: no
+  sampling, excerpts or a different measurement.
+
+```
+python3 scripts/audio/waveform.py --backfill --redo-bad --key KEY.pem --jobs 4 --state waveforms.redo
+```
+
 ## Backups, checks and conflicts
 
 - `POST /music/uploads/export` `{}` returns the whole catalog with waveforms

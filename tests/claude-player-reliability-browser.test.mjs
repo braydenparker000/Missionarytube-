@@ -496,7 +496,7 @@ test('opening the app downloads no audio: the restored song loads, and the next 
   assert.deepEqual(h.errors, []);
 });
 
-test('while a song plays the seek bars follow it a visible pixel at a time, with no work every frame', {skip}, async t => {
+test('while a song plays the seek bars glide in sub-pixel steps, at most 30 draws a second, with no work every frame', {skip}, async t => {
   const h = await openPlayer(t, {tracks: [{seconds: 60, rate: 8000}]});
   const {page} = h;
   await playFor(page, 0.5);
@@ -513,8 +513,8 @@ test('while a song plays the seek bars follow it a visible pixel at a time, with
   assert.equal(r.callbacks, 0, 'no per-frame callbacks while playing');
   // Two seconds of a one-minute song: about 3% of the bar.
   assert.ok(r.moved > 0.025 && r.moved < 0.045, JSON.stringify(r));
-  // Frames only when something moved visibly (it was about 60 a second).
-  assert.ok(r.framesPerSec < 20, JSON.stringify(r));
+  // A draw per sub-pixel step, capped at 30 a second (every frame would be about 60).
+  assert.ok(r.framesPerSec > 10 && r.framesPerSec < 34, JSON.stringify(r));
   assert.deepEqual(h.errors, []);
 });
 
