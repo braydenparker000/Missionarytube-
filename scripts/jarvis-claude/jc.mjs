@@ -146,7 +146,9 @@ export function checkProgress(runs, suites = []) {
 async function ci(cardId, {pr, repo, everyMs = 30_000}) {
   if (!cardId || !Number.isInteger(pr)) { console.error('usage: jc ci <card id> --pr <number> [--repo owner/name]'); return 64; }
   const info = await github(`${repo}/pulls/${pr}`);
-  const base = {url: info.html_url, title: info.title};
+  // Amending replaces a card's meta, so keep its buttons (a thread's latest card is in the threads list).
+  const card = (await call('threads').catch(() => ({threads: []}))).threads.find(t => t.card?.id === cardId)?.card;
+  const base = {url: info.html_url, title: info.title, ...(card?.actions?.length ? {actions: card.actions} : {})};
   let last = '', quiet = 0;
   for (;;) {
     let runs, suites;
