@@ -29,6 +29,32 @@ class Bins(unittest.TestCase):
         self.assertEqual(waveform.steps(bytes(range(200))), 200)
         self.assertEqual(waveform.steps(b''), 0)
 
+    def test_a_download_is_one_request_checked_against_its_length(self):
+        import http.server, threading
+        body = bytes(range(256)) * 40
+        class Handler(http.server.BaseHTTPRequestHandler):
+            calls = 0
+            def do_GET(self):
+                Handler.calls += 1
+                short = self.path == '/short'
+                self.send_response(200)
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body[:100] if short else body)
+            def log_message(self, *a):
+                pass
+        server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            base = f'http://127.0.0.1:{server.server_port}'
+            with tempfile.TemporaryDirectory() as folder:
+                self.assertEqual(waveform.download(base + '/full', folder).read_bytes(), body)
+                self.assertEqual(Handler.calls, 1)
+                with self.assertRaises(Exception):
+                    waveform.download(base + '/short', folder, timeout=5)
+        finally:
+            server.shutdown()
+
     @unittest.skipUnless(shutil.which('ffmpeg'), 'ffmpeg is required')
     def test_a_cut_decode_is_an_error_not_a_waveform(self):
         with tempfile.TemporaryDirectory() as folder:
