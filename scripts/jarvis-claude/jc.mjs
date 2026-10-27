@@ -24,6 +24,8 @@
 //   jc notebook [--write <file|->] [--version N]
 //   jc log                      the Worker's recent handouts and requeues (which
 //                               session took which message), to trace a lost one
+//   jc errors [--hours 24]      the error inbox: uncaught errors Jarvis pages reported
+//                               (app, message, stack, page, count, first and last seen)
 //   jc ci <card id> --pr <n> [--repo owner/name]   follows a pull request's checks and
 //                               keeps its card current (progress, then passed/failed);
 //                               exits 0 when they pass, 1 when one fails
@@ -207,6 +209,11 @@ async function main(argv) {
     case 'link': out(await call('thread.update', {id: rest[0], sessionUrl: SESSION_URL})); return 0;
     case 'threads': out(await call('threads')); return 0;
     case 'log': out(await call('log')); return 0;
+    case 'errors': {
+      const hours = Number(flags.hours) || 24;
+      out(await call('errors', {since: Date.now() - hours * 3600_000}));
+      return 0;
+    }
     case 'notebook': {
       if (flags.write === undefined) { out(await call('notebook')); return 0; }
       const body = flags.write === '-' || flags.write === true ? stdin() : readFileSync(flags.write, 'utf8');
@@ -214,7 +221,7 @@ async function main(argv) {
       return 0;
     }
     default:
-      console.error('usage: jc wait|history|say|file|amend|status|title|link|threads|notebook|log|ci (see the header of this file)');
+      console.error('usage: jc wait|history|say|file|amend|status|title|link|threads|notebook|log|errors|ci (see the header of this file)');
       return 64;
   }
 }

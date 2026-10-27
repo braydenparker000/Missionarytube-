@@ -19,6 +19,11 @@
 //
 // The owner's page reads changes after a sequence number (also as a long
 // poll), so replies, progress notes and status appear without refreshing.
+//
+// The error inbox: Jarvis pages report their uncaught errors (no personal
+// data: the app, the message, a short stack, the page path without query)
+// through POST /claude-chat/errors; repeats fold into one entry with a count.
+// Claude reads them with the agent's "errors" op.
 
 import {uuid, equal, hash, boundedText, RELAY_OAUTH_OBJECT} from './relay-common.js';
 import {FRONTEND_ORIGINS} from './origins.js';
@@ -268,7 +273,8 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
   claudeChatSchema(ctx);
   const {op, who} = input || {};
   const args = input?.args || {};
-  if (!['owner', 'claude'].includes(who)) fail(403, 'Unknown caller');
+  if (!['owner', 'claude', 'site'].includes(who)) fail(403, 'Unknown caller');
+  if (who === 'site' && op !== 'errors.add') fail(403, 'Pages only report errors');
   const owner = who === 'owner';
   const tx = fn => ctx.storage.transactionSync(fn);
 
@@ -450,6 +456,32 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
       const notebook = list.some(c => c.kind === 'notebook');
       return {head: list.length ? list.at(-1).seq : Math.max(after, head(ctx)), changed: list.length > 0, messages, threads, delivered, notebook, status: leaseView(ctx, now), pending: pendingCount(ctx)};
     }
+    case 'errors.add': {
+      // Pages report errors; repeats of one error (same app, message and first stack line) add to its count.
+      const reports = Array.isArray(args.reports) ? args.reports.slice(0, ERRORS_PER_CALL) : [];
+      if (!reports.length) fail(400, 'No reports');
+      return tx(() => {
+        const list = getState(ctx, 'errors', []);
+        let added = 0;
+        for (const raw of reports) {
+          const e = errorEntry(raw);
+          if (!e) continue;
+          const prior = list.find(x => x.sig === e.sig);
+          if (prior) { prior.count = Math.min(1e9, prior.count + 1); prior.last = now; prior.path = e.path; prior.ua = e.ua; }
+          else list.push({...e, count: 1, first: now, last: now});
+          added++;
+        }
+        list.sort((a, b) => b.last - a.last);
+        setState(ctx, 'errors', list.slice(0, ERRORS_KEPT));
+        return {added};
+      });
+    }
+    case 'errors': {
+      // The error inbox, newest first; `since` (ms) keeps only errors seen after it.
+      if (owner) fail(403, 'Only Claude reads the error inbox');
+      const since = Number(args.since) || 0;
+      return {errors: getState(ctx, 'errors', []).filter(e => e.last > since)};
+    }
     case 'log': {
       // The delivery log, for Claude to trace a message that never reached it.
       if (owner) fail(403, 'Only Claude reads the delivery log');
@@ -470,6 +502,22 @@ export function claudeChatStore(ctx, input, now = Date.now()) {
     }
     default: fail(400, 'Unknown operation');
   }
+}
+
+const ERRORS_PER_CALL = 10, ERRORS_KEPT = 200;
+const clip = (value, n) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+/** A page's error report, trimmed to what helps find the bug: no query strings, no long text. */
+export function errorEntry(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const app = clip(raw.app, 32).toLowerCase().replace(/[^a-z0-9-]/g, '') || 'unknown';
+  const message = clip(raw.message, 300);
+  if (!message) return null;
+  const stack = String(raw.stack ?? '').split('\n').map(l => clip(l, 200)).filter(Boolean).slice(0, 8).join('\n');
+  let path = '';
+  try { path = clip(new URL(String(raw.path || '/'), 'https://x').pathname, 200); } catch {}
+  const kind = raw.kind === 'rejection' ? 'rejection' : 'error';
+  const sig = `${app}|${message}|${stack.split('\n')[0] || ''}`;
+  return {sig, app, kind, message, stack, path, ua: clip(raw.ua, 160)};
 }
 
 function sessionLink(value) {
@@ -544,7 +592,7 @@ export async function claudeChatInternal(ctx, env, input, {fetchFn = fetch, now 
 // POST /claude-chat/owner {op, args}: the owner's page, with its Jarvis device bearer.
 // POST /claude-chat/agent {op, args}: the Claude session, with CLAUDE_CHAT_AGENT_KEY.
 const OWNER_OPS = new Set(['threads', 'thread.create', 'thread.update', 'messages', 'send', 'stop', 'status', 'changes', 'notebook']);
-const AGENT_OPS = new Set(['threads', 'thread.update', 'messages', 'post', 'amend', 'take', 'status', 'notebook', 'log']);
+const AGENT_OPS = new Set(['threads', 'thread.update', 'messages', 'post', 'amend', 'take', 'status', 'notebook', 'log', 'errors']);
 const verified = new Map(); // token hash -> expiry: a device checked in the last minute is not re-checked per request
 
 async function ownerAllowed(env, token) {
@@ -601,8 +649,25 @@ async function chatFile(request, env, fileId, by, cors, send) {
 
 const FILE_ROUTE = /^\/claude-chat\/(owner|agent)\/files(?:\/([0-9a-f-]{36}))?$/;
 
+/** POST /claude-chat/errors {reports: [...]}: Jarvis pages report uncaught errors. No sign-in; the site's origin only. */
+async function reportErrors(request, env) {
+  const origin = request.headers.get('Origin');
+  if (!origin || !FRONTEND_ORIGINS.has(origin)) return Response.json({error: 'Origin not allowed'}, {status: 403});
+  const cors = {'Access-Control-Allow-Origin': origin, Vary: 'Origin'};
+  const send = (body, status = 200) => new Response(JSON.stringify(body), {status, headers: {...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'}});
+  if (request.method === 'OPTIONS') return new Response(null, {status: 204, headers: {...cors, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '600'}});
+  if (request.method !== 'POST') return send({error: 'Method not allowed'}, 405);
+  let body;
+  try { body = JSON.parse(await boundedText(request, 16_000)); } catch { return send({error: 'Invalid JSON'}, 400); }
+  try {
+    const response = await env.HUBS.get(env.HUBS.idFromName(CLAUDE_CHAT_OBJECT)).fetch(new Request('https://internal/internal/claude-chat', {method: 'POST', body: JSON.stringify({op: 'errors.add', args: {reports: body?.reports}, who: 'site'})}));
+    return send(await response.json(), response.status);
+  } catch { return send({error: 'Chat storage unavailable; retry'}, 503); }
+}
+
 export async function claudeChatPublic(request, env) {
   const path = new URL(request.url).pathname;
+  if (path === '/claude-chat/errors') return reportErrors(request, env);
   const fileRoute = FILE_ROUTE.exec(path);
   if (path !== '/claude-chat/owner' && path !== '/claude-chat/agent' && !fileRoute) return null;
   const asOwner = fileRoute ? fileRoute[1] === 'owner' : path === '/claude-chat/owner';

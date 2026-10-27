@@ -419,3 +419,42 @@ test('over HTTP: the signed-in owner chats, Claude takes and replies with its ke
   const pre = await h.fixture.request('/claude-chat/owner/files', {method: 'OPTIONS', headers: {Origin: PRIMARY_SITE, 'Access-Control-Request-Method': 'POST'}});
   assert.match(pre.headers.get('access-control-allow-headers'), /X-File-Name/);
 });
+
+test('the error inbox: pages add trimmed reports, repeats fold into a count, only Claude reads them', () => {
+  const call = store();
+  const report = {app: 'Guitar!', kind: 'error', message: 'TypeError: x is undefined', stack: 'at play (reader.js:10:4)\nat loop (reader.js:20:1)', path: '/guitar/?song=1#play=s9', ua: 'Android Chrome'};
+  assert.deepEqual(call('site', 'errors.add', {reports: [report, report, {app: 'chats', message: '', stack: 'x'}]}, 1000), {added: 2}, 'an empty message is dropped');
+  call('site', 'errors.add', {reports: [{...report, message: 'Other'}]}, 2000);
+  const {errors} = call('claude', 'errors', {});
+  assert.deepEqual(errors.map(e => [e.app, e.message, e.count, e.path]), [['guitar', 'Other', 1, '/guitar/'], ['guitar', 'TypeError: x is undefined', 2, '/guitar/']], 'newest first; no query or hash');
+  assert.equal(errors[1].first, 1000);
+  assert.deepEqual(call('claude', 'errors', {since: 1500}).errors.map(e => e.message), ['Other']);
+  assert.throws(() => call('owner', 'errors', {}), e => e.status === 403);
+  assert.throws(() => call('site', 'threads', {}), e => e.status === 403, 'a page can only report');
+  assert.throws(() => call('site', 'errors.add', {reports: []}), e => e.status === 400);
+  // Bounded: long fields are cut, at most 10 reports per call and 200 kept.
+  call('site', 'errors.add', {reports: [{app: 'x', message: 'm'.repeat(1000), stack: 'l\n'.repeat(50)}]}, 3000);
+  const long = call('claude', 'errors', {}).errors[0];
+  assert.equal(long.message.length, 300);
+  assert.equal(long.stack.split('\n').length, 8);
+  for (let i = 0; i < 25; i++) call('site', 'errors.add', {reports: Array.from({length: 12}, (_, j) => ({app: 'x', message: `e${i}-${j}`}))}, 4000 + i);
+  assert.equal(call('claude', 'errors', {}).errors.length, 200);
+});
+
+test('POST /claude-chat/errors takes reports from the Jarvis site only, without a sign-in', async t => {
+  const {createConversationFixture} = await import('./helpers/relay-conversation-browser-fixture.js');
+  const {PRIMARY_SITE} = await import('../origins.js');
+  const key = 'k'.repeat(48);
+  const h = createConversationFixture(t, {env: {CLAUDE_CHAT_AGENT_KEY: key}});
+  t.after(() => h.close());
+  const report = (origin, body) => h.fixture.request('/claude-chat/errors', {method: 'POST', headers: {...(origin ? {Origin: origin} : {}), 'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const ok = await report(PRIMARY_SITE, {reports: [{app: 'chats', message: 'Boom', stack: 'at x', path: '/chats/'}]});
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers.get('access-control-allow-origin'), PRIMARY_SITE);
+  assert.equal((await report('https://evil.example', {reports: [{app: 'x', message: 'y'}]})).status, 403);
+  assert.equal((await report(null, {reports: [{app: 'x', message: 'y'}]})).status, 403);
+  const pre = await h.fixture.request('/claude-chat/errors', {method: 'OPTIONS', headers: {Origin: PRIMARY_SITE, 'Access-Control-Request-Method': 'POST'}});
+  assert.equal(pre.status, 204);
+  const read = await h.fixture.request('/claude-chat/agent', {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + key}, body: JSON.stringify({op: 'errors', args: {}})});
+  assert.deepEqual((await read.json()).errors.map(e => [e.app, e.message]), [['chats', 'Boom']]);
+});
