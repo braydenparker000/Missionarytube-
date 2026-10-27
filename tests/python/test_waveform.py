@@ -24,6 +24,25 @@ class Bins(unittest.TestCase):
         coded = base64.b64decode(waveform.encode([0, 0.25, 1, 2]))
         self.assertEqual(list(coded), [0, 128, 255, 255])
 
+    def test_steps_count_runs_of_equal_bins(self):
+        self.assertEqual(waveform.steps(bytes([5] * 250 + [9] * 250)), 2)
+        self.assertEqual(waveform.steps(bytes(range(200))), 200)
+        self.assertEqual(waveform.steps(b''), 0)
+
+    @unittest.skipUnless(shutil.which('ffmpeg'), 'ffmpeg is required')
+    def test_a_cut_decode_is_an_error_not_a_waveform(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'tone.wav'
+            subprocess.run(['ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=20', str(path)], check=True)
+            real = waveform.block_mean_squares
+            waveform.block_mean_squares = lambda source: real(source)[:12]  # the first second only
+            try:
+                with self.assertRaises(ValueError):
+                    waveform.waveform(path)
+            finally:
+                waveform.block_mean_squares = real
+            self.assertGreater(waveform.steps(base64.b64decode(waveform.waveform(path))), 0)
+
     @unittest.skipUnless(shutil.which('ffmpeg'), 'ffmpeg is required')
     def test_a_tone_measures_its_rms(self):
         # 2 s of a sine at 0.5 x FFmpeg's default 1/8 amplitude (RMS 0.0442), then 2 s of silence.

@@ -13,13 +13,17 @@ rest exactly:
   quieter than a loud one, as in the reference.
 
 FFmpeg measures the blocks (astats, 4096 samples per block); nothing is
-written to the audio. Modes:
+written to the audio. A song whose decode stops short of its length (a cut
+stream) is an error, never a waveform of its first seconds. Modes:
 
   waveform.py FILE...                      print {"file", "waveform"} lines
   waveform.py --backfill --key KEY.pem     every library track without an
       [--jobs 4] [--limit N] [--state F]   "rms" waveform: stream its audio
                                            from the Worker, measure, send
                                            signed batches of 200
+  waveform.py --backfill --redo-bad ...    also re-measure "rms" waveforms
+                                           that are only a few flat steps
+                                           (a short decode); use a new --state
 """
 import argparse, base64, importlib.util, json, math, os, subprocess, sys, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -28,6 +32,7 @@ from pathlib import Path
 BINS = 500
 BLOCK = 4096
 BATCH = 200
+MIN_STEPS = 100   # a measured song has hundreds of distinct bins; a few flat steps is a cut decode
 ORIGIN = 'https://jarvis-hub-api.braydenparker999.workers.dev'
 KIND = 'rms'
 
@@ -68,8 +73,36 @@ def encode(rms):
     return base64.b64encode(bytes(round(255 * math.sqrt(min(1.0, max(0.0, x)))) for x in rms)).decode()
 
 
+def probe(source, timeout=120):
+    """(duration s, sample rate) of the first audio stream, or (None, None) when unknown."""
+    out = subprocess.run(
+        ['ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'format=duration:stream=sample_rate',
+         '-of', 'json', str(source)], capture_output=True, text=True, timeout=timeout, check=True).stdout
+    info = json.loads(out or '{}')
+    try:
+        duration = float(info.get('format', {}).get('duration'))
+    except (TypeError, ValueError):
+        duration = None
+    try:
+        rate = int(info.get('streams', [{}])[0].get('sample_rate'))
+    except (TypeError, ValueError, IndexError):
+        rate = None
+    return duration, rate
+
+
 def waveform(source):
-    return encode(bins_of(block_mean_squares(source)))
+    squares = block_mean_squares(source)
+    duration, rate = probe(source)
+    if duration and rate:
+        decoded = len(squares) * BLOCK / rate
+        if decoded < 0.9 * duration - 1:
+            raise ValueError(f'Decoded only {decoded:.1f} s of {duration:.1f} s')
+    return encode(bins_of(squares))
+
+
+def steps(raw):
+    """Runs of equal bytes in a coded waveform: a measured song has hundreds."""
+    return sum(1 for i, b in enumerate(raw) if i == 0 or b != raw[i - 1])
 
 
 def signer():
@@ -100,6 +133,21 @@ def backfill(args):
     if args.state and args.state.exists():
         done = {line.strip() for line in args.state.read_text().splitlines() if line.strip()}
     todo = [t['id'] for t in tracks if t.get('waveformKind') != KIND and t['id'] not in done]
+    if args.redo_bad:
+        def bad(track_id):
+            url = f'{ORIGIN}/music/library/waveform/{track_id}'
+            for attempt in range(3):
+                try:
+                    with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'JarvisWaveforms/1.0'}), timeout=60) as r:
+                        return track_id, steps(r.read()) < MIN_STEPS
+                except Exception:
+                    time.sleep(2 * (attempt + 1))
+            return track_id, False
+        measured = [t['id'] for t in tracks if t.get('waveformKind') == KIND and t['id'] not in done]
+        with ThreadPoolExecutor(max_workers=16) as pool:
+            redo = [i for i, is_bad in pool.map(bad, measured) if is_bad]
+        print(json.dumps({'checked': len(measured), 'bad': len(redo)}), flush=True)
+        todo += redo
     if args.limit:
         todo = todo[:args.limit]
     print(json.dumps({'tracks': len(tracks), 'todo': len(todo)}), flush=True)
@@ -148,6 +196,7 @@ def main():
     parser.add_argument('--jobs', type=int, default=4)
     parser.add_argument('--limit', type=int, default=0)
     parser.add_argument('--state', type=Path, help='Resumable: ids already sent, one per line')
+    parser.add_argument('--redo-bad', action='store_true', help='Also re-measure "rms" waveforms of only a few flat steps')
     args = parser.parse_args()
     if args.backfill:
         if not args.key:
