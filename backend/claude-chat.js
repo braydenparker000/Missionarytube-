@@ -595,7 +595,7 @@ const OWNER_OPS = new Set(['threads', 'thread.create', 'thread.update', 'message
 const AGENT_OPS = new Set(['threads', 'thread.update', 'messages', 'post', 'amend', 'take', 'status', 'notebook', 'log', 'errors']);
 const verified = new Map(); // token hash -> expiry: a device checked in the last minute is not re-checked per request
 
-async function ownerAllowed(env, token) {
+export async function ownerAllowed(env, token) {
   const tokenHash = await hash(token);
   if ((verified.get(tokenHash) || 0) > Date.now()) return true;
   const response = await env.HUBS.get(env.HUBS.idFromName(RELAY_OAUTH_OBJECT)).fetch(new Request('https://internal/internal/relay/owner', {method: 'POST', body: JSON.stringify({op: 'session', token_hash: tokenHash})}));

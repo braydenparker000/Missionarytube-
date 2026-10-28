@@ -21,6 +21,7 @@ import {relayOwnerPublic,relayOwnerStore,relayOwnerAssistantAttachmentIngress} f
 import {RelayError,boundedText,RELAY_OAUTH_OBJECT} from './relay-common.js';
 import {projectTransport,projectStore} from './relay-projects.js';
 import {claudeChatPublic,claudeChatInternal,CLAUDE_CHAT_OBJECT} from './claude-chat.js';
+import {libraryPublic} from './library.js';
 import {musicCatalogInternal,musicCatalogAlarm,isMusicCatalog,MUSIC_CATALOG_OBJECT} from './music-catalog.js';
 const paths = new Set(['/v1/state', '/v1/messages', '/v1/board', '/v1/responder/connect', '/v1/responder/revoke', '/v1/agent/inbox', '/v1/agent/replies', '/v1/agent/board']);
 const digest = async value => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))),b=>b.toString(16).padStart(2,'0')).join('');
@@ -31,6 +32,7 @@ const unanswered = state => state.messages.filter(m=>m.role==='user' && !state.m
 export default {
   async fetch(request, env, executionCtx) {
     const claude=await claudeChatPublic(request,env);if(claude)return claude;
+    const library=await libraryPublic(request,env);if(library)return library;
     const makima=await makimaConnector(request,env,executionCtx);if(makima)return makima;
     const project=await projectTransport(request,env);if(project)return project;
     const relay=await relayConnector(request,env);if(relay)return relay;

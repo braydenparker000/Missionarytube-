@@ -132,6 +132,8 @@ const FRONTEND_PUBLIC_HOSTS = {
   'frontend/drawercast/player.js': ['drive.google.com', 'play.google.com', 'www.google.com', 'www.sqlite.org'], // existing Drive links and bundled license notices
   'frontend/guitar/pdf.js': ['cdnjs.cloudflare.com', 'jspdf.default.namespaceuri'], // bundled PDF loader and XML namespace, not a service
   'frontend/guitar/engine.js': ['www.alphatab.net'], // bundled renderer license
+  'frontend/library/vendor/pdf.js': ['www.apache.org', 'foo.bar'], // vendored pdf.js: license header and a URL-parsing placeholder
+  'frontend/library/vendor/pdf.worker.js': ['www.apache.org', 'www.xfa.org', 'ns.adobe.com'], // vendored pdf.js: license header and XML namespaces
   'frontend/guitar/sources.js': ['www.songsterr.com', 'gprotab.net'], // "Open on…" links to the tab's source page
   'frontend/guitar/credits.html': ['www.songsterr.com', 'gprotab.net', 'creativecommons.org'], // attribution links
   'frontend/guitar/covers.js': ['itunes.apple.com'], // public song artwork lookup, as Podcasts uses

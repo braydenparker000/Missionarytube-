@@ -14,7 +14,7 @@ let index=0;await Promise.all(Array.from({length:4},async()=>{while(index<files.
  assert.equal(response.status,200,path);const type=mime[extname(file)];if(type)assert.ok(response.headers.get('content-type')?.includes(type),`${path}: incorrect MIME type`);
  assert.equal(hash(new Uint8Array(await response.arrayBuffer())),hash(await readFile(file)),`${path}: deployed bytes differ`);
 }}));
-const routes=['/chats/','/jarvis/','/quick-ai/','/muse/','/daily-board/','/drawercast/','/claude-player/','/podcasts/','/astra/','/mymedia/','/portal/','/notes/','/tools/','/settings/','/favorites/','/server/','/reader/','/respond/','/connect/'];
+const routes=['/chats/','/library/','/jarvis/','/quick-ai/','/muse/','/daily-board/','/drawercast/','/claude-player/','/podcasts/','/astra/','/mymedia/','/portal/','/notes/','/tools/','/settings/','/favorites/','/server/','/reader/','/respond/','/connect/'];
 for(const route of routes){
  const response=await fetch(storageOrigin+route,{signal:AbortSignal.timeout(20000)});assert.equal(response.status,200,route);
  assert.equal(hash(new Uint8Array(await response.arrayBuffer())),hash(await readFile('dist'+route+'index.html')),`${route}: directory index differs`);
