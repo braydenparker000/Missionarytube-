@@ -82,6 +82,7 @@ const ALLOWED_HOSTS = [
   "developer.mozilla.org",
   "creativecommons.org",
   "missionarytube.z13.web.core.windows.net", // the owner's own public site URL
+  "thunderhead.z13.web.core.windows.net", // the owner's new site (Thunderhead), allowed by the Worker while its ported apps use it
   "missionarytube.blob.core.windows.net", // same existing Azure account data-plane endpoint for authenticated rollback download
   "gray-meadow-09216fd10.1.azurestaticapps.net", // retired Jarvis Static Web App, named in historical docs
   "jarvis-hub-api.braydenparker999.workers.dev", // unchanged Jarvis backend
