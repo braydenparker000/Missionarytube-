@@ -135,6 +135,10 @@ the Worker; [docs/jarvis-claude.md](docs/jarvis-claude.md) covers how it
 works and the one-time owner setup (Worker secrets, the environment's network
 secret and the "Jarvis Claude" scheduled task).
 
+The Thunderhead's import reads this Worker's data once through a read-only export
+guarded by the same agent key; [docs/thunderhead-export.md](docs/thunderhead-export.md)
+covers its routes, what it never exports and its tests.
+
 ## Source and provenance
 
 `frontend/` and `backend/` are the editable application sources.

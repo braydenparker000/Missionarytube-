@@ -13,5 +13,5 @@
     "bindings": [{ "name": "HUBS", "class_name": "Hub" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Hub"] }],
-  "observability": { "enabled": false }
+  "observability": { "enabled": true }
 }
