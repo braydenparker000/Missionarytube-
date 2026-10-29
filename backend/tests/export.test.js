@@ -38,6 +38,9 @@ function seed(id, db) {
     db.exec("CREATE TABLE cc_state (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO cc_state VALUES ('notebook', '{\"lines\":[]}')");
   } else {
     db.exec("CREATE TABLE relay_owner_credentials (id TEXT PRIMARY KEY, hash TEXT); INSERT INTO relay_owner_credentials VALUES ('c1', 'never-leaves')");
+    db.exec("CREATE TABLE relay_subscriptions (id TEXT PRIMARY KEY, url TEXT, secret TEXT, previous_secret TEXT); INSERT INTO relay_subscriptions VALUES ('s1', 'https://hook.example', 'whsec-never-leaves', 'old-never-leaves')");
+    // A table no list names yet, holding a credential column: refused by its column.
+    db.exec("CREATE TABLE later_hooks (id TEXT PRIMARY KEY, Signing_Secret TEXT); INSERT INTO later_hooks VALUES ('h1', 'never-leaves-either')");
   }
 }
 
@@ -76,10 +79,13 @@ test('the tables list carries counts and columns, the secret ones marked; a part
   assert.deepEqual(chat.tables.map(t => [t.table, t.rows, t.never_export]), [['cc_messages', 4_500, false], ['cc_state', 1, false]]);
   assert.deepEqual(chat.tables[0].columns, ['id', 'body', 'meta']);
   const shared = await (await post(e, '/ops/export/tables', {instance: 'jarvis-shared-v2'})).json();
-  assert.deepEqual(shared.tables.map(t => [t.table, t.rows, t.never_export]), [['relay_owner_credentials', 1, true]]);
-  const refused = await post(e, '/ops/export/step', {run_id: 'run-1', instance: 'jarvis-shared-v2', table: 'relay_owner_credentials', cursor: 0});
-  assert.equal(refused.status, 403);
-  assert.doesNotMatch(await refused.text(), /never-leaves/);
+  assert.deepEqual(shared.tables.map(t => [t.table, t.rows, t.never_export]),
+    [['later_hooks', 1, true], ['relay_owner_credentials', 1, true], ['relay_subscriptions', 1, true]], 'counted only');
+  for (const table of ['relay_owner_credentials', 'relay_subscriptions', 'later_hooks']) {
+    const refused = await post(e, '/ops/export/step', {run_id: 'run-1', instance: 'jarvis-shared-v2', table, cursor: 0});
+    assert.equal(refused.status, 403, table);
+    assert.doesNotMatch(await refused.text(), /never-leaves|whsec/);
+  }
 });
 
 test('the agent key, a known object, a real table and a sane body are required', async () => {

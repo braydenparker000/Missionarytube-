@@ -19,8 +19,12 @@ route already uses ([jarvis-claude.md](jarvis-claude.md)). No new secret and no 
 - `instance` is one of the named Durable Objects the migration inventories (`claude-chat-v1`,
   `music-catalog-v1`, `jarvis-shared-v2`, `jarvis-makima-v1`, and the legacy
   `jarvis-coordination-v2`, `public-coordination-v2`, `jarvis-publication-v1`); any other is 404.
-- The sign-in, OAuth and token-diagnostic tables are never exported: they are listed with their
-  row counts only, and a part of one is refused with 403.
+- The sign-in, OAuth and token-diagnostic tables, the webhook subscriptions (signing secrets) and
+  the project grants and Muse presence (token hashes) are never exported, nor is any table with a
+  credential column (`secret`, `previous_secret`, `token`, `token_hash`, `password`, `salt`,
+  `credential`, or a name ending in `_secret`, `_token`, `_password`, `_salt`, `_credential`),
+  so a table added later can't leak one. They are listed with their row counts only, and a part
+  of one is refused with 403.
 - BLOB values travel as `{"$b64": "…"}`. A table without a `rowid` is refused with 422.
 - Every answer says how many rows its own statements wrote, from the SQL cursors themselves. It is
   always 0; the Thunderhead's driver stops at once if it is not.
