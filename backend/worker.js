@@ -22,6 +22,7 @@ import {RelayError,boundedText,RELAY_OAUTH_OBJECT} from './relay-common.js';
 import {projectTransport,projectStore} from './relay-projects.js';
 import {claudeChatPublic,claudeChatInternal,CLAUDE_CHAT_OBJECT} from './claude-chat.js';
 import {musicCatalogInternal,musicCatalogAlarm,isMusicCatalog,MUSIC_CATALOG_OBJECT} from './music-catalog.js';
+import {exportPublic,exportStep,exportTables} from './export.js';
 const paths = new Set(['/v1/state', '/v1/messages', '/v1/board', '/v1/responder/connect', '/v1/responder/revoke', '/v1/agent/inbox', '/v1/agent/replies', '/v1/agent/board']);
 const digest = async value => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))),b=>b.toString(16).padStart(2,'0')).join('');
 const randomKey = () => Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
@@ -30,6 +31,8 @@ const publicState = state => ({messages:state.messages, posts:state.posts});
 const unanswered = state => state.messages.filter(m=>m.role==='user' && !state.messages.some(r=>r.kind==='reply' && r.replyTo===m.id));
 export default {
   async fetch(request, env, executionCtx) {
+    // The one-time read-only export for the Thunderhead (export.js), agent key only.
+    const exported=await exportPublic(request,env);if(exported)return exported;
     const claude=await claudeChatPublic(request,env);if(claude)return claude;
     const makima=await makimaConnector(request,env,executionCtx);if(makima)return makima;
     const project=await projectTransport(request,env);if(project)return project;
@@ -169,6 +172,9 @@ export class Hub {
   }
   async fetch(request){
     const path=new URL(request.url).pathname;
+    // Reads only: nothing on these two paths writes to this object.
+    if(path==='/internal/export/tables')return exportTables(this.ctx,(await request.json()).instance);
+    if(path==='/internal/export/step')return exportStep(this.ctx,await request.json());
     if(path==='/internal/relay/board/agent'){
       if(this.ctx.id?.name && this.ctx.id.name!==RELAY_OAUTH_OBJECT)return json({error:'Wrong board object'},403);
       try{return json(await boardAgentStore(this.ctx,this.env,await request.json()));}
