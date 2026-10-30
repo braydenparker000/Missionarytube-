@@ -1,0 +1,8 @@
+{
+  "name": "jarvis-library-vendor",
+  "private": true,
+  "description": "Pins the PDF engine that frontend/library/vendor is copied from (node scripts/library/build.mjs).",
+  "dependencies": {
+    "pdfjs-dist": "6.3.289"
+  }
+}
