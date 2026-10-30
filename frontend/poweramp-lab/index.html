@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+  <title>Poweramp Lab</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./settings.css">
+  <link rel="stylesheet" href="./library.css">
+</head>
+<body>
+  <main id="app" aria-label="Music player">
+    <canvas id="backdrop" aria-hidden="true"></canvas>
+    <div id="library-host"></div>
+    <section id="player" aria-label="Full player">
+      <div id="art-owner">
+        <div id="art-frame"><canvas id="cover" aria-label="Album artwork"></canvas><div id="empty-cover"></div></div>
+        <div id="title" class="track-label"><span></span></div>
+        <div id="secondary" class="track-label"><span></span></div>
+        <div id="art-actions"></div>
+      </div>
+      <div id="top-owner">
+        <div id="subart"></div>
+        <canvas id="waveform" aria-label="Waveform"></canvas>
+        <input id="accessible-seek" type="range" min="0" max="100" value="0" step="0.1" aria-label="Seek">
+        <div id="transport"></div>
+        <button id="elapsed" class="time" aria-label="Elapsed time">0:00</button>
+        <button id="duration" class="time" aria-label="Duration">0:00</button>
+        <button id="metadata" aria-label="Track information"></button>
+      </div>
+    </section>
+    <div id="mini" role="button" tabindex="0" aria-label="Expand player"><img id="mini-art" alt=""><div id="mini-labels"><strong></strong><span></span></div><div id="mini-buttons"></div><progress id="mini-seek" max="1" value="0" aria-label="Track progress"></progress></div>
+    <nav id="navbar" aria-label="Main navigation"></nav>
+    <div id="panel-host"></div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <input id="file-picker" type="file" accept="audio/*,.mp3,.m4a,.mp4,.ogg,.opus,.flac,.wav,.aac" multiple hidden>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
